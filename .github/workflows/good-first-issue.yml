@@ -1,0 +1,26 @@
+name: Add Good First Issues to Project
+
+on:
+  issues:
+    types:
+      - labeled
+      - opened
+
+jobs:
+  add-to-project:
+    name: Add issue to project
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/add-to-project@v1.0.2
+        with:
+          # The URL of your specific project
+          project-url: https://github.com/orgs/openeverest/projects/2
+          
+          # The secret name you will create in Step 2
+          github-token: ${{ secrets.ADD_TO_PROJECT_PAT }}
+          
+          # Filter for your specific label
+          labeled: good first issue
+          
+          # Ensure it only adds if the label is present
+          label-operator: OR

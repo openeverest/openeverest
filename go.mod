@@ -27,7 +27,7 @@ require (
 	github.com/oapi-codegen/echo-middleware v1.0.2
 	github.com/oapi-codegen/runtime v1.1.1
 	github.com/operator-framework/api v0.33.0
-	github.com/percona/everest-operator v0.6.0-dev1.0.20251231123520-157f371f4761
+	github.com/percona/everest-operator v0.6.0-dev1.0.20260116121824-e3f7ef4432af
 	github.com/percona/percona-helm-charts/charts/everest v0.0.0-20260115114815-4b6ee61ee583
 	github.com/rodaine/table v1.3.0
 	github.com/spf13/cobra v1.10.1
@@ -301,7 +301,7 @@ require (
 	github.com/pelletier/go-toml/v2 v2.2.4 // indirect
 	github.com/percona/percona-backup-mongodb v1.8.1-0.20250925114718-2f499a6a31c8 // indirect
 	github.com/percona/percona-postgresql-operator/v2 v2.8.2 // indirect
-	github.com/percona/percona-server-mongodb-operator v1.21.1 // indirect
+	github.com/percona/percona-server-mongodb-operator v1.21.2 // indirect
 	github.com/percona/percona-xtradb-cluster-operator v1.18.0 // indirect
 	github.com/perimeterx/marshmallow v1.1.5 // indirect
 	github.com/peterbourgon/diskv v2.0.1+incompatible // indirect
