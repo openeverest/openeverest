@@ -30,7 +30,7 @@ const UpgradeEverestReloadDialog = ({
       <DialogContent sx={{ whiteSpace: 'pre-wrap' }}>
         <Typography variant="body1">
           {Messages.successfullyUpgraded(version)}
-          <KnowMoreButton href="https://docs.percona.com/everest/release-notes/release_notes_index.html" />
+          <KnowMoreButton href="https://openeverest.io/documentation/current/release-notes/release_notes_index.html" />
         </Typography>
         <Typography variant="body1">{Messages.clickToReload}</Typography>
       </DialogContent>

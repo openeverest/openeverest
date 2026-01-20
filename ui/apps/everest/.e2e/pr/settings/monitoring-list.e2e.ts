@@ -72,21 +72,21 @@ test.describe.serial('Monitoring List', () => {
     await expect(page.getByTestId('form-dialog-edit')).toBeDisabled();
     await expect(
       page.getByText(
-        'Percona Everest does not store PMM credentials, so fill in both the User and Password fields.'
+        'OpenEverest does not store PMM credentials, so fill in both the User and Password fields.'
       )
     ).toBeVisible();
     await page.getByTestId('text-input-password').fill(MONITORING_PASSWORD);
     await expect(page.getByTestId('form-dialog-edit')).toBeEnabled();
     await expect(
       page.getByText(
-        'Percona Everest does not store PMM credentials, so fill in both the User and Password fields.'
+        'OpenEverest does not store PMM credentials, so fill in both the User and Password fields.'
       )
     ).not.toBeVisible();
     await page.getByTestId('text-input-user').fill('');
     await expect(page.getByTestId('form-dialog-edit')).toBeDisabled();
     await expect(
       page.getByText(
-        'Percona Everest does not store PMM credentials, so fill in both the User and Password fields.'
+        'OpenEverest does not store PMM credentials, so fill in both the User and Password fields.'
       )
     ).toBeVisible();
     await page.getByTestId('text-input-user').fill(MONITORING_USER);

@@ -64,7 +64,7 @@ export const ScheduleForm = ({
             message={Messages.pgStorageEditRestriction}
             linkProps={{
               linkContent: 'Learn More',
-              href: 'https://docs.percona.com/everest/reference/known_limitations.html',
+              href: 'https://openeverest.io/documentation/current/reference/known_limitations.html',
             }}
           />
         )}
