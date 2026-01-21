@@ -1,5 +1,5 @@
 name: "💡 Feature Request"
-description: If you have a suggestion for how to improve Everest
+description: Suggest an idea or improvement for OpenEverest
 labels: ["enhancement"]
 body:
   - type: markdown
@@ -7,31 +7,53 @@ body:
       value: |
         Thanks for taking the time to suggest a new feature! Please fill out this form as completely as possible.
 
-        Before submitting, please search to see if an issue already exists for the feature you are suggesting:
-        - [Search GitHub Issues](https://github.com/percona/everest/issues)
-        - [Search JIRA Issues](https://perconadev.atlassian.net/issues/?jql=project+%3D+%22EVEREST%22+ORDER+BY+created+DESC&atlOrigin=eyJpIjoiYjI2ZDMzYzNlN2I2NGFkYzk2Zjg1MzEzMzkyN2M0ZjIiLCJwIjoiaiJ9)
+        **Before submitting, please search to see if an issue already exists:**
+        - [Search OpenEverest Issues](https://github.com/openeverest/openeverest/issues)
 
   - type: textarea
+    id: problem-description
     attributes:
-      label: What problem are you trying to solve?
-      description: A concise description of what the problem is.
-      placeholder: I have an issue when [...]
+      label: Is your feature request related to a problem?
+      description: A clear and concise description of what the problem is.
+      placeholder: |
+        I'm always frustrated when I try to [...]
+        I cannot automate X because [...]
     validations:
       required: true
 
   - type: textarea
+    id: proposed-solution
     attributes:
-      label: How should the problem be solved?
-      description: What do you expect to happen? Add any considered drawbacks.
+      label: Describe the solution you'd like
+      description: A clear and concise description of what you want to happen.
+      placeholder: |
+        I would like a new flag `--verbose` that prints...
+        I would like the UI to display...
     validations:
       required: true
 
   - type: textarea
-    attributes:
-      label: Any alternatives you've considered?
-      description: Is there another way to solve this problem that isn't as good a solution?
-
-  - type: textarea
+    id: user-interaction
     attributes:
       label: How would users interact with this feature?
-      description: If you can, explain how users will be able to use this.
+      description: Explain how a user would use this (e.g., CLI commands, API changes, UI workflow).
+      placeholder: |
+        The user would run: everestctl create --new-flag
+    validations:
+      required: false
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternative solutions considered
+      description: A clear and concise description of any alternative solutions or workarounds you've considered.
+    validations:
+      required: false
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Additional Context
+      description: Add any other context, screenshots, or mockups about the feature request here.
+    validations:
+      required: false

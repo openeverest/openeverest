@@ -1,5 +1,9 @@
 blank_issues_enabled: false
 contact_links:
-- name: 🙋🏾 Question
-  url: https://github.com/percona/everest/discussions/new
-  about: If you need help debugging something or have a general question about Everest
+  - name: 🙋🏾 Generic question
+    url: https://github.com/openeverest/openeverest/discussions/new
+    about: If you need help debugging something or have a general question about OpenEverest
+
+  - name: 🔒 Report a Security Vulnerability
+    url: https://github.com/openeverest/openeverest/security/advisories/new
+    about: Please report security vulnerabilities privately here. Do not open a public issue.

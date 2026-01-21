@@ -1,62 +1,76 @@
 name: "🐛 Bug Report"
-description: If you've found a reproducible bug
+description: Create a report to help us improve OpenEverest
 labels: ["bug"]
 body:
   - type: markdown
     attributes:
       value: |
-        Thanks for taking the time to file a bug report!
-
-        We're most likely to fix bugs that are easy to reproduce, 
-        so please provide us with detailed steps to reproduce the issue.
-
-        Before submitting, please search to see if an issue already exists for the bug you are reporting:
-        - [Search GitHub Issues](https://github.com/percona/everest/issues)
-        - [Search JIRA Issues](https://perconadev.atlassian.net/issues/?jql=project+%3D+%22EVEREST%22+ORDER+BY+created+DESC&atlOrigin=eyJpIjoiYjI2ZDMzYzNlN2I2NGFkYzk2Zjg1MzEzMzkyN2M0ZjIiLCJwIjoiaiJ9)
+        Thanks for taking the time to file a bug report! 
+        
+        We are most likely to fix bugs that are easy to reproduce, so please provide detailed steps.
+        
+        **Before submitting, please search to see if an issue already exists:**
+        - [Search OpenEverest Issues](https://github.com/openeverest/openeverest/issues)
 
   - type: textarea
+    id: issue-description
     attributes:
       label: What is the issue?
-      description: |
-        A clear and concise description of what Everest is doing and what you
-        would expect.
+      description: A clear and concise description of the bug. What happened versus what you expected to happen?
+      placeholder: |
+        I tried to do X...
+        I expected Y to happen...
+        But instead Z happened...
     validations:
       required: true
 
   - type: textarea
+    id: reproduction
     attributes:
-      label: How can it be reproduced?
-      description:
-        A clear and concise description of how to reproduce the issue. If
-        possible, include a minimal example that can be run in a test
-        environment.
+      label: Steps to Reproduce
+      description: Please provide a minimal example or list the steps to reproduce the issue.
+      placeholder: |
+        1. Run command '...'
+        2. Create resource '...'
+        3. See error...
     validations:
       required: true
 
   - type: textarea
+    id: logs
     attributes:
-      label: Logs, error output, etc
+      label: Relevant Logs / Output
       description: |
-        Please include any relevant logs, error output, or screenshots that
-        might help us understand the issue. If you have a lot of logs, please
-        consider using a service like [Gist](https://gist.github.com/) to share them.
-
+        Please include relevant logs, error output, or screenshots. 
+        (Tip: Wrap code/logs in triple backticks ``` for better formatting).
+      placeholder: |
+        ```bash
+        Error: something went wrong
+        ```
+  
   - type: input
+    id: version
     attributes:
-      label: Everest Version
-      description: What version of Everest are you running?
+      label: OpenEverest Version
+      description: What version of OpenEverest are you running?
+      placeholder: v1.0.0
     validations:
       required: true
 
   - type: dropdown
+    id: installation
     attributes:
-      label: Installation method
-      description: How did you install Everest?
+      label: Installation Method
+      description: How did you install OpenEverest?
       options:
         - Helm
         - CLI (everestctl)
+        - Manifests / Manual
+    validations:
+      required: true
 
   - type: dropdown
+    id: k8s-distro
     attributes:
       label: Kubernetes Distribution
       description: Where are you running Kubernetes?
@@ -68,21 +82,28 @@ body:
         - DigitalOcean
         - kind
         - minikube
-        - Other (please specify in environment details)
+        - Other (please specify below)
+    validations:
+      required: true
 
   - type: textarea
+    id: environment
     attributes:
       label: Environment Details
-      description: Please provide additional details about your environment that may be relevant.
+      description: Please provide additional details about your environment (K8s version, OS, Cloud Provider, etc.).
       placeholder: |
-        For example, Kubernetes version, cloud provider, Host OS, etc.
+        Kubernetes Version: v1.28.0
+        Host OS: Ubuntu 22.04
+        Cloud Provider: AWS
+  
+  - type: textarea
+    id: solution
+    attributes:
+      label: Possible Solution
+      description: If you have suggestions on how to fix this, please let us know.
 
   - type: textarea
+    id: context
     attributes:
-      label: Possible solution
-      description: "If you have suggestions on a fix for the bug."
-
-  - type: textarea
-    attributes:
-      label: Additional context
-      description: "Add any other context about the problem here. Or a screenshot if applicable."
+      label: Additional Context
+      description: Add any other context about the problem here (e.g., screenshots).
