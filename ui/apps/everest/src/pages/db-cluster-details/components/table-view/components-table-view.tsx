@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useContext } from 'react';
 import { MRT_ColumnDef } from 'material-react-table';
 import { Table } from '@percona/ui-lib';
 import { DBClusterComponent } from 'shared-types/components.types';
@@ -13,6 +13,8 @@ import ComponentAge from '../component-age';
 import { useParams, useNavigate } from 'react-router-dom';
 import { IconButton, Tooltip } from '@mui/material';
 import VisibilityOutlinedIcon from '@mui/icons-material/VisibilityOutlined';
+import { DbClusterContext } from '../../dbCluster.context';
+import { DbClusterStatus } from 'shared-types/dbCluster.types';
 
 const ComponentsTableView = ({
   components,
@@ -25,6 +27,8 @@ const ComponentsTableView = ({
 }) => {
   const { namespace = '' } = useParams();
   const navigate = useNavigate();
+  const { dbCluster } = useContext(DbClusterContext);
+  const isPending = dbCluster?.status?.status === DbClusterStatus.initializing;
 
   const handleViewLogs = (componentName: string, containerName?: string) => {
     const params = new URLSearchParams();
@@ -111,7 +115,7 @@ const ComponentsTableView = ({
           },
         },
       }}
-      enableRowActions
+      enableRowActions={!isPending}
       renderRowActions={({ row }) => {
         const component = row.original;
         return (

@@ -1,5 +1,6 @@
 import { NodeProps } from '@xyflow/react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { useContext } from 'react';
 import { CustomNode } from './types';
 import { DBClusterComponent } from 'shared-types/components.types';
 import {
@@ -16,6 +17,8 @@ import ComponentStatus from '../component-status';
 import { componentStatusToBaseStatus } from '../components.constants';
 import DiagramComponentAge from './diagram-component-age';
 import DiagramNode from './diagram-node';
+import { DbClusterContext } from '../../dbCluster.context';
+import { DbClusterStatus } from 'shared-types/dbCluster.types';
 
 const ComponentNode = ({
   data: {
@@ -25,6 +28,8 @@ const ComponentNode = ({
 }: NodeProps<CustomNode<DBClusterComponent>>) => {
   const { dbClusterName = '', namespace = '' } = useParams();
   const navigate = useNavigate();
+  const { dbCluster } = useContext(DbClusterContext);
+  const isPending = dbCluster?.status?.status === DbClusterStatus.initializing;
 
   const handleViewLogs = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -88,16 +93,18 @@ const ComponentNode = ({
         }}
       >
         <Chip label={type} data-testid="component-type" />
-        <Tooltip title="View Logs">
-          <IconButton
-            onClick={handleViewLogs}
-            data-testid={`view-logs-${name}`}
-            size="small"
-            aria-label="View logs"
-          >
-            <VisibilityOutlinedIcon fontSize="small" />
-          </IconButton>
-        </Tooltip>
+        {!isPending && (
+          <Tooltip title="View Logs">
+            <IconButton
+              onClick={handleViewLogs}
+              data-testid={`view-logs-${name}`}
+              size="small"
+              aria-label="View logs"
+            >
+              <VisibilityOutlinedIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+        )}
       </Box>
     </DiagramNode>
   );

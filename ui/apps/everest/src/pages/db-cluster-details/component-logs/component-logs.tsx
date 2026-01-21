@@ -53,21 +53,18 @@ const Logs = () => {
   }, [components, selectedComponent]);
 
   useEffect(() => {
-    if (componentFromUrl && components.length > 0 && !selectedComponent) {
+    if (
+      componentFromUrl &&
+      components.length > 0 &&
+      componentFromUrl !== selectedComponent
+    ) {
       setSelectedComponent(componentFromUrl);
-      if (containerFromUrl) {
-        setSelectedContainer(containerFromUrl);
-      }
     }
-  }, [componentFromUrl, containerFromUrl, components, selectedComponent]);
 
-  useEffect(() => {
-    if (containers.length > 0 && !selectedContainer && !containerFromUrl) {
-      setSelectedContainer(containers[0].name);
-    } else if (containers.length === 0) {
-      setSelectedContainer('');
-    }
-  }, [containers, selectedContainer, containerFromUrl]);
+    const containerToSelect =
+      containerFromUrl || (containers.length > 0 ? containers[0].name : '');
+    setSelectedContainer(containerToSelect);
+  }, [componentFromUrl, components.length, selectedComponent, containerFromUrl, containers]);
 
   const shouldFetchLogs =
     !!selectedComponent && (containers.length === 0 || !!selectedContainer);
