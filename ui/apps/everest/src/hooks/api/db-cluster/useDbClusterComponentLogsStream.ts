@@ -17,17 +17,19 @@ import { useEffect, useState } from 'react';
 import { useRBACPermissions } from 'hooks/rbac';
 
 const BASE_URL = '/v1/';
+const MAX_LOG_LINES = 10000; 
 
 export const useDbClusterComponentLogsStream = (
   namespace: string,
   dbClusterName: string,
   componentName: string,
   container?: string,
-  options?: { enabled?: boolean }
+  options?: { enabled?: boolean; maxLines?: number }
 ) => {
   const [logs, setLogs] = useState('');
   const [isConnecting, setIsConnecting] = useState(false);
   const [error, setError] = useState<Error | null>(null);
+  const maxLines = options?.maxLines ?? MAX_LOG_LINES;
 
   const { canRead } = useRBACPermissions(
     'database-clusters',
@@ -93,7 +95,14 @@ export const useDbClusterComponentLogsStream = (
           if (done || abortController.signal.aborted) break;
           if (value) {
             const chunk = decoder.decode(value, { stream: true });
-            setLogs((prev) => prev + chunk);
+            setLogs((prev) => {
+              const newLogs = prev + chunk;
+              const lines = newLogs.split('\n');
+              if (lines.length > maxLines) {
+                return lines.slice(-maxLines).join('\n');
+              }
+              return newLogs;
+            });
           }
         }
       } catch (err) {
@@ -110,7 +119,27 @@ export const useDbClusterComponentLogsStream = (
       clearTimeout(connectionTimeout);
       abortController.abort();
     };
-  }, [namespace, dbClusterName, componentName, container, enabled]);
+  }, [namespace, dbClusterName, componentName, container, enabled, maxLines]);
 
-  return { logs, isConnecting, error };
+  const getFullLogs = async (): Promise<string> => {
+    const params = new URLSearchParams();
+    if (container) {
+      params.append('container', container);
+    }
+    params.append('follow', 'false');
+    
+    const url = `${BASE_URL}namespaces/${namespace}/database-clusters/${dbClusterName}/components/${componentName}/logs?${params}`;
+    const token = localStorage.getItem('everestToken');
+    const response = await fetch(url, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    return await response.text();
+  };
+
+  return { logs, isConnecting, error, getFullLogs };
 };

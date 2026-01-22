@@ -29,7 +29,7 @@ import {
   Tooltip,
 } from '@mui/material';
 import DownloadIcon from '@mui/icons-material/Download';
-import { CopyToClipboardButton } from '@percona/ui-lib';
+import ContentCopyOutlinedIcon from '@mui/icons-material/ContentCopyOutlined';
 import { useDbClusterComponents } from 'hooks/api/db-cluster/useDbClusterComponents';
 import { useDbClusterComponentLogsStream } from 'hooks/api/db-cluster/useDbClusterComponentLogsStream';
 
@@ -46,6 +46,7 @@ const Logs = () => {
     useState<string>(componentFromUrl);
   const [selectedContainer, setSelectedContainer] =
     useState<string>(containerFromUrl);
+  const [copySuccess, setCopySuccess] = useState(false);
 
   const containers = useMemo(() => {
     const component = components.find((c) => c.name === selectedComponent);
@@ -53,18 +54,20 @@ const Logs = () => {
   }, [components, selectedComponent]);
 
   useEffect(() => {
-    if (
-      componentFromUrl &&
-      components.length > 0 &&
-      componentFromUrl !== selectedComponent
-    ) {
-      setSelectedComponent(componentFromUrl);
+    const componentToSelect =
+      componentFromUrl || (components.length > 0 ? components[0].name : '');
+    
+    if (componentToSelect && componentToSelect !== selectedComponent) {
+      setSelectedComponent(componentToSelect);
+      if (!componentFromUrl) {
+        setSearchParams({ component: componentToSelect });
+      }
     }
 
     const containerToSelect =
       containerFromUrl || (containers.length > 0 ? containers[0].name : '');
     setSelectedContainer(containerToSelect);
-  }, [componentFromUrl, components.length, selectedComponent, containerFromUrl, containers]);
+  }, [componentFromUrl, components, selectedComponent, containerFromUrl, containers, setSearchParams]);
 
   const shouldFetchLogs =
     !!selectedComponent && (containers.length === 0 || !!selectedContainer);
@@ -73,6 +76,7 @@ const Logs = () => {
     logs,
     isConnecting,
     error: logsError,
+    getFullLogs,
   } = useDbClusterComponentLogsStream(
     namespace,
     dbClusterName!,
@@ -92,10 +96,11 @@ const Logs = () => {
     }
   }, [logs]);
 
-  const handleDownload = () => {
-    if (!logs) return;
+  const handleDownload = async () => {
+    if (!selectedComponent) return;
 
-    const blob = new Blob([logs], { type: 'text/plain' });
+    const fullLogs = await getFullLogs();
+    const blob = new Blob([fullLogs], { type: 'text/plain' });
     const url = URL.createObjectURL(blob);
     const fileName = `${dbClusterName}-${selectedComponent}${selectedContainer ? `-${selectedContainer}` : ''}-logs.txt`;
 
@@ -104,6 +109,17 @@ const Logs = () => {
     link.download = fileName;
     link.click();
     URL.revokeObjectURL(url);
+  };
+
+  const handleCopy = async () => {
+    if (!selectedComponent) return;
+
+    const fullLogs = await getFullLogs();
+    if (navigator.clipboard) {
+      await navigator.clipboard.writeText(fullLogs);
+      setCopySuccess(true);
+      setTimeout(() => setCopySuccess(false), 1500);
+    }
   };
 
   return (
@@ -190,15 +206,21 @@ const Logs = () => {
           >
             {logs && (
               <Box sx={{ display: 'flex', gap: 1, ml: 'auto' }}>
-                <CopyToClipboardButton
-                  textToCopy={logs}
-                  buttonProps={{ size: 'small' }}
-                />
+                <Tooltip title={copySuccess ? 'Copied!' : 'Copy logs'}>
+                  <IconButton
+                    size="small"
+                    onClick={handleCopy}
+                    disabled={!selectedComponent}
+                    aria-label="Copy logs"
+                  >
+                    <ContentCopyOutlinedIcon />
+                  </IconButton>
+                </Tooltip>
                 <Tooltip title="Download logs">
                   <IconButton
                     size="small"
                     onClick={handleDownload}
-                    disabled={!logs}
+                    disabled={!selectedComponent}
                     aria-label="Download logs"
                   >
                     <DownloadIcon />

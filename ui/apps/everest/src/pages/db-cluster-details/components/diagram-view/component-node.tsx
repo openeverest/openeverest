@@ -14,7 +14,10 @@ import {
 import VisibilityOutlinedIcon from '@mui/icons-material/VisibilityOutlined';
 import { COMPONENT_NODE_HEIGHT, COMPONENT_NODE_WIDTH } from './constants';
 import ComponentStatus from '../component-status';
-import { componentStatusToBaseStatus } from '../components.constants';
+import {
+  componentStatusToBaseStatus,
+  COMPONENT_STATUS,
+} from '../components.constants';
 import DiagramComponentAge from './diagram-component-age';
 import DiagramNode from './diagram-node';
 import { DbClusterContext } from '../../dbCluster.context';
@@ -29,7 +32,9 @@ const ComponentNode = ({
   const { dbClusterName = '', namespace = '' } = useParams();
   const navigate = useNavigate();
   const { dbCluster } = useContext(DbClusterContext);
-  const isPending = dbCluster?.status?.status === DbClusterStatus.initializing;
+  const isPending =
+    dbCluster?.status?.status === DbClusterStatus.initializing ||
+    status === COMPONENT_STATUS.PENDING;
 
   const handleViewLogs = (e: React.MouseEvent) => {
     e.stopPropagation();

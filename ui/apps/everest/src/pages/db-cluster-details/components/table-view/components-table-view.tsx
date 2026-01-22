@@ -118,17 +118,22 @@ const ComponentsTableView = ({
       enableRowActions={!isPending}
       renderRowActions={({ row }) => {
         const component = row.original;
+        const isComponentPending =
+          isPending || component.status === COMPONENT_STATUS.PENDING;
+        
         return (
-          <Tooltip title="View Logs">
-            <IconButton
-              onClick={() => handleViewLogs(component.name)}
-              data-testid={`view-logs-${component.name}`}
-              size="small"
-              aria-label="View logs"
-            >
-              <VisibilityOutlinedIcon />
-            </IconButton>
-          </Tooltip>
+          !isComponentPending && (
+            <Tooltip title="View Logs">
+              <IconButton
+                onClick={() => handleViewLogs(component.name)}
+                data-testid={`view-logs-${component.name}`}
+                size="small"
+                aria-label="View logs"
+              >
+                <VisibilityOutlinedIcon />
+              </IconButton>
+            </Tooltip>
+          )
         );
       }}
     />
