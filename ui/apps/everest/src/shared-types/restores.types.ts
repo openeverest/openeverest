@@ -63,6 +63,7 @@ export enum PXC_STATUS {
   STOPPING = 'Stopping Cluster',
   RESTORING = 'Restoring',
   STARTING_CLUSTER = 'Starting Cluster',
+  PREPARING_CLUSTER = 'Preparing Cluster',
   PITR_RECOVERING = 'Point-in-time recovering',
   FAILED = 'Failed',
   SUCCEEDED = 'Succeeded',
