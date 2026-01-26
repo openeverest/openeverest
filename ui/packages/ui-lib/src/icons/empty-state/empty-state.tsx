@@ -112,4 +112,6 @@ const EmptyStateIcon = ({ w, h }: { w: string; h: string }) => {
   );
 };
 
+EmptyStateIcon.displayName = 'EmptyStateIcon';
+
 export default EmptyStateIcon;

@@ -62,7 +62,7 @@ const icons = {
     PostgreSqlElephantIcon,
     MongoLeafIcon,
   ],
-
+  
   everest: [
     EverestMainIcon,
     EverestHorizontalIcon,
@@ -73,11 +73,11 @@ const icons = {
   ],
 
   genericError: [GenericErrorIcon],
-
+  
   noMatch: [NoMatchIcon],
-
+  
   emptyState: [EmptyStateIcon],
-
+  
   status: [
     ErrorIcon,
     WarningIcon,
@@ -86,7 +86,8 @@ const icons = {
     UnknownIcon,
     PausedIcon,
   ],
-  other: [DatabaseIcon, NetworkNode],
+
+  other: [DatabaseIcon,NetworkNode],
 };
 
 export const Database: StoryObj<typeof MySqlIcon> = {
@@ -116,7 +117,7 @@ export const Database: StoryObj<typeof MySqlIcon> = {
           {icons.db.map((Icon) => (
             <Stack direction={'row'} alignItems={'center'} columnGap={'2rem'}>
               <Icon fontSize={fontSize} />
-              <Typography variant="body1">{Icon.name}</Typography>
+              <Typography variant="body1">{Icon.displayName}</Typography>
             </Stack>
           ))}
         </Stack>
@@ -151,7 +152,7 @@ export const Everest: StoryObj<typeof EverestMainIcon> = {
         {icons.everest.map((Icon) => (
           <Stack direction={'row'} alignItems={'center'} columnGap={'2rem'}>
             <Icon fontSize={fontSize} />
-            <Typography variant="body1">{Icon.name}</Typography>
+            <Typography variant="body1">{Icon.displayName}</Typography>
           </Stack>
         ))}
       </Stack>
@@ -176,7 +177,7 @@ export const GenericError: StoryObj<typeof GenericErrorIcon> = {
         {icons.genericError.map((Icon) => (
           <Stack direction={'row'} alignItems={'center'} columnGap={'2rem'}>
             <Icon h="128px" w="128px" />
-            <Typography variant="body1">{Icon.name}</Typography>
+            <Typography variant="body1">{Icon.displayName}</Typography>
           </Stack>
         ))}
       </Stack>
@@ -201,7 +202,7 @@ export const NoMatch: StoryObj<typeof NoMatchIcon> = {
         {icons.noMatch.map((Icon) => (
           <Stack direction={'row'} alignItems={'center'} columnGap={'2rem'}>
             <Icon h="128px" w="128px" />
-            <Typography variant="body1">{Icon.name}</Typography>
+            <Typography variant="body1">{Icon.displayName}</Typography>
           </Stack>
         ))}
       </Stack>
@@ -226,7 +227,7 @@ export const EmptyState: StoryObj<typeof EmptyStateIcon> = {
         {icons.emptyState.map((Icon) => (
           <Stack direction={'row'} alignItems={'center'} columnGap={'2rem'}>
             <Icon h="60px" w="60px" />
-            <Typography variant="body1">{Icon.name}</Typography>
+            <Typography variant="body1">{Icon.displayName}</Typography>
           </Stack>
         ))}
       </Stack>
@@ -251,7 +252,7 @@ export const Status: StoryObj<typeof ErrorIcon> = {
         {icons.status.map((Icon) => (
           <Stack direction={'row'} alignItems={'center'} columnGap={'2rem'}>
             <Icon />
-            <Typography variant="body1">{Icon.name}</Typography>
+            <Typography variant="body1">{Icon.displayName}</Typography>
           </Stack>
         ))}
       </Stack>
@@ -276,7 +277,7 @@ export const Other: StoryObj<typeof DatabaseIcon> = {
         {icons.other.map((Icon) => (
           <Stack direction={'row'} alignItems={'center'} columnGap={'2rem'}>
             <Icon />
-            <Typography variant="body1">{Icon.name}</Typography>
+            <Typography variant="body1">{Icon.displayName}</Typography>
           </Stack>
         ))}
       </Stack>
