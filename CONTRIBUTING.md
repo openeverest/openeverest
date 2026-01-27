@@ -1,13 +1,13 @@
-# Contributing to Percona Everest API Server
+# Contributing to OpenEverest API Server
 
-Percona Everest API Server uses two types of methods:
+OpenEverest API Server uses two types of methods:
 
 - "own" methods, such as registering a Kubernetes cluster in Everest and listing the clusters.
 -  proxy methods for the Kubernetes API, including all resource-related methods like database-cluster, database-cluster-restore, and database-engine.
 
 The API server basic code is generated using [oapi-codegen](https://github.com/deepmap/oapi-codegen) from the docs/spec/openapi.yml file.
 The proxy methods align with Everest operator methods but don't support all original parameters, because these are not required.
-You can find the definition of the custom resources in the [Everest operator repo](https://github.com/percona/everest-operator/tree/main/config/crd/bases).
+You can find the definition of the custom resources in the [Everest operator repo](https://github.com/openeverest/openeverest-operator/tree/main/config/crd/bases).
 
 ### Run everest locally
 0. Prerequisites:
@@ -17,9 +17,9 @@ You can find the definition of the custom resources in the [Everest operator rep
     - Git 2.x
     - k3d 5.x
 1. Check out the repo:
-`git clone https://github.com/percona/everest`
+`git clone https://github.com/openeverest/openeverest`
 2. Navigate to the repo folder:
-`cd everest`
+`cd openeverest`
 3. Check out a particular branch if needed:
 `git checkout <branch_name>`
 4. Run the dev environment:
@@ -47,7 +47,7 @@ You can find the definition of the custom resources in the [Everest operator rep
 
 ### Running integration tests
 
-To run integration tests, see [Percona Everest API integration tests](api-tests/README.md).
+To run integration tests, see [OpenEverest API integration tests](api-tests/README.md).
 
 ### Working with local Kubernetes instances like Minikube or Kind
 
