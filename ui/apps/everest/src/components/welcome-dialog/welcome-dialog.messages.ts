@@ -1,6 +1,6 @@
 export const Messages = {
   allSet: 'You´re all set!',
-  header: 'Welcome to OpenEverest Beta!',
+  header: 'Welcome to OpenEverest!',
   start:
     'Get ready to kickstart your OpenEverest journey by deploying your very first cluster!',
   card1: {
