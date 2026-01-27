@@ -32,6 +32,7 @@ import DownloadIcon from '@mui/icons-material/Download';
 import ContentCopyOutlinedIcon from '@mui/icons-material/ContentCopyOutlined';
 import { useDbClusterComponents } from 'hooks/api/db-cluster/useDbClusterComponents';
 import { useDbClusterComponentLogsStream } from 'hooks/api/db-cluster/useDbClusterComponentLogsStream';
+import { COMPONENT_STATUS } from '../components/components.constants';
 
 const Logs = () => {
   const { dbClusterName = '', namespace = '' } = useParams();
@@ -56,7 +57,7 @@ const Logs = () => {
   useEffect(() => {
     const componentToSelect =
       componentFromUrl || (components.length > 0 ? components[0].name : '');
-    
+
     if (componentToSelect && componentToSelect !== selectedComponent) {
       setSelectedComponent(componentToSelect);
       if (!componentFromUrl) {
@@ -67,7 +68,14 @@ const Logs = () => {
     const containerToSelect =
       containerFromUrl || (containers.length > 0 ? containers[0].name : '');
     setSelectedContainer(containerToSelect);
-  }, [componentFromUrl, components, selectedComponent, containerFromUrl, containers, setSearchParams]);
+  }, [
+    componentFromUrl,
+    components,
+    selectedComponent,
+    containerFromUrl,
+    containers,
+    setSearchParams,
+  ]);
 
   const shouldFetchLogs =
     !!selectedComponent && (containers.length === 0 || !!selectedContainer);
@@ -144,11 +152,13 @@ const Logs = () => {
             }}
             disabled={isLoadingComponents}
           >
-            {components.map((component) => (
-              <MenuItem key={component.name} value={component.name}>
-                {component.name} ({component.type})
-              </MenuItem>
-            ))}
+            {components
+              .filter((c) => c.status !== COMPONENT_STATUS.PENDING)
+              .map((component) => (
+                <MenuItem key={component.name} value={component.name}>
+                  {component.name} ({component.type})
+                </MenuItem>
+              ))}
           </Select>
         </FormControl>
 

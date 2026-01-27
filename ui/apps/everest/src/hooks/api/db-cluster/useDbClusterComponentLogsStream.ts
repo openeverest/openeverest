@@ -17,7 +17,7 @@ import { useEffect, useState } from 'react';
 import { useRBACPermissions } from 'hooks/rbac';
 
 const BASE_URL = '/v1/';
-const MAX_LOG_LINES = 10000; 
+const MAX_LOG_LINES = 10000;
 
 export const useDbClusterComponentLogsStream = (
   namespace: string,
@@ -127,7 +127,7 @@ export const useDbClusterComponentLogsStream = (
       params.append('container', container);
     }
     params.append('follow', 'false');
-    
+
     const url = `${BASE_URL}namespaces/${namespace}/database-clusters/${dbClusterName}/components/${componentName}/logs?${params}`;
     const token = localStorage.getItem('everestToken');
     const response = await fetch(url, {

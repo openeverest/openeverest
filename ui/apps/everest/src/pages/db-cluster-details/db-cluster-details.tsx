@@ -12,7 +12,7 @@ import BackNavigationText from 'components/back-navigation-text';
 import { DBClusterDetailsTabs } from './db-cluster-details.types';
 import { DbClusterStatus } from 'shared-types/dbCluster.types';
 import { DbClusterContext } from './dbCluster.context';
-import { useContext, useMemo } from 'react';
+import { useContext } from 'react';
 import { DB_CLUSTER_STATUS_TO_BASE_STATUS } from '../databases/DbClusterView.constants';
 import { beautifyDbClusterStatus } from '../databases/DbClusterView.utils';
 import StatusField from 'components/status-field';
@@ -41,17 +41,9 @@ const WithPermissionDetails = ({
     },
   ]);
 
-  const isPending = dbCluster?.status?.status === DbClusterStatus.initializing;
-
-  const tabs = useMemo(() => {
-    const allTabs = Object.keys(DBClusterDetailsTabs) as Array<
-      keyof typeof DBClusterDetailsTabs
-    >;
-
-    return isPending
-      ? allTabs.filter((item) => item !== 'logs')
-      : allTabs;
-  }, [isPending]);
+  const tabs = Object.keys(DBClusterDetailsTabs) as Array<
+    keyof typeof DBClusterDetailsTabs
+  >;
 
   return (
     <>

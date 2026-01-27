@@ -1,6 +1,5 @@
 import { NodeProps } from '@xyflow/react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { useContext } from 'react';
 import { CustomNode } from './types';
 import { DBClusterComponent } from 'shared-types/components.types';
 import {
@@ -20,8 +19,6 @@ import {
 } from '../components.constants';
 import DiagramComponentAge from './diagram-component-age';
 import DiagramNode from './diagram-node';
-import { DbClusterContext } from '../../dbCluster.context';
-import { DbClusterStatus } from 'shared-types/dbCluster.types';
 
 const ComponentNode = ({
   data: {
@@ -31,10 +28,7 @@ const ComponentNode = ({
 }: NodeProps<CustomNode<DBClusterComponent>>) => {
   const { dbClusterName = '', namespace = '' } = useParams();
   const navigate = useNavigate();
-  const { dbCluster } = useContext(DbClusterContext);
-  const isPending =
-    dbCluster?.status?.status === DbClusterStatus.initializing ||
-    status === COMPONENT_STATUS.PENDING;
+  const isPending = status === COMPONENT_STATUS.PENDING;
 
   const handleViewLogs = (e: React.MouseEvent) => {
     e.stopPropagation();
