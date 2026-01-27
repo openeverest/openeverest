@@ -32,7 +32,10 @@ import DownloadIcon from '@mui/icons-material/Download';
 import ContentCopyOutlinedIcon from '@mui/icons-material/ContentCopyOutlined';
 import { useDbClusterComponents } from 'hooks/api/db-cluster/useDbClusterComponents';
 import { useDbClusterComponentLogsStream } from 'hooks/api/db-cluster/useDbClusterComponentLogsStream';
-import { COMPONENT_STATUS } from '../components/components.constants';
+import {
+  COMPONENT_STATUS,
+  CONTAINER_STATUS,
+} from '../components/components.constants';
 
 const Logs = () => {
   const { dbClusterName = '', namespace = '' } = useParams();
@@ -54,6 +57,10 @@ const Logs = () => {
     return component?.containers || [];
   }, [components, selectedComponent]);
 
+  const filteredContainers = useMemo(() => {
+    return containers.filter((c) => c.status !== CONTAINER_STATUS.WAITING);
+  }, [containers]);
+
   useEffect(() => {
     const componentToSelect =
       componentFromUrl || (components.length > 0 ? components[0].name : '');
@@ -66,19 +73,21 @@ const Logs = () => {
     }
 
     const containerToSelect =
-      containerFromUrl || (containers.length > 0 ? containers[0].name : '');
+      containerFromUrl ||
+      (filteredContainers.length > 0 ? filteredContainers[0].name : '');
     setSelectedContainer(containerToSelect);
   }, [
     componentFromUrl,
     components,
     selectedComponent,
     containerFromUrl,
-    containers,
+    filteredContainers,
     setSearchParams,
   ]);
 
   const shouldFetchLogs =
-    !!selectedComponent && (containers.length === 0 || !!selectedContainer);
+    !!selectedComponent &&
+    (filteredContainers.length === 0 || !!selectedContainer);
 
   const {
     logs,
@@ -162,7 +171,7 @@ const Logs = () => {
           </Select>
         </FormControl>
 
-        {containers.length > 0 && (
+        {filteredContainers.length > 0 && (
           <FormControl sx={{ minWidth: 250 }}>
             <InputLabel id="container-select-label">Container</InputLabel>
             <Select
@@ -181,7 +190,7 @@ const Logs = () => {
                 });
               }}
             >
-              {containers.map((container) => (
+              {filteredContainers.map((container) => (
                 <MenuItem key={container.name} value={container.name}>
                   {container.name}
                 </MenuItem>
