@@ -42,7 +42,7 @@ const EmptyStateNamespaces = () => {
           sx={{ display: 'flex' }}
           onClick={() => {
             window.open(
-              'https://docs.percona.com/everest/administer/manage_namespaces.html',
+              'https://openeverest.io/documentation/current/administer/manage_namespaces.html',
               '_blank',
               'noopener'
             );
