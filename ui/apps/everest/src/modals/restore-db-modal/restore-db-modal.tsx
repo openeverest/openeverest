@@ -156,7 +156,7 @@ const ModalContent = ({
               buttonMessage={Messages.seeDocs}
               onClick={() =>
                 window.open(
-                  'https://docs.percona.com/everest/reference/known_limitations.html#postgresql-limitation-for-pitr',
+                  'https://openeverest.io/documentation/current/reference/known_limitations.html#postgresql-limitation-for-pitr',
                   '_blank',
                   'noopener'
                 )

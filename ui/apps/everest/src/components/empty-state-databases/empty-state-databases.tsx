@@ -26,7 +26,7 @@ const EmptyStateDatabases = ({
                   <Link
                     target="_blank"
                     rel="noopener"
-                    href="https://docs.percona.com/everest/administer/rbac.html"
+                    href="https://openeverest.io/documentation/current/administer/rbac.html"
                   >
                     here
                   </Link>{' '}

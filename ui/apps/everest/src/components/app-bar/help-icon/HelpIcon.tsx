@@ -48,7 +48,7 @@ const AppBarHelpIcon = () => {
           sx={{ cursor: 'text', userSelect: 'text' }}
         >
           <Typography variant="helperText" color="text.secondary">
-            {`Everest ${currentVersion}`}
+            {`OpenEverest ${currentVersion}`}
           </Typography>
         </MenuItem>
         <Divider />
@@ -57,10 +57,10 @@ const AppBarHelpIcon = () => {
           color="inherit"
           target="_blank"
           rel="noopener"
-          href="https://hubs.ly/Q02YRLsL0"
+          href="https://openeverest.io/support/"
         >
           <MenuItem onClick={handleClose}>
-            <Typography variant="menuText">Percona Support</Typography>
+            <Typography variant="menuText">Get Support</Typography>
           </MenuItem>
         </Link>
         <Link
@@ -68,7 +68,7 @@ const AppBarHelpIcon = () => {
           color="inherit"
           target="_blank"
           rel="noopener"
-          href="https://docs.percona.com/everest/"
+          href="https://openeverest.io/docs/"
         >
           <MenuItem onClick={handleClose}>
             <Typography variant="menuText">Documentation</Typography>
@@ -79,7 +79,7 @@ const AppBarHelpIcon = () => {
           color="inherit"
           target="_blank"
           rel="noopener"
-          href="https://github.com/percona/everest/issues"
+          href="https://github.com/openeverest/openeverest/issues"
         >
           <MenuItem onClick={handleClose}>
             <Typography variant="menuText">Report issue</Typography>
@@ -90,10 +90,10 @@ const AppBarHelpIcon = () => {
           color="inherit"
           target="_blank"
           rel="noopener"
-          href="https://forums.percona.com/c/percona-everest"
+          href="https://openeverest.io/#community"
         >
           <MenuItem onClick={handleClose}>
-            <Typography variant="menuText">Forum</Typography>
+            <Typography variant="menuText">Join Community</Typography>
           </MenuItem>
         </Link>
       </Menu>
