@@ -55,7 +55,10 @@ export const ConnectionDetails = ({
             sx={{ marginBottom: '5px' }}
           >
             To access the cluster via NodePort see the{' '}
-            <Link href="https://docs.percona.com" target="_blank">
+            <Link
+              href="https://openeverest.io/documentation/current/networking/nodeport_support.html"
+              target="_blank"
+            >
               instructions
             </Link>
           </Typography>

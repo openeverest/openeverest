@@ -23,7 +23,7 @@ export const Messages = {
   namespaces: 'Namespaces',
   helperText: {
     credentials:
-      'Percona Everest does not store PMM credentials, so fill in both the User and Password fields.',
+      'OpenEverest does not store PMM credentials, so fill in both the User and Password fields.',
   },
   fieldPlaceholders: {
     name: 'Insert Monitoring endpoint display name',

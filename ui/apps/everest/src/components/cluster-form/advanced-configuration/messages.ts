@@ -82,6 +82,6 @@ export const Messages = {
     noConfig: 'No configurations to display',
     limitations: 'Check limitations in the documentation',
     splitHorizonDNS: (domain: string) =>
-      `Percona Everest will create domains using ${domain} as suffix`,
+      `OpenEverest will create domains using ${domain} as suffix`,
   },
 };
