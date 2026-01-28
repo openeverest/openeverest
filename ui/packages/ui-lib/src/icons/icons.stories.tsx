@@ -62,7 +62,7 @@ const icons = {
     PostgreSqlElephantIcon,
     MongoLeafIcon,
   ],
-  
+
   everest: [
     EverestMainIcon,
     EverestHorizontalIcon,
@@ -73,11 +73,11 @@ const icons = {
   ],
 
   genericError: [GenericErrorIcon],
-  
+
   noMatch: [NoMatchIcon],
-  
+
   emptyState: [EmptyStateIcon],
-  
+
   status: [
     ErrorIcon,
     WarningIcon,
@@ -87,7 +87,7 @@ const icons = {
     PausedIcon,
   ],
 
-  other: [DatabaseIcon,NetworkNode],
+  other: [DatabaseIcon, NetworkNode],
 };
 
 export const Database: StoryObj<typeof MySqlIcon> = {
