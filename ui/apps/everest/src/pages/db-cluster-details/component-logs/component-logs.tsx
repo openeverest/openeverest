@@ -43,6 +43,10 @@ const Logs = () => {
   const { data: components = [], isLoading: isLoadingComponents } =
     useDbClusterComponents(namespace, dbClusterName!);
 
+  const filteredComponents = useMemo(() => {
+    return components.filter((c) => c.status !== COMPONENT_STATUS.PENDING);
+  }, [components]);
+
   const componentFromUrl = searchParams.get('component') || '';
   const containerFromUrl = searchParams.get('container') || '';
 
@@ -53,9 +57,11 @@ const Logs = () => {
   const [copySuccess, setCopySuccess] = useState(false);
 
   const containers = useMemo(() => {
-    const component = components.find((c) => c.name === selectedComponent);
+    const component = filteredComponents.find(
+      (c) => c.name === selectedComponent
+    );
     return component?.containers || [];
-  }, [components, selectedComponent]);
+  }, [filteredComponents, selectedComponent]);
 
   const filteredContainers = useMemo(() => {
     return containers.filter((c) => c.status !== CONTAINER_STATUS.WAITING);
@@ -63,7 +69,8 @@ const Logs = () => {
 
   useEffect(() => {
     const componentToSelect =
-      componentFromUrl || (components.length > 0 ? components[0].name : '');
+      componentFromUrl ||
+      (filteredComponents.length > 0 ? filteredComponents[0].name : '');
 
     if (componentToSelect && componentToSelect !== selectedComponent) {
       setSelectedComponent(componentToSelect);
@@ -78,7 +85,7 @@ const Logs = () => {
     setSelectedContainer(containerToSelect);
   }, [
     componentFromUrl,
-    components,
+    filteredComponents,
     selectedComponent,
     containerFromUrl,
     filteredContainers,
@@ -142,36 +149,36 @@ const Logs = () => {
   return (
     <Stack gap={2} sx={{ mt: 2 }}>
       <Stack direction="row" gap={2} sx={{ flexWrap: 'wrap' }}>
-        <FormControl sx={{ minWidth: 250 }}>
-          <InputLabel id="component-select-label">Component</InputLabel>
-          <Select
-            id="component-select"
-            value={selectedComponent}
-            label="Component"
-            onChange={(e) => {
-              const newComponent = e.target.value;
-              setSelectedComponent(newComponent);
-              setSelectedContainer('');
-              setSearchParams((prev) => {
-                const newParams = new URLSearchParams(prev);
-                newParams.set('component', newComponent);
-                newParams.delete('container');
-                return newParams;
-              });
-            }}
-            disabled={isLoadingComponents}
-          >
-            {components
-              .filter((c) => c.status !== COMPONENT_STATUS.PENDING)
-              .map((component) => (
+        {filteredComponents.length > 0 && (
+          <FormControl sx={{ minWidth: 250 }}>
+            <InputLabel id="component-select-label">Component</InputLabel>
+            <Select
+              id="component-select"
+              value={selectedComponent}
+              label="Component"
+              onChange={(e) => {
+                const newComponent = e.target.value;
+                setSelectedComponent(newComponent);
+                setSelectedContainer('');
+                setSearchParams((prev) => {
+                  const newParams = new URLSearchParams(prev);
+                  newParams.set('component', newComponent);
+                  newParams.delete('container');
+                  return newParams;
+                });
+              }}
+              disabled={isLoadingComponents}
+            >
+              {filteredComponents.map((component) => (
                 <MenuItem key={component.name} value={component.name}>
                   {component.name} ({component.type})
                 </MenuItem>
               ))}
-          </Select>
-        </FormControl>
+            </Select>
+          </FormControl>
+        )}
 
-        {filteredContainers.length > 0 && (
+        {selectedComponent && filteredContainers.length > 0 && (
           <FormControl sx={{ minWidth: 250 }}>
             <InputLabel id="container-select-label">Container</InputLabel>
             <Select
@@ -200,9 +207,12 @@ const Logs = () => {
         )}
       </Stack>
 
-      {!selectedComponent && (
-        <Alert severity="info">Please select a component to view logs</Alert>
-      )}
+      {!selectedComponent &&
+        (filteredComponents.length > 0 ? (
+          <Alert severity="info">Please select a component to view logs</Alert>
+        ) : (
+          <Alert severity="info">No components available</Alert>
+        ))}
 
       {selectedComponent && (
         <Paper
