@@ -17,6 +17,7 @@ import { Namespaces } from './pages/settings/namespaces/namespaces';
 import NamespaceDetails from 'pages/settings/namespaces/namespace-details';
 import Restores from 'pages/db-cluster-details/restores';
 import Components from './pages/db-cluster-details/components';
+import Logs from './pages/db-cluster-details/component-logs/component-logs';
 import LoginCallback from 'components/login-callback/LoginCallback';
 import { DbClusterContextProvider } from 'pages/db-cluster-details/dbCluster.context';
 import Logout from 'pages/logout';
@@ -81,6 +82,10 @@ const router = createBrowserRouter([
           {
             path: DBClusterDetailsTabs.restores,
             element: <Restores />,
+          },
+          {
+            path: DBClusterDetailsTabs.logs,
+            element: <Logs />,
           },
         ],
       },
