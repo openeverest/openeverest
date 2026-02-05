@@ -18,7 +18,7 @@ import { TIMEOUTS } from '@e2e/constants';
 
 export const DEFAULT_CLUSTER_VERSION = '6.0.16-13';
 
-export const basicInformationStepCheck = async (
+export const basicInformationStepCheckForPG = async (
   page: Page,
   dbNamespace: string,
   engineVersions,
