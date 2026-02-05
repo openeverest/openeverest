@@ -15,10 +15,13 @@
 
 import { test, expect } from '@playwright/test';
 import { findRowAndClickActions, waitForDelete } from '@e2e/utils/table';
-import {goToUrl, limitedSuffixedName} from "@e2e/utils/generic";
-import {EVEREST_CI_NAMESPACES, TIMEOUTS} from "@e2e/constants";
-import {getCITokenFromLocalStorage} from "@e2e/utils/localStorage";
-import {deleteBackupStorage, getBackupStorage} from "@e2e/utils/backup-storage";
+import { goToUrl, limitedSuffixedName } from '@e2e/utils/generic';
+import { EVEREST_CI_NAMESPACES, TIMEOUTS } from '@e2e/constants';
+import { getCITokenFromLocalStorage } from '@e2e/utils/localStorage';
+import {
+  deleteBackupStorage,
+  getBackupStorage,
+} from '@e2e/utils/backup-storage';
 
 const {
   EVEREST_LOCATION_ACCESS_KEY,
@@ -30,14 +33,14 @@ const {
 test.describe.serial('Backup storage', () => {
   test.describe.configure({ timeout: TIMEOUTS.FiveMinutes });
 
-  const namespace =  EVEREST_CI_NAMESPACES.EVEREST_UI,
+  const namespace = EVEREST_CI_NAMESPACES.EVEREST_UI,
     backupStorageName = limitedSuffixedName('pr-set-bac-str'),
     bucketName = limitedSuffixedName('bucket');
   let token: string;
 
   test.beforeAll(async ({}) => {
     token = await getCITokenFromLocalStorage();
-    expect(token).not.toHaveLength(0)
+    expect(token).not.toHaveLength(0);
   });
 
   test.beforeEach(async ({ page }) => {
@@ -50,7 +53,7 @@ test.describe.serial('Backup storage', () => {
     }).toPass({
       intervals: [1000],
       timeout: TIMEOUTS.TenSeconds,
-    })
+    });
   });
 
   test('Create Backup Storage', async ({ page, request }) => {
@@ -60,7 +63,7 @@ test.describe.serial('Backup storage', () => {
       await page.getByTestId('text-input-description').fill('test-description');
 
       await page.getByTestId('text-input-namespace').click();
-      await page.getByRole('option', {name: namespace}).click();
+      await page.getByRole('option', { name: namespace }).click();
       await expect(page.getByTestId('select-input-type')).toHaveValue('s3');
       await page.getByTestId('text-input-bucket-name').fill(bucketName);
       await page.getByTestId('text-input-region').fill(EVEREST_LOCATION_REGION);
@@ -82,19 +85,20 @@ test.describe.serial('Backup storage', () => {
           request,
           namespace,
           backupStorageName,
-          token)
-        expect(response).toBeDefined()
+          token
+        );
+        expect(response).toBeDefined();
       }).toPass({
         intervals: [1000],
         timeout: TIMEOUTS.TenSeconds,
-      })
+      });
     });
   });
 
   test('List Backup Storages', async ({ page }) => {
     const row = page
       .locator('.MuiTableRow-root')
-      .filter({hasText: backupStorageName});
+      .filter({ hasText: backupStorageName });
     await expect(row).toBeVisible();
     await expect(row.getByText('S3 Compatible')).toBeVisible();
     await expect(row.getByText(bucketName)).toBeVisible();
@@ -106,13 +110,17 @@ test.describe.serial('Backup storage', () => {
 
     await test.step('Update Backup Storage description', async () => {
       await findRowAndClickActions(page, backupStorageName, 'Edit');
-      await page
-        .getByTestId('text-input-description')
-        .fill(newDescription);
-      const updResponse = page.waitForResponse(resp =>
-        resp.request().method() === "PATCH" &&
-        resp.url().includes(`/v1/namespaces/${namespace}/backup-storages/${backupStorageName}`) &&
-        resp.status() === 200);
+      await page.getByTestId('text-input-description').fill(newDescription);
+      const updResponse = page.waitForResponse(
+        (resp) =>
+          resp.request().method() === 'PATCH' &&
+          resp
+            .url()
+            .includes(
+              `/v1/namespaces/${namespace}/backup-storages/${backupStorageName}`
+            ) &&
+          resp.status() === 200
+      );
       await page.getByTestId('form-dialog-edit').click();
       await updResponse;
     });
@@ -129,10 +137,16 @@ test.describe.serial('Backup storage', () => {
 
   test('Delete Backup Storage', async ({ page }) => {
     await findRowAndClickActions(page, backupStorageName, 'Delete');
-    const delResponse = page.waitForResponse(resp =>
-      resp.request().method() === "DELETE" &&
-      resp.url().includes(`/v1/namespaces/${namespace}/backup-storages/${backupStorageName}`) &&
-      resp.status() === 204);
+    const delResponse = page.waitForResponse(
+      (resp) =>
+        resp.request().method() === 'DELETE' &&
+        resp
+          .url()
+          .includes(
+            `/v1/namespaces/${namespace}/backup-storages/${backupStorageName}`
+          ) &&
+        resp.status() === 204
+    );
     await page.getByTestId('confirm-dialog-delete').click();
     await delResponse;
 

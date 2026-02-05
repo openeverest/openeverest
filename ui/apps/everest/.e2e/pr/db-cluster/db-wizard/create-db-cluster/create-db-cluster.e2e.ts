@@ -18,18 +18,25 @@ import {
   getEnginesLatestRecommendedVersions,
   getEnginesVersions,
 } from '@e2e/utils/database-engines';
-import {deleteDbClusterFn, getDbClusterAPI} from '@e2e/utils/db-cluster';
+import { deleteDbClusterFn, getDbClusterAPI } from '@e2e/utils/db-cluster';
 import { getCITokenFromLocalStorage } from '@e2e/utils/localStorage';
 import {
   advancedConfigurationStepCheckForPG,
-  dbSummaryAdvancedConfigurationCheckForPG
+  dbSummaryAdvancedConfigurationCheckForPG,
 } from './steps/advanced-configuration-step';
-import {backupsStepCheckForPG, dbSummaryBackupsCheckForPG} from './steps/backups-step';
+import {
+  backupsStepCheckForPG,
+  dbSummaryBackupsCheckForPG,
+} from './steps/backups-step';
 import {
   basicInformationSelectNamespaceCheck,
-  basicInformationStepCheckForPG, dbSummaryBasicInformationCheckForPG,
+  basicInformationStepCheckForPG,
+  dbSummaryBasicInformationCheckForPG,
 } from './steps/basic-information-step';
-import {resourcesStepCheckForPG, dbSummaryResourcesCheckForPG} from './steps/resources-step';
+import {
+  resourcesStepCheckForPG,
+  dbSummaryResourcesCheckForPG,
+} from './steps/resources-step';
 import {
   cancelWizard,
   goToLastAndSubmit,
@@ -38,18 +45,15 @@ import {
   setPitrEnabledStatus,
   submitWizard,
 } from '@e2e/utils/db-wizard';
-import {
-  checkAmountOfDbEngines,
-  selectDbEngine,
-} from '../db-wizard-utils';
+import { checkAmountOfDbEngines, selectDbEngine } from '../db-wizard-utils';
 import { findDbAndClickActions } from '@e2e/utils/db-clusters-list';
 import { waitForInitializingState } from '@e2e/utils/table';
-import {EVEREST_CI_NAMESPACES, TIMEOUTS} from '@e2e/constants';
-import {goToUrl, limitedSuffixedName} from "@e2e/utils/generic";
+import { EVEREST_CI_NAMESPACES, TIMEOUTS } from '@e2e/constants';
+import { goToUrl, limitedSuffixedName } from '@e2e/utils/generic';
 import {
   dbSummaryMonitoringCheck,
-  monitoringStepCheck
-} from "@e2e/pr/db-cluster/db-wizard/create-db-cluster/steps/monitoring-step";
+  monitoringStepCheck,
+} from '@e2e/pr/db-cluster/db-wizard/create-db-cluster/steps/monitoring-step';
 
 const namespace = EVEREST_CI_NAMESPACES.PG_ONLY,
   testPrefix = 'pr-db-wzd';
@@ -76,22 +80,26 @@ test.describe.parallel('DB cluster wizard creation', () => {
 
   test.beforeAll(async ({ request }) => {
     token = await getCITokenFromLocalStorage();
-    expect(token).not.toHaveLength(0)
+    expect(token).not.toHaveLength(0);
 
-    availableEngineVersions = await getEnginesVersions(token, namespace, request);
+    availableEngineVersions = await getEnginesVersions(
+      token,
+      namespace,
+      request
+    );
     // pg-only namespace has only 1 operator installed
-    expect(availableEngineVersions.postgresql).not.toHaveLength(0)
-    expect(availableEngineVersions.pxc).toHaveLength(0)
-    expect(availableEngineVersions.psmdb).toHaveLength(0)
+    expect(availableEngineVersions.postgresql).not.toHaveLength(0);
+    expect(availableEngineVersions.pxc).toHaveLength(0);
+    expect(availableEngineVersions.psmdb).toHaveLength(0);
 
     recommendedEngineVersions = await getEnginesLatestRecommendedVersions(
       namespace,
       request
     );
     // pg-only namespace has only 1 operator installed
-    expect(recommendedEngineVersions.postgresql).not.toHaveLength(0)
-    expect(recommendedEngineVersions.pxc).toHaveLength(0)
-    expect(recommendedEngineVersions.psmdb).toHaveLength(0)
+    expect(recommendedEngineVersions.postgresql).not.toHaveLength(0);
+    expect(recommendedEngineVersions.pxc).toHaveLength(0);
+    expect(recommendedEngineVersions.psmdb).toHaveLength(0);
   });
 
   test.beforeEach(async ({ page }) => {
@@ -118,7 +126,9 @@ test.describe.parallel('DB cluster wizard creation', () => {
         await dbEnginesButtons.nth(i).click();
 
         await test.step('Basic Info step', async () => {
-          await page.getByTestId('select-input-db-version').waitFor({timeout: TIMEOUTS.TenSeconds});
+          await page
+            .getByTestId('select-input-db-version')
+            .waitFor({ timeout: TIMEOUTS.TenSeconds });
           expect(
             await page.getByTestId('select-input-db-version').inputValue()
           ).toBeDefined();
@@ -140,7 +150,9 @@ test.describe.parallel('DB cluster wizard creation', () => {
           // We return to databases page to choose other db
           await goToUrl(page, '/databases');
 
-          await page.getByTestId('add-db-cluster-button').waitFor({timeout: TIMEOUTS.TenSeconds});
+          await page
+            .getByTestId('add-db-cluster-button')
+            .waitFor({ timeout: TIMEOUTS.TenSeconds });
           await page.getByTestId('add-db-cluster-button').click();
         });
       });
@@ -148,7 +160,7 @@ test.describe.parallel('DB cluster wizard creation', () => {
   });
 
   test('Cluster creation successful', async ({ page, request }) => {
-    const clusterName = limitedSuffixedName(testPrefix+ '-crt-psm');
+    const clusterName = limitedSuffixedName(testPrefix + '-crt-psm');
 
     await test.step('Start DB cluster creation wizard', async () => {
       await selectDbEngine(page, 'postgresql');
@@ -193,16 +205,21 @@ test.describe.parallel('DB cluster wizard creation', () => {
     });
 
     try {
-      let addedCluster
+      let addedCluster;
       await test.step('Wait for DB cluster creation', async () => {
         await expect(async () => {
           // new DB cluster appears in response not immediately
-          addedCluster = await getDbClusterAPI(clusterName, namespace, request, token)
-          expect(addedCluster).toBeDefined()
+          addedCluster = await getDbClusterAPI(
+            clusterName,
+            namespace,
+            request,
+            token
+          );
+          expect(addedCluster).toBeDefined();
         }).toPass({
           intervals: [1000],
           timeout: TIMEOUTS.TenSeconds,
-        })
+        });
       });
 
       expect(addedCluster?.spec.engine.type).toBe('postgresql');
@@ -223,14 +240,19 @@ test.describe.parallel('DB cluster wizard creation', () => {
       expect(addedCluster?.spec.backup.schedules[0].retentionCopies).toBe(1);
       // Verify timezone conversion was applied to the schedule cron
       // Day 10, 1h05 in IST timezone is day 9, 19h35 UTC
-      expect(addedCluster?.spec.backup.schedules[0].schedule).toBe('35 19 9 * *');
+      expect(addedCluster?.spec.backup.schedules[0].schedule).toBe(
+        '35 19 9 * *'
+      );
     } finally {
       await deleteDbClusterFn(request, clusterName, namespace);
     }
   });
 
-  test('Cluster creation with back operations successful', async ({ page, request }) => {
-    const clusterName = limitedSuffixedName(testPrefix+ '-crt-psm');
+  test('Cluster creation with back operations successful', async ({
+    page,
+    request,
+  }) => {
+    const clusterName = limitedSuffixedName(testPrefix + '-crt-psm');
     await selectDbEngine(page, 'postgresql');
 
     await test.step('Basic Info step', async () => {
@@ -329,11 +351,16 @@ test.describe.parallel('DB cluster wizard creation', () => {
     });
 
     await test.step('Check DB Summary', async () => {
-      await dbSummaryBasicInformationCheckForPG(page, namespace, recommendedEngineVersions, clusterName);
+      await dbSummaryBasicInformationCheckForPG(
+        page,
+        namespace,
+        recommendedEngineVersions,
+        clusterName
+      );
       await dbSummaryResourcesCheckForPG(page);
       await dbSummaryBackupsCheckForPG(page);
       await dbSummaryAdvancedConfigurationCheckForPG(page);
-      await dbSummaryMonitoringCheck(page)
+      await dbSummaryMonitoringCheck(page);
     });
 
     await test.step('Submit wizard', async () => {
@@ -341,16 +368,21 @@ test.describe.parallel('DB cluster wizard creation', () => {
     });
 
     try {
-      let addedCluster
+      let addedCluster;
       await test.step('Wait for DB cluster creation', async () => {
         await expect(async () => {
           // new DB cluster appears in response not immediately
-          addedCluster = await getDbClusterAPI(clusterName, namespace, request, token)
-          expect(addedCluster).toBeDefined()
+          addedCluster = await getDbClusterAPI(
+            clusterName,
+            namespace,
+            request,
+            token
+          );
+          expect(addedCluster).toBeDefined();
         }).toPass({
           intervals: [1000],
           timeout: TIMEOUTS.TenSeconds,
-        })
+        });
       });
 
       expect(addedCluster?.spec.engine.type).toBe('postgresql');
@@ -371,14 +403,16 @@ test.describe.parallel('DB cluster wizard creation', () => {
       expect(addedCluster?.spec.backup.schedules[0].retentionCopies).toBe(1);
       // Verify timezone conversion was applied to the schedule cron
       // Day 10, 1h05 in IST timezone is day 9, 19h35 UTC
-      expect(addedCluster?.spec.backup.schedules[0].schedule).toBe('35 19 9 * *');
+      expect(addedCluster?.spec.backup.schedules[0].schedule).toBe(
+        '35 19 9 * *'
+      );
     } finally {
       await deleteDbClusterFn(request, clusterName, namespace);
     }
   });
 
   test('Cancel wizard', async ({ page }) => {
-    const clusterName = limitedSuffixedName(testPrefix+ '-crt-psm');
+    const clusterName = limitedSuffixedName(testPrefix + '-crt-psm');
 
     await test.step('Start DB cluster creation wizard', async () => {
       await selectDbEngine(page, 'postgresql');
@@ -482,7 +516,7 @@ test.describe.parallel('DB cluster wizard creation', () => {
   test('Reset schedules, PITR and monitoring when changing namespace', async ({
     page,
   }) => {
-    const clusterName = limitedSuffixedName(testPrefix+ '-crt-psm');
+    const clusterName = limitedSuffixedName(testPrefix + '-crt-psm');
 
     await test.step('Start DB cluster creation wizard', async () => {
       await selectDbEngine(page, 'postgresql');
@@ -524,18 +558,29 @@ test.describe.parallel('DB cluster wizard creation', () => {
 
     await test.step('Change Namespace', async () => {
       await goToStep(page, 'basic-information');
-      await basicInformationSelectNamespaceCheck(page, EVEREST_CI_NAMESPACES.EVEREST_UI);
+      await basicInformationSelectNamespaceCheck(
+        page,
+        EVEREST_CI_NAMESPACES.EVEREST_UI
+      );
 
       // Check "Monitoring" panel in "Database Summary" section
-      const monitoringInfo = page.getByTestId('section-monitoring')
-      const monitoringPreviewContents = monitoringInfo.getByTestId('preview-content')
-      await expect(monitoringPreviewContents.getByText('Disabled')).toBeVisible();
+      const monitoringInfo = page.getByTestId('section-monitoring');
+      const monitoringPreviewContents =
+        monitoringInfo.getByTestId('preview-content');
+      await expect(
+        monitoringPreviewContents.getByText('Disabled')
+      ).toBeVisible();
 
       // Check "Backup" panel in "Database Summary" section
-      const backupInfo = page.getByTestId('section-backups')
-      await expect(backupInfo.getByTestId('empty-backups-preview-content').getByText('Backups disabled')).toBeVisible();
-      await expect(backupInfo.getByTestId('preview-content').getByText('PITR disabled')).toBeVisible();
-    })
+      const backupInfo = page.getByTestId('section-backups');
+      await expect(
+        backupInfo
+          .getByTestId('empty-backups-preview-content')
+          .getByText('Backups disabled')
+      ).toBeVisible();
+      await expect(
+        backupInfo.getByTestId('preview-content').getByText('PITR disabled')
+      ).toBeVisible();
+    });
   });
-
 });

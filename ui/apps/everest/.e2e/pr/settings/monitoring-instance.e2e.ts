@@ -15,45 +15,53 @@
 
 import { expect, test } from '@playwright/test';
 import { findRowAndClickActions, waitForDelete } from '@e2e/utils/table';
-import {EVEREST_CI_NAMESPACES, TIMEOUTS} from '@e2e/constants';
-import {goToUrl, limitedSuffixedName} from "@e2e/utils/generic";
-import {getCITokenFromLocalStorage} from "@e2e/utils/localStorage";
-import {deleteMonitoringInstance, getMonitoringInstance} from "@e2e/utils/monitoring-instance";
+import { EVEREST_CI_NAMESPACES, TIMEOUTS } from '@e2e/constants';
+import { goToUrl, limitedSuffixedName } from '@e2e/utils/generic';
+import { getCITokenFromLocalStorage } from '@e2e/utils/localStorage';
+import {
+  deleteMonitoringInstance,
+  getMonitoringInstance,
+} from '@e2e/utils/monitoring-instance';
 const { MONITORING_URL, MONITORING_USER, MONITORING_PASSWORD } = process.env;
 
 test.describe.serial('Monitoring Instances', () => {
   const monitoringConfigName = limitedSuffixedName('pr-set-mon'),
     namespace = EVEREST_CI_NAMESPACES.EVEREST_UI;
-    let token: string;
+  let token: string;
 
   test.beforeAll(async ({}) => {
     token = await getCITokenFromLocalStorage();
-    expect(token).not.toHaveLength(0)
+    expect(token).not.toHaveLength(0);
   });
 
   test.beforeEach(async ({ page }) => {
     await goToUrl(page, '/settings/monitoring-endpoints');
   });
 
-  test.afterAll(async ({request}) => {
+  test.afterAll(async ({ request }) => {
     await expect(async () => {
-      await deleteMonitoringInstance(request, namespace, monitoringConfigName, token);
+      await deleteMonitoringInstance(
+        request,
+        namespace,
+        monitoringConfigName,
+        token
+      );
     }).toPass({
       intervals: [1000],
       timeout: TIMEOUTS.TenSeconds,
-    })
+    });
   });
 
   test('Create Monitoring Instance', async ({ page, request }) => {
     await test.step(`Create Monitoring Instance`, async () => {
       await page.getByTestId('add-monitoring-endpoint').click();
-      await page.waitForLoadState('load', {timeout: TIMEOUTS.ThirtySeconds})
+      await page.waitForLoadState('load', { timeout: TIMEOUTS.ThirtySeconds });
 
       // filling out the form
       await page.getByTestId('text-input-name').fill(monitoringConfigName);
       const namespaces = page.getByTestId('text-input-namespace');
       await namespaces.click();
-      const nsOption = page.getByRole('option').filter({hasText: namespace});
+      const nsOption = page.getByRole('option').filter({ hasText: namespace });
       await expect(nsOption).toBeVisible();
       await nsOption.click();
       await page.getByTestId('text-input-url').fill(MONITORING_URL);
@@ -68,19 +76,20 @@ test.describe.serial('Monitoring Instances', () => {
           request,
           namespace,
           monitoringConfigName,
-          token)
-        expect(dbCluster).toBeDefined()
+          token
+        );
+        expect(dbCluster).toBeDefined();
       }).toPass({
         intervals: [1000],
         timeout: TIMEOUTS.TenSeconds,
-      })
+      });
     });
   });
 
   test('List Monitoring Instance', async ({ page }) => {
     const row = page
       .locator('.MuiTableRow-root')
-      .filter({hasText: monitoringConfigName});
+      .filter({ hasText: monitoringConfigName });
     await expect(row).toBeVisible();
     await expect(row.getByText(MONITORING_URL)).toBeVisible();
     await expect(row.getByText(namespace)).toBeVisible();
@@ -127,10 +136,16 @@ test.describe.serial('Monitoring Instances', () => {
   test('Delete Monitoring Instance', async ({ page }) => {
     await findRowAndClickActions(page, monitoringConfigName, 'Delete');
 
-    const delResponse = page.waitForResponse(resp =>
-      resp.request().method() === "DELETE" &&
-      resp.url().includes(`/v1/namespaces/${namespace}/monitoring-instances/${monitoringConfigName}`) &&
-    resp.status() === 204);
+    const delResponse = page.waitForResponse(
+      (resp) =>
+        resp.request().method() === 'DELETE' &&
+        resp
+          .url()
+          .includes(
+            `/v1/namespaces/${namespace}/monitoring-instances/${monitoringConfigName}`
+          ) &&
+        resp.status() === 204
+    );
     await page.getByTestId('confirm-dialog-delete').click();
     await delResponse;
 

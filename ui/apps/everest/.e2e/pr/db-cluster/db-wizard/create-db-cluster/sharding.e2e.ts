@@ -1,32 +1,27 @@
-import {EVEREST_CI_NAMESPACES, TIMEOUTS} from '@e2e/constants';
+import { EVEREST_CI_NAMESPACES, TIMEOUTS } from '@e2e/constants';
 import { getCITokenFromLocalStorage } from '@e2e/utils/localStorage';
 import { expect, test } from '@playwright/test';
 import { selectDbEngine } from '../db-wizard-utils';
-import {
-  moveBack,
-  moveForward, submitWizard,
-} from '@e2e/utils/db-wizard';
-import {
-  findDbAndClickRow,
-} from '@e2e/utils/db-clusters-list';
+import { moveBack, moveForward, submitWizard } from '@e2e/utils/db-wizard';
+import { findDbAndClickRow } from '@e2e/utils/db-clusters-list';
 import { waitForDelete } from '@e2e/utils/table';
-import {goToUrl, limitedSuffixedName} from "@e2e/utils/generic";
+import { goToUrl, limitedSuffixedName } from '@e2e/utils/generic';
+import { basicInformationSelectNamespaceCheck } from '@e2e/pr/db-cluster/db-wizard/create-db-cluster/steps/basic-information-step';
 import {
-  basicInformationSelectNamespaceCheck
-} from "@e2e/pr/db-cluster/db-wizard/create-db-cluster/steps/basic-information-step";
-import {deleteDbClusterFn, getDbClusterAPI, patchPSMDBFinalizers} from "@e2e/utils/db-cluster";
-import {
-  advancedConfigurationSelectFirstStorageClass
-} from "@e2e/pr/db-cluster/db-wizard/create-db-cluster/steps/advanced-configuration-step";
+  deleteDbClusterFn,
+  getDbClusterAPI,
+  patchPSMDBFinalizers,
+} from '@e2e/utils/db-cluster';
+import { advancedConfigurationSelectFirstStorageClass } from '@e2e/pr/db-cluster/db-wizard/create-db-cluster/steps/advanced-configuration-step';
 
 const namespace = EVEREST_CI_NAMESPACES.PSMDB_ONLY;
 let token: string;
 
-test.describe.parallel('DB cluster wizard creation with sharding (PSMDB)', () => {
-
-  test.beforeAll(async ({ }) => {
+test.describe
+  .parallel('DB cluster wizard creation with sharding (PSMDB)', () => {
+  test.beforeAll(async ({}) => {
     token = await getCITokenFromLocalStorage();
-    expect(token).not.toHaveLength(0)
+    expect(token).not.toHaveLength(0);
   });
 
   test.beforeEach(async ({ page }) => {
@@ -41,7 +36,9 @@ test.describe.parallel('DB cluster wizard creation with sharding (PSMDB)', () =>
       await selectDbEngine(page, 'psmdb');
     });
 
-    const shardingToggle = page.getByTestId('switch-input-sharding').getByRole('checkbox');
+    const shardingToggle = page
+      .getByTestId('switch-input-sharding')
+      .getByRole('checkbox');
     // await shardingToggle.waitFor();
 
     await expect(shardingToggle).toBeVisible();
@@ -55,22 +52,28 @@ test.describe.parallel('DB cluster wizard creation with sharding (PSMDB)', () =>
     // expect(storageClasses.length).toBeGreaterThan(0);
     await test.step('Start DB cluster creation wizard', async () => {
       await selectDbEngine(page, 'psmdb');
-    })
+    });
 
     await test.step('Basic Info step', async () => {
-      const shardingToggle = page.getByTestId('switch-input-sharding').getByRole('checkbox');
+      const shardingToggle = page
+        .getByTestId('switch-input-sharding')
+        .getByRole('checkbox');
       await expect(shardingToggle).not.toBeChecked();
       // await shardingToggle.waitFor();
 
-      const basicInfo = page.getByTestId('section-basic-information')
+      const basicInfo = page.getByTestId('section-basic-information');
       await expect(basicInfo.getByText('1. Basic Information')).toBeVisible();
       // there are several 'preview-content' elements in 'Basic info' section
-      const previewContents = basicInfo.getByTestId('preview-content')
-      await expect(previewContents.getByText('Sharding: disabled')).toBeVisible();
+      const previewContents = basicInfo.getByTestId('preview-content');
+      await expect(
+        previewContents.getByText('Sharding: disabled')
+      ).toBeVisible();
 
       await shardingToggle.click();
       await expect(shardingToggle).toBeChecked();
-      await expect(previewContents.getByText('Sharding: enabled')).toBeVisible();
+      await expect(
+        previewContents.getByText('Sharding: enabled')
+      ).toBeVisible();
     });
 
     await test.step('Resources step', async () => {
@@ -80,14 +83,18 @@ test.describe.parallel('DB cluster wizard creation with sharding (PSMDB)', () =>
       await expect(shardNr).toBeVisible();
       await expect(shardNr).toHaveValue('2');
 
-      const resourcesInfo = page.getByTestId('section-resources')
+      const resourcesInfo = page.getByTestId('section-resources');
       await expect(resourcesInfo.getByText('2. Resources')).toBeVisible();
 
-      const previewContents = resourcesInfo.getByTestId('preview-content')
+      const previewContents = resourcesInfo.getByTestId('preview-content');
       await expect(previewContents.getByText('2 shards')).toBeVisible();
-      await expect(previewContents.getByText('3 configuration servers')).toBeVisible();
+      await expect(
+        previewContents.getByText('3 configuration servers')
+      ).toBeVisible();
 
-      const configServersNr = page.getByTestId('toggle-button-group-input-shard-config-servers');
+      const configServersNr = page.getByTestId(
+        'toggle-button-group-input-shard-config-servers'
+      );
       await expect(configServersNr).toBeVisible();
 
       const configServers3Btn = page.getByTestId('shard-config-servers-3');
@@ -97,18 +104,24 @@ test.describe.parallel('DB cluster wizard creation with sharding (PSMDB)', () =>
 
     await test.step('Back to Basic Info step', async () => {
       await moveBack(page);
-      const shardingToggle = page.getByTestId('switch-input-sharding').getByRole('checkbox');
+      const shardingToggle = page
+        .getByTestId('switch-input-sharding')
+        .getByRole('checkbox');
 
-      const basicInfo = page.getByTestId('section-basic-information')
+      const basicInfo = page.getByTestId('section-basic-information');
       await expect(basicInfo.getByText('1. Basic Information')).toBeVisible();
-      const previewContents = basicInfo.getByTestId('preview-content')
+      const previewContents = basicInfo.getByTestId('preview-content');
 
       await expect(shardingToggle).toBeChecked();
-      await expect(previewContents.getByText('Sharding: enabled')).toBeVisible();
+      await expect(
+        previewContents.getByText('Sharding: enabled')
+      ).toBeVisible();
 
       await shardingToggle.click();
       await expect(shardingToggle).not.toBeChecked();
-      await expect(previewContents.getByText('Sharding: disabled')).toBeVisible();
+      await expect(
+        previewContents.getByText('Sharding: disabled')
+      ).toBeVisible();
     });
 
     await test.step('Resources step', async () => {
@@ -117,15 +130,19 @@ test.describe.parallel('DB cluster wizard creation with sharding (PSMDB)', () =>
       const shardNr = page.getByTestId('text-input-shard-nr');
       await expect(shardNr).not.toBeVisible();
 
-      const configServersNr = page.getByTestId('toggle-button-group-input-shard-config-servers');
+      const configServersNr = page.getByTestId(
+        'toggle-button-group-input-shard-config-servers'
+      );
       await expect(configServersNr).not.toBeVisible();
 
-      const resourcesInfo = page.getByTestId('section-resources')
+      const resourcesInfo = page.getByTestId('section-resources');
       await expect(resourcesInfo.getByText('2. Resources')).toBeVisible();
 
-      const previewContents = resourcesInfo.getByTestId('preview-content')
+      const previewContents = resourcesInfo.getByTestId('preview-content');
       await expect(previewContents.getByText('2 shards')).not.toBeVisible();
-      await expect(previewContents.getByText('3 configuration servers')).not.toBeVisible();
+      await expect(
+        previewContents.getByText('3 configuration servers')
+      ).not.toBeVisible();
     });
   });
 
@@ -142,7 +159,9 @@ test.describe.parallel('DB cluster wizard creation with sharding (PSMDB)', () =>
       });
 
       await test.step('Basic Info step', async () => {
-        const shardingToggle = page.getByTestId('switch-input-sharding').getByRole('checkbox');
+        const shardingToggle = page
+          .getByTestId('switch-input-sharding')
+          .getByRole('checkbox');
         await expect(shardingToggle).not.toBeChecked();
 
         // namespace
@@ -156,8 +175,8 @@ test.describe.parallel('DB cluster wizard creation with sharding (PSMDB)', () =>
 
       await test.step('Resources step', async () => {
         await moveForward(page);
-        const nodesAccordion = page.getByTestId('nodes-accordion')
-        await nodesAccordion.waitFor({timeout: TIMEOUTS.ThirtySeconds})
+        const nodesAccordion = page.getByTestId('nodes-accordion');
+        await nodesAccordion.waitFor({ timeout: TIMEOUTS.ThirtySeconds });
 
         await nodesAccordion.getByTestId('text-input-cpu').fill('1');
         await nodesAccordion.getByTestId('text-input-memory').fill('1');
@@ -189,37 +208,40 @@ test.describe.parallel('DB cluster wizard creation with sharding (PSMDB)', () =>
             dbName,
             namespace,
             request,
-            token)
-          expect(dbCluster).toBeDefined()
+            token
+          );
+          expect(dbCluster).toBeDefined();
         }).toPass({
           intervals: [1000],
           timeout: TIMEOUTS.TenSeconds,
-        })
+        });
       });
 
       await test.step('Check DB overview page', async () => {
         await goToUrl(page, '/databases');
-        await expect(page.getByText(dbName)).toBeVisible({timeout: TIMEOUTS.TenSeconds});
+        await expect(page.getByText(dbName)).toBeVisible({
+          timeout: TIMEOUTS.TenSeconds,
+        });
 
         await findDbAndClickRow(page, dbName);
         await expect(
           page
             .getByTestId('sharding-status-overview-section-row')
-            .filter({hasText: 'Enabled'})
+            .filter({ hasText: 'Enabled' })
         ).toBeVisible();
 
         await expect(
           page
             .getByTestId('number-of-shards-overview-section-row')
-            .filter({hasText: '2'})
+            .filter({ hasText: '2' })
         ).toBeVisible();
 
         await expect(
           page
             .getByTestId('config-servers-overview-section-row')
-            .filter({hasText: '3'})
+            .filter({ hasText: '3' })
         ).toBeVisible();
-      })
+      });
     } finally {
       await deleteDbClusterFn(request, dbName, namespace);
       // TODO: This function should be removed after fix for: https://perconadev.atlassian.net/browse/K8SPSMDB-1208
@@ -255,7 +277,9 @@ test.describe.parallel('DB cluster wizard creation with sharding (PSMDB)', () =>
       );
 
       await page.getByTestId('shard-config-servers-1').click();
-      await expect(page.getByTestId('shard-config-servers-error')).toBeVisible();
+      await expect(
+        page.getByTestId('shard-config-servers-error')
+      ).toBeVisible();
 
       await page.getByTestId('toggle-button-nodes-1').click();
       await expect(
@@ -266,7 +290,9 @@ test.describe.parallel('DB cluster wizard creation with sharding (PSMDB)', () =>
       ).not.toBeDisabled();
 
       await page.getByTestId('toggle-button-nodes-3').click();
-      await expect(page.getByTestId('shard-config-servers-error')).toBeVisible();
+      await expect(
+        page.getByTestId('shard-config-servers-error')
+      ).toBeVisible();
 
       await page.getByTestId('shard-config-servers-3').click();
       await expect(
@@ -284,7 +310,9 @@ test.describe.parallel('DB cluster wizard creation with sharding (PSMDB)', () =>
     });
 
     await test.step('Basic Info step', async () => {
-      const shardingToggle = page.getByTestId('switch-input-sharding').getByRole('checkbox');
+      const shardingToggle = page
+        .getByTestId('switch-input-sharding')
+        .getByRole('checkbox');
       await expect(shardingToggle).not.toBeChecked();
       await shardingToggle.click();
       await expect(shardingToggle).toBeChecked();
@@ -312,7 +340,9 @@ test.describe.parallel('DB cluster wizard creation with sharding (PSMDB)', () =>
     });
 
     await test.step('Basic Info step', async () => {
-      const shardingToggle = page.getByTestId('switch-input-sharding').getByRole('checkbox');
+      const shardingToggle = page
+        .getByTestId('switch-input-sharding')
+        .getByRole('checkbox');
       await expect(shardingToggle).not.toBeChecked();
       await shardingToggle.click();
       await expect(shardingToggle).toBeChecked();
@@ -372,7 +402,9 @@ test.describe.parallel('DB cluster wizard creation with sharding (PSMDB)', () =>
     });
 
     await test.step('Basic Info step', async () => {
-      const shardingToggle = page.getByTestId('switch-input-sharding').getByRole('checkbox');
+      const shardingToggle = page
+        .getByTestId('switch-input-sharding')
+        .getByRole('checkbox');
       await expect(shardingToggle).not.toBeChecked();
       await shardingToggle.click();
       await expect(shardingToggle).toBeChecked();
@@ -385,7 +417,9 @@ test.describe.parallel('DB cluster wizard creation with sharding (PSMDB)', () =>
     await test.step('Back to Basic Info step', async () => {
       await moveBack(page);
 
-      const shardingToggle = page.getByTestId('switch-input-sharding').getByRole('checkbox');
+      const shardingToggle = page
+        .getByTestId('switch-input-sharding')
+        .getByRole('checkbox');
       await expect(shardingToggle).toBeChecked();
     });
 
@@ -400,7 +434,9 @@ test.describe.parallel('DB cluster wizard creation with sharding (PSMDB)', () =>
     await test.step('Back to Basic Info step', async () => {
       await page.getByTestId('edit-section-1').click();
 
-      const shardingToggle = page.getByTestId('switch-input-sharding').getByRole('checkbox');
+      const shardingToggle = page
+        .getByTestId('switch-input-sharding')
+        .getByRole('checkbox');
       await expect(shardingToggle).toBeChecked();
     });
   });

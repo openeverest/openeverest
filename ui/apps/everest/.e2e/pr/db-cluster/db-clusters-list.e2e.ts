@@ -14,21 +14,24 @@
 // limitations under the License.
 
 import { expect, test } from '@playwright/test';
-import {createDbClusterFn, deleteDbClusterFn, getDbClusterAPI} from '@e2e/utils/db-cluster';
+import {
+  createDbClusterFn,
+  deleteDbClusterFn,
+  getDbClusterAPI,
+} from '@e2e/utils/db-cluster';
 import { findDbAndClickActions } from '@e2e/utils/db-clusters-list';
-import {goToUrl, limitedSuffixedName} from "@e2e/utils/generic";
-import {EVEREST_CI_NAMESPACES, TIMEOUTS} from "@e2e/constants";
-import {getCITokenFromLocalStorage} from "@e2e/utils/localStorage";
+import { goToUrl, limitedSuffixedName } from '@e2e/utils/generic';
+import { EVEREST_CI_NAMESPACES, TIMEOUTS } from '@e2e/constants';
+import { getCITokenFromLocalStorage } from '@e2e/utils/localStorage';
 
 const testPrefix = 'pr-db-lst',
   namespace = EVEREST_CI_NAMESPACES.EVEREST_UI;
 let token: string;
 
 test.describe.parallel('DB clusters list', () => {
-
-  test.beforeAll(async ({ }) => {
+  test.beforeAll(async ({}) => {
     token = await getCITokenFromLocalStorage();
-    expect(token).not.toHaveLength(0)
+    expect(token).not.toHaveLength(0);
   });
 
   test.beforeEach(async ({ page }) => {
@@ -59,34 +62,45 @@ test.describe.parallel('DB clusters list', () => {
             dbClusterName,
             namespace,
             request,
-            token)
-          expect(dbCluster).toBeDefined()
+            token
+          );
+          expect(dbCluster).toBeDefined();
         }).toPass({
           intervals: [1000],
           timeout: TIMEOUTS.TenSeconds,
-        })
+        });
       });
 
       await test.step(`Delete DB cluster ${dbClusterName}`, async () => {
         await goToUrl(page, '/databases');
-        await expect(page.getByText(dbClusterName)).toBeVisible({timeout: TIMEOUTS.TenSeconds});
+        await expect(page.getByText(dbClusterName)).toBeVisible({
+          timeout: TIMEOUTS.TenSeconds,
+        });
 
         await findDbAndClickActions(page, dbClusterName, 'Delete');
 
         // Delete action
         await page.getByTestId(`${dbClusterName}-form-dialog`).waitFor();
-        await expect(page.getByTestId('irreversible-action-alert')).toBeVisible();
+        await expect(
+          page.getByTestId('irreversible-action-alert')
+        ).toBeVisible();
         const deleteConfirmationButton = page
           .getByRole('button')
-          .filter({hasText: 'Delete'});
+          .filter({ hasText: 'Delete' });
         await expect(deleteConfirmationButton).toBeDisabled();
         await page.getByTestId('text-input-confirm-input').fill(dbClusterName);
         await expect(deleteConfirmationButton).toBeEnabled();
 
-        const delResp = page.waitForResponse(resp =>
-          resp.request().method() === "DELETE" &&
-          resp.url().includes(`/v1/namespaces/${namespace}/database-clusters/${dbClusterName}`) &&
-          resp.status() === 204);
+        const delResp = page.waitForResponse(
+          (resp) =>
+            resp.request().method() === 'DELETE' &&
+            resp
+              .url()
+              .includes(
+                `/v1/namespaces/${namespace}/database-clusters/${dbClusterName}`
+              ) &&
+            resp.status() === 204
+        );
         await deleteConfirmationButton.click();
         await delResp;
       });

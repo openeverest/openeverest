@@ -69,7 +69,7 @@ export const getMonitoringInstance = async (
     }
   );
   expect(response.status() === 200).toBeTruthy();
-  return await response.json()
+  return await response.json();
 };
 
 export const deleteMonitoringInstance = async (
@@ -79,14 +79,14 @@ export const deleteMonitoringInstance = async (
   token: string
 ) => {
   const response = await request.delete(
-    `/v1/namespaces/${namespace}/monitoring-instances/${name}`,
-    {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    }
-  ),
-    code = response.status()
+      `/v1/namespaces/${namespace}/monitoring-instances/${name}`,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    ),
+    code = response.status();
   expect(code === 204 || response.status() === 404).toBeTruthy();
 };
 

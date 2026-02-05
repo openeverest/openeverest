@@ -23,7 +23,7 @@ import { DbType } from '@percona/types';
 import { execSync } from 'child_process';
 import { checkError } from '@e2e/utils/generic';
 import { getVersionServiceDBVersions } from '@e2e/utils/version-service';
-import {TIMEOUTS} from "@e2e/constants";
+import { TIMEOUTS } from '@e2e/constants';
 
 export const createDbClusterFn = async (
   request: APIRequestContext,
@@ -151,7 +151,7 @@ export const createDbClusterFn = async (
   }).toPass({
     intervals: [1000],
     timeout: TIMEOUTS.TenSeconds,
-  })
+  });
 };
 
 export const deleteDbClusterFn = async (
@@ -163,14 +163,14 @@ export const deleteDbClusterFn = async (
   const namespaces = await getNamespacesFn(token, request);
   const namespace = desiredNamespace ?? namespaces[0];
   const deleteResponse = await request.delete(
-    `/v1/namespaces/${namespace}/database-clusters/${clusterName}`,
-    {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    }
-  ),
-    code = deleteResponse.status()
+      `/v1/namespaces/${namespace}/database-clusters/${clusterName}`,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    ),
+    code = deleteResponse.status();
   expect(code === 204 || code === 404).toBeTruthy();
 };
 
@@ -204,7 +204,7 @@ export const getDbClusterAPI = async (
   );
   await checkError(response);
 
-  return (await response.json());
+  return await response.json();
 };
 
 export const updateDbClusterAPI = async (

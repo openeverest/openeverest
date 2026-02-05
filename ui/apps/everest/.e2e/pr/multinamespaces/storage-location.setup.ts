@@ -15,15 +15,15 @@
 
 import { test as setup } from '@playwright/test';
 import 'dotenv/config';
-import {createDbClusterFn} from "@e2e/utils/db-cluster";
-import {EVEREST_CI_NAMESPACES} from "@e2e/constants";
-import {waitForInitializingState} from "@e2e/utils/table";
+import { createDbClusterFn } from '@e2e/utils/db-cluster';
+import { EVEREST_CI_NAMESPACES } from '@e2e/constants';
+import { waitForInitializingState } from '@e2e/utils/table';
 
 const pgDbName = 'pr-mul-ns-db-pg';
 const pxcDbName = 'pr-mul-ns-db-pxc';
 
 setup.describe.parallel('Storage Locations setup', () => {
-  setup('Create PG cluster', async ({page, request}) => {
+  setup('Create PG cluster', async ({ page, request }) => {
     await createDbClusterFn(
       request,
       {
@@ -35,9 +35,9 @@ setup.describe.parallel('Storage Locations setup', () => {
     );
     await page.goto('/databases');
     await waitForInitializingState(page, pgDbName);
-  })
+  });
 
-  setup('Create PXC cluster', async ({request}) => {
+  setup('Create PXC cluster', async ({ request }) => {
     await createDbClusterFn(
       request,
       {

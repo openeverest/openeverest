@@ -13,31 +13,32 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import {test as setup} from "@playwright/test";
-import {createDbClusterFn} from "@e2e/utils/db-cluster";
-import {EVEREST_CI_NAMESPACES} from "@e2e/constants";
+import { test as setup } from '@playwright/test';
+import { createDbClusterFn } from '@e2e/utils/db-cluster';
+import { EVEREST_CI_NAMESPACES } from '@e2e/constants';
 
 const dbClusterName = 'pr-db-ovw';
 
 setup.describe.serial('DB Cluster Overview setup', () => {
-  setup(`Create ${dbClusterName} cluster`, async ({request}) => {
-    await createDbClusterFn(request,
+  setup(`Create ${dbClusterName} cluster`, async ({ request }) => {
+    await createDbClusterFn(
+      request,
       {
-      dbName: dbClusterName,
-      dbType: 'postgresql',
-      numberOfNodes: '1',
-      cpu: 1,
-      memory: 2,
-      proxyCpu: 0.5,
-      proxyMemory: 0.8,
-      externalAccess: true,
-      sourceRanges: [
-        {
-          sourceRange: 'http://192.168.1.1',
-        },
-      ],
-    },
-      EVEREST_CI_NAMESPACES.EVEREST_UI,
-      );
+        dbName: dbClusterName,
+        dbType: 'postgresql',
+        numberOfNodes: '1',
+        cpu: 1,
+        memory: 2,
+        proxyCpu: 0.5,
+        proxyMemory: 0.8,
+        externalAccess: true,
+        sourceRanges: [
+          {
+            sourceRange: 'http://192.168.1.1',
+          },
+        ],
+      },
+      EVEREST_CI_NAMESPACES.EVEREST_UI
+    );
   });
-})
+});

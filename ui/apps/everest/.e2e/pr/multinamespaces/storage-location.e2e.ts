@@ -27,7 +27,6 @@ const pgDbName = 'pr-mul-ns-db-pg';
 const pxcDbName = 'pr-mul-ns-db-pxc';
 
 test.describe.parallel('Namespaces: Backup Storage availability', () => {
-
   test.beforeEach(async ({ page }) => {
     await page.goto('/databases');
   });

@@ -31,12 +31,12 @@ export const deletePodSchedulingPolicy = async (
   name: string
 ) => {
   const response = await request.delete(`/v1/pod-scheduling-policies/${name}`, {
-    headers: {
-      Authorization: `Bearer ${await getCITokenFromLocalStorage()}`,
-    },
-  }),
-    code = response.status()
-  expect(code === 204 || code === 404).toBeTruthy()
+      headers: {
+        Authorization: `Bearer ${await getCITokenFromLocalStorage()}`,
+      },
+    }),
+    code = response.status();
+  expect(code === 204 || code === 404).toBeTruthy();
 };
 
 export const getDefaultPodSchedulingPolicyNameForDbType = (

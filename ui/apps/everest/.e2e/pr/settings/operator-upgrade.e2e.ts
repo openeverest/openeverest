@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { getCITokenFromLocalStorage } from '@e2e/utils/localStorage';
 import { getNamespacesFn } from '@e2e/utils/namespaces';
-import {goToUrl} from "@e2e/utils/generic";
+import { goToUrl } from '@e2e/utils/generic';
 
 const generateMockEngineData = ({
   pg,

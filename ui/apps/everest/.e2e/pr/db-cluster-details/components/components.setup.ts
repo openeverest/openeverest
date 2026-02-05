@@ -13,25 +13,27 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import {expect, test, test as setup} from "@playwright/test";
-import {createDbClusterFn, getDbClusterAPI} from "@e2e/utils/db-cluster";
-import {EVEREST_CI_NAMESPACES, TIMEOUTS} from "@e2e/constants";
-import {getCITokenFromLocalStorage} from "@e2e/utils/localStorage";
+import { expect, test, test as setup } from '@playwright/test';
+import { createDbClusterFn, getDbClusterAPI } from '@e2e/utils/db-cluster';
+import { EVEREST_CI_NAMESPACES, TIMEOUTS } from '@e2e/constants';
+import { getCITokenFromLocalStorage } from '@e2e/utils/localStorage';
 
 const namespace = EVEREST_CI_NAMESPACES.PG_ONLY,
   dbClusterName = 'pr-db-det-comp';
-let token:string;
+let token: string;
 
 setup.describe.serial('DB Cluster Overview setup', () => {
   test.describe.configure({ timeout: TIMEOUTS.FiveMinutes });
 
   setup(`Get token`, async ({}) => {
     token = await getCITokenFromLocalStorage();
-    expect(token).not.toHaveLength(0)
+    expect(token).not.toHaveLength(0);
   });
 
-  setup(`Create DB cluster`, async ({request}) => {
-    await createDbClusterFn(request, {
+  setup(`Create DB cluster`, async ({ request }) => {
+    await createDbClusterFn(
+      request,
+      {
         dbName: dbClusterName,
         dbType: 'postgresql',
         numberOfNodes: '3',
@@ -41,17 +43,18 @@ setup.describe.serial('DB Cluster Overview setup', () => {
     );
   });
 
-  setup(`Wait for DB cluster creation`, async ({request}) => {
+  setup(`Wait for DB cluster creation`, async ({ request }) => {
     await expect(async () => {
       const dbCluster = await getDbClusterAPI(
         dbClusterName,
         namespace,
         request,
-        token);
+        token
+      );
       expect(dbCluster.status.status === 'ready').toBeTruthy();
     }).toPass({
       intervals: [1000],
       timeout: TIMEOUTS.FiveMinutes,
-    })
+    });
   });
 });

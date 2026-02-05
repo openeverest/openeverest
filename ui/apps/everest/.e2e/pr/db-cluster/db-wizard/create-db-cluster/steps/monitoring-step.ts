@@ -15,18 +15,20 @@
 
 import { Page, expect } from '@playwright/test';
 import { testMonitoringName2 } from '@e2e/utils/monitoring-instance';
-import {TIMEOUTS} from "@e2e/constants";
+import { TIMEOUTS } from '@e2e/constants';
 
-export const monitoringStepCheck = async (
-  page: Page
-) => {
-  await page.waitForLoadState('load', {timeout: TIMEOUTS.ThirtySeconds})
+export const monitoringStepCheck = async (page: Page) => {
+  await page.waitForLoadState('load', { timeout: TIMEOUTS.ThirtySeconds });
 
-  await expect(page.getByTestId('step-header').getByText('Monitoring')).toBeVisible();
+  await expect(
+    page.getByTestId('step-header').getByText('Monitoring')
+  ).toBeVisible();
   await expect(
     page
       .getByTestId('step-description')
-      .getByText('Monitor the health of your database to detect issues quickly and improve its performance.')
+      .getByText(
+        'Monitor the health of your database to detect issues quickly and improve its performance.'
+      )
   ).toBeVisible();
 
   const enableMonitoringCheck = page
@@ -52,37 +54,27 @@ export const monitoringStepCheck = async (
   //   .click();
 
   // -------------- Page control buttons --------------
-  await expect(
-    page.getByTestId('db-wizard-previous-button')
-  ).toBeVisible();
+  await expect(page.getByTestId('db-wizard-previous-button')).toBeVisible();
   await expect(
     page.getByTestId('db-wizard-previous-button')
   ).not.toBeDisabled();
 
-  await expect(
-    page.getByTestId('db-wizard-submit-button')
-  ).toBeVisible();
-  await expect(
-    page.getByTestId('db-wizard-submit-button')
-  ).not.toBeDisabled();
+  await expect(page.getByTestId('db-wizard-submit-button')).toBeVisible();
+  await expect(page.getByTestId('db-wizard-submit-button')).not.toBeDisabled();
 
-  await expect(
-    page.getByTestId('db-wizard-cancel-button')
-  ).toBeVisible();
-  await expect(
-    page.getByTestId('db-wizard-cancel-button')
-  ).not.toBeDisabled();
+  await expect(page.getByTestId('db-wizard-cancel-button')).toBeVisible();
+  await expect(page.getByTestId('db-wizard-cancel-button')).not.toBeDisabled();
 
   // -------------- DB Summary --------------
-  await dbSummaryMonitoringCheck(page)
+  await dbSummaryMonitoringCheck(page);
 };
 
 export const dbSummaryMonitoringCheck = async (page: Page) => {
   // -------------- "Database Summary" section (right side) --------------
   // Check for "Monitoring" panel.
-  const monitoringInfo = page.getByTestId('section-monitoring')
+  const monitoringInfo = page.getByTestId('section-monitoring');
   await expect(monitoringInfo.getByText('5. Monitoring')).toBeVisible();
   // there may be several 'preview-content' elements in 'Monitoring' section
-  const previewContents = monitoringInfo.getByTestId('preview-content')
+  const previewContents = monitoringInfo.getByTestId('preview-content');
   expect(await previewContents.textContent()).toBe('Enabled');
 };

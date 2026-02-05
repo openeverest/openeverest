@@ -16,7 +16,7 @@
 import { test, expect } from '@playwright/test';
 import { getCITokenFromLocalStorage } from '@e2e/utils/localStorage';
 import { getNamespacesFn } from '@e2e/utils/namespaces';
-import {EVEREST_CI_NAMESPACES, TIMEOUTS} from '@e2e/constants';
+import { EVEREST_CI_NAMESPACES, TIMEOUTS } from '@e2e/constants';
 
 test.describe.parallel('Namespaces List', () => {
   let namespaces = [];
@@ -41,13 +41,15 @@ test.describe.parallel('Namespaces List', () => {
       await page
         .getByTestId('namespaces')
         .getByText(EVEREST_CI_NAMESPACES.EVEREST_UI)
-        .waitFor({timeout: TIMEOUTS.TenSeconds})
+        .waitFor({ timeout: TIMEOUTS.TenSeconds });
 
       const rows = page.locator('.MuiTableRow-root');
       expect(await rows.count()).toBe(5);
-      expect(await page.getByRole('row', {name: 'pxc'}).count()).toBe(2);
-      expect(await page.getByRole('row', {name: 'psmdb'}).count()).toBe(2);
-      expect(await page.getByRole('row', {name: 'postgresql'}).count()).toBe(2);
-    }).toPass({timeout: TIMEOUTS.TenSeconds})
+      expect(await page.getByRole('row', { name: 'pxc' }).count()).toBe(2);
+      expect(await page.getByRole('row', { name: 'psmdb' }).count()).toBe(2);
+      expect(await page.getByRole('row', { name: 'postgresql' }).count()).toBe(
+        2
+      );
+    }).toPass({ timeout: TIMEOUTS.TenSeconds });
   });
 });

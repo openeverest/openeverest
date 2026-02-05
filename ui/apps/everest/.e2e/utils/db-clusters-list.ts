@@ -16,7 +16,7 @@
 import { APIRequestContext, expect, Page } from '@playwright/test';
 import { findRowAndClickActions, waitForDbListLoad } from './table';
 import { checkError } from '@e2e/utils/generic';
-import {TIMEOUTS} from "@e2e/constants";
+import { TIMEOUTS } from '@e2e/constants';
 
 export const getDbClustersListAPI = async (
   namespace: string,
@@ -39,7 +39,7 @@ export const getDbClustersListAPI = async (
 export const findDbAndClickRow = async (page: Page, rowValue: string) => {
   const dbRow = page.getByRole('row').filter({ hasText: rowValue });
   await dbRow.click();
-  await page.waitForLoadState('load', {timeout: TIMEOUTS.ThirtySeconds})
+  await page.waitForLoadState('load', { timeout: TIMEOUTS.ThirtySeconds });
 };
 
 export const findDbAndClickActions = async (

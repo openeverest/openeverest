@@ -14,7 +14,7 @@
 // limitations under the License.
 
 import { expect, Locator, Page } from '@playwright/test';
-import {getBucketNamespacesMap, TIMEOUTS} from '@e2e/constants';
+import { getBucketNamespacesMap, TIMEOUTS } from '@e2e/constants';
 import { beautifyDbTypeName } from '@percona/utils';
 import { DbType } from '@percona/types';
 
@@ -199,7 +199,9 @@ export const fillScheduleModalForm = async (
 
 export const openCreateScheduleDialogFromDBWizard = async (page: Page) => {
   await page.getByTestId('create-schedule').click();
-  await page.getByTestId('new-scheduled-backup-form-dialog').waitFor({timeout: TIMEOUTS.TenSeconds})
+  await page
+    .getByTestId('new-scheduled-backup-form-dialog')
+    .waitFor({ timeout: TIMEOUTS.TenSeconds });
   await expect(
     page.getByTestId('new-scheduled-backup-form-dialog')
   ).toBeVisible();
@@ -246,6 +248,6 @@ export const selectDbEngine = async (
 
   await page.getByTestId(`add-db-cluster-button-${dbType}`).click();
 
-  await page.waitForURL('/databases/new')
-  await page.waitForLoadState('load', {timeout: TIMEOUTS.ThirtySeconds})
+  await page.waitForURL('/databases/new');
+  await page.waitForLoadState('load', { timeout: TIMEOUTS.ThirtySeconds });
 };

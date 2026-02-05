@@ -1,5 +1,5 @@
 import { Page, expect } from '@playwright/test';
-import {TIMEOUTS} from "@e2e/constants";
+import { TIMEOUTS } from '@e2e/constants';
 
 export const findRowAndClickActions = async (
   page: Page,
@@ -15,7 +15,7 @@ export const findRowAndClickActions = async (
 
   if (nameOfAction) {
     await page.getByRole('menuitem', { name: nameOfAction }).click();
-    await page.waitForLoadState('load', {timeout: TIMEOUTS.ThirtySeconds})
+    await page.waitForLoadState('load', { timeout: TIMEOUTS.ThirtySeconds });
   }
 };
 

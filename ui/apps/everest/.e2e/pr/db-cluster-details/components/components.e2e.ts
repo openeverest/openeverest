@@ -1,8 +1,8 @@
 import { findDbAndClickRow } from '@e2e/utils/db-clusters-list';
 import { expect, test } from '@playwright/test';
 import { DBClusterDetailsTabs } from '../../../../src/pages/db-cluster-details/db-cluster-details.types';
-import {goToUrl} from "@e2e/utils/generic";
-import {EVEREST_CI_NAMESPACES, TIMEOUTS} from "@e2e/constants";
+import { goToUrl } from '@e2e/utils/generic';
+import { EVEREST_CI_NAMESPACES, TIMEOUTS } from '@e2e/constants';
 
 const namespace = EVEREST_CI_NAMESPACES.PG_ONLY,
   dbClusterName = 'pr-db-det-comp';
@@ -24,15 +24,23 @@ test.describe.serial('Cluster components', async () => {
     }> = [];
 
     await test.step('Open DB cluster overview page', async () => {
-      await expect(page.getByText(dbClusterName)).toBeVisible({timeout: TIMEOUTS.TenSeconds});
+      await expect(page.getByText(dbClusterName)).toBeVisible({
+        timeout: TIMEOUTS.TenSeconds,
+      });
       await findDbAndClickRow(page, dbClusterName);
     });
 
     await test.step('Open Components tab', async () => {
-      const getResp = page.waitForResponse(resp =>
-        resp.request().method() === "GET" &&
-        resp.url().includes(`/v1/namespaces/${namespace}/database-clusters/${dbClusterName}/components`) &&
-        resp.status() === 200);
+      const getResp = page.waitForResponse(
+        (resp) =>
+          resp.request().method() === 'GET' &&
+          resp
+            .url()
+            .includes(
+              `/v1/namespaces/${namespace}/database-clusters/${dbClusterName}/components`
+            ) &&
+          resp.status() === 200
+      );
 
       await page.getByTestId(DBClusterDetailsTabs.components).click();
       await getResp;
@@ -67,7 +75,7 @@ test.describe.serial('Cluster components', async () => {
         // We just read static data, as the other data might change while we check things around
         const name = await component.locator('td').nth(2).innerText();
         const type = await component.locator('td').nth(3).innerText();
-        componentsList.push({name, type, containers: []});
+        componentsList.push({ name, type, containers: [] });
       }
 
       for (const [index, container] of allContainers.entries()) {
@@ -79,7 +87,7 @@ test.describe.serial('Cluster components', async () => {
 
           for (const innerTableRow of innerTableRows) {
             const name = await innerTableRow.locator('td').nth(2).innerText();
-            componentsList[index].containers.push({name});
+            componentsList[index].containers.push({ name });
           }
         }
       }
@@ -95,7 +103,7 @@ test.describe.serial('Cluster components', async () => {
       await expect(page.getByTitle('zoom in')).toBeVisible();
 
       for (const component of componentsList) {
-        const {name, type, containers} = component;
+        const { name, type, containers } = component;
         const correspondingNode = page.getByTestId(
           new RegExp(`component-node-${name}(-selected)?`)
         );
@@ -125,7 +133,7 @@ test.describe.serial('Cluster components', async () => {
           expect(correspondingContainers.length).toBe(containers.length);
 
           for (const container of containers) {
-            const {name} = container;
+            const { name } = container;
             const correspondingContainer = page.getByTestId(
               `container-node-${name}`
             );

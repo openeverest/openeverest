@@ -21,14 +21,14 @@ import { selectDbEngine } from '../db-cluster/db-wizard/db-wizard-utils';
 import { getCITokenFromLocalStorage } from '@e2e/utils/localStorage';
 
 test.describe.serial('Namespaces: Monitoring availability', () => {
-  let token:string;
+  let token: string;
 
-  test.beforeAll(async ({ }) => {
+  test.beforeAll(async ({}) => {
     token = await getCITokenFromLocalStorage();
   });
 
   test('Monitoring autocomplete in DB Wizard has only endpoints in selected namespace', async ({
-    page
+    page,
   }) => {
     await page.goto('/databases');
     await selectDbEngine(page, 'pxc');

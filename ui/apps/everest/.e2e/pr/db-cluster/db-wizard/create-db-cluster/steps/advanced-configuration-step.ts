@@ -14,11 +14,11 @@
 // limitations under the License.
 
 import { Page, expect } from '@playwright/test';
-import {TIMEOUTS} from "@e2e/constants";
+import { TIMEOUTS } from '@e2e/constants';
 // import {SOURCE_RANGE_PLACEHOLDER} from "../../../../../constants";
 
 export const advancedConfigurationStepCheckForPG = async (page: Page) => {
-  await page.waitForLoadState('load', {timeout: TIMEOUTS.ThirtySeconds})
+  await page.waitForLoadState('load', { timeout: TIMEOUTS.ThirtySeconds });
   await expect(
     page.getByTestId('step-header').getByText('Advanced Configurations')
   ).toBeVisible();
@@ -54,46 +54,50 @@ export const advancedConfigurationStepCheckForPG = async (page: Page) => {
   //   .fill('max_allowed_packet: 128M');
 
   // -------------- Page control buttons --------------
-  await expect(
-    page.getByTestId('db-wizard-previous-button')
-  ).toBeVisible();
+  await expect(page.getByTestId('db-wizard-previous-button')).toBeVisible();
   await expect(
     page.getByTestId('db-wizard-previous-button')
   ).not.toBeDisabled();
 
-  await expect(
-    page.getByTestId('db-wizard-continue-button')
-  ).toBeVisible();
+  await expect(page.getByTestId('db-wizard-continue-button')).toBeVisible();
   await expect(
     page.getByTestId('db-wizard-continue-button')
   ).not.toBeDisabled();
 
-  await expect(
-    page.getByTestId('db-wizard-cancel-button')
-  ).toBeVisible();
-  await expect(
-    page.getByTestId('db-wizard-cancel-button')
-  ).not.toBeDisabled();
+  await expect(page.getByTestId('db-wizard-cancel-button')).toBeVisible();
+  await expect(page.getByTestId('db-wizard-cancel-button')).not.toBeDisabled();
 
   // -------------- DB Summary --------------
   await dbSummaryAdvancedConfigurationCheckForPG(page);
 };
 
-export const advancedConfigurationSelectFirstStorageClass = async (page: Page) => {
-  const storageClass = page.getByTestId('text-input-storage-class')
-  await storageClass.waitFor({timeout: TIMEOUTS.TenSeconds})
+export const advancedConfigurationSelectFirstStorageClass = async (
+  page: Page
+) => {
+  const storageClass = page.getByTestId('text-input-storage-class');
+  await storageClass.waitFor({ timeout: TIMEOUTS.TenSeconds });
   await storageClass.click();
   await page.getByRole('option').first().click();
-}
+};
 
 export const dbSummaryAdvancedConfigurationCheckForPG = async (page: Page) => {
   // -------------- "Database Summary" section (right side) --------------
   // Check for "Advanced Configurations" panel.
-  const advConfigInfo = page.getByTestId('section-advanced-configurations')
-  await expect(advConfigInfo.getByText('4. Advanced Configurations')).toBeVisible();
+  const advConfigInfo = page.getByTestId('section-advanced-configurations');
+  await expect(
+    advConfigInfo.getByText('4. Advanced Configurations')
+  ).toBeVisible();
   // there are several 'preview-content' elements in 'Advanced Configurations' section
-  const previewContents = advConfigInfo.getByTestId('preview-content')
-  await expect(previewContents.getByText('Storage class: local-path')).toBeVisible();
-  await expect(previewContents.getByText('Ext. access: disabled')).toBeVisible();
-  await expect(previewContents.getByText('Pod scheduling policy: everest-default-postgresql')).toBeVisible();
+  const previewContents = advConfigInfo.getByTestId('preview-content');
+  await expect(
+    previewContents.getByText('Storage class: local-path')
+  ).toBeVisible();
+  await expect(
+    previewContents.getByText('Ext. access: disabled')
+  ).toBeVisible();
+  await expect(
+    previewContents.getByText(
+      'Pod scheduling policy: everest-default-postgresql'
+    )
+  ).toBeVisible();
 };

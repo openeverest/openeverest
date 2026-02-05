@@ -13,14 +13,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import {test as teardown} from "@playwright/test";
-import {deleteDbClusterFn} from "@e2e/utils/db-cluster";
-import {EVEREST_CI_NAMESPACES} from "@e2e/constants";
+import { test as teardown } from '@playwright/test';
+import { deleteDbClusterFn } from '@e2e/utils/db-cluster';
+import { EVEREST_CI_NAMESPACES } from '@e2e/constants';
 
 const dbClusterName = 'pr-db-det-comp';
 
 teardown.describe.serial('DB Cluster Overview teardown', () => {
-  teardown(`Delete DB cluster`, async ({request}) => {
-    await deleteDbClusterFn(request, dbClusterName, EVEREST_CI_NAMESPACES.PG_ONLY);
+  teardown(`Delete DB cluster`, async ({ request }) => {
+    await deleteDbClusterFn(
+      request,
+      dbClusterName,
+      EVEREST_CI_NAMESPACES.PG_ONLY
+    );
   });
 });

@@ -1,6 +1,6 @@
 import { fileURLToPath } from 'url';
 import path from 'path';
-import {limitedSuffixedName} from "@e2e/utils/generic";
+import { limitedSuffixedName } from '@e2e/utils/generic';
 
 const {
   EVEREST_BUCKETS_NAMESPACES_MAP,

@@ -204,9 +204,7 @@ export default defineConfig({
       name: 'pr:db-cluster:db-wizard:errors',
       testDir: './pr/db-cluster/db-wizard/create-db-cluster',
       testMatch: /errors-handling\.e2e\.ts/,
-      dependencies: [
-        'global:backup-storage:setup',
-      ],
+      dependencies: ['global:backup-storage:setup'],
       use: {
         storageState: CI_USER_STORAGE_STATE_FILE,
       },
@@ -216,9 +214,7 @@ export default defineConfig({
       name: 'pr:db-cluster:db-wizard:create:sharding:psmdb',
       testDir: './pr/db-cluster/db-wizard/create-db-cluster',
       testMatch: /sharding\.e2e\.ts/,
-      dependencies: [
-        'global:auth:ci:setup',
-      ],
+      dependencies: ['global:auth:ci:setup'],
       use: {
         storageState: CI_USER_STORAGE_STATE_FILE,
       },
@@ -352,9 +348,7 @@ export default defineConfig({
     {
       name: 'pr:rbac',
       testDir: './pr/rbac',
-      dependencies: [
-        'pr:rbac:backups',
-      ],
+      dependencies: ['pr:rbac:backups'],
     },
     // pr:rbac:backups tests
     {
@@ -433,9 +427,7 @@ export default defineConfig({
     // release project
     {
       name: 'release',
-      dependencies: [
-        'release:session',
-      ],
+      dependencies: ['release:session'],
     },
     // release:session:session project
     {

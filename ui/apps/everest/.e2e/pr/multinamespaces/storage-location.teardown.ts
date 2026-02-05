@@ -15,8 +15,8 @@
 
 import { test as teardown } from '@playwright/test';
 import 'dotenv/config';
-import {deleteDbClusterFn} from "@e2e/utils/db-cluster";
-import {EVEREST_CI_NAMESPACES} from "@e2e/constants";
+import { deleteDbClusterFn } from '@e2e/utils/db-cluster';
+import { EVEREST_CI_NAMESPACES } from '@e2e/constants';
 
 const pgDbName = 'pr-mul-ns-db-pg';
 const pxcDbName = 'pr-mul-ns-db-pxc';
