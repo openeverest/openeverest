@@ -35,7 +35,7 @@ HELM=go tool -modfile=$(REPO_ROOT)/go.mod helm
 deploy-monitoring:     ## Deploy monitoring instances to K3D test cluster.
 	$(info Deploying PMM instances to K3D test cluster)
 	$(HELM) repo add percona https://percona.github.io/percona-helm-charts/
-	$(HELM) install pmm --set secret.pmm_password='admin',service.type=ClusterIP percona/pmm --version $(PMM_HELM_CHART_VER) --timeout 2m --wait
+	$(HELM) install pmm --set secret.pmm_password='admin',service.type=ClusterIP percona/pmm --version $(PMM_HELM_CHART_VER) --timeout 10m --wait
 
 #.PHONY: port-forward-monitoring
 #port-forward-monitoring:
@@ -110,9 +110,10 @@ k3d-upload-images: k3d-upload-pg-images k3d-upload-psmdb-images k3d-upload-pxc-i
 
 # Set a particular test, e.g. make test PROJECT=pr,release:session
 PROJECT = pr
-FLAGS =
+# FLAGS =
 .PHONY: test
-test:               ## Run all tests.
+## Run all tests.
+test:              
 	@{ \
   	set -xe ;\
 	RAND=$$(echo $${RANDOM} | md5sum | head -c 5 ) ;\

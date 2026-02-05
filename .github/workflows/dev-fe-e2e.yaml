@@ -45,6 +45,20 @@ jobs:
         shell: bash
         run: |
           make k3d-cluster-up
+      
+      # Setup Node
+      - name: Use Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20.x
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.4.0
 
       - name: Build Everest UI
         shell: bash
@@ -86,18 +100,6 @@ jobs:
         timeout-minutes: 10
         run: |
           make deploy
-
-      # Setup Node
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 9.4.0
-
-      - name: Use Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20.x
-          cache: "pnpm"
-          cache-dependency-path: ui/pnpm-lock.yaml
 
       - name: Init testing (CI) environment
         shell: bash

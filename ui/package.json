@@ -4,6 +4,7 @@
   "keywords": [],
   "author": "",
   "license": "MIT",
+  "packageManager": "pnpm@9.4.0",
   "devDependencies": {
     "turbo": "^1.10.16",
     "typescript": "^5.2.2"
