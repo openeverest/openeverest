@@ -128,12 +128,6 @@ release-cli: ## Build Everest CLI release versions for different OS and ARCH. (U
 	GOOS=darwin GOARCH=arm64 go build -v -ldflags "$(CLI_LD_FLAGS)" -o ./dist/everestctl-darwin-arm64 ./cmd/cli
 	GOOS=windows GOARCH=amd64 go build -v -ldflags "$(CLI_LD_FLAGS)" -o ./dist/everestctl.exe ./cmd/cli
 
-.PHONY: build-ui
-build-ui:
-	$(info Building Everest UI)
-	$(MAKE) -C ${TEST_ROOT}/ui init
-	$(MAKE) -C ${TEST_ROOT}/ui build EVEREST_OUT_DIR=${TEST_ROOT}/public/dist
-
 .PHONY: docker-build
 docker-build: ## Build docker image with Everest API server.
 	docker build -t ${IMG} .
