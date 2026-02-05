@@ -23,6 +23,7 @@ import {
   getDbClustersListAPI,
 } from '@e2e/utils/db-clusters-list';
 import { queryTestDB } from '@e2e/utils/db-cmd-line';
+import { getK8sObjectsNamespaceYaml } from '@e2e/utils/kubernetes';
 
 let namespace: string;
 let token: string;
@@ -78,21 +79,23 @@ test.describe('Post upgrade tests', { tag: '@post-upgrade' }, async () => {
         page,
         mongoDBCluster.name,
         'Up',
-        TIMEOUTS.ThirtySeconds
+        TIMEOUTS.FiveSeconds
       );
       await waitForStatus(
         page,
         postgresDBCluster.name,
         'Up',
-        TIMEOUTS.ThirtySeconds
+        TIMEOUTS.FiveSeconds
       );
-      await waitForStatus(
-        page,
-        pxcDBCluster.name,
-        'Up',
-        TIMEOUTS.ThirtySeconds
-      );
+      await waitForStatus(page, pxcDBCluster.name, 'Up', TIMEOUTS.FiveSeconds);
     });
+  });
+
+  test('Collect info about k8s objects after Everest upgrade', async () => {
+    await getK8sObjectsNamespaceYaml(
+      EVEREST_CI_NAMESPACES.EVEREST_UI,
+      '2-everest-upgrade'
+    );
   });
 
   test('Verify operators upgrade', async ({ page }) => {
@@ -159,7 +162,7 @@ test.describe('Post upgrade tests', { tag: '@post-upgrade' }, async () => {
           page,
           `${operator.shortName}-db-cluster`,
           'Up',
-          TIMEOUTS.ThirtySeconds
+          TIMEOUTS.FiveSeconds
         );
 
         await page
@@ -192,6 +195,13 @@ test.describe('Post upgrade tests', { tag: '@post-upgrade' }, async () => {
         );
       });
     }
+  });
+
+  test('Collect info about k8s objects after operators upgrade', async () => {
+    await getK8sObjectsNamespaceYaml(
+      EVEREST_CI_NAMESPACES.EVEREST_UI,
+      '3-operators-upgrade'
+    );
   });
 
   test('Verify databases upgrade', async ({ page, request }) => {

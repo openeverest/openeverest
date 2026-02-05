@@ -3,7 +3,7 @@ package validation
 import (
 	"context"
 
-	everestv1alpha1 "github.com/percona/everest-operator/api/v1alpha1"
+	everestv1alpha1 "github.com/percona/everest-operator/api/everest/v1alpha1"
 )
 
 // ListDataImporters returns a list of DataImporters that support the specified engines.

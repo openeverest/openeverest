@@ -150,7 +150,6 @@ export const CreateDbButton = ({
           anchorEl={anchorEl}
           open={open}
           onClose={closeMenu}
-          onClick={closeMenu}
           MenuListProps={{
             'aria-labelledby': 'basic-button',
             sx: { width: anchorEl && anchorEl.offsetWidth },
@@ -161,11 +160,11 @@ export const CreateDbButton = ({
               {createFromImport && (
                 <>
                   <MenuItem
+                    disableTouchRipple
                     sx={{
-                      cursor: 'text',
-                      userSelect: 'text',
+                      pointerEvents: 'none',
+                      cursor: 'default',
                     }}
-                    onClick={(e) => e.stopPropagation()}
                   >
                     <Typography
                       sx={{ fontSize: '14px !important' }}

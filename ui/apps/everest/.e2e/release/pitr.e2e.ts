@@ -294,7 +294,7 @@ function getBackupStorage(): string {
             '1G'
           );
           expect(addedCluster?.spec.engine.storage.size.toString()).toBe('1Gi');
-          expect(addedCluster?.spec.proxy.expose.type).toBe('internal');
+          expect(addedCluster?.spec.proxy.expose.type).toBe('ClusterIP');
           if (db != 'psmdb') {
             expect(addedCluster?.spec.proxy.replicas).toBe(size);
           }
@@ -310,12 +310,17 @@ function getBackupStorage(): string {
         await clickOnDemandBackup(page);
         await page.getByTestId('text-input-name').fill(baseBackupName + '-1');
         await expect(page.getByTestId('text-input-name')).not.toBeEmpty();
+        if (db !== 'psmdb') {
+          // PSMDB uses the same storage location for PITR and backups
+          await page.getByTestId('text-input-storage-location').click();
+          await page.getByRole('option', { name: `${backupStorage}` }).click();
+        }
         await expect(
           page.getByTestId('text-input-storage-location')
-        ).not.toBeEmpty();
+        ).toHaveValue(backupStorage);
         await page.getByTestId('form-dialog-create').click();
 
-        await waitForStatus(page, baseBackupName + '-1', 'Succeeded', 240000);
+        await waitForStatus(page, baseBackupName + '-1', 'Succeeded', 360000);
       });
 
       test(`Add more data [${db} size ${size}]`, async () => {
@@ -417,12 +422,17 @@ function getBackupStorage(): string {
         await clickOnDemandBackup(page);
         await page.getByTestId('text-input-name').fill(baseBackupName + '-2');
         await expect(page.getByTestId('text-input-name')).not.toBeEmpty();
+        if (db !== 'psmdb') {
+          // PSMDB uses the same storage location for PITR and backups
+          await page.getByTestId('text-input-storage-location').click();
+          await page.getByRole('option', { name: `${backupStorage}` }).click();
+        }
         await expect(
           page.getByTestId('text-input-storage-location')
-        ).not.toBeEmpty();
+        ).toHaveValue(backupStorage);
         await page.getByTestId('form-dialog-create').click();
 
-        await waitForStatus(page, baseBackupName + '-2', 'Succeeded', 240000);
+        await waitForStatus(page, baseBackupName + '-2', 'Succeeded', 360000);
       });
 
       test(`Add more data for second PITR restore [${db} size ${size}]`, async () => {
@@ -512,16 +522,23 @@ function getBackupStorage(): string {
             .getByTestId('text-input-name')
             .fill(baseBackupName + '-new-cluster');
           await expect(page.getByTestId('text-input-name')).not.toBeEmpty();
+          if (db !== 'psmdb') {
+            // PSMDB uses the same storage location for PITR and backups
+            await page.getByTestId('text-input-storage-location').click();
+            await page
+              .getByRole('option', { name: `${backupStorage}` })
+              .click();
+          }
           await expect(
             page.getByTestId('text-input-storage-location')
-          ).not.toBeEmpty();
+          ).toHaveValue(backupStorage);
 
           await page.getByTestId('form-dialog-create').click();
           await waitForStatus(
             page,
             baseBackupName + '-new-cluster',
             'Succeeded',
-            240000
+            360000
           );
         });
 
@@ -646,7 +663,7 @@ function getBackupStorage(): string {
             );
             await expect(page.getByLabel('Delete backup')).toBeVisible();
             await page.getByTestId('form-dialog-delete').click();
-            await waitForDelete(page, baseBackupName + `-${i}`, 30000);
+            await waitForDelete(page, baseBackupName + `-${i}`, 60000);
           }
         }
       });

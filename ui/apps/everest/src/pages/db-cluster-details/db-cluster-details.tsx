@@ -41,6 +41,10 @@ const WithPermissionDetails = ({
     },
   ]);
 
+  const tabs = Object.keys(DBClusterDetailsTabs) as Array<
+    keyof typeof DBClusterDetailsTabs
+  >;
+
   return (
     <>
       <Box sx={{ width: '100%' }}>
@@ -92,7 +96,7 @@ const WithPermissionDetails = ({
             allowScrollButtonsMobile
             aria-label="nav tabs"
           >
-            {Object.keys(DBClusterDetailsTabs).map((item) => (
+            {tabs.map((item) => (
               <Tab
                 // @ts-ignore
                 label={Messages[item]}

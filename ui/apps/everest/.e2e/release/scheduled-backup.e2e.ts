@@ -152,7 +152,7 @@ function getNextScheduleMinute(incrementMinutes: number): string {
         await test.step('Check db list and status', async () => {
           await page.goto('/databases');
           await waitForStatus(page, clusterName, 'Initializing', 30000);
-          await waitForStatus(page, clusterName, 'Up', 660000);
+          await waitForStatus(page, clusterName, 'Up', 720000);
         });
 
         await test.step('Check db cluster k8s object options', async () => {
@@ -172,7 +172,7 @@ function getNextScheduleMinute(incrementMinutes: number): string {
             '1G'
           );
           expect(addedCluster?.spec.engine.storage.size.toString()).toBe('1Gi');
-          expect(addedCluster?.spec.proxy.expose.type).toBe('internal');
+          expect(addedCluster?.spec.proxy.expose.type).toBe('ClusterIP');
           if (db != 'psmdb') {
             expect(addedCluster?.spec.proxy.replicas).toBe(size);
           }

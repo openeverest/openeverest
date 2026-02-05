@@ -52,7 +52,7 @@ const LoadBalancerConfigurationList = () => {
           queryKey: ['load-balancer-configs'],
         });
         navigate(
-          `/settings/policies/load-balancer-configuration/${data.name}`,
+          `/settings/policies/details/load-balancer-configuration/${data.name}`,
           {
             state: {
               creation: true,
@@ -109,7 +109,7 @@ const LoadBalancerConfigurationList = () => {
         enableRowHoverAction
         rowHoverAction={(row) =>
           navigate(
-            `/settings/policies/load-balancer-configuration/${row.original.metadata?.name}`
+            `/settings/policies/details/load-balancer-configuration/${row.original.metadata?.name}`
           )
         }
         renderTopToolbarCustomActions={() =>

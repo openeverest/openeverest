@@ -16,7 +16,8 @@ import (
 	"k8s.io/client-go/rest"
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 
-	everestv1alpha1 "github.com/percona/everest-operator/api/v1alpha1"
+	enginefeaturesv1alpha1 "github.com/percona/everest-operator/api/enginefeatures.everest/v1alpha1"
+	everestv1alpha1 "github.com/percona/everest-operator/api/everest/v1alpha1"
 	"github.com/percona/everest/pkg/accounts"
 	"github.com/percona/everest/pkg/common"
 )
@@ -245,6 +246,16 @@ type KubernetesConnector interface {
 	// ListStorageClasses returns list of storage classes that match the criteria.
 	// This method returns a list of full objects (meta and spec).
 	ListStorageClasses(ctx context.Context, opts ...ctrlclient.ListOption) (*storagev1.StorageClassList, error)
+	// CreateSplitHorizonDNSConfig creates a SplitHorizonDNSConfig resource in Kubernetes.
+	CreateSplitHorizonDNSConfig(ctx context.Context, shdc *enginefeaturesv1alpha1.SplitHorizonDNSConfig) (*enginefeaturesv1alpha1.SplitHorizonDNSConfig, error)
+	// UpdateSplitHorizonDNSConfig updates an existing SplitHorizonDNSConfig resource in Kubernetes.
+	UpdateSplitHorizonDNSConfig(ctx context.Context, shdc *enginefeaturesv1alpha1.SplitHorizonDNSConfig) (*enginefeaturesv1alpha1.SplitHorizonDNSConfig, error)
+	// ListSplitHorizonDNSConfigs lists all SplitHorizonDNSConfig resources in Kubernetes that match the provided options.
+	ListSplitHorizonDNSConfigs(ctx context.Context, opts ...ctrlclient.ListOption) (*enginefeaturesv1alpha1.SplitHorizonDNSConfigList, error)
+	// DeleteSplitHorizonDNSConfig deletes a SplitHorizonDNSConfig resource in Kubernetes.
+	DeleteSplitHorizonDNSConfig(ctx context.Context, shdc *enginefeaturesv1alpha1.SplitHorizonDNSConfig) error
+	// GetSplitHorizonDNSConfig retrieves a SplitHorizonDNSConfig resource from Kubernetes by its namespaced name.
+	GetSplitHorizonDNSConfig(ctx context.Context, key ctrlclient.ObjectKey) (*enginefeaturesv1alpha1.SplitHorizonDNSConfig, error)
 	// GetSubscription returns OLM subscription that matches the criteria.
 	GetSubscription(ctx context.Context, key ctrlclient.ObjectKey) (*olmv1alpha1.Subscription, error)
 	// ListSubscriptions lists OLM subscriptions that match the criteria.

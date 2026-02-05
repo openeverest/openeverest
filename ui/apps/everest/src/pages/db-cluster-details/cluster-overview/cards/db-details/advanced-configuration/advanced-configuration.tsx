@@ -29,6 +29,10 @@ import {
 import { Link } from 'react-router-dom';
 import { useRBACPermissions } from 'hooks/rbac';
 import { EMPTY_LOAD_BALANCER_CONFIGURATION } from 'consts';
+import { Alert, IconButton, Typography } from '@mui/material';
+import VisibilityOutlinedIcon from '@mui/icons-material/VisibilityOutlined';
+import SplitHorizonDomainsTable from './split-horizon-domains-table';
+import { ConfirmDialog } from 'components/confirm-dialog/confirm-dialog';
 
 export const AdvancedConfiguration = ({
   loading,
@@ -37,6 +41,8 @@ export const AdvancedConfiguration = ({
   storageClass,
   podSchedulingPolicy,
   loadBalancerConfig,
+  splitHorizonDNS,
+  splitHorizonDomains,
 }: AdvancedConfigurationOverviewCardProps) => {
   const {
     canUpdateDb,
@@ -44,6 +50,8 @@ export const AdvancedConfiguration = ({
     queryResult: { refetch },
   } = useContext(DbClusterContext);
   const [openEditModal, setOpenEditModal] = useState(false);
+  const [showSplitHorizonDomainsTable, setShowSplitHorizonDomainsTable] =
+    useState(false);
   const [updating, setUpdating] = useState(false);
   const { canRead: canReadPolicy } = useRBACPermissions(
     'pod-scheduling-policies',
@@ -75,6 +83,7 @@ export const AdvancedConfiguration = ({
     podSchedulingPolicy,
     exposureMethod,
     loadBalancerConfigName,
+    splitHorizonDNS,
   }: AdvancedConfigurationFormType) => {
     setUpdating(true);
     updateCluster(
@@ -86,7 +95,8 @@ export const AdvancedConfiguration = ({
         sourceRanges,
         podSchedulingPolicyEnabled,
         podSchedulingPolicy,
-        loadBalancerConfigName
+        loadBalancerConfigName,
+        splitHorizonDNS
       )
     );
   };
@@ -132,7 +142,7 @@ export const AdvancedConfiguration = ({
           podSchedulingPolicy ? (
             canReadPolicy ? (
               <Link
-                to={`/settings/policies/pod-scheduling/${podSchedulingPolicy}`}
+                to={`/settings/policies/details/pod-scheduling/${podSchedulingPolicy}`}
               >
                 {podSchedulingPolicy}
               </Link>
@@ -151,7 +161,7 @@ export const AdvancedConfiguration = ({
             canReadPolicy &&
             loadBalancerConfig !== EMPTY_LOAD_BALANCER_CONFIGURATION ? (
               <Link
-                to={`/settings/policies/load-balancer-configuration/${loadBalancerConfig}`}
+                to={`/settings/policies/details/load-balancer-configuration/${loadBalancerConfig}`}
               >
                 {loadBalancerConfig}
               </Link>
@@ -163,6 +173,17 @@ export const AdvancedConfiguration = ({
           )
         }
       />
+      <OverviewSectionRow
+        label={Messages.fields.splitHorizonDNS}
+        content={
+          <Typography variant="body2">
+            {splitHorizonDNS || Messages.fields.disabled}
+            <IconButton onClick={() => setShowSplitHorizonDomainsTable(true)}>
+              <VisibilityOutlinedIcon color="primary" fontSize="small" />
+            </IconButton>
+          </Typography>
+        }
+      />
       {openEditModal && dbCluster && (
         <AdvancedConfigurationEditModal
           open={openEditModal}
@@ -171,6 +192,25 @@ export const AdvancedConfiguration = ({
           dbCluster={dbCluster}
           submitting={updating}
         />
+      )}
+      {showSplitHorizonDomainsTable && (
+        <ConfirmDialog
+          selectedId="split-horizon-domains"
+          closeModal={() => setShowSplitHorizonDomainsTable(false)}
+          handleConfirm={() => setShowSplitHorizonDomainsTable(false)}
+          submitMessage="Close"
+          headerMessage="Domains"
+          fullWidth
+          maxWidth="lg"
+          open
+        >
+          <Alert severity="info" sx={{ mb: 2 }}>
+            <Typography variant="body2">
+              It might take several minutes for public IPs to be updated.
+            </Typography>
+          </Alert>
+          <SplitHorizonDomainsTable domains={splitHorizonDomains || []} />
+        </ConfirmDialog>
       )}
     </OverviewSection>
   );

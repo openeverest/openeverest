@@ -1,5 +1,5 @@
 # This image is used to run Everest Helm chart hooks.
-FROM alpine:3.20
+FROM alpine:3.22
 ARG TARGETOS
 ARG TARGETARCH
 

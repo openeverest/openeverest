@@ -9,7 +9,7 @@ apiVersion: everest.percona.com/v1alpha1
 kind: BackupStorage
 spec:
   endpointURL: https://minio.minio.svc.cluster.local
-  forcePathStyle: false
+  forcePathStyle: true
   region: us-east-1
   type: s3
   verifyTLS: false

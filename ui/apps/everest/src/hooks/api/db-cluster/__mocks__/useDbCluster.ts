@@ -45,7 +45,7 @@ export const useDbCluster = () => ({
         },
         proxy: {
           expose: {
-            type: ProxyExposeType.internal,
+            type: ProxyExposeType.ClusterIP,
           },
           replicas: 1,
         },

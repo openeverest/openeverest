@@ -13,6 +13,7 @@ export const RESTORE_STATUS_TO_BASE_STATUS: Record<
   [PXC_STATUS.STOPPING]: 'pending',
   [PXC_STATUS.RESTORING]: 'pending',
   [PXC_STATUS.STARTING_CLUSTER]: 'pending',
+  [PXC_STATUS.PREPARING_CLUSTER]: 'pending',
   [PXC_STATUS.PITR_RECOVERING]: 'pending',
   Failed: 'error',
   Succeeded: 'success',

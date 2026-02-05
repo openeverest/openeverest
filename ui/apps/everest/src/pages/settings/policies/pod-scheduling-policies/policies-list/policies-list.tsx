@@ -24,7 +24,6 @@ import {
   EVEREST_POLICY_IN_USE_FINALIZER,
   EVEREST_READ_ONLY_FINALIZER,
 } from 'consts';
-import BackTo from '../../shared/back-to';
 
 const PoliciesList = () => {
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -94,7 +93,6 @@ const PoliciesList = () => {
 
   return (
     <>
-      <BackTo to="/settings/policies" prevPage="all policies" />
       <Typography variant="body2" py={2}>
         Manage database pod scheduling across your Kubernetes cluster with
         custom policies for optimal placement and resource efficiency.
@@ -119,7 +117,7 @@ const PoliciesList = () => {
         enableRowHoverAction
         rowHoverAction={(row) =>
           navigate(
-            `/settings/policies/pod-scheduling/${row.original.metadata.name}`
+            `/settings/policies/details/pod-scheduling/${row.original.metadata.name}`
           )
         }
         renderTopToolbarCustomActions={() =>

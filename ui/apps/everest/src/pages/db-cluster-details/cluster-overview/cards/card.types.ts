@@ -14,7 +14,7 @@
 // limitations under the License.
 
 import { DbType } from '@percona/types';
-import { DbCluster } from 'shared-types/dbCluster.types';
+import { DbCluster, ProxyExposeType } from 'shared-types/dbCluster.types';
 
 export type OverviewCardProps = {
   loading?: boolean;
@@ -35,9 +35,11 @@ export type ConnectionDetailsOverviewCardProps = {
   username: string;
   password: string;
   connectionUrl: string;
+  splitHorizonUrl?: string;
   clusterName?: string;
   clusterNamespace?: string;
   type: DbType;
+  exposeType?: ProxyExposeType;
 } & OverviewCardProps;
 
 export type AdvancedConfigurationOverviewCardProps = {
@@ -46,6 +48,12 @@ export type AdvancedConfigurationOverviewCardProps = {
   storageClass: string;
   podSchedulingPolicy?: string;
   loadBalancerConfig?: string;
+  splitHorizonDNS?: string;
+  splitHorizonDomains?: {
+    domain?: string;
+    privateIP?: string;
+    publicIP?: string;
+  }[];
 } & OverviewCardProps;
 
 export type MonitoringConfigurationOverviewCardProps = {

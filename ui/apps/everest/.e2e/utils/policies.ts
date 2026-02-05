@@ -1,7 +1,8 @@
 import { APIRequestContext, expect, Page } from '@playwright/test';
 import { getCITokenFromLocalStorage } from './localStorage';
 
-export const POD_SCHEDULING_POLICIES_URL = '/settings/policies/pod-scheduling';
+export const POD_SCHEDULING_POLICIES_URL =
+  '/settings/policies/details/pod-scheduling';
 
 export const createPodSchedulingPolicy = async (
   request: APIRequestContext,

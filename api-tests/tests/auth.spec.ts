@@ -12,53 +12,47 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-import { expect, test } from '@fixtures';
 
-test.describe('Auth tests', {tag: ['@auth']}, () => {
-    test('auth header fails with invalid token', async ({ request }) => {
-      const version = await request.get('/v1/version', {
-        headers: {
-          Authorization: 'Bearer 123',
-        },
-      });
+import {expect, test} from '@fixtures';
 
-      expect(version.status()).toEqual(401);
+test.describe.parallel('Auth tests', () => {
+
+  test('auth header fails with invalid token', async ({request}) => {
+    const version = await request.get('/v1/version', {
+      headers: {
+        Authorization: 'Bearer 123',
+      },
     });
 
-    test.describe('no authorization header', () => {
-      test.use({
-        extraHTTPHeaders: {
-          'Content-Type': 'application/json',
-          Accept: 'application/json',
-        },
-      });
+    expect(version.status()).toEqual(401);
+  });
 
-      test('auth header fails with no content', async ({ request }) => {
-        const version = await request.get('/v1/version');
-
-        expect(version.status()).toEqual(400);
-      });
+  test.describe('no authorization header', () => {
+    test.use({
+      extraHTTPHeaders: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+      },
     });
 
-    test.describe('logout', () => {
-        test.use({
-            extraHTTPHeaders: {
-                'Content-Type': 'application/json',
-                Accept: 'application/json',
-                Authorization: `Bearer ${process.env.API_TOKEN_TEST}`,
-            },
-        });
+    test('auth header fails with no content', async ({request}) => {
+      const version = await request.get('/v1/version');
 
-        test('authenticated api request fails after logout', async ({request}) => {
-            const versionBeforeLogout = await request.get('/v1/version');
-            // NOTE: this test is сontext-dependent, the API_TOKEN_TEST needs to be valid before each run
-            expect(versionBeforeLogout.status()).toEqual(200);
+      expect(version.status()).toEqual(400);
+    });
+  });
 
-            const response = await request.delete('/v1/session');
-            expect(response.status()).toEqual(204);
+  test.describe.serial('logout', () => {
 
-            const versionAfterLogout = await request.get('/v1/version');
-            expect(versionAfterLogout.status()).toEqual(401);
-        });
+    test('authenticated api request fails after logout', async ({request}) => {
+      const versionBeforeLogout = await request.get('/v1/version');
+      expect(versionBeforeLogout.status()).toEqual(200);
+
+      const response = await request.delete('/v1/session');
+      expect(response.status()).toEqual(204);
+
+      const versionAfterLogout = await request.get('/v1/version');
+      expect(versionAfterLogout.status()).toEqual(401);
+    });
   });
 });

@@ -1,6 +1,6 @@
 import { PreviewContentText } from '../preview-section';
 import { AdvancedConfigurationType } from '../../database-form-schema.ts';
-import { ExposureMethod } from 'components/cluster-form/advanced-configuration/advanced-configuration.types.ts';
+import { ProxyExposeType } from 'shared-types/dbCluster.types';
 import { EMPTY_LOAD_BALANCER_CONFIGURATION } from 'consts.ts';
 
 export const AdvancedConfigurationsPreviewSection = ({
@@ -11,9 +11,11 @@ export const AdvancedConfigurationsPreviewSection = ({
   storageClass,
   podSchedulingPolicyEnabled,
   podSchedulingPolicy,
+  splitHorizonDNSEnabled,
+  splitHorizonDNS,
 }: AdvancedConfigurationType) => {
   const isExternalAccessEnabled =
-    exposureMethod === ExposureMethod.LoadBalancer;
+    exposureMethod === ProxyExposeType.LoadBalancer;
 
   return (
     <>
@@ -33,6 +35,9 @@ export const AdvancedConfigurationsPreviewSection = ({
         <PreviewContentText
           text={`Pod scheduling policy: ${podSchedulingPolicy}`}
         />
+      )}
+      {splitHorizonDNSEnabled && splitHorizonDNS && (
+        <PreviewContentText text={`Split-horizon DNS: ${splitHorizonDNS}`} />
       )}
     </>
   );

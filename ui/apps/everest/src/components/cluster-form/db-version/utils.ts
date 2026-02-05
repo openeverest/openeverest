@@ -30,6 +30,7 @@ export const filterAvailableDbVersionsForDbEngineEdition = (
   }
 
   const currentMajor = currentSemverVersion.major;
+  const currentMinor = currentSemverVersion.minor;
 
   // Filter out downgrades
   versions = versions.filter(({ version }) => {
@@ -54,6 +55,19 @@ export const filterAvailableDbVersionsForDbEngineEdition = (
     const semverVersion = coerce(version);
     return semverVersion ? semverVersion.major - currentMajor <= 1 : true;
   });
+
+  // Disallow upgrading from PXC 8.0.x to 8.4.x
+  if (dbType === DbEngineType.PXC) {
+    versions = versions.filter(({ version }) => {
+      const semverVersion = coerce(version);
+      return !(
+        currentMajor === 8 &&
+        currentMinor === 0 &&
+        semverVersion?.major === 8 &&
+        semverVersion?.minor === 4
+      );
+    });
+  }
 
   return versions;
 };

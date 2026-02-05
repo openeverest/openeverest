@@ -559,7 +559,7 @@ test.describe(
       });
 
       await test.step('Try to remove policy in use', async () => {
-        await page.goto('/settings/policies/pod-scheduling');
+        await page.goto('/settings/policies/details/pod-scheduling');
         await page.getByTestId('pod-scheduling-policies').waitFor();
         await findRowAndClickActions(page, MySQLPolicyName, 'Delete');
         await page.getByTestId('form-dialog-delete').waitFor();

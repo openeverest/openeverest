@@ -8,6 +8,11 @@ on:
         type: string
         required: true
 
+env:
+  GONOPROXY: 'github.com/percona'
+  GONOSUMDB: 'github.com/percona'
+  GOPRIVATE: 'github.com/percona'
+
 jobs:
   integration_tests:
     strategy:

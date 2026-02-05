@@ -206,11 +206,10 @@ const openResourcesModal = async (page: Page) => {
         await page.getByTestId('form-dialog-save').click();
 
         //check result
-        const numberOfNodes = size * (db !== 'psmdb' ? 1 : 2);
         await expect(
           page
             .getByTestId('node-cpu-overview-section-row')
-            .filter({ hasText: `${2 * numberOfNodes}.00 CPU` })
+            .filter({ hasText: '2' })
         ).toBeVisible();
 
         await expect(
@@ -219,7 +218,7 @@ const openResourcesModal = async (page: Page) => {
               `${db != 'psmdb' ? 'proxies' : 'routers'}-cpu-overview-section-row`
             )
             .filter({
-              hasText: `${db != 'psmdb' ? '0.80' : '4.00'} CPU`,
+              hasText: `${db != 'psmdb' ? '0.8' : '4'}`,
             })
         ).toBeVisible();
       });

@@ -12,6 +12,11 @@ permissions:
   checks: write
   pull-requests: write
 
+env:
+  GONOPROXY: 'github.com/percona'
+  GONOSUMDB: 'github.com/percona'
+  GOPRIVATE: 'github.com/percona'
+
 jobs:
   test:
     name: Test
@@ -77,9 +82,6 @@ jobs:
           go-version-file: 'go.mod'
           cache: true
 
-      - name: Download Go modules
-        run: go mod download
-
       - name: Run linters
         run: |
           go tool golangci-lint run --new --out-format=line-number | env REVIEWDOG_GITHUB_API_TOKEN=${{ secrets.GITHUB_TOKEN }} go tool reviewdog -f=golangci-lint -reporter=github-pr-review -filter-mode=nofilter -fail-on-error=true
@@ -128,6 +130,17 @@ jobs:
           go-version-file: 'go.mod'
           cache: true
 
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.4.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: 20.x
+          cache: "pnpm"
+          cache-dependency-path: api-tests/package-lock.json
+
       - name: Install Kubernetes tools
         uses: ./.github/actions/install-kubernetes-tools
         with:
@@ -175,23 +188,15 @@ jobs:
 
       - name: Init testing (CI) environment
         working-directory: api-tests
+        timeout-minutes: 40
         run: |
           make ci-init
 
       - name: Run integration tests
         working-directory: api-tests
-        shell: bash
         timeout-minutes: 20
         run: |
           make test
-
-      - name: Run debug commands on failure
-        if: ${{ failure() }}
-        run: |
-          kubectl -n everest-system describe pods
-          kubectl -n everest-monitoring describe pods
-          kubectl -n everest describe pods
-          kubectl -n everest-system logs deploy/everest-server
 
   integration_tests_cli:
     name: CLI Integration Tests

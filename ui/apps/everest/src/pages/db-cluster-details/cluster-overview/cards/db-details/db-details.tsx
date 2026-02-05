@@ -36,6 +36,7 @@ export const DbDetails = ({
   username,
   password,
   connectionUrl,
+  splitHorizonUrl,
   hostname,
   monitoring,
   externalAccess,
@@ -43,6 +44,9 @@ export const DbDetails = ({
   storageClass,
   podSchedulingPolicy,
   loadBalancerConfig,
+  exposeType,
+  splitHorizonDNS,
+  splitHorizonDomains,
 }: DatabaseDetailsOverviewCardProps) => {
   const { data: monitoringInstances } =
     useMonitoringInstancesForNamespace(namespace);
@@ -86,7 +90,9 @@ export const DbDetails = ({
           password={password}
           hostname={hostname}
           connectionUrl={connectionUrl}
+          splitHorizonUrl={splitHorizonUrl}
           type={type}
+          exposeType={exposeType}
         />
         {canReadMonitoring && (
           <MonitoringDetails loading={loading} monitoring={monitoring} />
@@ -97,6 +103,8 @@ export const DbDetails = ({
           storageClass={storageClass}
           podSchedulingPolicy={podSchedulingPolicy}
           loadBalancerConfig={loadBalancerConfig}
+          splitHorizonDNS={splitHorizonDNS}
+          splitHorizonDomains={splitHorizonDomains}
         />
       </Stack>
     </OverviewCard>

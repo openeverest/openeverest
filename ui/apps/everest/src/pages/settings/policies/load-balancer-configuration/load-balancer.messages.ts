@@ -1,5 +1,5 @@
 export const messages = {
-  title: 'Load Balancer Configuration',
+  title: 'LoadBalancer Configuration',
   rowActions: {
     viewDetails: 'View details',
     delete: 'Delete',
@@ -8,8 +8,7 @@ export const messages = {
     alertMessage: {
       inUse:
         'This config is currently in use by one or more clusters. Please unassign it first before deleting.',
-      notInUse:
-        'This action will permanently delete your config and affect all the clusters using it.',
+      notInUse: 'This action will permanently delete your config.',
     },
     dialogContent: {
       firstPart: 'Are you sure you want to permanently delete ',

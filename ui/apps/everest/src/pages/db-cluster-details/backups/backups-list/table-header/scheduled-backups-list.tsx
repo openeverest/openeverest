@@ -15,12 +15,14 @@ import {
 } from 'utils/db';
 import { useUpdateDbClusterWithConflictRetry } from 'hooks';
 import { WizardMode } from 'shared-types/wizard.types';
+import { DbEngineType } from 'shared-types/dbEngines.types';
+import { Backup, BackupStatus } from 'shared-types/backups.types';
 
 type Props = {
-  emptyBackups: boolean;
+  currentBackups: Backup[];
 };
 
-const ScheduledBackupsList = ({ emptyBackups }: Props) => {
+const ScheduledBackupsList = ({ currentBackups }: Props) => {
   const [openDeleteDialog, setOpenDeleteDialog] = useState(false);
   const [selectedSchedule, setSelectedSchedule] = useState<string>('');
   const {
@@ -35,6 +37,9 @@ const ScheduledBackupsList = ({ emptyBackups }: Props) => {
     });
   const [schedules, setSchedules] = useState<ManageableSchedules[]>([]);
   const pitrEnabled = !!dbCluster.spec?.backup?.pitr?.enabled;
+  const emptyBackups =
+    currentBackups.length === 0 ||
+    currentBackups.every((b) => b.state === BackupStatus.DELETING);
   const willDisablePITR = emptyBackups && schedules.length === 1 && pitrEnabled;
   const handleDelete = (scheduleName: string) => {
     setSelectedSchedule(scheduleName);
@@ -46,9 +51,29 @@ const ScheduledBackupsList = ({ emptyBackups }: Props) => {
   };
 
   const handleConfirmDelete = (scheduleName: string) => {
-    updateCluster(
-      deleteScheduleFromDbCluster(scheduleName, dbCluster, willDisablePITR)
+    const newClusterData = deleteScheduleFromDbCluster(
+      scheduleName,
+      dbCluster,
+      willDisablePITR
     );
+
+    if (dbCluster.spec.engine.type === DbEngineType.POSTGRESQL) {
+      if (
+        currentBackups.length === 0 &&
+        !newClusterData.spec.backup?.schedules?.length &&
+        newClusterData.spec.backup?.pitr
+      ) {
+        newClusterData.spec.backup = {
+          ...newClusterData.spec.backup,
+          pitr: {
+            ...newClusterData.spec.backup?.pitr,
+            enabled: false,
+            backupStorageName: '',
+          },
+        };
+      }
+    }
+    updateCluster(newClusterData);
   };
 
   const handleEdit = (scheduleName: string) => {

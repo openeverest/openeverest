@@ -26,7 +26,7 @@ import (
 	"go.uber.org/zap"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	everestv1alpha1 "github.com/percona/everest-operator/api/v1alpha1"
+	everestv1alpha1 "github.com/percona/everest-operator/api/everest/v1alpha1"
 	"github.com/percona/everest/internal/server/handlers"
 	"github.com/percona/everest/pkg/common"
 	"github.com/percona/everest/pkg/rbac"
@@ -411,7 +411,8 @@ func TestRBAC_CreateLoadBalancerConfig(t *testing.T) {
 		next := handlers.MockHandler{}
 		next.On("CreateLoadBalancerConfig",
 			mock.Anything,
-			mock.Anything).
+			mock.Anything,
+		).
 			Return(
 				&everestv1alpha1.LoadBalancerConfig{}, nil,
 			)
@@ -549,7 +550,8 @@ func TestRBAC_UpdateLoadBalancerConfig(t *testing.T) {
 		next := handlers.MockHandler{}
 		next.On("UpdateLoadBalancerConfig",
 			mock.Anything,
-			mock.Anything).
+			mock.Anything,
+		).
 			Return(
 				&everestv1alpha1.LoadBalancerConfig{}, nil,
 			)
@@ -686,7 +688,8 @@ func TestRBAC_DeleteLoadBalancerConfig(t *testing.T) {
 		next := handlers.MockHandler{}
 		next.On("DeleteLoadBalancerConfig",
 			mock.Anything,
-			mock.Anything).
+			mock.Anything,
+		).
 			Return(
 				nil,
 			)

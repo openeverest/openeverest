@@ -54,11 +54,11 @@ if not os.path.exists(everest_chart_dir):
 print('Using chart dir: {0}'.format(everest_chart_dir))
 
 # Optional env vars
-pxc_operator_version = os.getenv('PXC_OPERATOR_VERSION', '1.17.0')
+pxc_operator_version = os.getenv('PXC_OPERATOR_VERSION', '1.19.0')
 print('Using PXC operator version: {0}'.format(pxc_operator_version))
-psmdb_operator_version = os.getenv('PSMDB_OPERATOR_VERSION', '1.19.1')
+psmdb_operator_version = os.getenv('PSMDB_OPERATOR_VERSION', '1.21.1')
 print('Using PSMDB operator version: {0}'.format(psmdb_operator_version))
-pg_operator_version = os.getenv('PG_OPERATOR_VERSION', '2.6.0')
+pg_operator_version = os.getenv('PG_OPERATOR_VERSION', '2.8.2')
 print('Using PG operator version: {0}'.format(pg_operator_version))
 
 # Check for Everest operator Go build options
@@ -472,7 +472,7 @@ local_resource(
 
 # Live update the Everest operator manager without generating a new pod
 load('ext://restart_process', 'docker_build_with_restart')
-docker_build_with_restart('perconalab/everest-operator',
+docker_build_with_restart('ghcr.io/openeverest/openeverest-operator-dev',
   context=operator_dir,
   dockerfile='./everest-operator.Dockerfile',
   target=everest_operator_target,
@@ -495,6 +495,7 @@ k8s_resource(
         'loadbalancerconfigs.everest.percona.com:customresourcedefinition',
         'dataimporters.everest.percona.com:customresourcedefinition',
         'dataimportjobs.everest.percona.com:customresourcedefinition',
+        'splithorizondnsconfigs.enginefeatures.everest.percona.com:customresourcedefinition',
     ],
     new_name='everest-crds',
     labels=["everest-operator"]
@@ -531,6 +532,8 @@ k8s_resource(
     'everest-operator-podschedulingpolicy-viewer-role:clusterrole',
     'everest-operator-loadbalancerconfig-editor-role:clusterrole',
     'everest-operator-loadbalancerconfig-viewer-role:clusterrole',
+    'enginefeatures.everest-splithorizondnsconfig-editor-role:clusterrole',
+    'enginefeatures.everest-splithorizondnsconfig-viewer-role:clusterrole',
     'everest-helm-psp-cleanup-hook:clusterrole',
     'everest-helm-psp-cleanup-hook:clusterrolebinding',
     'everest-percona-pg-operator:dataimporter',
@@ -655,7 +658,7 @@ local_resource(
     labels=["everest"]
 )
 
-docker_build_with_restart('perconalab/everest',
+docker_build_with_restart('ghcr.io/openeverest/openeverest-dev',
   context=backend_dir,
   dockerfile='./everest.Dockerfile',
   target=everest_target,

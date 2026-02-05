@@ -67,6 +67,10 @@ export const memoryParser = (
   };
 };
 
+export const getResourcesDetailedString = (value: number, unit: string) => {
+  return `${value} ${unit}`;
+};
+
 export const getTotalResourcesDetailedString = (
   value: number,
   numberOfNodes: number,
@@ -83,5 +87,10 @@ export const getTotalResourcesDetailedString = (
       ? value * numberOfNodes * shardNr
       : value * numberOfNodes;
 
-  return `${totalResources.toFixed(2)} ${unit}`;
+  const formattedTotalResources =
+    totalResources === Math.trunc(totalResources)
+      ? totalResources.toString()
+      : parseFloat(totalResources.toFixed(2));
+
+  return `${formattedTotalResources} ${unit}`;
 };

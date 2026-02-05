@@ -12,7 +12,8 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-import { test } from '@fixtures'
+
+import {test} from '@fixtures'
 import Output from '@support/output'
 import shell from 'shelljs'
 
@@ -25,7 +26,7 @@ export class CliHelper {
    * @return      {@link Output} instance
    */
   async execute(command: string): Promise<Output> {
-    const { stdout, stderr, code } = shell.exec(command.replace(/(\r\n|\n|\r)/gm, ''), { silent: false })
+    const {stdout, stderr, code} = shell.exec(command.replace(/(\r\n|\n|\r)/gm, ''), {silent: true})
 
     // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
     return new Output(command, code, stdout, stderr)
@@ -52,9 +53,9 @@ export class CliHelper {
    * @return      {@link Output} instance
    */
   async execSilent(command: string): Promise<Output> {
-    const { stdout, stderr, code } = await test.step(`Run "${command}" command`, async () => {
+    const {stdout, stderr, code} = await test.step(`Run "${command}" command`, async () => {
       // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-      return shell.exec(command.replace(/(\r\n|\n|\r)/gm, ''), { silent: true })
+      return shell.exec(command.replace(/(\r\n|\n|\r)/gm, ''), {silent: true})
     })
 
     // eslint-disable-next-line @typescript-eslint/no-unsafe-argument

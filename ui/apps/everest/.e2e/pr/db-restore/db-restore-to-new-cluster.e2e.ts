@@ -195,7 +195,7 @@ test.describe('DB Cluster Restore to the new cluster', () => {
     await createDbClusterFn(request, {
       dbName,
       dbType: 'postgresql',
-      dbVersion: '15.8',
+      dbVersion: '15.13',
       numberOfNodes: '4',
       numberOfProxies: '1',
       storageClass: 'my-storage-class',
@@ -268,7 +268,7 @@ test.describe('DB Cluster Restore to the new cluster', () => {
 
     const comboboxes = page.getByRole('combobox');
     const dbVersionCombobox = comboboxes.nth(1);
-    expect(await dbVersionCombobox.textContent()).toBe('15.8');
+    expect(await dbVersionCombobox.textContent()).toBe('15.13');
 
     await moveForward(page);
 

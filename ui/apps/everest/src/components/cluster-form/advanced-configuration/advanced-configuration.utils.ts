@@ -15,10 +15,7 @@
 
 import { DbType } from '@percona/types';
 import { DbCluster, ProxyExposeType } from 'shared-types/dbCluster.types';
-import {
-  AdvancedConfigurationFields,
-  ExposureMethod,
-} from './advanced-configuration.types';
+import { AdvancedConfigurationFields } from './advanced-configuration.types';
 import { AdvancedConfigurationFormType } from './advanced-configuration-schema';
 import { EMPTY_LOAD_BALANCER_CONFIGURATION } from 'consts';
 
@@ -43,11 +40,32 @@ export const getParamsPlaceholderFromDbType = (dbType: DbType) => {
   return dynamicText;
 };
 
+export const mapDeprecatedExposeType = (
+  type: string | undefined
+): ProxyExposeType => {
+  if (type === 'internal') {
+    return ProxyExposeType.ClusterIP;
+  }
+  if (type === 'external') {
+    return ProxyExposeType.LoadBalancer;
+  }
+  if (
+    type &&
+    Object.values(ProxyExposeType).includes(type as ProxyExposeType)
+  ) {
+    return type as ProxyExposeType;
+  }
+
+  return ProxyExposeType.ClusterIP;
+};
+
 export const advancedConfigurationModalDefaultValues = (
   dbCluster: DbCluster
 ): AdvancedConfigurationFormType => {
-  const sourceRangesSource = dbCluster?.spec?.proxy.expose.ipSourceRanges;
-  const lbConfigName = dbCluster?.spec.proxy.expose.loadBalancerConfigName;
+  const sourceRangesSource = dbCluster?.spec?.proxy?.expose?.ipSourceRanges;
+  const lbConfigName = dbCluster?.spec?.proxy?.expose?.loadBalancerConfigName;
+  const exposeType = dbCluster?.spec?.proxy?.expose?.type;
+  const mappedExposeType = mapDeprecatedExposeType(exposeType);
 
   return {
     [AdvancedConfigurationFields.storageClass]:
@@ -64,12 +82,13 @@ export const advancedConfigurationModalDefaultValues = (
     [AdvancedConfigurationFields.podSchedulingPolicy]:
       dbCluster?.spec.podSchedulingPolicyName,
     [AdvancedConfigurationFields.loadBalancerConfigName]:
-      dbCluster?.spec?.proxy.expose.type === ProxyExposeType.external
+      mappedExposeType === ProxyExposeType.LoadBalancer
         ? lbConfigName || EMPTY_LOAD_BALANCER_CONFIGURATION
         : '',
-    [AdvancedConfigurationFields.exposureMethod]:
-      dbCluster?.spec?.proxy.expose.type === ProxyExposeType.external
-        ? ExposureMethod.LoadBalancer
-        : ExposureMethod.ClusterIP,
+    [AdvancedConfigurationFields.exposureMethod]: mappedExposeType,
+    [AdvancedConfigurationFields.splitHorizonDNSEnabled]:
+      !!dbCluster?.spec.engineFeatures?.psmdb?.splitHorizonDnsConfigName,
+    [AdvancedConfigurationFields.splitHorizonDNS]:
+      dbCluster?.spec.engineFeatures?.psmdb?.splitHorizonDnsConfigName || '',
   };
 };

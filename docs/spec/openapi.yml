@@ -3,7 +3,7 @@ servers:
   - url: /v1
 info:
   version: 1.0.0
-  title: Percona Everest schema
+  title: OpenEverest schema
   description: |
     # Authentication
     All requests to Everest API require `Authorization: Bearer <token>` header with a valid token in plain-text.
@@ -688,6 +688,115 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/DatabaseClusterComponents'
+        '400':
+          description: Unsuccessful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  '/namespaces/{namespace}/database-clusters/{name}/components/{component_name}/logs':
+    x-everest-resource-name: database-clusters
+    get:
+      tags:
+        - Database Cluster
+      summary: Get database cluster component logs
+      description: |
+        This API gets the logs of the component specified by the `component_name` of the database cluster specified by the `name` and `namespace`.
+      operationId: getDatabaseClusterComponentLogs
+      parameters:
+        - name: namespace
+          in: path
+          description: Name of the namespace
+          required: true
+          schema:
+            type: string
+        - name: name
+          in: path
+          description: Name of the database cluster. Can be found under Metadata["name"] of the DatabaseCluster object.
+          required: true
+          schema:
+            type: string
+        - name: component_name
+          in: path
+          description: Name of the component.
+          required: true
+          schema:
+            type: string
+        - name: container
+          in: query
+          required: false
+          description: Container name. If omitted, the first container in the pod spec is used.
+          schema:
+            type: string
+        - name: follow
+          in: query
+          required: false
+          description: Stream logs continuously
+          schema:
+            type: boolean
+            default: false
+        - name: tailLines
+          in: query
+          required: false
+          description: Number of lines from the end of the logs to show
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 10000
+        - name: sinceSeconds
+          in: query
+          required: false
+          description: Return logs newer than this many seconds
+          schema:
+            type: integer
+            minimum: 1
+        - name: sinceTime
+          in: query
+          required: false
+          description: RFC3339 timestamp to start logs from
+          schema:
+            type: string
+            format: date-time
+        - name: timestamps
+          in: query
+          required: false
+          description: Include timestamps in log lines
+          schema:
+            type: boolean
+            default: false
+        - name: previous
+          in: query
+          required: false
+          description: Return logs from the previous container instance
+          schema:
+            type: boolean
+            default: false
+        - name: limitBytes
+          in: query
+          required: false
+          description: Maximum bytes to return
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 104857600
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            text/plain:
+              schema:
+                type: string
+              examples:
+                example:
+                  value: |
+                    2025-01-01T10:00:00Z Starting server
+                    2025-01-01T10:00:01Z Listening on :8080
         '400':
           description: Unsuccessful operation
           content:
@@ -2156,6 +2265,219 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+# ------- Engine Features endpoints -------
+  '/namespaces/{namespace}/engine-features/split-horizon-dns-configs':
+    x-everest-resource-name: enginefeatures/split-horizon-dns-configs
+    post:
+      tags:
+        - SplitHorizonDNSConfig
+      summary: Create Split-Horizon DNS Config for PSMDB.
+      description: |
+        This API creates a new Split-Horizon DNS Config instance.
+      operationId: createSplitHorizonDNSConfig
+      parameters:
+        - name: namespace
+          in: path
+          description: Namespace of the Split-Horizon DNS Config instance.
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SplitHorizonDNSConfig'
+        '400':
+          description: Unsuccessful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      requestBody:
+        description: The Split-Horizon DNS Config instance object to be created.
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SplitHorizonDNSConfig'
+    get:
+      tags:
+        - SplitHorizonDNSConfig
+      summary: List Split-Horizon DNS Config instances.
+      description: This API lists all Split-Horizon DNS Config instances in a given namespace.
+      operationId: listSplitHorizonDNSConfigs
+      parameters:
+        - name: namespace
+          in: path
+          description: Namespace of the Split-Horizon DNS Config instance.
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SplitHorizonDNSConfigList'
+        '400':
+          description: Unsuccessful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  '/namespaces/{namespace}/engine-features/split-horizon-dns-configs/{name}':
+    x-everest-resource-name: enginefeatures/split-horizon-dns-configs
+    get:
+      tags:
+        - SplitHorizonDNSConfig
+      summary: Get Split-Horizon DNS Config instance.
+      description: This API gets the Split-Horizon DNS Config instance specified by the `name`.
+      operationId: getSplitHorizonDNSConfig
+      parameters:
+        - name: name
+          in: path
+          description: Name of the Split-Horizon DNS Config instance.
+          required: true
+          schema:
+            type: string
+        - name: namespace
+          in: path
+          description: Namespace of the Split-Horizon DNS Config instance.
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SplitHorizonDNSConfig'
+        '400':
+          description: Unsuccessful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Split-Horizon DNS Config instance not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    patch:
+      tags:
+        - SplitHorizonDNSConfig
+      summary: Update Split-Horizon DNS Config instance.
+      description: This API updates the Split-Horizon DNS Config instance specified by the `name`.
+      operationId: updateSplitHorizonDNSConfig
+      parameters:
+        - name: name
+          in: path
+          description: Name of the Split-Horizon DNS Config instance.
+          required: true
+          schema:
+            type: string
+        - name: namespace
+          in: path
+          description: Namespace of the SplitHorizonDNSConfig instance.
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SplitHorizonDNSConfig'
+        '400':
+          description: Unsuccessful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Split-Horizon DNS Config instance not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      requestBody:
+        description: The Split-Horizon DNS Config instance object to be updated.
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SplitHorizonDNSConfigUpdateParams'
+    delete:
+      tags:
+        - SplitHorizonDNSConfig
+      summary: Delete Split-Horizon DNS Config instance.
+      description: This API deletes the Split-Horizon DNS Config instance specified by the `name`.
+      operationId: deleteSplitHorizonDNSConfig
+      parameters:
+        - name: name
+          in: path
+          description: Name of the Split-Horizon DNS Config instance.
+          required: true
+          schema:
+            type: string
+        - name: namespace
+          in: path
+          description: Namespace of the Split-Horizon DNS Config instance.
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Successful operation
+        '400':
+          description: Unsuccessful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Split-Horizon DNS Config instance not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+# ------- Engine Features endpoints -------
 components:
   securitySchemes:
     BearerAuth:
@@ -2808,6 +3130,29 @@ components:
         metadata:
           type: object
       type: object
+    SplitHorizonDNSConfigList:
+      description: SplitHorizonDNSConfigList is an object that contains the list of the existing split-horizon dns configs.
+      properties:
+        apiVersion:
+          description: 'APIVersion defines the versioned schema of this representation of an object.
+            Servers should convert recognized schemas to the latest internal value, and
+            may reject unrecognized values.
+            More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+          type: string
+        kind:
+          description: 'Kind is a string value representing the REST resource this object represents.
+            Servers may infer this from the endpoint the client submits requests to.
+            Cannot be updated.
+            In CamelCase.
+            More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+          type: string
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/SplitHorizonDNSConfig'
+        metadata:
+          type: object
+      type: object
     SizeLimit:
       anyOf:
         - $ref: '#/components/schemas/Integer'
@@ -3107,7 +3452,7 @@ components:
                         binlogs uploads
                       type: integer
                   required:
-                  - enabled
+                    - enabled
                   type: object
                 schedules:
                   description: Schedules is a list of backup schedules
@@ -3135,10 +3480,10 @@ components:
                         description: Schedule is the cron schedule
                         type: string
                     required:
-                    - backupStorageName
-                    - enabled
-                    - name
-                    - schedule
+                      - backupStorageName
+                      - enabled
+                      - name
+                      - schedule
                     type: object
                   type: array
               type: object
@@ -3151,15 +3496,15 @@ components:
                   properties:
                     backupStorageName:
                       description: |-
-                        BackupStorageName is the name of the BackupStorage used for backups.
+                        BackupStorageName is the name of the BackupStorage used for storing backups.
                         The BackupStorage must be created in the same namespace as the DatabaseCluster.
                       type: string
                     path:
                       description: Path is the path to the backup file/directory.
                       type: string
                   required:
-                  - backupStorageName
-                  - path
+                    - backupStorageName
+                    - path
                   type: object
                 dataImport:
                   description: DataImport allows importing data from an external
@@ -3183,7 +3528,12 @@ components:
                           description: |-
                             Path is the path to the directory to import the data from.
                             This may be a path to a file or a directory, depending on the data importer.
+                            Only absolute file paths are allowed. Leading and trailing '/' are optional.
                           type: string
+                          x-kubernetes-validations:
+                            - message: path must be an absolute file or directory
+                                path
+                              rule: self.matches('^/?([^/]+(/[^/]+)*)/?$')
                         s3:
                           description: S3 contains the S3 information for the data
                             import.
@@ -3208,6 +3558,9 @@ components:
                               description: EndpointURL is an endpoint URL of backup
                                 storage.
                               type: string
+                              x-kubernetes-validations:
+                                - message: endpointURL must be a valid URL
+                                  rule: isURL(self)
                             forcePathStyle:
                               default: false
                               description: |-
@@ -3232,16 +3585,21 @@ components:
                                 If unspecified, the default value is true.
                               type: boolean
                           required:
-                          - credentialsSecretName
+                            - bucket
+                            - credentialsSecretName
+                            - endpointURL
+                            - region
                           type: object
+                      required:
+                        - path
                       type: object
                   required:
-                  - dataImporterName
-                  - source
+                    - dataImporterName
+                    - source
                   type: object
                   x-kubernetes-validations:
-                  - message: .spec.dataSource.dataImport is immutable
-                    rule: self == oldSelf
+                    - message: .spec.dataSource.dataImport is immutable
+                      rule: self == oldSelf
                 dbClusterBackupName:
                   description: DBClusterBackupName is the name of the DB cluster
                     backup to restore from
@@ -3257,8 +3615,8 @@ components:
                       default: date
                       description: Type is the type of recovery.
                       enum:
-                      - date
-                      - latest
+                        - date
+                        - latest
                       type: string
                   type: object
               type: object
@@ -3288,15 +3646,15 @@ components:
                   properties:
                     cpu:
                       anyOf:
-                      - type: integer
-                      - type: string
+                        - type: integer
+                        - type: string
                       description: CPU is the CPU resource requirements
                       pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                       x-kubernetes-int-or-string: true
                     memory:
                       anyOf:
-                      - type: integer
-                      - type: string
+                        - type: integer
+                        - type: string
                       description: Memory is the memory resource requirements
                       pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                       x-kubernetes-int-or-string: true
@@ -3310,21 +3668,24 @@ components:
                       type: string
                     size:
                       anyOf:
-                      - type: integer
-                      - type: string
+                        - type: integer
+                        - type: string
                       description: Size is the size of the persistent volume claim
                       pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                       x-kubernetes-int-or-string: true
                   required:
-                  - size
+                    - size
                   type: object
                 type:
                   description: Type is the engine type
                   enum:
-                  - pxc
-                  - postgresql
-                  - psmdb
+                    - pxc
+                    - postgresql
+                    - psmdb
                   type: string
+                  x-kubernetes-validations:
+                    - message: .spec.engine.type cannot be changed
+                      rule: self == oldSelf
                 userSecretsName:
                   description: UserSecretsName is the name of the secret containing
                     the user secrets
@@ -3333,8 +3694,23 @@ components:
                   description: Version is the engine version
                   type: string
               required:
-              - storage
-              - type
+                - storage
+                - type
+              type: object
+            engineFeatures:
+              description: EngineFeatures represents configuration of additional
+                features for the database engine.
+              properties:
+                psmdb:
+                  description: PSMDB represents additional features for the PSMDB
+                    engine.
+                  properties:
+                    splitHorizonDnsConfigName:
+                      description: |-
+                        SplitHorizonDNSConfigName is the name of a SplitHorizonDNSConfig CR.
+                        The SplitHorizonDNSConfig must be created in the same namespace as the DatabaseCluster.
+                      type: string
+                  type: object
               type: object
             monitoring:
               description: Monitoring is the monitoring configuration
@@ -3352,7 +3728,7 @@ components:
                         Claims lists the names of resources, defined in spec.resourceClaims,
                         that are used by this container.
 
-                        This is an alpha field and requires enabling the
+                        This field depends on the
                         DynamicResourceAllocation feature gate.
 
                         This field is immutable. It can only be set for containers.
@@ -3372,17 +3748,17 @@ components:
                               only the result of this request.
                             type: string
                         required:
-                        - name
+                          - name
                         type: object
                       type: array
                       x-kubernetes-list-map-keys:
-                      - name
+                        - name
                       x-kubernetes-list-type: map
                     limits:
                       additionalProperties:
                         anyOf:
-                        - type: integer
-                        - type: string
+                          - type: integer
+                          - type: string
                         pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                         x-kubernetes-int-or-string: true
                       description: |-
@@ -3392,8 +3768,8 @@ components:
                     requests:
                       additionalProperties:
                         anyOf:
-                        - type: integer
-                        - type: string
+                          - type: integer
+                          - type: string
                         pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                         x-kubernetes-int-or-string: true
                       description: |-
@@ -3439,13 +3815,23 @@ components:
                         config if applied
                       type: string
                     type:
-                      default: internal
-                      description: Type is the expose type, can be internal or external
+                      default: ClusterIP
+                      description: Type is the expose type, can be ClusterIP, LoadBalancer,
+                        NodePort. The types internal and external are deprecated.
                       enum:
-                      - internal
-                      - external
+                        - internal
+                        - external
+                        - ClusterIP
+                        - LoadBalancer
+                        - NodePort
                       type: string
                   type: object
+                  x-kubernetes-validations:
+                    - message: .spec.proxy.expose.loadBalancerConfigName cannot be
+                        cleared once set
+                      rule: self.type == 'internal' || !has(oldSelf.loadBalancerConfigName)
+                        || oldSelf.loadBalancerConfigName == '' || (has(self.loadBalancerConfigName)
+                        && self.loadBalancerConfigName != '')
                 replicas:
                   description: Replicas is the number of proxy replicas
                   format: int32
@@ -3458,15 +3844,15 @@ components:
                   properties:
                     cpu:
                       anyOf:
-                      - type: integer
-                      - type: string
+                        - type: integer
+                        - type: string
                       description: CPU is the CPU resource requirements
                       pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                       x-kubernetes-int-or-string: true
                     memory:
                       anyOf:
-                      - type: integer
-                      - type: string
+                        - type: integer
+                        - type: string
                       description: Memory is the memory resource requirements
                       pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                       x-kubernetes-int-or-string: true
@@ -3474,10 +3860,10 @@ components:
                 type:
                   description: Type is the proxy type
                   enum:
-                  - mongos
-                  - haproxy
-                  - proxysql
-                  - pgbouncer
+                    - mongos
+                    - haproxy
+                    - proxysql
+                    - pgbouncer
                   type: string
               type: object
             sharding:
@@ -3493,7 +3879,7 @@ components:
                       minimum: 1
                       type: integer
                   required:
-                  - replicas
+                    - replicas
                   type: object
                 enabled:
                   description: Enabled defines if the sharding is enabled
@@ -3504,12 +3890,12 @@ components:
                   minimum: 1
                   type: integer
               required:
-              - configServer
-              - enabled
-              - shards
+                - configServer
+                - enabled
+                - shards
               type: object
           required:
-          - engine
+            - engine
           type: object
         status:
           description: DatabaseClusterStatus defines the observed state of DatabaseCluster.
@@ -3557,9 +3943,9 @@ components:
                   status:
                     description: status of the condition, one of True, False, Unknown.
                     enum:
-                    - "True"
-                    - "False"
-                    - Unknown
+                      - "True"
+                      - "False"
+                      - Unknown
                     type: string
                   type:
                     description: type of condition in CamelCase or in foo.example.com/CamelCase.
@@ -3567,11 +3953,11 @@ components:
                     pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
                     type: string
                 required:
-                - lastTransitionTime
-                - message
-                - reason
-                - status
-                - type
+                  - lastTransitionTime
+                  - message
+                  - reason
+                  - status
+                  - type
                 type: object
               type: array
             crVersion:
@@ -3587,6 +3973,43 @@ components:
               description: Details provides full status of the upstream cluster
                 as a plain text.
               type: string
+            engineFeatures:
+              description: EngineFeaturesStatus represents additional features statuses
+                for the database engine.
+              properties:
+                psmdb:
+                  description: PSMDB represents additional features statuses for
+                    the PSMDB engine.
+                  properties:
+                    splitHorizon:
+                      description: SplitHorizon status of SplitHorizon feature.
+                      properties:
+                        domains:
+                          description: SplitHorizon status of SplitHorizon feature.
+                          items:
+                            description: SplitHorizonDomain defines SplitHorizon
+                              domain status (domain -> IPs mapping).
+                            properties:
+                              domain:
+                                description: Domain is the SplitHorizon domain name.
+                                type: string
+                              privateIP:
+                                description: PrivateIP is the private IP address
+                                  for the domain.
+                                type: string
+                              publicIP:
+                                description: PublicIP is the public IP address for
+                                  the domain.
+                                type: string
+                            type: object
+                          type: array
+                        host:
+                          description: ConnectionURL is the connection URL using
+                            SplitHorizon domains.
+                          type: string
+                      type: object
+                  type: object
+              type: object
             hostname:
               description: Hostname is the hostname where the cluster can be reached
               type: string
@@ -3608,9 +4031,12 @@ components:
               type: integer
             recommendedCRVersion:
               description: |-
-                RecommendedCRVersion is the recommended version of the CR to use.
-                If set, the CR needs to be updated to this version before upgrading the operator.
-                If unset, the CR is already at the recommended version.
+                RecommendedCRVersion indicates the target version that the underlying CR should be updated to.
+                When this field is set, it means the CR is running an outdated version and requires an update.
+                The following restrictions apply until the CR is updated to the recommended version:
+                - The operator cannot be upgraded
+                - The database engine version (.spec.engine.version) cannot be modified
+                This field is unset when the CR is already running at the latest recommended version.
               type: string
             size:
               description: Size is the total number of pods
@@ -3627,13 +4053,23 @@ components:
     # please do not edit the definition below manually
     # -------------------------
     DatabaseClusterBackup:
-      description: DatabaseClusterBackup is the Schema for the databaseclusterbackups API.
+      description: DatabaseClusterBackup is the Schema for the databaseclusterbackups
+        API.
       properties:
         apiVersion:
-          description: 'APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+          description: |-
+            APIVersion defines the versioned schema of this representation of an object.
+            Servers should convert recognized schemas to the latest internal value, and
+            may reject unrecognized values.
+            More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
           type: string
         kind:
-          description: 'Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+          description: |-
+            Kind is a string value representing the REST resource this object represents.
+            Servers may infer this from the endpoint the client submits requests to.
+            Cannot be updated.
+            In CamelCase.
+            More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
           type: string
         metadata:
           type: object
@@ -3641,7 +4077,9 @@ components:
           description: DatabaseClusterBackupSpec defines the desired state of DatabaseClusterBackup.
           properties:
             backupStorageName:
-              description: BackupStorageName is the name of the BackupStorage used for backups.
+              description: |-
+                BackupStorageName is the name of the BackupStorage used for backups.
+                The BackupStorage must be created in the same namespace as the DatabaseCluster.
               type: string
             dbClusterName:
               description: DBClusterName is the original database cluster name.
@@ -3651,7 +4089,8 @@ components:
             - dbClusterName
           type: object
         status:
-          description: DatabaseClusterBackupStatus defines the observed state of DatabaseClusterBackup.
+          description: DatabaseClusterBackupStatus defines the observed state of
+            DatabaseClusterBackup.
           properties:
             completed:
               description: Completed is the time when the job was completed.
@@ -3665,10 +4104,17 @@ components:
               description: Destination is the full path to the backup.
               type: string
             gaps:
-              description: Gaps identifies if there are gaps detected in the PITR logs
+              description: Gaps identifies if there are gaps detected in the PITR
+                logs
+              type: boolean
+            inUse:
+              default: false
+              description: InUse is a flag that indicates if this restore resource
+                is being used to restore DB cluster from backup.
               type: boolean
             latestRestorableTime:
-              description: LatestRestorableTime is the latest time that can be used for PITR restore
+              description: LatestRestorableTime is the latest time that can be used
+                for PITR restore
               format: date-time
               type: string
             state:
@@ -3683,13 +4129,23 @@ components:
     # please do not edit the definition below manually
     # -------------------------
     DatabaseClusterRestore:
-      description: DatabaseClusterRestore is the Schema for the databaseclusterrestores API.
+      description: DatabaseClusterRestore is the Schema for the databaseclusterrestores
+        API.
       properties:
         apiVersion:
-          description: 'APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+          description: |-
+            APIVersion defines the versioned schema of this representation of an object.
+            Servers should convert recognized schemas to the latest internal value, and
+            may reject unrecognized values.
+            More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
           type: string
         kind:
-          description: 'Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+          description: |-
+            Kind is a string value representing the REST resource this object represents.
+            Servers may infer this from the endpoint the client submits requests to.
+            Cannot be updated.
+            In CamelCase.
+            More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
           type: string
         metadata:
           type: object
@@ -3700,10 +4156,14 @@ components:
               description: DataSource defines a data source for restoration.
               properties:
                 backupSource:
-                  description: BackupSource is the backup source to restore from
+                  description: |-
+                    BackupSource is the backup source to restore from.
+                    Shall be set either this field or DBClusterBackupName.
                   properties:
                     backupStorageName:
-                      description: BackupStorageName is the name of the BackupStorage used for backups.
+                      description: |-
+                        BackupStorageName is the name of the BackupStorage used for storing backups.
+                        The BackupStorage must be created in the same namespace as the DatabaseCluster.
                       type: string
                     path:
                       description: Path is the path to the backup file/directory.
@@ -3713,13 +4173,18 @@ components:
                     - path
                   type: object
                 dbClusterBackupName:
-                  description: DBClusterBackupName is the name of the DB cluster backup to restore from
+                  description: |-
+                    DBClusterBackupName is the name of the DB cluster backup to restore from.
+                    Shall be set either this field or BackupSource.
                   type: string
                 pitr:
-                  description: PITR is the point-in-time recovery configuration
+                  description: |-
+                    PITR is the point-in-time recovery configuration.
+                    May be set in addition to DBClusterBackupName or BackupSource to perform PITR restore.
                   properties:
                     date:
-                      description: 'Date is the UTC date to recover to. The accepted format: "2006-01-02T15:04:05Z".'
+                      description: 'Date is the UTC date to recover to. The accepted
+                        format: "2006-01-02T15:04:05Z".'
                       type: string
                     type:
                       default: date
@@ -3731,18 +4196,25 @@ components:
                   type: object
               type: object
             dbClusterName:
-              description: DBClusterName defines the cluster name to restore.
+              description: DBClusterName defines the target database cluster name
+                that needs to be restored from backup.
               type: string
           required:
             - dataSource
             - dbClusterName
           type: object
         status:
-          description: DatabaseClusterRestoreStatus defines the observed state of DatabaseClusterRestore.
+          description: DatabaseClusterRestoreStatus defines the observed state of
+            DatabaseClusterRestore.
           properties:
             completed:
               format: date-time
               type: string
+            inUse:
+              default: false
+              description: InUse is a flag that indicates if this restore resource
+                is being used to restore DB cluster from backup.
+              type: boolean
             message:
               type: string
             state:
@@ -10932,3 +11404,132 @@ components:
           description: A machine-readable description of the cause of the error. If this
             value is empty there is no information available.
           type: string
+    # ---------- Engine Features Components -------------------------
+    SplitHorizonDNSConfig:
+      description: SplitHorizonDNSConfig is the Schema for the splithorizondnsconfigs
+        API.
+      properties:
+        apiVersion:
+          description: |-
+            APIVersion defines the versioned schema of this representation of an object.
+            Servers should convert recognized schemas to the latest internal value, and
+            may reject unrecognized values.
+            More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+          type: string
+        kind:
+          description: |-
+            Kind is a string value representing the REST resource this object represents.
+            Servers may infer this from the endpoint the client submits requests to.
+            Cannot be updated.
+            In CamelCase.
+            More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+          type: string
+        metadata:
+          type: object
+        spec:
+          description: Spec defines the desired state of SplitHorizonDNSConfig
+          properties:
+            baseDomainNameSuffix:
+              description: |-
+                BaseDomainNameSuffix is the base domain name suffix for generating domain names for each Pod in ReplicaSet.
+                It should be a valid domain name suffix.
+              example: example.com
+              minLength: 3
+              pattern: ^([a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}$
+              type: string
+            tls:
+              description: TLS is the TLS configuration for the split-horizon DNS
+                configuration.
+              properties:
+                certificate:
+                  description: Certificate is the TLS certificate and key for the
+                    split-horizon DNS configuration.
+                  properties:
+                    ca.crt:
+                      description: |-
+                        CACert is based64 encoded ca.pem file content.
+                        It is provided as a write-only input field for convenience.
+                        When this field is set, a webhook writes this value in the Secret specified by `.spec.tls.secretName`
+                        and empties this field.
+                        This field is not stored in the API.
+                      type: string
+                    ca.key:
+                      description: |-
+                        CA Private Key is based64 encoded ca-key.pem file content.
+                        It is provided as a write-only input field for convenience.
+                        When this field is set, a webhook writes this value in the Secret specified by `.spec.tls.secretName`
+                        and empties this field.
+                        This field is not stored in the API.
+                      type: string
+                  required:
+                    - ca.crt
+                    - ca.key
+                  type: object
+                secretName:
+                  description: SecretName is the name of the secret containing the
+                    TLS certificate and key for the split-horizon DNS configuration.
+                  example: my-tls-secret
+                  type: string
+              required:
+                - secretName
+              type: object
+          required:
+            - baseDomainNameSuffix
+            - tls
+          type: object
+        status:
+          default:
+            inUse: false
+          description: Status defines the observed state of SplitHorizonDNSConfig
+          properties:
+            inUse:
+              default: false
+              description: InUse is a flag that indicates if the config is used
+                by any DB cluster.
+              type: boolean
+            lastObservedGeneration:
+              description: LastObservedGeneration is the most recent generation
+                observed for this SplitHorizonDNSConfig.
+              format: int64
+              type: integer
+          type: object
+      required:
+        - spec
+      type: object
+    SplitHorizonDNSConfigUpdateParams:
+      description: SplitHorizonDNSConfigUpdateParams is the Schema for the splithorizondnsconfigs update API.
+      properties:
+        baseDomainNameSuffix:
+          description: |-
+            BaseDomainNameSuffix is the base domain name suffix for generating domain names for each Pod in ReplicaSet.
+            It should be a valid domain name suffix.
+          example: example.com
+          minLength: 3
+          pattern: ^([a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}$
+          type: string
+        certificate:
+          description: Certificate is the TLS certificate and key for the
+            split-horizon DNS configuration.
+          properties:
+            ca.crt:
+              description: |-
+                CACert is based64 encoded ca.pem file content.
+                It is provided as a write-only input field for convenience.
+                When this field is set, a webhook writes this value in the Secret specified by `.spec.tls.secretName`
+                and empties this field.
+                This field is not stored in the API.
+              type: string
+            ca.key:
+              description: |-
+                CAKey is based64 encoded ca-key.pem file content.
+                It is provided as a write-only input field for convenience.
+                When this field is set, a webhook writes this value in the Secret specified by `.spec.tls.secretName`
+                and empties this field.
+                This field is not stored in the API.
+              type: string
+          required:
+            - ca.crt
+            - ca.key
+          type: object
+      type: object
+      additionalProperties: false

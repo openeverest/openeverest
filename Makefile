@@ -1,5 +1,13 @@
+REPO_ROOT=$(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))
 RELEASE_VERSION ?= v0.0.0-$(shell git rev-parse --short HEAD)
 RELEASE_FULLCOMMIT ?= $(shell git rev-parse HEAD)
+IMAGE_PREFIX ?= ghcr.io/openeverest
+EVEREST_SERVER_DEV_IMAGE_NAME ?= everest-dev
+EVEREST_OPERATOR_DEV_IMAGE_NAME ?= everest-operator-dev
+IMAGE_TAG ?= 0.0.0
+IMG = $(IMAGE_PREFIX)/$(EVEREST_SERVER_DEV_IMAGE_NAME):$(IMAGE_TAG)
+EVEREST_OPERATOR_IMG = $(IMAGE_PREFIX)/$(EVEREST_OPERATOR_DEV_IMAGE_NAME):$(IMAGE_TAG)
+
 
 .PHONY: default
 default: help
@@ -120,9 +128,11 @@ release-cli: ## Build Everest CLI release versions for different OS and ARCH. (U
 	GOOS=darwin GOARCH=arm64 go build -v -ldflags "$(CLI_LD_FLAGS)" -o ./dist/everestctl-darwin-arm64 ./cmd/cli
 	GOOS=windows GOARCH=amd64 go build -v -ldflags "$(CLI_LD_FLAGS)" -o ./dist/everestctl.exe ./cmd/cli
 
-IMAGE_OWNER ?= perconalab/everest
-IMAGE_TAG ?= 0.0.0
-IMG = $(IMAGE_OWNER):$(IMAGE_TAG)
+.PHONY: build-ui
+build-ui:
+	$(info Building Everest UI)
+	$(MAKE) -C ${TEST_ROOT}/ui init
+	$(MAKE) -C ${TEST_ROOT}/ui build EVEREST_OUT_DIR=${TEST_ROOT}/public/dist
 
 .PHONY: docker-build
 docker-build: ## Build docker image with Everest API server.
@@ -141,21 +151,20 @@ clean:
 
 .PHONY: test
 test:                   ## Run unit tests.
-	CGO_ENABLED=1 go test -race -timeout=10m ./...
+	CGO_ENABLED=1 go test -race -timeout=20m ./...
 
 .PHONY: test-cover
 test-cover:             ## Run unit tests and collect per-package coverage information.
-	CGO_ENABLED=1 go test -race -timeout=10m -count=1 -coverprofile=cover.out -covermode=atomic ./...
+	CGO_ENABLED=1 go test -race -timeout=20m -count=1 -coverprofile=cover.out -covermode=atomic ./...
 
 .PHONY: test-crosscover
 test-crosscover:        ## Run unit tests and collect cross-package coverage information.
-	CGO_ENABLED=1 go test -race -timeout=10m -count=1 -coverprofile=crosscover.out -covermode=atomic -p=1 -coverpkg=./... ./...
+	CGO_ENABLED=1 go test -race -timeout=20m -count=1 -coverprofile=crosscover.out -covermode=atomic -p=1 -coverpkg=./... ./...
 
 ##@ Deployment management
 
 # This target builds the docker image for Everest operator from the commit referenced in go.mod.
 # Docker image will be tagged with the same tag as Everest API server image (IMAGE_TAG).
-EVEREST_OPERATOR_IMG = perconalab/everest-operator:$(IMAGE_TAG)
 .PHONY: docker-build-operator
 docker-build-operator:
 	$(info Building Everest Operator Docker image=$(EVEREST_OPERATOR_IMG))
@@ -166,13 +175,13 @@ docker-build-operator:
 	git clone -q https://github.com/percona/everest-operator.git ;\
 	cd ./everest-operator ;\
 	git reset --hard $${operator_commit_id} ;\
-	make docker-build IMG=$(EVEREST_OPERATOR_IMG) ;\
+	make build docker-build IMG=$(EVEREST_OPERATOR_IMG) ;\
 	}
 
 DB_NAMESPACES = everest
 .PHONY: deploy
 deploy:  ## Deploy Everest to K8S cluster using Everest CLI.
-	$(info Deploying Everest ($(IMAGE_OWNER):$(IMAGE_TAG)) into K8S cluster using everestctl)
+	$(info Deploying Everest ($(IMG)) into K8S cluster using everestctl)
 	$(LOCALBIN)/everestctl install -v \
 	--disable-telemetry \
 	--version=$(IMAGE_TAG) \
@@ -182,7 +191,7 @@ deploy:  ## Deploy Everest to K8S cluster using Everest CLI.
 	--operator.mysql=true \
 	--skip-wizard \
 	--namespaces $(DB_NAMESPACES) \
-	--helm.set server.image=$(IMAGE_OWNER) \
+	--helm.set server.image=$(IMAGE_PREFIX)/$(EVEREST_SERVER_DEV_IMAGE_NAME) \
 	--helm.set server.apiRequestsRateLimit=500 \
 	--helm.set server.sessionRequestsRateLimit=200 \
 	--helm.set versionMetadataURL=https://check-dev.percona.com \
@@ -190,7 +199,7 @@ deploy:  ## Deploy Everest to K8S cluster using Everest CLI.
 	--helm.set operator.init=false
 	$(MAKE) expose
 
-DEPLOY_ALL_DEPS := build-cli-debug build-ui build-debug docker-build
+DEPLOY_ALL_DEPS := build-ui build-debug docker-build k3d-upload-server-image
 DEPLOY_ALL_DEPS += docker-build-operator k3d-upload-operator-image
 DEPLOY_ALL_DEPS += k3d-upload-server-image deploy
 .PHONY: deploy-all
@@ -247,7 +256,7 @@ k3d-cluster-down: ## Create a K8S cluster for testing.
 k3d-cluster-reset: k3d-cluster-down k3d-cluster-up ## Reset the K8S cluster for testing.
 
 .PHONY: k3d-upload-server-image
-k3d-upload-server-image: docker-build ## Upload the Everest API server image to the testing k3d cluster.
+k3d-upload-server-image: ## Upload the Everest API server image to the testing k3d cluster.
 	$(info Uploading Everest API server image=$(IMG) to K3D testing cluster)
 	k3d image import -c everest-server-test -m direct $(IMG)
 

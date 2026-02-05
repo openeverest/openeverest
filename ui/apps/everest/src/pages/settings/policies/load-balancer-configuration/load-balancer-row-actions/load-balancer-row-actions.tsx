@@ -28,7 +28,7 @@ const LoadBalancerRowActions = ({
           key="view"
           onClick={() =>
             navigate(
-              `/settings/policies/load-balancer-configuration/${configName}`
+              `/settings/policies/details/load-balancer-configuration/${configName}`
             )
           }
         >
@@ -41,7 +41,7 @@ const LoadBalancerRowActions = ({
           key="view"
           onClick={() =>
             navigate(
-              `/settings/policies/load-balancer-configuration/${configName}`
+              `/settings/policies/details/load-balancer-configuration/${configName}`
             )
           }
         >

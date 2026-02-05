@@ -17,6 +17,7 @@ import { Namespaces } from './pages/settings/namespaces/namespaces';
 import NamespaceDetails from 'pages/settings/namespaces/namespace-details';
 import Restores from 'pages/db-cluster-details/restores';
 import Components from './pages/db-cluster-details/components';
+import Logs from './pages/db-cluster-details/component-logs/component-logs';
 import LoginCallback from 'components/login-callback/LoginCallback';
 import { DbClusterContextProvider } from 'pages/db-cluster-details/dbCluster.context';
 import Logout from 'pages/logout';
@@ -25,6 +26,8 @@ import PoliciesList from 'pages/settings/policies/pod-scheduling-policies/polici
 import PolicyDetails from 'pages/settings/policies/pod-scheduling-policies/policy-details';
 import LoadBalancerConfiguration from 'pages/settings/policies/load-balancer-configuration';
 import LoadBalancerConfigDetails from 'pages/settings/policies/load-balancer-configuration/load-balancer-config-detials/load-balancer-config-detials';
+import SettingsPoliciesRouter from 'pages/settings/settings-policies-router';
+import SplitHorizon from 'pages/settings/policies/split-horizon';
 
 const router = createBrowserRouter([
   {
@@ -80,6 +83,10 @@ const router = createBrowserRouter([
             path: DBClusterDetailsTabs.restores,
             element: <Restores />,
           },
+          {
+            path: DBClusterDetailsTabs.logs,
+            element: <Logs />,
+          },
         ],
       },
       {
@@ -109,20 +116,34 @@ const router = createBrowserRouter([
         ],
       },
       {
-        path: '/settings/policies/pod-scheduling/',
-        element: <PoliciesList />,
-      },
-      {
-        path: '/settings/policies/pod-scheduling/:name',
-        element: <PolicyDetails />,
-      },
-      {
-        path: '/settings/policies/load-balancer-configuration',
-        element: <LoadBalancerConfiguration />,
-      },
-      {
-        path: '/settings/policies/load-balancer-configuration/:configName',
-        element: <LoadBalancerConfigDetails />,
+        path: '/settings/policies/details',
+        element: <SettingsPoliciesRouter />,
+        children: [
+          {
+            path: 'pod-scheduling',
+            element: <PoliciesList />,
+          },
+          {
+            path: 'pod-scheduling/:name',
+            element: <PolicyDetails />,
+          },
+          {
+            path: 'load-balancer-configuration',
+            element: <LoadBalancerConfiguration />,
+          },
+          {
+            path: 'load-balancer-configuration/:configName',
+            element: <LoadBalancerConfigDetails />,
+          },
+          {
+            path: 'split-horizon',
+            element: <SplitHorizon />,
+          },
+          {
+            index: true,
+            element: <Navigate to="pod-scheduling" replace />,
+          },
+        ],
       },
       {
         path: '/settings/namespaces/:namespace',

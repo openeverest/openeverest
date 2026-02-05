@@ -22,6 +22,7 @@ import {getCITokenFromLocalStorage} from "@e2e/utils/localStorage";
 
 const dbClusterName = 'pr-db-ovw';
 
+// TODO  dbVersion: '8.0.36-28.1' was added in later tests versions to beforeAll functions, need to be checked why and do we need return it, 
 test.describe.parallel('DB cluster overview', async () => {
 
   test.beforeEach(async ({ page }) => {

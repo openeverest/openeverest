@@ -12,30 +12,30 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-import { test, expect } from '@fixtures'
-import {checkError} from '@tests/tests/helpers';
 
-test.describe('K8S cluster tests', {tag: ['@k8s']}, () => {
-  test('get resource usage', async ({ request }) => {
+import {test, expect} from '@fixtures'
+import {checkError} from '@tests/utils/api';
+
+test.describe.parallel('K8S cluster tests', () => {
+
+  test('get resource usage', async ({request}) => {
     const r = await request.get(`/v1/resources`),
-     resources = await r.json()
+      resources = await r.json()
 
     await checkError(r)
 
     expect(resources).toBeTruthy()
-
     expect(resources?.capacity).toBeTruthy()
     expect(resources?.available).toBeTruthy()
   })
 
-  test('get cluster info', async ({ request }) => {
+  test('get cluster info', async ({request}) => {
     const r = await request.get(`/v1/cluster-info`),
-     info = await r.json()
+      info = await r.json()
 
     await checkError(r)
 
     expect(info).toBeTruthy()
-
     expect(info?.clusterType).toBeTruthy()
     expect(info?.storageClassNames).toBeTruthy()
     expect(info?.storageClassNames).toHaveLength(1)

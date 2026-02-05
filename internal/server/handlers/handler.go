@@ -8,7 +8,8 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 
-	everestv1alpha1 "github.com/percona/everest-operator/api/v1alpha1"
+	enginefeaturesv1alpha1 "github.com/percona/everest-operator/api/enginefeatures.everest/v1alpha1"
+	everestv1alpha1 "github.com/percona/everest-operator/api/everest/v1alpha1"
 	"github.com/percona/everest/api"
 )
 
@@ -33,12 +34,15 @@ type Handler interface {
 	LoadBalancerConfigHandler
 	DataImporterHandler
 	DataImportJobHandler
+	EngineFeaturesHandler
 
 	GetKubernetesClusterResources(ctx context.Context) (*api.KubernetesClusterResources, error)
 	GetKubernetesClusterInfo(ctx context.Context) (*api.KubernetesClusterInfo, error)
 	GetUserPermissions(ctx context.Context) (*api.UserPermissions, error)
 	GetSettings(ctx context.Context) (*api.Settings, error)
 }
+
+type StreamFunc func(ctx context.Context, namespace, clusterName, componentName string, params api.GetDatabaseClusterComponentLogsParams) error
 
 // DatabaseClusterHandler provides methods for handling operations on database clusters.
 type DatabaseClusterHandler interface {
@@ -49,6 +53,7 @@ type DatabaseClusterHandler interface {
 	GetDatabaseCluster(ctx context.Context, namespace, name string) (*everestv1alpha1.DatabaseCluster, error)
 	GetDatabaseClusterCredentials(ctx context.Context, namespace, name string) (*api.DatabaseClusterCredential, error)
 	GetDatabaseClusterComponents(ctx context.Context, namespace, name string) ([]api.DatabaseClusterComponent, error)
+	GetDatabaseClusterComponentLogs(ctx context.Context, namespace, clusterName, componentName string, params api.GetDatabaseClusterComponentLogsParams, stream StreamFunc) error
 	GetDatabaseClusterPitr(ctx context.Context, namespace, name string) (*api.DatabaseClusterPitr, error)
 	CreateDatabaseClusterSecret(ctx context.Context, namespace, dbName string, secret *corev1.Secret) (*corev1.Secret, error)
 }
@@ -128,4 +133,22 @@ type DataImporterHandler interface {
 // DataImportJobHandler provides methods for handling operations on data import jobs.
 type DataImportJobHandler interface {
 	ListDataImportJobs(ctx context.Context, namespace, dbName string) (*everestv1alpha1.DataImportJobList, error)
+}
+
+//  ------ Engine Features interfaces ------
+
+// EngineFeaturesHandler provides methods for handling operations on engine features.
+type EngineFeaturesHandler interface {
+	// PMDB engine features.
+
+	SplitHorizonDNSConfigHandler
+}
+
+// SplitHorizonDNSConfigHandler provides methods for handling operations on Split-Horizon DNS Config.
+type SplitHorizonDNSConfigHandler interface {
+	CreateSplitHorizonDNSConfig(ctx context.Context, shdc *enginefeaturesv1alpha1.SplitHorizonDNSConfig) (*enginefeaturesv1alpha1.SplitHorizonDNSConfig, error)
+	UpdateSplitHorizonDNSConfig(ctx context.Context, namespace, name string, req *api.SplitHorizonDNSConfigUpdateParams) (*enginefeaturesv1alpha1.SplitHorizonDNSConfig, error)
+	ListSplitHorizonDNSConfigs(ctx context.Context, namespace string) (*enginefeaturesv1alpha1.SplitHorizonDNSConfigList, error)
+	DeleteSplitHorizonDNSConfig(ctx context.Context, namespace, name string) error
+	GetSplitHorizonDNSConfig(ctx context.Context, namespace, name string) (*enginefeaturesv1alpha1.SplitHorizonDNSConfig, error)
 }

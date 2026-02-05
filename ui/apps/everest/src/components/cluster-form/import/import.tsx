@@ -120,7 +120,13 @@ export const ImportForm = () => {
         {showCreds && (
           <FormCardWithDialog
             title={Messages.dbCreds.label}
-            content={<DbCredentialsSection secretKeys={secretKeys?.user} />}
+            content={
+              <DbCredentialsSection
+                secretKeys={(secretKeys?.user || []).sort((a, b) =>
+                  a.name.localeCompare(b.name)
+                )}
+              />
+            }
             sectionSavedKey={SectionKeys.dbCreds}
           />
         )}

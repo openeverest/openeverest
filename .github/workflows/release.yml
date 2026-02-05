@@ -13,6 +13,14 @@ permissions:
   checks: write
   pull-requests: write
 
+env:
+  GONOPROXY: 'github.com/percona'
+  GONOSUMDB: 'github.com/percona'
+  GOPRIVATE: 'github.com/percona'
+  GOCACHE: '/mnt/go_cache'
+  GOMODCACHE: '/mnt/go_mod_cache'
+  REGISTRY: ghcr.io
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -29,7 +37,21 @@ jobs:
       IS_RC: 0
       ARCH: ""
       OS: ""
+      IMAGE_PREFIX: 'ghcr.io/openeverest'
+      EVEREST_SERVER_IMAGE_NAME: 'openeverest'
+      EVEREST_SERVER_DEV_IMAGE_NAME: 'openeverest-dev'
+      EVEREST_OPERATOR_IMAGE_NAME: 'openeverest-operator'
+      EVEREST_OPERATOR_DEV_IMAGE_NAME: 'openeverest-operator-dev'
+      EVEREST_OPERATOR_BUNDLE_IMAGE_NAME: 'openeverest-operator-bundle'
+      EVEREST_OPERATOR_BUNDLE_DEV_IMAGE_NAME: 'openeverest-operator-bundle-dev'
+      EVEREST_CATALOG_IMAGE_NAME: 'openeverest-catalog'
+      EVEREST_CATALOG_DEV_IMAGE_NAME: 'openeverest-catalog-dev'
+      EVEREST_VERSION_SERVICE_DEV_IMAGE_NAME: 'version-service-dev'
     steps:
+      - name: Enable /mnt (big volume) to be used by runner
+        run: |
+          sudo chown -v runner:runner /mnt
+
       - name: Validate input
         run: |
           if [[ ! $VERSION =~ ^[0-9]+\.[0-9]+\.[0-9]+(-rc[1-9][0-9]*)?$ ]]; then
@@ -52,13 +74,13 @@ jobs:
       - name: Operator - check out
         uses: actions/checkout@v5
         with:
-          repository: percona/everest-operator
-          path: everest-operator
+          repository: openeverest/openeverest-operator
+          path: openeverest-operator
           token: ${{ secrets.ROBOT_TOKEN }}
 
       - name: Operator - create release branch
         run: |
-          cd everest-operator
+          cd openeverest-operator
           # Check if the branch already exists
           git fetch
           check_branch=$(git ls-remote --heads origin ${BRANCH_NAME})
@@ -69,41 +91,29 @@ jobs:
 
           git checkout $BRANCH_NAME
 
-          # update version in the Makefile
-          sed -i "s/^VERSION ?=.*/VERSION ?= $VERSION/g" Makefile
-
-          # if there is something to commit, commit it and add the tag
-          if [[ -n $(git status --porcelain) ]]; then
-            if git tag --list | grep -q "^$GH_TAG$"; then
-              echo "The tag is already present in github. Please create a different RC/Release"
-              exit 1
-            fi
-
-            # update IMAGE_TAG_OWNER in the Makefile to point to a correct org
-            if [[ $IS_RC == 1 ]]; then 
-              # if the RC build is being run over a Release build, there will be the "percona" org mentioned in the quickstart file, 
-              # so we should replace the org
-              sed -i "s/IMAGE_TAG_OWNER ?= docker.io\/percona\$/IMAGE_TAG_OWNER ?= docker.io\/perconalab/g" Makefile 
-            else
-              sed -i "s/IMAGE_TAG_OWNER ?= docker.io\/perconalab/IMAGE_TAG_OWNER ?= docker.io\/percona/g" Makefile 
-            fi 
-            
-            make init
-            make release
-
-            # configure userdata for commits
-            git config --global user.email "everest-ci@percona.com"
-            git config --global user.name "Everest RC CI triggered by ${{ github.actor }}"
-
-            # commit and push the updated files
-            git commit -a -m "update version tag"
-            git push origin $BRANCH_NAME
-
-            git tag $GH_TAG
-            git push origin $GH_TAG
-          else
-            echo "No need for a new build"
+          if git tag --list | grep -q "^$GH_TAG$"; then
+            echo "The tag is already present in github. Please create a different RC/Release"
+            exit 1
           fi
+
+          make init
+
+          if [[ $IS_RC == 1 ]]; then 
+            IMAGE_TAG_BASE=${IMAGE_PREFIX}/${EVEREST_OPERATOR_DEV_IMAGE_NAME} make release
+          else
+            IMAGE_TAG_BASE=${IMAGE_PREFIX}/${EVEREST_OPERATOR_IMAGE_NAME} make release
+          fi 
+
+          # configure userdata for commits
+          git config --global user.email "everest-ci@percona.com"
+          git config --global user.name "Everest RC CI triggered by ${{ github.actor }}"
+
+          # commit and push the updated files
+          git commit -a -m "update version tag"
+          git push origin $BRANCH_NAME
+
+          git tag $GH_TAG
+          git push origin $GH_TAG
 
       - name: Operator - install operator-sdk
         run: |
@@ -126,10 +136,10 @@ jobs:
 
       - name: Operator - build and bundle
         run: |
-          cd everest-operator
+          cd openeverest-operator
           make build manifests bundle
 
-      - name: Operator - setup Docker meta for everest-operator
+      - name: Operator - setup Docker meta for openeverest-operator
         id: operator_meta
         uses: docker/metadata-action@v5
         # docker/metadata-action action looks more elegant when being triggered by a GH tag,
@@ -137,20 +147,20 @@ jobs:
         # in the codebase prior putting the tag, so the action uses the raw tags
         with:
           images: |
-            percona/everest-operator,enable=${{ env.IS_RC == 0 }}
-            perconalab/everest-operator
+            ${{ env.IMAGE_PREFIX }}/${{ env.EVEREST_OPERATOR_IMAGE_NAME }},enable=${{ env.IS_RC == 0 }}
+            ${{ env.IMAGE_PREFIX }}/${{ env.EVEREST_OPERATOR_DEV_IMAGE_NAME }}
           tags: |
             type=raw,value=${{ env.VERSION }}
             type=raw,value=latest
             type=raw,value=${{ env.FLOATING_TAG }},enable=${{ env.IS_RC == 0 }}
 
-      - name: Operator - setup Docker meta for everest-operator-bundle
+      - name: Operator - setup Docker meta for openeverest-operator-bundle
         id: bundle_meta
         uses: docker/metadata-action@v5
         with:
           images: |
-            percona/everest-operator-bundle,enable=${{ env.IS_RC == 0 }}
-            perconalab/everest-operator-bundle
+            ${{ env.IMAGE_PREFIX }}/${{ env.EVEREST_OPERATOR_BUNDLE_IMAGE_NAME }},enable=${{ env.IS_RC == 0 }}
+            ${{ env.IMAGE_PREFIX }}/${{ env.EVEREST_OPERATOR_BUNDLE_DEV_IMAGE_NAME }}
           tags: |
             type=raw,value=${{ env.VERSION }}
             type=raw,value=${{ env.FLOATING_TAG }},enable=${{ env.IS_RC == 0 }}
@@ -158,53 +168,54 @@ jobs:
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v3
         with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Operator - build everest-operator image
+      - name: Operator - build openeverest-operator image
         uses: docker/build-push-action@v6
         with:
-          context: everest-operator
+          context: openeverest-operator
           push: false
           tags: ${{ steps.operator_meta.outputs.tags }}
 
 
-      - name: Operator - push everest-operator image
+      - name: Operator - push openeverest-operator image
         uses: docker/build-push-action@v6
         with:
-          context: everest-operator
+          context: openeverest-operator
           push: true
           tags: ${{ steps.operator_meta.outputs.tags }}
           build-args: |
             FLAGS= -X 'github.com/percona/everest-operator/internal/consts.Version=${{ env.VERSION }}'
 
-      - name: Operator - build everest-operator-bundle image
+      - name: Operator - build openeverest-operator-bundle image
         uses: docker/build-push-action@v6
         with:
-          context: everest-operator
+          context: openeverest-operator
           push: false
           tags: ${{ steps.bundle_meta.outputs.tags }}
-          file: everest-operator/bundle.Dockerfile
+          file: openeverest-operator/bundle.Dockerfile
 
 
-      - name: Operator - push everest-operator-bundle image
+      - name: Operator - push openeverest-operator-bundle image
         uses: docker/build-push-action@v6
         with:
-          context: everest-operator
+          context: openeverest-operator
           push: true
           tags: ${{ steps.bundle_meta.outputs.tags }}
-          file: everest-operator/bundle.Dockerfile
+          file: openeverest-operator/bundle.Dockerfile
 
       - name: Catalog - checkout
         uses: actions/checkout@v5
         with:
-          repository: percona/everest-catalog
-          path: everest-catalog
+          repository: openeverest/openeverest-catalog
+          path: openeverest-catalog
           token: ${{ secrets.ROBOT_TOKEN }}
 
       - name: Catalog - create release branch
         run: |
-          cd everest-catalog
+          cd openeverest-catalog
           # Check if the branch already exists
           git fetch
           check_branch=$(git ls-remote --heads origin ${BRANCH_NAME})
@@ -233,8 +244,8 @@ jobs:
         uses: docker/metadata-action@v5
         with:
           images: |
-            percona/everest-catalog,enable=${{ env.IS_RC == 0 }}
-            perconalab/everest-catalog
+            ${{ env.IMAGE_PREFIX }}/${{ env.EVEREST_CATALOG_IMAGE_NAME }},enable=${{ env.IS_RC == 0 }}
+            ${{ env.IMAGE_PREFIX }}/${{ env.EVEREST_CATALOG_DEV_IMAGE_NAME }}
           tags: |
             type=raw,value=${{ env.VERSION }}
             type=raw,value=${{ env.FLOATING_TAG }},enable=${{ env.IS_RC == 0 }}
@@ -242,19 +253,19 @@ jobs:
       - name: Catalog - build image
         uses: docker/build-push-action@v6
         with:
-          context: everest-catalog
+          context: openeverest-catalog
           push: false
           tags: ${{ steps.catalog_meta.outputs.tags }}
-          file: everest-catalog/everest-catalog.Dockerfile
+          file: openeverest-catalog/everest-catalog.Dockerfile
 
 
       - name: Catalog - push image
         uses: docker/build-push-action@v6
         with:
-          context: everest-catalog
+          context: openeverest-catalog
           push: true
           tags: ${{ steps.catalog_meta.outputs.tags }}
-          file: everest-catalog/everest-catalog.Dockerfile
+          file: openeverest-catalog/everest-catalog.Dockerfile
 
       - name: Everest - check out
         uses: actions/checkout@v5
@@ -310,7 +321,7 @@ jobs:
           version: 9.4.0
 
       - name: Everest UI - run with Node 20
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: 20.x
           cache: "pnpm"
@@ -335,8 +346,8 @@ jobs:
         id: everest_meta
         with:
           images: |
-            percona/everest,enable=${{ env.IS_RC == 0 }}
-            perconalab/everest
+            ${{ env.IMAGE_PREFIX }}/${{ env.EVEREST_SERVER_IMAGE_NAME }},enable=${{ env.IS_RC == 0 }}
+            ${{ env.IMAGE_PREFIX }}/${{ env.EVEREST_SERVER_DEV_IMAGE_NAME }}
           tags: |
             type=raw,value=${{ env.VERSION }}
             type=raw,value=latest

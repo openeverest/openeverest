@@ -49,11 +49,14 @@ export const Messages = {
     cpu: 'CPU',
     memory: 'Memory',
     disk: 'Disk',
-    nodes: 'Nº nodes',
     externalAccess: 'External Access',
     monitoring: 'Monitoring',
     enabled: 'Enabled',
     disabled: 'Disabled',
+    shardingStatus: 'Status',
+    sharding: 'Sharding',
+    nrOfShards: 'Nº shards',
+    configServers: 'Config servers',
   },
   dbCluster: {
     noData:

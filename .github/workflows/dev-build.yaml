@@ -8,10 +8,17 @@ on:
 
 env:
   NODE_OPTIONS: "--max_old_space_size=4096"
+  GONOPROXY: 'github.com/percona'
+  GONOSUMDB: 'github.com/percona'
+  GOPRIVATE: 'github.com/percona'
+  REGISTRY: ghcr.io
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      IMAGE_PREFIX: 'ghcr.io/openeverest'
+      EVEREST_SERVER_DEV_IMAGE_NAME: 'openeverest-dev'
     steps:
       - name: Check out code into the Go module directory
         uses: actions/checkout@v5
@@ -24,7 +31,7 @@ jobs:
           version: 9.4.0
 
       - name: Run with Node 20
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: 20.x
           cache: "pnpm"
@@ -50,16 +57,17 @@ jobs:
         uses: docker/metadata-action@v5
         id: meta
         with:
-          images: perconalab/everest
+          images: ${{ env.IMAGE_PREFIX }}/${{ env.EVEREST_SERVER_DEV_IMAGE_NAME }}
           tags: 0.0.0
 
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v3
         with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build and Push everest dev image
+      - name: Build and Push openeverest dev image
         uses: docker/build-push-action@v6
         with:
           context: .

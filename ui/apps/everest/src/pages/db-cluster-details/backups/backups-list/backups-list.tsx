@@ -62,6 +62,9 @@ export const BackupsList = () => {
     setOpenOnDemandModal,
   } = useContext(ScheduleModalContext);
 
+  const { mutate: deleteBackup, isPending: deletingBackup } = useDeleteBackup(
+    dbCluster?.metadata.namespace
+  );
   const { data: backups = [] } = useDbBackups(
     dbCluster.metadata.name,
     dbCluster.metadata.namespace,
@@ -91,10 +94,6 @@ export const BackupsList = () => {
     (dbCluster.spec?.backup?.schedules || []).length === 0 &&
     pitrEnabled &&
     backups.length === 1;
-
-  const { mutate: deleteBackup, isPending: deletingBackup } = useDeleteBackup(
-    dbCluster?.metadata.namespace
-  );
 
   const { storagesToShow, uniqueStoragesInUse } =
     getAvailableBackupStoragesForBackups(
@@ -182,6 +181,7 @@ export const BackupsList = () => {
     backupName: string,
     cleanupBackupStorage: boolean
   ) => {
+    const newBackupNr = backups.length - 1;
     deleteBackup(
       { backupName: backupName, cleanupBackupStorage: cleanupBackupStorage },
       {
@@ -222,6 +222,29 @@ export const BackupsList = () => {
               ),
             })
           );
+
+          if (
+            dbCluster.spec.engine.type === DbEngineType.POSTGRESQL &&
+            newBackupNr === 0 &&
+            !dbCluster.spec.backup?.schedules?.length
+          ) {
+            updateCluster({
+              ...dbCluster,
+              spec: {
+                ...dbCluster.spec,
+                backup: {
+                  ...dbCluster.spec.backup,
+                  pitr: {
+                    ...(dbCluster.spec.backup?.pitr || {}),
+                    backupStorageName:
+                      dbCluster.spec.backup?.pitr?.backupStorageName || '',
+                    enabled: false,
+                  },
+                },
+              },
+            });
+          }
+
           handleCloseDeleteDialog();
         },
       }
@@ -269,7 +292,7 @@ export const BackupsList = () => {
             onNowClick={handleManualBackup}
             onScheduleClick={handleScheduledBackup}
             noStoragesAvailable={noStoragesAvailable}
-            backups={backups}
+            currentBackups={backups}
           />
         )}
         enableRowActions

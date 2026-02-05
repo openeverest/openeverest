@@ -43,7 +43,7 @@ const LoadBalancerConfigDetails = () => {
   const navigate = useNavigate();
 
   const match = useMatch(
-    '/settings/policies/load-balancer-configuration/:configName'
+    '/settings/policies/details/load-balancer-configuration/:configName'
   );
   const configName = match?.params.configName || '';
 

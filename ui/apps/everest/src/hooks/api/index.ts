@@ -9,3 +9,4 @@ export * from './kubernetesClusters';
 export * from './namespaces';
 export * from './version';
 export * from './pod-scheduling-policies';
+export * from './splitHorizon';

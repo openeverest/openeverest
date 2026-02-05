@@ -177,6 +177,8 @@ export const FirstStep = ({ loadingDefaultsForEdition }: StepProps) => {
         resetField(DbWizardFormFields.shardConfigServers, {
           keepError: false,
         });
+      } else {
+        setValue(DbWizardFormFields.splitHorizonDNSEnabled, false);
       }
     },
     [getFieldState, getValues, resetField, setValue]

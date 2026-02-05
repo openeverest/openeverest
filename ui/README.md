@@ -1,4 +1,4 @@
-# Percona Everest Frontend
+# OpenEverest Frontend
 
 This code base is a monorepo that holds a number of packages, namely:
 
@@ -7,9 +7,9 @@ This code base is a monorepo that holds a number of packages, namely:
 - `@percona/design` -> Percona UI themes and related utils, from base to Everest;
 - `@percona/ui-lib` -> common UI library;
 - `@percona/eslint-config-react`, `@percona/prettier-config`, `@percona/tsconfig` -> packages for shared configurations of ESlint, Prettier and Typescript;
-- `@percona/everest` -> The Percona Everest frontend code.
+- `@percona/everest` -> The OpenEverest frontend code.
 
-Percona Everest is an open source Database-as-a-Service solution that automates day-one and day-two operations for Postgres, MySQL, and MongoDB databases within Kubernetes clusters.
+OpenEverest is an open source Database-as-a-Service solution that automates day-one and day-two operations for Postgres, MySQL, and MongoDB databases within Kubernetes clusters.
 
 ## Pre-Requisites
 
