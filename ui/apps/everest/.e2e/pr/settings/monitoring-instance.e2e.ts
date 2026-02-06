@@ -68,8 +68,10 @@ test.describe.serial('Monitoring Instances', () => {
       await page.getByTestId('text-input-user').fill(MONITORING_USER);
       await page.getByTestId('text-input-password').fill(MONITORING_PASSWORD);
       await page.getByTestId('form-dialog-add').click();
-      
-      await page.waitForURL('/settings/monitoring-endpoints', { timeout: TIMEOUTS.ThirtySeconds });
+
+      await page.waitForURL('/settings/monitoring-endpoints', {
+        timeout: TIMEOUTS.ThirtySeconds,
+      });
     });
 
     await test.step(`Check created Monitoring Instance`, async () => {
