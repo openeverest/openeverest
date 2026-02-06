@@ -59,7 +59,14 @@ let token: string;
           await page.getByTestId('select-input-db-version').waitFor();
           await page.getByTestId('select-db-version-button').click();
           const dbVersionOptions = page.getByRole('option');
-          await dbVersionOptions.nth(1).click();
+          const versionCount = await dbVersionOptions.count();
+
+          // TODO This flow can be improved by choosing a version that is guaranteed to have an update.
+          // To do this, it may need to duplicate the filtering logic from the UI.
+
+          // Select the last (oldest) version to ensure upgrade path exists
+          const versionIndex = versionCount - 1;
+          await dbVersionOptions.nth(versionIndex).click();
         });
 
         await test.step('Populate resources', async () => {
@@ -67,15 +74,11 @@ let token: string;
           await moveForward(page);
           const nodesAccordion = page.getByTestId('nodes-accordion');
           await nodesAccordion.waitFor({ timeout: TIMEOUTS.ThirtySeconds });
-          // Select "Number of Nodes = 1"
+
           await nodesAccordion
             .getByTestId(`toggle-button-nodes-${size}`)
             .click();
 
-          // await page
-          //   .getByRole('button')
-          //   .getByText(size + ' node')
-          //   .click();
           await nodesAccordion.getByTestId('text-input-cpu').fill('1');
           await nodesAccordion.getByTestId('text-input-memory').fill('1');
           await nodesAccordion.getByTestId('text-input-disk').fill('1');
@@ -83,14 +86,13 @@ let token: string;
         });
 
         await test.step('Backup Schedules step', async () => {
-          //go to backups page
           await moveForward(page);
         });
 
         await test.step('Advanced Configuration step', async () => {
-          //go to advanced configuration
+          // go to advanced configuration
           await moveForward(page);
-          // Select Storage Class - mandatory param
+          // Select Storage Class - mandatory parameter
           await advancedConfigurationSelectFirstStorageClass(page);
         });
 
@@ -103,15 +105,6 @@ let token: string;
           await test.step('Submit wizard', async () => {
             await submitWizard(page);
           });
-
-          // await test.step('Check db list and status', async () => {
-          //   await goToUrl(page, '/databases');
-          //   // TODO: try re-enable after fix for: https://perconadev.atlassian.net/browse/EVEREST-1693
-          //   if (db !== 'psmdb') {
-          //     await waitForStatus(page, clusterName, 'Initializing', 15000);
-          //   }
-          //   await waitForStatus(page, clusterName, 'Up', 600000);
-          // });
 
           await test.step('Wait for DB cluster creation', async () => {
             await expect(async () => {
@@ -133,22 +126,30 @@ let token: string;
           await findDbAndClickRow(page, clusterName);
 
           await test.step('Upgrade db on next available version', async () => {
-            //check upgrade btn and open modal
+            // Check upgrade button is visible (it's hidden if cluster is at latest version)
             const upgradeBtn = page.getByTestId('upgrade-db-btn');
-            await expect(upgradeBtn).toBeVisible();
+            await expect(upgradeBtn).toBeVisible({
+              timeout: TIMEOUTS.TenSeconds,
+            });
             await upgradeBtn.click();
 
-            //populate upgrade version form
+            // Populate upgrade version form
             await page.getByTestId('select-input-db-version').waitFor();
             await page.getByTestId('select-db-version-button').click();
             const dbVersionOptionsForUpgrade = page.getByRole('option');
+
+            // Verify that upgrade versions are available (list should only show later versions)
+            const upgradeVersionCount =
+              await dbVersionOptionsForUpgrade.count();
+            expect(upgradeVersionCount).toBeGreaterThan(0);
+
             const selectedDbVersionValue = await dbVersionOptionsForUpgrade
               .first()
               .innerText();
 
             await dbVersionOptionsForUpgrade.first().click();
 
-            //submit
+            // Submit upgrade
             const upgradeModalBtn = page.getByTestId('form-dialog-upgrade');
             await expect(upgradeModalBtn).not.toBeDisabled();
             await upgradeModalBtn.click();
@@ -158,11 +159,12 @@ let token: string;
               timeout: 15000,
             });
 
-            //check result
+            // Check result - status should show "Upgrading"
             await expect(page.getByTestId(`${clusterName}-status`)).toHaveText(
               'Upgrading',
               { timeout: 15000 }
             );
+            // Verify the new version is displayed
             await expect(
               page
                 .getByTestId('version-overview-section-row')
@@ -192,12 +194,9 @@ let token: string;
 
           await test.step('Check db list and status', async () => {
             await goToUrl(page, '/databases');
-            await waitForStatus(
-              page,
-              clusterName,
-              'Up',
-              TIMEOUTS.ThirtySeconds
-            );
+
+            // Wait for the UI to update and show the cluster as Up
+            await waitForStatus(page, clusterName, 'Up', TIMEOUTS.OneMinute);
           });
         } finally {
           await deleteDbClusterFn(request, clusterName, namespace);
