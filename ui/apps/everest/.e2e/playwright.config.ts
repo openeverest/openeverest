@@ -18,6 +18,7 @@ import { dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { CI_USER_STORAGE_STATE_FILE } from './constants';
 import 'dotenv/config';
+import { dbClusterProject } from './pr/db-cluster/project.config';
 
 // Convert 'import.meta.url' to the equivalent __dirname
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -133,93 +134,7 @@ export default defineConfig({
         'pr:settings',
       ],
     },
-    // pr:db-cluster tests
-    {
-      name: 'pr:db-cluster',
-      dependencies: [
-        'pr:db-cluster:db-overview',
-        'pr:db-cluster:db-list',
-        'pr:db-cluster:db-wizard',
-      ],
-    },
-    // pr:db-cluster:db-overview tests
-    {
-      name: 'pr:db-cluster:db-overview:setup',
-      testDir: './pr/db-cluster',
-      testMatch: /db-cluster-overview\.setup\.ts/,
-      dependencies: ['global:auth:ci:setup'],
-      teardown: 'pr:db-cluster:db-overview:teardown',
-      use: {
-        storageState: CI_USER_STORAGE_STATE_FILE,
-      },
-    },
-    {
-      name: 'pr:db-cluster:db-overview:teardown',
-      testDir: './pr/db-cluster',
-      testMatch: /db-cluster-overview\.teardown\.ts/,
-    },
-    {
-      name: 'pr:db-cluster:db-overview',
-      testDir: './pr/db-cluster',
-      testMatch: /db-cluster-overview\.e2e\.ts/,
-      dependencies: ['pr:db-cluster:db-overview:setup'],
-      use: {
-        storageState: CI_USER_STORAGE_STATE_FILE,
-      },
-    },
-    // pr:db-cluster:db-list tests
-    {
-      name: 'pr:db-cluster:db-list',
-      testDir: './pr/db-cluster',
-      testMatch: /db-clusters-list\.e2e\.ts/,
-      dependencies: ['global:auth:ci:setup'],
-      use: {
-        storageState: CI_USER_STORAGE_STATE_FILE,
-      },
-    },
-    // pr:db-cluster:db-wizard tests
-    {
-      name: 'pr:db-cluster:db-wizard',
-      dependencies: [
-        'pr:db-cluster:db-wizard:create',
-        'pr:db-cluster:db-wizard:create:sharding:psmdb',
-        'pr:db-cluster:db-wizard:errors',
-      ],
-    },
-    // pr:db-cluster:db-wizard:create tests
-    {
-      name: 'pr:db-cluster:db-wizard:create',
-      testDir: './pr/db-cluster/db-wizard/create-db-cluster',
-      testMatch: /create-db-cluster\.e2e\.ts/,
-      dependencies: [
-        'global:backup-storage:setup',
-        'global:monitoring-instance:setup',
-      ],
-      use: {
-        storageState: CI_USER_STORAGE_STATE_FILE,
-      },
-    },
-    // pr:db-cluster:db-wizard:errors tests
-    {
-      name: 'pr:db-cluster:db-wizard:errors',
-      testDir: './pr/db-cluster/db-wizard/create-db-cluster',
-      testMatch: /errors-handling\.e2e\.ts/,
-      dependencies: ['global:backup-storage:setup'],
-      use: {
-        storageState: CI_USER_STORAGE_STATE_FILE,
-      },
-    },
-    // pr:db-cluster:db-wizard:create:sharding:psmdb tests
-    {
-      name: 'pr:db-cluster:db-wizard:create:sharding:psmdb',
-      testDir: './pr/db-cluster/db-wizard/create-db-cluster',
-      testMatch: /sharding\.e2e\.ts/,
-      dependencies: ['global:auth:ci:setup'],
-      use: {
-        storageState: CI_USER_STORAGE_STATE_FILE,
-      },
-    },
-
+    ...dbClusterProject,
     // pr:db-cluster-details tests
     {
       name: 'pr:db-cluster-details',

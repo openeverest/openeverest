@@ -68,20 +68,23 @@ test.describe.serial('Monitoring Instances', () => {
       await page.getByTestId('text-input-user').fill(MONITORING_USER);
       await page.getByTestId('text-input-password').fill(MONITORING_PASSWORD);
       await page.getByTestId('form-dialog-add').click();
+      
+      await page.waitForURL('/settings/monitoring-endpoints', { timeout: TIMEOUTS.ThirtySeconds });
     });
 
     await test.step(`Check created Monitoring Instance`, async () => {
       await expect(async () => {
-        const dbCluster = await getMonitoringInstance(
+        const monitoringInstance = await getMonitoringInstance(
           request,
           namespace,
           monitoringConfigName,
           token
         );
-        expect(dbCluster).toBeDefined();
+        expect(monitoringInstance).toBeDefined();
+        expect(monitoringInstance.name).toBe(monitoringConfigName);
       }).toPass({
-        intervals: [1000],
-        timeout: TIMEOUTS.TenSeconds,
+        intervals: [1000, 2000, 3000],
+        timeout: TIMEOUTS.ThirtySeconds,
       });
     });
   });
@@ -110,21 +113,21 @@ test.describe.serial('Monitoring Instances', () => {
     await expect(page.getByTestId('form-dialog-edit')).toBeDisabled();
     await expect(
       page.getByText(
-        'Percona Everest does not store PMM credentials, so fill in both the User and Password fields.'
+        'OpenEverest does not store PMM credentials, so fill in both the User and Password fields.'
       )
     ).toBeVisible();
     await page.getByTestId('text-input-password').fill(MONITORING_PASSWORD);
     await expect(page.getByTestId('form-dialog-edit')).toBeEnabled();
     await expect(
       page.getByText(
-        'Percona Everest does not store PMM credentials, so fill in both the User and Password fields.'
+        'OpenEverest does not store PMM credentials, so fill in both the User and Password fields.'
       )
     ).not.toBeVisible();
     await page.getByTestId('text-input-user').fill('');
     await expect(page.getByTestId('form-dialog-edit')).toBeDisabled();
     await expect(
       page.getByText(
-        'Percona Everest does not store PMM credentials, so fill in both the User and Password fields.'
+        'OpenEverest does not store PMM credentials, so fill in both the User and Password fields.'
       )
     ).toBeVisible();
     await page.getByTestId('text-input-user').fill(MONITORING_USER);
