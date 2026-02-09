@@ -41,7 +41,8 @@ type Topology struct {
 
 type TopologyComponent struct {
 	Optional bool `json:"optional,omitempty"`
-	//Defaults map[string]interface{} `json:"defaults,omitempty"`
+	// TODO: Do we need defaults?
+	// Defaults map[string]interface{} `json:"defaults,omitempty"`
 }
 
 type ProviderStatus struct{}

@@ -136,9 +136,11 @@ type ComponentSpec struct {
 	// Storage requirements for this component.
 	// For stateless components, this is an optional field.
 	// +optional
+	// TODO: Should we change to corev1.PersistentVolumeClaimSpec?
 	Storage *Storage `json:"storage,omitempty"`
 	// Resources requirements for this component.
 	// +optional
+	// TODO: Should we change to corev1.ResourceRequirements?
 	Resources *Resources `json:"resources,omitempty"`
 	// Config specifies the component specific configuration.
 	// +optional
@@ -163,7 +165,6 @@ type Storage struct {
 	StorageClass *string           `json:"storageClass,omitempty"`
 }
 
-// FIXME: consider adding Requests and Limits
 type Resources struct {
 	CPU    resource.Quantity `json:"cpu,omitempty"`
 	Memory resource.Quantity `json:"memory,omitempty"`
