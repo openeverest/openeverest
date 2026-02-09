@@ -21,17 +21,17 @@ import (
 	"slices"
 	"testing"
 
+	enginefeatureseverestv1alpha1 "github.com/percona/everest-operator/api/enginefeatures.everest/v1alpha1"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	enginefeatureseverestv1alpha1 "github.com/percona/everest-operator/api/enginefeatures.everest/v1alpha1"
-	"github.com/percona/everest/api"
-	"github.com/percona/everest/internal/server/handlers"
-	"github.com/percona/everest/pkg/common"
-	"github.com/percona/everest/pkg/rbac"
+	"github.com/openeverest/openeverest/v2/api"
+	"github.com/openeverest/openeverest/v2/internal/server/handlers"
+	"github.com/openeverest/openeverest/v2/pkg/common"
+	"github.com/openeverest/openeverest/v2/pkg/rbac"
 )
 
 const (

@@ -13,8 +13,8 @@ import (
 	"github.com/google/uuid"
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/percona/everest/cmd/config"
-	"github.com/percona/everest/pkg/version"
+	"github.com/openeverest/openeverest/v2/cmd/config"
+	"github.com/openeverest/openeverest/v2/pkg/version"
 )
 
 const (

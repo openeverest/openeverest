@@ -10,9 +10,9 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/percona/everest/pkg/cli/helm"
-	"github.com/percona/everest/pkg/cli/steps"
-	"github.com/percona/everest/pkg/common"
+	"github.com/openeverest/openeverest/v2/pkg/cli/helm"
+	"github.com/openeverest/openeverest/v2/pkg/cli/steps"
+	"github.com/openeverest/openeverest/v2/pkg/common"
 )
 
 func (u *Uninstall) newStepUninstallHelmChart() steps.Step {

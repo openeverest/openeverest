@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/percona/everest/pkg/rbac"
+	"github.com/openeverest/openeverest/v2/pkg/rbac"
 )
 
 func (h *rbacHandler) ListNamespaces(ctx context.Context) ([]string, error) {

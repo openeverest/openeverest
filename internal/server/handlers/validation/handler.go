@@ -4,8 +4,8 @@ package validation
 import (
 	"go.uber.org/zap"
 
-	"github.com/percona/everest/internal/server/handlers"
-	"github.com/percona/everest/pkg/kubernetes"
+	"github.com/openeverest/openeverest/v2/internal/server/handlers"
+	"github.com/openeverest/openeverest/v2/pkg/kubernetes"
 )
 
 type validateHandler struct {

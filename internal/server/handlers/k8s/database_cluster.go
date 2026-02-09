@@ -12,16 +12,16 @@ import (
 	"github.com/AlekSi/pointer"
 	"github.com/cenkalti/backoff"
 	goversion "github.com/hashicorp/go-version"
+	everestv1alpha1 "github.com/percona/everest-operator/api/everest/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
-	everestv1alpha1 "github.com/percona/everest-operator/api/everest/v1alpha1"
-	"github.com/percona/everest/api"
-	"github.com/percona/everest/internal/server/handlers"
-	"github.com/percona/everest/pkg/common"
+	"github.com/openeverest/openeverest/v2/api"
+	"github.com/openeverest/openeverest/v2/internal/server/handlers"
+	"github.com/openeverest/openeverest/v2/pkg/common"
 )
 
 const (

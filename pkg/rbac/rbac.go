@@ -34,14 +34,14 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 
-	everestclient "github.com/percona/everest/client"
-	"github.com/percona/everest/data"
-	"github.com/percona/everest/pkg/common"
-	"github.com/percona/everest/pkg/kubernetes"
-	"github.com/percona/everest/pkg/kubernetes/informer"
-	configmapadapter "github.com/percona/everest/pkg/rbac/configmap-adapter"
-	readeradapter "github.com/percona/everest/pkg/rbac/io-reader-adapter"
-	"github.com/percona/everest/pkg/session"
+	everestclient "github.com/openeverest/openeverest/v2/client"
+	"github.com/openeverest/openeverest/v2/data"
+	"github.com/openeverest/openeverest/v2/pkg/common"
+	"github.com/openeverest/openeverest/v2/pkg/kubernetes"
+	"github.com/openeverest/openeverest/v2/pkg/kubernetes/informer"
+	configmapadapter "github.com/openeverest/openeverest/v2/pkg/rbac/configmap-adapter"
+	readeradapter "github.com/openeverest/openeverest/v2/pkg/rbac/io-reader-adapter"
+	"github.com/openeverest/openeverest/v2/pkg/session"
 )
 
 // Everest API resource names.

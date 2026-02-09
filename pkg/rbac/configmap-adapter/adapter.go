@@ -27,7 +27,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 
-	rbacutils "github.com/percona/everest/pkg/rbac/utils"
+	rbacutils "github.com/openeverest/openeverest/v2/pkg/rbac/utils"
 )
 
 type k8s interface {

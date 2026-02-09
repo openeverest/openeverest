@@ -472,7 +472,7 @@ RPM_RELEASE=1
 DEB_RELEASE=1
 REVISION=0
 BRANCH="main"
-REPO="http://github.com/percona/everest"
+REPO="http://github.com/openeverest/openeverest/v2"
 PRODUCT=everestctl
 DEBUG=0
 parse_arguments PICK-ARGS-FROM-ARGV "$@"

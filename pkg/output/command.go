@@ -24,7 +24,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"go.uber.org/zap"
 
-	"github.com/percona/everest/commands/common"
+	"github.com/openeverest/openeverest/v2/commands/common"
 )
 
 // PrintError formats and prints an error to logger.

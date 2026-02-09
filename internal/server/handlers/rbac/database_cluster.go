@@ -8,13 +8,13 @@ import (
 	"strings"
 
 	"github.com/AlekSi/pointer"
+	everestv1alpha1 "github.com/percona/everest-operator/api/everest/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 
-	everestv1alpha1 "github.com/percona/everest-operator/api/everest/v1alpha1"
-	"github.com/percona/everest/api"
-	"github.com/percona/everest/internal/server/handlers"
-	"github.com/percona/everest/pkg/common"
-	"github.com/percona/everest/pkg/rbac"
+	"github.com/openeverest/openeverest/v2/api"
+	"github.com/openeverest/openeverest/v2/internal/server/handlers"
+	"github.com/openeverest/openeverest/v2/pkg/common"
+	"github.com/openeverest/openeverest/v2/pkg/rbac"
 )
 
 func (h *rbacHandler) CreateDatabaseCluster(ctx context.Context, db *everestv1alpha1.DatabaseCluster) (*everestv1alpha1.DatabaseCluster, error) {

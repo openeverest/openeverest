@@ -33,8 +33,8 @@ gen: ## Generate code.
 .PHONY: format
 format:                 ## Format source code.
 	go tool gofumpt -l -w .
-	go tool goimports -local github.com/percona/everest -l -w .
-	go tool gci write --skip-generated -s standard -s default -s "prefix(github.com/percona/everest)" .
+	go tool goimports -local github.com/openeverest/openeverest/v2 -l -w .
+	go tool gci write --skip-generated -s standard -s default -s "prefix(github.com/openeverest/openeverest/v2)" .
 
 .PHONY: check
 check:                  ## Run checks/linters for the whole project.
@@ -56,10 +56,10 @@ export CGO_ENABLED = 0
 export GOARCH = $(shell go env GOHOSTARCH)
 
 # Everest API server
-SERVER_LD_FLAGS = -X 'github.com/percona/everest/pkg/version.Version=$(RELEASE_VERSION)' \
-	-X 'github.com/percona/everest/pkg/version.FullCommit=$(RELEASE_FULLCOMMIT)' \
-	-X 'github.com/percona/everest/pkg/version.ProjectName=Everest API Server' \
-	-X 'github.com/percona/everest/cmd/config.TelemetryInterval=24h'
+SERVER_LD_FLAGS = -X 'github.com/openeverest/openeverest/v2/pkg/version.Version=$(RELEASE_VERSION)' \
+	-X 'github.com/openeverest/openeverest/v2/pkg/version.FullCommit=$(RELEASE_FULLCOMMIT)' \
+	-X 'github.com/openeverest/openeverest/v2/pkg/version.ProjectName=Everest API Server' \
+	-X 'github.com/openeverest/openeverest/v2/cmd/config.TelemetryInterval=24h'
 SERVER_BUILD_TAGS =
 SERVER_GC_FLAGS =
 
@@ -82,17 +82,17 @@ build-debug: SERVER_GC_FLAGS = -gcflags=all="-N -l"
 build-debug: build-server-helper	## Build Everest API server binary with debug symbols.
 
 .PHONY: rc
-rc: SERVER_LD_FLAGS += -X 'github.com/percona/everest/cmd/config.TelemetryURL=https://check-dev.percona.com'
+rc: SERVER_LD_FLAGS += -X 'github.com/openeverest/openeverest/v2/cmd/config.TelemetryURL=https://check-dev.percona.com'
 rc: build-server-helper	## Build Everest API server RC version.
 
 .PHONY: release
-release: SERVER_LD_FLAGS += -X 'github.com/percona/everest/cmd/config.TelemetryURL=https://check.percona.com'
+release: SERVER_LD_FLAGS += -X 'github.com/openeverest/openeverest/v2/cmd/config.TelemetryURL=https://check.percona.com'
 release: build-server-helper	## Build Everest API server release version. (Use for building release only!)
 
 # Everest CLI
-CLI_LD_FLAGS = -X 'github.com/percona/everest/pkg/version.Version=$(RELEASE_VERSION)' \
-	-X 'github.com/percona/everest/pkg/version.FullCommit=$(RELEASE_FULLCOMMIT)' \
-	-X 'github.com/percona/everest/pkg/version.ProjectName=everestctl'
+CLI_LD_FLAGS = -X 'github.com/openeverest/openeverest/v2/pkg/version.Version=$(RELEASE_VERSION)' \
+	-X 'github.com/openeverest/openeverest/v2/pkg/version.FullCommit=$(RELEASE_FULLCOMMIT)' \
+	-X 'github.com/openeverest/openeverest/v2/pkg/version.ProjectName=everestctl'
 CLI_BUILD_TAGS =
 CLI_GC_FLAGS =
 
@@ -107,7 +107,7 @@ build-cli: CLI_LD_FLAGS += -s -w
 build-cli: build-cli-helper	## Build Everest CLI binary.
 
 .PHONY: build-cli-debug
-build-cli-debug: CLI_LD_FLAGS += -X 'github.com/percona/everest/pkg/version.EverestChannelOverride=fast-v0'
+build-cli-debug: CLI_LD_FLAGS += -X 'github.com/openeverest/openeverest/v2/pkg/version.EverestChannelOverride=fast-v0'
 build-cli-debug: CLI_BUILD_TAGS = -tags debug
 build-cli-debug: CLI_GC_FLAGS = -gcflags=all="-N -l"
 build-cli-debug: build-cli-helper	## Build Everest CLI binary with debug symbols and development OLM channel.

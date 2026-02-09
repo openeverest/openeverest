@@ -3,9 +3,8 @@ package namespaces
 import (
 	"testing"
 
-	"github.com/stretchr/testify/assert"
-
 	operatorUtils "github.com/percona/everest-operator/utils"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestParseNamespaceNames(t *testing.T) {

@@ -20,11 +20,11 @@ import (
 	"slices"
 
 	"github.com/AlekSi/pointer"
+	everestv1alpha1 "github.com/percona/everest-operator/api/everest/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
-	everestv1alpha1 "github.com/percona/everest-operator/api/everest/v1alpha1"
-	"github.com/percona/everest/api"
+	"github.com/openeverest/openeverest/v2/api"
 )
 
 func (h *k8sHandler) CreatePodSchedulingPolicy(ctx context.Context, psp *everestv1alpha1.PodSchedulingPolicy) (*everestv1alpha1.PodSchedulingPolicy, error) {

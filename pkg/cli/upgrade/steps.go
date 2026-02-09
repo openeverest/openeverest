@@ -7,6 +7,7 @@ import (
 	"github.com/AlekSi/pointer"
 	goversion "github.com/hashicorp/go-version"
 	olmv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
+	everestv1alpha1 "github.com/percona/everest-operator/api/everest/v1alpha1"
 	"helm.sh/helm/v3/pkg/cli/values"
 	appsv1 "k8s.io/api/apps/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -15,15 +16,14 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	everestv1alpha1 "github.com/percona/everest-operator/api/everest/v1alpha1"
-	"github.com/percona/everest/pkg/cli/helm"
-	helmutils "github.com/percona/everest/pkg/cli/helm/utils"
-	"github.com/percona/everest/pkg/cli/steps"
-	"github.com/percona/everest/pkg/cli/utils"
-	"github.com/percona/everest/pkg/common"
-	"github.com/percona/everest/pkg/kubernetes"
-	. "github.com/percona/everest/pkg/utils/must" //nolint:revive,stylecheck
-	"github.com/percona/everest/pkg/version"
+	"github.com/openeverest/openeverest/v2/pkg/cli/helm"
+	helmutils "github.com/openeverest/openeverest/v2/pkg/cli/helm/utils"
+	"github.com/openeverest/openeverest/v2/pkg/cli/steps"
+	"github.com/openeverest/openeverest/v2/pkg/cli/utils"
+	"github.com/openeverest/openeverest/v2/pkg/common"
+	"github.com/openeverest/openeverest/v2/pkg/kubernetes"
+	. "github.com/openeverest/openeverest/v2/pkg/utils/must" //nolint:revive,stylecheck
+	"github.com/openeverest/openeverest/v2/pkg/version"
 )
 
 func (u *Upgrade) newStepUpgradeCRDs() steps.Step {

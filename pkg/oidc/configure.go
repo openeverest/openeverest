@@ -26,11 +26,11 @@ import (
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/types"
 
-	"github.com/percona/everest/pkg/cli/steps"
-	"github.com/percona/everest/pkg/cli/tui"
-	cliutils "github.com/percona/everest/pkg/cli/utils"
-	"github.com/percona/everest/pkg/common"
-	"github.com/percona/everest/pkg/kubernetes"
+	"github.com/openeverest/openeverest/v2/pkg/cli/steps"
+	"github.com/openeverest/openeverest/v2/pkg/cli/tui"
+	cliutils "github.com/openeverest/openeverest/v2/pkg/cli/utils"
+	"github.com/openeverest/openeverest/v2/pkg/common"
+	"github.com/openeverest/openeverest/v2/pkg/kubernetes"
 )
 
 // OIDC describes the command to configure OIDC settings.

@@ -15,7 +15,7 @@ Version:        %{version}
 Release:        1%{?dist}
 License:        ASL 2.0
 Group:          Applications/Databases
-URL:            https://github.com/percona/everest
+URL:            https://github.com/openeverest/openeverest/v2
 Packager:       Percona Development Team <https://jira.percona.com>
 Vendor:         Percona, LLC
 Source0:        %{name}-%{version}.tar.gz

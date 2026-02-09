@@ -11,12 +11,12 @@ import (
 	"github.com/AlekSi/pointer"
 	"github.com/cenkalti/backoff"
 	goversion "github.com/hashicorp/go-version"
+	everestv1alpha1 "github.com/percona/everest-operator/api/everest/v1alpha1"
 	"k8s.io/apimachinery/pkg/types"
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 
-	everestv1alpha1 "github.com/percona/everest-operator/api/everest/v1alpha1"
-	"github.com/percona/everest/api"
-	versionservice "github.com/percona/everest/pkg/version_service"
+	"github.com/openeverest/openeverest/v2/api"
+	versionservice "github.com/openeverest/openeverest/v2/pkg/version_service"
 )
 
 var (

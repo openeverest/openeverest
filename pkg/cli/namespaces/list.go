@@ -23,16 +23,16 @@ import (
 	"strings"
 
 	goversion "github.com/hashicorp/go-version"
+	everestOperator "github.com/percona/everest-operator/api/everest/v1alpha1"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	everestOperator "github.com/percona/everest-operator/api/everest/v1alpha1"
-	cliutils "github.com/percona/everest/pkg/cli/utils"
-	"github.com/percona/everest/pkg/common"
-	"github.com/percona/everest/pkg/kubernetes"
+	cliutils "github.com/openeverest/openeverest/v2/pkg/cli/utils"
+	"github.com/openeverest/openeverest/v2/pkg/common"
+	"github.com/openeverest/openeverest/v2/pkg/kubernetes"
 )
 
 // skipNamespaces is a list of namespaces that cannot be added to Everest management.

@@ -21,6 +21,7 @@ import (
 	"testing"
 
 	"github.com/AlekSi/pointer"
+	everestv1alpha1 "github.com/percona/everest-operator/api/everest/v1alpha1"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
@@ -29,9 +30,8 @@ import (
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 
-	everestv1alpha1 "github.com/percona/everest-operator/api/everest/v1alpha1"
-	"github.com/percona/everest/api"
-	"github.com/percona/everest/pkg/kubernetes"
+	"github.com/openeverest/openeverest/v2/api"
+	"github.com/openeverest/openeverest/v2/pkg/kubernetes"
 )
 
 func getDefaultPXCPolicy() *everestv1alpha1.PodSchedulingPolicy {

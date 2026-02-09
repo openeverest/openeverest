@@ -23,13 +23,13 @@ import (
 
 	"github.com/AlekSi/pointer"
 	"github.com/labstack/echo/v4"
+	everestv1alpha1 "github.com/percona/everest-operator/api/everest/v1alpha1"
 	"github.com/unrolled/secure"
 	"github.com/unrolled/secure/cspbuilder"
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 
-	everestv1alpha1 "github.com/percona/everest-operator/api/everest/v1alpha1"
-	"github.com/percona/everest/api"
-	"github.com/percona/everest/pkg/oidc"
+	"github.com/openeverest/openeverest/v2/api"
+	"github.com/openeverest/openeverest/v2/pkg/oidc"
 )
 
 const (

@@ -23,7 +23,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/percona/everest/pkg/common"
+	"github.com/openeverest/openeverest/v2/pkg/common"
 )
 
 // CreateNamespace creates the given namespace.

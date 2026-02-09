@@ -26,9 +26,9 @@ import (
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 
-	"github.com/percona/everest/api"
-	"github.com/percona/everest/pkg/accounts"
-	"github.com/percona/everest/pkg/common"
+	"github.com/openeverest/openeverest/v2/api"
+	"github.com/openeverest/openeverest/v2/pkg/accounts"
+	"github.com/openeverest/openeverest/v2/pkg/common"
 )
 
 const (

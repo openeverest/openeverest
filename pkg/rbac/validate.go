@@ -11,8 +11,8 @@ import (
 	"github.com/casbin/casbin/v2"
 	"go.uber.org/zap"
 
-	"github.com/percona/everest/pkg/common"
-	"github.com/percona/everest/pkg/kubernetes"
+	"github.com/openeverest/openeverest/v2/pkg/common"
+	"github.com/openeverest/openeverest/v2/pkg/kubernetes"
 )
 
 // ErrPolicySyntax is returned when a policy has a syntax error.

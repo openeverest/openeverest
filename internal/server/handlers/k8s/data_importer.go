@@ -4,9 +4,8 @@ import (
 	"context"
 	"slices"
 
-	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
-
 	everestv1alpha1 "github.com/percona/everest-operator/api/everest/v1alpha1"
+	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // ListDataImporters returns a list of DataImporters that support the specified engines.

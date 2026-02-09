@@ -1,6 +1,6 @@
 package helm
 
-import "github.com/percona/everest/pkg/kubernetes"
+import "github.com/openeverest/openeverest/v2/pkg/kubernetes"
 
 // Values contains the different values that can be set in the Helm chart.
 type Values struct {

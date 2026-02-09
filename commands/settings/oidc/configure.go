@@ -22,11 +22,11 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/percona/everest/pkg/cli"
-	"github.com/percona/everest/pkg/common"
-	"github.com/percona/everest/pkg/logger"
-	"github.com/percona/everest/pkg/oidc"
-	"github.com/percona/everest/pkg/output"
+	"github.com/openeverest/openeverest/v2/pkg/cli"
+	"github.com/openeverest/openeverest/v2/pkg/common"
+	"github.com/openeverest/openeverest/v2/pkg/logger"
+	"github.com/openeverest/openeverest/v2/pkg/oidc"
+	"github.com/openeverest/openeverest/v2/pkg/output"
 )
 
 var (

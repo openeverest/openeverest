@@ -22,8 +22,8 @@ import (
 	"github.com/spf13/cobra"
 	ctrlruntimelog "sigs.k8s.io/controller-runtime/pkg/log"
 
-	"github.com/percona/everest/pkg/cli"
-	"github.com/percona/everest/pkg/logger"
+	"github.com/openeverest/openeverest/v2/pkg/cli"
+	"github.com/openeverest/openeverest/v2/pkg/logger"
 )
 
 type (

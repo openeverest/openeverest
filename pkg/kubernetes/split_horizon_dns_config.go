@@ -18,9 +18,8 @@ package kubernetes
 import (
 	"context"
 
-	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
-
 	enginefeaturesv1alpha1 "github.com/percona/everest-operator/api/enginefeatures.everest/v1alpha1"
+	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // CreateSplitHorizonDNSConfig creates a SplitHorizonDNSConfig resource in Kubernetes.

@@ -29,9 +29,8 @@ import (
 
 	perconavs "github.com/Percona-Lab/percona-version-service/versionpb"
 	goversion "github.com/hashicorp/go-version"
-	"google.golang.org/protobuf/encoding/protojson"
-
 	everestv1alpha1 "github.com/percona/everest-operator/api/everest/v1alpha1"
+	"google.golang.org/protobuf/encoding/protojson"
 )
 
 const (

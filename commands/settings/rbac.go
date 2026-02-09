@@ -19,7 +19,7 @@ package settings
 import (
 	"github.com/spf13/cobra"
 
-	"github.com/percona/everest/commands/settings/rbac"
+	"github.com/openeverest/openeverest/v2/commands/settings/rbac"
 )
 
 var settingsRBACCmd = &cobra.Command{

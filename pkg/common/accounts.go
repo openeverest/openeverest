@@ -9,7 +9,7 @@ import (
 
 	"github.com/golang-jwt/jwt/v5"
 
-	"github.com/percona/everest/pkg/accounts"
+	"github.com/openeverest/openeverest/v2/pkg/accounts"
 )
 
 const (

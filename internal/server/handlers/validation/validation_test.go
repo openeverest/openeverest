@@ -4,11 +4,10 @@ import (
 	"testing"
 	"time"
 
+	everestv1alpha1 "github.com/percona/everest-operator/api/everest/v1alpha1"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	everestv1alpha1 "github.com/percona/everest-operator/api/everest/v1alpha1"
 )
 
 func TestValidateMetadata(t *testing.T) {

@@ -27,9 +27,9 @@ import (
 	"go.uber.org/zap"
 	ctrlruntimelog "sigs.k8s.io/controller-runtime/pkg/log"
 
-	"github.com/percona/everest/cmd/config"
-	"github.com/percona/everest/internal/server"
-	"github.com/percona/everest/pkg/logger"
+	"github.com/openeverest/openeverest/v2/cmd/config"
+	"github.com/openeverest/openeverest/v2/internal/server"
+	"github.com/openeverest/openeverest/v2/pkg/logger"
 )
 
 const (

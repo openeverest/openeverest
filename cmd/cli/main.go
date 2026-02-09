@@ -19,7 +19,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/percona/everest/commands"
+	"github.com/openeverest/openeverest/v2/commands"
 )
 
 func main() {

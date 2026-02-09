@@ -10,7 +10,7 @@ import (
 	"gopkg.in/yaml.v3"
 	corev1 "k8s.io/api/core/v1"
 
-	rbacutils "github.com/percona/everest/pkg/rbac/utils"
+	rbacutils "github.com/openeverest/openeverest/v2/pkg/rbac/utils"
 )
 
 // Adapter reads a policy from an io.Reader source.

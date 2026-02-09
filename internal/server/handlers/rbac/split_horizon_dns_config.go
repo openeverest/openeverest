@@ -21,8 +21,9 @@ import (
 	"slices"
 
 	"github.com/percona/everest-operator/api/enginefeatures.everest/v1alpha1"
-	"github.com/percona/everest/api"
-	"github.com/percona/everest/pkg/rbac"
+
+	"github.com/openeverest/openeverest/v2/api"
+	"github.com/openeverest/openeverest/v2/pkg/rbac"
 )
 
 func (h *rbacHandler) CreateSplitHorizonDNSConfig(ctx context.Context, shdc *v1alpha1.SplitHorizonDNSConfig) (*v1alpha1.SplitHorizonDNSConfig, error) { //nolint:lll

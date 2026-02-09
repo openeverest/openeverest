@@ -18,7 +18,7 @@ linters-settings:
             desc: use "github.com/golang/protobuf/proto" instead
 
   goimports:
-    local-prefixes: github.com/percona/everest
+    local-prefixes: github.com/openeverest/openeverest/v2
 
   unused:
     check-exported: true
@@ -30,7 +30,7 @@ linters-settings:
     sections:
       - standard # Captures all standard packages if they do not match another section.
       - default # Contains all imports that could not be matched to another section type.
-      - prefix(github.com/percona/everest) # Groups all local imports.
+      - prefix(github.com/openeverest/openeverest/v2) # Groups all local imports.
 
   errcheck:
     exclude-functions:
@@ -54,7 +54,7 @@ linters:
     - wsl              # too many empty lines makes methods too long
     - perfsprint       # keep the format for consistency
     - execinquery      # deprecated
-    - gomoddirectives  # we have been forced to use a replacement for k8s.io/client-go, see https://github.com/percona/everest/pull/901
+    - gomoddirectives  # we have been forced to use a replacement for k8s.io/client-go, see https://github.com/openeverest/openeverest/v2/pull/901
 
 issues:
   exclude-use-default: false

@@ -27,12 +27,12 @@ import (
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 
-	"github.com/percona/everest/pkg/cli/namespaces"
-	"github.com/percona/everest/pkg/cli/steps"
-	"github.com/percona/everest/pkg/cli/tui"
-	cliutils "github.com/percona/everest/pkg/cli/utils"
-	"github.com/percona/everest/pkg/common"
-	"github.com/percona/everest/pkg/kubernetes"
+	"github.com/openeverest/openeverest/v2/pkg/cli/namespaces"
+	"github.com/openeverest/openeverest/v2/pkg/cli/steps"
+	"github.com/openeverest/openeverest/v2/pkg/cli/tui"
+	cliutils "github.com/openeverest/openeverest/v2/pkg/cli/utils"
+	"github.com/openeverest/openeverest/v2/pkg/common"
+	"github.com/openeverest/openeverest/v2/pkg/kubernetes"
 )
 
 const (

@@ -6,10 +6,10 @@ import (
 	"fmt"
 
 	"github.com/AlekSi/pointer"
-
 	everestv1alpha1 "github.com/percona/everest-operator/api/everest/v1alpha1"
-	"github.com/percona/everest/api"
-	"github.com/percona/everest/pkg/rbac"
+
+	"github.com/openeverest/openeverest/v2/api"
+	"github.com/openeverest/openeverest/v2/pkg/rbac"
 )
 
 func (h *rbacHandler) ListDatabaseEngines(ctx context.Context, namespace string) (*everestv1alpha1.DatabaseEngineList, error) {

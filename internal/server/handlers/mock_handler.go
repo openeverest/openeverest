@@ -5,11 +5,11 @@ package handlers
 import (
 	context "context"
 
-	api "github.com/percona/everest/api"
-
-	mock "github.com/stretchr/testify/mock"
+	api "github.com/openeverest/openeverest/v2/api"
 
 	enginefeatures_everestv1alpha1 "github.com/percona/everest-operator/api/enginefeatures.everest/v1alpha1"
+
+	mock "github.com/stretchr/testify/mock"
 
 	v1 "k8s.io/api/core/v1"
 

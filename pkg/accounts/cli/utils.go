@@ -22,7 +22,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/percona/everest/pkg/cli/tui"
+	"github.com/openeverest/openeverest/v2/pkg/cli/tui"
 )
 
 const (

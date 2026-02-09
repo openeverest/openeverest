@@ -25,11 +25,11 @@ import (
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 
-	"github.com/percona/everest/pkg/cli"
-	"github.com/percona/everest/pkg/kubernetes"
-	"github.com/percona/everest/pkg/logger"
-	"github.com/percona/everest/pkg/output"
-	"github.com/percona/everest/pkg/rbac"
+	"github.com/openeverest/openeverest/v2/pkg/cli"
+	"github.com/openeverest/openeverest/v2/pkg/kubernetes"
+	"github.com/openeverest/openeverest/v2/pkg/logger"
+	"github.com/openeverest/openeverest/v2/pkg/output"
+	"github.com/openeverest/openeverest/v2/pkg/rbac"
 )
 
 const canCmdExamples = `
