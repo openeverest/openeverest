@@ -128,11 +128,11 @@ export default defineConfig({
     {
       name: 'pr',
       dependencies: [
-        // 'pr:db-cluster',
+        'pr:db-cluster',
         'pr:db-cluster-details',
-        // 'pr:multinamespaces',
-        // 'pr:no-match',
-        // 'pr:settings',
+        'pr:multinamespaces',
+        'pr:no-match',
+        'pr:settings',
       ],
     },
     ...dbClusterProject,
