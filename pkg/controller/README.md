@@ -75,8 +75,3 @@ func (p *MyProvider) Status(c *sdk.Context) (sdk.Status, error) { ... }
 func (p *MyProvider) Cleanup(c *sdk.Context) error { ... }
 ```
 
-## See Also
-
-- [SDK Overview](../../docs/SDK_OVERVIEW.md)
-- [Examples](../../examples/README.md)
-
