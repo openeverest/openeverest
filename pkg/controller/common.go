@@ -66,8 +66,8 @@ func (c *Context) ComponentsOfType(componentType string) []v2alpha1.ComponentSpe
 	return c.wl.GetComponentsOfType(componentType)
 }
 
-// DB returns the underlying Workload for direct access.
-func (c *Context) DB() *v2alpha1.Workload {
+// Workload returns the underlying Workload for direct access.
+func (c *Context) Workload() *v2alpha1.Workload {
 	return c.wl
 }
 
@@ -77,12 +77,6 @@ func (c *Context) DB() *v2alpha1.Workload {
 // implements the MetadataProvider interface.
 func (c *Context) Metadata() *ProviderMetadata {
 	return c.metadata
-}
-
-// Raw returns the underlying Workload (escape hatch for advanced use).
-// Deprecated: Use DB() instead.
-func (c *Context) Raw() *v2alpha1.Workload {
-	return c.wl
 }
 
 // =============================================================================

@@ -260,7 +260,7 @@ func OptionalComponent() TopologyComponentMeta {
 //	    metadata := MyProviderMetadata()
 //
 //	    // Get the engine component from the workload spec
-//	    engine := c.DB().Spec.Components["engine"]
+//	    engine := c.Workload().Spec.Components["engine"]
 //
 //	    // Look up the default image for the component's type
 //	    image := metadata.GetDefaultImage(engine.Type)
@@ -276,7 +276,7 @@ func OptionalComponent() TopologyComponentMeta {
 // TYPICAL PATTERN:
 //
 //	// User specifies a component with a type (e.g., "mongod")
-//	component := c.DB().Spec.Components["engine"]
+//	component := c.Workload().Spec.Components["engine"]
 //
 //	// Determine which image to use
 //	var image string
