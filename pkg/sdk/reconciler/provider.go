@@ -5,8 +5,8 @@ import (
 	"fmt"
 
 	"github.com/openeverest/openeverest/v2/pkg/apis/v2alpha1"
-	"github.com/openeverest/openeverest/v2/pkg/controller"
-	"github.com/openeverest/openeverest/v2/pkg/server"
+	"github.com/openeverest/openeverest/v2/pkg/sdk/controller"
+	"github.com/openeverest/openeverest/v2/pkg/sdk/server"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"

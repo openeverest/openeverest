@@ -24,7 +24,7 @@ limitations under the License.
 //
 // Usage:
 //
-//	import "github.com/openeverest/openeverest/v2/pkg/openapi"
+//	import "github.com/openeverest/openeverest/v2/pkg/sdk/openapi"
 //
 //	// Get pre-generated definitions
 //	defs := openapi.GetOpenAPIDefinitions(ref)
