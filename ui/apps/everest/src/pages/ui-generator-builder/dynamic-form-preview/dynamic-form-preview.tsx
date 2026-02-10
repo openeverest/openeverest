@@ -1,22 +1,23 @@
 import { FormProvider, useForm } from 'react-hook-form';
 import { UIGenerator } from 'components/ui-generator/ui-generator';
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { SelectInput, Stepper } from '@percona/ui-lib';
 import { TopologyUISchemas } from 'components/ui-generator/ui-generator.types';
 import { MenuItem, Stack, Step, StepLabel } from '@mui/material';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { StepHeader } from 'pages/database-form/database-form-body/steps/step-header/step-header';
 import DatabaseFormStepControllers from 'pages/database-form/database-form-body/DatabaseFormStepControllers';
-import { getSteps } from 'components/ui-generator/utils/renderComponent';
-import { getDefaultValues } from './utils/getDefaultValues';
-import { buildZodSchema } from './utils/getZodSchema';
+import { getSteps } from 'components/ui-generator/utils/render-component';
+import { getDefaultValues } from 'components/ui-generator/utils/get-default-values';
+import { buildZodSchema } from 'components/ui-generator/utils/get-zod-schema';
+import { useCelValidation } from 'components/ui-generator/hooks/use-cel-validation';
 
 export type DynamicFormProps = {
   schema: TopologyUISchemas;
 };
 
 export const DynamicForm = ({ schema }: DynamicFormProps) => {
-  debugger;
+
   const [activeStep, setActiveStep] = useState(0);
   const topologies = Object.keys(schema);
   const hasMultipleTopologies = topologies.length > 1;
@@ -31,7 +32,7 @@ export const DynamicForm = ({ schema }: DynamicFormProps) => {
     : Object.keys(sections);
 
   // Generate default values based on unique field IDs
-  const defaultValues = useMemo(() => {
+  const defaultValues: Record<string, unknown> = useMemo(() => {
     const values = getDefaultValues(schema, selectedTopology);
     return hasMultipleTopologies
       ? { topology: { type: selectedTopology }, ...values }
@@ -44,7 +45,7 @@ export const DynamicForm = ({ schema }: DynamicFormProps) => {
     selectedTopology
   );
 
-  const methods = useForm({
+  const methods = useForm<Record<string, unknown>>({
     mode: 'onChange',
     resolver: async (data, context, options) => {
       console.log('Form validation triggered with data:', data);
@@ -56,11 +57,25 @@ export const DynamicForm = ({ schema }: DynamicFormProps) => {
     defaultValues,
   });
 
+  // Reset form when topology changes
+  useEffect(() => {
+    methods.reset(defaultValues);
+  }, [selectedTopology, methods, defaultValues]);
+
+  // Enable CEL expression validation with automatic dependency re-validation
+  const { trigger, control } = methods;
+  useCelValidation(celDependencyGroups, control, trigger);
+
   return (
-    <FormProvider {...methods}>
-      <Stepper noConnector activeStep={activeStep} sx={{ marginBottom: 4 }}>
+    <FormProvider {...methods} key={selectedTopology}>
+      <Stepper
+        noConnector
+        activeStep={activeStep}
+        sx={{ marginBottom: 4 }}
+        key={`stepper-${selectedTopology}`}
+      >
         {stepLabels.map((_, idx) => (
-          <Step key={`step-${idx + 1}`}>
+          <Step key={`${selectedTopology}-step-${idx + 1}`}>
             <StepLabel />
           </Step>
         ))}
@@ -68,7 +83,7 @@ export const DynamicForm = ({ schema }: DynamicFormProps) => {
       <Stack spacing={2} sx={{ marginTop: 2 }}>
         <StepHeader
           pageTitle={
-            sections[stepLabels[activeStep]]?.name ??
+            sections[stepLabels[activeStep]]?.label ??
             (stepLabels[activeStep] || '')
           }
           pageDescription={sections[stepLabels[activeStep]]?.description ?? ''}

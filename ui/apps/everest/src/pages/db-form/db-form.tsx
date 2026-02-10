@@ -1,4 +1,5 @@
 import { useState } from 'react';
+//TODO customise schema by operator type
 import { topologyUiSchemas } from '../../components/ui-generator/ui-generator.mock';
 import { MenuItem, Stack, Step, StepLabel } from '@mui/material';
 import { SelectInput, Stepper } from '@percona/ui-lib';
@@ -6,11 +7,10 @@ import DatabaseFormStepControllers from 'pages/database-form/database-form-body/
 import { FormProvider, useForm } from 'react-hook-form';
 import { StepHeader } from 'pages/database-form/database-form-body/steps/step-header/step-header';
 import { UIGenerator } from 'components/ui-generator/ui-generator';
-import { getSteps } from 'components/ui-generator/utils/renderComponent';
+import { getSteps } from 'components/ui-generator/utils/render-component';
 
 export const DatabasePageGenerated = () => {
   const [activeStep, setActiveStep] = useState(0);
-  // const topologies = Object.keys(schema);
   const [selectedTopology, setSelectedTopology] = useState<string>('');
   const sections = getSteps(selectedTopology, topologyUiSchemas);
   const stepLabels = ['Choose topology', ...Object.keys(sections)];
@@ -28,7 +28,7 @@ export const DatabasePageGenerated = () => {
     // defaultValues,
   });
 
-  //TODO: set defaults for topology after selection
+  //TODO: set defaults for topology after selection (check how it works in builder)
   //TODO: check StepHeader empty fields
 
   return (
@@ -43,7 +43,7 @@ export const DatabasePageGenerated = () => {
       <Stack spacing={2} sx={{ marginTop: 2 }}>
         <StepHeader
           pageTitle={
-            sections[stepLabels[activeStep]]?.name ??
+            sections[stepLabels[activeStep]]?.label ??
             (stepLabels[activeStep] || '')
           }
           pageDescription={sections[stepLabels[activeStep]]?.description ?? ''}

@@ -3,7 +3,7 @@ servers:
   - url: /v1
 info:
   version: 1.0.0
-  title: Percona Everest schema
+  title: OpenEverest schema
   description: |
     # Authentication
     All requests to Everest API require `Authorization: Bearer <token>` header with a valid token in plain-text.

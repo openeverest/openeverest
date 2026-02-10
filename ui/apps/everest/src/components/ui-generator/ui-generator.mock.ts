@@ -12,7 +12,7 @@ export const topologyUiSchemas: TopologyUISchemas = {
             path: 'spec.engine.version',
             fieldParams: {
               label: 'Database Version',
-              // in case of dbVersions we are assume that we get availableVersions values already
+              // TODO CHECK WITH THE TEAM: in case of dbVersions we are assume that we get availableVersions values already
               // or we need to think about an extra logic an it will be special component like:
               // VersionSelect or DbVersionSelect
               options: [
@@ -109,9 +109,6 @@ export const topologyUiSchemas: TopologyUISchemas = {
             path: 'spec.engine.version',
             fieldParams: {
               label: 'Database Version',
-              // in case of dbVersions we are assume that we get availableVersions values already
-              // or we need to think about an extra logic an it will be special component like:
-              // VersionSelect or DbVersionSelect
               options: [
                 {
                   label: 'percona/percona-server-mongodb:6.0.19-16-multi',
@@ -156,6 +153,17 @@ export const topologyUiSchemas: TopologyUISchemas = {
               label: 'Nº of configuration servers',
               defaultValue: 3,
             },
+            validation: {
+              celExpressions: [
+                {
+                  celExpr:
+                    '!(spec.replica.nodes > 1 && spec.sharding.configServer.replicas == 1)',
+                  message:
+                    'The number of configuration servers cannot be 1 if the number of database nodes is greater than 1',
+                },
+              ],
+            },
+          },
           },
         },
         componentsOrder: ['shards', 'numberOfnodes', 'numberOfConfigServers'],
@@ -166,22 +174,23 @@ export const topologyUiSchemas: TopologyUISchemas = {
         components: {
           shards: {
             uiType: 'number',
-            path: 'spec.sharding.shards',
+            path: 'spec.sharding.shards2',
             fieldParams: {
               label: 'Nº of shards',
               defaultValue: 1,
             },
           },
           numberOfnodes: {
-            path: 'spec.replica.nodes',
+            path: 'spec.replica.nodes2',
             uiType: 'number', // RadioButtons/Number/even Select
             fieldParams: {
               label: 'Number of nodes',
+              defaultValue: 3,
             },
           },
           numberOfConfigServers: {
             uiType: 'number', //can be something like NumberTabs or custom type
-            path: 'spec.sharding.configServer.replicas',
+            path: 'spec.sharding.configServer.replicas2',
             fieldParams: {
               label: 'Nº of configuration servers',
               defaultValue: 3,
@@ -203,9 +212,6 @@ export const topologyUiSchemas: TopologyUISchemas = {
             path: 'spec.engine.version',
             fieldParams: {
               label: 'Database Version',
-              // in case of dbVersions we are assume that we get availableVersions values already
-              // or we need to think about an extra logic an it will be special component like:
-              // VersionSelect or DbVersionSelect
               options: [
                 {
                   label: 'percona/percona-server-mongodb:6.0.19-16-multi',
@@ -263,74 +269,3 @@ export const topologyUiSchemas: TopologyUISchemas = {
     },
   },
 };
-//TODO describe how user can set an order for components in components group
-// it could be 0-name, 1-name/ weight to each component or an array of keys
-// in components group if order is needed
-
-// export const openApiObj: OpenAPIObject = {
-//     topology: 'sharded',
-//     sections: [
-//         {
-//             name: 'Basic Information',
-//             description: 'Provide the basic information for your new database.',
-//             components: [
-//                 {
-//                     // in case of dbVersions we are assume that we get availableVersions values already
-//                     // or we need to think about an extra logic an it will be special component like:
-//                     // VersionSelect or DbVersionSelect
-//                     uiType: 'SelectInput',
-//                     // matching path to an API payload
-//                     path: 'spec.engine.version',
-//                     fieldParams: {
-//                         label: 'Database Version',
-//                         helperText: 'Select the version of the database you want to use.',
-//                     }
-//                 } as Component<SelectInputProps>,
-//                 {
-//                     uiType: 'SwitchInput',
-//                     path: 'spec.sharding.enabled',
-//                     techPreview: true,
-//                     fieldParams: {
-//                         label: 'Sharded Cluster',
-//                         description: 'MongoDB shards are partitions of data that distribute load and improve database scalability and performance.',
-
-//                     }
-//                 } as Component<SwitchInputProps>
-//             ],
-//         },
-//         {
-//             name: 'Resources',
-//             description: 'Configure the resources your new database will have access to.',
-//             components: [
-//                 {
-//                     uiType: 'Number',
-//                     path: 'spec.sharding.shards',
-//                     fieldParams: {
-//                         label: 'Nº of shards',
-//                         defaultValue: 1,
-//                     }
-//                 },
-//                 {
-//                     uiType: 'Group',
-//                     components: [
-//                         {
-//                             uiType: 'Number', // RadioButtons/Number/even Select
-//                             fieldParams: {
-//                                 label: 'Number of nodes',
-//                             }
-//                         }
-//                     ],
-
-//                 },
-//                 {
-//                     uiType: 'Number', //can be something like NumberTabs or custom type
-//                     path: 'spec.sharding.configServer.replicas',
-//                     fieldParams: {
-//                         label: 'Nº of configuration servers',
-//                         defaultValue: 3,
-//                     }
-//                 },
-//             ],
-//         },
-//     ]
-// }

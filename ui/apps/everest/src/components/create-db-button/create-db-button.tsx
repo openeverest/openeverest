@@ -198,7 +198,9 @@ export const CreateDbButton = ({
                   {humanizeDbType(dbEngineToDbType(item.type))}
                 </MenuItem>
               ))}
-              <MenuItem
+              {/* TODO shouldn't be duplicated with previous version of form */}
+              {/* <MenuItem
+                data-testid={`add-db-cluster-button-psmdb-generated`}
                 component={Link}
                 to="/databases/new-ui-generated"
                 sx={{
@@ -210,7 +212,7 @@ export const CreateDbButton = ({
                 }}
               >
                 PSMDB generated
-              </MenuItem>
+              </MenuItem> */}
             </Box>
           }
         </Menu>

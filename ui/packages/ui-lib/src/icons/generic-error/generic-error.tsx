@@ -57,4 +57,6 @@ const GenericErrorIcon = ({ w, h }: GenericErrorProps) => {
   );
 };
 
+GenericErrorIcon.displayName = 'GenericErrorIcon';
+
 export default GenericErrorIcon;

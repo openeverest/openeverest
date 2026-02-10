@@ -15,14 +15,13 @@ export type UIGroupProps = {
 
 const UIGroup = ({ groupType, children, groupParams, item }: UIGroupProps) => {
   const Component = groupType ? componentGroupMap[groupType] : undefined;
-  debugger;
 
   return (
     <>
       {Component ? (
         React.createElement(Component, {
           children,
-          label: item?.name,
+          label: item?.label,
         })
       ) : (
         <Stack spacing={2}>{children}</Stack>

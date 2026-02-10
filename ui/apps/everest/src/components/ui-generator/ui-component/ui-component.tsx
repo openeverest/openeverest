@@ -24,11 +24,9 @@ const UIComponent: React.FC<ComponentProps> = ({ item, name }) => {
   const { uiType, fieldParams } = item;
   const methods = useFormContext();
   const errors = methods?.formState?.errors || {};
-  // Use get() to access nested error paths like "spec.replica.nodes"
+  //get() is used to access nested error paths like "spec.replica.nodes"
   const errorObj = get(errors, name);
   const error = errorObj?.message as string | undefined;
-
-  console.log(`UIComponent rendering with name: ${name}, uiType: ${uiType}`);
 
   const MuiComponent = muiComponentMap[uiType];
   if (!MuiComponent) return null;
@@ -37,7 +35,7 @@ const UIComponent: React.FC<ComponentProps> = ({ item, name }) => {
 
   const options = isSelectComponent(item)
     ? item.fieldParams.options.map((option) => (
-        <MenuItem key={option.value} value={option.value}>
+        <MenuItem key={`${name}-${option.value}`} value={option.value}>
           {option.label}
         </MenuItem>
       ))

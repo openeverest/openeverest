@@ -54,7 +54,7 @@ if not os.path.exists(everest_chart_dir):
 print('Using chart dir: {0}'.format(everest_chart_dir))
 
 # Optional env vars
-pxc_operator_version = os.getenv('PXC_OPERATOR_VERSION', '1.18.0')
+pxc_operator_version = os.getenv('PXC_OPERATOR_VERSION', '1.19.0')
 print('Using PXC operator version: {0}'.format(pxc_operator_version))
 psmdb_operator_version = os.getenv('PSMDB_OPERATOR_VERSION', '1.21.1')
 print('Using PSMDB operator version: {0}'.format(psmdb_operator_version))

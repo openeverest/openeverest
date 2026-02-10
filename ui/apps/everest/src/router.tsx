@@ -18,6 +18,7 @@ import { UIGeneratorBuilder } from 'pages/ui-generator-builder/ui-generator-buil
 import NamespaceDetails from 'pages/settings/namespaces/namespace-details';
 import Restores from 'pages/db-cluster-details/restores';
 import Components from './pages/db-cluster-details/components';
+import Logs from './pages/db-cluster-details/component-logs/component-logs';
 import LoginCallback from 'components/login-callback/LoginCallback';
 import { DbClusterContextProvider } from 'pages/db-cluster-details/dbCluster.context';
 import Logout from 'pages/logout';
@@ -28,8 +29,6 @@ import LoadBalancerConfiguration from 'pages/settings/policies/load-balancer-con
 import LoadBalancerConfigDetails from 'pages/settings/policies/load-balancer-configuration/load-balancer-config-detials/load-balancer-config-detials';
 import SettingsPoliciesRouter from 'pages/settings/settings-policies-router';
 import SplitHorizon from 'pages/settings/policies/split-horizon';
-// TODO legasy POC should be removed later
-// import { UIGeneratorNew } from 'pages/ui-generator/ui-schema/UiGenerator';
 
 const router = createBrowserRouter([
   {
@@ -89,6 +88,10 @@ const router = createBrowserRouter([
             path: DBClusterDetailsTabs.restores,
             element: <Restores />,
           },
+          {
+            path: DBClusterDetailsTabs.logs,
+            element: <Logs />,
+          },
         ],
       },
       {
@@ -117,9 +120,8 @@ const router = createBrowserRouter([
           },
         ],
       },
-      // TODO ui-generator builder should be commited and delivered separately with tests coverage
       {
-        path: 'new-page',
+        path: 'ui-generator-builder',
         element: <UIGeneratorBuilder />,
       },
       {

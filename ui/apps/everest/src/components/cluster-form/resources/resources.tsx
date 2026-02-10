@@ -23,8 +23,7 @@ import {
   ToggleCard,
   ToggleRegularButton,
   ToggleButtonGroupInputRegular,
-  // TODO legasy POC should be removed later
-  // CustomAccordionSummary,
+  CustomAccordionSummary,
 } from '@percona/ui-lib';
 import { useKubernetesClusterResourcesInfo } from 'hooks/api/kubernetesClusters/useKubernetesClusterResourcesInfo';
 import { useActiveBreakpoint } from 'hooks/utils/useActiveBreakpoint';
@@ -428,40 +427,6 @@ const ResourcesToggles = ({
     </FormGroup>
   );
 };
-// TODO legasy POC should be removed later
-// export const CustomAccordionSummary = ({
-//   unitPlural,
-//   nr,
-//   hasError,
-// }: {
-//   unitPlural: string;
-//   nr: number;
-//   hasError?: boolean;
-// }) => {
-//   const text = Number.isNaN(nr) || nr < 1 ? '' : ` (${nr})`;
-
-//   return (
-//     <AccordionSummary
-//       sx={{
-//         paddingLeft: 0,
-//       }}
-//       expandIcon={<ExpandMoreIcon />}
-//     >
-//       <Box display="flex" alignItems="center">
-//         {hasError && (
-//           <ErrorOutlineIcon
-//             color="error"
-//             sx={{ mr: 1, position: 'relative', bottom: 1 }}
-//           />
-//         )}
-//         <Typography
-//           variant="sectionHeading"
-//           textTransform="capitalize"
-//         >{`${unitPlural} ${text}`}</Typography>
-//       </Box>
-//     </AccordionSummary>
-//   );
-// };
 
 const CustomPaper = ({
   children,
@@ -689,12 +654,11 @@ const ResourcesForm = ({
           pb: expanded === 'nodes' ? 2 : 0,
         }}
       >
-        {/* TODO legasy POC should be removed later
         <CustomAccordionSummary
           unitPlural={sharding ? `Nodes per shard` : 'Nodes'}
           nr={parseInt(nodesAccordionSummaryNumber || '', 10)}
           hasError={someErrorInNodes}
-        /> */}
+        />
         <Divider />
         <ResourcesToggles
           dbType={dbType}
@@ -725,12 +689,11 @@ const ResourcesForm = ({
             pb: expanded === 'proxies' ? 2 : 0,
           }}
         >
-          {/* TODO legasy POC should be removed later
           <CustomAccordionSummary
             unitPlural={proxyUnitNames.plural}
             nr={parseInt(proxiesAccordionSummaryNumber || '', 10)}
             hasError={someErrorInProxies}
-          /> */}
+          />
           <Divider />
           <ResourcesToggles
             dbType={dbType}

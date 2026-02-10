@@ -3,4 +3,5 @@ export enum DBClusterDetailsTabs {
   components = 'components',
   backups = 'backups',
   restores = 'restores',
+  logs = 'logs',
 }

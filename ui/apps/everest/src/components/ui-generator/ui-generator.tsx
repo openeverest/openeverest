@@ -1,8 +1,8 @@
 import { Stack, Typography } from '@mui/material';
-import { useCallback, useEffect } from 'react';
+import { useEffect } from 'react';
 import { useFormContext } from 'react-hook-form';
-import { Component, ComponentGroup, Section } from './ui-generator.types';
-import { orderComponents, renderComponent } from './utils/renderComponent';
+import { Section } from './ui-generator.types';
+import { orderComponents, renderComponent } from './utils/render-component';
 
 type UIGeneratorProps = {
   activeStep: number;
@@ -15,7 +15,7 @@ export const UIGenerator = ({
   sections,
   stepLabels,
 }: UIGeneratorProps) => {
-  debugger;
+
   const { getValues, formState } = useFormContext();
   const sectionKey = stepLabels[activeStep];
   const section = sections[sectionKey];
@@ -46,8 +46,6 @@ export const UIGenerator = ({
   return (
     <Stack spacing={2}>
       {orderedComponents.map(([key, item]) => {
-        debugger;
-        console.log(key, item, Object.values(components));
         const fieldName = basePath ? `${basePath}.${key}` : key;
         return renderComponent({
           key,

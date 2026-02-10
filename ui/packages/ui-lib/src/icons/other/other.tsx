@@ -9,6 +9,8 @@ export const DatabaseIcon = (props: SvgIconProps) => (
   </SvgIcon>
 );
 
+DatabaseIcon.displayName = 'DatabaseIcon';
+
 export const NetworkNode = (props: SvgIconProps) => (
   <SvgIcon viewBox="0 0 20 20" {...props} id="network-node-icon">
     <path
@@ -17,3 +19,5 @@ export const NetworkNode = (props: SvgIconProps) => (
     />
   </SvgIcon>
 );
+
+NetworkNode.displayName = 'NetworkNode';

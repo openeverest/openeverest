@@ -11,7 +11,7 @@ import { EmptyStateIcon } from '@percona/ui-lib';
 
 const ContactSupportLink = ({ msg }: { msg: string }) => {
   return (
-    <Link target="_blank" rel="noopener" href="https://hubs.ly/Q02YRLsL0">
+    <Link target="_blank" rel="noopener" href="https://openeverest.io/support/">
       <Button
         startIcon={
           <HelpIcon
@@ -73,7 +73,7 @@ const EmptyState = ({
             )}
 
         <Divider sx={{ width: '30%', marginTop: '10px' }} />
-        <ContactSupportLink msg="Contact Percona support" />
+        <ContactSupportLink msg="Get support" />
       </Stack>
     </>
   );

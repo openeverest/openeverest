@@ -14,7 +14,7 @@
 // limitations under the License.
 import StorageIcon from '@mui/icons-material/Storage';
 import SettingsIcon from '@mui/icons-material/Settings';
-import InfoIcon from '@mui/icons-material/Info';
+import SchemaIcon from '@mui/icons-material/Schema';
 import { EverestRoute } from './Drawer.types';
 import { SettingsTabs } from 'pages/settings/settings.types';
 
@@ -31,15 +31,10 @@ export const ROUTES: EverestRoute[] = [
     icon: SettingsIcon,
     text: 'Settings',
   },
+  //TODO ui-generator builder should be hided from ui and delivered separately with tests coverage
   {
-    to: '/new-page',
-    icon: InfoIcon,
+    to: '/ui-generator-builder',
+    icon: SchemaIcon,
     text: 'UI Generator Builder',
   },
-  // TODO legasy POC should be removed later
-  // {
-  //   to: `ui-generator`,
-  //   icon: SettingsIcon,
-  //   text: 'UI Generator',
-  // },
 ];

@@ -7,7 +7,6 @@ import {
 } from '@mui/material';
 import { AccordionWrapperProps } from './accordion-wrapper.types';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
-import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 
 // TODO can be customizable with props
 const AccordionWrapper = ({
@@ -16,7 +15,7 @@ const AccordionWrapper = ({
   label,
 }: AccordionWrapperProps) => {
   return (
-    <Accordion key={fieldName} defaultExpanded>
+    <Accordion defaultExpanded>
       {label && (
         <AccordionSummary expandIcon={<ExpandMoreIcon />}>
           <Box display="flex" alignItems="center">

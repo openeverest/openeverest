@@ -25,7 +25,7 @@ export const GenericError = () => {
       setTimeout(() => {
         setOpen(false);
         window
-          .open('https://github.com/percona/everest/issues', '_blank')
+          .open('https://github.com/openeverest/openeverest/issues', '_blank')
           ?.focus();
       }, 0);
     }

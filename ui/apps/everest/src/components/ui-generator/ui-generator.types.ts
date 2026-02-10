@@ -32,6 +32,7 @@ type FieldParamsMap = {
   select: BaseFieldParams & {
     options: { label: string; value: string }[];
   };
+  // TODO probably it's better to have others as a separate object to avoid duplication, but let's see
   // other: BaseFieldParams & {
   //     badge?: string;
   //     options?: { label: string; value: string }[];
@@ -40,15 +41,21 @@ type FieldParamsMap = {
   // };
 };
 
-// Либо path, либо id - но не оба и не ни один
 type PathOrId = { path: string; id?: never } | { id: string; path?: never };
+
+export type CelExpression = {
+  celExpr: string;
+  message?: string;
+};
 
 export type Component = {
   [K in keyof FieldParamsMap]: {
     uiType: K;
     techPreview?: boolean;
     validation?: {
-      [key: string]: string | number;
+      min?: number;
+      max?: number;
+      celExpressions?: CelExpression[];
     };
     fieldParams: FieldParamsMap[K];
   } & PathOrId;
@@ -56,28 +63,26 @@ export type Component = {
 
 export type ComponentGroup = {
   uiType: 'group' | 'hidden';
-  name?: string;
-  //description?: string;
+  label?: string;
+  description?: string;
   groupType?: GroupType;
-  groupParams?: any; //TODO
+  //TODO check groupParams is work
+  groupParams?: any;
   components: { [key: string]: Component | ComponentGroup };
   componentsOrder?: string[];
 };
 
 export type Section = {
-  name?: string;
+  label?: string;
   description?: string;
   components: { [key: string]: Component | ComponentGroup };
   componentsOrder?: string[];
 };
 
 export type Topology = {
-  //section - is a part of a form, plugin developer can put all component of the form
-  // to one section and in will be one step in the form
   sections: {
     [key: string]: Section;
   };
-  //allow plugin developer to set order of sections in the form (steps)
   sectionsOrder?: string[];
 };
 

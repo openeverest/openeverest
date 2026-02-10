@@ -434,6 +434,8 @@ export const ErrorIcon = (props: StatusIconProps) => (
   />
 );
 
+ErrorIcon.displayName = 'ErrorIcon';
+
 export const WarningIcon = (props: StatusIconProps) => (
   <StatusIconProvider
     LightIconGeneral={WarningIconLight}
@@ -441,6 +443,8 @@ export const WarningIcon = (props: StatusIconProps) => (
     props={props}
   />
 );
+
+WarningIcon.displayName = 'WarningIcon';
 
 export const PendingIcon = (props: StatusIconProps) => (
   <StatusIconProvider
@@ -450,6 +454,8 @@ export const PendingIcon = (props: StatusIconProps) => (
   />
 );
 
+PendingIcon.displayName = 'PendingIcon';
+
 export const SuccessIcon = (props: StatusIconProps) => (
   <StatusIconProvider
     LightIconGeneral={SuccessIconLight}
@@ -457,6 +463,8 @@ export const SuccessIcon = (props: StatusIconProps) => (
     props={props}
   />
 );
+
+SuccessIcon.displayName = 'SuccessIcon';
 
 export const UnknownIcon = (props: StatusIconProps) => (
   <StatusIconProvider
@@ -466,6 +474,8 @@ export const UnknownIcon = (props: StatusIconProps) => (
   />
 );
 
+UnknownIcon.displayName = 'UnknownIcon';
+
 export const PausedIcon = (props: StatusIconProps) => (
   <StatusIconProvider
     LightIconGeneral={PausedIconLight}
@@ -473,3 +483,5 @@ export const PausedIcon = (props: StatusIconProps) => (
     props={props}
   />
 );
+
+PausedIcon.displayName = 'PausedIcon';

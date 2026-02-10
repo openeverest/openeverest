@@ -40,6 +40,8 @@ export const MySqlIcon = (props: SvgIconProps) => (
   </SvgIcon>
 );
 
+MySqlIcon.displayName = 'MySqlIcon';
+
 export const MongoIcon = (props: SvgIconProps) => (
   <SvgIcon viewBox="0 0 214 188" {...props}>
     <path
@@ -81,6 +83,8 @@ export const MongoIcon = (props: SvgIconProps) => (
   </SvgIcon>
 );
 
+MongoIcon.displayName = 'MongoIcon';
+
 export const PostgreSqlIcon = (props: SvgIconProps) => (
   <SvgIcon viewBox="0 0 214 203" {...props}>
     <path
@@ -118,6 +122,8 @@ export const PostgreSqlIcon = (props: SvgIconProps) => (
   </SvgIcon>
 );
 
+PostgreSqlIcon.displayName = 'PostgreSqlIcon';
+
 export const MySqlDolphinIcon = (props: SvgIconProps) => (
   <SvgIcon viewBox="0 0 21 20" {...props}>
     <g id="mysql">
@@ -136,6 +142,8 @@ export const MySqlDolphinIcon = (props: SvgIconProps) => (
     </g>
   </SvgIcon>
 );
+
+MySqlDolphinIcon.displayName = 'MySqlDolphinIcon';
 
 export const PostgreSqlElephantIcon = (props: SvgIconProps) => (
   <SvgIcon viewBox="0 0 21 20" {...props}>
@@ -160,6 +168,8 @@ export const PostgreSqlElephantIcon = (props: SvgIconProps) => (
   </SvgIcon>
 );
 
+PostgreSqlElephantIcon.displayName = 'PostgreSqlElephantIcon';
+
 export const MongoLeafIcon = (props: SvgIconProps) => (
   <SvgIcon viewBox="0 0 21 20" {...props}>
     <g id=" mongodb">
@@ -176,3 +186,5 @@ export const MongoLeafIcon = (props: SvgIconProps) => (
     </g>
   </SvgIcon>
 );
+
+MongoLeafIcon.displayName = 'MongoLeafIcon';

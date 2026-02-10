@@ -2,7 +2,7 @@
   "replica": {
     "sections": {
       "basicInfo": {
-        "name": "Basic Information",
+        "label": "Basic Information",
         "description": "Provide the basic information for your new database.",
         "components": {
           "version": {
@@ -30,14 +30,15 @@
         }
       },
       "resources": {
-        "name": "Resources",
+        "label": "Resources",
         "description": "Some description about resources",
         "components": {
           "numberOfnodes": {
             "path": "spec.replica.nodes",
             "uiType": "number",
             "fieldParams": {
-              "label": "Number of nodes"
+              "label": "Number of nodes",
+              "defaultValue": 3
             },
             "validation": {
               "min": 1,
@@ -47,7 +48,7 @@
           "resources": {
             "uiType": "group",
             "groupType": "line",
-            "name": "Resources",
+            "label": "Resources",
             "components": {
               "cpu": {
                 "uiType": "number",
@@ -97,7 +98,7 @@
   "sharded": {
     "sections": {
       "basicInfo": {
-        "name": "Basic Information",
+        "label": "Basic Information",
         "description": "Provide the basic information for your new database.",
         "components": {
           "version": {
@@ -124,7 +125,7 @@
         }
       },
       "resources": {
-        "name": "Resources",
+        "label": "Resources",
         "description": "Some description about resources",
         "components": {
           "shards": {
@@ -139,7 +140,8 @@
             "path": "spec.replica.nodes",
             "uiType": "number",
             "fieldParams": {
-              "label": "Number of nodes"
+              "label": "Number of nodes",
+              "defaultValue": 3
             }
           },
           "numberOfConfigServers": {
@@ -148,33 +150,42 @@
             "fieldParams": {
               "label": "Nº of configuration servers",
               "defaultValue": 3
+            },
+            "validation": {
+              "celExpressions": [
+                {
+                  "celExpr": "!(spec.replica.nodes > 1 && spec.sharding.configServer.replicas == 1)",
+                  "message": "The number of configuration servers cannot be 1 if the number of database nodes is greater than 1"
+                }
+              ]
             }
           }
         },
         "componentsOrder": ["shards", "numberOfnodes", "numberOfConfigServers"]
       },
       "resources2": {
-        "name": "Resources",
+        "label": "Resources",
         "description": "Some description about resources",
         "components": {
           "shards": {
             "uiType": "number",
-            "path": "spec.sharding.shards",
+            "path": "spec.sharding.shards2",
             "fieldParams": {
               "label": "Nº of shards",
               "defaultValue": 1
             }
           },
           "numberOfnodes": {
-            "path": "spec.replica.nodes",
+            "path": "spec.replica.nodes2",
             "uiType": "number",
             "fieldParams": {
-              "label": "Number of nodes"
+              "label": "Number of nodes",
+              "defaultValue": 3
             }
           },
           "numberOfConfigServers": {
             "uiType": "number",
-            "path": "spec.sharding.configServer.replicas",
+            "path": "spec.sharding.configServer.replicas2",
             "fieldParams": {
               "label": "Nº of configuration servers",
               "defaultValue": 3
@@ -188,7 +199,7 @@
   "shardedInOneStep": {
     "sections": {
       "databaseInfo": {
-        "name": "Basic Information",
+        "label": "Basic Information",
         "description": "Fill the information for your new database.",
         "components": {
           "version": {
@@ -215,7 +226,7 @@
           "resources": {
             "uiType": "group",
             "groupType": "accordion",
-            "name": "Resources",
+            "label": "Resources",
             "components": {
               "shards": {
                 "uiType": "number",
@@ -229,7 +240,8 @@
                 "path": "spec.replica.nodes",
                 "uiType": "number",
                 "fieldParams": {
-                  "label": "Number of nodes"
+                  "label": "Number of nodes",
+                  "defaultValue": 3
                 }
               },
               "numberOfConfigServers": {
