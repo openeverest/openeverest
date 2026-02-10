@@ -91,31 +91,39 @@ func defaultSchemaCustomizer(name string, t reflect.Type, tag reflect.StructTag,
 
 	// Minimum (for numbers)
 	if minStr := tag.Get("minimum"); minStr != "" {
-		if val, err := strconv.ParseFloat(minStr, 64); err == nil {
-			schema.Min = &val
+		val, err := strconv.ParseFloat(minStr, 64)
+		if err != nil {
+			return fmt.Errorf("invalid minimum value %q for field %q: %w", minStr, name, err)
 		}
+		schema.Min = &val
 	}
 
 	// Maximum (for numbers)
 	if maxStr := tag.Get("maximum"); maxStr != "" {
-		if val, err := strconv.ParseFloat(maxStr, 64); err == nil {
-			schema.Max = &val
+		val, err := strconv.ParseFloat(maxStr, 64)
+		if err != nil {
+			return fmt.Errorf("invalid maximum value %q for field %q: %w", maxStr, name, err)
 		}
+		schema.Max = &val
 	}
 
 	// MinLength (for strings)
 	if minLenStr := tag.Get("minLength"); minLenStr != "" {
-		if val, err := strconv.ParseUint(minLenStr, 10, 64); err == nil {
-			schema.MinLength = val
+		val, err := strconv.ParseUint(minLenStr, 10, 64)
+		if err != nil {
+			return fmt.Errorf("invalid minLength value %q for field %q: %w", minLenStr, name, err)
 		}
+		schema.MinLength = val
 	}
 
 	// MaxLength (for strings)
 	if maxLenStr := tag.Get("maxLength"); maxLenStr != "" {
-		if val, err := strconv.ParseUint(maxLenStr, 10, 64); err == nil {
-			maxLen := val
-			schema.MaxLength = &maxLen
+		val, err := strconv.ParseUint(maxLenStr, 10, 64)
+		if err != nil {
+			return fmt.Errorf("invalid maxLength value %q for field %q: %w", maxLenStr, name, err)
 		}
+		maxLen := val
+		schema.MaxLength = &maxLen
 	}
 
 	return nil
@@ -342,4 +350,3 @@ func MustGenerateSchema(typ any) *openapi3.SchemaRef {
 	}
 	return schema
 }
-
