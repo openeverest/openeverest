@@ -20,9 +20,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/openeverest/openeverest/v2/pkg/apis/v2alpha1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+
+	"github.com/openeverest/openeverest/v2/pkg/apis/v2alpha1"
 )
 
 // =============================================================================

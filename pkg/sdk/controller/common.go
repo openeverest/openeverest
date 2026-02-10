@@ -6,10 +6,11 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/openeverest/openeverest/v2/pkg/apis/v2alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+
+	"github.com/openeverest/openeverest/v2/pkg/apis/v2alpha1"
 )
 
 // =============================================================================

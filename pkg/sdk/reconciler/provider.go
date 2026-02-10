@@ -4,9 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/openeverest/openeverest/v2/pkg/apis/v2alpha1"
-	"github.com/openeverest/openeverest/v2/pkg/sdk/controller"
-	"github.com/openeverest/openeverest/v2/pkg/sdk/server"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
@@ -16,6 +13,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+
+	"github.com/openeverest/openeverest/v2/pkg/apis/v2alpha1"
+	"github.com/openeverest/openeverest/v2/pkg/sdk/controller"
+	"github.com/openeverest/openeverest/v2/pkg/sdk/server"
 )
 
 const finalizerName = "everest.percona.com/provider-finalizer"

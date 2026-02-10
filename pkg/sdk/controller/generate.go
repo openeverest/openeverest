@@ -53,12 +53,12 @@ func GenerateManifest(metadata *ProviderMetadata, name, namespace, outputPath st
 
 	// Ensure output directory exists
 	dir := filepath.Dir(outputPath)
-	if err := os.MkdirAll(dir, 0755); err != nil {
+	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return fmt.Errorf("failed to create output directory: %w", err)
 	}
 
 	// Write to file
-	if err := os.WriteFile(outputPath, []byte(yaml), 0644); err != nil {
+	if err := os.WriteFile(outputPath, []byte(yaml), 0o644); err != nil {
 		return fmt.Errorf("failed to write manifest: %w", err)
 	}
 
@@ -90,4 +90,3 @@ func MustGenerateManifest(metadata *ProviderMetadata, name, namespace, outputPat
 		panic(err)
 	}
 }
-

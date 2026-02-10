@@ -15,9 +15,10 @@ import (
 	"bytes"
 	"fmt"
 
-	"github.com/openeverest/openeverest/v2/pkg/apis/v2alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/yaml"
+
+	"github.com/openeverest/openeverest/v2/pkg/apis/v2alpha1"
 )
 
 // =============================================================================
@@ -132,7 +133,7 @@ func (m *ProviderMetadata) ToProviderCR(name, namespace string) *v2alpha1.Provid
 		for compName, compMeta := range topoMeta.Components {
 			components[compName] = v2alpha1.TopologyComponent{
 				Optional: compMeta.Optional,
-				//Defaults: compMeta.Defaults,
+				// Defaults: compMeta.Defaults,
 			}
 		}
 		provider.Spec.Topologies[topoName] = v2alpha1.Topology{
