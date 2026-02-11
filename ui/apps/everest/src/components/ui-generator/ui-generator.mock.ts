@@ -1,4 +1,4 @@
-import { TopologyUISchemas, GroupType } from './ui-generator.types';
+import { TopologyUISchemas, GroupType, FieldType } from './ui-generator.types';
 
 export const topologyUiSchemas: TopologyUISchemas = {
   replica: {
@@ -8,7 +8,7 @@ export const topologyUiSchemas: TopologyUISchemas = {
         description: 'Provide the basic information for your new database.',
         components: {
           version: {
-            uiType: 'select', //it can be autocompleteselect?
+            uiType: FieldType.Select,
             path: 'spec.engine.version',
             fieldParams: {
               label: 'Database Version',
@@ -40,7 +40,7 @@ export const topologyUiSchemas: TopologyUISchemas = {
         components: {
           numberOfnodes: {
             path: 'spec.replica.nodes',
-            uiType: 'number', // RadioButtons/Number/even Select
+            uiType: FieldType.Number, // RadioButtons/Number/even Select
             fieldParams: {
               label: 'Number of nodes',
             },
@@ -55,7 +55,7 @@ export const topologyUiSchemas: TopologyUISchemas = {
             components: {
               cpu: {
                 path: 'spec.engine.resources.cpu',
-                uiType: 'number',
+                uiType: FieldType.Number,
                 fieldParams: {
                   badge: 'CPU',
                   label: 'CPU',
@@ -67,7 +67,7 @@ export const topologyUiSchemas: TopologyUISchemas = {
               },
               memory: {
                 path: 'spec.engine.resources.memory',
-                uiType: 'number',
+                uiType: FieldType.Number,
                 fieldParams: {
                   badge: 'Gi',
                   label: 'Memory',
@@ -79,7 +79,7 @@ export const topologyUiSchemas: TopologyUISchemas = {
               },
               disk: {
                 path: 'spec.engine.resources.memory',
-                uiType: 'number',
+                uiType: FieldType.Number,
                 fieldParams: {
                   badge: 'Gi',
                   label: 'Disk',
@@ -105,7 +105,7 @@ export const topologyUiSchemas: TopologyUISchemas = {
         description: 'Provide the basic information for your new database.',
         components: {
           version: {
-            uiType: 'select', //it can be autocompleteselect?
+            uiType: FieldType.Select, //it can be autocompleteselect?
             path: 'spec.engine.version',
             fieldParams: {
               label: 'Database Version',
@@ -132,7 +132,7 @@ export const topologyUiSchemas: TopologyUISchemas = {
         description: 'Some description about resources',
         components: {
           shards: {
-            uiType: 'number',
+            uiType: FieldType.Number,
             path: 'spec.sharding.shards',
             fieldParams: {
               label: 'Nº of shards',
@@ -141,13 +141,13 @@ export const topologyUiSchemas: TopologyUISchemas = {
           },
           numberOfnodes: {
             path: 'spec.replica.nodes',
-            uiType: 'number', // RadioButtons/Number/even Select
+            uiType: FieldType.Number, // RadioButtons/Number/even Select
             fieldParams: {
               label: 'Number of nodes',
             },
           },
           numberOfConfigServers: {
-            uiType: 'number', //can be something like NumberTabs or custom type
+            uiType: FieldType.Number, //can be something like NumberTabs or custom type
             path: 'spec.sharding.configServer.replicas',
             fieldParams: {
               label: 'Nº of configuration servers',
@@ -164,7 +164,6 @@ export const topologyUiSchemas: TopologyUISchemas = {
               ],
             },
           },
-          },
         },
         componentsOrder: ['shards', 'numberOfnodes', 'numberOfConfigServers'],
       },
@@ -173,7 +172,7 @@ export const topologyUiSchemas: TopologyUISchemas = {
         description: 'Some description about resources',
         components: {
           shards: {
-            uiType: 'number',
+            uiType: FieldType.Number,
             path: 'spec.sharding.shards2',
             fieldParams: {
               label: 'Nº of shards',
@@ -182,14 +181,14 @@ export const topologyUiSchemas: TopologyUISchemas = {
           },
           numberOfnodes: {
             path: 'spec.replica.nodes2',
-            uiType: 'number', // RadioButtons/Number/even Select
+            uiType: FieldType.Number, // RadioButtons/Number/even Select
             fieldParams: {
               label: 'Number of nodes',
               defaultValue: 3,
             },
           },
           numberOfConfigServers: {
-            uiType: 'number', //can be something like NumberTabs or custom type
+            uiType: FieldType.Number, //can be something like NumberTabs or custom type
             path: 'spec.sharding.configServer.replicas2',
             fieldParams: {
               label: 'Nº of configuration servers',
@@ -200,6 +199,7 @@ export const topologyUiSchemas: TopologyUISchemas = {
         componentsOrder: ['numberOfnodes', 'numberOfConfigServers', 'shards'],
       },
     },
+    sectionsOrder: ['basicInfo', 'resources', 'resources2'],
   },
   shardedInOneStep: {
     sections: {
@@ -208,7 +208,7 @@ export const topologyUiSchemas: TopologyUISchemas = {
         description: 'Fill the information for your new database.',
         components: {
           version: {
-            uiType: 'select', //it can be autocompleteselect?
+            uiType: FieldType.Select, //it can be autocompleteselect?
             path: 'spec.engine.version',
             fieldParams: {
               label: 'Database Version',
@@ -235,7 +235,7 @@ export const topologyUiSchemas: TopologyUISchemas = {
             // description: 'Some description about resources',
             components: {
               shards: {
-                uiType: 'number',
+                uiType: FieldType.Number,
                 path: 'spec.sharding.shards',
                 fieldParams: {
                   label: 'Nº of shards',
@@ -244,13 +244,13 @@ export const topologyUiSchemas: TopologyUISchemas = {
               },
               numberOfnodes: {
                 path: 'spec.replica.nodes',
-                uiType: 'number', // RadioButtons/Number/even Select
+                uiType: FieldType.Number, // RadioButtons/Number/even Select
                 fieldParams: {
                   label: 'Number of nodes',
                 },
               },
               numberOfConfigServers: {
-                uiType: 'number', //can be something like NumberTabs or custom type
+                uiType: FieldType.Number, //can be something like NumberTabs or custom type
                 path: 'spec.sharding.configServer.replicas',
                 fieldParams: {
                   label: 'Nº of configuration servers',

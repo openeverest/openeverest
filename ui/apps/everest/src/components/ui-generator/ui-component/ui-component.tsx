@@ -1,8 +1,12 @@
 import { MenuItem } from '@mui/material';
-import { Component } from 'components/ui-generator/ui-generator.types';
+import {
+  Component,
+  FieldType,
+} from 'components/ui-generator/ui-generator.types';
 import React from 'react';
 import { useFormContext, get } from 'react-hook-form';
 import { muiComponentMap } from '../constants';
+import { getMappedParams } from './get-mapped-params';
 
 type ComponentByType<T extends Component['uiType']> = Extract<
   Component,
@@ -16,12 +20,14 @@ export type ComponentProps<
   name: string;
 };
 
-function isSelectComponent(item: Component): item is ComponentByType<'select'> {
-  return item.uiType === 'select';
+function isSelectComponent(
+  item: Component
+): item is ComponentByType<FieldType.Select> {
+  return item.uiType === FieldType.Select;
 }
 
 const UIComponent: React.FC<ComponentProps> = ({ item, name }) => {
-  const { uiType, fieldParams } = item;
+  const { uiType, fieldParams, validation } = item;
   const methods = useFormContext();
   const errors = methods?.formState?.errors || {};
   //get() is used to access nested error paths like "spec.replica.nodes"
@@ -32,6 +38,8 @@ const UIComponent: React.FC<ComponentProps> = ({ item, name }) => {
   if (!MuiComponent) return null;
 
   const label = fieldParams?.label || '';
+
+  const mappedProps = getMappedParams(uiType, fieldParams, validation);
 
   const options = isSelectComponent(item)
     ? item.fieldParams.options.map((option) => (
@@ -46,7 +54,7 @@ const UIComponent: React.FC<ComponentProps> = ({ item, name }) => {
       {React.createElement(
         MuiComponent,
         {
-          ...fieldParams,
+          ...mappedProps,
           name,
           label,
           error: !!error,

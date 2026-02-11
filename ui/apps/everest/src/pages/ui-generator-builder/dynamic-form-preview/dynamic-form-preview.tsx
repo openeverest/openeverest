@@ -7,9 +7,9 @@ import { MenuItem, Stack, Step, StepLabel } from '@mui/material';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { StepHeader } from 'pages/database-form/database-form-body/steps/step-header/step-header';
 import DatabaseFormStepControllers from 'pages/database-form/database-form-body/DatabaseFormStepControllers';
-import { getSteps } from 'components/ui-generator/utils/render-component';
-import { getDefaultValues } from 'components/ui-generator/utils/get-default-values';
-import { buildZodSchema } from 'components/ui-generator/utils/get-zod-schema';
+import { getSteps } from 'components/ui-generator/utils/component-renderer';
+import { getDefaultValues } from 'components/ui-generator/utils/default-values';
+import { buildZodSchema } from 'components/ui-generator/utils/schema-builder';
 import { useCelValidation } from 'components/ui-generator/hooks/use-cel-validation';
 
 export type DynamicFormProps = {
@@ -17,7 +17,6 @@ export type DynamicFormProps = {
 };
 
 export const DynamicForm = ({ schema }: DynamicFormProps) => {
-
   const [activeStep, setActiveStep] = useState(0);
   const topologies = Object.keys(schema);
   const hasMultipleTopologies = topologies.length > 1;

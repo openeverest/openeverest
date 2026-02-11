@@ -13,32 +13,30 @@ export enum GroupType {
   Line = 'line',
 }
 
-type BaseFieldParams = {
+interface CommonFieldParams {
   label?: string;
-  description?: string;
   defaultValue?: unknown;
-};
+  required?: boolean;
+  disabled?: boolean;
+  autoFocus?: boolean;
+  helperText?: string;
+}
 
-type FieldParamsMap = {
-  // TODO & TextFieldProps (https://mui.com/material-ui/api/text-field/)
-  //  idially it should give access to all native mui properties that require a string value
-  // (without references to root, react components, etc.)
-  number: BaseFieldParams & {
-    maxLength?: number;
-    placeholder?: string;
-    defaultValue?: number;
-    badge?: string;
-  };
-  select: BaseFieldParams & {
-    options: { label: string; value: string }[];
-  };
-  // TODO probably it's better to have others as a separate object to avoid duplication, but let's see
-  // other: BaseFieldParams & {
-  //     badge?: string;
-  //     options?: { label: string; value: string }[];
-  //     placeholder?: string;
-  //     defaultValue?: string;
-  // };
+export interface NumberFieldParams extends CommonFieldParams {
+  step?: number;
+  placeholder?: string;
+  // badge?: string; https://github.com/openeverest/openeverest/issues/1854
+}
+
+interface SelectFieldParams extends CommonFieldParams {
+  options: { label: string; value: string }[];
+  multiple?: boolean; // Allow multi-select
+}
+
+export type FieldParamsMap = {
+  [FieldType.Number]: NumberFieldParams;
+  [FieldType.Select]: SelectFieldParams;
+  [FieldType.Hidden]: CommonFieldParams;
 };
 
 type PathOrId = { path: string; id?: never } | { id: string; path?: never };
@@ -48,15 +46,30 @@ export type CelExpression = {
   message?: string;
 };
 
+export type ValidationMap = {
+  [FieldType.Number]: {
+    min?: number;
+    max?: number;
+    gt?: number;
+    lt?: number;
+    int?: boolean;
+    multipleOf?: number;
+    safe?: boolean;
+    celExpressions?: CelExpression[];
+  };
+  [FieldType.Select]: {
+    celExpressions?: CelExpression[];
+  };
+  [FieldType.Hidden]: {
+    celExpressions?: CelExpression[];
+  };
+};
+
 export type Component = {
   [K in keyof FieldParamsMap]: {
     uiType: K;
     techPreview?: boolean;
-    validation?: {
-      min?: number;
-      max?: number;
-      celExpressions?: CelExpression[];
-    };
+    validation?: ValidationMap[K];
     fieldParams: FieldParamsMap[K];
   } & PathOrId;
 }[keyof FieldParamsMap];

@@ -4,11 +4,7 @@ import AccordionWrapper from './ui-group-wrappers/accordion-wrapper';
 import StackWrapper from './ui-group-wrappers/stack-wrapper';
 import { z } from 'zod';
 
-export const UI_TYPE_DEFAULT_VALUE: Record<
-  Exclude<FieldType, 'hidden'>,
-  unknown
-> = {
-  [FieldType.Number]: 3,
+export const UI_TYPE_DEFAULT_VALUE: Partial<Record<FieldType, unknown>> = {
   //   [FieldType.Switch]: false,
   //   [FieldType.Checkbox]: false,
   //   [FieldType.Toggle]: false,
@@ -18,6 +14,7 @@ export const UI_TYPE_DEFAULT_VALUE: Record<
   //   [FieldType.SecretSelector]: '',
   //   [FieldType.String]: '',
   [FieldType.Select]: '',
+  [FieldType.Hidden]: undefined,
 };
 
 export const componentGroupMap: Record<string, React.ElementType> = {
@@ -30,32 +27,43 @@ export const muiComponentMap: Record<FieldType, React.ElementType> = {
   [FieldType.Hidden]: () => null,
 };
 
-//TODO it would be better to export full list of ZodValidation mapping to field types
-export const zodRuleMap: Record<string, string> = {
-  min: 'min',
-  max: 'max',
-  minLength: 'min',
-  maxLength: 'max',
-  length: 'length',
-  email: 'email',
-  url: 'url',
-  regex: 'regex',
-  startsWith: 'startsWith',
-  endsWith: 'endsWith',
-  includes: 'includes',
-  uuid: 'uuid',
+export const zodRuleMapByType: Record<FieldType, Record<string, string>> = {
+  [FieldType.Number]: {
+    min: 'min',
+    max: 'max',
+    gt: 'gt',
+    lt: 'lt',
+    int: 'int',
+    multipleOf: 'multipleOf',
+    safe: 'safe',
+  },
+  [FieldType.Select]: {
+    // Select fields typically don't have Zod-level validations beyond type checking
+    // Custom validations could be added here in the future
+  },
+  [FieldType.Hidden]: {
+    // Hidden fields don't need validation
+  },
 };
 
-export const ZOD_SCHEMA_MAP: Record<
-  Exclude<FieldType, 'hidden'>,
-  z.ZodTypeAny
-> = {
-  [FieldType.Number]: z.union([z.string().min(1), z.number()]).pipe(
-    z.coerce.number({
-      invalid_type_error: 'Please enter a valid number',
-    })
-  ),
+export const getZodRulesForFieldType = (
+  fieldType: FieldType
+): Record<string, string> => {
+  return zodRuleMapByType[fieldType] || {};
+};
+
+export const ZOD_SCHEMA_MAP: Record<FieldType, z.ZodTypeAny> = {
+  [FieldType.Number]: z
+    .union([z.string(), z.number()])
+    .optional()
+    .transform((val) => {
+      // this is needed to handle required param from the schema
+      if (val === undefined || val === '') return undefined;
+      const num = typeof val === 'string' ? parseFloat(val) : val;
+      return isNaN(num) ? undefined : num;
+    }),
   [FieldType.Select]: z.string(),
+  [FieldType.Hidden]: z.any(),
   // [FieldType.Input]: z.string(),
   // [FieldType.Switch]: z.boolean(),
   // [FieldType.Checkbox]: z.boolean(),

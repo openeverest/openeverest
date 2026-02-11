@@ -13,7 +13,12 @@ export type UIGroupProps = {
   item?: ComponentGroup;
 };
 
-const UIGroup = ({ groupType, children, groupParams, item }: UIGroupProps) => {
+const UIGroup = ({
+  groupType,
+  children,
+  groupParams: _groupParams,
+  item,
+}: UIGroupProps) => {
   const Component = groupType ? componentGroupMap[groupType] : undefined;
 
   return (

@@ -2,7 +2,7 @@ import { Stack, Typography } from '@mui/material';
 import { useEffect } from 'react';
 import { useFormContext } from 'react-hook-form';
 import { Section } from './ui-generator.types';
-import { orderComponents, renderComponent } from './utils/render-component';
+import { orderComponents, renderComponent } from './utils/component-renderer';
 
 type UIGeneratorProps = {
   activeStep: number;
@@ -15,7 +15,6 @@ export const UIGenerator = ({
   sections,
   stepLabels,
 }: UIGeneratorProps) => {
-
   const { getValues, formState } = useFormContext();
   const sectionKey = stepLabels[activeStep];
   const section = sections[sectionKey];
@@ -51,7 +50,6 @@ export const UIGenerator = ({
           key,
           item,
           name: fieldName,
-          siblings: Object.values(components),
         });
       })}
     </Stack>

@@ -177,35 +177,30 @@ A numeric input field for integer and decimal values.
   - `autoFocus`: Automatically focus this field on render
   - `helperText`: Help text displayed below the field
   - `step`: Increment/decrement step for arrow buttons (e.g., `0.1`, `5`, `10`)
-- `validation` (optional): Validation rules
-  - `min`: Minimum value (inclusive) - shows error message and automatically sets HTML input min attribute
-  - `max`: Maximum value (inclusive) - shows error message and automatically sets HTML input max attribute
-  - `gt`: Greater than (exclusive) - value must be strictly greater than specified number
-  - `lt`: Less than (exclusive) - value must be strictly less than specified number
-  - `int`: Boolean - when `true`, only accepts integer values (rejects decimals)
-  - `multipleOf`: Number - value must be a multiple of specified number
-  - `safe`: Boolean - when `true`, validates that the number is within JavaScript's safe integer range
-  - `celExpressions`: Array of CEL validation expressions for cross-field validation
+  - `validation` (optional): Validation rules
+    - `min`: Minimum value - shows error message and automatically sets HTML input min attribute
+    - `max`: Maximum value - shows error message and automatically sets HTML input max attribute
+    - `celExpressions`: Array of CEL validation expressions for cross-field validation
 
 **Native Validation:** Validates that input is numeric
 
 **Validation Auto-Mapping:** If `validation.min` or `validation.max` are set, they are automatically applied to the HTML input's `min` and `max` attributes, which limits the spinner arrows and provides browser-level validation.
 
-**Validation Rules:**  
-Number field validation rules are defined in `zodRuleMapByType[FieldType.Number]` and are automatically mapped to Zod number schema methods. This ensures type-safe validation that's specific to numeric fields.
-
 **Examples:**
+
+![Number Field Example](../../docs/ui/images/number-field-example.png)
+
+[OpenEverest TextInput “Number type” Story](https://openeverest.io/openeverest/?path=/story/textinput--number-type)
 
 #### Basic Number Field
 
 ```json
-"CPU": {
+"replicas": {
   "uiType": "number",
-  "path": "spec.resources.cpu",
+  "path": "spec.replicas",
   "fieldParams": {
     "label": "CPU",
     "defaultValue": 3,
-    "placeholder": "Enter CPU",
     "step": 1,
     "autoFocus": true,
   },
@@ -217,45 +212,20 @@ Number field validation rules are defined in `zodRuleMapByType[FieldType.Number]
 
 ```
 
-#### Number Field with Exclusive Range Validation
+#### Disabled Number Field (Read-Only)
 
 ```json
-"port": {
+"currentVersion": {
   "uiType": "number",
-  "path": "spec.port",
+  "path": "spec.version",
   "fieldParams": {
-    "label": "Port Number",
-    "defaultValue": 8080
-  },
-  "validation": {
-    "gt": 1024,
-    "max": 65535,
-    "int": true
+    "label": "Current Version",
+    "defaultValue": 2,
+    "disabled": true,
+    "helperText": "Cannot be modified"
   }
 }
 ```
-
-#### Multiple Of Validation
-
-```json
-"diskSize": {
-  "uiType": "number",
-  "path": "spec.diskSize",
-  "fieldParams": {
-    "label": "Disk Size (GB)",
-    "step": 10,
-    "defaultValue": 100
-  },
-  "validation": {
-    "multipleOf": 10,
-    "min": 1
-  }
-}
-```
-
-**Visual Example:**
-
-[StoryBook type="number"](https://openeverest.io/openeverest/?path=/story/textinput--number-type&args=maxLength:5;error:!true)
 
 ### SelectField
 

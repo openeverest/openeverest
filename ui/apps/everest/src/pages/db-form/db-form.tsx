@@ -7,7 +7,7 @@ import DatabaseFormStepControllers from 'pages/database-form/database-form-body/
 import { FormProvider, useForm } from 'react-hook-form';
 import { StepHeader } from 'pages/database-form/database-form-body/steps/step-header/step-header';
 import { UIGenerator } from 'components/ui-generator/ui-generator';
-import { getSteps } from 'components/ui-generator/utils/render-component';
+import { getSteps } from 'components/ui-generator/utils/component-renderer';
 
 export const DatabasePageGenerated = () => {
   const [activeStep, setActiveStep] = useState(0);
