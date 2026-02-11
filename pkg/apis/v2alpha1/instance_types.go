@@ -11,13 +11,13 @@ import (
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
-// +kubebuilder:resource:shortName=wl;wld;wload
-type Workload struct {
+// +kubebuilder:resource:shortName=in;inst
+type Instance struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   WorkloadSpec   `json:"spec,omitempty"`
-	Status WorkloadStatus `json:"status,omitempty"`
+	Spec   InstanceSpec   `json:"spec,omitempty"`
+	Status InstanceStatus `json:"status,omitempty"`
 }
 
 // TopologySpec defines the deployment topology and its configuration.
@@ -36,7 +36,7 @@ type TopologySpec struct {
 	Config *runtime.RawExtension `json:"config,omitempty"`
 }
 
-type WorkloadSpec struct {
+type InstanceSpec struct {
 	// Provider is the name of the database provider (e.g., "psmdb", "postgresql").
 	Provider string `json:"provider,omitempty"`
 
@@ -57,9 +57,9 @@ type WorkloadSpec struct {
 }
 
 // GetComponentsOfType returns all components that match the given type.
-func (wl *Workload) GetComponentsOfType(t string) []ComponentSpec {
+func (in *Instance) GetComponentsOfType(t string) []ComponentSpec {
 	var result []ComponentSpec
-	for _, c := range wl.Spec.Components {
+	for _, c := range in.Spec.Components {
 		if c.Type == t {
 			result = append(result, c)
 		}
@@ -68,34 +68,34 @@ func (wl *Workload) GetComponentsOfType(t string) []ComponentSpec {
 }
 
 // GetTopologyType returns the topology type, or empty string if not specified.
-func (wl *Workload) GetTopologyType() string {
-	if wl.Spec.Topology == nil {
+func (in *Instance) GetTopologyType() string {
+	if in.Spec.Topology == nil {
 		return ""
 	}
-	return wl.Spec.Topology.Type
+	return in.Spec.Topology.Type
 }
 
 // GetTopologyConfig returns the topology configuration as runtime.RawExtension.
 // Returns nil if no topology or topology config is specified.
-func (wl *Workload) GetTopologyConfig() *runtime.RawExtension {
-	if wl.Spec.Topology == nil {
+func (in *Instance) GetTopologyConfig() *runtime.RawExtension {
+	if in.Spec.Topology == nil {
 		return nil
 	}
-	return wl.Spec.Topology.Config
+	return in.Spec.Topology.Config
 }
 
-type WorkloadPhase string
+type InstancePhase string
 
 const (
-	WorkloadPhaseCreating WorkloadPhase = "Creating"
-	WorkloadPhaseRunning  WorkloadPhase = "Running"
-	WorkloadPhaseFailed   WorkloadPhase = "Failed"
-	WorkloadPhaseDeleting WorkloadPhase = "Deleting"
+	InstancePhaseCreating InstancePhase = "Creating"
+	InstancePhaseRunning  InstancePhase = "Running"
+	InstancePhaseFailed   InstancePhase = "Failed"
+	InstancePhaseDeleting InstancePhase = "Deleting"
 )
 
-type WorkloadStatus struct {
+type InstanceStatus struct {
 	// Phase of the database cluster.
-	Phase WorkloadPhase `json:"phase,omitempty"`
+	Phase InstancePhase `json:"phase,omitempty"`
 	// ConnectionURL is the URL to connect to the database cluster.
 	ConnectionURL string `json:"connectionURL,omitempty"`
 	// CredentialSecretRef is a reference to the secret containing the credentials.
@@ -172,13 +172,13 @@ type Resources struct {
 
 //+kubebuilder:object:root=true
 
-// WorkloadList contains a list of Workload.
-type WorkloadList struct {
+// InstanceList contains a list of Instance.
+type InstanceList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []Workload `json:"items"`
+	Items           []Instance `json:"items"`
 }
 
 func init() {
-	SchemeBuilder.Register(&Workload{}, &WorkloadList{})
+	SchemeBuilder.Register(&Instance{}, &InstanceList{})
 }

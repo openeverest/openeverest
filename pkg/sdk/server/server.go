@@ -6,7 +6,7 @@ package server
 // The server exposes:
 //
 // 1. Schema Endpoint (/schema) - Returns OpenAPI schemas for components, topologies, global config
-// 2. Validation Webhook (/validate) - Accepts admission review requests and validates Workloads
+// 2. Validation Webhook (/validate) - Accepts admission review requests and validates Instances
 // 3. Health Endpoint (/healthz) - Kubernetes health check
 // 4. Ready Endpoint (/readyz) - Kubernetes readiness check
 //
@@ -71,11 +71,11 @@ func DefaultServerConfig() ServerConfig {
 // PROVIDER SERVER
 // =============================================================================
 
-// ValidatorFunc is a function that validates a Workload.
+// ValidatorFunc is a function that validates an Instance.
 // It receives the context, a Kubernetes client (for fetching related resources),
-// and the Workload to validate.
+// and the Instance to validate.
 // Return nil if validation passes, or an error with a user-friendly message.
-type ValidatorFunc func(ctx context.Context, c client.Client, dc *v2alpha1.Workload) error
+type ValidatorFunc func(ctx context.Context, c client.Client, dc *v2alpha1.Instance) error
 
 // Server is the HTTP server for a provider.
 type Server struct {
@@ -283,12 +283,12 @@ func (s *Server) handleReady(w http.ResponseWriter, r *http.Request) {
 // This is a simplified version - in production you might use Kubernetes
 // admission review types directly.
 type ValidationRequest struct {
-	// Object is the Workload being validated
-	Object v2alpha1.Workload `json:"object"`
+	// Object is the Instance being validated
+	Object v2alpha1.Instance `json:"object"`
 
-	// OldObject is the existing Workload (for UPDATE operations)
+	// OldObject is the existing Instance (for UPDATE operations)
 	// May be nil for CREATE operations
-	OldObject *v2alpha1.Workload `json:"oldObject,omitempty"`
+	OldObject *v2alpha1.Instance `json:"oldObject,omitempty"`
 
 	// Operation is the operation being performed (CREATE, UPDATE, DELETE)
 	Operation string `json:"operation,omitempty"`

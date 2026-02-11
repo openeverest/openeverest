@@ -17,59 +17,59 @@ import (
 // CORE ABSTRACTION: The Context handle
 // =============================================================================
 
-// Context is the main handle for working with a Workload.
+// Context is the main handle for working with an Instance.
 // It provides a simplified interface that hides Kubernetes complexity.
 type Context struct {
 	ctx      context.Context
 	client   client.Client
-	wl       *v2alpha1.Workload
+	in       *v2alpha1.Instance
 	metadata *ProviderMetadata
 }
 
 // NewContext creates a new Context handle (used internally by the reconciler).
-func NewContext(ctx context.Context, c client.Client, wl *v2alpha1.Workload) *Context {
-	return &Context{ctx: ctx, client: c, wl: wl}
+func NewContext(ctx context.Context, c client.Client, in *v2alpha1.Instance) *Context {
+	return &Context{ctx: ctx, client: c, in: in}
 }
 
 // NewContextWithMetadata creates a new Context handle with provider metadata.
 // This is preferred over NewContext as it makes metadata available to provider implementations.
-func NewContextWithMetadata(ctx context.Context, c client.Client, wl *v2alpha1.Workload, metadata *ProviderMetadata) *Context {
-	return &Context{ctx: ctx, client: c, wl: wl, metadata: metadata}
+func NewContextWithMetadata(ctx context.Context, c client.Client, in *v2alpha1.Instance, metadata *ProviderMetadata) *Context {
+	return &Context{ctx: ctx, client: c, in: in, metadata: metadata}
 }
 
-// Spec returns the workload specification.
-func (c *Context) Spec() *v2alpha1.WorkloadSpec {
-	return &c.wl.Spec
+// Spec returns the instance specification.
+func (c *Context) Spec() *v2alpha1.InstanceSpec {
+	return &c.in.Spec
 }
 
-// Name returns the workload name.
+// Name returns the instance name.
 func (c *Context) Name() string {
-	return c.wl.Name
+	return c.in.Name
 }
 
-// Namespace returns the workload namespace.
+// Namespace returns the instance namespace.
 func (c *Context) Namespace() string {
-	return c.wl.Namespace
+	return c.in.Namespace
 }
 
-// Labels returns the workload labels.
+// Labels returns the instance labels.
 func (c *Context) Labels() map[string]string {
-	return c.wl.Labels
+	return c.in.Labels
 }
 
-// Annotations returns the workload annotations.
+// Annotations returns the instance annotations.
 func (c *Context) Annotations() map[string]string {
-	return c.wl.Annotations
+	return c.in.Annotations
 }
 
 // ComponentsOfType returns all components of a given type.
 func (c *Context) ComponentsOfType(componentType string) []v2alpha1.ComponentSpec {
-	return c.wl.GetComponentsOfType(componentType)
+	return c.in.GetComponentsOfType(componentType)
 }
 
-// Workload returns the underlying Workload for direct access.
-func (c *Context) Workload() *v2alpha1.Workload {
-	return c.wl
+// Instance returns the underlying Instance for direct access.
+func (c *Context) Instance() *v2alpha1.Instance {
+	return c.in
 }
 
 // Metadata returns the provider metadata, if available.
@@ -88,7 +88,7 @@ func (c *Context) Metadata() *ProviderMetadata {
 // This is the primary way to manage resources - just describe what you want.
 func (c *Context) Apply(obj client.Object) error {
 	// Set the owner reference automatically
-	if err := controllerutil.SetControllerReference(c.wl, obj, c.client.Scheme()); err != nil {
+	if err := controllerutil.SetControllerReference(c.in, obj, c.client.Scheme()); err != nil {
 		return fmt.Errorf("failed to set owner: %w", err)
 	}
 
@@ -107,10 +107,10 @@ func (c *Context) Apply(obj client.Object) error {
 	return c.client.Update(c.ctx, obj)
 }
 
-// Get retrieves a resource by name (in the workload's namespace).
+// Get retrieves a resource by name (in the instance's namespace).
 func (c *Context) Get(obj client.Object, name string) error {
 	return c.client.Get(c.ctx, client.ObjectKey{
-		Namespace: c.wl.Namespace,
+		Namespace: c.in.Namespace,
 		Name:      name,
 	}, obj)
 }
@@ -135,7 +135,7 @@ func (c *Context) Delete(obj client.Object) error {
 
 // List retrieves resources matching optional filters.
 func (c *Context) List(list client.ObjectList, opts ...client.ListOption) error {
-	allOpts := append([]client.ListOption{client.InNamespace(c.wl.Namespace)}, opts...)
+	allOpts := append([]client.ListOption{client.InNamespace(c.in.Namespace)}, opts...)
 	return c.client.List(c.ctx, list, allOpts...)
 }
 
@@ -166,7 +166,7 @@ func (c *Context) ObjectMeta(name string) metav1.ObjectMeta {
 //	    // handle error or use defaults
 //	}
 func (c *Context) DecodeTopologyConfig(target interface{}) error {
-	topologyConfig := c.wl.GetTopologyConfig()
+	topologyConfig := c.in.GetTopologyConfig()
 	if topologyConfig == nil || topologyConfig.Raw == nil {
 		return fmt.Errorf("topology config not set")
 	}
@@ -184,7 +184,7 @@ func (c *Context) DecodeTopologyConfig(target interface{}) error {
 //	    // handle error or use defaults
 //	}
 func (c *Context) DecodeGlobalConfig(target interface{}) error {
-	globalConfig := c.wl.Spec.Global
+	globalConfig := c.in.Spec.Global
 	if globalConfig == nil || globalConfig.Raw == nil {
 		return fmt.Errorf("global config not set")
 	}
@@ -243,7 +243,7 @@ func (c *Context) TryDecodeComponentCustomSpec(component v2alpha1.ComponentSpec,
 
 // Status represents the current state of the database cluster.
 type Status struct {
-	Phase         v2alpha1.WorkloadPhase
+	Phase         v2alpha1.InstancePhase
 	Message       string
 	ConnectionURL string
 	Credentials   string // Secret name containing credentials
@@ -259,8 +259,8 @@ type ComponentStatus struct {
 }
 
 // ToV2Alpha1 converts Status to the API type.
-func (s Status) ToV2Alpha1() v2alpha1.WorkloadStatus {
-	status := v2alpha1.WorkloadStatus{
+func (s Status) ToV2Alpha1() v2alpha1.InstanceStatus {
+	status := v2alpha1.InstanceStatus{
 		Phase:         s.Phase,
 		ConnectionURL: s.ConnectionURL,
 	}
@@ -274,18 +274,18 @@ func (s Status) ToV2Alpha1() v2alpha1.WorkloadStatus {
 
 // Creating returns a status indicating the cluster is being created.
 func Creating(message string) Status {
-	return Status{Phase: v2alpha1.WorkloadPhaseCreating, Message: message}
+	return Status{Phase: v2alpha1.InstancePhaseCreating, Message: message}
 }
 
 // Running returns a status indicating the cluster is running.
 func Running() Status {
-	return Status{Phase: v2alpha1.WorkloadPhaseRunning}
+	return Status{Phase: v2alpha1.InstancePhaseRunning}
 }
 
 // RunningWithConnection returns a running status with connection details.
 func RunningWithConnection(url, credentialsSecret string) Status {
 	return Status{
-		Phase:         v2alpha1.WorkloadPhaseRunning,
+		Phase:         v2alpha1.InstancePhaseRunning,
 		ConnectionURL: url,
 		Credentials:   credentialsSecret,
 	}
@@ -293,7 +293,7 @@ func RunningWithConnection(url, credentialsSecret string) Status {
 
 // Failed returns a status indicating the cluster has failed.
 func Failed(message string) Status {
-	return Status{Phase: v2alpha1.WorkloadPhaseFailed, Message: message}
+	return Status{Phase: v2alpha1.InstancePhaseFailed, Message: message}
 }
 
 // =============================================================================

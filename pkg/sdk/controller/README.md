@@ -21,14 +21,14 @@ The `Context` struct is the main interface for provider code:
 type Context struct {
     ctx      context.Context
     client   client.Client
-    db       *v2alpha1.Workload
+    db       *v2alpha1.Instance
     metadata *ProviderMetadata
 }
 
 // Key methods:
-c.Name()           // Workload name
-c.Namespace()      // Workload namespace
-c.Spec()           // Workload spec
+c.Name()           // Instance name
+c.Namespace()      // Instance namespace
+c.Spec()           // Instance spec
 c.Apply(obj)       // Create/update with owner reference
 c.Get(obj, name)   // Read resource
 c.Delete(obj)      // Delete resource

@@ -23,7 +23,7 @@ type ProviderInterface interface {
 	// OwnedTypes returns types this provider creates (triggers reconciliation on changes).
 	OwnedTypes() []client.Object
 
-	// Validate checks if the Workload spec is valid.
+	// Validate checks if the Instance spec is valid.
 	Validate(c *Context) error
 
 	// Sync ensures all required resources exist and are configured.

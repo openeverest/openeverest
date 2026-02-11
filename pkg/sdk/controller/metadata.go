@@ -260,8 +260,8 @@ func OptionalComponent() TopologyComponentMeta {
 //	func SyncDatabase(c *Context) error {
 //	    metadata := MyProviderMetadata()
 //
-//	    // Get the engine component from the workload spec
-//	    engine := c.Workload().Spec.Components["engine"]
+//	    // Get the engine component from the instance spec
+//	    engine := c.Instance().Spec.Components["engine"]
 //
 //	    // Look up the default image for the component's type
 //	    image := metadata.GetDefaultImage(engine.Type)
@@ -277,7 +277,7 @@ func OptionalComponent() TopologyComponentMeta {
 // TYPICAL PATTERN:
 //
 //	// User specifies a component with a type (e.g., "mongod")
-//	component := c.Workload().Spec.Components["engine"]
+//	component := c.Instance().Spec.Components["engine"]
 //
 //	// Determine which image to use
 //	var image string

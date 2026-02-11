@@ -25,7 +25,7 @@ const finalizerName = "everest.percona.com/provider-finalizer"
 // PROVIDER RECONCILER - Works with both Interface and Builder providers
 // =============================================================================
 
-// ProviderReconciler reconciles Workload resources using a Provider.
+// ProviderReconciler reconciles Instance resources using a Provider.
 type ProviderReconciler struct {
 	provider     providerAdapter
 	manager      ctrl.Manager
@@ -180,16 +180,16 @@ func (r *ProviderReconciler) setupServer(p providerAdapter) error {
 	}
 
 	// Create validator function that wraps the provider's Validate method
-	validator := func(ctx context.Context, c client.Client, wl *v2alpha1.Workload) error {
+	validator := func(ctx context.Context, c client.Client, in *v2alpha1.Instance) error {
 		// Create context handle with metadata if available
-		var wlCtx *controller.Context
+		var inCtx *controller.Context
 		if mp, ok := p.(controller.MetadataProvider); ok {
 			metadata := mp.GetMetadata()
-			wlCtx = controller.NewContextWithMetadata(ctx, c, wl, metadata)
+			inCtx = controller.NewContextWithMetadata(ctx, c, in, metadata)
 		} else {
-			wlCtx = controller.NewContext(ctx, c, wl)
+			inCtx = controller.NewContext(ctx, c, in)
 		}
-		return p.Validate(wlCtx)
+		return p.Validate(inCtx)
 	}
 
 	r.server = server.NewServer(*r.serverConfig, registry, validator)
@@ -233,17 +233,17 @@ func (r *ProviderReconciler) StartWithSignalHandler() error {
 }
 
 func (r *ProviderReconciler) setup() error {
-	// Filter to only handle Workloawl for this provider
+	// Filter to only handle Instance for this provider
 	filter := predicate.NewPredicateFuncs(func(object client.Object) bool {
-		wl, ok := object.(*v2alpha1.Workload)
+		in, ok := object.(*v2alpha1.Instance)
 		if !ok {
 			return false
 		}
-		return wl.Spec.Provider == r.provider.Name()
+		return in.Spec.Provider == r.provider.Name()
 	})
 
 	b := ctrl.NewControllerManagedBy(r.manager).
-		For(&v2alpha1.Workload{}, builder.WithPredicates(filter)).
+		For(&v2alpha1.Instance{}, builder.WithPredicates(filter)).
 		Named(r.provider.Name() + "-controller")
 
 	// Watch owned types
@@ -258,41 +258,41 @@ func (r *ProviderReconciler) setup() error {
 func (r *ProviderReconciler) Reconcile(ctx context.Context, req reconcile.Request) (reconcile.Result, error) {
 	logger := log.FromContext(ctx).WithValues("provider", r.provider.Name())
 
-	// Fetch the Workload
-	wl := &v2alpha1.Workload{}
-	if err := r.Client.Get(ctx, req.NamespacedName, wl); err != nil {
+	// Fetch the Instance
+	in := &v2alpha1.Instance{}
+	if err := r.Client.Get(ctx, req.NamespacedName, in); err != nil {
 		return reconcile.Result{}, client.IgnoreNotFound(err)
 	}
 
 	// Create the Context handle with metadata if available
-	var wlCtx *controller.Context
+	var inCtx *controller.Context
 	if mp, ok := r.provider.(controller.MetadataProvider); ok {
 		metadata := mp.GetMetadata()
-		wlCtx = controller.NewContextWithMetadata(ctx, r.Client, wl, metadata)
+		inCtx = controller.NewContextWithMetadata(ctx, r.Client, in, metadata)
 	} else {
-		wlCtx = controller.NewContext(ctx, r.Client, wl)
+		inCtx = controller.NewContext(ctx, r.Client, in)
 	}
 
 	// Handle deletion
-	if !wl.GetDeletionTimestamp().IsZero() {
-		return r.handleDeletion(ctx, wlCtx, wl, logger)
+	if !in.GetDeletionTimestamp().IsZero() {
+		return r.handleDeletion(ctx, inCtx, in, logger)
 	}
 
 	// Ensure finalizer is present
-	if !controllerutil.ContainsFinalizer(wl, finalizerName) {
-		controllerutil.AddFinalizer(wl, finalizerName)
-		if err := r.Client.Update(ctx, wl); err != nil {
+	if !controllerutil.ContainsFinalizer(in, finalizerName) {
+		controllerutil.AddFinalizer(in, finalizerName)
+		if err := r.Client.Update(ctx, in); err != nil {
 			return reconcile.Result{}, err
 		}
 		return reconcile.Result{Requeue: true}, nil
 	}
 
 	// Run validation
-	if err := r.provider.Validate(wlCtx); err != nil {
+	if err := r.provider.Validate(inCtx); err != nil {
 		logger.Error(err, "Validation failed")
 		// Update status to failed
-		wl.Status.Phase = v2alpha1.WorkloadPhaseFailed
-		if updateErr := r.Client.Status().Update(ctx, wl); updateErr != nil {
+		in.Status.Phase = v2alpha1.InstancePhaseFailed
+		if updateErr := r.Client.Status().Update(ctx, in); updateErr != nil {
 			logger.Error(updateErr, "Failed to update status after validation error")
 		}
 		return reconcile.Result{}, err
@@ -300,7 +300,7 @@ func (r *ProviderReconciler) Reconcile(ctx context.Context, req reconcile.Reques
 
 	// Run sync
 	logger.Info("Running sync")
-	if err := r.provider.Sync(wlCtx); err != nil {
+	if err := r.provider.Sync(inCtx); err != nil {
 		if controller.IsWaitError(err) {
 			logger.Info("Sync waiting", "reason", err.Error())
 			return reconcile.Result{RequeueAfter: controller.GetWaitDuration(err)}, nil
@@ -311,44 +311,44 @@ func (r *ProviderReconciler) Reconcile(ctx context.Context, req reconcile.Reques
 
 	// Compute and update status
 	logger.Info("Computing status")
-	status, err := r.provider.Status(wlCtx)
+	status, err := r.provider.Status(inCtx)
 	if err != nil {
 		logger.Error(err, "Status computation failed")
 		return reconcile.Result{}, err
 	}
 
-	wl.Status = status.ToV2Alpha1()
-	if err := r.Client.Status().Update(ctx, wl); err != nil {
+	in.Status = status.ToV2Alpha1()
+	if err := r.Client.Status().Update(ctx, in); err != nil {
 		logger.Error(err, "Failed to update status")
 		return reconcile.Result{}, err
 	}
 
-	logger.Info("Reconciliation complete", "phase", wl.Status.Phase)
+	logger.Info("Reconciliation complete", "phase", in.Status.Phase)
 	return reconcile.Result{}, nil
 }
 
 func (r *ProviderReconciler) handleDeletion(
 	ctx context.Context,
-	wlCtx *controller.Context,
-	wl *v2alpha1.Workload,
+	inCtx *controller.Context,
+	in *v2alpha1.Instance,
 	logger interface{ Info(string, ...interface{}) },
 ) (reconcile.Result, error) {
-	if !controllerutil.ContainsFinalizer(wl, finalizerName) {
+	if !controllerutil.ContainsFinalizer(in, finalizerName) {
 		return reconcile.Result{}, nil
 	}
 
 	logger.Info("Running cleanup")
 
 	// Update status to deleting
-	if wl.Status.Phase != v2alpha1.WorkloadPhaseDeleting {
-		wl.Status.Phase = v2alpha1.WorkloadPhaseDeleting
-		if err := r.Client.Status().Update(ctx, wl); err != nil {
+	if in.Status.Phase != v2alpha1.InstancePhaseDeleting {
+		in.Status.Phase = v2alpha1.InstancePhaseDeleting
+		if err := r.Client.Status().Update(ctx, in); err != nil {
 			return reconcile.Result{}, err
 		}
 	}
 
 	// Run cleanup
-	if err := r.provider.Cleanup(wlCtx); err != nil {
+	if err := r.provider.Cleanup(inCtx); err != nil {
 		if controller.IsWaitError(err) {
 			logger.Info("Cleanup waiting", "reason", err.Error())
 			return reconcile.Result{RequeueAfter: controller.GetWaitDuration(err)}, nil
@@ -357,8 +357,8 @@ func (r *ProviderReconciler) handleDeletion(
 	}
 
 	// Remove finalizer
-	controllerutil.RemoveFinalizer(wl, finalizerName)
-	if err := r.Client.Update(ctx, wl); err != nil {
+	controllerutil.RemoveFinalizer(in, finalizerName)
+	if err := r.Client.Update(ctx, in); err != nil {
 		return reconcile.Result{}, err
 	}
 
