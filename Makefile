@@ -28,8 +28,12 @@ CONTROLLER_GEN ?= $(LOCALBIN)/controller-gen
 
 ##@ Development
 
+.PHONY: gen-crd-openapi
+gen-crds-openapi: ## Extract OpenAPI schemas from CRD manifests.
+	go run hack/gen-crds-openapi/main.go
+
 .PHONY: gen
-gen: ## Generate code.
+gen: gen-crds-deepcopy gen-crds-manifests gen-crds-openapi ## Generate code.
 	go generate ./...
 	$(MAKE) format
 
@@ -256,12 +260,12 @@ prepare-pr: gen ## Prepare code for pushing to GitHub PR (includes 'update-dev-c
 	CHART_BRANCH=${CHART_BRANCH} $(MAKE) update-dev-chart
 	EVEREST_OPERATOR_BRANCH=${EVEREST_OPERATOR_BRANCH} $(MAKE) update-dev-everest-operator
 
-.PHONY: generate
-generate: controller-gen ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
+.PHONY: gen-crds-deepcopy
+gen-crds-deepcopy: controller-gen ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
 	$(CONTROLLER_GEN) object paths="./..."
 
-.PHONY: manifests
-manifests: controller-gen ## Generate WebhookConfiguration, ClusterRole and CustomResourceDefinition objects.
+.PHONY: gen-crds-manifests
+gen-crds-manifests: controller-gen ## Generate WebhookConfiguration, ClusterRole and CustomResourceDefinition objects.
 	$(CONTROLLER_GEN) rbac:roleName=manager-role crd:allowDangerousTypes=true webhook paths="./..." output:crd:artifacts:config=config/crd/bases
 
 .PHONY: controller-gen

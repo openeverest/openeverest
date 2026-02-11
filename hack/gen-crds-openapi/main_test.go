@@ -1,0 +1,138 @@
+// everest
+// Copyright (C) 2023 Percona LLC
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+package main
+
+import (
+	"os"
+	"path/filepath"
+	"testing"
+
+	"github.com/getkin/kin-openapi/openapi3"
+	"github.com/stretchr/testify/assert"
+	"sigs.k8s.io/yaml"
+)
+
+func TestExtractSchemas(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	crdContent := `apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: testresources.test.percona.com
+spec:
+  group: test.percona.com
+  names:
+    kind: TestResource
+    listKind: TestResourceList
+    plural: testresources
+    singular: testresource
+  versions:
+  - name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: TestResource is a test CRD
+        type: object
+        properties:
+          apiVersion:
+            type: string
+          kind:
+            type: string
+          spec:
+            type: object
+            properties:
+              field1:
+                type: string
+              field2:
+                type: integer
+`
+
+	crdFile := filepath.Join(tmpDir, "test.yaml")
+	err := os.WriteFile(crdFile, []byte(crdContent), 0o644)
+	assert.NoError(t, err, "Failed to write test CRD file")
+
+	schemas := make(map[string]*openapi3.SchemaRef)
+	err = extractSchemas(crdFile, schemas)
+	assert.NoError(t, err, "extractSchemas failed")
+
+	assert.Contains(t, schemas, "TestResource")
+	assert.Contains(t, schemas, "TestResourceList")
+
+	resource := schemas["TestResource"]
+	assert.NotNil(t, resource)
+	assert.NotNil(t, resource.Value)
+
+	assert.Equal(t, "object", resource.Value.Type.Slice()[0], "Expected type=object")
+
+	assert.NotNil(t, resource.Value.Properties)
+	assert.Contains(t, resource.Value.Properties, "spec")
+}
+
+func TestRun(t *testing.T) {
+	tmpDir := t.TempDir()
+	crdDir := filepath.Join(tmpDir, "crds")
+	err := os.MkdirAll(crdDir, 0o755)
+	assert.NoError(t, err, "Failed to create CRD directory")
+
+	crdContent := `apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: samples.test.percona.com
+spec:
+  group: test.percona.com
+  names:
+    kind: Sample
+    listKind: SampleList
+    plural: samples
+    singular: sample
+  versions:
+  - name: v1
+    schema:
+      openAPIV3Schema:
+        type: object
+        properties:
+          spec:
+            type: object
+            properties:
+              name:
+                type: string
+`
+
+	crdFile := filepath.Join(crdDir, "sample.yaml")
+	err = os.WriteFile(crdFile, []byte(crdContent), 0o644)
+	assert.NoError(t, err, "Failed to write test CRD")
+
+	outputFile := filepath.Join(tmpDir, "output.yml")
+	err = run(crdDir, outputFile)
+	assert.NoError(t, err, "run() failed")
+
+	_, err = os.Stat(outputFile)
+	assert.NoError(t, err, "Output file was not created")
+
+	data, err := os.ReadFile(outputFile)
+	assert.NoError(t, err, "Failed to read output file")
+
+	var spec openapi3.T
+	err = yaml.Unmarshal(data, &spec)
+	assert.NoError(t, err, "Failed to unmarshal output")
+
+	assert.Equal(t, "3.0.2", spec.OpenAPI)
+
+	assert.NotNil(t, spec.Components)
+	assert.NotNil(t, spec.Components.Schemas)
+
+	assert.Contains(t, spec.Components.Schemas, "Sample")
+	assert.Contains(t, spec.Components.Schemas, "SampleList")
+}
