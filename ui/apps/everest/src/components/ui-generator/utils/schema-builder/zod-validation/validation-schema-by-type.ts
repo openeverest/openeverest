@@ -42,11 +42,18 @@ export const buildNumberValidationSchema = (
       .union([z.string().min(1, { message: 'Field is required' }), z.number()])
       .pipe(numberSchema);
   } else {
+    // For optional fields: convert empty strings to undefined before validation
     return z
-      .union([z.string(), z.number()])
-      .optional()
-      .pipe(numberSchema)
-      .catch(() => undefined as any);
+      .union([z.string(), z.number(), z.undefined()])
+      .transform((val) => {
+        // Treat empty string, undefined, or null as undefined (skip validation)
+        if (val === '' || val === undefined || val === null) {
+          return undefined;
+        }
+        return val;
+      })
+      .pipe(z.union([z.undefined(), numberSchema]))
+      .optional();
   }
 };
 
@@ -61,7 +68,8 @@ export const buildGenericValidationSchema = (
     const fieldTypeRules = getZodRulesForFieldType(component.uiType as any);
 
     Object.entries(component.validation).forEach(([rule, ruleValue]) => {
-      if (rule === 'celExpressions') return; // Handle CEL separately
+      // Skip CEL and regex (handled separately)
+      if (rule === 'celExpressions' || rule === 'regex') return;
 
       const zodMethod = fieldTypeRules[rule];
       if (

@@ -3,15 +3,58 @@ import {
   Component,
   CelExpression,
 } from 'components/ui-generator/ui-generator.types';
-import {
-  buildNumberValidationSchema,
-  buildGenericValidationSchema,
-} from '../validation/validation-schema-by-type';
+
 import { extractCelFieldPaths } from './cel-validation';
+import {
+  buildGenericValidationSchema,
+  buildNumberValidationSchema,
+} from './zod-validation/validation-schema-by-type';
 
 export type CelValidationData = {
   celExpValidation?: { path: string[]; celExpressions: CelExpression[] };
   celDependencyGroup?: string[];
+};
+
+const isFieldRequired = (component: Component): boolean =>
+  component.fieldParams?.required === true;
+
+const applyCommonValidations = (
+  schema: z.ZodTypeAny,
+  component: Component,
+  isRequired: boolean
+): z.ZodTypeAny => {
+  let result = schema;
+
+  if (
+    component.validation &&
+    'regex' in component.validation &&
+    component.validation.regex
+  ) {
+    const regexValidation = component.validation.regex as any;
+    const pattern = new RegExp(regexValidation.pattern);
+    const message = regexValidation.message || 'Invalid format';
+
+    // Zod's regex works on strings, so we need to handle string conversion
+    result = z
+      .union([z.string(), z.number()])
+      .refine(
+        (val) => {
+          if (val === '' || val === undefined || val === null) {
+            return !isRequired; // Empty is ok if not required
+          }
+          return pattern.test(String(val));
+        },
+        { message }
+      )
+      .transform((val) => val);
+  }
+
+  // Apply required/optional based on isRequired flag
+  if (!isRequired) {
+    result = result.optional();
+  }
+
+  return result;
 };
 
 export const applyValidationFromSchema = (
@@ -20,7 +63,7 @@ export const applyValidationFromSchema = (
   fieldId: string
 ): { fieldSchema: z.ZodTypeAny; celData: CelValidationData } => {
   let fieldSchema: z.ZodTypeAny;
-  const isRequired = component.fieldParams?.required !== false;
+  const isRequired = isFieldRequired(component);
 
   switch (component.uiType) {
     case 'number':
@@ -32,6 +75,9 @@ export const applyValidationFromSchema = (
       fieldSchema = buildGenericValidationSchema(component, baseSchema);
       break;
   }
+
+  // Apply common validations (regex, required/optional) for all field types
+  fieldSchema = applyCommonValidations(fieldSchema, component, isRequired);
 
   // Handle CEL expressions for cross-field validation
   let celData: CelValidationData = {};

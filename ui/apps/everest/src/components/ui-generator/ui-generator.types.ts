@@ -46,6 +46,11 @@ export type CelExpression = {
   message?: string;
 };
 
+export type RegexValidation = {
+  pattern: string;
+  message?: string;
+};
+
 export type ValidationMap = {
   [FieldType.Number]: {
     min?: number;
@@ -55,12 +60,15 @@ export type ValidationMap = {
     int?: boolean;
     multipleOf?: number;
     safe?: boolean;
+    regex?: RegexValidation;
     celExpressions?: CelExpression[];
   };
   [FieldType.Select]: {
+    regex?: RegexValidation;
     celExpressions?: CelExpression[];
   };
   [FieldType.Hidden]: {
+    regex?: RegexValidation;
     celExpressions?: CelExpression[];
   };
 };
