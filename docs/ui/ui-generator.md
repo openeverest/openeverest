@@ -1,5 +1,36 @@
 # UI Generator
 
+## Table of Contents
+
+- [What is UI Generator?](#what-is-ui-generator)
+- [How Does It Work?](#how-does-it-work)
+- [Top-Level Structure](#top-level-structure)
+  - [Topology](#topology)
+  - [Sections](#sections)
+  - [Components](#components)
+- [Component vs ComponentGroup](#component-vs-componentgroup)
+  - [Component (Single Field)](#component-single-field)
+  - [ComponentGroup (Nested Fields)](#componentgroup-nested-fields)
+- [Field Types](#field-types)
+  - [NumberField](#numberfield)
+  - [SelectField](#selectfield)
+  - [HiddenField](#hiddenfield)
+- [Groups](#groups)
+  - [Line Group](#line-group)
+  - [Accordion Group](#accordion-group)
+- [Validation](#validation)
+  - [Default Validation](#default-validation)
+  - [Schema Custom Validation](#schema-custom-validation)
+  - [Common Validation Rules](#common-validation-rules)
+    - [Required Field Validation](#required-field-validation)
+    - [Regex Validation](#regex-validation)
+  - [CEL Expression Validation](#cel-expression-validation)
+- [Advanced Properties](#advanced-properties)
+  - [Path vs ID](#path-vs-id)
+  - [Components Order](#components-order)
+  - [CEL Condition Rendering](#cel-condition-rendering)
+- [Complete Example](#complete-example)
+
 ## What is UI Generator?
 
 `ui-generator` is a utility for dynamically generating UI forms based on JSON schema definitions. It allows developers to create complex multi-step forms without writing repetitive UI code.
@@ -207,7 +238,7 @@ When converting exclusive bounds (`gt`/`lt`) to HTML attributes:
 
 [OpenEverest TextInput “Number type” Story](https://openeverest.io/openeverest/?path=/story/textinput--number-type)
 
-#### Basic Number Field
+**Basic Number Field**
 
 ```json
 "replicas": {
@@ -227,7 +258,7 @@ When converting exclusive bounds (`gt`/`lt`) to HTML attributes:
 }
 ```
 
-#### Exclusive Bounds
+**Exclusive Bounds**
 
 ```json
   "validation": {
@@ -292,9 +323,7 @@ If you need to use the default value in the form that the user cannot change, us
 
 Groups allow you to organize multiple fields together with different layout options.
 
-### Group Types
-
-#### Line Group
+### Line Group
 
 //TODO will be renamed, documentation should be checked before merging
 Displays components in a horizontal line (flex layout).
@@ -315,7 +344,7 @@ Displays components in a horizontal line (flex layout).
 
 //TODO visual example
 
-#### Accordion Group
+### Accordion Group
 
 Displays components in a collapsible accordion panel.
 
@@ -351,7 +380,7 @@ Custom validation rules can be defined in the `validation` property. These have 
 
 The following validation rules are supported for **all field types**:
 
-#### Required Field Validation
+**Required Field Validation**
 
 Control whether a field must have a value using the `required` parameter in `fieldParams`:
 
@@ -361,12 +390,7 @@ Control whether a field must have a value using the `required` parameter in `fie
 }
 ```
 
-**Behavior:**
-
-- When `required: true`, the field must have a value before the form can be submitted
-- Empty values on optional fields will pass all validation rules
-
-#### Regex Validation
+**Regex Validation**
 
 Apply regular expression validation to any field using the `regex` property in the `validation` object:
 
@@ -393,37 +417,7 @@ Apply regular expression validation to any field using the `regex` property in t
 }
 ```
 
-**Common regex patterns:**
-
-```json
-// Email pattern
-"regex": {
-  "pattern": "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$",
-  "message": "Invalid email format"
-}
-
-// URL pattern
-"regex": {
-  "pattern": "^https?://[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}",
-  "message": "Must be a valid URL"
-}
-
-// Alphanumeric with dashes/underscores
-"regex": {
-  "pattern": "^[a-zA-Z0-9_-]+$",
-  "message": "Only letters, numbers, dashes and underscores allowed"
-}
-
-// IPv4 address
-"regex": {
-  "pattern": "^(?:[0-9]{1,3}\\.){3}[0-9]{1,3}$",
-  "message": "Invalid IP address format"
-}
-```
-
-**Note:** The regex pattern is applied to the string representation of the value, so it works for both text and numeric inputs.
-
-#### CEL Expression Validation
+### CEL Expression Validation
 
 CEL (Common Expression Language) validation allows you to define cross-field validation rules using CEL expressions. These expressions can reference multiple fields and return `true` when validation passes or `false` when it fails.
 
@@ -460,34 +454,6 @@ CEL (Common Expression Language) validation allows you to define cross-field val
 ```
 
 In this example, the validation fails (returns false) when there are more than 1 database nodes AND the number of config servers is 1. The `!` operator negates the condition so it returns `false` when the invalid condition is true.
-
-**Combining all validation types (number-specific + common):**
-
-```json
-"customId": {
-  "uiType": "number",
-  "path": "spec.customId",
-  "fieldParams": {
-    "label": "Custom ID",
-    "required": false
-  },
-  "validation": {
-    "min": 100,
-    "max": 999,
-    "int": true,
-    "regex": {
-      "pattern": "^[1-9][0-9]{2}$",
-      "message": "Must be a 3-digit number not starting with 0"
-    },
-    "celExpressions": [
-      {
-        "celExpr": "spec.customId != spec.previousId",
-        "message": "ID must be different from previous ID"
-      }
-    ]
-  }
-}
-```
 
 **Note:** All validation rules only apply when a value is entered. Empty fields will pass validation by default since fields are optional unless explicitly marked as `required: true`.
 
