@@ -13,8 +13,23 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package api contains the API server implementation.
-package api
+package k8s
 
-//go:generate go tool oapi-codegen --config=crds.cfg.yml  ../docs/spec/crds.openapi.gen.yml
-//go:generate go tool oapi-codegen --config=server.cfg.yml  ../docs/spec/openapi.yml
+import (
+	"context"
+
+	"k8s.io/apimachinery/pkg/types"
+
+	"github.com/openeverest/openeverest/v2/pkg/apis/v2alpha1"
+)
+
+// ListProviders returns list of providers.
+func (h *k8sHandler) ListProviders(ctx context.Context) (*v2alpha1.ProviderList, error) {
+	return h.kubeConnector.ListProviders(ctx)
+}
+
+// GetProvider returns provider that matches the criteria.
+func (h *k8sHandler) GetProvider(ctx context.Context, name string) (*v2alpha1.Provider, error) {
+	// Providers are cluster-scoped, so no namespace
+	return h.kubeConnector.GetProvider(ctx, types.NamespacedName{Name: name})
+}

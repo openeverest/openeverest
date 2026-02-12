@@ -11,6 +11,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 
 	"github.com/openeverest/openeverest/v2/api"
+	"github.com/openeverest/openeverest/v2/pkg/apis/v2alpha1"
 )
 
 // Handler provides an abstraction for the core business logic of the Everest API.
@@ -35,6 +36,8 @@ type Handler interface {
 	DataImporterHandler
 	DataImportJobHandler
 	EngineFeaturesHandler
+	ProviderHandler
+	InstanceHandler
 
 	GetKubernetesClusterResources(ctx context.Context) (*api.KubernetesClusterResources, error)
 	GetKubernetesClusterInfo(ctx context.Context) (*api.KubernetesClusterInfo, error)
@@ -151,4 +154,19 @@ type SplitHorizonDNSConfigHandler interface {
 	ListSplitHorizonDNSConfigs(ctx context.Context, namespace string) (*enginefeaturesv1alpha1.SplitHorizonDNSConfigList, error)
 	DeleteSplitHorizonDNSConfig(ctx context.Context, namespace, name string) error
 	GetSplitHorizonDNSConfig(ctx context.Context, namespace, name string) (*enginefeaturesv1alpha1.SplitHorizonDNSConfig, error)
+}
+
+// ProviderHandler provides methods for handling operations on providers.
+type ProviderHandler interface {
+	ListProviders(ctx context.Context) (*v2alpha1.ProviderList, error)
+	GetProvider(ctx context.Context, name string) (*v2alpha1.Provider, error)
+}
+
+// InstanceHandler provides methods for handling operations on instances.
+type InstanceHandler interface {
+	ListInstances(ctx context.Context, namespace string) (*v2alpha1.InstanceList, error)
+	GetInstance(ctx context.Context, namespace, name string) (*v2alpha1.Instance, error)
+	CreateInstance(ctx context.Context, instance *v2alpha1.Instance) (*v2alpha1.Instance, error)
+	UpdateInstance(ctx context.Context, instance *v2alpha1.Instance) (*v2alpha1.Instance, error)
+	DeleteInstance(ctx context.Context, namespace, name string) error
 }

@@ -2478,6 +2478,304 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
 # ------- Engine Features endpoints -------
+
+  '/clusters/{cluster}/providers':
+    x-everest-resource-name: providers
+    get:
+      tags:
+        - Provider
+      summary: List providers
+      description: |
+        This API lists all database providers in the specified cluster.
+      operationId: listProviders
+      parameters:
+        - name: cluster
+          in: path
+          required: true
+          description: The name of the cluster
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of providers
+          content:
+            application/json:
+              schema:
+                $ref: 'crds.openapi.gen.yml#/components/schemas/ProviderList'
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  '/clusters/{cluster}/providers/{provider}':
+    x-everest-resource-name: providers
+    get:
+      tags:
+        - Provider
+      summary: Get provider
+      description: |
+        This API gets the database provider specified by the `provider` name in the specified `cluster`.
+      operationId: getProvider
+      parameters:
+        - name: cluster
+          in: path
+          required: true
+          description: The name of the cluster
+          schema:
+            type: string
+        - name: provider
+          in: path
+          required: true
+          description: The name of the provider
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Provider details
+          content:
+            application/json:
+              schema:
+                $ref: 'crds.openapi.gen.yml#/components/schemas/Provider'
+        '404':
+          description: Provider not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  '/clusters/{cluster}/namespaces/{namespace}/instances':
+    x-everest-resource-name: instances
+    get:
+      tags:
+        - Instance
+      summary: List instances
+      description: |
+        This API lists all database instances in the specified namespace and cluster.
+      operationId: listInstances
+      parameters:
+        - name: cluster
+          in: path
+          required: true
+          description: The name of the cluster
+          schema:
+            type: string
+        - name: namespace
+          in: path
+          required: true
+          description: The namespace where instances are located
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of instances
+          content:
+            application/json:
+              schema:
+                $ref: 'crds.openapi.gen.yml#/components/schemas/InstanceList'
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    post:
+      tags:
+        - Instance
+      summary: Create instance
+      description: |
+        This API creates a new database instance in the specified namespace and cluster.
+      operationId: createInstance
+      parameters:
+        - name: cluster
+          in: path
+          required: true
+          description: The name of the cluster
+          schema:
+            type: string
+        - name: namespace
+          in: path
+          required: true
+          description: The namespace where the instance will be created
+          schema:
+            type: string
+      requestBody:
+        description: The instance object to be created
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: 'crds.openapi.gen.yml#/components/schemas/Instance'
+      responses:
+        '200':
+          description: Instance created successfully
+          content:
+            application/json:
+              schema:
+                $ref: 'crds.openapi.gen.yml#/components/schemas/Instance'
+        '201':
+          description: Instance created successfully
+          content:
+            application/json:
+              schema:
+                $ref: 'crds.openapi.gen.yml#/components/schemas/Instance'
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  '/clusters/{cluster}/namespaces/{namespace}/instances/{instance}':
+    x-everest-resource-name: instances
+    get:
+      tags:
+        - Instance
+      summary: Get instance
+      description: |
+        This API gets the database instance specified by the `instance` name in the specified `namespace` and `cluster`.
+      operationId: getInstance
+      parameters:
+        - name: cluster
+          in: path
+          required: true
+          description: The name of the cluster
+          schema:
+            type: string
+        - name: namespace
+          in: path
+          required: true
+          description: The namespace where the instance is located
+          schema:
+            type: string
+        - name: instance
+          in: path
+          required: true
+          description: The name of the instance
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Instance details
+          content:
+            application/json:
+              schema:
+                $ref: 'crds.openapi.gen.yml#/components/schemas/Instance'
+        '404':
+          description: Instance not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    put:
+      tags:
+        - Instance
+      summary: Update instance
+      description: |
+        This API updates the database instance specified by the `instance` name in the specified `namespace` and `cluster`.
+      operationId: updateInstance
+      parameters:
+        - name: cluster
+          in: path
+          required: true
+          description: The name of the cluster
+          schema:
+            type: string
+        - name: namespace
+          in: path
+          required: true
+          description: The namespace where the instance is located
+          schema:
+            type: string
+        - name: instance
+          in: path
+          required: true
+          description: The name of the instance
+          schema:
+            type: string
+      requestBody:
+        description: The instance object to be updated
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: 'crds.openapi.gen.yml#/components/schemas/Instance'
+      responses:
+        '200':
+          description: Instance updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: 'crds.openapi.gen.yml#/components/schemas/Instance'
+        '404':
+          description: Instance not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    delete:
+      tags:
+        - Instance
+      summary: Delete instance
+      description: |
+        This API deletes the database instance specified by the `instance` name in the specified `namespace` and `cluster`.
+      operationId: deleteInstance
+      parameters:
+        - name: cluster
+          in: path
+          required: true
+          description: The name of the cluster
+          schema:
+            type: string
+        - name: namespace
+          in: path
+          required: true
+          description: The namespace where the instance is located
+          schema:
+            type: string
+        - name: instance
+          in: path
+          required: true
+          description: The name of the instance
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Instance deleted successfully
+          content:
+            application/json:
+              schema:
+                $ref: 'crds.openapi.gen.yml#/components/schemas/Instance'
+        '204':
+          description: Instance deleted successfully
+        '404':
+          description: Instance not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
 components:
   securitySchemes:
     BearerAuth:

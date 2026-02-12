@@ -16,4 +16,5 @@
 // Package client provides primitives to interact with the Everest HTTP API.
 package client
 
+//go:generate go tool oapi-codegen --config=crds.cfg.yml  ../docs/spec/crds.openapi.gen.yml
 //go:generate go tool oapi-codegen --config=client.cfg.yml  ../docs/spec/openapi.yml
