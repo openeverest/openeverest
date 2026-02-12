@@ -23,7 +23,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
-	"github.com/openeverest/openeverest/v2/pkg/apis/v2alpha1"
+	"github.com/openeverest/openeverest/v2/pkg/apis/v1alpha1"
 )
 
 // =============================================================================
@@ -75,7 +75,7 @@ func DefaultServerConfig() ServerConfig {
 // It receives the context, a Kubernetes client (for fetching related resources),
 // and the Instance to validate.
 // Return nil if validation passes, or an error with a user-friendly message.
-type ValidatorFunc func(ctx context.Context, c client.Client, dc *v2alpha1.Instance) error
+type ValidatorFunc func(ctx context.Context, c client.Client, dc *v1alpha1.Instance) error
 
 // Server is the HTTP server for a provider.
 type Server struct {
@@ -284,11 +284,11 @@ func (s *Server) handleReady(w http.ResponseWriter, r *http.Request) {
 // admission review types directly.
 type ValidationRequest struct {
 	// Object is the Instance being validated
-	Object v2alpha1.Instance `json:"object"`
+	Object v1alpha1.Instance `json:"object"`
 
 	// OldObject is the existing Instance (for UPDATE operations)
 	// May be nil for CREATE operations
-	OldObject *v2alpha1.Instance `json:"oldObject,omitempty"`
+	OldObject *v1alpha1.Instance `json:"oldObject,omitempty"`
 
 	// Operation is the operation being performed (CREATE, UPDATE, DELETE)
 	Operation string `json:"operation,omitempty"`

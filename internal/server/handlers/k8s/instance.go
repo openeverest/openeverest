@@ -21,26 +21,26 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/openeverest/openeverest/v2/pkg/apis/v2alpha1"
+	"github.com/openeverest/openeverest/v2/pkg/apis/v1alpha1"
 )
 
 // ListInstances returns list of instances in a namespace.
-func (h *k8sHandler) ListInstances(ctx context.Context, namespace string) (*v2alpha1.InstanceList, error) {
+func (h *k8sHandler) ListInstances(ctx context.Context, namespace string) (*v1alpha1.InstanceList, error) {
 	return h.kubeConnector.ListInstances(ctx, ctrlclient.InNamespace(namespace))
 }
 
 // GetInstance returns instance that matches the criteria.
-func (h *k8sHandler) GetInstance(ctx context.Context, namespace, name string) (*v2alpha1.Instance, error) {
+func (h *k8sHandler) GetInstance(ctx context.Context, namespace, name string) (*v1alpha1.Instance, error) {
 	return h.kubeConnector.GetInstance(ctx, types.NamespacedName{Namespace: namespace, Name: name})
 }
 
 // CreateInstance creates an instance.
-func (h *k8sHandler) CreateInstance(ctx context.Context, instance *v2alpha1.Instance) (*v2alpha1.Instance, error) {
+func (h *k8sHandler) CreateInstance(ctx context.Context, instance *v1alpha1.Instance) (*v1alpha1.Instance, error) {
 	return h.kubeConnector.CreateInstance(ctx, instance)
 }
 
 // UpdateInstance updates an instance.
-func (h *k8sHandler) UpdateInstance(ctx context.Context, instance *v2alpha1.Instance) (*v2alpha1.Instance, error) {
+func (h *k8sHandler) UpdateInstance(ctx context.Context, instance *v1alpha1.Instance) (*v1alpha1.Instance, error) {
 	return h.kubeConnector.UpdateInstance(ctx, instance)
 }
 

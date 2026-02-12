@@ -10,7 +10,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
-	"github.com/openeverest/openeverest/v2/pkg/apis/v2alpha1"
+	"github.com/openeverest/openeverest/v2/pkg/apis/v1alpha1"
 )
 
 // =============================================================================
@@ -22,23 +22,23 @@ import (
 type Context struct {
 	ctx      context.Context
 	client   client.Client
-	in       *v2alpha1.Instance
+	in       *v1alpha1.Instance
 	metadata *ProviderMetadata
 }
 
 // NewContext creates a new Context handle (used internally by the reconciler).
-func NewContext(ctx context.Context, c client.Client, in *v2alpha1.Instance) *Context {
+func NewContext(ctx context.Context, c client.Client, in *v1alpha1.Instance) *Context {
 	return &Context{ctx: ctx, client: c, in: in}
 }
 
 // NewContextWithMetadata creates a new Context handle with provider metadata.
 // This is preferred over NewContext as it makes metadata available to provider implementations.
-func NewContextWithMetadata(ctx context.Context, c client.Client, in *v2alpha1.Instance, metadata *ProviderMetadata) *Context {
+func NewContextWithMetadata(ctx context.Context, c client.Client, in *v1alpha1.Instance, metadata *ProviderMetadata) *Context {
 	return &Context{ctx: ctx, client: c, in: in, metadata: metadata}
 }
 
 // Spec returns the instance specification.
-func (c *Context) Spec() *v2alpha1.InstanceSpec {
+func (c *Context) Spec() *v1alpha1.InstanceSpec {
 	return &c.in.Spec
 }
 
@@ -63,12 +63,12 @@ func (c *Context) Annotations() map[string]string {
 }
 
 // ComponentsOfType returns all components of a given type.
-func (c *Context) ComponentsOfType(componentType string) []v2alpha1.ComponentSpec {
+func (c *Context) ComponentsOfType(componentType string) []v1alpha1.ComponentSpec {
 	return c.in.GetComponentsOfType(componentType)
 }
 
 // Instance returns the underlying Instance for direct access.
-func (c *Context) Instance() *v2alpha1.Instance {
+func (c *Context) Instance() *v1alpha1.Instance {
 	return c.in
 }
 
@@ -202,7 +202,7 @@ func (c *Context) DecodeGlobalConfig(target interface{}) error {
 //	if err := c.DecodeComponentCustomSpec(engine, &customSpec); err != nil {
 //	    // handle error or use defaults
 //	}
-func (c *Context) DecodeComponentCustomSpec(component v2alpha1.ComponentSpec, target interface{}) error {
+func (c *Context) DecodeComponentCustomSpec(component v1alpha1.ComponentSpec, target interface{}) error {
 	if component.CustomSpec == nil || component.CustomSpec.Raw == nil {
 		return fmt.Errorf("component custom spec not set")
 	}
@@ -232,7 +232,7 @@ func (c *Context) TryDecodeGlobalConfig(target interface{}) bool {
 }
 
 // TryDecodeComponentCustomSpec attempts to decode component custom spec, returning false if not set.
-func (c *Context) TryDecodeComponentCustomSpec(component v2alpha1.ComponentSpec, target interface{}) bool {
+func (c *Context) TryDecodeComponentCustomSpec(component v1alpha1.ComponentSpec, target interface{}) bool {
 	err := c.DecodeComponentCustomSpec(component, target)
 	return err == nil
 }
@@ -243,7 +243,7 @@ func (c *Context) TryDecodeComponentCustomSpec(component v2alpha1.ComponentSpec,
 
 // Status represents the current state of the database cluster.
 type Status struct {
-	Phase         v2alpha1.InstancePhase
+	Phase         v1alpha1.InstancePhase
 	Message       string
 	ConnectionURL string
 	Credentials   string // Secret name containing credentials
@@ -259,8 +259,8 @@ type ComponentStatus struct {
 }
 
 // ToV2Alpha1 converts Status to the API type.
-func (s Status) ToV2Alpha1() v2alpha1.InstanceStatus {
-	status := v2alpha1.InstanceStatus{
+func (s Status) ToV2Alpha1() v1alpha1.InstanceStatus {
+	status := v1alpha1.InstanceStatus{
 		Phase:         s.Phase,
 		ConnectionURL: s.ConnectionURL,
 	}
@@ -274,18 +274,18 @@ func (s Status) ToV2Alpha1() v2alpha1.InstanceStatus {
 
 // Creating returns a status indicating the cluster is being created.
 func Creating(message string) Status {
-	return Status{Phase: v2alpha1.InstancePhaseCreating, Message: message}
+	return Status{Phase: v1alpha1.InstancePhaseCreating, Message: message}
 }
 
 // Running returns a status indicating the cluster is running.
 func Running() Status {
-	return Status{Phase: v2alpha1.InstancePhaseRunning}
+	return Status{Phase: v1alpha1.InstancePhaseRunning}
 }
 
 // RunningWithConnection returns a running status with connection details.
 func RunningWithConnection(url, credentialsSecret string) Status {
 	return Status{
-		Phase:         v2alpha1.InstancePhaseRunning,
+		Phase:         v1alpha1.InstancePhaseRunning,
 		ConnectionURL: url,
 		Credentials:   credentialsSecret,
 	}
@@ -293,7 +293,7 @@ func RunningWithConnection(url, credentialsSecret string) Status {
 
 // Failed returns a status indicating the cluster has failed.
 func Failed(message string) Status {
-	return Status{Phase: v2alpha1.InstancePhaseFailed, Message: message}
+	return Status{Phase: v1alpha1.InstancePhaseFailed, Message: message}
 }
 
 // =============================================================================

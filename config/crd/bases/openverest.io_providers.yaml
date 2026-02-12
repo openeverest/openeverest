@@ -4,9 +4,9 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.18.0
-  name: providers.everest.percona.com
+  name: providers.openverest.io
 spec:
-  group: everest.percona.com
+  group: openverest.io
   names:
     kind: Provider
     listKind: ProviderList
@@ -17,7 +17,7 @@ spec:
     singular: provider
   scope: Namespaced
   versions:
-  - name: v2alpha1
+  - name: v1alpha1
     schema:
       openAPIV3Schema:
         properties:

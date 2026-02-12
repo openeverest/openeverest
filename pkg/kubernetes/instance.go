@@ -21,12 +21,12 @@ import (
 
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/openeverest/openeverest/v2/pkg/apis/v2alpha1"
+	"github.com/openeverest/openeverest/v2/pkg/apis/v1alpha1"
 )
 
 // ListInstances returns list of instances that match the criteria.
-func (k *Kubernetes) ListInstances(ctx context.Context, opts ...ctrlclient.ListOption) (*v2alpha1.InstanceList, error) {
-	result := &v2alpha1.InstanceList{}
+func (k *Kubernetes) ListInstances(ctx context.Context, opts ...ctrlclient.ListOption) (*v1alpha1.InstanceList, error) {
+	result := &v1alpha1.InstanceList{}
 	if err := k.k8sClient.List(ctx, result, opts...); err != nil {
 		return nil, err
 	}
@@ -34,8 +34,8 @@ func (k *Kubernetes) ListInstances(ctx context.Context, opts ...ctrlclient.ListO
 }
 
 // GetInstance returns instance that matches the criteria.
-func (k *Kubernetes) GetInstance(ctx context.Context, key ctrlclient.ObjectKey) (*v2alpha1.Instance, error) {
-	result := &v2alpha1.Instance{}
+func (k *Kubernetes) GetInstance(ctx context.Context, key ctrlclient.ObjectKey) (*v1alpha1.Instance, error) {
+	result := &v1alpha1.Instance{}
 	if err := k.k8sClient.Get(ctx, key, result); err != nil {
 		return nil, err
 	}
@@ -43,12 +43,12 @@ func (k *Kubernetes) GetInstance(ctx context.Context, key ctrlclient.ObjectKey) 
 }
 
 // DeleteInstance deletes instance that matches the criteria.
-func (k *Kubernetes) DeleteInstance(ctx context.Context, obj *v2alpha1.Instance) error {
+func (k *Kubernetes) DeleteInstance(ctx context.Context, obj *v1alpha1.Instance) error {
 	return k.k8sClient.Delete(ctx, obj)
 }
 
 // CreateInstance creates instance.
-func (k *Kubernetes) CreateInstance(ctx context.Context, instance *v2alpha1.Instance) (*v2alpha1.Instance, error) {
+func (k *Kubernetes) CreateInstance(ctx context.Context, instance *v1alpha1.Instance) (*v1alpha1.Instance, error) {
 	if err := k.k8sClient.Create(ctx, instance); err != nil {
 		return nil, err
 	}
@@ -56,7 +56,7 @@ func (k *Kubernetes) CreateInstance(ctx context.Context, instance *v2alpha1.Inst
 }
 
 // UpdateInstance updates instance.
-func (k *Kubernetes) UpdateInstance(ctx context.Context, instance *v2alpha1.Instance) (*v2alpha1.Instance, error) {
+func (k *Kubernetes) UpdateInstance(ctx context.Context, instance *v1alpha1.Instance) (*v1alpha1.Instance, error) {
 	if err := k.k8sClient.Update(ctx, instance); err != nil {
 		return nil, err
 	}

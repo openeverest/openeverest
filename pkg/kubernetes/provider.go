@@ -21,12 +21,12 @@ import (
 
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/openeverest/openeverest/v2/pkg/apis/v2alpha1"
+	"github.com/openeverest/openeverest/v2/pkg/apis/v1alpha1"
 )
 
 // ListProviders returns list of providers that match the criteria.
-func (k *Kubernetes) ListProviders(ctx context.Context, opts ...ctrlclient.ListOption) (*v2alpha1.ProviderList, error) {
-	result := &v2alpha1.ProviderList{}
+func (k *Kubernetes) ListProviders(ctx context.Context, opts ...ctrlclient.ListOption) (*v1alpha1.ProviderList, error) {
+	result := &v1alpha1.ProviderList{}
 	if err := k.k8sClient.List(ctx, result, opts...); err != nil {
 		return nil, err
 	}
@@ -34,8 +34,8 @@ func (k *Kubernetes) ListProviders(ctx context.Context, opts ...ctrlclient.ListO
 }
 
 // GetProvider returns provider that matches the criteria.
-func (k *Kubernetes) GetProvider(ctx context.Context, key ctrlclient.ObjectKey) (*v2alpha1.Provider, error) {
-	result := &v2alpha1.Provider{}
+func (k *Kubernetes) GetProvider(ctx context.Context, key ctrlclient.ObjectKey) (*v1alpha1.Provider, error) {
+	result := &v1alpha1.Provider{}
 	if err := k.k8sClient.Get(ctx, key, result); err != nil {
 		return nil, err
 	}

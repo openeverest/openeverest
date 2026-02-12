@@ -19,7 +19,7 @@ import (
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/openeverest/openeverest/v2/pkg/accounts"
-	"github.com/openeverest/openeverest/v2/pkg/apis/v2alpha1"
+	"github.com/openeverest/openeverest/v2/pkg/apis/v1alpha1"
 	"github.com/openeverest/openeverest/v2/pkg/common"
 )
 
@@ -268,17 +268,17 @@ type KubernetesConnector interface {
 	// This method returns a list of full objects (meta and spec).
 	ListPods(ctx context.Context, opts ...ctrlclient.ListOption) (*corev1.PodList, error)
 	// ListProviders returns list of providers that match the criteria.
-	ListProviders(ctx context.Context, opts ...ctrlclient.ListOption) (*v2alpha1.ProviderList, error)
+	ListProviders(ctx context.Context, opts ...ctrlclient.ListOption) (*v1alpha1.ProviderList, error)
 	// GetProvider returns provider that matches the criteria.
-	GetProvider(ctx context.Context, key ctrlclient.ObjectKey) (*v2alpha1.Provider, error)
+	GetProvider(ctx context.Context, key ctrlclient.ObjectKey) (*v1alpha1.Provider, error)
 	// ListInstances returns list of instances that match the criteria.
-	ListInstances(ctx context.Context, opts ...ctrlclient.ListOption) (*v2alpha1.InstanceList, error)
+	ListInstances(ctx context.Context, opts ...ctrlclient.ListOption) (*v1alpha1.InstanceList, error)
 	// GetInstance returns instance that matches the criteria.
-	GetInstance(ctx context.Context, key ctrlclient.ObjectKey) (*v2alpha1.Instance, error)
+	GetInstance(ctx context.Context, key ctrlclient.ObjectKey) (*v1alpha1.Instance, error)
 	// DeleteInstance deletes instance that matches the criteria.
-	DeleteInstance(ctx context.Context, obj *v2alpha1.Instance) error
+	DeleteInstance(ctx context.Context, obj *v1alpha1.Instance) error
 	// CreateInstance creates instance.
-	CreateInstance(ctx context.Context, instance *v2alpha1.Instance) (*v2alpha1.Instance, error)
+	CreateInstance(ctx context.Context, instance *v1alpha1.Instance) (*v1alpha1.Instance, error)
 	// UpdateInstance updates instance.
-	UpdateInstance(ctx context.Context, instance *v2alpha1.Instance) (*v2alpha1.Instance, error)
+	UpdateInstance(ctx context.Context, instance *v1alpha1.Instance) (*v1alpha1.Instance, error)
 }

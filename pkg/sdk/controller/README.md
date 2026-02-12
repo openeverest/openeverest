@@ -21,7 +21,7 @@ The `Context` struct is the main interface for provider code:
 type Context struct {
     ctx      context.Context
     client   client.Client
-    db       *v2alpha1.Instance
+    db       *v1alpha1.Instance
     metadata *ProviderMetadata
 }
 

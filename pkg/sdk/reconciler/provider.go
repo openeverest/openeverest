@@ -14,7 +14,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	"github.com/openeverest/openeverest/v2/pkg/apis/v2alpha1"
+	"github.com/openeverest/openeverest/v2/pkg/apis/v1alpha1"
 	"github.com/openeverest/openeverest/v2/pkg/sdk/controller"
 	"github.com/openeverest/openeverest/v2/pkg/sdk/server"
 )
@@ -101,8 +101,8 @@ func newReconciler(p providerAdapter, opts ...ReconcilerOption) (*ProviderReconc
 	scheme := runtime.NewScheme()
 
 	// Register core types
-	if err := v2alpha1.AddToScheme(scheme); err != nil {
-		return nil, fmt.Errorf("failed to add v2alpha1 scheme: %w", err)
+	if err := v1alpha1.AddToScheme(scheme); err != nil {
+		return nil, fmt.Errorf("failed to add v1alpha1 scheme: %w", err)
 	}
 
 	// Register provider-specific types
@@ -180,7 +180,7 @@ func (r *ProviderReconciler) setupServer(p providerAdapter) error {
 	}
 
 	// Create validator function that wraps the provider's Validate method
-	validator := func(ctx context.Context, c client.Client, in *v2alpha1.Instance) error {
+	validator := func(ctx context.Context, c client.Client, in *v1alpha1.Instance) error {
 		// Create context handle with metadata if available
 		var inCtx *controller.Context
 		if mp, ok := p.(controller.MetadataProvider); ok {
@@ -235,7 +235,7 @@ func (r *ProviderReconciler) StartWithSignalHandler() error {
 func (r *ProviderReconciler) setup() error {
 	// Filter to only handle Instance for this provider
 	filter := predicate.NewPredicateFuncs(func(object client.Object) bool {
-		in, ok := object.(*v2alpha1.Instance)
+		in, ok := object.(*v1alpha1.Instance)
 		if !ok {
 			return false
 		}
@@ -243,7 +243,7 @@ func (r *ProviderReconciler) setup() error {
 	})
 
 	b := ctrl.NewControllerManagedBy(r.manager).
-		For(&v2alpha1.Instance{}, builder.WithPredicates(filter)).
+		For(&v1alpha1.Instance{}, builder.WithPredicates(filter)).
 		Named(r.provider.Name() + "-controller")
 
 	// Watch owned types
@@ -259,7 +259,7 @@ func (r *ProviderReconciler) Reconcile(ctx context.Context, req reconcile.Reques
 	logger := log.FromContext(ctx).WithValues("provider", r.provider.Name())
 
 	// Fetch the Instance
-	in := &v2alpha1.Instance{}
+	in := &v1alpha1.Instance{}
 	if err := r.Client.Get(ctx, req.NamespacedName, in); err != nil {
 		return reconcile.Result{}, client.IgnoreNotFound(err)
 	}
@@ -291,7 +291,7 @@ func (r *ProviderReconciler) Reconcile(ctx context.Context, req reconcile.Reques
 	if err := r.provider.Validate(inCtx); err != nil {
 		logger.Error(err, "Validation failed")
 		// Update status to failed
-		in.Status.Phase = v2alpha1.InstancePhaseFailed
+		in.Status.Phase = v1alpha1.InstancePhaseFailed
 		if updateErr := r.Client.Status().Update(ctx, in); updateErr != nil {
 			logger.Error(updateErr, "Failed to update status after validation error")
 		}
@@ -330,7 +330,7 @@ func (r *ProviderReconciler) Reconcile(ctx context.Context, req reconcile.Reques
 func (r *ProviderReconciler) handleDeletion(
 	ctx context.Context,
 	inCtx *controller.Context,
-	in *v2alpha1.Instance,
+	in *v1alpha1.Instance,
 	logger interface{ Info(string, ...interface{}) },
 ) (reconcile.Result, error) {
 	if !controllerutil.ContainsFinalizer(in, finalizerName) {
@@ -340,8 +340,8 @@ func (r *ProviderReconciler) handleDeletion(
 	logger.Info("Running cleanup")
 
 	// Update status to deleting
-	if in.Status.Phase != v2alpha1.InstancePhaseDeleting {
-		in.Status.Phase = v2alpha1.InstancePhaseDeleting
+	if in.Status.Phase != v1alpha1.InstancePhaseDeleting {
+		in.Status.Phase = v1alpha1.InstancePhaseDeleting
 		if err := r.Client.Status().Update(ctx, in); err != nil {
 			return reconcile.Result{}, err
 		}

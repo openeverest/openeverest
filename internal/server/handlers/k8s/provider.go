@@ -20,16 +20,16 @@ import (
 
 	"k8s.io/apimachinery/pkg/types"
 
-	"github.com/openeverest/openeverest/v2/pkg/apis/v2alpha1"
+	"github.com/openeverest/openeverest/v2/pkg/apis/v1alpha1"
 )
 
 // ListProviders returns list of providers.
-func (h *k8sHandler) ListProviders(ctx context.Context) (*v2alpha1.ProviderList, error) {
+func (h *k8sHandler) ListProviders(ctx context.Context) (*v1alpha1.ProviderList, error) {
 	return h.kubeConnector.ListProviders(ctx)
 }
 
 // GetProvider returns provider that matches the criteria.
-func (h *k8sHandler) GetProvider(ctx context.Context, name string) (*v2alpha1.Provider, error) {
+func (h *k8sHandler) GetProvider(ctx context.Context, name string) (*v1alpha1.Provider, error) {
 	// Providers are cluster-scoped, so no namespace
 	return h.kubeConnector.GetProvider(ctx, types.NamespacedName{Name: name})
 }
