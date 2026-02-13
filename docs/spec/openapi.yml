@@ -2478,7 +2478,59 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
 # ------- Engine Features endpoints -------
-
+  '/clusters':
+    get:
+      tags:
+        - Kubernetes
+      summary: List clusters
+      description: List all clusters stored in Everest.
+      operationId: listClusters
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClusterList'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  '/clusters/{name}':
+    get:
+      tags:
+        - Kubernetes
+      summary: Get cluster
+      description: Get a cluster by name.
+      operationId: getCluster
+      parameters:
+        - name: name
+          in: path
+          description: Name of the cluster
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Cluster'
+        '404':
+          description: Cluster not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
   '/clusters/{cluster}/providers':
     x-everest-resource-name: providers
     get:
@@ -11831,3 +11883,22 @@ components:
           type: object
       type: object
       additionalProperties: false
+    Cluster:
+      type: object
+      properties:
+        name:
+          type: string
+        server:
+          type: string
+      required:
+        - name
+        - server
+    ClusterList:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Cluster'
+      required:
+        - items

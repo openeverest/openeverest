@@ -38,6 +38,7 @@ type Handler interface {
 	EngineFeaturesHandler
 	ProviderHandler
 	InstanceHandler
+	ClusterHandler
 
 	GetKubernetesClusterResources(ctx context.Context) (*api.KubernetesClusterResources, error)
 	GetKubernetesClusterInfo(ctx context.Context) (*api.KubernetesClusterInfo, error)
@@ -169,4 +170,10 @@ type InstanceHandler interface {
 	CreateInstance(ctx context.Context, instance *v1alpha1.Instance) (*v1alpha1.Instance, error)
 	UpdateInstance(ctx context.Context, instance *v1alpha1.Instance) (*v1alpha1.Instance, error)
 	DeleteInstance(ctx context.Context, namespace, name string) error
+}
+
+// ClusterHandler provides methods for handling operations on clusters.
+type ClusterHandler interface {
+	ListClusters(ctx context.Context) (*api.ClusterList, error)
+	GetCluster(ctx context.Context, name string) (*api.Cluster, error)
 }
