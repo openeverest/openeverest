@@ -15,4 +15,5 @@
 
 package rbac
 
+//go:generate go run -C ../.. hack/gen-rbac-resources/main.go
 //go:generate go tool mockery --name=IEnforcer --case=snake --srcpkg=github.com/casbin/casbin/v2
