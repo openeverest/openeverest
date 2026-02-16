@@ -39,6 +39,8 @@ type Handler interface {
 	ProviderHandler
 	InstanceHandler
 	ClusterHandler
+	BackupClassHandler
+	BackupHandler
 
 	GetKubernetesClusterResources(ctx context.Context) (*api.KubernetesClusterResources, error)
 	GetKubernetesClusterInfo(ctx context.Context) (*api.KubernetesClusterInfo, error)
@@ -176,4 +178,17 @@ type InstanceHandler interface {
 type ClusterHandler interface {
 	ListClusters(ctx context.Context) (*api.ClusterList, error)
 	GetCluster(ctx context.Context, name string) (*api.Cluster, error)
+}
+
+// BackupClassHandler provides methods for handling operations on backup classes.
+type BackupClassHandler interface {
+	ListBackupClasses(ctx context.Context) (*v1alpha1.BackupClassList, error)
+	GetBackupClass(ctx context.Context, name string) (*v1alpha1.BackupClass, error)
+}
+
+// BackupHandler provides methods for handling operations on backups.
+type BackupHandler interface {
+	GetBackup(ctx context.Context, namespace, name string) (*v1alpha1.Backup, error)
+	CreateBackup(ctx context.Context, backup *v1alpha1.Backup) (*v1alpha1.Backup, error)
+	DeleteBackup(ctx context.Context, namespace, name string) error
 }

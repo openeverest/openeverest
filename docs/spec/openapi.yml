@@ -2828,6 +2828,212 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+  '/clusters/{cluster}/backup-classes':
+    x-everest-resource-name: backup-classes
+    get:
+      tags:
+        - Backup
+      summary: List backup classes
+      description: |
+        This API lists all backup classes in the specified cluster.
+      operationId: listBackupClasses
+      parameters:
+        - name: cluster
+          in: path
+          required: true
+          description: The name of the cluster
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of backup classes
+          content:
+            application/json:
+              schema:
+                $ref: 'crds.openapi.gen.yml#/components/schemas/BackupClassList'
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  '/clusters/{cluster}/backup-classes/{backupClass}':
+    x-everest-resource-name: backup-classes
+    get:
+      tags:
+        - Backup
+      summary: Get backup class
+      description: |
+        This API gets the backup class specified by the `backupClass` name in the specified `cluster`.
+      operationId: getBackupClass
+      parameters:
+        - name: cluster
+          in: path
+          required: true
+          description: The name of the cluster
+          schema:
+            type: string
+        - name: backupClass
+          in: path
+          required: true
+          description: The name of the backup class
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Backup class details
+          content:
+            application/json:
+              schema:
+                $ref: 'crds.openapi.gen.yml#/components/schemas/BackupClass'
+        '404':
+          description: Backup class not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  '/clusters/{cluster}/namespaces/{namespace}/backups':
+    x-everest-resource-name: backups
+    post:
+      tags:
+        - Backup
+      summary: Create backup
+      description: |
+        This API creates a new backup in the specified namespace and cluster.
+      operationId: createBackup
+      parameters:
+        - name: cluster
+          in: path
+          required: true
+          description: The name of the cluster
+          schema:
+            type: string
+        - name: namespace
+          in: path
+          required: true
+          description: The namespace where the backup will be created
+          schema:
+            type: string
+      requestBody:
+        description: The backup object to be created
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: 'crds.openapi.gen.yml#/components/schemas/Backup'
+      responses:
+        '201':
+          description: Backup created successfully
+          content:
+            application/json:
+              schema:
+                $ref: 'crds.openapi.gen.yml#/components/schemas/Backup'
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  '/clusters/{cluster}/namespaces/{namespace}/backups/{backup}':
+    x-everest-resource-name: backups
+    get:
+      tags:
+        - Backup
+      summary: Get backup
+      description: |
+        This API gets the backup specified by the `backup` name in the specified `namespace` and `cluster`.
+      operationId: getBackup
+      parameters:
+        - name: cluster
+          in: path
+          required: true
+          description: The name of the cluster
+          schema:
+            type: string
+        - name: namespace
+          in: path
+          required: true
+          description: The namespace where the backup is located
+          schema:
+            type: string
+        - name: backup
+          in: path
+          required: true
+          description: The name of the backup
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Backup details
+          content:
+            application/json:
+              schema:
+                $ref: 'crds.openapi.gen.yml#/components/schemas/Backup'
+        '404':
+          description: Backup not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    delete:
+      tags:
+        - Backup
+      summary: Delete backup
+      description: |
+        This API deletes the backup specified by the `backup` name in the specified `namespace` and `cluster`.
+      operationId: deleteBackup
+      parameters:
+        - name: cluster
+          in: path
+          required: true
+          description: The name of the cluster
+          schema:
+            type: string
+        - name: namespace
+          in: path
+          required: true
+          description: The namespace where the backup is located
+          schema:
+            type: string
+        - name: backup
+          in: path
+          required: true
+          description: The name of the backup
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Backup deleted successfully
+          content:
+            application/json:
+              schema:
+                $ref: 'crds.openapi.gen.yml#/components/schemas/Backup'
+        '204':
+          description: Backup deleted successfully
+        '404':
+          description: Backup not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
 components:
   securitySchemes:
     BearerAuth:
