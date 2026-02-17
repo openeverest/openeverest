@@ -33,7 +33,7 @@ type BackupSpec struct {
 type BackupTemplate struct {
 	// BackupClassName is the backup tool to use for the backup.
 	// +kubebuilder:validation:Required
-	BackupClassName string `json:"backupToolName,omitempty"`
+	BackupClassName string `json:"backupClassName,omitempty"`
 	// TODO: Why is this a pointer?
 	// Destination is the destination for the backup data.
 	// +kubebuilder:validation:Required

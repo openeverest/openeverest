@@ -28,8 +28,8 @@ type Backup struct {
 
 	// Spec BackupSpec defines the desired state of Backup.
 	Spec *struct {
-		// BackupToolName BackupClassName is the backup tool to use for the backup.
-		BackupToolName string `json:"backupToolName"`
+		// BackupClassName BackupClassName is the backup tool to use for the backup.
+		BackupClassName string `json:"backupClassName"`
 
 		// Config Config defines the configuration for the backup job.
 		// These options are specific to the BackupClass being used and must conform to
