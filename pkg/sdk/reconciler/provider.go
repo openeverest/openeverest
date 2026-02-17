@@ -9,6 +9,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
@@ -39,7 +40,6 @@ type ProviderReconciler struct {
 type providerAdapter interface {
 	Name() string
 	Types() func(*runtime.Scheme) error
-	OwnedTypes() []client.Object
 	Validate(c *controller.Context) error
 	Sync(c *controller.Context) error
 	Status(c *controller.Context) (controller.Status, error)
@@ -150,6 +150,20 @@ func newReconciler(p providerAdapter, opts ...ReconcilerOption) (*ProviderReconc
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), mgrOpts)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create manager: %w", err)
+	}
+
+	// Setup field indexes if provider implements FieldIndexProvider
+	if fip, ok := p.(controller.FieldIndexProvider); ok {
+		for _, fi := range fip.FieldIndexes() {
+			if err := mgr.GetFieldIndexer().IndexField(
+				context.Background(),
+				fi.Object,
+				fi.FieldPath,
+				fi.Extractor,
+			); err != nil {
+				return nil, fmt.Errorf("failed to create field index %s on %T: %w", fi.FieldPath, fi.Object, err)
+			}
+		}
 	}
 
 	r := &ProviderReconciler{
@@ -279,9 +293,32 @@ func (r *ProviderReconciler) setup() error {
 		For(&v1alpha1.Instance{}, builder.WithPredicates(filter)).
 		Named(r.provider.Name() + "-controller")
 
-	// Watch owned types
-	for _, obj := range r.provider.OwnedTypes() {
-		b.Owns(obj)
+	// Configure watches if provider implements WatchProvider
+	if wp, ok := r.provider.(controller.WatchProvider); ok {
+		for _, wc := range wp.Watches() {
+			if wc.Owned {
+				// Owned resource: use Owns() for automatic owner-reference handling
+				if len(wc.Predicates) > 0 {
+					opts := []builder.OwnsOption{builder.WithPredicates(wc.Predicates...)}
+					b.Owns(wc.Object, opts...)
+				} else {
+					b.Owns(wc.Object)
+				}
+			} else {
+				// External resource: use Watches() with custom handler
+				h := wc.Handler
+				if h == nil {
+					// Default to EnqueueRequestForObject if no handler specified
+					// (though this is rarely useful for external resources)
+					h = &handler.EnqueueRequestForObject{}
+				}
+				opts := wc.WatchOptions
+				if len(wc.Predicates) > 0 {
+					opts = append(opts, builder.WithPredicates(wc.Predicates...))
+				}
+				b.Watches(wc.Object, h, opts...)
+			}
+		}
 	}
 
 	return b.Complete(r)

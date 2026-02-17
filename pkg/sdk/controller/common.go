@@ -37,6 +37,16 @@ func NewContextWithMetadata(ctx context.Context, c client.Client, in *v1alpha1.I
 	return &Context{ctx: ctx, client: c, in: in, metadata: metadata}
 }
 
+// Context returns the underlying context.Context.
+func (c *Context) Context() context.Context {
+	return c.ctx
+}
+
+// Client returns the underlying Kubernetes client.
+func (c *Context) Client() client.Client {
+	return c.client
+}
+
 // Spec returns the instance specification.
 func (c *Context) Spec() *v1alpha1.InstanceSpec {
 	return &c.in.Spec
