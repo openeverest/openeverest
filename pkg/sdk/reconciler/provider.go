@@ -11,6 +11,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
@@ -62,7 +63,8 @@ func New(p controller.ProviderInterface, opts ...ReconcilerOption) (*ProviderRec
 type ReconcilerOption func(*reconcilerOptions)
 
 type reconcilerOptions struct {
-	serverConfig *server.ServerConfig
+	serverConfig       *server.ServerConfig
+	metricsBindAddress string
 }
 
 // WithServer enables the integrated HTTP server for schema exposure and validation webhook.
@@ -91,6 +93,29 @@ func WithServer(config server.ServerConfig) ReconcilerOption {
 	}
 }
 
+// WithMetrics configures the metrics server bind address.
+//
+// The metrics server exposes Prometheus metrics for the controller.
+// By default, it binds to ":8080". You can customize the address or disable
+// it entirely by passing "0".
+//
+// Example:
+//
+//	// Custom port
+//	r, err := reconciler.New(provider,
+//	    reconciler.WithMetrics(":9090"),
+//	)
+//
+//	// Disable metrics
+//	r, err := reconciler.New(provider,
+//	    reconciler.WithMetrics("0"),
+//	)
+func WithMetrics(bindAddress string) ReconcilerOption {
+	return func(o *reconcilerOptions) {
+		o.metricsBindAddress = bindAddress
+	}
+}
+
 // newReconciler creates a reconciler from any provider that satisfies providerAdapter.
 func newReconciler(p providerAdapter, opts ...ReconcilerOption) (*ProviderReconciler, error) {
 	// Apply options
@@ -114,7 +139,15 @@ func newReconciler(p providerAdapter, opts ...ReconcilerOption) (*ProviderReconc
 
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&zap.Options{Development: true})))
 
-	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{Scheme: scheme})
+	// Configure manager options
+	mgrOpts := ctrl.Options{Scheme: scheme}
+	if options.metricsBindAddress != "" {
+		mgrOpts.Metrics = metricsserver.Options{
+			BindAddress: options.metricsBindAddress,
+		}
+	}
+
+	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), mgrOpts)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create manager: %w", err)
 	}
