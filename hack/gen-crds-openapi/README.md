@@ -8,16 +8,16 @@ It uses the official Kubernetes `CustomResourceDefinition` type from `k8s.io/api
 
 ```bash
 # Extract schemas from default location
-go run hack/crdschema/main.go
+go run hack/gen-crds-openapi/main.go
 
 # Specify custom CRD directory and output file
-go run hack/crdschema/main.go -crd-dir=config/crd/bases -output=docs/spec/crd-schemas.yml
+go run hack/gen-crds-openapi/main.go -crd-dir=config/crd/bases -output=api/openapi/crds.gen.yaml
 ```
 
 ## Flags
 
 - `-crd-dir` - Directory containing CRD YAML manifests (default: `config/crd/bases`)
-- `-output` - Output OpenAPI YAML file (default: `docs/spec/crd-schemas.yml`)
+- `-output` - Output OpenAPI YAML file (default: `api/openapi/crds.gen.yaml`)
 
 ## How it works
 

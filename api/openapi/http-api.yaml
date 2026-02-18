@@ -2553,7 +2553,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: 'crds.openapi.gen.yml#/components/schemas/ProviderList'
+                $ref: 'crds.gen.yaml#/components/schemas/ProviderList'
         default:
           description: Error
           content:
@@ -2588,7 +2588,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: 'crds.openapi.gen.yml#/components/schemas/Provider'
+                $ref: 'crds.gen.yaml#/components/schemas/Provider'
         '404':
           description: Provider not found
           content:
@@ -2629,7 +2629,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: 'crds.openapi.gen.yml#/components/schemas/InstanceList'
+                $ref: 'crds.gen.yaml#/components/schemas/InstanceList'
         default:
           description: Error
           content:
@@ -2662,20 +2662,20 @@ paths:
         content:
           application/json:
             schema:
-              $ref: 'crds.openapi.gen.yml#/components/schemas/Instance'
+              $ref: 'crds.gen.yaml#/components/schemas/Instance'
       responses:
         '200':
           description: Instance created successfully
           content:
             application/json:
               schema:
-                $ref: 'crds.openapi.gen.yml#/components/schemas/Instance'
+                $ref: 'crds.gen.yaml#/components/schemas/Instance'
         '201':
           description: Instance created successfully
           content:
             application/json:
               schema:
-                $ref: 'crds.openapi.gen.yml#/components/schemas/Instance'
+                $ref: 'crds.gen.yaml#/components/schemas/Instance'
         default:
           description: Error
           content:
@@ -2716,7 +2716,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: 'crds.openapi.gen.yml#/components/schemas/Instance'
+                $ref: 'crds.gen.yaml#/components/schemas/Instance'
         '404':
           description: Instance not found
           content:
@@ -2761,14 +2761,14 @@ paths:
         content:
           application/json:
             schema:
-              $ref: 'crds.openapi.gen.yml#/components/schemas/Instance'
+              $ref: 'crds.gen.yaml#/components/schemas/Instance'
       responses:
         '200':
           description: Instance updated successfully
           content:
             application/json:
               schema:
-                $ref: 'crds.openapi.gen.yml#/components/schemas/Instance'
+                $ref: 'crds.gen.yaml#/components/schemas/Instance'
         '404':
           description: Instance not found
           content:
@@ -2813,7 +2813,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: 'crds.openapi.gen.yml#/components/schemas/Instance'
+                $ref: 'crds.gen.yaml#/components/schemas/Instance'
         '204':
           description: Instance deleted successfully
         '404':
@@ -2850,7 +2850,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: 'crds.openapi.gen.yml#/components/schemas/BackupClassList'
+                $ref: 'crds.gen.yaml#/components/schemas/BackupClassList'
         default:
           description: Error
           content:
@@ -2885,7 +2885,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: 'crds.openapi.gen.yml#/components/schemas/BackupClass'
+                $ref: 'crds.gen.yaml#/components/schemas/BackupClass'
         '404':
           description: Backup class not found
           content:
@@ -2926,14 +2926,14 @@ paths:
         content:
           application/json:
             schema:
-              $ref: 'crds.openapi.gen.yml#/components/schemas/Backup'
+              $ref: 'crds.gen.yaml#/components/schemas/Backup'
       responses:
         '201':
           description: Backup created successfully
           content:
             application/json:
               schema:
-                $ref: 'crds.openapi.gen.yml#/components/schemas/Backup'
+                $ref: 'crds.gen.yaml#/components/schemas/Backup'
         default:
           description: Error
           content:
@@ -2974,7 +2974,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: 'crds.openapi.gen.yml#/components/schemas/Backup'
+                $ref: 'crds.gen.yaml#/components/schemas/Backup'
         '404':
           description: Backup not found
           content:
@@ -3019,7 +3019,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: 'crds.openapi.gen.yml#/components/schemas/Backup'
+                $ref: 'crds.gen.yaml#/components/schemas/Backup'
         '204':
           description: Backup deleted successfully
         '404':

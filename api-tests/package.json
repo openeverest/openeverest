@@ -10,7 +10,7 @@
     "lint:ts:fix": "eslint --fix .",
     "typecheck": "tsc --noEmit",
     "report": "playwright show-report",
-    "generate-types": "openapi-typescript ../docs/spec/openapi.yml --output ./generated/types.ts"
+    "generate-types": "openapi-typescript ../api/openapi/http-api.yaml --output ./generated/types.ts"
   },
   "prettier": "@percona/prettier-config",
   "keywords": [],

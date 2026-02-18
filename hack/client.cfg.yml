@@ -5,4 +5,4 @@ generate:
   embedded-spec: true
   models: true
 import-mapping:
-  crds.openapi.gen.yml: "-"
+  crds.gen.yaml: "-"

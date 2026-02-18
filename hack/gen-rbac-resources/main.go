@@ -69,7 +69,7 @@ type TemplateData struct {
 }
 
 func main() {
-	specFile := flag.String("spec", "docs/spec/openapi.yml", "Path to OpenAPI specification file")
+	specFile := flag.String("spec", "api/openapi/http-api.yaml", "Path to OpenAPI specification file")
 	outputFile := flag.String("output", "pkg/rbac/resources.gen.go", "Output Go file")
 	resourceNameExt := flag.String("resource-ext", "x-everest-resource-name", "OpenAPI extension field for resource names")
 	flag.Parse()

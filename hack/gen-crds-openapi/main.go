@@ -15,7 +15,7 @@ import (
 
 func main() {
 	crdDir := flag.String("crd-dir", "config/crd/bases", "Directory containing CRD YAML manifests")
-	outputFile := flag.String("output", "docs/spec/crds.openapi.gen.yml", "Output OpenAPI YAML file")
+	outputFile := flag.String("output", "api/openapi/crds.gen.yaml", "Output OpenAPI YAML file")
 	flag.Parse()
 
 	if err := run(*crdDir, *outputFile); err != nil {

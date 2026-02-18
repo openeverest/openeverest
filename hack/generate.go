@@ -16,7 +16,7 @@
 // Package hack contains code generation directives for the project.
 package hack
 
-//go:generate go tool oapi-codegen --config=crds.cfg.yml  ../docs/spec/crds.openapi.gen.yml
-//go:generate go tool oapi-codegen --config=server.cfg.yml  ../docs/spec/openapi.yml
-//go:generate go tool oapi-codegen --config=client-crds.cfg.yml  ../docs/spec/crds.openapi.gen.yml
-//go:generate go tool oapi-codegen --config=client.cfg.yml  ../docs/spec/openapi.yml
+//go:generate go tool oapi-codegen --config=crds.cfg.yml  ../api/openapi/crds.gen.yaml
+//go:generate go tool oapi-codegen --config=server.cfg.yml  ../api/openapi/http-api.yaml
+//go:generate go tool oapi-codegen --config=client-crds.cfg.yml  ../api/openapi/crds.gen.yaml
+//go:generate go tool oapi-codegen --config=client.cfg.yml  ../api/openapi/http-api.yaml
