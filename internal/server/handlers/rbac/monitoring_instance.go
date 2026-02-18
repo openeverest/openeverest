@@ -7,7 +7,7 @@ import (
 
 	everestv1alpha1 "github.com/percona/everest-operator/api/everest/v1alpha1"
 
-	"github.com/openeverest/openeverest/v2/api"
+	api "github.com/openeverest/openeverest/v2/internal/server/generated"
 	"github.com/openeverest/openeverest/v2/pkg/rbac"
 )
 

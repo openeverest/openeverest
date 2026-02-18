@@ -26,7 +26,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 
-	"github.com/openeverest/openeverest/v2/api"
+	api "github.com/openeverest/openeverest/v2/internal/server/generated"
 	"github.com/openeverest/openeverest/v2/pkg/accounts"
 	"github.com/openeverest/openeverest/v2/pkg/common"
 )

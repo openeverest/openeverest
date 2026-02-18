@@ -26,7 +26,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
-	"github.com/openeverest/openeverest/v2/api"
+	api "github.com/openeverest/openeverest/v2/internal/server/generated"
 	"github.com/openeverest/openeverest/v2/pkg/common"
 )
 

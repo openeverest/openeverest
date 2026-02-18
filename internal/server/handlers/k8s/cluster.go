@@ -19,7 +19,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/openeverest/openeverest/v2/api"
+	api "github.com/openeverest/openeverest/v2/internal/server/generated"
 )
 
 // ListClusters returns a list of clusters.

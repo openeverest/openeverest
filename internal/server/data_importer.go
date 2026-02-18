@@ -20,7 +20,7 @@ import (
 	"github.com/AlekSi/pointer"
 	"github.com/labstack/echo/v4"
 
-	"github.com/openeverest/openeverest/v2/api"
+	api "github.com/openeverest/openeverest/v2/internal/server/generated"
 )
 
 // ListDataImporters lists all data importers available in the Everest server.

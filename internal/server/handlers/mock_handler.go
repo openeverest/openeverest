@@ -10,7 +10,7 @@ import (
 	mock "github.com/stretchr/testify/mock"
 	v1 "k8s.io/api/core/v1"
 
-	api "github.com/openeverest/openeverest/v2/api"
+	api "github.com/openeverest/openeverest/v2/internal/server/generated"
 	v1alpha1 "github.com/openeverest/openeverest/v2/pkg/apis/v1alpha1"
 )
 

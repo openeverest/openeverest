@@ -4,7 +4,7 @@ package validation
 import (
 	"context"
 
-	"github.com/openeverest/openeverest/v2/api"
+	api "github.com/openeverest/openeverest/v2/internal/server/generated"
 )
 
 func (h *validateHandler) GetKubernetesClusterResources(ctx context.Context) (*api.KubernetesClusterResources, error) {

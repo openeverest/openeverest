@@ -27,8 +27,8 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/openeverest/openeverest/v2/api"
 	"github.com/openeverest/openeverest/v2/cmd/config"
+	api "github.com/openeverest/openeverest/v2/internal/server/generated"
 )
 
 const (

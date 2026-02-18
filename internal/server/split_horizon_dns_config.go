@@ -23,7 +23,7 @@ import (
 	"github.com/labstack/echo/v4"
 	enginefeaturesv1alpha1 "github.com/percona/everest-operator/api/enginefeatures.everest/v1alpha1"
 
-	"github.com/openeverest/openeverest/v2/api"
+	api "github.com/openeverest/openeverest/v2/internal/server/generated"
 )
 
 // CreateSplitHorizonDNSConfig handles the creation of a SplitHorizonDNSConfig resource.

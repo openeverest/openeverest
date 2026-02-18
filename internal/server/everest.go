@@ -44,8 +44,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/certwatcher"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/openeverest/openeverest/v2/api"
 	"github.com/openeverest/openeverest/v2/cmd/config"
+	api "github.com/openeverest/openeverest/v2/internal/server/generated"
 	"github.com/openeverest/openeverest/v2/internal/server/handlers"
 	k8shandler "github.com/openeverest/openeverest/v2/internal/server/handlers/k8s"
 	rbachandler "github.com/openeverest/openeverest/v2/internal/server/handlers/rbac"
