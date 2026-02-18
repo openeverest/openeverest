@@ -1,5 +1,5 @@
 package: client
-output: crds.gen.go
+output: ../client/crds.gen.go
 generate:
   models: true
 output-options:

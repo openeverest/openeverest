@@ -1,7 +1,7 @@
-package: api
-output: everest-server.gen.go
+package: client
+output: ../client/everest-client.gen.go
 generate:
-  echo-server: true
+  client: true
   embedded-spec: true
   models: true
 import-mapping:

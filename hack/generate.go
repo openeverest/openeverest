@@ -13,8 +13,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package api contains the API server implementation.
-package api
+// Package hack contains code generation directives for the project.
+package hack
 
 //go:generate go tool oapi-codegen --config=crds.cfg.yml  ../docs/spec/crds.openapi.gen.yml
 //go:generate go tool oapi-codegen --config=server.cfg.yml  ../docs/spec/openapi.yml
+//go:generate go tool oapi-codegen --config=client-crds.cfg.yml  ../docs/spec/crds.openapi.gen.yml
+//go:generate go tool oapi-codegen --config=client.cfg.yml  ../docs/spec/openapi.yml
