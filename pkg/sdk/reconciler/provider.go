@@ -55,8 +55,8 @@ type SchemaProvider = controller.SchemaProvider
 type ServerConfig = server.ServerConfig
 
 // New creates a reconciler from a provider.
-func New(p controller.ProviderInterface, opts ...ReconcilerOption) (*ProviderReconciler, error) {
-	return newReconciler(p, opts...)
+func New(ctx context.Context, p controller.ProviderInterface, opts ...ReconcilerOption) (*ProviderReconciler, error) {
+	return newReconciler(ctx, p, opts...)
 }
 
 // ReconcilerOption configures the reconciler.
@@ -117,7 +117,7 @@ func WithMetrics(bindAddress string) ReconcilerOption {
 }
 
 // newReconciler creates a reconciler from any provider that satisfies providerAdapter.
-func newReconciler(p providerAdapter, opts ...ReconcilerOption) (*ProviderReconciler, error) {
+func newReconciler(ctx context.Context, p providerAdapter, opts ...ReconcilerOption) (*ProviderReconciler, error) {
 	// Apply options
 	options := &reconcilerOptions{}
 	for _, opt := range opts {
@@ -156,7 +156,7 @@ func newReconciler(p providerAdapter, opts ...ReconcilerOption) (*ProviderReconc
 	if fip, ok := p.(controller.FieldIndexProvider); ok {
 		for _, fi := range fip.FieldIndexes() {
 			if err := mgr.GetFieldIndexer().IndexField(
-				context.Background(),
+				ctx,
 				fi.Object,
 				fi.FieldPath,
 				fi.Extractor,
