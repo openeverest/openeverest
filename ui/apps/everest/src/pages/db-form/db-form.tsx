@@ -20,6 +20,7 @@ export const DatabasePageGenerated = () => {
 
   const methods = useForm({
     mode: 'onChange',
+    // TODO uncomment during move to the dbWizard
     // resolver: async (data, context, options) => {
     // //   const customResolver = zodResolver(schema);
     //   const result = await customResolver(data, context, options);
