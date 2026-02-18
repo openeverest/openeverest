@@ -21,7 +21,7 @@ import (
 
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/openeverest/openeverest/v2/pkg/apis/v1alpha1"
+	"github.com/openeverest/openeverest/v2/api/v1alpha1"
 )
 
 // ListBackupClasses returns list of backup classes that match the criteria.

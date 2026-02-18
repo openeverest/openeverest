@@ -4,7 +4,7 @@ package rbac
 import (
 	"context"
 
-	"github.com/openeverest/openeverest/v2/pkg/apis/v1alpha1"
+	"github.com/openeverest/openeverest/v2/api/v1alpha1"
 )
 
 // ListBackupClasses proxies the request to the next handler.

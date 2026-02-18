@@ -10,8 +10,8 @@ import (
 	everestv1alpha1 "github.com/percona/everest-operator/api/everest/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 
+	"github.com/openeverest/openeverest/v2/api/v1alpha1"
 	api "github.com/openeverest/openeverest/v2/internal/server/generated"
-	"github.com/openeverest/openeverest/v2/pkg/apis/v1alpha1"
 )
 
 // Handler provides an abstraction for the core business logic of the Everest API.

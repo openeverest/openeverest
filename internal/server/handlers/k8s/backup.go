@@ -20,7 +20,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/types"
 
-	"github.com/openeverest/openeverest/v2/pkg/apis/v1alpha1"
+	"github.com/openeverest/openeverest/v2/api/v1alpha1"
 )
 
 // GetBackup returns backup that matches the criteria.

@@ -18,8 +18,8 @@ import (
 	"k8s.io/client-go/rest"
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/openeverest/openeverest/v2/api/v1alpha1"
 	"github.com/openeverest/openeverest/v2/pkg/accounts"
-	"github.com/openeverest/openeverest/v2/pkg/apis/v1alpha1"
 	"github.com/openeverest/openeverest/v2/pkg/common"
 )
 
