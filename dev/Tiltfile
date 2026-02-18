@@ -626,6 +626,7 @@ local_resource(
         '{0}/**/mock_*.go*'.format(backend_dir),
         '{0}/**/*_test.go'.format(backend_dir),
         '{0}/**/*.gen.go*'.format(backend_dir),
+        '{0}/**/*.gen.yaml*'.format(backend_dir),
         '{0}/**/*.deepcopy.go*'.format(backend_dir),
     ],
     labels=["everest"],
