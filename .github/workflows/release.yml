@@ -359,6 +359,7 @@ jobs:
           context: .
           push: false
           tags: ${{ steps.everest_meta.outputs.tags }}
+          file: build/package/server/Dockerfile
 
 
       - name: Everest - push Everest image
@@ -367,6 +368,7 @@ jobs:
           context: .
           push: true
           tags: ${{ steps.everest_meta.outputs.tags }}
+          file: build/package/server/Dockerfile
 
       - name: CLI - build binaries
         run: |

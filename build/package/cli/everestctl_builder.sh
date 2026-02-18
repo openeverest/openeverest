@@ -124,8 +124,8 @@ get_sources(){
     echo "REVISION=${REVISION}" >> ${WORKDIR}/everestctl.properties
     mkdir debian
     cd debian/
-    cp ../packaging/debian/control .
-    cp ../packaging/debian/rules .
+    cp ../build/package/cli/debian/control .
+    cp ../build/package/cli/debian/rules .
     echo 9 > compat
     echo "everestctl (${VERSION}-${RELEASE}) unstable; urgency=low" >> changelog
     echo "" >> changelog
@@ -135,7 +135,7 @@ get_sources(){
     cd ../
     mkdir rpm
     cd rpm
-    cp ../packaging/rpm/everestctl.spec .
+    cp ../build/package/cli/rpm/everestctl.spec .
     cd ${WORKDIR}
     #
     source everestctl.properties
@@ -269,10 +269,10 @@ build_srpm(){
     SRC_DIR=${TARFILE%.tar.gz}
     #
     mkdir -vp rpmbuild/{SOURCES,SPECS,BUILD,SRPMS,RPMS}
-    tar vxzf ${WORKDIR}/${TARFILE} --wildcards '*/rpm' --strip=1
+    tar vxzf ${WORKDIR}/${TARFILE} --wildcards '*/build/package/cli/rpm' --strip=4
     #
-    cp -av packaging/rpm/* rpmbuild/SOURCES
-    cp -av packaging/rpm/everestctl.spec rpmbuild/SPECS
+    cp -av rpm/* rpmbuild/SOURCES
+    cp -av rpm/everestctl.spec rpmbuild/SPECS
     #
     mv -fv ${TARFILE} ${WORKDIR}/rpmbuild/SOURCES
     rpmbuild -bs --define "_topdir ${WORKDIR}/rpmbuild" --define "dist .generic" \

@@ -136,7 +136,7 @@ build-ui:
 
 .PHONY: docker-build
 docker-build: ## Build docker image with Everest API server.
-	docker build -t ${IMG} .
+	docker build -f build/package/server/Dockerfile -t ${IMG} .
 
 .PHONY: docker-push
 docker-push: ## Push docker image with Everest API server.
