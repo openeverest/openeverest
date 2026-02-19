@@ -21,7 +21,7 @@ import (
 
 	enginefeaturesv1alpha1 "github.com/percona/everest-operator/api/enginefeatures.everest/v1alpha1"
 
-	api "github.com/openeverest/openeverest/v2/internal/server/generated"
+	api "github.com/openeverest/openeverest/v2/internal/server/api"
 )
 
 func (h *validateHandler) CreateSplitHorizonDNSConfig(ctx context.Context, shdc *enginefeaturesv1alpha1.SplitHorizonDNSConfig) (*enginefeaturesv1alpha1.SplitHorizonDNSConfig, error) { //nolint:lll

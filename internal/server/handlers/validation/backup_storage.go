@@ -28,7 +28,7 @@ import (
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/openeverest/openeverest/v2/cmd/config"
-	api "github.com/openeverest/openeverest/v2/internal/server/generated"
+	api "github.com/openeverest/openeverest/v2/internal/server/api"
 )
 
 const (

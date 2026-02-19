@@ -1,4 +1,4 @@
-package generated
+package api
 
 import (
 	"github.com/AlekSi/pointer"

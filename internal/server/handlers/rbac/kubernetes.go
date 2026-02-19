@@ -7,7 +7,7 @@ import (
 
 	"github.com/AlekSi/pointer"
 
-	api "github.com/openeverest/openeverest/v2/internal/server/generated"
+	api "github.com/openeverest/openeverest/v2/internal/server/api"
 )
 
 func (h *rbacHandler) GetKubernetesClusterResources(ctx context.Context) (*api.KubernetesClusterResources, error) {

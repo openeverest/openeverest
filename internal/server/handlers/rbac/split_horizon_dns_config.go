@@ -22,7 +22,7 @@ import (
 
 	"github.com/percona/everest-operator/api/enginefeatures.everest/v1alpha1"
 
-	api "github.com/openeverest/openeverest/v2/internal/server/generated"
+	api "github.com/openeverest/openeverest/v2/internal/server/api"
 	"github.com/openeverest/openeverest/v2/pkg/rbac"
 )
 

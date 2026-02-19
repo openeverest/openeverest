@@ -1,5 +1,5 @@
-package: generated
-output: ../internal/server/generated/everest-server.gen.go
+package: api
+output: ../internal/server/api/everest-server.gen.go
 generate:
   echo-server: true
   embedded-spec: true

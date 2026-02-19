@@ -32,7 +32,7 @@ import (
 	"k8s.io/utils/ptr"
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 
-	api "github.com/openeverest/openeverest/v2/internal/server/generated"
+	api "github.com/openeverest/openeverest/v2/internal/server/api"
 )
 
 var (

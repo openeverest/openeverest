@@ -1,4 +1,4 @@
-package generated
+package api
 
 import (
 	"encoding/json"

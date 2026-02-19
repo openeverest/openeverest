@@ -16,7 +16,7 @@ import (
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 
-	everestapi "github.com/openeverest/openeverest/v2/internal/server/generated"
+	everestapi "github.com/openeverest/openeverest/v2/internal/server/api"
 	"github.com/openeverest/openeverest/v2/internal/server/handlers/k8s"
 	"github.com/openeverest/openeverest/v2/pkg/kubernetes"
 )

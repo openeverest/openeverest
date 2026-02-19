@@ -21,7 +21,7 @@ import (
 
 	"github.com/labstack/echo/v4"
 
-	api "github.com/openeverest/openeverest/v2/internal/server/generated"
+	api "github.com/openeverest/openeverest/v2/internal/server/api"
 )
 
 // ListBackupStorages lists backup storages.

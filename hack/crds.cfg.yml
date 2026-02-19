@@ -1,5 +1,5 @@
-package: generated
-output: ../internal/server/generated/crds.gen.go
+package: api
+output: ../internal/server/api/crds.gen.go
 generate:
   models: true
 output-options:

@@ -18,7 +18,7 @@ package rbac
 import (
 	"context"
 
-	api "github.com/openeverest/openeverest/v2/internal/server/generated"
+	api "github.com/openeverest/openeverest/v2/internal/server/api"
 )
 
 // ListClusters returns a list of clusters (scaffolding, with RBAC).
