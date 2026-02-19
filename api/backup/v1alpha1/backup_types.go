@@ -1,4 +1,19 @@
-// Package v1alpha1 ...
+/*
+Copyright 2026.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 package v1alpha1
 
 import (
@@ -6,22 +21,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 )
 
-//+kubebuilder:object:root=true
-//+kubebuilder:subresource:status
-//+kubebuilder:resource:shortName=bj
-//+kubebuilder:printcolumn:name="TargetCluster",type="string",JSONPath=".spec.targetClusterName"
-//+kubebuilder:printcolumn:name="State",type="string",JSONPath=".status.state"
-
-// Backup is the schema for the backup job API.
-type Backup struct {
-	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata,omitempty"`
-
-	Spec   BackupSpec   `json:"spec,omitempty"`
-	Status BackupStatus `json:"status,omitempty"`
-}
-
-// BackupSpec defines the desired state of Backup.
+// BackupSpec defines the desired state of Backup
 type BackupSpec struct {
 	// InstanceName is the name of the Instance to back up.
 	// +kubebuilder:validation:Required
@@ -99,12 +99,25 @@ type BackupS3Destination struct {
 	SecretAccessKey string `json:"secretAccessKey,omitempty"`
 }
 
-// BackupList contains a list of Backup.
-// +kubebuilder:object:root=true
-type BackupList struct {
-	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []Backup `json:"items"`
+// BackupStatus defines the observed state of Backup.
+type BackupStatus struct {
+	// StartedAt is the time when the backup job started.
+	StartedAt *metav1.Time `json:"startedAt,omitempty"`
+	// CompletedAt is the time when the backup job completed successfully.
+	CompletedAt *metav1.Time `json:"completedAt,omitempty"`
+	// LastObservedGeneration is the last observed generation of the backup job.
+	LastObservedGeneration int64 `json:"lastObservedGeneration,omitempty"`
+	// State is the current state of the backup job.
+	State BackupState `json:"state,omitempty"`
+	// Message is the message of the backup job.
+	Message string `json:"message,omitempty"`
+	// JobName is the reference to the job that is running the backup.
+	// +optional
+	JobName string `json:"jobName,omitempty"`
+	// +listType=map
+	// +listMapKey=type
+	// +optional
+	Conditions []metav1.Condition `json:"conditions,omitempty"`
 }
 
 // BackupState is a type representing the state of a backup job.
@@ -125,21 +138,28 @@ const (
 	BackupStateError BackupState = "Error"
 )
 
-// BackupStatus defines the observed state of Backup.
-type BackupStatus struct {
-	// StartedAt is the time when the backup job started.
-	StartedAt *metav1.Time `json:"startedAt,omitempty"`
-	// CompletedAt is the time when the backup job completed successfully.
-	CompletedAt *metav1.Time `json:"completedAt,omitempty"`
-	// LastObservedGeneration is the last observed generation of the backup job.
-	LastObservedGeneration int64 `json:"lastObservedGeneration,omitempty"`
-	// State is the current state of the backup job.
-	State BackupState `json:"state,omitempty"`
-	// Message is the message of the backup job.
-	Message string `json:"message,omitempty"`
-	// JobName is the reference to the job that is running the backup.
-	// +optional
-	JobName string `json:"jobName,omitempty"`
+// +kubebuilder:object:root=true
+// +kubebuilder:subresource:status
+// +kubebuilder:resource:shortName=bk;bak
+// +kubebuilder:printcolumn:name="TargetCluster",type="string",JSONPath=".spec.targetClusterName"
+// +kubebuilder:printcolumn:name="State",type="string",JSONPath=".status.state"
+
+// Backup is the Schema for the backups API
+type Backup struct {
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitzero"`
+
+	Spec   BackupSpec   `json:"spec"`
+	Status BackupStatus `json:"status,omitzero"`
+}
+
+// +kubebuilder:object:root=true
+
+// BackupList contains a list of Backup
+type BackupList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitzero"`
+	Items           []Backup `json:"items"`
 }
 
 func init() {
