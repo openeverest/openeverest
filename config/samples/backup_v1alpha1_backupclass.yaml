@@ -1,0 +1,9 @@
+apiVersion: backup.openeverest.io/v1alpha1
+kind: BackupClass
+metadata:
+  labels:
+    app.kubernetes.io/name: openeverest
+    app.kubernetes.io/managed-by: kustomize
+  name: backupclass-sample
+spec:
+  # TODO(user): Add fields here

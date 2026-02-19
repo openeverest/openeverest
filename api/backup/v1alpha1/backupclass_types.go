@@ -1,4 +1,19 @@
-// Package v1alpha1 ...
+/*
+Copyright 2026.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 package v1alpha1
 
 import (
@@ -15,34 +30,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 )
 
-//+kubebuilder:object:root=true
-//+kubebuilder:subresource:status
-//+kubebuilder:resource:shortName=bc
-//+kubebuilder:printcolumn:name="DisplayName",type="string",JSONPath=".spec.displayName"
-//+kubebuilder:printcolumn:name="Description",type="string",JSONPath=".spec.description"
-//+kubebuilder:printcolumn:name="SupportedProviders",type="string",JSONPath=".spec.supportedProviders"
-//+kubebuilder:resource:scope=Cluster
-
-// BackupClass defines a reusable strategy for backing up data from a DataStore.
-type BackupClass struct {
-	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata,omitempty"`
-
-	Spec   BackupClassSpec   `json:"spec,omitempty"`
-	Status BackupClassStatus `json:"status,omitempty"`
-}
-
-// ProviderNameList is a type alias for a list of provider names.
-type ProviderNameList []string
-
-// Has checks if the list contains the specified provider.
-func (e ProviderNameList) Has(provider string) bool {
-	return slices.Contains(e, provider)
-}
-
-// BackupClassSpec defines the specification of a BackupClass.
-type BackupClassSpec struct {
-	// DisplayName is a human-readable name for the backup tool.
+// BackupClassSpec defines the desired state of BackupClass
+type BackupClassSpec struct { // DisplayName is a human-readable name for the backup tool.
 	DisplayName string `json:"displayName,omitempty"`
 	// Description is the description of the backup tool.
 	Description string `json:"description,omitempty"`
@@ -72,6 +61,14 @@ type BackupClassSpec struct {
 	// These permissions are used to generate a ClusterRole for the backup job.
 	// +optional
 	ClusterPermissions []rbacv1.PolicyRule `json:"clusterPermissions,omitempty"`
+}
+
+// ProviderNameList is a type alias for a list of provider names.
+type ProviderNameList []string
+
+// Has checks if the list contains the specified provider.
+func (e ProviderNameList) Has(provider string) bool {
+	return slices.Contains(e, provider)
 }
 
 // BackupClassConfig contains additional configuration defined for the backup tool.
@@ -151,16 +148,36 @@ type BackupClassDataStoreConstraints struct {
 	RequiredFields []string `json:"requiredFields,omitempty"`
 }
 
-// BackupClassList contains a list of BackupClass.
-// +kubebuilder:object:root=true
-type BackupClassList struct {
-	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []BackupClass `json:"items"`
+// BackupClassStatus defines the observed state of BackupClass.
+type BackupClassStatus struct {
+	// +listType=map
+	// +listMapKey=type
+	// +optional
+	Conditions []metav1.Condition `json:"conditions,omitempty"`
 }
 
-// BackupClassStatus defines the status of the BackupClass.
-type BackupClassStatus struct{}
+// +kubebuilder:object:root=true
+// +kubebuilder:subresource:status
+// +kubebuilder:resource:shortName=bc
+// +kubebuilder:resource:scope=Cluster
+
+// BackupClass is the Schema for the backupclasses API
+type BackupClass struct {
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitzero"`
+
+	Spec   BackupClassSpec   `json:"spec"`
+	Status BackupClassStatus `json:"status,omitzero"`
+}
+
+// +kubebuilder:object:root=true
+
+// BackupClassList contains a list of BackupClass
+type BackupClassList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitzero"`
+	Items           []BackupClass `json:"items"`
+}
 
 func init() {
 	SchemeBuilder.Register(&BackupClass{}, &BackupClassList{})
