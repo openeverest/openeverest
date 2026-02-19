@@ -9,4 +9,13 @@ layout:
 multigroup: true
 projectName: openeverest
 repo: github.com/openeverest/openeverest/v2
+resources:
+- api:
+    crdVersion: v1
+    namespaced: true
+  domain: openeverest.io
+  group: core
+  kind: Provider
+  path: github.com/openeverest/openeverest/v2/api/core/v1alpha1
+  version: v1alpha1
 version: "3"
