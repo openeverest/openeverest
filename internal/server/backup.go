@@ -23,7 +23,7 @@ import (
 
 	"github.com/labstack/echo/v4"
 
-	"github.com/openeverest/openeverest/v2/api/v1alpha1"
+	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
 )
 
 // GetBackup returns a specific backup.
@@ -40,7 +40,7 @@ func (e *EverestServer) GetBackup(c echo.Context, cluster string, namespace stri
 // CreateBackup creates a new backup.
 func (e *EverestServer) CreateBackup(c echo.Context, cluster string, namespace string) error {
 	// The cluster parameter is currently ignored as we operate on the configured cluster
-	backup := &v1alpha1.Backup{}
+	backup := &backupv1alpha1.Backup{}
 	body, err := io.ReadAll(c.Request().Body)
 	if err != nil {
 		e.l.Errorf("CreateBackup: failed to read request body: %v", err)

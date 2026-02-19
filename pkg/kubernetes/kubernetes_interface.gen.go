@@ -18,7 +18,8 @@ import (
 	"k8s.io/client-go/rest"
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/openeverest/openeverest/v2/api/v1alpha1"
+	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
+	"github.com/openeverest/openeverest/v2/api/core/v1alpha1"
 	"github.com/openeverest/openeverest/v2/pkg/accounts"
 	"github.com/openeverest/openeverest/v2/pkg/common"
 )
@@ -45,15 +46,15 @@ type KubernetesConnector interface {
 	// This function will wait until all storages are deleted.
 	DeleteBackupStorages(ctx context.Context, opts ...ctrlclient.ListOption) error
 	// GetBackup returns backup that matches the criteria.
-	GetBackup(ctx context.Context, key ctrlclient.ObjectKey) (*v1alpha1.Backup, error)
+	GetBackup(ctx context.Context, key ctrlclient.ObjectKey) (*backupv1alpha1.Backup, error)
 	// DeleteBackup deletes backup that matches the criteria.
-	DeleteBackup(ctx context.Context, obj *v1alpha1.Backup) error
+	DeleteBackup(ctx context.Context, obj *backupv1alpha1.Backup) error
 	// CreateBackup creates backup.
-	CreateBackup(ctx context.Context, backup *v1alpha1.Backup) (*v1alpha1.Backup, error)
+	CreateBackup(ctx context.Context, backup *backupv1alpha1.Backup) (*backupv1alpha1.Backup, error)
 	// ListBackupClasses returns list of backup classes that match the criteria.
-	ListBackupClasses(ctx context.Context, opts ...ctrlclient.ListOption) (*v1alpha1.BackupClassList, error)
+	ListBackupClasses(ctx context.Context, opts ...ctrlclient.ListOption) (*backupv1alpha1.BackupClassList, error)
 	// GetBackupClass returns backup class that matches the criteria.
-	GetBackupClass(ctx context.Context, key ctrlclient.ObjectKey) (*v1alpha1.BackupClass, error)
+	GetBackupClass(ctx context.Context, key ctrlclient.ObjectKey) (*backupv1alpha1.BackupClass, error)
 	// GetCatalogSource returns catalog source that matches the criteria.
 	GetCatalogSource(ctx context.Context, key ctrlclient.ObjectKey) (*olmv1alpha1.CatalogSource, error)
 	// DeleteCatalogSource deletes catalog source that matches the criteria.

@@ -20,15 +20,15 @@ import (
 
 	"k8s.io/apimachinery/pkg/types"
 
-	"github.com/openeverest/openeverest/v2/api/v1alpha1"
+	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
 )
 
 // ListBackupClasses returns list of backup classes.
-func (h *k8sHandler) ListBackupClasses(ctx context.Context) (*v1alpha1.BackupClassList, error) {
+func (h *k8sHandler) ListBackupClasses(ctx context.Context) (*backupv1alpha1.BackupClassList, error) {
 	return h.kubeConnector.ListBackupClasses(ctx)
 }
 
 // GetBackupClass returns backup class that matches the criteria.
-func (h *k8sHandler) GetBackupClass(ctx context.Context, name string) (*v1alpha1.BackupClass, error) {
+func (h *k8sHandler) GetBackupClass(ctx context.Context, name string) (*backupv1alpha1.BackupClass, error) {
 	return h.kubeConnector.GetBackupClass(ctx, types.NamespacedName{Name: name})
 }

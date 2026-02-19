@@ -21,12 +21,12 @@ import (
 
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/openeverest/openeverest/v2/api/v1alpha1"
+	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
 )
 
 // GetBackup returns backup that matches the criteria.
-func (k *Kubernetes) GetBackup(ctx context.Context, key ctrlclient.ObjectKey) (*v1alpha1.Backup, error) {
-	result := &v1alpha1.Backup{}
+func (k *Kubernetes) GetBackup(ctx context.Context, key ctrlclient.ObjectKey) (*backupv1alpha1.Backup, error) {
+	result := &backupv1alpha1.Backup{}
 	if err := k.k8sClient.Get(ctx, key, result); err != nil {
 		return nil, err
 	}
@@ -34,12 +34,12 @@ func (k *Kubernetes) GetBackup(ctx context.Context, key ctrlclient.ObjectKey) (*
 }
 
 // DeleteBackup deletes backup that matches the criteria.
-func (k *Kubernetes) DeleteBackup(ctx context.Context, obj *v1alpha1.Backup) error {
+func (k *Kubernetes) DeleteBackup(ctx context.Context, obj *backupv1alpha1.Backup) error {
 	return k.k8sClient.Delete(ctx, obj)
 }
 
 // CreateBackup creates backup.
-func (k *Kubernetes) CreateBackup(ctx context.Context, backup *v1alpha1.Backup) (*v1alpha1.Backup, error) {
+func (k *Kubernetes) CreateBackup(ctx context.Context, backup *backupv1alpha1.Backup) (*backupv1alpha1.Backup, error) {
 	if err := k.k8sClient.Create(ctx, backup); err != nil {
 		return nil, err
 	}

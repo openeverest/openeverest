@@ -10,7 +10,8 @@ import (
 	everestv1alpha1 "github.com/percona/everest-operator/api/everest/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 
-	"github.com/openeverest/openeverest/v2/api/v1alpha1"
+	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
+	corev1alpha1 "github.com/openeverest/openeverest/v2/api/core/v1alpha1"
 	api "github.com/openeverest/openeverest/v2/internal/server/api"
 )
 
@@ -161,16 +162,16 @@ type SplitHorizonDNSConfigHandler interface {
 
 // ProviderHandler provides methods for handling operations on providers.
 type ProviderHandler interface {
-	ListProviders(ctx context.Context) (*v1alpha1.ProviderList, error)
-	GetProvider(ctx context.Context, name string) (*v1alpha1.Provider, error)
+	ListProviders(ctx context.Context) (*corev1alpha1.ProviderList, error)
+	GetProvider(ctx context.Context, name string) (*corev1alpha1.Provider, error)
 }
 
 // InstanceHandler provides methods for handling operations on instances.
 type InstanceHandler interface {
-	ListInstances(ctx context.Context, namespace string) (*v1alpha1.InstanceList, error)
-	GetInstance(ctx context.Context, namespace, name string) (*v1alpha1.Instance, error)
-	CreateInstance(ctx context.Context, instance *v1alpha1.Instance) (*v1alpha1.Instance, error)
-	UpdateInstance(ctx context.Context, instance *v1alpha1.Instance) (*v1alpha1.Instance, error)
+	ListInstances(ctx context.Context, namespace string) (*corev1alpha1.InstanceList, error)
+	GetInstance(ctx context.Context, namespace, name string) (*corev1alpha1.Instance, error)
+	CreateInstance(ctx context.Context, instance *corev1alpha1.Instance) (*corev1alpha1.Instance, error)
+	UpdateInstance(ctx context.Context, instance *corev1alpha1.Instance) (*corev1alpha1.Instance, error)
 	DeleteInstance(ctx context.Context, namespace, name string) error
 }
 
@@ -182,13 +183,13 @@ type ClusterHandler interface {
 
 // BackupClassHandler provides methods for handling operations on backup classes.
 type BackupClassHandler interface {
-	ListBackupClasses(ctx context.Context) (*v1alpha1.BackupClassList, error)
-	GetBackupClass(ctx context.Context, name string) (*v1alpha1.BackupClass, error)
+	ListBackupClasses(ctx context.Context) (*backupv1alpha1.BackupClassList, error)
+	GetBackupClass(ctx context.Context, name string) (*backupv1alpha1.BackupClass, error)
 }
 
 // BackupHandler provides methods for handling operations on backups.
 type BackupHandler interface {
-	GetBackup(ctx context.Context, namespace, name string) (*v1alpha1.Backup, error)
-	CreateBackup(ctx context.Context, backup *v1alpha1.Backup) (*v1alpha1.Backup, error)
+	GetBackup(ctx context.Context, namespace, name string) (*backupv1alpha1.Backup, error)
+	CreateBackup(ctx context.Context, backup *backupv1alpha1.Backup) (*backupv1alpha1.Backup, error)
 	DeleteBackup(ctx context.Context, namespace, name string) error
 }

@@ -10,7 +10,35 @@ import (
 	"github.com/oapi-codegen/runtime"
 )
 
-// Backup Backup is the schema for the backup job API.
+// Defines values for BackupStatusConditionsStatus.
+const (
+	BackupStatusConditionsStatusFalse   BackupStatusConditionsStatus = "False"
+	BackupStatusConditionsStatusTrue    BackupStatusConditionsStatus = "True"
+	BackupStatusConditionsStatusUnknown BackupStatusConditionsStatus = "Unknown"
+)
+
+// Defines values for BackupClassStatusConditionsStatus.
+const (
+	BackupClassStatusConditionsStatusFalse   BackupClassStatusConditionsStatus = "False"
+	BackupClassStatusConditionsStatusTrue    BackupClassStatusConditionsStatus = "True"
+	BackupClassStatusConditionsStatusUnknown BackupClassStatusConditionsStatus = "Unknown"
+)
+
+// Defines values for InstanceStatusConditionsStatus.
+const (
+	InstanceStatusConditionsStatusFalse   InstanceStatusConditionsStatus = "False"
+	InstanceStatusConditionsStatusTrue    InstanceStatusConditionsStatus = "True"
+	InstanceStatusConditionsStatusUnknown InstanceStatusConditionsStatus = "Unknown"
+)
+
+// Defines values for ProviderStatusConditionsStatus.
+const (
+	ProviderStatusConditionsStatusFalse   ProviderStatusConditionsStatus = "False"
+	ProviderStatusConditionsStatusTrue    ProviderStatusConditionsStatus = "True"
+	ProviderStatusConditionsStatusUnknown ProviderStatusConditionsStatus = "Unknown"
+)
+
+// Backup Backup is the Schema for the backups API
 type Backup struct {
 	// ApiVersion APIVersion defines the versioned schema of this representation of an object.
 	// Servers should convert recognized schemas to the latest internal value, and
@@ -23,11 +51,11 @@ type Backup struct {
 	// Cannot be updated.
 	// In CamelCase.
 	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
-	Kind     *string                 `json:"kind,omitempty"`
-	Metadata *map[string]interface{} `json:"metadata,omitempty"`
+	Kind     *string                `json:"kind,omitempty"`
+	Metadata map[string]interface{} `json:"metadata"`
 
-	// Spec BackupSpec defines the desired state of Backup.
-	Spec *struct {
+	// Spec BackupSpec defines the desired state of Backup
+	Spec struct {
 		// BackupClassName BackupClassName is the backup tool to use for the backup.
 		BackupClassName string `json:"backupClassName"`
 
@@ -82,12 +110,39 @@ type Backup struct {
 
 		// InstanceName InstanceName is the name of the Instance to back up.
 		InstanceName string `json:"instanceName"`
-	} `json:"spec,omitempty"`
+	} `json:"spec"`
 
 	// Status BackupStatus defines the observed state of Backup.
-	Status *struct {
+	Status struct {
 		// CompletedAt CompletedAt is the time when the backup job completed successfully.
 		CompletedAt *time.Time `json:"completedAt,omitempty"`
+		Conditions  *[]struct {
+			// LastTransitionTime lastTransitionTime is the last time the condition transitioned from one status to another.
+			// This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+			LastTransitionTime time.Time `json:"lastTransitionTime"`
+
+			// Message message is a human readable message indicating details about the transition.
+			// This may be an empty string.
+			Message string `json:"message"`
+
+			// ObservedGeneration observedGeneration represents the .metadata.generation that the condition was set based upon.
+			// For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+			// with respect to the current state of the instance.
+			ObservedGeneration *int64 `json:"observedGeneration,omitempty"`
+
+			// Reason reason contains a programmatic identifier indicating the reason for the condition's last transition.
+			// Producers of specific condition types may define expected values and meanings for this field,
+			// and whether the values are considered a guaranteed API.
+			// The value should be a CamelCase string.
+			// This field may not be empty.
+			Reason string `json:"reason"`
+
+			// Status status of the condition, one of True, False, Unknown.
+			Status BackupStatusConditionsStatus `json:"status"`
+
+			// Type type of condition in CamelCase or in foo.example.com/CamelCase.
+			Type string `json:"type"`
+		} `json:"conditions,omitempty"`
 
 		// JobName JobName is the reference to the job that is running the backup.
 		JobName *string `json:"jobName,omitempty"`
@@ -103,10 +158,13 @@ type Backup struct {
 
 		// State State is the current state of the backup job.
 		State *string `json:"state,omitempty"`
-	} `json:"status,omitempty"`
+	} `json:"status"`
 }
 
-// BackupClass BackupClass defines a reusable strategy for backing up data from a DataStore.
+// BackupStatusConditionsStatus status of the condition, one of True, False, Unknown.
+type BackupStatusConditionsStatus string
+
+// BackupClass BackupClass is the Schema for the backupclasses API
 type BackupClass struct {
 	// ApiVersion APIVersion defines the versioned schema of this representation of an object.
 	// Servers should convert recognized schemas to the latest internal value, and
@@ -119,11 +177,11 @@ type BackupClass struct {
 	// Cannot be updated.
 	// In CamelCase.
 	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
-	Kind     *string                 `json:"kind,omitempty"`
-	Metadata *map[string]interface{} `json:"metadata,omitempty"`
+	Kind     *string                `json:"kind,omitempty"`
+	Metadata map[string]interface{} `json:"metadata"`
 
-	// Spec BackupClassSpec defines the specification of a BackupClass.
-	Spec *struct {
+	// Spec BackupClassSpec defines the desired state of BackupClass
+	Spec struct {
 		// CleanupJobSpec CleanupJobSpec is the specification of the cleanup job.
 		CleanupJobSpec *struct {
 			// Command Command is the command to run the backup tool.
@@ -176,8 +234,6 @@ type BackupClass struct {
 
 		// Description Description is the description of the backup tool.
 		Description *string `json:"description,omitempty"`
-
-		// DisplayName DisplayName is a human-readable name for the backup tool.
 		DisplayName *string `json:"displayName,omitempty"`
 
 		// JobSpec JobSpec is the specification of the backup job.
@@ -213,11 +269,42 @@ type BackupClass struct {
 
 		// SupportedProviders SupportedProviders is the list of providers that the backup tool supports.
 		SupportedProviders *[]string `json:"supportedProviders,omitempty"`
-	} `json:"spec,omitempty"`
+	} `json:"spec"`
 
-	// Status BackupClassStatus defines the status of the BackupClass.
-	Status *map[string]interface{} `json:"status,omitempty"`
+	// Status BackupClassStatus defines the observed state of BackupClass.
+	Status struct {
+		Conditions *[]struct {
+			// LastTransitionTime lastTransitionTime is the last time the condition transitioned from one status to another.
+			// This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+			LastTransitionTime time.Time `json:"lastTransitionTime"`
+
+			// Message message is a human readable message indicating details about the transition.
+			// This may be an empty string.
+			Message string `json:"message"`
+
+			// ObservedGeneration observedGeneration represents the .metadata.generation that the condition was set based upon.
+			// For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+			// with respect to the current state of the instance.
+			ObservedGeneration *int64 `json:"observedGeneration,omitempty"`
+
+			// Reason reason contains a programmatic identifier indicating the reason for the condition's last transition.
+			// Producers of specific condition types may define expected values and meanings for this field,
+			// and whether the values are considered a guaranteed API.
+			// The value should be a CamelCase string.
+			// This field may not be empty.
+			Reason string `json:"reason"`
+
+			// Status status of the condition, one of True, False, Unknown.
+			Status BackupClassStatusConditionsStatus `json:"status"`
+
+			// Type type of condition in CamelCase or in foo.example.com/CamelCase.
+			Type string `json:"type"`
+		} `json:"conditions,omitempty"`
+	} `json:"status"`
 }
+
+// BackupClassStatusConditionsStatus status of the condition, one of True, False, Unknown.
+type BackupClassStatusConditionsStatus string
 
 // BackupClassList BackupClassList is an object that contains the list of the existing backupclasss.
 type BackupClassList struct {
@@ -241,7 +328,7 @@ type BackupList struct {
 	Metadata *map[string]interface{} `json:"metadata,omitempty"`
 }
 
-// Instance Instance is the Schema for the instances API.
+// Instance Instance is the Schema for the instances API
 type Instance struct {
 	// ApiVersion APIVersion defines the versioned schema of this representation of an object.
 	// Servers should convert recognized schemas to the latest internal value, and
@@ -254,9 +341,11 @@ type Instance struct {
 	// Cannot be updated.
 	// In CamelCase.
 	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
-	Kind     *string                 `json:"kind,omitempty"`
-	Metadata *map[string]interface{} `json:"metadata,omitempty"`
-	Spec     *struct {
+	Kind     *string                `json:"kind,omitempty"`
+	Metadata map[string]interface{} `json:"metadata"`
+
+	// Spec InstanceSpec defines the desired state of Instance
+	Spec struct {
 		// Components Components defines the component instances for this cluster.
 		// The keys are component names (e.g., "engine", "proxy", "backupAgent").
 		// Which components are valid depends on the selected topology.
@@ -304,8 +393,34 @@ type Instance struct {
 
 			// Resources Resources requirements for this component.
 			Resources *struct {
-				Cpu    *Instance_Spec_Components_Resources_Cpu    `json:"cpu,omitempty"`
-				Memory *Instance_Spec_Components_Resources_Memory `json:"memory,omitempty"`
+				// Claims Claims lists the names of resources, defined in spec.resourceClaims,
+				// that are used by this container.
+				//
+				// This field depends on the
+				// DynamicResourceAllocation feature gate.
+				//
+				// This field is immutable. It can only be set for containers.
+				Claims *[]struct {
+					// Name Name must match the name of one entry in pod.spec.resourceClaims of
+					// the Pod where this field is used. It makes that resource available
+					// inside a container.
+					Name string `json:"name"`
+
+					// Request Request is the name chosen for a request in the referenced claim.
+					// If empty, everything from the claim is made available, otherwise
+					// only the result of this request.
+					Request *string `json:"request,omitempty"`
+				} `json:"claims,omitempty"`
+
+				// Limits Limits describes the maximum amount of compute resources allowed.
+				// More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
+				Limits *map[string]Instance_Spec_Components_Resources_Limits_AdditionalProperties `json:"limits,omitempty"`
+
+				// Requests Requests describes the minimum amount of compute resources required.
+				// If Requests is omitted for a container, it defaults to Limits if that is explicitly specified,
+				// otherwise to an implementation-defined value. Requests cannot exceed Limits.
+				// More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
+				Requests *map[string]Instance_Spec_Components_Resources_Requests_AdditionalProperties `json:"requests,omitempty"`
 			} `json:"resources,omitempty"`
 
 			// Storage Storage requirements for this component.
@@ -341,8 +456,10 @@ type Instance struct {
 			// If omitted, the provider's default topology is used.
 			Type *string `json:"type,omitempty"`
 		} `json:"topology,omitempty"`
-	} `json:"spec,omitempty"`
-	Status *struct {
+	} `json:"spec"`
+
+	// Status InstanceStatus defines the observed state of Instance.
+	Status struct {
 		// Components Components is the status of the components in the database cluster.
 		Components *[]struct {
 			Pods *[]struct {
@@ -357,6 +474,33 @@ type Instance struct {
 			State *string `json:"state,omitempty"`
 			Total *int32  `json:"total,omitempty"`
 		} `json:"components,omitempty"`
+		Conditions *[]struct {
+			// LastTransitionTime lastTransitionTime is the last time the condition transitioned from one status to another.
+			// This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+			LastTransitionTime time.Time `json:"lastTransitionTime"`
+
+			// Message message is a human readable message indicating details about the transition.
+			// This may be an empty string.
+			Message string `json:"message"`
+
+			// ObservedGeneration observedGeneration represents the .metadata.generation that the condition was set based upon.
+			// For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+			// with respect to the current state of the instance.
+			ObservedGeneration *int64 `json:"observedGeneration,omitempty"`
+
+			// Reason reason contains a programmatic identifier indicating the reason for the condition's last transition.
+			// Producers of specific condition types may define expected values and meanings for this field,
+			// and whether the values are considered a guaranteed API.
+			// The value should be a CamelCase string.
+			// This field may not be empty.
+			Reason string `json:"reason"`
+
+			// Status status of the condition, one of True, False, Unknown.
+			Status InstanceStatusConditionsStatus `json:"status"`
+
+			// Type type of condition in CamelCase or in foo.example.com/CamelCase.
+			Type string `json:"type"`
+		} `json:"conditions,omitempty"`
 
 		// ConnectionURL ConnectionURL is the URL to connect to the database cluster.
 		ConnectionURL *string `json:"connectionURL,omitempty"`
@@ -374,28 +518,28 @@ type Instance struct {
 
 		// Phase Phase of the database cluster.
 		Phase *string `json:"phase,omitempty"`
-	} `json:"status,omitempty"`
+	} `json:"status"`
 }
 
-// InstanceSpecComponentsResourcesCpu0 defines model for .
-type InstanceSpecComponentsResourcesCpu0 = int
+// InstanceSpecComponentsResourcesLimits0 defines model for .
+type InstanceSpecComponentsResourcesLimits0 = int
 
-// InstanceSpecComponentsResourcesCpu1 defines model for .
-type InstanceSpecComponentsResourcesCpu1 = string
+// InstanceSpecComponentsResourcesLimits1 defines model for .
+type InstanceSpecComponentsResourcesLimits1 = string
 
-// Instance_Spec_Components_Resources_Cpu defines model for Instance.Spec.Components.Resources.Cpu.
-type Instance_Spec_Components_Resources_Cpu struct {
+// Instance_Spec_Components_Resources_Limits_AdditionalProperties defines model for Instance.Spec.Components.Resources.Limits.AdditionalProperties.
+type Instance_Spec_Components_Resources_Limits_AdditionalProperties struct {
 	union json.RawMessage
 }
 
-// InstanceSpecComponentsResourcesMemory0 defines model for .
-type InstanceSpecComponentsResourcesMemory0 = int
+// InstanceSpecComponentsResourcesRequests0 defines model for .
+type InstanceSpecComponentsResourcesRequests0 = int
 
-// InstanceSpecComponentsResourcesMemory1 defines model for .
-type InstanceSpecComponentsResourcesMemory1 = string
+// InstanceSpecComponentsResourcesRequests1 defines model for .
+type InstanceSpecComponentsResourcesRequests1 = string
 
-// Instance_Spec_Components_Resources_Memory defines model for Instance.Spec.Components.Resources.Memory.
-type Instance_Spec_Components_Resources_Memory struct {
+// Instance_Spec_Components_Resources_Requests_AdditionalProperties defines model for Instance.Spec.Components.Resources.Requests.AdditionalProperties.
+type Instance_Spec_Components_Resources_Requests_AdditionalProperties struct {
 	union json.RawMessage
 }
 
@@ -410,6 +554,9 @@ type Instance_Spec_Components_Storage_Size struct {
 	union json.RawMessage
 }
 
+// InstanceStatusConditionsStatus status of the condition, one of True, False, Unknown.
+type InstanceStatusConditionsStatus string
+
 // InstanceList InstanceList is an object that contains the list of the existing instances.
 type InstanceList struct {
 	// ApiVersion APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
@@ -421,7 +568,7 @@ type InstanceList struct {
 	Metadata *map[string]interface{} `json:"metadata,omitempty"`
 }
 
-// Provider Provider is the Schema for the providers API.
+// Provider Provider is the Schema for the providers API
 type Provider struct {
 	// ApiVersion APIVersion defines the versioned schema of this representation of an object.
 	// Servers should convert recognized schemas to the latest internal value, and
@@ -434,9 +581,11 @@ type Provider struct {
 	// Cannot be updated.
 	// In CamelCase.
 	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
-	Kind     *string                 `json:"kind,omitempty"`
-	Metadata *map[string]interface{} `json:"metadata,omitempty"`
-	Spec     *struct {
+	Kind     *string                `json:"kind,omitempty"`
+	Metadata map[string]interface{} `json:"metadata"`
+
+	// Spec ProviderSpec defines the desired state of Provider
+	Spec struct {
 		ComponentTypes *map[string]struct {
 			Versions *[]struct {
 				Default *bool   `json:"default,omitempty"`
@@ -452,9 +601,42 @@ type Provider struct {
 				Optional *bool `json:"optional,omitempty"`
 			} `json:"components,omitempty"`
 		} `json:"topologies,omitempty"`
-	} `json:"spec,omitempty"`
-	Status *map[string]interface{} `json:"status,omitempty"`
+	} `json:"spec"`
+
+	// Status ProviderStatus defines the observed state of Provider.
+	Status struct {
+		Conditions *[]struct {
+			// LastTransitionTime lastTransitionTime is the last time the condition transitioned from one status to another.
+			// This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+			LastTransitionTime time.Time `json:"lastTransitionTime"`
+
+			// Message message is a human readable message indicating details about the transition.
+			// This may be an empty string.
+			Message string `json:"message"`
+
+			// ObservedGeneration observedGeneration represents the .metadata.generation that the condition was set based upon.
+			// For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+			// with respect to the current state of the instance.
+			ObservedGeneration *int64 `json:"observedGeneration,omitempty"`
+
+			// Reason reason contains a programmatic identifier indicating the reason for the condition's last transition.
+			// Producers of specific condition types may define expected values and meanings for this field,
+			// and whether the values are considered a guaranteed API.
+			// The value should be a CamelCase string.
+			// This field may not be empty.
+			Reason string `json:"reason"`
+
+			// Status status of the condition, one of True, False, Unknown.
+			Status ProviderStatusConditionsStatus `json:"status"`
+
+			// Type type of condition in CamelCase or in foo.example.com/CamelCase.
+			Type string `json:"type"`
+		} `json:"conditions,omitempty"`
+	} `json:"status"`
 }
+
+// ProviderStatusConditionsStatus status of the condition, one of True, False, Unknown.
+type ProviderStatusConditionsStatus string
 
 // ProviderList ProviderList is an object that contains the list of the existing providers.
 type ProviderList struct {
@@ -467,22 +649,22 @@ type ProviderList struct {
 	Metadata *map[string]interface{} `json:"metadata,omitempty"`
 }
 
-// AsInstanceSpecComponentsResourcesCpu0 returns the union data inside the Instance_Spec_Components_Resources_Cpu as a InstanceSpecComponentsResourcesCpu0
-func (t Instance_Spec_Components_Resources_Cpu) AsInstanceSpecComponentsResourcesCpu0() (InstanceSpecComponentsResourcesCpu0, error) {
-	var body InstanceSpecComponentsResourcesCpu0
+// AsInstanceSpecComponentsResourcesLimits0 returns the union data inside the Instance_Spec_Components_Resources_Limits_AdditionalProperties as a InstanceSpecComponentsResourcesLimits0
+func (t Instance_Spec_Components_Resources_Limits_AdditionalProperties) AsInstanceSpecComponentsResourcesLimits0() (InstanceSpecComponentsResourcesLimits0, error) {
+	var body InstanceSpecComponentsResourcesLimits0
 	err := json.Unmarshal(t.union, &body)
 	return body, err
 }
 
-// FromInstanceSpecComponentsResourcesCpu0 overwrites any union data inside the Instance_Spec_Components_Resources_Cpu as the provided InstanceSpecComponentsResourcesCpu0
-func (t *Instance_Spec_Components_Resources_Cpu) FromInstanceSpecComponentsResourcesCpu0(v InstanceSpecComponentsResourcesCpu0) error {
+// FromInstanceSpecComponentsResourcesLimits0 overwrites any union data inside the Instance_Spec_Components_Resources_Limits_AdditionalProperties as the provided InstanceSpecComponentsResourcesLimits0
+func (t *Instance_Spec_Components_Resources_Limits_AdditionalProperties) FromInstanceSpecComponentsResourcesLimits0(v InstanceSpecComponentsResourcesLimits0) error {
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
 }
 
-// MergeInstanceSpecComponentsResourcesCpu0 performs a merge with any union data inside the Instance_Spec_Components_Resources_Cpu, using the provided InstanceSpecComponentsResourcesCpu0
-func (t *Instance_Spec_Components_Resources_Cpu) MergeInstanceSpecComponentsResourcesCpu0(v InstanceSpecComponentsResourcesCpu0) error {
+// MergeInstanceSpecComponentsResourcesLimits0 performs a merge with any union data inside the Instance_Spec_Components_Resources_Limits_AdditionalProperties, using the provided InstanceSpecComponentsResourcesLimits0
+func (t *Instance_Spec_Components_Resources_Limits_AdditionalProperties) MergeInstanceSpecComponentsResourcesLimits0(v InstanceSpecComponentsResourcesLimits0) error {
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -493,22 +675,22 @@ func (t *Instance_Spec_Components_Resources_Cpu) MergeInstanceSpecComponentsReso
 	return err
 }
 
-// AsInstanceSpecComponentsResourcesCpu1 returns the union data inside the Instance_Spec_Components_Resources_Cpu as a InstanceSpecComponentsResourcesCpu1
-func (t Instance_Spec_Components_Resources_Cpu) AsInstanceSpecComponentsResourcesCpu1() (InstanceSpecComponentsResourcesCpu1, error) {
-	var body InstanceSpecComponentsResourcesCpu1
+// AsInstanceSpecComponentsResourcesLimits1 returns the union data inside the Instance_Spec_Components_Resources_Limits_AdditionalProperties as a InstanceSpecComponentsResourcesLimits1
+func (t Instance_Spec_Components_Resources_Limits_AdditionalProperties) AsInstanceSpecComponentsResourcesLimits1() (InstanceSpecComponentsResourcesLimits1, error) {
+	var body InstanceSpecComponentsResourcesLimits1
 	err := json.Unmarshal(t.union, &body)
 	return body, err
 }
 
-// FromInstanceSpecComponentsResourcesCpu1 overwrites any union data inside the Instance_Spec_Components_Resources_Cpu as the provided InstanceSpecComponentsResourcesCpu1
-func (t *Instance_Spec_Components_Resources_Cpu) FromInstanceSpecComponentsResourcesCpu1(v InstanceSpecComponentsResourcesCpu1) error {
+// FromInstanceSpecComponentsResourcesLimits1 overwrites any union data inside the Instance_Spec_Components_Resources_Limits_AdditionalProperties as the provided InstanceSpecComponentsResourcesLimits1
+func (t *Instance_Spec_Components_Resources_Limits_AdditionalProperties) FromInstanceSpecComponentsResourcesLimits1(v InstanceSpecComponentsResourcesLimits1) error {
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
 }
 
-// MergeInstanceSpecComponentsResourcesCpu1 performs a merge with any union data inside the Instance_Spec_Components_Resources_Cpu, using the provided InstanceSpecComponentsResourcesCpu1
-func (t *Instance_Spec_Components_Resources_Cpu) MergeInstanceSpecComponentsResourcesCpu1(v InstanceSpecComponentsResourcesCpu1) error {
+// MergeInstanceSpecComponentsResourcesLimits1 performs a merge with any union data inside the Instance_Spec_Components_Resources_Limits_AdditionalProperties, using the provided InstanceSpecComponentsResourcesLimits1
+func (t *Instance_Spec_Components_Resources_Limits_AdditionalProperties) MergeInstanceSpecComponentsResourcesLimits1(v InstanceSpecComponentsResourcesLimits1) error {
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -519,32 +701,32 @@ func (t *Instance_Spec_Components_Resources_Cpu) MergeInstanceSpecComponentsReso
 	return err
 }
 
-func (t Instance_Spec_Components_Resources_Cpu) MarshalJSON() ([]byte, error) {
+func (t Instance_Spec_Components_Resources_Limits_AdditionalProperties) MarshalJSON() ([]byte, error) {
 	b, err := t.union.MarshalJSON()
 	return b, err
 }
 
-func (t *Instance_Spec_Components_Resources_Cpu) UnmarshalJSON(b []byte) error {
+func (t *Instance_Spec_Components_Resources_Limits_AdditionalProperties) UnmarshalJSON(b []byte) error {
 	err := t.union.UnmarshalJSON(b)
 	return err
 }
 
-// AsInstanceSpecComponentsResourcesMemory0 returns the union data inside the Instance_Spec_Components_Resources_Memory as a InstanceSpecComponentsResourcesMemory0
-func (t Instance_Spec_Components_Resources_Memory) AsInstanceSpecComponentsResourcesMemory0() (InstanceSpecComponentsResourcesMemory0, error) {
-	var body InstanceSpecComponentsResourcesMemory0
+// AsInstanceSpecComponentsResourcesRequests0 returns the union data inside the Instance_Spec_Components_Resources_Requests_AdditionalProperties as a InstanceSpecComponentsResourcesRequests0
+func (t Instance_Spec_Components_Resources_Requests_AdditionalProperties) AsInstanceSpecComponentsResourcesRequests0() (InstanceSpecComponentsResourcesRequests0, error) {
+	var body InstanceSpecComponentsResourcesRequests0
 	err := json.Unmarshal(t.union, &body)
 	return body, err
 }
 
-// FromInstanceSpecComponentsResourcesMemory0 overwrites any union data inside the Instance_Spec_Components_Resources_Memory as the provided InstanceSpecComponentsResourcesMemory0
-func (t *Instance_Spec_Components_Resources_Memory) FromInstanceSpecComponentsResourcesMemory0(v InstanceSpecComponentsResourcesMemory0) error {
+// FromInstanceSpecComponentsResourcesRequests0 overwrites any union data inside the Instance_Spec_Components_Resources_Requests_AdditionalProperties as the provided InstanceSpecComponentsResourcesRequests0
+func (t *Instance_Spec_Components_Resources_Requests_AdditionalProperties) FromInstanceSpecComponentsResourcesRequests0(v InstanceSpecComponentsResourcesRequests0) error {
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
 }
 
-// MergeInstanceSpecComponentsResourcesMemory0 performs a merge with any union data inside the Instance_Spec_Components_Resources_Memory, using the provided InstanceSpecComponentsResourcesMemory0
-func (t *Instance_Spec_Components_Resources_Memory) MergeInstanceSpecComponentsResourcesMemory0(v InstanceSpecComponentsResourcesMemory0) error {
+// MergeInstanceSpecComponentsResourcesRequests0 performs a merge with any union data inside the Instance_Spec_Components_Resources_Requests_AdditionalProperties, using the provided InstanceSpecComponentsResourcesRequests0
+func (t *Instance_Spec_Components_Resources_Requests_AdditionalProperties) MergeInstanceSpecComponentsResourcesRequests0(v InstanceSpecComponentsResourcesRequests0) error {
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -555,22 +737,22 @@ func (t *Instance_Spec_Components_Resources_Memory) MergeInstanceSpecComponentsR
 	return err
 }
 
-// AsInstanceSpecComponentsResourcesMemory1 returns the union data inside the Instance_Spec_Components_Resources_Memory as a InstanceSpecComponentsResourcesMemory1
-func (t Instance_Spec_Components_Resources_Memory) AsInstanceSpecComponentsResourcesMemory1() (InstanceSpecComponentsResourcesMemory1, error) {
-	var body InstanceSpecComponentsResourcesMemory1
+// AsInstanceSpecComponentsResourcesRequests1 returns the union data inside the Instance_Spec_Components_Resources_Requests_AdditionalProperties as a InstanceSpecComponentsResourcesRequests1
+func (t Instance_Spec_Components_Resources_Requests_AdditionalProperties) AsInstanceSpecComponentsResourcesRequests1() (InstanceSpecComponentsResourcesRequests1, error) {
+	var body InstanceSpecComponentsResourcesRequests1
 	err := json.Unmarshal(t.union, &body)
 	return body, err
 }
 
-// FromInstanceSpecComponentsResourcesMemory1 overwrites any union data inside the Instance_Spec_Components_Resources_Memory as the provided InstanceSpecComponentsResourcesMemory1
-func (t *Instance_Spec_Components_Resources_Memory) FromInstanceSpecComponentsResourcesMemory1(v InstanceSpecComponentsResourcesMemory1) error {
+// FromInstanceSpecComponentsResourcesRequests1 overwrites any union data inside the Instance_Spec_Components_Resources_Requests_AdditionalProperties as the provided InstanceSpecComponentsResourcesRequests1
+func (t *Instance_Spec_Components_Resources_Requests_AdditionalProperties) FromInstanceSpecComponentsResourcesRequests1(v InstanceSpecComponentsResourcesRequests1) error {
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
 }
 
-// MergeInstanceSpecComponentsResourcesMemory1 performs a merge with any union data inside the Instance_Spec_Components_Resources_Memory, using the provided InstanceSpecComponentsResourcesMemory1
-func (t *Instance_Spec_Components_Resources_Memory) MergeInstanceSpecComponentsResourcesMemory1(v InstanceSpecComponentsResourcesMemory1) error {
+// MergeInstanceSpecComponentsResourcesRequests1 performs a merge with any union data inside the Instance_Spec_Components_Resources_Requests_AdditionalProperties, using the provided InstanceSpecComponentsResourcesRequests1
+func (t *Instance_Spec_Components_Resources_Requests_AdditionalProperties) MergeInstanceSpecComponentsResourcesRequests1(v InstanceSpecComponentsResourcesRequests1) error {
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -581,12 +763,12 @@ func (t *Instance_Spec_Components_Resources_Memory) MergeInstanceSpecComponentsR
 	return err
 }
 
-func (t Instance_Spec_Components_Resources_Memory) MarshalJSON() ([]byte, error) {
+func (t Instance_Spec_Components_Resources_Requests_AdditionalProperties) MarshalJSON() ([]byte, error) {
 	b, err := t.union.MarshalJSON()
 	return b, err
 }
 
-func (t *Instance_Spec_Components_Resources_Memory) UnmarshalJSON(b []byte) error {
+func (t *Instance_Spec_Components_Resources_Requests_AdditionalProperties) UnmarshalJSON(b []byte) error {
 	err := t.union.UnmarshalJSON(b)
 	return err
 }

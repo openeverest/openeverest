@@ -4,17 +4,17 @@ package rbac
 import (
 	"context"
 
-	"github.com/openeverest/openeverest/v2/api/v1alpha1"
+	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
 )
 
 // GetBackup proxies the request to the next handler.
-func (h *rbacHandler) GetBackup(ctx context.Context, namespace, name string) (*v1alpha1.Backup, error) {
+func (h *rbacHandler) GetBackup(ctx context.Context, namespace, name string) (*backupv1alpha1.Backup, error) {
 	// Add RBAC checks here if needed in the future
 	return h.next.GetBackup(ctx, namespace, name)
 }
 
 // CreateBackup proxies the request to the next handler.
-func (h *rbacHandler) CreateBackup(ctx context.Context, backup *v1alpha1.Backup) (*v1alpha1.Backup, error) {
+func (h *rbacHandler) CreateBackup(ctx context.Context, backup *backupv1alpha1.Backup) (*backupv1alpha1.Backup, error) {
 	// Add RBAC checks here if needed in the future
 	return h.next.CreateBackup(ctx, backup)
 }

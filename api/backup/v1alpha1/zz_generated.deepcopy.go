@@ -22,7 +22,7 @@ package v1alpha1
 
 import (
 	rbacv1 "k8s.io/api/rbac/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 )
 

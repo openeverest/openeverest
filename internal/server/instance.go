@@ -23,7 +23,7 @@ import (
 
 	"github.com/labstack/echo/v4"
 
-	"github.com/openeverest/openeverest/v2/api/v1alpha1"
+	corev1alpha1 "github.com/openeverest/openeverest/v2/api/core/v1alpha1"
 )
 
 // ListInstances lists all instances in a namespace.
@@ -51,7 +51,7 @@ func (e *EverestServer) GetInstance(c echo.Context, cluster string, namespace st
 // CreateInstance creates a new instance.
 func (e *EverestServer) CreateInstance(c echo.Context, cluster string, namespace string) error {
 	// The cluster parameter is currently ignored as we operate on the configured cluster
-	instance := &v1alpha1.Instance{}
+	instance := &corev1alpha1.Instance{}
 	body, err := io.ReadAll(c.Request().Body)
 	if err != nil {
 		e.l.Errorf("CreateInstance: failed to read request body: %v", err)
@@ -76,7 +76,7 @@ func (e *EverestServer) CreateInstance(c echo.Context, cluster string, namespace
 // UpdateInstance updates an existing instance.
 func (e *EverestServer) UpdateInstance(c echo.Context, cluster string, namespace string, instance string) error {
 	// The cluster parameter is currently ignored as we operate on the configured cluster
-	inst := &v1alpha1.Instance{}
+	inst := &corev1alpha1.Instance{}
 	body, err := io.ReadAll(c.Request().Body)
 	if err != nil {
 		e.l.Errorf("UpdateInstance: failed to read request body: %v", err)

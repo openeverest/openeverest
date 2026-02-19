@@ -20,22 +20,22 @@ import (
 
 	"k8s.io/apimachinery/pkg/types"
 
-	"github.com/openeverest/openeverest/v2/api/v1alpha1"
+	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
 )
 
 // GetBackup returns backup that matches the criteria.
-func (h *k8sHandler) GetBackup(ctx context.Context, namespace, name string) (*v1alpha1.Backup, error) {
+func (h *k8sHandler) GetBackup(ctx context.Context, namespace, name string) (*backupv1alpha1.Backup, error) {
 	return h.kubeConnector.GetBackup(ctx, types.NamespacedName{Namespace: namespace, Name: name})
 }
 
 // CreateBackup creates a backup.
-func (h *k8sHandler) CreateBackup(ctx context.Context, backup *v1alpha1.Backup) (*v1alpha1.Backup, error) {
+func (h *k8sHandler) CreateBackup(ctx context.Context, backup *backupv1alpha1.Backup) (*backupv1alpha1.Backup, error) {
 	return h.kubeConnector.CreateBackup(ctx, backup)
 }
 
 // DeleteBackup deletes a backup.
 func (h *k8sHandler) DeleteBackup(ctx context.Context, namespace, name string) error {
-	backup := &v1alpha1.Backup{}
+	backup := &backupv1alpha1.Backup{}
 	backup.Name = name
 	backup.Namespace = namespace
 	return h.kubeConnector.DeleteBackup(ctx, backup)
