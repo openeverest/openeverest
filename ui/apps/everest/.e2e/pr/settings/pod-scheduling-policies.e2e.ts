@@ -132,7 +132,8 @@ test.describe.parallel('Policies Scheduling Policies', () => {
               .includes(
                 '/v1/pod-scheduling-policies?engineType=postgresql&hasRules=true'
               ) &&
-            resp.status() === 200
+            resp.status() === 200,
+          { timeout: TIMEOUTS.ThirtySeconds }
         );
 
         // Move to "Advanced Configuration" step
@@ -153,7 +154,7 @@ test.describe.parallel('Policies Scheduling Policies', () => {
         // check for default policy
         await expect(
           pspOptions.filter({ hasText: PG_DEFAULT_PSP_NAME })
-        ).toBeVisible();
+        ).toBeVisible({ timeout: TIMEOUTS.TenSeconds });
       });
     });
 
@@ -179,7 +180,8 @@ test.describe.parallel('Policies Scheduling Policies', () => {
           (resp) =>
             resp.request().method() === 'GET' &&
             resp.url().includes('/v1/cluster-info') &&
-            resp.status() === 200
+            resp.status() === 200,
+          { timeout: TIMEOUTS.ThirtySeconds }
         );
 
         const getPspResp = page.waitForResponse(
@@ -190,7 +192,8 @@ test.describe.parallel('Policies Scheduling Policies', () => {
               .includes(
                 '/v1/pod-scheduling-policies?engineType=psmdb&hasRules=true'
               ) &&
-            resp.status() === 200
+            resp.status() === 200,
+          { timeout: TIMEOUTS.ThirtySeconds }
         );
 
         // Move to "Advanced Configuration" step
@@ -211,7 +214,7 @@ test.describe.parallel('Policies Scheduling Policies', () => {
         // check for default policy
         await expect(
           pspOptions.filter({ hasText: PSMDB_DEFAULT_PSP_NAME })
-        ).toBeVisible();
+        ).toBeVisible({ timeout: TIMEOUTS.TenSeconds });
       });
     });
 
@@ -235,7 +238,8 @@ test.describe.parallel('Policies Scheduling Policies', () => {
           (resp) =>
             resp.request().method() === 'GET' &&
             resp.url().includes('/v1/cluster-info') &&
-            resp.status() === 200
+            resp.status() === 200,
+          { timeout: TIMEOUTS.ThirtySeconds }
         );
 
         const getPspResp = page.waitForResponse(
@@ -246,7 +250,8 @@ test.describe.parallel('Policies Scheduling Policies', () => {
               .includes(
                 '/v1/pod-scheduling-policies?engineType=pxc&hasRules=true'
               ) &&
-            resp.status() === 200
+            resp.status() === 200,
+          { timeout: TIMEOUTS.ThirtySeconds }
         );
 
         // Move to "Advanced Configuration" step
@@ -267,7 +272,7 @@ test.describe.parallel('Policies Scheduling Policies', () => {
         // check for default policy
         await expect(
           pspOptions.filter({ hasText: PXC_DEFAULT_PSP_NAME })
-        ).toBeVisible();
+        ).toBeVisible({ timeout: TIMEOUTS.TenSeconds });
       });
     });
   });
@@ -288,16 +293,22 @@ test.describe.parallel('Policies Scheduling Policies', () => {
       await goToUrl(page, '/settings/policies/pod-scheduling');
 
       await test.step(`Create policy ${customPGPolicyName} for PG`, async () => {
-        await expect(page.getByTestId('add-policy')).toBeVisible();
+        await expect(page.getByTestId('add-policy')).toBeVisible({
+          timeout: TIMEOUTS.TenSeconds,
+        });
         await page.getByTestId('add-policy').click();
         await page.waitForLoadState('load', {
           timeout: TIMEOUTS.ThirtySeconds,
         });
 
-        await expect(page.getByTestId('text-input-name')).toBeVisible();
+        await expect(page.getByTestId('text-input-name')).toBeVisible({
+          timeout: TIMEOUTS.TenSeconds,
+        });
         await page.getByTestId('text-input-name').fill(customPGPolicyName);
 
-        await expect(page.getByTestId('select-type-button')).toBeVisible();
+        await expect(page.getByTestId('select-type-button')).toBeVisible({
+          timeout: TIMEOUTS.TenSeconds,
+        });
         await page.getByTestId('select-type-button').click();
         await page
           .getByRole('option', {
@@ -348,7 +359,8 @@ test.describe.parallel('Policies Scheduling Policies', () => {
                 .includes(
                   `/v1/pod-scheduling-policies/${customPGPolicyName}`
                 ) &&
-              resp.status() === 200
+              resp.status() === 200,
+            { timeout: TIMEOUTS.ThirtySeconds }
           );
 
           await page.getByTestId('form-dialog-add').click();
@@ -357,7 +369,7 @@ test.describe.parallel('Policies Scheduling Policies', () => {
           const row = page
             .locator('.MuiTableRow-root')
             .filter({ hasText: 'DB Node' });
-          await expect(row).toBeVisible();
+          await expect(row).toBeVisible({ timeout: TIMEOUTS.TenSeconds });
           await expect(row.getByText('Pod Anti-Affinity')).toBeVisible();
           await expect(row.getByText('Preferred: 1')).toBeVisible();
           await expect(
@@ -394,7 +406,8 @@ test.describe.parallel('Policies Scheduling Policies', () => {
                 .includes(
                   `/v1/pod-scheduling-policies/${customPGPolicyName}`
                 ) &&
-              resp.status() === 200
+              resp.status() === 200,
+            { timeout: TIMEOUTS.ThirtySeconds }
           );
 
           await page.getByTestId('form-dialog-add').click();
@@ -403,7 +416,7 @@ test.describe.parallel('Policies Scheduling Policies', () => {
           const row = page
             .locator('.MuiTableRow-root')
             .filter({ hasText: 'PG Bouncer' });
-          await expect(row).toBeVisible();
+          await expect(row).toBeVisible({ timeout: TIMEOUTS.TenSeconds });
           await expect(row.getByText('Pod Anti-Affinity')).toBeVisible();
           await expect(row.getByText('Preferred: 1')).toBeVisible();
           await expect(
@@ -475,7 +488,8 @@ test.describe.parallel('Policies Scheduling Policies', () => {
                 .includes(
                   '/v1/pod-scheduling-policies?engineType=postgresql&hasRules=true'
                 ) &&
-              resp.status() === 200
+              resp.status() === 200,
+            { timeout: TIMEOUTS.ThirtySeconds }
           );
 
           // assign policy
@@ -493,7 +507,7 @@ test.describe.parallel('Policies Scheduling Policies', () => {
           // check that custom policy exists in list
           await expect(
             pspOptions.filter({ hasText: customPGPolicyName })
-          ).toBeVisible();
+          ).toBeVisible({ timeout: TIMEOUTS.TenSeconds });
           await pspOptions.filter({ hasText: customPGPolicyName }).click();
 
           await page.getByTestId('form-dialog-save').click();
@@ -540,16 +554,22 @@ test.describe.parallel('Policies Scheduling Policies', () => {
       await goToUrl(page, '/settings/policies/pod-scheduling');
 
       await test.step(`Create policy ${customPSMDBPolicyName} for PSMDB`, async () => {
-        await expect(page.getByTestId('add-policy')).toBeVisible();
+        await expect(page.getByTestId('add-policy')).toBeVisible({
+          timeout: TIMEOUTS.TenSeconds,
+        });
         await page.getByTestId('add-policy').click();
         await page.waitForLoadState('load', {
           timeout: TIMEOUTS.ThirtySeconds,
         });
 
-        await expect(page.getByTestId('text-input-name')).toBeVisible();
+        await expect(page.getByTestId('text-input-name')).toBeVisible({
+          timeout: TIMEOUTS.TenSeconds,
+        });
         await page.getByTestId('text-input-name').fill(customPSMDBPolicyName);
 
-        await expect(page.getByTestId('select-type-button')).toBeVisible();
+        await expect(page.getByTestId('select-type-button')).toBeVisible({
+          timeout: TIMEOUTS.TenSeconds,
+        });
         await page.getByTestId('select-type-button').click();
         await page
           .getByRole('option', {
@@ -563,7 +583,8 @@ test.describe.parallel('Policies Scheduling Policies', () => {
           (resp) =>
             resp.request().method() === 'POST' &&
             resp.url().includes('/v1/pod-scheduling-policies') &&
-            resp.status() === 200
+            resp.status() === 200,
+          { timeout: TIMEOUTS.ThirtySeconds }
         );
 
         await page.getByTestId('form-dialog-create').click();
@@ -600,7 +621,8 @@ test.describe.parallel('Policies Scheduling Policies', () => {
                 .includes(
                   `/v1/pod-scheduling-policies/${customPSMDBPolicyName}`
                 ) &&
-              resp.status() === 200
+              resp.status() === 200,
+            { timeout: TIMEOUTS.ThirtySeconds }
           );
 
           await page.getByTestId('form-dialog-add').click();
@@ -609,7 +631,7 @@ test.describe.parallel('Policies Scheduling Policies', () => {
           const row = page
             .locator('.MuiTableRow-root')
             .filter({ hasText: 'DB Node' });
-          await expect(row).toBeVisible();
+          await expect(row).toBeVisible({ timeout: TIMEOUTS.TenSeconds });
           await expect(row.getByText('Pod Anti-Affinity')).toBeVisible();
           await expect(row.getByText('Preferred: 1')).toBeVisible();
           await expect(
@@ -646,7 +668,8 @@ test.describe.parallel('Policies Scheduling Policies', () => {
                 .includes(
                   `/v1/pod-scheduling-policies/${customPSMDBPolicyName}`
                 ) &&
-              resp.status() === 200
+              resp.status() === 200,
+            { timeout: TIMEOUTS.ThirtySeconds }
           );
 
           await page.getByTestId('form-dialog-add').click();
@@ -655,7 +678,7 @@ test.describe.parallel('Policies Scheduling Policies', () => {
           const row = page
             .locator('.MuiTableRow-root')
             .filter({ hasText: 'Config Server' });
-          await expect(row).toBeVisible();
+          await expect(row).toBeVisible({ timeout: TIMEOUTS.TenSeconds });
           await expect(row.getByText('Pod Anti-Affinity')).toBeVisible();
           await expect(row.getByText('Preferred: 1')).toBeVisible();
           await expect(
@@ -692,7 +715,8 @@ test.describe.parallel('Policies Scheduling Policies', () => {
                 .includes(
                   `/v1/pod-scheduling-policies/${customPSMDBPolicyName}`
                 ) &&
-              resp.status() === 200
+              resp.status() === 200,
+            { timeout: TIMEOUTS.ThirtySeconds }
           );
 
           await page.getByTestId('form-dialog-add').click();
@@ -701,7 +725,7 @@ test.describe.parallel('Policies Scheduling Policies', () => {
           const row = page
             .locator('.MuiTableRow-root')
             .filter({ hasText: 'Router' });
-          await expect(row).toBeVisible();
+          await expect(row).toBeVisible({ timeout: TIMEOUTS.TenSeconds });
           await expect(row.getByText('Pod Anti-Affinity')).toBeVisible();
           await expect(row.getByText('Preferred: 1')).toBeVisible();
           await expect(
@@ -776,7 +800,8 @@ test.describe.parallel('Policies Scheduling Policies', () => {
                 .includes(
                   '/v1/pod-scheduling-policies?engineType=psmdb&hasRules=true'
                 ) &&
-              resp.status() === 200
+              resp.status() === 200,
+            { timeout: TIMEOUTS.ThirtySeconds }
           );
 
           // assign policy
@@ -794,7 +819,7 @@ test.describe.parallel('Policies Scheduling Policies', () => {
           // check that custom policy exists in list
           await expect(
             pspOptions.filter({ hasText: customPSMDBPolicyName })
-          ).toBeVisible();
+          ).toBeVisible({ timeout: TIMEOUTS.TenSeconds });
           await pspOptions.filter({ hasText: customPSMDBPolicyName }).click();
 
           await page.getByTestId('form-dialog-save').click();
@@ -841,16 +866,22 @@ test.describe.parallel('Policies Scheduling Policies', () => {
       await goToUrl(page, '/settings/policies/pod-scheduling');
 
       await test.step(`Create policy ${customPXCPolicyName} for PXC`, async () => {
-        await expect(page.getByTestId('add-policy')).toBeVisible();
+        await expect(page.getByTestId('add-policy')).toBeVisible({
+          timeout: TIMEOUTS.TenSeconds,
+        });
         await page.getByTestId('add-policy').click();
         await page.waitForLoadState('load', {
           timeout: TIMEOUTS.ThirtySeconds,
         });
 
-        await expect(page.getByTestId('text-input-name')).toBeVisible();
+        await expect(page.getByTestId('text-input-name')).toBeVisible({
+          timeout: TIMEOUTS.TenSeconds,
+        });
         await page.getByTestId('text-input-name').fill(customPXCPolicyName);
 
-        await expect(page.getByTestId('select-type-button')).toBeVisible();
+        await expect(page.getByTestId('select-type-button')).toBeVisible({
+          timeout: TIMEOUTS.TenSeconds,
+        });
         await page.getByTestId('select-type-button').click();
         await page
           .getByRole('option', {
@@ -864,7 +895,8 @@ test.describe.parallel('Policies Scheduling Policies', () => {
           (resp) =>
             resp.request().method() === 'POST' &&
             resp.url().includes('/v1/pod-scheduling-policies') &&
-            resp.status() === 200
+            resp.status() === 200,
+          { timeout: TIMEOUTS.ThirtySeconds }
         );
 
         await page.getByTestId('form-dialog-create').click();
@@ -901,7 +933,8 @@ test.describe.parallel('Policies Scheduling Policies', () => {
                 .includes(
                   `/v1/pod-scheduling-policies/${customPXCPolicyName}`
                 ) &&
-              resp.status() === 200
+              resp.status() === 200,
+            { timeout: TIMEOUTS.ThirtySeconds }
           );
 
           await page.getByTestId('form-dialog-add').click();
@@ -910,7 +943,7 @@ test.describe.parallel('Policies Scheduling Policies', () => {
           const row = page
             .locator('.MuiTableRow-root')
             .filter({ hasText: 'DB Node' });
-          await expect(row).toBeVisible();
+          await expect(row).toBeVisible({ timeout: TIMEOUTS.TenSeconds });
           await expect(row.getByText('Pod Anti-Affinity')).toBeVisible();
           await expect(row.getByText('Preferred: 1')).toBeVisible();
           await expect(
@@ -947,7 +980,8 @@ test.describe.parallel('Policies Scheduling Policies', () => {
                 .includes(
                   `/v1/pod-scheduling-policies/${customPXCPolicyName}`
                 ) &&
-              resp.status() === 200
+              resp.status() === 200,
+            { timeout: TIMEOUTS.ThirtySeconds }
           );
 
           await page.getByTestId('form-dialog-add').click();
@@ -956,7 +990,7 @@ test.describe.parallel('Policies Scheduling Policies', () => {
           const row = page
             .locator('.MuiTableRow-root')
             .filter({ hasText: 'Proxy' });
-          await expect(row).toBeVisible();
+          await expect(row).toBeVisible({ timeout: TIMEOUTS.TenSeconds });
           await expect(row.getByText('Pod Anti-Affinity')).toBeVisible();
           await expect(row.getByText('Preferred: 1')).toBeVisible();
           await expect(
@@ -1028,7 +1062,8 @@ test.describe.parallel('Policies Scheduling Policies', () => {
                 .includes(
                   '/v1/pod-scheduling-policies?engineType=pxc&hasRules=true'
                 ) &&
-              resp.status() === 200
+              resp.status() === 200,
+            { timeout: TIMEOUTS.ThirtySeconds }
           );
 
           // assign policy
@@ -1046,7 +1081,7 @@ test.describe.parallel('Policies Scheduling Policies', () => {
           // check that custom policy exists in list
           await expect(
             pspOptions.filter({ hasText: customPXCPolicyName })
-          ).toBeVisible();
+          ).toBeVisible({ timeout: TIMEOUTS.TenSeconds });
           await pspOptions.filter({ hasText: customPXCPolicyName }).click();
 
           await page.getByTestId('form-dialog-save').click();

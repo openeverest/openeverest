@@ -20,6 +20,11 @@ import { CI_USER_STORAGE_STATE_FILE } from './constants';
 import 'dotenv/config';
 import { dbClusterProject } from './pr/db-cluster/project.config';
 import { dbClusterDetailsProject } from './pr/db-cluster-details/project.config';
+import { dbRestoreProject } from './pr/db-restore/project.config';
+import { multinamespacesProject } from './pr/multinamespaces/project.config';
+import { noMatchProject } from './pr/no-match/project.config';
+import { settingsProject } from './pr/settings/project.config';
+import { rbacProject } from './pr/rbac/project.config';
 
 // Convert 'import.meta.url' to the equivalent __dirname
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -124,166 +129,29 @@ export default defineConfig({
     },
 
     // ---------------------- PR TESTS ----------------------
-    // pr project
     {
       name: 'pr',
+      testMatch: /.^/,
       dependencies: [
         'pr:db-cluster',
         'pr:db-cluster-details',
         'pr:multinamespaces',
         'pr:no-match',
         'pr:settings',
+        'pr:db-restore',
+        ...(process.env.IGNORE_RBAC_TESTS &&
+        process.env.IGNORE_RBAC_TESTS !== 'false'
+          ? []
+          : ['pr:rbac']),
       ],
     },
     ...dbClusterProject,
     ...dbClusterDetailsProject,
-
-    // pr:multinamespaces tests
-    {
-      name: 'pr:multinamespaces',
-      dependencies: [
-        'pr:multinamespaces:db-wizard',
-        'pr:multinamespaces:monitoring',
-        'pr:multinamespaces:storage-location',
-      ],
-    },
-    // pr:multinamespaces:db-wizard tests
-    {
-      name: 'pr:multinamespaces:db-wizard',
-      testDir: './pr/multinamespaces',
-      testMatch: /db-wizard\.e2e\.ts/,
-      dependencies: ['global:auth:ci:setup'],
-      use: {
-        storageState: CI_USER_STORAGE_STATE_FILE,
-      },
-    },
-    // pr:multinamespaces:monitoring tests
-    {
-      name: 'pr:multinamespaces:monitoring',
-      testDir: './pr/multinamespaces',
-      testMatch: /monitoring\.e2e\.ts/,
-      dependencies: ['global:monitoring-instance:setup'],
-      use: {
-        storageState: CI_USER_STORAGE_STATE_FILE,
-      },
-    },
-    // pr:multinamespaces:storage-location tests
-    {
-      name: 'pr:multinamespaces:storage-location:setup',
-      testDir: './pr/multinamespaces',
-      testMatch: /storage-location\.setup\.ts/,
-      dependencies: ['global:auth:ci:setup'],
-      teardown: 'pr:multinamespaces:storage-location:teardown',
-      use: {
-        storageState: CI_USER_STORAGE_STATE_FILE,
-      },
-    },
-    {
-      name: 'pr:multinamespaces:storage-location:teardown',
-      testDir: './pr/multinamespaces',
-      testMatch: /storage-location\.teardown\.ts/,
-    },
-    {
-      name: 'pr:multinamespaces:storage-location',
-      testDir: './pr/multinamespaces',
-      testMatch: /storage-location\.e2e\.ts/,
-      dependencies: [
-        'global:backup-storage:setup',
-        'pr:multinamespaces:storage-location:setup',
-      ],
-      use: {
-        storageState: CI_USER_STORAGE_STATE_FILE,
-      },
-    },
-
-    // pr:no-match tests
-    {
-      name: 'pr:no-match',
-      testDir: './pr/no-match',
-      dependencies: ['global:auth:ci:setup'],
-      use: {
-        storageState: CI_USER_STORAGE_STATE_FILE,
-      },
-    },
-
-    // pr:rbac tests
-    {
-      name: 'pr:rbac',
-      testDir: './pr/rbac',
-      dependencies: ['pr:rbac:backups'],
-    },
-    // pr:rbac:backups tests
-    {
-      name: 'pr:rbac:backups',
-      testDir: './pr/rbac',
-      testMatch: /backups\.e2e\.ts/,
-      dependencies: ['global:auth:ci:setup'],
-      use: {
-        storageState: CI_USER_STORAGE_STATE_FILE,
-      },
-    },
-
-    // pr:settings tests
-    {
-      name: 'pr:settings',
-      dependencies: [
-        'pr:settings:monitoring-instance',
-        'pr:settings:backup-storage',
-        'pr:settings:namespace',
-        'pr:settings:psp',
-        'pr:settings:operator-upgrade',
-      ],
-    },
-    // pr:settings:backup-storage tests
-    {
-      name: 'pr:settings:backup-storage',
-      testDir: './pr/settings',
-      testMatch: /backup-storage\.e2e\.ts/,
-      dependencies: ['global:auth:ci:setup'],
-      use: {
-        storageState: CI_USER_STORAGE_STATE_FILE,
-      },
-    },
-    // pr:settings:monitoring-instance tests
-    {
-      name: 'pr:settings:monitoring-instance',
-      testDir: './pr/settings',
-      testMatch: /monitoring-instance\.e2e\.ts/,
-      dependencies: ['global:auth:ci:setup'],
-      use: {
-        storageState: CI_USER_STORAGE_STATE_FILE,
-      },
-    },
-    // pr:settings:namespace tests
-    {
-      name: 'pr:settings:namespace',
-      testDir: './pr/settings',
-      testMatch: /namespaces-list\.e2e\.ts/,
-      dependencies: ['global:auth:ci:setup'],
-      use: {
-        storageState: CI_USER_STORAGE_STATE_FILE,
-      },
-    },
-    // pr:settings:psp tests
-    {
-      name: 'pr:settings:psp',
-      testDir: './pr/settings',
-      testMatch: /pod-scheduling-policies\.e2e\.ts/,
-      dependencies: ['global:auth:ci:setup'],
-      use: {
-        storageState: CI_USER_STORAGE_STATE_FILE,
-      },
-    },
-    // pr:settings:operator-upgrade tests
-    {
-      name: 'pr:settings:operator-upgrade',
-      testDir: './pr/settings',
-      testMatch: /operator-upgrade\.e2e\.ts/,
-      dependencies: ['global:auth:ci:setup'],
-      use: {
-        storageState: CI_USER_STORAGE_STATE_FILE,
-      },
-    },
+    ...dbRestoreProject,
+    ...multinamespacesProject,
+    ...noMatchProject,
+    ...settingsProject,
+    ...rbacProject,
 
     // ---------------------- RELEASE TESTS ----------------------
     // release project

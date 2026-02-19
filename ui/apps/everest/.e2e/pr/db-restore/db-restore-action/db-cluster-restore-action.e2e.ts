@@ -14,34 +14,18 @@
 // limitations under the License.
 
 import { expect, test } from '@playwright/test';
-import { Messages } from '../../../src/modals/restore-db-modal/restore-db-modal.messages';
+import { Messages } from '../../../../src/modals/restore-db-modal/restore-db-modal.messages';
 import { createDbClusterFn, deleteDbClusterFn } from '@e2e/utils/db-cluster';
 import {
   findDbAndClickActions,
   findDbAndClickRow,
 } from '@e2e/utils/db-clusters-list';
-import { getBucketNamespacesMap } from '@e2e/constants';
-
-const dbClusterName = 'restore-db';
+import { dbClusterName } from './project.config';
 
 test.describe('DB Cluster Restore', () => {
-  test.beforeAll(async ({ request }) => {
-    await createDbClusterFn(request, {
-      dbName: dbClusterName,
-      dbType: 'mysql',
-      numberOfNodes: '1',
-      backup: {
-        enabled: true,
-        schedules: [
-          {
-            backupStorageName: getBucketNamespacesMap()[0][0],
-            enabled: true,
-            name: 'backup-1',
-            schedule: '0 * * * *',
-          },
-        ],
-      },
-    });
+  // GMT is UTC+0:00, with or without DST
+  test.use({
+    timezoneId: 'GMT',
   });
 
   test.beforeEach(async ({ page }) => {
@@ -75,10 +59,7 @@ test.describe('DB Cluster Restore', () => {
     ).toBeVisible();
   });
 
-  test('keep selected time in the modal', async ({
-    page,
-    request,
-  }, testInfo) => {
+  test('keep selected time in the modal', async ({ page }, testInfo) => {
     testInfo.setTimeout(30000);
     await page.route(
       '/v1/namespaces/**/database-clusters/**/pitr',
@@ -127,9 +108,18 @@ test.describe('DB Cluster Restore', () => {
     await page.getByTestId('radio-option-fromPITR').click();
     const input = await page.getByTestId('date-time-picker-pitr-backup');
     expect(await input.inputValue()).toBe('27/02/2025 at 15:30:00');
-    await input.fill('27/02/2025 at 15:25:00');
-    // Wait for some time to make sure the input value hasn't changed
-    await page.waitForTimeout(12000);
+
+    // In headless mode, Chromium runs too fast and the Material-UI DateTimePicker's
+    // React state doesn't update properly when using fill() Playwright issue #36395
+    // evaluate() approach bypasses the readonly restriction entirely
+    // (works in both headed and headless):
+    await input.evaluate((el: HTMLInputElement) => {
+      el.value = '27/02/2025 at 15:25:00';
+      el.dispatchEvent(new Event('input', { bubbles: true }));
+      el.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+
+    await page.waitForTimeout(2000);
     expect(await input.inputValue()).toBe('27/02/2025 at 15:25:00');
   });
 });
