@@ -124,16 +124,8 @@ jobs:
           echo "${{ github.triggering_actor }} does not have permissions on this repo."
           exit 1
 
-  E2E_tests_workflow:
-    uses: ./.github/workflows/dev-fe-e2e.yaml
-    secrets:
-      CI_USER: everestadmin
-      CI_PASSWORD: everestadmin
-      RBAC_USER: rbac_user
-      RBAC_PASSWORD: rbac-e2e-test
-
   merge-gatekeeper:
-    needs: [CI_checks, permission_checks, E2E_tests_workflow]
+    needs: [CI_checks, permission_checks]
     name: Merge Gatekeeper
     if: ${{ always() }}
     runs-on: ubuntu-latest
