@@ -1,6 +1,0 @@
-package: client
-output: everest-client.gen.go
-generate:
-  client: true
-  embedded-spec: true
-  models: true

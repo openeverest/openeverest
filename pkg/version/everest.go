@@ -27,7 +27,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/percona/everest/pkg/common"
+	"github.com/openeverest/openeverest/v2/pkg/common"
 )
 
 type deploymentGetter interface {

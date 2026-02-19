@@ -38,7 +38,7 @@ import (
 	"helm.sh/helm/v3/pkg/storage/driver"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 
-	"github.com/percona/everest/pkg/cli/helm/utils"
+	"github.com/openeverest/openeverest/v2/pkg/cli/helm/utils"
 )
 
 // Everest Helm chart names.

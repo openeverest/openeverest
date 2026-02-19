@@ -1,0 +1,8 @@
+package: client
+output: ../client/everest-client.gen.go
+generate:
+  client: true
+  embedded-spec: true
+  models: true
+import-mapping:
+  crds.gen.yaml: "-"

@@ -20,9 +20,9 @@ import (
 	"net/http"
 
 	"github.com/labstack/echo/v4"
-
 	everestv1alpha1 "github.com/percona/everest-operator/api/everest/v1alpha1"
-	"github.com/percona/everest/api"
+
+	api "github.com/openeverest/openeverest/v2/internal/server/api"
 )
 
 // ListPodSchedulingPolicy lists all pod scheduling policies.

@@ -3,8 +3,8 @@ package k8s
 import (
 	"go.uber.org/zap"
 
-	"github.com/percona/everest/internal/server/handlers"
-	"github.com/percona/everest/pkg/kubernetes"
+	"github.com/openeverest/openeverest/v2/internal/server/handlers"
+	"github.com/openeverest/openeverest/v2/pkg/kubernetes"
 )
 
 // k8sHandler is usually the last handler in the chain, so it does not have a next handler.

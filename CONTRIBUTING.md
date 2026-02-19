@@ -5,7 +5,7 @@ OpenEverest API Server uses two types of methods:
 - "own" methods, such as registering a Kubernetes cluster in Everest and listing the clusters.
 -  proxy methods for the Kubernetes API, including all resource-related methods like database-cluster, database-cluster-restore, and database-engine.
 
-The API server basic code is generated using [oapi-codegen](https://github.com/deepmap/oapi-codegen) from the docs/spec/openapi.yml file.
+The API server basic code is generated using [oapi-codegen](https://github.com/deepmap/oapi-codegen) from the api/openapi/http-api.yaml file.
 The proxy methods align with Everest operator methods but don't support all original parameters, because these are not required.
 You can find the definition of the custom resources in the [Everest operator repo](https://github.com/openeverest/openeverest-operator/tree/main/config/crd/bases).
 
@@ -28,13 +28,13 @@ You can find the definition of the custom resources in the [Everest operator rep
 6. Deploy Everest using the CLI : `make deploy`
 
 ### Add a new proxy method
-1. Copy the corresponding k8s spec to the [openapi.yml](./docs/spec/openapi.yml). For information on observing your cluster API, see [Kubernetes: How to View Swagger UI blog post](https://jonnylangefeld.com/blog/kubernetes-how-to-view-swagger-ui), which details the operator-defined methods (if the everest operator is installed).
+1. Copy the corresponding k8s spec to the [openapi.yml](./api/openapi/http-api.yaml). For information on observing your cluster API, see [Kubernetes: How to View Swagger UI blog post](https://jonnylangefeld.com/blog/kubernetes-how-to-view-swagger-ui), which details the operator-defined methods (if the everest operator is installed).
 
 2. Make necessary spec modifications. When designing new methods:
 
 -  follow the [Restful API guidelines](https://opensource.zalando.com/restful-api-guidelines/). - - use kebab-case instead of everest operator API.
 - determine parameters to expose via proxy.
-3. If needed, copy the custom resources schema from the [Everest operator config](https://github.com/percona/dbaas-operator/tree/main/config/crd/bases) to the **Components** section of the [openapi.yml](./docs/spec/openapi.yml) file.
+3. If needed, copy the custom resources schema from the [Everest operator config](https://github.com/percona/dbaas-operator/tree/main/config/crd/bases) to the **Components** section of the [openapi.yml](./api/openapi/http-api.yaml) file.
 
 4. Run the following command to generate the code:
 ```bash

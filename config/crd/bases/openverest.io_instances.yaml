@@ -1,0 +1,236 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.18.0
+  name: instances.openverest.io
+spec:
+  group: openverest.io
+  names:
+    kind: Instance
+    listKind: InstanceList
+    plural: instances
+    shortNames:
+    - in
+    - inst
+    singular: instance
+  scope: Namespaced
+  versions:
+  - name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            properties:
+              components:
+                additionalProperties:
+                  properties:
+                    config:
+                      description: Config specifies the component specific configuration.
+                      properties:
+                        configMapRef:
+                          description: |-
+                            LocalObjectReference contains enough information to let you locate the
+                            referenced object inside the same namespace.
+                          properties:
+                            name:
+                              default: ""
+                              description: |-
+                                Name of the referent.
+                                This field is effectively required, but due to backwards compatibility is
+                                allowed to be empty. Instances of this type with an empty value here are
+                                almost certainly wrong.
+                                More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                              type: string
+                          type: object
+                          x-kubernetes-map-type: atomic
+                        key:
+                          type: string
+                        secretRef:
+                          description: |-
+                            LocalObjectReference contains enough information to let you locate the
+                            referenced object inside the same namespace.
+                          properties:
+                            name:
+                              default: ""
+                              description: |-
+                                Name of the referent.
+                                This field is effectively required, but due to backwards compatibility is
+                                allowed to be empty. Instances of this type with an empty value here are
+                                almost certainly wrong.
+                                More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                              type: string
+                          type: object
+                          x-kubernetes-map-type: atomic
+                      type: object
+                    customSpec:
+                      description: |-
+                        CustomSpec provides an API for customising this component.
+                        The API schema is defined by the provider's ComponentSchemas.
+                      type: object
+                      x-kubernetes-preserve-unknown-fields: true
+                    image:
+                      description: |-
+                        Image specifies an override for the image to use.
+                        When unspecified, it is autmatically set from the ComponentVersions
+                        based on the Version specified.
+                      type: string
+                    name:
+                      description: Name of the component.
+                      type: string
+                    replicas:
+                      description: Replicas specifies the number of replicas for this
+                        component.
+                      format: int32
+                      type: integer
+                    resources:
+                      description: Resources requirements for this component.
+                      properties:
+                        cpu:
+                          anyOf:
+                          - type: integer
+                          - type: string
+                          pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                          x-kubernetes-int-or-string: true
+                        memory:
+                          anyOf:
+                          - type: integer
+                          - type: string
+                          pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                          x-kubernetes-int-or-string: true
+                      type: object
+                    storage:
+                      description: |-
+                        Storage requirements for this component.
+                        For stateless components, this is an optional field.
+                      properties:
+                        size:
+                          anyOf:
+                          - type: integer
+                          - type: string
+                          pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                          x-kubernetes-int-or-string: true
+                        storageClass:
+                          type: string
+                      type: object
+                    type:
+                      description: Type of the component from the Provider.
+                      type: string
+                    version:
+                      description: Version of the component from ComponentVersions.
+                      type: string
+                  type: object
+                description: |-
+                  Components defines the component instances for this cluster.
+                  The keys are component names (e.g., "engine", "proxy", "backupAgent").
+                  Which components are valid depends on the selected topology.
+                type: object
+              global:
+                description: |-
+                  Global contains provider-level configuration that applies to the entire cluster.
+                  The schema for this field is defined by the provider's GlobalSchema.
+                type: object
+                x-kubernetes-preserve-unknown-fields: true
+              provider:
+                description: Provider is the name of the database provider (e.g.,
+                  "psmdb", "postgresql").
+                type: string
+              topology:
+                description: Topology defines the deployment topology and its configuration.
+                properties:
+                  config:
+                    description: |-
+                      Config contains topology-specific configuration.
+                      The schema for this field is defined by the provider's TopologyDefinition.
+                      Examples: shard count for sharded topology, replication factor, etc.
+                    type: object
+                    x-kubernetes-preserve-unknown-fields: true
+                  type:
+                    description: |-
+                      Type is the topology name (e.g., "sharded", "replicaset").
+                      The available topologies are defined by the provider.
+                      If omitted, the provider's default topology is used.
+                    type: string
+                type: object
+            type: object
+          status:
+            properties:
+              components:
+                description: Components is the status of the components in the database
+                  cluster.
+                items:
+                  properties:
+                    pods:
+                      items:
+                        description: |-
+                          LocalObjectReference contains enough information to let you locate the
+                          referenced object inside the same namespace.
+                        properties:
+                          name:
+                            default: ""
+                            description: |-
+                              Name of the referent.
+                              This field is effectively required, but due to backwards compatibility is
+                              allowed to be empty. Instances of this type with an empty value here are
+                              almost certainly wrong.
+                              More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                            type: string
+                        type: object
+                        x-kubernetes-map-type: atomic
+                      type: array
+                    ready:
+                      format: int32
+                      type: integer
+                    state:
+                      type: string
+                    total:
+                      format: int32
+                      type: integer
+                  type: object
+                type: array
+              connectionURL:
+                description: ConnectionURL is the URL to connect to the database cluster.
+                type: string
+              credentialSecretRef:
+                description: |-
+                  CredentialSecretRef is a reference to the secret containing the credentials.
+                  This Secret contains the keys `username` and `password`.
+                properties:
+                  name:
+                    default: ""
+                    description: |-
+                      Name of the referent.
+                      This field is effectively required, but due to backwards compatibility is
+                      allowed to be empty. Instances of this type with an empty value here are
+                      almost certainly wrong.
+                      More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                    type: string
+                type: object
+                x-kubernetes-map-type: atomic
+              phase:
+                description: Phase of the database cluster.
+                type: string
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}

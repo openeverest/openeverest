@@ -28,8 +28,8 @@ import (
 	"gopkg.in/yaml.v2"
 	"k8s.io/apimachinery/pkg/types"
 
-	"github.com/percona/everest/pkg/accounts"
-	"github.com/percona/everest/pkg/common"
+	"github.com/openeverest/openeverest/v2/pkg/accounts"
+	"github.com/openeverest/openeverest/v2/pkg/common"
 )
 
 const (

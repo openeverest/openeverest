@@ -1,0 +1,163 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.18.0
+  name: backups.openverest.io
+spec:
+  group: openverest.io
+  names:
+    kind: Backup
+    listKind: BackupList
+    plural: backups
+    shortNames:
+    - bj
+    singular: backup
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .spec.targetClusterName
+      name: TargetCluster
+      type: string
+    - jsonPath: .status.state
+      name: State
+      type: string
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: Backup is the schema for the backup job API.
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: BackupSpec defines the desired state of Backup.
+            properties:
+              backupClassName:
+                description: BackupClassName is the backup tool to use for the backup.
+                type: string
+              config:
+                description: |-
+                  Config defines the configuration for the backup job.
+                  These options are specific to the BackupClass being used and must conform to
+                  the schema defined in the BackupClass's .spec.config.openAPIV3Schema.
+                type: object
+                x-kubernetes-preserve-unknown-fields: true
+              destination:
+                description: Destination is the destination for the backup data.
+                properties:
+                  backupStorageName:
+                    description: BackupStorageName is the name of the BackupStorage
+                      to use for the backup.
+                    type: string
+                  s3:
+                    description: S3 contains the S3 information for the backup destination.
+                    properties:
+                      accessKeyId:
+                        description: |-
+                          AccessKeyID allows specifying the S3 access key ID inline.
+                          It is provided as a write-only input field for convenience.
+                          When this field is set, a webhook writes this value in the Secret specified by `credentialsSecretName`
+                          and empties this field.
+                          This field is not stored in the API.
+                        type: string
+                      bucket:
+                        description: Bucket is the name of the S3 bucket.
+                        type: string
+                      credentialsSecretName:
+                        description: |-
+                          CredentialsSecreName is the reference to the secret containing the S3 credentials.
+                          The Secret must contain the keys `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`.
+                        type: string
+                      endpointURL:
+                        description: EndpointURL is an endpoint URL of backup storage.
+                        type: string
+                        x-kubernetes-validations:
+                        - message: endpointURL must be a valid URL
+                          rule: isURL(self)
+                      forcePathStyle:
+                        default: false
+                        description: |-
+                          ForcePathStyle is set to use path-style URLs.
+                          If unspecified, the default value is false.
+                        type: boolean
+                      region:
+                        description: Region is the region of the S3 bucket.
+                        type: string
+                      secretAccessKey:
+                        description: |-
+                          SecretAccessKey allows specifying the S3 secret access key inline.
+                          It is provided as a write-only input field for convenience.
+                          When this field is set, a webhook writes this value in the Secret specified by `credentialsSecretName`
+                          and empties this field.
+                          This field is not stored in the API.
+                        type: string
+                      verifyTLS:
+                        default: true
+                        description: |-
+                          VerifyTLS is set to ensure TLS/SSL verification.
+                          If unspecified, the default value is true.
+                        type: boolean
+                    required:
+                    - bucket
+                    - credentialsSecretName
+                    - endpointURL
+                    - region
+                    type: object
+                type: object
+              instanceName:
+                description: InstanceName is the name of the Instance to back up.
+                type: string
+            required:
+            - backupClassName
+            - destination
+            - instanceName
+            type: object
+          status:
+            description: BackupStatus defines the observed state of Backup.
+            properties:
+              completedAt:
+                description: CompletedAt is the time when the backup job completed
+                  successfully.
+                format: date-time
+                type: string
+              jobName:
+                description: JobName is the reference to the job that is running the
+                  backup.
+                type: string
+              lastObservedGeneration:
+                description: LastObservedGeneration is the last observed generation
+                  of the backup job.
+                format: int64
+                type: integer
+              message:
+                description: Message is the message of the backup job.
+                type: string
+              startedAt:
+                description: StartedAt is the time when the backup job started.
+                format: date-time
+                type: string
+              state:
+                description: State is the current state of the backup job.
+                type: string
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}

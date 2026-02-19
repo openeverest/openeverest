@@ -23,7 +23,7 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 
-	"github.com/percona/everest/cmd/config"
+	"github.com/openeverest/openeverest/v2/cmd/config"
 )
 
 // MustInitLogger initializes logger and panics in case of an error. // FIXME Test this.

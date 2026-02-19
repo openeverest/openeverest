@@ -34,14 +34,13 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 
-	everestclient "github.com/percona/everest/client"
-	"github.com/percona/everest/data"
-	"github.com/percona/everest/pkg/common"
-	"github.com/percona/everest/pkg/kubernetes"
-	"github.com/percona/everest/pkg/kubernetes/informer"
-	configmapadapter "github.com/percona/everest/pkg/rbac/configmap-adapter"
-	readeradapter "github.com/percona/everest/pkg/rbac/io-reader-adapter"
-	"github.com/percona/everest/pkg/session"
+	"github.com/openeverest/openeverest/v2/data"
+	"github.com/openeverest/openeverest/v2/pkg/common"
+	"github.com/openeverest/openeverest/v2/pkg/kubernetes"
+	"github.com/openeverest/openeverest/v2/pkg/kubernetes/informer"
+	configmapadapter "github.com/openeverest/openeverest/v2/pkg/rbac/configmap-adapter"
+	readeradapter "github.com/openeverest/openeverest/v2/pkg/rbac/io-reader-adapter"
+	"github.com/openeverest/openeverest/v2/pkg/session"
 )
 
 // Everest API resource names.
@@ -267,12 +266,8 @@ func getScopeValues(claims jwt.MapClaims, scopes []string) []string {
 }
 
 func loadAdminPolicy(enf casbin.IEnforcer) error {
-	paths, _, err := buildPathResourceMap("") // reads the swagger API definition
-	if err != nil {
-		return err
-	}
 	resources := make(map[string]struct{})
-	for _, resource := range paths {
+	for _, resource := range AllResources {
 		resources[resource] = struct{}{}
 	}
 
@@ -290,46 +285,12 @@ func loadAdminPolicy(enf casbin.IEnforcer) error {
 	return nil
 }
 
-// buildPathResourceMap builds a map of paths to resources and a list of resources.
-// Returns: (resourceMap, skipPaths, error) .
-func buildPathResourceMap(basePath string) (map[string]string, []string, error) {
-	swg, err := everestclient.GetSwagger()
-	if err != nil {
-		return nil, nil, errors.Join(err, errors.New("failed to get swagger"))
-	}
-
-	// parseEndpoint replaces the curly braces in the endpoint with colons.
-	// example: '/{namespace}/clusters' -> '/:namespace/clusters'
-	parseEndpoint := func(ep string) string {
-		parsed := strings.ReplaceAll(ep, "{", ":")
-		parsed = strings.ReplaceAll(parsed, "}", "")
-		return basePath + parsed
-	}
-
-	resourceMap := make(map[string]string)
-	skipPaths := []string{}
-	for path, pathItem := range swg.Paths.Map() {
-		parsedPath := parseEndpoint(path)
-		if val, ok := pathItem.Extensions[common.EverestAPIExtnResourceName]; ok {
-			if resourceName, ok := val.(string); ok {
-				resourceMap[parsedPath] = resourceName
-			}
-			continue
-		}
-		skipPaths = append(skipPaths, parsedPath)
-	}
-	return resourceMap, skipPaths, nil
-}
-
 // NewSkipper returns a new function that checks if a given request should be skipped
 // from RBAC checks.
 func NewSkipper(basePath string) (func(echo.Context) bool, error) {
-	_, skipPaths, err := buildPathResourceMap(basePath)
-	if err != nil {
-		return nil, err
-	}
+	skipPathsList := GetSkipPaths(basePath)
 	return func(c echo.Context) bool {
-		return slices.Contains(skipPaths, c.Request().URL.Path)
+		return slices.Contains(skipPathsList, c.Request().URL.Path)
 	}, nil
 }
 

@@ -20,11 +20,10 @@ import (
 	"context"
 	"time"
 
+	everestv1alpha1 "github.com/percona/everest-operator/api/everest/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
-
-	everestv1alpha1 "github.com/percona/everest-operator/api/everest/v1alpha1"
 )
 
 // ListDatabaseClusters returns list of managed database clusters that match the criteria.

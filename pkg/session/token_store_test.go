@@ -168,7 +168,7 @@ On an Apple M3 Pro it takes ~0.67 ms to perform a cleanup for a list of 10,000 t
 
 goos: darwin
 goarch: arm64
-pkg: github.com/percona/everest/pkg/session
+pkg: github.com/openeverest/openeverest/v2/pkg/session
 cpu: Apple M3 Pro
 BenchmarkCleanupOld
 BenchmarkCleanupOld-12    	    1500	    671899 ns/op

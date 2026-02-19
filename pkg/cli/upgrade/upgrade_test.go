@@ -30,8 +30,8 @@ import (
 	"go.uber.org/zap"
 	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 
-	"github.com/percona/everest/pkg/kubernetes"
-	versionservice "github.com/percona/everest/pkg/version_service"
+	"github.com/openeverest/openeverest/v2/pkg/kubernetes"
+	versionservice "github.com/openeverest/openeverest/v2/pkg/version_service"
 )
 
 func TestUpgrade_canUpgrade(t *testing.T) {

@@ -14,6 +14,7 @@ import { MonitoringEndpoints } from 'pages/settings/monitoring-endpoints/monitor
 import { NoMatch } from 'pages/404/NoMatch';
 import { Backups } from 'pages/db-cluster-details/backups/backups';
 import { Namespaces } from './pages/settings/namespaces/namespaces';
+import { UIGeneratorBuilder } from 'pages/ui-generator-builder/ui-generator-builder';
 import NamespaceDetails from 'pages/settings/namespaces/namespace-details';
 import Restores from 'pages/db-cluster-details/restores';
 import Components from './pages/db-cluster-details/components';
@@ -58,6 +59,10 @@ const router = createBrowserRouter([
         path: 'databases/new',
         element: <DatabasePage />,
       },
+      // {
+      //   path: 'databases/new-ui-generated',
+      //   element: <DatabasePageGenerated />,
+      // },
       {
         path: 'databases/:namespace/:dbClusterName',
         element: (
@@ -116,6 +121,10 @@ const router = createBrowserRouter([
         ],
       },
       {
+        path: 'ui-generator-builder',
+        element: <UIGeneratorBuilder />,
+      },
+      {
         path: '/settings/policies/details',
         element: <SettingsPoliciesRouter />,
         children: [
@@ -149,6 +158,11 @@ const router = createBrowserRouter([
         path: '/settings/namespaces/:namespace',
         element: <NamespaceDetails />,
       },
+      //TODO legasy POC should be removed later
+      // {
+      //   path: '/ui-generator',
+      //   element: <UIGeneratorNew />,
+      // },
       {
         path: '*',
         element: <NoMatch />,

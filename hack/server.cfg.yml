@@ -1,0 +1,8 @@
+package: api
+output: ../internal/server/api/everest-server.gen.go
+generate:
+  echo-server: true
+  embedded-spec: true
+  models: true
+import-mapping:
+  crds.gen.yaml: "-"

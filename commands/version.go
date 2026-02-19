@@ -22,9 +22,9 @@ import (
 	"github.com/spf13/cobra"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/percona/everest/pkg/cli/utils"
-	"github.com/percona/everest/pkg/logger"
-	"github.com/percona/everest/pkg/version"
+	"github.com/openeverest/openeverest/v2/pkg/cli/utils"
+	"github.com/openeverest/openeverest/v2/pkg/logger"
+	"github.com/openeverest/openeverest/v2/pkg/version"
 )
 
 var (

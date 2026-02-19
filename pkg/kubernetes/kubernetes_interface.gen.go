@@ -7,6 +7,8 @@ import (
 
 	goversion "github.com/hashicorp/go-version"
 	olmv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
+	enginefeaturesv1alpha1 "github.com/percona/everest-operator/api/enginefeatures.everest/v1alpha1"
+	everestv1alpha1 "github.com/percona/everest-operator/api/everest/v1alpha1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
@@ -16,10 +18,9 @@ import (
 	"k8s.io/client-go/rest"
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 
-	enginefeaturesv1alpha1 "github.com/percona/everest-operator/api/enginefeatures.everest/v1alpha1"
-	everestv1alpha1 "github.com/percona/everest-operator/api/everest/v1alpha1"
-	"github.com/percona/everest/pkg/accounts"
-	"github.com/percona/everest/pkg/common"
+	"github.com/openeverest/openeverest/v2/api/v1alpha1"
+	"github.com/openeverest/openeverest/v2/pkg/accounts"
+	"github.com/openeverest/openeverest/v2/pkg/common"
 )
 
 // KubernetesConnector ...
@@ -43,6 +44,16 @@ type KubernetesConnector interface {
 	// DeleteBackupStorages deletes all backup storages in provided namespace.
 	// This function will wait until all storages are deleted.
 	DeleteBackupStorages(ctx context.Context, opts ...ctrlclient.ListOption) error
+	// GetBackup returns backup that matches the criteria.
+	GetBackup(ctx context.Context, key ctrlclient.ObjectKey) (*v1alpha1.Backup, error)
+	// DeleteBackup deletes backup that matches the criteria.
+	DeleteBackup(ctx context.Context, obj *v1alpha1.Backup) error
+	// CreateBackup creates backup.
+	CreateBackup(ctx context.Context, backup *v1alpha1.Backup) (*v1alpha1.Backup, error)
+	// ListBackupClasses returns list of backup classes that match the criteria.
+	ListBackupClasses(ctx context.Context, opts ...ctrlclient.ListOption) (*v1alpha1.BackupClassList, error)
+	// GetBackupClass returns backup class that matches the criteria.
+	GetBackupClass(ctx context.Context, key ctrlclient.ObjectKey) (*v1alpha1.BackupClass, error)
 	// GetCatalogSource returns catalog source that matches the criteria.
 	GetCatalogSource(ctx context.Context, key ctrlclient.ObjectKey) (*olmv1alpha1.CatalogSource, error)
 	// DeleteCatalogSource deletes catalog source that matches the criteria.
@@ -266,4 +277,18 @@ type KubernetesConnector interface {
 	// ListPods returns list of pods that match the criteria.
 	// This method returns a list of full objects (meta and spec).
 	ListPods(ctx context.Context, opts ...ctrlclient.ListOption) (*corev1.PodList, error)
+	// ListProviders returns list of providers that match the criteria.
+	ListProviders(ctx context.Context, opts ...ctrlclient.ListOption) (*v1alpha1.ProviderList, error)
+	// GetProvider returns provider that matches the criteria.
+	GetProvider(ctx context.Context, key ctrlclient.ObjectKey) (*v1alpha1.Provider, error)
+	// ListInstances returns list of instances that match the criteria.
+	ListInstances(ctx context.Context, opts ...ctrlclient.ListOption) (*v1alpha1.InstanceList, error)
+	// GetInstance returns instance that matches the criteria.
+	GetInstance(ctx context.Context, key ctrlclient.ObjectKey) (*v1alpha1.Instance, error)
+	// DeleteInstance deletes instance that matches the criteria.
+	DeleteInstance(ctx context.Context, obj *v1alpha1.Instance) error
+	// CreateInstance creates instance.
+	CreateInstance(ctx context.Context, instance *v1alpha1.Instance) (*v1alpha1.Instance, error)
+	// UpdateInstance updates instance.
+	UpdateInstance(ctx context.Context, instance *v1alpha1.Instance) (*v1alpha1.Instance, error)
 }

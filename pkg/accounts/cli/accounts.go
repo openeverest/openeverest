@@ -26,11 +26,11 @@ import (
 	"github.com/rodaine/table"
 	"go.uber.org/zap"
 
-	"github.com/percona/everest/pkg/accounts"
-	cliutils "github.com/percona/everest/pkg/cli/utils"
-	"github.com/percona/everest/pkg/common"
-	"github.com/percona/everest/pkg/kubernetes"
-	"github.com/percona/everest/pkg/output"
+	"github.com/openeverest/openeverest/v2/pkg/accounts"
+	cliutils "github.com/openeverest/openeverest/v2/pkg/cli/utils"
+	"github.com/openeverest/openeverest/v2/pkg/common"
+	"github.com/openeverest/openeverest/v2/pkg/kubernetes"
+	"github.com/openeverest/openeverest/v2/pkg/output"
 )
 
 type (

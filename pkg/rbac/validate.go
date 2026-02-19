@@ -11,8 +11,8 @@ import (
 	"github.com/casbin/casbin/v2"
 	"go.uber.org/zap"
 
-	"github.com/percona/everest/pkg/common"
-	"github.com/percona/everest/pkg/kubernetes"
+	"github.com/openeverest/openeverest/v2/pkg/common"
+	"github.com/openeverest/openeverest/v2/pkg/kubernetes"
 )
 
 // ErrPolicySyntax is returned when a policy has a syntax error.
@@ -60,12 +60,8 @@ func ValidatePolicy(
 }
 
 func checkResourceNames(policies [][]string) error {
-	resourcePathMap, _, err := buildPathResourceMap("")
-	if err != nil {
-		return fmt.Errorf("failed to get resource path map: %w", err)
-	}
 	knownResources := make(map[string]struct{})
-	for _, resource := range resourcePathMap {
+	for _, resource := range AllResources {
 		knownResources[resource] = struct{}{}
 	}
 	for _, policy := range policies {

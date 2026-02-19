@@ -80,3 +80,6 @@ export { default as CodeCopyBlock } from './code-copy-block';
 
 export * from './form/inputs/file';
 export { default as FileInput } from './form/inputs/file';
+
+export * from './accordion';
+export { default as CustomAccordionSummary } from './accordion/accordion-summary';

@@ -5,7 +5,8 @@ import (
 	"errors"
 
 	everestv1alpha1 "github.com/percona/everest-operator/api/everest/v1alpha1"
-	"github.com/percona/everest/pkg/rbac"
+
+	"github.com/openeverest/openeverest/v2/pkg/rbac"
 )
 
 // ListDataImporters returns a list of DataImporters that support the specified engines.

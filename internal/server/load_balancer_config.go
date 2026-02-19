@@ -20,7 +20,6 @@ import (
 	"net/http"
 
 	"github.com/labstack/echo/v4"
-
 	everestv1alpha1 "github.com/percona/everest-operator/api/everest/v1alpha1"
 )
 

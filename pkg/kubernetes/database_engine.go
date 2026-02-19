@@ -21,9 +21,8 @@ import (
 	"time"
 
 	backoff "github.com/cenkalti/backoff/v4"
-	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
-
 	everestv1alpha1 "github.com/percona/everest-operator/api/everest/v1alpha1"
+	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // ListDatabaseEngines returns list of managed database engines that match the criteria.

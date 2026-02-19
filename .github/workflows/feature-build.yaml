@@ -381,6 +381,7 @@ jobs:
           context: .
           push: true
           tags: ${{ env.IMAGE_PREFIX }}/${{ env.EVEREST_SERVER_DEV_IMAGE_NAME }}:${{ env.VERSION }}
+          file: build/package/server/Dockerfile
 
       - name: Create vs_tag file
         run: |

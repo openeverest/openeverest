@@ -19,7 +19,7 @@ package commands
 import (
 	"github.com/spf13/cobra"
 
-	"github.com/percona/everest/commands/accounts"
+	"github.com/openeverest/openeverest/v2/commands/accounts"
 )
 
 var accountsCmd = &cobra.Command{

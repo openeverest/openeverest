@@ -5,7 +5,8 @@ import (
 	"errors"
 
 	everestv1alpha1 "github.com/percona/everest-operator/api/everest/v1alpha1"
-	"github.com/percona/everest/api"
+
+	api "github.com/openeverest/openeverest/v2/internal/server/api"
 )
 
 func (h *validateHandler) ListDatabaseEngines(ctx context.Context, namespace string) (*everestv1alpha1.DatabaseEngineList, error) {

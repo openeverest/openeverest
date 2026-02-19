@@ -2,7 +2,6 @@ import React, { useEffect, useState } from 'react';
 import { useFormContext } from 'react-hook-form';
 import {
   Accordion,
-  AccordionSummary,
   Alert,
   Box,
   Divider,
@@ -18,14 +17,13 @@ import {
   Typography,
   useTheme,
 } from '@mui/material';
-import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
-import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 import {
   TextInput,
   ToggleButtonGroupInput,
   ToggleCard,
   ToggleRegularButton,
   ToggleButtonGroupInputRegular,
+  CustomAccordionSummary,
 } from '@percona/ui-lib';
 import { useKubernetesClusterResourcesInfo } from 'hooks/api/kubernetesClusters/useKubernetesClusterResourcesInfo';
 import { useActiveBreakpoint } from 'hooks/utils/useActiveBreakpoint';
@@ -427,40 +425,6 @@ const ResourcesToggles = ({
         </Alert>
       )}
     </FormGroup>
-  );
-};
-
-const CustomAccordionSummary = ({
-  unitPlural,
-  nr,
-  hasError,
-}: {
-  unitPlural: string;
-  nr: number;
-  hasError?: boolean;
-}) => {
-  const text = Number.isNaN(nr) || nr < 1 ? '' : ` (${nr})`;
-
-  return (
-    <AccordionSummary
-      sx={{
-        paddingLeft: 0,
-      }}
-      expandIcon={<ExpandMoreIcon />}
-    >
-      <Box display="flex" alignItems="center">
-        {hasError && (
-          <ErrorOutlineIcon
-            color="error"
-            sx={{ mr: 1, position: 'relative', bottom: 1 }}
-          />
-        )}
-        <Typography
-          variant="sectionHeading"
-          textTransform="capitalize"
-        >{`${unitPlural} ${text}`}</Typography>
-      </Box>
-    </AccordionSummary>
   );
 };
 

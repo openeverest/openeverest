@@ -32,17 +32,17 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/percona/everest/pkg/cli/helm"
-	helmutils "github.com/percona/everest/pkg/cli/helm/utils"
-	"github.com/percona/everest/pkg/cli/namespaces"
-	"github.com/percona/everest/pkg/cli/steps"
-	cliutils "github.com/percona/everest/pkg/cli/utils"
-	"github.com/percona/everest/pkg/common"
-	"github.com/percona/everest/pkg/kubernetes"
-	"github.com/percona/everest/pkg/output"
-	. "github.com/percona/everest/pkg/utils/must" //nolint:revive,stylecheck
-	"github.com/percona/everest/pkg/version"
-	versionservice "github.com/percona/everest/pkg/version_service"
+	"github.com/openeverest/openeverest/v2/pkg/cli/helm"
+	helmutils "github.com/openeverest/openeverest/v2/pkg/cli/helm/utils"
+	"github.com/openeverest/openeverest/v2/pkg/cli/namespaces"
+	"github.com/openeverest/openeverest/v2/pkg/cli/steps"
+	cliutils "github.com/openeverest/openeverest/v2/pkg/cli/utils"
+	"github.com/openeverest/openeverest/v2/pkg/common"
+	"github.com/openeverest/openeverest/v2/pkg/kubernetes"
+	"github.com/openeverest/openeverest/v2/pkg/output"
+	. "github.com/openeverest/openeverest/v2/pkg/utils/must" //nolint:revive,stylecheck
+	"github.com/openeverest/openeverest/v2/pkg/version"
+	versionservice "github.com/openeverest/openeverest/v2/pkg/version_service"
 )
 
 const (

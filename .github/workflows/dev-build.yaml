@@ -73,4 +73,5 @@ jobs:
           context: .
           push: true
           tags: ${{ steps.meta.outputs.tags }}
+          file: build/package/server/Dockerfile
 

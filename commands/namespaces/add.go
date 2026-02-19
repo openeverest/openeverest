@@ -23,11 +23,11 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/percona/everest/pkg/cli"
-	"github.com/percona/everest/pkg/cli/helm"
-	"github.com/percona/everest/pkg/cli/namespaces"
-	"github.com/percona/everest/pkg/logger"
-	"github.com/percona/everest/pkg/output"
+	"github.com/openeverest/openeverest/v2/pkg/cli"
+	"github.com/openeverest/openeverest/v2/pkg/cli/helm"
+	"github.com/openeverest/openeverest/v2/pkg/cli/namespaces"
+	"github.com/openeverest/openeverest/v2/pkg/logger"
+	"github.com/openeverest/openeverest/v2/pkg/output"
 )
 
 //nolint:gochecknoglobals

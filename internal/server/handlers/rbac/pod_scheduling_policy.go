@@ -21,8 +21,9 @@ import (
 	"slices"
 
 	everestv1alpha1 "github.com/percona/everest-operator/api/everest/v1alpha1"
-	"github.com/percona/everest/api"
-	"github.com/percona/everest/pkg/rbac"
+
+	api "github.com/openeverest/openeverest/v2/internal/server/api"
+	"github.com/openeverest/openeverest/v2/pkg/rbac"
 )
 
 // CreatePodSchedulingPolicy creates a new pod scheduling policy.

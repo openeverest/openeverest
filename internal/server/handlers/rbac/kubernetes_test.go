@@ -9,10 +9,10 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 
-	"github.com/percona/everest/api"
-	"github.com/percona/everest/internal/server/handlers"
-	"github.com/percona/everest/pkg/common"
-	"github.com/percona/everest/pkg/rbac"
+	api "github.com/openeverest/openeverest/v2/internal/server/api"
+	"github.com/openeverest/openeverest/v2/internal/server/handlers"
+	"github.com/openeverest/openeverest/v2/pkg/common"
+	"github.com/openeverest/openeverest/v2/pkg/rbac"
 )
 
 func TestRBAC_Kubernetes(t *testing.T) {
@@ -62,6 +62,14 @@ func TestRBAC_Kubernetes(t *testing.T) {
 					{"bob", "load-balancer-configs", "*", "*"},
 					{"bob", "data-importers", "*", "*"},
 					{"bob", "data-import-jobs", "*", "*/*"},
+					// FIXME: providers, instances, backup-classes and backups
+					// are part of the new clusters API so the permissions need
+					// to be different.  Adding them here for now to avoid
+					// breaking tests until we implement RBAC for the new API.
+					{"bob", "providers", "*", "*/*"},
+					{"bob", "instances", "*", "*/*"},
+					{"bob", "backup-classes", "*", "*/*"},
+					{"bob", "backups", "*", "*/*"},
 				},
 			},
 			{

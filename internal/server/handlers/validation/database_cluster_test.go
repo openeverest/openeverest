@@ -6,6 +6,8 @@ import (
 	"testing"
 
 	"github.com/AlekSi/pointer"
+	everestv1alpha1 "github.com/percona/everest-operator/api/everest/v1alpha1"
+	operatorUtils "github.com/percona/everest-operator/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
@@ -16,11 +18,9 @@ import (
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 
-	everestv1alpha1 "github.com/percona/everest-operator/api/everest/v1alpha1"
-	operatorUtils "github.com/percona/everest-operator/utils"
-	"github.com/percona/everest/internal/server/handlers/k8s"
-	"github.com/percona/everest/pkg/common"
-	"github.com/percona/everest/pkg/kubernetes"
+	"github.com/openeverest/openeverest/v2/internal/server/handlers/k8s"
+	"github.com/openeverest/openeverest/v2/pkg/common"
+	"github.com/openeverest/openeverest/v2/pkg/kubernetes"
 )
 
 func TestValidateCreateDatabaseClusterRequest(t *testing.T) {
