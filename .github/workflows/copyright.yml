@@ -56,7 +56,7 @@ jobs:
         # We use `|| true` because the script exits 1 when it modifies files,
         # which is expected – we handle that via `git diff` below.
         run: |
-          xargs -a /tmp/changed_files.txt python3 scripts/add_copyright.py || true
+          xargs -a /tmp/changed_files.txt python3 hack/add_copyright.py || true
 
       - name: Commit updates (if any)
         if: steps.changed.outputs.any == 'true'
