@@ -34,14 +34,14 @@ Helm is the recommended installation method for OpenEverest as it simplifies dep
 1. **Add the Percona Helm repository:**
 
 ```bash
-helm repo add percona https://percona.github.io/percona-helm-charts/
+helm repo add openeverest https://openeverest.github.io/helm-charts/
 helm repo update
 ```
 
 2. **Install the OpenEverest Helm Chart:**
 
 ```bash
-helm install everest-core percona/everest \
+helm install everest-core openeverest/openeverest \
 --namespace everest-system \
 --create-namespace
 ```
@@ -67,7 +67,7 @@ kubectl port-forward svc/everest 8080:8080 -n everest-system
 
 Access the UI at http://127.0.0.1:8080.
 
-For more information about our Helm charts, visit the official [OpenEverest Helm Charts repository](https://github.com/percona/percona-helm-charts/tree/main/charts/everest).
+For more information about our Helm charts, visit the official [OpenEverest Helm Charts repository](https://github.com/openeverest/helm-charts/tree/main/charts/everest).
 
 ## Install OpenEverest using CLI
 
