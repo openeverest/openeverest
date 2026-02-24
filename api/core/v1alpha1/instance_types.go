@@ -31,7 +31,7 @@ type InstanceSpec struct {
 	Topology *TopologySpec `json:"topology,omitempty"`
 
 	// Global contains provider-level configuration that applies to the entire cluster.
-	// The schema for this field is defined by the provider's GlobalSchema.
+	// The schema for this field is defined by the provider's GlobalConfigSchema.
 	// +optional
 	// +kubebuilder:pruning:PreserveUnknownFields
 	Global *runtime.RawExtension `json:"global,omitempty"`

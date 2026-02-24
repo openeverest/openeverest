@@ -16,6 +16,7 @@ package v1alpha1
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 )
 
 // ProviderSpec defines the desired state of Provider
@@ -23,6 +24,16 @@ type ProviderSpec struct {
 	ComponentTypes map[string]ComponentType `json:"componentTypes,omitempty"`
 	Components     map[string]Component     `json:"components,omitempty"`
 	Topologies     map[string]Topology      `json:"topologies,omitempty"`
+
+	// GlobalConfigSchema holds the OpenAPI v3 schema for the global configuration.
+	// +optional
+	// +kubebuilder:pruning:PreserveUnknownFields
+	GlobalConfigSchema *runtime.RawExtension `json:"globalConfigSchema,omitempty"`
+
+	// UISchema holds the UI rendering hints for each topology.
+	// +optional
+	// +kubebuilder:pruning:PreserveUnknownFields
+	UISchema *runtime.RawExtension `json:"uiSchema,omitempty"`
 }
 
 type ComponentType struct {
@@ -37,10 +48,20 @@ type ComponentVersion struct {
 
 type Component struct {
 	Type string `json:"type,omitempty"`
+
+	// CustomSpecSchema holds the OpenAPI v3 schema for this component's CustomSpec.
+	// +optional
+	// +kubebuilder:pruning:PreserveUnknownFields
+	CustomSpecSchema *runtime.RawExtension `json:"customSpecSchema,omitempty"`
 }
 
 type Topology struct {
 	Components map[string]TopologyComponent `json:"components,omitempty"`
+
+	// ConfigSchema holds the OpenAPI v3 schema for topology-specific configuration.
+	// +optional
+	// +kubebuilder:pruning:PreserveUnknownFields
+	ConfigSchema *runtime.RawExtension `json:"configSchema,omitempty"`
 }
 
 type TopologyComponent struct {

@@ -191,7 +191,7 @@ spec:
               global:
                 description: |-
                   Global contains provider-level configuration that applies to the entire cluster.
-                  The schema for this field is defined by the provider's GlobalSchema.
+                  The schema for this field is defined by the provider's GlobalConfigSchema.
                 type: object
                 x-kubernetes-preserve-unknown-fields: true
               provider:

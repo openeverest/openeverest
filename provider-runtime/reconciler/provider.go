@@ -61,10 +61,6 @@ type providerAdapter interface {
 	Cleanup(c *controller.Context) error
 }
 
-// SchemaProvider is re-exported from controller package for convenience.
-// See controller.SchemaProvider for documentation.
-type SchemaProvider = controller.SchemaProvider
-
 // ServerConfig is re-exported from server package for convenience.
 // See server.ServerConfig for documentation.
 type ServerConfig = server.ServerConfig
@@ -82,10 +78,9 @@ type reconcilerOptions struct {
 	metricsBindAddress string
 }
 
-// WithServer enables the integrated HTTP server for schema exposure and validation webhook.
+// WithServer enables the integrated HTTP server for the validation webhook.
 //
 // The server provides:
-// - Schema endpoint: Returns OpenAPI schemas for components, topologies, and global config
 // - Validation webhook: Accepts validation requests and runs the provider's Validate() method
 // - Health/Ready endpoints: For Kubernetes probes
 //
@@ -94,12 +89,10 @@ type reconcilerOptions struct {
 //	r, err := reconciler.NewFromInterface(provider,
 //	    reconciler.WithServer(reconciler.ServerConfig{
 //	        Port:           8080,
-//	        SchemaPath:     "/schema",
 //	        ValidationPath: "/validate",
 //	    }),
 //	)
 //
-// The provider must implement SchemaProvider interface to register component schemas.
 // Validation is handled by the provider's Validate() method - the same validation
 // used during reconciliation is exposed via the webhook.
 func WithServer(config server.ServerConfig) ReconcilerOption {
@@ -212,54 +205,15 @@ func (r *ProviderReconciler) GetManager() ctrl.Manager {
 	return r.manager
 }
 
-// setupServer initializes the HTTP server with schemas from the provider.
+// setupServer initializes the HTTP server with a validation webhook.
 func (r *ProviderReconciler) setupServer(p providerAdapter) error {
-	registry := server.NewSchemaRegistry()
-
-	// Check if provider implements SchemaProvider
-	if sp, ok := p.(SchemaProvider); ok {
-		// Register component schemas
-		for name, schemaType := range sp.ComponentSchemas() {
-			if err := registry.RegisterComponent(name, schemaType); err != nil {
-				return err
-			}
-		}
-
-		// Register topologies (schema + components)
-		for name, def := range sp.Topologies() {
-			if err := registry.RegisterTopology(name, def.Schema); err != nil {
-				return err
-			}
-			// Extract component names from the definition
-			components := make([]string, 0, len(def.Components))
-			for compName := range def.Components {
-				components = append(components, compName)
-			}
-			registry.RegisterTopologyComponents(name, components)
-		}
-
-		// Register global schema
-		if globalSchema := sp.GlobalSchema(); globalSchema != nil {
-			if err := registry.RegisterGlobal(globalSchema); err != nil {
-				return err
-			}
-		}
-	}
-
 	// Create validator function that wraps the provider's Validate method
 	validator := func(ctx context.Context, c client.Client, in *v1alpha1.Instance) error {
-		// Create context handle with metadata if available
-		var inCtx *controller.Context
-		if mp, ok := p.(controller.MetadataProvider); ok {
-			metadata := mp.GetMetadata()
-			inCtx = controller.NewContextWithMetadata(ctx, c, in, metadata)
-		} else {
-			inCtx = controller.NewContext(ctx, c, in)
-		}
+		inCtx := controller.NewContext(ctx, c, in, p.Name())
 		return p.Validate(inCtx)
 	}
 
-	r.server = server.NewServer(*r.serverConfig, registry, validator)
+	r.server = server.NewServer(*r.serverConfig, validator)
 	return nil
 }
 
@@ -354,14 +308,8 @@ func (r *ProviderReconciler) Reconcile(ctx context.Context, req reconcile.Reques
 		return reconcile.Result{}, client.IgnoreNotFound(err)
 	}
 
-	// Create the Context handle with metadata if available
-	var inCtx *controller.Context
-	if mp, ok := r.provider.(controller.MetadataProvider); ok {
-		metadata := mp.GetMetadata()
-		inCtx = controller.NewContextWithMetadata(ctx, r.Client, in, metadata)
-	} else {
-		inCtx = controller.NewContext(ctx, r.Client, in)
-	}
+	// Create the Context handle
+	inCtx := controller.NewContext(ctx, r.Client, in, r.provider.Name())
 
 	// Handle deletion
 	if !in.GetDeletionTimestamp().IsZero() {

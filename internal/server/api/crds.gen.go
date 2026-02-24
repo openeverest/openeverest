@@ -438,7 +438,7 @@ type Instance struct {
 		} `json:"components,omitempty"`
 
 		// Global Global contains provider-level configuration that applies to the entire cluster.
-		// The schema for this field is defined by the provider's GlobalSchema.
+		// The schema for this field is defined by the provider's GlobalConfigSchema.
 		Global *map[string]interface{} `json:"global,omitempty"`
 
 		// Provider Provider is the name of the database provider (e.g., "psmdb", "postgresql").
@@ -594,13 +594,24 @@ type Provider struct {
 			} `json:"versions,omitempty"`
 		} `json:"componentTypes,omitempty"`
 		Components *map[string]struct {
-			Type *string `json:"type,omitempty"`
+			// CustomSpecSchema CustomSpecSchema holds the OpenAPI v3 schema for this component's CustomSpec.
+			CustomSpecSchema *map[string]interface{} `json:"customSpecSchema,omitempty"`
+			Type             *string                 `json:"type,omitempty"`
 		} `json:"components,omitempty"`
-		Topologies *map[string]struct {
+
+		// GlobalConfigSchema GlobalConfigSchema holds the OpenAPI v3 schema for the global configuration.
+		GlobalConfigSchema *map[string]interface{} `json:"globalConfigSchema,omitempty"`
+		Topologies         *map[string]struct {
 			Components *map[string]struct {
 				Optional *bool `json:"optional,omitempty"`
 			} `json:"components,omitempty"`
+
+			// ConfigSchema ConfigSchema holds the OpenAPI v3 schema for topology-specific configuration.
+			ConfigSchema *map[string]interface{} `json:"configSchema,omitempty"`
 		} `json:"topologies,omitempty"`
+
+		// UiSchema UISchema holds the UI rendering hints for each topology.
+		UiSchema *map[string]interface{} `json:"uiSchema,omitempty"`
 	} `json:"spec"`
 
 	// Status ProviderStatus defines the observed state of Provider.

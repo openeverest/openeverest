@@ -34,21 +34,15 @@ import (
 // Context is the main handle for working with an Instance.
 // It provides a simplified interface that hides Kubernetes complexity.
 type Context struct {
-	ctx      context.Context
-	client   client.Client
-	in       *v1alpha1.Instance
-	metadata *ProviderMetadata
+	ctx          context.Context
+	client       client.Client
+	in           *v1alpha1.Instance
+	providerName string
 }
 
 // NewContext creates a new Context handle (used internally by the reconciler).
-func NewContext(ctx context.Context, c client.Client, in *v1alpha1.Instance) *Context {
-	return &Context{ctx: ctx, client: c, in: in}
-}
-
-// NewContextWithMetadata creates a new Context handle with provider metadata.
-// This is preferred over NewContext as it makes metadata available to provider implementations.
-func NewContextWithMetadata(ctx context.Context, c client.Client, in *v1alpha1.Instance, metadata *ProviderMetadata) *Context {
-	return &Context{ctx: ctx, client: c, in: in, metadata: metadata}
+func NewContext(ctx context.Context, c client.Client, in *v1alpha1.Instance, providerName string) *Context {
+	return &Context{ctx: ctx, client: c, in: in, providerName: providerName}
 }
 
 // Context returns the underlying context.Context.
@@ -96,12 +90,15 @@ func (c *Context) Instance() *v1alpha1.Instance {
 	return c.in
 }
 
-// Metadata returns the provider metadata, if available.
-// Returns nil if metadata was not provided when creating the Context handle.
-// The metadata is automatically populated by the reconciler if the provider
-// implements the MetadataProvider interface.
-func (c *Context) Metadata() *ProviderMetadata {
-	return c.metadata
+// ProviderSpec fetches the Provider CR spec from the controller-runtime cache.
+// This returns an always up-to-date version of the spec without hitting the
+// Kubernetes API server, as reads go through the controller-runtime informer cache.
+func (c *Context) ProviderSpec() (*v1alpha1.ProviderSpec, error) {
+	provider := &v1alpha1.Provider{}
+	if err := c.client.Get(c.ctx, client.ObjectKey{Name: c.providerName}, provider); err != nil {
+		return nil, fmt.Errorf("failed to get provider spec: %w", err)
+	}
+	return &provider.Spec, nil
 }
 
 // =============================================================================

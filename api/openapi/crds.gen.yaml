@@ -664,7 +664,7 @@ components:
             global:
               description: |-
                 Global contains provider-level configuration that applies to the entire cluster.
-                The schema for this field is defined by the provider's GlobalSchema.
+                The schema for this field is defined by the provider's GlobalConfigSchema.
               type: object
               x-kubernetes-preserve-unknown-fields: true
             provider:
@@ -873,10 +873,20 @@ components:
             components:
               additionalProperties:
                 properties:
+                  customSpecSchema:
+                    description: CustomSpecSchema holds the OpenAPI v3 schema for
+                      this component's CustomSpec.
+                    type: object
+                    x-kubernetes-preserve-unknown-fields: true
                   type:
                     type: string
                 type: object
               type: object
+            globalConfigSchema:
+              description: GlobalConfigSchema holds the OpenAPI v3 schema for the
+                global configuration.
+              type: object
+              x-kubernetes-preserve-unknown-fields: true
             topologies:
               additionalProperties:
                 properties:
@@ -887,8 +897,17 @@ components:
                           type: boolean
                       type: object
                     type: object
+                  configSchema:
+                    description: ConfigSchema holds the OpenAPI v3 schema for topology-specific
+                      configuration.
+                    type: object
+                    x-kubernetes-preserve-unknown-fields: true
                 type: object
               type: object
+            uiSchema:
+              description: UISchema holds the UI rendering hints for each topology.
+              type: object
+              x-kubernetes-preserve-unknown-fields: true
           type: object
         status:
           description: ProviderStatus defines the observed state of Provider.

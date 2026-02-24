@@ -38,6 +38,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+
+	"github.com/openeverest/openeverest/v2/api/core/v1alpha1"
 )
 
 // GenerateManifest generates a Provider CR YAML manifest and writes it to a file.
@@ -46,19 +48,19 @@ import (
 // Example usage in a generator tool:
 //
 //	func main() {
-//	    metadata := defineMetadata()
-//	    if err := controller.GenerateManifest(metadata, "my-provider", "", "charts/provider.yaml"); err != nil {
+//	    spec := defineProviderSpec()
+//	    if err := controller.GenerateManifest(spec, "my-provider", "", "charts/provider.yaml"); err != nil {
 //	        log.Fatal(err)
 //	    }
 //	}
-func GenerateManifest(metadata *ProviderMetadata, name, namespace, outputPath string) error {
-	// Validate metadata first
-	if err := metadata.Validate(); err != nil {
-		return fmt.Errorf("invalid metadata: %w", err)
+func GenerateManifest(spec *v1alpha1.ProviderSpec, name, namespace, outputPath string) error {
+	// Validate spec first
+	if err := ValidateProviderSpec(spec); err != nil {
+		return fmt.Errorf("invalid provider spec: %w", err)
 	}
 
 	// Generate YAML
-	yaml, err := metadata.ToYAML(name, namespace)
+	yaml, err := ProviderSpecToYAML(spec, name, namespace)
 	if err != nil {
 		return fmt.Errorf("failed to generate YAML: %w", err)
 	}
@@ -79,14 +81,14 @@ func GenerateManifest(metadata *ProviderMetadata, name, namespace, outputPath st
 
 // GenerateManifestToStdout generates a Provider CR YAML manifest and writes it to stdout.
 // Useful for piping to other tools or quick inspection.
-func GenerateManifestToStdout(metadata *ProviderMetadata, name, namespace string) error {
-	// Validate metadata first
-	if err := metadata.Validate(); err != nil {
-		return fmt.Errorf("invalid metadata: %w", err)
+func GenerateManifestToStdout(spec *v1alpha1.ProviderSpec, name, namespace string) error {
+	// Validate spec first
+	if err := ValidateProviderSpec(spec); err != nil {
+		return fmt.Errorf("invalid provider spec: %w", err)
 	}
 
 	// Generate YAML
-	yaml, err := metadata.ToYAML(name, namespace)
+	yaml, err := ProviderSpecToYAML(spec, name, namespace)
 	if err != nil {
 		return fmt.Errorf("failed to generate YAML: %w", err)
 	}
@@ -97,8 +99,8 @@ func GenerateManifestToStdout(metadata *ProviderMetadata, name, namespace string
 
 // MustGenerateManifest is like GenerateManifest but panics on error.
 // Useful for go:generate directives where error handling is awkward.
-func MustGenerateManifest(metadata *ProviderMetadata, name, namespace, outputPath string) {
-	if err := GenerateManifest(metadata, name, namespace, outputPath); err != nil {
+func MustGenerateManifest(spec *v1alpha1.ProviderSpec, name, namespace, outputPath string) {
+	if err := GenerateManifest(spec, name, namespace, outputPath); err != nil {
 		panic(err)
 	}
 }

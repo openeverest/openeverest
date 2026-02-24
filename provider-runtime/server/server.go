@@ -19,10 +19,9 @@ package server
 // This file implements the HTTP server that providers run alongside their controller.
 // The server exposes:
 //
-// 1. Schema Endpoint (/schema) - Returns OpenAPI schemas for components, topologies, global config
-// 2. Validation Webhook (/validate) - Accepts admission review requests and validates Instances
-// 3. Health Endpoint (/healthz) - Kubernetes health check
-// 4. Ready Endpoint (/readyz) - Kubernetes readiness check
+// 1. Validation Webhook (/validate) - Accepts admission review requests and validates Instances
+// 2. Health Endpoint (/healthz) - Kubernetes health check
+// 3. Ready Endpoint (/readyz) - Kubernetes readiness check
 //
 // The server is integrated with the reconciler and runs in the same process.
 
@@ -49,9 +48,6 @@ type ServerConfig struct {
 	// Port is the port to listen on (default: 8080)
 	Port int
 
-	// SchemaPath is the path for the schema endpoint (default: /schema)
-	SchemaPath string
-
 	// ValidationPath is the path for the validation webhook (default: /validate)
 	ValidationPath string
 
@@ -72,7 +68,6 @@ type ServerConfig struct {
 func DefaultServerConfig() ServerConfig {
 	return ServerConfig{
 		Port:           8080,
-		SchemaPath:     "/schema",
 		ValidationPath: "/validate",
 		HealthPath:     "/healthz",
 		ReadyPath:      "/readyz",
@@ -94,7 +89,6 @@ type ValidatorFunc func(ctx context.Context, c client.Client, dc *v1alpha1.Insta
 // Server is the HTTP server for a provider.
 type Server struct {
 	config    ServerConfig
-	registry  *SchemaRegistry
 	validator ValidatorFunc
 	client    client.Client
 
@@ -104,12 +98,9 @@ type Server struct {
 }
 
 // NewServer creates a new provider server.
-func NewServer(config ServerConfig, registry *SchemaRegistry, validator ValidatorFunc) *Server {
+func NewServer(config ServerConfig, validator ValidatorFunc) *Server {
 	if config.Port == 0 {
 		config.Port = 8080
-	}
-	if config.SchemaPath == "" {
-		config.SchemaPath = "/schema"
 	}
 	if config.ValidationPath == "" {
 		config.ValidationPath = "/validate"
@@ -123,7 +114,6 @@ func NewServer(config ServerConfig, registry *SchemaRegistry, validator Validato
 
 	return &Server{
 		config:    config,
-		registry:  registry,
 		validator: validator,
 	}
 }
@@ -147,7 +137,6 @@ func (s *Server) Start(ctx context.Context) error {
 	mux := http.NewServeMux()
 
 	// Register endpoints
-	mux.HandleFunc(s.config.SchemaPath, s.handleSchema)
 	mux.HandleFunc(s.config.ValidationPath, s.handleValidation)
 	mux.HandleFunc(s.config.HealthPath, s.handleHealth)
 	mux.HandleFunc(s.config.ReadyPath, s.handleReady)
@@ -162,7 +151,6 @@ func (s *Server) Start(ctx context.Context) error {
 	logger := log.FromContext(ctx)
 	logger.Info("Starting provider server",
 		"port", s.config.Port,
-		"schemaPath", s.config.SchemaPath,
 		"validationPath", s.config.ValidationPath,
 	)
 
@@ -189,27 +177,6 @@ func (s *Server) Start(ctx context.Context) error {
 // =============================================================================
 // HTTP HANDLERS
 // =============================================================================
-
-// handleSchema serves the OpenAPI schema for all registered types.
-func (s *Server) handleSchema(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	// Get the OpenAPI document with all schemas
-	doc := s.registry.AllSchemas()
-
-	// Marshal to JSON
-	data, err := doc.MarshalJSON()
-	if err != nil {
-		http.Error(w, fmt.Sprintf("Failed to generate schema: %v", err), http.StatusInternalServerError)
-		return
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	w.Write(data)
-}
 
 // handleValidation handles validation webhook requests.
 // It expects a ValidationRequest and returns a ValidationResponse.

@@ -8,7 +8,7 @@ This package contains the core controller abstractions for building Everest prov
 |------|---------|
 | `common.go` | The `Context` handle and resource operations |
 | `interface.go` | Provider interface types (`ProviderInterface`, `BaseProvider`) |
-| `metadata.go` | Provider metadata types and conversions |
+| `metadata.go` | Provider spec helper functions and YAML generation |
 | `generate.go` | CLI manifest generation utilities |
 
 ## Main Concepts
@@ -19,10 +19,10 @@ The `Context` struct is the main interface for provider code:
 
 ```go
 type Context struct {
-    ctx      context.Context
-    client   client.Client
-    db       *v1alpha1.Instance
-    metadata *ProviderMetadata
+    ctx          context.Context
+    client       client.Client
+    in           *v1alpha1.Instance
+    providerName string
 }
 
 // Key methods:
@@ -32,7 +32,7 @@ c.Spec()           // Instance spec
 c.Apply(obj)       // Create/update with owner reference
 c.Get(obj, name)   // Read resource
 c.Delete(obj)      // Delete resource
-c.Metadata()       // Provider metadata
+c.ProviderSpec()   // Fetch Provider spec from cache (always up-to-date)
 ```
 
 ## Provider Interface
@@ -62,7 +62,6 @@ func NewMyProvider() *MyProvider {
         BaseProvider: controller.BaseProvider{
             ProviderName: "mydb",
             SchemeFuncs:  []func(*runtime.Scheme) error{mydbv1.AddToScheme},
-            Owned:        []client.Object{&mydbv1.MyDB{}},
         },
     }
 }
@@ -73,4 +72,3 @@ func (p *MyProvider) Sync(c *controller.Context) error { ... }
 func (p *MyProvider) Status(c *controller.Context) (controller.Status, error) { ... }
 func (p *MyProvider) Cleanup(c *controller.Context) error { ... }
 ```
-
