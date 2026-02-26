@@ -1,113 +1,51 @@
-# Contributing to OpenEverest API Server
+# Contributing to OpenEverest
 
-OpenEverest API Server uses two types of methods:
+Welcome! We are glad that you want to contribute to the OpenEverest project! 
 
-- "own" methods, such as registering a Kubernetes cluster in Everest and listing the clusters.
--  proxy methods for the Kubernetes API, including all resource-related methods like database-cluster, database-cluster-restore, and database-engine.
+[OpenEverest](https://openeverest.io/) is an open source cloud-native database platform that lets developers deploy and manage PostgreSQL, MySQL, MongoDB and other databases on Kubernetes with ease. There are many ways to get involved, and every contribution matters.
 
-The API server basic code is generated using [oapi-codegen](https://github.com/deepmap/oapi-codegen) from the docs/spec/openapi.yml file.
-The proxy methods align with Everest operator methods but don't support all original parameters, because these are not required.
-You can find the definition of the custom resources in the [Everest operator repo](https://github.com/openeverest/openeverest-operator/tree/main/config/crd/bases).
+Before diving in, please read our [Code of Conduct](https://github.com/openeverest/governance/blob/main/CODE_OF_CONDUCT.md).
 
-### Run everest locally
-0. Prerequisites:
-    - Golang 1.24.x
-    - Make 3.x
-    - Docker 20.x
-    - Git 2.x
-    - k3d 5.x
-1. Check out the repo:
-`git clone https://github.com/openeverest/openeverest`
-2. Navigate to the repo folder:
-`cd openeverest`
-3. Check out a particular branch if needed:
-`git checkout <branch_name>`
-4. Run the dev environment:
-`make k3d-cluster-up`
-5. Build the CLI: `make build-cli-debug`
-6. Deploy Everest using the CLI : `make deploy`
+The guidelines below are a starting point. We don't want to limit your creativity, passion, and initiative. If you think there are other ways you can contribute, feel free to bring it up in a GitHub Issue or open a Pull Request!
 
-### Add a new proxy method
-1. Copy the corresponding k8s spec to the [openapi.yml](./docs/spec/openapi.yml). For information on observing your cluster API, see [Kubernetes: How to View Swagger UI blog post](https://jonnylangefeld.com/blog/kubernetes-how-to-view-swagger-ui), which details the operator-defined methods (if the everest operator is installed).
+## Ways to contribute
 
-2. Make necessary spec modifications. When designing new methods:
+We welcome many types of contributions including:
 
--  follow the [Restful API guidelines](https://opensource.zalando.com/restful-api-guidelines/). - - use kebab-case instead of everest operator API.
-- determine parameters to expose via proxy.
-3. If needed, copy the custom resources schema from the [Everest operator config](https://github.com/percona/dbaas-operator/tree/main/config/crd/bases) to the **Components** section of the [openapi.yml](./docs/spec/openapi.yml) file.
+* New features and enhancements
+* Bug reports and fixes
+* [Documentation](https://github.com/openeverest/everest-doc)
+* Builds, CI/CD improvements
+* Issue triage
+* Answering questions on [Slack or other community channels](https://openeverest.io/#community) and GitHub Discussions
+* Blog posts, social media, and other community advocacy
+* [Website and blog posts](https://github.com/openeverest/openeverest.github.io)
+* Let us know when your talk about OpenEverest is accepted at a conference!
+* Release management
+* Problems found while setting up the development environment
 
-4. Run the following command to generate the code:
-```bash
- $ make gen
-```
-5. Implement the missing `ServerInterface` methods.
-6. Run `make format` to format the code and group the imports.
-7. Run `make check` to verify that your code works and meets all style requirements.
+For development contributions, please refer to the separate sections below.
 
+## Ask for Help
 
-### Running integration tests
+The best way to reach us with a question when contributing is to join our community channels at [openeverest.io/#community](https://openeverest.io/#community) (Slack and more), or start a new [GitHub Discussion](https://github.com/openeverest/openeverest/discussions).
 
-To run integration tests, see [OpenEverest API integration tests](api-tests/README.md).
+## Raising Issues
 
-### Working with local Kubernetes instances like Minikube or Kind
+When raising [Issues](https://github.com/openeverest/openeverest/issues), please follow the template and fill the correponding fields. Details matter.
 
-When working with local Kubernetes clusters, Everest API server cannot connect to them because they often use `127.0.0.1` or `localhost` addresses. However, it is possible to connect to the host machine using `host.docker.internal` hostname since Everest API Server runs inside a Docker container.
+If you are trying to report a vulnerability, please refer to our [Security Policy](https://github.com/openeverest/openeverest/blob/main/SECURITY.md).
 
-To do this, add the following host to the `/etc/hosts` file on your local machine:
+## Contributing to the source code
 
-```
-127.0.0.1          host.docker.internal
-```
+### Backend
 
-### Troubleshooting
+The backend is written in Go. To set up a full local development environment — including a local Kubernetes cluster, the Everest operator, and all dependent services — follow the [Backend Development Guide](https://github.com/openeverest/openeverest/blob/main/dev/README.md).
 
-Here are some commands that can help you fix potential issues:
-#### Operator installation process
-```bash
-kubectl -n namespace get sub         # Check that subscription was created for an operator
-kubectl -n namespace get ip          # Check that install plan was created and approved for an operator
-kubectl -n namespace get csv         # Check that Cluster service version was created and phase is Installed
-kubectl -n namespace get deployment  # Check that deployment exist
-kubectl -n namespace get po          # Check that pods for an operator is running
-kubectl -n namespace logs <podname>  # Check logs for a pod
-```
-#### Database Cluster troubleshooting
+### Frontend
 
-```bash
-kubectl -n namespace get db          # Get list of database clusters
-kubectl -n namespace get po          # Get pods for a database cluster
-kubectl -n namespace describe db     # Describe database cluster. Provides useful information about conditions or messages
-kubectl -n namespace describe pxc    # Describe PXC cluster
-kubectl -n namespace describe psmdb  # Describe PSMDB cluster
-kubectl -n namespace describe pg     # Describe PG cluster
-kubectl -n namespace logs <podname>  # Check logs for a pod
-```
+The frontend is a TypeScript/React monorepo managed with PNPM and Turborepo. For details on the UI stack, local development setup, and available scripts, see the [Frontend Development Guide](https://github.com/openeverest/openeverest/blob/main/ui/README.md).
 
-#### PVC troubleshooting
-```bash
-kubectl -n namespace get pvc  # PVCs should be Bound
-```
+## Community Meetings
 
-#### MySQL database cluster is not up
-If a PXC cluster remains in initializing, use these checks and fixes.
-
-* HAProxy resources: ensure at least 600m CPU and 600M memory (prefer 1 CPU and 1G) because low resources can throttle HAProxy or its external health-checks and cause timeouts. This issue is common on Arm systems because the HAProxy image is currently built only for amd64.
-
-  ```bash
-  kubectl -n everest get pxc -o jsonpath='{.items[*].spec.haproxy.resources}'
-  ```
-
-* Storage size: set at least `2Gi` to provide space for gcache (Galera uses `gcache=1Gi`).
-
-  ```bash
-  kubectl -n everest get db -o jsonpath='{.items[*].spec.engine.storage.size}'
-  ```
-
-* Storage unit: use `Gi` (binary), not `G` (decimal); k3d uses local-path provisioner and resizing is not supported. Using `G` causes repeated resize to `Gi`, leading to failures.
-
-* Networking: before creating the k3d cluster, load `br_netfilter` and disable AppArmor/SELinux so networking works and HAProxy initialization succeeds. On GitHub Actions with k3d, following adjustments were made.
-
-  ```bash
-  sudo modprobe br_netfilter
-  sudo systemctl stop apparmor && sudo aa-teardown
-  ```
+We extend a warm welcome to everyone to join our community meetings. For details on schedules and how to participate, [see here](https://github.com/openeverest#openeverest-community-meetings)
