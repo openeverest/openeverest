@@ -19,8 +19,8 @@ make gen-openapi-ts-types
 
 This produces:
 
-- `ui/api/crds.gen.types.ts` — from `crds.gen.yaml`
-- `ui/api/http-api.types.ts` — from `http-api.yaml`
+- `ui/api/crds.gen.types.ts` — from `api/openapi/crds.gen.yaml`
+- `ui/api/http-api.types.ts` — from `api/openapi/http-api.yaml`
 - `ui/api/index.ts` — barrel re-exporting all types under named namespaces
 
 ### Regenerate types for a specific file
