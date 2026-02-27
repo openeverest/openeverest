@@ -1,7 +1,7 @@
 EVEREST_OUT_DIR := ""
 OPENAPI_BIN=./node_modules/.bin/openapi-typescript
 OPENAPI_SRC=../api/openapi
-OPENAPI_OUT=../api/ui
+OPENAPI_OUT=api
 
 init:
 	pnpm install
@@ -29,7 +29,7 @@ generate-openapi-types: ## Generate TypeScript types from all OpenAPI YAML files
 	mkdir -p $(OPENAPI_OUT)
 	@for f in $(OPENAPI_SRC)/*.yaml; do \
 		b=$$(basename "$$f"); \
-		echo "Generating $$b -> api/ui/$${b%.yaml}.types.ts"; \
+		echo "Generating $$b -> ui/api/$${b%.yaml}.types.ts"; \
 		$(OPENAPI_BIN) "$$f" --output "$(OPENAPI_OUT)/$${b%.yaml}.types.ts"; \
 	done
 	$(MAKE) generate-openapi-barrel
@@ -44,5 +44,5 @@ endif
 	$(MAKE) generate-openapi-barrel
 
 .PHONY: generate-openapi-barrel
-generate-openapi-barrel: ## Regenerate api/ui/index.ts barrel re-exporting all *.types.ts files.
+generate-openapi-barrel: ## Regenerate ui/api/index.ts barrel re-exporting all *.types.ts files.
 	node generate-barrel.mjs

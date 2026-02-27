@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Scans api/ui/*.types.ts and writes api/ui/index.ts, exporting each file
+// Scans ui/api/*.types.ts and writes ui/api/index.ts, exporting each file
 // under its own namespace to avoid symbol collisions across OpenAPI specs.
 // Called automatically by generate-openapi-types / generate-openapi-type targets.
 
@@ -7,14 +7,14 @@ import { readdirSync, writeFileSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 
-const apiUiDir = join(dirname(fileURLToPath(import.meta.url)), '..', 'api', 'ui');
+const apiUiDir = join(dirname(fileURLToPath(import.meta.url)), 'api');
 
 const files = readdirSync(apiUiDir)
   .filter((f) => f.endsWith('.types.ts'))
   .sort();
 
 if (files.length === 0) {
-  console.error('No *.types.ts files found in api/ui/. Run make generate-openapi-types first.');
+  console.error('No *.types.ts files found in ui/api/. Run make generate-openapi-types first.');
   process.exit(1);
 }
 
@@ -39,4 +39,4 @@ const lines = [
 ];
 
 writeFileSync(join(apiUiDir, 'index.ts'), lines.join('\n'));
-console.log(`✔ api/ui/index.ts updated (${files.length} file(s)): ${files.map(toNamespace).join(', ')}`);
+console.log(`✔ ui/api/index.ts updated (${files.length} file(s)): ${files.map(toNamespace).join(', ')}`);

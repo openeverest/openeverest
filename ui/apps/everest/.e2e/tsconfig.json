@@ -12,7 +12,7 @@
       "@percona/design": ["../../../packages/design/src"],
       "@percona/types": ["../../../packages/types/src"],
       "@percona/utils": ["../../../packages/utils/src"],
-      "@generated/api-types": ["../../../../api/ui/index.ts"]
+      "@generated/api-types": ["../../../api/index.ts"]
     },
     "noEmit": false,
     "allowImportingTsExtensions": false,
