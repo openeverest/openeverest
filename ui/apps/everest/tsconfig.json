@@ -25,7 +25,8 @@
       "@percona/ui-lib": ["../../../packages/ui-lib/src"],
       "@percona/design": ["../../../packages/design/src"],
       "@percona/types": ["../../../packages/types/src"],
-      "@percona/utils": ["../../../packages/utils/src"]
+      "@percona/utils": ["../../../packages/utils/src"],
+      "@generated/api-types": ["../../../../api/openapi/generated/index.ts"]
     }
   },
   "include": ["./src"]

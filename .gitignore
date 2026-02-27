@@ -30,5 +30,6 @@ go.work
 *.kubeconfig
 
 api_tests/node_modules/*
+api/openapi/node_modules/
 
 public/
