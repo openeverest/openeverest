@@ -13,7 +13,7 @@
 // limitations under the License.
 
 // AUTO-GENERATED — do not edit manually.
-// Re-run `make generate-all` or `make generate-barrel` to update.
+// Re-run `make generate-openapi-types` in ui/ to update.
 //
 // Each file is exported under its own namespace to avoid collisions:
 //   CrdsGen → ./crds.gen.types

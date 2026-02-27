@@ -1,20 +1,20 @@
 #!/usr/bin/env node
-// Scans generated/*.types.ts and writes generated/index.ts, exporting each
-// file under its own namespace to avoid symbol collisions across OpenAPI specs.
-// Run via: make generate-barrel  (called automatically by generate-all / generate)
+// Scans api/ui/*.types.ts and writes api/ui/index.ts, exporting each file
+// under its own namespace to avoid symbol collisions across OpenAPI specs.
+// Called automatically by generate-openapi-types / generate-openapi-type targets.
 
 import { readdirSync, writeFileSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 
-const generatedDir = join(dirname(fileURLToPath(import.meta.url)), 'generated');
+const apiUiDir = join(dirname(fileURLToPath(import.meta.url)), '..', 'api', 'ui');
 
-const files = readdirSync(generatedDir)
+const files = readdirSync(apiUiDir)
   .filter((f) => f.endsWith('.types.ts'))
   .sort();
 
 if (files.length === 0) {
-  console.error('No *.types.ts files found in generated/. Run make generate-all first.');
+  console.error('No *.types.ts files found in api/ui/. Run make generate-openapi-types first.');
   process.exit(1);
 }
 
@@ -29,7 +29,7 @@ const toNamespace = (filename) =>
 
 const lines = [
   '// AUTO-GENERATED — do not edit manually.',
-  '// Re-run `make generate-all` or `make generate-barrel` to update.',
+  '// Re-run `make generate-openapi-types` in ui/ to update.',
   '//',
   '// Each file is exported under its own namespace to avoid collisions:',
   ...files.map((f) => `//   ${toNamespace(f)} → ./${f.replace('.ts', '')}`),
@@ -38,5 +38,5 @@ const lines = [
   '',
 ];
 
-writeFileSync(join(generatedDir, 'index.ts'), lines.join('\n'));
-console.log(`✔ generated/index.ts updated (${files.length} file(s)): ${files.map(toNamespace).join(', ')}`);
+writeFileSync(join(apiUiDir, 'index.ts'), lines.join('\n'));
+console.log(`✔ api/ui/index.ts updated (${files.length} file(s)): ${files.map(toNamespace).join(', ')}`);

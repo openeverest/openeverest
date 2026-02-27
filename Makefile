@@ -35,7 +35,7 @@ gen-crds-openapi: ## Extract OpenAPI schemas from CRD manifests.
 
 .PHONY: gen-openapi-ts-types
 gen-openapi-ts-types: ## Generate TypeScript types from all OpenAPI YAML files in api/openapi/.
-	$(MAKE) -C api/openapi generate-all
+	$(MAKE) -C ui generate-openapi-types
 
 .PHONY: gen
 gen: gen-crds-deepcopy gen-crds-manifests gen-crds-openapi ## Generate code.

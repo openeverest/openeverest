@@ -1,4 +1,7 @@
 EVEREST_OUT_DIR := ""
+OPENAPI_BIN=./node_modules/.bin/openapi-typescript
+OPENAPI_SRC=../api/openapi
+OPENAPI_OUT=../api/ui
 
 init:
 	pnpm install
@@ -18,3 +21,28 @@ format:
 # This might change in the future if we have more apps, but for now keep it simple
 dev:
 	pnpm --filter "@percona/everest" dev
+
+##@ OpenAPI TypeScript Types Generation
+
+.PHONY: generate-openapi-types
+generate-openapi-types: ## Generate TypeScript types from all OpenAPI YAML files in api/openapi/.
+	mkdir -p $(OPENAPI_OUT)
+	@for f in $(OPENAPI_SRC)/*.yaml; do \
+		b=$$(basename "$$f"); \
+		echo "Generating $$b -> api/ui/$${b%.yaml}.types.ts"; \
+		$(OPENAPI_BIN) "$$f" --output "$(OPENAPI_OUT)/$${b%.yaml}.types.ts"; \
+	done
+	$(MAKE) generate-openapi-barrel
+
+.PHONY: generate-openapi-type
+generate-openapi-type: ## Generate TypeScript types from a specific YAML file. Usage: make generate-openapi-type FILE=crds.gen.yaml
+ifndef FILE
+	$(error FILE is not set. Usage: make generate-openapi-type FILE=crds.gen.yaml)
+endif
+	mkdir -p $(OPENAPI_OUT)
+	$(OPENAPI_BIN) "$(OPENAPI_SRC)/$(FILE)" --output "$(OPENAPI_OUT)/$(subst .yaml,.types.ts,$(FILE))"
+	$(MAKE) generate-openapi-barrel
+
+.PHONY: generate-openapi-barrel
+generate-openapi-barrel: ## Regenerate api/ui/index.ts barrel re-exporting all *.types.ts files.
+	node generate-barrel.mjs

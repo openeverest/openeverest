@@ -26,7 +26,7 @@
       "@percona/design": ["../../../packages/design/src"],
       "@percona/types": ["../../../packages/types/src"],
       "@percona/utils": ["../../../packages/utils/src"],
-      "@generated/api-types": ["../../../../api/openapi/generated/index.ts"]
+      "@generated/api-types": ["../../../../api/ui/index.ts"]
     }
   },
   "include": ["./src"]
