@@ -1,10 +1,10 @@
 # OpenAPI Schemas
 
-This directory contains OpenAPI schema YAML files consumed by both the backend and frontend.
+This directory contains generated TypeScript types from OpenAPI schema YAML files consumed by frontend.
 
 ## TypeScript types
 
-TypeScript types are generated from these files and output to [`api/ui/`](../ui/).
+TypeScript types are generated from api/openapi files and output to [`ui/api/`](.).
 Generation is managed from `ui/Makefile` using [`openapi-typescript`](https://openapi-ts.dev/).
 
 ### Generate types for all files
@@ -19,9 +19,9 @@ make gen-openapi-ts-types
 
 This produces:
 
-- `api/ui/crds.gen.types.ts` — from `crds.gen.yaml`
-- `api/ui/http-api.types.ts` — from `http-api.yaml`
-- `api/ui/index.ts` — barrel re-exporting all types under named namespaces
+- `ui/api/crds.gen.types.ts` — from `crds.gen.yaml`
+- `ui/api/http-api.types.ts` — from `http-api.yaml`
+- `ui/api/index.ts` — barrel re-exporting all types under named namespaces
 
 ### Regenerate types for a specific file
 
