@@ -38,7 +38,7 @@ gen-openapi-ts-types: ## Generate TypeScript types from all OpenAPI YAML files i
 	$(MAKE) -C ui generate-openapi-types
 
 .PHONY: gen
-gen: gen-crds-deepcopy gen-crds-manifests gen-crds-openapi ## Generate code.
+gen: gen-crds-deepcopy gen-crds-manifests gen-crds-openapi gen-openapi-ts-types ## Generate code.
 	go generate ./...
 	python3 hack/add_copyright.py \
 		internal/server/api/everest-server.gen.go \
