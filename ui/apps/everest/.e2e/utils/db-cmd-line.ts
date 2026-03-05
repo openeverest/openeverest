@@ -468,11 +468,8 @@ export const validateMongoDBSharding = async (
     `db.collections.find({ _id: \\"test.${collectionName}\\" });`
   );
 
-  const collection = eval(
-    collectionString.replace(/ObjectId|ISODate|UUID|Timestamp/g, '')
-  );
-
-  const collectionUUID = collection[0]?.uuid;
+  const uuidMatch = collectionString.match(/uuid\s*:\s*UUID\(['"]([^'"]+)['"]\)/i);
+  const collectionUUID = uuidMatch?.[1];
 
   const query = `db.chunks.aggregate([
     { \\$match: { uuid: UUID(\\"${collectionUUID}\\") } },
