@@ -469,7 +469,9 @@ export const validateMongoDBSharding = async (
     `db.collections.find({ _id: \\"test.${collectionName}\\" });`
   );
 
-  const uuidMatch = collectionString.match(/uuid\s*:\s*UUID\(['"]([^'"]+)['"]\)/i);
+  const uuidMatch = collectionString.match(
+    /uuid\s*:\s*UUID\(['"]([^'"]+)['"]\)/i
+  );
   const collectionUUID = uuidMatch?.[1];
 
   const query = `db.chunks.aggregate([
