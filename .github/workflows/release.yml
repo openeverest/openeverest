@@ -378,3 +378,12 @@ jobs:
           draft: true
           files: |
             dist/*
+
+      - name: Trigger Homebrew tap update
+        if: env.IS_RC == 0
+        run: |
+          curl -X POST \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer ${{ secrets.TAP_REPO_TOKEN }}" \
+            https://api.github.com/repos/openeverest/homebrew-tap/dispatches \
+            -d "{\"event_type\":\"new-release\",\"client_payload\":{\"version\":\"$VERSION\"}}"
