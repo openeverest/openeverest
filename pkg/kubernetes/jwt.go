@@ -20,7 +20,7 @@ const (
 	privateKeyFile = "id_rsa"
 	publicKeyFile  = "id_rsa.pub"
 
-	keySize = 1024
+	keySize = 4096
 )
 
 func encodeRSAPrivateKey(key *rsa.PrivateKey) []byte {
