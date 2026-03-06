@@ -56,7 +56,7 @@ print('Using chart dir: {0}'.format(everest_chart_dir))
 # Optional env vars
 pxc_operator_version = os.getenv('PXC_OPERATOR_VERSION', '1.19.0')
 print('Using PXC operator version: {0}'.format(pxc_operator_version))
-psmdb_operator_version = os.getenv('PSMDB_OPERATOR_VERSION', '1.21.1')
+psmdb_operator_version = os.getenv('PSMDB_OPERATOR_VERSION', '1.22.0')
 print('Using PSMDB operator version: {0}'.format(psmdb_operator_version))
 pg_operator_version = os.getenv('PG_OPERATOR_VERSION', '2.8.2')
 print('Using PG operator version: {0}'.format(pg_operator_version))
