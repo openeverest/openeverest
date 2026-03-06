@@ -45,7 +45,7 @@ check:                  ## Run checks/linters for the whole project.
 HELM=go tool helm
 charts:        ## Install Helm dependency charts for Everest CLI.
 	$(HELM) repo add prometheus-community https://prometheus-community.github.io/helm-charts
-	$(HELM) repo add percona https://percona.github.io/percona-helm-charts/
+	$(HELM) repo add openeverest https://openeverest.github.io/helm-charts/
 	$(HELM) repo add vm https://victoriametrics.github.io/helm-charts
 	$(HELM) repo update
 
@@ -239,7 +239,7 @@ cert:                   ## Create dev TLS certificates.
 CHART_BRANCH ?= main
 .PHONY: update-dev-chart
 update-dev-chart: ## Update dependency to Everest Helm chart to the latest version from the specified branch (default main).
-	GOPROXY=direct go get -u -v github.com/percona/percona-helm-charts/charts/everest@${CHART_BRANCH}
+	GOPROXY=direct go get -u -v github.com/openeverest/helm-charts/charts/everest@${CHART_BRANCH}
 	go mod tidy
 
 EVEREST_OPERATOR_BRANCH ?= main
