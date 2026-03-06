@@ -139,7 +139,7 @@ jobs:
 
           # Fall back to default branch if the specified branch does not exist
           git ls-remote --heads --exit-code --quiet https://github.com/Percona-Lab/percona-version-service.git $VS_BRANCH > /dev/null || echo "VS_BRANCH=production" | tee -a $GITHUB_ENV
-          git ls-remote --heads --exit-code --quiet https://github.com/percona/percona-helm-charts.git $HELM_BRANCH > /dev/null || echo "HELM_BRANCH=main" | tee -a $GITHUB_ENV
+          git ls-remote --heads --exit-code --quiet https://github.com/openeverest/helm-charts.git $HELM_BRANCH > /dev/null || echo "HELM_BRANCH=main" | tee -a $GITHUB_ENV
           git ls-remote --heads --exit-code --quiet https://github.com/openeverest/openeverest.git $EVEREST_BRANCH > /dev/null || echo "EVEREST_BRANCH=main" | tee -a $GITHUB_ENV
           git ls-remote --heads --exit-code --quiet https://github.com/openeverest/openeverest-operator.git $EVEREST_OPERATOR_BRANCH > /dev/null || echo "EVEREST_OPERATOR_BRANCH=main" | tee -a $GITHUB_ENV
           git ls-remote --heads --exit-code --quiet https://github.com/openeverest/openeverest-catalog.git $EVEREST_CATALOG_BRANCH > /dev/null || echo "EVEREST_CATALOG_BRANCH=main" | tee -a $GITHUB_ENV
@@ -239,20 +239,20 @@ jobs:
       - name: Helm - checkout
         uses: actions/checkout@v5
         with:
-          repository: percona/percona-helm-charts
+          repository: openeverest/helm-charts
           ref: ${{ env.HELM_BRANCH }}
-          path: percona-helm-charts
+          path: helm-charts
           token: ${{ secrets.ROBOT_TOKEN }}
 
       - name: Helm - build
         run: |
-          cd percona-helm-charts/charts/everest
+          cd helm-charts/charts/everest
           CRD_VERSION=${{ env.VERSION_TAG }} VERSION=${{ env.VERSION }} make crds-gen link-crds
           make release-dev
 
       - name: Helm - copy chart
         run: |
-          cp -r percona-helm-charts/charts/everest /tmp/${{ env.VERSION }}/helm-chart
+          cp -r helm-charts/charts/everest /tmp/${{ env.VERSION }}/helm-chart
 
       - name: Operator - check out again
         uses: actions/checkout@v5
