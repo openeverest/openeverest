@@ -788,12 +788,12 @@ github.com/otiai10/mint v1.3.0/go.mod h1:F5AjcsTsWUqX+Na9fpHb52P8pcRX2CI6A3ctIT9
 github.com/otiai10/mint v1.3.1/go.mod h1:/yxELlJQ0ufhjUwhshSj+wFjZ78CnZ48/1wtmBH1OTc=
 github.com/pelletier/go-toml/v2 v2.2.4 h1:mye9XuhQ6gvn5h28+VilKrrPoQVanw5PMw/TB0t5Ec4=
 github.com/pelletier/go-toml/v2 v2.2.4/go.mod h1:2gIqNv+qfxSVS7cM2xJQKtLSTLUE9V8t9Stt+h56mCY=
-github.com/percona/everest-operator v0.6.0-dev1.0.20260128124631-ff82d11d17da h1:kirSBMqV5Nhx0S3wUA5BfqjrEQHnNxCP5zrd02/iWmI=
-github.com/percona/everest-operator v0.6.0-dev1.0.20260128124631-ff82d11d17da/go.mod h1:gTuSkeCCIl6zJSHIqg6ObUiqVt6RfMdHH9RwrHg8fZA=
+github.com/percona/everest-operator v0.6.0-dev1.0.20260203073758-bcbe85312503 h1:/4/qezEjX4EpIDkvaBvNMmmaKM4y37vXSVndQd9wnqE=
+github.com/percona/everest-operator v0.6.0-dev1.0.20260203073758-bcbe85312503/go.mod h1:gTuSkeCCIl6zJSHIqg6ObUiqVt6RfMdHH9RwrHg8fZA=
 github.com/percona/percona-backup-mongodb v1.8.1-0.20250925114718-2f499a6a31c8 h1:iHJ1QTVTLgYCR5Jr9b99cBiXt4Flp+S37cBp5soIqy0=
 github.com/percona/percona-backup-mongodb v1.8.1-0.20250925114718-2f499a6a31c8/go.mod h1:ji37sYcYJM4XWpcyqxmwIS9knw4vLNVSJF8LHye8HPE=
-github.com/percona/percona-helm-charts/charts/everest v0.0.0-20260119185700-561f0f50e592 h1:1MLLZgB4vjg75xAkV7uePgEMyGhtfeM7jdN5zrVIKh8=
-github.com/percona/percona-helm-charts/charts/everest v0.0.0-20260119185700-561f0f50e592/go.mod h1:j5Ci48Azwb4Xs4XvZQNfleWCn2uyiZywazklxNH1ut4=
+github.com/percona/percona-helm-charts/charts/everest v0.0.0-20260225213149-f2d2eb00e087 h1:e2KWOHCII0LZW9hszvxh7ydJiWlt7ZpeVXyrIjgsaV4=
+github.com/percona/percona-helm-charts/charts/everest v0.0.0-20260225213149-f2d2eb00e087/go.mod h1:j5Ci48Azwb4Xs4XvZQNfleWCn2uyiZywazklxNH1ut4=
 github.com/percona/percona-postgresql-operator/v2 v2.8.2 h1:dWq4xqeANRNZI0FuS66XRm7ZgYaDPvmWjUVklpux7JQ=
 github.com/percona/percona-postgresql-operator/v2 v2.8.2/go.mod h1:GSiXaVee8ZjK/trBwoJsLXGm7bhqIzisn+voPLT9sZo=
 github.com/percona/percona-server-mongodb-operator v1.21.2 h1:tpm+6VaZwAlXK3ekI1EP7H3qQy/zQgz793TMK+XaCrc=
