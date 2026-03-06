@@ -26,7 +26,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	everesthelmchart "github.com/percona/percona-helm-charts/charts/everest"
+	everesthelmchart "github.com/openeverest/helm-charts/charts/everest"
 	"go.uber.org/zap"
 	helmcli "helm.sh/helm/v3/pkg/cli"
 	"helm.sh/helm/v3/pkg/cli/values"
@@ -114,7 +114,7 @@ func copyEmbedFSToDir(src embed.FS, dest string) error {
 }
 
 // Returns a temporary directory with the Everest Helm chart files
-// from the main branch of the [percona-helm-charts](https://github.com/percona/percona-helm-charts) repository.
+// from the main branch of the [helm-charts](https://github.com/openeverest/helm-charts) repository.
 // It copies the files from the exported embed.FS into a temporary directory.
 // The caller is responsible for cleaning up the directory.
 func devChart() (string, error) {
