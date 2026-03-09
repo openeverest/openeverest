@@ -41,10 +41,10 @@ test.describe.parallel('DB engines tests', () => {
     const engineData: GetDatabaseEngineResponse = await engineResponse.json(),
       availableVersions = engineData.status.availableVersions;
 
-    expect(availableVersions.engine['8.0.4-1'].imageHash).toBe('873b201ce3d66d97b1225c26db392c5043a73cc19ee8db6f2dc1b8efd4783bcf');
-    expect(availableVersions.backup['2.11.0'].status).toBe('recommended');
+    expect(availableVersions.engine['8.0.19-7'].imageHash).toBe('779378a9f52cd9e617d0c356053b4b9c97209b0b759aa819300427836f6f2c66');
+    expect(availableVersions.backup['2.12.0'].status).toBe('recommended');
 
-    const allowedVersions = ['6.0.19-16', '7.0.12-7', '7.0.14-8', '7.0.15-9', '8.0.4-1', '8.0.12-4', '8.0.17-6'];
+    const allowedVersions = ['6.0.27-21', '7.0.24-13', '7.0.28-15', '7.0.30-16', '8.0.12-4', '8.0.17-6', '8.0.19-7'];
 
     delete engineData.status;
     engineData.spec.allowedVersions = allowedVersions;
