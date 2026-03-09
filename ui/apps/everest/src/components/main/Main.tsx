@@ -5,9 +5,7 @@ import {
   Stack,
   Toolbar,
   Typography,
-  useTheme,
 } from '@mui/material';
-import { DrawerContext } from 'contexts/drawer/drawer.context';
 import { useKubernetesClusterInfo } from 'hooks/api/kubernetesClusters/useKubernetesClusterInfo';
 import useLocalStorage from 'hooks/utils/useLocalStorage';
 import { GenericError } from 'pages/generic-error/GenericError';
@@ -24,12 +22,10 @@ import UpgradeEverestReloadDialog from 'modals/upgrade-reload-everest-dialog';
 import { UpgradeEverestContext } from 'contexts/upgrade-everest';
 
 export const Main = () => {
-  const theme = useTheme();
   const [openWelcomeDialogLS, setOpenWelcomeDialogLS] = useLocalStorage(
     'welcomeModal',
     true
   );
-  const { activeBreakpoint } = useContext(DrawerContext);
   const { apiVersion, openReloadDialog, setOpenReloadDialog } = useContext(
     UpgradeEverestContext
   );
@@ -45,10 +41,6 @@ export const Main = () => {
     refetch();
   };
 
-  const drawerWidth = theme.breakpoints.up('sm')
-    ? `calc(${theme.spacing(8)} + 1px)`
-    : `calc(${theme.spacing(7)} + 1px)`;
-
   return (
     <ErrorContextProvider>
       <ErrorBoundary fallback={<GenericError />}>
@@ -59,10 +51,9 @@ export const Main = () => {
             component="main"
             sx={{
               padding: 4,
-              width:
-                activeBreakpoint === 'mobile'
-                  ? '100%'
-                  : `calc(100% - ${drawerWidth})`,
+              flexGrow: 1,
+              minWidth: 0,
+              overflow: 'hidden',
             }}
           >
             <Toolbar />
