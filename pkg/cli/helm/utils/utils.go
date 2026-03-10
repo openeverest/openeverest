@@ -29,6 +29,7 @@ import (
 
 	everesthelmchart "github.com/openeverest/helm-charts/charts/everest"
 	"go.uber.org/zap"
+	"gopkg.in/yaml.v3"
 	helmcli "helm.sh/helm/v3/pkg/cli"
 	"helm.sh/helm/v3/pkg/cli/values"
 	"helm.sh/helm/v3/pkg/getter"
@@ -132,6 +133,14 @@ func devChart() (string, error) {
 		}
 		return "", err
 	}
+	// The embedded chart carries the release version (e.g. 1.13.1). Patch all Chart.yaml
+	// files to version 0.0.0 so that resolveDir() accepts them for dev installs.
+	if err := patchDevChartVersions(tmp); err != nil {
+		if removeErr := os.RemoveAll(tmp); removeErr != nil {
+			return "", errors.Join(err, removeErr)
+		}
+		return "", err
+	}
 	// The Helm chart contains CRDs that are symlinked to the everest-crds sub-chart.
 	// However, we use EmbedFS to reference the chart files, but EmbedFS does not honor symlinks.
 	// So we need to re-create them by calling the `make link-crds` command.
@@ -139,6 +148,91 @@ func devChart() (string, error) {
 		return "", err
 	}
 	return tmp, nil
+}
+
+// patchDevChartVersions rewrites the version fields in the main Chart.yaml and the
+// local sub-chart Chart.yaml files to "0.0.0". This is necessary because the embedded
+// chart carries the release version number (e.g. "1.13.1"), while dev installs always
+// request version "0.0.0", causing resolveDir() to reject the chart.
+func patchDevChartVersions(chartDir string) error {
+	const devVersion = "0.0.0"
+
+	// Patch sub-charts that use exact versions (not wildcards) declared by the main chart.
+	for _, rel := range []string{
+		filepath.Join("charts", "everest-db-namespace", "Chart.yaml"),
+		filepath.Join("charts", "everest-crds", "Chart.yaml"),
+	} {
+		if err := patchChartYAMLVersion(filepath.Join(chartDir, rel), devVersion); err != nil {
+			return fmt.Errorf("failed to patch %s: %w", rel, err)
+		}
+	}
+
+	// Patch the main Chart.yaml: its own version and the dependency version declarations
+	// for the local sub-charts above so that `helm dep update` resolves them.
+	if err := patchMainChartYAML(filepath.Join(chartDir, "Chart.yaml"), devVersion); err != nil {
+		return fmt.Errorf("failed to patch main Chart.yaml: %w", err)
+	}
+	return nil
+}
+
+// patchChartYAMLVersion reads a Chart.yaml, sets its top-level .version field to the
+// given version, and writes it back.
+func patchChartYAMLVersion(path, version string) error {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return err
+	}
+	var chart map[string]interface{}
+	if err := yaml.Unmarshal(data, &chart); err != nil {
+		return err
+	}
+	chart["version"] = version
+	chart["appVersion"] = version
+	out, err := yaml.Marshal(chart)
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(path, out, os.ModePerm) //nolint:gosec
+}
+
+// patchMainChartYAML patches the main Chart.yaml: sets .version to the given version
+// and also updates the .dependencies[].version for sub-charts with local file:// repositories,
+// so that `helm dep update` can resolve them against the patched sub-chart versions.
+func patchMainChartYAML(path, version string) error {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return err
+	}
+	var chart map[string]interface{}
+	if err := yaml.Unmarshal(data, &chart); err != nil {
+		return err
+	}
+	chart["version"] = version
+	chart["appVersion"] = version
+
+	if deps, ok := chart["dependencies"].([]interface{}); ok {
+		for _, dep := range deps {
+			d, ok := dep.(map[string]interface{})
+			if !ok {
+				continue
+			}
+			repo, _ := d["repository"].(string)
+			// Only patch local file:// dependencies whose version is an exact pin (not a wildcard).
+			// Wildcard versions (e.g. "0.0.*") will still resolve against 0.0.0 sub-charts.
+			if strings.HasPrefix(repo, "file://") {
+				if v, _ := d["version"].(string); !strings.Contains(v, "*") {
+					d["version"] = version
+					d["appVersion"] = version
+				}
+			}
+		}
+	}
+
+	out, err := yaml.Marshal(chart)
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(path, out, os.ModePerm) //nolint:gosec
 }
 
 // Runs `make link-crds` in the chartDir.
