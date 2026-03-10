@@ -2,8 +2,9 @@ REPO_ROOT=$(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))
 RELEASE_VERSION ?= v0.0.0-$(shell git rev-parse --short HEAD)
 RELEASE_FULLCOMMIT ?= $(shell git rev-parse HEAD)
 IMAGE_PREFIX ?= ghcr.io/openeverest
-EVEREST_SERVER_DEV_IMAGE_NAME ?= everest-dev
-EVEREST_OPERATOR_DEV_IMAGE_NAME ?= everest-operator-dev
+EVEREST_SERVER_DEV_IMAGE_NAME ?= openeverest-dev
+EVEREST_OPERATOR_DEV_IMAGE_NAME ?= openeverest-operator-dev
+EVEREST_CATALOG_DEV_IMAGE_NAME ?= openeverest-catalog-dev
 IMAGE_TAG ?= 0.0.0
 IMG = $(IMAGE_PREFIX)/$(EVEREST_SERVER_DEV_IMAGE_NAME):$(IMAGE_TAG)
 EVEREST_OPERATOR_IMG = $(IMAGE_PREFIX)/$(EVEREST_OPERATOR_DEV_IMAGE_NAME):$(IMAGE_TAG)
@@ -203,7 +204,9 @@ deploy:  ## Deploy Everest to K8S cluster using Everest CLI.
 	--helm.set server.apiRequestsRateLimit=200 \
 	--helm.set versionMetadataURL=https://check-dev.percona.com \
 	--helm.set server.initialAdminPassword=admin \
-	--helm.set operator.init=false
+	--helm.set operator.init=false \
+	--helm.set operator.image=$(IMAGE_PREFIX)/$(EVEREST_OPERATOR_DEV_IMAGE_NAME) \
+	--helm.set olm.catalogSourceImage=$(IMAGE_PREFIX)/$(EVEREST_CATALOG_DEV_IMAGE_NAME)
 	$(MAKE) expose
 
 DEPLOY_ALL_DEPS := build-ui build-debug docker-build k3d-upload-server-image

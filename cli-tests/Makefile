@@ -1,3 +1,8 @@
+IMAGE_PREFIX ?= ghcr.io/openeverest
+EVEREST_SERVER_DEV_IMAGE_NAME ?= openeverest-dev
+EVEREST_OPERATOR_DEV_IMAGE_NAME ?= openeverest-operator-dev
+EVEREST_CATALOG_DEV_IMAGE_NAME ?= openeverest-catalog-dev
+
 init:               ## Install dependencies
 	npm ci
 	npx playwright install
@@ -10,7 +15,10 @@ install-operators:  ## Install operators to k8s
 		--namespaces percona-everest-operators \
 		--skip-wizard \
 		--helm.set versionMetadataURL=https://check-dev.percona.com \
-		--helm.set operator.init=false
+		--helm.set operator.init=false \
+		--helm.set server.image=$(IMAGE_PREFIX)/$(EVEREST_SERVER_DEV_IMAGE_NAME) \
+		--helm.set operator.image=$(IMAGE_PREFIX)/$(EVEREST_OPERATOR_DEV_IMAGE_NAME) \
+		--helm.set olm.catalogSourceImage=$(IMAGE_PREFIX)/$(EVEREST_CATALOG_DEV_IMAGE_NAME)
 
 test-cli:           ## Run all tests
 	npx playwright test --project=cli
