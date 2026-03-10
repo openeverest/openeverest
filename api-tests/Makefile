@@ -74,11 +74,12 @@ k3d-upload-pg-images: ## Pre-upload Postgresql images to K3D test  cluster to sp
 	pg_proxy_image=$$(kubectl -n everest get dbengine/percona-postgresql-operator -ojson | jq -r '[.status.availableVersions.proxy.pgbouncer[] | select(.status == "recommended").imagePath][-1] ') ;\
 	pg_backup_image=$$(kubectl -n everest get dbengine/percona-postgresql-operator -ojson | jq -r '[.status.availableVersions.backup[] | select(.status == "recommended").imagePath][-1] ') ;\
 	pg_operator_image=$$(kubectl -n everest get deploy/percona-postgresql-operator -o json | jq -r '.spec.template.spec.containers[] | select (.name == "operator").image') ;\
-	docker pull -q $${pg_engine_image} ;\
-	docker pull -q $${pg_proxy_image} ;\
-	docker pull -q $${pg_backup_image} ;\
-	docker pull -q $${pg_operator_image} ;\
-	k3d image import -c everest-server-test -m direct $${pg_engine_image} $${pg_proxy_image} $${pg_backup_image} $${pg_operator_image} ;\
+	for node in $(k3d node list | grep everest-server-test | grep -v registry | awk '{print $1}'); do \
+		docker exec $node ctr image pull docker.io/$${pg_engine_image} ;\
+		docker exec $node ctr image pull docker.io/$${pg_proxy_image} ;\
+		docker exec $node ctr image pull docker.io/$${pg_backup_image} ;\
+		docker exec $node ctr image pull docker.io/$${pg_operator_image} ;\
+	done ;\
 	}
 
 .PHONY: k3d-upload-psmdb-images
@@ -88,10 +89,11 @@ k3d-upload-psmdb-images: ## Pre-upload PSMDB images to K3D test  cluster to spee
 	psmdb_engine_image=$$(kubectl -n everest get dbengine/percona-server-mongodb-operator -ojson | jq -r '[.status.availableVersions.engine[] | select(.status == "recommended").imagePath][-1] ') ;\
 	psmdb_backup_image=$$(kubectl -n everest get dbengine/percona-server-mongodb-operator -ojson | jq -r '[.status.availableVersions.backup[] | select(.status == "recommended").imagePath][-1] ') ;\
 	psmdb_operator_image=$$(kubectl -n everest get deploy/percona-server-mongodb-operator -o json | jq -r '.spec.template.spec.containers[] | select (.name == "percona-server-mongodb-operator").image') ;\
-	docker pull -q $${psmdb_engine_image} ;\
-	docker pull -q $${psmdb_backup_image}  ;\
-	docker pull -q $${psmdb_operator_image}  ;\
-	k3d image import -c everest-server-test -m direct $${psmdb_engine_image} $${psmdb_backup_image} $${psmdb_operator_image}  ;\
+	for node in $(k3d node list | grep everest-server-test | grep -v registry | awk '{print $1}'); do \
+		docker exec $node ctr image pull docker.io/$${psmdb_engine_image} ;\
+		docker exec $node ctr image pull docker.io/$${psmdb_backup_image} ;\
+		docker exec $node ctr image pull docker.io/$${psmdb_operator_image} ;\
+	done ;\
 	}
 
 .PHONY: k3d-upload-pxc-images
@@ -103,12 +105,13 @@ k3d-upload-pxc-images: ## Pre-upload PXC images to K3D test cluster to speedup t
 	pxc_backup_image=$$(kubectl -n everest get dbengine/percona-xtradb-cluster-operator -ojson | jq -r '[.status.availableVersions.backup[] | select(.status == "recommended").imagePath][-1] ') ;\
 	pxc_operator_image=$$(kubectl -n everest get deploy/percona-xtradb-cluster-operator -o json | jq -r '.spec.template.spec.containers[] | select (.name == "percona-xtradb-cluster-operator").image') ;\
 	pmm_client_image=percona/pmm-client:2 ;\
-	docker pull -q $${pxc_engine_image} ;\
-	docker pull -q $${pxc_proxy_image} ;\
-	docker pull -q $${pxc_backup_image} ;\
-	docker pull -q $${pxc_operator_image} ;\
-	docker pull -q  $${pmm_client_image};\
-	k3d image import -c everest-server-test -m direct $${pxc_engine_image} $${pxc_proxy_image} $${pxc_backup_image} $${pxc_operator_image} $${pmm_client_image};\
+	for node in $(k3d node list | grep everest-server-test | grep -v registry | awk '{print $1}'); do \
+		docker exec $node ctr image pull docker.io/$${pxc_engine_image} ;\
+		docker exec $node ctr image pull docker.io/$${pxc_proxy_image} ;\
+		docker exec $node ctr image pull docker.io/$${pxc_backup_image} ;\
+		docker exec $node ctr image pull docker.io/$${pxc_operator_image} ;\
+		docker exec $node ctr image pull docker.io/$${pmm_client_image} ;\
+	done ;\
 	}
 
 .PHONY: k3d-upload-images
