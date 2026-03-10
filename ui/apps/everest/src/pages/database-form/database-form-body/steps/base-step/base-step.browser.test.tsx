@@ -90,7 +90,10 @@ describe('BaseInfoStep (browser mode)', () => {
   it('renders form fields and allows editing db name in real browser', async () => {
     render(
       <Wrapper>
-        <BaseInfoStep loadingDefaultsForEdition={false} alreadyVisited={false} />
+        <BaseInfoStep
+          loadingDefaultsForEdition={false}
+          alreadyVisited={false}
+        />
       </Wrapper>
     );
 
