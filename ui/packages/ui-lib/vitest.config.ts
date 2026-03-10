@@ -6,6 +6,11 @@ export default defineConfig({
     globals: true,
     environment: 'jsdom',
     setupFiles: 'src/setupTests.ts',
+    dir: 'src',
+    isolate: true,
+    fileParallelism: true,
+    maxWorkers: process.env.CI ? '50%' : undefined,
+    reporters: ['verbose'],
   },
   resolve: {
     alias: {

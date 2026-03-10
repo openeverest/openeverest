@@ -1,0 +1,61 @@
+---
+name: FE Browser Tests
+
+on:
+  pull_request:
+    paths:
+      - "ui/**"
+      - ".github/workflows/dev-fe-browser-tests.yaml"
+    types: [opened, synchronize]
+  workflow_dispatch:
+
+jobs:
+  browser-tests:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ui
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          lfs: true
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.4.0
+
+      - name: Use Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: 20.x
+          cache: "pnpm"
+          cache-dependency-path: "ui/pnpm-lock.yaml"
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ hashFiles('ui/pnpm-lock.yaml') }}
+
+      - name: Install Chromium for browser mode
+        working-directory: ui/apps/everest
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Run Vitest browser project
+        working-directory: ui/apps/everest
+        env:
+          CI: true
+        run: pnpm test:browser:ci
+
+      - name: Upload browser test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: vitest-browser-reports
+          path: ui/apps/everest/test-results/
+          if-no-files-found: ignore
+          overwrite: true

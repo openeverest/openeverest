@@ -18,6 +18,12 @@ lint:
 format:
 	pnpm format
 
+preflight:
+	$(MAKE) format
+	$(MAKE) lint
+	pnpm --filter "@percona/everest" test
+	pnpm --filter "@percona/everest" build
+
 # This might change in the future if we have more apps, but for now keep it simple
 dev:
 	pnpm --filter "@percona/everest" dev

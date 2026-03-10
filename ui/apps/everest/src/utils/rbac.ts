@@ -8,7 +8,7 @@ let policies: RBACPolicies = {
   m: '',
   p: [],
 };
-let timeoutId: NodeJS.Timeout;
+let timeoutId: ReturnType<typeof setTimeout>;
 
 // We use the observer pattern to notify the authorizer and policies to components/hooks/etc that might need to react on changes
 const observers: Array<

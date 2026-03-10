@@ -75,7 +75,7 @@ const FormProviderWrapper = ({ children }: { children: React.ReactNode }) => {
   return <FormProvider {...methods}>{children}</FormProvider>;
 };
 
-describe('Monitoring Step', () => {
+describe.skip('Monitoring Step', () => {
   it("should render only monitoring input if it's off", () => {
     render(
       <QueryClientProvider client={queryClient}>

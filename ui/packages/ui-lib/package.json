@@ -54,10 +54,10 @@
     "@storybook/test": "^8.6.14",
     "@testing-library/jest-dom": "^6.1.4",
     "@testing-library/react": "^14.0.0",
-    "@vitejs/plugin-react-swc": "^3.3.2",
+    "@vitejs/plugin-react-swc": "^4.2.3",
     "eslint-config-prettier": "^9.0.0",
     "eslint-plugin-storybook": "^0.6.15",
-    "jsdom": "^22.1.0",
+    "jsdom": "^28.1.0",
     "prettier": "^3.0.3",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
@@ -69,8 +69,8 @@
     "storybook-addon-pseudo-states": "^3.1.1",
     "tslib": "^2.6.2",
     "typescript": "^5.2.2",
-    "vite": "^5.4.19",
-    "vitest": "^2.1.9"
+    "vite": "^6.4.1",
+    "vitest": "^4.0.18"
   },
   "peerDependencies": {
     "@emotion/react": "^11.11.1",

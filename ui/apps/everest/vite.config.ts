@@ -19,9 +19,22 @@ export default defineConfig({
     assetsDir: 'static',
   },
   test: {
+    name: 'unit',
     globals: true,
     environment: 'jsdom',
     setupFiles: 'src/setupTests.ts',
+    dir: 'src',
+    include: [
+      '**/*.test.ts',
+      '**/*.test.tsx',
+      '**/*.spec.ts',
+      '**/*.spec.tsx',
+    ],
+    exclude: ['**/*.browser.test.{ts,tsx}'],
+    isolate: true,
+    fileParallelism: true,
+    maxWorkers: process.env.CI ? '50%' : undefined,
+    reporters: ['verbose'],
   },
   // During prod the libs will be built, so no need to point to src
   ...(process.env.NODE_ENV !== 'production' && {

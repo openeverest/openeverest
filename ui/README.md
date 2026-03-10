@@ -1,134 +1,123 @@
 # OpenEverest Frontend
 
-This code base is a monorepo that holds a number of packages, namely:
+OpenEverest UI is a PNPM monorepo living in `ui/`.
 
-- `@percona/utils` -> common shared utils code (e.g. `kebabize` string function);
-- `@percona/types` -> common shared types;
-- `@percona/design` -> Percona UI themes and related utils, from base to Everest;
-- `@percona/ui-lib` -> common UI library;
-- `@percona/eslint-config-react`, `@percona/prettier-config`, `@percona/tsconfig` -> packages for shared configurations of ESlint, Prettier and Typescript;
-- `@percona/everest` -> The OpenEverest frontend code.
+## UI architecture
 
-OpenEverest is an open source Database-as-a-Service solution that automates day-one and day-two operations for Postgres, MySQL, and MongoDB databases within Kubernetes clusters.
+Main workspaces:
 
-## Pre-Requisites
+- `apps/everest`: the OpenEverest frontend application (Vite + React).
+- `packages/ui-lib`: reusable UI components.
+- `packages/design`: design tokens/themes and shared styling setup.
+- `packages/utils`: shared utility helpers.
+- `packages/types`: shared TypeScript types.
+- `packages/eslint-config-react`, `packages/prettier-config`, `packages/tsconfig`: shared tooling configs.
 
-Make sure PNPM is installed: https://pnpm.io/installation
+How code flows:
 
-## Stack
+- `apps/everest` consumes shared packages from `packages/*` via workspace deps.
+- Turborepo orchestrates tasks across workspaces (`test`, `lint`, `format`, `build`).
+- App-level tests live in `apps/everest/src/**` (unit and browser-mode tests), while end-to-end tests live in `apps/everest/.e2e`.
 
-This repo uses the following stack across its packages:
+## Prerequisites
 
-- PNPM to manage workspaces in the monorepo and dependencies (https://pnpm.io/);
-- Typescript (https://www.typescriptlang.org/);
-- React (https://react.dev/);
-- Rollup to bundle the different common packages (https://rollupjs.org/);
-- Vite for Everest development (https://vitejs.dev/);
-- Vitest for unit tests (https://vitest.dev/);
-- Playwright for E2E tests (https://playwright.dev/);
-- Turborepo for orchestration across packages and caching (https://turbo.build/);
+- Install PNPM: https://pnpm.io/installation
 
-## Install dependencies
+## Core commands (from `ui/`)
+
+Rule of thumb:
+
+- Use `make` for top-level workflows in the whole `ui/` monorepo.
+- Use `pnpm` when working inside a specific workspace/package.
+
+Install dependencies:
 
 ```bash
 make init
 ```
 
-## Run everest in development mode
+Run Everest in dev mode:
 
 ```bash
 make dev
 ```
 
-## Using backup locations credentials locally for E2E tests
-
-Please rename the `.env.test` to `.env` in `apps/everest/.e2e` folder and add the correct values for the backup location.
-
-## Build packages for production
+Build all UI packages:
 
 ```bash
 make build
 ```
 
-By default, Everest build will be placed under `apps/everest/dist`. This can be changed using `EVEREST_OUT_DIR`:
+Run all monorepo tests:
 
 ```bash
-make build EVEREST_OUT_DIR=my-dist
+make test
 ```
 
-This path can either be relative to the repo root or absolute.
+Run all lint tasks:
 
-## Run a command for a particular workspace
+```bash
+make lint
+```
+
+Run all format tasks:
+
+```bash
+make format
+```
+
+Contributor preflight before PR (format + lint + Everest unit/browser tests + Everest build):
+
+```bash
+make preflight
+```
+
+## Everest app test commands (from `ui/apps/everest`)
+
+Run all Everest tests (unit + browser):
+
+```bash
+pnpm test
+```
+
+Run only unit tests:
+
+```bash
+pnpm test:unit
+```
+
+Watch only unit tests:
+
+```bash
+pnpm test:unit:watch
+```
+
+Run only browser-mode tests (headless):
+
+```bash
+pnpm test:browser
+```
+
+Watch only browser-mode tests:
+
+```bash
+pnpm test:browser:watch
+```
+
+Watch all tests (unit + browser projects):
+
+```bash
+pnpm test:watch
+```
+
+Run a specific workspace command from `ui/`:
 
 ```bash
 pnpm --filter <workspace> <command>
 ```
 
-More about PNPM filtering: https://pnpm.io/filtering
+More on filtering: https://pnpm.io/filtering
 
-## Run CI E2E tests locally
+## E2E tests
 
-- Make sure to have the following setup on `<repo-root>/dev/config.yaml`:
-
-  ```
-  namespaces:
-    - name: pxc-only
-      backupStorages:
-        - bucket-3
-      operators:
-        - pxc
-
-    - name: psmdb-only
-      backupStorages:
-        - bucket-2
-      operators:
-        - psmdb
-
-    - name: pg-only
-      backupStorages:
-        - bucket-4
-      operators:
-        - pg
-
-    - name: everest
-      backupStorages:
-        - bucket-1
-        - bucket-5
-      operators:
-        - pxc
-        - psmdb
-        - pg
-
-  ```
-
-- On `apps/everest/.e2e/.env`, set:
-
-  ```
-  EVEREST_BUCKETS_NAMESPACES_MAP='[["bucket-1","everest"],["bucket-2","psmdb-only"],["bucket-3","pxc-only"],["bucket-4","pg-only"],["bucket-5","everest"]]'
-  ```
-
-- To set a MinIO storage on your k8s cluster: `kubectl apply -f <repo-root>/.github/minio.conf.yaml` and set:
-
-  - `EVEREST_LOCATION_ACCESS_KEY=minioadmin`
-  - `EVEREST_LOCATION_SECRET_KEY=minioadmin`
-  - `EVEREST_LOCATION_REGION=us-east-1`
-  - `EVEREST_LOCATION_URL=https://minio.minio.svc.cluster.local`
-
-- To setup a monitoring instance (PMM) on your k8s cluster:
-
-  ```
-  helm install pmm --set secret.pmm_password='admin',service.type=ClusterIP percona/pmm
-
-  url=$(kubectl get svc/monitoring-service -o json | jq -r '.spec.clusterIP')
-
-  echo -n "MONITORING_URL=http://$url"
-  ```
-
-  - Use the IP from the output and set:
-    - `MONITORING_URL=<OUTPUT_IP>`
-    - `MONITORING_USER=admin`
-    - `MONITORING_PASSWORD=admin`
-
-- Finally, run the tests using one of:
-  - `pnpm --filter "@percona/everest" e2e`, to run all tests, including RBAC
-  - ` pnpm --filter "@percona/everest" e2e:ignore-rbac`, to skip RBAC tests
+E2E setup and local execution details are documented in `apps/everest/.e2e/Readme.md`.
