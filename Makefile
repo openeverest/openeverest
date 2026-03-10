@@ -238,12 +238,12 @@ k3d-cluster-reset: k3d-cluster-down k3d-cluster-up ## Reset the K8S cluster for 
 .PHONY: k3d-upload-server-image
 k3d-upload-server-image: ## Upload the Everest API server image to the testing k3d cluster.
 	$(info Uploading Everest API server image=$(IMG) to K3D testing cluster)
-	k3d image import -c everest-server-test -m direct $(IMG)
+	k3d image import -c everest-server-test $(IMG)
 
 .PHONY: k3d-upload-operator-image
 k3d-upload-operator-image: ## Upload the Everest operator image to the testing k3d cluster.
 	$(info Uploading Everest operator image=$(EVEREST_OPERATOR_IMG) to K3D testing cluster)
-	k3d image import -c everest-server-test -m direct $(EVEREST_OPERATOR_IMG)
+	k3d image import -c everest-server-test $(EVEREST_OPERATOR_IMG)
 
 .PHONY: cert
 cert:                   ## Create dev TLS certificates.
