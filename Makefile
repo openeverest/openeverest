@@ -73,7 +73,7 @@ build-server-helper: $(LOCALBIN)
 # We need to ensure that /public/dist/index.html exists before building Everest
 # API server because it's embedded into the binary and missing file will cause
 # build failure.
-	mkdir -p ./public/dist && touch ./public/dist/index.html
+	mkdir -p ./public/dist && [ -f ./public/dist/index.html ] || touch ./public/dist/index.html
 	$(info Building Everest API server for $(GOOS)/$(GOARCH) with CGO_ENABLED=$(CGO_ENABLED))
 	go build -v $(SERVER_BUILD_TAGS) $(SERVER_GC_FLAGS) -ldflags "$(SERVER_LD_FLAGS)" -o $(LOCALBIN)/everest ./cmd
 
