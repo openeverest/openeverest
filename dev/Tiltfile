@@ -110,8 +110,7 @@ watch_settings(
 local('[ -x %s/bin/kustomize ] || make -C %s kustomize' % (operator_dir, operator_dir), quiet=True)
 
 # Build helm dependencies
-local_resource(
-    'everest-chart-deps',
+local(
     'HELM="go tool -modfile={0}/go.mod helm" make -C {1} deps'.format(backend_dir, everest_chart_dir),
 )
 
