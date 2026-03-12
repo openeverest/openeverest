@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -107,4 +108,14 @@ func (e *EverestServer) DeleteInstance(c echo.Context, cluster string, namespace
 		return err
 	}
 	return c.NoContent(http.StatusNoContent)
+}
+
+// GetInstanceConnection returns connection details for an instance.
+func (e *EverestServer) GetInstanceConnection(c echo.Context, cluster string, namespace string, instance string) error {
+	result, err := e.handler.GetInstanceConnection(c.Request().Context(), namespace, instance)
+	if err != nil {
+		e.l.Errorf("GetInstanceConnection failed: %v", err)
+		return err
+	}
+	return c.JSON(http.StatusOK, result)
 }

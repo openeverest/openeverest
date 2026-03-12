@@ -945,6 +945,36 @@ func (_m *MockHandler) GetInstance(ctx context.Context, namespace string, name s
 	return r0, r1
 }
 
+// GetInstanceConnection provides a mock function with given fields: ctx, namespace, name
+func (_m *MockHandler) GetInstanceConnection(ctx context.Context, namespace string, name string) (*api.InstanceConnectionDetails, error) {
+	ret := _m.Called(ctx, namespace, name)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetInstanceConnection")
+	}
+
+	var r0 *api.InstanceConnectionDetails
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string) (*api.InstanceConnectionDetails, error)); ok {
+		return rf(ctx, namespace, name)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, string) *api.InstanceConnectionDetails); ok {
+		r0 = rf(ctx, namespace, name)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*api.InstanceConnectionDetails)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, string) error); ok {
+		r1 = rf(ctx, namespace, name)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // GetKubernetesClusterInfo provides a mock function with given fields: ctx
 func (_m *MockHandler) GetKubernetesClusterInfo(ctx context.Context) (*api.KubernetesClusterInfo, error) {
 	ret := _m.Called(ctx)
