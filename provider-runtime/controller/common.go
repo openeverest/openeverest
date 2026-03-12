@@ -259,16 +259,94 @@ func (c *Context) TryDecodeComponentCustomSpec(component v1alpha1.ComponentSpec,
 }
 
 // =============================================================================
+// CONNECTION DETAILS
+// =============================================================================
+
+// ConnectionSecretSuffix is appended to the Instance name to form the
+// auto-generated connection Secret name.
+const ConnectionSecretSuffix = "-conn"
+
+// +openapi:export=InstanceConnectionDetails
+// ConnectionDetails holds the typed connection details for a database instance.
+// These are written by the provider-runtime reconciler to a Kubernetes Secret
+// and later read back by the API server to serve the connection endpoint.
+// They follow the Service Binding well-known keys where applicable.
+type ConnectionDetails struct {
+	// Type is the type of database (e.g., mongodb, postgresql, mysql)
+	// +optional
+	Type string `json:"type,omitempty"`
+	// Provider is the provider that manages this instance
+	// +optional
+	Provider string `json:"provider,omitempty"`
+	// Host is the hostname or IP address to connect to
+	// +optional
+	Host string `json:"host,omitempty"`
+	// Port is the port number to connect to
+	// +optional
+	Port string `json:"port,omitempty"`
+	// Username is the username for authentication
+	// +optional
+	Username string `json:"username,omitempty"`
+	// Password is the password for authentication
+	// +optional
+	Password string `json:"password,omitempty"`
+	// URI is a pre-built connection URI
+	// +optional
+	URI string `json:"uri,omitempty"`
+	// AdditionalProperties holds additional provider-specific connection details
+	// +optional
+	AdditionalProperties map[string]string `json:"-"`
+}
+
+// IsEmpty reports whether no connection details have been set.
+func (cd ConnectionDetails) IsEmpty() bool {
+	return cd.Type == "" && cd.Provider == "" && cd.Host == "" && cd.Port == "" &&
+		cd.Username == "" && cd.Password == "" && cd.URI == "" &&
+		len(cd.AdditionalProperties) == 0
+}
+
+// ToSecretData converts the typed struct to the map[string][]byte format
+// required by corev1.Secret.Data. Named fields and AdditionalProperties are merged;
+// named fields take precedence over any matching AdditionalProperties key.
+func (cd ConnectionDetails) ToSecretData() map[string][]byte {
+	data := make(map[string][]byte, 7+len(cd.AdditionalProperties))
+	for k, v := range cd.AdditionalProperties {
+		data[k] = []byte(v)
+	}
+	if cd.Type != "" {
+		data["type"] = []byte(cd.Type)
+	}
+	if cd.Provider != "" {
+		data["provider"] = []byte(cd.Provider)
+	}
+	if cd.Host != "" {
+		data["host"] = []byte(cd.Host)
+	}
+	if cd.Port != "" {
+		data["port"] = []byte(cd.Port)
+	}
+	if cd.Username != "" {
+		data["username"] = []byte(cd.Username)
+	}
+	if cd.Password != "" {
+		data["password"] = []byte(cd.Password)
+	}
+	if cd.URI != "" {
+		data["uri"] = []byte(cd.URI)
+	}
+	return data
+}
+
+// =============================================================================
 // STATUS TYPES
 // =============================================================================
 
 // Status represents the current state of the database cluster.
 type Status struct {
-	Phase         v1alpha1.InstancePhase
-	Message       string
-	ConnectionURL string
-	Credentials   string // Secret name containing credentials
-	Components    []ComponentStatus
+	Phase             v1alpha1.InstancePhase
+	Message           string
+	ConnectionDetails ConnectionDetails
+	Components        []ComponentStatus
 }
 
 // ComponentStatus represents the status of a single component.
@@ -281,14 +359,9 @@ type ComponentStatus struct {
 
 // ToV2Alpha1 converts Status to the API type.
 func (s Status) ToV2Alpha1() v1alpha1.InstanceStatus {
-	status := v1alpha1.InstanceStatus{
-		Phase:         s.Phase,
-		ConnectionURL: s.ConnectionURL,
+	return v1alpha1.InstanceStatus{
+		Phase: s.Phase,
 	}
-	if s.Credentials != "" {
-		status.CredentialSecretRef.Name = s.Credentials
-	}
-	return status
 }
 
 // Status helper functions
@@ -298,17 +371,34 @@ func Creating(message string) Status {
 	return Status{Phase: v1alpha1.InstancePhaseCreating, Message: message}
 }
 
-// Running returns a status indicating the cluster is running.
+// Running returns a status indicating the cluster is running
+// without connection details. Use RunningWithConnectionDetails
+// when connection information is available.
 func Running() Status {
 	return Status{Phase: v1alpha1.InstancePhaseRunning}
 }
 
-// RunningWithConnection returns a running status with connection details.
-func RunningWithConnection(url, credentialsSecret string) Status {
+// RunningWithConnectionDetails returns a running status with connection details.
+// The reconciler writes these details to an auto-generated Secret.
+//
+// Providers should populate the well-known fields so the API server can expose
+// them generically without any provider-specific logic.
+//
+// Example:
+//
+//	return controller.RunningWithConnectionDetails(controller.ConnectionDetails{
+//		Type:     "mongodb",
+//		Provider: "percona-server-mongodb",
+//		Host:     host,
+//		Port:     "27017",
+//		Username: user,
+//		Password: pass,
+//		URI:      uri,
+//	})
+func RunningWithConnectionDetails(details ConnectionDetails) Status {
 	return Status{
-		Phase:         v1alpha1.InstancePhaseRunning,
-		ConnectionURL: url,
-		Credentials:   credentialsSecret,
+		Phase:             v1alpha1.InstancePhaseRunning,
+		ConnectionDetails: details,
 	}
 }
 

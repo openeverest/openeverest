@@ -19,6 +19,7 @@ import (
 	"fmt"
 
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
@@ -356,6 +357,13 @@ func (r *ProviderReconciler) Reconcile(ctx context.Context, req reconcile.Reques
 	}
 
 	in.Status = status.ToV2Alpha1()
+
+	// Write connection details Secret and set the ConnectionDetailsReady condition.
+	if err := r.reconcileConnectionSecret(ctx, in, status); err != nil {
+		logger.Error(err, "Failed to reconcile connection secret")
+		return reconcile.Result{}, err
+	}
+
 	if err := r.Client.Status().Update(ctx, in); err != nil {
 		logger.Error(err, "Failed to update status")
 		return reconcile.Result{}, err
@@ -402,4 +410,77 @@ func (r *ProviderReconciler) handleDeletion(
 
 	logger.Info("Cleanup complete")
 	return reconcile.Result{}, nil
+}
+
+// reconcileConnectionSecret creates or updates the connection details Secret
+// and sets the ConnectionDetailsReady condition on the Instance status.
+func (r *ProviderReconciler) reconcileConnectionSecret(
+	ctx context.Context,
+	in *v1alpha1.Instance,
+	status controller.Status,
+) error {
+	now := metav1.Now()
+
+	if status.ConnectionDetails.IsEmpty() {
+		if status.Phase == v1alpha1.InstancePhaseRunning {
+			setCondition(in, v1alpha1.ConditionConnectionDetailsReady, metav1.ConditionFalse,
+				"NotReported", "Provider did not report connection details", now)
+		}
+		return nil
+	}
+
+	secretName := in.Name + controller.ConnectionSecretSuffix
+
+	secret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      secretName,
+			Namespace: in.Namespace,
+			Labels: map[string]string{
+				"app.kubernetes.io/managed-by": "everest",
+				"app.kubernetes.io/instance":   in.Name,
+			},
+		},
+	}
+
+	if err := controllerutil.SetControllerReference(in, secret, r.manager.GetScheme()); err != nil {
+		return fmt.Errorf("failed to set owner reference on connection secret: %w", err)
+	}
+
+	_, err := controllerutil.CreateOrUpdate(ctx, r.Client, secret, func() error {
+		secret.Data = status.ConnectionDetails.ToSecretData()
+		return nil
+	})
+	if err != nil {
+		return fmt.Errorf("failed to create or update connection secret: %w", err)
+	}
+
+	in.Status.ConnectionSecretRef.Name = secretName
+	setCondition(in, v1alpha1.ConditionConnectionDetailsReady, metav1.ConditionTrue,
+		"Available", "Connection details are available in Secret "+secretName, now)
+
+	return nil
+}
+
+// setCondition sets or updates a condition on the Instance status.
+func setCondition(in *v1alpha1.Instance, condType string, status metav1.ConditionStatus, reason, message string, now metav1.Time) {
+	for i, c := range in.Status.Conditions {
+		if c.Type == condType {
+			if c.Status != status {
+				in.Status.Conditions[i].LastTransitionTime = now
+			}
+			in.Status.Conditions[i].Status = status
+			in.Status.Conditions[i].Reason = reason
+			in.Status.Conditions[i].Message = message
+			in.Status.Conditions[i].ObservedGeneration = in.Generation
+			return
+		}
+	}
+	in.Status.Conditions = append(in.Status.Conditions, metav1.Condition{
+		Type:               condType,
+		Status:             status,
+		LastTransitionTime: now,
+		Reason:             reason,
+		Message:            message,
+		ObservedGeneration: in.Generation,
+	})
 }

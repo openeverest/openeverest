@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -115,7 +116,7 @@ spec:
 	assert.NoError(t, err, "Failed to write test CRD")
 
 	outputFile := filepath.Join(tmpDir, "output.yml")
-	err = run(crdDir, outputFile)
+	err = run(crdDir, outputFile, nil)
 	assert.NoError(t, err, "run() failed")
 
 	_, err = os.Stat(outputFile)
