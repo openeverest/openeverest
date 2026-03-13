@@ -463,7 +463,7 @@ local_resource(
 
 # Live update the Everest operator manager without generating a new pod
 load('ext://restart_process', 'docker_build_with_restart')
-docker_build_with_restart('ghcr.io/openeverest/openeverest-operator-dev',
+docker_build_with_restart('ghcr.io/openeverest/openeverest-operator',
   context=operator_dir,
   dockerfile='./everest-operator.Dockerfile',
   target=everest_operator_target,
@@ -653,7 +653,7 @@ local_resource(
     labels=["everest"]
 )
 
-docker_build_with_restart('ghcr.io/openeverest/openeverest-dev',
+docker_build_with_restart('ghcr.io/openeverest/openeverest',
   context=backend_dir,
   dockerfile='./everest.Dockerfile',
   target=everest_target,
