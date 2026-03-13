@@ -136,7 +136,7 @@ func extractGoTypeSchemas(goFile string, schemas map[string]*openapi3.SchemaRef)
 				}
 				exportName = extractExportMarker(ts.Doc)
 				if exportName != "" {
-					if schema, err := buildSchemaFromStruct(ts, exportName); err == nil {
+					if schema, err := buildSchemaFromStruct(ts, exportName, ts.Doc); err == nil {
 						schemas[exportName] = openapi3.NewSchemaRef("", schema)
 						fmt.Printf("  Extracted Go type schema for %s from %s\n", exportName, filepath.Base(goFile))
 					} else {
@@ -152,7 +152,7 @@ func extractGoTypeSchemas(goFile string, schemas map[string]*openapi3.SchemaRef)
 			if !ok {
 				continue
 			}
-			schema, err := buildSchemaFromStruct(ts, exportName)
+			schema, err := buildSchemaFromStruct(ts, exportName, genDecl.Doc)
 			if err != nil {
 				return err
 			}
@@ -200,7 +200,8 @@ func goTypeToOpenAPIType(expr ast.Expr) string {
 // buildSchemaFromStruct converts an *ast.TypeSpec (which must be a struct) into
 // an openapi3.Schema. Fields tagged with json:"-" are skipped unless they are a
 // map type, in which case they become additionalProperties on the schema.
-func buildSchemaFromStruct(ts *ast.TypeSpec, schemaName string) (*openapi3.Schema, error) {
+// If genDeclDoc is provided, it's used as a fallback for the schema description.
+func buildSchemaFromStruct(ts *ast.TypeSpec, schemaName string, genDeclDoc *ast.CommentGroup) (*openapi3.Schema, error) {
 	structType, ok := ts.Type.(*ast.StructType)
 	if !ok {
 		return nil, fmt.Errorf("type %s is not a struct", ts.Name.Name)
@@ -211,10 +212,15 @@ func buildSchemaFromStruct(ts *ast.TypeSpec, schemaName string) (*openapi3.Schem
 		Properties: openapi3.Schemas{},
 	}
 
-	// Use the TypeSpec doc as the schema description (fall back to struct-level).
-	if ts.Doc != nil {
+	// Try TypeSpec doc first, fall back to genDecl doc if available
+	docToUse := ts.Doc
+	if (docToUse == nil || len(docToUse.List) == 0) && genDeclDoc != nil {
+		docToUse = genDeclDoc
+	}
+
+	if docToUse != nil {
 		var lines []string
-		for _, c := range ts.Doc.List {
+		for _, c := range docToUse.List {
 			line := strings.TrimSpace(strings.TrimPrefix(c.Text, "//"))
 			if !strings.HasPrefix(line, "+") { // skip marker comments
 				lines = append(lines, line)
