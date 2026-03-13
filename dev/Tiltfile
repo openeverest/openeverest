@@ -444,12 +444,6 @@ if everest_operator_debug:
 
 # Build the Everest operator manager locally to take advantage of the go cache
 local_resource(
-    'operator-init',
-    'make -C {0} init'.format(operator_dir),
-    labels=["everest-operator"],
-)
-
-local_resource(
   'operator-build',
   '{0} make -C {1} {2}'.format(everest_operator_build_env, operator_dir, everest_operator_build_target),
   deps=[
@@ -465,9 +459,6 @@ local_resource(
       '{0}/**/*.gen.go*'.format(operator_dir),
   ],
   labels=["everest-operator"],
-  resource_deps = [
-    'operator-init',
-  ],
 )
 
 # Live update the Everest operator manager without generating a new pod
