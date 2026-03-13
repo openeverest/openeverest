@@ -23,6 +23,9 @@ if os.path.exists(local_env_file):
     print ('Loading local .env file={0}'.format(local_env_file))
     dotenv(fn=local_env_file)
 
+cache_dir='{0}/.cache'.format(config.main_dir)
+local('mkdir -p {0}'.format(cache_dir), quiet=True)
+
 # ===========================
 # VARIABLES
 # ===========================
@@ -103,19 +106,14 @@ watch_settings(
     ignore=[
         '%s/**/*.tgz' % everest_chart_dir,
         '%s/**/*tmpcharts*' % everest_chart_dir,
+        '%s/config/**' % operator_dir,
     ]
 )
 
 # Ensure operator's kustomize is installed
 local('[ -x %s/bin/kustomize ] || make -C %s kustomize' % (operator_dir, operator_dir), quiet=True)
 
-# Build helm dependencies
-local_resource(
-    'everest-chart-deps',
-    'HELM="go tool -modfile={0}/go.mod helm" make -C {1} deps'.format(backend_dir, everest_chart_dir),
-)
-
-# Create namespaces
+# Create namespace
 load('ext://namespace', 'namespace_create', 'namespace_inject')
 namespace_create(EVEREST_NAMESPACE)
 k8s_resource(
@@ -124,6 +122,12 @@ k8s_resource(
   ],
   new_name='everest-namespace',
 )
+
+#################################
+## Install DB engine operators ##
+#################################
+
+# Create namespaces
 namespaces = sorted([namespace['name'] for namespace in config_yaml['namespaces']])
 for namespace in namespaces:
   namespace_create(namespace)
@@ -141,141 +145,269 @@ for namespace in namespaces:
     'namespaces',
   ])
 
-#################################
-## Install DB engine operators ##
-#################################
+##################################
+## Percona XtraDB Cluster (PXC) ##
+##################################
 
-# PXC
-pxc_operator_bundle_yaml = local(['curl', '-s', 'https://raw.githubusercontent.com/percona/percona-xtradb-cluster-operator/v%s/deploy/bundle.yaml' % pxc_operator_version], quiet=True)
-pxc_namespaces = [namespace['name'] for namespace in config_yaml['namespaces'] if 'pxc' in namespace['operators']]
-# We keep track of the CRD objects separately from the operator deployment so
-# that we can make the deployment depend on the CRDs to avoid tilt thinking
-# that there are conflicts with multiple CRDs.
+# Download PXC operator manifests
+pxc_base_url = 'https://raw.githubusercontent.com/percona/percona-xtradb-cluster-operator/v{0}/deploy'.format(pxc_operator_version)
+
+local_resource(
+  'pxc-download-manifests',
+  'for manifest in crd rbac operator; do test -f {0}/pxc-operator-v{1}-$manifest.yaml || curl -s {2}/$manifest.yaml -o {0}/pxc-operator-v{1}-$manifest.yaml; done'.format(cache_dir, pxc_operator_version, pxc_base_url),
+  resource_deps=['namespaces'],
+  labels=["db-operators"]
+)
+
+# Identify namespaces that use PXC operator
+pxc_namespaces = [ns['name'] for ns in config_yaml['namespaces'] if 'pxc' in ns['operators']]
+
+# Deploy PXC CRDs (separately to avoid conflicts with multiple operator deployments)
 if pxc_namespaces:
+  pxc_crd_file = '{0}/pxc-operator-v{1}-crd.yaml'.format(cache_dir, pxc_operator_version)
+  pxc_crd_objects = [
+    'perconaxtradbclusterbackups.pxc.percona.com:customresourcedefinition',
+    'perconaxtradbclusterrestores.pxc.percona.com:customresourcedefinition',
+    'perconaxtradbclusters.pxc.percona.com:customresourcedefinition',
+  ]
+  
+  k8s_yaml(pxc_crd_file)
   k8s_resource(
-    objects=[
-      # The CRDs don't really get installed in a namespace, but since each
-      # operator install is tied to a namespace, tilt uses a namespace to track
-      # the install so we need to include one object per CRD per namespace.
-      '%s:%s' % (crd, namespace) for namespace in pxc_namespaces for crd in [
-              'perconaxtradbclusterbackups.pxc.percona.com:customresourcedefinition',
-              'perconaxtradbclusterrestores.pxc.percona.com:customresourcedefinition',
-              'perconaxtradbclusters.pxc.percona.com:customresourcedefinition'
-          ]
-    ],
-    resource_deps = [
-      'namespaces',
-    ],
+    objects=pxc_crd_objects,
     new_name='pxc-crds',
+    resource_deps=[
+      'pxc-download-manifests',
+    ],
     labels=["db-operators"]
   )
+
+# Deploy PXC operator to each namespace
 for namespace in pxc_namespaces:
-  k8s_yaml(namespace_inject(pxc_operator_bundle_yaml, namespace))
+  rbac_file = '{0}/pxc-operator-v{1}-rbac.yaml'.format(cache_dir, pxc_operator_version)
+  operator_file = '{0}/pxc-operator-v{1}-operator.yaml'.format(cache_dir, pxc_operator_version)
+  
+  k8s_yaml(namespace_inject(rbac_file, namespace))
+  k8s_yaml(namespace_inject(operator_file, namespace))
+  
+  # Determine deployment name (include namespace suffix if multiple namespaces)
+  deployment_suffix = ':deployment:' + namespace if len(pxc_namespaces) > 1 else ''
+  
   k8s_resource(
-    workload='percona-xtradb-cluster-operator%s' % (':deployment:' + namespace if len(pxc_namespaces) > 1 else ''),
+    workload='percona-xtradb-cluster-operator{0}'.format(deployment_suffix),
     objects=[
-      'percona-xtradb-cluster-operator:serviceaccount:%s' % namespace,
-      'percona-xtradb-cluster-operator:role:%s' % namespace,
-      'service-account-percona-xtradb-cluster-operator:rolebinding:%s' % namespace,
+      'percona-xtradb-cluster-operator:serviceaccount:{0}'.format(namespace),
+      'percona-xtradb-cluster-operator:role:{0}'.format(namespace),
+      'service-account-percona-xtradb-cluster-operator:rolebinding:{0}'.format(namespace),
     ],
-    resource_deps = [
+    resource_deps=[
       'namespaces',
       'pxc-crds',
     ],
-    new_name='pxc:%s' % namespace,
+    new_name='pxc:{0}'.format(namespace),
     labels=["db-operators"]
   )
 
-# PSMDB
-psmdb_operator_bundle_yaml = local(['curl', '-s', 'https://raw.githubusercontent.com/percona/percona-server-mongodb-operator/v%s/deploy/bundle.yaml' % psmdb_operator_version], quiet=True)
-psmdb_namespaces = [namespace['name'] for namespace in config_yaml['namespaces'] if 'psmdb' in namespace['operators']]
-# We keep track of the CRD objects separately from the operator deployment so
-# that we can make the deployment depend on the CRDs to avoid tilt thinking
-# that there are conflicts with multiple CRDs.
+####################################
+## Percona Server MongoDB (PSMDB) ##
+####################################
+
+# Download PSMDB operator manifests
+psmdb_base_url = 'https://raw.githubusercontent.com/percona/percona-server-mongodb-operator/v{0}/deploy'.format(psmdb_operator_version)
+
+local_resource(
+  'psmdb-download-manifests',
+  'for manifest in crd rbac operator; do test -f {0}/psmdb-operator-v{1}-$manifest.yaml || curl -s {2}/$manifest.yaml -o {0}/psmdb-operator-v{1}-$manifest.yaml; done'.format(cache_dir, psmdb_operator_version, psmdb_base_url),
+  resource_deps=['namespaces'],
+  labels=["db-operators"]
+)
+
+# Identify namespaces that use PSMDB operator
+psmdb_namespaces = [ns['name'] for ns in config_yaml['namespaces'] if 'psmdb' in ns['operators']]
+
+# Deploy PSMDB CRDs (separately to avoid conflicts with multiple operator deployments)
 if psmdb_namespaces:
+  psmdb_crd_file = '{0}/psmdb-operator-v{1}-crd.yaml'.format(cache_dir, psmdb_operator_version)
+  psmdb_crd_objects = [
+    'perconaservermongodbbackups.psmdb.percona.com:customresourcedefinition',
+    'perconaservermongodbrestores.psmdb.percona.com:customresourcedefinition',
+    'perconaservermongodbs.psmdb.percona.com:customresourcedefinition',
+  ]
+  
+  k8s_yaml(psmdb_crd_file)
   k8s_resource(
-    objects=[
-      # The CRDs don't really get installed in a namespace, but since each
-      # operator install is tied to a namespace, tilt uses a namespace to track
-      # the install so we need to include one object per CRD per namespace.
-      '%s:%s' % (crd, namespace) for namespace in psmdb_namespaces for crd in [
-        'perconaservermongodbbackups.psmdb.percona.com:customresourcedefinition',
-        'perconaservermongodbrestores.psmdb.percona.com:customresourcedefinition',
-        'perconaservermongodbs.psmdb.percona.com:customresourcedefinition',
-      ]
-    ],
-    resource_deps = [
-      'namespaces',
-    ],
+    objects=psmdb_crd_objects,
     new_name='psmdb-crds',
+    resource_deps=[
+      'psmdb-download-manifests',
+    ],
     labels=["db-operators"]
   )
+
+# Deploy PSMDB operator to each namespace
 for namespace in psmdb_namespaces:
-  k8s_yaml(namespace_inject(psmdb_operator_bundle_yaml, namespace))
+  rbac_file = '{0}/psmdb-operator-v{1}-rbac.yaml'.format(cache_dir, psmdb_operator_version)
+  operator_file = '{0}/psmdb-operator-v{1}-operator.yaml'.format(cache_dir, psmdb_operator_version)
+  
+  k8s_yaml(namespace_inject(rbac_file, namespace))
+  k8s_yaml(namespace_inject(operator_file, namespace))
+  
+  # Determine deployment name (include namespace suffix if multiple namespaces)
+  deployment_suffix = ':deployment:' + namespace if len(psmdb_namespaces) > 1 else ''
+  
   k8s_resource(
-    workload='percona-server-mongodb-operator%s' % (':deployment:' + namespace if len(psmdb_namespaces) > 1 else ''),
+    workload='percona-server-mongodb-operator{0}'.format(deployment_suffix),
     objects=[
-      'percona-server-mongodb-operator:serviceaccount:%s' % namespace,
-      'percona-server-mongodb-operator:role:%s' % namespace,
-      'service-account-percona-server-mongodb-operator:rolebinding:%s' % namespace,
+      'percona-server-mongodb-operator:serviceaccount:{0}'.format(namespace),
+      'percona-server-mongodb-operator:role:{0}'.format(namespace),
+      'service-account-percona-server-mongodb-operator:rolebinding:{0}'.format(namespace),
     ],
-    resource_deps = [
+    resource_deps=[
       'namespaces',
       'psmdb-crds',
     ],
-    new_name='psmdb:%s' % namespace,
+    new_name='psmdb:{0}'.format(namespace),
     labels=["db-operators"]
   )
 
-# PG
-pg_operator_bundle_yaml = local(['curl', '-s', 'https://raw.githubusercontent.com/percona/percona-postgresql-operator/v%s/deploy/bundle.yaml' % pg_operator_version], quiet=True)
-pg_namespaces = [namespace['name'] for namespace in config_yaml['namespaces'] if 'pg' in namespace['operators']]
-# We keep track of the CRD objects separately from the operator deployment so
-# that we can make the deployment depend on the CRDs to avoid tilt thinking
-# that there are conflicts with multiple CRDs.
+#############################
+## Percona PostgreSQL (PG) ##
+#############################
+
+# Download PG operator manifests
+pg_base_url = 'https://raw.githubusercontent.com/percona/percona-postgresql-operator/v{0}/deploy'.format(pg_operator_version)
+
+local_resource(
+  'pg-download-manifests',
+  'for manifest in crd rbac operator; do test -f {0}/pg-operator-v{1}-$manifest.yaml || curl -s {2}/$manifest.yaml -o {0}/pg-operator-v{1}-$manifest.yaml; done'.format(cache_dir, pg_operator_version, pg_base_url),
+  resource_deps=['namespaces'],
+  labels=["db-operators"]
+)
+
+# Identify namespaces that use PG operator
+pg_namespaces = [ns['name'] for ns in config_yaml['namespaces'] if 'pg' in ns['operators']]
+
+# Deploy PG CRDs (separately to avoid conflicts with multiple operator deployments)
 if pg_namespaces:
- k8s_resource(
-   objects=[
-     # The CRDs don't really get installed in a namespace, but since each
-     # operator install is tied to a namespace, tilt uses a namespace to track
-     # the install so we need to include one object per CRD per namespace.
-     '%s:%s' % (crd, namespace) for namespace in pg_namespaces for crd in [
-       'perconapgbackups.pgv2.percona.com:customresourcedefinition',
-       'perconapgclusters.pgv2.percona.com:customresourcedefinition',
-       'perconapgrestores.pgv2.percona.com:customresourcedefinition',
-       'postgresclusters.postgres-operator.crunchydata.com:customresourcedefinition',
-       'crunchybridgeclusters.postgres-operator.crunchydata.com:customresourcedefinition',
-       'perconapgupgrades.pgv2.percona.com:customresourcedefinition',
-       'pgadmins.postgres-operator.crunchydata.com:customresourcedefinition',
-       'pgupgrades.postgres-operator.crunchydata.com:customresourcedefinition'
-     ]
-   ],
-   resource_deps = [
-     'namespaces',
-   ],
-   new_name='pg-crds',
-   labels=["db-operators"]
- )
-for namespace in pg_namespaces:
-  k8s_yaml(namespace_inject(pg_operator_bundle_yaml, namespace))
+  pg_crd_file = '{0}/pg-operator-v{1}-crd.yaml'.format(cache_dir, pg_operator_version)
+  pg_crd_objects = [
+    'perconapgbackups.pgv2.percona.com:customresourcedefinition',
+    'perconapgclusters.pgv2.percona.com:customresourcedefinition',
+    'perconapgrestores.pgv2.percona.com:customresourcedefinition',
+    'postgresclusters.postgres-operator.crunchydata.com:customresourcedefinition',
+    'crunchybridgeclusters.postgres-operator.crunchydata.com:customresourcedefinition',
+    'perconapgupgrades.pgv2.percona.com:customresourcedefinition',
+    'pgadmins.postgres-operator.crunchydata.com:customresourcedefinition',
+    'pgupgrades.postgres-operator.crunchydata.com:customresourcedefinition',
+  ]
+  
+  k8s_yaml(pg_crd_file)
   k8s_resource(
-    workload='percona-postgresql-operator%s' % (':deployment:' + namespace if len(pg_namespaces) > 1 else ''),
-    objects=[
-      'percona-postgresql-operator:serviceaccount:%s' % namespace,
-      'percona-postgresql-operator:role:%s' % namespace,
-      'percona-postgresql-operator:rolebinding:%s' % namespace,
+    objects=pg_crd_objects,
+    new_name='pg-crds',
+    resource_deps=[
+      'pg-download-manifests',
     ],
-    resource_deps = [
+    labels=["db-operators"]
+  )
+
+# Deploy PG operator to each namespace
+for namespace in pg_namespaces:
+  rbac_file = '{0}/pg-operator-v{1}-rbac.yaml'.format(cache_dir, pg_operator_version)
+  operator_file = '{0}/pg-operator-v{1}-operator.yaml'.format(cache_dir, pg_operator_version)
+  
+  k8s_yaml(namespace_inject(rbac_file, namespace))
+  k8s_yaml(namespace_inject(operator_file, namespace))
+  
+  # Determine deployment name (include namespace suffix if multiple namespaces)
+  deployment_suffix = ':deployment:' + namespace if len(pg_namespaces) > 1 else ''
+  
+  k8s_resource(
+    workload='percona-postgresql-operator{0}'.format(deployment_suffix),
+    objects=[
+      'percona-postgresql-operator:serviceaccount:{0}'.format(namespace),
+      'percona-postgresql-operator:role:{0}'.format(namespace),
+      'percona-postgresql-operator:rolebinding:{0}'.format(namespace),
+    ],
+    resource_deps=[
       'namespaces',
       'pg-crds',
     ],
-    new_name='pg:%s' % namespace,
+    new_name='pg:{0}'.format(namespace),
     labels=["db-operators"]
   )
 
 ################################
 ### Deploy Everest Helm chart ##
 ################################
+
+# Build helm dependencies.
+# helm_remote_deps_present() is a fast file-existence check used as a synchronous guard
+# below — it ensures helm() can render the chart during Tiltfile evaluation without any
+# network calls when .tgz files are already cached.
+# read_yaml() also causes Tiltfile to watch Chart.lock files, so a version bump triggers
+# a reload and the guard re-runs, fetching the new versions if needed.
+def helm_remote_deps_present(chart_dir):
+    lock_file = '{0}/Chart.lock'.format(chart_dir)
+    if not os.path.exists(lock_file):
+        return False
+    lock = read_yaml(lock_file)
+    if not lock:
+        return False
+    for dep in lock.get('dependencies', []):
+        if dep.get('repository', '').startswith('file://'):
+            continue  # local file dep, no .tgz needed
+        tgz = '{0}/charts/{1}-{2}.tgz'.format(chart_dir, dep['name'], dep['version'])
+        if not os.path.exists(tgz):
+            print('Missing helm dep, will run make deps: {0}'.format(tgz))
+            return False
+    # Check pmm3 subchart (has its own remote dependency)
+    pmm3_lock_file = '{0}/charts/pmm3/Chart.lock'.format(chart_dir)
+    if os.path.exists(pmm3_lock_file):
+        pmm3_lock = read_yaml(pmm3_lock_file)
+        if pmm3_lock:
+            for dep in pmm3_lock.get('dependencies', []):
+                if dep.get('repository', '').startswith('file://'):
+                    continue
+                tgz = '{0}/charts/pmm3/charts/{1}-{2}.tgz'.format(chart_dir, dep['name'], dep['version'])
+                if not os.path.exists(tgz):
+                    print('Missing helm dep, will run make deps: {0}'.format(tgz))
+                    return False
+    return True
+
+# Synchronous guard: runs 'make deps' only when .tgz files are missing (first clone,
+# or after a Chart.lock version bump). Required because helm() below renders the chart
+# synchronously during Tiltfile evaluation — before any local_resource() has run.
+if not helm_remote_deps_present(everest_chart_dir):
+    local(
+        'HELM="go tool -modfile={0}/go.mod helm" make -C {1} deps'.format(
+            backend_dir, everest_chart_dir,
+        ),
+    )
+
+# Named resource: visible in the Tilt dashboard and usable as a dependency for other
+# resources. Uses 'helm dependency list' (local, no network) to check whether any
+# remote dependency .tgz files are missing, then runs 'deps-build' only if needed.
+# This correctly handles checking out older versions that may remove .tgz files.
+local_resource(
+    'helm-deps',
+    '''HELM_BIN="go tool -modfile={go_mod} helm"
+if $HELM_BIN dependency list "{chart_dir}" | grep -q missing || \
+   $HELM_BIN dependency list "{chart_dir}/charts/pmm3" | grep -q missing; then
+    HELM="$HELM_BIN" make -C "{chart_dir}" deps-build
+else
+    echo "Helm deps already up to date, skipping"
+fi'''.format(
+        chart_dir=everest_chart_dir,
+        go_mod=backend_dir + '/go.mod',
+    ),
+    deps=[
+        '{0}/Chart.lock'.format(everest_chart_dir),
+        '{0}/charts/pmm3/Chart.lock'.format(everest_chart_dir),
+        '{0}/charts/everest-db-namespace/Chart.lock'.format(everest_chart_dir),
+    ],
+    labels=['everest'],
+)
+
 
 # First apply the CRDs since we will not apply them in the helm chart.
 everest_crds = kustomize('%s/config/crd' % operator_dir)
@@ -369,6 +501,7 @@ k8s_resource(
     ],
     resource_deps = [
       'everest-monitoring-namespace',
+      'helm-deps',
     ],
     new_name='kube-state-metrics-deploy',
     labels=["everest-monitoring"]
@@ -411,6 +544,7 @@ k8s_resource(
     resource_deps = [
       'everest-monitoring-namespace',
       'vm-crds',
+      'helm-deps',
     ],
     new_name='vm-operator-deploy',
     labels=["everest-monitoring"]
@@ -444,12 +578,6 @@ if everest_operator_debug:
 
 # Build the Everest operator manager locally to take advantage of the go cache
 local_resource(
-    'operator-init',
-    'make -C {0} init'.format(operator_dir),
-    labels=["everest-operator"],
-)
-
-local_resource(
   'operator-build',
   '{0} make -C {1} {2}'.format(everest_operator_build_env, operator_dir, everest_operator_build_target),
   deps=[
@@ -465,14 +593,11 @@ local_resource(
       '{0}/**/*.gen.go*'.format(operator_dir),
   ],
   labels=["everest-operator"],
-  resource_deps = [
-    'operator-init',
-  ],
 )
 
 # Live update the Everest operator manager without generating a new pod
 load('ext://restart_process', 'docker_build_with_restart')
-docker_build_with_restart('ghcr.io/openeverest/openeverest-operator-dev',
+docker_build_with_restart('ghcr.io/openeverest/openeverest-operator',
   context=operator_dir,
   dockerfile='./everest-operator.Dockerfile',
   target=everest_operator_target,
@@ -515,7 +640,6 @@ k8s_resource(
     'webhook-server-cert:secret',
     'everest-operator-validating-webhook-configuration:validatingwebhookconfiguration',
     'everest-operator-mutating-webhook-configuration:mutatingwebhookconfiguration',
-    'everest-helm-psp-cleanup-hook:serviceaccount:{0}'.format(EVEREST_NAMESPACE),
     'everest-operator-backupstorage-editor-role:clusterrole',
     'everest-operator-backupstorage-viewer-role:clusterrole',
     'everest-operator-databasecluster-editor-role:clusterrole',
@@ -534,11 +658,16 @@ k8s_resource(
     'everest-operator-loadbalancerconfig-viewer-role:clusterrole',
     'enginefeatures.everest-splithorizondnsconfig-editor-role:clusterrole',
     'enginefeatures.everest-splithorizondnsconfig-viewer-role:clusterrole',
+    'everest-helm-lbc-cleanup-hook:serviceaccount',
+    'everest-helm-lbc-cleanup-hook:clusterrole',
+    'everest-helm-lbc-cleanup-hook:clusterrolebinding',
+    'everest-helm-psp-cleanup-hook:serviceaccount',
     'everest-helm-psp-cleanup-hook:clusterrole',
     'everest-helm-psp-cleanup-hook:clusterrolebinding',
     'everest-percona-pg-operator:dataimporter',
     'everest-percona-psmdb-operator:dataimporter',
     'everest-percona-pxc-operator:dataimporter',
+    'eks-default:loadbalancerconfig',
     'everest-default-mysql:podschedulingpolicy',
     'everest-default-postgresql:podschedulingpolicy',
     'everest-default-mongodb:podschedulingpolicy'
@@ -547,6 +676,7 @@ k8s_resource(
       'everest-namespace',
       'everest-crds',
       'operator-build',
+      'helm-deps',
     ],
     port_forwards=everest_operator_port_forwards,
     new_name='everest-operator-deploy',
@@ -658,7 +788,7 @@ local_resource(
     labels=["everest"]
 )
 
-docker_build_with_restart('ghcr.io/openeverest/openeverest-dev',
+docker_build_with_restart('ghcr.io/openeverest/openeverest',
   context=backend_dir,
   dockerfile='./everest.Dockerfile',
   target=everest_target,
@@ -685,15 +815,16 @@ k8s_resource(
     resource_deps = [
       'everest-namespace',
       'backend-build',
+      'helm-deps',
     ],
     port_forwards=everest_port_forwards,
     new_name='everest-server-deploy',
     labels=["everest"]
 )
 
-#################################
+#######################################
 ############ Backup Storages ##########
-#################################
+#######################################
 def getBackupStorageNames():
     to_return = []
     for ns in config_yaml['namespaces']:
@@ -759,5 +890,9 @@ if need_backup_storage:
                     '{0}:BackupStorage:{1}'.format(storage_name, ns_name),
                 ],
                 new_name='bs-{0}-{1}'.format(ns_name, storage_name),
-                labels=["backup-storage"]
+                labels=["backup-storage"],
+                resource_deps=[
+                    'everest-crds',
+                    'minIO-deploy'
+                ]
             )
