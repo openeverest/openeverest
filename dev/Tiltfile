@@ -822,9 +822,9 @@ k8s_resource(
     labels=["everest"]
 )
 
-#################################
+#######################################
 ############ Backup Storages ##########
-#################################
+#######################################
 def getBackupStorageNames():
     to_return = []
     for ns in config_yaml['namespaces']:
@@ -890,5 +890,9 @@ if need_backup_storage:
                     '{0}:BackupStorage:{1}'.format(storage_name, ns_name),
                 ],
                 new_name='bs-{0}-{1}'.format(ns_name, storage_name),
-                labels=["backup-storage"]
+                labels=["backup-storage"],
+                resource_deps=[
+                    'everest-crds',
+                    'minIO-deploy'
+                ]
             )
