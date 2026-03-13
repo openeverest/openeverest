@@ -65,55 +65,56 @@ export const Backups = lazy(() =>
 );
 
 export const Namespaces = lazy(() =>
-  import('./pages/settings/namespaces/namespaces').then((module) => ({
+  import('pages/settings/namespaces/namespaces').then((module) => ({
     default: module.Namespaces,
   }))
 );
 
-export const NamespaceDetails = lazy(() =>
-  import('pages/settings/namespaces/namespace-details')
+export const NamespaceDetails = lazy(
+  () => import('pages/settings/namespaces/namespace-details')
 );
 
 export const Restores = lazy(() => import('pages/db-cluster-details/restores'));
 
-export const Components = lazy(() =>
-  import('./pages/db-cluster-details/components')
+export const Components = lazy(
+  () => import('pages/db-cluster-details/components')
 );
 
-export const Logs = lazy(() =>
-  import('pages/db-cluster-details/component-logs/component-logs')
+export const Logs = lazy(
+  () => import('pages/db-cluster-details/component-logs/component-logs')
 );
 
-export const LoginCallback = lazy(() =>
-  import('components/login-callback/LoginCallback')
+export const LoginCallback = lazy(
+  () => import('components/login-callback/LoginCallback')
 );
 
 export const Logout = lazy(() => import('pages/logout'));
 
 export const Policies = lazy(() => import('pages/settings/policies/policies'));
 
-export const PoliciesList = lazy(() =>
-  import('pages/settings/policies/pod-scheduling-policies/policies-list')
+export const PoliciesList = lazy(
+  () => import('pages/settings/policies/pod-scheduling-policies/policies-list')
 );
 
-export const PolicyDetails = lazy(() =>
-  import('pages/settings/policies/pod-scheduling-policies/policy-details')
+export const PolicyDetails = lazy(
+  () => import('pages/settings/policies/pod-scheduling-policies/policy-details')
 );
 
-export const LoadBalancerConfiguration = lazy(() =>
-  import('pages/settings/policies/load-balancer-configuration')
+export const LoadBalancerConfiguration = lazy(
+  () => import('pages/settings/policies/load-balancer-configuration')
 );
 
-export const LoadBalancerConfigDetails = lazy(() =>
-  import(
-    'pages/settings/policies/load-balancer-configuration/load-balancer-config-detials/load-balancer-config-detials'
-  )
+export const LoadBalancerConfigDetails = lazy(
+  () =>
+    import(
+      'pages/settings/policies/load-balancer-configuration/load-balancer-config-detials/load-balancer-config-detials'
+    )
 );
 
-export const SettingsPoliciesRouter = lazy(() =>
-  import('pages/settings/settings-policies-router')
+export const SettingsPoliciesRouter = lazy(
+  () => import('pages/settings/settings-policies-router')
 );
 
-export const SplitHorizon = lazy(() =>
-  import('pages/settings/policies/split-horizon')
+export const SplitHorizon = lazy(
+  () => import('pages/settings/policies/split-horizon')
 );
