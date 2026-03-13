@@ -72,8 +72,9 @@ build-server-helper: GOARCH = amd64
 build-server-helper: $(LOCALBIN)
 # We need to ensure that /public/dist/index.html exists before building Everest
 # API server because it's embedded into the binary and missing file will cause
-# build failure.
-	mkdir -p ./public/dist && touch ./public/dist/index.html
+# build failure. We avoid touching the file if it already exists to prevent
+# unnecessary rebuilds when only the timestamp of the file changes.
+	mkdir -p ./public/dist && [ -f ./public/dist/index.html ] || touch ./public/dist/index.html
 	$(info Building Everest API server for $(GOOS)/$(GOARCH) with CGO_ENABLED=$(CGO_ENABLED))
 	go build -v $(SERVER_BUILD_TAGS) $(SERVER_GC_FLAGS) -ldflags "$(SERVER_LD_FLAGS)" -o $(LOCALBIN)/everest ./cmd
 
@@ -151,24 +152,27 @@ clean:
 test:                   ## Run unit tests.
 # We need to ensure that /public/dist/index.html exists before running tests
 # because it's embedded into the binary and missing file will cause test
-# failure.
-	mkdir -p ./public/dist && touch ./public/dist/index.html
+# failure. We avoid touching the file if it already exists to prevent
+# unnecessary rebuilds when only the timestamp of the file changes.
+	mkdir -p ./public/dist && [ -f ./public/dist/index.html ] || touch ./public/dist/index.html
 	CGO_ENABLED=1 go test -race -timeout=20m ./...
 
 .PHONY: test-cover
 test-cover:             ## Run unit tests and collect per-package coverage information.
 # We need to ensure that /public/dist/index.html exists before running tests
 # because it's embedded into the binary and missing file will cause test
-# failure.
-	mkdir -p ./public/dist && touch ./public/dist/index.html
+# failure. We avoid touching the file if it already exists to prevent
+# unnecessary rebuilds when only the timestamp of the file changes.
+	mkdir -p ./public/dist && [ -f ./public/dist/index.html ] || touch ./public/dist/index.html
 	CGO_ENABLED=1 go test -race -timeout=20m -count=1 -coverprofile=cover.out -covermode=atomic ./...
 
 .PHONY: test-crosscover
 test-crosscover:        ## Run unit tests and collect cross-package coverage information.
 # We need to ensure that /public/dist/index.html exists before running tests
 # because it's embedded into the binary and missing file will cause test
-# failure.
-	mkdir -p ./public/dist && touch ./public/dist/index.html
+# failure. We avoid touching the file if it already exists to prevent
+# unnecessary rebuilds when only the timestamp of the file changes.
+	mkdir -p ./public/dist && [ -f ./public/dist/index.html ] || touch ./public/dist/index.html
 	CGO_ENABLED=1 go test -race -timeout=20m -count=1 -coverprofile=crosscover.out -covermode=atomic -p=1 -coverpkg=./... ./...
 
 ##@ Deployment
