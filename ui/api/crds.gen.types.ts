@@ -574,6 +574,7 @@ export interface components {
                 phase?: string;
             };
         };
+        /** @description ConnectionDetails holds the typed connection details for a database instance. These are written by the provider-runtime reconciler to a Kubernetes Secret and later read back by the API server to serve the connection endpoint. They follow the Service Binding well-known keys where applicable. */
         InstanceConnectionDetails: {
             /** @description Host is the hostname or IP address to connect to */
             host?: string;
@@ -597,6 +598,84 @@ export interface components {
             /** @description APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources */
             apiVersion?: string;
             items?: components["schemas"]["Instance"][];
+            /** @description Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds */
+            kind?: string;
+            metadata?: {
+                /** @description Name must be unique within a namespace. Is required when creating resources, although some resources may allow a client to request the generation of an appropriate name automatically. Name is primarily intended for creation idempotence and configuration definition. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names#names */
+                name?: string;
+                /** @description Namespace defines the space within which each name must be unique. An empty namespace is equivalent to the "default" namespace, but "default" is the canonical representation. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces */
+                namespace?: string;
+            };
+        };
+        /** @description MonitoringConfig is the Schema for the monitoringconfigs API. */
+        MonitoringConfig: {
+            /**
+             * @description APIVersion defines the versioned schema of this representation of an object.
+             *     Servers should convert recognized schemas to the latest internal value, and
+             *     may reject unrecognized values.
+             *     More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+             */
+            apiVersion?: string;
+            /**
+             * @description Kind is a string value representing the REST resource this object represents.
+             *     Servers may infer this from the endpoint the client submits requests to.
+             *     Cannot be updated.
+             *     In CamelCase.
+             *     More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+             */
+            kind?: string;
+            metadata: Record<string, never>;
+            /** @description MonitoringConfigSpec defines the desired state of MonitoringConfig. */
+            spec: {
+                /** @description AllowedNamespaces is the list of namespaces where the operator will copy secrets provided in the CredentialsSecretsName. */
+                allowedNamespaces?: string[];
+                /** @description CredentialsSecretName is the name of the secret with credentials. */
+                credentialsSecretName: string;
+                /** @description PMM is configuration specific for monitoring using PMM tool. */
+                pmm?: {
+                    /** @description Image is a Docker image name to use for deploying PMM client. Defaults to using the latest version. */
+                    image: string;
+                    /** @description URL is url to the monitoring config. */
+                    url: string;
+                };
+                /**
+                 * @description Type is the name of monitoring tool (e.g., "pmm").
+                 * @enum {string}
+                 */
+                type: "pmm";
+                /**
+                 * @description VerifyTLS is set to ensure TLS/SSL verification.
+                 *     If unspecified, the default value is true.
+                 * @default true
+                 */
+                verifyTLS: boolean;
+            };
+            /**
+             * @description MonitoringConfigStatus defines the observed state of MonitoringConfig.
+             * @default {
+             *       "inUse": false
+             *     }
+             */
+            status: {
+                /**
+                 * @description InUse is a flag that indicates if any Instance uses the monitoring config.
+                 * @default false
+                 */
+                inUse: boolean;
+                /**
+                 * Format: int64
+                 * @description LastObservedGeneration is the most recent generation observed for this MonitoringConfig.
+                 */
+                lastObservedGeneration?: number;
+                /** @description PMMServerVersion shows PMM server version. */
+                pmmServerVersion?: string;
+            };
+        };
+        /** @description MonitoringConfigList is an object that contains the list of the existing monitoringconfigs. */
+        MonitoringConfigList: {
+            /** @description APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources */
+            apiVersion?: string;
+            items?: components["schemas"]["MonitoringConfig"][];
             /** @description Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds */
             kind?: string;
             metadata?: {

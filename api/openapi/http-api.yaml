@@ -3116,7 +3116,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/MonitoringConfig'
+                $ref: 'crds.gen.yaml#/components/schemas/MonitoringConfig'
         '400':
           description: Unsuccessful operation
           content:
@@ -3135,7 +3135,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/MonitoringConfigCreateParams'
+              $ref: 'crds.gen.yaml#/components/schemas/MonitoringConfig'
     get:
       tags:
         - Monitoring
@@ -3161,7 +3161,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/MonitoringConfigsList'
+                $ref: 'crds.gen.yaml#/components/schemas/MonitoringConfigList'
         '400':
           description: Unsuccessful operation
           content:
@@ -3207,7 +3207,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/MonitoringConfig'
+                $ref: 'crds.gen.yaml#/components/schemas/MonitoringConfig'
         '400':
           description: Unsuccessful operation
           content:
@@ -3257,7 +3257,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/MonitoringConfig'
+                $ref: 'crds.gen.yaml#/components/schemas/MonitoringConfig'
         '400':
           description: Unsuccessful operation
           content:
@@ -3282,7 +3282,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/MonitoringConfigUpdateParams'
+              $ref: 'crds.gen.yaml#/components/schemas/MonitoringConfig'
     delete:
       tags:
         - Monitoring

@@ -46,6 +46,11 @@ const (
 	InstanceStatusConditionsStatusUnknown InstanceStatusConditionsStatus = "Unknown"
 )
 
+// Defines values for MonitoringConfigSpecType.
+const (
+	Pmm MonitoringConfigSpecType = "pmm"
+)
+
 // Defines values for ProviderStatusConditionsStatus.
 const (
 	ProviderStatusConditionsStatusFalse   ProviderStatusConditionsStatus = "False"
@@ -588,7 +593,7 @@ type Instance_Spec_Components_Storage_Size struct {
 // InstanceStatusConditionsStatus status of the condition, one of True, False, Unknown.
 type InstanceStatusConditionsStatus string
 
-// InstanceConnectionDetails defines model for InstanceConnectionDetails.
+// InstanceConnectionDetails ConnectionDetails holds the typed connection details for a database instance. These are written by the provider-runtime reconciler to a Kubernetes Secret and later read back by the API server to serve the connection endpoint. They follow the Service Binding well-known keys where applicable.
 type InstanceConnectionDetails struct {
 	// Host Host is the hostname or IP address to connect to
 	Host *string `json:"host,omitempty"`
@@ -618,6 +623,80 @@ type InstanceList struct {
 	// ApiVersion APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
 	ApiVersion *string     `json:"apiVersion,omitempty"`
 	Items      *[]Instance `json:"items,omitempty"`
+
+	// Kind Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+	Kind     *string `json:"kind,omitempty"`
+	Metadata *struct {
+		// Name Name must be unique within a namespace. Is required when creating resources, although some resources may allow a client to request the generation of an appropriate name automatically. Name is primarily intended for creation idempotence and configuration definition. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names#names
+		Name *string `json:"name,omitempty"`
+
+		// Namespace Namespace defines the space within which each name must be unique. An empty namespace is equivalent to the "default" namespace, but "default" is the canonical representation. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces
+		Namespace *string `json:"namespace,omitempty"`
+	} `json:"metadata,omitempty"`
+}
+
+// MonitoringConfig MonitoringConfig is the Schema for the monitoringconfigs API.
+type MonitoringConfig struct {
+	// ApiVersion APIVersion defines the versioned schema of this representation of an object.
+	// Servers should convert recognized schemas to the latest internal value, and
+	// may reject unrecognized values.
+	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+	ApiVersion *string `json:"apiVersion,omitempty"`
+
+	// Kind Kind is a string value representing the REST resource this object represents.
+	// Servers may infer this from the endpoint the client submits requests to.
+	// Cannot be updated.
+	// In CamelCase.
+	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+	Kind     *string                `json:"kind,omitempty"`
+	Metadata map[string]interface{} `json:"metadata"`
+
+	// Spec MonitoringConfigSpec defines the desired state of MonitoringConfig.
+	Spec struct {
+		// AllowedNamespaces AllowedNamespaces is the list of namespaces where the operator will copy secrets provided in the CredentialsSecretsName.
+		AllowedNamespaces *[]string `json:"allowedNamespaces,omitempty"`
+
+		// CredentialsSecretName CredentialsSecretName is the name of the secret with credentials.
+		CredentialsSecretName string `json:"credentialsSecretName"`
+
+		// Pmm PMM is configuration specific for monitoring using PMM tool.
+		Pmm *struct {
+			// Image Image is a Docker image name to use for deploying PMM client. Defaults to using the latest version.
+			Image string `json:"image"`
+
+			// Url URL is url to the monitoring config.
+			Url string `json:"url"`
+		} `json:"pmm,omitempty"`
+
+		// Type Type is the name of monitoring tool (e.g., "pmm").
+		Type MonitoringConfigSpecType `json:"type"`
+
+		// VerifyTLS VerifyTLS is set to ensure TLS/SSL verification.
+		// If unspecified, the default value is true.
+		VerifyTLS *bool `json:"verifyTLS,omitempty"`
+	} `json:"spec"`
+
+	// Status MonitoringConfigStatus defines the observed state of MonitoringConfig.
+	Status struct {
+		// InUse InUse is a flag that indicates if any Instance uses the monitoring config.
+		InUse *bool `json:"inUse,omitempty"`
+
+		// LastObservedGeneration LastObservedGeneration is the most recent generation observed for this MonitoringConfig.
+		LastObservedGeneration *int64 `json:"lastObservedGeneration,omitempty"`
+
+		// PmmServerVersion PMMServerVersion shows PMM server version.
+		PmmServerVersion *string `json:"pmmServerVersion,omitempty"`
+	} `json:"status"`
+}
+
+// MonitoringConfigSpecType Type is the name of monitoring tool (e.g., "pmm").
+type MonitoringConfigSpecType string
+
+// MonitoringConfigList MonitoringConfigList is an object that contains the list of the existing monitoringconfigs.
+type MonitoringConfigList struct {
+	// ApiVersion APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+	ApiVersion *string             `json:"apiVersion,omitempty"`
+	Items      *[]MonitoringConfig `json:"items,omitempty"`
 
 	// Kind Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
 	Kind     *string `json:"kind,omitempty"`

@@ -1163,6 +1163,62 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/clusters/{cluster}/namespaces/{namespace}/monitoring-configs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List monitoring configs
+         * @description This API lists all monitoring configs in a given namespace.
+         */
+        get: operations["listMonitoringConfigs"];
+        put?: never;
+        /**
+         * Create monitoring config
+         * @description This API creates a new monitoring config.
+         *
+         *     A monitoring config object requires `type` to be set.
+         *     Based on the `type` the respective key with configuration needs to be set.
+         *     Such as, if `type: pmm`, then `pmm` key needs to be provided with a configuration.
+         */
+        post: operations["createMonitoringConfig"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/clusters/{cluster}/namespaces/{namespace}/monitoring-configs/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get monitoring config
+         * @description This API gets the monitoring config specified by the `name`.
+         */
+        get: operations["getMonitoringConfig"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete monitoring config
+         * @description This API deletes the monitoring config specified by the `name`.
+         */
+        delete: operations["deleteMonitoringConfig"];
+        options?: never;
+        head?: never;
+        /**
+         * Update monitoring config
+         * @description This API updates the monitoring config specified by the `name`.
+         */
+        patch: operations["updateMonitoringConfig"];
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -7264,6 +7320,7 @@ export interface components {
                 namespace?: string;
             };
         };
+        /** @description ConnectionDetails holds the typed connection details for a database instance. These are written by the provider-runtime reconciler to a Kubernetes Secret and later read back by the API server to serve the connection endpoint. They follow the Service Binding well-known keys where applicable. */
         InstanceConnectionDetails: {
             /** @description Host is the hostname or IP address to connect to */
             host?: string;
@@ -7576,6 +7633,84 @@ export interface components {
                 startedAt?: string;
                 /** @description State is the current state of the backup job. */
                 state?: string;
+            };
+        };
+        /** @description MonitoringConfig is the Schema for the monitoringconfigs API. */
+        MonitoringConfig: {
+            /**
+             * @description APIVersion defines the versioned schema of this representation of an object.
+             *     Servers should convert recognized schemas to the latest internal value, and
+             *     may reject unrecognized values.
+             *     More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+             */
+            apiVersion?: string;
+            /**
+             * @description Kind is a string value representing the REST resource this object represents.
+             *     Servers may infer this from the endpoint the client submits requests to.
+             *     Cannot be updated.
+             *     In CamelCase.
+             *     More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+             */
+            kind?: string;
+            metadata: Record<string, never>;
+            /** @description MonitoringConfigSpec defines the desired state of MonitoringConfig. */
+            spec: {
+                /** @description AllowedNamespaces is the list of namespaces where the operator will copy secrets provided in the CredentialsSecretsName. */
+                allowedNamespaces?: string[];
+                /** @description CredentialsSecretName is the name of the secret with credentials. */
+                credentialsSecretName: string;
+                /** @description PMM is configuration specific for monitoring using PMM tool. */
+                pmm?: {
+                    /** @description Image is a Docker image name to use for deploying PMM client. Defaults to using the latest version. */
+                    image: string;
+                    /** @description URL is url to the monitoring config. */
+                    url: string;
+                };
+                /**
+                 * @description Type is the name of monitoring tool (e.g., "pmm").
+                 * @enum {string}
+                 */
+                type: "pmm";
+                /**
+                 * @description VerifyTLS is set to ensure TLS/SSL verification.
+                 *     If unspecified, the default value is true.
+                 * @default true
+                 */
+                verifyTLS: boolean;
+            };
+            /**
+             * @description MonitoringConfigStatus defines the observed state of MonitoringConfig.
+             * @default {
+             *       "inUse": false
+             *     }
+             */
+            status: {
+                /**
+                 * @description InUse is a flag that indicates if any Instance uses the monitoring config.
+                 * @default false
+                 */
+                inUse: boolean;
+                /**
+                 * Format: int64
+                 * @description LastObservedGeneration is the most recent generation observed for this MonitoringConfig.
+                 */
+                lastObservedGeneration?: number;
+                /** @description PMMServerVersion shows PMM server version. */
+                pmmServerVersion?: string;
+            };
+        };
+        /** @description MonitoringConfigList is an object that contains the list of the existing monitoringconfigs. */
+        MonitoringConfigList: {
+            /** @description APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources */
+            apiVersion?: string;
+            items?: components["schemas"]["MonitoringConfig"][];
+            /** @description Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds */
+            kind?: string;
+            metadata?: {
+                /** @description Name must be unique within a namespace. Is required when creating resources, although some resources may allow a client to request the generation of an appropriate name automatically. Name is primarily intended for creation idempotence and configuration definition. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names#names */
+                name?: string;
+                /** @description Namespace defines the space within which each name must be unique. An empty namespace is equivalent to the "default" namespace, but "default" is the canonical representation. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces */
+                namespace?: string;
             };
         };
     };
@@ -10828,6 +10963,262 @@ export interface operations {
             };
             /** @description Error */
             default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    listMonitoringConfigs: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The name of the cluster */
+                cluster: string;
+                /** @description Namespace of the monitoring configs */
+                namespace: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful operation */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MonitoringConfigList"];
+                };
+            };
+            /** @description Unsuccessful operation */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    createMonitoringConfig: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The name of the cluster */
+                cluster: string;
+                /** @description Namespace of the monitoring config */
+                namespace: string;
+            };
+            cookie?: never;
+        };
+        /** @description The Monitoring config object to be created */
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MonitoringConfig"];
+            };
+        };
+        responses: {
+            /** @description Successful operation */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MonitoringConfig"];
+                };
+            };
+            /** @description Unsuccessful operation */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getMonitoringConfig: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The name of the cluster */
+                cluster: string;
+                /** @description Name of the monitoring config */
+                name: string;
+                /** @description Namespace of the monitoring config */
+                namespace: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful operation */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MonitoringConfig"];
+                };
+            };
+            /** @description Unsuccessful operation */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Monitoring config not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    deleteMonitoringConfig: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The name of the cluster */
+                cluster: string;
+                /** @description Name of the monitoring config */
+                name: string;
+                /** @description Namespace of the monitoring config */
+                namespace: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful operation */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unsuccessful operation */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Monitoring config not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    updateMonitoringConfig: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The name of the cluster */
+                cluster: string;
+                /** @description Name of the monitoring config */
+                name: string;
+                /** @description Namespace of the monitoring config */
+                namespace: string;
+            };
+            cookie?: never;
+        };
+        /** @description The monitoring config object to be updated. */
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MonitoringConfig"];
+            };
+        };
+        responses: {
+            /** @description Successful operation */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MonitoringConfig"];
+                };
+            };
+            /** @description Unsuccessful operation */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Monitoring config not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
                 headers: {
                     [name: string]: unknown;
                 };
