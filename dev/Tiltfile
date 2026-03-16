@@ -157,9 +157,23 @@ for namespace in namespaces:
 ## Percona XtraDB Cluster (PXC) ##
 ##################################
 
-# Download PXC operator manifests
-pxc_base_url = 'https://raw.githubusercontent.com/percona/percona-xtradb-cluster-operator/v{0}/deploy'.format(pxc_operator_version)
+# Helper function: check if all operator manifest files exist (used as sync guard before k8s_yaml)
+def db_operator_manifests_present(cache_dir, operator_name, version):
+    for manifest_type in ['crd', 'rbac', 'operator']:
+        filename = '{0}/{1}-operator-v{2}-{3}.yaml'.format(cache_dir, operator_name, version, manifest_type)
+        if not os.path.exists(filename):
+            print('Missing db operator manifest, will download: {0}'.format(filename))
+            return False
+    return True
 
+# Synchronous guard: download PXC manifests if missing, ensuring files exist before k8s_yaml() is called
+pxc_base_url = 'https://raw.githubusercontent.com/percona/percona-xtradb-cluster-operator/v{0}/deploy'.format(pxc_operator_version)
+if not db_operator_manifests_present(cache_dir, 'pxc', pxc_operator_version):
+    local(
+        'for manifest in crd rbac operator; do curl -s {0}/$manifest.yaml -o {1}/pxc-operator-v{2}-$manifest.yaml; done'.format(pxc_base_url, cache_dir, pxc_operator_version),
+    )
+
+# Async local resource: redundant if sync guard ran, but provides cleanup and serves as task dependency
 local_resource(
   'pxc-download-manifests',
   'for manifest in crd rbac operator; do test -f {0}/pxc-operator-v{1}-$manifest.yaml || curl -s {2}/$manifest.yaml -o {0}/pxc-operator-v{1}-$manifest.yaml; done'.format(cache_dir, pxc_operator_version, pxc_base_url),
@@ -281,9 +295,14 @@ for namespace in pxc_namespaces:
 ## Percona PostgreSQL (PG) ##
 #############################
 
-# Download PG operator manifests
+# Synchronous guard: download PG manifests if missing, ensuring files exist before k8s_yaml() is called
 pg_base_url = 'https://raw.githubusercontent.com/percona/percona-postgresql-operator/v{0}/deploy'.format(pg_operator_version)
+if not db_operator_manifests_present(cache_dir, 'pg', pg_operator_version):
+    local(
+        'for manifest in crd rbac operator; do curl -s {0}/$manifest.yaml -o {1}/pg-operator-v{2}-$manifest.yaml; done'.format(pg_base_url, cache_dir, pg_operator_version),
+    )
 
+# Async local resource: redundant if sync guard ran, but provides cleanup and serves as task dependency
 local_resource(
   'pg-download-manifests',
   'for manifest in crd rbac operator; do test -f {0}/pg-operator-v{1}-$manifest.yaml || curl -s {2}/$manifest.yaml -o {0}/pg-operator-v{1}-$manifest.yaml; done'.format(cache_dir, pg_operator_version, pg_base_url),
