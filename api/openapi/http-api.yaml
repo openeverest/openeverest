@@ -2828,6 +2828,56 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+  '/clusters/{cluster}/namespaces/{namespace}/instances/{instance}/connection':
+    x-everest-resource-name: instances
+    get:
+      tags:
+        - Instance
+      summary: Get instance connection details
+      description: |
+        This API returns the connection details for the database instance specified by the `instance` name
+        in the specified `namespace` and `cluster`. The connection details include the host, port, username,
+        password, and a pre-built connection URI. These details are populated by the provider once the instance
+        is running and ready.
+      operationId: getInstanceConnection
+      parameters:
+        - name: cluster
+          in: path
+          required: true
+          description: The name of the cluster
+          schema:
+            type: string
+        - name: namespace
+          in: path
+          required: true
+          description: The namespace where the instance is located
+          schema:
+            type: string
+        - name: instance
+          in: path
+          required: true
+          description: The name of the instance
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Connection details for the instance
+          content:
+            application/json:
+              schema:
+                $ref: 'crds.gen.yaml#/components/schemas/InstanceConnectionDetails'
+        '404':
+          description: Instance or connection details not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
   '/clusters/{cluster}/backup-classes':
     x-everest-resource-name: backup-classes
     get:

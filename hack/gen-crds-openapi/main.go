@@ -1,9 +1,26 @@
+// Copyright (C) 2026 The OpenEverest Contributors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package main
 
 import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"go/ast"
+	"go/parser"
+	"go/token"
 	"os"
 	"path/filepath"
 	"strings"
@@ -13,18 +30,33 @@ import (
 	"sigs.k8s.io/yaml"
 )
 
+// goSourcesFlag is a comma-separated list flag.
+type goSourcesFlag []string
+
+func (f *goSourcesFlag) String() string { return strings.Join(*f, ",") }
+func (f *goSourcesFlag) Set(v string) error {
+	*f = append(*f, v)
+	return nil
+}
+
 func main() {
 	crdDir := flag.String("crd-dir", "config/crd/bases", "Directory containing CRD YAML manifests")
 	outputFile := flag.String("output", "api/openapi/crds.gen.yaml", "Output OpenAPI YAML file")
+	var goSources goSourcesFlag
+	flag.Var(&goSources, "go-source", "Go source file to extract +openapi:export annotated types from (repeatable)")
 	flag.Parse()
 
-	if err := run(*crdDir, *outputFile); err != nil {
+	if len(goSources) == 0 {
+		goSources = []string{"provider-runtime/controller/common.go"}
+	}
+
+	if err := run(*crdDir, *outputFile, goSources); err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
 	}
 }
 
-func run(crdDir, outputFile string) error {
+func run(crdDir, outputFile string, goSources []string) error {
 	crdFiles, err := filepath.Glob(filepath.Join(crdDir, "*.yaml"))
 	if err != nil {
 		return fmt.Errorf("failed to find CRD files: %w", err)
@@ -38,6 +70,12 @@ func run(crdDir, outputFile string) error {
 	for _, crdFile := range crdFiles {
 		if err := extractSchemas(crdFile, schemas); err != nil {
 			return fmt.Errorf("failed to extract schemas from %s: %w", crdFile, err)
+		}
+	}
+
+	for _, goFile := range goSources {
+		if err := extractGoTypeSchemas(goFile, schemas); err != nil {
+			return fmt.Errorf("failed to extract Go type schemas from %s: %w", goFile, err)
 		}
 	}
 
@@ -71,6 +109,244 @@ func run(crdDir, outputFile string) error {
 
 	fmt.Printf("Successfully extracted %d schemas to %s\n", len(schemas), outputFile)
 	return nil
+}
+
+// extractGoTypeSchemas parses a Go source file and adds OpenAPI schemas for any
+// struct types annotated with the marker comment "// +openapi:export=<SchemaName>".
+func extractGoTypeSchemas(goFile string, schemas map[string]*openapi3.SchemaRef) error {
+	fset := token.NewFileSet()
+	f, err := parser.ParseFile(fset, goFile, nil, parser.ParseComments)
+	if err != nil {
+		return fmt.Errorf("failed to parse file: %w", err)
+	}
+
+	for _, decl := range f.Decls {
+		genDecl, ok := decl.(*ast.GenDecl)
+		if !ok || genDecl.Tok != token.TYPE {
+			continue
+		}
+
+		exportName := extractExportMarker(genDecl.Doc)
+		if exportName == "" {
+			// Also check per-spec doc when the type is not grouped.
+			for _, spec := range genDecl.Specs {
+				ts, ok := spec.(*ast.TypeSpec)
+				if !ok {
+					continue
+				}
+				exportName = extractExportMarker(ts.Doc)
+				if exportName != "" {
+					if schema, err := buildSchemaFromStruct(ts, exportName, ts.Doc); err == nil {
+						schemas[exportName] = openapi3.NewSchemaRef("", schema)
+						fmt.Printf("  Extracted Go type schema for %s from %s\n", exportName, filepath.Base(goFile))
+					} else {
+						return err
+					}
+				}
+			}
+			continue
+		}
+
+		for _, spec := range genDecl.Specs {
+			ts, ok := spec.(*ast.TypeSpec)
+			if !ok {
+				continue
+			}
+			schema, err := buildSchemaFromStruct(ts, exportName, genDecl.Doc)
+			if err != nil {
+				return err
+			}
+			schemas[exportName] = openapi3.NewSchemaRef("", schema)
+			fmt.Printf("  Extracted Go type schema for %s from %s\n", exportName, filepath.Base(goFile))
+		}
+	}
+	return nil
+}
+
+// extractExportMarker looks for "// +openapi:export=<Name>" in a comment group
+// and returns the schema name, or empty string if not found.
+func extractExportMarker(doc *ast.CommentGroup) string {
+	if doc == nil {
+		return ""
+	}
+	const prefix = "+openapi:export="
+	for _, c := range doc.List {
+		text := strings.TrimSpace(strings.TrimPrefix(c.Text, "//"))
+		if strings.HasPrefix(text, prefix) {
+			return strings.TrimPrefix(text, prefix)
+		}
+	}
+	return ""
+}
+
+// goTypeToOpenAPIType maps a basic Go type identifier to its OpenAPI equivalent.
+func goTypeToOpenAPIType(expr ast.Expr) string {
+	ident, ok := expr.(*ast.Ident)
+	if !ok {
+		return "string"
+	}
+	switch ident.Name {
+	case "int", "int32", "int64":
+		return "integer"
+	case "float32", "float64":
+		return "number"
+	case "bool":
+		return "boolean"
+	default:
+		return "string"
+	}
+}
+
+// buildSchemaFromStruct converts an *ast.TypeSpec (which must be a struct) into
+// an openapi3.Schema. Fields tagged with json:"-" are skipped unless they are a
+// map type, in which case they become additionalProperties on the schema.
+// If genDeclDoc is provided, it's used as a fallback for the schema description.
+func buildSchemaFromStruct(ts *ast.TypeSpec, schemaName string, genDeclDoc *ast.CommentGroup) (*openapi3.Schema, error) {
+	structType, ok := ts.Type.(*ast.StructType)
+	if !ok {
+		return nil, fmt.Errorf("type %s is not a struct", ts.Name.Name)
+	}
+
+	schema := &openapi3.Schema{
+		Type:       &openapi3.Types{"object"},
+		Properties: openapi3.Schemas{},
+	}
+
+	// Try TypeSpec doc first, fall back to genDecl doc if available
+	docToUse := ts.Doc
+	if (docToUse == nil || len(docToUse.List) == 0) && genDeclDoc != nil {
+		docToUse = genDeclDoc
+	}
+
+	if docToUse != nil {
+		var lines []string
+		for _, c := range docToUse.List {
+			line := strings.TrimSpace(strings.TrimPrefix(c.Text, "//"))
+			if !strings.HasPrefix(line, "+") { // skip marker comments
+				lines = append(lines, line)
+			}
+		}
+		schema.Description = strings.TrimSpace(strings.Join(lines, " "))
+	}
+
+	for _, field := range structType.Fields.List {
+		if len(field.Names) == 0 {
+			continue // embedded field, skip
+		}
+
+		jsonName, omit, isAdditional := parseJSONTag(field.Tag, field.Type)
+
+		if omit && !isAdditional {
+			continue
+		}
+
+		if isAdditional {
+			// map[string]string with json:"-" → additionalProperties: {type: string}
+			schema.AdditionalProperties = openapi3.AdditionalProperties{
+				Schema: openapi3.NewSchemaRef("", &openapi3.Schema{
+					Type:        &openapi3.Types{"string"},
+					Description: fieldDescription(field.Doc, field.Comment),
+				}),
+			}
+			continue
+		}
+
+		propSchema := &openapi3.Schema{
+			Type:        &openapi3.Types{goTypeToOpenAPIType(field.Type)},
+			Description: fieldDescription(field.Doc, field.Comment),
+		}
+
+		schema.Properties[jsonName] = openapi3.NewSchemaRef("", propSchema)
+	}
+
+	return schema, nil
+}
+
+// parseJSONTag extracts the JSON field name from a struct tag, and whether the field
+// should be treated as additionalProperties (json:"-" on a map type).
+// Returns (jsonName, skip, isAdditionalProperties).
+func parseJSONTag(tag *ast.BasicLit, fieldType ast.Expr) (string, bool, bool) {
+	isMap := false
+	if _, ok := fieldType.(*ast.MapType); ok {
+		isMap = true
+	}
+
+	if tag == nil {
+		return "", false, false
+	}
+	raw := strings.Trim(tag.Value, "`")
+	st := fieldTagLookup(raw, "json")
+	if st == "" {
+		return "", false, false
+	}
+	parts := strings.Split(st, ",")
+	name := parts[0]
+	if name == "-" {
+		// A map with json:"-" is our AdditionalProperties convention.
+		return "", !isMap, isMap
+	}
+	return name, false, false
+}
+
+// fieldTagLookup mimics reflect.StructTag.Lookup without importing reflect.
+func fieldTagLookup(tag, key string) string {
+	for tag != "" {
+		// skip leading space
+		i := 0
+		for i < len(tag) && tag[i] == ' ' {
+			i++
+		}
+		tag = tag[i:]
+		if tag == "" {
+			break
+		}
+		i = 0
+		for i < len(tag) && tag[i] != ':' && tag[i] != ' ' {
+			i++
+		}
+		if i >= len(tag) || tag[i] != ':' {
+			break
+		}
+		k := tag[:i]
+		tag = tag[i+1:]
+		if tag == "" || tag[0] != '"' {
+			break
+		}
+		i = 1
+		for i < len(tag) && tag[i] != '"' {
+			if tag[i] == '\\' {
+				i++
+			}
+			i++
+		}
+		if i >= len(tag) {
+			break
+		}
+		value := tag[1:i]
+		tag = tag[i+1:]
+		if k == key {
+			return value
+		}
+	}
+	return ""
+}
+
+// fieldDescription extracts a human-readable description from doc and inline comments,
+// skipping any marker lines (starting with "+").
+func fieldDescription(doc, inline *ast.CommentGroup) string {
+	var lines []string
+	for _, cg := range []*ast.CommentGroup{doc, inline} {
+		if cg == nil {
+			continue
+		}
+		for _, c := range cg.List {
+			line := strings.TrimSpace(strings.TrimPrefix(c.Text, "//"))
+			if !strings.HasPrefix(line, "+") {
+				lines = append(lines, line)
+			}
+		}
+	}
+	return strings.TrimSpace(strings.Join(lines, " "))
 }
 
 func extractSchemas(crdFile string, schemas map[string]*openapi3.SchemaRef) error {
