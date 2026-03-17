@@ -986,9 +986,7 @@ components:
               type: string
           type: object
       required:
-      - metadata
       - spec
-      - status
       type: object
     MonitoringConfigList:
       description: MonitoringConfigList is an object that contains the list of the

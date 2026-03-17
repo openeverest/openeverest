@@ -83,10 +83,12 @@ type MonitoringConfigStatus struct {
 
 // MonitoringConfig is the Schema for the monitoringconfigs API.
 type MonitoringConfig struct {
-	metav1.TypeMeta   `json:",inline"`
+	metav1.TypeMeta `json:",inline"`
+	// +optional
 	metav1.ObjectMeta `json:"metadata,omitzero"`
 
 	Spec MonitoringConfigSpec `json:"spec"`
+	// +optional
 	// +kubebuilder:default={"inUse": false}
 	Status MonitoringConfigStatus `json:"status,omitzero"`
 }

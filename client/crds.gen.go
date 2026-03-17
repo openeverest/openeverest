@@ -648,8 +648,8 @@ type MonitoringConfig struct {
 	// Cannot be updated.
 	// In CamelCase.
 	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
-	Kind     *string                `json:"kind,omitempty"`
-	Metadata map[string]interface{} `json:"metadata"`
+	Kind     *string                 `json:"kind,omitempty"`
+	Metadata *map[string]interface{} `json:"metadata,omitempty"`
 
 	// Spec MonitoringConfigSpec defines the desired state of MonitoringConfig.
 	Spec struct {
@@ -677,7 +677,7 @@ type MonitoringConfig struct {
 	} `json:"spec"`
 
 	// Status MonitoringConfigStatus defines the observed state of MonitoringConfig.
-	Status struct {
+	Status *struct {
 		// InUse InUse is a flag that indicates if any Instance uses the monitoring config.
 		InUse *bool `json:"inUse,omitempty"`
 
@@ -686,7 +686,7 @@ type MonitoringConfig struct {
 
 		// PmmServerVersion PMMServerVersion shows PMM server version.
 		PmmServerVersion *string `json:"pmmServerVersion,omitempty"`
-	} `json:"status"`
+	} `json:"status,omitempty"`
 }
 
 // MonitoringConfigSpecType Type is the name of monitoring tool (e.g., "pmm").

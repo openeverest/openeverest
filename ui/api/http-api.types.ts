@@ -7688,7 +7688,7 @@ export interface components {
              *     More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
              */
             kind?: string;
-            metadata: Record<string, never>;
+            metadata?: Record<string, never>;
             /** @description MonitoringConfigSpec defines the desired state of MonitoringConfig. */
             spec: {
                 /** @description AllowedNamespaces is the list of namespaces where the operator will copy secrets provided in the CredentialsSecretsName. */
