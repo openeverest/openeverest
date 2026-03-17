@@ -18,6 +18,7 @@ import { Box } from '@mui/material';
 import { useDatabasePageMode } from '../hooks/use-database-page-mode';
 import { useDatabasePageDefaultValues } from '../hooks/use-database-form-default-values';
 import { DatabaseFormBodyProps } from './types';
+import { useFormContext } from 'react-hook-form';
 import { WizardMode } from 'shared-types/wizard.types';
 import { useSteps } from './steps';
 import { useDatabaseFormContext } from '../database-form-context';
@@ -27,7 +28,6 @@ import DatabaseFormStepControllers from './database-form-step-controllers';
 const DatabaseFormBody = ({
   activeStep,
   isSubmitting,
-  hasErrors,
   disableNext,
   onCancel,
   onSubmit,
@@ -37,6 +37,9 @@ const DatabaseFormBody = ({
   const mode = useDatabasePageMode();
   const { uiSchema, defaultTopology, sections, sectionsOrder, providerObject } =
     useDatabaseFormContext();
+  const {
+    formState: { isValid },
+  } = useFormContext();
   const steps = useSteps(sections, sectionsOrder, providerObject);
 
   const { dbClusterRequestStatus, isFetching: loadingDefaultsForEdition } =
@@ -72,7 +75,7 @@ const DatabaseFormBody = ({
       </Box>
       <DatabaseFormStepControllers
         disableBack={isFirstStep}
-        disableSubmit={isSubmitting || hasErrors}
+        disableSubmit={isSubmitting || !isValid}
         disableCancel={isSubmitting}
         disableNext={disableNext}
         showSubmit={activeStep === steps.length - 1 || activeStep === 0}

@@ -146,13 +146,14 @@ export const DatabasePage = () => {
 
   const methods = useForm<DbWizardType>({
     mode: 'onChange',
-    resolver: async (data, context, options) => {
+    resolver: (data, context, options) => {
       if (!validationSchemaRef.current) {
         return { values: data, errors: {} };
       }
-      const customResolver = zodResolver(validationSchemaRef.current);
-      const result = await customResolver(data, context, options);
-      return result;
+      const customResolver = zodResolver(validationSchemaRef.current, undefined, {
+        mode: 'sync',
+      });
+      return customResolver(data, context, options);
     },
     // @ts-ignore
     defaultValues,
@@ -286,6 +287,17 @@ export const DatabasePage = () => {
     const stepsSet = new Set<string>();
 
     errorPaths.forEach((path) => {
+      if (typeof path !== 'string' || path.length === 0) {
+        if (import.meta.env.DEV) {
+          console.error('[DatabasePage][stepsWithErrors] Invalid error path', {
+            path,
+            pathType: typeof path,
+            errorPaths,
+          });
+        }
+        return;
+      }
+
       // Try the full path first, then progressively shorter prefixes.
       // After the buildSectionFieldMap fix, exact and intermediate paths are
       // registered, so the first match is almost always the full path.
@@ -312,7 +324,11 @@ export const DatabasePage = () => {
   const onSubmit: SubmitHandler<DbWizardType> = (data) => {
     const postProcessedData = formSubmitPostProcessing(
       {},
-      data as Record<string, unknown>
+      data as Record<string, unknown>,
+      {
+        schema: stableUiSchema,
+        selectedTopology,
+      }
     ) as DbWizardType;
 
     latestDataRef.current = postProcessedData;

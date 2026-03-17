@@ -138,4 +138,25 @@ describe('renderComponent - string values are shown correctly in preview', () =>
 
     expect(screen.getByText('Replicas: 3')).toBeInTheDocument();
   });
+
+  it('uses first path from multipath field for preview lookup', () => {
+    const component: Component = {
+      uiType: FieldType.Text,
+      path: ['spec.engine.version', 'spec.proxy.version'],
+      fieldParams: { label: 'Version' },
+    };
+    const formValues = {
+      spec: {
+        engine: { version: '8.0.41' },
+      },
+    };
+
+    render(
+      <TestWrapper>
+        <>{renderComponent('engineVersion', component, formValues)}</>
+      </TestWrapper>
+    );
+
+    expect(screen.getByText('Version: 8.0.41')).toBeInTheDocument();
+  });
 });

@@ -87,7 +87,7 @@ export type FieldParamsMap = {
   [FieldType.Hidden]: CommonFieldParams;
 };
 
-type PathOrId = { path: string; id?: never } | { id: string; path?: never };
+type PathOrId = { path: string | string[]; id?: never } | { id: string; path?: never };
 
 export type CelExpression = {
   celExpr: string;

@@ -118,4 +118,26 @@ describe('buildSectionFieldMap', () => {
     expect(map['spec.components.proxy']).toBe('resources');
     expect(map['spec.sharding']).toBe('resources');
   });
+
+  it('maps all target paths for multipath fields', () => {
+    const sections: { [key: string]: Section } = {
+      resources: {
+        label: 'Resources',
+        components: {
+          engineVersion: {
+            uiType: FieldType.Text,
+            path: ['spec.engine.version', 'spec.proxy.version'],
+            fieldParams: { label: 'Version' },
+          },
+        },
+      },
+    };
+
+    const map = buildSectionFieldMap(sections, ['resources']);
+
+    expect(map['spec.engine.version']).toBe('resources');
+    expect(map['spec.proxy.version']).toBe('resources');
+    // Source field id for multipath is the first path entry, not generated g-* id.
+    expect(map['g-engineVersion']).toBeUndefined();
+  });
 });
