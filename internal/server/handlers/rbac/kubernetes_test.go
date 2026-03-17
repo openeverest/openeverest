@@ -62,7 +62,7 @@ func TestRBAC_Kubernetes(t *testing.T) {
 					{"bob", "load-balancer-configs", "*", "*"},
 					{"bob", "data-importers", "*", "*"},
 					{"bob", "data-import-jobs", "*", "*/*"},
-					// FIXME: providers, instances, backup-classes and backups
+					// FIXME: providers, instances, backup-classes, backups and monitoring-configs
 					// are part of the new clusters API so the permissions need
 					// to be different.  Adding them here for now to avoid
 					// breaking tests until we implement RBAC for the new API.
@@ -70,6 +70,7 @@ func TestRBAC_Kubernetes(t *testing.T) {
 					{"bob", "instances", "*", "*/*"},
 					{"bob", "backup-classes", "*", "*/*"},
 					{"bob", "backups", "*", "*/*"},
+					{"bob", "monitoring-configs", "*", "*/*"},
 				},
 			},
 			{
