@@ -3135,7 +3135,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: 'crds.gen.yaml#/components/schemas/MonitoringConfig'
+              $ref: '#/components/schemas/MonitoringConfigCreateParams'
     get:
       tags:
         - Monitoring
@@ -3282,7 +3282,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: 'crds.gen.yaml#/components/schemas/MonitoringConfig'
+              $ref: '#/components/schemas/MonitoringConfigUpdateParams'
     delete:
       tags:
         - Monitoring
@@ -3674,6 +3674,78 @@ components:
       items:
         type: object
         $ref: '#/components/schemas/MonitoringInstance'
+    MonitoringConfigBase:
+      type: object
+      description: Monitoring instance information
+      properties:
+        type:
+          type: string
+          enum:
+          - pmm
+          x-go-type-skip-optional-pointer: true
+        url:
+          type: string
+          minLength: 1
+          x-go-type-skip-optional-pointer: true
+        allowedNamespaces:
+          deprecated: true
+          type: array
+          description: List of namespaces allowed to use this monitoring instance
+          items:
+            type: string
+        verifyTLS:
+          description: VerifyTLS is set to ensure TLS/SSL verification.
+          type: boolean
+    MonitoringConfigBaseWithName:
+      type: object
+      description: Monitoring instance information
+      allOf:
+        - $ref: '#/components/schemas/MonitoringConfigBase'
+        - type: object
+          properties:
+            name:
+              type: string
+              minLength: 1
+              description: A user defined string name of the storage in the DNS name format https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#dns-label-names
+              x-go-type-skip-optional-pointer: true
+              example: pmm-instance
+            namespace:
+              type: string
+              x-go-type-skip-optional-pointer: true
+    MonitoringConfigPMM:
+      type: object
+      properties:
+        pmm:
+          type: object
+          x-go-type-name: PMMMonitoringInstanceSpec
+          properties:
+            user:
+              type: string
+              x-go-type-skip-optional-pointer: true
+              example: admin
+            password:
+              type: string
+              x-go-type-skip-optional-pointer: true
+              example: password
+            apiKey:
+              type: string
+              minLength: 1
+              x-go-type-skip-optional-pointer: true
+              example: apikey
+    MonitoringConfigCreateParams:
+      description: Monitoring instance create information
+      allOf:
+        - $ref: '#/components/schemas/MonitoringConfigBaseWithName'
+        - $ref: '#/components/schemas/MonitoringConfigPMM'
+      required:
+        - type
+        - url
+        - name
+    MonitoringConfigUpdateParams:
+      description: Monitoring instance update information
+      allOf:
+        - $ref: '#/components/schemas/MonitoringConfigBase'
+        - $ref: '#/components/schemas/MonitoringConfigPMM'
     DatabaseClusterCredential:
       type: object
       description: kubernetes object

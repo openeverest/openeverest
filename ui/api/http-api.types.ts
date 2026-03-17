@@ -1402,6 +1402,42 @@ export interface components {
         /** @description Monitoring instance information */
         MonitoringInstance: components["schemas"]["MonitoringInstanceBaseWithName"];
         MonitoringInstancesList: components["schemas"]["MonitoringInstance"][];
+        /** @description Monitoring instance information */
+        MonitoringConfigBase: {
+            /** @enum {string} */
+            type?: "pmm";
+            url?: string;
+            /**
+             * @deprecated
+             * @description List of namespaces allowed to use this monitoring instance
+             */
+            allowedNamespaces?: string[];
+            /** @description VerifyTLS is set to ensure TLS/SSL verification. */
+            verifyTLS?: boolean;
+        };
+        /** @description Monitoring instance information */
+        MonitoringConfigBaseWithName: components["schemas"]["MonitoringConfigBase"] & {
+            /**
+             * @description A user defined string name of the storage in the DNS name format https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#dns-label-names
+             * @example pmm-instance
+             */
+            name?: string;
+            namespace?: string;
+        };
+        MonitoringConfigPMM: {
+            pmm?: {
+                /** @example admin */
+                user?: string;
+                /** @example password */
+                password?: string;
+                /** @example apikey */
+                apiKey?: string;
+            };
+        };
+        /** @description Monitoring instance create information */
+        MonitoringConfigCreateParams: components["schemas"]["MonitoringConfigBaseWithName"] & components["schemas"]["MonitoringConfigPMM"];
+        /** @description Monitoring instance update information */
+        MonitoringConfigUpdateParams: components["schemas"]["MonitoringConfigBase"] & components["schemas"]["MonitoringConfigPMM"];
         /** @description kubernetes object */
         DatabaseClusterCredential: {
             /** @example postgres://user:secret@100.100.100.100:5432 */
@@ -11030,7 +11066,7 @@ export interface operations {
         /** @description The Monitoring config object to be created */
         requestBody: {
             content: {
-                "application/json": components["schemas"]["MonitoringConfig"];
+                "application/json": components["schemas"]["MonitoringConfigCreateParams"];
             };
         };
         responses: {
@@ -11186,7 +11222,7 @@ export interface operations {
         /** @description The monitoring config object to be updated. */
         requestBody: {
             content: {
-                "application/json": components["schemas"]["MonitoringConfig"];
+                "application/json": components["schemas"]["MonitoringConfigUpdateParams"];
             };
         };
         responses: {
