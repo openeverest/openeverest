@@ -972,8 +972,8 @@ k8s_resource(
     'perconaservermongodbrestores.psmdb.percona.com:customresourcedefinition:default',
     'perconaservermongodbs.psmdb.percona.com:customresourcedefinition:default',
     'psmdb-provider-psmdb-operator:serviceaccount:default',
-    'psmdb-provider-psmdb-operator:role',
-    'service-account-psmdb-provider-psmdb-operator:rolebinding'
+    'psmdb-provider-psmdb-operator:clusterrole',
+    'service-account-psmdb-provider-psmdb-operator:clusterrolebinding'
   ],
   resource_deps = [
     'crds',
