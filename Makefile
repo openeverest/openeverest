@@ -42,6 +42,31 @@ check:                  ## Run checks/linters for the whole project.
 	go tool go-consistent -pedantic ./...
 	LOG_LEVEL=error go tool golangci-lint run
 
+.PHONY: copyright-headers
+copyright-headers: ## Add missing copyright headers to changed .go/.ts/.tsx files.
+	@TMP_FILES_LIST=$$(mktemp); \
+	cleanup() { rm -f "$$TMP_FILES_LIST"; }; \
+	trap cleanup EXIT; \
+	if [ -n "$(FILES_FILE)" ]; then \
+		while IFS= read -r file; do \
+			[ -n "$$file" ] && printf '%s\0' "$$file"; \
+		done < "$(FILES_FILE)" > "$$TMP_FILES_LIST"; \
+	elif [ -n "$(FILES)" ]; then \
+		for file in $(FILES); do \
+			printf '%s\0' "$$file"; \
+		done > "$$TMP_FILES_LIST"; \
+	else \
+		BASE=$$(git merge-base HEAD $${BASE_BRANCH:-main} 2>/dev/null || echo HEAD); \
+		git diff -z --name-only --diff-filter=ACM $$BASE -- '*.go' '*.ts' '*.tsx' > "$$TMP_FILES_LIST"; \
+		git ls-files -z --others --exclude-standard -- '*.go' '*.ts' '*.tsx' >> "$$TMP_FILES_LIST"; \
+	fi; \
+	if [ ! -s "$$TMP_FILES_LIST" ]; then \
+		echo "No changed .go/.ts/.tsx files to process."; \
+		exit 0; \
+	fi; \
+	echo "Processing copyright headers for changed files..."; \
+	xargs -0 -a "$$TMP_FILES_LIST" python3 scripts/add_copyright.py || true
+
 .PHONY: charts
 HELM=go tool helm
 charts:        ## Install Helm dependency charts for Everest CLI.

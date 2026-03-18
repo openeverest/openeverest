@@ -1,0 +1,9 @@
+# Paths to ignore in scripts/add_copyright.py
+# One pattern per line (gitignore-like globs).
+# Examples:
+#   some/folder/**
+#   **/*.gen.go
+#   /api-tests/generated/**
+
+# Auto-generated API test typings.
+api-tests/generated/**

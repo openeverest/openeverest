@@ -18,6 +18,8 @@ Exit codes:
 
 import os
 import re
+import fnmatch
+import subprocess
 import sys
 from datetime import date
 
@@ -51,15 +53,80 @@ NEW_FILE_HEADER = f"""\
 """
 
 SUPPORTED_EXTENSIONS = {".go", ".ts", ".tsx"}
+IGNORE_FILE_NAME = ".copyrightignore"
+AUTO_GENERATED_MARKERS = (
+    "This file was auto-generated",
+)
 
 
-def fix_file(filepath: str) -> bool:
+def get_repo_root() -> str:
+    """Return git repo root or the current working directory as fallback."""
+    try:
+        output = subprocess.check_output(
+            ["git", "rev-parse", "--show-toplevel"],
+            stderr=subprocess.DEVNULL,
+            text=True,
+        ).strip()
+    except (OSError, subprocess.CalledProcessError):
+        return os.getcwd()
+    return output or os.getcwd()
+
+
+def load_ignore_patterns(repo_root: str) -> list[str]:
+    """Load ignore patterns from .copyrightignore if it exists."""
+    ignore_path = os.path.join(repo_root, IGNORE_FILE_NAME)
+    if not os.path.isfile(ignore_path):
+        return []
+
+    patterns: list[str] = []
+    try:
+        with open(ignore_path, encoding="utf-8") as fh:
+            for line in fh:
+                pattern = line.strip()
+                if not pattern or pattern.startswith("#"):
+                    continue
+                patterns.append(pattern)
+    except OSError as exc:
+        print(f"WARNING: could not read {ignore_path}: {exc}", file=sys.stderr)
+        return []
+
+    return patterns
+
+
+def path_is_ignored(filepath: str, repo_root: str, patterns: list[str]) -> bool:
+    """Check if a file path matches any ignore pattern."""
+    rel_path = os.path.relpath(os.path.abspath(filepath), repo_root).replace(os.sep, "/")
+
+    for raw_pattern in patterns:
+        pattern = raw_pattern.replace("\\", "/")
+        if pattern.startswith("/"):
+            pattern = pattern.lstrip("/")
+        if pattern.endswith("/"):
+            pattern = f"{pattern}**"
+
+        if fnmatch.fnmatch(rel_path, pattern):
+            return True
+
+        # Non-rooted patterns can also match at any subpath depth.
+        if not raw_pattern.startswith("/") and fnmatch.fnmatch(rel_path, f"**/{pattern}"):
+            return True
+
+    return False
+
+
+def fix_file(filepath: str, repo_root: str, ignore_patterns: list[str]) -> bool:
     """Return True if the file was modified."""
+    if path_is_ignored(filepath, repo_root, ignore_patterns):
+        return False
+
     try:
         with open(filepath, encoding="utf-8") as fh:
             content = fh.read()
     except (OSError, UnicodeDecodeError) as exc:
         print(f"WARNING: could not read {filepath}: {exc}", file=sys.stderr)
+        return False
+
+    if any(marker in content for marker in AUTO_GENERATED_MARKERS):
         return False
 
     # Rule 1 – already up-to-date.
@@ -101,10 +168,13 @@ def main() -> None:
         print("Usage: add_copyright.py <file-or-dir> [...]")
         sys.exit(0)
 
+    repo_root = get_repo_root()
+    ignore_patterns = load_ignore_patterns(repo_root)
+
     modified: list[str] = []
     for filepath in iter_files(paths):
         if os.path.splitext(filepath)[1] in SUPPORTED_EXTENSIONS:
-            if fix_file(filepath):
+            if fix_file(filepath, repo_root, ignore_patterns):
                 modified.append(filepath)
 
     if modified:
