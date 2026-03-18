@@ -13,7 +13,10 @@
 // limitations under the License.
 
 import { formSubmitPostProcessing } from '../utils/form-submit-post-processing';
-import { FieldType, TopologyUISchemas } from 'components/ui-generator/ui-generator.types';
+import {
+  FieldType,
+  TopologyUISchemas,
+} from 'components/ui-generator/ui-generator.types';
 
 describe('formSubmitPostProcessing', () => {
   it('removes empty optional values recursively before submit payload is sent', () => {
@@ -99,6 +102,8 @@ describe('formSubmitPostProcessing', () => {
       },
     });
     // Payload should not include generated source field IDs.
-    expect((result as Record<string, unknown>)['g-databaseVersion']).toBeUndefined();
+    expect(
+      (result as Record<string, unknown>)['g-databaseVersion']
+    ).toBeUndefined();
   });
 });

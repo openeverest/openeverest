@@ -32,7 +32,12 @@ import { UIGenerator } from '../ui-generator';
  * several intermediate hooks.
  */
 export const useFormEngine = (config: FormEngineConfig): FormEngineResult => {
-  const { uiSchema, selectedTopology, staticSteps = [], providerObject } = config;
+  const {
+    uiSchema,
+    selectedTopology,
+    staticSteps = [],
+    providerObject,
+  } = config;
 
   // 1. Schema processing (sections, zod, field map)
   const stableUiSchema = useMemo(() => uiSchema || {}, [uiSchema]);
@@ -91,7 +96,7 @@ export const useFormEngine = (config: FormEngineConfig): FormEngineResult => {
     [staticSteps, generatedSteps]
   );
 
-  // 4. Build complete field → step-ID map 
+  // 4. Build complete field → step-ID map
   const fieldToStepMap = useMemo(() => {
     const map: Record<string, string> = {};
 
@@ -108,13 +113,13 @@ export const useFormEngine = (config: FormEngineConfig): FormEngineResult => {
     return map;
   }, [staticSteps, sectionFieldMap]);
 
-  // 5. Default values 
+  // 5. Default values
   const defaultValues = useMemo(
     () => getDefaultValues(stableUiSchema, selectedTopology),
     [stableUiSchema, selectedTopology]
   );
 
-  // 6. Post-processor 
+  // 6. Post-processor
   const postprocess = useCallback(
     (data: Record<string, unknown>) =>
       postprocessSchemaData(data, {

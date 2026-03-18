@@ -50,7 +50,9 @@ if (platform === 'darwin') {
 
 if (openResult.status !== 0) {
   process.stdout.write(`SVG rendered: ${svgPath}\n`);
-  process.stdout.write('Could not auto-open browser. Open the file manually.\n');
+  process.stdout.write(
+    'Could not auto-open browser. Open the file manually.\n'
+  );
   process.exit(0);
 }
 

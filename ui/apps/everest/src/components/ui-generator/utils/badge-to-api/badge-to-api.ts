@@ -31,7 +31,6 @@ const normalizeComponentPaths = (path: string | string[]): string[] => {
   return typeof path === 'string' && path ? [path] : [];
 };
 
-
 export const extractBadgeMappings = (
   schema: TopologyUISchemas,
   selectedTopology: string

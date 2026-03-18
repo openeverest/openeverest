@@ -56,12 +56,11 @@ const DatabaseFormBody = ({
           pageDescription={currentStep.description}
         />
       )}
-      {activeStep > 0 && !currentStep?.description && currentStep?.sectionKey && (
-        <StepHeader
-          pageTitle={currentStep.label}
-          pageDescription=""
-        />
-      )}
+      {activeStep > 0 &&
+        !currentStep?.description &&
+        currentStep?.sectionKey && (
+          <StepHeader pageTitle={currentStep.label} pageDescription="" />
+        )}
       <Box>
         {(mode === WizardMode.New ||
           (mode === WizardMode.Restore &&

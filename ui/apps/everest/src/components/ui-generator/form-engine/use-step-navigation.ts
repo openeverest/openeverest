@@ -40,9 +40,7 @@ export const useStepNavigation = (
   initialStepId?: string
 ): StepNavigationResult => {
   const fallbackId = steps[0]?.id ?? '';
-  const [activeStepId, setActiveStepId] = useState(
-    initialStepId ?? fallbackId
-  );
+  const [activeStepId, setActiveStepId] = useState(initialStepId ?? fallbackId);
 
   const orderedIds = useMemo(() => steps.map((s) => s.id), [steps]);
 
@@ -98,14 +96,6 @@ export const useStepNavigation = (
       back,
       goTo,
     }),
-    [
-      activeStepId,
-      activeStepIndex,
-      totalSteps,
-      stepIdToIndex,
-      next,
-      back,
-      goTo,
-    ]
+    [activeStepId, activeStepIndex, totalSteps, stepIdToIndex, next, back, goTo]
   );
 };

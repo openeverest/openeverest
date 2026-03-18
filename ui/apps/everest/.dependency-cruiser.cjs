@@ -3,7 +3,8 @@ module.exports = {
     {
       name: 'no-circular',
       severity: 'error',
-      comment: 'Prevent circular dependencies in database-form and ui-generator.',
+      comment:
+        'Prevent circular dependencies in database-form and ui-generator.',
       from: {},
       to: {
         circular: true,

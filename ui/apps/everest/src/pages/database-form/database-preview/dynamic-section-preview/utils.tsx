@@ -20,7 +20,9 @@ import {
 } from 'components/ui-generator/ui-generator.types';
 import { getValueByPath } from 'components/ui-generator/ui-component/utils/get-value-by-path';
 
-const getPrimaryPath = (path: Component['path'] | undefined): string | undefined => {
+const getPrimaryPath = (
+  path: Component['path'] | undefined
+): string | undefined => {
   if (!path) {
     return undefined;
   }

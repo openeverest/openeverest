@@ -55,7 +55,6 @@ import { BaseInfoStep } from './database-form-body/steps/base-step/base-step';
 import { ImportStep } from './database-form-body/steps-old/import/import-step';
 import { mergeTopologyDefaults } from 'components/ui-generator/utils/default-values/merge-topology-defaults';
 
-
 export const DatabasePage = () => {
   const latestDataRef = useRef<DbWizardType | null>(null);
   const [formSubmitted, setFormSubmitted] = useState(false);
@@ -133,7 +132,7 @@ export const DatabasePage = () => {
     name: DbWizardFormFields.topology,
   });
 
-  // Static step definitions 
+  // Static step definitions
   const staticSteps = useMemo((): StepDefinition[] => {
     const steps: StepDefinition[] = [
       {

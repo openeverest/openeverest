@@ -65,14 +65,20 @@ export const withNormalizedPathMeta = (component: Component): Component => {
 
   return {
     ...component,
-    _normalized: toNormalizedPathMeta('path' in component ? component.path : undefined),
+    _normalized: toNormalizedPathMeta(
+      'path' in component ? component.path : undefined
+    ),
   };
 };
 
 export const getComponentSourcePath = (
   item: Component | ComponentGroup
 ): string | undefined => {
-  if (!('uiType' in item) || item.uiType === 'group' || item.uiType === 'hidden') {
+  if (
+    !('uiType' in item) ||
+    item.uiType === 'group' ||
+    item.uiType === 'hidden'
+  ) {
     return undefined;
   }
 
@@ -89,7 +95,11 @@ export const getComponentSourcePath = (
 export const getComponentTargetPaths = (
   item: Component | ComponentGroup
 ): string[] => {
-  if (!('uiType' in item) || item.uiType === 'group' || item.uiType === 'hidden') {
+  if (
+    !('uiType' in item) ||
+    item.uiType === 'group' ||
+    item.uiType === 'hidden'
+  ) {
     return [];
   }
 

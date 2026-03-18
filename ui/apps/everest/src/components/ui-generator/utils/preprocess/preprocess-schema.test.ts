@@ -13,7 +13,11 @@
 // limitations under the License.
 
 import { describe, expect, it } from 'vitest';
-import { Component, FieldType, TopologyUISchemas } from '../../ui-generator.types';
+import {
+  Component,
+  FieldType,
+  TopologyUISchemas,
+} from '../../ui-generator.types';
 import { preprocessSchema } from './preprocess-schema';
 
 describe('preprocessSchema', () => {

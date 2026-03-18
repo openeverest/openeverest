@@ -51,7 +51,6 @@ export type FormEngineConfig = {
   providerObject?: Provider;
 };
 
-
 export type FormEngineResult = {
   /** Ordered list of all steps (static + generated). */
   steps: StepDefinition[];
