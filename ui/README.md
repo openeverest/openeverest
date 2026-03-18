@@ -121,3 +121,31 @@ More on filtering: https://pnpm.io/filtering
 ## E2E tests
 
 E2E setup and local execution details are documented in `apps/everest/.e2e/Readme.md`.
+
+## Static Dependency Analysis
+
+Detect cycles (database-form + ui-generator scope):
+
+```bash
+pnpm analyze:deps
+```
+
+Generate graph in DOT format:
+
+```bash
+pnpm analyze:deps:graph
+```
+
+Render DOT graph to SVG (requires [Graphviz](https://graphviz.org/)):
+
+```bash
+pnpm analyze:deps:svg
+```
+
+Generate machine-readable JSON report:
+
+```bash
+pnpm analyze:deps:json
+```
+
+Generated artifacts (`deps-graph.dot`, `deps-graph.svg`, `deps-report.json`) are git-ignored.

@@ -107,9 +107,8 @@ export const DynamicForm = ({ schema }: DynamicFormProps) => {
           </SelectInput>
         ) : (
           <UIGenerator
-            activeStep={activeStep}
+            sectionKey={stepLabels[activeStep]}
             sections={sections}
-            stepLabels={stepLabels}
           />
         )}
       </Stack>

@@ -16,6 +16,11 @@ export type OpenAPIObjectProperties = {
   label?: string;
 };
 
+export type NormalizedPathMeta = {
+  sourcePath?: string;
+  targetPaths: string[];
+};
+
 export enum FieldType {
   Number = 'number',
   Select = 'select',
@@ -138,6 +143,7 @@ export type Component = {
     techPreview?: boolean;
     validation?: ValidationMap[K];
     fieldParams: FieldParamsMap[K];
+    _normalized?: NormalizedPathMeta;
   } & PathOrId;
 }[keyof FieldParamsMap];
 

@@ -20,21 +20,19 @@ import { UiGeneratorProvider } from './ui-generator-context';
 import { Provider } from 'types/api';
 
 type UIGeneratorProps = {
-  activeStep: number;
+  /** Section key identifying which section to render. */
+  sectionKey: string;
   sections: { [key: string]: Section };
-  stepLabels: string[];
   providerObject?: Provider;
   loadingDefaultsForEdition?: boolean;
 };
 
 export const UIGenerator = ({
-  activeStep,
+  sectionKey,
   sections,
-  stepLabels,
   providerObject,
   loadingDefaultsForEdition,
 }: UIGeneratorProps) => {
-  const sectionKey = stepLabels[activeStep];
   const section = sections[sectionKey];
   const components = section?.components;
 
