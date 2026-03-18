@@ -105,13 +105,21 @@ export const CreateDbButton = ({
   };
 
   useEffect(() => {
+    let timeoutId: ReturnType<typeof setTimeout> | undefined;
+
     if (providersLoading) {
       setShowDropdownButton(false);
     } else {
-      setTimeout(() => {
+      timeoutId = setTimeout(() => {
         setShowDropdownButton(true);
       }, 300);
     }
+
+    return () => {
+      if (timeoutId !== undefined) {
+        clearTimeout(timeoutId);
+      }
+    };
   }, [providersLoading]);
 
   const buttonStyle = { display: 'flex', minHeight: '34px', width: '165px' };
