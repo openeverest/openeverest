@@ -14,7 +14,7 @@
 // limitations under the License.
 
 export type StepProps = {
-  loadingDefaultsForEdition: boolean;
+  loadingDefaultsForEdition?: boolean;
 };
 
 export type DbClusterName = {

@@ -230,9 +230,8 @@ describe('Database form validation', () => {
     render(
       <Wrapper uiSchema={uiSchema} onSubmit={mockSubmit}>
         <UIGenerator
-          activeStep={0}
           sections={uiSchema.replica!.sections}
-          stepLabels={['resources']}
+          sectionKey="resources"
         />
       </Wrapper>
     );
@@ -261,9 +260,8 @@ describe('Database form validation', () => {
         onSubmit={mockSubmit}
       >
         <UIGenerator
-          activeStep={0}
           sections={uiSchema.replica!.sections}
-          stepLabels={['resources']}
+          sectionKey="resources"
         />
       </Wrapper>
     );
@@ -303,9 +301,8 @@ describe('Database form validation', () => {
     render(
       <Wrapper uiSchema={uiSchema} onSubmit={mockSubmit}>
         <UIGenerator
-          activeStep={0}
           sections={uiSchema.replica!.sections}
-          stepLabels={['resources']}
+          sectionKey="resources"
         />
       </Wrapper>
     );

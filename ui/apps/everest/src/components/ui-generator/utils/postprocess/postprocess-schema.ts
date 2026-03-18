@@ -17,6 +17,7 @@ import {
 	ComponentGroup,
 	TopologyUISchemas,
 } from '../../ui-generator.types';
+import { getComponentTargetPaths } from '../preprocess/normalized-component';
 
 export type PostprocessInput = Record<string, unknown>;
 
@@ -129,9 +130,6 @@ const deleteByPath = (obj: Record<string, unknown>, path: string): void => {
 	delete current[parts[parts.length - 1]];
 };
 
-const normalizePathArray = (paths: string[]): string[] =>
-	Array.from(new Set(paths.filter((p) => !!p && typeof p === 'string')));
-
 const normalizeRuntimePathArray = (paths: unknown): string[] => {
 	if (!Array.isArray(paths)) {
 		return [];
@@ -166,27 +164,25 @@ export const extractMultiPathMappings = (
 			}
 
 			const component = item as Component;
-			if ('path' in component && Array.isArray(component.path)) {
-				const normalizedPaths = normalizePathArray(component.path);
-				if (normalizedPaths.length === 0) {
-					return;
-				}
-
-				const sourceFieldId = normalizedPaths[0];
-				const targetPaths = normalizedPaths.filter(
-					(path) => path !== sourceFieldId
-				);
-
-				if (targetPaths.length === 0) {
-					return;
-				}
-
-				mappings.push({
-					sourceFieldId,
-					targetPaths,
-					removeSourceField: false,
-				});
+			const normalizedPaths = getComponentTargetPaths(component);
+			if (normalizedPaths.length <= 1) {
+				return;
 			}
+
+			const sourceFieldId = normalizedPaths[0];
+			const targetPaths = normalizedPaths.filter(
+				(path) => path !== sourceFieldId
+			);
+
+			if (targetPaths.length === 0) {
+				return;
+			}
+
+			mappings.push({
+				sourceFieldId,
+				targetPaths,
+				removeSourceField: false,
+			});
 		});
 	};
 

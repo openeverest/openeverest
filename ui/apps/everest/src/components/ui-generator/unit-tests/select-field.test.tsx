@@ -113,9 +113,8 @@ describe('UIGenerator - Select Field Basic Rendering', () => {
       <TestWrapper>
         <FormWrapper schema={schema} onSubmit={mockSubmit}>
           <UIGenerator
-            activeStep={0}
             sections={schema.testTopology!.sections}
-            stepLabels={['basicInfo']}
+            sectionKey="basicInfo"
           />
         </FormWrapper>
       </TestWrapper>
@@ -133,9 +132,8 @@ describe('UIGenerator - Select Field Basic Rendering', () => {
       <TestWrapper>
         <FormWrapper schema={schema} onSubmit={mockSubmit}>
           <UIGenerator
-            activeStep={0}
             sections={schema.testTopology!.sections}
-            stepLabels={['basicInfo']}
+            sectionKey="basicInfo"
           />
         </FormWrapper>
       </TestWrapper>
@@ -167,9 +165,8 @@ describe('UIGenerator - Select Field Required Validation', () => {
       <TestWrapper>
         <FormWrapper schema={schema} onSubmit={mockSubmit}>
           <UIGenerator
-            activeStep={0}
             sections={schema.testTopology!.sections}
-            stepLabels={['basicInfo']}
+            sectionKey="basicInfo"
           />
         </FormWrapper>
       </TestWrapper>
@@ -190,9 +187,8 @@ describe('UIGenerator - Select Field Required Validation', () => {
       <TestWrapper>
         <FormWrapper schema={schema} onSubmit={mockSubmit}>
           <UIGenerator
-            activeStep={0}
             sections={schema.testTopology!.sections}
-            stepLabels={['basicInfo']}
+            sectionKey="basicInfo"
           />
         </FormWrapper>
       </TestWrapper>
@@ -210,9 +206,8 @@ describe('UIGenerator - Select Field Required Validation', () => {
       <TestWrapper>
         <FormWrapper schema={schema} onSubmit={mockSubmit}>
           <UIGenerator
-            activeStep={0}
             sections={schema.testTopology!.sections}
-            stepLabels={['basicInfo']}
+            sectionKey="basicInfo"
           />
         </FormWrapper>
       </TestWrapper>
@@ -247,9 +242,8 @@ describe('UIGenerator - Select Field Default Value', () => {
       <TestWrapper>
         <FormWrapper schema={schema} onSubmit={mockSubmit}>
           <UIGenerator
-            activeStep={0}
             sections={schema.testTopology!.sections}
-            stepLabels={['basicInfo']}
+            sectionKey="basicInfo"
           />
         </FormWrapper>
       </TestWrapper>
@@ -283,9 +277,8 @@ describe('UIGenerator - Select Field Default Value', () => {
       <TestWrapper>
         <FormWrapper schema={schema} onSubmit={mockSubmit}>
           <UIGenerator
-            activeStep={0}
             sections={schema.testTopology!.sections}
-            stepLabels={['basicInfo']}
+            sectionKey="basicInfo"
           />
         </FormWrapper>
       </TestWrapper>
@@ -308,9 +301,8 @@ describe('UIGenerator - Select Field Enum Validation', () => {
       <TestWrapper>
         <FormWrapper schema={schema} onSubmit={mockSubmit}>
           <UIGenerator
-            activeStep={0}
             sections={schema.testTopology!.sections}
-            stepLabels={['basicInfo']}
+            sectionKey="basicInfo"
           />
         </FormWrapper>
       </TestWrapper>
@@ -367,9 +359,8 @@ describe('UIGenerator - Select Field Enum Validation', () => {
         <FormProvider {...methods}>
           <form onSubmit={methods.handleSubmit(mockSubmit)}>
             <UIGenerator
-              activeStep={0}
               sections={schema.testTopology!.sections}
-              stepLabels={['basicInfo']}
+              sectionKey="basicInfo"
             />
             <Button
               type="submit"
@@ -406,9 +397,8 @@ describe('UIGenerator - Select Field Disabled State', () => {
       <TestWrapper>
         <FormWrapper schema={schema} onSubmit={mockSubmit}>
           <UIGenerator
-            activeStep={0}
             sections={schema.testTopology!.sections}
-            stepLabels={['basicInfo']}
+            sectionKey="basicInfo"
           />
         </FormWrapper>
       </TestWrapper>
@@ -432,9 +422,8 @@ describe('UIGenerator - Select Field Auto-injected Empty Option', () => {
       <TestWrapper>
         <FormWrapper schema={schema} onSubmit={mockSubmit}>
           <UIGenerator
-            activeStep={0}
             sections={schema.testTopology!.sections}
-            stepLabels={['basicInfo']}
+            sectionKey="basicInfo"
           />
         </FormWrapper>
       </TestWrapper>
@@ -459,9 +448,8 @@ describe('UIGenerator - Select Field Auto-injected Empty Option', () => {
       <TestWrapper>
         <FormWrapper schema={schema} onSubmit={mockSubmit}>
           <UIGenerator
-            activeStep={0}
             sections={schema.testTopology!.sections}
-            stepLabels={['basicInfo']}
+            sectionKey="basicInfo"
           />
         </FormWrapper>
       </TestWrapper>
@@ -487,9 +475,8 @@ describe('UIGenerator - Select Field Auto-injected Empty Option', () => {
       <TestWrapper>
         <FormWrapper schema={schema} onSubmit={mockSubmit}>
           <UIGenerator
-            activeStep={0}
             sections={schema.testTopology!.sections}
-            stepLabels={['basicInfo']}
+            sectionKey="basicInfo"
           />
         </FormWrapper>
       </TestWrapper>
@@ -529,9 +516,8 @@ describe('UIGenerator - Select Field Auto-injected Empty Option', () => {
       <TestWrapper>
         <FormWrapper schema={schema} onSubmit={mockSubmit}>
           <UIGenerator
-            activeStep={0}
             sections={schema.testTopology!.sections}
-            stepLabels={['basicInfo']}
+            sectionKey="basicInfo"
           />
         </FormWrapper>
       </TestWrapper>
@@ -559,9 +545,8 @@ describe('UIGenerator - Select Field Auto-injected Empty Option', () => {
       <TestWrapper>
         <FormWrapper schema={schema} onSubmit={mockSubmit}>
           <UIGenerator
-            activeStep={0}
             sections={schema.testTopology!.sections}
-            stepLabels={['basicInfo']}
+            sectionKey="basicInfo"
           />
         </FormWrapper>
       </TestWrapper>
@@ -589,9 +574,8 @@ describe('UIGenerator - Select Field Auto-injected Empty Option', () => {
       <TestWrapper>
         <FormWrapper schema={schema} onSubmit={mockSubmit}>
           <UIGenerator
-            activeStep={0}
             sections={schema.testTopology!.sections}
-            stepLabels={['basicInfo']}
+            sectionKey="basicInfo"
           />
         </FormWrapper>
       </TestWrapper>

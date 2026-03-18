@@ -18,6 +18,7 @@ import type {
   ComponentGroup,
 } from '../../ui-generator.types';
 import { generateFieldId } from './generate-field-id';
+import { getComponentTargetPaths } from '../preprocess/normalized-component';
 
 // TODO probably may be improved and be a part of some other function that walks throught
 // all section
@@ -50,7 +51,9 @@ export const buildSectionFieldMap = (
       }
 
       const leaf = comp as Component;
-      if (leaf.path) {
+      const targetPaths = getComponentTargetPaths(leaf);
+
+      if (targetPaths.length > 0) {
         const registerPath = (path: string) => {
           if (!path || typeof path !== 'string') {
             return;
@@ -70,12 +73,7 @@ export const buildSectionFieldMap = (
           }
         };
 
-        const paths = Array.isArray(leaf.path)
-          ? leaf.path.filter((p): p is string => typeof p === 'string' && !!p)
-          : typeof leaf.path === 'string'
-            ? [leaf.path]
-            : [];
-        paths.forEach(registerPath);
+        targetPaths.forEach(registerPath);
 
         // For multipath fields RHF stores value under generated ID, so errors can
         // be reported using this source field name as well.

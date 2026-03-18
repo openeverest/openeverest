@@ -26,3 +26,8 @@ dist-ssr
 test-results
 playwright-report
 
+# Generated analysis artifacts
+deps-graph.dot
+deps-graph.svg
+deps-report.json
+

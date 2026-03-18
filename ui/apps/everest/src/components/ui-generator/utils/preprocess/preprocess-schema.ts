@@ -18,13 +18,14 @@ import {
   FieldType,
   SelectFieldParams,
   TopologyUISchemas,
-} from '../ui-generator.types';
+} from '../../ui-generator.types';
 import { Provider } from 'types/api';
-import { resolveSelectOptions } from '../ui-component/utils/select-component-handler';
+import { resolveSelectOptions } from '../../ui-component/utils/select-component-handler';
+import { withNormalizedPathMeta } from './normalized-component';
 
 const preprocessComponent = (
   item: Component | ComponentGroup,
-  providerObject: Provider
+  providerObject?: Provider
 ): Component | ComponentGroup => {
   if (
     (item.uiType === 'group' || item.uiType === 'hidden') &&
@@ -40,20 +41,25 @@ const preprocessComponent = (
   }
 
   const component = item as Component;
+  const normalizedComponent = withNormalizedPathMeta(component);
 
   if (
-    component.uiType === FieldType.Select &&
-    'optionsPath' in component.fieldParams &&
-    component.fieldParams.optionsPath
+    !!providerObject &&
+    normalizedComponent.uiType === FieldType.Select &&
+    'optionsPath' in normalizedComponent.fieldParams &&
+    normalizedComponent.fieldParams.optionsPath
   ) {
-    const options = resolveSelectOptions(component.fieldParams, providerObject);
+    const options = resolveSelectOptions(
+      normalizedComponent.fieldParams,
+      providerObject
+    );
 
     if (options.length === 0) {
-      return item;
+      return normalizedComponent;
     }
 
     // Build params without the optionsPath fields (replaced by resolved static options)
-    const rawFieldParams = component.fieldParams as Extract<
+    const rawFieldParams = normalizedComponent.fieldParams as Extract<
       SelectFieldParams,
       { optionsPath: string }
     >;
@@ -73,7 +79,7 @@ const preprocessComponent = (
         : options[0].value;
 
     return {
-      ...component,
+      ...normalizedComponent,
       fieldParams: {
         ...baseParams,
         options,
@@ -82,12 +88,12 @@ const preprocessComponent = (
     };
   }
 
-  return item;
+  return normalizedComponent;
 };
 
 const preprocessComponents = (
   components: { [key: string]: Component | ComponentGroup },
-  providerObject: Provider
+  providerObject?: Provider
 ): { [key: string]: Component | ComponentGroup } => {
   return Object.fromEntries(
     Object.entries(components).map(([key, item]) => [
@@ -101,8 +107,6 @@ export const preprocessSchema = (
   schema: TopologyUISchemas,
   providerObject?: Provider
 ): TopologyUISchemas => {
-  if (!providerObject) return schema;
-
   return Object.fromEntries(
     Object.entries(schema).map(([topologyKey, topology]) => {
       if (
