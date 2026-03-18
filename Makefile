@@ -42,8 +42,19 @@ check:                  ## Run checks/linters for the whole project.
 	go tool go-consistent -pedantic ./...
 	LOG_LEVEL=error go tool golangci-lint run
 
+.PHONY: copyright-check
+copyright-check: COPYRIGHT_FLAGS=--check
+copyright-check: ## Check changed .go/.ts/.tsx files for missing copyright headers.
+
 .PHONY: copyright-headers
-copyright-headers: ## Add missing copyright headers to changed .go/.ts/.tsx files.
+copyright-headers: COPYRIGHT_FLAGS=
+
+.PHONY: copyright-headers copyright-check
+copyright-headers: copyright-run ## Add missing copyright headers to changed .go/.ts/.tsx files.
+copyright-check: copyright-run
+
+.PHONY: copyright-run
+copyright-run:
 	@TMP_FILES_LIST=$$(mktemp); \
 	cleanup() { rm -f "$$TMP_FILES_LIST"; }; \
 	trap cleanup EXIT; \
@@ -65,7 +76,7 @@ copyright-headers: ## Add missing copyright headers to changed .go/.ts/.tsx file
 		exit 0; \
 	fi; \
 	echo "Processing copyright headers for changed files..."; \
-cat "$$TMP_FILES_LIST" | xargs -0 python3 scripts/add_copyright.py || true
+	python3 scripts/add_copyright.py $(COPYRIGHT_FLAGS) --paths-nul-file "$$TMP_FILES_LIST"
 
 .PHONY: charts
 HELM=go tool helm

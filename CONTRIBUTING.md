@@ -53,11 +53,20 @@ Before opening a PR, run local checks to keep CI green.
 ### Copyright headers
 
 Every `*.go`, `*.ts`, and `*.tsx` source file must carry an Apache 2.0 copyright header.
-To automatically add missing headers to files you changed in your branch, run from the repository root:
+
+To check files you changed in your branch run from the repository root:
+
+```bash
+make copyright-check
+```
+
+To automatically add missing headers to files you changed in your branch, run:
 
 ```bash
 make copyright-headers
 ```
+
+CI runs the check-only mode and reports files that are missing headers.
 
 The command detects files that were added or modified relative to `main` (using `git merge-base`) plus any new untracked source files, and inserts the header where it is missing.
 
@@ -67,6 +76,7 @@ You can also exclude files or folders using `.copyrightignore` in the repository
 You can also target specific files explicitly:
 
 ```bash
+make copyright-check FILES="path/to/file.go path/to/file.ts"
 make copyright-headers FILES="path/to/file.go path/to/file.ts"
 ```
 
@@ -74,12 +84,14 @@ For paths that contain spaces, pass a newline-delimited file list:
 
 ```bash
 printf '%s\n' "path with spaces/file.ts" "another/path.go" > /tmp/changed_files.txt
+make copyright-check FILES_FILE=/tmp/changed_files.txt
 make copyright-headers FILES_FILE=/tmp/changed_files.txt
 ```
 
 Or override the base branch:
 
 ```bash
+make copyright-check BASE_BRANCH=develop
 make copyright-headers BASE_BRANCH=develop
 ```
 
