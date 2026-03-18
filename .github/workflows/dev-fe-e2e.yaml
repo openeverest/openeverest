@@ -125,7 +125,9 @@ jobs:
           --helm.set server.image=localhost:5000/openeverest/openeverest-dev \
           --helm.set server.apiRequestsRateLimit=200 \
           --helm.set versionMetadataURL=https://check-dev.percona.com \
-          --helm.set operator.init=false
+          --helm.set operator.init=false \
+          --helm.set operator.image=ghcr.io/openeverest/openeverest-operator-dev \
+          --helm.set olm.catalogSourceImage=ghcr.io/openeverest/openeverest-catalog-dev
 
       - name: Add everest-ui namespace
         shell: bash
