@@ -244,6 +244,7 @@ export const DatabasePage = () => {
   // Route guards
   useEffect(() => {
     if (!location.state) navigate('/');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {

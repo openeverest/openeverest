@@ -53,6 +53,7 @@ const deepClone = <T>(value: T): T => {
 const getByPath = (obj: Record<string, unknown>, path: string): unknown => {
   if (typeof path !== 'string' || path.length === 0) {
     if (import.meta.env.DEV) {
+      // eslint-disable-next-line no-console
       console.error('[postprocessSchema][getByPath] Invalid path', {
         path,
         pathType: typeof path,
@@ -76,6 +77,7 @@ const setByPath = (
 ): void => {
   if (typeof path !== 'string' || path.length === 0) {
     if (import.meta.env.DEV) {
+      // eslint-disable-next-line no-console
       console.error('[postprocessSchema][setByPath] Invalid path', {
         path,
         pathType: typeof path,
@@ -105,6 +107,7 @@ const setByPath = (
 const deleteByPath = (obj: Record<string, unknown>, path: string): void => {
   if (typeof path !== 'string' || path.length === 0) {
     if (import.meta.env.DEV) {
+      // eslint-disable-next-line no-console
       console.error('[postprocessSchema][deleteByPath] Invalid path', {
         path,
         pathType: typeof path,

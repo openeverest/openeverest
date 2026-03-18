@@ -32,6 +32,7 @@ export const getValueByPath = (
 
   if (!resolvedPath) {
     if (import.meta.env.DEV) {
+      // eslint-disable-next-line no-console
       console.error('[getValueByPath] Invalid path argument', {
         path,
         pathType: typeof path,
