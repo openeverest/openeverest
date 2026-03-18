@@ -55,7 +55,7 @@ copyright-check: copyright-run
 
 .PHONY: copyright-run
 copyright-run:
-	@TMP_FILES_LIST=$$(mktemp); \
+	@TMP_FILES_LIST=$$(mktemp "$${TMPDIR:-/tmp}/everest_copyright.XXXXXX" 2>/dev/null || mktemp -t everest_copyright.XXXXXX); \
 	cleanup() { rm -f "$$TMP_FILES_LIST"; }; \
 	trap cleanup EXIT; \
 	if [ -n "$(FILES_FILE)" ]; then \
