@@ -1,2 +1,1 @@
-
-const emptyFileToTestWorkflow = "hope it will works"
+const emptyFileToTestWorkflow = 'hope it will works';
