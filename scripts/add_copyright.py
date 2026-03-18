@@ -28,6 +28,7 @@ import fnmatch
 import subprocess
 import sys
 from datetime import date
+from typing import List
 
 YEAR = str(date.today().year)
 
@@ -88,13 +89,13 @@ def get_repo_root() -> str:
     return output or os.getcwd()
 
 
-def load_ignore_patterns(repo_root: str) -> list[str]:
+def load_ignore_patterns(repo_root: str) -> List[str]:
     """Load ignore patterns from .copyrightignore if it exists."""
     ignore_path = os.path.join(repo_root, IGNORE_FILE_NAME)
     if not os.path.isfile(ignore_path):
         return []
 
-    patterns: list[str] = []
+    patterns: List[str] = []
     try:
         with open(ignore_path, encoding="utf-8") as fh:
             for line in fh:
@@ -109,7 +110,7 @@ def load_ignore_patterns(repo_root: str) -> list[str]:
     return patterns
 
 
-def path_is_ignored(filepath: str, repo_root: str, patterns: list[str]) -> bool:
+def path_is_ignored(filepath: str, repo_root: str, patterns: List[str]) -> bool:
     """Check if a file path matches any ignore pattern."""
     rel_path = os.path.relpath(os.path.abspath(filepath), repo_root).replace(os.sep, "/")
 
@@ -130,7 +131,7 @@ def path_is_ignored(filepath: str, repo_root: str, patterns: list[str]) -> bool:
     return False
 
 
-def process_file(filepath: str, repo_root: str, ignore_patterns: list[str], check_only: bool) -> str:
+def process_file(filepath: str, repo_root: str, ignore_patterns: List[str], check_only: bool) -> str:
     """Process a file and return a FileStatus value."""
     if path_is_ignored(filepath, repo_root, ignore_patterns):
         return FileStatus.OK
