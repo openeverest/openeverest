@@ -53,7 +53,7 @@ func (h *validateHandler) DeleteMonitoringInstance(ctx context.Context, namespac
 	}
 
 	if operatorUtils.IsEverestObjectInUse(mc) {
-		// monitoringConfig is used by some DB cluster
+		// monitoringConfig is used by some instance
 		return errors.Join(ErrInvalidRequest, errDeleteInUseMonitoringConfig(namespace, name))
 	}
 	return h.next.DeleteMonitoringInstance(ctx, namespace, name)
