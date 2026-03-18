@@ -1,5 +1,6 @@
 **
 !bin/everest
+!bin/manager
 !cmd
 !migrations
 !model

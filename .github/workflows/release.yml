@@ -341,6 +341,10 @@ jobs:
             CGO_ENABLED=0 GOOS=linux GOARCH=amd64 make release
           fi
 
+      - name: Everest - build controller binary
+        run: |
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 make build-controller
+
       - name: Everest - setup docker build metadata
         uses: docker/metadata-action@v5
         id: everest_meta
