@@ -65,7 +65,7 @@ copyright-headers: ## Add missing copyright headers to changed .go/.ts/.tsx file
 		exit 0; \
 	fi; \
 	echo "Processing copyright headers for changed files..."; \
-	xargs -0 -a "$$TMP_FILES_LIST" python3 scripts/add_copyright.py || true
+cat "$$TMP_FILES_LIST" | xargs -0 python3 scripts/add_copyright.py || true
 
 .PHONY: charts
 HELM=go tool helm
