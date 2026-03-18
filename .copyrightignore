@@ -1,5 +1,5 @@
 # Paths to ignore in scripts/add_copyright.py
-# One pattern per line (gitignore-like globs).
+# One pattern per line (glob-style patterns matched with Python fnmatch on normalized paths; note that '*' may match '/').
 # Examples:
 #   some/folder/**
 #   **/*.gen.go
