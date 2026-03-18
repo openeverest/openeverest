@@ -28,9 +28,11 @@ Nested objects that become empty after cleanup are removed too.
 
 ## Multipath Mapping
 
-When a component uses `path: string[]`, RHF stores one source field (generated ID, e.g. `g-engineVersion`).
+When a component uses `path: string[]`, multipath now uses the **first path** as the React Hook Form field id (for example, `spec.engine.version`).
 
-On submit, postprocess copies that value to every target path and removes the generated source field.
+On submit, postprocess reads the value from this first (source) path and copies it to every additional target path. The source path remains in the payload.
+
+For id-only multipath fields (controls that do not bind directly to a concrete data path), React Hook Form still uses a generated `g-*` field id as the source field. In that case, postprocess copies the value from the `g-*` field to all configured paths and then removes the generated `g-*` field from the payload.
 
 Example:
 
@@ -42,7 +44,7 @@ Example:
 }
 
 // RHF submit values
-{ 'g-engineVersion': '8.0.41' }
+{ 'spec.engine.version': '8.0.41' }
 
 // API payload after postprocess
 {
