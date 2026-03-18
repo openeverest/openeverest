@@ -67,8 +67,12 @@ copyright-run:
 			printf '%s\0' "$$file"; \
 		done > "$$TMP_FILES_LIST"; \
 	else \
-		BASE=$$(git merge-base HEAD $${BASE_BRANCH:-main} 2>/dev/null || echo HEAD); \
-		git diff -z --name-only --diff-filter=ACM $$BASE -- '*.go' '*.ts' '*.tsx' > "$$TMP_FILES_LIST"; \
+		BASE_BRANCH_LOCAL=$${BASE_BRANCH:-main}; \
+		if ! BASE=$$(git merge-base HEAD "$$BASE_BRANCH_LOCAL" 2>/dev/null); then \
+			echo "Failed to determine merge base with '$$BASE_BRANCH_LOCAL'. Ensure the branch exists and is fetched, or set BASE_BRANCH explicitly."; \
+			exit 1; \
+		fi; \
+		git diff -z --name-only --diff-filter=ACM "$$BASE" -- '*.go' '*.ts' '*.tsx' > "$$TMP_FILES_LIST"; \
 		git ls-files -z --others --exclude-standard -- '*.go' '*.ts' '*.tsx' >> "$$TMP_FILES_LIST"; \
 	fi; \
 	if [ ! -s "$$TMP_FILES_LIST" ]; then \
