@@ -21,15 +21,17 @@ jobs:
       - name: Checkout PR branch
         uses: actions/checkout@v4
         with:
-          # Check out the PR HEAD so file checks run on contributor changes.
-          ref: ${{ github.head_ref }}
+          # Check out the PR HEAD commit so file checks run on contributor changes,
+          # including for pull requests from forks.
+          ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 0
 
       - name: Collect changed source files
         id: changed
         run: |
           FILES=$(git diff --name-only --diff-filter=ACM \
-            "origin/${{ github.base_ref }}"...HEAD \
+            "${{ github.event.pull_request.base.sha }}" \
+            "${{ github.event.pull_request.head.sha }}" \
             | grep -E '\.(go|ts|tsx)$' || true)
 
           if [[ -z "$FILES" ]]; then
