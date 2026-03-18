@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,7 +17,7 @@
 import { Page, expect } from '@playwright/test';
 import { TIMEOUTS } from '@e2e/constants';
 
-export const DEFAULT_CLUSTER_VERSION = '6.0.16-13';
+export const DEFAULT_CLUSTER_VERSION = '8.0.19-7';
 
 export const basicInformationStepCheckForPG = async (
   page: Page,

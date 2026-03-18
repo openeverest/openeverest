@@ -64,6 +64,46 @@ check:                  ## Run checks/linters for the whole project.
 	go tool go-consistent -pedantic ./...
 	LOG_LEVEL=error go tool golangci-lint run
 
+.PHONY: copyright-check
+copyright-check: COPYRIGHT_FLAGS=--check
+copyright-check: ## Check changed .go/.ts/.tsx files for missing copyright headers.
+
+.PHONY: copyright-headers
+copyright-headers: COPYRIGHT_FLAGS=
+
+.PHONY: copyright-headers copyright-check
+copyright-headers: copyright-run ## Add missing copyright headers to changed .go/.ts/.tsx files.
+copyright-check: copyright-run
+
+.PHONY: copyright-run
+copyright-run:
+	@TMP_FILES_LIST=$$(mktemp "$${TMPDIR:-/tmp}/everest_copyright.XXXXXX" 2>/dev/null || mktemp -t everest_copyright.XXXXXX); \
+	cleanup() { rm -f "$$TMP_FILES_LIST"; }; \
+	trap cleanup EXIT; \
+	if [ -n "$(FILES_FILE)" ]; then \
+		while IFS= read -r file; do \
+			[ -n "$$file" ] && printf '%s\0' "$$file"; \
+		done < "$(FILES_FILE)" > "$$TMP_FILES_LIST"; \
+	elif [ -n "$(FILES)" ]; then \
+		for file in $(FILES); do \
+			printf '%s\0' "$$file"; \
+		done > "$$TMP_FILES_LIST"; \
+	else \
+		BASE_BRANCH_LOCAL=$${BASE_BRANCH:-main}; \
+		if ! BASE=$$(git merge-base HEAD "$$BASE_BRANCH_LOCAL" 2>/dev/null); then \
+			echo "Failed to determine merge base with '$$BASE_BRANCH_LOCAL'. Ensure the branch exists and is fetched, or set BASE_BRANCH explicitly."; \
+			exit 1; \
+		fi; \
+		git diff -z --name-only --diff-filter=ACM "$$BASE" -- '*.go' '*.ts' '*.tsx' > "$$TMP_FILES_LIST"; \
+		git ls-files -z --others --exclude-standard -- '*.go' '*.ts' '*.tsx' >> "$$TMP_FILES_LIST"; \
+	fi; \
+	if [ ! -s "$$TMP_FILES_LIST" ]; then \
+		echo "No changed .go/.ts/.tsx files to process."; \
+		exit 0; \
+	fi; \
+	echo "Processing copyright headers for changed files..."; \
+	python3 scripts/add_copyright.py $(COPYRIGHT_FLAGS) --paths-nul-file "$$TMP_FILES_LIST"
+
 .PHONY: charts
 HELM=go tool helm
 charts:        ## Install Helm dependency charts for Everest CLI.

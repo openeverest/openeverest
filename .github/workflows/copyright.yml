@@ -10,28 +10,28 @@ on:
       - "**/*.tsx"
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   copyright:
-    name: Check & Fix Copyright Headers
+    name: Check Copyright Headers
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout PR branch
         uses: actions/checkout@v4
         with:
-          # Check out the actual PR HEAD so we can push back to it.
-          # For fork PRs this will be a no-op (push will fail gracefully).
-          ref: ${{ github.head_ref }}
-          token: ${{ secrets.GITHUB_TOKEN }}
+          # Check out the PR HEAD commit so file checks run on contributor changes,
+          # including for pull requests from forks.
+          ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 0
 
       - name: Collect changed source files
         id: changed
         run: |
           FILES=$(git diff --name-only --diff-filter=ACM \
-            "origin/${{ github.base_ref }}"...HEAD \
+            "${{ github.event.pull_request.base.sha }}" \
+            "${{ github.event.pull_request.head.sha }}" \
             | grep -E '\.(go|ts|tsx)$' || true)
 
           if [[ -z "$FILES" ]]; then
@@ -50,24 +50,7 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Fix copyright headers
-        if: steps.changed.outputs.any == 'true'
-        # xargs splits the newline-separated list into individual arguments.
-        # We use `|| true` because the script exits 1 when it modifies files,
-        # which is expected – we handle that via `git diff` below.
-        run: |
-          xargs -a /tmp/changed_files.txt python3 hack/add_copyright.py || true
-
-      - name: Commit updates (if any)
+      - name: Check copyright headers
         if: steps.changed.outputs.any == 'true'
         run: |
-          if git diff --quiet; then
-            echo "All copyright headers are already up-to-date."
-            exit 0
-          fi
-
-          git config user.name  "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add -A
-          git commit -m "chore: add missing copyright headers [skip ci]"
-          git push
+          make copyright-check FILES_FILE=/tmp/changed_files.txt

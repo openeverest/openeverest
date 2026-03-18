@@ -3,6 +3,8 @@ OPENAPI_BIN=./node_modules/.bin/openapi-typescript
 OPENAPI_SRC=../api/openapi
 OPENAPI_OUT=api
 
+.PHONY: init test build lint format dev preflight
+
 init:
 	pnpm install
 
@@ -27,6 +29,12 @@ preflight:
 # This might change in the future if we have more apps, but for now keep it simple
 dev:
 	pnpm --filter "@percona/everest" dev
+
+preflight:
+	$(MAKE) lint
+	$(MAKE) test
+	$(MAKE) -C .. copyright-headers
+	$(MAKE) format
 
 ##@ OpenAPI TypeScript Types Generation
 

@@ -1,0 +1,13 @@
+# Paths to ignore in scripts/add_copyright.py
+# One pattern per line (glob-style patterns matched with Python fnmatch on normalized paths; note that '*' may match '/').
+# Examples:
+#   some/folder/**
+#   **/*.gen.go
+#   /api-tests/generated/**
+
+# Auto-generated API test typings.
+api-tests/generated/**
+api/everest-server.gen.go
+client/everest-client.gen.go
+internal/server/handlers/mock_handler.go
+pkg/rbac/mocks/i_enforcer.go

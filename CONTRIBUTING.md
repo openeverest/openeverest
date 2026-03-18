@@ -1,6 +1,6 @@
 # Contributing to OpenEverest
 
-Welcome! We are glad that you want to contribute to the OpenEverest project! 
+Welcome! We are glad that you want to contribute to the OpenEverest project!
 
 [OpenEverest](https://openeverest.io/) is an open source cloud-native database platform that lets developers deploy and manage PostgreSQL, MySQL, MongoDB and other databases on Kubernetes with ease. There are many ways to get involved, and every contribution matters.
 
@@ -12,17 +12,17 @@ The guidelines below are a starting point. We don't want to limit your creativit
 
 We welcome many types of contributions including:
 
-* New features and enhancements
-* Bug reports and fixes
-* [Documentation](https://github.com/openeverest/everest-doc)
-* Builds, CI/CD improvements
-* Issue triage
-* Answering questions on [Slack or other community channels](https://openeverest.io/#community) and GitHub Discussions
-* Blog posts, social media, and other community advocacy
-* [Website and blog posts](https://github.com/openeverest/openeverest.github.io)
-* Let us know when your talk about OpenEverest is accepted at a conference!
-* Release management
-* Problems found while setting up the development environment
+- New features and enhancements
+- Bug reports and fixes
+- [Documentation](https://github.com/openeverest/everest-doc)
+- Builds, CI/CD improvements
+- Issue triage
+- Answering questions on [Slack or other community channels](https://openeverest.io/#community) and GitHub Discussions
+- Blog posts, social media, and other community advocacy
+- [Website and blog posts](https://github.com/openeverest/openeverest.github.io)
+- Let us know when your talk about OpenEverest is accepted at a conference!
+- Release management
+- Problems found while setting up the development environment
 
 For development contributions, please refer to the separate sections below.
 
@@ -45,6 +45,55 @@ The backend is written in Go. To set up a full local development environment —
 ### Frontend
 
 The frontend is a TypeScript/React monorepo managed with PNPM and Turborepo. For details on the UI stack, local development setup, and available scripts, see the [Frontend Development Guide](https://github.com/openeverest/openeverest/blob/main/ui/README.md).
+
+## Local quality checks
+
+Before opening a PR, run local checks to keep CI green.
+
+### Copyright headers
+
+Every `*.go`, `*.ts`, and `*.tsx` source file must carry an Apache 2.0 copyright header.
+
+To check files you changed in your branch run from the repository root:
+
+```bash
+make copyright-check
+```
+
+To automatically add missing headers to files you changed in your branch, run:
+
+```bash
+make copyright-headers
+```
+
+CI runs the check-only mode and reports files that are missing headers.
+
+The command detects files that were added or modified relative to `main` (using `git merge-base`) plus any new untracked source files, and inserts the header where it is missing.
+
+Files that contain `This file was auto-generated` are skipped automatically.
+You can also exclude files or folders using `.copyrightignore` in the repository root.
+
+You can also target specific files explicitly:
+
+```bash
+make copyright-check FILES="path/to/file.go path/to/file.ts"
+make copyright-headers FILES="path/to/file.go path/to/file.ts"
+```
+
+For paths that contain spaces, pass a newline-delimited file list:
+
+```bash
+printf '%s\n' "path with spaces/file.ts" "another/path.go" > /tmp/changed_files.txt
+make copyright-check FILES_FILE=/tmp/changed_files.txt
+make copyright-headers FILES_FILE=/tmp/changed_files.txt
+```
+
+Or override the base branch:
+
+```bash
+make copyright-check BASE_BRANCH=develop
+make copyright-headers BASE_BRANCH=develop
+```
 
 ## Community Meetings
 
