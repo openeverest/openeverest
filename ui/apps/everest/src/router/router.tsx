@@ -13,49 +13,52 @@
 // limitations under the License.
 
 import { Navigate, createBrowserRouter } from 'react-router-dom';
-import { Login } from 'pages/login';
 import ProtectedRoute from 'components/protected-route/ProtectedRoute';
 import { Main } from 'components/main/Main';
-import { DbClusterView } from 'pages/databases/DbClusterView';
-import { DatabasePage } from 'pages/database-form/database-form';
-import { DbClusterDetails } from 'pages/db-cluster-details/db-cluster-details';
 import { DBClusterDetailsTabs } from 'pages/db-cluster-details/db-cluster-details.types';
-import { ClusterOverview } from 'pages/db-cluster-details/cluster-overview/cluster-overview';
-import { Settings } from 'pages/settings/settings';
 import { SettingsTabs } from 'pages/settings/settings.types';
-import { StorageLocations } from 'pages/settings/storage-locations/storage-locations';
-import { MonitoringEndpoints } from 'pages/settings/monitoring-endpoints/monitoring-endpoints';
-import { NoMatch } from 'pages/404/NoMatch';
-import { Backups } from 'pages/db-cluster-details/backups/backups';
-import { Namespaces } from './pages/settings/namespaces/namespaces';
-import { UIGeneratorBuilder } from 'pages/ui-generator-builder/ui-generator-builder';
-import NamespaceDetails from 'pages/settings/namespaces/namespace-details';
-import Restores from 'pages/db-cluster-details/restores';
-import Components from './pages/db-cluster-details/components';
-import Logs from './pages/db-cluster-details/component-logs/component-logs';
-import LoginCallback from 'components/login-callback/LoginCallback';
 import { DbClusterContextProvider } from 'pages/db-cluster-details/dbCluster.context';
-import Logout from 'pages/logout';
-import Policies from 'pages/settings/policies/policies';
-import PoliciesList from 'pages/settings/policies/pod-scheduling-policies/policies-list';
-import PolicyDetails from 'pages/settings/policies/pod-scheduling-policies/policy-details';
-import LoadBalancerConfiguration from 'pages/settings/policies/load-balancer-configuration';
-import LoadBalancerConfigDetails from 'pages/settings/policies/load-balancer-configuration/load-balancer-config-detials/load-balancer-config-detials';
-import SettingsPoliciesRouter from 'pages/settings/settings-policies-router';
-import SplitHorizon from 'pages/settings/policies/split-horizon';
+import {
+  Backups,
+  ClusterOverview,
+  Components,
+  DatabasePage,
+  DbClusterDetails,
+  DbClusterView,
+  LoadBalancerConfigDetails,
+  LoadBalancerConfiguration,
+  Login,
+  LoginCallback,
+  Logout,
+  Logs,
+  MonitoringEndpoints,
+  NamespaceDetails,
+  Namespaces,
+  NoMatch,
+  Policies,
+  PoliciesList,
+  PolicyDetails,
+  Restores,
+  Settings,
+  SettingsPoliciesRouter,
+  SplitHorizon,
+  StorageLocations,
+  UIGeneratorBuilder,
+} from './router-lazy-pages';
+import { withSuspense } from './router-suspense';
 
 const router = createBrowserRouter([
   {
     path: 'login',
-    element: <Login />,
+    element: withSuspense(<Login />),
   },
   {
     path: '/login-callback',
-    element: <LoginCallback />,
+    element: withSuspense(<LoginCallback />),
   },
   {
     path: '/logout',
-    element: <Logout />,
+    element: withSuspense(<Logout />),
   },
   {
     path: '/',
@@ -67,15 +70,15 @@ const router = createBrowserRouter([
     children: [
       {
         path: 'databases',
-        element: <DbClusterView />,
+        element: withSuspense(<DbClusterView />),
       },
       {
         path: 'databases/new',
-        element: <DatabasePage />,
+        element: withSuspense(<DatabasePage />),
       },
       {
         path: 'databases/:namespace/:dbClusterName',
-        element: (
+        element: withSuspense(
           <DbClusterContextProvider>
             <DbClusterDetails />
           </DbClusterContextProvider>
@@ -83,24 +86,24 @@ const router = createBrowserRouter([
         children: [
           {
             path: DBClusterDetailsTabs.backups,
-            element: <Backups />,
+            element: withSuspense(<Backups />),
           },
           {
             index: true,
             path: DBClusterDetailsTabs.overview,
-            element: <ClusterOverview />,
+            element: withSuspense(<ClusterOverview />),
           },
           {
             path: DBClusterDetailsTabs.components,
-            element: <Components />,
+            element: withSuspense(<Components />),
           },
           {
             path: DBClusterDetailsTabs.restores,
-            element: <Restores />,
+            element: withSuspense(<Restores />),
           },
           {
             path: DBClusterDetailsTabs.logs,
-            element: <Logs />,
+            element: withSuspense(<Logs />),
           },
         ],
       },
@@ -110,53 +113,53 @@ const router = createBrowserRouter([
       },
       {
         path: 'settings',
-        element: <Settings />,
+        element: withSuspense(<Settings />),
         children: [
           {
             path: SettingsTabs.storageLocations,
-            element: <StorageLocations />,
+            element: withSuspense(<StorageLocations />),
           },
           {
             path: SettingsTabs.monitoringEndpoints,
-            element: <MonitoringEndpoints />,
+            element: withSuspense(<MonitoringEndpoints />),
           },
           {
             path: SettingsTabs.namespaces,
-            element: <Namespaces />,
+            element: withSuspense(<Namespaces />),
           },
           {
             path: SettingsTabs.policies,
-            element: <Policies />,
+            element: withSuspense(<Policies />),
           },
         ],
       },
       {
         path: 'ui-generator-builder',
-        element: <UIGeneratorBuilder />,
+        element: withSuspense(<UIGeneratorBuilder />),
       },
       {
         path: '/settings/policies/details',
-        element: <SettingsPoliciesRouter />,
+        element: withSuspense(<SettingsPoliciesRouter />),
         children: [
           {
             path: 'pod-scheduling',
-            element: <PoliciesList />,
+            element: withSuspense(<PoliciesList />),
           },
           {
             path: 'pod-scheduling/:name',
-            element: <PolicyDetails />,
+            element: withSuspense(<PolicyDetails />),
           },
           {
             path: 'load-balancer-configuration',
-            element: <LoadBalancerConfiguration />,
+            element: withSuspense(<LoadBalancerConfiguration />),
           },
           {
             path: 'load-balancer-configuration/:configName',
-            element: <LoadBalancerConfigDetails />,
+            element: withSuspense(<LoadBalancerConfigDetails />),
           },
           {
             path: 'split-horizon',
-            element: <SplitHorizon />,
+            element: withSuspense(<SplitHorizon />),
           },
           {
             index: true,
@@ -166,16 +169,11 @@ const router = createBrowserRouter([
       },
       {
         path: '/settings/namespaces/:namespace',
-        element: <NamespaceDetails />,
+        element: withSuspense(<NamespaceDetails />),
       },
-      //TODO legasy POC should be removed later
-      // {
-      //   path: '/ui-generator',
-      //   element: <UIGeneratorNew />,
-      // },
       {
         path: '*',
-        element: <NoMatch />,
+        element: withSuspense(<NoMatch />),
       },
     ],
   },
