@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,65 +19,64 @@ import { Box } from '@mui/material';
 import { useDatabasePageMode } from '../hooks/use-database-page-mode';
 import { useDatabasePageDefaultValues } from '../hooks/use-database-form-default-values';
 import { DatabaseFormBodyProps } from './types';
+import { useFormContext } from 'react-hook-form';
 import { WizardMode } from 'shared-types/wizard.types';
-import { useSteps } from './steps';
 import { useDatabaseFormContext } from '../database-form-context';
 import { StepHeader } from './steps-old/step-header/step-header';
 import DatabaseFormStepControllers from './database-form-step-controllers';
 
 const DatabaseFormBody = ({
+  steps,
   activeStep,
   isSubmitting,
-  hasErrors,
   disableNext,
   onCancel,
   onSubmit,
   handleNextStep,
   handlePreviousStep,
 }: DatabaseFormBodyProps) => {
+  const isFirstStep = activeStep === 0;
+  const isLastStep = activeStep === steps.length - 1;
   const mode = useDatabasePageMode();
-  const { uiSchema, defaultTopology, sections, sectionsOrder, providerObject } =
-    useDatabaseFormContext();
-  const steps = useSteps(sections, sectionsOrder, providerObject);
+  const { uiSchema, defaultTopology } = useDatabaseFormContext();
+  const {
+    formState: { isValid },
+  } = useFormContext();
 
   const { dbClusterRequestStatus, isFetching: loadingDefaultsForEdition } =
     useDatabasePageDefaultValues(mode, uiSchema, defaultTopology);
 
-  const isFirstStep = activeStep === 0;
-
-  const sectionKeys = sectionsOrder || Object.keys(sections);
-  const stepLabel = steps[activeStep].label;
-  const sectionKey = sectionKeys.find(
-    (key) => sections[key]?.label === stepLabel
-  );
-  const sectionInfo = sectionKey ? sections[sectionKey] : null;
-
-  //TODO
-  // const isLastStep = activeStep === steps.length - 1;
+  const currentStep = steps[activeStep];
 
   return (
     <form style={{ flexGrow: 1 }} onSubmit={onSubmit}>
-      {activeStep > 0 && sectionInfo && (
+      {activeStep > 0 && currentStep?.description && (
         <StepHeader
-          pageTitle={sectionInfo.label || stepLabel}
-          pageDescription={sectionInfo.description || ''}
+          pageTitle={currentStep.label}
+          pageDescription={currentStep.description}
         />
       )}
+      {activeStep > 0 &&
+        !currentStep?.description &&
+        currentStep?.sectionKey && (
+          <StepHeader pageTitle={currentStep.label} pageDescription="" />
+        )}
       <Box>
         {(mode === WizardMode.New ||
           (mode === WizardMode.Restore &&
             dbClusterRequestStatus === 'success')) &&
-          React.createElement(steps[activeStep].component, {
+          currentStep &&
+          React.createElement(currentStep.component, {
             loadingDefaultsForEdition,
           })}
       </Box>
       <DatabaseFormStepControllers
         disableBack={isFirstStep}
-        disableSubmit={isSubmitting || hasErrors}
+        disableSubmit={isSubmitting || !isValid}
         disableCancel={isSubmitting}
         disableNext={disableNext}
-        showSubmit={activeStep === steps.length - 1 || activeStep === 0}
-        showConfigMore={activeStep === 0}
+        showSubmit={isLastStep || isFirstStep}
+        showConfigMore={isFirstStep}
         onPreviousClick={handlePreviousStep}
         onNextClick={handleNextStep}
         onCancel={onCancel}

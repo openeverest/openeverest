@@ -13,6 +13,10 @@
 // limitations under the License.
 
 import { formSubmitPostProcessing } from '../utils/form-submit-post-processing';
+import {
+  FieldType,
+  TopologyUISchemas,
+} from 'components/ui-generator/ui-generator.types';
 
 describe('formSubmitPostProcessing', () => {
   it('removes empty optional values recursively before submit payload is sent', () => {
@@ -42,5 +46,64 @@ describe('formSubmitPostProcessing', () => {
         enabled: false,
       },
     });
+  });
+
+  it('uses first multipath entry as source field and duplicates value to other target paths', () => {
+    const schema: TopologyUISchemas = {
+      replica: {
+        sections: {
+          resources: {
+            components: {
+              databaseVersion: {
+                uiType: FieldType.Text,
+                path: [
+                  'spec.components.engine.version',
+                  'spec.components.proxy.version',
+                  'spec.components.configServer.version',
+                ],
+                fieldParams: {
+                  label: 'Database version',
+                },
+              },
+            },
+          },
+        },
+      },
+    };
+
+    const input = {
+      spec: {
+        components: {
+          engine: {
+            version: '8.0.41',
+          },
+        },
+      },
+    } as Record<string, unknown>;
+
+    const result = formSubmitPostProcessing({}, input, {
+      schema,
+      selectedTopology: 'replica',
+    });
+
+    expect(result).toEqual({
+      spec: {
+        components: {
+          engine: {
+            version: '8.0.41',
+          },
+          proxy: {
+            version: '8.0.41',
+          },
+          configServer: {
+            version: '8.0.41',
+          },
+        },
+      },
+    });
+    // Payload should not include generated source field IDs.
+    expect(
+      (result as Record<string, unknown>)['g-databaseVersion']
+    ).toBeUndefined();
   });
 });

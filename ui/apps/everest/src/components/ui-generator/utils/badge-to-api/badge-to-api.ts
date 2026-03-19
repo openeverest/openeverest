@@ -16,17 +16,21 @@ import {
   Component,
   ComponentGroup,
   TopologyUISchemas,
-} from '../ui-generator.types';
+} from '../../ui-generator.types';
 
 export type BadgeMapping = {
   path: string;
   badge: string;
 };
 
-/**
- * Extracts badge mappings from UI schema for fields with badgeToApi=true
- * This allows appending badge suffixes to field values during form submission
- */
+const normalizeComponentPaths = (path: string | string[]): string[] => {
+  if (Array.isArray(path)) {
+    return path.filter((p): p is string => typeof p === 'string' && !!p);
+  }
+
+  return typeof path === 'string' && path ? [path] : [];
+};
+
 export const extractBadgeMappings = (
   schema: TopologyUISchemas,
   selectedTopology: string
@@ -54,9 +58,11 @@ export const extractBadgeMappings = (
           component.fieldParams?.badge &&
           component.fieldParams?.badgeToApi
         ) {
-          badgeMappings.push({
-            path: component.path,
-            badge: component.fieldParams.badge,
+          normalizeComponentPaths(component.path).forEach((path) => {
+            badgeMappings.push({
+              path,
+              badge: component.fieldParams.badge!,
+            });
           });
         }
       }
@@ -91,6 +97,10 @@ export const applyBadgesToFormData = (
   >;
 
   badgeMappings.forEach(({ path, badge }) => {
+    if (!path || typeof path !== 'string') {
+      return;
+    }
+
     const pathParts = path.split('.');
     let current: Record<string, unknown> = result;
 

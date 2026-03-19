@@ -12,12 +12,40 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-export const getValueByPath = (obj: unknown, path: string): unknown => {
-  if (!obj || !path || typeof obj !== 'object') {
+const resolvePath = (path: string | string[]): string | undefined => {
+  if (typeof path === 'string') {
+    return path || undefined;
+  }
+
+  if (Array.isArray(path)) {
+    return path.find((p): p is string => typeof p === 'string' && !!p);
+  }
+
+  return undefined;
+};
+
+export const getValueByPath = (
+  obj: unknown,
+  path: string | string[]
+): unknown => {
+  const resolvedPath = resolvePath(path);
+
+  if (!resolvedPath) {
+    if (import.meta.env.DEV) {
+      // eslint-disable-next-line no-console
+      console.error('[getValueByPath] Invalid path argument', {
+        path,
+        pathType: typeof path,
+      });
+    }
     return undefined;
   }
 
-  return path
+  if (!obj || typeof obj !== 'object') {
+    return undefined;
+  }
+
+  return resolvedPath
     .split('.')
     .reduce<unknown>(
       (acc, part) =>

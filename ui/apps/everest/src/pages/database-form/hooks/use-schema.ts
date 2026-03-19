@@ -13,7 +13,7 @@
 // limitations under the License.
 
 import { TopologyUISchemas } from 'components/ui-generator/ui-generator.types';
-import { preprocessSchema } from 'components/ui-generator/utils/preprocess-schema';
+import { preprocessSchema } from 'components/ui-generator/utils/preprocess/preprocess-schema';
 import { useMemo } from 'react';
 import { useLocation } from 'react-router-dom';
 import { Provider } from 'types/api';

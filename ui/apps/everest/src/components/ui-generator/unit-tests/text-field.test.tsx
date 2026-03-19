@@ -123,9 +123,8 @@ describe('UIGenerator - Text Field Basic Rendering', () => {
       <TestWrapper>
         <FormWrapper schema={schema} onSubmit={vi.fn()}>
           <UIGenerator
-            activeStep={0}
             sections={schema.testTopology!.sections}
-            stepLabels={['basicInfo']}
+            sectionKey="basicInfo"
           />
         </FormWrapper>
       </TestWrapper>
@@ -141,9 +140,8 @@ describe('UIGenerator - Text Field Basic Rendering', () => {
       <TestWrapper>
         <FormWrapper schema={schema} onSubmit={vi.fn()}>
           <UIGenerator
-            activeStep={0}
             sections={schema.testTopology!.sections}
-            stepLabels={['basicInfo']}
+            sectionKey="basicInfo"
           />
         </FormWrapper>
       </TestWrapper>
@@ -160,9 +158,8 @@ describe('UIGenerator - Text Field Basic Rendering', () => {
       <TestWrapper>
         <FormWrapper schema={schema} onSubmit={vi.fn()}>
           <UIGenerator
-            activeStep={0}
             sections={schema.testTopology!.sections}
-            stepLabels={['basicInfo']}
+            sectionKey="basicInfo"
           />
         </FormWrapper>
       </TestWrapper>
@@ -178,9 +175,8 @@ describe('UIGenerator - Text Field Basic Rendering', () => {
       <TestWrapper>
         <FormWrapper schema={schema} onSubmit={vi.fn()}>
           <UIGenerator
-            activeStep={0}
             sections={schema.testTopology!.sections}
-            stepLabels={['basicInfo']}
+            sectionKey="basicInfo"
           />
         </FormWrapper>
       </TestWrapper>
@@ -196,9 +192,8 @@ describe('UIGenerator - Text Field Basic Rendering', () => {
       <TestWrapper>
         <FormWrapper schema={schema} onSubmit={vi.fn()}>
           <UIGenerator
-            activeStep={0}
             sections={schema.testTopology!.sections}
-            stepLabels={['basicInfo']}
+            sectionKey="basicInfo"
           />
         </FormWrapper>
       </TestWrapper>
@@ -216,9 +211,8 @@ describe('UIGenerator - Text Field Multiline', () => {
       <TestWrapper>
         <FormWrapper schema={schema} onSubmit={vi.fn()}>
           <UIGenerator
-            activeStep={0}
             sections={schema.testTopology!.sections}
-            stepLabels={['basicInfo']}
+            sectionKey="basicInfo"
           />
         </FormWrapper>
       </TestWrapper>
@@ -236,9 +230,8 @@ describe('UIGenerator - Text Field Multiline', () => {
       <TestWrapper>
         <FormWrapper schema={schema} onSubmit={vi.fn()}>
           <UIGenerator
-            activeStep={0}
             sections={schema.testTopology!.sections}
-            stepLabels={['basicInfo']}
+            sectionKey="basicInfo"
           />
         </FormWrapper>
       </TestWrapper>
@@ -259,9 +252,8 @@ describe('UIGenerator - Text Field Required Validation', () => {
       <TestWrapper>
         <FormWrapper schema={schema} onSubmit={vi.fn()}>
           <UIGenerator
-            activeStep={0}
             sections={schema.testTopology!.sections}
-            stepLabels={['basicInfo']}
+            sectionKey="basicInfo"
           />
         </FormWrapper>
       </TestWrapper>
@@ -279,9 +271,8 @@ describe('UIGenerator - Text Field Required Validation', () => {
       <TestWrapper>
         <FormWrapper schema={schema} onSubmit={vi.fn()}>
           <UIGenerator
-            activeStep={0}
             sections={schema.testTopology!.sections}
-            stepLabels={['basicInfo']}
+            sectionKey="basicInfo"
           />
         </FormWrapper>
       </TestWrapper>
@@ -299,9 +290,8 @@ describe('UIGenerator - Text Field Required Validation', () => {
       <TestWrapper>
         <FormWrapper schema={schema} onSubmit={vi.fn()}>
           <UIGenerator
-            activeStep={0}
             sections={schema.testTopology!.sections}
-            stepLabels={['basicInfo']}
+            sectionKey="basicInfo"
           />
         </FormWrapper>
       </TestWrapper>
@@ -324,9 +314,8 @@ describe('UIGenerator - Text Field min Validation', () => {
       <TestWrapper>
         <FormWrapper schema={schema} onSubmit={vi.fn()}>
           <UIGenerator
-            activeStep={0}
             sections={schema.testTopology!.sections}
-            stepLabels={['basicInfo']}
+            sectionKey="basicInfo"
           />
         </FormWrapper>
       </TestWrapper>
@@ -347,9 +336,8 @@ describe('UIGenerator - Text Field min Validation', () => {
       <TestWrapper>
         <FormWrapper schema={schema} onSubmit={vi.fn()}>
           <UIGenerator
-            activeStep={0}
             sections={schema.testTopology!.sections}
-            stepLabels={['basicInfo']}
+            sectionKey="basicInfo"
           />
         </FormWrapper>
       </TestWrapper>
@@ -372,9 +360,8 @@ describe('UIGenerator - Text Field max Validation', () => {
       <TestWrapper>
         <FormWrapper schema={schema} onSubmit={vi.fn()}>
           <UIGenerator
-            activeStep={0}
             sections={schema.testTopology!.sections}
-            stepLabels={['basicInfo']}
+            sectionKey="basicInfo"
           />
         </FormWrapper>
       </TestWrapper>
@@ -395,9 +382,8 @@ describe('UIGenerator - Text Field max Validation', () => {
       <TestWrapper>
         <FormWrapper schema={schema} onSubmit={vi.fn()}>
           <UIGenerator
-            activeStep={0}
             sections={schema.testTopology!.sections}
-            stepLabels={['basicInfo']}
+            sectionKey="basicInfo"
           />
         </FormWrapper>
       </TestWrapper>
@@ -420,9 +406,8 @@ describe('UIGenerator - Text Field length Validation', () => {
       <TestWrapper>
         <FormWrapper schema={schema} onSubmit={vi.fn()}>
           <UIGenerator
-            activeStep={0}
             sections={schema.testTopology!.sections}
-            stepLabels={['basicInfo']}
+            sectionKey="basicInfo"
           />
         </FormWrapper>
       </TestWrapper>
@@ -443,9 +428,8 @@ describe('UIGenerator - Text Field length Validation', () => {
       <TestWrapper>
         <FormWrapper schema={schema} onSubmit={vi.fn()}>
           <UIGenerator
-            activeStep={0}
             sections={schema.testTopology!.sections}
-            stepLabels={['basicInfo']}
+            sectionKey="basicInfo"
           />
         </FormWrapper>
       </TestWrapper>
@@ -468,9 +452,8 @@ describe('UIGenerator - Text Field email Validation', () => {
       <TestWrapper>
         <FormWrapper schema={schema} onSubmit={vi.fn()}>
           <UIGenerator
-            activeStep={0}
             sections={schema.testTopology!.sections}
-            stepLabels={['basicInfo']}
+            sectionKey="basicInfo"
           />
         </FormWrapper>
       </TestWrapper>
@@ -491,9 +474,8 @@ describe('UIGenerator - Text Field email Validation', () => {
       <TestWrapper>
         <FormWrapper schema={schema} onSubmit={vi.fn()}>
           <UIGenerator
-            activeStep={0}
             sections={schema.testTopology!.sections}
-            stepLabels={['basicInfo']}
+            sectionKey="basicInfo"
           />
         </FormWrapper>
       </TestWrapper>
@@ -514,9 +496,8 @@ describe('UIGenerator - Text Field email Validation', () => {
       <TestWrapper>
         <FormWrapper schema={schema} onSubmit={vi.fn()}>
           <UIGenerator
-            activeStep={0}
             sections={schema.testTopology!.sections}
-            stepLabels={['basicInfo']}
+            sectionKey="basicInfo"
           />
         </FormWrapper>
       </TestWrapper>
@@ -536,9 +517,8 @@ describe('UIGenerator - Text Field url Validation', () => {
       <TestWrapper>
         <FormWrapper schema={schema} onSubmit={vi.fn()}>
           <UIGenerator
-            activeStep={0}
             sections={schema.testTopology!.sections}
-            stepLabels={['basicInfo']}
+            sectionKey="basicInfo"
           />
         </FormWrapper>
       </TestWrapper>
@@ -559,9 +539,8 @@ describe('UIGenerator - Text Field url Validation', () => {
       <TestWrapper>
         <FormWrapper schema={schema} onSubmit={vi.fn()}>
           <UIGenerator
-            activeStep={0}
             sections={schema.testTopology!.sections}
-            stepLabels={['basicInfo']}
+            sectionKey="basicInfo"
           />
         </FormWrapper>
       </TestWrapper>
@@ -584,9 +563,8 @@ describe('UIGenerator - Text Field uuid Validation', () => {
       <TestWrapper>
         <FormWrapper schema={schema} onSubmit={vi.fn()}>
           <UIGenerator
-            activeStep={0}
             sections={schema.testTopology!.sections}
-            stepLabels={['basicInfo']}
+            sectionKey="basicInfo"
           />
         </FormWrapper>
       </TestWrapper>
@@ -607,9 +585,8 @@ describe('UIGenerator - Text Field uuid Validation', () => {
       <TestWrapper>
         <FormWrapper schema={schema} onSubmit={vi.fn()}>
           <UIGenerator
-            activeStep={0}
             sections={schema.testTopology!.sections}
-            stepLabels={['basicInfo']}
+            sectionKey="basicInfo"
           />
         </FormWrapper>
       </TestWrapper>
@@ -633,9 +610,8 @@ describe('UIGenerator - Text Field trim Transform', () => {
       <TestWrapper>
         <FormWrapper schema={schema} onSubmit={onSubmit}>
           <UIGenerator
-            activeStep={0}
             sections={schema.testTopology!.sections}
-            stepLabels={['basicInfo']}
+            sectionKey="basicInfo"
           />
         </FormWrapper>
       </TestWrapper>
@@ -667,9 +643,8 @@ describe('UIGenerator - Text Field toLowerCase Transform', () => {
       <TestWrapper>
         <FormWrapper schema={schema} onSubmit={onSubmit}>
           <UIGenerator
-            activeStep={0}
             sections={schema.testTopology!.sections}
-            stepLabels={['basicInfo']}
+            sectionKey="basicInfo"
           />
         </FormWrapper>
       </TestWrapper>
@@ -701,9 +676,8 @@ describe('UIGenerator - Text Field toUpperCase Transform', () => {
       <TestWrapper>
         <FormWrapper schema={schema} onSubmit={onSubmit}>
           <UIGenerator
-            activeStep={0}
             sections={schema.testTopology!.sections}
-            stepLabels={['basicInfo']}
+            sectionKey="basicInfo"
           />
         </FormWrapper>
       </TestWrapper>
@@ -737,9 +711,8 @@ describe('UIGenerator - Text Field regex Validation', () => {
       <TestWrapper>
         <FormWrapper schema={schema} onSubmit={vi.fn()}>
           <UIGenerator
-            activeStep={0}
             sections={schema.testTopology!.sections}
-            stepLabels={['basicInfo']}
+            sectionKey="basicInfo"
           />
         </FormWrapper>
       </TestWrapper>
@@ -763,9 +736,8 @@ describe('UIGenerator - Text Field regex Validation', () => {
       <TestWrapper>
         <FormWrapper schema={schema} onSubmit={vi.fn()}>
           <UIGenerator
-            activeStep={0}
             sections={schema.testTopology!.sections}
-            stepLabels={['basicInfo']}
+            sectionKey="basicInfo"
           />
         </FormWrapper>
       </TestWrapper>
@@ -788,9 +760,8 @@ describe('UIGenerator - Text Field Combined Validations', () => {
       <TestWrapper>
         <FormWrapper schema={schema} onSubmit={vi.fn()}>
           <UIGenerator
-            activeStep={0}
             sections={schema.testTopology!.sections}
-            stepLabels={['basicInfo']}
+            sectionKey="basicInfo"
           />
         </FormWrapper>
       </TestWrapper>
@@ -818,9 +789,8 @@ describe('UIGenerator - Text Field Combined Validations', () => {
       <TestWrapper>
         <FormWrapper schema={schema} onSubmit={vi.fn()}>
           <UIGenerator
-            activeStep={0}
             sections={schema.testTopology!.sections}
-            stepLabels={['basicInfo']}
+            sectionKey="basicInfo"
           />
         </FormWrapper>
       </TestWrapper>

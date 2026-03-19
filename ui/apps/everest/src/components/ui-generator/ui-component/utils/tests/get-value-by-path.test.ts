@@ -38,4 +38,17 @@ describe('getValueByPath', () => {
     expect(getValueByPath({ spec: { value: 1 } }, '')).toBeUndefined();
     expect(getValueByPath('not-object', 'spec.value')).toBeUndefined();
   });
+
+  it('accepts multipath arrays and resolves value by the first valid path', () => {
+    const input = {
+      spec: {
+        engine: { version: '8.0.41' },
+        proxy: { version: '8.0.39' },
+      },
+    };
+
+    expect(
+      getValueByPath(input, ['spec.engine.version', 'spec.proxy.version'])
+    ).toBe('8.0.41');
+  });
 });

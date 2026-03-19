@@ -19,14 +19,6 @@ import StackWrapper from './ui-group-wrappers/stack-wrapper';
 import { z } from 'zod';
 
 export const UI_TYPE_DEFAULT_VALUE: Partial<Record<FieldType, unknown>> = {
-  //   [FieldType.Switch]: false,
-  //   [FieldType.Checkbox]: false,
-  //   [FieldType.Toggle]: false,
-  //   [FieldType.TextArea]: 'lorem ipsum',
-  //   [FieldType.Input]: '',
-  //   [FieldType.StorageClassSelect]: 'lorem ipsum',
-  //   [FieldType.SecretSelector]: '',
-  //   [FieldType.String]: '',
   [FieldType.Select]: '',
   [FieldType.Text]: '',
   [FieldType.Hidden]: undefined,
@@ -114,9 +106,4 @@ export const ZOD_SCHEMA_MAP: Record<FieldType, z.ZodTypeAny> = {
   [FieldType.Text]: z.string(),
   [FieldType.Select]: z.string(),
   [FieldType.Hidden]: z.any(),
-  // [FieldType.Input]: z.string(),
-  // [FieldType.Switch]: z.boolean(),
-  // [FieldType.Checkbox]: z.boolean(),
-  // [FieldType.String]: z.string().min(5),
-  // [FieldType.TextArea]: z.string().min(5),
 };

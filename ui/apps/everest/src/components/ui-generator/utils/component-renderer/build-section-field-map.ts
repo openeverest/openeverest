@@ -17,6 +17,8 @@ import type {
   Component,
   ComponentGroup,
 } from '../../ui-generator.types';
+import { generateFieldId } from './generate-field-id';
+import { getComponentTargetPaths } from '../preprocess/normalized-component';
 
 // TODO probably may be improved and be a part of some other function that walks throught
 // all section
@@ -28,31 +30,54 @@ export const buildSectionFieldMap = (
 
   const walkComponents = (
     components: { [key: string]: Component | ComponentGroup },
-    sectionKey: string
+    sectionKey: string,
+    basePath = ''
   ) => {
-    Object.values(components).forEach((comp) => {
+    Object.entries(components).forEach(([componentKey, comp]) => {
       if (!comp) return;
+
+      const generatedName = basePath
+        ? `${basePath}.${componentKey}`
+        : componentKey;
 
       if (comp.uiType === 'group' || comp.uiType === 'hidden') {
         // Recurse into group children
-        walkComponents((comp as ComponentGroup).components, sectionKey);
+        walkComponents(
+          (comp as ComponentGroup).components,
+          sectionKey,
+          generatedName
+        );
         return;
       }
 
       const leaf = comp as Component;
-      if (leaf.path) {
-        map[leaf.path] = sectionKey;
-        // Register ALL intermediate path prefixes so that Zod errors at parent
-        // nodes (e.g. when a nested object is undefined on topology switch) still
-        // map to the correct step, rather than falling back to the top-level key
-        // which may belong to a completely different step.
-        const parts = leaf.path.split('.');
-        for (let i = 1; i < parts.length; i++) {
-          const prefix = parts.slice(0, i).join('.');
-          if (!(prefix in map)) {
-            map[prefix] = sectionKey;
+      const targetPaths = getComponentTargetPaths(leaf);
+
+      if (targetPaths.length > 0) {
+        const registerPath = (path: string) => {
+          if (!path || typeof path !== 'string') {
+            return;
           }
-        }
+
+          map[path] = sectionKey;
+          // Register ALL intermediate path prefixes so that Zod errors at parent
+          // nodes (e.g. when a nested object is undefined on topology switch) still
+          // map to the correct step, rather than falling back to the top-level key
+          // which may belong to a completely different step.
+          const parts = path.split('.');
+          for (let i = 1; i < parts.length; i++) {
+            const prefix = parts.slice(0, i).join('.');
+            if (!(prefix in map)) {
+              map[prefix] = sectionKey;
+            }
+          }
+        };
+
+        targetPaths.forEach(registerPath);
+
+        // For multipath fields RHF stores value under generated ID, so errors can
+        // be reported using this source field name as well.
+        map[generateFieldId(leaf, generatedName)] = sectionKey;
       }
     });
   };

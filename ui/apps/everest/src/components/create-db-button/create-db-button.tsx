@@ -57,7 +57,7 @@ export const CreateDbButton = ({
   //     refetchInterval: 30 * 1000,
   //   });
 
-  const { data: providers, isFetching: providersFetching } = useProviders();
+  const { data: providers, isLoading: providersLoading } = useProviders();
   const availableProviders = providers?.items || [];
 
   // TODO remove after createDBCluster flow will be ready
@@ -105,21 +105,28 @@ export const CreateDbButton = ({
   };
 
   useEffect(() => {
-    if (providersFetching) {
+    let timeoutId: ReturnType<typeof setTimeout> | undefined;
+
+    if (providersLoading) {
       setShowDropdownButton(false);
     } else {
-      setTimeout(() => {
+      timeoutId = setTimeout(() => {
         setShowDropdownButton(true);
       }, 300);
     }
-  }, [providersFetching]);
+
+    return () => {
+      if (timeoutId !== undefined) {
+        clearTimeout(timeoutId);
+      }
+    };
+  }, [providersLoading]);
 
   const buttonStyle = { display: 'flex', minHeight: '34px', width: '165px' };
   const skeletonStyle = {
     ...buttonStyle,
     borderRadius: '128px',
   };
-
   const showTechPreviewTooltip =
     createFromImport && availableProviders.length === 1;
 

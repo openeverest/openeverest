@@ -12,14 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import type { StepProps } from '../database-form.types.js';
-
-export type StepInfo = {
-  component: React.ComponentType<StepProps>;
-  label: string;
-};
+import type { StepDefinition } from 'components/ui-generator/form-engine';
 
 export type DatabaseFormBodyProps = {
+  steps: StepDefinition[];
   activeStep: number;
   disableNext?: boolean;
   isSubmitting: boolean;

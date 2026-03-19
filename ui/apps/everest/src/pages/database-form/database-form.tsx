@@ -37,66 +37,26 @@ import { useDatabasePageDefaultValues } from './hooks/use-database-form-default-
 import { useDatabasePageMode } from './hooks/use-database-page-mode';
 import { DatabaseFormProvider } from './database-form-context';
 import { useSchema } from './hooks/use-schema';
-import { useUiGenerator } from 'components/ui-generator/hooks/ui-generator';
 import { useDbValidationSchema } from './hooks/use-db-validation-schema';
 import { ImportFields } from 'components/cluster-form/import/import.types';
 import { DbWizardFormFields } from 'consts';
 import { getDefaultValues } from 'components/ui-generator/utils/default-values';
-import { formSubmitPostProcessing } from './utils/form-submit-post-processing';
 import {
   BASE_STEP_ID,
   IMPORT_STEP_ID,
 } from './database-form-body/steps/constants';
-import { getSectionStepId } from 'components/ui-generator/utils/section-step-id';
-
-// When the user switches topology, new topology fields are absent from form
-// data, causing Zod to report errors at the parent-object level instead of the
-// leaf field. This helper deep-merges topology defaults into current values so
-// that every nested object is properly initialised before re-validation.
-const mergeTopologyDefaults = (
-  current: Record<string, unknown>,
-  defaults: Record<string, unknown>
-): Record<string, unknown> => {
-  const result: Record<string, unknown> = { ...current };
-  for (const key of Object.keys(defaults)) {
-    if (result[key] === undefined || result[key] === null) {
-      result[key] = defaults[key];
-    } else if (
-      typeof defaults[key] === 'object' &&
-      defaults[key] !== null &&
-      !Array.isArray(defaults[key]) &&
-      typeof result[key] === 'object' &&
-      result[key] !== null &&
-      !Array.isArray(result[key])
-    ) {
-      result[key] = mergeTopologyDefaults(
-        result[key] as Record<string, unknown>,
-        defaults[key] as Record<string, unknown>
-      );
-    }
-  }
-  return result;
-};
-
-const flattenErrorPaths = (
-  obj: Record<string, unknown>,
-  prefix = ''
-): string[] => {
-  if (!obj || typeof obj !== 'object') return prefix ? [prefix] : [];
-  // A leaf RHF error node always has `message` or `type`
-  if (obj.message !== undefined || obj.type !== undefined)
-    return prefix ? [prefix] : [];
-  return Object.keys(obj).flatMap((key) =>
-    flattenErrorPaths(
-      obj[key] as Record<string, unknown>,
-      prefix ? `${prefix}.${key}` : key
-    )
-  );
-};
+import {
+  useFormEngine,
+  useStepNavigation,
+  useErrorRouting,
+  StepDefinition,
+} from 'components/ui-generator/form-engine';
+import { BaseInfoStep } from './database-form-body/steps/base-step/base-step';
+import { ImportStep } from './database-form-body/steps-old/import/import-step';
+import { mergeTopologyDefaults } from 'components/ui-generator/utils/default-values/merge-topology-defaults';
 
 export const DatabasePage = () => {
   const latestDataRef = useRef<DbWizardType | null>(null);
-  const [activeStepId, setActiveStepId] = useState<string>(BASE_STEP_ID);
   const [formSubmitted, setFormSubmitted] = useState(false);
 
   const { mutate: createInstance, isPending: isCreating } = useCreateInstance();
@@ -106,26 +66,26 @@ export const DatabasePage = () => {
   const { isDesktop } = useActiveBreakpoint();
   const mode = useDatabasePageMode();
 
+  // ── Schema & topology
   const { uiSchema, topologies, hasMultipleTopologies } = useSchema();
   const defaultTopology = topologies[0] || '';
+  const hasImportStep = !!location.state?.showImport;
+  const providerObject = location.state?.selectedDbProvider;
 
+  // ── Page-level defaults (merges schema defaults + wizard-specific ones)
   const { defaultValues } = useDatabasePageDefaultValues(
     mode,
     uiSchema,
     defaultTopology
   );
-
-  // Loading state - true if defaults are not yet ready
   const loadingClusterValues = !defaultValues;
 
-  //TODO change to providers logic?
+  // ── Data queries ─────────────────────────────────────────────────────────
   const { data: namespaces = [] } = useNamespaces({
     refetchInterval: 10 * 1000,
   });
   const dbClustersResults = useDBClustersForNamespaces(
-    namespaces.map((ns) => ({
-      namespace: ns,
-    }))
+    namespaces.map((ns) => ({ namespace: ns }))
   );
   const dbClustersNamesList = useMemo(
     () =>
@@ -140,19 +100,18 @@ export const DatabasePage = () => {
     [JSON.stringify(dbClustersResults)]
   );
 
-  const hasImportStep = location.state?.showImport;
-
+  // ── React Hook Form ──────────────────────────────────────────────────────
   const validationSchemaRef = useRef<ZodType<DbWizardType> | null>(null);
 
   const methods = useForm<DbWizardType>({
     mode: 'onChange',
-    resolver: async (data, context, options) => {
+    resolver: (data, context, options) => {
       if (!validationSchemaRef.current) {
         return { values: data, errors: {} };
       }
-      const customResolver = zodResolver(validationSchemaRef.current);
-      const result = await customResolver(data, context, options);
-      return result;
+      return zodResolver(validationSchemaRef.current, undefined, {
+        mode: 'sync',
+      })(data, context, options);
     },
     // @ts-ignore
     defaultValues,
@@ -173,13 +132,82 @@ export const DatabasePage = () => {
     name: DbWizardFormFields.topology,
   });
 
-  // ── topology switch: seed new-topology field defaults ────────────────────────
-  // When the user picks a different topology the new topology's nested objects
-  // (e.g. spec.components.configServer) are absent from the current form values.
-  // Zod would then report an invalid_type error at the *parent* path rather than
-  // at the individual field, making the error icon appear on the wrong step.
-  // Merging the new topology's defaults ensures every nested object is present,
-  // so validation errors surface at the correct leaf paths.
+  // Static step definitions
+  const staticSteps = useMemo((): StepDefinition[] => {
+    const steps: StepDefinition[] = [
+      {
+        id: BASE_STEP_ID,
+        label: 'Basic Info',
+        component: BaseInfoStep,
+        fields: [
+          DbWizardFormFields.dbName,
+          DbWizardFormFields.provider,
+          DbWizardFormFields.k8sNamespace,
+          DbWizardFormFields.topology,
+        ],
+      },
+    ];
+    if (hasImportStep) {
+      steps.push({
+        id: IMPORT_STEP_ID,
+        label: 'Import',
+        component: ImportStep,
+        fields: Object.values(ImportFields) as string[],
+      });
+    }
+    return steps;
+  }, [hasImportStep]);
+
+  const engine = useFormEngine({
+    uiSchema,
+    selectedTopology,
+    staticSteps,
+    providerObject,
+  });
+
+  // Navigation
+  const nav = useStepNavigation(engine.steps, BASE_STEP_ID);
+
+  const handleNext = () => nav.next();
+  const handleBack = () => {
+    clearErrors();
+    nav.back();
+  };
+  const handleSectionEdit = (stepId: string) => {
+    clearErrors();
+    nav.goTo(stepId);
+  };
+
+  // Error step routing
+  const validStepIds = useMemo(
+    () => new Set(engine.steps.map((s) => s.id)),
+    [engine.steps]
+  );
+  const stepsWithErrors = useErrorRouting(
+    errors,
+    engine.fieldToStepMap,
+    validStepIds
+  );
+
+  // Validation
+  const validationSchema = useDbValidationSchema(
+    dbClustersNamesList,
+    hasImportStep,
+    engine.zodSchema
+  ) as unknown as ZodType<DbWizardType>;
+
+  useEffect(() => {
+    validationSchemaRef.current = validationSchema;
+    trigger();
+  }, [validationSchema, trigger]);
+
+  useEffect(() => {
+    if (engine.zodSchema && !loadingClusterValues && defaultValues) {
+      trigger();
+    }
+  }, [engine.zodSchema, defaultValues, loadingClusterValues, trigger]);
+
+  // Topology switch
   const prevTopologyTypeRef = useRef<string | undefined>(undefined);
   useEffect(() => {
     const topologyType = selectedTopology;
@@ -200,107 +228,28 @@ export const DatabasePage = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedTopology, uiSchema]);
 
-  // Stable reference – avoids re-running useUiGenerator when uiSchema is falsy
-  // TODO recheck rerender
-  const stableUiSchema = useMemo(() => uiSchema || {}, [uiSchema]);
-
-  const {
-    sections,
-    sectionsOrder,
-    zodSchema: { schema: generatedZodSchema },
-    sectionFieldMap,
-  } = useUiGenerator(stableUiSchema, selectedTopology);
-
-  const sectionKeys = useMemo(
-    () => sectionsOrder || Object.keys(sections),
-    [sectionsOrder, sections]
-  );
-
-  const orderedStepIds = useMemo(
-    () => [
-      BASE_STEP_ID,
-      ...(hasImportStep ? [IMPORT_STEP_ID] : []),
-      ...sectionKeys.map((key) => getSectionStepId(key)),
-    ],
-    [hasImportStep, sectionKeys]
-  );
-
-  const stepIdToIndex = useMemo(
-    () =>
-      Object.fromEntries(orderedStepIds.map((id, idx) => [id, idx])) as Record<
-        string,
-        number
-      >,
-    [orderedStepIds]
-  );
-
-  const activeStepIndex = stepIdToIndex[activeStepId] ?? 0;
-
-  //TODO probably it will be cleaner to use steps.length or to
-  // use Callback func (but in first scenario may be a problem of
-  // last step cashing) and problem with submit/cancel
-  const totalSteps = useMemo(() => orderedStepIds.length, [orderedStepIds]);
-
-  const validationSchema = useDbValidationSchema(
-    dbClustersNamesList,
-    hasImportStep,
-    generatedZodSchema
-  ) as unknown as ZodType<DbWizardType>;
-
+  // Revalidate on step change
   useEffect(() => {
-    validationSchemaRef.current = validationSchema;
-    // Revalidate when schema changes
     trigger();
-  }, [validationSchema, trigger]);
+  }, [nav.activeStepId, trigger]);
+
+  // Restore mode defaults
+  useEffect(() => {
+    if (isDirty) return;
+    if (mode === WizardMode.Restore) {
+      reset(defaultValues);
+    }
+  }, [defaultValues, isDirty, reset, mode]);
+
+  // Route guards
+  useEffect(() => {
+    if (!location.state) navigate('/');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
-    if (generatedZodSchema && !loadingClusterValues && defaultValues) {
-      trigger();
-    }
-  }, [generatedZodSchema, defaultValues, loadingClusterValues, trigger]);
-
-  //TODO refactor and move to separate hook
-  const fieldToStepMap = useMemo(() => {
-    const map: Record<string, string> = {
-      [DbWizardFormFields.dbName]: BASE_STEP_ID,
-      [DbWizardFormFields.provider]: BASE_STEP_ID,
-      [DbWizardFormFields.k8sNamespace]: BASE_STEP_ID,
-      [DbWizardFormFields.topology]: BASE_STEP_ID,
-    };
-
-    if (hasImportStep) {
-      (Object.values(ImportFields) as string[]).forEach((f) => {
-        map[f] = IMPORT_STEP_ID;
-      });
-    }
-
-    Object.entries(sectionFieldMap).forEach(([fieldPath, sectionKey]) => {
-      map[fieldPath] = getSectionStepId(sectionKey);
-    });
-
-    return map;
-  }, [hasImportStep, sectionFieldMap]);
-
-  const stepsWithErrors = useMemo(() => {
-    const errorPaths = flattenErrorPaths(errors as Record<string, unknown>);
-    const stepsSet = new Set<string>();
-
-    errorPaths.forEach((path) => {
-      // Try the full path first, then progressively shorter prefixes.
-      // After the buildSectionFieldMap fix, exact and intermediate paths are
-      // registered, so the first match is almost always the full path.
-      const parts = path.split('.');
-      for (let i = parts.length; i > 0; i--) {
-        const prefix = parts.slice(0, i).join('.');
-        if (prefix in fieldToStepMap) {
-          stepsSet.add(fieldToStepMap[prefix]);
-          break;
-        }
-      }
-    });
-
-    return Array.from(stepsSet).filter((stepId) => stepId in stepIdToIndex);
-  }, [errors, fieldToStepMap, stepIdToIndex]);
+    if (formSubmitted) navigate('/databases');
+  }, [formSubmitted, navigate]);
 
   const blocker = useBlocker(
     ({ currentLocation, nextLocation }) =>
@@ -310,124 +259,27 @@ export const DatabasePage = () => {
   );
 
   const onSubmit: SubmitHandler<DbWizardType> = (data) => {
-    const postProcessedData = formSubmitPostProcessing(
-      {},
+    const postProcessedData = engine.postprocess(
       data as Record<string, unknown>
     ) as DbWizardType;
 
     latestDataRef.current = postProcessedData;
 
-    //TODO Restore mode === WizardMode.Restore
     if (mode === WizardMode.New) {
-      const addInstance = () =>
-        createInstance(
-          {
-            formValue: postProcessedData,
+      createInstance(
+        { formValue: postProcessedData },
+        {
+          onSuccess: () => {
+            setFormSubmitted(true);
           },
-          {
-            onSuccess: () => {
-              // TODO recheck with list of instances
-              // // We clear the query for the namespace to make sure the new cluster is fetched
-              // queryClient.removeQueries({
-              //   queryKey: [DB_CLUSTERS_QUERY_KEY, instance.metadata.namespace],
-              // });
-              setFormSubmitted(true);
-            },
-          }
-        );
-      addInstance();
-      //TODO import flow
-      // const credentials = latestDataRef.current?.credentials;
-      // if (hasImportStep && credentials && Object.keys(credentials).length > 0) {
-      //   addDbClusterSecret(
-      //     {
-      //       dbClusterName: data.dbName,
-      //       namespace: data.k8sNamespace || '',
-      //       credentials: credentials as Record<string, string>,
-      //     },
-      //     {
-      //       onSuccess: addCluster,
-      //     }
-      //   );
-      // } else {
-      //   addCluster();
-      // }
+        }
+      );
     }
   };
 
-  const handleNext = async () => {
-    if (activeStepIndex < totalSteps - 1) {
-      const newIndex = activeStepIndex + 1;
-      setActiveStepId(orderedStepIds[newIndex]);
-    }
-  };
+  // ── Render ───────────────────────────────────────────────────────────────
+  if (!uiSchema) return null;
 
-  const handleBack = () => {
-    clearErrors();
-    if (activeStepIndex > 0) {
-      setActiveStepId(orderedStepIds[activeStepIndex - 1]);
-    }
-  };
-
-  const handleSectionEdit = (stepId: string) => {
-    clearErrors();
-    setActiveStepId(stepId);
-  };
-
-  const handleCloseCancellationModal = () => {
-    if (blocker.state === 'blocked') {
-      blocker.reset();
-    }
-  };
-
-  const proceedNavigation = () => {
-    if (blocker.state === 'blocked') {
-      blocker.proceed();
-    }
-  };
-
-  useEffect(() => {
-    trigger();
-  }, [activeStepId, trigger]);
-
-  useEffect(() => {
-    if (!(activeStepId in stepIdToIndex)) {
-      setActiveStepId(BASE_STEP_ID);
-    }
-  }, [activeStepId, stepIdToIndex]);
-
-  useEffect(() => {
-    // We disable the inputs on first step to make sure user doesn't change anything before all data is loaded
-    // When users change the inputs, it means all data was loaded and we should't change the defaults anymore at this point
-    // Because this effect relies on defaultValues, which comes from a hook that has dependencies that might be triggered somewhere else
-    // E.g. If defaults depend on monitoringInstances query, step four will cause this to re-rerender, because that step calls that query again
-    if (isDirty) {
-      return;
-    }
-
-    if (mode === WizardMode.Restore) {
-      reset(defaultValues);
-    }
-  }, [defaultValues, isDirty, reset, mode]);
-
-  useEffect(() => {
-    if (!location.state) {
-      navigate('/');
-    }
-  }, []);
-
-  useEffect(() => {
-    if (formSubmitted) {
-      navigate('/databases');
-    }
-  }, [formSubmitted, navigate]);
-
-  if (!uiSchema) {
-    //TODO check with noSchema in the api
-    return;
-  }
-
-  //TODO move provider separately (clean code issue)
   return (
     <DatabaseFormProvider
       value={{
@@ -435,20 +287,21 @@ export const DatabasePage = () => {
         topologies,
         hasMultipleTopologies,
         defaultTopology,
-        sections,
-        sectionsOrder,
-        providerObject: location.state?.selectedDbProvider,
+        sections: engine.sections,
+        sectionsOrder: engine.sectionsOrder,
+        providerObject,
       }}
     >
       <Stack direction={isDesktop ? 'row' : 'column'}>
         <FormProvider {...methods}>
           <DatabaseFormBody
-            activeStep={activeStepIndex}
+            steps={engine.steps}
+            activeStep={nav.activeStepIndex}
             isSubmitting={isCreating}
             hasErrors={stepsWithErrors.length > 0}
             disableNext={
               hasImportStep &&
-              activeStepId === IMPORT_STEP_ID &&
+              nav.activeStepId === IMPORT_STEP_ID &&
               stepsWithErrors.includes(IMPORT_STEP_ID)
             }
             onSubmit={handleSubmit(onSubmit)}
@@ -458,7 +311,7 @@ export const DatabasePage = () => {
           />
           <DatabaseFormSideDrawer
             disabled={loadingClusterValues}
-            activeStepId={activeStepId}
+            activeStepId={nav.activeStepId}
             handleSectionEdit={handleSectionEdit}
             stepsWithErrors={stepsWithErrors}
           />
@@ -466,8 +319,8 @@ export const DatabasePage = () => {
       </Stack>
       <DatabaseFormCancelDialog
         open={blocker.state === 'blocked'}
-        onClose={handleCloseCancellationModal}
-        onConfirm={proceedNavigation}
+        onClose={() => blocker.state === 'blocked' && blocker.reset()}
+        onConfirm={() => blocker.state === 'blocked' && blocker.proceed()}
       />
     </DatabaseFormProvider>
   );
