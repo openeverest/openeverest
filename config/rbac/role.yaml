@@ -5,9 +5,23 @@ metadata:
   name: manager-role
 rules:
 - apiGroups:
-  - backup.openeverest.io
+  - ""
   resources:
-  - backups
+  - namespaces
+  verbs:
+  - get
+- apiGroups:
+  - monitoring.openeverest.io
+  resources:
+  - databaseclusters
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - monitoring.openeverest.io
+  resources:
+  - monitoringconfigs
   verbs:
   - create
   - delete
@@ -17,15 +31,9 @@ rules:
   - update
   - watch
 - apiGroups:
-  - backup.openeverest.io
+  - monitoring.openeverest.io
   resources:
-  - backups/finalizers
-  verbs:
-  - update
-- apiGroups:
-  - backup.openeverest.io
-  resources:
-  - backups/status
+  - monitoringconfigs/status
   verbs:
   - get
   - patch
