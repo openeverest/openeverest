@@ -1,5 +1,7 @@
 EVEREST_OUT_DIR := ""
 
+.PHONY: init test build lint format dev preflight
+
 init:
 	pnpm install
 
@@ -18,3 +20,9 @@ format:
 # This might change in the future if we have more apps, but for now keep it simple
 dev:
 	pnpm --filter "@percona/everest" dev
+
+preflight:
+	$(MAKE) lint
+	$(MAKE) test
+	$(MAKE) -C .. copyright-headers
+	$(MAKE) format
