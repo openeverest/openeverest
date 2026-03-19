@@ -7670,7 +7670,7 @@ export interface components {
              */
             kind?: string;
             metadata?: Record<string, never>;
-            /** @description MonitoringConfigSpec defines the desired state of MonitoringConfig. */
+            /** @description spec defines the desired state of MonitoringConfig */
             spec: {
                 /**
                  * @description CredentialsSecretName is the reference to the secret containing the API key.
@@ -7695,12 +7695,58 @@ export interface components {
                 verifyTLS: boolean;
             };
             /**
-             * @description MonitoringConfigStatus defines the observed state of MonitoringConfig.
+             * @description status defines the observed state of MonitoringConfig
              * @default {
              *       "inUse": false
              *     }
              */
             status: {
+                /**
+                 * @description conditions represent the current state of the MonitoringConfig resource.
+                 *     Each condition has a unique type and reflects the status of a specific aspect of the resource.
+                 *
+                 *     Standard condition types include:
+                 *     - "Available": the resource is fully functional
+                 *     - "Progressing": the resource is being created or updated
+                 *     - "Degraded": the resource failed to reach or maintain its desired state
+                 *
+                 *     The status of each condition is one of True, False, or Unknown.
+                 */
+                conditions?: {
+                    /**
+                     * Format: date-time
+                     * @description lastTransitionTime is the last time the condition transitioned from one status to another.
+                     *     This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                     */
+                    lastTransitionTime: string;
+                    /**
+                     * @description message is a human readable message indicating details about the transition.
+                     *     This may be an empty string.
+                     */
+                    message: string;
+                    /**
+                     * Format: int64
+                     * @description observedGeneration represents the .metadata.generation that the condition was set based upon.
+                     *     For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                     *     with respect to the current state of the instance.
+                     */
+                    observedGeneration?: number;
+                    /**
+                     * @description reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                     *     Producers of specific condition types may define expected values and meanings for this field,
+                     *     and whether the values are considered a guaranteed API.
+                     *     The value should be a CamelCase string.
+                     *     This field may not be empty.
+                     */
+                    reason: string;
+                    /**
+                     * @description status of the condition, one of True, False, Unknown.
+                     * @enum {string}
+                     */
+                    status: "True" | "False" | "Unknown";
+                    /** @description type of condition in CamelCase or in foo.example.com/CamelCase. */
+                    type: string;
+                }[];
                 /**
                  * @description InUse is a flag that indicates if any Instance uses the monitoring config.
                  * @default false

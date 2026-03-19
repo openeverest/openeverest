@@ -62,6 +62,20 @@ type MonitoringConfigStatus struct {
 	LastObservedGeneration int64 `json:"lastObservedGeneration,omitempty"`
 	// PMMServerVersion shows PMM server version.
 	PMMServerVersion PMMServerVersion `json:"pmmServerVersion,omitempty"`
+
+	// conditions represent the current state of the MonitoringConfig resource.
+	// Each condition has a unique type and reflects the status of a specific aspect of the resource.
+	//
+	// Standard condition types include:
+	// - "Available": the resource is fully functional
+	// - "Progressing": the resource is being created or updated
+	// - "Degraded": the resource failed to reach or maintain its desired state
+	//
+	// The status of each condition is one of True, False, or Unknown.
+	// +listType=map
+	// +listMapKey=type
+	// +optional
+	Conditions []metav1.Condition `json:"conditions,omitempty"`
 }
 
 // +kubebuilder:object:root=true
@@ -72,10 +86,16 @@ type MonitoringConfigStatus struct {
 // MonitoringConfig is the Schema for the monitoringconfigs API.
 type MonitoringConfig struct {
 	metav1.TypeMeta `json:",inline"`
+
+	// metadata is a standard object metadata
 	// +optional
 	metav1.ObjectMeta `json:"metadata,omitzero"`
 
+	// spec defines the desired state of MonitoringConfig
+	// +required
 	Spec MonitoringConfigSpec `json:"spec"`
+
+	// status defines the observed state of MonitoringConfig
 	// +optional
 	// +kubebuilder:default={"inUse": false}
 	Status MonitoringConfigStatus `json:"status,omitzero"`
@@ -86,7 +106,7 @@ type MonitoringConfig struct {
 // MonitoringConfigList contains a list of MonitoringConfig.
 type MonitoringConfigList struct {
 	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata,omitempty"`
+	metav1.ListMeta `json:"metadata,omitzero"`
 	Items           []MonitoringConfig `json:"items"`
 }
 

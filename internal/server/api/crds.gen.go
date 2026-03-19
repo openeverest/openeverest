@@ -51,11 +51,18 @@ const (
 	Pmm MonitoringConfigSpecType = "pmm"
 )
 
+// Defines values for MonitoringConfigStatusConditionsStatus.
+const (
+	MonitoringConfigStatusConditionsStatusFalse   MonitoringConfigStatusConditionsStatus = "False"
+	MonitoringConfigStatusConditionsStatusTrue    MonitoringConfigStatusConditionsStatus = "True"
+	MonitoringConfigStatusConditionsStatusUnknown MonitoringConfigStatusConditionsStatus = "Unknown"
+)
+
 // Defines values for ProviderStatusConditionsStatus.
 const (
-	ProviderStatusConditionsStatusFalse   ProviderStatusConditionsStatus = "False"
-	ProviderStatusConditionsStatusTrue    ProviderStatusConditionsStatus = "True"
-	ProviderStatusConditionsStatusUnknown ProviderStatusConditionsStatus = "Unknown"
+	False   ProviderStatusConditionsStatus = "False"
+	True    ProviderStatusConditionsStatus = "True"
+	Unknown ProviderStatusConditionsStatus = "Unknown"
 )
 
 // Backup Backup is the Schema for the backups API
@@ -651,7 +658,7 @@ type MonitoringConfig struct {
 	Kind     *string                 `json:"kind,omitempty"`
 	Metadata *map[string]interface{} `json:"metadata,omitempty"`
 
-	// Spec MonitoringConfigSpec defines the desired state of MonitoringConfig.
+	// Spec spec defines the desired state of MonitoringConfig
 	Spec struct {
 		// CredentialsSecretName CredentialsSecretName is the reference to the secret containing the API key.
 		// It contains `apiKey` key with the API key value.
@@ -671,8 +678,45 @@ type MonitoringConfig struct {
 		VerifyTLS *bool `json:"verifyTLS,omitempty"`
 	} `json:"spec"`
 
-	// Status MonitoringConfigStatus defines the observed state of MonitoringConfig.
+	// Status status defines the observed state of MonitoringConfig
 	Status *struct {
+		// Conditions conditions represent the current state of the MonitoringConfig resource.
+		// Each condition has a unique type and reflects the status of a specific aspect of the resource.
+		//
+		// Standard condition types include:
+		// - "Available": the resource is fully functional
+		// - "Progressing": the resource is being created or updated
+		// - "Degraded": the resource failed to reach or maintain its desired state
+		//
+		// The status of each condition is one of True, False, or Unknown.
+		Conditions *[]struct {
+			// LastTransitionTime lastTransitionTime is the last time the condition transitioned from one status to another.
+			// This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+			LastTransitionTime time.Time `json:"lastTransitionTime"`
+
+			// Message message is a human readable message indicating details about the transition.
+			// This may be an empty string.
+			Message string `json:"message"`
+
+			// ObservedGeneration observedGeneration represents the .metadata.generation that the condition was set based upon.
+			// For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+			// with respect to the current state of the instance.
+			ObservedGeneration *int64 `json:"observedGeneration,omitempty"`
+
+			// Reason reason contains a programmatic identifier indicating the reason for the condition's last transition.
+			// Producers of specific condition types may define expected values and meanings for this field,
+			// and whether the values are considered a guaranteed API.
+			// The value should be a CamelCase string.
+			// This field may not be empty.
+			Reason string `json:"reason"`
+
+			// Status status of the condition, one of True, False, Unknown.
+			Status MonitoringConfigStatusConditionsStatus `json:"status"`
+
+			// Type type of condition in CamelCase or in foo.example.com/CamelCase.
+			Type string `json:"type"`
+		} `json:"conditions,omitempty"`
+
 		// InUse InUse is a flag that indicates if any Instance uses the monitoring config.
 		InUse *bool `json:"inUse,omitempty"`
 
@@ -686,6 +730,9 @@ type MonitoringConfig struct {
 
 // MonitoringConfigSpecType Type is the name of monitoring tool (e.g., "pmm").
 type MonitoringConfigSpecType string
+
+// MonitoringConfigStatusConditionsStatus status of the condition, one of True, False, Unknown.
+type MonitoringConfigStatusConditionsStatus string
 
 // MonitoringConfigList MonitoringConfigList is an object that contains the list of the existing monitoringconfigs.
 type MonitoringConfigList struct {

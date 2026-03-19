@@ -22,6 +22,9 @@ resources:
 # default, aiding admins in cluster management. Those roles are
 # not used by the openeverest itself. You can comment the following lines
 # if you do not want those helpers be installed with your Project.
+- monitoring_monitoringconfig_admin_role.yaml
+- monitoring_monitoringconfig_editor_role.yaml
+- monitoring_monitoringconfig_viewer_role.yaml
 - backup_backup_admin_role.yaml
 - backup_backup_editor_role.yaml
 - backup_backup_viewer_role.yaml

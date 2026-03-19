@@ -45,6 +45,7 @@ func (h *k8sHandler) CreateMonitoringConfig(ctx context.Context, req *api.Monito
 			Name:      req.Name,
 		},
 	)
+
 	if err != nil && !k8serrors.IsNotFound(err) {
 		return nil, err
 	}
@@ -137,7 +138,12 @@ func (h *k8sHandler) GetMonitoringConfig(ctx context.Context, namespace, name st
 
 // UpdateMonitoringConfig updates a monitoring config.
 func (h *k8sHandler) UpdateMonitoringConfig(ctx context.Context, namespace, name string, req *api.MonitoringConfigUpdateParams) (*monitoringv1alpha1.MonitoringConfig, error) {
-	m, err := h.kubeConnector.GetMonitoringConfigV2(ctx, types.NamespacedName{Namespace: namespace, Name: name})
+	m, err := h.kubeConnector.GetMonitoringConfigV2(ctx,
+		types.NamespacedName{
+			Namespace: namespace,
+			Name:      name,
+		},
+	)
 	if err != nil {
 		return nil, err
 	}
