@@ -22,15 +22,6 @@ import metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 const (
 	// PMMMonitoringType represents monitoring via PMM.
 	PMMMonitoringType MonitoringType = "pmm"
-	// MonitoringConfigCredentialsSecretUsernameKey is the credentials secret's key that contains the username.
-	MonitoringConfigCredentialsSecretUsernameKey = "username"
-	// MonitoringConfigCredentialsSecretAPIKeyKey is the credentials secret's key that contains the API key.
-	MonitoringConfigCredentialsSecretAPIKeyKey = "apiKey"
-
-	// PMM2ClientImage is the image for PMM2 client.
-	PMM2ClientImage = "percona/pmm-client:2"
-	// PMM3ClientImage is the image for PMM3 client.
-	PMM3ClientImage = "percona/pmm-client:3"
 )
 
 // MonitoringType is a type of monitoring.
@@ -44,10 +35,9 @@ type MonitoringConfigSpec struct {
 	// Type is the name of monitoring tool (e.g., "pmm").
 	// +kubebuilder:validation:Enum=pmm
 	Type MonitoringType `json:"type"`
-	// CredentialsSecretName is the name of the secret with credentials.
+	// CredentialsSecretName is the reference to the secret containing the API key.
+	// It contains `apiKey` key with the API key value.
 	CredentialsSecretName string `json:"credentialsSecretName"`
-	// AllowedNamespaces is the list of namespaces where the operator will copy secrets provided in the CredentialsSecretsName.
-	AllowedNamespaces []string `json:"allowedNamespaces,omitempty"`
 	// PMM is configuration specific for monitoring using PMM tool.
 	PMM PMMConfig `json:"pmm,omitempty"`
 	// VerifyTLS is set to ensure TLS/SSL verification.
@@ -61,8 +51,6 @@ type MonitoringConfigSpec struct {
 type PMMConfig struct {
 	// URL is url to the monitoring config.
 	URL string `json:"url"`
-	// Image is a Docker image name to use for deploying PMM client. Defaults to using the latest version.
-	Image string `json:"image"`
 }
 
 // MonitoringConfigStatus defines the observed state of MonitoringConfig.

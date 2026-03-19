@@ -927,28 +927,19 @@ components:
         spec:
           description: MonitoringConfigSpec defines the desired state of MonitoringConfig.
           properties:
-            allowedNamespaces:
-              description: AllowedNamespaces is the list of namespaces where the operator
-                will copy secrets provided in the CredentialsSecretsName.
-              items:
-                type: string
-              type: array
             credentialsSecretName:
-              description: CredentialsSecretName is the name of the secret with credentials.
+              description: |-
+                CredentialsSecretName is the reference to the secret containing the API key.
+                It contains `apiKey` key with the API key value.
               type: string
             pmm:
               description: PMM is configuration specific for monitoring using PMM
                 tool.
               properties:
-                image:
-                  description: Image is a Docker image name to use for deploying PMM
-                    client. Defaults to using the latest version.
-                  type: string
                 url:
                   description: URL is url to the monitoring config.
                   type: string
               required:
-              - image
               - url
               type: object
             type:

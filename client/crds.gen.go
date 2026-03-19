@@ -653,17 +653,12 @@ type MonitoringConfig struct {
 
 	// Spec MonitoringConfigSpec defines the desired state of MonitoringConfig.
 	Spec struct {
-		// AllowedNamespaces AllowedNamespaces is the list of namespaces where the operator will copy secrets provided in the CredentialsSecretsName.
-		AllowedNamespaces *[]string `json:"allowedNamespaces,omitempty"`
-
-		// CredentialsSecretName CredentialsSecretName is the name of the secret with credentials.
+		// CredentialsSecretName CredentialsSecretName is the reference to the secret containing the API key.
+		// It contains `apiKey` key with the API key value.
 		CredentialsSecretName string `json:"credentialsSecretName"`
 
 		// Pmm PMM is configuration specific for monitoring using PMM tool.
 		Pmm *struct {
-			// Image Image is a Docker image name to use for deploying PMM client. Defaults to using the latest version.
-			Image string `json:"image"`
-
 			// Url URL is url to the monitoring config.
 			Url string `json:"url"`
 		} `json:"pmm,omitempty"`

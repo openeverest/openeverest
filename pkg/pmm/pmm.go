@@ -50,6 +50,11 @@ func (a bearerAuth) apply(req *http.Request) {
 	req.Header.Set("Authorization", "Bearer "+a.token)
 }
 
+// GetPMMServerVersion gets the PMM server version using the provided credentials secret.
+func GetPMMServerVersion(ctx context.Context, url string, token string, skipVerifyTLS bool) (PMMServerVersion, error) {
+	return getPMMVersion(ctx, url, bearerAuth{token: token}, skipVerifyTLS)
+}
+
 // getPMMVersion makes an API request to the PMM server to figure out the current version
 func getPMMVersion(ctx context.Context, url string, auth iAuth, skipTLSVerify bool) (PMMServerVersion, error) {
 	resp, err := doJSONRequest[struct {

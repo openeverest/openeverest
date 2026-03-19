@@ -3687,12 +3687,6 @@ components:
           type: string
           minLength: 1
           x-go-type-skip-optional-pointer: true
-        allowedNamespaces:
-          deprecated: true
-          type: array
-          description: List of namespaces allowed to use this monitoring instance
-          items:
-            type: string
         verifyTLS:
           description: VerifyTLS is set to ensure TLS/SSL verification.
           type: boolean

@@ -1407,11 +1407,6 @@ export interface components {
             /** @enum {string} */
             type?: "pmm";
             url?: string;
-            /**
-             * @deprecated
-             * @description List of namespaces allowed to use this monitoring instance
-             */
-            allowedNamespaces?: string[];
             /** @description VerifyTLS is set to ensure TLS/SSL verification. */
             verifyTLS?: boolean;
         };
@@ -7691,14 +7686,13 @@ export interface components {
             metadata?: Record<string, never>;
             /** @description MonitoringConfigSpec defines the desired state of MonitoringConfig. */
             spec: {
-                /** @description AllowedNamespaces is the list of namespaces where the operator will copy secrets provided in the CredentialsSecretsName. */
-                allowedNamespaces?: string[];
-                /** @description CredentialsSecretName is the name of the secret with credentials. */
+                /**
+                 * @description CredentialsSecretName is the reference to the secret containing the API key.
+                 *     It contains `apiKey` key with the API key value.
+                 */
                 credentialsSecretName: string;
                 /** @description PMM is configuration specific for monitoring using PMM tool. */
                 pmm?: {
-                    /** @description Image is a Docker image name to use for deploying PMM client. Defaults to using the latest version. */
-                    image: string;
                     /** @description URL is url to the monitoring config. */
                     url: string;
                 };
