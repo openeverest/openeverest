@@ -102,7 +102,7 @@ copyright-run:
 		exit 0; \
 	fi; \
 	echo "Processing copyright headers for changed files..."; \
-	python3 scripts/add_copyright.py $(COPYRIGHT_FLAGS) --paths-nul-file "$$TMP_FILES_LIST"
+	python3 hack/add_copyright.py $(COPYRIGHT_FLAGS) --paths-nul-file "$$TMP_FILES_LIST"
 
 .PHONY: charts
 HELM=go tool helm
