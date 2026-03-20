@@ -744,7 +744,7 @@ if enable_frontend:
   # Build frontend
   local_resource(
       'frontend-init',
-      'make -C {0} init'.format(frontend_dir),
+      'CI=1 make -C {0} init'.format(frontend_dir),
       deps=[
           '{0}/package.json'.format(frontend_dir),
       ],
@@ -813,6 +813,9 @@ local_resource(
         '{0}/**/*.deepcopy.go*'.format(backend_dir),
     ],
     labels=["everest"],
+    resource_deps=[
+        'frontend-init',
+    ]
 )
 
 backend_build_resource_deps = ['backend-generate']
