@@ -15,6 +15,8 @@ import (
 
 	mock "github.com/stretchr/testify/mock"
 
+	monitoringv1alpha1 "github.com/openeverest/openeverest/v2/api/monitoring/v1alpha1"
+
 	v1 "k8s.io/api/core/v1"
 
 	v1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
@@ -283,6 +285,36 @@ func (_m *MockHandler) CreateLoadBalancerConfig(ctx context.Context, psp *everes
 	return r0, r1
 }
 
+// CreateMonitoringConfig provides a mock function with given fields: ctx, namespace, req
+func (_m *MockHandler) CreateMonitoringConfig(ctx context.Context, namespace string, req *api.MonitoringConfigCreateParams) (*monitoringv1alpha1.MonitoringConfig, error) {
+	ret := _m.Called(ctx, namespace, req)
+
+	if len(ret) == 0 {
+		panic("no return value specified for CreateMonitoringConfig")
+	}
+
+	var r0 *monitoringv1alpha1.MonitoringConfig
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, *api.MonitoringConfigCreateParams) (*monitoringv1alpha1.MonitoringConfig, error)); ok {
+		return rf(ctx, namespace, req)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, *api.MonitoringConfigCreateParams) *monitoringv1alpha1.MonitoringConfig); ok {
+		r0 = rf(ctx, namespace, req)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*monitoringv1alpha1.MonitoringConfig)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, *api.MonitoringConfigCreateParams) error); ok {
+		r1 = rf(ctx, namespace, req)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // CreateMonitoringInstance provides a mock function with given fields: ctx, namespace, req
 func (_m *MockHandler) CreateMonitoringInstance(ctx context.Context, namespace string, req *api.MonitoringInstanceCreateParams) (*everestv1alpha1.MonitoringConfig, error) {
 	ret := _m.Called(ctx, namespace, req)
@@ -492,6 +524,24 @@ func (_m *MockHandler) DeleteLoadBalancerConfig(ctx context.Context, name string
 	var r0 error
 	if rf, ok := ret.Get(0).(func(context.Context, string) error); ok {
 		r0 = rf(ctx, name)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// DeleteMonitoringConfig provides a mock function with given fields: ctx, namespace, name
+func (_m *MockHandler) DeleteMonitoringConfig(ctx context.Context, namespace string, name string) error {
+	ret := _m.Called(ctx, namespace, name)
+
+	if len(ret) == 0 {
+		panic("no return value specified for DeleteMonitoringConfig")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string) error); ok {
+		r0 = rf(ctx, namespace, name)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -1051,6 +1101,36 @@ func (_m *MockHandler) GetLoadBalancerConfig(ctx context.Context, name string) (
 	return r0, r1
 }
 
+// GetMonitoringConfig provides a mock function with given fields: ctx, namespace, name
+func (_m *MockHandler) GetMonitoringConfig(ctx context.Context, namespace string, name string) (*monitoringv1alpha1.MonitoringConfig, error) {
+	ret := _m.Called(ctx, namespace, name)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetMonitoringConfig")
+	}
+
+	var r0 *monitoringv1alpha1.MonitoringConfig
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string) (*monitoringv1alpha1.MonitoringConfig, error)); ok {
+		return rf(ctx, namespace, name)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, string) *monitoringv1alpha1.MonitoringConfig); ok {
+		r0 = rf(ctx, namespace, name)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*monitoringv1alpha1.MonitoringConfig)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, string) error); ok {
+		r1 = rf(ctx, namespace, name)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // GetMonitoringInstance provides a mock function with given fields: ctx, namespace, name
 func (_m *MockHandler) GetMonitoringInstance(ctx context.Context, namespace string, name string) (*everestv1alpha1.MonitoringConfig, error) {
 	ret := _m.Called(ctx, namespace, name)
@@ -1598,6 +1678,36 @@ func (_m *MockHandler) ListLoadBalancerConfigs(ctx context.Context) (*everestv1a
 	return r0, r1
 }
 
+// ListMonitoringConfigs provides a mock function with given fields: ctx, namespaces
+func (_m *MockHandler) ListMonitoringConfigs(ctx context.Context, namespaces string) (*monitoringv1alpha1.MonitoringConfigList, error) {
+	ret := _m.Called(ctx, namespaces)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ListMonitoringConfigs")
+	}
+
+	var r0 *monitoringv1alpha1.MonitoringConfigList
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string) (*monitoringv1alpha1.MonitoringConfigList, error)); ok {
+		return rf(ctx, namespaces)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string) *monitoringv1alpha1.MonitoringConfigList); ok {
+		r0 = rf(ctx, namespaces)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*monitoringv1alpha1.MonitoringConfigList)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string) error); ok {
+		r1 = rf(ctx, namespaces)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // ListMonitoringInstances provides a mock function with given fields: ctx, namespaces
 func (_m *MockHandler) ListMonitoringInstances(ctx context.Context, namespaces string) (*everestv1alpha1.MonitoringConfigList, error) {
 	ret := _m.Called(ctx, namespaces)
@@ -1926,6 +2036,36 @@ func (_m *MockHandler) UpdateLoadBalancerConfig(ctx context.Context, psp *everes
 
 	if rf, ok := ret.Get(1).(func(context.Context, *everestv1alpha1.LoadBalancerConfig) error); ok {
 		r1 = rf(ctx, psp)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// UpdateMonitoringConfig provides a mock function with given fields: ctx, namespace, name, req
+func (_m *MockHandler) UpdateMonitoringConfig(ctx context.Context, namespace string, name string, req *api.MonitoringConfigUpdateParams) (*monitoringv1alpha1.MonitoringConfig, error) {
+	ret := _m.Called(ctx, namespace, name, req)
+
+	if len(ret) == 0 {
+		panic("no return value specified for UpdateMonitoringConfig")
+	}
+
+	var r0 *monitoringv1alpha1.MonitoringConfig
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, *api.MonitoringConfigUpdateParams) (*monitoringv1alpha1.MonitoringConfig, error)); ok {
+		return rf(ctx, namespace, name, req)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, *api.MonitoringConfigUpdateParams) *monitoringv1alpha1.MonitoringConfig); ok {
+		r0 = rf(ctx, namespace, name, req)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*monitoringv1alpha1.MonitoringConfig)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, string, *api.MonitoringConfigUpdateParams) error); ok {
+		r1 = rf(ctx, namespace, name, req)
 	} else {
 		r1 = ret.Error(1)
 	}

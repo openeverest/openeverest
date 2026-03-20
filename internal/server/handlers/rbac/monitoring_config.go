@@ -28,9 +28,9 @@ func (h *rbacHandler) ListMonitoringConfigs(ctx context.Context, namespace strin
 }
 
 // CreateMonitoringConfig proxies the request to the next handler.
-func (h *rbacHandler) CreateMonitoringConfig(ctx context.Context, req *api.MonitoringConfigCreateParams) (*monitoringv1alpha1.MonitoringConfig, error) {
+func (h *rbacHandler) CreateMonitoringConfig(ctx context.Context, namespace string, req *api.MonitoringConfigCreateParams) (*monitoringv1alpha1.MonitoringConfig, error) {
 	// Add RBAC checks
-	return h.next.CreateMonitoringConfig(ctx, req)
+	return h.next.CreateMonitoringConfig(ctx, namespace, req)
 }
 
 // DeleteMonitoringConfig proxies the request to the next handler.

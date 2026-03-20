@@ -3703,9 +3703,6 @@ components:
               description: A user defined string name of the storage in the DNS name format https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#dns-label-names
               x-go-type-skip-optional-pointer: true
               example: pmm-instance
-            namespace:
-              type: string
-              x-go-type-skip-optional-pointer: true
     MonitoringConfigPMM:
       type: object
       description: MonitoringConfigPMM contains PMM-specific fields for monitoring config

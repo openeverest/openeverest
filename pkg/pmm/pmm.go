@@ -110,10 +110,11 @@ func doJSONRequest[T any](ctx context.Context, method, url string, auth iAuth, b
 	}
 	req.Close = true
 
-	client := http.DefaultClient
-	client.Transport = &http.Transport{
-		TLSClientConfig: &tls.Config{
-			InsecureSkipVerify: skipTLSVerify,
+	client := &http.Client{
+		Transport: &http.Transport{
+			TLSClientConfig: &tls.Config{
+				InsecureSkipVerify: skipTLSVerify,
+			},
 		},
 	}
 

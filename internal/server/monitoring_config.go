@@ -16,7 +16,6 @@ package server
 
 import (
 	"encoding/json"
-	"fmt"
 	"io"
 	"net/http"
 
@@ -40,13 +39,7 @@ func (e *EverestServer) CreateMonitoringConfig(c echo.Context, cluster, namespac
 		return err
 	}
 
-	if req.Namespace != namespace {
-		err := fmt.Errorf("requested namespace %s does not match namespace in request body %s", namespace, req.Namespace)
-		e.l.Errorf("CreateMonitoringConfig: %v", err)
-		return err
-	}
-
-	result, err := e.handler.CreateMonitoringConfig(c.Request().Context(), req)
+	result, err := e.handler.CreateMonitoringConfig(c.Request().Context(), namespace, req)
 	if err != nil {
 		e.l.Errorf("CreateMonitoringConfig failed: %v", err)
 		return err

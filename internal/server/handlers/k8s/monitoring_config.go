@@ -16,6 +16,7 @@ package k8s
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/AlekSi/pointer"
@@ -38,10 +39,10 @@ func (h *k8sHandler) ListMonitoringConfigs(ctx context.Context, namespace string
 }
 
 // CreateMonitoringConfig creates a monitoring config.
-func (h *k8sHandler) CreateMonitoringConfig(ctx context.Context, req *api.MonitoringConfigCreateParams) (*monitoringv1alpha1.MonitoringConfig, error) {
+func (h *k8sHandler) CreateMonitoringConfig(ctx context.Context, namespace string, req *api.MonitoringConfigCreateParams) (*monitoringv1alpha1.MonitoringConfig, error) {
 	m, err := h.kubeConnector.GetMonitoringConfigV2(ctx,
 		types.NamespacedName{
-			Namespace: req.Namespace,
+			Namespace: namespace,
 			Name:      req.Name,
 		},
 	)
@@ -67,7 +68,7 @@ func (h *k8sHandler) CreateMonitoringConfig(ctx context.Context, req *api.Monito
 			return nil, fmt.Errorf("failed to create PMM API key: %w", err)
 		}
 
-		secret := newMonitoringConfigSecret(req.Name, req.Namespace, apiKey)
+		secret := newMonitoringConfigSecret(req.Name, namespace, apiKey)
 
 		if _, err := h.kubeConnector.CreateSecret(ctx, secret); err != nil {
 			if !k8serrors.IsAlreadyExists(err) {
@@ -80,10 +81,10 @@ func (h *k8sHandler) CreateMonitoringConfig(ctx context.Context, req *api.Monito
 		}
 	}
 
-	result, err := h.kubeConnector.CreateMonitoringConfigV2(ctx, &monitoringv1alpha1.MonitoringConfig{
+	mc := &monitoringv1alpha1.MonitoringConfig{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      req.Name,
-			Namespace: req.Namespace,
+			Namespace: namespace,
 		},
 		Spec: monitoringv1alpha1.MonitoringConfigSpec{
 			Type: monitoringv1alpha1.MonitoringType(req.Type),
@@ -93,15 +94,17 @@ func (h *k8sHandler) CreateMonitoringConfig(ctx context.Context, req *api.Monito
 			CredentialsSecretName: req.Name,
 			VerifyTLS:             req.VerifyTLS,
 		},
-	})
+	}
+
+	result, err := h.kubeConnector.CreateMonitoringConfigV2(ctx, mc)
 	if err != nil {
 		if dErr := h.kubeConnector.DeleteSecret(ctx, &corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      req.Name,
-				Namespace: req.Namespace,
+				Namespace: namespace,
 			},
 		}); dErr != nil {
-			return nil, fmt.Errorf("failed to clean up secret: %w; failed to create monitoring config: %w", dErr, err)
+			return nil, fmt.Errorf("failed to clean up secret: %w", errors.Join(dErr, err))
 		}
 
 		return nil, err
@@ -133,7 +136,12 @@ func (h *k8sHandler) DeleteMonitoringConfig(ctx context.Context, namespace, name
 
 // GetMonitoringConfig returns monitoring config that matches the criteria.
 func (h *k8sHandler) GetMonitoringConfig(ctx context.Context, namespace, name string) (*monitoringv1alpha1.MonitoringConfig, error) {
-	return h.kubeConnector.GetMonitoringConfigV2(ctx, types.NamespacedName{Namespace: namespace, Name: name})
+	return h.kubeConnector.GetMonitoringConfigV2(ctx,
+		types.NamespacedName{
+			Namespace: namespace,
+			Name:      name,
+		},
+	)
 }
 
 // UpdateMonitoringConfig updates a monitoring config.

@@ -1418,7 +1418,6 @@ export interface components {
              * @example pmm-instance
              */
             name?: string;
-            namespace?: string;
         };
         /** @description MonitoringConfigPMM contains PMM-specific fields for monitoring config */
         MonitoringConfigPMM: {

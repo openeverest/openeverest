@@ -34,7 +34,7 @@ func (h *validateHandler) ListMonitoringConfigs(ctx context.Context, namespace s
 }
 
 // CreateMonitoringConfig proxies the request to the next handler.
-func (h *validateHandler) CreateMonitoringConfig(ctx context.Context, req *api.MonitoringConfigCreateParams) (*monitoringv1alpha1.MonitoringConfig, error) {
+func (h *validateHandler) CreateMonitoringConfig(ctx context.Context, namespace string, req *api.MonitoringConfigCreateParams) (*monitoringv1alpha1.MonitoringConfig, error) {
 	if err := utils.ValidateEverestResourceName(req.Name, "name"); err != nil {
 		return nil, errors.Join(ErrInvalidRequest, err)
 	}
@@ -57,7 +57,7 @@ func (h *validateHandler) CreateMonitoringConfig(ctx context.Context, req *api.M
 		return nil, errors.Join(ErrInvalidRequest, fmt.Errorf("monitoring type %s is not supported", req.Type))
 	}
 
-	return h.next.CreateMonitoringConfig(ctx, req)
+	return h.next.CreateMonitoringConfig(ctx, namespace, req)
 }
 
 // DeleteMonitoringConfig proxies the request to the next handler.
