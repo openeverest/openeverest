@@ -16,8 +16,13 @@
 package pmm
 
 import (
+	"bytes"
 	"context"
+	"crypto/tls"
+	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
 	"net/http"
 
 	goversion "github.com/hashicorp/go-version"
@@ -25,6 +30,16 @@ import (
 
 // PMMServerVersion represents the version of PMM server.
 type PMMServerVersion string
+
+// pmmErrorMessage represents the error message returned by PMM API when an error occurs.
+type pmmErrorMessage struct {
+	Message string `json:"message"`
+}
+
+// versionResponse represents the response from PMM when requesting the version.
+type versionResponse struct {
+	Version string `json:"version"`
+}
 
 // iAuth an interface to apply auth to a request.
 type iAuth interface {
@@ -56,10 +71,9 @@ func GetPMMServerVersion(ctx context.Context, url string, token string, skipVeri
 }
 
 // getPMMVersion makes an API request to the PMM server to figure out the current version
-func getPMMVersion(ctx context.Context, url string, auth iAuth, skipTLSVerify bool) (PMMServerVersion, error) {
-	resp, err := doJSONRequest[struct {
-		Version string `json:"version"`
-	}](ctx, http.MethodGet, fmt.Sprintf("%s/v1/version", url), auth, "", skipTLSVerify)
+func getPMMVersion(ctx context.Context, baseURL string, auth iAuth, skipTLSVerify bool) (PMMServerVersion, error) {
+	url := fmt.Sprintf("%s/v1/version", baseURL)
+	resp, err := doJSONRequest[versionResponse](ctx, http.MethodGet, url, auth, "", skipTLSVerify)
 	if err != nil {
 		return "", err
 	}
@@ -75,4 +89,59 @@ func isLegacyAuth(version PMMServerVersion) bool {
 	}
 	segments := ver.Segments()
 	return len(segments) > 0 && segments[0] == 2
+}
+
+// makes an HTTP request using JSON content type
+func doJSONRequest[T any](ctx context.Context, method, url string, auth iAuth, body any, skipTLSVerify bool) (T, error) {
+	var zero T
+	b, err := json.Marshal(body)
+	if err != nil {
+		return zero, fmt.Errorf("marshal request: %w", err)
+	}
+
+	req, err := http.NewRequestWithContext(ctx, method, url, bytes.NewReader(b))
+	if err != nil {
+		return zero, fmt.Errorf("build request: %w", err)
+	}
+
+	req.Header.Set("Content-Type", "application/json; charset=utf-8")
+	if auth != nil {
+		auth.apply(req)
+	}
+	req.Close = true
+
+	client := http.DefaultClient
+	client.Transport = &http.Transport{
+		TLSClientConfig: &tls.Config{
+			InsecureSkipVerify: skipTLSVerify,
+		},
+	}
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return zero, fmt.Errorf("do request: %w", err)
+	}
+
+	defer resp.Body.Close()
+
+	data, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return zero, fmt.Errorf("read response: %w", err)
+	}
+
+	if resp.StatusCode >= http.StatusBadRequest {
+		var pmmErr *pmmErrorMessage
+		if err := json.Unmarshal(data, &pmmErr); err != nil {
+			return zero, errors.Join(err, fmt.Errorf("PMM returned an unknown error. HTTP %d", resp.StatusCode))
+		}
+
+		return zero, fmt.Errorf("PMM returned an error: %s", pmmErr.Message)
+	}
+
+	var result T
+	if err := json.Unmarshal(data, &result); err != nil {
+		return zero, fmt.Errorf("unmarshal response: %w", err)
+	}
+
+	return result, nil
 }

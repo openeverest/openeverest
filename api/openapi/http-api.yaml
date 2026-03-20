@@ -3676,7 +3676,7 @@ components:
         $ref: '#/components/schemas/MonitoringInstance'
     MonitoringConfigBase:
       type: object
-      description: Monitoring instance information
+      description: MonitoringConfigBase contains common fields for monitoring config
       properties:
         type:
           type: string
@@ -3692,7 +3692,7 @@ components:
           type: boolean
     MonitoringConfigBaseWithName:
       type: object
-      description: Monitoring instance information
+      description: MonitoringConfigBaseWithName contains common fields for monitoring config with name and namespace
       allOf:
         - $ref: '#/components/schemas/MonitoringConfigBase'
         - type: object
@@ -3708,10 +3708,11 @@ components:
               x-go-type-skip-optional-pointer: true
     MonitoringConfigPMM:
       type: object
+      description: MonitoringConfigPMM contains PMM-specific fields for monitoring config
       properties:
         pmm:
           type: object
-          x-go-type-name: PMMMonitoringInstanceSpec
+          x-go-type-name: MonitoringConfigPMMSpec
           properties:
             user:
               type: string
@@ -3727,7 +3728,7 @@ components:
               x-go-type-skip-optional-pointer: true
               example: apikey
     MonitoringConfigCreateParams:
-      description: Monitoring instance create information
+      description: MonitoringConfigCreateParams contains parameters for creating a monitoring config
       allOf:
         - $ref: '#/components/schemas/MonitoringConfigBaseWithName'
         - $ref: '#/components/schemas/MonitoringConfigPMM'
@@ -3736,7 +3737,7 @@ components:
         - url
         - name
     MonitoringConfigUpdateParams:
-      description: Monitoring instance update information
+      description: MonitoringConfigUpdateParams contains parameters for updating a monitoring config
       allOf:
         - $ref: '#/components/schemas/MonitoringConfigBase'
         - $ref: '#/components/schemas/MonitoringConfigPMM'

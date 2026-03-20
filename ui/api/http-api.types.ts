@@ -1388,7 +1388,7 @@ export interface components {
         /** @description Monitoring instance information */
         MonitoringInstance: components["schemas"]["MonitoringInstanceBaseWithName"];
         MonitoringInstancesList: components["schemas"]["MonitoringInstance"][];
-        /** @description Monitoring instance information */
+        /** @description MonitoringConfigBase contains common fields for monitoring config */
         MonitoringConfigBase: {
             /** @enum {string} */
             type?: "pmm";
@@ -1396,7 +1396,7 @@ export interface components {
             /** @description VerifyTLS is set to ensure TLS/SSL verification. */
             verifyTLS?: boolean;
         };
-        /** @description Monitoring instance information */
+        /** @description MonitoringConfigBaseWithName contains common fields for monitoring config with name and namespace */
         MonitoringConfigBaseWithName: components["schemas"]["MonitoringConfigBase"] & {
             /**
              * @description A user defined string name of the storage in the DNS name format https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#dns-label-names
@@ -1405,6 +1405,7 @@ export interface components {
             name?: string;
             namespace?: string;
         };
+        /** @description MonitoringConfigPMM contains PMM-specific fields for monitoring config */
         MonitoringConfigPMM: {
             pmm?: {
                 /** @example admin */
@@ -1415,9 +1416,9 @@ export interface components {
                 apiKey?: string;
             };
         };
-        /** @description Monitoring instance create information */
+        /** @description MonitoringConfigCreateParams contains parameters for creating a monitoring config */
         MonitoringConfigCreateParams: components["schemas"]["MonitoringConfigBaseWithName"] & components["schemas"]["MonitoringConfigPMM"];
-        /** @description Monitoring instance update information */
+        /** @description MonitoringConfigUpdateParams contains parameters for updating a monitoring config */
         MonitoringConfigUpdateParams: components["schemas"]["MonitoringConfigBase"] & components["schemas"]["MonitoringConfigPMM"];
         /** @description kubernetes object */
         DatabaseClusterCredential: {
