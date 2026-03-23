@@ -20,14 +20,14 @@ import { Messages } from './dbClusterView.messages';
 import { InstanceTableElement } from './dbClusterView.types';
 import { Backup, BackupStatus } from 'shared-types/backups.types';
 import { DbErrorType } from 'shared-types/dbErrors.types';
-import { InstanceStatus } from 'shared-types/instance.types';
+import { DbInstanceStatus } from 'shared-types/instance.types';
 import { DbInstanceForNamespaceResult } from 'hooks/api/db-instances';
 
-const DB_INSTANCE_STATUS_HUMANIFIED: Record<InstanceStatus, string> = {
-  [InstanceStatus.Creating]: Messages.statusProvider.creating,
-  [InstanceStatus.Running]: Messages.statusProvider.up,
-  [InstanceStatus.Failed]: Messages.statusProvider.down,
-  [InstanceStatus.Deleting]: Messages.statusProvider.deleting,
+const DB_INSTANCE_STATUS_HUMANIFIED: Record<DbInstanceStatus, string> = {
+  [DbInstanceStatus.Creating]: Messages.statusProvider.creating,
+  [DbInstanceStatus.Running]: Messages.statusProvider.up,
+  [DbInstanceStatus.Failed]: Messages.statusProvider.down,
+  [DbInstanceStatus.Deleting]: Messages.statusProvider.deleting,
   // [DbClusterStatus.ready]: Messages.statusProvider.up,
   // [DbClusterStatus.error]: Messages.statusProvider.down,
   // [DbClusterStatus.initializing]: Messages.statusProvider.initializing,
@@ -42,13 +42,13 @@ const DB_INSTANCE_STATUS_HUMANIFIED: Record<InstanceStatus, string> = {
   // [DbClusterStatus.importing]: Messages.statusProvider.importing,
 };
 
-export const beautifyDBInstanceStatus = (
-  status: InstanceStatus,
+export const beautifyDbInstanceStatus = (
+  status: DbInstanceStatus,
   conditions?: { type: string }[]
 ): string => {
   // TODO 1942 should check DBErrorType
   if (
-    status === InstanceStatus.Failed &&
+    status === DbInstanceStatus.Failed &&
     conditions?.some((c) => c.type === DbErrorType.ImportFailed)
   ) {
     return Messages.statusProvider.importFailed;
@@ -68,8 +68,8 @@ export const convertDbInstancesPayloadToTableFormat = (
       ? item.queryResult?.data.map((instance) => ({
           namespace: item.namespace,
           phase:
-            (instance.status?.phase as InstanceStatus) ??
-            InstanceStatus.Creating,
+            (instance.status?.phase as DbInstanceStatus) ??
+            DbInstanceStatus.Creating,
           provider: instance.spec?.provider ?? '',
           // dbVersion: cluster.spec.engine.version || '',
           // backupsEnabled: (cluster.spec.backup?.schedules || []).length > 0,

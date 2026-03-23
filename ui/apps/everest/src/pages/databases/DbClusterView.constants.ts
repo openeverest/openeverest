@@ -12,17 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { InstanceStatus } from 'shared-types/instance.types';
+import { DbInstanceStatus } from 'shared-types/instance.types';
 import { BaseStatus } from 'components/status-field/status-field.types';
 
 export const DB_INSTANCE_STATUS_TO_BASE_STATUS: Record<
-  InstanceStatus,
+  DbInstanceStatus,
   BaseStatus
 > = {
-  [InstanceStatus.Creating]: 'creating',
-  [InstanceStatus.Running]: 'success',
-  [InstanceStatus.Failed]: 'error',
-  [InstanceStatus.Deleting]: 'deleting',
+  [DbInstanceStatus.Creating]: 'creating',
+  [DbInstanceStatus.Running]: 'success',
+  [DbInstanceStatus.Failed]: 'error',
+  [DbInstanceStatus.Deleting]: 'deleting',
   //   [DbClusterStatus.initializing]: 'pending',
   //   [DbClusterStatus.error]: 'error',
   //   [DbClusterStatus.paused]: 'paused',

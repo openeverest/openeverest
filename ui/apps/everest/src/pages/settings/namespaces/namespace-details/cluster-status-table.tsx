@@ -8,14 +8,15 @@ import {
   DbEngineToolStatus,
   OperatorUpgradePendingAction,
 } from 'shared-types/dbEngines.types';
-import { DbCluster, DbClusterStatus, Spec } from 'shared-types/dbCluster.types';
+import { DbCluster, Spec } from 'shared-types/dbCluster.types';
 import { ClusterStatusTableProps } from './types';
 import { useDbClusters } from 'hooks/api/db-clusters/useDbClusters';
-import { DB_CLUSTER_STATUS_TO_BASE_STATUS } from 'pages/databases/DbClusterView.constants';
-import { beautifyDbClusterStatus } from 'pages/databases/DbClusterView.utils';
 import StatusField from 'components/status-field';
 import UpdateCrDialog from './update-cr-dialog';
 import UpdateEngineDialog from './update-engine-dialog';
+import { DB_INSTANCE_STATUS_TO_BASE_STATUS } from 'pages/databases/DbClusterView.constants';
+import { beautifyDbInstanceStatus } from 'pages/databases/DbClusterView.utils';
+import { DbInstanceStatus } from 'shared-types/instance.types';
 
 type EnhancedDbList = OperatorUpgradePendingAction & {
   db?: DbCluster;
@@ -126,11 +127,11 @@ const ClusterStatusTable = ({
         accessorFn: (row) => row.db?.status?.status,
         Cell: ({ cell }) => (
           <StatusField
-            status={cell.getValue<DbClusterStatus>()}
-            statusMap={DB_CLUSTER_STATUS_TO_BASE_STATUS}
+            status={cell.getValue<DbInstanceStatus>()}
+            statusMap={DB_INSTANCE_STATUS_TO_BASE_STATUS}
           >
-            {beautifyDbClusterStatus(
-              cell.getValue<DbClusterStatus>(),
+            {beautifyDbInstanceStatus(
+              cell.getValue<DbInstanceStatus>(),
               cell.row?.original.db?.status?.conditions || []
             )}
           </StatusField>

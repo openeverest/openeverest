@@ -24,7 +24,7 @@ import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useInstancesForNamespaces } from 'hooks/api/db-instances/useDbInstanceList';
 import {
-  beautifyDBInstanceStatus,
+  beautifyDbInstanceStatus,
   convertDbInstancesPayloadToTableFormat,
 } from './DbClusterView.utils';
 import { InstanceTableElement } from './dbClusterView.types';
@@ -32,7 +32,7 @@ import CreateDbButton from 'components/create-db-button/create-db-button';
 import EmptyStateDatabases from 'components/empty-state-databases/empty-state-databases';
 import EmptyStateNamespaces from 'components/empty-state-namespaces/empty-state-namespaces';
 import { DB_INSTANCE_STATUS_TO_BASE_STATUS } from './DbClusterView.constants';
-import { InstanceStatus } from 'shared-types/instance.types';
+import { DbInstanceStatus } from 'shared-types/instance.types';
 
 export const DbClusterView = () => {
   const { data: namespaces = [], isLoading: loadingNamespaces } = useNamespaces(
@@ -81,13 +81,13 @@ export const DbClusterView = () => {
         accessorKey: 'phase',
         header: 'Status',
         filterVariant: 'multi-select',
-        filterSelectOptions: Object.values(InstanceStatus).map((status) => ({
-          text: beautifyDBInstanceStatus(status),
+        filterSelectOptions: Object.values(DbInstanceStatus).map((status) => ({
+          text: beautifyDbInstanceStatus(status),
           value: status,
         })),
         maxSize: 120,
         Cell: ({ cell }) => {
-          const status = cell.getValue<InstanceStatus>();
+          const status = cell.getValue<DbInstanceStatus>();
 
           return (
             <StatusField
@@ -96,7 +96,7 @@ export const DbClusterView = () => {
               statusMap={DB_INSTANCE_STATUS_TO_BASE_STATUS}
               defaultIcon={PendingIcon}
             >
-              {beautifyDBInstanceStatus(
+              {beautifyDbInstanceStatus(
                 status /*
               cell.row.original?.raw.status?.conditions || []
                  */

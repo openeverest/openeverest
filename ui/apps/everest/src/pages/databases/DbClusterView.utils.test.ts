@@ -13,7 +13,7 @@
 // limitations under the License.
 
 import { Instance } from 'types/api';
-import { InstanceStatus } from 'shared-types/instance.types';
+import { DbInstanceStatus } from 'shared-types/instance.types';
 import { convertDbInstancesPayloadToTableFormat } from './DbClusterView.utils';
 import { InstanceTableElement } from './dbClusterView.types';
 import { DbInstanceForNamespaceResult } from 'hooks/api/db-instances';
@@ -21,7 +21,7 @@ import { DbInstanceForNamespaceResult } from 'hooks/api/db-instances';
 const makeInstance = (
   _name: string,
   provider: string,
-  phase: InstanceStatus,
+  phase: DbInstanceStatus,
   topologyType: string
 ): Instance => ({
   apiVersion: 'core.openeverest.io/v1alpha1',
@@ -56,7 +56,12 @@ describe('convertDbInstancesPayloadToTableFormat', () => {
   });
 
   it('converts a single namespace with one instance', () => {
-    const instance = makeInstance('pg-1', 'aws', InstanceStatus.Running, 'ha');
+    const instance = makeInstance(
+      'pg-1',
+      'aws',
+      DbInstanceStatus.Running,
+      'ha'
+    );
     const data = [makeResult('ns-1', [instance])];
 
     const result = convertDbInstancesPayloadToTableFormat(data);
@@ -65,7 +70,7 @@ describe('convertDbInstancesPayloadToTableFormat', () => {
     expect(result[0]).toEqual<InstanceTableElement>({
       namespace: 'ns-1',
       instanceName: '',
-      phase: InstanceStatus.Running,
+      phase: DbInstanceStatus.Running,
       provider: 'aws',
       topologyType: 'ha',
       raw: instance,
@@ -73,11 +78,11 @@ describe('convertDbInstancesPayloadToTableFormat', () => {
   });
 
   it('converts multiple namespaces', () => {
-    const i1 = makeInstance('pg-1', 'aws', InstanceStatus.Running, 'ha');
+    const i1 = makeInstance('pg-1', 'aws', DbInstanceStatus.Running, 'ha');
     const i2 = makeInstance(
       'mongo-1',
       'gcp',
-      InstanceStatus.Creating,
+      DbInstanceStatus.Creating,
       'standalone'
     );
     const data = [makeResult('ns-1', [i1]), makeResult('ns-2', [i2])];
@@ -91,7 +96,12 @@ describe('convertDbInstancesPayloadToTableFormat', () => {
   });
 
   it('skips namespaces where query is not successful', () => {
-    const instance = makeInstance('pg-1', 'aws', InstanceStatus.Running, 'ha');
+    const instance = makeInstance(
+      'pg-1',
+      'aws',
+      DbInstanceStatus.Running,
+      'ha'
+    );
     const data = [makeResult('ns-1', [instance], false)];
 
     const result = convertDbInstancesPayloadToTableFormat(data);
@@ -108,7 +118,7 @@ describe('convertDbInstancesPayloadToTableFormat', () => {
     const data = [makeResult('ns-1', [instance])];
 
     const result = convertDbInstancesPayloadToTableFormat(data);
-    expect(result[0].phase).toBe(InstanceStatus.Creating);
+    expect(result[0].phase).toBe(DbInstanceStatus.Creating);
   });
 
   it('defaults provider to empty string when not set', () => {

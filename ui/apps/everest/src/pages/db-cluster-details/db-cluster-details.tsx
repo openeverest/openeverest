@@ -13,9 +13,6 @@ import { DBClusterDetailsTabs } from './db-cluster-details.types';
 import { DbClusterStatus } from 'shared-types/dbCluster.types';
 import { DbClusterContext } from './dbCluster.context';
 import { useContext } from 'react';
-import { DB_CLUSTER_STATUS_TO_BASE_STATUS } from '../databases/DbClusterView.constants';
-import { beautifyDbClusterStatus } from '../databases/DbClusterView.utils';
-import StatusField from 'components/status-field';
 import DbActions from 'components/db-actions/db-actions';
 import { Messages } from './db-cluster-details.messages';
 import { useRBACPermissionRoute } from 'hooks/rbac';
@@ -70,7 +67,8 @@ const WithPermissionDetails = ({
               alignItems: 'center',
             }}
           >
-            <StatusField
+            {/*TODO DB_CLUSTER_STATUS is no more actual this will be replaced with instance status */}
+            {/* <StatusField
               dataTestId={dbClusterName}
               status={dbCluster?.status?.status || DbClusterStatus.creating}
               statusMap={DB_CLUSTER_STATUS_TO_BASE_STATUS}
@@ -79,7 +77,7 @@ const WithPermissionDetails = ({
                 dbCluster?.status?.status || DbClusterStatus.creating,
                 dbCluster?.status?.conditions || []
               )}
-            </StatusField>
+            </StatusField> */}
             <DbActions showStatusActions={true} dbCluster={dbCluster!} />
           </Box>
         </Box>
