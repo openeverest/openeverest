@@ -58,7 +58,7 @@ export const CreateDbButton = ({
   //   });
 
   const { data: providers, isLoading: providersLoading } = useProviders();
-  const availableProviders = providers?.items || [];
+  const availableProviders = providers || [];
 
   // TODO remove after createDBCluster flow will be ready
   // const availableDbTypes = allAvailableDbTypes.filter((item) =>
