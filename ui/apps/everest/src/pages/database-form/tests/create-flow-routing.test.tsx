@@ -23,7 +23,7 @@ vi.mock('hooks/api/providers', () => ({
   useProviders: vi.fn(),
 }));
 
-vi.mock('hooks/api/instances/useCreateInstance', () => ({
+vi.mock('hooks/api/db-instances/useCreateDbInstance', () => ({
   useCreateInstance: () => ({
     mutate: vi.fn(),
     isPending: false,
@@ -100,7 +100,7 @@ const CurrentPath = () => {
 describe('Create database flow routing', () => {
   it('opens /databases/new and renders form after clicking Create database', async () => {
     vi.mocked(useProviders).mockReturnValue({
-      data: { items: [providerWithMultipathSchema] },
+      data: [providerWithMultipathSchema],
       isLoading: false,
     } as unknown as ReturnType<typeof useProviders>);
 
