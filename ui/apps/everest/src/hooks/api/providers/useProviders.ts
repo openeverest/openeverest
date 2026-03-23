@@ -15,16 +15,26 @@
 import { useQuery } from '@tanstack/react-query';
 import { getProvidersFn } from 'api/providers';
 import { PerconaQueryOptions } from 'shared-types/query.types';
-import { ProviderList } from 'types/api';
+import { GetProviders, Provider } from 'types/api';
 
 export const useProviders = (
-  options?: PerconaQueryOptions<ProviderList, unknown, ProviderList>
+  options?: PerconaQueryOptions<GetProviders, unknown, Provider[]>
 ) => {
-  return useQuery<ProviderList, unknown, ProviderList>({
+  return useQuery<GetProviders, unknown, Provider[]>({
     queryKey: ['providers'],
     queryFn: () => getProvidersFn(),
     retry: 3,
     refetchInterval: 10 * 1000,
     ...options,
+    select: (providers) => {
+      const selectedProviders = options?.select
+        ? options.select(providers)
+        : providers.items;
+
+      return (selectedProviders ?? []).filter(
+        (provider): provider is Provider => Boolean(provider)
+      );
+    },
   });
 };
+
