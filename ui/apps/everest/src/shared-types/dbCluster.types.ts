@@ -16,6 +16,8 @@ import { ProxyType } from '@percona/types';
 import { DbEngineType } from './dbEngines.types';
 import { DbErrorType } from './dbErrors.types';
 
+// TODO this file should be removed after v2 release as unnecessary
+
 export enum ProxyExposeType {
   ClusterIP = 'ClusterIP',
   LoadBalancer = 'LoadBalancer',

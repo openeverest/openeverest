@@ -22,6 +22,7 @@ export const dbTypeToDbEngine = (dbType: DbType): DbEngineType => {
   }
 };
 
+// TODO It is no longer needed in v2, since the name of the provider is set by plugin developer
 export const beautifyDbTypeName = (dbType: DbType): string => {
   switch (dbType) {
     case DbType.Mongo:

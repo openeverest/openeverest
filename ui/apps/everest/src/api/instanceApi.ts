@@ -12,7 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { CreateInstanceArgType } from 'types/api';
+import {
+  CreateInstanceArgType,
+  GetInstances,
+  InstanceConnectionDetails,
+} from 'types/api';
 import { api } from './api';
 
 export const createInstanceFn = async (
@@ -35,5 +39,26 @@ export const createInstanceFn = async (
     payload
   );
 
+  return response.data;
+};
+
+export const getInstancesFn = async (
+  clusterName: string,
+  namespace: string
+) => {
+  const response = await api.get<GetInstances>(
+    `/clusters/${clusterName}/namespaces/${namespace}/instances`
+  );
+  return response.data;
+};
+
+export const getInstanceConnectionFn = async (
+  clusterName: string,
+  namespace: string,
+  instanceName: string
+) => {
+  const response = await api.get<InstanceConnectionDetails>(
+    `/clusters/${clusterName}/namespaces/${namespace}/instances/${instanceName}/connection`
+  );
   return response.data;
 };

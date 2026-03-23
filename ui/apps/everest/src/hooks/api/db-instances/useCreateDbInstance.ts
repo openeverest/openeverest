@@ -13,7 +13,7 @@
 // limitations under the License.
 
 import { useMutation, UseMutationOptions } from '@tanstack/react-query';
-import { createInstanceFn } from 'api/instancesApi';
+import { createInstanceFn } from 'api/instanceApi';
 import { DbWizardType } from 'pages/database-form/database-form-schema';
 
 type CreateInstanceHookArgType = {
@@ -30,16 +30,9 @@ export const useCreateInstance = (
 ) =>
   useMutation({
     mutationFn: ({
-      formValue: { provider, dbName, k8sNamespace, topology, ...rest },
+      formValue: { provider, dbName, k8sNamespace, ...rest },
     }: CreateInstanceHookArgType) => {
-      //TODO check topology.config
       const spec = {
-        topology: {
-          ...topology,
-
-          //TODO?
-          // config?: formSpec?.topology?.config
-        },
         ...rest,
       };
       return createInstanceFn(

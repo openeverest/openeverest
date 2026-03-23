@@ -24,7 +24,7 @@ import {
   useForm,
   useWatch,
 } from 'react-hook-form';
-import { useCreateInstance } from 'hooks/api/instances/useCreateInstance';
+import { useCreateInstance } from 'hooks/api/db-instances/useCreateDbInstance';
 import { useActiveBreakpoint } from 'hooks/utils/useActiveBreakpoint';
 import { DbWizardType } from './database-form-schema';
 import DatabaseFormCancelDialog from './database-form-cancel-dialog/index';

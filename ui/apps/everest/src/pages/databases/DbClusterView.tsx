@@ -14,33 +14,24 @@
 // limitations under the License.
 
 import { Box, Stack } from '@mui/material';
-import { Table } from '@percona/ui-lib';
+import { PendingIcon, Table } from '@percona/ui-lib';
 import StatusField from 'components/status-field';
-import {
-  useDBEnginesForNamespaces,
-  useNamespaces,
-} from 'hooks/api/namespaces/useNamespaces';
+import { useNamespaces } from 'hooks/api/namespaces/useNamespaces';
+import { useProviders } from 'hooks/api/providers/useProviders';
 import { type MRT_ColumnDef } from 'material-react-table';
 import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { DbClusterStatus } from 'shared-types/dbCluster.types';
-import { DbEngineType } from 'shared-types/dbEngines.types';
-import { useDBClustersForNamespaces } from 'hooks/api/db-clusters/useDbClusters';
-import { DB_CLUSTER_STATUS_TO_BASE_STATUS } from './DbClusterView.constants';
+import { useInstancesForNamespaces } from 'hooks/api/db-instances/useDbInstanceList';
 import {
-  beautifyDbClusterStatus,
-  convertDbClusterPayloadToTableFormat,
+  beautifyDBInstanceStatus,
+  convertDbInstancesPayloadToTableFormat,
 } from './DbClusterView.utils';
-import { DbClusterTableElement } from './dbClusterView.types';
-import { LastBackup } from './lastBackup/LastBackup';
-import { beautifyDbTypeName, dbEngineToDbType } from '@percona/utils';
-import { useNamespacePermissionsForResource } from 'hooks/rbac';
-import DbActions from 'components/db-actions/db-actions';
-import { PendingIcon } from '@percona/ui-lib';
+import { InstanceTableElement } from './dbClusterView.types';
 import CreateDbButton from 'components/create-db-button/create-db-button';
 import EmptyStateDatabases from 'components/empty-state-databases/empty-state-databases';
 import EmptyStateNamespaces from 'components/empty-state-namespaces/empty-state-namespaces';
-import { useDataImporters } from 'hooks/api/data-importers/useDataImporters';
+import { DB_INSTANCE_STATUS_TO_BASE_STATUS } from './DbClusterView.constants';
+import { InstanceStatus } from 'shared-types/instance.types';
 
 export const DbClusterView = () => {
   const { data: namespaces = [], isLoading: loadingNamespaces } = useNamespaces(
@@ -50,66 +41,80 @@ export const DbClusterView = () => {
   );
 
   const navigate = useNavigate();
-  const { results: dbEngines } = useDBEnginesForNamespaces();
-  const hasAvailableDbEngines = dbEngines.some(
-    (obj) => (obj?.data || []).length > 0
-  );
+  const { data: providers = [] } = useProviders();
+  const hasAvailableProviders = providers.length > 0;
+  const providersNamesFilter = providers.reduce<
+    { text: string; value: string }[]
+  >((acc, p) => {
+    const name = p.metadata?.name;
+    if (name) acc.push({ text: name, value: name });
+    return acc;
+  }, []);
+  console.log(providersNamesFilter);
 
-  const { canCreate } = useNamespacePermissionsForResource('database-clusters');
+  // TODO RBAC
+  // const { canCreate } = useNamespacePermissionsForResource('database-instances');
 
-  const canAddCluster = canCreate.length > 0 && hasAvailableDbEngines;
+  // const canAddCluster = canCreate.length > 0 && hasAvailableProviders;
+  const canAddCluster = hasAvailableProviders;
 
-  const { data: availableEnginesForImport } = useDataImporters();
+  // TODO uncomment when providerImporters will be ready
+  // const { data: availableEnginesForImport } = useDataImporters();
 
-  const dbClustersResults = useDBClustersForNamespaces(
+  const instancesResults = useInstancesForNamespaces(
     namespaces.map((ns) => ({
       namespace: ns,
     }))
   );
-  const dbClustersLoading = dbClustersResults.some(
+  const instancesLoading = instancesResults.some(
     (result) => result.queryResult.isLoading
   );
 
   const tableData = useMemo(
-    () => convertDbClusterPayloadToTableFormat(dbClustersResults),
-    [dbClustersResults]
+    () => convertDbInstancesPayloadToTableFormat(instancesResults),
+    [instancesResults]
   );
 
-  const columns = useMemo<MRT_ColumnDef<DbClusterTableElement>[]>(
+  const columns = useMemo<MRT_ColumnDef<InstanceTableElement>[]>(
     () => [
       {
-        accessorKey: 'status',
+        accessorKey: 'phase',
         header: 'Status',
         filterVariant: 'multi-select',
-        filterSelectOptions: Object.values(DbClusterStatus).map((status) => ({
-          text: beautifyDbClusterStatus(status),
+        filterSelectOptions: Object.values(InstanceStatus).map((status) => ({
+          text: beautifyDBInstanceStatus(status),
           value: status,
         })),
         maxSize: 120,
-        Cell: ({ cell }) => (
-          <StatusField
-            dataTestId={cell?.row?.original?.databaseName}
-            status={cell.getValue<DbClusterStatus>()}
-            statusMap={DB_CLUSTER_STATUS_TO_BASE_STATUS}
-            defaultIcon={PendingIcon}
-          >
-            {beautifyDbClusterStatus(
-              cell.getValue<DbClusterStatus>(),
+        Cell: ({ cell }) => {
+          const status = cell.getValue<InstanceStatus>();
+
+          return (
+            <StatusField
+              dataTestId={cell.row.original?.instanceName}
+              status={status}
+              statusMap={DB_INSTANCE_STATUS_TO_BASE_STATUS}
+              defaultIcon={PendingIcon}
+            >
+              {beautifyDBInstanceStatus(
+                status /*
               cell.row.original?.raw.status?.conditions || []
-            )}
-          </StatusField>
-        ),
+                 */
+              )}
+            </StatusField>
+          );
+        },
       },
       {
-        accessorKey: 'databaseName',
+        accessorKey: 'instanceName',
         header: 'Database name',
       },
       {
-        accessorFn: ({ dbType }) => dbType,
+        accessorFn: ({ provider }) => provider,
         filterVariant: 'multi-select',
-        filterSelectOptions: Object.values(DbEngineType),
-        header: 'Technology',
-        id: 'technology',
+        filterSelectOptions: providersNamesFilter,
+        header: 'Provider',
+        id: 'provider',
         Cell: ({ row }) => (
           <Stack
             direction="row"
@@ -117,36 +122,35 @@ export const DbClusterView = () => {
             alignItems="center"
             gap={1}
           >
-            {beautifyDbTypeName(dbEngineToDbType(row.original?.dbType))}{' '}
-            {row.original?.dbVersion}
+            {row.original?.provider} {/* {row.original?.dbVersion} */}
           </Stack>
         ),
       },
-      {
-        id: 'lastBackup',
-        header: 'Last backup',
-        Cell: ({ row }) => (
-          <LastBackup
-            dbName={row.original?.databaseName}
-            namespace={row.original?.namespace}
-          />
-        ),
-      },
-      {
-        accessorKey: 'nodes',
-        id: 'nodes',
-        header: 'Nº nodes',
-      },
+      // {
+      //   id: 'lastBackup',
+      //   header: 'Last backup',
+      //   Cell: ({ row }) => (
+      //     <LastBackup
+      //       dbName={row.original?.databaseName}
+      //       namespace={row.original?.namespace}
+      //     />
+      //   ),
+      // },
+      // {
+      //   accessorKey: 'nodes',
+      //   id: 'nodes',
+      //   header: 'Nº nodes',
+      // },
       {
         accessorKey: 'namespace',
         id: 'namespace',
         header: 'Namespace',
       },
-      {
-        accessorKey: 'monitoringConfigName',
-        header: 'Monitoring instance name',
-        minSize: 250,
-      },
+      // {
+      //   accessorKey: 'monitoringConfigName',
+      //   header: 'Monitoring instance name',
+      //   minSize: 250,
+      // },
       // {
       //   accessorKey: 'backupsEnabled',
       //   header: 'Backups',
@@ -166,7 +170,7 @@ export const DbClusterView = () => {
     <Stack direction="column" alignItems="center">
       <Box sx={{ width: '100%' }}>
         <Table
-          getRowId={(row) => row.databaseName}
+          getRowId={(row) => row.instanceName}
           tableName="dbClusterView"
           emptyState={
             namespaces.length > 0 ? (
@@ -178,13 +182,13 @@ export const DbClusterView = () => {
               <EmptyStateNamespaces />
             )
           }
-          state={{ isLoading: dbClustersLoading || loadingNamespaces }}
+          state={{ isLoading: instancesLoading || loadingNamespaces }}
           columns={columns}
           data={tableData}
-          enableRowActions
-          renderRowActions={({ row }) => {
-            return <DbActions dbCluster={row.original.raw} showDetailsAction />;
-          }}
+          // enableRowActions
+          // renderRowActions={({ row }) => {
+          //   return <DbActions dbCluster={row.original.raw} showDetailsAction />;
+          // }}
           muiTableBodyRowProps={({ row, isDetailPanel }) => ({
             onClick: (e) => {
               if (
@@ -192,7 +196,7 @@ export const DbClusterView = () => {
                 e.currentTarget.contains(e.target as Node)
               ) {
                 navigate(
-                  `/databases/${row.original.namespace}/${row.original.databaseName}/overview`
+                  `/databases/${row.original.namespace}/${row.original.instanceName}/overview`
                 );
               }
             },
@@ -205,16 +209,17 @@ export const DbClusterView = () => {
           enableRowHoverAction
           rowHoverAction={(row) =>
             navigate(
-              `/databases/${row.original.namespace}/${row.original.databaseName}/overview`
+              `/databases/${row.original.namespace}/${row.original.instanceName}/overview`
             )
           }
           renderTopToolbarCustomActions={() =>
             canAddCluster &&
             tableData.length > 0 && (
               <Box display="flex" mb={1}>
-                {(availableEnginesForImport?.items || []).length > 0 && (
+                {/*TODO uncomment when providerImporters will be ready */}
+                {/* {(availableEnginesForImport?.items || []).length > 0 && (
                   <CreateDbButton createFromImport />
-                )}
+                )} */}
                 <CreateDbButton />
               </Box>
             )

@@ -30,8 +30,8 @@ export const DatabasePage = lazy(() =>
   }))
 );
 
-export const UIGeneratorBuilder = lazy(
-  () => import('pages/ui-generator-builder/ui-generator-builder').then((module) => ({
+export const UIGeneratorBuilder = lazy(() =>
+  import('pages/ui-generator-builder/ui-generator-builder').then((module) => ({
     default: module.UIGeneratorBuilder,
   }))
 );
@@ -138,6 +138,3 @@ export const SettingsPoliciesRouter = lazy(
 export const SplitHorizon = lazy(
   () => import('pages/settings/policies/split-horizon')
 );
-
-
-

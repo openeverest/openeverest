@@ -12,14 +12,5 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { CrdsGen, HttpApi } from '@generated/api-types';
-
-export type GetProviders = CrdsGen.components['schemas']['ProviderList'];
-export type Provider = CrdsGen.components['schemas']['Provider'];
-export type GetInstances = CrdsGen.components['schemas']['InstanceList'];
-export type Instance = CrdsGen.components['schemas']['Instance'];
-export type InstanceConnectionDetails =
-  CrdsGen.components['schemas']['InstanceConnectionDetails'];
-
-export type CreateInstanceArgType =
-  HttpApi.paths['/clusters/{cluster}/namespaces/{namespace}/instances']['post']['requestBody']['content']['application/json'];
+export * from './useCreateDbInstance';
+export * from './useDbInstanceList';

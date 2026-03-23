@@ -13,60 +13,67 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { DbClusterStatus, Schedule } from 'shared-types/dbCluster.types';
-import { DbClusterForNamespaceResult } from '../../hooks/api/db-clusters/useDbClusters';
-import { Messages } from './dbClusterView.messages';
-import { DbClusterTableElement } from './dbClusterView.types';
-import { Backup, BackupStatus } from 'shared-types/backups.types';
-import { isProxy } from 'utils/db';
-import { DbErrorType } from 'shared-types/dbErrors.types';
+import { Schedule } from 'shared-types/dbCluster.types';
 
-const DB_CLUSTER_STATUS_HUMANIFIED: Record<DbClusterStatus, string> = {
-  [DbClusterStatus.ready]: Messages.statusProvider.up,
-  [DbClusterStatus.error]: Messages.statusProvider.down,
-  [DbClusterStatus.initializing]: Messages.statusProvider.initializing,
-  [DbClusterStatus.pausing]: Messages.statusProvider.pausing,
-  [DbClusterStatus.paused]: Messages.statusProvider.paused,
-  [DbClusterStatus.stopping]: Messages.statusProvider.stopping,
-  [DbClusterStatus.restoring]: Messages.statusProvider.restoring,
-  [DbClusterStatus.deleting]: Messages.statusProvider.deleting,
-  [DbClusterStatus.resizingVolumes]: Messages.statusProvider.resizingVolumes,
-  [DbClusterStatus.creating]: Messages.statusProvider.creating,
-  [DbClusterStatus.upgrading]: Messages.statusProvider.upgrading,
-  [DbClusterStatus.importing]: Messages.statusProvider.importing,
+import { Messages } from './dbClusterView.messages';
+import { InstanceTableElement } from './dbClusterView.types';
+import { Backup, BackupStatus } from 'shared-types/backups.types';
+import { DbErrorType } from 'shared-types/dbErrors.types';
+import { InstanceStatus } from 'shared-types/instance.types';
+import { DbInstanceForNamespaceResult } from 'hooks/api/db-instances';
+
+const DB_INSTANCE_STATUS_HUMANIFIED: Record<InstanceStatus, string> = {
+  [InstanceStatus.Creating]: Messages.statusProvider.creating,
+  [InstanceStatus.Running]: Messages.statusProvider.up,
+  [InstanceStatus.Failed]: Messages.statusProvider.down,
+  [InstanceStatus.Deleting]: Messages.statusProvider.deleting,
+  // [DbClusterStatus.ready]: Messages.statusProvider.up,
+  // [DbClusterStatus.error]: Messages.statusProvider.down,
+  // [DbClusterStatus.initializing]: Messages.statusProvider.initializing,
+  // [DbClusterStatus.pausing]: Messages.statusProvider.pausing,
+  // [DbClusterStatus.paused]: Messages.statusProvider.paused,
+  // [DbClusterStatus.stopping]: Messages.statusProvider.stopping,
+  // [DbClusterStatus.restoring]: Messages.statusProvider.restoring,
+  // [DbClusterStatus.deleting]: Messages.statusProvider.deleting,
+  // [DbClusterStatus.resizingVolumes]: Messages.statusProvider.resizingVolumes,
+  // [DbClusterStatus.creating]: Messages.statusProvider.creating,
+  // [DbClusterStatus.upgrading]: Messages.statusProvider.upgrading,
+  // [DbClusterStatus.importing]: Messages.statusProvider.importing,
 };
 
-export const beautifyDbClusterStatus = (
-  status: DbClusterStatus,
+export const beautifyDBInstanceStatus = (
+  status: InstanceStatus,
   conditions?: { type: string }[]
 ): string => {
+  // TODO 1942 should check DBErrorType
   if (
-    status === DbClusterStatus.error &&
+    status === InstanceStatus.Failed &&
     conditions?.some((c) => c.type === DbErrorType.ImportFailed)
   ) {
     return Messages.statusProvider.importFailed;
   }
   return (
-    DB_CLUSTER_STATUS_HUMANIFIED[status] || Messages.statusProvider.creating
+    DB_INSTANCE_STATUS_HUMANIFIED[status] || Messages.statusProvider.creating
   );
 };
 
-export const convertDbClusterPayloadToTableFormat = (
-  data: DbClusterForNamespaceResult[]
-): DbClusterTableElement[] => {
-  const result: DbClusterTableElement[] = [];
+export const convertDbInstancesPayloadToTableFormat = (
+  data: DbInstanceForNamespaceResult[]
+): InstanceTableElement[] => {
+  const result: InstanceTableElement[] = [];
   data.forEach((item) => {
-    const tableDataForNamespace: DbClusterTableElement[] = item?.queryResult
+    const tableDataForNamespace: InstanceTableElement[] = item?.queryResult
       ?.isSuccess
-      ? item.queryResult?.data.map((cluster) => ({
+      ? item.queryResult?.data.map((instance) => ({
           namespace: item.namespace,
-          status: cluster.status
-            ? cluster.status.status
-            : DbClusterStatus.creating,
-          dbType: cluster.spec.engine.type,
-          dbVersion: cluster.spec.engine.version || '',
-          backupsEnabled: (cluster.spec.backup?.schedules || []).length > 0,
-          databaseName: cluster.metadata.name,
+          phase:
+            (instance.status?.phase as InstanceStatus) ??
+            InstanceStatus.Creating,
+          provider: instance.spec?.provider ?? '',
+          // dbVersion: cluster.spec.engine.version || '',
+          // backupsEnabled: (cluster.spec.backup?.schedules || []).length > 0,
+          instanceName: instance.metadata?.name ?? '',
+          /*
           cpu: cluster.spec.engine.resources?.cpu || '',
           memory: cluster.spec.engine.resources?.memory || '',
           storage: cluster.spec.engine.storage.size,
@@ -88,6 +95,9 @@ export const convertDbClusterPayloadToTableFormat = (
           monitoringConfigName:
             cluster.spec.monitoring?.monitoringConfigName ?? '',
           raw: cluster,
+          */
+          topologyType: instance.spec?.topology?.type ?? '',
+          raw: instance,
         }))
       : [];
     result.push(...tableDataForNamespace);

@@ -20,6 +20,8 @@ import {
   ProxyExposeType,
 } from 'shared-types/dbCluster.types';
 import { DbEngineType } from 'shared-types/dbEngines.types';
+import { InstanceStatus } from 'shared-types/instance.types';
+import { Instance } from 'types/api';
 
 export interface DbTypeIconProviderProps {
   dbType: DbEngineType | DbType;
@@ -44,4 +46,13 @@ export interface DbClusterTableElement {
   exposetype?: ProxyExposeType;
   monitoringConfigName?: string;
   raw: DbCluster;
+}
+
+export interface InstanceTableElement {
+  namespace: string;
+  instanceName: string;
+  phase: InstanceStatus;
+  provider: string;
+  topologyType: string;
+  raw: Instance;
 }

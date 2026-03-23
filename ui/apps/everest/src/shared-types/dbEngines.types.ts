@@ -12,6 +12,9 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
+// TODO this file should be removed after v2 release as unnecessary
+
 export enum DbEngineType {
   PSMDB = 'psmdb',
   PXC = 'pxc',
