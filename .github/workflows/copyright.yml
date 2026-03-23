@@ -29,9 +29,11 @@ jobs:
       - name: Collect changed source files
         id: changed
         run: |
+          # Use the PR diff, not a plain base-vs-head tree diff.
+          # This matches GitHub's "Files changed" tab and excludes files that differ
+          # only because the base branch moved forward after the feature branch split.
           FILES=$(git diff --name-only --diff-filter=ACM \
-            "${{ github.event.pull_request.base.sha }}" \
-            "${{ github.event.pull_request.head.sha }}" \
+            "${{ github.event.pull_request.base.sha }}...${{ github.event.pull_request.head.sha }}" \
             | grep -E '\.(go|ts|tsx)$' || true)
 
           if [[ -z "$FILES" ]]; then
