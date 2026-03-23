@@ -50,7 +50,7 @@ export const DbClusterView = () => {
     if (name) acc.push({ text: name, value: name });
     return acc;
   }, []);
-  
+
   // TODO RBAC
   // const { canCreate } = useNamespacePermissionsForResource('database-instances');
 
