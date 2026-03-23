@@ -21,8 +21,6 @@ import (
 
 	"github.com/percona/everest-operator/utils"
 	operatorUtils "github.com/percona/everest-operator/utils"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 
 	monitoringv1alpha1 "github.com/openeverest/openeverest/v2/api/monitoring/v1alpha1"
 	api "github.com/openeverest/openeverest/v2/internal/server/api"
@@ -62,17 +60,7 @@ func (h *validateHandler) CreateMonitoringConfig(ctx context.Context, namespace 
 
 // DeleteMonitoringConfig proxies the request to the next handler.
 func (h *validateHandler) DeleteMonitoringConfig(ctx context.Context, namespace, name string) error {
-	var mc *metav1.PartialObjectMetadata
-
-	var err error
-	if mc, err = h.kubeConnector.GetMonitoringConfigMetaV2(ctx, types.NamespacedName{Namespace: namespace, Name: name}); err != nil {
-		return err
-	}
-
-	if operatorUtils.IsEverestObjectInUse(mc) {
-		// monitoringConfig is used by some DB cluster
-		return errors.Join(ErrInvalidRequest, errDeleteInUseMonitoringConfig(namespace, name))
-	}
+	// TODO: check if the monitoring config is used by any instance.
 
 	return h.next.DeleteMonitoringConfig(ctx, namespace, name)
 }

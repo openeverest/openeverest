@@ -73,7 +73,12 @@ func GetPMMServerVersion(ctx context.Context, url string, token string, skipVeri
 // getPMMVersion makes an API request to the PMM server to figure out the current version
 func getPMMVersion(ctx context.Context, baseURL string, auth iAuth, skipTLSVerify bool) (PMMServerVersion, error) {
 	url := fmt.Sprintf("%s/v1/version", baseURL)
-	resp, err := doJSONRequest[versionResponse](ctx, http.MethodGet, url, auth, "", skipTLSVerify)
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, nil)
+	if err != nil {
+		return "", fmt.Errorf("build request: %w", err)
+	}
+
+	resp, err := doJSONRequest[versionResponse](req, auth, skipTLSVerify)
 	if err != nil {
 		return "", err
 	}
@@ -91,23 +96,31 @@ func isLegacyAuth(version PMMServerVersion) bool {
 	return len(segments) > 0 && segments[0] == 2
 }
 
-// makes an HTTP request using JSON content type
-func doJSONRequest[T any](ctx context.Context, method, url string, auth iAuth, body any, skipTLSVerify bool) (T, error) {
+// postJSONRequest makes an HTTP POST request with a JSON body and returns the decoded response.
+func postJSONRequest[T any](ctx context.Context, url string, auth iAuth, body any, skipTLSVerify bool) (T, error) {
 	var zero T
 	b, err := json.Marshal(body)
 	if err != nil {
 		return zero, fmt.Errorf("marshal request: %w", err)
 	}
 
-	req, err := http.NewRequestWithContext(ctx, method, url, bytes.NewReader(b))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(b))
 	if err != nil {
 		return zero, fmt.Errorf("build request: %w", err)
 	}
+
+	return doJSONRequest[T](req, auth, skipTLSVerify)
+}
+
+// doJSONRequest sets HTTP headers and makes a request and decodes the response.
+func doJSONRequest[T any](req *http.Request, auth iAuth, skipTLSVerify bool) (T, error) {
+	var zero T
 
 	req.Header.Set("Content-Type", "application/json; charset=utf-8")
 	if auth != nil {
 		auth.apply(req)
 	}
+
 	req.Close = true
 
 	client := &http.Client{
@@ -136,7 +149,12 @@ func doJSONRequest[T any](ctx context.Context, method, url string, auth iAuth, b
 			return zero, errors.Join(err, fmt.Errorf("PMM returned an unknown error. HTTP %d", resp.StatusCode))
 		}
 
-		return zero, fmt.Errorf("PMM returned an error: %s", pmmErr.Message)
+		var errMsg string
+		if pmmErr != nil {
+			errMsg = pmmErr.Message
+		}
+
+		return zero, fmt.Errorf("PMM returned an error: %s", errMsg)
 	}
 
 	var result T

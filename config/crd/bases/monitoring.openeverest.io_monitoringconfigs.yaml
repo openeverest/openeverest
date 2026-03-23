@@ -22,7 +22,7 @@ spec:
     - description: Indicates if any Instance uses the monitoring config
       jsonPath: .status.inUse
       name: InUse
-      type: string
+      type: boolean
     name: v1alpha1
     schema:
       openAPIV3Schema:

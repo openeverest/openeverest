@@ -17,7 +17,6 @@ package pmm
 import (
 	"context"
 	"fmt"
-	"net/http"
 )
 
 // keysResponse represents the response from PMM when creating an API key in PMM2.
@@ -56,7 +55,7 @@ func CreateAPIKey(ctx context.Context, urlBase, apiKeyName, user, password strin
 	if isLegacyAuth(version) {
 		// for PMM2, create a key directly
 		url := fmt.Sprintf("%s/graph/api/auth/keys", urlBase)
-		resp, err := doJSONRequest[keysResponse](ctx, http.MethodPost, url, auth, payload, skipTLSVerify)
+		resp, err := postJSONRequest[keysResponse](ctx, url, auth, payload, skipTLSVerify)
 		if err != nil {
 			return "", err
 		}
@@ -66,13 +65,13 @@ func CreateAPIKey(ctx context.Context, urlBase, apiKeyName, user, password strin
 
 	// for PMM3, create a service account and then create a token for that account
 	url := fmt.Sprintf("%s/graph/api/serviceaccounts", urlBase)
-	account, err := doJSONRequest[serviceAccountsResponse](ctx, http.MethodPost, url, auth, payload, skipTLSVerify)
+	account, err := postJSONRequest[serviceAccountsResponse](ctx, url, auth, payload, skipTLSVerify)
 	if err != nil {
 		return "", err
 	}
 
 	url = fmt.Sprintf("%s/graph/api/serviceaccounts/%s/tokens", urlBase, account.Uid)
-	token, err := doJSONRequest[tokensResponse](ctx, http.MethodPost, url, auth, payload, skipTLSVerify)
+	token, err := postJSONRequest[tokensResponse](ctx, url, auth, payload, skipTLSVerify)
 	if err != nil {
 		return "", err
 	}
