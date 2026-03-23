@@ -504,8 +504,34 @@ def patch_everest_operator_debug(in_yaml):
           c['resources'] = None
   return encode_yaml_stream(objects)
 
+# Remap the server and controller Deployments to Tilt-local image names so that
+# docker_build_with_restart can set separate entrypoints per workload.
+# Both share the same Dockerfile and build context; only the Tilt image
+# reference and the restart entrypoint differ.
+SERVER_TILT_IMAGE = 'ghcr.io/openeverest/openeverest:tilt-server'
+CONTROLLER_TILT_IMAGE = 'ghcr.io/openeverest/openeverest:tilt-controller'
+def patch_server_tilt_image(in_yaml):
+  objects = decode_yaml_stream(in_yaml)
+  for o in objects:
+    if o.get('kind') == 'Deployment' and o.get('metadata', {}).get('name') == 'everest-server':
+      for c in o['spec']['template']['spec']['containers']:
+        if c.get('name') == 'everest':
+          c['image'] = SERVER_TILT_IMAGE
+  return encode_yaml_stream(objects)
+
+def patch_controller_tilt_image(in_yaml):
+  objects = decode_yaml_stream(in_yaml)
+  for o in objects:
+    if o.get('kind') == 'Deployment' and o.get('metadata', {}).get('name') == 'everest-controller':
+      for c in o['spec']['template']['spec']['containers']:
+        if c.get('name') == 'manager':
+          c['image'] = CONTROLLER_TILT_IMAGE
+  return encode_yaml_stream(objects)
+
 everest_yaml=patch_everest_debug(everest_yaml)
 everest_yaml=patch_everest_operator_debug(everest_yaml)
+everest_yaml=patch_server_tilt_image(everest_yaml)
+everest_yaml=patch_controller_tilt_image(everest_yaml)
 k8s_yaml(everest_yaml)
 
 #################################
@@ -718,7 +744,7 @@ if enable_frontend:
   # Build frontend
   local_resource(
       'frontend-init',
-      'make -C {0} init'.format(frontend_dir),
+      'CI=1 make -C {0} init'.format(frontend_dir),
       deps=[
           '{0}/package.json'.format(frontend_dir),
       ],
@@ -745,7 +771,7 @@ if enable_frontend:
 # Live update the Everest container without generating a new pod
 everest_build_target='build'
 everest_target='dev'
-everest_entrypoint=["./everest-api"]
+everest_entrypoint=["/home/everest/everest-api"]
 everest_port_forwards=[
     port_forward(8080, 8080, 'Everest Server API'),
 ]
@@ -787,6 +813,9 @@ local_resource(
         '{0}/**/*.deepcopy.go*'.format(backend_dir),
     ],
     labels=["everest"],
+    resource_deps=[
+        'frontend-init',
+    ]
 )
 
 backend_build_resource_deps = ['backend-generate']
@@ -795,7 +824,7 @@ if enable_frontend:
 
 local_resource(
     'backend-build',
-    '{0} make -C {1} {2}'.format(everest_backend_build_env, backend_dir, everest_build_target),
+    '{0} make -C {1} {2} && {0} make -C {1} build-controller'.format(everest_backend_build_env, backend_dir, everest_build_target),
     deps=[
         '{0}/go.mod'.format(backend_dir),
         '{0}/go.sum'.format(backend_dir),
@@ -816,14 +845,29 @@ local_resource(
     labels=["everest"]
 )
 
-docker_build_with_restart('ghcr.io/openeverest/openeverest',
+# Server image: restart wrapper runs ./everest-api.
+# Both binaries must be in the build context because the Dockerfile copies both.
+docker_build_with_restart(SERVER_TILT_IMAGE,
   context=backend_dir,
   dockerfile='./everest.Dockerfile',
   target=everest_target,
   entrypoint=everest_entrypoint,
-  only=['{0}/bin/everest'.format(backend_dir)],
+  only=['{0}/bin/everest'.format(backend_dir), '{0}/bin/manager'.format(backend_dir)],
   live_update=[
     sync('{0}/bin/everest'.format(backend_dir), '/home/everest/everest-api'),
+  ]
+)
+
+# Controller image: separate Tilt-local image ref so the restart wrapper
+# uses /home/everest/everest-controller instead of /home/everest/everest-api.
+docker_build_with_restart(CONTROLLER_TILT_IMAGE,
+  context=backend_dir,
+  dockerfile='./everest.Dockerfile',
+  target=everest_target,
+  entrypoint=['/home/everest/everest-controller'],
+  only=['{0}/bin/everest'.format(backend_dir), '{0}/bin/manager'.format(backend_dir)],
+  live_update=[
+    sync('{0}/bin/manager'.format(backend_dir), '/home/everest/everest-controller'),
   ]
 )
 
@@ -847,6 +891,25 @@ k8s_resource(
     ],
     port_forwards=everest_port_forwards,
     new_name='everest-server-deploy',
+    labels=["everest"]
+)
+
+k8s_resource(
+    workload='everest-controller',
+    objects=[
+    'everest-controller-manager:serviceaccount:{0}'.format(EVEREST_NAMESPACE),
+    'everest-controller-leader-election-role:role:{0}'.format(EVEREST_NAMESPACE),
+    'everest-controller-manager-role:clusterrole',
+    'everest-controller-leader-election-rolebinding:rolebinding:{0}'.format(EVEREST_NAMESPACE),
+    'everest-controller-manager-rolebinding:clusterrolebinding',
+    ],
+    resource_deps = [
+      'everest-namespace',
+      'crds',
+      'backend-build',
+      'helm-deps',
+    ],
+    new_name='everest-controller-deploy',
     labels=["everest"]
 )
 
@@ -945,6 +1008,24 @@ k8s_resource(
 ### Deploy PSMDB Provider Helm chart ##
 #######################################
 
+# Synchronous guard: download PSMDB provider chart dependencies if missing
+if not helm_remote_deps_present(psmdb_provider_chart_dir):
+    local(
+        'cd {0} && helm dependency build'.format(psmdb_provider_chart_dir),
+    )
+
+# Named resource: ensures PSMDB provider dependencies are built before templating
+local_resource(
+    'psmdb-provider-deps',
+    'cd {chart_dir} && helm dependency build'.format(
+        chart_dir=psmdb_provider_chart_dir,
+    ),
+    deps=[
+        '{0}/Chart.yaml'.format(psmdb_provider_chart_dir),
+    ],
+    labels=['providers'],
+)
+
 psmdb_provider_yaml = helm(
     psmdb_provider_chart_dir,
     name='psmdb-provider',
@@ -961,6 +1042,7 @@ k8s_resource(
   ],
   resource_deps = [
     'crds',
+    'psmdb-provider-deps',
   ],
   new_name='psmdb-provider',
   labels=["providers"]
@@ -977,6 +1059,7 @@ k8s_resource(
   ],
   resource_deps = [
     'crds',
+    'psmdb-provider-deps',
   ],
   new_name='psmdb-operator',
   labels=["providers"]

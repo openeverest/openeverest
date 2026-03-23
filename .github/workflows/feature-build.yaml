@@ -357,6 +357,7 @@ jobs:
       - name: Everest - build binary
         run: |
           RELEASE_VERSION=${VERSION_TAG} CGO_ENABLED=0 GOOS=linux GOARCH=amd64 make rc
+          RELEASE_VERSION=${VERSION_TAG} CGO_ENABLED=0 GOOS=linux GOARCH=amd64 make build-controller
           RELEASE_VERSION=${VERSION_TAG} make release-cli
 
       - name: Everest - copy CLI builds

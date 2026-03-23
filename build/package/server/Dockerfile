@@ -11,6 +11,7 @@ FROM scratch
 WORKDIR /
 
 COPY ./bin/everest  /everest-api
+COPY ./bin/manager  /everest-controller
 COPY --from=build /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 
 EXPOSE 8080

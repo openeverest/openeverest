@@ -27,6 +27,22 @@ $(LOCALBIN):
 	mkdir -p $(LOCALBIN)
 
 CONTROLLER_GEN ?= $(LOCALBIN)/controller-gen
+ENVTEST ?= $(LOCALBIN)/setup-envtest
+KUSTOMIZE ?= $(LOCALBIN)/kustomize
+KUBECTL ?= kubectl
+
+## Tool Versions
+KUSTOMIZE_VERSION ?= v5.7.0
+
+# ENVTEST_VERSION is the version of controller-runtime release branch to fetch the envtest setup script.
+ENVTEST_VERSION ?= $(shell v='$(call gomodver,sigs.k8s.io/controller-runtime)'; \
+  [ -n "$$v" ] || { echo "Set ENVTEST_VERSION manually" >&2; exit 1; }; \
+  printf '%s\n' "$$v" | sed -E 's/^v?([0-9]+)\.([0-9]+).*/release-\1.\2/')
+
+# ENVTEST_K8S_VERSION is the version of Kubernetes to use for setting up ENVTEST binaries.
+ENVTEST_K8S_VERSION ?= $(shell v='$(call gomodver,k8s.io/api)'; \
+  [ -n "$$v" ] || { echo "Set ENVTEST_K8S_VERSION manually" >&2; exit 1; }; \
+  printf '%s\n' "$$v" | sed -E 's/^v?[0-9]+\.([0-9]+).*/1.\1/')
 
 ##@ Development
 
@@ -195,12 +211,43 @@ release-cli: ## Build Everest CLI release versions for different OS and ARCH. (U
 	GOOS=darwin GOARCH=arm64 go build -v -ldflags "$(CLI_LD_FLAGS)" -o ./dist/everestctl-darwin-arm64 ./cmd/cli
 	GOOS=windows GOARCH=amd64 go build -v -ldflags "$(CLI_LD_FLAGS)" -o ./dist/everestctl.exe ./cmd/cli
 
+# Everest controller manager
+CONTROLLER_LD_FLAGS = -X 'github.com/openeverest/openeverest/v2/pkg/version.Version=$(RELEASE_VERSION)' \
+	-X 'github.com/openeverest/openeverest/v2/pkg/version.FullCommit=$(RELEASE_FULLCOMMIT)'
+CONTROLLER_BUILD_TAGS =
+CONTROLLER_GC_FLAGS =
+
+# Helper target to build the Everest controller manager binary.
+.PHONY: build-controller-helper
+build-controller-helper: GOOS = linux
+build-controller-helper: GOARCH = amd64
+build-controller-helper: $(LOCALBIN)
+	$(info Building Everest controller manager for $(GOOS)/$(GOARCH) with CGO_ENABLED=$(CGO_ENABLED))
+	go build -v $(CONTROLLER_BUILD_TAGS) $(CONTROLLER_GC_FLAGS) -ldflags "$(CONTROLLER_LD_FLAGS)" -o $(LOCALBIN)/manager ./cmd/controller
+
+.PHONY: build-controller
+build-controller: CONTROLLER_LD_FLAGS += -s -w
+build-controller: build-controller-helper	## Build Everest controller manager binary.
+
+.PHONY: build-controller-debug
+build-controller-debug: CONTROLLER_BUILD_TAGS = -tags debug
+build-controller-debug: CONTROLLER_GC_FLAGS = -gcflags=all="-N -l"
+build-controller-debug: build-controller-helper	## Build Everest controller manager binary with debug symbols.
+
+.PHONY: run-controller
+run-controller: ## Run the Everest controller manager from your host.
+	go run ./cmd/controller
+
+.PHONY: vet
+vet: ## Run go vet against code.
+	go vet ./...
+
 .PHONY: docker-build
-docker-build: ## Build docker image with Everest API server.
+docker-build: ## Build docker image with Everest API server and controller.
 	docker build -f build/package/server/Dockerfile -t ${IMG} .
 
 .PHONY: docker-push
-docker-push: ## Push docker image with Everest API server.
+docker-push: ## Push docker image with Everest API server and controller.
 	docker push ${IMG}
 
 .PHONY: clean
@@ -211,30 +258,33 @@ clean:
 ##@ Test
 
 .PHONY: test
-test:                   ## Run unit tests.
+test: setup-envtest ## Run unit tests.
 # We need to ensure that /public/dist/index.html exists before running tests
 # because it's embedded into the binary and missing file will cause test
 # failure. We avoid touching the file if it already exists to prevent
 # unnecessary rebuilds when only the timestamp of the file changes.
 	mkdir -p ./public/dist && [ -f ./public/dist/index.html ] || touch ./public/dist/index.html
+	KUBEBUILDER_ASSETS="$$("$(ENVTEST)" use $(ENVTEST_K8S_VERSION) --bin-dir "$(LOCALBIN)" -p path)" \
 	CGO_ENABLED=1 go test -race -timeout=20m ./...
 
 .PHONY: test-cover
-test-cover:             ## Run unit tests and collect per-package coverage information.
+test-cover: setup-envtest ## Run unit tests and collect per-package coverage information.
 # We need to ensure that /public/dist/index.html exists before running tests
 # because it's embedded into the binary and missing file will cause test
 # failure. We avoid touching the file if it already exists to prevent
 # unnecessary rebuilds when only the timestamp of the file changes.
 	mkdir -p ./public/dist && [ -f ./public/dist/index.html ] || touch ./public/dist/index.html
+	KUBEBUILDER_ASSETS="$$("$(ENVTEST)" use $(ENVTEST_K8S_VERSION) --bin-dir "$(LOCALBIN)" -p path)" \
 	CGO_ENABLED=1 go test -race -timeout=20m -count=1 -coverprofile=cover.out -covermode=atomic ./...
 
 .PHONY: test-crosscover
-test-crosscover:        ## Run unit tests and collect cross-package coverage information.
+test-crosscover: setup-envtest ## Run unit tests and collect cross-package coverage information.
 # We need to ensure that /public/dist/index.html exists before running tests
 # because it's embedded into the binary and missing file will cause test
 # failure. We avoid touching the file if it already exists to prevent
 # unnecessary rebuilds when only the timestamp of the file changes.
 	mkdir -p ./public/dist && [ -f ./public/dist/index.html ] || touch ./public/dist/index.html
+	KUBEBUILDER_ASSETS="$$("$(ENVTEST)" use $(ENVTEST_K8S_VERSION) --bin-dir "$(LOCALBIN)" -p path)" \
 	CGO_ENABLED=1 go test -race -timeout=20m -count=1 -coverprofile=crosscover.out -covermode=atomic -p=1 -coverpkg=./... ./...
 
 ##@ Deployment management
@@ -375,8 +425,79 @@ gen-crds-deepcopy: controller-gen ## Generate code containing DeepCopy, DeepCopy
 gen-crds-manifests: controller-gen ## Generate WebhookConfiguration, ClusterRole and CustomResourceDefinition objects.
 	$(CONTROLLER_GEN) rbac:roleName=manager-role crd:allowDangerousTypes=true webhook paths="./..." output:crd:artifacts:config=config/crd/bases
 
+##@ Kustomize Deployment
+
+ifndef ignore-not-found
+  ignore-not-found = false
+endif
+
+.PHONY: install
+install: gen-crds-manifests kustomize ## Install CRDs into the K8s cluster specified in ~/.kube/config.
+	@out="$$( "$(KUSTOMIZE)" build config/crd 2>/dev/null || true )"; \
+	if [ -n "$$out" ]; then echo "$$out" | "$(KUBECTL)" apply -f -; else echo "No CRDs to install; skipping."; fi
+
+.PHONY: uninstall
+uninstall: gen-crds-manifests kustomize ## Uninstall CRDs from the K8s cluster specified in ~/.kube/config.
+	@out="$$( "$(KUSTOMIZE)" build config/crd 2>/dev/null || true )"; \
+	if [ -n "$$out" ]; then echo "$$out" | "$(KUBECTL)" delete --ignore-not-found=$(ignore-not-found) -f -; else echo "No CRDs to delete; skipping."; fi
+
+.PHONY: deploy-controller
+deploy-controller: gen-crds-manifests kustomize ## Deploy controller to the K8s cluster specified in ~/.kube/config.
+	cd config/manager && "$(KUSTOMIZE)" edit set image controller=${IMG}
+	"$(KUSTOMIZE)" build config/default | "$(KUBECTL)" apply -f -
+
+.PHONY: undeploy-controller
+undeploy-controller: kustomize ## Undeploy controller from the K8s cluster specified in ~/.kube/config.
+	"$(KUSTOMIZE)" build config/default | "$(KUBECTL)" delete --ignore-not-found=$(ignore-not-found) -f -
+
+.PHONY: build-installer
+build-installer: gen-crds-manifests kustomize ## Generate a consolidated YAML with CRDs and deployment.
+	mkdir -p dist
+	cd config/manager && "$(KUSTOMIZE)" edit set image controller=${IMG}
+	"$(KUSTOMIZE)" build config/default > dist/install.yaml
+
+##@ Dependencies
+
 .PHONY: controller-gen
 controller-gen: $(CONTROLLER_GEN) ## Download controller-gen locally if necessary. If wrong version is installed, it will be overwritten.
 $(CONTROLLER_GEN): $(LOCALBIN)
 	test -s $(LOCALBIN)/controller-gen && $(LOCALBIN)/controller-gen --version | grep -q $(CONTROLLER_TOOLS_VERSION) || \
 	GOBIN=$(LOCALBIN) go install sigs.k8s.io/controller-tools/cmd/controller-gen@$(CONTROLLER_TOOLS_VERSION)
+
+.PHONY: kustomize
+kustomize: $(KUSTOMIZE) ## Download kustomize locally if necessary.
+$(KUSTOMIZE): $(LOCALBIN)
+	$(call go-install-tool,$(KUSTOMIZE),sigs.k8s.io/kustomize/kustomize/v5,$(KUSTOMIZE_VERSION))
+
+.PHONY: setup-envtest
+setup-envtest: envtest ## Download the binaries required for ENVTEST.
+	@echo "Setting up envtest binaries for Kubernetes version $(ENVTEST_K8S_VERSION)..."
+	@"$(ENVTEST)" use $(ENVTEST_K8S_VERSION) --bin-dir "$(LOCALBIN)" -p path || { \
+		echo "Error: Failed to set up envtest binaries for version $(ENVTEST_K8S_VERSION)."; \
+		exit 1; \
+	}
+
+.PHONY: envtest
+envtest: $(ENVTEST) ## Download setup-envtest locally if necessary.
+$(ENVTEST): $(LOCALBIN)
+	$(call go-install-tool,$(ENVTEST),sigs.k8s.io/controller-runtime/tools/setup-envtest,$(ENVTEST_VERSION))
+
+# go-install-tool will 'go install' any package with custom target and name of binary, if it doesn't exist.
+# $1 - target path with name of binary
+# $2 - package url which can be installed
+# $3 - specific version of package
+define go-install-tool
+@[ -f "$(1)-$(3)" ] && [ "$$(readlink -- "$(1)" 2>/dev/null)" = "$(1)-$(3)" ] || { \
+set -e; \
+package=$(2)@$(3) ;\
+echo "Downloading $${package}" ;\
+rm -f "$(1)" ;\
+GOBIN="$(LOCALBIN)" go install $${package} ;\
+mv "$(LOCALBIN)/$$(basename "$(1)")" "$(1)-$(3)" ;\
+} ;\
+ln -sf "$$(realpath "$(1)-$(3)")" "$(1)"
+endef
+
+define gomodver
+$(shell go list -m -f '{{if .Replace}}{{.Replace.Version}}{{else}}{{.Version}}{{end}}' $(1) 2>/dev/null)
+endef

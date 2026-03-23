@@ -1,11 +1,12 @@
 FROM alpine AS dev
 WORKDIR /home/everest
 RUN adduser -D everest
+COPY --chown=everest:everest ./bin/everest  /home/everest/everest-api
+COPY --chown=everest:everest ./bin/manager  /home/everest/everest-controller
 USER 1000:1000
-COPY ./bin/everest  ./everest-api
 
 EXPOSE 8080
-ENTRYPOINT ["./everest-api"]
+ENTRYPOINT ["/home/everest/everest-api"]
 
 # Build the Delve debuger
 FROM golang:1.25-alpine AS delve
