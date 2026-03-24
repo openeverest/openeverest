@@ -46,6 +46,31 @@ The backend is written in Go. To set up a full local development environment —
 
 The frontend is a TypeScript/React monorepo managed with PNPM and Turborepo. For details on the UI stack, local development setup, and available scripts, see the [Frontend Development Guide](https://github.com/openeverest/openeverest/blob/main/ui/README.md).
 
+### Signing Your Work (Developer Certificate of Origin)
+
+Each commit must be signed off. By doing so, you confirm that you have the right to license your contribution under the project's license. See [Developer Certificate of Origin](https://developercertificate.org/).
+
+Use `-s` if you have `user.name` and `user.email` configured in Git:
+
+```bash
+git commit -s -m "your commit message"
+```
+
+Or add it manually in the commit message:
+
+```
+your commit message
+
+Signed-off-by: Your Name <your.email@example.org>
+```
+
+To always sign off automatically, set a Git alias:
+
+```bash
+git config --global alias.ci "commit -s"
+git ci -m "your commit message"
+```
+
 ## Local quality checks
 
 Before opening a PR, run local checks to keep CI green.
