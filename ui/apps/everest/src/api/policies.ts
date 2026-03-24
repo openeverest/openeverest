@@ -1,5 +1,5 @@
 import { api } from './api';
-import rbac from '/public/static/model.conf?raw';
+import rbac from '/src/static/model.conf?raw';
 
 type RBACPoliciesPayload = {
   permissions: string[][];
