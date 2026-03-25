@@ -13,7 +13,7 @@
 // limitations under the License.
 
 import {
-  CreateInstanceArgType,
+  CreateInstancePayload,
   GetInstances,
   InstanceConnectionDetails,
 } from 'types/api';
@@ -22,17 +22,18 @@ import { api } from './api';
 export const createInstanceFn = async (
   clusterName: string,
   instanceName: string,
-  providerName: string,
   namespace: string,
-  data: CreateInstanceArgType['spec']
+  data: CreateInstancePayload['spec']
 ) => {
-  const payload: CreateInstanceArgType = {
+  const payload: CreateInstancePayload = {
     apiVersion: 'core.openeverest.io/v1alpha1',
     kind: 'Instance',
     // TODO this TS error should gone after BE types updates
     // @ts-ignore
     metadata: { name: instanceName },
-    spec: { provider: providerName, ...data },
+    spec: {
+      ...data,
+    },
   };
   const response = await api.post(
     `clusters/${clusterName}/namespaces/${namespace}/instances`,

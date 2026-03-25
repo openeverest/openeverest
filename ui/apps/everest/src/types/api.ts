@@ -21,5 +21,7 @@ export type Instance = CrdsGen.components['schemas']['Instance'];
 export type InstanceConnectionDetails =
   CrdsGen.components['schemas']['InstanceConnectionDetails'];
 
-export type CreateInstanceArgType =
+export type CreateInstancePayload =
   HttpApi.paths['/clusters/{cluster}/namespaces/{namespace}/instances']['post']['requestBody']['content']['application/json'];
+export type GetInstanceConnectionPayload =
+  HttpApi.paths['/clusters/{cluster}/namespaces/{namespace}/instances/{instance}/connection']['get']['responses']['200']['content']['application/json'];
