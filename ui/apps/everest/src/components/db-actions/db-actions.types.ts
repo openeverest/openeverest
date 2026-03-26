@@ -1,7 +1,7 @@
-import { DbCluster } from 'shared-types/dbCluster.types';
+import { Instance } from 'types/api';
 
 export interface DbActionsProps {
   showDetailsAction?: boolean;
   showStatusActions?: boolean;
-  dbCluster: DbCluster;
+  dbInstance: Instance;
 }

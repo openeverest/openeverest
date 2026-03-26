@@ -18,12 +18,12 @@ import {
   UseQueryOptions,
   UseQueryResult,
 } from '@tanstack/react-query';
-import { getInstanceConnectionFn, getInstancesFn } from 'api/instanceApi';
+import { getDbInstanceConnectionFn, getDbInstancesFn } from 'api/instanceApi';
 import { PerconaQueryOptions } from 'shared-types/query.types';
 import { GetInstances, Instance, InstanceConnectionDetails } from 'types/api';
 
-export const INSTANCES_QUERY_KEY = 'instances';
-export const INSTANCE_CONNECTION_QUERY_KEY = 'instanceConnection';
+export const DB_INSTANCES_QUERY_KEY = 'instances';
+export const DB_INSTANCE_CONNECTION_QUERY_KEY = 'instanceConnection';
 
 export interface DbInstanceForNamespaceResult {
   namespace: string;
@@ -37,8 +37,8 @@ export const useDbInstanceList = (
   // TODO change to global use of cluster name during implementing multicluster feature
   const clusterName = 'main';
   return useQuery<GetInstances, unknown, Instance[]>({
-    queryKey: [INSTANCES_QUERY_KEY, `${namespace}-${clusterName}`],
-    queryFn: () => getInstancesFn(clusterName, namespace),
+    queryKey: [DB_INSTANCES_QUERY_KEY, `${namespace}-${clusterName}`],
+    queryFn: () => getDbInstancesFn(clusterName, namespace),
     refetchInterval: 5 * 1000,
     ...options,
     select: (instances) => {
@@ -74,8 +74,8 @@ export const useInstancesForNamespaces = (
     UseQueryOptions<GetInstances, unknown, Instance[]>
   >(({ namespace, options }) => {
     return {
-      queryKey: [INSTANCES_QUERY_KEY, `${namespace}-${clusterName}`],
-      queryFn: () => getInstancesFn(clusterName, namespace),
+      queryKey: [DB_INSTANCES_QUERY_KEY, `${namespace}-${clusterName}`],
+      queryFn: () => getDbInstancesFn(clusterName, namespace),
       refetchInterval: 5 * 1000,
       select: instancesQuerySelect,
       ...options,
@@ -110,9 +110,9 @@ export const useInstanceConnection = (
     unknown,
     InstanceConnectionDetails
   >({
-    queryKey: [INSTANCE_CONNECTION_QUERY_KEY, instanceName],
+    queryKey: [DB_INSTANCE_CONNECTION_QUERY_KEY, instanceName],
     queryFn: () =>
-      getInstanceConnectionFn(clusterName, namespace, instanceName),
+      getDbInstanceConnectionFn(clusterName, namespace, instanceName),
     ...options,
   });
 };

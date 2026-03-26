@@ -25,3 +25,7 @@ export type CreateInstancePayload =
   HttpApi.paths['/clusters/{cluster}/namespaces/{namespace}/instances']['post']['requestBody']['content']['application/json'];
 export type GetInstanceConnectionPayload =
   HttpApi.paths['/clusters/{cluster}/namespaces/{namespace}/instances/{instance}/connection']['get']['responses']['200']['content']['application/json'];
+export type GetDbInstancePayload =
+  HttpApi.paths['/clusters/{cluster}/namespaces/{namespace}/instances/{instance}']['get']['responses']['200']['content']['application/json'];
+export type GetDbInstancesPayload =
+  HttpApi.paths['/clusters/{cluster}/namespaces/{namespace}/instances']['get']['responses']['200']['content']['application/json'];

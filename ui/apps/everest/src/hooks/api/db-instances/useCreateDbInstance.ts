@@ -17,16 +17,19 @@ import {
   useQuery,
   UseMutationOptions,
 } from '@tanstack/react-query';
-import { createInstanceFn, getInstanceConnectionFn } from 'api/instanceApi';
+import { createDbInstanceFn, getDbInstanceConnectionFn } from 'api/instanceApi';
 import { DbWizardType } from 'pages/database-form/database-form-schema';
 import { PerconaQueryOptions } from 'shared-types/query.types';
-import { InstanceConnectionDetails, GetInstanceConnectionPayload } from 'types/api';
+import {
+  InstanceConnectionDetails,
+  GetInstanceConnectionPayload,
+} from 'types/api';
 
 type CreateInstanceHookArgType = {
   formValue: DbWizardType;
 };
 
-export const useCreateInstance = (
+export const useCreateDbInstance = (
   options?: UseMutationOptions<
     DbWizardType,
     unknown,
@@ -38,7 +41,7 @@ export const useCreateInstance = (
     mutationFn: ({
       formValue: { provider, dbName, k8sNamespace, spec, ...rest },
     }: CreateInstanceHookArgType) => {
-      return createInstanceFn('main', dbName, k8sNamespace || '', {
+      return createDbInstanceFn('main', dbName, k8sNamespace || '', {
         provider: provider || '',
         ...rest,
         ...spec,
@@ -71,7 +74,7 @@ export const useDbInstanceCredentials = (
   >({
     queryKey: ['instance-credentials', dbInstanceName],
     queryFn: () =>
-      getInstanceConnectionFn(clusterName, namespace, dbInstanceName),
+      getDbInstanceConnectionFn(clusterName, namespace, dbInstanceName),
     ...options,
     // select: canReadCredentials
     //   ? (creds) => creds
@@ -81,4 +84,4 @@ export const useDbInstanceCredentials = (
   });
 };
 
-export default useCreateInstance;
+export default useCreateDbInstance;

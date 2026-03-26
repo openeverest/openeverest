@@ -2,7 +2,6 @@ import { MongoIcon, MySqlIcon, PostgreSqlIcon } from '@percona/ui-lib';
 import { DbEngineType, DbType, ProxyType } from '@percona/types';
 import {
   DbCluster,
-  DbClusterStatus,
   ManageableSchedules,
   Proxy,
   ProxyExposeType,
@@ -36,6 +35,7 @@ import { Path, UseFormGetFieldState } from 'react-hook-form';
 import cronConverter from './cron-converter';
 import { EMPTY_LOAD_BALANCER_CONFIGURATION } from 'consts';
 import { mapDeprecatedExposeType } from 'components/cluster-form/advanced-configuration/advanced-configuration.utils';
+import { DbInstanceStatus } from 'shared-types/instance.types';
 
 export const dbTypeToIcon = (dbType: DbType) => {
   switch (dbType) {
@@ -991,14 +991,14 @@ const humanizedDbMap: Record<DbType, string> = {
 export const humanizeDbType = (type: DbType): string => humanizedDbMap[type];
 
 // This does not apply to the delete action, which is only blocked when the db is being deleted itself
-export const shouldDbActionsBeBlocked = (status?: DbClusterStatus) => {
+export const shouldDbActionsBeBlocked = (status?: DbInstanceStatus) => {
   return [
-    DbClusterStatus.restoring,
-    DbClusterStatus.deleting,
-    DbClusterStatus.resizingVolumes,
-    DbClusterStatus.upgrading,
-    DbClusterStatus.importing,
-  ].includes(status || ('' as DbClusterStatus));
+    // DbInstanceStatus.restoring,
+    DbInstanceStatus.deleting,
+    // DbInstanceStatus.resizingVolumes,
+    // DbInstanceStatus.upgrading,
+    // DbInstanceStatus.importing,
+  ].includes(status || ('' as DbInstanceStatus));
 };
 
 export const mergeNewDbClusterData = (

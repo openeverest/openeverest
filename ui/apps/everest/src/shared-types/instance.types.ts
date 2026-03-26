@@ -14,8 +14,8 @@
 // limitations under the License.
 
 export enum DbInstanceStatus {
-  Creating = 'Creating',
-  Running = 'Running',
-  Failed = 'Failed',
-  Deleting = 'Deleting',
+  creating = 'Creating',
+  running = 'Running',
+  failed = 'Failed',
+  deleting = 'Deleting',
 }

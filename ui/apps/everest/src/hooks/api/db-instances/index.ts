@@ -14,3 +14,4 @@
 
 export * from './useCreateDbInstance';
 export * from './useDbInstanceList';
+export * from './useDeleteDbInstance';

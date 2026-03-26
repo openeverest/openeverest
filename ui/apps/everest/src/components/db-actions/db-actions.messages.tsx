@@ -23,6 +23,6 @@ export const Messages = {
     checkboxMessage: 'Keep backups storage data',
     disabledCheckboxForPGTooltip:
       'Backups storage data is kept for PostgreSQL databases.',
-    confirmButtom: 'Delete',
+    confirmButton: 'Delete',
   },
 };

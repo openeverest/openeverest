@@ -14,32 +14,29 @@
 // limitations under the License.
 
 import { Messages } from './db-actions.messages';
-import { RestoreDbModal } from 'modals';
-import DbStatusDetailsDialog from 'modals/db-status-details-dialog';
 import { CustomConfirmDialog } from 'components/custom-confirm-dialog';
 import { useDbBackups } from 'hooks';
-import { DbEngineType } from '@percona/types';
 import { DbActionsModalsProps } from './db-actions-modals.types';
 
 export const DbActionsModals = ({
-  dbCluster,
-  isNewClusterMode,
-  openDetailsDialog,
-  handleCloseDetailsDialog,
-  openRestoreDialog,
-  handleCloseRestoreDialog,
+  dbInstance,
+  // isNewClusterMode,
+  // openDetailsDialog,
+  // handleCloseDetailsDialog,
+  // openRestoreDialog,
+  // handleCloseRestoreDialog,
   openDeleteDialog,
   handleCloseDeleteDialog,
   handleConfirmDelete,
   deleteMutation: { isPending: deletingCluster },
 }: DbActionsModalsProps) => {
-  const disableKeepDataCheckbox =
-    dbCluster?.spec.engine.type === DbEngineType.POSTGRESQL;
+  // const disableKeepDataCheckbox =
+  //   dbInstance?.spec.components?.engine?.type === DbEngineType.POSTGRESQL;
   const { data: backups = [] } = useDbBackups(
-    dbCluster?.metadata.name!,
-    dbCluster?.metadata.namespace!,
+    dbInstance?.metadata?.name!,
+    dbInstance?.metadata?.namespace!,
     {
-      enabled: !!dbCluster?.metadata.name,
+      enabled: !!dbInstance?.metadata?.name,
       refetchInterval: 10 * 1000,
     }
   );
@@ -47,22 +44,22 @@ export const DbActionsModals = ({
 
   return (
     <>
-      {openRestoreDialog && (
+      {/* {openRestoreDialog && (
         <RestoreDbModal
-          dbCluster={dbCluster}
-          namespace={dbCluster.metadata.namespace}
+          dbInstance={dbInstance}
+          namespace={dbInstance.metadata.namespace}
           isNewClusterMode={isNewClusterMode}
           isOpen={openRestoreDialog}
           closeModal={handleCloseRestoreDialog}
         />
-      )}
-      {openDetailsDialog && handleCloseDetailsDialog && (
+      )} */}
+      {/* {openDetailsDialog && handleCloseDetailsDialog && (
         <DbStatusDetailsDialog
           isOpen={openDetailsDialog}
           closeModal={handleCloseDetailsDialog}
-          dbClusterDetails={dbCluster?.status?.details}
+          dbClusterDetails={dbInstance?.status?.details}
         />
-      )}
+      )} */}
       {openDeleteDialog && (
         <CustomConfirmDialog
           inputLabel={Messages.deleteModal.databaseName}
@@ -71,15 +68,17 @@ export const DbActionsModals = ({
           closeModal={handleCloseDeleteDialog}
           headerMessage={Messages.deleteModal.header}
           submitting={deletingCluster}
-          selectedId={dbCluster.metadata.name || ''}
+          selectedId={dbInstance.metadata?.name || ''}
           handleConfirm={({ dataCheckbox: keepBackupStorageData }) =>
             handleConfirmDelete(keepBackupStorageData)
           }
           alertMessage={Messages.deleteModal.alertMessage}
-          dialogContent={Messages.deleteModal.content(dbCluster.metadata.name)}
-          submitMessage={Messages.deleteModal.confirmButtom}
+          dialogContent={Messages.deleteModal.content(
+            dbInstance.metadata?.name || ''
+          )}
+          submitMessage={Messages.deleteModal.confirmButton}
           checkboxMessage={Messages.deleteModal.checkboxMessage}
-          disableCheckbox={disableKeepDataCheckbox}
+          // disableCheckbox={disableKeepDataCheckbox}
           tooltipText={Messages.deleteModal.disabledCheckboxForPGTooltip}
           hideCheckbox={hideCheckbox}
         />

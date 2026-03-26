@@ -19,10 +19,10 @@ export const DB_INSTANCE_STATUS_TO_BASE_STATUS: Record<
   DbInstanceStatus,
   BaseStatus
 > = {
-  [DbInstanceStatus.Creating]: 'creating',
-  [DbInstanceStatus.Running]: 'success',
-  [DbInstanceStatus.Failed]: 'error',
-  [DbInstanceStatus.Deleting]: 'deleting',
+  [DbInstanceStatus.creating]: 'creating',
+  [DbInstanceStatus.running]: 'success',
+  [DbInstanceStatus.failed]: 'error',
+  [DbInstanceStatus.deleting]: 'deleting',
   //   [DbClusterStatus.initializing]: 'pending',
   //   [DbClusterStatus.error]: 'error',
   //   [DbClusterStatus.paused]: 'paused',

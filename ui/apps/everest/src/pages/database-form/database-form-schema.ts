@@ -140,7 +140,7 @@ export type BasicInfoType = z.infer<ReturnType<typeof basicInfoSchema>>;
 
 export type DbWizardTypeBase = BasicInfoType & {
   spec: Omit<NonNullable<Instance['spec']>, 'topology'>;
-}
+};
 
 export type DbWizardTypeWithPrestep = DbWizardTypeBase & ImportStepType;
 

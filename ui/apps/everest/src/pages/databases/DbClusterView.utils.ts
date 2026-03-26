@@ -46,9 +46,9 @@ export const beautifyDbInstanceStatus = (
   status: DbInstanceStatus,
   conditions?: { type: string }[]
 ): string => {
-  // TODO 1942 should check DBErrorType
+  // TODO importFeature should check DBErrorType
   if (
-    status === DbInstanceStatus.Failed &&
+    status === DbInstanceStatus.failed &&
     conditions?.some((c) => c.type === DbErrorType.ImportFailed)
   ) {
     return Messages.statusProvider.importFailed;

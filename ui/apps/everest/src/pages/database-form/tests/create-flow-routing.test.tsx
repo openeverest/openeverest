@@ -24,7 +24,7 @@ vi.mock('hooks/api/providers', () => ({
 }));
 
 vi.mock('hooks/api/db-instances/useCreateDbInstance', () => ({
-  useCreateInstance: () => ({
+  useCreateDbInstance: () => ({
     mutate: vi.fn(),
     isPending: false,
   }),

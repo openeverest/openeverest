@@ -15,11 +15,12 @@
 import {
   CreateInstancePayload,
   GetInstances,
+  Instance,
   InstanceConnectionDetails,
 } from 'types/api';
 import { api } from './api';
 
-export const createInstanceFn = async (
+export const createDbInstanceFn = async (
   clusterName: string,
   instanceName: string,
   namespace: string,
@@ -43,7 +44,7 @@ export const createInstanceFn = async (
   return response.data;
 };
 
-export const getInstancesFn = async (
+export const getDbInstancesFn = async (
   clusterName: string,
   namespace: string
 ) => {
@@ -53,7 +54,19 @@ export const getInstancesFn = async (
   return response.data;
 };
 
-export const getInstanceConnectionFn = async (
+export const deleteDbInstanceFn = async (
+  clusterName: string,
+  dbInstanceName: string,
+  namespace: string
+  // cleanupBackupStorage: boolean
+) => {
+  const response = await api.delete<Instance>(
+    `/clusters/${clusterName}/namespaces/${namespace}/instances/${dbInstanceName}`
+  );
+  return response.data;
+};
+
+export const getDbInstanceConnectionFn = async (
   clusterName: string,
   namespace: string,
   instanceName: string

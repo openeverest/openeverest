@@ -1,9 +1,9 @@
 import { UseMutationResult } from '@tanstack/react-query';
-import { DeleteDbClusterArgType } from 'hooks';
-import { DbCluster } from 'shared-types/dbCluster.types';
+import { DeleteDbInstanceArgType } from 'hooks';
+import { Instance } from 'types/api';
 
 export interface DbActionsModalsProps {
-  dbCluster: DbCluster;
+  dbInstance: Instance;
   isNewClusterMode: boolean;
   openDetailsDialog?: boolean;
   handleCloseDetailsDialog?: () => void;
@@ -15,7 +15,7 @@ export interface DbActionsModalsProps {
   deleteMutation: UseMutationResult<
     unknown,
     unknown,
-    DeleteDbClusterArgType,
+    DeleteDbInstanceArgType,
     unknown
   >;
 }
