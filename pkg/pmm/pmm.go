@@ -73,7 +73,7 @@ func GetPMMServerVersion(ctx context.Context, url string, token string, skipVeri
 // getPMMVersion makes an API request to the PMM server to figure out the current version
 func getPMMVersion(ctx context.Context, baseURL string, auth iAuth, skipTLSVerify bool) (PMMServerVersion, error) {
 	url := fmt.Sprintf("%s/v1/version", baseURL)
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return "", fmt.Errorf("build request: %w", err)
 	}

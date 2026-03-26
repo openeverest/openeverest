@@ -36,7 +36,9 @@ import (
 	// +kubebuilder:scaffold:imports
 	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
 	corev1alpha1 "github.com/openeverest/openeverest/v2/api/core/v1alpha1"
+	monitoringv1alpha1 "github.com/openeverest/openeverest/v2/api/monitoring/v1alpha1"
 	backupcontroller "github.com/openeverest/openeverest/v2/internal/controller/backup"
+	monitoringcontroller "github.com/openeverest/openeverest/v2/internal/controller/monitoring"
 )
 
 var (
@@ -49,6 +51,7 @@ func init() {
 
 	utilruntime.Must(corev1alpha1.AddToScheme(scheme))
 	utilruntime.Must(backupv1alpha1.AddToScheme(scheme))
+	utilruntime.Must(monitoringv1alpha1.AddToScheme(scheme))
 	// +kubebuilder:scaffold:scheme
 }
 
@@ -183,6 +186,14 @@ func main() {
 		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "Failed to create controller", "controller", "Backup")
+		os.Exit(1)
+	}
+
+	if err := (&monitoringcontroller.MonitoringConfigReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "Failed to create controller", "controller", "MonitoringConfig")
 		os.Exit(1)
 	}
 	// +kubebuilder:scaffold:builder
