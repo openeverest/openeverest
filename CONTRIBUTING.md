@@ -120,6 +120,41 @@ make copyright-check BASE_BRANCH=develop
 make copyright-headers BASE_BRANCH=develop
 ```
 
+## Testing
+
+When contributing new features or bug fixes, please include appropriate tests to ensure code quality and prevent regressions.
+
+### Test Types
+
+- **Unit tests**: For Go backend code, add or update `*_test.go` files alongside your changes
+- **API integration tests**: For API changes, add tests in the `api-tests/` directory
+- **CLI integration tests**: For CLI changes, add tests in the `cli-tests/` directory
+
+### Running Tests Locally
+
+Before submitting a PR, run the relevant tests:
+
+```bash
+# Unit tests (fast, no dependencies)
+make test
+
+# API integration tests (requires local Kubernetes cluster)
+make k3d-cluster-up
+make test-api
+
+# CLI integration tests (requires local Kubernetes cluster)
+make test-cli
+```
+
+### CI Requirements
+
+All pull requests must pass the automated test suite before merge. The CI pipeline runs:
+
+- Unit tests (`make test`)
+- API integration tests
+- CLI integration tests
+- Linting and code quality checks
+
 ## Community Meetings
 
 We extend a warm welcome to everyone to join our community meetings. For details on schedules and how to participate, [see here](https://github.com/openeverest#openeverest-community-meetings)
