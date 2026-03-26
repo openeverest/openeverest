@@ -1,6 +1,16 @@
-# OpenEverest
+<p align="center">
+  <img src="https://github.com/openeverest/.github/blob/main/logo/logo-horizontal-full-color-white-min.png" alt="OpenEverest Logo" width="400"/>
+</p>
 
-![!image](logo.png)
+<h1 align="center">
+OpenEverest - Run Data Workloads on Kubernetes 
+</h1>
+
+[![CNCF Landscape](https://img.shields.io/badge/CNCF%20Landscape-5699C6)](https://landscape.cncf.io/?item=app-definition-and-development--database--openeverest) 
+[![GitHub License](https://img.shields.io/github/license/openeverest/openeverest)](LICENSE) 
+[![OpenSSF Best Practices](https://www.bestpractices.dev/projects/12239/badge)](https://www.bestpractices.dev/projects/12239) 
+[![Documentation](https://img.shields.io/badge/Documentation-blue?logo=readthedocs&logoColor=white)](https://openeverest.io/documentation/current/)
+[![Join Slack](https://img.shields.io/badge/Join_Slack-blue)](https://cloud-native.slack.com/archives/C09RRGZL2UX)
 
 [OpenEverest](https://openeverest.io/) is an open source cloud-native database platform that helps developers deploy code faster, scale deployments rapidly, and reduce database administration overhead while regaining control over their data, database configuration, and DBaaS costs.
 

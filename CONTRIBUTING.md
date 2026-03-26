@@ -46,6 +46,31 @@ The backend is written in Go. To set up a full local development environment —
 
 The frontend is a TypeScript/React monorepo managed with PNPM and Turborepo. For details on the UI stack, local development setup, and available scripts, see the [Frontend Development Guide](https://github.com/openeverest/openeverest/blob/main/ui/README.md).
 
+### Signing Your Work (Developer Certificate of Origin)
+
+Each commit must be signed off. By doing so, you confirm that you have the right to license your contribution under the project's license. See [Developer Certificate of Origin](https://developercertificate.org/).
+
+Use `-s` if you have `user.name` and `user.email` configured in Git:
+
+```bash
+git commit -s -m "your commit message"
+```
+
+Or add it manually in the commit message:
+
+```
+your commit message
+
+Signed-off-by: Your Name <your.email@example.org>
+```
+
+To always sign off automatically, set a Git alias:
+
+```bash
+git config --global alias.ci "commit -s"
+git ci -m "your commit message"
+```
+
 ## Local quality checks
 
 Before opening a PR, run local checks to keep CI green.
@@ -94,6 +119,41 @@ Or override the base branch:
 make copyright-check BASE_BRANCH=develop
 make copyright-headers BASE_BRANCH=develop
 ```
+
+## Testing
+
+When contributing new features or bug fixes, please include appropriate tests to ensure code quality and prevent regressions.
+
+### Test Types
+
+- **Unit tests**: For Go backend code, add or update `*_test.go` files alongside your changes
+- **API integration tests**: For API changes, add tests in the `api-tests/` directory
+- **CLI integration tests**: For CLI changes, add tests in the `cli-tests/` directory
+
+### Running Tests Locally
+
+Before submitting a PR, run the relevant tests:
+
+```bash
+# Unit tests (fast, no dependencies)
+make test
+
+# API integration tests (requires local Kubernetes cluster)
+make k3d-cluster-up
+make test-api
+
+# CLI integration tests (requires local Kubernetes cluster)
+make test-cli
+```
+
+### CI Requirements
+
+All pull requests must pass the automated test suite before merge. The CI pipeline runs:
+
+- Unit tests (`make test`)
+- API integration tests
+- CLI integration tests
+- Linting and code quality checks
 
 ## Community Meetings
 
