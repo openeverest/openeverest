@@ -297,6 +297,9 @@ cert:                   ## Create dev TLS certificates.
 	mkcert -install
 	mkcert -cert-file=dev-cert.pem -key-file=dev-key.pem everest everest.localhost 127.0.0.1
 
+clean-go-cache:
+	go clean -modcache
+
 ##@ GitHub PR
 
 CHART_BRANCH ?= main

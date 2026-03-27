@@ -181,6 +181,9 @@ jobs:
         run: |
           make build-cli-debug
 
+      - name: Clean Go cache
+        run: make clean-go-cache
+
       - name: Deploy Everest to K3D test cluster
         timeout-minutes: 10
         run: |
