@@ -12,11 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package monitoring contains the MonitoringConfigReconciler which manages MonitoringConfig resources.
 package monitoring
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 
@@ -24,7 +24,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -41,8 +40,12 @@ import (
 )
 
 const (
-	// inUseFinalizer marks MonitoringConfig as "in-use" and prevents deletion of the resource.
+	// inUseFinalizer prevents deletion of a MonitoringConfig that is referenced by Instances.
 	inUseFinalizer = "monitoring.openeverest.io/in-use-protection"
+
+	// instanceMonitoringConfigField is the field path used for indexing Instances
+	// by their monitoring config name.
+	instanceMonitoringConfigField = ".spec.components.monitoring.customSpec.monitoringConfigName"
 )
 
 // MonitoringConfigReconciler reconciles a MonitoringConfig object.
@@ -54,12 +57,12 @@ type MonitoringConfigReconciler struct {
 // SetupWithManager sets up the controller with the Manager.
 func (r *MonitoringConfigReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	if err := r.initIndexers(context.Background(), mgr); err != nil {
-		return err
+		return fmt.Errorf("init field indexers: %w", err)
 	}
 
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&monitoringv1alpha1.MonitoringConfig{}).
 		Named("MonitoringConfig").
+		For(&monitoringv1alpha1.MonitoringConfig{}).
 		Watches(&corev1.Namespace{},
 			enqueueObjectsInNamespace(r.Client, &monitoringv1alpha1.MonitoringConfigList{})).
 		Complete(r)
@@ -81,199 +84,224 @@ func (r *MonitoringConfigReconciler) SetupWithManager(mgr ctrl.Manager) error {
 //
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.14.1/pkg/reconcile
-func (r *MonitoringConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (rr ctrl.Result, rerr error) { //nolint:nonamedreturns
-	l := log.FromContext(ctx).
+// The reconciliation flow:
+//  1. Fetch the MonitoringConfig; bail out on deletion or not-found.
+//  2. Determine whether any Instance references this config (in-use check).
+//  3. Defer a status update so it always runs after the main logic.
+//  4. Add or remove the in-use protection finalizer.
+//  5. Ensure the credentials Secret is owned by this MonitoringConfig.
+func (r *MonitoringConfigReconciler) Reconcile( //nolint:nonamedreturns
+	ctx context.Context,
+	req ctrl.Request,
+) (rr ctrl.Result, rerr error) {
+	logger := log.FromContext(ctx).
 		WithName("MonitoringConfigReconciler").
-		WithValues(
-			"name", req.Name,
-			"namespace", req.Namespace,
-		)
+		WithValues("name", req.Name, "namespace", req.Namespace)
 
-	l.Info("Reconciling")
-
-	defer func() {
-		l.Info("Reconciled")
-	}()
+	logger.Info("Reconciling")
+	defer func() { logger.Info("Reconciled") }()
 
 	mc := &monitoringv1alpha1.MonitoringConfig{}
-	if rerr = r.Get(ctx, req.NamespacedName, mc); rerr != nil {
-		return ctrl.Result{}, client.IgnoreNotFound(rerr)
+	if err := r.Get(ctx, req.NamespacedName, mc); err != nil {
+		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
-	mcName := mc.GetName()
-
-	instances := new(corev1alpha1.InstanceList)
-
-	// The selector assumes it knows the field path of the monitoring config name,
-	// not great as it's specific for each provider.
-	mcNameSelector := fields.OneTermEqualSelector(".spec.components.monitoring.customSpec.monitoringConfigName", mcName)
-	if rerr = r.Client.List(ctx, instances, &client.ListOptions{
-		FieldSelector: mcNameSelector,
-		Namespace:     req.Namespace,
-	}); rerr != nil {
-		return ctrl.Result{}, fmt.Errorf("failed to fetch instances using monitoring config: %w", rerr)
-	}
-
-	secret := &corev1.Secret{}
-
-	// update the status and finalizers of the MonitoringConfig object after the reconciliation
-	defer func() {
-		// nothing to process on delete events
-		if !mc.GetDeletionTimestamp().IsZero() {
-			return
-		}
-
-		mc.Status.InUse = len(instances.Items) > 0
-		mc.Status.LastObservedGeneration = mc.GetGeneration()
-
-		v, err := getPMMServerVersion(ctx, secret, mc)
-		if err != nil {
-			l.Error(err, "failed to get PMM server version")
-			rerr = errors.Join(rerr, err)
-		}
-
-		mc.Status.PMMServerVersion = v
-
-		if err := r.Client.Status().Update(ctx, mc); err != nil {
-			l.Error(err, "failed to update status", "monitoringConfig", mcName)
-
-			rr = ctrl.Result{}
-			rerr = errors.Join(rerr, err)
-		}
-	}()
-
-	if rerr = ensureInUseFinalizer(ctx, r.Client, len(instances.Items) > 0, mc); rerr != nil {
-		l.Error(rerr, "failed to update finalizers", "monitoringConfig", mcName)
-
-		return ctrl.Result{}, rerr
-	}
-
-	if rerr = r.Get(ctx, types.NamespacedName{
-		Name:      mc.Spec.CredentialsSecretName,
-		Namespace: mc.GetNamespace(),
-	}, secret); rerr != nil {
-		l.Error(rerr, "unable to fetch Secret")
-
-		return ctrl.Result{}, rerr
-	}
-
-	if metav1.GetControllerOf(secret) != nil {
+	// Nothing to reconcile on a resource that is being deleted.
+	if !mc.GetDeletionTimestamp().IsZero() {
 		return ctrl.Result{}, nil
 	}
 
-	l.Info("setting controller references for the secret")
-	if rerr = controllerutil.SetControllerReference(mc, secret, r.Client.Scheme()); rerr != nil {
-		return ctrl.Result{}, rerr
+	// Determine whether any Instance references this MonitoringConfig.
+	inUse, err := r.isInUse(ctx, mc)
+	if err != nil {
+		return ctrl.Result{}, fmt.Errorf("failed to check in-use status: %w", err)
 	}
 
-	if rerr = r.Update(ctx, secret); rerr != nil {
-		return ctrl.Result{}, rerr
+	// Sync status after reconciliation completes.
+	defer func() {
+		if updErr := r.updateStatus(ctx, mc, inUse); updErr != nil {
+			logger.Error(updErr, "Failed to update status")
+			rr = ctrl.Result{}
+			rerr = errors.Join(rerr, updErr)
+		}
+	}()
+
+	// Manage the in-use protection finalizer.
+	if err := r.ensureInUseFinalizer(ctx, mc, inUse); err != nil {
+		return ctrl.Result{}, fmt.Errorf("failed to ensure in-use finalizer: %w", err)
+	}
+
+	// Ensure the credentials Secret is owned by this MonitoringConfig.
+	if err := r.ensureSecretOwnership(ctx, mc); err != nil {
+		return ctrl.Result{}, fmt.Errorf("failed to ensure secret ownership: %w", err)
 	}
 
 	return ctrl.Result{}, nil
 }
 
-// initIndexers initializes the field indexers for the controller.
-func (r *MonitoringConfigReconciler) initIndexers(ctx context.Context, mgr ctrl.Manager) error {
-	// Index the credentialsSecretName field in MonitoringConfig.
-	err := mgr.GetFieldIndexer().IndexField(ctx, &monitoringv1alpha1.MonitoringConfig{}, ".spec.credentialsSecretName",
-		func(c client.Object) []string {
-			mc, ok := c.(*monitoringv1alpha1.MonitoringConfig)
-			if !ok {
-				return []string{}
-			}
+// isInUse returns true if any Instance in the same namespace references this MonitoringConfig.
+func (r *MonitoringConfigReconciler) isInUse(ctx context.Context, mc *monitoringv1alpha1.MonitoringConfig) (bool, error) {
+	instances := &corev1alpha1.InstanceList{}
+	if err := r.List(ctx, instances, &client.ListOptions{
+		FieldSelector: fields.OneTermEqualSelector(instanceMonitoringConfigField, mc.GetName()),
+		Namespace:     mc.GetNamespace(),
+	}); err != nil {
+		return false, fmt.Errorf("failed to list instances: %w", err)
+	}
 
-			return []string{mc.Spec.CredentialsSecretName}
-		},
-	)
-
-	return err
+	return len(instances.Items) > 0, nil
 }
 
-// ensureInUseFinalizer adds or removes the InUseResourceFinalizer
-// on the given object based on the used parameter.
-func ensureInUseFinalizer(ctx context.Context, c client.Client, used bool, obj client.Object) error {
+// ensureInUseFinalizer adds or removes the in-use protection finalizer based on
+// whether the MonitoringConfig is referenced by any Instance.
+func (r *MonitoringConfigReconciler) ensureInUseFinalizer(
+	ctx context.Context,
+	mc *monitoringv1alpha1.MonitoringConfig,
+	inUse bool,
+) error {
 	var updated bool
-	if used {
-		updated = controllerutil.AddFinalizer(obj, inUseFinalizer)
+	if inUse {
+		updated = controllerutil.AddFinalizer(mc, inUseFinalizer)
 	} else {
-		updated = controllerutil.RemoveFinalizer(obj, inUseFinalizer)
+		updated = controllerutil.RemoveFinalizer(mc, inUseFinalizer)
 	}
 
 	if updated {
-		return c.Update(ctx, obj)
+		if err := r.Update(ctx, mc); err != nil {
+			return fmt.Errorf("failed toupdate finalizer: %w", err)
+		}
 	}
+
 	return nil
 }
 
-// enqueueObjectsInNamespace returns an event handler used for Namespace watchers.
-// It enqueues all objects specified by the type of list in the triggered namespace.
-func enqueueObjectsInNamespace(c client.Client, list client.ObjectList) handler.EventHandler { //nolint:ireturn
-	return handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, o client.Object) []reconcile.Request {
-		if _, ok := o.(*corev1.Namespace); !ok {
-			panic("enqueueObjectsInNamespace should be called on a Namespace")
-		}
+// ensureSecretOwnership sets this MonitoringConfig as the controller owner of the
+// referenced credentials Secret, if not already owned.
+func (r *MonitoringConfigReconciler) ensureSecretOwnership(
+	ctx context.Context,
+	mc *monitoringv1alpha1.MonitoringConfig,
+) error {
+	secret := &corev1.Secret{}
+	if err := r.Get(ctx, types.NamespacedName{
+		Name:      mc.Spec.CredentialsSecretName,
+		Namespace: mc.GetNamespace(),
+	}, secret); err != nil {
+		return fmt.Errorf("failed to get credentials secret %q: %w", mc.Spec.CredentialsSecretName, err)
+	}
 
-		if err := c.List(ctx, list, client.InNamespace(o.GetName())); err != nil {
-			return nil
-		}
+	// Skip if the Secret already has a controller owner.
+	if metav1.GetControllerOf(secret) != nil {
+		return nil
+	}
 
-		items, err := meta.ExtractList(list)
-		if err != nil {
-			return nil
-		}
+	if err := controllerutil.SetControllerReference(mc, secret, r.Scheme); err != nil {
+		return fmt.Errorf("failed to set controller reference: %w", err)
+	}
 
-		requests := make([]reconcile.Request, 0, len(items))
-		for _, item := range items {
-			blob, err := json.Marshal(item)
-			if err != nil {
-				panic(err.Error())
-			}
+	if err := r.Update(ctx, secret); err != nil {
+		return fmt.Errorf("failed to update secret: %w", err)
+	}
 
-			uObj := &unstructured.Unstructured{}
-			if err := json.Unmarshal(blob, uObj); err != nil {
-				panic(err.Error())
-			}
-
-			requests = append(requests, reconcile.Request{
-				NamespacedName: types.NamespacedName{
-					Namespace: uObj.GetNamespace(),
-					Name:      uObj.GetName(),
-				},
-			})
-		}
-
-		return requests
-	})
+	return nil
 }
 
-// getPMMServerVersion returns PMM server version by calling PMM API
-// using the API token stored in the secret.
-func getPMMServerVersion(
+// updateStatus rebuilds and persists the MonitoringConfig status subresource.
+func (r *MonitoringConfigReconciler) updateStatus(
 	ctx context.Context,
-	secret *corev1.Secret,
+	mc *monitoringv1alpha1.MonitoringConfig,
+	inUse bool,
+) error {
+	mc.Status.InUse = inUse
+	mc.Status.LastObservedGeneration = mc.GetGeneration()
+
+	v, pmmErr := r.fetchPMMServerVersion(ctx, mc)
+	if pmmErr == nil {
+		mc.Status.PMMServerVersion = v
+	}
+
+	updErr := r.Client.Status().Update(ctx, mc)
+
+	return errors.Join(pmmErr, updErr)
+}
+
+// fetchPMMServerVersion calls the PMM API to retrieve the server version
+// using the API key stored in the credentials Secret.
+func (r *MonitoringConfigReconciler) fetchPMMServerVersion(
+	ctx context.Context,
 	mc *monitoringv1alpha1.MonitoringConfig,
 ) (monitoringv1alpha1.PMMServerVersion, error) {
-	if secret == nil || len(secret.Data) == 0 {
-		return "", fmt.Errorf("empty secrets")
+	secret := &corev1.Secret{}
+	if err := r.Get(ctx, types.NamespacedName{
+		Name:      mc.Spec.CredentialsSecretName,
+		Namespace: mc.GetNamespace(),
+	}, secret); err != nil {
+		return "", fmt.Errorf("failed to get credentials secret %q: %w", mc.Spec.CredentialsSecretName, err)
 	}
 
-	val, ok := secret.Data["apiKey"]
+	apiKey, ok := secret.Data["apiKey"]
 	if !ok {
-		return "", fmt.Errorf("PMM token not found in the secret")
+		return "", fmt.Errorf("apiKey not found in secret %q", mc.Spec.CredentialsSecretName)
 	}
-
-	apiToken := string(val)
 
 	var skipVerifyTLS bool
 	if mc.Spec.VerifyTLS != nil {
 		skipVerifyTLS = !pointer.Get(mc.Spec.VerifyTLS)
 	}
 
-	v, err := pmm.GetPMMServerVersion(ctx, mc.Spec.PMM.URL, apiToken, skipVerifyTLS)
+	v, err := pmm.GetPMMServerVersion(ctx, mc.Spec.PMM.URL, string(apiKey), skipVerifyTLS)
 	if err != nil {
 		return "", fmt.Errorf("failed to get PMM server version: %w", err)
 	}
 
 	return monitoringv1alpha1.PMMServerVersion(v), nil
+}
+
+// initIndexers registers the field indexers required by this controller.
+func (r *MonitoringConfigReconciler) initIndexers(ctx context.Context, mgr ctrl.Manager) error {
+	return mgr.GetFieldIndexer().IndexField(
+		ctx,
+		&monitoringv1alpha1.MonitoringConfig{},
+		".spec.credentialsSecretName",
+		func(obj client.Object) []string {
+			mc, ok := obj.(*monitoringv1alpha1.MonitoringConfig)
+			if !ok {
+				return nil
+			}
+			return []string{mc.Spec.CredentialsSecretName}
+		},
+	)
+}
+
+// enqueueObjectsInNamespace returns an event handler that, when a Namespace event
+// fires, enqueues reconcile requests for all objects of the given list type in
+// that namespace. This ensures MonitoringConfigs are re-evaluated when a namespace changes.
+func enqueueObjectsInNamespace(c client.Client, list client.ObjectList) handler.EventHandler { //nolint:ireturn
+	return handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, obj client.Object) []reconcile.Request {
+		if _, ok := obj.(*corev1.Namespace); !ok {
+			return nil
+		}
+
+		if err := c.List(ctx, list, client.InNamespace(obj.GetName())); err != nil {
+			return nil
+		}
+
+		var requests []reconcile.Request
+		_ = meta.EachListItem(list, func(item runtime.Object) error {
+			o, ok := item.(client.Object)
+			if !ok {
+				return nil
+			}
+
+			requests = append(requests, reconcile.Request{
+				NamespacedName: types.NamespacedName{
+					Namespace: o.GetNamespace(),
+					Name:      o.GetName(),
+				},
+			})
+
+			return nil
+		})
+
+		return requests
+	})
 }
