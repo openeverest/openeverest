@@ -156,19 +156,73 @@ type InstanceStatus struct {
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
 }
 
+// InstancePhase represents the high-level, mutually exclusive lifecycle state
+// of an Instance. These phases are designed for human readability, providing an
+// immediate understanding of the instance's current lifecycle stage.
 type InstancePhase string
 
 const (
-	InstancePhaseCreating InstancePhase = "Creating"
-	InstancePhaseRunning  InstancePhase = "Running"
-	InstancePhaseFailed   InstancePhase = "Failed"
-	InstancePhaseDeleting InstancePhase = "Deleting"
-)
+	// --- Core Lifecycle Phases ---
 
-const (
-	StateReady      = "Ready"
-	StateInProgress = "InProgress"
-	StateError      = "Error"
+	// InstancePhasePending indicates the Instance CR has been accepted by the
+	// API server, but the provider has not yet begun provisioning (e.g.,
+	// waiting on resource quotas or prerequisite checks).
+	InstancePhasePending InstancePhase = "Pending"
+
+	// InstancePhaseProvisioning indicates the provider is actively creating the
+	// underlying Kubernetes infrastructure (StatefulSets, PVCs, Services,
+	// Secrets, ConfigMaps).
+	InstancePhaseProvisioning InstancePhase = "Provisioning"
+
+	// InstancePhaseInitializing indicates the infrastructure exists and a fresh
+	// instance engine is booting. This covers operations such as bootstrap
+	// scripts, default user setup, or initial quorum establishment.
+	InstancePhaseInitializing InstancePhase = "Initializing"
+
+	// InstancePhaseReady indicates the instance is fully operational, healthy,
+	// and actively accepting client connections. This is the target steady
+	// state.
+	InstancePhaseReady InstancePhase = "Ready"
+
+	// InstancePhaseUpdating indicates the provider is actively rolling out a
+	// mutation (e.g., scaling resources, modifying configuration flags, or
+	// performing a version upgrade).
+	InstancePhaseUpdating InstancePhase = "Updating"
+
+	// InstancePhaseTerminating indicates the user has requested deletion. The
+	// instance is actively spinning down and resources are being reclaimed.
+	InstancePhaseTerminating InstancePhase = "Terminating"
+
+	// InstancePhaseFailed indicates a terminal or semi-terminal error requiring
+	// human intervention (e.g., persistent CrashLoopBackOff or unrecoverable
+	// disk corruption).
+	InstancePhaseFailed InstancePhase = "Failed"
+
+	// --- Data Recovery Phase ---
+
+	// InstancePhaseRestoring indicates the instance is actively downloading and
+	// unpacking data from an external backup source (e.g., S3 bucket or volume
+	// snapshot). This phase is distinct from Initializing because it can take
+	// hours and has different failure domains (network/storage vs. compute).
+	InstancePhaseRestoring InstancePhase = "Restoring"
+
+	// --- Cost-Saving (Compute-to-Zero) Phases ---
+
+	// InstancePhaseSuspending indicates the provider is gracefully shutting
+	// down the instance engine, flushing memory buffers to disk, and preparing
+	// to scale compute replicas to zero.
+	InstancePhaseSuspending InstancePhase = "Suspending"
+
+	// InstancePhaseSuspended indicates the instance compute is scaled to zero.
+	// The instance is completely offline and not incurring compute charges, but
+	// PersistentVolumes remain intact.
+	InstancePhaseSuspended InstancePhase = "Suspended"
+
+	// InstancePhaseResuming indicates the user has requested the instance to
+	// wake up. The provider is scaling compute back up, reattaching existing
+	// storage, and warming the instance engine. Once complete, the instance
+	// transitions to Ready.
+	InstancePhaseResuming InstancePhase = "Resuming"
 )
 
 // Condition types for Instance.
