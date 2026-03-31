@@ -32,6 +32,21 @@ const (
 	InstanceStatusConditionsStatusUnknown InstanceStatusConditionsStatus = "Unknown"
 )
 
+// Defines values for InstanceStatusPhase.
+const (
+	Failed       InstanceStatusPhase = "Failed"
+	Initializing InstanceStatusPhase = "Initializing"
+	Pending      InstanceStatusPhase = "Pending"
+	Provisioning InstanceStatusPhase = "Provisioning"
+	Ready        InstanceStatusPhase = "Ready"
+	Restoring    InstanceStatusPhase = "Restoring"
+	Resuming     InstanceStatusPhase = "Resuming"
+	Suspended    InstanceStatusPhase = "Suspended"
+	Suspending   InstanceStatusPhase = "Suspending"
+	Terminating  InstanceStatusPhase = "Terminating"
+	Updating     InstanceStatusPhase = "Updating"
+)
+
 // Defines values for MonitoringConfigSpecType.
 const (
 	Pmm MonitoringConfigSpecType = "pmm"
@@ -539,7 +554,7 @@ type Instance struct {
 		} `json:"connectionSecretRef,omitempty"`
 
 		// Phase Phase of the database cluster.
-		Phase *string `json:"phase,omitempty"`
+		Phase *InstanceStatusPhase `json:"phase,omitempty"`
 	} `json:"status,omitempty"`
 }
 
@@ -578,6 +593,9 @@ type Instance_Spec_Components_Storage_Size struct {
 
 // InstanceStatusConditionsStatus status of the condition, one of True, False, Unknown.
 type InstanceStatusConditionsStatus string
+
+// InstanceStatusPhase Phase of the database cluster.
+type InstanceStatusPhase string
 
 // InstanceConnectionDetails ConnectionDetails holds the typed connection details for a database instance. These are written by the provider-runtime reconciler to a Kubernetes Secret and later read back by the API server to serve the connection endpoint. They follow the Service Binding well-known keys where applicable.
 type InstanceConnectionDetails struct {
