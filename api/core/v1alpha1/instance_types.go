@@ -233,6 +233,66 @@ const (
 	// ConditionConnectionDetailsReady indicates whether the connection
 	// details Secret has been populated by the provider.
 	ConditionConnectionDetailsReady = "ConnectionDetailsReady"
+
+	// ConditionStorageResizing is a state-indicator condition that is True
+	// while a PVC volume expansion is in flight, and False when storage is in
+	// a steady state. Monitoring tools can use this to suppress disk I/O alerts
+	// during the storage controller's block metadata rewrite.
+	ConditionStorageResizing = "StorageResizing"
+
+	// ConditionUpgrading is a state-indicator condition that is True while a
+	// version upgrade is in flight, and False when the instance is running its
+	// target version. External CI/CD pipelines can use this to block subsequent
+	// infrastructure changes until the upgrade completes.
+	ConditionUpgrading = "Upgrading"
+)
+
+// Reasons for the StorageResizing condition.
+const (
+	// ReasonStorageExpansionTriggered indicates the operator has updated the
+	// PVC; waiting for the cloud provider to provision the additional capacity.
+	ReasonStorageExpansionTriggered = "ExpansionTriggered"
+
+	// ReasonStorageFileSystemResizePending indicates the cloud disk is already
+	// larger, but the Kubelet has not yet expanded the filesystem inside the pod.
+	ReasonStorageFileSystemResizePending = "FileSystemResizePending"
+
+	// ReasonStorageResizeCompleted indicates the resize finished successfully
+	// and the new capacity is available to the instance.
+	ReasonStorageResizeCompleted = "ResizeCompleted"
+
+	// ReasonStorageQuotaExceeded indicates the cloud provider rejected the
+	// expansion request due to a storage quota limit.
+	ReasonStorageQuotaExceeded = "QuotaExceeded"
+
+	// ReasonStorageResizeFailed indicates the expansion failed (e.g., the
+	// storage class does not support online expansion).
+	ReasonStorageResizeFailed = "ResizeFailed"
+)
+
+// Reasons for the Upgrading condition.
+const (
+	// ReasonUpgradeMinorVersionRolling indicates a non-disruptive, pod-by-pod
+	// restart is in progress (e.g., 15.1 → 15.2). Traffic continues to be
+	// served throughout the rollout.
+	ReasonUpgradeMinorVersionRolling = "MinorVersionRolling"
+
+	// ReasonUpgradeMajorDataConversion indicates a disruptive logical upgrade
+	// is in progress (e.g., Postgres 14 → 15) that may require downtime.
+	ReasonUpgradeMajorDataConversion = "MajorDataConversion"
+
+	// ReasonUpgradeAwaitingReplicaSync indicates the primary has been upgraded
+	// but the operator is waiting for read-replicas to catch up before
+	// completing the rollout.
+	ReasonUpgradeAwaitingReplicaSync = "AwaitingReplicaSync"
+
+	// ReasonUpgradeCompleted indicates the instance is successfully running the
+	// version specified in spec.
+	ReasonUpgradeCompleted = "UpgradeCompleted"
+
+	// ReasonUpgradeFailed indicates the upgrade encountered a fatal error
+	// (e.g., a deprecated configuration parameter) and is stuck or rolling back.
+	ReasonUpgradeFailed = "UpgradeFailed"
 )
 
 type ComponentStatus struct {
