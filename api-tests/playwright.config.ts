@@ -125,6 +125,7 @@ export default defineConfig({
         'kubernetes',
         'loadbalancer-config',
         'monitoring-config',
+        'monitoring-config-v2',
         'settings',
         'version',
         'pg',
@@ -198,6 +199,21 @@ export default defineConfig({
       name: 'monitoring-config',
       testDir: 'tests',
       testMatch: /monitoring-config\.spec\.ts/,
+      dependencies: [
+        'global:auth:ci:setup',
+        'global:pmm:api-key:setup',
+      ],
+      use: {
+        extraHTTPHeaders: {
+          'Authorization': `Bearer ${process.env[API_CI_TOKEN]}`,
+        }
+      },
+    },
+    // monitoring-config-v2 tests
+    {
+      name: 'monitoring-config-v2',
+      testDir: 'tests',
+      testMatch: /monitoring-config-v2\.spec\.ts/,
       dependencies: [
         'global:auth:ci:setup',
         'global:pmm:api-key:setup',
