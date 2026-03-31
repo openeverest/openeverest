@@ -159,6 +159,8 @@ type InstanceStatus struct {
 // InstancePhase represents the high-level, mutually exclusive lifecycle state
 // of an Instance. These phases are designed for human readability, providing an
 // immediate understanding of the instance's current lifecycle stage.
+//
+// +kubebuilder:validation:Enum=Pending;Provisioning;Initializing;Ready;Updating;Terminating;Failed;Restoring;Suspending;Suspended;Resuming
 type InstancePhase string
 
 const (
@@ -203,7 +205,8 @@ const (
 	// InstancePhaseRestoring indicates the instance is actively downloading and
 	// unpacking data from an external backup source (e.g., S3 bucket or volume
 	// snapshot). This phase is distinct from Initializing because it can take
-	// hours and has different failure domains (network/storage vs. compute).
+	// hours, has different failure domains (network/storage vs. compute), and
+	// is triggered by a spec.init.fromBackup directive or a Restore CR.
 	InstancePhaseRestoring InstancePhase = "Restoring"
 
 	// --- Cost-Saving (Compute-to-Zero) Phases ---
