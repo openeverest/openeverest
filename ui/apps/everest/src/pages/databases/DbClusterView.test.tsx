@@ -70,7 +70,8 @@ describe('DbClusterView navigation', () => {
 
     // Click the first data row (index 0 is the header)
     const rows = screen.getAllByRole('row');
-    const dataRow = rows.find((row) => row.getAttribute('data-index') === '0') ?? rows[1];
+    const dataRow =
+      rows.find((row) => row.getAttribute('data-index') === '0') ?? rows[1];
     fireEvent.click(dataRow);
 
     await waitFor(() => {
@@ -88,7 +89,8 @@ describe('DbClusterView navigation', () => {
     });
 
     const rows = screen.getAllByRole('row');
-    const dataRow = rows.find((row) => row.getAttribute('data-index') === '0') ?? rows[1];
+    const dataRow =
+      rows.find((row) => row.getAttribute('data-index') === '0') ?? rows[1];
     fireEvent.click(dataRow);
 
     await waitFor(() => {

@@ -21,7 +21,13 @@ import { ClusterOverview } from './cluster-overview';
 import { FieldType } from 'components/ui-generator/ui-generator.types';
 import { Instance } from 'types/api';
 
-vi.mock('hooks/api/db-instances/useCreateDbInstance');
+const { useDbInstanceCredentials } = vi.hoisted(() => ({
+  useDbInstanceCredentials: vi.fn(() => ({ data: undefined })),
+}));
+
+vi.mock('hooks/api/db-instances/useCreateDbInstance', () => ({
+  useDbInstanceCredentials,
+}));
 
 vi.mock('hooks/api/providers', () => ({
   useProviders: vi.fn(() => ({ data: undefined })),
@@ -77,6 +83,10 @@ function renderOverview(
 }
 
 describe('ClusterOverview', () => {
+  beforeEach(() => {
+    useDbInstanceCredentials.mockClear();
+  });
+
   it('renders the database name from instance metadata', () => {
     renderOverview('my-ns', 'my-test-db');
     expect(screen.getByText('my-test-db')).toBeInTheDocument();
@@ -106,13 +116,46 @@ describe('ClusterOverview', () => {
   });
 
   it('returns null while loading', () => {
-    renderOverview('my-ns', 'my-test-db', { isLoading: true, instance: undefined });
+    renderOverview('my-ns', 'my-test-db', {
+      isLoading: true,
+      instance: undefined,
+    });
     expect(screen.queryByTestId('cluster-overview')).not.toBeInTheDocument();
   });
 
   it('returns null when instance is not available', () => {
     renderOverview('my-ns', 'my-test-db', { instance: undefined });
     expect(screen.queryByTestId('cluster-overview')).not.toBeInTheDocument();
+  });
+
+  it('polls credentials when instance phase is ready', () => {
+    renderOverview('my-ns', 'my-test-db');
+
+    expect(useDbInstanceCredentials).toHaveBeenCalledWith(
+      'my-test-db',
+      'my-ns',
+      expect.objectContaining({
+        enabled: true,
+        refetchInterval: 5 * 1000,
+      })
+    );
+  });
+
+  it('does not query credentials before instance is ready', () => {
+    renderOverview('my-ns', 'my-test-db', {
+      instance: {
+        ...mockInstance,
+        status: { phase: 'Creating' },
+      },
+    });
+
+    expect(useDbInstanceCredentials).toHaveBeenCalledWith(
+      'my-test-db',
+      'my-ns',
+      expect.objectContaining({
+        enabled: false,
+      })
+    );
   });
 
   it('renders schema-driven card title only once', () => {
@@ -155,7 +198,9 @@ describe('ClusterOverview', () => {
     });
 
     expect(screen.getAllByText('Database Version')).toHaveLength(2);
-    expect(screen.queryByTestId('databaseVersion-overview-section')).toBeInTheDocument();
+    expect(
+      screen.queryByTestId('databaseVersion-overview-section')
+    ).toBeInTheDocument();
     expect(screen.getByText('6.0.19-16')).toBeInTheDocument();
   });
 });

@@ -15,11 +15,11 @@ export const DbInstanceContext = createContext<DbInstanceContextProps>({
   instance: {} as Instance,
   isLoading: false,
   instanceDeleted: false,
-//   canReadBackups: false,
-//   canReadCredentials: false,
-//   canUpdateDb: false,
-//   temporarilyIncreaseInterval: () => {},
-//   queryResult: {} as QueryObserverResult<DbCluster, unknown>,
+  //   canReadBackups: false,
+  //   canReadCredentials: false,
+  //   canUpdateDb: false,
+  //   temporarilyIncreaseInterval: () => {},
+  //   queryResult: {} as QueryObserverResult<DbCluster, unknown>,
 });
 
 export const DbInstanceContextProvider = ({
@@ -33,7 +33,7 @@ export const DbInstanceContextProvider = ({
   const [instanceDeleted, setInstanceDeleted] = useState(false);
   const isDeleting = useRef(false);
   const queryClient = useQueryClient();
-   const queryResult: QueryObserverResult<Instance, unknown> = useDbInstance(
+  const queryResult: QueryObserverResult<Instance, unknown> = useDbInstance(
     namespace,
     instanceName,
     {
@@ -44,33 +44,31 @@ export const DbInstanceContextProvider = ({
 
   const { data: instance, isLoading, error } = queryResult;
 
-    // const temporarilyIncreaseInterval = (
-    //   interval: number,
-    //   timeoutTime: number
-    // ) => {
-    //   setRefetchInterval(interval);
-    //   const a = setTimeout(() => {
-    //     setRefetchInterval(defaultInterval), clearTimeout(a);
-    //   }, timeoutTime);
-    // };
+  // const temporarilyIncreaseInterval = (
+  //   interval: number,
+  //   timeoutTime: number
+  // ) => {
+  //   setRefetchInterval(interval);
+  //   const a = setTimeout(() => {
+  //     setRefetchInterval(defaultInterval), clearTimeout(a);
+  //   }, timeoutTime);
+  // };
 
-    //  const { canRead: canReadBackups } = useRBACPermissions(
-    //     'database-cluster-backups',
-    //     `${namespace}/${dbClusterName}`
-    //   );
-    //   const { canRead: canReadCredentials } = useRBACPermissions(
-    //     'database-cluster-credentials',
-    //     `${namespace}/${dbClusterName}`
-    //   );
-    //   const { canUpdate: canUpdateDb } = useRBACPermissions(
-    //     'database-clusters',
-    //     `${dbCluster?.metadata.namespace}/${dbCluster?.metadata.name}`
-    //   );
+  //  const { canRead: canReadBackups } = useRBACPermissions(
+  //     'database-cluster-backups',
+  //     `${namespace}/${dbClusterName}`
+  //   );
+  //   const { canRead: canReadCredentials } = useRBACPermissions(
+  //     'database-cluster-credentials',
+  //     `${namespace}/${dbClusterName}`
+  //   );
+  //   const { canUpdate: canUpdateDb } = useRBACPermissions(
+  //     'database-clusters',
+  //     `${dbCluster?.metadata.namespace}/${dbCluster?.metadata.name}`
+  //   );
 
   useEffect(() => {
-    if (
-      instance?.status?.phase === DbInstanceStatus.deleting
-    ) {
+    if (instance?.status?.phase === DbInstanceStatus.deleting) {
       isDeleting.current = true;
     }
 

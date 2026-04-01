@@ -12,23 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import {
-  Component,
-  ComponentGroup,
-  TopologyUISchemas,
-} from '../../ui-generator.types';
+import type { TopologyUISchemas } from '../../ui-generator.types';
+import { walkTopologyComponents } from '../schema-walker';
+import { getComponentTargetPaths } from '../preprocess/normalized-component';
+import { getByPath, setByPath, deepClone } from '../object-path';
 
 export type BadgeMapping = {
   path: string;
   badge: string;
-};
-
-const normalizeComponentPaths = (path: string | string[]): string[] => {
-  if (Array.isArray(path)) {
-    return path.filter((p): p is string => typeof p === 'string' && !!p);
-  }
-
-  return typeof path === 'string' && path ? [path] : [];
 };
 
 export const extractBadgeMappings = (
@@ -36,42 +27,15 @@ export const extractBadgeMappings = (
   selectedTopology: string
 ): BadgeMapping[] => {
   const badgeMappings: BadgeMapping[] = [];
-  const topology = schema[selectedTopology];
 
-  if (!topology || !topology.sections) {
-    return badgeMappings;
-  }
-
-  const processComponents = (components: {
-    [key: string]: Component | ComponentGroup;
-  }): void => {
-    Object.values(components).forEach((item) => {
-      if (item.uiType === 'group' && 'components' in item) {
-        // Recursively process group components
-        processComponents((item as ComponentGroup).components);
-      } else {
-        // Handle regular component
-        const component = item as Component;
-        if (
-          'path' in component &&
-          component.path &&
-          component.fieldParams?.badge &&
-          component.fieldParams?.badgeToApi
-        ) {
-          normalizeComponentPaths(component.path).forEach((path) => {
-            badgeMappings.push({
-              path,
-              badge: component.fieldParams.badge!,
-            });
-          });
-        }
-      }
-    });
-  };
-
-  Object.values(topology.sections).forEach((section) => {
-    if (section?.components) {
-      processComponents(section.components);
+  walkTopologyComponents(schema, selectedTopology, ({ component }) => {
+    if (component.fieldParams?.badge && component.fieldParams?.badgeToApi) {
+      getComponentTargetPaths(component).forEach((path) => {
+        badgeMappings.push({
+          path,
+          badge: component.fieldParams.badge!,
+        });
+      });
     }
   });
 
@@ -90,36 +54,13 @@ export const applyBadgesToFormData = (
     return formData;
   }
 
-  // Deep clone to avoid mutating original data
-  const result = JSON.parse(JSON.stringify(formData)) as Record<
-    string,
-    unknown
-  >;
+  const result = deepClone(formData);
 
   badgeMappings.forEach(({ path, badge }) => {
-    if (!path || typeof path !== 'string') {
-      return;
-    }
-
-    const pathParts = path.split('.');
-    let current: Record<string, unknown> = result;
-
-    // Navigate to the parent object
-    for (let i = 0; i < pathParts.length - 1; i++) {
-      const part = pathParts[i];
-      if (!current[part]) {
-        current[part] = {};
-      }
-      current = current[part] as Record<string, unknown>;
-    }
-
-    // Get the final key and apply badge
-    const finalKey = pathParts[pathParts.length - 1];
-    const value = current[finalKey];
+    const value = getByPath(result, path);
 
     if (value !== undefined && value !== null && value !== '') {
-      // Convert to string, trim, and append badge
-      current[finalKey] = `${String(value).trim()}${badge}`;
+      setByPath(result, path, `${String(value).trim()}${badge}`);
     }
   });
 

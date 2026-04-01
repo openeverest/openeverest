@@ -21,7 +21,7 @@ export const useDbInstance = (
   return useQuery<GetDbInstancePayload, unknown, Instance>({
     queryKey: [DB_INSTANCE_QUERY_KEY, namespace, instanceName],
     queryFn: () => getDbInstanceFn(clusterName, namespace, instanceName),
-    enabled: (options?.enabled ?? true) /*&& canRead*/,
+    enabled: options?.enabled ?? true /*&& canRead*/,
     ...options,
   });
 };

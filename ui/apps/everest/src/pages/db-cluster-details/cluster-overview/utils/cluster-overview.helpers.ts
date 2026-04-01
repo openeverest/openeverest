@@ -19,12 +19,8 @@ import type {
 import {
   getByPath,
   formatDisplayValue,
-  flattenObject,
 } from 'components/ui-generator/utils/object-path';
-import { collectAllSchemaPaths } from 'components/ui-generator/utils/schema-walker';
 import { getComponentTargetPaths } from 'components/ui-generator/utils/preprocess/normalized-component';
-
-export { formatDisplayValue, flattenObject, collectAllSchemaPaths };
 
 export type SectionField = {
   label: string;

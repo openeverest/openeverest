@@ -12,10 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-export const updateDbInstance = async () => ({});
+import type { Instance } from 'types/api';
 
-export const useUpdateDbInstanceWithConflictRetry = () => ({
-  mutate: () => undefined,
-  mutateAsync: async () => ({}),
-  isPending: false,
-});
+export interface BasicInfoSectionProps {
+  instance: Instance;
+  namespace: string;
+  loading: boolean;
+}

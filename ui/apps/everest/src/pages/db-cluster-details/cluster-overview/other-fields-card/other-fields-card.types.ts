@@ -12,10 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-export const updateDbInstance = async () => ({});
+import type { UncoveredField } from '../hooks/use-cluster-overview-data';
 
-export const useUpdateDbInstanceWithConflictRetry = () => ({
-  mutate: () => undefined,
-  mutateAsync: async () => ({}),
-  isPending: false,
-});
+export interface OtherFieldsCardProps {
+  fields: UncoveredField[];
+  loading: boolean;
+}

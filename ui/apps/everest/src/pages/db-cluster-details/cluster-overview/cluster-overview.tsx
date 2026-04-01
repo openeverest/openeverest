@@ -16,151 +16,12 @@
 
 import { Box, Stack } from '@mui/material';
 import { DatabaseIcon, OverviewCard } from '@percona/ui-lib';
-import { InstanceConnectionDetails } from 'types/api';
-import OverviewSection from './overview-section';
-import OverviewSectionRow from './overview-section-row';
 import { Messages } from './cluster-overview.messages';
 import { useClusterOverviewData } from './hooks/use-cluster-overview-data';
-import type {
-  SchemaSectionCard,
-  UncoveredField,
-} from './hooks/use-cluster-overview-data';
-import type { Instance } from 'types/api';
-
-const BasicInfoSection = ({
-  instance,
-  namespace,
-  loading,
-}: {
-  instance: Instance;
-  namespace: string;
-  loading: boolean;
-}) => (
-  <OverviewSection
-    dataTestId="basic-information"
-    title={Messages.titles.basicInformation}
-    loading={loading}
-  >
-    <OverviewSectionRow
-      label={Messages.fields.name}
-      content={instance.metadata?.name ?? '\u2014'}
-    />
-    <OverviewSectionRow
-      label={Messages.fields.namespace}
-      content={namespace || '\u2014'}
-    />
-    <OverviewSectionRow
-      label="Provider"
-      content={instance.spec?.provider ?? '\u2014'}
-    />
-    <OverviewSectionRow
-      label="Topology"
-      content={instance.spec?.topology?.type ?? 'default'}
-    />
-    <OverviewSectionRow
-      label={Messages.fields.status}
-      content={instance.status?.phase ?? '\u2014'}
-    />
-  </OverviewSection>
-);
-
-const ConnectionSection = ({
-  credentials,
-  loading,
-}: {
-  credentials: InstanceConnectionDetails | undefined;
-  loading: boolean;
-}) => (
-  <OverviewSection
-    dataTestId="connection-details"
-    title={Messages.titles.connectionDetails}
-    loading={loading}
-  >
-    {credentials ? (
-      <>
-        <OverviewSectionRow
-          label={Messages.fields.host}
-          content={credentials.host ?? '\u2014'}
-        />
-        <OverviewSectionRow
-          label={Messages.fields.port}
-          content={String(credentials.port ?? '\u2014')}
-        />
-        <OverviewSectionRow
-          label={Messages.fields.username}
-          content={credentials.username ?? '\u2014'}
-        />
-        <OverviewSectionRow
-          label={Messages.fields.connectionUrl}
-          content={credentials.uri ?? '\u2014'}
-        />
-      </>
-    ) : (
-      <OverviewSectionRow
-        label={Messages.fields.status}
-        content="Waiting for instance to be ready..."
-      />
-    )}
-  </OverviewSection>
-);
-
-const SchemaDrivenCard = ({
-  card,
-  loading,
-}: {
-  card: SchemaSectionCard;
-  loading: boolean;
-}) => (
-  <Box>
-    <OverviewCard
-      dataTestId={`${card.key}-details`}
-      sx={{ width: '100%' }}
-      cardHeaderProps={{
-        title: card.title,
-        avatar: <DatabaseIcon />,
-      }}
-    >
-      <Stack gap={3}>
-        <OverviewSection dataTestId={card.key} loading={loading}>
-          {card.fields.length > 0 ? (
-            card.fields.map(({ label, value }) => (
-              <OverviewSectionRow key={label} label={label} content={value} />
-            ))
-          ) : (
-            <OverviewSectionRow label="Info" content="No data available" />
-          )}
-        </OverviewSection>
-      </Stack>
-    </OverviewCard>
-  </Box>
-);
-
-const OtherFieldsCard = ({
-  fields,
-  loading,
-}: {
-  fields: UncoveredField[];
-  loading: boolean;
-}) => (
-  <Box>
-    <OverviewCard
-      dataTestId="other-details"
-      sx={{ width: '100%' }}
-      cardHeaderProps={{
-        title: 'Other',
-        avatar: <DatabaseIcon />,
-      }}
-    >
-      <Stack gap={3}>
-        <OverviewSection dataTestId="other" loading={loading}>
-          {fields.map(({ label, value }) => (
-            <OverviewSectionRow key={label} label={label} content={value} />
-          ))}
-        </OverviewSection>
-      </Stack>
-    </OverviewCard>
-  </Box>
-);
+import BasicInfoSection from './basic-info-section';
+import ConnectionSection from './connection-section';
+import SchemaDrivenCard from './schema-driven-card';
+import OtherFieldsCard from './other-fields-card';
 
 export const ClusterOverview = () => {
   const {
@@ -200,10 +61,7 @@ export const ClusterOverview = () => {
               namespace={namespace}
               loading={isLoading}
             />
-            <ConnectionSection
-              credentials={credentials}
-              loading={isLoading}
-            />
+            <ConnectionSection credentials={credentials} loading={isLoading} />
           </Stack>
         </OverviewCard>
       </Box>

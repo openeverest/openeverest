@@ -55,30 +55,30 @@ const WithPermissionDetails = ({
 
   return (
     <>
-    <Box sx={{ width: '100%' }}>
-      <Box
-        sx={{
-          display: 'flex',
-          gap: 1.5,
-          alignItems: 'center',
-          justifyContent: 'flex-start',
-          mb: 1,
-        }}
-      >
-        <BackNavigationText
-          text={instanceName!}
-          onBackClick={() => navigate('/databases')}
-        />
-        {/* At this point, loading is done and we either have the cluster or not */}
+      <Box sx={{ width: '100%' }}>
         <Box
           sx={{
             display: 'flex',
-            justifyContent: 'space-between',
-            flex: '1 0 auto',
+            gap: 1.5,
             alignItems: 'center',
+            justifyContent: 'flex-start',
+            mb: 1,
           }}
         >
-          {/*TODO DB_CLUSTER_STATUS is no more actual this will be replaced with instance status */}
+          <BackNavigationText
+            text={instanceName!}
+            onBackClick={() => navigate('/databases')}
+          />
+          {/* At this point, loading is done and we either have the cluster or not */}
+          <Box
+            sx={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              flex: '1 0 auto',
+              alignItems: 'center',
+            }}
+          >
+            {/*TODO DB_CLUSTER_STATUS is no more actual this will be replaced with instance status */}
             {/* <StatusField
               dataTestId={dbClusterName}
               status={dbCluster?.status?.status || DbClusterStatus.creating}
@@ -89,42 +89,42 @@ const WithPermissionDetails = ({
                 dbCluster?.status?.conditions || []
               )}
             </StatusField> */}
-          <DbActions showStatusActions dbInstance={instance!} />
+            <DbActions showStatusActions dbInstance={instance!} />
+          </Box>
         </Box>
-      </Box>
-      <Box
-        sx={{
-          borderBottom: 1,
-          borderColor: 'divider',
-          mb: 1,
-        }}
-      >
-        <Tabs
-          value={tab}
-          variant="scrollable"
-          allowScrollButtonsMobile
-          aria-label="instance detail tabs"
+        <Box
+          sx={{
+            borderBottom: 1,
+            borderColor: 'divider',
+            mb: 1,
+          }}
         >
-          {tabs.map((item) => (
-            <Tab
-              label={Messages[item]}
-              key={DBClusterDetailsTabs[item]}
-              value={DBClusterDetailsTabs[item]}
-              to={DBClusterDetailsTabs[item]}
-              component={Link}
-              data-testid={`${DBClusterDetailsTabs[item]}`}
-            />
-          ))}
-        </Tabs>
-      </Box>
-      {/*TODO return when statuses will be ready */}
-      {/* {instance!.status?.status === DbInstanceStatus.restoring && (
+          <Tabs
+            value={tab}
+            variant="scrollable"
+            allowScrollButtonsMobile
+            aria-label="instance detail tabs"
+          >
+            {tabs.map((item) => (
+              <Tab
+                label={Messages[item]}
+                key={DBClusterDetailsTabs[item]}
+                value={DBClusterDetailsTabs[item]}
+                to={DBClusterDetailsTabs[item]}
+                component={Link}
+                data-testid={`${DBClusterDetailsTabs[item]}`}
+              />
+            ))}
+          </Tabs>
+        </Box>
+        {/*TODO return when statuses will be ready */}
+        {/* {instance!.status?.status === DbInstanceStatus.restoring && (
           <Alert severity="warning" sx={{ my: 1 }}>
             {Messages.restoringDb}
           </Alert>
         )} */}
-      <Outlet />
-    </Box>
+        <Outlet />
+      </Box>
     </>
   );
 };
@@ -156,7 +156,6 @@ export const DbClusterDetails = () => {
   if (!instance) {
     return <NoMatch />;
   }
-
 
   // All clear, show the cluster data
   return (

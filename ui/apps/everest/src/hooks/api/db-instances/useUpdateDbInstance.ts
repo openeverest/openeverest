@@ -53,12 +53,7 @@ export const useUpdateDbInstanceWithConflictRetry = (
     enabled: false,
   });
 
-  const mutationMethods = useMutation<
-    Instance,
-    AxiosError,
-    Instance,
-    unknown
-  >({
+  const mutationMethods = useMutation<Instance, AxiosError, Instance, unknown>({
     mutationFn: (instance: Instance) => {
       dataToBeSent.current = instance;
       return updateDbInstance(namespace, instanceName, instance);

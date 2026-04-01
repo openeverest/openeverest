@@ -17,19 +17,20 @@ import { useParams } from 'react-router-dom';
 import { DbInstanceContext } from '../../dbCluster.context';
 import { useDbInstanceCredentials } from 'hooks/api/db-instances/useCreateDbInstance';
 import { useProviders } from 'hooks/api/providers';
+import { DbInstanceStatus } from 'shared-types/instance.types';
 import { preprocessSchema } from 'components/ui-generator/utils/preprocess/preprocess-schema';
 import type {
   Section,
   TopologyUISchemas,
 } from 'components/ui-generator/ui-generator.types';
 import type { Provider } from 'types/api';
-import {
-  formatDisplayValue,
-  flattenObject,
-  collectAllSchemaPaths,
-  collectSectionFields,
-} from '../utils/cluster-overview.helpers';
+import { collectSectionFields } from '../utils/cluster-overview.helpers';
 import type { SectionField } from '../utils/cluster-overview.helpers';
+import {
+  flattenObject,
+  formatDisplayValue,
+} from 'components/ui-generator/utils/object-path/object-path';
+import { collectAllSchemaPaths } from 'components/ui-generator/utils/schema-walker';
 
 export interface SchemaSectionCard {
   key: string;
@@ -47,10 +48,14 @@ export const useClusterOverviewData = () => {
   const { instance, isLoading } = useContext(DbInstanceContext);
 
   //TODO check refetching
+  //TODO fix status afte status PR will be merged
   const { data: credentials } = useDbInstanceCredentials(
     instanceName || '',
     namespace,
-    { enabled: !!instanceName && instance?.status?.phase === 'Running' }
+    {
+      enabled:
+        !!instanceName && instance?.status?.phase === DbInstanceStatus.running,
+    }
   );
 
   const { data: providers } = useProviders();
@@ -83,8 +88,7 @@ export const useClusterOverviewData = () => {
 
     return {
       sections: topology.sections,
-      sectionsOrder:
-        topology.sectionsOrder ?? Object.keys(topology.sections),
+      sectionsOrder: topology.sectionsOrder ?? Object.keys(topology.sections),
     };
   }, [provider, instance?.spec?.topology?.type]);
 
