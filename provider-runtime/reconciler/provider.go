@@ -386,8 +386,8 @@ func (r *ProviderReconciler) handleDeletion(
 	logger.Info("Running cleanup")
 
 	// Update status to deleting
-	if in.Status.Phase != v1alpha1.InstancePhaseDeleting {
-		in.Status.Phase = v1alpha1.InstancePhaseDeleting
+	if in.Status.Phase != v1alpha1.InstancePhaseTerminating {
+		in.Status.Phase = v1alpha1.InstancePhaseTerminating
 		if err := r.Client.Status().Update(ctx, in); err != nil {
 			return reconcile.Result{}, err
 		}
@@ -422,7 +422,7 @@ func (r *ProviderReconciler) reconcileConnectionSecret(
 	now := metav1.Now()
 
 	if status.ConnectionDetails.IsEmpty() {
-		if status.Phase == v1alpha1.InstancePhaseRunning {
+		if status.Phase == v1alpha1.InstancePhaseReady {
 			setCondition(in, v1alpha1.ConditionConnectionDetailsReady, metav1.ConditionFalse,
 				"NotReported", "Provider did not report connection details", now)
 		}

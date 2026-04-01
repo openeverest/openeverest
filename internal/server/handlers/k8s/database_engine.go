@@ -1,3 +1,17 @@
+// Copyright (C) 2026 The OpenEverest Contributors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package k8s
 
 import (
@@ -76,7 +90,7 @@ func (h *k8sHandler) ApproveUpgradePlan(ctx context.Context, namespace string) e
 	}
 	// Check if we're ready to upgrade?
 	if slices.ContainsFunc(pointer.Get(up.PendingActions), func(task api.UpgradeTask) bool {
-		return pointer.Get(task.PendingTask) != api.Ready
+		return pointer.Get(task.PendingTask) != api.UpgradeTaskPendingTaskReady
 	}) {
 		// Not ready for upgrade, release the lock and return a failured message.
 		if err := h.setLockDBEnginesForUpgrade(ctx, namespace, up, false); err != nil {
@@ -251,7 +265,7 @@ func getUpgradePreflightCheckResultForDatabase(
 	} else if !valid {
 		return api.UpgradeTask{
 			Name:        pointer.To(database.GetName()),
-			PendingTask: pointer.To(api.UpgradeEngine),
+			PendingTask: pointer.To(api.UpgradeTaskPendingTaskUpgradeEngine),
 			Message: pointer.ToString(
 				fmt.Sprintf("Upgrade DB version to %s or higher", minReqVer)),
 		}, nil
@@ -261,7 +275,7 @@ func getUpgradePreflightCheckResultForDatabase(
 	if recCRVersion := database.Status.RecommendedCRVersion; recCRVersion != nil {
 		return api.UpgradeTask{
 			Name:        pointer.To(database.GetName()),
-			PendingTask: pointer.To(api.Restart),
+			PendingTask: pointer.To(api.UpgradeTaskPendingTaskRestart),
 			Message: pointer.ToString(
 				fmt.Sprintf("Update CRVersion to %s", *recCRVersion)),
 		}, nil
@@ -271,7 +285,7 @@ func getUpgradePreflightCheckResultForDatabase(
 	if database.Status.Status != everestv1alpha1.AppStateReady {
 		return api.UpgradeTask{
 			Name:        pointer.To(database.GetName()),
-			PendingTask: pointer.To(api.NotReady),
+			PendingTask: pointer.To(api.UpgradeTaskPendingTaskNotReady),
 			Message:     pointer.ToString("Database is not ready"),
 		}, nil
 	}
@@ -279,7 +293,7 @@ func getUpgradePreflightCheckResultForDatabase(
 	// Database is in desired state for performing operator upgrade.
 	return api.UpgradeTask{
 		Name:        pointer.To(database.GetName()),
-		PendingTask: pointer.To(api.Ready),
+		PendingTask: pointer.To(api.UpgradeTaskPendingTaskReady),
 	}, nil
 }
 
@@ -348,9 +362,9 @@ func (h *k8sHandler) getDBPostUpgradeTasks(
 		check := api.UpgradeTask{
 			Name: pointer.To(cluster.Name),
 		}
-		check.PendingTask = pointer.To(api.Ready)
+		check.PendingTask = pointer.To(api.UpgradeTaskPendingTaskReady)
 		if recVer := cluster.Status.RecommendedCRVersion; recVer != nil {
-			check.PendingTask = pointer.To(api.Restart)
+			check.PendingTask = pointer.To(api.UpgradeTaskPendingTaskRestart)
 			check.Message = pointer.To(fmt.Sprintf("Database needs restart to use CRVersion '%s'", *recVer))
 		}
 		checks = append(checks, check)

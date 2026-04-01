@@ -7319,8 +7319,11 @@ export interface components {
                      */
                     name: string;
                 };
-                /** @description Phase of the database cluster. */
-                phase?: string;
+                /**
+                 * @description Phase of the database cluster.
+                 * @enum {string}
+                 */
+                phase?: "Pending" | "Provisioning" | "Initializing" | "Ready" | "Updating" | "Terminating" | "Failed" | "Restoring" | "Suspending" | "Suspended" | "Resuming";
             };
         };
         /** @description InstanceList is an object that contains the list of the existing instances. */
