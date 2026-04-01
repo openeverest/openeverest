@@ -36,6 +36,28 @@ export type ComponentProps<
   name: string;
 };
 
+const coerceNumberInputValue = (value: unknown): unknown => {
+  if (value === undefined || value === null || value === '') {
+    return '';
+  }
+
+  if (typeof value === 'number') {
+    return value;
+  }
+
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (!trimmed) {
+      return '';
+    }
+
+    const parsed = Number(trimmed);
+    return Number.isNaN(parsed) ? value : parsed;
+  }
+
+  return value;
+};
+
 const UIComponent: React.FC<ComponentProps> = ({ item, name }) => {
   const { uiType, fieldParams, validation } = item;
   const methods = useFormContext();
@@ -88,6 +110,18 @@ const UIComponent: React.FC<ComponentProps> = ({ item, name }) => {
   const finalProps = {
     ...(isDisabled ? { disabled: true } : {}),
     ...restMappedProps,
+    ...(uiType === FieldType.Number
+      ? {
+          controllerProps: {
+            ...(restMappedProps.controllerProps as Record<string, unknown>),
+            rules: {
+              ...((restMappedProps.controllerProps as { rules?: object })
+                ?.rules ?? {}),
+              setValueAs: coerceNumberInputValue,
+            },
+          },
+        }
+      : {}),
     ...(finalTextFieldProps ? { textFieldProps: finalTextFieldProps } : {}),
     ...(finalSelectFieldProps
       ? { selectFieldProps: finalSelectFieldProps }

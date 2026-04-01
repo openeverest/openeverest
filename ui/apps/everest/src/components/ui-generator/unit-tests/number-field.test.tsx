@@ -635,6 +635,60 @@ describe('UIGenerator - Number Field Input Attributes from Validation', () => {
   });
 });
 
+describe('UIGenerator - Number Field Input Coercion', () => {
+  it('stores submitted number fields as numbers at input level', async () => {
+    const mockSubmit = vi.fn();
+    const schema = createTestSchema({
+      validation: {
+        required: true,
+      },
+    });
+
+    render(
+      <TestWrapper>
+        <FormWrapper schema={schema} onSubmit={mockSubmit}>
+          <UIGenerator
+            sections={schema.testTopology!.sections}
+            sectionKey="basicInfo"
+          />
+        </FormWrapper>
+      </TestWrapper>
+    );
+
+    const numberInput = screen.getByLabelText('Test Number Field');
+    const submitButton = screen.getByTestId('submit-button');
+
+    fireEvent.change(numberInput, { target: { value: '7' } });
+
+    await waitFor(() => {
+      expect(submitButton).not.toBeDisabled();
+    });
+
+    fireEvent.click(submitButton);
+
+    await waitFor(() => {
+      expect(mockSubmit).toHaveBeenCalledTimes(1);
+    });
+
+    const submittedData = mockSubmit.mock.calls[0][0] as Record<
+      string,
+      unknown
+    >;
+    expect(submittedData).toMatchObject({
+      spec: {
+        testNumber: 7,
+      },
+    });
+
+    const postProcessedData = formSubmitPostProcessing({}, submittedData);
+    expect(postProcessedData).toMatchObject({
+      spec: {
+        testNumber: 7,
+      },
+    });
+  });
+});
+
 describe('UIGenerator - Number Field Default Value', () => {
   it('should populate default value on initial render', () => {
     const mockSubmit = vi.fn();

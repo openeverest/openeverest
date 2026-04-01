@@ -59,7 +59,7 @@ describe('convertDbInstancesPayloadToTableFormat', () => {
     const instance = makeInstance(
       'pg-1',
       'aws',
-      DbInstanceStatus.Running,
+      DbInstanceStatus.running,
       'ha'
     );
     const data = [makeResult('ns-1', [instance])];
@@ -70,7 +70,7 @@ describe('convertDbInstancesPayloadToTableFormat', () => {
     expect(result[0]).toEqual<InstanceTableElement>({
       namespace: 'ns-1',
       instanceName: '',
-      phase: DbInstanceStatus.Running,
+      phase: DbInstanceStatus.running,
       provider: 'aws',
       topologyType: 'ha',
       raw: instance,
@@ -78,11 +78,11 @@ describe('convertDbInstancesPayloadToTableFormat', () => {
   });
 
   it('converts multiple namespaces', () => {
-    const i1 = makeInstance('pg-1', 'aws', DbInstanceStatus.Running, 'ha');
+    const i1 = makeInstance('pg-1', 'aws', DbInstanceStatus.running, 'ha');
     const i2 = makeInstance(
       'mongo-1',
       'gcp',
-      DbInstanceStatus.Creating,
+      DbInstanceStatus.creating,
       'standalone'
     );
     const data = [makeResult('ns-1', [i1]), makeResult('ns-2', [i2])];
@@ -99,7 +99,7 @@ describe('convertDbInstancesPayloadToTableFormat', () => {
     const instance = makeInstance(
       'pg-1',
       'aws',
-      DbInstanceStatus.Running,
+      DbInstanceStatus.running,
       'ha'
     );
     const data = [makeResult('ns-1', [instance], false)];
@@ -118,7 +118,7 @@ describe('convertDbInstancesPayloadToTableFormat', () => {
     const data = [makeResult('ns-1', [instance])];
 
     const result = convertDbInstancesPayloadToTableFormat(data);
-    expect(result[0].phase).toBe(DbInstanceStatus.Creating);
+    expect(result[0].phase).toBe(DbInstanceStatus.creating);
   });
 
   it('defaults provider to empty string when not set', () => {

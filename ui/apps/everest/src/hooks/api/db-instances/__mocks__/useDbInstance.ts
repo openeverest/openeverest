@@ -12,18 +12,27 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import {
-  getByPath,
-  resolvePath,
-} from 'components/ui-generator/utils/object-path';
+import { Instance } from 'types/api';
 
-export const getValueByPath = (
-  obj: unknown,
-  path: string | string[]
-): unknown => {
-  const resolvedPath = resolvePath(path);
-  if (!resolvedPath || !obj || typeof obj !== 'object') {
-    return undefined;
-  }
-  return getByPath(obj as Record<string, unknown>, resolvedPath);
+export const DB_INSTANCE_QUERY_KEY = 'instance';
+
+export const mockDbInstance: Instance = {
+  apiVersion: 'core.openeverest.io/v1alpha1',
+  kind: 'Instance',
+  metadata: {
+    name: 'pg-primary',
+    namespace: 'default',
+  } as unknown as Record<string, never>,
+  spec: {
+    provider: 'aws-provider',
+    topology: { type: 'ha' },
+  },
+  status: { phase: 'ready' },
 };
+
+export const useDbInstance = () => ({
+  data: mockDbInstance,
+  isLoading: false,
+  isFetching: false,
+  refetch: async () => ({ data: mockDbInstance }),
+});

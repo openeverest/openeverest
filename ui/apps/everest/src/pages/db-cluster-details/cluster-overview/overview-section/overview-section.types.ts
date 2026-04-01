@@ -3,7 +3,7 @@ import { ButtonProps } from '@mui/material';
 import { ReactNode } from 'react';
 
 export type OverviewSectionProps = {
-  title: string | ReactNode;
+  title?: string | ReactNode;
   editText?: string;
   dataTestId?: string;
   actionButtonProps?: ButtonProps & {

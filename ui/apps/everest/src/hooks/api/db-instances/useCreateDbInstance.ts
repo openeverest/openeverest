@@ -22,7 +22,7 @@ import { DbWizardType } from 'pages/database-form/database-form-schema';
 import { PerconaQueryOptions } from 'shared-types/query.types';
 import {
   InstanceConnectionDetails,
-  GetInstanceConnectionPayload,
+  GetDbInstanceConnectionPayload,
 } from 'types/api';
 
 type CreateInstanceHookArgType = {
@@ -54,7 +54,7 @@ export const useDbInstanceCredentials = (
   dbInstanceName: string,
   namespace: string,
   options?: PerconaQueryOptions<
-    GetInstanceConnectionPayload,
+    GetDbInstanceConnectionPayload,
     unknown,
     InstanceConnectionDetails
   >
@@ -68,7 +68,7 @@ export const useDbInstanceCredentials = (
   const clusterName = 'main';
 
   return useQuery<
-    GetInstanceConnectionPayload,
+    GetDbInstanceConnectionPayload,
     unknown,
     InstanceConnectionDetails
   >({

@@ -59,6 +59,7 @@ const DatabaseFormStepControllers = ({
       )}
       <Box sx={{ flex: '1 1 auto' }} />
       <Button
+        type="button"
         variant="outlined"
         disabled={disableCancel}
         data-testid="db-wizard-cancel-button"
@@ -69,6 +70,7 @@ const DatabaseFormStepControllers = ({
       </Button>
       {showSubmit ? (
         <Button
+          type="button"
           onClick={onSubmit}
           variant="contained"
           disabled={disableSubmit}
@@ -78,6 +80,7 @@ const DatabaseFormStepControllers = ({
         </Button>
       ) : (
         <Button
+          type="button"
           onClick={onNextClick}
           variant="contained"
           disabled={disableNext}

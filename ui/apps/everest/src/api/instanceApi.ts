@@ -13,7 +13,8 @@
 // limitations under the License.
 
 import {
-  CreateInstancePayload,
+  CreateDbInstancePayload,
+  GetDbInstancePayload,
   GetInstances,
   Instance,
   InstanceConnectionDetails,
@@ -24,9 +25,9 @@ export const createDbInstanceFn = async (
   clusterName: string,
   instanceName: string,
   namespace: string,
-  data: CreateInstancePayload['spec']
+  data: CreateDbInstancePayload['spec']
 ) => {
-  const payload: CreateInstancePayload = {
+  const payload: CreateDbInstancePayload = {
     apiVersion: 'core.openeverest.io/v1alpha1',
     kind: 'Instance',
     // TODO this TS error should gone after BE types updates
@@ -62,6 +63,30 @@ export const deleteDbInstanceFn = async (
 ) => {
   const response = await api.delete<Instance>(
     `/clusters/${clusterName}/namespaces/${namespace}/instances/${dbInstanceName}`
+  );
+  return response.data;
+};
+
+export const getDbInstanceFn = async (
+  clusterName: string,
+  namespace: string,
+  instanceName: string
+) => {
+  const response = await api.get<GetDbInstancePayload>(
+    `/clusters/${clusterName}/namespaces/${namespace}/instances/${instanceName}`
+  );
+  return response.data;
+};
+
+export const updateDbInstanceFn = async (
+  clusterName: string,
+  namespace: string,
+  instanceName: string,
+  data: Instance
+) => {
+  const response = await api.put<Instance>(
+    `/clusters/${clusterName}/namespaces/${namespace}/instances/${instanceName}`,
+    data
   );
   return response.data;
 };

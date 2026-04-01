@@ -24,10 +24,10 @@ import { DbInstanceStatus } from 'shared-types/instance.types';
 import { DbInstanceForNamespaceResult } from 'hooks/api/db-instances';
 
 const DB_INSTANCE_STATUS_HUMANIFIED: Record<DbInstanceStatus, string> = {
-  [DbInstanceStatus.Creating]: Messages.statusProvider.creating,
-  [DbInstanceStatus.Running]: Messages.statusProvider.up,
-  [DbInstanceStatus.Failed]: Messages.statusProvider.down,
-  [DbInstanceStatus.Deleting]: Messages.statusProvider.deleting,
+  [DbInstanceStatus.creating]: Messages.statusProvider.creating,
+  [DbInstanceStatus.running]: Messages.statusProvider.up,
+  [DbInstanceStatus.failed]: Messages.statusProvider.down,
+  [DbInstanceStatus.deleting]: Messages.statusProvider.deleting,
   // [DbClusterStatus.ready]: Messages.statusProvider.up,
   // [DbClusterStatus.error]: Messages.statusProvider.down,
   // [DbClusterStatus.initializing]: Messages.statusProvider.initializing,
@@ -69,7 +69,7 @@ export const convertDbInstancesPayloadToTableFormat = (
           namespace: item.namespace,
           phase:
             (instance.status?.phase as DbInstanceStatus) ??
-            DbInstanceStatus.Creating,
+            DbInstanceStatus.creating,
           provider: instance.spec?.provider ?? '',
           // dbVersion: cluster.spec.engine.version || '',
           // backupsEnabled: (cluster.spec.backup?.schedules || []).length > 0,

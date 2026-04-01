@@ -12,18 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import {
-  getByPath,
-  resolvePath,
-} from 'components/ui-generator/utils/object-path';
+export const updateDbInstance = async () => ({});
 
-export const getValueByPath = (
-  obj: unknown,
-  path: string | string[]
-): unknown => {
-  const resolvedPath = resolvePath(path);
-  if (!resolvedPath || !obj || typeof obj !== 'object') {
-    return undefined;
-  }
-  return getByPath(obj as Record<string, unknown>, resolvedPath);
-};
+export const useUpdateDbInstanceWithConflictRetry = () => ({
+  mutate: () => undefined,
+  mutateAsync: async () => ({}),
+  isPending: false,
+});

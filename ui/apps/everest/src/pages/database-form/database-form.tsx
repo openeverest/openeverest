@@ -256,6 +256,7 @@ export const DatabasePage = () => {
     ({ currentLocation, nextLocation }) =>
       isDirty &&
       !formSubmitted &&
+      !isCreating &&
       currentLocation.pathname !== nextLocation.pathname
   );
 

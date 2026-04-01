@@ -46,32 +46,36 @@ export const OverviewSection = ({
     }
   >
     <Stack>
-      <Stack
-        direction="row"
-        justifyContent="space-between"
-        alignItems="flex-end"
-      >
-        <Typography color="text.primary" variant="sectionHeading">
-          {title}
-        </Typography>
-        {actionButtonProps && (
-          <Tooltip title={showTooltip ? disabledEditTooltipText : ''}>
-            <Box>
-              <Button
-                size="small"
-                disabled={!editable}
-                startIcon={<EditOutlinedIcon />}
-                {...actionButtonProps}
-              >
-                {editText}
-              </Button>
-            </Box>
-          </Tooltip>
-        )}
-      </Stack>
-      <Divider sx={{ mt: 0.25 }} />
+      {(title || actionButtonProps) && (
+        <>
+          <Stack
+            direction="row"
+            justifyContent="space-between"
+            alignItems="flex-end"
+          >
+            <Typography color="text.primary" variant="sectionHeading">
+              {title}
+            </Typography>
+            {actionButtonProps && (
+              <Tooltip title={showTooltip ? disabledEditTooltipText : ''}>
+                <Box>
+                  <Button
+                    size="small"
+                    disabled={!editable}
+                    startIcon={<EditOutlinedIcon />}
+                    {...actionButtonProps}
+                  >
+                    {editText}
+                  </Button>
+                </Box>
+              </Tooltip>
+            )}
+          </Stack>
+          <Divider sx={{ mt: 0.25 }} />
+        </>
+      )}
       <LoadableChildren loading={loading}>
-        <Box sx={{ mt: 1 }}>{children}</Box>
+        <Box sx={{ mt: title || actionButtonProps ? 1 : 0 }}>{children}</Box>
       </LoadableChildren>
     </Stack>
   </Grid>

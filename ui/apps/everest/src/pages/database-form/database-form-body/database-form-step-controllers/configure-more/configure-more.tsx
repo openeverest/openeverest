@@ -18,7 +18,7 @@ import { Messages } from './configure-more.messages';
 
 export const ConfigureMore = ({ onClick }: { onClick: () => void }) => {
   return (
-    <Button onClick={onClick}>
+    <Button type="button" onClick={onClick}>
       {Messages.configMore}
       <EditOutlinedIcon
         sx={{

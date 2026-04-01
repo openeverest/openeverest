@@ -23,12 +23,7 @@ vi.mock('hooks/api/providers', () => ({
   useProviders: vi.fn(),
 }));
 
-vi.mock('hooks/api/db-instances/useCreateDbInstance', () => ({
-  useCreateDbInstance: () => ({
-    mutate: vi.fn(),
-    isPending: false,
-  }),
-}));
+vi.mock('hooks/api/db-instances/useCreateDbInstance');
 
 vi.mock('hooks/utils/useActiveBreakpoint', () => ({
   useActiveBreakpoint: () => ({ isDesktop: true }),
