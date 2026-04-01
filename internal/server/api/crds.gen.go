@@ -34,22 +34,22 @@ const (
 
 // Defines values for InstanceStatusPhase.
 const (
-	Failed       InstanceStatusPhase = "Failed"
-	Initializing InstanceStatusPhase = "Initializing"
-	Pending      InstanceStatusPhase = "Pending"
-	Provisioning InstanceStatusPhase = "Provisioning"
-	Ready        InstanceStatusPhase = "Ready"
-	Restoring    InstanceStatusPhase = "Restoring"
-	Resuming     InstanceStatusPhase = "Resuming"
-	Suspended    InstanceStatusPhase = "Suspended"
-	Suspending   InstanceStatusPhase = "Suspending"
-	Terminating  InstanceStatusPhase = "Terminating"
-	Updating     InstanceStatusPhase = "Updating"
+	InstanceStatusPhaseFailed       InstanceStatusPhase = "Failed"
+	InstanceStatusPhaseInitializing InstanceStatusPhase = "Initializing"
+	InstanceStatusPhasePending      InstanceStatusPhase = "Pending"
+	InstanceStatusPhaseProvisioning InstanceStatusPhase = "Provisioning"
+	InstanceStatusPhaseReady        InstanceStatusPhase = "Ready"
+	InstanceStatusPhaseRestoring    InstanceStatusPhase = "Restoring"
+	InstanceStatusPhaseResuming     InstanceStatusPhase = "Resuming"
+	InstanceStatusPhaseSuspended    InstanceStatusPhase = "Suspended"
+	InstanceStatusPhaseSuspending   InstanceStatusPhase = "Suspending"
+	InstanceStatusPhaseTerminating  InstanceStatusPhase = "Terminating"
+	InstanceStatusPhaseUpdating     InstanceStatusPhase = "Updating"
 )
 
 // Defines values for MonitoringConfigSpecType.
 const (
-	Pmm MonitoringConfigSpecType = "pmm"
+	MonitoringConfigSpecTypePmm MonitoringConfigSpecType = "pmm"
 )
 
 // Defines values for ProviderStatusConditionsStatus.

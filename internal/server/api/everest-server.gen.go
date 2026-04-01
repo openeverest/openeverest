@@ -51,26 +51,26 @@ const (
 
 // Defines values for DatabaseClusterSpecProxyExposeType.
 const (
-	ClusterIP    DatabaseClusterSpecProxyExposeType = "ClusterIP"
-	External     DatabaseClusterSpecProxyExposeType = "external"
-	Internal     DatabaseClusterSpecProxyExposeType = "internal"
-	LoadBalancer DatabaseClusterSpecProxyExposeType = "LoadBalancer"
-	NodePort     DatabaseClusterSpecProxyExposeType = "NodePort"
+	DatabaseClusterSpecProxyExposeTypeClusterIP    DatabaseClusterSpecProxyExposeType = "ClusterIP"
+	DatabaseClusterSpecProxyExposeTypeExternal     DatabaseClusterSpecProxyExposeType = "external"
+	DatabaseClusterSpecProxyExposeTypeInternal     DatabaseClusterSpecProxyExposeType = "internal"
+	DatabaseClusterSpecProxyExposeTypeLoadBalancer DatabaseClusterSpecProxyExposeType = "LoadBalancer"
+	DatabaseClusterSpecProxyExposeTypeNodePort     DatabaseClusterSpecProxyExposeType = "NodePort"
 )
 
 // Defines values for DatabaseClusterSpecProxyType.
 const (
-	Haproxy   DatabaseClusterSpecProxyType = "haproxy"
-	Mongos    DatabaseClusterSpecProxyType = "mongos"
-	Pgbouncer DatabaseClusterSpecProxyType = "pgbouncer"
-	Proxysql  DatabaseClusterSpecProxyType = "proxysql"
+	DatabaseClusterSpecProxyTypeHaproxy   DatabaseClusterSpecProxyType = "haproxy"
+	DatabaseClusterSpecProxyTypeMongos    DatabaseClusterSpecProxyType = "mongos"
+	DatabaseClusterSpecProxyTypePgbouncer DatabaseClusterSpecProxyType = "pgbouncer"
+	DatabaseClusterSpecProxyTypeProxysql  DatabaseClusterSpecProxyType = "proxysql"
 )
 
 // Defines values for DatabaseClusterStatusConditionsStatus.
 const (
-	False   DatabaseClusterStatusConditionsStatus = "False"
-	True    DatabaseClusterStatusConditionsStatus = "True"
-	Unknown DatabaseClusterStatusConditionsStatus = "Unknown"
+	DatabaseClusterStatusConditionsStatusFalse   DatabaseClusterStatusConditionsStatus = "False"
+	DatabaseClusterStatusConditionsStatusTrue    DatabaseClusterStatusConditionsStatus = "True"
+	DatabaseClusterStatusConditionsStatusUnknown DatabaseClusterStatusConditionsStatus = "Unknown"
 )
 
 // Defines values for DatabaseClusterRestoreSpecDataSourcePitrType.
@@ -128,17 +128,17 @@ const (
 
 // Defines values for UpgradeTaskPendingTask.
 const (
-	NotReady      UpgradeTaskPendingTask = "notReady"
-	Ready         UpgradeTaskPendingTask = "ready"
-	Restart       UpgradeTaskPendingTask = "restart"
-	UpgradeEngine UpgradeTaskPendingTask = "upgradeEngine"
+	UpgradeTaskPendingTaskNotReady      UpgradeTaskPendingTask = "notReady"
+	UpgradeTaskPendingTaskReady         UpgradeTaskPendingTask = "ready"
+	UpgradeTaskPendingTaskRestart       UpgradeTaskPendingTask = "restart"
+	UpgradeTaskPendingTaskUpgradeEngine UpgradeTaskPendingTask = "upgradeEngine"
 )
 
 // Defines values for ListPodSchedulingPolicyParamsEngineType.
 const (
-	Postgresql ListPodSchedulingPolicyParamsEngineType = "postgresql"
-	Psmdb      ListPodSchedulingPolicyParamsEngineType = "psmdb"
-	Pxc        ListPodSchedulingPolicyParamsEngineType = "pxc"
+	ListPodSchedulingPolicyParamsEngineTypePostgresql ListPodSchedulingPolicyParamsEngineType = "postgresql"
+	ListPodSchedulingPolicyParamsEngineTypePsmdb      ListPodSchedulingPolicyParamsEngineType = "psmdb"
+	ListPodSchedulingPolicyParamsEngineTypePxc        ListPodSchedulingPolicyParamsEngineType = "pxc"
 )
 
 // BackupStorage Backup storage information

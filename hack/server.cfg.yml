@@ -6,3 +6,5 @@ generate:
   models: true
 import-mapping:
   crds.gen.yaml: "-"
+compatibility:
+  always-prefix-enum-values: true
