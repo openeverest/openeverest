@@ -1,11 +1,5 @@
 import ReplayIcon from '@mui/icons-material/Replay';
-import {
-  Box,
-  Button,
-  Stack,
-  Toolbar,
-  Typography,
-} from '@mui/material';
+import { Box, Button, Stack, Toolbar, Typography } from '@mui/material';
 import { useKubernetesClusterInfo } from 'hooks/api/kubernetesClusters/useKubernetesClusterInfo';
 import useLocalStorage from 'hooks/utils/useLocalStorage';
 import { GenericError } from 'pages/generic-error/GenericError';
