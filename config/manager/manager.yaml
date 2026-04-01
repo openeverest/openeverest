@@ -55,11 +55,16 @@ spec:
         # This ensures that deployments meet the highest security requirements for Kubernetes.
         # For more details, see: https://kubernetes.io/docs/concepts/security/pod-security-standards/#restricted
         runAsNonRoot: true
+        # 65532 is the standard non-root UID used by distroless/nonroot images.
+        # The manager image is built FROM scratch with no USER directive, so it
+        # defaults to root (UID 0). Setting runAsUser here explicitly overrides
+        # that default to satisfy the runAsNonRoot constraint.
+        runAsUser: 65532
         seccompProfile:
           type: RuntimeDefault
       containers:
       - command:
-        - /manager
+        - /everest-controller
         args:
           - --leader-elect
           - --health-probe-bind-address=:8081

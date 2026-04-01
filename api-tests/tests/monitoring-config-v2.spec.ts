@@ -166,8 +166,8 @@ test.describe.parallel('Monitoring configs tests', () => {
     })
 
     await test.step('delete monitoring configs', async () => {
-      await th.deleteMonitoringConfig(request, mcNameKey)
-      await th.deleteMonitoringConfig(request, mcNamePass)
+      await th.deleteMonitoringConfigV2(request, mcNameKey)
+      await th.deleteMonitoringConfigV2(request, mcNamePass)
     })
   })
 
