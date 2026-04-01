@@ -32,6 +32,9 @@ export default defineConfig({
   build: {
     assetsDir: 'static',
   },
+  optimizeDeps: {
+    exclude: ['@percona/ui-lib', '@percona/design', '@percona/utils', '@percona/types'],
+  },
   test: {
     name: 'unit',
     globals: true,
