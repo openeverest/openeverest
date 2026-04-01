@@ -54,6 +54,11 @@ gen-crds-openapi: ## Extract OpenAPI schemas from CRD manifests.
 gen-openapi-ts-types: ## Generate TypeScript types from all OpenAPI YAML files in api/openapi/.
 	$(MAKE) -C ui generate-openapi-types
 
+# `make generate` is used by kubebuilder to create new API.
+# The presence of generate target is purely for kubebuilder succeed without an error.
+.PHONY: generate
+generate: gen
+
 .PHONY: gen
 gen: gen-crds-deepcopy gen-crds-manifests gen-crds-openapi gen-openapi-ts-types ## Generate code.
 	go generate ./...

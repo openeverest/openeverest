@@ -7,6 +7,7 @@ rules:
 - apiGroups:
   - ""
   resources:
+  - namespaces
   - pods
   verbs:
   - get
@@ -71,6 +72,40 @@ rules:
   - patch
   - update
   - watch
+- apiGroups:
+  - core.openeverest.io
+  resources:
+  - instances
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - monitoring.openeverest.io
+  resources:
+  - monitoringconfigs
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - monitoring.openeverest.io
+  resources:
+  - monitoringconfigs/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - monitoring.openeverest.io
+  resources:
+  - monitoringconfigs/status
+  verbs:
+  - get
+  - patch
+  - update
 - apiGroups:
   - rbac.authorization.k8s.io
   resources:

@@ -998,6 +998,7 @@ k8s_resource(
     'backupclasses.backup.openeverest.io:customresourcedefinition',
     'backups.backup.openeverest.io:customresourcedefinition',
     'instances.core.openeverest.io:customresourcedefinition',
+    'monitoringconfigs.monitoring.openeverest.io:customresourcedefinition',
     'providers.core.openeverest.io:customresourcedefinition'
   ],
   new_name='crds',
