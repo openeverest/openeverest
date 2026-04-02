@@ -51,7 +51,6 @@ export const MonitoringDetails = ({
     //     enabled ? monitoringName : undefined
     //   )
     // );
-
   };
 
   return (

@@ -50,8 +50,7 @@ export const useClusterOverviewData = () => {
     instanceName || '',
     namespace,
     {
-      enabled:
-        !!instanceName && instance?.status?.phase === 'Ready',
+      enabled: !!instanceName && instance?.status?.phase === 'Ready',
     }
   );
 

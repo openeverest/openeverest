@@ -58,11 +58,11 @@ export const DbInstanceContextProvider = ({
   //     'database-cluster-backups',
   //     `${namespace}/${dbClusterName}`
   //   );
-    //TODO RBAC fix to instance
-    // const { canRead: canReadCredentials } = useRBACPermissions(
-    //   'database-cluster-credentials',
-    //   `${namespace}/${instanceName}`
-    // );
+  //TODO RBAC fix to instance
+  // const { canRead: canReadCredentials } = useRBACPermissions(
+  //   'database-cluster-credentials',
+  //   `${namespace}/${instanceName}`
+  // );
   const canReadCredentials = true;
   //   const { canUpdate: canUpdateDb } = useRBACPermissions(
   //     'database-clusters',

@@ -13,9 +13,7 @@
 // limitations under the License.
 
 import { Instance, PhaseType } from 'types/api';
-import {
-  DB_INSTANCE_UNKNOWN_PHASE,
-} from 'shared-types/instance.types';
+import { DB_INSTANCE_UNKNOWN_PHASE } from 'shared-types/instance.types';
 import { convertDbInstancesPayloadToTableFormat } from './DbClusterView.utils';
 import { InstanceTableElement } from './dbClusterView.types';
 import { DbInstanceForNamespaceResult } from 'hooks/api/db-instances';
@@ -58,12 +56,7 @@ describe('convertDbInstancesPayloadToTableFormat', () => {
   });
 
   it('converts a single namespace with one instance', () => {
-    const instance = makeInstance(
-      'pg-1',
-      'aws',
-      'Ready',
-      'ha'
-    );
+    const instance = makeInstance('pg-1', 'aws', 'Ready', 'ha');
     const data = [makeResult('ns-1', [instance])];
 
     const result = convertDbInstancesPayloadToTableFormat(data);
@@ -81,12 +74,7 @@ describe('convertDbInstancesPayloadToTableFormat', () => {
 
   it('converts multiple namespaces', () => {
     const i1 = makeInstance('pg-1', 'aws', 'Ready', 'ha');
-    const i2 = makeInstance(
-      'mongo-1',
-      'gcp',
-      'Provisioning',
-      'standalone'
-    );
+    const i2 = makeInstance('mongo-1', 'gcp', 'Provisioning', 'standalone');
     const data = [makeResult('ns-1', [i1]), makeResult('ns-2', [i2])];
 
     const result = convertDbInstancesPayloadToTableFormat(data);
@@ -98,12 +86,7 @@ describe('convertDbInstancesPayloadToTableFormat', () => {
   });
 
   it('skips namespaces where query is not successful', () => {
-    const instance = makeInstance(
-      'pg-1',
-      'aws',
-      'Ready',
-      'ha'
-    );
+    const instance = makeInstance('pg-1', 'aws', 'Ready', 'ha');
     const data = [makeResult('ns-1', [instance], false)];
 
     const result = convertDbInstancesPayloadToTableFormat(data);

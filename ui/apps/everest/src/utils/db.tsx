@@ -1006,8 +1006,12 @@ export const humanizeDbType = (type: DbType): string => humanizedDbMap[type];
 
 // This does not apply to the delete action, which is only blocked when the db is being deleted itself
 export const shouldDbActionsBeBlocked = (status?: PhaseType) => {
-
-  const targetStatuses: Array<PhaseType> = ["Restoring", "Terminating", "Updating", undefined]
+  const targetStatuses: Array<PhaseType> = [
+    'Restoring',
+    'Terminating',
+    'Updating',
+    undefined,
+  ];
 
   // TODO check what will be in case if pase = undefined
   return targetStatuses.includes(status || ('' as PhaseType));

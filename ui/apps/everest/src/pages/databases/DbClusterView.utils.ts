@@ -27,17 +27,17 @@ import {
 import { DbInstanceForNamespaceResult } from 'hooks/api/db-instances';
 
 const DB_INSTANCE_STATUS_HUMANIFIED: Record<DbInstancePhase, string> = {
-  'Failed': Messages.statusProvider.down,
-  'Initializing': Messages.statusProvider.initializing,
-  'Pending': 'Pending',
-  'Provisioning': Messages.statusProvider.creating,
-  'Ready': Messages.statusProvider.up,
-  'Restoring': Messages.statusProvider.restoring,
-  'Resuming': 'Resuming',
-  'Suspended': Messages.statusProvider.paused,
-  'Suspending': 'Suspending',
-  'Terminating': Messages.statusProvider.deleting,
-  'Updating': Messages.statusProvider.upgrading,
+  Failed: Messages.statusProvider.down,
+  Initializing: Messages.statusProvider.initializing,
+  Pending: 'Pending',
+  Provisioning: Messages.statusProvider.creating,
+  Ready: Messages.statusProvider.up,
+  Restoring: Messages.statusProvider.restoring,
+  Resuming: 'Resuming',
+  Suspended: Messages.statusProvider.paused,
+  Suspending: 'Suspending',
+  Terminating: Messages.statusProvider.deleting,
+  Updating: Messages.statusProvider.upgrading,
   [DB_INSTANCE_UNKNOWN_PHASE]: DB_INSTANCE_UNKNOWN_PHASE,
 };
 
@@ -52,9 +52,7 @@ export const beautifyDbInstanceStatus = (
   ) {
     return Messages.statusProvider.importFailed;
   }
-  return (
-    DB_INSTANCE_STATUS_HUMANIFIED[status] || DB_INSTANCE_UNKNOWN_PHASE
-  );
+  return DB_INSTANCE_STATUS_HUMANIFIED[status] || DB_INSTANCE_UNKNOWN_PHASE;
 };
 
 export const convertDbInstancesPayloadToTableFormat = (

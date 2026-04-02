@@ -21,22 +21,24 @@ export type DbInstancePhase =
   | Exclude<PhaseType, undefined>
   | typeof DB_INSTANCE_UNKNOWN_PHASE;
 
-export const DbInstancePhaseStatus: Record<string, Exclude<PhaseType, undefined>> = {
-  'Failed': 'Failed',
-  'Initializing': 'Initializing',
-  'Pending': 'Pending',
-  'Provisioning': 'Provisioning',
-  'Ready': 'Ready',
-  'Restoring': 'Restoring',
-  'Resuming': 'Resuming',
-  'Suspended': 'Suspended',
-  'Suspending': 'Suspending',
-  'Terminating': 'Terminating',
-  'Updating': 'Updating',
+export const DbInstancePhaseStatus: Record<
+  string,
+  Exclude<PhaseType, undefined>
+> = {
+  Failed: 'Failed',
+  Initializing: 'Initializing',
+  Pending: 'Pending',
+  Provisioning: 'Provisioning',
+  Ready: 'Ready',
+  Restoring: 'Restoring',
+  Resuming: 'Resuming',
+  Suspended: 'Suspended',
+  Suspending: 'Suspending',
+  Terminating: 'Terminating',
+  Updating: 'Updating',
 } as const;
 
 export const DbInstancePhaseValues: readonly DbInstancePhase[] = [
   ...Object.values(DbInstancePhaseStatus),
   DB_INSTANCE_UNKNOWN_PHASE,
 ];
-

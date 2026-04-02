@@ -76,29 +76,29 @@ export const AdvancedConfiguration = ({
   //   canUpdateDb && !shouldDbActionsBeBlocked(dbCluster?.status?.status);
 
   // const handleSubmit = async ({
-    // sourceRanges,
-    // engineParametersEnabled,
-    // engineParameters,
-    // podSchedulingPolicyEnabled,
-    // podSchedulingPolicy,
-    // exposureMethod,
-    // loadBalancerConfigName,
-    // splitHorizonDNS,
+  // sourceRanges,
+  // engineParametersEnabled,
+  // engineParameters,
+  // podSchedulingPolicyEnabled,
+  // podSchedulingPolicy,
+  // exposureMethod,
+  // loadBalancerConfigName,
+  // splitHorizonDNS,
   // }: AdvancedConfigurationFormType) => {
   //   setUpdating(true);
-    // updateCluster(
-    //   changeDbClusterAdvancedConfig(
-    //     dbCluster!,
-    //     engineParametersEnabled,
-    //     exposureMethod,
-    //     engineParameters,
-    //     sourceRanges,
-    //     podSchedulingPolicyEnabled,
-    //     podSchedulingPolicy,
-    //     loadBalancerConfigName,
-    //     splitHorizonDNS
-    //   )
-    // );
+  // updateCluster(
+  //   changeDbClusterAdvancedConfig(
+  //     dbCluster!,
+  //     engineParametersEnabled,
+  //     exposureMethod,
+  //     engineParameters,
+  //     sourceRanges,
+  //     podSchedulingPolicyEnabled,
+  //     podSchedulingPolicy,
+  //     loadBalancerConfigName,
+  //     splitHorizonDNS
+  //   )
+  // );
   // };
 
   return (

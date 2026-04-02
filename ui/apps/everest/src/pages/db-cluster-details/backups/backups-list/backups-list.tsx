@@ -49,7 +49,7 @@ export const BackupsList = () => {
   const [openRestoreDbModal, setOpenRestoreDbModal] = useState(false);
   const [isNewClusterMode /*, setIsNewClusterMode*/] = useState(false);
   const [openDeleteDialog, setOpenDeleteDialog] = useState(false);
-  const [selectedBackup/*, setSelectedBackup*/] = useState('');
+  const [selectedBackup /*, setSelectedBackup*/] = useState('');
   const {
     dbCluster,
     setMode: setScheduleModalMode,

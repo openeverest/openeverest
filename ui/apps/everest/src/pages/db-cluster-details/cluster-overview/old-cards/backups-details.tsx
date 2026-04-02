@@ -226,24 +226,24 @@ export const BackupsDetails = ({
           showTooltip={editable && !pitrEditable}
           disabledEditTooltipText={getTooltipText()}
         > */}
-          {/*// TODO EVEREST-1066 the width of the columns on the layouts in different places is limited by a different number (but not by the content), a discussion with Design is required*/}
+        {/*// TODO EVEREST-1066 the width of the columns on the layouts in different places is limited by a different number (but not by the content), a discussion with Design is required*/}
+        <OverviewSectionRow
+          dataTestId="pitr-status"
+          labelProps={{ minWidth: '126px' }}
+          label={Messages.fields.status}
+          content={
+            pitrEnabled ? Messages.fields.enabled : Messages.fields.disabled
+          }
+        />
+        {showStorage && (
           <OverviewSectionRow
-            dataTestId="pitr-status"
+            dataTestId="backup-storage"
             labelProps={{ minWidth: '126px' }}
-            label={Messages.fields.status}
-            content={
-              pitrEnabled ? Messages.fields.enabled : Messages.fields.disabled
-            }
+            label={Messages.fields.backupStorages}
+            content={pitrStorageName}
           />
-          {showStorage && (
-            <OverviewSectionRow
-              dataTestId="backup-storage"
-              labelProps={{ minWidth: '126px' }}
-              label={Messages.fields.backupStorages}
-              content={pitrStorageName}
-            />
-          )}
-          {/* {openEditModal && (
+        )}
+        {/* {openEditModal && (
             <PitrEditModal
               dbCluster={dbCluster!}
               open={openEditModal}
