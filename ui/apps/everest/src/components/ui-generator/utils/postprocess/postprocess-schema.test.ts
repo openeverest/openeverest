@@ -120,4 +120,138 @@ describe('postprocessSchemaData', () => {
       },
     });
   });
+
+  it('appends badge suffix to field values when badgeToApi is true', () => {
+    const schema: TopologyUISchemas = {
+      ha: {
+        sections: {
+          resources: {
+            components: {
+              memory: {
+                uiType: FieldType.Number,
+                path: 'spec.resources.memory',
+                fieldParams: {
+                  label: 'Memory',
+                  badge: 'Gi',
+                  badgeToApi: true,
+                },
+              },
+              disk: {
+                uiType: FieldType.Number,
+                path: 'spec.resources.disk',
+                fieldParams: {
+                  label: 'Disk',
+                  badge: 'Gi',
+                  badgeToApi: true,
+                },
+              },
+              cpu: {
+                uiType: FieldType.Number,
+                path: 'spec.resources.cpu',
+                fieldParams: {
+                  label: 'CPU',
+                },
+              },
+            },
+          },
+        },
+      },
+    };
+
+    const input = {
+      spec: {
+        resources: { memory: '4', disk: '25', cpu: '1' },
+      },
+    } as Record<string, unknown>;
+
+    const result = postprocessSchemaData(input, {
+      schema,
+      selectedTopology: 'ha',
+    });
+
+    expect(result).toEqual({
+      spec: {
+        resources: { memory: '4Gi', disk: '25Gi', cpu: '1' },
+      },
+    });
+  });
+
+  it('skips badge for empty values during postprocessing', () => {
+    const schema: TopologyUISchemas = {
+      single: {
+        sections: {
+          resources: {
+            components: {
+              memory: {
+                uiType: FieldType.Number,
+                path: 'spec.resources.memory',
+                fieldParams: {
+                  label: 'Memory',
+                  badge: 'Gi',
+                  badgeToApi: true,
+                },
+              },
+            },
+          },
+        },
+      },
+    };
+
+    const input = {
+      spec: {
+        resources: { memory: '' },
+      },
+    } as Record<string, unknown>;
+
+    const result = postprocessSchemaData(input, {
+      schema,
+      selectedTopology: 'single',
+    });
+
+    // empty string → removed by removeEmptyFieldValues
+    expect(result).toEqual({});
+  });
+
+  it('applies badges after multipath mapping', () => {
+    const schema: TopologyUISchemas = {
+      single: {
+        sections: {
+          resources: {
+            components: {
+              memory: {
+                uiType: FieldType.Number,
+                path: [
+                  'spec.engine.resources.memory',
+                  'spec.proxy.resources.memory',
+                ],
+                fieldParams: {
+                  label: 'Memory',
+                  badge: 'Gi',
+                  badgeToApi: true,
+                },
+              },
+            },
+          },
+        },
+      },
+    };
+
+    const input = {
+      spec: {
+        engine: { resources: { memory: '2' } },
+      },
+    } as Record<string, unknown>;
+
+    const result = postprocessSchemaData(input, {
+      schema,
+      selectedTopology: 'single',
+    });
+
+    expect(result).toEqual({
+      spec: {
+        engine: { resources: { memory: '2Gi' } },
+        proxy: { resources: { memory: '2Gi' } },
+      },
+    });
+  });
 });

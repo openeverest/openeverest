@@ -22,6 +22,10 @@ import {
 } from '../object-path';
 import { walkTopologyComponents } from '../schema-walker';
 import { getComponentTargetPaths } from '../preprocess/normalized-component';
+import {
+  extractBadgeMappings,
+  applyBadgesToFormData,
+} from '../badge-to-api/badge-to-api';
 
 export type PostprocessInput = Record<string, unknown>;
 
@@ -168,5 +172,12 @@ export const postprocessSchemaData = (
   ];
 
   const mapped = applyMultiPathMappings(formValues, allMappings);
-  return removeEmptyFieldValues(mapped);
+
+  const badgeMappings =
+    options?.schema && options.selectedTopology
+      ? extractBadgeMappings(options.schema, options.selectedTopology)
+      : [];
+  const withBadges = applyBadgesToFormData(mapped, badgeMappings);
+
+  return removeEmptyFieldValues(withBadges);
 };
