@@ -12,7 +12,9 @@
   "types": "dist/index.d.ts",
   "scripts": {
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --fix",
+    "lint-check": "eslint . --ext ts,tsx --report-unused-disable-directives",
     "format": "prettier .  --write",
+    "format-check": "prettier . --check",
     "rm-build-dir": "rm -rf dist",
     "build": "rollup -c"
   },

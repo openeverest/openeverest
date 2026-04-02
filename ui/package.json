@@ -11,7 +11,9 @@
   "scripts": {
     "test": "turbo run test",
     "lint": "turbo run lint",
+    "lint-check": "turbo run lint-check",
     "format": "turbo run format",
+    "format-check": "turbo run format-check",
     "build": "turbo run build && turbo run move-build",
     "build-storybook": "turbo run build-storybook"
   },
