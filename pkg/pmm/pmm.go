@@ -143,18 +143,18 @@ func doJSONRequest[T any](req *http.Request, auth iAuth, skipTLSVerify bool) (T,
 		return zero, fmt.Errorf("read response: %w", err)
 	}
 
-	if resp.StatusCode >= http.StatusBadRequest {
-		var pmmErr *pmmErrorMessage
-		if err := json.Unmarshal(data, &pmmErr); err != nil {
-			return zero, errors.Join(err, fmt.Errorf("PMM returned an unknown error. HTTP %d", resp.StatusCode))
+	switch {
+	case resp.StatusCode == http.StatusUnauthorized:
+		return zero, errors.New("PMM authorization failed, please provide the correct credentials")
+	case resp.StatusCode >= http.StatusBadRequest:
+		var errMsg *pmmErrorMessage
+
+		if err := json.Unmarshal(data, &errMsg); err != nil {
+			return zero, fmt.Errorf("PMM status code: %d, failed to unmarshal PMM error message: %w", resp.StatusCode, err)
 		}
 
-		var errMsg string
-		if pmmErr != nil {
-			errMsg = pmmErr.Message
-		}
-
-		return zero, fmt.Errorf("PMM returned an error: %s", errMsg)
+		return zero, fmt.Errorf("PMM returned status code %d with error: %s", resp.StatusCode, errMsg.Message)
+	default:
 	}
 
 	var result T

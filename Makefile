@@ -405,7 +405,7 @@ cert:                   ## Create dev TLS certificates.
 
 ##@ GitHub PR
 
-CHART_BRANCH ?= main
+CHART_BRANCH ?= v2
 .PHONY: update-dev-chart
 update-dev-chart: ## Update dependency to Everest Helm chart to the latest version from the specified branch (default main).
 	GOPROXY=direct go get -u -v github.com/openeverest/helm-charts/charts/everest@${CHART_BRANCH}
