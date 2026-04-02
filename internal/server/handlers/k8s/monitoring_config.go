@@ -59,13 +59,21 @@ func (h *k8sHandler) CreateMonitoringConfig(ctx context.Context, namespace strin
 		)
 	}
 
-	apiKey := req.Pmm.ApiKey
-	if req.Pmm != nil && apiKey == "" {
-		apiKeyName := fmt.Sprintf("everest-%s-%s", req.Name, uuid.NewString())
-		skipVerifyTLS := !pointer.Get(req.VerifyTLS)
+	var apiKey string
+	if req.Pmm != nil {
+		apiKey = req.Pmm.ApiKey
 
-		if apiKey, err = pmm.CreateAPIKey(ctx, req.Url, apiKeyName, req.Pmm.User, req.Pmm.Password, skipVerifyTLS); err != nil {
-			return nil, fmt.Errorf("failed to create PMM API key: %w", err)
+		if apiKey == "" {
+			apiKeyName := fmt.Sprintf("everest-%s-%s", req.Name, uuid.NewString())
+
+			var skipVerifyTLS bool
+			if req.VerifyTLS != nil {
+				skipVerifyTLS = !pointer.Get(req.VerifyTLS)
+			}
+
+			if apiKey, err = pmm.CreateAPIKey(ctx, req.Url, apiKeyName, req.Pmm.User, req.Pmm.Password, skipVerifyTLS); err != nil {
+				return nil, fmt.Errorf("failed to create PMM API key: %w", err)
+			}
 		}
 
 		secret := newMonitoringConfigSecret(req.Name, namespace, apiKey)
@@ -131,7 +139,16 @@ func (h *k8sHandler) DeleteMonitoringConfig(ctx context.Context, namespace, name
 			Namespace: namespace,
 		},
 	}
-	return h.kubeConnector.DeleteSecret(ctx, delSecObj)
+
+	if err := h.kubeConnector.DeleteSecret(ctx, delSecObj); err != nil {
+		if k8serrors.IsNotFound(err) {
+			return nil
+		}
+
+		return err
+	}
+
+	return nil
 }
 
 // GetMonitoringConfig returns monitoring config that matches the criteria.
@@ -163,9 +180,18 @@ func (h *k8sHandler) UpdateMonitoringConfig(ctx context.Context, namespace, name
 
 	if req.Pmm != nil && req.Pmm.User != "" && req.Pmm.Password != "" {
 		apiKeyName := fmt.Sprintf("everest-%s-%s", name, uuid.NewString())
-		skipVerifyTLS := !pointer.Get(req.VerifyTLS)
 
-		if apiKey, err = pmm.CreateAPIKey(ctx, req.Url, apiKeyName, req.Pmm.User, req.Pmm.Password, skipVerifyTLS); err != nil {
+		skipVerifyTLS := *m.Spec.VerifyTLS
+		if req.VerifyTLS != nil {
+			skipVerifyTLS = !pointer.Get(req.VerifyTLS)
+		}
+
+		url := m.Spec.PMM.URL
+		if req.Url != "" {
+			url = req.Url
+		}
+
+		if apiKey, err = pmm.CreateAPIKey(ctx, url, apiKeyName, req.Pmm.User, req.Pmm.Password, skipVerifyTLS); err != nil {
 			return nil, err
 		}
 	}
