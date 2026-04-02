@@ -2,7 +2,6 @@ import React, { createContext, useEffect, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { QueryObserverResult, useQueryClient } from '@tanstack/react-query';
 import { AxiosError } from 'axios';
-import { DbInstanceStatus } from 'shared-types/instance.types';
 import {
   DB_INSTANCES_QUERY_KEY,
   useDbInstance,
@@ -10,13 +9,14 @@ import {
 } from 'hooks/api/db-instances';
 import { DbInstanceContextProps } from './dbCluster.context.types';
 import { Instance } from 'types/api';
+// import { useRBACPermissions } from 'hooks/rbac';
 
 export const DbInstanceContext = createContext<DbInstanceContextProps>({
   instance: {} as Instance,
   isLoading: false,
   instanceDeleted: false,
   //   canReadBackups: false,
-  //   canReadCredentials: false,
+  canReadCredentials: false,
   //   canUpdateDb: false,
   //   temporarilyIncreaseInterval: () => {},
   //   queryResult: {} as QueryObserverResult<DbCluster, unknown>,
@@ -29,7 +29,7 @@ export const DbInstanceContextProvider = ({
 }) => {
   const { instanceName = '', namespace = '' } = useParams();
   const defaultInterval = 5 * 1000;
-  const [refetchInterval, setRefetchInterval] = useState(defaultInterval);
+  const [refetchInterval] = useState(defaultInterval);
   const [instanceDeleted, setInstanceDeleted] = useState(false);
   const isDeleting = useRef(false);
   const queryClient = useQueryClient();
@@ -58,17 +58,19 @@ export const DbInstanceContextProvider = ({
   //     'database-cluster-backups',
   //     `${namespace}/${dbClusterName}`
   //   );
-  //   const { canRead: canReadCredentials } = useRBACPermissions(
-  //     'database-cluster-credentials',
-  //     `${namespace}/${dbClusterName}`
-  //   );
+    //TODO RBAC fix to instance
+    // const { canRead: canReadCredentials } = useRBACPermissions(
+    //   'database-cluster-credentials',
+    //   `${namespace}/${instanceName}`
+    // );
+  const canReadCredentials = true;
   //   const { canUpdate: canUpdateDb } = useRBACPermissions(
   //     'database-clusters',
   //     `${dbCluster?.metadata.namespace}/${dbCluster?.metadata.name}`
   //   );
 
   useEffect(() => {
-    if (instance?.status?.phase === DbInstanceStatus.deleting) {
+    if (instance?.status?.phase === 'Terminating') {
       isDeleting.current = true;
     }
 
@@ -93,7 +95,7 @@ export const DbInstanceContextProvider = ({
         instanceDeleted,
         // canReadBackups,
         // canUpdateDb,
-        // canReadCredentials,
+        canReadCredentials,
         // temporarilyIncreaseInterval,
         // queryResult,
       }}

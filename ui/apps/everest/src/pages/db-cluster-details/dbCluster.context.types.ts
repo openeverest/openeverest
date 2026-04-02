@@ -6,7 +6,7 @@ export interface DbInstanceContextProps {
   instanceDeleted: boolean;
   //   canReadBackups: boolean;
   //   canUpdateDb: boolean;
-  //   canReadCredentials: boolean;
+    canReadCredentials: boolean;
   //   queryResult: QueryObserverResult<DbCluster, unknown>;
   //   clusterDeleted: boolean;
   //   temporarilyIncreaseInterval: (interval: number, timeoutTime: number) => void;

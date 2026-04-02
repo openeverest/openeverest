@@ -17,15 +17,15 @@ import { Messages } from '../../../cluster-overview.messages';
 import OverviewSection from '../../../overview-section';
 import { AdvancedConfigurationOverviewCardProps } from '../../card.types';
 import OverviewSectionRow from '../../../overview-section-row';
-import { DbClusterContext } from 'pages/db-cluster-details/dbCluster.context';
-import { useContext, useState } from 'react';
-import { AdvancedConfigurationEditModal } from './edit-advanced-configuration';
-import { useUpdateDbClusterWithConflictRetry } from 'hooks';
-import { AdvancedConfigurationFormType } from 'components/cluster-form/advanced-configuration/advanced-configuration-schema';
-import {
-  changeDbClusterAdvancedConfig,
-  shouldDbActionsBeBlocked,
-} from 'utils/db';
+// import { DbClusterContext } from 'pages/db-cluster-details/dbCluster.context';
+import { useState } from 'react';
+// import { AdvancedConfigurationEditModal } from './edit-advanced-configuration';
+// import { useUpdateDbClusterWithConflictRetry } from 'hooks';
+// import { AdvancedConfigurationFormType } from 'components/cluster-form/advanced-configuration/advanced-configuration-schema';
+// import {
+//   changeDbClusterAdvancedConfig,
+//   shouldDbActionsBeBlocked,
+// } from 'utils/db';
 import { Link } from 'react-router-dom';
 import { useRBACPermissions } from 'hooks/rbac';
 import { EMPTY_LOAD_BALANCER_CONFIGURATION } from 'consts';
@@ -44,80 +44,80 @@ export const AdvancedConfiguration = ({
   splitHorizonDNS,
   splitHorizonDomains,
 }: AdvancedConfigurationOverviewCardProps) => {
-  const {
-    canUpdateDb,
-    dbCluster,
-    queryResult: { refetch },
-  } = useContext(DbClusterContext);
-  const [openEditModal, setOpenEditModal] = useState(false);
+  // const {
+  //   canUpdateDb,
+  //   dbCluster,
+  //   queryResult: { refetch },
+  // } = useContext(DbClusterContext);
+  // const [openEditModal, setOpenEditModal] = useState(false);
   const [showSplitHorizonDomainsTable, setShowSplitHorizonDomainsTable] =
     useState(false);
-  const [updating, setUpdating] = useState(false);
+  // const [updating, setUpdating] = useState(false);
   const { canRead: canReadPolicy } = useRBACPermissions(
     'pod-scheduling-policies',
     podSchedulingPolicy
   );
 
-  const { mutate: updateCluster } = useUpdateDbClusterWithConflictRetry(
-    dbCluster!,
-    {
-      onSuccess: async () => {
-        await refetch();
-        handleCloseModal();
-        setUpdating(false);
-      },
-      onError: () => setUpdating(false),
-    }
-  );
-  const handleCloseModal = () => {
-    setOpenEditModal(false);
-  };
-  const editable =
-    canUpdateDb && !shouldDbActionsBeBlocked(dbCluster?.status?.status);
+  // const { mutate: updateCluster } = useUpdateDbClusterWithConflictRetry(
+  //   dbCluster!,
+  //   {
+  //     onSuccess: async () => {
+  //       await refetch();
+  //       handleCloseModal();
+  //       setUpdating(false);
+  //     },
+  //     onError: () => setUpdating(false),
+  //   }
+  // );
+  // const handleCloseModal = () => {
+  //   setOpenEditModal(false);
+  // };
+  // const editable =
+  //   canUpdateDb && !shouldDbActionsBeBlocked(dbCluster?.status?.status);
 
-  const handleSubmit = async ({
-    sourceRanges,
-    engineParametersEnabled,
-    engineParameters,
-    podSchedulingPolicyEnabled,
-    podSchedulingPolicy,
-    exposureMethod,
-    loadBalancerConfigName,
-    splitHorizonDNS,
-  }: AdvancedConfigurationFormType) => {
-    setUpdating(true);
-    updateCluster(
-      changeDbClusterAdvancedConfig(
-        dbCluster!,
-        engineParametersEnabled,
-        exposureMethod,
-        engineParameters,
-        sourceRanges,
-        podSchedulingPolicyEnabled,
-        podSchedulingPolicy,
-        loadBalancerConfigName,
-        splitHorizonDNS
-      )
-    );
-  };
+  // const handleSubmit = async ({
+    // sourceRanges,
+    // engineParametersEnabled,
+    // engineParameters,
+    // podSchedulingPolicyEnabled,
+    // podSchedulingPolicy,
+    // exposureMethod,
+    // loadBalancerConfigName,
+    // splitHorizonDNS,
+  // }: AdvancedConfigurationFormType) => {
+  //   setUpdating(true);
+    // updateCluster(
+    //   changeDbClusterAdvancedConfig(
+    //     dbCluster!,
+    //     engineParametersEnabled,
+    //     exposureMethod,
+    //     engineParameters,
+    //     sourceRanges,
+    //     podSchedulingPolicyEnabled,
+    //     podSchedulingPolicy,
+    //     loadBalancerConfigName,
+    //     splitHorizonDNS
+    //   )
+    // );
+  // };
 
   return (
     <OverviewSection
       title={Messages.titles.advancedConfiguration}
       loading={loading}
       dataTestId="advanced-configuration"
-      editable={editable}
-      {...(canUpdateDb
-        ? {
-            actionButtonProps: {
-              onClick: () => {
-                setOpenEditModal(true);
-              },
-              children: Messages.actions.edit,
-              'data-testid': 'edit-advanced-configuration-db-btn',
-            },
-          }
-        : undefined)}
+      // editable={editable}
+      // {...(canUpdateDb
+      //   ? {
+      //       actionButtonProps: {
+      //         onClick: () => {
+      //           setOpenEditModal(true);
+      //         },
+      //         children: Messages.actions.edit,
+      //         'data-testid': 'edit-advanced-configuration-db-btn',
+      //       },
+      //     }
+      //   : undefined)}
     >
       <OverviewSectionRow
         label={Messages.fields.externalAccess}
@@ -184,7 +184,7 @@ export const AdvancedConfiguration = ({
           </Typography>
         }
       />
-      {openEditModal && dbCluster && (
+      {/* {openEditModal && dbCluster && (
         <AdvancedConfigurationEditModal
           open={openEditModal}
           handleCloseModal={handleCloseModal}
@@ -192,7 +192,7 @@ export const AdvancedConfiguration = ({
           dbCluster={dbCluster}
           submitting={updating}
         />
-      )}
+      )} */}
       {showSplitHorizonDomainsTable && (
         <ConfirmDialog
           selectedId="split-horizon-domains"

@@ -27,7 +27,7 @@ export const mockDbInstance: Instance = {
     provider: 'aws-provider',
     topology: { type: 'ha' },
   },
-  status: { phase: 'ready' },
+  status: { phase: 'Ready' },
 };
 
 export const useDbInstance = () => ({

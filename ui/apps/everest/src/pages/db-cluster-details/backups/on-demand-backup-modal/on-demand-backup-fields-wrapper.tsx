@@ -1,12 +1,10 @@
-import { TextInput } from '@percona/ui-lib';
 import LogicalPhysicalRadioGroup from 'components/logical-physical-radio-group';
 import { useContext, useEffect } from 'react';
 import { useFormContext } from 'react-hook-form';
-import { Messages } from '../../db-cluster-details.messages.ts';
+// import { Messages } from '../../db-cluster-details.messages.ts';
 import { BackupFields } from './on-demand-backup-modal.types.ts';
 import { DbEngineType } from '@percona/types';
 import { ScheduleModalContext } from '../backups.context.ts';
-import { Typography } from '@mui/material';
 import BackupStoragesInput from 'components/backup-storages-input';
 import { dbEngineToDbType } from '@percona/utils';
 
@@ -35,16 +33,16 @@ export const OnDemandBackupFieldsWrapper = () => {
   return (
     <>
       {type === DbEngineType.PSMDB && <LogicalPhysicalRadioGroup />}
-      <Typography variant="sectionHeading" mt={3} mb={1}>
+      {/* <Typography variant="sectionHeading" mt={3} mb={1}>
         {Messages.onDemandBackupModal.backupDetails}
-      </Typography>
-      <TextInput
+      </Typography> */}
+      {/* <TextInput
         name={BackupFields.name}
         textFieldProps={{
           label: Messages.onDemandBackupModal.backupName,
         }}
         isRequired
-      />
+      /> */}
       <BackupStoragesInput
         dbClusterName={dbCluster.metadata.name}
         namespace={namespace}

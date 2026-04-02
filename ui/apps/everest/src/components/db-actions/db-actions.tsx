@@ -24,7 +24,6 @@ import { Messages } from './db-actions.messages';
 import { ArrowDropDownIcon } from '@mui/x-date-pickers/icons';
 import DbActionsModals from './db-actions-modals';
 import { useDbInstanceActions } from 'hooks/api/db-instance';
-import { DbInstanceStatus } from 'shared-types/instance.types';
 
 export const DbActions = ({
   // showDetailsAction = false,
@@ -246,7 +245,7 @@ export const DbActions = ({
           )} */}
           {canDelete && (
             <MenuItem
-              disabled={dbInstance?.status?.phase === DbInstanceStatus.deleting}
+              disabled={dbInstance?.status?.phase === 'Terminating'}
               data-testid={`${dbInstanceName}-delete`}
               key={5}
               onClick={() => {

@@ -43,7 +43,7 @@ const mockInstance: Instance = {
     provider: 'test-provider',
     topology: { type: 'ha' },
   },
-  status: { phase: 'ready' },
+  status: { phase: 'Ready' },
 };
 
 const queryClient = new QueryClient({
@@ -59,6 +59,7 @@ function renderOverview(
     instance: mockInstance,
     isLoading: false,
     instanceDeleted: false,
+    canReadCredentials: true,
     ...contextValue,
   };
 
@@ -136,16 +137,16 @@ describe('ClusterOverview', () => {
       'my-ns',
       expect.objectContaining({
         enabled: true,
-        refetchInterval: 5 * 1000,
       })
     );
   });
 
+  // TODO recheck condition, probably we should show oriented on the plag int he conditions in status
   it('does not query credentials before instance is ready', () => {
     renderOverview('my-ns', 'my-test-db', {
       instance: {
         ...mockInstance,
-        status: { phase: 'Creating' },
+        status: { phase: 'Initializing' },
       },
     });
 

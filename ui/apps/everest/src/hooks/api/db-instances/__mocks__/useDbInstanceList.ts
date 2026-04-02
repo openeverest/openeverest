@@ -45,12 +45,12 @@ export const mockInstances: Instance[] = [
       },
     },
     status: {
-      phase: 'ready',
+      phase: 'Ready',
       components: [
         {
           pods: [{ name: 'psmdb-primary-0' }],
           ready: 3,
-          state: 'ready',
+          state: 'Ready',
           total: 3,
         },
       ],
@@ -93,7 +93,7 @@ export const mockInstances: Instance[] = [
       },
     },
     status: {
-      phase: 'creating',
+      phase: 'Initializing',
       components: [],
       conditions: [],
     },

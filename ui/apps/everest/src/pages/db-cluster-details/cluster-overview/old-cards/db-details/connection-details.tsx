@@ -21,11 +21,11 @@ import { Box, IconButton, Link, TextField, Typography } from '@mui/material';
 import { CopyToClipboardButton } from '@percona/ui-lib';
 import { HiddenPasswordToggle } from 'components/hidden-row';
 import { useContext, useState } from 'react';
-import { DbClusterContext } from 'pages/db-cluster-details/dbCluster.context';
 import VisibilityOutlinedIcon from '@mui/icons-material/VisibilityOutlined';
 import VisibilityOffOutlinedIcon from '@mui/icons-material/VisibilityOffOutlined';
 import { DbType } from '@percona/types';
 import { ProxyExposeType } from 'shared-types/dbCluster.types';
+import { DbInstanceContext } from 'pages/db-cluster-details/dbCluster.context';
 
 export const ConnectionDetails = ({
   loading,
@@ -38,7 +38,8 @@ export const ConnectionDetails = ({
   type,
   exposeType,
 }: ConnectionDetailsOverviewCardProps) => {
-  const { canReadCredentials } = useContext(DbClusterContext);
+  const { canReadCredentials } = useContext(DbInstanceContext);
+  // TODO: implement permissions check
   const [showUrl, setShowUrl] = useState(false);
   const [showSplitHorizonUrl, setShowSplitHorizonUrl] = useState(false);
   return (

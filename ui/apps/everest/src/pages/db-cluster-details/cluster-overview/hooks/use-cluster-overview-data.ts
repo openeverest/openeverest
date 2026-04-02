@@ -17,7 +17,6 @@ import { useParams } from 'react-router-dom';
 import { DbInstanceContext } from '../../dbCluster.context';
 import { useDbInstanceCredentials } from 'hooks/api/db-instances/useCreateDbInstance';
 import { useProviders } from 'hooks/api/providers';
-import { DbInstanceStatus } from 'shared-types/instance.types';
 import { preprocessSchema } from 'components/ui-generator/utils/preprocess/preprocess-schema';
 import type {
   Section,
@@ -47,14 +46,12 @@ export const useClusterOverviewData = () => {
   const { instanceName, namespace = '' } = useParams();
   const { instance, isLoading } = useContext(DbInstanceContext);
 
-  //TODO check refetching
-  //TODO fix status afte status PR will be merged
   const { data: credentials } = useDbInstanceCredentials(
     instanceName || '',
     namespace,
     {
       enabled:
-        !!instanceName && instance?.status?.phase === DbInstanceStatus.running,
+        !!instanceName && instance?.status?.phase === 'Ready',
     }
   );
 

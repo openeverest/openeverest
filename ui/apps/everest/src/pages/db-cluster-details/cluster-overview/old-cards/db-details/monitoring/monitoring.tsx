@@ -17,11 +17,11 @@ import { Messages } from '../../../cluster-overview.messages';
 import OverviewSection from '../../../overview-section';
 import { MonitoringConfigurationOverviewCardProps } from '../../card.types';
 import OverviewSectionRow from '../../../overview-section-row';
-import { useContext, useState } from 'react';
+import { useState } from 'react';
 import { MonitoringEditModal } from './edit-monitoring';
-import { DbClusterContext } from 'pages/db-cluster-details/dbCluster.context';
-import { useUpdateDbClusterWithConflictRetry } from 'hooks/api/db-cluster/useUpdateDbCluster';
-import { changeDbClusterMonitoring, shouldDbActionsBeBlocked } from 'utils/db';
+// import { DbClusterContext } from 'pages/db-cluster-details/dbCluster.context';
+// import { useUpdateDbClusterWithConflictRetry } from 'hooks/api/db-cluster/useUpdateDbCluster';
+// import { changeDbClusterMonitoring } from 'utils/db';
 import { Link } from 'react-router-dom';
 
 export const MonitoringDetails = ({
@@ -29,28 +29,29 @@ export const MonitoringDetails = ({
   monitoring,
 }: MonitoringConfigurationOverviewCardProps) => {
   const [openEditModal, setOpenEditModal] = useState(false);
-  const { dbCluster, canUpdateDb } = useContext(DbClusterContext);
-  const editable =
-    canUpdateDb && !shouldDbActionsBeBlocked(dbCluster?.status?.status);
+  // const { dbCluster, canUpdateDb } = useContext(DbClusterContext);
+  // const editable =
+  //   canUpdateDb && !shouldDbActionsBeBlocked(dbCluster?.status?.status);
 
-  const { mutate: updateCluster } = useUpdateDbClusterWithConflictRetry(
-    dbCluster!,
-    {
-      onSuccess: () => handleCloseModal(),
-    }
-  );
+  // const { mutate: updateCluster } = useUpdateDbClusterWithConflictRetry(
+  //   dbCluster!,
+  //   {
+  //     onSuccess: () => handleCloseModal(),
+  //   }
+  // );
 
   const handleCloseModal = () => {
     setOpenEditModal(false);
   };
 
-  const handleSubmit = (monitoringName: string, enabled: boolean) => {
-    updateCluster(
-      changeDbClusterMonitoring(
-        dbCluster!,
-        enabled ? monitoringName : undefined
-      )
-    );
+  const handleSubmit = () => {
+    // updateCluster(
+    //   changeDbClusterMonitoring(
+    //     dbCluster!,
+    //     enabled ? monitoringName : undefined
+    //   )
+    // );
+
   };
 
   return (
@@ -64,7 +65,7 @@ export const MonitoringDetails = ({
         },
         'data-testid': 'edit-monitoring-db-btn',
       }}
-      editable={editable}
+      // editable={editable}
     >
       <OverviewSectionRow
         label={Messages.fields.status}

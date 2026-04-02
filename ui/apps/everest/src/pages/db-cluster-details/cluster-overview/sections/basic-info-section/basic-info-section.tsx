@@ -12,9 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import OverviewSection from '../overview-section';
-import OverviewSectionRow from '../overview-section-row';
-import { Messages } from '../cluster-overview.messages';
+import OverviewSection from '../../overview-section';
+import OverviewSectionRow from '../../overview-section-row';
+import { Messages } from '../../cluster-overview.messages';
 import type { BasicInfoSectionProps } from './basic-info-section.types';
 
 const BasicInfoSection = ({

@@ -49,7 +49,7 @@ import { Path, UseFormGetFieldState } from 'react-hook-form';
 import cronConverter from './cron-converter';
 import { EMPTY_LOAD_BALANCER_CONFIGURATION } from 'consts';
 import { mapDeprecatedExposeType } from 'components/cluster-form/advanced-configuration/advanced-configuration.utils';
-import { DbInstanceStatus } from 'shared-types/instance.types';
+import { PhaseType } from 'types/api';
 
 export const dbTypeToIcon = (dbType: DbType) => {
   switch (dbType) {
@@ -1005,14 +1005,12 @@ const humanizedDbMap: Record<DbType, string> = {
 export const humanizeDbType = (type: DbType): string => humanizedDbMap[type];
 
 // This does not apply to the delete action, which is only blocked when the db is being deleted itself
-export const shouldDbActionsBeBlocked = (status?: DbInstanceStatus) => {
-  return [
-    // DbInstanceStatus.restoring,
-    DbInstanceStatus.deleting,
-    // DbInstanceStatus.resizingVolumes,
-    // DbInstanceStatus.upgrading,
-    // DbInstanceStatus.importing,
-  ].includes(status || ('' as DbInstanceStatus));
+export const shouldDbActionsBeBlocked = (status?: PhaseType) => {
+
+  const targetStatuses: Array<PhaseType> = ["Restoring", "Terminating", "Updating", undefined]
+
+  // TODO check what will be in case if pase = undefined
+  return targetStatuses.includes(status || ('' as PhaseType));
 };
 
 export const mergeNewDbClusterData = (

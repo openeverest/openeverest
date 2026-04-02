@@ -14,9 +14,10 @@
 
 import { Box, Stack } from '@mui/material';
 import { DatabaseIcon, OverviewCard } from '@percona/ui-lib';
-import OverviewSection from '../overview-section';
-import OverviewSectionRow from '../overview-section-row';
+
 import type { OtherFieldsCardProps } from './other-fields-card.types';
+import OverviewSection from '../../overview-section';
+import OverviewSectionRow from '../../overview-section-row';
 
 const OtherFieldsCard = ({ fields, loading }: OtherFieldsCardProps) => (
   <Box>

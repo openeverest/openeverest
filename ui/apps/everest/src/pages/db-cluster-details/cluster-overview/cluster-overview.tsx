@@ -18,10 +18,10 @@ import { Box, Stack } from '@mui/material';
 import { DatabaseIcon, OverviewCard } from '@percona/ui-lib';
 import { Messages } from './cluster-overview.messages';
 import { useClusterOverviewData } from './hooks/use-cluster-overview-data';
-import BasicInfoSection from './basic-info-section';
-import ConnectionSection from './connection-section';
-import SchemaDrivenCard from './schema-driven-card';
-import OtherFieldsCard from './other-fields-card';
+import BasicInfoSection from './sections/basic-info-section';
+import ConnectionSection from './sections/connection-section';
+import SchemaDrivenCard from './sections/schema-driven-card';
+import OtherFieldsCard from './sections/other-fields-card';
 
 export const ClusterOverview = () => {
   const {

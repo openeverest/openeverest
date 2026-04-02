@@ -14,9 +14,9 @@
 
 import { Box, Stack } from '@mui/material';
 import { DatabaseIcon, OverviewCard } from '@percona/ui-lib';
-import OverviewSection from '../overview-section';
-import OverviewSectionRow from '../overview-section-row';
 import type { SchemaDrivenCardProps } from './schema-driven-card.types';
+import OverviewSectionRow from '../../overview-section-row';
+import OverviewSection from '../../overview-section';
 
 const SchemaDrivenCard = ({ card, loading }: SchemaDrivenCardProps) => (
   <Box>
