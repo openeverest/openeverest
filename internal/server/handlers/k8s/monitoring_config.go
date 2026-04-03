@@ -40,51 +40,35 @@ func (h *k8sHandler) ListMonitoringConfigs(ctx context.Context, namespace string
 
 // CreateMonitoringConfig creates a monitoring config.
 func (h *k8sHandler) CreateMonitoringConfig(ctx context.Context, namespace string, req *api.MonitoringConfigCreateParams) (*monitoringv1alpha1.MonitoringConfig, error) {
-	m, err := h.kubeConnector.GetMonitoringConfigV2(ctx,
+	_, err := h.kubeConnector.GetMonitoringConfigV2(ctx,
 		types.NamespacedName{
 			Namespace: namespace,
 			Name:      req.Name,
 		},
 	)
 
-	if err != nil && !k8serrors.IsNotFound(err) {
-		return nil, err
-	}
-
-	if m != nil && m.GetName() != "" {
+	if err == nil {
 		return nil, k8serrors.NewAlreadyExists(schema.GroupResource{
 			Group:    monitoringv1alpha1.GroupVersion.Group,
 			Resource: "monitoringconfigs",
 		}, req.Name)
 	}
 
-	var apiKey string
-	if req.Pmm != nil {
-		apiKey = req.Pmm.ApiKey
+	if !k8serrors.IsNotFound(err) {
+		return nil, err
+	}
 
+	if req.Pmm != nil {
+		apiKey := req.Pmm.ApiKey
 		if apiKey == "" {
 			apiKeyName := fmt.Sprintf("everest-%s-%s", req.Name, uuid.NewString())
-
-			var skipVerifyTLS bool
-			if req.VerifyTLS != nil {
-				skipVerifyTLS = !pointer.Get(req.VerifyTLS)
-			}
-
-			if apiKey, err = pmm.CreateAPIKey(ctx, req.Url, apiKeyName, req.Pmm.User, req.Pmm.Password, skipVerifyTLS); err != nil {
+			if apiKey, err = pmm.CreateAPIKey(ctx, req.Url, apiKeyName, req.Pmm.User, req.Pmm.Password, !pointer.Get(req.VerifyTLS)); err != nil {
 				return nil, fmt.Errorf("failed to create PMM API key: %w", err)
 			}
 		}
 
-		secret := newMonitoringConfigSecret(req.Name, namespace, apiKey)
-
-		if _, err := h.kubeConnector.CreateSecret(ctx, secret); err != nil {
-			if !k8serrors.IsAlreadyExists(err) {
-				return nil, fmt.Errorf("failed creating secret; %w", err)
-			}
-
-			if _, err = h.kubeConnector.UpdateSecret(ctx, secret); err != nil {
-				return nil, fmt.Errorf("could not update secret %s", req.Name)
-			}
+		if err := h.createOrUpdateMonitoringConfigSecret(ctx, req.Name, namespace, apiKey); err != nil {
+			return nil, err
 		}
 	}
 
@@ -139,15 +123,12 @@ func (h *k8sHandler) DeleteMonitoringConfig(ctx context.Context, namespace, name
 		},
 	}
 
-	if err := h.kubeConnector.DeleteSecret(ctx, delSecObj); err != nil {
-		if k8serrors.IsNotFound(err) {
-			return nil
-		}
-
-		return err
+	err := h.kubeConnector.DeleteSecret(ctx, delSecObj)
+	if k8serrors.IsNotFound(err) {
+		return nil
 	}
 
-	return nil
+	return err
 }
 
 // GetMonitoringConfig returns monitoring config that matches the criteria.
@@ -172,41 +153,6 @@ func (h *k8sHandler) UpdateMonitoringConfig(ctx context.Context, namespace, name
 		return nil, err
 	}
 
-	var apiKey string
-	if req.Pmm != nil && req.Pmm.ApiKey != "" {
-		apiKey = req.Pmm.ApiKey
-	}
-
-	if req.Pmm != nil && req.Pmm.User != "" && req.Pmm.Password != "" {
-		apiKeyName := fmt.Sprintf("everest-%s-%s", name, uuid.NewString())
-
-		var skipVerifyTLS bool
-		if m.Spec.VerifyTLS != nil {
-			skipVerifyTLS = !pointer.Get(m.Spec.VerifyTLS)
-		}
-
-		if req.VerifyTLS != nil {
-			skipVerifyTLS = !pointer.Get(req.VerifyTLS)
-		}
-
-		url := m.Spec.PMM.URL
-		if req.Url != "" {
-			url = req.Url
-		}
-
-		if apiKey, err = pmm.CreateAPIKey(ctx, url, apiKeyName, req.Pmm.User, req.Pmm.Password, skipVerifyTLS); err != nil {
-			return nil, err
-		}
-	}
-
-	if apiKey != "" {
-		secret := newMonitoringConfigSecret(name, namespace, apiKey)
-
-		if _, err = h.kubeConnector.UpdateSecret(ctx, secret); err != nil {
-			return nil, fmt.Errorf("could not update k8s secret %s", name)
-		}
-	}
-
 	if req.Url != "" {
 		m.Spec.PMM.URL = req.Url
 	}
@@ -215,7 +161,47 @@ func (h *k8sHandler) UpdateMonitoringConfig(ctx context.Context, namespace, name
 		m.Spec.VerifyTLS = req.VerifyTLS
 	}
 
+	if req.Pmm != nil {
+		apiKey := req.Pmm.ApiKey
+
+		if req.Pmm.User != "" && req.Pmm.Password != "" {
+			verifyTLS := pointer.Get(m.Spec.VerifyTLS)
+			apiKeyName := fmt.Sprintf("everest-%s-%s", name, uuid.NewString())
+
+			if apiKey, err = pmm.CreateAPIKey(ctx, m.Spec.PMM.URL, apiKeyName, req.Pmm.User, req.Pmm.Password, !verifyTLS); err != nil {
+				return nil, err
+			}
+		}
+
+		if apiKey != "" {
+			secret := newMonitoringConfigSecret(name, namespace, apiKey)
+
+			if _, err = h.kubeConnector.UpdateSecret(ctx, secret); err != nil {
+				return nil, fmt.Errorf("could not update k8s secret %s", name)
+			}
+		}
+	}
+
 	return h.kubeConnector.UpdateMonitoringConfigV2(ctx, m)
+}
+
+// createOrUpdateMonitoringConfigSecret creates a secret, or updates it if it already exists.
+func (h *k8sHandler) createOrUpdateMonitoringConfigSecret(ctx context.Context, name, namespace, apiKey string) error {
+	secret := newMonitoringConfigSecret(name, namespace, apiKey)
+	_, err := h.kubeConnector.CreateSecret(ctx, secret)
+	if err == nil {
+		return nil
+	}
+
+	if !k8serrors.IsAlreadyExists(err) {
+		return fmt.Errorf("failed creating secret: %w", err)
+	}
+
+	if _, err = h.kubeConnector.UpdateSecret(ctx, secret); err != nil {
+		return fmt.Errorf("failed to update secret: %w", err)
+	}
+
+	return nil
 }
 
 func newMonitoringConfigSecret(name, namespace string, apiKey string) *corev1.Secret {
