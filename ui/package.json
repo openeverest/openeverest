@@ -30,7 +30,8 @@
       "babel-loader>webpack": "5.94.0",
       "webpack": "5.94.0",
       "cross-spawn": "6.0.6",
-      "esbuild": "^0.25.0"
+      "esbuild": "^0.25.0",
+      "flatted": ">=3.4.2"
     }
   }
 }
