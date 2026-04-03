@@ -339,6 +339,18 @@ spec:
                 x-kubernetes-map-type: atomic
               phase:
                 description: Phase of the database cluster.
+                enum:
+                - Pending
+                - Provisioning
+                - Initializing
+                - Ready
+                - Updating
+                - Terminating
+                - Failed
+                - Restoring
+                - Suspending
+                - Suspended
+                - Resuming
                 type: string
             type: object
         required:
