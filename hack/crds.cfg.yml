@@ -5,3 +5,5 @@ generate:
 output-options:
   # to make sure that all types are generated
   skip-prune: true
+compatibility:
+  always-prefix-enum-values: true

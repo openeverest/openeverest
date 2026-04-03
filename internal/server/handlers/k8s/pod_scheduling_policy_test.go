@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2025 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -217,7 +218,7 @@ func TestValidate_ListPodSchedulingPolicy(t *testing.T) {
 				getDefaultPSMDBPolicy(),
 			},
 			listParams: &api.ListPodSchedulingPolicyParams{
-				EngineType: pointer.To(api.Pxc),
+				EngineType: pointer.To(api.ListPodSchedulingPolicyParamsEngineTypePxc),
 			},
 			assert: func(list *everestv1alpha1.PodSchedulingPolicyList) bool {
 				return len(list.Items) == 1 &&
@@ -235,7 +236,7 @@ func TestValidate_ListPodSchedulingPolicy(t *testing.T) {
 				getDefaultPSMDBPolicy(),
 			},
 			listParams: &api.ListPodSchedulingPolicyParams{
-				EngineType: pointer.To(api.Pxc),
+				EngineType: pointer.To(api.ListPodSchedulingPolicyParamsEngineTypePxc),
 				HasRules:   pointer.To(true),
 			},
 			assert: func(list *everestv1alpha1.PodSchedulingPolicyList) bool {
@@ -254,7 +255,7 @@ func TestValidate_ListPodSchedulingPolicy(t *testing.T) {
 				getDefaultPSMDBPolicy(),
 			},
 			listParams: &api.ListPodSchedulingPolicyParams{
-				EngineType: pointer.To(api.Psmdb),
+				EngineType: pointer.To(api.ListPodSchedulingPolicyParamsEngineTypePsmdb),
 			},
 			assert: func(list *everestv1alpha1.PodSchedulingPolicyList) bool {
 				return len(list.Items) == 1 &&
@@ -272,7 +273,7 @@ func TestValidate_ListPodSchedulingPolicy(t *testing.T) {
 				getDefaultPSMDBPolicy(),
 			},
 			listParams: &api.ListPodSchedulingPolicyParams{
-				EngineType: pointer.To(api.Psmdb),
+				EngineType: pointer.To(api.ListPodSchedulingPolicyParamsEngineTypePsmdb),
 				HasRules:   pointer.To(true),
 			},
 			assert: func(list *everestv1alpha1.PodSchedulingPolicyList) bool {
@@ -291,7 +292,7 @@ func TestValidate_ListPodSchedulingPolicy(t *testing.T) {
 				getDefaultPSMDBPolicy(),
 			},
 			listParams: &api.ListPodSchedulingPolicyParams{
-				EngineType: pointer.To(api.Postgresql),
+				EngineType: pointer.To(api.ListPodSchedulingPolicyParamsEngineTypePostgresql),
 			},
 			assert: func(list *everestv1alpha1.PodSchedulingPolicyList) bool {
 				return len(list.Items) == 1 &&
@@ -309,7 +310,7 @@ func TestValidate_ListPodSchedulingPolicy(t *testing.T) {
 				getDefaultPSMDBPolicy(),
 			},
 			listParams: &api.ListPodSchedulingPolicyParams{
-				EngineType: pointer.To(api.Postgresql),
+				EngineType: pointer.To(api.ListPodSchedulingPolicyParamsEngineTypePostgresql),
 				HasRules:   pointer.To(true),
 			},
 			assert: func(list *everestv1alpha1.PodSchedulingPolicyList) bool {
@@ -427,7 +428,7 @@ func TestValidate_ListPodSchedulingPolicy(t *testing.T) {
 				},
 			},
 			listParams: &api.ListPodSchedulingPolicyParams{
-				EngineType: pointer.To(api.Pxc),
+				EngineType: pointer.To(api.ListPodSchedulingPolicyParamsEngineTypePxc),
 			},
 			assert: func(list *everestv1alpha1.PodSchedulingPolicyList) bool {
 				return len(list.Items) == 1 &&
@@ -466,7 +467,7 @@ func TestValidate_ListPodSchedulingPolicy(t *testing.T) {
 				},
 			},
 			listParams: &api.ListPodSchedulingPolicyParams{
-				EngineType: pointer.To(api.Pxc),
+				EngineType: pointer.To(api.ListPodSchedulingPolicyParamsEngineTypePxc),
 				HasRules:   pointer.To(true),
 			},
 			assert: func(list *everestv1alpha1.PodSchedulingPolicyList) bool {
@@ -503,7 +504,7 @@ func TestValidate_ListPodSchedulingPolicy(t *testing.T) {
 				},
 			},
 			listParams: &api.ListPodSchedulingPolicyParams{
-				EngineType: pointer.To(api.Psmdb),
+				EngineType: pointer.To(api.ListPodSchedulingPolicyParamsEngineTypePsmdb),
 			},
 			assert: func(list *everestv1alpha1.PodSchedulingPolicyList) bool {
 				return len(list.Items) == 1 &&
@@ -542,7 +543,7 @@ func TestValidate_ListPodSchedulingPolicy(t *testing.T) {
 				},
 			},
 			listParams: &api.ListPodSchedulingPolicyParams{
-				EngineType: pointer.To(api.Psmdb),
+				EngineType: pointer.To(api.ListPodSchedulingPolicyParamsEngineTypePsmdb),
 				HasRules:   pointer.To(true),
 			},
 			assert: func(list *everestv1alpha1.PodSchedulingPolicyList) bool {
@@ -579,7 +580,7 @@ func TestValidate_ListPodSchedulingPolicy(t *testing.T) {
 				},
 			},
 			listParams: &api.ListPodSchedulingPolicyParams{
-				EngineType: pointer.To(api.Postgresql),
+				EngineType: pointer.To(api.ListPodSchedulingPolicyParamsEngineTypePostgresql),
 			},
 			assert: func(list *everestv1alpha1.PodSchedulingPolicyList) bool {
 				return len(list.Items) == 1 &&
@@ -618,7 +619,7 @@ func TestValidate_ListPodSchedulingPolicy(t *testing.T) {
 				},
 			},
 			listParams: &api.ListPodSchedulingPolicyParams{
-				EngineType: pointer.To(api.Postgresql),
+				EngineType: pointer.To(api.ListPodSchedulingPolicyParamsEngineTypePostgresql),
 				HasRules:   pointer.To(true),
 			},
 			assert: func(list *everestv1alpha1.PodSchedulingPolicyList) bool {

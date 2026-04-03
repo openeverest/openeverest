@@ -42,9 +42,9 @@ test.describe.parallel('Monitoring configs tests', () => {
       }
 
       const created = await th.createMonitoringConfigWithDataV2(request, data)
-      expect(created.name).toBe(data.name)
-      expect(created.url).toBe(data.url)
-      expect(created.type).toBe(data.type)
+      expect(created.metadata.name).toBe(data.name)
+      expect(created.spec.pmm.url).toBe(data.url)
+      expect(created.spec.type).toBe(data.type)
     })
 
     await test.step('create monitoring config with login and password', async () => {
@@ -60,19 +60,19 @@ test.describe.parallel('Monitoring configs tests', () => {
       }
 
       const created = await th.createMonitoringConfigWithDataV2(request, data)
-      expect(created.name).toBe(data.name)
-      expect(created.url).toBe(data.url)
-      expect(created.type).toBe(data.type)
+      expect(created.metadata.name).toBe(data.name)
+      expect(created.spec.pmm.url).toBe(data.url)
+      expect(created.spec.type).toBe(data.type)
     })
 
     await test.step('get monitoring config key', async () => {
       const mc = await th.getMonitoringConfigV2(request, mcNameKey)
-      expect(mc.name).toBe(mcNameKey)
+      expect(mc.metadata.name).toBe(mcNameKey)
     })
 
     await test.step('get monitoring config password', async () => {
       const mc = await th.getMonitoringConfigV2(request, mcNamePass)
-      expect(mc.name).toBe(mcNamePass)
+      expect(mc.metadata.name).toBe(mcNamePass)
     })
 
     await test.step('update monitoring config', async () => {
@@ -80,7 +80,7 @@ test.describe.parallel('Monitoring configs tests', () => {
 
       await expect(async () => {
         const updated = await th.updateMonitoringConfigV2(request, mcNameKey, patchData)
-        expect(updated.url).toMatch(patchData.url)
+        expect(updated.spec.pmm.url).toMatch(patchData.url)
       }).toPass({
         intervals: [1000],
         timeout: 30 * 1000,
@@ -112,7 +112,7 @@ test.describe.parallel('Monitoring configs tests', () => {
 
       await expect(async () => {
         const updated = await th.updateMonitoringConfigV2(request, mcNameKey, patchData)
-        expect(updated.url).toBe(patchData.url)
+        expect(updated.spec.pmm.url).toBe(patchData.url)
       }).toPass({
         intervals: [1000],
         timeout: 30 * 1000,
@@ -130,7 +130,7 @@ test.describe.parallel('Monitoring configs tests', () => {
 
       await expect(async () => {
         const updated = await th.updateMonitoringConfigV2(request, mcNameKey, patchData)
-        expect(updated.url).toBe(patchData.url)
+        expect(updated.spec.pmm.url).toBe(patchData.url)
       }).toPass({
         intervals: [1000],
         timeout: 30 * 1000,

@@ -55,8 +55,7 @@ func (h *k8sHandler) CreateMonitoringConfig(ctx context.Context, namespace strin
 		return nil, k8serrors.NewAlreadyExists(schema.GroupResource{
 			Group:    monitoringv1alpha1.GroupVersion.Group,
 			Resource: "monitoringconfigs",
-		}, req.Name,
-		)
+		}, req.Name)
 	}
 
 	var apiKey string
@@ -181,7 +180,11 @@ func (h *k8sHandler) UpdateMonitoringConfig(ctx context.Context, namespace, name
 	if req.Pmm != nil && req.Pmm.User != "" && req.Pmm.Password != "" {
 		apiKeyName := fmt.Sprintf("everest-%s-%s", name, uuid.NewString())
 
-		skipVerifyTLS := *m.Spec.VerifyTLS
+		var skipVerifyTLS bool
+		if m.Spec.VerifyTLS != nil {
+			skipVerifyTLS = !pointer.Get(m.Spec.VerifyTLS)
+		}
+
 		if req.VerifyTLS != nil {
 			skipVerifyTLS = !pointer.Get(req.VerifyTLS)
 		}

@@ -39,6 +39,7 @@ import (
 	monitoringv1alpha1 "github.com/openeverest/openeverest/v2/api/monitoring/v1alpha1"
 	backupcontroller "github.com/openeverest/openeverest/v2/internal/controller/backup"
 	monitoringcontroller "github.com/openeverest/openeverest/v2/internal/controller/monitoring"
+	webhookmonitoringv1alpha1 "github.com/openeverest/openeverest/v2/internal/webhook/monitoring/v1alpha1"
 )
 
 var (
@@ -195,6 +196,14 @@ func main() {
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "Failed to create controller", "controller", "MonitoringConfig")
 		os.Exit(1)
+	}
+
+	// nolint:goconst
+	if os.Getenv("ENABLE_WEBHOOKS") != "false" {
+		if err := webhookmonitoringv1alpha1.SetupMonitoringConfigWebhookWithManager(mgr); err != nil {
+			setupLog.Error(err, "Failed to create webhook", "webhook", "MonitoringConfig")
+			os.Exit(1)
+		}
 	}
 	// +kubebuilder:scaffold:builder
 

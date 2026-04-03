@@ -156,19 +156,76 @@ type InstanceStatus struct {
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
 }
 
+// InstancePhase represents the high-level, mutually exclusive lifecycle state
+// of an Instance. These phases are designed for human readability, providing an
+// immediate understanding of the instance's current lifecycle stage.
+//
+// +kubebuilder:validation:Enum=Pending;Provisioning;Initializing;Ready;Updating;Terminating;Failed;Restoring;Suspending;Suspended;Resuming
 type InstancePhase string
 
 const (
-	InstancePhaseCreating InstancePhase = "Creating"
-	InstancePhaseRunning  InstancePhase = "Running"
-	InstancePhaseFailed   InstancePhase = "Failed"
-	InstancePhaseDeleting InstancePhase = "Deleting"
-)
+	// --- Core Lifecycle Phases ---
 
-const (
-	StateReady      = "Ready"
-	StateInProgress = "InProgress"
-	StateError      = "Error"
+	// InstancePhasePending indicates the Instance CR has been accepted by the
+	// API server, but the provider has not yet begun provisioning (e.g.,
+	// waiting on resource quotas or prerequisite checks).
+	InstancePhasePending InstancePhase = "Pending"
+
+	// InstancePhaseProvisioning indicates the provider is actively creating the
+	// underlying Kubernetes infrastructure (StatefulSets, PVCs, Services,
+	// Secrets, ConfigMaps).
+	InstancePhaseProvisioning InstancePhase = "Provisioning"
+
+	// InstancePhaseInitializing indicates the infrastructure exists and a fresh
+	// instance engine is booting. This covers operations such as bootstrap
+	// scripts, default user setup, or initial quorum establishment.
+	InstancePhaseInitializing InstancePhase = "Initializing"
+
+	// InstancePhaseReady indicates the instance is fully operational, healthy,
+	// and actively accepting client connections. This is the target steady
+	// state.
+	InstancePhaseReady InstancePhase = "Ready"
+
+	// InstancePhaseUpdating indicates the provider is actively rolling out a
+	// mutation (e.g., scaling resources, modifying configuration flags, or
+	// performing a version upgrade).
+	InstancePhaseUpdating InstancePhase = "Updating"
+
+	// InstancePhaseTerminating indicates the user has requested deletion. The
+	// instance is actively spinning down and resources are being reclaimed.
+	InstancePhaseTerminating InstancePhase = "Terminating"
+
+	// InstancePhaseFailed indicates a terminal or semi-terminal error requiring
+	// human intervention (e.g., persistent CrashLoopBackOff or unrecoverable
+	// disk corruption).
+	InstancePhaseFailed InstancePhase = "Failed"
+
+	// --- Data Recovery Phase ---
+
+	// InstancePhaseRestoring indicates the instance is actively downloading and
+	// unpacking data from an external backup source (e.g., S3 bucket or volume
+	// snapshot). This phase is distinct from Initializing because it can take
+	// hours, has different failure domains (network/storage vs. compute), and
+	// is triggered by a spec.init.fromBackup directive or a Restore CR.
+	InstancePhaseRestoring InstancePhase = "Restoring"
+
+	// --- Cost-Saving (Compute-to-Zero) Phases ---
+
+	// InstancePhaseSuspending indicates the provider is gracefully shutting
+	// down the instance engine, flushing memory buffers to disk, and preparing
+	// to scale compute replicas to zero.
+	InstancePhaseSuspending InstancePhase = "Suspending"
+
+	// InstancePhaseSuspended indicates the instance compute is scaled to zero.
+	// The instance is completely offline and not incurring compute charges, but
+	// PersistentVolumes remain intact.
+	InstancePhaseSuspended InstancePhase = "Suspended"
+
+	// InstancePhaseResuming indicates the user has requested the instance to
+	// wake up. The provider is scaling compute back up, reattaching existing
+	// storage, and warming the instance engine. Once complete, the instance
+	// transitions to Ready.
+	InstancePhaseResuming InstancePhase = "Resuming"
 )
 
 // Condition types for Instance.
@@ -176,6 +233,66 @@ const (
 	// ConditionConnectionDetailsReady indicates whether the connection
 	// details Secret has been populated by the provider.
 	ConditionConnectionDetailsReady = "ConnectionDetailsReady"
+
+	// ConditionStorageResizing is a state-indicator condition that is True
+	// while a PVC volume expansion is in flight, and False when storage is in
+	// a steady state. Monitoring tools can use this to suppress disk I/O alerts
+	// during the storage controller's block metadata rewrite.
+	ConditionStorageResizing = "StorageResizing"
+
+	// ConditionUpgrading is a state-indicator condition that is True while a
+	// version upgrade is in flight, and False when the instance is running its
+	// target version. External CI/CD pipelines can use this to block subsequent
+	// infrastructure changes until the upgrade completes.
+	ConditionUpgrading = "Upgrading"
+)
+
+// Reasons for the StorageResizing condition.
+const (
+	// ReasonStorageExpansionTriggered indicates the operator has updated the
+	// PVC; waiting for the cloud provider to provision the additional capacity.
+	ReasonStorageExpansionTriggered = "ExpansionTriggered"
+
+	// ReasonStorageFileSystemResizePending indicates the cloud disk is already
+	// larger, but the Kubelet has not yet expanded the filesystem inside the pod.
+	ReasonStorageFileSystemResizePending = "FileSystemResizePending"
+
+	// ReasonStorageResizeCompleted indicates the resize finished successfully
+	// and the new capacity is available to the instance.
+	ReasonStorageResizeCompleted = "ResizeCompleted"
+
+	// ReasonStorageQuotaExceeded indicates the cloud provider rejected the
+	// expansion request due to a storage quota limit.
+	ReasonStorageQuotaExceeded = "QuotaExceeded"
+
+	// ReasonStorageResizeFailed indicates the expansion failed (e.g., the
+	// storage class does not support online expansion).
+	ReasonStorageResizeFailed = "ResizeFailed"
+)
+
+// Reasons for the Upgrading condition.
+const (
+	// ReasonUpgradeMinorVersionRolling indicates a non-disruptive, pod-by-pod
+	// restart is in progress (e.g., 15.1 → 15.2). Traffic continues to be
+	// served throughout the rollout.
+	ReasonUpgradeMinorVersionRolling = "MinorVersionRolling"
+
+	// ReasonUpgradeMajorDataConversion indicates a disruptive logical upgrade
+	// is in progress (e.g., Postgres 14 → 15) that may require downtime.
+	ReasonUpgradeMajorDataConversion = "MajorDataConversion"
+
+	// ReasonUpgradeAwaitingReplicaSync indicates the primary has been upgraded
+	// but the operator is waiting for read-replicas to catch up before
+	// completing the rollout.
+	ReasonUpgradeAwaitingReplicaSync = "AwaitingReplicaSync"
+
+	// ReasonUpgradeCompleted indicates the instance is successfully running the
+	// version specified in spec.
+	ReasonUpgradeCompleted = "UpgradeCompleted"
+
+	// ReasonUpgradeFailed indicates the upgrade encountered a fatal error
+	// (e.g., a deprecated configuration parameter) and is stuck or rolling back.
+	ReasonUpgradeFailed = "UpgradeFailed"
 )
 
 type ComponentStatus struct {

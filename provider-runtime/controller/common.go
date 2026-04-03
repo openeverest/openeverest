@@ -364,21 +364,44 @@ func (s Status) ToV2Alpha1() v1alpha1.InstanceStatus {
 	}
 }
 
-// Status helper functions
+// =============================================================================
+// STATUS HELPER FUNCTIONS
+// =============================================================================
+//
+// These functions are the primary way for providers to report instance state
+// from their Status() method. Each function corresponds to a phase in the
+// Instance lifecycle (v1alpha1.InstancePhase).
+//
+// The Pending and Terminating phases are managed automatically by the
+// reconciler and do not have corresponding helper functions — providers
+// should not return those phases directly.
 
-// Creating returns a status indicating the cluster is being created.
-func Creating(message string) Status {
-	return Status{Phase: v1alpha1.InstancePhaseCreating, Message: message}
+// Pending returns a status indicating the instance has been accepted but
+// provisioning has not yet started (e.g., waiting on prerequisites).
+func Pending(message string) Status {
+	return Status{Phase: v1alpha1.InstancePhasePending, Message: message}
 }
 
-// Running returns a status indicating the cluster is running
-// without connection details. Use RunningWithConnectionDetails
-// when connection information is available.
-func Running() Status {
-	return Status{Phase: v1alpha1.InstancePhaseRunning}
+// Provisioning returns a status indicating the operator is actively creating
+// the underlying infrastructure (StatefulSets, PVCs, Services, etc.).
+func Provisioning(message string) Status {
+	return Status{Phase: v1alpha1.InstancePhaseProvisioning, Message: message}
 }
 
-// RunningWithConnectionDetails returns a running status with connection details.
+// Initializing returns a status indicating the infrastructure exists and the
+// instance engine is booting (bootstrap scripts, initial quorum, etc.).
+func Initializing(message string) Status {
+	return Status{Phase: v1alpha1.InstancePhaseInitializing, Message: message}
+}
+
+// Ready returns a status indicating the instance is fully operational and
+// accepting client connections. Use ReadyWithConnectionDetails when
+// connection information is available.
+func Ready() Status {
+	return Status{Phase: v1alpha1.InstancePhaseReady}
+}
+
+// ReadyWithConnectionDetails returns a ready status with connection details.
 // The reconciler writes these details to an auto-generated Secret.
 //
 // Providers should populate the well-known fields so the API server can expose
@@ -386,7 +409,7 @@ func Running() Status {
 //
 // Example:
 //
-//	return controller.RunningWithConnectionDetails(controller.ConnectionDetails{
+//	return controller.ReadyWithConnectionDetails(controller.ConnectionDetails{
 //		Type:     "mongodb",
 //		Provider: "percona-server-mongodb",
 //		Host:     host,
@@ -395,16 +418,55 @@ func Running() Status {
 //		Password: pass,
 //		URI:      uri,
 //	})
-func RunningWithConnectionDetails(details ConnectionDetails) Status {
+func ReadyWithConnectionDetails(details ConnectionDetails) Status {
 	return Status{
-		Phase:             v1alpha1.InstancePhaseRunning,
+		Phase:             v1alpha1.InstancePhaseReady,
 		ConnectionDetails: details,
 	}
 }
 
-// Failed returns a status indicating the cluster has failed.
+// Updating returns a status indicating a mutation is being rolled out
+// (scaling, config change, version upgrade, etc.).
+func Updating(message string) Status {
+	return Status{Phase: v1alpha1.InstancePhaseUpdating, Message: message}
+}
+
+// Failed returns a status indicating the instance has encountered a terminal
+// or semi-terminal error requiring human intervention.
 func Failed(message string) Status {
 	return Status{Phase: v1alpha1.InstancePhaseFailed, Message: message}
+}
+
+// =============================================================================
+// STATUS HELPER FUNCTIONS — Data Recovery
+// =============================================================================
+
+// Restoring returns a status indicating the instance is downloading and
+// unpacking data from an external backup source.
+func Restoring(message string) Status {
+	return Status{Phase: v1alpha1.InstancePhaseRestoring, Message: message}
+}
+
+// =============================================================================
+// STATUS HELPER FUNCTIONS — Cost-Saving (Compute-to-Zero)
+// =============================================================================
+
+// Suspending returns a status indicating the instance engine is gracefully
+// shutting down and preparing to scale compute to zero.
+func Suspending(message string) Status {
+	return Status{Phase: v1alpha1.InstancePhaseSuspending, Message: message}
+}
+
+// Suspended returns a status indicating the instance compute is scaled to zero.
+// Storage (PVCs) remains intact.
+func Suspended() Status {
+	return Status{Phase: v1alpha1.InstancePhaseSuspended}
+}
+
+// Resuming returns a status indicating the instance is scaling compute back up
+// and reattaching existing storage.
+func Resuming(message string) Status {
+	return Status{Phase: v1alpha1.InstancePhaseResuming, Message: message}
 }
 
 // =============================================================================

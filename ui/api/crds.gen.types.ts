@@ -556,8 +556,11 @@ export interface components {
                      */
                     name: string;
                 };
-                /** @description Phase of the database cluster. */
-                phase?: string;
+                /**
+                 * @description Phase of the database cluster.
+                 * @enum {string}
+                 */
+                phase?: "Pending" | "Provisioning" | "Initializing" | "Ready" | "Updating" | "Terminating" | "Failed" | "Restoring" | "Suspending" | "Suspended" | "Resuming";
             };
         };
         /** @description ConnectionDetails holds the typed connection details for a database instance. These are written by the provider-runtime reconciler to a Kubernetes Secret and later read back by the API server to serve the connection endpoint. They follow the Service Binding well-known keys where applicable. */

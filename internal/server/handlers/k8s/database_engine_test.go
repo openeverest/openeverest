@@ -1,3 +1,17 @@
+// Copyright (C) 2026 The OpenEverest Contributors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package k8s
 
 import (
@@ -107,7 +121,7 @@ func TestGetUpgradePreflightChecks(t *testing.T) {
 		assert.Len(t, result.databases, 1)
 		dbResult := (result.databases)[0]
 		assert.Equal(t, "test-db", pointer.Get(dbResult.Name))
-		assert.Equal(t, api.UpgradeEngine, pointer.Get(dbResult.PendingTask))
+		assert.Equal(t, api.UpgradeTaskPendingTaskUpgradeEngine, pointer.Get(dbResult.PendingTask))
 		assert.Equal(t, "Upgrade DB version to 0.5.0 or higher", pointer.Get(dbResult.Message))
 	})
 
@@ -168,7 +182,7 @@ func TestGetUpgradePreflightChecks(t *testing.T) {
 		assert.Len(t, result.databases, 1)
 		dbResult := (result.databases)[0]
 		assert.Equal(t, "test-db", pointer.Get(dbResult.Name))
-		assert.Equal(t, api.UpgradeEngine, pointer.Get(dbResult.PendingTask))
+		assert.Equal(t, api.UpgradeTaskPendingTaskUpgradeEngine, pointer.Get(dbResult.PendingTask))
 		assert.Equal(t, "Upgrade DB version to 16.4 or higher", pointer.Get(dbResult.Message))
 	})
 
@@ -229,7 +243,7 @@ func TestGetUpgradePreflightChecks(t *testing.T) {
 		assert.Len(t, result.databases, 1)
 		dbResult := (result.databases)[0]
 		assert.Equal(t, "test-db", pointer.Get(dbResult.Name))
-		assert.Equal(t, api.UpgradeEngine, pointer.Get(dbResult.PendingTask))
+		assert.Equal(t, api.UpgradeTaskPendingTaskUpgradeEngine, pointer.Get(dbResult.PendingTask))
 		assert.Equal(t, "Upgrade DB version to 13.16 or higher", pointer.Get(dbResult.Message))
 	})
 
@@ -278,7 +292,7 @@ func TestGetUpgradePreflightChecks(t *testing.T) {
 		assert.Len(t, result.databases, 1)
 		dbResult := (result.databases)[0]
 		assert.Equal(t, "test-db", pointer.Get(dbResult.Name))
-		assert.Equal(t, api.Restart, pointer.Get(dbResult.PendingTask))
+		assert.Equal(t, api.UpgradeTaskPendingTaskRestart, pointer.Get(dbResult.PendingTask))
 		assert.Equal(t, "Update CRVersion to "+operatorVersion, pointer.Get(dbResult.Message))
 	})
 
@@ -328,7 +342,7 @@ func TestGetUpgradePreflightChecks(t *testing.T) {
 		dbResult := (result.databases)[0]
 		assert.Equal(t, "test-db", pointer.Get(dbResult.Name))
 		assert.Equal(t, dbResult.Message, pointer.ToString("Database is not ready"))
-		assert.Equal(t, api.NotReady, pointer.Get(dbResult.PendingTask))
+		assert.Equal(t, api.UpgradeTaskPendingTaskNotReady, pointer.Get(dbResult.PendingTask))
 	})
 
 	t.Run("ready for upgrade", func(t *testing.T) {
@@ -376,6 +390,6 @@ func TestGetUpgradePreflightChecks(t *testing.T) {
 		assert.Len(t, result.databases, 1)
 		dbResult := (result.databases)[0]
 		assert.Equal(t, "test-db", pointer.Get(dbResult.Name))
-		assert.Equal(t, api.Ready, pointer.Get(dbResult.PendingTask))
+		assert.Equal(t, api.UpgradeTaskPendingTaskReady, pointer.Get(dbResult.PendingTask))
 	})
 }
