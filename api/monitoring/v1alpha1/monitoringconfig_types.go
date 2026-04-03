@@ -39,7 +39,7 @@ type MonitoringConfigSpec struct {
 	// It contains `apiKey` key with the API key value.
 	CredentialsSecretName string `json:"credentialsSecretName"`
 	// PMM is configuration specific for monitoring using PMM tool.
-	PMM PMMConfig `json:"pmm,omitempty"`
+	PMM *PMMConfig `json:"pmm,omitempty"`
 	// VerifyTLS is set to ensure TLS/SSL verification.
 	// If unspecified, the default value is true.
 	//

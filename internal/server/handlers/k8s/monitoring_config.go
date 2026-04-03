@@ -79,7 +79,7 @@ func (h *k8sHandler) CreateMonitoringConfig(ctx context.Context, namespace strin
 		},
 		Spec: monitoringv1alpha1.MonitoringConfigSpec{
 			Type: monitoringv1alpha1.MonitoringType(req.Type),
-			PMM: monitoringv1alpha1.PMMConfig{
+			PMM: &monitoringv1alpha1.PMMConfig{
 				URL: req.Url,
 			},
 			CredentialsSecretName: req.Name,
