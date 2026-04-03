@@ -25,16 +25,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// writeJSON is a helper to write a JSON response in tests.
-func writeJSON(t *testing.T, w http.ResponseWriter, statusCode int, v any) {
-	t.Helper()
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(statusCode)
-
-	err := json.NewEncoder(w).Encode(v)
-	require.NoError(t, err)
-}
-
 // TestGetPMMServerVersion tests GetPMMServerVersion against a mock PMM server.
 func TestGetPMMServerVersion(t *testing.T) {
 	t.Parallel()

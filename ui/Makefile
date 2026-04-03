@@ -3,7 +3,7 @@ OPENAPI_BIN=./node_modules/.bin/openapi-typescript
 OPENAPI_SRC=../api/openapi
 OPENAPI_OUT=api
 
-.PHONY: init test build lint format dev preflight
+.PHONY: init test build lint lint-check format format-check dev preflight
 
 init:
 	pnpm install
@@ -17,8 +17,14 @@ build:
 lint:
 	pnpm lint
 
+lint-check:
+	pnpm lint-check
+
 format:
 	pnpm format
+
+format-check:
+	pnpm format-check
 
 preflight:
 	$(MAKE) format

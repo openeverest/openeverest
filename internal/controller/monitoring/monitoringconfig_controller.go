@@ -17,6 +17,7 @@ package monitoring
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 
@@ -258,7 +259,7 @@ func (r *MonitoringConfigReconciler) fetchPMMServerVersion(
 
 // initIndexers registers the field indexers required by this controller.
 func (r *MonitoringConfigReconciler) initIndexers(ctx context.Context, mgr ctrl.Manager) error {
-	return mgr.GetFieldIndexer().IndexField(
+	if err := mgr.GetFieldIndexer().IndexField(
 		ctx,
 		&monitoringv1alpha1.MonitoringConfig{},
 		".spec.credentialsSecretName",
@@ -269,7 +270,46 @@ func (r *MonitoringConfigReconciler) initIndexers(ctx context.Context, mgr ctrl.
 			}
 			return []string{mc.Spec.CredentialsSecretName}
 		},
-	)
+	); err != nil {
+		return fmt.Errorf("indexing monitoringconfig by credentialsSecretName: %w", err)
+	}
+
+	if err := mgr.GetFieldIndexer().IndexField(
+		ctx,
+		&corev1alpha1.Instance{},
+		instanceMonitoringConfigField,
+		func(obj client.Object) []string {
+			instance, ok := obj.(*corev1alpha1.Instance)
+			if !ok {
+				return nil
+			}
+
+			monitoringSpec, ok := instance.Spec.Components["monitoring"]
+			if !ok {
+				return nil
+			}
+
+			if monitoringSpec.CustomSpec == nil || monitoringSpec.CustomSpec.Raw == nil {
+				return nil
+			}
+
+			m := map[string]any{}
+			if err := json.Unmarshal(monitoringSpec.CustomSpec.Raw, &m); err != nil {
+				return nil
+			}
+
+			_, ok = m["monitoringConfigName"]
+			if !ok {
+				return nil
+			}
+
+			return []string{instanceMonitoringConfigField}
+		},
+	); err != nil {
+		return fmt.Errorf("indexing instance by monitoring config name: %w", err)
+	}
+
+	return nil
 }
 
 // enqueueObjectsInNamespace returns an event handler that, when a Namespace event
