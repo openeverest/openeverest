@@ -13,10 +13,7 @@
 // limitations under the License.
 
 import { describe, expect, it } from 'vitest';
-import {
-  extractBadgeMappings,
-  applyBadgesToFormData,
-} from './badge-to-api';
+import { extractBadgeMappings, applyBadgesToFormData } from './badge-to-api';
 import { FieldType, TopologyUISchemas } from '../../ui-generator.types';
 
 describe('extractBadgeMappings', () => {
@@ -101,7 +98,9 @@ describe('applyBadgesToFormData', () => {
       { path: 'spec.disk', badge: 'Gi' },
       { path: 'spec.cpu', badge: 'cores' },
     ]);
-    expect(result).toEqual({ spec: { memory: undefined, disk: null, cpu: '' } });
+    expect(result).toEqual({
+      spec: { memory: undefined, disk: null, cpu: '' },
+    });
   });
 
   it('does not mutate the original data', () => {
