@@ -902,6 +902,8 @@ k8s_resource(
     'everest-controller-manager-role:clusterrole',
     'everest-controller-leader-election-rolebinding:rolebinding:{0}'.format(EVEREST_NAMESPACE),
     'everest-controller-manager-rolebinding:clusterrolebinding',
+    'everest-controller-webhook-server-cert:secret:{0}'.format(EVEREST_NAMESPACE),
+    'everest-controller-validating-webhook-configuration:validatingwebhookconfiguration',
     ],
     resource_deps = [
       'everest-namespace',
