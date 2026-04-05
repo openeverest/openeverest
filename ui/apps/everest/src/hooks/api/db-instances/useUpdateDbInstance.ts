@@ -22,7 +22,7 @@ import {
 import { enqueueSnackbar } from 'notistack';
 import { updateDbInstanceFn } from 'api/instanceApi';
 import { Instance } from 'types/api';
-import { DB_INSTANCE_QUERY_KEY, useDbInstance } from './useDbInstance';
+import { getDbInstanceQueryKey, useDbInstance } from './useDbInstance';
 
 const UPDATE_RETRY_TIMEOUT_MS = 5000;
 const UPDATE_RETRY_DELAY_MS = 200;
@@ -73,7 +73,7 @@ export const useUpdateDbInstanceWithConflictRetry = (
       return updateDbInstance(namespace, instanceName, instance);
     },
     onError: async (error, vars, ctx) => {
-      const { status } = error;
+      const status = error.response?.status ?? error.status;
 
       if (status === 409) {
         if (watchStartTime.current === null) {
@@ -122,7 +122,7 @@ export const useUpdateDbInstanceWithConflictRetry = (
     onSuccess: (data, vars, ctx) => {
       watchStartTime.current = null;
       queryClient.setQueryData<Instance>(
-        [DB_INSTANCE_QUERY_KEY, namespace, instanceName],
+        getDbInstanceQueryKey(namespace, instanceName, CLUSTER_NAME),
         () => data
       );
       ownOnSuccess?.(data, vars, ctx);

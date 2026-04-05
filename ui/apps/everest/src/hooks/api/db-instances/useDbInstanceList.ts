@@ -25,6 +25,23 @@ import { GetInstances, Instance, InstanceConnectionDetails } from 'types/api';
 export const DB_INSTANCES_QUERY_KEY = 'instances';
 export const DB_INSTANCE_CONNECTION_QUERY_KEY = 'instanceConnection';
 
+export const getDbInstancesQueryKey = (
+  namespace: string,
+  clusterName: string
+) => [DB_INSTANCES_QUERY_KEY, namespace, clusterName] as const;
+
+export const getDbInstanceConnectionQueryKey = (
+  instanceName: string,
+  namespace: string,
+  clusterName: string
+) =>
+  [
+    DB_INSTANCE_CONNECTION_QUERY_KEY,
+    namespace,
+    clusterName,
+    instanceName,
+  ] as const;
+
 export interface DbInstanceForNamespaceResult {
   namespace: string;
   queryResult: UseQueryResult<Instance[], unknown>;
@@ -37,7 +54,7 @@ export const useDbInstanceList = (
   // TODO change to global use of cluster name during implementing multicluster feature
   const clusterName = 'main';
   return useQuery<GetInstances, unknown, Instance[]>({
-    queryKey: [DB_INSTANCES_QUERY_KEY, `${namespace}-${clusterName}`],
+    queryKey: getDbInstancesQueryKey(namespace, clusterName),
     queryFn: () => getDbInstancesFn(clusterName, namespace),
     refetchInterval: 5 * 1000,
     ...options,
@@ -74,7 +91,7 @@ export const useInstancesForNamespaces = (
     UseQueryOptions<GetInstances, unknown, Instance[]>
   >(({ namespace, options }) => {
     return {
-      queryKey: [DB_INSTANCES_QUERY_KEY, `${namespace}-${clusterName}`],
+      queryKey: getDbInstancesQueryKey(namespace, clusterName),
       queryFn: () => getDbInstancesFn(clusterName, namespace),
       refetchInterval: 5 * 1000,
       select: instancesQuerySelect,
@@ -110,7 +127,11 @@ export const useInstanceConnection = (
     unknown,
     InstanceConnectionDetails
   >({
-    queryKey: [DB_INSTANCE_CONNECTION_QUERY_KEY, instanceName],
+    queryKey: getDbInstanceConnectionQueryKey(
+      instanceName,
+      namespace,
+      clusterName
+    ),
     queryFn: () =>
       getDbInstanceConnectionFn(clusterName, namespace, instanceName),
     ...options,

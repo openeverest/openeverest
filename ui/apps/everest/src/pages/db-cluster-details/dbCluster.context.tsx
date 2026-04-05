@@ -17,9 +17,9 @@ import { useParams } from 'react-router-dom';
 import { QueryObserverResult, useQueryClient } from '@tanstack/react-query';
 import { AxiosError } from 'axios';
 import {
-  DB_INSTANCES_QUERY_KEY,
+  getDbInstancesQueryKey,
+  getDbInstanceQueryKey,
   useDbInstance,
-  DB_INSTANCE_QUERY_KEY,
 } from 'hooks/api/db-instances';
 import { DbInstanceContextProps } from './dbCluster.context.types';
 import { Instance } from 'types/api';
@@ -42,6 +42,7 @@ export const DbInstanceContextProvider = ({
   children: React.ReactNode;
 }) => {
   const { instanceName = '', namespace = '' } = useParams();
+  const clusterName = 'main';
   const defaultInterval = 5 * 1000;
   const [refetchInterval] = useState(defaultInterval);
   const [instanceDeleted, setInstanceDeleted] = useState(false);
@@ -93,10 +94,14 @@ export const DbInstanceContextProvider = ({
       const errorStatus = axiosError.response ? axiosError.response.status : 0;
       setInstanceDeleted(errorStatus === 404);
       queryClient.invalidateQueries({
-        queryKey: [DB_INSTANCES_QUERY_KEY, namespace],
+        queryKey: getDbInstancesQueryKey(namespace, clusterName),
+      });
+      queryClient.refetchQueries({
+        queryKey: getDbInstancesQueryKey(namespace, clusterName),
+        type: 'all',
       });
       queryClient.invalidateQueries({
-        queryKey: [DB_INSTANCE_QUERY_KEY, namespace, instanceName],
+        queryKey: getDbInstanceQueryKey(namespace, instanceName, clusterName),
       });
     }
   }, [instance?.status, error, namespace, instanceName, queryClient]);

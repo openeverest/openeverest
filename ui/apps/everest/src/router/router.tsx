@@ -84,12 +84,17 @@ const router = createBrowserRouter([
           </DbInstanceContextProvider>
         ),
         children: [
+          {
+            index: true,
+            element: (
+              <Navigate to={DBClusterDetailsTabs.overview} replace />
+            ),
+          },
           // {
           //   path: DBClusterDetailsTabs.backups,
           //   element: withSuspense(<Backups />),
           // },
           {
-            index: true,
             path: DBClusterDetailsTabs.overview,
             element: withSuspense(<InstanceOverview />),
           },

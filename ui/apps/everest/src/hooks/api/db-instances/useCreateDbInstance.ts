@@ -25,6 +25,12 @@ import {
   GetDbInstanceConnectionPayload,
 } from 'types/api';
 
+export const getDbInstanceCredentialsQueryKey = (
+  dbInstanceName: string,
+  namespace: string,
+  clusterName: string
+) => ['instance-credentials', namespace, clusterName, dbInstanceName] as const;
+
 type CreateInstanceHookArgType = {
   formValue: DbWizardType;
 };
@@ -72,7 +78,11 @@ export const useDbInstanceCredentials = (
     unknown,
     InstanceConnectionDetails
   >({
-    queryKey: ['instance-credentials', dbInstanceName],
+    queryKey: getDbInstanceCredentialsQueryKey(
+      dbInstanceName,
+      namespace,
+      clusterName
+    ),
     queryFn: () =>
       getDbInstanceConnectionFn(clusterName, namespace, dbInstanceName),
     ...options,

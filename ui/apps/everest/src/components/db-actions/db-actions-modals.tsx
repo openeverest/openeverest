@@ -79,6 +79,7 @@ export const DbActionsModals = ({
           )}
           submitMessage={Messages.deleteModal.confirmButton}
           checkboxMessage={Messages.deleteModal.checkboxMessage}
+          // TODO review component after v2 backups +restore feature release
           // disableCheckbox={disableKeepDataCheckbox}
           tooltipText={Messages.deleteModal.disabledCheckboxForPGTooltip}
           hideCheckbox={hideCheckbox}

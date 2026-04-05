@@ -44,13 +44,17 @@ export interface UncoveredField {
 
 export const useClusterOverviewData = () => {
   const { instanceName, namespace = '' } = useParams();
-  const { instance, isLoading } = useContext(DbInstanceContext);
+  const { instance, isLoading, canReadCredentials } =
+    useContext(DbInstanceContext);
 
   const { data: credentials } = useDbInstanceCredentials(
     instanceName || '',
     namespace,
     {
-      enabled: !!instanceName && instance?.status?.phase === 'Ready',
+      enabled:
+        canReadCredentials &&
+        !!instanceName &&
+        instance?.status?.phase === 'Ready',
     }
   );
 

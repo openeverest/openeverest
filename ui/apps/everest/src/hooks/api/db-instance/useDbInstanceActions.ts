@@ -15,18 +15,16 @@
 import { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
-import { DbCluster, DbClusterStatus } from 'shared-types/dbCluster.types';
-import { DB_CLUSTER_QUERY } from '../db-cluster/useDbCluster';
 // import { useUpdateDbClusterWithConflictRetry } from '../db-cluster/useUpdateDbCluster';
 import {
-  mergeNewDbClusterData,
-  // setDbClusterPausedStatus,
-  // setDbClusterRestart,
-} from 'utils/db';
-import { DB_INSTANCES_QUERY_KEY, useDeleteDbInstance } from '../db-instances';
+  getDbInstanceQueryKey,
+  getDbInstancesQueryKey,
+  useDeleteDbInstance,
+} from '../db-instances';
 import { GetDbInstancesPayload, Instance } from 'types/api';
 
 export const useDbInstanceActions = (dbInstance: Instance) => {
+  const clusterName = 'main';
   const [openDeleteDialog, setOpenDeleteDialog] = useState(false);
   const [openDetailsDialog, setOpenDetailsDialog] = useState(false);
   const [openRestoreDialog, setOpenRestoreDialog] = useState(false);
@@ -94,7 +92,7 @@ export const useDbInstanceActions = (dbInstance: Instance) => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
-  const isPaused = (dbCluster: DbCluster) => dbCluster.spec.paused;
+  // const isPaused = (dbCluster: DbCluster) => dbCluster.spec.paused;
 
   // const handleDbSuspendOrResumed = (dbCluster: DbCluster) => {
   //   const shouldBePaused = !isPaused(dbCluster);
@@ -133,7 +131,7 @@ export const useDbInstanceActions = (dbInstance: Instance) => {
       {
         onSuccess: (_, variables) => {
           queryClient.setQueryData<GetDbInstancesPayload | undefined>(
-            [DB_INSTANCES_QUERY_KEY, variables.namespace],
+            getDbInstancesQueryKey(variables.namespace, clusterName),
             (oldData) => {
               if (!oldData) {
                 return undefined;
@@ -152,7 +150,7 @@ export const useDbInstanceActions = (dbInstance: Instance) => {
                         // crVersion: item.status?.crVersion || '',
                         // hostname: item.status?.hostname || '',
                         // port: item.status?.port || 0,
-                        status: DbClusterStatus.deleting,
+                        phase: 'Terminating',
                       },
                     };
                   }
@@ -162,25 +160,27 @@ export const useDbInstanceActions = (dbInstance: Instance) => {
               };
             }
           );
-          queryClient.setQueryData<DbCluster>(
-            [DB_CLUSTER_QUERY, dbInstance.metadata?.name],
-            (oldData) => {
-              if (!oldData) {
-                return undefined;
-              }
-
-              return {
-                ...mergeNewDbClusterData(undefined, oldData, false),
-                status: {
-                  ...oldData.status,
-                  conditions: oldData.status?.conditions || [],
-                  hostname: oldData.status?.hostname || '',
-                  port: oldData.status?.port || 0,
-                  crVersion: oldData.status?.crVersion || '',
-                  status: DbClusterStatus.deleting,
-                },
-              };
-            }
+          queryClient.setQueryData<Instance | undefined>(
+            getDbInstanceQueryKey(
+              variables.namespace,
+              variables.dbInstanceName,
+              clusterName
+            ),
+            (oldData) =>
+              oldData
+                ? {
+                    ...oldData,
+                    status: {
+                      ...oldData.status,
+                      phase: 'Terminating',
+                      // TODO v2 check should be deleted or not
+                      // conditions: oldData.status?.conditions || [],
+                      // hostname: oldData.status?.hostname || '',
+                      // port: oldData.status?.port || 0,
+                      // crVersion: oldData.status?.crVersion || '',
+                    },
+                  }
+                : undefined
           );
           handleCloseDeleteDialog(redirect);
         },
@@ -215,7 +215,7 @@ export const useDbInstanceActions = (dbInstance: Instance) => {
     handleOpenDbDetailsDialog,
     handleCloseDeleteDialog,
     handleCloseDetailsDialog,
-    isPaused,
+    // isPaused,
     handleRestoreDbCluster,
     handleCloseRestoreDialog,
     setOpenDetailsDialog,

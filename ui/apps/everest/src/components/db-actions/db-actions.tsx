@@ -50,7 +50,7 @@ export const DbActions = ({
   } = useDbInstanceActions(dbInstance);
   const open = Boolean(anchorEl);
   const dbInstanceName = dbInstance.metadata?.name;
-  const namespace = dbInstance.metadata?.namespace;
+  // const namespace = dbInstance.metadata?.namespace;
   // const redirectURL = `/databases/${namespace}/${dbInstanceName}/overview`;
 
   // const navigate = useNavigate();
@@ -70,7 +70,7 @@ export const DbActions = ({
     setAnchorEl(null);
   };
 
-  const { canUpdate, canDelete } = useRBACPermissions(
+  const { /*canUpdate*/ canDelete } = useRBACPermissions(
     'database-clusters',
     `${dbInstance.metadata?.namespace}/${dbInstance.metadata?.name}`
   );
@@ -80,15 +80,15 @@ export const DbActions = ({
   //   `${dbInstance.metadata?.namespace}/*`
   // );
 
-  const { canCreate: canCreateRestore } = useRBACPermissions(
-    'database-cluster-restores',
-    `${namespace}/*`
-  );
+  // const { canCreate: canCreateRestore } = useRBACPermissions(
+  //   'database-cluster-restores',
+  //   `${namespace}/*`
+  // );
 
-  const { canRead: canReadCredentials } = useRBACPermissions(
-    'database-cluster-credentials',
-    `${namespace}/${dbInstanceName}`
-  );
+  // const { canRead: canReadCredentials } = useRBACPermissions(
+  //   'database-cluster-credentials',
+  //   `${namespace}/${dbInstanceName}`
+  // );
 
   // const { canCreate: canCreateBackups } = useRBACPermissions(
   //   'database-cluster-backups',
@@ -100,8 +100,10 @@ export const DbActions = ({
   //   `${namespace}/${dbInstanceName}`
   // );
 
-  const canRestore = canCreateRestore && canReadCredentials;
-  const noActionAvailable = !canUpdate && !canDelete && !canRestore;
+  // const canRestore = canCreateRestore && canReadCredentials;
+  // TODO RBAC
+  // const noActionAvailable = !canUpdate && !canDelete && !canRestore;
+  const noActionAvailable = false;
   // let canCreateClusterFromBackup = canRestore && canCreateClusters;
 
   // if (hasSchedules) {

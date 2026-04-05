@@ -19,6 +19,18 @@ import { GetDbInstancePayload, Instance } from 'types/api';
 
 export const DB_INSTANCE_QUERY_KEY = 'instance';
 
+export const getDbInstanceQueryKey = (
+  namespace: string,
+  instanceName: string,
+  clusterName: string
+) =>
+  [
+    DB_INSTANCE_QUERY_KEY,
+    namespace,
+    clusterName,
+    instanceName,
+  ] as const;
+
 export const useDbInstance = (
   namespace: string,
   instanceName: string,
@@ -33,7 +45,7 @@ export const useDbInstance = (
   const clusterName = 'main';
 
   return useQuery<GetDbInstancePayload, unknown, Instance>({
-    queryKey: [DB_INSTANCE_QUERY_KEY, namespace, instanceName],
+    queryKey: getDbInstanceQueryKey(namespace, instanceName, clusterName),
     queryFn: () => getDbInstanceFn(clusterName, namespace, instanceName),
     enabled: options?.enabled ?? true /*&& canRead*/,
     ...options,

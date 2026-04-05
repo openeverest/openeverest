@@ -85,7 +85,7 @@ export const useUpdateDbClusterWithConflictRetry = (
       return updateDbCluster(dbCluster);
     },
     onError: async (error, vars, ctx) => {
-      const { status } = error;
+      const status = error.response?.status ?? error.status;
 
       if (status === 409) {
         if (watchStartTime.current === null) {
