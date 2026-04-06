@@ -29,18 +29,13 @@ format-check:
 preflight:
 	$(MAKE) format
 	$(MAKE) lint
-	pnpm --filter "@percona/everest" test
-	pnpm --filter "@percona/everest" build
+	$(MAKE) test
+	$(MAKE) -C .. copyright-headers BASE_BRANCH=v2
+	$(MAKE) build
 
 # This might change in the future if we have more apps, but for now keep it simple
 dev:
 	pnpm --filter "@percona/everest" dev
-
-preflight:
-	$(MAKE) lint
-	$(MAKE) test
-	$(MAKE) -C .. copyright-headers
-	$(MAKE) format
 
 ##@ OpenAPI TypeScript Types Generation
 

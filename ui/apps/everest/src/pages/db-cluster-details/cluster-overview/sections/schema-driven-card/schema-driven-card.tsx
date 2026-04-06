@@ -31,8 +31,12 @@ const SchemaDrivenCard = ({ card, loading }: SchemaDrivenCardProps) => (
       <Stack gap={3}>
         <OverviewSection dataTestId={card.key} loading={loading}>
           {card.fields.length > 0 ? (
-            card.fields.map(({ label, value }) => (
-              <OverviewSectionRow key={label} label={label} content={value} />
+            card.fields.map(({ label, path, value }) => (
+              <OverviewSectionRow
+                key={`${card.key}:${path}`}
+                label={label}
+                content={value}
+              />
             ))
           ) : (
             <OverviewSectionRow label="Info" content="No data available" />

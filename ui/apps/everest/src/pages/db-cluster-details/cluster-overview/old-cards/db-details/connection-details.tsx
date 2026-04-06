@@ -48,6 +48,7 @@ export const ConnectionDetails = ({
       loading={loading}
       dataTestId="connection-details"
     >
+      {/*TODO ask BE about this one */}
       {exposeType === ProxyExposeType.NodePort && (
         <>
           <Typography
@@ -94,7 +95,7 @@ export const ConnectionDetails = ({
           />
         </>
       )}
-
+      {/* TODO v2 check type condition usage */}
       {type !== DbType.Mysql && (
         <TextField
           label={Messages.fields.connectionUrl}

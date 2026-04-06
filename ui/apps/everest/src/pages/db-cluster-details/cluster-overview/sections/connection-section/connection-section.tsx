@@ -12,46 +12,103 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+import { useContext, useState } from 'react';
+import { IconButton, TextField } from '@mui/material';
+import { CopyToClipboardButton } from '@percona/ui-lib';
+import VisibilityOutlinedIcon from '@mui/icons-material/VisibilityOutlined';
+import VisibilityOffOutlinedIcon from '@mui/icons-material/VisibilityOffOutlined';
+import { HiddenPasswordToggle } from 'components/hidden-row';
+import { DbInstanceContext } from 'pages/db-cluster-details/dbCluster.context';
 import OverviewSection from '../../overview-section';
 import OverviewSectionRow from '../../overview-section-row';
 import { Messages } from '../../cluster-overview.messages';
+import { ConnectionSectionMessages } from './messages.ts';
 import type { ConnectionSectionProps } from './connection-section.types';
+import { getConnectionHosts } from './utils.ts';
+import ConnectionHost from './connection-host';
 
 const ConnectionSection = ({
   credentials,
   loading,
-}: ConnectionSectionProps) => (
-  <OverviewSection
-    dataTestId="connection-details"
-    title={Messages.titles.connectionDetails}
-    loading={loading}
-  >
-    {credentials ? (
-      <>
+}: ConnectionSectionProps) => {
+  const { canReadCredentials } = useContext(DbInstanceContext);
+  const [showUrl, setShowUrl] = useState(false);
+
+  return (
+    <OverviewSection
+      dataTestId="connection-details"
+      title={Messages.titles.connectionDetails}
+      loading={loading}
+    >
+      {credentials ? (
+        <>
+          <OverviewSectionRow
+            label={Messages.fields.host}
+            content={getConnectionHosts(credentials.host).map((host) => (
+              <ConnectionHost key={host} host={host} />
+            ))}
+          />
+          <OverviewSectionRow
+            label={Messages.fields.port}
+            content={credentials.port}
+          />
+          {canReadCredentials && (
+            <>
+              <OverviewSectionRow
+                label={Messages.fields.username}
+                content={credentials.username}
+              />
+              <OverviewSectionRow
+                label={Messages.fields.password}
+                content={
+                  <HiddenPasswordToggle
+                    showCopy
+                    value={credentials.password || ''}
+                  />
+                }
+              />
+            </>
+          )}
+
+          {credentials.uri && (
+            <TextField
+              label={Messages.fields.connectionUrl}
+              value={credentials.uri}
+              size="small"
+              sx={{ maxHeight: '50px', marginTop: '20px', width: '100%' }}
+              type={showUrl ? 'text' : 'password'}
+              InputProps={{
+                endAdornment: (
+                  <>
+                    <IconButton onClick={() => setShowUrl((s) => !s)}>
+                      {showUrl ? (
+                        <VisibilityOutlinedIcon />
+                      ) : (
+                        <VisibilityOffOutlinedIcon />
+                      )}
+                    </IconButton>
+                    <CopyToClipboardButton
+                      buttonProps={{
+                        sx: { mt: -0.5 },
+                        size: 'small',
+                      }}
+                      textToCopy={credentials.uri || ''}
+                    />
+                  </>
+                ),
+              }}
+              InputLabelProps={{ shrink: true }}
+            />
+          )}
+        </>
+      ) : (
         <OverviewSectionRow
-          label={Messages.fields.host}
-          content={credentials.host}
+          label={Messages.fields.status}
+          content={ConnectionSectionMessages.waitingForInstance}
         />
-        <OverviewSectionRow
-          label={Messages.fields.port}
-          content={credentials.port}
-        />
-        <OverviewSectionRow
-          label={Messages.fields.username}
-          content={credentials.username}
-        />
-        <OverviewSectionRow
-          label={Messages.fields.connectionUrl}
-          content={credentials.uri}
-        />
-      </>
-    ) : (
-      <OverviewSectionRow
-        label={Messages.fields.status}
-        content="Waiting for instance to be ready..."
-      />
-    )}
-  </OverviewSection>
-);
+      )}
+    </OverviewSection>
+  );
+};
 
 export default ConnectionSection;

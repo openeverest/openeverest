@@ -64,6 +64,7 @@ const ResourcesEditModal = ({
       onSubmit={onSubmit}
       defaultValues={defaultValues}
     >
+      {/* TODO v2 check type condition usage */}
       <ResourcesForm
         dbType={dbType}
         pairProxiesWithNodes={false}

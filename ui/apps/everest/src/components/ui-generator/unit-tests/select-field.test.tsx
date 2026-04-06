@@ -149,7 +149,6 @@ describe('UIGenerator - Select Field Basic Rendering', () => {
       expect(listbox).toBeInTheDocument();
     });
 
-    // Check options are rendered (they might be in portal)
     expect(screen.getByText('Option One')).toBeInTheDocument();
     expect(screen.getByText('Option Two')).toBeInTheDocument();
     expect(screen.getByText('Option Three')).toBeInTheDocument();
@@ -218,7 +217,6 @@ describe('UIGenerator - Select Field Required Validation', () => {
     });
     fireEvent.mouseDown(selectCombobox);
 
-    // Wait for options to appear
     await waitFor(() => {
       expect(screen.getByRole('listbox')).toBeInTheDocument();
     });

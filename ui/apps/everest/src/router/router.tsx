@@ -86,9 +86,7 @@ const router = createBrowserRouter([
         children: [
           {
             index: true,
-            element: (
-              <Navigate to={DBClusterDetailsTabs.overview} replace />
-            ),
+            element: <Navigate to={DBClusterDetailsTabs.overview} replace />,
           },
           // {
           //   path: DBClusterDetailsTabs.backups,

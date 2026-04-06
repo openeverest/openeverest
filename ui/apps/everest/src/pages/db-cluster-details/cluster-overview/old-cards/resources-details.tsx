@@ -159,6 +159,7 @@ export const ResourcesDetails = ({
         }}
       >
         <Stack gap={3}>
+          {/* TODO v2 check type condition usage */}
           {dbType === DbType.Mongo && (
             <OverviewSection title={'Sharding'} loading={loading}>
               <OverviewSectionRow
@@ -187,6 +188,7 @@ export const ResourcesDetails = ({
             </OverviewSection>
           )}
           <OverviewSection
+            // TODO v2 check type condition usage
             title={`${numberOfNodesStr} node${+numberOfNodesStr > 1 ? 's' : ''} ${dbType === DbType.Mongo && sharding?.enabled ? 'per shard' : ''}`}
             loading={loading}
           >

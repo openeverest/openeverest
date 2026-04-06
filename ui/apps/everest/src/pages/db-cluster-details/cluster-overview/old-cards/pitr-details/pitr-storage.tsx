@@ -34,6 +34,7 @@ const PitrStorage = ({ dbCluster }: { dbCluster: DbCluster }) => {
     return null;
   }
 
+  // TODO v2 check type condition usage
   if (dbType === DbType.Mysql) {
     return (
       <AutoCompleteAutoFill

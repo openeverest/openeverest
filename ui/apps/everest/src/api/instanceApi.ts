@@ -50,7 +50,7 @@ export const getDbInstancesFn = async (
   namespace: string
 ) => {
   const response = await api.get<GetInstances>(
-    `/clusters/${clusterName}/namespaces/${namespace}/instances`
+    `clusters/${clusterName}/namespaces/${namespace}/instances`
   );
   return response.data;
 };
@@ -62,7 +62,7 @@ export const deleteDbInstanceFn = async (
   // cleanupBackupStorage: boolean
 ) => {
   const response = await api.delete<Instance>(
-    `/clusters/${clusterName}/namespaces/${namespace}/instances/${dbInstanceName}`
+    `clusters/${clusterName}/namespaces/${namespace}/instances/${dbInstanceName}`
   );
   return response.data;
 };
@@ -73,7 +73,7 @@ export const getDbInstanceFn = async (
   instanceName: string
 ) => {
   const response = await api.get<GetDbInstancePayload>(
-    `/clusters/${clusterName}/namespaces/${namespace}/instances/${instanceName}`
+    `clusters/${clusterName}/namespaces/${namespace}/instances/${instanceName}`
   );
   return response.data;
 };
@@ -85,7 +85,7 @@ export const updateDbInstanceFn = async (
   data: Instance
 ) => {
   const response = await api.put<Instance>(
-    `/clusters/${clusterName}/namespaces/${namespace}/instances/${instanceName}`,
+    `clusters/${clusterName}/namespaces/${namespace}/instances/${instanceName}`,
     data
   );
   return response.data;
@@ -97,7 +97,7 @@ export const getDbInstanceConnectionFn = async (
   instanceName: string
 ) => {
   const response = await api.get<InstanceConnectionDetails>(
-    `/clusters/${clusterName}/namespaces/${namespace}/instances/${instanceName}/connection`
+    `clusters/${clusterName}/namespaces/${namespace}/instances/${instanceName}/connection`
   );
   return response.data;
 };

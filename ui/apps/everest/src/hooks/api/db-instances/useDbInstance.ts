@@ -23,13 +23,7 @@ export const getDbInstanceQueryKey = (
   namespace: string,
   instanceName: string,
   clusterName: string
-) =>
-  [
-    DB_INSTANCE_QUERY_KEY,
-    namespace,
-    clusterName,
-    instanceName,
-  ] as const;
+) => [DB_INSTANCE_QUERY_KEY, namespace, clusterName, instanceName] as const;
 
 export const useDbInstance = (
   namespace: string,

@@ -41,6 +41,7 @@ export const PitrEditModal = ({
   const schedules = dbCluster.spec.backup?.schedules || [];
   const backup = dbCluster?.spec?.backup;
   const backupsEnabled = schedules.length > 0;
+  // TODO v2 check type condition usage
   const pitrEnabled =
     dbType === DbType.Postresql
       ? backupsEnabled
@@ -74,6 +75,7 @@ export const PitrEditModal = ({
         backupStorageName
       )}
     >
+      {/* TODO v2 check type condition usage */}
       {dbType === DbType.Mongo && (
         <Typography variant="body2">
           {Messages.firstStorageWillBeUsed}
