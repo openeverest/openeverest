@@ -24,11 +24,20 @@ NOTE: for MacOS tilt needs to have installed and runing `docker-desktop` tool. T
 ## Set up the environment
 
 ### 1. Set up k8s & registry   
-#### Option A: Local  
+#### Option A: Local (Tilt development)
+```sh
+make dev-up
+```
+This creates a k3d cluster and starts Tilt. The Everest UI will be available at http://localhost:8080.
+
+#### Option B: Local (CI-style testing)
 ```sh
 make k3d-cluster-up
-```  
-#### Option B: Remote (GKE)  
+make deploy-all
+```
+This creates a k3d cluster and deploys Everest using the `deploy` target, which exposes the service via NodePort.
+
+#### Option C: Remote (GKE)  
 1. Setup your default gcloud project, e.g.  
 ```sh
 export CLOUDSDK_CORE_PROJECT=percona-everest
@@ -49,7 +58,7 @@ gcloud auth configure-docker <REGISTRY_REGION>-docker.pkg.dev
 - Cleanup the registry periodically since tilt pushes a new image each time something is changed in the project. 
 
 
-### 2. Run tilt
+### 2. Configure and start Tilt
 1. Set environment variables:
 
 Copy file dev/.env.example to dev/.env and set the following environment variables:
@@ -94,23 +103,25 @@ Refer to instructions in your IDE on how to setup remote debugging.
 
 For GoLand, you can refer to [this](https://www.jetbrains.com/help/go/attach-to-running-go-processes-with-debugger.html#step-2-create-the-go-remote-run-debug-configuration) link.
 
-5. Run tilt
+5. Start Tilt:
 ```sh
-tilt up
+make dev-up
 ```
 
 The everest UI/API will be available at http://localhost:8080.
 
 ## Tear down the environment
 
-1. Tear down tilt
+### For Tilt development:
 ```sh
-tilt down
+make dev-down       # Stop Tilt (cluster remains running)
+make dev-destroy    # Stop Tilt and destroy the cluster
 ```
 
-2. Tear down local k8s cluster
+### For CI-style testing:
 ```sh
-make k3d-cluster-down
+make undeploy       # Undeploy Everest
+make k3d-cluster-down  # Destroy the cluster
 ```
 
 ## Notes for frontend development

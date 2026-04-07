@@ -266,7 +266,8 @@ undeploy: build-cli-debug ## Undeploy Everest from K8S cluster using Everest CLI
 
 .PHONY: expose
 expose:
-	kubectl port-forward svc/everest 8080:8080 -n everest-system
+	kubectl patch svc -n everest-system everest --type=merge \
+	-p '{"spec": {"type": "NodePort", "ports": [{"name": "http", "port": 8080, "protocol": "TCP", "targetPort": 8080, "nodePort": 30080}]}}'
 
 .PHONY: k3d-cluster-up
 k3d-cluster-up: ## Create a K8S cluster for testing.
@@ -295,6 +296,37 @@ k3d-upload-operator-image: ## Upload the Everest operator image to the testing k
 cert:                   ## Create dev TLS certificates.
 	mkcert -install
 	mkcert -cert-file=dev-cert.pem -key-file=dev-key.pem everest everest.localhost 127.0.0.1
+
+##@ Development with Tilt
+
+.PHONY: k3d-cluster-up-dev
+k3d-cluster-up-dev:     ## Create a K8S cluster for Tilt development (no port conflicts).
+	@if ! k3d cluster list | grep -q "everest-dev"; then \
+		echo "Creating K3D cluster for Tilt development"; \
+		k3d cluster create --config ./dev/k3d_config.dev.yaml; \
+	else \
+		echo "K3D cluster everest-dev already exists"; \
+	fi
+
+.PHONY: k3d-cluster-down-dev
+k3d-cluster-down-dev:   ## Destroy the K8S cluster for Tilt development.
+	@if k3d cluster list | grep -q "everest-dev"; then \
+		echo "Destroying K3D dev cluster"; \
+		k3d cluster delete --config ./dev/k3d_config.dev.yaml; \
+	else \
+		echo "K3D cluster everest-dev does not exist"; \
+	fi
+
+.PHONY: dev-up
+dev-up: k3d-cluster-up-dev  ## Create k3d cluster for Tilt development and start Tilt.
+	tilt up -f dev/Tiltfile
+
+.PHONY: dev-down
+dev-down:               ## Stop Tilt (keeps cluster running for later reuse).
+	tilt down -f dev/Tiltfile
+
+.PHONY: dev-destroy
+dev-destroy: dev-down k3d-cluster-down-dev ## Stop Tilt and destroy the k3d cluster.
 
 ##@ GitHub PR
 
