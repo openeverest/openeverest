@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -21,12 +22,11 @@ import { format } from 'date-fns';
 import {
   BACKUPS_QUERY_KEY,
   useDbBackups,
-  useDbClusterPitr,
   useDeleteBackup,
   useUpdateDbClusterWithConflictRetry,
 } from 'hooks';
 import { MRT_ColumnDef } from 'material-react-table';
-import { Alert, Typography } from '@mui/material';
+import { Typography } from '@mui/material';
 import { RestoreDbModal } from 'modals/index.ts';
 import { useContext, useMemo, useState } from 'react';
 import {
@@ -37,24 +37,20 @@ import {
 import { ScheduleModalContext } from '../backups.context.ts';
 import { BACKUP_STATUS_TO_BASE_STATUS } from './backups-list.constants';
 import { Messages } from './backups-list.messages';
-import { Messages as DbDetailsMessages } from '../../db-cluster-details.messages';
 import BackupListTableHeader from './table-header';
 import { CustomConfirmDialog } from 'components/custom-confirm-dialog/custom-confirm-dialog.tsx';
 import { DbEngineType } from '@percona/types';
 import { getAvailableBackupStoragesForBackups } from 'utils/backups.ts';
 import { dbEngineToDbType } from '@percona/utils';
 import { useBackupStoragesByNamespace } from 'hooks/api/backup-storages/useBackupStorages.ts';
-import TableActionsMenu from 'components/table-actions-menu';
-import { BackupActionButtons } from './backups-list-menu-actions';
-import { shouldDbActionsBeBlocked } from 'utils/db.tsx';
 import { WizardMode } from 'shared-types/wizard.types.ts';
 
 export const BackupsList = () => {
   const queryClient = useQueryClient();
   const [openRestoreDbModal, setOpenRestoreDbModal] = useState(false);
-  const [isNewClusterMode, setIsNewClusterMode] = useState(false);
+  const [isNewClusterMode /*, setIsNewClusterMode*/] = useState(false);
   const [openDeleteDialog, setOpenDeleteDialog] = useState(false);
-  const [selectedBackup, setSelectedBackup] = useState('');
+  const [selectedBackup /*, setSelectedBackup*/] = useState('');
   const {
     dbCluster,
     setMode: setScheduleModalMode,
@@ -78,13 +74,13 @@ export const BackupsList = () => {
       onSuccess: () => handleCloseDeleteDialog(),
     }
   );
-  const { data: pitrData } = useDbClusterPitr(
-    dbCluster.metadata.name!,
-    dbCluster.metadata.namespace,
-    {
-      enabled: !!dbCluster.metadata.name && !!dbCluster.metadata.namespace,
-    }
-  );
+  // const { data: pitrData } = useDbClusterPitr(
+  //   dbCluster.metadata.name!,
+  //   dbCluster.metadata.namespace,
+  //   {
+  //     enabled: !!dbCluster.metadata.name && !!dbCluster.metadata.namespace,
+  //   }
+  // );
   const { data: backupStorages = [] } = useBackupStoragesByNamespace(
     dbCluster?.metadata.namespace
   );
@@ -159,10 +155,10 @@ export const BackupsList = () => {
     return null;
   }
 
-  const handleDeleteBackup = (backupName: string) => {
-    setSelectedBackup(backupName);
-    setOpenDeleteDialog(true);
-  };
+  // const handleDeleteBackup = (backupName: string) => {
+  //   setSelectedBackup(backupName);
+  //   setOpenDeleteDialog(true);
+  // };
 
   const handleManualBackup = () => {
     setOpenOnDemandModal(true);
@@ -251,23 +247,23 @@ export const BackupsList = () => {
     );
   };
 
-  const handleRestoreBackup = (backupName: string) => {
-    setSelectedBackup(backupName);
-    setIsNewClusterMode(false);
-    setOpenRestoreDbModal(true);
-  };
+  // const handleRestoreBackup = (backupName: string) => {
+  //   setSelectedBackup(backupName);
+  //   setIsNewClusterMode(false);
+  //   setOpenRestoreDbModal(true);
+  // };
 
-  const handleRestoreToNewDbBackup = (backupName: string) => {
-    setSelectedBackup(backupName);
-    setOpenRestoreDbModal(true);
-    setIsNewClusterMode(true);
-  };
+  // const handleRestoreToNewDbBackup = (backupName: string) => {
+  //   setSelectedBackup(backupName);
+  //   setOpenRestoreDbModal(true);
+  //   setIsNewClusterMode(true);
+  // };
 
   return (
     <>
-      {pitrData?.gaps && (
+      {/* {pitrData?.gaps && (
         <Alert severity="error">{DbDetailsMessages.pitrError}</Alert>
-      )}
+      )} */}
       {dbType === DbEngineType.POSTGRESQL && (
         <Typography variant="body2" mt={2} px={1}>
           {Messages.pgMaximum(uniqueStoragesInUse.length)}
@@ -296,17 +292,17 @@ export const BackupsList = () => {
           />
         )}
         enableRowActions
-        renderRowActions={({ row }) => {
-          const menuItems = BackupActionButtons(
-            row,
-            shouldDbActionsBeBlocked(dbCluster.status?.status),
-            handleDeleteBackup,
-            handleRestoreBackup,
-            handleRestoreToNewDbBackup,
-            dbCluster
-          );
-          return <TableActionsMenu menuItems={menuItems} />;
-        }}
+        // renderRowActions={({ row }) => {
+        //   const menuItems = BackupActionButtons(
+        //     row,
+        //     shouldDbActionsBeBlocked(dbCluster.status?.status),
+        //     handleDeleteBackup,
+        //     handleRestoreBackup,
+        //     handleRestoreToNewDbBackup,
+        //     dbCluster
+        //   );
+        //   return <TableActionsMenu menuItems={menuItems} />;
+        // }}
       />
       {openDeleteDialog && (
         <CustomConfirmDialog

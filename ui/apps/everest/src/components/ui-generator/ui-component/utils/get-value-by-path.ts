@@ -12,46 +12,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-const resolvePath = (path: string | string[]): string | undefined => {
-  if (typeof path === 'string') {
-    return path || undefined;
-  }
-
-  if (Array.isArray(path)) {
-    return path.find((p): p is string => typeof p === 'string' && !!p);
-  }
-
-  return undefined;
-};
+import {
+  getByPath,
+  resolvePath,
+} from 'components/ui-generator/utils/object-path';
 
 export const getValueByPath = (
   obj: unknown,
   path: string | string[]
 ): unknown => {
   const resolvedPath = resolvePath(path);
-
-  if (!resolvedPath) {
-    if (import.meta.env.DEV) {
-      // eslint-disable-next-line no-console
-      console.error('[getValueByPath] Invalid path argument', {
-        path,
-        pathType: typeof path,
-      });
-    }
+  if (!resolvedPath || !obj || typeof obj !== 'object') {
     return undefined;
   }
-
-  if (!obj || typeof obj !== 'object') {
-    return undefined;
-  }
-
-  return resolvedPath
-    .split('.')
-    .reduce<unknown>(
-      (acc, part) =>
-        acc && typeof acc === 'object'
-          ? (acc as Record<string, unknown>)[part]
-          : undefined,
-      obj
-    );
+  return getByPath(obj as Record<string, unknown>, resolvedPath);
 };

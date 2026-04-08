@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,135 +14,67 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { Stack } from '@mui/material';
-import { dbEngineToDbType } from '@percona/utils';
-import { useParams } from 'react-router-dom';
-import { ProxyExposeType } from 'shared-types/dbCluster.types';
-import { DbDetails, ResourcesDetails } from './cards';
-import { useContext } from 'react';
-import { DbClusterContext } from '../dbCluster.context';
-import { BackupsDetails } from './cards/backups-details';
-import { useDbClusterCredentials } from 'hooks/api/db-cluster/useCreateDbCluster';
-import { DbEngineType } from 'shared-types/dbEngines.types';
-import { useRBACPermissions } from 'hooks/rbac';
-import { isProxy, shouldDbActionsBeBlocked } from 'utils/db';
-import { DbErrors } from './db-errors/db-errors';
-import { EMPTY_LOAD_BALANCER_CONFIGURATION } from 'consts';
+import { Box, Stack } from '@mui/material';
+import { DatabaseIcon, OverviewCard } from '@percona/ui-lib';
+import { Messages } from './cluster-overview.messages';
+import { useClusterOverviewData } from './hooks/use-cluster-overview-data';
+import BasicInfoSection from './sections/basic-info-section';
+import ConnectionSection from './sections/connection-section';
+import SchemaDrivenCard from './sections/schema-driven-card';
+import OtherFieldsCard from './sections/other-fields-card';
 
 export const ClusterOverview = () => {
-  const { dbClusterName, namespace = '' } = useParams();
   const {
-    dbCluster,
-    isLoading: loadingCluster,
-    canReadBackups,
-    canUpdateDb,
-  } = useContext(DbClusterContext);
-  const { canRead } = useRBACPermissions(
-    'database-cluster-credentials',
-    `${namespace}/${dbClusterName}`
-  );
+    namespace,
+    instance,
+    isLoading,
+    credentials,
+    schemaSectionCards,
+    otherFields,
+  } = useClusterOverviewData();
 
-  const isStatusReady = dbCluster?.status?.status === 'ready';
-
-  const { data: dbClusterDetails, isFetching: fetchingClusterDetails } =
-    useDbClusterCredentials(dbClusterName || '', namespace, {
-      enabled: !!dbClusterName && canRead && isStatusReady,
-      refetchInterval: 5 * 1000,
-    });
-
-  if (!dbCluster) {
+  if (isLoading || !instance) {
     return null;
   }
 
-  const dbType = dbCluster?.spec.engine.type;
-  const conditions = dbCluster?.status?.conditions || [];
-  const hasConditions = conditions.length > 0;
-  const canChangeResources =
-    canUpdateDb && !shouldDbActionsBeBlocked(dbCluster.status?.status);
-
-  const pitrEnabled = dbCluster?.spec.backup?.pitr?.enabled!;
-  const username = dbClusterDetails?.username;
-  const password = dbClusterDetails?.password;
-  const splitHorizonUrl =
-    dbCluster?.status?.engineFeatures?.psmdb?.splitHorizon?.host &&
-    username &&
-    password
-      ? `mongodb://${username}:${password}@${dbCluster?.status?.engineFeatures?.psmdb?.splitHorizon?.host}`
-      : '';
-
   return (
-    <>
-      {hasConditions && <DbErrors conditions={dbCluster.status?.conditions!} />}
-      <Stack
-        direction="row"
-        flexWrap="wrap"
-        useFlexGap
-        spacing={2}
-        sx={{
-          '& > *': {
-            flexGrow: 1,
-          },
-        }}
-      >
-        {/* We force ! because while loading no info is shown */}
-        <DbDetails
-          loading={loadingCluster}
-          type={dbEngineToDbType(dbCluster.spec.engine.type)}
-          name={dbCluster.metadata.name!}
-          namespace={dbCluster.metadata.namespace!}
-          version={dbCluster.spec.engine.version!}
-          loadingClusterDetails={fetchingClusterDetails}
-          hostname={dbCluster.status?.hostname!}
-          port={dbCluster.status?.port!}
-          username={username!}
-          password={password!}
-          connectionUrl={dbClusterDetails?.connectionUrl!}
-          externalAccess={
-            isProxy(dbCluster.spec.proxy) &&
-            dbCluster.spec.proxy.expose.type === ProxyExposeType.LoadBalancer
-          }
-          exposeType={dbCluster.spec.proxy?.expose?.type}
-          monitoring={dbCluster?.spec.monitoring?.monitoringConfigName}
-          parameters={!!dbCluster?.spec.engine.config}
-          storageClass={dbCluster?.spec.engine.storage.class!}
-          podSchedulingPolicy={dbCluster?.spec.podSchedulingPolicyName}
-          splitHorizonDNS={
-            dbCluster?.spec.engineFeatures?.psmdb?.splitHorizonDnsConfigName ||
-            ''
-          }
-          splitHorizonUrl={splitHorizonUrl}
-          splitHorizonDomains={
-            dbCluster?.status?.engineFeatures?.psmdb?.splitHorizon?.domains ||
-            []
-          }
-          loadBalancerConfig={
-            isProxy(dbCluster.spec.proxy)
-              ? dbCluster.spec.proxy.expose.type ===
-                ProxyExposeType.LoadBalancer
-                ? dbCluster.spec.proxy.expose.loadBalancerConfigName ||
-                  EMPTY_LOAD_BALANCER_CONFIGURATION
-                : ''
-              : ''
-          }
-        />
-        <ResourcesDetails
-          dbCluster={dbCluster}
-          sharding={dbCluster?.spec.sharding}
-          loading={loadingCluster}
-          canUpdate={canChangeResources}
-        />
-        {canReadBackups && (
-          <BackupsDetails
-            dbClusterName={dbCluster?.metadata.name}
-            namespace={dbCluster?.metadata.namespace}
-            schedules={dbCluster?.spec.backup?.schedules}
-            pitrEnabled={pitrEnabled}
-            pitrStorageName={dbCluster?.spec.backup?.pitr?.backupStorageName!}
-            loading={loadingCluster}
-            showStorage={dbType !== DbEngineType.POSTGRESQL}
-          />
-        )}
-      </Stack>
-    </>
+    <Box
+      sx={{
+        columnCount: { xs: 1, lg: 2, xl: 3 },
+        columnGap: 2,
+        '& > *': { breakInside: 'avoid', marginBottom: 2 },
+      }}
+      data-testid="cluster-overview"
+    >
+      <Box>
+        <OverviewCard
+          dataTestId="database-details"
+          sx={{ width: '100%' }}
+          cardHeaderProps={{
+            title: Messages.titles.dbDetails,
+            avatar: <DatabaseIcon />,
+          }}
+        >
+          <Stack gap={3}>
+            <BasicInfoSection
+              instance={instance}
+              namespace={namespace}
+              loading={isLoading}
+            />
+            <ConnectionSection credentials={credentials} loading={isLoading} />
+          </Stack>
+        </OverviewCard>
+      </Box>
+      {schemaSectionCards.map((card) => (
+        <SchemaDrivenCard key={card.key} card={card} loading={isLoading} />
+      ))}
+
+      {/* Uncovered instance fields */}
+      {otherFields.length > 0 && (
+        <OtherFieldsCard fields={otherFields} loading={isLoading} />
+      )}
+
+      {/* TODO: BackupsDetails card — re-enable once connected to new instance API */}
+    </Box>
   );
 };

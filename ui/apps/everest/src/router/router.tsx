@@ -17,20 +17,20 @@ import ProtectedRoute from 'components/protected-route/ProtectedRoute';
 import { Main } from 'components/main/Main';
 import { DBClusterDetailsTabs } from 'pages/db-cluster-details/db-cluster-details.types';
 import { SettingsTabs } from 'pages/settings/settings.types';
-import { DbClusterContextProvider } from 'pages/db-cluster-details/dbCluster.context';
+import { DbInstanceContextProvider } from 'pages/db-cluster-details/dbCluster.context';
 import {
-  Backups,
-  ClusterOverview,
-  Components,
+  // Backups,
+  InstanceOverview,
+  // Components,
   DatabasePage,
-  DbClusterDetails,
+  DbDetails,
   DbClusterView,
   LoadBalancerConfigDetails,
   LoadBalancerConfiguration,
   Login,
   LoginCallback,
   Logout,
-  Logs,
+  // Logs,
   MonitoringEndpoints,
   NamespaceDetails,
   Namespaces,
@@ -38,7 +38,7 @@ import {
   Policies,
   PoliciesList,
   PolicyDetails,
-  Restores,
+  // Restores,
   Settings,
   SettingsPoliciesRouter,
   SplitHorizon,
@@ -77,34 +77,37 @@ const router = createBrowserRouter([
         element: withSuspense(<DatabasePage />),
       },
       {
-        path: 'databases/:namespace/:dbClusterName',
+        path: 'databases/:namespace/:instanceName',
         element: withSuspense(
-          <DbClusterContextProvider>
-            <DbClusterDetails />
-          </DbClusterContextProvider>
+          <DbInstanceContextProvider>
+            <DbDetails />
+          </DbInstanceContextProvider>
         ),
         children: [
           {
-            path: DBClusterDetailsTabs.backups,
-            element: withSuspense(<Backups />),
-          },
-          {
             index: true,
+            element: <Navigate to={DBClusterDetailsTabs.overview} replace />,
+          },
+          // {
+          //   path: DBClusterDetailsTabs.backups,
+          //   element: withSuspense(<Backups />),
+          // },
+          {
             path: DBClusterDetailsTabs.overview,
-            element: withSuspense(<ClusterOverview />),
+            element: withSuspense(<InstanceOverview />),
           },
-          {
-            path: DBClusterDetailsTabs.components,
-            element: withSuspense(<Components />),
-          },
-          {
-            path: DBClusterDetailsTabs.restores,
-            element: withSuspense(<Restores />),
-          },
-          {
-            path: DBClusterDetailsTabs.logs,
-            element: withSuspense(<Logs />),
-          },
+          // {
+          //   path: DBClusterDetailsTabs.components,
+          //   element: withSuspense(<Components />),
+          // },
+          // {
+          //   path: DBClusterDetailsTabs.restores,
+          //   element: withSuspense(<Restores />),
+          // },
+          // {
+          //   path: DBClusterDetailsTabs.logs,
+          //   element: withSuspense(<Logs />),
+          // },
         ],
       },
       {

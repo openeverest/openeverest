@@ -30,7 +30,7 @@ import UpdateCrDialog from './update-cr-dialog';
 import UpdateEngineDialog from './update-engine-dialog';
 import { DB_INSTANCE_STATUS_TO_BASE_STATUS } from 'pages/databases/DbClusterView.constants';
 import { beautifyDbInstanceStatus } from 'pages/databases/DbClusterView.utils';
-import { DbInstanceStatus } from 'shared-types/instance.types';
+import { DbInstancePhase } from 'shared-types/instance.types';
 
 type EnhancedDbList = OperatorUpgradePendingAction & {
   db?: DbCluster;
@@ -141,11 +141,11 @@ const ClusterStatusTable = ({
         accessorFn: (row) => row.db?.status?.status,
         Cell: ({ cell }) => (
           <StatusField
-            status={cell.getValue<DbInstanceStatus>()}
+            status={cell.getValue<DbInstancePhase>()}
             statusMap={DB_INSTANCE_STATUS_TO_BASE_STATUS}
           >
             {beautifyDbInstanceStatus(
-              cell.getValue<DbInstanceStatus>(),
+              cell.getValue<DbInstancePhase>(),
               cell.row?.original.db?.status?.conditions || []
             )}
           </StatusField>

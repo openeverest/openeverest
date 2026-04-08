@@ -10,10 +10,10 @@ on:
     types: [opened, synchronize]
 
 permissions:
-  contents: write
-  packages: write
+  contents: read
+  packages: read
   checks: write
-  pull-requests: write
+  pull-requests: read
   repository-projects: read
 
 env:
@@ -52,7 +52,7 @@ jobs:
     needs: cache_pnpm
     strategy:
       matrix:
-        action: ["lint", "format", "test", "build"]
+        action: ["lint-check", "format-check", "test", "build"]
       fail-fast: true
     continue-on-error: false
     defaults:
@@ -79,13 +79,13 @@ jobs:
 
       - run: make init
 
-      - name: lint
-        if: matrix.action == 'lint'
-        run: make lint
+      - name: lint-check
+        if: matrix.action == 'lint-check'
+        run: make lint-check
 
-      - name: format
-        if: matrix.action == 'format'
-        run: make format
+      - name: format-check
+        if: matrix.action == 'format-check'
+        run: make format-check
 
       - name: test
         if: matrix.action == 'test'
@@ -96,18 +96,6 @@ jobs:
       - name: build
         if: matrix.action == 'build'
         run: make build
-
-      - name: Check for changes
-        id: check_changes
-        run: |
-          git config --global user.email "ci-bot@percona.com"
-          git config --global user.name "CI Bot"
-          git diff --exit-code || echo "::set-output name=changes::true"
-
-      - uses: stefanzweifel/git-auto-commit-action@v6
-        if: steps.check_changes.outputs.changes == 'true' && github.event_name == 'pull_request'
-        with:
-          commit_message: "chore: lint/format"
 
   browser_tests:
     needs: cache_pnpm

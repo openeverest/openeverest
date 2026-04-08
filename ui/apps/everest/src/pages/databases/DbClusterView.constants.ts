@@ -12,27 +12,27 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { DbInstanceStatus } from 'shared-types/instance.types';
 import { BaseStatus } from 'components/status-field/status-field.types';
+import { DbInstancePhase } from 'shared-types/instance.types';
 
 export const DB_INSTANCE_STATUS_TO_BASE_STATUS: Record<
-  DbInstanceStatus,
+  DbInstancePhase,
   BaseStatus
 > = {
-  [DbInstanceStatus.Creating]: 'creating',
-  [DbInstanceStatus.Running]: 'success',
-  [DbInstanceStatus.Failed]: 'error',
-  [DbInstanceStatus.Deleting]: 'deleting',
-  //   [DbClusterStatus.initializing]: 'pending',
-  //   [DbClusterStatus.error]: 'error',
-  //   [DbClusterStatus.paused]: 'paused',
-  //   [DbClusterStatus.pausing]: 'pending',
-  //   [DbClusterStatus.ready]: 'success',
+  Failed: 'error',
+  Initializing: 'pending',
+  Pending: 'pending',
+  Provisioning: 'pending',
+  Ready: 'success',
+  Restoring: 'pending',
+  Resuming: 'pending',
+  Suspended: 'paused',
+  Suspending: 'pending',
+  Terminating: 'deleting',
+  Updating: 'pending',
+  Unknown: 'unknown',
   //   [DbClusterStatus.stopping]: 'pending',
-  //   [DbClusterStatus.restoring]: 'pending',
-  //   [DbClusterStatus.deleting]: 'deleting',
   //   [DbClusterStatus.resizingVolumes]: 'pending',
-  //   [DbClusterStatus.creating]: 'creating',
   //   [DbClusterStatus.upgrading]: 'upgrading',
   //   [DbClusterStatus.importing]: 'importing',
 };

@@ -1,0 +1,30 @@
+---
+# See more details at https://k3d.io/v5.3.0/usage/configfile/
+# This config is used for Tilt-based local development.
+# Unlike k3d_config.yaml, this does not expose the Everest service via NodePort
+# to the host machine. Instead, Tilt handles port-forwarding to avoid conflicts.
+apiVersion: k3d.io/v1alpha5
+kind: Simple
+metadata:
+  name: everest-dev
+servers: 1 # number of control-plane nodes in the cluster
+agents: 3 # number of worker nodes in the cluster
+image: rancher/k3s:v1.33.2-k3s1 # image to use for the cluster nodes; list of supported images: https://hub.docker.com/r/rancher/k3s/tags
+registries: # define how registries should be created or used
+  create: # creates a default registry to be used with the cluster; same as `--registry-create k3d-registry`
+    name: k3d-registry
+    host: "0.0.0.0"
+    hostPort: "5000"
+ports: []  # No port mappings; Tilt handles port-forwarding
+options:
+  k3d: # k3d runtime settings
+    wait: true # wait for cluster to be usable before returining;
+    disableLoadbalancer: true
+  k3s: # options passed on to K3s itself
+    extraArgs:
+      - arg: "--disable=traefik,metrics-server,servicelb"
+        nodeFilters:
+          - server:*
+      - arg: "--disable-network-policy"
+        nodeFilters:
+          - server:*

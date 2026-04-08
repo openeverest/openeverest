@@ -138,8 +138,9 @@ export const getDBWizardSchema = (
 export type ImportStepType = z.infer<typeof importStepSchema>;
 export type BasicInfoType = z.infer<ReturnType<typeof basicInfoSchema>>;
 
-export type DbWizardTypeBase = BasicInfoType &
-  Omit<NonNullable<Instance['spec']>, 'topology'>;
+export type DbWizardTypeBase = BasicInfoType & {
+  spec: Omit<NonNullable<Instance['spec']>, 'topology'>;
+};
 
 export type DbWizardTypeWithPrestep = DbWizardTypeBase & ImportStepType;
 

@@ -22,11 +22,13 @@
     "e2e:release": "node ./setup-e2e-rbac-user.js && pnpm pre-e2e && cd .e2e && playwright test --project=release",
     "build": "tsc --incremental && vite build --emptyOutDir",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --fix",
+    "lint-check": "eslint . --ext ts,tsx --report-unused-disable-directives",
     "analyze:deps": "depcruise --config .dependency-cruiser.cjs src/pages/database-form src/components/ui-generator",
     "analyze:deps:graph": "depcruise --config .dependency-cruiser.cjs --output-type dot src/pages/database-form src/components/ui-generator > deps-graph.dot",
     "analyze:deps:json": "depcruise --config .dependency-cruiser.cjs --output-type json src/pages/database-form src/components/ui-generator > deps-report.json",
     "analyze:deps:svg": "node ./scripts/render-deps-graph.mjs",
     "format": "prettier .  --write",
+    "format-check": "prettier . --check",
     "preview": "vite preview",
     "rm-build-dir": "rm -rf dist",
     "move-build": "node ./move-build.js"

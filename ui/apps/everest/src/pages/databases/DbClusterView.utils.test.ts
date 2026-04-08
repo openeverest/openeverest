@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { Instance } from 'types/api';
-import { DbInstanceStatus } from 'shared-types/instance.types';
+import { Instance, PhaseType } from 'types/api';
+import { DB_INSTANCE_UNKNOWN_PHASE } from 'shared-types/instance.types';
 import { convertDbInstancesPayloadToTableFormat } from './DbClusterView.utils';
 import { InstanceTableElement } from './dbClusterView.types';
 import { DbInstanceForNamespaceResult } from 'hooks/api/db-instances';
@@ -21,7 +21,7 @@ import { DbInstanceForNamespaceResult } from 'hooks/api/db-instances';
 const makeInstance = (
   _name: string,
   provider: string,
-  phase: DbInstanceStatus,
+  phase: PhaseType,
   topologyType: string
 ): Instance => ({
   apiVersion: 'core.openeverest.io/v1alpha1',
@@ -56,12 +56,7 @@ describe('convertDbInstancesPayloadToTableFormat', () => {
   });
 
   it('converts a single namespace with one instance', () => {
-    const instance = makeInstance(
-      'pg-1',
-      'aws',
-      DbInstanceStatus.Running,
-      'ha'
-    );
+    const instance = makeInstance('pg-1', 'aws', 'Ready', 'ha');
     const data = [makeResult('ns-1', [instance])];
 
     const result = convertDbInstancesPayloadToTableFormat(data);
@@ -70,7 +65,7 @@ describe('convertDbInstancesPayloadToTableFormat', () => {
     expect(result[0]).toEqual<InstanceTableElement>({
       namespace: 'ns-1',
       instanceName: '',
-      phase: DbInstanceStatus.Running,
+      phase: 'Ready',
       provider: 'aws',
       topologyType: 'ha',
       raw: instance,
@@ -78,13 +73,8 @@ describe('convertDbInstancesPayloadToTableFormat', () => {
   });
 
   it('converts multiple namespaces', () => {
-    const i1 = makeInstance('pg-1', 'aws', DbInstanceStatus.Running, 'ha');
-    const i2 = makeInstance(
-      'mongo-1',
-      'gcp',
-      DbInstanceStatus.Creating,
-      'standalone'
-    );
+    const i1 = makeInstance('pg-1', 'aws', 'Ready', 'ha');
+    const i2 = makeInstance('mongo-1', 'gcp', 'Provisioning', 'standalone');
     const data = [makeResult('ns-1', [i1]), makeResult('ns-2', [i2])];
 
     const result = convertDbInstancesPayloadToTableFormat(data);
@@ -96,19 +86,14 @@ describe('convertDbInstancesPayloadToTableFormat', () => {
   });
 
   it('skips namespaces where query is not successful', () => {
-    const instance = makeInstance(
-      'pg-1',
-      'aws',
-      DbInstanceStatus.Running,
-      'ha'
-    );
+    const instance = makeInstance('pg-1', 'aws', 'Ready', 'ha');
     const data = [makeResult('ns-1', [instance], false)];
 
     const result = convertDbInstancesPayloadToTableFormat(data);
     expect(result).toHaveLength(0);
   });
 
-  it('defaults phase to creating when status is undefined', () => {
+  it('defaults phase to unknown when status is undefined', () => {
     const instance: Instance = {
       apiVersion: 'core.openeverest.io/v1alpha1',
       kind: 'Instance',
@@ -118,7 +103,7 @@ describe('convertDbInstancesPayloadToTableFormat', () => {
     const data = [makeResult('ns-1', [instance])];
 
     const result = convertDbInstancesPayloadToTableFormat(data);
-    expect(result[0].phase).toBe(DbInstanceStatus.Creating);
+    expect(result[0].phase).toBe(DB_INSTANCE_UNKNOWN_PHASE);
   });
 
   it('defaults provider to empty string when not set', () => {

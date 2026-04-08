@@ -13,26 +13,29 @@
 // limitations under the License.
 
 import {
-  CreateInstanceArgType,
+  CreateDbInstancePayload,
+  GetDbInstancePayload,
   GetInstances,
+  Instance,
   InstanceConnectionDetails,
 } from 'types/api';
 import { api } from './api';
 
-export const createInstanceFn = async (
+export const createDbInstanceFn = async (
   clusterName: string,
   instanceName: string,
-  providerName: string,
   namespace: string,
-  data: CreateInstanceArgType['spec']
+  data: CreateDbInstancePayload['spec']
 ) => {
-  const payload: CreateInstanceArgType = {
+  const payload: CreateDbInstancePayload = {
     apiVersion: 'core.openeverest.io/v1alpha1',
     kind: 'Instance',
     // TODO this TS error should gone after BE types updates
     // @ts-ignore
     metadata: { name: instanceName },
-    spec: { provider: providerName, ...data },
+    spec: {
+      ...data,
+    },
   };
   const response = await api.post(
     `clusters/${clusterName}/namespaces/${namespace}/instances`,
@@ -42,23 +45,59 @@ export const createInstanceFn = async (
   return response.data;
 };
 
-export const getInstancesFn = async (
+export const getDbInstancesFn = async (
   clusterName: string,
   namespace: string
 ) => {
   const response = await api.get<GetInstances>(
-    `/clusters/${clusterName}/namespaces/${namespace}/instances`
+    `clusters/${clusterName}/namespaces/${namespace}/instances`
   );
   return response.data;
 };
 
-export const getInstanceConnectionFn = async (
+export const deleteDbInstanceFn = async (
+  clusterName: string,
+  dbInstanceName: string,
+  namespace: string
+  // cleanupBackupStorage: boolean
+) => {
+  const response = await api.delete<Instance>(
+    `clusters/${clusterName}/namespaces/${namespace}/instances/${dbInstanceName}`
+  );
+  return response.data;
+};
+
+export const getDbInstanceFn = async (
+  clusterName: string,
+  namespace: string,
+  instanceName: string
+) => {
+  const response = await api.get<GetDbInstancePayload>(
+    `clusters/${clusterName}/namespaces/${namespace}/instances/${instanceName}`
+  );
+  return response.data;
+};
+
+export const updateDbInstanceFn = async (
+  clusterName: string,
+  namespace: string,
+  instanceName: string,
+  data: Instance
+) => {
+  const response = await api.put<Instance>(
+    `clusters/${clusterName}/namespaces/${namespace}/instances/${instanceName}`,
+    data
+  );
+  return response.data;
+};
+
+export const getDbInstanceConnectionFn = async (
   clusterName: string,
   namespace: string,
   instanceName: string
 ) => {
   const response = await api.get<InstanceConnectionDetails>(
-    `/clusters/${clusterName}/namespaces/${namespace}/instances/${instanceName}/connection`
+    `clusters/${clusterName}/namespaces/${namespace}/instances/${instanceName}/connection`
   );
   return response.data;
 };

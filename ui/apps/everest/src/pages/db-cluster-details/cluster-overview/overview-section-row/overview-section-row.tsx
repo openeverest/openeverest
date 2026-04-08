@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -35,8 +36,10 @@ export const OverviewSectionRow = ({
       </Typography>
     </Grid>
     <Grid item>
-      {typeof content === 'string' ? (
+      {typeof content === 'string' && content !== '' ? (
         <Typography variant="body2">{content}</Typography>
+      ) : content === null || content === undefined || content === '' ? (
+        '\u2014'
       ) : (
         content
       )}

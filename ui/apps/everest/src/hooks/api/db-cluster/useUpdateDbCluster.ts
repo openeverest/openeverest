@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -85,7 +86,7 @@ export const useUpdateDbClusterWithConflictRetry = (
       return updateDbCluster(dbCluster);
     },
     onError: async (error, vars, ctx) => {
-      const { status } = error;
+      const status = error.response?.status ?? error.status;
 
       if (status === 409) {
         if (watchStartTime.current === null) {

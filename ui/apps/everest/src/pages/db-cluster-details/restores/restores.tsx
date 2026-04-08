@@ -1,12 +1,25 @@
+// Copyright (C) 2026 The OpenEverest Contributors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 import { useParams } from 'react-router-dom';
-import { Alert, capitalize } from '@mui/material';
+import { capitalize } from '@mui/material';
 import { MRT_ColumnDef } from 'material-react-table';
 import { format } from 'date-fns';
 import { Table } from '@percona/ui-lib';
 import { DATE_FORMAT } from 'consts';
 import StatusField from 'components/status-field/status-field';
 import { ConfirmDialog } from 'components/confirm-dialog/confirm-dialog';
-import { useDbClusterPitr } from 'hooks/api/backups/useBackups';
 import {
   PG_STATUS,
   PSMDB_STATUS,
@@ -14,7 +27,7 @@ import {
   Restore,
 } from 'shared-types/restores.types';
 import { Messages } from './restores.messages';
-import { Messages as DbDetailsMessages } from '../db-cluster-details.messages';
+// import { Messages as DbDetailsMessages } from '../db-cluster-details.messages';
 import {
   RESTORES_QUERY_KEY,
   useDbClusterRestores,
@@ -55,9 +68,9 @@ const Restores = () => {
   const [selectedRestore, setSelectedRestore] = useState('');
   const { dbClusterName, namespace = '' } = useParams();
   const queryClient = useQueryClient();
-  const { data: pitrData } = useDbClusterPitr(dbClusterName!, namespace, {
-    enabled: !!dbClusterName && !!namespace,
-  });
+  // const { data: pitrData } = useDbClusterPitr(dbClusterName!, namespace, {
+  //   enabled: !!dbClusterName && !!namespace,
+  // });
   const { data: restores = [], isLoading: loadingRestores } =
     useDbClusterRestores(namespace, dbClusterName!, {
       enabled: !!dbClusterName && !!namespace,
@@ -138,9 +151,9 @@ const Restores = () => {
 
   return (
     <>
-      {pitrData?.gaps && (
+      {/* {pitrData?.gaps && (
         <Alert severity="error">{DbDetailsMessages.pitrError}</Alert>
-      )}
+      )} */}
       <Table
         getRowId={(row) => row.name}
         state={{ isLoading: loadingRestores }}

@@ -24,7 +24,7 @@ import {
   useForm,
   useWatch,
 } from 'react-hook-form';
-import { useCreateInstance } from 'hooks/api/db-instances/useCreateDbInstance';
+import { useCreateDbInstance } from 'hooks/api/db-instances/useCreateDbInstance';
 import { useActiveBreakpoint } from 'hooks/utils/useActiveBreakpoint';
 import { DbWizardType } from './database-form-schema';
 import DatabaseFormCancelDialog from './database-form-cancel-dialog/index';
@@ -59,7 +59,8 @@ export const DatabasePage = () => {
   const latestDataRef = useRef<DbWizardType | null>(null);
   const [formSubmitted, setFormSubmitted] = useState(false);
 
-  const { mutate: createInstance, isPending: isCreating } = useCreateInstance();
+  const { mutate: createInstance, isPending: isCreating } =
+    useCreateDbInstance();
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -255,6 +256,7 @@ export const DatabasePage = () => {
     ({ currentLocation, nextLocation }) =>
       isDirty &&
       !formSubmitted &&
+      !isCreating &&
       currentLocation.pathname !== nextLocation.pathname
   );
 

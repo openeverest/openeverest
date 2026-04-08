@@ -25,3 +25,5 @@ export * from './version';
 export * from './pod-scheduling-policies';
 export * from './splitHorizon';
 export * from './schema/useSchema';
+export * from './db-instances';
+export * from './db-instance';

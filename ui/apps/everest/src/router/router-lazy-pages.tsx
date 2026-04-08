@@ -36,13 +36,13 @@ export const UIGeneratorBuilder = lazy(() =>
   }))
 );
 
-export const DbClusterDetails = lazy(() =>
+export const DbDetails = lazy(() =>
   import('pages/db-cluster-details/db-cluster-details').then((module) => ({
     default: module.DbClusterDetails,
   }))
 );
 
-export const ClusterOverview = lazy(() =>
+export const InstanceOverview = lazy(() =>
   import('pages/db-cluster-details/cluster-overview/cluster-overview').then(
     (module) => ({
       default: module.ClusterOverview,

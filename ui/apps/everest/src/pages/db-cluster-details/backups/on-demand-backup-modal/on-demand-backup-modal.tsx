@@ -1,3 +1,17 @@
+// Copyright (C) 2026 The OpenEverest Contributors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 import { FormDialog } from 'components/form-dialog';
 import {
   BACKUPS_QUERY_KEY,
@@ -11,7 +25,7 @@ import {
   GetBackupsPayload,
   SingleBackupPayload,
 } from 'shared-types/backups.types';
-import { Messages } from '../../db-cluster-details.messages.ts';
+// import { Messages } from '../../db-cluster-details.messages.ts';
 import { OnDemandBackupFieldsWrapper } from './on-demand-backup-fields-wrapper.tsx';
 import {
   BackupFormData,
@@ -86,16 +100,16 @@ export const OnDemandBackupModal = ({
     <FormDialog
       isOpen={openOnDemandModal}
       closeModal={() => setOpenOnDemandModal(false)}
-      headerMessage={Messages.onDemandBackupModal.headerMessage}
+      headerMessage={/*Messages.onDemandBackupModal.headerMessage*/ ''}
       onSubmit={handleSubmit}
       submitting={creatingBackup}
-      submitMessage={Messages.onDemandBackupModal.submitMessage}
+      submitMessage={/*Messages.onDemandBackupModal.submitMessage*/ ''}
       schema={schema(backupNames)}
       values={values}
       size="XL"
     >
       <Typography variant="body1">
-        {Messages.onDemandBackupModal.subHead}
+        {/*Messages.onDemandBackupModal.subHead*/}
       </Typography>
       <OnDemandBackupFieldsWrapper />
     </FormDialog>

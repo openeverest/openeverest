@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,57 +16,52 @@
 
 import { useState } from 'react';
 import { Box, Button, IconButton, Menu, MenuItem } from '@mui/material';
-import AddIcon from '@mui/icons-material/Add';
-import { PauseCircleOutline, DeleteOutline } from '@mui/icons-material';
-import RestartAltIcon from '@mui/icons-material/RestartAlt';
-import KeyboardReturnIcon from '@mui/icons-material/KeyboardReturn';
-import VisibilityOutlinedIcon from '@mui/icons-material/VisibilityOutlined';
+import { DeleteOutline } from '@mui/icons-material';
 import MoreHorizIcon from '@mui/icons-material/MoreHoriz';
 import { DbActionsProps } from './db-actions.types';
 import { useRBACPermissions } from 'hooks/rbac';
 import { Messages } from './db-actions.messages';
 import { ArrowDropDownIcon } from '@mui/x-date-pickers/icons';
 import DbActionsModals from './db-actions-modals';
-import { useNavigate } from 'react-router-dom';
-import { useDbActions } from 'hooks';
-import { shouldDbActionsBeBlocked } from 'utils/db';
+import { useDbInstanceActions } from 'hooks/api/db-instance';
 
 export const DbActions = ({
-  showDetailsAction = false,
+  // showDetailsAction = false,
   showStatusActions = false,
-  dbCluster,
+  dbInstance,
 }: DbActionsProps) => {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
-  const [isNewClusterMode, setIsNewClusterMode] = useState(false);
+  const [isNewClusterMode /*setIsNewClusterMode*/] = useState(false);
   const {
     openRestoreDialog,
     handleCloseRestoreDialog,
-    handleDbRestart,
-    handleDeleteDbCluster,
-    isPaused,
+    // handleDbRestart,
+    handleDeleteDbInstance,
+    // isPaused,
     openDeleteDialog,
     handleConfirmDelete,
     handleCloseDeleteDialog,
     openDetailsDialog,
-    handleOpenDbDetailsDialog,
+    // handleOpenDbDetailsDialog,
     handleCloseDetailsDialog,
-    handleDbSuspendOrResumed,
-    handleRestoreDbCluster,
+    // handleDbSuspendOrResumed,
+    // handleRestoreDbCluster,
     deleteMutation,
-  } = useDbActions(dbCluster);
+  } = useDbInstanceActions(dbInstance);
   const open = Boolean(anchorEl);
-  const dbClusterName = dbCluster.metadata.name;
-  const namespace = dbCluster.metadata.namespace;
-  const redirectURL = `/databases/${namespace}/${dbClusterName}/overview`;
+  const dbInstanceName = dbInstance.metadata?.name;
+  // const namespace = dbInstance.metadata?.namespace;
+  // const redirectURL = `/databases/${namespace}/${dbInstanceName}/overview`;
 
-  const navigate = useNavigate();
-  const actionsBlocked = shouldDbActionsBeBlocked(dbCluster.status?.status);
-  const hasSchedules = !!(
-    dbCluster.spec.backup && (dbCluster.spec.backup.schedules || []).length > 0
-  );
-  const monitoringEnabled = !!(
-    dbCluster.spec.monitoring && dbCluster.spec.monitoring?.monitoringConfigName
-  );
+  // const navigate = useNavigate();
+  // TODO needs a final enum
+  // const actionsBlocked = shouldDbActionsBeBlocked(dbInstance.status?.phase as DbInstanceStatus || '');
+  // const hasSchedules = !!(
+  //   dbInstance.spec.backup && (dbInstance.spec.backup.schedules || []).length > 0
+  // );
+  // const monitoringEnabled = !!(
+  //   dbInstance.spec.monitoring && dbInstance.spec.monitoring?.monitoringConfigName
+  // );
   const handleClick = (event: React.MouseEvent<HTMLButtonElement>) => {
     event.stopPropagation();
     setAnchorEl(event.currentTarget);
@@ -74,48 +70,50 @@ export const DbActions = ({
     setAnchorEl(null);
   };
 
-  const { canUpdate, canDelete } = useRBACPermissions(
+  const { /*canUpdate*/ canDelete } = useRBACPermissions(
     'database-clusters',
-    `${dbCluster.metadata.namespace}/${dbCluster.metadata.name}`
+    `${dbInstance.metadata?.namespace}/${dbInstance.metadata?.name}`
   );
 
-  const { canCreate: canCreateClusters } = useRBACPermissions(
-    'database-clusters',
-    `${dbCluster.metadata.namespace}/*`
-  );
+  // const { canCreate: canCreateClusters } = useRBACPermissions(
+  //   'database-clusters',
+  //   `${dbInstance.metadata?.namespace}/*`
+  // );
 
-  const { canCreate: canCreateRestore } = useRBACPermissions(
-    'database-cluster-restores',
-    `${namespace}/*`
-  );
+  // const { canCreate: canCreateRestore } = useRBACPermissions(
+  //   'database-cluster-restores',
+  //   `${namespace}/*`
+  // );
 
-  const { canRead: canReadCredentials } = useRBACPermissions(
-    'database-cluster-credentials',
-    `${namespace}/${dbClusterName}`
-  );
+  // const { canRead: canReadCredentials } = useRBACPermissions(
+  //   'database-cluster-credentials',
+  //   `${namespace}/${dbInstanceName}`
+  // );
 
-  const { canCreate: canCreateBackups } = useRBACPermissions(
-    'database-cluster-backups',
-    `${namespace}/${dbClusterName}`
-  );
+  // const { canCreate: canCreateBackups } = useRBACPermissions(
+  //   'database-cluster-backups',
+  //   `${namespace}/${dbInstanceName}`
+  // );
 
-  const { canRead: canReadMonitoring } = useRBACPermissions(
-    'monitoring-instances',
-    `${namespace}/${dbClusterName}`
-  );
+  // const { canRead: canReadMonitoring } = useRBACPermissions(
+  //   'monitoring-instances',
+  //   `${namespace}/${dbInstanceName}`
+  // );
 
-  const canRestore = canCreateRestore && canReadCredentials;
-  const noActionAvailable = !canUpdate && !canDelete && !canRestore;
-  let canCreateClusterFromBackup = canRestore && canCreateClusters;
+  // const canRestore = canCreateRestore && canReadCredentials;
+  // TODO RBAC
+  // const noActionAvailable = !canUpdate && !canDelete && !canRestore;
+  const noActionAvailable = false;
+  // let canCreateClusterFromBackup = canRestore && canCreateClusters;
 
-  if (hasSchedules) {
-    canCreateClusterFromBackup = canCreateClusterFromBackup && canCreateBackups;
-  }
+  // if (hasSchedules) {
+  //   canCreateClusterFromBackup = canCreateClusterFromBackup && canCreateBackups;
+  // }
 
-  if (monitoringEnabled) {
-    canCreateClusterFromBackup =
-      canCreateClusterFromBackup && canReadMonitoring;
-  }
+  // if (monitoringEnabled) {
+  //   canCreateClusterFromBackup =
+  //     canCreateClusterFromBackup && canReadMonitoring;
+  // }
 
   const sx = {
     display: 'flex',
@@ -168,9 +166,9 @@ export const DbActions = ({
             'aria-labelledby': 'row-actions-button',
           }}
         >
-          {showDetailsAction && (
+          {/*showDetailsAction && (
             <MenuItem
-              data-testid={`${dbClusterName}-details`}
+              data-testid={`${dbInstanceName}-details`}
               key={0}
               onClick={() => {
                 navigate(redirectURL);
@@ -179,22 +177,22 @@ export const DbActions = ({
             >
               <VisibilityOutlinedIcon /> {Messages.menuItems.dbDetails}
             </MenuItem>
-          )}
-          {canUpdate && (
+          )*/}
+          {/*canUpdate && (
             <MenuItem
               disabled={actionsBlocked}
               key={2}
               onClick={() => {
-                handleDbRestart(dbCluster);
+                handleDbRestart(dbInstance);
               }}
               sx={sx}
             >
               <RestartAltIcon /> {Messages.menuItems.restart}
             </MenuItem>
-          )}
-          {canCreateClusterFromBackup && (
+          )*/}
+          {/*canCreateClusterFromBackup && (
             <MenuItem
-              data-testid={`${dbClusterName}-create-new-db-from-backup`}
+              data-testid={`${dbInstanceName}-create-new-db-from-backup`}
               disabled={actionsBlocked}
               key={1}
               onClick={() => {
@@ -205,10 +203,10 @@ export const DbActions = ({
             >
               <AddIcon /> {Messages.menuItems.createNewDbFromBackup}
             </MenuItem>
-          )}
-          {canRestore && (
+          )*/}
+          {/*canRestore && (
             <MenuItem
-              data-testid={`${dbClusterName}-restore`}
+              data-testid={`${dbInstanceName}-restore`}
               disabled={actionsBlocked}
               key={3}
               onClick={() => {
@@ -219,8 +217,9 @@ export const DbActions = ({
             >
               <KeyboardReturnIcon /> {Messages.menuItems.restoreFromBackup}
             </MenuItem>
-          )}
-          {showStatusActions && dbCluster?.status?.details && (
+          )*/}
+          {/*
+          {showStatusActions && dbInstance?.status?.details && (
             <MenuItem
               key={6}
               sx={sx}
@@ -230,29 +229,29 @@ export const DbActions = ({
             >
               <VisibilityOutlinedIcon /> {Messages.menuItems.dbStatusDetails}
             </MenuItem>
-          )}
-          {canUpdate && (
+          )} */}
+          {/* {canUpdate && (
             <MenuItem
               disabled={actionsBlocked}
               key={4}
               onClick={() => {
-                handleDbSuspendOrResumed(dbCluster);
+                handleDbSuspendOrResumed(dbInstance);
               }}
               sx={sx}
             >
               <PauseCircleOutline />{' '}
-              {isPaused(dbCluster)
+              {isPaused(dbInstance)
                 ? Messages.menuItems.resume
                 : Messages.menuItems.suspend}
             </MenuItem>
-          )}
+          )} */}
           {canDelete && (
             <MenuItem
-              disabled={dbCluster?.status?.status === 'deleting'}
-              data-testid={`${dbClusterName}-delete`}
+              disabled={dbInstance?.status?.phase === 'Terminating'}
+              data-testid={`${dbInstanceName}-delete`}
               key={5}
               onClick={() => {
-                handleDeleteDbCluster();
+                handleDeleteDbInstance();
               }}
               sx={sx}
             >
@@ -262,7 +261,7 @@ export const DbActions = ({
         </Menu>
       </Box>
       <DbActionsModals
-        dbCluster={dbCluster}
+        dbInstance={dbInstance}
         isNewClusterMode={isNewClusterMode}
         openRestoreDialog={openRestoreDialog}
         handleCloseRestoreDialog={handleCloseRestoreDialog}

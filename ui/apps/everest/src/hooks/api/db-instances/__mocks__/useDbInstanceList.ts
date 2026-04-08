@@ -19,11 +19,14 @@ export const mockInstances: Instance[] = [
   {
     apiVersion: 'core.openeverest.io/v1alpha1',
     kind: 'Instance',
-    metadata: {},
+    metadata: {
+      name: 'psmdb-primary',
+      namespace: 'default',
+    } as unknown as Record<string, never>,
     spec: {
-      provider: 'aws-provider',
+      provider: 'psmdb-provider',
       components: {
-        postgresql: {
+        psmdb: {
           replicas: 3,
           resources: {
             requests: { cpu: '500m', memory: '1Gi' },
@@ -33,8 +36,8 @@ export const mockInstances: Instance[] = [
             size: '10Gi',
             storageClass: 'gp3',
           },
-          version: '16.2',
-          type: 'postgresql',
+          version: '7.0.11-8',
+          type: 'mongodb',
         },
       },
       topology: {
@@ -42,12 +45,12 @@ export const mockInstances: Instance[] = [
       },
     },
     status: {
-      phase: 'ready',
+      phase: 'Ready',
       components: [
         {
-          pods: [{ name: 'pg-instance-1-0' }],
+          pods: [{ name: 'psmdb-primary-0' }],
           ready: 3,
-          state: 'ready',
+          state: 'Ready',
           total: 3,
         },
       ],
@@ -60,17 +63,20 @@ export const mockInstances: Instance[] = [
           type: 'Ready',
         },
       ],
-      connectionSecretRef: { name: 'pg-instance-1-connection' },
+      connectionSecretRef: { name: 'psmdb-primary-connection' },
     },
   },
   {
     apiVersion: 'core.openeverest.io/v1alpha1',
     kind: 'Instance',
-    metadata: {},
+    metadata: {
+      name: 'psmdb-secondary',
+      namespace: 'ns-2',
+    } as unknown as Record<string, never>,
     spec: {
-      provider: 'gcp-provider',
+      provider: 'psmdb-provider',
       components: {
-        mongodb: {
+        psmdb: {
           replicas: 1,
           resources: {
             requests: { cpu: '250m', memory: '512Mi' },
@@ -87,7 +93,7 @@ export const mockInstances: Instance[] = [
       },
     },
     status: {
-      phase: 'creating',
+      phase: 'Initializing',
       components: [],
       conditions: [],
     },
@@ -95,13 +101,13 @@ export const mockInstances: Instance[] = [
 ];
 
 export const mockInstanceConnection: InstanceConnectionDetails = {
-  host: 'pg-instance-1.ns-1.svc.cluster.local',
-  port: '5432',
+  host: 'psmdb-primary.default.svc.cluster.local',
+  port: '27017',
   username: 'admin',
   password: 'secret-password',
-  uri: 'postgresql://admin:secret-password@pg-instance-1.ns-1.svc.cluster.local:5432/defaultdb',
-  provider: 'aws-provider',
-  type: 'postgresql',
+  uri: 'mongodb://admin:secret-password@psmdb-primary.default.svc.cluster.local:27017/admin',
+  provider: 'psmdb-provider',
+  type: 'mongodb',
 };
 
 export const useDbInstanceList = () => ({
@@ -112,7 +118,7 @@ export const useDbInstanceList = () => ({
 
 export const useInstancesForNamespaces = (): DbInstanceForNamespaceResult[] => [
   {
-    namespace: 'ns-1',
+    namespace: 'default',
     queryResult: {
       data: [mockInstances[0]],
       isSuccess: true,

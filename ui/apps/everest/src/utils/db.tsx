@@ -1,8 +1,21 @@
+// Copyright (C) 2026 The OpenEverest Contributors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 import { MongoIcon, MySqlIcon, PostgreSqlIcon } from '@percona/ui-lib';
 import { DbEngineType, DbType, ProxyType } from '@percona/types';
 import {
   DbCluster,
-  DbClusterStatus,
   ManageableSchedules,
   Proxy,
   ProxyExposeType,
@@ -36,6 +49,7 @@ import { Path, UseFormGetFieldState } from 'react-hook-form';
 import cronConverter from './cron-converter';
 import { EMPTY_LOAD_BALANCER_CONFIGURATION } from 'consts';
 import { mapDeprecatedExposeType } from 'components/cluster-form/advanced-configuration/advanced-configuration.utils';
+import { PhaseType } from 'types/api';
 
 export const dbTypeToIcon = (dbType: DbType) => {
   switch (dbType) {
@@ -991,14 +1005,19 @@ const humanizedDbMap: Record<DbType, string> = {
 export const humanizeDbType = (type: DbType): string => humanizedDbMap[type];
 
 // This does not apply to the delete action, which is only blocked when the db is being deleted itself
-export const shouldDbActionsBeBlocked = (status?: DbClusterStatus) => {
-  return [
-    DbClusterStatus.restoring,
-    DbClusterStatus.deleting,
-    DbClusterStatus.resizingVolumes,
-    DbClusterStatus.upgrading,
-    DbClusterStatus.importing,
-  ].includes(status || ('' as DbClusterStatus));
+export const shouldDbActionsBeBlocked = (status?: PhaseType) => {
+  const targetStatuses: Array<Exclude<PhaseType, undefined>> = [
+    'Restoring',
+    'Terminating',
+    'Updating',
+  ];
+
+  if (status === undefined) {
+    return true;
+  }
+
+  // TODO check what will be in case if phase = unknown
+  return targetStatuses.includes(status);
 };
 
 export const mergeNewDbClusterData = (

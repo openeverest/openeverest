@@ -20,6 +20,15 @@ export type GetInstances = CrdsGen.components['schemas']['InstanceList'];
 export type Instance = CrdsGen.components['schemas']['Instance'];
 export type InstanceConnectionDetails =
   CrdsGen.components['schemas']['InstanceConnectionDetails'];
+export type PhaseType = NonNullable<Instance['status']>['phase'];
 
-export type CreateInstanceArgType =
+export type CreateDbInstancePayload =
   HttpApi.paths['/clusters/{cluster}/namespaces/{namespace}/instances']['post']['requestBody']['content']['application/json'];
+export type GetDbInstanceConnectionPayload =
+  HttpApi.paths['/clusters/{cluster}/namespaces/{namespace}/instances/{instance}/connection']['get']['responses']['200']['content']['application/json'];
+export type GetDbInstancePayload =
+  HttpApi.paths['/clusters/{cluster}/namespaces/{namespace}/instances/{instance}']['get']['responses']['200']['content']['application/json'];
+export type GetDbInstancesPayload =
+  HttpApi.paths['/clusters/{cluster}/namespaces/{namespace}/instances']['get']['responses']['200']['content']['application/json'];
+export type UpdateDbInstancePayload =
+  HttpApi.paths['/clusters/{cluster}/namespaces/{namespace}/instances/{instance}']['put']['requestBody']['content']['application/json'];

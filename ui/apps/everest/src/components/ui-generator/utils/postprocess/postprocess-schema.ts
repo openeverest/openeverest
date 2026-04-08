@@ -12,12 +12,20 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+import { TopologyUISchemas } from '../../ui-generator.types';
 import {
-  Component,
-  ComponentGroup,
-  TopologyUISchemas,
-} from '../../ui-generator.types';
+  isPlainObject,
+  deepClone,
+  getByPath,
+  setByPath,
+  deleteByPath,
+} from '../object-path';
+import { walkTopologyComponents } from '../schema-walker';
 import { getComponentTargetPaths } from '../preprocess/normalized-component';
+import {
+  extractBadgeMappings,
+  applyBadgesToFormData,
+} from '../badge-to-api/badge-to-api';
 
 export type PostprocessInput = Record<string, unknown>;
 
@@ -39,100 +47,6 @@ export type PostprocessOptions = {
 export const isEmptyFieldValue = (value: unknown): boolean =>
   value === undefined || value === null || value === '';
 
-const isPlainObject = (value: unknown): value is Record<string, unknown> =>
-  typeof value === 'object' && value !== null && !Array.isArray(value);
-
-const deepClone = <T>(value: T): T => {
-  if (typeof structuredClone === 'function') {
-    return structuredClone(value);
-  }
-
-  return JSON.parse(JSON.stringify(value)) as T;
-};
-
-const getByPath = (obj: Record<string, unknown>, path: string): unknown => {
-  if (typeof path !== 'string' || path.length === 0) {
-    if (import.meta.env.DEV) {
-      // eslint-disable-next-line no-console
-      console.error('[postprocessSchema][getByPath] Invalid path', {
-        path,
-        pathType: typeof path,
-      });
-    }
-    return undefined;
-  }
-
-  return path.split('.').reduce<unknown>((current, key) => {
-    if (!isPlainObject(current)) {
-      return undefined;
-    }
-    return current[key];
-  }, obj);
-};
-
-const setByPath = (
-  obj: Record<string, unknown>,
-  path: string,
-  value: unknown
-): void => {
-  if (typeof path !== 'string' || path.length === 0) {
-    if (import.meta.env.DEV) {
-      // eslint-disable-next-line no-console
-      console.error('[postprocessSchema][setByPath] Invalid path', {
-        path,
-        pathType: typeof path,
-        value,
-      });
-    }
-    return;
-  }
-
-  const parts = path.split('.');
-  let current: Record<string, unknown> = obj;
-
-  for (let i = 0; i < parts.length - 1; i++) {
-    const key = parts[i];
-    const next = current[key];
-
-    if (!isPlainObject(next)) {
-      current[key] = {};
-    }
-
-    current = current[key] as Record<string, unknown>;
-  }
-
-  current[parts[parts.length - 1]] = value;
-};
-
-const deleteByPath = (obj: Record<string, unknown>, path: string): void => {
-  if (typeof path !== 'string' || path.length === 0) {
-    if (import.meta.env.DEV) {
-      // eslint-disable-next-line no-console
-      console.error('[postprocessSchema][deleteByPath] Invalid path', {
-        path,
-        pathType: typeof path,
-      });
-    }
-    return;
-  }
-
-  const parts = path.split('.');
-  let current: Record<string, unknown> = obj;
-
-  for (let i = 0; i < parts.length - 1; i++) {
-    const key = parts[i];
-    const next = current[key];
-
-    if (!isPlainObject(next)) {
-      return;
-    }
-
-    current = next;
-  }
-
-  delete current[parts[parts.length - 1]];
-};
-
 const normalizeRuntimePathArray = (paths: unknown): string[] => {
   if (!Array.isArray(paths)) {
     return [];
@@ -147,52 +61,24 @@ export const extractMultiPathMappings = (
   schema: TopologyUISchemas,
   selectedTopology: string
 ): MultiPathMapping[] => {
-  const topology = schema[selectedTopology];
-  if (!topology || !topology.sections) {
-    return [];
-  }
-
   const mappings: MultiPathMapping[] = [];
 
-  const walk = (
-    components: Record<string, Component | ComponentGroup>,
-    basePath = ''
-  ) => {
-    Object.entries(components).forEach(([key, item]) => {
-      const generatedName = basePath ? `${basePath}.${key}` : key;
+  walkTopologyComponents(schema, selectedTopology, ({ component }) => {
+    const normalizedPaths = getComponentTargetPaths(component);
+    if (normalizedPaths.length <= 1) return;
 
-      if (item.uiType === 'group' || item.uiType === 'hidden') {
-        walk((item as ComponentGroup).components, generatedName);
-        return;
-      }
+    const sourceFieldId = normalizedPaths[0];
+    const targetPaths = normalizedPaths.filter(
+      (path) => path !== sourceFieldId
+    );
 
-      const component = item as Component;
-      const normalizedPaths = getComponentTargetPaths(component);
-      if (normalizedPaths.length <= 1) {
-        return;
-      }
+    if (targetPaths.length === 0) return;
 
-      const sourceFieldId = normalizedPaths[0];
-      const targetPaths = normalizedPaths.filter(
-        (path) => path !== sourceFieldId
-      );
-
-      if (targetPaths.length === 0) {
-        return;
-      }
-
-      mappings.push({
-        sourceFieldId,
-        targetPaths,
-        removeSourceField: false,
-      });
+    mappings.push({
+      sourceFieldId,
+      targetPaths,
+      removeSourceField: false,
     });
-  };
-
-  Object.values(topology.sections).forEach((section) => {
-    if (section?.components) {
-      walk(section.components);
-    }
   });
 
   return mappings;
@@ -286,5 +172,12 @@ export const postprocessSchemaData = (
   ];
 
   const mapped = applyMultiPathMappings(formValues, allMappings);
-  return removeEmptyFieldValues(mapped);
+
+  const badgeMappings =
+    options?.schema && options.selectedTopology
+      ? extractBadgeMappings(options.schema, options.selectedTopology)
+      : [];
+  const withBadges = applyBadgesToFormData(mapped, badgeMappings);
+
+  return removeEmptyFieldValues(withBadges);
 };

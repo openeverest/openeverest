@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { Alert, Box, Skeleton, Tab, Tabs } from '@mui/material';
+import { Box, Skeleton, Tab, Tabs } from '@mui/material';
 import {
   Link,
   Navigate,
@@ -24,33 +24,30 @@ import {
 import { NoMatch } from '../404/NoMatch';
 import BackNavigationText from 'components/back-navigation-text';
 import { DBClusterDetailsTabs } from './db-cluster-details.types';
-import { DbClusterStatus } from 'shared-types/dbCluster.types';
-import { DbClusterContext } from './dbCluster.context';
+import { DbInstanceContext } from './dbCluster.context';
 import { useContext } from 'react';
 import DbActions from 'components/db-actions/db-actions';
 import { Messages } from './db-cluster-details.messages';
-import { useRBACPermissionRoute } from 'hooks/rbac';
-import DeletedDbDialog from './deleted-db-dialog';
 
 const WithPermissionDetails = ({
-  namespace,
-  dbClusterName,
+  instanceName,
   tab,
 }: {
   namespace: string;
-  dbClusterName: string;
+  instanceName: string;
   tab: string;
 }) => {
-  const { dbCluster, clusterDeleted } = useContext(DbClusterContext);
+  const { instance /*clusterDeleted */ } = useContext(DbInstanceContext);
   const navigate = useNavigate();
 
-  useRBACPermissionRoute([
-    {
-      action: 'read',
-      resource: 'database-clusters',
-      specificResources: [`${namespace}/${dbClusterName}`],
-    },
-  ]);
+  // TODO RBAC
+  // useRBACPermissionRoute([
+  //   {
+  //     action: 'read',
+  //     resource: 'database-clusters',
+  //     specificResources: [`${namespace}/${instanceName}`],
+  //   },
+  // ]);
 
   const tabs = Object.keys(DBClusterDetailsTabs) as Array<
     keyof typeof DBClusterDetailsTabs
@@ -69,7 +66,7 @@ const WithPermissionDetails = ({
           }}
         >
           <BackNavigationText
-            text={dbClusterName!}
+            text={instanceName!}
             onBackClick={() => navigate('/databases')}
           />
           {/* At this point, loading is done and we either have the cluster or not */}
@@ -92,7 +89,7 @@ const WithPermissionDetails = ({
                 dbCluster?.status?.conditions || []
               )}
             </StatusField> */}
-            <DbActions showStatusActions={true} dbCluster={dbCluster!} />
+            <DbActions showStatusActions dbInstance={instance!} />
           </Box>
         </Box>
         <Box
@@ -106,43 +103,36 @@ const WithPermissionDetails = ({
             value={tab}
             variant="scrollable"
             allowScrollButtonsMobile
-            aria-label="nav tabs"
+            aria-label="instance detail tabs"
           >
             {tabs.map((item) => (
               <Tab
-                // @ts-ignore
                 label={Messages[item]}
-                // @ts-ignore
                 key={DBClusterDetailsTabs[item]}
-                // @ts-ignore
                 value={DBClusterDetailsTabs[item]}
-                // @ts-ignore
                 to={DBClusterDetailsTabs[item]}
                 component={Link}
-                data-testid={`${
-                  DBClusterDetailsTabs[item as DBClusterDetailsTabs]
-                }`}
+                data-testid={`${DBClusterDetailsTabs[item]}`}
               />
             ))}
           </Tabs>
         </Box>
-        {dbCluster!.status?.status === DbClusterStatus.restoring && (
+        {/*TODO return when statuses will be ready */}
+        {/* {instance!.status?.status === DbInstanceStatus.restoring && (
           <Alert severity="warning" sx={{ my: 1 }}>
             {Messages.restoringDb}
           </Alert>
-        )}
+        )} */}
         <Outlet />
       </Box>
-      {clusterDeleted && <DeletedDbDialog dbClusterName={dbClusterName} />}
     </>
   );
 };
 
 export const DbClusterDetails = () => {
-  const { dbClusterName = '' } = useParams();
-
-  const { dbCluster, isLoading } = useContext(DbClusterContext);
-  const routeMatch = useMatch('/databases/:namespace/:dbClusterName/:tabs');
+  const { instanceName = '' } = useParams();
+  const { instance, isLoading } = useContext(DbInstanceContext);
+  const routeMatch = useMatch('/databases/:namespace/:instanceName/:tabs');
   const currentTab = routeMatch?.params?.tabs;
   const namespace = routeMatch?.params?.namespace;
 
@@ -163,8 +153,7 @@ export const DbClusterDetails = () => {
     );
   }
 
-  // We went through the array and know the cluster is not there. Safe to show 404
-  if (!dbCluster) {
+  if (!instance) {
     return <NoMatch />;
   }
 
@@ -172,7 +161,7 @@ export const DbClusterDetails = () => {
   return (
     <WithPermissionDetails
       namespace={namespace!}
-      dbClusterName={dbClusterName}
+      instanceName={instanceName}
       tab={currentTab}
     />
   );

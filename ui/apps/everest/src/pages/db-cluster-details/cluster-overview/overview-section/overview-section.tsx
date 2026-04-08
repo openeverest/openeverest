@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,6 +13,8 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
+// TODO refactor and move to the components library
 
 import {
   Grid,
@@ -46,32 +49,36 @@ export const OverviewSection = ({
     }
   >
     <Stack>
-      <Stack
-        direction="row"
-        justifyContent="space-between"
-        alignItems="flex-end"
-      >
-        <Typography color="text.primary" variant="sectionHeading">
-          {title}
-        </Typography>
-        {actionButtonProps && (
-          <Tooltip title={showTooltip ? disabledEditTooltipText : ''}>
-            <Box>
-              <Button
-                size="small"
-                disabled={!editable}
-                startIcon={<EditOutlinedIcon />}
-                {...actionButtonProps}
-              >
-                {editText}
-              </Button>
-            </Box>
-          </Tooltip>
-        )}
-      </Stack>
-      <Divider sx={{ mt: 0.25 }} />
+      {(title || actionButtonProps) && (
+        <>
+          <Stack
+            direction="row"
+            justifyContent="space-between"
+            alignItems="flex-end"
+          >
+            <Typography color="text.primary" variant="sectionHeading">
+              {title}
+            </Typography>
+            {actionButtonProps && (
+              <Tooltip title={showTooltip ? disabledEditTooltipText : ''}>
+                <Box>
+                  <Button
+                    size="small"
+                    disabled={!editable}
+                    startIcon={<EditOutlinedIcon />}
+                    {...actionButtonProps}
+                  >
+                    {editText}
+                  </Button>
+                </Box>
+              </Tooltip>
+            )}
+          </Stack>
+          <Divider sx={{ mt: 0.25 }} />
+        </>
+      )}
       <LoadableChildren loading={loading}>
-        <Box sx={{ mt: 1 }}>{children}</Box>
+        <Box sx={{ mt: title || actionButtonProps ? 1 : 0 }}>{children}</Box>
       </LoadableChildren>
     </Stack>
   </Grid>

@@ -12,52 +12,28 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import type {
-  Section,
-  Component,
-  ComponentGroup,
-} from '../../ui-generator.types';
+import type { Section } from '../../ui-generator.types';
 import { generateFieldId } from './generate-field-id';
 import { getComponentTargetPaths } from '../preprocess/normalized-component';
+import { walkLeafComponents } from '../schema-walker';
 
-// TODO probably may be improved and be a part of some other function that walks throught
-// all section
 export const buildSectionFieldMap = (
   sections: { [key: string]: Section },
   sectionsOrder: string[] | undefined
 ): Record<string, string> => {
   const map: Record<string, string> = {};
 
-  const walkComponents = (
-    components: { [key: string]: Component | ComponentGroup },
-    sectionKey: string,
-    basePath = ''
-  ) => {
-    Object.entries(components).forEach(([componentKey, comp]) => {
-      if (!comp) return;
+  const orderedKeys = sectionsOrder || Object.keys(sections);
+  orderedKeys.forEach((sectionKey) => {
+    const section = sections[sectionKey];
+    if (!section?.components) return;
 
-      const generatedName = basePath
-        ? `${basePath}.${componentKey}`
-        : componentKey;
-
-      if (comp.uiType === 'group' || comp.uiType === 'hidden') {
-        // Recurse into group children
-        walkComponents(
-          (comp as ComponentGroup).components,
-          sectionKey,
-          generatedName
-        );
-        return;
-      }
-
-      const leaf = comp as Component;
-      const targetPaths = getComponentTargetPaths(leaf);
+    walkLeafComponents(section.components, ({ component, generatedName }) => {
+      const targetPaths = getComponentTargetPaths(component);
 
       if (targetPaths.length > 0) {
-        const registerPath = (path: string) => {
-          if (!path || typeof path !== 'string') {
-            return;
-          }
+        targetPaths.forEach((path) => {
+          if (!path || typeof path !== 'string') return;
 
           map[path] = sectionKey;
           // Register ALL intermediate path prefixes so that Zod errors at parent
@@ -71,22 +47,13 @@ export const buildSectionFieldMap = (
               map[prefix] = sectionKey;
             }
           }
-        };
-
-        targetPaths.forEach(registerPath);
+        });
 
         // For multipath fields RHF stores value under generated ID, so errors can
         // be reported using this source field name as well.
-        map[generateFieldId(leaf, generatedName)] = sectionKey;
+        map[generateFieldId(component, generatedName)] = sectionKey;
       }
     });
-  };
-
-  const orderedKeys = sectionsOrder || Object.keys(sections);
-  orderedKeys.forEach((sectionKey) => {
-    if (sections[sectionKey]) {
-      walkComponents(sections[sectionKey].components, sectionKey);
-    }
   });
 
   return map;

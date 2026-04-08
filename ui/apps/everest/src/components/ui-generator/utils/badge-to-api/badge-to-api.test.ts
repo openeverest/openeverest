@@ -13,7 +13,7 @@
 // limitations under the License.
 
 import { describe, expect, it } from 'vitest';
-import { extractBadgeMappings } from './badge-to-api';
+import { extractBadgeMappings, applyBadgesToFormData } from './badge-to-api';
 import { FieldType, TopologyUISchemas } from '../../ui-generator.types';
 
 describe('extractBadgeMappings', () => {
@@ -44,5 +44,74 @@ describe('extractBadgeMappings', () => {
       { path: 'spec.engine.version', badge: 'GB' },
       { path: 'spec.proxy.version', badge: 'GB' },
     ]);
+  });
+
+  it('ignores components without badge or badgeToApi', () => {
+    const schema: TopologyUISchemas = {
+      ha: {
+        sections: {
+          resources: {
+            components: {
+              cpu: {
+                uiType: FieldType.Number,
+                path: 'spec.cpu',
+                fieldParams: { label: 'CPU' },
+              },
+              memory: {
+                uiType: FieldType.Number,
+                path: 'spec.memory',
+                fieldParams: { label: 'Memory', badge: 'Gi' },
+              },
+            },
+          },
+        },
+      },
+    };
+
+    const mappings = extractBadgeMappings(schema, 'ha');
+    expect(mappings).toEqual([]);
+  });
+});
+
+describe('applyBadgesToFormData', () => {
+  it('appends badge suffix to a nested field value', () => {
+    const data = { spec: { memory: '4' } };
+    const result = applyBadgesToFormData(data, [
+      { path: 'spec.memory', badge: 'Gi' },
+    ]);
+    expect(result).toEqual({ spec: { memory: '4Gi' } });
+  });
+
+  it('applies badges to multiple fields', () => {
+    const data = { spec: { memory: '4', disk: '25' } };
+    const result = applyBadgesToFormData(data, [
+      { path: 'spec.memory', badge: 'Gi' },
+      { path: 'spec.disk', badge: 'Gi' },
+    ]);
+    expect(result).toEqual({ spec: { memory: '4Gi', disk: '25Gi' } });
+  });
+
+  it('skips undefined, null, and empty string values', () => {
+    const data = { spec: { memory: undefined, disk: null, cpu: '' } };
+    const result = applyBadgesToFormData(data, [
+      { path: 'spec.memory', badge: 'Gi' },
+      { path: 'spec.disk', badge: 'Gi' },
+      { path: 'spec.cpu', badge: 'cores' },
+    ]);
+    expect(result).toEqual({
+      spec: { memory: undefined, disk: null, cpu: '' },
+    });
+  });
+
+  it('does not mutate the original data', () => {
+    const data = { spec: { memory: '4' } };
+    applyBadgesToFormData(data, [{ path: 'spec.memory', badge: 'Gi' }]);
+    expect(data).toEqual({ spec: { memory: '4' } });
+  });
+
+  it('returns data unchanged when no mappings are provided', () => {
+    const data = { spec: { memory: '4' } };
+    const result = applyBadgesToFormData(data, []);
+    expect(result).toEqual({ spec: { memory: '4' } });
   });
 });

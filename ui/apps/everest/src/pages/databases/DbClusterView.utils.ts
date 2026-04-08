@@ -20,42 +20,39 @@ import { Messages } from './dbClusterView.messages';
 import { InstanceTableElement } from './dbClusterView.types';
 import { Backup, BackupStatus } from 'shared-types/backups.types';
 import { DbErrorType } from 'shared-types/dbErrors.types';
-import { DbInstanceStatus } from 'shared-types/instance.types';
+import {
+  DB_INSTANCE_UNKNOWN_PHASE,
+  DbInstancePhase,
+} from 'shared-types/instance.types';
 import { DbInstanceForNamespaceResult } from 'hooks/api/db-instances';
 
-const DB_INSTANCE_STATUS_HUMANIFIED: Record<DbInstanceStatus, string> = {
-  [DbInstanceStatus.Creating]: Messages.statusProvider.creating,
-  [DbInstanceStatus.Running]: Messages.statusProvider.up,
-  [DbInstanceStatus.Failed]: Messages.statusProvider.down,
-  [DbInstanceStatus.Deleting]: Messages.statusProvider.deleting,
-  // [DbClusterStatus.ready]: Messages.statusProvider.up,
-  // [DbClusterStatus.error]: Messages.statusProvider.down,
-  // [DbClusterStatus.initializing]: Messages.statusProvider.initializing,
-  // [DbClusterStatus.pausing]: Messages.statusProvider.pausing,
-  // [DbClusterStatus.paused]: Messages.statusProvider.paused,
-  // [DbClusterStatus.stopping]: Messages.statusProvider.stopping,
-  // [DbClusterStatus.restoring]: Messages.statusProvider.restoring,
-  // [DbClusterStatus.deleting]: Messages.statusProvider.deleting,
-  // [DbClusterStatus.resizingVolumes]: Messages.statusProvider.resizingVolumes,
-  // [DbClusterStatus.creating]: Messages.statusProvider.creating,
-  // [DbClusterStatus.upgrading]: Messages.statusProvider.upgrading,
-  // [DbClusterStatus.importing]: Messages.statusProvider.importing,
+const DB_INSTANCE_STATUS_HUMANIFIED: Record<DbInstancePhase, string> = {
+  Failed: Messages.statusProvider.down,
+  Initializing: Messages.statusProvider.initializing,
+  Pending: 'Pending',
+  Provisioning: Messages.statusProvider.creating,
+  Ready: Messages.statusProvider.up,
+  Restoring: Messages.statusProvider.restoring,
+  Resuming: 'Resuming',
+  Suspended: Messages.statusProvider.paused,
+  Suspending: 'Suspending',
+  Terminating: Messages.statusProvider.deleting,
+  Updating: Messages.statusProvider.upgrading,
+  [DB_INSTANCE_UNKNOWN_PHASE]: DB_INSTANCE_UNKNOWN_PHASE,
 };
 
 export const beautifyDbInstanceStatus = (
-  status: DbInstanceStatus,
+  status: DbInstancePhase,
   conditions?: { type: string }[]
 ): string => {
-  // TODO 1942 should check DBErrorType
+  // TODO importFeature should check DBErrorType
   if (
-    status === DbInstanceStatus.Failed &&
+    status === 'Failed' &&
     conditions?.some((c) => c.type === DbErrorType.ImportFailed)
   ) {
     return Messages.statusProvider.importFailed;
   }
-  return (
-    DB_INSTANCE_STATUS_HUMANIFIED[status] || Messages.statusProvider.creating
-  );
+  return DB_INSTANCE_STATUS_HUMANIFIED[status] || DB_INSTANCE_UNKNOWN_PHASE;
 };
 
 export const convertDbInstancesPayloadToTableFormat = (
@@ -67,9 +64,7 @@ export const convertDbInstancesPayloadToTableFormat = (
       ?.isSuccess
       ? item.queryResult?.data.map((instance) => ({
           namespace: item.namespace,
-          phase:
-            (instance.status?.phase as DbInstanceStatus) ??
-            DbInstanceStatus.Creating,
+          phase: instance.status?.phase ?? DB_INSTANCE_UNKNOWN_PHASE,
           provider: instance.spec?.provider ?? '',
           // dbVersion: cluster.spec.engine.version || '',
           // backupsEnabled: (cluster.spec.backup?.schedules || []).length > 0,

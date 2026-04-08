@@ -32,7 +32,11 @@ import CreateDbButton from 'components/create-db-button/create-db-button';
 import EmptyStateDatabases from 'components/empty-state-databases/empty-state-databases';
 import EmptyStateNamespaces from 'components/empty-state-namespaces/empty-state-namespaces';
 import { DB_INSTANCE_STATUS_TO_BASE_STATUS } from './DbClusterView.constants';
-import { DbInstanceStatus } from 'shared-types/instance.types';
+import { DbActions } from 'components/db-actions/db-actions';
+import {
+  DbInstancePhaseValues,
+  DbInstancePhase,
+} from 'shared-types/instance.types';
 
 export const DbClusterView = () => {
   const { data: namespaces = [], isLoading: loadingNamespaces } = useNamespaces(
@@ -81,13 +85,13 @@ export const DbClusterView = () => {
         accessorKey: 'phase',
         header: 'Status',
         filterVariant: 'multi-select',
-        filterSelectOptions: Object.values(DbInstanceStatus).map((status) => ({
+        filterSelectOptions: DbInstancePhaseValues.map((status) => ({
           text: beautifyDbInstanceStatus(status),
           value: status,
         })),
         maxSize: 120,
         Cell: ({ cell }) => {
-          const status = cell.getValue<DbInstanceStatus>();
+          const status = cell.getValue<DbInstancePhase>();
 
           return (
             <StatusField
@@ -185,10 +189,12 @@ export const DbClusterView = () => {
           state={{ isLoading: instancesLoading || loadingNamespaces }}
           columns={columns}
           data={tableData}
-          // enableRowActions
-          // renderRowActions={({ row }) => {
-          //   return <DbActions dbCluster={row.original.raw} showDetailsAction />;
-          // }}
+          enableRowActions
+          renderRowActions={({ row }) => {
+            return (
+              <DbActions dbInstance={row.original.raw} showDetailsAction />
+            );
+          }}
           muiTableBodyRowProps={({ row, isDetailPanel }) => ({
             onClick: (e) => {
               if (
