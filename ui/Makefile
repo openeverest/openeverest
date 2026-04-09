@@ -40,7 +40,7 @@ dev:
 ##@ OpenAPI TypeScript Types Generation
 
 .PHONY: generate-openapi-types
-generate-openapi-types: ## Generate TypeScript types from all OpenAPI YAML files in api/openapi/.
+generate-openapi-types: init ## Generate TypeScript types from all OpenAPI YAML files in api/openapi/.
 	mkdir -p $(OPENAPI_OUT)
 	@for f in $(OPENAPI_SRC)/*.yaml; do \
 		b=$$(basename "$$f"); \
