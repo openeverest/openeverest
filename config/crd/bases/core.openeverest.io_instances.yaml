@@ -215,6 +215,13 @@ spec:
                       If omitted, the provider's default topology is used.
                     type: string
                 type: object
+              version:
+                description: |-
+                  Version selects a provider-defined version bundle, resolving compatible
+                  versions for all components automatically. Per-component versions set
+                  in Components take precedence over the bundle.
+                  If omitted and the provider defines a default bundle, that bundle is used.
+                type: string
             type: object
           status:
             description: InstanceStatus defines the observed state of Instance.
@@ -351,6 +358,18 @@ spec:
                 - Suspending
                 - Suspended
                 - Resuming
+                type: string
+              version:
+                description: |-
+                  Version is the effective version bundle that is currently applied to this
+                  Instance. On the first reconciliation the provider-runtime writes the
+                  resolved default bundle name here and uses this value on every subsequent
+                  reconciliation when spec.version is empty. This ensures that a Provider
+                  upgrade (which may change the default bundle) never silently triggers an
+                  unintended database upgrade on existing Instances.
+
+                  GitOps tools (ArgoCD, Flux) exclude status from diff calculations by
+                  default, so this field does not cause spurious out-of-sync alerts.
                 type: string
             type: object
         required:

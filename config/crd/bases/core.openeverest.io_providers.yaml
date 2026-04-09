@@ -93,6 +93,31 @@ spec:
                 description: UISchema holds the UI rendering hints for each topology.
                 type: object
                 x-kubernetes-preserve-unknown-fields: true
+              versions:
+                additionalProperties:
+                  description: |-
+                    VersionBundle is a curated set of component versions known to be mutually
+                    compatible. Provider developers define bundles in definition/versions.yaml.
+                  properties:
+                    components:
+                      additionalProperties:
+                        type: string
+                      description: |-
+                        Components maps component names to their version strings for this bundle.
+                        Keys must match component names defined in ProviderSpec.Components.
+                      type: object
+                    default:
+                      description: |-
+                        Default marks this bundle as the implicit choice when an Instance omits
+                        Spec.Version entirely. Exactly one bundle should have Default: true.
+                      type: boolean
+                  type: object
+                description: |-
+                  Versions defines curated version bundles — named sets of component
+                  versions that are known to be mutually compatible. Users reference
+                  a bundle via Instance.Spec.Version. If the user does not set a version,
+                  the bundle whose Default field is true is used automatically.
+                type: object
             type: object
           status:
             description: ProviderStatus defines the observed state of Provider.
