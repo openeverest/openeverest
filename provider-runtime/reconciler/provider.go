@@ -588,7 +588,14 @@ func validateVersionBundle(ctx context.Context, c client.Client, in *v1alpha1.In
 	if err := c.Get(ctx, client.ObjectKey{Name: in.Spec.Provider}, providerObj); err != nil {
 		return fmt.Errorf("fetching provider for version validation: %w", err)
 	}
-	if _, ok := providerObj.Spec.Versions[in.Spec.Version]; !ok {
+	found := false
+	for _, b := range providerObj.Spec.Versions {
+		if b.Name == in.Spec.Version {
+			found = true
+			break
+		}
+	}
+	if !found {
 		return fmt.Errorf("version %q is not defined by provider %q", in.Spec.Version, in.Spec.Provider)
 	}
 	return nil

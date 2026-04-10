@@ -137,11 +137,12 @@ func GetImageForVersion(spec *v1alpha1.ProviderSpec, componentName, version stri
 // ResolveVersionBundle looks up the named version bundle in the ProviderSpec.
 // Returns an error if the bundle name is not found.
 func ResolveVersionBundle(spec *v1alpha1.ProviderSpec, version string) (*v1alpha1.VersionBundle, error) {
-	bundle, ok := spec.Versions[version]
-	if !ok {
-		return nil, fmt.Errorf("version bundle %q not found in provider spec", version)
+	for i := range spec.Versions {
+		if spec.Versions[i].Name == version {
+			return &spec.Versions[i], nil
+		}
 	}
-	return &bundle, nil
+	return nil, fmt.Errorf("version bundle %q not found in provider spec", version)
 }
 
 // GetDefaultVersionBundle returns the bundle marked as Default: true.
@@ -149,19 +150,18 @@ func ResolveVersionBundle(spec *v1alpha1.ProviderSpec, version string) (*v1alpha
 func GetDefaultVersionBundle(spec *v1alpha1.ProviderSpec) *v1alpha1.VersionBundle {
 	for i := range spec.Versions {
 		if spec.Versions[i].Default {
-			b := spec.Versions[i]
-			return &b
+			return &spec.Versions[i]
 		}
 	}
 	return nil
 }
 
-// GetDefaultVersionBundleName returns the name (key) of the bundle marked as
+// GetDefaultVersionBundleName returns the name of the bundle marked as
 // Default: true. Returns empty string if no default bundle is defined.
 func GetDefaultVersionBundleName(spec *v1alpha1.ProviderSpec) string {
-	for name, b := range spec.Versions {
+	for _, b := range spec.Versions {
 		if b.Default {
-			return name
+			return b.Name
 		}
 	}
 	return ""
@@ -194,15 +194,15 @@ func ValidateProviderSpec(spec *v1alpha1.ProviderSpec) error {
 	}
 
 	// Check that version bundles only reference known components and valid versions
-	for bundleName, bundle := range spec.Versions {
+	for _, bundle := range spec.Versions {
 		for compName, ver := range bundle.Components {
 			comp, ok := spec.Components[compName]
 			if !ok {
-				return fmt.Errorf("version bundle %q: component %q is not defined", bundleName, compName)
+				return fmt.Errorf("version bundle %q: component %q is not defined", bundle.Name, compName)
 			}
 			ct, ok := spec.ComponentTypes[comp.Type]
 			if !ok {
-				return fmt.Errorf("version bundle %q: component %q has unknown type %q", bundleName, compName, comp.Type)
+				return fmt.Errorf("version bundle %q: component %q has unknown type %q", bundle.Name, compName, comp.Type)
 			}
 			found := false
 			for _, v := range ct.Versions {
@@ -212,7 +212,7 @@ func ValidateProviderSpec(spec *v1alpha1.ProviderSpec) error {
 				}
 			}
 			if !found {
-				return fmt.Errorf("version bundle %q: component %q version %q not found in componentTypes[%q]", bundleName, compName, ver, comp.Type)
+				return fmt.Errorf("version bundle %q: component %q version %q not found in componentTypes[%q]", bundle.Name, compName, ver, comp.Type)
 			}
 		}
 	}

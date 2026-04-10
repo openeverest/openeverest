@@ -372,9 +372,9 @@ func (in *ProviderSpec) DeepCopyInto(out *ProviderSpec) {
 	}
 	if in.Versions != nil {
 		in, out := &in.Versions, &out.Versions
-		*out = make(map[string]VersionBundle, len(*in))
-		for key, val := range *in {
-			(*out)[key] = *val.DeepCopy()
+		*out = make([]VersionBundle, len(*in))
+		for i := range *in {
+			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
 	if in.GlobalConfigSchema != nil {

@@ -774,7 +774,7 @@ type Provider struct {
 		// versions that are known to be mutually compatible. Users reference
 		// a bundle via Instance.Spec.Version. If the user does not set a version,
 		// the bundle whose Default field is true is used automatically.
-		Versions *map[string]struct {
+		Versions *[]struct {
 			// Components Components maps component names to their version strings for this bundle.
 			// Keys must match component names defined in ProviderSpec.Components.
 			Components *map[string]string `json:"components,omitempty"`
@@ -782,6 +782,10 @@ type Provider struct {
 			// Default Default marks this bundle as the implicit choice when an Instance omits
 			// Spec.Version entirely. Exactly one bundle should have Default: true.
 			Default *bool `json:"default,omitempty"`
+
+			// Name Name is the unique identifier for this bundle (e.g. "8.0.12").
+			// Users set Instance.Spec.Version to this value to select the bundle.
+			Name string `json:"name"`
 		} `json:"versions,omitempty"`
 	} `json:"spec"`
 

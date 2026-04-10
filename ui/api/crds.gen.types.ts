@@ -750,21 +750,24 @@ export interface components {
                  *     the bundle whose Default field is true is used automatically.
                  */
                 versions?: {
-                    [key: string]: {
-                        /**
-                         * @description Components maps component names to their version strings for this bundle.
-                         *     Keys must match component names defined in ProviderSpec.Components.
-                         */
-                        components?: {
-                            [key: string]: string;
-                        };
-                        /**
-                         * @description Default marks this bundle as the implicit choice when an Instance omits
-                         *     Spec.Version entirely. Exactly one bundle should have Default: true.
-                         */
-                        default?: boolean;
+                    /**
+                     * @description Components maps component names to their version strings for this bundle.
+                     *     Keys must match component names defined in ProviderSpec.Components.
+                     */
+                    components?: {
+                        [key: string]: string;
                     };
-                };
+                    /**
+                     * @description Default marks this bundle as the implicit choice when an Instance omits
+                     *     Spec.Version entirely. Exactly one bundle should have Default: true.
+                     */
+                    default?: boolean;
+                    /**
+                     * @description Name is the unique identifier for this bundle (e.g. "8.0.12").
+                     *     Users set Instance.Spec.Version to this value to select the bundle.
+                     */
+                    name: string;
+                }[];
             };
             /** @description ProviderStatus defines the observed state of Provider. */
             status?: {
