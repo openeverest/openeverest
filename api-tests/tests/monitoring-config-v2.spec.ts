@@ -17,7 +17,7 @@
 import {expect, test} from '@fixtures'
 import * as th from '@tests/utils/api';
 
-const testPrefix = 'mc',
+const testPrefix = 'mcv2',
   mcNameKey = th.limitedSuffixedName(testPrefix + '-key'),
   mcNamePass = th.limitedSuffixedName(testPrefix + '-pass')
 
