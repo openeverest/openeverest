@@ -103,7 +103,7 @@ func (v *MonitoringConfigCustomValidator) validateMonitoringConfig(ctx context.C
 		skipVerifyTLS = !*mc.Spec.VerifyTLS
 	}
 
-	_, err := pmm.GetPMMServerVersion(ctx, mc.Spec.PMM.URL, string(apiKey), skipVerifyTLS)
+	_, err := pmm.GetPMMServerVersion(ctx, mc.Spec.URL, string(apiKey), skipVerifyTLS)
 	if err != nil {
 		return fmt.Errorf("failed to get PMM server version: %w", err)
 	}
