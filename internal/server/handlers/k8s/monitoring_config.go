@@ -78,10 +78,8 @@ func (h *k8sHandler) CreateMonitoringConfig(ctx context.Context, namespace strin
 			Namespace: namespace,
 		},
 		Spec: monitoringv1alpha1.MonitoringConfigSpec{
-			Type: monitoringv1alpha1.MonitoringType(req.Type),
-			PMM: &monitoringv1alpha1.PMMConfig{
-				URL: req.Url,
-			},
+			Type:                  monitoringv1alpha1.MonitoringType(req.Type),
+			URL:                   req.Url,
 			CredentialsSecretName: req.Name,
 			VerifyTLS:             req.VerifyTLS,
 		},
@@ -154,7 +152,7 @@ func (h *k8sHandler) UpdateMonitoringConfig(ctx context.Context, namespace, name
 	}
 
 	if req.Url != "" {
-		m.Spec.PMM.URL = req.Url
+		m.Spec.URL = req.Url
 	}
 
 	if req.VerifyTLS != nil {
@@ -168,7 +166,7 @@ func (h *k8sHandler) UpdateMonitoringConfig(ctx context.Context, namespace, name
 			verifyTLS := pointer.Get(m.Spec.VerifyTLS)
 			apiKeyName := fmt.Sprintf("everest-%s-%s", name, uuid.NewString())
 
-			if apiKey, err = pmm.CreateAPIKey(ctx, m.Spec.PMM.URL, apiKeyName, req.Pmm.User, req.Pmm.Password, !verifyTLS); err != nil {
+			if apiKey, err = pmm.CreateAPIKey(ctx, m.Spec.URL, apiKeyName, req.Pmm.User, req.Pmm.Password, !verifyTLS); err != nil {
 				return nil, err
 			}
 		}
