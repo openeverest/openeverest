@@ -3857,6 +3857,22 @@ components:
                       pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                       x-kubernetes-int-or-string: true
                   type: object
+                storage:
+                  description: Storage is the proxy storage configuration
+                  properties:
+                    class:
+                      description: Class is the storage class to use for the persistent volume claim
+                      type: string
+                    size:
+                      anyOf:
+                        - type: integer
+                        - type: string
+                      description: Size is the size of the persistent volume claim
+                      pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                      x-kubernetes-int-or-string: true
+                  required:
+                    - size
+                  type: object
                 type:
                   description: Type is the proxy type
                   enum:
