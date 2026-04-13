@@ -19,6 +19,7 @@ jobs:
     env:
       IMAGE_PREFIX: 'ghcr.io/openeverest'
       EVEREST_SERVER_DEV_IMAGE_NAME: 'openeverest-dev'
+      EVEREST_CTL_DEV_IMAGE_NAME: 'everestctl-dev'
     steps:
       - name: Check out code into the Go module directory
         uses: actions/checkout@v5
@@ -73,4 +74,19 @@ jobs:
           context: .
           push: true
           tags: ${{ steps.meta.outputs.tags }}
+
+      - name: Setup docker build metadata for everestctl
+        uses: docker/metadata-action@v5
+        id: everestctl_meta
+        with:
+          images: ${{ env.IMAGE_PREFIX }}/${{ env.EVEREST_CTL_DEV_IMAGE_NAME }}
+          tags: 0.0.0
+
+      - name: Build and Push everestctl dev image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile.everestctl
+          push: true
+          tags: ${{ steps.everestctl_meta.outputs.tags }}
 

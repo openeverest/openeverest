@@ -122,6 +122,7 @@ jobs:
 
       IMAGE_PREFIX: 'ghcr.io/openeverest'
       EVEREST_SERVER_DEV_IMAGE_NAME: 'openeverest-dev'
+      EVEREST_CTL_DEV_IMAGE_NAME: 'everestctl-dev'
       EVEREST_OPERATOR_DEV_IMAGE_NAME: 'openeverest-operator-dev'
       EVEREST_OPERATOR_BUNDLE_DEV_IMAGE_NAME: 'openeverest-operator-bundle-dev'
       EVEREST_CATALOG_DEV_IMAGE_NAME: 'openeverest-catalog-dev'
@@ -427,6 +428,16 @@ jobs:
           platforms: ${{ matrix.platform }}
           tags: ${{ env.IMAGE_PREFIX }}/${{ env.EVEREST_SERVER_DEV_IMAGE_NAME }}:${{ env.VERSION }}-${{ matrix.arch }}
 
+      - name: CLI - build and push everestctl dev image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile.everestctl
+          push: true
+          provenance: false
+          platforms: ${{ matrix.platform }}
+          tags: ${{ env.IMAGE_PREFIX }}/${{ env.EVEREST_CTL_DEV_IMAGE_NAME }}:${{ env.VERSION }}-${{ matrix.arch }}
+
       - name: Create vs_tag file
         if: matrix.arch == 'amd64'
         run: |
@@ -511,6 +522,11 @@ jobs:
           docker buildx imagetools create -t $IMAGE_PREFIX/openeverest-dev:$VERSION \
             $IMAGE_PREFIX/openeverest-dev:$VERSION-amd64 \
             $IMAGE_PREFIX/openeverest-dev:$VERSION-arm64
+          
+          # Everestctl
+          docker buildx imagetools create -t $IMAGE_PREFIX/everestctl-dev:$VERSION \
+            $IMAGE_PREFIX/everestctl-dev:$VERSION-amd64 \
+            $IMAGE_PREFIX/everestctl-dev:$VERSION-arm64
 
 # Enable to debug workflow execution
 #      - name: "Setup tmate session"

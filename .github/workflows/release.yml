@@ -61,6 +61,8 @@ jobs:
       EVEREST_CATALOG_IMAGE_NAME: 'openeverest-catalog'
       EVEREST_CATALOG_DEV_IMAGE_NAME: 'openeverest-catalog-dev'
       EVEREST_VERSION_SERVICE_DEV_IMAGE_NAME: 'version-service-dev'
+      EVEREST_CTL_IMAGE_NAME: 'everestctl'
+      EVEREST_CTL_DEV_IMAGE_NAME: 'everestctl-dev'
     steps:
       - name: Enable /mnt (big volume) to be used by runner
         run: |
@@ -421,6 +423,28 @@ jobs:
           files: |
             dist/*
 
+      - name: CLI - setup Docker meta for everestctl
+        id: everestctl_meta
+        uses: docker/metadata-action@v5
+        with:
+          images: |
+            ${{ env.IMAGE_PREFIX }}/${{ env.EVEREST_CTL_IMAGE_NAME }},enable=${{ env.IS_RC == 0 }}
+            ${{ env.IMAGE_PREFIX }}/${{ env.EVEREST_CTL_DEV_IMAGE_NAME }}
+          tags: |
+            type=raw,value=${{ env.VERSION }}-${{ matrix.arch }}
+            type=raw,value=latest-${{ matrix.arch }}
+            type=raw,value=${{ env.FLOATING_TAG }}-${{ matrix.arch }},enable=${{ env.IS_RC == 0 }}
+
+      - name: CLI - build and push everestctl image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile.everestctl
+          push: true
+          provenance: false
+          platforms: ${{ matrix.platform }}
+          tags: ${{ steps.everestctl_meta.outputs.tags }}
+
       - name: Trigger Homebrew tap update
         if: env.IS_RC == 0
         run: |
@@ -461,11 +485,13 @@ jobs:
             BUNDLE_IMAGE="openeverest-operator-bundle-dev"
             CATALOG_IMAGE="openeverest-catalog-dev"
             EVEREST_IMAGE="openeverest-dev"
+            EVERESTCTL_IMAGE="everestctl-dev"
           else
             OPERATOR_IMAGE="openeverest-operator"
             BUNDLE_IMAGE="openeverest-operator-bundle"
             CATALOG_IMAGE="openeverest-catalog"
             EVEREST_IMAGE="openeverest"
+            EVERESTCTL_IMAGE="everestctl"
           fi
           
           # Operator - version tag
@@ -524,4 +550,21 @@ jobs:
             docker buildx imagetools create -t $IMAGE_PREFIX/$EVEREST_IMAGE:$FLOATING_TAG \
               $IMAGE_PREFIX/$EVEREST_IMAGE:$FLOATING_TAG-amd64 \
               $IMAGE_PREFIX/$EVEREST_IMAGE:$FLOATING_TAG-arm64
+          fi
+          
+          # Everestctl - version tag
+          docker buildx imagetools create -t $IMAGE_PREFIX/$EVERESTCTL_IMAGE:$VERSION \
+            $IMAGE_PREFIX/$EVERESTCTL_IMAGE:$VERSION-amd64 \
+            $IMAGE_PREFIX/$EVERESTCTL_IMAGE:$VERSION-arm64
+          
+          # Everestctl - latest tag
+          docker buildx imagetools create -t $IMAGE_PREFIX/$EVERESTCTL_IMAGE:latest \
+            $IMAGE_PREFIX/$EVERESTCTL_IMAGE:latest-amd64 \
+            $IMAGE_PREFIX/$EVERESTCTL_IMAGE:latest-arm64
+          
+          # Everestctl - floating tag (only for releases)
+          if [[ "$IS_RC" != "true" ]]; then
+            docker buildx imagetools create -t $IMAGE_PREFIX/$EVERESTCTL_IMAGE:$FLOATING_TAG \
+              $IMAGE_PREFIX/$EVERESTCTL_IMAGE:$FLOATING_TAG-amd64 \
+              $IMAGE_PREFIX/$EVERESTCTL_IMAGE:$FLOATING_TAG-arm64
           fi

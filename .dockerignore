@@ -1,6 +1,10 @@
 **
 !bin/everest
 !cmd
+!commands
+!internal
+!client
+!data
 !migrations
 !model
 !service
