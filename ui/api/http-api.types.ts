@@ -2040,6 +2040,13 @@ export interface components {
                         /** @description Memory is the memory resource requirements */
                         memory?: number | string;
                     };
+                    /** @description Storage is the proxy storage configuration */
+                    storage?: {
+                        /** @description Class is the storage class to use for the persistent volume claim */
+                        class?: string;
+                        /** @description Size is the size of the persistent volume claim */
+                        size: number | string;
+                    };
                     /**
                      * @description Type is the proxy type
                      * @enum {string}
