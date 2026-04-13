@@ -621,16 +621,13 @@ export interface components {
                  *     It contains `apiKey` key with the API key value.
                  */
                 credentialsSecretName: string;
-                /** @description PMM is configuration specific for monitoring using PMM tool. */
-                pmm?: {
-                    /** @description URL is url to the monitoring config. */
-                    url: string;
-                };
                 /**
                  * @description Type is the name of monitoring tool (e.g., "pmm").
                  * @enum {string}
                  */
                 type: "pmm";
+                /** @description URL is the URL of the monitoring server (e.g., PMM server URL). */
+                url: string;
                 /**
                  * @description VerifyTLS is set to ensure TLS/SSL verification.
                  *     If unspecified, the default value is true.

@@ -249,7 +249,7 @@ func (r *MonitoringConfigReconciler) fetchPMMServerVersion(
 		skipVerifyTLS = !pointer.Get(mc.Spec.VerifyTLS)
 	}
 
-	v, err := pmm.GetPMMServerVersion(ctx, mc.Spec.PMM.URL, string(apiKey), skipVerifyTLS)
+	v, err := pmm.GetPMMServerVersion(ctx, mc.Spec.URL, string(apiKey), skipVerifyTLS)
 	if err != nil {
 		return "", fmt.Errorf("failed to get PMM server version: %w", err)
 	}

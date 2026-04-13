@@ -661,14 +661,11 @@ type MonitoringConfig struct {
 		// It contains `apiKey` key with the API key value.
 		CredentialsSecretName string `json:"credentialsSecretName"`
 
-		// Pmm PMM is configuration specific for monitoring using PMM tool.
-		Pmm *struct {
-			// Url URL is url to the monitoring config.
-			Url string `json:"url"`
-		} `json:"pmm,omitempty"`
-
 		// Type Type is the name of monitoring tool (e.g., "pmm").
 		Type MonitoringConfigSpecType `json:"type"`
+
+		// Url URL is the URL of the monitoring server (e.g., PMM server URL).
+		Url string `json:"url"`
 
 		// VerifyTLS VerifyTLS is set to ensure TLS/SSL verification.
 		// If unspecified, the default value is true.
