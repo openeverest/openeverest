@@ -22,6 +22,12 @@ spec:
       control-plane: controller-manager
       app.kubernetes.io/name: openeverest
   replicas: 1
+  revisionHistoryLimit: 1
+  strategy:
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: 25%
+    type: RollingUpdate
   template:
     metadata:
       annotations:
@@ -70,25 +76,32 @@ spec:
           - --health-probe-bind-address=:8081
         image: controller:latest
         name: manager
+        imagePullPolicy: IfNotPresent
         ports: []
         securityContext:
           readOnlyRootFilesystem: true
           allowPrivilegeEscalation: false
           capabilities:
             drop:
-            - "ALL"
+            - ALL
         livenessProbe:
           httpGet:
             path: /healthz
             port: 8081
+            scheme: HTTP
           initialDelaySeconds: 15
           periodSeconds: 20
+          failureThreshold: 3
+          timeoutSeconds: 1
         readinessProbe:
           httpGet:
             path: /readyz
             port: 8081
+            scheme: HTTP
           initialDelaySeconds: 5
           periodSeconds: 10
+          failureThreshold: 3
+          timeoutSeconds: 1
         # TODO(user): Configure the resources accordingly based on the project requirements.
         # More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
         resources:
@@ -98,7 +111,10 @@ spec:
           requests:
             cpu: 10m
             memory: 64Mi
+        env: []
         volumeMounts: []
       volumes: []
+      dnsPolicy: ClusterFirst
+      restartPolicy: Always
       serviceAccountName: controller-manager
       terminationGracePeriodSeconds: 10
