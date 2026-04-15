@@ -37,7 +37,10 @@ var monitoringconfiglog = logf.Log.WithName("monitoringconfig-resource")
 // SetupMonitoringConfigWebhookWithManager registers the webhook for MonitoringConfig in the manager.
 func SetupMonitoringConfigWebhookWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewWebhookManagedBy(mgr, &monitoringv1alpha2.MonitoringConfig{}).
-		WithValidator(&MonitoringConfigCustomValidator{}).
+		WithValidator(&MonitoringConfigCustomValidator{
+			Client:    mgr.GetClient(),
+			apiReader: mgr.GetAPIReader(),
+		}).
 		Complete()
 }
 
