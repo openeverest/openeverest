@@ -10,14 +10,14 @@ webhooks:
     service:
       name: webhook-service
       namespace: system
-      path: /validate-monitoring-openeverest-io-v1alpha1-monitoringconfig
+      path: /validate-monitoring-openeverest-io-v1alpha2-monitoringconfig
   failurePolicy: Fail
-  name: vmonitoringconfig-v1alpha1.kb.io
+  name: vmonitoringconfig-v1alpha2.kb.io
   rules:
   - apiGroups:
     - monitoring.openeverest.io
     apiVersions:
-    - v1alpha1
+    - v1alpha2
     operations:
     - CREATE
     - UPDATE

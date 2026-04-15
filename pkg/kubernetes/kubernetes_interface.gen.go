@@ -20,7 +20,7 @@ import (
 
 	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
 	"github.com/openeverest/openeverest/v2/api/core/v1alpha1"
-	monitoringv1alpha1 "github.com/openeverest/openeverest/v2/api/monitoring/v1alpha1"
+	monitoringv1alpha2 "github.com/openeverest/openeverest/v2/api/monitoring/v1alpha2"
 	"github.com/openeverest/openeverest/v2/pkg/accounts"
 	"github.com/openeverest/openeverest/v2/pkg/common"
 )
@@ -185,11 +185,11 @@ type KubernetesConnector interface {
 	// This method returns a list of full objects (meta and spec).
 	//
 	// TODO Rename it to ListMonitoringConfigs once v1 code is removed.
-	ListMonitoringConfigsV2(ctx context.Context, opts ...ctrlclient.ListOption) (*monitoringv1alpha1.MonitoringConfigList, error)
+	ListMonitoringConfigsV2(ctx context.Context, opts ...ctrlclient.ListOption) (*monitoringv1alpha2.MonitoringConfigList, error)
 	// GetMonitoringConfigV2 returns monitoring config(full object) that matches the criteria.
 	//
 	// TODO Rename it to GetMonitoringConfig once v1 code is removed.
-	GetMonitoringConfigV2(ctx context.Context, key ctrlclient.ObjectKey) (*monitoringv1alpha1.MonitoringConfig, error)
+	GetMonitoringConfigV2(ctx context.Context, key ctrlclient.ObjectKey) (*monitoringv1alpha2.MonitoringConfig, error)
 	// GetMonitoringConfigMetaV2 returns monitoring config(metadata only) that matches the criteria.
 	//
 	// TODO Rename it to GetMonitoringConfigMeta once v1 code is removed.
@@ -197,15 +197,15 @@ type KubernetesConnector interface {
 	// CreateMonitoringConfigV2 creates monitoring config.
 	//
 	// TODO Rename it to CreateMonitoringConfig once v1 code is removed.
-	CreateMonitoringConfigV2(ctx context.Context, config *monitoringv1alpha1.MonitoringConfig) (*monitoringv1alpha1.MonitoringConfig, error)
+	CreateMonitoringConfigV2(ctx context.Context, config *monitoringv1alpha2.MonitoringConfig) (*monitoringv1alpha2.MonitoringConfig, error)
 	// UpdateMonitoringConfigV2 updates monitoring config.
 	//
 	// TODO Rename it to UpdateMonitoringConfig once v1 code is removed.
-	UpdateMonitoringConfigV2(ctx context.Context, config *monitoringv1alpha1.MonitoringConfig) (*monitoringv1alpha1.MonitoringConfig, error)
+	UpdateMonitoringConfigV2(ctx context.Context, config *monitoringv1alpha2.MonitoringConfig) (*monitoringv1alpha2.MonitoringConfig, error)
 	// DeleteMonitoringConfigV2 deletes monitoring config that matches the criteria.
 	//
 	// TODO Rename it to DeleteMonitoringConfig once v1 code is removed.
-	DeleteMonitoringConfigV2(ctx context.Context, obj *monitoringv1alpha1.MonitoringConfig) error
+	DeleteMonitoringConfigV2(ctx context.Context, obj *monitoringv1alpha2.MonitoringConfig) error
 	// CreateNamespace creates the given namespace.
 	CreateNamespace(ctx context.Context, namespace *corev1.Namespace) (*corev1.Namespace, error)
 	// GetNamespace returns a namespace that matches the criteria.

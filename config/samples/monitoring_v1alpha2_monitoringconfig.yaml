@@ -1,0 +1,9 @@
+apiVersion: monitoring.openeverest.io/v1alpha2
+kind: MonitoringConfig
+metadata:
+  labels:
+    app.kubernetes.io/name: openeverest
+    app.kubernetes.io/managed-by: kustomize
+  name: monitoringconfig-sample
+spec:
+  # TODO(user): Add fields here
