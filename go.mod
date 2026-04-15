@@ -28,9 +28,9 @@ require (
 	github.com/oapi-codegen/runtime v1.1.1
 	github.com/onsi/ginkgo/v2 v2.28.1
 	github.com/onsi/gomega v1.39.1
-	github.com/openeverest/helm-charts/charts/everest v0.0.0-20260408075441-8f2fe54edfd4
+	github.com/openeverest/helm-charts/charts/everest v0.0.0-20260414092111-1eecdda83aaa
 	github.com/operator-framework/api v0.33.0
-	github.com/percona/everest-operator v0.6.0-dev1.0.20260306153847-df4fbae671e5
+	github.com/percona/everest-operator v0.6.0-dev1.0.20260413160948-8fed595a87aa
 	github.com/rodaine/table v1.3.0
 	github.com/spf13/cobra v1.10.1
 	github.com/stretchr/testify v1.11.1

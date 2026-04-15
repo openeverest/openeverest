@@ -25,6 +25,12 @@ type ProviderSpec struct {
 	Components     map[string]Component     `json:"components,omitempty"`
 	Topologies     map[string]Topology      `json:"topologies,omitempty"`
 
+	// Versions defines curated version bundles — named sets of component
+	// versions that are known to be mutually compatible. Users reference
+	// a bundle via Instance.Spec.Version. If the user does not set a version,
+	// the bundle whose Default field is true is used automatically.
+	Versions []VersionBundle `json:"versions,omitempty"`
+
 	// GlobalConfigSchema holds the OpenAPI v3 schema for the global configuration.
 	// +optional
 	// +kubebuilder:pruning:PreserveUnknownFields
@@ -34,6 +40,22 @@ type ProviderSpec struct {
 	// +optional
 	// +kubebuilder:pruning:PreserveUnknownFields
 	UISchema *runtime.RawExtension `json:"uiSchema,omitempty"`
+}
+
+// VersionBundle is a curated set of component versions known to be mutually
+// compatible. Provider developers define bundles in definition/versions.yaml.
+type VersionBundle struct {
+	// Name is the unique identifier for this bundle (e.g. "8.0.12").
+	// Users set Instance.Spec.Version to this value to select the bundle.
+	Name string `json:"name"`
+
+	// Components maps component names to their version strings for this bundle.
+	// Keys must match component names defined in ProviderSpec.Components.
+	Components map[string]string `json:"components,omitempty"`
+
+	// Default marks this bundle as the implicit choice when an Instance omits
+	// Spec.Version entirely. Exactly one bundle should have Default: true.
+	Default bool `json:"default,omitempty"`
 }
 
 type ComponentType struct {
