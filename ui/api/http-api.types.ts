@@ -2040,6 +2040,13 @@ export interface components {
                         /** @description Memory is the memory resource requirements */
                         memory?: number | string;
                     };
+                    /** @description Storage is the proxy storage configuration */
+                    storage?: {
+                        /** @description Class is the storage class to use for the persistent volume claim */
+                        class?: string;
+                        /** @description Size is the size of the persistent volume claim */
+                        size: number | string;
+                    };
                     /**
                      * @description Type is the proxy type
                      * @enum {string}
@@ -7028,6 +7035,31 @@ export interface components {
                 };
                 /** @description UISchema holds the UI rendering hints for each topology. */
                 uiSchema?: Record<string, never>;
+                /**
+                 * @description Versions defines curated version bundles — named sets of component
+                 *     versions that are known to be mutually compatible. Users reference
+                 *     a bundle via Instance.Spec.Version. If the user does not set a version,
+                 *     the bundle whose Default field is true is used automatically.
+                 */
+                versions?: {
+                    /**
+                     * @description Components maps component names to their version strings for this bundle.
+                     *     Keys must match component names defined in ProviderSpec.Components.
+                     */
+                    components?: {
+                        [key: string]: string;
+                    };
+                    /**
+                     * @description Default marks this bundle as the implicit choice when an Instance omits
+                     *     Spec.Version entirely. Exactly one bundle should have Default: true.
+                     */
+                    default?: boolean;
+                    /**
+                     * @description Name is the unique identifier for this bundle (e.g. "8.0.12").
+                     *     Users set Instance.Spec.Version to this value to select the bundle.
+                     */
+                    name: string;
+                }[];
             };
             /** @description ProviderStatus defines the observed state of Provider. */
             status?: {
@@ -7237,6 +7269,13 @@ export interface components {
                      */
                     type?: string;
                 };
+                /**
+                 * @description Version selects a provider-defined version bundle, resolving compatible
+                 *     versions for all components automatically. Per-component versions set
+                 *     in Components take precedence over the bundle.
+                 *     If omitted and the provider defines a default bundle, that bundle is used.
+                 */
+                version?: string;
             };
             /** @description InstanceStatus defines the observed state of Instance. */
             status?: {
@@ -7324,6 +7363,18 @@ export interface components {
                  * @enum {string}
                  */
                 phase?: "Pending" | "Provisioning" | "Initializing" | "Ready" | "Updating" | "Terminating" | "Failed" | "Restoring" | "Suspending" | "Suspended" | "Resuming";
+                /**
+                 * @description Version is the effective version bundle that is currently applied to this
+                 *     Instance. On the first reconciliation the provider-runtime writes the
+                 *     resolved default bundle name here and uses this value on every subsequent
+                 *     reconciliation when spec.version is empty. This ensures that a Provider
+                 *     upgrade (which may change the default bundle) never silently triggers an
+                 *     unintended database upgrade on existing Instances.
+                 *
+                 *     GitOps tools (ArgoCD, Flux) exclude status from diff calculations by
+                 *     default, so this field does not cause spurious out-of-sync alerts.
+                 */
+                version?: string;
             };
         };
         /** @description InstanceList is an object that contains the list of the existing instances. */

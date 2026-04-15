@@ -709,6 +709,13 @@ components:
                     If omitted, the provider's default topology is used.
                   type: string
               type: object
+            version:
+              description: |-
+                Version selects a provider-defined version bundle, resolving compatible
+                versions for all components automatically. Per-component versions set
+                in Components take precedence over the bundle.
+                If omitted and the provider defines a default bundle, that bundle is used.
+              type: string
           type: object
         status:
           description: InstanceStatus defines the observed state of Instance.
@@ -845,6 +852,18 @@ components:
               - Suspending
               - Suspended
               - Resuming
+              type: string
+            version:
+              description: |-
+                Version is the effective version bundle that is currently applied to this
+                Instance. On the first reconciliation the provider-runtime writes the
+                resolved default bundle name here and uses this value on every subsequent
+                reconciliation when spec.version is empty. This ensures that a Provider
+                upgrade (which may change the default bundle) never silently triggers an
+                unintended database upgrade on existing Instances.
+
+                GitOps tools (ArgoCD, Flux) exclude status from diff calculations by
+                default, so this field does not cause spurious out-of-sync alerts.
               type: string
           type: object
       required:
@@ -1102,6 +1121,38 @@ components:
               description: UISchema holds the UI rendering hints for each topology.
               type: object
               x-kubernetes-preserve-unknown-fields: true
+            versions:
+              description: |-
+                Versions defines curated version bundles — named sets of component
+                versions that are known to be mutually compatible. Users reference
+                a bundle via Instance.Spec.Version. If the user does not set a version,
+                the bundle whose Default field is true is used automatically.
+              items:
+                description: |-
+                  VersionBundle is a curated set of component versions known to be mutually
+                  compatible. Provider developers define bundles in definition/versions.yaml.
+                properties:
+                  components:
+                    additionalProperties:
+                      type: string
+                    description: |-
+                      Components maps component names to their version strings for this bundle.
+                      Keys must match component names defined in ProviderSpec.Components.
+                    type: object
+                  default:
+                    description: |-
+                      Default marks this bundle as the implicit choice when an Instance omits
+                      Spec.Version entirely. Exactly one bundle should have Default: true.
+                    type: boolean
+                  name:
+                    description: |-
+                      Name is the unique identifier for this bundle (e.g. "8.0.12").
+                      Users set Instance.Spec.Version to this value to select the bundle.
+                    type: string
+                required:
+                - name
+                type: object
+              type: array
           type: object
         status:
           description: ProviderStatus defines the observed state of Provider.

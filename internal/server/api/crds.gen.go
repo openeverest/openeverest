@@ -486,6 +486,12 @@ type Instance struct {
 			// If omitted, the provider's default topology is used.
 			Type *string `json:"type,omitempty"`
 		} `json:"topology,omitempty"`
+
+		// Version Version selects a provider-defined version bundle, resolving compatible
+		// versions for all components automatically. Per-component versions set
+		// in Components take precedence over the bundle.
+		// If omitted and the provider defines a default bundle, that bundle is used.
+		Version *string `json:"version,omitempty"`
 	} `json:"spec"`
 
 	// Status InstanceStatus defines the observed state of Instance.
@@ -555,6 +561,17 @@ type Instance struct {
 
 		// Phase Phase of the database cluster.
 		Phase *InstanceStatusPhase `json:"phase,omitempty"`
+
+		// Version Version is the effective version bundle that is currently applied to this
+		// Instance. On the first reconciliation the provider-runtime writes the
+		// resolved default bundle name here and uses this value on every subsequent
+		// reconciliation when spec.version is empty. This ensures that a Provider
+		// upgrade (which may change the default bundle) never silently triggers an
+		// unintended database upgrade on existing Instances.
+		//
+		// GitOps tools (ArgoCD, Flux) exclude status from diff calculations by
+		// default, so this field does not cause spurious out-of-sync alerts.
+		Version *string `json:"version,omitempty"`
 	} `json:"status,omitempty"`
 }
 
@@ -752,6 +769,24 @@ type Provider struct {
 
 		// UiSchema UISchema holds the UI rendering hints for each topology.
 		UiSchema *map[string]interface{} `json:"uiSchema,omitempty"`
+
+		// Versions Versions defines curated version bundles — named sets of component
+		// versions that are known to be mutually compatible. Users reference
+		// a bundle via Instance.Spec.Version. If the user does not set a version,
+		// the bundle whose Default field is true is used automatically.
+		Versions *[]struct {
+			// Components Components maps component names to their version strings for this bundle.
+			// Keys must match component names defined in ProviderSpec.Components.
+			Components *map[string]string `json:"components,omitempty"`
+
+			// Default Default marks this bundle as the implicit choice when an Instance omits
+			// Spec.Version entirely. Exactly one bundle should have Default: true.
+			Default *bool `json:"default,omitempty"`
+
+			// Name Name is the unique identifier for this bundle (e.g. "8.0.12").
+			// Users set Instance.Spec.Version to this value to select the bundle.
+			Name string `json:"name"`
+		} `json:"versions,omitempty"`
 	} `json:"spec"`
 
 	// Status ProviderStatus defines the observed state of Provider.

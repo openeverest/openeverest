@@ -93,6 +93,38 @@ spec:
                 description: UISchema holds the UI rendering hints for each topology.
                 type: object
                 x-kubernetes-preserve-unknown-fields: true
+              versions:
+                description: |-
+                  Versions defines curated version bundles — named sets of component
+                  versions that are known to be mutually compatible. Users reference
+                  a bundle via Instance.Spec.Version. If the user does not set a version,
+                  the bundle whose Default field is true is used automatically.
+                items:
+                  description: |-
+                    VersionBundle is a curated set of component versions known to be mutually
+                    compatible. Provider developers define bundles in definition/versions.yaml.
+                  properties:
+                    components:
+                      additionalProperties:
+                        type: string
+                      description: |-
+                        Components maps component names to their version strings for this bundle.
+                        Keys must match component names defined in ProviderSpec.Components.
+                      type: object
+                    default:
+                      description: |-
+                        Default marks this bundle as the implicit choice when an Instance omits
+                        Spec.Version entirely. Exactly one bundle should have Default: true.
+                      type: boolean
+                    name:
+                      description: |-
+                        Name is the unique identifier for this bundle (e.g. "8.0.12").
+                        Users set Instance.Spec.Version to this value to select the bundle.
+                      type: string
+                  required:
+                  - name
+                  type: object
+                type: array
             type: object
           status:
             description: ProviderStatus defines the observed state of Provider.
