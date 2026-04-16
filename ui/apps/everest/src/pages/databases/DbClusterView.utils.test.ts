@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { Instance, PhaseType } from 'types/api';
+import { Instance, PhaseType } from 'shared-types/api.types';
 import { DB_INSTANCE_UNKNOWN_PHASE } from 'shared-types/instance.types';
 import { convertDbInstancesPayloadToTableFormat } from './DbClusterView.utils';
 import { InstanceTableElement } from './dbClusterView.types';

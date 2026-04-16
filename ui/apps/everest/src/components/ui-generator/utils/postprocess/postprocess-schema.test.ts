@@ -171,7 +171,7 @@ describe('postprocessSchemaData', () => {
 
     expect(result).toEqual({
       spec: {
-        resources: { memory: '4Gi', disk: '25Gi', cpu: '1' },
+        resources: { memory: '4Gi', disk: '25Gi', cpu: 1 },
       },
     });
   });

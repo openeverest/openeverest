@@ -21,7 +21,7 @@ import {
 } from '@tanstack/react-query';
 import { enqueueSnackbar } from 'notistack';
 import { updateDbInstanceFn } from 'api/instanceApi';
-import { Instance } from 'types/api';
+import { Instance } from 'shared-types/api.types';
 import { getDbInstanceQueryKey, useDbInstance } from './useDbInstance';
 
 const UPDATE_RETRY_TIMEOUT_MS = 5000;

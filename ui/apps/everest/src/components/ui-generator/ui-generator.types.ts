@@ -12,6 +12,31 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+export enum FormMode {
+  New = 'new',
+  Edit = 'edit',
+  Restore = 'restore',
+  Import = 'import',
+}
+
+export type ComponentModeOverrides = Partial<
+  Record<FormMode, { uiType?: FieldType | 'hidden' }>
+>;
+
+export type FieldParamsModeOverrides = Partial<
+  Record<
+    FormMode,
+    {
+      disabled?: boolean;
+      readOnly?: boolean;
+      label?: string;
+      helperText?: string;
+      defaultValue?: unknown;
+      autoFocus?: boolean;
+    }
+  >
+>;
+
 export type OpenAPIObjectProperties = {
   label?: string;
 };
@@ -39,8 +64,11 @@ interface CommonFieldParams {
   disabled?: boolean;
   autoFocus?: boolean;
   helperText?: string;
+  // TODO support tooltip in the ui-schema for all components + documentation
+  tooltip?: string;
   badge?: string;
   badgeToApi?: boolean;
+  modes?: FieldParamsModeOverrides;
 }
 
 export interface NumberFieldParams extends CommonFieldParams {
@@ -124,27 +152,34 @@ export type TextValidation = CommonValidation & {
   toUpperCase?: boolean;
 };
 
+export type NumberValidation = CommonValidation & {
+  min?: number;
+  max?: number;
+  gt?: number;
+  lt?: number;
+  int?: boolean;
+  multipleOf?: number;
+  safe?: boolean;
+};
+
 export type ValidationMap = {
-  [FieldType.Number]: CommonValidation & {
-    min?: number;
-    max?: number;
-    gt?: number;
-    lt?: number;
-    int?: boolean;
-    multipleOf?: number;
-    safe?: boolean;
-  };
+  [FieldType.Number]: NumberValidation;
   [FieldType.Text]: TextValidation;
   [FieldType.Select]: CommonValidation;
   [FieldType.Hidden]: CommonValidation;
+};
+
+export type ModeAwareValidation<T extends CommonValidation> = T & {
+  modes?: Partial<Record<FormMode, T & { inheritShared?: boolean }>>;
 };
 
 export type Component = {
   [K in keyof FieldParamsMap]: {
     uiType: K;
     techPreview?: boolean;
-    validation?: ValidationMap[K];
+    validation?: ModeAwareValidation<ValidationMap[K]>;
     fieldParams: FieldParamsMap[K];
+    modes?: ComponentModeOverrides;
     _normalized?: NormalizedPathMeta;
   } & PathOrId;
 }[keyof FieldParamsMap];

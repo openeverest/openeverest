@@ -11,6 +11,10 @@
   - [Component vs ComponentGroup](#component-vs-componentgroup)
     - [Component (Single Field)](#component-single-field)
     - [ComponentGroup (Nested Fields)](#componentgroup-nested-fields)
+- [Mode-Aware Overrides](#mode-aware-overrides)
+  - [Component-level modes](#component-level-modes)
+  - [FieldParams-level modes](#fieldparams-level-modes)
+  - [Validation-level modes](#validation-level-modes)
 - Field Types
   - [Number Field](components/number-field.md)
   - [Select Field](components/select-field.md)
@@ -25,6 +29,7 @@
     - [Required Field Validation](validation.md#required)
     - [Regex Validation](validation.md#regex)
   - [CEL Expression Validation](validation.md#cel-expression-validation)
+  - [Mode-Aware Validation](validation.md#mode-aware-validation)
 - [Advanced Properties](#advanced-properties)
   - [Path vs ID](#path-vs-id)
   - [Components Order](#components-order)
@@ -119,8 +124,9 @@ A **Component** represents a single form field with the following properties:
 
 - **`uiType`**: Type of UI control (`'number'`, `'select'`, `'hidden'`)
 - **`path`** OR **`id`**: The data path in the resulting form values (e.g., `"spec.replica.nodes"`)
-- **`fieldParams`**: Configuration for the field (label, placeholder, defaultValue, etc.)
-- **`validation`** (optional): Validation rules (min, max, etc.)
+- **`fieldParams`**: Configuration for the field (label, placeholder, defaultValue, etc.). Supports `modes` for documented per-mode overrides of shared field params
+- **`modes`** (optional): Per-mode component-level overrides (e.g. `uiType: hidden`)
+- **`validation`** (optional): Validation rules (min, max, etc.). Supports `modes` for per-mode overrides
 - **`techPreview`** (optional): Flag to indicate if the field is in technical preview
 
 Example:
@@ -179,6 +185,39 @@ resources:
     - cpu
     - memory
 ```
+
+## Mode-Aware Overrides
+
+### FieldParams-level modes
+
+Use `fieldParams.modes` when the override belongs to the field presentation layer.
+
+For now, the documented and supported `fieldParams.modes` overrides are:
+
+- `disabled`
+- `readOnly`
+- `label`
+- `helperText`
+- `defaultValue`
+- `autoFocus`
+
+```yaml
+dbName:
+  uiType: text
+  path: metadata.name
+  fieldParams:
+    label: Database name
+    helperText: Must be unique
+    modes:
+      edit:
+        disabled: true
+        helperText: Name cannot be changed after creation
+```
+
+### Validation-level modes
+
+Use `validation.modes` when the override belongs to validation logic.
+Validation-specific mode-aware behavior is documented in [validation.md](validation.md#mode-aware-validation).
 
 ## Advanced Properties
 

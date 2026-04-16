@@ -19,7 +19,7 @@ import { DbInstanceContext } from '../dbCluster.context';
 import { DbInstanceContextProps } from '../dbCluster.context.types';
 import { ClusterOverview } from './cluster-overview';
 import { FieldType } from 'components/ui-generator/ui-generator.types';
-import { Instance } from 'types/api';
+import { Instance } from 'shared-types/api.types';
 
 const { useDbInstanceCredentials } = vi.hoisted(() => ({
   useDbInstanceCredentials: vi.fn(() => ({ data: undefined })),

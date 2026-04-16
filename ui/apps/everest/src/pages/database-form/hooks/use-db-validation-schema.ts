@@ -14,21 +14,21 @@
 
 import { useMemo } from 'react';
 import { getDBWizardSchema } from '../database-form-schema.js';
-import { DbClusterName } from '../database-form.types.js';
+import { DbInstanceName } from '../database-form.types.js';
 import { ZodTypeAny } from 'zod';
 
 export const useDbValidationSchema = (
-  dbClusters: DbClusterName[],
+  dbInstances: DbInstanceName[],
   hasImportStep: boolean,
   openApiValidationSchema?: ZodTypeAny
 ) => {
   const schema = useMemo(() => {
     return getDBWizardSchema(
-      dbClusters,
+      dbInstances,
       hasImportStep,
       openApiValidationSchema
     );
-  }, [dbClusters, hasImportStep, openApiValidationSchema]);
+  }, [dbInstances, hasImportStep, openApiValidationSchema]);
 
   return schema;
 };

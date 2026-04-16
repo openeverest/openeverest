@@ -13,7 +13,7 @@
 // limitations under the License.
 
 import { api } from './api';
-import { GetProviders } from 'types/api';
+import { GetProviders } from 'shared-types/api.types';
 
 export const getProvidersFn = async () => {
   const response = await api.get<GetProviders>(`/clusters/main/providers`);

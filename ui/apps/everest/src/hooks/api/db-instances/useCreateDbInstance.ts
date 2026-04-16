@@ -22,8 +22,10 @@ import { DbWizardType } from 'pages/database-form/database-form-schema';
 import { PerconaQueryOptions } from 'shared-types/query.types';
 import {
   InstanceConnectionDetails,
+  CreateDbInstancePayload,
   GetDbInstanceConnectionPayload,
-} from 'types/api';
+} from 'shared-types/api.types';
+import { deepMerge } from 'components/ui-generator/utils/object-path/object-path';
 
 export const getDbInstanceCredentialsQueryKey = (
   dbInstanceName: string,
@@ -35,6 +37,24 @@ type CreateInstanceHookArgType = {
   formValue: DbWizardType;
 };
 
+type CreateInstanceSpec = NonNullable<CreateDbInstancePayload['spec']>;
+
+export const buildCreateInstanceSpec = (
+  formValue: DbWizardType
+): CreateInstanceSpec => {
+  const { provider, dbName, k8sNamespace, spec, ...rest } = formValue;
+  void dbName;
+  void k8sNamespace;
+
+  return {
+    provider,
+    ...(deepMerge(
+      rest as Record<string, unknown>,
+      spec as unknown as Record<string, unknown>
+    ) as Record<string, unknown>),
+  };
+};
+
 export const useCreateDbInstance = (
   options?: UseMutationOptions<
     DbWizardType,
@@ -44,14 +64,15 @@ export const useCreateDbInstance = (
   >
 ) =>
   useMutation({
-    mutationFn: ({
-      formValue: { provider, dbName, k8sNamespace, spec, ...rest },
-    }: CreateInstanceHookArgType) => {
-      return createDbInstanceFn('main', dbName, k8sNamespace || '', {
-        provider: provider || '',
-        ...rest,
-        ...spec,
-      });
+    mutationFn: ({ formValue }: CreateInstanceHookArgType) => {
+      const { dbName, k8sNamespace } = formValue;
+
+      return createDbInstanceFn(
+        'main',
+        dbName,
+        k8sNamespace || '',
+        buildCreateInstanceSpec(formValue)
+      );
     },
     ...options,
   });

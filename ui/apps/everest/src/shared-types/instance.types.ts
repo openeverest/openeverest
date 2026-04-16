@@ -14,7 +14,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { PhaseType } from 'types/api';
+import { PhaseType } from 'shared-types/api.types';
 
 export const DB_INSTANCE_UNKNOWN_PHASE = 'Unknown' as const;
 export type DbInstancePhase =

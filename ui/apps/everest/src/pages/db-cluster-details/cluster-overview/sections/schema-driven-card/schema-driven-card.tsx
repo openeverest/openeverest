@@ -12,13 +12,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { Box, Stack } from '@mui/material';
+import { Box, IconButton, Stack } from '@mui/material';
+import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import { DatabaseIcon, OverviewCard } from '@percona/ui-lib';
 import type { SchemaDrivenCardProps } from './schema-driven-card.types';
 import OverviewSectionRow from '../../overview-section-row';
 import OverviewSection from '../../overview-section';
 
-const SchemaDrivenCard = ({ card, loading }: SchemaDrivenCardProps) => (
+const SchemaDrivenCard = ({
+  card,
+  loading,
+  editable,
+  onEdit,
+}: SchemaDrivenCardProps) => (
   <Box>
     <OverviewCard
       dataTestId={`${card.key}-details`}
@@ -26,6 +32,16 @@ const SchemaDrivenCard = ({ card, loading }: SchemaDrivenCardProps) => (
       cardHeaderProps={{
         title: card.title,
         avatar: <DatabaseIcon />,
+        action: editable ? (
+          <IconButton
+            data-testid={`${card.key}-edit-button`}
+            size="small"
+            onClick={onEdit}
+            aria-label={`Edit ${card.title}`}
+          >
+            <EditOutlinedIcon fontSize="small" />
+          </IconButton>
+        ) : undefined,
       }}
     >
       <Stack gap={3}>

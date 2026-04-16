@@ -26,6 +26,7 @@ format:
 format-check:
 	pnpm format-check
 
+# TODO v2 should be changed before release to main
 preflight:
 	$(MAKE) format
 	$(MAKE) lint

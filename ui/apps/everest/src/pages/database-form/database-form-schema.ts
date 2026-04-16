@@ -17,29 +17,32 @@ import { MAX_DB_CLUSTER_NAME_LENGTH } from '../../consts.ts';
 import { Messages } from './database-form.messages.ts';
 import { DbWizardFormFields } from 'consts.ts';
 import { rfc_123_schema } from 'utils/common-validation.ts';
-import { DbClusterName } from './database-form.types.ts';
+import { DbInstanceName } from './database-form.types.ts';
 import { importStepSchema } from 'components/cluster-form/import/import-schema.tsx';
-import { Instance } from 'types/api.ts';
+import { Instance } from 'shared-types/api.types.ts';
 
-const basicInfoSchema = (dbClusters: DbClusterName[]) =>
-  z
-    .object({
-      [DbWizardFormFields.provider]: z.string(),
-      [DbWizardFormFields.dbName]: rfc_123_schema({
-        fieldName: 'database name',
-      })
-        .max(MAX_DB_CLUSTER_NAME_LENGTH, Messages.errors.dbName.tooLong)
-        .nonempty(),
-      [DbWizardFormFields.k8sNamespace]: z.string().nullable(),
-      topology: z.object({ type: z.string() }),
-    })
+const basicInfoFieldsSchema = z.object({
+  [DbWizardFormFields.provider]: z.string(),
+  [DbWizardFormFields.dbName]: rfc_123_schema({
+    fieldName: 'database name',
+  })
+    .max(MAX_DB_CLUSTER_NAME_LENGTH, Messages.errors.dbName.tooLong)
+    .nonempty(),
+  [DbWizardFormFields.k8sNamespace]: z.string().nullable(),
+  topology: z.object({ type: z.string() }),
+});
+
+const basicInfoSchema = (dbInstances: DbInstanceName[]) =>
+  basicInfoFieldsSchema
     .passthrough()
     .superRefine(({ dbName, k8sNamespace }, ctx) => {
-      const dbClustersNamesList = dbClusters.filter(
+      const dbInstancesInNamespaceNamesList = dbInstances.filter(
         (res) => res.namespace === k8sNamespace
       );
 
-      if (dbClustersNamesList.find((item) => item.name === dbName)) {
+      if (
+        dbInstancesInNamespaceNamesList.find((item) => item.name === dbName)
+      ) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
           path: [DbWizardFormFields.dbName],
@@ -108,11 +111,11 @@ const basicInfoSchema = (dbClusters: DbClusterName[]) =>
 //     });
 
 export const getDBWizardSchema = (
-  dbClusters: DbClusterName[],
+  dbInstances: DbInstanceName[],
   hasImportStep: boolean,
   openApiValidationSchema?: z.ZodTypeAny
 ) => {
-  let combinedSchema: z.ZodTypeAny = basicInfoSchema(dbClusters);
+  let combinedSchema: z.ZodTypeAny = basicInfoSchema(dbInstances);
 
   if (hasImportStep) {
     combinedSchema = combinedSchema.and(importStepSchema);
@@ -136,10 +139,11 @@ export const getDBWizardSchema = (
 };
 
 export type ImportStepType = z.infer<typeof importStepSchema>;
-export type BasicInfoType = z.infer<ReturnType<typeof basicInfoSchema>>;
+export type BasicInfoType = z.infer<typeof basicInfoFieldsSchema>;
+export type DbWizardFormSpec = Omit<NonNullable<Instance['spec']>, 'topology'>;
 
 export type DbWizardTypeBase = BasicInfoType & {
-  spec: Omit<NonNullable<Instance['spec']>, 'topology'>;
+  spec: DbWizardFormSpec;
 };
 
 export type DbWizardTypeWithPrestep = DbWizardTypeBase & ImportStepType;

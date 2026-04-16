@@ -16,7 +16,12 @@ import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { FormProvider, useForm } from 'react-hook-form';
 import { TestWrapper } from 'utils/test';
 import { UIGenerator } from '../ui-generator';
-import { Component, FieldType, TopologyUISchemas } from '../ui-generator.types';
+import {
+  Component,
+  FieldType,
+  FormMode,
+  TopologyUISchemas,
+} from '../ui-generator.types';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { buildZodSchema } from '../utils/schema-builder';
 import { getDefaultValues } from '../utils/default-values';
@@ -356,6 +361,89 @@ describe('UIGenerator - Number Field Disabled State', () => {
 
     const numberInput = screen.getByLabelText('Test Number Field');
     expect(numberInput).toBeDisabled();
+  });
+
+  // TODO v2 test should be universal for all type of fields
+  it('should disable a field when fieldParams.disabled is set via runtime override on sections', async () => {
+    const schema = {
+      testTopology: {
+        sections: {
+          basicInfo: {
+            label: 'Basic Information',
+            components: {
+              testNumber: {
+                uiType: FieldType.Number,
+                path: 'spec.components.engine.storage.size',
+                fieldParams: {
+                  label: 'Disk size',
+                  disabled: true,
+                  tooltip: 'Volume expansion not supported',
+                },
+              },
+            },
+          },
+        },
+        sectionsOrder: ['basicInfo'],
+      },
+    } satisfies TopologyUISchemas;
+
+    const mockSubmit = vi.fn();
+
+    render(
+      <TestWrapper>
+        <FormWrapper schema={schema} onSubmit={mockSubmit}>
+          <UIGenerator
+            sections={schema.testTopology.sections}
+            sectionKey="basicInfo"
+            formMode={FormMode.Edit}
+          />
+        </FormWrapper>
+      </TestWrapper>
+    );
+
+    const numberInput = await screen.findByLabelText('Disk size');
+
+    expect(numberInput).toBeDisabled();
+  });
+
+  it('should keep a field enabled when fieldParams.disabled is not set', async () => {
+    const schema = {
+      testTopology: {
+        sections: {
+          basicInfo: {
+            label: 'Basic Information',
+            components: {
+              testNumber: {
+                uiType: FieldType.Number,
+                path: 'spec.components.engine.storage.size',
+                fieldParams: {
+                  label: 'Disk size',
+                },
+              },
+            },
+          },
+        },
+        sectionsOrder: ['basicInfo'],
+      },
+    } satisfies TopologyUISchemas;
+
+    const mockSubmit = vi.fn();
+
+    render(
+      <TestWrapper>
+        <FormWrapper schema={schema} onSubmit={mockSubmit}>
+          <UIGenerator
+            sections={schema.testTopology.sections}
+            sectionKey="basicInfo"
+            formMode={FormMode.Edit}
+          />
+        </FormWrapper>
+      </TestWrapper>
+    );
+
+    const numberInput = await screen.findByLabelText('Disk size');
+
+    expect(numberInput).toBeEnabled();
   });
 });
 
