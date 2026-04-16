@@ -15,6 +15,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   deepClone,
+  deepMerge,
   deleteByPath,
   flattenObject,
   formatDisplayValue,
@@ -209,6 +210,59 @@ describe('object-path utils', () => {
       expect(isPlainObject('str')).toBe(false);
       expect(isPlainObject(123)).toBe(false);
       expect(isPlainObject(undefined)).toBe(false);
+    });
+  });
+
+  describe('deepMerge', () => {
+    it('overwrites leaf values with updates', () => {
+      const base = { a: 1, b: 2 };
+      const updates = { b: 99 };
+      expect(deepMerge(base, updates)).toEqual({ a: 1, b: 99 });
+    });
+
+    it('adds new keys from updates', () => {
+      const base = { a: 1 };
+      const updates = { b: 2 };
+      expect(deepMerge(base, updates)).toEqual({ a: 1, b: 2 });
+    });
+
+    it('deep-merges nested objects', () => {
+      const base = {
+        spec: {
+          components: { engine: { replicas: 3 }, proxy: { replicas: 2 } },
+          topology: { type: 'replicaSet' },
+        },
+      };
+      const updates = {
+        spec: {
+          components: { engine: { replicas: 5 } },
+        },
+      };
+      expect(deepMerge(base, updates)).toEqual({
+        spec: {
+          components: { engine: { replicas: 5 }, proxy: { replicas: 2 } },
+          topology: { type: 'replicaSet' },
+        },
+      });
+    });
+
+    it('replaces non-object base value with object from updates', () => {
+      const base = { a: 'string' };
+      const updates = { a: { nested: true } };
+      expect(deepMerge(base, updates)).toEqual({ a: { nested: true } });
+    });
+
+    it('replaces object base value with non-object from updates', () => {
+      const base = { a: { nested: true } };
+      const updates = { a: 42 };
+      expect(deepMerge(base, updates)).toEqual({ a: 42 });
+    });
+
+    it('does not mutate the base object', () => {
+      const base = { a: { b: 1 } };
+      const updates = { a: { b: 2 } };
+      deepMerge(base, updates);
+      expect(base.a.b).toBe(1);
     });
   });
 });

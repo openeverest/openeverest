@@ -14,10 +14,10 @@
 
 import React from 'react';
 import { FormGroup, Stack, Typography } from '@mui/material';
-import { Section } from './ui-generator.types';
+import { Section, FormMode } from './ui-generator.types';
 import { orderComponents, renderComponent } from './utils/component-renderer';
 import { UiGeneratorProvider } from './ui-generator-context';
-import { Provider } from 'types/api';
+import { Provider } from 'shared-types/api.types';
 
 type UIGeneratorProps = {
   /** Section key identifying which section to render. */
@@ -25,6 +25,7 @@ type UIGeneratorProps = {
   sections: { [key: string]: Section };
   providerObject?: Provider;
   loadingDefaultsForEdition?: boolean;
+  formMode?: FormMode;
 };
 
 export const UIGenerator = ({
@@ -32,6 +33,7 @@ export const UIGenerator = ({
   sections,
   providerObject,
   loadingDefaultsForEdition,
+  formMode,
 }: UIGeneratorProps) => {
   const section = sections[sectionKey];
   const components = section?.components;
@@ -52,6 +54,7 @@ export const UIGenerator = ({
     <UiGeneratorProvider
       providerObject={providerObject}
       loadingDefaultsForEdition={loadingDefaultsForEdition}
+      formMode={formMode}
     >
       <FormGroup sx={{ mt: 3 }}>
         <Stack spacing={2}>

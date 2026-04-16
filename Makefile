@@ -432,7 +432,7 @@ dev-down:               ## Stop Tilt (keeps cluster running for later reuse).
 	tilt down -f dev/Tiltfile
 
 .PHONY: dev-destroy
-dev-destroy: dev-down k3d-cluster-down-dev ## Stop Tilt and destroy the k3d cluster.
+dev-destroy: k3d-cluster-down-dev ## Destroy the k3d cluster.
 
 ##@ GitHub PR
 

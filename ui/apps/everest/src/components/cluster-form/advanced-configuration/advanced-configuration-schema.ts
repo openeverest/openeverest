@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -22,17 +23,6 @@ import { Messages } from './messages';
 export const advancedConfigurationsSchema = () =>
   z
     .object({
-      [AdvancedConfigurationFields.storageClass]: z
-        .string()
-        .nullable()
-        .superRefine((input, ctx) => {
-          if (!input) {
-            ctx.addIssue({
-              code: z.ZodIssueCode.custom,
-              message: Messages.errors.storageClass.invalid,
-            });
-          }
-        }),
       [AdvancedConfigurationFields.sourceRanges]: z.array(
         z.object({ sourceRange: z.string().optional() })
       ),

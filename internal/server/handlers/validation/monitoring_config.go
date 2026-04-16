@@ -22,17 +22,17 @@ import (
 	"github.com/percona/everest-operator/utils"
 	operatorUtils "github.com/percona/everest-operator/utils"
 
-	monitoringv1alpha1 "github.com/openeverest/openeverest/v2/api/monitoring/v1alpha1"
+	monitoringv1alpha2 "github.com/openeverest/openeverest/v2/api/monitoring/v1alpha2"
 	api "github.com/openeverest/openeverest/v2/internal/server/api"
 )
 
 // ListMonitoringConfigs proxies the request to the next handler.
-func (h *validateHandler) ListMonitoringConfigs(ctx context.Context, namespace string) (*monitoringv1alpha1.MonitoringConfigList, error) {
+func (h *validateHandler) ListMonitoringConfigs(ctx context.Context, namespace string) (*monitoringv1alpha2.MonitoringConfigList, error) {
 	return h.next.ListMonitoringConfigs(ctx, namespace)
 }
 
 // CreateMonitoringConfig proxies the request to the next handler.
-func (h *validateHandler) CreateMonitoringConfig(ctx context.Context, namespace string, req *api.MonitoringConfigCreateParams) (*monitoringv1alpha1.MonitoringConfig, error) {
+func (h *validateHandler) CreateMonitoringConfig(ctx context.Context, namespace string, req *api.MonitoringConfigCreateParams) (*monitoringv1alpha2.MonitoringConfig, error) {
 	if err := utils.ValidateEverestResourceName(req.Name, "name"); err != nil {
 		return nil, errors.Join(ErrInvalidRequest, err)
 	}
@@ -66,12 +66,12 @@ func (h *validateHandler) DeleteMonitoringConfig(ctx context.Context, namespace,
 }
 
 // GetMonitoringConfig proxies the request to the next handler.
-func (h *validateHandler) GetMonitoringConfig(ctx context.Context, namespace, name string) (*monitoringv1alpha1.MonitoringConfig, error) {
+func (h *validateHandler) GetMonitoringConfig(ctx context.Context, namespace, name string) (*monitoringv1alpha2.MonitoringConfig, error) {
 	return h.next.GetMonitoringConfig(ctx, namespace, name)
 }
 
 // UpdateMonitoringConfig proxies the request to the next handler.
-func (h *validateHandler) UpdateMonitoringConfig(ctx context.Context, namespace, name string, req *api.MonitoringConfigUpdateParams) (*monitoringv1alpha1.MonitoringConfig, error) {
+func (h *validateHandler) UpdateMonitoringConfig(ctx context.Context, namespace, name string, req *api.MonitoringConfigUpdateParams) (*monitoringv1alpha2.MonitoringConfig, error) {
 	if req.Url != "" {
 		if ok := operatorUtils.ValidateURL(req.Url); !ok {
 			err := ErrInvalidURL("url")

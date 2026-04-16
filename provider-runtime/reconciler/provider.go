@@ -210,6 +210,9 @@ func (r *ProviderReconciler) GetManager() ctrl.Manager {
 func (r *ProviderReconciler) setupServer(p providerAdapter) error {
 	// Create validator function that wraps the provider's Validate method
 	validator := func(ctx context.Context, c client.Client, in *v1alpha1.Instance) error {
+		if err := validateVersionBundle(ctx, c, in); err != nil {
+			return err
+		}
 		inCtx := controller.NewContext(ctx, c, in, p.Name())
 		return p.Validate(inCtx)
 	}
@@ -327,6 +330,14 @@ func (r *ProviderReconciler) Reconcile(ctx context.Context, req reconcile.Reques
 	}
 
 	// Run validation
+	if err := validateVersionBundle(ctx, r.Client, in); err != nil {
+		logger.Error(err, "Version bundle validation failed")
+		in.Status.Phase = v1alpha1.InstancePhaseFailed
+		if updateErr := r.Client.Status().Update(ctx, in); updateErr != nil {
+			logger.Error(updateErr, "Failed to update status after validation error")
+		}
+		return reconcile.Result{}, err
+	}
 	if err := r.provider.Validate(inCtx); err != nil {
 		logger.Error(err, "Validation failed")
 		// Update status to failed
@@ -337,9 +348,20 @@ func (r *ProviderReconciler) Reconcile(ctx context.Context, req reconcile.Reques
 		return reconcile.Result{}, err
 	}
 
+	// Resolve version bundle into a deep-copied instance so the stored spec is
+	// never mutated. The resolved copy is used for Sync() and Status() only.
+	// effectiveBundleName is the bundle that was applied (may differ from
+	// spec.version when the default was resolved on first reconcile).
+	effectiveBundleName, resolvedIn, err := r.resolveVersionBundle(ctx, in)
+	if err != nil {
+		logger.Error(err, "Version bundle resolution failed")
+		return reconcile.Result{}, err
+	}
+	syncCtx := controller.NewContext(ctx, r.Client, resolvedIn, r.provider.Name())
+
 	// Run sync
 	logger.Info("Running sync")
-	if err := r.provider.Sync(inCtx); err != nil {
+	if err := r.provider.Sync(syncCtx); err != nil {
 		if controller.IsWaitError(err) {
 			logger.Info("Sync waiting", "reason", err.Error())
 			return reconcile.Result{RequeueAfter: controller.GetWaitDuration(err)}, nil
@@ -350,13 +372,23 @@ func (r *ProviderReconciler) Reconcile(ctx context.Context, req reconcile.Reques
 
 	// Compute and update status
 	logger.Info("Computing status")
-	status, err := r.provider.Status(inCtx)
+	status, err := r.provider.Status(syncCtx)
 	if err != nil {
 		logger.Error(err, "Status computation failed")
 		return reconcile.Result{}, err
 	}
 
 	in.Status = status.ToV2Alpha1()
+
+	// Freeze the effective bundle name in status so it remains stable across
+	// Provider upgrades. On subsequent reconciliations the reconciler reads this
+	// value back (when spec.version is empty) instead of re-resolving the
+	// Provider's current default — preventing silent upgrades on existing
+	// Instances. GitOps tools exclude status from diff calculations by default
+	// so this field never causes spurious out-of-sync alerts.
+	if effectiveBundleName != "" {
+		in.Status.Version = effectiveBundleName
+	}
 
 	// Write connection details Secret and set the ConnectionDetailsReady condition.
 	if err := r.reconcileConnectionSecret(ctx, in, status); err != nil {
@@ -483,4 +515,88 @@ func setCondition(in *v1alpha1.Instance, condType string, status metav1.Conditio
 		Message:            message,
 		ObservedGeneration: in.Generation,
 	})
+}
+
+// resolveVersionBundle determines the effective version bundle, applies it to
+// a deep copy of in, and returns both the effective bundle name and the
+// resolved Instance. The original Instance stored in etcd is never mutated.
+//
+// Resolution order:
+//  1. spec.version — explicitly set by the user (always honoured).
+//  2. status.version — the bundle name frozen on the first reconciliation;
+//     prevents a Provider upgrade from silently upgrading existing Instances.
+//  3. Provider's default bundle — resolved once on the very first reconcile
+//     of a new Instance; the name is then written to status.version so
+//     subsequent reconciles use step 2 instead.
+//  4. No bundle — returns ("" , in, nil); Sync() falls back to per-type
+//     defaults from the componentTypes catalog.
+//
+// For each component the bundle version is applied only when the component's
+// Version field is not already explicitly set by the user.
+func (r *ProviderReconciler) resolveVersionBundle(ctx context.Context, in *v1alpha1.Instance) (effectiveBundleName string, resolved *v1alpha1.Instance, err error) {
+	providerObj := &v1alpha1.Provider{}
+	if err = r.Client.Get(ctx, client.ObjectKey{Name: in.Spec.Provider}, providerObj); err != nil {
+		return "", nil, fmt.Errorf("fetching provider for version resolution: %w", err)
+	}
+	spec := &providerObj.Spec
+
+	switch {
+	case in.Spec.Version != "":
+		// User explicitly chose a bundle.
+		effectiveBundleName = in.Spec.Version
+	case in.Status.Version != "":
+		// Default was frozen on a previous reconcile; honour it regardless of
+		// what the Provider's current default is.
+		effectiveBundleName = in.Status.Version
+	default:
+		// First reconcile of a new Instance with no explicit version: resolve
+		// the Provider's current default and freeze it in status.
+		effectiveBundleName = controller.GetDefaultVersionBundleName(spec)
+	}
+
+	if effectiveBundleName == "" {
+		return "", in, nil
+	}
+
+	bundle, err := controller.ResolveVersionBundle(spec, effectiveBundleName)
+	if err != nil {
+		return "", nil, err
+	}
+
+	resolved = in.DeepCopy()
+	for compName, bundleVersion := range bundle.Components {
+		compSpec, exists := resolved.Spec.Components[compName]
+		if !exists {
+			continue
+		}
+		if compSpec.Version == "" {
+			compSpec.Version = bundleVersion
+			resolved.Spec.Components[compName] = compSpec
+		}
+	}
+	return effectiveBundleName, resolved, nil
+}
+
+// validateVersionBundle checks that spec.version (if set) exists in the
+// Provider's Versions map. This runs for both the reconciler and the webhook
+// so users get immediate feedback on an invalid version selection.
+func validateVersionBundle(ctx context.Context, c client.Client, in *v1alpha1.Instance) error {
+	if in.Spec.Version == "" {
+		return nil
+	}
+	providerObj := &v1alpha1.Provider{}
+	if err := c.Get(ctx, client.ObjectKey{Name: in.Spec.Provider}, providerObj); err != nil {
+		return fmt.Errorf("fetching provider for version validation: %w", err)
+	}
+	found := false
+	for _, b := range providerObj.Spec.Versions {
+		if b.Name == in.Spec.Version {
+			found = true
+			break
+		}
+	}
+	if !found {
+		return fmt.Errorf("version %q is not defined by provider %q", in.Spec.Version, in.Spec.Provider)
+	}
+	return nil
 }

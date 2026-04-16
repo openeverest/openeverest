@@ -124,6 +124,23 @@ export const flattenObject = (obj: unknown, prefix = ''): FlatEntry[] => {
   return result;
 };
 
+export const deepMerge = (
+  base: Record<string, unknown>,
+  updates: Record<string, unknown>
+): Record<string, unknown> => {
+  const result: Record<string, unknown> = { ...base };
+  for (const key of Object.keys(updates)) {
+    const baseVal = result[key];
+    const updateVal = updates[key];
+    if (isPlainObject(baseVal) && isPlainObject(updateVal)) {
+      result[key] = deepMerge(baseVal, updateVal);
+    } else {
+      result[key] = updateVal;
+    }
+  }
+  return result;
+};
+
 export const formatDisplayValue = (value: unknown): string => {
   if (value === undefined || value === null) return '\u2014';
   if (typeof value === 'boolean') return value ? 'Yes' : 'No';

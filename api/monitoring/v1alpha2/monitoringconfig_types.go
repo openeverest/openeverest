@@ -12,10 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package v1alpha1 contains API Schema definitions for the monitoring v1alpha1 API group.
+// Package v1alpha2 contains API Schema definitions for the monitoring v1alpha2 API group.
 // +kubebuilder:object:generate=true
 // +groupName=monitoring.openeverest.io
-package v1alpha1
+package v1alpha2
 
 import metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -38,19 +38,13 @@ type MonitoringConfigSpec struct {
 	// CredentialsSecretName is the reference to the secret containing the API key.
 	// It contains `apiKey` key with the API key value.
 	CredentialsSecretName string `json:"credentialsSecretName"`
-	// PMM is configuration specific for monitoring using PMM tool.
-	PMM PMMConfig `json:"pmm,omitempty"`
+	// URL is the URL of the monitoring server (e.g., PMM server URL).
+	URL string `json:"url"`
 	// VerifyTLS is set to ensure TLS/SSL verification.
 	// If unspecified, the default value is true.
 	//
 	// +kubebuilder:default:=true
 	VerifyTLS *bool `json:"verifyTLS,omitempty"`
-}
-
-// PMMConfig is configuration of the PMM monitoring type.
-type PMMConfig struct {
-	// URL is url to the monitoring config.
-	URL string `json:"url"`
 }
 
 // MonitoringConfigStatus defines the observed state of MonitoringConfig.

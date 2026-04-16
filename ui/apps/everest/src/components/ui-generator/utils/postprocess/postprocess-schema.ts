@@ -157,6 +157,35 @@ export const removeEmptyFieldValues = (
   return result;
 };
 
+// TODO this can be refactored with adding separate number input into ui-lib
+export const coerceSchemaNumbers = (
+  input: PostprocessInput,
+  schema: TopologyUISchemas,
+  selectedTopology: string
+): PostprocessInput => {
+  const result = deepClone(input);
+  const numberPaths: string[] = [];
+
+  walkTopologyComponents(schema, selectedTopology, ({ component }) => {
+    if (component.uiType === 'number') {
+      const paths = getComponentTargetPaths(component);
+      numberPaths.push(...paths);
+    }
+  });
+
+  numberPaths.forEach((path) => {
+    const value = getByPath(result, path);
+    if (typeof value === 'string' && value !== '') {
+      const num = Number(value);
+      if (!Number.isNaN(num)) {
+        setByPath(result, path, num);
+      }
+    }
+  });
+
+  return result;
+};
+
 export const postprocessSchemaData = (
   formValues: PostprocessInput,
   options?: PostprocessOptions
@@ -173,11 +202,16 @@ export const postprocessSchemaData = (
 
   const mapped = applyMultiPathMappings(formValues, allMappings);
 
+  const coerced =
+    options?.schema && options.selectedTopology
+      ? coerceSchemaNumbers(mapped, options.schema, options.selectedTopology)
+      : mapped;
+
   const badgeMappings =
     options?.schema && options.selectedTopology
       ? extractBadgeMappings(options.schema, options.selectedTopology)
       : [];
-  const withBadges = applyBadgesToFormData(mapped, badgeMappings);
+  const withBadges = applyBadgesToFormData(coerced, badgeMappings);
 
   return removeEmptyFieldValues(withBadges);
 };

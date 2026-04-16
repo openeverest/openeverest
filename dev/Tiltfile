@@ -63,6 +63,8 @@ psmdb_provider_chart_dir = os.path.realpath(psmdb_provider_chart_dir)
 if not os.path.exists(psmdb_provider_chart_dir):
     fail('PSMDB Provider chart dir does not exist: {0}'.format(psmdb_provider_chart_dir))
 print('Using PSMDB Provider chart dir: {0}'.format(psmdb_provider_chart_dir))
+psmdb_provider_dir = os.path.dirname(os.path.dirname(psmdb_provider_chart_dir))
+print('Using PSMDB Provider dir: {0}'.format(psmdb_provider_dir))
 
 # Optional env vars
 pxc_operator_version = os.getenv('PXC_OPERATOR_VERSION', '1.19.0')
@@ -80,6 +82,10 @@ print('Using Everest operator build ENV vars: {0}'.format(everest_operator_build
 # Check for Everest server backend Go build options
 everest_backend_build_env = os.getenv('EVEREST_BACKEND_BUILD_ENV', go_default_build_env)
 print('Using Everest server backend build ENV vars: {0}'.format(everest_backend_build_env))
+
+# Check for PSMDB provider Go build options
+psmdb_provider_build_env = os.getenv('PSMDB_PROVIDER_BUILD_ENV', go_default_build_env)
+print('Using PSMDB provider build ENV vars: {0}'.format(psmdb_provider_build_env))
 
 # External resources set up
 k8s_context = os.getenv('K8S_CONTEXT', '')
@@ -1029,10 +1035,53 @@ local_resource(
     labels=['providers'],
 )
 
+# Re-run make generate when the definition folder changes (updates provider-spec.yaml in the Helm chart)
+local_resource(
+  'psmdb-provider-generate',
+  'make -C {0} generate'.format(psmdb_provider_dir),
+  deps=[
+    '{0}/definition'.format(psmdb_provider_dir),
+  ],
+  labels=['providers'],
+)
+
+# Build the PSMDB provider binary locally to take advantage of the go cache
+local_resource(
+  'psmdb-provider-build',
+  'cd {provider_dir} && {build_env} go build -o bin/provider ./cmd/provider/'.format(
+    provider_dir=psmdb_provider_dir,
+    build_env=psmdb_provider_build_env,
+  ),
+  deps=[
+    '{0}/go.mod'.format(psmdb_provider_dir),
+    '{0}/go.sum'.format(psmdb_provider_dir),
+    '{0}/internal'.format(psmdb_provider_dir),
+    '{0}/cmd/provider'.format(psmdb_provider_dir),
+  ],
+  ignore=[
+    '{0}/**/*_test.go'.format(psmdb_provider_dir),
+  ],
+  resource_deps=['psmdb-provider-generate'],
+  labels=['providers'],
+)
+
+# Live update the PSMDB provider without generating a new pod
+docker_build_with_restart('ghcr.io/openeverest/provider-percona-server-mongodb-dev',
+  context=psmdb_provider_dir,
+  dockerfile='./psmdb-provider.Dockerfile',
+  target='dev',
+  entrypoint=['/home/provider/provider'],
+  only=['{0}/bin/provider'.format(psmdb_provider_dir)],
+  live_update=[
+    sync('{0}/bin/provider'.format(psmdb_provider_dir), '/home/provider/provider'),
+  ]
+)
+
 psmdb_provider_yaml = helm(
     psmdb_provider_chart_dir,
     name='psmdb-provider',
     namespace='default',
+    set=['securityContext.readOnlyRootFilesystem=false'],
 )
 k8s_yaml(psmdb_provider_yaml)
 k8s_resource(
@@ -1046,6 +1095,8 @@ k8s_resource(
   resource_deps = [
     'crds',
     'psmdb-provider-deps',
+    'psmdb-provider-generate',
+    'psmdb-provider-build',
   ],
   new_name='psmdb-provider',
   labels=["providers"]

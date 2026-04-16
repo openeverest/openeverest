@@ -17,18 +17,18 @@ package rbac
 import (
 	"context"
 
-	monitoringv1alpha1 "github.com/openeverest/openeverest/v2/api/monitoring/v1alpha1"
+	monitoringv1alpha2 "github.com/openeverest/openeverest/v2/api/monitoring/v1alpha2"
 	api "github.com/openeverest/openeverest/v2/internal/server/api"
 )
 
 // ListMonitoringConfigs proxies the request to the next handler.
-func (h *rbacHandler) ListMonitoringConfigs(ctx context.Context, namespace string) (*monitoringv1alpha1.MonitoringConfigList, error) {
+func (h *rbacHandler) ListMonitoringConfigs(ctx context.Context, namespace string) (*monitoringv1alpha2.MonitoringConfigList, error) {
 	// Add RBAC checks
 	return h.next.ListMonitoringConfigs(ctx, namespace)
 }
 
 // CreateMonitoringConfig proxies the request to the next handler.
-func (h *rbacHandler) CreateMonitoringConfig(ctx context.Context, namespace string, req *api.MonitoringConfigCreateParams) (*monitoringv1alpha1.MonitoringConfig, error) {
+func (h *rbacHandler) CreateMonitoringConfig(ctx context.Context, namespace string, req *api.MonitoringConfigCreateParams) (*monitoringv1alpha2.MonitoringConfig, error) {
 	// Add RBAC checks
 	return h.next.CreateMonitoringConfig(ctx, namespace, req)
 }
@@ -40,13 +40,13 @@ func (h *rbacHandler) DeleteMonitoringConfig(ctx context.Context, namespace, nam
 }
 
 // GetMonitoringConfig proxies the request to the next handler.
-func (h *rbacHandler) GetMonitoringConfig(ctx context.Context, namespace, name string) (*monitoringv1alpha1.MonitoringConfig, error) {
+func (h *rbacHandler) GetMonitoringConfig(ctx context.Context, namespace, name string) (*monitoringv1alpha2.MonitoringConfig, error) {
 	// Add RBAC checks
 	return h.next.GetMonitoringConfig(ctx, namespace, name)
 }
 
 // UpdateMonitoringConfig proxies the request to the next handler.
-func (h *rbacHandler) UpdateMonitoringConfig(ctx context.Context, namespace, name string, req *api.MonitoringConfigUpdateParams) (*monitoringv1alpha1.MonitoringConfig, error) {
+func (h *rbacHandler) UpdateMonitoringConfig(ctx context.Context, namespace, name string, req *api.MonitoringConfigUpdateParams) (*monitoringv1alpha2.MonitoringConfig, error) {
 	// Add RBAC checks
 	return h.next.UpdateMonitoringConfig(ctx, namespace, name, req)
 }

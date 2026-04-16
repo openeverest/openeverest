@@ -23,7 +23,7 @@ spec:
       jsonPath: .status.inUse
       name: InUse
       type: boolean
-    name: v1alpha1
+    name: v1alpha2
     schema:
       openAPIV3Schema:
         description: MonitoringConfig is the Schema for the monitoringconfigs API.
@@ -53,20 +53,14 @@ spec:
                   CredentialsSecretName is the reference to the secret containing the API key.
                   It contains `apiKey` key with the API key value.
                 type: string
-              pmm:
-                description: PMM is configuration specific for monitoring using PMM
-                  tool.
-                properties:
-                  url:
-                    description: URL is url to the monitoring config.
-                    type: string
-                required:
-                - url
-                type: object
               type:
                 description: Type is the name of monitoring tool (e.g., "pmm").
                 enum:
                 - pmm
+                type: string
+              url:
+                description: URL is the URL of the monitoring server (e.g., PMM server
+                  URL).
                 type: string
               verifyTLS:
                 default: true
@@ -77,6 +71,7 @@ spec:
             required:
             - credentialsSecretName
             - type
+            - url
             type: object
           status:
             default:

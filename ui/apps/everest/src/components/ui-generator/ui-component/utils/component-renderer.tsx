@@ -15,7 +15,7 @@
 import React from 'react';
 import { Component, FieldType } from '../../ui-generator.types';
 import { renderSelectOptions } from './select-component-handler';
-import { Provider } from 'types/api';
+import { Provider } from 'shared-types/api.types';
 
 export const renderComponentChildren = (
   item: Component,

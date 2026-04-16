@@ -22,7 +22,7 @@ import type {
   Section,
   TopologyUISchemas,
 } from 'components/ui-generator/ui-generator.types';
-import type { Provider } from 'types/api';
+import type { Provider } from 'shared-types/api.types';
 import { collectSectionFields } from '../utils/cluster-overview.helpers';
 import type { SectionField } from '../utils/cluster-overview.helpers';
 import {
@@ -142,5 +142,8 @@ export const useClusterOverviewData = () => {
     credentials,
     schemaSectionCards,
     otherFields,
+    provider,
+    sections,
+    selectedTopology: instance?.spec?.topology?.type,
   };
 };

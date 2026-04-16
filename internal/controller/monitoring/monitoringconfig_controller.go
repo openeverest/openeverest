@@ -39,7 +39,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	corev1alpha1 "github.com/openeverest/openeverest/v2/api/core/v1alpha1"
-	monitoringv1alpha1 "github.com/openeverest/openeverest/v2/api/monitoring/v1alpha1"
+	monitoringv1alpha2 "github.com/openeverest/openeverest/v2/api/monitoring/v1alpha2"
 	"github.com/openeverest/openeverest/v2/pkg/pmm"
 )
 
@@ -66,9 +66,9 @@ func (r *MonitoringConfigReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 	return ctrl.NewControllerManagedBy(mgr).
 		Named("MonitoringConfig").
-		For(&monitoringv1alpha1.MonitoringConfig{}).
+		For(&monitoringv1alpha2.MonitoringConfig{}).
 		Watches(&corev1.Namespace{},
-			enqueueObjectsInNamespace(r.Client, &monitoringv1alpha1.MonitoringConfigList{})).
+			enqueueObjectsInNamespace(r.Client, &monitoringv1alpha2.MonitoringConfigList{})).
 		Watches(&corev1alpha1.Instance{},
 			handler.EnqueueRequestsFromMapFunc(r.enqueueInstances),
 			builder.WithPredicates(predicate.GenerationChangedPredicate{}, instancePredicate())).
@@ -108,7 +108,7 @@ func (r *MonitoringConfigReconciler) Reconcile( //nolint:nonamedreturns
 	logger.Info("Reconciling")
 	defer func() { logger.Info("Reconciled") }()
 
-	mc := &monitoringv1alpha1.MonitoringConfig{}
+	mc := &monitoringv1alpha2.MonitoringConfig{}
 	if err := r.Get(ctx, req.NamespacedName, mc); err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
@@ -147,7 +147,7 @@ func (r *MonitoringConfigReconciler) Reconcile( //nolint:nonamedreturns
 }
 
 // isInUse returns true if any Instance in the same namespace references this MonitoringConfig.
-func (r *MonitoringConfigReconciler) isInUse(ctx context.Context, mc *monitoringv1alpha1.MonitoringConfig) (bool, error) {
+func (r *MonitoringConfigReconciler) isInUse(ctx context.Context, mc *monitoringv1alpha2.MonitoringConfig) (bool, error) {
 	instances := &corev1alpha1.InstanceList{}
 	if err := r.List(ctx, instances, &client.ListOptions{
 		FieldSelector: fields.OneTermEqualSelector(instanceMonitoringConfigField, mc.GetName()),
@@ -163,7 +163,7 @@ func (r *MonitoringConfigReconciler) isInUse(ctx context.Context, mc *monitoring
 // whether the MonitoringConfig is referenced by any Instance.
 func (r *MonitoringConfigReconciler) ensureInUseFinalizer(
 	ctx context.Context,
-	mc *monitoringv1alpha1.MonitoringConfig,
+	mc *monitoringv1alpha2.MonitoringConfig,
 	inUse bool,
 ) error {
 	var updated bool
@@ -186,7 +186,7 @@ func (r *MonitoringConfigReconciler) ensureInUseFinalizer(
 // referenced credentials Secret, if not already owned.
 func (r *MonitoringConfigReconciler) ensureSecretOwnership(
 	ctx context.Context,
-	mc *monitoringv1alpha1.MonitoringConfig,
+	mc *monitoringv1alpha2.MonitoringConfig,
 ) error {
 	secret := &corev1.Secret{}
 	if err := r.Get(ctx, types.NamespacedName{
@@ -215,7 +215,7 @@ func (r *MonitoringConfigReconciler) ensureSecretOwnership(
 // updateStatus rebuilds and persists the MonitoringConfig status subresource.
 func (r *MonitoringConfigReconciler) updateStatus(
 	ctx context.Context,
-	mc *monitoringv1alpha1.MonitoringConfig,
+	mc *monitoringv1alpha2.MonitoringConfig,
 	inUse bool,
 ) error {
 	mc.Status.InUse = inUse
@@ -235,8 +235,8 @@ func (r *MonitoringConfigReconciler) updateStatus(
 // using the API key stored in the credentials Secret.
 func (r *MonitoringConfigReconciler) fetchPMMServerVersion(
 	ctx context.Context,
-	mc *monitoringv1alpha1.MonitoringConfig,
-) (monitoringv1alpha1.PMMServerVersion, error) {
+	mc *monitoringv1alpha2.MonitoringConfig,
+) (monitoringv1alpha2.PMMServerVersion, error) {
 	secret := &corev1.Secret{}
 	if err := r.Get(ctx, types.NamespacedName{
 		Name:      mc.Spec.CredentialsSecretName,
@@ -255,22 +255,22 @@ func (r *MonitoringConfigReconciler) fetchPMMServerVersion(
 		skipVerifyTLS = !pointer.Get(mc.Spec.VerifyTLS)
 	}
 
-	v, err := pmm.GetPMMServerVersion(ctx, mc.Spec.PMM.URL, string(apiKey), skipVerifyTLS)
+	v, err := pmm.GetPMMServerVersion(ctx, mc.Spec.URL, string(apiKey), skipVerifyTLS)
 	if err != nil {
 		return "", fmt.Errorf("failed to get PMM server version: %w", err)
 	}
 
-	return monitoringv1alpha1.PMMServerVersion(v), nil
+	return monitoringv1alpha2.PMMServerVersion(v), nil
 }
 
 // initIndexers registers the field indexers required by this controller.
 func (r *MonitoringConfigReconciler) initIndexers(ctx context.Context, mgr ctrl.Manager) error {
 	if err := mgr.GetFieldIndexer().IndexField(
 		ctx,
-		&monitoringv1alpha1.MonitoringConfig{},
+		&monitoringv1alpha2.MonitoringConfig{},
 		".spec.credentialsSecretName",
 		func(obj client.Object) []string {
-			mc, ok := obj.(*monitoringv1alpha1.MonitoringConfig)
+			mc, ok := obj.(*monitoringv1alpha2.MonitoringConfig)
 			if !ok {
 				return nil
 			}

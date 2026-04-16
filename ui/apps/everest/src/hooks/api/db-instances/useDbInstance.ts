@@ -15,7 +15,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { getDbInstanceFn } from 'api/instanceApi';
 import { PerconaQueryOptions } from 'shared-types/query.types';
-import { GetDbInstancePayload, Instance } from 'types/api';
+import { GetDbInstancePayload, Instance } from 'shared-types/api.types';
 
 export const DB_INSTANCE_QUERY_KEY = 'instance';
 

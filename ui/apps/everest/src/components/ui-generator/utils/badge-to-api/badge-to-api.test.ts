@@ -13,7 +13,11 @@
 // limitations under the License.
 
 import { describe, expect, it } from 'vitest';
-import { extractBadgeMappings, applyBadgesToFormData } from './badge-to-api';
+import {
+  extractBadgeMappings,
+  applyBadgesToFormData,
+  stripBadgeFromValue,
+} from './badge-to-api';
 import { FieldType, TopologyUISchemas } from '../../ui-generator.types';
 
 describe('extractBadgeMappings', () => {
@@ -113,5 +117,23 @@ describe('applyBadgesToFormData', () => {
     const data = { spec: { memory: '4' } };
     const result = applyBadgesToFormData(data, []);
     expect(result).toEqual({ spec: { memory: '4' } });
+  });
+});
+
+describe('stripBadgeFromValue', () => {
+  it('removes a trailing badge from string values', () => {
+    expect(stripBadgeFromValue('16Gi', 'Gi')).toBe('16');
+  });
+
+  it('trims optional whitespace before the badge', () => {
+    expect(stripBadgeFromValue('16 Gi', 'Gi')).toBe('16');
+  });
+
+  it('returns the original value when badge does not match', () => {
+    expect(stripBadgeFromValue('16Mi', 'Gi')).toBe('16Mi');
+  });
+
+  it('returns non-string values unchanged', () => {
+    expect(stripBadgeFromValue(16, 'Gi')).toBe(16);
   });
 });

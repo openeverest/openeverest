@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -37,8 +38,6 @@ import { ConfirmDialog } from 'components/confirm-dialog/confirm-dialog';
 export const AdvancedConfiguration = ({
   loading,
   externalAccess,
-  parameters,
-  storageClass,
   podSchedulingPolicy,
   loadBalancerConfig,
   splitHorizonDNS,
@@ -106,18 +105,6 @@ export const AdvancedConfiguration = ({
       title={Messages.titles.advancedConfiguration}
       loading={loading}
       dataTestId="advanced-configuration"
-      // editable={editable}
-      // {...(canUpdateDb
-      //   ? {
-      //       actionButtonProps: {
-      //         onClick: () => {
-      //           setOpenEditModal(true);
-      //         },
-      //         children: Messages.actions.edit,
-      //         'data-testid': 'edit-advanced-configuration-db-btn',
-      //       },
-      //     }
-      //   : undefined)}
     >
       <OverviewSectionRow
         label={Messages.fields.externalAccess}
@@ -125,17 +112,6 @@ export const AdvancedConfiguration = ({
           externalAccess ? Messages.fields.enabled : Messages.fields.disabled
         }
       />
-      <OverviewSectionRow
-        label={Messages.fields.parameters}
-        content={
-          parameters ? Messages.fields.enabled : Messages.fields.disabled
-        }
-      />
-      <OverviewSectionRow
-        label={Messages.fields.storageClass}
-        content={storageClass}
-      />
-
       <OverviewSectionRow
         label={Messages.fields.podSchedulingPolicy}
         content={
@@ -184,15 +160,6 @@ export const AdvancedConfiguration = ({
           </Typography>
         }
       />
-      {/* {openEditModal && dbCluster && (
-        <AdvancedConfigurationEditModal
-          open={openEditModal}
-          handleCloseModal={handleCloseModal}
-          handleSubmitModal={handleSubmit}
-          dbCluster={dbCluster}
-          submitting={updating}
-        />
-      )} */}
       {showSplitHorizonDomainsTable && (
         <ConfirmDialog
           selectedId="split-horizon-domains"

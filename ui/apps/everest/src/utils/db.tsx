@@ -44,12 +44,11 @@ import { generateShortUID } from './generateShortUID';
 import { capitalize } from '@mui/material';
 import { getProxySpec } from 'hooks/api/db-cluster/utils';
 import { dbEngineToDbType } from '@percona/utils';
-import { MIN_NUMBER_OF_SHARDS } from 'components/cluster-form';
 import { Path, UseFormGetFieldState } from 'react-hook-form';
 import cronConverter from './cron-converter';
 import { EMPTY_LOAD_BALANCER_CONFIGURATION } from 'consts';
 import { mapDeprecatedExposeType } from 'components/cluster-form/advanced-configuration/advanced-configuration.utils';
-import { PhaseType } from 'types/api';
+import { PhaseType } from 'shared-types/api.types';
 
 export const dbTypeToIcon = (dbType: DbType) => {
   switch (dbType) {
@@ -888,7 +887,7 @@ export const changeDbClusterResources = (
       sharding && {
         sharding: {
           enabled: sharding,
-          shards: +(shardNr ?? MIN_NUMBER_OF_SHARDS),
+          shards: +(shardNr ?? '1'),
           configServer: {
             replicas: shardConfigServers ?? 3,
           },
@@ -1005,7 +1004,7 @@ const humanizedDbMap: Record<DbType, string> = {
 export const humanizeDbType = (type: DbType): string => humanizedDbMap[type];
 
 // This does not apply to the delete action, which is only blocked when the db is being deleted itself
-export const shouldDbActionsBeBlocked = (status?: PhaseType) => {
+export const shouldDbActionsBeBlocked = (status?: PhaseType): boolean => {
   const targetStatuses: Array<Exclude<PhaseType, undefined>> = [
     'Restoring',
     'Terminating',
