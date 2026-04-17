@@ -28,10 +28,10 @@ jobs:
 
     steps:
       - name: Check out code
-        uses: actions/checkout@v5
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
 
       - name: Set up Go release
-        uses: actions/setup-go@v6
+        uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6.4.0
         with:
           go-version-file: 'go.mod'
           cache: true
@@ -71,13 +71,13 @@ jobs:
 
     steps:
       - name: Check out code into the Go module directory
-        uses: actions/checkout@v5
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
         with:
           lfs: true
           ref: ${{ github.event.pull_request.head.sha }}
 
       - name: Set up Go release
-        uses: actions/setup-go@v6
+        uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6.4.0
         with:
           go-version-file: 'go.mod'
           cache: true
@@ -122,20 +122,20 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Check out code
-        uses: actions/checkout@v5
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
 
       - name: Set up Go release
-        uses: actions/setup-go@v6
+        uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6.4.0
         with:
           go-version-file: 'go.mod'
           cache: true
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4.3.0
         with:
           version: 9.4.0
 
       - name: Setup Node.js
-        uses: actions/setup-node@v5
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
         with:
           node-version: 20.x
           cache: "pnpm"
@@ -208,13 +208,13 @@ jobs:
       PERCONA_VERSION_SERVICE_URL: https://check-dev.percona.com/versions/v1
     steps:
       - name: Check out code into the Go module directory
-        uses: actions/checkout@v5
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
         with:
           lfs: true
           ref: ${{ github.event.pull_request.head.sha }}
 
       - name: Set up Go release
-        uses: actions/setup-go@v6
+        uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6.4.0
         with:
           go-version-file: 'go.mod'
           cache: true
@@ -224,7 +224,7 @@ jobs:
           make build-cli
 
       - name: Create KIND cluster
-        uses: helm/kind-action@v1.12.0
+        uses: helm/kind-action@a1b0e391336a6ee6713a0583f8c6240d70863de3 # v1.12.0
 
       - name: Run integration tests
         id: cli-tests
@@ -236,7 +236,7 @@ jobs:
 
       - name: Attach the report
         if: ${{ always() && steps.cli-tests.outcome != 'skipped' }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: cli-tests-report
           path: cli-tests/test-report
@@ -266,7 +266,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Run Merge Gatekeeper
-        uses: upsidr/merge-gatekeeper@v1.2.1
+        uses: upsidr/merge-gatekeeper@09af7a82c1666d0e64d2bd8c01797a0bcfd3bb5d # v1.2.1
         with:
           self: Merge Gatekeeper
           token: ${{ secrets.GITHUB_TOKEN }}
