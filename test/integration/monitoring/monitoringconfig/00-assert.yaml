@@ -1,0 +1,63 @@
+apiVersion: kuttl.dev/v1
+kind: TestAssert
+timeout: 30
+collectors:
+  - command: kubectl get monitoringconfig/mc-test -n ${NAMESPACE} -o yaml
+  - command: kubectl get secret/mc-test-secret -n ${NAMESPACE} -o yaml
+  # - command: kubectl get deploy/everest-controller-manager -n everest-system -o yaml
+  - command: kubectl get deploy/openeverest-controller-manager -n openeverest-system -o yaml
+  - type: pod
+    # namespace: everest-system
+    namespace: openeverest-system
+    selector: control-plane=controller-manager
+    tail: 100
+resourceRefs:
+  - apiVersion: monitoring.openeverest.io/v1alpha2
+    kind: MonitoringConfig
+    name: mc-test
+    ref: mc
+---
+apiVersion: core.openeverest.io/v1alpha1
+kind: Provider
+metadata:
+  name: test-provider
+spec:
+  componentTypes:
+    pmm:
+      versions:
+        - default: true
+          image: percona/pmm-client:2.44.1
+          version: 2.44.1
+  components:
+    monitoring:
+      type: pmm
+  topologies:
+    replicaSet:
+      components:
+        monitoring:
+          optional: true
+---
+apiVersion: monitoring.openeverest.io/v1alpha2
+kind: MonitoringConfig
+metadata:
+  name: mc-test
+spec:
+  type: pmm
+  credentialsSecretName: mc-test-secret
+  verifyTLS: false
+  url: http://localhost-mc-test
+status:
+  inUse: false
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: mc-test-secret
+  ownerReferences:
+    - apiVersion: monitoring.openeverest.io/v1alpha2
+      blockOwnerDeletion: true
+      controller: true
+      kind: MonitoringConfig
+      name: mc-test
+data:
+  apiKey: YWJjZGVm

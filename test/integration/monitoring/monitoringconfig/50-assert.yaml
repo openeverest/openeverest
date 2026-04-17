@@ -1,0 +1,27 @@
+apiVersion: kuttl.dev/v1
+kind: TestAssert
+timeout: 30
+collectors:
+  - command: kubectl get monitoringconfig/mc-test -n ${NAMESPACE} -o yaml
+  - command: kubectl get secret/mc-test-secret -n ${NAMESPACE} -o yaml
+  # - command: kubectl get deploy/everest-controller-manager -n everest-system -o yaml
+  - command: kubectl get deploy/openeverest-controller-manager -n openeverest-system -o yaml
+  - type: pod
+    # namespace: everest-system
+    namespace: openeverest-system
+    selector: control-plane=controller-manager
+    tail: 100
+commands:
+  - command: kubectl wait --for=delete monitoringconfig/mc-test -n ${NAMESPACE}
+  - command: kubectl wait --for=delete secret/mc-test-secret -n ${NAMESPACE}
+---
+apiVersion: core.openeverest.io/v1alpha1
+kind: Instance
+metadata:
+  name: test-mc
+spec:
+  provider: test-provider
+  components:
+    monitoring:
+      type: pmm
+      customSpec: {}

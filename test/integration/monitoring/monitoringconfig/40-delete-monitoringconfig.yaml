@@ -1,0 +1,5 @@
+apiVersion: kuttl.dev/v1
+kind: TestStep
+timeout: 10
+commands:
+  - script: kubectl -n $NAMESPACE delete monitoringconfig/mc-test --wait=false && sleep 5

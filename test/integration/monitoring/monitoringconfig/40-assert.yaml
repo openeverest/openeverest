@@ -1,0 +1,62 @@
+apiVersion: kuttl.dev/v1
+kind: TestAssert
+timeout: 30
+collectors:
+  - command: kubectl get monitoringconfig/mc-test -n ${NAMESPACE} -o yaml
+  - command: kubectl get secret/mc-test-secret -n ${NAMESPACE} -o yaml
+  # - command: kubectl get deploy/everest-controller-manager -n everest-system -o yaml
+  - command: kubectl get deploy/openeverest-controller-manager -n openeverest-system -o yaml
+  - type: pod
+    # namespace: everest-system
+    namespace: openeverest-system
+    selector: control-plane=controller-manager
+    tail: 100
+resourceRefs:
+  - apiVersion: monitoring.openeverest.io/v1alpha2
+    kind: MonitoringConfig
+    name: mc-test
+    ref: mc
+assertAll:
+  - celExpr: "has(mc.metadata.finalizers)"
+    message: "mc doesn't have finalizers"
+
+  - celExpr: "'monitoring.openeverest.io/in-use-protection' in mc.metadata.finalizers"
+    message: "'monitoring.openeverest.io/in-use-protection' is absent in mc.metadata.finalizers"
+---
+apiVersion: monitoring.openeverest.io/v1alpha2
+kind: MonitoringConfig
+metadata:
+  name: mc-test
+spec:
+  type: pmm
+  credentialsSecretName: mc-test-secret
+  verifyTLS: false
+  url: http://localhost-mc-test-updated
+status:
+  inUse: true
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: mc-test-secret
+  ownerReferences:
+    - apiVersion: monitoring.openeverest.io/v1alpha2
+      blockOwnerDeletion: true
+      controller: true
+      kind: MonitoringConfig
+      name: mc-test
+type: Opaque
+data:
+  apiKey: YXNkZmcxMjM=
+---
+apiVersion: core.openeverest.io/v1alpha1
+kind: Instance
+metadata:
+  name: test-mc
+spec:
+  provider: test-provider
+  components:
+    monitoring:
+      type: pmm
+      customSpec:
+        monitoringConfigName: mc-test

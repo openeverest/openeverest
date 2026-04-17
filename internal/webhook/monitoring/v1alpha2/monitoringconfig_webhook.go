@@ -18,6 +18,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -76,6 +77,12 @@ func (v *MonitoringConfigCustomValidator) ValidateDelete(_ context.Context, obj 
 // validateMonitoringConfig performs checks secret contains valid PMM API key
 // by sening a request to PMM server.
 func (v *MonitoringConfigCustomValidator) validateMonitoringConfig(ctx context.Context, mc *monitoringv1alpha2.MonitoringConfig) error {
+	if os.Getenv("SKIP_PMM") == "true" {
+		monitoringconfiglog.Info("Skipping PMM validation", "name", mc.GetName())
+
+		return nil
+	}
+
 	if !mc.DeletionTimestamp.IsZero() {
 		return nil
 	}
