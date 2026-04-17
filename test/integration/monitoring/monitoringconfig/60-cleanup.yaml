@@ -1,7 +1,0 @@
-apiVersion: kuttl.dev/v1
-kind: TestStep
-timeout: 10
-delete:
-  - apiVersion: core.openeverest.io/v1alpha1
-    kind: Instance
-    name: test-mc
