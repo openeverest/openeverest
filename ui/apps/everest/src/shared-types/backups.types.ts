@@ -54,6 +54,7 @@ export type NormalizedBackupStatus =
 // TODO remove
 // Backwards-compatible alias for call sites that already import `BackupStatus` as a type.
 export type BackupStatus = NormalizedBackupStatus;
+
 export type DatabaseClusterPitrPayload =
   | {
       earliestDate: string;
