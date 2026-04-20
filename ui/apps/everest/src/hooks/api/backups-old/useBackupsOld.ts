@@ -8,7 +8,7 @@ import {
   deleteBackupFn,
   getBackupsFn,
   getPitrFn,
-} from 'api/backups';
+} from 'api/backups-old';
 import {
   Backup,
   BackupStatus,
@@ -22,7 +22,7 @@ import { BackupFormData } from 'pages/db-cluster-details/backups/on-demand-backu
 import { PerconaQueryOptions } from 'shared-types/query.types';
 import { useRBACPermissions } from 'hooks/rbac';
 
-export const BACKUPS_QUERY_KEY = 'backups';
+export const BACKUPS_QUERY_KEY = 'backups-old';
 
 type DeleteBackupArgType = {
   backupName: string;
