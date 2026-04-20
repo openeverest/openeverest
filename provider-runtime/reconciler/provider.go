@@ -32,6 +32,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
 	"github.com/openeverest/openeverest/v2/api/core/v1alpha1"
 	"github.com/openeverest/openeverest/v2/provider-runtime/controller"
 	"github.com/openeverest/openeverest/v2/provider-runtime/server"
@@ -142,6 +143,13 @@ func newReconciler(ctx context.Context, p providerAdapter, opts ...ReconcilerOpt
 	// Register core types
 	if err := v1alpha1.AddToScheme(scheme); err != nil {
 		return nil, fmt.Errorf("failed to add v1alpha1 scheme: %w", err)
+	}
+
+	// Register backup types so providers and the runtime can read/write
+	// BackupClass/BackupStorage CRs without requiring each
+	// provider to register them explicitly.
+	if err := backupv1alpha1.AddToScheme(scheme); err != nil {
+		return nil, fmt.Errorf("failed to add backup v1alpha1 scheme: %w", err)
 	}
 
 	// Register provider-specific types
@@ -368,6 +376,22 @@ func (r *ProviderReconciler) Reconcile(ctx context.Context, req reconcile.Reques
 		}
 		logger.Error(err, "Sync failed")
 		return reconcile.Result{}, err
+	}
+
+	// Configure backup engine for providers that opted in to BackupProvider.
+	// This runs after Sync so the provider can mutate engine resources (e.g.,
+	// PerconaServerMongoDB.spec.backup) before we observe status.
+	if bp, ok := r.provider.(controller.BackupProvider); ok && resolvedIn.Spec.Backup != nil {
+		if err := bp.ConfigureBackup(syncCtx); err != nil {
+			if controller.IsWaitError(err) {
+				logger.Info("ConfigureBackup waiting", "reason", err.Error())
+				_ = r.Client.Status().Update(ctx, in)
+				return reconcile.Result{RequeueAfter: controller.GetWaitDuration(err)}, nil
+			}
+			logger.Error(err, "ConfigureBackup failed")
+			_ = r.Client.Status().Update(ctx, in)
+			return reconcile.Result{}, err
+		}
 	}
 
 	// Compute and update status

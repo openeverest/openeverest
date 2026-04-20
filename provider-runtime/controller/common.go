@@ -20,10 +20,12 @@ import (
 	"fmt"
 	"time"
 
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
+	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
 	"github.com/openeverest/openeverest/v2/api/core/v1alpha1"
 )
 
@@ -505,4 +507,44 @@ func WaitFor(reason string) error {
 // WaitForDuration returns an error indicating retry after a specific duration.
 func WaitForDuration(reason string, d time.Duration) error {
 	return &WaitError{Reason: reason, Duration: d}
+}
+
+// =============================================================================
+// BACKUP HELPERS
+// =============================================================================
+
+// BackupClass fetches a BackupClass by name (cluster-scoped).
+func (c *Context) BackupClass(name string) (*backupv1alpha1.BackupClass, error) {
+	bc := &backupv1alpha1.BackupClass{}
+	if err := c.client.Get(c.ctx, client.ObjectKey{Name: name}, bc); err != nil {
+		return nil, fmt.Errorf("failed to get BackupClass %q: %w", name, err)
+	}
+	return bc, nil
+}
+
+// BackupStorage fetches a BackupStorage by name from the instance namespace.
+func (c *Context) BackupStorage(name string) (*backupv1alpha1.BackupStorage, error) {
+	bs := &backupv1alpha1.BackupStorage{}
+	if err := c.client.Get(c.ctx, client.ObjectKey{Namespace: c.in.Namespace, Name: name}, bs); err != nil {
+		return nil, fmt.Errorf("failed to get BackupStorage %q: %w", name, err)
+	}
+	return bs, nil
+}
+
+// BackupStorageCredentials reads the credentials Secret referenced by an S3
+// BackupStorage and returns the access key id / secret access key. Returns
+// empty strings if the storage does not reference a Secret (caller can decide
+// whether that is an error).
+func (c *Context) BackupStorageCredentials(bs *backupv1alpha1.BackupStorage) (accessKeyID, secretAccessKey string, err error) {
+	if bs == nil || bs.Spec.S3 == nil || bs.Spec.S3.CredentialsSecretName == "" {
+		return "", "", nil
+	}
+	secret := &corev1.Secret{}
+	if err := c.client.Get(c.ctx, client.ObjectKey{
+		Namespace: bs.GetNamespace(),
+		Name:      bs.Spec.S3.CredentialsSecretName,
+	}, secret); err != nil {
+		return "", "", fmt.Errorf("failed to get credentials secret %q: %w", bs.Spec.S3.CredentialsSecretName, err)
+	}
+	return string(secret.Data["AWS_ACCESS_KEY_ID"]), string(secret.Data["AWS_SECRET_ACCESS_KEY"]), nil
 }
