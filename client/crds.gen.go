@@ -18,6 +18,12 @@ const (
 	BackupStatusConditionsStatusUnknown BackupStatusConditionsStatus = "Unknown"
 )
 
+// Defines values for BackupClassSpecExecutionMode.
+const (
+	BackupClassSpecExecutionModeJob             BackupClassSpecExecutionMode = "Job"
+	BackupClassSpecExecutionModeProviderManaged BackupClassSpecExecutionMode = "ProviderManaged"
+)
+
 // Defines values for BackupClassStatusConditionsStatus.
 const (
 	BackupClassStatusConditionsStatusFalse   BackupClassStatusConditionsStatus = "False"
@@ -206,7 +212,7 @@ type BackupClass struct {
 	Kind     *string                 `json:"kind,omitempty"`
 	Metadata *map[string]interface{} `json:"metadata,omitempty"`
 
-	// Spec BackupClassSpec defines the desired state of BackupClass
+	// Spec BackupClassSpec defines the desired state of BackupClass.
 	Spec struct {
 		// CleanupJobSpec CleanupJobSpec is the specification of the cleanup job.
 		CleanupJobSpec *struct {
@@ -239,9 +245,11 @@ type BackupClass struct {
 			Verbs []string `json:"verbs"`
 		} `json:"clusterPermissions,omitempty"`
 
-		// Config Config contains additional configuration defined for the backup tool.
+		// Config Config contains the OpenAPI v3 schema describing the backup-time
+		// configuration accepted by this class. Backup.spec.config is validated
+		// against this schema.
 		Config *struct {
-			// OpenAPIV3Schema OpenAPIV3Schema is the OpenAPI v3 schema of the backup tool.
+			// OpenAPIV3Schema OpenAPIV3Schema is the OpenAPI v3 schema of the backup class.
 			OpenAPIV3Schema interface{} `json:"openAPIV3Schema,omitempty"`
 		} `json:"config,omitempty"`
 
@@ -258,9 +266,14 @@ type BackupClass struct {
 			RequiredFields *[]string `json:"requiredFields,omitempty"`
 		} `json:"dataStoreConstraints,omitempty"`
 
-		// Description Description is the description of the backup tool.
+		// Description Description is the description of the backup class.
 		Description *string `json:"description,omitempty"`
+
+		// DisplayName DisplayName is a human-readable name for the backup class.
 		DisplayName *string `json:"displayName,omitempty"`
+
+		// ExecutionMode ExecutionMode selects between job-based and provider-managed execution.
+		ExecutionMode BackupClassSpecExecutionMode `json:"executionMode"`
 
 		// JobSpec JobSpec is the specification of the backup job.
 		JobSpec *struct {
@@ -293,7 +306,20 @@ type BackupClass struct {
 			Verbs []string `json:"verbs"`
 		} `json:"permissions,omitempty"`
 
-		// SupportedProviders SupportedProviders is the list of providers that the backup tool supports.
+		// ProviderManaged ProviderManaged contains hints for ExecutionMode="ProviderManaged". The
+		// schema is intentionally open: providers may surface capability
+		// information (e.g., whether PITR is supported, schedule expression
+		// dialect) without forcing a CRD change. Must be unset when
+		// ExecutionMode is "Job".
+		ProviderManaged *struct {
+			// SupportsPITR SupportsPITR indicates whether this class supports point-in-time recovery.
+			// Used by Restore validation when Restore.spec.dataSource.pitr is set.
+			SupportsPITR *bool `json:"supportsPITR,omitempty"`
+		} `json:"providerManaged,omitempty"`
+
+		// SupportedProviders SupportedProviders is the list of provider names that this backup class
+		// supports. The Instance.spec.provider must appear in this list for the
+		// class to be usable on that Instance.
 		SupportedProviders *[]string `json:"supportedProviders,omitempty"`
 	} `json:"spec"`
 
@@ -328,6 +354,9 @@ type BackupClass struct {
 		} `json:"conditions,omitempty"`
 	} `json:"status,omitempty"`
 }
+
+// BackupClassSpecExecutionMode ExecutionMode selects between job-based and provider-managed execution.
+type BackupClassSpecExecutionMode string
 
 // BackupClassStatusConditionsStatus status of the condition, one of True, False, Unknown.
 type BackupClassStatusConditionsStatus string

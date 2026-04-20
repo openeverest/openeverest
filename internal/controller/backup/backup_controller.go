@@ -183,6 +183,13 @@ func (r *BackupReconciler) Reconcile( //nolint:nonamedreturns
 		return ctrl.Result{}, err
 	}
 
+	// ProviderManaged classes are reconciled by the provider-runtime; this
+	// controller only handles Job execution mode. Bail out without touching
+	// the Backup so the provider's runtime can take over.
+	if bc.Spec.ExecutionMode != backupv1alpha1.BackupExecutionModeJob {
+		return ctrl.Result{}, nil
+	}
+
 	// Create RBAC resources.
 	requiresRbac := len(bc.Spec.Permissions) > 0 || len(bc.Spec.ClusterPermissions) > 0
 	if requiresRbac { //nolint:nestif

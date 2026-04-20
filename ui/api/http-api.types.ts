@@ -7428,7 +7428,7 @@ export interface components {
              */
             kind?: string;
             metadata?: Record<string, never>;
-            /** @description BackupClassSpec defines the desired state of BackupClass */
+            /** @description BackupClassSpec defines the desired state of BackupClass. */
             spec: {
                 /** @description CleanupJobSpec is the specification of the cleanup job. */
                 cleanupJobSpec?: {
@@ -7460,9 +7460,13 @@ export interface components {
                     /** @description Verbs is a list of Verbs that apply to ALL the ResourceKinds contained in this rule. '*' represents all verbs. */
                     verbs: string[];
                 }[];
-                /** @description Config contains additional configuration defined for the backup tool. */
+                /**
+                 * @description Config contains the OpenAPI v3 schema describing the backup-time
+                 *     configuration accepted by this class. Backup.spec.config is validated
+                 *     against this schema.
+                 */
                 config?: {
-                    /** @description OpenAPIV3Schema is the OpenAPI v3 schema of the backup tool. */
+                    /** @description OpenAPIV3Schema is the OpenAPI v3 schema of the backup class. */
                     openAPIV3Schema?: unknown;
                 };
                 /**
@@ -7481,9 +7485,15 @@ export interface components {
                      */
                     requiredFields?: string[];
                 };
-                /** @description Description is the description of the backup tool. */
+                /** @description Description is the description of the backup class. */
                 description?: string;
+                /** @description DisplayName is a human-readable name for the backup class. */
                 displayName?: string;
+                /**
+                 * @description ExecutionMode selects between job-based and provider-managed execution.
+                 * @enum {string}
+                 */
+                executionMode: "ProviderManaged" | "Job";
                 /** @description JobSpec is the specification of the backup job. */
                 jobSpec?: {
                     /** @description Command is the command to run the backup tool. */
@@ -7514,7 +7524,25 @@ export interface components {
                     /** @description Verbs is a list of Verbs that apply to ALL the ResourceKinds contained in this rule. '*' represents all verbs. */
                     verbs: string[];
                 }[];
-                /** @description SupportedProviders is the list of providers that the backup tool supports. */
+                /**
+                 * @description ProviderManaged contains hints for ExecutionMode="ProviderManaged". The
+                 *     schema is intentionally open: providers may surface capability
+                 *     information (e.g., whether PITR is supported, schedule expression
+                 *     dialect) without forcing a CRD change. Must be unset when
+                 *     ExecutionMode is "Job".
+                 */
+                providerManaged?: {
+                    /**
+                     * @description SupportsPITR indicates whether this class supports point-in-time recovery.
+                     *     Used by Restore validation when Restore.spec.dataSource.pitr is set.
+                     */
+                    supportsPITR?: boolean;
+                };
+                /**
+                 * @description SupportedProviders is the list of provider names that this backup class
+                 *     supports. The Instance.spec.provider must appear in this list for the
+                 *     class to be usable on that Instance.
+                 */
                 supportedProviders?: string[];
             };
             /** @description BackupClassStatus defines the observed state of BackupClass. */

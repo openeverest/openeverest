@@ -37,7 +37,7 @@ spec:
           metadata:
             type: object
           spec:
-            description: BackupClassSpec defines the desired state of BackupClass
+            description: BackupClassSpec defines the desired state of BackupClass.
             properties:
               cleanupJobSpec:
                 description: CleanupJobSpec is the specification of the cleanup job.
@@ -104,12 +104,14 @@ spec:
                   type: object
                 type: array
               config:
-                description: Config contains additional configuration defined for
-                  the backup tool.
+                description: |-
+                  Config contains the OpenAPI v3 schema describing the backup-time
+                  configuration accepted by this class. Backup.spec.config is validated
+                  against this schema.
                 properties:
                   openAPIV3Schema:
                     description: OpenAPIV3Schema is the OpenAPI v3 schema of the backup
-                      tool.
+                      class.
                     x-kubernetes-preserve-unknown-fields: true
                 type: object
               dataStoreConstraints:
@@ -131,9 +133,17 @@ spec:
                     type: array
                 type: object
               description:
-                description: Description is the description of the backup tool.
+                description: Description is the description of the backup class.
                 type: string
               displayName:
+                description: DisplayName is a human-readable name for the backup class.
+                type: string
+              executionMode:
+                description: ExecutionMode selects between job-based and provider-managed
+                  execution.
+                enum:
+                - ProviderManaged
+                - Job
                 type: string
               jobSpec:
                 description: JobSpec is the specification of the backup job.
@@ -199,12 +209,30 @@ spec:
                   - verbs
                   type: object
                 type: array
+              providerManaged:
+                description: |-
+                  ProviderManaged contains hints for ExecutionMode="ProviderManaged". The
+                  schema is intentionally open: providers may surface capability
+                  information (e.g., whether PITR is supported, schedule expression
+                  dialect) without forcing a CRD change. Must be unset when
+                  ExecutionMode is "Job".
+                properties:
+                  supportsPITR:
+                    description: |-
+                      SupportsPITR indicates whether this class supports point-in-time recovery.
+                      Used by Restore validation when Restore.spec.dataSource.pitr is set.
+                    type: boolean
+                type: object
               supportedProviders:
-                description: SupportedProviders is the list of providers that the
-                  backup tool supports.
+                description: |-
+                  SupportedProviders is the list of provider names that this backup class
+                  supports. The Instance.spec.provider must appear in this list for the
+                  class to be usable on that Instance.
                 items:
                   type: string
                 type: array
+            required:
+            - executionMode
             type: object
           status:
             description: BackupClassStatus defines the observed state of BackupClass.

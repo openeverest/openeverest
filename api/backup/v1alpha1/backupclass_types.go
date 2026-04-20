@@ -28,14 +28,49 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 )
 
-// BackupClassSpec defines the desired state of BackupClass
-type BackupClassSpec struct { // DisplayName is a human-readable name for the backup tool.
+// BackupExecutionMode selects how a BackupClass implements backup and restore
+// operations.
+//
+// +kubebuilder:validation:Enum=ProviderManaged;Job
+type BackupExecutionMode string
+
+const (
+	// BackupExecutionModeProviderManaged delegates backup and restore to the
+	// provider's reconciler, which typically configures an in-cluster agent
+	// (PBM, pgBackRest, Barman, ...) on the engine itself. The Backup and
+	// Restore CRs become trigger + status holders; the actual orchestration
+	// happens inside the provider's Sync loop.
+	BackupExecutionModeProviderManaged BackupExecutionMode = "ProviderManaged"
+
+	// BackupExecutionModeJob runs backup and restore operations as Kubernetes
+	// Jobs that talk to the database from outside (e.g., pg_dump, mysqldump).
+	// All execution detail lives under .spec.job and .spec.restoreJob.
+	BackupExecutionModeJob BackupExecutionMode = "Job"
+)
+
+// BackupClassSpec defines the desired state of BackupClass.
+type BackupClassSpec struct {
+	// DisplayName is a human-readable name for the backup class.
 	DisplayName string `json:"displayName,omitempty"`
-	// Description is the description of the backup tool.
+	// Description is the description of the backup class.
 	Description string `json:"description,omitempty"`
-	// SupportedProviders is the list of providers that the backup tool supports.
+	// SupportedProviders is the list of provider names that this backup class
+	// supports. The Instance.spec.provider must appear in this list for the
+	// class to be usable on that Instance.
 	SupportedProviders ProviderNameList `json:"supportedProviders,omitempty"`
-	// Config contains additional configuration defined for the backup tool.
+	// ExecutionMode selects between job-based and provider-managed execution.
+	// +kubebuilder:validation:Required
+	ExecutionMode BackupExecutionMode `json:"executionMode"`
+	// ProviderManaged contains hints for ExecutionMode="ProviderManaged". The
+	// schema is intentionally open: providers may surface capability
+	// information (e.g., whether PITR is supported, schedule expression
+	// dialect) without forcing a CRD change. Must be unset when
+	// ExecutionMode is "Job".
+	// +optional
+	ProviderManaged *ProviderManagedSpec `json:"providerManaged,omitempty"`
+	// Config contains the OpenAPI v3 schema describing the backup-time
+	// configuration accepted by this class. Backup.spec.config is validated
+	// against this schema.
 	Config BackupClassConfig `json:"config,omitempty"`
 	// JobSpec is the specification of the backup job.
 	// +optional
@@ -61,6 +96,16 @@ type BackupClassSpec struct { // DisplayName is a human-readable name for the ba
 	ClusterPermissions []rbacv1.PolicyRule `json:"clusterPermissions,omitempty"`
 }
 
+// ProviderManagedSpec carries opaque hints for ExecutionMode="ProviderManaged"
+// classes. It mirrors the Config pattern: the field is opaque
+// to the runtime; providers interpret it.
+type ProviderManagedSpec struct {
+	// SupportsPITR indicates whether this class supports point-in-time recovery.
+	// Used by Restore validation when Restore.spec.dataSource.pitr is set.
+	// +optional
+	SupportsPITR bool `json:"supportsPITR,omitempty"`
+}
+
 // ProviderNameList is a type alias for a list of provider names.
 type ProviderNameList []string
 
@@ -69,9 +114,9 @@ func (e ProviderNameList) Has(provider string) bool {
 	return slices.Contains(e, provider)
 }
 
-// BackupClassConfig contains additional configuration defined for the backup tool.
+// BackupClassConfig contains additional configuration defined for the backup class.
 type BackupClassConfig struct {
-	// OpenAPIV3Schema is the OpenAPI v3 schema of the backup tool.
+	// OpenAPIV3Schema is the OpenAPI v3 schema of the backup class.
 	// +kubebuilder:pruning:PreserveUnknownFields
 	// +kubebuilder:validation:Schemaless
 	// +optional
@@ -81,7 +126,7 @@ type BackupClassConfig struct {
 // ErrSchemaValidationFailure is returned when the parameters do not conform to the BackupClass schema defined in .spec.config.
 var ErrSchemaValidationFailure = errors.New("schema validation failed")
 
-// Validate the config for the backup tool.
+// Validate the config for the backup class.
 func (cfg *BackupClassConfig) Validate(params *runtime.RawExtension) error {
 	schema := cfg.OpenAPIV3Schema
 	if schema == nil && params != nil {
@@ -134,6 +179,32 @@ type BackupJobSpec struct {
 	// Command is the command to run the backup tool.
 	// +optional
 	Command []string `json:"command,omitempty"`
+}
+
+// ErrInvalidExecutionMode is returned when the BackupClassSpec mixes fields
+// from multiple execution modes or omits the required block for the chosen
+// mode.
+var ErrInvalidExecutionMode = errors.New("invalid execution mode configuration")
+
+// ValidateExecutionMode enforces the invariants between ExecutionMode and the
+// mode-specific blocks (Job/RestoreJob vs ProviderManaged).
+func (s *BackupClassSpec) ValidateExecutionMode() error {
+	switch s.ExecutionMode {
+	case BackupExecutionModeProviderManaged:
+		if s.JobSpec != nil {
+			return fmt.Errorf("%w: executionMode=ProviderManaged must not set .spec.jobSpec", ErrInvalidExecutionMode)
+		}
+	case BackupExecutionModeJob:
+		if s.JobSpec == nil {
+			return fmt.Errorf("%w: executionMode=Job requires .spec.jobSpec", ErrInvalidExecutionMode)
+		}
+		if s.ProviderManaged != nil {
+			return fmt.Errorf("%w: executionMode=Job must not set .spec.providerManaged", ErrInvalidExecutionMode)
+		}
+	default:
+		return fmt.Errorf("%w: unknown executionMode %q", ErrInvalidExecutionMode, s.ExecutionMode)
+	}
+	return nil
 }
 
 // BackupClassDataStoreConstraints defines compatibility requirements and prerequisites
