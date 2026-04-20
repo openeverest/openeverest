@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-export * from './backups';
+export * from './backups-old';
 export * from './backup-storages';
 export * from './db-cluster';
 export * from './db-clusters';

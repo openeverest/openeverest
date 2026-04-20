@@ -17,7 +17,7 @@ import {
   BACKUPS_QUERY_KEY,
   useCreateBackupOnDemand,
   useDbBackups,
-} from 'hooks/api/backups/useBackupsOld.ts';
+} from 'hooks/api/backups-old/useBackupsOld.ts';
 import { useContext, useMemo } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useParams } from 'react-router-dom';
