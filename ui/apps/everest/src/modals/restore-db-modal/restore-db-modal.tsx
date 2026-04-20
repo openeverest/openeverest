@@ -16,7 +16,7 @@ import {
   BACKUPS_QUERY_KEY,
   useDbBackups,
   useDbClusterPitr,
-} from 'hooks/api/backups/useBackups';
+} from 'hooks/api/backups/useBackupsOld';
 import {
   useDbClusterRestoreFromBackup,
   useDbClusterRestoreFromPointInTime,
