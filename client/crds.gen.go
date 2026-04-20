@@ -492,6 +492,92 @@ type Instance struct {
 
 	// Spec InstanceSpec defines the desired state of Instance
 	Spec struct {
+		// Backup Backup configures the backup feature for this Instance. When enabled,
+		// the provider's reconciler is given the resolved BackupClass and storage
+		// list so it can configure the engine accordingly (sidecars, agent
+		// configuration, etc.). Required for ProviderManaged BackupClasses; Job
+		// classes do not need an entry here because they read directly from
+		// individual Backup CRs.
+		Backup *struct {
+			// ClassRef ClassRef references the BackupClass that the provider should use to
+			// configure the engine. The class must have ExecutionMode=ProviderManaged
+			// and list the Instance's provider in its SupportedProviders.
+			ClassRef struct {
+				// Name Name is the BackupClass name. BackupClasses are cluster-scoped.
+				Name string `json:"name"`
+			} `json:"classRef"`
+
+			// Enabled Enabled toggles the backup feature for this Instance. When false the
+			// runtime skips ConfigureBackup() and the rest of this struct is ignored.
+			Enabled bool `json:"enabled"`
+
+			// Pitr PITR enables and configures point-in-time recovery on the engine.
+			// Requires the BackupClass to advertise PITR support via
+			// .spec.providerManaged.
+			Pitr *struct {
+				// Config Config holds provider-specific PITR options. The schema is defined by
+				// the BackupClass via .spec.providerManaged.
+				Config *map[string]interface{} `json:"config,omitempty"`
+
+				// Enabled Enabled toggles PITR.
+				Enabled bool `json:"enabled"`
+
+				// StorageName StorageName is the logical name of the storage (one of
+				// .spec.backup.storages[].name) that PITR should write to.
+				StorageName *string `json:"storageName,omitempty"`
+			} `json:"pitr,omitempty"`
+
+			// Schedules Schedules registers recurring backup tasks on the engine. Schedules
+			// produce Backup CRs (via the provider's mirroring loop) using the
+			// engine-native scheduler — the runtime never spawns CronJobs for
+			// ProviderManaged BackupClasses.
+			Schedules *[]struct {
+				// Cron Cron is a standard 5-field cron expression. The provider may reject
+				// expressions the engine does not support.
+				Cron string `json:"cron"`
+
+				// Enabled Enabled toggles the schedule. A disabled schedule is removed from
+				// the engine without losing its definition on the Instance.
+				Enabled bool `json:"enabled"`
+
+				// Name Name uniquely identifies the schedule within the Instance. The
+				// provider uses it as the schedule key on the engine and as the value
+				// of Backup.spec.scheduleName on mirrored Backup CRs.
+				Name string `json:"name"`
+
+				// RetentionCopies RetentionCopies is the number of recent backups to keep for this
+				// schedule. Zero (or unset) means "keep all". Negative values are
+				// rejected.
+				RetentionCopies *int32 `json:"retentionCopies,omitempty"`
+
+				// StorageName StorageName references one of .spec.backup.storages[].name. Required.
+				StorageName string `json:"storageName"`
+			} `json:"schedules,omitempty"`
+
+			// Storages Storages registers BackupStorages on the engine. Each entry maps a
+			// logical name (visible to the engine and reused by Backup CRs via
+			// .spec.storageName) to a BackupStorage resource.
+			Storages *[]struct {
+				// Main Main marks this storage as the engine's default. At most one storage
+				// per Instance may be marked main.
+				Main *bool `json:"main,omitempty"`
+
+				// Name Name is the logical name the engine uses for this storage. It is also
+				// the value that Backup CRs target via .spec.storageName.
+				Name string `json:"name"`
+
+				// StorageRef StorageRef references a BackupStorage in the same namespace.
+				StorageRef struct {
+					// Name Name of the referent.
+					// This field is effectively required, but due to backwards compatibility is
+					// allowed to be empty. Instances of this type with an empty value here are
+					// almost certainly wrong.
+					// More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+					Name *string `json:"name,omitempty"`
+				} `json:"storageRef"`
+			} `json:"storages,omitempty"`
+		} `json:"backup,omitempty"`
+
 		// Components Components defines the component instances for this cluster.
 		// The keys are component names (e.g., "engine", "proxy", "backupAgent").
 		// Which components are valid depends on the selected topology.
