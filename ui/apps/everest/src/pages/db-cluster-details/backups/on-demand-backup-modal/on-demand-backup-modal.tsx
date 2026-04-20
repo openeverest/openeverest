@@ -24,7 +24,7 @@ import { useParams } from 'react-router-dom';
 import {
   GetBackupsPayload,
   SingleBackupPayload,
-} from 'shared-types/backups.types';
+} from 'shared-types/backupsOld.types.ts';
 // import { Messages } from '../../db-cluster-details.messages.ts';
 import { OnDemandBackupFieldsWrapper } from './on-demand-backup-fields-wrapper.tsx';
 import {

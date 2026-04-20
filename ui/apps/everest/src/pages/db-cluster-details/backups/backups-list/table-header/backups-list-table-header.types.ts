@@ -1,4 +1,4 @@
-import { Backup } from 'shared-types/backups.types';
+import { Backup } from 'shared-types/backupsOld.types';
 
 export type BackupListTableHeaderProps = {
   onNowClick: () => void;

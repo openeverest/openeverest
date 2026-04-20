@@ -1,5 +1,5 @@
 import { BaseStatus } from 'components/status-field/status-field.types';
-import { BackupStatus } from 'shared-types/backups.types';
+import { BackupStatus } from 'shared-types/backupsOld.types';
 
 export const BACKUP_STATUS_TO_BASE_STATUS: Record<BackupStatus, BaseStatus> = {
   [BackupStatus.OK]: 'success',

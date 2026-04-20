@@ -27,7 +27,7 @@ import {
   Backup,
   BackupStatus,
   DatabaseClusterPitr,
-} from 'shared-types/backups.types';
+} from 'shared-types/backupsOld.types';
 import { DbCluster } from 'shared-types/dbCluster.types';
 import {
   BackuptypeValues,

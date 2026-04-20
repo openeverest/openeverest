@@ -16,7 +16,7 @@ import {
 import { useUpdateDbClusterWithConflictRetry } from 'hooks';
 import { WizardMode } from 'shared-types/wizard.types';
 import { DbEngineType } from 'shared-types/dbEngines.types';
-import { Backup, BackupStatus } from 'shared-types/backups.types';
+import { Backup, BackupStatus } from 'shared-types/backupsOld.types';
 
 type Props = {
   currentBackups: Backup[];

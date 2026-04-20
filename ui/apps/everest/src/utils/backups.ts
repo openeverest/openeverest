@@ -1,6 +1,6 @@
 import { DbType } from '@percona/types';
 import { BACKUP_STATE_TO_STATUS, PG_SLOTS_LIMIT } from 'consts';
-import { Backup, BackupStatus } from 'shared-types/backups.types';
+import { Backup, BackupStatus } from 'shared-types/backupsOld.types';
 import { BackupStorage } from 'shared-types/backupStorages.types';
 import { Schedule } from 'shared-types/dbCluster.types';
 

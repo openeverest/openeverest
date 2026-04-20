@@ -18,7 +18,7 @@ import { Schedule } from 'shared-types/dbCluster.types';
 
 import { Messages } from './dbClusterView.messages';
 import { InstanceTableElement } from './dbClusterView.types';
-import { Backup, BackupStatus } from 'shared-types/backups.types';
+import { Backup, BackupStatus } from 'shared-types/backupsOld.types';
 import { DbErrorType } from 'shared-types/dbErrors.types';
 import {
   DB_INSTANCE_UNKNOWN_PHASE,

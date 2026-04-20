@@ -14,7 +14,7 @@
 // See the License for the specific language governing permissions and
 
 import { ImportFields } from 'components/cluster-form/import/import.types';
-import { BackupStatus } from 'shared-types/backups.types';
+import { BackupStatus } from 'shared-types/backupsOld.types';
 
 // limitations under the License.
 export const IP_REGEX =

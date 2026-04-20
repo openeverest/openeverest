@@ -3,7 +3,7 @@ import {
   DatabaseClusterPitrPayload,
   GetBackupsPayload,
   SingleBackupPayload,
-} from 'shared-types/backups.types';
+} from 'shared-types/backupsOld.types';
 import { api } from './api';
 
 export const getBackupsFn = async (
