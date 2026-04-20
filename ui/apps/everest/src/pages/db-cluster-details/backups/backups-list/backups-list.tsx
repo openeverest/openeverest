@@ -33,7 +33,7 @@ import {
   Backup,
   BackupStatus,
   GetBackupsPayload,
-} from 'shared-types/backups.types';
+} from 'shared-types/backupsOld.types.ts';
 import { ScheduleModalContext } from '../backups.context.ts';
 import { BACKUP_STATUS_TO_BASE_STATUS } from './backups-list.constants';
 import { Messages } from './backups-list.messages';

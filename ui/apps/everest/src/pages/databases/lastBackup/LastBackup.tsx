@@ -8,7 +8,7 @@ import {
   sortBackupsByTime,
 } from '../DbClusterView.utils';
 import { WarningIcon } from '@percona/ui-lib';
-import { BackupStatus } from 'shared-types/backups.types';
+import { BackupStatus } from 'shared-types/backupsOld.types';
 import { useDbCluster } from 'hooks/api/db-cluster/useDbCluster';
 import { useNavigate } from 'react-router-dom';
 

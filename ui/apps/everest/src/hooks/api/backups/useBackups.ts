@@ -16,7 +16,7 @@ import {
   DatabaseClusterPitrPayload,
   GetBackupsPayload,
   SingleBackupPayload,
-} from 'shared-types/backups.types';
+} from 'shared-types/backupsOld.types';
 import { mapBackupState } from 'utils/backups';
 import { BackupFormData } from 'pages/db-cluster-details/backups/on-demand-backup-modal/on-demand-backup-modal.types';
 import { PerconaQueryOptions } from 'shared-types/query.types';
