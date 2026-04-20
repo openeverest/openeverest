@@ -254,7 +254,7 @@ docker-build: ## Build docker image with Everest API server and controller.
 	docker build -f build/package/server/Dockerfile --target openeverest -t ${IMG} .
 
 .PHONY: docker-build-controller
-docker-build-controller: ## Build docker image with Everest controller.
+docker-build-controller: build-controller ## Build docker image with Everest controller.
 	docker build -f build/package/server/Dockerfile --target controller -t ${EVEREST_CONTROLLER_IMG} .
 
 .PHONY: docker-push
@@ -299,7 +299,7 @@ test-crosscover: setup-envtest ## Run unit tests and collect cross-package cover
 	CGO_ENABLED=1 go test -race -timeout=20m -count=1 -coverprofile=crosscover.out -covermode=atomic -p=1 -coverpkg=./... ./...
 
 .PHONY: test-integration-monitoring
-test-integration-monitoring: build-controller docker-build-controller k3d-upload-controller-image
+test-integration-monitoring: docker-build-controller k3d-upload-controller-image
 	. ./test/vars.sh && kubectl kuttl test --config test/integration/kuttl-monitoring.yaml
 
 ##@ Deployment management
@@ -508,7 +508,7 @@ build-installer: gen-crds-manifests kustomize ## Generate a consolidated YAML wi
 	"$(KUSTOMIZE)" build config/default > dist/install.yaml
 
 .PHONY: deploy-test-controller
-deploy-test-controller: gen-crds-manifests kustomize
+deploy-test-controller: gen-crds-manifests kustomize deploy-cert-manager
 	cd config/test && "$(KUSTOMIZE)" edit set image controller=${EVEREST_CONTROLLER_IMG}
 	$(KUSTOMIZE) build config/test | kubectl apply -f -
 
@@ -537,6 +537,13 @@ setup-envtest: envtest ## Download the binaries required for ENVTEST.
 envtest: $(ENVTEST) ## Download setup-envtest locally if necessary.
 $(ENVTEST): $(LOCALBIN)
 	$(call go-install-tool,$(ENVTEST),sigs.k8s.io/controller-runtime/tools/setup-envtest,$(ENVTEST_VERSION))
+
+.PHONY: deploy-cert-manager
+deploy-cert-manager: # Install cert-manager used by controller webhook.
+	kubectl apply -f https://github.com/cert-manager/cert-manager/releases/latest/download/cert-manager.yaml
+	kubectl wait --for=condition=available --timeout=120s deployment/cert-manager -n cert-manager
+	kubectl wait --for=condition=available --timeout=120s deployment/cert-manager-webhook -n cert-manager
+	kubectl wait --for=condition=available --timeout=120s deployment/cert-manager-cainjector -n cert-manager
 
 # go-install-tool will 'go install' any package with custom target and name of binary, if it doesn't exist.
 # $1 - target path with name of binary

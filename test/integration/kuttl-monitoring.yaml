@@ -7,11 +7,6 @@ skipClusterDelete: true
 commands:
   # Ensure namespace.
   - command: sh -c "kubectl get namespace everest-monitoring || kubectl create namespace everest-monitoring"
-  # Install cert-manager used by controller webhook.
-  - command: kubectl apply -f https://github.com/cert-manager/cert-manager/releases/latest/download/cert-manager.yaml
-  - command: kubectl wait --for=condition=available --timeout=120s deployment/cert-manager -n cert-manager
-  - command: kubectl wait --for=condition=available --timeout=120s deployment/cert-manager-webhook -n cert-manager
-  - command: kubectl wait --for=condition=available --timeout=120s deployment/cert-manager-cainjector -n cert-manager
   # Deploy test overlay into K8S cluster.
   - command: make -f ${OPENEVEREST_ROOT_PATH}/Makefile deploy-test-controller
   # Apply VictoriaMetrics Operator CRD.
