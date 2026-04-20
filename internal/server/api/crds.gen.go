@@ -25,6 +25,11 @@ const (
 	BackupClassStatusConditionsStatusUnknown BackupClassStatusConditionsStatus = "Unknown"
 )
 
+// Defines values for BackupStorageSpecType.
+const (
+	BackupStorageSpecTypeS3 BackupStorageSpecType = "s3"
+)
+
 // Defines values for InstanceStatusConditionsStatus.
 const (
 	InstanceStatusConditionsStatusFalse   InstanceStatusConditionsStatus = "False"
@@ -346,6 +351,88 @@ type BackupList struct {
 	// ApiVersion APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
 	ApiVersion *string   `json:"apiVersion,omitempty"`
 	Items      *[]Backup `json:"items,omitempty"`
+
+	// Kind Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+	Kind     *string `json:"kind,omitempty"`
+	Metadata *struct {
+		// Name Name must be unique within a namespace. Is required when creating resources, although some resources may allow a client to request the generation of an appropriate name automatically. Name is primarily intended for creation idempotence and configuration definition. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names#names
+		Name *string `json:"name,omitempty"`
+
+		// Namespace Namespace defines the space within which each name must be unique. An empty namespace is equivalent to the "default" namespace, but "default" is the canonical representation. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces
+		Namespace *string `json:"namespace,omitempty"`
+	} `json:"metadata,omitempty"`
+}
+
+// BackupStorage BackupStorage is the Schema for the backupstorages API.
+type BackupStorage struct {
+	// ApiVersion APIVersion defines the versioned schema of this representation of an object.
+	// Servers should convert recognized schemas to the latest internal value, and
+	// may reject unrecognized values.
+	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+	ApiVersion *string `json:"apiVersion,omitempty"`
+
+	// Kind Kind is a string value representing the REST resource this object represents.
+	// Servers may infer this from the endpoint the client submits requests to.
+	// Cannot be updated.
+	// In CamelCase.
+	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+	Kind     *string                 `json:"kind,omitempty"`
+	Metadata *map[string]interface{} `json:"metadata,omitempty"`
+
+	// Spec BackupStorageSpec defines the desired state of a BackupStorage.
+	//
+	// A BackupStorage is a reusable, namespaced reference to an object store
+	// (today only S3-compatible) plus the credentials needed to talk to it.
+	Spec struct {
+		// S3 S3 contains S3-compatible storage configuration.
+		// Required when Type is "s3".
+		S3 *struct {
+			// AccessKeyId AccessKeyID is a write-only convenience input. When set, a webhook
+			// stores it in the Secret named by CredentialsSecretName and clears
+			// this field. It is never persisted on the BackupStorage object.
+			AccessKeyId *string `json:"accessKeyId,omitempty"`
+
+			// Bucket Bucket is the name of the S3 bucket.
+			Bucket string `json:"bucket"`
+
+			// CredentialsSecretName CredentialsSecretName is the name of the Secret in the same namespace
+			// that holds the AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY keys.
+			CredentialsSecretName string `json:"credentialsSecretName"`
+
+			// EndpointURL EndpointURL is the endpoint URL of the S3-compatible service.
+			EndpointURL string `json:"endpointURL"`
+
+			// ForcePathStyle ForcePathStyle forces path-style URLs (bucket name in the path
+			// instead of the host). Defaults to false.
+			ForcePathStyle *bool `json:"forcePathStyle,omitempty"`
+
+			// Region Region is the region of the S3 bucket.
+			Region string `json:"region"`
+
+			// SecretAccessKey SecretAccessKey is a write-only convenience input. See AccessKeyID.
+			SecretAccessKey *string `json:"secretAccessKey,omitempty"`
+
+			// VerifyTLS VerifyTLS enables TLS certificate verification.
+			// Defaults to true.
+			VerifyTLS *bool `json:"verifyTLS,omitempty"`
+		} `json:"s3,omitempty"`
+
+		// Type Type is the object storage type. Today only "s3" is supported.
+		Type BackupStorageSpecType `json:"type"`
+	} `json:"spec"`
+
+	// Status BackupStorageStatus defines the observed state of a BackupStorage.
+	Status *map[string]interface{} `json:"status,omitempty"`
+}
+
+// BackupStorageSpecType Type is the object storage type. Today only "s3" is supported.
+type BackupStorageSpecType string
+
+// BackupStorageList BackupStorageList is an object that contains the list of the existing backupstorages.
+type BackupStorageList struct {
+	// ApiVersion APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+	ApiVersion *string          `json:"apiVersion,omitempty"`
+	Items      *[]BackupStorage `json:"items,omitempty"`
 
 	// Kind Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
 	Kind     *string `json:"kind,omitempty"`

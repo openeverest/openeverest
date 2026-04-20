@@ -317,6 +317,91 @@ export interface components {
                 namespace?: string;
             };
         };
+        /** @description BackupStorage is the Schema for the backupstorages API. */
+        BackupStorage: {
+            /**
+             * @description APIVersion defines the versioned schema of this representation of an object.
+             *     Servers should convert recognized schemas to the latest internal value, and
+             *     may reject unrecognized values.
+             *     More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+             */
+            apiVersion?: string;
+            /**
+             * @description Kind is a string value representing the REST resource this object represents.
+             *     Servers may infer this from the endpoint the client submits requests to.
+             *     Cannot be updated.
+             *     In CamelCase.
+             *     More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+             */
+            kind?: string;
+            metadata?: Record<string, never>;
+            /**
+             * @description BackupStorageSpec defines the desired state of a BackupStorage.
+             *
+             *     A BackupStorage is a reusable, namespaced reference to an object store
+             *     (today only S3-compatible) plus the credentials needed to talk to it.
+             */
+            spec: {
+                /**
+                 * @description S3 contains S3-compatible storage configuration.
+                 *     Required when Type is "s3".
+                 */
+                s3?: {
+                    /**
+                     * @description AccessKeyID is a write-only convenience input. When set, a webhook
+                     *     stores it in the Secret named by CredentialsSecretName and clears
+                     *     this field. It is never persisted on the BackupStorage object.
+                     */
+                    accessKeyId?: string;
+                    /** @description Bucket is the name of the S3 bucket. */
+                    bucket: string;
+                    /**
+                     * @description CredentialsSecretName is the name of the Secret in the same namespace
+                     *     that holds the AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY keys.
+                     */
+                    credentialsSecretName: string;
+                    /** @description EndpointURL is the endpoint URL of the S3-compatible service. */
+                    endpointURL: string;
+                    /**
+                     * @description ForcePathStyle forces path-style URLs (bucket name in the path
+                     *     instead of the host). Defaults to false.
+                     * @default false
+                     */
+                    forcePathStyle: boolean;
+                    /** @description Region is the region of the S3 bucket. */
+                    region: string;
+                    /** @description SecretAccessKey is a write-only convenience input. See AccessKeyID. */
+                    secretAccessKey?: string;
+                    /**
+                     * @description VerifyTLS enables TLS certificate verification.
+                     *     Defaults to true.
+                     * @default true
+                     */
+                    verifyTLS: boolean;
+                };
+                /**
+                 * @description Type is the object storage type. Today only "s3" is supported.
+                 * @enum {string}
+                 */
+                type: "s3";
+            };
+            /** @description BackupStorageStatus defines the observed state of a BackupStorage. */
+            status?: Record<string, never>;
+        };
+        /** @description BackupStorageList is an object that contains the list of the existing backupstorages. */
+        BackupStorageList: {
+            /** @description APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources */
+            apiVersion?: string;
+            items?: components["schemas"]["BackupStorage"][];
+            /** @description Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds */
+            kind?: string;
+            metadata?: {
+                /** @description Name must be unique within a namespace. Is required when creating resources, although some resources may allow a client to request the generation of an appropriate name automatically. Name is primarily intended for creation idempotence and configuration definition. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names#names */
+                name?: string;
+                /** @description Namespace defines the space within which each name must be unique. An empty namespace is equivalent to the "default" namespace, but "default" is the canonical representation. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces */
+                namespace?: string;
+            };
+        };
         /** @description Instance is the Schema for the instances API */
         Instance: {
             /**

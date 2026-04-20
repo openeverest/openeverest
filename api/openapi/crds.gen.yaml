@@ -513,6 +513,132 @@ components:
               type: string
           type: object
       type: object
+    BackupStorage:
+      description: BackupStorage is the Schema for the backupstorages API.
+      properties:
+        apiVersion:
+          description: |-
+            APIVersion defines the versioned schema of this representation of an object.
+            Servers should convert recognized schemas to the latest internal value, and
+            may reject unrecognized values.
+            More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+          type: string
+        kind:
+          description: |-
+            Kind is a string value representing the REST resource this object represents.
+            Servers may infer this from the endpoint the client submits requests to.
+            Cannot be updated.
+            In CamelCase.
+            More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+          type: string
+        metadata:
+          type: object
+        spec:
+          description: |-
+            BackupStorageSpec defines the desired state of a BackupStorage.
+
+            A BackupStorage is a reusable, namespaced reference to an object store
+            (today only S3-compatible) plus the credentials needed to talk to it.
+          properties:
+            s3:
+              description: |-
+                S3 contains S3-compatible storage configuration.
+                Required when Type is "s3".
+              properties:
+                accessKeyId:
+                  description: |-
+                    AccessKeyID is a write-only convenience input. When set, a webhook
+                    stores it in the Secret named by CredentialsSecretName and clears
+                    this field. It is never persisted on the BackupStorage object.
+                  type: string
+                bucket:
+                  description: Bucket is the name of the S3 bucket.
+                  type: string
+                credentialsSecretName:
+                  description: |-
+                    CredentialsSecretName is the name of the Secret in the same namespace
+                    that holds the AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY keys.
+                  type: string
+                endpointURL:
+                  description: EndpointURL is the endpoint URL of the S3-compatible
+                    service.
+                  type: string
+                  x-kubernetes-validations:
+                  - message: endpointURL must be a valid URL
+                    rule: isURL(self)
+                forcePathStyle:
+                  default: false
+                  description: |-
+                    ForcePathStyle forces path-style URLs (bucket name in the path
+                    instead of the host). Defaults to false.
+                  type: boolean
+                region:
+                  description: Region is the region of the S3 bucket.
+                  type: string
+                secretAccessKey:
+                  description: SecretAccessKey is a write-only convenience input.
+                    See AccessKeyID.
+                  type: string
+                verifyTLS:
+                  default: true
+                  description: |-
+                    VerifyTLS enables TLS certificate verification.
+                    Defaults to true.
+                  type: boolean
+              required:
+              - bucket
+              - credentialsSecretName
+              - endpointURL
+              - region
+              type: object
+            type:
+              description: Type is the object storage type. Today only "s3" is supported.
+              enum:
+              - s3
+              type: string
+          required:
+          - type
+          type: object
+        status:
+          description: BackupStorageStatus defines the observed state of a BackupStorage.
+          type: object
+      required:
+      - spec
+      type: object
+    BackupStorageList:
+      description: BackupStorageList is an object that contains the list of the existing
+        backupstorages.
+      properties:
+        apiVersion:
+          description: 'APIVersion defines the versioned schema of this representation
+            of an object. Servers should convert recognized schemas to the latest
+            internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+          type: string
+        items:
+          items:
+            $ref: '#/components/schemas/BackupStorage'
+          type: array
+        kind:
+          description: 'Kind is a string value representing the REST resource this
+            object represents. Servers may infer this from the endpoint the client
+            submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+          type: string
+        metadata:
+          properties:
+            name:
+              description: 'Name must be unique within a namespace. Is required when
+                creating resources, although some resources may allow a client to
+                request the generation of an appropriate name automatically. Name
+                is primarily intended for creation idempotence and configuration definition.
+                More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names#names'
+              type: string
+            namespace:
+              description: 'Namespace defines the space within which each name must
+                be unique. An empty namespace is equivalent to the "default" namespace,
+                but "default" is the canonical representation. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces'
+              type: string
+          type: object
+      type: object
     Instance:
       description: Instance is the Schema for the instances API
       properties:
