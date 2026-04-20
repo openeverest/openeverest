@@ -1329,7 +1329,7 @@ export interface components {
             databases?: components["schemas"]["OperatorUpgradePreflightForDatabase"][];
         };
         /** @description Backup storage information */
-        BackupStorage: {
+        BackupStorageV1: {
             /** @enum {string} */
             type: "s3" | "azure";
             namespace?: string;
@@ -1348,7 +1348,7 @@ export interface components {
              */
             allowedNamespaces?: string[];
         };
-        BackupStoragesList: components["schemas"]["BackupStorage"][];
+        BackupStoragesList: components["schemas"]["BackupStorageV1"][];
         /** @description Monitoring instance information */
         MonitoringInstanceBase: {
             /** @enum {string} */
@@ -9431,7 +9431,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["BackupStorage"];
+                    "application/json": components["schemas"]["BackupStorageV1"];
                 };
             };
             /** @description Unsuccessful operation */
@@ -9474,7 +9474,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["BackupStorage"];
+                    "application/json": components["schemas"]["BackupStorageV1"];
                 };
             };
             /** @description Unsuccessful operation */
@@ -9563,7 +9563,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["BackupStorage"];
+                    "application/json": components["schemas"]["BackupStorageV1"];
                 };
             };
             /** @description Unsuccessful operation */

@@ -1485,7 +1485,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/BackupStorage'
+                $ref: '#/components/schemas/BackupStorageV1'
         '400':
           description: Unsuccessful operation
           content:
@@ -1564,7 +1564,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/BackupStorage'
+                $ref: '#/components/schemas/BackupStorageV1'
         '400':
           description: Unsuccessful operation
           content:
@@ -1603,7 +1603,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/BackupStorage'
+                $ref: '#/components/schemas/BackupStorageV1'
         '400':
           description: Unsuccessful operation
           content:
@@ -3544,7 +3544,7 @@ components:
             type: object
             $ref: '#/components/schemas/OperatorUpgradePreflightForDatabase'
       additionalProperties: false
-    BackupStorage:
+    BackupStorageV1:
       type: object
       description: Backup storage information
       properties:
@@ -3588,7 +3588,7 @@ components:
       type: array
       items:
         type: object
-        $ref: '#/components/schemas/BackupStorage'
+        $ref: '#/components/schemas/BackupStorageV1'
     MonitoringInstanceBase:
       type: object
       description: Monitoring instance information
