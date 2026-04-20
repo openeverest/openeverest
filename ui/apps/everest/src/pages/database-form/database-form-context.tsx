@@ -17,7 +17,7 @@ import {
   Section,
   TopologyUISchemas,
 } from 'components/ui-generator/ui-generator.types';
-import { Provider } from 'types/api';
+import { Provider } from 'shared-types/api.types';
 
 type DatabaseFormContextType = {
   uiSchema: TopologyUISchemas;

@@ -30,7 +30,7 @@ import { DbWizardType } from './database-form-schema';
 import DatabaseFormCancelDialog from './database-form-cancel-dialog/index';
 import DatabaseFormBody from './database-form-body';
 import DatabaseFormSideDrawer from './database-form-side-drawer';
-import { useDBClustersForNamespaces, useNamespaces } from 'hooks';
+import { useInstancesForNamespaces, useNamespaces } from 'hooks';
 import { WizardMode } from 'shared-types/wizard.types';
 import { ZodType } from 'zod';
 import { useDatabasePageDefaultValues } from './hooks/use-database-form-default-values';
@@ -85,20 +85,25 @@ export const DatabasePage = () => {
   const { data: namespaces = [] } = useNamespaces({
     refetchInterval: 10 * 1000,
   });
-  const dbClustersResults = useDBClustersForNamespaces(
+  const dbInstancesResults = useInstancesForNamespaces(
     namespaces.map((ns) => ({ namespace: ns }))
   );
-  const dbClustersNamesList = useMemo(
+  const dbInstancesList = useMemo(
     () =>
-      Object.values(dbClustersResults)
+      Object.values(dbInstancesResults)
         .map((item) => item.queryResult.data)
         .flat()
-        .map((db) => ({
-          name: db?.metadata?.name!,
-          namespace: db?.metadata.namespace!,
-        })),
+        .filter((instance): instance is NonNullable<typeof instance> =>
+          Boolean(instance)
+        )
+        .flatMap((instance) => {
+          const name = instance.metadata?.name;
+          const namespace = instance.metadata?.namespace;
+
+          return name && namespace ? [{ name, namespace }] : [];
+        }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [JSON.stringify(dbClustersResults)]
+    [JSON.stringify(dbInstancesResults)]
   );
 
   // ── React Hook Form ──────────────────────────────────────────────────────
@@ -192,23 +197,17 @@ export const DatabasePage = () => {
 
   // Validation
   const validationSchema = useDbValidationSchema(
-    dbClustersNamesList,
+    dbInstancesList,
     hasImportStep,
     engine.zodSchema
   ) as unknown as ZodType<DbWizardType>;
 
   useEffect(() => {
     validationSchemaRef.current = validationSchema;
-    trigger();
-  }, [validationSchema, trigger]);
+  }, [validationSchema]);
 
-  useEffect(() => {
-    if (engine.zodSchema && !loadingClusterValues && defaultValues) {
-      trigger();
-    }
-  }, [engine.zodSchema, defaultValues, loadingClusterValues, trigger]);
-
-  // Topology switch
+  // Topology switch — must run BEFORE the revalidation effect so that
+  // form values are reset before trigger() validates them.
   const prevTopologyTypeRef = useRef<string | undefined>(undefined);
   useEffect(() => {
     const topologyType = selectedTopology;
@@ -228,6 +227,14 @@ export const DatabasePage = () => {
     reset(merged as DbWizardType, { keepDirty: true, keepIsSubmitted: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedTopology, uiSchema]);
+
+  // Revalidate after validation schema changes or defaults finish loading.
+  // Declared after the topology switch effect so that reset() runs first.
+  useEffect(() => {
+    if (validationSchemaRef.current && !loadingClusterValues) {
+      trigger();
+    }
+  }, [validationSchema, loadingClusterValues, trigger]);
 
   // Revalidate on step change
   useEffect(() => {

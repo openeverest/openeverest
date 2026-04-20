@@ -17,4 +17,6 @@ import { SchemaSectionCard } from '../../hooks/use-cluster-overview-data';
 export interface SchemaDrivenCardProps {
   card: SchemaSectionCard;
   loading: boolean;
+  editable?: boolean;
+  onEdit?: () => void;
 }

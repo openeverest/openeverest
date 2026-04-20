@@ -71,7 +71,9 @@ export const DbActionsModals = ({
           submitting={deletingCluster}
           selectedId={dbInstance.metadata?.name || ''}
           handleConfirm={({ dataCheckbox: keepBackupStorageData }) =>
-            handleConfirmDelete(keepBackupStorageData)
+            handleConfirmDelete(keepBackupStorageData, () =>
+              handleCloseDeleteDialog('/databases')
+            )
           }
           alertMessage={Messages.deleteModal.alertMessage}
           dialogContent={Messages.deleteModal.content(

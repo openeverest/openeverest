@@ -18,7 +18,7 @@ import {
   GetInstances,
   Instance,
   InstanceConnectionDetails,
-} from 'types/api';
+} from 'shared-types/api.types';
 import { api } from './api';
 
 export const createDbInstanceFn = async (

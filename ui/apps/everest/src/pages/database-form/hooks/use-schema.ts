@@ -16,7 +16,7 @@ import { TopologyUISchemas } from 'components/ui-generator/ui-generator.types';
 import { preprocessSchema } from 'components/ui-generator/utils/preprocess/preprocess-schema';
 import { useMemo } from 'react';
 import { useLocation } from 'react-router-dom';
-import { Provider } from 'types/api';
+import { Provider } from 'shared-types/api.types';
 
 export const useSchema = (): {
   uiSchema: TopologyUISchemas;

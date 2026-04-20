@@ -26,7 +26,7 @@ import (
 
 	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
 	corev1alpha1 "github.com/openeverest/openeverest/v2/api/core/v1alpha1"
-	monitoringv1alpha1 "github.com/openeverest/openeverest/v2/api/monitoring/v1alpha1"
+	monitoringv1alpha2 "github.com/openeverest/openeverest/v2/api/monitoring/v1alpha2"
 	api "github.com/openeverest/openeverest/v2/internal/server/api"
 )
 
@@ -213,9 +213,9 @@ type BackupHandler interface {
 
 // MonitoringConfigHandler provides methods for handling operations on monitoring configs.
 type MonitoringConfigHandler interface {
-	CreateMonitoringConfig(ctx context.Context, namespace string, req *api.MonitoringConfigCreateParams) (*monitoringv1alpha1.MonitoringConfig, error)
-	UpdateMonitoringConfig(ctx context.Context, namespace, name string, req *api.MonitoringConfigUpdateParams) (*monitoringv1alpha1.MonitoringConfig, error)
-	ListMonitoringConfigs(ctx context.Context, namespaces string) (*monitoringv1alpha1.MonitoringConfigList, error)
-	GetMonitoringConfig(ctx context.Context, namespace, name string) (*monitoringv1alpha1.MonitoringConfig, error)
+	CreateMonitoringConfig(ctx context.Context, namespace string, req *api.MonitoringConfigCreateParams) (*monitoringv1alpha2.MonitoringConfig, error)
+	UpdateMonitoringConfig(ctx context.Context, namespace, name string, req *api.MonitoringConfigUpdateParams) (*monitoringv1alpha2.MonitoringConfig, error)
+	ListMonitoringConfigs(ctx context.Context, namespaces string) (*monitoringv1alpha2.MonitoringConfigList, error)
+	GetMonitoringConfig(ctx context.Context, namespace, name string) (*monitoringv1alpha2.MonitoringConfig, error)
 	DeleteMonitoringConfig(ctx context.Context, namespace, name string) error
 }

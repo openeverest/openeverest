@@ -22,7 +22,7 @@ import {
   useDbInstance,
 } from 'hooks/api/db-instances';
 import { DbInstanceContextProps } from './dbCluster.context.types';
-import { Instance } from 'types/api';
+import { Instance } from 'shared-types/api.types';
 // import { useRBACPermissions } from 'hooks/rbac';
 
 export const DbInstanceContext = createContext<DbInstanceContextProps>({

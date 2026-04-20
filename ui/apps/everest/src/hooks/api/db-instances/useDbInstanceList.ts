@@ -20,7 +20,11 @@ import {
 } from '@tanstack/react-query';
 import { getDbInstanceConnectionFn, getDbInstancesFn } from 'api/instanceApi';
 import { PerconaQueryOptions } from 'shared-types/query.types';
-import { GetInstances, Instance, InstanceConnectionDetails } from 'types/api';
+import {
+  GetInstances,
+  Instance,
+  InstanceConnectionDetails,
+} from 'shared-types/api.types';
 
 export const DB_INSTANCES_QUERY_KEY = 'instances';
 export const DB_INSTANCE_CONNECTION_QUERY_KEY = 'instanceConnection';

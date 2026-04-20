@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import type { Instance } from 'types/api';
+import type { Instance } from 'shared-types/api.types';
 
 export interface BasicInfoSectionProps {
   instance: Instance;

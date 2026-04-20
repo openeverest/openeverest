@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+import PendingIcon from '@mui/icons-material/Pending';
 import { Box, Skeleton, Tab, Tabs } from '@mui/material';
 import {
   Link,
@@ -28,6 +29,13 @@ import { DbInstanceContext } from './dbCluster.context';
 import { useContext } from 'react';
 import DbActions from 'components/db-actions/db-actions';
 import { Messages } from './db-cluster-details.messages';
+import StatusField from 'components/status-field';
+import { DB_INSTANCE_STATUS_TO_BASE_STATUS } from 'pages/databases/DbClusterView.constants';
+import { beautifyDbInstanceStatus } from 'pages/databases/DbClusterView.utils';
+import {
+  DB_INSTANCE_UNKNOWN_PHASE,
+  DbInstancePhase,
+} from 'shared-types/instance.types';
 
 const WithPermissionDetails = ({
   instanceName,
@@ -39,6 +47,9 @@ const WithPermissionDetails = ({
 }) => {
   const { instance /*clusterDeleted */ } = useContext(DbInstanceContext);
   const navigate = useNavigate();
+  const status =
+    (instance?.status?.phase as DbInstancePhase | undefined) ??
+    DB_INSTANCE_UNKNOWN_PHASE;
 
   // TODO RBAC
   // useRBACPermissionRoute([
@@ -78,17 +89,14 @@ const WithPermissionDetails = ({
               alignItems: 'center',
             }}
           >
-            {/*TODO DB_CLUSTER_STATUS is no more actual this will be replaced with instance status */}
-            {/* <StatusField
-              dataTestId={dbClusterName}
-              status={dbCluster?.status?.status || DbClusterStatus.creating}
-              statusMap={DB_CLUSTER_STATUS_TO_BASE_STATUS}
+            <StatusField
+              dataTestId={instanceName}
+              status={status}
+              statusMap={DB_INSTANCE_STATUS_TO_BASE_STATUS}
+              defaultIcon={PendingIcon}
             >
-              {beautifyDbClusterStatus(
-                dbCluster?.status?.status || DbClusterStatus.creating,
-                dbCluster?.status?.conditions || []
-              )}
-            </StatusField> */}
+              {beautifyDbInstanceStatus(status)}
+            </StatusField>
             <DbActions showStatusActions dbInstance={instance!} />
           </Box>
         </Box>

@@ -28,7 +28,6 @@ import {
   createDbClusterSecretFn,
   getDbClusterCredentialsFn,
 } from 'api/dbClusterApi';
-import { MIN_NUMBER_OF_SHARDS } from 'components/cluster-form';
 import { DbWizardType } from 'pages/database-form/database-form-schema.ts';
 import {
   ClusterCredentials,
@@ -135,7 +134,7 @@ const formValuesToPayloadMapping = (
       ...(dbPayload.dbType === DbType.Mongo && {
         sharding: {
           enabled: dbPayload.sharding,
-          shards: +(dbPayload.shardNr ?? MIN_NUMBER_OF_SHARDS),
+          shards: +(dbPayload.shardNr ?? 1),
           configServer: {
             replicas: +(dbPayload.shardConfigServers ?? 3),
           },

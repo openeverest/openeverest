@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import type { InstanceConnectionDetails } from 'types/api';
+import type { InstanceConnectionDetails } from 'shared-types/api.types';
 
 export interface ConnectionSectionProps {
   credentials: InstanceConnectionDetails | undefined;

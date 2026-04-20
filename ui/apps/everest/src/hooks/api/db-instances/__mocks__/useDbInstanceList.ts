@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { Instance, InstanceConnectionDetails } from 'types/api';
+import { Instance, InstanceConnectionDetails } from 'shared-types/api.types';
 import { DbInstanceForNamespaceResult } from '../useDbInstanceList';
 
 export const mockInstances: Instance[] = [

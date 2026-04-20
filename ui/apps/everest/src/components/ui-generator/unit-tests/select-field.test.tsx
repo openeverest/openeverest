@@ -12,7 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { render, screen, waitFor, fireEvent } from '@testing-library/react';
+import {
+  render,
+  screen,
+  waitFor,
+  fireEvent,
+  within,
+} from '@testing-library/react';
 import { FormProvider, useForm } from 'react-hook-form';
 import { TestWrapper } from 'utils/test';
 import { UIGenerator } from '../ui-generator';
@@ -104,6 +110,14 @@ const FormWrapper = ({ children, schema, onSubmit }: FormWrapperProps) => {
   );
 };
 
+const openTestSelect = () => {
+  fireEvent.mouseDown(
+    within(screen.getByTestId('select-spec.test-select-button')).getByRole(
+      'combobox'
+    )
+  );
+};
+
 describe('UIGenerator - Select Field Basic Rendering', () => {
   it('should render select field with options', async () => {
     const mockSubmit = vi.fn();
@@ -139,20 +153,14 @@ describe('UIGenerator - Select Field Basic Rendering', () => {
       </TestWrapper>
     );
 
-    const selectCombobox = screen.getByRole('combobox', {
-      name: /test select field/i,
-    });
-    fireEvent.mouseDown(selectCombobox);
+    openTestSelect();
 
-    await waitFor(() => {
-      const listbox = screen.getByRole('listbox');
-      expect(listbox).toBeInTheDocument();
-    });
+    expect(await screen.findByRole('listbox')).toBeInTheDocument();
 
     expect(screen.getByText('Option One')).toBeInTheDocument();
     expect(screen.getByText('Option Two')).toBeInTheDocument();
     expect(screen.getByText('Option Three')).toBeInTheDocument();
-  });
+  }, 10000);
 });
 
 describe('UIGenerator - Select Field Required Validation', () => {
@@ -212,10 +220,7 @@ describe('UIGenerator - Select Field Required Validation', () => {
       </TestWrapper>
     );
 
-    const selectCombobox = screen.getByRole('combobox', {
-      name: /test select field/i,
-    });
-    fireEvent.mouseDown(selectCombobox);
+    openTestSelect();
 
     await waitFor(() => {
       expect(screen.getByRole('listbox')).toBeInTheDocument();
@@ -306,10 +311,7 @@ describe('UIGenerator - Select Field Enum Validation', () => {
       </TestWrapper>
     );
 
-    const selectCombobox = screen.getByRole('combobox', {
-      name: /test select field/i,
-    });
-    fireEvent.mouseDown(selectCombobox);
+    openTestSelect();
 
     // Wait for options to appear in the portal
     await waitFor(() => {

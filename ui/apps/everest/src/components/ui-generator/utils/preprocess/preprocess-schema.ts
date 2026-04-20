@@ -19,7 +19,7 @@ import {
   SelectFieldParams,
   TopologyUISchemas,
 } from '../../ui-generator.types';
-import { Provider } from 'types/api';
+import { Provider } from 'shared-types/api.types';
 import { resolveSelectOptions } from '../../ui-component/utils/select-component-handler';
 import { withNormalizedPathMeta } from './normalized-component';
 

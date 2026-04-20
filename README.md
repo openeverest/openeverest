@@ -6,9 +6,11 @@
 OpenEverest - Run Data Workloads on Kubernetes 
 </h1>
 
-[![CNCF Landscape](https://img.shields.io/badge/CNCF%20Landscape-5699C6)](https://landscape.cncf.io/?item=app-definition-and-development--database--openeverest) 
-[![GitHub License](https://img.shields.io/github/license/openeverest/openeverest)](LICENSE) 
-[![OpenSSF Best Practices](https://www.bestpractices.dev/projects/12239/badge)](https://www.bestpractices.dev/projects/12239) 
+[![CNCF Landscape](https://img.shields.io/badge/CNCF%20Landscape-5699C6)](https://landscape.cncf.io/?item=app-definition-and-development--database--openeverest)
+[![GitHub License](https://img.shields.io/github/license/openeverest/openeverest)](LICENSE)
+[![OpenSSF Best Practices](https://www.bestpractices.dev/projects/12239/badge)](https://www.bestpractices.dev/projects/12239)
+[![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/openeverest/openeverest/badge)](https://scorecard.dev/viewer/?uri=github.com/openeverest/openeverest)
+[![Snyk](https://snyk.io/test/github/openeverest/openeverest/badge.svg)](https://snyk.io/test/github/openeverest/openeverest)
 [![Documentation](https://img.shields.io/badge/Documentation-blue?logo=readthedocs&logoColor=white)](https://openeverest.io/documentation/current/)
 [![Join Slack](https://img.shields.io/badge/Join_Slack-blue)](https://cloud-native.slack.com/archives/C09RRGZL2UX)
 
@@ -29,6 +31,10 @@ Why you should try OpenEverest:
 ## Documentation
 
 For comprehensive information about OpenEverest, see the [documentation](https://openeverest.io/documentation/current/).
+
+## Roadmap
+
+View our [project roadmap](https://github.com/orgs/openeverest/projects/1) to see upcoming features, enhancements, and milestones.
 
 ## Install OpenEverest Using Helm (Recommended)
 
@@ -197,6 +203,10 @@ See the [Contribution Guide](CONTRIBUTING.md) for more information on how you ca
 ## Communication
 
 We value your thoughts and opinions and we would be thrilled to hear from you! [Get in touch with us](https://openeverest.io/#community) to ask questions, share your feedback, and spark creative ideas with our community.
+
+## Community Meeting
+
+Join our [OpenEverest Community Meetings](https://github.com/openeverest/#openeverest-community-meetings) to discuss project roadmap, features, and connect with other community members.
 
 # Submitting Bug Reports
 

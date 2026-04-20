@@ -108,6 +108,65 @@ func GetDefaultImageForComponent(spec *v1alpha1.ProviderSpec, componentName stri
 	return GetDefaultImage(spec, componentType)
 }
 
+// GetImageForVersion returns the container image for a specific component name
+// and explicit version string. Typical use is inside Sync() after the
+// provider-runtime has resolved the version bundle into ComponentSpec.Version.
+// Returns empty string if the component, its type, or the requested version
+// cannot be found.
+func GetImageForVersion(spec *v1alpha1.ProviderSpec, componentName, version string) string {
+	componentType := GetComponentType(spec, componentName)
+	if componentType == "" {
+		return ""
+	}
+	ct, ok := spec.ComponentTypes[componentType]
+	if !ok {
+		return ""
+	}
+	for _, v := range ct.Versions {
+		if v.Version == version {
+			return v.Image
+		}
+	}
+	return ""
+}
+
+// =============================================================================
+// VERSION BUNDLE HELPERS
+// =============================================================================
+
+// ResolveVersionBundle looks up the named version bundle in the ProviderSpec.
+// Returns an error if the bundle name is not found.
+func ResolveVersionBundle(spec *v1alpha1.ProviderSpec, version string) (*v1alpha1.VersionBundle, error) {
+	for i := range spec.Versions {
+		if spec.Versions[i].Name == version {
+			return &spec.Versions[i], nil
+		}
+	}
+	return nil, fmt.Errorf("version bundle %q not found in provider spec", version)
+}
+
+// GetDefaultVersionBundle returns the bundle marked as Default: true.
+// Returns nil if no bundles are defined or none is marked as default.
+func GetDefaultVersionBundle(spec *v1alpha1.ProviderSpec) *v1alpha1.VersionBundle {
+	for i := range spec.Versions {
+		if spec.Versions[i].Default {
+			return &spec.Versions[i]
+		}
+	}
+	return nil
+}
+
+// GetDefaultVersionBundleName returns the name of the bundle marked as
+// Default: true. Returns empty string if no default bundle is defined.
+func GetDefaultVersionBundleName(spec *v1alpha1.ProviderSpec) string {
+	for _, b := range spec.Versions {
+		if b.Default {
+			return b.Name
+		}
+	}
+	return ""
+}
+
 // =============================================================================
 // VALIDATION HELPERS
 // =============================================================================
@@ -116,6 +175,7 @@ func GetDefaultImageForComponent(spec *v1alpha1.ProviderSpec, componentName stri
 // It verifies that:
 //   - All component types referenced by components exist
 //   - All components referenced by topologies exist
+//   - All component versions referenced in version bundles exist in the catalog
 func ValidateProviderSpec(spec *v1alpha1.ProviderSpec) error {
 	// Check that component types referenced by components exist
 	for compName, comp := range spec.Components {
@@ -129,6 +189,30 @@ func ValidateProviderSpec(spec *v1alpha1.ProviderSpec) error {
 		for compName := range topo.Components {
 			if _, ok := spec.Components[compName]; !ok {
 				return fmt.Errorf("topology %q references unknown component %q", topoName, compName)
+			}
+		}
+	}
+
+	// Check that version bundles only reference known components and valid versions
+	for _, bundle := range spec.Versions {
+		for compName, ver := range bundle.Components {
+			comp, ok := spec.Components[compName]
+			if !ok {
+				return fmt.Errorf("version bundle %q: component %q is not defined", bundle.Name, compName)
+			}
+			ct, ok := spec.ComponentTypes[comp.Type]
+			if !ok {
+				return fmt.Errorf("version bundle %q: component %q has unknown type %q", bundle.Name, compName, comp.Type)
+			}
+			found := false
+			for _, v := range ct.Versions {
+				if v.Version == ver {
+					found = true
+					break
+				}
+			}
+			if !found {
+				return fmt.Errorf("version bundle %q: component %q version %q not found in componentTypes[%q]", bundle.Name, compName, ver, comp.Type)
 			}
 		}
 	}

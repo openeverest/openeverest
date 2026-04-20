@@ -19,7 +19,7 @@ import {
   Component,
   SelectFieldParams,
 } from '../../ui-generator.types';
-import { Provider } from 'types/api';
+import { Provider } from 'shared-types/api.types';
 import { getValueByPath } from './get-value-by-path';
 
 type SelectComponent = Extract<Component, { uiType: FieldType.Select }>;

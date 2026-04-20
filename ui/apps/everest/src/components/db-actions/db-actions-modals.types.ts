@@ -14,7 +14,7 @@
 
 import { UseMutationResult } from '@tanstack/react-query';
 import { DeleteDbInstanceArgType } from 'hooks';
-import { Instance } from 'types/api';
+import { Instance } from 'shared-types/api.types';
 
 export interface DbActionsModalsProps {
   dbInstance: Instance;
@@ -24,8 +24,8 @@ export interface DbActionsModalsProps {
   openRestoreDialog: boolean;
   handleCloseRestoreDialog: () => void;
   openDeleteDialog: boolean;
-  handleCloseDeleteDialog: () => void;
-  handleConfirmDelete: (dataCheckbox: boolean) => void;
+  handleCloseDeleteDialog: (redirect?: string) => void;
+  handleConfirmDelete: (dataCheckbox: boolean, onSuccess?: () => void) => void;
   deleteMutation: UseMutationResult<
     unknown,
     unknown,

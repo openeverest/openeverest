@@ -15,7 +15,7 @@
 import { ComponentType } from 'react';
 import { z } from 'zod';
 import { Section, TopologyUISchemas } from '../ui-generator.types';
-import { Provider } from 'types/api';
+import { Provider } from 'shared-types/api.types';
 
 // Step - a single unit in the multi-step wizard.  Both "static" steps (hand-coded
 // components like BaseInfoStep) and "generated" steps (coming from the
