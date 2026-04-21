@@ -32,6 +32,15 @@ const (
 //
 // A BackupStorage is a reusable, namespaced reference to an object store
 // (today only S3-compatible) plus the credentials needed to talk to it.
+// It is referenced by name from:
+//
+//   - Instance.spec.backup.storages[].storageRef
+//   - Backup.spec.storageName
+//
+// Decoupling storage from individual Backup CRs makes provider-managed
+// backups (e.g. PBM, pgBackRest) practical: the provider can register a
+// fixed set of storages on the engine without recomputing them from a
+// dynamic list of Backup CRs.
 type BackupStorageSpec struct {
 	// Type is the object storage type. Today only "s3" is supported.
 	// +kubebuilder:validation:Required

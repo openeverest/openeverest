@@ -72,26 +72,33 @@ type BackupClassSpec struct {
 	// configuration accepted by this class. Backup.spec.config is validated
 	// against this schema.
 	Config BackupClassConfig `json:"config,omitempty"`
-	// JobSpec is the specification of the backup job.
+	// InstanceConstraints defines compatibility requirements that must be
+	// satisfied by an Instance before this backup class can be used with it.
 	// +optional
-	JobSpec *BackupJobSpec `json:"jobSpec,omitempty"`
-	// CleanupJobSpec is the specification of the cleanup job.
+	InstanceConstraints BackupClassInstanceConstraints `json:"instanceConstraints,omitempty"`
+
+	// Job contains execution detail for ExecutionMode="Job". Must be unset
+	// when ExecutionMode is "ProviderManaged".
+	// +optional
+	Job *JobExecution `json:"job,omitempty"`
+}
+
+// JobExecution bundles the Kubernetes resources the controller needs to spawn
+// to perform a single backup or restore operation in ExecutionMode="Job".
+type JobExecution struct {
+	// JobSpec is the specification of the backup or restore job.
+	// +kubebuilder:validation:Required
+	JobSpec *BackupJobSpec `json:"jobSpec"`
+	// CleanupJobSpec is the optional specification of a cleanup job that runs
+	// when the parent Backup or Restore CR is deleted.
 	// +optional
 	CleanupJobSpec *BackupJobSpec `json:"cleanupJobSpec,omitempty"`
-	// DataStoreConstraints defines compatibility requirements and prerequisites that must be satisfied
-	// by a DataStore before this backup tool can be used with it. This allows the backup tool to
-	// express specific requirements about the database configuration needed for successful backup operations,
-	// such as required database fields, specific engine configurations, or other database properties.
-	// When a DataStore references this backup tool, the operator will validate the DataStore
-	// against these constraints before proceeding with the backup operation.
-	// +optional
-	DataStoreConstraints BackupClassDataStoreConstraints `json:"dataStoreConstraints,omitempty"`
-	// Permissions defines the permissions required by the backup tool.
-	// These permissions are used to generate a Role for the backup job.
+	// Permissions are namespace-scoped PolicyRules granted to the job pod via
+	// a generated Role and RoleBinding.
 	// +optional
 	Permissions []rbacv1.PolicyRule `json:"permissions,omitempty"`
-	// ClusterPermissions defines the cluster-wide permissions required by the backup tool.
-	// These permissions are used to generate a ClusterRole for the backup job.
+	// ClusterPermissions are cluster-scoped PolicyRules granted via a
+	// generated ClusterRole and ClusterRoleBinding.
 	// +optional
 	ClusterPermissions []rbacv1.PolicyRule `json:"clusterPermissions,omitempty"`
 }
@@ -174,9 +181,9 @@ func (cfg *BackupClassConfig) Validate(params *runtime.RawExtension) error {
 
 // BackupJobSpec defines the specification for the Kubernetes job.
 type BackupJobSpec struct {
-	// Image is the image of the backup tool.
+	// Image is the image of the backup class.
 	Image string `json:"image,omitempty"`
-	// Command is the command to run the backup tool.
+	// Command is the command to run the backup class.
 	// +optional
 	Command []string `json:"command,omitempty"`
 }
@@ -191,12 +198,12 @@ var ErrInvalidExecutionMode = errors.New("invalid execution mode configuration")
 func (s *BackupClassSpec) ValidateExecutionMode() error {
 	switch s.ExecutionMode {
 	case BackupExecutionModeProviderManaged:
-		if s.JobSpec != nil {
-			return fmt.Errorf("%w: executionMode=ProviderManaged must not set .spec.jobSpec", ErrInvalidExecutionMode)
+		if s.Job != nil {
+			return fmt.Errorf("%w: executionMode=ProviderManaged must not set .spec.job or .spec.restoreJob", ErrInvalidExecutionMode)
 		}
 	case BackupExecutionModeJob:
-		if s.JobSpec == nil {
-			return fmt.Errorf("%w: executionMode=Job requires .spec.jobSpec", ErrInvalidExecutionMode)
+		if s.Job == nil {
+			return fmt.Errorf("%w: executionMode=Job requires .spec.job", ErrInvalidExecutionMode)
 		}
 		if s.ProviderManaged != nil {
 			return fmt.Errorf("%w: executionMode=Job must not set .spec.providerManaged", ErrInvalidExecutionMode)
@@ -207,11 +214,11 @@ func (s *BackupClassSpec) ValidateExecutionMode() error {
 	return nil
 }
 
-// BackupClassDataStoreConstraints defines compatibility requirements and prerequisites
-// that must be satisfied by a DataStore before this backup tool can be used with it.
-type BackupClassDataStoreConstraints struct {
-	// RequiredFields contains a list of fields that must be set in the DataStore spec.
-	// Each key is a JSON path expressions that points to a field in the DataStore spec.
+// BackupClassInstanceConstraints defines compatibility requirements and prerequisites
+// that must be satisfied by a Instance before this backup class can be used with it.
+type BackupClassInstanceConstraints struct {
+	// RequiredFields contains a list of fields that must be set in the Instance spec.
+	// Each key is a JSON path expressions that points to a field in the Instance spec.
 	// For example, ".spec.engine.type" or ".spec.dataSource.dataImport.config.someField".
 	// +optional
 	RequiredFields []string `json:"requiredFields,omitempty"`

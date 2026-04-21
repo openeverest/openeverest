@@ -7,7 +7,7 @@ export type paths = Record<string, never>;
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
-        /** @description Backup is the Schema for the backups API */
+        /** @description Backup is the Schema for the backups API. */
         Backup: {
             /**
              * @description APIVersion defines the versioned schema of this representation of an object.
@@ -25,71 +25,46 @@ export interface components {
              */
             kind?: string;
             metadata?: Record<string, never>;
-            /** @description BackupSpec defines the desired state of Backup */
+            /** @description BackupSpec defines the desired state of Backup. */
             spec: {
-                /** @description BackupClassName is the backup tool to use for the backup. */
+                /**
+                 * @description BackupClassName is the BackupClass that defines how this Backup is
+                 *     executed. The class's executionMode controls the runtime path: Job
+                 *     classes are reconciled by the in-cluster Backup job controller;
+                 *     ProviderManaged classes are reconciled by the provider's runtime.
+                 */
                 backupClassName: string;
                 /**
-                 * @description Config defines the configuration for the backup job.
-                 *     These options are specific to the BackupClass being used and must conform to
-                 *     the schema defined in the BackupClass's .spec.config.openAPIV3Schema.
+                 * @description Config is the backup-time configuration validated against the
+                 *     BackupClass's .spec.config.openAPIV3Schema.
                  */
                 config?: Record<string, never>;
-                /** @description Destination is the destination for the backup data. */
-                destination: {
-                    /** @description BackupStorageName is the name of the BackupStorage to use for the backup. */
-                    backupStorageName?: string;
-                    /** @description S3 contains the S3 information for the backup destination. */
-                    s3?: {
-                        /**
-                         * @description AccessKeyID allows specifying the S3 access key ID inline.
-                         *     It is provided as a write-only input field for convenience.
-                         *     When this field is set, a webhook writes this value in the Secret specified by `credentialsSecretName`
-                         *     and empties this field.
-                         *     This field is not stored in the API.
-                         */
-                        accessKeyId?: string;
-                        /** @description Bucket is the name of the S3 bucket. */
-                        bucket: string;
-                        /**
-                         * @description CredentialsSecreName is the reference to the secret containing the S3 credentials.
-                         *     The Secret must contain the keys `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`.
-                         */
-                        credentialsSecretName: string;
-                        /** @description EndpointURL is an endpoint URL of backup storage. */
-                        endpointURL: string;
-                        /**
-                         * @description ForcePathStyle is set to use path-style URLs.
-                         *     If unspecified, the default value is false.
-                         * @default false
-                         */
-                        forcePathStyle: boolean;
-                        /** @description Region is the region of the S3 bucket. */
-                        region: string;
-                        /**
-                         * @description SecretAccessKey allows specifying the S3 secret access key inline.
-                         *     It is provided as a write-only input field for convenience.
-                         *     When this field is set, a webhook writes this value in the Secret specified by `credentialsSecretName`
-                         *     and empties this field.
-                         *     This field is not stored in the API.
-                         */
-                        secretAccessKey?: string;
-                        /**
-                         * @description VerifyTLS is set to ensure TLS/SSL verification.
-                         *     If unspecified, the default value is true.
-                         * @default true
-                         */
-                        verifyTLS: boolean;
-                    };
-                };
-                /** @description InstanceName is the name of the Instance to back up. */
+                /**
+                 * @description InstanceName is the name of the Instance to back up. The Instance must
+                 *     live in the same namespace as this Backup.
+                 */
                 instanceName: string;
+                /**
+                 * @description ScheduleName, when set, identifies the InstanceBackupSchedule that
+                 *     produced this Backup. Backups created via the API or `kubectl apply`
+                 *     leave this field empty (on-demand). The provider's mirroring loop
+                 *     sets it when surfacing engine-produced scheduled backups as Backup
+                 *     CRs.
+                 */
+                scheduleName?: string;
+                /**
+                 * @description StorageName references a BackupStorage in the same namespace that
+                 *     defines where the backup data is written. For ProviderManaged classes
+                 *     the referenced storage must already be registered on the Instance via
+                 *     .spec.backup.storages so the engine can write to it.
+                 */
+                storageName: string;
             };
             /** @description BackupStatus defines the observed state of Backup. */
             status?: {
                 /**
                  * Format: date-time
-                 * @description CompletedAt is the time when the backup job completed successfully.
+                 * @description CompletedAt is the time when the backup completed successfully.
                  */
                 completedAt?: string;
                 conditions?: {
@@ -127,21 +102,47 @@ export interface components {
                     /** @description type of condition in CamelCase or in foo.example.com/CamelCase. */
                     type: string;
                 }[];
-                /** @description JobName is the reference to the job that is running the backup. */
+                /**
+                 * @description EngineBackupRef points at the engine-native backup resource the
+                 *     provider created (e.g., PerconaServerMongoDBBackup). Populated only
+                 *     for ProviderManaged classes.
+                 */
+                engineBackupRef?: {
+                    /**
+                     * @description APIGroup is the group for the resource being referenced.
+                     *     If APIGroup is not specified, the specified Kind must be in the core API group.
+                     *     For any other third-party types, APIGroup is required.
+                     */
+                    apiGroup?: string;
+                    /** @description Kind is the type of resource being referenced */
+                    kind: string;
+                    /** @description Name is the name of resource being referenced */
+                    name: string;
+                };
+                /**
+                 * @description ExecutionMode is the resolved execution mode at the time the Backup
+                 *     started. Recorded for observability.
+                 * @enum {string}
+                 */
+                executionMode?: "ProviderManaged" | "Job";
+                /**
+                 * @description JobName is the reference to the Job that is running the backup.
+                 *     Populated only for Job classes.
+                 */
                 jobName?: string;
                 /**
                  * Format: int64
-                 * @description LastObservedGeneration is the last observed generation of the backup job.
+                 * @description LastObservedGeneration is the last observed generation of the Backup CR.
                  */
                 lastObservedGeneration?: number;
-                /** @description Message is the message of the backup job. */
+                /** @description Message is a human-readable message about the current state. */
                 message?: string;
                 /**
                  * Format: date-time
-                 * @description StartedAt is the time when the backup job started.
+                 * @description StartedAt is the time when the backup started.
                  */
                 startedAt?: string;
-                /** @description State is the current state of the backup job. */
+                /** @description State is the current state of the backup. */
                 state?: string;
             };
         };
@@ -165,36 +166,6 @@ export interface components {
             metadata?: Record<string, never>;
             /** @description BackupClassSpec defines the desired state of BackupClass. */
             spec: {
-                /** @description CleanupJobSpec is the specification of the cleanup job. */
-                cleanupJobSpec?: {
-                    /** @description Command is the command to run the backup tool. */
-                    command?: string[];
-                    /** @description Image is the image of the backup tool. */
-                    image?: string;
-                };
-                /**
-                 * @description ClusterPermissions defines the cluster-wide permissions required by the backup tool.
-                 *     These permissions are used to generate a ClusterRole for the backup job.
-                 */
-                clusterPermissions?: {
-                    /**
-                     * @description APIGroups is the name of the APIGroup that contains the resources.  If multiple API groups are specified, any action requested against one of
-                     *     the enumerated resources in any API group will be allowed. "" represents the core API group and "*" represents all API groups.
-                     */
-                    apiGroups?: string[];
-                    /**
-                     * @description NonResourceURLs is a set of partial urls that a user should have access to.  *s are allowed, but only as the full, final step in the path
-                     *     Since non-resource URLs are not namespaced, this field is only applicable for ClusterRoles referenced from a ClusterRoleBinding.
-                     *     Rules can either apply to API resources (such as "pods" or "secrets") or non-resource URL paths (such as "/api"),  but not both.
-                     */
-                    nonResourceURLs?: string[];
-                    /** @description ResourceNames is an optional white list of names that the rule applies to.  An empty set means that everything is allowed. */
-                    resourceNames?: string[];
-                    /** @description Resources is a list of resources this rule applies to. '*' represents all resources. */
-                    resources?: string[];
-                    /** @description Verbs is a list of Verbs that apply to ALL the ResourceKinds contained in this rule. '*' represents all verbs. */
-                    verbs: string[];
-                }[];
                 /**
                  * @description Config contains the OpenAPI v3 schema describing the backup-time
                  *     configuration accepted by this class. Backup.spec.config is validated
@@ -203,22 +174,6 @@ export interface components {
                 config?: {
                     /** @description OpenAPIV3Schema is the OpenAPI v3 schema of the backup class. */
                     openAPIV3Schema?: unknown;
-                };
-                /**
-                 * @description DataStoreConstraints defines compatibility requirements and prerequisites that must be satisfied
-                 *     by a DataStore before this backup tool can be used with it. This allows the backup tool to
-                 *     express specific requirements about the database configuration needed for successful backup operations,
-                 *     such as required database fields, specific engine configurations, or other database properties.
-                 *     When a DataStore references this backup tool, the operator will validate the DataStore
-                 *     against these constraints before proceeding with the backup operation.
-                 */
-                dataStoreConstraints?: {
-                    /**
-                     * @description RequiredFields contains a list of fields that must be set in the DataStore spec.
-                     *     Each key is a JSON path expressions that points to a field in the DataStore spec.
-                     *     For example, ".spec.engine.type" or ".spec.dataSource.dataImport.config.someField".
-                     */
-                    requiredFields?: string[];
                 };
                 /** @description Description is the description of the backup class. */
                 description?: string;
@@ -229,36 +184,87 @@ export interface components {
                  * @enum {string}
                  */
                 executionMode: "ProviderManaged" | "Job";
-                /** @description JobSpec is the specification of the backup job. */
-                jobSpec?: {
-                    /** @description Command is the command to run the backup tool. */
-                    command?: string[];
-                    /** @description Image is the image of the backup tool. */
-                    image?: string;
+                /**
+                 * @description InstanceConstraints defines compatibility requirements that must be
+                 *     satisfied by an Instance before this backup class can be used with it.
+                 */
+                instanceConstraints?: {
+                    /**
+                     * @description RequiredFields contains a list of fields that must be set in the Instance spec.
+                     *     Each key is a JSON path expressions that points to a field in the Instance spec.
+                     *     For example, ".spec.engine.type" or ".spec.dataSource.dataImport.config.someField".
+                     */
+                    requiredFields?: string[];
                 };
                 /**
-                 * @description Permissions defines the permissions required by the backup tool.
-                 *     These permissions are used to generate a Role for the backup job.
+                 * @description Job contains execution detail for ExecutionMode="Job". Must be unset
+                 *     when ExecutionMode is "ProviderManaged".
                  */
-                permissions?: {
+                job?: {
                     /**
-                     * @description APIGroups is the name of the APIGroup that contains the resources.  If multiple API groups are specified, any action requested against one of
-                     *     the enumerated resources in any API group will be allowed. "" represents the core API group and "*" represents all API groups.
+                     * @description CleanupJobSpec is the optional specification of a cleanup job that runs
+                     *     when the parent Backup or Restore CR is deleted.
                      */
-                    apiGroups?: string[];
+                    cleanupJobSpec?: {
+                        /** @description Command is the command to run the backup class. */
+                        command?: string[];
+                        /** @description Image is the image of the backup class. */
+                        image?: string;
+                    };
                     /**
-                     * @description NonResourceURLs is a set of partial urls that a user should have access to.  *s are allowed, but only as the full, final step in the path
-                     *     Since non-resource URLs are not namespaced, this field is only applicable for ClusterRoles referenced from a ClusterRoleBinding.
-                     *     Rules can either apply to API resources (such as "pods" or "secrets") or non-resource URL paths (such as "/api"),  but not both.
+                     * @description ClusterPermissions are cluster-scoped PolicyRules granted via a
+                     *     generated ClusterRole and ClusterRoleBinding.
                      */
-                    nonResourceURLs?: string[];
-                    /** @description ResourceNames is an optional white list of names that the rule applies to.  An empty set means that everything is allowed. */
-                    resourceNames?: string[];
-                    /** @description Resources is a list of resources this rule applies to. '*' represents all resources. */
-                    resources?: string[];
-                    /** @description Verbs is a list of Verbs that apply to ALL the ResourceKinds contained in this rule. '*' represents all verbs. */
-                    verbs: string[];
-                }[];
+                    clusterPermissions?: {
+                        /**
+                         * @description APIGroups is the name of the APIGroup that contains the resources.  If multiple API groups are specified, any action requested against one of
+                         *     the enumerated resources in any API group will be allowed. "" represents the core API group and "*" represents all API groups.
+                         */
+                        apiGroups?: string[];
+                        /**
+                         * @description NonResourceURLs is a set of partial urls that a user should have access to.  *s are allowed, but only as the full, final step in the path
+                         *     Since non-resource URLs are not namespaced, this field is only applicable for ClusterRoles referenced from a ClusterRoleBinding.
+                         *     Rules can either apply to API resources (such as "pods" or "secrets") or non-resource URL paths (such as "/api"),  but not both.
+                         */
+                        nonResourceURLs?: string[];
+                        /** @description ResourceNames is an optional white list of names that the rule applies to.  An empty set means that everything is allowed. */
+                        resourceNames?: string[];
+                        /** @description Resources is a list of resources this rule applies to. '*' represents all resources. */
+                        resources?: string[];
+                        /** @description Verbs is a list of Verbs that apply to ALL the ResourceKinds contained in this rule. '*' represents all verbs. */
+                        verbs: string[];
+                    }[];
+                    /** @description JobSpec is the specification of the backup or restore job. */
+                    jobSpec: {
+                        /** @description Command is the command to run the backup class. */
+                        command?: string[];
+                        /** @description Image is the image of the backup class. */
+                        image?: string;
+                    };
+                    /**
+                     * @description Permissions are namespace-scoped PolicyRules granted to the job pod via
+                     *     a generated Role and RoleBinding.
+                     */
+                    permissions?: {
+                        /**
+                         * @description APIGroups is the name of the APIGroup that contains the resources.  If multiple API groups are specified, any action requested against one of
+                         *     the enumerated resources in any API group will be allowed. "" represents the core API group and "*" represents all API groups.
+                         */
+                        apiGroups?: string[];
+                        /**
+                         * @description NonResourceURLs is a set of partial urls that a user should have access to.  *s are allowed, but only as the full, final step in the path
+                         *     Since non-resource URLs are not namespaced, this field is only applicable for ClusterRoles referenced from a ClusterRoleBinding.
+                         *     Rules can either apply to API resources (such as "pods" or "secrets") or non-resource URL paths (such as "/api"),  but not both.
+                         */
+                        nonResourceURLs?: string[];
+                        /** @description ResourceNames is an optional white list of names that the rule applies to.  An empty set means that everything is allowed. */
+                        resourceNames?: string[];
+                        /** @description Resources is a list of resources this rule applies to. '*' represents all resources. */
+                        resources?: string[];
+                        /** @description Verbs is a list of Verbs that apply to ALL the ResourceKinds contained in this rule. '*' represents all verbs. */
+                        verbs: string[];
+                    }[];
+                };
                 /**
                  * @description ProviderManaged contains hints for ExecutionMode="ProviderManaged". The
                  *     schema is intentionally open: providers may surface capability
@@ -368,6 +374,15 @@ export interface components {
              *
              *     A BackupStorage is a reusable, namespaced reference to an object store
              *     (today only S3-compatible) plus the credentials needed to talk to it.
+             *     It is referenced by name from:
+             *
+             *       - Instance.spec.backup.storages[].storageRef
+             *       - Backup.spec.storageName
+             *
+             *     Decoupling storage from individual Backup CRs makes provider-managed
+             *     backups (e.g. PBM, pgBackRest) practical: the provider can register a
+             *     fixed set of storages on the engine without recomputing them from a
+             *     dynamic list of Backup CRs.
              */
             spec: {
                 /**
