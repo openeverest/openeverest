@@ -1,4 +1,3 @@
----
 name: FE E2E Workflow
 
 on:
@@ -14,9 +13,9 @@ on:
         required: true
 
 env:
-  GONOPROXY: "github.com/percona"
-  GONOSUMDB: "github.com/percona"
-  GOPRIVATE: "github.com/percona"
+  GONOPROXY: 'github.com/percona'
+  GONOSUMDB: 'github.com/percona'
+  GOPRIVATE: 'github.com/percona'
 
 jobs:
   e2e:
@@ -24,21 +23,21 @@ jobs:
       fail-fast: true
     continue-on-error: false
     runs-on: ubuntu-latest
+    env:
+      PMM_HELM_VER: "1.3.21"
     steps:
-      - name: Check out code
-        uses: actions/checkout@v5
+      - name: Check out code into the Go module directory
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        with:
+          lfs: true
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
 
       - name: Set up Go release
-        uses: actions/setup-go@v6
+        uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6.4.0
         with:
-          go-version-file: "go.mod"
+          go-version-file: 'go.mod'
           cache: true
-
-      - name: Install Kubernetes tools
-        uses: ./.github/actions/install-kubernetes-tools
-        with:
-          install-kubectl: true
-          install-k3d: true
 
       - name: Adjust GitHub worker node
         uses: ./.github/actions/adjust-github-node
@@ -46,81 +45,169 @@ jobs:
           adjust-host-for-k3d: true
           mount-docker-data: true
 
-      - name: Run K3D test cluster
-        shell: bash
-        run: |
-          make k3d-cluster-up
-
       # Setup Node
-      - name: Use Node
-        uses: actions/setup-node@v5
-        with:
-          node-version: 20.x
-
-      - name: Enable Corepack
-        run: corepack enable
-
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4.3.0
         with:
           version: 9.4.0
 
-      - name: Build Everest UI
-        shell: bash
-        run: |
-          make build-ui
+      - name: Use Node
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        with:
+          node-version: 20.x
+          cache: "pnpm"
+          cache-dependency-path: ui/pnpm-lock.yaml
 
-      - name: Build Everest API Server binary
-        shell: bash
-        run: |
-          make build-debug
+      - name: Start local Kubernetes cluster with the local registry
+        uses: medyagh/setup-minikube@e9e035a86bbc3caea26a450bd4dbf9d0c453682e # latest
+        id: minikube
+        with:
+          cpus: 4
+          memory: 12g
+          addons: registry
+          kubernetes-version: v1.32.8
+          insecure-registry: "localhost:5000"
 
-      - name: Build Everest API server docker image
-        shell: bash
+      - name: Expose local registry
         run: |
-          make docker-build
+          kubectl port-forward --namespace kube-system service/registry 5000:80 &
 
-      - name: Upload Everest API server image to K3D test cluster
-        shell: bash
-        run: |
-          make k3d-upload-server-image
+      - name: Set MinIO
+        run: kubectl apply -f ./.github/minio.conf.yaml
 
-      - name: Build Everest operator docker image
+      - name: Add Helm Percona repository
         shell: bash
         run: |
-          make docker-build-operator
+          go tool helm repo add percona https://percona.github.io/percona-helm-charts/
 
-      - name: Upload Everest operator image to K3D test cluster
+      - name: Install Helm PMM chart
         shell: bash
         run: |
-          make k3d-upload-operator-image
+          go tool helm install pmm --set secret.pmm_password='admin',service.type=ClusterIP percona/pmm --version $PMM_HELM_VER
 
-      - name: Build Everest CLI binary
+      - name: Echo PMM credentials
         shell: bash
         run: |
-          make build-cli-debug
+          url=$(kubectl get svc/monitoring-service -o json | jq -r '.spec.clusterIP')
+          echo -n "MONITORING_URL=http://$url" >> $GITHUB_ENV
 
-      - name: Deploy Everest to K3D test cluster
-        shell: bash
-        timeout-minutes: 10
+      - name: Build Everest API Server
         run: |
-          make deploy
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 make build-debug
 
-      - name: Init testing (CI) environment
+      - name: Build Everest docker container
+        uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051 # v5.10.0
+        id: meta
+        with:
+          images: localhost:5000/openeverest/openeverest-dev
+          tags: 0.0.0
+
+      - name: Build and Push everest dev image
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+
+      - name: Build CLI
         shell: bash
-        working-directory: ui/apps/everest/.e2e
-        timeout-minutes: 20
         run: |
-          make ci-init
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 make build-cli
+
+      - name: Install Everest
+        shell: bash
+        run: |
+          ./bin/everestctl install -v \
+          --disable-telemetry \
+          --version 0.0.0 \
+          --version-metadata-url https://check-dev.percona.com \
+          --skip-wizard \
+          --skip-db-namespace \
+          --helm.set server.image=localhost:5000/openeverest/openeverest-dev \
+          --helm.set server.apiRequestsRateLimit=200 \
+          --helm.set versionMetadataURL=https://check-dev.percona.com \
+          --helm.set operator.init=false \
+          --helm.set operator.image=ghcr.io/openeverest/openeverest-operator-dev \
+          --helm.set olm.catalogSourceImage=ghcr.io/openeverest/openeverest-catalog-dev
+
+      - name: Add everest-ui namespace
+        shell: bash
+        run: |
+          ./bin/everestctl namespaces add everest-ui -v \
+          --operator.mongodb=true \
+          --operator.postgresql=true \
+          --operator.mysql=true \
+          --skip-wizard
+
+      - name: Adding psmdb namespace
+        shell: bash
+        run: |
+          ./bin/everestctl namespaces add psmdb-only -v \
+          --operator.mongodb=true \
+          --operator.postgresql=false \
+          --operator.mysql=false \
+          --skip-wizard
+
+      - name: Adding pxc namespace
+        shell: bash
+        run: |
+          ./bin/everestctl namespaces add pxc-only -v \
+          --operator.mongodb=false \
+          --operator.postgresql=false \
+          --operator.mysql=true \
+          --skip-wizard
+
+      - name: Adding pg namespace
+        shell: bash
+        run: |
+          ./bin/everestctl namespaces add pg-only -v \
+          --operator.mongodb=false \
+          --operator.postgresql=true \
+          --operator.mysql=false \
+          --skip-wizard
+
+      - name: Get Everest admin password
+        shell: bash
+        run: |
+          echo "EVEREST_ADMIN_PASSWORD=$(./bin/everestctl accounts initial-admin-password)" >> $GITHUB_ENV
+
+      - name: Expose Everest API Server
+        shell: bash
+        run: |
+          kubectl port-forward -n everest-system deployment/everest-server 8080:8080 &
+
+      - name: Run Everest UI
+        shell: bash
+        run: |
+          cd ui
+          make init
+          make build
+          pnpm --filter "@percona/everest" dev &
+
+      - name: Install Chromium for Playwright
+        shell: bash
+        run: |
+          cd ui/apps/everest
+          npx playwright install chromium
 
       - name: Run integration tests
         shell: bash
-        working-directory: ui/apps/everest/.e2e
-        timeout-minutes: 30
         env:
-          CI: true
+          EVEREST_BUCKETS_NAMESPACES_MAP: '[["bucket-1","everest-ui"],["bucket-2","psmdb-only"],["bucket-3","pxc-only"],["bucket-4","pg-only"],["bucket-5","everest-ui"]]'
+          EVEREST_LOCATION_ACCESS_KEY: "minioadmin"
+          EVEREST_LOCATION_SECRET_KEY: "minioadmin"
+          EVEREST_LOCATION_REGION: "us-east-1"
+          EVEREST_LOCATION_URL: "https://minio.minio.svc.cluster.local"
+          CI_USER: "admin"
+          CI_PASSWORD: "${{ env.EVEREST_ADMIN_PASSWORD }}"
+          RBAC_USER: "rbac_user"
+          RBAC_PASSWORD: "rbac-e2e-test"
+          MONITORING_USER: "admin"
+          MONITORING_PASSWORD: "admin"
+          SESSION_USER: "session"
+          SESSION_PASS: "session1234"
         run: |
-          make test
+          cd ui
+          pnpm --filter "@percona/everest" e2e
 
       - name: Run debug commands on failure
         if: ${{ failure() }}
@@ -134,8 +221,9 @@ jobs:
 
       - name: Archive report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: playwright-report
           path: ui/apps/everest/.e2e/playwright-report/
           overwrite: true
+

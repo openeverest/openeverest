@@ -6,12 +6,15 @@ on:
       - labeled
       - opened
 
+permissions:
+  contents: read
+
 jobs:
   add-to-project:
     name: Add issue to project
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/add-to-project@v1.0.2
+      - uses: actions/add-to-project@244f685bbc3b7adfa8466e08b698b5577571133e # v1.0.2
         with:
           # The URL of your specific project
           project-url: https://github.com/orgs/openeverest/projects/2

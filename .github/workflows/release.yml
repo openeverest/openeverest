@@ -23,7 +23,21 @@ env:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    name: Build (${{ matrix.arch }})
+    
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-latest
+            platform: linux/amd64
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+            platform: linux/arm64
+    
+    runs-on: ${{ matrix.runner }}
+    
     env:
       TOOLS_PATH: "/opt/tools/bin"
       VERSION: ${{ github.event.inputs.version }}
@@ -47,6 +61,8 @@ jobs:
       EVEREST_CATALOG_IMAGE_NAME: 'openeverest-catalog'
       EVEREST_CATALOG_DEV_IMAGE_NAME: 'openeverest-catalog-dev'
       EVEREST_VERSION_SERVICE_DEV_IMAGE_NAME: 'version-service-dev'
+      EVEREST_CTL_IMAGE_NAME: 'everestctl'
+      EVEREST_CTL_DEV_IMAGE_NAME: 'everestctl-dev'
     steps:
       - name: Enable /mnt (big volume) to be used by runner
         run: |
@@ -72,13 +88,14 @@ jobs:
           echo "OS=$(uname | awk '{print tolower($0)}')" >> $GITHUB_ENV
 
       - name: Operator - check out
-        uses: actions/checkout@v5
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
         with:
           repository: openeverest/openeverest-operator
           path: openeverest-operator
           token: ${{ secrets.ROBOT_TOKEN }}
 
       - name: Operator - create release branch
+        if: matrix.arch == 'amd64'
         run: |
           cd openeverest-operator
           # Check if the branch already exists
@@ -135,13 +152,14 @@ jobs:
           mv operator-sdk_${OS}_${ARCH} $TOOLS_PATH/operator-sdk
 
       - name: Operator - build and bundle
+        if: matrix.arch == 'amd64'
         run: |
           cd openeverest-operator
           make build manifests bundle
 
       - name: Operator - setup Docker meta for openeverest-operator
         id: operator_meta
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051 # v5.10.0
         # docker/metadata-action action looks more elegant when being triggered by a GH tag,
         # however this workflow can't be triggered by a GH tag since there are some changes need to be done
         # in the codebase prior putting the tag, so the action uses the raw tags
@@ -150,70 +168,82 @@ jobs:
             ${{ env.IMAGE_PREFIX }}/${{ env.EVEREST_OPERATOR_IMAGE_NAME }},enable=${{ env.IS_RC == 0 }}
             ${{ env.IMAGE_PREFIX }}/${{ env.EVEREST_OPERATOR_DEV_IMAGE_NAME }}
           tags: |
-            type=raw,value=${{ env.VERSION }}
-            type=raw,value=latest
-            type=raw,value=${{ env.FLOATING_TAG }},enable=${{ env.IS_RC == 0 }}
+            type=raw,value=${{ env.VERSION }}-${{ matrix.arch }}
+            type=raw,value=latest-${{ matrix.arch }}
+            type=raw,value=${{ env.FLOATING_TAG }}-${{ matrix.arch }},enable=${{ env.IS_RC == 0 }}
 
       - name: Operator - setup Docker meta for openeverest-operator-bundle
         id: bundle_meta
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051 # v5.10.0
         with:
           images: |
             ${{ env.IMAGE_PREFIX }}/${{ env.EVEREST_OPERATOR_BUNDLE_IMAGE_NAME }},enable=${{ env.IS_RC == 0 }}
             ${{ env.IMAGE_PREFIX }}/${{ env.EVEREST_OPERATOR_BUNDLE_DEV_IMAGE_NAME }}
           tags: |
-            type=raw,value=${{ env.VERSION }}
-            type=raw,value=${{ env.FLOATING_TAG }},enable=${{ env.IS_RC == 0 }}
+            type=raw,value=${{ env.VERSION }}-${{ matrix.arch }}
+            type=raw,value=${{ env.FLOATING_TAG }}-${{ matrix.arch }},enable=${{ env.IS_RC == 0 }}
 
       - name: Login to GitHub Container Registry
-        uses: docker/login-action@v3
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
+
       - name: Operator - build openeverest-operator image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
         with:
           context: openeverest-operator
           push: false
+          provenance: false
+          platforms: ${{ matrix.platform }}
           tags: ${{ steps.operator_meta.outputs.tags }}
 
 
       - name: Operator - push openeverest-operator image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
         with:
           context: openeverest-operator
           push: true
+          provenance: false
+          platforms: ${{ matrix.platform }}
           tags: ${{ steps.operator_meta.outputs.tags }}
           build-args: |
             FLAGS= -X 'github.com/percona/everest-operator/internal/consts.Version=${{ env.VERSION }}'
 
       - name: Operator - build openeverest-operator-bundle image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
         with:
           context: openeverest-operator
           push: false
+          provenance: false
+          platforms: ${{ matrix.platform }}
           tags: ${{ steps.bundle_meta.outputs.tags }}
           file: openeverest-operator/bundle.Dockerfile
 
 
       - name: Operator - push openeverest-operator-bundle image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
         with:
           context: openeverest-operator
           push: true
+          provenance: false
+          platforms: ${{ matrix.platform }}
           tags: ${{ steps.bundle_meta.outputs.tags }}
           file: openeverest-operator/bundle.Dockerfile
 
       - name: Catalog - checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
         with:
           repository: openeverest/openeverest-catalog
           path: openeverest-catalog
           token: ${{ secrets.ROBOT_TOKEN }}
 
       - name: Catalog - create release branch
+        if: matrix.arch == 'amd64'
         run: |
           cd openeverest-catalog
           # Check if the branch already exists
@@ -241,44 +271,49 @@ jobs:
 
       - name: Catalog - docker meta
         id: catalog_meta
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051 # v5.10.0
         with:
           images: |
             ${{ env.IMAGE_PREFIX }}/${{ env.EVEREST_CATALOG_IMAGE_NAME }},enable=${{ env.IS_RC == 0 }}
             ${{ env.IMAGE_PREFIX }}/${{ env.EVEREST_CATALOG_DEV_IMAGE_NAME }}
           tags: |
-            type=raw,value=${{ env.VERSION }}
-            type=raw,value=${{ env.FLOATING_TAG }},enable=${{ env.IS_RC == 0 }}
+            type=raw,value=${{ env.VERSION }}-${{ matrix.arch }}
+            type=raw,value=${{ env.FLOATING_TAG }}-${{ matrix.arch }},enable=${{ env.IS_RC == 0 }}
 
       - name: Catalog - build image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
         with:
           context: openeverest-catalog
           push: false
+          provenance: false
+          platforms: ${{ matrix.platform }}
           tags: ${{ steps.catalog_meta.outputs.tags }}
           file: openeverest-catalog/everest-catalog.Dockerfile
 
 
       - name: Catalog - push image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
         with:
           context: openeverest-catalog
           push: true
+          provenance: false
+          platforms: ${{ matrix.platform }}
           tags: ${{ steps.catalog_meta.outputs.tags }}
           file: openeverest-catalog/everest-catalog.Dockerfile
 
       - name: Everest - check out
-        uses: actions/checkout@v5
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
         with:
           token: ${{ secrets.ROBOT_TOKEN }}
 
       - name: Set up Go release
-        uses: actions/setup-go@v6
+        uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6.4.0
         with:
           go-version-file: "./go.mod"
           cache: true
 
       - name: Everest - create and update release branch
+        if: matrix.arch == 'amd64'
         run: |
           # Check if the branch already exists
           git fetch
@@ -316,18 +351,21 @@ jobs:
           fi
 
       - name: Everest UI - setup pnpm
-        uses: pnpm/action-setup@v4
+        if: matrix.arch == 'amd64'
+        uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4.3.0
         with:
           version: 9.4.0
 
       - name: Everest UI - run with Node 20
-        uses: actions/setup-node@v5
+        if: matrix.arch == 'amd64'
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
         with:
           node-version: 20.x
           cache: "pnpm"
           cache-dependency-path: ui/pnpm-lock.yaml
 
       - name: Everest UI - build
+        if: matrix.arch == 'amd64'
         run: |
           cd ui
           pnpm install
@@ -336,54 +374,76 @@ jobs:
       - name: Everest - build binary
         run: |
           if [[ $IS_RC == 1 ]]; then 
-            CGO_ENABLED=0 GOOS=linux GOARCH=amd64 make rc
+            CGO_ENABLED=0 GOOS=linux GOARCH=${{ matrix.arch }} make rc
           else
-            CGO_ENABLED=0 GOOS=linux GOARCH=amd64 make release
+            CGO_ENABLED=0 GOOS=linux GOARCH=${{ matrix.arch }} make release
           fi
 
-      - name: Everest - build controller binary
-        run: |
-          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 make build-controller
-
       - name: Everest - setup docker build metadata
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051 # v5.10.0
         id: everest_meta
         with:
           images: |
             ${{ env.IMAGE_PREFIX }}/${{ env.EVEREST_SERVER_IMAGE_NAME }},enable=${{ env.IS_RC == 0 }}
             ${{ env.IMAGE_PREFIX }}/${{ env.EVEREST_SERVER_DEV_IMAGE_NAME }}
           tags: |
-            type=raw,value=${{ env.VERSION }}
-            type=raw,value=latest
-            type=raw,value=${{ env.FLOATING_TAG }},enable=${{ env.IS_RC == 0 }}
+            type=raw,value=${{ env.VERSION }}-${{ matrix.arch }}
+            type=raw,value=latest-${{ matrix.arch }}
+            type=raw,value=${{ env.FLOATING_TAG }}-${{ matrix.arch }},enable=${{ env.IS_RC == 0 }}
 
       - name: Everest - build Everest image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
         with:
           context: .
           push: false
+          provenance: false
+          platforms: ${{ matrix.platform }}
           tags: ${{ steps.everest_meta.outputs.tags }}
-          file: build/package/server/Dockerfile
 
 
       - name: Everest - push Everest image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
         with:
           context: .
           push: true
+          provenance: false
+          platforms: ${{ matrix.platform }}
           tags: ${{ steps.everest_meta.outputs.tags }}
-          file: build/package/server/Dockerfile
 
       - name: CLI - build binaries
+        if: matrix.arch == 'amd64'
         run: |
           make release-cli
 
       - name: CLI - create release with binaries
-        uses: softprops/action-gh-release@v2
+        if: matrix.arch == 'amd64'
+        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2.6.2
         with:
           draft: true
           files: |
             dist/*
+
+      - name: CLI - setup Docker meta for everestctl
+        id: everestctl_meta
+        uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051 # v5.10.0
+        with:
+          images: |
+            ${{ env.IMAGE_PREFIX }}/${{ env.EVEREST_CTL_IMAGE_NAME }},enable=${{ env.IS_RC == 0 }}
+            ${{ env.IMAGE_PREFIX }}/${{ env.EVEREST_CTL_DEV_IMAGE_NAME }}
+          tags: |
+            type=raw,value=${{ env.VERSION }}-${{ matrix.arch }}
+            type=raw,value=latest-${{ matrix.arch }}
+            type=raw,value=${{ env.FLOATING_TAG }}-${{ matrix.arch }},enable=${{ env.IS_RC == 0 }}
+
+      - name: CLI - build and push everestctl image
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
+        with:
+          context: .
+          file: Dockerfile.everestctl
+          push: true
+          provenance: false
+          platforms: ${{ matrix.platform }}
+          tags: ${{ steps.everestctl_meta.outputs.tags }}
 
       - name: Trigger Homebrew tap update
         if: env.IS_RC == 0
@@ -393,3 +453,118 @@ jobs:
             -H "Authorization: Bearer ${{ secrets.TAP_REPO_TOKEN }}" \
             https://api.github.com/repos/openeverest/homebrew-tap/dispatches \
             -d "{\"event_type\":\"new-release\",\"client_payload\":{\"version\":\"$VERSION\"}}"
+  create-manifests:
+    name: Create multi-arch manifests
+    needs: build
+    runs-on: ubuntu-latest
+    
+    env:
+      REGISTRY: ghcr.io
+      IMAGE_PREFIX: 'ghcr.io/openeverest'
+      VERSION: ${{ github.event.inputs.version }}
+      IS_RC: ${{ contains(github.event.inputs.version, '-rc') }}
+
+    steps:
+      - name: Set environment variables
+        run: |
+          floating_tag=${VERSION%.*}
+          echo "FLOATING_TAG=$floating_tag" >> $GITHUB_ENV
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create and push multi-arch manifests
+        run: |
+          # Determine image names based on RC or Release
+          if [[ "$IS_RC" == "true" ]]; then
+            OPERATOR_IMAGE="openeverest-operator-dev"
+            BUNDLE_IMAGE="openeverest-operator-bundle-dev"
+            CATALOG_IMAGE="openeverest-catalog-dev"
+            EVEREST_IMAGE="openeverest-dev"
+            EVERESTCTL_IMAGE="everestctl-dev"
+          else
+            OPERATOR_IMAGE="openeverest-operator"
+            BUNDLE_IMAGE="openeverest-operator-bundle"
+            CATALOG_IMAGE="openeverest-catalog"
+            EVEREST_IMAGE="openeverest"
+            EVERESTCTL_IMAGE="everestctl"
+          fi
+          
+          # Operator - version tag
+          docker buildx imagetools create -t $IMAGE_PREFIX/$OPERATOR_IMAGE:$VERSION \
+            $IMAGE_PREFIX/$OPERATOR_IMAGE:$VERSION-amd64 \
+            $IMAGE_PREFIX/$OPERATOR_IMAGE:$VERSION-arm64
+          
+          # Operator - latest tag
+          docker buildx imagetools create -t $IMAGE_PREFIX/$OPERATOR_IMAGE:latest \
+            $IMAGE_PREFIX/$OPERATOR_IMAGE:latest-amd64 \
+            $IMAGE_PREFIX/$OPERATOR_IMAGE:latest-arm64
+          
+          # Operator - floating tag (only for releases)
+          if [[ "$IS_RC" != "true" ]]; then
+            docker buildx imagetools create -t $IMAGE_PREFIX/$OPERATOR_IMAGE:$FLOATING_TAG \
+              $IMAGE_PREFIX/$OPERATOR_IMAGE:$FLOATING_TAG-amd64 \
+              $IMAGE_PREFIX/$OPERATOR_IMAGE:$FLOATING_TAG-arm64
+          fi
+          
+          # Operator Bundle - version tag
+          docker buildx imagetools create -t $IMAGE_PREFIX/$BUNDLE_IMAGE:$VERSION \
+            $IMAGE_PREFIX/$BUNDLE_IMAGE:$VERSION-amd64 \
+            $IMAGE_PREFIX/$BUNDLE_IMAGE:$VERSION-arm64
+          
+          # Operator Bundle - floating tag (only for releases)
+          if [[ "$IS_RC" != "true" ]]; then
+            docker buildx imagetools create -t $IMAGE_PREFIX/$BUNDLE_IMAGE:$FLOATING_TAG \
+              $IMAGE_PREFIX/$BUNDLE_IMAGE:$FLOATING_TAG-amd64 \
+              $IMAGE_PREFIX/$BUNDLE_IMAGE:$FLOATING_TAG-arm64
+          fi
+          
+          # Catalog - version tag
+          docker buildx imagetools create -t $IMAGE_PREFIX/$CATALOG_IMAGE:$VERSION \
+            $IMAGE_PREFIX/$CATALOG_IMAGE:$VERSION-amd64 \
+            $IMAGE_PREFIX/$CATALOG_IMAGE:$VERSION-arm64
+          
+          # Catalog - floating tag (only for releases)
+          if [[ "$IS_RC" != "true" ]]; then
+            docker buildx imagetools create -t $IMAGE_PREFIX/$CATALOG_IMAGE:$FLOATING_TAG \
+              $IMAGE_PREFIX/$CATALOG_IMAGE:$FLOATING_TAG-amd64 \
+              $IMAGE_PREFIX/$CATALOG_IMAGE:$FLOATING_TAG-arm64
+          fi
+          
+          # Everest - version tag
+          docker buildx imagetools create -t $IMAGE_PREFIX/$EVEREST_IMAGE:$VERSION \
+            $IMAGE_PREFIX/$EVEREST_IMAGE:$VERSION-amd64 \
+            $IMAGE_PREFIX/$EVEREST_IMAGE:$VERSION-arm64
+          
+          # Everest - latest tag
+          docker buildx imagetools create -t $IMAGE_PREFIX/$EVEREST_IMAGE:latest \
+            $IMAGE_PREFIX/$EVEREST_IMAGE:latest-amd64 \
+            $IMAGE_PREFIX/$EVEREST_IMAGE:latest-arm64
+          
+          # Everest - floating tag (only for releases)
+          if [[ "$IS_RC" != "true" ]]; then
+            docker buildx imagetools create -t $IMAGE_PREFIX/$EVEREST_IMAGE:$FLOATING_TAG \
+              $IMAGE_PREFIX/$EVEREST_IMAGE:$FLOATING_TAG-amd64 \
+              $IMAGE_PREFIX/$EVEREST_IMAGE:$FLOATING_TAG-arm64
+          fi
+          
+          # Everestctl - version tag
+          docker buildx imagetools create -t $IMAGE_PREFIX/$EVERESTCTL_IMAGE:$VERSION \
+            $IMAGE_PREFIX/$EVERESTCTL_IMAGE:$VERSION-amd64 \
+            $IMAGE_PREFIX/$EVERESTCTL_IMAGE:$VERSION-arm64
+          
+          # Everestctl - latest tag
+          docker buildx imagetools create -t $IMAGE_PREFIX/$EVERESTCTL_IMAGE:latest \
+            $IMAGE_PREFIX/$EVERESTCTL_IMAGE:latest-amd64 \
+            $IMAGE_PREFIX/$EVERESTCTL_IMAGE:latest-arm64
+          
+          # Everestctl - floating tag (only for releases)
+          if [[ "$IS_RC" != "true" ]]; then
+            docker buildx imagetools create -t $IMAGE_PREFIX/$EVERESTCTL_IMAGE:$FLOATING_TAG \
+              $IMAGE_PREFIX/$EVERESTCTL_IMAGE:$FLOATING_TAG-amd64 \
+              $IMAGE_PREFIX/$EVERESTCTL_IMAGE:$FLOATING_TAG-arm64
+          fi
