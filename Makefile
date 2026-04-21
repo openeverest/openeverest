@@ -309,7 +309,7 @@ test-integration-monitoring-chainsaw: docker-build-controller k3d-upload-control
 	kubectl apply -f https://raw.githubusercontent.com/VictoriaMetrics/operator/v$(VICTORIAMETRICS_OPERATOR_VERSION)/config/crd/overlay/crd.yaml
 	kubectl wait --for condition=established --timeout=10s crd vmagents.operator.victoriametrics.com
 	kubectl delete pod -n openeverest-system -l control-plane=controller-manager
-	kubectl wait --for=condition=available --timeout=60s deploy/openeverest-controller-manager -n openeverest-system
+	$(MAKE) wait-test-controller
 	chainsaw test --config test/integration/.monitoring.yaml test/integration/monitoring
 
 ##@ Deployment management
@@ -522,6 +522,10 @@ build-installer: gen-crds-manifests kustomize ## Generate a consolidated YAML wi
 deploy-test-controller: gen-crds-manifests kustomize deploy-cert-manager
 	cd config/test && "$(KUSTOMIZE)" edit set image controller=${EVEREST_CONTROLLER_IMG}
 	$(KUSTOMIZE) build config/test | kubectl apply -f -
+
+.PHONY: wait-test-controller
+wait-test-controller: # Wait for the test controller deployment to be available.
+	kubectl wait --for=condition=available --timeout=60s deploy/openeverest-controller-manager -n openeverest-system
 
 ##@ Dependencies
 
