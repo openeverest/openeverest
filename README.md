@@ -9,7 +9,7 @@ OpenEverest - Run Data Workloads on Kubernetes
 [![CNCF Landscape](https://img.shields.io/badge/CNCF%20Landscape-5699C6)](https://landscape.cncf.io/?item=app-definition-and-development--database--openeverest)
 [![GitHub License](https://img.shields.io/github/license/openeverest/openeverest)](LICENSE)
 [![OpenSSF Best Practices](https://www.bestpractices.dev/projects/12239/badge)](https://www.bestpractices.dev/projects/12239)
-[![OpenSSF Scorecard](https://img.shields.io/ossf-scorecard/github.com/openeverest/openeverest?label=openssf+scorecard&style=flat)](https://scorecard.dev/viewer/?uri=github.com/openeverest/openeverest)
+[![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/openeverest/openeverest/badge)](https://scorecard.dev/viewer/?uri=github.com/openeverest/openeverest)
 [![Snyk](https://snyk.io/test/github/openeverest/openeverest/badge.svg)](https://snyk.io/test/github/openeverest/openeverest)
 [![Documentation](https://img.shields.io/badge/Documentation-blue?logo=readthedocs&logoColor=white)](https://openeverest.io/documentation/current/)
 [![Join Slack](https://img.shields.io/badge/Join_Slack-blue)](https://cloud-native.slack.com/archives/C09RRGZL2UX)
