@@ -17,6 +17,7 @@ package controller
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"time"
 
@@ -479,6 +480,42 @@ func Resuming(message string) Status {
 type WaitError struct {
 	Reason   string
 	Duration time.Duration
+}
+
+// =============================================================================
+// BACKUP CONFIG ERROR
+// =============================================================================
+
+// BackupConfigError is returned from Sync when backup configuration (storage
+// resolution, schedule translation, PITR wiring) fails but the engine itself
+// is otherwise healthy. The runtime surfaces it on the BackupConfigured
+// condition instead of marking the Instance as Failed, so operators can see
+// that the database is running but backups need attention.
+//
+// Usage inside Sync:
+//
+//	if err := buildBackupSpec(c); err != nil {
+//	    return &controller.BackupConfigError{Reason: "StorageNotFound", Message: err.Error()}
+//	}
+type BackupConfigError struct {
+	// Reason is a short CamelCase identifier (used as the condition reason).
+	Reason string
+	// Message is a human-readable description of the problem.
+	Message string
+}
+
+func (e *BackupConfigError) Error() string {
+	return e.Message
+}
+
+// AsBackupConfigError extracts a *BackupConfigError from err (including wrapped
+// errors), returning nil if err is not a BackupConfigError.
+func AsBackupConfigError(err error) *BackupConfigError {
+	var bce *BackupConfigError
+	if errors.As(err, &bce) {
+		return bce
+	}
+	return nil
 }
 
 func (e *WaitError) Error() string {

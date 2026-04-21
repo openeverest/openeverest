@@ -374,24 +374,22 @@ func (r *ProviderReconciler) Reconcile(ctx context.Context, req reconcile.Reques
 			logger.Info("Sync waiting", "reason", err.Error())
 			return reconcile.Result{RequeueAfter: controller.GetWaitDuration(err)}, nil
 		}
+		// BackupConfigError means the engine is healthy but backup wiring failed.
+		// Surface it on the BackupConfigured condition without marking Instance Failed.
+		if bce := controller.AsBackupConfigError(err); bce != nil {
+			logger.Error(err, "Backup configuration failed")
+			setCondition(in, v1alpha1.ConditionBackupConfigured, metav1.ConditionFalse,
+				bce.Reason, bce.Message, metav1.Now())
+			_ = r.Client.Status().Update(ctx, in)
+			return reconcile.Result{}, nil
+		}
 		logger.Error(err, "Sync failed")
 		return reconcile.Result{}, err
 	}
-
-	// Configure backup engine for providers that opted in to BackupProvider.
-	// This runs after Sync so the provider can mutate engine resources (e.g.,
-	// PerconaServerMongoDB.spec.backup) before we observe status.
-	if bp, ok := r.provider.(controller.BackupProvider); ok && resolvedIn.Spec.Backup != nil {
-		if err := bp.ConfigureBackup(syncCtx); err != nil {
-			if controller.IsWaitError(err) {
-				logger.Info("ConfigureBackup waiting", "reason", err.Error())
-				_ = r.Client.Status().Update(ctx, in)
-				return reconcile.Result{RequeueAfter: controller.GetWaitDuration(err)}, nil
-			}
-			logger.Error(err, "ConfigureBackup failed")
-			_ = r.Client.Status().Update(ctx, in)
-			return reconcile.Result{}, err
-		}
+	// Clear any stale BackupConfigured=False condition left from a previous failed Sync.
+	if _, ok := r.provider.(controller.BackupProvider); ok {
+		setCondition(in, v1alpha1.ConditionBackupConfigured, metav1.ConditionTrue,
+			"Configured", "Backup configuration applied to engine", metav1.Now())
 	}
 
 	// Compute and update status

@@ -236,27 +236,13 @@ type FieldIndexProvider interface {
 // =============================================================================
 
 // BackupProvider is an optional interface that providers can implement to
-// participate in the backup lifecycle for ProviderManaged BackupClass resources
-// (engine-native backup tooling such as PBM, pgBackRest, or Barman).
-//
-// When a provider implements this interface the runtime automatically:
-//   - Calls ConfigureBackup as part of the Instance reconcile loop, after the
-//     provider's Sync, to give the provider a chance to translate
-//     Instance.spec.backup into engine-level configuration (e.g., PBM
-//     storages, schedules).
+// participate in the backup lifecycle for ProviderManaged BackupClass
+// resources (engine-native backup tooling such as PBM, pgBackRest, or Barman).
 //
 // All methods receive the same *Context handle as ProviderInterface; helpers
 // such as Context.BackupStorage, Context.BackupClass and
 // Context.BackupsForInstance are available for resolving related resources.
-type BackupProvider interface {
-	// ConfigureBackup is invoked during Instance reconciliation, after Sync,
-	// when the Instance has a non-nil .spec.backup. The provider should
-	// translate the requested storages, schedules and PITR settings into the
-	// engine-native configuration (e.g., set BackupSpec.Storages on the
-	// PerconaServerMongoDB CR). Returning a WaitError causes the runtime to
-	// requeue with the configured wait duration.
-	ConfigureBackup(c *Context) error
-}
+type BackupProvider interface{}
 
 // =============================================================================
 // BASE PROVIDER

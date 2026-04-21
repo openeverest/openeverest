@@ -370,6 +370,13 @@ const (
 	// target version. External CI/CD pipelines can use this to block subsequent
 	// infrastructure changes until the upgrade completes.
 	ConditionUpgrading = "Upgrading"
+
+	// ConditionBackupConfigured indicates whether the provider has successfully
+	// configured the backup feature on the instance engine. This condition is
+	// only set when Backup.Enabled=true; it remains absent otherwise. When False,
+	// the reason and message explain the configuration failure (e.g., storage
+	// resolution or PITR wiring error).
+	ConditionBackupConfigured = "BackupConfigured"
 )
 
 // Reasons for the StorageResizing condition.
