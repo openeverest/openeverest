@@ -585,3 +585,57 @@ func (c *Context) BackupStorageCredentials(bs *backupv1alpha1.BackupStorage) (ac
 	}
 	return string(secret.Data["AWS_ACCESS_KEY_ID"]), string(secret.Data["AWS_SECRET_ACCESS_KEY"]), nil
 }
+
+// BackupsForInstance lists all Backup CRs in the instance namespace whose
+// .spec.instanceName matches this Instance. Requires the field index
+// ".spec.instanceName" on backupv1alpha1.Backup, which the runtime registers
+// automatically when the provider implements BackupProvider.
+func (c *Context) BackupsForInstance() ([]backupv1alpha1.Backup, error) {
+	list := &backupv1alpha1.BackupList{}
+	if err := c.client.List(c.ctx, list,
+		client.InNamespace(c.in.Namespace),
+		client.MatchingFields{IndexBackupInstanceName: c.in.Name},
+	); err != nil {
+		return nil, fmt.Errorf("failed to list backups for instance: %w", err)
+	}
+	return list.Items, nil
+}
+
+// IndexBackupInstanceName is the field index path used for Backup.spec.instanceName.
+const IndexBackupInstanceName = "spec.instanceName"
+
+// =============================================================================
+// BACKUP  EXECUTION STATUS
+// =============================================================================
+
+// BackupExecutionStatus is returned by BackupProvider.SyncBackup. The runtime
+// reflects it onto the Backup CR's .status.
+type BackupExecutionStatus struct {
+	// State is the current state of the backup (Pending/Running/Succeeded/Failed/Error).
+	State backupv1alpha1.BackupState
+	// Message is a human-readable description of the current state.
+	Message string
+	// EngineBackupRef points at the engine-native backup resource that was
+	// created (e.g., PerconaServerMongoDBBackup). Optional but recommended.
+	EngineBackupRef *corev1.TypedLocalObjectReference
+	// StartedAt is when the backup started running. Optional.
+	StartedAt *metav1.Time
+	// CompletedAt is when the backup completed. Optional.
+	CompletedAt *metav1.Time
+}
+
+// RestoreExecutionStatus is returned by BackupProvider.SyncRestore. The runtime
+// reflects it onto the Restore CR's .status.
+type RestoreExecutionStatus struct {
+	State            backupv1alpha1.RestoreState
+	Message          string
+	EngineRestoreRef *corev1.TypedLocalObjectReference
+	StartedAt        *metav1.Time
+	CompletedAt      *metav1.Time
+}
+
+// IsNotFound reports whether the error is a kubernetes "not found" error.
+// Convenience wrapper so providers don't have to import apimachinery directly.
+func IsNotFound(err error) bool {
+	return apierrors.IsNotFound(err)
+}

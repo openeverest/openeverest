@@ -146,7 +146,7 @@ func newReconciler(ctx context.Context, p providerAdapter, opts ...ReconcilerOpt
 	}
 
 	// Register backup types so providers and the runtime can read/write
-	// BackupClass/BackupStorage CRs without requiring each
+	// BackupClass/Backup/BackupStorage CRs without requiring each
 	// provider to register them explicitly.
 	if err := backupv1alpha1.AddToScheme(scheme); err != nil {
 		return nil, fmt.Errorf("failed to add backup v1alpha1 scheme: %w", err)
@@ -188,6 +188,20 @@ func newReconciler(ctx context.Context, p providerAdapter, opts ...ReconcilerOpt
 		}
 	}
 
+	// Setup field indexes required by BackupProvider helpers (Backups
+	// for an Instance) when the provider opts in.
+	if _, isBackupProvider := p.(controller.BackupProvider); isBackupProvider {
+		if err := mgr.GetFieldIndexer().IndexField(ctx, &backupv1alpha1.Backup{}, controller.IndexBackupInstanceName, func(obj client.Object) []string {
+			b, ok := obj.(*backupv1alpha1.Backup)
+			if !ok || b.Spec.InstanceName == "" {
+				return nil
+			}
+			return []string{b.Spec.InstanceName}
+		}); err != nil {
+			return nil, fmt.Errorf("failed to register backup instanceName index: %w", err)
+		}
+	}
+
 	r := &ProviderReconciler{
 		provider:     p,
 		manager:      mgr,
@@ -204,6 +218,15 @@ func newReconciler(ctx context.Context, p providerAdapter, opts ...ReconcilerOpt
 
 	if err := r.setup(); err != nil {
 		return nil, fmt.Errorf("failed to setup reconciler: %w", err)
+	}
+
+	// Register the BackupProvider-aware ancillary reconcilers when the
+	// provider implements the optional interface. These dispatch to
+	// SyncBackup for ProviderManaged BackupClasses.
+	if bp, ok := p.(controller.BackupProvider); ok {
+		if err := setupBackupReconciler(mgr, bp, p.Name()); err != nil {
+			return nil, fmt.Errorf("failed to setup backup reconciler: %w", err)
+		}
 	}
 
 	return r, nil

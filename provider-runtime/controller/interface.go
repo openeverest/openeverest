@@ -23,6 +23,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
+
+	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
 )
 
 // ProviderInterface defines the interface for a database provider.
@@ -239,10 +241,30 @@ type FieldIndexProvider interface {
 // participate in the backup lifecycle for ProviderManaged BackupClass
 // resources (engine-native backup tooling such as PBM, pgBackRest, or Barman).
 //
+// When a provider implements this interface the runtime automatically:
+//   - Registers field indexes on backup.spec.instanceName and
+//     restore.spec.instanceName so the provider can list backups/restores for
+//     a given Instance efficiently.
+//   - Starts ancillary reconcilers for Backup and Restore CRs that dispatch to
+//     SyncBackup when the resolved BackupClass uses
+//     executionMode "ProviderManaged".
+//
 // All methods receive the same *Context handle as ProviderInterface; helpers
 // such as Context.BackupStorage, Context.BackupClass and
 // Context.BackupsForInstance are available for resolving related resources.
-type BackupProvider interface{}
+type BackupProvider interface {
+	// SyncBackup reconciles a single Backup CR whose BackupClass uses
+	// executionMode "ProviderManaged". The provider creates or updates the
+	// engine-native backup resource and reports its observed state. The
+	// returned BackupExecutionStatus is reflected onto the Backup CR by the
+	// runtime.
+	SyncBackup(c *Context, backup *backupv1alpha1.Backup) (BackupExecutionStatus, error)
+
+	// CleanupBackup is invoked when a Backup CR is being deleted. Implementations
+	// must delete any engine-native resources they created and return true once
+	// cleanup is complete (which allows the runtime to remove its finalizer).
+	CleanupBackup(c *Context, backup *backupv1alpha1.Backup) (done bool, err error)
+}
 
 // =============================================================================
 // BASE PROVIDER
