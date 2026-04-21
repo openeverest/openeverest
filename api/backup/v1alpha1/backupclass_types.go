@@ -72,6 +72,11 @@ type BackupClassSpec struct {
 	// configuration accepted by this class. Backup.spec.config is validated
 	// against this schema.
 	Config BackupClassConfig `json:"config,omitempty"`
+	// RestoreConfig contains the OpenAPI v3 schema describing the restore-time
+	// configuration accepted by this class. Restore.spec.config is validated
+	// against this schema.
+	// +optional
+	RestoreConfig BackupClassConfig `json:"restoreConfig,omitempty"`
 	// InstanceConstraints defines compatibility requirements that must be
 	// satisfied by an Instance before this backup class can be used with it.
 	// +optional
@@ -81,6 +86,11 @@ type BackupClassSpec struct {
 	// when ExecutionMode is "ProviderManaged".
 	// +optional
 	Job *JobExecution `json:"job,omitempty"`
+	// RestoreJob contains execution detail for the restore job in
+	// ExecutionMode="Job". Must be unset when ExecutionMode is
+	// "ProviderManaged".
+	// +optional
+	RestoreJob *JobExecution `json:"restoreJob,omitempty"`
 }
 
 // JobExecution bundles the Kubernetes resources the controller needs to spawn
@@ -104,7 +114,7 @@ type JobExecution struct {
 }
 
 // ProviderManagedSpec carries opaque hints for ExecutionMode="ProviderManaged"
-// classes. It mirrors the Config pattern: the field is opaque
+// classes. It mirrors the Config/RestoreConfig pattern: the field is opaque
 // to the runtime; providers interpret it.
 type ProviderManagedSpec struct {
 	// SupportsPITR indicates whether this class supports point-in-time recovery.
@@ -198,7 +208,7 @@ var ErrInvalidExecutionMode = errors.New("invalid execution mode configuration")
 func (s *BackupClassSpec) ValidateExecutionMode() error {
 	switch s.ExecutionMode {
 	case BackupExecutionModeProviderManaged:
-		if s.Job != nil {
+		if s.Job != nil || s.RestoreJob != nil {
 			return fmt.Errorf("%w: executionMode=ProviderManaged must not set .spec.job or .spec.restoreJob", ErrInvalidExecutionMode)
 		}
 	case BackupExecutionModeJob:

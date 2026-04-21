@@ -7649,6 +7649,85 @@ export interface components {
                     supportsPITR?: boolean;
                 };
                 /**
+                 * @description RestoreConfig contains the OpenAPI v3 schema describing the restore-time
+                 *     configuration accepted by this class. Restore.spec.config is validated
+                 *     against this schema.
+                 */
+                restoreConfig?: {
+                    /** @description OpenAPIV3Schema is the OpenAPI v3 schema of the backup class. */
+                    openAPIV3Schema?: unknown;
+                };
+                /**
+                 * @description RestoreJob contains execution detail for the restore job in
+                 *     ExecutionMode="Job". Must be unset when ExecutionMode is
+                 *     "ProviderManaged".
+                 */
+                restoreJob?: {
+                    /**
+                     * @description CleanupJobSpec is the optional specification of a cleanup job that runs
+                     *     when the parent Backup or Restore CR is deleted.
+                     */
+                    cleanupJobSpec?: {
+                        /** @description Command is the command to run the backup class. */
+                        command?: string[];
+                        /** @description Image is the image of the backup class. */
+                        image?: string;
+                    };
+                    /**
+                     * @description ClusterPermissions are cluster-scoped PolicyRules granted via a
+                     *     generated ClusterRole and ClusterRoleBinding.
+                     */
+                    clusterPermissions?: {
+                        /**
+                         * @description APIGroups is the name of the APIGroup that contains the resources.  If multiple API groups are specified, any action requested against one of
+                         *     the enumerated resources in any API group will be allowed. "" represents the core API group and "*" represents all API groups.
+                         */
+                        apiGroups?: string[];
+                        /**
+                         * @description NonResourceURLs is a set of partial urls that a user should have access to.  *s are allowed, but only as the full, final step in the path
+                         *     Since non-resource URLs are not namespaced, this field is only applicable for ClusterRoles referenced from a ClusterRoleBinding.
+                         *     Rules can either apply to API resources (such as "pods" or "secrets") or non-resource URL paths (such as "/api"),  but not both.
+                         */
+                        nonResourceURLs?: string[];
+                        /** @description ResourceNames is an optional white list of names that the rule applies to.  An empty set means that everything is allowed. */
+                        resourceNames?: string[];
+                        /** @description Resources is a list of resources this rule applies to. '*' represents all resources. */
+                        resources?: string[];
+                        /** @description Verbs is a list of Verbs that apply to ALL the ResourceKinds contained in this rule. '*' represents all verbs. */
+                        verbs: string[];
+                    }[];
+                    /** @description JobSpec is the specification of the backup or restore job. */
+                    jobSpec: {
+                        /** @description Command is the command to run the backup class. */
+                        command?: string[];
+                        /** @description Image is the image of the backup class. */
+                        image?: string;
+                    };
+                    /**
+                     * @description Permissions are namespace-scoped PolicyRules granted to the job pod via
+                     *     a generated Role and RoleBinding.
+                     */
+                    permissions?: {
+                        /**
+                         * @description APIGroups is the name of the APIGroup that contains the resources.  If multiple API groups are specified, any action requested against one of
+                         *     the enumerated resources in any API group will be allowed. "" represents the core API group and "*" represents all API groups.
+                         */
+                        apiGroups?: string[];
+                        /**
+                         * @description NonResourceURLs is a set of partial urls that a user should have access to.  *s are allowed, but only as the full, final step in the path
+                         *     Since non-resource URLs are not namespaced, this field is only applicable for ClusterRoles referenced from a ClusterRoleBinding.
+                         *     Rules can either apply to API resources (such as "pods" or "secrets") or non-resource URL paths (such as "/api"),  but not both.
+                         */
+                        nonResourceURLs?: string[];
+                        /** @description ResourceNames is an optional white list of names that the rule applies to.  An empty set means that everything is allowed. */
+                        resourceNames?: string[];
+                        /** @description Resources is a list of resources this rule applies to. '*' represents all resources. */
+                        resources?: string[];
+                        /** @description Verbs is a list of Verbs that apply to ALL the ResourceKinds contained in this rule. '*' represents all verbs. */
+                        verbs: string[];
+                    }[];
+                };
+                /**
                  * @description SupportedProviders is the list of provider names that this backup class
                  *     supports. The Instance.spec.provider must appear in this list for the
                  *     class to be usable on that Instance.

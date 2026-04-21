@@ -164,9 +164,15 @@ func (in *BackupClassSpec) DeepCopyInto(out *BackupClassSpec) {
 		**out = **in
 	}
 	in.Config.DeepCopyInto(&out.Config)
+	in.RestoreConfig.DeepCopyInto(&out.RestoreConfig)
 	in.InstanceConstraints.DeepCopyInto(&out.InstanceConstraints)
 	if in.Job != nil {
 		in, out := &in.Job, &out.Job
+		*out = new(JobExecution)
+		(*in).DeepCopyInto(*out)
+	}
+	if in.RestoreJob != nil {
+		in, out := &in.RestoreJob, &out.RestoreJob
 		*out = new(JobExecution)
 		(*in).DeepCopyInto(*out)
 	}
