@@ -378,6 +378,7 @@ export interface components {
              *
              *       - Instance.spec.backup.storages[].storageRef
              *       - Backup.spec.storageName
+             *       - Restore.spec.dataSource.external.storageName
              *
              *     Decoupling storage from individual Backup CRs makes provider-managed
              *     backups (e.g. PBM, pgBackRest) practical: the provider can register a
@@ -1048,6 +1049,184 @@ export interface components {
             metadata?: {
                 /** @description Name must be unique within a namespace. Is required when creating resources, although some resources may allow a client to request the generation of an appropriate name automatically. Name is primarily intended for creation idempotence and configuration definition. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names#names */
                 name?: string;
+            };
+        };
+        /** @description Restore is the Schema for the restores API. */
+        Restore: {
+            /**
+             * @description APIVersion defines the versioned schema of this representation of an object.
+             *     Servers should convert recognized schemas to the latest internal value, and
+             *     may reject unrecognized values.
+             *     More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+             */
+            apiVersion?: string;
+            /**
+             * @description Kind is a string value representing the REST resource this object represents.
+             *     Servers may infer this from the endpoint the client submits requests to.
+             *     Cannot be updated.
+             *     In CamelCase.
+             *     More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+             */
+            kind?: string;
+            metadata?: Record<string, never>;
+            /** @description RestoreSpec defines the desired state of Restore. */
+            spec: {
+                /**
+                 * @description Config is the restore-time configuration validated against the
+                 *     BackupClass's .spec.restoreConfig.openAPIV3Schema.
+                 */
+                config?: Record<string, never>;
+                /** @description DataSource defines where the backup data to restore from is located. */
+                dataSource: {
+                    /**
+                     * @description BackupName references an existing Backup CR in the same namespace to
+                     *     restore from. The BackupClass and storage are resolved from the
+                     *     referenced Backup.
+                     */
+                    backupName?: string;
+                    /**
+                     * @description External describes a backup that has no corresponding Backup CR in the
+                     *     cluster (e.g., a backup taken outside of OpenEverest).
+                     */
+                    external?: {
+                        /**
+                         * @description BackupClassName is the name of the BackupClass that defines how to
+                         *     restore this external backup.
+                         */
+                        backupClassName: string;
+                        /**
+                         * @description Config is forwarded to the BackupClass's restore configuration. It is
+                         *     validated against the same schema as Restore.spec.config.
+                         */
+                        config?: Record<string, never>;
+                        /**
+                         * @description StorageName references the BackupStorage in the same namespace that
+                         *     describes where the external backup data is located.
+                         */
+                        storageName: string;
+                    };
+                    /**
+                     * @description PITR defines point-in-time recovery options. Requires the resolved
+                     *     BackupClass to advertise PITR support via .spec.providerManaged.
+                     */
+                    pitr?: {
+                        /**
+                         * Format: date-time
+                         * @description Date is the target recovery point in time. Required when Type is "date".
+                         */
+                        date?: string;
+                        /**
+                         * @description Type is the type of point-in-time recovery: "date" or "latest".
+                         * @enum {string}
+                         */
+                        type: "date" | "latest";
+                    };
+                };
+                /**
+                 * @description InstanceName is the name of the Instance to restore into. The Instance
+                 *     must already exist in the same namespace and use a provider listed in
+                 *     the BackupClass's SupportedProviders.
+                 */
+                instanceName: string;
+            };
+            /** @description RestoreStatus defines the observed state of Restore. */
+            status?: {
+                /**
+                 * Format: date-time
+                 * @description CompletedAt is the time when the restore completed successfully.
+                 */
+                completedAt?: string;
+                conditions?: {
+                    /**
+                     * Format: date-time
+                     * @description lastTransitionTime is the last time the condition transitioned from one status to another.
+                     *     This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                     */
+                    lastTransitionTime: string;
+                    /**
+                     * @description message is a human readable message indicating details about the transition.
+                     *     This may be an empty string.
+                     */
+                    message: string;
+                    /**
+                     * Format: int64
+                     * @description observedGeneration represents the .metadata.generation that the condition was set based upon.
+                     *     For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                     *     with respect to the current state of the instance.
+                     */
+                    observedGeneration?: number;
+                    /**
+                     * @description reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                     *     Producers of specific condition types may define expected values and meanings for this field,
+                     *     and whether the values are considered a guaranteed API.
+                     *     The value should be a CamelCase string.
+                     *     This field may not be empty.
+                     */
+                    reason: string;
+                    /**
+                     * @description status of the condition, one of True, False, Unknown.
+                     * @enum {string}
+                     */
+                    status: "True" | "False" | "Unknown";
+                    /** @description type of condition in CamelCase or in foo.example.com/CamelCase. */
+                    type: string;
+                }[];
+                /**
+                 * @description EngineRestoreRef points at the engine-native restore resource the
+                 *     provider created (e.g., PerconaServerMongoDBRestore). Populated only
+                 *     for ProviderManaged classes.
+                 */
+                engineRestoreRef?: {
+                    /**
+                     * @description APIGroup is the group for the resource being referenced.
+                     *     If APIGroup is not specified, the specified Kind must be in the core API group.
+                     *     For any other third-party types, APIGroup is required.
+                     */
+                    apiGroup?: string;
+                    /** @description Kind is the type of resource being referenced */
+                    kind: string;
+                    /** @description Name is the name of resource being referenced */
+                    name: string;
+                };
+                /**
+                 * @description ExecutionMode is the resolved execution mode at the time the Restore
+                 *     started. Recorded for observability.
+                 * @enum {string}
+                 */
+                executionMode?: "ProviderManaged" | "Job";
+                /**
+                 * @description JobName is the reference to the Job that is running the restore.
+                 *     Populated only for Job classes.
+                 */
+                jobName?: string;
+                /**
+                 * Format: int64
+                 * @description LastObservedGeneration is the last observed generation of the Restore CR.
+                 */
+                lastObservedGeneration?: number;
+                /** @description Message is a human-readable message about the current state. */
+                message?: string;
+                /**
+                 * Format: date-time
+                 * @description StartedAt is the time when the restore started.
+                 */
+                startedAt?: string;
+                /** @description State is the current state of the restore. */
+                state?: string;
+            };
+        };
+        /** @description RestoreList is an object that contains the list of the existing restores. */
+        RestoreList: {
+            /** @description APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources */
+            apiVersion?: string;
+            items?: components["schemas"]["Restore"][];
+            /** @description Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds */
+            kind?: string;
+            metadata?: {
+                /** @description Name must be unique within a namespace. Is required when creating resources, although some resources may allow a client to request the generation of an appropriate name automatically. Name is primarily intended for creation idempotence and configuration definition. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names#names */
+                name?: string;
+                /** @description Namespace defines the space within which each name must be unique. An empty namespace is equivalent to the "default" namespace, but "default" is the canonical representation. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces */
+                namespace?: string;
             };
         };
     };

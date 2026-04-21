@@ -1,0 +1,249 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.18.0
+  name: restores.backup.openeverest.io
+spec:
+  group: backup.openeverest.io
+  names:
+    kind: Restore
+    listKind: RestoreList
+    plural: restores
+    shortNames:
+    - rs
+    - rst
+    singular: restore
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .spec.instanceName
+      name: Instance
+      type: string
+    - jsonPath: .status.state
+      name: State
+      type: string
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: Restore is the Schema for the restores API.
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: RestoreSpec defines the desired state of Restore.
+            properties:
+              config:
+                description: |-
+                  Config is the restore-time configuration validated against the
+                  BackupClass's .spec.restoreConfig.openAPIV3Schema.
+                type: object
+                x-kubernetes-preserve-unknown-fields: true
+              dataSource:
+                description: DataSource defines where the backup data to restore from
+                  is located.
+                properties:
+                  backupName:
+                    description: |-
+                      BackupName references an existing Backup CR in the same namespace to
+                      restore from. The BackupClass and storage are resolved from the
+                      referenced Backup.
+                    type: string
+                  external:
+                    description: |-
+                      External describes a backup that has no corresponding Backup CR in the
+                      cluster (e.g., a backup taken outside of OpenEverest).
+                    properties:
+                      backupClassName:
+                        description: |-
+                          BackupClassName is the name of the BackupClass that defines how to
+                          restore this external backup.
+                        type: string
+                      config:
+                        description: |-
+                          Config is forwarded to the BackupClass's restore configuration. It is
+                          validated against the same schema as Restore.spec.config.
+                        type: object
+                        x-kubernetes-preserve-unknown-fields: true
+                      storageName:
+                        description: |-
+                          StorageName references the BackupStorage in the same namespace that
+                          describes where the external backup data is located.
+                        type: string
+                    required:
+                    - backupClassName
+                    - storageName
+                    type: object
+                  pitr:
+                    description: |-
+                      PITR defines point-in-time recovery options. Requires the resolved
+                      BackupClass to advertise PITR support via .spec.providerManaged.
+                    properties:
+                      date:
+                        description: Date is the target recovery point in time. Required
+                          when Type is "date".
+                        format: date-time
+                        type: string
+                      type:
+                        description: 'Type is the type of point-in-time recovery:
+                          "date" or "latest".'
+                        enum:
+                        - date
+                        - latest
+                        type: string
+                    required:
+                    - type
+                    type: object
+                type: object
+              instanceName:
+                description: |-
+                  InstanceName is the name of the Instance to restore into. The Instance
+                  must already exist in the same namespace and use a provider listed in
+                  the BackupClass's SupportedProviders.
+                type: string
+            required:
+            - dataSource
+            - instanceName
+            type: object
+          status:
+            description: RestoreStatus defines the observed state of Restore.
+            properties:
+              completedAt:
+                description: CompletedAt is the time when the restore completed successfully.
+                format: date-time
+                type: string
+              conditions:
+                items:
+                  description: Condition contains details for one aspect of the current
+                    state of this API Resource.
+                  properties:
+                    lastTransitionTime:
+                      description: |-
+                        lastTransitionTime is the last time the condition transitioned from one status to another.
+                        This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                      format: date-time
+                      type: string
+                    message:
+                      description: |-
+                        message is a human readable message indicating details about the transition.
+                        This may be an empty string.
+                      maxLength: 32768
+                      type: string
+                    observedGeneration:
+                      description: |-
+                        observedGeneration represents the .metadata.generation that the condition was set based upon.
+                        For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                        with respect to the current state of the instance.
+                      format: int64
+                      minimum: 0
+                      type: integer
+                    reason:
+                      description: |-
+                        reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                        Producers of specific condition types may define expected values and meanings for this field,
+                        and whether the values are considered a guaranteed API.
+                        The value should be a CamelCase string.
+                        This field may not be empty.
+                      maxLength: 1024
+                      minLength: 1
+                      pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                      type: string
+                    status:
+                      description: status of the condition, one of True, False, Unknown.
+                      enum:
+                      - "True"
+                      - "False"
+                      - Unknown
+                      type: string
+                    type:
+                      description: type of condition in CamelCase or in foo.example.com/CamelCase.
+                      maxLength: 316
+                      pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - message
+                  - reason
+                  - status
+                  - type
+                  type: object
+                type: array
+                x-kubernetes-list-map-keys:
+                - type
+                x-kubernetes-list-type: map
+              engineRestoreRef:
+                description: |-
+                  EngineRestoreRef points at the engine-native restore resource the
+                  provider created (e.g., PerconaServerMongoDBRestore). Populated only
+                  for ProviderManaged classes.
+                properties:
+                  apiGroup:
+                    description: |-
+                      APIGroup is the group for the resource being referenced.
+                      If APIGroup is not specified, the specified Kind must be in the core API group.
+                      For any other third-party types, APIGroup is required.
+                    type: string
+                  kind:
+                    description: Kind is the type of resource being referenced
+                    type: string
+                  name:
+                    description: Name is the name of resource being referenced
+                    type: string
+                required:
+                - kind
+                - name
+                type: object
+                x-kubernetes-map-type: atomic
+              executionMode:
+                description: |-
+                  ExecutionMode is the resolved execution mode at the time the Restore
+                  started. Recorded for observability.
+                enum:
+                - ProviderManaged
+                - Job
+                type: string
+              jobName:
+                description: |-
+                  JobName is the reference to the Job that is running the restore.
+                  Populated only for Job classes.
+                type: string
+              lastObservedGeneration:
+                description: LastObservedGeneration is the last observed generation
+                  of the Restore CR.
+                format: int64
+                type: integer
+              message:
+                description: Message is a human-readable message about the current
+                  state.
+                type: string
+              startedAt:
+                description: StartedAt is the time when the restore started.
+                format: date-time
+                type: string
+              state:
+                description: State is the current state of the restore.
+                type: string
+            type: object
+        required:
+        - spec
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}

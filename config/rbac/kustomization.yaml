@@ -25,6 +25,9 @@ resources:
 - backup_backupstorage_admin_role.yaml
 - backup_backupstorage_editor_role.yaml
 - backup_backupstorage_viewer_role.yaml
+- backup_restore_admin_role.yaml
+- backup_restore_editor_role.yaml
+- backup_restore_viewer_role.yaml
 - monitoring_monitoringconfig_admin_role.yaml
 - monitoring_monitoringconfig_editor_role.yaml
 - monitoring_monitoringconfig_viewer_role.yaml
