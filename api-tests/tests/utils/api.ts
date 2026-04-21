@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -525,6 +526,67 @@ export const deleteMonitoringConfig = async (request, name) => {
 
 export const deleteMonitoringConfigRaw = async (request, name) => {
   return await request.delete(`/v1/namespaces/${EVEREST_CI_NAMESPACE}/monitoring-instances/${name}`)
+}
+
+// TODO: remove V2 suffix after all old monitoring config tests are deleted.
+
+export const createMonitoringConfigV2 = async (request, name) => {
+  const miData = {
+    type: 'pmm',
+    name: name,
+    url: `https://${process.env.PMM1_IP}`,
+    pmm: {
+      apiKey: `${process.env.PMM1_API_KEY}`,
+    },
+    verifyTLS: false,
+  }
+  return await createMonitoringConfigWithDataRawV2(request, miData)
+}
+
+export const createMonitoringConfigWithDataV2 = async (request, data) => {
+  const response = await createMonitoringConfigWithDataRawV2(request, data)
+  await checkError(response)
+  return (await response.json())
+}
+
+export const createMonitoringConfigWithDataRawV2 = async (request, data) => {
+  return await request.post(`/v1/clusters/main/namespaces/${EVEREST_CI_NAMESPACE}/monitoring-configs`, {data: data})
+}
+
+export const getMonitoringConfigV2 = async (request, name) => {
+  const response = await getMonitoringConfigRawV2(request, name)
+  await checkError(response)
+  return (await response.json())
+}
+
+export const getMonitoringConfigRawV2 = async (request, name) => {
+  return await request.get(`/v1/clusters/main/namespaces/${EVEREST_CI_NAMESPACE}/monitoring-configs/${name}`)
+}
+
+export const updateMonitoringConfigV2 = async (request, name, data) => {
+  const response = await updateMonitoringConfigRawV2(request, name, data)
+  await checkError(response)
+  return (await response.json())
+}
+
+export const updateMonitoringConfigRawV2 = async (request, name, data) => {
+  return await request.patch(`/v1/clusters/main/namespaces/${EVEREST_CI_NAMESPACE}/monitoring-configs/${name}`, {data: data})
+}
+
+export const deleteMonitoringConfigV2 = async (request, name) => {
+  // Wait for deletion mark.
+  await expect(async () => {
+    await deleteMonitoringConfigRawV2(request, name)
+    const res = await getMonitoringConfigRawV2(request, name)
+    await checkResourceDeletion(res)
+  }).toPass({
+    intervals: [1000],
+    timeout: 300 * 1000,
+  })
+}
+
+export const deleteMonitoringConfigRawV2 = async (request, name) => {
+  return await request.delete(`/v1/clusters/main/namespaces/${EVEREST_CI_NAMESPACE}/monitoring-configs/${name}`)
 }
 
 // --------------------- DB Engine helpers -----------------------------------------------
