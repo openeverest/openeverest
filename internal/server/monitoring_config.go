@@ -15,8 +15,6 @@
 package server
 
 import (
-	"encoding/json"
-	"io"
 	"net/http"
 
 	"github.com/labstack/echo/v4"
@@ -27,19 +25,13 @@ import (
 // CreateMonitoringConfig creates a new monitoring config.
 func (e *EverestServer) CreateMonitoringConfig(c echo.Context, cluster, namespace string) error {
 	// The cluster parameter is currently ignored as we operate on the configured cluster
-	req := &api.MonitoringConfigCreateParams{}
-	body, err := io.ReadAll(c.Request().Body)
-	if err != nil {
-		e.l.Errorf("CreateMonitoringConfig: failed to read request body: %v", err)
+	var req api.MonitoringConfigCreateParams
+	if err := c.Bind(&req); err != nil {
+		e.l.Errorf("CreateMonitoringConfig: failed to bind request body: %v", err)
 		return err
 	}
 
-	if err := json.Unmarshal(body, req); err != nil {
-		e.l.Errorf("CreateMonitoringConfig: failed to decode request body: %v", err)
-		return err
-	}
-
-	result, err := e.handler.CreateMonitoringConfig(c.Request().Context(), namespace, req)
+	result, err := e.handler.CreateMonitoringConfig(c.Request().Context(), namespace, &req)
 	if err != nil {
 		e.l.Errorf("CreateMonitoringConfig failed: %v", err)
 		return err
@@ -75,19 +67,13 @@ func (e *EverestServer) GetMonitoringConfig(c echo.Context, cluster, namespace, 
 // UpdateMonitoringConfig updates a monitoring config based on the provided fields.
 func (e *EverestServer) UpdateMonitoringConfig(c echo.Context, cluster, namespace, name string) error {
 	// The cluster parameter is currently ignored as we operate on the configured cluster
-	req := &api.MonitoringConfigUpdateParams{}
-	body, err := io.ReadAll(c.Request().Body)
-	if err != nil {
-		e.l.Errorf("UpdateMonitoringConfig: failed to read request body: %v", err)
+	var req api.MonitoringConfigUpdateParams
+	if err := c.Bind(&req); err != nil {
+		e.l.Errorf("UpdateMonitoringConfig: failed to bind request body: %v", err)
 		return err
 	}
 
-	if err := json.Unmarshal(body, req); err != nil {
-		e.l.Errorf("UpdateMonitoringConfig: failed to decode request body: %v", err)
-		return err
-	}
-
-	result, err := e.handler.UpdateMonitoringConfig(c.Request().Context(), namespace, name, req)
+	result, err := e.handler.UpdateMonitoringConfig(c.Request().Context(), namespace, name, &req)
 	if err != nil {
 		e.l.Errorf("UpdateMonitoringConfig failed: %v", err)
 		return err
