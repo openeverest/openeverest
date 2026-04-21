@@ -238,7 +238,7 @@ type FieldIndexProvider interface {
 // =============================================================================
 
 // BackupProvider is an optional interface that providers can implement to
-// participate in the backup lifecycle for ProviderManaged BackupClass
+// participate in the backup/restore lifecycle for ProviderManaged BackupClass
 // resources (engine-native backup tooling such as PBM, pgBackRest, or Barman).
 //
 // When a provider implements this interface the runtime automatically:
@@ -246,7 +246,7 @@ type FieldIndexProvider interface {
 //     restore.spec.instanceName so the provider can list backups/restores for
 //     a given Instance efficiently.
 //   - Starts ancillary reconcilers for Backup and Restore CRs that dispatch to
-//     SyncBackup when the resolved BackupClass uses
+//     SyncBackup/SyncRestore when the resolved BackupClass uses
 //     executionMode "ProviderManaged".
 //
 // All methods receive the same *Context handle as ProviderInterface; helpers
@@ -260,10 +260,18 @@ type BackupProvider interface {
 	// runtime.
 	SyncBackup(c *Context, backup *backupv1alpha1.Backup) (BackupExecutionStatus, error)
 
+	// SyncRestore reconciles a single Restore CR whose BackupClass uses
+	// executionMode "ProviderManaged".
+	SyncRestore(c *Context, restore *backupv1alpha1.Restore) (RestoreExecutionStatus, error)
+
 	// CleanupBackup is invoked when a Backup CR is being deleted. Implementations
 	// must delete any engine-native resources they created and return true once
 	// cleanup is complete (which allows the runtime to remove its finalizer).
 	CleanupBackup(c *Context, backup *backupv1alpha1.Backup) (done bool, err error)
+
+	// CleanupRestore mirrors CleanupBackup for Restore CRs. Most providers can
+	// return (true, nil) since restores are typically run-to-completion.
+	CleanupRestore(c *Context, restore *backupv1alpha1.Restore) (done bool, err error)
 }
 
 // =============================================================================

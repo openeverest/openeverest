@@ -22,6 +22,7 @@ import (
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -547,7 +548,7 @@ func WaitForDuration(reason string, d time.Duration) error {
 }
 
 // =============================================================================
-// BACKUP HELPERS
+// BACKUP / RESTORE HELPERS
 // =============================================================================
 
 // BackupClass fetches a BackupClass by name (cluster-scoped).
@@ -601,11 +602,27 @@ func (c *Context) BackupsForInstance() ([]backupv1alpha1.Backup, error) {
 	return list.Items, nil
 }
 
+// RestoresForInstance lists all Restore CRs in the instance namespace whose
+// .spec.instanceName matches this Instance.
+func (c *Context) RestoresForInstance() ([]backupv1alpha1.Restore, error) {
+	list := &backupv1alpha1.RestoreList{}
+	if err := c.client.List(c.ctx, list,
+		client.InNamespace(c.in.Namespace),
+		client.MatchingFields{IndexRestoreInstanceName: c.in.Name},
+	); err != nil {
+		return nil, fmt.Errorf("failed to list restores for instance: %w", err)
+	}
+	return list.Items, nil
+}
+
 // IndexBackupInstanceName is the field index path used for Backup.spec.instanceName.
 const IndexBackupInstanceName = "spec.instanceName"
 
+// IndexRestoreInstanceName is the field index path used for Restore.spec.instanceName.
+const IndexRestoreInstanceName = "spec.instanceName"
+
 // =============================================================================
-// BACKUP  EXECUTION STATUS
+// BACKUP / RESTORE EXECUTION STATUS
 // =============================================================================
 
 // BackupExecutionStatus is returned by BackupProvider.SyncBackup. The runtime

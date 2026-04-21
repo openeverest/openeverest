@@ -146,7 +146,7 @@ func newReconciler(ctx context.Context, p providerAdapter, opts ...ReconcilerOpt
 	}
 
 	// Register backup types so providers and the runtime can read/write
-	// BackupClass/Backup/BackupStorage CRs without requiring each
+	// BackupClass/Backup/Restore/BackupStorage CRs without requiring each
 	// provider to register them explicitly.
 	if err := backupv1alpha1.AddToScheme(scheme); err != nil {
 		return nil, fmt.Errorf("failed to add backup v1alpha1 scheme: %w", err)
@@ -188,7 +188,7 @@ func newReconciler(ctx context.Context, p providerAdapter, opts ...ReconcilerOpt
 		}
 	}
 
-	// Setup field indexes required by BackupProvider helpers (Backups
+	// Setup field indexes required by BackupProvider helpers (Backups/Restores
 	// for an Instance) when the provider opts in.
 	if _, isBackupProvider := p.(controller.BackupProvider); isBackupProvider {
 		if err := mgr.GetFieldIndexer().IndexField(ctx, &backupv1alpha1.Backup{}, controller.IndexBackupInstanceName, func(obj client.Object) []string {
@@ -199,6 +199,15 @@ func newReconciler(ctx context.Context, p providerAdapter, opts ...ReconcilerOpt
 			return []string{b.Spec.InstanceName}
 		}); err != nil {
 			return nil, fmt.Errorf("failed to register backup instanceName index: %w", err)
+		}
+		if err := mgr.GetFieldIndexer().IndexField(ctx, &backupv1alpha1.Restore{}, controller.IndexRestoreInstanceName, func(obj client.Object) []string {
+			rs, ok := obj.(*backupv1alpha1.Restore)
+			if !ok || rs.Spec.InstanceName == "" {
+				return nil
+			}
+			return []string{rs.Spec.InstanceName}
+		}); err != nil {
+			return nil, fmt.Errorf("failed to register restore instanceName index: %w", err)
 		}
 	}
 
@@ -222,10 +231,13 @@ func newReconciler(ctx context.Context, p providerAdapter, opts ...ReconcilerOpt
 
 	// Register the BackupProvider-aware ancillary reconcilers when the
 	// provider implements the optional interface. These dispatch to
-	// SyncBackup for ProviderManaged BackupClasses.
+	// SyncBackup/SyncRestore for ProviderManaged BackupClasses.
 	if bp, ok := p.(controller.BackupProvider); ok {
 		if err := setupBackupReconciler(mgr, bp, p.Name()); err != nil {
 			return nil, fmt.Errorf("failed to setup backup reconciler: %w", err)
+		}
+		if err := setupRestoreReconciler(mgr, bp, p.Name()); err != nil {
+			return nil, fmt.Errorf("failed to setup restore reconciler: %w", err)
 		}
 	}
 
