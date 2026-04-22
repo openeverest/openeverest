@@ -75,12 +75,12 @@ func (_m *MockHandler) CreateBackup(ctx context.Context, backup *v1alpha1.Backup
 	return r0, r1
 }
 
-// CreateBackupStorage provides a mock function with given fields: ctx, namespace, req
-func (_m *MockHandler) CreateBackupStorage(ctx context.Context, namespace string, req *api.CreateBackupStorageParams) (*everestv1alpha1.BackupStorage, error) {
+// CreateBackupStorageV1 provides a mock function with given fields: ctx, namespace, req
+func (_m *MockHandler) CreateBackupStorageV1(ctx context.Context, namespace string, req *api.CreateBackupStorageParams) (*everestv1alpha1.BackupStorage, error) {
 	ret := _m.Called(ctx, namespace, req)
 
 	if len(ret) == 0 {
-		panic("no return value specified for CreateBackupStorage")
+		panic("no return value specified for CreateBackupStorageV1")
 	}
 
 	var r0 *everestv1alpha1.BackupStorage
@@ -423,12 +423,12 @@ func (_m *MockHandler) DeleteBackup(ctx context.Context, namespace string, name 
 	return r0
 }
 
-// DeleteBackupStorage provides a mock function with given fields: ctx, namespace, name
-func (_m *MockHandler) DeleteBackupStorage(ctx context.Context, namespace string, name string) error {
+// DeleteBackupStorageV1 provides a mock function with given fields: ctx, namespace, name
+func (_m *MockHandler) DeleteBackupStorageV1(ctx context.Context, namespace string, name string) error {
 	ret := _m.Called(ctx, namespace, name)
 
 	if len(ret) == 0 {
-		panic("no return value specified for DeleteBackupStorage")
+		panic("no return value specified for DeleteBackupStorageV1")
 	}
 
 	var r0 error
@@ -663,12 +663,12 @@ func (_m *MockHandler) GetBackupClass(ctx context.Context, name string) (*v1alph
 	return r0, r1
 }
 
-// GetBackupStorage provides a mock function with given fields: ctx, namespace, name
-func (_m *MockHandler) GetBackupStorage(ctx context.Context, namespace string, name string) (*everestv1alpha1.BackupStorage, error) {
+// GetBackupStorageV1 provides a mock function with given fields: ctx, namespace, name
+func (_m *MockHandler) GetBackupStorageV1(ctx context.Context, namespace string, name string) (*everestv1alpha1.BackupStorage, error) {
 	ret := _m.Called(ctx, namespace, name)
 
 	if len(ret) == 0 {
-		panic("no return value specified for GetBackupStorage")
+		panic("no return value specified for GetBackupStorageV1")
 	}
 
 	var r0 *everestv1alpha1.BackupStorage
@@ -1371,12 +1371,12 @@ func (_m *MockHandler) ListBackupClasses(ctx context.Context) (*v1alpha1.BackupC
 	return r0, r1
 }
 
-// ListBackupStorages provides a mock function with given fields: ctx, namespace
-func (_m *MockHandler) ListBackupStorages(ctx context.Context, namespace string) (*everestv1alpha1.BackupStorageList, error) {
+// ListBackupStoragesV1 provides a mock function with given fields: ctx, namespace
+func (_m *MockHandler) ListBackupStoragesV1(ctx context.Context, namespace string) (*everestv1alpha1.BackupStorageList, error) {
 	ret := _m.Called(ctx, namespace)
 
 	if len(ret) == 0 {
-		panic("no return value specified for ListBackupStorages")
+		panic("no return value specified for ListBackupStoragesV1")
 	}
 
 	var r0 *everestv1alpha1.BackupStorageList
@@ -1863,12 +1863,12 @@ func (_m *MockHandler) SetNext(h Handler) {
 	_m.Called(h)
 }
 
-// UpdateBackupStorage provides a mock function with given fields: ctx, name, namespace, req
-func (_m *MockHandler) UpdateBackupStorage(ctx context.Context, name string, namespace string, req *api.UpdateBackupStorageParams) (*everestv1alpha1.BackupStorage, error) {
+// UpdateBackupStorageV1 provides a mock function with given fields: ctx, name, namespace, req
+func (_m *MockHandler) UpdateBackupStorageV1(ctx context.Context, name string, namespace string, req *api.UpdateBackupStorageParams) (*everestv1alpha1.BackupStorage, error) {
 	ret := _m.Called(ctx, name, namespace, req)
 
 	if len(ret) == 0 {
-		panic("no return value specified for UpdateBackupStorage")
+		panic("no return value specified for UpdateBackupStorageV1")
 	}
 
 	var r0 *everestv1alpha1.BackupStorage

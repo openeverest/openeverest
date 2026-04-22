@@ -605,7 +605,7 @@ export interface paths {
          * List backup storages
          * @description This API lists all backup storages.
          */
-        get: operations["listBackupStorages"];
+        get: operations["listBackupStoragesV1"];
         put?: never;
         /**
          * Create backup storage
@@ -643,7 +643,7 @@ export interface paths {
          *       }
          *       ```
          */
-        post: operations["createBackupStorage"];
+        post: operations["createBackupStorageV1"];
         delete?: never;
         options?: never;
         head?: never;
@@ -661,21 +661,21 @@ export interface paths {
          * Get backup storage
          * @description This API gets the backup storage speciciied by the `name` in the given `namespace`.
          */
-        get: operations["getBackupStorage"];
+        get: operations["getBackupStorageV1"];
         put?: never;
         post?: never;
         /**
          * Delete backup storage
          * @description This API deletes the backup storage specified by the `name`.
          */
-        delete: operations["deleteBackupStorage"];
+        delete: operations["deleteBackupStorageV1"];
         options?: never;
         head?: never;
         /**
          * Update backup storage
          * @description This API updates the backup storage specified by the `name`. Only the specified fields will be updated.
          */
-        patch: operations["updateBackupStorage"];
+        patch: operations["updateBackupStorageV1"];
         trace?: never;
     };
     "/namespaces/{namespace}/monitoring-instances": {
@@ -9234,7 +9234,7 @@ export interface operations {
             };
         };
     };
-    listBackupStorages: {
+    listBackupStoragesV1: {
         parameters: {
             query?: never;
             header?: never;
@@ -9275,7 +9275,7 @@ export interface operations {
             };
         };
     };
-    createBackupStorage: {
+    createBackupStorageV1: {
         parameters: {
             query?: never;
             header?: never;
@@ -9321,7 +9321,7 @@ export interface operations {
             };
         };
     };
-    getBackupStorage: {
+    getBackupStorageV1: {
         parameters: {
             query?: never;
             header?: never;
@@ -9364,7 +9364,7 @@ export interface operations {
             };
         };
     };
-    deleteBackupStorage: {
+    deleteBackupStorageV1: {
         parameters: {
             query?: never;
             header?: never;
@@ -9405,7 +9405,7 @@ export interface operations {
             };
         };
     };
-    updateBackupStorage: {
+    updateBackupStorageV1: {
         parameters: {
             query?: never;
             header?: never;

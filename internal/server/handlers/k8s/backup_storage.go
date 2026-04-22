@@ -17,16 +17,16 @@ import (
 	api "github.com/openeverest/openeverest/v2/internal/server/api"
 )
 
-func (h *k8sHandler) ListBackupStorages(ctx context.Context, namespace string) (*everestv1alpha1.BackupStorageList, error) {
+func (h *k8sHandler) ListBackupStoragesV1(ctx context.Context, namespace string) (*everestv1alpha1.BackupStorageList, error) {
 	return h.kubeConnector.ListBackupStorages(ctx, ctrlclient.InNamespace(namespace))
 }
 
-func (h *k8sHandler) GetBackupStorage(ctx context.Context, namespace, name string) (*everestv1alpha1.BackupStorage, error) {
+func (h *k8sHandler) GetBackupStorageV1(ctx context.Context, namespace, name string) (*everestv1alpha1.BackupStorage, error) {
 	return h.kubeConnector.GetBackupStorage(ctx, types.NamespacedName{Namespace: namespace, Name: name})
 }
 
-func (h *k8sHandler) CreateBackupStorage(ctx context.Context, namespace string, req *api.CreateBackupStorageParams) (*everestv1alpha1.BackupStorage, error) {
-	bs, err := h.GetBackupStorage(ctx, namespace, req.Name)
+func (h *k8sHandler) CreateBackupStorageV1(ctx context.Context, namespace string, req *api.CreateBackupStorageParams) (*everestv1alpha1.BackupStorage, error) {
+	bs, err := h.GetBackupStorageV1(ctx, namespace, req.Name)
 	if err != nil && !k8serrors.IsNotFound(err) {
 		return nil, fmt.Errorf("failed to get backup storage: %w", err)
 	}
@@ -94,7 +94,7 @@ func (h *k8sHandler) CreateBackupStorage(ctx context.Context, namespace string, 
 	return created, nil
 }
 
-func (h *k8sHandler) UpdateBackupStorage(ctx context.Context, namespace, name string, req *api.UpdateBackupStorageParams) (*everestv1alpha1.BackupStorage, error) {
+func (h *k8sHandler) UpdateBackupStorageV1(ctx context.Context, namespace, name string, req *api.UpdateBackupStorageParams) (*everestv1alpha1.BackupStorage, error) {
 	if req.AccessKey != nil || req.SecretKey != nil {
 		_, err := h.kubeConnector.UpdateSecret(ctx, &corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
@@ -135,7 +135,7 @@ func (h *k8sHandler) UpdateBackupStorage(ctx context.Context, namespace, name st
 	return h.kubeConnector.UpdateBackupStorage(ctx, bs)
 }
 
-func (h *k8sHandler) DeleteBackupStorage(ctx context.Context, namespace, name string) error {
+func (h *k8sHandler) DeleteBackupStorageV1(ctx context.Context, namespace, name string) error {
 	delBSObj := &everestv1alpha1.BackupStorage{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
