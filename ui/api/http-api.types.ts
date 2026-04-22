@@ -7177,7 +7177,7 @@ export interface components {
                     /**
                      * @description Schedules registers recurring backup tasks on the engine. Schedules
                      *     produce Backup CRs (via the provider's mirroring loop) using the
-                     *     engine-native scheduler — the runtime never spawns CronJobs for
+                     *     operator-native scheduler — the runtime never spawns CronJobs for
                      *     ProviderManaged BackupClasses.
                      */
                     schedules?: {
@@ -7826,7 +7826,7 @@ export interface components {
                  * @description ScheduleName, when set, identifies the InstanceBackupSchedule that
                  *     produced this Backup. Backups created via the API or `kubectl apply`
                  *     leave this field empty (on-demand). The provider's mirroring loop
-                 *     sets it when surfacing engine-produced scheduled backups as Backup
+                 *     sets it when surfacing operator-produced scheduled backups as Backup
                  *     CRs.
                  */
                 scheduleName?: string;
@@ -7881,23 +7881,6 @@ export interface components {
                     type: string;
                 }[];
                 /**
-                 * @description EngineBackupRef points at the engine-native backup resource the
-                 *     provider created (e.g., PerconaServerMongoDBBackup). Populated only
-                 *     for ProviderManaged classes.
-                 */
-                engineBackupRef?: {
-                    /**
-                     * @description APIGroup is the group for the resource being referenced.
-                     *     If APIGroup is not specified, the specified Kind must be in the core API group.
-                     *     For any other third-party types, APIGroup is required.
-                     */
-                    apiGroup?: string;
-                    /** @description Kind is the type of resource being referenced */
-                    kind: string;
-                    /** @description Name is the name of resource being referenced */
-                    name: string;
-                };
-                /**
                  * @description ExecutionMode is the resolved execution mode at the time the Backup
                  *     started. Recorded for observability.
                  * @enum {string}
@@ -7915,6 +7898,23 @@ export interface components {
                 lastObservedGeneration?: number;
                 /** @description Message is a human-readable message about the current state. */
                 message?: string;
+                /**
+                 * @description OperatorBackupRef points at the operator-native backup resource the
+                 *     provider created (e.g., PerconaServerMongoDBBackup). Populated only
+                 *     for ProviderManaged classes.
+                 */
+                operatorBackupRef?: {
+                    /**
+                     * @description APIGroup is the group for the resource being referenced.
+                     *     If APIGroup is not specified, the specified Kind must be in the core API group.
+                     *     For any other third-party types, APIGroup is required.
+                     */
+                    apiGroup?: string;
+                    /** @description Kind is the type of resource being referenced */
+                    kind: string;
+                    /** @description Name is the name of resource being referenced */
+                    name: string;
+                };
                 /**
                  * Format: date-time
                  * @description StartedAt is the time when the backup started.

@@ -118,11 +118,11 @@ type RestoreStatus struct {
 	// started. Recorded for observability.
 	// +optional
 	ExecutionMode BackupExecutionMode `json:"executionMode,omitempty"`
-	// EngineRestoreRef points at the engine-native restore resource the
+	// OperatorRestoreRef points at the operator-native restore resource the
 	// provider created (e.g., PerconaServerMongoDBRestore). Populated only
 	// for ProviderManaged classes.
 	// +optional
-	EngineRestoreRef *corev1.TypedLocalObjectReference `json:"engineRestoreRef,omitempty"`
+	OperatorRestoreRef *corev1.TypedLocalObjectReference `json:"operatorRestoreRef,omitempty"`
 	// JobName is the reference to the Job that is running the restore.
 	// Populated only for Job classes.
 	// +optional

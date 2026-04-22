@@ -239,7 +239,7 @@ type FieldIndexProvider interface {
 
 // BackupProvider is an optional interface that providers can implement to
 // participate in the backup/restore lifecycle for ProviderManaged BackupClass
-// resources (engine-native backup tooling such as PBM, pgBackRest, or Barman).
+// resources (operator-native backup tooling such as PBM, pgBackRest, or Barman).
 //
 // When a provider implements this interface the runtime automatically:
 //   - Registers field indexes on backup.spec.instanceName and
@@ -255,7 +255,7 @@ type FieldIndexProvider interface {
 type BackupProvider interface {
 	// SyncBackup reconciles a single Backup CR whose BackupClass uses
 	// executionMode "ProviderManaged". The provider creates or updates the
-	// engine-native backup resource and reports its observed state. The
+	// operator-native backup resource and reports its observed state. The
 	// returned BackupExecutionStatus is reflected onto the Backup CR by the
 	// runtime.
 	SyncBackup(c *Context, backup *backupv1alpha1.Backup) (BackupExecutionStatus, error)
@@ -265,7 +265,7 @@ type BackupProvider interface {
 	SyncRestore(c *Context, restore *backupv1alpha1.Restore) (RestoreExecutionStatus, error)
 
 	// CleanupBackup is invoked when a Backup CR is being deleted. Implementations
-	// must delete any engine-native resources they created and return true once
+	// must delete any operator-native resources they created and return true once
 	// cleanup is complete (which allows the runtime to remove its finalizer).
 	CleanupBackup(c *Context, backup *backupv1alpha1.Backup) (done bool, err error)
 

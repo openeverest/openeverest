@@ -209,8 +209,8 @@ func applyRestoreExecutionStatus(restore *backupv1alpha1.Restore, bc *backupv1al
 	if exec.Message != "" {
 		restore.Status.Message = exec.Message
 	}
-	if exec.EngineRestoreRef != nil {
-		restore.Status.EngineRestoreRef = exec.EngineRestoreRef
+	if exec.OperatorRestoreRef != nil {
+		restore.Status.OperatorRestoreRef = exec.OperatorRestoreRef
 	}
 	if exec.StartedAt != nil && restore.Status.StartedAt == nil {
 		restore.Status.StartedAt = exec.StartedAt

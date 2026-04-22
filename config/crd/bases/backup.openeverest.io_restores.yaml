@@ -187,29 +187,6 @@ spec:
                 x-kubernetes-list-map-keys:
                 - type
                 x-kubernetes-list-type: map
-              engineRestoreRef:
-                description: |-
-                  EngineRestoreRef points at the engine-native restore resource the
-                  provider created (e.g., PerconaServerMongoDBRestore). Populated only
-                  for ProviderManaged classes.
-                properties:
-                  apiGroup:
-                    description: |-
-                      APIGroup is the group for the resource being referenced.
-                      If APIGroup is not specified, the specified Kind must be in the core API group.
-                      For any other third-party types, APIGroup is required.
-                    type: string
-                  kind:
-                    description: Kind is the type of resource being referenced
-                    type: string
-                  name:
-                    description: Name is the name of resource being referenced
-                    type: string
-                required:
-                - kind
-                - name
-                type: object
-                x-kubernetes-map-type: atomic
               executionMode:
                 description: |-
                   ExecutionMode is the resolved execution mode at the time the Restore
@@ -232,6 +209,29 @@ spec:
                 description: Message is a human-readable message about the current
                   state.
                 type: string
+              operatorRestoreRef:
+                description: |-
+                  OperatorRestoreRef points at the operator-native restore resource the
+                  provider created (e.g., PerconaServerMongoDBRestore). Populated only
+                  for ProviderManaged classes.
+                properties:
+                  apiGroup:
+                    description: |-
+                      APIGroup is the group for the resource being referenced.
+                      If APIGroup is not specified, the specified Kind must be in the core API group.
+                      For any other third-party types, APIGroup is required.
+                    type: string
+                  kind:
+                    description: Kind is the type of resource being referenced
+                    type: string
+                  name:
+                    description: Name is the name of resource being referenced
+                    type: string
+                required:
+                - kind
+                - name
+                type: object
+                x-kubernetes-map-type: atomic
               startedAt:
                 description: StartedAt is the time when the restore started.
                 format: date-time

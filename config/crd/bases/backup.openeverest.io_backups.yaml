@@ -75,7 +75,7 @@ spec:
                   ScheduleName, when set, identifies the InstanceBackupSchedule that
                   produced this Backup. Backups created via the API or `kubectl apply`
                   leave this field empty (on-demand). The provider's mirroring loop
-                  sets it when surfacing engine-produced scheduled backups as Backup
+                  sets it when surfacing operator-produced scheduled backups as Backup
                   CRs.
                 type: string
               storageName:
@@ -156,29 +156,6 @@ spec:
                 x-kubernetes-list-map-keys:
                 - type
                 x-kubernetes-list-type: map
-              engineBackupRef:
-                description: |-
-                  EngineBackupRef points at the engine-native backup resource the
-                  provider created (e.g., PerconaServerMongoDBBackup). Populated only
-                  for ProviderManaged classes.
-                properties:
-                  apiGroup:
-                    description: |-
-                      APIGroup is the group for the resource being referenced.
-                      If APIGroup is not specified, the specified Kind must be in the core API group.
-                      For any other third-party types, APIGroup is required.
-                    type: string
-                  kind:
-                    description: Kind is the type of resource being referenced
-                    type: string
-                  name:
-                    description: Name is the name of resource being referenced
-                    type: string
-                required:
-                - kind
-                - name
-                type: object
-                x-kubernetes-map-type: atomic
               executionMode:
                 description: |-
                   ExecutionMode is the resolved execution mode at the time the Backup
@@ -201,6 +178,29 @@ spec:
                 description: Message is a human-readable message about the current
                   state.
                 type: string
+              operatorBackupRef:
+                description: |-
+                  OperatorBackupRef points at the operator-native backup resource the
+                  provider created (e.g., PerconaServerMongoDBBackup). Populated only
+                  for ProviderManaged classes.
+                properties:
+                  apiGroup:
+                    description: |-
+                      APIGroup is the group for the resource being referenced.
+                      If APIGroup is not specified, the specified Kind must be in the core API group.
+                      For any other third-party types, APIGroup is required.
+                    type: string
+                  kind:
+                    description: Kind is the type of resource being referenced
+                    type: string
+                  name:
+                    description: Name is the name of resource being referenced
+                    type: string
+                required:
+                - kind
+                - name
+                type: object
+                x-kubernetes-map-type: atomic
               startedAt:
                 description: StartedAt is the time when the backup started.
                 format: date-time

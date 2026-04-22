@@ -41,7 +41,7 @@ type BackupSpec struct {
 	// ScheduleName, when set, identifies the InstanceBackupSchedule that
 	// produced this Backup. Backups created via the API or `kubectl apply`
 	// leave this field empty (on-demand). The provider's mirroring loop
-	// sets it when surfacing engine-produced scheduled backups as Backup
+	// sets it when surfacing operator-produced scheduled backups as Backup
 	// CRs.
 	// +optional
 	ScheduleName string `json:"scheduleName,omitempty"`
@@ -58,11 +58,11 @@ type BackupStatus struct {
 	// started. Recorded for observability.
 	// +optional
 	ExecutionMode BackupExecutionMode `json:"executionMode,omitempty"`
-	// EngineBackupRef points at the engine-native backup resource the
+	// OperatorBackupRef points at the operator-native backup resource the
 	// provider created (e.g., PerconaServerMongoDBBackup). Populated only
 	// for ProviderManaged classes.
 	// +optional
-	EngineBackupRef *corev1.TypedLocalObjectReference `json:"engineBackupRef,omitempty"`
+	OperatorBackupRef *corev1.TypedLocalObjectReference `json:"operatorBackupRef,omitempty"`
 	// JobName is the reference to the Job that is running the backup.
 	// Populated only for Job classes.
 	// +optional

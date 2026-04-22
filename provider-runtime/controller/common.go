@@ -632,9 +632,9 @@ type BackupExecutionStatus struct {
 	State backupv1alpha1.BackupState
 	// Message is a human-readable description of the current state.
 	Message string
-	// EngineBackupRef points at the engine-native backup resource that was
+	// OperatorBackupRef points at the operator-native backup resource that was
 	// created (e.g., PerconaServerMongoDBBackup). Optional but recommended.
-	EngineBackupRef *corev1.TypedLocalObjectReference
+	OperatorBackupRef *corev1.TypedLocalObjectReference
 	// StartedAt is when the backup started running. Optional.
 	StartedAt *metav1.Time
 	// CompletedAt is when the backup completed. Optional.
@@ -644,11 +644,11 @@ type BackupExecutionStatus struct {
 // RestoreExecutionStatus is returned by BackupProvider.SyncRestore. The runtime
 // reflects it onto the Restore CR's .status.
 type RestoreExecutionStatus struct {
-	State            backupv1alpha1.RestoreState
-	Message          string
-	EngineRestoreRef *corev1.TypedLocalObjectReference
-	StartedAt        *metav1.Time
-	CompletedAt      *metav1.Time
+	State              backupv1alpha1.RestoreState
+	Message            string
+	OperatorRestoreRef *corev1.TypedLocalObjectReference
+	StartedAt          *metav1.Time
+	CompletedAt        *metav1.Time
 }
 
 // IsNotFound reports whether the error is a kubernetes "not found" error.

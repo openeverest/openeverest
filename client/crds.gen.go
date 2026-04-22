@@ -130,7 +130,7 @@ type Backup struct {
 		// ScheduleName ScheduleName, when set, identifies the InstanceBackupSchedule that
 		// produced this Backup. Backups created via the API or `kubectl apply`
 		// leave this field empty (on-demand). The provider's mirroring loop
-		// sets it when surfacing engine-produced scheduled backups as Backup
+		// sets it when surfacing operator-produced scheduled backups as Backup
 		// CRs.
 		ScheduleName *string `json:"scheduleName,omitempty"`
 
@@ -173,22 +173,6 @@ type Backup struct {
 			Type string `json:"type"`
 		} `json:"conditions,omitempty"`
 
-		// EngineBackupRef EngineBackupRef points at the engine-native backup resource the
-		// provider created (e.g., PerconaServerMongoDBBackup). Populated only
-		// for ProviderManaged classes.
-		EngineBackupRef *struct {
-			// ApiGroup APIGroup is the group for the resource being referenced.
-			// If APIGroup is not specified, the specified Kind must be in the core API group.
-			// For any other third-party types, APIGroup is required.
-			ApiGroup *string `json:"apiGroup,omitempty"`
-
-			// Kind Kind is the type of resource being referenced
-			Kind string `json:"kind"`
-
-			// Name Name is the name of resource being referenced
-			Name string `json:"name"`
-		} `json:"engineBackupRef,omitempty"`
-
 		// ExecutionMode ExecutionMode is the resolved execution mode at the time the Backup
 		// started. Recorded for observability.
 		ExecutionMode *BackupStatusExecutionMode `json:"executionMode,omitempty"`
@@ -202,6 +186,22 @@ type Backup struct {
 
 		// Message Message is a human-readable message about the current state.
 		Message *string `json:"message,omitempty"`
+
+		// OperatorBackupRef OperatorBackupRef points at the operator-native backup resource the
+		// provider created (e.g., PerconaServerMongoDBBackup). Populated only
+		// for ProviderManaged classes.
+		OperatorBackupRef *struct {
+			// ApiGroup APIGroup is the group for the resource being referenced.
+			// If APIGroup is not specified, the specified Kind must be in the core API group.
+			// For any other third-party types, APIGroup is required.
+			ApiGroup *string `json:"apiGroup,omitempty"`
+
+			// Kind Kind is the type of resource being referenced
+			Kind string `json:"kind"`
+
+			// Name Name is the name of resource being referenced
+			Name string `json:"name"`
+		} `json:"operatorBackupRef,omitempty"`
 
 		// StartedAt StartedAt is the time when the backup started.
 		StartedAt *time.Time `json:"startedAt,omitempty"`
@@ -638,7 +638,7 @@ type Instance struct {
 
 			// Schedules Schedules registers recurring backup tasks on the engine. Schedules
 			// produce Backup CRs (via the provider's mirroring loop) using the
-			// engine-native scheduler — the runtime never spawns CronJobs for
+			// operator-native scheduler — the runtime never spawns CronJobs for
 			// ProviderManaged BackupClasses.
 			Schedules *[]struct {
 				// Cron Cron is a standard 5-field cron expression. The provider may reject
@@ -1240,22 +1240,6 @@ type Restore struct {
 			Type string `json:"type"`
 		} `json:"conditions,omitempty"`
 
-		// EngineRestoreRef EngineRestoreRef points at the engine-native restore resource the
-		// provider created (e.g., PerconaServerMongoDBRestore). Populated only
-		// for ProviderManaged classes.
-		EngineRestoreRef *struct {
-			// ApiGroup APIGroup is the group for the resource being referenced.
-			// If APIGroup is not specified, the specified Kind must be in the core API group.
-			// For any other third-party types, APIGroup is required.
-			ApiGroup *string `json:"apiGroup,omitempty"`
-
-			// Kind Kind is the type of resource being referenced
-			Kind string `json:"kind"`
-
-			// Name Name is the name of resource being referenced
-			Name string `json:"name"`
-		} `json:"engineRestoreRef,omitempty"`
-
 		// ExecutionMode ExecutionMode is the resolved execution mode at the time the Restore
 		// started. Recorded for observability.
 		ExecutionMode *RestoreStatusExecutionMode `json:"executionMode,omitempty"`
@@ -1269,6 +1253,22 @@ type Restore struct {
 
 		// Message Message is a human-readable message about the current state.
 		Message *string `json:"message,omitempty"`
+
+		// OperatorRestoreRef OperatorRestoreRef points at the operator-native restore resource the
+		// provider created (e.g., PerconaServerMongoDBRestore). Populated only
+		// for ProviderManaged classes.
+		OperatorRestoreRef *struct {
+			// ApiGroup APIGroup is the group for the resource being referenced.
+			// If APIGroup is not specified, the specified Kind must be in the core API group.
+			// For any other third-party types, APIGroup is required.
+			ApiGroup *string `json:"apiGroup,omitempty"`
+
+			// Kind Kind is the type of resource being referenced
+			Kind string `json:"kind"`
+
+			// Name Name is the name of resource being referenced
+			Name string `json:"name"`
+		} `json:"operatorRestoreRef,omitempty"`
 
 		// StartedAt StartedAt is the time when the restore started.
 		StartedAt *time.Time `json:"startedAt,omitempty"`

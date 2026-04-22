@@ -75,7 +75,7 @@ type InstanceBackupSpec struct {
 	Storages []InstanceBackupStorage `json:"storages,omitempty"`
 	// Schedules registers recurring backup tasks on the engine. Schedules
 	// produce Backup CRs (via the provider's mirroring loop) using the
-	// engine-native scheduler — the runtime never spawns CronJobs for
+	// operator-native scheduler — the runtime never spawns CronJobs for
 	// ProviderManaged BackupClasses.
 	// +optional
 	Schedules []InstanceBackupSchedule `json:"schedules,omitempty"`
@@ -111,8 +111,8 @@ type InstanceBackupStorage struct {
 // InstanceBackupSchedule configures a recurring backup task on the engine.
 // The provider translates each schedule into the engine's native scheduler
 // (e.g. PSMDB BackupTaskSpec, PXC PXCScheduledBackupSchedule, pgBackRest
-// schedule). Engine-produced backups are mirrored back into Backup CRs by
-// the provider, sharing the engine backup's name.
+// schedule). Operator-produced backups are mirrored back into Backup CRs by
+// the provider, sharing the operator backup's name.
 type InstanceBackupSchedule struct {
 	// Name uniquely identifies the schedule within the Instance. The
 	// provider uses it as the schedule key on the engine and as the value

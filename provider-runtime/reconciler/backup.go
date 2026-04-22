@@ -33,7 +33,7 @@ import (
 
 const (
 	backupRuntimeFinalizer = "everest.percona.com/backup-runtime-finalizer"
-	// defaultBackupRequeue is used when the engine backup is still in progress
+	// defaultBackupRequeue is used when the operator backup is still in progress
 	// and the provider did not return an explicit WaitFor duration.
 	defaultBackupRequeue = 10 * time.Second
 )
@@ -185,8 +185,8 @@ func applyBackupExecutionStatus(backup *backupv1alpha1.Backup, bc *backupv1alpha
 	if exec.Message != "" {
 		backup.Status.Message = exec.Message
 	}
-	if exec.EngineBackupRef != nil {
-		backup.Status.EngineBackupRef = exec.EngineBackupRef
+	if exec.OperatorBackupRef != nil {
+		backup.Status.OperatorBackupRef = exec.OperatorBackupRef
 	}
 	if exec.StartedAt != nil && backup.Status.StartedAt == nil {
 		backup.Status.StartedAt = exec.StartedAt
