@@ -166,7 +166,7 @@ func NewRemoveNamespaceSteps(namespace string, keepNs bool, k kubernetes.Kuberne
 		{
 			Desc: fmt.Sprintf("Deleting backup storages in namespace '%s'", namespace),
 			F: func(ctx context.Context) error {
-				return k.DeleteBackupStorages(ctx, ctrlclient.InNamespace(namespace))
+				return k.DeleteBackupStoragesV1(ctx, ctrlclient.InNamespace(namespace))
 			},
 		},
 		{

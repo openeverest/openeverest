@@ -30,22 +30,22 @@ type KubernetesConnector interface {
 	// Accounts returns an implementation of the accounts interface that
 	// manages everest accounts directly via ConfigMaps.
 	Accounts() accounts.Interface
-	// ListBackupStorages returns list of managed backup storages in a given namespace.
+	// ListBackupStoragesV1 returns list of managed backup storages in a given namespace.
 	// This method returns a list of full objects (meta and spec).
-	ListBackupStorages(ctx context.Context, opts ...ctrlclient.ListOption) (*everestv1alpha1.BackupStorageList, error)
-	// GetBackupStorage returns backup storages(full object) by provided name and namespace.
-	GetBackupStorage(ctx context.Context, key ctrlclient.ObjectKey) (*everestv1alpha1.BackupStorage, error)
-	// GetBackupStorageMeta returns backup storages(metadata only) by provided name and namespace.
-	GetBackupStorageMeta(ctx context.Context, key ctrlclient.ObjectKey) (*metav1.PartialObjectMetadata, error)
-	// CreateBackupStorage creates backup storages by provided object.
-	CreateBackupStorage(ctx context.Context, storage *everestv1alpha1.BackupStorage) (*everestv1alpha1.BackupStorage, error)
-	// UpdateBackupStorage updates backup storages by provided new object.
-	UpdateBackupStorage(ctx context.Context, storage *everestv1alpha1.BackupStorage) (*everestv1alpha1.BackupStorage, error)
-	// DeleteBackupStorage deletes backup storage by provided name and namespace.
-	DeleteBackupStorage(ctx context.Context, obj *everestv1alpha1.BackupStorage) error
-	// DeleteBackupStorages deletes all backup storages in provided namespace.
+	ListBackupStoragesV1(ctx context.Context, opts ...ctrlclient.ListOption) (*everestv1alpha1.BackupStorageList, error)
+	// GetBackupStorageV1 returns backup storages(full object) by provided name and namespace.
+	GetBackupStorageV1(ctx context.Context, key ctrlclient.ObjectKey) (*everestv1alpha1.BackupStorage, error)
+	// GetBackupStorageMetaV1 returns backup storages(metadata only) by provided name and namespace.
+	GetBackupStorageMetaV1(ctx context.Context, key ctrlclient.ObjectKey) (*metav1.PartialObjectMetadata, error)
+	// CreateBackupStorageV1 creates backup storages by provided object.
+	CreateBackupStorageV1(ctx context.Context, storage *everestv1alpha1.BackupStorage) (*everestv1alpha1.BackupStorage, error)
+	// UpdateBackupStorageV1 updates backup storages by provided new object.
+	UpdateBackupStorageV1(ctx context.Context, storage *everestv1alpha1.BackupStorage) (*everestv1alpha1.BackupStorage, error)
+	// DeleteBackupStorageV1 deletes backup storage by provided name and namespace.
+	DeleteBackupStorageV1(ctx context.Context, obj *everestv1alpha1.BackupStorage) error
+	// DeleteBackupStoragesV1 deletes all backup storages in provided namespace.
 	// This function will wait until all storages are deleted.
-	DeleteBackupStorages(ctx context.Context, opts ...ctrlclient.ListOption) error
+	DeleteBackupStoragesV1(ctx context.Context, opts ...ctrlclient.ListOption) error
 	// GetBackup returns backup that matches the criteria.
 	GetBackup(ctx context.Context, key ctrlclient.ObjectKey) (*backupv1alpha1.Backup, error)
 	// DeleteBackup deletes backup that matches the criteria.

@@ -18,11 +18,11 @@ import (
 )
 
 func (h *k8sHandler) ListBackupStoragesV1(ctx context.Context, namespace string) (*everestv1alpha1.BackupStorageList, error) {
-	return h.kubeConnector.ListBackupStorages(ctx, ctrlclient.InNamespace(namespace))
+	return h.kubeConnector.ListBackupStoragesV1(ctx, ctrlclient.InNamespace(namespace))
 }
 
 func (h *k8sHandler) GetBackupStorageV1(ctx context.Context, namespace, name string) (*everestv1alpha1.BackupStorage, error) {
-	return h.kubeConnector.GetBackupStorage(ctx, types.NamespacedName{Namespace: namespace, Name: name})
+	return h.kubeConnector.GetBackupStorageV1(ctx, types.NamespacedName{Namespace: namespace, Name: name})
 }
 
 func (h *k8sHandler) CreateBackupStorageV1(ctx context.Context, namespace string, req *api.CreateBackupStorageParams) (*everestv1alpha1.BackupStorage, error) {
@@ -75,7 +75,7 @@ func (h *k8sHandler) CreateBackupStorageV1(ctx context.Context, namespace string
 	if req.Description != nil {
 		bs.Spec.Description = *req.Description
 	}
-	created, err := h.kubeConnector.CreateBackupStorage(ctx, bs)
+	created, err := h.kubeConnector.CreateBackupStorageV1(ctx, bs)
 	if err != nil {
 		// TODO: Move this logic to the operator
 		delObj := &corev1.Secret{
@@ -107,7 +107,7 @@ func (h *k8sHandler) UpdateBackupStorageV1(ctx context.Context, namespace, name 
 			return nil, fmt.Errorf("failed to update secret: %w", err)
 		}
 	}
-	bs, err := h.kubeConnector.GetBackupStorage(ctx, types.NamespacedName{Namespace: namespace, Name: name})
+	bs, err := h.kubeConnector.GetBackupStorageV1(ctx, types.NamespacedName{Namespace: namespace, Name: name})
 	if err != nil {
 		return nil, fmt.Errorf("failed to get backup storage: %w", err)
 	}
@@ -132,7 +132,7 @@ func (h *k8sHandler) UpdateBackupStorageV1(ctx context.Context, namespace, name 
 	if req.ForcePathStyle != nil {
 		bs.Spec.ForcePathStyle = req.ForcePathStyle
 	}
-	return h.kubeConnector.UpdateBackupStorage(ctx, bs)
+	return h.kubeConnector.UpdateBackupStorageV1(ctx, bs)
 }
 
 func (h *k8sHandler) DeleteBackupStorageV1(ctx context.Context, namespace, name string) error {
@@ -142,7 +142,7 @@ func (h *k8sHandler) DeleteBackupStorageV1(ctx context.Context, namespace, name 
 			Namespace: namespace,
 		},
 	}
-	if err := h.kubeConnector.DeleteBackupStorage(ctx, delBSObj); ctrlclient.IgnoreNotFound(err) != nil {
+	if err := h.kubeConnector.DeleteBackupStorageV1(ctx, delBSObj); ctrlclient.IgnoreNotFound(err) != nil {
 		return fmt.Errorf("failed to delete backup storage: %w", err)
 	}
 

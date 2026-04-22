@@ -57,7 +57,7 @@ func (h *validateHandler) GetBackupStorageV1(ctx context.Context, namespace, nam
 }
 
 func (h *validateHandler) CreateBackupStorageV1(ctx context.Context, namespace string, req *api.CreateBackupStorageParams) (*everestv1alpha1.BackupStorage, error) {
-	bsList, err := h.kubeConnector.ListBackupStorages(ctx, ctrlclient.InNamespace(namespace))
+	bsList, err := h.kubeConnector.ListBackupStoragesV1(ctx, ctrlclient.InNamespace(namespace))
 	if err != nil {
 		return nil, fmt.Errorf("failed to ListBackupStorages: %w", err)
 	}
@@ -68,7 +68,7 @@ func (h *validateHandler) CreateBackupStorageV1(ctx context.Context, namespace s
 }
 
 func (h *validateHandler) UpdateBackupStorageV1(ctx context.Context, namespace, name string, req *api.UpdateBackupStorageParams) (*everestv1alpha1.BackupStorage, error) {
-	bs, err := h.kubeConnector.GetBackupStorage(ctx, types.NamespacedName{Namespace: namespace, Name: name})
+	bs, err := h.kubeConnector.GetBackupStorageV1(ctx, types.NamespacedName{Namespace: namespace, Name: name})
 	if err != nil {
 		return nil, fmt.Errorf("failed to GetBackupStorage: %w", err)
 	}
@@ -85,7 +85,7 @@ func (h *validateHandler) UpdateBackupStorageV1(ctx context.Context, namespace, 
 func (h *validateHandler) DeleteBackupStorageV1(ctx context.Context, namespace, name string) error {
 	var bs *metav1.PartialObjectMetadata
 	var err error
-	if bs, err = h.kubeConnector.GetBackupStorageMeta(ctx, types.NamespacedName{Namespace: namespace, Name: name}); err != nil {
+	if bs, err = h.kubeConnector.GetBackupStorageMetaV1(ctx, types.NamespacedName{Namespace: namespace, Name: name}); err != nil {
 		return err
 	}
 
@@ -342,7 +342,7 @@ func (h *validateHandler) validateUpdateBackupStorageRequest(
 		return errEditInUseBackupStorage(existing.GetNamespace(), existing.GetName())
 	}
 
-	existingStorages, err := h.kubeConnector.ListBackupStorages(ctx, ctrlclient.InNamespace(existing.GetNamespace()))
+	existingStorages, err := h.kubeConnector.ListBackupStoragesV1(ctx, ctrlclient.InNamespace(existing.GetNamespace()))
 	if err != nil {
 		return err
 	}
