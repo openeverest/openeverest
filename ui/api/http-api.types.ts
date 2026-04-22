@@ -11398,15 +11398,6 @@ export interface operations {
         requestBody?: never;
         responses: {
             /** @description Backup storage deleted successfully */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["BackupStorage"];
-                };
-            };
-            /** @description Backup storage deleted successfully */
             204: {
                 headers: {
                     [name: string]: unknown;

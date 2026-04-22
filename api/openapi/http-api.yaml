@@ -3303,12 +3303,6 @@ paths:
           schema:
             type: string
       responses:
-        '200':
-          description: Backup storage deleted successfully
-          content:
-            application/json:
-              schema:
-                $ref: 'crds.gen.yaml#/components/schemas/BackupStorage'
         '204':
           description: Backup storage deleted successfully
         '404':
