@@ -274,6 +274,27 @@ type BackupProvider interface {
 	CleanupRestore(c *Context, restore *backupv1alpha1.Restore) (done bool, err error)
 }
 
+// BackupWatcher is an optional interface a BackupProvider may implement to
+// register additional watch sources on the runtime's Backup reconciler.
+//
+// The typical use case is watching the operator-native backup CR (e.g.
+// PerconaServerMongoDBBackup) so status changes route directly to the owning
+// Backup CR via owner-reference based enqueue, rather than fanning out via
+// the parent Instance. SyncBackup must set a controller reference from the
+// Backup CR to the operator backup CR for owner-based enqueue (WatchOwned)
+// to work.
+type BackupWatcher interface {
+	// BackupWatches returns watch configurations to attach to the runtime's
+	// Backup reconciler. Each entry is wired the same way as WatchProvider.Watches:
+	// Owned=true uses Owns(), Owned=false uses Watches() with the supplied handler.
+	BackupWatches() []WatchConfig
+}
+
+// RestoreWatcher is the Restore counterpart of BackupWatcher.
+type RestoreWatcher interface {
+	RestoreWatches() []WatchConfig
+}
+
 // =============================================================================
 // BASE PROVIDER
 // =============================================================================

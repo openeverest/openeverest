@@ -48,10 +48,14 @@ func setupRestoreReconciler(mgr ctrl.Manager, bp controller.BackupProvider, prov
 		provider:     bp,
 		providerName: providerName,
 	}
-	return ctrl.NewControllerManagedBy(mgr).
+	b := ctrl.NewControllerManagedBy(mgr).
 		For(&backupv1alpha1.Restore{}).
-		Named(providerName + "-restore-controller").
-		Complete(r)
+		Named(providerName + "-restore-controller")
+
+	if rw, ok := bp.(controller.RestoreWatcher); ok {
+		applyWatchConfigs(b, rw.RestoreWatches())
+	}
+	return b.Complete(r)
 }
 
 func (r *restoreRuntimeReconciler) Reconcile(ctx context.Context, req reconcile.Request) (reconcile.Result, error) {

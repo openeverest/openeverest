@@ -21,8 +21,10 @@ import (
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
@@ -55,10 +57,40 @@ func setupBackupReconciler(mgr ctrl.Manager, bp controller.BackupProvider, provi
 		provider:     bp,
 		providerName: providerName,
 	}
-	return ctrl.NewControllerManagedBy(mgr).
+	b := ctrl.NewControllerManagedBy(mgr).
 		For(&backupv1alpha1.Backup{}).
-		Named(providerName + "-backup-controller").
-		Complete(r)
+		Named(providerName + "-backup-controller")
+
+	if bw, ok := bp.(controller.BackupWatcher); ok {
+		applyWatchConfigs(b, bw.BackupWatches())
+	}
+	return b.Complete(r)
+}
+
+// applyWatchConfigs wires a list of WatchConfig entries onto the supplied
+// builder using the same semantics as the Instance reconciler: Owned=true
+// uses Owns() (owner-reference based enqueue), Owned=false uses Watches()
+// with the supplied handler.
+func applyWatchConfigs(b *builder.Builder, configs []controller.WatchConfig) {
+	for _, wc := range configs {
+		if wc.Owned {
+			if len(wc.Predicates) > 0 {
+				b.Owns(wc.Object, builder.WithPredicates(wc.Predicates...))
+			} else {
+				b.Owns(wc.Object)
+			}
+			continue
+		}
+		h := wc.Handler
+		if h == nil {
+			h = &handler.EnqueueRequestForObject{}
+		}
+		opts := wc.WatchOptions
+		if len(wc.Predicates) > 0 {
+			opts = append(opts, builder.WithPredicates(wc.Predicates...))
+		}
+		b.Watches(wc.Object, h, opts...)
+	}
 }
 
 func (r *backupRuntimeReconciler) Reconcile(ctx context.Context, req reconcile.Request) (reconcile.Result, error) {
