@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -33,9 +34,9 @@ func (e *EverestServer) ListBackupStorages(c echo.Context, namespace string) err
 		return err
 	}
 
-	result := make([]api.BackupStorage, 0, len(list.Items))
+	result := make([]api.BackupStorageV1, 0, len(list.Items))
 	for _, s := range list.Items {
-		out := &api.BackupStorage{}
+		out := &api.BackupStorageV1{}
 		out.FromCR(&s)
 		result = append(result, *out)
 	}
@@ -54,7 +55,7 @@ func (e *EverestServer) CreateBackupStorage(c echo.Context, namespace string) er
 		e.l.Errorf("CreateBackupStorage failed: %v", err)
 		return err
 	}
-	out := &api.BackupStorage{}
+	out := &api.BackupStorageV1{}
 	out.FromCR(result)
 	return c.JSON(http.StatusCreated, out)
 }
@@ -78,7 +79,7 @@ func (e *EverestServer) GetBackupStorage(c echo.Context, namespace, name string)
 		return err
 	}
 
-	out := &api.BackupStorage{}
+	out := &api.BackupStorageV1{}
 	out.FromCR(result)
 	return c.JSON(http.StatusOK, out)
 }
@@ -95,7 +96,7 @@ func (e *EverestServer) UpdateBackupStorage(c echo.Context, namespace, name stri
 		e.l.Errorf("UpdateBackupStorage failed: %v", err)
 		return err
 	}
-	out := &api.BackupStorage{}
+	out := &api.BackupStorageV1{}
 	out.FromCR(result)
 	return c.JSON(http.StatusOK, out)
 }
