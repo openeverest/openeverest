@@ -28,7 +28,7 @@ func TestRBAC_BackupStorage(t *testing.T) {
 
 	data := func() *handlers.MockHandler {
 		next := handlers.MockHandler{}
-		next.On("ListBackupStorages",
+		next.On("ListBackupStoragesV1",
 			mock.Anything,
 			mock.Anything,
 		).Return(
@@ -59,7 +59,7 @@ func TestRBAC_BackupStorage(t *testing.T) {
 		return &next
 	}
 
-	t.Run("ListBackupStorages", func(t *testing.T) {
+	t.Run("ListBackupStoragesV1", func(t *testing.T) {
 		t.Parallel()
 
 		testCases := []struct {
@@ -168,12 +168,12 @@ func TestRBAC_BackupStorage(t *testing.T) {
 		}
 	})
 
-	t.Run("GetBackupStorage", func(t *testing.T) {
+	t.Run("GetBackupStorageV1", func(t *testing.T) {
 		t.Parallel()
 
 		data := func() *handlers.MockHandler {
 			next := handlers.MockHandler{}
-			next.On("GetBackupStorage", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(
+			next.On("GetBackupStorageV1", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(
 				&everestv1alpha1.BackupStorage{}, nil,
 			)
 			return &next
@@ -251,11 +251,11 @@ func TestRBAC_BackupStorage(t *testing.T) {
 		}
 	})
 
-	t.Run("CreateBackupStorage", func(t *testing.T) {
+	t.Run("CreateBackupStorageV1", func(t *testing.T) {
 		t.Parallel()
 		next := func() *handlers.MockHandler {
 			next := handlers.MockHandler{}
-			next.On("CreateBackupStorage", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(
+			next.On("CreateBackupStorageV1", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(
 				&everestv1alpha1.BackupStorage{}, nil,
 			)
 			return &next
@@ -419,11 +419,11 @@ func TestRBAC_BackupStorage(t *testing.T) {
 		}
 	})
 
-	t.Run("UpdateBackupStorage", func(t *testing.T) {
+	t.Run("UpdateBackupStorageV1", func(t *testing.T) {
 		t.Parallel()
 		next := func() *handlers.MockHandler {
 			next := handlers.MockHandler{}
-			next.On("UpdateBackupStorage", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(
+			next.On("UpdateBackupStorageV1", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(
 				&everestv1alpha1.BackupStorage{}, nil,
 			)
 			return &next
@@ -585,11 +585,11 @@ func TestRBAC_BackupStorage(t *testing.T) {
 		}
 	})
 
-	t.Run("DeleteBackupStorage", func(t *testing.T) {
+	t.Run("DeleteBackupStorageV1", func(t *testing.T) {
 		t.Parallel()
 		next := func() *handlers.MockHandler {
 			next := handlers.MockHandler{}
-			next.On("DeleteBackupStorage", mock.Anything, mock.Anything, mock.Anything).Return(nil)
+			next.On("DeleteBackupStorageV1", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 			return &next
 		}
 
