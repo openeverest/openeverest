@@ -5472,11 +5472,11 @@ type CreateLoadBalancerConfigJSONRequestBody = LoadBalancerConfig
 // UpdateLoadBalancerConfigJSONRequestBody defines body for UpdateLoadBalancerConfig for application/json ContentType.
 type UpdateLoadBalancerConfigJSONRequestBody = LoadBalancerConfig
 
-// CreateBackupStorageJSONRequestBody defines body for CreateBackupStorage for application/json ContentType.
-type CreateBackupStorageJSONRequestBody = CreateBackupStorageParams
+// CreateBackupStorageV1JSONRequestBody defines body for CreateBackupStorageV1 for application/json ContentType.
+type CreateBackupStorageV1JSONRequestBody = CreateBackupStorageParams
 
-// UpdateBackupStorageJSONRequestBody defines body for UpdateBackupStorage for application/json ContentType.
-type UpdateBackupStorageJSONRequestBody = UpdateBackupStorageParams
+// UpdateBackupStorageV1JSONRequestBody defines body for UpdateBackupStorageV1 for application/json ContentType.
+type UpdateBackupStorageV1JSONRequestBody = UpdateBackupStorageParams
 
 // CreateDatabaseClusterBackupJSONRequestBody defines body for CreateDatabaseClusterBackup for application/json ContentType.
 type CreateDatabaseClusterBackupJSONRequestBody = DatabaseClusterBackup
@@ -6190,24 +6190,24 @@ type ClientInterface interface {
 	// ListNamespaces request
 	ListNamespaces(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// ListBackupStorages request
-	ListBackupStorages(ctx context.Context, namespace string, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// ListBackupStoragesV1 request
+	ListBackupStoragesV1(ctx context.Context, namespace string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// CreateBackupStorageWithBody request with any body
-	CreateBackupStorageWithBody(ctx context.Context, namespace string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// CreateBackupStorageV1WithBody request with any body
+	CreateBackupStorageV1WithBody(ctx context.Context, namespace string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	CreateBackupStorage(ctx context.Context, namespace string, body CreateBackupStorageJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	CreateBackupStorageV1(ctx context.Context, namespace string, body CreateBackupStorageV1JSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// DeleteBackupStorage request
-	DeleteBackupStorage(ctx context.Context, namespace string, name string, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// DeleteBackupStorageV1 request
+	DeleteBackupStorageV1(ctx context.Context, namespace string, name string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// GetBackupStorage request
-	GetBackupStorage(ctx context.Context, namespace string, name string, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// GetBackupStorageV1 request
+	GetBackupStorageV1(ctx context.Context, namespace string, name string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// UpdateBackupStorageWithBody request with any body
-	UpdateBackupStorageWithBody(ctx context.Context, namespace string, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// UpdateBackupStorageV1WithBody request with any body
+	UpdateBackupStorageV1WithBody(ctx context.Context, namespace string, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	UpdateBackupStorage(ctx context.Context, namespace string, name string, body UpdateBackupStorageJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	UpdateBackupStorageV1(ctx context.Context, namespace string, name string, body UpdateBackupStorageV1JSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// CreateDatabaseClusterBackupWithBody request with any body
 	CreateDatabaseClusterBackupWithBody(ctx context.Context, namespace string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -6798,8 +6798,8 @@ func (c *Client) ListNamespaces(ctx context.Context, reqEditors ...RequestEditor
 	return c.Client.Do(req)
 }
 
-func (c *Client) ListBackupStorages(ctx context.Context, namespace string, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewListBackupStoragesRequest(c.Server, namespace)
+func (c *Client) ListBackupStoragesV1(ctx context.Context, namespace string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListBackupStoragesV1Request(c.Server, namespace)
 	if err != nil {
 		return nil, err
 	}
@@ -6810,8 +6810,8 @@ func (c *Client) ListBackupStorages(ctx context.Context, namespace string, reqEd
 	return c.Client.Do(req)
 }
 
-func (c *Client) CreateBackupStorageWithBody(ctx context.Context, namespace string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewCreateBackupStorageRequestWithBody(c.Server, namespace, contentType, body)
+func (c *Client) CreateBackupStorageV1WithBody(ctx context.Context, namespace string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateBackupStorageV1RequestWithBody(c.Server, namespace, contentType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -6822,8 +6822,8 @@ func (c *Client) CreateBackupStorageWithBody(ctx context.Context, namespace stri
 	return c.Client.Do(req)
 }
 
-func (c *Client) CreateBackupStorage(ctx context.Context, namespace string, body CreateBackupStorageJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewCreateBackupStorageRequest(c.Server, namespace, body)
+func (c *Client) CreateBackupStorageV1(ctx context.Context, namespace string, body CreateBackupStorageV1JSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateBackupStorageV1Request(c.Server, namespace, body)
 	if err != nil {
 		return nil, err
 	}
@@ -6834,8 +6834,8 @@ func (c *Client) CreateBackupStorage(ctx context.Context, namespace string, body
 	return c.Client.Do(req)
 }
 
-func (c *Client) DeleteBackupStorage(ctx context.Context, namespace string, name string, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewDeleteBackupStorageRequest(c.Server, namespace, name)
+func (c *Client) DeleteBackupStorageV1(ctx context.Context, namespace string, name string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteBackupStorageV1Request(c.Server, namespace, name)
 	if err != nil {
 		return nil, err
 	}
@@ -6846,8 +6846,8 @@ func (c *Client) DeleteBackupStorage(ctx context.Context, namespace string, name
 	return c.Client.Do(req)
 }
 
-func (c *Client) GetBackupStorage(ctx context.Context, namespace string, name string, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewGetBackupStorageRequest(c.Server, namespace, name)
+func (c *Client) GetBackupStorageV1(ctx context.Context, namespace string, name string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetBackupStorageV1Request(c.Server, namespace, name)
 	if err != nil {
 		return nil, err
 	}
@@ -6858,8 +6858,8 @@ func (c *Client) GetBackupStorage(ctx context.Context, namespace string, name st
 	return c.Client.Do(req)
 }
 
-func (c *Client) UpdateBackupStorageWithBody(ctx context.Context, namespace string, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewUpdateBackupStorageRequestWithBody(c.Server, namespace, name, contentType, body)
+func (c *Client) UpdateBackupStorageV1WithBody(ctx context.Context, namespace string, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateBackupStorageV1RequestWithBody(c.Server, namespace, name, contentType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -6870,8 +6870,8 @@ func (c *Client) UpdateBackupStorageWithBody(ctx context.Context, namespace stri
 	return c.Client.Do(req)
 }
 
-func (c *Client) UpdateBackupStorage(ctx context.Context, namespace string, name string, body UpdateBackupStorageJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewUpdateBackupStorageRequest(c.Server, namespace, name, body)
+func (c *Client) UpdateBackupStorageV1(ctx context.Context, namespace string, name string, body UpdateBackupStorageV1JSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateBackupStorageV1Request(c.Server, namespace, name, body)
 	if err != nil {
 		return nil, err
 	}
@@ -8812,8 +8812,8 @@ func NewListNamespacesRequest(server string) (*http.Request, error) {
 	return req, nil
 }
 
-// NewListBackupStoragesRequest generates requests for ListBackupStorages
-func NewListBackupStoragesRequest(server string, namespace string) (*http.Request, error) {
+// NewListBackupStoragesV1Request generates requests for ListBackupStoragesV1
+func NewListBackupStoragesV1Request(server string, namespace string) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -8846,19 +8846,19 @@ func NewListBackupStoragesRequest(server string, namespace string) (*http.Reques
 	return req, nil
 }
 
-// NewCreateBackupStorageRequest calls the generic CreateBackupStorage builder with application/json body
-func NewCreateBackupStorageRequest(server string, namespace string, body CreateBackupStorageJSONRequestBody) (*http.Request, error) {
+// NewCreateBackupStorageV1Request calls the generic CreateBackupStorageV1 builder with application/json body
+func NewCreateBackupStorageV1Request(server string, namespace string, body CreateBackupStorageV1JSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
 	buf, err := json.Marshal(body)
 	if err != nil {
 		return nil, err
 	}
 	bodyReader = bytes.NewReader(buf)
-	return NewCreateBackupStorageRequestWithBody(server, namespace, "application/json", bodyReader)
+	return NewCreateBackupStorageV1RequestWithBody(server, namespace, "application/json", bodyReader)
 }
 
-// NewCreateBackupStorageRequestWithBody generates requests for CreateBackupStorage with any type of body
-func NewCreateBackupStorageRequestWithBody(server string, namespace string, contentType string, body io.Reader) (*http.Request, error) {
+// NewCreateBackupStorageV1RequestWithBody generates requests for CreateBackupStorageV1 with any type of body
+func NewCreateBackupStorageV1RequestWithBody(server string, namespace string, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -8893,8 +8893,8 @@ func NewCreateBackupStorageRequestWithBody(server string, namespace string, cont
 	return req, nil
 }
 
-// NewDeleteBackupStorageRequest generates requests for DeleteBackupStorage
-func NewDeleteBackupStorageRequest(server string, namespace string, name string) (*http.Request, error) {
+// NewDeleteBackupStorageV1Request generates requests for DeleteBackupStorageV1
+func NewDeleteBackupStorageV1Request(server string, namespace string, name string) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -8934,8 +8934,8 @@ func NewDeleteBackupStorageRequest(server string, namespace string, name string)
 	return req, nil
 }
 
-// NewGetBackupStorageRequest generates requests for GetBackupStorage
-func NewGetBackupStorageRequest(server string, namespace string, name string) (*http.Request, error) {
+// NewGetBackupStorageV1Request generates requests for GetBackupStorageV1
+func NewGetBackupStorageV1Request(server string, namespace string, name string) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -8975,19 +8975,19 @@ func NewGetBackupStorageRequest(server string, namespace string, name string) (*
 	return req, nil
 }
 
-// NewUpdateBackupStorageRequest calls the generic UpdateBackupStorage builder with application/json body
-func NewUpdateBackupStorageRequest(server string, namespace string, name string, body UpdateBackupStorageJSONRequestBody) (*http.Request, error) {
+// NewUpdateBackupStorageV1Request calls the generic UpdateBackupStorageV1 builder with application/json body
+func NewUpdateBackupStorageV1Request(server string, namespace string, name string, body UpdateBackupStorageV1JSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
 	buf, err := json.Marshal(body)
 	if err != nil {
 		return nil, err
 	}
 	bodyReader = bytes.NewReader(buf)
-	return NewUpdateBackupStorageRequestWithBody(server, namespace, name, "application/json", bodyReader)
+	return NewUpdateBackupStorageV1RequestWithBody(server, namespace, name, "application/json", bodyReader)
 }
 
-// NewUpdateBackupStorageRequestWithBody generates requests for UpdateBackupStorage with any type of body
-func NewUpdateBackupStorageRequestWithBody(server string, namespace string, name string, contentType string, body io.Reader) (*http.Request, error) {
+// NewUpdateBackupStorageV1RequestWithBody generates requests for UpdateBackupStorageV1 with any type of body
+func NewUpdateBackupStorageV1RequestWithBody(server string, namespace string, name string, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -11286,24 +11286,24 @@ type ClientWithResponsesInterface interface {
 	// ListNamespacesWithResponse request
 	ListNamespacesWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListNamespacesResponse, error)
 
-	// ListBackupStoragesWithResponse request
-	ListBackupStoragesWithResponse(ctx context.Context, namespace string, reqEditors ...RequestEditorFn) (*ListBackupStoragesResponse, error)
+	// ListBackupStoragesV1WithResponse request
+	ListBackupStoragesV1WithResponse(ctx context.Context, namespace string, reqEditors ...RequestEditorFn) (*ListBackupStoragesV1Response, error)
 
-	// CreateBackupStorageWithBodyWithResponse request with any body
-	CreateBackupStorageWithBodyWithResponse(ctx context.Context, namespace string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateBackupStorageResponse, error)
+	// CreateBackupStorageV1WithBodyWithResponse request with any body
+	CreateBackupStorageV1WithBodyWithResponse(ctx context.Context, namespace string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateBackupStorageV1Response, error)
 
-	CreateBackupStorageWithResponse(ctx context.Context, namespace string, body CreateBackupStorageJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateBackupStorageResponse, error)
+	CreateBackupStorageV1WithResponse(ctx context.Context, namespace string, body CreateBackupStorageV1JSONRequestBody, reqEditors ...RequestEditorFn) (*CreateBackupStorageV1Response, error)
 
-	// DeleteBackupStorageWithResponse request
-	DeleteBackupStorageWithResponse(ctx context.Context, namespace string, name string, reqEditors ...RequestEditorFn) (*DeleteBackupStorageResponse, error)
+	// DeleteBackupStorageV1WithResponse request
+	DeleteBackupStorageV1WithResponse(ctx context.Context, namespace string, name string, reqEditors ...RequestEditorFn) (*DeleteBackupStorageV1Response, error)
 
-	// GetBackupStorageWithResponse request
-	GetBackupStorageWithResponse(ctx context.Context, namespace string, name string, reqEditors ...RequestEditorFn) (*GetBackupStorageResponse, error)
+	// GetBackupStorageV1WithResponse request
+	GetBackupStorageV1WithResponse(ctx context.Context, namespace string, name string, reqEditors ...RequestEditorFn) (*GetBackupStorageV1Response, error)
 
-	// UpdateBackupStorageWithBodyWithResponse request with any body
-	UpdateBackupStorageWithBodyWithResponse(ctx context.Context, namespace string, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateBackupStorageResponse, error)
+	// UpdateBackupStorageV1WithBodyWithResponse request with any body
+	UpdateBackupStorageV1WithBodyWithResponse(ctx context.Context, namespace string, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateBackupStorageV1Response, error)
 
-	UpdateBackupStorageWithResponse(ctx context.Context, namespace string, name string, body UpdateBackupStorageJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateBackupStorageResponse, error)
+	UpdateBackupStorageV1WithResponse(ctx context.Context, namespace string, name string, body UpdateBackupStorageV1JSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateBackupStorageV1Response, error)
 
 	// CreateDatabaseClusterBackupWithBodyWithResponse request with any body
 	CreateDatabaseClusterBackupWithBodyWithResponse(ctx context.Context, namespace string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateDatabaseClusterBackupResponse, error)
@@ -12141,7 +12141,7 @@ func (r ListNamespacesResponse) StatusCode() int {
 	return 0
 }
 
-type ListBackupStoragesResponse struct {
+type ListBackupStoragesV1Response struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *BackupStoragesList
@@ -12150,7 +12150,7 @@ type ListBackupStoragesResponse struct {
 }
 
 // Status returns HTTPResponse.Status
-func (r ListBackupStoragesResponse) Status() string {
+func (r ListBackupStoragesV1Response) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -12158,14 +12158,14 @@ func (r ListBackupStoragesResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r ListBackupStoragesResponse) StatusCode() int {
+func (r ListBackupStoragesV1Response) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
 	return 0
 }
 
-type CreateBackupStorageResponse struct {
+type CreateBackupStorageV1Response struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *BackupStorage
@@ -12174,7 +12174,7 @@ type CreateBackupStorageResponse struct {
 }
 
 // Status returns HTTPResponse.Status
-func (r CreateBackupStorageResponse) Status() string {
+func (r CreateBackupStorageV1Response) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -12182,14 +12182,14 @@ func (r CreateBackupStorageResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r CreateBackupStorageResponse) StatusCode() int {
+func (r CreateBackupStorageV1Response) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
 	return 0
 }
 
-type DeleteBackupStorageResponse struct {
+type DeleteBackupStorageV1Response struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON400      *Error
@@ -12197,7 +12197,7 @@ type DeleteBackupStorageResponse struct {
 }
 
 // Status returns HTTPResponse.Status
-func (r DeleteBackupStorageResponse) Status() string {
+func (r DeleteBackupStorageV1Response) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -12205,38 +12205,14 @@ func (r DeleteBackupStorageResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r DeleteBackupStorageResponse) StatusCode() int {
+func (r DeleteBackupStorageV1Response) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
 	return 0
 }
 
-type GetBackupStorageResponse struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON200      *BackupStorage
-	JSON400      *Error
-	JSON500      *Error
-}
-
-// Status returns HTTPResponse.Status
-func (r GetBackupStorageResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r GetBackupStorageResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-type UpdateBackupStorageResponse struct {
+type GetBackupStorageV1Response struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *BackupStorage
@@ -12245,7 +12221,7 @@ type UpdateBackupStorageResponse struct {
 }
 
 // Status returns HTTPResponse.Status
-func (r UpdateBackupStorageResponse) Status() string {
+func (r GetBackupStorageV1Response) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -12253,7 +12229,31 @@ func (r UpdateBackupStorageResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r UpdateBackupStorageResponse) StatusCode() int {
+func (r GetBackupStorageV1Response) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type UpdateBackupStorageV1Response struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *BackupStorage
+	JSON400      *Error
+	JSON500      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r UpdateBackupStorageV1Response) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UpdateBackupStorageV1Response) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -13678,65 +13678,65 @@ func (c *ClientWithResponses) ListNamespacesWithResponse(ctx context.Context, re
 	return ParseListNamespacesResponse(rsp)
 }
 
-// ListBackupStoragesWithResponse request returning *ListBackupStoragesResponse
-func (c *ClientWithResponses) ListBackupStoragesWithResponse(ctx context.Context, namespace string, reqEditors ...RequestEditorFn) (*ListBackupStoragesResponse, error) {
-	rsp, err := c.ListBackupStorages(ctx, namespace, reqEditors...)
+// ListBackupStoragesV1WithResponse request returning *ListBackupStoragesV1Response
+func (c *ClientWithResponses) ListBackupStoragesV1WithResponse(ctx context.Context, namespace string, reqEditors ...RequestEditorFn) (*ListBackupStoragesV1Response, error) {
+	rsp, err := c.ListBackupStoragesV1(ctx, namespace, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseListBackupStoragesResponse(rsp)
+	return ParseListBackupStoragesV1Response(rsp)
 }
 
-// CreateBackupStorageWithBodyWithResponse request with arbitrary body returning *CreateBackupStorageResponse
-func (c *ClientWithResponses) CreateBackupStorageWithBodyWithResponse(ctx context.Context, namespace string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateBackupStorageResponse, error) {
-	rsp, err := c.CreateBackupStorageWithBody(ctx, namespace, contentType, body, reqEditors...)
+// CreateBackupStorageV1WithBodyWithResponse request with arbitrary body returning *CreateBackupStorageV1Response
+func (c *ClientWithResponses) CreateBackupStorageV1WithBodyWithResponse(ctx context.Context, namespace string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateBackupStorageV1Response, error) {
+	rsp, err := c.CreateBackupStorageV1WithBody(ctx, namespace, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseCreateBackupStorageResponse(rsp)
+	return ParseCreateBackupStorageV1Response(rsp)
 }
 
-func (c *ClientWithResponses) CreateBackupStorageWithResponse(ctx context.Context, namespace string, body CreateBackupStorageJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateBackupStorageResponse, error) {
-	rsp, err := c.CreateBackupStorage(ctx, namespace, body, reqEditors...)
+func (c *ClientWithResponses) CreateBackupStorageV1WithResponse(ctx context.Context, namespace string, body CreateBackupStorageV1JSONRequestBody, reqEditors ...RequestEditorFn) (*CreateBackupStorageV1Response, error) {
+	rsp, err := c.CreateBackupStorageV1(ctx, namespace, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseCreateBackupStorageResponse(rsp)
+	return ParseCreateBackupStorageV1Response(rsp)
 }
 
-// DeleteBackupStorageWithResponse request returning *DeleteBackupStorageResponse
-func (c *ClientWithResponses) DeleteBackupStorageWithResponse(ctx context.Context, namespace string, name string, reqEditors ...RequestEditorFn) (*DeleteBackupStorageResponse, error) {
-	rsp, err := c.DeleteBackupStorage(ctx, namespace, name, reqEditors...)
+// DeleteBackupStorageV1WithResponse request returning *DeleteBackupStorageV1Response
+func (c *ClientWithResponses) DeleteBackupStorageV1WithResponse(ctx context.Context, namespace string, name string, reqEditors ...RequestEditorFn) (*DeleteBackupStorageV1Response, error) {
+	rsp, err := c.DeleteBackupStorageV1(ctx, namespace, name, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseDeleteBackupStorageResponse(rsp)
+	return ParseDeleteBackupStorageV1Response(rsp)
 }
 
-// GetBackupStorageWithResponse request returning *GetBackupStorageResponse
-func (c *ClientWithResponses) GetBackupStorageWithResponse(ctx context.Context, namespace string, name string, reqEditors ...RequestEditorFn) (*GetBackupStorageResponse, error) {
-	rsp, err := c.GetBackupStorage(ctx, namespace, name, reqEditors...)
+// GetBackupStorageV1WithResponse request returning *GetBackupStorageV1Response
+func (c *ClientWithResponses) GetBackupStorageV1WithResponse(ctx context.Context, namespace string, name string, reqEditors ...RequestEditorFn) (*GetBackupStorageV1Response, error) {
+	rsp, err := c.GetBackupStorageV1(ctx, namespace, name, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseGetBackupStorageResponse(rsp)
+	return ParseGetBackupStorageV1Response(rsp)
 }
 
-// UpdateBackupStorageWithBodyWithResponse request with arbitrary body returning *UpdateBackupStorageResponse
-func (c *ClientWithResponses) UpdateBackupStorageWithBodyWithResponse(ctx context.Context, namespace string, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateBackupStorageResponse, error) {
-	rsp, err := c.UpdateBackupStorageWithBody(ctx, namespace, name, contentType, body, reqEditors...)
+// UpdateBackupStorageV1WithBodyWithResponse request with arbitrary body returning *UpdateBackupStorageV1Response
+func (c *ClientWithResponses) UpdateBackupStorageV1WithBodyWithResponse(ctx context.Context, namespace string, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateBackupStorageV1Response, error) {
+	rsp, err := c.UpdateBackupStorageV1WithBody(ctx, namespace, name, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseUpdateBackupStorageResponse(rsp)
+	return ParseUpdateBackupStorageV1Response(rsp)
 }
 
-func (c *ClientWithResponses) UpdateBackupStorageWithResponse(ctx context.Context, namespace string, name string, body UpdateBackupStorageJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateBackupStorageResponse, error) {
-	rsp, err := c.UpdateBackupStorage(ctx, namespace, name, body, reqEditors...)
+func (c *ClientWithResponses) UpdateBackupStorageV1WithResponse(ctx context.Context, namespace string, name string, body UpdateBackupStorageV1JSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateBackupStorageV1Response, error) {
+	rsp, err := c.UpdateBackupStorageV1(ctx, namespace, name, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseUpdateBackupStorageResponse(rsp)
+	return ParseUpdateBackupStorageV1Response(rsp)
 }
 
 // CreateDatabaseClusterBackupWithBodyWithResponse request with arbitrary body returning *CreateDatabaseClusterBackupResponse
@@ -15358,15 +15358,15 @@ func ParseListNamespacesResponse(rsp *http.Response) (*ListNamespacesResponse, e
 	return response, nil
 }
 
-// ParseListBackupStoragesResponse parses an HTTP response from a ListBackupStoragesWithResponse call
-func ParseListBackupStoragesResponse(rsp *http.Response) (*ListBackupStoragesResponse, error) {
+// ParseListBackupStoragesV1Response parses an HTTP response from a ListBackupStoragesV1WithResponse call
+func ParseListBackupStoragesV1Response(rsp *http.Response) (*ListBackupStoragesV1Response, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &ListBackupStoragesResponse{
+	response := &ListBackupStoragesV1Response{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
@@ -15398,15 +15398,15 @@ func ParseListBackupStoragesResponse(rsp *http.Response) (*ListBackupStoragesRes
 	return response, nil
 }
 
-// ParseCreateBackupStorageResponse parses an HTTP response from a CreateBackupStorageWithResponse call
-func ParseCreateBackupStorageResponse(rsp *http.Response) (*CreateBackupStorageResponse, error) {
+// ParseCreateBackupStorageV1Response parses an HTTP response from a CreateBackupStorageV1WithResponse call
+func ParseCreateBackupStorageV1Response(rsp *http.Response) (*CreateBackupStorageV1Response, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &CreateBackupStorageResponse{
+	response := &CreateBackupStorageV1Response{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
@@ -15438,15 +15438,15 @@ func ParseCreateBackupStorageResponse(rsp *http.Response) (*CreateBackupStorageR
 	return response, nil
 }
 
-// ParseDeleteBackupStorageResponse parses an HTTP response from a DeleteBackupStorageWithResponse call
-func ParseDeleteBackupStorageResponse(rsp *http.Response) (*DeleteBackupStorageResponse, error) {
+// ParseDeleteBackupStorageV1Response parses an HTTP response from a DeleteBackupStorageV1WithResponse call
+func ParseDeleteBackupStorageV1Response(rsp *http.Response) (*DeleteBackupStorageV1Response, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &DeleteBackupStorageResponse{
+	response := &DeleteBackupStorageV1Response{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
@@ -15471,15 +15471,15 @@ func ParseDeleteBackupStorageResponse(rsp *http.Response) (*DeleteBackupStorageR
 	return response, nil
 }
 
-// ParseGetBackupStorageResponse parses an HTTP response from a GetBackupStorageWithResponse call
-func ParseGetBackupStorageResponse(rsp *http.Response) (*GetBackupStorageResponse, error) {
+// ParseGetBackupStorageV1Response parses an HTTP response from a GetBackupStorageV1WithResponse call
+func ParseGetBackupStorageV1Response(rsp *http.Response) (*GetBackupStorageV1Response, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &GetBackupStorageResponse{
+	response := &GetBackupStorageV1Response{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
@@ -15511,15 +15511,15 @@ func ParseGetBackupStorageResponse(rsp *http.Response) (*GetBackupStorageRespons
 	return response, nil
 }
 
-// ParseUpdateBackupStorageResponse parses an HTTP response from a UpdateBackupStorageWithResponse call
-func ParseUpdateBackupStorageResponse(rsp *http.Response) (*UpdateBackupStorageResponse, error) {
+// ParseUpdateBackupStorageV1Response parses an HTTP response from a UpdateBackupStorageV1WithResponse call
+func ParseUpdateBackupStorageV1Response(rsp *http.Response) (*UpdateBackupStorageV1Response, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &UpdateBackupStorageResponse{
+	response := &UpdateBackupStorageV1Response{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
@@ -17860,7 +17860,7 @@ var swaggerSpec = []string{
 	"Zg02LqceeGD/yzEVFbz8d3Gt9ICw8fp3L5y8VVO0J9MQ9vf3OJmnRjpODf5aqJHh//BTDH/upSen9GCu",
 	"4XSimrKk9RYKutrdwO2CaboG/6KWvpM35gW/2dToRgM3IKh741rCnrLKYbfT54OtY1469T1/wO3ixgBH",
 	"pltsko9mlYC4WUuovct08oP7148ntnDazJ3s/YzCOQ8UBbFvBp7gOEEAqLt4gpnwk/+HvWtvbhtH8l8F",
-	"pT9dkh+Z7N6s/4udrC+7ccZl5+6qduQaQSIk80KCXD48o3H5u2/hSZAEKIKiJCrG1tZElkg8Gv1rdDca",
+	"pT9dkh+Z7N6s/4udrC+7ccZl5/aqduQaQSIk80KCXD48o3H5u1/hSZAEKIKiJCrG1tZElkg8Gv1rdDca",
 	"3fT1a94vkVwJDBFjol+NBrtwVLK2R2QjGV1SqTcSxv6o+LEIZmMZVoq1qO5zjztkLxovpUzXxGdfeBhc",
 	"mbCVmxe75bZPJu6qjKngMTav0ePrePTHhO+HslblhK9IhclaseLZy7wg2avFDqYOVWFH7uGdKa3OGE/V",
 	"OHfGhzQz7GfKWh6cccebelTJoe92XprOMDGjY9YrdaGFmUs37/e7R0qpc2IfLKMcewcH6w3Kqiu+A6QW",
@@ -17882,76 +17882,76 @@ var swaggerSpec = []string{
 	"UCqA1BApXyzFICLlY2WFBAPKaj7N7FeaSSPXnb2IjzapG2r8p9ncxU9dkzeotceHnbkhLkaq6VL5dYCY",
 	"0HGkUnZ3v/FksuNhHTIqK9gTDqUHTou3G1pTRyT4mq8ps2mt7WvJzo0Q+doWHtbq6ePusz3ZqVN74FKR",
 	"a2u4Jl2xxsYMU0SCT/wwjpKsg+4B5JtCrhe5djcpHh9hBj/Ljjdw7t/9gJC60ud8DdI8pn95xV6E8MrH",
-	"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",
+	"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",
-	"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",
-	"AAAA//8aKbgXbbgGAA==",
+	"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",
+	"/wMAAP//6wV10ne4BgA=",
 }
 
 // GetSwagger returns the content of the embedded swagger specification file

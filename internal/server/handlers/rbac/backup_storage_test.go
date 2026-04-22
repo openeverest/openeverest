@@ -159,7 +159,7 @@ func TestRBAC_BackupStorage(t *testing.T) {
 					userGetter: testUserGetter,
 				}
 
-				list, err := h.ListBackupStorages(ctx, "default")
+				list, err := h.ListBackupStoragesV1(ctx, "default")
 				require.NoError(t, err)
 				assert.Condition(t, func() bool {
 					return tc.assert(list)
@@ -245,7 +245,7 @@ func TestRBAC_BackupStorage(t *testing.T) {
 					enforcer:   enf,
 					userGetter: testUserGetter,
 				}
-				_, err = h.GetBackupStorage(ctx, "default", "backup-storage-1")
+				_, err = h.GetBackupStorageV1(ctx, "default", "backup-storage-1")
 				assert.ErrorIs(t, err, tc.wantErr)
 			})
 		}
@@ -411,7 +411,7 @@ func TestRBAC_BackupStorage(t *testing.T) {
 					enforcer:   enf,
 					userGetter: testUserGetter,
 				}
-				_, err = h.CreateBackupStorage(ctx, "default", &api.CreateBackupStorageParams{
+				_, err = h.CreateBackupStorageV1(ctx, "default", &api.CreateBackupStorageParams{
 					Name: "backup-storage-1",
 				})
 				assert.ErrorIs(t, err, tc.wantErr)
@@ -579,7 +579,7 @@ func TestRBAC_BackupStorage(t *testing.T) {
 					enforcer:   enf,
 					userGetter: testUserGetter,
 				}
-				_, err = h.UpdateBackupStorage(ctx, "default", "backup-storage-1", &api.UpdateBackupStorageParams{})
+				_, err = h.UpdateBackupStorageV1(ctx, "default", "backup-storage-1", &api.UpdateBackupStorageParams{})
 				assert.ErrorIs(t, err, tc.wantErr)
 			})
 		}
@@ -743,7 +743,7 @@ func TestRBAC_BackupStorage(t *testing.T) {
 					enforcer:   enf,
 					userGetter: testUserGetter,
 				}
-				err = h.DeleteBackupStorage(ctx, "default", "backup-storage-1")
+				err = h.DeleteBackupStorageV1(ctx, "default", "backup-storage-1")
 				assert.ErrorIs(t, err, tc.wantErr)
 			})
 		}
