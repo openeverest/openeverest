@@ -1149,6 +1149,58 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/clusters/{cluster}/namespaces/{namespace}/backup-storages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List backup storages
+         * @description This API lists all backup storages in the specified namespace and cluster.
+         */
+        get: operations["listBackupStorages"];
+        put?: never;
+        /**
+         * Create backup storage
+         * @description This API creates a new backup storage in the specified namespace and cluster.
+         */
+        post: operations["createBackupStorage"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/clusters/{cluster}/namespaces/{namespace}/backup-storages/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get backup storage
+         * @description This API gets the backup storage specified by the `name` in the specified `namespace` and `cluster`.
+         */
+        get: operations["getBackupStorage"];
+        /**
+         * Update backup storage
+         * @description This API updates the backup storage specified by the `name` in the specified `namespace` and `cluster`.
+         */
+        put: operations["updateBackupStorage"];
+        post?: never;
+        /**
+         * Delete backup storage
+         * @description This API deletes the backup storage specified by the `name` in the specified `namespace` and `cluster`.
+         */
+        delete: operations["deleteBackupStorage"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/clusters/{cluster}/namespaces/{namespace}/monitoring-configs": {
         parameters: {
             query?: never;
@@ -7706,6 +7758,101 @@ export interface components {
                 state?: string;
             };
         };
+        /** @description BackupStorage is the Schema for the backupstorages API. */
+        BackupStorage: {
+            /**
+             * @description APIVersion defines the versioned schema of this representation of an object.
+             *     Servers should convert recognized schemas to the latest internal value, and
+             *     may reject unrecognized values.
+             *     More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+             */
+            apiVersion?: string;
+            /**
+             * @description Kind is a string value representing the REST resource this object represents.
+             *     Servers may infer this from the endpoint the client submits requests to.
+             *     Cannot be updated.
+             *     In CamelCase.
+             *     More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+             */
+            kind?: string;
+            metadata?: Record<string, never>;
+            /**
+             * @description BackupStorageSpec defines the desired state of a BackupStorage.
+             *
+             *     A BackupStorage is a reusable, namespaced reference to an object store
+             *     (today only S3-compatible) plus the credentials needed to talk to it.
+             *     It is referenced by name from:
+             *
+             *       - Instance.spec.backup.storages[].storageRef
+             *       - Backup.spec.storageName
+             *       - Restore.spec.dataSource.external.storageName
+             *
+             *     Decoupling storage from individual Backup CRs makes provider-managed
+             *     backups (e.g. PBM, pgBackRest) practical: the provider can register a
+             *     fixed set of storages on the engine without recomputing them from a
+             *     dynamic list of Backup CRs.
+             */
+            spec: {
+                /**
+                 * @description S3 contains S3-compatible storage configuration.
+                 *     Required when Type is "s3".
+                 */
+                s3?: {
+                    /**
+                     * @description AccessKeyID is a write-only convenience input. When set, a webhook
+                     *     stores it in the Secret named by CredentialsSecretName and clears
+                     *     this field. It is never persisted on the BackupStorage object.
+                     */
+                    accessKeyId?: string;
+                    /** @description Bucket is the name of the S3 bucket. */
+                    bucket: string;
+                    /**
+                     * @description CredentialsSecretName is the name of the Secret in the same namespace
+                     *     that holds the AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY keys.
+                     */
+                    credentialsSecretName: string;
+                    /** @description EndpointURL is the endpoint URL of the S3-compatible service. */
+                    endpointURL: string;
+                    /**
+                     * @description ForcePathStyle forces path-style URLs (bucket name in the path
+                     *     instead of the host). Defaults to false.
+                     * @default false
+                     */
+                    forcePathStyle: boolean;
+                    /** @description Region is the region of the S3 bucket. */
+                    region: string;
+                    /** @description SecretAccessKey is a write-only convenience input. See AccessKeyID. */
+                    secretAccessKey?: string;
+                    /**
+                     * @description VerifyTLS enables TLS certificate verification.
+                     *     Defaults to true.
+                     * @default true
+                     */
+                    verifyTLS: boolean;
+                };
+                /**
+                 * @description Type is the object storage type. Today only "s3" is supported.
+                 * @enum {string}
+                 */
+                type: "s3";
+            };
+            /** @description BackupStorageStatus defines the observed state of a BackupStorage. */
+            status?: Record<string, never>;
+        };
+        /** @description BackupStorageList is an object that contains the list of the existing backupstorages. */
+        BackupStorageList: {
+            /** @description APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources */
+            apiVersion?: string;
+            items?: components["schemas"]["BackupStorage"][];
+            /** @description Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds */
+            kind?: string;
+            metadata?: {
+                /** @description Name must be unique within a namespace. Is required when creating resources, although some resources may allow a client to request the generation of an appropriate name automatically. Name is primarily intended for creation idempotence and configuration definition. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names#names */
+                name?: string;
+                /** @description Namespace defines the space within which each name must be unique. An empty namespace is equivalent to the "default" namespace, but "default" is the canonical representation. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces */
+                namespace?: string;
+            };
+        };
         /** @description MonitoringConfig is the Schema for the monitoringconfigs API. */
         MonitoringConfig: {
             /**
@@ -11020,6 +11167,253 @@ export interface operations {
                 content?: never;
             };
             /** @description Backup not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    listBackupStorages: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The name of the cluster */
+                cluster: string;
+                /** @description The namespace of the backup storages */
+                namespace: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful operation */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BackupStorageList"];
+                };
+            };
+            /** @description Unsuccessful operation */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    createBackupStorage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The name of the cluster */
+                cluster: string;
+                /** @description The namespace where the backup storage will be created */
+                namespace: string;
+            };
+            cookie?: never;
+        };
+        /** @description The backup storage object to be created */
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BackupStorage"];
+            };
+        };
+        responses: {
+            /** @description Successful operation */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BackupStorage"];
+                };
+            };
+            /** @description Unsuccessful operation */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getBackupStorage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The name of the cluster */
+                cluster: string;
+                /** @description The namespace of the backup storage */
+                namespace: string;
+                /** @description The name of the backup storage */
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful operation */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BackupStorage"];
+                };
+            };
+            /** @description Backup storage not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    updateBackupStorage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The name of the cluster */
+                cluster: string;
+                /** @description The namespace of the backup storage */
+                namespace: string;
+                /** @description The name of the backup storage */
+                name: string;
+            };
+            cookie?: never;
+        };
+        /** @description The backup storage object to be updated */
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BackupStorage"];
+            };
+        };
+        responses: {
+            /** @description Successful operation */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BackupStorage"];
+                };
+            };
+            /** @description Unsuccessful operation */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Backup storage not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    deleteBackupStorage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The name of the cluster */
+                cluster: string;
+                /** @description The namespace of the backup storage */
+                namespace: string;
+                /** @description The name of the backup storage */
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Backup storage deleted successfully */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BackupStorage"];
+                };
+            };
+            /** @description Backup storage deleted successfully */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Backup storage not found */
             404: {
                 headers: {
                     [name: string]: unknown;

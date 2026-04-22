@@ -46,6 +46,16 @@ type KubernetesConnector interface {
 	// DeleteBackupStoragesV1 deletes all backup storages in provided namespace.
 	// This function will wait until all storages are deleted.
 	DeleteBackupStoragesV1(ctx context.Context, opts ...ctrlclient.ListOption) error
+	// ListBackupStorages returns list of backup storages in a given namespace.
+	ListBackupStorages(ctx context.Context, opts ...ctrlclient.ListOption) (*backupv1alpha1.BackupStorageList, error)
+	// GetBackupStorage returns a backup storage by name and namespace.
+	GetBackupStorage(ctx context.Context, key ctrlclient.ObjectKey) (*backupv1alpha1.BackupStorage, error)
+	// CreateBackupStorage creates a backup storage.
+	CreateBackupStorage(ctx context.Context, storage *backupv1alpha1.BackupStorage) (*backupv1alpha1.BackupStorage, error)
+	// UpdateBackupStorage updates a backup storage.
+	UpdateBackupStorage(ctx context.Context, storage *backupv1alpha1.BackupStorage) (*backupv1alpha1.BackupStorage, error)
+	// DeleteBackupStorage deletes a backup storage.
+	DeleteBackupStorage(ctx context.Context, obj *backupv1alpha1.BackupStorage) error
 	// GetBackup returns backup that matches the criteria.
 	GetBackup(ctx context.Context, key ctrlclient.ObjectKey) (*backupv1alpha1.Backup, error)
 	// DeleteBackup deletes backup that matches the criteria.
