@@ -241,6 +241,12 @@ func newReconciler(ctx context.Context, p providerAdapter, opts ...ReconcilerOpt
 		}
 	}
 
+	if bm, ok := p.(controller.BackupMirror); ok {
+		if err := setupBackupMirrorReconciler(mgr, bm, p.Name()); err != nil {
+			return nil, fmt.Errorf("failed to setup backup mirror reconciler: %w", err)
+		}
+	}
+
 	return r, nil
 }
 

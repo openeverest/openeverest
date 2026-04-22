@@ -18,6 +18,8 @@ package controller
 // Embed BaseProvider for default implementations.
 
 import (
+	"context"
+
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -293,6 +295,35 @@ type BackupWatcher interface {
 // RestoreWatcher is the Restore counterpart of BackupWatcher.
 type RestoreWatcher interface {
 	RestoreWatches() []WatchConfig
+}
+
+// BackupMirror is an optional interface that providers implement to mirror
+// operator-emitted backup CRs (typically produced by the wrapped operator's own
+// scheduler, e.g. PSMDB BackupTask, pgBackRest cron, Barman scheduler) into
+// first-class Backup CRs. This makes operator-scheduled backups visible via
+// `kubectl get backups` and lets the runtime drive their lifecycle the same
+// way as on-demand backups.
+//
+// Provider devs only need to answer two questions:
+//   - Which operator type should be watched? (OperatorBackupType)
+//   - Given an operator object, what Backup CR should exist for it, if any?
+//     (Mirror; return nil to skip)
+//
+// The runtime owns all controller-runtime wiring (watch, reconcile loop,
+// idempotent create, conflict handling). Mirror is invoked once per operator
+// event; the runtime treats AlreadyExists as success, so subsequent calls
+// for the same operator object are safe no-ops once the Backup CR has been
+// adopted by SyncBackup.
+type BackupMirror interface {
+	// OperatorBackupType returns a typed empty instance of the operator CR to
+	// watch (e.g. &psmdbv1.PerconaServerMongoDBBackup{}).
+	OperatorBackupType() client.Object
+
+	// Mirror returns the Backup CR to create for operatorBackup, or nil to
+	// skip. The provider may return errors only for unexpected failures;
+	// "this operator object should not be mirrored" must be expressed by
+	// returning (nil, nil).
+	Mirror(ctx context.Context, c client.Client, operatorBackup client.Object) (*backupv1alpha1.Backup, error)
 }
 
 // =============================================================================
