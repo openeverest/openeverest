@@ -38,6 +38,6 @@ setup.describe.serial('PG Backup Storage setup', () => {
       verifyTLS: false,
       forcePathStyle: true,
     }
-    await th.createBackupStorageWithData(request, payload)
+    await th.createBackupStorageWithDataV1(request, payload)
   });
 });

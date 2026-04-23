@@ -33,9 +33,9 @@ func (e *EverestServer) ListBackupStoragesV1(c echo.Context, namespace string) e
 		return err
 	}
 
-	result := make([]api.BackupStorage, 0, len(list.Items))
+	result := make([]api.BackupStorageV1, 0, len(list.Items))
 	for _, s := range list.Items {
-		out := &api.BackupStorage{}
+		out := &api.BackupStorageV1{}
 		out.FromCR(&s)
 		result = append(result, *out)
 	}
@@ -54,7 +54,7 @@ func (e *EverestServer) CreateBackupStorageV1(c echo.Context, namespace string) 
 		e.l.Errorf("CreateBackupStorage failed: %v", err)
 		return err
 	}
-	out := &api.BackupStorage{}
+	out := &api.BackupStorageV1{}
 	out.FromCR(result)
 	return c.JSON(http.StatusCreated, out)
 }
@@ -78,7 +78,7 @@ func (e *EverestServer) GetBackupStorageV1(c echo.Context, namespace, name strin
 		return err
 	}
 
-	out := &api.BackupStorage{}
+	out := &api.BackupStorageV1{}
 	out.FromCR(result)
 	return c.JSON(http.StatusOK, out)
 }
@@ -95,7 +95,7 @@ func (e *EverestServer) UpdateBackupStorageV1(c echo.Context, namespace, name st
 		e.l.Errorf("UpdateBackupStorage failed: %v", err)
 		return err
 	}
-	out := &api.BackupStorage{}
+	out := &api.BackupStorageV1{}
 	out.FromCR(result)
 	return c.JSON(http.StatusOK, out)
 }

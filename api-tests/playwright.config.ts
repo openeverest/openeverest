@@ -134,7 +134,7 @@ export default defineConfig({
       name: 'api-tests',
       dependencies: [
         'auth',
-        'backup-storage',
+        'backup-storage-v1',
         'database-engines',
         'kubernetes',
         'loadbalancer-config',
@@ -162,9 +162,9 @@ export default defineConfig({
     },
     // backup-storage tests
     {
-      name: 'backup-storage',
+      name: 'backup-storage-v1',
       testDir: 'tests',
-      testMatch: /backup-storage\.spec\.ts/,
+      testMatch: /backup-storage-v1\.spec\.ts/,
       dependencies: ['global:auth:ci:setup'],
       use: {
         extraHTTPHeaders: {

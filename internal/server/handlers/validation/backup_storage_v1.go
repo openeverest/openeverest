@@ -174,14 +174,14 @@ func validateBackupStorageAccess(
 	l *zap.SugaredLogger,
 ) error {
 	switch sType {
-	case string(api.BackupStorageTypeS3):
+	case string(api.BackupStorageV1TypeS3):
 		if region == "" {
 			return errors.New("region is required when using S3 storage type")
 		}
 		if err := s3Access(l, url, accessKey, secretKey, bucketName, region, verifyTLS, forcePathStyle); err != nil {
 			return err
 		}
-	case string(api.BackupStorageTypeAzure):
+	case string(api.BackupStorageV1TypeAzure):
 		if err := azureAccess(ctx, l, accessKey, secretKey, bucketName); err != nil {
 			return err
 		}
