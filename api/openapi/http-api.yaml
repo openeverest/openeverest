@@ -3305,8 +3305,8 @@ paths:
       responses:
         '204':
           description: Backup storage deleted successfully
-        '404':
-          description: Backup storage not found
+        '400':
+          description: Unsuccessful operation
           content:
             application/json:
               schema:

@@ -51,6 +51,11 @@ func (h *k8sHandler) DeleteBackupStorage(ctx context.Context, namespace, name st
 		return fmt.Errorf("failed to get backup storage: %w", err)
 	}
 
+	if bs == nil {
+		// nothing to delete
+		return nil
+	}
+
 	if err := h.kubeConnector.DeleteBackupStorage(ctx, bs); ctrlclient.IgnoreNotFound(err) != nil {
 		return fmt.Errorf("failed to delete backup storage: %w", err)
 	}

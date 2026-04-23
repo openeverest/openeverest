@@ -11404,8 +11404,8 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description Backup storage not found */
-            404: {
+            /** @description Unsuccessful operation */
+            400: {
                 headers: {
                     [name: string]: unknown;
                 };

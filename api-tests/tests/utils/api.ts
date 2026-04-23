@@ -321,6 +321,85 @@ export const deleteBackupStorageRaw = async (request, name) => {
   return await request.delete(`/v1/namespaces/${EVEREST_CI_NAMESPACE}/backup-storages/${name}`)
 }
 
+// --------------------- Backup Storage V2 helpers ------------------
+
+const CLUSTER_NAME = 'main'
+
+export const getBackupStorageV2Payload = (bsName: string) => {
+  return {
+    metadata: {
+      name: bsName,
+    },
+    spec: {
+      type: 's3',
+      s3: {
+        bucket: bsName,
+        region: 'us-east-2',
+        endpointURL: 'https://custom-url',
+        credentialsSecretName: `${bsName}-creds`,
+        accessKeyId: 'sdfs',
+        secretAccessKey: 'sdfsdfsd',
+      },
+    },
+  }
+}
+
+export const createBackupStorageV2 = async (request, data) => {
+  const response = await createBackupStorageRawV2(request, data)
+  await checkError(response)
+  return (await response.json())
+}
+
+export const createBackupStorageRawV2 = async (request, data) => {
+  return await request.post(`/v1/clusters/${CLUSTER_NAME}/namespaces/${EVEREST_CI_NAMESPACE}/backup-storages`, {data: data})
+}
+
+export const getBackupStorageV2 = async (request, name) => {
+  const response = await getBackupStorageRawV2(request, name)
+  await checkError(response)
+  return (await response.json())
+}
+
+export const getBackupStorageRawV2 = async (request, name) => {
+  return await request.get(`/v1/clusters/${CLUSTER_NAME}/namespaces/${EVEREST_CI_NAMESPACE}/backup-storages/${name}`)
+}
+
+export const listBackupStoragesV2 = async (request) => {
+  const response = await listBackupStoragesRawV2(request)
+  await checkError(response)
+  return (await response.json())
+}
+
+export const listBackupStoragesRawV2 = async (request) => {
+  return await request.get(`/v1/clusters/${CLUSTER_NAME}/namespaces/${EVEREST_CI_NAMESPACE}/backup-storages`)
+}
+
+export const updateBackupStorageV2 = async (request, name, data) => {
+  const response = await updateBackupStorageRawV2(request, name, data)
+  await checkError(response)
+  return (await response.json())
+}
+
+export const updateBackupStorageRawV2 = async (request, name, data) => {
+  return await request.put(`/v1/clusters/${CLUSTER_NAME}/namespaces/${EVEREST_CI_NAMESPACE}/backup-storages/${name}`, {data: data})
+}
+
+export const deleteBackupStorageV2 = async (request, name) => {
+  // Wait for deletion mark.
+  await expect(async () => {
+    await deleteBackupStorageRawV2(request, name)
+    const res = await getBackupStorageRawV2(request, name)
+    await checkResourceDeletion(res)
+  }).toPass({
+    intervals: [1000],
+    timeout: 60 * 1000,
+  })
+}
+
+export const deleteBackupStorageRawV2 = async (request, name) => {
+  return await request.delete(`/v1/clusters/${CLUSTER_NAME}/namespaces/${EVEREST_CI_NAMESPACE}/backup-storages/${name}`)
+}
+
 // --------------------- DB Backup helpers -----------------------------------------------
 
 export const createDBClusterBackup = async (request, dbClusterName, backupName, storageName) => {
