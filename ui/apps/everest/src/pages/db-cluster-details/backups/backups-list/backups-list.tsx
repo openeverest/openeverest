@@ -131,6 +131,14 @@ export const BackupsList = () => {
         accessorKey: 'backupStorageName',
         header: 'Storage',
       },
+      ...(dbType === DbEngineType.PSMDB
+        ? [
+          {
+            accessorKey: 'size',
+            header: 'Size',
+          },
+        ]
+        : []),
       {
         accessorKey: 'created',
         header: 'Started',
@@ -152,7 +160,7 @@ export const BackupsList = () => {
             : '',
       },
     ],
-    []
+    [dbType]
   );
 
   if (!dbCluster) {
@@ -212,12 +220,12 @@ export const BackupsList = () => {
               items: oldData.items.map((backup) =>
                 backup.metadata.name === backupName
                   ? {
-                      ...backup,
-                      status: {
-                        ...backup.status,
-                        state: BackupStatus.DELETING,
-                      },
-                    }
+                    ...backup,
+                    status: {
+                      ...backup.status,
+                      state: BackupStatus.DELETING,
+                    },
+                  }
                   : backup
               ),
             })

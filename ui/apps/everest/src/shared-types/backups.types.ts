@@ -6,6 +6,7 @@ export type SingleBackupPayload = {
     created: string;
     completed: string;
     state: string;
+    size?: string;
   };
   spec: {
     dbClusterName: string;
@@ -21,6 +22,7 @@ export type Backup = {
   name: string;
   created?: string;
   completed?: string;
+  size?: string;
   state: BackupStatus;
   dbClusterName: string;
   backupStorageName: string;
@@ -48,11 +50,11 @@ export type BackupPayload = {
 
 export type DatabaseClusterPitrPayload =
   | {
-      earliestDate: string;
-      latestDate: string;
-      latestBackupName: string;
-      gaps: boolean;
-    }
+    earliestDate: string;
+    latestDate: string;
+    latestBackupName: string;
+    gaps: boolean;
+  }
   | Record<string, never>;
 
 export type DatabaseClusterPitr = {

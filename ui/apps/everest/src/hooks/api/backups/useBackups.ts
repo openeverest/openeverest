@@ -43,18 +43,19 @@ export const useDbBackups = (
     queryFn: () => getBackupsFn(dbClusterName, namespace),
     select: canRead
       ? ({ items = [] }) =>
-          items.map(
-            ({ metadata: { name }, status, spec: { backupStorageName } }) => ({
-              name,
-              created: status?.created,
-              completed: status?.completed,
-              state: status
-                ? mapBackupState(status?.state)
-                : BackupStatus.UNKNOWN,
-              dbClusterName,
-              backupStorageName,
-            })
-          )
+        items.map(
+          ({ metadata: { name }, status, spec: { backupStorageName } }) => ({
+            name,
+            created: status?.created,
+            completed: status?.completed,
+            state: status
+              ? mapBackupState(status?.state)
+              : BackupStatus.UNKNOWN,
+            size: status?.size,
+            dbClusterName,
+            backupStorageName,
+          })
+        )
       : () => [],
     ...options,
     enabled: (options?.enabled ?? true) && canRead,
