@@ -220,12 +220,12 @@ export const BackupsList = () => {
               items: oldData.items.map((backup) =>
                 backup.metadata.name === backupName
                   ? {
-                    ...backup,
-                    status: {
-                      ...backup.status,
-                      state: BackupStatus.DELETING,
-                    },
-                  }
+                      ...backup,
+                      status: {
+                        ...backup.status,
+                        state: BackupStatus.DELETING,
+                      },
+                    }
                   : backup
               ),
             })
