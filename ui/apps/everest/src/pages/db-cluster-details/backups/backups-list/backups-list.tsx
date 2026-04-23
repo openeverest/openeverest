@@ -133,11 +133,11 @@ export const BackupsList = () => {
       },
       ...(dbType === DbEngineType.PSMDB
         ? [
-          {
-            accessorKey: 'size',
-            header: 'Size',
-          },
-        ]
+            {
+              accessorKey: 'size',
+              header: 'Size',
+            },
+          ]
         : []),
       {
         accessorKey: 'created',
