@@ -1005,6 +1005,7 @@ k8s_resource(
   objects=[
     'backupclasses.backup.openeverest.io:customresourcedefinition',
     'backups.backup.openeverest.io:customresourcedefinition',
+    'backupstorages.backup.openeverest.io:customresourcedefinition',
     'instances.core.openeverest.io:customresourcedefinition',
     'monitoringconfigs.monitoring.openeverest.io:customresourcedefinition',
     'providers.core.openeverest.io:customresourcedefinition'
