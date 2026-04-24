@@ -29,11 +29,13 @@ import (
 	"github.com/percona/everest/api"
 	"github.com/percona/everest/pkg/accounts"
 	"github.com/percona/everest/pkg/common"
+	"github.com/percona/everest/pkg/oidc"
 )
 
 const (
 	jwtSubjectTml    = "%s:%s" // username:capability
 	jwtDefaultExpiry = time.Hour * 24
+	jwtSSOExpiry     = time.Hour
 )
 
 // CreateSession creates a new session.
@@ -58,6 +60,59 @@ func (e *EverestServer) CreateSession(ctx echo.Context) error {
 	secondsBeforeExpiry := int64(jwtDefaultExpiry.Seconds())
 
 	jwtToken, err := e.sessionMgr.Create(subject, secondsBeforeExpiry, uniqueID.String())
+	if err != nil {
+		return err
+	}
+
+	e.attemptsStore.CleanupVisitor(ctx.RealIP())
+
+	return ctx.JSON(http.StatusOK, map[string]string{"token": jwtToken})
+}
+
+// CreateSSOSession exchanges an OIDC access token (JWT or opaque) for an Everest-signed JWT.
+// It validates the OIDC token by calling the IdP's UserInfo endpoint, then issues a
+// short-lived Everest JWT that works with the existing JWT middleware and blocklist.
+func (e *EverestServer) CreateSSOSession(ctx echo.Context) error {
+	if e.oidcProvider == nil {
+		return ctx.JSON(http.StatusBadRequest, api.Error{
+			Message: pointer.To("OIDC is not configured"),
+		})
+	}
+
+	var params struct {
+		Token string `json:"token"`
+	}
+	if err := ctx.Bind(&params); err != nil {
+		return err
+	}
+	if params.Token == "" {
+		return ctx.JSON(http.StatusBadRequest, api.Error{
+			Message: pointer.To("'token' is required"),
+		})
+	}
+
+	c := ctx.Request().Context()
+	userInfo, err := oidc.FetchUserInfo(c, e.oidcProvider.UserInfoURL, params.Token)
+	if err != nil {
+		e.l.Debugf("SSO token exchange failed: %v", err)
+		e.attemptsStore.IncreaseTimeout(ctx.RealIP())
+		return ctx.JSON(http.StatusUnauthorized, api.Error{
+			Message: pointer.To("Invalid OIDC token"),
+		})
+	}
+
+	uniqueID, err := uuid.NewRandom()
+	if err != nil {
+		return err
+	}
+
+	secondsBeforeExpiry := int64(jwtSSOExpiry.Seconds())
+	issuerURL := e.oidcProvider.OriginalIssuer
+	if issuerURL == "" {
+		issuerURL = e.oidcProvider.Issuer
+	}
+
+	jwtToken, err := e.sessionMgr.CreateSSO(userInfo.Subject, secondsBeforeExpiry, uniqueID.String(), issuerURL)
 	if err != nil {
 		return err
 	}

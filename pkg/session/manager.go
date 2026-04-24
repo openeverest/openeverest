@@ -149,6 +149,37 @@ func (mgr *Manager) Create(subject string, secondsBeforeExpiry int64, id string)
 	return mgr.signClaims(claims)
 }
 
+// SSOClaims extends RegisteredClaims with the original OIDC issuer.
+// This allows extractUsername() to identify SSO users and retrieve their identity
+// from the OIDC provider rather than from the built-in account store.
+type SSOClaims struct {
+	jwt.RegisteredClaims
+	OIDCIssuer string `json:"oidc_issuer"`
+}
+
+// CreateSSO creates a new Everest-signed token for an SSO user.
+// The oidcIssuer is stored as a custom claim so that extractUsername() can
+// distinguish SSO sessions from built-in sessions.
+func (mgr *Manager) CreateSSO(subject string, secondsBeforeExpiry int64, id, oidcIssuer string) (string, error) {
+	now := time.Now().UTC()
+	claims := SSOClaims{
+		RegisteredClaims: jwt.RegisteredClaims{
+			IssuedAt:  jwt.NewNumericDate(now),
+			Issuer:    SessionManagerClaimsIssuer,
+			NotBefore: jwt.NewNumericDate(now),
+			Subject:   subject,
+			ID:        id,
+		},
+		OIDCIssuer: oidcIssuer,
+	}
+	if secondsBeforeExpiry > 0 {
+		expires := now.Add(time.Duration(secondsBeforeExpiry) * time.Second)
+		claims.ExpiresAt = jwt.NewNumericDate(expires)
+	}
+
+	return mgr.signClaims(claims)
+}
+
 func (mgr *Manager) signClaims(claims jwt.Claims) (string, error) {
 	token := jwt.NewWithClaims(jwt.SigningMethodRS256, claims)
 	return token.SignedString(mgr.signingKey)
@@ -243,6 +274,15 @@ func extractUsername(token *jwt.Token) (string, bool, error) {
 	if !ok {
 		return "", false, errExtractIss
 	}
+
+	// If the token was issued by Everest but has an oidc_issuer claim,
+	// it's an SSO session token — treat as an external (non-built-in) user.
+	if iss == SessionManagerClaimsIssuer {
+		if _, hasOIDC := content.Payload["oidc_issuer"].(string); hasOIDC {
+			return sub, false, nil
+		}
+	}
+
 	username := strings.TrimSuffix(sub, ":login")
 	return username, iss == SessionManagerClaimsIssuer, nil
 }

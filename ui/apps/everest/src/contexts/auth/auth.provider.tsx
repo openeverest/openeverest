@@ -137,7 +137,11 @@ const AuthProvider = ({ children, isSsoEnabled }: AuthProviderProps) => {
     try {
       const newLoggedUser = await userManager.signinSilent();
       if (newLoggedUser && newLoggedUser.access_token) {
-        localStorage.setItem('everestToken', newLoggedUser.access_token);
+        // Exchange the refreshed OIDC access token for an Everest JWT.
+        const response = await api.post('/session/sso', {
+          token: newLoggedUser.access_token,
+        });
+        localStorage.setItem('everestToken', response.data.token);
       } else {
         setLogoutStatus();
       }
@@ -148,10 +152,21 @@ const AuthProvider = ({ children, isSsoEnabled }: AuthProviderProps) => {
 
   useEffect(() => {
     if (isSsoEnabled) {
-      userManager.events.addUserLoaded((user) => {
-        localStorage.setItem('everestToken', user.access_token || '');
-        const decoded = jwtDecode(user.access_token || '');
-        setLoggedInStatus(decoded.sub || '');
+      userManager.events.addUserLoaded(async (user) => {
+        try {
+          // Exchange the OIDC access token for an Everest JWT.
+          const response = await api.post('/session/sso', {
+            token: user.access_token,
+          });
+          const everestToken = response.data.token;
+          localStorage.setItem('everestToken', everestToken);
+          const decoded = jwtDecode(everestToken);
+          setLoggedInStatus(decoded.sub || '');
+        } catch {
+          localStorage.setItem('everestToken', user.access_token || '');
+          const decoded = jwtDecode(user.access_token || '');
+          setLoggedInStatus(decoded.sub || '');
+        }
       });
 
       userManager.events.addAccessTokenExpiring(() => {
