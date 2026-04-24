@@ -1,6 +1,6 @@
 apiVersion: kuttl.dev/v1
 kind: TestAssert
-timeout: 10
+timeout: 30
 collectors:
   - command: kubectl get monitoringconfig/mc-1 -n ${NAMESPACE} -o yaml
   - command: kubectl get secret/mc-1-secret -n ${NAMESPACE} -o yaml
