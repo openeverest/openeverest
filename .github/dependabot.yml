@@ -25,6 +25,14 @@ updates:
       - "auto-update-base"
       - "dependencies"
       - "docker"
+  - package-ecosystem: "docker"
+    directory: "/dev"
+    schedule:
+      interval: "weekly"
+    labels:
+      - "auto-update-base"
+      - "dependencies"
+      - "docker"
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
