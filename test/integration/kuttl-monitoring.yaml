@@ -17,5 +17,4 @@ commands:
   # Wait for controller to be ready with generous timeout for CI environments.
   - command: kubectl wait --for=condition=available --timeout=60s deploy/openeverest-controller-manager -n openeverest-system
 testDirs:
-  # TODO: add test sub directories of test/integration here.
-  - test/integration
+  - test/integration/monitoring
