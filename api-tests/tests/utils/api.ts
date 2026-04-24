@@ -333,12 +333,14 @@ export const getBackupStoragePayload = (bsName: string) => {
     spec: {
       type: 's3',
       s3: {
-        bucket: bsName,
-        region: 'us-east-2',
-        endpointURL: 'https://custom-url',
+        bucket: 'bucket-4',
+        region: 'us-east-1',
+        endpointURL: 'https://minio.minio.svc',
         credentialsSecretName: `${bsName}-creds`,
-        accessKeyId: 'sdfs',
-        secretAccessKey: 'sdfsdfsd',
+        accessKeyId: 'minioadmin',
+        secretAccessKey: 'minioadmin',
+        forcePathStyle: true,
+        verifyTLS: false,
       },
     },
   }

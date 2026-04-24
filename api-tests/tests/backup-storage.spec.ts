@@ -61,9 +61,9 @@ test.describe.parallel('Backup Storage V2 tests', () => {
             ...backupStorage.spec,
             s3: {
               ...backupStorage.spec.s3,
-              bucket: `${payload.spec.s3.bucket}-upd`,
-              accessKeyId: 'otherAccessKey',
-              secretAccessKey: 'otherSecret',
+              bucket: 'bucket-5',
+              accessKeyId: 'minioadmin',
+              secretAccessKey: 'minioadmin',
             },
           },
         }
