@@ -30,6 +30,8 @@ make dev-up
 ```
 This creates a k3d cluster and starts Tilt. The Everest UI will be available at http://localhost:8080.
 
+> **NOTE**: The default k3d registry uses port `5000`, which may already be occupied on some systems (e.g., macOS Control Center). Update the `hostPort` in `k3d_config.dev.yaml`.
+
 #### Option B: Local (CI-style testing)
 ```sh
 make k3d-cluster-up
