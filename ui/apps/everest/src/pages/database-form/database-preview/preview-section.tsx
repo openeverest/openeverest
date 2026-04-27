@@ -36,14 +36,14 @@ export const PreviewSection = ({
         pr: 1,
         ...(!hasBeenReached &&
           !active && {
-          pt: 0,
-          pb: 0,
-        }),
+            pt: 0,
+            pb: 0,
+          }),
         ...(active &&
           isDesktop && {
-          backgroundColor: 'action.hover',
-          mb: 1.5,
-        }),
+            backgroundColor: 'action.hover',
+            mb: 1.5,
+          }),
         ...sx,
       }}
       {...stackProps}
