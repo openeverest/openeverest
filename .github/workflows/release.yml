@@ -453,6 +453,7 @@ jobs:
             -H "Authorization: Bearer ${{ secrets.TAP_REPO_TOKEN }}" \
             https://api.github.com/repos/openeverest/homebrew-tap/dispatches \
             -d "{\"event_type\":\"new-release\",\"client_payload\":{\"version\":\"$VERSION\"}}"
+
   create-manifests:
     name: Create multi-arch manifests
     needs: build

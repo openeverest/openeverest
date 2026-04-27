@@ -37,6 +37,8 @@ export const useFormEngine = (config: FormEngineConfig): FormEngineResult => {
     selectedTopology,
     staticSteps = [],
     providerObject,
+    namespace,
+    cluster,
   } = config;
 
   // 1. Schema processing (sections, zod, field map)
@@ -76,6 +78,8 @@ export const useFormEngine = (config: FormEngineConfig): FormEngineResult => {
             sections,
             providerObject,
             loadingDefaultsForEdition,
+            namespace,
+            cluster,
           });
 
         return {
@@ -87,7 +91,7 @@ export const useFormEngine = (config: FormEngineConfig): FormEngineResult => {
           fields,
         };
       }),
-    [sectionKeys, sections, sectionFieldMap, providerObject]
+    [sectionKeys, sections, sectionFieldMap, providerObject, namespace, cluster]
   );
 
   // 3. Merge static + generated steps

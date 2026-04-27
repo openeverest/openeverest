@@ -122,7 +122,18 @@ Preprocessed sections
                │
                └── leaf component:
                      generateFieldId(item, name)  →  form field name
-                     <CustomField /> → registered in react-hook-form
+                     │
+                     ├── hasDataSource?
+                     │     → <ComponentErrorBoundary>
+                     │         <DataSourceField name={fieldName}>
+                     │           (patchedItem) → <UIComponent />
+                     │         </DataSourceField>
+                     │       </ComponentErrorBoundary>
+                     │
+                     └── otherwise:
+                           <ComponentErrorBoundary>
+                             <UIComponent />
+                           </ComponentErrorBoundary>
 ```
 
 ## 6. Postprocessing Pipeline
@@ -233,3 +244,74 @@ for full documentation):
 | Schema walker      | `utils/schema-walker/schema-walker.ts`             |
 | Object path        | `utils/object-path/object-path.ts`                 |
 | Edit modal         | `cluster-overview/sections/section-edit-modal/`    |
+| API providers      | `api-providers/` (see §10)                         |
+| Error boundary     | `component-error-boundary/`                        |
+
+## 10. API-Backed Select Fields (dataSource)
+
+Select fields can declare a `dataSource.provider` in the schema so their
+options are loaded from an API at runtime. The system has three layers:
+
+```
+┌─────────────────────────────────────────────────────────┐
+│  1. Registry  (singleton, populated at import time)     │
+│     api-providers/registry.ts                           │
+│       ├── register(key, entry)                          │
+│       └── useProviderOptions(key, params) → options     │
+│                                                         │
+│  2. Providers  (side-effect import, called once)        │
+│     api-providers/providers.ts                          │
+│       └── imports + registers each provider hook:       │
+│             hooks/api/monitoring/useMonitoringConfigsOptions.ts
+│             hooks/api/kubernetesClusters/useStorageClassesOptions.ts
+│                                                         │
+│  3. Runtime (two paths)                                 │
+│     a) DataSourcePrefetcher                             │
+│        — renders inside <FormProvider>                   │
+│        — fires useProviderOptions per unique provider    │
+│        — sets form defaults (setValue) for all fields    │
+│          that use each provider, so the summary panel    │
+│          shows values before the user visits the step    │
+│                                                         │
+│     b) DataSourceField                                  │
+│        — wraps individual select at render time          │
+│        — patches fieldParams.options with fetched data   │
+│        — also sets default (idempotent safety net)       │
+│        — handles loading/error/empty states              │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Default value flow
+
+`getDefaultValues()` runs synchronously during form init, before any API
+response arrives. For dataSource fields the initial value is `""`. The
+default is set asynchronously in two places (whichever fires first wins):
+
+1. **DataSourcePrefetcher** — runs on form mount, sets `setValue(path,
+options[0].value)` as soon as the query resolves. This makes the
+   preview/summary panel show the value immediately.
+2. **DataSourceField** — runs when the user navigates to the step. Acts
+   as a safety net in case the prefetcher hasn't fired yet.
+
+Both check `getValues(path)` before writing, so they never overwrite a
+user-selected or pre-existing value.
+
+### Error isolation
+
+Each rendered component (including DataSourceField and PrefetchItem) is
+wrapped in `<ComponentErrorBoundary>` — a lightweight MUI Alert that
+catches React errors so a single failing field doesn't break the form.
+
+### Key files
+
+| Area                   | File                                                       |
+| ---------------------- | ---------------------------------------------------------- |
+| Registry               | `api-providers/registry.ts`                                |
+| Provider registrations | `api-providers/providers.ts`                               |
+| DataSourceField        | `api-providers/data-source-field/data-source-field.tsx`    |
+| Prefetcher             | `api-providers/data-source-prefetcher.tsx`                 |
+| Error boundary         | `component-error-boundary/component-error-boundary.tsx`    |
+| Monitoring hook        | `hooks/api/monitoring/useMonitoringConfigsOptions.ts`      |
+| Storage classes hook   | `hooks/api/kubernetesClusters/useStorageClassesOptions.ts` |
+
+See also: [docs/ui/ui-generator/api-providers.md](../../../docs/ui/ui-generator/api-providers.md)

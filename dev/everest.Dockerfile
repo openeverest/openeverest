@@ -9,7 +9,7 @@ EXPOSE 8080
 ENTRYPOINT ["/home/everest/everest-api"]
 
 # Build the Delve debuger
-FROM golang:1.25-alpine AS delve
+FROM golang:1.26-alpine AS delve
 RUN go install github.com/go-delve/delve/cmd/dlv@v1.25.2
 RUN chmod +x /go/bin/dlv
 

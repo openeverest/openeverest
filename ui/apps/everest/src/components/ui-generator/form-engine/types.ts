@@ -41,14 +41,13 @@ export type StepDefinition = {
 };
 
 export type FormEngineConfig = {
-  /** Pre-processed topology UI schema. */
+  // Pre-processed topology UI schema
   uiSchema: TopologyUISchemas;
-  /** Currently selected topology key. */
   selectedTopology: string;
-  /** Hand-coded steps injected before the schema-generated steps. */
   staticSteps?: StepDefinition[];
-  /** Provider object passed down to UIGenerator for option resolution. */
   providerObject?: Provider;
+  namespace?: string;
+  cluster?: string;
 };
 
 export type FormEngineResult = {

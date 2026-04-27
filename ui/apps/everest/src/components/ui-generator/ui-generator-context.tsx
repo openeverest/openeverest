@@ -20,6 +20,8 @@ type UiGeneratorContextValue = {
   providerObject?: Provider;
   loadingDefaultsForEdition?: boolean;
   formMode?: FormMode;
+  namespace?: string;
+  cluster?: string;
 };
 
 const UiGeneratorContext = createContext<UiGeneratorContextValue | null>(null);
@@ -28,6 +30,8 @@ type UiGeneratorProviderProps = {
   providerObject?: Provider;
   loadingDefaultsForEdition?: boolean;
   formMode?: FormMode;
+  namespace?: string;
+  cluster?: string;
   children: ReactNode;
 };
 
@@ -35,6 +39,8 @@ export const UiGeneratorProvider = ({
   providerObject,
   loadingDefaultsForEdition,
   formMode,
+  namespace,
+  cluster,
   children,
 }: UiGeneratorProviderProps) => {
   return (
@@ -43,6 +49,8 @@ export const UiGeneratorProvider = ({
         providerObject,
         loadingDefaultsForEdition,
         formMode,
+        namespace,
+        cluster,
       }}
     >
       {children}
@@ -58,6 +66,8 @@ export const useUiGeneratorContext = () => {
       providerObject: undefined,
       loadingDefaultsForEdition: false,
       formMode: undefined,
+      namespace: undefined,
+      cluster: undefined,
     }
   );
 };

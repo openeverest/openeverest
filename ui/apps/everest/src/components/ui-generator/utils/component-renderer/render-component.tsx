@@ -22,6 +22,12 @@ import UIComponent from 'components/ui-generator/ui-component/ui-component';
 import UIGroup from 'components/ui-generator/ui-group/ui-group';
 import { generateFieldId } from './generate-field-id';
 import { orderComponents } from './order-components';
+import {
+  DataSourceField,
+  hasDataSource,
+  type ComponentWithDataSource,
+} from 'components/ui-generator/api-providers';
+import { ComponentErrorBoundary } from 'components/ui-generator/component-error-boundary';
 
 export type RenderComponentProps = {
   item: Component | ComponentGroup;
@@ -51,22 +57,36 @@ export const renderComponent = ({
         </React.Fragment>
       );
     })
+  ) : hasDataSource(item as Component) ? (
+    <ComponentErrorBoundary key={fieldName} componentName={name}>
+      <DataSourceField item={item as ComponentWithDataSource} name={fieldName}>
+        {(patchedItem: Component) => (
+          <UIComponent key={fieldName} item={patchedItem} name={fieldName} />
+        )}
+      </DataSourceField>
+    </ComponentErrorBoundary>
   ) : (
     <UIComponent key={fieldName} item={item as Component} name={fieldName} />
   );
 
   if (isGroup) {
     return (
-      <UIGroup
-        key={fieldName}
-        item={item}
-        groupType={(item as ComponentGroup).groupType}
-        groupParams={(item as ComponentGroup).groupParams}
-      >
-        {children}
-      </UIGroup>
+      <ComponentErrorBoundary key={fieldName} componentName={name}>
+        <UIGroup
+          key={fieldName}
+          item={item}
+          groupType={(item as ComponentGroup).groupType}
+          groupParams={(item as ComponentGroup).groupParams}
+        >
+          {children}
+        </UIGroup>
+      </ComponentErrorBoundary>
     );
   }
 
-  return <React.Fragment key={fieldName}>{children}</React.Fragment>;
+  return (
+    <ComponentErrorBoundary key={fieldName} componentName={name}>
+      {children}
+    </ComponentErrorBoundary>
+  );
 };

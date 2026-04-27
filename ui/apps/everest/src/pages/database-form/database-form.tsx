@@ -51,6 +51,7 @@ import {
   useErrorRouting,
   StepDefinition,
 } from 'components/ui-generator/form-engine';
+import { DataSourcePrefetcher } from 'components/ui-generator/api-providers';
 import { BaseInfoStep } from './database-form-body/steps/base-step/base-step';
 import { ImportStep } from './database-form-body/steps-old/import/import-step';
 import { mergeTopologyDefaults } from 'components/ui-generator/utils/default-values/merge-topology-defaults';
@@ -138,6 +139,11 @@ export const DatabasePage = () => {
     name: DbWizardFormFields.topology,
   });
 
+  const selectedNamespace = useWatch({
+    control,
+    name: DbWizardFormFields.k8sNamespace,
+  });
+
   // Static step definitions
   const staticSteps = useMemo((): StepDefinition[] => {
     const steps: StepDefinition[] = [
@@ -169,6 +175,9 @@ export const DatabasePage = () => {
     selectedTopology,
     staticSteps,
     providerObject,
+    namespace: selectedNamespace || namespaces[0],
+    // TODO: Replace hardcoded cluster name when multi-cluster support is implemented
+    cluster: 'main',
   });
 
   // Navigation
@@ -303,6 +312,11 @@ export const DatabasePage = () => {
     >
       <Stack direction={isDesktop ? 'row' : 'column'}>
         <FormProvider {...methods}>
+          <DataSourcePrefetcher
+            sections={engine.sections}
+            namespace={selectedNamespace || namespaces[0]}
+            cluster="main"
+          />
           <DatabaseFormBody
             steps={engine.steps}
             activeStep={nav.activeStepIndex}
