@@ -5,6 +5,7 @@ import { useActiveBreakpoint } from 'hooks/utils/useActiveBreakpoint';
 import {
   PreviewContentTextProps,
   PreviewSectionProps,
+  TruncatedPreviewContentTextProps,
 } from './database-preview.types';
 import { kebabize } from '@percona/utils';
 import { useEffect, useRef, useState } from 'react';
@@ -120,7 +121,7 @@ export const TruncatedPreviewContentText = ({
   text,
   dataTestId,
   ...typographyProps
-}: PreviewContentTextProps) => {
+}: TruncatedPreviewContentTextProps) => {
   const [expanded, setExpanded] = useState(false);
   const [needsTruncation, setNeedsTruncation] = useState(false);
   const textRef = useRef<HTMLSpanElement | null>(null);

@@ -35,7 +35,10 @@ export type PreviewSectionProps = {
 } & StackProps;
 
 export type PreviewContentTextProps = {
-  label?: string;
   text: string;
   dataTestId?: string;
 } & TypographyProps;
+
+export type TruncatedPreviewContentTextProps = {
+  label?: string;
+} & PreviewContentTextProps;
