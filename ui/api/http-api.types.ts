@@ -1400,7 +1400,7 @@ export interface components {
              */
             allowedNamespaces?: string[];
         };
-        BackupStoragesList: components["schemas"]["BackupStorageV1"][];
+        BackupStoragesListV1: components["schemas"]["BackupStorageV1"][];
         /** @description Monitoring instance information */
         MonitoringInstanceBase: {
             /** @enum {string} */
@@ -9399,7 +9399,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["BackupStoragesList"];
+                    "application/json": components["schemas"]["BackupStoragesListV1"];
                 };
             };
             /** @description Unsuccessful operation */

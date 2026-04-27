@@ -1524,7 +1524,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/BackupStoragesList'
+                $ref: '#/components/schemas/BackupStoragesListV1'
         '400':
           description: Unsuccessful operation
           content:
@@ -3817,7 +3817,7 @@ components:
         - name
         - bucketName
         - type
-    BackupStoragesList:
+    BackupStoragesListV1:
       type: array
       items:
         type: object

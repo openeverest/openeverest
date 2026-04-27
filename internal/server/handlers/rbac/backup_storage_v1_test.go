@@ -59,7 +59,7 @@ func TestRBAC_BackupStorage(t *testing.T) {
 		return &next
 	}
 
-	t.Run("ListBackupStoragesV1", func(t *testing.T) {
+	t.Run("ListBackupStorages", func(t *testing.T) {
 		t.Parallel()
 
 		testCases := []struct {
@@ -168,7 +168,7 @@ func TestRBAC_BackupStorage(t *testing.T) {
 		}
 	})
 
-	t.Run("GetBackupStorageV1", func(t *testing.T) {
+	t.Run("GetBackupStorage", func(t *testing.T) {
 		t.Parallel()
 
 		data := func() *handlers.MockHandler {
@@ -251,7 +251,7 @@ func TestRBAC_BackupStorage(t *testing.T) {
 		}
 	})
 
-	t.Run("CreateBackupStorageV1", func(t *testing.T) {
+	t.Run("CreateBackupStorage", func(t *testing.T) {
 		t.Parallel()
 		next := func() *handlers.MockHandler {
 			next := handlers.MockHandler{}
@@ -419,7 +419,7 @@ func TestRBAC_BackupStorage(t *testing.T) {
 		}
 	})
 
-	t.Run("UpdateBackupStorageV1", func(t *testing.T) {
+	t.Run("UpdateBackupStorage", func(t *testing.T) {
 		t.Parallel()
 		next := func() *handlers.MockHandler {
 			next := handlers.MockHandler{}
@@ -585,7 +585,7 @@ func TestRBAC_BackupStorage(t *testing.T) {
 		}
 	})
 
-	t.Run("DeleteBackupStorageV1", func(t *testing.T) {
+	t.Run("DeleteBackupStorage", func(t *testing.T) {
 		t.Parallel()
 		next := func() *handlers.MockHandler {
 			next := handlers.MockHandler{}
