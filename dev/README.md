@@ -12,14 +12,32 @@ Build and runtime logs can be easily accessed using tilt's web UI.
 
 ## Prerequisites
 
-1. Install [k3d](https://k3d.io)
+1. Install [Go](https://go.dev/dl/) (version 1.26 or later)
 
-2. Install [tilt.dev](https://docs.tilt.dev/install.html)
+2. Install [Docker](https://docs.docker.com/engine/install/)
+
+3. Install [kubectl](https://kubernetes.io/docs/tasks/tools/)
+
+4. Install [Helm](https://helm.sh/docs/intro/install/)
+
+   ```sh
+   curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+   ```
+
+5. Install [k3d](https://k3d.io)
+
+6. Install [tilt.dev](https://docs.tilt.dev/install.html)
 NOTE: for MacOS tilt needs to have installed and runing `docker-desktop` tool. This is not required and can be skiped since we use `k3d` instead.
- 
-3. Clone [everest-operator](https://github.com/percona/everest-operator).
 
-4. Clone [helm-charts](https://github.com/openeverest/helm-charts).
+7. Install [pnpm](https://pnpm.io/installation) (required for the frontend build)
+
+   ```sh
+   npm install -g pnpm
+   ```
+
+8. Clone [everest-operator](https://github.com/percona/everest-operator).
+
+9. Clone [helm-charts](https://github.com/openeverest/helm-charts).
 
 ## Set up the environment
 
