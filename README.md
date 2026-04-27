@@ -10,6 +10,7 @@ OpenEverest - Run Data Workloads on Kubernetes
 [![GitHub License](https://img.shields.io/github/license/openeverest/openeverest)](LICENSE)
 [![OpenSSF Best Practices](https://www.bestpractices.dev/projects/12239/badge)](https://www.bestpractices.dev/projects/12239)
 [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/openeverest/openeverest/badge)](https://scorecard.dev/viewer/?uri=github.com/openeverest/openeverest)
+[![CLOMonitor](https://img.shields.io/endpoint?url=https://clomonitor.io/api/projects/cncf/openeverest/badge)](https://clomonitor.io/projects/cncf/openeverest)
 [![Snyk](https://snyk.io/test/github/openeverest/openeverest/badge.svg)](https://snyk.io/test/github/openeverest/openeverest)
 [![Artifact Hub](https://img.shields.io/endpoint?url=https://artifacthub.io/badge/repository/openeverest)](https://artifacthub.io/packages/search?repo=openeverest)
 [![Documentation](https://img.shields.io/badge/Documentation-blue?logo=readthedocs&logoColor=white)](https://openeverest.io/documentation/current/)
