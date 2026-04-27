@@ -1,12 +1,13 @@
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
-import { IconButton, Stack, Typography, useTheme } from '@mui/material';
+import { Box, IconButton, Stack, Typography, useTheme } from '@mui/material';
 import { useActiveBreakpoint } from 'hooks/utils/useActiveBreakpoint';
 import {
   PreviewContentTextProps,
   PreviewSectionProps,
 } from './database-preview.types';
 import { kebabize } from '@percona/utils';
+import { useEffect, useRef, useState } from 'react';
 
 export const PreviewSection = ({
   title,
@@ -35,14 +36,14 @@ export const PreviewSection = ({
         pr: 1,
         ...(!hasBeenReached &&
           !active && {
-            pt: 0,
-            pb: 0,
-          }),
+          pt: 0,
+          pb: 0,
+        }),
         ...(active &&
           isDesktop && {
-            backgroundColor: 'action.hover',
-            mb: 1.5,
-          }),
+          backgroundColor: 'action.hover',
+          mb: 1.5,
+        }),
         ...sx,
       }}
       {...stackProps}
@@ -113,3 +114,79 @@ export const PreviewContentText = ({
     {text}
   </Typography>
 );
+
+export const TruncatedPreviewContentText = ({
+  label,
+  text,
+  dataTestId,
+  ...typographyProps
+}: PreviewContentTextProps) => {
+  const [expanded, setExpanded] = useState(false);
+  const [needsTruncation, setNeedsTruncation] = useState(false);
+  const textRef = useRef<HTMLSpanElement | null>(null);
+
+  useEffect(() => {
+    const element = textRef.current;
+    if (!element) {
+      return;
+    }
+
+    const checkTruncation = () => {
+      setNeedsTruncation(element.scrollHeight > element.clientHeight + 2);
+      setExpanded(false);
+    };
+
+    checkTruncation();
+    window.addEventListener('resize', checkTruncation);
+
+    return () => {
+      window.removeEventListener('resize', checkTruncation);
+    };
+  }, [text]);
+
+  return (
+    <Box>
+      <Typography
+        ref={textRef}
+        variant="caption"
+        color="text.secondary"
+        sx={
+          expanded
+            ? {}
+            // https://stackoverflow.com/questions/63592567/material-ui-text-ellipsis-after-two-line
+            : {
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              display: '-webkit-box',
+              WebkitLineClamp: '3',
+              WebkitBoxOrient: 'vertical',
+            }
+        }
+        data-testid={
+          dataTestId ? `${dataTestId}-preview-content` : 'preview-content'
+        }
+        {...typographyProps}
+        component="span"
+      >
+        {label && <span>{label}: </span>}
+        {text}
+      </Typography>
+      {needsTruncation && (
+        <Typography
+          variant="caption"
+          color="primary"
+          sx={{
+            textDecoration: 'underline',
+            cursor: 'pointer',
+            display: 'inline',
+            ml: 0.25,
+          }}
+          onClick={() => setExpanded((e) => !e)}
+          component="span"
+        >
+          {expanded ? 'Show less' : 'Show more'}
+        </Typography>
+      )}
+    </Box>
+  );
+};

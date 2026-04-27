@@ -35,6 +35,7 @@ export type PreviewSectionProps = {
 } & StackProps;
 
 export type PreviewContentTextProps = {
+  label?: string;
   text: string;
   dataTestId?: string;
 } & TypographyProps;
