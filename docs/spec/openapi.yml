@@ -4136,6 +4136,9 @@ components:
             state:
               description: State is the DatabaseBackup state.
               type: string
+            size:
+              description: Size is the size of the backup
+              type: string
           required:
             - gaps
           type: object
