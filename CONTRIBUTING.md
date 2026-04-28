@@ -36,6 +36,18 @@ When raising [Issues](https://github.com/openeverest/openeverest/issues), please
 
 If you are trying to report a vulnerability, please refer to our [Security Policy](https://github.com/openeverest/openeverest/blob/main/SECURITY.md).
 
+## Working on Issues
+
+To avoid duplicated effort and keep collaboration smooth, please follow these steps before starting work on an issue.
+
+**Check for an existing assignee.** If an issue is already assigned to someone, it means they are actively working on it. Please do not start work on or open a PR for an assigned issue. If the issue appears stale (no activity for two weeks or more), you are welcome to leave a comment asking about its status.
+
+**Claim unassigned issues before you start.** If an issue is unassigned and you want to tackle it, leave a comment expressing your intent — for example, *"I'd like to work on this"*. Wait for a maintainer to assign it to you before opening a PR. This prevents two people from solving the same problem in parallel.
+
+**Exception: `good first issue`.** Issues labeled [`good first issue`](https://github.com/openeverest/openeverest/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22) are explicitly reserved for new contributors and can be picked up without prior assignment. Feel free to start working and open a PR when ready.
+
+**Discuss your approach with the community.** Before investing significant time in an implementation, consider sharing your design ideas in the issue thread or in our [community channels](https://openeverest.io/#community) (Slack and more). Early feedback from maintainers and other contributors can save effort, surface existing work, and help your PR land faster.
+
 ## Contributing to the source code
 
 ### Backend
