@@ -12,6 +12,10 @@
     "test": {
       "cache": false
     },
+    "test:coverage": {
+      "cache": false,
+      "outputs": ["coverage/**"]
+    },
     "lint": {
       "cache": false
     },

@@ -10,6 +10,7 @@
   },
   "scripts": {
     "test": "turbo run test",
+    "test:coverage": "turbo run test:coverage",
     "lint": "turbo run lint",
     "lint-check": "turbo run lint-check",
     "format": "turbo run format",

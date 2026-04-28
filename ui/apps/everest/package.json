@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite --port 3000",
     "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
     "test:watch": "vitest",
     "pre-e2e": "rm -rf tests-out test-results && tsc --incremental --noImplicitAny false -p .e2e/tsconfig.json && tsc-alias -p .e2e/tsconfig.json",
     "e2e": "node ./setup-e2e-rbac-user.js && pnpm pre-e2e && cd .e2e && playwright test --project=pr",
@@ -79,6 +80,7 @@
     "prettier": "^3.0.3",
     "tsc-alias": "^1.8.8",
     "typescript": "^5.2.2",
+    "@vitest/coverage-v8": "^2.1.9",
     "vite": "^5.4.19",
     "vite-tsconfig-paths": "^5.1.2",
     "vitest": "^2.1.9",

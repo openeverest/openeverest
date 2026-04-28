@@ -94,6 +94,45 @@ jobs:
         if: matrix.action == 'build'
         run: make build
 
+  coverage:
+    runs-on: ubuntu-latest
+    needs: cache_pnpm
+    strategy:
+      fail-fast: true
+    continue-on-error: false
+    defaults:
+      run:
+        working-directory: ui
+    steps:
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        with:
+          lfs: true
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4.3.0
+        with:
+          version: 9.4.0
+
+      - name: Use Node
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        with:
+          node-version: 20.x
+          cache: "pnpm"
+          cache-dependency-path: "ui/pnpm-lock.yaml"
+
+      - run: make init
+
+      - name: Run tests with coverage
+        run: make test-coverage
+
+      - name: Upload frontend coverage to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: apps/everest/coverage/lcov.info,packages/ui-lib/coverage/lcov.info
+          flags: frontend
+          fail_ci_if_error: false
+
   permission_checks:
     runs-on: ubuntu-latest
     steps:

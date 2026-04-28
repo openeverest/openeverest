@@ -22,6 +22,19 @@ export default defineConfig({
     globals: true,
     environment: 'jsdom',
     setupFiles: 'src/setupTests.ts',
+    coverage: {
+      provider: 'v8',
+      reporter: ['text', 'lcov'],
+      reportsDirectory: './coverage',
+      exclude: [
+        'node_modules/**',
+        'src/setupTests.ts',
+        '.e2e/**',
+        '**/*.test.{ts,tsx}',
+        '**/*.spec.{ts,tsx}',
+        'src/**/*.d.ts',
+      ],
+    },
   },
   // During prod the libs will be built, so no need to point to src
   ...(process.env.NODE_ENV !== 'production' && {

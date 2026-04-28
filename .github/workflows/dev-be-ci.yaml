@@ -40,7 +40,15 @@ jobs:
         timeout-minutes: 20
         run: |
           go clean -testcache
-          make test
+          make test-cover
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: ./cover.out
+          flags: backend
+          fail_ci_if_error: false
 
       - name: Check that there are no source code changes
         run: |

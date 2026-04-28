@@ -4,6 +4,7 @@
   "description": "",
   "scripts": {
     "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
     "test:watch": "vitest",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --fix",
     "lint-check": "eslint . --ext ts,tsx --report-unused-disable-directives",
@@ -72,6 +73,7 @@
     "tslib": "^2.6.2",
     "typescript": "^5.2.2",
     "vite": "^5.4.19",
+    "@vitest/coverage-v8": "^2.1.9",
     "vitest": "^2.1.9"
   },
   "peerDependencies": {

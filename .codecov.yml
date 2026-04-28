@@ -1,0 +1,41 @@
+coverage:
+  precision: 2
+  round: down
+  range: "50...100"
+
+  status:
+    project:
+      default:
+        target: auto
+        threshold: 1%
+        informational: true
+    patch:
+      default:
+        target: auto
+        threshold: 1%
+        informational: true
+
+flag_management:
+  default_rules:
+    carryforward: true
+
+flags:
+  backend:
+    paths:
+      - "!ui/**"
+      - "!vendor/**"
+      - "!api-tests/**"
+      - "!cli-tests/**"
+  frontend:
+    paths:
+      - "ui/**"
+
+ignore:
+  - "vendor/**"
+  - "tools/**"
+  - "ui/node_modules/**"
+  - "ui/**/*.test.ts"
+  - "ui/**/*.test.tsx"
+  - "ui/**/*.spec.ts"
+  - "ui/**/*.spec.tsx"
+  - "ui/**/.e2e/**"

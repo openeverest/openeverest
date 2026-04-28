@@ -1,12 +1,15 @@
 EVEREST_OUT_DIR := ""
 
-.PHONY: init test build lint lint-check format format-check dev preflight
+.PHONY: init test test-coverage build lint lint-check format format-check dev preflight
 
 init:
 	pnpm install
 
 test:
 	pnpm test
+
+test-coverage:
+	pnpm test:coverage
 
 build:
 	EVEREST_OUT_DIR=$(EVEREST_OUT_DIR) pnpm build
