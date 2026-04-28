@@ -12,7 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { PreviewContentText, TruncatedPreviewContentText } from '../preview-section';
+import {
+  PreviewContentText,
+  TruncatedPreviewContentText,
+} from '../preview-section';
 import { AdvancedConfigurationType } from '../../database-form-schema.ts';
 import { ProxyExposeType } from 'shared-types/dbCluster.types';
 import { EMPTY_LOAD_BALANCER_CONFIGURATION } from 'consts.ts';
@@ -43,7 +46,10 @@ export const AdvancedConfigurationsPreviewSection = ({
         />
       )}
       {engineParametersEnabled && engineParameters && (
-        <TruncatedPreviewContentText label="Database engine parameters set" text={engineParameters} />
+        <TruncatedPreviewContentText
+          label="Database engine parameters set"
+          text={engineParameters}
+        />
       )}
       {podSchedulingPolicyEnabled && podSchedulingPolicy && (
         <PreviewContentText

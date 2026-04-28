@@ -168,14 +168,14 @@ export const TruncatedPreviewContentText = ({
         sx={
           expanded
             ? {}
-            // https://stackoverflow.com/questions/63592567/material-ui-text-ellipsis-after-two-line
-            : {
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              display: '-webkit-box',
-              WebkitLineClamp: '3',
-              WebkitBoxOrient: 'vertical',
-            }
+            : // https://stackoverflow.com/questions/63592567/material-ui-text-ellipsis-after-two-line
+              {
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                display: '-webkit-box',
+                WebkitLineClamp: '3',
+                WebkitBoxOrient: 'vertical',
+              }
         }
         data-testid={
           dataTestId ? `${dataTestId}-preview-content` : 'preview-content'
