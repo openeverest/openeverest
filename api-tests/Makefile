@@ -32,7 +32,7 @@ k3d-upload-pmm-images: ## Pre-upload PMM server images to K3D test cluster to sp
 	@{ \
 	for node in $$(k3d node list | grep everest-server-test | grep -v registry | awk '{print $$1}'); do \
 		for image in $$($(HELM) template pmm percona/pmm --version $(PMM_HELM_CHART_VER) | grep -E '^\s+image:' | awk '{print $$2}' | tr -d '"' | sort -u); do \
-			docker exec $$node ctr image pull $${image} ;\
+			docker exec $$node ctr image pull docker.io/$${image} ;\
 		done ;\
 	done ;\
 	}
