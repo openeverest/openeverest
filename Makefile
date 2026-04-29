@@ -4,12 +4,14 @@ RELEASE_FULLCOMMIT ?= $(shell git rev-parse HEAD)
 IMAGE_PREFIX ?= ghcr.io/openeverest
 EVEREST_SERVER_DEV_IMAGE_NAME ?= openeverest-dev
 EVEREST_OPERATOR_DEV_IMAGE_NAME ?= openeverest-operator-dev
+EVEREST_CONTROLLER_DEV_IMAGE_NAME ?= openeverest-controller-dev
 EVEREST_CATALOG_DEV_IMAGE_NAME ?= openeverest-catalog-dev
 IMAGE_TAG ?= 0.0.0
 IMG = $(IMAGE_PREFIX)/$(EVEREST_SERVER_DEV_IMAGE_NAME):$(IMAGE_TAG)
+EVEREST_CONTROLLER_IMG = $(IMAGE_PREFIX)/$(EVEREST_CONTROLLER_DEV_IMAGE_NAME):$(IMAGE_TAG)
 EVEREST_OPERATOR_IMG = $(IMAGE_PREFIX)/$(EVEREST_OPERATOR_DEV_IMAGE_NAME):$(IMAGE_TAG)
 CONTROLLER_TOOLS_VERSION ?= v0.18.0
-
+VICTORIAMETRICS_OPERATOR_VERSION ?= 0.66.1
 
 .PHONY: default
 default: help
@@ -110,7 +112,7 @@ copyright-run:
 			printf '%s\0' "$$file"; \
 		done > "$$TMP_FILES_LIST"; \
 	else \
-		BASE_BRANCH_LOCAL=$${BASE_BRANCH:-main}; \
+		BASE_BRANCH_LOCAL=$${BASE_BRANCH:-v2}; \
 		if ! BASE=$$(git merge-base HEAD "$$BASE_BRANCH_LOCAL" 2>/dev/null); then \
 			echo "Failed to determine merge base with '$$BASE_BRANCH_LOCAL'. Ensure the branch exists and is fetched, or set BASE_BRANCH explicitly."; \
 			exit 1; \
@@ -249,7 +251,11 @@ vet: ## Run go vet against code.
 
 .PHONY: docker-build
 docker-build: ## Build docker image with Everest API server and controller.
-	docker build -f build/package/server/Dockerfile -t ${IMG} .
+	docker build -f build/package/server/Dockerfile --target openeverest -t ${IMG} .
+
+.PHONY: docker-build-controller
+docker-build-controller: build-controller ## Build docker image with Everest controller.
+	docker build -f build/package/server/Dockerfile --target controller -t ${EVEREST_CONTROLLER_IMG} .
 
 .PHONY: docker-push
 docker-push: ## Push docker image with Everest API server and controller.
@@ -291,6 +297,20 @@ test-crosscover: setup-envtest ## Run unit tests and collect cross-package cover
 	mkdir -p ./public/dist && [ -f ./public/dist/index.html ] || touch ./public/dist/index.html
 	KUBEBUILDER_ASSETS="$$("$(ENVTEST)" use $(ENVTEST_K8S_VERSION) --bin-dir "$(LOCALBIN)" -p path)" \
 	CGO_ENABLED=1 go test -race -timeout=20m -count=1 -coverprofile=crosscover.out -covermode=atomic -p=1 -coverpkg=./... ./...
+
+.PHONY: test-integration-monitoring
+test-integration-monitoring: docker-build-controller k3d-upload-controller-image
+	. ./test/vars.sh && kubectl kuttl test --config test/integration/kuttl-monitoring.yaml
+
+.PHONY: test-integration-monitoring-chainsaw
+test-integration-monitoring-chainsaw: docker-build-controller k3d-upload-controller-image ## Run monitoring integration tests with chainsaw
+	kubectl get namespace everest-monitoring || kubectl create namespace everest-monitoring
+	$(MAKE) deploy-test-controller
+	kubectl apply -f https://raw.githubusercontent.com/VictoriaMetrics/operator/v$(VICTORIAMETRICS_OPERATOR_VERSION)/config/crd/overlay/crd.yaml
+	kubectl wait --for condition=established --timeout=10s crd vmagents.operator.victoriametrics.com
+	kubectl delete pod -n openeverest-system -l control-plane=controller-manager
+	$(MAKE) wait-test-controller
+	chainsaw test --config test/integration/.monitoring.yaml test/integration/monitoring
 
 ##@ Deployment management
 
@@ -393,6 +413,11 @@ k3d-upload-server-image: ## Upload the Everest API server image to the testing k
 	$(info Uploading Everest API server image=$(IMG) to K3D testing cluster)
 	k3d image import -c everest-server-test $(IMG)
 
+.PHONY: k3d-upload-controller-image
+k3d-upload-controller-image: ## Upload the Everest controller image to the testing k3d cluster.
+	$(info Uploading Everest controller image=$(EVEREST_CONTROLLER_IMG) to K3D testing cluster)
+	k3d image import -c everest-server-test $(EVEREST_CONTROLLER_IMG)
+
 .PHONY: k3d-upload-operator-image
 k3d-upload-operator-image: ## Upload the Everest operator image to the testing k3d cluster.
 	$(info Uploading Everest operator image=$(EVEREST_OPERATOR_IMG) to K3D testing cluster)
@@ -436,10 +461,11 @@ dev-destroy: k3d-cluster-down-dev ## Destroy the k3d cluster.
 
 ##@ GitHub PR
 
-CHART_BRANCH ?= main
+CHART_BRANCH ?= v2
 .PHONY: update-dev-chart
-update-dev-chart: ## Update dependency to Everest Helm chart to the latest version from the specified branch (default main).
-	GOPROXY=direct go get -u -v github.com/openeverest/helm-charts/charts/everest@${CHART_BRANCH}
+update-dev-chart: ## Update dependency to Everest Helm chart to the latest version from the specified branch (default v2).
+	COMMIT=$$(git ls-remote https://github.com/openeverest/helm-charts refs/heads/$(CHART_BRANCH) | cut -f1) && \
+	GOPROXY=direct go get -u -v github.com/openeverest/helm-charts/charts/everest@$$COMMIT
 	go mod tidy
 
 EVEREST_OPERATOR_BRANCH ?= main
@@ -479,7 +505,7 @@ uninstall: gen-crds-manifests kustomize ## Uninstall CRDs from the K8s cluster s
 
 .PHONY: deploy-controller
 deploy-controller: gen-crds-manifests kustomize ## Deploy controller to the K8s cluster specified in ~/.kube/config.
-	cd config/manager && "$(KUSTOMIZE)" edit set image controller=${IMG}
+	cd config/manager && "$(KUSTOMIZE)" edit set image controller=${EVEREST_CONTROLLER_IMG}
 	"$(KUSTOMIZE)" build config/default | "$(KUBECTL)" apply -f -
 
 .PHONY: undeploy-controller
@@ -491,6 +517,15 @@ build-installer: gen-crds-manifests kustomize ## Generate a consolidated YAML wi
 	mkdir -p dist
 	cd config/manager && "$(KUSTOMIZE)" edit set image controller=${IMG}
 	"$(KUSTOMIZE)" build config/default > dist/install.yaml
+
+.PHONY: deploy-test-controller
+deploy-test-controller: gen-crds-manifests kustomize deploy-cert-manager
+	cd config/test && "$(KUSTOMIZE)" edit set image controller=${EVEREST_CONTROLLER_IMG}
+	$(KUSTOMIZE) build config/test | kubectl apply -f -
+
+.PHONY: wait-test-controller
+wait-test-controller: # Wait for the test controller deployment to be available.
+	kubectl wait --for=condition=available --timeout=60s deploy/openeverest-controller-manager -n openeverest-system
 
 ##@ Dependencies
 
@@ -517,6 +552,13 @@ setup-envtest: envtest ## Download the binaries required for ENVTEST.
 envtest: $(ENVTEST) ## Download setup-envtest locally if necessary.
 $(ENVTEST): $(LOCALBIN)
 	$(call go-install-tool,$(ENVTEST),sigs.k8s.io/controller-runtime/tools/setup-envtest,$(ENVTEST_VERSION))
+
+.PHONY: deploy-cert-manager
+deploy-cert-manager: # Install cert-manager used by controller webhook.
+	kubectl apply -f https://github.com/cert-manager/cert-manager/releases/latest/download/cert-manager.yaml
+	kubectl wait --for=condition=available --timeout=120s deployment/cert-manager -n cert-manager
+	kubectl wait --for=condition=available --timeout=120s deployment/cert-manager-webhook -n cert-manager
+	kubectl wait --for=condition=available --timeout=120s deployment/cert-manager-cainjector -n cert-manager
 
 # go-install-tool will 'go install' any package with custom target and name of binary, if it doesn't exist.
 # $1 - target path with name of binary

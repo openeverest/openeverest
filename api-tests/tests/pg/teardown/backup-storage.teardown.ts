@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -21,6 +22,6 @@ teardown.describe.serial('PG Backup Storage teardown', () => {
   teardown.describe.configure({timeout: 300 * 1000});
 
   teardown('Removing Backup Storage for PG DB cluster', async ({request}) => {
-    await th.deleteBackupStorage(request, process.env[PG_BACKUP_STORAGE_NAME_ENV])
+    await th.deleteBackupStorageV1(request, process.env[PG_BACKUP_STORAGE_NAME_ENV])
   });
 });

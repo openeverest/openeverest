@@ -74,8 +74,7 @@ func (h *validateHandler) GetMonitoringConfig(ctx context.Context, namespace, na
 func (h *validateHandler) UpdateMonitoringConfig(ctx context.Context, namespace, name string, req *api.MonitoringConfigUpdateParams) (*monitoringv1alpha2.MonitoringConfig, error) {
 	if req.Url != "" {
 		if ok := operatorUtils.ValidateURL(req.Url); !ok {
-			err := ErrInvalidURL("url")
-			return nil, errors.Join(ErrInvalidRequest, err)
+			return nil, errors.Join(ErrInvalidRequest, ErrInvalidURL("url"))
 		}
 	}
 

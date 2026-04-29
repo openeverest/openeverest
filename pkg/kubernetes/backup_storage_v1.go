@@ -25,9 +25,9 @@ import (
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-// ListBackupStorages returns list of managed backup storages in a given namespace.
+// ListBackupStoragesV1 returns list of managed backup storages in a given namespace.
 // This method returns a list of full objects (meta and spec).
-func (k *Kubernetes) ListBackupStorages(ctx context.Context, opts ...ctrlclient.ListOption) (*everestv1alpha1.BackupStorageList, error) {
+func (k *Kubernetes) ListBackupStoragesV1(ctx context.Context, opts ...ctrlclient.ListOption) (*everestv1alpha1.BackupStorageList, error) {
 	result := &everestv1alpha1.BackupStorageList{}
 	if err := k.k8sClient.List(ctx, result, opts...); err != nil {
 		return nil, err
@@ -37,7 +37,7 @@ func (k *Kubernetes) ListBackupStorages(ctx context.Context, opts ...ctrlclient.
 
 // listBackupStoragesMeta returns list of managed backup storages in a given namespace.
 // This method returns a list of simplified objects (meta only).
-func (k *Kubernetes) listBackupStoragesMeta(ctx context.Context, opts ...ctrlclient.ListOption) (*metav1.PartialObjectMetadataList, error) {
+func (k *Kubernetes) listBackupStoragesMetaV1(ctx context.Context, opts ...ctrlclient.ListOption) (*metav1.PartialObjectMetadataList, error) {
 	bsListMeta := &metav1.PartialObjectMetadataList{}
 	bsListMeta.SetGroupVersionKind(everestv1alpha1.GroupVersion.WithKind("BackupStorageList"))
 	if err := k.k8sClient.List(ctx, bsListMeta, opts...); err != nil {
@@ -46,8 +46,8 @@ func (k *Kubernetes) listBackupStoragesMeta(ctx context.Context, opts ...ctrlcli
 	return bsListMeta, nil
 }
 
-// GetBackupStorage returns backup storages(full object) by provided name and namespace.
-func (k *Kubernetes) GetBackupStorage(ctx context.Context, key ctrlclient.ObjectKey) (*everestv1alpha1.BackupStorage, error) {
+// GetBackupStorageV1 returns backup storages(full object) by provided name and namespace.
+func (k *Kubernetes) GetBackupStorageV1(ctx context.Context, key ctrlclient.ObjectKey) (*everestv1alpha1.BackupStorage, error) {
 	result := &everestv1alpha1.BackupStorage{}
 	if err := k.k8sClient.Get(ctx, key, result); err != nil {
 		return nil, err
@@ -55,8 +55,8 @@ func (k *Kubernetes) GetBackupStorage(ctx context.Context, key ctrlclient.Object
 	return result, nil
 }
 
-// GetBackupStorageMeta returns backup storages(metadata only) by provided name and namespace.
-func (k *Kubernetes) GetBackupStorageMeta(ctx context.Context, key ctrlclient.ObjectKey) (*metav1.PartialObjectMetadata, error) {
+// GetBackupStorageMetaV1 returns backup storages(metadata only) by provided name and namespace.
+func (k *Kubernetes) GetBackupStorageMetaV1(ctx context.Context, key ctrlclient.ObjectKey) (*metav1.PartialObjectMetadata, error) {
 	objMeta := &metav1.PartialObjectMetadata{}
 	objMeta.SetGroupVersionKind(everestv1alpha1.GroupVersion.WithKind("BackupStorage"))
 	if err := k.k8sClient.Get(ctx, key, objMeta); err != nil {
@@ -65,32 +65,32 @@ func (k *Kubernetes) GetBackupStorageMeta(ctx context.Context, key ctrlclient.Ob
 	return objMeta, nil
 }
 
-// CreateBackupStorage creates backup storages by provided object.
-func (k *Kubernetes) CreateBackupStorage(ctx context.Context, storage *everestv1alpha1.BackupStorage) (*everestv1alpha1.BackupStorage, error) {
+// CreateBackupStorageV1 creates backup storages by provided object.
+func (k *Kubernetes) CreateBackupStorageV1(ctx context.Context, storage *everestv1alpha1.BackupStorage) (*everestv1alpha1.BackupStorage, error) {
 	if err := k.k8sClient.Create(ctx, storage); err != nil {
 		return nil, err
 	}
 	return storage, nil
 }
 
-// UpdateBackupStorage updates backup storages by provided new object.
-func (k *Kubernetes) UpdateBackupStorage(ctx context.Context, storage *everestv1alpha1.BackupStorage) (*everestv1alpha1.BackupStorage, error) {
+// UpdateBackupStorageV1 updates backup storages by provided new object.
+func (k *Kubernetes) UpdateBackupStorageV1(ctx context.Context, storage *everestv1alpha1.BackupStorage) (*everestv1alpha1.BackupStorage, error) {
 	if err := k.k8sClient.Update(ctx, storage); err != nil {
 		return nil, err
 	}
 	return storage, nil
 }
 
-// DeleteBackupStorage deletes backup storage by provided name and namespace.
-func (k *Kubernetes) DeleteBackupStorage(ctx context.Context, obj *everestv1alpha1.BackupStorage) error {
+// DeleteBackupStorageV1 deletes backup storage by provided name and namespace.
+func (k *Kubernetes) DeleteBackupStorageV1(ctx context.Context, obj *everestv1alpha1.BackupStorage) error {
 	return k.k8sClient.Delete(ctx, obj)
 }
 
-// DeleteBackupStorages deletes all backup storages in provided namespace.
+// DeleteBackupStoragesV1 deletes all backup storages in provided namespace.
 // This function will wait until all storages are deleted.
-func (k *Kubernetes) DeleteBackupStorages(ctx context.Context, opts ...ctrlclient.ListOption) error {
+func (k *Kubernetes) DeleteBackupStoragesV1(ctx context.Context, opts ...ctrlclient.ListOption) error {
 	// No need to fetch full objects, we only need the fact there are objects that match the criteria(opts).
-	delList, err := k.listBackupStoragesMeta(ctx, opts...)
+	delList, err := k.listBackupStoragesMetaV1(ctx, opts...)
 	if err != nil {
 		k.l.Errorf("Could not list backup storages: %s", err)
 		return err
@@ -112,7 +112,7 @@ func (k *Kubernetes) DeleteBackupStorages(ctx context.Context, opts ...ctrlclien
 		// Skip fetching the list of objects to delete again, we already have it (see code above).
 		if delList == nil {
 			var err error
-			if delList, err = k.listBackupStoragesMeta(ctx, opts...); err != nil {
+			if delList, err = k.listBackupStoragesMetaV1(ctx, opts...); err != nil {
 				k.l.Errorf("Could not list backup storages in polling: %s", err)
 				return false, err
 			}

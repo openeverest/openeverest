@@ -1,0 +1,23 @@
+apiVersion: kuttl.dev/v1
+kind: TestStep
+timeout: 10
+---
+apiVersion: monitoring.openeverest.io/v1alpha2
+kind: MonitoringConfig
+metadata:
+  name: mc-1
+spec:
+  type: pmm
+  credentialsSecretName: mc-1-secret
+  url: http://localhost-test-mc-1-test-1
+    # image: percona/pmm-client:test-1
+---
+apiVersion: monitoring.openeverest.io/v1alpha2
+kind: MonitoringConfig
+metadata:
+  name: mc-2
+spec:
+  type: pmm
+  credentialsSecretName: mc-2-secret
+  url: http://localhost-test-mc-2-test-2
+    # image: percona/pmm-client:test-2

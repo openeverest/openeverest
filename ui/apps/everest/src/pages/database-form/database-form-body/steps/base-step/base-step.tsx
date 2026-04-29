@@ -128,15 +128,6 @@ export const BaseInfoStep = ({ loadingDefaultsForEdition }: StepProps) => {
   // logic or not? Reason of this logic was in the problem of
   // availability of storage, monitoring of namespaces (RBAC issue)
   // const defaults = getDbWizardDefaultValues(dbType);
-  // setValue(
-  //   DbWizardFormFields.monitoringInstance,
-  //   defaults.monitoringInstance
-  // );
-  // setValue(DbWizardFormFields.monitoring, defaults.monitoring);
-  // setValue(
-  //   DbWizardFormFields.monitoringInstance,
-  //   defaults.monitoringInstance
-  // );
   // setValue(DbWizardFormFields.schedules, []);
   // setValue(DbWizardFormFields.pitrEnabled, false);
   // };

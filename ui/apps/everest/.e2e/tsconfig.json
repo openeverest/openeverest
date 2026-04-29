@@ -1,11 +1,18 @@
 {
   "include": ["./**/*.ts"],
-  "exclude": ["./tests-out"],
+  "exclude": [
+    "./tests-out",
+    // Excluded until DBClusterDetailsTabs enum values (components, backups, restores, logs)
+    // are re-enabled. Remove these excludes when those tabs are connected to the new instance API.
+    "./pr/db-cluster-details/components/**",
+    "./pr/db-cluster-details/schedules.e2e.ts",
+    "./pr/multinamespaces/**"
+  ],
   "compilerOptions": {
     "lib": ["ES2020", "DOM", "DOM.Iterable"],
     "skipLibCheck": true,
     "jsx": "react-jsx",
-    "types": ["@testing-library/jest-dom", "vitest/globals"],
+    "types": ["node", "@testing-library/jest-dom", "vitest/globals"],
     "paths": {
       "@e2e/*": ["./*"],
       "@percona/ui-lib": ["../../../packages/ui-lib/src"],

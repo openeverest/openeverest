@@ -20,12 +20,17 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/url"
+	"slices"
 
 	"github.com/AlekSi/pointer"
+	vmv1beta1 "github.com/VictoriaMetrics/operator/api/operator/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -47,6 +52,21 @@ const (
 	// inUseFinalizer prevents deletion of a MonitoringConfig that is referenced by Instances.
 	inUseFinalizer = "monitoring.openeverest.io/in-use-protection"
 
+	// vmagentFinalizer prevents deletion of a MonitoringConfig if VMAgent is using it.
+	vmagentFinalizer = "openeverest.io/vmagent"
+
+	// cleanupSecretsFinalizer prevents deletion of a MonitoringConfig if a copied Secret
+	// in the monitoring namespace exists.
+	cleanupSecretsFinalizer = "openeverest.io/cleanup-secrets"
+
+	// monitoringConfigRefNameLabel is used to reference a MonitoringConfig's name
+	// on copied Secrets since owner references cannot be used across namespaces.
+	monitoringConfigRefNameLabel = "openeverest.io/monitoring-config-ref-name"
+
+	// monitoringConfigRefNamespaceLabel is used to reference a MonitoringConfig's namespace
+	// on copied Secrets since owner references cannot be used across namespaces.
+	monitoringConfigRefNamespaceLabel = "openeverest.io/monitoring-config-ref-namespace"
+
 	// instanceMonitoringConfigField is the field path used for indexing Instances
 	// by their monitoring config name.
 	instanceMonitoringConfigField = ".spec.components.monitoring.customSpec.monitoringConfigName"
@@ -55,7 +75,8 @@ const (
 // MonitoringConfigReconciler reconciles a MonitoringConfig object.
 type MonitoringConfigReconciler struct {
 	client.Client
-	Scheme *runtime.Scheme
+	Scheme              *runtime.Scheme
+	MonitoringNamespace string
 }
 
 // SetupWithManager sets up the controller with the Manager.
@@ -72,6 +93,9 @@ func (r *MonitoringConfigReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Watches(&corev1alpha1.Instance{},
 			handler.EnqueueRequestsFromMapFunc(r.enqueueInstances),
 			builder.WithPredicates(predicate.GenerationChangedPredicate{}, instancePredicate())).
+		Watches(&vmv1beta1.VMAgent{},
+			handler.EnqueueRequestsFromMapFunc(r.enqueueMonitoringConfigs),
+			builder.WithPredicates(predicate.GenerationChangedPredicate{})).
 		Complete(r)
 }
 
@@ -81,6 +105,7 @@ func (r *MonitoringConfigReconciler) SetupWithManager(mgr ctrl.Manager) error {
 // +kubebuilder:rbac:groups=core.openeverest.io,resources=instances,verbs=get;list;watch
 // +kubebuilder:rbac:groups=core,resources=namespaces,verbs=get;list;watch
 // +kubebuilder:rbac:groups=core,resources=secrets,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=operator.victoriametrics.com,resources=vmagents,verbs=get;list;watch;create;update;delete
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -138,9 +163,21 @@ func (r *MonitoringConfigReconciler) Reconcile( //nolint:nonamedreturns
 		return ctrl.Result{}, fmt.Errorf("failed to ensure in-use finalizer: %w", err)
 	}
 
-	// Ensure the credentials Secret is owned by this MonitoringConfig.
-	if err := r.ensureSecretOwnership(ctx, mc); err != nil {
-		return ctrl.Result{}, fmt.Errorf("failed to ensure secret ownership: %w", err)
+	// Ensure the credentials Secret is owned by this MonitoringConfig (non-deletion only).
+	if mc.GetDeletionTimestamp().IsZero() {
+		if err := r.ensureSecretOwnership(ctx, mc); err != nil {
+			return ctrl.Result{}, fmt.Errorf("failed to ensure secret ownership: %w", err)
+		}
+	}
+
+	// Reconcil VMAgent
+	logger.Info("Reconciling VMAgent")
+	defer func() {
+		logger.Info("Reconciled VMAgent")
+	}()
+
+	if err := r.reconcileVMAgent(ctx); err != nil {
+		return ctrl.Result{}, err
 	}
 
 	return ctrl.Result{}, nil
@@ -175,7 +212,7 @@ func (r *MonitoringConfigReconciler) ensureInUseFinalizer(
 
 	if updated {
 		if err := r.Update(ctx, mc); err != nil {
-			return fmt.Errorf("failed toupdate finalizer: %w", err)
+			return fmt.Errorf("failed to update finalizer: %w", err)
 		}
 	}
 
@@ -261,6 +298,264 @@ func (r *MonitoringConfigReconciler) fetchPMMServerVersion(
 	}
 
 	return monitoringv1alpha2.PMMServerVersion(v), nil
+}
+
+// reconcileVMAgent ensures a VMAgent exists with remote-write entries for all PMM-type MonitoringConfigs, and is removed when no longer needed.
+func (r *MonitoringConfigReconciler) reconcileVMAgent(ctx context.Context) error {
+	list := &monitoringv1alpha2.MonitoringConfigList{}
+	if err := r.List(ctx, list, &client.ListOptions{}); err != nil {
+		return fmt.Errorf("could not list monitoringconfigs: %w", err)
+	}
+
+	// Ensure each MonitoringConfig has the vmagent finalizer and its mirrored secret
+	// in the monitoring namespace before building the VMAgent spec.
+	for _, mc := range list.Items {
+		if err := r.ensureVMAgentResources(ctx, &mc); err != nil {
+			return fmt.Errorf("could not ensure vmagent resources: %w", err)
+		}
+	}
+
+	kubeSystemNamespace := &corev1.Namespace{}
+	if err := r.Get(ctx, types.NamespacedName{Name: "kube-system"}, kubeSystemNamespace); err != nil {
+		return fmt.Errorf("could not get kube-system namespace: %w", err)
+	}
+
+	spec, err := r.genVMAgentSpec(list, string(kubeSystemNamespace.UID))
+	if err != nil {
+		return fmt.Errorf("could not generate VMAgent spec: %w", err)
+	}
+
+	vmAgent := &vmv1beta1.VMAgent{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "everest-monitoring",
+			Namespace: r.MonitoringNamespace,
+		},
+	}
+
+	// No remote writes, delete the VMAgent.
+	if len(spec.RemoteWrite) == 0 {
+		if err := r.Delete(ctx, vmAgent); client.IgnoreNotFound(err) != nil {
+			return fmt.Errorf("could not delete vmagent: %w", err)
+		}
+
+		return nil
+	}
+
+	_, err = controllerutil.CreateOrUpdate(ctx, r.Client, vmAgent, func() error {
+		vmAgent.SetLabels(map[string]string{
+			"app.kubernetes.io/managed-by": "openeverest",
+			"openeverest.io/type":          "monitoring",
+		})
+		vmAgent.Spec = *spec
+		return nil
+	})
+
+	return err
+}
+
+// ensureVMAgentResources ensures the vmagent finalizer, and copied secret
+// is in the monitoring namespace.
+// - on deletion: removes the copied secret and the vmagent finalizer.
+// - otherwise: adds the vmagent finalizer and copies the credentials secret.
+func (r *MonitoringConfigReconciler) ensureVMAgentResources(ctx context.Context, mc *monitoringv1alpha2.MonitoringConfig) error {
+	if mc.Spec.Type != monitoringv1alpha2.PMMMonitoringType {
+		return nil
+	}
+
+	if !mc.GetDeletionTimestamp().IsZero() {
+		if err := r.cleanupSecrets(ctx, mc); err != nil {
+			return fmt.Errorf("could not clean up secrets: %w", err)
+		}
+
+		if removed := controllerutil.RemoveFinalizer(mc, vmagentFinalizer); removed {
+			if err := r.Update(ctx, mc); err != nil {
+				return fmt.Errorf("could not remove vmagent finalizer: %w", err)
+			}
+		}
+
+		return nil
+	}
+
+	// Add the vmagent finalizer so the VMAgent is updated
+	// before the MonitoringConfig is removed.
+	if updated := controllerutil.AddFinalizer(mc, vmagentFinalizer); updated {
+		if err := r.Update(ctx, mc); err != nil {
+			return fmt.Errorf("could not add vmagent finalizer: %w", err)
+		}
+	}
+
+	if _, err := r.reconcileSecret(ctx, mc); err != nil {
+		return fmt.Errorf("could not reconcile destination secret: %w", err)
+	}
+
+	return nil
+}
+
+// genVMAgentSpec builds a VMAgentSpec from the current state of all MonitoringConfigs.
+func (r *MonitoringConfigReconciler) genVMAgentSpec(mcList *monitoringv1alpha2.MonitoringConfigList, k8sClusterID string) (*vmv1beta1.VMAgentSpec, error) {
+	remoteWrites := make([]vmv1beta1.VMAgentRemoteWriteSpec, 0, len(mcList.Items))
+	for _, mc := range mcList.Items {
+		if mc.Spec.Type != monitoringv1alpha2.PMMMonitoringType {
+			continue
+		}
+
+		// Skip configs that are being deleted — they have no remote-write entry.
+		if !mc.GetDeletionTimestamp().IsZero() {
+			continue
+		}
+
+		u, err := url.Parse(mc.Spec.URL)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse PMM URL for %q: %w", mc.GetName(), err)
+		}
+
+		remoteWriteURL := u.JoinPath("victoriametrics/api/v1/write").String()
+
+		// Skip duplicate PMM endpoints.
+		if slices.IndexFunc(remoteWrites, func(rw vmv1beta1.VMAgentRemoteWriteSpec) bool {
+			return rw.URL == remoteWriteURL
+		}) >= 0 {
+			continue
+		}
+
+		// The secret name mirrors reconcileSecret's naming convention.
+		secretName := r.monitoringSecretName(&mc)
+
+		skipTLS := false
+		if mc.Spec.VerifyTLS != nil {
+			skipTLS = !*mc.Spec.VerifyTLS
+		}
+
+		remoteWrites = append(remoteWrites, vmv1beta1.VMAgentRemoteWriteSpec{
+			BasicAuth: &vmv1beta1.BasicAuth{
+				Password: corev1.SecretKeySelector{
+					Key:                  "apiKey",
+					LocalObjectReference: corev1.LocalObjectReference{Name: secretName},
+				},
+				Username: corev1.SecretKeySelector{
+					Key:                  "username",
+					LocalObjectReference: corev1.LocalObjectReference{Name: secretName},
+				},
+			},
+			TLSConfig: &vmv1beta1.TLSConfig{InsecureSkipVerify: skipTLS},
+			URL:       remoteWriteURL,
+		})
+	}
+
+	return &vmv1beta1.VMAgentSpec{
+		SelectAllByDefault: true,
+		CommonApplicationDeploymentParams: vmv1beta1.CommonApplicationDeploymentParams{
+			ExtraArgs: map[string]string{
+				"memory.allowedPercent": "40",
+			},
+		},
+		CommonDefaultableParams: vmv1beta1.CommonDefaultableParams{
+			Resources: corev1.ResourceRequirements{
+				Requests: corev1.ResourceList{
+					corev1.ResourceCPU:    resource.MustParse("250m"),
+					corev1.ResourceMemory: resource.MustParse("350Mi"),
+				},
+				Limits: corev1.ResourceList{
+					corev1.ResourceCPU:    resource.MustParse("500m"),
+					corev1.ResourceMemory: resource.MustParse("850Mi"),
+				},
+			},
+		},
+		ExternalLabels: map[string]string{
+			"k8s_cluster_id": k8sClusterID,
+		},
+		RemoteWrite: remoteWrites,
+	}, nil
+}
+
+// reconcileSecret copies the source MonitoringConfig secret onto the monitoring namespace.
+// Returns the name of the newly created/updated secret.
+func (r *MonitoringConfigReconciler) reconcileSecret(ctx context.Context, mc *monitoringv1alpha2.MonitoringConfig) (string, error) {
+	secretName := r.monitoringSecretName(mc)
+
+	// If the MonitoringConfig is already in the monitoring namespace, use it.
+	if mc.GetNamespace() == r.MonitoringNamespace {
+		return secretName, nil
+	}
+
+	// Get the secret in the MonitoringConfig namespace.
+	src := &corev1.Secret{}
+	if err := r.Get(ctx, types.NamespacedName{
+		Name:      mc.Spec.CredentialsSecretName,
+		Namespace: mc.GetNamespace(),
+	}, src); err != nil {
+		return "", fmt.Errorf("failed to get credentials secret %q: %w", mc.Spec.CredentialsSecretName, err)
+	}
+
+	// Create a copy in the monitoring namespace.
+	dst := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      secretName,
+			Namespace: r.MonitoringNamespace,
+		},
+	}
+
+	if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, dst, func() error {
+		dst.Data = src.DeepCopy().Data
+		// Labels are used for cleanup, since we cannot have cross-namespace OwnerRefs.
+		labels := dst.GetLabels()
+		if labels == nil {
+			labels = make(map[string]string)
+		}
+
+		labels[monitoringConfigRefNameLabel] = mc.GetName()
+		labels[monitoringConfigRefNamespaceLabel] = mc.GetNamespace()
+		dst.SetLabels(labels)
+		return nil
+	}); err != nil {
+		return "", err
+	}
+
+	// Add a clean-up finalizer in the parent MonitoringConfig.
+	if controllerutil.AddFinalizer(mc, cleanupSecretsFinalizer) {
+		return secretName, r.Update(ctx, mc)
+	}
+
+	return secretName, nil
+}
+
+// monitoringSecretName returns the original or copied secret name depending
+// on whether the MonitoringConfig is in the monitoring namespace or not.
+func (r *MonitoringConfigReconciler) monitoringSecretName(mc *monitoringv1alpha2.MonitoringConfig) string {
+	if mc.GetNamespace() == r.MonitoringNamespace {
+		return mc.Spec.CredentialsSecretName
+	}
+
+	return mc.Spec.CredentialsSecretName + "-" + mc.GetNamespace()
+}
+
+// cleanupSecrets deletes all secrets in the monitoring namespace that belong to the given MonitoringConfig.
+func (r *MonitoringConfigReconciler) cleanupSecrets(ctx context.Context, mc *monitoringv1alpha2.MonitoringConfig) error {
+	// List secrets in the monitoring namespace that belong to this MonitoringConfig.
+	secrets := &corev1.SecretList{}
+	err := r.List(ctx, secrets, &client.ListOptions{
+		Namespace: r.MonitoringNamespace,
+		LabelSelector: labels.SelectorFromSet(map[string]string{
+			monitoringConfigRefNameLabel:      mc.GetName(),
+			monitoringConfigRefNamespaceLabel: mc.GetNamespace(),
+		}),
+	})
+	if err != nil {
+		return err
+	}
+
+	for _, secret := range secrets.Items {
+		if err := r.Delete(ctx, &secret); err != nil {
+			return err
+		}
+	}
+
+	// Remove the finalizer from the MonitoringConfig.
+	if controllerutil.RemoveFinalizer(mc, cleanupSecretsFinalizer) {
+		return r.Update(ctx, mc)
+	}
+
+	return nil
 }
 
 // initIndexers registers the field indexers required by this controller.
@@ -394,4 +689,33 @@ func enqueueObjectsInNamespace(c client.Client, list client.ObjectList) handler.
 
 		return requests
 	})
+}
+
+// enqueueMonitoringConfigs enqueues MonitoringConfig objects for reconciliation when a VMAgent is created/updated/deleted.
+func (r *MonitoringConfigReconciler) enqueueMonitoringConfigs(ctx context.Context, o client.Object) []reconcile.Request {
+	vmAgent, ok := o.(*vmv1beta1.VMAgent)
+	if !ok {
+		return nil
+	}
+
+	if vmAgent.GetNamespace() != r.MonitoringNamespace {
+		return nil
+	}
+
+	list := &monitoringv1alpha2.MonitoringConfigList{}
+	err := r.List(ctx, list)
+	if err != nil {
+		return nil
+	}
+
+	requests := make([]reconcile.Request, 0, len(list.Items))
+	for _, mc := range list.Items {
+		requests = append(requests, reconcile.Request{
+			NamespacedName: types.NamespacedName{
+				Name:      mc.GetName(),
+				Namespace: mc.GetNamespace(),
+			},
+		})
+	}
+	return requests
 }

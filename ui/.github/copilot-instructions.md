@@ -73,6 +73,13 @@ component-name/
 
 ## Code Style Rules
 
+### Self-Documenting Code
+
+- Prefer renaming variables, functions, and types to make their purpose obvious over adding comments.
+- Inline comments should explain **why**, not **what**. If a comment restates the code, rename the code instead.
+- Avoid "comment-first" code — if you need a comment to clarify a line, first consider whether a better name would eliminate the need.
+- Reserve block comments (`/** ... */`) for public API documentation, non-obvious design decisions, and TODOs.
+
 ### Exports
 
 - Use **named exports** — not default exports (`export const Component`, not `export default`).

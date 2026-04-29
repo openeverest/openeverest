@@ -102,6 +102,14 @@ jobs:
     uses: ./.github/workflows/dev-fe-browser-tests.yaml
     secrets: inherit
 
+  E2E_tests_workflow:
+    uses: ./.github/workflows/dev-fe-e2e.yaml
+    secrets:
+      CI_USER: everestadmin
+      CI_PASSWORD: everestadmin
+      RBAC_USER: rbac_user
+      RBAC_PASSWORD: rbac-e2e-test
+
   permission_checks:
     runs-on: ubuntu-latest
     steps:
@@ -121,7 +129,7 @@ jobs:
           exit 1
 
   merge-gatekeeper:
-    needs: [CI_checks, browser_tests, permission_checks]
+    needs: [CI_checks, browser_tests, permission_checks, E2E_tests_workflow]
     name: Merge Gatekeeper
     if: ${{ always() }}
     runs-on: ubuntu-latest

@@ -1,29 +1,37 @@
+// Copyright (C) 2026 The OpenEverest Contributors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 import { Add } from '@mui/icons-material';
-import { Button } from '@mui/material';
+import { Button, Chip } from '@mui/material';
 import { Table } from '@percona/ui-lib';
 import { useQueryClient } from '@tanstack/react-query';
 import { ConfirmDialog } from 'components/confirm-dialog/confirm-dialog';
 import {
-  MONITORING_INSTANCES_QUERY_KEY,
-  useCreateMonitoringInstance,
-  useDeleteMonitoringInstance,
-  useMonitoringInstancesList,
-  useUpdateMonitoringInstance,
-} from 'hooks/api/monitoring/useMonitoringInstancesList';
+  MONITORING_CONFIGS_QUERY_KEY,
+  useCreateMonitoringConfig,
+  useDeleteMonitoringConfig,
+  useMonitoringConfigsListMultiNs,
+  useUpdateMonitoringConfig,
+} from 'hooks/api/monitoring/useMonitoringConfigsList';
 import { MRT_ColumnDef } from 'material-react-table';
 import { useMemo, useState } from 'react';
-import { MonitoringInstance } from 'shared-types/monitoring.types';
-import {
-  updateDataAfterCreate,
-  updateDataAfterDelete,
-  updateDataAfterEdit,
-} from 'utils/generalOptimisticDataUpdate';
+import { MonitoringConfig } from 'shared-types/api.types';
 import { CreateEditEndpointModal } from './createEditModal/create-edit-modal';
 import { EndpointFormType } from './createEditModal/create-edit-modal.types';
 import { Messages } from './monitoring-endpoints.messages';
-import { useNamespaces } from 'hooks/api/namespaces';
-import { convertMonitoringInstancesPayloadToTableFormat } from './monitoring-endpoints.utils';
-import { MonitoringInstanceTableElement } from './monitoring-endpoints.types';
+import { convertMonitoringConfigsToTableFormat } from './monitoring-endpoints.utils';
+import { MonitoringConfigTableElement } from './monitoring-endpoints.types';
 import { useNamespacePermissionsForResource } from 'hooks/rbac';
 import TableActionsMenu from '../../../components/table-actions-menu';
 import { MonitoringActionButtons } from './monitoring-endpoint-menu-actions';
@@ -31,34 +39,31 @@ import { MonitoringActionButtons } from './monitoring-endpoint-menu-actions';
 export const MonitoringEndpoints = () => {
   const [openCreateEditModal, setOpenCreateEditModal] = useState(false);
   const [openDeleteDialog, setOpenDeleteDialog] = useState(false);
-  const [selectedInstance, setSelectedInstance] =
-    useState<MonitoringInstance>();
-  const { data: namespaces = [] } = useNamespaces({
-    refetchInterval: 10 * 1000,
-  });
-  const monitoringInstances = useMonitoringInstancesList(
-    namespaces.map((ns) => ({
-      namespace: ns,
-    }))
-  );
-
-  const monitoringInstancesLoading = monitoringInstances.some(
-    (result) => result.queryResult.isLoading
-  );
+  const [selectedConfig, setSelectedConfig] = useState<{
+    config: MonitoringConfig;
+    namespace: string;
+  }>();
+  const { configs: monitoringConfigs, isNamespacesLoading } =
+    useMonitoringConfigsListMultiNs();
 
   const tableData = useMemo(
-    () => convertMonitoringInstancesPayloadToTableFormat(monitoringInstances),
-    [monitoringInstances]
+    () => convertMonitoringConfigsToTableFormat(monitoringConfigs),
+    [monitoringConfigs]
   );
 
-  const { mutate: createMonitoringInstance, isPending: creatingInstance } =
-    useCreateMonitoringInstance();
-  const { mutate: deleteMonitoringInstance, isPending: removingInstance } =
-    useDeleteMonitoringInstance();
-  const { mutate: updateMonitoringInstance, isPending: updatingInstance } =
-    useUpdateMonitoringInstance();
+  const monitoringConfigsLoading =
+    isNamespacesLoading ||
+    (monitoringConfigs.length > 0 &&
+      !monitoringConfigs.some((result) => result.queryResult.isSuccess));
+
+  const { mutate: createMonitoringConfig, isPending: creatingConfig } =
+    useCreateMonitoringConfig();
+  const { mutate: deleteMonitoringConfig, isPending: removingConfig } =
+    useDeleteMonitoringConfig();
+  const { mutate: updateMonitoringConfig, isPending: updatingConfig } =
+    useUpdateMonitoringConfig();
   const queryClient = useQueryClient();
-  const columns = useMemo<MRT_ColumnDef<MonitoringInstanceTableElement>[]>(
+  const columns = useMemo<MRT_ColumnDef<MonitoringConfigTableElement>[]>(
     () => [
       {
         accessorKey: 'name',
@@ -72,6 +77,22 @@ export const MonitoringEndpoints = () => {
         accessorKey: 'namespace',
         header: Messages.namespaces,
       },
+      // {
+      //   accessorKey: 'pmmServerVersion',
+      //   header: 'PMM Version',
+      // },
+      {
+        accessorKey: 'inUse',
+        header: 'In Use',
+        Cell: ({ cell }) => (
+          <Chip
+            label={cell.getValue<boolean>() ? 'Yes' : 'No'}
+            color={cell.getValue<boolean>() ? 'success' : 'default'}
+            size="small"
+            variant="outlined"
+          />
+        ),
+      },
     ],
     []
   );
@@ -80,71 +101,70 @@ export const MonitoringEndpoints = () => {
     setOpenCreateEditModal(true);
   };
 
-  const handleOpenEditModal = (instance: MonitoringInstanceTableElement) => {
-    setSelectedInstance(instance.raw);
+  const handleOpenEditModal = (element: MonitoringConfigTableElement) => {
+    setSelectedConfig({ config: element.raw, namespace: element.namespace });
     setOpenCreateEditModal(true);
   };
 
   const handleCloseModal = () => {
-    setSelectedInstance(undefined);
+    setSelectedConfig(undefined);
     setOpenCreateEditModal(false);
   };
 
   const handleCloseDeleteDialog = () => {
-    setSelectedInstance(undefined);
+    setSelectedConfig(undefined);
     setOpenDeleteDialog(false);
   };
 
-  const handleDeleteInstance = (instance: MonitoringInstanceTableElement) => {
-    setSelectedInstance(instance.raw);
+  const handleDeleteConfig = (element: MonitoringConfigTableElement) => {
+    setSelectedConfig({ config: element.raw, namespace: element.namespace });
     setOpenDeleteDialog(true);
   };
 
-  const handleSubmitModal = (
-    isEditMode: boolean,
-    { name, url, namespace, verifyTLS, ...pmmData }: EndpointFormType
-  ) => {
+  const handleSubmitModal = (isEditMode: boolean, data: EndpointFormType) => {
+    const { name, url, namespace, verifyTLS, user, password } = data;
+    const pmm: Record<string, string> = {};
+    if (user) pmm.user = user;
+    if (password) pmm.password = password;
+
     if (isEditMode) {
-      updateMonitoringInstance(
+      updateMonitoringConfig(
         {
-          instanceName: name,
+          namespace,
+          name,
           payload: {
             url,
             type: 'pmm',
-            namespace,
             verifyTLS,
-            pmm: { ...pmmData },
-            allowedNamespaces: [],
+            pmm,
           },
         },
         {
-          onSuccess: (updatedInstance) => {
-            updateDataAfterEdit(
-              queryClient,
-              [MONITORING_INSTANCES_QUERY_KEY, updatedInstance.namespace],
-              'name'
-            )(updatedInstance);
+          onSuccess: () => {
+            queryClient.invalidateQueries({
+              queryKey: [MONITORING_CONFIGS_QUERY_KEY],
+            });
             handleCloseModal();
           },
         }
       );
     } else {
-      createMonitoringInstance(
+      createMonitoringConfig(
         {
-          name,
-          url,
-          type: 'pmm',
           namespace,
-          verifyTLS,
-          pmm: { ...pmmData },
-          allowedNamespaces: [],
+          payload: {
+            name,
+            url,
+            type: 'pmm',
+            verifyTLS,
+            pmm,
+          },
         },
         {
-          onSuccess: (newInstance) => {
-            updateDataAfterCreate(queryClient, [
-              MONITORING_INSTANCES_QUERY_KEY,
-              newInstance.namespace,
-            ])(newInstance);
+          onSuccess: () => {
+            queryClient.invalidateQueries({
+              queryKey: [MONITORING_CONFIGS_QUERY_KEY],
+            });
             handleCloseModal();
           },
         }
@@ -152,36 +172,33 @@ export const MonitoringEndpoints = () => {
     }
   };
 
-  const handleConfirmDelete = (instanceName: string, namespace: string) => {
-    deleteMonitoringInstance(
-      { instanceName, namespace },
+  const handleConfirmDelete = (configName: string, namespace: string) => {
+    deleteMonitoringConfig(
+      { name: configName, namespace },
       {
-        onSuccess: (_, locationName) => {
-          updateDataAfterDelete(
-            queryClient,
-            [MONITORING_INSTANCES_QUERY_KEY, namespace],
-            'name'
-          )(_, locationName.instanceName);
+        onSuccess: () => {
+          queryClient.invalidateQueries({
+            queryKey: [MONITORING_CONFIGS_QUERY_KEY],
+          });
           handleCloseDeleteDialog();
         },
       }
     );
   };
 
-  const { canCreate } = useNamespacePermissionsForResource(
-    'monitoring-instances'
-  );
+  const { canCreate } =
+    useNamespacePermissionsForResource('monitoring-configs');
 
   return (
     <>
       <Table
-        getRowId={(row) => row.name}
+        getRowId={(row) => `${row.namespace}/${row.name}`}
         tableName="monitoringEndpoints"
         hideExpandAllIcon
         data={tableData}
         columns={columns}
         state={{
-          isLoading: monitoringInstancesLoading,
+          isLoading: monitoringConfigsLoading,
         }}
         enableRowActions
         noDataMessage="No monitoring endpoint added"
@@ -202,7 +219,7 @@ export const MonitoringEndpoints = () => {
         renderRowActions={({ row }) => {
           const menuItems = MonitoringActionButtons(
             row,
-            handleDeleteInstance,
+            handleDeleteConfig,
             handleOpenEditModal
           );
           return <TableActionsMenu menuItems={menuItems} />;
@@ -213,22 +230,25 @@ export const MonitoringEndpoints = () => {
           open={openCreateEditModal}
           handleClose={handleCloseModal}
           handleSubmit={handleSubmitModal}
-          isLoading={creatingInstance || updatingInstance}
-          selectedEndpoint={selectedInstance}
+          isLoading={creatingConfig || updatingConfig}
+          selectedEndpoint={selectedConfig?.config}
+          selectedNamespace={selectedConfig?.namespace}
         />
       )}
       {openDeleteDialog && (
         <ConfirmDialog
           open={openDeleteDialog}
           cancelMessage="Cancel"
-          selectedId={selectedInstance?.name || ''}
-          selectedNamespace={selectedInstance?.namespace || ''}
+          selectedId={selectedConfig?.config.metadata?.name || ''}
+          selectedNamespace={selectedConfig?.namespace || ''}
           closeModal={handleCloseDeleteDialog}
           headerMessage={Messages.deleteDialogHeader}
           handleConfirmNamespace={handleConfirmDelete}
-          disabledButtons={removingInstance}
+          disabledButtons={removingConfig}
         >
-          {Messages.deleteConfirmation(selectedInstance!.name)}
+          {Messages.deleteConfirmation(
+            selectedConfig?.config.metadata?.name || ''
+          )}
         </ConfirmDialog>
       )}
     </>

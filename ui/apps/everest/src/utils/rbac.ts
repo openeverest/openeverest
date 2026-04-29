@@ -50,7 +50,7 @@ export type RBACResource =
   | 'database-cluster-restores'
   | 'database-cluster-credentials'
   | 'backup-storages'
-  | 'monitoring-instances'
+  | 'monitoring-configs'
   | 'pod-scheduling-policies'
   | 'data-importers'
   | 'load-balancer-configs'

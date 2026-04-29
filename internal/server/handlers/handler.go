@@ -45,7 +45,7 @@ type Handler interface {
 	DatabaseClusterBackupHandler
 	DatabaseClusterRestoreHandler
 	DatabaseEngineHandler
-	BackupStorageHandler
+	BackupStorageV1Handler
 	MonitoringInstanceHandler
 	PodSchedulingPolicyHandler
 	LoadBalancerConfigHandler
@@ -112,13 +112,13 @@ type DatabaseEngineHandler interface {
 	ApproveUpgradePlan(ctx context.Context, namespace string) error
 }
 
-// BackupStorageHandler provides methods for handling operations on backup storages.
-type BackupStorageHandler interface {
-	CreateBackupStorage(ctx context.Context, namespace string, req *api.CreateBackupStorageParams) (*everestv1alpha1.BackupStorage, error)
-	UpdateBackupStorage(ctx context.Context, name, namespace string, req *api.UpdateBackupStorageParams) (*everestv1alpha1.BackupStorage, error)
-	ListBackupStorages(ctx context.Context, namespace string) (*everestv1alpha1.BackupStorageList, error)
-	GetBackupStorage(ctx context.Context, namespace, name string) (*everestv1alpha1.BackupStorage, error)
-	DeleteBackupStorage(ctx context.Context, namespace, name string) error
+// BackupStorageV1Handler provides methods for handling operations on backup storages.
+type BackupStorageV1Handler interface {
+	CreateBackupStorageV1(ctx context.Context, namespace string, req *api.CreateBackupStorageParams) (*everestv1alpha1.BackupStorage, error)
+	UpdateBackupStorageV1(ctx context.Context, name, namespace string, req *api.UpdateBackupStorageParams) (*everestv1alpha1.BackupStorage, error)
+	ListBackupStoragesV1(ctx context.Context, namespace string) (*everestv1alpha1.BackupStorageList, error)
+	GetBackupStorageV1(ctx context.Context, namespace, name string) (*everestv1alpha1.BackupStorage, error)
+	DeleteBackupStorageV1(ctx context.Context, namespace, name string) error
 }
 
 // MonitoringInstanceHandler provides methods for handling operations on monitoring instances.

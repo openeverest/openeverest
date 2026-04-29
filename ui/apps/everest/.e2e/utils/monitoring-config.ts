@@ -17,13 +17,13 @@ import { APIRequestContext, expect } from '@playwright/test';
 import { execSync } from 'child_process';
 import { getDBClientPod } from '@e2e/utils/db-cmd-line';
 import { getK8sUid } from '@e2e/utils/kubernetes';
-
+import { EVEREST_CI_CLUSTER } from '@e2e/constants';
 const { MONITORING_URL, MONITORING_USER, MONITORING_PASSWORD } = process.env;
 
 export const testMonitoringName = 'ui-test-monitoring';
 export const testMonitoringName2 = 'ui-test-monitoring-1';
 
-export const createMonitoringInstance = async (
+export const createMonitoringConfig = async (
   request: APIRequestContext,
   name: string,
   namespace: string,
@@ -33,7 +33,6 @@ export const createMonitoringInstance = async (
     name,
     type: 'pmm',
     url: MONITORING_URL,
-    allowedNamespaces: [],
     verifyTLS: false,
     pmm: {
       user: MONITORING_USER,
@@ -42,7 +41,7 @@ export const createMonitoringInstance = async (
   };
 
   const response = await request.post(
-    `/v1/namespaces/${namespace}/monitoring-instances`,
+    `/v1/clusters/${EVEREST_CI_CLUSTER}/namespaces/${namespace}/monitoring-configs`,
     {
       data,
       headers: {
@@ -54,14 +53,14 @@ export const createMonitoringInstance = async (
   expect(response.ok()).toBeTruthy();
 };
 
-export const getMonitoringInstance = async (
+export const getMonitoringConfig = async (
   request: APIRequestContext,
   namespace: string,
   name: string,
   token: string
 ) => {
   const response = await request.get(
-    `/v1/namespaces/${namespace}/monitoring-instances/${name}`,
+    `/v1/clusters/${EVEREST_CI_CLUSTER}/namespaces/${namespace}/monitoring-configs/${name}`,
     {
       headers: {
         Authorization: `Bearer ${token}`,
@@ -72,14 +71,14 @@ export const getMonitoringInstance = async (
   return await response.json();
 };
 
-export const deleteMonitoringInstance = async (
+export const deleteMonitoringConfig = async (
   request: APIRequestContext,
-  namespace,
-  name,
+  namespace: string,
+  name: string,
   token: string
 ) => {
   const response = await request.delete(
-      `/v1/namespaces/${namespace}/monitoring-instances/${name}`,
+      `/v1/clusters/${EVEREST_CI_CLUSTER}/namespaces/${namespace}/monitoring-configs/${name}`,
       {
         headers: {
           Authorization: `Bearer ${token}`,
@@ -90,13 +89,13 @@ export const deleteMonitoringInstance = async (
   expect(code === 204 || response.status() === 404).toBeTruthy();
 };
 
-export const listMonitoringInstances = async (
+export const listMonitoringConfigs = async (
   request: APIRequestContext,
-  namespace,
+  namespace: string,
   token: string
 ) => {
   const response = await request.get(
-    `/v1/namespaces/${namespace}/monitoring-instances`,
+    `/v1/clusters/${EVEREST_CI_CLUSTER}/namespaces/${namespace}/monitoring-configs`,
     {
       headers: {
         Authorization: `Bearer ${token}`,

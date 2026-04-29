@@ -1,0 +1,41 @@
+apiVersion: kuttl.dev/v1
+kind: TestStep
+timeout: 30
+commands:
+  # Need to patch KUTTL's namespace to add the label so that the Everest Operator can reconcile resources from it.
+  - command: kubectl patch ns ${NAMESPACE} -p '{"metadata":{"labels":{"app.kubernetes.io/managed-by":"everest"}}}' --type merge
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: mc-1-secret
+data:
+  apiKey: YWJjZGVm
+---
+apiVersion: monitoring.openeverest.io/v1alpha2
+kind: MonitoringConfig
+metadata:
+  name: mc-1
+spec:
+  type: pmm
+  credentialsSecretName: mc-1-secret
+  verifyTLS: false
+  url: http://localhost-mc-1
+    # image: percona/pmm-client:latest
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: mc-2-secret
+data:
+  apiKey: YWJjZGVm
+---
+apiVersion: monitoring.openeverest.io/v1alpha2
+kind: MonitoringConfig
+metadata:
+  name: mc-2
+spec:
+  type: pmm
+  credentialsSecretName: mc-2-secret
+  url: http://localhost-mc-2
+    # image: percona/pmm-client:latest

@@ -1471,7 +1471,7 @@ paths:
             },
           }
           ```
-      operationId: createBackupStorage
+      operationId: createBackupStorageV1
       parameters:
         - name: namespace
           in: path
@@ -1510,7 +1510,7 @@ paths:
         - Backup Storage
       summary: List backup storages
       description: This API lists all backup storages.
-      operationId: listBackupStorages
+      operationId: listBackupStoragesV1
       parameters:
         - name: namespace
           in: path
@@ -1524,7 +1524,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/BackupStoragesList'
+                $ref: '#/components/schemas/BackupStoragesListV1'
         '400':
           description: Unsuccessful operation
           content:
@@ -1544,7 +1544,7 @@ paths:
         - Backup Storage
       summary: Get backup storage
       description: This API gets the backup storage speciciied by the `name` in the given `namespace`.
-      operationId: getBackupStorage
+      operationId: getBackupStorageV1
       parameters:
         - name: name
           in: path
@@ -1583,7 +1583,7 @@ paths:
       summary: Update backup storage
       description: |
         This API updates the backup storage specified by the `name`. Only the specified fields will be updated.
-      operationId: updateBackupStorage
+      operationId: updateBackupStorageV1
       parameters:
         - name: name
           in: path
@@ -1628,7 +1628,7 @@ paths:
         - Backup Storage
       summary: Delete backup storage
       description: This API deletes the backup storage specified by the `name`.
-      operationId: deleteBackupStorage
+      operationId: deleteBackupStorageV1
       parameters:
         - name: name
           in: path
@@ -3584,7 +3584,7 @@ components:
         - name
         - bucketName
         - type
-    BackupStoragesList:
+    BackupStoragesListV1:
       type: array
       items:
         type: object
@@ -5050,6 +5050,9 @@ components:
               type: string
             state:
               description: State is the DatabaseBackup state.
+              type: string
+            size:
+              description: Size is the size of the backup
               type: string
           required:
             - gaps

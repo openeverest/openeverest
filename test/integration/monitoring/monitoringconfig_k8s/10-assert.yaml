@@ -1,0 +1,114 @@
+apiVersion: kuttl.dev/v1
+kind: TestAssert
+timeout: 10
+collectors:
+  - command: kubectl get monitoringconfig/mc-1 -n ${NAMESPACE} -o yaml
+  - command: kubectl get secret/mc-1-secret -n ${NAMESPACE} -o yaml
+  - command: kubectl get monitoringconfig/mc-2 -n ${NAMESPACE} -o yaml
+  - command: kubectl get secret/mc-2-secret -n ${NAMESPACE} -o yaml
+  - command: kubectl get vmagent/everest-monitoring -n everest-monitoring -o yaml
+  - type: pod
+    # namespace: everest-system
+    namespace: openeverest-system
+    selector: control-plane=controller-manager
+    tail: 100
+resourceRefs:
+  - apiVersion: monitoring.openeverest.io/v1alpha2
+    kind: MonitoringConfig
+    name: mc-1
+    ref: mc1
+  - apiVersion: monitoring.openeverest.io/v1alpha2
+    kind: MonitoringConfig
+    name: mc-2
+    ref: mc2
+  - apiVersion: operator.victoriametrics.com/v1beta1
+    kind: VMAgent
+    name: everest-monitoring
+    namespace: everest-monitoring
+    ref: vmagent
+assertAll:
+  - celExpr: "has(mc1.metadata.finalizers)"
+    message: "mc1 doesn't have finalizers"
+
+  - celExpr: "'openeverest.io/vmagent' in mc1.metadata.finalizers"
+    message: "'openeverest.io/vmagent' is absent in mc1.metadata.finalizers"
+
+  - celExpr: "'openeverest.io/cleanup-secrets' in mc1.metadata.finalizers"
+    message: "'openeverest.io/cleanup-secrets' is absent in mc1.metadata.finalizers"
+
+  - celExpr: "has(mc2.metadata.finalizers)"
+    message: "mc2 doesn't have finalizers"
+
+  - celExpr: "'openeverest.io/vmagent' in mc2.metadata.finalizers"
+    message: "'openeverest.io/vmagent' is absent in mc2.metadata.finalizers"
+
+  - celExpr: "'openeverest.io/cleanup-secrets' in mc2.metadata.finalizers"
+    message: "'openeverest.io/cleanup-secrets' is absent in mc2.metadata.finalizers"
+
+  - celExpr: "has(vmagent.spec.remoteWrite)"
+    message: "vmagent doesn't have .spec.remoteWrite"
+
+  - celExpr: "vmagent.spec.remoteWrite.exists(i, i.url == 'http://localhost-test-mc-1-test-1/victoriametrics/api/v1/write')"
+    message: "vmagent.spec.remoteWrite does not contain url 'http://localhost-test-mc-1-test-1/victoriametrics/api/v1/write'"
+
+  - celExpr: "vmagent.spec.remoteWrite.exists(i, i.url == 'http://localhost-test-mc-2-test-2/victoriametrics/api/v1/write')"
+    message: "vmagent.spec.remoteWrite does not contain url 'http://localhost-test-mc-2-test-2/victoriametrics/api/v1/write'"
+---
+apiVersion: monitoring.openeverest.io/v1alpha2
+kind: MonitoringConfig
+metadata:
+  name: mc-1
+spec:
+  type: pmm
+  credentialsSecretName: mc-1-secret
+  url: http://localhost-test-mc-1-test-1
+    # image: percona/pmm-client:test-1
+status:
+  inUse: false
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: mc-1-secret
+  ownerReferences:
+    - apiVersion: monitoring.openeverest.io/v1alpha2
+      blockOwnerDeletion: true
+      controller: true
+      kind: MonitoringConfig
+      name: mc-1
+data:
+  apiKey: YWJjZGVm
+---
+apiVersion: monitoring.openeverest.io/v1alpha2
+kind: MonitoringConfig
+metadata:
+  name: mc-2
+spec:
+  type: pmm
+  credentialsSecretName: mc-2-secret
+  url: http://localhost-test-mc-2-test-2
+    # image: percona/pmm-client:test-2
+status:
+  inUse: false
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: mc-2-secret
+  ownerReferences:
+    - apiVersion: monitoring.openeverest.io/v1alpha2
+      blockOwnerDeletion: true
+      controller: true
+      kind: MonitoringConfig
+      name: mc-2
+data:
+  apiKey: YWJjZGVm
+---
+apiVersion: operator.victoriametrics.com/v1beta1
+kind: VMAgent
+metadata:
+  name: everest-monitoring
+  namespace: everest-monitoring
+  labels:
+    app.kubernetes.io/managed-by: openeverest
+    openeverest.io/type: monitoring

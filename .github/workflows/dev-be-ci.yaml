@@ -246,6 +246,53 @@ jobs:
           path: cli-tests/test-report
           overwrite: true
 
+  integration_tests_controller:
+    strategy:
+      fail-fast: true
+      matrix:
+        make_target:
+          - test-integration-monitoring
+    continue-on-error: false
+    name: Controller Integration Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v5
+
+      - name: Set up Go release
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: 'go.mod'
+          cache: true
+
+      - name: Install Kubernetes tools
+        uses: ./.github/actions/install-kubernetes-tools
+        with:
+          install-kubectl: true
+          install-k3d: true
+          install-kuttl: true
+
+      - name: Adjust GitHub worker node
+        uses: ./.github/actions/adjust-github-node
+        with:
+          adjust-host-for-k3d: true
+          mount-docker-data: true
+
+      - name: Run K3D test cluster
+        run: |
+          make k3d-cluster-up
+
+      - name: Run controller integration tests
+        timeout-minutes: 20
+        run: |
+          make ${{ matrix.make_target }}
+
+      - name: Run debug commands on failure
+        if: ${{ failure() }}
+        run: |
+          kubectl describe pod -n openeverest-system -l control-plane=controller-manager
+          kubectl get events -n openeverest-system --sort-by='.lastTimestamp'
+
   integration_tests_flows:
     strategy:
       fail-fast: false

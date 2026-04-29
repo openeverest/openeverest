@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -230,7 +231,7 @@ export const deleteDBClusterRaw = async (request, name) => {
 }
 
 // --------------------- Backup Storage helpers -----------------------------------------
-export const getBackupStorageS3Payload = (bsName: string) => {
+export const getBackupStorageS3PayloadV1 = (bsName: string) => {
   const payload = {
     type: 's3',
     name: bsName,
@@ -245,7 +246,7 @@ export const getBackupStorageS3Payload = (bsName: string) => {
   return JSON.parse(JSON.stringify(payload))
 }
 
-export const getBackupStorageAzurePayload = (bsName: string) => {
+export const getBackupStorageAzurePayloadV1 = (bsName: string) => {
   const payload = {
     type: 'azure',
     name: bsName,
@@ -259,56 +260,56 @@ export const getBackupStorageAzurePayload = (bsName: string) => {
   return JSON.parse(JSON.stringify(payload))
 }
 
-export const createBackupStorageS3 = async (request, name) => {
-  const payload = getBackupStorageS3Payload(name)
-  return await createBackupStorageWithData(request, payload)
+export const createBackupStorageS3V1 = async (request, name) => {
+  const payload = getBackupStorageS3PayloadV1(name)
+  return await createBackupStorageWithDataV1(request, payload)
 }
 
-export const createBackupStorageWithData = async (request, data) => {
-  const response = await createBackupStorageWithDataRaw(request, data)
+export const createBackupStorageWithDataV1 = async (request, data) => {
+  const response = await createBackupStorageWithDataRawV1(request, data)
   await checkError(response)
   return (await response.json())
 }
 
-export const createBackupStorageWithDataRaw = async (request, data) => {
+export const createBackupStorageWithDataRawV1 = async (request, data) => {
   return await request.post(`/v1/namespaces/${EVEREST_CI_NAMESPACE}/backup-storages`, {data: data})
 }
 
-export const getBackupStorage = async (request, name) => {
-  const response = await getBackupStorageRaw(request, name)
+export const getBackupStorageV1 = async (request, name) => {
+  const response = await getBackupStorageRawV1(request, name)
   await checkError(response)
   return (await response.json())
 }
 
-export const getBackupStorageRaw = async (request, name) => {
+export const getBackupStorageRawV1 = async (request, name) => {
   return await request.get(`/v1/namespaces/${EVEREST_CI_NAMESPACE}/backup-storages/${name}`)
 }
 
-export const listBackupStorages = async (request) => {
-  const response = await listBackupStoragesRaw(request)
+export const listBackupStoragesV1 = async (request) => {
+  const response = await listBackupStoragesRawV1(request)
   await checkError(response)
   return (await response.json())
 }
 
-export const listBackupStoragesRaw = async (request) => {
+export const listBackupStoragesRawV1 = async (request) => {
   return await request.get(`/v1/namespaces/${EVEREST_CI_NAMESPACE}/backup-storages`)
 }
 
-export const updateBackupStorage = async (request, name, data) => {
-  const response = await updateBackupStorageRaw(request, name, data)
+export const updateBackupStorageV1 = async (request, name, data) => {
+  const response = await updateBackupStorageRawV1(request, name, data)
   await checkError(response)
   return (await response.json())
 }
 
-export const updateBackupStorageRaw = async (request, name, data) => {
+export const updateBackupStorageRawV1 = async (request, name, data) => {
   return await request.patch(`/v1/namespaces/${EVEREST_CI_NAMESPACE}/backup-storages/${name}`, {data: data})
 }
 
-export const deleteBackupStorage = async (request, name) => {
+export const deleteBackupStorageV1 = async (request, name) => {
   // Wait for deletion mark.
   await expect(async () => {
-    await deleteBackupStorageRaw(request, name)
-    const res = await getBackupStorageRaw(request, name)
+    await deleteBackupStorageRawV1(request, name)
+    const res = await getBackupStorageRawV1(request, name)
     await checkResourceDeletion(res)
   }).toPass({
     intervals: [1000],
@@ -316,7 +317,7 @@ export const deleteBackupStorage = async (request, name) => {
   })
 }
 
-export const deleteBackupStorageRaw = async (request, name) => {
+export const deleteBackupStorageRawV1 = async (request, name) => {
   return await request.delete(`/v1/namespaces/${EVEREST_CI_NAMESPACE}/backup-storages/${name}`)
 }
 
@@ -525,6 +526,67 @@ export const deleteMonitoringConfig = async (request, name) => {
 
 export const deleteMonitoringConfigRaw = async (request, name) => {
   return await request.delete(`/v1/namespaces/${EVEREST_CI_NAMESPACE}/monitoring-instances/${name}`)
+}
+
+// TODO: remove V2 suffix after all old monitoring config tests are deleted.
+
+export const createMonitoringConfigV2 = async (request, name) => {
+  const miData = {
+    type: 'pmm',
+    name: name,
+    url: `https://${process.env.PMM1_IP}`,
+    pmm: {
+      apiKey: `${process.env.PMM1_API_KEY}`,
+    },
+    verifyTLS: false,
+  }
+  return await createMonitoringConfigWithDataRawV2(request, miData)
+}
+
+export const createMonitoringConfigWithDataV2 = async (request, data) => {
+  const response = await createMonitoringConfigWithDataRawV2(request, data)
+  await checkError(response)
+  return (await response.json())
+}
+
+export const createMonitoringConfigWithDataRawV2 = async (request, data) => {
+  return await request.post(`/v1/clusters/main/namespaces/${EVEREST_CI_NAMESPACE}/monitoring-configs`, {data: data})
+}
+
+export const getMonitoringConfigV2 = async (request, name) => {
+  const response = await getMonitoringConfigRawV2(request, name)
+  await checkError(response)
+  return (await response.json())
+}
+
+export const getMonitoringConfigRawV2 = async (request, name) => {
+  return await request.get(`/v1/clusters/main/namespaces/${EVEREST_CI_NAMESPACE}/monitoring-configs/${name}`)
+}
+
+export const updateMonitoringConfigV2 = async (request, name, data) => {
+  const response = await updateMonitoringConfigRawV2(request, name, data)
+  await checkError(response)
+  return (await response.json())
+}
+
+export const updateMonitoringConfigRawV2 = async (request, name, data) => {
+  return await request.patch(`/v1/clusters/main/namespaces/${EVEREST_CI_NAMESPACE}/monitoring-configs/${name}`, {data: data})
+}
+
+export const deleteMonitoringConfigV2 = async (request, name) => {
+  // Wait for deletion mark.
+  await expect(async () => {
+    await deleteMonitoringConfigRawV2(request, name)
+    const res = await getMonitoringConfigRawV2(request, name)
+    await checkResourceDeletion(res)
+  }).toPass({
+    intervals: [1000],
+    timeout: 300 * 1000,
+  })
+}
+
+export const deleteMonitoringConfigRawV2 = async (request, name) => {
+  return await request.delete(`/v1/clusters/main/namespaces/${EVEREST_CI_NAMESPACE}/monitoring-configs/${name}`)
 }
 
 // --------------------- DB Engine helpers -----------------------------------------------
