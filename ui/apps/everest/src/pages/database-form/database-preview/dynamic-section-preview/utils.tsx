@@ -13,10 +13,12 @@
 // limitations under the License.
 
 import { PreviewContentText } from '../preview-section';
+import { PreviewTruncatedFieldRow } from 'pages/db-cluster-details/cluster-overview/sections/section-edit-modal/preview-truncated-field-row';
 import { orderComponents } from 'components/ui-generator/utils/component-renderer';
 import {
   Component,
   ComponentGroup,
+  FieldType,
 } from 'components/ui-generator/ui-generator.types';
 import { getValueByPath } from 'components/ui-generator/ui-component/utils/get-value-by-path';
 
@@ -76,6 +78,21 @@ export const renderComponent = (
   }
 
   const uniqueKey = `${parentPrefix || ''}:${primaryPath || componentKey}`;
+
+  const isMultilineText =
+    leafComponent.uiType === FieldType.Text &&
+    !!leafComponent.fieldParams?.multiline;
+
+  if (isMultilineText && displayValue !== '-') {
+    return (
+      <PreviewTruncatedFieldRow
+        key={uniqueKey}
+        label={label}
+        value={displayValue}
+      />
+    );
+  }
+
   return (
     <PreviewContentText key={uniqueKey} text={`${label}: ${displayValue}`} />
   );
