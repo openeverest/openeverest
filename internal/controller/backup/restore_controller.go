@@ -188,6 +188,11 @@ func (r *RestoreReconciler) Reconcile( //nolint:nonamedreturns
 	// Create RBAC resources.
 	requiresRbac := len(bc.Spec.RestoreJob.Permissions) > 0 || len(bc.Spec.RestoreJob.ClusterPermissions) > 0
 	if requiresRbac { //nolint:nestif
+		if controllerutil.AddFinalizer(restore, restoreRBACCleanupFinalizer) {
+			if err := r.Client.Update(ctx, restore); err != nil {
+				return ctrl.Result{}, fmt.Errorf("failed to add finalizer to restore: %w", err)
+			}
+		}
 		if err := r.ensureServiceAccount(ctx, restore); err != nil {
 			restore.Status.State = backupv1alpha1.RestoreStateError
 			restore.Status.Message = fmt.Errorf("failed to ensure service account: %w", err).Error()
@@ -197,12 +202,6 @@ func (r *RestoreReconciler) Reconcile( //nolint:nonamedreturns
 			restore.Status.State = backupv1alpha1.RestoreStateError
 			restore.Status.Message = fmt.Errorf("failed to ensure RBAC resources: %w", err).Error()
 			return ctrl.Result{}, err
-		}
-
-		if controllerutil.AddFinalizer(restore, restoreRBACCleanupFinalizer) {
-			if err := r.Client.Update(ctx, restore); err != nil {
-				return ctrl.Result{}, fmt.Errorf("failed to add finalizer to restore: %w", err)
-			}
 		}
 	}
 
