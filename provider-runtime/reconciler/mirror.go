@@ -27,43 +27,40 @@ import (
 	"github.com/openeverest/openeverest/v2/provider-runtime/controller"
 )
 
-// translatorFunc returns the target object to create for a given source
-// object, or nil to skip. This is the package-internal abstraction shared by
-// any "watch source X, create Y" controller (currently BackupMirror; future
-// import flows can reuse it).
-type translatorFunc func(ctx context.Context, c client.Client, src client.Object) (client.Object, error)
+// backupMirrorReconciler watches operator-emitted backup CRs and creates a
+// matching Backup CR for each one whose provider's Mirror method returns a
+// non-nil target. AlreadyExists is treated as success so the loop is safely
+// repeatable: once SyncBackup adopts the operator resource, subsequent events
+// are no-ops.
+type backupMirrorReconciler struct {
+	client       client.Client
+	mirror       controller.BackupMirror
+	sourceType   client.Object
+	providerName string
+}
 
-// setupWatchAndCreate wires a generic controller that watches sourceType and,
-// for each event, invokes translate and idempotently creates the returned
-// target object. AlreadyExists is treated as success. Translate returning
-// (nil, nil) is the explicit "skip" signal.
-func setupWatchAndCreate(
-	mgr ctrl.Manager,
-	name string,
-	sourceType client.Object,
-	translate translatorFunc,
-) error {
-	r := &watchAndCreateReconciler{
-		client:     mgr.GetClient(),
-		sourceType: sourceType,
-		translate:  translate,
-		name:       name,
+func setupBackupMirrorReconciler(mgr ctrl.Manager, bm controller.BackupMirror, providerName string) error {
+	src := bm.OperatorBackupType()
+	// Ensure the operator type is registered in the manager's scheme. The
+	// provider's Types() registration already covers this in practice, but
+	// asserting it here produces a clearer error if a provider forgets.
+	if _, _, err := mgr.GetScheme().ObjectKinds(src); err != nil {
+		return fmt.Errorf("BackupMirror operator type %T not registered in scheme: %w", src, err)
+	}
+	r := &backupMirrorReconciler{
+		client:       mgr.GetClient(),
+		mirror:       bm,
+		sourceType:   src,
+		providerName: providerName,
 	}
 	return ctrl.NewControllerManagedBy(mgr).
-		For(sourceType).
-		Named(name).
+		For(src).
+		Named(providerName + "-backup-mirror").
 		Complete(r)
 }
 
-type watchAndCreateReconciler struct {
-	client     client.Client
-	sourceType client.Object
-	translate  translatorFunc
-	name       string
-}
-
-func (r *watchAndCreateReconciler) Reconcile(ctx context.Context, req reconcile.Request) (reconcile.Result, error) {
-	logger := log.FromContext(ctx).WithValues("controller", r.name, "source", req.NamespacedName)
+func (r *backupMirrorReconciler) Reconcile(ctx context.Context, req reconcile.Request) (reconcile.Result, error) {
+	logger := log.FromContext(ctx).WithValues("provider", r.providerName, "operatorBackup", req.NamespacedName)
 
 	src := r.sourceType.DeepCopyObject().(client.Object)
 	if err := r.client.Get(ctx, req.NamespacedName, src); err != nil {
@@ -73,9 +70,9 @@ func (r *watchAndCreateReconciler) Reconcile(ctx context.Context, req reconcile.
 		return reconcile.Result{}, nil
 	}
 
-	target, err := r.translate(ctx, r.client, src)
+	target, err := r.mirror.Mirror(ctx, r.client, src)
 	if err != nil {
-		return reconcile.Result{}, fmt.Errorf("translate: %w", err)
+		return reconcile.Result{}, fmt.Errorf("mirror: %w", err)
 	}
 	if target == nil {
 		return reconcile.Result{}, nil
@@ -85,34 +82,8 @@ func (r *watchAndCreateReconciler) Reconcile(ctx context.Context, req reconcile.
 		if apierrors.IsAlreadyExists(err) {
 			return reconcile.Result{}, nil
 		}
-		return reconcile.Result{}, fmt.Errorf("create target: %w", err)
+		return reconcile.Result{}, fmt.Errorf("create Backup: %w", err)
 	}
-	logger.Info("mirrored source into target",
-		"target", client.ObjectKeyFromObject(target),
-		"targetKind", fmt.Sprintf("%T", target))
+	logger.Info("mirrored operator backup into Backup CR", "backup", client.ObjectKeyFromObject(target))
 	return reconcile.Result{}, nil
-}
-
-// setupBackupMirrorReconciler registers a watch-and-create controller for the
-// provider's BackupMirror implementation. The translator adapts the typed
-// Mirror method into the generic translatorFunc shape.
-func setupBackupMirrorReconciler(mgr ctrl.Manager, bm controller.BackupMirror, providerName string) error {
-	// Ensure the operator type is registered in the manager's scheme. The
-	// provider's Types() registration already covers this in practice, but
-	// asserting it here produces a clearer error if a provider forgets.
-	gvk, _, err := mgr.GetScheme().ObjectKinds(bm.OperatorBackupType())
-	if err != nil || len(gvk) == 0 {
-		return fmt.Errorf("BackupMirror operator type %T not registered in scheme: %w", bm.OperatorBackupType(), err)
-	}
-	translate := func(ctx context.Context, c client.Client, src client.Object) (client.Object, error) {
-		out, err := bm.Mirror(ctx, c, src)
-		if err != nil {
-			return nil, err
-		}
-		if out == nil {
-			return nil, nil
-		}
-		return out, nil
-	}
-	return setupWatchAndCreate(mgr, providerName+"-backup-mirror", bm.OperatorBackupType(), translate)
 }
