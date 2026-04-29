@@ -7820,6 +7820,22 @@ export interface components {
                  */
                 config?: Record<string, never>;
                 /**
+                 * @description DeletionPolicy controls what happens to the underlying backup data
+                 *     (e.g., the object stored in S3) when this Backup CR is deleted.
+                 *     Delete (default) instructs the provider to remove both the
+                 *     engine-native backup resource and the data in the configured
+                 *     BackupStorage. Retain instructs the provider to remove the
+                 *     engine-native backup resource but to leave the underlying data in
+                 *     place, so it can be recovered later out-of-band.
+                 *
+                 *     The field is mutable on a live Backup but is frozen once deletion
+                 *     has started: switching policies after .metadata.deletionTimestamp
+                 *     has been set is rejected so the cleanup path cannot race with
+                 *     itself.
+                 * @default Delete
+                 */
+                deletionPolicy: string & (("Retain" | "Delete") & ("Retain" | "Delete"));
+                /**
                  * @description InstanceName is the name of the Instance to back up. The Instance must
                  *     live in the same namespace as this Backup.
                  */
