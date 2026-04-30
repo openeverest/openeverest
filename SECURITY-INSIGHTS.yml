@@ -37,6 +37,9 @@ project:
     - name: openeverest.github.io
       url: https://github.com/openeverest/openeverest.github.io
       comment: Website repository for the OpenEverest project.
+    - name: openeverest-operator
+      url: https://github.com/openeverest/openeverest-operator
+      comment: Kubernetes operator for managing OpenEverest database engines.
   vulnerability-reporting:
     reports-accepted: true
     bug-bounty-available: false
