@@ -16,6 +16,9 @@
 import { expect, test } from '@playwright/test';
 import { Messages } from '../../../src/modals/restore-db-modal/restore-db-modal.messages';
 import { createDbClusterFn, deleteDbClusterFn } from '@e2e/utils/db-cluster';
+import { getEnginesVersions } from '@e2e/utils/database-engines';
+import { getTokenFromLocalStorage } from '@e2e/utils/localStorage';
+import { getNamespacesFn } from '@e2e/utils/namespaces';
 import {
   findDbAndClickActions,
   findDbAndClickRow,
@@ -192,10 +195,15 @@ test.describe('DB Cluster Restore to the new cluster', () => {
 
   test('PG Cluster correct schedules restore', async ({ page, request }) => {
     const dbName = 'pg-cluster-restore';
+    const token = await getTokenFromLocalStorage();
+    const namespaces = await getNamespacesFn(token, request);
+    const namespace = namespaces[0];
+    const dbEngines = await getEnginesVersions(token, namespace, request);
+    const pgVersion = dbEngines.postgresql[dbEngines.postgresql.length - 1];
     await createDbClusterFn(request, {
       dbName,
       dbType: 'postgresql',
-      dbVersion: '15.13',
+      dbVersion: pgVersion,
       numberOfNodes: '4',
       numberOfProxies: '1',
       storageClass: 'my-storage-class',
@@ -268,7 +276,7 @@ test.describe('DB Cluster Restore to the new cluster', () => {
 
     const comboboxes = page.getByRole('combobox');
     const dbVersionCombobox = comboboxes.nth(1);
-    expect(await dbVersionCombobox.textContent()).toBe('15.13');
+    expect(await dbVersionCombobox.textContent()).toBe(pgVersion);
 
     await moveForward(page);
 
