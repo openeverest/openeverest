@@ -62,7 +62,12 @@ export enum FieldType {
 export enum GroupType {
   Accordion = 'accordion',
   Line = 'line',
+  Section = 'section',
 }
+
+export type GroupModeOverrides = Partial<
+  Record<FormMode, { hidden?: boolean; disabled?: boolean }>
+>;
 
 interface CommonFieldParams {
   label?: string;
@@ -196,8 +201,10 @@ export type ComponentGroup = {
   label?: string;
   description?: string;
   groupType?: GroupType;
-  //TODO check groupParams is work
   groupParams?: Record<string, unknown>;
+  modes?: GroupModeOverrides;
+  /** Set by apply-mode-overrides when a mode marks the group as disabled. */
+  _disabled?: boolean;
   components: { [key: string]: Component | ComponentGroup };
   componentsOrder?: string[];
 };

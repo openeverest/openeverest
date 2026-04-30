@@ -54,8 +54,15 @@ const applyModeToComponent = (
     'components' in item
   ) {
     const group = item as ComponentGroup;
+    const groupOverrides = group.modes?.[mode];
+
+    if (groupOverrides?.hidden) {
+      return { ...group, uiType: 'hidden' };
+    }
+
     return {
       ...group,
+      _disabled: groupOverrides?.disabled ?? group._disabled,
       components: applyModeToComponents(group.components, mode),
     };
   }

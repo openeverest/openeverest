@@ -16,8 +16,7 @@ export type UIGroupProps = {
 const UIGroup = ({
   groupType,
   children,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  groupParams: _groupParams,
+  groupParams,
   item,
 }: UIGroupProps) => {
   const Component = groupType ? componentGroupMap[groupType] : undefined;
@@ -28,6 +27,9 @@ const UIGroup = ({
         React.createElement(Component, {
           children,
           label: item?.label,
+          description: item?.description,
+          disabled: item?._disabled,
+          ...groupParams,
         })
       ) : (
         <Stack spacing={2}>{children}</Stack>
