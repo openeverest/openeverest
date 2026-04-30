@@ -27,6 +27,7 @@ project:
   repositories:
     - name: openeverest
       url: https://github.com/openeverest/openeverest
+      comment: Primary code repository for the OpenEverest project.
   vulnerability-reporting:
     reports-accepted: true
     bug-bounty-available: false
