@@ -1,7 +1,7 @@
 header:
   schema-version: 2.0.0
-  last-updated: '2026-04-29'
-  last-reviewed: '2026-04-29'
+  last-updated: '2026-04-30'
+  last-reviewed: '2026-04-30'
   url: https://github.com/openeverest/openeverest/blob/main/SECURITY-INSIGHTS.yml
 
 project:
@@ -15,15 +15,19 @@ project:
     - name: Chisato (Chi) Fujii
       affiliation: Solanica
       email: chi.fujii@solanica.io
+      primary: false
     - name: Diogo Recharte
       affiliation: Solanica
       email: diogo.recharte@solanica.io
+      primary: false
     - name: Iaroslavna Soloveva
       affiliation: Solanica
       email: iaroslavna.soloveva@solanica.io
+      primary: false
     - name: Oksana Grishchenko
       affiliation: Percona
       email: oksana.grishchenko@percona.com
+      primary: false
   repositories:
     - name: openeverest
       url: https://github.com/openeverest/openeverest
@@ -45,15 +49,19 @@ repository:
     - name: Chisato (Chi) Fujii
       affiliation: Solanica
       email: chi.fujii@solanica.io
+      primary: false
     - name: Diogo Recharte
       affiliation: Solanica
       email: diogo.recharte@solanica.io
+      primary: false
     - name: Iaroslavna Soloveva
       affiliation: Solanica
       email: iaroslavna.soloveva@solanica.io
+      primary: false
     - name: Oksana Grishchenko
       affiliation: Percona
       email: oksana.grishchenko@percona.com
+      primary: false
   documentation:
     contributing-guide: https://github.com/openeverest/openeverest/blob/main/CONTRIBUTING.md
     security-policy: https://github.com/openeverest/openeverest/blob/main/SECURITY.md
