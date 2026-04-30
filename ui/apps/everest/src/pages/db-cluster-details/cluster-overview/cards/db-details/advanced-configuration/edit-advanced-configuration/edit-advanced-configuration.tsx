@@ -40,6 +40,8 @@ export const AdvancedConfigurationEditModal = ({
     exposureMethod,
     engineParametersEnabled,
     engineParameters,
+    proxyConfigEnabled,
+    proxyConfig,
     sourceRanges,
     storageClass,
     podSchedulingPolicyEnabled,
@@ -51,6 +53,8 @@ export const AdvancedConfigurationEditModal = ({
     handleSubmitModal({
       engineParametersEnabled,
       engineParameters,
+      proxyConfigEnabled,
+      proxyConfig,
       sourceRanges,
       storageClass,
       podSchedulingPolicyEnabled,
@@ -101,6 +105,10 @@ export const AdvancedConfigurationEditModal = ({
         activePolicy={dbCluster?.spec.podSchedulingPolicyName}
         namespace={dbCluster?.metadata.namespace}
         showSplitHorizonDNS={false}
+        showProxyConfig={
+          dbEngineToDbType(dbCluster?.spec?.engine?.type) !== DbType.Mongo ||
+          dbCluster?.spec.sharding?.enabled
+        }
       />
     </FormDialog>
   );

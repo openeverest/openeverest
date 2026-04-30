@@ -8,6 +8,8 @@ export const AdvancedConfigurationsPreviewSection = ({
   loadBalancerConfigName,
   engineParametersEnabled,
   engineParameters,
+  proxyConfigEnabled,
+  proxyConfig,
   storageClass,
   podSchedulingPolicyEnabled,
   podSchedulingPolicy,
@@ -30,6 +32,9 @@ export const AdvancedConfigurationsPreviewSection = ({
       )}
       {engineParametersEnabled && engineParameters && (
         <PreviewContentText text="Database engine parameters set" />
+      )}
+      {proxyConfigEnabled && proxyConfig && (
+        <PreviewContentText text="Proxy configuration parameters set" />
       )}
       {podSchedulingPolicyEnabled && podSchedulingPolicy && (
         <PreviewContentText

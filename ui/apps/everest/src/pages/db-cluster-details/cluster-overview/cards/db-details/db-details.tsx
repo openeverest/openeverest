@@ -41,6 +41,7 @@ export const DbDetails = ({
   monitoring,
   externalAccess,
   parameters,
+  proxyConfig,
   storageClass,
   podSchedulingPolicy,
   loadBalancerConfig,
@@ -100,6 +101,7 @@ export const DbDetails = ({
         <AdvancedConfiguration
           externalAccess={externalAccess}
           parameters={parameters}
+          proxyConfig={proxyConfig}
           storageClass={storageClass}
           podSchedulingPolicy={podSchedulingPolicy}
           loadBalancerConfig={loadBalancerConfig}

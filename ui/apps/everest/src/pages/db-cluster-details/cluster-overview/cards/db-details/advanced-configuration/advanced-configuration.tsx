@@ -26,6 +26,8 @@ import {
   changeDbClusterAdvancedConfig,
   shouldDbActionsBeBlocked,
 } from 'utils/db';
+import { getProxyConfigLabelFromDbType } from 'components/cluster-form/advanced-configuration/advanced-configuration.utils';
+import { dbEngineToDbType } from '@percona/utils';
 import { Link } from 'react-router-dom';
 import { useRBACPermissions } from 'hooks/rbac';
 import { EMPTY_LOAD_BALANCER_CONFIGURATION } from 'consts';
@@ -38,6 +40,7 @@ export const AdvancedConfiguration = ({
   loading,
   externalAccess,
   parameters,
+  proxyConfig,
   storageClass,
   podSchedulingPolicy,
   loadBalancerConfig,
@@ -79,6 +82,8 @@ export const AdvancedConfiguration = ({
     sourceRanges,
     engineParametersEnabled,
     engineParameters,
+    proxyConfigEnabled,
+    proxyConfig,
     podSchedulingPolicyEnabled,
     podSchedulingPolicy,
     exposureMethod,
@@ -96,7 +101,9 @@ export const AdvancedConfiguration = ({
         podSchedulingPolicyEnabled,
         podSchedulingPolicy,
         loadBalancerConfigName,
-        splitHorizonDNS
+        splitHorizonDNS,
+        proxyConfigEnabled,
+        proxyConfig
       )
     );
   };
@@ -131,6 +138,16 @@ export const AdvancedConfiguration = ({
           parameters ? Messages.fields.enabled : Messages.fields.disabled
         }
       />
+      {dbCluster?.spec.engine.type && (
+        <OverviewSectionRow
+          label={getProxyConfigLabelFromDbType(
+            dbEngineToDbType(dbCluster?.spec?.engine?.type)
+          )}
+          content={
+            proxyConfig ? Messages.fields.enabled : Messages.fields.disabled
+          }
+        />
+      )}
       <OverviewSectionRow
         label={Messages.fields.storageClass}
         content={storageClass}

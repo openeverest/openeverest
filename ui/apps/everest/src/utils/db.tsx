@@ -749,7 +749,9 @@ export const changeDbClusterAdvancedConfig = (
   podSchedulingPolicyEnabled = false,
   podSchedulingPolicy = '',
   loadBalancerConfigName = '',
-  splitHorizonDnsConfigName = ''
+  splitHorizonDnsConfigName = '',
+  proxyConfigEnabled = false,
+  proxyConfig = ''
 ) => ({
   ...dbCluster,
   spec: {
@@ -772,6 +774,7 @@ export const changeDbClusterAdvancedConfig = (
     },
     proxy: {
       ...dbCluster.spec.proxy,
+      config: proxyConfigEnabled ? proxyConfig : undefined,
       expose: {
         loadBalancerConfigName:
           (exposureMethod === ProxyExposeType.LoadBalancer &&

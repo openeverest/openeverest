@@ -18,6 +18,8 @@ import { DbCluster, ProxyExposeType } from 'shared-types/dbCluster.types';
 import { AdvancedConfigurationFields } from './advanced-configuration.types';
 import { AdvancedConfigurationFormType } from './advanced-configuration-schema';
 import { EMPTY_LOAD_BALANCER_CONFIGURATION } from 'consts';
+import { capitalize } from '@mui/material';
+import { getProxyUnitNamesFromDbType } from 'utils/db';
 
 export const getParamsPlaceholderFromDbType = (dbType: DbType) => {
   let dynamicText = '';
@@ -38,6 +40,29 @@ export const getParamsPlaceholderFromDbType = (dbType: DbType) => {
   }
 
   return dynamicText;
+};
+
+export const getProxyConfigPlaceholderFromDbType = (dbType: DbType) => {
+  let dynamicText = '';
+
+  switch (dbType) {
+    case DbType.Mongo:
+      dynamicText = 'net:\n  port: 27017';
+      break;
+    case DbType.Mysql:
+      dynamicText = '[proxysql]\nmax_connections=2000';
+      break;
+    case DbType.Postresql:
+    default:
+      dynamicText = '[pgbouncer]\npool_mode = session\nmax_client_conn = 100';
+      break;
+  }
+
+  return dynamicText;
+};
+
+export const getProxyConfigLabelFromDbType = (dbType: DbType) => {
+  return `${capitalize(getProxyUnitNamesFromDbType(dbType).singular)} Configuration`;
 };
 
 export const mapDeprecatedExposeType = (
@@ -90,5 +115,8 @@ export const advancedConfigurationModalDefaultValues = (
       !!dbCluster?.spec.engineFeatures?.psmdb?.splitHorizonDnsConfigName,
     [AdvancedConfigurationFields.splitHorizonDNS]:
       dbCluster?.spec.engineFeatures?.psmdb?.splitHorizonDnsConfigName || '',
+    [AdvancedConfigurationFields.proxyConfigEnabled]:
+      !!dbCluster?.spec?.proxy?.config,
+    [AdvancedConfigurationFields.proxyConfig]: dbCluster?.spec?.proxy?.config,
   };
 };

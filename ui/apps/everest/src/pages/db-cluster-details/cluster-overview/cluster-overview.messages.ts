@@ -55,5 +55,6 @@ export const Messages = {
     exposureMethod: 'Exposure Method',
     loadBalancerConfig: 'Load balancer config',
     splitHorizonDNS: 'Split-Horizon DNS',
+    proxyConfig: 'Proxy parameters',
   },
 };

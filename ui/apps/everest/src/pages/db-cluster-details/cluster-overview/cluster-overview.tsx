@@ -103,6 +103,7 @@ export const ClusterOverview = () => {
           exposeType={dbCluster.spec.proxy?.expose?.type}
           monitoring={dbCluster?.spec.monitoring?.monitoringConfigName}
           parameters={!!dbCluster?.spec.engine.config}
+          proxyConfig={!!dbCluster?.spec?.proxy?.config}
           storageClass={dbCluster?.spec.engine.storage.class!}
           podSchedulingPolicy={dbCluster?.spec.podSchedulingPolicyName}
           splitHorizonDNS={

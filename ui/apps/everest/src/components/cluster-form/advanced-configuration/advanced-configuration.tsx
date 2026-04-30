@@ -29,7 +29,11 @@ import {
 import { ProxyExposeType } from 'shared-types/dbCluster.types';
 import { useFormContext } from 'react-hook-form';
 import { DbEngineType, DbType } from '@percona/types';
-import { getParamsPlaceholderFromDbType } from './advanced-configuration.utils';
+import {
+  getParamsPlaceholderFromDbType,
+  getProxyConfigLabelFromDbType,
+  getProxyConfigPlaceholderFromDbType,
+} from './advanced-configuration.utils';
 import {
   Box,
   FormGroup,
@@ -64,6 +68,7 @@ import ToggableFormCard from 'components/toggable-form-card';
 interface AdvancedConfigurationFormProps {
   dbType: DbType;
   showSplitHorizonDNS: boolean;
+  showProxyConfig?: boolean;
   loadingDefaultsForEdition?: boolean;
   automaticallyTogglePodSchedulingPolicySwitch?: boolean;
   allowedFieldsToInitiallyLoadDefaults?: AllowedFieldsToInitiallyLoadDefaults[];
@@ -81,6 +86,7 @@ export const AdvancedConfigurationForm = ({
   activePolicy,
   namespace,
   showSplitHorizonDNS,
+  showProxyConfig = true,
 }: AdvancedConfigurationFormProps) => {
   const { watch, setValue, getFieldState, getValues, trigger } =
     useFormContext();
@@ -96,11 +102,13 @@ export const AdvancedConfigurationForm = ({
   >(null);
   const [
     engineParametersEnabled,
+    proxyConfigEnabled,
     policiesEnabled,
     exposureMethod,
     splitHorizonDNSEnabled,
   ] = watch([
     AdvancedConfigurationFields.engineParametersEnabled,
+    AdvancedConfigurationFields.proxyConfigEnabled,
     AdvancedConfigurationFields.podSchedulingPolicyEnabled,
     AdvancedConfigurationFields.exposureMethod,
     AdvancedConfigurationFields.splitHorizonDNSEnabled,
@@ -591,6 +599,32 @@ export const AdvancedConfigurationForm = ({
           />
         }
       />
+      {showProxyConfig && (
+        <FormCard
+          title={getProxyConfigLabelFromDbType(dbType)}
+          description={Messages.cards.proxyParameters.description}
+          cardContent={
+            <Stack>
+              {proxyConfigEnabled && (
+                <TextInput
+                  name={AdvancedConfigurationFields.proxyConfig}
+                  textFieldProps={{
+                    placeholder: getProxyConfigPlaceholderFromDbType(dbType),
+                    multiline: true,
+                    minRows: 3,
+                  }}
+                />
+              )}
+            </Stack>
+          }
+          controlComponent={
+            <SwitchInput
+              label={Messages.enable}
+              name={AdvancedConfigurationFields.proxyConfigEnabled}
+            />
+          }
+        />
+      )}
       {policyDialogOpen && (
         <PoliciesDialog
           engineType={selectedPolicy.current!.spec.engineType}

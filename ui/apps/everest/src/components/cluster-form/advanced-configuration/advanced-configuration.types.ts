@@ -26,6 +26,8 @@ export enum AdvancedConfigurationFields {
   loadBalancerConfigName = 'loadBalancerConfigName',
   splitHorizonDNS = 'splitHorizonDNS',
   splitHorizonDNSEnabled = 'splitHorizonDNSEnabled',
+  proxyConfigEnabled = 'proxyConfigEnabled',
+  proxyConfig = 'proxyConfig',
 }
 
 export const PROXY_EXPOSE_TYPE_TO_LABEL: Record<ProxyExposeType, string> = {

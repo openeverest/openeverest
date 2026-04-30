@@ -20,6 +20,7 @@ import { DbWizardFormFields } from 'consts.ts';
 import { StepHeader } from '../step-header/step-header.tsx';
 import AdvancedConfigurationForm from 'components/cluster-form/advanced-configuration/advanced-configuration.tsx';
 import { StepProps } from 'pages/database-form/database-form.types.ts';
+import { DbType } from '@percona/types';
 import { useDatabasePageMode } from 'pages/database-form/useDatabasePageMode.ts';
 import { WizardMode } from 'shared-types/wizard.types.ts';
 import { useMemo } from 'react';
@@ -31,6 +32,7 @@ export const AdvancedConfigurations = ({
   const { watch, getValues } = useFormContext();
   const dbType = watch(DbWizardFormFields.dbType);
   const namespace = getValues(DbWizardFormFields.k8sNamespace);
+  const sharding = getValues(DbWizardFormFields.sharding);
   const mode = useDatabasePageMode();
   const allowedFieldsToInitiallyLoadDefaults: AllowedFieldsToInitiallyLoadDefaults[] =
     useMemo(() => {
@@ -57,7 +59,8 @@ export const AdvancedConfigurations = ({
           allowedFieldsToInitiallyLoadDefaults
         }
         namespace={namespace}
-        showSplitHorizonDNS={!getValues(DbWizardFormFields.sharding)}
+        showSplitHorizonDNS={!sharding}
+        showProxyConfig={dbType !== DbType.Mongo || sharding}
       />
     </>
   );

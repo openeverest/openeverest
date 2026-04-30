@@ -45,6 +45,7 @@ export type ConnectionDetailsOverviewCardProps = {
 export type AdvancedConfigurationOverviewCardProps = {
   externalAccess: boolean;
   parameters: boolean;
+  proxyConfig?: boolean;
   storageClass: string;
   podSchedulingPolicy?: string;
   loadBalancerConfig?: string;
