@@ -1,0 +1,69 @@
+header:
+  schema-version: 2.0.0
+  last-updated: '2026-04-29'
+  last-reviewed: '2026-04-29'
+  url: https://github.com/openeverest/openeverest/blob/main/SECURITY-INSIGHTS.yml
+
+project:
+  name: OpenEverest
+  homepage: https://openeverest.io
+  administrators:
+    - name: Sergey Pronin
+      affiliation: Solanica
+      email: sp@solanica.io
+      primary: true
+    - name: Chisato (Chi) Fujii
+      affiliation: Solanica
+      email: chi.fujii@solanica.io
+    - name: Diogo Recharte
+      affiliation: Solanica
+      email: diogo.recharte@solanica.io
+    - name: Iaroslavna Soloveva
+      affiliation: Solanica
+      email: iaroslavna.soloveva@solanica.io
+    - name: Oksana Grishchenko
+      affiliation: Percona
+      email: oksana.grishchenko@percona.com
+  repositories:
+    - name: openeverest
+      url: https://github.com/openeverest/openeverest
+  vulnerability-reporting:
+    reports-accepted: true
+    bug-bounty-available: false
+    policy: https://github.com/openeverest/openeverest/blob/main/SECURITY.md
+
+repository:
+  url: https://github.com/openeverest/openeverest
+  status: active
+  accepts-change-request: true
+  accepts-automated-change-request: true
+  core-team:
+    - name: Sergey Pronin
+      affiliation: Solanica
+      email: sp@solanica.io
+      primary: true
+    - name: Chisato (Chi) Fujii
+      affiliation: Solanica
+      email: chi.fujii@solanica.io
+    - name: Diogo Recharte
+      affiliation: Solanica
+      email: diogo.recharte@solanica.io
+    - name: Iaroslavna Soloveva
+      affiliation: Solanica
+      email: iaroslavna.soloveva@solanica.io
+    - name: Oksana Grishchenko
+      affiliation: Percona
+      email: oksana.grishchenko@percona.com
+  documentation:
+    contributing-guide: https://github.com/openeverest/openeverest/blob/main/CONTRIBUTING.md
+    security-policy: https://github.com/openeverest/openeverest/blob/main/SECURITY.md
+    governance: https://github.com/openeverest/openeverest/blob/main/GOVERNANCE.md
+    dependency-management-policy: https://github.com/openeverest/openeverest/blob/main/.github/dependabot.yml
+  license:
+    url: https://github.com/openeverest/openeverest/blob/main/LICENSE
+    expression: Apache-2.0
+  security:
+    assessments:
+      self:
+        comment: |
+          Self assessment has not yet been completed.
