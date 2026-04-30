@@ -32,6 +32,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
 	"github.com/openeverest/openeverest/v2/api/core/v1alpha1"
 	"github.com/openeverest/openeverest/v2/provider-runtime/controller"
 	"github.com/openeverest/openeverest/v2/provider-runtime/server"
@@ -144,6 +145,13 @@ func newReconciler(ctx context.Context, p providerAdapter, opts ...ReconcilerOpt
 		return nil, fmt.Errorf("failed to add v1alpha1 scheme: %w", err)
 	}
 
+	// Register backup types so providers and the runtime can read/write
+	// BackupClass/Backup/Restore/BackupStorage CRs without requiring each
+	// provider to register them explicitly.
+	if err := backupv1alpha1.AddToScheme(scheme); err != nil {
+		return nil, fmt.Errorf("failed to add backup v1alpha1 scheme: %w", err)
+	}
+
 	// Register provider-specific types
 	if typesFunc := p.Types(); typesFunc != nil {
 		if err := typesFunc(scheme); err != nil {
@@ -180,6 +188,29 @@ func newReconciler(ctx context.Context, p providerAdapter, opts ...ReconcilerOpt
 		}
 	}
 
+	// Setup field indexes required by BackupProvider helpers (Backups/Restores
+	// for an Instance) when the provider opts in.
+	if _, isBackupProvider := p.(controller.BackupProvider); isBackupProvider {
+		if err := mgr.GetFieldIndexer().IndexField(ctx, &backupv1alpha1.Backup{}, controller.IndexBackupInstanceName, func(obj client.Object) []string {
+			b, ok := obj.(*backupv1alpha1.Backup)
+			if !ok || b.Spec.InstanceName == "" {
+				return nil
+			}
+			return []string{b.Spec.InstanceName}
+		}); err != nil {
+			return nil, fmt.Errorf("failed to register backup instanceName index: %w", err)
+		}
+		if err := mgr.GetFieldIndexer().IndexField(ctx, &backupv1alpha1.Restore{}, controller.IndexRestoreInstanceName, func(obj client.Object) []string {
+			rs, ok := obj.(*backupv1alpha1.Restore)
+			if !ok || rs.Spec.InstanceName == "" {
+				return nil
+			}
+			return []string{rs.Spec.InstanceName}
+		}); err != nil {
+			return nil, fmt.Errorf("failed to register restore instanceName index: %w", err)
+		}
+	}
+
 	r := &ProviderReconciler{
 		provider:     p,
 		manager:      mgr,
@@ -196,6 +227,24 @@ func newReconciler(ctx context.Context, p providerAdapter, opts ...ReconcilerOpt
 
 	if err := r.setup(); err != nil {
 		return nil, fmt.Errorf("failed to setup reconciler: %w", err)
+	}
+
+	// Register the BackupProvider-aware ancillary reconcilers when the
+	// provider implements the optional interface. These dispatch to
+	// SyncBackup/SyncRestore for ProviderManaged BackupClasses.
+	if bp, ok := p.(controller.BackupProvider); ok {
+		if err := setupBackupReconciler(mgr, bp, p.Name()); err != nil {
+			return nil, fmt.Errorf("failed to setup backup reconciler: %w", err)
+		}
+		if err := setupRestoreReconciler(mgr, bp, p.Name()); err != nil {
+			return nil, fmt.Errorf("failed to setup restore reconciler: %w", err)
+		}
+	}
+
+	if bm, ok := p.(controller.BackupMirror); ok {
+		if err := setupBackupMirrorReconciler(mgr, bm, p.Name()); err != nil {
+			return nil, fmt.Errorf("failed to setup backup mirror reconciler: %w", err)
+		}
 	}
 
 	return r, nil
@@ -366,8 +415,22 @@ func (r *ProviderReconciler) Reconcile(ctx context.Context, req reconcile.Reques
 			logger.Info("Sync waiting", "reason", err.Error())
 			return reconcile.Result{RequeueAfter: controller.GetWaitDuration(err)}, nil
 		}
+		// BackupConfigError means the engine is healthy but backup wiring failed.
+		// Surface it on the BackupConfigured condition without marking Instance Failed.
+		if bce := controller.AsBackupConfigError(err); bce != nil {
+			logger.Error(err, "Backup configuration failed")
+			setCondition(in, v1alpha1.ConditionBackupConfigured, metav1.ConditionFalse,
+				bce.Reason, bce.Message, metav1.Now())
+			_ = r.Client.Status().Update(ctx, in)
+			return reconcile.Result{}, nil
+		}
 		logger.Error(err, "Sync failed")
 		return reconcile.Result{}, err
+	}
+	// Clear any stale BackupConfigured=False condition left from a previous failed Sync.
+	if _, ok := r.provider.(controller.BackupProvider); ok {
+		setCondition(in, v1alpha1.ConditionBackupConfigured, metav1.ConditionTrue,
+			"Configured", "Backup configuration applied to engine", metav1.Now())
 	}
 
 	// Compute and update status

@@ -28,37 +28,99 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 )
 
-// BackupClassSpec defines the desired state of BackupClass
-type BackupClassSpec struct { // DisplayName is a human-readable name for the backup tool.
+// BackupExecutionMode selects how a BackupClass implements backup and restore
+// operations.
+//
+// +kubebuilder:validation:Enum=ProviderManaged;Job
+type BackupExecutionMode string
+
+const (
+	// BackupExecutionModeProviderManaged delegates backup and restore to the
+	// provider's reconciler, which typically configures an in-cluster agent
+	// (PBM, pgBackRest, Barman, ...) on the engine itself. The Backup and
+	// Restore CRs become trigger + status holders; the actual orchestration
+	// happens inside the provider's Sync loop.
+	BackupExecutionModeProviderManaged BackupExecutionMode = "ProviderManaged"
+
+	// BackupExecutionModeJob runs backup and restore operations as Kubernetes
+	// Jobs that talk to the database from outside (e.g., pg_dump, mysqldump).
+	// All execution detail lives under .spec.job and .spec.restoreJob.
+	BackupExecutionModeJob BackupExecutionMode = "Job"
+)
+
+// BackupClassSpec defines the desired state of BackupClass.
+type BackupClassSpec struct {
+	// DisplayName is a human-readable name for the backup class.
 	DisplayName string `json:"displayName,omitempty"`
-	// Description is the description of the backup tool.
+	// Description is the description of the backup class.
 	Description string `json:"description,omitempty"`
-	// SupportedProviders is the list of providers that the backup tool supports.
+	// SupportedProviders is the list of provider names that this backup class
+	// supports. The Instance.spec.provider must appear in this list for the
+	// class to be usable on that Instance.
 	SupportedProviders ProviderNameList `json:"supportedProviders,omitempty"`
-	// Config contains additional configuration defined for the backup tool.
-	Config BackupClassConfig `json:"config,omitempty"`
-	// JobSpec is the specification of the backup job.
+	// ExecutionMode selects between job-based and provider-managed execution.
+	// +kubebuilder:validation:Required
+	ExecutionMode BackupExecutionMode `json:"executionMode"`
+	// ProviderManaged contains hints for ExecutionMode="ProviderManaged". The
+	// schema is intentionally open: providers may surface capability
+	// information (e.g., whether PITR is supported, schedule expression
+	// dialect) without forcing a CRD change. Must be unset when
+	// ExecutionMode is "Job".
 	// +optional
-	JobSpec *BackupJobSpec `json:"jobSpec,omitempty"`
-	// CleanupJobSpec is the specification of the cleanup job.
+	ProviderManaged *ProviderManagedSpec `json:"providerManaged,omitempty"`
+	// Config contains the OpenAPI v3 schema describing the backup-time
+	// configuration accepted by this class. Backup.spec.config is validated
+	// against this schema.
+	Config BackupClassConfig `json:"config,omitempty"`
+	// RestoreConfig contains the OpenAPI v3 schema describing the restore-time
+	// configuration accepted by this class. Restore.spec.config is validated
+	// against this schema.
+	// +optional
+	RestoreConfig BackupClassConfig `json:"restoreConfig,omitempty"`
+	// InstanceConstraints defines compatibility requirements that must be
+	// satisfied by an Instance before this backup class can be used with it.
+	// +optional
+	InstanceConstraints BackupClassInstanceConstraints `json:"instanceConstraints,omitempty"`
+
+	// Job contains execution detail for ExecutionMode="Job". Must be unset
+	// when ExecutionMode is "ProviderManaged".
+	// +optional
+	Job *JobExecution `json:"job,omitempty"`
+	// RestoreJob contains execution detail for the restore job in
+	// ExecutionMode="Job". Must be unset when ExecutionMode is
+	// "ProviderManaged".
+	// +optional
+	RestoreJob *JobExecution `json:"restoreJob,omitempty"`
+}
+
+// JobExecution bundles the Kubernetes resources the controller needs to spawn
+// to perform a single backup or restore operation in ExecutionMode="Job".
+type JobExecution struct {
+	// JobSpec is the specification of the backup or restore job.
+	// +kubebuilder:validation:Required
+	JobSpec *BackupJobSpec `json:"jobSpec"`
+	// CleanupJobSpec is the optional specification of a cleanup job that runs
+	// when the parent Backup or Restore CR is deleted.
 	// +optional
 	CleanupJobSpec *BackupJobSpec `json:"cleanupJobSpec,omitempty"`
-	// DataStoreConstraints defines compatibility requirements and prerequisites that must be satisfied
-	// by a DataStore before this backup tool can be used with it. This allows the backup tool to
-	// express specific requirements about the database configuration needed for successful backup operations,
-	// such as required database fields, specific engine configurations, or other database properties.
-	// When a DataStore references this backup tool, the operator will validate the DataStore
-	// against these constraints before proceeding with the backup operation.
-	// +optional
-	DataStoreConstraints BackupClassDataStoreConstraints `json:"dataStoreConstraints,omitempty"`
-	// Permissions defines the permissions required by the backup tool.
-	// These permissions are used to generate a Role for the backup job.
+	// Permissions are namespace-scoped PolicyRules granted to the job pod via
+	// a generated Role and RoleBinding.
 	// +optional
 	Permissions []rbacv1.PolicyRule `json:"permissions,omitempty"`
-	// ClusterPermissions defines the cluster-wide permissions required by the backup tool.
-	// These permissions are used to generate a ClusterRole for the backup job.
+	// ClusterPermissions are cluster-scoped PolicyRules granted via a
+	// generated ClusterRole and ClusterRoleBinding.
 	// +optional
 	ClusterPermissions []rbacv1.PolicyRule `json:"clusterPermissions,omitempty"`
+}
+
+// ProviderManagedSpec carries opaque hints for ExecutionMode="ProviderManaged"
+// classes. It mirrors the Config/RestoreConfig pattern: the field is opaque
+// to the runtime; providers interpret it.
+type ProviderManagedSpec struct {
+	// SupportsPITR indicates whether this class supports point-in-time recovery.
+	// Used by Restore validation when Restore.spec.dataSource.pitr is set.
+	// +optional
+	SupportsPITR bool `json:"supportsPITR,omitempty"`
 }
 
 // ProviderNameList is a type alias for a list of provider names.
@@ -69,9 +131,9 @@ func (e ProviderNameList) Has(provider string) bool {
 	return slices.Contains(e, provider)
 }
 
-// BackupClassConfig contains additional configuration defined for the backup tool.
+// BackupClassConfig contains additional configuration defined for the backup class.
 type BackupClassConfig struct {
-	// OpenAPIV3Schema is the OpenAPI v3 schema of the backup tool.
+	// OpenAPIV3Schema is the OpenAPI v3 schema of the backup class.
 	// +kubebuilder:pruning:PreserveUnknownFields
 	// +kubebuilder:validation:Schemaless
 	// +optional
@@ -81,7 +143,7 @@ type BackupClassConfig struct {
 // ErrSchemaValidationFailure is returned when the parameters do not conform to the BackupClass schema defined in .spec.config.
 var ErrSchemaValidationFailure = errors.New("schema validation failed")
 
-// Validate the config for the backup tool.
+// Validate the config for the backup class.
 func (cfg *BackupClassConfig) Validate(params *runtime.RawExtension) error {
 	schema := cfg.OpenAPIV3Schema
 	if schema == nil && params != nil {
@@ -129,18 +191,44 @@ func (cfg *BackupClassConfig) Validate(params *runtime.RawExtension) error {
 
 // BackupJobSpec defines the specification for the Kubernetes job.
 type BackupJobSpec struct {
-	// Image is the image of the backup tool.
+	// Image is the image of the backup class.
 	Image string `json:"image,omitempty"`
-	// Command is the command to run the backup tool.
+	// Command is the command to run the backup class.
 	// +optional
 	Command []string `json:"command,omitempty"`
 }
 
-// BackupClassDataStoreConstraints defines compatibility requirements and prerequisites
-// that must be satisfied by a DataStore before this backup tool can be used with it.
-type BackupClassDataStoreConstraints struct {
-	// RequiredFields contains a list of fields that must be set in the DataStore spec.
-	// Each key is a JSON path expressions that points to a field in the DataStore spec.
+// ErrInvalidExecutionMode is returned when the BackupClassSpec mixes fields
+// from multiple execution modes or omits the required block for the chosen
+// mode.
+var ErrInvalidExecutionMode = errors.New("invalid execution mode configuration")
+
+// ValidateExecutionMode enforces the invariants between ExecutionMode and the
+// mode-specific blocks (Job/RestoreJob vs ProviderManaged).
+func (s *BackupClassSpec) ValidateExecutionMode() error {
+	switch s.ExecutionMode {
+	case BackupExecutionModeProviderManaged:
+		if s.Job != nil || s.RestoreJob != nil {
+			return fmt.Errorf("%w: executionMode=ProviderManaged must not set .spec.job or .spec.restoreJob", ErrInvalidExecutionMode)
+		}
+	case BackupExecutionModeJob:
+		if s.Job == nil {
+			return fmt.Errorf("%w: executionMode=Job requires .spec.job", ErrInvalidExecutionMode)
+		}
+		if s.ProviderManaged != nil {
+			return fmt.Errorf("%w: executionMode=Job must not set .spec.providerManaged", ErrInvalidExecutionMode)
+		}
+	default:
+		return fmt.Errorf("%w: unknown executionMode %q", ErrInvalidExecutionMode, s.ExecutionMode)
+	}
+	return nil
+}
+
+// BackupClassInstanceConstraints defines compatibility requirements and prerequisites
+// that must be satisfied by a Instance before this backup class can be used with it.
+type BackupClassInstanceConstraints struct {
+	// RequiredFields contains a list of fields that must be set in the Instance spec.
+	// Each key is a JSON path expressions that points to a field in the Instance spec.
 	// For example, ".spec.engine.type" or ".spec.dataSource.dataImport.config.someField".
 	// +optional
 	RequiredFields []string `json:"requiredFields,omitempty"`

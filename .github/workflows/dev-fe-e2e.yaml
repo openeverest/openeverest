@@ -13,9 +13,9 @@ on:
         required: true
 
 env:
-  GONOPROXY: 'github.com/percona'
-  GONOSUMDB: 'github.com/percona'
-  GOPRIVATE: 'github.com/percona'
+  GONOPROXY: "github.com/percona"
+  GONOSUMDB: "github.com/percona"
+  GOPRIVATE: "github.com/percona"
 
 jobs:
   e2e:
@@ -36,7 +36,7 @@ jobs:
       - name: Set up Go release
         uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6.4.0
         with:
-          go-version-file: 'go.mod'
+          go-version-file: "go.mod"
           cache: true
 
       - name: Adjust GitHub worker node
@@ -94,6 +94,10 @@ jobs:
         run: |
           CGO_ENABLED=0 GOOS=linux GOARCH=amd64 make build-debug
 
+      - name: Build Everest Controller
+        run: |
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 make build-controller
+
       - name: Build Everest docker container
         uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051 # v5.10.0
         id: meta
@@ -105,6 +109,8 @@ jobs:
         uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
         with:
           context: .
+          file: build/package/server/Dockerfile
+          target: openeverest
           push: true
           tags: ${{ steps.meta.outputs.tags }}
 
@@ -192,6 +198,7 @@ jobs:
       - name: Run integration tests
         shell: bash
         env:
+          EVEREST_URL: "http://localhost:3000"
           EVEREST_BUCKETS_NAMESPACES_MAP: '[["bucket-1","everest-ui"],["bucket-2","psmdb-only"],["bucket-3","pxc-only"],["bucket-4","pg-only"],["bucket-5","everest-ui"]]'
           EVEREST_LOCATION_ACCESS_KEY: "minioadmin"
           EVEREST_LOCATION_SECRET_KEY: "minioadmin"
@@ -226,4 +233,3 @@ jobs:
           name: playwright-report
           path: ui/apps/everest/.e2e/playwright-report/
           overwrite: true
-

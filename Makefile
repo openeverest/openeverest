@@ -26,7 +26,7 @@ help: ## Display this help.
 CWD = $(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))
 LOCALBIN := $(CWD)/bin
 $(LOCALBIN):
-	mkdir -p $(LOCALBIN)
+	mkdir -p "$(LOCALBIN)"
 
 CONTROLLER_GEN ?= $(LOCALBIN)/controller-gen
 ENVTEST ?= $(LOCALBIN)/setup-envtest
@@ -161,7 +161,7 @@ build-server-helper: $(LOCALBIN)
 # unnecessary rebuilds when only the timestamp of the file changes.
 	mkdir -p ./public/dist && [ -f ./public/dist/index.html ] || touch ./public/dist/index.html
 	$(info Building Everest API server for $(GOOS)/$(GOARCH) with CGO_ENABLED=$(CGO_ENABLED))
-	go build -v $(SERVER_BUILD_TAGS) $(SERVER_GC_FLAGS) -ldflags "$(SERVER_LD_FLAGS)" -o $(LOCALBIN)/everest ./cmd
+	go build -v $(SERVER_BUILD_TAGS) $(SERVER_GC_FLAGS) -ldflags "$(SERVER_LD_FLAGS)" -o "$(LOCALBIN)/everest" ./cmd
 
 .PHONY: build
 build: SERVER_LD_FLAGS += -s -w
@@ -191,7 +191,7 @@ CLI_GC_FLAGS =
 .PHONY: build-cli-helper
 build-cli-helper: $(LOCALBIN) charts
 	$(info Building Everest CLI for $(GOOS)/$(GOARCH) with CGO_ENABLED=$(CGO_ENABLED))
-	go build -v $(CLI_BUILD_TAGS) $(CLI_GC_FLAGS) -ldflags "$(CLI_LD_FLAGS)" -o $(LOCALBIN)/everestctl ./cmd/cli
+	go build -v $(CLI_BUILD_TAGS) $(CLI_GC_FLAGS) -ldflags "$(CLI_LD_FLAGS)" -o "$(LOCALBIN)/everestctl" ./cmd/cli
 
 .PHONY: build-cli
 build-cli: CLI_LD_FLAGS += -s -w
@@ -263,7 +263,7 @@ docker-push: ## Push docker image with Everest API server and controller.
 
 .PHONY: clean
 clean:
-	rm -rf $(LOCALBIN)/*
+	rm -rf "$(LOCALBIN)"/*
 	rm -rf ./dist/*
 
 ##@ Test
@@ -322,7 +322,7 @@ docker-build-operator:
 	@{ \
 	set -xe ;\
 	operator_commit_id=$(word 3, $(subst -,  ,$(word 2, $(shell go list -m github.com/percona/everest-operator)))) ;\
-	cd $(shell mktemp -d) ;\
+	cd "$(shell mktemp -d)" ;\
 	git clone -q https://github.com/percona/everest-operator.git ;\
 	cd ./everest-operator ;\
 	git reset --hard $${operator_commit_id} ;\
@@ -333,7 +333,7 @@ DB_NAMESPACES = everest
 .PHONY: deploy
 deploy:  ## Deploy Everest to K8S cluster using Everest CLI.
 	$(info Deploying Everest ($(IMG)) into K8S cluster using everestctl)
-	$(LOCALBIN)/everestctl install -v \
+	"$(LOCALBIN)/everestctl" install -v \
 	--disable-telemetry \
 	--version=$(IMAGE_TAG) \
 	--version-metadata-url=https://check-dev.percona.com \
@@ -361,7 +361,7 @@ deploy-all: $(DEPLOY_ALL_DEPS) ## Helper to build Everest and its dependencies a
 .PHONY: undeploy-cli
 undeploy: build-cli-debug ## Undeploy Everest from K8S cluster using Everest CLI.
 	$(info Uninstalling Everest from K8S cluster using everestctl)
-	$(LOCALBIN)/everestctl uninstall -y -f -v
+	"$(LOCALBIN)/everestctl" uninstall -y -f -v
 
 .PHONY: add-pg-namespaces
 add-pg-namespaces: ## Add PostgreSQL namespace to Everest using Everest CLI(usage: DB_NAMESPACES=ns-1,ns-2 make add-pg-namespaces).

@@ -19,6 +19,7 @@ import (
 	"context"
 	"crypto/md5"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
@@ -37,6 +38,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
+	"github.com/openeverest/openeverest/v2/api/backup/v1alpha1/jobspec"
+	corev1alpha1 "github.com/openeverest/openeverest/v2/api/core/v1alpha1"
 )
 
 const (
@@ -157,6 +160,23 @@ func (r *BackupReconciler) Reconcile( //nolint:nonamedreturns
 		return ctrl.Result{}, nil
 	}
 
+	// Get the referenced backup class before touching status so that
+	// ProviderManaged backups can bail out without the deferred Status().Update()
+	// fighting with the provider-runtime reconciler.
+	bc := &backupv1alpha1.BackupClass{}
+	if err := r.Client.Get(ctx, client.ObjectKey{
+		Name: backup.Spec.BackupClassName,
+	}, bc); err != nil {
+		return ctrl.Result{}, fmt.Errorf("failed to get backup class: %w", err)
+	}
+
+	// ProviderManaged classes are reconciled by the provider-runtime; this
+	// controller only handles Job execution mode. Bail out without touching
+	// the Backup so the provider's runtime can take over.
+	if bc.Spec.ExecutionMode != backupv1alpha1.BackupExecutionModeJob {
+		return ctrl.Result{}, nil
+	}
+
 	// Reset the status, we will build a new one by observing the current state on each reconcile.
 	startedAt := backup.Status.StartedAt
 	backup.Status = backupv1alpha1.BackupStatus{}
@@ -173,34 +193,47 @@ func (r *BackupReconciler) Reconcile( //nolint:nonamedreturns
 		}
 	}()
 
-	// Get the referenced backup class.
-	bc := &backupv1alpha1.BackupClass{}
+	if bc.Spec.Job == nil || bc.Spec.Job.JobSpec == nil {
+		backup.Status.State = backupv1alpha1.BackupStateFailed
+		backup.Status.Message = "BackupClass uses Job execution mode but does not define spec.job.jobSpec"
+		return ctrl.Result{}, nil
+	}
+
+	// Get the source database instance.
+	instance := &corev1alpha1.Instance{}
 	if err := r.Client.Get(ctx, client.ObjectKey{
-		Name: backup.Spec.BackupClassName,
-	}, bc); err != nil {
+		Name:      backup.Spec.InstanceName,
+		Namespace: backup.GetNamespace(),
+	}, instance); err != nil {
 		backup.Status.State = backupv1alpha1.BackupStateError
-		backup.Status.Message = fmt.Errorf("failed to get backup class: %w", err).Error()
+		backup.Status.Message = fmt.Errorf("failed to get instance: %w", err).Error()
+		return ctrl.Result{}, err
+	}
+
+	// Create payload secret.
+	if err := r.ensurePayloadSecret(ctx, backup, instance); err != nil {
+		backup.Status.State = backupv1alpha1.BackupStateError
+		backup.Status.Message = fmt.Errorf("failed to create payload secret: %w", err).Error()
 		return ctrl.Result{}, err
 	}
 
 	// Create RBAC resources.
-	requiresRbac := len(bc.Spec.Permissions) > 0 || len(bc.Spec.ClusterPermissions) > 0
+	requiresRbac := len(bc.Spec.Job.Permissions) > 0 || len(bc.Spec.Job.ClusterPermissions) > 0
 	if requiresRbac { //nolint:nestif
+		if controllerutil.AddFinalizer(backup, backupRBACCleanupFinalizer) {
+			if err := r.Client.Update(ctx, backup); err != nil {
+				return ctrl.Result{}, fmt.Errorf("failed to add finalizer to backup: %w", err)
+			}
+		}
 		if err := r.ensureServiceAccount(ctx, backup); err != nil {
 			backup.Status.State = backupv1alpha1.BackupStateError
 			backup.Status.Message = fmt.Errorf("failed to ensure service account: %w", err).Error()
 			return ctrl.Result{}, err
 		}
-		if err := r.ensureRBACResources(ctx, backup, bc.Spec.Permissions, bc.Spec.ClusterPermissions); err != nil {
+		if err := r.ensureRBACResources(ctx, backup, bc.Spec.Job.Permissions, bc.Spec.Job.ClusterPermissions); err != nil {
 			backup.Status.State = backupv1alpha1.BackupStateError
 			backup.Status.Message = fmt.Errorf("failed to ensure RBAC resources: %w", err).Error()
 			return ctrl.Result{}, err
-		}
-
-		if controllerutil.AddFinalizer(backup, backupRBACCleanupFinalizer) {
-			if err := r.Client.Update(ctx, backup); err != nil {
-				return ctrl.Result{}, fmt.Errorf("failed to add finalizer to backup: %w", err)
-			}
 		}
 	}
 
@@ -211,7 +244,164 @@ func (r *BackupReconciler) Reconcile( //nolint:nonamedreturns
 		return ctrl.Result{}, err
 	}
 
+	// Observe job state.
+	if err := r.observeJobStatus(ctx, backup); err != nil {
+		backup.Status.State = backupv1alpha1.BackupStateError
+		backup.Status.Message = fmt.Errorf("failed to observe state: %w", err).Error()
+		return ctrl.Result{}, err
+	}
 	return ctrl.Result{}, nil
+}
+
+func (r *BackupReconciler) observeJobStatus(ctx context.Context, backup *backupv1alpha1.Backup) error {
+	jobName := backup.Status.JobName
+	if jobName == "" {
+		backup.Status.State = backupv1alpha1.BackupStatePending
+		return nil
+	}
+
+	job := &batchv1.Job{}
+	if err := r.Client.Get(ctx, client.ObjectKey{
+		Name:      jobName,
+		Namespace: backup.GetNamespace(),
+	}, job); err != nil {
+		return fmt.Errorf("failed to get backup job: %w", err)
+	}
+
+	for _, c := range job.Status.Conditions {
+		if c.Type == batchv1.JobComplete && c.Status == corev1.ConditionTrue {
+			// Job is complete, delete the payload secret.
+			if err := r.Client.Delete(ctx, &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      backupToolRequestSecretName(backup),
+					Namespace: backup.GetNamespace(),
+				},
+			}); client.IgnoreNotFound(err) != nil {
+				return fmt.Errorf("failed to delete payload secret: %w", err)
+			}
+			backup.Status.State = backupv1alpha1.BackupStateSucceeded
+			backup.Status.CompletedAt = job.Status.CompletionTime
+			return nil
+		}
+
+		if c.Type == batchv1.JobFailed && c.Status == corev1.ConditionTrue {
+			backup.Status.State = backupv1alpha1.BackupStateFailed
+			backup.Status.Message = c.Message
+			return nil
+		}
+	}
+	backup.Status.State = backupv1alpha1.BackupStateRunning
+	return nil
+}
+
+func (r *BackupReconciler) ensurePayloadSecret(
+	ctx context.Context,
+	backup *backupv1alpha1.Backup,
+	instance *corev1alpha1.Instance,
+) error {
+	secret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      backupToolRequestSecretName(backup),
+			Namespace: backup.GetNamespace(),
+		},
+	}
+
+	// If the Secret already exists with the desired key, skip recreation.
+	if err := r.Client.Get(ctx, client.ObjectKeyFromObject(secret), secret); err == nil {
+		if val, ok := secret.Data[backupJobJSONSecretKey]; ok && len(val) > 0 {
+			return nil
+		}
+	} else if client.IgnoreNotFound(err) != nil {
+		return fmt.Errorf("failed to get payload secret: %w", err)
+	}
+
+	spec := jobspec.Spec{
+		Instance: jobspec.InstanceRef{
+			Name:      instance.GetName(),
+			Namespace: instance.GetNamespace(),
+		},
+	}
+
+	// Read connection details from the Instance's ConnectionSecretRef.
+	if instance.Status.ConnectionSecretRef.Name != "" {
+		connSecret := &corev1.Secret{}
+		if err := r.Client.Get(ctx, client.ObjectKey{
+			Name:      instance.Status.ConnectionSecretRef.Name,
+			Namespace: instance.GetNamespace(),
+		}, connSecret); err != nil {
+			return fmt.Errorf("failed to get connection secret: %w", err)
+		}
+		spec.Connection = &jobspec.ConnectionDetails{
+			Type:     string(connSecret.Data["type"]),
+			Provider: string(connSecret.Data["provider"]),
+			Host:     string(connSecret.Data["host"]),
+			Port:     string(connSecret.Data["port"]),
+			Username: string(connSecret.Data["username"]),
+			Password: string(connSecret.Data["password"]),
+			URI:      string(connSecret.Data["uri"]),
+		}
+	}
+
+	// Resolve S3 storage details from the referenced BackupStorage CR.
+	if backup.Spec.StorageName != "" {
+		storage := &backupv1alpha1.BackupStorage{}
+		if err := r.Client.Get(ctx, client.ObjectKey{
+			Name:      backup.Spec.StorageName,
+			Namespace: backup.GetNamespace(),
+		}, storage); err != nil {
+			return fmt.Errorf("failed to get BackupStorage %q: %w", backup.Spec.StorageName, err)
+		}
+		if storage.Spec.S3 != nil {
+			s3Dest := storage.Spec.S3
+			s3Details := &jobspec.S3Details{
+				Bucket:         s3Dest.Bucket,
+				Region:         s3Dest.Region,
+				EndpointURL:    s3Dest.EndpointURL,
+				VerifyTLS:      pointer.Get(s3Dest.VerifyTLS),
+				ForcePathStyle: pointer.Get(s3Dest.ForcePathStyle),
+			}
+
+			// Read S3 credentials from the referenced Secret.
+			if s3Dest.CredentialsSecretName != "" {
+				credSecret := &corev1.Secret{}
+				if err := r.Client.Get(ctx, client.ObjectKey{
+					Name:      s3Dest.CredentialsSecretName,
+					Namespace: backup.GetNamespace(),
+				}, credSecret); err != nil {
+					return fmt.Errorf("failed to get S3 credentials secret: %w", err)
+				}
+				s3Details.AccessKeyID = string(credSecret.Data["AWS_ACCESS_KEY_ID"])
+				s3Details.SecretAccessKey = string(credSecret.Data["AWS_SECRET_ACCESS_KEY"])
+			}
+
+			spec.Storage = &jobspec.StorageDetails{
+				S3: s3Details,
+			}
+		}
+	}
+
+	// Pass through the config.
+	if cfg := backup.Spec.Config; cfg != nil {
+		cfgMap := map[string]any{}
+		if err := json.Unmarshal(cfg.Raw, &cfgMap); err != nil {
+			return fmt.Errorf("failed to unmarshal backup config: %w", err)
+		}
+		spec.Config = cfgMap
+	}
+
+	reqJSON, err := json.Marshal(spec)
+	if err != nil {
+		return fmt.Errorf("failed to marshal payload: %w", err)
+	}
+	if _, err := ctrl.CreateOrUpdate(ctx, r.Client, secret, func() error {
+		secret.Data = map[string][]byte{
+			backupJobJSONSecretKey: reqJSON,
+		}
+		return controllerutil.SetControllerReference(backup, secret, r.Scheme)
+	}); err != nil {
+		return fmt.Errorf("failed to create or update payload secret: %w", err)
+	}
+	return nil
 }
 
 func (r *BackupReconciler) ensureBackupJob(
@@ -282,10 +472,27 @@ func (r *BackupReconciler) getJobSpec(
 				RestartPolicy:                 corev1.RestartPolicyNever,
 				Containers: []corev1.Container{{
 					Name:    "importer",
-					Image:   bc.Spec.JobSpec.Image,
-					Command: bc.Spec.JobSpec.Command,
+					Image:   bc.Spec.Job.JobSpec.Image,
+					Command: bc.Spec.Job.JobSpec.Command,
 					Args:    []string{fmt.Sprintf("%s/%s", payloadMountPath, backupJobJSONSecretKey)},
+					VolumeMounts: []corev1.VolumeMount{
+						{
+							Name:      "payload",
+							MountPath: payloadMountPath,
+							ReadOnly:  true,
+						},
+					},
 				}},
+				Volumes: []corev1.Volume{
+					{
+						Name: "payload",
+						VolumeSource: corev1.VolumeSource{
+							Secret: &corev1.SecretVolumeSource{
+								SecretName: backupToolRequestSecretName(backup),
+							},
+						},
+					},
+				},
 			},
 		},
 	}
@@ -362,6 +569,54 @@ func (r *BackupReconciler) deleteJob(ctx context.Context, backup *backupv1alpha1
 }
 
 // Returns: [done(bool), error] .
+func (r *BackupReconciler) deleteRBAC(ctx context.Context, backup *backupv1alpha1.Backup) (bool, error) {
+	// List of RBAC resources.
+	resources := []client.Object{
+		&rbacv1.RoleBinding{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      r.getRoleBindingName(backup),
+				Namespace: backup.GetNamespace(),
+			},
+		},
+		&rbacv1.Role{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      r.getRoleName(backup),
+				Namespace: backup.GetNamespace(),
+			},
+		},
+		&rbacv1.ClusterRoleBinding{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: r.getClusterRoleBindingName(backup),
+			},
+		},
+		&rbacv1.ClusterRole{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      r.getClusterRoleName(backup),
+				Namespace: backup.GetNamespace(),
+			},
+		},
+		&corev1.ServiceAccount{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      r.getServiceAccountName(backup),
+				Namespace: backup.GetNamespace(),
+			},
+		},
+	}
+	allGone := true
+
+	for _, res := range resources {
+		err := r.Client.Delete(ctx, res)
+		if err == nil {
+			allGone = false // Even one successful deletion indicates that not all resources are gone yet.
+		} else if client.IgnoreNotFound(err) != nil {
+			return false, fmt.Errorf("failed to delete resource %s: %w", res.GetName(), err)
+		}
+	}
+
+	return allGone, nil
+}
+
+// Returns: [done(bool), error] .
 func (r *BackupReconciler) deleteResourcesInOrder(ctx context.Context, backup *backupv1alpha1.Backup) (bool, error) {
 	ok, err := r.deleteJob(ctx, backup)
 	if err != nil {
@@ -370,6 +625,11 @@ func (r *BackupReconciler) deleteResourcesInOrder(ctx context.Context, backup *b
 
 	if !ok {
 		return false, nil // do not proceed with RBAC cleanup if job deletion is not done
+	}
+
+	ok, err = r.deleteRBAC(ctx, backup)
+	if err != nil {
+		return false, fmt.Errorf("failed to delete RBAC resources: %w", err)
 	}
 
 	if !ok {

@@ -17,13 +17,17 @@ package controller
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"time"
 
+	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
+	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
 	"github.com/openeverest/openeverest/v2/api/core/v1alpha1"
 )
 
@@ -479,6 +483,42 @@ type WaitError struct {
 	Duration time.Duration
 }
 
+// =============================================================================
+// BACKUP CONFIG ERROR
+// =============================================================================
+
+// BackupConfigError is returned from Sync when backup configuration (storage
+// resolution, schedule translation, PITR wiring) fails but the engine itself
+// is otherwise healthy. The runtime surfaces it on the BackupConfigured
+// condition instead of marking the Instance as Failed, so operators can see
+// that the database is running but backups need attention.
+//
+// Usage inside Sync:
+//
+//	if err := buildBackupSpec(c); err != nil {
+//	    return &controller.BackupConfigError{Reason: "StorageNotFound", Message: err.Error()}
+//	}
+type BackupConfigError struct {
+	// Reason is a short CamelCase identifier (used as the condition reason).
+	Reason string
+	// Message is a human-readable description of the problem.
+	Message string
+}
+
+func (e *BackupConfigError) Error() string {
+	return e.Message
+}
+
+// AsBackupConfigError extracts a *BackupConfigError from err (including wrapped
+// errors), returning nil if err is not a BackupConfigError.
+func AsBackupConfigError(err error) *BackupConfigError {
+	var bce *BackupConfigError
+	if errors.As(err, &bce) {
+		return bce
+	}
+	return nil
+}
+
 func (e *WaitError) Error() string {
 	return fmt.Sprintf("waiting: %s", e.Reason)
 }
@@ -505,4 +545,114 @@ func WaitFor(reason string) error {
 // WaitForDuration returns an error indicating retry after a specific duration.
 func WaitForDuration(reason string, d time.Duration) error {
 	return &WaitError{Reason: reason, Duration: d}
+}
+
+// =============================================================================
+// BACKUP / RESTORE HELPERS
+// =============================================================================
+
+// BackupClass fetches a BackupClass by name (cluster-scoped).
+func (c *Context) BackupClass(name string) (*backupv1alpha1.BackupClass, error) {
+	bc := &backupv1alpha1.BackupClass{}
+	if err := c.client.Get(c.ctx, client.ObjectKey{Name: name}, bc); err != nil {
+		return nil, fmt.Errorf("failed to get BackupClass %q: %w", name, err)
+	}
+	return bc, nil
+}
+
+// BackupStorage fetches a BackupStorage by name from the instance namespace.
+func (c *Context) BackupStorage(name string) (*backupv1alpha1.BackupStorage, error) {
+	bs := &backupv1alpha1.BackupStorage{}
+	if err := c.client.Get(c.ctx, client.ObjectKey{Namespace: c.in.Namespace, Name: name}, bs); err != nil {
+		return nil, fmt.Errorf("failed to get BackupStorage %q: %w", name, err)
+	}
+	return bs, nil
+}
+
+// BackupStorageCredentials reads the credentials Secret referenced by an S3
+// BackupStorage and returns the access key id / secret access key. Returns
+// empty strings if the storage does not reference a Secret (caller can decide
+// whether that is an error).
+func (c *Context) BackupStorageCredentials(bs *backupv1alpha1.BackupStorage) (accessKeyID, secretAccessKey string, err error) {
+	if bs == nil || bs.Spec.S3 == nil || bs.Spec.S3.CredentialsSecretName == "" {
+		return "", "", nil
+	}
+	secret := &corev1.Secret{}
+	if err := c.client.Get(c.ctx, client.ObjectKey{
+		Namespace: bs.GetNamespace(),
+		Name:      bs.Spec.S3.CredentialsSecretName,
+	}, secret); err != nil {
+		return "", "", fmt.Errorf("failed to get credentials secret %q: %w", bs.Spec.S3.CredentialsSecretName, err)
+	}
+	return string(secret.Data["AWS_ACCESS_KEY_ID"]), string(secret.Data["AWS_SECRET_ACCESS_KEY"]), nil
+}
+
+// BackupsForInstance lists all Backup CRs in the instance namespace whose
+// .spec.instanceName matches this Instance. Requires the field index
+// ".spec.instanceName" on backupv1alpha1.Backup, which the runtime registers
+// automatically when the provider implements BackupProvider.
+func (c *Context) BackupsForInstance() ([]backupv1alpha1.Backup, error) {
+	list := &backupv1alpha1.BackupList{}
+	if err := c.client.List(c.ctx, list,
+		client.InNamespace(c.in.Namespace),
+		client.MatchingFields{IndexBackupInstanceName: c.in.Name},
+	); err != nil {
+		return nil, fmt.Errorf("failed to list backups for instance: %w", err)
+	}
+	return list.Items, nil
+}
+
+// RestoresForInstance lists all Restore CRs in the instance namespace whose
+// .spec.instanceName matches this Instance.
+func (c *Context) RestoresForInstance() ([]backupv1alpha1.Restore, error) {
+	list := &backupv1alpha1.RestoreList{}
+	if err := c.client.List(c.ctx, list,
+		client.InNamespace(c.in.Namespace),
+		client.MatchingFields{IndexRestoreInstanceName: c.in.Name},
+	); err != nil {
+		return nil, fmt.Errorf("failed to list restores for instance: %w", err)
+	}
+	return list.Items, nil
+}
+
+// IndexBackupInstanceName is the field index path used for Backup.spec.instanceName.
+const IndexBackupInstanceName = "spec.instanceName"
+
+// IndexRestoreInstanceName is the field index path used for Restore.spec.instanceName.
+const IndexRestoreInstanceName = "spec.instanceName"
+
+// =============================================================================
+// BACKUP / RESTORE EXECUTION STATUS
+// =============================================================================
+
+// BackupExecutionStatus is returned by BackupProvider.SyncBackup. The runtime
+// reflects it onto the Backup CR's .status.
+type BackupExecutionStatus struct {
+	// State is the current state of the backup (Pending/Running/Succeeded/Failed/Error).
+	State backupv1alpha1.BackupState
+	// Message is a human-readable description of the current state.
+	Message string
+	// OperatorBackupRef points at the operator-native backup resource that was
+	// created (e.g., PerconaServerMongoDBBackup). Optional but recommended.
+	OperatorBackupRef *corev1.TypedLocalObjectReference
+	// StartedAt is when the backup started running. Optional.
+	StartedAt *metav1.Time
+	// CompletedAt is when the backup completed. Optional.
+	CompletedAt *metav1.Time
+}
+
+// RestoreExecutionStatus is returned by BackupProvider.SyncRestore. The runtime
+// reflects it onto the Restore CR's .status.
+type RestoreExecutionStatus struct {
+	State              backupv1alpha1.RestoreState
+	Message            string
+	OperatorRestoreRef *corev1.TypedLocalObjectReference
+	StartedAt          *metav1.Time
+	CompletedAt        *metav1.Time
+}
+
+// IsNotFound reports whether the error is a kubernetes "not found" error.
+// Convenience wrapper so providers don't have to import apimachinery directly.
+func IsNotFound(err error) bool {
+	return apierrors.IsNotFound(err)
 }

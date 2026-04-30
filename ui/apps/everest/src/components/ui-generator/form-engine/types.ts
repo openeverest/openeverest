@@ -47,7 +47,6 @@ export type FormEngineConfig = {
   staticSteps?: StepDefinition[];
   providerObject?: Provider;
   namespace?: string;
-  cluster?: string;
 };
 
 export type FormEngineResult = {

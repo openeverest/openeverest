@@ -23,8 +23,7 @@ export const useMonitoringConfigsOptions = (
 ): ProviderOptions => {
   const { data, isLoading, error } = useMonitoringConfigsList(
     params.cluster,
-    params.namespace,
-    { refetchInterval: params.config?.refetchInterval }
+    params.namespace
   );
 
   const options = (data ?? [])

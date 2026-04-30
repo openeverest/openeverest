@@ -15,23 +15,29 @@
 
 import { expect, test } from '@playwright/test';
 import { findRowAndClickActions, waitForDelete } from '@e2e/utils/table';
-import { EVEREST_CI_NAMESPACES, TIMEOUTS } from '@e2e/constants';
+import {
+  EVEREST_CI_CLUSTER,
+  EVEREST_CI_NAMESPACES,
+  TIMEOUTS,
+} from '@e2e/constants';
 import { goToUrl, limitedSuffixedName } from '@e2e/utils/generic';
 import { getCITokenFromLocalStorage } from '@e2e/utils/localStorage';
 import {
-  deleteMonitoringInstance,
-  getMonitoringInstance,
-} from '@e2e/utils/monitoring-instance';
+  deleteMonitoringConfig,
+  getMonitoringConfig,
+} from '@e2e/utils/monitoring-config';
 const { MONITORING_URL, MONITORING_USER, MONITORING_PASSWORD } = process.env;
 
-test.describe.serial('Monitoring Instances', () => {
+test.describe.serial('Monitoring Configs', () => {
   const monitoringConfigName = limitedSuffixedName('pr-set-mon'),
     namespace = EVEREST_CI_NAMESPACES.EVEREST_UI;
   let token: string;
 
   test.beforeAll(async ({}) => {
-    token = await getCITokenFromLocalStorage();
-    expect(token).not.toHaveLength(0);
+    const t = await getCITokenFromLocalStorage();
+    expect(t).toBeDefined();
+    expect(t).not.toHaveLength(0);
+    token = t!;
   });
 
   test.beforeEach(async ({ page }) => {
@@ -40,7 +46,7 @@ test.describe.serial('Monitoring Instances', () => {
 
   test.afterAll(async ({ request }) => {
     await expect(async () => {
-      await deleteMonitoringInstance(
+      await deleteMonitoringConfig(
         request,
         namespace,
         monitoringConfigName,
@@ -52,21 +58,18 @@ test.describe.serial('Monitoring Instances', () => {
     });
   });
 
-  test('Create Monitoring Instance', async ({ page, request }) => {
-    await test.step(`Create Monitoring Instance`, async () => {
+  test('Create Monitoring Endpoint', async ({ page, request }) => {
+    await test.step(`Create Monitoring Endpoint`, async () => {
       await page.getByTestId('add-monitoring-endpoint').click();
       await page.waitForLoadState('load', { timeout: TIMEOUTS.ThirtySeconds });
 
       // filling out the form
       await page.getByTestId('text-input-name').fill(monitoringConfigName);
-      const namespaces = page.getByTestId('text-input-namespace');
-      await namespaces.click();
-      const nsOption = page.getByRole('option').filter({ hasText: namespace });
-      await expect(nsOption).toBeVisible();
-      await nsOption.click();
-      await page.getByTestId('text-input-url').fill(MONITORING_URL);
-      await page.getByTestId('text-input-user').fill(MONITORING_USER);
-      await page.getByTestId('text-input-password').fill(MONITORING_PASSWORD);
+      await page.getByTestId('text-input-namespace').click();
+      await page.getByRole('option', { name: namespace }).click();
+      await page.getByTestId('text-input-url').fill(MONITORING_URL!);
+      await page.getByTestId('text-input-user').fill(MONITORING_USER!);
+      await page.getByTestId('text-input-password').fill(MONITORING_PASSWORD!);
       await page.getByTestId('form-dialog-add').click();
 
       await page.waitForURL('/settings/monitoring-endpoints', {
@@ -74,16 +77,16 @@ test.describe.serial('Monitoring Instances', () => {
       });
     });
 
-    await test.step(`Check created Monitoring Instance`, async () => {
+    await test.step(`Check created Monitoring Endpoint`, async () => {
       await expect(async () => {
-        const monitoringInstance = await getMonitoringInstance(
+        const monitoringConfig = await getMonitoringConfig(
           request,
           namespace,
           monitoringConfigName,
           token
         );
-        expect(monitoringInstance).toBeDefined();
-        expect(monitoringInstance.name).toBe(monitoringConfigName);
+        expect(monitoringConfig).toBeDefined();
+        expect(monitoringConfig.metadata?.name).toBe(monitoringConfigName);
       }).toPass({
         intervals: [1000, 2000, 3000],
         timeout: TIMEOUTS.ThirtySeconds,
@@ -91,34 +94,34 @@ test.describe.serial('Monitoring Instances', () => {
     });
   });
 
-  test('List Monitoring Instance', async ({ page }) => {
+  test('List Monitoring Endpoint', async ({ page }) => {
     const row = page
       .locator('.MuiTableRow-root')
       .filter({ hasText: monitoringConfigName });
     await expect(row).toBeVisible();
-    await expect(row.getByText(MONITORING_URL)).toBeVisible();
+    await expect(row.getByText(MONITORING_URL!)).toBeVisible();
     await expect(row.getByText(namespace)).toBeVisible();
   });
 
-  test('Edit Monitoring Instance', async ({ page }) => {
+  test('Edit Monitoring Endpoint', async ({ page }) => {
     await findRowAndClickActions(page, monitoringConfigName, 'Edit');
 
     await expect(page.getByTestId('text-input-name')).toBeDisabled();
     await expect(page.getByTestId('text-input-namespace')).toBeDisabled();
-    await page.getByTestId('text-input-url').fill(MONITORING_URL);
+    await page.getByTestId('text-input-url').fill(MONITORING_URL!);
 
     // user can leave the credentials empty
     await expect(page.getByTestId('form-dialog-edit')).toBeEnabled();
 
     // user should fill both of credentials
-    await page.getByTestId('text-input-user').fill(MONITORING_USER);
+    await page.getByTestId('text-input-user').fill(MONITORING_USER!);
     await expect(page.getByTestId('form-dialog-edit')).toBeDisabled();
     await expect(
       page.getByText(
         'OpenEverest does not store PMM credentials, so fill in both the User and Password fields.'
       )
     ).toBeVisible();
-    await page.getByTestId('text-input-password').fill(MONITORING_PASSWORD);
+    await page.getByTestId('text-input-password').fill(MONITORING_PASSWORD!);
     await expect(page.getByTestId('form-dialog-edit')).toBeEnabled();
     await expect(
       page.getByText(
@@ -132,13 +135,13 @@ test.describe.serial('Monitoring Instances', () => {
         'OpenEverest does not store PMM credentials, so fill in both the User and Password fields.'
       )
     ).toBeVisible();
-    await page.getByTestId('text-input-user').fill(MONITORING_USER);
+    await page.getByTestId('text-input-user').fill(MONITORING_USER!);
     await expect(page.getByTestId('form-dialog-edit')).toBeEnabled();
 
     await page.getByTestId('form-dialog-edit').click();
   });
 
-  test('Delete Monitoring Instance', async ({ page }) => {
+  test('Delete Monitoring Endpoint', async ({ page }) => {
     await findRowAndClickActions(page, monitoringConfigName, 'Delete');
 
     const delResponse = page.waitForResponse(
@@ -147,7 +150,7 @@ test.describe.serial('Monitoring Instances', () => {
         resp
           .url()
           .includes(
-            `/v1/namespaces/${namespace}/monitoring-instances/${monitoringConfigName}`
+            `/v1/clusters/${EVEREST_CI_CLUSTER}/namespaces/${namespace}/monitoring-configs/${monitoringConfigName}`
           ) &&
         resp.status() === 204
     );

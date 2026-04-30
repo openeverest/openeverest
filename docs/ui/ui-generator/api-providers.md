@@ -32,8 +32,6 @@ fieldKey:
   uiType: select
   dataSource:
     provider: <providerKey> # required — see Available Providers
-    config: # optional
-      refetchInterval: 5000
   path: <dot.separated.path> # required if the value should be submitted
   fieldParams:
     label: string
@@ -86,7 +84,7 @@ A `dataSource` field is still a regular `select` — the only difference is that
    });
    ```
 
-3. Use `provider: xxx` in the schema schema.
+3. Use `provider: xxx` in the schema.
 
 ### ProviderParams / ProviderOptions types
 
@@ -94,7 +92,6 @@ A `dataSource` field is still a regular `select` — the only difference is that
 interface ProviderParams {
   namespace: string;
   cluster: string;
-  config?: { refetchInterval?: number };
 }
 
 interface ProviderOptions {
@@ -105,3 +102,9 @@ interface ProviderOptions {
   rawData?: unknown;
 }
 ```
+
+## Future Ideas
+
+<!-- TODO: These features are not yet implemented and are listed as potential improvements for openeverest. -->
+
+- **`dataSource.config`** — per-field configuration for providers (e.g. custom `refetchInterval`, filtering, `enabled` via CEL expressions depending on other form fields). Currently not implemented because all built-in providers use sensible internal defaults and there is no real use-case for two different queries to the same resource within a single form. Can be added back to `DataSource`, `ProviderParams`, and the provider hooks when a concrete need arises.

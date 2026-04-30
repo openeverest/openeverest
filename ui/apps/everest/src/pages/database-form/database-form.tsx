@@ -176,8 +176,6 @@ export const DatabasePage = () => {
     staticSteps,
     providerObject,
     namespace: selectedNamespace || namespaces[0],
-    // TODO: Replace hardcoded cluster name when multi-cluster support is implemented
-    cluster: 'main',
   });
 
   // Navigation
@@ -315,7 +313,6 @@ export const DatabasePage = () => {
           <DataSourcePrefetcher
             sections={engine.sections}
             namespace={selectedNamespace || namespaces[0]}
-            cluster="main"
           />
           <DatabaseFormBody
             steps={engine.steps}

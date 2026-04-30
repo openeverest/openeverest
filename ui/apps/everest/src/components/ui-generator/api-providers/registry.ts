@@ -53,7 +53,8 @@ export const providerRegistry = new ApiProviderRegistry();
 
 export const useProviderOptions = (
   providerKey: string,
-  params: ProviderParams
+  params: ProviderParams,
+  options?: { enabled?: boolean }
 ): ProviderOptions => {
   const entry = providerRegistry.get(providerKey);
 
@@ -62,6 +63,16 @@ export const useProviderOptions = (
     throw new Error(
       `Unknown API provider "${providerKey}". Available providers: ${available}`
     );
+  }
+
+  if (options?.enabled === false) {
+    return {
+      options: [],
+      isLoading: false,
+      error: null,
+      isEmpty: true,
+      rawData: undefined,
+    };
   }
 
   return entry.useOptions(params);

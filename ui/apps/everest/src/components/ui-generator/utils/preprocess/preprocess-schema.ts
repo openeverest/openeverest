@@ -22,7 +22,7 @@ import {
 import { Provider } from 'shared-types/api.types';
 import { resolveSelectOptions } from '../../ui-component/utils/select-component-handler';
 import { withNormalizedPathMeta } from './normalized-component';
-import { providerRegistry } from '../../api-providers/registry';
+import { providerRegistry } from '../../api-providers';
 
 const preprocessComponent = (
   item: Component | ComponentGroup,
@@ -46,12 +46,13 @@ const preprocessComponent = (
   // Dev-time validation: warn if a dataSource references an unregistered provider.
   // TODO: Extract into a dedicated dev-time validation pass
   if (
+    import.meta.env.DEV &&
     component.dataSource?.provider &&
     !providerRegistry.has(component.dataSource.provider)
   ) {
     const available = providerRegistry.getAvailableKeys().join(', ');
     // eslint-disable-next-line no-console
-    console.error(
+    console.warn(
       `[UISchema] Unknown API provider "${component.dataSource.provider}". ` +
         `Available providers: ${available}`
     );

@@ -17,12 +17,12 @@ import { test as teardown } from '@playwright/test';
 import { getCITokenFromLocalStorage } from '../utils/localStorage';
 import { getBucketNamespacesMap } from '../constants';
 import {
-  deleteMonitoringInstance,
-  listMonitoringInstances,
-} from '@e2e/utils/monitoring-instance';
+  deleteMonitoringConfig,
+  listMonitoringConfigs,
+} from '@e2e/utils/monitoring-config';
 
-teardown.describe.serial('Monitoring Instances teardown', () => {
-  teardown('Delete Monitoring Instances', async ({ request }) => {
+teardown.describe.serial('Monitoring Configs teardown', () => {
+  teardown('Delete Monitoring Configs', async ({ request }) => {
     const token = await getCITokenFromLocalStorage();
     const bucketNamespacesMap = getBucketNamespacesMap();
     const allNamespaces = Array.from(
@@ -31,15 +31,19 @@ teardown.describe.serial('Monitoring Instances teardown', () => {
     const promises: Promise<any>[] = [];
 
     for (const [idx, namespace] of allNamespaces.entries()) {
-      const monitoringInstances = await listMonitoringInstances(
+      const monitoringResponse = await listMonitoringConfigs(
         request,
         namespace,
-        token
+        token!
       );
-      for (const instance of monitoringInstances) {
-        promises.push(
-          deleteMonitoringInstance(request, namespace, instance.name, token)
-        );
+      const monitoringConfigs = monitoringResponse?.items ?? [];
+      for (const config of monitoringConfigs) {
+        const name = config.metadata?.name;
+        if (name) {
+          promises.push(
+            deleteMonitoringConfig(request, namespace, name, token!)
+          );
+        }
       }
     }
     await Promise.all(promises);

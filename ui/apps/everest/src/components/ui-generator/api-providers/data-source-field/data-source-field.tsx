@@ -15,8 +15,9 @@
 import React, { useEffect, useMemo } from 'react';
 import { useFormContext } from 'react-hook-form';
 import type { Component } from '../../ui-generator.types';
-import { useProviderOptions } from '../registry';
+import { providerRegistry, useProviderOptions } from '../registry';
 import { useUiGeneratorContext } from '../../ui-generator-context';
+import { useClusterName } from 'hooks/api/useClusterName';
 import type { DataSourceFieldProps } from './data-source-field.types';
 
 export const DataSourceField: React.FC<DataSourceFieldProps> = ({
@@ -24,24 +25,37 @@ export const DataSourceField: React.FC<DataSourceFieldProps> = ({
   name,
   children,
 }) => {
-  const { namespace, cluster } = useUiGeneratorContext();
+  const { namespace } = useUiGeneratorContext();
+  const cluster = useClusterName();
   const { getValues, setValue } = useFormContext();
   const { dataSource, ...baseComponent } = item;
+
+  const hasValidContext = !!namespace && !!cluster;
 
   const { options, isLoading, error, isEmpty } = useProviderOptions(
     dataSource.provider,
     {
       namespace: namespace ?? '',
-      cluster: cluster ?? '',
-      config: dataSource.config,
-    }
+      cluster,
+    },
+    { enabled: hasValidContext }
   );
 
   useEffect(() => {
-    if (isLoading || options.length === 0 || !name) return;
+    if (isLoading || !name) return;
 
     const current = getValues(name);
-    if (current === '' || current === undefined || current === null) {
+    const validValues = options.map((o) => o.value);
+
+    if (current && !validValues.includes(current as string)) {
+      // Current value is no longer in the options list (e.g. namespace changed) — reset
+      setValue(name, options.length > 0 ? options[0].value : '', {
+        shouldValidate: true,
+      });
+    } else if (
+      (current === '' || current === undefined || current === null) &&
+      options.length > 0
+    ) {
       setValue(name, options[0].value, { shouldValidate: true });
     }
   }, [isLoading, options, name, getValues, setValue]);
@@ -73,8 +87,14 @@ export const DataSourceField: React.FC<DataSourceFieldProps> = ({
     } as Component;
   }, [baseComponent, options, isLoading, error, isEmpty]);
 
-  // TODO: Render fallback component when isEmpty/error and fallback is defined
-  // (requires Alert component — see separate issue)
+  const FallbackComponent = useMemo(() => {
+    const entry = providerRegistry.get(dataSource.provider);
+    return entry?.emptyStateFallback?.component ?? null;
+  }, [dataSource.provider]);
+
+  if (isEmpty && !isLoading && FallbackComponent && namespace) {
+    return <FallbackComponent namespace={namespace} cluster={cluster} />;
+  }
 
   return <>{children(patchedItem)}</>;
 };

@@ -817,21 +817,6 @@ export const changeDbClusterVersion = (
   },
 });
 
-export const changeDbClusterMonitoring = (
-  dbCluster: DbCluster,
-  monitoringName?: string
-) => ({
-  ...dbCluster,
-  spec: {
-    ...dbCluster.spec,
-    monitoring: monitoringName
-      ? {
-          monitoringConfigName: monitoringName,
-        }
-      : {},
-  },
-});
-
 export const changeDbClusterResources = (
   dbCluster: DbCluster,
   newResources: {

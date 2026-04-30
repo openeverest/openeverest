@@ -21,11 +21,11 @@ import {
 } from '../../ui-generator.types';
 import { preprocessSchema } from './preprocess-schema';
 
-// Suppress console.error from dev-time validation when using test providers
-vi.mock('../../api-providers/registry', async () => {
-  const actual = await vi.importActual<
-    typeof import('../../api-providers/registry')
-  >('../../api-providers/registry');
+// Suppress console.warn from dev-time validation when using test providers
+vi.mock('../../api-providers', async () => {
+  const actual = await vi.importActual<typeof import('../../api-providers')>(
+    '../../api-providers'
+  );
   return {
     ...actual,
     providerRegistry: {
@@ -70,7 +70,6 @@ describe('preprocessSchema', () => {
   it('preserves dataSource through preprocessing', () => {
     const dataSource: DataSource = {
       provider: 'monitoringConfigs',
-      config: { refetchInterval: 15000 },
     };
     const schema: TopologyUISchemas = {
       single: {
