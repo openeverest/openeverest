@@ -28,6 +28,15 @@ project:
     - name: openeverest
       url: https://github.com/openeverest/openeverest
       comment: Primary code repository for the OpenEverest project.
+    - name: everest-doc
+      url: https://github.com/openeverest/everest-doc
+      comment: Documentation repository for the OpenEverest project.
+    - name: helm-charts
+      url: https://github.com/openeverest/helm-charts
+      comment: Helm charts repository for deploying OpenEverest.
+    - name: openeverest.github.io
+      url: https://github.com/openeverest/openeverest.github.io
+      comment: Website repository for the OpenEverest project.
   vulnerability-reporting:
     reports-accepted: true
     bug-bounty-available: false
