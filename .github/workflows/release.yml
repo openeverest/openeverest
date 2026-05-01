@@ -38,6 +38,8 @@ jobs:
     permissions:
       contents: write
       packages: write
+      id-token: write
+      attestations: write
     
     env:
       TOOLS_PATH: "/opt/tools/bin"
@@ -205,6 +207,7 @@ jobs:
 
 
       - name: Operator - push openeverest-operator image
+        id: operator_push
         uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
         with:
           context: openeverest-operator
@@ -214,6 +217,21 @@ jobs:
           tags: ${{ steps.operator_meta.outputs.tags }}
           build-args: |
             FLAGS= -X 'github.com/percona/everest-operator/internal/consts.Version=${{ env.VERSION }}'
+
+      - name: Operator - attest openeverest-operator image
+        uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be # v2.4.0
+        with:
+          subject-name: ${{ env.IMAGE_PREFIX }}/${{ env.EVEREST_OPERATOR_DEV_IMAGE_NAME }}
+          subject-digest: ${{ steps.operator_push.outputs.digest }}
+          push-to-registry: true
+
+      - name: Operator - attest openeverest-operator prod image
+        if: env.IS_RC == 0
+        uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be # v2.4.0
+        with:
+          subject-name: ${{ env.IMAGE_PREFIX }}/${{ env.EVEREST_OPERATOR_IMAGE_NAME }}
+          subject-digest: ${{ steps.operator_push.outputs.digest }}
+          push-to-registry: true
 
       - name: Operator - build openeverest-operator-bundle image
         uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
@@ -227,6 +245,7 @@ jobs:
 
 
       - name: Operator - push openeverest-operator-bundle image
+        id: bundle_push
         uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
         with:
           context: openeverest-operator
@@ -235,6 +254,21 @@ jobs:
           platforms: ${{ matrix.platform }}
           tags: ${{ steps.bundle_meta.outputs.tags }}
           file: openeverest-operator/bundle.Dockerfile
+
+      - name: Operator - attest openeverest-operator-bundle image
+        uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be # v2.4.0
+        with:
+          subject-name: ${{ env.IMAGE_PREFIX }}/${{ env.EVEREST_OPERATOR_BUNDLE_DEV_IMAGE_NAME }}
+          subject-digest: ${{ steps.bundle_push.outputs.digest }}
+          push-to-registry: true
+
+      - name: Operator - attest openeverest-operator-bundle prod image
+        if: env.IS_RC == 0
+        uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be # v2.4.0
+        with:
+          subject-name: ${{ env.IMAGE_PREFIX }}/${{ env.EVEREST_OPERATOR_BUNDLE_IMAGE_NAME }}
+          subject-digest: ${{ steps.bundle_push.outputs.digest }}
+          push-to-registry: true
 
       - name: Catalog - checkout
         uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
@@ -293,6 +327,7 @@ jobs:
 
 
       - name: Catalog - push image
+        id: catalog_push
         uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
         with:
           context: openeverest-catalog
@@ -301,6 +336,21 @@ jobs:
           platforms: ${{ matrix.platform }}
           tags: ${{ steps.catalog_meta.outputs.tags }}
           file: openeverest-catalog/everest-catalog.Dockerfile
+
+      - name: Catalog - attest image
+        uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be # v2.4.0
+        with:
+          subject-name: ${{ env.IMAGE_PREFIX }}/${{ env.EVEREST_CATALOG_DEV_IMAGE_NAME }}
+          subject-digest: ${{ steps.catalog_push.outputs.digest }}
+          push-to-registry: true
+
+      - name: Catalog - attest prod image
+        if: env.IS_RC == 0
+        uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be # v2.4.0
+        with:
+          subject-name: ${{ env.IMAGE_PREFIX }}/${{ env.EVEREST_CATALOG_IMAGE_NAME }}
+          subject-digest: ${{ steps.catalog_push.outputs.digest }}
+          push-to-registry: true
 
       - name: Everest - check out
         uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
@@ -403,6 +453,7 @@ jobs:
 
 
       - name: Everest - push Everest image
+        id: everest_push
         uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
         with:
           context: .
@@ -410,6 +461,21 @@ jobs:
           provenance: false
           platforms: ${{ matrix.platform }}
           tags: ${{ steps.everest_meta.outputs.tags }}
+
+      - name: Everest - attest Everest image
+        uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be # v2.4.0
+        with:
+          subject-name: ${{ env.IMAGE_PREFIX }}/${{ env.EVEREST_SERVER_DEV_IMAGE_NAME }}
+          subject-digest: ${{ steps.everest_push.outputs.digest }}
+          push-to-registry: true
+
+      - name: Everest - attest Everest prod image
+        if: env.IS_RC == 0
+        uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be # v2.4.0
+        with:
+          subject-name: ${{ env.IMAGE_PREFIX }}/${{ env.EVEREST_SERVER_IMAGE_NAME }}
+          subject-digest: ${{ steps.everest_push.outputs.digest }}
+          push-to-registry: true
 
       - name: CLI - build binaries
         if: matrix.arch == 'amd64'
@@ -425,6 +491,12 @@ jobs:
           files: |
             dist/*
 
+      - name: CLI - attest build provenance
+        if: matrix.arch == 'amd64'
+        uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be # v2.4.0
+        with:
+          subject-path: 'dist/*'
+
       - name: CLI - setup Docker meta for everestctl
         id: everestctl_meta
         uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051 # v5.10.0
@@ -438,6 +510,7 @@ jobs:
             type=raw,value=${{ env.FLOATING_TAG }}-${{ matrix.arch }},enable=${{ env.IS_RC == 0 }}
 
       - name: CLI - build and push everestctl image
+        id: everestctl_push
         uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
         with:
           context: .
@@ -446,6 +519,21 @@ jobs:
           provenance: false
           platforms: ${{ matrix.platform }}
           tags: ${{ steps.everestctl_meta.outputs.tags }}
+
+      - name: CLI - attest everestctl image
+        uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be # v2.4.0
+        with:
+          subject-name: ${{ env.IMAGE_PREFIX }}/${{ env.EVEREST_CTL_DEV_IMAGE_NAME }}
+          subject-digest: ${{ steps.everestctl_push.outputs.digest }}
+          push-to-registry: true
+
+      - name: CLI - attest everestctl prod image
+        if: env.IS_RC == 0
+        uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be # v2.4.0
+        with:
+          subject-name: ${{ env.IMAGE_PREFIX }}/${{ env.EVEREST_CTL_IMAGE_NAME }}
+          subject-digest: ${{ steps.everestctl_push.outputs.digest }}
+          push-to-registry: true
 
   create-manifests:
     name: Create multi-arch manifests
