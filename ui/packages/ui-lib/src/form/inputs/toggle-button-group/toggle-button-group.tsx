@@ -48,6 +48,30 @@ export const ToggleButtonGroupInput = ({
                 field.onChange(value);
               }
             }}
+            sx={{
+              backgroundColor: (theme) =>
+                theme.palette.mode === 'light'
+                  ? theme.palette.grey[100]
+                  : theme.palette.grey[900],
+              borderRadius: '8px',
+              padding: '4px',
+              border: '1px solid',
+              borderColor: 'divider',
+              '& .MuiToggleButtonGroup-grouped': {
+                margin: '2px',
+                border: '0',
+                '&.Mui-disabled': {
+                  border: '0',
+                },
+                '&:not(:first-of-type)': {
+                  borderRadius: '6px',
+                },
+                '&:first-of-type': {
+                  borderRadius: '6px',
+                },
+              },
+              ...toggleButtonGroupProps?.sx,
+            }}
             {...toggleButtonGroupProps}
           >
             {options
@@ -56,6 +80,24 @@ export const ToggleButtonGroupInput = ({
                     key={option.value}
                     value={option.value}
                     data-testid={`toggle-button-${option.value}`}
+                    sx={{
+                      textTransform: 'none',
+                      fontWeight: 500,
+                      px: 3,
+                      py: 1,
+                      transition: 'all 0.2s ease-in-out',
+                      '&.Mui-selected': {
+                        backgroundColor: 'background.paper',
+                        color: 'primary.main',
+                        boxShadow: '0px 2px 4px rgba(0, 0, 0, 0.1)',
+                        '&:hover': {
+                          backgroundColor: 'background.paper',
+                        },
+                      },
+                      '&:hover': {
+                        backgroundColor: 'action.hover',
+                      },
+                    }}
                   >
                     {option.label}
                   </ToggleButton>
