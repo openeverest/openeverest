@@ -749,7 +749,9 @@ export const changeDbClusterAdvancedConfig = (
   podSchedulingPolicyEnabled = false,
   podSchedulingPolicy = '',
   loadBalancerConfigName = '',
-  splitHorizonDnsConfigName = ''
+  splitHorizonDnsConfigName = '',
+  proxyConfigEnabled = false,
+  proxyConfig = ''
 ) => ({
   ...dbCluster,
   spec: {
@@ -772,6 +774,7 @@ export const changeDbClusterAdvancedConfig = (
     },
     proxy: {
       ...dbCluster.spec.proxy,
+      ...(proxyConfigEnabled ? { config: proxyConfig } : { config: undefined }),
       expose: {
         loadBalancerConfigName:
           (exposureMethod === ProxyExposeType.LoadBalancer &&
@@ -853,6 +856,7 @@ export const changeDbClusterResources = (
     proxy: (() => {
       const exposeType = dbCluster.spec.proxy?.expose?.type;
       const mappedExposeType = mapDeprecatedExposeType(exposeType);
+      const existingProxyConfig = dbCluster.spec.proxy?.config;
 
       return getProxySpec(
         dbEngineToDbType(dbCluster.spec.engine.type),
@@ -867,7 +871,9 @@ export const changeDbClusterResources = (
         ),
         mappedExposeType === ProxyExposeType.LoadBalancer
           ? dbCluster.spec.proxy?.expose?.loadBalancerConfigName
-          : undefined
+          : undefined,
+        !!existingProxyConfig,
+        existingProxyConfig
       );
     })(),
     ...(dbCluster.spec.engine.type === DbEngineType.PSMDB &&

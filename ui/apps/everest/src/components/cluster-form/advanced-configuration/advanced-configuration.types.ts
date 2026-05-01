@@ -19,6 +19,8 @@ export enum AdvancedConfigurationFields {
   sourceRanges = 'sourceRanges',
   engineParametersEnabled = 'engineParametersEnabled',
   engineParameters = 'engineParameters',
+  proxyConfigEnabled = 'proxyConfigEnabled',
+  proxyConfig = 'proxyConfig',
   storageClass = 'storageClass',
   podSchedulingPolicyEnabled = 'podSchedulingPolicyEnabled',
   podSchedulingPolicy = 'podSchedulingPolicy',

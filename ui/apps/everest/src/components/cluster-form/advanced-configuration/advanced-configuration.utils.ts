@@ -13,11 +13,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+import { capitalize } from '@mui/material';
 import { DbType } from '@percona/types';
 import { DbCluster, ProxyExposeType } from 'shared-types/dbCluster.types';
+import { getProxyUnitNamesFromDbType } from 'utils/db';
 import { AdvancedConfigurationFields } from './advanced-configuration.types';
 import { AdvancedConfigurationFormType } from './advanced-configuration-schema';
 import { EMPTY_LOAD_BALANCER_CONFIGURATION } from 'consts';
+
+export const getProxyConfigLabel = (dbType: DbType): string =>
+  `${capitalize(getProxyUnitNamesFromDbType(dbType).singular)} Configuration`;
 
 export const getParamsPlaceholderFromDbType = (dbType: DbType) => {
   let dynamicText = '';
@@ -74,6 +79,9 @@ export const advancedConfigurationModalDefaultValues = (
       !!dbCluster?.spec?.engine?.config,
     [AdvancedConfigurationFields.engineParameters]:
       dbCluster?.spec?.engine?.config,
+    [AdvancedConfigurationFields.proxyConfigEnabled]:
+      !!dbCluster?.spec?.proxy?.config,
+    [AdvancedConfigurationFields.proxyConfig]: dbCluster?.spec?.proxy?.config,
     [AdvancedConfigurationFields.sourceRanges]: sourceRangesSource
       ? sourceRangesSource.map((sourceRange) => ({ sourceRange }))
       : [{ sourceRange: '' }],

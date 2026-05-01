@@ -57,6 +57,11 @@ export const Messages = {
       description:
         'Set your database engine configuration to adjust your database system to your workload and performance needs. For configuration format and specific parameters, check your database type documentation.',
     },
+    proxyConfig: {
+      description:
+        'Set your proxy configuration to adjust your database proxy to your workload and performance needs. For configuration format and specific parameters, check your database type documentation.',
+      placeholder: 'Enter configuration',
+    },
     splitHorizonDNS: {
       title: 'Split-Horizon DNS',
       description:

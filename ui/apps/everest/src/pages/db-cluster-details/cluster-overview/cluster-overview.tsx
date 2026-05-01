@@ -123,6 +123,9 @@ export const ClusterOverview = () => {
                 : ''
               : ''
           }
+          dbType={dbEngineToDbType(dbCluster.spec.engine.type)}
+          proxyConfig={dbCluster?.spec.proxy?.config}
+          shardingEnabled={!!dbCluster?.spec.sharding?.enabled}
         />
         <ResourcesDetails
           dbCluster={dbCluster}

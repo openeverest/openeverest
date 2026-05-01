@@ -35,6 +35,7 @@ export const AdvancedConfigurationEditModal = ({
   handleSubmitModal,
   dbCluster,
   submitting,
+  showProxyConfig = false,
 }: AdvancedConfigurationModalProps) => {
   const onSubmit: SubmitHandler<AdvancedConfigurationFormType> = ({
     exposureMethod,
@@ -47,6 +48,8 @@ export const AdvancedConfigurationEditModal = ({
     loadBalancerConfigName,
     splitHorizonDNSEnabled,
     splitHorizonDNS,
+    proxyConfigEnabled,
+    proxyConfig,
   }) => {
     handleSubmitModal({
       engineParametersEnabled,
@@ -62,6 +65,8 @@ export const AdvancedConfigurationEditModal = ({
           : '',
       splitHorizonDNSEnabled,
       splitHorizonDNS,
+      proxyConfigEnabled,
+      proxyConfig,
     });
   };
 
@@ -101,6 +106,7 @@ export const AdvancedConfigurationEditModal = ({
         activePolicy={dbCluster?.spec.podSchedulingPolicyName}
         namespace={dbCluster?.metadata.namespace}
         showSplitHorizonDNS={false}
+        showProxyConfig={showProxyConfig}
       />
     </FormDialog>
   );

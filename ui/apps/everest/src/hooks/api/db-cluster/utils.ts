@@ -36,7 +36,9 @@ export const getProxySpec = (
   memory: number,
   sharding: boolean,
   sourceRanges?: Array<{ sourceRange?: string }>,
-  loadBalancerConfigName?: string
+  loadBalancerConfigName?: string,
+  proxyConfigEnabled = false,
+  proxyConfig = ''
 ): Proxy => {
   if (dbType === DbType.Mongo && !sharding) {
     return {
@@ -70,6 +72,7 @@ export const getProxySpec = (
         : '',
       sourceRanges
     ),
+    ...(proxyConfigEnabled && proxyConfig ? { config: proxyConfig } : {}),
   };
 };
 

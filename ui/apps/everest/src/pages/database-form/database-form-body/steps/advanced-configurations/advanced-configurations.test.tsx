@@ -24,6 +24,9 @@ const FormProviderWrapper = ({
     defaultValues: {
       storageClass: 'standard',
       engineParametersEnabled: false,
+      engineParameters: '',
+      proxyConfigEnabled: false,
+      proxyConfig: '',
       podSchedulingPolicyEnabled: false,
       exposureMethod: ProxyExposeType.ClusterIP,
       splitHorizonDNSEnabled: false,

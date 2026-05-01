@@ -47,6 +47,9 @@ export const DbDetails = ({
   exposeType,
   splitHorizonDNS,
   splitHorizonDomains,
+  dbType,
+  proxyConfig,
+  shardingEnabled,
 }: DatabaseDetailsOverviewCardProps) => {
   const { data: monitoringInstances } =
     useMonitoringInstancesForNamespace(namespace);
@@ -105,6 +108,9 @@ export const DbDetails = ({
           loadBalancerConfig={loadBalancerConfig}
           splitHorizonDNS={splitHorizonDNS}
           splitHorizonDomains={splitHorizonDomains}
+          dbType={dbType ?? type}
+          proxyConfig={proxyConfig}
+          shardingEnabled={shardingEnabled}
         />
       </Stack>
     </OverviewCard>

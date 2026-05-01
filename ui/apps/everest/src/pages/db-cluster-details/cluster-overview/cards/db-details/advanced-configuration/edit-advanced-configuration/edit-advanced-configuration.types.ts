@@ -22,4 +22,5 @@ export interface AdvancedConfigurationModalProps {
   handleSubmitModal: (props: AdvancedConfigurationFormType) => void;
   dbCluster: DbCluster;
   submitting: boolean;
+  showProxyConfig?: boolean;
 }

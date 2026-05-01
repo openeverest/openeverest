@@ -54,6 +54,9 @@ export type AdvancedConfigurationOverviewCardProps = {
     privateIP?: string;
     publicIP?: string;
   }[];
+  dbType: DbType;
+  proxyConfig?: string;
+  shardingEnabled?: boolean;
 } & OverviewCardProps;
 
 export type MonitoringConfigurationOverviewCardProps = {

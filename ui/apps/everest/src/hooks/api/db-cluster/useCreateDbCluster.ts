@@ -134,7 +134,9 @@ const formValuesToPayloadMapping = (
         dbPayload.exposureMethod === ProxyExposeType.LoadBalancer ||
           dbPayload.loadBalancerConfigName === EMPTY_LOAD_BALANCER_CONFIGURATION
           ? dbPayload.loadBalancerConfigName
-          : undefined
+          : undefined,
+        dbPayload.proxyConfigEnabled,
+        dbPayload.proxyConfig
       ),
       ...(dbPayload.dbType === DbType.Mongo && {
         sharding: {

@@ -55,6 +55,8 @@ export const getDbWizardDefaultValues = (dbType: DbType): DbWizardType => ({
   [DbWizardFormFields.loadBalancerConfigName]: '',
   [DbWizardFormFields.engineParametersEnabled]: false,
   [DbWizardFormFields.engineParameters]: '',
+  [DbWizardFormFields.proxyConfigEnabled]: false,
+  [DbWizardFormFields.proxyConfig]: '',
   [DbWizardFormFields.monitoring]: false,
   [DbWizardFormFields.monitoringInstance]: '',
   [DbWizardFormFields.numberOfNodes]: DEFAULT_NODES[dbType],
