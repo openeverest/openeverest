@@ -12,6 +12,9 @@ on:
       RBAC_PASSWORD:
         required: true
 
+permissions:
+  contents: read
+
 env:
   GONOPROXY: 'github.com/percona'
   GONOSUMDB: 'github.com/percona'
