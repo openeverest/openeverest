@@ -19,6 +19,9 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
     env:
       IMAGE_PREFIX: 'ghcr.io/openeverest'
       EVEREST_SERVER_DEV_IMAGE_NAME: 'openeverest-dev'
