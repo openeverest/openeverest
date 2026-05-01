@@ -1,7 +1,6 @@
 // everest
 // Copyright (C) 2023 Percona LLC
 // Copyright (C) 2026 The OpenEverest Contributors
-//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -26,8 +25,6 @@ import { ProxyExposeType } from 'shared-types/dbCluster.types';
 import { DbCluster } from 'shared-types/dbCluster.types';
 import { DbEngineType } from '@percona/types';
 
-// ─── helpers ────────────────────────────────────────────────────────────────
-
 const makeDbCluster = (overrides: Partial<DbCluster['spec']> = {}): DbCluster =>
   ({
     apiVersion: 'everest.percona.com/v1alpha1',
@@ -49,8 +46,6 @@ const makeDbCluster = (overrides: Partial<DbCluster['spec']> = {}): DbCluster =>
       ...overrides,
     },
   }) as unknown as DbCluster;
-
-// ─── schema tests ────────────────────────────────────────────────────────────
 
 describe('advancedConfigurationsSchema – proxyConfig fields', () => {
   const schema = advancedConfigurationsSchema();
@@ -110,8 +105,6 @@ describe('advancedConfigurationsSchema – proxyConfig fields', () => {
   });
 });
 
-// ─── read-mapping tests ──────────────────────────────────────────────────────
-
 describe('advancedConfigurationModalDefaultValues – proxyConfig read mapping', () => {
   it('sets proxyConfigEnabled=false and proxyConfig=undefined when spec.proxy.config is absent', () => {
     const cluster = makeDbCluster();
@@ -134,8 +127,6 @@ describe('advancedConfigurationModalDefaultValues – proxyConfig read mapping',
     expect(defaults.proxyConfig).toBe('max_connections=200');
   });
 });
-
-// ─── write-mapping tests ─────────────────────────────────────────────────────
 
 describe('changeDbClusterAdvancedConfig – proxyConfig write mapping', () => {
   const base = makeDbCluster();
@@ -182,8 +173,6 @@ describe('changeDbClusterAdvancedConfig – proxyConfig write mapping', () => {
     expect(result.spec.proxy.config).toBeUndefined();
   });
 });
-
-// ─── label helper tests ───────────────────────────────────────────────────────
 
 describe('getProxyConfigLabel', () => {
   it('returns "Proxy Configuration" for PXC', () => {
