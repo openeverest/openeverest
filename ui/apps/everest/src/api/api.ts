@@ -18,6 +18,7 @@ import { enqueueSnackbar } from 'notistack';
 const BASE_URL = '/v1/';
 const DEFAULT_ERROR_MESSAGE = 'Something went wrong';
 const MISSING_MALFORMED_JWT_MESSAGE = 'missing or malformed jwt';
+const PASSWORD_CHANGE_REQUIRED_MESSAGE = 'Password change required';
 const MAX_ERROR_MESSAGE_LENGTH = 120;
 let errorInterceptor: number | null = null;
 let authInterceptor: number | null = null;
@@ -53,15 +54,24 @@ export const addApiErrorInterceptor = () => {
             return;
           }
 
+          if (
+            error.response.status === 403 &&
+            message.includes(PASSWORD_CHANGE_REQUIRED_MESSAGE)
+          ) {
+            location.href = '/logout';
+
+            enqueueSnackbar(message, {
+              variant: 'error',
+            });
+
+            return;
+          }
+
           if (!notificationsDisabled) {
             message = message.trim();
             if (message.length > MAX_ERROR_MESSAGE_LENGTH) {
               message = `${message.substring(0, MAX_ERROR_MESSAGE_LENGTH)}...`;
             }
-
-            enqueueSnackbar(message, {
-              variant: 'error',
-            });
           }
         }
 

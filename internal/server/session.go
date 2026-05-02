@@ -50,6 +50,11 @@ func (e *EverestServer) CreateSession(ctx echo.Context) error {
 		return sessionErrToHTTPRes(ctx, err)
 	}
 
+	isSecure, err := e.sessionMgr.IsSecure(c, *params.Username)
+	if err != nil {
+		return err
+	}
+
 	uniqueID, err := uuid.NewRandom()
 	if err != nil {
 		return err
@@ -57,7 +62,7 @@ func (e *EverestServer) CreateSession(ctx echo.Context) error {
 	subject := fmt.Sprintf(jwtSubjectTml, *params.Username, accounts.AccountCapabilityLogin)
 	secondsBeforeExpiry := int64(jwtDefaultExpiry.Seconds())
 
-	jwtToken, err := e.sessionMgr.Create(subject, secondsBeforeExpiry, uniqueID.String())
+	jwtToken, err := e.sessionMgr.Create(subject, secondsBeforeExpiry, uniqueID.String(), !isSecure)
 	if err != nil {
 		return err
 	}

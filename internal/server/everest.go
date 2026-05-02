@@ -229,6 +229,7 @@ func (e *EverestServer) initHTTPServer(ctx context.Context) error {
 		return err
 	}
 	apiGroup.Use(blocklistMW)
+	apiGroup.Use(e.validateIfPasswordChangeIsRequired)
 
 	apiGroup.Use(e.checkOperatorUpgradeState)
 	api.RegisterHandlers(apiGroup, e)

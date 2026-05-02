@@ -46,6 +46,7 @@ import (
 const (
 	// SessionManagerClaimsIssuer fills the "iss" field of the token.
 	SessionManagerClaimsIssuer = "everest"
+	MustChangePasswordClaim    = "must_change_password"
 )
 
 var (
@@ -60,6 +61,11 @@ type Manager struct {
 	signingKey     *rsa.PrivateKey
 	Blocklist
 	l *zap.SugaredLogger
+}
+
+type EverestClaims struct {
+	jwt.RegisteredClaims
+	MustChangePassword bool `json:"must_change_password,omitempty"`
 }
 
 // Option is a function that modifies a SessionManager.
@@ -130,16 +136,19 @@ func WithAccountManager(i accounts.Interface) Option {
 // Create creates a new token for a given subject (user) and returns it as a string.
 // Passing a value of `0` for secondsBeforeExpiry creates a token that never expires.
 // The id parameter holds an optional unique JWT token identifier and stored as a standard claim "jti" in the JWT token.
-func (mgr *Manager) Create(subject string, secondsBeforeExpiry int64, id string) (string, error) {
+func (mgr *Manager) Create(subject string, secondsBeforeExpiry int64, id string, mustChangePassword bool) (string, error) {
 	// Create a new token object, specifying signing method and the claims
 	// you would like it to contain.
 	now := time.Now().UTC()
-	claims := jwt.RegisteredClaims{
-		IssuedAt:  jwt.NewNumericDate(now),
-		Issuer:    SessionManagerClaimsIssuer,
-		NotBefore: jwt.NewNumericDate(now),
-		Subject:   subject,
-		ID:        id,
+	claims := EverestClaims{
+		RegisteredClaims: jwt.RegisteredClaims{
+			IssuedAt:  jwt.NewNumericDate(now),
+			Issuer:    SessionManagerClaimsIssuer,
+			NotBefore: jwt.NewNumericDate(now),
+			Subject:   subject,
+			ID:        id,
+		},
+		MustChangePassword: mustChangePassword,
 	}
 	if secondsBeforeExpiry > 0 {
 		expires := now.Add(time.Duration(secondsBeforeExpiry) * time.Second)
@@ -149,7 +158,7 @@ func (mgr *Manager) Create(subject string, secondsBeforeExpiry int64, id string)
 	return mgr.signClaims(claims)
 }
 
-func (mgr *Manager) signClaims(claims jwt.Claims) (string, error) {
+func (mgr *Manager) signClaims(claims EverestClaims) (string, error) {
 	token := jwt.NewWithClaims(jwt.SigningMethodRS256, claims)
 	return token.SignedString(mgr.signingKey)
 }
@@ -177,6 +186,10 @@ func (mgr *Manager) Authenticate(ctx context.Context, username string, password 
 		return errors.Join(accounts.ErrInsufficientCapabilities, errors.New("user does not have capability to login"))
 	}
 	return nil
+}
+
+func (mgr *Manager) IsSecure(ctx context.Context, username string) (bool, error) {
+	return mgr.accountManager.IsSecure(ctx, username)
 }
 
 func getPrivateKey() (*rsa.PrivateKey, error) {

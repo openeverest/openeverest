@@ -16,12 +16,15 @@
 package server
 
 import (
+	"errors"
+	"fmt"
 	"net/http"
 	"net/url"
 	"slices"
 	"strings"
 
 	"github.com/AlekSi/pointer"
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/labstack/echo/v4"
 	"github.com/unrolled/secure"
 	"github.com/unrolled/secure/cspbuilder"
@@ -29,7 +32,9 @@ import (
 
 	everestv1alpha1 "github.com/percona/everest-operator/api/everest/v1alpha1"
 	"github.com/percona/everest/api"
+	"github.com/percona/everest/pkg/common"
 	"github.com/percona/everest/pkg/oidc"
+	"github.com/percona/everest/pkg/session"
 )
 
 const (
@@ -78,6 +83,46 @@ func (e *EverestServer) shouldAllowRequestDuringEngineUpgrade(c echo.Context) (b
 		return found
 	})
 	return !locked, nil
+}
+
+func (e *EverestServer) validateIfPasswordChangeIsRequired(next echo.HandlerFunc) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		allowedEndpoints := []string{
+			"GET /v1/accounts",
+			"PUT /v1/accounts",
+			"POST /v1/session",
+			"DELETE /v1/session",
+			"GET /v1/settings",
+		}
+		requestEndpoint := fmt.Sprintf("%s %s", c.Request().Method, c.Path())
+		if slices.Contains(allowedEndpoints, requestEndpoint) {
+			return next(c)
+		}
+
+		token, err := common.ExtractToken(c.Request().Context())
+		if err != nil {
+			return err
+		}
+		claims, ok := token.Claims.(jwt.MapClaims)
+		if !ok {
+			return c.JSON(http.StatusForbidden, api.Error{
+				Message: pointer.ToString("failed to get claims from token"),
+			})
+		}
+		mustChangePassword, ok := claims[session.MustChangePasswordClaim].(bool)
+		if !ok {
+			if !ok {
+				return errors.New("failed to parse claim from token")
+			}
+		}
+		_ = mustChangePassword
+		// if mustChangePassword {
+		// 	return c.JSON(http.StatusForbidden, api.Error{
+		// 		Message: pointer.ToString("password change required"),
+		// 	})
+		// }
+		return next(c)
+	}
 }
 
 // checkOperatorUpgradeState is a middleware that checks if the operator is upgrading,
