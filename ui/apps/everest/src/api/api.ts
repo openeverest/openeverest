@@ -93,7 +93,7 @@ export const addApiAuthInterceptor = () => {
 
 export const removeApiAuthInterceptor = () => {
   if (authInterceptor !== null) {
-    api.interceptors.response.eject(authInterceptor);
+    api.interceptors.request.eject(authInterceptor);
     authInterceptor = null;
   }
 };
