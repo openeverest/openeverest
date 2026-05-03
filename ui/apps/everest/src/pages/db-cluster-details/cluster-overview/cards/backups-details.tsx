@@ -50,7 +50,7 @@ export const BackupsDetails = ({
   loading,
   showStorage = true,
 }: BackupsDetailsOverviewCardProps) => {
-  const { canUpdateDb, dbCluster } = useContext(DbClusterContext);
+  const { canUpdateDb, dbCluster, canCreateBackup } = useContext(DbClusterContext);
   const editable =
     canUpdateDb && !shouldDbActionsBeBlocked(dbCluster?.status?.status);
 
@@ -205,8 +205,8 @@ export const BackupsDetails = ({
             contentSlot={
               <Typography variant="body1">{Messages.titles.noData}</Typography>
             }
-            buttonText="Create backup"
-            onButtonClick={handleCreateBackup}
+            buttonText={canCreateBackup ? 'Create backup' : undefined}
+            onButtonClick={canCreateBackup ? handleCreateBackup : undefined}
           />
         )}
         <OverviewSection
@@ -242,10 +242,8 @@ export const BackupsDetails = ({
           showTooltip={editable && !pitrEditable}
           disabledEditTooltipText={getTooltipText()}
         >
-          {/*// TODO EVEREST-1066 the width of the columns on the layouts in different places is limited by a different number (but not by the content), a discussion with Design is required*/}
           <OverviewSectionRow
             dataTestId="pitr-status"
-            labelProps={{ minWidth: '126px' }}
             label={Messages.fields.status}
             content={
               pitrEnabled ? Messages.fields.enabled : Messages.fields.disabled
@@ -254,7 +252,6 @@ export const BackupsDetails = ({
           {showStorage && (
             <OverviewSectionRow
               dataTestId="backup-storage"
-              labelProps={{ minWidth: '126px' }}
               label={Messages.fields.backupStorages}
               content={pitrStorageName}
             />

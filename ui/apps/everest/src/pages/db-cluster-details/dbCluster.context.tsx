@@ -13,6 +13,7 @@ export const DbClusterContext = createContext<DbClusterContextProps>({
   dbCluster: {} as DbCluster,
   isLoading: false,
   canReadBackups: false,
+  canCreateBackup: false,
   canReadCredentials: false,
   canUpdateDb: false,
   clusterDeleted: false,
@@ -52,10 +53,8 @@ export const DbClusterContextProvider = ({
     }, timeoutTime);
   };
 
-  const { canRead: canReadBackups } = useRBACPermissions(
-    'database-cluster-backups',
-    `${namespace}/${dbClusterName}`
-  );
+  const { canRead: canReadBackups, canCreate: canCreateBackup } =
+    useRBACPermissions('database-cluster-backups', `${namespace}/${dbClusterName}`);
   const { canRead: canReadCredentials } = useRBACPermissions(
     'database-cluster-credentials',
     `${namespace}/${dbClusterName}`
@@ -92,6 +91,7 @@ export const DbClusterContextProvider = ({
         dbCluster,
         isLoading,
         canReadBackups,
+        canCreateBackup,
         canUpdateDb,
         canReadCredentials,
         clusterDeleted,

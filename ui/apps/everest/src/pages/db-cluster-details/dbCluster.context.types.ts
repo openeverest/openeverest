@@ -5,6 +5,7 @@ export interface DbClusterContextProps {
   dbCluster?: DbCluster;
   isLoading: boolean;
   canReadBackups: boolean;
+  canCreateBackup: boolean;
   canUpdateDb: boolean;
   canReadCredentials: boolean;
   queryResult: QueryObserverResult<DbCluster, unknown>;

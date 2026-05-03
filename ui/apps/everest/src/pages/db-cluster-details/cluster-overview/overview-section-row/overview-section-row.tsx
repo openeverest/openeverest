@@ -16,6 +16,7 @@
 import { Grid, Typography } from '@mui/material';
 import { OverviewSectionRowProps } from './overview-section-row.types';
 import { kebabize } from '@percona/utils';
+import { OVERVIEW_SECTION_ROW_MIN_WIDTH } from './overview-section-row.constants';
 
 export const OverviewSectionRow = ({
   label,
@@ -29,7 +30,12 @@ export const OverviewSectionRow = ({
     position="relative"
     alignItems="center"
   >
-    <Grid item xs={6} minWidth="90px" {...labelProps}>
+    <Grid
+      item
+      xs={6}
+      minWidth={OVERVIEW_SECTION_ROW_MIN_WIDTH}
+      {...labelProps}
+    >
       <Typography variant="body2" sx={{ fontWeight: '700' }}>
         {label}
       </Typography>
