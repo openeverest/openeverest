@@ -72,6 +72,13 @@ interface CommonFieldParams {
   helperText?: string;
   // TODO support tooltip in the ui-schema for all components + documentation
   tooltip?: string;
+  /**
+   * Informational text shown as an InfoOutlined icon next to the field.
+   * Hovering over the icon reveals the text in a tooltip.
+   * Use this to provide additional context or guidance to the plugin developer
+   * without cluttering the field label or helperText.
+   */
+  info?: string;
   badge?: string;
   badgeToApi?: boolean;
   modes?: FieldParamsModeOverrides;

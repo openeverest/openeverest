@@ -67,7 +67,8 @@ const mapNumberFieldParams = (
   fieldParams: NumberFieldParams,
   validation?: ValidationMap[FieldType.Number]
 ) => {
-  const { disabled, helperText, badge, autoFocus, placeholder, step, ...rest } =
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { disabled, helperText, badge, autoFocus, placeholder, step, tooltip, info, ...rest } =
     fieldParams;
 
   const textFieldProps: Partial<TextFieldProps> = filterDefined({
@@ -125,7 +126,8 @@ const mapNumberFieldParams = (
 };
 
 const mapSelectFieldParams = (fieldParams: SelectFieldParams) => {
-  const { label, defaultValue, options, helperText, badge, ...selectProps } =
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { label, defaultValue, options, helperText, badge, tooltip, info, ...selectProps } =
     fieldParams;
 
   const selectFieldProps: Partial<SelectProps> = filterDefined(
@@ -143,7 +145,8 @@ const mapSelectFieldParams = (fieldParams: SelectFieldParams) => {
 };
 
 const mapTextFieldParams = (fieldParams: TextFieldParams) => {
-  const { label, defaultValue, readOnly, badge, ...textProps } = fieldParams;
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { label, defaultValue, readOnly, badge, tooltip, info, ...textProps } = fieldParams;
 
   const textFieldProps: Partial<TextFieldProps> = filterDefined(
     textProps as Record<string, unknown>

@@ -13,7 +13,8 @@
 // limitations under the License.
 
 import React from 'react';
-import { Box, Tooltip } from '@mui/material';
+import { Box, IconButton, Tooltip } from '@mui/material';
+import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import {
   Component,
   FieldType,
@@ -68,7 +69,57 @@ const tooltipWrapper: FieldWrapper = (element, item) => {
   );
 };
 
-const fieldWrappers: FieldWrapper[] = [tooltipWrapper];
+const infoWrapper: FieldWrapper = (element, item) => {
+  const info = item.fieldParams?.info;
+  if (!info) return element;
+
+  const shouldCompensateMargin =
+    item.uiType === FieldType.Number || item.uiType === FieldType.Text;
+
+  return (
+    <Box
+      sx={{
+        display: 'flex',
+        alignItems: 'flex-start',
+        flex: '1 1 0',
+        minWidth: 0,
+        width: '100%',
+      }}
+    >
+      <Box
+        sx={{
+          flex: 1,
+          minWidth: 0,
+          ...(shouldCompensateMargin && {
+            '& > *': { minWidth: 0, width: '100%' },
+          }),
+        }}
+      >
+        {element}
+      </Box>
+      <Tooltip title={info} placement="right" arrow>
+        <IconButton
+          size="small"
+          data-testid="field-info-button"
+          aria-label="Field information"
+          sx={{
+            flexShrink: 0,
+            color: 'action.active',
+            p: 0.5,
+            // Align the icon visually with the input control area.
+            // Text/number fields own a marginTop of ~15px via formControlProps;
+            // add the same offset so the icon sits beside the label row.
+            ...(shouldCompensateMargin && { mt: '15px' }),
+          }}
+        >
+          <InfoOutlinedIcon fontSize="small" />
+        </IconButton>
+      </Tooltip>
+    </Box>
+  );
+};
+
+const fieldWrappers: FieldWrapper[] = [tooltipWrapper, infoWrapper];
 
 export const applyFieldWrappers = (
   element: React.ReactElement,
