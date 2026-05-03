@@ -152,10 +152,10 @@ make test
 
 # API integration tests (requires local Kubernetes cluster)
 make k3d-cluster-up
-make test-api
+make -C api-tests test
 
 # CLI integration tests (requires local Kubernetes cluster)
-make test-cli
+make -C cli-tests test-cli
 ```
 
 ### CI Requirements
