@@ -28,8 +28,9 @@ import {
 } from 'hooks';
 import { MRT_ColumnDef } from 'material-react-table';
 import { Alert, Typography } from '@mui/material';
+import { useSearchParams } from 'react-router-dom';
 import { RestoreDbModal } from 'modals/index.ts';
-import { useContext, useMemo, useState } from 'react';
+import { useContext, useEffect, useMemo, useState } from 'react';
 import {
   Backup,
   BackupStatus,
@@ -181,6 +182,16 @@ export const BackupsList = () => {
     setScheduleModalMode(WizardMode.New);
     setOpenScheduleModal(true);
   };
+
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  useEffect(() => {
+    if (searchParams.get('createBackup') === 'true') {
+      handleManualBackup();
+      searchParams.delete('createBackup');
+      setSearchParams(searchParams);
+    }
+  }, [searchParams]);
 
   const handleCloseDeleteDialog = () => {
     setOpenDeleteDialog(false);

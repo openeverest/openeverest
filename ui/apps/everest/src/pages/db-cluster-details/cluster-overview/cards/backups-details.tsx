@@ -20,7 +20,7 @@ import { BackupsDetailsOverviewCardProps } from './card.types';
 import OverviewSectionRow from '../overview-section-row';
 import { Messages } from '../cluster-overview.messages';
 import { Alert, Box, Button, Stack, Typography } from '@mui/material';
-import { Link, useMatch } from 'react-router-dom';
+import { Link, useMatch, useNavigate } from 'react-router-dom';
 import { DBClusterDetailsTabs } from '../../db-cluster-details.types';
 import OverviewSectionText from '../overview-section-text/overview-section-text';
 import { getTimeSelectionPreviewMessage } from '../../../database-form/database-preview/database.preview.messages';
@@ -30,6 +30,7 @@ import { Table } from '@percona/ui-lib';
 import { Backup, BackupStatus } from 'shared-types/backups.types';
 import { BACKUP_STATUS_TO_BASE_STATUS } from 'pages/db-cluster-details/backups/backups-list/backups-list.constants';
 import StatusField from 'components/status-field';
+import EmptyState from 'components/empty-state/empty-state';
 import { useContext, useMemo, useState } from 'react';
 import { MRT_ColumnDef } from 'material-react-table';
 import { DATE_FORMAT } from 'consts';
@@ -87,6 +88,13 @@ export const BackupsDetails = ({
 
   const handleCloseModal = () => {
     setOpenEditModal(false);
+  };
+
+  const navigate = useNavigate();
+  const handleCreateBackup = () => {
+    navigate(
+      `/databases/${routeMatch?.params?.namespace}/${routeMatch?.params?.dbClusterName}/${DBClusterDetailsTabs.backups}?createBackup=true`
+    );
   };
 
   const handleSubmit = (enabled: boolean, backupStorageName: string) => {
@@ -193,7 +201,13 @@ export const BackupsDetails = ({
             />
           </OverviewSection>
         ) : (
-          <Alert severity="info">{Messages.titles.noData}</Alert>
+          <EmptyState
+            contentSlot={
+              <Typography variant="body1">{Messages.titles.noData}</Typography>
+            }
+            buttonText="Create backup"
+            onButtonClick={handleCreateBackup}
+          />
         )}
         <OverviewSection
           dataTestId="schedules"
