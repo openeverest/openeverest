@@ -14,10 +14,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 import axios, { AxiosError } from 'axios';
+import { enqueueSnackbar } from 'notistack';
 
 const BASE_URL = '/v1/';
 const DEFAULT_ERROR_MESSAGE = 'Something went wrong';
 const MISSING_MALFORMED_JWT_MESSAGE = 'missing or malformed jwt';
+const PASSWORD_CHANGE_REQUIRED_MESSAGE = 'Password change required';
 const MAX_ERROR_MESSAGE_LENGTH = 120;
 let errorInterceptor: number | null = null;
 let authInterceptor: number | null = null;
