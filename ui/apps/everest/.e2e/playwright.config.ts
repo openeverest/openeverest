@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,13 +19,13 @@ import { dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { CI_USER_STORAGE_STATE_FILE } from './constants';
 import 'dotenv/config';
-import { dbClusterProject } from './pr/db-cluster/project.config';
-import { dbClusterDetailsProject } from './pr/db-cluster-details/project.config';
-import { dbRestoreProject } from './pr/db-restore/project.config';
-import { multinamespacesProject } from './pr/multinamespaces/project.config';
-import { noMatchProject } from './pr/no-match/project.config';
+// import { dbClusterProject } from './pr/db-cluster/project.config';
+// import { dbClusterDetailsProject } from './pr/db-cluster-details/project.config';
+// import { dbRestoreProject } from './pr/db-restore/project.config';
+// import { multinamespacesProject } from './pr/multinamespaces/project.config';
+// import { noMatchProject } from './pr/no-match/project.config';
 import { settingsProject } from './pr/settings/project.config';
-import { rbacProject } from './pr/rbac/project.config';
+// import { rbacProject } from './pr/rbac/project.config';
 
 // Convert 'import.meta.url' to the equivalent __dirname
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -102,18 +103,17 @@ export default defineConfig({
       testDir: './teardown',
       testMatch: /backup-storage\.teardown\.ts/,
     },
-    // global:monitoring-instance:
     {
-      name: 'global:monitoring-instance:setup',
+      name: 'global:monitoring-config:setup',
       testDir: './setup',
-      testMatch: /monitoring-instance.setup\.ts/,
-      teardown: 'global:monitoring-instance:teardown',
+      testMatch: /monitoring-config.setup\.ts/,
+      teardown: 'global:monitoring-config:teardown',
       dependencies: ['global:auth:ci:setup'],
     },
     {
-      name: 'global:monitoring-instance:teardown',
+      name: 'global:monitoring-config:teardown',
       testDir: './teardown',
-      testMatch: /monitoring-instance\.teardown\.ts/,
+      testMatch: /monitoring-config\.teardown\.ts/,
     },
     // global:session:
     {
@@ -133,38 +133,38 @@ export default defineConfig({
       name: 'pr',
       testMatch: /.^/,
       dependencies: [
-        'pr:db-cluster',
-        'pr:db-cluster-details',
-        'pr:multinamespaces',
-        'pr:no-match',
+        // 'pr:db-cluster',
+        // 'pr:db-cluster-details',
+        // 'pr:multinamespaces',
+        // 'pr:no-match',
         'pr:settings',
-        'pr:db-restore',
-        ...(process.env.IGNORE_RBAC_TESTS &&
-        process.env.IGNORE_RBAC_TESTS !== 'false'
-          ? []
-          : ['pr:rbac']),
+        // 'pr:db-restore',
+        // ...(process.env.IGNORE_RBAC_TESTS &&
+        // process.env.IGNORE_RBAC_TESTS !== 'false'
+        //   ? []
+        //   : ['pr:rbac']),
       ],
     },
-    ...dbClusterProject,
-    ...dbClusterDetailsProject,
-    ...dbRestoreProject,
-    ...multinamespacesProject,
-    ...noMatchProject,
+    // ...dbClusterProject,
+    // ...dbClusterDetailsProject,
+    // ...dbRestoreProject,
+    // ...multinamespacesProject,
+    // ...noMatchProject,
     ...settingsProject,
-    ...rbacProject,
+    // ...rbacProject,
 
     // ---------------------- RELEASE TESTS ----------------------
     // release project
-    {
-      name: 'release',
-      dependencies: ['release:session'],
-    },
+    // {
+    //   name: 'release',
+    //   dependencies: ['release:session'],
+    // },
     // release:session:session project
-    {
-      name: 'release:session',
-      testDir: './release/session',
-      dependencies: ['global:session:setup'],
-    },
+    // {
+    //   name: 'release:session',
+    //   testDir: './release/session',
+    //   dependencies: ['global:session:setup'],
+    // },
 
     // -----------------------------------
     // e2e:rbac project

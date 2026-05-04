@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+import { Provider } from 'shared-types/api.types';
+
 export enum FormMode {
   New = 'new',
   Edit = 'edit',
@@ -45,6 +47,10 @@ export type NormalizedPathMeta = {
   sourcePath?: string;
   targetPaths: string[];
 };
+
+export interface DataSource {
+  provider: string;
+}
 
 export enum FieldType {
   Number = 'number',
@@ -87,7 +93,7 @@ type SelectFieldParamsBase = CommonFieldParams & {
 
 export type SelectFieldParams =
   | (SelectFieldParamsBase & {
-      options: SelectOptionsItem[];
+      options?: SelectOptionsItem[];
       optionsPath?: never;
       optionsPathConfig?: never;
     })
@@ -181,6 +187,7 @@ export type Component = {
     fieldParams: FieldParamsMap[K];
     modes?: ComponentModeOverrides;
     _normalized?: NormalizedPathMeta;
+    dataSource?: DataSource;
   } & PathOrId;
 }[keyof FieldParamsMap];
 
@@ -215,3 +222,12 @@ export type TopologyUISchemas = {
   // if we will want more properties for topology
   [K in string]: Topology;
 } & Record<string, unknown>;
+
+export type UIGeneratorProps = {
+  sectionKey: string;
+  sections: { [key: string]: Section };
+  providerObject?: Provider;
+  loadingDefaultsForEdition?: boolean;
+  formMode?: FormMode;
+  namespace?: string;
+};

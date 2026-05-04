@@ -1,0 +1,15 @@
+# Kustomize overlay for integration tests.
+# Applies test-specific patches on top of the default configuration.
+resources:
+- ../default
+
+patches:
+- path: manager_deployment_patch.yaml
+  target:
+    kind: Deployment
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+images:
+- name: controller
+  newName: ghcr.io/openeverest/openeverest-controller-dev
+  newTag: 0.0.0

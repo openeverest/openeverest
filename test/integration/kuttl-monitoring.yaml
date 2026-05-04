@@ -1,0 +1,20 @@
+apiVersion: kuttl.dev/v1
+kind: TestSuite
+artifactsDir: /tmp/
+startKIND: false
+skipDelete: false
+skipClusterDelete: true
+commands:
+  # Ensure namespace.
+  - command: sh -c "kubectl get namespace everest-monitoring || kubectl create namespace everest-monitoring"
+  # Deploy test overlay into K8S cluster.
+  - command: make -f ${OPENEVEREST_ROOT_PATH}/Makefile deploy-test-controller
+  # Apply VictoriaMetrics Operator CRD.
+  - command: kubectl apply -f https://raw.githubusercontent.com/VictoriaMetrics/operator/v${VICTORIAMETRICS_OPERATOR_VERSION}/config/crd/overlay/crd.yaml
+  - command: kubectl wait --for condition=established --timeout=10s crd vmagents.operator.victoriametrics.com
+  # Restart to pick the latest image (in case it was rebuilt).
+  - command: kubectl delete pod -n openeverest-system -l control-plane=controller-manager
+  # Wait for controller to be ready with generous timeout for CI environments.
+  - command: kubectl wait --for=condition=available --timeout=60s deploy/openeverest-controller-manager -n openeverest-system
+testDirs:
+  - test/integration/monitoring

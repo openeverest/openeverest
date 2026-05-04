@@ -18,8 +18,11 @@ spec:
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
-    - jsonPath: .spec.targetClusterName
-      name: TargetCluster
+    - jsonPath: .spec.instanceName
+      name: Instance
+      type: string
+    - jsonPath: .spec.storageName
+      name: Storage
       type: string
     - jsonPath: .status.state
       name: State
@@ -27,7 +30,7 @@ spec:
     name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: Backup is the Schema for the backups API
+        description: Backup is the Schema for the backups API.
         properties:
           apiVersion:
             description: |-
@@ -47,94 +50,74 @@ spec:
           metadata:
             type: object
           spec:
-            description: BackupSpec defines the desired state of Backup
+            description: BackupSpec defines the desired state of Backup.
             properties:
               backupClassName:
-                description: BackupClassName is the backup tool to use for the backup.
+                description: |-
+                  BackupClassName is the BackupClass that defines how this Backup is
+                  executed. The class's executionMode controls the runtime path: Job
+                  classes are reconciled by the in-cluster Backup job controller;
+                  ProviderManaged classes are reconciled by the provider's runtime.
                 type: string
               config:
                 description: |-
-                  Config defines the configuration for the backup job.
-                  These options are specific to the BackupClass being used and must conform to
-                  the schema defined in the BackupClass's .spec.config.openAPIV3Schema.
+                  Config is the backup-time configuration validated against the
+                  BackupClass's .spec.config.openAPIV3Schema.
                 type: object
                 x-kubernetes-preserve-unknown-fields: true
-              destination:
-                description: Destination is the destination for the backup data.
-                properties:
-                  backupStorageName:
-                    description: BackupStorageName is the name of the BackupStorage
-                      to use for the backup.
-                    type: string
-                  s3:
-                    description: S3 contains the S3 information for the backup destination.
-                    properties:
-                      accessKeyId:
-                        description: |-
-                          AccessKeyID allows specifying the S3 access key ID inline.
-                          It is provided as a write-only input field for convenience.
-                          When this field is set, a webhook writes this value in the Secret specified by `credentialsSecretName`
-                          and empties this field.
-                          This field is not stored in the API.
-                        type: string
-                      bucket:
-                        description: Bucket is the name of the S3 bucket.
-                        type: string
-                      credentialsSecretName:
-                        description: |-
-                          CredentialsSecreName is the reference to the secret containing the S3 credentials.
-                          The Secret must contain the keys `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`.
-                        type: string
-                      endpointURL:
-                        description: EndpointURL is an endpoint URL of backup storage.
-                        type: string
-                        x-kubernetes-validations:
-                        - message: endpointURL must be a valid URL
-                          rule: isURL(self)
-                      forcePathStyle:
-                        default: false
-                        description: |-
-                          ForcePathStyle is set to use path-style URLs.
-                          If unspecified, the default value is false.
-                        type: boolean
-                      region:
-                        description: Region is the region of the S3 bucket.
-                        type: string
-                      secretAccessKey:
-                        description: |-
-                          SecretAccessKey allows specifying the S3 secret access key inline.
-                          It is provided as a write-only input field for convenience.
-                          When this field is set, a webhook writes this value in the Secret specified by `credentialsSecretName`
-                          and empties this field.
-                          This field is not stored in the API.
-                        type: string
-                      verifyTLS:
-                        default: true
-                        description: |-
-                          VerifyTLS is set to ensure TLS/SSL verification.
-                          If unspecified, the default value is true.
-                        type: boolean
-                    required:
-                    - bucket
-                    - credentialsSecretName
-                    - endpointURL
-                    - region
-                    type: object
-                type: object
+              deletionPolicy:
+                allOf:
+                - enum:
+                  - Retain
+                  - Delete
+                - enum:
+                  - Retain
+                  - Delete
+                default: Delete
+                description: |-
+                  DeletionPolicy controls what happens to the underlying backup data
+                  (e.g., the object stored in S3) when this Backup CR is deleted.
+                  Delete (default) instructs the provider to remove both the
+                  engine-native backup resource and the data in the configured
+                  BackupStorage. Retain instructs the provider to remove the
+                  engine-native backup resource but to leave the underlying data in
+                  place, so it can be recovered later out-of-band.
+
+                  The field is mutable on a live Backup but is frozen once deletion
+                  has started: switching policies after .metadata.deletionTimestamp
+                  has been set is rejected so the cleanup path cannot race with
+                  itself.
+                type: string
               instanceName:
-                description: InstanceName is the name of the Instance to back up.
+                description: |-
+                  InstanceName is the name of the Instance to back up. The Instance must
+                  live in the same namespace as this Backup.
+                type: string
+              scheduleName:
+                description: |-
+                  ScheduleName, when set, identifies the InstanceBackupSchedule that
+                  produced this Backup. Backups created via the API or `kubectl apply`
+                  leave this field empty (on-demand). The provider's mirroring loop
+                  sets it when surfacing operator-produced scheduled backups as Backup
+                  CRs.
+                type: string
+              storageName:
+                description: |-
+                  StorageName references a BackupStorage in the same namespace that
+                  defines where the backup data is written. For ProviderManaged classes
+                  the referenced storage must already be registered on the Instance via
+                  .spec.backup.storages so the engine can write to it.
                 type: string
             required:
             - backupClassName
-            - destination
             - instanceName
+            - storageName
             type: object
           status:
             description: BackupStatus defines the observed state of Backup.
             properties:
               completedAt:
-                description: CompletedAt is the time when the backup job completed
-                  successfully.
+                description: CompletedAt is the time when the backup completed successfully.
                 format: date-time
                 type: string
               conditions:
@@ -196,24 +179,57 @@ spec:
                 x-kubernetes-list-map-keys:
                 - type
                 x-kubernetes-list-type: map
+              executionMode:
+                description: |-
+                  ExecutionMode is the resolved execution mode at the time the Backup
+                  started. Recorded for observability.
+                enum:
+                - ProviderManaged
+                - Job
+                type: string
               jobName:
-                description: JobName is the reference to the job that is running the
-                  backup.
+                description: |-
+                  JobName is the reference to the Job that is running the backup.
+                  Populated only for Job classes.
                 type: string
               lastObservedGeneration:
                 description: LastObservedGeneration is the last observed generation
-                  of the backup job.
+                  of the Backup CR.
                 format: int64
                 type: integer
               message:
-                description: Message is the message of the backup job.
+                description: Message is a human-readable message about the current
+                  state.
                 type: string
+              operatorBackupRef:
+                description: |-
+                  OperatorBackupRef points at the operator-native backup resource the
+                  provider created (e.g., PerconaServerMongoDBBackup). Populated only
+                  for ProviderManaged classes.
+                properties:
+                  apiGroup:
+                    description: |-
+                      APIGroup is the group for the resource being referenced.
+                      If APIGroup is not specified, the specified Kind must be in the core API group.
+                      For any other third-party types, APIGroup is required.
+                    type: string
+                  kind:
+                    description: Kind is the type of resource being referenced
+                    type: string
+                  name:
+                    description: Name is the name of resource being referenced
+                    type: string
+                required:
+                - kind
+                - name
+                type: object
+                x-kubernetes-map-type: atomic
               startedAt:
-                description: StartedAt is the time when the backup job started.
+                description: StartedAt is the time when the backup started.
                 format: date-time
                 type: string
               state:
-                description: State is the current state of the backup job.
+                description: State is the current state of the backup.
                 type: string
             type: object
         required:

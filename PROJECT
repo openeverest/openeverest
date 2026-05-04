@@ -58,6 +58,7 @@ resources:
 - api:
     crdVersion: v1
     namespaced: true
+  controller: true
   domain: openeverest.io
   group: monitoring
   kind: MonitoringConfig
@@ -66,4 +67,21 @@ resources:
   webhooks:
     validation: true
     webhookVersion: v1
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: openeverest.io
+  group: backup
+  kind: Restore
+  path: github.com/openeverest/openeverest/v2/api/backup/v1alpha1
+  version: v1alpha1
+- api:
+    crdVersion: v1
+    namespaced: true
+  domain: openeverest.io
+  group: backup
+  kind: BackupStorage
+  path: github.com/openeverest/openeverest/v2/api/backup/v1alpha1
+  version: v1alpha1
 version: "3"

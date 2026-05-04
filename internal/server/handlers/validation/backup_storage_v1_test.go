@@ -364,7 +364,7 @@ func TestValidate_DeleteBackupStorage(t *testing.T) {
 			valHandler := New(zap.NewNop().Sugar(), k)
 			valHandler.SetNext(k8sHandler)
 
-			err := valHandler.DeleteBackupStorage(context.Background(), bsNamespace, tc.objNameToDelete)
+			err := valHandler.DeleteBackupStorageV1(context.Background(), bsNamespace, tc.objNameToDelete)
 			if tc.wantErr != nil {
 				assert.Equal(t, tc.wantErr.Error(), err.Error())
 				return

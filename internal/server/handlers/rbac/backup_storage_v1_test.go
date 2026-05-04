@@ -28,7 +28,7 @@ func TestRBAC_BackupStorage(t *testing.T) {
 
 	data := func() *handlers.MockHandler {
 		next := handlers.MockHandler{}
-		next.On("ListBackupStorages",
+		next.On("ListBackupStoragesV1",
 			mock.Anything,
 			mock.Anything,
 		).Return(
@@ -159,7 +159,7 @@ func TestRBAC_BackupStorage(t *testing.T) {
 					userGetter: testUserGetter,
 				}
 
-				list, err := h.ListBackupStorages(ctx, "default")
+				list, err := h.ListBackupStoragesV1(ctx, "default")
 				require.NoError(t, err)
 				assert.Condition(t, func() bool {
 					return tc.assert(list)
@@ -173,7 +173,7 @@ func TestRBAC_BackupStorage(t *testing.T) {
 
 		data := func() *handlers.MockHandler {
 			next := handlers.MockHandler{}
-			next.On("GetBackupStorage", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(
+			next.On("GetBackupStorageV1", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(
 				&everestv1alpha1.BackupStorage{}, nil,
 			)
 			return &next
@@ -245,7 +245,7 @@ func TestRBAC_BackupStorage(t *testing.T) {
 					enforcer:   enf,
 					userGetter: testUserGetter,
 				}
-				_, err = h.GetBackupStorage(ctx, "default", "backup-storage-1")
+				_, err = h.GetBackupStorageV1(ctx, "default", "backup-storage-1")
 				assert.ErrorIs(t, err, tc.wantErr)
 			})
 		}
@@ -255,7 +255,7 @@ func TestRBAC_BackupStorage(t *testing.T) {
 		t.Parallel()
 		next := func() *handlers.MockHandler {
 			next := handlers.MockHandler{}
-			next.On("CreateBackupStorage", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(
+			next.On("CreateBackupStorageV1", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(
 				&everestv1alpha1.BackupStorage{}, nil,
 			)
 			return &next
@@ -411,7 +411,7 @@ func TestRBAC_BackupStorage(t *testing.T) {
 					enforcer:   enf,
 					userGetter: testUserGetter,
 				}
-				_, err = h.CreateBackupStorage(ctx, "default", &api.CreateBackupStorageParams{
+				_, err = h.CreateBackupStorageV1(ctx, "default", &api.CreateBackupStorageParams{
 					Name: "backup-storage-1",
 				})
 				assert.ErrorIs(t, err, tc.wantErr)
@@ -423,7 +423,7 @@ func TestRBAC_BackupStorage(t *testing.T) {
 		t.Parallel()
 		next := func() *handlers.MockHandler {
 			next := handlers.MockHandler{}
-			next.On("UpdateBackupStorage", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(
+			next.On("UpdateBackupStorageV1", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(
 				&everestv1alpha1.BackupStorage{}, nil,
 			)
 			return &next
@@ -579,7 +579,7 @@ func TestRBAC_BackupStorage(t *testing.T) {
 					enforcer:   enf,
 					userGetter: testUserGetter,
 				}
-				_, err = h.UpdateBackupStorage(ctx, "default", "backup-storage-1", &api.UpdateBackupStorageParams{})
+				_, err = h.UpdateBackupStorageV1(ctx, "default", "backup-storage-1", &api.UpdateBackupStorageParams{})
 				assert.ErrorIs(t, err, tc.wantErr)
 			})
 		}
@@ -589,7 +589,7 @@ func TestRBAC_BackupStorage(t *testing.T) {
 		t.Parallel()
 		next := func() *handlers.MockHandler {
 			next := handlers.MockHandler{}
-			next.On("DeleteBackupStorage", mock.Anything, mock.Anything, mock.Anything).Return(nil)
+			next.On("DeleteBackupStorageV1", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 			return &next
 		}
 
@@ -743,7 +743,7 @@ func TestRBAC_BackupStorage(t *testing.T) {
 					enforcer:   enf,
 					userGetter: testUserGetter,
 				}
-				err = h.DeleteBackupStorage(ctx, "default", "backup-storage-1")
+				err = h.DeleteBackupStorageV1(ctx, "default", "backup-storage-1")
 				assert.ErrorIs(t, err, tc.wantErr)
 			})
 		}

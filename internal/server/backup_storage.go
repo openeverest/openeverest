@@ -1,5 +1,4 @@
-// everest
-// Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,86 +15,90 @@
 package server
 
 import (
-	"errors"
+	"encoding/json"
+	"io"
 	"net/http"
 
 	"github.com/labstack/echo/v4"
 
-	api "github.com/openeverest/openeverest/v2/internal/server/api"
+	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
 )
 
-// ListBackupStorages lists backup storages.
-func (e *EverestServer) ListBackupStorages(c echo.Context, namespace string) error {
-	ctx := c.Request().Context()
-	list, err := e.handler.ListBackupStorages(ctx, namespace)
+// ListBackupStorages lists all backup storages in a namespace.
+func (e *EverestServer) ListBackupStorages(c echo.Context, cluster, namespace string) error {
+	// The cluster parameter is currently ignored.
+	result, err := e.handler.ListBackupStorages(c.Request().Context(), namespace)
 	if err != nil {
 		e.l.Errorf("ListBackupStorages failed: %v", err)
 		return err
 	}
-
-	result := make([]api.BackupStorage, 0, len(list.Items))
-	for _, s := range list.Items {
-		out := &api.BackupStorage{}
-		out.FromCR(&s)
-		result = append(result, *out)
-	}
 	return c.JSON(http.StatusOK, result)
 }
 
-// CreateBackupStorage creates a new backup storage object.
-func (e *EverestServer) CreateBackupStorage(c echo.Context, namespace string) error {
-	ctx := c.Request().Context()
-	req := api.CreateBackupStorageParams{}
-	if err := c.Bind(&req); err != nil {
-		return errors.Join(errFailedToReadRequestBody, err)
+// CreateBackupStorage creates a new backup storage.
+func (e *EverestServer) CreateBackupStorage(c echo.Context, cluster, namespace string) error {
+	// The cluster parameter is currently ignored.
+	bs := &backupv1alpha1.BackupStorage{}
+	body, err := io.ReadAll(c.Request().Body)
+	if err != nil {
+		e.l.Errorf("CreateBackupStorage: failed to read request body: %v", err)
+		return err
 	}
-	result, err := e.handler.CreateBackupStorage(ctx, namespace, &req)
+	if err := json.Unmarshal(body, bs); err != nil {
+		e.l.Errorf("CreateBackupStorage: failed to decode request body: %v", err)
+		return err
+	}
+
+	bs.Namespace = namespace
+	result, err := e.handler.CreateBackupStorage(c.Request().Context(), bs)
 	if err != nil {
 		e.l.Errorf("CreateBackupStorage failed: %v", err)
 		return err
 	}
-	out := &api.BackupStorage{}
-	out.FromCR(result)
-	return c.JSON(http.StatusCreated, out)
+	return c.JSON(http.StatusCreated, result)
 }
 
-// DeleteBackupStorage deletes the specified backup storage.
-func (e *EverestServer) DeleteBackupStorage(c echo.Context, namespace, name string) error {
-	ctx := c.Request().Context()
-	if err := e.handler.DeleteBackupStorage(ctx, namespace, name); err != nil {
-		e.l.Errorf("DeleteBackupStorage failed: %v", err)
-		return err
-	}
-	return c.NoContent(http.StatusNoContent)
-}
-
-// GetBackupStorage retrieves the specified backup storage.
-func (e *EverestServer) GetBackupStorage(c echo.Context, namespace, name string) error {
-	ctx := c.Request().Context()
-	result, err := e.handler.GetBackupStorage(ctx, namespace, name)
+// GetBackupStorage retrieves a specific backup storage.
+func (e *EverestServer) GetBackupStorage(c echo.Context, cluster, namespace, name string) error {
+	// The cluster parameter is currently ignored.
+	result, err := e.handler.GetBackupStorage(c.Request().Context(), namespace, name)
 	if err != nil {
 		e.l.Errorf("GetBackupStorage failed: %v", err)
 		return err
 	}
-
-	out := &api.BackupStorage{}
-	out.FromCR(result)
-	return c.JSON(http.StatusOK, out)
+	return c.JSON(http.StatusOK, result)
 }
 
-// UpdateBackupStorage updates of the specified backup storage.
-func (e *EverestServer) UpdateBackupStorage(c echo.Context, namespace, name string) error {
-	ctx := c.Request().Context()
-	req := api.UpdateBackupStorageParams{}
-	if err := c.Bind(&req); err != nil {
-		return errors.Join(errFailedToReadRequestBody, err)
+// UpdateBackupStorage updates a backup storage.
+func (e *EverestServer) UpdateBackupStorage(c echo.Context, cluster, namespace, name string) error {
+	// The cluster parameter is currently ignored.
+	bs := &backupv1alpha1.BackupStorage{}
+	body, err := io.ReadAll(c.Request().Body)
+	if err != nil {
+		e.l.Errorf("UpdateBackupStorage: failed to read request body: %v", err)
+		return err
 	}
-	result, err := e.handler.UpdateBackupStorage(ctx, namespace, name, &req)
+	if err := json.Unmarshal(body, bs); err != nil {
+		e.l.Errorf("UpdateBackupStorage: failed to decode request body: %v", err)
+		return err
+	}
+
+	bs.Namespace = namespace
+	bs.Name = name
+	result, err := e.handler.UpdateBackupStorage(c.Request().Context(), bs)
 	if err != nil {
 		e.l.Errorf("UpdateBackupStorage failed: %v", err)
 		return err
 	}
-	out := &api.BackupStorage{}
-	out.FromCR(result)
-	return c.JSON(http.StatusOK, out)
+	return c.JSON(http.StatusOK, result)
+}
+
+// DeleteBackupStorage deletes a backup storage.
+func (e *EverestServer) DeleteBackupStorage(c echo.Context, cluster, namespace, name string) error {
+	// The cluster parameter is currently ignored.
+	if err := e.handler.DeleteBackupStorage(c.Request().Context(), namespace, name); err != nil {
+		e.l.Errorf("DeleteBackupStorage failed: %v", err)
+		return err
+	}
+	return c.NoContent(http.StatusNoContent)
 }

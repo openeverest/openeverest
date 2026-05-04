@@ -38,6 +38,7 @@ rules:
   - backup.openeverest.io
   resources:
   - backups
+  - restores
   verbs:
   - create
   - delete
@@ -50,12 +51,14 @@ rules:
   - backup.openeverest.io
   resources:
   - backups/finalizers
+  - restores/finalizers
   verbs:
   - update
 - apiGroups:
   - backup.openeverest.io
   resources:
   - backups/status
+  - restores/status
   verbs:
   - get
   - patch
@@ -106,6 +109,17 @@ rules:
   - get
   - patch
   - update
+- apiGroups:
+  - operator.victoriametrics.com
+  resources:
+  - vmagents
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - update
+  - watch
 - apiGroups:
   - rbac.authorization.k8s.io
   resources:

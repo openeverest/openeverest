@@ -18,11 +18,28 @@ const (
 	BackupStatusConditionsStatusUnknown BackupStatusConditionsStatus = "Unknown"
 )
 
+// Defines values for BackupStatusExecutionMode.
+const (
+	BackupStatusExecutionModeJob             BackupStatusExecutionMode = "Job"
+	BackupStatusExecutionModeProviderManaged BackupStatusExecutionMode = "ProviderManaged"
+)
+
+// Defines values for BackupClassSpecExecutionMode.
+const (
+	BackupClassSpecExecutionModeJob             BackupClassSpecExecutionMode = "Job"
+	BackupClassSpecExecutionModeProviderManaged BackupClassSpecExecutionMode = "ProviderManaged"
+)
+
 // Defines values for BackupClassStatusConditionsStatus.
 const (
 	BackupClassStatusConditionsStatusFalse   BackupClassStatusConditionsStatus = "False"
 	BackupClassStatusConditionsStatusTrue    BackupClassStatusConditionsStatus = "True"
 	BackupClassStatusConditionsStatusUnknown BackupClassStatusConditionsStatus = "Unknown"
+)
+
+// Defines values for BackupStorageSpecType.
+const (
+	BackupStorageSpecTypeS3 BackupStorageSpecType = "s3"
 )
 
 // Defines values for InstanceStatusConditionsStatus.
@@ -59,7 +76,26 @@ const (
 	ProviderStatusConditionsStatusUnknown ProviderStatusConditionsStatus = "Unknown"
 )
 
-// Backup Backup is the Schema for the backups API
+// Defines values for RestoreSpecDataSourcePitrType.
+const (
+	RestoreSpecDataSourcePitrTypeDate   RestoreSpecDataSourcePitrType = "date"
+	RestoreSpecDataSourcePitrTypeLatest RestoreSpecDataSourcePitrType = "latest"
+)
+
+// Defines values for RestoreStatusConditionsStatus.
+const (
+	RestoreStatusConditionsStatusFalse   RestoreStatusConditionsStatus = "False"
+	RestoreStatusConditionsStatusTrue    RestoreStatusConditionsStatus = "True"
+	RestoreStatusConditionsStatusUnknown RestoreStatusConditionsStatus = "Unknown"
+)
+
+// Defines values for RestoreStatusExecutionMode.
+const (
+	RestoreStatusExecutionModeJob             RestoreStatusExecutionMode = "Job"
+	RestoreStatusExecutionModeProviderManaged RestoreStatusExecutionMode = "ProviderManaged"
+)
+
+// Backup Backup is the Schema for the backups API.
 type Backup struct {
 	// ApiVersion APIVersion defines the versioned schema of this representation of an object.
 	// Servers should convert recognized schemas to the latest internal value, and
@@ -75,67 +111,53 @@ type Backup struct {
 	Kind     *string                 `json:"kind,omitempty"`
 	Metadata *map[string]interface{} `json:"metadata,omitempty"`
 
-	// Spec BackupSpec defines the desired state of Backup
+	// Spec BackupSpec defines the desired state of Backup.
 	Spec struct {
-		// BackupClassName BackupClassName is the backup tool to use for the backup.
+		// BackupClassName BackupClassName is the BackupClass that defines how this Backup is
+		// executed. The class's executionMode controls the runtime path: Job
+		// classes are reconciled by the in-cluster Backup job controller;
+		// ProviderManaged classes are reconciled by the provider's runtime.
 		BackupClassName string `json:"backupClassName"`
 
-		// Config Config defines the configuration for the backup job.
-		// These options are specific to the BackupClass being used and must conform to
-		// the schema defined in the BackupClass's .spec.config.openAPIV3Schema.
+		// Config Config is the backup-time configuration validated against the
+		// BackupClass's .spec.config.openAPIV3Schema.
 		Config *map[string]interface{} `json:"config,omitempty"`
 
-		// Destination Destination is the destination for the backup data.
-		Destination struct {
-			// BackupStorageName BackupStorageName is the name of the BackupStorage to use for the backup.
-			BackupStorageName *string `json:"backupStorageName,omitempty"`
+		// DeletionPolicy DeletionPolicy controls what happens to the underlying backup data
+		// (e.g., the object stored in S3) when this Backup CR is deleted.
+		// Delete (default) instructs the provider to remove both the
+		// engine-native backup resource and the data in the configured
+		// BackupStorage. Retain instructs the provider to remove the
+		// engine-native backup resource but to leave the underlying data in
+		// place, so it can be recovered later out-of-band.
+		//
+		// The field is mutable on a live Backup but is frozen once deletion
+		// has started: switching policies after .metadata.deletionTimestamp
+		// has been set is rejected so the cleanup path cannot race with
+		// itself.
+		DeletionPolicy interface{} `json:"deletionPolicy,omitempty"`
 
-			// S3 S3 contains the S3 information for the backup destination.
-			S3 *struct {
-				// AccessKeyId AccessKeyID allows specifying the S3 access key ID inline.
-				// It is provided as a write-only input field for convenience.
-				// When this field is set, a webhook writes this value in the Secret specified by `credentialsSecretName`
-				// and empties this field.
-				// This field is not stored in the API.
-				AccessKeyId *string `json:"accessKeyId,omitempty"`
-
-				// Bucket Bucket is the name of the S3 bucket.
-				Bucket string `json:"bucket"`
-
-				// CredentialsSecretName CredentialsSecreName is the reference to the secret containing the S3 credentials.
-				// The Secret must contain the keys `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`.
-				CredentialsSecretName string `json:"credentialsSecretName"`
-
-				// EndpointURL EndpointURL is an endpoint URL of backup storage.
-				EndpointURL string `json:"endpointURL"`
-
-				// ForcePathStyle ForcePathStyle is set to use path-style URLs.
-				// If unspecified, the default value is false.
-				ForcePathStyle *bool `json:"forcePathStyle,omitempty"`
-
-				// Region Region is the region of the S3 bucket.
-				Region string `json:"region"`
-
-				// SecretAccessKey SecretAccessKey allows specifying the S3 secret access key inline.
-				// It is provided as a write-only input field for convenience.
-				// When this field is set, a webhook writes this value in the Secret specified by `credentialsSecretName`
-				// and empties this field.
-				// This field is not stored in the API.
-				SecretAccessKey *string `json:"secretAccessKey,omitempty"`
-
-				// VerifyTLS VerifyTLS is set to ensure TLS/SSL verification.
-				// If unspecified, the default value is true.
-				VerifyTLS *bool `json:"verifyTLS,omitempty"`
-			} `json:"s3,omitempty"`
-		} `json:"destination"`
-
-		// InstanceName InstanceName is the name of the Instance to back up.
+		// InstanceName InstanceName is the name of the Instance to back up. The Instance must
+		// live in the same namespace as this Backup.
 		InstanceName string `json:"instanceName"`
+
+		// ScheduleName ScheduleName, when set, identifies the InstanceBackupSchedule that
+		// produced this Backup. Backups created via the API or `kubectl apply`
+		// leave this field empty (on-demand). The provider's mirroring loop
+		// sets it when surfacing operator-produced scheduled backups as Backup
+		// CRs.
+		ScheduleName *string `json:"scheduleName,omitempty"`
+
+		// StorageName StorageName references a BackupStorage in the same namespace that
+		// defines where the backup data is written. For ProviderManaged classes
+		// the referenced storage must already be registered on the Instance via
+		// .spec.backup.storages so the engine can write to it.
+		StorageName string `json:"storageName"`
 	} `json:"spec"`
 
 	// Status BackupStatus defines the observed state of Backup.
 	Status *struct {
-		// CompletedAt CompletedAt is the time when the backup job completed successfully.
+		// CompletedAt CompletedAt is the time when the backup completed successfully.
 		CompletedAt *time.Time `json:"completedAt,omitempty"`
 		Conditions  *[]struct {
 			// LastTransitionTime lastTransitionTime is the last time the condition transitioned from one status to another.
@@ -165,25 +187,50 @@ type Backup struct {
 			Type string `json:"type"`
 		} `json:"conditions,omitempty"`
 
-		// JobName JobName is the reference to the job that is running the backup.
+		// ExecutionMode ExecutionMode is the resolved execution mode at the time the Backup
+		// started. Recorded for observability.
+		ExecutionMode *BackupStatusExecutionMode `json:"executionMode,omitempty"`
+
+		// JobName JobName is the reference to the Job that is running the backup.
+		// Populated only for Job classes.
 		JobName *string `json:"jobName,omitempty"`
 
-		// LastObservedGeneration LastObservedGeneration is the last observed generation of the backup job.
+		// LastObservedGeneration LastObservedGeneration is the last observed generation of the Backup CR.
 		LastObservedGeneration *int64 `json:"lastObservedGeneration,omitempty"`
 
-		// Message Message is the message of the backup job.
+		// Message Message is a human-readable message about the current state.
 		Message *string `json:"message,omitempty"`
 
-		// StartedAt StartedAt is the time when the backup job started.
+		// OperatorBackupRef OperatorBackupRef points at the operator-native backup resource the
+		// provider created (e.g., PerconaServerMongoDBBackup). Populated only
+		// for ProviderManaged classes.
+		OperatorBackupRef *struct {
+			// ApiGroup APIGroup is the group for the resource being referenced.
+			// If APIGroup is not specified, the specified Kind must be in the core API group.
+			// For any other third-party types, APIGroup is required.
+			ApiGroup *string `json:"apiGroup,omitempty"`
+
+			// Kind Kind is the type of resource being referenced
+			Kind string `json:"kind"`
+
+			// Name Name is the name of resource being referenced
+			Name string `json:"name"`
+		} `json:"operatorBackupRef,omitempty"`
+
+		// StartedAt StartedAt is the time when the backup started.
 		StartedAt *time.Time `json:"startedAt,omitempty"`
 
-		// State State is the current state of the backup job.
+		// State State is the current state of the backup.
 		State *string `json:"state,omitempty"`
 	} `json:"status,omitempty"`
 }
 
 // BackupStatusConditionsStatus status of the condition, one of True, False, Unknown.
 type BackupStatusConditionsStatus string
+
+// BackupStatusExecutionMode ExecutionMode is the resolved execution mode at the time the Backup
+// started. Recorded for observability.
+type BackupStatusExecutionMode string
 
 // BackupClass BackupClass is the Schema for the backupclasses API
 type BackupClass struct {
@@ -201,94 +248,191 @@ type BackupClass struct {
 	Kind     *string                 `json:"kind,omitempty"`
 	Metadata *map[string]interface{} `json:"metadata,omitempty"`
 
-	// Spec BackupClassSpec defines the desired state of BackupClass
+	// Spec BackupClassSpec defines the desired state of BackupClass.
 	Spec struct {
-		// CleanupJobSpec CleanupJobSpec is the specification of the cleanup job.
-		CleanupJobSpec *struct {
-			// Command Command is the command to run the backup tool.
-			Command *[]string `json:"command,omitempty"`
-
-			// Image Image is the image of the backup tool.
-			Image *string `json:"image,omitempty"`
-		} `json:"cleanupJobSpec,omitempty"`
-
-		// ClusterPermissions ClusterPermissions defines the cluster-wide permissions required by the backup tool.
-		// These permissions are used to generate a ClusterRole for the backup job.
-		ClusterPermissions *[]struct {
-			// ApiGroups APIGroups is the name of the APIGroup that contains the resources.  If multiple API groups are specified, any action requested against one of
-			// the enumerated resources in any API group will be allowed. "" represents the core API group and "*" represents all API groups.
-			ApiGroups *[]string `json:"apiGroups,omitempty"`
-
-			// NonResourceURLs NonResourceURLs is a set of partial urls that a user should have access to.  *s are allowed, but only as the full, final step in the path
-			// Since non-resource URLs are not namespaced, this field is only applicable for ClusterRoles referenced from a ClusterRoleBinding.
-			// Rules can either apply to API resources (such as "pods" or "secrets") or non-resource URL paths (such as "/api"),  but not both.
-			NonResourceURLs *[]string `json:"nonResourceURLs,omitempty"`
-
-			// ResourceNames ResourceNames is an optional white list of names that the rule applies to.  An empty set means that everything is allowed.
-			ResourceNames *[]string `json:"resourceNames,omitempty"`
-
-			// Resources Resources is a list of resources this rule applies to. '*' represents all resources.
-			Resources *[]string `json:"resources,omitempty"`
-
-			// Verbs Verbs is a list of Verbs that apply to ALL the ResourceKinds contained in this rule. '*' represents all verbs.
-			Verbs []string `json:"verbs"`
-		} `json:"clusterPermissions,omitempty"`
-
-		// Config Config contains additional configuration defined for the backup tool.
+		// Config Config contains the OpenAPI v3 schema describing the backup-time
+		// configuration accepted by this class. Backup.spec.config is validated
+		// against this schema.
 		Config *struct {
-			// OpenAPIV3Schema OpenAPIV3Schema is the OpenAPI v3 schema of the backup tool.
+			// OpenAPIV3Schema OpenAPIV3Schema is the OpenAPI v3 schema of the backup class.
 			OpenAPIV3Schema interface{} `json:"openAPIV3Schema,omitempty"`
 		} `json:"config,omitempty"`
 
-		// DataStoreConstraints DataStoreConstraints defines compatibility requirements and prerequisites that must be satisfied
-		// by a DataStore before this backup tool can be used with it. This allows the backup tool to
-		// express specific requirements about the database configuration needed for successful backup operations,
-		// such as required database fields, specific engine configurations, or other database properties.
-		// When a DataStore references this backup tool, the operator will validate the DataStore
-		// against these constraints before proceeding with the backup operation.
-		DataStoreConstraints *struct {
-			// RequiredFields RequiredFields contains a list of fields that must be set in the DataStore spec.
-			// Each key is a JSON path expressions that points to a field in the DataStore spec.
-			// For example, ".spec.engine.type" or ".spec.dataSource.dataImport.config.someField".
-			RequiredFields *[]string `json:"requiredFields,omitempty"`
-		} `json:"dataStoreConstraints,omitempty"`
-
-		// Description Description is the description of the backup tool.
+		// Description Description is the description of the backup class.
 		Description *string `json:"description,omitempty"`
+
+		// DisplayName DisplayName is a human-readable name for the backup class.
 		DisplayName *string `json:"displayName,omitempty"`
 
-		// JobSpec JobSpec is the specification of the backup job.
-		JobSpec *struct {
-			// Command Command is the command to run the backup tool.
-			Command *[]string `json:"command,omitempty"`
+		// ExecutionMode ExecutionMode selects between job-based and provider-managed execution.
+		ExecutionMode BackupClassSpecExecutionMode `json:"executionMode"`
 
-			// Image Image is the image of the backup tool.
-			Image *string `json:"image,omitempty"`
-		} `json:"jobSpec,omitempty"`
+		// InstanceConstraints InstanceConstraints defines compatibility requirements that must be
+		// satisfied by an Instance before this backup class can be used with it.
+		InstanceConstraints *struct {
+			// RequiredFields RequiredFields contains a list of fields that must be set in the Instance spec.
+			// Each key is a JSON path expressions that points to a field in the Instance spec.
+			// For example, ".spec.engine.type" or ".spec.dataSource.dataImport.config.someField".
+			RequiredFields *[]string `json:"requiredFields,omitempty"`
+		} `json:"instanceConstraints,omitempty"`
 
-		// Permissions Permissions defines the permissions required by the backup tool.
-		// These permissions are used to generate a Role for the backup job.
-		Permissions *[]struct {
-			// ApiGroups APIGroups is the name of the APIGroup that contains the resources.  If multiple API groups are specified, any action requested against one of
-			// the enumerated resources in any API group will be allowed. "" represents the core API group and "*" represents all API groups.
-			ApiGroups *[]string `json:"apiGroups,omitempty"`
+		// Job Job contains execution detail for ExecutionMode="Job". Must be unset
+		// when ExecutionMode is "ProviderManaged".
+		Job *struct {
+			// CleanupJobSpec CleanupJobSpec is the optional specification of a cleanup job that runs
+			// when the parent Backup or Restore CR is deleted.
+			CleanupJobSpec *struct {
+				// Command Command is the command to run the backup class.
+				Command *[]string `json:"command,omitempty"`
 
-			// NonResourceURLs NonResourceURLs is a set of partial urls that a user should have access to.  *s are allowed, but only as the full, final step in the path
-			// Since non-resource URLs are not namespaced, this field is only applicable for ClusterRoles referenced from a ClusterRoleBinding.
-			// Rules can either apply to API resources (such as "pods" or "secrets") or non-resource URL paths (such as "/api"),  but not both.
-			NonResourceURLs *[]string `json:"nonResourceURLs,omitempty"`
+				// Image Image is the image of the backup class.
+				Image *string `json:"image,omitempty"`
+			} `json:"cleanupJobSpec,omitempty"`
 
-			// ResourceNames ResourceNames is an optional white list of names that the rule applies to.  An empty set means that everything is allowed.
-			ResourceNames *[]string `json:"resourceNames,omitempty"`
+			// ClusterPermissions ClusterPermissions are cluster-scoped PolicyRules granted via a
+			// generated ClusterRole and ClusterRoleBinding.
+			ClusterPermissions *[]struct {
+				// ApiGroups APIGroups is the name of the APIGroup that contains the resources.  If multiple API groups are specified, any action requested against one of
+				// the enumerated resources in any API group will be allowed. "" represents the core API group and "*" represents all API groups.
+				ApiGroups *[]string `json:"apiGroups,omitempty"`
 
-			// Resources Resources is a list of resources this rule applies to. '*' represents all resources.
-			Resources *[]string `json:"resources,omitempty"`
+				// NonResourceURLs NonResourceURLs is a set of partial urls that a user should have access to.  *s are allowed, but only as the full, final step in the path
+				// Since non-resource URLs are not namespaced, this field is only applicable for ClusterRoles referenced from a ClusterRoleBinding.
+				// Rules can either apply to API resources (such as "pods" or "secrets") or non-resource URL paths (such as "/api"),  but not both.
+				NonResourceURLs *[]string `json:"nonResourceURLs,omitempty"`
 
-			// Verbs Verbs is a list of Verbs that apply to ALL the ResourceKinds contained in this rule. '*' represents all verbs.
-			Verbs []string `json:"verbs"`
-		} `json:"permissions,omitempty"`
+				// ResourceNames ResourceNames is an optional white list of names that the rule applies to.  An empty set means that everything is allowed.
+				ResourceNames *[]string `json:"resourceNames,omitempty"`
 
-		// SupportedProviders SupportedProviders is the list of providers that the backup tool supports.
+				// Resources Resources is a list of resources this rule applies to. '*' represents all resources.
+				Resources *[]string `json:"resources,omitempty"`
+
+				// Verbs Verbs is a list of Verbs that apply to ALL the ResourceKinds contained in this rule. '*' represents all verbs.
+				Verbs []string `json:"verbs"`
+			} `json:"clusterPermissions,omitempty"`
+
+			// JobSpec JobSpec is the specification of the backup or restore job.
+			JobSpec struct {
+				// Command Command is the command to run the backup class.
+				Command *[]string `json:"command,omitempty"`
+
+				// Image Image is the image of the backup class.
+				Image *string `json:"image,omitempty"`
+			} `json:"jobSpec"`
+
+			// Permissions Permissions are namespace-scoped PolicyRules granted to the job pod via
+			// a generated Role and RoleBinding.
+			Permissions *[]struct {
+				// ApiGroups APIGroups is the name of the APIGroup that contains the resources.  If multiple API groups are specified, any action requested against one of
+				// the enumerated resources in any API group will be allowed. "" represents the core API group and "*" represents all API groups.
+				ApiGroups *[]string `json:"apiGroups,omitempty"`
+
+				// NonResourceURLs NonResourceURLs is a set of partial urls that a user should have access to.  *s are allowed, but only as the full, final step in the path
+				// Since non-resource URLs are not namespaced, this field is only applicable for ClusterRoles referenced from a ClusterRoleBinding.
+				// Rules can either apply to API resources (such as "pods" or "secrets") or non-resource URL paths (such as "/api"),  but not both.
+				NonResourceURLs *[]string `json:"nonResourceURLs,omitempty"`
+
+				// ResourceNames ResourceNames is an optional white list of names that the rule applies to.  An empty set means that everything is allowed.
+				ResourceNames *[]string `json:"resourceNames,omitempty"`
+
+				// Resources Resources is a list of resources this rule applies to. '*' represents all resources.
+				Resources *[]string `json:"resources,omitempty"`
+
+				// Verbs Verbs is a list of Verbs that apply to ALL the ResourceKinds contained in this rule. '*' represents all verbs.
+				Verbs []string `json:"verbs"`
+			} `json:"permissions,omitempty"`
+		} `json:"job,omitempty"`
+
+		// ProviderManaged ProviderManaged contains hints for ExecutionMode="ProviderManaged". The
+		// schema is intentionally open: providers may surface capability
+		// information (e.g., whether PITR is supported, schedule expression
+		// dialect) without forcing a CRD change. Must be unset when
+		// ExecutionMode is "Job".
+		ProviderManaged *struct {
+			// SupportsPITR SupportsPITR indicates whether this class supports point-in-time recovery.
+			// Used by Restore validation when Restore.spec.dataSource.pitr is set.
+			SupportsPITR *bool `json:"supportsPITR,omitempty"`
+		} `json:"providerManaged,omitempty"`
+
+		// RestoreConfig RestoreConfig contains the OpenAPI v3 schema describing the restore-time
+		// configuration accepted by this class. Restore.spec.config is validated
+		// against this schema.
+		RestoreConfig *struct {
+			// OpenAPIV3Schema OpenAPIV3Schema is the OpenAPI v3 schema of the backup class.
+			OpenAPIV3Schema interface{} `json:"openAPIV3Schema,omitempty"`
+		} `json:"restoreConfig,omitempty"`
+
+		// RestoreJob RestoreJob contains execution detail for the restore job in
+		// ExecutionMode="Job". Must be unset when ExecutionMode is
+		// "ProviderManaged".
+		RestoreJob *struct {
+			// CleanupJobSpec CleanupJobSpec is the optional specification of a cleanup job that runs
+			// when the parent Backup or Restore CR is deleted.
+			CleanupJobSpec *struct {
+				// Command Command is the command to run the backup class.
+				Command *[]string `json:"command,omitempty"`
+
+				// Image Image is the image of the backup class.
+				Image *string `json:"image,omitempty"`
+			} `json:"cleanupJobSpec,omitempty"`
+
+			// ClusterPermissions ClusterPermissions are cluster-scoped PolicyRules granted via a
+			// generated ClusterRole and ClusterRoleBinding.
+			ClusterPermissions *[]struct {
+				// ApiGroups APIGroups is the name of the APIGroup that contains the resources.  If multiple API groups are specified, any action requested against one of
+				// the enumerated resources in any API group will be allowed. "" represents the core API group and "*" represents all API groups.
+				ApiGroups *[]string `json:"apiGroups,omitempty"`
+
+				// NonResourceURLs NonResourceURLs is a set of partial urls that a user should have access to.  *s are allowed, but only as the full, final step in the path
+				// Since non-resource URLs are not namespaced, this field is only applicable for ClusterRoles referenced from a ClusterRoleBinding.
+				// Rules can either apply to API resources (such as "pods" or "secrets") or non-resource URL paths (such as "/api"),  but not both.
+				NonResourceURLs *[]string `json:"nonResourceURLs,omitempty"`
+
+				// ResourceNames ResourceNames is an optional white list of names that the rule applies to.  An empty set means that everything is allowed.
+				ResourceNames *[]string `json:"resourceNames,omitempty"`
+
+				// Resources Resources is a list of resources this rule applies to. '*' represents all resources.
+				Resources *[]string `json:"resources,omitempty"`
+
+				// Verbs Verbs is a list of Verbs that apply to ALL the ResourceKinds contained in this rule. '*' represents all verbs.
+				Verbs []string `json:"verbs"`
+			} `json:"clusterPermissions,omitempty"`
+
+			// JobSpec JobSpec is the specification of the backup or restore job.
+			JobSpec struct {
+				// Command Command is the command to run the backup class.
+				Command *[]string `json:"command,omitempty"`
+
+				// Image Image is the image of the backup class.
+				Image *string `json:"image,omitempty"`
+			} `json:"jobSpec"`
+
+			// Permissions Permissions are namespace-scoped PolicyRules granted to the job pod via
+			// a generated Role and RoleBinding.
+			Permissions *[]struct {
+				// ApiGroups APIGroups is the name of the APIGroup that contains the resources.  If multiple API groups are specified, any action requested against one of
+				// the enumerated resources in any API group will be allowed. "" represents the core API group and "*" represents all API groups.
+				ApiGroups *[]string `json:"apiGroups,omitempty"`
+
+				// NonResourceURLs NonResourceURLs is a set of partial urls that a user should have access to.  *s are allowed, but only as the full, final step in the path
+				// Since non-resource URLs are not namespaced, this field is only applicable for ClusterRoles referenced from a ClusterRoleBinding.
+				// Rules can either apply to API resources (such as "pods" or "secrets") or non-resource URL paths (such as "/api"),  but not both.
+				NonResourceURLs *[]string `json:"nonResourceURLs,omitempty"`
+
+				// ResourceNames ResourceNames is an optional white list of names that the rule applies to.  An empty set means that everything is allowed.
+				ResourceNames *[]string `json:"resourceNames,omitempty"`
+
+				// Resources Resources is a list of resources this rule applies to. '*' represents all resources.
+				Resources *[]string `json:"resources,omitempty"`
+
+				// Verbs Verbs is a list of Verbs that apply to ALL the ResourceKinds contained in this rule. '*' represents all verbs.
+				Verbs []string `json:"verbs"`
+			} `json:"permissions,omitempty"`
+		} `json:"restoreJob,omitempty"`
+
+		// SupportedProviders SupportedProviders is the list of provider names that this backup class
+		// supports. The Instance.spec.provider must appear in this list for the
+		// class to be usable on that Instance.
 		SupportedProviders *[]string `json:"supportedProviders,omitempty"`
 	} `json:"spec"`
 
@@ -324,6 +468,9 @@ type BackupClass struct {
 	} `json:"status,omitempty"`
 }
 
+// BackupClassSpecExecutionMode ExecutionMode selects between job-based and provider-managed execution.
+type BackupClassSpecExecutionMode string
+
 // BackupClassStatusConditionsStatus status of the condition, one of True, False, Unknown.
 type BackupClassStatusConditionsStatus string
 
@@ -358,6 +505,98 @@ type BackupList struct {
 	} `json:"metadata,omitempty"`
 }
 
+// BackupStorage BackupStorage is the Schema for the backupstorages API.
+type BackupStorage struct {
+	// ApiVersion APIVersion defines the versioned schema of this representation of an object.
+	// Servers should convert recognized schemas to the latest internal value, and
+	// may reject unrecognized values.
+	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+	ApiVersion *string `json:"apiVersion,omitempty"`
+
+	// Kind Kind is a string value representing the REST resource this object represents.
+	// Servers may infer this from the endpoint the client submits requests to.
+	// Cannot be updated.
+	// In CamelCase.
+	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+	Kind     *string                 `json:"kind,omitempty"`
+	Metadata *map[string]interface{} `json:"metadata,omitempty"`
+
+	// Spec BackupStorageSpec defines the desired state of a BackupStorage.
+	//
+	// A BackupStorage is a reusable, namespaced reference to an object store
+	// (today only S3-compatible) plus the credentials needed to talk to it.
+	// It is referenced by name from:
+	//
+	//   - Instance.spec.backup.storages[].storageRef
+	//   - Backup.spec.storageName
+	//   - Restore.spec.dataSource.external.storageName
+	//
+	// Decoupling storage from individual Backup CRs makes provider-managed
+	// backups (e.g. PBM, pgBackRest) practical: the provider can register a
+	// fixed set of storages on the engine without recomputing them from a
+	// dynamic list of Backup CRs.
+	Spec struct {
+		// S3 S3 contains S3-compatible storage configuration.
+		// Required when Type is "s3".
+		S3 *struct {
+			// AccessKeyId AccessKeyID is a write-only convenience input. When set, a webhook
+			// stores it in the Secret named by CredentialsSecretName and clears
+			// this field. It is never persisted on the BackupStorage object.
+			AccessKeyId *string `json:"accessKeyId,omitempty"`
+
+			// Bucket Bucket is the name of the S3 bucket.
+			Bucket string `json:"bucket"`
+
+			// CredentialsSecretName CredentialsSecretName is the name of the Secret in the same namespace
+			// that holds the AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY keys.
+			CredentialsSecretName string `json:"credentialsSecretName"`
+
+			// EndpointURL EndpointURL is the endpoint URL of the S3-compatible service.
+			EndpointURL string `json:"endpointURL"`
+
+			// ForcePathStyle ForcePathStyle forces path-style URLs (bucket name in the path
+			// instead of the host). Defaults to false.
+			ForcePathStyle *bool `json:"forcePathStyle,omitempty"`
+
+			// Region Region is the region of the S3 bucket.
+			Region string `json:"region"`
+
+			// SecretAccessKey SecretAccessKey is a write-only convenience input. See AccessKeyID.
+			SecretAccessKey *string `json:"secretAccessKey,omitempty"`
+
+			// VerifyTLS VerifyTLS enables TLS certificate verification.
+			// Defaults to true.
+			VerifyTLS *bool `json:"verifyTLS,omitempty"`
+		} `json:"s3,omitempty"`
+
+		// Type Type is the object storage type. Today only "s3" is supported.
+		Type BackupStorageSpecType `json:"type"`
+	} `json:"spec"`
+
+	// Status BackupStorageStatus defines the observed state of a BackupStorage.
+	Status *map[string]interface{} `json:"status,omitempty"`
+}
+
+// BackupStorageSpecType Type is the object storage type. Today only "s3" is supported.
+type BackupStorageSpecType string
+
+// BackupStorageList BackupStorageList is an object that contains the list of the existing backupstorages.
+type BackupStorageList struct {
+	// ApiVersion APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+	ApiVersion *string          `json:"apiVersion,omitempty"`
+	Items      *[]BackupStorage `json:"items,omitempty"`
+
+	// Kind Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+	Kind     *string `json:"kind,omitempty"`
+	Metadata *struct {
+		// Name Name must be unique within a namespace. Is required when creating resources, although some resources may allow a client to request the generation of an appropriate name automatically. Name is primarily intended for creation idempotence and configuration definition. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names#names
+		Name *string `json:"name,omitempty"`
+
+		// Namespace Namespace defines the space within which each name must be unique. An empty namespace is equivalent to the "default" namespace, but "default" is the canonical representation. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces
+		Namespace *string `json:"namespace,omitempty"`
+	} `json:"metadata,omitempty"`
+}
+
 // Instance Instance is the Schema for the instances API
 type Instance struct {
 	// ApiVersion APIVersion defines the versioned schema of this representation of an object.
@@ -376,6 +615,92 @@ type Instance struct {
 
 	// Spec InstanceSpec defines the desired state of Instance
 	Spec struct {
+		// Backup Backup configures the backup feature for this Instance. When enabled,
+		// the provider's reconciler is given the resolved BackupClass and storage
+		// list so it can configure the engine accordingly (sidecars, agent
+		// configuration, etc.). Required for ProviderManaged BackupClasses; Job
+		// classes do not need an entry here because they read directly from
+		// individual Backup CRs.
+		Backup *struct {
+			// ClassRef ClassRef references the BackupClass that the provider should use to
+			// configure the engine. The class must have ExecutionMode=ProviderManaged
+			// and list the Instance's provider in its SupportedProviders.
+			ClassRef struct {
+				// Name Name is the BackupClass name. BackupClasses are cluster-scoped.
+				Name string `json:"name"`
+			} `json:"classRef"`
+
+			// Enabled Enabled toggles the backup feature for this Instance. When false the
+			// runtime skips ConfigureBackup() and the rest of this struct is ignored.
+			Enabled bool `json:"enabled"`
+
+			// Pitr PITR enables and configures point-in-time recovery on the engine.
+			// Requires the BackupClass to advertise PITR support via
+			// .spec.providerManaged.
+			Pitr *struct {
+				// Config Config holds provider-specific PITR options. The schema is defined by
+				// the BackupClass via .spec.providerManaged.
+				Config *map[string]interface{} `json:"config,omitempty"`
+
+				// Enabled Enabled toggles PITR.
+				Enabled bool `json:"enabled"`
+
+				// StorageName StorageName is the logical name of the storage (one of
+				// .spec.backup.storages[].name) that PITR should write to.
+				StorageName *string `json:"storageName,omitempty"`
+			} `json:"pitr,omitempty"`
+
+			// Schedules Schedules registers recurring backup tasks on the engine. Schedules
+			// produce Backup CRs (via the provider's mirroring loop) using the
+			// operator-native scheduler — the runtime never spawns CronJobs for
+			// ProviderManaged BackupClasses.
+			Schedules *[]struct {
+				// Cron Cron is a standard 5-field cron expression. The provider may reject
+				// expressions the engine does not support.
+				Cron string `json:"cron"`
+
+				// Enabled Enabled toggles the schedule. A disabled schedule is removed from
+				// the engine without losing its definition on the Instance.
+				Enabled bool `json:"enabled"`
+
+				// Name Name uniquely identifies the schedule within the Instance. The
+				// provider uses it as the schedule key on the engine and as the value
+				// of Backup.spec.scheduleName on mirrored Backup CRs.
+				Name string `json:"name"`
+
+				// RetentionCopies RetentionCopies is the number of recent backups to keep for this
+				// schedule. Zero (or unset) means "keep all". Negative values are
+				// rejected.
+				RetentionCopies *int32 `json:"retentionCopies,omitempty"`
+
+				// StorageName StorageName references one of .spec.backup.storages[].name. Required.
+				StorageName string `json:"storageName"`
+			} `json:"schedules,omitempty"`
+
+			// Storages Storages registers BackupStorages on the engine. Each entry maps a
+			// logical name (visible to the engine and reused by Backup CRs via
+			// .spec.storageName) to a BackupStorage resource.
+			Storages *[]struct {
+				// Main Main marks this storage as the engine's default. At most one storage
+				// per Instance may be marked main.
+				Main *bool `json:"main,omitempty"`
+
+				// Name Name is the logical name the engine uses for this storage. It is also
+				// the value that Backup CRs target via .spec.storageName.
+				Name string `json:"name"`
+
+				// StorageRef StorageRef references a BackupStorage in the same namespace.
+				StorageRef struct {
+					// Name Name of the referent.
+					// This field is effectively required, but due to backwards compatibility is
+					// allowed to be empty. Instances of this type with an empty value here are
+					// almost certainly wrong.
+					// More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+					Name *string `json:"name,omitempty"`
+				} `json:"storageRef"`
+			} `json:"storages,omitempty"`
+		} `json:"backup,omitempty"`
+
 		// Components Components defines the component instances for this cluster.
 		// The keys are component names (e.g., "engine", "proxy", "backupAgent").
 		// Which components are valid depends on the selected topology.
@@ -832,6 +1157,165 @@ type ProviderList struct {
 	Metadata *struct {
 		// Name Name must be unique within a namespace. Is required when creating resources, although some resources may allow a client to request the generation of an appropriate name automatically. Name is primarily intended for creation idempotence and configuration definition. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names#names
 		Name *string `json:"name,omitempty"`
+	} `json:"metadata,omitempty"`
+}
+
+// Restore Restore is the Schema for the restores API.
+type Restore struct {
+	// ApiVersion APIVersion defines the versioned schema of this representation of an object.
+	// Servers should convert recognized schemas to the latest internal value, and
+	// may reject unrecognized values.
+	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+	ApiVersion *string `json:"apiVersion,omitempty"`
+
+	// Kind Kind is a string value representing the REST resource this object represents.
+	// Servers may infer this from the endpoint the client submits requests to.
+	// Cannot be updated.
+	// In CamelCase.
+	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+	Kind     *string                 `json:"kind,omitempty"`
+	Metadata *map[string]interface{} `json:"metadata,omitempty"`
+
+	// Spec RestoreSpec defines the desired state of Restore.
+	Spec struct {
+		// Config Config is the restore-time configuration validated against the
+		// BackupClass's .spec.restoreConfig.openAPIV3Schema.
+		Config *map[string]interface{} `json:"config,omitempty"`
+
+		// DataSource DataSource defines where the backup data to restore from is located.
+		DataSource struct {
+			// BackupName BackupName references an existing Backup CR in the same namespace to
+			// restore from. The BackupClass and storage are resolved from the
+			// referenced Backup.
+			BackupName *string `json:"backupName,omitempty"`
+
+			// External External describes a backup that has no corresponding Backup CR in the
+			// cluster (e.g., a backup taken outside of OpenEverest).
+			External *struct {
+				// BackupClassName BackupClassName is the name of the BackupClass that defines how to
+				// restore this external backup.
+				BackupClassName string `json:"backupClassName"`
+
+				// Config Config is forwarded to the BackupClass's restore configuration. It is
+				// validated against the same schema as Restore.spec.config.
+				Config *map[string]interface{} `json:"config,omitempty"`
+
+				// StorageName StorageName references the BackupStorage in the same namespace that
+				// describes where the external backup data is located.
+				StorageName string `json:"storageName"`
+			} `json:"external,omitempty"`
+
+			// Pitr PITR defines point-in-time recovery options. Requires the resolved
+			// BackupClass to advertise PITR support via .spec.providerManaged.
+			Pitr *struct {
+				// Date Date is the target recovery point in time. Required when Type is "date".
+				Date *time.Time `json:"date,omitempty"`
+
+				// Type Type is the type of point-in-time recovery: "date" or "latest".
+				Type RestoreSpecDataSourcePitrType `json:"type"`
+			} `json:"pitr,omitempty"`
+		} `json:"dataSource"`
+
+		// InstanceName InstanceName is the name of the Instance to restore into. The Instance
+		// must already exist in the same namespace and use a provider listed in
+		// the BackupClass's SupportedProviders.
+		InstanceName string `json:"instanceName"`
+	} `json:"spec"`
+
+	// Status RestoreStatus defines the observed state of Restore.
+	Status *struct {
+		// CompletedAt CompletedAt is the time when the restore completed successfully.
+		CompletedAt *time.Time `json:"completedAt,omitempty"`
+		Conditions  *[]struct {
+			// LastTransitionTime lastTransitionTime is the last time the condition transitioned from one status to another.
+			// This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+			LastTransitionTime time.Time `json:"lastTransitionTime"`
+
+			// Message message is a human readable message indicating details about the transition.
+			// This may be an empty string.
+			Message string `json:"message"`
+
+			// ObservedGeneration observedGeneration represents the .metadata.generation that the condition was set based upon.
+			// For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+			// with respect to the current state of the instance.
+			ObservedGeneration *int64 `json:"observedGeneration,omitempty"`
+
+			// Reason reason contains a programmatic identifier indicating the reason for the condition's last transition.
+			// Producers of specific condition types may define expected values and meanings for this field,
+			// and whether the values are considered a guaranteed API.
+			// The value should be a CamelCase string.
+			// This field may not be empty.
+			Reason string `json:"reason"`
+
+			// Status status of the condition, one of True, False, Unknown.
+			Status RestoreStatusConditionsStatus `json:"status"`
+
+			// Type type of condition in CamelCase or in foo.example.com/CamelCase.
+			Type string `json:"type"`
+		} `json:"conditions,omitempty"`
+
+		// ExecutionMode ExecutionMode is the resolved execution mode at the time the Restore
+		// started. Recorded for observability.
+		ExecutionMode *RestoreStatusExecutionMode `json:"executionMode,omitempty"`
+
+		// JobName JobName is the reference to the Job that is running the restore.
+		// Populated only for Job classes.
+		JobName *string `json:"jobName,omitempty"`
+
+		// LastObservedGeneration LastObservedGeneration is the last observed generation of the Restore CR.
+		LastObservedGeneration *int64 `json:"lastObservedGeneration,omitempty"`
+
+		// Message Message is a human-readable message about the current state.
+		Message *string `json:"message,omitempty"`
+
+		// OperatorRestoreRef OperatorRestoreRef points at the operator-native restore resource the
+		// provider created (e.g., PerconaServerMongoDBRestore). Populated only
+		// for ProviderManaged classes.
+		OperatorRestoreRef *struct {
+			// ApiGroup APIGroup is the group for the resource being referenced.
+			// If APIGroup is not specified, the specified Kind must be in the core API group.
+			// For any other third-party types, APIGroup is required.
+			ApiGroup *string `json:"apiGroup,omitempty"`
+
+			// Kind Kind is the type of resource being referenced
+			Kind string `json:"kind"`
+
+			// Name Name is the name of resource being referenced
+			Name string `json:"name"`
+		} `json:"operatorRestoreRef,omitempty"`
+
+		// StartedAt StartedAt is the time when the restore started.
+		StartedAt *time.Time `json:"startedAt,omitempty"`
+
+		// State State is the current state of the restore.
+		State *string `json:"state,omitempty"`
+	} `json:"status,omitempty"`
+}
+
+// RestoreSpecDataSourcePitrType Type is the type of point-in-time recovery: "date" or "latest".
+type RestoreSpecDataSourcePitrType string
+
+// RestoreStatusConditionsStatus status of the condition, one of True, False, Unknown.
+type RestoreStatusConditionsStatus string
+
+// RestoreStatusExecutionMode ExecutionMode is the resolved execution mode at the time the Restore
+// started. Recorded for observability.
+type RestoreStatusExecutionMode string
+
+// RestoreList RestoreList is an object that contains the list of the existing restores.
+type RestoreList struct {
+	// ApiVersion APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+	ApiVersion *string    `json:"apiVersion,omitempty"`
+	Items      *[]Restore `json:"items,omitempty"`
+
+	// Kind Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+	Kind     *string `json:"kind,omitempty"`
+	Metadata *struct {
+		// Name Name must be unique within a namespace. Is required when creating resources, although some resources may allow a client to request the generation of an appropriate name automatically. Name is primarily intended for creation idempotence and configuration definition. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names#names
+		Name *string `json:"name,omitempty"`
+
+		// Namespace Namespace defines the space within which each name must be unique. An empty namespace is equivalent to the "default" namespace, but "default" is the canonical representation. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces
+		Namespace *string `json:"namespace,omitempty"`
 	} `json:"metadata,omitempty"`
 }
 

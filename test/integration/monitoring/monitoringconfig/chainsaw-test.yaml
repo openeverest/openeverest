@@ -1,0 +1,369 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: monitoringconfig
+spec:
+  timeouts:
+    apply: 10s
+    assert: 30s
+    delete: 30s
+  steps:
+    # Step 0: Install Provider, Secret, and MonitoringConfig
+    - name: install
+      try:
+        - apply:
+            resource:
+              apiVersion: core.openeverest.io/v1alpha1
+              kind: Provider
+              metadata:
+                name: test-provider
+                labels:
+                  app.kubernetes.io/managed-by: openeverest
+              spec:
+                componentTypes:
+                  pmm:
+                    versions:
+                      - default: true
+                        image: percona/pmm-client:2.44.1
+                        version: 2.44.1
+                components:
+                  monitoring:
+                    type: pmm
+                topologies:
+                  replicaSet:
+                    components:
+                      monitoring:
+                        optional: true
+                uiSchema:
+        - apply:
+            resource:
+              apiVersion: v1
+              kind: Secret
+              metadata:
+                name: mc-test-secret
+              type: Opaque
+              data:
+                apiKey: YWJjZGVm
+        - apply:
+            resource:
+              apiVersion: monitoring.openeverest.io/v1alpha2
+              kind: MonitoringConfig
+              metadata:
+                name: mc-test
+              spec:
+                type: pmm
+                credentialsSecretName: mc-test-secret
+                verifyTLS: false
+                url: http://localhost-mc-test
+        # Assert MonitoringConfig is created with correct status
+        - assert:
+            resource:
+              apiVersion: monitoring.openeverest.io/v1alpha2
+              kind: MonitoringConfig
+              metadata:
+                name: mc-test
+              spec:
+                type: pmm
+                credentialsSecretName: mc-test-secret
+                verifyTLS: false
+                url: http://localhost-mc-test
+              status:
+                inUse: false
+        # Assert Secret has ownerReference to MonitoringConfig
+        - assert:
+            resource:
+              apiVersion: v1
+              kind: Secret
+              metadata:
+                name: mc-test-secret
+                ownerReferences:
+                  - apiVersion: monitoring.openeverest.io/v1alpha2
+                    blockOwnerDeletion: true
+                    controller: true
+                    kind: MonitoringConfig
+                    name: mc-test
+              data:
+                apiKey: YWJjZGVm
+      catch:
+        - script:
+            content: kubectl get monitoringconfig/mc-test -o yaml
+        - script:
+            content: kubectl get secret/mc-test-secret -o yaml
+        - podLogs:
+            namespace: openeverest-system
+            selector: control-plane=controller-manager
+            tail: 100
+
+    # Step 1: Create Instance that uses MonitoringConfig
+    - name: create-instance
+      try:
+        - apply:
+            resource:
+              apiVersion: core.openeverest.io/v1alpha1
+              kind: Instance
+              metadata:
+                name: test-mc
+              spec:
+                provider: test-provider
+                components:
+                  monitoring:
+                    type: pmm
+                    customSpec:
+                      monitoringConfigName: mc-test
+        # Assert MonitoringConfig is now in-use with finalizer
+        - assert:
+            resource:
+              apiVersion: monitoring.openeverest.io/v1alpha2
+              kind: MonitoringConfig
+              metadata:
+                name: mc-test
+                finalizers:
+                  - monitoring.openeverest.io/in-use-protection
+              spec:
+                type: pmm
+                credentialsSecretName: mc-test-secret
+                verifyTLS: false
+                url: http://localhost-mc-test
+              status:
+                inUse: true
+        - assert:
+            resource:
+              apiVersion: v1
+              kind: Secret
+              metadata:
+                name: mc-test-secret
+                ownerReferences:
+                  - apiVersion: monitoring.openeverest.io/v1alpha2
+                    blockOwnerDeletion: true
+                    controller: true
+                    kind: MonitoringConfig
+                    name: mc-test
+              data:
+                apiKey: YWJjZGVm
+        - assert:
+            resource:
+              apiVersion: core.openeverest.io/v1alpha1
+              kind: Instance
+              metadata:
+                name: test-mc
+              spec:
+                provider: test-provider
+                components:
+                  monitoring:
+                    type: pmm
+                    customSpec:
+                      monitoringConfigName: mc-test
+      catch:
+        - script:
+            content: kubectl get monitoringconfig/mc-test -o yaml
+        - script:
+            content: kubectl get secret/mc-test-secret -o yaml
+        - podLogs:
+            namespace: openeverest-system
+            selector: control-plane=controller-manager
+            tail: 100
+
+    # Step 2: Update MonitoringConfig URL
+    - name: update-config
+      try:
+        - apply:
+            resource:
+              apiVersion: monitoring.openeverest.io/v1alpha2
+              kind: MonitoringConfig
+              metadata:
+                name: mc-test
+              spec:
+                type: pmm
+                credentialsSecretName: mc-test-secret
+                url: http://localhost-mc-test-updated
+        # Assert URL is updated and finalizer is still present
+        - assert:
+            resource:
+              apiVersion: monitoring.openeverest.io/v1alpha2
+              kind: MonitoringConfig
+              metadata:
+                name: mc-test
+                finalizers:
+                  - monitoring.openeverest.io/in-use-protection
+              spec:
+                type: pmm
+                credentialsSecretName: mc-test-secret
+                verifyTLS: false
+                url: http://localhost-mc-test-updated
+              status:
+                inUse: true
+        - assert:
+            resource:
+              apiVersion: v1
+              kind: Secret
+              metadata:
+                name: mc-test-secret
+                ownerReferences:
+                  - apiVersion: monitoring.openeverest.io/v1alpha2
+                    blockOwnerDeletion: true
+                    controller: true
+                    kind: MonitoringConfig
+                    name: mc-test
+              data:
+                apiKey: YWJjZGVm
+      catch:
+        - script:
+            content: kubectl get monitoringconfig/mc-test -o yaml
+        - podLogs:
+            namespace: openeverest-system
+            selector: control-plane=controller-manager
+            tail: 100
+
+    # Step 3: Update credentials Secret
+    - name: update-credentials
+      timeouts:
+        assert: 60s
+      try:
+        - apply:
+            resource:
+              apiVersion: v1
+              kind: Secret
+              metadata:
+                name: mc-test-secret
+              data:
+                apiKey: YXNkZmcxMjM=
+        # Assert credentials updated, finalizer and in-use still present
+        - assert:
+            resource:
+              apiVersion: monitoring.openeverest.io/v1alpha2
+              kind: MonitoringConfig
+              metadata:
+                name: mc-test
+                finalizers:
+                  - monitoring.openeverest.io/in-use-protection
+              spec:
+                type: pmm
+                credentialsSecretName: mc-test-secret
+                verifyTLS: false
+                url: http://localhost-mc-test-updated
+              status:
+                inUse: true
+        - assert:
+            resource:
+              apiVersion: v1
+              kind: Secret
+              metadata:
+                name: mc-test-secret
+                ownerReferences:
+                  - apiVersion: monitoring.openeverest.io/v1alpha2
+                    blockOwnerDeletion: true
+                    controller: true
+                    kind: MonitoringConfig
+                    name: mc-test
+              data:
+                apiKey: YXNkZmcxMjM=
+      catch:
+        - script:
+            content: kubectl get secret/mc-test-secret -o yaml
+        - podLogs:
+            namespace: openeverest-system
+            selector: control-plane=controller-manager
+            tail: 100
+
+    # Step 4: Delete MonitoringConfig (should be blocked by in-use finalizer)
+    - name: delete-monitoringconfig-blocked
+      try:
+        - script:
+            content: |
+              kubectl -n $NAMESPACE delete monitoringconfig/mc-test --wait=false
+            timeout: 10s
+        - sleep:
+            duration: 5s
+        # Assert MonitoringConfig still exists (protected by finalizer)
+        - assert:
+            resource:
+              apiVersion: monitoring.openeverest.io/v1alpha2
+              kind: MonitoringConfig
+              metadata:
+                name: mc-test
+                finalizers:
+                  - monitoring.openeverest.io/in-use-protection
+              spec:
+                type: pmm
+                credentialsSecretName: mc-test-secret
+                verifyTLS: false
+                url: http://localhost-mc-test-updated
+              status:
+                inUse: true
+        - assert:
+            resource:
+              apiVersion: v1
+              kind: Secret
+              metadata:
+                name: mc-test-secret
+                ownerReferences:
+                  - apiVersion: monitoring.openeverest.io/v1alpha2
+                    blockOwnerDeletion: true
+                    controller: true
+                    kind: MonitoringConfig
+                    name: mc-test
+              data:
+                apiKey: YXNkZmcxMjM=
+      catch:
+        - script:
+            content: kubectl get monitoringconfig/mc-test -o yaml
+        - podLogs:
+            namespace: openeverest-system
+            selector: control-plane=controller-manager
+            tail: 100
+
+    # Step 5: Remove MonitoringConfig from Instance (allows deletion)
+    - name: update-instance-remove-config
+      try:
+        - apply:
+            resource:
+              apiVersion: core.openeverest.io/v1alpha1
+              kind: Instance
+              metadata:
+                name: test-mc
+              spec:
+                provider: test-provider
+                components:
+                  monitoring:
+                    type: pmm
+                    customSpec: {}
+        # Assert MonitoringConfig and its secret are deleted
+        - script:
+            content: kubectl wait --for=delete monitoringconfig/mc-test --timeout=30s
+        - script:
+            content: kubectl wait --for=delete secret/mc-test-secret --timeout=30s
+        - assert:
+            resource:
+              apiVersion: core.openeverest.io/v1alpha1
+              kind: Instance
+              metadata:
+                name: test-mc
+              spec:
+                provider: test-provider
+                components:
+                  monitoring:
+                    type: pmm
+                    customSpec: {}
+      catch:
+        - script:
+            content: kubectl get monitoringconfig/mc-test -o yaml
+        - podLogs:
+            namespace: openeverest-system
+            selector: control-plane=controller-manager
+            tail: 100
+
+    # Step 6: Cleanup - delete Instance
+    - name: cleanup
+      try:
+        - delete:
+            ref:
+              apiVersion: core.openeverest.io/v1alpha1
+              kind: Instance
+              name: test-mc
+        - script:
+            content: kubectl wait --for=delete instance/test-mc --timeout=30s
+      catch:
+        - podLogs:
+            namespace: openeverest-system
+            selector: control-plane=controller-manager
+            tail: 100

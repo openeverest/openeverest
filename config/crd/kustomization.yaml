@@ -7,6 +7,8 @@ resources:
 - bases/backup.openeverest.io_backupclasses.yaml
 - bases/backup.openeverest.io_backups.yaml
 - bases/monitoring.openeverest.io_monitoringconfigs.yaml
+- bases/backup.openeverest.io_restores.yaml
+- bases/backup.openeverest.io_backupstorages.yaml
 # +kubebuilder:scaffold:crdkustomizeresource
 
 patches:

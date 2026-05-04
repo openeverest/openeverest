@@ -2,6 +2,10 @@
 !bin/everest
 !bin/manager
 !cmd
+!commands
+!internal
+!client
+!data
 !migrations
 !model
 !service

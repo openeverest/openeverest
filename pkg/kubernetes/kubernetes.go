@@ -45,6 +45,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 
+	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
 	"github.com/openeverest/openeverest/v2/api/core/v1alpha1"
 	monitoringv1alpha2 "github.com/openeverest/openeverest/v2/api/monitoring/v1alpha2"
 	"github.com/openeverest/openeverest/v2/pkg/common"
@@ -187,6 +188,7 @@ func CreateScheme() *runtime.Scheme {
 	utilruntime.Must(apiextv1.AddToScheme(scheme))
 	utilruntime.Must(v1alpha1.AddToScheme(scheme))
 	utilruntime.Must(monitoringv1alpha2.AddToScheme(scheme))
+	utilruntime.Must(backupv1alpha1.AddToScheme(scheme))
 	return scheme
 }
 
