@@ -9,7 +9,7 @@ metadata:
   name: everest-dev
 servers: 1 # number of control-plane nodes in the cluster
 agents: 3 # number of worker nodes in the cluster
-image: rancher/k3s:v1.35.3-k3s1 # image to use for the cluster nodes; list of supported images: https://hub.docker.com/r/rancher/k3s/tags
+image: rancher/k3s:v1.35.4-k3s1 # image to use for the cluster nodes; list of supported images: https://hub.docker.com/r/rancher/k3s/tags
 registries: # define how registries should be created or used
   create: # creates a default registry to be used with the cluster; same as `--registry-create k3d-registry`
     name: k3d-registry
