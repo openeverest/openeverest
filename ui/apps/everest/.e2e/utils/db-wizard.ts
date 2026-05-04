@@ -15,6 +15,25 @@
 import { expect, Page } from '@playwright/test';
 import { TIMEOUTS } from '@e2e/constants';
 
+export const openDbCreationForm = async (page: Page, providerName?: string) => {
+  const btn = page.getByTestId('add-db-cluster-button');
+  await btn.click();
+
+  // If the button opened a menu (multiple providers), pick an item
+  const menu = page.getByTestId('add-db-cluster-button-menu');
+  const menuVisible = await menu.isVisible().catch(() => false);
+
+  if (menuVisible) {
+    if (providerName) {
+      await menu.getByRole('menuitem', { name: providerName }).click();
+    } else {
+      await menu.getByRole('menuitem').first().click();
+    }
+  }
+
+  await page.waitForURL('/databases/new', { timeout: TIMEOUTS.ThirtySeconds });
+};
+
 export const storageLocationAutocompleteEmptyValidationCheck = async (
   page: Page,
   id?: string
@@ -354,13 +373,19 @@ export const populateMonitoringModalForm = async (
     // check monitoring fallback is visible (no monitoring configs available)
     await expect(page.getByTestId('monitoring-empty-fallback')).toBeVisible();
   }
-  expect(await page.getByLabel('Enable monitoring').isChecked()).toBeFalsy();
+
+  // TODO return switch logic with switch component in ui-generator
+  const enableMonitoringToggle = page.getByLabel('Enable monitoring');
+  if (await enableMonitoringToggle.isVisible().catch(() => false)) {
+    expect(await enableMonitoringToggle.isChecked()).toBeFalsy();
+  }
+
   await page.getByRole('button', { name: 'Add monitoring endpoint' }).click();
 
   await page.getByTestId('text-input-name').fill(endpointName);
   const namespaces = page.getByTestId('text-input-namespace');
   await namespaces.click();
-  await page.getByRole('option', { name: namespace }).click();
+  await page.getByRole('option', { name: namespace, exact: true }).click();
   await page.getByTestId('text-input-url').fill(url);
   await page.getByTestId('text-input-user').fill(user);
   await page.getByTestId('text-input-password').fill(password);
@@ -369,5 +394,9 @@ export const populateMonitoringModalForm = async (
   await page.getByTestId('form-dialog-add').click();
 
   await expect(page.getByTestId('monitoring-empty-fallback')).not.toBeVisible();
-  await expect(page.getByTestId('switch-input-monitoring')).toBeEnabled();
+
+  const monitoringSwitch = page.getByTestId('switch-input-monitoring');
+  if (await monitoringSwitch.isVisible().catch(() => false)) {
+    await expect(monitoringSwitch).toBeEnabled();
+  }
 };

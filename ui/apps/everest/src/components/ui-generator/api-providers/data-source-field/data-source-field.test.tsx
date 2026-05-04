@@ -306,6 +306,7 @@ describe('DataSourceField', () => {
       render(<Harness />);
 
       expect(screen.queryByTestId('fallback')).not.toBeInTheDocument();
+      expect(screen.getByTestId('child')).toBeInTheDocument();
     });
 
     it('does not render fallback when options are present', () => {
@@ -335,6 +336,7 @@ describe('DataSourceField', () => {
       render(<Harness />);
 
       expect(screen.queryByTestId('fallback')).not.toBeInTheDocument();
+      expect(screen.getByTestId('child')).toBeInTheDocument();
     });
   });
 });

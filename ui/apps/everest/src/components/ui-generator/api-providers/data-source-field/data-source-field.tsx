@@ -122,12 +122,14 @@ export const DataSourceField: React.FC<DataSourceFieldProps> = ({
     } as Component;
   }, [baseComponent, options, isLoading, error, isEmpty]);
 
-  const FallbackComponent = useMemo(() => {
+  const fallback = useMemo(() => {
     const entry = providerRegistry.get(dataSource.provider);
-    return entry?.emptyStateFallback?.component ?? null;
+    return entry?.emptyStateFallback ?? null;
   }, [dataSource.provider]);
 
-  if (isEmpty && !isLoading && FallbackComponent && namespace) {
+  if (isEmpty && !isLoading && fallback && namespace) {
+    const { component: FallbackComponent } = fallback;
+
     return <FallbackComponent namespace={namespace} cluster={cluster} />;
   }
 

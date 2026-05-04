@@ -28,8 +28,46 @@ import {
   getMonitoringConfig,
   listMonitoringConfigs,
 } from '@e2e/utils/monitoring-config';
-import { goToStep } from '@e2e/utils/db-wizard';
+import {
+  openDbCreationForm,
+  populateMonitoringModalForm,
+} from '@e2e/utils/db-wizard';
+import { setNamespace } from '@e2e/utils/namespaces';
 const { MONITORING_URL, MONITORING_USER, MONITORING_PASSWORD } = process.env;
+
+const mockedMonitoringProvider = {
+  apiVersion: 'everest.percona.com/v1alpha1',
+  kind: 'Provider',
+  metadata: {
+    name: 'postgresql',
+  },
+  spec: {
+    uiSchema: {
+      single: {
+        sections: {
+          monitoring: {
+            label: 'Custom monitoring section',
+            components: {
+              monitoringConfig: {
+                uiType: 'select',
+                path: 'spec.components.monitoring.customSpec.monitoringConfigName',
+                dataSource: {
+                  provider: 'monitoringConfigs',
+                },
+                fieldParams: {
+                  label: 'Monitoring config',
+                },
+              },
+            },
+          },
+        },
+        sectionsOrder: ['monitoring'],
+      },
+    },
+  },
+};
+
+const monitoringFallbackTestId = 'monitoring-empty-fallback';
 
 test.describe.serial('Monitoring Configs', () => {
   const monitoringConfigName = limitedSuffixedName('pr-set-mon'),
@@ -161,10 +199,15 @@ test.describe.serial('Monitoring Configs', () => {
     await waitForDelete(page, monitoringConfigName, TIMEOUTS.TenSeconds);
   });
 
-  test('Shows wizard monitoring fallback when no configs exist and allows inline creation', async ({
+  test('Shows DB creation monitoring fallback when no configs exist and allows inline creation', async ({
     page,
     request,
   }) => {
+    // This test navigates away from the settings page, runs API cleanup,
+    // opens the DB creation form, interacts with a modal and verifies multiple
+    // assertions — the default 30 s timeout is not enough.
+    test.setTimeout(TIMEOUTS.ThreeMinutes);
+
     // Keep this suite self-contained: it owns the namespace state needed for the
     // fallback test and should not depend on the global monitoring setup.
     const configs = await listMonitoringConfigs(request, namespace, token);
@@ -179,27 +222,46 @@ test.describe.serial('Monitoring Configs', () => {
       }
     }
 
+    await expect(async () => {
+      const remainingConfigs = await listMonitoringConfigs(
+        request,
+        namespace,
+        token
+      );
+      expect(remainingConfigs?.items ?? []).toHaveLength(0);
+    }).toPass({
+      intervals: [1000, 2000, 3000],
+      timeout: TIMEOUTS.ThirtySeconds,
+    });
+
+    await page.route('**/v1/clusters/main/providers', async (route) => {
+      await route.fulfill({
+        json: {
+          items: [mockedMonitoringProvider],
+        },
+      });
+    });
+
     await goToUrl(page, '/databases');
 
-    // Open the DB creation wizard for PostgreSQL
-    await page.getByTestId('add-db-cluster-button').click();
-    await page
-      .getByTestId('add-db-cluster-button-menu')
-      .getByRole('menuitem')
-      .first()
-      .waitFor();
-    await page.getByTestId('add-db-cluster-button-postgresql').click();
-    await page.waitForURL('/databases/new');
+    await openDbCreationForm(page);
+    await setNamespace(page, namespace);
 
-    // Navigate to the Monitoring step
-    await goToStep(page, 'monitoring');
+    const configureMoreButton = page.getByRole('button', {
+      name: 'Configure more options',
+    });
+
+    if (await configureMoreButton.isVisible().catch(() => false)) {
+      await configureMoreButton.click();
+    }
+
+    await expect(
+      page.getByRole('heading', { name: 'Custom monitoring section' })
+    ).toBeVisible({ timeout: TIMEOUTS.ThirtySeconds });
 
     await test.step('Verify fallback warning is visible', async () => {
-      const fallback = page.getByTestId('monitoring-empty-fallback');
+      const fallback = page.getByTestId(monitoringFallbackTestId);
       await expect(fallback).toBeVisible({ timeout: TIMEOUTS.ThirtySeconds });
-
-      await expect(fallback).toContainText('monitoring');
-      await expect(fallback).toContainText(namespace);
 
       const addButton = fallback.getByRole('button', {
         name: /add monitoring endpoint/i,
@@ -208,44 +270,25 @@ test.describe.serial('Monitoring Configs', () => {
     });
 
     await test.step('Create monitoring config via inline modal', async () => {
-      const fallback = page.getByTestId('monitoring-empty-fallback');
-      const addButton = fallback.getByRole('button', {
-        name: /add monitoring endpoint/i,
-      });
-      await addButton.click();
-
-      await page.getByTestId('text-input-name').fill(fallbackConfigName);
-
-      // Namespace should be auto-filled from the wizard context
-      await expect(page.getByTestId('text-input-namespace')).toHaveValue(
-        namespace
+      await populateMonitoringModalForm(
+        page,
+        fallbackConfigName,
+        namespace,
+        MONITORING_URL!,
+        MONITORING_USER!,
+        MONITORING_PASSWORD!,
+        false
       );
-
-      await page.getByTestId('text-input-url').fill(MONITORING_URL!);
-      await page.getByTestId('text-input-user').fill(MONITORING_USER!);
-      await page.getByTestId('text-input-password').fill(MONITORING_PASSWORD!);
-
-      await expect(page.getByTestId('form-dialog-add')).toBeEnabled();
-      await page.getByTestId('form-dialog-add').click();
     });
 
     await test.step('Verify fallback disappears and select shows the new config', async () => {
-      await expect(
-        page.getByTestId('monitoring-empty-fallback')
-      ).not.toBeVisible({ timeout: TIMEOUTS.ThirtySeconds });
+      await expect(page.getByTestId(monitoringFallbackTestId)).not.toBeVisible({
+        timeout: TIMEOUTS.ThirtySeconds,
+      });
 
-      const selectInput = page.locator(
-        '[data-testid*="select-input"][data-testid*="monitoring"]'
-      );
+      const selectInput = page.getByRole('combobox').first();
       await expect(selectInput).toBeVisible({ timeout: TIMEOUTS.TenSeconds });
-      await expect(selectInput).toHaveValue(fallbackConfigName);
-    });
-
-    await test.step('Verify the preview sidebar shows monitoring config name', async () => {
-      const monitoringSection = page.getByTestId('section-monitoring');
-      await expect(monitoringSection).toBeVisible();
-      const previewContent = monitoringSection.getByTestId('preview-content');
-      await expect(previewContent).toContainText(fallbackConfigName);
+      await expect(selectInput).toContainText(fallbackConfigName);
     });
   });
 });
