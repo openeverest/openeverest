@@ -1,4 +1,8 @@
-/// <reference types="vitest" />
+// Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
+//
+// Licensed under the Apache License, Version 2.0
+
 
 import { describe, it, vi } from 'vitest';
 
@@ -18,11 +22,12 @@ vi.mock('./auth.provider', async () => {
   const actual = await vi.importActual<typeof import('./auth.provider')>('./auth.provider');
   return {
     ...actual,
-    default: ({ children }: any) => children, // skip auth logic
+    default: ({ children }: { children: ReactNode }) => children
   };
 });
 
 //Now import everything
+import type { ReactNode } from 'react';
 import { render } from '@testing-library/react';
 import AuthProvider from './auth.provider';
 import * as apiModule from '../../api/api';
