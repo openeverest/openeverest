@@ -14,7 +14,7 @@ require (
 	github.com/charmbracelet/bubbles v0.20.0
 	github.com/charmbracelet/bubbletea v1.3.6
 	github.com/charmbracelet/lipgloss v1.1.0
-	github.com/getkin/kin-openapi v0.132.0
+	github.com/getkin/kin-openapi v0.137.0
 	github.com/go-logr/zapr v1.3.0
 	github.com/golang-jwt/jwt/v5 v5.3.1
 	github.com/google/uuid v1.6.0
@@ -289,8 +289,8 @@ require (
 	github.com/nishanths/predeclared v0.2.2 // indirect
 	github.com/nunnatsa/ginkgolinter v0.19.1 // indirect
 	github.com/oapi-codegen/oapi-codegen/v2 v2.5.0 // indirect
-	github.com/oasdiff/yaml v0.0.0-20250309154309-f31be36b4037 // indirect
-	github.com/oasdiff/yaml3 v0.0.0-20250309153720-d2182401db90 // indirect
+	github.com/oasdiff/yaml v0.0.9 // indirect
+	github.com/oasdiff/yaml3 v0.0.12 // indirect
 	github.com/oklog/ulid/v2 v2.1.1 // indirect
 	github.com/opencontainers/go-digest v1.0.0 // indirect
 	github.com/opencontainers/image-spec v1.1.1 // indirect
@@ -366,6 +366,7 @@ require (
 	github.com/vburenin/ifacemaker v1.3.0 // indirect
 	github.com/vektra/mockery/v2 v2.53.5 // indirect
 	github.com/vmware-labs/yaml-jsonpath v0.3.2 // indirect
+	github.com/woodsbury/decimal128 v1.3.0 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
 	github.com/xanzy/go-gitlab v0.114.0 // indirect
 	github.com/xdg-go/pbkdf2 v1.0.0 // indirect
