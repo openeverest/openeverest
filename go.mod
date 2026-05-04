@@ -38,13 +38,13 @@ require (
 	golang.org/x/mod v0.34.0
 	golang.org/x/term v0.41.0
 	golang.org/x/time v0.14.0
-	google.golang.org/protobuf v1.36.11
+	google.golang.org/protobuf v1.36.12-0.20260120151049-f2248ac996af
 	gopkg.in/yaml.v2 v2.4.0
 	gopkg.in/yaml.v3 v3.0.1
 	helm.sh/helm/v3 v3.18.5
-	k8s.io/api v0.35.3
+	k8s.io/api v0.36.0
 	k8s.io/apiextensions-apiserver v0.35.3
-	k8s.io/apimachinery v0.35.3
+	k8s.io/apimachinery v0.36.0
 	k8s.io/cli-runtime v0.33.3
 	k8s.io/client-go v0.35.3
 	k8s.io/kubectl v0.33.3
@@ -274,7 +274,7 @@ require (
 	github.com/mitchellh/go-homedir v1.1.0 // indirect
 	github.com/mitchellh/go-wordwrap v1.0.1 // indirect
 	github.com/mitchellh/reflectwalk v1.0.2 // indirect
-	github.com/moby/spdystream v0.5.0 // indirect
+	github.com/moby/spdystream v0.5.1 // indirect
 	github.com/moby/term v0.5.2 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.3-0.20250322232337-35a7c28c31ee // indirect
@@ -286,7 +286,6 @@ require (
 	github.com/muesli/cancelreader v0.2.2 // indirect
 	github.com/muesli/termenv v0.16.0 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
-	github.com/mxk/go-flowrate v0.0.0-20140419014527-cca7078d478f // indirect
 	github.com/nakabonne/nestif v0.3.1 // indirect
 	github.com/nishanths/exhaustive v0.12.0 // indirect
 	github.com/nishanths/predeclared v0.2.2 // indirect
@@ -416,7 +415,8 @@ require (
 	k8s.io/apiserver v0.35.3 // indirect
 	k8s.io/component-base v0.35.3 // indirect
 	k8s.io/klog/v2 v2.140.0 // indirect
-	k8s.io/kube-openapi v0.0.0-20260127142750-a19766b6e2d4 // indirect
+	k8s.io/kube-openapi v0.0.0-20260317180543-43fb72c5454a // indirect
+	k8s.io/streaming v0.36.0 // indirect
 	mvdan.cc/gofumpt v0.8.0 // indirect
 	mvdan.cc/unparam v0.0.0-20250301125049-0df0534333a4 // indirect
 	oras.land/oras-go/v2 v2.6.0 // indirect
