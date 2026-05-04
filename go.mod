@@ -21,11 +21,11 @@ require (
 	github.com/hashicorp/go-version v1.8.0
 	github.com/kelseyhightower/envconfig v1.4.0
 	github.com/labstack/echo-jwt/v4 v4.3.1
-	github.com/labstack/echo/v4 v4.13.4
+	github.com/labstack/echo/v4 v4.15.1
 	github.com/lestrrat-go/jwx/v2 v2.1.6
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/oapi-codegen/echo-middleware v1.0.2
-	github.com/oapi-codegen/runtime v1.1.1
+	github.com/oapi-codegen/runtime v1.4.0
 	github.com/openeverest/helm-charts/charts/everest v0.0.0-20260501141200-9a8a7dec9105
 	github.com/operator-framework/api v0.33.0
 	github.com/percona/everest-operator v0.6.0-dev1.0.20260427162043-f8a74aaccbb7
@@ -360,7 +360,6 @@ require (
 	github.com/timonwong/loggercheck v0.11.0 // indirect
 	github.com/tomarrell/wrapcheck/v2 v2.11.0 // indirect
 	github.com/tommy-muehle/go-mnd/v2 v2.5.1 // indirect
-	github.com/ugorji/go/codec v1.2.12 // indirect
 	github.com/ultraware/funlen v0.2.0 // indirect
 	github.com/ultraware/whitespace v0.2.0 // indirect
 	github.com/uudashr/gocognit v1.2.0 // indirect
