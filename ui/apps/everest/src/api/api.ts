@@ -1,3 +1,6 @@
+
+// Copyright (c) 2026 Percona LLC
+// Licensed under the Apache License, Version 2.0
 // everest
 // Copyright (C) 2023 Percona LLC
 //
