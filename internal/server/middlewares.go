@@ -112,9 +112,7 @@ func (e *EverestServer) validateIfPasswordChangeIsRequired(next echo.HandlerFunc
 		}
 		mustChangePassword, ok := claims[session.MustChangePasswordClaim].(bool)
 		if !ok {
-			if !ok {
-				return errors.New("failed to parse claim from token")
-			}
+			return errors.New("failed to parse claim from token")
 		}
 		_ = mustChangePassword
 		// if mustChangePassword {

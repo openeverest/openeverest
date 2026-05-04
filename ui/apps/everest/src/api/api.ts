@@ -55,19 +55,6 @@ export const addApiErrorInterceptor = () => {
             return;
           }
 
-          if (
-            error.response.status === 403 &&
-            message.includes(PASSWORD_CHANGE_REQUIRED_MESSAGE)
-          ) {
-            location.href = '/logout';
-
-            enqueueSnackbar(message, {
-              variant: 'error',
-            });
-
-            return;
-          }
-
           if (!notificationsDisabled) {
             message = message.trim();
             if (message.length > MAX_ERROR_MESSAGE_LENGTH) {

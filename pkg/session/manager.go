@@ -141,7 +141,7 @@ func (mgr *Manager) Create(subject string, secondsBeforeExpiry int64, id string,
 	// Create a new token object, specifying signing method and the claims
 	// you would like it to contain.
 	now := time.Now().UTC()
-	claims := EverestClaims{
+	claims := &EverestClaims{
 		RegisteredClaims: jwt.RegisteredClaims{
 			IssuedAt:  jwt.NewNumericDate(now),
 			Issuer:    SessionManagerClaimsIssuer,
@@ -159,7 +159,7 @@ func (mgr *Manager) Create(subject string, secondsBeforeExpiry int64, id string,
 	return mgr.signClaims(claims)
 }
 
-func (mgr *Manager) signClaims(claims EverestClaims) (string, error) {
+func (mgr *Manager) signClaims(claims jwt.Claims) (string, error) {
 	token := jwt.NewWithClaims(jwt.SigningMethodRS256, claims)
 	return token.SignedString(mgr.signingKey)
 }
