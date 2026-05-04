@@ -110,7 +110,7 @@ const AuthProvider = ({ children, isSsoEnabled }: AuthProviderProps) => {
     }
   };
 
-  const logout = async () => {
+  const logout = async () => { 
     const token = localStorage.getItem('everestToken');
     try {
       await api.delete('/session', { headers: { token } });
