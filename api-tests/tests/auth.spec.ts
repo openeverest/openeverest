@@ -38,7 +38,7 @@ test.describe.parallel('Auth tests', () => {
     test('auth header fails with no content', async ({request}) => {
       const version = await request.get('/v1/version');
 
-      expect(version.status()).toEqual(400);
+      expect(version.status()).toEqual(401);
     });
   });
 
