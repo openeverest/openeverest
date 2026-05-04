@@ -63,14 +63,14 @@ A `dataSource` field is still a regular `select` — the only difference is that
 
 ## Field Behavior
 
-| State          | Field    | Text                       | Fallback                                   |
-| -------------- | -------- | -------------------------- | ------------------------------------------ |
-| Loading        | disabled | Loading...                 | not shown                                  |
-| Fetch failed   | disabled | Failed to load options     | not shown                                  |
-| No options     | enabled  | No options available       | shown if provider has `emptyStateFallback` |
-| Options loaded | enabled  | first option auto-selected | not shown                                  |
+| State          | Field    | Text                       | Fallback                                                     |
+| -------------- | -------- | -------------------------- | ------------------------------------------------------------ |
+| Loading        | disabled | Loading...                 | not shown                                                    |
+| Fetch failed   | disabled | Failed to load options     | not shown                                                    |
+| No options     | hidden   | —                          | shown instead of select if provider has `emptyStateFallback` |
+| Options loaded | enabled  | first option auto-selected | not shown                                                    |
 
-When a provider registers an `emptyStateFallback`, `DataSourceField` automatically renders the fallback component above the (disabled) select whenever options are empty. This is used for resources that can be user-created (e.g. monitoring endpoints). Providers for non-creatable resources (e.g. StorageClasses) register `emptyStateFallback: null`.
+When a provider registers an `emptyStateFallback`, `DataSourceField` renders the fallback component **instead of** the select field whenever options are empty. The select is not shown at all — the fallback completely replaces it. This is used for resources that can be user-created (e.g. monitoring endpoints). Providers for non-creatable resources (e.g. StorageClasses) register `emptyStateFallback: null`, in which case the select is rendered normally with a "No options available" helper text.
 
 ## Adding a New Provider in https://github.com/openeverest/openeverest
 
@@ -91,7 +91,7 @@ When a provider registers an `emptyStateFallback`, `DataSourceField` automatical
    });
    ```
 
-3. Use `provider: xxx` in the schema.
+4. Use `provider: xxx` in the schema.
 
 ### ProviderParams / ProviderOptions types
 

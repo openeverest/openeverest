@@ -91,7 +91,6 @@ export const DataSourceField: React.FC<DataSourceFieldProps> = ({
     if (corrected !== null) {
       setValue(name, corrected, {
         shouldValidate: true,
-        shouldDirty: true,
       });
     }
   }, [isLoading, options, name, getValues, setValue]);

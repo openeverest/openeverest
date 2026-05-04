@@ -171,7 +171,11 @@ test.describe.serial('Monitoring Configs', () => {
     for (const config of configs?.items ?? []) {
       const name = config.metadata?.name;
       if (name) {
-        await deleteMonitoringConfig(request, namespace, name, token);
+        try {
+          await deleteMonitoringConfig(request, namespace, name, token);
+        } catch {
+          // Config may already be gone from a previous cleanup pass.
+        }
       }
     }
 
@@ -212,11 +216,10 @@ test.describe.serial('Monitoring Configs', () => {
 
       await page.getByTestId('text-input-name').fill(fallbackConfigName);
 
-      const namespaceInput = page.getByTestId('text-input-namespace');
-      if (await namespaceInput.isVisible()) {
-        await namespaceInput.click();
-        await page.getByRole('option', { name: namespace }).click();
-      }
+      // Namespace should be auto-filled from the wizard context
+      await expect(page.getByTestId('text-input-namespace')).toHaveValue(
+        namespace
+      );
 
       await page.getByTestId('text-input-url').fill(MONITORING_URL!);
       await page.getByTestId('text-input-user').fill(MONITORING_USER!);

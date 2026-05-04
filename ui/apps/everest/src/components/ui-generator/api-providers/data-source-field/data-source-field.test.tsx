@@ -182,6 +182,40 @@ describe('DataSourceField', () => {
     });
   });
 
+  it('does not mark form dirty when auto-selecting the first option', async () => {
+    mockUseProviderOptions.mockReturnValue({
+      options: [
+        { label: 'standard', value: 'standard' },
+        { label: 'premium', value: 'premium' },
+      ],
+      isLoading: false,
+      error: null,
+      isEmpty: false,
+    });
+
+    let isDirty = true;
+
+    const Harness = () => {
+      const methods = useForm({
+        defaultValues: { spec: { storageClass: '' } },
+      });
+      isDirty = methods.formState.isDirty;
+      return (
+        <FormProvider {...methods}>
+          <DataSourceField item={makeItem()} name="spec.storageClass">
+            {() => <div />}
+          </DataSourceField>
+        </FormProvider>
+      );
+    };
+
+    render(<Harness />);
+
+    await waitFor(() => {
+      expect(isDirty).toBe(false);
+    });
+  });
+
   describe('empty state fallback', () => {
     const FallbackStub = ({ namespace }: { namespace: string }) => (
       <div data-testid="fallback">Fallback for {namespace}</div>
