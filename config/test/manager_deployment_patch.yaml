@@ -1,0 +1,6 @@
+# This patch adds the SKIP_PMM env var to skip PMM server validation in tests.
+- op: add
+  path: /spec/template/spec/containers/0/env/0
+  value:
+    name: SKIP_PMM
+    value: "true"

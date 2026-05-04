@@ -34,6 +34,7 @@
   - [Path vs ID](#path-vs-id)
   - [Components Order](#components-order)
   - [CEL Condition Rendering](#cel-condition-rendering)
+  - [API Providers](api-providers.md)
 - [Complete Example](#complete-example)
 
 ## What is UI Generator?

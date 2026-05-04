@@ -29,6 +29,8 @@ var AllResources = []string{
 var resourcePathMap = map[string]string{
 	"/clusters/:cluster/backup-classes":                                              "backup-classes",
 	"/clusters/:cluster/backup-classes/:backupClass":                                 "backup-classes",
+	"/clusters/:cluster/namespaces/:namespace/backup-storages":                       "backup-storages",
+	"/clusters/:cluster/namespaces/:namespace/backup-storages/:name":                 "backup-storages",
 	"/clusters/:cluster/namespaces/:namespace/backups":                               "backups",
 	"/clusters/:cluster/namespaces/:namespace/backups/:backup":                       "backups",
 	"/clusters/:cluster/namespaces/:namespace/instances":                             "instances",

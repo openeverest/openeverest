@@ -1,3 +1,5 @@
+// @ts-nocheck
+// TODO: Legacy — uses removed useMonitoringInstancesForNamespace, will be deleted.
 // everest
 // Copyright (C) 2023 Percona LLC
 // Copyright (C) 2026 The OpenEverest Contributors

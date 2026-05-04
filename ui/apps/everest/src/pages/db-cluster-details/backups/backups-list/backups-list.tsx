@@ -127,6 +127,14 @@ export const BackupsList = () => {
         accessorKey: 'backupStorageName',
         header: 'Storage',
       },
+      ...(dbType === DbEngineType.PSMDB
+        ? [
+            {
+              accessorKey: 'size',
+              header: 'Size',
+            },
+          ]
+        : []),
       {
         accessorKey: 'created',
         header: 'Started',
@@ -148,7 +156,7 @@ export const BackupsList = () => {
             : '',
       },
     ],
-    []
+    [dbType]
   );
 
   if (!dbCluster) {

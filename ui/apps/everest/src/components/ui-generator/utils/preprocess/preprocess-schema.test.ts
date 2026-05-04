@@ -12,13 +12,29 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
   Component,
+  DataSource,
   FieldType,
   TopologyUISchemas,
 } from '../../ui-generator.types';
 import { preprocessSchema } from './preprocess-schema';
+
+// Suppress console.warn from dev-time validation when using test providers
+vi.mock('../../api-providers', async () => {
+  const actual = await vi.importActual<typeof import('../../api-providers')>(
+    '../../api-providers'
+  );
+  return {
+    ...actual,
+    providerRegistry: {
+      ...actual.providerRegistry,
+      has: () => true,
+      getAvailableKeys: () => ['monitoringConfigs', 'storageClasses'],
+    },
+  };
+});
 
 describe('preprocessSchema', () => {
   it('normalizes path metadata even without provider object', () => {
@@ -49,5 +65,34 @@ describe('preprocessSchema', () => {
         'spec.proxy.version',
       ]);
     }
+  });
+
+  it('preserves dataSource through preprocessing', () => {
+    const dataSource: DataSource = {
+      provider: 'monitoringConfigs',
+    };
+    const schema: TopologyUISchemas = {
+      single: {
+        sections: {
+          monitoring: {
+            components: {
+              monitoringEndpoint: {
+                uiType: FieldType.Select,
+                dataSource,
+                path: 'spec.components.monitoring.customSpec.monitoringConfigName',
+                fieldParams: { label: 'Monitoring endpoint' },
+              },
+            },
+          },
+        },
+      },
+    };
+
+    const result = preprocessSchema(schema);
+    const comp = result.single.sections.monitoring.components
+      .monitoringEndpoint as Component;
+
+    expect(comp.uiType).toBe(FieldType.Select);
+    expect(comp.dataSource).toEqual(dataSource);
   });
 });

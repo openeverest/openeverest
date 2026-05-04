@@ -1,0 +1,133 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.18.0
+  name: backupstorages.backup.openeverest.io
+spec:
+  group: backup.openeverest.io
+  names:
+    kind: BackupStorage
+    listKind: BackupStorageList
+    plural: backupstorages
+    shortNames:
+    - bstor
+    singular: backupstorage
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .spec.type
+      name: Type
+      type: string
+    - jsonPath: .spec.s3.bucket
+      name: Bucket
+      type: string
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: BackupStorage is the Schema for the backupstorages API.
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: |-
+              BackupStorageSpec defines the desired state of a BackupStorage.
+
+              A BackupStorage is a reusable, namespaced reference to an object store
+              (today only S3-compatible) plus the credentials needed to talk to it.
+              It is referenced by name from:
+
+                - Instance.spec.backup.storages[].storageRef
+                - Backup.spec.storageName
+                - Restore.spec.dataSource.external.storageName
+
+              Decoupling storage from individual Backup CRs makes provider-managed
+              backups (e.g. PBM, pgBackRest) practical: the provider can register a
+              fixed set of storages on the engine without recomputing them from a
+              dynamic list of Backup CRs.
+            properties:
+              s3:
+                description: |-
+                  S3 contains S3-compatible storage configuration.
+                  Required when Type is "s3".
+                properties:
+                  accessKeyId:
+                    description: |-
+                      AccessKeyID is a write-only convenience input. When set, a webhook
+                      stores it in the Secret named by CredentialsSecretName and clears
+                      this field. It is never persisted on the BackupStorage object.
+                    type: string
+                  bucket:
+                    description: Bucket is the name of the S3 bucket.
+                    type: string
+                  credentialsSecretName:
+                    description: |-
+                      CredentialsSecretName is the name of the Secret in the same namespace
+                      that holds the AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY keys.
+                    type: string
+                  endpointURL:
+                    description: EndpointURL is the endpoint URL of the S3-compatible
+                      service.
+                    type: string
+                    x-kubernetes-validations:
+                    - message: endpointURL must be a valid URL
+                      rule: isURL(self)
+                  forcePathStyle:
+                    default: false
+                    description: |-
+                      ForcePathStyle forces path-style URLs (bucket name in the path
+                      instead of the host). Defaults to false.
+                    type: boolean
+                  region:
+                    description: Region is the region of the S3 bucket.
+                    type: string
+                  secretAccessKey:
+                    description: SecretAccessKey is a write-only convenience input.
+                      See AccessKeyID.
+                    type: string
+                  verifyTLS:
+                    default: true
+                    description: |-
+                      VerifyTLS enables TLS certificate verification.
+                      Defaults to true.
+                    type: boolean
+                required:
+                - bucket
+                - credentialsSecretName
+                - endpointURL
+                - region
+                type: object
+              type:
+                description: Type is the object storage type. Today only "s3" is supported.
+                enum:
+                - s3
+                type: string
+            required:
+            - type
+            type: object
+          status:
+            description: BackupStorageStatus defines the observed state of a BackupStorage.
+            type: object
+        required:
+        - spec
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
