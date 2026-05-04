@@ -27,7 +27,7 @@ require (
 	github.com/oapi-codegen/echo-middleware v1.0.2
 	github.com/oapi-codegen/runtime v1.1.1
 	github.com/openeverest/helm-charts/charts/everest v0.0.0-20260501141200-9a8a7dec9105
-	github.com/operator-framework/api v0.33.0
+	github.com/operator-framework/api v0.42.0
 	github.com/percona/everest-operator v0.6.0-dev1.0.20260427162043-f8a74aaccbb7
 	github.com/rodaine/table v1.3.0
 	github.com/spf13/cobra v1.10.2
@@ -310,8 +310,8 @@ require (
 	github.com/polyfloyd/go-errorlint v1.8.0 // indirect
 	github.com/prometheus/client_golang v1.23.2 // indirect
 	github.com/prometheus/client_model v0.6.2 // indirect
-	github.com/prometheus/common v0.66.1 // indirect
-	github.com/prometheus/procfs v0.17.0 // indirect
+	github.com/prometheus/common v0.67.5 // indirect
+	github.com/prometheus/procfs v0.19.2 // indirect
 	github.com/quasilyte/go-consistent v0.6.2 // indirect
 	github.com/quasilyte/go-ruleguard v0.4.4 // indirect
 	github.com/quasilyte/go-ruleguard/dsl v0.3.22 // indirect
