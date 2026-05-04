@@ -10,8 +10,8 @@ on:
 
 permissions:
   contents: read
+  checks: read
   packages: read
-  checks: write
   pull-requests: read
   repository-projects: read
 
@@ -125,6 +125,9 @@ jobs:
     name: Merge Gatekeeper
     if: ${{ always() }}
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      checks: read
     steps:
       - name: Run Merge Gatekeeper
         uses: upsidr/merge-gatekeeper@09af7a82c1666d0e64d2bd8c01797a0bcfd3bb5d # v1.2.1
