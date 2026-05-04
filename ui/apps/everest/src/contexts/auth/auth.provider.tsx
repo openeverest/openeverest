@@ -1,3 +1,17 @@
+// Copyright (C) 2026 The OpenEverest Contributors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   AuthProvider as OidcAuthProvider,
@@ -98,7 +112,11 @@ const AuthProvider = ({ children, isSsoEnabled }: AuthProviderProps) => {
 
   const logout = async () => {
     const token = localStorage.getItem('everestToken');
-    await api.delete('/session', { headers: { token: token } });
+    try {
+      await api.delete('/session', { headers: { token } });
+    } catch {
+      // best-effort server-side session deletion; always clean up locally
+    }
     if (isSsoEnabled) {
       await userManager.clearStaleState();
       await setLogoutStatus();
@@ -110,6 +128,7 @@ const AuthProvider = ({ children, isSsoEnabled }: AuthProviderProps) => {
     setRedirect(null);
     removeApiErrorInterceptor();
     removeApiAuthInterceptor();
+    stopAuthorizerFetchLoop();
   };
 
   const setRedirectRoute = (route: string) => {
@@ -126,6 +145,8 @@ const AuthProvider = ({ children, isSsoEnabled }: AuthProviderProps) => {
   const setLogoutStatus = useCallback(async () => {
     setAuthStatus('loggedOut');
     localStorage.removeItem('everestToken');
+    removeApiErrorInterceptor();
+    removeApiAuthInterceptor();
     if (isSsoEnabled) {
       await userManager.clearStaleState();
       await userManager.removeUser();
