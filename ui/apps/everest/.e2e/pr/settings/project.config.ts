@@ -40,6 +40,9 @@ export const settingsProject: PlaywrightTestProject[] = [
     name: 'pr:settings:monitoring-config',
     testDir: './pr/settings',
     testMatch: /monitoring-config\.e2e\.ts/,
+    // TODO(OE-2038): keep this project isolated from global:monitoring-config:setup.
+    // When pr:multinamespaces is re-enabled, preserve project ordering or namespace
+    // isolation so the fallback test still runs against an empty namespace.
     dependencies: ['global:auth:ci:setup'],
     use: {
       storageState: CI_USER_STORAGE_STATE_FILE,

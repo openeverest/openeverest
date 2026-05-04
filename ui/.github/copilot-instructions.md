@@ -103,6 +103,20 @@ component-name/
 - `noUnusedLocals`, `noUnusedParameters` are enforced.
 - Don't use `@ts-nocheck` or `@ts-ignore` in new code.
 - Prefer `interface` for component props; use `type` for unions, intersections, and utility types.
+- **No type assertions (`as`)** — use type narrowing (guards, `typeof`, `instanceof`, discriminated unions)
+  or explicit type annotations instead. Type assertions bypass the compiler and hide real bugs.
+  ```ts
+  // BAD: assertion silences the error without proving correctness
+  validValues.includes(current as string);
+
+  // GOOD: narrow or declare the type explicitly
+  if (typeof current === 'string' && validValues.includes(current)) { ... }
+
+  // GOOD: annotate the variable at declaration
+  const currentStr: string = String(current);
+  ```
+  Exception: test code with well-known mock shapes, or interop with untyped third-party APIs
+  where no runtime narrowing is possible.
 
 ### Strings & Messages
 

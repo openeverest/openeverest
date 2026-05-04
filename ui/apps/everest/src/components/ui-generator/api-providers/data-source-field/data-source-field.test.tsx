@@ -24,7 +24,7 @@ const mockRegistryGet = vi.fn();
 vi.mock('../registry', () => ({
   useProviderOptions: (...args: unknown[]) => mockUseProviderOptions(...args),
   providerRegistry: {
-    get: () => undefined,
+    get: (...args: unknown[]) => mockRegistryGet(...args),
     has: () => false,
     getAll: () => new Map(),
     getAvailableKeys: () => [],

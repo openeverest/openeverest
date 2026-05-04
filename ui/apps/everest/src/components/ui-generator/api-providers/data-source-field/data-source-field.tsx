@@ -25,12 +25,13 @@ const resolveFieldValue = (
   options: { value: string }[]
 ): string | null => {
   const validValues = options.map((o) => o.value);
+  const currentStr = typeof current === 'string' ? current : '';
 
-  if (current && !validValues.includes(current)) {
+  if (currentStr && !validValues.includes(currentStr)) {
     return options.length > 0 ? options[0].value : '';
   }
   if (
-    (current === '' || current === undefined || current === null) &&
+    (currentStr === '' || current === undefined || current === null) &&
     options.length > 0
   ) {
     return options[0].value;
