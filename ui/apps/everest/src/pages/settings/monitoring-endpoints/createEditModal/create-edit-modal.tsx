@@ -52,7 +52,10 @@ export const CreateEditEndpointModal = ({
             url: selectedEndpoint.spec.url,
             verifyTLS: selectedEndpoint.spec.verifyTLS ?? true,
           }
-        : endpointDefaultValues,
+        : {
+            ...endpointDefaultValues,
+            ...(selectedNamespace ? { namespace: selectedNamespace } : {}),
+          },
     [selectedEndpoint, selectedNamespace]
   );
 

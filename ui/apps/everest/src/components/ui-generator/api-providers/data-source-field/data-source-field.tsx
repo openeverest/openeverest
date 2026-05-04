@@ -12,13 +12,32 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import React, { useEffect, useMemo } from 'react';
+import React, { useEffect, useMemo, useRef } from 'react';
 import { useFormContext } from 'react-hook-form';
 import type { Component } from '../../ui-generator.types';
 import { providerRegistry, useProviderOptions } from '../registry';
 import { useUiGeneratorContext } from '../../ui-generator-context';
 import { useClusterName } from 'hooks/api/useClusterName';
 import type { DataSourceFieldProps } from './data-source-field.types';
+
+const resolveFieldValue = (
+  current: unknown,
+  options: { value: string }[]
+): string | null => {
+  const validValues = options.map((o) => o.value);
+  const currentStr = typeof current === 'string' ? current : '';
+
+  if (currentStr && !validValues.includes(currentStr)) {
+    return options.length > 0 ? options[0].value : '';
+  }
+  if (
+    (currentStr === '' || current === undefined || current === null) &&
+    options.length > 0
+  ) {
+    return options[0].value;
+  }
+  return null;
+};
 
 export const DataSourceField: React.FC<DataSourceFieldProps> = ({
   item,
@@ -41,22 +60,38 @@ export const DataSourceField: React.FC<DataSourceFieldProps> = ({
     { enabled: hasValidContext }
   );
 
+  // Synchronous value sync: ensures the form value is correct BEFORE the
+  // child Controller renders. This eliminates the timing gap where the
+  // Controller would mount with a stale/empty value and then re-render
+  // one tick later after the useEffect fires.
+  const lastSyncedRef = useRef<{ options: typeof options; name: string }>();
+
+  if (
+    !isLoading &&
+    name &&
+    options.length > 0 &&
+    (lastSyncedRef.current?.options !== options ||
+      lastSyncedRef.current?.name !== name)
+  ) {
+    const current = getValues(name);
+    const corrected = resolveFieldValue(current, options);
+    if (corrected !== null) {
+      setValue(name, corrected);
+    }
+    lastSyncedRef.current = { options, name };
+  }
+
+  // Async fallback: handles value invalidation when options change after
+  // the component is already mounted (e.g. namespace switch, config deletion).
   useEffect(() => {
     if (isLoading || !name) return;
 
     const current = getValues(name);
-    const validValues = options.map((o) => o.value);
-
-    if (current && !validValues.includes(current as string)) {
-      // Current value is no longer in the options list (e.g. namespace changed) — reset
-      setValue(name, options.length > 0 ? options[0].value : '', {
+    const corrected = resolveFieldValue(current, options);
+    if (corrected !== null) {
+      setValue(name, corrected, {
         shouldValidate: true,
       });
-    } else if (
-      (current === '' || current === undefined || current === null) &&
-      options.length > 0
-    ) {
-      setValue(name, options[0].value, { shouldValidate: true });
     }
   }, [isLoading, options, name, getValues, setValue]);
 
@@ -87,12 +122,14 @@ export const DataSourceField: React.FC<DataSourceFieldProps> = ({
     } as Component;
   }, [baseComponent, options, isLoading, error, isEmpty]);
 
-  const FallbackComponent = useMemo(() => {
+  const fallback = useMemo(() => {
     const entry = providerRegistry.get(dataSource.provider);
-    return entry?.emptyStateFallback?.component ?? null;
+    return entry?.emptyStateFallback ?? null;
   }, [dataSource.provider]);
 
-  if (isEmpty && !isLoading && FallbackComponent && namespace) {
+  if (isEmpty && !isLoading && fallback && namespace) {
+    const { component: FallbackComponent } = fallback;
+
     return <FallbackComponent namespace={namespace} cluster={cluster} />;
   }
 

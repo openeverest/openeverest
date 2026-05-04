@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -25,11 +26,52 @@ import { getCITokenFromLocalStorage } from '@e2e/utils/localStorage';
 import {
   deleteMonitoringConfig,
   getMonitoringConfig,
+  listMonitoringConfigs,
 } from '@e2e/utils/monitoring-config';
+import {
+  openDbCreationForm,
+  populateMonitoringModalForm,
+} from '@e2e/utils/db-wizard';
+import { setNamespace } from '@e2e/utils/namespaces';
 const { MONITORING_URL, MONITORING_USER, MONITORING_PASSWORD } = process.env;
+
+const mockedMonitoringProvider = {
+  apiVersion: 'everest.percona.com/v1alpha1',
+  kind: 'Provider',
+  metadata: {
+    name: 'postgresql',
+  },
+  spec: {
+    uiSchema: {
+      single: {
+        sections: {
+          monitoring: {
+            label: 'Custom monitoring section',
+            components: {
+              monitoringConfig: {
+                uiType: 'select',
+                path: 'spec.components.monitoring.customSpec.monitoringConfigName',
+                dataSource: {
+                  provider: 'monitoringConfigs',
+                },
+                fieldParams: {
+                  label: 'Monitoring config',
+                },
+              },
+            },
+          },
+        },
+        sectionsOrder: ['monitoring'],
+      },
+    },
+  },
+};
+
+const monitoringFallbackTestId = 'monitoring-empty-fallback';
 
 test.describe.serial('Monitoring Configs', () => {
   const monitoringConfigName = limitedSuffixedName('pr-set-mon'),
+    fallbackConfigName = limitedSuffixedName('pr-mon-fb'),
     namespace = EVEREST_CI_NAMESPACES.EVEREST_UI;
   let token: string;
 
@@ -45,17 +87,14 @@ test.describe.serial('Monitoring Configs', () => {
   });
 
   test.afterAll(async ({ request }) => {
-    await expect(async () => {
-      await deleteMonitoringConfig(
-        request,
-        namespace,
-        monitoringConfigName,
-        token
-      );
-    }).toPass({
-      intervals: [1000],
-      timeout: TIMEOUTS.TenSeconds,
-    });
+    for (const name of [monitoringConfigName, fallbackConfigName]) {
+      await expect(async () => {
+        await deleteMonitoringConfig(request, namespace, name, token);
+      }).toPass({
+        intervals: [1000],
+        timeout: TIMEOUTS.TenSeconds,
+      });
+    }
   });
 
   test('Create Monitoring Endpoint', async ({ page, request }) => {
@@ -158,5 +197,98 @@ test.describe.serial('Monitoring Configs', () => {
     await delResponse;
 
     await waitForDelete(page, monitoringConfigName, TIMEOUTS.TenSeconds);
+  });
+
+  test('Shows DB creation monitoring fallback when no configs exist and allows inline creation', async ({
+    page,
+    request,
+  }) => {
+    // This test navigates away from the settings page, runs API cleanup,
+    // opens the DB creation form, interacts with a modal and verifies multiple
+    // assertions — the default 30 s timeout is not enough.
+    test.setTimeout(TIMEOUTS.ThreeMinutes);
+
+    // Keep this suite self-contained: it owns the namespace state needed for the
+    // fallback test and should not depend on the global monitoring setup.
+    const configs = await listMonitoringConfigs(request, namespace, token);
+    for (const config of configs?.items ?? []) {
+      const name = config.metadata?.name;
+      if (name) {
+        try {
+          await deleteMonitoringConfig(request, namespace, name, token);
+        } catch {
+          // Config may already be gone from a previous cleanup pass.
+        }
+      }
+    }
+
+    await expect(async () => {
+      const remainingConfigs = await listMonitoringConfigs(
+        request,
+        namespace,
+        token
+      );
+      expect(remainingConfigs?.items ?? []).toHaveLength(0);
+    }).toPass({
+      intervals: [1000, 2000, 3000],
+      timeout: TIMEOUTS.ThirtySeconds,
+    });
+
+    await page.route('**/v1/clusters/main/providers', async (route) => {
+      await route.fulfill({
+        json: {
+          items: [mockedMonitoringProvider],
+        },
+      });
+    });
+
+    await goToUrl(page, '/databases');
+
+    await openDbCreationForm(page);
+    await setNamespace(page, namespace);
+
+    const configureMoreButton = page.getByRole('button', {
+      name: 'Configure more options',
+    });
+
+    if (await configureMoreButton.isVisible().catch(() => false)) {
+      await configureMoreButton.click();
+    }
+
+    await expect(
+      page.getByRole('heading', { name: 'Custom monitoring section' })
+    ).toBeVisible({ timeout: TIMEOUTS.ThirtySeconds });
+
+    await test.step('Verify fallback warning is visible', async () => {
+      const fallback = page.getByTestId(monitoringFallbackTestId);
+      await expect(fallback).toBeVisible({ timeout: TIMEOUTS.ThirtySeconds });
+
+      const addButton = fallback.getByRole('button', {
+        name: /add monitoring endpoint/i,
+      });
+      await expect(addButton).toBeVisible();
+    });
+
+    await test.step('Create monitoring config via inline modal', async () => {
+      await populateMonitoringModalForm(
+        page,
+        fallbackConfigName,
+        namespace,
+        MONITORING_URL!,
+        MONITORING_USER!,
+        MONITORING_PASSWORD!,
+        false
+      );
+    });
+
+    await test.step('Verify fallback disappears and select shows the new config', async () => {
+      await expect(page.getByTestId(monitoringFallbackTestId)).not.toBeVisible({
+        timeout: TIMEOUTS.ThirtySeconds,
+      });
+
+      const selectInput = page.getByRole('combobox').first();
+      await expect(selectInput).toBeVisible({ timeout: TIMEOUTS.TenSeconds });
+      await expect(selectInput).toContainText(fallbackConfigName);
+    });
   });
 });

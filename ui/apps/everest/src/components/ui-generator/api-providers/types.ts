@@ -28,14 +28,19 @@ export interface ProviderOptions {
   rawData?: unknown;
 }
 
+export interface EmptyStateFallbackProps {
+  namespace: string;
+  cluster: string;
+}
+
+export interface EmptyStateFallback {
+  component: React.ComponentType<EmptyStateFallbackProps>;
+}
+
 export interface ProviderRegistryEntry {
   useOptions: (params: ProviderParams) => ProviderOptions;
   description: string;
-  emptyStateFallback?: {
-    component: React.ComponentType<{ namespace: string; cluster: string }>;
-  };
-  // TODO RBAC: Add permission config (resource, action) so DataSourceField can check
-  // useRBACPermissions and conditionally hide "create new" CTA or disable the field.
+  emptyStateFallback: EmptyStateFallback | null;
   // TODO: Add lifecycle hooks — beforeFetch, afterFetch, onError
   // TODO: Add optional `validate` callback for dev-time schema validation
 }

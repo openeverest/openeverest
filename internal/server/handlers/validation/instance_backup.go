@@ -12,20 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Side-effect import: registers all built-in providers (monitoringConfigs, etc.)
-import './providers';
+// Package validation provides the validation handler.
+package validation
 
-export { providerRegistry, useProviderOptions } from './registry';
-export { DataSourceField, hasDataSource } from './data-source-field';
-export { DataSourcePrefetcher } from './data-source-prefetcher';
-export type {
-  DataSourceFieldProps,
-  ComponentWithDataSource,
-} from './data-source-field';
-export type {
-  ProviderParams,
-  ProviderOptions,
-  ProviderRegistryEntry,
-  EmptyStateFallback,
-  EmptyStateFallbackProps,
-} from './types';
+import (
+	"context"
+
+	"github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
+)
+
+// ListInstanceBackups proxies the request to the next handler.
+func (h *validateHandler) ListInstanceBackups(ctx context.Context, namespace, instance string) (*v1alpha1.BackupList, error) {
+	return h.next.ListInstanceBackups(ctx, namespace, instance)
+}

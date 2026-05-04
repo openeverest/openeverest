@@ -12,20 +12,22 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Side-effect import: registers all built-in providers (monitoringConfigs, etc.)
-import './providers';
+// Package server contains the API server implementation.
+package server
 
-export { providerRegistry, useProviderOptions } from './registry';
-export { DataSourceField, hasDataSource } from './data-source-field';
-export { DataSourcePrefetcher } from './data-source-prefetcher';
-export type {
-  DataSourceFieldProps,
-  ComponentWithDataSource,
-} from './data-source-field';
-export type {
-  ProviderParams,
-  ProviderOptions,
-  ProviderRegistryEntry,
-  EmptyStateFallback,
-  EmptyStateFallbackProps,
-} from './types';
+import (
+	"net/http"
+
+	"github.com/labstack/echo/v4"
+)
+
+// ListInstanceBackups returns list of backups for the specified instance.
+func (e *EverestServer) ListInstanceBackups(c echo.Context, cluster string, namespace string, instance string) error {
+	// The cluster parameter is currently ignored.
+	result, err := e.handler.ListInstanceBackups(c.Request().Context(), namespace, instance)
+	if err != nil {
+		e.l.Errorf("ListInstanceBackups failed: %v", err)
+		return err
+	}
+	return c.JSON(http.StatusOK, result)
+}

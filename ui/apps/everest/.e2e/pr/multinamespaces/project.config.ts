@@ -40,6 +40,9 @@ export const multinamespacesProject: PlaywrightTestProject[] = [
     name: 'pr:multinamespaces:monitoring',
     testDir: './pr/multinamespaces',
     testMatch: /monitoring\.e2e\.ts/,
+    // TODO(OE-2038): when restoring this project together with pr:settings,
+    // explicitly coordinate it with the fallback test in monitoring-config.e2e.ts
+    // via project dependencies or dedicated namespaces before enabling both.
     dependencies: ['global:monitoring-instance:setup'],
     use: {
       storageState: CI_USER_STORAGE_STATE_FILE,

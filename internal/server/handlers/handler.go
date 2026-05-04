@@ -46,6 +46,7 @@ type Handler interface {
 	DatabaseClusterRestoreHandler
 	DatabaseEngineHandler
 	BackupStorageV1Handler
+	BackupStorageHandler
 	MonitoringInstanceHandler
 	PodSchedulingPolicyHandler
 	LoadBalancerConfigHandler
@@ -57,6 +58,7 @@ type Handler interface {
 	ClusterHandler
 	BackupClassHandler
 	BackupHandler
+	InstanceBackupHandler
 	MonitoringConfigHandler
 	InstanceRestoreHandler
 
@@ -120,6 +122,15 @@ type BackupStorageV1Handler interface {
 	ListBackupStoragesV1(ctx context.Context, namespace string) (*everestv1alpha1.BackupStorageList, error)
 	GetBackupStorageV1(ctx context.Context, namespace, name string) (*everestv1alpha1.BackupStorage, error)
 	DeleteBackupStorageV1(ctx context.Context, namespace, name string) error
+}
+
+// BackupStorageHandler provides methods for handling operations on backup storages.
+type BackupStorageHandler interface {
+	CreateBackupStorage(ctx context.Context, bs *backupv1alpha1.BackupStorage) (*backupv1alpha1.BackupStorage, error)
+	UpdateBackupStorage(ctx context.Context, bs *backupv1alpha1.BackupStorage) (*backupv1alpha1.BackupStorage, error)
+	ListBackupStorages(ctx context.Context, namespace string) (*backupv1alpha1.BackupStorageList, error)
+	GetBackupStorage(ctx context.Context, namespace, name string) (*backupv1alpha1.BackupStorage, error)
+	DeleteBackupStorage(ctx context.Context, namespace, name string) error
 }
 
 // MonitoringInstanceHandler provides methods for handling operations on monitoring instances.
@@ -210,6 +221,11 @@ type BackupHandler interface {
 	GetBackup(ctx context.Context, namespace, name string) (*backupv1alpha1.Backup, error)
 	CreateBackup(ctx context.Context, backup *backupv1alpha1.Backup) (*backupv1alpha1.Backup, error)
 	DeleteBackup(ctx context.Context, namespace, name string) error
+}
+
+// InstanceBackupHandler provides methods for handling operations on instance backups.
+type InstanceBackupHandler interface {
+	ListInstanceBackups(ctx context.Context, namespace, instance string) (*backupv1alpha1.BackupList, error)
 }
 
 // MonitoringConfigHandler provides methods for handling operations on monitoring configs.

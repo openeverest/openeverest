@@ -2878,6 +2878,54 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+  '/clusters/{cluster}/namespaces/{namespace}/instances/{instance}/backups':
+    x-everest-resource-name: backups
+    get:
+      tags:
+        - Backup
+      summary: List backups for an instance
+      description: |
+        This API lists all backups for the instance specified by the `instance` name
+        in the specified `namespace` and `cluster`.
+      operationId: listInstanceBackups
+      parameters:
+        - name: cluster
+          in: path
+          required: true
+          description: The name of the cluster
+          schema:
+            type: string
+        - name: namespace
+          in: path
+          required: true
+          description: The namespace where the instance is located
+          schema:
+            type: string
+        - name: instance
+          in: path
+          required: true
+          description: The name of the instance
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of backups for the instance
+          content:
+            application/json:
+              schema:
+                $ref: 'crds.gen.yaml#/components/schemas/BackupList'
+        '400':
+          description: Unsuccessful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
   '/clusters/{cluster}/namespaces/{namespace}/instances/{instance}/restores':
     x-everest-resource-name: restores
     get:
@@ -3122,6 +3170,239 @@ paths:
           description: Backup deleted successfully
         '404':
           description: Backup not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  '/clusters/{cluster}/namespaces/{namespace}/backup-storages':
+    x-everest-resource-name: backup-storages
+    post:
+      tags:
+        - Backup Storage
+      summary: Create backup storage
+      description: |
+        This API creates a new backup storage in the specified namespace and cluster.
+      operationId: createBackupStorage
+      parameters:
+        - name: cluster
+          in: path
+          required: true
+          description: The name of the cluster
+          schema:
+            type: string
+        - name: namespace
+          in: path
+          required: true
+          description: The namespace where the backup storage will be created
+          schema:
+            type: string
+      responses:
+        '201':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: 'crds.gen.yaml#/components/schemas/BackupStorage'
+        '400':
+          description: Unsuccessful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      requestBody:
+        description: The backup storage object to be created
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: 'crds.gen.yaml#/components/schemas/BackupStorage'
+    get:
+      tags:
+        - Backup Storage
+      summary: List backup storages
+      description: |
+        This API lists all backup storages in the specified namespace and cluster.
+      operationId: listBackupStorages
+      parameters:
+        - name: cluster
+          in: path
+          required: true
+          description: The name of the cluster
+          schema:
+            type: string
+        - name: namespace
+          in: path
+          required: true
+          description: The namespace of the backup storages
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: 'crds.gen.yaml#/components/schemas/BackupStorageList'
+        '400':
+          description: Unsuccessful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  '/clusters/{cluster}/namespaces/{namespace}/backup-storages/{name}':
+    x-everest-resource-name: backup-storages
+    get:
+      tags:
+        - Backup Storage
+      summary: Get backup storage
+      description: |
+        This API gets the backup storage specified by the `name` in the specified `namespace` and `cluster`.
+      operationId: getBackupStorage
+      parameters:
+        - name: cluster
+          in: path
+          required: true
+          description: The name of the cluster
+          schema:
+            type: string
+        - name: namespace
+          in: path
+          required: true
+          description: The namespace of the backup storage
+          schema:
+            type: string
+        - name: name
+          in: path
+          required: true
+          description: The name of the backup storage
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: 'crds.gen.yaml#/components/schemas/BackupStorage'
+        '404':
+          description: Backup storage not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    put:
+      tags:
+        - Backup Storage
+      summary: Update backup storage
+      description: |
+        This API updates the backup storage specified by the `name` in the specified `namespace` and `cluster`.
+      operationId: updateBackupStorage
+      parameters:
+        - name: cluster
+          in: path
+          required: true
+          description: The name of the cluster
+          schema:
+            type: string
+        - name: namespace
+          in: path
+          required: true
+          description: The namespace of the backup storage
+          schema:
+            type: string
+        - name: name
+          in: path
+          required: true
+          description: The name of the backup storage
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: 'crds.gen.yaml#/components/schemas/BackupStorage'
+        '400':
+          description: Unsuccessful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Backup storage not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      requestBody:
+        description: The backup storage object to be updated
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: 'crds.gen.yaml#/components/schemas/BackupStorage'
+    delete:
+      tags:
+        - Backup Storage
+      summary: Delete backup storage
+      description: |
+        This API deletes the backup storage specified by the `name` in the specified `namespace` and `cluster`.
+      operationId: deleteBackupStorage
+      parameters:
+        - name: cluster
+          in: path
+          required: true
+          description: The name of the cluster
+          schema:
+            type: string
+        - name: namespace
+          in: path
+          required: true
+          description: The namespace of the backup storage
+          schema:
+            type: string
+        - name: name
+          in: path
+          required: true
+          description: The name of the backup storage
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Backup storage deleted successfully
+        '400':
+          description: Unsuccessful operation
           content:
             application/json:
               schema:

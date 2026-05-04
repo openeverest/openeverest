@@ -12,20 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Side-effect import: registers all built-in providers (monitoringConfigs, etc.)
-import './providers';
-
-export { providerRegistry, useProviderOptions } from './registry';
-export { DataSourceField, hasDataSource } from './data-source-field';
-export { DataSourcePrefetcher } from './data-source-prefetcher';
-export type {
-  DataSourceFieldProps,
-  ComponentWithDataSource,
-} from './data-source-field';
-export type {
-  ProviderParams,
-  ProviderOptions,
-  ProviderRegistryEntry,
-  EmptyStateFallback,
-  EmptyStateFallbackProps,
-} from './types';
+export const Messages = {
+  alertText: (namespace: string) =>
+    `Database monitoring is currently disabled because no monitoring endpoints have been configured. To enable database monitoring, first add a monitoring endpoint for the ${namespace} namespace`,
+  addMonitoringEndpoint: 'Add monitoring endpoint',
+};
