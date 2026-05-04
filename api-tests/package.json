@@ -18,7 +18,7 @@
   "license": "ISC",
   "devDependencies": {
     "@eslint/eslintrc": "^3.3.1",
-    "@eslint/js": "^9.32.0",
+    "@eslint/js": "^10.0.1",
     "@types/node": "^24.1.0",
     "@types/shelljs": "^0.10.0",
     "eslint": "^10.3.0",
