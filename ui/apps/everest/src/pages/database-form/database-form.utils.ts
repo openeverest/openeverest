@@ -34,7 +34,7 @@ import {
 import { isProxy } from 'utils/db.tsx';
 import { advancedConfigurationModalDefaultValues } from 'components/cluster-form/advanced-configuration/advanced-configuration.utils.ts';
 import { WizardMode } from 'shared-types/wizard.types.ts';
-import { ExposureMethod } from 'components/cluster-form/advanced-configuration/advanced-configuration.types.ts';
+import { ProxyExposeType } from 'shared-types/dbCluster.types';
 
 export const getDbWizardDefaultValues = (dbType: DbType): DbWizardType => ({
   // TODO should be changed to true after  https://jira.percona.com/browse/EVEREST-509
@@ -51,7 +51,7 @@ export const getDbWizardDefaultValues = (dbType: DbType): DbWizardType => ({
   [DbWizardFormFields.sourceRanges]: [{ sourceRange: '' }],
   [DbWizardFormFields.podSchedulingPolicyEnabled]: false,
   [DbWizardFormFields.podSchedulingPolicy]: '',
-  [DbWizardFormFields.exposureMethod]: ExposureMethod.ClusterIP,
+  [DbWizardFormFields.exposureMethod]: ProxyExposeType.ClusterIP,
   [DbWizardFormFields.loadBalancerConfigName]: '',
   [DbWizardFormFields.engineParametersEnabled]: false,
   [DbWizardFormFields.engineParameters]: '',
@@ -63,11 +63,11 @@ export const getDbWizardDefaultValues = (dbType: DbType): DbWizardType => ({
   [DbWizardFormFields.resourceSizePerProxy]: ResourceSize.small,
   [DbWizardFormFields.customNrOfNodes]: DEFAULT_NODES[dbType],
   [DbWizardFormFields.customNrOfProxies]: DEFAULT_NODES[dbType],
-  [DbWizardFormFields.cpu]: NODES_DEFAULT_SIZES[dbType].small.cpu,
+  [DbWizardFormFields.cpu]: NODES_DEFAULT_SIZES(dbType).small.cpu,
   [DbWizardFormFields.proxyCpu]: PROXIES_DEFAULT_SIZES[dbType].small.cpu,
-  [DbWizardFormFields.disk]: NODES_DEFAULT_SIZES[dbType].small.disk,
+  [DbWizardFormFields.disk]: NODES_DEFAULT_SIZES(dbType).small.disk,
   [DbWizardFormFields.diskUnit]: 'Gi',
-  [DbWizardFormFields.memory]: NODES_DEFAULT_SIZES[dbType].small.memory,
+  [DbWizardFormFields.memory]: NODES_DEFAULT_SIZES(dbType).small.memory,
   [DbWizardFormFields.proxyMemory]: PROXIES_DEFAULT_SIZES[dbType].small.memory,
   [DbWizardFormFields.sharding]: false,
   [DbWizardFormFields.shardNr]: '2',
@@ -85,6 +85,8 @@ export const getDbWizardDefaultValues = (dbType: DbType): DbWizardType => ({
   [DbWizardFormFields.verifyTlS]: true,
   [DbWizardFormFields.forcePathStyle]: false,
   [DbWizardFormFields.credentials]: {},
+  [DbWizardFormFields.splitHorizonDNS]: '',
+  [DbWizardFormFields.splitHorizonDNSEnabled]: false,
 });
 
 const replicasToNodes = (replicas: string, dbType: DbType): string => {
@@ -146,7 +148,10 @@ export const DbClusterPayloadToFormValues = (
     [DbWizardFormFields.customNrOfNodes]: replicas,
     [DbWizardFormFields.customNrOfProxies]: proxies,
     [DbWizardFormFields.resourceSizePerNode]: matchFieldsValueToResourceSize(
-      NODES_DEFAULT_SIZES[dbEngineToDbType(dbCluster?.spec?.engine?.type)],
+      NODES_DEFAULT_SIZES(
+        dbEngineToDbType(dbCluster?.spec?.engine?.type),
+        dbCluster?.spec?.engine?.version || ''
+      ),
       dbCluster?.spec?.engine?.resources
     ),
     [DbWizardFormFields.resourceSizePerProxy]: isProxy(dbCluster?.spec?.proxy)

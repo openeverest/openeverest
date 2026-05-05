@@ -1,0 +1,36 @@
+name: "🧹 Chore"
+description: Internal maintenance, refactoring, tests, or tooling
+labels: ["chore"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this for code maintenance, test improvements, or refactoring tasks that don't affect the end-user directly.
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Task Description
+      description: What specifically needs to be cleaned up, refactored, or updated?
+      placeholder: |
+        - Refactor the authentication logic in `auth.go`
+        - Upgrade `some-dependency` to v2.0
+        - Add unit tests for the helper function
+    validations:
+      required: true
+
+  - type: textarea
+    id: reasoning
+    attributes:
+      label: Reasoning / Benefit
+      description: Why is this change necessary? (e.g., Reducing technical debt, improving build speed, consistency).
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional Context
+      description: Links to related code, failed build logs, or specific files to check.
+    validations:
+      required: false

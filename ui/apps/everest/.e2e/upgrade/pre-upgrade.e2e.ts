@@ -6,6 +6,7 @@ import { TIMEOUTS } from '@e2e/constants';
 import { EVEREST_CI_NAMESPACES } from '@e2e/constants';
 import { getTokenFromLocalStorage } from '@e2e/utils/localStorage';
 import { prepareTestDB } from '@e2e/utils/db-cmd-line';
+import { getK8sObjectsNamespaceYaml } from '@e2e/utils/kubernetes';
 
 test.describe.configure({ retries: 0 });
 test.describe.configure({ timeout: TIMEOUTS.TwentyMinutes });
@@ -98,6 +99,13 @@ test(
       clustersInfo.forEach((c) => {
         prepareTestDB(c.name, c.namespace);
       });
+    });
+
+    await test.step('Collect info about k8s objects', async () => {
+      await getK8sObjectsNamespaceYaml(
+        EVEREST_CI_NAMESPACES.EVEREST_UI,
+        '1-pre-upgrade'
+      );
     });
   }
 );

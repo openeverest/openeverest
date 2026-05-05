@@ -9,6 +9,7 @@ test.describe('DB Cluster Overview', async () => {
   test.beforeAll(async ({ request }) => {
     await createDbClusterFn(request, {
       dbName: dbClusterName,
+      dbVersion: '8.0.36-28.1',
       dbType: 'mysql',
       numberOfNodes: '1',
       cpu: 1,

@@ -11,4 +11,4 @@
 api_tests/node_modules/*
 cmd/cmd
 
-public/
+public/dist/

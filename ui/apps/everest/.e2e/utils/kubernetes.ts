@@ -26,6 +26,26 @@ export const getK8sUid = async () => {
   }
 };
 
+export const getK8sObjectsNamespaceYaml = async (
+  namespace: string,
+  prefix: string,
+  directory: string = 'upgrade-objects-yaml'
+) => {
+  const objects = ['pxc', 'psmdb', 'pg', 'sts', 'db', 'secret'];
+  const command = `mkdir -p ${directory} || true`;
+  execSync(command);
+
+  for (const obj of objects) {
+    const command = `kubectl get ${obj} -n ${namespace} -o jsonpath='{.items[*].metadata.name}' || true`;
+    const output = execSync(command);
+    const arr = output.toString().split(' ');
+    for (const objName of arr) {
+      const command = `kubectl get ${obj} ${objName} -n ${namespace} -oyaml > ${directory}/${prefix}-${obj}-${objName}.yaml || true`;
+      execSync(command);
+    }
+  }
+};
+
 export const getK8sResource = async (
   resourceType: string,
   resourceName: string,

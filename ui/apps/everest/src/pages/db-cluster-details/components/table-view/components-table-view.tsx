@@ -10,6 +10,9 @@ import {
 import ExpandedRow from '../expanded-row';
 import ComponentStatus from '../component-status';
 import ComponentAge from '../component-age';
+import { useParams, useNavigate } from 'react-router-dom';
+import { IconButton, Tooltip } from '@mui/material';
+import VisibilityOutlinedIcon from '@mui/icons-material/VisibilityOutlined';
 
 const ComponentsTableView = ({
   components,
@@ -20,6 +23,20 @@ const ComponentsTableView = ({
   isLoading: boolean;
   dbClusterName: string;
 }) => {
+  const { namespace = '' } = useParams();
+  const navigate = useNavigate();
+
+  const handleViewLogs = (componentName: string, containerName?: string) => {
+    const params = new URLSearchParams();
+    params.set('component', componentName);
+    if (containerName) {
+      params.set('container', containerName);
+    }
+    navigate(
+      `/databases/${namespace}/${dbClusterName}/logs?${params.toString()}`
+    );
+  };
+
   const columns = useMemo<MRT_ColumnDef<DBClusterComponent>[]>(() => {
     return [
       {
@@ -93,6 +110,27 @@ const ComponentsTableView = ({
             width: '100%',
           },
         },
+      }}
+      enableRowActions
+      renderRowActions={({ row }) => {
+        const component = row.original;
+        const isComponentPending =
+          component.status === COMPONENT_STATUS.PENDING;
+
+        return (
+          !isComponentPending && (
+            <Tooltip title="View Logs">
+              <IconButton
+                onClick={() => handleViewLogs(component.name)}
+                data-testid={`view-logs-${component.name}`}
+                size="small"
+                aria-label="View logs"
+              >
+                <VisibilityOutlinedIcon />
+              </IconButton>
+            </Tooltip>
+          )
+        );
       }}
     />
   );

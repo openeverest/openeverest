@@ -68,6 +68,8 @@ const (
 	FlagUpgradeDryRun = "dry-run"
 	// FlagUpgradeInCluster is the name of the in-cluster flag.
 	FlagUpgradeInCluster = "in-cluster"
+	// FlagUpgradeVersionToUpgrade is the name of the version flag.
+	FlagUpgradeVersionToUpgrade = "version"
 
 	// `accounts` flags
 

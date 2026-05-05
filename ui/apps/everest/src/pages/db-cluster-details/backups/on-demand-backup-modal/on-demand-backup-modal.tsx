@@ -20,8 +20,15 @@ import {
 } from './on-demand-backup-modal.types.ts';
 import { ScheduleModalContext } from '../backups.context.ts';
 import { Typography } from '@mui/material';
+import { DbCluster } from 'shared-types/dbCluster.types.ts';
+import { DbEngineType } from 'shared-types/dbEngines.types.ts';
+import { useUpdateDbClusterWithConflictRetry } from 'hooks';
 
-export const OnDemandBackupModal = () => {
+export const OnDemandBackupModal = ({
+  dbCluster,
+}: {
+  dbCluster: DbCluster;
+}) => {
   const queryClient = useQueryClient();
   const { dbClusterName, namespace = '' } = useParams();
 
@@ -29,6 +36,8 @@ export const OnDemandBackupModal = () => {
   const backupNames = backups.map((item) => item.name);
   const { mutate: createBackupOnDemand, isPending: creatingBackup } =
     useCreateBackupOnDemand(dbClusterName!, namespace);
+  const { mutate: updateCluster } =
+    useUpdateDbClusterWithConflictRetry(dbCluster);
 
   const { openOnDemandModal, setOpenOnDemandModal } =
     useContext(ScheduleModalContext);
@@ -48,6 +57,24 @@ export const OnDemandBackupModal = () => {
             };
           }
         );
+
+        if (dbCluster.spec.engine.type === DbEngineType.POSTGRESQL) {
+          updateCluster({
+            ...dbCluster,
+            spec: {
+              ...dbCluster.spec,
+              backup: {
+                ...dbCluster.spec.backup,
+                pitr: {
+                  ...(dbCluster.spec.backup?.pitr || {}),
+                  backupStorageName:
+                    dbCluster.spec.backup?.pitr?.backupStorageName || '',
+                  enabled: true,
+                },
+              },
+            },
+          });
+        }
         setOpenOnDemandModal(false);
       },
     });

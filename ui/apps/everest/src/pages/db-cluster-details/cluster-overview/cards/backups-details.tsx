@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,7 +19,7 @@ import OverviewSection from '../overview-section';
 import { BackupsDetailsOverviewCardProps } from './card.types';
 import OverviewSectionRow from '../overview-section-row';
 import { Messages } from '../cluster-overview.messages';
-import { Box, Button, Stack, Typography } from '@mui/material';
+import { Alert, Box, Button, Stack, Typography } from '@mui/material';
 import { Link, useMatch } from 'react-router-dom';
 import { DBClusterDetailsTabs } from '../../db-cluster-details.types';
 import OverviewSectionText from '../overview-section-text/overview-section-text';
@@ -33,11 +34,11 @@ import { useContext, useMemo, useState } from 'react';
 import { MRT_ColumnDef } from 'material-react-table';
 import { DATE_FORMAT } from 'consts';
 import { format } from 'date-fns';
+import { dbEngineToDbType } from '@percona/utils';
 import { DbClusterContext } from 'pages/db-cluster-details/dbCluster.context';
 import { PitrEditModal } from './pitr-details/edit-pitr';
-import { dbEngineToDbType } from '@percona/utils';
-import { DbType } from '@percona/types';
 import { changeDbClusterPITR, shouldDbActionsBeBlocked } from 'utils/db';
+import { DbType } from '@percona/types';
 
 export const BackupsDetails = ({
   dbClusterName,
@@ -53,8 +54,8 @@ export const BackupsDetails = ({
     canUpdateDb && !shouldDbActionsBeBlocked(dbCluster?.status?.status);
 
   const dbType = dbEngineToDbType(dbCluster!.spec.engine.type);
-  const backupsEnabled = (schedules || []).length > 0;
-  const pitrDisabled = !backupsEnabled || dbType === DbType.Postresql;
+  const pitrEditable =
+    (schedules || []).length > 0 && dbType !== DbType.Postresql;
 
   const [openEditModal, setOpenEditModal] = useState(false);
   const routeMatch = useMatch('/databases/:namespace/:dbClusterName/:tabs');
@@ -67,6 +68,22 @@ export const BackupsDetails = ({
       onSuccess: () => handleCloseModal(),
     }
   );
+
+  const schedulesExist = (schedules || []).length > 0;
+  const backupsExist = backups.length > 0;
+
+  const getTooltipText = () => {
+    if (dbType === DbType.Postresql) {
+      if (schedulesExist && !backupsExist) {
+        return Messages.titles.scheduleExists;
+      }
+      if (backupsExist || (backupsExist && schedulesExist)) {
+        return Messages.titles.onDemandBackupExists;
+      }
+      return Messages.titles.noPitr;
+    }
+    return Messages.titles.createScheduleToEnable;
+  };
 
   const handleCloseModal = () => {
     setOpenEditModal(false);
@@ -128,53 +145,56 @@ export const BackupsDetails = ({
       }}
     >
       <Stack gap={3}>
-        <OverviewSection
-          dataTestId="schedules"
-          title={
-            <Box
-              sx={{
-                display: 'flex',
-                flexDirection: 'row',
-                justifyContent: 'space-between',
-                width: '350px',
-              }}
-            >
-              <Typography
-                color="text.primary"
-                variant="sectionHeading"
-                sx={{ marginLeft: '60px' }}
+        {backupsExist ? (
+          <OverviewSection
+            dataTestId="schedules"
+            title={
+              <Box
+                sx={{
+                  display: 'flex',
+                  flexDirection: 'row',
+                  justifyContent: 'space-between',
+                  width: '350px',
+                }}
               >
-                Started
-              </Typography>
-              <Typography color="text.primary" variant="sectionHeading">
-                Finished
-              </Typography>
-            </Box>
-          }
-          loading={loading}
-        >
-          <Table
-            getRowId={(row) => row.name}
-            muiTopToolbarProps={{ sx: { display: 'none' } }}
-            muiTableHeadCellProps={{ sx: { display: 'none' } }}
-            initialState={{
-              pagination: {
-                pageSize: 5,
-                pageIndex: 0,
-              },
-              sorting: [
-                {
-                  id: 'created',
-                  desc: true,
+                <Typography
+                  color="text.primary"
+                  variant="sectionHeading"
+                  sx={{ marginLeft: '60px' }}
+                >
+                  Started
+                </Typography>
+                <Typography color="text.primary" variant="sectionHeading">
+                  Finished
+                </Typography>
+              </Box>
+            }
+            loading={loading}
+          >
+            <Table
+              getRowId={(row) => row.name}
+              muiTopToolbarProps={{ sx: { display: 'none' } }}
+              muiTableHeadCellProps={{ sx: { display: 'none' } }}
+              initialState={{
+                pagination: {
+                  pageSize: 5,
+                  pageIndex: 0,
                 },
-              ],
-            }}
-            tableName="backupList"
-            noDataMessage={Messages.titles.noData}
-            data={backups}
-            columns={columns}
-          />
-        </OverviewSection>
+                sorting: [
+                  {
+                    id: 'created',
+                    desc: true,
+                  },
+                ],
+              }}
+              tableName="backupList"
+              data={backups}
+              columns={columns}
+            />
+          </OverviewSection>
+        ) : (
+          <Alert severity="info">{Messages.titles.noData}</Alert>
+        )}
         <OverviewSection
           dataTestId="schedules"
           title={Messages.titles.schedules}
@@ -204,11 +224,9 @@ export const BackupsDetails = ({
             },
             'data-testid': 'edit-pitr-button',
           }}
-          editable={editable && !pitrDisabled}
-          showTooltip={
-            editable && !backupsEnabled && dbType !== DbType.Postresql
-          }
-          disabledEditTooltipText={Messages.titles.createScheduleToEnable}
+          editable={editable && pitrEditable}
+          showTooltip={editable && !pitrEditable}
+          disabledEditTooltipText={getTooltipText()}
         >
           {/*// TODO EVEREST-1066 the width of the columns on the layouts in different places is limited by a different number (but not by the content), a discussion with Design is required*/}
           <OverviewSectionRow

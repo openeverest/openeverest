@@ -4,5 +4,5 @@ export type BackupListTableHeaderProps = {
   onNowClick: () => void;
   onScheduleClick: () => void;
   noStoragesAvailable?: boolean;
-  backups: Backup[];
+  currentBackups: Backup[];
 };

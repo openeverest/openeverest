@@ -9,7 +9,7 @@ import (
 	storagev1 "k8s.io/api/storage/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	everestv1alpha1 "github.com/percona/everest-operator/api/v1alpha1"
+	everestv1alpha1 "github.com/percona/everest-operator/api/everest/v1alpha1"
 )
 
 func TestStorageClasses(t *testing.T) {

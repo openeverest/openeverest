@@ -65,28 +65,23 @@ const Login = () => {
         <Stack mt="auto" alignItems="flex-start">
           <LoginLinkButton
             icon={<ArrowForwardIcon />}
-            text="Support"
-            href="https://hubs.ly/Q02YRLsL0"
+            text="Join Community"
+            href="https://openeverest.io/#community"
           />
           <LoginLinkButton
             icon={<ArrowForwardIcon />}
-            text="Quickstart guide"
-            href="https://hubs.ly/Q02Rt6hk0"
+            text="View on GitHub"
+            href="https://github.com/openeverest/openeverest"
           />
           <LoginLinkButton
             icon={<ArrowForwardIcon />}
-            text="Forum"
-            href="https://hubs.ly/Q02Rt6kD0"
+            text="Documentation"
+            href="https://openeverest.io/documentation/current/"
           />
           <LoginLinkButton
             icon={<ArrowForwardIcon />}
-            text="K8s Squad program"
-            href="https://hubs.ly/Q02Rt6l60"
-          />
-          <LoginLinkButton
-            icon={<ArrowForwardIcon />}
-            text="Github"
-            href="https://hubs.ly/Q02Rt6np0"
+            text="Commercial Support"
+            href="https://openeverest.io/support"
           />
         </Stack>
       </Stack>

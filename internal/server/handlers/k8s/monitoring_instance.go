@@ -13,9 +13,8 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 
-	everestv1alpha1 "github.com/percona/everest-operator/api/v1alpha1"
+	everestv1alpha1 "github.com/percona/everest-operator/api/everest/v1alpha1"
 	"github.com/percona/everest/api"
-	"github.com/percona/everest/pkg/pmm"
 )
 
 func (h *k8sHandler) ListMonitoringInstances(ctx context.Context, namespace string) (*everestv1alpha1.MonitoringConfigList, error) {
@@ -76,8 +75,8 @@ func (h *k8sHandler) UpdateMonitoringInstance(ctx context.Context, namespace, na
 	}
 	skipVerifyTLS := !pointer.Get(req.VerifyTLS)
 	if req.Pmm != nil && req.Pmm.User != "" && req.Pmm.Password != "" {
-		apiKey, err = pmm.CreatePMMApiKey(
-			ctx, req.Url, fmt.Sprintf("everest-%s-%s", name, uuid.NewString()),
+		apiKey, err = m.Spec.PMM.CreatePMMApiKey(
+			ctx, fmt.Sprintf("everest-%s-%s", name, uuid.NewString()),
 			req.Pmm.User, req.Pmm.Password,
 			skipVerifyTLS,
 		)
@@ -117,8 +116,9 @@ func (h *k8sHandler) getPMMApiKey(ctx context.Context, params *api.CreateMonitor
 
 	h.log.Debug("Getting PMM API key by username and password")
 	skipVerifyTLS := !pointer.Get(params.VerifyTLS)
-	return pmm.CreatePMMApiKey(
-		ctx, params.Url, fmt.Sprintf("everest-%s-%s", params.Name, uuid.NewString()),
+	config := everestv1alpha1.PMMConfig{URL: params.Url}
+	return config.CreatePMMApiKey(
+		ctx, fmt.Sprintf("everest-%s-%s", params.Name, uuid.NewString()),
 		params.Pmm.User, params.Pmm.Password,
 		skipVerifyTLS,
 	)

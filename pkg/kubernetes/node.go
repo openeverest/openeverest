@@ -14,6 +14,7 @@ import (
 // - node.cloudprovider.kubernetes.io/uninitialized=NoSchedule
 // - node.kubernetes.io/unschedulable=NoSchedule
 // - node-role.kubernetes.io/master=NoSchedule
+// - node-role.kubernetes.io/control-plane=NoSchedule
 func (k *Kubernetes) ListWorkerNodes(ctx context.Context, opts ...ctrlclient.ListOption) (*corev1.NodeList, error) {
 	result := &corev1.NodeList{}
 	if err := k.k8sClient.List(ctx, result, opts...); err != nil {
@@ -24,6 +25,7 @@ func (k *Kubernetes) ListWorkerNodes(ctx context.Context, opts ...ctrlclient.Lis
 		"node.cloudprovider.kubernetes.io/uninitialized": corev1.TaintEffectNoSchedule,
 		"node.kubernetes.io/unschedulable":               corev1.TaintEffectNoSchedule,
 		"node-role.kubernetes.io/master":                 corev1.TaintEffectNoSchedule,
+		"node-role.kubernetes.io/control-plane":          corev1.TaintEffectNoSchedule,
 	}
 	result.Items = slices.DeleteFunc(result.Items, func(node corev1.Node) bool {
 		for _, taint := range node.Spec.Taints {

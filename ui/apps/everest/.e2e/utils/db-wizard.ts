@@ -77,9 +77,15 @@ export const goToLastStepByStepAndSubmit = async (
   waitMs?: number
 ) => {
   let createDbVisible = false;
+  let stepNr = 0;
   while (!createDbVisible) {
     if (waitMs) {
       await page.waitForTimeout(waitMs);
+    }
+    stepNr++;
+    if (stepNr == 3) {
+      await moveBack(page);
+      await moveForward(page);
     }
     await moveForward(page);
     const a = await page.getByTestId('db-wizard-submit-button').isVisible();
@@ -263,7 +269,7 @@ export const populateAdvancedConfig = async (
   if (externalAccess) {
     await page.getByTestId('select-input-exposure-method').waitFor();
     await page.getByTestId('select-exposure-method-button').click();
-    await page.getByRole('option', { name: 'Load balancer' }).click();
+    await page.getByRole('option', { name: 'LoadBalancer' }).click();
 
     if (externalAccessSourceRange != '') {
       await page

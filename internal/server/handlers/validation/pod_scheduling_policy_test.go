@@ -31,7 +31,7 @@ import (
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 
-	everestv1alpha1 "github.com/percona/everest-operator/api/v1alpha1"
+	everestv1alpha1 "github.com/percona/everest-operator/api/everest/v1alpha1"
 	operatorUtils "github.com/percona/everest-operator/utils"
 	"github.com/percona/everest/internal/server/handlers/k8s"
 	"github.com/percona/everest/pkg/kubernetes"
@@ -156,7 +156,8 @@ func TestValidate_CreatePodSchedulingPolicy(t *testing.T) {
 				Group:    everestv1alpha1.GroupVersion.Group,
 				Resource: "podschedulingpolicies",
 			},
-				"everest-existing-name"),
+				"everest-existing-name",
+			),
 		},
 		// unsupported engineType
 		{

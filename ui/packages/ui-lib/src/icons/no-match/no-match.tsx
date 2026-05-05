@@ -57,4 +57,6 @@ const NoMatchIcon = ({ w, h }: NoMatchIconProps) => {
   );
 };
 
+NoMatchIcon.displayName = 'NoMatchIcon';
+
 export default NoMatchIcon;

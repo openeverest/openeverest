@@ -15,9 +15,10 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 
-	everestv1alpha1 "github.com/percona/everest-operator/api/v1alpha1"
+	everestv1alpha1 "github.com/percona/everest-operator/api/everest/v1alpha1"
 	operatorUtils "github.com/percona/everest-operator/utils"
 	"github.com/percona/everest/api"
+	"github.com/percona/everest/internal/server/handlers"
 	"github.com/percona/everest/pkg/common"
 )
 
@@ -80,6 +81,14 @@ func (h *validateHandler) GetDatabaseClusterCredentials(ctx context.Context, nam
 
 func (h *validateHandler) GetDatabaseClusterComponents(ctx context.Context, namespace, name string) ([]api.DatabaseClusterComponent, error) {
 	return h.next.GetDatabaseClusterComponents(ctx, namespace, name)
+}
+
+func (h *validateHandler) GetDatabaseClusterComponentLogs(ctx context.Context, namespace, clusterName, componentName string, params api.GetDatabaseClusterComponentLogsParams, stream handlers.StreamFunc) error {
+	// in openapi 3.1 can be handled by the schema itself, but currently we use 3.0.2
+	if params.SinceSeconds != nil && params.SinceTime != nil {
+		return errors.Join(ErrInvalidRequest, errors.New("at most one of sinceSeconds or sinceTime may be specified"))
+	}
+	return h.next.GetDatabaseClusterComponentLogs(ctx, namespace, clusterName, componentName, params, stream)
 }
 
 func (h *validateHandler) GetDatabaseClusterPitr(ctx context.Context, namespace, name string) (*api.DatabaseClusterPitr, error) {

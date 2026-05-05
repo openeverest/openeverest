@@ -20,14 +20,18 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"math/rand"
 	"net/http"
 	"time"
 
 	"github.com/labstack/echo/v4"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/ptr"
+	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 
-	everestv1alpha1 "github.com/percona/everest-operator/api/v1alpha1"
+	everestv1alpha1 "github.com/percona/everest-operator/api/everest/v1alpha1"
 	"github.com/percona/everest/api"
 )
 
@@ -103,6 +107,159 @@ func (e *EverestServer) GetDatabaseClusterComponents(c echo.Context, namespace, 
 		return err
 	}
 	return c.JSON(http.StatusOK, result)
+}
+
+func (e *EverestServer) GetDatabaseClusterComponentLogs(c echo.Context, ns, cName, componentName string, params api.GetDatabaseClusterComponentLogsParams) error {
+	ctx := c.Request().Context()
+
+	// function to stream logs. it uses closures for the echo-related dependencies to keep the handlers (validation, rbac, k8s) independent from http-framework
+	stream := func(ctx context.Context, namespace, clusterName, componentName string, params api.GetDatabaseClusterComponentLogsParams) error {
+		opts, err := e.buildPodLogOptions(ctx, namespace, componentName, params)
+		if err != nil {
+			return err
+		}
+
+		req := e.kubeStreamer.CoreV1().Pods(namespace).GetLogs(componentName, opts)
+		stream, err := req.Stream(ctx)
+		if err != nil {
+			return echo.NewHTTPError(http.StatusBadGateway, "failed to open log stream: "+err.Error())
+		}
+		defer stream.Close()
+
+		return streamToResponse(ctx, c.Response(), stream)
+	}
+
+	err := e.handler.GetDatabaseClusterComponentLogs(ctx, ns, cName, componentName, params, stream)
+	if err != nil {
+		e.l.Errorf("GetDatabaseClusterComponents failed: %v", err)
+		return err
+	}
+	return nil
+}
+
+func (e *EverestServer) buildPodLogOptions(
+	ctx context.Context,
+	namespace, componentName string,
+	params api.GetDatabaseClusterComponentLogsParams,
+) (*corev1.PodLogOptions, error) {
+	const (
+		defaultTailLines int64 = 200
+		maxLimitBytes          = 100 * 1024 * 1024 // 100 MiB
+	)
+
+	follow := params.Follow != nil && *params.Follow
+
+	opts := &corev1.PodLogOptions{
+		Follow: follow,
+		Container: e.getDefaultContainer(
+			ctx,
+			namespace,
+			componentName,
+			params.Container,
+		),
+	}
+
+	if params.TailLines != nil {
+		opts.TailLines = intPtrToInt64Ptr(params.TailLines)
+	} else if !follow {
+		opts.TailLines = ptr.To(defaultTailLines)
+	}
+
+	if params.SinceSeconds != nil {
+		opts.SinceSeconds = intPtrToInt64Ptr(params.SinceSeconds)
+	}
+
+	if params.SinceTime != nil {
+		opts.SinceTime = &metav1.Time{Time: *params.SinceTime}
+	}
+
+	if params.Previous != nil {
+		opts.Previous = *params.Previous
+	}
+
+	if params.LimitBytes != nil {
+		if *params.LimitBytes > maxLimitBytes {
+			return nil, errors.New("limitBytes too large")
+		}
+		opts.LimitBytes = intPtrToInt64Ptr(params.LimitBytes)
+	}
+
+	if params.Timestamps != nil {
+		opts.Timestamps = *params.Timestamps
+	}
+
+	return opts, nil
+}
+
+func streamToResponse(
+	ctx context.Context,
+	res *echo.Response,
+	stream io.Reader,
+) error {
+	res.Header().Set(echo.HeaderContentType, "text/plain; charset=utf-8")
+	res.Header().Set("Transfer-Encoding", "chunked")
+	res.WriteHeader(http.StatusOK)
+
+	flusher, ok := res.Writer.(http.Flusher)
+	if !ok {
+		return echo.NewHTTPError(
+			http.StatusInternalServerError,
+			"streaming not supported",
+		)
+	}
+
+	buf := make([]byte, 32*1024)
+
+	for {
+		select {
+		case <-ctx.Done():
+			return nil
+		default:
+			n, err := stream.Read(buf)
+			if n > 0 {
+				if _, werr := res.Write(buf[:n]); werr != nil {
+					return nil // client disconnected
+				}
+				flusher.Flush()
+			}
+			if err != nil {
+				if errors.Is(err, io.EOF) {
+					return nil
+				}
+				return err
+			}
+		}
+	}
+}
+
+// by default the first container in the list is used to get the logs from.
+func (e *EverestServer) getDefaultContainer(ctx context.Context, namespace, podName string, componentName *string) string {
+	if componentName != nil {
+		return *componentName
+	}
+	pods, err := e.kubeConnector.ListPods(ctx, ctrlclient.InNamespace(namespace), ctrlclient.MatchingFields{"metadata.name": podName})
+	if err != nil {
+		e.l.Errorf("ListPods failed: %v", err)
+		return ""
+	}
+	if len(pods.Items) == 0 {
+		e.l.Errorf("Empty pod list")
+		return ""
+	}
+	if len(pods.Items[0].Spec.Containers) == 0 {
+		e.l.Errorf("Empty container list")
+		return ""
+	}
+
+	return pods.Items[0].Spec.Containers[0].Name
+}
+
+func intPtrToInt64Ptr(v *int) *int64 {
+	if v == nil {
+		return nil
+	}
+	x := int64(*v)
+	return &x
 }
 
 // UpdateDatabaseCluster replaces the specified database cluster on the specified kubernetes cluster.

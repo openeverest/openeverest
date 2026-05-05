@@ -12,10 +12,12 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-import { test } from '@fixtures'
-import {checkError} from '@tests/tests/helpers';
 
-test.describe('Everest settings tests', {tag: ['@settings']}, () => {
+import {test} from '@playwright/test';
+import {checkError} from '@tests/utils/api';
+
+test.describe.parallel('Everest settings tests', async () => {
+
   test('get settings endpoint', async ({request}) => {
     const settings = await request.get('/v1/settings')
 

@@ -18,8 +18,9 @@ import (
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
-	everestv1alpha1 "github.com/percona/everest-operator/api/v1alpha1"
+	everestv1alpha1 "github.com/percona/everest-operator/api/everest/v1alpha1"
 	"github.com/percona/everest/api"
+	"github.com/percona/everest/internal/server/handlers"
 	"github.com/percona/everest/pkg/common"
 )
 
@@ -185,6 +186,11 @@ func (h *k8sHandler) GetDatabaseClusterComponents(ctx context.Context, namespace
 		})
 	}
 	return res, nil
+}
+
+func (h *k8sHandler) GetDatabaseClusterComponentLogs(ctx context.Context, namespace, clusterName, componentName string, params api.GetDatabaseClusterComponentLogsParams, stream handlers.StreamFunc) error {
+	// after all the previous handlers allowed the request we can start streaming logs.
+	return stream(ctx, namespace, clusterName, componentName, params)
 }
 
 func (h *k8sHandler) GetDatabaseClusterPitr(ctx context.Context, namespace, name string) (*api.DatabaseClusterPitr, error) {

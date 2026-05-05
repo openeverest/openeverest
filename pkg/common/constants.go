@@ -16,7 +16,7 @@
 // Package common holds common constants used across Everest.
 package common
 
-import everestv1alpha1 "github.com/percona/everest-operator/api/v1alpha1"
+import everestv1alpha1 "github.com/percona/everest-operator/api/everest/v1alpha1"
 
 const (
 	// Everest ...
@@ -58,6 +58,8 @@ const (
 	VictoriaMetricsOperatorDeploymentName = "vm-operator"
 	// KubeStateMetricsDeploymentName stores the name of kube-state-metrics deployment.
 	KubeStateMetricsDeploymentName = "kube-state-metrics"
+	// PerconaEverestCRDLabel is the label used to identify Everest CRDs.
+	PerconaEverestCRDLabel = "everest.percona.com/crd"
 
 	// EverestOperatorName holds the name for Everest operator.
 	EverestOperatorName = "everest-operator"

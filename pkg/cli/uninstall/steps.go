@@ -8,8 +8,8 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
+	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 
-	everestv1alpha1 "github.com/percona/everest-operator/api/v1alpha1"
 	"github.com/percona/everest/pkg/cli/helm"
 	"github.com/percona/everest/pkg/cli/steps"
 	"github.com/percona/everest/pkg/common"
@@ -81,14 +81,11 @@ func (u *Uninstall) deleteEverestCRDs(ctx context.Context) error {
 }
 
 func (u *Uninstall) listAndDeleteEverestCRDs(ctx context.Context) error {
-	crds, err := u.kubeConnector.ListCRDs(ctx)
+	crds, err := u.kubeConnector.ListCRDs(ctx, ctrlclient.MatchingLabels{common.PerconaEverestCRDLabel: "true"})
 	if err != nil {
 		return fmt.Errorf("failed to list CRDs: %w", err)
 	}
 	for _, crd := range crds.Items {
-		if crd.Spec.Group != everestv1alpha1.GroupVersion.Group {
-			continue
-		}
 		if err := u.kubeConnector.DeleteCRD(ctx, &crd); err != nil {
 			return fmt.Errorf("failed to delete CRD: %w", err)
 		}

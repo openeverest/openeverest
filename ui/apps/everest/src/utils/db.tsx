@@ -34,8 +34,8 @@ import { dbEngineToDbType } from '@percona/utils';
 import { MIN_NUMBER_OF_SHARDS } from 'components/cluster-form';
 import { Path, UseFormGetFieldState } from 'react-hook-form';
 import cronConverter from './cron-converter';
-import { ExposureMethod } from 'components/cluster-form/advanced-configuration/advanced-configuration.types';
 import { EMPTY_LOAD_BALANCER_CONFIGURATION } from 'consts';
+import { mapDeprecatedExposeType } from 'components/cluster-form/advanced-configuration/advanced-configuration.utils';
 
 export const dbTypeToIcon = (dbType: DbType) => {
   switch (dbType) {
@@ -743,16 +743,26 @@ export const changeDbClusterCrd = (
 export const changeDbClusterAdvancedConfig = (
   dbCluster: DbCluster,
   engineParametersEnabled = false,
-  exposureMethod: ExposureMethod,
+  exposureMethod: ProxyExposeType,
   engineParameters = '',
   sourceRanges?: Array<{ sourceRange?: string }>,
   podSchedulingPolicyEnabled = false,
   podSchedulingPolicy = '',
-  loadBalancerConfigName = ''
+  loadBalancerConfigName = '',
+  splitHorizonDnsConfigName = ''
 ) => ({
   ...dbCluster,
   spec: {
     ...dbCluster.spec,
+    ...(splitHorizonDnsConfigName && {
+      engineFeatures: {
+        ...dbCluster.spec.engineFeatures,
+        psmdb: {
+          ...dbCluster.spec.engineFeatures?.psmdb,
+          splitHorizonDnsConfigName: splitHorizonDnsConfigName,
+        },
+      },
+    }),
     podSchedulingPolicyName: podSchedulingPolicyEnabled
       ? podSchedulingPolicy
       : undefined,
@@ -764,15 +774,12 @@ export const changeDbClusterAdvancedConfig = (
       ...dbCluster.spec.proxy,
       expose: {
         loadBalancerConfigName:
-          (exposureMethod === ExposureMethod.LoadBalancer &&
+          (exposureMethod === ProxyExposeType.LoadBalancer &&
             loadBalancerConfigName !== EMPTY_LOAD_BALANCER_CONFIGURATION &&
             loadBalancerConfigName) ||
           undefined,
-        type:
-          exposureMethod === ExposureMethod.LoadBalancer
-            ? ProxyExposeType.external
-            : ProxyExposeType.internal,
-        ...(exposureMethod === ExposureMethod.LoadBalancer &&
+        type: exposureMethod,
+        ...(exposureMethod === ProxyExposeType.LoadBalancer &&
           sourceRanges && {
             ipSourceRanges: sourceRanges.flatMap((source) =>
               source.sourceRange ? [source.sourceRange] : []
@@ -843,23 +850,26 @@ export const changeDbClusterResources = (
         size: `${newResources.disk}${newResources.diskUnit}`,
       },
     },
-    proxy: getProxySpec(
-      dbEngineToDbType(dbCluster.spec.engine.type),
-      newResources.numberOfProxies.toString(),
-      '',
-      dbCluster.spec.proxy.expose.type === ProxyExposeType.external
-        ? ExposureMethod.LoadBalancer
-        : ExposureMethod.ClusterIP,
-      newResources.proxyCpu,
-      newResources.proxyMemory,
-      !!sharding,
-      ((dbCluster.spec.proxy as Proxy).expose.ipSourceRanges || []).map(
-        (sourceRange) => ({ sourceRange })
-      ),
-      dbCluster.spec.proxy.expose.type === ProxyExposeType.external
-        ? dbCluster.spec.proxy.expose.loadBalancerConfigName
-        : undefined
-    ),
+    proxy: (() => {
+      const exposeType = dbCluster.spec.proxy?.expose?.type;
+      const mappedExposeType = mapDeprecatedExposeType(exposeType);
+
+      return getProxySpec(
+        dbEngineToDbType(dbCluster.spec.engine.type),
+        newResources.numberOfProxies.toString(),
+        '',
+        mappedExposeType,
+        newResources.proxyCpu,
+        newResources.proxyMemory,
+        !!sharding,
+        ((dbCluster.spec.proxy as Proxy)?.expose?.ipSourceRanges || []).map(
+          (sourceRange) => ({ sourceRange })
+        ),
+        mappedExposeType === ProxyExposeType.LoadBalancer
+          ? dbCluster.spec.proxy?.expose?.loadBalancerConfigName
+          : undefined
+      );
+    })(),
     ...(dbCluster.spec.engine.type === DbEngineType.PSMDB &&
       sharding && {
         sharding: {
@@ -1022,4 +1032,20 @@ export const mergeNewDbClusterData = (
   };
 
   return newCluster;
+};
+
+export const fileToBase64 = (file: File) =>
+  new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = () => {
+      const result = reader.result as string;
+      const base64 = result.split(',')[1];
+      resolve(base64);
+    };
+    reader.onerror = reject;
+  });
+
+export const isSplitHorizonDNSEnabled = (dbType: DbType): boolean => {
+  return dbType === DbType.Mongo;
 };

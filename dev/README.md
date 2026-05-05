@@ -12,23 +12,52 @@ Build and runtime logs can be easily accessed using tilt's web UI.
 
 ## Prerequisites
 
-1. Install [k3d](https://k3d.io)
+1. Install [Go](https://go.dev/dl/) (version 1.26 or later)
 
-2. Install [tilt.dev](https://docs.tilt.dev/install.html)
+2. Install [Docker](https://docs.docker.com/engine/install/)
+
+3. Install [kubectl](https://kubernetes.io/docs/tasks/tools/)
+
+4. Install [Helm](https://helm.sh/docs/intro/install/)
+
+   ```sh
+   curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+   ```
+
+5. Install [k3d](https://k3d.io)
+
+6. Install [tilt.dev](https://docs.tilt.dev/install.html)
 NOTE: for MacOS tilt needs to have installed and runing `docker-desktop` tool. This is not required and can be skiped since we use `k3d` instead.
- 
-3. Clone [everest-operator](https://github.com/percona/everest-operator).
 
-4. Clone [percona-helm-charts](https://github.com/percona/percona-helm-charts).
+7. Install [pnpm](https://pnpm.io/installation) (required for the frontend build)
+
+   ```sh
+   npm install -g pnpm
+   ```
+
+8. Clone [everest-operator](https://github.com/percona/everest-operator).
+
+9. Clone [helm-charts](https://github.com/openeverest/helm-charts).
 
 ## Set up the environment
 
 ### 1. Set up k8s & registry   
-#### Option A: Local  
+#### Option A: Local (Tilt development)
 ```sh
-k3d cluster create everest-dev --registry-create k3d-registry
-```  
-#### Option B: Remote (GKE)  
+make dev-up
+```
+This creates a k3d cluster and starts Tilt. The Everest UI will be available at http://localhost:8080.
+
+> **NOTE**: The default k3d registry uses port `5000`, which may already be occupied on some systems (e.g., macOS Control Center). Update the `hostPort` in `k3d_config.dev.yaml`.
+
+#### Option B: Local (CI-style testing)
+```sh
+make k3d-cluster-up
+make deploy-all
+```
+This creates a k3d cluster and deploys Everest using the `deploy` target, which exposes the service via NodePort.
+
+#### Option C: Remote (GKE)  
 1. Setup your default gcloud project, e.g.  
 ```sh
 export CLOUDSDK_CORE_PROJECT=percona-everest
@@ -49,20 +78,20 @@ gcloud auth configure-docker <REGISTRY_REGION>-docker.pkg.dev
 - Cleanup the registry periodically since tilt pushes a new image each time something is changed in the project. 
 
 
-### 2. Run tilt
+### 2. Configure and start Tilt
 1. Set environment variables:
 
 Copy file dev/.env.example to dev/.env and set the following environment variables:
 ```sh
 EVEREST_OPERATOR_DIR=<path to github.com/percona/everest-operator repository directory>
-EVEREST_CHART_DIR=<path to github.com/percona/percona-helm-charts>/charts/everest
+EVEREST_CHART_DIR=<path to github.com/openeverest/helm-charts>/charts/everest
 ```
 
 or set environment variables manually in the terminal:
 
 ```sh
 export EVEREST_OPERATOR_DIR=<path to github.com/percona/everest-operator repository directory>
-export EVEREST_CHART_DIR=<path to github.com/percona/percona-helm-charts>/charts/everest
+export EVEREST_CHART_DIR=<path to github.com/openeverest/helm-charts>/charts/everest
 ```
 
 2. Set namespaces for the Everest components:
@@ -74,9 +103,9 @@ Copy file dev/config.yaml.example to dev/config.yaml and:
 
 3. (Optional) If you want to test a specific version of a given DB operator you can set the following environment variables in .env file or in the terminal:
 ```sh
-export PXC_OPERATOR_VERSION=1.16.1
-export PSMDB_OPERATOR_VERSION=1.19.1
-export PG_OPERATOR_VERSION=2.6.0
+export PXC_OPERATOR_VERSION=1.19.0
+export PSMDB_OPERATOR_VERSION=1.22.0
+export PG_OPERATOR_VERSION=2.8.2
 ```
 
 4. (Optional) If you want to debug Everest Server and/or Everest operator remotely, you can set the following environment variables in .env file or in the terminal: 
@@ -94,23 +123,25 @@ Refer to instructions in your IDE on how to setup remote debugging.
 
 For GoLand, you can refer to [this](https://www.jetbrains.com/help/go/attach-to-running-go-processes-with-debugger.html#step-2-create-the-go-remote-run-debug-configuration) link.
 
-5. Run tilt
+5. Start Tilt:
 ```sh
-tilt up
+make dev-up
 ```
 
 The everest UI/API will be available at http://localhost:8080.
 
 ## Tear down the environment
 
-1. Tear down tilt
+### For Tilt development:
 ```sh
-tilt down
+make dev-down       # Stop Tilt (cluster remains running)
+make dev-destroy    # Stop Tilt and destroy the cluster
 ```
 
-2. Tear down local k8s cluster
+### For CI-style testing:
 ```sh
-k3d cluster delete everest-dev
+make undeploy       # Undeploy Everest
+make k3d-cluster-down  # Destroy the cluster
 ```
 
 ## Notes for frontend development

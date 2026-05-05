@@ -99,7 +99,8 @@ test.beforeAll(async ({ browser, request }) => {
   });
 });
 
-export const POD_SCHEDULING_POLICIES_URL = '/settings/policies/pod-scheduling';
+export const POD_SCHEDULING_POLICIES_URL =
+  '/settings/policies/details/pod-scheduling';
 
 test.afterAll(async ({ request }) => {
   await deleteDbClusterFn(request, DB_CLUSTER_NAME);

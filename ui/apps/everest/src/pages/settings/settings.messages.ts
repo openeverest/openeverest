@@ -19,7 +19,7 @@ const tabLabels: Record<keyof typeof SettingsTabs, string> = {
   storageLocations: 'Backups storages',
   monitoringEndpoints: 'Monitoring endpoints',
   namespaces: 'Namespaces',
-  policies: 'Policies',
+  policies: 'Policies & Configurations',
 };
 export const Messages = {
   tabs: tabLabels,

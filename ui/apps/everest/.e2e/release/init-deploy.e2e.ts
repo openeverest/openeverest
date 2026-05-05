@@ -214,9 +214,9 @@ const zephyrMap: Record<string, string> = {
           );
           expect(addedCluster?.spec.engine.storage.size.toString()).toBe('1Gi');
           if (size === 3) {
-            expect(addedCluster?.spec.proxy.expose.type).toBe('external');
+            expect(addedCluster?.spec.proxy.expose.type).toBe('LoadBalancer');
           } else {
-            expect(addedCluster?.spec.proxy.expose.type).toBe('internal');
+            expect(addedCluster?.spec.proxy.expose.type).toBe('ClusterIP');
           }
           if (db != 'psmdb') {
             expect(addedCluster?.spec.proxy.replicas).toBe(size);

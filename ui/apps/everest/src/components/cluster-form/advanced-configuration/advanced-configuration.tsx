@@ -24,8 +24,9 @@ import { Messages } from './messages';
 import {
   AdvancedConfigurationFields,
   AllowedFieldsToInitiallyLoadDefaults,
-  ExposureMethod,
+  PROXY_EXPOSE_TYPE_TO_LABEL,
 } from './advanced-configuration.types';
+import { ProxyExposeType } from 'shared-types/dbCluster.types';
 import { useFormContext } from 'react-hook-form';
 import { DbEngineType, DbType } from '@percona/types';
 import { getParamsPlaceholderFromDbType } from './advanced-configuration.utils';
@@ -48,7 +49,7 @@ import {
   EVEREST_READ_ONLY_FINALIZER,
 } from 'consts';
 import { FormCard } from 'components/form-card';
-import { usePodSchedulingPolicies } from 'hooks';
+import { usePodSchedulingPolicies, useSplitHorizonConfigs } from 'hooks';
 import PoliciesDialog from './policies.dialog';
 import { PodSchedulingPolicy } from 'shared-types/affinity.types';
 import { dbTypeToDbEngine } from '@percona/utils';
@@ -56,14 +57,19 @@ import { emtpyConfig, SELECT_WIDTH } from './constants';
 import { useLoadBalancerConfigs } from 'hooks/api/load-balancer';
 import { LoadBalancerConfig } from 'shared-types/loadbalancer.types';
 import LoadBalancerDialog from './load-balancer.dialog';
+import WithInfoIcon from 'components/with-info-icon';
+import { isSplitHorizonDNSEnabled } from 'utils/db';
+import ToggableFormCard from 'components/toggable-form-card';
 
 interface AdvancedConfigurationFormProps {
   dbType: DbType;
+  showSplitHorizonDNS: boolean;
   loadingDefaultsForEdition?: boolean;
   automaticallyTogglePodSchedulingPolicySwitch?: boolean;
   allowedFieldsToInitiallyLoadDefaults?: AllowedFieldsToInitiallyLoadDefaults[];
   disableNoConfig?: boolean;
   activePolicy?: string;
+  namespace?: string;
 }
 
 export const AdvancedConfigurationForm = ({
@@ -73,6 +79,8 @@ export const AdvancedConfigurationForm = ({
   allowedFieldsToInitiallyLoadDefaults = [],
   disableNoConfig = false,
   activePolicy,
+  namespace,
+  showSplitHorizonDNS,
 }: AdvancedConfigurationFormProps) => {
   const { watch, setValue, getFieldState, getValues, trigger } =
     useFormContext();
@@ -86,10 +94,16 @@ export const AdvancedConfigurationForm = ({
   const selectedLoadBalancerConfig = useRef<
     LoadBalancerConfig | null | undefined
   >(null);
-  const [engineParametersEnabled, policiesEnabled, exposureMethod] = watch([
+  const [
+    engineParametersEnabled,
+    policiesEnabled,
+    exposureMethod,
+    splitHorizonDNSEnabled,
+  ] = watch([
     AdvancedConfigurationFields.engineParametersEnabled,
     AdvancedConfigurationFields.podSchedulingPolicyEnabled,
     AdvancedConfigurationFields.exposureMethod,
+    AdvancedConfigurationFields.splitHorizonDNSEnabled,
   ]);
   const { data: clusterInfo, isLoading: clusterInfoLoading } =
     useKubernetesClusterInfo(['wizard-k8-info']);
@@ -97,10 +111,20 @@ export const AdvancedConfigurationForm = ({
     usePodSchedulingPolicies(dbTypeToDbEngine(dbType), false, {
       refetchInterval: 2000,
     });
+  const {
+    data: splitHorizonDNSConfigs = [],
+    isLoading: fetchingSplitHorizonDNS,
+  } = useSplitHorizonConfigs(namespace!, {
+    enabled: !!namespace && showSplitHorizonDNS,
+  });
 
   const clusterType = clusterInfo?.clusterType;
 
-  const exposureMethods = Object.values(ExposureMethod);
+  const exposureMethods = Object.values(ProxyExposeType);
+  const splitHorizonDNSDomain = splitHorizonDNSConfigs.find(
+    (c) =>
+      c.metadata.name === getValues(AdvancedConfigurationFields.splitHorizonDNS)
+  )?.spec.baseDomainNameSuffix;
 
   const { data: loadBalancerConfigs, isLoading: fetchingLoadBalancer } =
     useLoadBalancerConfigs('load-balancer-configs', dbTypeToDbEngine(dbType), {
@@ -164,11 +188,26 @@ export const AdvancedConfigurationForm = ({
         selectDefaultValue
       );
     }
+
+    if (
+      isSplitHorizonDNSEnabled(dbType) &&
+      showSplitHorizonDNS &&
+      allowedFieldsToInitiallyLoadDefaults.includes('splitHorizonDNS') &&
+      splitHorizonDNSConfigs.length > 0
+    ) {
+      setValue(
+        AdvancedConfigurationFields.splitHorizonDNS,
+        splitHorizonDNSConfigs[0].metadata.name
+      );
+    }
   }, [
     allowedFieldsToInitiallyLoadDefaults,
     getValues,
     selectDefaultValue,
     setValue,
+    splitHorizonDNSConfigs,
+    dbType,
+    showSplitHorizonDNS,
   ]);
 
   const handleOnLoadBalancerConfigInfoClick = () => {
@@ -317,10 +356,15 @@ export const AdvancedConfigurationForm = ({
           />
         }
       />
-      <FormCard
+      <ToggableFormCard
         title={Messages.cards.policies.title}
         description={Messages.cards.policies.description}
-        cardContent={
+        tooltipText={!policies?.length ? Messages.tooltipTexts.noPolicies : ''}
+        switchInputName={AdvancedConfigurationFields.podSchedulingPolicyEnabled}
+        switchFieldProps={{
+          disabled: !policies?.length,
+        }}
+        bottomSlot={
           <Box
             display="flex"
             justifyContent="space-between"
@@ -363,23 +407,6 @@ export const AdvancedConfigurationForm = ({
             )}
           </Box>
         }
-        controlComponent={
-          <Tooltip
-            title={!policies?.length ? Messages.tooltipTexts.noPolicies : ''}
-            placement="top"
-            arrow
-          >
-            <span>
-              <SwitchInput
-                label={Messages.enable}
-                name={AdvancedConfigurationFields.podSchedulingPolicyEnabled}
-                switchFieldProps={{
-                  disabled: !policies?.length,
-                }}
-              />
-            </span>
-          </Tooltip>
-        }
       />
       <FormCard
         title={Messages.cards.enableExternalAccess.title}
@@ -406,18 +433,22 @@ export const AdvancedConfigurationForm = ({
               >
                 {exposureMethods.map((method) => (
                   <MenuItem value={method} key={method}>
-                    {method}
+                    {PROXY_EXPOSE_TYPE_TO_LABEL[method]}
                   </MenuItem>
                 ))}
               </SelectInput>
             </Box>
 
-            {exposureMethod === ExposureMethod.LoadBalancer && (
+            {exposureMethod === ProxyExposeType.LoadBalancer && (
               <>
                 <FormCard
                   title={Messages.cards.loadBalancerConfiguration.title}
                   controlComponent={
-                    <Box display="flex" ml="auto" alignItems="center">
+                    <WithInfoIcon
+                      onClick={handleOnLoadBalancerConfigInfoClick}
+                      disabled={noConfig}
+                      tooltip={noConfig ? Messages.tooltipTexts.noConfig : ''}
+                    >
                       <SelectInput
                         name={
                           AdvancedConfigurationFields.loadBalancerConfigName
@@ -462,32 +493,7 @@ export const AdvancedConfigurationForm = ({
                           )
                         )}
                       </SelectInput>
-                      {!!loadBalancerConfigs?.items.length && (
-                        <Tooltip
-                          title={noConfig ? Messages.tooltipTexts.noConfig : ''}
-                          placement="right"
-                          arrow
-                        >
-                          <span>
-                            <IconButton
-                              onClick={handleOnLoadBalancerConfigInfoClick}
-                              disabled={noConfig}
-                              sx={{
-                                opacity: noConfig ? 0.5 : 1,
-                                cursor: noConfig ? 'not-allowed' : 'pointer',
-                              }}
-                            >
-                              <InfoIcon
-                                sx={{
-                                  width: '20px',
-                                  color: noConfig ? 'GrayText' : 'default',
-                                }}
-                              />
-                            </IconButton>
-                          </span>
-                        </Tooltip>
-                      )}
-                    </Box>
+                    </WithInfoIcon>
                   }
                 />
                 <FormCard
@@ -513,6 +519,54 @@ export const AdvancedConfigurationForm = ({
           </Box>
         }
       />
+      {isSplitHorizonDNSEnabled(dbType) && showSplitHorizonDNS && (
+        <ToggableFormCard
+          title={Messages.cards.splitHorizonDNS.title}
+          description={Messages.cards.splitHorizonDNS.description}
+          switchInputName={AdvancedConfigurationFields.splitHorizonDNSEnabled}
+          bottomSlot={
+            <Box
+              display="flex"
+              justifyContent="space-between"
+              alignItems="top"
+              minHeight={'50px'}
+            >
+              {!!splitHorizonDNSEnabled && (
+                <WithInfoIcon
+                  tooltip={
+                    splitHorizonDNSDomain
+                      ? Messages.tooltipTexts.splitHorizonDNS(
+                          splitHorizonDNSDomain
+                        )
+                      : ''
+                  }
+                >
+                  <SelectInput
+                    name={AdvancedConfigurationFields.splitHorizonDNS}
+                    loading={fetchingSplitHorizonDNS}
+                    formControlProps={{
+                      sx: {
+                        width: SELECT_WIDTH,
+                        mt: 0,
+                        textAlign: 'left',
+                      },
+                    }}
+                  >
+                    {splitHorizonDNSConfigs.map((config) => (
+                      <MenuItem
+                        value={config.metadata.name}
+                        key={config.metadata.name}
+                      >
+                        {config.metadata.name}
+                      </MenuItem>
+                    ))}
+                  </SelectInput>
+                </WithInfoIcon>
+              )}
+            </Box>
+          }
+        />
+      )}
       <FormCard
         title={Messages.cards.engineParameters.title}
         description={Messages.cards.engineParameters.description}

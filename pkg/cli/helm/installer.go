@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -44,9 +45,9 @@ import (
 // Everest Helm chart names.
 const (
 	// DefaultHelmRepoURL is the default Helm repository URL to download the Everest charts.
-	DefaultHelmRepoURL = "https://percona.github.io/percona-helm-charts/"
+	DefaultHelmRepoURL = "https://openeverest.github.io/helm-charts/"
 	// EverestChartName is the name of the Everest Helm chart that installs the Everest operator.
-	EverestChartName = "everest"
+	EverestChartName = "openeverest"
 	// EverestDBNamespaceChartName is the name of the Everest Helm chart that is installed
 	// into DB namespaces managed by Everest.
 	EverestDBNamespaceChartName = "everest-db-namespace"

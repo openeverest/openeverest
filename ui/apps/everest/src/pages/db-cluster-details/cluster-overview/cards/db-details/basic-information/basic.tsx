@@ -94,13 +94,15 @@ export const BasicInformationSection = ({
     return false;
   }, [dbVersionsUpgradeList, dbCluster?.status?.status, version]);
 
+  const recommendedCRVersion = dbCluster?.status?.recommendedCRVersion!;
+
   return (
     <OverviewSection
       dataTestId="basic-information"
       title={Messages.titles.basicInformation}
       editText={Messages.actions.upgrade}
       loading={loading}
-      {...(shouldShowUpgrade && canUpdateDb
+      {...(shouldShowUpgrade && canUpdateDb && !recommendedCRVersion
         ? {
             actionButtonProps: {
               onClick: () => {

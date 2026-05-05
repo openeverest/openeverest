@@ -17,6 +17,7 @@ import { ScheduleFormData } from './schedule-form-schema';
 import { DbCluster, Schedule } from 'shared-types/dbCluster.types';
 import { getCronExpressionFromFormValues } from '../../time-selection/time-selection.utils';
 import { ScheduleWizardMode, WizardMode } from 'shared-types/wizard.types';
+import { DbEngineType } from 'shared-types/dbEngines.types';
 
 type UpdateScheduleArrayProps = {
   formData: ScheduleFormData;
@@ -166,6 +167,15 @@ export const backupScheduleFormValuesToDbClusterPayload = (
       ...dbCluster?.spec,
       backup: {
         ...dbCluster.spec.backup,
+        pitr: {
+          ...dbCluster.spec.backup?.pitr,
+          backupStorageName:
+            dbCluster.spec.backup?.pitr?.backupStorageName || '',
+          enabled:
+            dbCluster.spec.engine.type === DbEngineType.POSTGRESQL
+              ? schedulesPayload.length > 0
+              : !!dbCluster.spec.backup?.pitr?.enabled,
+        },
         schedules: schedulesPayload.length > 0 ? schedulesPayload : undefined,
       },
     },

@@ -4,7 +4,7 @@ import (
 	"github.com/AlekSi/pointer"
 	v1 "k8s.io/api/storage/v1"
 
-	"github.com/percona/everest-operator/api/v1alpha1"
+	"github.com/percona/everest-operator/api/everest/v1alpha1"
 )
 
 func (out *BackupStorage) FromCR(in *v1alpha1.BackupStorage) {

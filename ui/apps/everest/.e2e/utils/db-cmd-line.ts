@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -468,11 +469,10 @@ export const validateMongoDBSharding = async (
     `db.collections.find({ _id: \\"test.${collectionName}\\" });`
   );
 
-  const collection = eval(
-    collectionString.replace(/ObjectId|ISODate|UUID|Timestamp/g, '')
+  const uuidMatch = collectionString.match(
+    /uuid\s*:\s*UUID\(['"]([^'"]+)['"]\)/i
   );
-
-  const collectionUUID = collection[0]?.uuid;
+  const collectionUUID = uuidMatch?.[1];
 
   const query = `db.chunks.aggregate([
     { \\$match: { uuid: UUID(\\"${collectionUUID}\\") } },

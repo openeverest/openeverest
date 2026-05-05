@@ -182,7 +182,7 @@ test.describe(
           '1G'
         );
         expect(addedCluster?.spec.engine.storage.size.toString()).toBe('1Gi');
-        expect(addedCluster?.spec.proxy.expose.type).toBe('internal');
+        expect(addedCluster?.spec.proxy.expose.type).toBe('ClusterIP');
         if (db != 'psmdb') {
           expect(addedCluster?.spec.proxy.replicas).toBe(size);
         }

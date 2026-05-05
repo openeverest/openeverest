@@ -12,16 +12,18 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-import { expect, test } from '@fixtures'
-import {checkError} from '@tests/tests/helpers';
 
-test.describe('Everest version tests', {tag: ['@version']}, () => {
-  test('version endpoint', async ({ request, cli }) => {
+import {expect, test} from '@fixtures'
+import {checkError} from '@tests/utils/api';
+
+test.describe.parallel('Everest version tests', () => {
+
+  test('version endpoint', async ({request, cli}) => {
     const version = await request.get('/v1/version')
     await checkError(version)
 
     const versionJSON = await version.json(),
-    gitVersion = await cli.exec('git rev-parse --short HEAD')
+      gitVersion = await cli.exec('git rev-parse --short HEAD')
     await gitVersion.assertSuccess()
 
     expect(versionJSON.projectName).toEqual('Everest API Server')

@@ -58,6 +58,10 @@ const (
 	ResourcePodSchedulingPolicies      = "pod-scheduling-policies"
 	ResourceDataImporters              = "data-importers"
 	ResourceDataImportJobs             = "data-import-jobs"
+
+	// Engine Features resources
+
+	ResourceEngineFeatures_SplitHorizonDNSConfigs = "enginefeatures/split-horizon-dns-configs"
 )
 
 // GlobalResources is a list of all Everest API resources that are considered global.

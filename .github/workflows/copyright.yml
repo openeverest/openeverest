@@ -1,0 +1,58 @@
+---
+name: Copyright Headers
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - "**/*.go"
+      - "**/*.ts"
+      - "**/*.tsx"
+
+permissions:
+  contents: read
+
+jobs:
+  copyright:
+    name: Check Copyright Headers
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout PR branch
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          # Check out the PR HEAD commit so file checks run on contributor changes,
+          # including for pull requests from forks.
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+
+      - name: Collect changed source files
+        id: changed
+        run: |
+          # Use the PR diff, not a plain base-vs-head tree diff.
+          # This matches GitHub's "Files changed" tab and excludes files that differ
+          # only because the base branch moved forward after the feature branch split.
+          FILES=$(git diff --name-only --diff-filter=ACM \
+           "${{ github.event.pull_request.base.sha }}...${{ github.event.pull_request.head.sha }}" \
+            | grep -E '\.(go|ts|tsx)$' || true)
+
+          if [[ -z "$FILES" ]]; then
+            echo "No relevant files changed."
+            echo "any=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "Files to check:"
+            echo "$FILES"
+            echo "$FILES" > /tmp/changed_files.txt
+            echo "any=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Set up Python
+        if: steps.changed.outputs.any == 'true'
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: "3.12"
+
+      - name: Check copyright headers
+        if: steps.changed.outputs.any == 'true'
+        run: |
+          make copyright-check FILES_FILE=/tmp/changed_files.txt

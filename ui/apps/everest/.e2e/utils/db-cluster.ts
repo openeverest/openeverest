@@ -106,7 +106,7 @@ export const createDbClusterFn = async (
           memory: `${customOptions?.proxyMemory || 1}G`,
         },
         expose: {
-          type: customOptions?.externalAccess ? 'external' : 'internal',
+          type: customOptions?.externalAccess ? 'LoadBalancer' : 'ClusterIP',
           ...(!!customOptions?.externalAccess &&
             customOptions?.sourceRanges && {
               ipSourceRanges: customOptions?.sourceRanges.flatMap((source) =>

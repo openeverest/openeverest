@@ -145,7 +145,7 @@ const zephyrMap: Record<string, string> = {
         await test.step('Check db list and status', async () => {
           await page.goto('/databases');
           await waitForStatus(page, clusterName, 'Initializing', 30000);
-          await waitForStatus(page, clusterName, 'Up', 660000);
+          await waitForStatus(page, clusterName, 'Up', 720000);
         });
 
         await test.step('Check db cluster k8s object options', async () => {
@@ -165,7 +165,7 @@ const zephyrMap: Record<string, string> = {
             '1G'
           );
           expect(addedCluster?.spec.engine.storage.size.toString()).toBe('1Gi');
-          expect(addedCluster?.spec.proxy.expose.type).toBe('internal');
+          expect(addedCluster?.spec.proxy.expose.type).toBe('ClusterIP');
           if (db != 'psmdb') {
             expect(addedCluster?.spec.proxy.replicas).toBe(size);
           }
@@ -189,7 +189,7 @@ const zephyrMap: Record<string, string> = {
         ).not.toBeEmpty();
         await page.getByTestId('form-dialog-create').click();
 
-        await waitForStatus(page, baseBackupName + '-1', 'Succeeded', 300000);
+        await waitForStatus(page, baseBackupName + '-1', 'Succeeded', 360000);
       });
 
       test(`Delete data [${db} size ${size}]`, async () => {

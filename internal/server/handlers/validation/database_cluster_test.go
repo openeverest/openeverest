@@ -16,7 +16,7 @@ import (
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 
-	everestv1alpha1 "github.com/percona/everest-operator/api/v1alpha1"
+	everestv1alpha1 "github.com/percona/everest-operator/api/everest/v1alpha1"
 	operatorUtils "github.com/percona/everest-operator/utils"
 	"github.com/percona/everest/internal/server/handlers/k8s"
 	"github.com/percona/everest/pkg/common"
@@ -1873,24 +1873,6 @@ func TestIsDatabaseClusterUpdateAllowed(t *testing.T) {
 			currentDB: &everestv1alpha1.DatabaseCluster{
 				Status: everestv1alpha1.DatabaseClusterStatus{
 					Status: everestv1alpha1.AppStatePaused,
-				},
-			},
-			expected: true,
-		},
-		{
-			name: fmt.Sprintf("db_state_%s", everestv1alpha1.AppStatePausing),
-			currentDB: &everestv1alpha1.DatabaseCluster{
-				Status: everestv1alpha1.DatabaseClusterStatus{
-					Status: everestv1alpha1.AppStatePausing,
-				},
-			},
-			expected: true,
-		},
-		{
-			name: fmt.Sprintf("db_state_%s", everestv1alpha1.AppStateStopping),
-			currentDB: &everestv1alpha1.DatabaseCluster{
-				Status: everestv1alpha1.DatabaseClusterStatus{
-					Status: everestv1alpha1.AppStateStopping,
 				},
 			},
 			expected: true,

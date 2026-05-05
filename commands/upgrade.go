@@ -49,6 +49,7 @@ func init() {
 	upgradeCmd.Flags().BoolVar(&upgradeCfg.SkipEnvDetection, cli.FlagSkipEnvDetection, false, "Skip detecting Kubernetes environment where Everest is installed")
 	upgradeCmd.Flags().BoolVar(&upgradeCfg.DryRun, cli.FlagUpgradeDryRun, false, "If set, only executes the pre-upgrade checks")
 	upgradeCmd.Flags().BoolVar(&upgradeCfg.InCluster, cli.FlagUpgradeInCluster, false, "If set, uses the in-cluster Kubernetes client configuration")
+	upgradeCmd.Flags().StringVar(&upgradeCfg.VersionToUpgrade, cli.FlagUpgradeVersionToUpgrade, "", "(Optional) Version to upgrade to. This version may be ahead by at most one minor version from the current version")
 	_ = upgradeCmd.Flags().MarkHidden(cli.FlagUpgradeInCluster)
 
 	// --helm.* flags

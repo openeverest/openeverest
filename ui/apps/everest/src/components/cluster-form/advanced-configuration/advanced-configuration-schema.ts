@@ -14,10 +14,8 @@
 // limitations under the License.
 
 import { z } from 'zod';
-import {
-  AdvancedConfigurationFields,
-  ExposureMethod,
-} from './advanced-configuration.types';
+import { AdvancedConfigurationFields } from './advanced-configuration.types';
+import { ProxyExposeType } from 'shared-types/dbCluster.types';
 import { IP_REGEX } from 'consts';
 import { Messages } from './messages';
 
@@ -46,11 +44,13 @@ export const advancedConfigurationsSchema = () =>
         .string()
         .optional(),
       [AdvancedConfigurationFields.exposureMethod]:
-        z.nativeEnum(ExposureMethod),
+        z.nativeEnum(ProxyExposeType),
+      [AdvancedConfigurationFields.splitHorizonDNSEnabled]: z.boolean(),
+      [AdvancedConfigurationFields.splitHorizonDNS]: z.string().optional(),
     })
     .passthrough()
     .superRefine(({ sourceRanges, exposureMethod }, ctx) => {
-      if (exposureMethod !== ExposureMethod.LoadBalancer) {
+      if (exposureMethod !== ProxyExposeType.LoadBalancer) {
         return;
       }
 

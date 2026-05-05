@@ -40,7 +40,8 @@ export type RBACResource =
   | 'pod-scheduling-policies'
   | 'data-importers'
   | 'load-balancer-configs'
-  | 'data-import-jobs';
+  | 'data-import-jobs'
+  | 'enginefeatures/split-horizon-dns-configs';
 
 const constructAuthorizer = async () => {
   const newAuthorizer = new Authorizer('auto', { endpoint: '/' });

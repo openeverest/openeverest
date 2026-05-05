@@ -41,7 +41,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 
-	everestv1alpha1 "github.com/percona/everest-operator/api/v1alpha1"
+	enginefeatureseverestv1alpha1 "github.com/percona/everest-operator/api/enginefeatures.everest/v1alpha1"
+	everestv1alpha1 "github.com/percona/everest-operator/api/everest/v1alpha1"
 	"github.com/percona/everest/pkg/common"
 )
 
@@ -175,6 +176,7 @@ func CreateScheme() *runtime.Scheme {
 	scheme := runtime.NewScheme()
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 	utilruntime.Must(everestv1alpha1.AddToScheme(scheme))
+	utilruntime.Must(enginefeatureseverestv1alpha1.AddToScheme(scheme))
 	utilruntime.Must(olmv1alpha1.AddToScheme(scheme))
 	utilruntime.Must(apiextv1.AddToScheme(scheme))
 	return scheme

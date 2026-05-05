@@ -46,6 +46,7 @@ import {
   isProxy,
   getProxyUnitNamesFromDbType,
 } from 'utils/db';
+import { DbWizardFormFields } from 'consts';
 
 export const ResourcesDetails = ({
   dbCluster,
@@ -82,7 +83,7 @@ export const ResourcesDetails = ({
   const numberOfNodes = NODES_DB_TYPE_MAP[dbType].includes(replicas)
     ? replicas
     : CUSTOM_NR_UNITS_INPUT_VALUE;
-  const numberOfNodesStr = numberOfNodes;
+  const numberOfNodesStr = replicas;
   const numberOfProxiesStr = NODES_DB_TYPE_MAP[dbType].includes(proxies)
     ? proxies
     : CUSTOM_NR_UNITS_INPUT_VALUE;
@@ -246,6 +247,7 @@ export const ResourcesDetails = ({
           onSubmit={onSubmit}
           defaultValues={{
             dbType,
+            [DbWizardFormFields.dbVersion]: dbCluster.spec.engine.version || '',
             cpu: cpuParser(cpu.toString() || '0'),
             disk: parsedDiskValues.value,
             diskUnit: parsedDiskValues.originalUnit,
@@ -262,7 +264,7 @@ export const ResourcesDetails = ({
             customNrOfNodes: replicas,
             customNrOfProxies: proxies,
             resourceSizePerNode: matchFieldsValueToResourceSize(
-              NODES_DEFAULT_SIZES[dbType],
+              NODES_DEFAULT_SIZES(dbType, dbCluster.spec.engine.version),
               dbCluster.spec.engine.resources
             ),
             resourceSizePerProxy: matchFieldsValueToResourceSize(

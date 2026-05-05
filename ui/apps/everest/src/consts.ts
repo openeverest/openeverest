@@ -27,6 +27,7 @@ export const LOAD_BALANCER_ANNOTATION_REGEX =
 export const INVALID_SOURCE_RANGE_ERROR = 'Invalid IP address range';
 export const DUPLICATE_SOURCE_RANGE_ERROR =
   'Duplicate entry. This IP and netmask combination already exists.';
+export const FILE_NOT_INSTANCE_OF_FILE_ERROR = 'Not a valid file';
 export const SOURCE_RANGE_PLACEHOLDER =
   'Enter IP with netmask (e.g. 192.168.1.1/24)';
 export const DATE_FORMAT = "dd'/'MM'/'yyyy 'at' HH':'mm";

@@ -222,7 +222,7 @@ test.describe('DB Cluster creation', () => {
     expect(addedCluster?.spec.engine.resources?.cpu.toString()).toBe('600m');
     expect(addedCluster?.spec.engine.resources?.memory.toString()).toBe('1G');
     expect(addedCluster?.spec.engine.storage.size.toString()).toBe('1Gi');
-    expect(addedCluster?.spec.proxy.expose.type).toBe('internal');
+    expect(addedCluster?.spec.proxy.expose.type).toBe('ClusterIP');
     // TODO commented, because we use only psmdb in this test
     // expect(addedCluster?.spec.proxy.replicas).toBe(1);
     // expect(addedCluster?.spec.proxy.resources.cpu).toBe('1');

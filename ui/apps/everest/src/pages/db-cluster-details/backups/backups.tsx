@@ -61,7 +61,7 @@ export const Backups = () => {
       ) : (
         <>
           <BackupsList />
-          {openOnDemandModal && <OnDemandBackupModal />}
+          {openOnDemandModal && <OnDemandBackupModal dbCluster={dbCluster} />}
           {openScheduleModal && <ScheduledBackupModal />}
         </>
       )}

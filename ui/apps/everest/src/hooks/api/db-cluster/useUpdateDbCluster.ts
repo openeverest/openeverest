@@ -65,11 +65,7 @@ export const useUpdateDbClusterWithConflictRetry = (
     onError: ownOnError = () => {},
     ...restMutationOptions
   } = mutationOptions || {};
-  const {
-    name: dbClusterName,
-    namespace,
-    generation: dbClusterGeneration,
-  } = oldDbClusterData.metadata;
+  const { name: dbClusterName, namespace } = oldDbClusterData.metadata;
 
   const queryClient = useQueryClient();
   const watchStartTime = useRef<number | null>(null);
@@ -115,25 +111,13 @@ export const useUpdateDbClusterWithConflictRetry = (
             const { data: freshDbCluster } = await refetch();
 
             if (freshDbCluster) {
-              const { generation, resourceVersion } = freshDbCluster.metadata;
+              const { resourceVersion } = freshDbCluster.metadata;
 
-              if (generation === dbClusterGeneration) {
-                resolve();
-                mutationMethods.mutate({
-                  ...clusterDataToBeSent.current!,
-                  metadata: { ...freshDbCluster.metadata, resourceVersion },
-                });
-              } else {
-                enqueueSnackbar(
-                  'The object definition has been changed somewhere else. Please re-apply your changes.',
-                  {
-                    variant: 'error',
-                  }
-                );
-                ownOnError?.(error, vars, ctx);
-                watchStartTime.current = null;
-                resolve();
-              }
+              resolve();
+              mutationMethods.mutate({
+                ...clusterDataToBeSent.current!,
+                metadata: { ...freshDbCluster.metadata, resourceVersion },
+              });
             } else {
               watchStartTime.current = null;
               ownOnError?.(error, vars, ctx);

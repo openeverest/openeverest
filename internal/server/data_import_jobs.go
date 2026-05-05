@@ -16,9 +16,7 @@
 // Package server contains the API server implementation.
 package server
 
-import (
-	"github.com/labstack/echo/v4"
-)
+import "github.com/labstack/echo/v4"
 
 // ListDataImportJobs lists all DataImportJobs for the specified database clusters.
 func (e *EverestServer) ListDataImportJobs(c echo.Context, namespace, dbName string) error {

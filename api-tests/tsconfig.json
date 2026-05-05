@@ -9,7 +9,7 @@
     "baseUrl": ".",
     "paths": {
       "@tests/*": [
-        "./*"
+        "tests/*"
       ],
       "@fixtures": [
         "./fixtures.ts"
@@ -24,16 +24,20 @@
         "generated/types.ts"
       ],
       "@root/*": [
-        "../*"
+        "./*"
       ]
     }
   },
   "exclude": [
-    "node_modules"
+    "./node_modules",
+    "./tests-out",
+    "./tests-results",
+    "./playwright-report"
   ],
   "include": [
     "tests",
     "support",
-    "**.ts"
+    "generated",
+    "helpers"
   ]
 }

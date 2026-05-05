@@ -22,7 +22,6 @@ import { useContext } from 'react';
 import { DbClusterContext } from '../dbCluster.context';
 import { BackupsDetails } from './cards/backups-details';
 import { useDbClusterCredentials } from 'hooks/api/db-cluster/useCreateDbCluster';
-import { useDbBackups } from 'hooks/api/backups/useBackups';
 import { DbEngineType } from 'shared-types/dbEngines.types';
 import { useRBACPermissions } from 'hooks/rbac';
 import { isProxy, shouldDbActionsBeBlocked } from 'utils/db';
@@ -42,36 +41,33 @@ export const ClusterOverview = () => {
     `${namespace}/${dbClusterName}`
   );
 
-  const { data: backups = [] } = useDbBackups(
-    dbCluster?.metadata.name!,
-    dbCluster?.metadata.namespace!,
-    {
-      refetchInterval: 10 * 1000,
-    }
-  );
-  const schedules = dbCluster?.spec.backup?.schedules || [];
   const isStatusReady = dbCluster?.status?.status === 'ready';
 
   const { data: dbClusterDetails, isFetching: fetchingClusterDetails } =
     useDbClusterCredentials(dbClusterName || '', namespace, {
       enabled: !!dbClusterName && canRead && isStatusReady,
+      refetchInterval: 5 * 1000,
     });
 
   if (!dbCluster) {
     return null;
   }
 
-  const hasBackupsOrSchedules = schedules.length > 0 || backups.length > 0;
   const dbType = dbCluster?.spec.engine.type;
   const conditions = dbCluster?.status?.conditions || [];
   const hasConditions = conditions.length > 0;
   const canChangeResources =
     canUpdateDb && !shouldDbActionsBeBlocked(dbCluster.status?.status);
 
-  const pitrEnabled =
-    dbType === DbEngineType.POSTGRESQL
-      ? hasBackupsOrSchedules
-      : dbCluster?.spec.backup?.pitr?.enabled!;
+  const pitrEnabled = dbCluster?.spec.backup?.pitr?.enabled!;
+  const username = dbClusterDetails?.username;
+  const password = dbClusterDetails?.password;
+  const splitHorizonUrl =
+    dbCluster?.status?.engineFeatures?.psmdb?.splitHorizon?.host &&
+    username &&
+    password
+      ? `mongodb://${username}:${password}@${dbCluster?.status?.engineFeatures?.psmdb?.splitHorizon?.host}`
+      : '';
 
   return (
     <>
@@ -97,20 +93,31 @@ export const ClusterOverview = () => {
           loadingClusterDetails={fetchingClusterDetails}
           hostname={dbCluster.status?.hostname!}
           port={dbCluster.status?.port!}
-          username={dbClusterDetails?.username!}
-          password={dbClusterDetails?.password!}
+          username={username!}
+          password={password!}
           connectionUrl={dbClusterDetails?.connectionUrl!}
           externalAccess={
             isProxy(dbCluster.spec.proxy) &&
-            dbCluster.spec.proxy.expose.type === ProxyExposeType.external
+            dbCluster.spec.proxy.expose.type === ProxyExposeType.LoadBalancer
           }
+          exposeType={dbCluster.spec.proxy?.expose?.type}
           monitoring={dbCluster?.spec.monitoring?.monitoringConfigName}
           parameters={!!dbCluster?.spec.engine.config}
           storageClass={dbCluster?.spec.engine.storage.class!}
           podSchedulingPolicy={dbCluster?.spec.podSchedulingPolicyName}
+          splitHorizonDNS={
+            dbCluster?.spec.engineFeatures?.psmdb?.splitHorizonDnsConfigName ||
+            ''
+          }
+          splitHorizonUrl={splitHorizonUrl}
+          splitHorizonDomains={
+            dbCluster?.status?.engineFeatures?.psmdb?.splitHorizon?.domains ||
+            []
+          }
           loadBalancerConfig={
             isProxy(dbCluster.spec.proxy)
-              ? dbCluster.spec.proxy.expose.type === ProxyExposeType.external
+              ? dbCluster.spec.proxy.expose.type ===
+                ProxyExposeType.LoadBalancer
                 ? dbCluster.spec.proxy.expose.loadBalancerConfigName ||
                   EMPTY_LOAD_BALANCER_CONFIGURATION
                 : ''

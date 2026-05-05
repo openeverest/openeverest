@@ -217,3 +217,68 @@ func TestUpgrade_canUpgrade(t *testing.T) {
 		})
 	}
 }
+
+func TestUpgrade_ValidateVersionToUpgrade(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		currentEverestVersion string
+		targetEverestVersion  string
+		wantErrIs             error
+	}{
+		{
+			currentEverestVersion: "0.6.0",
+			targetEverestVersion:  "0.5.0",
+			wantErrIs:             ErrDowngradeNotAllowed,
+		},
+		{
+			currentEverestVersion: "0.6.1",
+			targetEverestVersion:  "0.6.0",
+			wantErrIs:             ErrDowngradeNotAllowed,
+		},
+		{
+			currentEverestVersion: "0.6.0",
+			targetEverestVersion:  "0.6.0",
+			wantErrIs:             ErrNoUpdateAvailable,
+		},
+		{
+			currentEverestVersion: "0.6.0",
+			targetEverestVersion:  "0.8.0",
+			wantErrIs:             ErrCannotUpgradeByMoreThanOneMinorVersion,
+		},
+		{
+			currentEverestVersion: "0.6.0",
+			targetEverestVersion:  "0.8.1",
+			wantErrIs:             ErrCannotUpgradeByMoreThanOneMinorVersion,
+		},
+		{
+			currentEverestVersion: "0.6.0",
+			targetEverestVersion:  "0.7.0",
+			wantErrIs:             nil,
+		},
+		{
+			currentEverestVersion: "0.6.0",
+			targetEverestVersion:  "0.6.1",
+			wantErrIs:             nil,
+		},
+		{
+			currentEverestVersion: "0.6.0",
+			targetEverestVersion:  "0.7.1",
+			wantErrIs:             nil,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.currentEverestVersion+" to "+tt.targetEverestVersion, func(t *testing.T) {
+			t.Parallel()
+			currentVer := goversion.Must(goversion.NewVersion(tt.currentEverestVersion))
+			targetVer := goversion.Must(goversion.NewVersion(tt.targetEverestVersion))
+			err := validateVersionToUpgrade(currentVer, targetVer)
+			if tt.wantErrIs != nil {
+				assert.ErrorIs(t, err, tt.wantErrIs)
+			} else if err != nil {
+				t.Errorf("error = %v", err)
+			}
+		})
+	}
+}

@@ -5,6 +5,7 @@ p, role:admin, database-cluster-backups, *, */*
 p, role:admin, database-cluster-restores, *, */*
 p, role:admin, backup-storages, *, */*
 p, role:admin, monitoring-instances, *, */*
+p, role:admin, enginefeatures/split-horizon-dns-configs, *, */*
 p, role:admin, pod-scheduling-policies, *, *
 p, role:admin, load-balancer-configs, *, *
 
@@ -15,6 +16,7 @@ p, role:readonly, database-cluster-backups, read, */*
 p, role:readonly, database-cluster-restores, read, */*
 p, role:readonly, backup-storages, read, */*
 p, role:readonly, monitoring-instances, read, */*
+p, role:readonly, enginefeatures/split-horizon-dns-configs, read, */*
 p, role:readonly, pod-scheduling-policies, read, *
 p, role:readonly, load-balancer-configs, read, *
 
@@ -25,6 +27,7 @@ p, role:devteam, database-cluster-backups, *, dev/*
 p, role:devteam, database-cluster-restores, *, dev/*
 p, role:devteam, backup-storages, *, */*
 p, role:devteam, monitoring-instances, *, */*
+p, role:devteam, enginefeatures/split-horizon-dns-configs, *, */*
 p, role:devteam, pod-scheduling-policies, *, *
 p, role:devteam, load-balancer-configs, *, *
 

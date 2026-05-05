@@ -40,6 +40,7 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/time/rate"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	clientgo "k8s.io/client-go/kubernetes"
 	"sigs.k8s.io/controller-runtime/pkg/certwatcher"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -63,6 +64,7 @@ type EverestServer struct {
 	l             *zap.SugaredLogger
 	echo          *echo.Echo
 	kubeConnector kubernetes.KubernetesConnector
+	kubeStreamer  clientgo.Interface
 	sessionMgr    *session.Manager
 	attemptsStore *RateLimiterMemoryStore
 	handler       handlers.Handler
@@ -99,6 +101,8 @@ func NewEverestServer(ctx context.Context, c *config.EverestConfig, l *zap.Sugar
 		return nil, errors.Join(err, errors.New("failed creating Kubernetes client"))
 	}
 
+	kubeStreamer := clientgo.NewForConfigOrDie(kubeConnector.Config())
+
 	if c.HTTPPort != 0 {
 		l.Warn("HTTP_PORT is deprecated, use PORT instead")
 		c.ListenPort = c.HTTPPort
@@ -131,6 +135,7 @@ func NewEverestServer(ctx context.Context, c *config.EverestConfig, l *zap.Sugar
 		l:             l,
 		echo:          echoServer,
 		kubeConnector: kubeConnector,
+		kubeStreamer:  kubeStreamer,
 		sessionMgr:    sessMgr,
 		attemptsStore: store,
 		oidcProvider:  oidcProvider,
@@ -169,7 +174,8 @@ func (e *EverestServer) initHTTPServer(ctx context.Context) error {
 		return c.Render(http.StatusOK, "index.html",
 			map[string]interface{}{"CSPNonce": secure.CSPNonce(c.Request().Context())},
 		)
-	}, e.securityHeaders())
+	}, e.securityHeaders(),
+	)
 
 	// Serve static files.
 	fsys, err := fs.Sub(public.Static, "dist")

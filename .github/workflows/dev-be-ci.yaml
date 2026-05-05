@@ -8,9 +8,13 @@ on:
 
 permissions:
   contents: read
-  packages: write
-  checks: write
-  pull-requests: write
+  checks: read
+  pull-requests: read
+
+env:
+  GONOPROXY: 'github.com/percona'
+  GONOSUMDB: 'github.com/percona'
+  GOPRIVATE: 'github.com/percona'
 
 jobs:
   test:
@@ -23,10 +27,10 @@ jobs:
 
     steps:
       - name: Check out code
-        uses: actions/checkout@v5
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
       - name: Set up Go release
-        uses: actions/setup-go@v6
+        uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6.4.0
         with:
           go-version-file: 'go.mod'
           cache: true
@@ -63,22 +67,22 @@ jobs:
       fail-fast: true
     continue-on-error: false
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
 
     steps:
       - name: Check out code into the Go module directory
-        uses: actions/checkout@v5
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           lfs: true
           ref: ${{ github.event.pull_request.head.sha }}
 
       - name: Set up Go release
-        uses: actions/setup-go@v6
+        uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6.4.0
         with:
           go-version-file: 'go.mod'
           cache: true
-
-      - name: Download Go modules
-        run: go mod download
 
       - name: Run linters
         run: |
@@ -120,13 +124,24 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Check out code
-        uses: actions/checkout@v5
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
       - name: Set up Go release
-        uses: actions/setup-go@v6
+        uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6.4.0
         with:
           go-version-file: 'go.mod'
           cache: true
+
+      - uses: pnpm/action-setup@8912a9102ac27614460f54aedde9e1e7f9aec20d # v6.0.5
+        with:
+          version: 9.4.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: 20.x
+          cache: "pnpm"
+          cache-dependency-path: api-tests/package-lock.json
 
       - name: Install Kubernetes tools
         uses: ./.github/actions/install-kubernetes-tools
@@ -175,23 +190,15 @@ jobs:
 
       - name: Init testing (CI) environment
         working-directory: api-tests
+        timeout-minutes: 40
         run: |
           make ci-init
 
       - name: Run integration tests
         working-directory: api-tests
-        shell: bash
         timeout-minutes: 20
         run: |
           make test
-
-      - name: Run debug commands on failure
-        if: ${{ failure() }}
-        run: |
-          kubectl -n everest-system describe pods
-          kubectl -n everest-monitoring describe pods
-          kubectl -n everest describe pods
-          kubectl -n everest-system logs deploy/everest-server
 
   integration_tests_cli:
     name: CLI Integration Tests
@@ -203,13 +210,13 @@ jobs:
       PERCONA_VERSION_SERVICE_URL: https://check-dev.percona.com/versions/v1
     steps:
       - name: Check out code into the Go module directory
-        uses: actions/checkout@v5
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           lfs: true
           ref: ${{ github.event.pull_request.head.sha }}
 
       - name: Set up Go release
-        uses: actions/setup-go@v6
+        uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6.4.0
         with:
           go-version-file: 'go.mod'
           cache: true
@@ -219,7 +226,7 @@ jobs:
           make build-cli
 
       - name: Create KIND cluster
-        uses: helm/kind-action@v1.12.0
+        uses: helm/kind-action@ef37e7f390d99f746eb8b610417061a60e82a6cc # v1.14.0
 
       - name: Run integration tests
         id: cli-tests
@@ -231,7 +238,7 @@ jobs:
 
       - name: Attach the report
         if: ${{ always() && steps.cli-tests.outcome != 'skipped' }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: cli-tests-report
           path: cli-tests/test-report
@@ -259,9 +266,12 @@ jobs:
     name: Merge Gatekeeper
     if: ${{ always() }}
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      checks: read
     steps:
       - name: Run Merge Gatekeeper
-        uses: upsidr/merge-gatekeeper@v1.2.1
+        uses: upsidr/merge-gatekeeper@09af7a82c1666d0e64d2bd8c01797a0bcfd3bb5d # v1.2.1
         with:
           self: Merge Gatekeeper
           token: ${{ secrets.GITHUB_TOKEN }}

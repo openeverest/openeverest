@@ -14,7 +14,10 @@ export const dataImporterSchema = z.object(dataImporterSchemeObject);
 
 const s3SchemaObject = {
   [ImportFields.bucketName]: basicStringValidation(),
-  [ImportFields.region]: basicStringValidation(),
+  [ImportFields.region]: basicStringValidation().regex(
+    /^[^\s]*$/,
+    'Region cannot contain spaces'
+  ),
   [ImportFields.endpoint]: basicStringValidation().url(),
   [ImportFields.accessKey]: basicStringValidation(),
   [ImportFields.secretKey]: basicStringValidation(),
@@ -25,7 +28,7 @@ export const s3Schema = z.object(s3SchemaObject);
 
 const filePathSchemaObject = {
   [ImportFields.filePath]: basicStringValidation().regex(
-    /^\/?([^/]+\/)*[^/]*$/,
+    /^\/?([^/\s]+\/)*[^/\s]*$/,
     'Invalid file path'
   ),
 };

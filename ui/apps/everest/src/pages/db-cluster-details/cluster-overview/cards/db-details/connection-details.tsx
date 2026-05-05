@@ -17,7 +17,7 @@ import { Messages } from '../../cluster-overview.messages';
 import OverviewSection from '../../overview-section';
 import { ConnectionDetailsOverviewCardProps } from '../card.types';
 import OverviewSectionRow from '../../overview-section-row';
-import { Box, IconButton, TextField, Typography } from '@mui/material';
+import { Box, IconButton, Link, TextField, Typography } from '@mui/material';
 import { CopyToClipboardButton } from '@percona/ui-lib';
 import { HiddenPasswordToggle } from 'components/hidden-row';
 import { useContext, useState } from 'react';
@@ -25,6 +25,7 @@ import { DbClusterContext } from 'pages/db-cluster-details/dbCluster.context';
 import VisibilityOutlinedIcon from '@mui/icons-material/VisibilityOutlined';
 import VisibilityOffOutlinedIcon from '@mui/icons-material/VisibilityOffOutlined';
 import { DbType } from '@percona/types';
+import { ProxyExposeType } from 'shared-types/dbCluster.types';
 
 export const ConnectionDetails = ({
   loading,
@@ -32,18 +33,37 @@ export const ConnectionDetails = ({
   username,
   password,
   connectionUrl,
+  splitHorizonUrl,
   port,
   type,
+  exposeType,
 }: ConnectionDetailsOverviewCardProps) => {
   const { canReadCredentials } = useContext(DbClusterContext);
   const [showUrl, setShowUrl] = useState(false);
-
+  const [showSplitHorizonUrl, setShowSplitHorizonUrl] = useState(false);
   return (
     <OverviewSection
       title={Messages.titles.connectionDetails}
       loading={loading}
       dataTestId="connection-details"
     >
+      {exposeType === ProxyExposeType.NodePort && (
+        <>
+          <Typography
+            variant="body2"
+            color="text.secondary"
+            sx={{ marginBottom: '5px' }}
+          >
+            To access the cluster via NodePort see the{' '}
+            <Link
+              href="https://openeverest.io/documentation/current/networking/nodeport_support.html"
+              target="_blank"
+            >
+              instructions
+            </Link>
+          </Typography>
+        </>
+      )}
       <OverviewSectionRow
         label={Messages.fields.host}
         content={hostname.split(',').map((host) => (
@@ -97,6 +117,36 @@ export const ConnectionDetails = ({
                     size: 'small',
                   }}
                   textToCopy={connectionUrl}
+                />
+              </>
+            ),
+          }}
+          InputLabelProps={{ shrink: true }}
+        />
+      )}
+      {splitHorizonUrl && (
+        <TextField
+          label="Split-Horizon Connection URL"
+          value={splitHorizonUrl}
+          size="small"
+          sx={{ maxHeight: '50px', marginTop: '20px', width: '100%' }}
+          type={showSplitHorizonUrl ? 'text' : 'password'}
+          InputProps={{
+            endAdornment: (
+              <>
+                <IconButton onClick={() => setShowSplitHorizonUrl((s) => !s)}>
+                  {showSplitHorizonUrl ? (
+                    <VisibilityOutlinedIcon />
+                  ) : (
+                    <VisibilityOffOutlinedIcon />
+                  )}
+                </IconButton>
+                <CopyToClipboardButton
+                  buttonProps={{
+                    sx: { mt: -0.5 },
+                    size: 'small',
+                  }}
+                  textToCopy={splitHorizonUrl}
                 />
               </>
             ),

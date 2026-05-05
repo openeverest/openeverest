@@ -6,7 +6,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/api/resource"
 
-	"github.com/percona/everest-operator/api/v1alpha1"
+	"github.com/percona/everest-operator/api/everest/v1alpha1"
 )
 
 var (

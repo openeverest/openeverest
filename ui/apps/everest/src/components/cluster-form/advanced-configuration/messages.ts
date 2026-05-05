@@ -45,7 +45,7 @@ export const Messages = {
       title: 'Exposure Method',
     },
     loadBalancerConfiguration: {
-      title: 'Load balancer configuration',
+      title: 'LoadBalancer configuration',
     },
     sourceRange: {
       title: 'Source Range',
@@ -56,6 +56,11 @@ export const Messages = {
       title: 'Set database engine parameters',
       description:
         'Set your database engine configuration to adjust your database system to your workload and performance needs. For configuration format and specific parameters, check your database type documentation.',
+    },
+    splitHorizonDNS: {
+      title: 'Split-Horizon DNS',
+      description:
+        'Choose a domain name for your cluster. Everest will auto-generate replica hostnames for each network horizon.',
     },
   },
   errors: {
@@ -76,5 +81,7 @@ export const Messages = {
       'Seems like you don’t have permission to read any pod scheduling policy.',
     noConfig: 'No configurations to display',
     limitations: 'Check limitations in the documentation',
+    splitHorizonDNS: (domain: string) =>
+      `OpenEverest will create domains using ${domain} as suffix`,
   },
 };

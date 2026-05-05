@@ -1,7 +1,6 @@
 import { DbType } from '@percona/types';
 import { dbTypeToProxyType } from '@percona/utils';
 import { CUSTOM_NR_UNITS_INPUT_VALUE } from 'components/cluster-form';
-import { ExposureMethod } from 'components/cluster-form/advanced-configuration/advanced-configuration.types';
 import { EMPTY_LOAD_BALANCER_CONFIGURATION } from 'consts';
 import { DbWizardType } from 'pages/database-form/database-form-schema';
 import {
@@ -12,25 +11,27 @@ import {
 } from 'shared-types/dbCluster.types';
 
 const getExposteConfig = (
-  externalAccess: boolean,
+  exposureMethod: ProxyExposeType,
   loadBalancerConfigName?: string,
   sourceRanges?: Array<{ sourceRange?: string }>
-): ProxyExposeConfig => ({
-  type: externalAccess ? ProxyExposeType.external : ProxyExposeType.internal,
-  loadBalancerConfigName,
-  ...(!!externalAccess &&
-    sourceRanges && {
-      ipSourceRanges: sourceRanges.flatMap((source) =>
-        source.sourceRange ? [source.sourceRange] : []
-      ),
-    }),
-});
+): ProxyExposeConfig => {
+  return {
+    type: exposureMethod,
+    loadBalancerConfigName,
+    ...(exposureMethod === ProxyExposeType.LoadBalancer &&
+      sourceRanges && {
+        ipSourceRanges: sourceRanges.flatMap((source) =>
+          source.sourceRange ? [source.sourceRange] : []
+        ),
+      }),
+  };
+};
 
 export const getProxySpec = (
   dbType: DbType,
   numberOfProxies: string,
   customNrOfProxies: string,
-  exposureMethod: ExposureMethod,
+  exposureMethod: ProxyExposeType,
   cpu: number,
   memory: number,
   sharding: boolean,
@@ -40,7 +41,7 @@ export const getProxySpec = (
   if (dbType === DbType.Mongo && !sharding) {
     return {
       expose: getExposteConfig(
-        exposureMethod === ExposureMethod.LoadBalancer,
+        exposureMethod,
         loadBalancerConfigName !== EMPTY_LOAD_BALANCER_CONFIGURATION
           ? loadBalancerConfigName
           : '',
@@ -63,7 +64,7 @@ export const getProxySpec = (
       memory: `${memory}G`,
     },
     expose: getExposteConfig(
-      exposureMethod === ExposureMethod.LoadBalancer,
+      exposureMethod,
       loadBalancerConfigName !== EMPTY_LOAD_BALANCER_CONFIGURATION
         ? loadBalancerConfigName
         : '',

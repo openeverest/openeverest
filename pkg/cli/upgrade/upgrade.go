@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"slices"
 	"time"
 
 	version "github.com/Percona-Lab/percona-version-service/versionpb"
@@ -62,6 +63,10 @@ type (
 		// SkipEnvDetection skips detecting the Kubernetes environment.
 		SkipEnvDetection bool
 
+		// VersionToUpgrade specifies the version to upgrade to.
+		// This version may be ahead by at most one minor version from the current version.
+		VersionToUpgrade string
+
 		helm.CLIOptions
 	}
 
@@ -87,7 +92,11 @@ type (
 )
 
 // ErrNoUpdateAvailable is returned when no update is available.
-var ErrNoUpdateAvailable = errors.New("no update available")
+var (
+	ErrNoUpdateAvailable                      = errors.New("no update available")
+	ErrDowngradeNotAllowed                    = errors.New("downgrade not allowed")
+	ErrCannotUpgradeByMoreThanOneMinorVersion = errors.New("cannot upgrade by more than one minor version")
+)
 
 // NewUpgrade returns a new Upgrade struct.
 func NewUpgrade(cfg *Config, l *zap.SugaredLogger) (*Upgrade, error) {
@@ -262,6 +271,56 @@ func (u *Upgrade) canUpgrade(ctx context.Context, everestVersion *goversion.Vers
 	return upgradeEverestTo, nil
 }
 
+func validateVersionToUpgrade(
+	currentEverestVersion, targetEverestVersion *goversion.Version,
+) error {
+	// Downgrade is not allowed.
+	if targetEverestVersion.LessThan(currentEverestVersion) {
+		return ErrDowngradeNotAllowed
+	}
+	// No upgrade is needed.
+	if targetEverestVersion.Equal(currentEverestVersion) {
+		return ErrNoUpdateAvailable
+	}
+	// Cannot upgrade by more than one minor version.
+	currentMinor := currentEverestVersion.Segments()[1]
+	targetMinor := targetEverestVersion.Segments()[1]
+	if targetMinor-currentMinor > 1 {
+		return ErrCannotUpgradeByMoreThanOneMinorVersion
+	}
+	return nil
+}
+
+func (u *Upgrade) handleSpecifiedVersion(
+	currentEverestVersion *goversion.Version,
+	req *version.MetadataResponse,
+) (*goversion.Version, *version.MetadataVersion, error) {
+	// Parse the specified version.
+	upgradeTo, err := goversion.NewVersion(u.config.VersionToUpgrade)
+	if err != nil {
+		return nil, nil, fmt.Errorf("could not parse version %s: %w", u.config.VersionToUpgrade, err)
+	}
+
+	// Validate the specified version.
+	if err := validateVersionToUpgrade(currentEverestVersion, upgradeTo); err != nil {
+		return nil, nil, err
+	}
+
+	// Find the version metadata.
+	idx := slices.IndexFunc(req.GetVersions(), func(v *version.MetadataVersion) bool {
+		ver, err := goversion.NewVersion(v.GetVersion())
+		if err != nil {
+			u.l.Debugf("Could not parse version %s. Error: %s", v.GetVersion(), err)
+			return false
+		}
+		return ver.Equal(upgradeTo)
+	})
+	if idx == -1 {
+		return nil, nil, fmt.Errorf("version '%s' not found in metadata", upgradeTo)
+	}
+	return upgradeTo, req.GetVersions()[idx], nil
+}
+
 // versionToUpgradeTo returns version to which the current Everest version can be upgraded to.
 func (u *Upgrade) versionToUpgradeTo(
 	ctx context.Context, currentEverestVersion *goversion.Version,
@@ -269,6 +328,11 @@ func (u *Upgrade) versionToUpgradeTo(
 	req, err := u.versionService.GetEverestMetadata(ctx)
 	if err != nil {
 		return nil, nil, err
+	}
+
+	// User specified version, handle it and return early.
+	if u.config.VersionToUpgrade != "" {
+		return u.handleSpecifiedVersion(currentEverestVersion, req)
 	}
 
 	upgradeTo, meta := u.findNextMinorVersion(req, currentEverestVersion)

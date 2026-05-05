@@ -99,13 +99,13 @@ describe('DBVersion Available filter test', () => {
       expect(
         filterAvailableDbVersionsForDbEngineEdition(
           generateDbEngineWithVersions(
-            ['9.0.0', '8.4.2-2.1', '8.0.39-30.1', '8.0.36-28.1', '8.0.35-27.1'],
+            ['9.0.0', '8.3.2-2.1', '8.0.39-30.1', '8.0.36-28.1', '8.0.35-27.1'],
             DbEngineType.PXC
           ),
           '8.0.36-28.1',
           WizardMode.Edit
         ).map(({ version }) => version)
-      ).toEqual(['8.4.2-2.1', '8.0.39-30.1']);
+      ).toEqual(['8.3.2-2.1', '8.0.39-30.1']);
       expect(
         filterAvailableDbVersionsForDbEngineEdition(
           generateDbEngineWithVersions(

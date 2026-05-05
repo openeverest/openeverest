@@ -1,98 +1,172 @@
-# Contributing to Percona Everest API Server
+# Contributing to OpenEverest
 
-Percona Everest API Server uses two types of methods:
+Welcome! We are glad that you want to contribute to the OpenEverest project!
 
-- "own" methods, such as registering a Kubernetes cluster in Everest and listing the clusters.
--  proxy methods for the Kubernetes API, including all resource-related methods like database-cluster, database-cluster-restore, and database-engine.
+[OpenEverest](https://openeverest.io/) is an open source cloud-native database platform that lets developers deploy and manage PostgreSQL, MySQL, MongoDB and other databases on Kubernetes with ease. There are many ways to get involved, and every contribution matters.
 
-The API server basic code is generated using [oapi-codegen](https://github.com/deepmap/oapi-codegen) from the docs/spec/openapi.yml file.
-The proxy methods align with Everest operator methods but don't support all original parameters, because these are not required.
-You can find the definition of the custom resources in the [Everest operator repo](https://github.com/percona/everest-operator/tree/main/config/crd/bases).
+Before diving in, please read our [Code of Conduct](https://github.com/openeverest/governance/blob/main/CODE_OF_CONDUCT.md).
 
-### Run everest locally
-0. Prerequisites:
-    - Golang 1.24.x
-    - Make 3.x
-    - Docker 20.x
-    - Git 2.x
-1. Check out the repo:
-`git clone https://github.com/percona/everest`
-2. Navigate to the repo folder:
-`cd everest`
-3. Check out a particular branch if needed:
-`git checkout <branch_name>`
-4. Run the dev environment:
-`make local-env-up`
-5. Run the build: `make run`
+The guidelines below are a starting point. We don't want to limit your creativity, passion, and initiative. If you think there are other ways you can contribute, feel free to bring it up in a GitHub Issue or open a Pull Request!
 
-### Add a new proxy method
-1. Copy the corresponding k8s spec to the [openapi.yml](./docs/spec/openapi.yml). For information on observing your cluster API, see [Kubernetes: How to View Swagger UI blog post](https://jonnylangefeld.com/blog/kubernetes-how-to-view-swagger-ui), which details the operator-defined methods (if the everest operator is installed).
+## Ways to contribute
 
-2. Make necessary spec modifications. When designing new methods:
+We welcome many types of contributions including:
 
--  follow the [Restful API guidelines](https://opensource.zalando.com/restful-api-guidelines/). - - use kebab-case instead of everest operator API.
-- determine parameters to expose via proxy.
-3. If needed, copy the custom resources schema from the [Everest operator config](https://github.com/percona/dbaas-operator/tree/main/config/crd/bases) to the **Components** section of the [openapi.yml](./docs/spec/openapi.yml) file.
+- New features and enhancements
+- Bug reports and fixes
+- [Documentation](https://github.com/openeverest/everest-doc)
+- Builds, CI/CD improvements
+- Issue triage
+- Answering questions on [Slack or other community channels](https://openeverest.io/#community) and GitHub Discussions
+- Blog posts, social media, and other community advocacy
+- [Website and blog posts](https://github.com/openeverest/openeverest.github.io)
+- Let us know when your talk about OpenEverest is accepted at a conference!
+- Release management
+- Problems found while setting up the development environment
 
-4. Run the following command to generate the code:
-```
- $ make init
- $ make gen
-```
-5. Implement the missing `ServerInterface` methods.
-6. Run `make format` to format the code and group the imports.
-7. Run `make check` to verify that your code works and meets all style requirements.
+For development contributions, please refer to the separate sections below.
 
+## Ask for Help
 
-### Running integration tests
+The best way to reach us with a question when contributing is to join our community channels at [openeverest.io/#community](https://openeverest.io/#community) (Slack and more), or start a new [GitHub Discussion](https://github.com/openeverest/openeverest/discussions).
 
-To run integration tests, see [Percona Everest API integration tests](api-tests/README.md).
+## Raising Issues
 
-### Working with local Kubernetes instances like Minikube or Kind
+When raising [Issues](https://github.com/openeverest/openeverest/issues), please follow the template and fill the correponding fields. Details matter.
 
-When working with local Kubernetes clusters, Everest API server cannot connect to them because they often use `127.0.0.1` or `localhost` addresses. However, it is possible to connect to the host machine using `host.docker.internal` hostname since Everest API Server runs inside a Docker container.
+If you are trying to report a vulnerability, please refer to our [Security Policy](https://github.com/openeverest/openeverest/blob/main/SECURITY.md).
 
-To do this, add the following host to the `/etc/hosts` file on your local machine:
+## Working on Issues
 
-```
-127.0.0.1          host.docker.internal
-```
+To avoid duplicated effort and keep collaboration smooth, please follow these steps before starting work on an issue.
 
-#### Running minikube clusters
-1. Spin up a Minikube cluster, using`--apiserver-names host.docker.internal`, depending on your operating system.
+**Check for an existing assignee.** If an issue is already assigned to someone, it means they are actively working on it. Please do not start work on or open a PR for an assigned issue. If the issue appears stale (no activity for two weeks or more), you are welcome to leave a comment asking about its status.
 
-2. Run the `make local-env-up` command from [everest-operator](https://github.com/percona/everest-operator/blob/main/Makefile#L301). This command works fine on MacOS.
+**Claim unassigned issues before you start.** If an issue is unassigned and you want to tackle it, leave a comment expressing your intent — for example, *"I'd like to work on this"*. Wait for a maintainer to assign it to you before opening a PR. This prevents two people from solving the same problem in parallel.
 
-3. Once the Minikube cluster's kubeconfig is available, update the server address in the kubeconfig file from `127.0.0.1` to `host.docker.internal`, while maintaining the same port.
+**Exception: `good first issue`.** Issues labeled [`good first issue`](https://github.com/openeverest/openeverest/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22) are explicitly reserved for new contributors and can be picked up without prior assignment. Feel free to start working and open a PR when ready.
 
+**Discuss your approach with the community.** Before investing significant time in an implementation, consider sharing your design ideas in the issue thread or in our [community channels](https://openeverest.io/#community) (Slack and more). Early feedback from maintainers and other contributors can save effort, surface existing work, and help your PR land faster.
 
-4. Use Everest by initiating the provisioning procedure through the command line interface.
+## Contributing to the source code
 
-### Troubleshooting
+### Backend
 
-Here are some commands that can help you fix potential issues:
-#### Operator installation process
-```
-kubectl -n namespace get sub         # Check that subscription was created for an operator
-kubectl -n namespace get ip          # Check that install plan was created and approved for an operator
-kubectl -n namespace get csv         # Check that Cluster service version was created and phase is Installed
-kubectl -n namespace get deployment  # Check that deployment exist
-kubectl -n namespace get po          # Check that pods for an operator is running
-kubectl -n namespace logs <podname>  # Check logs for a pod
-```
-#### Database Cluster troubleshooting
+The backend is written in Go. To set up a full local development environment — including a local Kubernetes cluster, the Everest operator, and all dependent services — follow the [Backend Development Guide](https://github.com/openeverest/openeverest/blob/main/dev/README.md).
 
-```
-kubectl -n namespace get db          # Get list of database clusters
-kubectl -n namespace get po          # Get pods for a database cluster
-kubectl -n namespace describe db     # Describe database cluster. Provides useful information about conditions or messages
-kubectl -n namespace describe pxc    # Describe PXC cluster
-kubectl -n namespace describe psmdb  # Describe PSMDB cluster
-kubectl -n namespace describe pg     # Describe PG cluster
-kubectl -n namespace logs <podname>  # Check logs for a pod
+### Frontend
+
+The frontend is a TypeScript/React monorepo managed with PNPM and Turborepo. For details on the UI stack, local development setup, and available scripts, see the [Frontend Development Guide](https://github.com/openeverest/openeverest/blob/main/ui/README.md).
+
+### Signing Your Work (Developer Certificate of Origin)
+
+Each commit must be signed off. By doing so, you confirm that you have the right to license your contribution under the project's license. See [Developer Certificate of Origin](https://developercertificate.org/).
+
+Use `-s` if you have `user.name` and `user.email` configured in Git:
+
+```bash
+git commit -s -m "your commit message"
 ```
 
-#### PVC troubleshooting
+Or add it manually in the commit message:
+
 ```
-kubectl -n namespace get pvc  # PVCs should be Bound
+your commit message
+
+Signed-off-by: Your Name <your.email@example.org>
 ```
+
+To always sign off automatically, set a Git alias:
+
+```bash
+git config --global alias.ci "commit -s"
+git ci -m "your commit message"
+```
+
+## Local quality checks
+
+Before opening a PR, run local checks to keep CI green.
+
+### Copyright headers
+
+Every `*.go`, `*.ts`, and `*.tsx` source file must carry an Apache 2.0 copyright header.
+
+To check files you changed in your branch run from the repository root:
+
+```bash
+make copyright-check
+```
+
+To automatically add missing headers to files you changed in your branch, run:
+
+```bash
+make copyright-headers
+```
+
+CI runs the check-only mode and reports files that are missing headers.
+
+The command detects files that were added or modified relative to `main` (using `git merge-base`) plus any new untracked source files, and inserts the header where it is missing.
+
+Files that contain `This file was auto-generated` are skipped automatically.
+You can also exclude files or folders using `.copyrightignore` in the repository root.
+
+You can also target specific files explicitly:
+
+```bash
+make copyright-check FILES="path/to/file.go path/to/file.ts"
+make copyright-headers FILES="path/to/file.go path/to/file.ts"
+```
+
+For paths that contain spaces, pass a newline-delimited file list:
+
+```bash
+printf '%s\n' "path with spaces/file.ts" "another/path.go" > /tmp/changed_files.txt
+make copyright-check FILES_FILE=/tmp/changed_files.txt
+make copyright-headers FILES_FILE=/tmp/changed_files.txt
+```
+
+Or override the base branch:
+
+```bash
+make copyright-check BASE_BRANCH=develop
+make copyright-headers BASE_BRANCH=develop
+```
+
+## Testing
+
+When contributing new features or bug fixes, please include appropriate tests to ensure code quality and prevent regressions.
+
+### Test Types
+
+- **Unit tests**: For Go backend code, add or update `*_test.go` files alongside your changes
+- **API integration tests**: For API changes, add tests in the `api-tests/` directory
+- **CLI integration tests**: For CLI changes, add tests in the `cli-tests/` directory
+
+### Running Tests Locally
+
+Before submitting a PR, run the relevant tests:
+
+```bash
+# Unit tests (fast, no dependencies)
+make test
+
+# API integration tests (requires local Kubernetes cluster)
+make k3d-cluster-up
+make -C api-tests test
+
+# CLI integration tests (requires local Kubernetes cluster)
+make -C cli-tests test-cli
+```
+
+### CI Requirements
+
+All pull requests must pass the automated test suite before merge. The CI pipeline runs:
+
+- Unit tests (`make test`)
+- API integration tests
+- CLI integration tests
+- Linting and code quality checks
+
+## Community Meetings
+
+We extend a warm welcome to everyone to join our community meetings. For details on schedules and how to participate, [see here](https://github.com/openeverest#openeverest-community-meetings)

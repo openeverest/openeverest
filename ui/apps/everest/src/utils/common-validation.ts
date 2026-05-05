@@ -66,3 +66,23 @@ export const PerconaZodCustomIssue = {
     code: z.ZodIssueCode.custom,
   }),
 };
+
+export const fileValidation = (
+  file: File,
+  ctx: z.RefinementCtx,
+  maxSize: number = 5000000
+) => {
+  if (!file.name || file.size === 0) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'File is required',
+    });
+  }
+
+  if (file.size > maxSize) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'File is too large',
+    });
+  }
+};

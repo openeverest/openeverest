@@ -33,6 +33,7 @@ const second = 1_000;
 const minute = 60 * second;
 
 export enum TIMEOUTS {
+  FiveSeconds = 5 * second,
   TenSeconds = 10 * second,
   FifteenSeconds = 15 * second,
   ThirtySeconds = 30 * second,

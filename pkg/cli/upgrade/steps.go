@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/AlekSi/pointer"
+	goversion "github.com/hashicorp/go-version"
 	olmv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	"helm.sh/helm/v3/pkg/cli/values"
 	appsv1 "k8s.io/api/apps/v1"
@@ -14,7 +15,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	everestv1alpha1 "github.com/percona/everest-operator/api/v1alpha1"
+	everestv1alpha1 "github.com/percona/everest-operator/api/everest/v1alpha1"
 	"github.com/percona/everest/pkg/cli/helm"
 	helmutils "github.com/percona/everest/pkg/cli/helm/utils"
 	"github.com/percona/everest/pkg/cli/steps"
@@ -22,6 +23,7 @@ import (
 	"github.com/percona/everest/pkg/common"
 	"github.com/percona/everest/pkg/kubernetes"
 	. "github.com/percona/everest/pkg/utils/must" //nolint:revive,stylecheck
+	"github.com/percona/everest/pkg/version"
 )
 
 func (u *Upgrade) newStepUpgradeCRDs() steps.Step {
@@ -93,6 +95,11 @@ func (u *Upgrade) waitForDeployment(ctx context.Context, name, namespace string)
 }
 
 func (u *Upgrade) upgradeCustomResourceDefinitions(ctx context.Context) error {
+	// Use legacy method for versions below 1.9.0.
+	if goversion.Must(goversion.NewVersion(u.upgradeToVersion)).LessThan(goversion.Must(goversion.NewVersion("1.9.0"))) &&
+		!version.IsDev(u.upgradeToVersion) {
+		return u.legacyUpgradeCRDs(ctx)
+	}
 	installer := helm.Installer{
 		ReleaseName:      helm.EverestCRDChartName,
 		ReleaseNamespace: common.SystemNamespace,
@@ -106,6 +113,20 @@ func (u *Upgrade) upgradeCustomResourceDefinitions(ctx context.Context) error {
 		return fmt.Errorf("could not initialize Helm installer: %w", err)
 	}
 	return installer.Install(ctx)
+}
+
+// legacyUpgradeCRDs upgrades the CRDs for any version below 1.9.0.
+// This is kept for backward compatibility with versions below 1.9.0.
+func (u *Upgrade) legacyUpgradeCRDs(ctx context.Context) error {
+	manifests, err := u.helmInstaller.RenderTemplates(ctx)
+	if err != nil {
+		return fmt.Errorf("could not render Helm templates: %w", err)
+	}
+	crds, err := manifests.GetCRDs()
+	if err != nil {
+		return fmt.Errorf("could not get CRDs: %w", err)
+	}
+	return u.kubeConnector.ApplyManifestFile(ctx, helmutils.YAMLStringsToBytes(crds), common.SystemNamespace)
 }
 
 func (u *Upgrade) upgradeHelmChart(ctx context.Context) error {

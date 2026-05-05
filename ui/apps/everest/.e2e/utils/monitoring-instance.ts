@@ -90,6 +90,17 @@ export const listMonitoringInstances = async (
   return responseBody;
 };
 
+export const getPMMMajorVersion = async () => {
+  try {
+    const command = `kubectl get pods -l app.kubernetes.io/component=pmm-server -n everest-system -o jsonpath='{.items[0].spec.containers[0].image}' | cut -d':' -f2 | cut -d'.' -f1`;
+    const output = execSync(command).toString();
+    return output;
+  } catch (error) {
+    console.error(`Error executing command: ${error}`);
+    throw error;
+  }
+};
+
 export const checkDBMetrics = async (
   metric: string,
   instance: string,
@@ -151,9 +162,12 @@ export const checkQAN = async (
   const now = new Date();
   const start = new Date(now.getTime() - 12 * 60 * 60 * 1000).toISOString();
   const end = now.toISOString();
-
+  const PMMMajorVersion = await getPMMMajorVersion();
   const endpoint = 'monitoring-service.everest-system:443';
-  const url = `https://${userPass}@${endpoint}/v0/qan/ObjectDetails/GetMetrics`;
+  const url =
+    PMMMajorVersion.trim() === '2'
+      ? `https://${userPass}@${endpoint}/v0/qan/ObjectDetails/GetMetrics`
+      : `https://${userPass}@${endpoint}/v1/qan:getMetrics`;
 
   const payload = JSON.stringify({
     period_start_from: start,
