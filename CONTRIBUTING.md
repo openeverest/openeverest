@@ -36,6 +36,18 @@ When raising [Issues](https://github.com/openeverest/openeverest/issues), please
 
 If you are trying to report a vulnerability, please refer to our [Security Policy](https://github.com/openeverest/openeverest/blob/main/SECURITY.md).
 
+## Working on Issues
+
+To avoid duplicated effort and keep collaboration smooth, please follow these steps before starting work on an issue.
+
+**Check for an existing assignee.** If an issue is already assigned to someone, it means they are actively working on it. Please do not start work on or open a PR for an assigned issue. If the issue appears stale (no activity for two weeks or more), you are welcome to leave a comment asking about its status.
+
+**Claim unassigned issues before you start.** If an issue is unassigned and you want to tackle it, leave a comment expressing your intent — for example, *"I'd like to work on this"*. Wait for a maintainer to assign it to you before opening a PR. This prevents two people from solving the same problem in parallel.
+
+**Exception: `good first issue`.** Issues labeled [`good first issue`](https://github.com/openeverest/openeverest/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22) are explicitly reserved for new contributors and can be picked up without prior assignment. Feel free to start working and open a PR when ready.
+
+**Discuss your approach with the community.** Before investing significant time in an implementation, consider sharing your design ideas in the issue thread or in our [community channels](https://openeverest.io/#community) (Slack and more). Early feedback from maintainers and other contributors can save effort, surface existing work, and help your PR land faster.
+
 ## Contributing to the source code
 
 ### Backend
@@ -45,6 +57,31 @@ The backend is written in Go. To set up a full local development environment —
 ### Frontend
 
 The frontend is a TypeScript/React monorepo managed with PNPM and Turborepo. For details on the UI stack, local development setup, and available scripts, see the [Frontend Development Guide](https://github.com/openeverest/openeverest/blob/main/ui/README.md).
+
+### Signing Your Work (Developer Certificate of Origin)
+
+Each commit must be signed off. By doing so, you confirm that you have the right to license your contribution under the project's license. See [Developer Certificate of Origin](https://developercertificate.org/).
+
+Use `-s` if you have `user.name` and `user.email` configured in Git:
+
+```bash
+git commit -s -m "your commit message"
+```
+
+Or add it manually in the commit message:
+
+```
+your commit message
+
+Signed-off-by: Your Name <your.email@example.org>
+```
+
+To always sign off automatically, set a Git alias:
+
+```bash
+git config --global alias.ci "commit -s"
+git ci -m "your commit message"
+```
 
 ## Local quality checks
 
@@ -94,6 +131,41 @@ Or override the base branch:
 make copyright-check BASE_BRANCH=develop
 make copyright-headers BASE_BRANCH=develop
 ```
+
+## Testing
+
+When contributing new features or bug fixes, please include appropriate tests to ensure code quality and prevent regressions.
+
+### Test Types
+
+- **Unit tests**: For Go backend code, add or update `*_test.go` files alongside your changes
+- **API integration tests**: For API changes, add tests in the `api-tests/` directory
+- **CLI integration tests**: For CLI changes, add tests in the `cli-tests/` directory
+
+### Running Tests Locally
+
+Before submitting a PR, run the relevant tests:
+
+```bash
+# Unit tests (fast, no dependencies)
+make test
+
+# API integration tests (requires local Kubernetes cluster)
+make k3d-cluster-up
+make -C api-tests test
+
+# CLI integration tests (requires local Kubernetes cluster)
+make -C cli-tests test-cli
+```
+
+### CI Requirements
+
+All pull requests must pass the automated test suite before merge. The CI pipeline runs:
+
+- Unit tests (`make test`)
+- API integration tests
+- CLI integration tests
+- Linting and code quality checks
 
 ## Community Meetings
 

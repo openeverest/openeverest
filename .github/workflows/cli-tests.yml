@@ -8,6 +8,9 @@ on:
         type: string
         required: true
 
+permissions:
+  contents: read
+
 env:
   GONOPROXY: 'github.com/percona'
   GONOSUMDB: 'github.com/percona'
@@ -26,13 +29,13 @@ jobs:
       MAKE_TARGET: ${{ inputs.make_target }}
     steps:
       - name: Check out code into the Go module directory
-        uses: actions/checkout@v5
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           lfs: true
           ref: ${{ github.event.pull_request.head.sha }}
 
       - name: Set up Go release
-        uses: actions/setup-go@v6
+        uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6.4.0
         with:
           go-version-file: 'go.mod'
           cache: true
@@ -95,7 +98,7 @@ jobs:
 
       - name: Attach the report
         if: ${{ always() && steps.cli-tests.outcome != 'skipped' }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: ${{ env.MAKE_TARGET }}-report
           path: cli-tests/test-report

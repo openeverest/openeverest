@@ -22,7 +22,7 @@ help: ## Display this help.
 ## Location to install binaries to
 LOCALBIN := $(shell pwd)/bin
 $(LOCALBIN):
-	mkdir -p $(LOCALBIN)
+	mkdir -p "$(LOCALBIN)"
 
 ##@ Development
 
@@ -116,7 +116,7 @@ build-server-helper: $(LOCALBIN)
 # unnecessary rebuilds when only the timestamp of the file changes.
 	mkdir -p ./public/dist && [ -f ./public/dist/index.html ] || touch ./public/dist/index.html
 	$(info Building Everest API server for $(GOOS)/$(GOARCH) with CGO_ENABLED=$(CGO_ENABLED))
-	go build -v $(SERVER_BUILD_TAGS) $(SERVER_GC_FLAGS) -ldflags "$(SERVER_LD_FLAGS)" -o $(LOCALBIN)/everest ./cmd
+	go build -v $(SERVER_BUILD_TAGS) $(SERVER_GC_FLAGS) -ldflags "$(SERVER_LD_FLAGS)" -o "$(LOCALBIN)/everest" ./cmd
 
 .PHONY: build
 build: SERVER_LD_FLAGS += -s -w
@@ -146,7 +146,7 @@ CLI_GC_FLAGS =
 .PHONY: build-cli-helper
 build-cli-helper: $(LOCALBIN) charts
 	$(info Building Everest CLI for $(GOOS)/$(GOARCH) with CGO_ENABLED=$(CGO_ENABLED))
-	go build -v $(CLI_BUILD_TAGS) $(CLI_GC_FLAGS) -ldflags "$(CLI_LD_FLAGS)" -o $(LOCALBIN)/everestctl ./cmd/cli
+	go build -v $(CLI_BUILD_TAGS) $(CLI_GC_FLAGS) -ldflags "$(CLI_LD_FLAGS)" -o "$(LOCALBIN)/everestctl" ./cmd/cli
 
 .PHONY: build-cli
 build-cli: CLI_LD_FLAGS += -s -w
@@ -183,7 +183,7 @@ docker-push: ## Push docker image with Everest API server.
 
 .PHONY: clean
 clean:
-	rm -rf $(LOCALBIN)/*
+	rm -rf "$(LOCALBIN)"/*
 	rm -rf ./dist/*
 
 ##@ Test
@@ -225,7 +225,7 @@ docker-build-operator:
 	@{ \
 	set -xe ;\
 	operator_commit_id=$(word 3, $(subst -,  ,$(word 2, $(shell go list -m github.com/percona/everest-operator)))) ;\
-	cd $(shell mktemp -d) ;\
+	cd "$(shell mktemp -d)" ;\
 	git clone -q https://github.com/percona/everest-operator.git ;\
 	cd ./everest-operator ;\
 	git reset --hard $${operator_commit_id} ;\
@@ -235,7 +235,7 @@ docker-build-operator:
 .PHONY: deploy
 deploy:  ## Deploy Everest to K8S cluster using Everest CLI.
 	$(info Deploying Everest ($(IMG)) into K8S cluster using everestctl)
-	$(LOCALBIN)/everestctl install -v \
+	"$(LOCALBIN)/everestctl" install -v \
 	--disable-telemetry \
 	--version=$(IMAGE_TAG) \
 	--version-metadata-url=https://check-dev.percona.com \
@@ -262,7 +262,7 @@ deploy-all: $(DEPLOY_ALL_DEPS) ## Build and deploy Everest and its dependencies 
 .PHONY: undeploy-cli
 undeploy: build-cli-debug ## Undeploy Everest from K8S cluster using Everest CLI.
 	$(info Uninstalling Everest from K8S cluster using everestctl)
-	$(LOCALBIN)/everestctl uninstall -y -f -v
+	"$(LOCALBIN)/everestctl" uninstall -y -f -v
 
 .PHONY: expose
 expose:
@@ -296,6 +296,37 @@ k3d-upload-operator-image: ## Upload the Everest operator image to the testing k
 cert:                   ## Create dev TLS certificates.
 	mkcert -install
 	mkcert -cert-file=dev-cert.pem -key-file=dev-key.pem everest everest.localhost 127.0.0.1
+
+##@ Development with Tilt
+
+.PHONY: k3d-cluster-up-dev
+k3d-cluster-up-dev:     ## Create a K8S cluster for Tilt development (no port conflicts).
+	@if ! k3d cluster list | grep -q "everest-dev"; then \
+		echo "Creating K3D cluster for Tilt development"; \
+		k3d cluster create --config ./dev/k3d_config.dev.yaml; \
+	else \
+		echo "K3D cluster everest-dev already exists"; \
+	fi
+
+.PHONY: k3d-cluster-down-dev
+k3d-cluster-down-dev:   ## Destroy the K8S cluster for Tilt development.
+	@if k3d cluster list | grep -q "everest-dev"; then \
+		echo "Destroying K3D dev cluster"; \
+		k3d cluster delete --config ./dev/k3d_config.dev.yaml; \
+	else \
+		echo "K3D cluster everest-dev does not exist"; \
+	fi
+
+.PHONY: dev-up
+dev-up: k3d-cluster-up-dev  ## Create k3d cluster for Tilt development and start Tilt.
+	tilt up -f dev/Tiltfile
+
+.PHONY: dev-down
+dev-down:               ## Stop Tilt (keeps cluster running for later reuse).
+	tilt down -f dev/Tiltfile
+
+.PHONY: dev-destroy
+dev-destroy: dev-down k3d-cluster-down-dev ## Stop Tilt and destroy the k3d cluster.
 
 ##@ GitHub PR
 

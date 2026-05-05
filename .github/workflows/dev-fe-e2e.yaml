@@ -12,6 +12,9 @@ on:
       RBAC_PASSWORD:
         required: true
 
+permissions:
+  contents: read
+
 env:
   GONOPROXY: 'github.com/percona'
   GONOSUMDB: 'github.com/percona'
@@ -27,14 +30,14 @@ jobs:
       PMM_HELM_VER: "1.3.21"
     steps:
       - name: Check out code into the Go module directory
-        uses: actions/checkout@v5
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           lfs: true
           ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 0
 
       - name: Set up Go release
-        uses: actions/setup-go@v6
+        uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6.4.0
         with:
           go-version-file: 'go.mod'
           cache: true
@@ -46,19 +49,19 @@ jobs:
           mount-docker-data: true
 
       # Setup Node
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@8912a9102ac27614460f54aedde9e1e7f9aec20d # v6.0.5
         with:
           version: 9.4.0
 
       - name: Use Node
-        uses: actions/setup-node@v5
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
         with:
           node-version: 20.x
           cache: "pnpm"
           cache-dependency-path: ui/pnpm-lock.yaml
 
       - name: Start local Kubernetes cluster with the local registry
-        uses: medyagh/setup-minikube@latest
+        uses: medyagh/setup-minikube@e9e035a86bbc3caea26a450bd4dbf9d0c453682e # latest
         id: minikube
         with:
           cpus: 4
@@ -95,14 +98,14 @@ jobs:
           CGO_ENABLED=0 GOOS=linux GOARCH=amd64 make build-debug
 
       - name: Build Everest docker container
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051 # v5.10.0
         id: meta
         with:
           images: localhost:5000/openeverest/openeverest-dev
           tags: 0.0.0
 
       - name: Build and Push everest dev image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
         with:
           context: .
           push: true
@@ -221,7 +224,7 @@ jobs:
 
       - name: Archive report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: playwright-report
           path: ui/apps/everest/.e2e/playwright-report/
