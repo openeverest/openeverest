@@ -6,7 +6,6 @@ updates:
     schedule:
       interval: "weekly"
     labels:
-      - "auto-update-base"
       - "dependencies"
       - "go"
   - package-ecosystem: "gomod"
@@ -14,7 +13,6 @@ updates:
     schedule:
       interval: "weekly"
     labels:
-      - "auto-update-base"
       - "dependencies"
       - "go"
   - package-ecosystem: "docker"
@@ -22,7 +20,6 @@ updates:
     schedule:
       interval: "weekly"
     labels:
-      - "auto-update-base"
       - "dependencies"
       - "docker"
   - package-ecosystem: "docker"
@@ -30,7 +27,6 @@ updates:
     schedule:
       interval: "weekly"
     labels:
-      - "auto-update-base"
       - "dependencies"
       - "docker"
   - package-ecosystem: "github-actions"
@@ -38,7 +34,6 @@ updates:
     schedule:
       interval: "weekly"
     labels:
-      - "auto-update-base"
       - "dependencies"
       - "github_actions"
   - package-ecosystem: "npm"
@@ -46,7 +41,6 @@ updates:
     schedule:
       interval: "weekly"
     labels:
-      - "auto-update-base"
       - "dependencies"
       - "javascript"
   - package-ecosystem: "npm"
@@ -54,7 +48,6 @@ updates:
     schedule:
       interval: "weekly"
     labels:
-      - "auto-update-base"
       - "dependencies"
       - "javascript"
   - package-ecosystem: "npm"
@@ -62,6 +55,5 @@ updates:
     schedule:
       interval: "weekly"
     labels:
-      - "auto-update-base"
       - "dependencies"
       - "javascript"
