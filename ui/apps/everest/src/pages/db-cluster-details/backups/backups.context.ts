@@ -1,10 +1,10 @@
 import { createContext } from 'react';
 import { ScheduleModalContextType } from './backups.types.ts';
-import { DbCluster } from 'shared-types/dbCluster.types.ts';
+import { Instance } from 'shared-types/api.types.ts';
 import { WizardMode } from 'shared-types/wizard.types.ts';
 
 export const ScheduleModalContext = createContext<ScheduleModalContextType>({
-  dbCluster: {} as DbCluster,
+  instance: {} as Instance,
   openOnDemandModal: false,
   setOpenOnDemandModal: () => {},
   openScheduleModal: false,

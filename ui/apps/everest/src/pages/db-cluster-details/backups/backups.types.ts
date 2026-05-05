@@ -1,8 +1,8 @@
-import { DbCluster } from 'shared-types/dbCluster.types';
+import { Instance } from 'shared-types/api.types';
 import { ScheduleWizardMode } from 'shared-types/wizard.types';
 
 export type ScheduleModalContextType = {
-  dbCluster: DbCluster;
+  instance: Instance;
   mode: ScheduleWizardMode;
   setMode: React.Dispatch<React.SetStateAction<ScheduleWizardMode>>;
   selectedScheduleName: string;

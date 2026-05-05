@@ -1,5 +1,3 @@
-// everest
-// Copyright (C) 2023 Percona LLC
 // Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,128 +13,72 @@
 // limitations under the License.
 
 import { Table } from '@percona/ui-lib';
-import { useQueryClient } from '@tanstack/react-query';
 import StatusField from 'components/status-field';
 import { DATE_FORMAT } from 'consts';
 import { format } from 'date-fns';
-import {
-  BACKUPS_QUERY_KEY,
-  useDbBackups,
-  useDeleteBackup,
-  useUpdateDbClusterWithConflictRetry,
-} from 'hooks';
+import { useBackupsList } from 'hooks/api/backups/useBackups.ts';
 import { MRT_ColumnDef } from 'material-react-table';
-import { Typography } from '@mui/material';
-import { RestoreDbModal } from 'modals/index.ts';
-import { useContext, useMemo, useState } from 'react';
-import {
-  Backup,
-  BackupStatus,
-  GetBackupsPayload,
-} from 'shared-types/backupsOld.types.ts';
+import { useContext, useMemo } from 'react';
+import { useParams } from 'react-router-dom';
+import { Backup, BackupStatus } from 'shared-types/backups.types.ts';
 import { ScheduleModalContext } from '../backups.context.ts';
 import { BACKUP_STATUS_TO_BASE_STATUS } from './backups-list.constants';
 import { Messages } from './backups-list.messages';
 import BackupListTableHeader from './table-header';
-import { CustomConfirmDialog } from 'components/custom-confirm-dialog/custom-confirm-dialog.tsx';
-import { DbEngineType } from '@percona/types';
-import { getAvailableBackupStoragesForBackups } from 'utils/backups.ts';
-import { dbEngineToDbType } from '@percona/utils';
-import { useBackupStoragesByNamespace } from 'hooks/api/backup-storages/useBackupStorages.ts';
-import { WizardMode } from 'shared-types/wizard.types.ts';
+import { useClusterName } from 'hooks/api/useClusterName.ts';
 
 export const BackupsList = () => {
-  const queryClient = useQueryClient();
-  const [openRestoreDbModal, setOpenRestoreDbModal] = useState(false);
-  const [isNewClusterMode /*, setIsNewClusterMode*/] = useState(false);
-  const [openDeleteDialog, setOpenDeleteDialog] = useState(false);
-  const [selectedBackup /*, setSelectedBackup*/] = useState('');
+  const { instanceName = '', namespace = '' } = useParams();
+  const clusterName = useClusterName();
+
   const {
-    dbCluster,
-    setMode: setScheduleModalMode,
-    setOpenScheduleModal,
+    instance,
     setOpenOnDemandModal,
   } = useContext(ScheduleModalContext);
 
-  const { mutate: deleteBackup, isPending: deletingBackup } = useDeleteBackup(
-    dbCluster?.metadata.namespace
-  );
-  const { data: backups = [] } = useDbBackups(
-    dbCluster.metadata.name,
-    dbCluster.metadata.namespace,
+  const { data: backups = [] } = useBackupsList(
+    clusterName,
+    namespace,
+    instanceName,
     {
       refetchInterval: 10 * 1000,
     }
   );
-  const { mutate: updateCluster } = useUpdateDbClusterWithConflictRetry(
-    dbCluster,
-    {
-      onSuccess: () => handleCloseDeleteDialog(),
-    }
-  );
-  // const { data: pitrData } = useDbClusterPitr(
-  //   dbCluster.metadata.name!,
-  //   dbCluster.metadata.namespace,
-  //   {
-  //     enabled: !!dbCluster.metadata.name && !!dbCluster.metadata.namespace,
-  //   }
-  // );
-  const { data: backupStorages = [] } = useBackupStoragesByNamespace(
-    dbCluster?.metadata.namespace
-  );
-  const dbType = dbCluster.spec?.engine.type;
-  const pitrEnabled = !!dbCluster.spec?.backup?.pitr?.enabled;
-  const willDisablePITR =
-    (dbCluster.spec?.backup?.schedules || []).length === 0 &&
-    pitrEnabled &&
-    backups.length === 1;
-
-  const { storagesToShow, uniqueStoragesInUse } =
-    getAvailableBackupStoragesForBackups(
-      backups,
-      dbCluster.spec?.backup?.schedules || [],
-      backupStorages,
-      dbEngineToDbType(dbType),
-      dbType === DbEngineType.POSTGRESQL
-    );
-  const noStoragesAvailable =
-    dbType === DbEngineType.POSTGRESQL && storagesToShow.length === 0;
 
   const columns = useMemo<MRT_ColumnDef<Backup>[]>(
     () => [
       {
-        accessorKey: 'state',
+        accessorFn: (row) => row.status?.state ?? BackupStatus.UNKNOWN,
+        id: 'state',
         header: 'Status',
         filterVariant: 'multi-select',
-        filterSelectOptions: Object.values(BackupStatus),
         Cell: ({ cell }) => (
           <StatusField
-            status={cell.getValue<BackupStatus>()}
+            status={cell.getValue<string>()}
             statusMap={BACKUP_STATUS_TO_BASE_STATUS}
           >
-            {/* @ts-ignore */}
-            {cell.getValue()}
+            {cell.getValue<string>()}
           </StatusField>
         ),
       },
       {
-        accessorKey: 'name',
+        accessorFn: (row) => row.metadata?.name ?? '',
+        id: 'name',
         header: 'Name',
       },
       {
-        accessorKey: 'backupStorageName',
+        accessorFn: (row) => row.spec?.storageName ?? '',
+        id: 'storageName',
         header: 'Storage',
       },
-      ...(dbType === DbEngineType.PSMDB
-        ? [
-            {
-              accessorKey: 'size',
-              header: 'Size',
-            },
-          ]
-        : []),
       {
-        accessorKey: 'created',
+        accessorFn: (row) => row.spec?.backupClassName ?? '',
+        id: 'backupClassName',
+        header: 'Backup class',
+      },
+      {
+        accessorFn: (row) => row.status?.startedAt ?? '',
+        id: 'startedAt',
         header: 'Started',
         enableColumnFilter: false,
         sortingFn: 'datetime',
@@ -146,7 +88,8 @@ export const BackupsList = () => {
             : '',
       },
       {
-        accessorKey: 'completed',
+        accessorFn: (row) => row.status?.completedAt ?? '',
+        id: 'completedAt',
         header: 'Finished',
         enableColumnFilter: false,
         sortingFn: 'datetime',
@@ -156,195 +99,40 @@ export const BackupsList = () => {
             : '',
       },
     ],
-    [dbType]
+    []
   );
 
-  if (!dbCluster) {
+  if (!instance) {
     return null;
   }
-
-  // const handleDeleteBackup = (backupName: string) => {
-  //   setSelectedBackup(backupName);
-  //   setOpenDeleteDialog(true);
-  // };
 
   const handleManualBackup = () => {
     setOpenOnDemandModal(true);
   };
 
-  const handleScheduledBackup = () => {
-    setScheduleModalMode(WizardMode.New);
-    setOpenScheduleModal(true);
-  };
-
-  const handleCloseDeleteDialog = () => {
-    setOpenDeleteDialog(false);
-  };
-
-  const handleConfirmDelete = (
-    backupName: string,
-    cleanupBackupStorage: boolean
-  ) => {
-    const newBackupNr = backups.length - 1;
-    deleteBackup(
-      { backupName: backupName, cleanupBackupStorage: cleanupBackupStorage },
-      {
-        onSuccess: () => {
-          if (willDisablePITR) {
-            updateCluster({
-              ...dbCluster,
-              spec: {
-                ...dbCluster.spec,
-                backup: {
-                  ...dbCluster.spec.backup,
-                  pitr: {
-                    enabled: false,
-                    backupStorageName:
-                      dbCluster.spec.backup?.pitr?.backupStorageName || '',
-                  },
-                },
-              },
-            });
-          }
-          queryClient.setQueryData(
-            [
-              BACKUPS_QUERY_KEY,
-              dbCluster.metadata.namespace,
-              dbCluster.metadata.name,
-            ],
-            (oldData: GetBackupsPayload) => ({
-              items: oldData.items.map((backup) =>
-                backup.metadata.name === backupName
-                  ? {
-                      ...backup,
-                      status: {
-                        ...backup.status,
-                        state: BackupStatus.DELETING,
-                      },
-                    }
-                  : backup
-              ),
-            })
-          );
-
-          if (
-            dbCluster.spec.engine.type === DbEngineType.POSTGRESQL &&
-            newBackupNr === 0 &&
-            !dbCluster.spec.backup?.schedules?.length
-          ) {
-            updateCluster({
-              ...dbCluster,
-              spec: {
-                ...dbCluster.spec,
-                backup: {
-                  ...dbCluster.spec.backup,
-                  pitr: {
-                    ...(dbCluster.spec.backup?.pitr || {}),
-                    backupStorageName:
-                      dbCluster.spec.backup?.pitr?.backupStorageName || '',
-                    enabled: false,
-                  },
-                },
-              },
-            });
-          }
-
-          handleCloseDeleteDialog();
-        },
-      }
-    );
-  };
-
-  // const handleRestoreBackup = (backupName: string) => {
-  //   setSelectedBackup(backupName);
-  //   setIsNewClusterMode(false);
-  //   setOpenRestoreDbModal(true);
-  // };
-
-  // const handleRestoreToNewDbBackup = (backupName: string) => {
-  //   setSelectedBackup(backupName);
-  //   setOpenRestoreDbModal(true);
-  //   setIsNewClusterMode(true);
-  // };
-
   return (
-    <>
-      {/* {pitrData?.gaps && (
-        <Alert severity="error">{DbDetailsMessages.pitrError}</Alert>
-      )} */}
-      {dbType === DbEngineType.POSTGRESQL && (
-        <Typography variant="body2" mt={2} px={1}>
-          {Messages.pgMaximum(uniqueStoragesInUse.length)}
-        </Typography>
-      )}
-      <Table
-        getRowId={(row) => row.name}
-        tableName="backupList"
-        noDataMessage={Messages.noData}
-        data={backups}
-        columns={columns}
-        initialState={{
-          sorting: [
-            {
-              id: 'created',
-              desc: true,
-            },
-          ],
-        }}
-        renderTopToolbarCustomActions={() => (
-          <BackupListTableHeader
-            onNowClick={handleManualBackup}
-            onScheduleClick={handleScheduledBackup}
-            noStoragesAvailable={noStoragesAvailable}
-            currentBackups={backups}
-          />
-        )}
-        enableRowActions
-        // renderRowActions={({ row }) => {
-        //   const menuItems = BackupActionButtons(
-        //     row,
-        //     shouldDbActionsBeBlocked(dbCluster.status?.status),
-        //     handleDeleteBackup,
-        //     handleRestoreBackup,
-        //     handleRestoreToNewDbBackup,
-        //     dbCluster
-        //   );
-        //   return <TableActionsMenu menuItems={menuItems} />;
-        // }}
-      />
-      {openDeleteDialog && (
-        <CustomConfirmDialog
-          isOpen={openDeleteDialog}
-          selectedId={selectedBackup}
-          closeModal={handleCloseDeleteDialog}
-          headerMessage={Messages.deleteDialog.header}
-          handleConfirm={() =>
-            handleConfirmDelete(
-              selectedBackup,
-              dbCluster.spec.engine.type !== DbEngineType.POSTGRESQL
-            )
-          }
-          submitting={deletingBackup}
-          confirmationInput={false}
-          dialogContent={Messages.deleteDialog.content(
-            selectedBackup,
-            dbCluster.spec.engine.type,
-            willDisablePITR
-          )}
-          alertMessage={Messages.deleteDialog.alertMessage}
-          submitMessage={Messages.deleteDialog.confirmButton}
+    <Table
+      getRowId={(row) => row.metadata?.name ?? ''}
+      tableName="backupList"
+      noDataMessage={Messages.noData}
+      data={backups}
+      columns={columns}
+      initialState={{
+        sorting: [
+          {
+            id: 'startedAt',
+            desc: true,
+          },
+        ],
+      }}
+      renderTopToolbarCustomActions={() => (
+        <BackupListTableHeader
+          onNowClick={handleManualBackup}
+          onScheduleClick={() => {}}
+          noStoragesAvailable={false}
+          currentBackups={backups}
         />
       )}
-      {openRestoreDbModal && dbCluster && (
-        <RestoreDbModal
-          dbCluster={dbCluster}
-          namespace={dbCluster.metadata.namespace}
-          isNewClusterMode={isNewClusterMode}
-          isOpen={openRestoreDbModal}
-          closeModal={() => setOpenRestoreDbModal(false)}
-          backupName={selectedBackup}
-        />
-      )}
-    </>
+    />
   );
 };

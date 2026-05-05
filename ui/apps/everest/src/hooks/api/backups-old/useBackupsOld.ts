@@ -1,11 +1,5 @@
+import { useQuery } from '@tanstack/react-query';
 import {
-  useMutation,
-  UseMutationOptions,
-  useQuery,
-} from '@tanstack/react-query';
-import {
-  createBackupOnDemand,
-  deleteBackupFn,
   getBackupsFn,
   getPitrFn,
 } from 'api/backups-old';
@@ -15,19 +9,12 @@ import {
   DatabaseClusterPitr,
   DatabaseClusterPitrPayload,
   GetBackupsPayload,
-  SingleBackupPayload,
 } from 'shared-types/backupsOld.types';
 import { mapBackupState } from 'utils/backups';
-import { BackupFormData } from 'pages/db-cluster-details/backups/on-demand-backup-modal/on-demand-backup-modal.types';
 import { PerconaQueryOptions } from 'shared-types/query.types';
 import { useRBACPermissions } from 'hooks/rbac';
 
 export const BACKUPS_QUERY_KEY = 'backups-old';
-
-type DeleteBackupArgType = {
-  backupName: string;
-  cleanupBackupStorage: boolean;
-};
 
 export const useDbBackups = (
   dbClusterName: string,
@@ -60,48 +47,6 @@ export const useDbBackups = (
     enabled: (options?.enabled ?? true) && canRead,
   });
 };
-
-export const useCreateBackupOnDemand = (
-  dbClusterName: string,
-  namespace: string,
-  options?: UseMutationOptions<
-    SingleBackupPayload,
-    unknown,
-    BackupFormData,
-    unknown
-  >
-) =>
-  useMutation({
-    mutationFn: (formData: BackupFormData) =>
-      createBackupOnDemand(
-        {
-          apiVersion: 'everest.percona.com/v1alpha1',
-          kind: 'DatabaseClusterBackup',
-          metadata: {
-            name: formData.name,
-          },
-          spec: {
-            dbClusterName,
-            backupStorageName:
-              typeof formData.storageLocation === 'string'
-                ? formData.storageLocation
-                : formData.storageLocation!.name,
-          },
-        },
-        namespace
-      ),
-    ...options,
-  });
-
-export const useDeleteBackup = (
-  namespace: string,
-  options?: UseMutationOptions<unknown, unknown, DeleteBackupArgType, unknown>
-) =>
-  useMutation({
-    mutationFn: ({ backupName, cleanupBackupStorage }: DeleteBackupArgType) =>
-      deleteBackupFn(backupName, namespace, cleanupBackupStorage),
-    ...options,
-  });
 
 export const useDbClusterPitr = (
   dbClusterName: string,
