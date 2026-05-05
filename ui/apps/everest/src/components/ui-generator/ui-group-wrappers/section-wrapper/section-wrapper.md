@@ -4,15 +4,15 @@
 
 ## Parameters
 
-| Key | Type | Description |
-|---|---|---|
-| `uiType` | `"group"` | Required. |
-| `groupType` | `"section"` | Required. Selects this wrapper. |
-| `label` | `string` | Card title. Rendered with `sectionHeading` typography. |
-| `description` | `string` | Helper text below the title. Rendered with `caption` typography. |
-| `components` | `object` | Child components or nested groups. |
-| `componentsOrder` | `string[]` | Render order of `components` keys. |
-| `modes` | `object` | Group-level mode overrides — `hidden` or `disabled` per `FormMode`. |
+| Key               | Type        | Description                                                         |
+| ----------------- | ----------- | ------------------------------------------------------------------- |
+| `uiType`          | `"group"`   | Required.                                                           |
+| `groupType`       | `"section"` | Required. Selects this wrapper.                                     |
+| `label`           | `string`    | Card title. Rendered with `sectionHeading` typography.              |
+| `description`     | `string`    | Helper text below the title. Rendered with `caption` typography.    |
+| `components`      | `object`    | Child components or nested groups.                                  |
+| `componentsOrder` | `string[]`  | Render order of `components` keys.                                  |
+| `modes`           | `object`    | Group-level mode overrides — `hidden` or `disabled` per `FormMode`. |
 
 ## Usage
 

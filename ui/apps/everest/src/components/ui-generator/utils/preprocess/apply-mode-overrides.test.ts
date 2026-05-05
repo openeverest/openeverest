@@ -255,7 +255,9 @@ describe('applyModeOverrides', () => {
   });
 
   describe('group-level modes', () => {
-    const makeGroup = (overrides: Partial<ComponentGroup> = {}): ComponentGroup => ({
+    const makeGroup = (
+      overrides: Partial<ComponentGroup> = {}
+    ): ComponentGroup => ({
       uiType: 'group',
       components: { field: makeComponent() },
       ...overrides,
