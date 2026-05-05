@@ -17,7 +17,7 @@ import { AdvancedConfigurationType } from '../../database-form-schema.ts';
 import { ProxyExposeType } from 'shared-types/dbCluster.types';
 import { EMPTY_LOAD_BALANCER_CONFIGURATION } from 'consts.ts';
 import { DbType } from '@percona/types';
-import { getProxyConfigLabel } from 'components/cluster-form/advanced-configuration/advanced-configuration.utils';
+import { getProxyConfigLabel } from 'components/cluster-form/advanced-configuration/messages';
 
 type AdvancedConfigurationsPreviewProps = AdvancedConfigurationType & {
   dbType?: DbType;
@@ -41,8 +41,7 @@ export const AdvancedConfigurationsPreviewSection = ({
 }: AdvancedConfigurationsPreviewProps) => {
   const isExternalAccessEnabled =
     exposureMethod === ProxyExposeType.LoadBalancer;
-  const showProxyConfig =
-    dbType !== undefined ? !(dbType === DbType.Mongo && !sharding) : true;
+  const showProxyConfig = dbType !== DbType.Mongo || !!sharding;
 
   return (
     <>

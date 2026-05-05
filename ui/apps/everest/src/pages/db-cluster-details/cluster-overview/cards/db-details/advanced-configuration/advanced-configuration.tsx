@@ -27,7 +27,7 @@ import {
   changeDbClusterAdvancedConfig,
   shouldDbActionsBeBlocked,
 } from 'utils/db';
-import { getProxyConfigLabel } from 'components/cluster-form/advanced-configuration/advanced-configuration.utils';
+import { getProxyConfigLabel } from 'components/cluster-form/advanced-configuration/messages';
 import { DbType } from '@percona/types';
 import { Link } from 'react-router-dom';
 import { useRBACPermissions } from 'hooks/rbac';
@@ -145,7 +145,9 @@ export const AdvancedConfiguration = ({
       {showProxyConfig && (
         <OverviewSectionRow
           label={getProxyConfigLabel(dbType)}
-          content={proxyConfig || Messages.fields.disabled}
+          content={
+            proxyConfig ? Messages.fields.enabled : Messages.fields.disabled
+          }
         />
       )}
       <OverviewSectionRow

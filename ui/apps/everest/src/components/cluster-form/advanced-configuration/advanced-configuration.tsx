@@ -21,7 +21,7 @@ import {
   TextArray,
   TextInput,
 } from '@percona/ui-lib';
-import { Messages } from './messages';
+import { getProxyConfigLabel, Messages } from './messages';
 import {
   AdvancedConfigurationFields,
   AllowedFieldsToInitiallyLoadDefaults,
@@ -30,10 +30,7 @@ import {
 import { ProxyExposeType } from 'shared-types/dbCluster.types';
 import { useFormContext } from 'react-hook-form';
 import { DbEngineType, DbType } from '@percona/types';
-import {
-  getParamsPlaceholderFromDbType,
-  getProxyConfigLabel,
-} from './advanced-configuration.utils';
+import { getParamsPlaceholderFromDbType } from './advanced-configuration.utils';
 import {
   Box,
   FormGroup,

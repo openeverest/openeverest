@@ -16,10 +16,8 @@
 import { describe, it, expect } from 'vitest';
 import { DbType } from '@percona/types';
 import { advancedConfigurationsSchema } from './advanced-configuration-schema';
-import {
-  advancedConfigurationModalDefaultValues,
-  getProxyConfigLabel,
-} from './advanced-configuration.utils';
+import { advancedConfigurationModalDefaultValues } from './advanced-configuration.utils';
+import { getProxyConfigLabel } from './messages';
 import { changeDbClusterAdvancedConfig } from 'utils/db';
 import { ProxyExposeType } from 'shared-types/dbCluster.types';
 import { DbCluster } from 'shared-types/dbCluster.types';

@@ -19,6 +19,9 @@ import {
   INVALID_SOURCE_RANGE_ERROR,
   SOURCE_RANGE_PLACEHOLDER,
 } from 'consts';
+import { capitalize } from '@mui/material';
+import { DbType } from '@percona/types';
+import { getProxyUnitNamesFromDbType } from 'utils/db';
 
 export const Messages = {
   enable: 'Enable',
@@ -91,3 +94,6 @@ export const Messages = {
       `OpenEverest will create domains using ${domain} as suffix`,
   },
 };
+
+export const getProxyConfigLabel = (dbType: DbType): string =>
+  `${capitalize(getProxyUnitNamesFromDbType(dbType).singular)} Configuration`;
