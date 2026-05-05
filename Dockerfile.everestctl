@@ -1,6 +1,6 @@
 # This image is used to run everestctl in Helm chart hooks (e.g. pre-upgrade checks).
 # Stage 1: Build the everestctl binary inside Docker
-FROM golang:1.26-alpine AS builder
+FROM golang:1.26-alpine@sha256:f85330846cde1e57ca9ec309382da3b8e6ae3ab943d2739500e08c86393a21b1 AS builder
 
 ARG TARGETOS=linux
 ARG TARGETARCH=amd64
@@ -32,7 +32,7 @@ RUN go mod download && \
     ./cmd/cli
 
 # Stage 2: Minimal runtime image
-FROM alpine:3.22
+FROM alpine:3.23@sha256:5b10f432ef3da1b8d4c7eb6c487f2f5a8f096bc91145e68878dd4a5019afde11
 
 COPY --from=builder /usr/local/bin/everestctl /usr/local/bin/everestctl
 
