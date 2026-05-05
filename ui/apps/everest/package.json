@@ -37,7 +37,7 @@
     "@percona/utils": "workspace:^",
     "@tanstack/react-query": "^5.22.2",
     "@tanstack/react-query-devtools": "^5.24.0",
-    "axios": "^1.8.2",
+    "axios": "^1.12.2",
     "@xyflow/react": "^12.3.6",
     "casbin.js": "^0.5.1",
     "cron-parser": "^4.9.0",
