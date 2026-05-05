@@ -118,6 +118,8 @@ spec:
               metadata:
                 name: mc-test
                 finalizers:
+                  - openeverest.io/vmagent
+                  - openeverest.io/cleanup-secrets
                   - monitoring.openeverest.io/in-use-protection
               spec:
                 type: pmm
@@ -184,6 +186,8 @@ spec:
               metadata:
                 name: mc-test
                 finalizers:
+                  - openeverest.io/vmagent
+                  - openeverest.io/cleanup-secrets
                   - monitoring.openeverest.io/in-use-protection
               spec:
                 type: pmm
@@ -235,6 +239,8 @@ spec:
               metadata:
                 name: mc-test
                 finalizers:
+                  - openeverest.io/vmagent
+                  - openeverest.io/cleanup-secrets
                   - monitoring.openeverest.io/in-use-protection
               spec:
                 type: pmm

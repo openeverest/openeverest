@@ -2878,6 +2878,102 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+  '/clusters/{cluster}/namespaces/{namespace}/instances/{instance}/backups':
+    x-everest-resource-name: backups
+    get:
+      tags:
+        - Backup
+      summary: List backups for an instance
+      description: |
+        This API lists all backups for the instance specified by the `instance` name
+        in the specified `namespace` and `cluster`.
+      operationId: listInstanceBackups
+      parameters:
+        - name: cluster
+          in: path
+          required: true
+          description: The name of the cluster
+          schema:
+            type: string
+        - name: namespace
+          in: path
+          required: true
+          description: The namespace where the instance is located
+          schema:
+            type: string
+        - name: instance
+          in: path
+          required: true
+          description: The name of the instance
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of backups for the instance
+          content:
+            application/json:
+              schema:
+                $ref: 'crds.gen.yaml#/components/schemas/BackupList'
+        '400':
+          description: Unsuccessful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  '/clusters/{cluster}/namespaces/{namespace}/instances/{instance}/restores':
+    x-everest-resource-name: restores
+    get:
+      tags:
+        - Restore
+      summary: List restores performed for an instance
+      description: |
+        This API lists all restores performed for the instance specified by the `instance` name
+        in the specified `namespace` and `cluster`.
+      operationId: listInstanceRestores
+      parameters:
+        - name: cluster
+          in: path
+          required: true
+          description: The name of the cluster
+          schema:
+            type: string
+        - name: namespace
+          in: path
+          required: true
+          description: The namespace where the instance is located
+          schema:
+            type: string
+        - name: instance
+          in: path
+          required: true
+          description: The name of the instance
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of restores for the instance
+          content:
+            application/json:
+              schema:
+                $ref: 'crds.gen.yaml#/components/schemas/RestoreList'
+        '400':
+          description: Unsuccessful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
   '/clusters/{cluster}/backup-classes':
     x-everest-resource-name: backup-classes
     get:

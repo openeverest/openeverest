@@ -22,14 +22,14 @@ inputs:
     description: 'K3D version to install'
     required: false
     default: '5.8.3'
-  install-kuttl:
-    description: 'Install kubectl-kuttl'
+  install-chainsaw:
+    description: 'Install Chainsaw'
     required: false
     default: 'false'
-  kuttl-version:
-    description: 'kuttl version (without the leading v)'
+  chainsaw-version:
+    description: 'Chainsaw version (without the leading v)'
     required: false
-    default: '0.25.0'
+    default: '0.2.14'
 runs:
   using: "composite"
   steps:
@@ -55,23 +55,8 @@ runs:
         k3d version
       shell: bash
 
-    - name: Install kuttl
-      if: inputs.install-kuttl == 'true'
-      shell: bash
-      run: |
-        # kuttl uses the raw uname -m naming: x86_64, arm64 (aarch64 → arm64).
-        ARCH=$(uname -m | sed 's/aarch64/arm64/')
-        VERSION="${{ inputs.kuttl-version }}"
-        BASE="https://github.com/kudobuilder/kuttl/releases/download/v${VERSION}"
-        BINARY="kubectl-kuttl_${VERSION}_linux_${ARCH}"
-        DEST="${{ inputs.tools-path }}/kubectl-kuttl"
-
-        curl -fsSL -o "${DEST}"                           "${BASE}/${BINARY}"
-        curl -fsSL -o "/tmp/kuttl_checksums.txt"          "${BASE}/checksums.txt"
-        grep "^.\{64\}  ${BINARY}$" /tmp/kuttl_checksums.txt \
-          | awk -v dest="${DEST}" '{print $1 "  " dest}' \
-          | sha256sum --check --status
-        rm /tmp/kuttl_checksums.txt
-        chmod +x "${DEST}"
-
-        echo "$(kubectl kuttl --version) installed"
+    - name: Install Chainsaw
+      if: ${{ inputs.install-chainsaw == 'true' }}
+      uses: kyverno/action-install-chainsaw@06560d18422209e9c1e08e931d477d04bf2674c1 # v0.2.14
+      with:
+        release: v${{ inputs.chainsaw-version }}

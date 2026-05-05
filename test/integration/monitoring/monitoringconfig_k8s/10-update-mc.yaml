@@ -1,7 +1,3 @@
-apiVersion: kuttl.dev/v1
-kind: TestStep
-timeout: 10
----
 apiVersion: monitoring.openeverest.io/v1alpha2
 kind: MonitoringConfig
 metadata:

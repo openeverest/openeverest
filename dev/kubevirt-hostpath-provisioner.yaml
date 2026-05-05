@@ -69,7 +69,7 @@ spec:
       serviceAccountName: kubevirt-hostpath-provisioner-admin
       containers:
         - name: kubevirt-hostpath-provisioner
-          image: quay.io/kubevirt/hostpath-provisioner:v0.14.0
+          image: quay.io/kubevirt/hostpath-provisioner:v0.25.0
           imagePullPolicy: Always
           env:
             - name: USE_NAMING_PREFIX
