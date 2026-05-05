@@ -585,61 +585,10 @@ export interface components {
                      */
                     enabled: boolean;
                     /**
-                     * @description PITR enables and configures point-in-time recovery on the engine.
-                     *     Requires the BackupClass to advertise PITR support via
-                     *     .spec.providerManaged.
-                     */
-                    pitr?: {
-                        /**
-                         * @description Config holds provider-specific PITR options. The schema is defined by
-                         *     the BackupClass via .spec.providerManaged.
-                         */
-                        config?: Record<string, never>;
-                        /** @description Enabled toggles PITR. */
-                        enabled: boolean;
-                        /**
-                         * @description StorageName is the logical name of the storage (one of
-                         *     .spec.backup.storages[].name) that PITR should write to.
-                         */
-                        storageName?: string;
-                    };
-                    /**
-                     * @description Schedules registers recurring backup tasks on the engine. Schedules
-                     *     produce Backup CRs (via the provider's mirroring loop) using the
-                     *     operator-native scheduler — the runtime never spawns CronJobs for
-                     *     ProviderManaged BackupClasses.
-                     */
-                    schedules?: {
-                        /**
-                         * @description Cron is a standard 5-field cron expression. The provider may reject
-                         *     expressions the engine does not support.
-                         */
-                        cron: string;
-                        /**
-                         * @description Enabled toggles the schedule. A disabled schedule is removed from
-                         *     the engine without losing its definition on the Instance.
-                         */
-                        enabled: boolean;
-                        /**
-                         * @description Name uniquely identifies the schedule within the Instance. The
-                         *     provider uses it as the schedule key on the engine and as the value
-                         *     of Backup.spec.scheduleName on mirrored Backup CRs.
-                         */
-                        name: string;
-                        /**
-                         * Format: int32
-                         * @description RetentionCopies is the number of recent backups to keep for this
-                         *     schedule. Zero (or unset) means "keep all". Negative values are
-                         *     rejected.
-                         */
-                        retentionCopies?: number;
-                        /** @description StorageName references one of .spec.backup.storages[].name. Required. */
-                        storageName: string;
-                    }[];
-                    /**
                      * @description Storages registers BackupStorages on the engine. Each entry maps a
                      *     logical name (visible to the engine and reused by Backup CRs via
-                     *     .spec.storageName) to a BackupStorage resource.
+                     *     .spec.storageName) to a BackupStorage resource. Schedules and PITR are
+                     *     configured per storage via the nested .schedules and .pitr fields.
                      */
                     storages?: {
                         /**
@@ -652,6 +601,56 @@ export interface components {
                          *     the value that Backup CRs target via .spec.storageName.
                          */
                         name: string;
+                        /**
+                         * @description PITR enables and configures point-in-time recovery writing to this
+                         *     storage. Requires the BackupClass to advertise PITR support via
+                         *     .spec.providerManaged. Engines that support only a single PITR stream
+                         *     (e.g. PSMDB, PXC) require at most one storage on the Instance to set
+                         *     .pitr.enabled=true; this is enforced by the provider, not by the
+                         *     core schema (PG legitimately archives WAL to every configured repo).
+                         */
+                        pitr?: {
+                            /**
+                             * @description Config holds provider-specific PITR options. The schema is defined by
+                             *     the BackupClass via .spec.providerManaged.
+                             */
+                            config?: Record<string, never>;
+                            /** @description Enabled toggles PITR for this storage. */
+                            enabled: boolean;
+                        };
+                        /**
+                         * @description Schedules registers recurring backup tasks that write to this storage.
+                         *     Schedules produce Backup CRs (via the provider's mirroring loop) using
+                         *     the operator-native scheduler — the runtime never spawns CronJobs for
+                         *     ProviderManaged BackupClasses. Schedule names must be unique across
+                         *     all storages on the Instance.
+                         */
+                        schedules?: {
+                            /**
+                             * @description Cron is a standard 5-field cron expression. The provider may reject
+                             *     expressions the engine does not support.
+                             */
+                            cron: string;
+                            /**
+                             * @description Enabled toggles the schedule. A disabled schedule is removed from
+                             *     the engine without losing its definition on the Instance.
+                             */
+                            enabled: boolean;
+                            /**
+                             * @description Name uniquely identifies the schedule. The provider uses it as the
+                             *     schedule key on the engine and as the value of Backup.spec.scheduleName
+                             *     on mirrored Backup CRs. Names must be unique across all storages on
+                             *     the Instance.
+                             */
+                            name: string;
+                            /**
+                             * Format: int32
+                             * @description RetentionCopies is the number of recent backups to keep for this
+                             *     schedule. Zero (or unset) means "keep all". Negative values are
+                             *     rejected.
+                             */
+                            retentionCopies?: number;
+                        }[];
                         /** @description StorageRef references a BackupStorage in the same namespace. */
                         storageRef: {
                             /**
