@@ -33,7 +33,7 @@ export const Messages = {
   //   submitButton: 'Go to settings',
   //   cancel: 'Cancel',
   // },
-  // backups: 'Backups',
+  backups: 'Backups',
   // restores: 'Restores',
   overview: 'Overview',
   // components: 'Components',

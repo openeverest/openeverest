@@ -12,62 +12,67 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import LogicalPhysicalRadioGroup from 'components/logical-physical-radio-group';
-import { useContext, useEffect } from 'react';
-import { useFormContext } from 'react-hook-form';
-// import { Messages } from '../../db-cluster-details.messages.ts';
+import { MenuItem } from '@mui/material';
+import { SelectInput } from '@percona/ui-lib';
+import { useBackupClassesList } from 'hooks/api/backup-classes/useBackupClasses.ts';
+import { useBackupStoragesByNamespace } from 'hooks/api/backup-storages/useBackupStorages.ts';
+import { useClusterName } from 'hooks/api/useClusterName.ts';
+import { useContext } from 'react';
+import { useParams } from 'react-router-dom';
 import { BackupFields } from './on-demand-backup-modal.types.ts';
-import { DbEngineType } from '@percona/types';
 import { ScheduleModalContext } from '../backups.context.ts';
-import BackupStoragesInput from 'components/backup-storages-input';
-import { dbEngineToDbType } from '@percona/utils';
 
 export const OnDemandBackupFieldsWrapper = () => {
-  const { dbCluster } = useContext(ScheduleModalContext);
-  const {
-    metadata: { namespace },
-    status,
-    spec: {
-      engine: { type },
-      backup,
-    },
-  } = dbCluster;
-  const { setValue, trigger } = useFormContext();
-  const dbClusterActiveStorage = status?.activeStorage;
+  const { namespace = '' } = useParams();
+  const clusterName = useClusterName();
+  const { instance } = useContext(ScheduleModalContext);
 
-  useEffect(() => {
-    if (dbClusterActiveStorage) {
-      setValue(BackupFields.storageLocation, {
-        name: dbClusterActiveStorage,
-      });
-      trigger(BackupFields.storageLocation);
-    }
-  }, [dbClusterActiveStorage]);
+  const { data: backupClasses = [], isLoading: loadingClasses } =
+    useBackupClassesList(clusterName);
+
+  const { data: backupStorages = [], isLoading: loadingStorages } =
+    useBackupStoragesByNamespace(namespace);
+
+  // Option A: BackupClasses encode the backup type (logical/physical).
+  // Filter classes that support this instance's provider.
+  const providerType = instance.spec?.provider;
+  const availableClasses = backupClasses.filter((bc) => {
+    const supported = bc.spec?.supportedProviders;
+    if (!supported || supported.length === 0) return true;
+    if (!providerType) return true;
+    return supported.includes(providerType);
+  });
 
   return (
     <>
-      {type === DbEngineType.PSMDB && <LogicalPhysicalRadioGroup />}
-      {/* <Typography variant="sectionHeading" mt={3} mb={1}>
-        {Messages.onDemandBackupModal.backupDetails}
-      </Typography> */}
-      {/* <TextInput
-        name={BackupFields.name}
-        textFieldProps={{
-          label: Messages.onDemandBackupModal.backupName,
+      <SelectInput
+        name={BackupFields.backupClassName}
+        label="Backup class"
+        selectFieldProps={{
+          label: 'Backup class',
+          disabled: loadingClasses,
         }}
-        isRequired
-      /> */}
-      <BackupStoragesInput
-        dbClusterName={dbCluster.metadata.name}
-        namespace={namespace}
-        dbType={dbEngineToDbType(type)}
-        schedules={backup?.schedules || []}
-        autoFillProps={{
-          enableFillFirst: true,
-          isRequired: true,
-          disabled: !!dbClusterActiveStorage,
+      >
+        {availableClasses.map((bc) => (
+          <MenuItem key={bc.metadata?.name} value={bc.metadata?.name ?? ''}>
+            {bc.spec?.displayName || bc.metadata?.name}
+          </MenuItem>
+        ))}
+      </SelectInput>
+      <SelectInput
+        name={BackupFields.storageName}
+        label="Storage"
+        selectFieldProps={{
+          label: 'Storage',
+          disabled: loadingStorages,
         }}
-      />
+      >
+        {backupStorages.map((storage) => (
+          <MenuItem key={storage.name} value={storage.name}>
+            {storage.name}
+          </MenuItem>
+        ))}
+      </SelectInput>
     </>
   );
 };

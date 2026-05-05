@@ -14,18 +14,14 @@
 
 import { FormDialog } from 'components/form-dialog';
 import {
-  BACKUPS_QUERY_KEY,
+  getBackupListQueryKey,
+  useBackupsList,
   useCreateBackupOnDemand,
-  useDbBackups,
-} from 'hooks/api/backups-old/useBackupsOld.ts';
+} from 'hooks/api/backups/useBackups.ts';
 import { useContext, useMemo } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useParams } from 'react-router-dom';
-import {
-  GetBackupsPayload,
-  SingleBackupPayload,
-} from 'shared-types/backupsOld.types.ts';
-// import { Messages } from '../../db-cluster-details.messages.ts';
+import { CreateBackupPayload } from 'shared-types/backups.types.ts';
 import { OnDemandBackupFieldsWrapper } from './on-demand-backup-fields-wrapper.tsx';
 import {
   BackupFormData,
@@ -34,64 +30,50 @@ import {
 } from './on-demand-backup-modal.types.ts';
 import { ScheduleModalContext } from '../backups.context.ts';
 import { Typography } from '@mui/material';
-import { DbCluster } from 'shared-types/dbCluster.types.ts';
-import { DbEngineType } from 'shared-types/dbEngines.types.ts';
-import { useUpdateDbClusterWithConflictRetry } from 'hooks';
+import { useClusterName } from 'hooks/api/useClusterName.ts';
 
-export const OnDemandBackupModal = ({
-  dbCluster,
-}: {
-  dbCluster: DbCluster;
-}) => {
+export const OnDemandBackupModal = () => {
   const queryClient = useQueryClient();
-  const { dbClusterName, namespace = '' } = useParams();
+  const { instanceName = '', namespace = '' } = useParams();
+  const clusterName = useClusterName();
 
-  const { data: backups = [] } = useDbBackups(dbClusterName!, namespace);
-  const backupNames = backups.map((item) => item.name);
+  const { data: backups = [] } = useBackupsList(
+    clusterName,
+    namespace,
+    instanceName
+  );
+  const backupNames = backups.map(
+    (item) => item.metadata?.name ?? ''
+  );
   const { mutate: createBackupOnDemand, isPending: creatingBackup } =
-    useCreateBackupOnDemand(dbClusterName!, namespace);
-  const { mutate: updateCluster } =
-    useUpdateDbClusterWithConflictRetry(dbCluster);
+    useCreateBackupOnDemand(clusterName, namespace);
 
   const { openOnDemandModal, setOpenOnDemandModal } =
     useContext(ScheduleModalContext);
 
   const handleSubmit = (data: BackupFormData) => {
-    createBackupOnDemand(data, {
-      onSuccess(newBackup: SingleBackupPayload) {
-        queryClient.setQueryData<GetBackupsPayload | undefined>(
-          [BACKUPS_QUERY_KEY, namespace, dbClusterName],
-          (oldData) => {
-            if (!oldData) {
-              return undefined;
-            }
-
-            return {
-              items: [newBackup, ...oldData.items],
-            };
-          }
-        );
-
-        if (dbCluster.spec.engine.type === DbEngineType.POSTGRESQL) {
-          updateCluster({
-            ...dbCluster,
-            spec: {
-              ...dbCluster.spec,
-              backup: {
-                ...dbCluster.spec.backup,
-                pitr: {
-                  ...(dbCluster.spec.backup?.pitr || {}),
-                  backupStorageName:
-                    dbCluster.spec.backup?.pitr?.backupStorageName || '',
-                  enabled: true,
-                },
-              },
-            },
+    createBackupOnDemand(
+      {
+        metadata: { name: data.name },
+        spec: {
+          instanceName: instanceName,
+          backupClassName: data.backupClassName,
+          storageName: data.storageName,
+        },
+      } as unknown as CreateBackupPayload,
+      {
+        onSuccess() {
+          queryClient.invalidateQueries({
+            queryKey: getBackupListQueryKey(
+              clusterName,
+              namespace,
+              instanceName
+            ),
           });
-        }
-        setOpenOnDemandModal(false);
-      },
-    });
+          setOpenOnDemandModal(false);
+        },
+      }
+    );
   };
 
   const values = useMemo(() => defaultValuesFc(), []);
@@ -100,16 +82,16 @@ export const OnDemandBackupModal = ({
     <FormDialog
       isOpen={openOnDemandModal}
       closeModal={() => setOpenOnDemandModal(false)}
-      headerMessage={/*Messages.onDemandBackupModal.headerMessage*/ ''}
+      headerMessage="Create on-demand backup"
       onSubmit={handleSubmit}
       submitting={creatingBackup}
-      submitMessage={/*Messages.onDemandBackupModal.submitMessage*/ ''}
+      submitMessage="Create"
       schema={schema(backupNames)}
       values={values}
       size="XL"
     >
       <Typography variant="body1">
-        {/*Messages.onDemandBackupModal.subHead*/}
+        Select a backup class and storage to create an on-demand backup.
       </Typography>
       <OnDemandBackupFieldsWrapper />
     </FormDialog>
