@@ -283,9 +283,9 @@ func (e *EverestServer) newJWTKeyFunc(ctx context.Context) (jwt.Keyfunc, error) 
 	}
 
 	return func(token *jwt.Token) (interface{}, error) {
-		claims, ok := token.Claims.(jwt.MapClaims)
-		if !ok {
-			return nil, errors.New("failed to get claims from token")
+		claims, err := common.ExtractClaims(token)
+		if err != nil {
+			return nil, err
 		}
 		issuer, err := claims.GetIssuer()
 		if err != nil {

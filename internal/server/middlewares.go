@@ -25,7 +25,6 @@ import (
 	"strings"
 
 	"github.com/AlekSi/pointer"
-	"github.com/golang-jwt/jwt/v5"
 	"github.com/labstack/echo/v4"
 	"github.com/unrolled/secure"
 	"github.com/unrolled/secure/cspbuilder"
@@ -104,11 +103,9 @@ func (e *EverestServer) validateIfPasswordChangeIsRequired(next echo.HandlerFunc
 		if err != nil {
 			return err
 		}
-		claims, ok := token.Claims.(jwt.MapClaims)
-		if !ok {
-			return c.JSON(http.StatusForbidden, api.Error{
-				Message: pointer.ToString("failed to get claims from token"),
-			})
+		claims, err := common.ExtractClaims(token)
+		if err != nil {
+			return err
 		}
 		mustChangePassword, ok := claims[session.MustChangePasswordClaim].(bool)
 		if !ok {
