@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -62,6 +63,8 @@ type (
 		Pretty bool
 		// SkipEnvDetection skips detecting the Kubernetes environment.
 		SkipEnvDetection bool
+		// DisableTelemetry disables telemetry.
+		DisableTelemetry bool
 
 		// VersionToUpgrade specifies the version to upgrade to.
 		// This version may be ahead by at most one minor version from the current version.
@@ -208,6 +211,7 @@ func (u *Upgrade) setupHelmInstaller(ctx context.Context) error {
 	overrides := helm.NewValues(helm.Values{
 		ClusterType:        u.clusterType,
 		VersionMetadataURL: u.config.VersionMetadataURL,
+		DisableTelemetry:   u.config.DisableTelemetry,
 	})
 
 	values := Must(helmutils.MergeVals(u.config.Values, overrides))
