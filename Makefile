@@ -300,10 +300,6 @@ test-crosscover: setup-envtest ## Run unit tests and collect cross-package cover
 
 .PHONY: test-integration-monitoring
 test-integration-monitoring: docker-build-controller k3d-upload-controller-image
-	. ./test/vars.sh && kubectl kuttl test --config test/integration/kuttl-monitoring.yaml
-
-.PHONY: test-integration-monitoring-chainsaw
-test-integration-monitoring-chainsaw: docker-build-controller k3d-upload-controller-image ## Run monitoring integration tests with chainsaw
 	kubectl get namespace everest-monitoring || kubectl create namespace everest-monitoring
 	$(MAKE) deploy-test-controller
 	kubectl apply -f https://raw.githubusercontent.com/VictoriaMetrics/operator/v$(VICTORIAMETRICS_OPERATOR_VERSION)/config/crd/overlay/crd.yaml

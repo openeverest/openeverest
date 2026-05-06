@@ -156,6 +156,10 @@ type KubernetesConnector interface {
 	RestartDeployment(ctx context.Context, key ctrlclient.ObjectKey) error
 	// WaitForRollout waits for rollout of deployment that matches the criteria.
 	WaitForRollout(ctx context.Context, key ctrlclient.ObjectKey) error
+	// ListInstanceBackups returns backups for the specified instance.
+	ListInstanceBackups(ctx context.Context, namespace, instance string) (*backupv1alpha1.BackupList, error)
+	// ListInstanceRestores returns restores performed for the specified instance.
+	ListInstanceRestores(ctx context.Context, namespace, instance string) (*backupv1alpha1.RestoreList, error)
 	// GetInstallPlan retrieves an OLM install plan that matches the criteria.
 	GetInstallPlan(ctx context.Context, key ctrlclient.ObjectKey) (*olmv1alpha1.InstallPlan, error)
 	// UpdateInstallPlan updates OLM install plan.

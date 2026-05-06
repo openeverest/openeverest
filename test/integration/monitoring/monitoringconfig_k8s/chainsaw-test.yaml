@@ -1,0 +1,199 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/kyverno/chainsaw/main/.schemas/json/test-chainsaw-v1alpha1.json
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: monitoringconfig-k8s
+spec:
+  steps:
+  - catch:
+    - script:
+        content: kubectl get monitoringconfig/mc-1 -n ${NAMESPACE} -o yaml
+    - script:
+        content: kubectl get secret/mc-1-secret -n ${NAMESPACE} -o yaml
+    - script:
+        content: kubectl get monitoringconfig/mc-2 -n ${NAMESPACE} -o yaml
+    - script:
+        content: kubectl get secret/mc-2-secret -n ${NAMESPACE} -o yaml
+    - script:
+        content: kubectl get vmagent/everest-monitoring -n everest-monitoring -o yaml
+    - script:
+        content: kubectl get deploy/openeverest-controller-manager -n openeverest-system
+          -o yaml
+    - podLogs:
+        namespace: openeverest-system
+        selector: control-plane=controller-manager
+        tail: 100
+    name: step-00
+    try:
+    - script:
+        content: kubectl patch ns ${NAMESPACE} -p '{"metadata":{"labels":{"app.kubernetes.io/managed-by":"everest"}}}' --type merge
+    - apply:
+        file: 00-install.yaml
+    - assert:
+        file: 00-assert.yaml
+    - assert:
+        resource:
+          apiVersion: monitoring.openeverest.io/v1alpha2
+          kind: MonitoringConfig
+          metadata:
+            name: mc-1
+            namespace: ($namespace)
+            finalizers:
+              - openeverest.io/vmagent
+              - openeverest.io/cleanup-secrets
+    - assert:
+        resource:
+          apiVersion: monitoring.openeverest.io/v1alpha2
+          kind: MonitoringConfig
+          metadata:
+            name: mc-2
+            namespace: ($namespace)
+            finalizers:
+              - openeverest.io/vmagent
+              - openeverest.io/cleanup-secrets
+    - assert:
+        resource:
+          apiVersion: operator.victoriametrics.com/v1beta1
+          kind: VMAgent
+          metadata:
+            name: everest-monitoring
+            namespace: everest-monitoring
+          spec:
+            remoteWrite:
+              - url: http://localhost-mc-1/victoriametrics/api/v1/write
+              - url: http://localhost-mc-2/victoriametrics/api/v1/write
+  - catch:
+    - script:
+        content: kubectl get monitoringconfig/mc-1 -n ${NAMESPACE} -o yaml
+    - script:
+        content: kubectl get secret/mc-1-secret -n ${NAMESPACE} -o yaml
+    - script:
+        content: kubectl get monitoringconfig/mc-2 -n ${NAMESPACE} -o yaml
+    - script:
+        content: kubectl get secret/mc-2-secret -n ${NAMESPACE} -o yaml
+    - script:
+        content: kubectl get vmagent/everest-monitoring -n everest-monitoring -o yaml
+    - podLogs:
+        namespace: openeverest-system
+        selector: control-plane=controller-manager
+        tail: 100
+    name: step-10
+    try:
+    - apply:
+        file: 10-update-mc.yaml
+    - assert:
+        file: 10-assert.yaml
+    - assert:
+        resource:
+          apiVersion: monitoring.openeverest.io/v1alpha2
+          kind: MonitoringConfig
+          metadata:
+            name: mc-1
+            namespace: ($namespace)
+            finalizers:
+              - openeverest.io/vmagent
+              - openeverest.io/cleanup-secrets
+    - assert:
+        resource:
+          apiVersion: monitoring.openeverest.io/v1alpha2
+          kind: MonitoringConfig
+          metadata:
+            name: mc-2
+            namespace: ($namespace)
+            finalizers:
+              - openeverest.io/vmagent
+              - openeverest.io/cleanup-secrets
+    - assert:
+        resource:
+          apiVersion: operator.victoriametrics.com/v1beta1
+          kind: VMAgent
+          metadata:
+            name: everest-monitoring
+            namespace: everest-monitoring
+          spec:
+            remoteWrite:
+              - url: http://localhost-test-mc-1-test-1/victoriametrics/api/v1/write
+              - url: http://localhost-test-mc-2-test-2/victoriametrics/api/v1/write
+  - catch:
+    - script:
+        content: kubectl get monitoringconfig/mc-1 -n ${NAMESPACE} -o yaml
+    - script:
+        content: kubectl get secret/mc-1-secret -n ${NAMESPACE} -o yaml
+    - script:
+        content: kubectl get monitoringconfig/mc-2 -n ${NAMESPACE} -o yaml
+    - script:
+        content: kubectl get secret/mc-2-secret -n ${NAMESPACE} -o yaml
+    - script:
+        content: kubectl get vmagent/everest-monitoring -n everest-monitoring -o yaml
+    - podLogs:
+        namespace: openeverest-system
+        selector: control-plane=controller-manager
+        tail: 100
+    name: step-20
+    try:
+    - apply:
+        file: 20-update-credentials.yaml
+    - assert:
+        file: 20-assert.yaml
+    - assert:
+        resource:
+          apiVersion: monitoring.openeverest.io/v1alpha2
+          kind: MonitoringConfig
+          metadata:
+            name: mc-1
+            namespace: ($namespace)
+            finalizers:
+              - openeverest.io/vmagent
+              - openeverest.io/cleanup-secrets
+    - assert:
+        resource:
+          apiVersion: monitoring.openeverest.io/v1alpha2
+          kind: MonitoringConfig
+          metadata:
+            name: mc-2
+            namespace: ($namespace)
+            finalizers:
+              - openeverest.io/vmagent
+              - openeverest.io/cleanup-secrets
+    - assert:
+        resource:
+          apiVersion: operator.victoriametrics.com/v1beta1
+          kind: VMAgent
+          metadata:
+            name: everest-monitoring
+            namespace: everest-monitoring
+          spec:
+            remoteWrite:
+              - url: http://localhost-test-mc-1-test-1/victoriametrics/api/v1/write
+              - url: http://localhost-test-mc-2-test-2/victoriametrics/api/v1/write
+  - catch:
+    - script:
+        content: kubectl get monitoringconfig/mc-1 -n ${NAMESPACE} -o yaml
+    - script:
+        content: kubectl get secret/mc-1-secret -n ${NAMESPACE} -o yaml
+    - script:
+        content: kubectl get monitoringconfig/mc-2 -n ${NAMESPACE} -o yaml
+    - script:
+        content: kubectl get secret/mc-2-secret -n ${NAMESPACE} -o yaml
+    - script:
+        content: kubectl get vmagent/everest-monitoring -n everest-monitoring -o yaml
+    - podLogs:
+        namespace: openeverest-system
+        selector: control-plane=controller-manager
+        tail: 100
+    name: step-30
+    try:
+    - delete:
+        ref:
+          apiVersion: monitoring.openeverest.io/v1alpha2
+          kind: monitoringconfig
+          name: mc-1
+    - delete:
+        ref:
+          apiVersion: monitoring.openeverest.io/v1alpha2
+          kind: monitoringconfig
+          name: mc-2
+    - script:
+        content: kubectl wait --for=delete secret/mc-1-secret  -n $NAMESPACE
+    - script:
+        content: kubectl wait --for=delete secret/mc-2-secret  -n $NAMESPACE
