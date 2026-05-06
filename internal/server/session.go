@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -50,6 +51,11 @@ func (e *EverestServer) CreateSession(ctx echo.Context) error {
 		return sessionErrToHTTPRes(ctx, err)
 	}
 
+	isSecure, err := e.sessionMgr.IsSecure(c, *params.Username)
+	if err != nil {
+		return err
+	}
+
 	uniqueID, err := uuid.NewRandom()
 	if err != nil {
 		return err
@@ -57,7 +63,7 @@ func (e *EverestServer) CreateSession(ctx echo.Context) error {
 	subject := fmt.Sprintf(jwtSubjectTml, *params.Username, accounts.AccountCapabilityLogin)
 	secondsBeforeExpiry := int64(jwtDefaultExpiry.Seconds())
 
-	jwtToken, err := e.sessionMgr.Create(subject, secondsBeforeExpiry, uniqueID.String())
+	jwtToken, err := e.sessionMgr.Create(subject, secondsBeforeExpiry, uniqueID.String(), isSecure)
 	if err != nil {
 		return err
 	}

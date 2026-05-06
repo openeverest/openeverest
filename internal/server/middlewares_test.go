@@ -1,3 +1,17 @@
+// Copyright (C) 2026 The OpenEverest Contributors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 // http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
@@ -9,11 +23,14 @@
 package server
 
 import (
+	"context"
 	"net/http"
+	"net/http/httptest"
 	"net/url"
 	"testing"
 	"time"
 
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/labstack/echo/v4"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -23,8 +40,16 @@ import (
 	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	everestv1alpha1 "github.com/percona/everest-operator/api/everest/v1alpha1"
+	"github.com/percona/everest/pkg/common"
 	"github.com/percona/everest/pkg/kubernetes"
+	"github.com/percona/everest/pkg/session"
 )
+
+type want struct {
+	err    string
+	status int
+	next   bool
+}
 
 func TestShouldAllowRequestDuringEngineUpgrade(t *testing.T) {
 	lockedAt := time.Now().Format(time.RFC3339)
@@ -135,6 +160,167 @@ func TestShouldAllowRequestDuringEngineUpgrade(t *testing.T) {
 			allow, err := e.shouldAllowRequestDuringEngineUpgrade(ctx)
 			require.NoError(t, err)
 			assert.Equal(t, tc.allow, allow)
+		})
+	}
+}
+
+func TestValidateIfPasswordChangeIsRequired(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		description string
+		ctxFn       func() echo.Context
+		want        want
+	}{
+		{
+			description: "allow allowlisted endpoint without token",
+			ctxFn: func() echo.Context {
+				e := echo.New()
+				ctx := e.NewContext(&http.Request{
+					Method: http.MethodGet,
+					URL: &url.URL{
+						Path: "/v1/accounts",
+					},
+				}, nil)
+				ctx.SetPath("/v1/accounts")
+				return ctx
+			},
+			want: want{err: "", status: 0, next: true},
+		},
+		{
+			description: "deny non allowlisted endpoint if token is missing",
+			ctxFn: func() echo.Context {
+				e := echo.New()
+				ctx := e.NewContext(&http.Request{
+					Method: http.MethodGet,
+					URL: &url.URL{
+						Path: "/v1/database-clusters",
+					},
+				}, nil)
+				ctx.SetPath("/v1/database-clusters")
+				return ctx
+			},
+			want: want{
+				err:  "failed to get token from context",
+				next: false,
+			},
+		},
+		{
+			description: "deny non allowlisted endpoint if required claim is missing",
+			ctxFn: func() echo.Context {
+				e := echo.New()
+				req := &http.Request{
+					Method: http.MethodGet,
+					URL: &url.URL{
+						Path: "/v1/database-clusters",
+					},
+				}
+				req = req.WithContext(context.WithValue(req.Context(), common.UserCtxKey, &jwt.Token{
+					Claims: jwt.MapClaims{},
+				}))
+				ctx := e.NewContext(req, httptest.NewRecorder())
+				ctx.SetPath("/v1/database-clusters")
+				return ctx
+			},
+			want: want{
+				err:  "failed to parse claim from token",
+				next: false,
+			},
+		},
+		{
+			description: "deny non allowlisted endpoint if claim type is invalid",
+			ctxFn: func() echo.Context {
+				e := echo.New()
+				req := &http.Request{
+					Method: http.MethodGet,
+					URL: &url.URL{
+						Path: "/v1/database-clusters",
+					},
+				}
+				req = req.WithContext(context.WithValue(req.Context(), common.UserCtxKey, &jwt.Token{
+					Claims: jwt.MapClaims{
+						session.MustChangePasswordClaim: "true",
+					},
+				}))
+				ctx := e.NewContext(req, nil)
+				ctx.SetPath("/v1/database-clusters")
+				return ctx
+			},
+			want: want{
+				err:  "failed to parse claim from token",
+				next: false,
+			},
+		},
+		{
+			description: "allow non allowlisted endpoint with valid claim",
+			ctxFn: func() echo.Context {
+				e := echo.New()
+				req := &http.Request{
+					Method: http.MethodGet,
+					URL: &url.URL{
+						Path: "/v1/database-clusters",
+					},
+				}
+				req = req.WithContext(context.WithValue(req.Context(), common.UserCtxKey, &jwt.Token{
+					Claims: jwt.MapClaims{
+						session.MustChangePasswordClaim: true,
+					},
+				}))
+				ctx := e.NewContext(req, nil)
+				ctx.SetPath("/v1/database-clusters")
+				return ctx
+			},
+			want: want{
+				next: true,
+			},
+		},
+		{
+			description: "allow non allowlisted endpoint when claim is false",
+			ctxFn: func() echo.Context {
+				e := echo.New()
+				req := &http.Request{
+					Method: http.MethodGet,
+					URL: &url.URL{
+						Path: "/v1/database-clusters",
+					},
+				}
+				req = req.WithContext(context.WithValue(req.Context(), common.UserCtxKey, &jwt.Token{
+					Claims: jwt.MapClaims{
+						session.MustChangePasswordClaim: false,
+					},
+				}))
+				ctx := e.NewContext(req, nil)
+				ctx.SetPath("/v1/database-clusters")
+				return ctx
+			},
+			want: want{
+				next: true,
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.description, func(t *testing.T) {
+			t.Parallel()
+			mockClient := fakeclient.NewClientBuilder().WithScheme(kubernetes.CreateScheme())
+			k := kubernetes.NewEmpty(zap.NewNop().Sugar()).WithKubernetesClient(mockClient.Build())
+			e := EverestServer{kubeConnector: k}
+			ctx := tc.ctxFn()
+			called := false
+			next := func(c echo.Context) error {
+				called = true
+				return nil
+			}
+			err := e.validateIfPasswordChangeIsRequired(next)(ctx)
+			if tc.want.err != "" {
+				require.ErrorContains(t, err, tc.want.err)
+			} else {
+				require.NoError(t, err)
+			}
+			assert.Equal(t, tc.want.next, called)
+			if tc.want.status != 0 {
+				assert.Equal(t, tc.want.status, ctx.Response().Status)
+			}
 		})
 	}
 }
