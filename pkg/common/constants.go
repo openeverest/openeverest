@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -95,6 +96,8 @@ const (
 	KubernetesManagedByLabel = "app.kubernetes.io/managed-by"
 	// DatabaseClusterNameLabel is the label used to identify resources by DB cluster name.
 	DatabaseClusterNameLabel = "clusterName"
+	// InstanceNameLabel is the label used to identify resources by instance name.
+	InstanceNameLabel = "instanceName"
 	// ForegroundDeletionFinalizer is the finalizer used to delete resources in foreground.
 	ForegroundDeletionFinalizer = "foregroundDeletion"
 	// UserCtxKey is the key used to store the user in the context.

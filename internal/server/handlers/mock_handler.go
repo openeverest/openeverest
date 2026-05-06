@@ -1726,6 +1726,66 @@ func (_m *MockHandler) ListDatabaseEngines(ctx context.Context, namespace string
 	return r0, r1
 }
 
+// ListInstanceBackups provides a mock function with given fields: ctx, namespace, instance
+func (_m *MockHandler) ListInstanceBackups(ctx context.Context, namespace string, instance string) (*v1alpha1.BackupList, error) {
+	ret := _m.Called(ctx, namespace, instance)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ListInstanceBackups")
+	}
+
+	var r0 *v1alpha1.BackupList
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string) (*v1alpha1.BackupList, error)); ok {
+		return rf(ctx, namespace, instance)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, string) *v1alpha1.BackupList); ok {
+		r0 = rf(ctx, namespace, instance)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*v1alpha1.BackupList)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, string) error); ok {
+		r1 = rf(ctx, namespace, instance)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// ListInstanceRestores provides a mock function with given fields: ctx, namespace, instanceName
+func (_m *MockHandler) ListInstanceRestores(ctx context.Context, namespace string, instanceName string) (*v1alpha1.RestoreList, error) {
+	ret := _m.Called(ctx, namespace, instanceName)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ListInstanceRestores")
+	}
+
+	var r0 *v1alpha1.RestoreList
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string) (*v1alpha1.RestoreList, error)); ok {
+		return rf(ctx, namespace, instanceName)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, string) *v1alpha1.RestoreList); ok {
+		r0 = rf(ctx, namespace, instanceName)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*v1alpha1.RestoreList)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, string) error); ok {
+		r1 = rf(ctx, namespace, instanceName)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // ListInstances provides a mock function with given fields: ctx, namespace
 func (_m *MockHandler) ListInstances(ctx context.Context, namespace string) (*corev1alpha1.InstanceList, error) {
 	ret := _m.Called(ctx, namespace)

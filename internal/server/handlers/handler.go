@@ -58,7 +58,9 @@ type Handler interface {
 	ClusterHandler
 	BackupClassHandler
 	BackupHandler
+	InstanceBackupHandler
 	MonitoringConfigHandler
+	InstanceRestoreHandler
 
 	GetKubernetesClusterResources(ctx context.Context) (*api.KubernetesClusterResources, error)
 	GetKubernetesClusterInfo(ctx context.Context) (*api.KubernetesClusterInfo, error)
@@ -221,6 +223,11 @@ type BackupHandler interface {
 	DeleteBackup(ctx context.Context, namespace, name string) error
 }
 
+// InstanceBackupHandler provides methods for handling operations on instance backups.
+type InstanceBackupHandler interface {
+	ListInstanceBackups(ctx context.Context, namespace, instance string) (*backupv1alpha1.BackupList, error)
+}
+
 // MonitoringConfigHandler provides methods for handling operations on monitoring configs.
 type MonitoringConfigHandler interface {
 	CreateMonitoringConfig(ctx context.Context, namespace string, req *api.MonitoringConfigCreateParams) (*monitoringv1alpha2.MonitoringConfig, error)
@@ -228,4 +235,9 @@ type MonitoringConfigHandler interface {
 	ListMonitoringConfigs(ctx context.Context, namespaces string) (*monitoringv1alpha2.MonitoringConfigList, error)
 	GetMonitoringConfig(ctx context.Context, namespace, name string) (*monitoringv1alpha2.MonitoringConfig, error)
 	DeleteMonitoringConfig(ctx context.Context, namespace, name string) error
+}
+
+// InstanceRestoreHandler provides methods for handling operations on instance restores.
+type InstanceRestoreHandler interface {
+	ListInstanceRestores(ctx context.Context, namespace, instanceName string) (*backupv1alpha1.RestoreList, error)
 }

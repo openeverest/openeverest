@@ -4,9 +4,16 @@ on:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review, labeled]
 
+permissions:
+  contents: read
+  packages: read
+
 jobs:
   feature-build:
     name: Feature build
+    permissions:
+      contents: read
+      packages: write
     if: contains(github.event.pull_request.labels.*.name, 'feature-build')
     uses: ./.github/workflows/feature-build.yaml
     with:
