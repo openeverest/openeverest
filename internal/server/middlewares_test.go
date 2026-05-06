@@ -206,7 +206,7 @@ func TestValidateIfPasswordChangeIsRequired(t *testing.T) {
 			},
 		},
 		{
-			description: "return forbidden if token claims are not map claims",
+			description: "deny non allowlisted endpoint if required claim is missing",
 			ctxFn: func() echo.Context {
 				e := echo.New()
 				req := &http.Request{
@@ -216,15 +216,15 @@ func TestValidateIfPasswordChangeIsRequired(t *testing.T) {
 					},
 				}
 				req = req.WithContext(context.WithValue(req.Context(), common.UserCtxKey, &jwt.Token{
-					Claims: &session.EverestClaims{},
+					Claims: jwt.MapClaims{},
 				}))
 				ctx := e.NewContext(req, httptest.NewRecorder())
 				ctx.SetPath("/v1/database-clusters")
 				return ctx
 			},
 			want: want{
-				status: http.StatusForbidden,
-				next:   false,
+				err:  "failed to parse claim from token",
+				next: false,
 			},
 		},
 		{

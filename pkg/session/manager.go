@@ -137,7 +137,7 @@ func WithAccountManager(i accounts.Interface) Option {
 // Create creates a new token for a given subject (user) and returns it as a string.
 // Passing a value of `0` for secondsBeforeExpiry creates a token that never expires.
 // The id parameter holds an optional unique JWT token identifier and stored as a standard claim "jti" in the JWT token.
-func (mgr *Manager) Create(subject string, secondsBeforeExpiry int64, id string, mustChangePassword bool) (string, error) {
+func (mgr *Manager) Create(subject string, secondsBeforeExpiry int64, id string, isSecure bool) (string, error) {
 	// Create a new token object, specifying signing method and the claims
 	// you would like it to contain.
 	now := time.Now().UTC()
@@ -149,8 +149,12 @@ func (mgr *Manager) Create(subject string, secondsBeforeExpiry int64, id string,
 			Subject:   subject,
 			ID:        id,
 		},
-		MustChangePassword: mustChangePassword,
 	}
+
+	if !isSecure {
+		claims.MustChangePassword = true
+	}
+
 	if secondsBeforeExpiry > 0 {
 		expires := now.Add(time.Duration(secondsBeforeExpiry) * time.Second)
 		claims.ExpiresAt = jwt.NewNumericDate(expires)

@@ -63,7 +63,7 @@ func (e *EverestServer) CreateSession(ctx echo.Context) error {
 	subject := fmt.Sprintf(jwtSubjectTml, *params.Username, accounts.AccountCapabilityLogin)
 	secondsBeforeExpiry := int64(jwtDefaultExpiry.Seconds())
 
-	jwtToken, err := e.sessionMgr.Create(subject, secondsBeforeExpiry, uniqueID.String(), !isSecure)
+	jwtToken, err := e.sessionMgr.Create(subject, secondsBeforeExpiry, uniqueID.String(), isSecure)
 	if err != nil {
 		return err
 	}
