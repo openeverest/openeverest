@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -23,6 +24,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/percona/everest/pkg/accounts"
 	accountscli "github.com/percona/everest/pkg/accounts/cli"
 	"github.com/percona/everest/pkg/cli"
 	"github.com/percona/everest/pkg/logger"
@@ -57,7 +59,7 @@ func accountsSetPasswordPreRun(cmd *cobra.Command, _ []string) { //nolint:revive
 	// Check username
 	if accountsSetPasswordOpts.Username != "" {
 		// Validate provided username for whom password shall be changed.
-		if err := accountscli.ValidateUsername(accountsSetPasswordOpts.Username); err != nil {
+		if err := accounts.ValidateUsername(accountsSetPasswordOpts.Username); err != nil {
 			output.PrintError(err, logger.GetLogger(), accountsSetPasswordCfg.Pretty)
 			os.Exit(1)
 		}
@@ -74,7 +76,7 @@ func accountsSetPasswordPreRun(cmd *cobra.Command, _ []string) { //nolint:revive
 	// Check password
 	if accountsSetPasswordOpts.NewPassword != "" {
 		// Validate provided a new password.
-		if err := accountscli.ValidatePassword(accountsSetPasswordOpts.NewPassword); err != nil {
+		if err := accounts.ValidatePassword(accountsSetPasswordOpts.NewPassword); err != nil {
 			output.PrintError(err, logger.GetLogger(), accountsSetPasswordCfg.Pretty)
 			os.Exit(1)
 		}

@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -21,6 +22,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/percona/everest/pkg/accounts"
 	accountscli "github.com/percona/everest/pkg/accounts/cli"
 	"github.com/percona/everest/pkg/cli"
 	"github.com/percona/everest/pkg/logger"
@@ -54,7 +56,7 @@ func accountsDeletePreRun(cmd *cobra.Command, _ []string) { //nolint:revive
 	// Check username
 	if accountsDeleteUsername != "" {
 		// Validate provided username to be deleted.
-		if err := accountscli.ValidateUsername(accountsDeleteUsername); err != nil {
+		if err := accounts.ValidateUsername(accountsDeleteUsername); err != nil {
 			output.PrintError(err, logger.GetLogger(), accountsDeleteCfg.Pretty)
 			os.Exit(1)
 		}

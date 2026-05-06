@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -23,6 +24,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/percona/everest/pkg/accounts"
 	accountscli "github.com/percona/everest/pkg/accounts/cli"
 	"github.com/percona/everest/pkg/cli"
 	"github.com/percona/everest/pkg/logger"
@@ -58,7 +60,7 @@ func accountsCreatePreRun(cmd *cobra.Command, _ []string) { //nolint:revive
 	// Check username
 	if accountsCreateOpts.Username != "" {
 		// Validate provided username for new account.
-		if err := accountscli.ValidateUsername(accountsCreateOpts.Username); err != nil {
+		if err := accounts.ValidateUsername(accountsCreateOpts.Username); err != nil {
 			output.PrintError(err, logger.GetLogger(), accountsCreateCfg.Pretty)
 			os.Exit(1)
 		}
@@ -75,7 +77,7 @@ func accountsCreatePreRun(cmd *cobra.Command, _ []string) { //nolint:revive
 	// Check password
 	if accountsCreateOpts.Password != "" {
 		// Validate provided password for new account.
-		if err := accountscli.ValidatePassword(accountsCreateOpts.Password); err != nil {
+		if err := accounts.ValidatePassword(accountsCreateOpts.Password); err != nil {
 			output.PrintError(err, logger.GetLogger(), accountsCreateCfg.Pretty)
 			os.Exit(1)
 		}

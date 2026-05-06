@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -86,11 +87,11 @@ type CreateOptions struct {
 
 // Create a new user account.
 func (c *Accounts) Create(ctx context.Context, opts CreateOptions) error {
-	if err := ValidateUsername(opts.Username); err != nil {
+	if err := accounts.ValidateUsername(opts.Username); err != nil {
 		return err
 	}
 
-	if err := ValidatePassword(opts.Password); err != nil {
+	if err := accounts.ValidatePassword(opts.Password); err != nil {
 		return err
 	}
 
@@ -109,7 +110,7 @@ func (c *Accounts) Create(ctx context.Context, opts CreateOptions) error {
 
 // Delete an existing user account.
 func (c *Accounts) Delete(ctx context.Context, username string) error {
-	if err := ValidateUsername(username); err != nil {
+	if err := accounts.ValidateUsername(username); err != nil {
 		return err
 	}
 
@@ -136,11 +137,11 @@ type SetPasswordOptions struct {
 
 // SetPassword sets the password for an existing account.
 func (c *Accounts) SetPassword(ctx context.Context, opts SetPasswordOptions) error {
-	if err := ValidateUsername(opts.Username); err != nil {
+	if err := accounts.ValidateUsername(opts.Username); err != nil {
 		return err
 	}
 
-	if err := ValidatePassword(opts.NewPassword); err != nil {
+	if err := accounts.ValidatePassword(opts.NewPassword); err != nil {
 		return err
 	}
 
