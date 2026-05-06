@@ -28,7 +28,7 @@ jobs:
         with:
           repository: percona/everest
           path: everest
-          token: ${{ secrets.ROBOT_TOKEN }}
+          token: ${{ secrets.GITHUB_TOKEN }}
           sparse-checkout: |
             Dockerfile.helmtools
 
