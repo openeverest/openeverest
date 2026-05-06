@@ -102,6 +102,92 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+  '/accounts/{username}':
+    get:
+      tags:
+        - Authentication & Authorization
+      summary: Get user account
+      description: |
+        This API returns the user account status.
+      operationId: getUserAccount
+      parameters:
+        - name: username
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Account'
+        '400':
+          description: Unsuccessful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  '/accounts/{username}/password':
+    put:
+      tags:
+        - Authentication & Authorization
+      summary: Set user password
+      description: |
+        This API sets the new password for the user.
+      operationId: setUserPassword
+      parameters:
+        - name: username
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        description: The old and new password values
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                oldPassword:
+                  type: string
+                newPassword:
+                  type: string
+              required:
+                - oldPassword
+                - newPassword
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token:
+                    type: string
+                required:
+                  - token
+        '400':
+          description: Unsuccessful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
   '/permissions':
     get:
       tags:
@@ -2514,6 +2600,23 @@ components:
           type: string
         password:
           type: string
+    Account:
+      type: object
+      properties:
+        username:
+          type: string
+        passwordInsecure:
+          type: boolean
+        authSource:
+          type: string
+          enum:
+            - local
+            - oidc
+      required:
+        - username
+        - passwordInsecure
+        - authSource
+      additionalProperties: false
     CreateBackupStorageParams:
       type: object
       description: Backup storage parameters
