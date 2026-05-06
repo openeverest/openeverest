@@ -59,6 +59,15 @@ type InstanceSpec struct {
 }
 
 // InstanceBackupSpec configures the backup feature on an Instance.
+//
+// Schedules and PITR are configured per storage (under
+// .spec.backup.storages[].schedules and .spec.backup.storages[].pitr) so
+// that each storage carries its own backup policy. Schedule names must be
+// unique across all storages on the Instance because engines use them as
+// global identifiers and they appear on mirrored Backup CRs as
+// .spec.scheduleName.
+//
+// +kubebuilder:validation:XValidation:rule="!has(self.storages) || self.storages.all(s1, !has(s1.schedules) || s1.schedules.all(sch1, self.storages.filter(s2, has(s2.schedules) && s2.schedules.exists(sch2, sch2.name == sch1.name)).size() <= 1 && s1.schedules.filter(sch2, sch2.name == sch1.name).size() == 1))",message="schedule names must be unique across all storages"
 type InstanceBackupSpec struct {
 	// Enabled toggles the backup feature for this Instance. When false the
 	// runtime skips ConfigureBackup() and the rest of this struct is ignored.
@@ -70,20 +79,11 @@ type InstanceBackupSpec struct {
 	ClassRef BackupClassReference `json:"classRef"`
 	// Storages registers BackupStorages on the engine. Each entry maps a
 	// logical name (visible to the engine and reused by Backup CRs via
-	// .spec.storageName) to a BackupStorage resource.
+	// .spec.storageName) to a BackupStorage resource. Schedules and PITR are
+	// configured per storage via the nested .schedules and .pitr fields.
 	// +optional
+	// +kubebuilder:validation:MaxItems=10
 	Storages []InstanceBackupStorage `json:"storages,omitempty"`
-	// Schedules registers recurring backup tasks on the engine. Schedules
-	// produce Backup CRs (via the provider's mirroring loop) using the
-	// operator-native scheduler — the runtime never spawns CronJobs for
-	// ProviderManaged BackupClasses.
-	// +optional
-	Schedules []InstanceBackupSchedule `json:"schedules,omitempty"`
-	// PITR enables and configures point-in-time recovery on the engine.
-	// Requires the BackupClass to advertise PITR support via
-	// .spec.providerManaged.
-	// +optional
-	PITR *InstanceBackupPITR `json:"pitr,omitempty"`
 }
 
 // BackupClassReference references a BackupClass by name.
@@ -93,11 +93,13 @@ type BackupClassReference struct {
 	Name string `json:"name"`
 }
 
-// InstanceBackupStorage registers a BackupStorage on the Instance.
+// InstanceBackupStorage registers a BackupStorage on the Instance and
+// carries the backup policy (schedules, PITR) that targets it.
 type InstanceBackupStorage struct {
 	// Name is the logical name the engine uses for this storage. It is also
 	// the value that Backup CRs target via .spec.storageName.
 	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MaxLength=63
 	Name string `json:"name"`
 	// StorageRef references a BackupStorage in the same namespace.
 	// +kubebuilder:validation:Required
@@ -106,19 +108,38 @@ type InstanceBackupStorage struct {
 	// per Instance may be marked main.
 	// +optional
 	Main bool `json:"main,omitempty"`
+	// Schedules registers recurring backup tasks that write to this storage.
+	// Schedules produce Backup CRs (via the provider's mirroring loop) using
+	// the operator-native scheduler — the runtime never spawns CronJobs for
+	// ProviderManaged BackupClasses. Schedule names must be unique across
+	// all storages on the Instance.
+	// +optional
+	// +kubebuilder:validation:MaxItems=10
+	Schedules []InstanceBackupSchedule `json:"schedules,omitempty"`
+	// PITR enables and configures point-in-time recovery writing to this
+	// storage. Requires the BackupClass to advertise PITR support via
+	// .spec.providerManaged. Engines that support only a single PITR stream
+	// (e.g. PSMDB, PXC) require at most one storage on the Instance to set
+	// .pitr.enabled=true; this is enforced by the provider, not by the
+	// core schema (PG legitimately archives WAL to every configured repo).
+	// +optional
+	PITR *InstanceBackupStoragePITR `json:"pitr,omitempty"`
 }
 
-// InstanceBackupSchedule configures a recurring backup task on the engine.
-// The provider translates each schedule into the engine's native scheduler
-// (e.g. PSMDB BackupTaskSpec, PXC PXCScheduledBackupSchedule, pgBackRest
-// schedule). Operator-produced backups are mirrored back into Backup CRs by
-// the provider, sharing the operator backup's name.
+// InstanceBackupSchedule configures a recurring backup task on the engine
+// for the parent storage. The provider translates each schedule into the
+// engine's native scheduler (e.g. PSMDB BackupTaskSpec, PXC
+// PXCScheduledBackupSchedule, pgBackRest schedule). Operator-produced
+// backups are mirrored back into Backup CRs by the provider, sharing the
+// operator backup's name.
 type InstanceBackupSchedule struct {
-	// Name uniquely identifies the schedule within the Instance. The
-	// provider uses it as the schedule key on the engine and as the value
-	// of Backup.spec.scheduleName on mirrored Backup CRs.
+	// Name uniquely identifies the schedule. The provider uses it as the
+	// schedule key on the engine and as the value of Backup.spec.scheduleName
+	// on mirrored Backup CRs. Names must be unique across all storages on
+	// the Instance.
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=63
 	Name string `json:"name"`
 	// Enabled toggles the schedule. A disabled schedule is removed from
 	// the engine without losing its definition on the Instance.
@@ -128,9 +149,6 @@ type InstanceBackupSchedule struct {
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinLength=1
 	Cron string `json:"cron"`
-	// StorageName references one of .spec.backup.storages[].name. Required.
-	// +kubebuilder:validation:Required
-	StorageName string `json:"storageName"`
 	// RetentionCopies is the number of recent backups to keep for this
 	// schedule. Zero (or unset) means "keep all". Negative values are
 	// rejected.
@@ -139,14 +157,11 @@ type InstanceBackupSchedule struct {
 	RetentionCopies int32 `json:"retentionCopies,omitempty"`
 }
 
-// InstanceBackupPITR configures point-in-time recovery on the engine.
-type InstanceBackupPITR struct {
-	// Enabled toggles PITR.
+// InstanceBackupStoragePITR configures point-in-time recovery writing to
+// the parent storage.
+type InstanceBackupStoragePITR struct {
+	// Enabled toggles PITR for this storage.
 	Enabled bool `json:"enabled"`
-	// StorageName is the logical name of the storage (one of
-	// .spec.backup.storages[].name) that PITR should write to.
-	// +optional
-	StorageName string `json:"storageName,omitempty"`
 	// Config holds provider-specific PITR options. The schema is defined by
 	// the BackupClass via .spec.providerManaged.
 	// +kubebuilder:pruning:PreserveUnknownFields
