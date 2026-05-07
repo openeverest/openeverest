@@ -109,8 +109,7 @@ func installPreRun(cmd *cobra.Command, _ []string) { //nolint:revive
 func checkDBNamespaceParameters(cmd *cobra.Command) error {
 	// Check DB namespaces parameters
 	// If user doesn't pass --namespaces flag - need to ask explicitly.
-	askNamespaces := !(cmd.Flags().Lookup(cli.FlagNamespaces).Changed ||
-		installCfg.NamespaceAddConfig.SkipWizard)
+	askNamespaces := shouldAskNamespaces(cmd, installCfg.NamespaceAddConfig.SkipWizard)
 
 	// Note: there are the following cases possible:
 	// - user doesn't provide '--namespaces' flag -> namespacesToAdd="everest" (default).
@@ -131,13 +130,7 @@ func checkDBNamespaceParameters(cmd *cobra.Command) error {
 	}
 
 	// If user doesn't pass any --operator.* flags - need to ask explicitly.
-	askOperators := !(cmd.Flags().Lookup(cli.FlagOperatorMongoDB).Changed ||
-		cmd.Flags().Lookup(cli.FlagOperatorPostgresql).Changed ||
-		cmd.Flags().Lookup(cli.FlagOperatorXtraDBCluster).Changed ||
-		cmd.Flags().Lookup(cli.FlagOperatorMySQL).Changed ||
-		installCfg.NamespaceAddConfig.SkipWizard)
-
-	if askOperators {
+	if cli.ShouldAskOperators(cmd, installCfg.NamespaceAddConfig.SkipWizard) {
 		// need to ask user to provide operators to be installed in interactive mode.
 		if err := installCfg.NamespaceAddConfig.PopulateOperators(cmd.Context()); err != nil {
 			return err
@@ -145,6 +138,10 @@ func checkDBNamespaceParameters(cmd *cobra.Command) error {
 	}
 
 	return nil
+}
+
+func shouldAskNamespaces(cmd *cobra.Command, skipWizard bool) bool {
+	return !skipWizard && !cmd.Flags().Lookup(cli.FlagNamespaces).Changed
 }
 
 func installRun(cmd *cobra.Command, _ []string) { //nolint:revive
