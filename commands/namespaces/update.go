@@ -87,10 +87,7 @@ func namespacesUpdatePreRun(cmd *cobra.Command, args []string) { //nolint:revive
 	}
 
 	// If user doesn't pass any --operator.* flags - need to ask explicitly.
-	askOperators := !(cmd.Flags().Lookup(cli.FlagOperatorMongoDB).Changed ||
-		cmd.Flags().Lookup(cli.FlagOperatorPostgresql).Changed ||
-		cmd.Flags().Lookup(cli.FlagOperatorXtraDBCluster).Changed ||
-		cmd.Flags().Lookup(cli.FlagOperatorMySQL).Changed)
+	askOperators := shouldAskOperators(cmd, namespacesUpdateCfg.SkipWizard)
 
 	if askOperators {
 		// need to ask user to provide operators to be installed in interactive mode.
@@ -99,6 +96,14 @@ func namespacesUpdatePreRun(cmd *cobra.Command, args []string) { //nolint:revive
 			os.Exit(1)
 		}
 	}
+}
+
+func shouldAskOperators(cmd *cobra.Command, skipWizard bool) bool {
+	return !(cmd.Flags().Lookup(cli.FlagOperatorMongoDB).Changed ||
+		cmd.Flags().Lookup(cli.FlagOperatorPostgresql).Changed ||
+		cmd.Flags().Lookup(cli.FlagOperatorXtraDBCluster).Changed ||
+		cmd.Flags().Lookup(cli.FlagOperatorMySQL).Changed ||
+		skipWizard)
 }
 
 func namespacesUpdateRun(cmd *cobra.Command, _ []string) {

@@ -1,0 +1,58 @@
+// everest
+// Copyright (C) 2023 Percona LLC
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+package namespaces
+
+import (
+	"testing"
+
+	"github.com/spf13/cobra"
+	"github.com/stretchr/testify/assert"
+
+	"github.com/percona/everest/pkg/cli"
+)
+
+func TestShouldAskOperators(t *testing.T) {
+	t.Parallel()
+
+	newCommand := func() *cobra.Command {
+		cmd := &cobra.Command{}
+		cmd.Flags().Bool(cli.FlagOperatorMongoDB, true, "")
+		cmd.Flags().Bool(cli.FlagOperatorPostgresql, true, "")
+		cmd.Flags().Bool(cli.FlagOperatorXtraDBCluster, true, "")
+		cmd.Flags().Bool(cli.FlagOperatorMySQL, true, "")
+		return cmd
+	}
+
+	t.Run("asks when no operator flags are set and wizard is enabled", func(t *testing.T) {
+		cmd := newCommand()
+
+		assert.True(t, shouldAskOperators(cmd, false))
+	})
+
+	t.Run("does not ask when skip wizard is enabled", func(t *testing.T) {
+		cmd := newCommand()
+
+		assert.False(t, shouldAskOperators(cmd, true))
+	})
+
+	t.Run("does not ask when any operator flag is set explicitly", func(t *testing.T) {
+		cmd := newCommand()
+		err := cmd.Flags().Set(cli.FlagOperatorMongoDB, "false")
+		assert.NoError(t, err)
+
+		assert.False(t, shouldAskOperators(cmd, false))
+	})
+}
