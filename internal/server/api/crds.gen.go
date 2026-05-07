@@ -385,6 +385,9 @@ type Backup struct {
 			Name string `json:"name"`
 		} `json:"operatorBackupRef,omitempty"`
 
+		// Size Size is the size of the backup data as reported by the engine.
+		Size *string `json:"size,omitempty"`
+
 		// StartedAt StartedAt is the time when the backup started.
 		StartedAt *time.Time `json:"startedAt,omitempty"`
 

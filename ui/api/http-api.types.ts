@@ -7756,6 +7756,8 @@ export interface components {
                     /** @description Name is the name of resource being referenced */
                     name: string;
                 };
+                /** @description Size is the size of the backup data as reported by the engine. */
+                size?: string;
                 /**
                  * Format: date-time
                  * @description StartedAt is the time when the backup started.
