@@ -22,21 +22,162 @@ func newSkipWizardTestCommand() *cobra.Command {
 func TestShouldAskNamespaces(t *testing.T) {
 	t.Parallel()
 
-	cmd := newSkipWizardTestCommand()
-	assert.True(t, shouldAskNamespaces(cmd, false), "should ask namespaces when skip-wizard is disabled and namespaces flag was not explicitly set")
-	assert.False(t, shouldAskNamespaces(cmd, true), "should not ask namespaces when skip-wizard is enabled")
+	type tcase struct {
+		name       string
+		skipWizard bool
+		setFlag    bool
+		flagValue  string
+		expected   bool
+	}
 
-	assert.NoError(t, cmd.Flags().Set(cli.FlagNamespaces, "custom-ns"))
-	assert.False(t, shouldAskNamespaces(cmd, false), "should not ask namespaces when namespaces flag is explicitly set")
+	tcases := []tcase{
+		{
+			name:       "skip-wizard disabled, flag not set - should ask",
+			skipWizard: false,
+			setFlag:    false,
+			expected:   true,
+		},
+		{
+			name:       "skip-wizard enabled, flag not set - should not ask",
+			skipWizard: true,
+			setFlag:    false,
+			expected:   false,
+		},
+		{
+			name:       "skip-wizard disabled, flag explicitly set to custom - should not ask",
+			skipWizard: false,
+			setFlag:    true,
+			flagValue:  "custom-ns",
+			expected:   false,
+		},
+		{
+			name:       "skip-wizard enabled, flag explicitly set - should not ask",
+			skipWizard: true,
+			setFlag:    true,
+			flagValue:  "custom-ns",
+			expected:   false,
+		},
+		{
+			name:       "skip-wizard disabled, flag set to empty string - should not ask",
+			skipWizard: false,
+			setFlag:    true,
+			flagValue:  "",
+			expected:   false,
+		},
+		{
+			name:       "skip-wizard disabled, flag set to default value - should not ask",
+			skipWizard: false,
+			setFlag:    true,
+			flagValue:  common.DefaultDBNamespaceName,
+			expected:   false,
+		},
+	}
+
+	for _, tc := range tcases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			cmd := newSkipWizardTestCommand()
+			if tc.setFlag {
+				assert.NoError(t, cmd.Flags().Set(cli.FlagNamespaces, tc.flagValue))
+			}
+			result := shouldAskNamespaces(cmd, tc.skipWizard)
+			assert.Equal(t, tc.expected, result)
+		})
+	}
 }
 
 func TestShouldAskOperators(t *testing.T) {
 	t.Parallel()
 
-	cmd := newSkipWizardTestCommand()
-	assert.True(t, cli.ShouldAskOperators(cmd, false), "should ask operators when skip-wizard is disabled and no operator flag was explicitly set")
-	assert.False(t, cli.ShouldAskOperators(cmd, true), "should not ask operators when skip-wizard is enabled")
+	type tcase struct {
+		name           string
+		skipWizard     bool
+		flagsToSet     map[string]string // flag name -> value
+		expectedResult bool
+	}
 
-	assert.NoError(t, cmd.Flags().Set(cli.FlagOperatorMongoDB, "false"))
-	assert.False(t, cli.ShouldAskOperators(cmd, false), "should not ask operators when any operator flag was explicitly set")
+	tcases := []tcase{
+		{
+			name:           "skip-wizard disabled, no flags set - should ask",
+			skipWizard:     false,
+			flagsToSet:     map[string]string{},
+			expectedResult: true,
+		},
+		{
+			name:           "skip-wizard enabled, no flags set - should not ask",
+			skipWizard:     true,
+			flagsToSet:     map[string]string{},
+			expectedResult: false,
+		},
+		{
+			name:       "skip-wizard disabled, MongoDB operator flag set to false - should not ask",
+			skipWizard: false,
+			flagsToSet: map[string]string{
+				cli.FlagOperatorMongoDB: "false",
+			},
+			expectedResult: false,
+		},
+		{
+			name:       "skip-wizard disabled, MongoDB operator flag set to true - should not ask",
+			skipWizard: false,
+			flagsToSet: map[string]string{
+				cli.FlagOperatorMongoDB: "true",
+			},
+			expectedResult: false,
+		},
+		{
+			name:       "skip-wizard disabled, PostgreSQL operator flag set - should not ask",
+			skipWizard: false,
+			flagsToSet: map[string]string{
+				cli.FlagOperatorPostgresql: "true",
+			},
+			expectedResult: false,
+		},
+		{
+			name:       "skip-wizard disabled, MySQL operator flag set - should not ask",
+			skipWizard: false,
+			flagsToSet: map[string]string{
+				cli.FlagOperatorMySQL: "false",
+			},
+			expectedResult: false,
+		},
+		{
+			name:       "skip-wizard disabled, XtraDBCluster operator flag set - should not ask",
+			skipWizard: false,
+			flagsToSet: map[string]string{
+				cli.FlagOperatorXtraDBCluster: "true",
+			},
+			expectedResult: false,
+		},
+		{
+			name:       "skip-wizard disabled, multiple operator flags set - should not ask",
+			skipWizard: false,
+			flagsToSet: map[string]string{
+				cli.FlagOperatorMongoDB:    "true",
+				cli.FlagOperatorPostgresql: "false",
+				cli.FlagOperatorMySQL:      "true",
+			},
+			expectedResult: false,
+		},
+		{
+			name:       "skip-wizard enabled, one operator flag set - should not ask",
+			skipWizard: true,
+			flagsToSet: map[string]string{
+				cli.FlagOperatorMongoDB: "true",
+			},
+			expectedResult: false,
+		},
+	}
+
+	for _, tc := range tcases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			cmd := newSkipWizardTestCommand()
+			for flag, value := range tc.flagsToSet {
+				assert.NoError(t, cmd.Flags().Set(flag, value))
+			}
+			result := cli.ShouldAskOperators(cmd, tc.skipWizard)
+			assert.Equal(t, tc.expectedResult, result)
+		})
+	}
 }
