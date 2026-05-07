@@ -18,7 +18,11 @@ import {
   DeleteBackupPayload,
   GetBackupClassPayload,
   GetBackupPayload,
+  LegacyBackupPayload,
+  LegacyGetBackupsPayload,
+  LegacySingleBackupPayload,
   ListBackupClassesPayload,
+  DatabaseClusterPitrPayload,
 } from 'shared-types/backups.types';
 import { api } from './api';
 
@@ -61,12 +65,16 @@ export const deleteBackupFn = async (
 };
 
 export const listBackupsFn = async (
-  _clusterName: string,
-  _namespace: string,
-  _instanceName: string
-): Promise<BackupList> => ({
-  items: [],
-});
+  clusterName: string,
+  namespace: string,
+  instanceName: string
+): Promise<BackupList> => {
+  const response = await api.get<BackupList>(
+    `clusters/${clusterName}/namespaces/${namespace}/instances/${instanceName}/backups`
+  );
+
+  return response.data;
+};
 
 export const listBackupClassesFn = async (clusterName: string) => {
   const response = await api.get<ListBackupClassesPayload>(
@@ -97,3 +105,49 @@ export const getBackupClassFn = async (
 
 //   return response.data;
 // };
+
+// --- Legacy v1alpha1 API functions (used by old pages) ---
+
+export const legacyGetBackupsFn = async (
+  dbClusterName: string,
+  namespace: string
+) => {
+  const response = await api.get<LegacyGetBackupsPayload>(
+    `namespaces/${namespace}/database-clusters/${dbClusterName}/backups`
+  );
+
+  return response.data;
+};
+
+export const legacyCreateBackupOnDemand = async (
+  payload: LegacyBackupPayload,
+  namespace: string
+) => {
+  const response = await api.post<LegacySingleBackupPayload>(
+    `namespaces/${namespace}/database-cluster-backups`,
+    payload
+  );
+  return response.data;
+};
+
+export const legacyDeleteBackupFn = async (
+  backupName: string,
+  namespace: string,
+  cleanupBackupStorage: boolean
+) => {
+  const response = await api.delete(
+    `namespaces/${namespace}/database-cluster-backups/${backupName}?cleanupBackupStorage=${cleanupBackupStorage}`
+  );
+  return response.data;
+};
+
+export const getPitrFn = async (dbClusterName: string, namespace: string) => {
+  const response = await api.get<DatabaseClusterPitrPayload>(
+    `/namespaces/${namespace}/database-clusters/${dbClusterName}/pitr`,
+    {
+      disableNotifications: true,
+    }
+  );
+
+  return response.data;
+};

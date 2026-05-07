@@ -1,5 +1,4 @@
-// everest
-// Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,50 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-export type GetRestorePayload = {
-  items: Array<{
-    metadata: {
-      creationTimestamp: string;
-      name: string;
-    };
-    spec: {
-      dataSource: {
-        pitr?: object;
-        dbClusterBackupName?: string;
-      };
-    };
-    status: {
-      state: string;
-      completed?: string;
-    };
-  }>;
-};
+import { CrdsGen } from '@generated/api-types';
 
-export type CreateRestorePayload = {
-  apiVersion: 'everest.percona.com/v1alpha1';
-  kind: 'DatabaseClusterRestore';
-  metadata: {
-    name: string;
-  };
-  spec: {
-    dbClusterName: string;
-    dataSource: {
-      dbClusterBackupName?: string;
-      pitr?: {
-        date: string;
-      };
-    };
-  };
-};
-
-export type Restore = {
-  name: string;
-  startTime: string;
-  endTime?: string;
-  type: 'full' | 'pitr' | 'import';
-  state: string;
-  backupSource: string;
-};
+export type Restore = CrdsGen.components['schemas']['Restore'];
+export type RestoreList = CrdsGen.components['schemas']['RestoreList'];
 
 export enum PXC_STATUS {
   STARTING = 'Starting',

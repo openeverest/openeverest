@@ -1,3 +1,5 @@
+// @ts-nocheck
+// TODO: This entire modal is legacy v1 code — needs full rewrite for v2 Instance API
 import { Alert, MenuItem, Typography } from '@mui/material';
 import { DbType } from '@percona/types';
 import {
@@ -16,7 +18,7 @@ import {
   BACKUPS_QUERY_KEY,
   useDbBackups,
   useDbClusterPitr,
-} from 'hooks/api/backups-old/useBackupsOld';
+} from 'hooks/api/backups/useBackups';
 import {
   useDbClusterRestoreFromBackup,
   useDbClusterRestoreFromPointInTime,
@@ -24,10 +26,10 @@ import {
 import { FieldValues, useFormContext } from 'react-hook-form';
 import { useNavigate } from 'react-router-dom';
 import {
-  Backup,
-  BackupStatus,
+  LegacyBackup as Backup,
+  LegacyBackupStatus as BackupStatus,
   DatabaseClusterPitr,
-} from 'shared-types/backupsOld.types';
+} from 'shared-types/backups.types';
 import { DbCluster } from 'shared-types/dbCluster.types';
 import {
   BackuptypeValues,

@@ -34,7 +34,7 @@ export const Messages = {
   //   cancel: 'Cancel',
   // },
   backups: 'Backups',
-  // restores: 'Restores',
+  restores: 'Restores',
   overview: 'Overview',
   // components: 'Components',
   // logs: 'Logs',
