@@ -1,3 +1,17 @@
+// Copyright (C) 2026 The OpenEverest Contributors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package upgrade
 
 import (
@@ -214,7 +228,7 @@ func (u *Upgrade) helmAdoptDBNamespaces(ctx context.Context, namespace, version 
 		ClusterType:        u.clusterType,
 		VersionMetadataURL: u.config.VersionMetadataURL,
 	})
-	values := Must(helmutils.MergeVals(helmValuesForDBEngines(dbEngines), overrides))
+	values := Must(helmutils.MergeVals(helmValuesForDBEngines(dbEngines, u.config.DisableTelemetry), overrides))
 	installer := helm.Installer{
 		ReleaseName:      namespace,
 		ReleaseNamespace: namespace,
@@ -242,14 +256,14 @@ func (u *Upgrade) helmAdoptDBNamespaces(ctx context.Context, namespace, version 
 	})
 }
 
-func helmValuesForDBEngines(list *everestv1alpha1.DatabaseEngineList) values.Options {
+func helmValuesForDBEngines(list *everestv1alpha1.DatabaseEngineList, disableTelemetry bool) values.Options {
 	var vals []string
 	for _, dbEngine := range list.Items {
 		t := dbEngine.Spec.Type
 		vals = append(vals, fmt.Sprintf("%s=%t", t, dbEngine.Status.State == everestv1alpha1.DBEngineStateInstalled))
 	}
 	vals = append(vals, "cleanupOnUninstall=false") // uninstall command will do the clean-up on its own.
-	// TODO: figure out how to set telemetry.
+	vals = append(vals, fmt.Sprintf("telemetry=%t", !disableTelemetry))
 	return values.Options{Values: vals}
 }
 

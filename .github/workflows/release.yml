@@ -516,6 +516,9 @@ jobs:
           provenance: false
           platforms: ${{ matrix.platform }}
           tags: ${{ steps.everestctl_meta.outputs.tags }}
+          build-args: |
+            VERSION=${{ env.VERSION }}
+            RELEASE_FULLCOMMIT=${{ github.sha }}
 
       - name: CLI - attest everestctl image
         uses: actions/attest-build-provenance@a2bbfa25375fe432b6a289bc6b6cd05ecd0c4c32 # v4.1.0
