@@ -22,6 +22,7 @@ import { useContext, useMemo } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useParams } from 'react-router-dom';
 import { CreateBackupPayload } from 'shared-types/backups.types.ts';
+import { Instance } from 'shared-types/api.types.ts';
 import { OnDemandBackupFieldsWrapper } from './on-demand-backup-fields-wrapper.tsx';
 import {
   BackupFormData,
@@ -31,6 +32,7 @@ import {
 import { ScheduleModalContext } from '../backups.context.ts';
 import { Typography } from '@mui/material';
 import { useClusterName } from 'hooks/api/useClusterName.ts';
+import { useUpdateDbInstanceWithConflictRetry } from 'hooks/api/db-instances/useUpdateDbInstance.ts';
 
 export const OnDemandBackupModal = () => {
   const queryClient = useQueryClient();
@@ -48,10 +50,13 @@ export const OnDemandBackupModal = () => {
   const { mutate: createBackupOnDemand, isPending: creatingBackup } =
     useCreateBackupOnDemand(clusterName, namespace);
 
-  const { openOnDemandModal, setOpenOnDemandModal } =
+  const { openOnDemandModal, setOpenOnDemandModal, instance } =
     useContext(ScheduleModalContext);
 
-  const handleSubmit = (data: BackupFormData) => {
+  const { mutate: updateInstance, isPending: updatingInstance } =
+    useUpdateDbInstanceWithConflictRetry(instance);
+
+  const createBackup = (data: BackupFormData) => {
     createBackupOnDemand(
       {
         metadata: { name: data.name },
@@ -76,6 +81,46 @@ export const OnDemandBackupModal = () => {
     );
   };
 
+  const handleSubmit = (data: BackupFormData) => {
+    const existingStorages = instance.spec?.backup?.storages ?? [];
+    const alreadyRegistered = existingStorages.some(
+      (s) => s.storageRef.name === data.storageName
+    );
+
+    if (alreadyRegistered) {
+      // Storage is already registered on the instance — just create the backup.
+      createBackup(data);
+      return;
+    }
+
+    // Auto-register the storage on the instance, then create the backup.
+    const newStorage = {
+      name: data.storageName,
+      storageRef: { name: data.storageName },
+      main: existingStorages.length === 0,
+    };
+
+    const updatedInstance: Instance = {
+      ...instance,
+      spec: {
+        ...instance.spec,
+        backup: {
+          classRef: instance.spec?.backup?.classRef ?? {
+            name: data.backupClassName,
+          },
+          enabled: true,
+          storages: [...existingStorages, newStorage],
+        },
+      },
+    };
+
+    updateInstance(updatedInstance, {
+      onSuccess() {
+        createBackup(data);
+      },
+    });
+  };
+
   const values = useMemo(() => defaultValuesFc(), []);
 
   return (
@@ -84,7 +129,7 @@ export const OnDemandBackupModal = () => {
       closeModal={() => setOpenOnDemandModal(false)}
       headerMessage="Create on-demand backup"
       onSubmit={handleSubmit}
-      submitting={creatingBackup}
+      submitting={creatingBackup || updatingInstance}
       submitMessage="Create"
       schema={schema(backupNames)}
       values={values}

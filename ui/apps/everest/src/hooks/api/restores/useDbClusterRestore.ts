@@ -1,5 +1,4 @@
-// everest
-// Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,119 +17,42 @@ import {
   UseMutationOptions,
   useQuery,
 } from '@tanstack/react-query';
-import {
-  createDbClusterRestore,
-  deleteRestore,
-  getDbClusterRestores,
-} from 'api/restores';
-import { useRBACPermissions } from 'hooks/rbac';
-import { generateShortUID } from 'utils/generateShortUID';
+import { deleteRestore, getInstanceRestores } from 'api/restores';
 import { PerconaQueryOptions } from 'shared-types/query.types';
-import { GetRestorePayload, Restore } from 'shared-types/restores.types';
+import { Restore, RestoreList } from 'shared-types/restores.types';
 
 export const RESTORES_QUERY_KEY = 'restores';
 
-export const useDbClusterRestoreFromBackup = (
-  dbClusterName: string,
-  options?: UseMutationOptions<unknown, unknown, unknown, unknown>
-) =>
-  useMutation({
-    mutationFn: ({
-      backupName,
-      namespace,
-    }: {
-      backupName: string;
-      namespace: string;
-    }) =>
-      createDbClusterRestore(
-        {
-          apiVersion: 'everest.percona.com/v1alpha1',
-          kind: 'DatabaseClusterRestore',
-          metadata: {
-            name: `restore-${generateShortUID()}`,
-          },
-          spec: {
-            dbClusterName,
-            dataSource: {
-              dbClusterBackupName: backupName,
-            },
-          },
-        },
-        namespace
-      ),
-    ...options,
-  });
-
-export const useDbClusterRestoreFromPointInTime = (
-  dbClusterName: string,
-  options?: UseMutationOptions<unknown, unknown, unknown, unknown>
-) =>
-  useMutation({
-    mutationFn: ({
-      pointInTimeDate,
-      backupName,
-      namespace,
-    }: {
-      pointInTimeDate: string;
-      backupName: string;
-      namespace: string;
-    }) =>
-      createDbClusterRestore(
-        {
-          apiVersion: 'everest.percona.com/v1alpha1',
-          kind: 'DatabaseClusterRestore',
-          metadata: {
-            name: `restore-${generateShortUID()}`,
-          },
-          spec: {
-            dbClusterName,
-            dataSource: {
-              dbClusterBackupName: backupName,
-              pitr: {
-                date: pointInTimeDate,
-              },
-            },
-          },
-        },
-        namespace
-      ),
-    ...options,
-  });
+export const getRestoreListQueryKey = (
+  clusterName: string,
+  namespace: string,
+  instanceName: string
+) => [RESTORES_QUERY_KEY, clusterName, namespace, instanceName] as const;
 
 export const useDbClusterRestores = (
+  clusterName: string,
   namespace: string,
-  dbClusterName: string,
-  options?: PerconaQueryOptions<GetRestorePayload, unknown, Restore[]>
+  instanceName: string,
+  options?: PerconaQueryOptions<RestoreList, unknown, Restore[]>
 ) => {
-  const { canRead } = useRBACPermissions(
-    'database-cluster-restores',
-    `${namespace}/${dbClusterName}`
-  );
-  return useQuery<GetRestorePayload, unknown, Restore[]>({
-    queryKey: [RESTORES_QUERY_KEY, namespace, dbClusterName],
-    queryFn: () => getDbClusterRestores(namespace, dbClusterName),
+  return useQuery<RestoreList, unknown, Restore[]>({
+    queryKey: getRestoreListQueryKey(clusterName, namespace, instanceName),
+    queryFn: () => getInstanceRestores(clusterName, namespace, instanceName),
+    select: ({ items = [] }) => items,
     refetchInterval: 5 * 1000,
-    select: canRead
-      ? (data) =>
-          data.items.map((item) => ({
-            name: item.metadata.name,
-            startTime: item.metadata.creationTimestamp,
-            endTime: item.status.completed,
-            state: item.status.state || 'unknown',
-            type: item.spec.dataSource.pitr ? 'pitr' : 'full',
-            backupSource: item.spec.dataSource.dbClusterBackupName || '',
-          }))
-      : () => [],
     ...options,
-    enabled: (options?.enabled ?? true) && canRead,
+    enabled: options?.enabled ?? true,
   });
 };
 
 export const useDeleteRestore = (
+  clusterName: string,
   namespace: string,
+  instanceName: string,
   options?: UseMutationOptions<unknown, unknown, string, unknown>
 ) =>
   useMutation({
-    mutationFn: (restoreName: string) => deleteRestore(namespace, restoreName),
+    mutationFn: (restoreName: string) =>
+      deleteRestore(clusterName, namespace, instanceName, restoreName),
     ...options,
   });

@@ -20,16 +20,10 @@ import { Table } from '@percona/ui-lib';
 import { DATE_FORMAT } from 'consts';
 import StatusField from 'components/status-field/status-field';
 import { ConfirmDialog } from 'components/confirm-dialog/confirm-dialog';
-import {
-  PG_STATUS,
-  PSMDB_STATUS,
-  PXC_STATUS,
-  Restore,
-} from 'shared-types/restores.types';
+import { Restore, PXC_STATUS, PSMDB_STATUS, PG_STATUS } from 'shared-types/restores.types';
 import { Messages } from './restores.messages';
-// import { Messages as DbDetailsMessages } from '../db-cluster-details.messages';
 import {
-  RESTORES_QUERY_KEY,
+  getRestoreListQueryKey,
   useDbClusterRestores,
   useDeleteRestore,
 } from 'hooks/api/restores/useDbClusterRestore';
@@ -38,111 +32,96 @@ import { RESTORE_STATUS_TO_BASE_STATUS } from './restores.constants';
 import { useQueryClient } from '@tanstack/react-query';
 import TableActionsMenu from 'components/table-actions-menu';
 import { RestoreActionButtons } from './restores-menu-actions';
-import { useDbClusterImportJobs } from 'hooks';
-import {
-  DataImportJob,
-  DataImportJobs,
-} from 'shared-types/dataImporters.types';
+import { useClusterName } from 'hooks/api/useClusterName';
 
-const getImportJobsData = (imports?: DataImportJobs): Restore[] => {
-  if (!imports?.items || !imports.items.length) return [];
-
-  return imports.items.map((importItem: DataImportJob) => ({
-    backupSource: importItem.spec.dataImporterName,
-    endTime: importItem.status?.completedAt || '',
-    name: importItem.metadata.name,
-    startTime: importItem.status?.startedAt || '',
-    state: importItem.status?.state || '',
-    type: 'import',
-  }));
-};
-
-function getTypeCellValue(type: string) {
-  if (type === 'import') return 'Import';
-  if (type === 'pitr') return 'PITR';
+function getTypeCellValue(restore: Restore) {
+  if (restore.spec.dataSource.pitr) return 'PITR';
   return 'Full';
 }
 
 const Restores = () => {
   const [openDeleteDialog, setOpenDeleteDialog] = useState(false);
   const [selectedRestore, setSelectedRestore] = useState('');
-  const { dbClusterName, namespace = '' } = useParams();
+  const { instanceName = '', namespace = '' } = useParams();
+  const clusterName = useClusterName();
   const queryClient = useQueryClient();
-  // const { data: pitrData } = useDbClusterPitr(dbClusterName!, namespace, {
-  //   enabled: !!dbClusterName && !!namespace,
-  // });
+
   const { data: restores = [], isLoading: loadingRestores } =
-    useDbClusterRestores(namespace, dbClusterName!, {
-      enabled: !!dbClusterName && !!namespace,
+    useDbClusterRestores(clusterName, namespace, instanceName, {
+      enabled: !!instanceName && !!namespace,
     });
 
-  const { data: imports } = useDbClusterImportJobs(namespace, dbClusterName!);
-
-  const tableData = [...restores, ...getImportJobsData(imports)];
-
-  const { mutate: deleteRestore, isPending: deletingRestore } =
-    useDeleteRestore(namespace);
+  const { mutate: deleteRestoreMutate, isPending: deletingRestore } =
+    useDeleteRestore(clusterName, namespace, instanceName);
 
   const columns = useMemo<MRT_ColumnDef<Restore>[]>(() => {
     return [
       {
         header: 'Status',
-        accessorKey: 'state',
-        Cell: ({ cell }) => (
-          <StatusField
-            status={cell.getValue<PXC_STATUS | PSMDB_STATUS | PG_STATUS>()}
-            statusMap={RESTORE_STATUS_TO_BASE_STATUS}
-          >
-            {capitalize(cell.getValue<PXC_STATUS | PSMDB_STATUS | PG_STATUS>())}
-          </StatusField>
-        ),
+        accessorFn: (row) => row.status?.state ?? 'unknown',
+        id: 'state',
+        Cell: ({ cell }) => {
+          const status = cell.getValue<string>() as PXC_STATUS | PSMDB_STATUS | PG_STATUS;
+          return (
+            <StatusField
+              status={status}
+              statusMap={RESTORE_STATUS_TO_BASE_STATUS}
+            >
+              {capitalize(status)}
+            </StatusField>
+          );
+        },
       },
       {
         header: 'Name',
-        accessorKey: 'name',
+        accessorFn: (row) => (row.metadata as { name?: string })?.name ?? '',
+        id: 'name',
       },
       {
         header: 'Started',
-        accessorKey: 'startTime',
+        accessorFn: (row) => row.status?.startedAt ?? '',
+        id: 'startedAt',
         Cell: ({ cell }) =>
-          cell.getValue<Date>()
-            ? format(new Date(cell.getValue<Date>()), DATE_FORMAT)
+          cell.getValue<string>()
+            ? format(new Date(cell.getValue<string>()), DATE_FORMAT)
             : '-----',
       },
       {
         header: 'Finished',
-        accessorKey: 'endTime',
+        accessorFn: (row) => row.status?.completedAt ?? '',
+        id: 'completedAt',
         Cell: ({ cell }) =>
-          cell.getValue<Date>()
-            ? format(new Date(cell.getValue<Date>()), DATE_FORMAT)
+          cell.getValue<string>()
+            ? format(new Date(cell.getValue<string>()), DATE_FORMAT)
             : '-----',
       },
       {
         header: 'Type',
-        accessorKey: 'type',
-        Cell: ({ cell }) => getTypeCellValue(cell.getValue<string>() || ''),
+        id: 'type',
+        accessorFn: (row) => getTypeCellValue(row),
       },
       {
         header: 'Backup Source',
-        accessorKey: 'backupSource',
-        Cell: ({ cell }) =>
-          cell.row.original.type === 'import'
-            ? 'External'
-            : cell.getValue<string>(),
+        accessorFn: (row) => row.spec.dataSource.backupName ?? '',
+        id: 'backupSource',
       },
     ];
   }, []);
 
-  const handleDeleteBackup = (restoreName: string) => {
+  const handleDeleteRestore = (restoreName: string) => {
     setSelectedRestore(restoreName);
     setOpenDeleteDialog(true);
   };
 
   const handleConfirmDelete = (restoreName: string) => {
-    deleteRestore(restoreName, {
+    deleteRestoreMutate(restoreName, {
       onSuccess: () => {
         queryClient.invalidateQueries({
-          queryKey: [RESTORES_QUERY_KEY, namespace, dbClusterName],
+          queryKey: getRestoreListQueryKey(
+            clusterName,
+            namespace,
+            instanceName
+          ),
         });
         setOpenDeleteDialog(false);
       },
@@ -151,37 +130,34 @@ const Restores = () => {
 
   return (
     <>
-      {/* {pitrData?.gaps && (
-        <Alert severity="error">{DbDetailsMessages.pitrError}</Alert>
-      )} */}
       <Table
-        getRowId={(row) => row.name}
+        getRowId={(row) =>
+          (row.metadata as { name?: string })?.name ?? ''
+        }
         state={{ isLoading: loadingRestores }}
-        tableName={`${dbClusterName}-restore`}
+        tableName={`${instanceName}-restore`}
         columns={columns}
-        data={tableData}
+        data={restores}
         initialState={{
           sorting: [
             {
-              id: 'startTime',
-              desc: false,
+              id: 'startedAt',
+              desc: true,
             },
-            { id: 'endTime', desc: false },
           ],
         }}
         noDataMessage="No restores"
         enableRowActions
-        renderRowActions={({ row }) => {
-          const menuItems = RestoreActionButtons(
-            row,
-            handleDeleteBackup,
-            namespace,
-            dbClusterName!
-          );
-          return row.original.type !== 'import' ? (
-            <TableActionsMenu menuItems={menuItems} />
-          ) : null;
-        }}
+        renderRowActions={({ row }) => (
+          <TableActionsMenu
+            menuItems={RestoreActionButtons(
+              row,
+              handleDeleteRestore,
+              namespace,
+              instanceName
+            )}
+          />
+        )}
       />
       {openDeleteDialog && (
         <ConfirmDialog

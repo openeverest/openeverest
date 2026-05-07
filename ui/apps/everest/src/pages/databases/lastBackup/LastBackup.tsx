@@ -1,4 +1,4 @@
-import { useDbBackups, useDbClusterPitr } from 'hooks/api/backups-old/useBackupsOld';
+import { useDbBackups, useDbClusterPitr } from 'hooks/api/backups/useBackups';
 import { LastBackupProps } from './LastBackup.types';
 import { IconButton, Tooltip, Typography } from '@mui/material';
 import { Messages } from '../dbClusterView.messages';
@@ -8,7 +8,7 @@ import {
   sortBackupsByTime,
 } from '../DbClusterView.utils';
 import { WarningIcon } from '@percona/ui-lib';
-import { BackupStatus } from 'shared-types/backupsOld.types';
+import { LegacyBackupStatus as BackupStatus } from 'shared-types/backups.types';
 import { useDbCluster } from 'hooks/api/db-cluster/useDbCluster';
 import { useNavigate } from 'react-router-dom';
 

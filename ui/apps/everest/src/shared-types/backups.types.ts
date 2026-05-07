@@ -70,3 +70,53 @@ export type DatabaseClusterPitr = {
   latestBackupName: string;
   gaps: boolean;
 };
+
+// --- Legacy v1 types (used by old pages still referencing v1alpha1 API) ---
+
+export type LegacySingleBackupPayload = {
+  metadata: {
+    name: string;
+  };
+  status?: {
+    created: string;
+    completed: string;
+    state: string;
+  };
+  spec: {
+    dbClusterName: string;
+    backupStorageName: string;
+  };
+};
+
+export type LegacyGetBackupsPayload = {
+  items: Array<LegacySingleBackupPayload>;
+};
+
+export type LegacyBackup = {
+  name: string;
+  created?: string;
+  completed?: string;
+  state: LegacyBackupStatus;
+  dbClusterName: string;
+  backupStorageName: string;
+};
+
+export enum LegacyBackupStatus {
+  OK = 'Succeeded',
+  FAILED = 'Failed',
+  IN_PROGRESS = 'In progress',
+  UNKNOWN = 'Unknown',
+  DELETING = 'Deleting',
+}
+
+export type LegacyBackupPayload = {
+  apiVersion: 'everest.percona.com/v1alpha1';
+  kind: 'DatabaseClusterBackup';
+  metadata: {
+    name: string;
+  };
+  spec: {
+    dbClusterName: string;
+    backupStorageName: string;
+  };
+};

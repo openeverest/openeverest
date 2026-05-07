@@ -18,7 +18,7 @@
 import { FormGroup, Box, Skeleton } from '@mui/material';
 import { DbType } from '@percona/types';
 import { useBackupStoragesByNamespace } from 'hooks/api/backup-storages/useBackupStorages';
-import { useDbBackups } from 'hooks/api/backups-old/useBackupsOld.ts';
+import { useDbBackups } from 'hooks/api/backups/useBackups.ts';
 import { useFormContext } from 'react-hook-form';
 import { getAvailableBackupStoragesForBackups } from 'utils/backups.ts';
 import { DbWizardFormFields, PG_SLOTS_LIMIT } from 'consts.ts';

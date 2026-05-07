@@ -12,20 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Copyright (C) 2026 The OpenEverest Contributors
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-// http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-
 import {
   useMutation,
   UseMutationOptions,
@@ -35,16 +21,25 @@ import {
   createBackupOnDemandFn,
   deleteBackupFn,
   getBackupFn,
+  getPitrFn,
+  legacyGetBackupsFn,
   listBackupsFn,
 } from 'api/backups';
 import {
   Backup,
   BackupList,
   CreateBackupPayload,
+  DatabaseClusterPitr,
+  DatabaseClusterPitrPayload,
   DeleteBackupPayload,
   GetBackupPayload,
+  LegacyBackup,
+  LegacyBackupStatus,
+  LegacyGetBackupsPayload,
 } from 'shared-types/backups.types';
 import { PerconaQueryOptions } from 'shared-types/query.types';
+import { useRBACPermissions } from 'hooks/rbac';
+import { mapBackupState } from 'utils/backups';
 
 export const BACKUPS_QUERY_KEY = 'backups';
 
@@ -211,6 +206,84 @@ export const useGetBackup = (
 //   });
 // };
 
+// --- Legacy v1alpha1 hooks (used by old pages) ---
 
+const LEGACY_BACKUPS_QUERY_KEY = 'backups-old';
+
+export const useDbBackups = (
+  dbClusterName: string,
+  namespace: string,
+  options?: PerconaQueryOptions<LegacyGetBackupsPayload, unknown, LegacyBackup[]>
+) => {
+  const { canRead } = useRBACPermissions(
+    'database-cluster-backups',
+    `${namespace}/${dbClusterName}`
+  );
+  return useQuery<LegacyGetBackupsPayload, unknown, LegacyBackup[]>({
+    queryKey: [LEGACY_BACKUPS_QUERY_KEY, namespace, dbClusterName],
+    queryFn: () => legacyGetBackupsFn(dbClusterName, namespace),
+    select: canRead
+      ? ({ items = [] }) =>
+          items.map(
+            ({ metadata: { name }, status, spec: { backupStorageName } }) => ({
+              name,
+              created: status?.created,
+              completed: status?.completed,
+              state: status
+                ? mapBackupState(status?.state)
+                : LegacyBackupStatus.UNKNOWN,
+              dbClusterName,
+              backupStorageName,
+            })
+          )
+      : () => [],
+    ...options,
+    enabled: (options?.enabled ?? true) && canRead,
+  });
+};
+
+export const useDbClusterPitr = (
+  dbClusterName: string,
+  namespace: string,
+  options?: PerconaQueryOptions<
+    DatabaseClusterPitrPayload,
+    unknown,
+    DatabaseClusterPitr | undefined
+  >
+) => {
+  const { canRead } = useRBACPermissions(
+    'database-clusters',
+    `${namespace}/${dbClusterName}`
+  );
+
+  return useQuery<
+    DatabaseClusterPitrPayload,
+    unknown,
+    DatabaseClusterPitr | undefined
+  >({
+    queryKey: [dbClusterName, 'pitr'],
+    queryFn: () => getPitrFn(dbClusterName, namespace),
+    select: (pitrData) => {
+      const { earliestDate, latestDate, latestBackupName, gaps } = pitrData;
+      if (
+        !Object.keys(pitrData).length ||
+        !earliestDate ||
+        !latestDate ||
+        !latestBackupName
+      ) {
+        return undefined;
+      }
+
+      return {
+        earliestDate: new Date(earliestDate),
+        latestDate: new Date(latestDate),
+        latestBackupName,
+        gaps,
+      };
+    },
+    ...options,
+    enabled: (options?.enabled ?? true) && canRead,
+  });
+};
 
 

@@ -23,17 +23,16 @@ import { BackupFields } from './on-demand-backup-modal.types.ts';
 import { ScheduleModalContext } from '../backups.context.ts';
 
 export const OnDemandBackupFieldsWrapper = () => {
-  const { namespace = '' } = useParams();
   const clusterName = useClusterName();
+  const { namespace = '' } = useParams();
   const { instance } = useContext(ScheduleModalContext);
 
   const { data: backupClasses = [], isLoading: loadingClasses } =
     useBackupClassesList(clusterName);
 
-  const { data: backupStorages = [], isLoading: loadingStorages } =
+  const { data: namespaceStorages = [], isLoading: loadingStorages } =
     useBackupStoragesByNamespace(namespace);
 
-  // Option A: BackupClasses encode the backup type (logical/physical).
   // Filter classes that support this instance's provider.
   const providerType = instance.spec?.provider;
   const availableClasses = backupClasses.filter((bc) => {
@@ -67,7 +66,7 @@ export const OnDemandBackupFieldsWrapper = () => {
           disabled: loadingStorages,
         }}
       >
-        {backupStorages.map((storage) => (
+        {namespaceStorages.map((storage) => (
           <MenuItem key={storage.name} value={storage.name}>
             {storage.name}
           </MenuItem>

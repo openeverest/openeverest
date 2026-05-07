@@ -14,22 +14,33 @@
 
 import { Table } from '@percona/ui-lib';
 import StatusField from 'components/status-field';
+import { ConfirmDialog } from 'components/confirm-dialog/confirm-dialog';
+import TableActionsMenu from 'components/table-actions-menu';
 import { DATE_FORMAT } from 'consts';
 import { format } from 'date-fns';
-import { useBackupsList } from 'hooks/api/backups/useBackups.ts';
+import {
+  getBackupListQueryKey,
+  useBackupsList,
+  useDeleteBackup,
+} from 'hooks/api/backups/useBackups.ts';
 import { MRT_ColumnDef } from 'material-react-table';
-import { useContext, useMemo } from 'react';
+import { useContext, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { Backup, BackupStatus } from 'shared-types/backups.types.ts';
 import { ScheduleModalContext } from '../backups.context.ts';
 import { BACKUP_STATUS_TO_BASE_STATUS } from './backups-list.constants';
 import { Messages } from './backups-list.messages';
 import BackupListTableHeader from './table-header';
+import { BackupActionButtons } from './backups-list-menu-actions';
 import { useClusterName } from 'hooks/api/useClusterName.ts';
+import { useQueryClient } from '@tanstack/react-query';
 
 export const BackupsList = () => {
   const { instanceName = '', namespace = '' } = useParams();
   const clusterName = useClusterName();
+  const queryClient = useQueryClient();
+  const [openDeleteDialog, setOpenDeleteDialog] = useState(false);
+  const [selectedBackup, setSelectedBackup] = useState('');
 
   const {
     instance,
@@ -44,6 +55,32 @@ export const BackupsList = () => {
       refetchInterval: 10 * 1000,
     }
   );
+
+  const { mutate: deleteBackupMutate, isPending: deletingBackup } =
+    useDeleteBackup(clusterName, namespace);
+
+  const handleDeleteBackup = (backupName: string) => {
+    setSelectedBackup(backupName);
+    setOpenDeleteDialog(true);
+  };
+
+  const handleConfirmDelete = (backupName: string) => {
+    deleteBackupMutate(
+      { backupName },
+      {
+        onSuccess: () => {
+          queryClient.invalidateQueries({
+            queryKey: getBackupListQueryKey(
+              clusterName,
+              namespace,
+              instanceName
+            ),
+          });
+          setOpenDeleteDialog(false);
+        },
+      }
+    );
+  };
 
   const columns = useMemo<MRT_ColumnDef<Backup>[]>(
     () => [
@@ -111,28 +148,48 @@ export const BackupsList = () => {
   };
 
   return (
-    <Table
-      getRowId={(row) => row.metadata?.name ?? ''}
-      tableName="backupList"
-      noDataMessage={Messages.noData}
-      data={backups}
-      columns={columns}
-      initialState={{
-        sorting: [
-          {
-            id: 'startedAt',
-            desc: true,
-          },
-        ],
-      }}
-      renderTopToolbarCustomActions={() => (
-        <BackupListTableHeader
-          onNowClick={handleManualBackup}
-          onScheduleClick={() => {}}
-          noStoragesAvailable={false}
-          currentBackups={backups}
-        />
+    <>
+      <Table
+        getRowId={(row) => row.metadata?.name ?? ''}
+        tableName="backupList"
+        noDataMessage={Messages.noData}
+        data={backups}
+        columns={columns}
+        initialState={{
+          sorting: [
+            {
+              id: 'startedAt',
+              desc: true,
+            },
+          ],
+        }}
+        renderTopToolbarCustomActions={() => (
+          <BackupListTableHeader
+            onNowClick={handleManualBackup}
+            onScheduleClick={() => {}}
+            currentBackups={backups}
+          />
+        )}
+        enableRowActions
+        renderRowActions={({ row }) => (
+          <TableActionsMenu
+            menuItems={BackupActionButtons(row, handleDeleteBackup)}
+          />
+        )}
+      />
+      {openDeleteDialog && (
+        <ConfirmDialog
+          open={openDeleteDialog}
+          selectedId={selectedBackup}
+          cancelMessage="Cancel"
+          closeModal={() => setOpenDeleteDialog(false)}
+          headerMessage={Messages.deleteDialog.header}
+          handleConfirm={handleConfirmDelete}
+          disabledButtons={deletingBackup}
+        >
+          {Messages.deleteDialog.content(selectedBackup)}
+        </ConfirmDialog>
       )}
-    />
+    </>
   );
 };
