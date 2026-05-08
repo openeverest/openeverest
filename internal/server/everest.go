@@ -233,15 +233,20 @@ func (e *EverestServer) initHTTPServer(ctx context.Context) error {
 	apiGroup.Use(e.checkOperatorUpgradeState)
 	api.RegisterHandlers(apiGroup, e)
 
-	// Setup plugin proxy routes.
-	// These use JWT auth but skip OpenAPI validation (not in the spec).
+	// Setup plugin proxy routes (outside OpenAPI validation).
+	pp := newPluginProxy(e.kubeConnector)
+
+	// Plugin bundle serving — no JWT required.
+	// Bundles are static JS assets, same as the main app's JS files.
+	// Only GET requests on the wildcard path are served without auth.
+	e.echo.GET("/v1/plugins/:name/*", pp.proxyHandler)
+
+	// Plugin discovery & API — JWT protected.
 	pluginGroup := e.echo.Group("/v1/plugins")
 	pluginGroup.Use(jwtMW)
 	pluginGroup.Use(blocklistMW)
-	pp := newPluginProxy(e.kubeConnector)
 	pluginGroup.GET("", pp.listPluginsHandler)
 	pluginGroup.Any("/:name", pp.proxyHandler)
-	pluginGroup.Any("/:name/*", pp.proxyHandler)
 
 	return nil
 }
