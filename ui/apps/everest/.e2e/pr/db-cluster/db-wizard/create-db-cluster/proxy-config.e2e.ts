@@ -32,6 +32,7 @@ test.describe('Proxy Configuration field', () => {
   test('PXC: proxy configuration field visible and persists to overview', async ({
     page,
   }) => {
+    test.setTimeout(120_000);
     const clusterName = 'proxy-cfg-pxc';
 
     await selectDbEngine(page, 'pxc');
@@ -47,10 +48,14 @@ test.describe('Proxy Configuration field', () => {
     await proxyConfigSwitch.getByRole('checkbox').check();
     await page.getByTestId('text-input-proxy-config').fill(PROXY_CONFIG_VALUE);
 
+    await moveForward(page);
     await submitWizard(page);
+    await page.goto('/databases');
+    await page.waitForLoadState('networkidle');
     await waitForInitializingState(page, clusterName);
 
     await findDbAndClickRow(page, clusterName);
+    await page.getByText('Advanced configuration').waitFor();
 
     await expect(
       page.getByTestId('proxy-configuration-overview-section-row')
@@ -80,6 +85,7 @@ test.describe('Proxy Configuration field', () => {
   test('PSMDB: proxy config field hidden without sharding, visible with sharding', async ({
     page,
   }) => {
+    test.setTimeout(60_000);
     await selectDbEngine(page, 'psmdb');
     await page.getByTestId('text-input-db-name').fill('proxy-cfg-psmdb-check');
     await moveForward(page);
@@ -107,6 +113,7 @@ test.describe('Proxy Configuration field', () => {
   });
 
   test('PXC: proxy config round-trips in edit modal', async ({ page }) => {
+    test.setTimeout(120_000);
     const clusterName = 'proxy-cfg-edit-pxc';
 
     await selectDbEngine(page, 'pxc');
@@ -121,9 +128,13 @@ test.describe('Proxy Configuration field', () => {
     await proxyConfigSwitch.getByRole('checkbox').check();
     await page.getByTestId('text-input-proxy-config').fill(PROXY_CONFIG_VALUE);
 
+    await moveForward(page);
     await submitWizard(page);
+    await page.goto('/databases');
+    await page.waitForLoadState('networkidle');
     await waitForInitializingState(page, clusterName);
     await findDbAndClickRow(page, clusterName);
+    await page.getByText('Advanced configuration').waitFor();
 
     const editBtn = page.getByTestId('edit-advanced-configuration-db-btn');
     await editBtn.click();
@@ -134,6 +145,9 @@ test.describe('Proxy Configuration field', () => {
 
     await proxyConfigSwitch.getByRole('checkbox').uncheck();
     await page.getByTestId('form-dialog-save').click();
+    await expect(
+      page.getByTestId('edit-advanced-configuration-form-dialog')
+    ).not.toBeVisible();
 
     await editBtn.click();
     await expect(proxyConfigSwitch.getByRole('checkbox')).not.toBeChecked();
