@@ -57,6 +57,15 @@ export const Messages = {
       description:
         'Set your database engine configuration to adjust your database system to your workload and performance needs. For configuration format and specific parameters, check your database type documentation.',
     },
+    proxyParameters: {
+      title: (dbType: string) => {
+        if (dbType === 'mysql') return 'Proxy Configuration';
+        if (dbType === 'postgresql') return 'PG Bouncer Configuration';
+        return 'Router Configuration';
+      },
+      description:
+        'Set your proxy configuration to tune connection handling and routing behavior. For configuration format and specific parameters, check your proxy type documentation.',
+    },
     splitHorizonDNS: {
       title: 'Split-Horizon DNS',
       description:

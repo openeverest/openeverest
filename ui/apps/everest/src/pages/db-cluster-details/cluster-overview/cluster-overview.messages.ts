@@ -41,6 +41,7 @@ export const Messages = {
     status: 'Status',
     externalAccess: 'Ext.access',
     parameters: 'Parameters',
+    proxyParameters: 'Proxy parameters',
     enabled: 'Enabled',
     disabled: 'Disabled',
     noSchedules: '0 active schedules',

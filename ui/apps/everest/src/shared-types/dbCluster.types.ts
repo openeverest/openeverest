@@ -90,6 +90,7 @@ export interface Proxy {
   expose: ProxyExposeConfig;
   resources?: Resources;
   type: ProxyType;
+  config?: string;
 }
 
 export interface DataImporter {

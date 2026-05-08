@@ -40,6 +40,18 @@ export const getParamsPlaceholderFromDbType = (dbType: DbType) => {
   return dynamicText;
 };
 
+export const getProxyParamsPlaceholderFromDbType = (dbType: DbType) => {
+  switch (dbType) {
+    case DbType.Mongo:
+      return 'net:\n  port: 27017\n  bindIp: 0.0.0.0';
+    case DbType.Mysql:
+      return '[haproxy]\nbind-address=0.0.0.0\nmaxconn=1024';
+    case DbType.Postresql:
+    default:
+      return '[databases]\n*=host=localhost port=5432\n[pgbouncer]\nmax_client_conn=100\npool_mode=transaction';
+  }
+};
+
 export const mapDeprecatedExposeType = (
   type: string | undefined
 ): ProxyExposeType => {
@@ -74,6 +86,10 @@ export const advancedConfigurationModalDefaultValues = (
       !!dbCluster?.spec?.engine?.config,
     [AdvancedConfigurationFields.engineParameters]:
       dbCluster?.spec?.engine?.config,
+    [AdvancedConfigurationFields.proxyParametersEnabled]:
+      !!dbCluster?.spec?.proxy?.config,
+    [AdvancedConfigurationFields.proxyParameters]:
+      dbCluster?.spec?.proxy?.config,
     [AdvancedConfigurationFields.sourceRanges]: sourceRangesSource
       ? sourceRangesSource.map((sourceRange) => ({ sourceRange }))
       : [{ sourceRange: '' }],

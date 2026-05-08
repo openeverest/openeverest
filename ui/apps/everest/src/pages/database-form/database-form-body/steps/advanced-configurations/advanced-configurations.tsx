@@ -16,6 +16,7 @@
 import { useFormContext } from 'react-hook-form';
 import { Messages } from './advanced-configurations.messages.ts';
 
+import { DbType } from '@percona/types';
 import { DbWizardFormFields } from 'consts.ts';
 import { StepHeader } from '../step-header/step-header.tsx';
 import AdvancedConfigurationForm from 'components/cluster-form/advanced-configuration/advanced-configuration.tsx';
@@ -29,7 +30,10 @@ export const AdvancedConfigurations = ({
   loadingDefaultsForEdition,
 }: StepProps) => {
   const { watch, getValues } = useFormContext();
-  const dbType = watch(DbWizardFormFields.dbType);
+  const [dbType, sharding] = watch([
+    DbWizardFormFields.dbType,
+    DbWizardFormFields.sharding,
+  ]);
   const namespace = getValues(DbWizardFormFields.k8sNamespace);
   const mode = useDatabasePageMode();
   const allowedFieldsToInitiallyLoadDefaults: AllowedFieldsToInitiallyLoadDefaults[] =
@@ -58,6 +62,7 @@ export const AdvancedConfigurations = ({
         }
         namespace={namespace}
         showSplitHorizonDNS={!getValues(DbWizardFormFields.sharding)}
+        showProxyConfig={dbType !== DbType.Mongo || !!sharding}
       />
     </>
   );

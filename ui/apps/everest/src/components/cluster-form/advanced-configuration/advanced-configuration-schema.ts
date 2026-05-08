@@ -38,6 +38,8 @@ export const advancedConfigurationsSchema = () =>
       ),
       [AdvancedConfigurationFields.engineParametersEnabled]: z.boolean(),
       [AdvancedConfigurationFields.engineParameters]: z.string().optional(),
+      [AdvancedConfigurationFields.proxyParametersEnabled]: z.boolean(),
+      [AdvancedConfigurationFields.proxyParameters]: z.string().optional(),
       [AdvancedConfigurationFields.podSchedulingPolicyEnabled]: z.boolean(),
       [AdvancedConfigurationFields.podSchedulingPolicy]: z.string().optional(),
       [AdvancedConfigurationFields.loadBalancerConfigName]: z

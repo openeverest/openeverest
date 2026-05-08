@@ -38,6 +38,7 @@ export const AdvancedConfiguration = ({
   loading,
   externalAccess,
   parameters,
+  proxyParameters,
   storageClass,
   podSchedulingPolicy,
   loadBalancerConfig,
@@ -79,6 +80,8 @@ export const AdvancedConfiguration = ({
     sourceRanges,
     engineParametersEnabled,
     engineParameters,
+    proxyParametersEnabled,
+    proxyParameters,
     podSchedulingPolicyEnabled,
     podSchedulingPolicy,
     exposureMethod,
@@ -96,7 +99,9 @@ export const AdvancedConfiguration = ({
         podSchedulingPolicyEnabled,
         podSchedulingPolicy,
         loadBalancerConfigName,
-        splitHorizonDNS
+        splitHorizonDNS,
+        proxyParametersEnabled,
+        proxyParameters
       )
     );
   };
@@ -129,6 +134,12 @@ export const AdvancedConfiguration = ({
         label={Messages.fields.parameters}
         content={
           parameters ? Messages.fields.enabled : Messages.fields.disabled
+        }
+      />
+      <OverviewSectionRow
+        label={Messages.fields.proxyParameters}
+        content={
+          proxyParameters ? Messages.fields.enabled : Messages.fields.disabled
         }
       />
       <OverviewSectionRow

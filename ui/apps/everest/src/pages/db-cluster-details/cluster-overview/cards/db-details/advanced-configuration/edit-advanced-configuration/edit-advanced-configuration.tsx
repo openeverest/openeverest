@@ -22,6 +22,7 @@ import {
   advancedConfigurationsSchema,
 } from 'components/cluster-form/advanced-configuration/advanced-configuration-schema';
 import { Messages } from './edit-advanced-configuration.messages';
+import { DbType } from '@percona/types';
 import { dbEngineToDbType } from '@percona/utils';
 import { advancedConfigurationModalDefaultValues } from 'components/cluster-form/advanced-configuration/advanced-configuration.utils';
 import { EMPTY_LOAD_BALANCER_CONFIGURATION } from 'consts';
@@ -40,6 +41,8 @@ export const AdvancedConfigurationEditModal = ({
     exposureMethod,
     engineParametersEnabled,
     engineParameters,
+    proxyParametersEnabled,
+    proxyParameters,
     sourceRanges,
     storageClass,
     podSchedulingPolicyEnabled,
@@ -51,6 +54,8 @@ export const AdvancedConfigurationEditModal = ({
     handleSubmitModal({
       engineParametersEnabled,
       engineParameters,
+      proxyParametersEnabled,
+      proxyParameters,
       sourceRanges,
       storageClass,
       podSchedulingPolicyEnabled,
@@ -101,6 +106,10 @@ export const AdvancedConfigurationEditModal = ({
         activePolicy={dbCluster?.spec.podSchedulingPolicyName}
         namespace={dbCluster?.metadata.namespace}
         showSplitHorizonDNS={false}
+        showProxyConfig={
+          dbEngineToDbType(dbCluster?.spec?.engine?.type) !== DbType.Mongo ||
+          !!dbCluster?.spec?.sharding?.enabled
+        }
       />
     </FormDialog>
   );
