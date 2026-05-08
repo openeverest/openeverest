@@ -997,6 +997,7 @@ export const setDbClusterRestart = (dbCluster: DbCluster) => ({
   metadata: {
     ...dbCluster.metadata,
     annotations: {
+      ...dbCluster.metadata.annotations,
       'everest.percona.com/restart': 'true',
     },
   },
