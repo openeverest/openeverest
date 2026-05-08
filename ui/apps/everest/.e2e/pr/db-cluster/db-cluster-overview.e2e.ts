@@ -34,13 +34,16 @@ test.describe('DB Cluster Overview', async () => {
       request,
       'mysql'
     );
+    // MySQL 8.4.x uses 3GB memory for "Small" preset, other versions use 2GB
+    const isMySQL84x = /^8\.4\./.test(mysqlVersion);
+    const smallMemory = isMySQL84x ? 3 : 2;
     await createDbClusterFn(request, {
       dbName: dbClusterName,
       dbVersion: mysqlVersion,
       dbType: 'mysql',
       numberOfNodes: '1',
       cpu: 1,
-      memory: 2,
+      memory: smallMemory,
       proxyCpu: 0.5,
       proxyMemory: 0.8,
       externalAccess: true,
