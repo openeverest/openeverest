@@ -52,8 +52,9 @@ test.describe('Proxy Configuration field', () => {
 
     await findDbAndClickRow(page, clusterName);
 
-    await expect(page.getByText('Proxy Configuration')).toBeVisible();
-    await expect(page.getByText(PROXY_CONFIG_VALUE)).toBeVisible();
+    await expect(
+      page.getByTestId('proxy-configuration-overview-section-row')
+    ).toContainText('Enabled');
 
     await page.goto('/databases');
     await deleteDbCluster(page, clusterName);
@@ -132,7 +133,7 @@ test.describe('Proxy Configuration field', () => {
     await expect(configInput).toHaveValue(PROXY_CONFIG_VALUE);
 
     await proxyConfigSwitch.getByRole('checkbox').uncheck();
-    await page.getByTestId('form-dialog-submit').click();
+    await page.getByTestId('form-dialog-save').click();
 
     await editBtn.click();
     await expect(proxyConfigSwitch.getByRole('checkbox')).not.toBeChecked();
