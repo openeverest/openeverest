@@ -15,6 +15,7 @@
 import { Navigate, createBrowserRouter } from 'react-router-dom';
 import ProtectedRoute from 'components/protected-route/ProtectedRoute';
 import { Main } from 'components/main/Main';
+import PluginHost from 'components/plugin-host/PluginHost';
 import { DBClusterDetailsTabs } from 'pages/db-cluster-details/db-cluster-details.types';
 import { SettingsTabs } from 'pages/settings/settings.types';
 import { DbInstanceContextProvider } from 'pages/db-cluster-details/dbCluster.context';
@@ -173,6 +174,10 @@ const router = createBrowserRouter([
       {
         path: '/settings/namespaces/:namespace',
         element: withSuspense(<NamespaceDetails />),
+      },
+      {
+        path: 'plugins/:pluginName/*',
+        element: <PluginHost />,
       },
       {
         path: '*',

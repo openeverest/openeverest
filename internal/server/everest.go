@@ -233,6 +233,12 @@ func (e *EverestServer) initHTTPServer(ctx context.Context) error {
 	apiGroup.Use(e.checkOperatorUpgradeState)
 	api.RegisterHandlers(apiGroup, e)
 
+	// Setup plugin proxy routes (outside OpenAPI validation).
+	pp := newPluginProxy(e.kubeConnector)
+	e.echo.GET("/v1/plugins", pp.listPluginsHandler)
+	e.echo.Any("/v1/plugins/:name", pp.proxyHandler)
+	e.echo.Any("/v1/plugins/:name/*", pp.proxyHandler)
+
 	return nil
 }
 

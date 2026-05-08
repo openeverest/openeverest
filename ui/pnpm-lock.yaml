@@ -63,6 +63,9 @@ importers:
       '@mui/x-date-pickers':
         specifier: ^7.6.2
         version: 7.22.2(@emotion/react@11.13.3(@types/react@18.3.12)(react@18.3.1))(@emotion/styled@11.13.0(@emotion/react@11.13.3(@types/react@18.3.12)(react@18.3.1))(@types/react@18.3.12)(react@18.3.1))(@mui/material@5.16.7(@emotion/react@11.13.3(@types/react@18.3.12)(react@18.3.1))(@emotion/styled@11.13.0(@emotion/react@11.13.3(@types/react@18.3.12)(react@18.3.1))(@types/react@18.3.12)(react@18.3.1))(@types/react@18.3.12)(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(@mui/system@5.16.7(@emotion/react@11.13.3(@types/react@18.3.12)(react@18.3.1))(@emotion/styled@11.13.0(@emotion/react@11.13.3(@types/react@18.3.12)(react@18.3.1))(@types/react@18.3.12)(react@18.3.1))(@types/react@18.3.12)(react@18.3.1))(@types/react@18.3.12)(date-fns@3.6.0)(luxon@3.5.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      '@openeverest/plugin-sdk':
+        specifier: workspace:^
+        version: link:../../packages/plugin-sdk
       '@percona/design':
         specifier: workspace:^
         version: link:../../packages/design
@@ -320,6 +323,42 @@ importers:
       eslint-plugin-react-refresh:
         specifier: ^0.4.3
         version: 0.4.14(eslint@8.57.1)
+
+  packages/plugin-sdk:
+    devDependencies:
+      '@percona/tsconfig':
+        specifier: workspace:*
+        version: link:../tsconfig
+      '@rollup/plugin-commonjs':
+        specifier: ^25.0.7
+        version: 25.0.8(rollup@4.40.1)
+      '@rollup/plugin-node-resolve':
+        specifier: ^16.0.1
+        version: 16.0.1(rollup@4.40.1)
+      '@rollup/plugin-terser':
+        specifier: ^0.4.4
+        version: 0.4.4(rollup@4.40.1)
+      '@rollup/plugin-typescript':
+        specifier: ^11.0.0
+        version: 11.1.6(rollup@4.40.1)(tslib@2.8.1)(typescript@5.6.3)
+      '@types/react':
+        specifier: ^18.2.0
+        version: 18.3.12
+      react:
+        specifier: ^18.2.0
+        version: 18.3.1
+      rollup:
+        specifier: ^4.22.4
+        version: 4.40.1
+      rollup-plugin-dts:
+        specifier: ^6.1.0
+        version: 6.1.1(rollup@4.40.1)(typescript@5.6.3)
+      rollup-plugin-peer-deps-external:
+        specifier: ^2.2.4
+        version: 2.2.4(rollup@4.40.1)
+      typescript:
+        specifier: ^5.2.2
+        version: 5.6.3
 
   packages/prettier-config:
     dependencies:
@@ -2209,9 +2248,6 @@ packages:
 
   '@types/node@12.20.55':
     resolution: {integrity: sha512-J8xLz7q2OFulZ2cyGTLE1TbbZcjpno7FaN6zdJNrgAdrJ+DZzh/uFR6YrTb4C+nXakvud8Q4+rbhoIWlYQbUFQ==}
-
-  '@types/node@24.0.13':
-    resolution: {integrity: sha512-Qm9OYVOFHFYg3wJoTSrz80hoec5Lia/dPp84do3X7dZvLikQvM1YpmvTBEdIr/e+U8HTkFjLHLnl78K/qjf+jQ==}
 
   '@types/node@25.6.0':
     resolution: {integrity: sha512-+qIYRKdNYJwY3vRCZMdJbPLJAtGjQBudzZzdzwQYkEPQd+PJGixUL5QfvCLDaULoLv+RhT3LDkwEfKaAkgSmNQ==}
@@ -5019,9 +5055,6 @@ packages:
   undici-types@7.19.2:
     resolution: {integrity: sha512-qYVnV5OEm2AW8cJMCpdV20CDyaN3g0AjDlOGf1OW4iaDEx8MwdtChUp4zu4H0VP3nDRF/8RKWH+IPp9uW0YGZg==}
 
-  undici-types@7.8.0:
-    resolution: {integrity: sha512-9UJ2xGDvQ43tYyVMpuHlsgApydB8ZKfVYTsLDhXkFL/6gfkp+U8xTGdh8pMJv1SpZna0zxG1DwsKZsreLbXBxw==}
-
   undici@7.22.0:
     resolution: {integrity: sha512-RqslV2Us5BrllB+JeiZnK4peryVTndy9Dnqq62S3yYRRTj0tFQCwEniUy2167skdGOy3vqRzEvl1Dm4sV2ReDg==}
     engines: {node: '>=20.18.1'}
@@ -7181,10 +7214,6 @@ snapshots:
 
   '@types/node@12.20.55': {}
 
-  '@types/node@24.0.13':
-    dependencies:
-      undici-types: 7.8.0
-
   '@types/node@25.6.0':
     dependencies:
       undici-types: 7.19.2
@@ -8856,7 +8885,7 @@ snapshots:
 
   jest-worker@27.5.1:
     dependencies:
-      '@types/node': 24.0.13
+      '@types/node': 25.6.0
       merge-stream: 2.0.0
       supports-color: 8.1.1
 
@@ -10117,8 +10146,6 @@ snapshots:
   typescript@5.6.3: {}
 
   undici-types@7.19.2: {}
-
-  undici-types@7.8.0: {}
 
   undici@7.22.0: {}
 

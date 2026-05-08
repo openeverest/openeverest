@@ -1,0 +1,41 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hello-plugin
+  namespace: everest-system
+  labels:
+    app: hello-plugin
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: hello-plugin
+  template:
+    metadata:
+      labels:
+        app: hello-plugin
+    spec:
+      containers:
+        - name: hello-plugin
+          image: hello-plugin:dev
+          ports:
+            - containerPort: 3001
+          resources:
+            limits:
+              memory: "64Mi"
+              cpu: "100m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: hello-plugin
+  namespace: everest-system
+  labels:
+    app: hello-plugin
+spec:
+  selector:
+    app: hello-plugin
+  ports:
+    - port: 3001
+      targetPort: 3001
+      protocol: TCP

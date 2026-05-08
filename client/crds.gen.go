@@ -185,6 +185,27 @@ func (e MonitoringConfigSpecType) Valid() bool {
 	}
 }
 
+// Defines values for PluginStatusConditionsStatus.
+const (
+	PluginStatusConditionsStatusFalse   PluginStatusConditionsStatus = "False"
+	PluginStatusConditionsStatusTrue    PluginStatusConditionsStatus = "True"
+	PluginStatusConditionsStatusUnknown PluginStatusConditionsStatus = "Unknown"
+)
+
+// Valid indicates whether the value is a known member of the PluginStatusConditionsStatus enum.
+func (e PluginStatusConditionsStatus) Valid() bool {
+	switch e {
+	case PluginStatusConditionsStatusFalse:
+		return true
+	case PluginStatusConditionsStatusTrue:
+		return true
+	case PluginStatusConditionsStatusUnknown:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ProviderStatusConditionsStatus.
 const (
 	ProviderStatusConditionsStatusFalse   ProviderStatusConditionsStatus = "False"
@@ -1211,6 +1232,93 @@ type MonitoringConfigList struct {
 
 		// Namespace Namespace defines the space within which each name must be unique. An empty namespace is equivalent to the "default" namespace, but "default" is the canonical representation. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces
 		Namespace *string `json:"namespace,omitempty"`
+	} `json:"metadata,omitempty"`
+}
+
+// Plugin Plugin is the Schema for the plugins API. It registers an external plugin
+// with the Everest platform, enabling its UI bundle to be loaded dynamically
+// and its backend to be reverse-proxied through the Everest server.
+type Plugin struct {
+	// ApiVersion APIVersion defines the versioned schema of this representation of an object.
+	// Servers should convert recognized schemas to the latest internal value, and
+	// may reject unrecognized values.
+	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+	ApiVersion *string `json:"apiVersion,omitempty"`
+
+	// Kind Kind is a string value representing the REST resource this object represents.
+	// Servers may infer this from the endpoint the client submits requests to.
+	// Cannot be updated.
+	// In CamelCase.
+	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+	Kind     *string                 `json:"kind,omitempty"`
+	Metadata *map[string]interface{} `json:"metadata,omitempty"`
+
+	// Spec PluginSpec defines the desired state of a Plugin.
+	Spec struct {
+		// BackendUrl BackendURL is the in-cluster base URL where the plugin's backend
+		// is reachable (e.g. "http://hello-plugin.everest-system:3001").
+		// The Everest server reverse-proxies /v1/plugins/<name>/* to this URL.
+		BackendUrl string `json:"backendUrl"`
+
+		// BundlePath BundlePath is the path appended to BackendURL to fetch the plugin's
+		// frontend ESM bundle (e.g. "/main.js"). The Everest server exposes
+		// this as /v1/plugins/<name>/<bundlePath> for the UI to import().
+		BundlePath *string `json:"bundlePath,omitempty"`
+
+		// DisplayName DisplayName is the human-readable name shown in the UI sidebar.
+		DisplayName string `json:"displayName"`
+
+		// Enabled Enabled controls whether the plugin is active. A disabled plugin
+		// is not returned by the list endpoint and its proxy routes are inactive.
+		Enabled *bool `json:"enabled,omitempty"`
+	} `json:"spec"`
+
+	// Status PluginStatus defines the observed state of a Plugin.
+	Status *struct {
+		Conditions *[]struct {
+			// LastTransitionTime lastTransitionTime is the last time the condition transitioned from one status to another.
+			// This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+			LastTransitionTime time.Time `json:"lastTransitionTime"`
+
+			// Message message is a human readable message indicating details about the transition.
+			// This may be an empty string.
+			Message string `json:"message"`
+
+			// ObservedGeneration observedGeneration represents the .metadata.generation that the condition was set based upon.
+			// For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+			// with respect to the current state of the instance.
+			ObservedGeneration *int64 `json:"observedGeneration,omitempty"`
+
+			// Reason reason contains a programmatic identifier indicating the reason for the condition's last transition.
+			// Producers of specific condition types may define expected values and meanings for this field,
+			// and whether the values are considered a guaranteed API.
+			// The value should be a CamelCase string.
+			// This field may not be empty.
+			Reason string `json:"reason"`
+
+			// Status status of the condition, one of True, False, Unknown.
+			Status PluginStatusConditionsStatus `json:"status"`
+
+			// Type type of condition in CamelCase or in foo.example.com/CamelCase.
+			Type string `json:"type"`
+		} `json:"conditions,omitempty"`
+	} `json:"status,omitempty"`
+}
+
+// PluginStatusConditionsStatus status of the condition, one of True, False, Unknown.
+type PluginStatusConditionsStatus string
+
+// PluginList PluginList is an object that contains the list of the existing plugins.
+type PluginList struct {
+	// ApiVersion APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+	ApiVersion *string   `json:"apiVersion,omitempty"`
+	Items      *[]Plugin `json:"items,omitempty"`
+
+	// Kind Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+	Kind     *string `json:"kind,omitempty"`
+	Metadata *struct {
+		// Name Name must be unique within a namespace. Is required when creating resources, although some resources may allow a client to request the generation of an appropriate name automatically. Name is primarily intended for creation idempotence and configuration definition. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names#names
+		Name *string `json:"name,omitempty"`
 	} `json:"metadata,omitempty"`
 }
 

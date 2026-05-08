@@ -921,6 +921,54 @@ k8s_resource(
     labels=["everest"]
 )
 
+#################################
+######## Hello Plugin PoC #######
+#################################
+
+plugin_hello_dir = '{0}/plugins/hello'.format(backend_dir)
+
+# Build the hello plugin with npm
+local_resource(
+  'hello-plugin-build',
+  'cd {0} && npm install && npx vite build'.format(plugin_hello_dir),
+  deps=[
+    '{0}/src'.format(plugin_hello_dir),
+    '{0}/package.json'.format(plugin_hello_dir),
+    '{0}/vite.config.ts'.format(plugin_hello_dir),
+  ],
+  labels=["plugins"],
+)
+
+# Build the hello plugin Docker image — only copy the pre-built dist/ output
+# (the hello-plugin-build local_resource already ran vite build on the host)
+docker_build(
+  'hello-plugin:dev',
+  context=plugin_hello_dir,
+  dockerfile='{0}/Dockerfile'.format(plugin_hello_dir),
+  only=['{0}/dist'.format(plugin_hello_dir)],
+  live_update=[
+    sync('{0}/dist'.format(plugin_hello_dir), '/app/dist'),
+  ]
+)
+
+# Deploy the hello plugin k8s resources (Deployment + Service)
+k8s_yaml('{0}/resources/hello-plugin.yaml'.format(config.main_dir))
+# Deploy the hello Plugin CR (requires the Plugin CRD to be applied first)
+k8s_yaml('{0}/resources/hello-plugin-cr.yaml'.format(config.main_dir))
+k8s_resource(
+  workload='hello-plugin',
+  objects=[
+    'hello:Plugin',
+  ],
+  resource_deps=[
+    'everest-namespace',
+    'crds',
+    'hello-plugin-build',
+  ],
+  new_name='hello-plugin-deploy',
+  labels=["plugins"],
+)
+
 #######################################
 ############ Backup Storages ##########
 #######################################
@@ -1008,7 +1056,9 @@ k8s_resource(
     'backupstorages.backup.openeverest.io:customresourcedefinition',
     'instances.core.openeverest.io:customresourcedefinition',
     'monitoringconfigs.monitoring.openeverest.io:customresourcedefinition',
-    'providers.core.openeverest.io:customresourcedefinition'
+    'plugins.core.openeverest.io:customresourcedefinition',
+    'providers.core.openeverest.io:customresourcedefinition',
+    'restores.backup.openeverest.io:customresourcedefinition'
   ],
   new_name='crds',
   labels=["everest"]

@@ -1,0 +1,9 @@
+apiVersion: core.openeverest.io/v1alpha1
+kind: Plugin
+metadata:
+  name: hello
+spec:
+  displayName: Hello Plugin
+  backendUrl: "http://hello-plugin.everest-system:3001"
+  bundlePath: "/main.js"
+  enabled: true

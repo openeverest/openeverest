@@ -1017,6 +1017,103 @@ export interface components {
                 namespace?: string;
             };
         };
+        /**
+         * @description Plugin is the Schema for the plugins API. It registers an external plugin
+         *     with the Everest platform, enabling its UI bundle to be loaded dynamically
+         *     and its backend to be reverse-proxied through the Everest server.
+         */
+        Plugin: {
+            /**
+             * @description APIVersion defines the versioned schema of this representation of an object.
+             *     Servers should convert recognized schemas to the latest internal value, and
+             *     may reject unrecognized values.
+             *     More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+             */
+            apiVersion?: string;
+            /**
+             * @description Kind is a string value representing the REST resource this object represents.
+             *     Servers may infer this from the endpoint the client submits requests to.
+             *     Cannot be updated.
+             *     In CamelCase.
+             *     More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+             */
+            kind?: string;
+            metadata?: Record<string, never>;
+            /** @description PluginSpec defines the desired state of a Plugin. */
+            spec: {
+                /**
+                 * @description BackendURL is the in-cluster base URL where the plugin's backend
+                 *     is reachable (e.g. "http://hello-plugin.everest-system:3001").
+                 *     The Everest server reverse-proxies /v1/plugins/<name>/* to this URL.
+                 */
+                backendUrl: string;
+                /**
+                 * @description BundlePath is the path appended to BackendURL to fetch the plugin's
+                 *     frontend ESM bundle (e.g. "/main.js"). The Everest server exposes
+                 *     this as /v1/plugins/<name>/<bundlePath> for the UI to import().
+                 * @default /main.js
+                 */
+                bundlePath: string;
+                /** @description DisplayName is the human-readable name shown in the UI sidebar. */
+                displayName: string;
+                /**
+                 * @description Enabled controls whether the plugin is active. A disabled plugin
+                 *     is not returned by the list endpoint and its proxy routes are inactive.
+                 * @default true
+                 */
+                enabled: boolean;
+            };
+            /** @description PluginStatus defines the observed state of a Plugin. */
+            status?: {
+                conditions?: {
+                    /**
+                     * Format: date-time
+                     * @description lastTransitionTime is the last time the condition transitioned from one status to another.
+                     *     This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                     */
+                    lastTransitionTime: string;
+                    /**
+                     * @description message is a human readable message indicating details about the transition.
+                     *     This may be an empty string.
+                     */
+                    message: string;
+                    /**
+                     * Format: int64
+                     * @description observedGeneration represents the .metadata.generation that the condition was set based upon.
+                     *     For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                     *     with respect to the current state of the instance.
+                     */
+                    observedGeneration?: number;
+                    /**
+                     * @description reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                     *     Producers of specific condition types may define expected values and meanings for this field,
+                     *     and whether the values are considered a guaranteed API.
+                     *     The value should be a CamelCase string.
+                     *     This field may not be empty.
+                     */
+                    reason: string;
+                    /**
+                     * @description status of the condition, one of True, False, Unknown.
+                     * @enum {string}
+                     */
+                    status: "True" | "False" | "Unknown";
+                    /** @description type of condition in CamelCase or in foo.example.com/CamelCase. */
+                    type: string;
+                }[];
+            };
+        };
+        /** @description PluginList is an object that contains the list of the existing plugins. */
+        PluginList: {
+            /** @description APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources */
+            apiVersion?: string;
+            items?: components["schemas"]["Plugin"][];
+            /** @description Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds */
+            kind?: string;
+            metadata?: {
+                /** @description Name must be unique within a namespace. Is required when creating resources, although some resources may allow a client to request the generation of an appropriate name automatically. Name is primarily intended for creation idempotence and configuration definition. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names#names */
+                name?: string;
+            };
+        };
         /** @description Provider is the Schema for the providers API */
         Provider: {
             /**

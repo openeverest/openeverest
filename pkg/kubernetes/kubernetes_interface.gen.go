@@ -248,6 +248,10 @@ type KubernetesConnector interface {
 	UpdateEverestSettings(ctx context.Context, settings common.EverestSettings) error
 	// GetEverestSettings returns Everest settings.
 	GetEverestSettings(ctx context.Context) (common.EverestSettings, error)
+	// ListPlugins returns list of plugins that match the criteria.
+	ListPlugins(ctx context.Context, opts ...ctrlclient.ListOption) (*v1alpha1.PluginList, error)
+	// GetPlugin returns plugin that matches the criteria.
+	GetPlugin(ctx context.Context, key ctrlclient.ObjectKey) (*v1alpha1.Plugin, error)
 	// ListPodSchedulingPolicies returns a list of pod scheduling policy that matches the criteria.
 	// This method returns a list of full objects (meta and spec).
 	ListPodSchedulingPolicies(ctx context.Context, opts ...ctrlclient.ListOption) (*everestv1alpha1.PodSchedulingPolicyList, error)

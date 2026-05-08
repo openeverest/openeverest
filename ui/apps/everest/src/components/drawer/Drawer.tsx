@@ -1,4 +1,4 @@
-import { useContext } from 'react';
+import { useContext, useMemo } from 'react';
 import {
   IconButton,
   List,
@@ -8,10 +8,13 @@ import {
 } from '@mui/material';
 import KeyboardDoubleArrowRightIcon from '@mui/icons-material/KeyboardDoubleArrowRight';
 import KeyboardDoubleArrowLeftIcon from '@mui/icons-material/KeyboardDoubleArrowLeft';
+import ExtensionIcon from '@mui/icons-material/Extension';
 import { DRAWER_WIDTH, ROUTES } from './Drawer.constants';
 import { closedMixin, openedMixin } from './Drawer.utils';
 import { NavItem } from '../nav-item/NavItem';
 import { DrawerContext } from 'contexts/drawer/drawer.context';
+import { usePlugins } from 'contexts/plugins';
+import { EverestRoute } from './Drawer.types';
 
 const DrawerHeader = styled('div')(({ theme }) => ({
   display: 'flex',
@@ -41,6 +44,20 @@ const StyledDrawer = styled(MuiDrawer, {
 
 const DrawerContent = ({ open }: { open: boolean }) => {
   const { toggleOpen, setOpen, activeBreakpoint } = useContext(DrawerContext);
+  const { plugins } = usePlugins();
+
+  const allRoutes: EverestRoute[] = useMemo(() => {
+    const pluginRoutes: EverestRoute[] = plugins.flatMap((plugin) =>
+      plugin.extensions
+        .filter((ext) => ext.type === 'sidebarItem')
+        .map((ext) => ({
+          to: `/plugins/${plugin.name}`,
+          text: ext.label,
+          icon: ExtensionIcon,
+        }))
+    );
+    return [...ROUTES, ...pluginRoutes];
+  }, [plugins]);
 
   return (
     <>
@@ -59,7 +76,7 @@ const DrawerContent = ({ open }: { open: boolean }) => {
         </IconButton>
       </DrawerHeader>
       <List>
-        {ROUTES.map(({ to, icon, text }) => (
+        {allRoutes.map(({ to, icon, text }) => (
           <NavItem
             onClick={() => setOpen(false)}
             to={to}
