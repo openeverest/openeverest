@@ -1,21 +1,7 @@
-// Copyright (C) 2026 The OpenEverest Contributors
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-// http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-
 import { getRBACPolicies, RBACPolicies } from 'api/policies';
-import { Enforcer, newEnforcer, newModelFromString } from 'casbin';
+import { Authorizer } from 'casbin.js';
 
-let enforcer: Enforcer | null = null;
+let authorizer: Authorizer | null = null;
 let username: string = '';
 let policies: RBACPolicies = {
   enabled: false,
@@ -25,11 +11,12 @@ let policies: RBACPolicies = {
 let timeoutId: NodeJS.Timeout;
 
 // We use the observer pattern to notify the authorizer and policies to components/hooks/etc that might need to react on changes
-const observers: Array<(enforcer: Enforcer, policies: RBACPolicies) => void> =
-  [];
+const observers: Array<
+  (authorizer: Authorizer, policies: RBACPolicies) => void
+> = [];
 export const AuthorizerObservable = Object.freeze({
-  notify: (enforcer: Enforcer, policies: RBACPolicies) =>
-    observers.forEach((observer) => observer(enforcer, policies)),
+  notify: (authorizer: Authorizer, policies: RBACPolicies) =>
+    observers.forEach((observer) => observer(authorizer, policies)),
   subscribe: (func: () => void) => observers.push(func),
   unsubscribe: (func: () => void) => {
     [...observers].forEach((observer, index) => {
@@ -56,23 +43,14 @@ export type RBACResource =
   | 'data-import-jobs'
   | 'enginefeatures/split-horizon-dns-configs';
 
-const constructEnforcer = async () => {
-  const model = newModelFromString(policies.m);
-  const e = await newEnforcer(model);
+const constructAuthorizer = async () => {
+  const newAuthorizer = new Authorizer('auto', { endpoint: '/' });
+  newAuthorizer.user = username;
+  await newAuthorizer.initEnforcer(JSON.stringify(policies));
 
-  for (const policyEntry of policies.p) {
-    const arr = policyEntry.map((v: string) => v.trim());
-    const pType = arr.shift();
-    if (pType === 'p') {
-      await e.addPolicy(...arr);
-    } else if (pType === 'g') {
-      await e.addGroupingPolicy(...arr);
-    }
-  }
-
-  enforcer = e;
-  AuthorizerObservable.notify(enforcer, policies);
-  return enforcer;
+  authorizer = newAuthorizer;
+  AuthorizerObservable.notify(authorizer, policies);
+  return authorizer;
 };
 
 const assignPolicies = async () => {
@@ -84,16 +62,16 @@ const assignPolicies = async () => {
     JSON.stringify(newPolicies.p) !== JSON.stringify(policies.p)
   ) {
     policies = newPolicies;
-    constructEnforcer();
+    constructAuthorizer();
   }
 };
 
-export const getEnforcer = async () => {
-  if (!enforcer) {
-    return constructEnforcer();
+export const getAuthorizer = async () => {
+  if (!authorizer) {
+    return constructAuthorizer();
   }
 
-  return enforcer;
+  return authorizer;
 };
 
 export const getPolicies = () => policies;
@@ -120,12 +98,7 @@ export const can = async (
   // Params are inverted because of the way our policies are defined: "sub, res, act, obj" instead of "sub, obj, act"
 ) =>
   policies.enabled
-    ? (await getEnforcer()).enforce(
-        username,
-        specificResource,
-        action,
-        resource
-      )
+    ? (await getAuthorizer()).can(specificResource, action, resource)
     : true;
 
 export const cannot = async (

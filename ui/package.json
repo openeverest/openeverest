@@ -25,7 +25,6 @@
       "react-is": "^18.2.0",
       "body-parser": "^1.20.3",
       "path-to-regexp": "^0.1.10",
-      "_comment": "TODO casbin axios fix https://github.com/apache/casbin-casbin.js/issues/314",
       "casbin.js>axios": "^1.15.1",
       "casbin.js>babel-loader": "9.2.1",
       "babel-loader>webpack": "5.94.0",
