@@ -6,6 +6,11 @@ import (
 	"context"
 
 	goversion "github.com/hashicorp/go-version"
+	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
+	"github.com/openeverest/openeverest/v2/api/core/v1alpha1"
+	monitoringv1alpha2 "github.com/openeverest/openeverest/v2/api/monitoring/v1alpha2"
+	"github.com/openeverest/openeverest/v2/pkg/accounts"
+	"github.com/openeverest/openeverest/v2/pkg/common"
 	olmv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	enginefeaturesv1alpha1 "github.com/percona/everest-operator/api/enginefeatures.everest/v1alpha1"
 	everestv1alpha1 "github.com/percona/everest-operator/api/everest/v1alpha1"
@@ -17,12 +22,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/rest"
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
-
-	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
-	"github.com/openeverest/openeverest/v2/api/core/v1alpha1"
-	monitoringv1alpha2 "github.com/openeverest/openeverest/v2/api/monitoring/v1alpha2"
-	"github.com/openeverest/openeverest/v2/pkg/accounts"
-	"github.com/openeverest/openeverest/v2/pkg/common"
 )
 
 // KubernetesConnector ...
@@ -160,6 +159,12 @@ type KubernetesConnector interface {
 	ListInstanceBackups(ctx context.Context, namespace, instance string) (*backupv1alpha1.BackupList, error)
 	// ListInstanceRestores returns restores performed for the specified instance.
 	ListInstanceRestores(ctx context.Context, namespace, instance string) (*backupv1alpha1.RestoreList, error)
+	// GetRestore returns a specific restore by namespaced name.
+	GetRestore(ctx context.Context, key ctrlclient.ObjectKey) (*backupv1alpha1.Restore, error)
+	// CreateRestore creates a new restore.
+	CreateRestore(ctx context.Context, restore *backupv1alpha1.Restore) (*backupv1alpha1.Restore, error)
+	// DeleteRestore deletes a restore.
+	DeleteRestore(ctx context.Context, obj *backupv1alpha1.Restore) error
 	// GetInstallPlan retrieves an OLM install plan that matches the criteria.
 	GetInstallPlan(ctx context.Context, key ctrlclient.ObjectKey) (*olmv1alpha1.InstallPlan, error)
 	// UpdateInstallPlan updates OLM install plan.

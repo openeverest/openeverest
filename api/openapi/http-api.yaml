@@ -3180,6 +3180,142 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+  '/clusters/{cluster}/namespaces/{namespace}/restores':
+    x-everest-resource-name: restores
+    post:
+      tags:
+        - Restore
+      summary: Create restore
+      description: |
+        This API creates a new restore in the specified namespace and cluster.
+      operationId: createRestore
+      parameters:
+        - name: cluster
+          in: path
+          required: true
+          description: The name of the cluster
+          schema:
+            type: string
+        - name: namespace
+          in: path
+          required: true
+          description: The namespace where the restore will be created
+          schema:
+            type: string
+      requestBody:
+        description: The restore object to be created
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: 'crds.gen.yaml#/components/schemas/Restore'
+      responses:
+        '201':
+          description: Restore created successfully
+          content:
+            application/json:
+              schema:
+                $ref: 'crds.gen.yaml#/components/schemas/Restore'
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  '/clusters/{cluster}/namespaces/{namespace}/restores/{restore}':
+    x-everest-resource-name: restores
+    get:
+      tags:
+        - Restore
+      summary: Get restore
+      description: |
+        This API gets the restore specified by the `restore` name in the specified `namespace` and `cluster`.
+      operationId: getRestore
+      parameters:
+        - name: cluster
+          in: path
+          required: true
+          description: The name of the cluster
+          schema:
+            type: string
+        - name: namespace
+          in: path
+          required: true
+          description: The namespace where the restore is located
+          schema:
+            type: string
+        - name: restore
+          in: path
+          required: true
+          description: The name of the restore
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Restore details
+          content:
+            application/json:
+              schema:
+                $ref: 'crds.gen.yaml#/components/schemas/Restore'
+        '404':
+          description: Restore not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    delete:
+      tags:
+        - Restore
+      summary: Delete restore
+      description: |
+        This API deletes the restore specified by the `restore` name in the specified `namespace` and `cluster`.
+      operationId: deleteRestore
+      parameters:
+        - name: cluster
+          in: path
+          required: true
+          description: The name of the cluster
+          schema:
+            type: string
+        - name: namespace
+          in: path
+          required: true
+          description: The namespace where the restore is located
+          schema:
+            type: string
+        - name: restore
+          in: path
+          required: true
+          description: The name of the restore
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Restore deleted successfully
+          content:
+            application/json:
+              schema:
+                $ref: 'crds.gen.yaml#/components/schemas/Restore'
+        '204':
+          description: Restore deleted successfully
+        '404':
+          description: Restore not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
   '/clusters/{cluster}/namespaces/{namespace}/backup-storages':
     x-everest-resource-name: backup-storages
     post:
