@@ -12,8 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+import { Stack, Typography } from '@mui/material';
+import { ExpandableClampedText } from '@percona/ui-lib';
 import { PreviewContentText } from '../preview-section';
-import { PreviewTruncatedFieldRow } from 'pages/db-cluster-details/cluster-overview/sections/section-edit-modal/preview-truncated-field-row';
 import { orderComponents } from 'components/ui-generator/utils/component-renderer';
 import {
   Component,
@@ -85,11 +86,29 @@ export const renderComponent = (
 
   if (isMultilineText && displayValue !== '-') {
     return (
-      <PreviewTruncatedFieldRow
+      <Stack
         key={uniqueKey}
-        label={label}
-        value={displayValue}
-      />
+        spacing={0.25}
+        data-testid="preview-truncated-field"
+        sx={{ alignItems: 'flex-start', width: '100%' }}
+      >
+        <Typography
+          variant="caption"
+          color="text.secondary"
+          data-testid="preview-truncated-field-label"
+        >
+          {label}:
+        </Typography>
+        <ExpandableClampedText
+          value={displayValue}
+          dataTestId="preview-truncated-field"
+          textTypographyProps={{
+            variant: 'caption',
+            color: 'text.secondary',
+          }}
+          dialogTitle={label}
+        />
+      </Stack>
     );
   }
 

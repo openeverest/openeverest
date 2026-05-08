@@ -78,6 +78,9 @@ export { default as ActionableLabeledContent } from './actionable-labeled-conten
 export * from './code-copy-block';
 export { default as CodeCopyBlock } from './code-copy-block';
 
+export * from './expandable-clamped-text';
+export { default as ExpandableClampedText } from './expandable-clamped-text';
+
 export * from './form/inputs/file';
 export { default as FileInput } from './form/inputs/file';
 
