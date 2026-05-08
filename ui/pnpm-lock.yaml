@@ -8,6 +8,10 @@ overrides:
   react-is: ^18.2.0
   body-parser: ^1.20.3
   path-to-regexp: ^0.1.10
+  casbin.js>axios: ^1.15.1
+  casbin.js>babel-loader: 9.2.1
+  babel-loader>webpack: 5.94.0
+  webpack: 5.94.0
   cross-spawn: 6.0.6
   esbuild: ^0.25.0
   flatted: '>=3.4.2'
@@ -74,9 +78,9 @@ importers:
       axios:
         specifier: ^1.15.1
         version: 1.16.0
-      casbin:
-        specifier: ^5.50.0
-        version: 5.50.0
+      casbin.js:
+        specifier: ^0.5.1
+        version: 0.5.1(webpack@5.94.0)
       cron-parser:
         specifier: ^4.9.0
         version: 4.9.0
@@ -1981,6 +1985,13 @@ packages:
 
   axios@1.16.0:
     resolution: {integrity: sha512-6hp5CwvTPlN2A31g5dxnwAX0orzM7pmCRDLnZSX772mv8WDqICwFjowHuPs04Mc8deIld1+ejhtaMn5vp6b+1w==}
+
+  babel-loader@9.2.1:
+    resolution: {integrity: sha512-fqe8naHt46e0yIdkjUZYqddSXfej3AHajX+CSO5X7oy0EmPc6o5Xh+RClNoHjnieWz9AW4kZxW9yyFMhVB1QLA==}
+    engines: {node: '>= 14.15.0'}
+    peerDependencies:
+      '@babel/core': ^7.12.0
+      webpack: 5.94.0
 
   babel-plugin-macros@3.1.0:
     resolution: {integrity: sha512-Cg7TFGpIr01vOQNODXOOaGz2NpCU5gl8x1qJFbb6hbZxR7XrcE2vtbAsTAbJ7/xwJtUuJEw8K8Zr/AE0LHlesg==}
@@ -6022,6 +6033,13 @@ snapshots:
     transitivePeerDependencies:
       - debug
 
+  babel-loader@9.2.1(@babel/core@7.26.0)(webpack@5.94.0):
+    dependencies:
+      '@babel/core': 7.26.0
+      find-cache-dir: 4.0.0
+      schema-utils: 4.2.0
+      webpack: 5.94.0
+
   babel-plugin-macros@3.1.0:
     dependencies:
       '@babel/runtime': 7.26.0
@@ -6115,8 +6133,21 @@ snapshots:
       '@casbin/expression-eval': 5.3.0
       await-lock: 2.2.2
       buffer: 6.0.3
-      csv-parse: 5.6.0
-      minimatch: 10.2.5
+      expression-eval: 4.0.0
+      minimatch: 5.1.6
+
+  casbin.js@0.5.1(webpack@5.94.0):
+    dependencies:
+      '@babel/core': 7.26.0
+      '@babel/preset-env': 7.26.0(@babel/core@7.26.0)
+      axios: 1.16.0
+      babel-loader: 9.2.1(@babel/core@7.26.0)(webpack@5.94.0)
+      casbin-core: 0.0.0-beta.2
+      js-cookie: 2.2.1
+    transitivePeerDependencies:
+      - debug
+      - supports-color
+      - webpack
 
   chai@5.1.2:
     dependencies:
