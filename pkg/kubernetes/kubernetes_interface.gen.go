@@ -252,6 +252,10 @@ type KubernetesConnector interface {
 	ListPlugins(ctx context.Context, opts ...ctrlclient.ListOption) (*v1alpha1.PluginList, error)
 	// GetPlugin returns plugin that matches the criteria.
 	GetPlugin(ctx context.Context, key ctrlclient.ObjectKey) (*v1alpha1.Plugin, error)
+	// CreatePlugin creates a new plugin.
+	CreatePlugin(ctx context.Context, plugin *v1alpha1.Plugin) (*v1alpha1.Plugin, error)
+	// DeletePlugin deletes a plugin.
+	DeletePlugin(ctx context.Context, obj *v1alpha1.Plugin) error
 	// ListPodSchedulingPolicies returns a list of pod scheduling policy that matches the criteria.
 	// This method returns a list of full objects (meta and spec).
 	ListPodSchedulingPolicies(ctx context.Context, opts ...ctrlclient.ListOption) (*everestv1alpha1.PodSchedulingPolicyList, error)

@@ -39,3 +39,16 @@ func (k *Kubernetes) GetPlugin(ctx context.Context, key ctrlclient.ObjectKey) (*
 	}
 	return result, nil
 }
+
+// CreatePlugin creates a new plugin.
+func (k *Kubernetes) CreatePlugin(ctx context.Context, plugin *v1alpha1.Plugin) (*v1alpha1.Plugin, error) {
+	if err := k.k8sClient.Create(ctx, plugin); err != nil {
+		return nil, err
+	}
+	return plugin, nil
+}
+
+// DeletePlugin deletes a plugin.
+func (k *Kubernetes) DeletePlugin(ctx context.Context, obj *v1alpha1.Plugin) error {
+	return k.k8sClient.Delete(ctx, obj)
+}

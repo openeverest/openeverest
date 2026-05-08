@@ -57,6 +57,7 @@ const (
 	ResourcePodSchedulingPolicies      = "pod-scheduling-policies"
 	ResourceDataImporters              = "data-importers"
 	ResourceDataImportJobs             = "data-import-jobs"
+	ResourcePlugins                    = "plugins"
 
 	// Engine Features resources
 
@@ -69,6 +70,7 @@ var GlobalResources = []string{
 	ResourcePodSchedulingPolicies,
 	ResourceLoadBalancerConfigs,
 	ResourceDataImporters,
+	ResourcePlugins,
 }
 
 func IsGlobalResource(resource string) bool {
