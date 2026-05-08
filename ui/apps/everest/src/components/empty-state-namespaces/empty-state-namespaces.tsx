@@ -30,7 +30,7 @@ const EmptyStateNamespaces = () => {
           />
           <CommandInstructions
             message="If you are using Helm, run the following command:"
-            command="helm install everest percona/everest-db-namespace --create-namespace --namespace <NAMESPACE>"
+            command="helm install everest openeverest/everest-db-namespace --create-namespace --namespace <NAMESPACE>"
           />
         </>
       }
