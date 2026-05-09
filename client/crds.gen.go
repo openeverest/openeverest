@@ -1286,6 +1286,20 @@ type Plugin struct {
 		// this as /v1/plugins/<name>/<bundlePath> for the UI to import().
 		BundlePath *string `json:"bundlePath,omitempty"`
 
+		// Cli CLI defines an optional CLI contribution. When set, `everestctl plugin run`
+		// can exec a container from the specified image.
+		Cli *struct {
+			// Description Description is a short human-readable description for the CLI help text.
+			Description *string `json:"description,omitempty"`
+
+			// Image Image is the OCI image reference for the CLI container.
+			Image string `json:"image"`
+
+			// Subcommand Subcommand is the name used under `everestctl plugin run <subcommand>`.
+			// Defaults to the plugin name if not set.
+			Subcommand *string `json:"subcommand,omitempty"`
+		} `json:"cli,omitempty"`
+
 		// DisplayName DisplayName is the human-readable name shown in the UI sidebar.
 		DisplayName string `json:"displayName"`
 

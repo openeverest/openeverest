@@ -22,8 +22,64 @@ export interface SidebarExtension {
   icon?: string;
 }
 
+/** An extra tab on the database instance detail page. */
+export interface ClusterDetailTabExtension {
+  type: "clusterDetailTab";
+  /** Tab label text. */
+  label: string;
+  /** URL-safe slug used as the tab route segment (e.g. "query" → /databases/:ns/:name/query). */
+  path: string;
+  /** The component rendered when the tab is active. Receives ClusterDetailTabProps. */
+  component: ComponentType<ClusterDetailTabProps>;
+}
+
+/** A context-menu action in the databases table row. */
+export interface ClusterActionExtension {
+  type: "clusterAction";
+  /** Action label text shown in the menu. */
+  label: string;
+  /** The component rendered when the action is triggered. Receives ClusterActionProps. */
+  component: ComponentType<ClusterActionProps>;
+}
+
+/** A widget card on the cluster overview page. */
+export interface ClusterCardExtension {
+  type: "clusterCard";
+  /** Card title. */
+  label: string;
+  /** The component rendered inside the card. Receives ClusterCardProps. */
+  component: ComponentType<ClusterCardProps>;
+}
+
+/** A card on the home / dashboard page. */
+export interface GlobalDashboardWidgetExtension {
+  type: "globalDashboardWidget";
+  /** Widget card title. */
+  label: string;
+  /** The component rendered inside the widget. Receives GlobalDashboardWidgetProps. */
+  component: ComponentType<GlobalDashboardWidgetProps>;
+}
+
+/** An extra tab inside the Settings page. */
+export interface SettingsPanelExtension {
+  type: "settingsPanel";
+  /** Tab label text. */
+  label: string;
+  /** URL-safe slug used as the settings tab route segment. */
+  path: string;
+  /** The component rendered when the tab is active. Receives SettingsPanelProps. */
+  component: ComponentType<SettingsPanelProps>;
+}
+
 /** Union of all supported extension types. */
-export type Extension = RouteExtension | SidebarExtension;
+export type Extension =
+  | RouteExtension
+  | SidebarExtension
+  | ClusterDetailTabExtension
+  | ClusterActionExtension
+  | ClusterCardExtension
+  | GlobalDashboardWidgetExtension
+  | SettingsPanelExtension;
 
 // ---------------------------------------------------------------------------
 // Props passed to plugin-provided components
@@ -35,6 +91,46 @@ export interface PluginRouteProps {
   pluginName: string;
   /** The wildcard sub-path after /plugins/<pluginName>/. */
   subPath?: string;
+}
+
+/** Props injected into a clusterDetailTab component. */
+export interface ClusterDetailTabProps {
+  /** The Instance resource. */
+  cluster: unknown;
+  /** Kubernetes namespace the instance lives in. */
+  namespace: string;
+  /** Instance name. */
+  instanceName: string;
+}
+
+/** Props injected into a clusterAction component. */
+export interface ClusterActionProps {
+  /** The Instance resource. */
+  cluster: unknown;
+  /** Kubernetes namespace. */
+  namespace: string;
+  /** Callback to close the action modal/popover. */
+  onClose: () => void;
+}
+
+/** Props injected into a clusterCard component. */
+export interface ClusterCardProps {
+  /** The Instance resource. */
+  cluster: unknown;
+  /** Kubernetes namespace. */
+  namespace: string;
+}
+
+/** Props injected into a globalDashboardWidget component. */
+export interface GlobalDashboardWidgetProps {
+  /** Namespaces the current user has access to. */
+  namespaces: string[];
+}
+
+/** Props injected into a settingsPanel component. */
+export interface SettingsPanelProps {
+  /** Currently logged-in user identifier. */
+  currentUser: string;
 }
 
 // ---------------------------------------------------------------------------

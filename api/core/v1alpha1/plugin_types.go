@@ -42,6 +42,27 @@ type PluginSpec struct {
 	// +optional
 	// +kubebuilder:default=true
 	Enabled bool `json:"enabled,omitempty"`
+
+	// CLI defines an optional CLI contribution. When set, `everestctl plugin run`
+	// can exec a container from the specified image.
+	// +optional
+	CLI *PluginCLI `json:"cli,omitempty"`
+}
+
+// PluginCLI describes the CLI contribution of a plugin.
+type PluginCLI struct {
+	// Image is the OCI image reference for the CLI container.
+	// +required
+	Image string `json:"image"`
+
+	// Subcommand is the name used under `everestctl plugin run <subcommand>`.
+	// Defaults to the plugin name if not set.
+	// +optional
+	Subcommand string `json:"subcommand,omitempty"`
+
+	// Description is a short human-readable description for the CLI help text.
+	// +optional
+	Description string `json:"description,omitempty"`
 }
 
 // PluginStatus defines the observed state of a Plugin.

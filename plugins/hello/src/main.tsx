@@ -1,4 +1,13 @@
-import type { PluginRegisterFn, PluginApi, PluginRouteProps } from '@openeverest/plugin-sdk';
+import type {
+  PluginRegisterFn,
+  PluginApi,
+  PluginRouteProps,
+  ClusterDetailTabProps,
+  ClusterActionProps,
+  ClusterCardProps,
+  GlobalDashboardWidgetProps,
+  SettingsPanelProps,
+} from '@openeverest/plugin-sdk';
 
 // The plugin receives React from the host via the register API
 // to avoid duplicate React instances and bare-specifier import issues.
@@ -132,6 +141,65 @@ const HelloPage = (props: PluginRouteProps) => {
   );
 };
 
+// --- Phase 4 extension point demos ---
+
+const HelloClusterTab = (props: ClusterDetailTabProps) => {
+  return React.createElement('div', { style: { padding: '1rem' } },
+    React.createElement('h3', null, '👋 Hello Tab'),
+    React.createElement('p', null, `Instance: ${props.instanceName}`),
+    React.createElement('p', null, `Namespace: ${props.namespace}`),
+    React.createElement('pre', { style: { fontSize: '0.75rem', background: '#f5f5f5', padding: '0.5rem', borderRadius: 4, overflow: 'auto', maxHeight: 200 } },
+      JSON.stringify(props.cluster, null, 2),
+    ),
+  );
+};
+
+const HelloClusterAction = (props: ClusterActionProps) => {
+  return React.createElement('div', { style: { padding: '1rem' } },
+    React.createElement('h3', null, '👋 Hello Action'),
+    React.createElement('p', null, `Namespace: ${props.namespace}`),
+    React.createElement('p', null, 'This dialog was triggered from the cluster actions menu.'),
+    React.createElement('button', {
+      onClick: props.onClose,
+      style: { marginTop: '1rem', padding: '0.5rem 1rem', cursor: 'pointer' },
+    }, 'Close'),
+  );
+};
+
+const HelloClusterCard = (props: ClusterCardProps) => {
+  return React.createElement('div', null,
+    React.createElement('p', { style: { margin: 0 } },
+      `Namespace: ${props.namespace}`,
+    ),
+    React.createElement('p', { style: { margin: '0.25rem 0', color: '#666', fontSize: '0.875rem' } },
+      'This card is contributed by the Hello plugin.',
+    ),
+  );
+};
+
+const HelloDashboardWidget = (props: GlobalDashboardWidgetProps) => {
+  return React.createElement('div', null,
+    React.createElement('p', { style: { margin: 0 } },
+      `Accessible namespaces: ${props.namespaces.length}`,
+    ),
+    React.createElement('ul', { style: { margin: '0.5rem 0', paddingLeft: '1.25rem' } },
+      ...props.namespaces.map((ns) =>
+        React.createElement('li', { key: ns, style: { fontSize: '0.875rem' } }, ns),
+      ),
+    ),
+  );
+};
+
+const HelloSettingsPanel = (_props: SettingsPanelProps) => {
+  return React.createElement('div', { style: { padding: '1rem' } },
+    React.createElement('h3', null, '👋 Hello Settings'),
+    React.createElement('p', null, 'This settings tab is contributed by the Hello plugin.'),
+    React.createElement('p', { style: { color: '#666' } },
+      'Plugin settings and configuration would go here.',
+    ),
+  );
+};
+
 const register: PluginRegisterFn = (api: PluginApi) => {
   React = api.React;
 
@@ -144,6 +212,38 @@ const register: PluginRegisterFn = (api: PluginApi) => {
     type: 'route',
     label: 'Hello Plugin',
     component: HelloPage,
+  });
+
+  api.registerExtension({
+    type: 'clusterDetailTab',
+    label: 'Hello',
+    path: 'hello',
+    component: HelloClusterTab,
+  });
+
+  api.registerExtension({
+    type: 'clusterAction',
+    label: 'Hello Action',
+    component: HelloClusterAction,
+  });
+
+  api.registerExtension({
+    type: 'clusterCard',
+    label: 'Hello Card',
+    component: HelloClusterCard,
+  });
+
+  api.registerExtension({
+    type: 'globalDashboardWidget',
+    label: 'Hello Widget',
+    component: HelloDashboardWidget,
+  });
+
+  api.registerExtension({
+    type: 'settingsPanel',
+    label: 'Hello',
+    path: 'hello',
+    component: HelloSettingsPanel,
   });
 };
 

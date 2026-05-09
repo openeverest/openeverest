@@ -16,6 +16,8 @@ import { Navigate, createBrowserRouter } from 'react-router-dom';
 import ProtectedRoute from 'components/protected-route/ProtectedRoute';
 import { Main } from 'components/main/Main';
 import PluginHost from 'components/plugin-host/PluginHost';
+import PluginTabHost from 'components/plugin-host/PluginTabHost';
+import PluginSettingsHost from 'components/plugin-host/PluginSettingsHost';
 import { DBClusterDetailsTabs } from 'pages/db-cluster-details/db-cluster-details.types';
 import { SettingsTabs } from 'pages/settings/settings.types';
 import { DbInstanceContextProvider } from 'pages/db-cluster-details/dbCluster.context';
@@ -109,6 +111,11 @@ const router = createBrowserRouter([
           //   path: DBClusterDetailsTabs.logs,
           //   element: withSuspense(<Logs />),
           // },
+          // Catch-all for plugin-contributed clusterDetailTab extensions.
+          {
+            path: ':tabs',
+            element: <PluginTabHost />,
+          },
         ],
       },
       {
@@ -134,6 +141,11 @@ const router = createBrowserRouter([
           {
             path: SettingsTabs.policies,
             element: withSuspense(<Policies />),
+          },
+          // Catch-all for plugin-contributed settingsPanel extensions.
+          {
+            path: ':tabs',
+            element: <PluginSettingsHost />,
           },
         ],
       },

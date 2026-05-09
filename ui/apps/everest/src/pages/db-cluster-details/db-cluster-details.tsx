@@ -26,7 +26,7 @@ import { NoMatch } from '../404/NoMatch';
 import BackNavigationText from 'components/back-navigation-text';
 import { DBClusterDetailsTabs } from './db-cluster-details.types';
 import { DbInstanceContext } from './dbCluster.context';
-import { useContext } from 'react';
+import { useContext, useMemo } from 'react';
 import DbActions from 'components/db-actions/db-actions';
 import { Messages } from './db-cluster-details.messages';
 import StatusField from 'components/status-field';
@@ -36,6 +36,8 @@ import {
   DB_INSTANCE_UNKNOWN_PHASE,
   DbInstancePhase,
 } from 'shared-types/instance.types';
+import { usePlugins } from 'contexts/plugins';
+import type { ClusterDetailTabExtension } from '@openeverest/plugin-sdk';
 
 const WithPermissionDetails = ({
   instanceName,
@@ -63,6 +65,18 @@ const WithPermissionDetails = ({
   const tabs = Object.keys(DBClusterDetailsTabs) as Array<
     keyof typeof DBClusterDetailsTabs
   >;
+
+  // Collect clusterDetailTab extensions from all plugins.
+  const { plugins } = usePlugins();
+  const pluginTabs = useMemo(
+    () =>
+      plugins.flatMap((p) =>
+        p.extensions
+          .filter((ext): ext is ClusterDetailTabExtension => ext.type === 'clusterDetailTab')
+          .map((ext) => ({ pluginName: p.name, ...ext })),
+      ),
+    [plugins],
+  );
 
   return (
     <>
@@ -121,6 +135,16 @@ const WithPermissionDetails = ({
                 to={DBClusterDetailsTabs[item]}
                 component={Link}
                 data-testid={`${DBClusterDetailsTabs[item]}`}
+              />
+            ))}
+            {pluginTabs.map((pt) => (
+              <Tab
+                label={pt.label}
+                key={`plugin-${pt.pluginName}-${pt.path}`}
+                value={pt.path}
+                to={pt.path}
+                component={Link}
+                data-testid={`plugin-tab-${pt.path}`}
               />
             ))}
           </Tabs>

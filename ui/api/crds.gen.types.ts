@@ -1054,6 +1054,21 @@ export interface components {
                  * @default /main.js
                  */
                 bundlePath: string;
+                /**
+                 * @description CLI defines an optional CLI contribution. When set, `everestctl plugin run`
+                 *     can exec a container from the specified image.
+                 */
+                cli?: {
+                    /** @description Description is a short human-readable description for the CLI help text. */
+                    description?: string;
+                    /** @description Image is the OCI image reference for the CLI container. */
+                    image: string;
+                    /**
+                     * @description Subcommand is the name used under `everestctl plugin run <subcommand>`.
+                     *     Defaults to the plugin name if not set.
+                     */
+                    subcommand?: string;
+                };
                 /** @description DisplayName is the human-readable name shown in the UI sidebar. */
                 displayName: string;
                 /**

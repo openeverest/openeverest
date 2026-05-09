@@ -14,7 +14,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { Box, Stack } from '@mui/material';
+import { Box, Card, CardContent, CardHeader, Stack } from '@mui/material';
 import { PendingIcon, Table } from '@percona/ui-lib';
 import StatusField from 'components/status-field';
 import { useNamespaces } from 'hooks/api/namespaces/useNamespaces';
@@ -37,6 +37,9 @@ import {
   DbInstancePhaseValues,
   DbInstancePhase,
 } from 'shared-types/instance.types';
+import { usePlugins } from 'contexts/plugins';
+import type { GlobalDashboardWidgetExtension } from '@openeverest/plugin-sdk';
+import PluginErrorBoundary from 'components/plugin-host/PluginErrorBoundary';
 
 export const DbClusterView = () => {
   const { data: namespaces = [], isLoading: loadingNamespaces } = useNamespaces(
@@ -170,8 +173,49 @@ export const DbClusterView = () => {
     ],
     []
   );
+
+  // Collect plugin globalDashboardWidget extensions.
+  const { plugins } = usePlugins();
+  const dashboardWidgets = useMemo(
+    () =>
+      plugins.flatMap((p) =>
+        p.extensions
+          .filter(
+            (ext): ext is GlobalDashboardWidgetExtension =>
+              ext.type === 'globalDashboardWidget',
+          )
+          .map((ext) => ({ pluginName: p.name, ext })),
+      ),
+    [plugins],
+  );
+
   return (
     <Stack direction="column" alignItems="center">
+      {dashboardWidgets.length > 0 && (
+        <Box
+          sx={{
+            width: '100%',
+            display: 'grid',
+            gridTemplateColumns: { xs: '1fr', md: 'repeat(2, 1fr)', xl: 'repeat(3, 1fr)' },
+            gap: 2,
+            mb: 2,
+          }}
+        >
+          {dashboardWidgets.map((w) => {
+            const WidgetComponent = w.ext.component;
+            return (
+              <Card key={`widget-${w.pluginName}-${w.ext.label}`} variant="outlined">
+                <CardHeader title={w.ext.label} titleTypographyProps={{ variant: 'subtitle1' }} />
+                <CardContent>
+                  <PluginErrorBoundary pluginName={w.pluginName}>
+                    <WidgetComponent namespaces={namespaces} />
+                  </PluginErrorBoundary>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </Box>
+      )}
       <Box sx={{ width: '100%' }}>
         <Table
           getRowId={(row) => row.instanceName}
