@@ -1102,6 +1102,96 @@ export interface components {
                 }[];
             };
         };
+        /**
+         * @description PluginInstallation enables a Plugin within a specific namespace and holds
+         *     per-tenant configuration. Multiple PluginInstallations for the same plugin
+         *     allow per-team configuration.
+         */
+        PluginInstallation: {
+            /**
+             * @description APIVersion defines the versioned schema of this representation of an object.
+             *     Servers should convert recognized schemas to the latest internal value, and
+             *     may reject unrecognized values.
+             *     More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+             */
+            apiVersion?: string;
+            /**
+             * @description Kind is a string value representing the REST resource this object represents.
+             *     Servers may infer this from the endpoint the client submits requests to.
+             *     Cannot be updated.
+             *     In CamelCase.
+             *     More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+             */
+            kind?: string;
+            metadata?: Record<string, never>;
+            /** @description PluginInstallationSpec defines the desired state of a PluginInstallation. */
+            spec: {
+                /**
+                 * @description ConfigSecretRef is an optional reference to a Secret in the same namespace
+                 *     that holds plugin-specific configuration (mounted as env vars in the backend).
+                 */
+                configSecretRef?: string;
+                /**
+                 * @description Enabled controls whether the plugin is active in this namespace.
+                 * @default true
+                 */
+                enabled: boolean;
+                /** @description PluginName references the cluster-scoped Plugin CR by name. */
+                pluginName: string;
+            };
+            /** @description PluginInstallationStatus defines the observed state of a PluginInstallation. */
+            status?: {
+                conditions?: {
+                    /**
+                     * Format: date-time
+                     * @description lastTransitionTime is the last time the condition transitioned from one status to another.
+                     *     This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                     */
+                    lastTransitionTime: string;
+                    /**
+                     * @description message is a human readable message indicating details about the transition.
+                     *     This may be an empty string.
+                     */
+                    message: string;
+                    /**
+                     * Format: int64
+                     * @description observedGeneration represents the .metadata.generation that the condition was set based upon.
+                     *     For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                     *     with respect to the current state of the instance.
+                     */
+                    observedGeneration?: number;
+                    /**
+                     * @description reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                     *     Producers of specific condition types may define expected values and meanings for this field,
+                     *     and whether the values are considered a guaranteed API.
+                     *     The value should be a CamelCase string.
+                     *     This field may not be empty.
+                     */
+                    reason: string;
+                    /**
+                     * @description status of the condition, one of True, False, Unknown.
+                     * @enum {string}
+                     */
+                    status: "True" | "False" | "Unknown";
+                    /** @description type of condition in CamelCase or in foo.example.com/CamelCase. */
+                    type: string;
+                }[];
+            };
+        };
+        /** @description PluginInstallationList is an object that contains the list of the existing plugininstallations. */
+        PluginInstallationList: {
+            /** @description APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources */
+            apiVersion?: string;
+            items?: components["schemas"]["PluginInstallation"][];
+            /** @description Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds */
+            kind?: string;
+            metadata?: {
+                /** @description Name must be unique within a namespace. Is required when creating resources, although some resources may allow a client to request the generation of an appropriate name automatically. Name is primarily intended for creation idempotence and configuration definition. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names#names */
+                name?: string;
+                /** @description Namespace defines the space within which each name must be unique. An empty namespace is equivalent to the "default" namespace, but "default" is the canonical representation. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces */
+                namespace?: string;
+            };
+        };
         /** @description PluginList is an object that contains the list of the existing plugins. */
         PluginList: {
             /** @description APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources */

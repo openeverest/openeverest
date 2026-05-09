@@ -60,6 +60,12 @@ func (h *rbacHandler) enforce(
 		return err
 	}
 
+	// Hard denylist: plugin daemon tokens cannot write to spec-001 resources.
+	if rbac.IsPluginWriteDenied(user.Subject, resource, action) {
+		h.log.Warnf("Plugin write denied: [%s %s %s %s]", user.Subject, resource, action, object)
+		return ErrInsufficientPermissions
+	}
+
 	// User is allowed to perform the operation if the user's subject or any
 	// of its groups have the required permission.
 	for _, sub := range append([]string{user.Subject}, user.Groups...) {

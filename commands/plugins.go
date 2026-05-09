@@ -35,4 +35,6 @@ func init() {
 	pluginsCmd.AddCommand(plugins.GetListCmd())
 	pluginsCmd.AddCommand(plugins.GetInstallCmd())
 	pluginsCmd.AddCommand(plugins.GetUninstallCmd())
+	pluginsCmd.AddCommand(plugins.GetEnableCmd())
+	pluginsCmd.AddCommand(plugins.GetDisableCmd())
 }

@@ -15,16 +15,20 @@
 package server
 
 import (
+	"context"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
 	"path"
 	"strings"
 
+	"github.com/casbin/casbin/v2"
 	"github.com/labstack/echo/v4"
+	"go.uber.org/zap"
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/openeverest/openeverest/v2/pkg/kubernetes"
+	"github.com/openeverest/openeverest/v2/pkg/rbac"
 )
 
 // pluginProxy handles plugin discovery and reverse-proxying.
@@ -32,10 +36,33 @@ import (
 // so newly created/deleted CRs take effect immediately.
 type pluginProxy struct {
 	kubeConnector kubernetes.KubernetesConnector
+	enforcer      casbin.IEnforcer
 }
 
-func newPluginProxy(kc kubernetes.KubernetesConnector) *pluginProxy {
-	return &pluginProxy{kubeConnector: kc}
+func newPluginProxy(ctx context.Context, log *zap.SugaredLogger, kc kubernetes.KubernetesConnector) (*pluginProxy, error) {
+	enf, err := rbac.NewEnforcerWithRefresh(ctx, kc, log)
+	if err != nil {
+		return nil, err
+	}
+	return &pluginProxy{kubeConnector: kc, enforcer: enf}, nil
+}
+
+// checkPluginAccess verifies the caller has "read" permission on the "plugins" resource.
+func (pp *pluginProxy) checkPluginAccess(c echo.Context) error {
+	user, err := rbac.GetUser(c.Request().Context())
+	if err != nil {
+		return echo.NewHTTPError(http.StatusUnauthorized, "unauthorized")
+	}
+	for _, sub := range append([]string{user.Subject}, user.Groups...) {
+		ok, err := pp.enforcer.Enforce(sub, rbac.ResourcePlugins, rbac.ActionRead, "*")
+		if err != nil {
+			return echo.NewHTTPError(http.StatusInternalServerError, "rbac error")
+		}
+		if ok {
+			return nil
+		}
+	}
+	return echo.NewHTTPError(http.StatusForbidden, "insufficient permissions")
 }
 
 // listPluginsHandler returns the list of enabled plugins as JSON.
@@ -43,6 +70,10 @@ func newPluginProxy(kc kubernetes.KubernetesConnector) *pluginProxy {
 // The bundleUrl is a relative path that goes through the server's reverse proxy,
 // so the browser never needs direct access to the plugin backend.
 func (pp *pluginProxy) listPluginsHandler(c echo.Context) error {
+	if err := pp.checkPluginAccess(c); err != nil {
+		return err
+	}
+
 	type pluginDescriptor struct {
 		Name        string `json:"name"`
 		DisplayName string `json:"displayName"`
@@ -74,10 +105,24 @@ func (pp *pluginProxy) listPluginsHandler(c echo.Context) error {
 	return c.JSON(http.StatusOK, descriptors)
 }
 
-// proxyHandler reverse-proxies requests to a plugin's backend.
-// It looks up the Plugin CR by name on each request.
+// proxyHandler reverse-proxies requests to a plugin's backend (no RBAC).
+// Used for unauthenticated bundle serving.
 // Route: /v1/plugins/:name/*
 func (pp *pluginProxy) proxyHandler(c echo.Context) error {
+	return pp.doProxy(c)
+}
+
+// authedProxyHandler reverse-proxies requests to a plugin's backend with RBAC.
+// Route: /v1/plugins/:name (JWT-protected group)
+func (pp *pluginProxy) authedProxyHandler(c echo.Context) error {
+	if err := pp.checkPluginAccess(c); err != nil {
+		return err
+	}
+	return pp.doProxy(c)
+}
+
+// doProxy performs the actual reverse proxy to a plugin backend.
+func (pp *pluginProxy) doProxy(c echo.Context) error {
 	name := c.Param("name")
 
 	plugin, err := pp.kubeConnector.GetPlugin(c.Request().Context(), pluginKey(name))

@@ -206,6 +206,27 @@ func (e PluginStatusConditionsStatus) Valid() bool {
 	}
 }
 
+// Defines values for PluginInstallationStatusConditionsStatus.
+const (
+	PluginInstallationStatusConditionsStatusFalse   PluginInstallationStatusConditionsStatus = "False"
+	PluginInstallationStatusConditionsStatusTrue    PluginInstallationStatusConditionsStatus = "True"
+	PluginInstallationStatusConditionsStatusUnknown PluginInstallationStatusConditionsStatus = "Unknown"
+)
+
+// Valid indicates whether the value is a known member of the PluginInstallationStatusConditionsStatus enum.
+func (e PluginInstallationStatusConditionsStatus) Valid() bool {
+	switch e {
+	case PluginInstallationStatusConditionsStatusFalse:
+		return true
+	case PluginInstallationStatusConditionsStatusTrue:
+		return true
+	case PluginInstallationStatusConditionsStatusUnknown:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ProviderStatusConditionsStatus.
 const (
 	ProviderStatusConditionsStatusFalse   ProviderStatusConditionsStatus = "False"
@@ -1307,6 +1328,89 @@ type Plugin struct {
 
 // PluginStatusConditionsStatus status of the condition, one of True, False, Unknown.
 type PluginStatusConditionsStatus string
+
+// PluginInstallation PluginInstallation enables a Plugin within a specific namespace and holds
+// per-tenant configuration. Multiple PluginInstallations for the same plugin
+// allow per-team configuration.
+type PluginInstallation struct {
+	// ApiVersion APIVersion defines the versioned schema of this representation of an object.
+	// Servers should convert recognized schemas to the latest internal value, and
+	// may reject unrecognized values.
+	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+	ApiVersion *string `json:"apiVersion,omitempty"`
+
+	// Kind Kind is a string value representing the REST resource this object represents.
+	// Servers may infer this from the endpoint the client submits requests to.
+	// Cannot be updated.
+	// In CamelCase.
+	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+	Kind     *string                 `json:"kind,omitempty"`
+	Metadata *map[string]interface{} `json:"metadata,omitempty"`
+
+	// Spec PluginInstallationSpec defines the desired state of a PluginInstallation.
+	Spec struct {
+		// ConfigSecretRef ConfigSecretRef is an optional reference to a Secret in the same namespace
+		// that holds plugin-specific configuration (mounted as env vars in the backend).
+		ConfigSecretRef *string `json:"configSecretRef,omitempty"`
+
+		// Enabled Enabled controls whether the plugin is active in this namespace.
+		Enabled *bool `json:"enabled,omitempty"`
+
+		// PluginName PluginName references the cluster-scoped Plugin CR by name.
+		PluginName string `json:"pluginName"`
+	} `json:"spec"`
+
+	// Status PluginInstallationStatus defines the observed state of a PluginInstallation.
+	Status *struct {
+		Conditions *[]struct {
+			// LastTransitionTime lastTransitionTime is the last time the condition transitioned from one status to another.
+			// This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+			LastTransitionTime time.Time `json:"lastTransitionTime"`
+
+			// Message message is a human readable message indicating details about the transition.
+			// This may be an empty string.
+			Message string `json:"message"`
+
+			// ObservedGeneration observedGeneration represents the .metadata.generation that the condition was set based upon.
+			// For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+			// with respect to the current state of the instance.
+			ObservedGeneration *int64 `json:"observedGeneration,omitempty"`
+
+			// Reason reason contains a programmatic identifier indicating the reason for the condition's last transition.
+			// Producers of specific condition types may define expected values and meanings for this field,
+			// and whether the values are considered a guaranteed API.
+			// The value should be a CamelCase string.
+			// This field may not be empty.
+			Reason string `json:"reason"`
+
+			// Status status of the condition, one of True, False, Unknown.
+			Status PluginInstallationStatusConditionsStatus `json:"status"`
+
+			// Type type of condition in CamelCase or in foo.example.com/CamelCase.
+			Type string `json:"type"`
+		} `json:"conditions,omitempty"`
+	} `json:"status,omitempty"`
+}
+
+// PluginInstallationStatusConditionsStatus status of the condition, one of True, False, Unknown.
+type PluginInstallationStatusConditionsStatus string
+
+// PluginInstallationList PluginInstallationList is an object that contains the list of the existing plugininstallations.
+type PluginInstallationList struct {
+	// ApiVersion APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+	ApiVersion *string               `json:"apiVersion,omitempty"`
+	Items      *[]PluginInstallation `json:"items,omitempty"`
+
+	// Kind Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+	Kind     *string `json:"kind,omitempty"`
+	Metadata *struct {
+		// Name Name must be unique within a namespace. Is required when creating resources, although some resources may allow a client to request the generation of an appropriate name automatically. Name is primarily intended for creation idempotence and configuration definition. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names#names
+		Name *string `json:"name,omitempty"`
+
+		// Namespace Namespace defines the space within which each name must be unique. An empty namespace is equivalent to the "default" namespace, but "default" is the canonical representation. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces
+		Namespace *string `json:"namespace,omitempty"`
+	} `json:"metadata,omitempty"`
+}
 
 // PluginList PluginList is an object that contains the list of the existing plugins.
 type PluginList struct {

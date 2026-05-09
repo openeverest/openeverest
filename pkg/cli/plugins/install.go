@@ -17,9 +17,14 @@ package plugins
 import (
 	"context"
 	"fmt"
+	"io"
+	"net/http"
+	"os"
+	"strings"
 
 	"go.uber.org/zap"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/yaml"
 
 	"github.com/openeverest/openeverest/v2/api/core/v1alpha1"
 	cliutils "github.com/openeverest/openeverest/v2/pkg/cli/utils"
@@ -30,11 +35,14 @@ import (
 type InstallConfig struct {
 	KubeconfigPath string
 	Pretty         bool
-	Name           string
-	DisplayName    string
-	BackendURL     string
-	BundlePath     string
-	Enabled        bool
+	// File is a path or URL to a Plugin CR YAML manifest.
+	File string
+	// Inline flags (used when -f is not provided).
+	Name        string
+	DisplayName string
+	BackendURL  string
+	BundlePath  string
+	Enabled     bool
 }
 
 // PluginInstaller installs a plugin by creating a Plugin CR.
@@ -64,32 +72,79 @@ func NewPluginInstaller(cfg InstallConfig, l *zap.SugaredLogger) (*PluginInstall
 
 // Run creates the Plugin CR.
 func (pi *PluginInstaller) Run(ctx context.Context) error {
-	displayName := pi.cfg.DisplayName
-	if displayName == "" {
-		displayName = pi.cfg.Name
+	var plugin *v1alpha1.Plugin
+
+	if pi.cfg.File != "" {
+		p, err := readPluginManifest(pi.cfg.File)
+		if err != nil {
+			return fmt.Errorf("cannot read plugin manifest: %w", err)
+		}
+		plugin = p
+	} else {
+		displayName := pi.cfg.DisplayName
+		if displayName == "" {
+			displayName = pi.cfg.Name
+		}
+
+		bundlePath := pi.cfg.BundlePath
+		if bundlePath == "" {
+			bundlePath = "/main.js"
+		}
+
+		plugin = &v1alpha1.Plugin{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: pi.cfg.Name,
+			},
+			Spec: v1alpha1.PluginSpec{
+				DisplayName: displayName,
+				BackendURL:  pi.cfg.BackendURL,
+				BundlePath:  bundlePath,
+				Enabled:     pi.cfg.Enabled,
+			},
+		}
 	}
 
-	bundlePath := pi.cfg.BundlePath
-	if bundlePath == "" {
-		bundlePath = "/main.js"
+	if plugin.Name == "" {
+		return fmt.Errorf("plugin name is required (set metadata.name in the manifest or use --name)")
 	}
-
-	plugin := &v1alpha1.Plugin{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: pi.cfg.Name,
-		},
-		Spec: v1alpha1.PluginSpec{
-			DisplayName: displayName,
-			BackendURL:  pi.cfg.BackendURL,
-			BundlePath:  bundlePath,
-			Enabled:     pi.cfg.Enabled,
-		},
+	if plugin.Spec.BackendURL == "" {
+		return fmt.Errorf("backend URL is required (set spec.backendUrl in the manifest or use --backend-url)")
 	}
 
 	if _, err := pi.kubeClient.CreatePlugin(ctx, plugin); err != nil {
-		return fmt.Errorf("cannot install plugin %q: %w", pi.cfg.Name, err)
+		return fmt.Errorf("cannot install plugin %q: %w", plugin.Name, err)
 	}
 
-	fmt.Printf("Plugin %q installed successfully.\n", pi.cfg.Name)
+	fmt.Printf("Plugin %q installed successfully.\n", plugin.Name)
 	return nil
+}
+
+// readPluginManifest reads a Plugin CR from a local file path or URL.
+func readPluginManifest(source string) (*v1alpha1.Plugin, error) {
+	var data []byte
+	var err error
+
+	if strings.HasPrefix(source, "http://") || strings.HasPrefix(source, "https://") {
+		resp, httpErr := http.Get(source) //nolint:gosec,noctx
+		if httpErr != nil {
+			return nil, fmt.Errorf("failed to fetch %s: %w", source, httpErr)
+		}
+		defer resp.Body.Close() //nolint:errcheck
+		if resp.StatusCode != http.StatusOK {
+			return nil, fmt.Errorf("failed to fetch %s: HTTP %d", source, resp.StatusCode)
+		}
+		data, err = io.ReadAll(resp.Body)
+	} else {
+		data, err = os.ReadFile(source) //nolint:gosec
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	plugin := &v1alpha1.Plugin{}
+	if err := yaml.UnmarshalStrict(data, plugin); err != nil {
+		return nil, fmt.Errorf("invalid plugin manifest: %w", err)
+	}
+
+	return plugin, nil
 }

@@ -52,6 +52,7 @@ import (
 	valhandler "github.com/openeverest/openeverest/v2/internal/server/handlers/validation"
 	"github.com/openeverest/openeverest/v2/pkg/accounts"
 	"github.com/openeverest/openeverest/v2/pkg/common"
+	"github.com/openeverest/openeverest/v2/pkg/events"
 	"github.com/openeverest/openeverest/v2/pkg/kubernetes"
 	"github.com/openeverest/openeverest/v2/pkg/oidc"
 	"github.com/openeverest/openeverest/v2/pkg/session"
@@ -69,6 +70,7 @@ type EverestServer struct {
 	attemptsStore *RateLimiterMemoryStore
 	handler       handlers.Handler
 	oidcProvider  *oidc.ProviderConfig
+	eventHub      *events.Hub
 }
 
 func getOIDCProviderConfig(ctx context.Context, kubeClient kubernetes.KubernetesConnector) (*oidc.ProviderConfig, error) {
@@ -139,6 +141,7 @@ func NewEverestServer(ctx context.Context, c *config.EverestConfig, l *zap.Sugar
 		sessionMgr:    sessMgr,
 		attemptsStore: store,
 		oidcProvider:  oidcProvider,
+		eventHub:      events.NewHub(l, kubeConnector),
 	}
 	e.echo.HTTPErrorHandler = e.errorHandlerChain()
 
@@ -234,7 +237,10 @@ func (e *EverestServer) initHTTPServer(ctx context.Context) error {
 	api.RegisterHandlers(apiGroup, e)
 
 	// Setup plugin proxy routes (outside OpenAPI validation).
-	pp := newPluginProxy(e.kubeConnector)
+	pp, err := newPluginProxy(ctx, e.l, e.kubeConnector)
+	if err != nil {
+		return err
+	}
 
 	// Plugin bundle serving — no JWT required.
 	// Bundles are static JS assets, same as the main app's JS files.
@@ -246,7 +252,14 @@ func (e *EverestServer) initHTTPServer(ctx context.Context) error {
 	pluginGroup.Use(jwtMW)
 	pluginGroup.Use(blocklistMW)
 	pluginGroup.GET("", pp.listPluginsHandler)
-	pluginGroup.Any("/:name", pp.proxyHandler)
+	pluginGroup.GET("/context", e.pluginContextHandler)
+	pluginGroup.Any("/:name", pp.authedProxyHandler)
+
+	// Event stream — JWT protected, outside OpenAPI validation.
+	eventsGroup := e.echo.Group("/v1/events")
+	eventsGroup.Use(jwtMW)
+	eventsGroup.Use(blocklistMW)
+	eventsGroup.GET("", e.eventsHandler)
 
 	return nil
 }
@@ -375,6 +388,13 @@ func newSkipperFunc() (echomiddleware.Skipper, error) {
 
 // Start starts everest server.
 func (e *EverestServer) Start(ctx context.Context) error {
+	// Start the event hub in the background.
+	go func() {
+		if err := e.eventHub.Start(ctx); err != nil && ctx.Err() == nil {
+			e.l.Errorf("event hub stopped: %v", err)
+		}
+	}()
+
 	addr := fmt.Sprintf("0.0.0.0:%d", e.config.ListenPort)
 	if e.config.TLSCertsPath != "" {
 		return e.startHTTPS(ctx, addr)

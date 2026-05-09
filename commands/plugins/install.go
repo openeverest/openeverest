@@ -27,13 +27,20 @@ import (
 
 var (
 	pluginInstallCmd = &cobra.Command{
-		Use:     "install [flags]",
-		Args:    cobra.NoArgs,
-		Example: `everestctl plugin install --name hello --backend-url http://hello-plugin.everest-system:3001`,
-		Long:    "Install a plugin by creating a Plugin custom resource",
-		Short:   "Install a plugin",
-		PreRun:  pluginInstallPreRun,
-		Run:     pluginInstallRun,
+		Use:  "install [flags]",
+		Args: cobra.NoArgs,
+		Example: `  # Install from a manifest file:
+  everestctl plugin install -f plugin.yaml
+
+  # Install from a URL:
+  everestctl plugin install -f https://raw.githubusercontent.com/author/my-plugin/main/plugin.yaml
+
+  # Install with inline flags:
+  everestctl plugin install --name hello --backend-url http://hello-plugin.everest-system:3001`,
+		Long:   "Install a plugin from a manifest file, URL, or inline flags",
+		Short:  "Install a plugin",
+		PreRun: pluginInstallPreRun,
+		Run:    pluginInstallRun,
 	}
 	pluginInstallCfg = &cliplugins.InstallConfig{
 		Enabled: true,
@@ -41,14 +48,12 @@ var (
 )
 
 func init() {
-	pluginInstallCmd.Flags().StringVar(&pluginInstallCfg.Name, "name", "", "Plugin name (required)")
+	pluginInstallCmd.Flags().StringVarP(&pluginInstallCfg.File, "file", "f", "", "Path or URL to a Plugin CR YAML manifest")
+	pluginInstallCmd.Flags().StringVar(&pluginInstallCfg.Name, "name", "", "Plugin name (required without -f)")
 	pluginInstallCmd.Flags().StringVar(&pluginInstallCfg.DisplayName, "display-name", "", "Human-readable display name (defaults to name)")
-	pluginInstallCmd.Flags().StringVar(&pluginInstallCfg.BackendURL, "backend-url", "", "URL of the plugin backend service (required)")
+	pluginInstallCmd.Flags().StringVar(&pluginInstallCfg.BackendURL, "backend-url", "", "URL of the plugin backend service (required without -f)")
 	pluginInstallCmd.Flags().StringVar(&pluginInstallCfg.BundlePath, "bundle-path", "/main.js", "Path to the frontend bundle on the backend")
 	pluginInstallCmd.Flags().BoolVar(&pluginInstallCfg.Enabled, "enabled", true, "Whether the plugin is enabled")
-
-	_ = pluginInstallCmd.MarkFlagRequired("name")
-	_ = pluginInstallCmd.MarkFlagRequired("backend-url")
 }
 
 func pluginInstallPreRun(cmd *cobra.Command, _ []string) { //nolint:revive
