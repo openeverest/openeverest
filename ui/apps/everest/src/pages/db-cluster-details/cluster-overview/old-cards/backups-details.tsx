@@ -22,11 +22,12 @@ import { BackupsDetailsOverviewCardProps } from './card.types';
 import OverviewSectionRow from '../overview-section-row';
 import { Messages } from '../cluster-overview.messages';
 import { Button, Stack } from '@mui/material';
-// import { Link, useMatch } from 'react-router-dom';
-// import { DBClusterDetailsTabs } from '../../db-cluster-details.types';
+import { Link, useMatch } from 'react-router-dom';
+import { DBClusterDetailsTabs } from '../../db-cluster-details.types';
 import OverviewSectionText from '../overview-section-text/overview-section-text';
 import { getTimeSelectionPreviewMessage } from '../../../database-form/database-preview/database.preview.messages';
 import { getFormValuesFromCronExpression } from '../../../../components/time-selection/time-selection.utils';
+
 // import { useDbBackups, useUpdateDbClusterWithConflictRetry } from 'hooks';
 // import { Table } from '@percona/ui-lib';
 // import { Backup, BackupStatus } from 'shared-types/backups.types';
@@ -51,7 +52,7 @@ export const BackupsDetails = ({
   loading,
   showStorage = true,
 }: BackupsDetailsOverviewCardProps) => {
-  // const { canUpdateDb, dbCluster } = useContext(DbClusterContext);
+  const routeMatch = useMatch('/databases/:namespace/:instanceName/:tabs');
   // const editable =
   //   canUpdateDb && !shouldDbActionsBeBlocked(dbCluster?.status?.status);
 
@@ -137,9 +138,9 @@ export const BackupsDetails = ({
         avatar: <NetworkNodeIcon />,
         action: (
           <Button
-            // component={Link}
+            component={Link}
             size="small"
-            // to={`/databases/${routeMatch?.params?.namespace}/${routeMatch?.params?.dbClusterName}/${DBClusterDetailsTabs.backups}`}
+            to={`/databases/${routeMatch?.params?.namespace}/${routeMatch?.params?.instanceName}/${DBClusterDetailsTabs.backups}`}
           >
             {Messages.actions.details}
           </Button>
