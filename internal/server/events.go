@@ -59,12 +59,14 @@ func (e *EverestServer) eventsHandler(c echo.Context) error {
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache")
 	w.Header().Set("Connection", "keep-alive")
+	w.Header().Set("X-Accel-Buffering", "no") // disable nginx/proxy buffering
 	w.WriteHeader(http.StatusOK)
 
-	flusher, ok := w.Writer.(http.Flusher)
-	if !ok {
-		return echo.NewHTTPError(http.StatusInternalServerError, "streaming not supported")
+	// Send an initial SSE comment so the browser sees the response immediately.
+	if _, err := fmt.Fprint(w, ": connected\n\n"); err != nil {
+		return nil
 	}
+	w.Flush()
 
 	ctx := c.Request().Context()
 	for {
@@ -84,7 +86,7 @@ func (e *EverestServer) eventsHandler(c echo.Context) error {
 			if _, err := fmt.Fprintf(w, "id: %s\nevent: %s\ndata: %s\n\n", evt.ResourceVersion, evt.Type, data); err != nil {
 				return nil // client disconnected
 			}
-			flusher.Flush()
+			w.Flush()
 		}
 	}
 }

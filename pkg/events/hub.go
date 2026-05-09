@@ -17,6 +17,7 @@ package events
 import (
 	"context"
 	"sync"
+	"time"
 
 	everestv1alpha1 "github.com/percona/everest-operator/api/everest/v1alpha1"
 	"go.uber.org/zap"
@@ -28,6 +29,9 @@ import (
 const (
 	// defaultBufferSize is the per-subscriber buffer. Slow consumers are dropped.
 	defaultBufferSize = 256
+
+	// watchRetryDelay is the delay before reconnecting a closed/failed watch.
+	watchRetryDelay = 2 * time.Second
 )
 
 // Subscriber receives events matching its filter criteria.
@@ -138,19 +142,44 @@ func cacheKey(namespace, name string) string {
 
 // Start begins watching Kubernetes resources and broadcasting events.
 // It blocks until ctx is cancelled. Must be called in a goroutine.
+// Individual watch failures are logged and retried automatically.
 func (h *Hub) Start(ctx context.Context) error {
-	errCh := make(chan error, 4) //nolint:mnd
+	watchers := []struct {
+		name string
+		fn   func(context.Context) error
+	}{
+		{"DatabaseClusters", h.watchDatabaseClusters},
+		{"Backups", h.watchBackups},
+		{"Restores", h.watchRestores},
+		{"Instances", h.watchInstances},
+	}
 
-	go func() { errCh <- h.watchDatabaseClusters(ctx) }()
-	go func() { errCh <- h.watchBackups(ctx) }()
-	go func() { errCh <- h.watchRestores(ctx) }()
-	go func() { errCh <- h.watchInstances(ctx) }()
+	for _, w := range watchers {
+		go h.watchWithRetry(ctx, w.name, w.fn)
+	}
 
-	select {
-	case <-ctx.Done():
-		return ctx.Err()
-	case err := <-errCh:
-		return err
+	<-ctx.Done()
+	return ctx.Err()
+}
+
+// watchWithRetry runs a watch function in a loop, reconnecting on close/error.
+func (h *Hub) watchWithRetry(ctx context.Context, name string, fn func(context.Context) error) {
+	for {
+		h.l.Infof("starting watch: %s", name)
+		err := fn(ctx)
+		if ctx.Err() != nil {
+			return // context cancelled, shutting down
+		}
+		if err != nil {
+			h.l.Warnf("watch %s failed: %v — retrying in %s", name, err, watchRetryDelay)
+		} else {
+			h.l.Infof("watch %s closed — reconnecting in %s", name, watchRetryDelay)
+		}
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(watchRetryDelay):
+		}
 	}
 }
 
@@ -181,6 +210,7 @@ func (h *Hub) watchDatabaseClusters(ctx context.Context) error {
 
 			events := NormalizeDatabaseCluster(we, old)
 			for _, evt := range events {
+				h.l.Infof("broadcasting event: %s %s/%s", evt.Type, evt.Namespace, evt.Resource.Name)
 				h.broadcast(evt)
 			}
 
@@ -293,8 +323,10 @@ func (h *Hub) watchInstances(ctx context.Context) error {
 			if !ok {
 				return nil
 			}
+			h.l.Debugf("instance watch event: type=%s", we.Type)
 			events := NormalizeInstance(we)
 			for _, evt := range events {
+				h.l.Infof("broadcasting event: %s %s/%s", evt.Type, evt.Namespace, evt.Resource.Name)
 				h.broadcast(evt)
 			}
 		}
