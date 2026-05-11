@@ -47,8 +47,9 @@ func newPluginProxy(ctx context.Context, log *zap.SugaredLogger, kc kubernetes.K
 	return &pluginProxy{kubeConnector: kc, enforcer: enf}, nil
 }
 
-// checkPluginAccess verifies the caller has "read" permission on the "plugins" resource.
-func (pp *pluginProxy) checkPluginAccess(c echo.Context) error {
+// checkPluginsReadAccess verifies the caller has "read" permission on the
+// "plugins" resource. This gates the plugin list endpoint.
+func (pp *pluginProxy) checkPluginsReadAccess(c echo.Context) error {
 	user, err := rbac.GetUser(c.Request().Context())
 	if err != nil {
 		return echo.NewHTTPError(http.StatusUnauthorized, "unauthorized")
@@ -65,12 +66,41 @@ func (pp *pluginProxy) checkPluginAccess(c echo.Context) error {
 	return echo.NewHTTPError(http.StatusForbidden, "insufficient permissions")
 }
 
-// listPluginsHandler returns the list of enabled plugins as JSON.
-// This is consumed by the frontend PluginProvider to discover available plugins.
-// The bundleUrl is a relative path that goes through the server's reverse proxy,
-// so the browser never needs direct access to the plugin backend.
+// canUsePlugin returns true when the caller has the "use" verb on
+// "plugin/<name>". Admins that have "*" on "plugins" are also permitted.
+func (pp *pluginProxy) canUsePlugin(c echo.Context, name string) (bool, error) {
+	user, err := rbac.GetUser(c.Request().Context())
+	if err != nil {
+		return false, err
+	}
+	// resource is "plugin/<name>" per the design (§9.2).
+	resource := "plugin/" + name
+	for _, sub := range append([]string{user.Subject}, user.Groups...) {
+		// Direct "use" grant on the specific plugin.
+		if ok, err := pp.enforcer.Enforce(sub, resource, rbac.ActionUse, "*"); err != nil {
+			return false, err
+		} else if ok {
+			return true, nil
+		}
+		// Wildcard "use" grant (e.g. "plugin/*" → use).
+		if ok, err := pp.enforcer.Enforce(sub, "plugin/*", rbac.ActionUse, "*"); err != nil {
+			return false, err
+		} else if ok {
+			return true, nil
+		}
+		// Admin shortcut: "*" action on "plugins" resource also grants use.
+		if ok, err := pp.enforcer.Enforce(sub, rbac.ResourcePlugins, rbac.ActionAll, "*"); err != nil {
+			return false, err
+		} else if ok {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+// listPluginsHandler returns the list of enabled plugins the caller can use.
 func (pp *pluginProxy) listPluginsHandler(c echo.Context) error {
-	if err := pp.checkPluginAccess(c); err != nil {
+	if err := pp.checkPluginsReadAccess(c); err != nil {
 		return err
 	}
 
@@ -98,6 +128,14 @@ func (pp *pluginProxy) listPluginsHandler(c echo.Context) error {
 	descriptors := make([]pluginDescriptor, 0, len(plugins.Items))
 	for _, p := range plugins.Items {
 		if !p.Spec.Enabled {
+			continue
+		}
+		// Only return plugins the caller is allowed to use.
+		if allowed, err := pp.canUsePlugin(c, p.Name); err != nil {
+			return c.JSON(http.StatusInternalServerError, map[string]string{
+				"error": "rbac error",
+			})
+		} else if !allowed {
 			continue
 		}
 		bundlePath := "/main.js"
@@ -133,10 +171,16 @@ func (pp *pluginProxy) proxyHandler(c echo.Context) error {
 }
 
 // authedProxyHandler reverse-proxies requests to a plugin's backend with RBAC.
+// The caller must have the "use" verb on "plugin/<name>" (§9.2).
 // Route: /v1/plugins/:name (JWT-protected group)
 func (pp *pluginProxy) authedProxyHandler(c echo.Context) error {
-	if err := pp.checkPluginAccess(c); err != nil {
-		return err
+	name := c.Param("name")
+	allowed, err := pp.canUsePlugin(c, name)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusUnauthorized, "unauthorized")
+	}
+	if !allowed {
+		return echo.NewHTTPError(http.StatusForbidden, "insufficient permissions")
 	}
 	return pp.doProxy(c)
 }
