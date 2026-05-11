@@ -116,6 +116,7 @@ paths:
         p, role:dev, namespaces, read, *
         p, role:dev, database-engines, *, */*
         p, role:dev, database-clusters, *, */*
+        p, role:dev, load-balancer-configs, read, *
         p, bob, database-clusters, *, */*
         g, alice, role:dev
         ```
@@ -140,10 +141,17 @@ paths:
                 "database-clusters",
                 "*",
                 "*/*"
+            ],
+            [
+                "alice",
+                "load-balancer-configs",
+                "read",
+                "*"
             ]
           ]
         }
         ```
+        If a DatabaseCluster uses a LoadBalancerConfig, users must have `load-balancer-configs` read permission.
         And the following permissions for `bob`:
         ```
         {
