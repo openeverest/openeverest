@@ -22,6 +22,15 @@
   - [Provider: config consumption](#provider-config-consumption)
 - [UI Component Architecture](#ui-component-architecture)
   - [Component tree](#component-tree)
+  - [StorageRow visual design (Backups tab only)](#storagerow-visual-design-backups-tab-only)
+  - [Storage Edit Modal (Backups tab)](#storage-edit-modal-backups-tab)
+  - [Backups tab layout](#backups-tab-layout)
+  - [Wizard vs Backups tab — two orchestration modes](#wizard-vs-backups-tab--two-orchestration-modes)
+  - [WizardBackupsStep architecture](#wizardbackupsstep-architecture)
+  - [Restore mode in wizard](#restore-mode-in-wizard)
+  - [`main` field on InstanceBackupStorage](#main-field-on-instancebackupstorage)
+  - [Storage selection flow (Backups tab)](#storage-selection-flow-backups-tab)
+  - [Storage removal](#storage-removal)
   - [Static vs dynamic fields](#static-vs-dynamic-fields)
   - [UIGenerator integration pattern](#uigenerator-integration-pattern)
 - [User Flows](#user-flows)
@@ -31,8 +40,7 @@
   - [Flow 4: Create schedule — storage already exists](#flow-4-create-schedule--storage-already-exists)
   - [Flow 5: Restore from backup](#flow-5-restore-from-backup)
 - [Mock Data](#mock-data)
-  - [Mock BackupClass with uiSchema](#mock-backupclass-with-uischema)
-  - [Mock hook strategy](#mock-hook-strategy)
+  - [Mock strategy](#mock-strategy)
 - [Implementation Phases](#implementation-phases)
   - [Phase 0: Backend — CRD extension + provider support](#phase-0-backend--crd-extension--provider-support)
   - [Phase 1: Foundation — mocks + UISchema support](#phase-1-foundation--mocks--uischema-support)
@@ -44,20 +52,18 @@
   - [Phase 7: Cleanup](#phase-7-cleanup)
 - [File Inventory](#file-inventory)
 - [Verification Criteria](#verification-criteria)
+- [Open Questions](#open-questions)
 
 ---
 
 ## Goals
 
 - Dynamic, provider-agnostic backup/restore UI driven by BackupClass schemas
-- Shared presentational components (StorageCard, ScheduleFormFields, PITRConfigFields) between wizard and Backups tab; orchestration layer is separate (form-state vs API)
-- Graceful degradation when BackupClass has no `uiSchema` (shows only static fields)
-- Two-level storage model (NS-level BackupStorage + instance-level binding) is **hidden from the user** — UI presents a single "pick a storage" flow
-- Migration of BackupStorage hooks from v1 to v2 API
-- BE: extend `ProviderManagedSpec` with `uiSchema` + `storageLimits`
-- BE: providers populate BackupClass with config schemas and ui-generator sections
-- BE: providers consume `Backup.spec.config`, `Restore.spec.config`, `pitr.config`
-- UIGenerator does not require adaptation — it already renders only fields without section chrome
+- Shared presentational components between wizard and Backups tab; separate orchestration layers
+- Graceful degradation when BackupClass has no `uiSchema`
+- Two-level storage model hidden from user — UI presents a single "pick a storage" flow
+- BE: extend `ProviderManagedSpec` with `uiSchema`, `storageLimits`, `pitrConfig`
+- BE: providers populate BackupClass and consume `Backup.spec.config`, `pitr.config`
 
 ## Non-goals
 
@@ -105,29 +111,17 @@ Static React (hardcoded)              Dynamic (UIGenerator from BackupClass)
 
 Backup/restore forms and modals are universal regardless of provider — the only variable part is provider-specific config fields. On the current iteration we hardcode the static layout and embed UIGenerator for dynamic fields.
 
-**Future UIGenerator extensions** (out of scope for this iteration, but planned):
-
-- Conditional rendering (show/hide based on field value — CEL condition rendering TODO in code)
-- New preset uiTypes: `datePicker`, `cronPicker`
-- Custom component / modal trigger support (for fieldArray-like patterns)
-- Plugin system for provider-defined custom widgets
-
-**Pattern:** Static React modal embeds `<UIGenerator sectionKey="..." />` for provider-specific sub-form. UIGenerator renders only fields (no section title/description chrome) — no adaptation needed.
+**Future extensions** (out of scope): conditional rendering (CEL), `datePicker`/`cronPicker` uiTypes, plugin widgets.
 
 ### PITR is a per-storage property
 
 V1: instance-level toggle. V2: **per-storage** (`Instance.spec.backup.storages[N].pitr`).
 
-- PSMDB: max 1 PITR-enabled storage (enforced via `storageLimits.maxWithPITR`)
+- PSMDB: max 1 PITR-enabled storage (via `storageLimits.maxWithPITR`)
 - PostgreSQL: may support PITR on all storages
-- PITR toggle lives in `<PITRConfigModal />` — opened from the storage card's [Configure PITR] button
-- The toggle is disabled when `maxWithPITR` limit is reached for this instance
-- When enabled, UIGenerator renders `pitr` section below for provider-specific config
-
-> **Two levels of storage:**
->
-> - **BackupStorage CR** (namespace-level): S3 credentials, bucket, endpoint. No PITR config here.
-> - **Instance.spec.backup.storages[]** (instance-level): registration of a BackupStorage on a specific instance + PITR toggle + schedules. PITR toggle belongs here.
+- Toggle lives in `<PITRConfigModal />` from storage row's [Configure PITR]
+- Disabled when `maxWithPITR` limit reached
+- UIGenerator renders `pitr` section for provider-specific config when enabled
 
 ---
 
@@ -352,92 +346,10 @@ After modifying `ProviderManagedSpec`:
 
 ### Provider: BackupClass population
 
-Each provider must create BackupClass CR(s) at install time or via Helm chart. Example for PSMDB provider:
+Each provider creates a BackupClass CR at install time (Helm chart).
+Full YAML example: see [BackupClass](#backupclass) section above.
 
-```yaml
-# charts/provider-percona-server-mongodb/templates/backup-class.yaml
-apiVersion: backup.openeverest.io/v1alpha1
-kind: BackupClass
-metadata:
-  name: psmdb-managed
-spec:
-  executionMode: ProviderManaged
-  supportedProviders:
-    - percona-server-mongodb
-  providerManaged:
-    supportsPITR: true
-    storageLimits:
-      max: 3
-      maxWithPITR: 1
-      maxSchedulesPerStorage: 10
-    uiSchema:
-      backup:
-        label: "Backup Configuration"
-        componentsOrder: ["type", "compressionType", "compressionLevel"]
-        components:
-          type:
-            uiType: select
-            label: "Backup Type"
-            path: type
-            required: true
-            fieldParams:
-              options:
-                - { label: "Logical", value: "logical" }
-                - { label: "Physical", value: "physical" }
-              defaultValue: "logical"
-          compressionType:
-            uiType: select
-            label: "Compression"
-            path: compressionType
-            fieldParams:
-              options:
-                - { label: "None", value: "none" }
-                - { label: "Gzip", value: "gzip" }
-                - { label: "Snappy", value: "snappy" }
-                - { label: "LZ4", value: "lz4" }
-                - { label: "Zstandard", value: "zstd" }
-              defaultValue: "snappy"
-          compressionLevel:
-            uiType: number
-            label: "Compression Level"
-            path: compressionLevel
-            fieldParams: { defaultValue: 6 }
-            validation: { minimum: 0, maximum: 22 }
-      pitr:
-        label: "PITR Configuration"
-        componentsOrder: ["oplogSpanMin", "compressionType"]
-        components:
-          oplogSpanMin:
-            uiType: number
-            label: "Oplog Span (minutes)"
-            path: oplogSpanMin
-            tooltip: "Interval between oplog chunk boundaries"
-            fieldParams: { defaultValue: 10 }
-            validation: { minimum: 1 }
-          compressionType:
-            uiType: select
-            label: "Oplog Compression"
-            path: compressionType
-            fieldParams:
-              options:
-                - { label: "None", value: "none" }
-                - { label: "Snappy", value: "snappy" }
-                - { label: "Zstandard", value: "zstd" }
-              defaultValue: "snappy"
-      restore:
-        label: "Restore Configuration"
-        components: {}
-  config:
-    openAPIV3Schema:
-      type: object
-      properties:
-        type: { type: string, enum: [logical, physical], default: logical }
-        compressionType:
-          { type: string, enum: [none, gzip, snappy, lz4, s2, pgzip, zstd] }
-        compressionLevel: { type: integer, minimum: 0, maximum: 22 }
-  restoreConfig:
-    openAPIV3Schema: { type: object, properties: {} }
-```
+Helm chart path: `provider-percona-server-mongodb/charts/.../templates/backup-class.yaml`
 
 ### Provider: config consumption
 
@@ -461,11 +373,9 @@ Instance Details Page
 └── Tab: Backups (backups.tsx)  — data source: API hooks, mutations: PATCH Instance
     │
     ├── <BackupsListTableHeader>
-    │   ├── [Create Backup] ──→ <OnDemandBackupModal>
-    │   │                        ├── Name (TextInput)                    STATIC
-    │   │                        ├── BackupClass (SelectInput)           STATIC
-    │   │                        ├── Storage (SelectInput)               STATIC
-    │   │                        └── <UIGenerator section="backup" />    DYNAMIC
+    │   ├── [Create backup ▼] ──→ <MenuButton> dropdown
+    │   │   ├── "Now"      → <OnDemandBackupModal>
+    │   │   └── "Schedule" → <ScheduledBackupModal> (with storage select)
     │   │
     │   └── [Restore] ──→ <RestoreModal>
     │                      ├── Source info (read-only)                   STATIC
@@ -473,88 +383,248 @@ Instance Details Page
     │                      ├── <UIGenerator section="restore" />         DYNAMIC
     │                      └── ⚠️ Warning + [Restore] button
     │
-    ├── Accordion: Active Storages
-    │   │  One accordion section containing a list of storage cards.
-    │   │  Each card = one entry in instance.spec.backup.storages[].
-    │   ├── <StorageCard> per storage entry
-    │   │   ├── Info: name, Main badge, PITR badge, schedules count
-    │   │   ├── [Main] toggle (direct action on card)
-    │   │   ├── [Configure PITR] ──→ <PITRConfigModal>
-    │   │   │                        ├── PITR enabled toggle              STATIC
-    │   │   │                        │   (disabled if maxWithPITR reached)
-    │   │   │                        └── {pitrEnabled && <UIGenerator "pitr" />}  DYNAMIC
-    │   │   ├── [+ Add Schedule] ──→ <ScheduledBackupModal>
-    │   │   └── [Remove] ──→ <StorageRemoveConfirmDialog> (see "Storage removal")
-    │   └── [+ Add Storage] → storage picker (see "Storage selection flow")
+    ├── MUI Tabs: [Storages] [Schedules]
+    │
+    │   Tab: Storages
+    │   │  List of instance-bound storages.
+    │   │  Each row is a horizontal bar (StorageRow) — see "StorageRow visual design".
+    │   ├── <StorageRow> per instance.spec.backup.storages[]
+    │   │   ├── Display: name, [Default] badge, PITR: ON/OFF toggle, N schedules
+    │   │   ├── PITR toggle (inline) → PATCH Instance
+    │   │   │   └── If provider has pitr config: turning ON opens <PITRConfigModal>
+    │   │   │       If modal dismissed without save → toggle stays OFF
+    │   │   ├── [⚙] → context menu: [Set as Default], [Configure PITR], [Remove]
+    │   │   └── [+ Schedule] → <ScheduledBackupModal> (storage pre-filled)
+    │   └── [+ Add Storage] → storage picker
     │       (disabled if >= storageLimits.max)
     │
-    ├── Accordion: Schedules ──→ <ScheduledBackupsList>
+    │   Tab: Schedules
+    │   │  Flat list of ALL schedules across all storages.
+    │   └── <ScheduledBackupsList>
+    │       Columns: Name | Storage | Schedule | Retention | Status | Actions
+    │       Row actions: [Edit] [Delete]
     │
     └── <BackupsList> (existing table)
         └── Row actions: [Restore] [Delete]
 ```
 
+> **[Create backup ▼]** is a `<MenuButton>` dropdown (as in v1), not two separate buttons.
+> "Now" opens on-demand backup modal. "Schedule" opens schedule modal with
+> storage select (searchable). The [+ Schedule] on each storage row opens
+> the same modal with storage pre-filled.
+
+### StorageRow visual design (Backups tab only)
+
+`<StorageRow>` is used **only in the Backups tab** (instance details page), not in the wizard.
+It's a **horizontal bar** on full container width, ~48–56px tall. Similar to v1 `EditableItem`
+for schedules. **Not** an MUI Card, not a modal, not an expandable section.
+
 ```
-Instance Creation Wizard
-└── Step: Backups  — data source: React Hook Form state, no API calls until submit
-    │
-    ├── [Enable Backups] toggle → ON
-    ├── BackupClass select → loads storageLimits, supportsPITR, uiSchema
-    │
-    ├── Storage select (from available NS-level storages)
-    │   └── [+ Create New Storage] → inline BackupStorage form
-    │
-    ├── Selected storage appears as <StorageCard>
-    │   ├── [Main] toggle (auto: true for first)
-    │   ├── [Configure PITR] → PITR toggle + <UIGenerator section="pitr" />
-    │   └── [+ Add Schedule] → <ScheduleFormFields />
-    │
-    ├── [+ Add Another Storage] (if < storageLimits.max)
-    │
-    └── Submit → POST Instance with spec.backup assembled from form state
+┌──────────────────────────────────────────────────────────────────────┐
+│  s3-prod        [Default]   PITR: [● ON]   2 schedules    [+ Schedule] [⚙] │
+└──────────────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────────┐
+│  s3-archive                PITR: [○ OFF]  1 schedule     [+ Schedule] [⚙] │
+└──────────────────────────────────────────────────────────────────────┘
+[+ Add Storage]
 ```
 
-> **Wizard vs Backups tab — two orchestration modes:**
->
-> | | Wizard (create/edit DB) | Backups tab (existing DB) |
-> |---|---|---|
-> | Instance | Does not exist yet | Exists |
-> | Data source | React Hook Form state | API hooks (useQuery) |
-> | Persistence | All at once on POST Instance | Each action → PATCH Instance |
-> | Shared components | StorageCard (display), ScheduleFormFields, PITRConfigFields, UIGenerator | Same |
-> | Orchestration | `<WizardBackupsStep />` | `<BackupsTab />` |
->
-> **Presentational** sub-components are shared. **Orchestration** (where data comes from, how it's saved) is separate.
+**Layout:** `display: flex; align-items: center; gap: 16px;`
 
-> **Future: Restore mode in wizard.** In v1/main, the DB wizard had a "restore from backup" mode. In v2 this will need UIGenerator `restore` section + backup/PITR source selection. Out of scope for initial implementation — requires separate design.
+- **Left:** storage name (bold)
+- **Center:** badges/toggles — `[Default]` chip, PITR toggle (MUI Switch), schedule count
+- **Right:** `[+ Schedule]` text button, `[⚙]` icon button (context menu)
 
-### Storage selection flow
+**Boundary:** The row itself is **read-only display + inline PITR toggle**.
+All editing (PITR config, schedule creation, set-as-default, remove) happens in **modals or menus**.
+No fields expand inline — the row never grows taller.
 
-The two-level storage model (NS-level BackupStorage CR + instance-level binding) is **hidden from the user**. From the user's perspective:
+**PITR toggle behavior:**
 
-1. User clicks [+ Add Storage]
-2. A picker shows available NS-level BackupStorages (filtered: those not yet bound to this instance)
-3. User selects one (or creates new via [+ Create New Storage] → S3 credentials form)
-4. The storage appears as a card — instance-level binding is created automatically
-5. User configures PITR and schedules directly on the card
+- Toggle OFF → ON: if provider has `uiSchema.pitr.components` (non-empty), opens `<PITRConfigModal>` with UIGenerator fields. User must save → toggle stays ON. If modal dismissed → toggle reverts to OFF.
+- Toggle ON → OFF: simple confirmation → PATCH Instance.
+- If provider has no pitr config (just on/off): toggle directly, no modal.
 
-No separate "register storage on instance" step. No two forms for the same storage.
+**[⚙] context menu actions:**
+
+- **[Configure PITR]** → opens `<PITRConfigModal>` (same as toggle ON, but for editing existing config)
+- **[Set as Default]** → PATCH Instance (set `main: true`, unset on previous default)
+- **[Remove]** → `<StorageRemoveConfirmDialog>` (see Storage removal section)
+
+### Storage Edit Modal (Backups tab)
+
+Triggered from [⚙] → [Configure PITR] on a storage row, or from PITR toggle ON → provider has config.
+
+```
+┌─────────────────────────────────────────────────────────┐
+│  Configure PITR — s3-prod                          [✕]  │
+├─────────────────────────────────────────────────────────┤
+│                                                         │
+│  PITR is enabled for this storage.                     │
+│                                                         │
+│  ┌─ UIGenerator: pitr section ────────────────────┐    │
+│  │                                                 │    │
+│  │  Oplog Span (min)                               │    │
+│  │  ┌──────────────────────────────────────┐       │    │
+│  │  │ 10                                   │       │    │
+│  │  └──────────────────────────────────────┘       │    │
+│  │                                                 │    │
+│  │  Compression Type                               │    │
+│  │  ┌──────────────────────────────────────┐       │    │
+│  │  │ snappy                            ▼  │       │    │
+│  │  └──────────────────────────────────────┘       │    │
+│  │                                                 │    │
+│  │  Compression Level                              │    │
+│  │  ┌──────────────────────────────────────┐       │    │
+│  │  │ 6                                    │       │    │
+│  │  └──────────────────────────────────────┘       │    │
+│  │                                                 │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                         │
+│                          [Cancel]  [Save]               │
+└─────────────────────────────────────────────────────────┘
+```
+
+- **Title:** "Configure PITR — {storageName}"
+- **Content:** UIGenerator renders the `pitr` section from BackupClass uiSchema.
+  Fields are provider-defined (e.g. PSMDB: oplogSpanMin, compressionType, compressionLevel).
+- **Save:** PATCH Instance → update `storages[i].pitr.config` with UIGenerator values.
+- **Cancel:** Dismiss without changes. If opened from PITR toggle ON → toggle reverts to OFF.
+- If provider has no `pitr.config` schema: modal is not needed — toggle is simple on/off.
+
+### Backups tab layout
+
+Storages and Schedules are **MUI Tabs** (horizontal tab bar):
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                               [Create backup ▼]            │
+├──────────┬──────────────────────────────────────────────────┤
+│ Storages │ Schedules                                        │  ← MUI Tabs
+├──────────┴──────────────────────────────────────────────────┤
+│  (active tab content: StorageRows or SchedulesList)       │
+└─────────────────────────────────────────────────────────────┘
+
+├── Backups list (always visible below tabs)
+│   Status | Name | Size | Started | Finished | Type
+│   Row actions: [Restore] [Delete]
+```
+
+### Wizard vs Backups tab — two orchestration modes
+
+|                      | Wizard (create/edit DB)                   | Backups tab (existing DB)       |
+| -------------------- | ----------------------------------------- | ------------------------------- |
+| Instance             | Does not exist yet                        | Exists                          |
+| Data source          | React Hook Form state                     | API hooks (useQuery)            |
+| Persistence          | All at once on POST Instance              | Each action → PATCH Instance    |
+| Storage select scope | ALL namespace-level BackupStorages        | Bound + unbound NS storages     |
+| Storage management   | No storage rows — implicit via selections | StorageRow list in Storages tab |
+| Shared components    | ScheduleFormFields, PITRConfigFields      | Same                            |
+| Orchestration        | `<WizardBackupsStep />`                   | `<BackupsTab />`                |
+| spec.backup assembly | `buildSpecBackup()` from form state       | Already persisted in CRD        |
+
+Presentational sub-components are shared. Orchestration is separate.
+
+### WizardBackupsStep architecture
+
+`<WizardBackupsStep />` is a **built-in step** rendered via Provider uiSchema.
+
+> **⚠️ Open question (Q4):** The `builtIn` mechanism below is a starting point. We may
+> evolve toward describing sub-elements (PITR, schedules, warnings) via standard ui-schema
+> vocabulary. See [Q4](#q4-wizard-backup-step--hardcoded-vs-schema-described).
+
+**`builtIn` key on Section:**
+
+```yaml
+# Provider.spec.uiSchema (per topology)
+replicaSet:
+  sections:
+    backups:
+      label: "Backups"
+      description: "Configure backup schedules and PITR"
+      builtIn: "backups" # renders built-in React component, not UIGenerator
+  sectionsOrder: [resources, backups, advanced]
+```
+
+Provider controls: opt-in/opt-out (omit section), ordering (`sectionsOrder`), labeling.
+
+**form-engine change** (`use-form-engine.ts`):
+
+```typescript
+const builtInComponents: Record<string, ComponentType<StepProps>> = {
+  backups: WizardBackupsStep,
+};
+
+// In step generation:
+if (section.builtIn && builtInComponents[section.builtIn]) {
+  return {
+    id: `section:${key}`,
+    label: section.label,
+    component: builtInComponents[section.builtIn],
+    fields: [],
+  };
+}
+```
+
+**WizardBackupsStep internals:**
+
+- Reads form state via `useFormContext()` — no API mutations
+- **Scheduled Backups:** Flat list of `EditableItem` tiles. Click → `ScheduleFormDialog`.
+- **PITR:** Provider-aware. Single-PITR: toggle + storage select. Multi-PITR: flat PITR list with [+ Add PITR].
+- **Storage select:** ALL namespace-level BackupStorages (instance doesn't exist yet). [+ Create New Storage] if none.
+- On submit: `buildSpecBackup()` auto-assembles `spec.backup.storages[]` from selections
+
+### Restore mode in wizard
+
+Wizard supports **restore to new cluster** (same as v1).
+
+**Flow:** Instance Details → backup row → [Restore to New DB] → `<RestoreDbModal>` (backup/PITR selection) → "To new cluster" → navigates to `/databases/new` with router state (`selectedDbCluster`, `backupName`, `pointInTimeDate`).
+
+**Wizard in restore mode:**
+
+- Detected via `useDatabasePageMode()` — checks `location.state.selectedDbCluster`
+- Source cluster's config loaded as form defaults
+- Fields locked: namespace read-only, name may be pre-filled
+- On submit: POST Instance with `spec.dataSource.dbClusterBackupName` + optional `pitr`
+- User can modify backup/schedule config before creating the new cluster
+
+### `main` field on InstanceBackupStorage
+
+`main: true` marks the engine's **default storage**. At most one per instance (not enforced by CEL).
+
+- **Auto-assigned:** First storage used by a schedule (wizard) or first bound (tab) gets `main: true`
+- **User never picks primary explicitly.** Re-assign via [⚙] → [Set as Default]. No restrictions.
+- **Optional:** Zero storages can be main. Removing the main storage leaves no default.
+- **UI:** Shown as "Default" badge on StorageRow
+- **v2 CRD addition** — not present in v1
+
+### Storage selection flow (Backups tab)
+
+The two-level storage model is **hidden from the user:**
+
+1. [+ Add Storage] → picker shows NS-level BackupStorages not yet bound to instance
+2. User selects one (or creates new → S3 form)
+3. Storage row appears — instance-level binding created automatically
+4. No separate "register storage" step
 
 ### Storage removal
 
 Removing a storage from an instance = removing entry from `instance.spec.backup.storages[]`.
 
 **Blocking conditions** (Remove button disabled with tooltip):
+
 - Active backup in progress (Running/Pending) to this storage
 - This is the `main` storage and there are other storages (must reassign main first)
 
 **Warning conditions** (confirmation dialog lists consequences):
+
 - Storage has N active schedules → "N schedules will be deleted"
 - PITR is enabled on this storage → "PITR will be disabled"
 - Storage has existing backups → "Existing backups remain accessible but no new backups to this storage"
 - This is the only storage → "Backups will be fully disabled"
 
 **Validation flow:**
+
 1. UI pre-checks conditions from local state (schedules count, pitr.enabled, main flag, backup statuses)
 2. Shows `<StorageRemoveConfirmDialog>` with consequence list
 3. On confirm → PATCH Instance (remove from storages[])
@@ -562,18 +632,20 @@ Removing a storage from an instance = removing entry from `instance.spec.backup.
 
 ### Static vs dynamic fields
 
-| Context               | Static fields (React)          | Dynamic fields (UIGenerator)                                         |
-| --------------------- | ------------------------------ | -------------------------------------------------------------------- |
-| On-demand backup      | name, backupClass, storage     | `backup` section: e.g. backupType, compressionType, compressionLevel |
-| PITR config           | pitr.enabled toggle            | `pitr` section: e.g. oplogSpanMin, compressionType                   |
-| Restore               | source info, PITR date picker  | `restore` section: (empty for PSMDB initially)                       |
-| Schedule              | name, cron, retention, enabled | _(none — fully static, maxSchedulesPerStorage as gating limit)_      |
-| Storage card          | name, Main toggle              | _(none — display only + action buttons)_                             |
+| Context          | Static fields (React)          | Dynamic fields (UIGenerator)                                         |
+| ---------------- | ------------------------------ | -------------------------------------------------------------------- |
+| On-demand backup | name, backupClass, storage     | `backup` section: e.g. backupType, compressionType, compressionLevel |
+| PITR config      | pitr.enabled toggle            | `pitr` section: e.g. oplogSpanMin, compressionType                   |
+| Restore          | source info, PITR date picker  | `restore` section: (empty for PSMDB initially)                       |
+| Schedule         | name, cron, retention, enabled | _(none — fully static, maxSchedulesPerStorage as gating limit)_      |
+| Storage row      | name, Default badge            | _(none — display only + action buttons)_                             |
 
 ### UIGenerator integration pattern
 
+Static React modal embeds `<UIGenerator sectionKey="..." />` for provider-specific fields.
+UIGenerator renders only fields (no section title/chrome) inside the same `<FormProvider>`.
+
 ```tsx
-// Static React modal embeds UIGenerator for dynamic portion
 const OnDemandBackupFieldsWrapper = () => {
   const selectedClassName = watch("backupClassName");
   const { data: backupClass } = useGetBackupClass(selectedClassName);
@@ -584,8 +656,6 @@ const OnDemandBackupFieldsWrapper = () => {
       <TextInput name="name" label="Backup Name" />
       <SelectInput name="backupClassName" label="Backup Class" />
       <SelectInput name="storageName" label="Storage" />
-
-      {/* Dynamic: rendered only if BackupClass provides a schema */}
       {sections?.backup && (
         <UIGenerator
           sectionKey="backup"
@@ -599,20 +669,15 @@ const OnDemandBackupFieldsWrapper = () => {
 };
 ```
 
-- UIGenerator renders inside the same `<FormProvider>` as static fields
-- UIGenerator renders **only fields** — no section title, no description, no wrapper chrome
-- No UIGenerator adaptation needed — it already works this way (used in `SectionEditModal`)
 - On submit, dynamic values are packed into `spec.config`
-- If no `uiSchema.backup` — no dynamic fields shown (graceful degradation)
-- Select options (e.g. compressionType, backupType) are **static** values in `fieldParams.options`, not runtime data from an API. If dynamic options are needed in the future (e.g. compression depends on provider version), an `apiProvider` can be added per existing UIGenerator pattern
+- No `uiSchema` → no dynamic fields shown (graceful degradation)
+- No UIGenerator adaptation needed — already works this way in `SectionEditModal`
 
 ---
 
 ## User Flows
 
 ### Flow 1: Create DB with scheduled backups (wizard)
-
-**Precondition:** At least one BackupStorage exists in the namespace (or user creates one inline).
 
 ```
 User opens "Create Database" form
@@ -622,48 +687,88 @@ User opens "Create Database" form
 └── Step: Backups
     │
     ├── [Enable Backups] toggle → ON
-    │
     ├── BackupClass select (auto-select if one)
-    │   → loads storageLimits, supportsPITR, uiSchema
     │
-    ├── Storage select (available NS-level BackupStorages)
-    │   └── [+ Create New Storage] → inline S3 form
-    │       → creates BackupStorage CR in namespace
-    │       → auto-selects it
+    ├── Scheduled Backups:
+    │   ┌────────────────────────────────────────────────┐
+    │   │ daily-full  Every day, 2:00 AM  s3-prod   [✎] │  ← EditableItem tile
+    │   └────────────────────────────────────────────────┘
+    │   ┌────────────────────────────────────────────────┐
+    │   │ weekly-arch  Sun, 3:00 AM  s3-archive     [✎] │
+    │   └────────────────────────────────────────────────┘
+    │   [+ Create backup schedule]
+    │       → <ScheduleFormDialog>
+    │         ├── Backup name: "daily-full"
+    │         ├── Storage: [s3-prod ▼]  ← ALL namespace BackupStorages
+    │         │   └── [+ Create New Storage] → inline S3 form
+    │         ├── Retention copies: 7
+    │         └── Time: Every [day ▼] at [2] [00] [AM]
     │
-    ├── Selected storage appears as <StorageCard>
-    │   ├── Main: true (auto for first)
-    │   ├── [Configure PITR] (if supportsPITR)
-    │   │   ├── PITR toggle → ON
-    │   │   └── <UIGenerator section="pitr" />
-    │   │       └── Oplog Span: 10 min, Compression: snappy
-    │   └── [+ Add Schedule] → <ScheduleFormFields />
-    │       ├── Name: "daily-full"
-    │       ├── Cron: Every day at 2:00 AM
-    │       ├── Retention: 7 copies
-    │       └── [Save] → schedule appears on card
+    ├── Point-in-time Recovery:
+    │   ├── PITR provides continuous backups of your database,
+    │   │   enabling you to restore it to a specific point in time
+    │   │   in case of accidental writes or deletes.
+    │   ├── Single-PITR provider:
+    │   │   ├── [Enable PITR] toggle → ON
+    │   │   └── Backups storage: [S3 compatible ▼]  ← storage select
+    │   │       (PSMDB: auto-set to first schedule's storage, locked)
+    │   │       (MySQL: separate storage picker)
+    │   │       If provider has pitr.config → <PITRConfigModal>
+    │   └── Multi-PITR provider:
+    │       ├── PITR entries:
+    │       │   ┌─────────────────────────────────────────────────┐
+    │       │   │ wal-main  storage: repo1  enabled        [✎]   │
+    │       │   └─────────────────────────────────────────────────┘
+    │       └── [+ Add PITR] → choose storage + provider config
     │
-    ├── [+ Add Another Storage] (if < storageLimits.max)
+    ├── No storages in namespace?
+    │   └── <BackupsActionableAlert>
+    │       "No backup storages found. Create one to enable backups."
+    │       [+ Create Backup Storage] → inline S3 form → NLS created
     │
-    └── [Submit] → POST Instance with spec.backup:
-        enabled: true
-        classRef: { name: "psmdb-managed" }
-        storages:
-        - name: "s3-main"
-          storageRef: { name: "my-s3-storage" }
-          main: true
-          pitr: { enabled: true, config: { oplogSpanMin: 10 } }
-          schedules:
-          - { name: "daily-full", cron: "0 2 * * *",
-              retentionCopies: 7, enabled: true }
+    └── [Submit] → buildSpecBackup():
+        - Collects unique storages from schedule[].storage + PITR entry storages
+        - Builds storages[] entries (binding is auto-created)
+        - First used storage → main: true (auto)
+        - Groups schedules by storage
+        - Attaches pitr config to each PITR-enabled storage entry
+        Result:
+          enabled: true
+          classRef: { name: "psmdb-managed" }
+          storages:
+          - name: "s3-prod"
+            storageRef: { name: "s3-prod" }
+            main: true
+            pitr: { enabled: true, config: { oplogSpanMin: 10 } }
+            schedules:
+            - { name: "daily-full", cron: "0 2 * * *",
+                retentionCopies: 7, enabled: true }
+          - name: "s3-archive"
+            storageRef: { name: "s3-archive" }
+            schedules:
+            - { name: "weekly-arch", cron: "0 3 * * 0",
+                retentionCopies: 4, enabled: true }
 ```
 
-> **Note:** All data is collected in React form state. No PATCH requests during wizard — everything is sent as part of POST Instance on submit. The instance-level binding (`spec.backup.storages[]`) is assembled from form state automatically — user never sees the concept of "registering a storage on an instance".
+> **Key difference from storage-row model:** User never sees or manages storage rows
+> in the wizard. Storages are selected per-schedule and per-PITR. The instance-level
+> binding (`storages[]`) is assembled on submit automatically from the set of unique
+> storages referenced by schedules and PITR. No "[+ Add Storage]" button —
+> additional storages are auto-created when a schedule references a new one.
+
+**Provider-specific PITR behavior:**
+
+| Engine / capability  | Wizard PITR UI                                                | Notes                               |
+| -------------------- | ------------------------------------------------------------- | ----------------------------------- |
+| Single-PITR provider | One toggle + one storage select                               | Matches v1-style flow               |
+| PSMDB                | One PITR, storage auto-set to first schedule's storage        | Locked/hidden storage choice        |
+| MySQL                | One PITR, separate storage picker                             | User selects PITR storage           |
+| Multi-PITR provider  | PITR list with `[+ Add PITR]`, one entry per storage / stream | Same mental model as schedules list |
 
 ### Flow 2: Create on-demand backup
 
 ```
-Instance Details → Tab: Backups → [Create Backup]
+Instance Details → Tab: Backups → [Create backup ▼] → "Now"
 │
 ▼
 <OnDemandBackupModal>
@@ -684,19 +789,24 @@ Instance Details → Tab: Backups → [Create Backup]
 ```
 Instance Details → Tab: Backups
 │
-├── storages = [] → "No storages configured"
+├── Storages tab: (empty) → "No storages configured"
 │   └── [+ Add Storage] → storage picker
 │       ├── Select from available NS-level BackupStorages
 │       ├── [+ Create New Storage] → S3 form → creates BackupStorage CR
 │       └── [Select] → PATCH Instance (add to storages[], auto-enable backups)
 │
-├── Storage card appears (main: true, auto)
-│   └── [+ Add Schedule] → <ScheduledBackupModal>
-│       ├── Storage: pre-selected
-│       ├── Name, Cron, Retention, Enabled
-│       └── [Create] → PATCH Instance (conflict retry)
+├── Storage row appears (main: true, auto)
+│   ┌──────────────────────────────────────────────────────────────────┐
+│   │ s3-prod  [Default]  PITR: [○ OFF]  0 schedules  [+ Schedule] [⚙] │
+│   └──────────────────────────────────────────────────────────────────┘
 │
-└── Schedule appears in Schedules accordion
+├── User clicks [+ Schedule] on row → <ScheduledBackupModal>
+│   (or [Create backup ▼] → Schedule from header)
+│   ├── Storage: s3-prod (pre-selected)
+│   ├── Name, Cron, Retention, Enabled
+│   └── [Create] → PATCH Instance
+│
+└── Schedule appears in Schedules tab
 ```
 
 ### Flow 4: Create schedule — storage already exists
@@ -704,10 +814,14 @@ Instance Details → Tab: Backups
 ```
 Instance Details → Tab: Backups
 │
-├── Active Storages: <StorageCard name="s3-prod"> (Main, 0 schedules)
+├── Storages tab:
+│   ┌──────────────────────────────────────────────────────────────────┐
+│   │ s3-prod  [Default]  PITR: [○ OFF]  0 schedules  [+ Schedule] [⚙] │
+│   └──────────────────────────────────────────────────────────────────┘
 │
-├── [+ Add Schedule] on card → <ScheduledBackupModal>
-│   ├── Storage: "s3-prod" (pre-filled)
+├── [+ Schedule] on row → <ScheduledBackupModal>
+│   ├── Storage: "s3-prod" (pre-filled, can change to any NS storage)
+│   │   Selecting unbound storage → auto-binds on save (PATCH Instance)
 │   ├── Schedule Name: "daily-backup"
 │   ├── Cron: Every day at 2:00 AM
 │   ├── Retention: 7 copies
@@ -745,99 +859,19 @@ Instance Details → Tab: Backups
 
 ## Mock Data
 
-### Mock BackupClass with uiSchema
+### Mock strategy
+
+Until BE populates `BackupClass.spec.providerManaged.uiSchema`, UI uses a mock hook that
+injects the uiSchema from a local file. Structure mirrors the [BackupClass](#backupclass) YAML
+above, converted to TypeScript `Record<string, Section>`.
+
+| File                                                            | Purpose                                                                      |
+| --------------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| `ui/.../mocks/backup-class-mock.ts`                             | `psmdbBackupClassUISchema` — three sections: `backup`, `pitr`, `restore`     |
+| `ui/.../hooks/api/backup-classes/useBackupClassWithUISchema.ts` | Wraps `useGetBackupClass`, injects mock `uiSchema`. Remove when BE is ready. |
 
 ```typescript
-// ui/apps/everest/src/mocks/backup-class-mock.ts
-
-import { Section } from "../components/ui-generator/ui-generator.types";
-
-export const psmdbBackupClassUISchema: Record<string, Section> = {
-  backup: {
-    label: "Backup Configuration",
-    componentsOrder: ["type", "compressionType", "compressionLevel"],
-    components: {
-      type: {
-        uiType: "select",
-        label: "Backup Type",
-        path: "type",
-        required: true,
-        fieldParams: {
-          options: [
-            { label: "Logical", value: "logical" },
-            { label: "Physical", value: "physical" },
-          ],
-          defaultValue: "logical",
-        },
-      },
-      compressionType: {
-        uiType: "select",
-        label: "Compression",
-        path: "compressionType",
-        fieldParams: {
-          options: [
-            { label: "None", value: "none" },
-            { label: "Gzip", value: "gzip" },
-            { label: "Snappy", value: "snappy" },
-            { label: "LZ4", value: "lz4" },
-            { label: "Zstandard", value: "zstd" },
-          ],
-          defaultValue: "snappy",
-        },
-      },
-      compressionLevel: {
-        uiType: "number",
-        label: "Compression Level",
-        path: "compressionLevel",
-        fieldParams: { defaultValue: 6 },
-        validation: { minimum: 0, maximum: 22 },
-      },
-    },
-  },
-  pitr: {
-    label: "PITR Configuration",
-    componentsOrder: ["oplogSpanMin", "compressionType"],
-    components: {
-      oplogSpanMin: {
-        uiType: "number",
-        label: "Oplog Span (minutes)",
-        path: "oplogSpanMin",
-        tooltip: "Interval between oplog chunk boundaries",
-        fieldParams: { defaultValue: 10 },
-        validation: { minimum: 1 },
-      },
-      compressionType: {
-        uiType: "select",
-        label: "Oplog Compression",
-        path: "compressionType",
-        fieldParams: {
-          options: [
-            { label: "None", value: "none" },
-            { label: "Snappy", value: "snappy" },
-            { label: "Zstandard", value: "zstd" },
-          ],
-          defaultValue: "snappy",
-        },
-      },
-    },
-  },
-  restore: {
-    label: "Restore Configuration",
-    components: {},
-  },
-};
-```
-
-### Mock hook strategy
-
-```typescript
-// ui/apps/everest/src/hooks/api/backup-classes/useBackupClassWithUISchema.ts
-
-import { useGetBackupClass } from "./useBackupClasses";
-import { psmdbBackupClassUISchema } from "../../../mocks/backup-class-mock";
-
-// Temporary: wraps real hook and injects mock uiSchema.
-// Remove when BE populates providerManaged.uiSchema.
+// useBackupClassWithUISchema.ts — temporary mock wrapper
 export const useBackupClassWithUISchema = (className?: string) => {
   const query = useGetBackupClass(className);
   return {
@@ -849,7 +883,7 @@ export const useBackupClassWithUISchema = (className?: string) => {
             ...query.data.spec,
             providerManaged: {
               ...query.data.spec?.providerManaged,
-              uiSchema: psmdbBackupClassUISchema,
+              uiSchema: psmdbBackupClassUISchema, // from mock file
             },
           },
         }
@@ -896,19 +930,20 @@ export const useBackupClassWithUISchema = (className?: string) => {
 | #   | Task                                                                  | File                                                               | Depends on |
 | --- | --------------------------------------------------------------------- | ------------------------------------------------------------------ | ---------- |
 | 8   | Migrate BackupStorage hooks to v2 API                                 | `ui/.../hooks/api/backup-storages/`, `ui/.../api/backupStorage.ts` | —          |
-| 9   | Create `<StorageCard />` (presentational — shared between tab & wizard) | `ui/.../backups/storage-card/storage-card.tsx`                     | 8          |
+| 9   | Create `<StorageRow />` (presentational — Backups tab only)           | `ui/.../backups/storage-row/storage-row.tsx`                       | 8          |
 | 10  | Create `<PITRConfigModal />` with toggle + UIGenerator `pitr` section | `ui/.../backups/pitr-config-modal/pitr-config-modal.tsx`           | 3, 9       |
-| 11  | Create `<StorageRemoveConfirmDialog />`                                | `ui/.../backups/storage-remove-confirm-dialog.tsx`                 | —          |
-| 12  | Add Active Storages accordion + storage picker to Backups tab         | `ui/.../backups/backups.tsx`                                       | 9, 10, 11  |
+| 11  | Create `<StorageRemoveConfirmDialog />`                               | `ui/.../backups/storage-remove-confirm-dialog.tsx`                 | —          |
+| 12  | Add Storages/Schedules tabs + storage picker to Backups tab           | `ui/.../backups/backups.tsx`                                       | 9, 10, 11  |
 
 ### Phase 4: Scheduled backups
 
-| #   | Task                                   | File                                                                     | Depends on |
-| --- | -------------------------------------- | ------------------------------------------------------------------------ | ---------- |
-| 13  | Create `<ScheduleFormFields />`        | `ui/.../backups/scheduled-backup-modal/schedule-form-fields.tsx`         | —          |
-| 14  | Implement `<ScheduledBackupModal />`   | `ui/.../backups/scheduled-backup-modal/scheduled-backup-modal.tsx`       | 13         |
-| 15  | Implement `<ScheduledBackupsList />`   | `ui/.../backups/backups-list/table-header/scheduled-backups-list.tsx`    | 14         |
-| 16  | Wire schedule button on storage card   | `ui/.../backups/storage-card/storage-card.tsx`                           | 14, 12     |
+| #   | Task                                                              | File                                                                     | Depends on |
+| --- | ----------------------------------------------------------------- | ------------------------------------------------------------------------ | ---------- |
+| 13  | Create `<ScheduleFormFields />`                                   | `ui/.../backups/scheduled-backup-modal/schedule-form-fields.tsx`         | —          |
+| 14  | Implement `<ScheduledBackupModal />`                              | `ui/.../backups/scheduled-backup-modal/scheduled-backup-modal.tsx`       | 13         |
+| 15  | Implement `<ScheduledBackupsList />` (flat table)                 | `ui/.../backups/backups-list/table-header/scheduled-backups-list.tsx`    | 14         |
+| 16a | Wire [+ Schedule] on storage row                                  | `ui/.../backups/storage-row/storage-row.tsx`                             | 14, 12     |
+| 16b | Wire [Create backup ▼] → Schedule in header (with storage select) | `ui/.../backups/backups-list/table-header/backups-list-table-header.tsx` | 14         |
 
 ### Phase 5: Restore
 
@@ -922,22 +957,26 @@ export const useBackupClassWithUISchema = (className?: string) => {
 ### Phase 6: Instance creation wizard — backups step
 
 Wizard step has **separate orchestration** from the Backups tab: it reads/writes React Hook Form state, not API.
-Shared presentational components: `StorageCard`, `ScheduleFormFields`, `PITRConfigFields` (UIGenerator wrapper).
+Uses v1-style flat layout: schedules list + PITR section, each with storage select from ALL NS-level BackupStorages.
+Shared presentational components: `ScheduleFormFields`, `PITRConfigFields` (UIGenerator wrapper).
+Includes `buildSpecBackup()` utility that auto-assembles `spec.backup.storages[]` from schedule/PITR storage selections.
 
-| #   | Task                                               | File                                             | Depends on |
-| --- | -------------------------------------------------- | ------------------------------------------------ | ---------- |
-| 21  | Create `<WizardBackupsStep />` with form-state logic | `ui/.../database-form/steps/backups-step/`       | 9, 13      |
-| 22  | Register `backupClasses` api-provider              | `ui/.../ui-generator/api-providers/providers.ts` | —          |
-| 23  | Register `backupStorages` api-provider             | `ui/.../ui-generator/api-providers/providers.ts` | —          |
+| #   | Task                                                | File                                               | Depends on |
+| --- | --------------------------------------------------- | -------------------------------------------------- | ---------- |
+| 21  | Create `<WizardBackupsStep />` with v1-style layout | `ui/.../database-form/steps/backups-step/`         | 13         |
+| 22  | Create `buildSpecBackup()` utility                  | `ui/.../database-form/steps/backups-step/utils.ts` | —          |
+| 23  | Implement restore mode (`WizardMode.Restore`)       | `ui/.../database-form/steps/backups-step/`         | 21         |
+| 24  | Register `backupClasses` api-provider               | `ui/.../ui-generator/api-providers/providers.ts`   | —          |
+| 25  | Register `backupStorages` api-provider              | `ui/.../ui-generator/api-providers/providers.ts`   | —          |
 
 ### Phase 7: Cleanup
 
 | #   | Task                                  | File                 | Depends on |
 | --- | ------------------------------------- | -------------------- | ---------- |
-| 24  | Remove legacy v1 backup types/imports | various              | all above  |
-| 25  | Remove commented-out PITR hook code   | `useBackups.ts`      | all above  |
-| 26  | Remove old v1 backup form step        | `steps-old/backups/` | 21         |
-| 27  | Enable RBAC checks in hooks           | various hooks        | all above  |
+| 26  | Remove legacy v1 backup types/imports | various              | all above  |
+| 27  | Remove commented-out PITR hook code   | `useBackups.ts`      | all above  |
+| 28  | Remove old v1 backup form step        | `steps-old/backups/` | 21         |
+| 29  | Enable RBAC checks in hooks           | various hooks        | all above  |
 
 ---
 
@@ -945,35 +984,36 @@ Shared presentational components: `StorageCard`, `ScheduleFormFields`, `PITRConf
 
 ### Files to create (UI)
 
-| File                                                                         | Purpose                                                       |
-| ---------------------------------------------------------------------------- | ------------------------------------------------------------- |
-| `ui/apps/everest/src/mocks/backup-class-mock.ts`                             | Mock BackupClass with providerManaged.uiSchema                |
-| `ui/apps/everest/src/hooks/api/backup-classes/useBackupClassWithUISchema.ts` | Mock hook (temporary)                                         |
-| `ui/apps/everest/src/utils/backup-class-utils.ts`                            | `getBackupClassUISection()` utility                           |
-| `ui/.../backups/storage-card/storage-card.tsx`                                | Presentational storage card (shared: tab + wizard)            |
-| `ui/.../backups/pitr-config-modal/pitr-config-modal.tsx`                      | PITR toggle + UIGenerator `pitr` section                      |
-| `ui/.../backups/storage-remove-confirm-dialog.tsx`                            | Confirmation dialog with pre-check warnings                   |
-| `ui/.../backups/scheduled-backup-modal/schedule-form-fields.tsx`              | Presentational schedule form fields (shared: tab + wizard)    |
-| `ui/.../backups/restore-modal/restore-modal.tsx`                              | Restore creation modal                                        |
-| `ui/.../database-form/steps/backups-step/backups-step.tsx`                    | Wizard backups step (form-state orchestration)                |
+| File                                                                         | Purpose                                                     |
+| ---------------------------------------------------------------------------- | ----------------------------------------------------------- |
+| `ui/apps/everest/src/mocks/backup-class-mock.ts`                             | Mock BackupClass with providerManaged.uiSchema              |
+| `ui/apps/everest/src/hooks/api/backup-classes/useBackupClassWithUISchema.ts` | Mock hook (temporary)                                       |
+| `ui/apps/everest/src/utils/backup-class-utils.ts`                            | `getBackupClassUISection()` utility                         |
+| `ui/.../backups/storage-row/storage-row.tsx`                                 | Presentational storage row (Backups tab only)               |
+| `ui/.../backups/pitr-config-modal/pitr-config-modal.tsx`                     | PITR toggle + UIGenerator `pitr` section                    |
+| `ui/.../backups/storage-remove-confirm-dialog.tsx`                           | Confirmation dialog with pre-check warnings                 |
+| `ui/.../backups/scheduled-backup-modal/schedule-form-fields.tsx`             | Presentational schedule form fields (shared: tab + wizard)  |
+| `ui/.../backups/restore-modal/restore-modal.tsx`                             | Restore creation modal                                      |
+| `ui/.../database-form/steps/backups-step/backups-step.tsx`                   | Wizard backups step (form-state orchestration)              |
+| `ui/.../database-form/steps/backups-step/utils.ts`                           | `buildSpecBackup()` — auto-assembles spec.backup.storages[] |
 
 ### Files to modify (UI)
 
-| File                                                                     | Change                                    |
-| ------------------------------------------------------------------------ | ----------------------------------------- |
-| `ui/.../on-demand-backup-modal/on-demand-backup-fields-wrapper.tsx`      | Add UIGenerator `backup` section          |
-| `ui/.../on-demand-backup-modal/on-demand-backup-modal.tsx`               | Pack dynamic fields into spec.config      |
-| `ui/.../on-demand-backup-modal/on-demand-backup-modal.types.ts`          | Extend Zod schema                         |
-| `ui/.../backups/backups.tsx`                                             | Add Active Storages accordion + storage picker + Schedules accordion |
-| `ui/.../backups/backups-list/table-header/backups-list-table-header.tsx` | Wire schedule + restore buttons           |
-| `ui/.../backups/backups-list/backups-list.tsx`                           | Add restore row action                    |
-| `ui/.../backups/scheduled-backup-modal/scheduled-backup-modal.tsx`       | Un-stub, implement                        |
-| `ui/.../backups/backups-list/table-header/scheduled-backups-list.tsx`    | Un-stub, implement                        |
-| `ui/.../hooks/api/backup-storages/useBackupStorages.ts`                  | Migrate to v2 API                         |
-| `ui/.../api/backupStorage.ts`                                            | Migrate endpoints to v2                   |
-| `ui/.../api/restores.ts`                                                 | Add createRestoreFn                       |
-| `ui/.../hooks/api/restores/useDbClusterRestore.ts`                       | Add useCreateRestore                      |
-| `ui/.../ui-generator/api-providers/providers.ts`                         | Register backupClasses + backupStorages   |
+| File                                                                     | Change                                                         |
+| ------------------------------------------------------------------------ | -------------------------------------------------------------- |
+| `ui/.../on-demand-backup-modal/on-demand-backup-fields-wrapper.tsx`      | Add UIGenerator `backup` section                               |
+| `ui/.../on-demand-backup-modal/on-demand-backup-modal.tsx`               | Pack dynamic fields into spec.config                           |
+| `ui/.../on-demand-backup-modal/on-demand-backup-modal.types.ts`          | Extend Zod schema                                              |
+| `ui/.../backups/backups.tsx`                                             | Add Storages/Schedules MUI Tabs + storage picker               |
+| `ui/.../backups/backups-list/table-header/backups-list-table-header.tsx` | Restore [Create backup ▼] MenuButton with Now/Schedule options |
+| `ui/.../backups/backups-list/backups-list.tsx`                           | Add restore row action                                         |
+| `ui/.../backups/scheduled-backup-modal/scheduled-backup-modal.tsx`       | Un-stub, implement                                             |
+| `ui/.../backups/backups-list/table-header/scheduled-backups-list.tsx`    | Un-stub, implement                                             |
+| `ui/.../hooks/api/backup-storages/useBackupStorages.ts`                  | Migrate to v2 API                                              |
+| `ui/.../api/backupStorage.ts`                                            | Migrate endpoints to v2                                        |
+| `ui/.../api/restores.ts`                                                 | Add createRestoreFn                                            |
+| `ui/.../hooks/api/restores/useDbClusterRestore.ts`                       | Add useCreateRestore                                           |
+| `ui/.../ui-generator/api-providers/providers.ts`                         | Register backupClasses + backupStorages                        |
 
 ### Files to modify (BE)
 
@@ -990,12 +1030,146 @@ Shared presentational components: `StorageCard`, `ScheduleFormFields`, `PITRConf
 ## Verification Criteria
 
 1. On-demand modal renders dynamic fields from BackupClass → config sent in `Backup.spec.config`
-2. Active Storages accordion shows instance storages; edit modal has PITR toggle + dynamic config
+2. Storages tab shows storage rows with PITR toggle; PITRConfigModal shows dynamic config
 3. Scheduled backups CRUD per storage via Instance PATCH
 4. Restore modal shows source info, PITR date picker, dynamic restore config
-5. Instance wizard backups step collects spec.backup from form state
+5. Instance wizard backups step renders v1-style layout (schedules + PITR) via builtIn step mechanism
 6. All forms degrade gracefully when BackupClass has no `uiSchema`
 7. `pnpm lint` and `pnpm typecheck` pass
 8. Existing on-demand backup + backups list + restores list unchanged
 9. BE: `ProviderManagedSpec` extended, CRD/client regenerated
 10. BE: PSMDB provider creates BackupClass at install, reads `Backup.spec.config` in `SyncBackup()`
+11. [Create backup ▼] MenuButton works with Now/Schedule options
+12. Storage removal confirmation dialog shows pre-check warnings
+
+---
+
+## Open Questions
+
+### Q1: Should schedule carry its own `config` (backup type, compression)?
+
+**Current CRD state:** `InstanceBackupSchedule` has NO `config` field — only `name`, `enabled`,
+`cron`, `retentionCopies`. Meanwhile `Backup.spec.config` is a `*runtime.RawExtension` set
+per-Backup (validated against `BackupClass.spec.config.openAPIV3Schema`).
+
+**How scheduled backups work:** The operator creates `Backup` CRs from schedules. The operator
+decides what `config` to put on each Backup. Currently the operator would use provider defaults
+(or none).
+
+**Analysis:**
+
+| Option                                                      | Description                                                  | Pros                                                             | Cons                                                                                                                     |
+| ----------------------------------------------------------- | ------------------------------------------------------------ | ---------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| A) Add `config` to `InstanceBackupSchedule`                 | Each schedule defines its own backup type, compression, etc. | Full user control per schedule. Physical daily + logical weekly. | CRD change. UI complexity. Each schedule form gets UIGenerator `backup` section. Provider must pass config to Backup CR. |
+| B) Keep schedule simple, inherit from BackupClass defaults  | All scheduled backups use provider-defined defaults.         | Simple. No CRD change. Schedule form stays static.               | Less flexibility. Can't mix backup types across schedules.                                                               |
+| C) Config at storage level (`InstanceBackupStorage.config`) | All schedules on a given storage share config.               | Middle ground. Groups config by destination.                     | Doesn't map well to "I want physical daily and logical weekly to same storage."                                          |
+
+**Recommendation:** Start with **Option B** (simple). The v1 schedule had no config at all.
+On-demand backups already support per-backup config via the modal. If users need per-schedule
+config later, Option A is the cleanest CRD extension (add `config *runtime.RawExtension` to
+`InstanceBackupSchedule`).
+
+### Q2: `builtIn` key on Section type — BE or FE only?
+
+Proposal adds `builtIn: "backups"` to Provider uiSchema. This is a new field on the Section type.
+
+| Option                                         | Description                                                                   |
+| ---------------------------------------------- | ----------------------------------------------------------------------------- |
+| A) Add to Go `ProviderSpec` (persisted in CRD) | Provider explicitly declares built-in steps. BE validates. Clean contract.    |
+| B) FE-only convention                          | UI checks for the key, BE ignores unknown fields in uiSchema. Faster to ship. |
+
+### Q3: PITR config — modal vs inline in wizard
+
+In Backups tab, PITR config opens a modal (because the storage row is compact). In wizard step,
+PITR config could either: A) Always modal (consistent UX). B) Expand inline below the toggle
+(more space in wizard). **v1 reference:** PITR was just a toggle + storage select, no config
+modal. If we keep it simple (toggle + storage), no modal needed in wizard at all. Modal only
+needed when provider has advanced PITR config fields.
+
+### Q4: Wizard backup step — hardcoded vs schema-described
+
+The `builtIn: "backups"` mechanism gives provider control over presence and ordering, but
+the step's internal structure is hardcoded React. Should we go further?
+
+**Considerations:**
+
+- Could PITR toggle be described as a ui-generator field with `uiType: "toggle"` + cell expression
+  conditions (e.g. `visible: "schedules.length > 0"`)?
+- Could schedule list be a ui-generator component with `uiType: "schedule-list"`?
+- Could warnings / info / tech-preview labels be added via standard `description` or `info` fields?
+- The first wizard step (base info) is similarly hardcoded and has a separate task for making it
+  extensible — the same mechanism could serve both.
+
+**Verdict for v2.0:** Start with `builtIn` (simple). The design allows evolution:
+
+1. `builtIn` today → opaque React component.
+2. Later: `builtIn` + `components` → the built-in component reads components from the section
+   schema and renders some fields via UIGenerator alongside its hardcoded layout.
+3. Eventually: fully schema-described if the ui-generator vocabulary is rich enough.
+
+The key constraint is: **can we do this more flexibly later?** Yes — `builtIn` is additive.
+We can extend Section to carry both `builtIn` and `components` fields without breaking existing
+providers. The built-in component would merge hardcoded layout with provider-defined extras.
+
+### Q5: Backups tab — storage-centric vs schedule-centric layout
+
+Two design approaches for the Backups tab (instance details):
+
+**Option A: Storage-centric (current proposal)**
+Storages tab shows storage rows. Each row has PITR toggle, schedule count, [+ Schedule].
+Schedules tab shows flat list.
+
+- **Pro:** Clear ownership — "this storage has these schedules and this PITR config."
+- **Con:** Unclear how to show schedule/PITR details per storage without cascading/expanding rows.
+  Adding more per-storage config would need modals or multi-level UI.
+
+**Option B: Schedule/PITR-centric (v1-style)**
+No storage rows. Show flat schedule list + flat PITR list (or tiles). Each schedule and PITR
+has its own storage select column. Storage binding is implicit.
+
+- **Pro:** Matches v1 UX. Simpler. Schedules are the primary concept, storages are attributes.
+- **Con:** Harder to see "which storages are bound to this instance" at a glance.
+
+**Option C: Cascading storage-row model (future)**
+Storage rows that can expand to reveal their schedules and PITR config inline. Like a tree view.
+
+- **Pro:** Complete per-storage view.
+- **Con:** Complex UI. Needs careful design. Risk of deep nesting.
+
+**Current decision:** Option A (storage-centric with Storages/Schedules tabs) for v2.0.
+The tabs separate the two concerns cleanly. Option C is interesting for a future design iteration.
+
+### Q6: StorageLimits — not in current CRD
+
+`BackupClassInstanceConstraints` currently only has `requiredFields []string`. There is no
+`StorageLimits` (min/max) type in the CRD. This proposal references `storageLimits.max`
+in several places.
+
+**Options:**
+
+- A) Add `StorageLimits` to `BackupClassInstanceConstraints` as proposed (CRD change needed).
+- B) Use the `InstanceBackupSpec.Storages` max array size (currently 10) as the only limit.
+  Provider-specific limits enforced via webhook validation, not schema.
+- C) Defer — let providers bind as many storages as the array allows; optimize later.
+
+### Q7: Multiple PITRs per instance
+
+The CRD allows PITR per-storage (`InstanceBackupStoragePITR`). Multiple storages can each
+have `pitr.enabled: true`. However:
+
+> _Engines that support only a single PITR stream (e.g. PSMDB, PXC) require at most one
+> storage on the Instance to set `.pitr.enabled=true`; this is enforced by the provider,
+> not by the core schema (PG legitimately archives WAL to every configured repo)._
+
+**UI implication:** If a provider supports multiple PITRs, the wizard should show
+multiple PITR tiles/items (same visual level as schedule items), each with its own storage
+selection and optional provider config. For single-PITR providers, UI keeps the simpler
+v1-style toggle + storage select.
+
+**For v2.0:** Keep **different UI by context**:
+
+- **Backups tab:** Storages tab with storage rows; PITR is configured on the storage row.
+- **Wizard:** No storages list, to avoid overloading the user. Schedules are shown as a flat list,
+  and PITR is shown either as one toggle block or as a flat PITR list depending on provider limits.
+
+Provider validation still prevents invalid combinations when only one PITR stream is allowed.
