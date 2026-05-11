@@ -97,7 +97,7 @@ func (pi *PluginInstaller) Run(ctx context.Context) error {
 			},
 			Spec: v1alpha1.PluginSpec{
 				DisplayName: displayName,
-				Backend:     &v1alpha1.PluginBackend{URL: pi.cfg.BackendURL},
+				Backend:     &v1alpha1.PluginBackend{ExternalURL: pi.cfg.BackendURL},
 				Frontend:    &v1alpha1.PluginFrontend{BundlePath: bundlePath},
 				Enabled:     pi.cfg.Enabled,
 			},
@@ -107,8 +107,8 @@ func (pi *PluginInstaller) Run(ctx context.Context) error {
 	if plugin.Name == "" {
 		return fmt.Errorf("plugin name is required (set metadata.name in the manifest or use --name)")
 	}
-	if plugin.Spec.Backend == nil || plugin.Spec.Backend.URL == "" {
-		return fmt.Errorf("backend URL is required (set spec.backend.url in the manifest or use --backend-url)")
+	if plugin.Spec.Backend == nil || (plugin.Spec.Backend.ExternalURL == "" && plugin.Spec.Backend.ServiceRef == nil) {
+		return fmt.Errorf("backend URL is required (set spec.backend.externalUrl / spec.backend.serviceRef in the manifest or use --backend-url)")
 	}
 
 	if _, err := pi.kubeClient.CreatePlugin(ctx, plugin); err != nil {

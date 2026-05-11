@@ -16,6 +16,7 @@ package server
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
@@ -27,6 +28,7 @@ import (
 	"go.uber.org/zap"
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 
+	corev1alpha1 "github.com/openeverest/openeverest/v2/api/core/v1alpha1"
 	"github.com/openeverest/openeverest/v2/pkg/kubernetes"
 	"github.com/openeverest/openeverest/v2/pkg/rbac"
 )
@@ -99,6 +101,9 @@ func (pp *pluginProxy) canUsePlugin(c echo.Context, name string) (bool, error) {
 }
 
 // listPluginsHandler returns the list of enabled plugins the caller can use.
+// Query params:
+//   - namespace (optional) — when provided, only plugins with an active
+//     PluginInstallation in that namespace are returned.
 func (pp *pluginProxy) listPluginsHandler(c echo.Context) error {
 	if err := pp.checkPluginsReadAccess(c); err != nil {
 		return err
@@ -107,8 +112,9 @@ func (pp *pluginProxy) listPluginsHandler(c echo.Context) error {
 	type extensionPointDescriptor struct {
 		Type  string `json:"type"`
 		Label string `json:"label,omitempty"`
-		Path  string `json:"path,omitempty"`
-		Icon  string `json:"icon,omitempty"`
+		Path      string   `json:"path,omitempty"`
+		Icon      string   `json:"icon,omitempty"`
+		Providers []string `json:"providers,omitempty"`
 	}
 
 	type pluginDescriptor struct {
@@ -125,10 +131,36 @@ func (pp *pluginProxy) listPluginsHandler(c echo.Context) error {
 		})
 	}
 
+	// Build an enabled-plugin set when a namespace filter is requested.
+	namespace := c.QueryParam("namespace")
+	enabledInNamespace := map[string]struct{}{}
+	if namespace != "" {
+		installs, err := pp.kubeConnector.ListPluginInstallations(
+			c.Request().Context(),
+			ctrlclient.InNamespace(namespace),
+		)
+		if err != nil {
+			return c.JSON(http.StatusInternalServerError, map[string]string{
+				"error": "failed to list plugin installations: " + err.Error(),
+			})
+		}
+		for _, pi := range installs.Items {
+			if pi.Spec.Enabled {
+				enabledInNamespace[pi.Spec.PluginName] = struct{}{}
+			}
+		}
+	}
+
 	descriptors := make([]pluginDescriptor, 0, len(plugins.Items))
 	for _, p := range plugins.Items {
 		if !p.Spec.Enabled {
 			continue
+		}
+		// Namespace filter: skip plugins without a matching PluginInstallation.
+		if namespace != "" {
+			if _, ok := enabledInNamespace[p.Name]; !ok {
+				continue
+			}
 		}
 		// Only return plugins the caller is allowed to use.
 		if allowed, err := pp.canUsePlugin(c, p.Name); err != nil {
@@ -146,10 +178,11 @@ func (pp *pluginProxy) listPluginsHandler(c echo.Context) error {
 			}
 			for _, ep := range p.Spec.Frontend.ExtensionPoints {
 				extPoints = append(extPoints, extensionPointDescriptor{
-					Type:  ep.Type,
-					Label: ep.Label,
-					Path:  ep.Path,
-					Icon:  ep.Icon,
+					Type:      ep.Type,
+					Label:     ep.Label,
+					Path:      ep.Path,
+					Icon:      ep.Icon,
+					Providers: ep.Providers,
 				})
 			}
 		}
@@ -202,13 +235,20 @@ func (pp *pluginProxy) doProxy(c echo.Context) error {
 		})
 	}
 
-	if plugin.Spec.Backend == nil || plugin.Spec.Backend.URL == "" {
+	if plugin.Spec.Backend == nil {
 		return c.JSON(http.StatusNotFound, map[string]string{
 			"error": "plugin has no backend configured: " + name,
 		})
 	}
 
-	target, err := url.Parse(plugin.Spec.Backend.URL)
+	targetURL, credToken, err := pp.resolveBackendURL(plugin.Spec.Backend)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{
+			"error": "cannot resolve plugin backend: " + err.Error(),
+		})
+	}
+
+	target, err := url.Parse(targetURL)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{
 			"error": "invalid plugin backend URL",
@@ -226,11 +266,33 @@ func (pp *pluginProxy) doProxy(c echo.Context) error {
 				req.URL.Path = "/"
 			}
 			req.Host = target.Host
+			// Forward external-backend credentials if present.
+			if credToken != "" {
+				req.Header.Set("Authorization", "Bearer "+credToken)
+			}
 		},
 	}
 
 	proxy.ServeHTTP(c.Response(), c.Request())
 	return nil
+}
+
+// resolveBackendURL returns the base URL and optional bearer token for the plugin backend.
+// Priority: ServiceRef > ExternalURL.
+func (pp *pluginProxy) resolveBackendURL(backend *corev1alpha1.PluginBackend) (string, string, error) {
+	if backend.ServiceRef != nil {
+		ref := backend.ServiceRef
+		if ref.Namespace == "" || ref.Name == "" || ref.Port == 0 {
+			return "", "", fmt.Errorf("serviceRef is missing namespace, name, or port")
+		}
+		// Standard in-cluster DNS: <name>.<namespace>.svc.cluster.local
+		u := fmt.Sprintf("http://%s.%s.svc.cluster.local:%d", ref.Name, ref.Namespace, ref.Port)
+		return u, "", nil
+	}
+	if backend.ExternalURL != "" {
+		return backend.ExternalURL, "", nil
+	}
+	return "", "", fmt.Errorf("backend has neither serviceRef nor externalUrl")
 }
 
 func pluginKey(name string) ctrlclient.ObjectKey {

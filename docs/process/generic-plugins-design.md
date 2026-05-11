@@ -152,6 +152,10 @@ spec:
       - type: clusterDetailTab
         label: "Query"
         component: ClusterQueryTab       # exported name in the bundle
+        # Optional: limit to specific database engine types.
+        # Valid values: "postgresql", "psmdb", "pxc".
+        # Omit to show for all engine types.
+        providers: ["postgresql"]
 
   # Backend contribution (optional).
   backend:
@@ -239,19 +243,39 @@ Each extension point is a named, versioned slot in the React shell. The host
 exports the full taxonomy from `@everest/plugin-sdk` as TypeScript types so
 plugin authors get compile-time safety.
 
-| Extension point | Where it appears | Props passed to component |
-|---|---|---|
-| `route` | Top-level React Router route at `/plugins/{name}/{path}` | `{ pluginName, params }` |
-| `sidebarItem` | Main navigation sidebar | `{ navigate, currentPath }` |
-| `clusterDetailTab` | Extra tab on a `DatabaseCluster` detail page | `{ cluster, namespace }` |
-| `clusterAction` | Context-menu action in the clusters table | `{ cluster, namespace, onClose }` |
-| `clusterCard` | Widget card on the cluster overview | `{ cluster, namespace }` |
-| `globalDashboardWidget` | Card on the home / dashboard page | `{ namespaces }` |
-| `settingsPanel` | Tab inside the Settings page | `{ currentUser }` |
-| `themeOverride` | MUI theme override (logos, palette) | `{ defaultTheme }` — Phase 4 |
+| Extension point | Where it appears | Props passed to component | Provider filter |
+|---|---|---|---|
+| `route` | Top-level React Router route at `/plugins/{name}/{path}` | `{ pluginName, params }` | — |
+| `sidebarItem` | Main navigation sidebar | `{ navigate, currentPath }` | — |
+| `clusterDetailTab` | Extra tab on a `DatabaseCluster` detail page | `{ cluster, namespace }` | ✓ |
+| `clusterAction` | Context-menu action in the clusters table | `{ cluster, namespace, onClose }` | ✓ |
+| `clusterCard` | Widget card on the cluster overview | `{ cluster, namespace }` | ✓ |
+| `globalDashboardWidget` | Card on the home / dashboard page | `{ namespaces }` | — |
+| `settingsPanel` | Tab inside the Settings page | `{ currentUser }` | — |
+| `themeOverride` | MUI theme override (logos, palette) | `{ defaultTheme }` — Phase 4 | — |
 
 Extension points are **additive** — a plugin can register for multiple points. A
 host version that does not recognise a point silently skips it.
+
+#### Provider filtering
+
+Extension points that render in a database context (`clusterDetailTab`,
+`clusterAction`, `clusterCard`) support an optional `providers` filter. When
+declared, the host only renders the contribution for clusters whose
+`spec.engine.type` matches one of the listed values. Valid values are
+`"postgresql"`, `"psmdb"` (MongoDB), and `"pxc"` (MySQL).
+
+The filter is expressed in two complementary places:
+
+- **Plugin CR** (`spec.frontend.extensionPoints[].providers`) — documents the
+  intent in the manifest; the value is forwarded by `GET /v1/plugins` to the
+  frontend shell.
+- **Bundle registration** (`registerExtension` call, `providers` field on the
+  extension object) — the runtime gate; the host skips rendering the component
+  if the current cluster's engine type is not in the list.
+
+Omitting `providers` (or leaving it empty) means "show for all engine types".
+Existing plugins that do not set the field are unaffected.
 
 ---
 
@@ -285,8 +309,19 @@ At shell startup:
 New package at `ui/packages/plugin-sdk`. Public surface:
 
 ```ts
-// Registration
-registerExtension(point: ExtensionPoint, component: React.ComponentType<any>): void
+// Registration — extension object shape determines the contribution type.
+// Database-context extensions (clusterDetailTab, clusterAction, clusterCard)
+// accept an optional 'providers' field to restrict rendering by engine type.
+registerExtension(extension: Extension): void
+
+// Example: PostgreSQL-only detail tab
+api.registerExtension({
+  type: 'clusterDetailTab',
+  label: 'SQL Query',
+  path: 'sql-query',
+  component: SqlQueryTab,
+  providers: ['postgresql'],   // omit to show for all engine types
+});
 
 // Hooks — bridge to the host's React context
 useEverestApi(): EverestApiClient    // pre-authed HTTP client for /v1/...

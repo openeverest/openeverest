@@ -31,6 +31,16 @@ export interface ClusterDetailTabExtension {
   path: string;
   /** The component rendered when the tab is active. Receives ClusterDetailTabProps. */
   component: ComponentType<ClusterDetailTabProps>;
+  /**
+   * Optional list of database engine types this tab applies to.
+   * Values match `spec.engine.type` on the DatabaseCluster CR:
+   * `"postgresql"`, `"psmdb"`, `"pxc"`.
+   * When omitted (or empty) the tab is shown for all engine types.
+   *
+   * @example providers: ["postgresql"]        // PostgreSQL only
+   * @example providers: ["psmdb", "pxc"]      // MongoDB and MySQL only
+   */
+  providers?: string[];
 }
 
 /** A context-menu action in the databases table row. */
@@ -40,6 +50,12 @@ export interface ClusterActionExtension {
   label: string;
   /** The component rendered when the action is triggered. Receives ClusterActionProps. */
   component: ComponentType<ClusterActionProps>;
+  /**
+   * Optional engine type filter. When set, the action is only shown for clusters
+   * whose `spec.engine.type` matches one of the listed values.
+   * Omit to show for all engine types.
+   */
+  providers?: string[];
 }
 
 /** A widget card on the cluster overview page. */
@@ -49,6 +65,12 @@ export interface ClusterCardExtension {
   label: string;
   /** The component rendered inside the card. Receives ClusterCardProps. */
   component: ComponentType<ClusterCardProps>;
+  /**
+   * Optional engine type filter. When set, the card is only shown for clusters
+   * whose `spec.engine.type` matches one of the listed values.
+   * Omit to show for all engine types.
+   */
+  providers?: string[];
 }
 
 /** A card on the home / dashboard page. */

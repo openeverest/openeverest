@@ -38,9 +38,11 @@ import {
 } from 'shared-types/instance.types';
 import { usePlugins } from 'contexts/plugins';
 import type { ClusterDetailTabExtension } from '@openeverest/plugin-sdk';
+import { usePluginsForNamespace } from 'hooks/api/plugins/usePluginsForNamespace';
 
 const WithPermissionDetails = ({
   instanceName,
+  namespace,
   tab,
 }: {
   namespace: string;
@@ -66,16 +68,26 @@ const WithPermissionDetails = ({
     keyof typeof DBClusterDetailsTabs
   >;
 
-  // Collect clusterDetailTab extensions from all plugins.
+  // Collect clusterDetailTab extensions, filtered by:
+  // 1. engine type (providers field)
+  // 2. namespace: only plugins with an active PluginInstallation in this namespace
   const { plugins } = usePlugins();
+  const { data: nsPlugins } = usePluginsForNamespace(namespace);
+  const engineType = instance?.spec?.engine?.type;
+
+  // Build a set of plugin names enabled in this namespace (undefined = no filter yet).
+  const enabledInNs = nsPlugins ? new Set(nsPlugins.map((p) => p.name)) : null;
+
   const pluginTabs = useMemo(
     () =>
       plugins.flatMap((p) =>
         p.extensions
           .filter((ext): ext is ClusterDetailTabExtension => ext.type === 'clusterDetailTab')
+          .filter((ext) => !ext.providers?.length || (engineType != null && ext.providers.includes(engineType)))
+          .filter(() => enabledInNs === null || enabledInNs.has(p.name))
           .map((ext) => ({ pluginName: p.name, ...ext })),
       ),
-    [plugins],
+    [plugins, engineType, enabledInNs],
   );
 
   return (

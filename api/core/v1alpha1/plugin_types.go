@@ -108,15 +108,50 @@ type PluginExtensionPoint struct {
 	// Icon is an optional icon identifier.
 	// +optional
 	Icon string `json:"icon,omitempty"`
+
+	// Providers is an optional list of database engine types this extension point
+	// applies to. Values match spec.engine.type on the DatabaseCluster CR:
+	// "postgresql", "psmdb", "pxc".
+	// When omitted or empty, the extension point is shown for all engine types.
+	// +optional
+	Providers []string `json:"providers,omitempty"`
 }
 
 // PluginBackend defines the backend contribution of a plugin.
+// Exactly one of ServiceRef or ExternalURL must be set.
 type PluginBackend struct {
-	// URL is the in-cluster base URL where the plugin's backend is reachable
-	// (e.g. "http://hello-plugin.everest-system:3001").
-	// The Everest server reverse-proxies /v1/plugins/<name>/* to this URL.
+	// ServiceRef references an in-cluster Kubernetes Service.
+	// The Everest server resolves it to http://<name>.<namespace>.svc:<port>
+	// and reverse-proxies /v1/plugins/<pluginName>/* to that address.
+	// +optional
+	ServiceRef *PluginBackendServiceRef `json:"serviceRef,omitempty"`
+
+	// ExternalURL is the HTTPS base URL of an externally hosted backend
+	// (e.g. "https://sql-explorer.example.com"). Mutually exclusive with ServiceRef.
+	// +optional
+	ExternalURL string `json:"externalUrl,omitempty"`
+
+	// CredentialsSecretRef is the name of a Secret in the same namespace as
+	// the PluginInstallation (or in everest-system for cluster-wide installs)
+	// whose "token" key is forwarded as the Authorization header to the external backend.
+	// Only meaningful when ExternalURL is set.
+	// +optional
+	CredentialsSecretRef string `json:"credentialsSecretRef,omitempty"`
+}
+
+// PluginBackendServiceRef points to an in-cluster Kubernetes Service.
+type PluginBackendServiceRef struct {
+	// Namespace of the Service.
 	// +required
-	URL string `json:"url"`
+	Namespace string `json:"namespace"`
+	// Name of the Service.
+	// +required
+	Name string `json:"name"`
+	// Port is the service port number.
+	// +required
+	// +kubebuilder:validation:Minimum=1
+	// +kubebuilder:validation:Maximum=65535
+	Port int32 `json:"port"`
 }
 
 // PluginPermission declares a single permission the plugin requires.

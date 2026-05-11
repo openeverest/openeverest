@@ -73,7 +73,12 @@ func (pl *PluginLister) Run(ctx context.Context) error {
 	for _, p := range plugins.Items {
 		backendURL := ""
 		if p.Spec.Backend != nil {
-			backendURL = p.Spec.Backend.URL
+			if p.Spec.Backend.ServiceRef != nil {
+				ref := p.Spec.Backend.ServiceRef
+				backendURL = fmt.Sprintf("%s.%s:%d (in-cluster)", ref.Name, ref.Namespace, ref.Port)
+			} else {
+				backendURL = p.Spec.Backend.ExternalURL
+			}
 		}
 		tbl.AddRow(p.Name, p.Spec.DisplayName, backendURL, p.Spec.Enabled)
 	}
