@@ -75,8 +75,9 @@ const WithPermissionDetails = ({
   const { data: nsPlugins } = usePluginsForNamespace(namespace);
   const engineType = instance?.spec?.provider;
 
-  // Build a set of plugin names enabled in this namespace (undefined = no filter yet).
-  const enabledInNs = nsPlugins ? new Set(nsPlugins.map((p) => p.name)) : null;
+  // Build a set of plugin names enabled in this namespace.
+  // When no PluginInstallation CRs exist in the namespace, skip filtering entirely.
+  const enabledInNs = nsPlugins?.length ? new Set(nsPlugins.map((p) => p.name)) : null;
 
   const pluginTabs = useMemo(
     () =>
