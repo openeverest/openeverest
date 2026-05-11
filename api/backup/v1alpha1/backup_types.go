@@ -95,6 +95,9 @@ type BackupStatus struct {
 	// started. Recorded for observability.
 	// +optional
 	ExecutionMode BackupExecutionMode `json:"executionMode,omitempty"`
+	// Size is the size of the backup data as reported by the engine.
+	// +optional
+	Size *string `json:"size,omitempty"`
 	// OperatorBackupRef points at the operator-native backup resource the
 	// provider created (e.g., PerconaServerMongoDBBackup). Populated only
 	// for ProviderManaged classes.

@@ -40,6 +40,7 @@ import (
 	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
 	"github.com/openeverest/openeverest/v2/api/backup/v1alpha1/jobspec"
 	corev1alpha1 "github.com/openeverest/openeverest/v2/api/core/v1alpha1"
+	"github.com/openeverest/openeverest/v2/pkg/common"
 )
 
 const (
@@ -154,6 +155,11 @@ func (r *BackupReconciler) Reconcile( //nolint:nonamedreturns
 		return result, nil
 	}
 
+	// Ensure the instance name label is set on the Backup resource.
+	if err := r.ensureInstanceNameLabel(ctx, backup); err != nil {
+		return ctrl.Result{}, err
+	}
+
 	if backup.Status.State == backupv1alpha1.BackupStateSucceeded ||
 		backup.Status.State == backupv1alpha1.BackupStateFailed {
 		// Already complete, no need to reconcile again.
@@ -251,6 +257,27 @@ func (r *BackupReconciler) Reconcile( //nolint:nonamedreturns
 		return ctrl.Result{}, err
 	}
 	return ctrl.Result{}, nil
+}
+
+// ensureInstanceNameLabel ensures that the Backup resource has the instance name
+// label, used for filtering backups by instance using label selectors.
+func (r *BackupReconciler) ensureInstanceNameLabel(ctx context.Context, backup *backupv1alpha1.Backup) error {
+	labels := backup.GetLabels()
+	if labels == nil {
+		labels = make(map[string]string)
+	}
+
+	if labels[common.InstanceNameLabel] == backup.Spec.InstanceName {
+		return nil
+	}
+
+	labels[common.InstanceNameLabel] = backup.Spec.InstanceName
+	backup.SetLabels(labels)
+	if err := r.Client.Update(ctx, backup); err != nil {
+		return fmt.Errorf("failed to update instance name label: %w", err)
+	}
+
+	return nil
 }
 
 func (r *BackupReconciler) observeJobStatus(ctx context.Context, backup *backupv1alpha1.Backup) error {

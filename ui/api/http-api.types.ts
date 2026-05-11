@@ -1191,6 +1191,50 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/clusters/{cluster}/namespaces/{namespace}/restores": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create restore
+         * @description This API creates a new restore in the specified namespace and cluster.
+         */
+        post: operations["createRestore"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/clusters/{cluster}/namespaces/{namespace}/restores/{restore}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get restore
+         * @description This API gets the restore specified by the `restore` name in the specified `namespace` and `cluster`.
+         */
+        get: operations["getRestore"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete restore
+         * @description This API deletes the restore specified by the `restore` name in the specified `namespace` and `cluster`.
+         */
+        delete: operations["deleteRestore"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/clusters/{cluster}/namespaces/{namespace}/backup-storages": {
         parameters: {
             query?: never;
@@ -7756,6 +7800,8 @@ export interface components {
                     /** @description Name is the name of resource being referenced */
                     name: string;
                 };
+                /** @description Size is the size of the backup data as reported by the engine. */
+                size?: string;
                 /**
                  * Format: date-time
                  * @description StartedAt is the time when the backup started.
@@ -11726,6 +11772,142 @@ export interface operations {
                 content?: never;
             };
             /** @description Backup not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    createRestore: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The name of the cluster */
+                cluster: string;
+                /** @description The namespace where the restore will be created */
+                namespace: string;
+            };
+            cookie?: never;
+        };
+        /** @description The restore object to be created */
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Restore"];
+            };
+        };
+        responses: {
+            /** @description Restore created successfully */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Restore"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getRestore: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The name of the cluster */
+                cluster: string;
+                /** @description The namespace where the restore is located */
+                namespace: string;
+                /** @description The name of the restore */
+                restore: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Restore details */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Restore"];
+                };
+            };
+            /** @description Restore not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    deleteRestore: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The name of the cluster */
+                cluster: string;
+                /** @description The namespace where the restore is located */
+                namespace: string;
+                /** @description The name of the restore */
+                restore: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Restore deleted successfully */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Restore"];
+                };
+            };
+            /** @description Restore deleted successfully */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Restore not found */
             404: {
                 headers: {
                     [name: string]: unknown;

@@ -41,6 +41,8 @@ var resourcePathMap = map[string]string{
 	"/clusters/:cluster/namespaces/:namespace/instances/:instance/restores":          "restores",
 	"/clusters/:cluster/namespaces/:namespace/monitoring-configs":                    "monitoring-configs",
 	"/clusters/:cluster/namespaces/:namespace/monitoring-configs/:name":              "monitoring-configs",
+	"/clusters/:cluster/namespaces/:namespace/restores":                              "restores",
+	"/clusters/:cluster/namespaces/:namespace/restores/:restore":                     "restores",
 	"/clusters/:cluster/providers":                                                   "providers",
 	"/clusters/:cluster/providers/:provider":                                         "providers",
 	"/data-importers":                                                                "data-importers",

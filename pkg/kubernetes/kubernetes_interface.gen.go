@@ -160,6 +160,12 @@ type KubernetesConnector interface {
 	ListInstanceBackups(ctx context.Context, namespace, instance string) (*backupv1alpha1.BackupList, error)
 	// ListInstanceRestores returns restores performed for the specified instance.
 	ListInstanceRestores(ctx context.Context, namespace, instance string) (*backupv1alpha1.RestoreList, error)
+	// GetRestore returns a specific restore by namespaced name.
+	GetRestore(ctx context.Context, key ctrlclient.ObjectKey) (*backupv1alpha1.Restore, error)
+	// CreateRestore creates a new restore.
+	CreateRestore(ctx context.Context, restore *backupv1alpha1.Restore) (*backupv1alpha1.Restore, error)
+	// DeleteRestore deletes a restore.
+	DeleteRestore(ctx context.Context, obj *backupv1alpha1.Restore) error
 	// GetInstallPlan retrieves an OLM install plan that matches the criteria.
 	GetInstallPlan(ctx context.Context, key ctrlclient.ObjectKey) (*olmv1alpha1.InstallPlan, error)
 	// UpdateInstallPlan updates OLM install plan.
