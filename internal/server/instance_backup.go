@@ -23,8 +23,7 @@ import (
 
 // ListInstanceBackups returns list of backups for the specified instance.
 func (e *EverestServer) ListInstanceBackups(c echo.Context, cluster string, namespace string, instance string) error {
-	// The cluster parameter is currently ignored.
-	result, err := e.handler.ListInstanceBackups(c.Request().Context(), namespace, instance)
+	result, err := e.handler.ListInstanceBackups(c.Request().Context(), cluster, namespace, instance)
 	if err != nil {
 		e.l.Errorf("ListInstanceBackups failed: %v", err)
 		return err

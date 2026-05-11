@@ -1,3 +1,17 @@
+// Copyright (C) 2026 The OpenEverest Contributors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package rbac
 
 import (
@@ -73,8 +87,6 @@ func TestRBAC_DatabaseClusterBackup(t *testing.T) {
 			{
 				desc: "success",
 				policy: newPolicy(
-					"p, role:test, backup-storages, read, default/bs1",
-					"p, role:test, backup-storages, read, default/bs2",
 					"p, role:test, database-cluster-backups, read, default/cluster1",
 					"g, bob, role:test",
 				),
@@ -89,48 +101,8 @@ func TestRBAC_DatabaseClusterBackup(t *testing.T) {
 				},
 			},
 			{
-				desc: "missing read permission on backup-storage 'bs1'",
-				policy: newPolicy(
-					"p, role:test, backup-storages, read, default/bs2",
-					"p, role:test, database-cluster-backups, read, default/cluster1",
-					"g, bob, role:test",
-				),
-				assert: func(list *everestv1alpha1.DatabaseClusterBackupList) bool {
-					return len(list.Items) == 1 &&
-						slices.ContainsFunc(list.Items, func(backup everestv1alpha1.DatabaseClusterBackup) bool {
-							return backup.GetName() == "backup2"
-						})
-				},
-			},
-			{
-				desc: "missing read permission on backup-storage 'bs2'",
-				policy: newPolicy(
-					"p, role:test, backup-storages, read, default/bs1",
-					"p, role:test, database-cluster-backups, read, default/cluster1",
-					"g, bob, role:test",
-				),
-				assert: func(list *everestv1alpha1.DatabaseClusterBackupList) bool {
-					return len(list.Items) == 1 &&
-						slices.ContainsFunc(list.Items, func(backup everestv1alpha1.DatabaseClusterBackup) bool {
-							return backup.GetName() == "backup1"
-						})
-				},
-			},
-			{
-				desc: "missing read permission on backup-storage 'bs1' and 'bs2'",
-				policy: newPolicy(
-					"p, role:test, database-cluster-backups, read, default/cluster1",
-					"g, bob, role:test",
-				),
-				assert: func(list *everestv1alpha1.DatabaseClusterBackupList) bool {
-					return len(list.Items) == 0
-				},
-			},
-			{
 				desc: "missing read permissons for database-cluster-backups on cluster 'cluster1'",
 				policy: newPolicy(
-					"p, role:test, backup-storages, read, default/bs1",
-					"p, role:test, backup-storages, read, default/bs2",
 					"g, bob, role:test",
 				),
 				assert: func(list *everestv1alpha1.DatabaseClusterBackupList) bool {
@@ -195,23 +167,13 @@ func TestRBAC_DatabaseClusterBackup(t *testing.T) {
 			{
 				desc: "success",
 				policy: newPolicy(
-					"p, role:test, backup-storages, read, default/bs1",
 					"p, role:test, database-cluster-backups, read, default/cluster1",
 					"g, bob, role:test",
 				),
-			},
-			{
-				desc: "missing read permission on backup-storage 'bs1'",
-				policy: newPolicy(
-					"p, role:test, database-cluster-backups, read, default/cluster1",
-					"g, bob, role:test",
-				),
-				wantErr: ErrInsufficientPermissions,
 			},
 			{
 				desc: "missing read permissons for database-cluster-backups on cluster 'cluster1'",
 				policy: newPolicy(
-					"p, role:test, backup-storages, read, default/bs1",
 					"g, bob, role:test",
 				),
 				wantErr: ErrInsufficientPermissions,
@@ -261,23 +223,13 @@ func TestRBAC_DatabaseClusterBackup(t *testing.T) {
 			{
 				desc: "success",
 				policy: newPolicy(
-					"p, role:test, backup-storages, read, default/bs1",
 					"p, role:test, database-cluster-backups, create, default/cluster1",
 					"g, bob, role:test",
 				),
 			},
 			{
-				desc: "missing read permission on backup-storage 'bs1'",
-				policy: newPolicy(
-					"p, role:test, database-cluster-backups, read, default/cluster1",
-					"g, bob, role:test",
-				),
-				wantErr: ErrInsufficientPermissions,
-			},
-			{
 				desc: "missing create permissons for database-cluster-backups on cluster 'cluster1'",
 				policy: newPolicy(
-					"p, role:test, backup-storages, read, default/bs1",
 					"g, bob, role:test",
 				),
 				wantErr: ErrInsufficientPermissions,

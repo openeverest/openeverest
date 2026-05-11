@@ -25,27 +25,27 @@ import (
 )
 
 // ListBackupStorages returns list of backup storages in a namespace.
-func (h *k8sHandler) ListBackupStorages(ctx context.Context, namespace string) (*backupv1alpha1.BackupStorageList, error) {
+func (h *k8sHandler) ListBackupStorages(ctx context.Context, cluster, namespace string) (*backupv1alpha1.BackupStorageList, error) {
 	return h.kubeConnector.ListBackupStorages(ctx, ctrlclient.InNamespace(namespace))
 }
 
 // GetBackupStorage returns a backup storage by name and namespace.
-func (h *k8sHandler) GetBackupStorage(ctx context.Context, namespace, name string) (*backupv1alpha1.BackupStorage, error) {
+func (h *k8sHandler) GetBackupStorage(ctx context.Context, cluster, namespace, name string) (*backupv1alpha1.BackupStorage, error) {
 	return h.kubeConnector.GetBackupStorage(ctx, types.NamespacedName{Namespace: namespace, Name: name})
 }
 
 // CreateBackupStorage creates a backup storage.
-func (h *k8sHandler) CreateBackupStorage(ctx context.Context, bs *backupv1alpha1.BackupStorage) (*backupv1alpha1.BackupStorage, error) {
+func (h *k8sHandler) CreateBackupStorage(ctx context.Context, cluster string, bs *backupv1alpha1.BackupStorage) (*backupv1alpha1.BackupStorage, error) {
 	return h.kubeConnector.CreateBackupStorage(ctx, bs)
 }
 
 // UpdateBackupStorage updates a backup storage.
-func (h *k8sHandler) UpdateBackupStorage(ctx context.Context, bs *backupv1alpha1.BackupStorage) (*backupv1alpha1.BackupStorage, error) {
+func (h *k8sHandler) UpdateBackupStorage(ctx context.Context, cluster string, bs *backupv1alpha1.BackupStorage) (*backupv1alpha1.BackupStorage, error) {
 	return h.kubeConnector.UpdateBackupStorage(ctx, bs)
 }
 
 // DeleteBackupStorage deletes a backup storage.
-func (h *k8sHandler) DeleteBackupStorage(ctx context.Context, namespace, name string) error {
+func (h *k8sHandler) DeleteBackupStorage(ctx context.Context, cluster, namespace, name string) error {
 	bs, err := h.kubeConnector.GetBackupStorage(ctx, types.NamespacedName{Namespace: namespace, Name: name})
 	if ctrlclient.IgnoreNotFound(err) != nil {
 		return fmt.Errorf("failed to get backup storage: %w", err)

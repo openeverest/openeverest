@@ -127,11 +127,11 @@ type BackupStorageV1Handler interface {
 
 // BackupStorageHandler provides methods for handling operations on backup storages.
 type BackupStorageHandler interface {
-	CreateBackupStorage(ctx context.Context, bs *backupv1alpha1.BackupStorage) (*backupv1alpha1.BackupStorage, error)
-	UpdateBackupStorage(ctx context.Context, bs *backupv1alpha1.BackupStorage) (*backupv1alpha1.BackupStorage, error)
-	ListBackupStorages(ctx context.Context, namespace string) (*backupv1alpha1.BackupStorageList, error)
-	GetBackupStorage(ctx context.Context, namespace, name string) (*backupv1alpha1.BackupStorage, error)
-	DeleteBackupStorage(ctx context.Context, namespace, name string) error
+	CreateBackupStorage(ctx context.Context, cluster string, bs *backupv1alpha1.BackupStorage) (*backupv1alpha1.BackupStorage, error)
+	UpdateBackupStorage(ctx context.Context, cluster string, bs *backupv1alpha1.BackupStorage) (*backupv1alpha1.BackupStorage, error)
+	ListBackupStorages(ctx context.Context, cluster, namespace string) (*backupv1alpha1.BackupStorageList, error)
+	GetBackupStorage(ctx context.Context, cluster, namespace, name string) (*backupv1alpha1.BackupStorage, error)
+	DeleteBackupStorage(ctx context.Context, cluster, namespace, name string) error
 }
 
 // MonitoringInstanceHandler provides methods for handling operations on monitoring instances.
@@ -191,18 +191,18 @@ type SplitHorizonDNSConfigHandler interface {
 
 // ProviderHandler provides methods for handling operations on providers.
 type ProviderHandler interface {
-	ListProviders(ctx context.Context) (*corev1alpha1.ProviderList, error)
-	GetProvider(ctx context.Context, name string) (*corev1alpha1.Provider, error)
+	ListProviders(ctx context.Context, cluster string) (*corev1alpha1.ProviderList, error)
+	GetProvider(ctx context.Context, cluster, name string) (*corev1alpha1.Provider, error)
 }
 
 // InstanceHandler provides methods for handling operations on instances.
 type InstanceHandler interface {
-	ListInstances(ctx context.Context, namespace string) (*corev1alpha1.InstanceList, error)
-	GetInstance(ctx context.Context, namespace, name string) (*corev1alpha1.Instance, error)
-	CreateInstance(ctx context.Context, instance *corev1alpha1.Instance) (*corev1alpha1.Instance, error)
-	UpdateInstance(ctx context.Context, instance *corev1alpha1.Instance) (*corev1alpha1.Instance, error)
-	DeleteInstance(ctx context.Context, namespace, name string) error
-	GetInstanceConnection(ctx context.Context, namespace, name string) (*api.InstanceConnectionDetails, error)
+	ListInstances(ctx context.Context, cluster, namespace string) (*corev1alpha1.InstanceList, error)
+	GetInstance(ctx context.Context, cluster, namespace, name string) (*corev1alpha1.Instance, error)
+	CreateInstance(ctx context.Context, cluster string, instance *corev1alpha1.Instance) (*corev1alpha1.Instance, error)
+	UpdateInstance(ctx context.Context, cluster string, instance *corev1alpha1.Instance) (*corev1alpha1.Instance, error)
+	DeleteInstance(ctx context.Context, cluster, namespace, name string) error
+	GetInstanceConnection(ctx context.Context, cluster, namespace, name string) (*api.InstanceConnectionDetails, error)
 }
 
 // ClusterHandler provides methods for handling operations on clusters.
@@ -213,15 +213,15 @@ type ClusterHandler interface {
 
 // BackupClassHandler provides methods for handling operations on backup classes.
 type BackupClassHandler interface {
-	ListBackupClasses(ctx context.Context) (*backupv1alpha1.BackupClassList, error)
-	GetBackupClass(ctx context.Context, name string) (*backupv1alpha1.BackupClass, error)
+	ListBackupClasses(ctx context.Context, cluster string) (*backupv1alpha1.BackupClassList, error)
+	GetBackupClass(ctx context.Context, cluster, name string) (*backupv1alpha1.BackupClass, error)
 }
 
 // BackupHandler provides methods for handling operations on backups.
 type BackupHandler interface {
-	GetBackup(ctx context.Context, namespace, name string) (*backupv1alpha1.Backup, error)
-	CreateBackup(ctx context.Context, backup *backupv1alpha1.Backup) (*backupv1alpha1.Backup, error)
-	DeleteBackup(ctx context.Context, namespace, name string) error
+	GetBackup(ctx context.Context, cluster, namespace, name string) (*backupv1alpha1.Backup, error)
+	CreateBackup(ctx context.Context, cluster string, backup *backupv1alpha1.Backup) (*backupv1alpha1.Backup, error)
+	DeleteBackup(ctx context.Context, cluster, namespace, name string) error
 }
 
 // RestoreHandler provides methods for handling operations on restores.
@@ -233,19 +233,19 @@ type RestoreHandler interface {
 
 // InstanceBackupHandler provides methods for handling operations on instance backups.
 type InstanceBackupHandler interface {
-	ListInstanceBackups(ctx context.Context, namespace, instance string) (*backupv1alpha1.BackupList, error)
+	ListInstanceBackups(ctx context.Context, cluster, namespace, instance string) (*backupv1alpha1.BackupList, error)
 }
 
 // MonitoringConfigHandler provides methods for handling operations on monitoring configs.
 type MonitoringConfigHandler interface {
-	CreateMonitoringConfig(ctx context.Context, namespace string, req *api.MonitoringConfigCreateParams) (*monitoringv1alpha2.MonitoringConfig, error)
-	UpdateMonitoringConfig(ctx context.Context, namespace, name string, req *api.MonitoringConfigUpdateParams) (*monitoringv1alpha2.MonitoringConfig, error)
-	ListMonitoringConfigs(ctx context.Context, namespaces string) (*monitoringv1alpha2.MonitoringConfigList, error)
-	GetMonitoringConfig(ctx context.Context, namespace, name string) (*monitoringv1alpha2.MonitoringConfig, error)
-	DeleteMonitoringConfig(ctx context.Context, namespace, name string) error
+	CreateMonitoringConfig(ctx context.Context, cluster, namespace string, req *api.MonitoringConfigCreateParams) (*monitoringv1alpha2.MonitoringConfig, error)
+	UpdateMonitoringConfig(ctx context.Context, cluster, namespace, name string, req *api.MonitoringConfigUpdateParams) (*monitoringv1alpha2.MonitoringConfig, error)
+	ListMonitoringConfigs(ctx context.Context, cluster, namespaces string) (*monitoringv1alpha2.MonitoringConfigList, error)
+	GetMonitoringConfig(ctx context.Context, cluster, namespace, name string) (*monitoringv1alpha2.MonitoringConfig, error)
+	DeleteMonitoringConfig(ctx context.Context, cluster, namespace, name string) error
 }
 
 // InstanceRestoreHandler provides methods for handling operations on instance restores.
 type InstanceRestoreHandler interface {
-	ListInstanceRestores(ctx context.Context, namespace, instanceName string) (*backupv1alpha1.RestoreList, error)
+	ListInstanceRestores(ctx context.Context, cluster, namespace, instanceName string) (*backupv1alpha1.RestoreList, error)
 }

@@ -23,33 +23,33 @@ import (
 )
 
 // ListInstances proxies the request to the next handler.
-func (h *validateHandler) ListInstances(ctx context.Context, namespace string) (*corev1alpha1.InstanceList, error) {
-	return h.next.ListInstances(ctx, namespace)
+func (h *validateHandler) ListInstances(ctx context.Context, cluster, namespace string) (*corev1alpha1.InstanceList, error) {
+	return h.next.ListInstances(ctx, cluster, namespace)
 }
 
 // GetInstance proxies the request to the next handler.
-func (h *validateHandler) GetInstance(ctx context.Context, namespace, name string) (*corev1alpha1.Instance, error) {
-	return h.next.GetInstance(ctx, namespace, name)
+func (h *validateHandler) GetInstance(ctx context.Context, cluster, namespace, name string) (*corev1alpha1.Instance, error) {
+	return h.next.GetInstance(ctx, cluster, namespace, name)
 }
 
 // CreateInstance proxies the request to the next handler.
-func (h *validateHandler) CreateInstance(ctx context.Context, instance *corev1alpha1.Instance) (*corev1alpha1.Instance, error) {
+func (h *validateHandler) CreateInstance(ctx context.Context, cluster string, instance *corev1alpha1.Instance) (*corev1alpha1.Instance, error) {
 	// Add validation here if needed in the future
-	return h.next.CreateInstance(ctx, instance)
+	return h.next.CreateInstance(ctx, cluster, instance)
 }
 
 // UpdateInstance proxies the request to the next handler.
-func (h *validateHandler) UpdateInstance(ctx context.Context, instance *corev1alpha1.Instance) (*corev1alpha1.Instance, error) {
+func (h *validateHandler) UpdateInstance(ctx context.Context, cluster string, instance *corev1alpha1.Instance) (*corev1alpha1.Instance, error) {
 	// Add validation here if needed in the future
-	return h.next.UpdateInstance(ctx, instance)
+	return h.next.UpdateInstance(ctx, cluster, instance)
 }
 
 // DeleteInstance proxies the request to the next handler.
-func (h *validateHandler) DeleteInstance(ctx context.Context, namespace, name string) error {
-	return h.next.DeleteInstance(ctx, namespace, name)
+func (h *validateHandler) DeleteInstance(ctx context.Context, cluster, namespace, name string) error {
+	return h.next.DeleteInstance(ctx, cluster, namespace, name)
 }
 
 // GetInstanceConnection proxies the request to the next handler.
-func (h *validateHandler) GetInstanceConnection(ctx context.Context, namespace, name string) (*api.InstanceConnectionDetails, error) {
-	return h.next.GetInstanceConnection(ctx, namespace, name)
+func (h *validateHandler) GetInstanceConnection(ctx context.Context, cluster, namespace, name string) (*api.InstanceConnectionDetails, error) {
+	return h.next.GetInstanceConnection(ctx, cluster, namespace, name)
 }

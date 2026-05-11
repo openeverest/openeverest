@@ -7,6 +7,7 @@ var AllResources = []string{
 	"backup-classes",
 	"backup-storages",
 	"backups",
+	"clusters",
 	"data-import-jobs",
 	"data-importers",
 	"database-cluster-backups",
@@ -28,6 +29,7 @@ var AllResources = []string{
 // resourcePathMap maps API paths to their resource names.
 // Paths use colon notation for parameters (e.g., "/:namespace/clusters").
 var resourcePathMap = map[string]string{
+	"/clusters":                                                                      "clusters",
 	"/clusters/:cluster/backup-classes":                                              "backup-classes",
 	"/clusters/:cluster/backup-classes/:backupClass":                                 "backup-classes",
 	"/clusters/:cluster/namespaces/:namespace/backup-storages":                       "backup-storages",
@@ -45,6 +47,7 @@ var resourcePathMap = map[string]string{
 	"/clusters/:cluster/namespaces/:namespace/restores/:restore":                     "restores",
 	"/clusters/:cluster/providers":                                                   "providers",
 	"/clusters/:cluster/providers/:provider":                                         "providers",
+	"/clusters/:name":                                                                "clusters",
 	"/data-importers":                                                                "data-importers",
 	"/load-balancer-configs":                                                         "load-balancer-configs",
 	"/load-balancer-configs/:config-name":                                            "load-balancer-configs",
@@ -79,8 +82,6 @@ var resourcePathMap = map[string]string{
 // skipPaths lists API paths that should skip RBAC checks.
 var skipPaths = []string{
 	"/cluster-info",
-	"/clusters",
-	"/clusters/:name",
 	"/namespaces/:namespace/database-clusters/:dbName/secret",
 	"/permissions",
 	"/resources",

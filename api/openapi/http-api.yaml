@@ -2479,6 +2479,7 @@ paths:
                 $ref: '#/components/schemas/Error'
 # ------- Engine Features endpoints -------
   '/clusters':
+    x-everest-resource-name: clusters
     get:
       tags:
         - Kubernetes
@@ -2499,6 +2500,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
   '/clusters/{name}':
+    x-everest-resource-name: clusters
     get:
       tags:
         - Kubernetes

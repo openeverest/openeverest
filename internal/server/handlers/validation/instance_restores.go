@@ -22,6 +22,6 @@ import (
 )
 
 // ListInstanceRestores proxies the request to the next handler.
-func (h *validateHandler) ListInstanceRestores(ctx context.Context, namespace, instanceName string) (*backupv1alpha1.RestoreList, error) {
-	return h.next.ListInstanceRestores(ctx, namespace, instanceName)
+func (h *validateHandler) ListInstanceRestores(ctx context.Context, cluster, namespace, instanceName string) (*backupv1alpha1.RestoreList, error) {
+	return h.next.ListInstanceRestores(ctx, cluster, namespace, instanceName)
 }
