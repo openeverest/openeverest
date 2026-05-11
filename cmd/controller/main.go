@@ -40,6 +40,7 @@ import (
 	monitoringv1alpha2 "github.com/openeverest/openeverest/v2/api/monitoring/v1alpha2"
 	backupcontroller "github.com/openeverest/openeverest/v2/internal/controller/backup"
 	monitoringcontroller "github.com/openeverest/openeverest/v2/internal/controller/monitoring"
+	plugincontroller "github.com/openeverest/openeverest/v2/internal/controller/plugin"
 	webhookmonitoringv1alpha2 "github.com/openeverest/openeverest/v2/internal/webhook/monitoring/v1alpha2"
 )
 
@@ -209,6 +210,22 @@ func main() {
 		MonitoringNamespace: monitoringNamespace,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "Failed to create controller", "controller", "MonitoringConfig")
+		os.Exit(1)
+	}
+
+	if err := (&plugincontroller.PluginReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "Failed to create controller", "controller", "Plugin")
+		os.Exit(1)
+	}
+
+	if err := (&plugincontroller.PluginInstallationReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "Failed to create controller", "controller", "PluginInstallation")
 		os.Exit(1)
 	}
 

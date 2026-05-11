@@ -1,0 +1,218 @@
+// Copyright (C) 2026 The OpenEverest Contributors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+package plugin
+
+import (
+	"context"
+	"fmt"
+
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
+	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
+	"sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+
+	corev1alpha1 "github.com/openeverest/openeverest/v2/api/core/v1alpha1"
+)
+
+const (
+	pluginInstallationFinalizer = "plugininstallation.core.openeverest.io/finalizer"
+
+	reasonPluginNotFound  = "PluginNotFound"
+	reasonPluginDisabled  = "PluginDisabled"
+	reasonInstallDisabled = "InstallationDisabled"
+	reasonReady           = "Ready"
+)
+
+// PluginInstallationReconciler reconciles PluginInstallation resources.
+//
+// Phase 1 responsibilities:
+//   - Add/remove a finalizer.
+//   - Validate that the referenced Plugin CR exists and is enabled.
+//   - Surface errors as status conditions.
+//
+// Phase 2+: per-namespace config injection, token minting.
+// Phase 3+: Deployment lifecycle management.
+type PluginInstallationReconciler struct {
+	Client client.Client
+	Scheme *runtime.Scheme
+}
+
+// +kubebuilder:rbac:groups=core.openeverest.io,resources=plugininstallations,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=core.openeverest.io,resources=plugininstallations/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=core.openeverest.io,resources=plugininstallations/finalizers,verbs=update
+
+// SetupWithManager registers the controller with the manager.
+// It also watches Plugin CRs and enqueues all PluginInstallations that reference them,
+// so that installation status is refreshed whenever the parent Plugin changes.
+func (r *PluginInstallationReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	return ctrl.NewControllerManagedBy(mgr).
+		Named("PluginInstallation").
+		For(&corev1alpha1.PluginInstallation{}).
+		// Re-reconcile all PluginInstallations when a Plugin changes.
+		Watches(
+			&corev1alpha1.Plugin{},
+			handler.EnqueueRequestsFromMapFunc(r.pluginToInstallations),
+		).
+		Complete(r)
+}
+
+// pluginToInstallations maps a Plugin event to all PluginInstallations that reference it.
+func (r *PluginInstallationReconciler) pluginToInstallations(
+	ctx context.Context,
+	obj client.Object,
+) []reconcile.Request {
+	pluginName := obj.GetName()
+	list := &corev1alpha1.PluginInstallationList{}
+	if err := r.Client.List(ctx, list); err != nil {
+		return nil
+	}
+	var requests []reconcile.Request
+	for _, pi := range list.Items {
+		if pi.Spec.PluginName == pluginName {
+			requests = append(requests, reconcile.Request{
+				NamespacedName: types.NamespacedName{
+					Namespace: pi.Namespace,
+					Name:      pi.Name,
+				},
+			})
+		}
+	}
+	return requests
+}
+
+// Reconcile moves the PluginInstallation towards its desired state.
+func (r *PluginInstallationReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	logger := log.FromContext(ctx).
+		WithName("PluginInstallationReconciler").
+		WithValues("name", req.Name, "namespace", req.Namespace)
+	logger.Info("Reconciling")
+
+	pi := &corev1alpha1.PluginInstallation{}
+	if err := r.Client.Get(ctx, req.NamespacedName, pi); err != nil {
+		return ctrl.Result{}, client.IgnoreNotFound(err)
+	}
+
+	// --- Deletion path ---
+	if !pi.GetDeletionTimestamp().IsZero() {
+		if hasFinalizer(pi, pluginInstallationFinalizer) {
+			// Phase 2+: revoke scoped tokens, remove namespace-scoped config here.
+			removeFinalizer(pi, pluginInstallationFinalizer)
+			if err := r.Client.Update(ctx, pi); err != nil {
+				return ctrl.Result{}, fmt.Errorf("failed to remove finalizer: %w", err)
+			}
+		}
+		return ctrl.Result{}, nil
+	}
+
+	// --- Ensure finalizer ---
+	if !hasFinalizer(pi, pluginInstallationFinalizer) {
+		addFinalizer(pi, pluginInstallationFinalizer)
+		if err := r.Client.Update(ctx, pi); err != nil {
+			return ctrl.Result{}, fmt.Errorf("failed to add finalizer: %w", err)
+		}
+		if err := r.Client.Get(ctx, req.NamespacedName, pi); err != nil {
+			return ctrl.Result{}, client.IgnoreNotFound(err)
+		}
+	}
+
+	// --- Reconcile status conditions ---
+	patch := client.MergeFrom(pi.DeepCopy())
+
+	plugin := &corev1alpha1.Plugin{}
+	pluginErr := r.Client.Get(ctx, types.NamespacedName{Name: pi.Spec.PluginName}, plugin)
+
+	r.reconcileConditions(pi, plugin, pluginErr)
+
+	if err := r.Client.Status().Patch(ctx, pi, patch); err != nil && !apierrors.IsNotFound(err) {
+		return ctrl.Result{}, fmt.Errorf("failed to patch plugininstallation status: %w", err)
+	}
+
+	logger.Info("Reconciled", "ready", isConditionTrue(pi.Status.Conditions, ConditionTypeReady))
+	return ctrl.Result{}, nil
+}
+
+func (r *PluginInstallationReconciler) reconcileConditions(
+	pi *corev1alpha1.PluginInstallation,
+	plugin *corev1alpha1.Plugin,
+	pluginErr error,
+) {
+	now := metav1.Now()
+	readyCond := metav1.Condition{
+		Type:               ConditionTypeReady,
+		ObservedGeneration: pi.Generation,
+		LastTransitionTime: now,
+	}
+
+	switch {
+	case pluginErr != nil && apierrors.IsNotFound(pluginErr):
+		readyCond.Status = metav1.ConditionFalse
+		readyCond.Reason = reasonPluginNotFound
+		readyCond.Message = fmt.Sprintf("Plugin %q not found", pi.Spec.PluginName)
+
+	case pluginErr != nil:
+		readyCond.Status = metav1.ConditionFalse
+		readyCond.Reason = reasonPluginNotFound
+		readyCond.Message = fmt.Sprintf("Failed to look up Plugin %q: %v", pi.Spec.PluginName, pluginErr)
+
+	case !plugin.Spec.Enabled:
+		readyCond.Status = metav1.ConditionFalse
+		readyCond.Reason = reasonPluginDisabled
+		readyCond.Message = fmt.Sprintf("Plugin %q is disabled", pi.Spec.PluginName)
+
+	case !pi.Spec.Enabled:
+		readyCond.Status = metav1.ConditionFalse
+		readyCond.Reason = reasonInstallDisabled
+		readyCond.Message = "PluginInstallation is disabled (spec.enabled=false)"
+
+	default:
+		readyCond.Status = metav1.ConditionTrue
+		readyCond.Reason = reasonReady
+		readyCond.Message = fmt.Sprintf("Plugin %q is installed and ready", pi.Spec.PluginName)
+	}
+
+	meta.SetStatusCondition(&pi.Status.Conditions, readyCond)
+}
+
+// --- small finalizer helpers to avoid importing controllerutil twice ---
+
+func hasFinalizer(obj metav1.Object, finalizer string) bool {
+	for _, f := range obj.GetFinalizers() {
+		if f == finalizer {
+			return true
+		}
+	}
+	return false
+}
+
+func addFinalizer(obj metav1.Object, finalizer string) {
+	obj.SetFinalizers(append(obj.GetFinalizers(), finalizer))
+}
+
+func removeFinalizer(obj metav1.Object, finalizer string) {
+	finalizers := obj.GetFinalizers()
+	updated := finalizers[:0]
+	for _, f := range finalizers {
+		if f != finalizer {
+			updated = append(updated, f)
+		}
+	}
+	obj.SetFinalizers(updated)
+}
