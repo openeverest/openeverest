@@ -254,6 +254,7 @@ func (e *EverestServer) initHTTPServer(ctx context.Context) error {
 	pluginGroup.GET("", pp.listPluginsHandler)
 	pluginGroup.GET("/context", e.pluginContextHandler)
 	pluginGroup.Any("/:name", pp.authedProxyHandler)
+	pluginGroup.Any("/:name/*", pp.authedProxyHandler)
 
 	// Event stream — JWT protected, outside OpenAPI validation.
 	eventsGroup := e.echo.Group("/v1/events")
