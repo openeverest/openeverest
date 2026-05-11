@@ -224,6 +224,10 @@ spec:
                 - name
                 type: object
                 x-kubernetes-map-type: atomic
+              size:
+                description: Size is the size of the backup data as reported by the
+                  engine.
+                type: string
               startedAt:
                 description: StartedAt is the time when the backup started.
                 format: date-time
