@@ -71,7 +71,11 @@ func (pl *PluginLister) Run(ctx context.Context) error {
 	})
 
 	for _, p := range plugins.Items {
-		tbl.AddRow(p.Name, p.Spec.DisplayName, p.Spec.BackendURL, p.Spec.Enabled)
+		backendURL := ""
+		if p.Spec.Backend != nil {
+			backendURL = p.Spec.Backend.URL
+		}
+		tbl.AddRow(p.Name, p.Spec.DisplayName, backendURL, p.Spec.Enabled)
 	}
 
 	tbl.Print()

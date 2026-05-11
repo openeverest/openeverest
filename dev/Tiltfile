@@ -66,6 +66,16 @@ print('Using PSMDB Provider chart dir: {0}'.format(psmdb_provider_chart_dir))
 psmdb_provider_dir = os.path.dirname(os.path.dirname(psmdb_provider_chart_dir))
 print('Using PSMDB Provider dir: {0}'.format(psmdb_provider_dir))
 
+# Optional: Hello Plugin (external repo)
+hello_plugin_dir = os.getenv('HELLO_PLUGIN_DIR', '')
+if hello_plugin_dir:
+    hello_plugin_dir = os.path.realpath(hello_plugin_dir)
+    if not os.path.exists(hello_plugin_dir):
+        fail('Hello Plugin dir does not exist: {0}'.format(hello_plugin_dir))
+    print('Using Hello Plugin dir: {0}'.format(hello_plugin_dir))
+else:
+    print('HELLO_PLUGIN_DIR not set — skipping hello plugin')
+
 # Optional env vars
 pxc_operator_version = os.getenv('PXC_OPERATOR_VERSION', '1.19.0')
 print('Using PXC operator version: {0}'.format(pxc_operator_version))
@@ -925,49 +935,57 @@ k8s_resource(
 ######## Hello Plugin PoC #######
 #################################
 
-plugin_hello_dir = '{0}/plugins/hello'.format(backend_dir)
+if hello_plugin_dir:
+    hello_plugin_sdk_dir = '{0}/ui/packages/plugin-sdk'.format(backend_dir)
 
-# Build the hello plugin with npm
-local_resource(
-  'hello-plugin-build',
-  'cd {0} && npm install && npx vite build'.format(plugin_hello_dir),
-  deps=[
-    '{0}/src'.format(plugin_hello_dir),
-    '{0}/package.json'.format(plugin_hello_dir),
-    '{0}/vite.config.ts'.format(plugin_hello_dir),
-  ],
-  labels=["plugins"],
-)
+    # Build the hello plugin with npm (ensure SDK types are built first)
+    local_resource(
+      'hello-plugin-build',
+      'cd {0} && pnpm --filter @openeverest/plugin-sdk build && cd {1} && npm install && npx vite build'.format(
+        frontend_dir, hello_plugin_dir,
+      ),
+      deps=[
+        '{0}/src'.format(hello_plugin_dir),
+        '{0}/package.json'.format(hello_plugin_dir),
+        '{0}/vite.config.ts'.format(hello_plugin_dir),
+        '{0}/src'.format(hello_plugin_sdk_dir),
+      ],
+      resource_deps=['frontend-init'],
+      labels=["plugins"],
+    )
 
-# Build the hello plugin Docker image — only copy the pre-built dist/ output
-# (the hello-plugin-build local_resource already ran vite build on the host)
-docker_build(
-  'hello-plugin:dev',
-  context=plugin_hello_dir,
-  dockerfile='{0}/Dockerfile'.format(plugin_hello_dir),
-  only=['{0}/dist'.format(plugin_hello_dir)],
-  live_update=[
-    sync('{0}/dist'.format(plugin_hello_dir), '/app/dist'),
-  ]
-)
+    # Build the hello plugin Docker image — only copy the pre-built dist/ output
+    docker_build(
+      'hello-plugin:dev',
+      context=hello_plugin_dir,
+      dockerfile='{0}/Dockerfile'.format(hello_plugin_dir),
+      only=['{0}/dist'.format(hello_plugin_dir)],
+      live_update=[
+        sync('{0}/dist'.format(hello_plugin_dir), '/app/dist'),
+      ]
+    )
 
-# Deploy the hello plugin k8s resources (Deployment + Service)
-k8s_yaml('{0}/resources/hello-plugin.yaml'.format(config.main_dir))
-# Deploy the hello Plugin CR (requires the Plugin CRD to be applied first)
-k8s_yaml('{0}/resources/hello-plugin-cr.yaml'.format(config.main_dir))
-k8s_resource(
-  workload='hello-plugin',
-  objects=[
-    'hello:Plugin',
-  ],
-  resource_deps=[
-    'everest-namespace',
-    'crds',
-    'hello-plugin-build',
-  ],
-  new_name='hello-plugin-deploy',
-  labels=["plugins"],
-)
+    # Deploy from the Helm chart templates
+    k8s_yaml(helm(
+      '{0}/charts/plugin-hello'.format(hello_plugin_dir),
+      name='hello',
+      namespace=EVEREST_NAMESPACE,
+      set=[
+        'image.repository=hello-plugin',
+        'image.tag=dev',
+        'image.pullPolicy=Never',
+      ],
+    ))
+    k8s_resource(
+      workload='hello-plugin-hello',
+      resource_deps=[
+        'everest-namespace',
+        'crds',
+        'hello-plugin-build',
+      ],
+      new_name='hello-plugin-deploy',
+      labels=["plugins"],
+    )
 
 #######################################
 ############ Backup Storages ##########

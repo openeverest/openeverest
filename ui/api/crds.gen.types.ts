@@ -1041,19 +1041,15 @@ export interface components {
             metadata?: Record<string, never>;
             /** @description PluginSpec defines the desired state of a Plugin. */
             spec: {
-                /**
-                 * @description BackendURL is the in-cluster base URL where the plugin's backend
-                 *     is reachable (e.g. "http://hello-plugin.everest-system:3001").
-                 *     The Everest server reverse-proxies /v1/plugins/<name>/* to this URL.
-                 */
-                backendUrl: string;
-                /**
-                 * @description BundlePath is the path appended to BackendURL to fetch the plugin's
-                 *     frontend ESM bundle (e.g. "/main.js"). The Everest server exposes
-                 *     this as /v1/plugins/<name>/<bundlePath> for the UI to import().
-                 * @default /main.js
-                 */
-                bundlePath: string;
+                /** @description Backend defines the optional backend contribution of the plugin. */
+                backend?: {
+                    /**
+                     * @description URL is the in-cluster base URL where the plugin's backend is reachable
+                     *     (e.g. "http://hello-plugin.everest-system:3001").
+                     *     The Everest server reverse-proxies /v1/plugins/<name>/* to this URL.
+                     */
+                    url: string;
+                };
                 /**
                  * @description CLI defines an optional CLI contribution. When set, `everestctl plugin run`
                  *     can exec a container from the specified image.
@@ -1069,6 +1065,13 @@ export interface components {
                      */
                     subcommand?: string;
                 };
+                /**
+                 * @description CompatibleHostVersions is a SemVer range expression specifying which
+                 *     OpenEverest host versions this plugin supports (e.g. ">=2.0.0 <3.0.0").
+                 */
+                compatibleHostVersions?: string;
+                /** @description Description is a short human-readable description of what the plugin does. */
+                description?: string;
                 /** @description DisplayName is the human-readable name shown in the UI sidebar. */
                 displayName: string;
                 /**
@@ -1077,6 +1080,50 @@ export interface components {
                  * @default true
                  */
                 enabled: boolean;
+                /** @description Frontend defines the optional frontend contribution of the plugin. */
+                frontend?: {
+                    /** @description BundleIntegrity is an optional SRI hash for verifying the bundle. */
+                    bundleIntegrity?: string;
+                    /**
+                     * @description BundlePath is the path on the backend that serves the plugin's
+                     *     frontend ESM bundle (e.g. "/main.js"). The Everest server exposes
+                     *     this as /v1/plugins/<name>/<bundlePath> for the UI to import().
+                     * @default /main.js
+                     */
+                    bundlePath: string;
+                    /**
+                     * @description ExtensionPoints declares the UI extension points this plugin fills.
+                     *     This enables the host to show/hide contributions before loading the bundle
+                     *     and enables RBAC-based filtering.
+                     */
+                    extensionPoints?: {
+                        /** @description Icon is an optional icon identifier. */
+                        icon?: string;
+                        /** @description Label is the human-readable label displayed for this contribution. */
+                        label?: string;
+                        /** @description Path is an optional sub-path (used by "route" and tab-type extension points). */
+                        path?: string;
+                        /**
+                         * @description Type is the kind of extension point (e.g. "route", "sidebarItem",
+                         *     "clusterDetailTab", "clusterAction", "clusterCard",
+                         *     "globalDashboardWidget", "settingsPanel", "themeOverride").
+                         */
+                        type: string;
+                    }[];
+                };
+                /** @description Icon is a URL to the plugin's icon image. */
+                icon?: string;
+                /** @description Permissions declares what OpenEverest API resources this plugin needs access to. */
+                permissions?: {
+                    /** @description Resource is the OpenEverest API resource (e.g. "database-clusters"). */
+                    resource: string;
+                    /** @description Verb is the action (e.g. "read", "create", "update", "delete"). */
+                    verb: string;
+                }[];
+                /** @description Vendor is the name of the plugin author or organisation. */
+                vendor?: string;
+                /** @description Version is the SemVer version of the plugin. */
+                version?: string;
             };
             /** @description PluginStatus defines the observed state of a Plugin. */
             status?: {

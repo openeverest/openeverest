@@ -10,14 +10,20 @@ It demonstrates two high-risk unknowns:
 2. **Echo reverse proxy to plugin backend** — the Go API server proxies
    requests from `/v1/plugins/:name/*` to the plugin's backend service.
 
-## Quick Start
+## Hello Plugin
 
-### Option A: Tilt (recommended)
+The sample hello plugin has been moved to its own repository:
 
-The plugin is automatically built and deployed when you run the standard
-Tilt dev environment:
+**https://github.com/openeverest/plugin-hello**
+
+See that repo for build instructions, Helm chart installation, and local development setup.
+
+## Quick Start (Tilt)
+
+Set `HELLO_PLUGIN_DIR` to point to a local clone of the plugin-hello repo:
 
 ```bash
+export HELLO_PLUGIN_DIR=/path/to/plugin-hello
 cd dev
 tilt up
 ```
@@ -25,44 +31,6 @@ tilt up
 The hello plugin will appear as a `hello-plugin-deploy` resource in the
 Tilt dashboard. Once the Everest server is ready at http://localhost:8080,
 the sidebar will show a **"Hello Plugin"** entry.
-
-### Option B: Manual (standalone dev)
-
-#### 1. Start the hello plugin dev server
-
-```bash
-cd plugins/hello
-npm install
-npm run dev          # serves on http://localhost:3001
-```
-
-#### 2. Start the Go API server
-
-```bash
-# (from repo root, assuming in-cluster setup or dev config)
-go run ./cmd/main.go
-```
-
-The Go server exposes:
-- `GET /v1/plugins` — returns the plugin registry (hardcoded for PoC)
-- `ANY /v1/plugins/:name/*` — reverse-proxies to the plugin backend
-
-#### 3. Start the UI dev server
-
-```bash
-cd ui
-pnpm install
-pnpm --filter everest dev   # serves on http://localhost:5173
-```
-
-The Vite proxy forwards `/v1/*` to the Go server (port 8080).
-
-### What to expect
-
-- The sidebar shows a new **"Hello Plugin"** entry (puzzle piece icon)
-- Clicking it navigates to `/plugins/hello`
-- The page is rendered by a React component loaded from the plugin's ESM bundle
-- The component has a click counter to prove it's live React, not an iframe
 
 ## Architecture
 
@@ -91,5 +59,6 @@ Browser
 - `plugins.go` — plugin registry, list handler, reverse-proxy handler
 - `everest.go` — registers plugin routes on the Echo server
 
-### Sample Plugin
-- `plugins/hello/` — minimal Vite + React plugin that exports `register()`
+### Sample Plugin (external repo)
+- [openeverest/plugin-hello](https://github.com/openeverest/plugin-hello) — minimal Vite + React plugin that exports `register()`
+

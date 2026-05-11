@@ -24,18 +24,34 @@ type PluginSpec struct {
 	// +required
 	DisplayName string `json:"displayName"`
 
-	// BackendURL is the in-cluster base URL where the plugin's backend
-	// is reachable (e.g. "http://hello-plugin.everest-system:3001").
-	// The Everest server reverse-proxies /v1/plugins/<name>/* to this URL.
-	// +required
-	BackendURL string `json:"backendUrl"`
-
-	// BundlePath is the path appended to BackendURL to fetch the plugin's
-	// frontend ESM bundle (e.g. "/main.js"). The Everest server exposes
-	// this as /v1/plugins/<name>/<bundlePath> for the UI to import().
+	// Description is a short human-readable description of what the plugin does.
 	// +optional
-	// +kubebuilder:default="/main.js"
-	BundlePath string `json:"bundlePath,omitempty"`
+	Description string `json:"description,omitempty"`
+
+	// Version is the SemVer version of the plugin.
+	// +optional
+	Version string `json:"version,omitempty"`
+
+	// Vendor is the name of the plugin author or organisation.
+	// +optional
+	Vendor string `json:"vendor,omitempty"`
+
+	// Icon is a URL to the plugin's icon image.
+	// +optional
+	Icon string `json:"icon,omitempty"`
+
+	// CompatibleHostVersions is a SemVer range expression specifying which
+	// OpenEverest host versions this plugin supports (e.g. ">=2.0.0 <3.0.0").
+	// +optional
+	CompatibleHostVersions string `json:"compatibleHostVersions,omitempty"`
+
+	// Frontend defines the optional frontend contribution of the plugin.
+	// +optional
+	Frontend *PluginFrontend `json:"frontend,omitempty"`
+
+	// Backend defines the optional backend contribution of the plugin.
+	// +optional
+	Backend *PluginBackend `json:"backend,omitempty"`
 
 	// Enabled controls whether the plugin is active. A disabled plugin
 	// is not returned by the list endpoint and its proxy routes are inactive.
@@ -43,10 +59,75 @@ type PluginSpec struct {
 	// +kubebuilder:default=true
 	Enabled bool `json:"enabled,omitempty"`
 
+	// Permissions declares what OpenEverest API resources this plugin needs access to.
+	// +optional
+	Permissions []PluginPermission `json:"permissions,omitempty"`
+
 	// CLI defines an optional CLI contribution. When set, `everestctl plugin run`
 	// can exec a container from the specified image.
 	// +optional
 	CLI *PluginCLI `json:"cli,omitempty"`
+}
+
+// PluginFrontend defines the frontend contribution of a plugin.
+type PluginFrontend struct {
+	// BundlePath is the path on the backend that serves the plugin's
+	// frontend ESM bundle (e.g. "/main.js"). The Everest server exposes
+	// this as /v1/plugins/<name>/<bundlePath> for the UI to import().
+	// +optional
+	// +kubebuilder:default="/main.js"
+	BundlePath string `json:"bundlePath,omitempty"`
+
+	// BundleIntegrity is an optional SRI hash for verifying the bundle.
+	// +optional
+	BundleIntegrity string `json:"bundleIntegrity,omitempty"`
+
+	// ExtensionPoints declares the UI extension points this plugin fills.
+	// This enables the host to show/hide contributions before loading the bundle
+	// and enables RBAC-based filtering.
+	// +optional
+	ExtensionPoints []PluginExtensionPoint `json:"extensionPoints,omitempty"`
+}
+
+// PluginExtensionPoint declares a single UI extension point contribution.
+type PluginExtensionPoint struct {
+	// Type is the kind of extension point (e.g. "route", "sidebarItem",
+	// "clusterDetailTab", "clusterAction", "clusterCard",
+	// "globalDashboardWidget", "settingsPanel", "themeOverride").
+	// +required
+	Type string `json:"type"`
+
+	// Label is the human-readable label displayed for this contribution.
+	// +optional
+	Label string `json:"label,omitempty"`
+
+	// Path is an optional sub-path (used by "route" and tab-type extension points).
+	// +optional
+	Path string `json:"path,omitempty"`
+
+	// Icon is an optional icon identifier.
+	// +optional
+	Icon string `json:"icon,omitempty"`
+}
+
+// PluginBackend defines the backend contribution of a plugin.
+type PluginBackend struct {
+	// URL is the in-cluster base URL where the plugin's backend is reachable
+	// (e.g. "http://hello-plugin.everest-system:3001").
+	// The Everest server reverse-proxies /v1/plugins/<name>/* to this URL.
+	// +required
+	URL string `json:"url"`
+}
+
+// PluginPermission declares a single permission the plugin requires.
+type PluginPermission struct {
+	// Verb is the action (e.g. "read", "create", "update", "delete").
+	// +required
+	Verb string `json:"verb"`
+
+	// Resource is the OpenEverest API resource (e.g. "database-clusters").
+	// +required
+	Resource string `json:"resource"`
 }
 
 // PluginCLI describes the CLI contribution of a plugin.
@@ -78,7 +159,8 @@ type PluginStatus struct {
 // +kubebuilder:resource:shortName=plg;plugin
 // +kubebuilder:resource:scope=Cluster
 // +kubebuilder:printcolumn:name="Display Name",type="string",JSONPath=".spec.displayName"
-// +kubebuilder:printcolumn:name="Backend URL",type="string",JSONPath=".spec.backendUrl"
+// +kubebuilder:printcolumn:name="Version",type="string",JSONPath=".spec.version"
+// +kubebuilder:printcolumn:name="Backend URL",type="string",JSONPath=".spec.backend.url"
 // +kubebuilder:printcolumn:name="Enabled",type="boolean",JSONPath=".spec.enabled"
 
 // Plugin is the Schema for the plugins API. It registers an external plugin

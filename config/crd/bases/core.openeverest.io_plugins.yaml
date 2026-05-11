@@ -18,7 +18,10 @@ spec:
     - jsonPath: .spec.displayName
       name: Display Name
       type: string
-    - jsonPath: .spec.backendUrl
+    - jsonPath: .spec.version
+      name: Version
+      type: string
+    - jsonPath: .spec.backend.url
       name: Backend URL
       type: string
     - jsonPath: .spec.enabled
@@ -52,19 +55,19 @@ spec:
           spec:
             description: PluginSpec defines the desired state of a Plugin.
             properties:
-              backendUrl:
-                description: |-
-                  BackendURL is the in-cluster base URL where the plugin's backend
-                  is reachable (e.g. "http://hello-plugin.everest-system:3001").
-                  The Everest server reverse-proxies /v1/plugins/<name>/* to this URL.
-                type: string
-              bundlePath:
-                default: /main.js
-                description: |-
-                  BundlePath is the path appended to BackendURL to fetch the plugin's
-                  frontend ESM bundle (e.g. "/main.js"). The Everest server exposes
-                  this as /v1/plugins/<name>/<bundlePath> for the UI to import().
-                type: string
+              backend:
+                description: Backend defines the optional backend contribution of
+                  the plugin.
+                properties:
+                  url:
+                    description: |-
+                      URL is the in-cluster base URL where the plugin's backend is reachable
+                      (e.g. "http://hello-plugin.everest-system:3001").
+                      The Everest server reverse-proxies /v1/plugins/<name>/* to this URL.
+                    type: string
+                required:
+                - url
+                type: object
               cli:
                 description: |-
                   CLI defines an optional CLI contribution. When set, `everestctl plugin run`
@@ -85,6 +88,15 @@ spec:
                 required:
                 - image
                 type: object
+              compatibleHostVersions:
+                description: |-
+                  CompatibleHostVersions is a SemVer range expression specifying which
+                  OpenEverest host versions this plugin supports (e.g. ">=2.0.0 <3.0.0").
+                type: string
+              description:
+                description: Description is a short human-readable description of
+                  what the plugin does.
+                type: string
               displayName:
                 description: DisplayName is the human-readable name shown in the UI
                   sidebar.
@@ -95,8 +107,82 @@ spec:
                   Enabled controls whether the plugin is active. A disabled plugin
                   is not returned by the list endpoint and its proxy routes are inactive.
                 type: boolean
+              frontend:
+                description: Frontend defines the optional frontend contribution of
+                  the plugin.
+                properties:
+                  bundleIntegrity:
+                    description: BundleIntegrity is an optional SRI hash for verifying
+                      the bundle.
+                    type: string
+                  bundlePath:
+                    default: /main.js
+                    description: |-
+                      BundlePath is the path on the backend that serves the plugin's
+                      frontend ESM bundle (e.g. "/main.js"). The Everest server exposes
+                      this as /v1/plugins/<name>/<bundlePath> for the UI to import().
+                    type: string
+                  extensionPoints:
+                    description: |-
+                      ExtensionPoints declares the UI extension points this plugin fills.
+                      This enables the host to show/hide contributions before loading the bundle
+                      and enables RBAC-based filtering.
+                    items:
+                      description: PluginExtensionPoint declares a single UI extension
+                        point contribution.
+                      properties:
+                        icon:
+                          description: Icon is an optional icon identifier.
+                          type: string
+                        label:
+                          description: Label is the human-readable label displayed
+                            for this contribution.
+                          type: string
+                        path:
+                          description: Path is an optional sub-path (used by "route"
+                            and tab-type extension points).
+                          type: string
+                        type:
+                          description: |-
+                            Type is the kind of extension point (e.g. "route", "sidebarItem",
+                            "clusterDetailTab", "clusterAction", "clusterCard",
+                            "globalDashboardWidget", "settingsPanel", "themeOverride").
+                          type: string
+                      required:
+                      - type
+                      type: object
+                    type: array
+                type: object
+              icon:
+                description: Icon is a URL to the plugin's icon image.
+                type: string
+              permissions:
+                description: Permissions declares what OpenEverest API resources this
+                  plugin needs access to.
+                items:
+                  description: PluginPermission declares a single permission the plugin
+                    requires.
+                  properties:
+                    resource:
+                      description: Resource is the OpenEverest API resource (e.g.
+                        "database-clusters").
+                      type: string
+                    verb:
+                      description: Verb is the action (e.g. "read", "create", "update",
+                        "delete").
+                      type: string
+                  required:
+                  - resource
+                  - verb
+                  type: object
+                type: array
+              vendor:
+                description: Vendor is the name of the plugin author or organisation.
+                type: string
+              version:
+                description: Version is the SemVer version of the plugin.
+                type: string
             required:
-            - backendUrl
             - displayName
             type: object
           status:

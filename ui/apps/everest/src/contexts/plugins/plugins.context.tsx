@@ -7,10 +7,18 @@ export interface PluginRegistration {
   extensions: Extension[];
 }
 
+interface ExtensionPointDescriptor {
+  type: string;
+  label?: string;
+  path?: string;
+  icon?: string;
+}
+
 interface PluginDescriptor {
   name: string;
   displayName: string;
   bundleUrl: string;
+  extensionPoints?: ExtensionPointDescriptor[];
 }
 
 interface PluginContextValue {
@@ -26,7 +34,12 @@ const PluginContext = createContext<PluginContextValue>({
 export const usePlugins = () => useContext(PluginContext);
 
 // Build the PluginApi object that the host passes to each plugin's register().
-function createPluginApi(pluginName: string, registrations: PluginRegistration[]): PluginApi {
+// When allowedTypes is provided, only extensions whose type is in the set will be registered.
+function createPluginApi(
+  pluginName: string,
+  registrations: PluginRegistration[],
+  allowedTypes?: Set<string>,
+): PluginApi {
   const registration: PluginRegistration = { name: pluginName, extensions: [] };
   registrations.push(registration);
 
@@ -34,6 +47,10 @@ function createPluginApi(pluginName: string, registrations: PluginRegistration[]
     React,
 
     registerExtension(extension: Extension) {
+      // If the Plugin CR declares extensionPoints, only allow those types through.
+      if (allowedTypes && !allowedTypes.has(extension.type)) {
+        return;
+      }
       registration.extensions.push(extension);
     },
 
@@ -89,7 +106,11 @@ export const PluginProvider = ({ children }: { children: ReactNode }) => {
           const mod = await import(/* @vite-ignore */ descriptor.bundleUrl);
           const registerFn: PluginRegisterFn = mod.default || mod.register;
           if (typeof registerFn === 'function') {
-            const pluginApi = createPluginApi(descriptor.name, registrations);
+            // Build the allowed extension types set from the CR's declared extensionPoints.
+            const allowedTypes = descriptor.extensionPoints?.length
+              ? new Set(descriptor.extensionPoints.map((ep) => ep.type))
+              : undefined;
+            const pluginApi = createPluginApi(descriptor.name, registrations, allowedTypes);
             registerFn(pluginApi);
           }
         } catch (err) {

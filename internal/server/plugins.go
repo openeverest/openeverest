@@ -74,10 +74,18 @@ func (pp *pluginProxy) listPluginsHandler(c echo.Context) error {
 		return err
 	}
 
+	type extensionPointDescriptor struct {
+		Type  string `json:"type"`
+		Label string `json:"label,omitempty"`
+		Path  string `json:"path,omitempty"`
+		Icon  string `json:"icon,omitempty"`
+	}
+
 	type pluginDescriptor struct {
-		Name        string `json:"name"`
-		DisplayName string `json:"displayName"`
-		BundleURL   string `json:"bundleUrl"`
+		Name            string                     `json:"name"`
+		DisplayName     string                     `json:"displayName"`
+		BundleURL       string                     `json:"bundleUrl"`
+		ExtensionPoints []extensionPointDescriptor `json:"extensionPoints,omitempty"`
 	}
 
 	plugins, err := pp.kubeConnector.ListPlugins(c.Request().Context())
@@ -92,14 +100,26 @@ func (pp *pluginProxy) listPluginsHandler(c echo.Context) error {
 		if !p.Spec.Enabled {
 			continue
 		}
-		bundlePath := p.Spec.BundlePath
-		if bundlePath == "" {
-			bundlePath = "/main.js"
+		bundlePath := "/main.js"
+		var extPoints []extensionPointDescriptor
+		if p.Spec.Frontend != nil {
+			if p.Spec.Frontend.BundlePath != "" {
+				bundlePath = p.Spec.Frontend.BundlePath
+			}
+			for _, ep := range p.Spec.Frontend.ExtensionPoints {
+				extPoints = append(extPoints, extensionPointDescriptor{
+					Type:  ep.Type,
+					Label: ep.Label,
+					Path:  ep.Path,
+					Icon:  ep.Icon,
+				})
+			}
 		}
 		descriptors = append(descriptors, pluginDescriptor{
-			Name:        p.Name,
-			DisplayName: p.Spec.DisplayName,
-			BundleURL:   path.Join("/v1/plugins", p.Name, bundlePath),
+			Name:            p.Name,
+			DisplayName:     p.Spec.DisplayName,
+			BundleURL:       path.Join("/v1/plugins", p.Name, bundlePath),
+			ExtensionPoints: extPoints,
 		})
 	}
 	return c.JSON(http.StatusOK, descriptors)
@@ -138,7 +158,13 @@ func (pp *pluginProxy) doProxy(c echo.Context) error {
 		})
 	}
 
-	target, err := url.Parse(plugin.Spec.BackendURL)
+	if plugin.Spec.Backend == nil || plugin.Spec.Backend.URL == "" {
+		return c.JSON(http.StatusNotFound, map[string]string{
+			"error": "plugin has no backend configured: " + name,
+		})
+	}
+
+	target, err := url.Parse(plugin.Spec.Backend.URL)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{
 			"error": "invalid plugin backend URL",

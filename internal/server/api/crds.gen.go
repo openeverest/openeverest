@@ -1276,15 +1276,13 @@ type Plugin struct {
 
 	// Spec PluginSpec defines the desired state of a Plugin.
 	Spec struct {
-		// BackendUrl BackendURL is the in-cluster base URL where the plugin's backend
-		// is reachable (e.g. "http://hello-plugin.everest-system:3001").
-		// The Everest server reverse-proxies /v1/plugins/<name>/* to this URL.
-		BackendUrl string `json:"backendUrl"`
-
-		// BundlePath BundlePath is the path appended to BackendURL to fetch the plugin's
-		// frontend ESM bundle (e.g. "/main.js"). The Everest server exposes
-		// this as /v1/plugins/<name>/<bundlePath> for the UI to import().
-		BundlePath *string `json:"bundlePath,omitempty"`
+		// Backend Backend defines the optional backend contribution of the plugin.
+		Backend *struct {
+			// Url URL is the in-cluster base URL where the plugin's backend is reachable
+			// (e.g. "http://hello-plugin.everest-system:3001").
+			// The Everest server reverse-proxies /v1/plugins/<name>/* to this URL.
+			Url string `json:"url"`
+		} `json:"backend,omitempty"`
 
 		// Cli CLI defines an optional CLI contribution. When set, `everestctl plugin run`
 		// can exec a container from the specified image.
@@ -1300,12 +1298,67 @@ type Plugin struct {
 			Subcommand *string `json:"subcommand,omitempty"`
 		} `json:"cli,omitempty"`
 
+		// CompatibleHostVersions CompatibleHostVersions is a SemVer range expression specifying which
+		// OpenEverest host versions this plugin supports (e.g. ">=2.0.0 <3.0.0").
+		CompatibleHostVersions *string `json:"compatibleHostVersions,omitempty"`
+
+		// Description Description is a short human-readable description of what the plugin does.
+		Description *string `json:"description,omitempty"`
+
 		// DisplayName DisplayName is the human-readable name shown in the UI sidebar.
 		DisplayName string `json:"displayName"`
 
 		// Enabled Enabled controls whether the plugin is active. A disabled plugin
 		// is not returned by the list endpoint and its proxy routes are inactive.
 		Enabled *bool `json:"enabled,omitempty"`
+
+		// Frontend Frontend defines the optional frontend contribution of the plugin.
+		Frontend *struct {
+			// BundleIntegrity BundleIntegrity is an optional SRI hash for verifying the bundle.
+			BundleIntegrity *string `json:"bundleIntegrity,omitempty"`
+
+			// BundlePath BundlePath is the path on the backend that serves the plugin's
+			// frontend ESM bundle (e.g. "/main.js"). The Everest server exposes
+			// this as /v1/plugins/<name>/<bundlePath> for the UI to import().
+			BundlePath *string `json:"bundlePath,omitempty"`
+
+			// ExtensionPoints ExtensionPoints declares the UI extension points this plugin fills.
+			// This enables the host to show/hide contributions before loading the bundle
+			// and enables RBAC-based filtering.
+			ExtensionPoints *[]struct {
+				// Icon Icon is an optional icon identifier.
+				Icon *string `json:"icon,omitempty"`
+
+				// Label Label is the human-readable label displayed for this contribution.
+				Label *string `json:"label,omitempty"`
+
+				// Path Path is an optional sub-path (used by "route" and tab-type extension points).
+				Path *string `json:"path,omitempty"`
+
+				// Type Type is the kind of extension point (e.g. "route", "sidebarItem",
+				// "clusterDetailTab", "clusterAction", "clusterCard",
+				// "globalDashboardWidget", "settingsPanel", "themeOverride").
+				Type string `json:"type"`
+			} `json:"extensionPoints,omitempty"`
+		} `json:"frontend,omitempty"`
+
+		// Icon Icon is a URL to the plugin's icon image.
+		Icon *string `json:"icon,omitempty"`
+
+		// Permissions Permissions declares what OpenEverest API resources this plugin needs access to.
+		Permissions *[]struct {
+			// Resource Resource is the OpenEverest API resource (e.g. "database-clusters").
+			Resource string `json:"resource"`
+
+			// Verb Verb is the action (e.g. "read", "create", "update", "delete").
+			Verb string `json:"verb"`
+		} `json:"permissions,omitempty"`
+
+		// Vendor Vendor is the name of the plugin author or organisation.
+		Vendor *string `json:"vendor,omitempty"`
+
+		// Version Version is the SemVer version of the plugin.
+		Version *string `json:"version,omitempty"`
 	} `json:"spec"`
 
 	// Status PluginStatus defines the observed state of a Plugin.
