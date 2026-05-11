@@ -639,6 +639,8 @@ type BackupExecutionStatus struct {
 	StartedAt *metav1.Time
 	// CompletedAt is when the backup completed. Optional.
 	CompletedAt *metav1.Time
+	// Size is the size of the backup data as reported by the engine. Optional.
+	Size *string
 }
 
 // RestoreExecutionStatus is returned by BackupProvider.SyncRestore. The runtime

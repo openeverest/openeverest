@@ -226,4 +226,7 @@ func applyBackupExecutionStatus(backup *backupv1alpha1.Backup, bc *backupv1alpha
 	if exec.CompletedAt != nil {
 		backup.Status.CompletedAt = exec.CompletedAt
 	}
+	if exec.Size != nil {
+		backup.Status.Size = exec.Size
+	}
 }
