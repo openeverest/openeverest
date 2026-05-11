@@ -1044,11 +1044,33 @@ export interface components {
                 /** @description Backend defines the optional backend contribution of the plugin. */
                 backend?: {
                     /**
-                     * @description URL is the in-cluster base URL where the plugin's backend is reachable
-                     *     (e.g. "http://hello-plugin.everest-system:3001").
-                     *     The Everest server reverse-proxies /v1/plugins/<name>/* to this URL.
+                     * @description CredentialsSecretRef is the name of a Secret in the same namespace as
+                     *     the PluginInstallation (or in everest-system for cluster-wide installs)
+                     *     whose "token" key is forwarded as the Authorization header to the external backend.
+                     *     Only meaningful when ExternalURL is set.
                      */
-                    url: string;
+                    credentialsSecretRef?: string;
+                    /**
+                     * @description ExternalURL is the HTTPS base URL of an externally hosted backend
+                     *     (e.g. "https://sql-explorer.example.com"). Mutually exclusive with ServiceRef.
+                     */
+                    externalUrl?: string;
+                    /**
+                     * @description ServiceRef references an in-cluster Kubernetes Service.
+                     *     The Everest server resolves it to http://<name>.<namespace>.svc:<port>
+                     *     and reverse-proxies /v1/plugins/<pluginName>/* to that address.
+                     */
+                    serviceRef?: {
+                        /** @description Name of the Service. */
+                        name: string;
+                        /** @description Namespace of the Service. */
+                        namespace: string;
+                        /**
+                         * Format: int32
+                         * @description Port is the service port number.
+                         */
+                        port: number;
+                    };
                 };
                 /**
                  * @description CLI defines an optional CLI contribution. When set, `everestctl plugin run`
@@ -1103,6 +1125,13 @@ export interface components {
                         label?: string;
                         /** @description Path is an optional sub-path (used by "route" and tab-type extension points). */
                         path?: string;
+                        /**
+                         * @description Providers is an optional list of database engine types this extension point
+                         *     applies to. Values match spec.engine.type on the DatabaseCluster CR:
+                         *     "postgresql", "psmdb", "pxc".
+                         *     When omitted or empty, the extension point is shown for all engine types.
+                         */
+                        providers?: string[];
                         /**
                          * @description Type is the kind of extension point (e.g. "route", "sidebarItem",
                          *     "clusterDetailTab", "clusterAction", "clusterCard",

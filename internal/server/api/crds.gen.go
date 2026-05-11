@@ -1278,10 +1278,29 @@ type Plugin struct {
 	Spec struct {
 		// Backend Backend defines the optional backend contribution of the plugin.
 		Backend *struct {
-			// Url URL is the in-cluster base URL where the plugin's backend is reachable
-			// (e.g. "http://hello-plugin.everest-system:3001").
-			// The Everest server reverse-proxies /v1/plugins/<name>/* to this URL.
-			Url string `json:"url"`
+			// CredentialsSecretRef CredentialsSecretRef is the name of a Secret in the same namespace as
+			// the PluginInstallation (or in everest-system for cluster-wide installs)
+			// whose "token" key is forwarded as the Authorization header to the external backend.
+			// Only meaningful when ExternalURL is set.
+			CredentialsSecretRef *string `json:"credentialsSecretRef,omitempty"`
+
+			// ExternalUrl ExternalURL is the HTTPS base URL of an externally hosted backend
+			// (e.g. "https://sql-explorer.example.com"). Mutually exclusive with ServiceRef.
+			ExternalUrl *string `json:"externalUrl,omitempty"`
+
+			// ServiceRef ServiceRef references an in-cluster Kubernetes Service.
+			// The Everest server resolves it to http://<name>.<namespace>.svc:<port>
+			// and reverse-proxies /v1/plugins/<pluginName>/* to that address.
+			ServiceRef *struct {
+				// Name Name of the Service.
+				Name string `json:"name"`
+
+				// Namespace Namespace of the Service.
+				Namespace string `json:"namespace"`
+
+				// Port Port is the service port number.
+				Port int32 `json:"port"`
+			} `json:"serviceRef,omitempty"`
 		} `json:"backend,omitempty"`
 
 		// Cli CLI defines an optional CLI contribution. When set, `everestctl plugin run`
@@ -1334,6 +1353,12 @@ type Plugin struct {
 
 				// Path Path is an optional sub-path (used by "route" and tab-type extension points).
 				Path *string `json:"path,omitempty"`
+
+				// Providers Providers is an optional list of database engine types this extension point
+				// applies to. Values match spec.engine.type on the DatabaseCluster CR:
+				// "postgresql", "psmdb", "pxc".
+				// When omitted or empty, the extension point is shown for all engine types.
+				Providers *[]string `json:"providers,omitempty"`
 
 				// Type Type is the kind of extension point (e.g. "route", "sidebarItem",
 				// "clusterDetailTab", "clusterAction", "clusterCard",

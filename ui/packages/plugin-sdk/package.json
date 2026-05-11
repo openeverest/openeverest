@@ -6,6 +6,9 @@
   "module": "dist/esm/index.js",
   "type": "module",
   "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
   "publishConfig": {
     "access": "public",
     "registry": "https://registry.npmjs.org/"

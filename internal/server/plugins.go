@@ -110,8 +110,8 @@ func (pp *pluginProxy) listPluginsHandler(c echo.Context) error {
 	}
 
 	type extensionPointDescriptor struct {
-		Type  string `json:"type"`
-		Label string `json:"label,omitempty"`
+		Type      string   `json:"type"`
+		Label     string   `json:"label,omitempty"`
 		Path      string   `json:"path,omitempty"`
 		Icon      string   `json:"icon,omitempty"`
 		Providers []string `json:"providers,omitempty"`

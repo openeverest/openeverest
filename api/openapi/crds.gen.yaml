@@ -1561,14 +1561,41 @@ components:
               description: Backend defines the optional backend contribution of the
                 plugin.
               properties:
-                url:
+                credentialsSecretRef:
                   description: |-
-                    URL is the in-cluster base URL where the plugin's backend is reachable
-                    (e.g. "http://hello-plugin.everest-system:3001").
-                    The Everest server reverse-proxies /v1/plugins/<name>/* to this URL.
+                    CredentialsSecretRef is the name of a Secret in the same namespace as
+                    the PluginInstallation (or in everest-system for cluster-wide installs)
+                    whose "token" key is forwarded as the Authorization header to the external backend.
+                    Only meaningful when ExternalURL is set.
                   type: string
-              required:
-              - url
+                externalUrl:
+                  description: |-
+                    ExternalURL is the HTTPS base URL of an externally hosted backend
+                    (e.g. "https://sql-explorer.example.com"). Mutually exclusive with ServiceRef.
+                  type: string
+                serviceRef:
+                  description: |-
+                    ServiceRef references an in-cluster Kubernetes Service.
+                    The Everest server resolves it to http://<name>.<namespace>.svc:<port>
+                    and reverse-proxies /v1/plugins/<pluginName>/* to that address.
+                  properties:
+                    name:
+                      description: Name of the Service.
+                      type: string
+                    namespace:
+                      description: Namespace of the Service.
+                      type: string
+                    port:
+                      description: Port is the service port number.
+                      format: int32
+                      maximum: 65535
+                      minimum: 1
+                      type: integer
+                  required:
+                  - name
+                  - namespace
+                  - port
+                  type: object
               type: object
             cli:
               description: |-
@@ -1644,6 +1671,15 @@ components:
                         description: Path is an optional sub-path (used by "route"
                           and tab-type extension points).
                         type: string
+                      providers:
+                        description: |-
+                          Providers is an optional list of database engine types this extension point
+                          applies to. Values match spec.engine.type on the DatabaseCluster CR:
+                          "postgresql", "psmdb", "pxc".
+                          When omitted or empty, the extension point is shown for all engine types.
+                        items:
+                          type: string
+                        type: array
                       type:
                         description: |-
                           Type is the kind of extension point (e.g. "route", "sidebarItem",

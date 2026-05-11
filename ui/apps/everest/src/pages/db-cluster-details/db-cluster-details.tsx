@@ -73,7 +73,7 @@ const WithPermissionDetails = ({
   // 2. namespace: only plugins with an active PluginInstallation in this namespace
   const { plugins } = usePlugins();
   const { data: nsPlugins } = usePluginsForNamespace(namespace);
-  const engineType = instance?.spec?.engine?.type;
+  const engineType = instance?.spec?.provider;
 
   // Build a set of plugin names enabled in this namespace (undefined = no filter yet).
   const enabledInNs = nsPlugins ? new Set(nsPlugins.map((p) => p.name)) : null;
