@@ -1135,13 +1135,30 @@ export interface components {
                         /**
                          * @description Type is the kind of extension point (e.g. "route", "sidebarItem",
                          *     "clusterDetailTab", "clusterAction", "clusterCard",
-                         *     "globalDashboardWidget", "settingsPanel", "themeOverride").
+                         *     "globalDashboardWidget", "settingsPanel", "instanceCreateFormSection",
+                         *     "instanceEditFormSection", "themeOverride").
                          */
                         type: string;
                     }[];
                 };
                 /** @description Icon is a URL to the plugin's icon image. */
                 icon?: string;
+                /**
+                 * @description KubePermissions declares additional Kubernetes API permissions the plugin's
+                 *     ServiceAccount needs beyond the OpenEverest API. Used by infrastructure
+                 *     plugins that create per-cluster resources (e.g., ProxySQL deployments).
+                 *     The host auto-generates a Role from these rules and binds it to the
+                 *     plugin's ServiceAccount in each namespace where a PluginInstallation exists.
+                 *     Rules are validated against a hard-coded denylist at reconcile time.
+                 */
+                kubePermissions?: {
+                    /** @description APIGroups is the list of API groups (e.g. "", "apps"). Use "" for core. */
+                    apiGroups: string[];
+                    /** @description Resources is the list of resources (e.g. "deployments", "services"). */
+                    resources: string[];
+                    /** @description Verbs is the list of verbs (e.g. "get", "list", "create", "delete"). */
+                    verbs: string[];
+                }[];
                 /** @description Permissions declares what OpenEverest API resources this plugin needs access to. */
                 permissions?: {
                     /** @description Resource is the OpenEverest API resource (e.g. "database-clusters"). */

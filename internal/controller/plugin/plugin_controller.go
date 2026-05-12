@@ -18,6 +18,7 @@ package plugin
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -41,11 +42,12 @@ const (
 	// ConditionTypeReady is True when the plugin is enabled and operational.
 	ConditionTypeReady = "Ready"
 
-	reasonReconciling  = "Reconciling"
-	reasonDisabled     = "Disabled"
-	reasonNoBackend    = "NoBackend"
-	reasonBackendReady = "BackendReady"
-	reasonInvalidSpec  = "InvalidSpec"
+	reasonReconciling     = "Reconciling"
+	reasonDisabled        = "Disabled"
+	reasonNoBackend       = "NoBackend"
+	reasonBackendReady    = "BackendReady"
+	reasonInvalidSpec     = "InvalidSpec"
+	reasonKubePermsDenied = "KubePermissionsDenied"
 )
 
 // PluginReconciler reconciles Plugin resources.
@@ -137,6 +139,10 @@ func (r *PluginReconciler) reconcileConditions(plugin *corev1alpha1.Plugin) {
 		availCond.Status = metav1.ConditionFalse
 		availCond.Reason = reasonInvalidSpec
 		availCond.Message = "spec.displayName is required"
+	} else if violations := validateKubePermissions(plugin.Spec.KubePermissions); len(violations) > 0 {
+		availCond.Status = metav1.ConditionFalse
+		availCond.Reason = reasonKubePermsDenied
+		availCond.Message = fmt.Sprintf("kubePermissions denied: %s", strings.Join(violations, "; "))
 	} else {
 		availCond.Status = metav1.ConditionTrue
 		availCond.Reason = reasonReconciling
@@ -155,6 +161,10 @@ func (r *PluginReconciler) reconcileConditions(plugin *corev1alpha1.Plugin) {
 		readyCond.Status = metav1.ConditionFalse
 		readyCond.Reason = reasonDisabled
 		readyCond.Message = "Plugin is disabled (spec.enabled=false)"
+	case len(validateKubePermissions(plugin.Spec.KubePermissions)) > 0:
+		readyCond.Status = metav1.ConditionFalse
+		readyCond.Reason = reasonKubePermsDenied
+		readyCond.Message = "Plugin has denied kubePermissions — see Available condition for details"
 	case plugin.Spec.Frontend == nil && plugin.Spec.Backend == nil:
 		readyCond.Status = metav1.ConditionFalse
 		readyCond.Reason = reasonNoBackend

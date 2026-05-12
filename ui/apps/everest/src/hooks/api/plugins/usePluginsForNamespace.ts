@@ -17,6 +17,10 @@ import { useQuery } from '@tanstack/react-query';
 export interface PluginDescriptor {
   name: string;
   displayName: string;
+  description?: string;
+  version?: string;
+  vendor?: string;
+  icon?: string;
   bundleUrl: string;
   extensionPoints?: {
     type: string;

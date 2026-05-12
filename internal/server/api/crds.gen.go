@@ -1362,13 +1362,31 @@ type Plugin struct {
 
 				// Type Type is the kind of extension point (e.g. "route", "sidebarItem",
 				// "clusterDetailTab", "clusterAction", "clusterCard",
-				// "globalDashboardWidget", "settingsPanel", "themeOverride").
+				// "globalDashboardWidget", "settingsPanel", "instanceCreateFormSection",
+				// "instanceEditFormSection", "themeOverride").
 				Type string `json:"type"`
 			} `json:"extensionPoints,omitempty"`
 		} `json:"frontend,omitempty"`
 
 		// Icon Icon is a URL to the plugin's icon image.
 		Icon *string `json:"icon,omitempty"`
+
+		// KubePermissions KubePermissions declares additional Kubernetes API permissions the plugin's
+		// ServiceAccount needs beyond the OpenEverest API. Used by infrastructure
+		// plugins that create per-cluster resources (e.g., ProxySQL deployments).
+		// The host auto-generates a Role from these rules and binds it to the
+		// plugin's ServiceAccount in each namespace where a PluginInstallation exists.
+		// Rules are validated against a hard-coded denylist at reconcile time.
+		KubePermissions *[]struct {
+			// ApiGroups APIGroups is the list of API groups (e.g. "", "apps"). Use "" for core.
+			ApiGroups []string `json:"apiGroups"`
+
+			// Resources Resources is the list of resources (e.g. "deployments", "services").
+			Resources []string `json:"resources"`
+
+			// Verbs Verbs is the list of verbs (e.g. "get", "list", "create", "delete").
+			Verbs []string `json:"verbs"`
+		} `json:"kubePermissions,omitempty"`
 
 		// Permissions Permissions declares what OpenEverest API resources this plugin needs access to.
 		Permissions *[]struct {

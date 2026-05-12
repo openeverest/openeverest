@@ -93,6 +93,42 @@ export interface SettingsPanelExtension {
   component: ComponentType<SettingsPanelProps>;
 }
 
+/**
+ * A collapsible section in the create-instance wizard.
+ * Lets infrastructure plugins collect configuration during instance creation.
+ */
+export interface InstanceCreateFormSectionExtension {
+  type: "instanceCreateFormSection";
+  /** Section heading label. */
+  label: string;
+  /** The component rendered inside the collapsible section. */
+  component: ComponentType<InstanceCreateFormSectionProps>;
+  /**
+   * Optional engine type filter. When set, the section is only shown for
+   * instances whose provider matches one of the listed values.
+   * Omit to show for all engine types.
+   */
+  providers?: string[];
+}
+
+/**
+ * A collapsible section in the edit-instance / instance detail page.
+ * Lets infrastructure plugins expose configuration editing for existing instances.
+ */
+export interface InstanceEditFormSectionExtension {
+  type: "instanceEditFormSection";
+  /** Section heading label. */
+  label: string;
+  /** The component rendered inside the collapsible section. */
+  component: ComponentType<InstanceEditFormSectionProps>;
+  /**
+   * Optional engine type filter. When set, the section is only shown for
+   * instances whose provider matches one of the listed values.
+   * Omit to show for all engine types.
+   */
+  providers?: string[];
+}
+
 /** Union of all supported extension types. */
 export type Extension =
   | RouteExtension
@@ -101,7 +137,9 @@ export type Extension =
   | ClusterActionExtension
   | ClusterCardExtension
   | GlobalDashboardWidgetExtension
-  | SettingsPanelExtension;
+  | SettingsPanelExtension
+  | InstanceCreateFormSectionExtension
+  | InstanceEditFormSectionExtension;
 
 // ---------------------------------------------------------------------------
 // Props passed to plugin-provided components
@@ -153,6 +191,28 @@ export interface GlobalDashboardWidgetProps {
 export interface SettingsPanelProps {
   /** Currently logged-in user identifier. */
   currentUser: string;
+}
+
+/** Props injected into an instanceCreateFormSection component. */
+export interface InstanceCreateFormSectionProps {
+  /** Current form state (read-only snapshot). */
+  formValues: Record<string, unknown>;
+  /** Callback to update the plugin's config section. */
+  onChange: (config: Record<string, unknown>) => void;
+  /** Target namespace for the instance. */
+  namespace: string;
+}
+
+/** Props injected into an instanceEditFormSection component. */
+export interface InstanceEditFormSectionProps {
+  /** The existing instance resource. */
+  instance: unknown;
+  /** Current form state (read-only snapshot). */
+  formValues: Record<string, unknown>;
+  /** Callback to update the plugin's config section. */
+  onChange: (config: Record<string, unknown>) => void;
+  /** Namespace the instance lives in. */
+  namespace: string;
 }
 
 // ---------------------------------------------------------------------------

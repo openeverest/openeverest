@@ -120,6 +120,10 @@ func (pp *pluginProxy) listPluginsHandler(c echo.Context) error {
 	type pluginDescriptor struct {
 		Name            string                     `json:"name"`
 		DisplayName     string                     `json:"displayName"`
+		Description     string                     `json:"description,omitempty"`
+		Version         string                     `json:"version,omitempty"`
+		Vendor          string                     `json:"vendor,omitempty"`
+		Icon            string                     `json:"icon,omitempty"`
 		BundleURL       string                     `json:"bundleUrl"`
 		ExtensionPoints []extensionPointDescriptor `json:"extensionPoints,omitempty"`
 	}
@@ -189,6 +193,10 @@ func (pp *pluginProxy) listPluginsHandler(c echo.Context) error {
 		descriptors = append(descriptors, pluginDescriptor{
 			Name:            p.Name,
 			DisplayName:     p.Spec.DisplayName,
+			Description:     p.Spec.Description,
+			Version:         p.Spec.Version,
+			Vendor:          p.Spec.Vendor,
+			Icon:            p.Spec.Icon,
 			BundleURL:       path.Join("/v1/plugins", p.Name, bundlePath),
 			ExtensionPoints: extPoints,
 		})

@@ -58,6 +58,8 @@ type PluginInstallationReconciler struct {
 // +kubebuilder:rbac:groups=core.openeverest.io,resources=plugininstallations,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=core.openeverest.io,resources=plugininstallations/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=core.openeverest.io,resources=plugininstallations/finalizers,verbs=update
+// +kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=roles,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=rolebindings,verbs=get;list;watch;create;update;patch;delete
 
 // SetupWithManager registers the controller with the manager.
 // It also watches Plugin CRs and enqueues all PluginInstallations that reference them,
@@ -113,7 +115,13 @@ func (r *PluginInstallationReconciler) Reconcile(ctx context.Context, req ctrl.R
 	// --- Deletion path ---
 	if !pi.GetDeletionTimestamp().IsZero() {
 		if hasFinalizer(pi, pluginInstallationFinalizer) {
-			// Phase 2+: revoke scoped tokens, remove namespace-scoped config here.
+			// Clean up RBAC resources created for kubePermissions.
+			if err := r.deletePluginRole(ctx, pi); err != nil {
+				return ctrl.Result{}, fmt.Errorf("failed to clean up plugin Role on deletion: %w", err)
+			}
+			if err := r.deletePluginRoleBinding(ctx, pi); err != nil {
+				return ctrl.Result{}, fmt.Errorf("failed to clean up plugin RoleBinding on deletion: %w", err)
+			}
 			removeFinalizer(pi, pluginInstallationFinalizer)
 			if err := r.Client.Update(ctx, pi); err != nil {
 				return ctrl.Result{}, fmt.Errorf("failed to remove finalizer: %w", err)
@@ -143,6 +151,24 @@ func (r *PluginInstallationReconciler) Reconcile(ctx context.Context, req ctrl.R
 
 	if err := r.Client.Status().Patch(ctx, pi, patch); err != nil && !apierrors.IsNotFound(err) {
 		return ctrl.Result{}, fmt.Errorf("failed to patch plugininstallation status: %w", err)
+	}
+
+	// --- Ensure Role/RoleBinding for kubePermissions ---
+	if pluginErr == nil && plugin.Spec.Enabled && pi.Spec.Enabled {
+		if err := r.ensurePluginRole(ctx, pi, plugin); err != nil {
+			return ctrl.Result{}, fmt.Errorf("failed to ensure plugin Role: %w", err)
+		}
+		if err := r.ensurePluginRoleBinding(ctx, pi, plugin); err != nil {
+			return ctrl.Result{}, fmt.Errorf("failed to ensure plugin RoleBinding: %w", err)
+		}
+	} else if pluginErr == nil {
+		// Plugin or installation disabled — clean up RBAC resources.
+		if err := r.deletePluginRole(ctx, pi); err != nil {
+			return ctrl.Result{}, fmt.Errorf("failed to delete plugin Role: %w", err)
+		}
+		if err := r.deletePluginRoleBinding(ctx, pi); err != nil {
+			return ctrl.Result{}, fmt.Errorf("failed to delete plugin RoleBinding: %w", err)
+		}
 	}
 
 	logger.Info("Reconciled", "ready", isConditionTrue(pi.Status.Conditions, ConditionTypeReady))
