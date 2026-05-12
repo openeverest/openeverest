@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -305,6 +306,7 @@ func (o *Installer) setupHelmInstaller(ctx context.Context) error {
 	overrides := helm.NewValues(helm.Values{
 		ClusterType:        o.cfg.ClusterType,
 		VersionMetadataURL: o.cfg.VersionMetadataURL,
+		DisableTelemetry:   o.cfg.DisableTelemetry,
 	})
 	values := Must(helmutils.MergeVals(o.cfg.HelmConfig.Values, overrides))
 	installer := &helm.Installer{
