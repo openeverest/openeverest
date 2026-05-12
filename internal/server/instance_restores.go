@@ -25,8 +25,7 @@ import (
 
 // ListInstanceRestores lists all restores for a specific instance.
 func (e *EverestServer) ListInstanceRestores(c echo.Context, cluster string, namespace string, instance string) error {
-	// The cluster parameter is currently ignored.
-	result, err := e.handler.ListInstanceRestores(c.Request().Context(), namespace, instance)
+	result, err := e.handler.ListInstanceRestores(c.Request().Context(), cluster, namespace, instance)
 	if err != nil {
 		e.l.Errorf("ListInstanceRestores failed: %v", err)
 		return err

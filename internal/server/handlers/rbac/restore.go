@@ -1,5 +1,3 @@
-// everest
-// Copyright (C) 2023 Percona LLC
 // Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -14,22 +12,25 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package k8s
+package rbac
 
 import (
 	"context"
 
-	"k8s.io/apimachinery/pkg/types"
-
 	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
 )
 
-// ListBackupClasses returns list of backup classes.
-func (h *k8sHandler) ListBackupClasses(ctx context.Context, cluster string) (*backupv1alpha1.BackupClassList, error) {
-	return h.kubeConnector.ListBackupClasses(ctx)
+// GetRestore returns a specific restore by namespace and name.
+func (h *rbacHandler) GetRestore(ctx context.Context, namespace, name string) (*backupv1alpha1.Restore, error) {
+	return h.next.GetRestore(ctx, namespace, name)
 }
 
-// GetBackupClass returns backup class that matches the criteria.
-func (h *k8sHandler) GetBackupClass(ctx context.Context, cluster, name string) (*backupv1alpha1.BackupClass, error) {
-	return h.kubeConnector.GetBackupClass(ctx, types.NamespacedName{Name: name})
+// CreateRestore creates a new restore.
+func (h *rbacHandler) CreateRestore(ctx context.Context, restore *backupv1alpha1.Restore) (*backupv1alpha1.Restore, error) {
+	return h.next.CreateRestore(ctx, restore)
+}
+
+// DeleteRestore deletes a restore by namespace and name.
+func (h *rbacHandler) DeleteRestore(ctx context.Context, namespace, name string) error {
+	return h.next.DeleteRestore(ctx, namespace, name)
 }

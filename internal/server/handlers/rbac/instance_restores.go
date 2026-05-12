@@ -17,12 +17,29 @@ package rbac
 
 import (
 	"context"
+	"errors"
+	"fmt"
 
 	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
+	"github.com/openeverest/openeverest/v2/pkg/rbac"
 )
 
-// ListInstanceRestores proxies the request to the next handler.
-func (h *rbacHandler) ListInstanceRestores(ctx context.Context, namespace, instanceName string) (*backupv1alpha1.RestoreList, error) {
-	// Add RBAC checks here if needed in the future.
-	return h.next.ListInstanceRestores(ctx, namespace, instanceName)
+// ListInstanceRestores returns instance restores filtered by RBAC permissions.
+func (h *rbacHandler) ListInstanceRestores(ctx context.Context, cluster, namespace, instanceName string) (*backupv1alpha1.RestoreList, error) {
+	list, err := h.next.ListInstanceRestores(ctx, cluster, namespace, instanceName)
+	if err != nil {
+		return nil, fmt.Errorf("ListInstanceRestores failed: %w", err)
+	}
+	filtered := make([]backupv1alpha1.Restore, 0, len(list.Items))
+	for _, r := range list.Items {
+		object := rbac.ClusterNamespacedObjectName(cluster, r.GetNamespace(), r.GetName())
+		if err := h.enforce(ctx, rbac.ResourceRestores, rbac.ActionRead, object); errors.Is(err, ErrInsufficientPermissions) {
+			continue
+		} else if err != nil {
+			return nil, fmt.Errorf("enforce failed: %w", err)
+		}
+		filtered = append(filtered, r)
+	}
+	list.Items = filtered
+	return list, nil
 }

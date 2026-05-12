@@ -835,8 +835,8 @@ github.com/opencontainers/go-digest v1.0.0 h1:apOUWs51W5PlhuyGyz9FCeeBIOUDA/6nW8
 github.com/opencontainers/go-digest v1.0.0/go.mod h1:0JzlMkj0TRzQZfJkVvzbP0HBR3IKzErnv2BNG4W4MAM=
 github.com/opencontainers/image-spec v1.1.1 h1:y0fUlFfIZhPF1W537XOLg0/fcx6zcHCJwooC2xJA040=
 github.com/opencontainers/image-spec v1.1.1/go.mod h1:qpqAh3Dmcf36wStyyWU+kCeDgrGnAve2nCC8+7h8Q0M=
-github.com/openeverest/helm-charts/charts/everest v0.0.0-20260429220018-719225d6810c h1:2Mpmp0EMTVTDeNYLeaNSAAHg78jFsjgcs3lmz0uCn2E=
-github.com/openeverest/helm-charts/charts/everest v0.0.0-20260429220018-719225d6810c/go.mod h1:Mwy0zH9GgTrrVy08klocVAXxhLmQfDqhuUz88uYckgQ=
+github.com/openeverest/helm-charts/charts/everest v0.0.0-20260508082310-5ea65ad8ba11 h1:mQ548DIW+O1NLCv3VtKSrUq5V56jvdZ78/kWOmPNtH0=
+github.com/openeverest/helm-charts/charts/everest v0.0.0-20260508082310-5ea65ad8ba11/go.mod h1:Mwy0zH9GgTrrVy08klocVAXxhLmQfDqhuUz88uYckgQ=
 github.com/operator-framework/api v0.42.0 h1:rkc5V3zW8RxZMjePAe12jdL7Co/hwsYo1pLnkkhuR7s=
 github.com/operator-framework/api v0.42.0/go.mod h1:bMEj+wl/8tGqcGNtxt38cLUYagu9chNsbYzb/5HQaUQ=
 github.com/otiai10/copy v1.2.0/go.mod h1:rrF5dJ5F0t/EWSYODDu4j9/vEeYHMkc8jt0zJChqQWw=

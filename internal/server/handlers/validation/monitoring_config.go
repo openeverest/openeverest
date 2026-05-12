@@ -27,12 +27,12 @@ import (
 )
 
 // ListMonitoringConfigs proxies the request to the next handler.
-func (h *validateHandler) ListMonitoringConfigs(ctx context.Context, namespace string) (*monitoringv1alpha2.MonitoringConfigList, error) {
-	return h.next.ListMonitoringConfigs(ctx, namespace)
+func (h *validateHandler) ListMonitoringConfigs(ctx context.Context, cluster, namespace string) (*monitoringv1alpha2.MonitoringConfigList, error) {
+	return h.next.ListMonitoringConfigs(ctx, cluster, namespace)
 }
 
 // CreateMonitoringConfig proxies the request to the next handler.
-func (h *validateHandler) CreateMonitoringConfig(ctx context.Context, namespace string, req *api.MonitoringConfigCreateParams) (*monitoringv1alpha2.MonitoringConfig, error) {
+func (h *validateHandler) CreateMonitoringConfig(ctx context.Context, cluster, namespace string, req *api.MonitoringConfigCreateParams) (*monitoringv1alpha2.MonitoringConfig, error) {
 	if err := utils.ValidateEverestResourceName(req.Name, "name"); err != nil {
 		return nil, errors.Join(ErrInvalidRequest, err)
 	}
@@ -55,23 +55,23 @@ func (h *validateHandler) CreateMonitoringConfig(ctx context.Context, namespace 
 		return nil, errors.Join(ErrInvalidRequest, fmt.Errorf("monitoring type %s is not supported", req.Type))
 	}
 
-	return h.next.CreateMonitoringConfig(ctx, namespace, req)
+	return h.next.CreateMonitoringConfig(ctx, cluster, namespace, req)
 }
 
 // DeleteMonitoringConfig proxies the request to the next handler.
-func (h *validateHandler) DeleteMonitoringConfig(ctx context.Context, namespace, name string) error {
+func (h *validateHandler) DeleteMonitoringConfig(ctx context.Context, cluster, namespace, name string) error {
 	// TODO: check if the monitoring config is used by any instance.
 
-	return h.next.DeleteMonitoringConfig(ctx, namespace, name)
+	return h.next.DeleteMonitoringConfig(ctx, cluster, namespace, name)
 }
 
 // GetMonitoringConfig proxies the request to the next handler.
-func (h *validateHandler) GetMonitoringConfig(ctx context.Context, namespace, name string) (*monitoringv1alpha2.MonitoringConfig, error) {
-	return h.next.GetMonitoringConfig(ctx, namespace, name)
+func (h *validateHandler) GetMonitoringConfig(ctx context.Context, cluster, namespace, name string) (*monitoringv1alpha2.MonitoringConfig, error) {
+	return h.next.GetMonitoringConfig(ctx, cluster, namespace, name)
 }
 
 // UpdateMonitoringConfig proxies the request to the next handler.
-func (h *validateHandler) UpdateMonitoringConfig(ctx context.Context, namespace, name string, req *api.MonitoringConfigUpdateParams) (*monitoringv1alpha2.MonitoringConfig, error) {
+func (h *validateHandler) UpdateMonitoringConfig(ctx context.Context, cluster, namespace, name string, req *api.MonitoringConfigUpdateParams) (*monitoringv1alpha2.MonitoringConfig, error) {
 	if req.Url != "" {
 		if ok := operatorUtils.ValidateURL(req.Url); !ok {
 			return nil, errors.Join(ErrInvalidRequest, ErrInvalidURL("url"))
@@ -88,5 +88,5 @@ func (h *validateHandler) UpdateMonitoringConfig(ctx context.Context, namespace,
 		return nil, errors.Join(ErrInvalidRequest, fmt.Errorf("monitoring type %s is not supported", req.Type))
 	}
 
-	return h.next.UpdateMonitoringConfig(ctx, namespace, name, req)
+	return h.next.UpdateMonitoringConfig(ctx, cluster, namespace, name, req)
 }

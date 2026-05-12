@@ -17,43 +17,75 @@ package rbac
 
 import (
 	"context"
+	"errors"
+	"fmt"
 
 	corev1alpha1 "github.com/openeverest/openeverest/v2/api/core/v1alpha1"
 	api "github.com/openeverest/openeverest/v2/internal/server/api"
+	"github.com/openeverest/openeverest/v2/pkg/rbac"
 )
 
-// ListInstances proxies the request to the next handler.
-func (h *rbacHandler) ListInstances(ctx context.Context, namespace string) (*corev1alpha1.InstanceList, error) {
-	// Add RBAC checks here if needed in the future
-	return h.next.ListInstances(ctx, namespace)
+// ListInstances returns instances filtered by RBAC permissions.
+func (h *rbacHandler) ListInstances(ctx context.Context, cluster, namespace string) (*corev1alpha1.InstanceList, error) {
+	list, err := h.next.ListInstances(ctx, cluster, namespace)
+	if err != nil {
+		return nil, fmt.Errorf("ListInstances failed: %w", err)
+	}
+	filtered := make([]corev1alpha1.Instance, 0, len(list.Items))
+	for _, inst := range list.Items {
+		object := rbac.ClusterNamespacedObjectName(cluster, inst.GetNamespace(), inst.GetName())
+		if err := h.enforce(ctx, rbac.ResourceInstances, rbac.ActionRead, object); errors.Is(err, ErrInsufficientPermissions) {
+			continue
+		} else if err != nil {
+			return nil, fmt.Errorf("enforce failed: %w", err)
+		}
+		filtered = append(filtered, inst)
+	}
+	list.Items = filtered
+	return list, nil
 }
 
-// GetInstance proxies the request to the next handler.
-func (h *rbacHandler) GetInstance(ctx context.Context, namespace, name string) (*corev1alpha1.Instance, error) {
-	// Add RBAC checks here if needed in the future
-	return h.next.GetInstance(ctx, namespace, name)
+// GetInstance returns an instance, gated by RBAC.
+func (h *rbacHandler) GetInstance(ctx context.Context, cluster, namespace, name string) (*corev1alpha1.Instance, error) {
+	object := rbac.ClusterNamespacedObjectName(cluster, namespace, name)
+	if err := h.enforce(ctx, rbac.ResourceInstances, rbac.ActionRead, object); err != nil {
+		return nil, err
+	}
+	return h.next.GetInstance(ctx, cluster, namespace, name)
 }
 
-// CreateInstance proxies the request to the next handler.
-func (h *rbacHandler) CreateInstance(ctx context.Context, instance *corev1alpha1.Instance) (*corev1alpha1.Instance, error) {
-	// Add RBAC checks here if needed in the future
-	return h.next.CreateInstance(ctx, instance)
+// CreateInstance creates an instance, gated by RBAC.
+func (h *rbacHandler) CreateInstance(ctx context.Context, cluster string, instance *corev1alpha1.Instance) (*corev1alpha1.Instance, error) {
+	object := rbac.ClusterNamespacedObjectName(cluster, instance.GetNamespace(), instance.GetName())
+	if err := h.enforce(ctx, rbac.ResourceInstances, rbac.ActionCreate, object); err != nil {
+		return nil, err
+	}
+	return h.next.CreateInstance(ctx, cluster, instance)
 }
 
-// UpdateInstance proxies the request to the next handler.
-func (h *rbacHandler) UpdateInstance(ctx context.Context, instance *corev1alpha1.Instance) (*corev1alpha1.Instance, error) {
-	// Add RBAC checks here if needed in the future
-	return h.next.UpdateInstance(ctx, instance)
+// UpdateInstance updates an instance, gated by RBAC.
+func (h *rbacHandler) UpdateInstance(ctx context.Context, cluster string, instance *corev1alpha1.Instance) (*corev1alpha1.Instance, error) {
+	object := rbac.ClusterNamespacedObjectName(cluster, instance.GetNamespace(), instance.GetName())
+	if err := h.enforce(ctx, rbac.ResourceInstances, rbac.ActionUpdate, object); err != nil {
+		return nil, err
+	}
+	return h.next.UpdateInstance(ctx, cluster, instance)
 }
 
-// DeleteInstance proxies the request to the next handler.
-func (h *rbacHandler) DeleteInstance(ctx context.Context, namespace, name string) error {
-	// Add RBAC checks here if needed in the future
-	return h.next.DeleteInstance(ctx, namespace, name)
+// DeleteInstance deletes an instance, gated by RBAC.
+func (h *rbacHandler) DeleteInstance(ctx context.Context, cluster, namespace, name string) error {
+	object := rbac.ClusterNamespacedObjectName(cluster, namespace, name)
+	if err := h.enforce(ctx, rbac.ResourceInstances, rbac.ActionDelete, object); err != nil {
+		return err
+	}
+	return h.next.DeleteInstance(ctx, cluster, namespace, name)
 }
 
-// GetInstanceConnection proxies the request to the next handler.
-func (h *rbacHandler) GetInstanceConnection(ctx context.Context, namespace, name string) (*api.InstanceConnectionDetails, error) {
-	// Add RBAC checks here if needed in the future
-	return h.next.GetInstanceConnection(ctx, namespace, name)
+// GetInstanceConnection returns connection details, gated by RBAC.
+func (h *rbacHandler) GetInstanceConnection(ctx context.Context, cluster, namespace, name string) (*api.InstanceConnectionDetails, error) {
+	object := rbac.ClusterNamespacedObjectName(cluster, namespace, name)
+	if err := h.enforce(ctx, rbac.ResourceInstances, rbac.ActionRead, object); err != nil {
+		return nil, err
+	}
+	return h.next.GetInstanceConnection(ctx, cluster, namespace, name)
 }
