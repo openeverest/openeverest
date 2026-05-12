@@ -29,6 +29,7 @@ and backend API logic, all without rebuilding or redeploying the OpenEverest cor
 | **Frontend bundle** | An optional ESM JavaScript module loaded at runtime into the web UI shell. |
 | **Extension point** | A named, typed slot in the host UI or CLI where a plugin registers a contribution. |
 | **PluginInstallation** | A namespace-scoped CR that enables a plugin within a specific namespace and holds per-tenant config. |
+| **Infrastructure plugin** | A generic plugin that creates and manages its own Kubernetes resources (Deployments, Services, ConfigMaps) in response to lifecycle events. Requires `spec.kubePermissions` to declare the additional RBAC it needs beyond the OpenEverest API. |
 
 ---
 
@@ -209,6 +210,20 @@ spec:
     - verb: read
       resource: database-cluster-connection-details
 
+  # Kubernetes RBAC: additional Kubernetes API permissions the plugin's
+  # ServiceAccount needs beyond the OpenEverest API. Used by infrastructure
+  # plugins that create per-cluster resources (e.g., ProxySQL deployments).
+  # The host auto-generates a Role/ClusterRole from these rules and binds
+  # it to the plugin's ServiceAccount. Spec-001 resources are excluded by
+  # the hard denylist regardless of what is declared here.
+  kubePermissions:
+    - apiGroups: ["apps"]
+      resources: ["deployments"]
+      verbs: ["get", "list", "watch", "create", "update", "delete"]
+    - apiGroups: [""]
+      resources: ["services", "configmaps"]
+      verbs: ["get", "list", "watch", "create", "update", "delete"]
+
   # CLI contribution (optional).
   cli:
     image: "ghcr.io/acmecorp/sql-explorer-cli:1.2.0"
@@ -250,6 +265,8 @@ plugin authors get compile-time safety.
 | `clusterDetailTab` | Extra tab on a `DatabaseCluster` detail page | `{ cluster, namespace }` | ✓ |
 | `clusterAction` | Context-menu action in the clusters table | `{ cluster, namespace, onClose }` | ✓ |
 | `clusterCard` | Widget card on the cluster overview | `{ cluster, namespace }` | ✓ |
+| `instanceCreateFormSection` | Collapsible section in the create-instance wizard | `{ formValues, onChange, namespace }` | ✓ |
+| `instanceEditFormSection` | Collapsible section in the edit-instance page | `{ instance, formValues, onChange, namespace }` | ✓ |
 | `globalDashboardWidget` | Card on the home / dashboard page | `{ namespaces }` | — |
 | `settingsPanel` | Tab inside the Settings page | `{ currentUser }` | — |
 | `themeOverride` | MUI theme override (logos, palette) | `{ defaultTheme }` — Phase 4 | — |
@@ -276,6 +293,40 @@ The filter is expressed in two complementary places:
 
 Omitting `providers` (or leaving it empty) means "show for all engine types".
 Existing plugins that do not set the field are unaffected.
+
+#### Instance creation / edit form sections
+
+The `instanceCreateFormSection` and `instanceEditFormSection` extension points
+let a plugin inject a collapsible configuration section into the instance
+creation wizard and the instance edit page respectively. This enables
+infrastructure plugins to let users opt in to plugin-managed features (e.g.,
+"Enable ProxySQL") and configure them (exposure mode, resources, custom
+config) as part of the normal instance lifecycle.
+
+**Data flow:**
+
+1. The plugin registers a React component via `registerExtension({ type:
+   'instanceCreateFormSection', ... })`. The component receives `formValues`
+   (current form state) and an `onChange(pluginConfig)` callback.
+2. The user fills in the plugin section. The host collects the plugin config
+   as an opaque JSON blob keyed by plugin name.
+3. On form submission the host includes the plugin configs in a `POST` to
+   the plugin backend: `POST /v1/plugins/{name}/instance-config` with
+   `{ instance, namespace, config }`. The plugin backend stores the config
+   (e.g., as a `ConfigMap` or in its own state) and acts on it — creating
+   Deployments, Services, etc.
+4. The host does **not** store the plugin config on the `Instance` CR. The
+   plugin owns its own state. The host is only a messenger between the UI
+   form and the plugin backend.
+
+**Props:**
+
+| Prop | Type | Description |
+|---|---|---|
+| `formValues` | `Record<string, unknown>` | Current form state (read-only snapshot). |
+| `onChange` | `(config: Record<string, unknown>) => void` | Callback to update the plugin's config section. |
+| `namespace` | `string` | Target namespace for the instance. |
+| `instance` | `Instance \| undefined` | The existing instance (edit mode only; `undefined` during create). |
 
 ---
 
@@ -524,6 +575,106 @@ problem; the SDK provides a helper that wraps the dance.
   memory pressure (advertised via a configurable per-connection buffer size).
   This is acceptable: dropped clients reconnect with `since=` and catch up.
 
+### 8.7 Infrastructure plugins — Kubernetes resource management
+
+Some plugins need to create and manage their own Kubernetes resources in
+response to database-cluster lifecycle events. Examples include ProxySQL (SQL
+proxy deployed per cluster), connection poolers, or monitoring sidecars.
+These are called **infrastructure plugins**.
+
+#### Declaring `kubePermissions`
+
+The plugin's `Plugin` CR declares the Kubernetes API permissions it needs
+under `spec.kubePermissions` (see §5.1). These are standard RBAC rule
+definitions: `apiGroups`, `resources`, `verbs`.
+
+```yaml
+kubePermissions:
+  - apiGroups: ["apps"]
+    resources: ["deployments"]
+    verbs: ["get", "list", "watch", "create", "update", "delete"]
+  - apiGroups: [""]
+    resources: ["services", "configmaps"]
+    verbs: ["get", "list", "watch", "create", "update", "delete"]
+```
+
+#### Validation & denylist
+
+The host validates `kubePermissions` against a hard-coded **denylist** to
+prevent plugins from escalating beyond their intended scope. The following
+are always denied:
+
+- `*` (wildcard) in `apiGroups`, `resources`, or `verbs`.
+- `everest.percona.com` API group (OpenEverest CRDs).
+- `rbac.authorization.k8s.io` (RBAC manipulation).
+- `admissionregistration.k8s.io` (webhook manipulation).
+- Resources in `""` group: `secrets`, `nodes`, `persistentvolumes`.
+
+If any rule matches the denylist, the `Plugin` CR is rejected at admission
+time and the plugin pod is not started. A `ClusterRole` is always flagged
+for manual review.
+
+#### Automatic Role generation
+
+When a `PluginInstallation` is created in a namespace, the host:
+
+1. Creates a namespace-scoped `Role` from the declared `kubePermissions`,
+   named `everest-plugin-<name>`.
+2. Creates a `RoleBinding` binding that `Role` to the plugin's
+   `ServiceAccount`.
+3. On `PluginInstallation` deletion, the `Role` and `RoleBinding` are
+   garbage-collected via `ownerReferences`.
+
+This ensures the plugin can only manage resources in namespaces where it is
+installed.
+
+#### Lifecycle integration — ProxySQL example
+
+The following illustrates how an infrastructure plugin would work, using
+ProxySQL as the canonical example:
+
+1. **Installation.** Admin installs the ProxySQL plugin. The `Plugin` CR
+   declares `kubePermissions` for `apps/deployments` and
+   `core/services,configmaps`. The admin creates a `PluginInstallation` in
+   the target namespace.
+
+2. **Cluster creation.** User creates a new PXC cluster. In the create-
+   instance wizard, the ProxySQL plugin's `instanceCreateFormSection`
+   renders a "Enable ProxySQL" toggle and configuration fields (exposure
+   mode, resource limits, custom rules).
+
+3. **Config handoff.** On form submission, the host POSTs the plugin
+   config to `POST /v1/plugins/proxysql/instance-config` with the instance
+   name, namespace, and the user's config blob. The plugin backend stores
+   this config (e.g., in a ConfigMap).
+
+4. **Event-driven deployment.** The plugin daemon receives a
+   `database-cluster.ready` event via SSE. It looks up the stored config
+   for that instance, and creates a ProxySQL `Deployment`, `Service`, and
+   `ConfigMap` with the appropriate selectors and connection details.
+
+5. **Detail tab.** The plugin registers a `clusterDetailTab` showing
+   ProxySQL status, metrics, and a config editor. Changes submitted via
+   the tab's UI are sent to the plugin backend, which updates the
+   ProxySQL ConfigMap and triggers a rolling restart.
+
+6. **Cluster deletion.** The plugin receives a `database-cluster.deleted`
+   event and cleans up the ProxySQL Deployment, Service, and ConfigMap.
+   As a safety net, the plugin sets `ownerReferences` on all created
+   resources pointing to the `DatabaseCluster` CR, so Kubernetes GC
+   catches anything the plugin misses.
+
+#### Security boundaries
+
+- The plugin runs in its own pod with its own `ServiceAccount`. It never
+  shares the host's credentials.
+- `kubePermissions` are additive and namespace-scoped. The plugin cannot
+  access resources outside the namespaces where it is installed.
+- The host does not proxy or relay Kubernetes API calls. The plugin talks
+  directly to the Kubernetes API server using its own bound credentials.
+- All plugin-created resources should carry standard labels
+  (`app.kubernetes.io/managed-by: everest-plugin-<name>`) for auditability.
+
 ---
 
 ## 9. RBAC Integration
@@ -652,6 +803,8 @@ configured (e.g., Harbor), then creates the `Plugin` CR.
 | Forged events | The event stream is delivered over the plugin's authenticated HTTPS connection to OpenEverest — there is no inbound push the plugin needs to validate. |
 | Event-driven privilege escalation | Events are informational only — they do not authorise the plugin to perform any action. Any follow-up API call still goes through normal RBAC checks. |
 | Slow event consumer / DoS on host | Per-connection bounded buffer; slow consumers are dropped and reconnect with `since=`. No unbounded queue grows in the host. |
+| Infrastructure plugin kube access | `kubePermissions` validated against a hard-coded denylist at admission time. Auto-generated `Role` is namespace-scoped; `ClusterRole` requests are flagged for manual review. Plugin never shares the host's `ServiceAccount`. |
+| Plugin creates orphaned resources | Plugin must handle `database-cluster.deleted` events to clean up. As a safety net, plugin-created resources should carry `ownerReferences` pointing to the `DatabaseCluster` CR for Kubernetes GC. |
 
 ---
 
@@ -806,7 +959,16 @@ Unlocks the metering / billing / audit / external-sync class of plugins.
 - Hard denylist on writes to spec-001 resources from daemon tokens.
 - **No event store, no delivery worker, no DLQ in the host.** State lives in
   etcd; cursor lives in the plugin.
-### Phase 4 — Rich UI extension points & distribution
+### Phase 4 — Infrastructure plugins & form extension points
+
+- `spec.kubePermissions` declaration and hard-coded denylist validation.
+- Automatic `Role` / `RoleBinding` generation from `kubePermissions` on
+  `PluginInstallation` create; garbage-collection on delete.
+- `instanceCreateFormSection` and `instanceEditFormSection` extension points.
+- `POST /v1/plugins/{name}/instance-config` endpoint for plugin config handoff.
+- ProxySQL reference plugin as the canonical infrastructure plugin example.
+
+### Phase 5 — Rich UI extension points & distribution
 
 - Extension points: `clusterDetailTab`, `clusterAction`, `clusterCard`,
   `globalDashboardWidget`, `settingsPanel`.
@@ -815,7 +977,7 @@ Unlocks the metering / billing / audit / external-sync class of plugins.
 - Bundle SRI verification + optional cosign signature check.
 - Auto-generated `ServiceAccount` + `Role` + `NetworkPolicy` for backend pods.
 
-### Phase 5 — Polish & ecosystem
+### Phase 6 — Polish & ecosystem
 
 - `themeOverride` extension point (branding / logos).
 - Plugin-to-plugin event bus (opt-in pub/sub via the SDK).
@@ -873,7 +1035,11 @@ Unlocks the metering / billing / audit / external-sync class of plugins.
    events only. Should we also support **synchronous validating hooks** (e.g.,
    "before creating a cluster, ask the policy plugin to approve")? That class
    of plugin sits closer to a Kubernetes admission webhook and may justify a
-   separate spec; explicitly out of scope for v1.
+   separate spec; explicitly out of scope for v1. *Note:* the
+   `instanceCreateFormSection` extension point (§6, §8.7) partially addresses
+   the "user opts in at creation time" use case — it lets a plugin collect
+   configuration during instance creation and act on it asynchronously, without
+   requiring a synchronous pre-hook in the host.
 
 9. **Daemon scaling**: does the host enforce single-replica daemons (simpler,
    no distributed-lock concerns) or allow plugin authors to declare a replica
