@@ -122,6 +122,7 @@ V1: instance-level toggle. V2: **per-storage** (`Instance.spec.backup.storages[N
 - PostgreSQL: may support PITR on all storages
 - Toggle lives on `<StorageRow />`; gear icon opens `<PITRConfigModal />` when config exists
 - Disabled when `maxWithPITR` limit reached
+- PITR requires at least one active backup schedule (see [Q5](#q5-pitrbackup-schedule-dependency))
 - UIGenerator renders `pitr` section for provider-specific config when enabled
 
 ---
@@ -417,12 +418,14 @@ It's a **horizontal bar** on full container width, ~48–56px tall. Similar to v
 
 Note: Maximum 3 storages for MongoDb provider
 ```
+
 **PITR toggle behavior:**
 
 - Toggle OFF → ON: if provider has `uiSchema.pitr.components` (non-empty), opens `<PITRConfigModal>`. If modal dismissed → toggle reverts to OFF.
 - Toggle ON → OFF: confirmation → PATCH Instance.
 - If provider has no pitr config (just on/off): toggle directly, no modal.
 - **Disabled with tooltip** when `maxWithPITR` limit is reached and this storage's PITR is OFF (e.g. "Maximum 1 PITR-enabled storage for this provider").
+- **Disabled** when no active schedules exist on any storage (PITR requires schedules — see [Q5](#q5-pitrbackup-schedule-dependency)).
 
 **[⚙] gear button:**
 
@@ -512,9 +515,9 @@ Presentational sub-components are shared. Orchestration is separate.
 
 `<WizardBackupsStep />` is a **built-in step** rendered via Provider uiSchema.
 
-> **⚠️ Open question (Q4):** The `builtIn` mechanism below is a starting point. We may
+> **⚠️ Open question (Q2):** The `builtIn` mechanism below is a starting point. We may
 > evolve toward describing sub-elements (PITR, schedules, warnings) via standard ui-schema
-> vocabulary. See [Q4](#q4-wizard-backup-step--hardcoded-vs-schema-described).
+> vocabulary. See [Q2](#q2-builtin-mechanism--befe-and-evolution-path).
 
 **`builtIn` key on Section:**
 
@@ -554,7 +557,7 @@ if (section.builtIn && builtInComponents[section.builtIn]) {
 - Reads form state via `useFormContext()` — no API mutations
 - **Scheduled Backups:** Flat list of `EditableItem` tiles. Click → `ScheduleFormDialog`.
 - **PITR:** Provider-aware. Single-PITR: toggle + storage select. Multi-PITR: flat PITR list with [+ Add PITR].
-- **Storage select:** ALL namespace-level BackupStorages (instance doesn't exist yet). [+ Create New Storage] if none.
+- **Storage select:** ALL namespace-level BackupStorages (instance doesn't exist yet).
 - On submit: `buildSpecBackup()` auto-assembles `spec.backup.storages[]` from selections
 
 ### Restore mode in wizard
@@ -576,7 +579,7 @@ Wizard supports **restore to new cluster** (same as v1).
 `main: true` on `InstanceBackupStorage` marks the engine's **default storage**. At most one per instance (not enforced by CEL).
 
 - **Auto-assigned:** First storage bound to instance gets `main: true` automatically
-- **1 iteration:** Default is always the first storage. No manual reassignment UI.
+- **1st iteration:** Default is always the first storage. No manual reassignment UI.
 - **UI (Backups tab):** Shown as filled "Default" chip on the first storage row
 
 > **Future improvement:** Allow user to reassign default via clickable chip on storage rows. See [Future Ideas](#future-ideas--todo).
@@ -587,7 +590,7 @@ The two-level storage model is **hidden from the user:**
 
 1. Storages are bound **implicitly** when user creates a schedule or on-demand backup targeting an unbound storage
 2. Storage row appears automatically in Storages tab after binding
-3. No explicit [+ Add Storage] button in v1 iteration (see [Future Ideas](#future-ideas--todo))
+3. No explicit [+ Add Storage] button in first iteration (see [Future Ideas](#future-ideas--todo))
 4. Storage select in modals shows existing namespace-level BackupStorages only. Inline creation of new NS-level BackupStorage is deferred (see [Future Ideas](#future-ideas--todo)).
 
 ### Storage removal
@@ -614,13 +617,13 @@ Removing a storage from an instance = removing entry from `instance.spec.backup.
 
 ### Static vs dynamic fields
 
-| Context          | Static fields (React)          | Dynamic fields (UIGenerator)                                         |
-| ---------------- | ------------------------------ | -------------------------------------------------------------------- |
-| On-demand backup | name, backupClass, storage     | `backup` section: e.g. backupType, compressionType, compressionLevel |
-| PITR config      | pitr.enabled toggle            | `pitr` section: e.g. oplogSpanMin, compressionType                   |
-| Restore          | source info, PITR date picker  | `restore` section: (empty for PSMDB initially)                       |
-| Schedule         | name, cron, retention, enabled | _(none currently — per-schedule config like backupType is an open question, see [Q1](#q1-should-schedule-carry-its-own-config-backup-type-compression))_ |
-| Storage row      | name, Default badge            | _(none — display only + action buttons)_                             |
+| Context          | Static fields (React)          | Dynamic fields (UIGenerator)                                                                                                                                    |
+| ---------------- | ------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| On-demand backup | name, backupClass, storage     | `backup` section: e.g. backupType, compressionType, compressionLevel                                                                                            |
+| PITR config      | pitr.enabled toggle            | `pitr` section: e.g. oplogSpanMin, compressionType                                                                                                              |
+| Restore          | source info, PITR date picker  | `restore` section: (empty for PSMDB initially)                                                                                                                  |
+| Schedule         | name, cron, retention, enabled | `backup` section: same as on-demand (backupType, compression) — requires CRD change, see [Q1](#q1-should-schedule-carry-its-own-config-backup-type-compression) |
+| Storage row      | name, Default badge            | _(none — display only + action buttons)_                                                                                                                        |
 
 ### UIGenerator integration pattern
 
@@ -738,12 +741,12 @@ User opens "Create Database" form
 
 **Provider-specific PITR behavior:**
 
-| Provider constraint                      | Wizard PITR UI                                                | Notes                               |
-| ---------------------------------------- | ------------------------------------------------------------- | ----------------------------------- |
-| `maxWithPITR: 1`, no separate storage    | One toggle, storage auto-set to first schedule's storage      | Locked/hidden storage choice        |
-| `maxWithPITR: 1`, separate storage       | One toggle + one storage select                               | User selects PITR storage           |
-| `maxWithPITR: N` or unlimited            | PITR list with [+ Add PITR], one entry per storage / stream   | Same mental model as schedules list |
-| `supportsPITR: false` or not set         | PITR section hidden                                           | —                                   |
+| Provider constraint                   | Wizard PITR UI                                              | Notes                               |
+| ------------------------------------- | ----------------------------------------------------------- | ----------------------------------- |
+| `maxWithPITR: 1`, no separate storage | One toggle, storage auto-set to first schedule's storage    | Locked/hidden storage choice        |
+| `maxWithPITR: 1`, separate storage    | One toggle + one storage select                             | User selects PITR storage           |
+| `maxWithPITR: N` or unlimited         | PITR list with [+ Add PITR], one entry per storage / stream | Same mental model as schedules list |
+| `supportsPITR: false` or not set      | PITR section hidden                                         | —                                   |
 
 ### Flow 2: Create on-demand backup
 
@@ -770,7 +773,7 @@ Instance Details → Tab: Backups → [Create backup ▼] → "Now"
 Instance Details → Tab: Backups
 │
 ├── Storages tab: (empty) → "No storages configured"
-│   (v1 iteration: storages are added implicitly when creating schedules/backups)
+│   (first iteration: storages are added implicitly when creating schedules/backups)
 │
 ├── User clicks [Create backup ▼] → "Schedule"
 │   → <ScheduledBackupModal>
@@ -842,66 +845,54 @@ Instance Details → Tab: Backups
 `cron`, `retentionCopies`. Meanwhile `Backup.spec.config` is a `*runtime.RawExtension` set
 per-Backup (validated against `BackupClass.spec.config.openAPIV3Schema`).
 
-**How scheduled backups work:** The operator creates `Backup` CRs from schedules. The operator
-decides what `config` to put on each Backup. Currently the operator would use provider defaults
-(or none).
+**Key insight:** A schedule is just a deferred backup. The operator creates `Backup` CRs from
+schedules, and each Backup needs a `config`. If on-demand backups have config (backupType,
+compression), scheduled backups logically need the same fields — the same UIGenerator `backup`
+section should render in both `<OnDemandBackupModal>` and `<ScheduledBackupModal>`.
 
-**Analysis:**
+**Recommendation:** **Option A** — add `config *runtime.RawExtension` to `InstanceBackupSchedule`.
 
-| Option                                                      | Description                                                  | Pros                                                             | Cons                                                                                                                     |
-| ----------------------------------------------------------- | ------------------------------------------------------------ | ---------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| A) Add `config` to `InstanceBackupSchedule`                 | Each schedule defines its own backup type, compression, etc. | Full user control per schedule. Physical daily + logical weekly. | CRD change. UI complexity. Each schedule form gets UIGenerator `backup` section. Provider must pass config to Backup CR. |
-| B) Keep schedule simple, inherit from BackupClass defaults  | All scheduled backups use provider-defined defaults.         | Simple. No CRD change. Schedule form stays static.               | Less flexibility. Can't mix backup types across schedules.                                                               |
-| C) Config at storage level (`InstanceBackupStorage.config`) | All schedules on a given storage share config.               | Middle ground. Groups config by destination.                     | Doesn't map well to "I want physical daily and logical weekly to same storage."                                          |
+- CRD change required. Provider passes `config` from schedule to each generated Backup CR.
+- UI: `<ScheduledBackupModal>` renders UIGenerator `backup` section (same as on-demand modal).
+- Enables "physical daily + logical weekly" pattern.
+- Consistent UX: same fields in both backup flows.
 
-**Recommendation:** Start with **Option B** (simple). The v1 schedule had no config at all.
-On-demand backups already support per-backup config via the modal. If users need per-schedule
-config later, Option A is the cleanest CRD extension (add `config *runtime.RawExtension` to
-`InstanceBackupSchedule`).
+If a schedule has no `config`, operator falls back to provider defaults (backward-compatible).
 
-### Q2: `builtIn` key on Section type — BE or FE only?
+### Q2: `builtIn` mechanism — BE/FE and evolution path
 
-Proposal adds `builtIn: "backups"` to Provider uiSchema. This is a new field on the Section type.
+Proposal adds `builtIn: "backups"` to Provider uiSchema. Two sub-questions:
+
+**a) Where does `builtIn` live — BE or FE?**
 
 | Option                                         | Description                                                                   |
 | ---------------------------------------------- | ----------------------------------------------------------------------------- |
 | A) Add to Go `ProviderSpec` (persisted in CRD) | Provider explicitly declares built-in steps. BE validates. Clean contract.    |
 | B) FE-only convention                          | UI checks for the key, BE ignores unknown fields in uiSchema. Faster to ship. |
 
-### Q3: PITR config — modal vs inline in wizard
-
-In Backups tab, PITR config opens a modal (because the storage row is compact). In wizard step,
-PITR config could either: A) Always modal (consistent UX). B) Expand inline below the toggle
-(more space in wizard). **v1 reference:** PITR was just a toggle + storage select, no config
-modal. If we keep it simple (toggle + storage), no modal needed in wizard at all. Modal only
-needed when provider has advanced PITR config fields.
-
-### Q4: Wizard backup step — hardcoded vs schema-described
+**b) How far do we go with schema-describing the wizard step?**
 
 The `builtIn: "backups"` mechanism gives provider control over presence and ordering, but
-the step's internal structure is hardcoded React. Should we go further?
+the step's internal structure is hardcoded React. Evolution path:
 
-**Considerations:**
-
-- Could PITR toggle be described as a ui-generator field with `uiType: "toggle"` + cell expression
-  conditions (e.g. `visible: "schedules.length > 0"`)?
-- Could schedule list be a ui-generator component with `uiType: "schedule-list"`?
-- Could warnings / info / tech-preview labels be added via standard `description` or `info` fields?
-- The first wizard step (base info) is similarly hardcoded and has a separate task for making it
-  extensible — the same mechanism could serve both.
-
-**Verdict for v2.0:** Start with `builtIn` (simple). The design allows evolution:
-
-1. `builtIn` today → opaque React component.
-2. Later: `builtIn` + `components` → the built-in component reads components from the section
+1. **First iteration:** `builtIn` → opaque React component.
+2. **Later:** `builtIn` + `components` → built-in component reads components from the section
    schema and renders some fields via UIGenerator alongside its hardcoded layout.
-3. Eventually: fully schema-described if the ui-generator vocabulary is rich enough.
+3. **Eventually:** Fully schema-described if the ui-generator vocabulary is rich enough
+   (CEL conditions, `schedule-list` uiType, info labels, etc.).
 
-The key constraint is: **can we do this more flexibly later?** Yes — `builtIn` is additive.
-We can extend Section to carry both `builtIn` and `components` fields without breaking existing
-providers. The built-in component would merge hardcoded layout with provider-defined extras.
+**Key constraint:** Can we do this more flexibly later? Yes — `builtIn` is additive.
+We can extend Section to carry both `builtIn` and `components` fields without breaking
+existing providers.
 
-### Q5: Backups tab — storage-centric vs schedule-centric layout
+**Considerations for future schema-described step:**
+
+- PITR toggle as `uiType: "toggle"` + CEL condition (`visible: "schedules.length > 0"`)
+- Schedule list as `uiType: "schedule-list"`
+- Warnings/info labels via standard `description` or `info` fields
+- The first wizard step (base info) is similarly hardcoded — the same mechanism could serve both
+
+### Q3: Backups tab — storage-centric vs schedule-centric layout
 
 Two design approaches for the Backups tab (instance details):
 
@@ -926,23 +917,10 @@ Storage rows that can expand to reveal their schedules and PITR config inline. L
 - **Pro:** Complete per-storage view.
 - **Con:** Complex UI. Needs careful design. Risk of deep nesting.
 
-**Current decision:** Option A (storage-centric with Storages/Schedules tabs) for v2.0.
+**Current decision:** Option A (storage-centric with Storages/Schedules tabs).
 The tabs separate the two concerns cleanly. Option C is interesting for a future design iteration.
 
-### Q6: StorageLimits — not in current CRD
-
-`BackupClassInstanceConstraints` currently only has `requiredFields []string`. There is no
-`StorageLimits` (min/max) type in the CRD. This proposal references `storageLimits.max`
-in several places.
-
-**Options:**
-
-- A) Add `StorageLimits` to `BackupClassInstanceConstraints` as proposed (CRD change needed).
-- B) Use the `InstanceBackupSpec.Storages` max array size (currently 10) as the only limit.
-  Provider-specific limits enforced via webhook validation, not schema.
-- C) Defer — let providers bind as many storages as the array allows; optimize later.
-
-### Q7: Multiple PITRs per instance
+### Q4: Multiple PITRs per instance
 
 The CRD allows PITR per-storage (`InstanceBackupStoragePITR`). Multiple storages can each
 have `pitr.enabled: true`. However:
@@ -964,60 +942,63 @@ v1-style toggle + storage select.
 
 Provider validation still prevents invalid combinations when only one PITR stream is allowed.
 
-### Q8: PITR–Backup schedule dependency
+### Q5: PITR–Backup schedule dependency
 
 **v1 behavior (UI-enforced, no BE validation):**
 
-| Scenario                | Mongo/PXC                            | MySQL                            | PostgreSQL                                    |
-| ----------------------- | ------------------------------------ | -------------------------------- | --------------------------------------------- |
-| PITR without schedules  | Disabled — toggle greyed out         | Disabled — toggle greyed out     | Disabled (no backups = no PITR)               |
-| PITR storage            | Auto-set to first schedule's storage | User-selectable (separate field) | Auto per-schedule                             |
-| Deleting last schedule  | PITR auto-disabled                   | PITR auto-disabled               | PITR auto-disabled                            |
-| PG-specific             | —                                    | —                                | Auto-enabled when backups ON, user can't toggle OFF |
-| Alert text              | "PITR relies on an active backup schedule" | Same                       | "PITR is automatically enabled"               |
+| Scenario               | Mongo/PXC                                  | MySQL                            | PostgreSQL                                          |
+| ---------------------- | ------------------------------------------ | -------------------------------- | --------------------------------------------------- |
+| PITR without schedules | Disabled — toggle greyed out               | Disabled — toggle greyed out     | Disabled (no backups = no PITR)                     |
+| PITR storage           | Auto-set to first schedule's storage       | User-selectable (separate field) | Auto per-schedule                                   |
+| Deleting last schedule | PITR auto-disabled                         | PITR auto-disabled               | PITR auto-disabled                                  |
+| PG-specific            | —                                          | —                                | Auto-enabled when backups ON, user can't toggle OFF |
+| Alert text             | "PITR relies on an active backup schedule" | Same                             | "PITR is automatically enabled"                     |
 
 **v2 CRD state:** No CRD-level validation tying PITR to schedules. `InstanceBackupStoragePITR`
 can be `enabled: true` independently. Single-PITR-stream constraint is provider-enforced.
 
 **v2 options:**
 
-| Option | Description |
-| ------ | ----------- |
-| A) Keep v1 behavior in UI | PITR toggle disabled when `schedules.length === 0`. Simple, safe. |
-| B) Allow independent PITR | UI allows enabling PITR without schedules. Provider reports error via `ConditionBackupConfigured=False` if invalid. |
-| C) Provider declares dependency | `BackupClass.spec.providerManaged.pitrRequiresSchedule: bool`. UI reads flag. |
+| Option                          | Description                                                                                                                                                                                                                                                                                                                                                                        |
+| ------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| A) Keep v1 behavior in UI       | PITR toggle disabled when `schedules.length === 0`. Simple, safe.                                                                                                                                                                                                                                                                                                                  |
+| B) Allow independent PITR       | UI allows enabling PITR without schedules. Provider reports error via `ConditionBackupConfigured=False` if invalid.                                                                                                                                                                                                                                                                |
+| C) Provider declares dependency | `BackupClass.spec.providerManaged.pitrRequiresSchedule: bool`. UI reads flag.                                                                                                                                                                                                                                                                                                      |
+| D) CEL expression in ui-schema  | Provider describes the constraint as a CEL condition on the PITR toggle (e.g. `enabled: "schedules.length > 0"`). UI evaluates it and auto-enables/disables PITR. This is the most flexible long-term approach — same mechanism can express PG's "always ON" behavior. Requires CEL expression support in ui-generator (see [Q2](#q2-builtin-mechanism--befe-and-evolution-path)). |
 
 **Recommendation:** Start with **Option A** (v1 behavior). UI shows alert:
 "Point-in-time recovery requires at least one active backup schedule."
 Provider can still reject invalid combinations via condition status.
+Option D is the ideal long-term solution — when CEL expressions are implemented in the
+ui-generator, the PITR-schedule dependency can be described declaratively per provider.
 
 **PITR storage behavior:**
 
 - Whether PITR storage is user-selectable or auto-assigned depends on provider constraints.
   v1 hardcoded this per DB type; v2 should read from `BackupClass.spec.providerManaged`
-  (e.g. `pitrStorageMode: "auto" | "manual"` — future CRD extension, see Q6).
-- For v1 iteration: hardcode v1 behavior per provider type (same as today).
+  (e.g. `pitrStorageMode: "auto" | "manual"` — future CRD extension).
+- For first iteration: hardcode v1 behavior per provider type (same as today).
 
-### Q9: [+ Schedule] on storage row — per-storage schedule creation
+### Q6: [+ Schedule] on storage row — per-storage schedule creation
 
 Should each storage row have a [+ Schedule] button to open `<ScheduledBackupModal>`
 with that storage pre-filled?
 
 - **Pro:** Fast flow — user sees a storage and adds a schedule to it in one click
 - **Con:** Overloads the row visually (name + PITR toggle + schedule count + Default + gear + delete + schedule button)
-- **v1 iteration decision:** Omit. Schedules are created via [Create backup ▼] → "Schedule" from the header, with storage select in the modal. Per-storage [+ Schedule] can be added later.
+- **first iteration decision:** Omit. Schedules are created via [Create backup ▼] → "Schedule" from the header, with storage select in the modal. Per-storage [+ Schedule] can be added later.
 
 ---
 
 ## Future Ideas / TODO
 
-Items deferred from v1 iteration to keep scope manageable:
+Items deferred from first iteration to keep scope manageable:
 
 1. **[+ Add Storage] button** in Storages tab — explicit storage binding flow. Currently storages
    are bound implicitly when creating schedules/backups. Explicit binding allows pre-configuring
    PITR before any schedules exist.
 
-2. **[+ Schedule] per storage row** — shortcut to create schedule with storage pre-filled (Q9).
+2. **[+ Schedule] per storage row** — shortcut to create schedule with storage pre-filled (Q6).
 
 3. **[+ Create New Storage] inside modals** — inline NS-level BackupStorage creation from
    schedule/backup modal storage selects. Currently user must create storages separately
@@ -1026,14 +1007,14 @@ Items deferred from v1 iteration to keep scope manageable:
 4. **Default storage reassignment** — allow user to click a "Default" chip on any storage row
    to reassign `main: true`. Currently default is always the first bound storage.
 
-5. **Cascading storage rows** (Q5 Option C) — rows that expand to show their schedules and PITR
+5. **Cascading storage rows** (Q3 Option C) — rows that expand to show their schedules and PITR
    config inline, like a tree view.
 
-6. **Per-schedule config** (Q1 Option A) — `config` field on `InstanceBackupSchedule` for
-   per-schedule backup type/compression. Requires CRD change.
+6. **CEL-driven PITR auto-enable/disable** (Q5 Option D) — describe PITR-schedule dependency
+   as a CEL condition in the ui-schema, replacing hardcoded logic.
 
-7. **Schema-described wizard backup step** (Q4 evolution) — replace `builtIn: "backups"` with
+7. **Schema-described wizard backup step** (Q2 evolution) — replace `builtIn: "backups"` with
    granular ui-schema vocabulary for PITR toggles, schedule lists, etc.
 
 8. **Provider-driven PITR storage mode** — `pitrStorageMode: "auto" | "manual"` on
-   `BackupClass.spec.providerManaged` to replace hardcoded per-DB-type behavior (Q8).
+   `BackupClass.spec.providerManaged` to replace hardcoded per-DB-type behavior (Q5).
