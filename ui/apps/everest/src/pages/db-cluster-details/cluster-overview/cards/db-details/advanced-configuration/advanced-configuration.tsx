@@ -46,11 +46,11 @@ export const AdvancedConfiguration = ({
   loadBalancerConfig,
   splitHorizonDNS,
   splitHorizonDomains,
-  dbType,
+  type,
   proxyConfig,
   shardingEnabled,
 }: AdvancedConfigurationOverviewCardProps) => {
-  const showProxyConfig = !(dbType === DbType.Mongo && !shardingEnabled);
+  const showProxyConfig = !(type === DbType.Mongo && !shardingEnabled);
   const {
     canUpdateDb,
     dbCluster,
@@ -144,7 +144,7 @@ export const AdvancedConfiguration = ({
       />
       {showProxyConfig && (
         <OverviewSectionRow
-          label={getProxyConfigLabel(dbType)}
+          label={getProxyConfigLabel(type)}
           content={
             proxyConfig ? Messages.fields.enabled : Messages.fields.disabled
           }

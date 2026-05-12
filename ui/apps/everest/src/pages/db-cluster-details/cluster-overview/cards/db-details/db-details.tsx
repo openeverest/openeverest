@@ -48,7 +48,6 @@ export const DbDetails = ({
   exposeType,
   splitHorizonDNS,
   splitHorizonDomains,
-  dbType,
   proxyConfig,
   shardingEnabled,
 }: DatabaseDetailsOverviewCardProps) => {
@@ -109,7 +108,7 @@ export const DbDetails = ({
           loadBalancerConfig={loadBalancerConfig}
           splitHorizonDNS={splitHorizonDNS}
           splitHorizonDomains={splitHorizonDomains}
-          dbType={dbType ?? type}
+          type={type}
           proxyConfig={proxyConfig}
           shardingEnabled={shardingEnabled}
         />

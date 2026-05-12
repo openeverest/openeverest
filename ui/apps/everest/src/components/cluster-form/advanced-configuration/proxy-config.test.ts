@@ -146,6 +146,23 @@ describe('changeDbClusterAdvancedConfig – proxyConfig write mapping', () => {
     expect(result.spec.proxy.config).toBe('max_connections=100');
   });
 
+  it('unsets spec.proxy.config when proxyConfigEnabled=true but proxyConfig is empty', () => {
+    const result = changeDbClusterAdvancedConfig(
+      base,
+      false,
+      ProxyExposeType.ClusterIP,
+      '',
+      [],
+      false,
+      '',
+      '',
+      '',
+      true,
+      ''
+    );
+    expect(result.spec.proxy.config).toBeUndefined();
+  });
+
   it('unsets spec.proxy.config when proxyConfigEnabled=false', () => {
     const clusterWithConfig = makeDbCluster({
       proxy: {
