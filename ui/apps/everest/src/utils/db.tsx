@@ -788,7 +788,9 @@ export const changeDbClusterAdvancedConfig = (
     },
     proxy: {
       ...dbCluster.spec.proxy,
-      ...(proxyConfigEnabled && proxyConfig ? { config: proxyConfig } : { config: undefined }),
+      ...(proxyConfigEnabled && proxyConfig
+        ? { config: proxyConfig }
+        : { config: undefined }),
       expose: {
         loadBalancerConfigName:
           (exposureMethod === ProxyExposeType.LoadBalancer &&
