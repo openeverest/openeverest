@@ -520,6 +520,37 @@ type BackupClass struct {
 		// dialect) without forcing a CRD change. Must be unset when
 		// ExecutionMode is "Job".
 		ProviderManaged *struct {
+			// Limits Limits caps how many storages, PITR-enabled storages, and schedules per
+			// storage an Instance may declare under .spec.backup when this class is
+			// selected. Unset fields mean "unlimited" (still subject to the core
+			// MaxItems ceilings on InstanceBackupSpec). The runtime enforces these
+			// caps both at admission time (provider validation webhook) and before
+			// dispatching ConfigureBackup; providers may add engine-specific
+			// constraints on top via Context.BackupClassLimits().
+			Limits *struct {
+				// MaxPITREnabledStorages MaxPITREnabledStorages is the maximum number of storages on an Instance
+				// that may set .pitr.enabled=true at the same time. Engines that support
+				// a single PITR stream (e.g. PSMDB, PXC) declare 1 here. Engines that
+				// archive WAL to every repo (e.g. PG) leave this unset.
+				MaxPITREnabledStorages *int32 `json:"maxPITREnabledStorages,omitempty"`
+
+				// MaxSchedulesPerStorage MaxSchedulesPerStorage is the maximum number of recurring schedules
+				// allowed per Instance storage entry.
+				MaxSchedulesPerStorage *int32 `json:"maxSchedulesPerStorage,omitempty"`
+
+				// MaxStorages MaxStorages is the maximum number of entries allowed in
+				// Instance.spec.backup.storages.
+				MaxStorages *int32 `json:"maxStorages,omitempty"`
+			} `json:"limits,omitempty"`
+
+			// PitrConfigSchema PITRConfigSchema describes the shape of per-storage PITR custom config
+			// (InstanceBackupStoragePITR.Config). The field is free-form and opaque
+			// to the runtime; the provider validates Instance.spec.backup PITR
+			// payloads against it inside Validate(). The recommended payload is an
+			// OpenAPI v3 schema fragment so the UI can render a matching form, but
+			// any provider-specific dialect is permitted.
+			PitrConfigSchema *map[string]interface{} `json:"pitrConfigSchema,omitempty"`
+
 			// SupportsPITR SupportsPITR indicates whether this class supports point-in-time recovery.
 			// Used by Restore validation when Restore.spec.dataSource.pitr is set.
 			SupportsPITR *bool `json:"supportsPITR,omitempty"`
@@ -605,6 +636,13 @@ type BackupClass struct {
 		// supports. The Instance.spec.provider must appear in this list for the
 		// class to be usable on that Instance.
 		SupportedProviders *[]string `json:"supportedProviders,omitempty"`
+
+		// UiSchema UISchema contains free-form rendering hints for the frontend forms that
+		// configure backup, restore, and PITR for an Instance using this class.
+		// The runtime treats this field as opaque; only the UI consumes it. The
+		// recommended shape groups fields by the modal that renders them
+		// (e.g. "backup", "pitr", "restore"), mirroring Provider.spec.uiSchema.
+		UiSchema *map[string]interface{} `json:"uiSchema,omitempty"`
 	} `json:"spec"`
 
 	// Status BackupClassStatus defines the observed state of BackupClass.
