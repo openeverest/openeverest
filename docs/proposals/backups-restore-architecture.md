@@ -28,7 +28,7 @@
   - [Wizard vs Backups tab — two orchestration modes](#wizard-vs-backups-tab--two-orchestration-modes)
   - [WizardBackupsStep architecture](#wizardbackupsstep-architecture)
   - [Restore mode in wizard](#restore-mode-in-wizard)
-  - [`main` field on InstanceBackupStorage](#main-field-on-instancebackupstorage)
+  - [Default storage (`main` field)](#default-storage-main-field)
   - [Storage selection flow (Backups tab)](#storage-selection-flow-backups-tab)
   - [Storage removal](#storage-removal)
   - [Static vs dynamic fields](#static-vs-dynamic-fields)
@@ -384,13 +384,13 @@ Instance Details Page
     │   │  List of instance-bound storages.
     │   │  Each row is a horizontal bar (StorageRow) — see "StorageRow visual design".
     │   ├── <StorageRow> per instance.spec.backup.storages[]
-    │   │   ├── Display: name, PITR toggle, schedule count, [Default] (clickable)
+    │   │   ├── Display: name, PITR toggle, schedule count, Default badge (first only)
     │   │   ├── PITR toggle (inline) → PATCH Instance
     │   │   │   ├── If provider has pitr config: ON opens <PITRConfigModal>
     │   │   │   ├── Disabled with tooltip when maxWithPITR limit reached
     │   │   │   └── If modal dismissed without save → toggle stays OFF
-    │   │   ├── [Default] — click to set as default (PATCH Instance, main: true)
-    │   │   └── [⚙] → opens <PITRConfigModal> (shown only if provider has pitr config schema)
+    │   │   ├── [⚙] → opens <PITRConfigModal> (shown only if PITR enabled + provider has config)
+    │   │   └── [🗑] → <StorageRemoveConfirmDialog>
     │
     │   Tab: Schedules
     │   │  Flat list of ALL schedules across all storages.
@@ -409,15 +409,14 @@ It's a **horizontal bar** on full container width, ~48–56px tall. Similar to v
 
 ```
 ┌──────────────────────────────────────────────────────────────────────┐
-│  s3-prod     PITR: [● ON]   active schedules: 2   [Default]   [⚙] [🗑] │
+│  s3-prod     PITR: [● ON]   active schedules: 2   Default   [⚙] [🗑] │
 └──────────────────────────────────────────────────────────────────────┘
 ┌──────────────────────────────────────────────────────────────────────┐
-│  s3-dev      PITR: [○ OFF]  active schedules: 1              [⚙] [🗑] │
+│  s3-dev      PITR: [○ OFF]  active schedules: 1                 [🗑] │
 └──────────────────────────────────────────────────────────────────────┘
 
 Note: Maximum 3 storages for MongoDb provider
 ```
-
 **PITR toggle behavior:**
 
 - Toggle OFF → ON: if provider has `uiSchema.pitr.components` (non-empty), opens `<PITRConfigModal>`. If modal dismissed → toggle reverts to OFF.
@@ -433,7 +432,7 @@ Note: Maximum 3 storages for MongoDb provider
 
 **[🗑] delete:**
 
-- Opens `<StorageRemoveConfirmDialog>` (see Storage removal section)
+- Opens `<StorageRemoveConfirmDialog>` (see [Storage removal](#storage-removal))
 
 ### Storage Edit Modal (Backups tab)
 
@@ -572,15 +571,15 @@ Wizard supports **restore to new cluster** (same as v1).
 - On submit: POST Instance with `spec.dataSource.dbClusterBackupName` + optional `pitr`
 - User can modify backup/schedule config before creating the new cluster
 
-### `main` field on InstanceBackupStorage
+### Default storage (`main` field)
 
-`main: true` marks the engine's **default storage**. At most one per instance (not enforced by CEL).
+`main: true` on `InstanceBackupStorage` marks the engine's **default storage**. At most one per instance (not enforced by CEL).
 
-- **Auto-assigned:** First storage used by a schedule (wizard) or first bound (tab) gets `main: true`
-- **User re-assigns via `[Default]` chip** on any storage row — direct click, no modal
-- **Optional:** Zero storages can be main. Removing the main storage leaves no default.
-- **UI:** Filled "Default" chip on current default row. Other rows show clickable outlined chip (or no chip — see Q8).
-- **v2 CRD addition** — not present in v1
+- **Auto-assigned:** First storage bound to instance gets `main: true` automatically
+- **1 iteration:** Default is always the first storage. No manual reassignment UI.
+- **UI (Backups tab):** Shown as filled "Default" chip on the first storage row
+
+> **Future improvement:** Allow user to reassign default via clickable chip on storage rows. See [Future Ideas](#future-ideas--todo).
 
 ### Storage selection flow (Backups tab)
 
@@ -588,8 +587,8 @@ The two-level storage model is **hidden from the user:**
 
 1. Storages are bound **implicitly** when user creates a schedule or on-demand backup targeting an unbound storage
 2. Storage row appears automatically in Storages tab after binding
-3. No explicit [+ Add Storage] button in v1 iteration (see Future Ideas)
-4. New storage creation: [+ Create New Storage] inside schedule/backup modals' storage select
+3. No explicit [+ Add Storage] button in v1 iteration (see [Future Ideas](#future-ideas--todo))
+4. Storage select in modals shows existing namespace-level BackupStorages only. Inline creation of new NS-level BackupStorage is deferred (see [Future Ideas](#future-ideas--todo)).
 
 ### Storage removal
 
@@ -598,7 +597,6 @@ Removing a storage from an instance = removing entry from `instance.spec.backup.
 **Blocking conditions** (Remove button disabled with tooltip):
 
 - Active backup in progress (Running/Pending) to this storage
-- This is the `main` storage and there are other storages (must reassign main first)
 
 **Warning conditions** (confirmation dialog lists consequences):
 
@@ -621,7 +619,7 @@ Removing a storage from an instance = removing entry from `instance.spec.backup.
 | On-demand backup | name, backupClass, storage     | `backup` section: e.g. backupType, compressionType, compressionLevel |
 | PITR config      | pitr.enabled toggle            | `pitr` section: e.g. oplogSpanMin, compressionType                   |
 | Restore          | source info, PITR date picker  | `restore` section: (empty for PSMDB initially)                       |
-| Schedule         | name, cron, retention, enabled | _(none — fully static, maxSchedulesPerStorage as gating limit)_      |
+| Schedule         | name, cron, retention, enabled | _(none currently — per-schedule config like backupType is an open question, see [Q1](#q1-should-schedule-carry-its-own-config-backup-type-compression))_ |
 | Storage row      | name, Default badge            | _(none — display only + action buttons)_                             |
 
 ### UIGenerator integration pattern
@@ -683,8 +681,7 @@ User opens "Create Database" form
     │   [+ Create backup schedule]
     │       → <ScheduleFormDialog>
     │         ├── Backup name: "daily-full"
-    │         ├── Storage: [s3-prod ▼]  ← ALL namespace BackupStorages
-    │         │   └── [+ Create New Storage] → inline S3 form
+    │         ├── Storage: [s3-prod ▼]  ← ALL namespace-level BackupStorages
     │         ├── Retention copies: 7
     │         └── Time: Every [day ▼] at [2] [00] [AM]
     │
@@ -692,11 +689,11 @@ User opens "Create Database" form
     │   ├── PITR provides continuous backups of your database,
     │   │   enabling you to restore it to a specific point in time
     │   │   in case of accidental writes or deletes.
-    │   ├── Single-PITR provider:
+    │   ├── Single-PITR provider (`maxWithPITR: 1`):
     │   │   ├── [Enable PITR] toggle → ON
     │   │   └── Backups storage: [S3 compatible ▼]  ← storage select
-    │   │       (PSMDB: auto-set to first schedule's storage, locked)
-    │   │       (MySQL: separate storage picker)
+    │   │       If provider constrains PITR to schedule storage → auto-set, locked
+    │   │       If provider allows separate PITR storage → user picks
     │   │       If provider has pitr.config → <PITRConfigModal>
     │   └── Multi-PITR provider:
     │       ├── PITR entries:
@@ -707,8 +704,7 @@ User opens "Create Database" form
     │
     ├── No storages in namespace?
     │   └── <BackupsActionableAlert>
-    │       "No backup storages found. Create one to enable backups."
-    │       [+ Create Backup Storage] → inline S3 form → NLS created
+    │       "No backup storages found. Create one in Settings → Backup Storages."
     │
     └── [Submit] → buildSpecBackup():
         - Collects unique storages from schedule[].storage + PITR entry storages
@@ -718,7 +714,7 @@ User opens "Create Database" form
         - Attaches pitr config to each PITR-enabled storage entry
         Result:
           enabled: true
-          classRef: { name: "psmdb-managed" }
+          classRef: { name: "<provider-backup-class>" }
           storages:
           - name: "s3-prod"
             storageRef: { name: "s3-prod" }
@@ -742,12 +738,12 @@ User opens "Create Database" form
 
 **Provider-specific PITR behavior:**
 
-| Engine / capability  | Wizard PITR UI                                                | Notes                               |
-| -------------------- | ------------------------------------------------------------- | ----------------------------------- |
-| Single-PITR provider | One toggle + one storage select                               | Matches v1-style flow               |
-| PSMDB                | One PITR, storage auto-set to first schedule's storage        | Locked/hidden storage choice        |
-| MySQL                | One PITR, separate storage picker                             | User selects PITR storage           |
-| Multi-PITR provider  | PITR list with `[+ Add PITR]`, one entry per storage / stream | Same mental model as schedules list |
+| Provider constraint                      | Wizard PITR UI                                                | Notes                               |
+| ---------------------------------------- | ------------------------------------------------------------- | ----------------------------------- |
+| `maxWithPITR: 1`, no separate storage    | One toggle, storage auto-set to first schedule's storage      | Locked/hidden storage choice        |
+| `maxWithPITR: 1`, separate storage       | One toggle + one storage select                               | User selects PITR storage           |
+| `maxWithPITR: N` or unlimited            | PITR list with [+ Add PITR], one entry per storage / stream   | Same mental model as schedules list |
+| `supportsPITR: false` or not set         | PITR section hidden                                           | —                                   |
 
 ### Flow 2: Create on-demand backup
 
@@ -779,13 +775,12 @@ Instance Details → Tab: Backups
 ├── User clicks [Create backup ▼] → "Schedule"
 │   → <ScheduledBackupModal>
 │   ├── Storage select: all NS-level BackupStorages
-│   │   └── [+ Create New Storage] → S3 form → creates BackupStorage CR
 │   ├── Name, Cron, Retention, Enabled
 │   └── [Create] → PATCH Instance (auto-binds storage + adds schedule)
 │
 ├── Storage row appears in Storages tab (main: true, auto)
 │   ┌──────────────────────────────────────────────────────────────────┐
-│   │ s3-prod  PITR: [○ OFF]  active schedules: 1   [Default]   [🗑] │
+│   │ s3-prod  PITR: [○ OFF]  active schedules: 1   Default   [🗑] │
 │   └──────────────────────────────────────────────────────────────────┘
 │
 └── Schedule appears in Schedules tab
@@ -798,7 +793,7 @@ Instance Details → Tab: Backups
 │
 ├── Storages tab:
 │   ┌──────────────────────────────────────────────────────────────────┐
-│   │ s3-prod  PITR: [○ OFF]  active schedules: 0   [Default]   [🗑] │
+│   │ s3-prod  PITR: [○ OFF]  active schedules: 0   Default   [🗑] │
 │   └──────────────────────────────────────────────────────────────────┘
 │
 ├── [Create backup ▼] → "Schedule" → <ScheduledBackupModal>
@@ -969,18 +964,39 @@ v1-style toggle + storage select.
 
 Provider validation still prevents invalid combinations when only one PITR stream is allowed.
 
-### Q8: Default chip UX — how to re-assign default storage
+### Q8: PITR–Backup schedule dependency
 
-Current default is shown as a filled "Default" chip. Question: how does user set a different
-storage as default?
+**v1 behavior (UI-enforced, no BE validation):**
 
-| Option                                     | Description                                                             |
-| ------------------------------------------ | ----------------------------------------------------------------------- |
-| A) Clickable outlined chip on non-default  | All rows show "Default" — filled on current, outlined+clickable on rest |
-| B) Right-click / long-press context action | Less discoverable but cleaner row                                       |
-| C) Hover-revealed "Set as default" link    | Appears only on hover/focus                                             |
+| Scenario                | Mongo/PXC                            | MySQL                            | PostgreSQL                                    |
+| ----------------------- | ------------------------------------ | -------------------------------- | --------------------------------------------- |
+| PITR without schedules  | Disabled — toggle greyed out         | Disabled — toggle greyed out     | Disabled (no backups = no PITR)               |
+| PITR storage            | Auto-set to first schedule's storage | User-selectable (separate field) | Auto per-schedule                             |
+| Deleting last schedule  | PITR auto-disabled                   | PITR auto-disabled               | PITR auto-disabled                            |
+| PG-specific             | —                                    | —                                | Auto-enabled when backups ON, user can't toggle OFF |
+| Alert text              | "PITR relies on an active backup schedule" | Same                       | "PITR is automatically enabled"               |
 
-**Decision:** TBD. Current proposal uses Option A (clickable chip).
+**v2 CRD state:** No CRD-level validation tying PITR to schedules. `InstanceBackupStoragePITR`
+can be `enabled: true` independently. Single-PITR-stream constraint is provider-enforced.
+
+**v2 options:**
+
+| Option | Description |
+| ------ | ----------- |
+| A) Keep v1 behavior in UI | PITR toggle disabled when `schedules.length === 0`. Simple, safe. |
+| B) Allow independent PITR | UI allows enabling PITR without schedules. Provider reports error via `ConditionBackupConfigured=False` if invalid. |
+| C) Provider declares dependency | `BackupClass.spec.providerManaged.pitrRequiresSchedule: bool`. UI reads flag. |
+
+**Recommendation:** Start with **Option A** (v1 behavior). UI shows alert:
+"Point-in-time recovery requires at least one active backup schedule."
+Provider can still reject invalid combinations via condition status.
+
+**PITR storage behavior:**
+
+- Whether PITR storage is user-selectable or auto-assigned depends on provider constraints.
+  v1 hardcoded this per DB type; v2 should read from `BackupClass.spec.providerManaged`
+  (e.g. `pitrStorageMode: "auto" | "manual"` — future CRD extension, see Q6).
+- For v1 iteration: hardcode v1 behavior per provider type (same as today).
 
 ### Q9: [+ Schedule] on storage row — per-storage schedule creation
 
@@ -1003,14 +1019,21 @@ Items deferred from v1 iteration to keep scope manageable:
 
 2. **[+ Schedule] per storage row** — shortcut to create schedule with storage pre-filled (Q9).
 
-3. **Storage picker modal** — dedicated modal for selecting/creating NS-level BackupStorages,
-   invoked from a standalone [+ Add Storage] or from within schedule/backup modals.
+3. **[+ Create New Storage] inside modals** — inline NS-level BackupStorage creation from
+   schedule/backup modal storage selects. Currently user must create storages separately
+   (e.g. Settings → Backup Storages) before using them.
 
-4. **Cascading storage rows** (Q5 Option C) — rows that expand to show their schedules and PITR
+4. **Default storage reassignment** — allow user to click a "Default" chip on any storage row
+   to reassign `main: true`. Currently default is always the first bound storage.
+
+5. **Cascading storage rows** (Q5 Option C) — rows that expand to show their schedules and PITR
    config inline, like a tree view.
 
-5. **Per-schedule config** (Q1 Option A) — `config` field on `InstanceBackupSchedule` for
+6. **Per-schedule config** (Q1 Option A) — `config` field on `InstanceBackupSchedule` for
    per-schedule backup type/compression. Requires CRD change.
 
-6. **Schema-described wizard backup step** (Q4 evolution) — replace `builtIn: "backups"` with
+7. **Schema-described wizard backup step** (Q4 evolution) — replace `builtIn: "backups"` with
    granular ui-schema vocabulary for PITR toggles, schedule lists, etc.
+
+8. **Provider-driven PITR storage mode** — `pitrStorageMode: "auto" | "manual"` on
+   `BackupClass.spec.providerManaged` to replace hardcoded per-DB-type behavior (Q8).
