@@ -28,10 +28,7 @@ const preprocessComponent = (
   item: Component | ComponentGroup,
   providerObject?: Provider
 ): Component | ComponentGroup => {
-  if (
-    (item.uiType === 'group' || item.uiType === 'hidden') &&
-    'components' in item
-  ) {
+  if (item.uiType === 'group' && 'components' in item) {
     return {
       ...item,
       components: preprocessComponents(

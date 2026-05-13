@@ -131,6 +131,24 @@ export type FieldParamsMap = {
   [FieldType.Hidden]: CommonFieldParams;
 };
 
+export type SectionGroupParams = {
+  // Reserved for future schema-configurable section props (e.g. controlComponent).
+};
+
+export type AccordionGroupParams = {
+  // Reserved for future schema-configurable accordion props (e.g. defaultExpanded).
+};
+
+export type LineGroupParams = {
+  // Reserved for future schema-configurable line/stack props.
+};
+
+export type GroupParamsMap = {
+  [GroupType.Accordion]: AccordionGroupParams;
+  [GroupType.Line]: LineGroupParams;
+  [GroupType.Section]: SectionGroupParams;
+};
+
 type PathOrId =
   | { path: string | string[]; id?: never }
   | { id: string; path?: never };
@@ -197,14 +215,16 @@ export type Component = {
 }[keyof FieldParamsMap];
 
 export type ComponentGroup = {
-  uiType: 'group' | 'hidden';
+  uiType: 'group';
   label?: string;
   description?: string;
   groupType?: GroupType;
-  groupParams?: Record<string, unknown>;
+  groupParams?: GroupParamsMap[GroupType];
   modes?: GroupModeOverrides;
   /** Set by apply-mode-overrides when a mode marks the group as disabled. */
   _disabled?: boolean;
+  /** Set by apply-mode-overrides when a mode marks the group as hidden. */
+  _hidden?: boolean;
   components: { [key: string]: Component | ComponentGroup };
   componentsOrder?: string[];
 };

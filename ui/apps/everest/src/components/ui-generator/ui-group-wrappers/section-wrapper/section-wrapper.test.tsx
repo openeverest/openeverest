@@ -51,9 +51,9 @@ describe('SectionWrapper', () => {
         content
       </SectionWrapper>
     );
-    // The outermost percona-rounded-box element should carry opacity styling
     const box = container.querySelector('.percona-rounded-box');
     expect(box).toBeInTheDocument();
+    expect(box).toHaveStyle({ opacity: '0.5', pointerEvents: 'none' });
   });
 
   it('renders without label or description', () => {

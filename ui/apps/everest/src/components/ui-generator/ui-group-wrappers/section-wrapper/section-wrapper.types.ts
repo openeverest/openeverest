@@ -13,8 +13,11 @@
 // limitations under the License.
 
 export type SectionWrapperProps = {
+  fieldName?: string;
   label?: string;
   description?: string;
   disabled?: boolean;
+  controlComponent?: React.ReactNode;
+  'data-testid'?: string;
   children: React.ReactNode;
 };

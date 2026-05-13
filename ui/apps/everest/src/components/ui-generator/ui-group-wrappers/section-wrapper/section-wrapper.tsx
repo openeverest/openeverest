@@ -17,15 +17,26 @@ import RoundedBox from 'components/rounded-box';
 import { SectionWrapperProps } from './section-wrapper.types';
 
 const SectionWrapper = ({
+  fieldName,
   label,
   description,
   disabled = false,
+  controlComponent,
+  'data-testid': dataTestId,
   children,
 }: SectionWrapperProps) => {
+  const header = label ? (
+    <Box display="flex" justifyContent="space-between" alignItems="center">
+      <Typography variant="sectionHeading">{label}</Typography>
+      {controlComponent && <Box>{controlComponent}</Box>}
+    </Box>
+  ) : undefined;
+
   return (
     <RoundedBox
-      title={label}
+      title={header}
       boxProps={{
+        'data-testid': dataTestId ?? (fieldName ? `section-${fieldName}` : undefined),
         sx: {
           opacity: disabled ? 0.5 : 1,
           pointerEvents: disabled ? 'none' : undefined,

@@ -276,7 +276,8 @@ describe('applyModeOverrides', () => {
 
       const result = applyModeOverrides(sections, FormMode.Edit);
       const group = result.basic.components.storage as ComponentGroup;
-      expect(group.uiType).toBe('hidden');
+      expect(group._hidden).toBe(true);
+      expect(group.uiType).toBe('group');
     });
 
     it('does not hide the group when a different mode is active', () => {
@@ -293,6 +294,7 @@ describe('applyModeOverrides', () => {
       const result = applyModeOverrides(sections, FormMode.New);
       const group = result.basic.components.storage as ComponentGroup;
       expect(group.uiType).toBe('group');
+      expect(group._hidden).toBeUndefined();
     });
 
     it('sets _disabled when modes[mode].disabled is true', () => {

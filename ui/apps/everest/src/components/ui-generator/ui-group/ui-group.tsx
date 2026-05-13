@@ -22,12 +22,19 @@ import { componentGroupMap } from '../constants';
 
 export type UIGroupProps = {
   children: React.ReactNode;
+  fieldName?: string;
   groupType?: GroupType;
-  groupParams?: Record<string, unknown>;
+  groupParams?: ComponentGroup['groupParams'];
   item?: ComponentGroup;
 };
 
-const UIGroup = ({ groupType, children, groupParams, item }: UIGroupProps) => {
+const UIGroup = ({
+  groupType,
+  children,
+  fieldName,
+  groupParams,
+  item,
+}: UIGroupProps) => {
   const Component = groupType ? componentGroupMap[groupType] : undefined;
 
   return (
@@ -35,10 +42,11 @@ const UIGroup = ({ groupType, children, groupParams, item }: UIGroupProps) => {
       {Component ? (
         React.createElement(Component, {
           children,
+          ...groupParams,
+          fieldName,
           label: item?.label,
           description: item?.description,
           disabled: item?._disabled,
-          ...groupParams,
         })
       ) : (
         <Stack spacing={2}>{children}</Stack>
