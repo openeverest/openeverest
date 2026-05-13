@@ -292,6 +292,46 @@ export interface components {
                  */
                 providerManaged?: {
                     /**
+                     * @description Limits caps how many storages, PITR-enabled storages, and schedules per
+                     *     storage an Instance may declare under .spec.backup when this class is
+                     *     selected. Unset fields mean "unlimited" (still subject to the core
+                     *     MaxItems ceilings on InstanceBackupSpec). The runtime enforces these
+                     *     caps both at admission time (provider validation webhook) and before
+                     *     dispatching ConfigureBackup; providers may add engine-specific
+                     *     constraints on top via Context.BackupClassLimits().
+                     */
+                    limits?: {
+                        /**
+                         * Format: int32
+                         * @description MaxPITREnabledStorages is the maximum number of storages on an Instance
+                         *     that may set .pitr.enabled=true at the same time. Engines that support
+                         *     a single PITR stream (e.g. PSMDB, PXC) declare 1 here. Engines that
+                         *     archive WAL to every repo (e.g. PG) leave this unset.
+                         */
+                        maxPITREnabledStorages?: number;
+                        /**
+                         * Format: int32
+                         * @description MaxSchedulesPerStorage is the maximum number of recurring schedules
+                         *     allowed per Instance storage entry.
+                         */
+                        maxSchedulesPerStorage?: number;
+                        /**
+                         * Format: int32
+                         * @description MaxStorages is the maximum number of entries allowed in
+                         *     Instance.spec.backup.storages.
+                         */
+                        maxStorages?: number;
+                    };
+                    /**
+                     * @description PITRConfigSchema describes the shape of per-storage PITR custom config
+                     *     (InstanceBackupStoragePITR.Config). The field is free-form and opaque
+                     *     to the runtime; the provider validates Instance.spec.backup PITR
+                     *     payloads against it inside Validate(). The recommended payload is an
+                     *     OpenAPI v3 schema fragment so the UI can render a matching form, but
+                     *     any provider-specific dialect is permitted.
+                     */
+                    pitrConfigSchema?: Record<string, never>;
+                    /**
                      * @description SupportsPITR indicates whether this class supports point-in-time recovery.
                      *     Used by Restore validation when Restore.spec.dataSource.pitr is set.
                      */
@@ -382,6 +422,14 @@ export interface components {
                  *     class to be usable on that Instance.
                  */
                 supportedProviders?: string[];
+                /**
+                 * @description UISchema contains free-form rendering hints for the frontend forms that
+                 *     configure backup, restore, and PITR for an Instance using this class.
+                 *     The runtime treats this field as opaque; only the UI consumes it. The
+                 *     recommended shape groups fields by the modal that renders them
+                 *     (e.g. "backup", "pitr", "restore"), mirroring Provider.spec.uiSchema.
+                 */
+                uiSchema?: Record<string, never>;
             };
             /** @description BackupClassStatus defines the observed state of BackupClass. */
             status?: {

@@ -82,6 +82,15 @@ type BackupClassSpec struct {
 	// +optional
 	InstanceConstraints BackupClassInstanceConstraints `json:"instanceConstraints,omitempty"`
 
+	// UISchema contains free-form rendering hints for the frontend forms that
+	// configure backup, restore, and PITR for an Instance using this class.
+	// The runtime treats this field as opaque; only the UI consumes it. The
+	// recommended shape groups fields by the modal that renders them
+	// (e.g. "backup", "pitr", "restore"), mirroring Provider.spec.uiSchema.
+	// +optional
+	// +kubebuilder:pruning:PreserveUnknownFields
+	UISchema *runtime.RawExtension `json:"uiSchema,omitempty"`
+
 	// Job contains execution detail for ExecutionMode="Job". Must be unset
 	// when ExecutionMode is "ProviderManaged".
 	// +optional
@@ -121,6 +130,52 @@ type ProviderManagedSpec struct {
 	// Used by Restore validation when Restore.spec.dataSource.pitr is set.
 	// +optional
 	SupportsPITR bool `json:"supportsPITR,omitempty"`
+
+	// Limits caps how many storages, PITR-enabled storages, and schedules per
+	// storage an Instance may declare under .spec.backup when this class is
+	// selected. Unset fields mean "unlimited" (still subject to the core
+	// MaxItems ceilings on InstanceBackupSpec). The runtime enforces these
+	// caps both at admission time (provider validation webhook) and before
+	// dispatching ConfigureBackup; providers may add engine-specific
+	// constraints on top via Context.BackupClassLimits().
+	// +optional
+	Limits *BackupClassLimits `json:"limits,omitempty"`
+
+	// PITRConfigSchema describes the shape of per-storage PITR custom config
+	// (InstanceBackupStoragePITR.Config). The field is free-form and opaque
+	// to the runtime; the provider validates Instance.spec.backup PITR
+	// payloads against it inside Validate(). The recommended payload is an
+	// OpenAPI v3 schema fragment so the UI can render a matching form, but
+	// any provider-specific dialect is permitted.
+	// +optional
+	// +kubebuilder:pruning:PreserveUnknownFields
+	PITRConfigSchema *runtime.RawExtension `json:"pitrConfigSchema,omitempty"`
+}
+
+// BackupClassLimits expresses the caps a ProviderManaged BackupClass places
+// on the backup configuration of an Instance that uses it. All fields are
+// optional pointers; nil means "unlimited" (the core MaxItems ceilings on
+// InstanceBackupSpec still apply).
+type BackupClassLimits struct {
+	// MaxStorages is the maximum number of entries allowed in
+	// Instance.spec.backup.storages.
+	// +optional
+	// +kubebuilder:validation:Minimum=1
+	MaxStorages *int32 `json:"maxStorages,omitempty"`
+
+	// MaxPITREnabledStorages is the maximum number of storages on an Instance
+	// that may set .pitr.enabled=true at the same time. Engines that support
+	// a single PITR stream (e.g. PSMDB, PXC) declare 1 here. Engines that
+	// archive WAL to every repo (e.g. PG) leave this unset.
+	// +optional
+	// +kubebuilder:validation:Minimum=0
+	MaxPITREnabledStorages *int32 `json:"maxPITREnabledStorages,omitempty"`
+
+	// MaxSchedulesPerStorage is the maximum number of recurring schedules
+	// allowed per Instance storage entry.
+	// +optional
+	// +kubebuilder:validation:Minimum=0
+	MaxSchedulesPerStorage *int32 `json:"maxSchedulesPerStorage,omitempty"`
 }
 
 // ProviderNameList is a type alias for a list of provider names.
