@@ -34,6 +34,10 @@ import TableActionsMenu from 'components/table-actions-menu';
 import { RestoreActionButtons } from './restores-menu-actions';
 import { useClusterName } from 'hooks/api/useClusterName';
 
+// TODO: Restore DataImportJobs feature when v2 data import API is available
+// In v1, import jobs were displayed alongside restores in the table.
+// See git history (v2 branch) for getImportJobsData and useDbClusterImportJobs usage.
+
 function getTypeCellValue(restore: Restore) {
   if (restore.spec.dataSource.pitr) return 'PITR';
   return 'Full';

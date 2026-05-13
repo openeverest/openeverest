@@ -1,5 +1,8 @@
 import z from 'zod';
 import { generateShortUID } from 'utils/generateShortUID';
+import type { Section } from 'components/ui-generator/ui-generator.types';
+import { buildSectionZodSchema } from 'components/ui-generator/utils/schema-builder';
+import { FormMode } from 'components/ui-generator/ui-generator.types';
 
 export enum BackupFields {
   name = 'name',
@@ -13,7 +16,7 @@ export const defaultValuesFc = () => ({
   [BackupFields.storageName]: '',
 });
 
-export const schema = (backupsNamesList: string[]) =>
+const staticSchema = (backupsNamesList: string[]) =>
   z.object({
     [BackupFields.name]: z
       .string()
@@ -30,4 +33,30 @@ export const schema = (backupsNamesList: string[]) =>
     [BackupFields.storageName]: z.string().min(1, 'Storage is required'),
   });
 
-export type BackupFormData = z.infer<ReturnType<typeof schema>>;
+/**
+ * Builds a combined zod schema: static fields + dynamic UIGenerator fields.
+ * When `configSections` is provided, UIGenerator field validation is merged in.
+ * Otherwise, falls back to the static schema with `.passthrough()` to allow
+ * dynamic fields to pass without validation.
+ */
+export const schema = (
+  backupsNamesList: string[],
+  configSections?: Record<string, Section>
+) => {
+  const base = staticSchema(backupsNamesList);
+
+  if (!configSections) {
+    return base.passthrough();
+  }
+
+  const { schema: dynamicSchema } = buildSectionZodSchema(
+    'config',
+    configSections,
+    { formMode: FormMode.New }
+  );
+
+  return base.and(dynamicSchema);
+};
+
+export type BackupFormData = z.infer<ReturnType<typeof staticSchema>> &
+  Record<string, unknown>;

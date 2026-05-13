@@ -61,6 +61,8 @@ export const Backups = () => {
         <>
           <BackupsList />
           {openOnDemandModal && <OnDemandBackupModal />}
+          {/* TODO: Re-enable when ScheduledBackupModal is migrated to v2 Instance API */}
+          {/* {openScheduleModal && <ScheduledBackupModal />} */}
         </>
       )}
     </ScheduleModalContext.Provider>

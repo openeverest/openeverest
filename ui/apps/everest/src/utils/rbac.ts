@@ -48,6 +48,7 @@ export type RBACResource =
   | 'database-clusters'
   | 'backups'
   | 'backup-classes'
+  | 'instances'
   | 'database-cluster-backups'
   | 'database-cluster-restores'
   | 'database-cluster-credentials'

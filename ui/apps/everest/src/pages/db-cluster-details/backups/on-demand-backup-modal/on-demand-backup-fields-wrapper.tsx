@@ -14,11 +14,17 @@
 
 import { MenuItem } from '@mui/material';
 import { SelectInput } from '@percona/ui-lib';
-import { useBackupClassesList } from 'hooks/api/backup-classes/useBackupClasses.ts';
+import {
+  useBackupClassesList,
+  useBackupClassUiSchema,
+} from 'hooks/api/backup-classes/useBackupClasses.ts';
 import { useBackupStoragesByNamespace } from 'hooks/api/backup-storages/useBackupStorages.ts';
 import { useClusterName } from 'hooks/api/useClusterName.ts';
 import { useContext } from 'react';
+import { useFormContext } from 'react-hook-form';
 import { useParams } from 'react-router-dom';
+import { UIGenerator } from 'components/ui-generator/ui-generator';
+import { FormMode } from 'components/ui-generator/ui-generator.types';
 import { BackupFields } from './on-demand-backup-modal.types.ts';
 import { ScheduleModalContext } from '../backups.context.ts';
 
@@ -26,12 +32,20 @@ export const OnDemandBackupFieldsWrapper = () => {
   const clusterName = useClusterName();
   const { namespace = '' } = useParams();
   const { instance } = useContext(ScheduleModalContext);
+  const { watch } = useFormContext();
+
+  const selectedClassName: string = watch(BackupFields.backupClassName);
 
   const { data: backupClasses = [], isLoading: loadingClasses } =
     useBackupClassesList(clusterName);
 
   const { data: namespaceStorages = [], isLoading: loadingStorages } =
     useBackupStoragesByNamespace(namespace);
+
+  const { sections: backupSections } = useBackupClassUiSchema(
+    clusterName,
+    selectedClassName || undefined
+  );
 
   // Filter classes that support this instance's provider.
   const providerType = instance.spec?.provider;
@@ -72,6 +86,14 @@ export const OnDemandBackupFieldsWrapper = () => {
           </MenuItem>
         ))}
       </SelectInput>
+      {backupSections && (
+        <UIGenerator
+          sectionKey="config"
+          sections={backupSections}
+          formMode={FormMode.New}
+          namespace={namespace}
+        />
+      )}
     </>
   );
 };

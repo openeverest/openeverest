@@ -20,6 +20,7 @@ import {
 import { deleteRestore, getInstanceRestores } from 'api/restores';
 import { PerconaQueryOptions } from 'shared-types/query.types';
 import { Restore, RestoreList } from 'shared-types/restores.types';
+// import { useRBACPermissions } from 'hooks/rbac';
 
 export const RESTORES_QUERY_KEY = 'restores';
 
@@ -29,12 +30,74 @@ export const getRestoreListQueryKey = (
   instanceName: string
 ) => [RESTORES_QUERY_KEY, clusterName, namespace, instanceName] as const;
 
+// TODO: Restore when v2 restore-from-backup API is implemented
+// The v1 version used createDbClusterRestore with v1alpha1 DatabaseClusterRestore CRD.
+// v2 will use the new Restore CRD — see Backup/Restore architecture doc.
+// export const useRestoreFromBackup = (
+//   instanceName: string,
+//   options?: UseMutationOptions<unknown, unknown, unknown, unknown>
+// ) =>
+//   useMutation({
+//     mutationFn: ({
+//       backupName,
+//       namespace,
+//       clusterName,
+//     }: {
+//       backupName: string;
+//       namespace: string;
+//       clusterName: string;
+//     }) =>
+//       createRestore(clusterName, namespace, {
+//         metadata: { name: `restore-${generateShortUID()}` },
+//         spec: {
+//           instanceName,
+//           dataSource: { backupName },
+//         },
+//       }),
+//     ...options,
+//   });
+
+// TODO: Restore when v2 PITR restore API is implemented
+// export const useRestoreFromPointInTime = (
+//   instanceName: string,
+//   options?: UseMutationOptions<unknown, unknown, unknown, unknown>
+// ) =>
+//   useMutation({
+//     mutationFn: ({
+//       pointInTimeDate,
+//       backupName,
+//       namespace,
+//       clusterName,
+//     }: {
+//       pointInTimeDate: string;
+//       backupName: string;
+//       namespace: string;
+//       clusterName: string;
+//     }) =>
+//       createRestore(clusterName, namespace, {
+//         metadata: { name: `restore-${generateShortUID()}` },
+//         spec: {
+//           instanceName,
+//           dataSource: {
+//             backupName,
+//             pitr: { date: pointInTimeDate },
+//           },
+//         },
+//       }),
+//     ...options,
+//   });
+
 export const useDbClusterRestores = (
   clusterName: string,
   namespace: string,
   instanceName: string,
   options?: PerconaQueryOptions<RestoreList, unknown, Restore[]>
 ) => {
+  // TODO: Restore RBAC check when v2 RBAC resource names are finalized
+  // const { canRead } = useRBACPermissions(
+  //   'restores',
+  //   `${namespace}/${instanceName}`
+  // );
   return useQuery<RestoreList, unknown, Restore[]>({
     queryKey: getRestoreListQueryKey(clusterName, namespace, instanceName),
     queryFn: () => getInstanceRestores(clusterName, namespace, instanceName),

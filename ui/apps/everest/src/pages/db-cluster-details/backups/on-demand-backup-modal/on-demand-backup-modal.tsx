@@ -18,11 +18,13 @@ import {
   useBackupsList,
   useCreateBackupOnDemand,
 } from 'hooks/api/backups/useBackups.ts';
+import { useBackupClassUiSchema } from 'hooks/api/backup-classes/useBackupClasses.ts';
 import { useContext, useMemo } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useParams } from 'react-router-dom';
 import { CreateBackupPayload } from 'shared-types/backups.types.ts';
 import { Instance } from 'shared-types/api.types.ts';
+import { removeEmptyFieldValues } from 'components/ui-generator/utils/postprocess/postprocess-schema.ts';
 import { OnDemandBackupFieldsWrapper } from './on-demand-backup-fields-wrapper.tsx';
 import {
   BackupFormData,
@@ -53,10 +55,30 @@ export const OnDemandBackupModal = () => {
   const { openOnDemandModal, setOpenOnDemandModal, instance } =
     useContext(ScheduleModalContext);
 
+  // Resolve BackupClass uiSchema for the currently selected class.
+  // We track the selected class name via a ref that gets updated from
+  // the form's watch() inside OnDemandBackupFieldsWrapper.
+  // For schema building we use the first available class from the instance
+  // or an empty string — the UIGenerator fields are optional and the schema
+  // uses `.passthrough()` / `.and()` to handle dynamic fields.
+  const instanceClassRef = instance.spec?.backup?.classRef?.name;
+  const { sections: backupSections } = useBackupClassUiSchema(
+    clusterName,
+    instanceClassRef
+  );
+
   const { mutate: updateInstance, isPending: updatingInstance } =
     useUpdateDbInstanceWithConflictRetry(instance);
 
   const createBackup = (data: BackupFormData) => {
+    // Extract dynamic config fields (UIGenerator fields live under `config.*`).
+    const configValues = (data as Record<string, unknown>).config as
+      | Record<string, unknown>
+      | undefined;
+    const cleanedConfig = configValues
+      ? removeEmptyFieldValues(configValues)
+      : undefined;
+
     createBackupOnDemand(
       {
         metadata: { name: data.name },
@@ -64,6 +86,10 @@ export const OnDemandBackupModal = () => {
           instanceName: instanceName,
           backupClassName: data.backupClassName,
           storageName: data.storageName,
+          ...(cleanedConfig &&
+            Object.keys(cleanedConfig).length > 0 && {
+              config: cleanedConfig,
+            }),
         },
       } as unknown as CreateBackupPayload,
       {
@@ -94,6 +120,9 @@ export const OnDemandBackupModal = () => {
     }
 
     // Auto-register the storage on the instance, then create the backup.
+    // TODO: In v1, PostgreSQL auto-enabled PITR on first backup creation.
+    // In v2, PITR is configured per-storage via instance.spec.backup.storages[].pitr.
+    // Re-implement PITR auto-enable when PITR UI is implemented.
     const newStorage = {
       name: data.storageName,
       storageRef: { name: data.storageName },
@@ -131,7 +160,7 @@ export const OnDemandBackupModal = () => {
       onSubmit={handleSubmit}
       submitting={creatingBackup || updatingInstance}
       submitMessage="Create"
-      schema={schema(backupNames)}
+      schema={schema(backupNames, backupSections)}
       values={values}
       size="XL"
     >

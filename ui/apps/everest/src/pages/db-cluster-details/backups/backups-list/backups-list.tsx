@@ -41,10 +41,14 @@ export const BackupsList = () => {
   const queryClient = useQueryClient();
   const [openDeleteDialog, setOpenDeleteDialog] = useState(false);
   const [selectedBackup, setSelectedBackup] = useState('');
+  // TODO: Restore when restore functionality is implemented for v2
+  // const [openRestoreDbModal, setOpenRestoreDbModal] = useState(false);
+  // const [isNewClusterMode, setIsNewClusterMode] = useState(false);
 
   const {
     instance,
     setOpenOnDemandModal,
+    setOpenScheduleModal,
   } = useContext(ScheduleModalContext);
 
   const { data: backups = [] } = useBackupsList(
@@ -147,6 +151,19 @@ export const BackupsList = () => {
     setOpenOnDemandModal(true);
   };
 
+  // TODO: Restore when restore functionality is implemented for v2
+  // const handleRestoreBackup = (backupName: string) => {
+  //   setSelectedBackup(backupName);
+  //   setIsNewClusterMode(false);
+  //   setOpenRestoreDbModal(true);
+  // };
+
+  // const handleRestoreToNewDbBackup = (backupName: string) => {
+  //   setSelectedBackup(backupName);
+  //   setOpenRestoreDbModal(true);
+  //   setIsNewClusterMode(true);
+  // };
+
   return (
     <>
       <Table
@@ -166,7 +183,7 @@ export const BackupsList = () => {
         renderTopToolbarCustomActions={() => (
           <BackupListTableHeader
             onNowClick={handleManualBackup}
-            onScheduleClick={() => {}}
+            onScheduleClick={() => setOpenScheduleModal(true)}
             currentBackups={backups}
           />
         )}
@@ -190,6 +207,17 @@ export const BackupsList = () => {
           {Messages.deleteDialog.content(selectedBackup)}
         </ConfirmDialog>
       )}
+      {/* TODO: Restore when restore functionality is implemented for v2 */}
+      {/* {openRestoreDbModal && instance && (
+        <RestoreDbModal
+          instance={instance}
+          namespace={namespace}
+          isNewClusterMode={isNewClusterMode}
+          isOpen={openRestoreDbModal}
+          closeModal={() => setOpenRestoreDbModal(false)}
+          backupName={selectedBackup}
+        />
+      )} */}
     </>
   );
 };
