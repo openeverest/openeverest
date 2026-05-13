@@ -1092,6 +1092,7 @@ k8s_resource(
     'provider-percona-server-mongodb:clusterrole',
     'provider-percona-server-mongodb:clusterrolebinding',
     'percona-server-mongodb:provider',
+    'percona-backup-mongodb:backupclass',
   ],
   resource_deps = [
     'crds',
