@@ -19,6 +19,7 @@ import (
 	"fmt"
 
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -262,6 +263,9 @@ func (r *ProviderReconciler) setupServer(p providerAdapter) error {
 		if err := validateVersionBundle(ctx, c, in); err != nil {
 			return err
 		}
+		if err := validateBackupClassLimits(ctx, c, in); err != nil {
+			return err
+		}
 		inCtx := controller.NewContext(ctx, c, in, p.Name())
 		return p.Validate(inCtx)
 	}
@@ -386,6 +390,18 @@ func (r *ProviderReconciler) Reconcile(ctx context.Context, req reconcile.Reques
 			logger.Error(updateErr, "Failed to update status after validation error")
 		}
 		return reconcile.Result{}, err
+	}
+	if err := validateBackupClassLimits(ctx, r.Client, in); err != nil {
+		logger.Error(err, "Backup class limits validation failed")
+		// Surface the violation on the BackupConfigured condition without
+		// marking the Instance Failed: the engine itself is healthy and the
+		// user can fix the configuration without a full redeploy.
+		setCondition(in, v1alpha1.ConditionBackupConfigured, metav1.ConditionFalse,
+			controller.LimitsExceededReason, err.Error(), metav1.Now())
+		if updateErr := r.Client.Status().Update(ctx, in); updateErr != nil {
+			logger.Error(updateErr, "Failed to update status after backup limits violation")
+		}
+		return reconcile.Result{}, nil
 	}
 	if err := r.provider.Validate(inCtx); err != nil {
 		logger.Error(err, "Validation failed")
@@ -662,4 +678,36 @@ func validateVersionBundle(ctx context.Context, c client.Client, in *v1alpha1.In
 		return fmt.Errorf("version %q is not defined by provider %q", in.Spec.Version, in.Spec.Provider)
 	}
 	return nil
+}
+
+// fetchBackupClassForInstance returns the BackupClass referenced by
+// .spec.backup.classRef, or (nil, nil) when the Instance has no backup
+// configuration. Returns (nil, nil) when the referenced BackupClass does not
+// (yet) exist; the reconciler will requeue via Sync and surface the missing
+// dependency as a BackupConfigError.
+func fetchBackupClassForInstance(ctx context.Context, c client.Client, in *v1alpha1.Instance) (*backupv1alpha1.BackupClass, error) {
+	if in.Spec.Backup == nil || in.Spec.Backup.ClassRef.Name == "" {
+		return nil, nil
+	}
+	bc := &backupv1alpha1.BackupClass{}
+	if err := c.Get(ctx, client.ObjectKey{Name: in.Spec.Backup.ClassRef.Name}, bc); err != nil {
+		if apierrors.IsNotFound(err) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("fetching backup class for limits validation: %w", err)
+	}
+	return bc, nil
+}
+
+// validateBackupClassLimits enforces the generic numeric limits declared on a
+// ProviderManaged BackupClass against an Instance's .spec.backup. It is a
+// no-op when no class is referenced, when the class is Job-mode, or when no
+// limits are declared. Returns the same sentinel
+// controller.ErrBackupClassLimitsExceeded that providers see via the helper.
+func validateBackupClassLimits(ctx context.Context, c client.Client, in *v1alpha1.Instance) error {
+	bc, err := fetchBackupClassForInstance(ctx, c, in)
+	if err != nil {
+		return err
+	}
+	return controller.ValidateInstanceBackupAgainstClass(in, bc)
 }
