@@ -36,7 +36,8 @@ const SectionWrapper = ({
     <RoundedBox
       title={header}
       boxProps={{
-        'data-testid': dataTestId ?? (fieldName ? `section-${fieldName}` : undefined),
+        'data-testid':
+          dataTestId ?? (fieldName ? `section-${fieldName}` : undefined),
         sx: {
           opacity: disabled ? 0.5 : 1,
           pointerEvents: disabled ? 'none' : undefined,
