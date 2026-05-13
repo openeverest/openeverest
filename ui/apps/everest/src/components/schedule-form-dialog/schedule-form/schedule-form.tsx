@@ -91,7 +91,7 @@ export const ScheduleForm = ({
       </LabeledContent>
       <BackupStoragesInput
         namespace={namespace}
-        dbClusterName={dbClusterName}
+        dbInstanceName={dbClusterName}
         dbType={dbEngineToDbType(dbEngine)}
         schedules={schedules}
         autoFillProps={{

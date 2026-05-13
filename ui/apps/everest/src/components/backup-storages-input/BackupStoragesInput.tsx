@@ -2,15 +2,13 @@ import { DbType } from '@percona/types';
 import { AutoCompleteAutoFill } from 'components/auto-complete-auto-fill/auto-complete-auto-fill';
 import { AutoCompleteAutoFillProps } from 'components/auto-complete-auto-fill/auto-complete-auto-fill.types';
 import { useBackupStoragesByNamespace } from 'hooks/api/backup-storages/useBackupStorages';
-// TODO: migrate to v2 backup API when ready
-// import { useDbBackups } from 'hooks/api/backups/useBackups';
 import { BackupStorage } from 'shared-types/backupStorages.types';
 import { Schedule } from 'shared-types/dbCluster.types';
 import { Messages } from './BackupStoragesInput.messages';
 import { getAvailableBackupStoragesForBackups } from 'utils/backups';
 
 type Props = {
-  dbClusterName?: string;
+  dbInstanceName?: string;
   namespace: string;
   dbType: DbType;
   schedules: Schedule[];
@@ -20,7 +18,7 @@ type Props = {
 
 const BackupStoragesInput = ({
   namespace,
-  dbClusterName: _dbClusterName,
+  dbInstanceName: _dbInstanceName,
   dbType,
   schedules,
   autoFillProps,
@@ -28,14 +26,9 @@ const BackupStoragesInput = ({
 }: Props) => {
   const { data: backupStorages = [], isFetching: fetchingStorages } =
     useBackupStoragesByNamespace(namespace);
-  // TODO: migrate to v2 backup API when ready
-  // const { data: backups = [], isFetching: fetchingBackups } = useDbBackups(
-  //   dbClusterName!,
-  //   namespace,
-  //   {
-  //     enabled: !!dbClusterName && dbType === DbType.Postresql,
-  //   }
-  // );
+  // In v1, useDbBackups was called here only for PG to enforce PG_SLOTS_LIMIT (3 storage repos).
+  // In v2, storage limits are provider-driven (via BackupClass), so this client-side check is obsolete.
+  // TODO: re-evaluate if backup-based storage filtering is needed with v2 BackupClass limits
   const backups: never[] = [];
   const isFetching = fetchingStorages;
   const { storagesToShow, uniqueStoragesInUse } =

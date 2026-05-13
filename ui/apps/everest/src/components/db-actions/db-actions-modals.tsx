@@ -16,8 +16,8 @@
 
 import { Messages } from './db-actions.messages';
 import { CustomConfirmDialog } from 'components/custom-confirm-dialog';
-// TODO: migrate to v2 backup API when ready
-// import { useDbBackups } from 'hooks';
+import { useBackupsList } from 'hooks/api/backups/useBackups';
+import { useClusterName } from 'hooks/api/useClusterName';
 import { DbActionsModalsProps } from './db-actions-modals.types';
 
 export const DbActionsModals = ({
@@ -32,19 +32,19 @@ export const DbActionsModals = ({
   handleConfirmDelete,
   deleteMutation: { isPending: deletingCluster },
 }: DbActionsModalsProps) => {
+  const clusterName = useClusterName();
   // const disableKeepDataCheckbox =
   //   dbInstance?.spec.components?.engine?.type === DbEngineType.POSTGRESQL;
-  // TODO: migrate to v2 backup API when ready
-  // const { data: backups = [] } = useDbBackups(
-  //   dbInstance?.metadata?.name!,
-  //   dbInstance?.metadata?.namespace!,
-  //   {
-  //     enabled: !!dbInstance?.metadata?.name,
-  //     refetchInterval: 10 * 1000,
-  //   }
-  // );
-  // const hideCheckbox = !backups.length;
-  const hideCheckbox = true;
+  const { data: backups = [] } = useBackupsList(
+    clusterName,
+    dbInstance?.metadata?.namespace!,
+    dbInstance?.metadata?.name!,
+    {
+      enabled: !!dbInstance?.metadata?.name,
+      refetchInterval: 10 * 1000,
+    }
+  );
+  const hideCheckbox = !backups.length;
 
   return (
     <>

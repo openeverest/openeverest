@@ -21,7 +21,7 @@ import {
   createBackupOnDemandFn,
   deleteBackupFn,
   getBackupFn,
-  listBackupsFn,
+  getBackupsListFn,
 } from 'api/backups';
 import {
   Backup,
@@ -62,7 +62,7 @@ export const useBackupsList = (
 
   return useQuery<BackupList, unknown, Backup[]>({
     queryKey: getBackupListQueryKey(clusterName, namespace, instanceName),
-    queryFn: () => listBackupsFn(clusterName, namespace, instanceName),
+    queryFn: () => getBackupsListFn(clusterName, namespace, instanceName),
     select: canRead
       ? ({ items = [] }) =>
           items.filter(

@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { getBackupClassFn, listBackupClassesFn } from "api/backups";
+import { getBackupClassFn, getBackupClassesListFn } from "api/backups";
 import { BackupClass, GetBackupClassPayload, ListBackupClassesPayload } from "shared-types/backups.types";
 import { PerconaQueryOptions } from "shared-types/query.types";
 import { useRBACPermissions } from 'hooks/rbac';
@@ -27,7 +27,7 @@ export const useBackupClassesList = (
 
   return useQuery<ListBackupClassesPayload, unknown, BackupClass[]>({
     queryKey: getBackupClassesQueryKey(clusterName),
-    queryFn: () => listBackupClassesFn(clusterName),
+    queryFn: () => getBackupClassesListFn(clusterName),
     select: canRead ? ({ items = [] }) => items : () => [],
     enabled: (options?.enabled ?? true) && canRead,
     ...options,

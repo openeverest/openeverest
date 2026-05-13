@@ -19,6 +19,7 @@ import {
   GetBackupClassPayload,
   GetBackupPayload,
   ListBackupClassesPayload,
+  // DatabaseClusterPitrPayload,
 } from 'shared-types/backups.types';
 import { api } from './api';
 
@@ -60,7 +61,7 @@ export const deleteBackupFn = async (
   return response.data;
 };
 
-export const listBackupsFn = async (
+export const getBackupsListFn = async (
   clusterName: string,
   namespace: string,
   instanceName: string
@@ -72,7 +73,7 @@ export const listBackupsFn = async (
   return response.data;
 };
 
-export const listBackupClassesFn = async (clusterName: string) => {
+export const getBackupClassesListFn = async (clusterName: string) => {
   const response = await api.get<ListBackupClassesPayload>(
     `clusters/${clusterName}/backup-classes`
   );
@@ -90,3 +91,15 @@ export const getBackupClassFn = async (
 
   return response.data;
 };
+
+// TODO: PITR is not part of this task — uncomment when working on PITR feature
+// export const getPitrFn = async (dbClusterName: string, namespace: string) => {
+//   const response = await api.get<DatabaseClusterPitrPayload>(
+//     `/namespaces/${namespace}/database-clusters/${dbClusterName}/pitr`,
+//     {
+//       disableNotifications: true,
+//     }
+//   );
+//
+//   return response.data;
+// };
