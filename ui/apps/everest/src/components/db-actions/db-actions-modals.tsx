@@ -16,7 +16,8 @@
 
 import { Messages } from './db-actions.messages';
 import { CustomConfirmDialog } from 'components/custom-confirm-dialog';
-import { useDbBackups } from 'hooks';
+// TODO: migrate to v2 backup API when ready
+// import { useDbBackups } from 'hooks';
 import { DbActionsModalsProps } from './db-actions-modals.types';
 
 export const DbActionsModals = ({
@@ -33,15 +34,17 @@ export const DbActionsModals = ({
 }: DbActionsModalsProps) => {
   // const disableKeepDataCheckbox =
   //   dbInstance?.spec.components?.engine?.type === DbEngineType.POSTGRESQL;
-  const { data: backups = [] } = useDbBackups(
-    dbInstance?.metadata?.name!,
-    dbInstance?.metadata?.namespace!,
-    {
-      enabled: !!dbInstance?.metadata?.name,
-      refetchInterval: 10 * 1000,
-    }
-  );
-  const hideCheckbox = !backups.length;
+  // TODO: migrate to v2 backup API when ready
+  // const { data: backups = [] } = useDbBackups(
+  //   dbInstance?.metadata?.name!,
+  //   dbInstance?.metadata?.namespace!,
+  //   {
+  //     enabled: !!dbInstance?.metadata?.name,
+  //     refetchInterval: 10 * 1000,
+  //   }
+  // );
+  // const hideCheckbox = !backups.length;
+  const hideCheckbox = true;
 
   return (
     <>

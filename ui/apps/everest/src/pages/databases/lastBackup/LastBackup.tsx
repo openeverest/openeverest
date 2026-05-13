@@ -1,4 +1,5 @@
-import { useDbBackups, useDbClusterPitr } from 'hooks/api/backups/useLegacyBackups';
+// TODO: migrate to v2 backup API when ready
+// import { useDbBackups, useDbClusterPitr } from 'hooks/api/backups/useBackups';
 import { LastBackupProps } from './LastBackup.types';
 import { IconButton, Tooltip, Typography } from '@mui/material';
 import { Messages } from '../dbClusterView.messages';
@@ -8,17 +9,24 @@ import {
   sortBackupsByTime,
 } from '../DbClusterView.utils';
 import { WarningIcon } from '@percona/ui-lib';
-import { LegacyBackupStatus as BackupStatus } from 'shared-types/backups.types';
+import {
+  LegacyBackup,
+  LegacyBackupStatus as BackupStatus,
+  DatabaseClusterPitr,
+} from 'shared-types/backups.types';
 import { useDbCluster } from 'hooks/api/db-cluster/useDbCluster';
 import { useNavigate } from 'react-router-dom';
 
 export const LastBackup = ({ dbName, namespace }: LastBackupProps) => {
-  const { data: backups = [] } = useDbBackups(dbName!, namespace, {
-    enabled: !!dbName,
-    refetchInterval: 10 * 1000,
-  });
+  // TODO: migrate to v2 backup API when ready
+  // const { data: backups = [] } = useDbBackups(dbName!, namespace, {
+  //   enabled: !!dbName,
+  //   refetchInterval: 10 * 1000,
+  // });
+  const backups: LegacyBackup[] = [];
 
-  const { data: pitrData } = useDbClusterPitr(dbName, namespace);
+  // const { data: pitrData } = useDbClusterPitr(dbName, namespace);
+  const pitrData = undefined as DatabaseClusterPitr | undefined;
   const { data: dbCluster } = useDbCluster(dbName, namespace);
 
   const schedules = dbCluster?.spec.backup?.schedules || [];

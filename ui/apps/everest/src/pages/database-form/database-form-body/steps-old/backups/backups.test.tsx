@@ -27,12 +27,13 @@ vi.mock('hooks/api/backup-storages/useBackupStorages', async () => {
   };
 });
 vi.mock('hooks/api/db-cluster/useDbCluster');
-vi.mock('hooks/api/backups/useBackups', () => ({
-  useDbBackups: () => ({
-    data: [],
-    isFetching: false,
-  }),
-}));
+// TODO: migrate to v2 backup API when ready
+// vi.mock('hooks/api/backups/useBackups', () => ({
+//   useDbBackups: () => ({
+//     data: [],
+//     isFetching: false,
+//   }),
+// }));
 vi.mock('hooks/rbac', () => ({
   useRBACPermissions: () => ({
     canCreate: true,

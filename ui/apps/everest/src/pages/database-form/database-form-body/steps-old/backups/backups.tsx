@@ -18,7 +18,8 @@
 import { FormGroup, Box, Skeleton } from '@mui/material';
 import { DbType } from '@percona/types';
 import { useBackupStoragesByNamespace } from 'hooks/api/backup-storages/useBackupStorages';
-import { useDbBackups } from 'hooks/api/backups/useBackups.ts';
+// TODO: migrate to v2 backup API when ready
+// import { useDbBackups } from 'hooks/api/backups/useBackups.ts';
 import { useFormContext } from 'react-hook-form';
 import { getAvailableBackupStoragesForBackups } from 'utils/backups.ts';
 import { DbWizardFormFields, PG_SLOTS_LIMIT } from 'consts.ts';
@@ -39,9 +40,11 @@ export const Backups = () => {
   ]);
   const { data: backupStorages = [], isLoading } =
     useBackupStoragesByNamespace(selectedNamespace);
-  const { data: backups = [] } = useDbBackups(dbName, selectedNamespace, {
-    enabled: dbType === DbType.Postresql,
-  });
+  // TODO: migrate to v2 backup API when ready
+  // const { data: backups = [] } = useDbBackups(dbName, selectedNamespace, {
+  //   enabled: dbType === DbType.Postresql,
+  // });
+  const backups: never[] = [];
   const { storagesToShow, uniqueStoragesInUse } =
     getAvailableBackupStoragesForBackups(
       backups,
