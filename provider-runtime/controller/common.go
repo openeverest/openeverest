@@ -24,6 +24,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
@@ -558,6 +559,45 @@ func (c *Context) BackupClass(name string) (*backupv1alpha1.BackupClass, error) 
 		return nil, fmt.Errorf("failed to get BackupClass %q: %w", name, err)
 	}
 	return bc, nil
+}
+
+// BackupClassForInstance fetches the BackupClass referenced by
+// Instance.spec.backup.classRef, if any. Returns (nil, nil) when the Instance
+// has no backup configuration.
+func (c *Context) BackupClassForInstance() (*backupv1alpha1.BackupClass, error) {
+	if c.in == nil || c.in.Spec.Backup == nil || c.in.Spec.Backup.ClassRef.Name == "" {
+		return nil, nil
+	}
+	return c.BackupClass(c.in.Spec.Backup.ClassRef.Name)
+}
+
+// BackupClassLimits returns the limits declared by the BackupClass referenced
+// by the Instance, or nil when the class is Job-mode, has no limits set, or
+// the Instance has no backup configuration. The returned pointer aliases the
+// BackupClass; callers must not mutate it.
+func (c *Context) BackupClassLimits() (*backupv1alpha1.BackupClassLimits, error) {
+	bc, err := c.BackupClassForInstance()
+	if err != nil || bc == nil {
+		return nil, err
+	}
+	if bc.Spec.ProviderManaged == nil {
+		return nil, nil
+	}
+	return bc.Spec.ProviderManaged.Limits, nil
+}
+
+// PITRConfigSchema returns the free-form PITR config schema declared by the
+// BackupClass referenced by the Instance, or nil when no schema is set.
+// The runtime treats this payload as opaque; providers interpret it.
+func (c *Context) PITRConfigSchema() (*runtime.RawExtension, error) {
+	bc, err := c.BackupClassForInstance()
+	if err != nil || bc == nil {
+		return nil, err
+	}
+	if bc.Spec.ProviderManaged == nil {
+		return nil, nil
+	}
+	return bc.Spec.ProviderManaged.PITRConfigSchema, nil
 }
 
 // BackupStorage fetches a BackupStorage by name from the instance namespace.
