@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { Box, Typography } from '@mui/material';
+import { Box, BoxProps, Typography } from '@mui/material';
 import RoundedBox from 'components/rounded-box';
 import { SectionWrapperProps } from './section-wrapper.types';
 
@@ -35,14 +35,16 @@ const SectionWrapper = ({
   return (
     <RoundedBox
       title={header}
-      boxProps={{
-        'data-testid':
-          dataTestId ?? (fieldName ? `section-${fieldName}` : undefined),
-        sx: {
-          opacity: disabled ? 0.5 : 1,
-          pointerEvents: disabled ? 'none' : undefined,
-        },
-      }}
+      boxProps={
+        {
+          'data-testid':
+            dataTestId ?? (fieldName ? `section-${fieldName}` : undefined),
+          sx: {
+            opacity: disabled ? 0.5 : 1,
+            pointerEvents: disabled ? 'none' : undefined,
+          },
+        } as BoxProps
+      }
     >
       {description && (
         <Typography
