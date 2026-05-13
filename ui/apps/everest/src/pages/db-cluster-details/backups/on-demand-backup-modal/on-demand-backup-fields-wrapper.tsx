@@ -20,7 +20,7 @@ import {
 } from 'hooks/api/backup-classes/useBackupClasses.ts';
 import { useBackupStoragesByNamespace } from 'hooks/api/backup-storages/useBackupStorages.ts';
 import { useClusterName } from 'hooks/api/useClusterName.ts';
-import { useContext } from 'react';
+import { useContext, useEffect } from 'react';
 import { useFormContext } from 'react-hook-form';
 import { useParams } from 'react-router-dom';
 import { UIGenerator } from 'components/ui-generator/ui-generator';
@@ -32,9 +32,10 @@ export const OnDemandBackupFieldsWrapper = () => {
   const clusterName = useClusterName();
   const { namespace = '' } = useParams();
   const { instance } = useContext(ScheduleModalContext);
-  const { watch } = useFormContext();
+  const { watch, setValue, trigger } = useFormContext();
 
   const selectedClassName: string = watch(BackupFields.backupClassName);
+  const selectedStorage: string = watch(BackupFields.storageName);
 
   const { data: backupClasses = [], isLoading: loadingClasses } =
     useBackupClassesList(clusterName);
@@ -55,6 +56,14 @@ export const OnDemandBackupFieldsWrapper = () => {
     if (!providerType) return true;
     return supported.includes(providerType);
   });
+
+  // Auto-fill storage with first available value if not yet selected.
+  useEffect(() => {
+    if (!selectedStorage && namespaceStorages.length > 0) {
+      setValue(BackupFields.storageName, namespaceStorages[0].name);
+      trigger(BackupFields.storageName);
+    }
+  }, [namespaceStorages, selectedStorage, setValue, trigger]);
 
   return (
     <>

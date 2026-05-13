@@ -27,6 +27,7 @@ import {
   Backup,
   BackupList,
   CreateBackupPayload,
+  CreateBackupResponse,
   DeleteBackupPayload,
   GetBackupPayload,
 } from 'shared-types/backups.types';
@@ -78,7 +79,7 @@ export const useCreateBackupOnDemand = (
   clusterName: string,
   namespace: string,
   options?: UseMutationOptions<
-    GetBackupPayload,
+    CreateBackupResponse,
     unknown,
     CreateBackupPayload,
     unknown

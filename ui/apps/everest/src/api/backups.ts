@@ -15,6 +15,7 @@
 import {
   BackupList,
   CreateBackupPayload,
+  CreateBackupResponse,
   DeleteBackupPayload,
   GetBackupClassPayload,
   GetBackupPayload,
@@ -40,7 +41,7 @@ export const createBackupOnDemandFn = async (
   namespace: string,
   payload: CreateBackupPayload
 ) => {
-  const response = await api.post<GetBackupPayload>(
+  const response = await api.post<CreateBackupResponse>(
     `clusters/${clusterName}/namespaces/${namespace}/backups`,
     payload
   );

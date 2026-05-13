@@ -15,8 +15,8 @@
 export enum DBClusterDetailsTabs {
   overview = 'overview',
   backups = 'backups',
-  restores = 'restores',
-  // TODO: Re-enable once connected to the new instance API
+  // TODO: Re-enable once restore feature is implemented
+  // restores = 'restores',
   // components = 'components',
   // logs = 'logs',
 }

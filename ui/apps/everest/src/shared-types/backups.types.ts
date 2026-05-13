@@ -21,6 +21,8 @@ export type BackupClassList = CrdsGen.components['schemas']['BackupClassList'];
 
 export type CreateBackupPayload =
   HttpApi.paths['/clusters/{cluster}/namespaces/{namespace}/backups']['post']['requestBody']['content']['application/json'];
+export type CreateBackupResponse =
+  HttpApi.paths['/clusters/{cluster}/namespaces/{namespace}/backups']['post']['responses']['201']['content']['application/json'];
 export type GetBackupPayload =
   HttpApi.paths['/clusters/{cluster}/namespaces/{namespace}/backups/{backup}']['get']['responses']['200']['content']['application/json'];
 export type DeleteBackupPayload =

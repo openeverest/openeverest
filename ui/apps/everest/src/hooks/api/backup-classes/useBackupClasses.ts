@@ -5,8 +5,12 @@ import { BackupClass, GetBackupClassPayload, ListBackupClassesPayload } from "sh
 import { PerconaQueryOptions } from "shared-types/query.types";
 import { useRBACPermissions } from 'hooks/rbac';
 import type { Section } from "components/ui-generator/ui-generator.types";
-import type { BackupClassUiSchemaSections } from "./backupClassFixtures";
-import { mockUiSchemaByProvider } from "./backupClassFixtures";
+
+export type BackupClassUiSchemaSections = {
+  backup?: Section;
+  pitr?: Section;
+  restore?: Section;
+};
 
 export const BACKUP_CLASSES_QUERY_KEY = 'backup-classes';
 
@@ -53,13 +57,6 @@ export const useGetBackupClass = (
   });
 };
 
-/**
- * Returns parsed uiSchema sections for a given BackupClass.
- *
- * TODO: Once PR #2226 is merged and `backupClass.spec.uiSchema` is available
- * from the API, replace the mock lookup with:
- *   `backupClass.spec.uiSchema as unknown as BackupClassUiSchemaSections`
- */
 export const useBackupClassUiSchema = (
   clusterName: string,
   backupClassName: string | undefined
@@ -77,12 +74,7 @@ export const useBackupClassUiSchema = (
   const result = useMemo(() => {
     if (!backupClass) return { sections: undefined, uiSchema: undefined };
 
-    // TODO: Switch to real data when PR #2226 lands:
-    // const uiSchema = backupClass.spec?.uiSchema as unknown as BackupClassUiSchemaSections;
-    const providerName = backupClass.spec?.supportedProviders?.[0];
-    const uiSchema = providerName
-      ? mockUiSchemaByProvider[providerName]
-      : undefined;
+    const uiSchema = backupClass.spec?.uiSchema as unknown as BackupClassUiSchemaSections | undefined;
 
     if (!uiSchema?.backup) return { sections: undefined, uiSchema };
 

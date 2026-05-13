@@ -115,6 +115,12 @@ export const BackupsList = () => {
         header: 'Backup class',
       },
       {
+        accessorFn: (row) => row.status?.size ?? '',
+        id: 'size',
+        header: 'Size',
+        enableColumnFilter: false,
+      },
+      {
         accessorFn: (row) => row.status?.startedAt ?? '',
         id: 'startedAt',
         header: 'Started',

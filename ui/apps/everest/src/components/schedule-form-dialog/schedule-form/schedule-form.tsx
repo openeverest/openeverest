@@ -45,7 +45,7 @@ export const ScheduleForm = ({
   const schedulesNamesList =
     (schedules && schedules.map((item) => item?.name)) || [];
   const {
-    dbClusterInfo: { dbEngine, namespace, dbClusterName },
+    dbClusterInfo: { dbEngine, namespace, dbClusterName: instanceName },
   } = useContext(ScheduleFormDialogContext);
 
   const errorInfoAlert = errors?.root ? (
@@ -91,7 +91,7 @@ export const ScheduleForm = ({
       </LabeledContent>
       <BackupStoragesInput
         namespace={namespace}
-        dbInstanceName={dbClusterName}
+        dbInstanceName={instanceName}
         dbType={dbEngineToDbType(dbEngine)}
         schedules={schedules}
         autoFillProps={{
