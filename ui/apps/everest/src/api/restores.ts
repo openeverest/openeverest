@@ -1,26 +1,35 @@
-import { RestoreList } from 'shared-types/restores.types';
+import {
+  CreateRestorePayload,
+  GetRestorePayload,
+} from 'shared-types/restores.types';
 import { api } from './api';
 
-export const getInstanceRestores = async (
-  clusterName: string,
-  namespace: string,
-  instanceName: string
-): Promise<RestoreList> => {
-  const response = await api.get<RestoreList>(
-    `clusters/${clusterName}/namespaces/${namespace}/instances/${instanceName}/restores`
+export const createDbClusterRestore = async (
+  data: CreateRestorePayload,
+  namespace: string
+) => {
+  const response = await api.post(
+    `namespaces/${namespace}/database-cluster-restores`,
+    data
   );
 
   return response.data;
 };
 
-export const deleteRestore = async (
-  clusterName: string,
+export const getDbClusterRestores = async (
   namespace: string,
-  instanceName: string,
-  restoreName: string
+  dbClusterName: string
 ) => {
+  const response = await api.get<GetRestorePayload>(
+    `namespaces/${namespace}/database-clusters/${dbClusterName}/restores`
+  );
+
+  return response.data;
+};
+
+export const deleteRestore = async (namespace: string, restoreName: string) => {
   const response = await api.delete(
-    `clusters/${clusterName}/namespaces/${namespace}/instances/${instanceName}/restores/${restoreName}`
+    `namespaces/${namespace}/database-cluster-restores/${restoreName}`
   );
 
   return response.data;

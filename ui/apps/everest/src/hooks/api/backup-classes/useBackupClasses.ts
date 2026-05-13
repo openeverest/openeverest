@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { getBackupClassFn, listBackupClassesFn } from "api/backups";
 import { BackupClass, GetBackupClassPayload, ListBackupClassesPayload } from "shared-types/backups.types";
 import { PerconaQueryOptions } from "shared-types/query.types";
+import { useRBACPermissions } from 'hooks/rbac';
 import type { Section } from "components/ui-generator/ui-generator.types";
 import type { BackupClassUiSchemaSections } from "./backupClassFixtures";
 import { mockUiSchemaByProvider } from "./backupClassFixtures";
@@ -22,15 +23,13 @@ export const useBackupClassesList = (
   clusterName: string,
   options?: PerconaQueryOptions<ListBackupClassesPayload, unknown, BackupClass[]>
 ) => {
-//   const { canRead } = useRBACPermissions('backup-classes');
+  const { canRead } = useRBACPermissions('backup-classes');
 
   return useQuery<ListBackupClassesPayload, unknown, BackupClass[]>({
     queryKey: getBackupClassesQueryKey(clusterName),
     queryFn: () => listBackupClassesFn(clusterName),
-    // select: canRead ? ({ items = [] }) => items : () => [],
-    select: ({ items = [] }) => items,
-    // enabled: (options?.enabled ?? true) && canRead,
-    enabled: (options?.enabled ?? true),
+    select: canRead ? ({ items = [] }) => items : () => [],
+    enabled: (options?.enabled ?? true) && canRead,
     ...options,
   });
 };
@@ -44,13 +43,12 @@ export const useGetBackupClass = (
     BackupClass
   >
 ) => {
-//   const { canRead } = useRBACPermissions('backup-classes');
+  const { canRead } = useRBACPermissions('backup-classes');
 
   return useQuery<GetBackupClassPayload, unknown, BackupClass>({
     queryKey: getBackupClassQueryKey(clusterName, backupClassName),
     queryFn: () => getBackupClassFn(clusterName, backupClassName),
-    // enabled: (options?.enabled ?? true) && canRead,
-    enabled: (options?.enabled ?? true),
+    enabled: (options?.enabled ?? true) && canRead,
     ...options,
   });
 };

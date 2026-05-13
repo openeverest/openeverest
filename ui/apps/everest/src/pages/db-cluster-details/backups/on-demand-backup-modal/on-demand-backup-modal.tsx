@@ -120,9 +120,6 @@ export const OnDemandBackupModal = () => {
     }
 
     // Auto-register the storage on the instance, then create the backup.
-    // TODO: In v1, PostgreSQL auto-enabled PITR on first backup creation.
-    // In v2, PITR is configured per-storage via instance.spec.backup.storages[].pitr.
-    // Re-implement PITR auto-enable when PITR UI is implemented.
     const newStorage = {
       name: data.storageName,
       storageRef: { name: data.storageName },

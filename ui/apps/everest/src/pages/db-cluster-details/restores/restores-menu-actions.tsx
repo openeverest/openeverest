@@ -1,4 +1,5 @@
-// Copyright (C) 2026 The OpenEverest Contributors
+// everest
+// Copyright (C) 2023 Percona LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -22,23 +23,20 @@ export const RestoreActionButtons = (
   row: MRT_Row<Restore>,
   handleDeleteRestore: (restoreName: string) => void,
   namespace: string,
-  instanceName: string
+  dbClusterName: string
 ) => {
-  // TODO: Update RBAC resource name for v2 when finalized
   const { canDelete } = useRBACPermissions(
     'database-cluster-restores',
-    `${namespace}/${instanceName}`
+    `${namespace}/${dbClusterName}`
   );
-
-  const name = (row.original.metadata as { name?: string })?.name ?? '';
 
   return [
     ...(canDelete
       ? [
           <MenuItem
-            key="delete"
+            key={2}
             onClick={() => {
-              handleDeleteRestore(name);
+              handleDeleteRestore(row.original.name);
             }}
             sx={{ m: 0 }}
           >

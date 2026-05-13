@@ -1,4 +1,4 @@
-import { useDbBackups, useDbClusterPitr } from 'hooks/api/backups/useBackups';
+import { useDbBackups, useDbClusterPitr } from 'hooks/api/backups/useLegacyBackups';
 import { LastBackupProps } from './LastBackup.types';
 import { IconButton, Tooltip, Typography } from '@mui/material';
 import { Messages } from '../dbClusterView.messages';

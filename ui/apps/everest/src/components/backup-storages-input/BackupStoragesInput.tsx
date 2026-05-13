@@ -2,7 +2,7 @@ import { DbType } from '@percona/types';
 import { AutoCompleteAutoFill } from 'components/auto-complete-auto-fill/auto-complete-auto-fill';
 import { AutoCompleteAutoFillProps } from 'components/auto-complete-auto-fill/auto-complete-auto-fill.types';
 import { useBackupStoragesByNamespace } from 'hooks/api/backup-storages/useBackupStorages';
-import { useDbBackups } from 'hooks/api/backups/useBackups';
+import { useDbBackups } from 'hooks/api/backups/useLegacyBackups';
 import { BackupStorage } from 'shared-types/backupStorages.types';
 import { Schedule } from 'shared-types/dbCluster.types';
 import { Messages } from './BackupStoragesInput.messages';
