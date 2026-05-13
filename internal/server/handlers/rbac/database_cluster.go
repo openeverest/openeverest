@@ -1,3 +1,17 @@
+// Copyright (C) 2026 The OpenEverest Contributors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package rbac
 
 import (
@@ -37,14 +51,6 @@ func (h *rbacHandler) CreateDatabaseCluster(ctx context.Context, db *everestv1al
 			rbac.ObjectName(namespace, db.GetName()),
 		); err != nil {
 			return nil, err
-		}
-		// User should be able to read a backup storage to use it in a backup schedule.
-		for _, sched := range schedules {
-			if err := h.enforce(ctx, rbac.ResourceBackupStorages, rbac.ActionRead,
-				rbac.ObjectName(namespace, sched.BackupStorageName),
-			); err != nil {
-				return nil, err
-			}
 		}
 	}
 
@@ -154,15 +160,6 @@ func (h *rbacHandler) UpdateDatabaseCluster(ctx context.Context, db *everestv1al
 		}
 	}
 
-	// User should be able to read a backup storage to use it in a backup schedule.
-	for _, sched := range updatedSched {
-		if err := h.enforce(ctx, rbac.ResourceBackupStorages, rbac.ActionRead,
-			rbac.ObjectName(oldDB.GetNamespace(), sched.BackupStorageName),
-		); err != nil {
-			return nil, err
-		}
-	}
-
 	// Check permissions for engine features used in the database cluster.
 	if err := h.enforceEngineFeaturesRead(ctx, db); err != nil {
 		return nil, err
@@ -221,19 +218,6 @@ func (h *rbacHandler) enforceDBClusterRead(ctx context.Context, db *everestv1alp
 		return err
 	}
 
-	// Check if the user has permissions for all backup-storages in the schedule?
-	for _, sched := range db.Spec.Backup.Schedules {
-		bsName := sched.BackupStorageName
-		if err := h.enforce(ctx, rbac.ResourceBackupStorages, rbac.ActionRead, rbac.ObjectName(namespace, bsName)); err != nil {
-			return err
-		}
-	}
-	// Check if the user has permission for the backup-storages used by PITR (if any)?
-	if bsName := pointer.Get(db.Spec.Backup.PITR.BackupStorageName); bsName != "" {
-		if err := h.enforce(ctx, rbac.ResourceBackupStorages, rbac.ActionRead, rbac.ObjectName(namespace, bsName)); err != nil {
-			return err
-		}
-	}
 	// Check if the user has permissions for MonitoringConfig?
 	if mcName := pointer.Get(db.Spec.Monitoring).MonitoringConfigName; mcName != "" {
 		if err := h.enforce(ctx, rbac.ResourceMonitoringInstances, rbac.ActionRead, rbac.ObjectName(namespace, mcName)); err != nil {

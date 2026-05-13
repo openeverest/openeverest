@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -24,8 +25,7 @@ import (
 
 // ListBackupClasses lists all backup classes in the cluster.
 func (e *EverestServer) ListBackupClasses(c echo.Context, cluster string) error {
-	// The cluster parameter is currently ignored as we operate on the configured cluster
-	result, err := e.handler.ListBackupClasses(c.Request().Context())
+	result, err := e.handler.ListBackupClasses(c.Request().Context(), cluster)
 	if err != nil {
 		e.l.Errorf("ListBackupClasses failed: %v", err)
 		return err
@@ -35,8 +35,7 @@ func (e *EverestServer) ListBackupClasses(c echo.Context, cluster string) error 
 
 // GetBackupClass returns a specific backup class.
 func (e *EverestServer) GetBackupClass(c echo.Context, cluster string, backupClass string) error {
-	// The cluster parameter is currently ignored as we operate on the configured cluster
-	result, err := e.handler.GetBackupClass(c.Request().Context(), backupClass)
+	result, err := e.handler.GetBackupClass(c.Request().Context(), cluster, backupClass)
 	if err != nil {
 		e.l.Errorf("GetBackupClass failed: %v", err)
 		return err

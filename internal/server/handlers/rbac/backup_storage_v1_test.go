@@ -1,3 +1,17 @@
+// Copyright (C) 2026 The OpenEverest Contributors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package rbac
 
 import (
@@ -117,21 +131,13 @@ func TestRBAC_BackupStorage(t *testing.T) {
 				},
 			},
 			{
-				desc: "admin",
+				desc: "admin - denied via v1 format (backup-storages is v2-only)",
 				policy: newPolicy(
 					"g, bob, role:admin",
 				),
 				assert: func(list *everestv1alpha1.BackupStorageList) bool {
-					return len(list.Items) == 3 &&
-						slices.ContainsFunc(list.Items, func(bs everestv1alpha1.BackupStorage) bool {
-							return bs.GetName() == "backup-storage-1"
-						}) &&
-						slices.ContainsFunc(list.Items, func(bs everestv1alpha1.BackupStorage) bool {
-							return bs.GetName() == "backup-storage-2"
-						}) &&
-						slices.ContainsFunc(list.Items, func(bs everestv1alpha1.BackupStorage) bool {
-							return bs.GetName() == "backup-storage-3"
-						})
+					// Admin only has */*/* for backup-storages, v1 handler uses namespace/name
+					return len(list.Items) == 0
 				},
 			},
 			{
@@ -185,10 +191,11 @@ func TestRBAC_BackupStorage(t *testing.T) {
 			wantErr error
 		}{
 			{
-				desc: "admin",
+				desc: "admin - denied via v1 format (backup-storages is v2-only)",
 				policy: newPolicy(
 					"g, bob, role:admin",
 				),
+				wantErr: ErrInsufficientPermissions,
 			},
 			{
 				desc: "all actions for all backupstorages in all namespaces",
@@ -267,10 +274,11 @@ func TestRBAC_BackupStorage(t *testing.T) {
 			wantErr error
 		}{
 			{
-				desc: "admin",
+				desc: "admin - denied via v1 format (backup-storages is v2-only)",
 				policy: newPolicy(
 					"g, bob, role:admin",
 				),
+				wantErr: ErrInsufficientPermissions,
 			},
 			{
 				desc: "all actions for all backupstorages in all namespaces",
@@ -435,10 +443,11 @@ func TestRBAC_BackupStorage(t *testing.T) {
 			wantErr error
 		}{
 			{
-				desc: "admin",
+				desc: "admin - denied via v1 format (backup-storages is v2-only)",
 				policy: newPolicy(
 					"g, bob, role:admin",
 				),
+				wantErr: ErrInsufficientPermissions,
 			},
 			{
 				desc: "all actions for all backupstorages in all namespaces",
@@ -599,10 +608,11 @@ func TestRBAC_BackupStorage(t *testing.T) {
 			wantErr error
 		}{
 			{
-				desc: "admin",
+				desc: "admin - denied via v1 format (backup-storages is v2-only)",
 				policy: newPolicy(
 					"g, bob, role:admin",
 				),
+				wantErr: ErrInsufficientPermissions,
 			},
 			{
 				desc: "all actions for all backupstorages in all namespaces",

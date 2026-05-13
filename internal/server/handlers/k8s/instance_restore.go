@@ -21,6 +21,6 @@ import (
 )
 
 // ListInstanceRestores returns list of restores for a specific instance.
-func (h *k8sHandler) ListInstanceRestores(ctx context.Context, namespace, instanceName string) (*backupv1alpha1.RestoreList, error) {
+func (h *k8sHandler) ListInstanceRestores(ctx context.Context, cluster, namespace, instanceName string) (*backupv1alpha1.RestoreList, error) {
 	return h.kubeConnector.ListInstanceRestores(ctx, namespace, instanceName)
 }

@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -24,11 +25,11 @@ import (
 )
 
 // ListBackupClasses returns list of backup classes.
-func (h *k8sHandler) ListBackupClasses(ctx context.Context) (*backupv1alpha1.BackupClassList, error) {
+func (h *k8sHandler) ListBackupClasses(ctx context.Context, cluster string) (*backupv1alpha1.BackupClassList, error) {
 	return h.kubeConnector.ListBackupClasses(ctx)
 }
 
 // GetBackupClass returns backup class that matches the criteria.
-func (h *k8sHandler) GetBackupClass(ctx context.Context, name string) (*backupv1alpha1.BackupClass, error) {
+func (h *k8sHandler) GetBackupClass(ctx context.Context, cluster, name string) (*backupv1alpha1.BackupClass, error) {
 	return h.kubeConnector.GetBackupClass(ctx, types.NamespacedName{Name: name})
 }

@@ -1,3 +1,17 @@
+// Copyright (C) 2026 The OpenEverest Contributors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package rbac
 
 import (
@@ -31,11 +45,7 @@ func (h *rbacHandler) ListDatabaseClusterBackups(ctx context.Context, namespace,
 
 func (h *rbacHandler) CreateDatabaseClusterBackup(ctx context.Context, req *everestv1alpha1.DatabaseClusterBackup) (*everestv1alpha1.DatabaseClusterBackup, error) {
 	clusterName := req.Spec.DBClusterName
-	bsName := req.Spec.BackupStorageName
 	namespace := req.GetNamespace()
-	if err := h.enforce(ctx, rbac.ResourceBackupStorages, rbac.ActionRead, rbac.ObjectName(namespace, bsName)); err != nil {
-		return nil, err
-	}
 	if err := h.enforce(ctx, rbac.ResourceDatabaseClusterBackups, rbac.ActionCreate, rbac.ObjectName(namespace, clusterName)); err != nil {
 		return nil, err
 	}
@@ -67,11 +77,7 @@ func (h *rbacHandler) GetDatabaseClusterBackup(ctx context.Context, namespace, n
 
 func (h *rbacHandler) enforceDBBackupRead(ctx context.Context, dbbackup *everestv1alpha1.DatabaseClusterBackup) error {
 	clusterName := dbbackup.Spec.DBClusterName
-	bsName := dbbackup.Spec.BackupStorageName
 	namespace := dbbackup.GetNamespace()
-	if err := h.enforce(ctx, rbac.ResourceBackupStorages, rbac.ActionRead, rbac.ObjectName(namespace, bsName)); err != nil {
-		return err
-	}
 	if err := h.enforce(ctx, rbac.ResourceDatabaseClusterBackups, rbac.ActionRead, rbac.ObjectName(namespace, clusterName)); err != nil {
 		return err
 	}

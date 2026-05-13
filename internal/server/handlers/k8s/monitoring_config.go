@@ -34,12 +34,12 @@ import (
 )
 
 // ListMonitoringConfigs returns list of monitoring configs in a namespace.
-func (h *k8sHandler) ListMonitoringConfigs(ctx context.Context, namespace string) (*monitoringv1alpha2.MonitoringConfigList, error) {
+func (h *k8sHandler) ListMonitoringConfigs(ctx context.Context, cluster, namespace string) (*monitoringv1alpha2.MonitoringConfigList, error) {
 	return h.kubeConnector.ListMonitoringConfigsV2(ctx, ctrlclient.InNamespace(namespace))
 }
 
 // CreateMonitoringConfig creates a monitoring config.
-func (h *k8sHandler) CreateMonitoringConfig(ctx context.Context, namespace string, req *api.MonitoringConfigCreateParams) (*monitoringv1alpha2.MonitoringConfig, error) {
+func (h *k8sHandler) CreateMonitoringConfig(ctx context.Context, cluster, namespace string, req *api.MonitoringConfigCreateParams) (*monitoringv1alpha2.MonitoringConfig, error) {
 	_, err := h.kubeConnector.GetMonitoringConfigV2(ctx,
 		types.NamespacedName{
 			Namespace: namespace,
@@ -103,7 +103,7 @@ func (h *k8sHandler) CreateMonitoringConfig(ctx context.Context, namespace strin
 }
 
 // DeleteMonitoringConfig deletes a monitoring config.
-func (h *k8sHandler) DeleteMonitoringConfig(ctx context.Context, namespace, name string) error {
+func (h *k8sHandler) DeleteMonitoringConfig(ctx context.Context, cluster, namespace, name string) error {
 	delMCObj := &monitoringv1alpha2.MonitoringConfig{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
@@ -130,7 +130,7 @@ func (h *k8sHandler) DeleteMonitoringConfig(ctx context.Context, namespace, name
 }
 
 // GetMonitoringConfig returns monitoring config that matches the criteria.
-func (h *k8sHandler) GetMonitoringConfig(ctx context.Context, namespace, name string) (*monitoringv1alpha2.MonitoringConfig, error) {
+func (h *k8sHandler) GetMonitoringConfig(ctx context.Context, cluster, namespace, name string) (*monitoringv1alpha2.MonitoringConfig, error) {
 	return h.kubeConnector.GetMonitoringConfigV2(ctx,
 		types.NamespacedName{
 			Namespace: namespace,
@@ -140,7 +140,7 @@ func (h *k8sHandler) GetMonitoringConfig(ctx context.Context, namespace, name st
 }
 
 // UpdateMonitoringConfig updates a monitoring config.
-func (h *k8sHandler) UpdateMonitoringConfig(ctx context.Context, namespace, name string, req *api.MonitoringConfigUpdateParams) (*monitoringv1alpha2.MonitoringConfig, error) {
+func (h *k8sHandler) UpdateMonitoringConfig(ctx context.Context, cluster, namespace, name string, req *api.MonitoringConfigUpdateParams) (*monitoringv1alpha2.MonitoringConfig, error) {
 	m, err := h.kubeConnector.GetMonitoringConfigV2(ctx,
 		types.NamespacedName{
 			Namespace: namespace,

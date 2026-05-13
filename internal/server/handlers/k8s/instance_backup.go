@@ -21,6 +21,6 @@ import (
 )
 
 // ListInstanceBackups returns backups for the specified instance.
-func (h *k8sHandler) ListInstanceBackups(ctx context.Context, namespace, instance string) (*backupv1alpha1.BackupList, error) {
+func (h *k8sHandler) ListInstanceBackups(ctx context.Context, cluster, namespace, instance string) (*backupv1alpha1.BackupList, error) {
 	return h.kubeConnector.ListInstanceBackups(ctx, namespace, instance)
 }

@@ -21,28 +21,28 @@ import (
 )
 
 // ListBackupStorages proxies the request to the next handler.
-func (h *validateHandler) ListBackupStorages(ctx context.Context, namespace string) (*backupv1alpha1.BackupStorageList, error) {
-	return h.next.ListBackupStorages(ctx, namespace)
+func (h *validateHandler) ListBackupStorages(ctx context.Context, cluster, namespace string) (*backupv1alpha1.BackupStorageList, error) {
+	return h.next.ListBackupStorages(ctx, cluster, namespace)
 }
 
 // GetBackupStorage proxies the request to the next handler.
-func (h *validateHandler) GetBackupStorage(ctx context.Context, namespace, name string) (*backupv1alpha1.BackupStorage, error) {
-	return h.next.GetBackupStorage(ctx, namespace, name)
+func (h *validateHandler) GetBackupStorage(ctx context.Context, cluster, namespace, name string) (*backupv1alpha1.BackupStorage, error) {
+	return h.next.GetBackupStorage(ctx, cluster, namespace, name)
 }
 
 // CreateBackupStorage proxies the request to the next handler.
-func (h *validateHandler) CreateBackupStorage(ctx context.Context, bs *backupv1alpha1.BackupStorage) (*backupv1alpha1.BackupStorage, error) {
+func (h *validateHandler) CreateBackupStorage(ctx context.Context, cluster string, bs *backupv1alpha1.BackupStorage) (*backupv1alpha1.BackupStorage, error) {
 	// Add validation here if needed in the future
-	return h.next.CreateBackupStorage(ctx, bs)
+	return h.next.CreateBackupStorage(ctx, cluster, bs)
 }
 
 // UpdateBackupStorage proxies the request to the next handler.
-func (h *validateHandler) UpdateBackupStorage(ctx context.Context, bs *backupv1alpha1.BackupStorage) (*backupv1alpha1.BackupStorage, error) {
+func (h *validateHandler) UpdateBackupStorage(ctx context.Context, cluster string, bs *backupv1alpha1.BackupStorage) (*backupv1alpha1.BackupStorage, error) {
 	// Add validation here if needed in the future
-	return h.next.UpdateBackupStorage(ctx, bs)
+	return h.next.UpdateBackupStorage(ctx, cluster, bs)
 }
 
 // DeleteBackupStorage proxies the request to the next handler.
-func (h *validateHandler) DeleteBackupStorage(ctx context.Context, namespace, name string) error {
-	return h.next.DeleteBackupStorage(ctx, namespace, name)
+func (h *validateHandler) DeleteBackupStorage(ctx context.Context, cluster, namespace, name string) error {
+	return h.next.DeleteBackupStorage(ctx, cluster, namespace, name)
 }

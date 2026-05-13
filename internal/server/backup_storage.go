@@ -26,8 +26,7 @@ import (
 
 // ListBackupStorages lists all backup storages in a namespace.
 func (e *EverestServer) ListBackupStorages(c echo.Context, cluster, namespace string) error {
-	// The cluster parameter is currently ignored.
-	result, err := e.handler.ListBackupStorages(c.Request().Context(), namespace)
+	result, err := e.handler.ListBackupStorages(c.Request().Context(), cluster, namespace)
 	if err != nil {
 		e.l.Errorf("ListBackupStorages failed: %v", err)
 		return err
@@ -37,7 +36,6 @@ func (e *EverestServer) ListBackupStorages(c echo.Context, cluster, namespace st
 
 // CreateBackupStorage creates a new backup storage.
 func (e *EverestServer) CreateBackupStorage(c echo.Context, cluster, namespace string) error {
-	// The cluster parameter is currently ignored.
 	bs := &backupv1alpha1.BackupStorage{}
 	body, err := io.ReadAll(c.Request().Body)
 	if err != nil {
@@ -50,7 +48,7 @@ func (e *EverestServer) CreateBackupStorage(c echo.Context, cluster, namespace s
 	}
 
 	bs.Namespace = namespace
-	result, err := e.handler.CreateBackupStorage(c.Request().Context(), bs)
+	result, err := e.handler.CreateBackupStorage(c.Request().Context(), cluster, bs)
 	if err != nil {
 		e.l.Errorf("CreateBackupStorage failed: %v", err)
 		return err
@@ -60,8 +58,7 @@ func (e *EverestServer) CreateBackupStorage(c echo.Context, cluster, namespace s
 
 // GetBackupStorage retrieves a specific backup storage.
 func (e *EverestServer) GetBackupStorage(c echo.Context, cluster, namespace, name string) error {
-	// The cluster parameter is currently ignored.
-	result, err := e.handler.GetBackupStorage(c.Request().Context(), namespace, name)
+	result, err := e.handler.GetBackupStorage(c.Request().Context(), cluster, namespace, name)
 	if err != nil {
 		e.l.Errorf("GetBackupStorage failed: %v", err)
 		return err
@@ -71,7 +68,6 @@ func (e *EverestServer) GetBackupStorage(c echo.Context, cluster, namespace, nam
 
 // UpdateBackupStorage updates a backup storage.
 func (e *EverestServer) UpdateBackupStorage(c echo.Context, cluster, namespace, name string) error {
-	// The cluster parameter is currently ignored.
 	bs := &backupv1alpha1.BackupStorage{}
 	body, err := io.ReadAll(c.Request().Body)
 	if err != nil {
@@ -85,7 +81,7 @@ func (e *EverestServer) UpdateBackupStorage(c echo.Context, cluster, namespace, 
 
 	bs.Namespace = namespace
 	bs.Name = name
-	result, err := e.handler.UpdateBackupStorage(c.Request().Context(), bs)
+	result, err := e.handler.UpdateBackupStorage(c.Request().Context(), cluster, bs)
 	if err != nil {
 		e.l.Errorf("UpdateBackupStorage failed: %v", err)
 		return err
@@ -95,8 +91,7 @@ func (e *EverestServer) UpdateBackupStorage(c echo.Context, cluster, namespace, 
 
 // DeleteBackupStorage deletes a backup storage.
 func (e *EverestServer) DeleteBackupStorage(c echo.Context, cluster, namespace, name string) error {
-	// The cluster parameter is currently ignored.
-	if err := e.handler.DeleteBackupStorage(c.Request().Context(), namespace, name); err != nil {
+	if err := e.handler.DeleteBackupStorage(c.Request().Context(), cluster, namespace, name); err != nil {
 		e.l.Errorf("DeleteBackupStorage failed: %v", err)
 		return err
 	}
