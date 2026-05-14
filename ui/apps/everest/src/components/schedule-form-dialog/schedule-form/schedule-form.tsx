@@ -28,7 +28,6 @@ import { ScheduleFormDialogContext } from '../schedule-form-dialog-context/sched
 import { DbEngineType } from '@percona/types';
 import LinkedAlert from '../../linked-alert';
 import BackupStoragesInput from 'components/backup-storages-input';
-import { dbEngineToDbType } from '@percona/utils';
 
 export const ScheduleForm = ({
   allowScheduleSelection,
@@ -38,6 +37,7 @@ export const ScheduleForm = ({
   schedules,
   showTypeRadio,
   disableNameEdit = false,
+  maxSchedulesPerStorage,
 }: ScheduleFormProps) => {
   const {
     formState: { errors },
@@ -45,7 +45,7 @@ export const ScheduleForm = ({
   const schedulesNamesList =
     (schedules && schedules.map((item) => item?.name)) || [];
   const {
-    dbClusterInfo: { dbEngine, namespace, dbClusterName: instanceName },
+    dbInstanceInfo: { dbEngine, namespace },
   } = useContext(ScheduleFormDialogContext);
 
   const errorInfoAlert = errors?.root ? (
@@ -91,15 +91,13 @@ export const ScheduleForm = ({
       </LabeledContent>
       <BackupStoragesInput
         namespace={namespace}
-        dbInstanceName={instanceName}
-        dbType={dbEngineToDbType(dbEngine)}
         schedules={schedules}
+        maxSchedulesPerStorage={maxSchedulesPerStorage}
         autoFillProps={{
           isRequired: true,
           enableFillFirst: autoFillLocation,
           disabled: disableStorageSelection,
         }}
-        hideUsedStoragesInSchedules={dbEngine === DbEngineType.POSTGRESQL}
       />
       <TextInput
         name={ScheduleFormFields.retentionCopies}

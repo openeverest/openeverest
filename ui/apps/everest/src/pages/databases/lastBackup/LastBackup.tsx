@@ -1,46 +1,43 @@
-// TODO: migrate to v2 backup API when ready
-// import { useDbBackups, useDbClusterPitr } from 'hooks/api/backups/useBackups';
+import { useBackupsList } from 'hooks/api/backups/useBackups';
+import { useClusterName } from 'hooks/api/useClusterName';
+import { useDbInstance } from 'hooks/api/db-instances/useDbInstance';
 import { LastBackupProps } from './LastBackup.types';
-import { IconButton, Tooltip, Typography } from '@mui/material';
-import { Messages } from '../dbClusterView.messages';
+import { Typography } from '@mui/material';
 import {
   getLastBackupStatus,
   getLastBackupTimeDiff,
   sortBackupsByTime,
 } from '../DbClusterView.utils';
-import { WarningIcon } from '@percona/ui-lib';
-import {
-  LegacyBackup,
-  LegacyBackupStatus as BackupStatus,
-  DatabaseClusterPitr,
-} from 'shared-types/backups.types';
-import { useDbCluster } from 'hooks/api/db-cluster/useDbCluster';
-import { useNavigate } from 'react-router-dom';
+import { BackupStatus } from 'shared-types/backups.types';
 
 export const LastBackup = ({ dbName, namespace }: LastBackupProps) => {
-  // TODO: migrate to v2 backup API when ready
-  // const { data: backups = [] } = useDbBackups(dbName!, namespace, {
-  //   enabled: !!dbName,
-  //   refetchInterval: 10 * 1000,
-  // });
-  const backups: LegacyBackup[] = [];
+  const clusterName = useClusterName();
+  const { data: backups = [] } = useBackupsList(
+    clusterName,
+    namespace,
+    dbName,
+    {
+      enabled: !!dbName,
+      refetchInterval: 10_000,
+    }
+  );
 
-  // const { data: pitrData } = useDbClusterPitr(dbName, namespace);
-  const pitrData = undefined as DatabaseClusterPitr | undefined;
-  const { data: dbCluster } = useDbCluster(dbName, namespace);
+  const { data: instance } = useDbInstance(namespace, dbName);
 
-  const schedules = dbCluster?.spec.backup?.schedules || [];
+  const hasSchedules = (instance?.spec?.backup?.storages ?? []).some(
+    (s) => s.schedules && s.schedules.length > 0
+  );
 
   const finishedBackups = backups.filter(
-    (backup) => backup.completed && backup.state === BackupStatus.OK
+    (backup) =>
+      backup.status?.completedAt &&
+      backup.status?.state === BackupStatus.SUCCEEDED
   );
   const sortedBackups = sortBackupsByTime(finishedBackups);
   const lastFinishedBackup = sortedBackups[sortedBackups.length - 1];
-  const lastFinishedBackupDate = lastFinishedBackup?.completed
-    ? new Date(lastFinishedBackup?.completed)
+  const lastFinishedBackupDate = lastFinishedBackup?.status?.completedAt
+    ? new Date(lastFinishedBackup.status.completedAt)
     : new Date();
-
-  const navigate = useNavigate();
 
   return (
     <>
@@ -49,26 +46,11 @@ export const LastBackup = ({ dbName, namespace }: LastBackupProps) => {
           <Typography variant="body2">
             {getLastBackupTimeDiff(lastFinishedBackupDate)}
           </Typography>
-          {pitrData?.gaps && (
-            <Tooltip
-              title={Messages.lastBackup.warningTooltip}
-              placement="right"
-              arrow
-            >
-              <IconButton
-                onClick={(e) => {
-                  e.stopPropagation();
-                  navigate(`${namespace}/${dbName}/backups`);
-                }}
-              >
-                <WarningIcon />
-              </IconButton>
-            </Tooltip>
-          )}
+          {/* TODO: wire PITR gaps warning when useDbClusterPitr is available */}
         </>
       ) : (
         <Typography variant="body2">
-          {getLastBackupStatus(sortedBackups, schedules)}
+          {getLastBackupStatus(sortedBackups, hasSchedules)}
         </Typography>
       )}
     </>

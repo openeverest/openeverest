@@ -13,7 +13,7 @@ export enum BackupFields {
 export const defaultValuesFc = () => ({
   [BackupFields.name]: `backup-${generateShortUID()}`,
   [BackupFields.backupClassName]: '',
-  [BackupFields.storageName]: '',
+  [BackupFields.storageName]: undefined,
 });
 
 const staticSchema = (backupsNamesList: string[]) =>
@@ -29,8 +29,18 @@ const staticSchema = (backupsNamesList: string[]) =>
           });
         }
       }),
-    [BackupFields.backupClassName]: z.string().min(1, 'Backup class is required'),
-    [BackupFields.storageName]: z.string().min(1, 'Storage is required'),
+    [BackupFields.backupClassName]: z
+      .string()
+      .min(1, 'Backup class is required'),
+    [BackupFields.storageName]: z
+      .string()
+      .or(z.object({ name: z.string() }))
+      .nullish()
+      .transform((v) => {
+        if (v == null) return '';
+        return typeof v === 'string' ? v : v.name;
+      })
+      .pipe(z.string().min(1, 'Storage is required')),
   });
 
 /**

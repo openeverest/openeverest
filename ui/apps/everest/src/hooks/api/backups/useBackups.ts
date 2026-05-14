@@ -26,6 +26,7 @@ import {
 import {
   Backup,
   BackupList,
+  BackupStatus,
   CreateBackupPayload,
   CreateBackupResponse,
   DeleteBackupPayload,
@@ -46,8 +47,7 @@ export const getBackupListQueryKey = (
   clusterName: string,
   namespace: string,
   instanceName: string
-) =>
-  [BACKUPS_QUERY_KEY, clusterName, namespace, instanceName, 'list'] as const;
+) => [BACKUPS_QUERY_KEY, clusterName, namespace, instanceName, 'list'] as const;
 
 type DeleteBackupArgType = {
   backupName: string;
@@ -59,16 +59,25 @@ export const useBackupsList = (
   instanceName: string,
   options?: PerconaQueryOptions<BackupList, unknown, Backup[]>
 ) => {
-  const { canRead } = useRBACPermissions('backups', `${namespace}/${instanceName}`);
+  const { canRead } = useRBACPermissions(
+    'backups',
+    `${namespace}/${instanceName}`
+  );
 
   return useQuery<BackupList, unknown, Backup[]>({
     queryKey: getBackupListQueryKey(clusterName, namespace, instanceName),
     queryFn: () => getBackupsListFn(clusterName, namespace, instanceName),
     select: canRead
       ? ({ items = [] }) =>
-          items.filter(
-            (backup) => backup.spec.instanceName === instanceName
-          )
+          items
+            .filter((backup) => backup.spec.instanceName === instanceName)
+            .map((backup) => ({
+              ...backup,
+              status: {
+                ...backup.status,
+                state: backup.status?.state ?? BackupStatus.UNKNOWN,
+              },
+            }))
       : () => [],
     enabled: (options?.enabled ?? true) && canRead,
     ...options,
@@ -104,6 +113,7 @@ export const useCreateBackupOnDemand = (
 export const useDeleteBackup = (
   clusterName: string,
   namespace: string,
+  instanceName: string,
   options?: UseMutationOptions<
     DeleteBackupPayload,
     unknown,
@@ -111,14 +121,16 @@ export const useDeleteBackup = (
     unknown
   >
 ) => {
-  // TODO: useDeleteBackup needs instanceName for RBAC scope — add when wiring delete per-instance
-  // const { canDelete } = useRBACPermissions(
-  //   'backups',
-  //   `${namespace}/${instanceName}`
-  // );
+  const { canDelete } = useRBACPermissions(
+    'backups',
+    `${namespace}/${instanceName}`
+  );
 
   return useMutation({
     mutationFn: ({ backupName }: DeleteBackupArgType) => {
+      if (!canDelete) {
+        throw new Error('Not enough permissions to delete backups');
+      }
       return deleteBackupFn(clusterName, namespace, backupName);
     },
     ...options,
@@ -141,4 +153,52 @@ export const useGetBackup = (
   });
 };
 
-
+// TODO: PITR is not part of this task — uncomment when working on PITR feature.
+// The v2 API endpoint for PITR may change; update getPitrFn in api/backups.ts accordingly.
+//
+// import { DatabaseClusterPitrPayload, DatabaseClusterPitr } from 'shared-types/backups.types';
+// import { getPitrFn } from 'api/backups';
+//
+// export const useDbClusterPitr = (
+//   dbClusterName: string,
+//   namespace: string,
+//   options?: PerconaQueryOptions<
+//     DatabaseClusterPitrPayload,
+//     unknown,
+//     DatabaseClusterPitr | undefined
+//   >
+// ) => {
+//   const { canRead } = useRBACPermissions(
+//     'database-clusters',
+//     `${namespace}/${dbClusterName}`
+//   );
+//
+//   return useQuery<
+//     DatabaseClusterPitrPayload,
+//     unknown,
+//     DatabaseClusterPitr | undefined
+//   >({
+//     queryKey: [dbClusterName, 'pitr'],
+//     queryFn: () => getPitrFn(dbClusterName, namespace),
+//     select: (pitrData) => {
+//       const { earliestDate, latestDate, latestBackupName, gaps } = pitrData;
+//       if (
+//         !Object.keys(pitrData).length ||
+//         !earliestDate ||
+//         !latestDate ||
+//         !latestBackupName
+//       ) {
+//         return undefined;
+//       }
+//
+//       return {
+//         earliestDate: new Date(earliestDate),
+//         latestDate: new Date(latestDate),
+//         latestBackupName,
+//         gaps,
+//       };
+//     },
+//     ...options,
+//     enabled: (options?.enabled ?? true) && canRead,
+//   });
+// };

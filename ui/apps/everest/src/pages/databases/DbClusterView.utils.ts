@@ -14,11 +14,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { Schedule } from 'shared-types/dbCluster.types';
-
 import { Messages } from './dbClusterView.messages';
 import { InstanceTableElement } from './dbClusterView.types';
-import { LegacyBackup as Backup, LegacyBackupStatus as BackupStatus } from 'shared-types/backups.types';
+import { Backup, BackupStatus } from 'shared-types/backups.types';
 import { DbErrorType } from 'shared-types/dbErrors.types';
 import {
   DB_INSTANCE_UNKNOWN_PHASE,
@@ -136,17 +134,17 @@ export const getLastBackupTimeDiff = (lastBackup: Date): string => {
 
 export const getLastBackupStatus = (
   backups: Backup[],
-  schedules: Schedule[]
+  hasSchedules: boolean
 ) => {
   if (!backups.length) {
-    if (!schedules.length) {
+    if (!hasSchedules) {
       return Messages.lastBackup.inactive;
     }
     return Messages.lastBackup.scheduled;
   }
 
   const filteredBackups = backups.filter(
-    (backup) => backup.state !== BackupStatus.FAILED
+    (backup) => backup.status?.state !== BackupStatus.FAILED
   );
 
   const lastBackup = filteredBackups[filteredBackups.length - 1];
@@ -155,19 +153,25 @@ export const getLastBackupStatus = (
     return Messages.lastBackup.inactive;
   }
 
-  if (lastBackup.state === BackupStatus.IN_PROGRESS) {
+  const state = lastBackup.status?.state;
+
+  if (state === BackupStatus.RUNNING || state === BackupStatus.PENDING) {
     return Messages.lastBackup.pending;
   }
 
-  if (lastBackup.state === BackupStatus.UNKNOWN) {
+  if (state === BackupStatus.UNKNOWN) {
     return Messages.lastBackup.notStarted;
   }
 };
 
 export const sortBackupsByTime = (backups: Backup[]) => {
-  return backups.sort((b1, b2) => {
-    const date1 = b1?.completed ? new Date(b1.completed) : new Date();
-    const date2 = b2?.completed ? new Date(b2.completed) : new Date();
+  return [...backups].sort((b1, b2) => {
+    const date1 = b1.status?.completedAt
+      ? new Date(b1.status.completedAt)
+      : new Date();
+    const date2 = b2.status?.completedAt
+      ? new Date(b2.status.completedAt)
+      : new Date();
     return date1.getTime() - date2.getTime();
   });
 };

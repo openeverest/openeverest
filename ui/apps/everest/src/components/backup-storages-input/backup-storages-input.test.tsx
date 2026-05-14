@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { DbType } from '@percona/types';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { FormProvider, useForm } from 'react-hook-form';
@@ -63,13 +62,12 @@ const FormProviderWrapper = ({ children }: { children: React.ReactNode }) => {
 };
 
 describe.skip('BackupStoragesInput', () => {
-  it('should show all available storages if not PG', async () => {
+  it('should show all available storages when no limit is set', async () => {
     render(
       <FormProviderWrapper>
         <QueryClientProvider client={queryClient}>
           <BackupStoragesInput
             namespace="test"
-            dbType={DbType.Mysql}
             schedules={[
               {
                 name: 'schedule1',
@@ -102,7 +100,7 @@ describe.skip('BackupStoragesInput', () => {
     expect(screen.queryByText('<SLOTS ACHIEVED>')).not.toBeInTheDocument();
   });
 
-  it('should show only occupied storages when PG took 3 slots across backups/schedules', async () => {
+  it('should show only occupied storages when limit is reached across schedules', async () => {
     // TODO: migrate to v2 backup API when ready
     // backupMocks.useDbBackups.mockReturnValue({
     //   data: [
@@ -120,7 +118,7 @@ describe.skip('BackupStoragesInput', () => {
         <QueryClientProvider client={queryClient}>
           <BackupStoragesInput
             namespace="test"
-            dbType={DbType.Postresql}
+            maxStorages={3}
             schedules={[
               {
                 name: 'schedule3',
@@ -144,13 +142,13 @@ describe.skip('BackupStoragesInput', () => {
   });
 
   // This is a specific case of the previous test
-  it('should show only occupied storages when PG took 3 slots from schedules', async () => {
+  it('should show only occupied storages when limit is reached from schedules', async () => {
     render(
       <FormProviderWrapper>
         <QueryClientProvider client={queryClient}>
           <BackupStoragesInput
             namespace="test"
-            dbType={DbType.Postresql}
+            maxStorages={3}
             schedules={[
               {
                 name: 'schedule1',
@@ -185,7 +183,7 @@ describe.skip('BackupStoragesInput', () => {
   });
 
   // This is a specific case of the previous test
-  it('should show only occupied storages when PG took 3 slots from backups', async () => {
+  it('should show only occupied storages when limit is reached from backups', async () => {
     // TODO: migrate to v2 backup API when ready
     // backupMocks.useDbBackups.mockReturnValue({
     //   data: [
@@ -204,11 +202,7 @@ describe.skip('BackupStoragesInput', () => {
     render(
       <FormProviderWrapper>
         <QueryClientProvider client={queryClient}>
-          <BackupStoragesInput
-            namespace="test"
-            dbType={DbType.Postresql}
-            schedules={[]}
-          />
+          <BackupStoragesInput namespace="test" schedules={[]} />
         </QueryClientProvider>
       </FormProviderWrapper>
     );
@@ -246,8 +240,7 @@ describe.skip('BackupStoragesInput', () => {
         <QueryClientProvider client={queryClient}>
           <BackupStoragesInput
             namespace="test"
-            hideUsedStoragesInSchedules
-            dbType={DbType.Postresql}
+            maxSchedulesPerStorage={1}
             schedules={[
               {
                 name: 'schedule1',

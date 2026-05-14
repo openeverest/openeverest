@@ -26,7 +26,7 @@ import {
 import { MRT_ColumnDef } from 'material-react-table';
 import { useContext, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { Backup, BackupStatus } from 'shared-types/backups.types.ts';
+import { Backup } from 'shared-types/backups.types.ts';
 import { ScheduleModalContext } from '../backups.context.ts';
 import { BACKUP_STATUS_TO_BASE_STATUS } from './backups-list.constants';
 import { Messages } from './backups-list.messages';
@@ -42,11 +42,8 @@ export const BackupsList = () => {
   const [openDeleteDialog, setOpenDeleteDialog] = useState(false);
   const [selectedBackup, setSelectedBackup] = useState('');
 
-  const {
-    instance,
-    setOpenOnDemandModal,
-    setOpenScheduleModal,
-  } = useContext(ScheduleModalContext);
+  const { instance, setOpenOnDemandModal, setOpenScheduleModal } =
+    useContext(ScheduleModalContext);
 
   const { data: backups = [] } = useBackupsList(
     clusterName,
@@ -58,7 +55,7 @@ export const BackupsList = () => {
   );
 
   const { mutate: deleteBackupMutate, isPending: deletingBackup } =
-    useDeleteBackup(clusterName, namespace);
+    useDeleteBackup(clusterName, namespace, instanceName);
 
   const handleDeleteBackup = (backupName: string) => {
     setSelectedBackup(backupName);
@@ -86,7 +83,7 @@ export const BackupsList = () => {
   const columns = useMemo<MRT_ColumnDef<Backup>[]>(
     () => [
       {
-        accessorFn: (row) => row.status?.state ?? BackupStatus.UNKNOWN,
+        accessorFn: (row) => row.status?.state ?? '',
         id: 'state',
         header: 'Status',
         filterVariant: 'multi-select',

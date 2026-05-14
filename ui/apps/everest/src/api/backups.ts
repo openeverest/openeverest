@@ -49,7 +49,6 @@ export const createBackupOnDemandFn = async (
   return response.data;
 };
 
-
 export const deleteBackupFn = async (
   clusterName: string,
   namespace: string,

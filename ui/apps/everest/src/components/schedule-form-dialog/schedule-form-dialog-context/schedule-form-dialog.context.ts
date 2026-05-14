@@ -15,8 +15,8 @@ export const ScheduleFormDialogContext =
     setSelectedScheduleName: () => {},
     isPending: false,
     handleSubmit: () => {},
-    dbClusterInfo: {
-      dbClusterName: '',
+    dbInstanceInfo: {
+      dbInstanceName: '',
       namespace: '',
       schedules: [],
       defaultSchedules: [],

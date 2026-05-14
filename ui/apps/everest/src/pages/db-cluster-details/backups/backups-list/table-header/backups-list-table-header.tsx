@@ -1,4 +1,4 @@
-import { useContext, useState } from 'react';
+import { useContext, useMemo, useState } from 'react';
 import { Box, Button, MenuItem, Tooltip } from '@mui/material';
 import KeyboardArrowDownOutlinedIcon from '@mui/icons-material/KeyboardArrowDownOutlined';
 import KeyboardArrowUpOutlined from '@mui/icons-material/KeyboardArrowUpOutlined';
@@ -9,6 +9,8 @@ import ScheduledBackupsList from './scheduled-backups-list';
 import { BackupListTableHeaderProps } from './backups-list-table-header.types';
 import { Messages } from './backups-list-table-header.messages';
 import { useRBACPermissions } from 'hooks/rbac';
+import { useBackupClassesList } from 'hooks/api/backup-classes/useBackupClasses';
+import { useClusterName } from 'hooks/api/useClusterName';
 
 const BackupListTableHeader = ({
   onNowClick,
@@ -18,22 +20,26 @@ const BackupListTableHeader = ({
 }: BackupListTableHeaderProps) => {
   const [showSchedules, setShowSchedules] = useState(false);
   const { instance } = useContext(ScheduleModalContext);
+  const clusterName = useClusterName();
 
-  // In v2, schedules are nested under storages
   const allSchedules =
     instance.spec.backup?.storages?.flatMap((s) => s.schedules ?? []) ?? [];
   const schedulesNumber = allSchedules.length;
 
-  const restoring =
-    instance.status?.phase === DbInstancePhaseStatus.Restoring;
+  const restoring = instance.status?.phase === DbInstancePhaseStatus.Restoring;
 
-  // TODO: In v2, Instance.spec.provider is a string (e.g. "psmdb", "pxc", "pg").
-  // PG schedule limit logic needs to be adapted once provider values are finalized.
-  // const pgLimitExceeded =
-  //   instance.spec.provider === 'pg' &&
-  //   allSchedules.length >= 3;
-  const pgLimitExceeded = false;
-  const disableScheduleBackups = noStoragesAvailable || pgLimitExceeded;
+  // Check schedule limits from the BackupClass assigned to this instance.
+  const { data: backupClasses = [] } = useBackupClassesList(clusterName);
+  const classRef = instance.spec?.backup?.classRef?.name;
+  const activeClass = useMemo(
+    () => backupClasses.find((bc) => bc.metadata?.name === classRef),
+    [backupClasses, classRef]
+  );
+  const maxStorages = activeClass?.spec?.providerManaged?.limits?.maxStorages;
+  const scheduleLimitExceeded =
+    maxStorages != null &&
+    (instance.spec?.backup?.storages?.length ?? 0) >= maxStorages;
+  const disableScheduleBackups = noStoragesAvailable || scheduleLimitExceeded;
 
   const handleNowClick = (handleClose: () => void) => {
     onNowClick();
@@ -128,8 +134,8 @@ const BackupListTableHeader = ({
                   {disableScheduleBackups ? (
                     <Tooltip
                       title={
-                        pgLimitExceeded
-                          ? Messages.exceededScheduleBackupsNumber
+                        scheduleLimitExceeded
+                          ? Messages.exceededScheduleBackupsNumber(maxStorages!)
                           : Messages.noStoragesAvailable
                       }
                       placement="right"

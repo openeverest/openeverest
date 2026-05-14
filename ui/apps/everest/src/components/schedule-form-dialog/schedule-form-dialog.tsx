@@ -29,13 +29,13 @@ export const ScheduleFormDialog = () => {
     mode = WizardMode.New,
     selectedScheduleName,
     openScheduleModal,
-    dbClusterInfo,
+    dbInstanceInfo,
     handleClose,
     isPending,
     handleSubmit,
   } = useContext(ScheduleFormDialogContext);
 
-  const { schedules = [] } = dbClusterInfo;
+  const { schedules = [] } = dbInstanceInfo;
 
   const scheduledBackupSchema = useMemo(
     () => schema(schedules, mode),

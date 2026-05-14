@@ -18,7 +18,10 @@ import {
   useBackupsList,
   useCreateBackupOnDemand,
 } from 'hooks/api/backups/useBackups.ts';
-import { useBackupClassUiSchema } from 'hooks/api/backup-classes/useBackupClasses.ts';
+import {
+  useBackupClassesList,
+  useBackupClassUiSchema,
+} from 'hooks/api/backup-classes/useBackupClasses.ts';
 import { useContext, useMemo } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useParams } from 'react-router-dom';
@@ -46,9 +49,7 @@ export const OnDemandBackupModal = () => {
     namespace,
     instanceName
   );
-  const backupNames = backups.map(
-    (item) => item.metadata?.name ?? ''
-  );
+  const backupNames = backups.map((item) => item.metadata?.name ?? '');
   const { mutate: createBackupOnDemand, isPending: creatingBackup } =
     useCreateBackupOnDemand(clusterName, namespace);
 
@@ -56,28 +57,28 @@ export const OnDemandBackupModal = () => {
     useContext(ScheduleModalContext);
 
   // Resolve BackupClass uiSchema for the currently selected class.
-  // We track the selected class name via a ref that gets updated from
-  // the form's watch() inside OnDemandBackupFieldsWrapper.
-  // For schema building we use the first available class from the instance
-  // or an empty string — the UIGenerator fields are optional and the schema
-  // uses `.passthrough()` / `.and()` to handle dynamic fields.
+  // For schema building we use the instance's default class from the list.
   const instanceClassRef = instance.spec?.backup?.classRef?.name;
-  const { sections: backupSections } = useBackupClassUiSchema(
-    clusterName,
-    instanceClassRef
+  const { data: backupClasses = [] } = useBackupClassesList(clusterName);
+  const defaultClass = useMemo(
+    () => backupClasses.find((bc) => bc.metadata?.name === instanceClassRef),
+    [backupClasses, instanceClassRef]
   );
+  const { sections: backupSections } = useBackupClassUiSchema(defaultClass);
 
   const { mutate: updateInstance, isPending: updatingInstance } =
     useUpdateDbInstanceWithConflictRetry(instance);
 
   const createBackup = (data: BackupFormData) => {
-    // Extract dynamic config fields (UIGenerator fields live under `config.*`).
-    const configValues = (data as Record<string, unknown>).config as
-      | Record<string, unknown>
-      | undefined;
-    const cleanedConfig = configValues
-      ? removeEmptyFieldValues(configValues)
-      : undefined;
+    // UIGenerator fields use `path` from the uiSchema as their form field names,
+    // so they appear at the top level of form data alongside static fields.
+    // Extract them by removing the known static keys.
+    const { name, backupClassName, storageName, ...dynamicFields } =
+      data as Record<string, unknown>;
+    const cleanedConfig =
+      Object.keys(dynamicFields).length > 0
+        ? removeEmptyFieldValues(dynamicFields)
+        : undefined;
 
     createBackupOnDemand(
       {
@@ -158,7 +159,7 @@ export const OnDemandBackupModal = () => {
       submitting={creatingBackup || updatingInstance}
       submitMessage="Create"
       schema={schema(backupNames, backupSections)}
-      values={values}
+      defaultValues={values}
       size="XL"
     >
       <Typography variant="body1">

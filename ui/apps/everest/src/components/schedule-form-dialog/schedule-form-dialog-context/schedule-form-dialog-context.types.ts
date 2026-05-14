@@ -24,8 +24,8 @@ export type ScheduleFormDialogContextType = {
   handleClose: () => void;
   handleSubmit: (data: ScheduleFormData) => void;
   isPending: boolean;
-  dbClusterInfo: {
-    dbClusterName?: DbCluster['metadata']['name'];
+  dbInstanceInfo: {
+    dbInstanceName?: DbCluster['metadata']['name'];
     namespace: DbCluster['metadata']['namespace'];
     schedules: NonNullable<DbCluster['spec']['backup']>['schedules'];
     activeStorage?: NonNullable<DbCluster['status']>['activeStorage'];

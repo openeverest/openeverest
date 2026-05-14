@@ -213,13 +213,13 @@ const Schedules = ({ storagesToShow, disableCreateButton = false }: Props) => {
             openScheduleModal,
             setOpenScheduleModal,
             externalContext: dbWizardToScheduleFormDialogMap(dbWizardMode),
-            dbClusterInfo: {
+            dbInstanceInfo: {
               schedules,
               defaultSchedules: defaultDbSchedules,
               namespace: k8sNamespace,
               dbEngine: dbTypeToDbEngine(dbType),
               activeStorage,
-              dbClusterName: dbName,
+              dbInstanceName: dbName,
             },
           }}
         >

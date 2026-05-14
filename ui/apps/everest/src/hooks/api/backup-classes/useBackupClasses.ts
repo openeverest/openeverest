@@ -1,16 +1,15 @@
-import { useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { getBackupClassFn, getBackupClassesListFn } from "api/backups";
-import { BackupClass, GetBackupClassPayload, ListBackupClassesPayload } from "shared-types/backups.types";
-import { PerconaQueryOptions } from "shared-types/query.types";
+import { useMemo } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { getBackupClassFn, getBackupClassesListFn } from 'api/backups';
+import {
+  BackupClass,
+  GetBackupClassPayload,
+  ListBackupClassesPayload,
+} from 'shared-types/backups.types';
+import { PerconaQueryOptions } from 'shared-types/query.types';
+import { BackupClassUiSchemaSections } from 'shared-types/backups.types';
 import { useRBACPermissions } from 'hooks/rbac';
-import type { Section } from "components/ui-generator/ui-generator.types";
-
-export type BackupClassUiSchemaSections = {
-  backup?: Section;
-  pitr?: Section;
-  restore?: Section;
-};
+import type { Section } from 'components/ui-generator/ui-generator.types';
 
 export const BACKUP_CLASSES_QUERY_KEY = 'backup-classes';
 
@@ -22,10 +21,13 @@ export const getBackupClassQueryKey = (
   backupClassName: string
 ) => [BACKUP_CLASSES_QUERY_KEY, clusterName, backupClassName] as const;
 
-
 export const useBackupClassesList = (
   clusterName: string,
-  options?: PerconaQueryOptions<ListBackupClassesPayload, unknown, BackupClass[]>
+  options?: PerconaQueryOptions<
+    ListBackupClassesPayload,
+    unknown,
+    BackupClass[]
+  >
 ) => {
   const { canRead } = useRBACPermissions('backup-classes');
 
@@ -41,11 +43,7 @@ export const useBackupClassesList = (
 export const useGetBackupClass = (
   clusterName: string,
   backupClassName: string,
-  options?: PerconaQueryOptions<
-    GetBackupClassPayload,
-    unknown,
-    BackupClass
-  >
+  options?: PerconaQueryOptions<GetBackupClassPayload, unknown, BackupClass>
 ) => {
   const { canRead } = useRBACPermissions('backup-classes');
 
@@ -58,35 +56,24 @@ export const useGetBackupClass = (
 };
 
 export const useBackupClassUiSchema = (
-  clusterName: string,
-  backupClassName: string | undefined
+  backupClass: BackupClass | undefined
 ): {
   sections: Record<string, Section> | undefined;
   uiSchema: BackupClassUiSchemaSections | undefined;
-  isLoading: boolean;
 } => {
-  const { data: backupClass, isLoading } = useGetBackupClass(
-    clusterName,
-    backupClassName ?? '',
-    { enabled: !!backupClassName }
-  );
-
-  const result = useMemo(() => {
+  return useMemo(() => {
     if (!backupClass) return { sections: undefined, uiSchema: undefined };
 
-    const uiSchema = backupClass.spec?.uiSchema as unknown as BackupClassUiSchemaSections | undefined;
+    const uiSchema = backupClass.spec?.uiSchema as unknown as
+      | BackupClassUiSchemaSections
+      | undefined;
 
     if (!uiSchema?.backup) return { sections: undefined, uiSchema };
 
-    // Build sections map keyed as `config` so UIGenerator field names
-    // become `config.type`, `config.compressionType`, etc.
     const sections: Record<string, Section> = {
       config: uiSchema.backup,
     };
 
     return { sections, uiSchema };
   }, [backupClass]);
-
-  return { ...result, isLoading };
 };
-

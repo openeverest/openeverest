@@ -18,13 +18,13 @@ import {
   useBackupClassesList,
   useBackupClassUiSchema,
 } from 'hooks/api/backup-classes/useBackupClasses.ts';
-import { useBackupStoragesByNamespace } from 'hooks/api/backup-storages/useBackupStorages.ts';
 import { useClusterName } from 'hooks/api/useClusterName.ts';
-import { useContext, useEffect } from 'react';
+import { useContext, useMemo } from 'react';
 import { useFormContext } from 'react-hook-form';
 import { useParams } from 'react-router-dom';
 import { UIGenerator } from 'components/ui-generator/ui-generator';
 import { FormMode } from 'components/ui-generator/ui-generator.types';
+import BackupStoragesInput from 'components/backup-storages-input';
 import { BackupFields } from './on-demand-backup-modal.types.ts';
 import { ScheduleModalContext } from '../backups.context.ts';
 
@@ -32,21 +32,19 @@ export const OnDemandBackupFieldsWrapper = () => {
   const clusterName = useClusterName();
   const { namespace = '' } = useParams();
   const { instance } = useContext(ScheduleModalContext);
-  const { watch, setValue, trigger } = useFormContext();
+  const { watch } = useFormContext();
 
   const selectedClassName: string = watch(BackupFields.backupClassName);
-  const selectedStorage: string = watch(BackupFields.storageName);
 
   const { data: backupClasses = [], isLoading: loadingClasses } =
     useBackupClassesList(clusterName);
 
-  const { data: namespaceStorages = [], isLoading: loadingStorages } =
-    useBackupStoragesByNamespace(namespace);
-
-  const { sections: backupSections } = useBackupClassUiSchema(
-    clusterName,
-    selectedClassName || undefined
+  const selectedClass = useMemo(
+    () => backupClasses.find((bc) => bc.metadata?.name === selectedClassName),
+    [backupClasses, selectedClassName]
   );
+
+  const { sections: backupSections } = useBackupClassUiSchema(selectedClass);
 
   // Filter classes that support this instance's provider.
   const providerType = instance.spec?.provider;
@@ -57,13 +55,23 @@ export const OnDemandBackupFieldsWrapper = () => {
     return supported.includes(providerType);
   });
 
-  // Auto-fill storage with first available value if not yet selected.
-  useEffect(() => {
-    if (!selectedStorage && namespaceStorages.length > 0) {
-      setValue(BackupFields.storageName, namespaceStorages[0].name);
-      trigger(BackupFields.storageName);
-    }
-  }, [namespaceStorages, selectedStorage, setValue, trigger]);
+  const maxStorages = selectedClass?.spec?.providerManaged?.limits?.maxStorages;
+  const maxSchedulesPerStorage =
+    selectedClass?.spec?.providerManaged?.limits?.maxSchedulesPerStorage;
+
+  // Existing schedules from the instance — needed for storage availability filtering.
+  const instanceSchedules = useMemo(() => {
+    const storages = instance.spec?.backup?.storages ?? [];
+    return storages.flatMap((s) =>
+      (s.schedules ?? []).map((sched) => ({
+        name: sched.name,
+        enabled: sched.enabled,
+        schedule: sched.cron,
+        backupStorageName: s.storageRef?.name ?? '',
+        retentionCopies: sched.retentionCopies,
+      }))
+    );
+  }, [instance]);
 
   return (
     <>
@@ -81,20 +89,17 @@ export const OnDemandBackupFieldsWrapper = () => {
           </MenuItem>
         ))}
       </SelectInput>
-      <SelectInput
+      <BackupStoragesInput
         name={BackupFields.storageName}
-        label="Storage"
-        selectFieldProps={{
-          label: 'Storage',
-          disabled: loadingStorages,
+        namespace={namespace}
+        schedules={instanceSchedules}
+        maxStorages={maxStorages}
+        maxSchedulesPerStorage={maxSchedulesPerStorage}
+        autoFillProps={{
+          isRequired: true,
+          enableFillFirst: true,
         }}
-      >
-        {namespaceStorages.map((storage) => (
-          <MenuItem key={storage.name} value={storage.name}>
-            {storage.name}
-          </MenuItem>
-        ))}
-      </SelectInput>
+      />
       {backupSections && (
         <UIGenerator
           sectionKey="config"

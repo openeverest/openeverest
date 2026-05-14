@@ -37,8 +37,8 @@ export const createDbClusterFn = async (
   const dbType = customOptions?.dbType || 'postgresql';
   const dbEngineType = dbTypeToDbEngine(dbType);
   const dbTypeVersions = dbEngines[dbEngineType];
-  const dbClusterInfo = await getClusterDetailedInfo(token, request);
-  const storageClassNames = dbClusterInfo?.storageClassNames[0];
+  const dbInstanceInfo = await getClusterDetailedInfo(token, request);
+  const storageClassNames = dbInstanceInfo?.storageClassNames[0];
   const lastVersion = dbTypeVersions[dbTypeVersions.length - 1];
 
   // const payload: DbCluster = {

@@ -18,11 +18,8 @@
 import { FormGroup, Box, Skeleton } from '@mui/material';
 import { DbType } from '@percona/types';
 import { useBackupStoragesByNamespace } from 'hooks/api/backup-storages/useBackupStorages';
-// TODO: migrate to v2 backup API when ready
-// import { useDbBackups } from 'hooks/api/backups/useBackups.ts';
 import { useFormContext } from 'react-hook-form';
-import { getAvailableBackupStoragesForBackups } from 'utils/backups.ts';
-import { DbWizardFormFields, PG_SLOTS_LIMIT } from 'consts.ts';
+import { DbWizardFormFields } from 'consts.ts';
 import BackupsActionableAlert from 'components/actionable-alert/backups-actionable-alert';
 import { StepHeader } from '../step-header/step-header.tsx';
 import { Messages } from './backups.messages.ts';
@@ -32,27 +29,23 @@ import PITR from './pitr/index.ts';
 export const Backups = () => {
   const { watch } = useFormContext();
 
-  const [selectedNamespace, schedules, dbType, dbName] = watch([
+  const [selectedNamespace, schedules, dbType] = watch([
     DbWizardFormFields.k8sNamespace,
     DbWizardFormFields.schedules,
     DbWizardFormFields.dbType,
-    DbWizardFormFields.dbName,
   ]);
   const { data: backupStorages = [], isLoading } =
     useBackupStoragesByNamespace(selectedNamespace);
-  // TODO: migrate to v2 backup API when ready
-  // const { data: backups = [] } = useDbBackups(dbName, selectedNamespace, {
-  //   enabled: dbType === DbType.Postresql,
-  // });
-  const backups: never[] = [];
-  const { storagesToShow, uniqueStoragesInUse } =
-    getAvailableBackupStoragesForBackups(
-      backups,
-      schedules,
-      backupStorages,
-      dbType,
-      dbType === DbType.Postresql
-    );
+
+  // In v2, storage limits are provider-driven (via BackupClass).
+  // Simple schedule-based filtering for PG only.
+  const storagesInSchedules = (schedules ?? []).map((s) => s.backupStorageName);
+  const storagesToShow =
+    dbType === DbType.Postresql
+      ? backupStorages.filter(
+          (storage) => !storagesInSchedules.includes(storage.name)
+        )
+      : backupStorages;
   const scheduleCreationDisabled =
     dbType === DbType.Postresql && storagesToShow.length === 0;
 
@@ -70,10 +63,9 @@ export const Backups = () => {
         </>
       ) : backupStorages.length > 0 ? (
         <>
-          {scheduleCreationDisabled &&
-            uniqueStoragesInUse.length < PG_SLOTS_LIMIT && (
-              <BackupsActionableAlert namespace={selectedNamespace} />
-            )}
+          {scheduleCreationDisabled && (
+            <BackupsActionableAlert namespace={selectedNamespace} />
+          )}
           <FormGroup sx={{ mt: 3 }}>
             <Schedules
               storagesToShow={storagesToShow}

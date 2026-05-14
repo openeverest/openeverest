@@ -13,6 +13,7 @@
 // limitations under the License.
 
 import { CrdsGen, HttpApi } from '@generated/api-types';
+import { Section } from 'components/ui-generator/ui-generator.types';
 
 export type Backup = CrdsGen.components['schemas']['Backup'];
 export type BackupClass = CrdsGen.components['schemas']['BackupClass'];
@@ -36,7 +37,9 @@ export type ListBackupClassesPayload =
 // Raw backup state as described by the generated API types.
 // Today this is just `string`, but if the OpenAPI schema becomes enum-constrained
 // this alias will narrow automatically.
-export type BackupStateFromAPI = NonNullable<NonNullable<Backup['status']>['state']>;
+export type BackupStateFromAPI = NonNullable<
+  NonNullable<Backup['status']>['state']
+>;
 
 export const BackupStatus = {
   PENDING: 'Pending',
@@ -57,6 +60,18 @@ export type NormalizedBackupStatus =
 // Backwards-compatible alias for call sites that already import `BackupStatus` as a type.
 export type BackupStatus = NormalizedBackupStatus;
 
+/** Normalize a Backup's state to a safe UI value. Centralizes the `?? UNKNOWN` fallback. */
+export const getBackupState = (backup: Backup): NormalizedBackupStatus =>
+  (backup.status?.state as NormalizedBackupStatus) ?? BackupStatus.UNKNOWN;
+
+// The generated API types define uiSchema as `Record<string, never>` (opaque),
+// so we maintain this typed alias for UIGenerator consumption.
+export type BackupClassUiSchemaSections = {
+  backup?: Section;
+  pitr?: Section;
+  restore?: Section;
+};
+
 export type DatabaseClusterPitrPayload =
   | {
       earliestDate: string;
@@ -71,54 +86,4 @@ export type DatabaseClusterPitr = {
   latestDate: Date;
   latestBackupName: string;
   gaps: boolean;
-};
-
-// --- Legacy v1 types (used by old pages still referencing v1alpha1 API) ---
-
-export type LegacySingleBackupPayload = {
-  metadata: {
-    name: string;
-  };
-  status?: {
-    created: string;
-    completed: string;
-    state: string;
-  };
-  spec: {
-    dbClusterName: string;
-    backupStorageName: string;
-  };
-};
-
-export type LegacyGetBackupsPayload = {
-  items: Array<LegacySingleBackupPayload>;
-};
-
-export type LegacyBackup = {
-  name: string;
-  created?: string;
-  completed?: string;
-  state: LegacyBackupStatus;
-  dbClusterName: string;
-  backupStorageName: string;
-};
-
-export enum LegacyBackupStatus {
-  OK = 'Succeeded',
-  FAILED = 'Failed',
-  IN_PROGRESS = 'In progress',
-  UNKNOWN = 'Unknown',
-  DELETING = 'Deleting',
-}
-
-export type LegacyBackupPayload = {
-  apiVersion: 'everest.percona.com/v1alpha1';
-  kind: 'DatabaseClusterBackup';
-  metadata: {
-    name: string;
-  };
-  spec: {
-    dbClusterName: string;
-    backupStorageName: string;
-  };
 };
