@@ -56,7 +56,55 @@ type InstanceSpec struct {
 	// individual Backup CRs.
 	// +optional
 	Backup *InstanceBackupSpec `json:"backup,omitempty"`
+
+	// DeletionPolicy controls what happens to Backup and Restore CRs that
+	// reference this Instance when the Instance is deleted.
+	// Cascade (default) instructs the runtime to delete every Backup and
+	// Restore in the Instance's namespace whose .spec.instanceName matches
+	// this Instance before tearing down the engine. Each Backup's own
+	// .spec.deletionPolicy then independently controls whether its
+	// underlying data in the BackupStorage is purged or retained.
+	// Orphan instructs the runtime to leave Backup and Restore CRs in
+	// place; they survive the Instance and can later be used to restore
+	// into a newly-created Instance.
+	//
+	// The Instance is held in the Terminating phase until all referenced
+	// Backups/Restores have been deleted (Cascade) or until the engine
+	// resources have been torn down (both policies).
+	//
+	// The field is mutable on a live Instance but is frozen once deletion
+	// has started: switching policies after .metadata.deletionTimestamp
+	// has been set is rejected so the cascade path cannot race with
+	// itself.
+	// +kubebuilder:validation:Enum=Cascade;Orphan
+	// +kubebuilder:default=Cascade
+	// +optional
+	DeletionPolicy InstanceDeletionPolicy `json:"deletionPolicy,omitempty"`
 }
+
+// InstanceDeletionPolicy controls what happens to Backup and Restore CRs
+// referencing an Instance when the Instance is deleted. See
+// InstanceSpec.DeletionPolicy for the full semantics.
+//
+// +kubebuilder:validation:Enum=Cascade;Orphan
+type InstanceDeletionPolicy string
+
+const (
+	// InstanceDeletionPolicyCascade instructs the runtime to delete every
+	// Backup and Restore in the Instance's namespace whose
+	// .spec.instanceName matches this Instance before tearing down the
+	// engine. Each Backup's own .spec.deletionPolicy independently
+	// controls whether its underlying data in the BackupStorage is purged
+	// or retained. This is the default and matches the historical
+	// behavior of the platform.
+	InstanceDeletionPolicyCascade InstanceDeletionPolicy = "Cascade"
+
+	// InstanceDeletionPolicyOrphan instructs the runtime to leave Backup
+	// and Restore CRs in place when the Instance is deleted. They survive
+	// the Instance and can be used to restore into a newly-created
+	// Instance.
+	InstanceDeletionPolicyOrphan InstanceDeletionPolicy = "Orphan"
+)
 
 // InstanceBackupSpec configures the backup feature on an Instance.
 //
