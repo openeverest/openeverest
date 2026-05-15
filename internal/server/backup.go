@@ -25,6 +25,7 @@ import (
 	"github.com/labstack/echo/v4"
 
 	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
+	api "github.com/openeverest/openeverest/v2/internal/server/api"
 )
 
 // GetBackup returns a specific backup.
@@ -60,8 +61,8 @@ func (e *EverestServer) CreateBackup(c echo.Context, cluster string, namespace s
 }
 
 // DeleteBackup deletes a backup.
-func (e *EverestServer) DeleteBackup(c echo.Context, cluster string, namespace string, backup string) error {
-	if err := e.handler.DeleteBackup(c.Request().Context(), cluster, namespace, backup); err != nil {
+func (e *EverestServer) DeleteBackup(c echo.Context, cluster string, namespace string, backup string, params api.DeleteBackupParams) error {
+	if err := e.handler.DeleteBackup(c.Request().Context(), cluster, namespace, backup, &params); err != nil {
 		e.l.Errorf("DeleteBackup failed: %v", err)
 		return err
 	}

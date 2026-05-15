@@ -11820,7 +11820,15 @@ export interface operations {
     };
     deleteBackup: {
         parameters: {
-            query?: never;
+            query?: {
+                /**
+                 * @description Override the backup's spec.deletionPolicy before deletion.
+                 *     "Delete" (default) removes both the engine backup resource and the data in S3.
+                 *     "Retain" removes the engine backup resource but preserves the data in S3.
+                 *     When omitted, the existing value on the Backup CR is used.
+                 */
+                deletionPolicy?: "Delete" | "Retain";
+            };
             header?: never;
             path: {
                 /** @description The name of the cluster */

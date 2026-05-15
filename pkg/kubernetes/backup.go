@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -41,6 +42,14 @@ func (k *Kubernetes) DeleteBackup(ctx context.Context, obj *backupv1alpha1.Backu
 // CreateBackup creates backup.
 func (k *Kubernetes) CreateBackup(ctx context.Context, backup *backupv1alpha1.Backup) (*backupv1alpha1.Backup, error) {
 	if err := k.k8sClient.Create(ctx, backup); err != nil {
+		return nil, err
+	}
+	return backup, nil
+}
+
+// UpdateBackup updates backup.
+func (k *Kubernetes) UpdateBackup(ctx context.Context, backup *backupv1alpha1.Backup) (*backupv1alpha1.Backup, error) {
+	if err := k.k8sClient.Update(ctx, backup); err != nil {
 		return nil, err
 	}
 	return backup, nil
