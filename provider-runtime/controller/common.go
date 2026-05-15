@@ -661,6 +661,22 @@ const IndexBackupInstanceName = "spec.instanceName"
 // IndexRestoreInstanceName is the field index path used for Restore.spec.instanceName.
 const IndexRestoreInstanceName = "spec.instanceName"
 
+// ShouldRetainBackupData returns true when the underlying backup data in the
+// configured BackupStorage (e.g., the S3 object) must be preserved on
+// deletion of the supplied Backup CR.
+//
+// Providers should call this from CleanupBackup to decide whether to invoke
+// the engine's data-purge path or to merely strip protection finalizers and
+// delete the operator-native backup CR. Centralizing the decision in the
+// runtime lets us layer in additional inputs (e.g., BackupClass-level
+// defaults) later without changing provider code.
+func (c *Context) ShouldRetainBackupData(b *backupv1alpha1.Backup) bool {
+	if b == nil {
+		return false
+	}
+	return b.Spec.DeletionPolicy == backupv1alpha1.BackupDeletionPolicyRetain
+}
+
 // =============================================================================
 // BACKUP / RESTORE EXECUTION STATUS
 // =============================================================================
