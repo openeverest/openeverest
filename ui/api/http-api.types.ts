@@ -1382,9 +1382,9 @@ export interface components {
              */
             allowedNamespaces?: string[];
             /** @default true */
-            verifyTLS: boolean;
+            verifyTLS?: boolean;
             /** @default false */
-            forcePathStyle: boolean;
+            forcePathStyle?: boolean;
         };
         /** @description Backup storage parameters */
         UpdateBackupStorageParams: {
@@ -1477,9 +1477,9 @@ export interface components {
             url?: string;
             region?: string;
             /** @default true */
-            verifyTLS: boolean;
+            verifyTLS?: boolean;
             /** @default false */
-            forcePathStyle: boolean;
+            forcePathStyle?: boolean;
             /**
              * @deprecated
              * @description List of namespaces allowed to use this backup storage
@@ -1835,7 +1835,7 @@ export interface components {
                          *     More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
                          * @default
                          */
-                        name: string;
+                        name?: string;
                     };
                     message?: string;
                     /** @description UpgradePhase represents the phase of the operator upgrade. */
@@ -1866,7 +1866,7 @@ export interface components {
                          *     More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
                          * @default
                          */
-                        name: string;
+                        name?: string;
                     };
                     /** @description TargetVersion is the version to which the operator should be upgraded. */
                     targetVersion?: string;
@@ -1995,7 +1995,7 @@ export interface components {
                                  *     If unspecified, the default value is false.
                                  * @default false
                                  */
-                                forcePathStyle: boolean;
+                                forcePathStyle?: boolean;
                                 /** @description Region is the region of the S3 bucket. */
                                 region: string;
                                 /**
@@ -2011,7 +2011,7 @@ export interface components {
                                  *     If unspecified, the default value is true.
                                  * @default true
                                  */
-                                verifyTLS: boolean;
+                                verifyTLS?: boolean;
                             };
                         };
                     };
@@ -2026,7 +2026,7 @@ export interface components {
                          * @default date
                          * @enum {string}
                          */
-                        type: "date" | "latest";
+                        type?: "date" | "latest";
                     };
                 };
                 /** @description Engine is the database engine specification */
@@ -2161,7 +2161,7 @@ export interface components {
                          * @default ClusterIP
                          * @enum {string}
                          */
-                        type: "internal" | "external" | "ClusterIP" | "LoadBalancer" | "NodePort";
+                        type?: "internal" | "external" | "ClusterIP" | "LoadBalancer" | "NodePort";
                     };
                     /**
                      * Format: int32
@@ -2364,7 +2364,7 @@ export interface components {
                  * @description InUse is a flag that indicates if this restore resource is being used to restore DB cluster from backup.
                  * @default false
                  */
-                inUse: boolean;
+                inUse?: boolean;
                 /**
                  * Format: date-time
                  * @description LatestRestorableTime is the latest time that can be used for PITR restore
@@ -2428,7 +2428,7 @@ export interface components {
                          * @default date
                          * @enum {string}
                          */
-                        type: "date" | "latest";
+                        type?: "date" | "latest";
                     };
                 };
                 /** @description DBClusterName defines the target database cluster name that needs to be restored from backup. */
@@ -2442,7 +2442,7 @@ export interface components {
                  * @description InUse is a flag that indicates if this restore resource is being used to restore DB cluster from backup.
                  * @default false
                  */
-                inUse: boolean;
+                inUse?: boolean;
                 message?: string;
                 /** @description RestoreState represents state of restoration. */
                 state?: string;
@@ -2506,7 +2506,7 @@ export interface components {
                          *     If unspecified, the default value is false.
                          * @default false
                          */
-                        forcePathStyle: boolean;
+                        forcePathStyle?: boolean;
                         /** @description Region is the region of the S3 bucket. */
                         region?: string;
                         /**
@@ -2522,7 +2522,7 @@ export interface components {
                          *     If unspecified, the default value is true.
                          * @default true
                          */
-                        verifyTLS: boolean;
+                        verifyTLS?: boolean;
                     };
                 };
                 /** @description TargetClusterName is the reference to the target cluster. */
@@ -6854,12 +6854,12 @@ export interface components {
              *       "inUse": false
              *     }
              */
-            status: {
+            status?: {
                 /**
                  * @description InUse is a flag that indicates if the policy is used by any DB cluster.
                  * @default false
                  */
-                inUse: boolean;
+                inUse?: boolean;
                 /**
                  * Format: int64
                  * @description LastObservedGeneration is the most recent generation observed for this PodSchedulingPolicy.
@@ -6898,12 +6898,12 @@ export interface components {
              *       "inUse": false
              *     }
              */
-            status: {
+            status?: {
                 /**
                  * @description InUse is a flag that indicates if the config is used by any DB cluster.
                  * @default false
                  */
-                inUse: boolean;
+                inUse?: boolean;
                 /**
                  * Format: int64
                  * @description LastObservedGeneration is the most recent generation observed for this LoadBalancerConfig.
@@ -7076,12 +7076,12 @@ export interface components {
              *       "inUse": false
              *     }
              */
-            status: {
+            status?: {
                 /**
                  * @description InUse is a flag that indicates if the config is used by any DB cluster.
                  * @default false
                  */
-                inUse: boolean;
+                inUse?: boolean;
                 /**
                  * Format: int64
                  * @description LastObservedGeneration is the most recent generation observed for this SplitHorizonDNSConfig.
@@ -7372,7 +7372,7 @@ export interface components {
                              *     More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
                              * @default
                              */
-                            name: string;
+                            name?: string;
                         };
                     }[];
                 };
@@ -7398,7 +7398,7 @@ export interface components {
                                  *     More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
                                  * @default
                                  */
-                                name: string;
+                                name?: string;
                             };
                             key?: string;
                             /**
@@ -7414,7 +7414,7 @@ export interface components {
                                  *     More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
                                  * @default
                                  */
-                                name: string;
+                                name?: string;
                             };
                         };
                         /**
@@ -7513,7 +7513,7 @@ export interface components {
                  *     itself.
                  * @default Cascade
                  */
-                deletionPolicy: string & (("Cascade" | "Orphan") & ("Cascade" | "Orphan"));
+                deletionPolicy?: string & (("Cascade" | "Orphan") & ("Cascade" | "Orphan"));
                 /**
                  * @description Global contains provider-level configuration that applies to the entire cluster.
                  *     The schema for this field is defined by the provider's GlobalConfigSchema.
@@ -7557,7 +7557,7 @@ export interface components {
                          *     More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
                          * @default
                          */
-                        name: string;
+                        name?: string;
                     }[];
                     /** Format: int32 */
                     ready?: number;
@@ -7623,7 +7623,7 @@ export interface components {
                      *     More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
                      * @default
                      */
-                    name: string;
+                    name?: string;
                 };
                 /**
                  * @description Phase of the database cluster.
@@ -7724,7 +7724,7 @@ export interface components {
                  *     itself.
                  * @default Delete
                  */
-                deletionPolicy: string & (("Retain" | "Delete") & ("Retain" | "Delete"));
+                deletionPolicy?: string & (("Retain" | "Delete") & ("Retain" | "Delete"));
                 /**
                  * @description InstanceName is the name of the Instance to back up. The Instance must
                  *     live in the same namespace as this Backup.
@@ -8404,7 +8404,7 @@ export interface components {
                      *     instead of the host). Defaults to false.
                      * @default false
                      */
-                    forcePathStyle: boolean;
+                    forcePathStyle?: boolean;
                     /** @description Region is the region of the S3 bucket. */
                     region: string;
                     /** @description SecretAccessKey is a write-only convenience input. See AccessKeyID. */
@@ -8414,7 +8414,7 @@ export interface components {
                      *     Defaults to true.
                      * @default true
                      */
-                    verifyTLS: boolean;
+                    verifyTLS?: boolean;
                 };
                 /**
                  * @description Type is the object storage type. Today only "s3" is supported.
@@ -8476,7 +8476,7 @@ export interface components {
                  *     If unspecified, the default value is true.
                  * @default true
                  */
-                verifyTLS: boolean;
+                verifyTLS?: boolean;
             };
             /**
              * @description status defines the observed state of MonitoringConfig
@@ -8484,12 +8484,12 @@ export interface components {
              *       "inUse": false
              *     }
              */
-            status: {
+            status?: {
                 /**
                  * @description InUse is a flag that indicates if any Instance uses the monitoring config.
                  * @default false
                  */
-                inUse: boolean;
+                inUse?: boolean;
                 /**
                  * Format: int64
                  * @description LastObservedGeneration is the most recent generation observed for this MonitoringConfig.

@@ -54,7 +54,7 @@ export interface components {
                  *     itself.
                  * @default Delete
                  */
-                deletionPolicy: string & (("Retain" | "Delete") & ("Retain" | "Delete"));
+                deletionPolicy?: string & (("Retain" | "Delete") & ("Retain" | "Delete"));
                 /**
                  * @description InstanceName is the name of the Instance to back up. The Instance must
                  *     live in the same namespace as this Backup.
@@ -556,7 +556,7 @@ export interface components {
                      *     instead of the host). Defaults to false.
                      * @default false
                      */
-                    forcePathStyle: boolean;
+                    forcePathStyle?: boolean;
                     /** @description Region is the region of the S3 bucket. */
                     region: string;
                     /** @description SecretAccessKey is a write-only convenience input. See AccessKeyID. */
@@ -566,7 +566,7 @@ export interface components {
                      *     Defaults to true.
                      * @default true
                      */
-                    verifyTLS: boolean;
+                    verifyTLS?: boolean;
                 };
                 /**
                  * @description Type is the object storage type. Today only "s3" is supported.
@@ -711,7 +711,7 @@ export interface components {
                              *     More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
                              * @default
                              */
-                            name: string;
+                            name?: string;
                         };
                     }[];
                 };
@@ -737,7 +737,7 @@ export interface components {
                                  *     More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
                                  * @default
                                  */
-                                name: string;
+                                name?: string;
                             };
                             key?: string;
                             /**
@@ -753,7 +753,7 @@ export interface components {
                                  *     More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
                                  * @default
                                  */
-                                name: string;
+                                name?: string;
                             };
                         };
                         /**
@@ -852,7 +852,7 @@ export interface components {
                  *     itself.
                  * @default Cascade
                  */
-                deletionPolicy: string & (("Cascade" | "Orphan") & ("Cascade" | "Orphan"));
+                deletionPolicy?: string & (("Cascade" | "Orphan") & ("Cascade" | "Orphan"));
                 /**
                  * @description Global contains provider-level configuration that applies to the entire cluster.
                  *     The schema for this field is defined by the provider's GlobalConfigSchema.
@@ -896,7 +896,7 @@ export interface components {
                          *     More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
                          * @default
                          */
-                        name: string;
+                        name?: string;
                     }[];
                     /** Format: int32 */
                     ready?: number;
@@ -962,7 +962,7 @@ export interface components {
                      *     More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
                      * @default
                      */
-                    name: string;
+                    name?: string;
                 };
                 /**
                  * @description Phase of the database cluster.
@@ -1053,7 +1053,7 @@ export interface components {
                  *     If unspecified, the default value is true.
                  * @default true
                  */
-                verifyTLS: boolean;
+                verifyTLS?: boolean;
             };
             /**
              * @description status defines the observed state of MonitoringConfig
@@ -1061,12 +1061,12 @@ export interface components {
              *       "inUse": false
              *     }
              */
-            status: {
+            status?: {
                 /**
                  * @description InUse is a flag that indicates if any Instance uses the monitoring config.
                  * @default false
                  */
-                inUse: boolean;
+                inUse?: boolean;
                 /**
                  * Format: int64
                  * @description LastObservedGeneration is the most recent generation observed for this MonitoringConfig.
