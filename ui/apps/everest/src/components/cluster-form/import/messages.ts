@@ -8,6 +8,8 @@ export const Messages = {
     dialogTitle: 'S3 details',
     bucketName: 'Bucket name',
     bucketNamePlaceholder: 'Enter bucket name',
+    warning:
+      'OpenEverest does not validate S3 credentials or file paths. Please ensure your bucket, region, and paths are correct and accessible before proceeding.',
 
     region: 'Region',
     regionPlaceholder: 'Enter region',

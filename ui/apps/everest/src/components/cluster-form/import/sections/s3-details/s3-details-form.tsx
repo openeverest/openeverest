@@ -1,3 +1,4 @@
+import { Alert } from '@mui/material';
 import { TextInput } from '@percona/ui-lib';
 import { ImportFields } from '../../import.types';
 import { Messages } from '../../messages';
@@ -7,6 +8,9 @@ import { HiddenInput } from 'components/hidden-input';
 export const S3DetailsForm = () => {
   return (
     <>
+      <Alert severity="warning" sx={{ mb: 2 }}>
+        {Messages.s3Details.warning}
+      </Alert>
       <TextInput
         name={ImportFields.bucketName}
         label={Messages.s3Details.bucketName}
