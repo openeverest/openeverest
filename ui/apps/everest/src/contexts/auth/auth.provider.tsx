@@ -98,7 +98,14 @@ const AuthProvider = ({ children, isSsoEnabled }: AuthProviderProps) => {
 
   const logout = async () => {
     const token = localStorage.getItem('everestToken');
-    await api.delete('/session', { headers: { token: token } });
+    try {
+      await api.delete('/session', { headers: { token: token } });
+    } catch (error) {
+      enqueueSnackbar(
+        'Server sign-out failed. Proceeding with local sign-out.',
+        { variant: 'warning' }
+      );
+    }
     if (isSsoEnabled) {
       await userManager.clearStaleState();
       await setLogoutStatus();
