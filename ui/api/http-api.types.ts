@@ -11466,7 +11466,15 @@ export interface operations {
     };
     deleteInstance: {
         parameters: {
-            query?: never;
+            query?: {
+                /**
+                 * @description Override the instance's spec.deletionPolicy before deletion.
+                 *     "Cascade" (default) deletes all Backup and Restore CRs referencing this instance.
+                 *     "Orphan" leaves Backup and Restore CRs in place.
+                 *     When omitted, the existing value on the Instance CR is used.
+                 */
+                deletionPolicy?: "Cascade" | "Orphan";
+            };
             header?: never;
             path: {
                 /** @description The name of the cluster */
