@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2025 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -91,7 +92,7 @@ func namespaceExists(
 		if k8serrors.IsNotFound(err) {
 			return false, false, nil
 		}
-		return false, false, fmt.Errorf("cannot check if namesapce exists: %w", err)
+		return false, false, fmt.Errorf("cannot check if namespace exists: %w", err)
 	}
 	return true, isManagedByEverest(ns), nil
 }
