@@ -1,4 +1,4 @@
-import { PreviewContentText } from '../preview-section';
+import { PreviewContentText, TruncatedPreviewText } from '../preview-section';
 import { AdvancedConfigurationType } from '../../database-form-schema.ts';
 import { ProxyExposeType } from 'shared-types/dbCluster.types';
 import { EMPTY_LOAD_BALANCER_CONFIGURATION } from 'consts.ts';
@@ -29,7 +29,10 @@ export const AdvancedConfigurationsPreviewSection = ({
         />
       )}
       {engineParametersEnabled && engineParameters && (
-        <PreviewContentText text="Database engine parameters set" />
+        <TruncatedPreviewText
+          text={`Engine parameters: ${engineParameters}`}
+          dataTestId="engine-parameters"
+        />
       )}
       {podSchedulingPolicyEnabled && podSchedulingPolicy && (
         <PreviewContentText

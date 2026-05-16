@@ -38,3 +38,9 @@ export type PreviewContentTextProps = {
   text: string;
   dataTestId?: string;
 } & TypographyProps;
+
+export type TruncatedPreviewTextProps = {
+  text: string;
+  dataTestId?: string;
+  maxLines?: number;
+} & Omit<TypographyProps, 'children'>;

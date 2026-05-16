@@ -1,12 +1,15 @@
+import { useLayoutEffect, useRef, useState } from 'react';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
-import { IconButton, Stack, Typography, useTheme } from '@mui/material';
+import { IconButton, Link, Stack, Typography, useTheme } from '@mui/material';
 import { useActiveBreakpoint } from 'hooks/utils/useActiveBreakpoint';
 import {
   PreviewContentTextProps,
   PreviewSectionProps,
+  TruncatedPreviewTextProps,
 } from './database-preview.types';
 import { kebabize } from '@percona/utils';
+import { Messages } from './database.preview.messages';
 
 export const PreviewSection = ({
   title,
@@ -113,3 +116,99 @@ export const PreviewContentText = ({
     {text}
   </Typography>
 );
+
+export const TruncatedPreviewText = ({
+  text,
+  dataTestId,
+  maxLines = 2,
+  ...typographyProps
+}: TruncatedPreviewTextProps) => {
+  const [expanded, setExpanded] = useState(false);
+  const [isOverflowing, setIsOverflowing] = useState(false);
+  const textRef = useRef<HTMLSpanElement>(null);
+  const testId = dataTestId
+    ? `${dataTestId}-preview-content`
+    : 'preview-content';
+
+  // Reset expanded state when text prop changes
+  useLayoutEffect(() => {
+    setExpanded(false);
+  }, [text]);
+
+  useLayoutEffect(() => {
+    const el = textRef.current;
+    if (!el) return;
+
+    const checkOverflow = () => {
+      // Compare scrollHeight to clientHeight to determine if text overflows
+      setIsOverflowing(el.scrollHeight > el.clientHeight);
+    };
+
+    // Initial check
+    checkOverflow();
+
+    // Re-check on dimension changes
+    let observer: ResizeObserver | undefined;
+    if (typeof ResizeObserver !== 'undefined') {
+      observer = new ResizeObserver(checkOverflow);
+      observer.observe(el);
+    }
+
+    return () => {
+      if (observer) {
+        observer.disconnect();
+      }
+    };
+  }, [text, maxLines]);
+
+  return (
+    <Stack
+      spacing={0}
+      data-testid={
+        dataTestId
+          ? `${dataTestId}-truncated-wrapper`
+          : 'truncated-wrapper'
+      }
+    >
+      <Typography
+        ref={textRef}
+        variant="caption"
+        color="text.secondary"
+        data-testid={testId}
+        sx={{
+          ...(!expanded && {
+            display: '-webkit-box',
+            WebkitLineClamp: maxLines,
+            WebkitBoxOrient: 'vertical',
+            overflow: 'hidden',
+          }),
+          wordBreak: 'break-word',
+          whiteSpace: 'pre-wrap',
+        }}
+        {...typographyProps}
+      >
+        {text}
+      </Typography>
+      {isOverflowing && (
+        <Link
+          component="button"
+          variant="caption"
+          onClick={() => setExpanded((prev) => !prev)}
+          aria-expanded={expanded}
+          data-testid={
+            dataTestId
+              ? `${dataTestId}-truncated-toggle`
+              : 'truncated-toggle'
+          }
+          sx={{
+            alignSelf: 'flex-start',
+            cursor: 'pointer',
+            mt: 0.25,
+          }}
+        >
+          {expanded ? Messages.showLess : Messages.showMore}
+        </Link>
+      )}
+    </Stack>
+  );
+};
