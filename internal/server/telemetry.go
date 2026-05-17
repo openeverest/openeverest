@@ -103,11 +103,15 @@ func postTelemetryPayload(
 
 	snippet, readErr := io.ReadAll(io.LimitReader(resp.Body, telemetryMaxErrorBodyLogBytes))
 	if readErr != nil {
-		l.Infow("telemetry non-OK response", "status", resp.StatusCode, "bodyReadErr", readErr)
-		return nil
+		err := fmt.Errorf("telemetry request failed with status %d: %w", resp.StatusCode, readErr)
+		l.Errorw("telemetry non-OK response", "status", resp.StatusCode, "bodyReadErr", readErr)
+		return err
 	}
-	l.Infow("telemetry non-OK response", "status", resp.StatusCode, "bodySnippet", string(snippet))
-	return nil
+	if len(snippet) == telemetryMaxErrorBodyLogBytes {
+		l.Warn("telemetry error response body truncated; original response is longer")
+	}
+	l.Warnw("telemetry non-OK response", "status", resp.StatusCode, "bodySnippet", string(snippet))
+	return fmt.Errorf("telemetry request failed with status %d", resp.StatusCode)
 }
 
 // RunTelemetryJob runs background job for collecting telemetry.
