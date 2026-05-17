@@ -12,7 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { Button, CircularProgress, Stack, Tooltip, Typography } from '@mui/material';
+import {
+  Button,
+  CircularProgress,
+  Stack,
+  Tooltip,
+  Typography,
+} from '@mui/material';
 import { useRBACPermissions } from 'hooks/rbac';
 import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -20,7 +26,13 @@ import { NamespaceInstance } from 'shared-types/namespaces.types';
 
 export const OperatorCell = ({
   description,
-  namespaceInstance: { name, operators, upgradeAvailable, isUpgrading, pendingActions },
+  namespaceInstance: {
+    name,
+    operators,
+    upgradeAvailable,
+    isUpgrading,
+    pendingActions,
+  },
 }: {
   description: string;
   namespaceInstance: NamespaceInstance;
@@ -36,14 +48,20 @@ export const OperatorCell = ({
       (a) => a.pendingTask === 'restart' || a.pendingTask === 'upgradeEngine'
     ).length > 0;
 
-  const showUpgradeButton = (upgradeAvailable || somePendingTask) && canRead && !isUpgrading;
+  const showUpgradeButton =
+    (upgradeAvailable || somePendingTask) && canRead && !isUpgrading;
 
   return (
     <Stack direction="row" alignItems="center" width="100%">
       <Typography variant="body1">{description}</Typography>
       {isUpgrading && canRead && (
         <Tooltip title="Operator upgrade in progress">
-          <Stack direction="row" alignItems="center" gap={1} sx={{ ml: 'auto' }}>
+          <Stack
+            direction="row"
+            alignItems="center"
+            gap={1}
+            sx={{ ml: 'auto' }}
+          >
             <CircularProgress size={16} />
             <Typography variant="body2" color="text.secondary">
               Upgrading

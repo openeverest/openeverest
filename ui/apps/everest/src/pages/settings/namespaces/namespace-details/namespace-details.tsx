@@ -65,11 +65,13 @@ const NamespaceDetails = () => {
       },
       enabled: !!namespace && dbEngines.length > 0,
       refetchInterval:
-        anyEngineUpgrading || hasPendingActionsRef.current ? 2 * 1000 : 5 * 1000,
+        anyEngineUpgrading || hasPendingActionsRef.current
+          ? 2 * 1000
+          : 5 * 1000,
     });
-  hasPendingActionsRef.current = (operatorsUpgradePlan?.pendingActions || []).some(
-    (a) => a.pendingTask !== 'ready'
-  );
+  hasPendingActionsRef.current = (
+    operatorsUpgradePlan?.pendingActions || []
+  ).some((a) => a.pendingTask !== 'ready');
   const phase = useOperatorUpgradePhase(dbEngines, operatorsUpgradePlan);
   const operatorNamesWithUpgrades = useMemo(
     () =>

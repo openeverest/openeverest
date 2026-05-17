@@ -81,8 +81,7 @@ const UpgradeHeader = ({
     return (
       <Box {...boxProps}>
         <Alert severity="error">
-          Upgrade incomplete:{' '}
-          <strong>{stuckClusters.join(', ')}</strong>{' '}
+          Upgrade incomplete: <strong>{stuckClusters.join(', ')}</strong>{' '}
           {stuckClusters.length === 1 ? 'is' : 'are'} not ready. Check the
           database{stuckClusters.length !== 1 ? 's' : ''} and retry
           individually.
