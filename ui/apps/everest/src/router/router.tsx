@@ -35,6 +35,7 @@ import {
   NamespaceDetails,
   Namespaces,
   NoMatch,
+  PlaygroundPage,
   Policies,
   PoliciesList,
   PolicyDetails,
@@ -58,6 +59,10 @@ const router = createBrowserRouter([
   {
     path: '/logout',
     element: withSuspense(<Logout />),
+  },
+  {
+    path: '/playground-poc',
+    element: withSuspense(<PlaygroundPage />),
   },
   {
     path: '/',

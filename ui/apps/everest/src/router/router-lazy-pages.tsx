@@ -132,3 +132,9 @@ export const SettingsPoliciesRouter = lazy(
 export const SplitHorizon = lazy(
   () => import('pages/settings/policies/split-horizon')
 );
+
+export const PlaygroundPage = lazy(() =>
+  import('pages/playground/PlaygroundPage').then((module) => ({
+    default: module.PlaygroundPage,
+  }))
+);
