@@ -1008,8 +1008,8 @@ type Instance struct {
 		// .spec.deletionPolicy then independently controls whether its
 		// underlying data in the BackupStorage is purged or retained.
 		// Orphan instructs the runtime to leave Backup and Restore CRs in
-		// place; they survive the Instance and can later be used to restore
-		// into a newly-created Instance.
+		// place; they survive the Instance deletion and can later be used to
+		// restore into a newly-created Instance.
 		//
 		// The Instance is held in the Terminating phase until all referenced
 		// Backups/Restores have been deleted (Cascade) or until the engine
