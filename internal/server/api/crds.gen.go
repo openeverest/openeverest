@@ -185,6 +185,27 @@ func (e MonitoringConfigSpecType) Valid() bool {
 	}
 }
 
+// Defines values for PresetStatusConditionsStatus.
+const (
+	PresetStatusConditionsStatusFalse   PresetStatusConditionsStatus = "False"
+	PresetStatusConditionsStatusTrue    PresetStatusConditionsStatus = "True"
+	PresetStatusConditionsStatusUnknown PresetStatusConditionsStatus = "Unknown"
+)
+
+// Valid indicates whether the value is a known member of the PresetStatusConditionsStatus enum.
+func (e PresetStatusConditionsStatus) Valid() bool {
+	switch e {
+	case PresetStatusConditionsStatusFalse:
+		return true
+	case PresetStatusConditionsStatusTrue:
+		return true
+	case PresetStatusConditionsStatusUnknown:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ProviderStatusConditionsStatus.
 const (
 	ProviderStatusConditionsStatusFalse   ProviderStatusConditionsStatus = "False"
@@ -1255,6 +1276,321 @@ type MonitoringConfigList struct {
 	} `json:"metadata,omitempty"`
 }
 
+// Preset Preset is the Schema for the presets API. A Preset provides a reusable
+// set of default values for creating Instances, enabling one-click
+// deployment with sensible defaults.
+type Preset struct {
+	// ApiVersion APIVersion defines the versioned schema of this representation of an object.
+	// Servers should convert recognized schemas to the latest internal value, and
+	// may reject unrecognized values.
+	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+	ApiVersion *string `json:"apiVersion,omitempty"`
+
+	// Kind Kind is a string value representing the REST resource this object represents.
+	// Servers may infer this from the endpoint the client submits requests to.
+	// Cannot be updated.
+	// In CamelCase.
+	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+	Kind     *string                 `json:"kind,omitempty"`
+	Metadata *map[string]interface{} `json:"metadata,omitempty"`
+
+	// Spec spec defines the desired state of Preset
+	Spec struct {
+		// Template Template holds the configuration values this preset provides.
+		// When an Instance is created from this preset, the template is used
+		// as the starting point for the Instance's spec.
+		// The provider field in template is required and determines which
+		// provider this preset targets.
+		Template struct {
+			// Backup Backup configures the backup feature for this Instance. When enabled,
+			// the provider's reconciler is given the resolved BackupClass and storage
+			// list so it can configure the engine accordingly (sidecars, agent
+			// configuration, etc.). Required for ProviderManaged BackupClasses; Job
+			// classes do not need an entry here because they read directly from
+			// individual Backup CRs.
+			Backup *struct {
+				// ClassRef ClassRef references the BackupClass that the provider should use to
+				// configure the engine. The class must have ExecutionMode=ProviderManaged
+				// and list the Instance's provider in its SupportedProviders.
+				ClassRef struct {
+					// Name Name is the BackupClass name. BackupClasses are cluster-scoped.
+					Name string `json:"name"`
+				} `json:"classRef"`
+
+				// Enabled Enabled toggles the backup feature for this Instance. When false the
+				// runtime skips ConfigureBackup() and the rest of this struct is ignored.
+				Enabled bool `json:"enabled"`
+
+				// Storages Storages registers BackupStorages on the engine. Each entry maps a
+				// logical name (visible to the engine and reused by Backup CRs via
+				// .spec.storageName) to a BackupStorage resource. Schedules and PITR are
+				// configured per storage via the nested .schedules and .pitr fields.
+				Storages *[]struct {
+					// Main Main marks this storage as the engine's default. At most one storage
+					// per Instance may be marked main.
+					Main *bool `json:"main,omitempty"`
+
+					// Name Name is the logical name the engine uses for this storage. It is also
+					// the value that Backup CRs target via .spec.storageName.
+					Name string `json:"name"`
+
+					// Pitr PITR enables and configures point-in-time recovery writing to this
+					// storage. Requires the BackupClass to advertise PITR support via
+					// .spec.providerManaged. Engines that support only a single PITR stream
+					// (e.g. PSMDB, PXC) require at most one storage on the Instance to set
+					// .pitr.enabled=true; this is enforced by the provider, not by the
+					// core schema (PG legitimately archives WAL to every configured repo).
+					Pitr *struct {
+						// Config Config holds provider-specific PITR options. The schema is defined by
+						// the BackupClass via .spec.providerManaged.
+						Config *map[string]interface{} `json:"config,omitempty"`
+
+						// Enabled Enabled toggles PITR for this storage.
+						Enabled bool `json:"enabled"`
+					} `json:"pitr,omitempty"`
+
+					// Schedules Schedules registers recurring backup tasks that write to this storage.
+					// Schedules produce Backup CRs (via the provider's mirroring loop) using
+					// the operator-native scheduler — the runtime never spawns CronJobs for
+					// ProviderManaged BackupClasses. Schedule names must be unique across
+					// all storages on the Instance.
+					Schedules *[]struct {
+						// Cron Cron is a standard 5-field cron expression. The provider may reject
+						// expressions the engine does not support.
+						Cron string `json:"cron"`
+
+						// Enabled Enabled toggles the schedule. A disabled schedule is removed from
+						// the engine without losing its definition on the Instance.
+						Enabled bool `json:"enabled"`
+
+						// Name Name uniquely identifies the schedule. The provider uses it as the
+						// schedule key on the engine and as the value of Backup.spec.scheduleName
+						// on mirrored Backup CRs. Names must be unique across all storages on
+						// the Instance.
+						Name string `json:"name"`
+
+						// RetentionCopies RetentionCopies is the number of recent backups to keep for this
+						// schedule. Zero (or unset) means "keep all". Negative values are
+						// rejected.
+						RetentionCopies *int32 `json:"retentionCopies,omitempty"`
+					} `json:"schedules,omitempty"`
+
+					// StorageRef StorageRef references a BackupStorage in the same namespace.
+					StorageRef struct {
+						// Name Name of the referent.
+						// This field is effectively required, but due to backwards compatibility is
+						// allowed to be empty. Instances of this type with an empty value here are
+						// almost certainly wrong.
+						// More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+						Name *string `json:"name,omitempty"`
+					} `json:"storageRef"`
+				} `json:"storages,omitempty"`
+			} `json:"backup,omitempty"`
+
+			// Components Components defines the component instances for this cluster.
+			// The keys are component names (e.g., "engine", "proxy", "backupAgent").
+			// Which components are valid depends on the selected topology.
+			Components *map[string]struct {
+				// Config Config specifies the component specific configuration.
+				Config *struct {
+					// ConfigMapRef LocalObjectReference contains enough information to let you locate the
+					// referenced object inside the same namespace.
+					ConfigMapRef *struct {
+						// Name Name of the referent.
+						// This field is effectively required, but due to backwards compatibility is
+						// allowed to be empty. Instances of this type with an empty value here are
+						// almost certainly wrong.
+						// More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+						Name *string `json:"name,omitempty"`
+					} `json:"configMapRef,omitempty"`
+					Key *string `json:"key,omitempty"`
+
+					// SecretRef LocalObjectReference contains enough information to let you locate the
+					// referenced object inside the same namespace.
+					SecretRef *struct {
+						// Name Name of the referent.
+						// This field is effectively required, but due to backwards compatibility is
+						// allowed to be empty. Instances of this type with an empty value here are
+						// almost certainly wrong.
+						// More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+						Name *string `json:"name,omitempty"`
+					} `json:"secretRef,omitempty"`
+				} `json:"config,omitempty"`
+
+				// CustomSpec CustomSpec provides an API for customising this component.
+				// The API schema is defined by the provider's ComponentSchemas.
+				CustomSpec *map[string]interface{} `json:"customSpec,omitempty"`
+
+				// Image Image specifies an override for the image to use.
+				// When unspecified, it is autmatically set from the ComponentVersions
+				// based on the Version specified.
+				Image *string `json:"image,omitempty"`
+
+				// Name Name of the component.
+				Name *string `json:"name,omitempty"`
+
+				// Replicas Replicas specifies the number of replicas for this component.
+				Replicas *int32 `json:"replicas,omitempty"`
+
+				// Resources Resources requirements for this component.
+				Resources *struct {
+					// Claims Claims lists the names of resources, defined in spec.resourceClaims,
+					// that are used by this container.
+					//
+					// This field depends on the
+					// DynamicResourceAllocation feature gate.
+					//
+					// This field is immutable. It can only be set for containers.
+					Claims *[]struct {
+						// Name Name must match the name of one entry in pod.spec.resourceClaims of
+						// the Pod where this field is used. It makes that resource available
+						// inside a container.
+						Name string `json:"name"`
+
+						// Request Request is the name chosen for a request in the referenced claim.
+						// If empty, everything from the claim is made available, otherwise
+						// only the result of this request.
+						Request *string `json:"request,omitempty"`
+					} `json:"claims,omitempty"`
+
+					// Limits Limits describes the maximum amount of compute resources allowed.
+					// More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
+					Limits *map[string]Preset_Spec_Template_Components_Resources_Limits_AdditionalProperties `json:"limits,omitempty"`
+
+					// Requests Requests describes the minimum amount of compute resources required.
+					// If Requests is omitted for a container, it defaults to Limits if that is explicitly specified,
+					// otherwise to an implementation-defined value. Requests cannot exceed Limits.
+					// More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
+					Requests *map[string]Preset_Spec_Template_Components_Resources_Requests_AdditionalProperties `json:"requests,omitempty"`
+				} `json:"resources,omitempty"`
+
+				// Storage Storage requirements for this component.
+				// For stateless components, this is an optional field.
+				Storage *struct {
+					Size         *Preset_Spec_Template_Components_Storage_Size `json:"size,omitempty"`
+					StorageClass *string                                       `json:"storageClass,omitempty"`
+				} `json:"storage,omitempty"`
+
+				// Type Type of the component from the Provider.
+				Type *string `json:"type,omitempty"`
+
+				// Version Version of the component from ComponentVersions.
+				Version *string `json:"version,omitempty"`
+			} `json:"components,omitempty"`
+
+			// Global Global contains provider-level configuration that applies to the entire cluster.
+			// The schema for this field is defined by the provider's GlobalConfigSchema.
+			Global *map[string]interface{} `json:"global,omitempty"`
+
+			// Provider Provider is the name of the database provider (e.g., "psmdb", "postgresql").
+			Provider *string `json:"provider,omitempty"`
+
+			// Topology Topology defines the deployment topology and its configuration.
+			Topology *struct {
+				// Config Config contains topology-specific configuration.
+				// The schema for this field is defined by the provider's TopologyDefinition.
+				// Examples: shard count for sharded topology, replication factor, etc.
+				Config *map[string]interface{} `json:"config,omitempty"`
+
+				// Type Type is the topology name (e.g., "sharded", "replicaset").
+				// The available topologies are defined by the provider.
+				// If omitted, the provider's default topology is used.
+				Type *string `json:"type,omitempty"`
+			} `json:"topology,omitempty"`
+
+			// Version Version selects a provider-defined version bundle, resolving compatible
+			// versions for all components automatically. Per-component versions set
+			// in Components take precedence over the bundle.
+			// If omitted and the provider defines a default bundle, that bundle is used.
+			Version *string `json:"version,omitempty"`
+		} `json:"template"`
+	} `json:"spec"`
+
+	// Status status defines the observed state of Preset
+	Status *struct {
+		Conditions *[]struct {
+			// LastTransitionTime lastTransitionTime is the last time the condition transitioned from one status to another.
+			// This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+			LastTransitionTime time.Time `json:"lastTransitionTime"`
+
+			// Message message is a human readable message indicating details about the transition.
+			// This may be an empty string.
+			Message string `json:"message"`
+
+			// ObservedGeneration observedGeneration represents the .metadata.generation that the condition was set based upon.
+			// For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+			// with respect to the current state of the instance.
+			ObservedGeneration *int64 `json:"observedGeneration,omitempty"`
+
+			// Reason reason contains a programmatic identifier indicating the reason for the condition's last transition.
+			// Producers of specific condition types may define expected values and meanings for this field,
+			// and whether the values are considered a guaranteed API.
+			// The value should be a CamelCase string.
+			// This field may not be empty.
+			Reason string `json:"reason"`
+
+			// Status status of the condition, one of True, False, Unknown.
+			Status PresetStatusConditionsStatus `json:"status"`
+
+			// Type type of condition in CamelCase or in foo.example.com/CamelCase.
+			Type string `json:"type"`
+		} `json:"conditions,omitempty"`
+	} `json:"status,omitempty"`
+}
+
+// PresetSpecTemplateComponentsResourcesLimits0 defines model for .
+type PresetSpecTemplateComponentsResourcesLimits0 = int
+
+// PresetSpecTemplateComponentsResourcesLimits1 defines model for .
+type PresetSpecTemplateComponentsResourcesLimits1 = string
+
+// Preset_Spec_Template_Components_Resources_Limits_AdditionalProperties defines model for Preset.Spec.Template.Components.Resources.Limits.AdditionalProperties.
+type Preset_Spec_Template_Components_Resources_Limits_AdditionalProperties struct {
+	union json.RawMessage
+}
+
+// PresetSpecTemplateComponentsResourcesRequests0 defines model for .
+type PresetSpecTemplateComponentsResourcesRequests0 = int
+
+// PresetSpecTemplateComponentsResourcesRequests1 defines model for .
+type PresetSpecTemplateComponentsResourcesRequests1 = string
+
+// Preset_Spec_Template_Components_Resources_Requests_AdditionalProperties defines model for Preset.Spec.Template.Components.Resources.Requests.AdditionalProperties.
+type Preset_Spec_Template_Components_Resources_Requests_AdditionalProperties struct {
+	union json.RawMessage
+}
+
+// PresetSpecTemplateComponentsStorageSize0 defines model for .
+type PresetSpecTemplateComponentsStorageSize0 = int
+
+// PresetSpecTemplateComponentsStorageSize1 defines model for .
+type PresetSpecTemplateComponentsStorageSize1 = string
+
+// Preset_Spec_Template_Components_Storage_Size defines model for Preset.Spec.Template.Components.Storage.Size.
+type Preset_Spec_Template_Components_Storage_Size struct {
+	union json.RawMessage
+}
+
+// PresetStatusConditionsStatus status of the condition, one of True, False, Unknown.
+type PresetStatusConditionsStatus string
+
+// PresetList PresetList is an object that contains the list of the existing presets.
+type PresetList struct {
+	// ApiVersion APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+	ApiVersion *string   `json:"apiVersion,omitempty"`
+	Items      *[]Preset `json:"items,omitempty"`
+
+	// Kind Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+	Kind     *string `json:"kind,omitempty"`
+	Metadata *struct {
+		// Name Name must be unique within a namespace. Is required when creating resources, although some resources may allow a client to request the generation of an appropriate name automatically. Name is primarily intended for creation idempotence and configuration definition. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names#names
+		Name *string `json:"name,omitempty"`
+
+		// Namespace Namespace defines the space within which each name must be unique. An empty namespace is equivalent to the "default" namespace, but "default" is the canonical representation. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces
+		Namespace *string `json:"namespace,omitempty"`
+	} `json:"metadata,omitempty"`
+}
+
 // Provider Provider is the Schema for the providers API
 type Provider struct {
 	// ApiVersion APIVersion defines the versioned schema of this representation of an object.
@@ -1867,6 +2203,192 @@ func (t Instance_Spec_Components_Storage_Size) MarshalJSON() ([]byte, error) {
 }
 
 func (t *Instance_Spec_Components_Storage_Size) UnmarshalJSON(b []byte) error {
+	err := t.union.UnmarshalJSON(b)
+	return err
+}
+
+// AsPresetSpecTemplateComponentsResourcesLimits0 returns the union data inside the Preset_Spec_Template_Components_Resources_Limits_AdditionalProperties as a PresetSpecTemplateComponentsResourcesLimits0
+func (t Preset_Spec_Template_Components_Resources_Limits_AdditionalProperties) AsPresetSpecTemplateComponentsResourcesLimits0() (PresetSpecTemplateComponentsResourcesLimits0, error) {
+	var body PresetSpecTemplateComponentsResourcesLimits0
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromPresetSpecTemplateComponentsResourcesLimits0 overwrites any union data inside the Preset_Spec_Template_Components_Resources_Limits_AdditionalProperties as the provided PresetSpecTemplateComponentsResourcesLimits0
+func (t *Preset_Spec_Template_Components_Resources_Limits_AdditionalProperties) FromPresetSpecTemplateComponentsResourcesLimits0(v PresetSpecTemplateComponentsResourcesLimits0) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergePresetSpecTemplateComponentsResourcesLimits0 performs a merge with any union data inside the Preset_Spec_Template_Components_Resources_Limits_AdditionalProperties, using the provided PresetSpecTemplateComponentsResourcesLimits0
+func (t *Preset_Spec_Template_Components_Resources_Limits_AdditionalProperties) MergePresetSpecTemplateComponentsResourcesLimits0(v PresetSpecTemplateComponentsResourcesLimits0) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsPresetSpecTemplateComponentsResourcesLimits1 returns the union data inside the Preset_Spec_Template_Components_Resources_Limits_AdditionalProperties as a PresetSpecTemplateComponentsResourcesLimits1
+func (t Preset_Spec_Template_Components_Resources_Limits_AdditionalProperties) AsPresetSpecTemplateComponentsResourcesLimits1() (PresetSpecTemplateComponentsResourcesLimits1, error) {
+	var body PresetSpecTemplateComponentsResourcesLimits1
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromPresetSpecTemplateComponentsResourcesLimits1 overwrites any union data inside the Preset_Spec_Template_Components_Resources_Limits_AdditionalProperties as the provided PresetSpecTemplateComponentsResourcesLimits1
+func (t *Preset_Spec_Template_Components_Resources_Limits_AdditionalProperties) FromPresetSpecTemplateComponentsResourcesLimits1(v PresetSpecTemplateComponentsResourcesLimits1) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergePresetSpecTemplateComponentsResourcesLimits1 performs a merge with any union data inside the Preset_Spec_Template_Components_Resources_Limits_AdditionalProperties, using the provided PresetSpecTemplateComponentsResourcesLimits1
+func (t *Preset_Spec_Template_Components_Resources_Limits_AdditionalProperties) MergePresetSpecTemplateComponentsResourcesLimits1(v PresetSpecTemplateComponentsResourcesLimits1) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+func (t Preset_Spec_Template_Components_Resources_Limits_AdditionalProperties) MarshalJSON() ([]byte, error) {
+	b, err := t.union.MarshalJSON()
+	return b, err
+}
+
+func (t *Preset_Spec_Template_Components_Resources_Limits_AdditionalProperties) UnmarshalJSON(b []byte) error {
+	err := t.union.UnmarshalJSON(b)
+	return err
+}
+
+// AsPresetSpecTemplateComponentsResourcesRequests0 returns the union data inside the Preset_Spec_Template_Components_Resources_Requests_AdditionalProperties as a PresetSpecTemplateComponentsResourcesRequests0
+func (t Preset_Spec_Template_Components_Resources_Requests_AdditionalProperties) AsPresetSpecTemplateComponentsResourcesRequests0() (PresetSpecTemplateComponentsResourcesRequests0, error) {
+	var body PresetSpecTemplateComponentsResourcesRequests0
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromPresetSpecTemplateComponentsResourcesRequests0 overwrites any union data inside the Preset_Spec_Template_Components_Resources_Requests_AdditionalProperties as the provided PresetSpecTemplateComponentsResourcesRequests0
+func (t *Preset_Spec_Template_Components_Resources_Requests_AdditionalProperties) FromPresetSpecTemplateComponentsResourcesRequests0(v PresetSpecTemplateComponentsResourcesRequests0) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergePresetSpecTemplateComponentsResourcesRequests0 performs a merge with any union data inside the Preset_Spec_Template_Components_Resources_Requests_AdditionalProperties, using the provided PresetSpecTemplateComponentsResourcesRequests0
+func (t *Preset_Spec_Template_Components_Resources_Requests_AdditionalProperties) MergePresetSpecTemplateComponentsResourcesRequests0(v PresetSpecTemplateComponentsResourcesRequests0) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsPresetSpecTemplateComponentsResourcesRequests1 returns the union data inside the Preset_Spec_Template_Components_Resources_Requests_AdditionalProperties as a PresetSpecTemplateComponentsResourcesRequests1
+func (t Preset_Spec_Template_Components_Resources_Requests_AdditionalProperties) AsPresetSpecTemplateComponentsResourcesRequests1() (PresetSpecTemplateComponentsResourcesRequests1, error) {
+	var body PresetSpecTemplateComponentsResourcesRequests1
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromPresetSpecTemplateComponentsResourcesRequests1 overwrites any union data inside the Preset_Spec_Template_Components_Resources_Requests_AdditionalProperties as the provided PresetSpecTemplateComponentsResourcesRequests1
+func (t *Preset_Spec_Template_Components_Resources_Requests_AdditionalProperties) FromPresetSpecTemplateComponentsResourcesRequests1(v PresetSpecTemplateComponentsResourcesRequests1) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergePresetSpecTemplateComponentsResourcesRequests1 performs a merge with any union data inside the Preset_Spec_Template_Components_Resources_Requests_AdditionalProperties, using the provided PresetSpecTemplateComponentsResourcesRequests1
+func (t *Preset_Spec_Template_Components_Resources_Requests_AdditionalProperties) MergePresetSpecTemplateComponentsResourcesRequests1(v PresetSpecTemplateComponentsResourcesRequests1) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+func (t Preset_Spec_Template_Components_Resources_Requests_AdditionalProperties) MarshalJSON() ([]byte, error) {
+	b, err := t.union.MarshalJSON()
+	return b, err
+}
+
+func (t *Preset_Spec_Template_Components_Resources_Requests_AdditionalProperties) UnmarshalJSON(b []byte) error {
+	err := t.union.UnmarshalJSON(b)
+	return err
+}
+
+// AsPresetSpecTemplateComponentsStorageSize0 returns the union data inside the Preset_Spec_Template_Components_Storage_Size as a PresetSpecTemplateComponentsStorageSize0
+func (t Preset_Spec_Template_Components_Storage_Size) AsPresetSpecTemplateComponentsStorageSize0() (PresetSpecTemplateComponentsStorageSize0, error) {
+	var body PresetSpecTemplateComponentsStorageSize0
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromPresetSpecTemplateComponentsStorageSize0 overwrites any union data inside the Preset_Spec_Template_Components_Storage_Size as the provided PresetSpecTemplateComponentsStorageSize0
+func (t *Preset_Spec_Template_Components_Storage_Size) FromPresetSpecTemplateComponentsStorageSize0(v PresetSpecTemplateComponentsStorageSize0) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergePresetSpecTemplateComponentsStorageSize0 performs a merge with any union data inside the Preset_Spec_Template_Components_Storage_Size, using the provided PresetSpecTemplateComponentsStorageSize0
+func (t *Preset_Spec_Template_Components_Storage_Size) MergePresetSpecTemplateComponentsStorageSize0(v PresetSpecTemplateComponentsStorageSize0) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsPresetSpecTemplateComponentsStorageSize1 returns the union data inside the Preset_Spec_Template_Components_Storage_Size as a PresetSpecTemplateComponentsStorageSize1
+func (t Preset_Spec_Template_Components_Storage_Size) AsPresetSpecTemplateComponentsStorageSize1() (PresetSpecTemplateComponentsStorageSize1, error) {
+	var body PresetSpecTemplateComponentsStorageSize1
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromPresetSpecTemplateComponentsStorageSize1 overwrites any union data inside the Preset_Spec_Template_Components_Storage_Size as the provided PresetSpecTemplateComponentsStorageSize1
+func (t *Preset_Spec_Template_Components_Storage_Size) FromPresetSpecTemplateComponentsStorageSize1(v PresetSpecTemplateComponentsStorageSize1) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergePresetSpecTemplateComponentsStorageSize1 performs a merge with any union data inside the Preset_Spec_Template_Components_Storage_Size, using the provided PresetSpecTemplateComponentsStorageSize1
+func (t *Preset_Spec_Template_Components_Storage_Size) MergePresetSpecTemplateComponentsStorageSize1(v PresetSpecTemplateComponentsStorageSize1) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+func (t Preset_Spec_Template_Components_Storage_Size) MarshalJSON() ([]byte, error) {
+	b, err := t.union.MarshalJSON()
+	return b, err
+}
+
+func (t *Preset_Spec_Template_Components_Storage_Size) UnmarshalJSON(b []byte) error {
 	err := t.union.UnmarshalJSON(b)
 	return err
 }

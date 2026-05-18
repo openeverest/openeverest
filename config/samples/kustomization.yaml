@@ -8,4 +8,5 @@ resources:
 - monitoring_v1alpha2_monitoringconfig.yaml
 - backup_v1alpha1_restore.yaml
 - backup_v1alpha1_backupstorage.yaml
+- core_v1alpha1_preset.yaml
 # +kubebuilder:scaffold:manifestskustomizesamples

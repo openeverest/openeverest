@@ -1067,6 +1067,341 @@ export interface components {
                 namespace?: string;
             };
         };
+        /**
+         * @description Preset is the Schema for the presets API. A Preset provides a reusable
+         *     set of default values for creating Instances, enabling one-click
+         *     deployment with sensible defaults.
+         */
+        Preset: {
+            /**
+             * @description APIVersion defines the versioned schema of this representation of an object.
+             *     Servers should convert recognized schemas to the latest internal value, and
+             *     may reject unrecognized values.
+             *     More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+             */
+            apiVersion?: string;
+            /**
+             * @description Kind is a string value representing the REST resource this object represents.
+             *     Servers may infer this from the endpoint the client submits requests to.
+             *     Cannot be updated.
+             *     In CamelCase.
+             *     More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+             */
+            kind?: string;
+            metadata?: Record<string, never>;
+            /** @description spec defines the desired state of Preset */
+            spec: {
+                /**
+                 * @description Template holds the configuration values this preset provides.
+                 *     When an Instance is created from this preset, the template is used
+                 *     as the starting point for the Instance's spec.
+                 *     The provider field in template is required and determines which
+                 *     provider this preset targets.
+                 */
+                template: {
+                    /**
+                     * @description Backup configures the backup feature for this Instance. When enabled,
+                     *     the provider's reconciler is given the resolved BackupClass and storage
+                     *     list so it can configure the engine accordingly (sidecars, agent
+                     *     configuration, etc.). Required for ProviderManaged BackupClasses; Job
+                     *     classes do not need an entry here because they read directly from
+                     *     individual Backup CRs.
+                     */
+                    backup?: {
+                        /**
+                         * @description ClassRef references the BackupClass that the provider should use to
+                         *     configure the engine. The class must have ExecutionMode=ProviderManaged
+                         *     and list the Instance's provider in its SupportedProviders.
+                         */
+                        classRef: {
+                            /** @description Name is the BackupClass name. BackupClasses are cluster-scoped. */
+                            name: string;
+                        };
+                        /**
+                         * @description Enabled toggles the backup feature for this Instance. When false the
+                         *     runtime skips ConfigureBackup() and the rest of this struct is ignored.
+                         */
+                        enabled: boolean;
+                        /**
+                         * @description Storages registers BackupStorages on the engine. Each entry maps a
+                         *     logical name (visible to the engine and reused by Backup CRs via
+                         *     .spec.storageName) to a BackupStorage resource. Schedules and PITR are
+                         *     configured per storage via the nested .schedules and .pitr fields.
+                         */
+                        storages?: {
+                            /**
+                             * @description Main marks this storage as the engine's default. At most one storage
+                             *     per Instance may be marked main.
+                             */
+                            main?: boolean;
+                            /**
+                             * @description Name is the logical name the engine uses for this storage. It is also
+                             *     the value that Backup CRs target via .spec.storageName.
+                             */
+                            name: string;
+                            /**
+                             * @description PITR enables and configures point-in-time recovery writing to this
+                             *     storage. Requires the BackupClass to advertise PITR support via
+                             *     .spec.providerManaged. Engines that support only a single PITR stream
+                             *     (e.g. PSMDB, PXC) require at most one storage on the Instance to set
+                             *     .pitr.enabled=true; this is enforced by the provider, not by the
+                             *     core schema (PG legitimately archives WAL to every configured repo).
+                             */
+                            pitr?: {
+                                /**
+                                 * @description Config holds provider-specific PITR options. The schema is defined by
+                                 *     the BackupClass via .spec.providerManaged.
+                                 */
+                                config?: Record<string, never>;
+                                /** @description Enabled toggles PITR for this storage. */
+                                enabled: boolean;
+                            };
+                            /**
+                             * @description Schedules registers recurring backup tasks that write to this storage.
+                             *     Schedules produce Backup CRs (via the provider's mirroring loop) using
+                             *     the operator-native scheduler — the runtime never spawns CronJobs for
+                             *     ProviderManaged BackupClasses. Schedule names must be unique across
+                             *     all storages on the Instance.
+                             */
+                            schedules?: {
+                                /**
+                                 * @description Cron is a standard 5-field cron expression. The provider may reject
+                                 *     expressions the engine does not support.
+                                 */
+                                cron: string;
+                                /**
+                                 * @description Enabled toggles the schedule. A disabled schedule is removed from
+                                 *     the engine without losing its definition on the Instance.
+                                 */
+                                enabled: boolean;
+                                /**
+                                 * @description Name uniquely identifies the schedule. The provider uses it as the
+                                 *     schedule key on the engine and as the value of Backup.spec.scheduleName
+                                 *     on mirrored Backup CRs. Names must be unique across all storages on
+                                 *     the Instance.
+                                 */
+                                name: string;
+                                /**
+                                 * Format: int32
+                                 * @description RetentionCopies is the number of recent backups to keep for this
+                                 *     schedule. Zero (or unset) means "keep all". Negative values are
+                                 *     rejected.
+                                 */
+                                retentionCopies?: number;
+                            }[];
+                            /** @description StorageRef references a BackupStorage in the same namespace. */
+                            storageRef: {
+                                /**
+                                 * @description Name of the referent.
+                                 *     This field is effectively required, but due to backwards compatibility is
+                                 *     allowed to be empty. Instances of this type with an empty value here are
+                                 *     almost certainly wrong.
+                                 *     More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                                 * @default
+                                 */
+                                name: string;
+                            };
+                        }[];
+                    };
+                    /**
+                     * @description Components defines the component instances for this cluster.
+                     *     The keys are component names (e.g., "engine", "proxy", "backupAgent").
+                     *     Which components are valid depends on the selected topology.
+                     */
+                    components?: {
+                        [key: string]: {
+                            /** @description Config specifies the component specific configuration. */
+                            config?: {
+                                /**
+                                 * @description LocalObjectReference contains enough information to let you locate the
+                                 *     referenced object inside the same namespace.
+                                 */
+                                configMapRef?: {
+                                    /**
+                                     * @description Name of the referent.
+                                     *     This field is effectively required, but due to backwards compatibility is
+                                     *     allowed to be empty. Instances of this type with an empty value here are
+                                     *     almost certainly wrong.
+                                     *     More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                                     * @default
+                                     */
+                                    name: string;
+                                };
+                                key?: string;
+                                /**
+                                 * @description LocalObjectReference contains enough information to let you locate the
+                                 *     referenced object inside the same namespace.
+                                 */
+                                secretRef?: {
+                                    /**
+                                     * @description Name of the referent.
+                                     *     This field is effectively required, but due to backwards compatibility is
+                                     *     allowed to be empty. Instances of this type with an empty value here are
+                                     *     almost certainly wrong.
+                                     *     More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                                     * @default
+                                     */
+                                    name: string;
+                                };
+                            };
+                            /**
+                             * @description CustomSpec provides an API for customising this component.
+                             *     The API schema is defined by the provider's ComponentSchemas.
+                             */
+                            customSpec?: Record<string, never>;
+                            /**
+                             * @description Image specifies an override for the image to use.
+                             *     When unspecified, it is autmatically set from the ComponentVersions
+                             *     based on the Version specified.
+                             */
+                            image?: string;
+                            /** @description Name of the component. */
+                            name?: string;
+                            /**
+                             * Format: int32
+                             * @description Replicas specifies the number of replicas for this component.
+                             */
+                            replicas?: number;
+                            /** @description Resources requirements for this component. */
+                            resources?: {
+                                /**
+                                 * @description Claims lists the names of resources, defined in spec.resourceClaims,
+                                 *     that are used by this container.
+                                 *
+                                 *     This field depends on the
+                                 *     DynamicResourceAllocation feature gate.
+                                 *
+                                 *     This field is immutable. It can only be set for containers.
+                                 */
+                                claims?: {
+                                    /**
+                                     * @description Name must match the name of one entry in pod.spec.resourceClaims of
+                                     *     the Pod where this field is used. It makes that resource available
+                                     *     inside a container.
+                                     */
+                                    name: string;
+                                    /**
+                                     * @description Request is the name chosen for a request in the referenced claim.
+                                     *     If empty, everything from the claim is made available, otherwise
+                                     *     only the result of this request.
+                                     */
+                                    request?: string;
+                                }[];
+                                /**
+                                 * @description Limits describes the maximum amount of compute resources allowed.
+                                 *     More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
+                                 */
+                                limits?: {
+                                    [key: string]: number | string;
+                                };
+                                /**
+                                 * @description Requests describes the minimum amount of compute resources required.
+                                 *     If Requests is omitted for a container, it defaults to Limits if that is explicitly specified,
+                                 *     otherwise to an implementation-defined value. Requests cannot exceed Limits.
+                                 *     More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
+                                 */
+                                requests?: {
+                                    [key: string]: number | string;
+                                };
+                            };
+                            /**
+                             * @description Storage requirements for this component.
+                             *     For stateless components, this is an optional field.
+                             */
+                            storage?: {
+                                size?: number | string;
+                                storageClass?: string;
+                            };
+                            /** @description Type of the component from the Provider. */
+                            type?: string;
+                            /** @description Version of the component from ComponentVersions. */
+                            version?: string;
+                        };
+                    };
+                    /**
+                     * @description Global contains provider-level configuration that applies to the entire cluster.
+                     *     The schema for this field is defined by the provider's GlobalConfigSchema.
+                     */
+                    global?: Record<string, never>;
+                    /** @description Provider is the name of the database provider (e.g., "psmdb", "postgresql"). */
+                    provider?: string;
+                    /** @description Topology defines the deployment topology and its configuration. */
+                    topology?: {
+                        /**
+                         * @description Config contains topology-specific configuration.
+                         *     The schema for this field is defined by the provider's TopologyDefinition.
+                         *     Examples: shard count for sharded topology, replication factor, etc.
+                         */
+                        config?: Record<string, never>;
+                        /**
+                         * @description Type is the topology name (e.g., "sharded", "replicaset").
+                         *     The available topologies are defined by the provider.
+                         *     If omitted, the provider's default topology is used.
+                         */
+                        type?: string;
+                    };
+                    /**
+                     * @description Version selects a provider-defined version bundle, resolving compatible
+                     *     versions for all components automatically. Per-component versions set
+                     *     in Components take precedence over the bundle.
+                     *     If omitted and the provider defines a default bundle, that bundle is used.
+                     */
+                    version?: string;
+                };
+            };
+            /** @description status defines the observed state of Preset */
+            status?: {
+                conditions?: {
+                    /**
+                     * Format: date-time
+                     * @description lastTransitionTime is the last time the condition transitioned from one status to another.
+                     *     This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                     */
+                    lastTransitionTime: string;
+                    /**
+                     * @description message is a human readable message indicating details about the transition.
+                     *     This may be an empty string.
+                     */
+                    message: string;
+                    /**
+                     * Format: int64
+                     * @description observedGeneration represents the .metadata.generation that the condition was set based upon.
+                     *     For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                     *     with respect to the current state of the instance.
+                     */
+                    observedGeneration?: number;
+                    /**
+                     * @description reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                     *     Producers of specific condition types may define expected values and meanings for this field,
+                     *     and whether the values are considered a guaranteed API.
+                     *     The value should be a CamelCase string.
+                     *     This field may not be empty.
+                     */
+                    reason: string;
+                    /**
+                     * @description status of the condition, one of True, False, Unknown.
+                     * @enum {string}
+                     */
+                    status: "True" | "False" | "Unknown";
+                    /** @description type of condition in CamelCase or in foo.example.com/CamelCase. */
+                    type: string;
+                }[];
+            };
+        };
+        /** @description PresetList is an object that contains the list of the existing presets. */
+        PresetList: {
+            /** @description APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources */
+            apiVersion?: string;
+            items?: components["schemas"]["Preset"][];
+            /** @description Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds */
+            kind?: string;
+            metadata?: {
+                /** @description Name must be unique within a namespace. Is required when creating resources, although some resources may allow a client to request the generation of an appropriate name automatically. Name is primarily intended for creation idempotence and configuration definition. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names#names */
+                name?: string;
+                /** @description Namespace defines the space within which each name must be unique. An empty namespace is equivalent to the "default" namespace, but "default" is the canonical representation. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces */
+                namespace?: string;
+            };
+        };
         /** @description Provider is the Schema for the providers API */
         Provider: {
             /**
