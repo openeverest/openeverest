@@ -19,7 +19,7 @@ import {
   useBackupClassUiSchema,
 } from 'hooks/api/backup-classes/useBackupClasses.ts';
 import { useClusterName } from 'hooks/api/useClusterName.ts';
-import { useContext, useMemo } from 'react';
+import { useContext, useEffect, useMemo, useRef } from 'react';
 import { useFormContext } from 'react-hook-form';
 import { useParams } from 'react-router-dom';
 import { UIGenerator } from 'components/ui-generator/ui-generator';
@@ -27,12 +27,14 @@ import { FormMode } from 'components/ui-generator/ui-generator.types';
 import BackupStoragesInput from 'components/backup-storages-input';
 import { BackupFields } from './on-demand-backup-modal.types.ts';
 import { ScheduleModalContext } from '../backups.context.ts';
+import { getSectionExplicitDefaults } from './on-demand-backup-fields-wrapper.utils';
 
 export const OnDemandBackupFieldsWrapper = () => {
   const clusterName = useClusterName();
   const { namespace = '' } = useParams();
   const { instance } = useContext(ScheduleModalContext);
-  const { watch } = useFormContext();
+  const { watch, setValue } = useFormContext();
+  const appliedDefaultsClassRef = useRef<string>('');
 
   const selectedClassName: string = watch(BackupFields.backupClassName);
 
@@ -72,6 +74,36 @@ export const OnDemandBackupFieldsWrapper = () => {
       }))
     );
   }, [instance]);
+
+  useEffect(() => {
+    if (availableClasses.length > 0 && !selectedClassName) {
+      setValue(
+        BackupFields.backupClassName,
+        availableClasses[0].metadata?.name ?? ''
+      );
+    }
+  }, [availableClasses, selectedClassName, setValue]);
+
+  useEffect(() => {
+    if (
+      !selectedClassName ||
+      appliedDefaultsClassRef.current === selectedClassName
+    ) {
+      return;
+    }
+
+    const explicitDefaults = getSectionExplicitDefaults(backupSections?.config);
+
+    Object.entries(explicitDefaults).forEach(([fieldName, defaultValue]) => {
+      setValue(fieldName, defaultValue, {
+        shouldDirty: false,
+        shouldTouch: false,
+        shouldValidate: false,
+      });
+    });
+
+    appliedDefaultsClassRef.current = selectedClassName;
+  }, [backupSections, selectedClassName, setValue]);
 
   return (
     <>

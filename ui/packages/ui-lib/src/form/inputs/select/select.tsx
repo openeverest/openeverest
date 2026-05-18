@@ -53,6 +53,7 @@ const SelectInput = ({
       <Controller
         name={name}
         control={control ?? contextControl}
+        {...controllerProps}
         render={({ field, fieldState: { error } }) => (
           <>
             <Select

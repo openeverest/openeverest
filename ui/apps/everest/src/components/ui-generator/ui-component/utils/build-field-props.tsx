@@ -23,7 +23,7 @@ export const buildFieldProps = (
   mappedProps: MappedFieldProps,
   isDisabled: boolean
 ): Record<string, unknown> => {
-  const { badge, textFieldProps, selectFieldProps, ...restMappedProps } =
+  const { badge, textFieldProps, selectFieldProps, defaultValue, ...restMappedProps } =
     mappedProps;
 
   const finalTextFieldProps = buildTextFieldProps(
@@ -51,6 +51,14 @@ export const buildFieldProps = (
                 ?.rules ?? {}),
               setValueAs: coerceNumberInputValue,
             },
+          },
+        }
+      : {}),
+    ...(uiType === FieldType.Select
+      ? {
+          controllerProps: {
+            ...(restMappedProps.controllerProps as Record<string, unknown>),
+            defaultValue: defaultValue ?? '',
           },
         }
       : {}),

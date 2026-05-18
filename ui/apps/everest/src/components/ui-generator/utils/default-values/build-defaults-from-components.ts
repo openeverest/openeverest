@@ -19,10 +19,10 @@ import {
 import { generateFieldId } from '../component-renderer/generate-field-id';
 import { UI_TYPE_DEFAULT_VALUE } from 'components/ui-generator/constants';
 
-// Recursively builds default values for form fields using unique field IDs
 export const buildDefaultsFromComponents = (
   components: { [key: string]: Component | ComponentGroup },
-  basePath: string = ''
+  basePath: string = '',
+  buildOnlySchemaDefaults: boolean = false
 ): Record<string, unknown> => {
   const result: Record<string, unknown> = {};
 
@@ -34,7 +34,8 @@ export const buildDefaultsFromComponents = (
       // Recursively process nested components
       const nestedDefaults = buildDefaultsFromComponents(
         (item as ComponentGroup).components,
-        generatedName
+        generatedName,
+        buildOnlySchemaDefaults
       );
       Object.assign(result, nestedDefaults);
     } else {
@@ -44,7 +45,7 @@ export const buildDefaultsFromComponents = (
         component.fieldParams?.defaultValue !== undefined
       ) {
         result[fieldId] = component.fieldParams.defaultValue;
-      } else {
+      } else if (!buildOnlySchemaDefaults) {
         result[fieldId] = UI_TYPE_DEFAULT_VALUE[component.uiType];
       }
     }
