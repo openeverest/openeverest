@@ -17,6 +17,8 @@ package controller
 import (
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+
 	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
 )
 
@@ -64,9 +66,7 @@ func TestShouldRetainBackupData(t *testing.T) {
 			// so we can construct a Context with zero-value fields.
 			c := &Context{}
 			got := c.ShouldRetainBackupData(tc.backup)
-			if got != tc.want {
-				t.Errorf("ShouldRetainBackupData() = %v, want %v", got, tc.want)
-			}
+			assert.Equal(t, tc.want, got)
 		})
 	}
 }

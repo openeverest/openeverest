@@ -18,6 +18,8 @@ import (
 	"context"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -111,43 +113,30 @@ func TestCascadeDeleteChildren_DeletesBackupsAndRestores(t *testing.T) {
 	logger := &testLogger{t: t}
 
 	remaining, err := r.cascadeDeleteChildren(context.Background(), inCtx, logger)
-	if err != nil {
-		t.Fatalf("cascadeDeleteChildren() error = %v", err)
-	}
+	require.NoError(t, err)
 	// We expect 3 items (2 backups + 1 restore for "my-db") to be in the remaining count
 	// because the list is done before deletion and the objects still exist at count time.
-	if remaining != 3 {
-		t.Errorf("cascadeDeleteChildren() remaining = %d, want 3", remaining)
-	}
+	assert.Equal(t, 3, remaining)
 
 	// After deletion, re-listing should show them gone (fake client honors Delete immediately).
 	backups := &backupv1alpha1.BackupList{}
-	if err := c.List(context.Background(), backups, client.InNamespace("default"),
-		client.MatchingFields{controller.IndexBackupInstanceName: "my-db"}); err != nil {
-		t.Fatalf("List backups: %v", err)
-	}
-	if len(backups.Items) != 0 {
-		t.Errorf("expected 0 backups for my-db after cascade, got %d", len(backups.Items))
-	}
+	err = c.List(context.Background(), backups, client.InNamespace("default"),
+		client.MatchingFields{controller.IndexBackupInstanceName: "my-db"})
+	require.NoError(t, err)
+	assert.Empty(t, backups.Items)
 
 	restores := &backupv1alpha1.RestoreList{}
-	if err := c.List(context.Background(), restores, client.InNamespace("default"),
-		client.MatchingFields{controller.IndexRestoreInstanceName: "my-db"}); err != nil {
-		t.Fatalf("List restores: %v", err)
-	}
-	if len(restores.Items) != 0 {
-		t.Errorf("expected 0 restores for my-db after cascade, got %d", len(restores.Items))
-	}
+	err = c.List(context.Background(), restores, client.InNamespace("default"),
+		client.MatchingFields{controller.IndexRestoreInstanceName: "my-db"})
+	require.NoError(t, err)
+	assert.Empty(t, restores.Items)
 
 	// Verify "other-db" backup was NOT deleted.
 	otherBackups := &backupv1alpha1.BackupList{}
-	if err := c.List(context.Background(), otherBackups, client.InNamespace("default"),
-		client.MatchingFields{controller.IndexBackupInstanceName: "other-db"}); err != nil {
-		t.Fatalf("List other backups: %v", err)
-	}
-	if len(otherBackups.Items) != 1 {
-		t.Errorf("expected 1 backup for other-db, got %d", len(otherBackups.Items))
-	}
+	err = c.List(context.Background(), otherBackups, client.InNamespace("default"),
+		client.MatchingFields{controller.IndexBackupInstanceName: "other-db"})
+	require.NoError(t, err)
+	assert.Len(t, otherBackups.Items, 1)
 }
 
 func TestCascadeDeleteChildren_NoChildren(t *testing.T) {
@@ -166,10 +155,6 @@ func TestCascadeDeleteChildren_NoChildren(t *testing.T) {
 	logger := &testLogger{t: t}
 
 	remaining, err := r.cascadeDeleteChildren(context.Background(), inCtx, logger)
-	if err != nil {
-		t.Fatalf("cascadeDeleteChildren() error = %v", err)
-	}
-	if remaining != 0 {
-		t.Errorf("cascadeDeleteChildren() remaining = %d, want 0", remaining)
-	}
+	require.NoError(t, err)
+	assert.Equal(t, 0, remaining)
 }
