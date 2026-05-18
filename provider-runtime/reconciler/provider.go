@@ -510,7 +510,7 @@ func (r *ProviderReconciler) handleDeletion(
 	// indexes are registered and the user is expected to be creating
 	// Backup CRs against this Instance).
 	if _, isBackupProvider := r.provider.(controller.BackupProvider); isBackupProvider &&
-		in.Spec.DeletionPolicy != v1alpha1.InstanceDeletionPolicyOrphan {
+		in.Spec.DeletionPolicy == v1alpha1.InstanceDeletionPolicyCascade {
 		remaining, err := r.cascadeDeleteChildren(ctx, inCtx, logger)
 		if err != nil {
 			return reconcile.Result{}, err
