@@ -152,10 +152,6 @@ type InstanceBackupStorage struct {
 	// StorageRef references a BackupStorage in the same namespace.
 	// +kubebuilder:validation:Required
 	StorageRef corev1.LocalObjectReference `json:"storageRef"`
-	// Main marks this storage as the engine's default. At most one storage
-	// per Instance may be marked main.
-	// +optional
-	Main bool `json:"main,omitempty"`
 	// Schedules registers recurring backup tasks that write to this storage.
 	// Schedules produce Backup CRs (via the provider's mirroring loop) using
 	// the operator-native scheduler — the runtime never spawns CronJobs for

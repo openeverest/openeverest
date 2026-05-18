@@ -80,11 +80,6 @@ spec:
                         InstanceBackupStorage registers a BackupStorage on the Instance and
                         carries the backup policy (schedules, PITR) that targets it.
                       properties:
-                        main:
-                          description: |-
-                            Main marks this storage as the engine's default. At most one storage
-                            per Instance may be marked main.
-                          type: boolean
                         name:
                           description: |-
                             Name is the logical name the engine uses for this storage. It is also

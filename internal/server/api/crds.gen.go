@@ -848,10 +848,6 @@ type Instance struct {
 			// .spec.storageName) to a BackupStorage resource. Schedules and PITR are
 			// configured per storage via the nested .schedules and .pitr fields.
 			Storages *[]struct {
-				// Main Main marks this storage as the engine's default. At most one storage
-				// per Instance may be marked main.
-				Main *bool `json:"main,omitempty"`
-
 				// Name Name is the logical name the engine uses for this storage. It is also
 				// the value that Backup CRs target via .spec.storageName.
 				Name string `json:"name"`

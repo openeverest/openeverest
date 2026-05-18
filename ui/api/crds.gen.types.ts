@@ -642,11 +642,6 @@ export interface components {
                      */
                     storages?: {
                         /**
-                         * @description Main marks this storage as the engine's default. At most one storage
-                         *     per Instance may be marked main.
-                         */
-                        main?: boolean;
-                        /**
                          * @description Name is the logical name the engine uses for this storage. It is also
                          *     the value that Backup CRs target via .spec.storageName.
                          */
