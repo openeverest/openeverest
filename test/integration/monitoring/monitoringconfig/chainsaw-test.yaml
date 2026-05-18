@@ -52,9 +52,10 @@ spec:
                 name: mc-test
               spec:
                 type: pmm
-                credentialsSecretName: mc-test-secret
-                verifyTLS: false
-                url: http://localhost-mc-test
+                pmm:
+                  credentialsSecretName: mc-test-secret
+                  verifyTLS: false
+                  url: http://localhost-mc-test
         # Assert MonitoringConfig is created with correct status
         - assert:
             resource:
@@ -64,9 +65,10 @@ spec:
                 name: mc-test
               spec:
                 type: pmm
-                credentialsSecretName: mc-test-secret
-                verifyTLS: false
-                url: http://localhost-mc-test
+                pmm:
+                  credentialsSecretName: mc-test-secret
+                  verifyTLS: false
+                  url: http://localhost-mc-test
               status:
                 inUse: false
         # Assert Secret has ownerReference to MonitoringConfig
@@ -123,9 +125,10 @@ spec:
                   - monitoring.openeverest.io/in-use-protection
               spec:
                 type: pmm
-                credentialsSecretName: mc-test-secret
-                verifyTLS: false
-                url: http://localhost-mc-test
+                pmm:
+                  credentialsSecretName: mc-test-secret
+                  verifyTLS: false
+                  url: http://localhost-mc-test
               status:
                 inUse: true
         - assert:
@@ -176,8 +179,9 @@ spec:
                 name: mc-test
               spec:
                 type: pmm
-                credentialsSecretName: mc-test-secret
-                url: http://localhost-mc-test-updated
+                pmm:
+                  credentialsSecretName: mc-test-secret
+                  url: http://localhost-mc-test-updated
         # Assert URL is updated and finalizer is still present
         - assert:
             resource:
@@ -191,9 +195,10 @@ spec:
                   - monitoring.openeverest.io/in-use-protection
               spec:
                 type: pmm
-                credentialsSecretName: mc-test-secret
-                verifyTLS: false
-                url: http://localhost-mc-test-updated
+                pmm:
+                  credentialsSecretName: mc-test-secret
+                  verifyTLS: false
+                  url: http://localhost-mc-test-updated
               status:
                 inUse: true
         - assert:
@@ -244,9 +249,10 @@ spec:
                   - monitoring.openeverest.io/in-use-protection
               spec:
                 type: pmm
-                credentialsSecretName: mc-test-secret
-                verifyTLS: false
-                url: http://localhost-mc-test-updated
+                pmm:
+                  credentialsSecretName: mc-test-secret
+                  verifyTLS: false
+                  url: http://localhost-mc-test-updated
               status:
                 inUse: true
         - assert:
@@ -291,9 +297,10 @@ spec:
                   - monitoring.openeverest.io/in-use-protection
               spec:
                 type: pmm
-                credentialsSecretName: mc-test-secret
-                verifyTLS: false
-                url: http://localhost-mc-test-updated
+                pmm:
+                  credentialsSecretName: mc-test-secret
+                  verifyTLS: false
+                  url: http://localhost-mc-test-updated
               status:
                 inUse: true
         - assert:

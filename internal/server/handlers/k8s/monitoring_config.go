@@ -78,10 +78,12 @@ func (h *k8sHandler) CreateMonitoringConfig(ctx context.Context, cluster, namesp
 			Namespace: namespace,
 		},
 		Spec: monitoringv1alpha2.MonitoringConfigSpec{
-			Type:                  monitoringv1alpha2.MonitoringType(req.Type),
-			URL:                   req.Url,
-			CredentialsSecretName: req.Name,
-			VerifyTLS:             req.VerifyTLS,
+			Type: monitoringv1alpha2.MonitoringType(req.Type),
+			PMM: &monitoringv1alpha2.PMMMonitoringSpec{
+				URL:                   req.Url,
+				CredentialsSecretName: req.Name,
+				VerifyTLS:             req.VerifyTLS,
+			},
 		},
 	}
 
@@ -152,21 +154,32 @@ func (h *k8sHandler) UpdateMonitoringConfig(ctx context.Context, cluster, namesp
 	}
 
 	if req.Url != "" {
-		m.Spec.URL = req.Url
+		if m.Spec.PMM == nil {
+			m.Spec.PMM = &monitoringv1alpha2.PMMMonitoringSpec{}
+		}
+		m.Spec.PMM.URL = req.Url
 	}
 
 	if req.VerifyTLS != nil {
-		m.Spec.VerifyTLS = req.VerifyTLS
+		if m.Spec.PMM == nil {
+			m.Spec.PMM = &monitoringv1alpha2.PMMMonitoringSpec{}
+		}
+		m.Spec.PMM.VerifyTLS = req.VerifyTLS
 	}
 
 	if req.Pmm != nil {
 		apiKey := req.Pmm.ApiKey
 
 		if req.Pmm.User != "" && req.Pmm.Password != "" {
-			verifyTLS := pointer.Get(m.Spec.VerifyTLS)
+			var pmmURL string
+			var verifyTLS bool
+			if m.Spec.PMM != nil {
+				pmmURL = m.Spec.PMM.URL
+				verifyTLS = pointer.Get(m.Spec.PMM.VerifyTLS)
+			}
 			apiKeyName := fmt.Sprintf("everest-%s-%s", name, uuid.NewString())
 
-			if apiKey, err = pmm.CreateAPIKey(ctx, m.Spec.URL, apiKeyName, req.Pmm.User, req.Pmm.Password, !verifyTLS); err != nil {
+			if apiKey, err = pmm.CreateAPIKey(ctx, pmmURL, apiKeyName, req.Pmm.User, req.Pmm.Password, !verifyTLS); err != nil {
 				return nil, err
 			}
 		}

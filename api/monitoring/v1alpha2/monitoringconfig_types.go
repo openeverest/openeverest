@@ -31,14 +31,25 @@ type MonitoringType string
 type PMMServerVersion string
 
 // MonitoringConfigSpec defines the desired state of MonitoringConfig.
+//
+// +kubebuilder:validation:XValidation:rule="self.type != 'pmm' || has(self.pmm)",message="pmm config is required when type is pmm"
+// +kubebuilder:validation:XValidation:rule="!has(self.pmm) || self.type == 'pmm'",message="pmm config is only allowed when type is pmm"
 type MonitoringConfigSpec struct {
 	// Type is the name of monitoring tool (e.g., "pmm").
 	// +kubebuilder:validation:Enum=pmm
 	Type MonitoringType `json:"type"`
+	// PMM contains PMM-specific monitoring configuration.
+	// Required when type is "pmm".
+	// +optional
+	PMM *PMMMonitoringSpec `json:"pmm,omitempty"`
+}
+
+// PMMMonitoringSpec contains configuration specific to PMM monitoring.
+type PMMMonitoringSpec struct {
 	// CredentialsSecretName is the reference to the secret containing the API key.
 	// It contains `apiKey` key with the API key value.
 	CredentialsSecretName string `json:"credentialsSecretName"`
-	// URL is the URL of the monitoring server (e.g., PMM server URL).
+	// URL is the URL of the PMM server.
 	URL string `json:"url"`
 	// VerifyTLS is set to ensure TLS/SSL verification.
 	// If unspecified, the default value is true.
@@ -57,8 +68,15 @@ type MonitoringConfigStatus struct {
 	InUse bool `json:"inUse,omitempty"`
 	// LastObservedGeneration is the most recent generation observed for this MonitoringConfig.
 	LastObservedGeneration int64 `json:"lastObservedGeneration,omitempty"`
-	// PMMServerVersion shows PMM server version.
-	PMMServerVersion PMMServerVersion `json:"pmmServerVersion,omitempty"`
+	// PMM contains PMM-specific status information.
+	// +optional
+	PMM *PMMMonitoringStatus `json:"pmm,omitempty"`
+}
+
+// PMMMonitoringStatus contains PMM-specific observed state.
+type PMMMonitoringStatus struct {
+	// ServerVersion shows the PMM server version.
+	ServerVersion PMMServerVersion `json:"serverVersion,omitempty"`
 }
 
 // +kubebuilder:object:root=true

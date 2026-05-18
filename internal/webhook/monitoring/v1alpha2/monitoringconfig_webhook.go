@@ -87,7 +87,11 @@ func (v *MonitoringConfigCustomValidator) validateMonitoringConfig(ctx context.C
 		return nil
 	}
 
-	secretName := mc.Spec.CredentialsSecretName
+	if mc.Spec.PMM == nil {
+		return errors.New("missing pmm config")
+	}
+
+	secretName := mc.Spec.PMM.CredentialsSecretName
 	if secretName == "" {
 		return errors.New("missing secret name")
 	}
@@ -106,11 +110,11 @@ func (v *MonitoringConfigCustomValidator) validateMonitoringConfig(ctx context.C
 	}
 
 	var skipVerifyTLS bool
-	if mc.Spec.VerifyTLS != nil {
-		skipVerifyTLS = !*mc.Spec.VerifyTLS
+	if mc.Spec.PMM.VerifyTLS != nil {
+		skipVerifyTLS = !*mc.Spec.PMM.VerifyTLS
 	}
 
-	_, err := pmm.GetPMMServerVersion(ctx, mc.Spec.URL, string(apiKey), skipVerifyTLS)
+	_, err := pmm.GetPMMServerVersion(ctx, mc.Spec.PMM.URL, string(apiKey), skipVerifyTLS)
 	if err != nil {
 		return fmt.Errorf("failed to get PMM server version: %w", err)
 	}

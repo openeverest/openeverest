@@ -225,12 +225,16 @@ func (r *MonitoringConfigReconciler) ensureSecretOwnership(
 	ctx context.Context,
 	mc *monitoringv1alpha2.MonitoringConfig,
 ) error {
+	if mc.Spec.PMM == nil {
+		return nil
+	}
+
 	secret := &corev1.Secret{}
 	if err := r.Get(ctx, types.NamespacedName{
-		Name:      mc.Spec.CredentialsSecretName,
+		Name:      mc.Spec.PMM.CredentialsSecretName,
 		Namespace: mc.GetNamespace(),
 	}, secret); err != nil {
-		return fmt.Errorf("failed to get credentials secret %q: %w", mc.Spec.CredentialsSecretName, err)
+		return fmt.Errorf("failed to get credentials secret %q: %w", mc.Spec.PMM.CredentialsSecretName, err)
 	}
 
 	// Skip if the Secret already has a controller owner.
@@ -258,9 +262,16 @@ func (r *MonitoringConfigReconciler) updateStatus(
 	mc.Status.InUse = inUse
 	mc.Status.LastObservedGeneration = mc.GetGeneration()
 
-	v, pmmErr := r.fetchPMMServerVersion(ctx, mc)
-	if pmmErr == nil {
-		mc.Status.PMMServerVersion = v
+	var pmmErr error
+	if mc.Spec.Type == monitoringv1alpha2.PMMMonitoringType && mc.Spec.PMM != nil {
+		var v monitoringv1alpha2.PMMServerVersion
+		v, pmmErr = r.fetchPMMServerVersion(ctx, mc)
+		if pmmErr == nil {
+			if mc.Status.PMM == nil {
+				mc.Status.PMM = &monitoringv1alpha2.PMMMonitoringStatus{}
+			}
+			mc.Status.PMM.ServerVersion = v
+		}
 	}
 
 	updErr := r.Client.Status().Update(ctx, mc)
@@ -276,23 +287,23 @@ func (r *MonitoringConfigReconciler) fetchPMMServerVersion(
 ) (monitoringv1alpha2.PMMServerVersion, error) {
 	secret := &corev1.Secret{}
 	if err := r.Get(ctx, types.NamespacedName{
-		Name:      mc.Spec.CredentialsSecretName,
+		Name:      mc.Spec.PMM.CredentialsSecretName,
 		Namespace: mc.GetNamespace(),
 	}, secret); err != nil {
-		return "", fmt.Errorf("failed to get credentials secret %q: %w", mc.Spec.CredentialsSecretName, err)
+		return "", fmt.Errorf("failed to get credentials secret %q: %w", mc.Spec.PMM.CredentialsSecretName, err)
 	}
 
 	apiKey, ok := secret.Data["apiKey"]
 	if !ok {
-		return "", fmt.Errorf("apiKey not found in secret %q", mc.Spec.CredentialsSecretName)
+		return "", fmt.Errorf("apiKey not found in secret %q", mc.Spec.PMM.CredentialsSecretName)
 	}
 
 	var skipVerifyTLS bool
-	if mc.Spec.VerifyTLS != nil {
-		skipVerifyTLS = !pointer.Get(mc.Spec.VerifyTLS)
+	if mc.Spec.PMM.VerifyTLS != nil {
+		skipVerifyTLS = !pointer.Get(mc.Spec.PMM.VerifyTLS)
 	}
 
-	v, err := pmm.GetPMMServerVersion(ctx, mc.Spec.URL, string(apiKey), skipVerifyTLS)
+	v, err := pmm.GetPMMServerVersion(ctx, mc.Spec.PMM.URL, string(apiKey), skipVerifyTLS)
 	if err != nil {
 		return "", fmt.Errorf("failed to get PMM server version: %w", err)
 	}
@@ -404,7 +415,7 @@ func (r *MonitoringConfigReconciler) genVMAgentSpec(mcList *monitoringv1alpha2.M
 			continue
 		}
 
-		u, err := url.Parse(mc.Spec.URL)
+		u, err := url.Parse(mc.Spec.PMM.URL)
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse PMM URL for %q: %w", mc.GetName(), err)
 		}
@@ -422,8 +433,8 @@ func (r *MonitoringConfigReconciler) genVMAgentSpec(mcList *monitoringv1alpha2.M
 		secretName := r.monitoringSecretName(&mc)
 
 		skipTLS := false
-		if mc.Spec.VerifyTLS != nil {
-			skipTLS = !*mc.Spec.VerifyTLS
+		if mc.Spec.PMM.VerifyTLS != nil {
+			skipTLS = !*mc.Spec.PMM.VerifyTLS
 		}
 
 		remoteWrites = append(remoteWrites, vmv1beta1.VMAgentRemoteWriteSpec{
@@ -481,10 +492,10 @@ func (r *MonitoringConfigReconciler) reconcileSecret(ctx context.Context, mc *mo
 	// Get the secret in the MonitoringConfig namespace.
 	src := &corev1.Secret{}
 	if err := r.Get(ctx, types.NamespacedName{
-		Name:      mc.Spec.CredentialsSecretName,
+		Name:      mc.Spec.PMM.CredentialsSecretName,
 		Namespace: mc.GetNamespace(),
 	}, src); err != nil {
-		return "", fmt.Errorf("failed to get credentials secret %q: %w", mc.Spec.CredentialsSecretName, err)
+		return "", fmt.Errorf("failed to get credentials secret %q: %w", mc.Spec.PMM.CredentialsSecretName, err)
 	}
 
 	// Create a copy in the monitoring namespace.
@@ -523,10 +534,10 @@ func (r *MonitoringConfigReconciler) reconcileSecret(ctx context.Context, mc *mo
 // on whether the MonitoringConfig is in the monitoring namespace or not.
 func (r *MonitoringConfigReconciler) monitoringSecretName(mc *monitoringv1alpha2.MonitoringConfig) string {
 	if mc.GetNamespace() == r.MonitoringNamespace {
-		return mc.Spec.CredentialsSecretName
+		return mc.Spec.PMM.CredentialsSecretName
 	}
 
-	return mc.Spec.CredentialsSecretName + "-" + mc.GetNamespace()
+	return mc.Spec.PMM.CredentialsSecretName + "-" + mc.GetNamespace()
 }
 
 // cleanupSecrets deletes all secrets in the monitoring namespace that belong to the given MonitoringConfig.
@@ -563,13 +574,16 @@ func (r *MonitoringConfigReconciler) initIndexers(ctx context.Context, mgr ctrl.
 	if err := mgr.GetFieldIndexer().IndexField(
 		ctx,
 		&monitoringv1alpha2.MonitoringConfig{},
-		".spec.credentialsSecretName",
+		".spec.pmm.credentialsSecretName",
 		func(obj client.Object) []string {
 			mc, ok := obj.(*monitoringv1alpha2.MonitoringConfig)
 			if !ok {
 				return nil
 			}
-			return []string{mc.Spec.CredentialsSecretName}
+			if mc.Spec.PMM == nil {
+				return nil
+			}
+			return []string{mc.Spec.PMM.CredentialsSecretName}
 		},
 	); err != nil {
 		return fmt.Errorf("indexing monitoringconfig by credentialsSecretName: %w", err)

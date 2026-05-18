@@ -1532,31 +1532,42 @@ components:
         spec:
           description: spec defines the desired state of MonitoringConfig
           properties:
-            credentialsSecretName:
+            pmm:
               description: |-
-                CredentialsSecretName is the reference to the secret containing the API key.
-                It contains `apiKey` key with the API key value.
-              type: string
+                PMM contains PMM-specific monitoring configuration.
+                Required when type is "pmm".
+              properties:
+                credentialsSecretName:
+                  description: |-
+                    CredentialsSecretName is the reference to the secret containing the API key.
+                    It contains `apiKey` key with the API key value.
+                  type: string
+                url:
+                  description: URL is the URL of the PMM server.
+                  type: string
+                verifyTLS:
+                  default: true
+                  description: |-
+                    VerifyTLS is set to ensure TLS/SSL verification.
+                    If unspecified, the default value is true.
+                  type: boolean
+              required:
+              - credentialsSecretName
+              - url
+              type: object
             type:
               description: Type is the name of monitoring tool (e.g., "pmm").
               enum:
               - pmm
               type: string
-            url:
-              description: URL is the URL of the monitoring server (e.g., PMM server
-                URL).
-              type: string
-            verifyTLS:
-              default: true
-              description: |-
-                VerifyTLS is set to ensure TLS/SSL verification.
-                If unspecified, the default value is true.
-              type: boolean
           required:
-          - credentialsSecretName
           - type
-          - url
           type: object
+          x-kubernetes-validations:
+          - message: pmm config is required when type is pmm
+            rule: self.type != 'pmm' || has(self.pmm)
+          - message: pmm config is only allowed when type is pmm
+            rule: '!has(self.pmm) || self.type == ''pmm'''
         status:
           default:
             inUse: false
@@ -1572,9 +1583,13 @@ components:
                 for this MonitoringConfig.
               format: int64
               type: integer
-            pmmServerVersion:
-              description: PMMServerVersion shows PMM server version.
-              type: string
+            pmm:
+              description: PMM contains PMM-specific status information.
+              properties:
+                serverVersion:
+                  description: ServerVersion shows the PMM server version.
+                  type: string
+              type: object
           type: object
       required:
       - spec
