@@ -12,10 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package v1alpha2 contains API Schema definitions for the monitoring v1alpha2 API group.
+// Package v1alpha1 contains API Schema definitions for the monitoring v1alpha1 API group.
 // +kubebuilder:object:generate=true
 // +groupName=monitoring.openeverest.io
-package v1alpha2
+package v1alpha1
 
 import metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 

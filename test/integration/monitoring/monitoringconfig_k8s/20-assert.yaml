@@ -1,4 +1,4 @@
-apiVersion: monitoring.openeverest.io/v1alpha2
+apiVersion: monitoring.openeverest.io/v1alpha1
 kind: MonitoringConfig
 metadata:
   name: mc-1
@@ -16,7 +16,7 @@ kind: Secret
 metadata:
   name: mc-1-secret
   ownerReferences:
-    - apiVersion: monitoring.openeverest.io/v1alpha2
+    - apiVersion: monitoring.openeverest.io/v1alpha1
       blockOwnerDeletion: true
       controller: true
       kind: MonitoringConfig
@@ -24,7 +24,7 @@ metadata:
 data:
   apiKey: YXNkZmcxMjM=
 ---
-apiVersion: monitoring.openeverest.io/v1alpha2
+apiVersion: monitoring.openeverest.io/v1alpha1
 kind: MonitoringConfig
 metadata:
   name: mc-2
@@ -42,7 +42,7 @@ kind: Secret
 metadata:
   name: mc-2-secret
   ownerReferences:
-    - apiVersion: monitoring.openeverest.io/v1alpha2
+    - apiVersion: monitoring.openeverest.io/v1alpha1
       blockOwnerDeletion: true
       controller: true
       kind: MonitoringConfig

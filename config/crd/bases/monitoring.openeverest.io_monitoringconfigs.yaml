@@ -23,7 +23,7 @@ spec:
       jsonPath: .status.inUse
       name: InUse
       type: boolean
-    name: v1alpha2
+    name: v1alpha1
     schema:
       openAPIV3Schema:
         description: MonitoringConfig is the Schema for the monitoringconfigs API.

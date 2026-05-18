@@ -1,4 +1,4 @@
-apiVersion: monitoring.openeverest.io/v1alpha2
+apiVersion: monitoring.openeverest.io/v1alpha1
 kind: MonitoringConfig
 metadata:
   name: mc-1
@@ -9,7 +9,7 @@ spec:
     url: http://localhost-test-mc-1-test-1
     # image: percona/pmm-client:test-1
 ---
-apiVersion: monitoring.openeverest.io/v1alpha2
+apiVersion: monitoring.openeverest.io/v1alpha1
 kind: MonitoringConfig
 metadata:
   name: mc-2

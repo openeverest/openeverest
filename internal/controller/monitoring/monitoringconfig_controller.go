@@ -44,7 +44,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	corev1alpha1 "github.com/openeverest/openeverest/v2/api/core/v1alpha1"
-	monitoringv1alpha2 "github.com/openeverest/openeverest/v2/api/monitoring/v1alpha2"
+	monitoringv1alpha1 "github.com/openeverest/openeverest/v2/api/monitoring/v1alpha1"
 	"github.com/openeverest/openeverest/v2/pkg/pmm"
 )
 
@@ -87,9 +87,9 @@ func (r *MonitoringConfigReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 	return ctrl.NewControllerManagedBy(mgr).
 		Named("MonitoringConfig").
-		For(&monitoringv1alpha2.MonitoringConfig{}).
+		For(&monitoringv1alpha1.MonitoringConfig{}).
 		Watches(&corev1.Namespace{},
-			enqueueObjectsInNamespace(r.Client, &monitoringv1alpha2.MonitoringConfigList{})).
+			enqueueObjectsInNamespace(r.Client, &monitoringv1alpha1.MonitoringConfigList{})).
 		Watches(&corev1alpha1.Instance{},
 			handler.EnqueueRequestsFromMapFunc(r.enqueueInstances),
 			builder.WithPredicates(predicate.GenerationChangedPredicate{}, instancePredicate())).
@@ -133,7 +133,7 @@ func (r *MonitoringConfigReconciler) Reconcile( //nolint:nonamedreturns
 	logger.Info("Reconciling")
 	defer func() { logger.Info("Reconciled") }()
 
-	mc := &monitoringv1alpha2.MonitoringConfig{}
+	mc := &monitoringv1alpha1.MonitoringConfig{}
 	if err := r.Get(ctx, req.NamespacedName, mc); err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
@@ -184,7 +184,7 @@ func (r *MonitoringConfigReconciler) Reconcile( //nolint:nonamedreturns
 }
 
 // isInUse returns true if any Instance in the same namespace references this MonitoringConfig.
-func (r *MonitoringConfigReconciler) isInUse(ctx context.Context, mc *monitoringv1alpha2.MonitoringConfig) (bool, error) {
+func (r *MonitoringConfigReconciler) isInUse(ctx context.Context, mc *monitoringv1alpha1.MonitoringConfig) (bool, error) {
 	instances := &corev1alpha1.InstanceList{}
 	if err := r.List(ctx, instances, &client.ListOptions{
 		FieldSelector: fields.OneTermEqualSelector(instanceMonitoringConfigField, mc.GetName()),
@@ -200,7 +200,7 @@ func (r *MonitoringConfigReconciler) isInUse(ctx context.Context, mc *monitoring
 // whether the MonitoringConfig is referenced by any Instance.
 func (r *MonitoringConfigReconciler) ensureInUseFinalizer(
 	ctx context.Context,
-	mc *monitoringv1alpha2.MonitoringConfig,
+	mc *monitoringv1alpha1.MonitoringConfig,
 	inUse bool,
 ) error {
 	var updated bool
@@ -223,7 +223,7 @@ func (r *MonitoringConfigReconciler) ensureInUseFinalizer(
 // referenced credentials Secret, if not already owned.
 func (r *MonitoringConfigReconciler) ensureSecretOwnership(
 	ctx context.Context,
-	mc *monitoringv1alpha2.MonitoringConfig,
+	mc *monitoringv1alpha1.MonitoringConfig,
 ) error {
 	if mc.Spec.PMM == nil {
 		return nil
@@ -256,19 +256,19 @@ func (r *MonitoringConfigReconciler) ensureSecretOwnership(
 // updateStatus rebuilds and persists the MonitoringConfig status subresource.
 func (r *MonitoringConfigReconciler) updateStatus(
 	ctx context.Context,
-	mc *monitoringv1alpha2.MonitoringConfig,
+	mc *monitoringv1alpha1.MonitoringConfig,
 	inUse bool,
 ) error {
 	mc.Status.InUse = inUse
 	mc.Status.LastObservedGeneration = mc.GetGeneration()
 
 	var pmmErr error
-	if mc.Spec.Type == monitoringv1alpha2.PMMMonitoringType && mc.Spec.PMM != nil {
-		var v monitoringv1alpha2.PMMServerVersion
+	if mc.Spec.Type == monitoringv1alpha1.PMMMonitoringType && mc.Spec.PMM != nil {
+		var v monitoringv1alpha1.PMMServerVersion
 		v, pmmErr = r.fetchPMMServerVersion(ctx, mc)
 		if pmmErr == nil {
 			if mc.Status.PMM == nil {
-				mc.Status.PMM = &monitoringv1alpha2.PMMMonitoringStatus{}
+				mc.Status.PMM = &monitoringv1alpha1.PMMMonitoringStatus{}
 			}
 			mc.Status.PMM.ServerVersion = v
 		}
@@ -283,8 +283,8 @@ func (r *MonitoringConfigReconciler) updateStatus(
 // using the API key stored in the credentials Secret.
 func (r *MonitoringConfigReconciler) fetchPMMServerVersion(
 	ctx context.Context,
-	mc *monitoringv1alpha2.MonitoringConfig,
-) (monitoringv1alpha2.PMMServerVersion, error) {
+	mc *monitoringv1alpha1.MonitoringConfig,
+) (monitoringv1alpha1.PMMServerVersion, error) {
 	secret := &corev1.Secret{}
 	if err := r.Get(ctx, types.NamespacedName{
 		Name:      mc.Spec.PMM.CredentialsSecretName,
@@ -308,12 +308,12 @@ func (r *MonitoringConfigReconciler) fetchPMMServerVersion(
 		return "", fmt.Errorf("failed to get PMM server version: %w", err)
 	}
 
-	return monitoringv1alpha2.PMMServerVersion(v), nil
+	return monitoringv1alpha1.PMMServerVersion(v), nil
 }
 
 // reconcileVMAgent ensures a VMAgent exists with remote-write entries for all PMM-type MonitoringConfigs, and is removed when no longer needed.
 func (r *MonitoringConfigReconciler) reconcileVMAgent(ctx context.Context) error {
-	list := &monitoringv1alpha2.MonitoringConfigList{}
+	list := &monitoringv1alpha1.MonitoringConfigList{}
 	if err := r.List(ctx, list, &client.ListOptions{}); err != nil {
 		return fmt.Errorf("could not list monitoringconfigs: %w", err)
 	}
@@ -368,8 +368,8 @@ func (r *MonitoringConfigReconciler) reconcileVMAgent(ctx context.Context) error
 // is in the monitoring namespace.
 // - on deletion: removes the copied secret and the vmagent finalizer.
 // - otherwise: adds the vmagent finalizer and copies the credentials secret.
-func (r *MonitoringConfigReconciler) ensureVMAgentResources(ctx context.Context, mc *monitoringv1alpha2.MonitoringConfig) error {
-	if mc.Spec.Type != monitoringv1alpha2.PMMMonitoringType {
+func (r *MonitoringConfigReconciler) ensureVMAgentResources(ctx context.Context, mc *monitoringv1alpha1.MonitoringConfig) error {
+	if mc.Spec.Type != monitoringv1alpha1.PMMMonitoringType {
 		return nil
 	}
 
@@ -403,10 +403,10 @@ func (r *MonitoringConfigReconciler) ensureVMAgentResources(ctx context.Context,
 }
 
 // genVMAgentSpec builds a VMAgentSpec from the current state of all MonitoringConfigs.
-func (r *MonitoringConfigReconciler) genVMAgentSpec(mcList *monitoringv1alpha2.MonitoringConfigList, k8sClusterID string) (*vmv1beta1.VMAgentSpec, error) {
+func (r *MonitoringConfigReconciler) genVMAgentSpec(mcList *monitoringv1alpha1.MonitoringConfigList, k8sClusterID string) (*vmv1beta1.VMAgentSpec, error) {
 	remoteWrites := make([]vmv1beta1.VMAgentRemoteWriteSpec, 0, len(mcList.Items))
 	for _, mc := range mcList.Items {
-		if mc.Spec.Type != monitoringv1alpha2.PMMMonitoringType {
+		if mc.Spec.Type != monitoringv1alpha1.PMMMonitoringType {
 			continue
 		}
 
@@ -481,7 +481,7 @@ func (r *MonitoringConfigReconciler) genVMAgentSpec(mcList *monitoringv1alpha2.M
 
 // reconcileSecret copies the source MonitoringConfig secret onto the monitoring namespace.
 // Returns the name of the newly created/updated secret.
-func (r *MonitoringConfigReconciler) reconcileSecret(ctx context.Context, mc *monitoringv1alpha2.MonitoringConfig) (string, error) {
+func (r *MonitoringConfigReconciler) reconcileSecret(ctx context.Context, mc *monitoringv1alpha1.MonitoringConfig) (string, error) {
 	secretName := r.monitoringSecretName(mc)
 
 	// If the MonitoringConfig is already in the monitoring namespace, use it.
@@ -532,7 +532,7 @@ func (r *MonitoringConfigReconciler) reconcileSecret(ctx context.Context, mc *mo
 
 // monitoringSecretName returns the original or copied secret name depending
 // on whether the MonitoringConfig is in the monitoring namespace or not.
-func (r *MonitoringConfigReconciler) monitoringSecretName(mc *monitoringv1alpha2.MonitoringConfig) string {
+func (r *MonitoringConfigReconciler) monitoringSecretName(mc *monitoringv1alpha1.MonitoringConfig) string {
 	if mc.GetNamespace() == r.MonitoringNamespace {
 		return mc.Spec.PMM.CredentialsSecretName
 	}
@@ -541,7 +541,7 @@ func (r *MonitoringConfigReconciler) monitoringSecretName(mc *monitoringv1alpha2
 }
 
 // cleanupSecrets deletes all secrets in the monitoring namespace that belong to the given MonitoringConfig.
-func (r *MonitoringConfigReconciler) cleanupSecrets(ctx context.Context, mc *monitoringv1alpha2.MonitoringConfig) error {
+func (r *MonitoringConfigReconciler) cleanupSecrets(ctx context.Context, mc *monitoringv1alpha1.MonitoringConfig) error {
 	// List secrets in the monitoring namespace that belong to this MonitoringConfig.
 	secrets := &corev1.SecretList{}
 	err := r.List(ctx, secrets, &client.ListOptions{
@@ -573,10 +573,10 @@ func (r *MonitoringConfigReconciler) cleanupSecrets(ctx context.Context, mc *mon
 func (r *MonitoringConfigReconciler) initIndexers(ctx context.Context, mgr ctrl.Manager) error {
 	if err := mgr.GetFieldIndexer().IndexField(
 		ctx,
-		&monitoringv1alpha2.MonitoringConfig{},
+		&monitoringv1alpha1.MonitoringConfig{},
 		".spec.pmm.credentialsSecretName",
 		func(obj client.Object) []string {
-			mc, ok := obj.(*monitoringv1alpha2.MonitoringConfig)
+			mc, ok := obj.(*monitoringv1alpha1.MonitoringConfig)
 			if !ok {
 				return nil
 			}
@@ -716,7 +716,7 @@ func (r *MonitoringConfigReconciler) enqueueMonitoringConfigs(ctx context.Contex
 		return nil
 	}
 
-	list := &monitoringv1alpha2.MonitoringConfigList{}
+	list := &monitoringv1alpha1.MonitoringConfigList{}
 	err := r.List(ctx, list)
 	if err != nil {
 		return nil

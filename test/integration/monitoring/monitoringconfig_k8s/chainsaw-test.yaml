@@ -33,7 +33,7 @@ spec:
         file: 00-assert.yaml
     - assert:
         resource:
-          apiVersion: monitoring.openeverest.io/v1alpha2
+          apiVersion: monitoring.openeverest.io/v1alpha1
           kind: MonitoringConfig
           metadata:
             name: mc-1
@@ -43,7 +43,7 @@ spec:
               - openeverest.io/cleanup-secrets
     - assert:
         resource:
-          apiVersion: monitoring.openeverest.io/v1alpha2
+          apiVersion: monitoring.openeverest.io/v1alpha1
           kind: MonitoringConfig
           metadata:
             name: mc-2
@@ -85,7 +85,7 @@ spec:
         file: 10-assert.yaml
     - assert:
         resource:
-          apiVersion: monitoring.openeverest.io/v1alpha2
+          apiVersion: monitoring.openeverest.io/v1alpha1
           kind: MonitoringConfig
           metadata:
             name: mc-1
@@ -95,7 +95,7 @@ spec:
               - openeverest.io/cleanup-secrets
     - assert:
         resource:
-          apiVersion: monitoring.openeverest.io/v1alpha2
+          apiVersion: monitoring.openeverest.io/v1alpha1
           kind: MonitoringConfig
           metadata:
             name: mc-2
@@ -137,7 +137,7 @@ spec:
         file: 20-assert.yaml
     - assert:
         resource:
-          apiVersion: monitoring.openeverest.io/v1alpha2
+          apiVersion: monitoring.openeverest.io/v1alpha1
           kind: MonitoringConfig
           metadata:
             name: mc-1
@@ -147,7 +147,7 @@ spec:
               - openeverest.io/cleanup-secrets
     - assert:
         resource:
-          apiVersion: monitoring.openeverest.io/v1alpha2
+          apiVersion: monitoring.openeverest.io/v1alpha1
           kind: MonitoringConfig
           metadata:
             name: mc-2
@@ -185,12 +185,12 @@ spec:
     try:
     - delete:
         ref:
-          apiVersion: monitoring.openeverest.io/v1alpha2
+          apiVersion: monitoring.openeverest.io/v1alpha1
           kind: monitoringconfig
           name: mc-1
     - delete:
         ref:
-          apiVersion: monitoring.openeverest.io/v1alpha2
+          apiVersion: monitoring.openeverest.io/v1alpha1
           kind: monitoringconfig
           name: mc-2
     - script:

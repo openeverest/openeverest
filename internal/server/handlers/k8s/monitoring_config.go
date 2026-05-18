@@ -28,18 +28,18 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 
-	monitoringv1alpha2 "github.com/openeverest/openeverest/v2/api/monitoring/v1alpha2"
+	monitoringv1alpha1 "github.com/openeverest/openeverest/v2/api/monitoring/v1alpha1"
 	api "github.com/openeverest/openeverest/v2/internal/server/api"
 	"github.com/openeverest/openeverest/v2/pkg/pmm"
 )
 
 // ListMonitoringConfigs returns list of monitoring configs in a namespace.
-func (h *k8sHandler) ListMonitoringConfigs(ctx context.Context, cluster, namespace string) (*monitoringv1alpha2.MonitoringConfigList, error) {
+func (h *k8sHandler) ListMonitoringConfigs(ctx context.Context, cluster, namespace string) (*monitoringv1alpha1.MonitoringConfigList, error) {
 	return h.kubeConnector.ListMonitoringConfigsV2(ctx, ctrlclient.InNamespace(namespace))
 }
 
 // CreateMonitoringConfig creates a monitoring config.
-func (h *k8sHandler) CreateMonitoringConfig(ctx context.Context, cluster, namespace string, req *api.MonitoringConfigCreateParams) (*monitoringv1alpha2.MonitoringConfig, error) {
+func (h *k8sHandler) CreateMonitoringConfig(ctx context.Context, cluster, namespace string, req *api.MonitoringConfigCreateParams) (*monitoringv1alpha1.MonitoringConfig, error) {
 	_, err := h.kubeConnector.GetMonitoringConfigV2(ctx,
 		types.NamespacedName{
 			Namespace: namespace,
@@ -49,7 +49,7 @@ func (h *k8sHandler) CreateMonitoringConfig(ctx context.Context, cluster, namesp
 
 	if err == nil {
 		return nil, k8serrors.NewAlreadyExists(schema.GroupResource{
-			Group:    monitoringv1alpha2.GroupVersion.Group,
+			Group:    monitoringv1alpha1.GroupVersion.Group,
 			Resource: "monitoringconfigs",
 		}, req.Name)
 	}
@@ -72,14 +72,14 @@ func (h *k8sHandler) CreateMonitoringConfig(ctx context.Context, cluster, namesp
 		}
 	}
 
-	mc := &monitoringv1alpha2.MonitoringConfig{
+	mc := &monitoringv1alpha1.MonitoringConfig{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      req.Name,
 			Namespace: namespace,
 		},
-		Spec: monitoringv1alpha2.MonitoringConfigSpec{
-			Type: monitoringv1alpha2.MonitoringType(req.Type),
-			PMM: &monitoringv1alpha2.PMMMonitoringSpec{
+		Spec: monitoringv1alpha1.MonitoringConfigSpec{
+			Type: monitoringv1alpha1.MonitoringType(req.Type),
+			PMM: &monitoringv1alpha1.PMMMonitoringSpec{
 				URL:                   req.Url,
 				CredentialsSecretName: req.Name,
 				VerifyTLS:             req.VerifyTLS,
@@ -106,7 +106,7 @@ func (h *k8sHandler) CreateMonitoringConfig(ctx context.Context, cluster, namesp
 
 // DeleteMonitoringConfig deletes a monitoring config.
 func (h *k8sHandler) DeleteMonitoringConfig(ctx context.Context, cluster, namespace, name string) error {
-	delMCObj := &monitoringv1alpha2.MonitoringConfig{
+	delMCObj := &monitoringv1alpha1.MonitoringConfig{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: namespace,
@@ -132,7 +132,7 @@ func (h *k8sHandler) DeleteMonitoringConfig(ctx context.Context, cluster, namesp
 }
 
 // GetMonitoringConfig returns monitoring config that matches the criteria.
-func (h *k8sHandler) GetMonitoringConfig(ctx context.Context, cluster, namespace, name string) (*monitoringv1alpha2.MonitoringConfig, error) {
+func (h *k8sHandler) GetMonitoringConfig(ctx context.Context, cluster, namespace, name string) (*monitoringv1alpha1.MonitoringConfig, error) {
 	return h.kubeConnector.GetMonitoringConfigV2(ctx,
 		types.NamespacedName{
 			Namespace: namespace,
@@ -142,7 +142,7 @@ func (h *k8sHandler) GetMonitoringConfig(ctx context.Context, cluster, namespace
 }
 
 // UpdateMonitoringConfig updates a monitoring config.
-func (h *k8sHandler) UpdateMonitoringConfig(ctx context.Context, cluster, namespace, name string, req *api.MonitoringConfigUpdateParams) (*monitoringv1alpha2.MonitoringConfig, error) {
+func (h *k8sHandler) UpdateMonitoringConfig(ctx context.Context, cluster, namespace, name string, req *api.MonitoringConfigUpdateParams) (*monitoringv1alpha1.MonitoringConfig, error) {
 	m, err := h.kubeConnector.GetMonitoringConfigV2(ctx,
 		types.NamespacedName{
 			Namespace: namespace,
@@ -155,14 +155,14 @@ func (h *k8sHandler) UpdateMonitoringConfig(ctx context.Context, cluster, namesp
 
 	if req.Url != "" {
 		if m.Spec.PMM == nil {
-			m.Spec.PMM = &monitoringv1alpha2.PMMMonitoringSpec{}
+			m.Spec.PMM = &monitoringv1alpha1.PMMMonitoringSpec{}
 		}
 		m.Spec.PMM.URL = req.Url
 	}
 
 	if req.VerifyTLS != nil {
 		if m.Spec.PMM == nil {
-			m.Spec.PMM = &monitoringv1alpha2.PMMMonitoringSpec{}
+			m.Spec.PMM = &monitoringv1alpha1.PMMMonitoringSpec{}
 		}
 		m.Spec.PMM.VerifyTLS = req.VerifyTLS
 	}

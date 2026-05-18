@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package v1alpha2
+package v1alpha1
 
 import (
 	"context"
@@ -27,7 +27,7 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
-	monitoringv1alpha2 "github.com/openeverest/openeverest/v2/api/monitoring/v1alpha2"
+	monitoringv1alpha1 "github.com/openeverest/openeverest/v2/api/monitoring/v1alpha1"
 	"github.com/openeverest/openeverest/v2/pkg/pmm"
 )
 
@@ -37,7 +37,7 @@ var monitoringconfiglog = logf.Log.WithName("monitoringconfig-resource")
 
 // SetupMonitoringConfigWebhookWithManager registers the webhook for MonitoringConfig in the manager.
 func SetupMonitoringConfigWebhookWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewWebhookManagedBy(mgr, &monitoringv1alpha2.MonitoringConfig{}).
+	return ctrl.NewWebhookManagedBy(mgr, &monitoringv1alpha1.MonitoringConfig{}).
 		WithValidator(&MonitoringConfigCustomValidator{
 			Client:    mgr.GetClient(),
 			apiReader: mgr.GetAPIReader(),
@@ -45,7 +45,7 @@ func SetupMonitoringConfigWebhookWithManager(mgr ctrl.Manager) error {
 		Complete()
 }
 
-// +kubebuilder:webhook:path=/validate-monitoring-openeverest-io-v1alpha2-monitoringconfig,mutating=false,failurePolicy=fail,sideEffects=None,groups=monitoring.openeverest.io,resources=monitoringconfigs,verbs=create;update,versions=v1alpha2,name=vmonitoringconfig-v1alpha2.kb.io,admissionReviewVersions=v1
+// +kubebuilder:webhook:path=/validate-monitoring-openeverest-io-v1alpha1-monitoringconfig,mutating=false,failurePolicy=fail,sideEffects=None,groups=monitoring.openeverest.io,resources=monitoringconfigs,verbs=create;update,versions=v1alpha1,name=vmonitoringconfig-v1alpha1.kb.io,admissionReviewVersions=v1
 
 // MonitoringConfigCustomValidator struct is responsible for validating the MonitoringConfig resource
 // when it is created, updated, or deleted.
@@ -56,27 +56,27 @@ type MonitoringConfigCustomValidator struct {
 }
 
 // ValidateCreate implements webhook.CustomValidator so a webhook will be registered for the type MonitoringConfig.
-func (v *MonitoringConfigCustomValidator) ValidateCreate(ctx context.Context, obj *monitoringv1alpha2.MonitoringConfig) (admission.Warnings, error) {
+func (v *MonitoringConfigCustomValidator) ValidateCreate(ctx context.Context, obj *monitoringv1alpha1.MonitoringConfig) (admission.Warnings, error) {
 	monitoringconfiglog.Info("Validation for MonitoringConfig upon creation", "name", obj.GetName())
 
 	return nil, v.validateMonitoringConfig(ctx, obj)
 }
 
 // ValidateUpdate implements webhook.CustomValidator so a webhook will be registered for the type MonitoringConfig.
-func (v *MonitoringConfigCustomValidator) ValidateUpdate(ctx context.Context, oldObj, newObj *monitoringv1alpha2.MonitoringConfig) (admission.Warnings, error) {
+func (v *MonitoringConfigCustomValidator) ValidateUpdate(ctx context.Context, oldObj, newObj *monitoringv1alpha1.MonitoringConfig) (admission.Warnings, error) {
 	monitoringconfiglog.Info("Validation for MonitoringConfig upon update", "name", newObj.GetName())
 
 	return nil, v.validateMonitoringConfig(ctx, newObj)
 }
 
 // ValidateDelete implements webhook.CustomValidator so a webhook will be registered for the type MonitoringConfig.
-func (v *MonitoringConfigCustomValidator) ValidateDelete(_ context.Context, obj *monitoringv1alpha2.MonitoringConfig) (admission.Warnings, error) {
+func (v *MonitoringConfigCustomValidator) ValidateDelete(_ context.Context, obj *monitoringv1alpha1.MonitoringConfig) (admission.Warnings, error) {
 	return nil, nil
 }
 
 // validateMonitoringConfig performs checks secret contains valid PMM API key
 // by sening a request to PMM server.
-func (v *MonitoringConfigCustomValidator) validateMonitoringConfig(ctx context.Context, mc *monitoringv1alpha2.MonitoringConfig) error {
+func (v *MonitoringConfigCustomValidator) validateMonitoringConfig(ctx context.Context, mc *monitoringv1alpha1.MonitoringConfig) error {
 	if os.Getenv("SKIP_PMM") == "true" {
 		monitoringconfiglog.Info("Skipping PMM validation", "name", mc.GetName())
 
