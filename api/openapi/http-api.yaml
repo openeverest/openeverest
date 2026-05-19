@@ -2809,6 +2809,19 @@ paths:
           description: The name of the instance
           schema:
             type: string
+        - name: deletionPolicy
+          in: query
+          required: false
+          description: |
+            Override the instance's spec.deletionPolicy before deletion.
+            "Cascade" (default) deletes all Backup and Restore CRs referencing this instance.
+            "Orphan" leaves Backup and Restore CRs in place.
+            When omitted, the existing value on the Instance CR is used.
+          schema:
+            type: string
+            enum:
+              - Cascade
+              - Orphan
       responses:
         '200':
           description: Instance deleted successfully
@@ -3161,6 +3174,19 @@ paths:
           description: The name of the backup
           schema:
             type: string
+        - name: deletionPolicy
+          in: query
+          required: false
+          description: |
+            Override the backup's spec.deletionPolicy before deletion.
+            "Delete" (default) removes both the engine backup resource and the data in S3.
+            "Retain" removes the engine backup resource but preserves the data in S3.
+            When omitted, the existing value on the Backup CR is used.
+          schema:
+            type: string
+            enum:
+              - Delete
+              - Retain
       responses:
         '200':
           description: Backup deleted successfully

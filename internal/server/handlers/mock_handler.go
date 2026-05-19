@@ -465,17 +465,17 @@ func (_m *MockHandler) CreateSplitHorizonDNSConfig(ctx context.Context, shdc *en
 	return r0, r1
 }
 
-// DeleteBackup provides a mock function with given fields: ctx, cluster, namespace, name
-func (_m *MockHandler) DeleteBackup(ctx context.Context, cluster string, namespace string, name string) error {
-	ret := _m.Called(ctx, cluster, namespace, name)
+// DeleteBackup provides a mock function with given fields: ctx, cluster, namespace, name, params
+func (_m *MockHandler) DeleteBackup(ctx context.Context, cluster string, namespace string, name string, params *api.DeleteBackupParams) error {
+	ret := _m.Called(ctx, cluster, namespace, name, params)
 
 	if len(ret) == 0 {
 		panic("no return value specified for DeleteBackup")
 	}
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, string, string, string) error); ok {
-		r0 = rf(ctx, cluster, namespace, name)
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, string, *api.DeleteBackupParams) error); ok {
+		r0 = rf(ctx, cluster, namespace, name, params)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -573,17 +573,17 @@ func (_m *MockHandler) DeleteDatabaseClusterRestore(ctx context.Context, namespa
 	return r0
 }
 
-// DeleteInstance provides a mock function with given fields: ctx, cluster, namespace, name
-func (_m *MockHandler) DeleteInstance(ctx context.Context, cluster string, namespace string, name string) error {
-	ret := _m.Called(ctx, cluster, namespace, name)
+// DeleteInstance provides a mock function with given fields: ctx, cluster, namespace, name, params
+func (_m *MockHandler) DeleteInstance(ctx context.Context, cluster string, namespace string, name string, params *api.DeleteInstanceParams) error {
+	ret := _m.Called(ctx, cluster, namespace, name, params)
 
 	if len(ret) == 0 {
 		panic("no return value specified for DeleteInstance")
 	}
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, string, string, string) error); ok {
-		r0 = rf(ctx, cluster, namespace, name)
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, string, *api.DeleteInstanceParams) error); ok {
+		r0 = rf(ctx, cluster, namespace, name, params)
 	} else {
 		r0 = ret.Error(0)
 	}

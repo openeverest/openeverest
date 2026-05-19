@@ -19,6 +19,7 @@ import (
 	"context"
 
 	"github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
+	api "github.com/openeverest/openeverest/v2/internal/server/api"
 )
 
 // GetBackup proxies the request to the next handler.
@@ -33,6 +34,6 @@ func (h *validateHandler) CreateBackup(ctx context.Context, cluster string, back
 }
 
 // DeleteBackup proxies the request to the next handler.
-func (h *validateHandler) DeleteBackup(ctx context.Context, cluster, namespace, name string) error {
-	return h.next.DeleteBackup(ctx, cluster, namespace, name)
+func (h *validateHandler) DeleteBackup(ctx context.Context, cluster, namespace, name string, params *api.DeleteBackupParams) error {
+	return h.next.DeleteBackup(ctx, cluster, namespace, name, params)
 }

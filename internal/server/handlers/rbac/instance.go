@@ -73,12 +73,12 @@ func (h *rbacHandler) UpdateInstance(ctx context.Context, cluster string, instan
 }
 
 // DeleteInstance deletes an instance, gated by RBAC.
-func (h *rbacHandler) DeleteInstance(ctx context.Context, cluster, namespace, name string) error {
+func (h *rbacHandler) DeleteInstance(ctx context.Context, cluster, namespace, name string, params *api.DeleteInstanceParams) error {
 	object := rbac.ClusterNamespacedObjectName(cluster, namespace, name)
 	if err := h.enforce(ctx, rbac.ResourceInstances, rbac.ActionDelete, object); err != nil {
 		return err
 	}
-	return h.next.DeleteInstance(ctx, cluster, namespace, name)
+	return h.next.DeleteInstance(ctx, cluster, namespace, name, params)
 }
 
 // GetInstanceConnection returns connection details, gated by RBAC.

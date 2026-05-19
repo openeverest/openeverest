@@ -22,6 +22,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
+	api "github.com/openeverest/openeverest/v2/internal/server/api"
 )
 
 // GetBackup returns backup that matches the criteria.
@@ -34,10 +35,24 @@ func (h *k8sHandler) CreateBackup(ctx context.Context, cluster string, backup *b
 	return h.kubeConnector.CreateBackup(ctx, backup)
 }
 
-// DeleteBackup deletes a backup.
-func (h *k8sHandler) DeleteBackup(ctx context.Context, cluster, namespace, name string) error {
-	backup := &backupv1alpha1.Backup{}
-	backup.Name = name
-	backup.Namespace = namespace
+// DeleteBackup deletes a backup. If the deletionPolicy query parameter is
+// provided, the backup's spec.deletionPolicy is patched before deletion so the
+// controller sees the caller's intent (Delete vs Retain S3 data).
+func (h *k8sHandler) DeleteBackup(ctx context.Context, cluster, namespace, name string, params *api.DeleteBackupParams) error {
+	backup, err := h.kubeConnector.GetBackup(ctx, types.NamespacedName{Namespace: namespace, Name: name})
+	if err != nil {
+		return err
+	}
+
+	if params != nil && params.DeletionPolicy != nil {
+		policy := backupv1alpha1.BackupDeletionPolicy(*params.DeletionPolicy)
+		if backup.Spec.DeletionPolicy != policy {
+			backup.Spec.DeletionPolicy = policy
+			if _, err := h.kubeConnector.UpdateBackup(ctx, backup); err != nil {
+				return err
+			}
+		}
+	}
+
 	return h.kubeConnector.DeleteBackup(ctx, backup)
 }

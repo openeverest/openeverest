@@ -49,12 +49,26 @@ func (h *k8sHandler) UpdateInstance(ctx context.Context, cluster string, instanc
 	return h.kubeConnector.UpdateInstance(ctx, instance)
 }
 
-// DeleteInstance deletes an instance.
-func (h *k8sHandler) DeleteInstance(ctx context.Context, cluster, namespace, name string) error {
+// DeleteInstance deletes an instance. If the deletionPolicy query parameter is
+// provided, the instance's spec.deletionPolicy is patched before deletion so
+// the controller sees the caller's intent (Cascade vs Orphan child resources).
+func (h *k8sHandler) DeleteInstance(ctx context.Context, cluster, namespace, name string, params *api.DeleteInstanceParams) error {
 	instance, err := h.kubeConnector.GetInstance(ctx, types.NamespacedName{Namespace: namespace, Name: name})
 	if err != nil {
 		return err
 	}
+
+	if params != nil && params.DeletionPolicy != nil {
+		policy := corev1alpha1.InstanceDeletionPolicy(*params.DeletionPolicy)
+		if instance.Spec.DeletionPolicy != policy {
+			instance.Spec.DeletionPolicy = policy
+			instance, err = h.kubeConnector.UpdateInstance(ctx, instance)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
 	return h.kubeConnector.DeleteInstance(ctx, instance)
 }
 

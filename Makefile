@@ -1,4 +1,4 @@
-REPO_ROOT=$(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))
+REPO_ROOT=$(shell dirname "$(realpath $(firstword $(MAKEFILE_LIST)))")
 RELEASE_VERSION ?= v0.0.0-$(shell git rev-parse --short HEAD)
 RELEASE_FULLCOMMIT ?= $(shell git rev-parse HEAD)
 IMAGE_PREFIX ?= ghcr.io/openeverest
@@ -205,9 +205,10 @@ build-cli-debug: build-cli-helper	## Build Everest CLI binary with debug symbols
 
 UI_DIR = $(CWD)/ui
 .PHONY: build-ui
-build-ui: ## Build Everest UI and embed it into the Everest API server binary.
+build-ui:
 	$(info Building Everest UI)
-	cd $(UI_DIR) && $(MAKE) init build EVEREST_OUT_DIR=$(CWD)/public/dist
+	$(MAKE) -C "$(UI_DIR)" init
+	$(MAKE) -C "$(UI_DIR)" build EVEREST_OUT_DIR="$(CWD)/public/dist"
 
 .PHONY: release-cli
 release-cli: CLI_LD_FLAGS += -s -w

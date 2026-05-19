@@ -848,10 +848,6 @@ type Instance struct {
 			// .spec.storageName) to a BackupStorage resource. Schedules and PITR are
 			// configured per storage via the nested .schedules and .pitr fields.
 			Storages *[]struct {
-				// Main Main marks this storage as the engine's default. At most one storage
-				// per Instance may be marked main.
-				Main *bool `json:"main,omitempty"`
-
 				// Name Name is the logical name the engine uses for this storage. It is also
 				// the value that Backup CRs target via .spec.storageName.
 				Name string `json:"name"`
@@ -999,6 +995,27 @@ type Instance struct {
 			// Version Version of the component from ComponentVersions.
 			Version *string `json:"version,omitempty"`
 		} `json:"components,omitempty"`
+
+		// DeletionPolicy DeletionPolicy controls what happens to Backup and Restore CRs that
+		// reference this Instance when the Instance is deleted.
+		// Cascade (default) instructs the runtime to delete every Backup and
+		// Restore in the Instance's namespace whose .spec.instanceName matches
+		// this Instance before tearing down the engine. Each Backup's own
+		// .spec.deletionPolicy then independently controls whether its
+		// underlying data in the BackupStorage is purged or retained.
+		// Orphan instructs the runtime to leave Backup and Restore CRs in
+		// place; they survive the Instance deletion and can later be used to
+		// restore into a newly-created Instance.
+		//
+		// The Instance is held in the Terminating phase until all referenced
+		// Backups/Restores have been deleted (Cascade) or until the engine
+		// resources have been torn down (both policies).
+		//
+		// The field is mutable on a live Instance but is frozen once deletion
+		// has started: switching policies after .metadata.deletionTimestamp
+		// has been set is rejected so the cascade path cannot race with
+		// itself.
+		DeletionPolicy interface{} `json:"deletionPolicy,omitempty"`
 
 		// Global Global contains provider-level configuration that applies to the entire cluster.
 		// The schema for this field is defined by the provider's GlobalConfigSchema.

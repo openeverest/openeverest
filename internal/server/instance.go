@@ -25,6 +25,7 @@ import (
 	"github.com/labstack/echo/v4"
 
 	corev1alpha1 "github.com/openeverest/openeverest/v2/api/core/v1alpha1"
+	api "github.com/openeverest/openeverest/v2/internal/server/api"
 )
 
 // ListInstances lists all instances in a namespace.
@@ -97,8 +98,8 @@ func (e *EverestServer) UpdateInstance(c echo.Context, cluster string, namespace
 }
 
 // DeleteInstance deletes an instance.
-func (e *EverestServer) DeleteInstance(c echo.Context, cluster string, namespace string, instance string) error {
-	if err := e.handler.DeleteInstance(c.Request().Context(), cluster, namespace, instance); err != nil {
+func (e *EverestServer) DeleteInstance(c echo.Context, cluster string, namespace string, instance string, params api.DeleteInstanceParams) error {
+	if err := e.handler.DeleteInstance(c.Request().Context(), cluster, namespace, instance, &params); err != nil {
 		e.l.Errorf("DeleteInstance failed: %v", err)
 		return err
 	}

@@ -62,6 +62,8 @@ type KubernetesConnector interface {
 	DeleteBackup(ctx context.Context, obj *backupv1alpha1.Backup) error
 	// CreateBackup creates backup.
 	CreateBackup(ctx context.Context, backup *backupv1alpha1.Backup) (*backupv1alpha1.Backup, error)
+	// UpdateBackup updates backup.
+	UpdateBackup(ctx context.Context, backup *backupv1alpha1.Backup) (*backupv1alpha1.Backup, error)
 	// ListBackupClasses returns list of backup classes that match the criteria.
 	ListBackupClasses(ctx context.Context, opts ...ctrlclient.ListOption) (*backupv1alpha1.BackupClassList, error)
 	// GetBackupClass returns backup class that matches the criteria.
