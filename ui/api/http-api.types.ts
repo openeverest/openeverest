@@ -8455,23 +8455,29 @@ export interface components {
             /** @description spec defines the desired state of MonitoringConfig */
             spec: {
                 /**
-                 * @description CredentialsSecretName is the reference to the secret containing the API key.
-                 *     It contains `apiKey` key with the API key value.
+                 * @description PMM contains PMM-specific monitoring configuration.
+                 *     Required when type is "pmm".
                  */
-                credentialsSecretName: string;
+                pmm?: {
+                    /**
+                     * @description CredentialsSecretName is the reference to the secret containing the API key.
+                     *     It contains `apiKey` key with the API key value.
+                     */
+                    credentialsSecretName: string;
+                    /** @description URL is the URL of the PMM server. */
+                    url: string;
+                    /**
+                     * @description VerifyTLS is set to ensure TLS/SSL verification.
+                     *     If unspecified, the default value is true.
+                     * @default true
+                     */
+                    verifyTLS?: boolean;
+                };
                 /**
                  * @description Type is the name of monitoring tool (e.g., "pmm").
                  * @enum {string}
                  */
                 type: "pmm";
-                /** @description URL is the URL of the monitoring server (e.g., PMM server URL). */
-                url: string;
-                /**
-                 * @description VerifyTLS is set to ensure TLS/SSL verification.
-                 *     If unspecified, the default value is true.
-                 * @default true
-                 */
-                verifyTLS?: boolean;
             };
             /**
              * @description status defines the observed state of MonitoringConfig
@@ -8490,8 +8496,11 @@ export interface components {
                  * @description LastObservedGeneration is the most recent generation observed for this MonitoringConfig.
                  */
                 lastObservedGeneration?: number;
-                /** @description PMMServerVersion shows PMM server version. */
-                pmmServerVersion?: string;
+                /** @description PMM contains PMM-specific status information. */
+                pmm?: {
+                    /** @description ServerVersion shows the PMM server version. */
+                    serverVersion?: string;
+                };
             };
         };
         /** @description MonitoringConfigList is an object that contains the list of the existing monitoringconfigs. */

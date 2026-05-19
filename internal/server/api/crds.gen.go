@@ -1224,19 +1224,23 @@ type MonitoringConfig struct {
 
 	// Spec spec defines the desired state of MonitoringConfig
 	Spec struct {
-		// CredentialsSecretName CredentialsSecretName is the reference to the secret containing the API key.
-		// It contains `apiKey` key with the API key value.
-		CredentialsSecretName string `json:"credentialsSecretName"`
+		// Pmm PMM contains PMM-specific monitoring configuration.
+		// Required when type is "pmm".
+		Pmm *struct {
+			// CredentialsSecretName CredentialsSecretName is the reference to the secret containing the API key.
+			// It contains `apiKey` key with the API key value.
+			CredentialsSecretName string `json:"credentialsSecretName"`
+
+			// Url URL is the URL of the PMM server.
+			Url string `json:"url"`
+
+			// VerifyTLS VerifyTLS is set to ensure TLS/SSL verification.
+			// If unspecified, the default value is true.
+			VerifyTLS *bool `json:"verifyTLS,omitempty"`
+		} `json:"pmm,omitempty"`
 
 		// Type Type is the name of monitoring tool (e.g., "pmm").
 		Type MonitoringConfigSpecType `json:"type"`
-
-		// Url URL is the URL of the monitoring server (e.g., PMM server URL).
-		Url string `json:"url"`
-
-		// VerifyTLS VerifyTLS is set to ensure TLS/SSL verification.
-		// If unspecified, the default value is true.
-		VerifyTLS *bool `json:"verifyTLS,omitempty"`
 	} `json:"spec"`
 
 	// Status status defines the observed state of MonitoringConfig
@@ -1247,8 +1251,11 @@ type MonitoringConfig struct {
 		// LastObservedGeneration LastObservedGeneration is the most recent generation observed for this MonitoringConfig.
 		LastObservedGeneration *int64 `json:"lastObservedGeneration,omitempty"`
 
-		// PmmServerVersion PMMServerVersion shows PMM server version.
-		PmmServerVersion *string `json:"pmmServerVersion,omitempty"`
+		// Pmm PMM contains PMM-specific status information.
+		Pmm *struct {
+			// ServerVersion ServerVersion shows the PMM server version.
+			ServerVersion *string `json:"serverVersion,omitempty"`
+		} `json:"pmm,omitempty"`
 	} `json:"status,omitempty"`
 }
 
