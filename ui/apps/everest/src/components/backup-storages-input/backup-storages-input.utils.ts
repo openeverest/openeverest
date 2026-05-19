@@ -1,24 +1,22 @@
 import { BackupStorage } from 'shared-types/backupStorages.types';
 import { Schedule } from 'shared-types/dbCluster.types';
 
-type GetAvailableStoragesParams = {
+export type GetAvailableStoragesParams = {
   backupStorages: BackupStorage[];
   schedules: Schedule[];
-  /** Max distinct storage entries (from BackupClass limits.maxStorages). */
   maxStorages?: number;
-  /**
-   * Max schedules per storage entry (from BackupClass limits.maxSchedulesPerStorage).
-   * When set, storages that already have this many schedules are hidden from the list.
-   * e.g. 1 → behaves like old PG slot logic (one schedule per storage);
-   *      2 → hide storages with 2+ schedules; undefined → no per-storage filtering.
-   */
+  // Applied as a cascading filter AFTER the maxStorages filter.
   maxSchedulesPerStorage?: number;
+  // instance.spec.backup.storages[].storageRef.name
+  instanceStorageNames?: string[];
 };
 
-type GetAvailableStoragesResult = {
+export type GetAvailableStoragesResult = {
   storagesToShow: BackupStorage[];
-  uniqueStoragesInUse: number;
+  activeStoragesCount: number;
   limitReached: boolean;
+  shouldDisable: boolean;
+  inUseNames: Set<string>;
 };
 
 export const getAvailableStorages = ({
@@ -26,23 +24,37 @@ export const getAvailableStorages = ({
   schedules,
   maxStorages,
   maxSchedulesPerStorage,
+  instanceStorageNames,
 }: GetAvailableStoragesParams): GetAvailableStoragesResult => {
-  const storagesInSchedules = schedules
-    .map((s) => s.backupStorageName)
-    .filter(Boolean);
-  const uniqueStoragesInUse = new Set(storagesInSchedules).size;
+  const inUseNames = new Set(instanceStorageNames ?? []);
+  const activeStoragesCount = inUseNames.size;
 
   const limitReached =
-    maxStorages !== undefined && uniqueStoragesInUse >= maxStorages;
+    maxStorages !== undefined &&
+    activeStoragesCount > 0 &&
+    activeStoragesCount >= maxStorages;
 
-  let storagesToShow = limitReached
-    ? backupStorages.filter((storage) =>
-        storagesInSchedules.includes(storage.name)
-      )
-    : backupStorages;
+  let storagesToShow: BackupStorage[];
 
-  // When a per-storage schedule limit is set, hide storages that have already
-  // reached that limit (i.e. can't accept another schedule).
+  if (
+    activeStoragesCount === 0 ||
+    maxStorages === undefined ||
+    maxStorages > activeStoragesCount
+  ) {
+    // Limit not reached (or no limit / no active storages): show all namespace storages
+    storagesToShow = backupStorages;
+  } else if (maxStorages === activeStoragesCount && maxStorages > 1) {
+    // Limit reached, multiple storages: show only instance storages
+    storagesToShow = backupStorages.filter((s) => inUseNames.has(s.name));
+  } else {
+    // Limit reached, single storage (limit == active == 1): show the single storage
+    storagesToShow = backupStorages.filter((s) => inUseNames.has(s.name));
+  }
+
+  const shouldDisable =
+    limitReached && maxStorages === 1 && storagesToShow.length <= 1;
+
+  // Cascading filter: maxSchedulesPerStorage removes storages that can't accept more schedules
   if (maxSchedulesPerStorage !== undefined) {
     const schedulesPerStorage = schedules.reduce<Record<string, number>>(
       (acc, s) => {
@@ -59,5 +71,11 @@ export const getAvailableStorages = ({
     );
   }
 
-  return { storagesToShow, uniqueStoragesInUse, limitReached };
+  return {
+    storagesToShow,
+    activeStoragesCount,
+    limitReached,
+    shouldDisable,
+    inUseNames,
+  };
 };

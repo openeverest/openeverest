@@ -93,9 +93,9 @@ export const ScheduleForm = ({
         namespace={namespace}
         schedules={schedules}
         maxSchedulesPerStorage={maxSchedulesPerStorage}
+        enableFillFirst={autoFillLocation}
         autoFillProps={{
           isRequired: true,
-          enableFillFirst: autoFillLocation,
           disabled: disableStorageSelection,
         }}
       />

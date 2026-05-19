@@ -1,5 +1,6 @@
 import z from 'zod';
 import { generateShortUID } from 'utils/generateShortUID';
+import { rfc_123_schema } from 'utils/common-validation';
 import type { Section } from 'components/ui-generator/ui-generator.types';
 import { buildSectionZodSchema } from 'components/ui-generator/utils/schema-builder';
 import { FormMode } from 'components/ui-generator/ui-generator.types';
@@ -18,9 +19,7 @@ export const defaultValuesFc = () => ({
 
 const staticSchema = (backupsNamesList: string[]) =>
   z.object({
-    [BackupFields.name]: z
-      .string()
-      .min(1)
+    [BackupFields.name]: rfc_123_schema({ fieldName: 'backup name' })
       .superRefine((input, ctx) => {
         if (backupsNamesList.find((item) => item === input)) {
           ctx.addIssue({
@@ -65,7 +64,16 @@ export const schema = (
     { formMode: FormMode.New }
   );
 
-  return base.and(dynamicSchema);
+  // ZodIntersection (.and()) fails when `base` contains .transform() fields (storageName).
+  // Validate UIGenerator fields separately via superRefine to avoid merge conflicts.
+  return base.passthrough().superRefine((data, ctx) => {
+    const result = dynamicSchema.safeParse(data);
+    if (!result.success) {
+      for (const issue of result.error.issues) {
+        ctx.addIssue(issue);
+      }
+    }
+  });
 };
 
 export type BackupFormData = z.infer<ReturnType<typeof staticSchema>> &

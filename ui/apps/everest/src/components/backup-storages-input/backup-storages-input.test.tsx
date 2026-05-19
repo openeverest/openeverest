@@ -16,42 +16,30 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { FormProvider, useForm } from 'react-hook-form';
 import BackupStoragesInput from '.';
+import {
+  getAvailableStorages,
+  GetAvailableStoragesParams,
+} from './backup-storages-input.utils';
+import { BackupStorage } from 'shared-types/backupStorages.types';
 
 const queryClient = new QueryClient();
 
 vi.mock('hooks/api/backup-storages/useBackupStorages', () => ({
   useBackupStoragesByNamespace: () => ({
     data: [
-      {
-        name: 'storage1',
-      },
-      {
-        name: 'storage2',
-      },
-      {
-        name: 'storage3',
-      },
-      {
-        name: 'storage4',
-      },
+      { name: 'storage1' },
+      { name: 'storage2' },
+      { name: 'storage3' },
+      { name: 'storage4' },
     ],
     isFetching: false,
   }),
 }));
 
-// TODO: migrate to v2 backup API when ready
-// const backupMocks = vi.hoisted(() => ({
-//   useDbBackups: vi.fn().mockReturnValue({ data: [], isFetching: false }),
-// }));
-
-// vi.mock('hooks/api/backups/useBackups', () => ({
-//   useDbBackups: backupMocks.useDbBackups,
-// }));
-
 const FormProviderWrapper = ({ children }: { children: React.ReactNode }) => {
   const methods = useForm({
     defaultValues: {
-      storageLoaction: '',
+      storageLocation: null,
     },
   });
   return (
@@ -61,72 +49,215 @@ const FormProviderWrapper = ({ children }: { children: React.ReactNode }) => {
   );
 };
 
-describe.skip('BackupStoragesInput', () => {
-  it('should show all available storages when no limit is set', async () => {
+// --- Unit tests for getAvailableStorages utility ---
+
+describe('getAvailableStorages', () => {
+  const allStorages: BackupStorage[] = [
+    { name: 'storage1' },
+    { name: 'storage2' },
+    { name: 'storage3' },
+    { name: 'storage4' },
+  ] as BackupStorage[];
+
+  const baseParams: GetAvailableStoragesParams = {
+    backupStorages: allStorages,
+    schedules: [],
+  };
+
+  describe('when maxStorages is undefined (no limit)', () => {
+    it('shows all namespace storages', () => {
+      const result = getAvailableStorages({
+        ...baseParams,
+        instanceStorageNames: ['storage1'],
+      });
+      expect(result.storagesToShow).toEqual(allStorages);
+      expect(result.limitReached).toBe(false);
+      expect(result.shouldDisable).toBe(false);
+      expect(result.activeStoragesCount).toBe(1);
+    });
+  });
+
+  describe('when limit > active storages', () => {
+    it('shows all namespace storages', () => {
+      const result = getAvailableStorages({
+        ...baseParams,
+        maxStorages: 2,
+        instanceStorageNames: ['storage1'],
+      });
+      expect(result.storagesToShow.map((s) => s.name)).toEqual([
+        'storage1',
+        'storage2',
+        'storage3',
+        'storage4',
+      ]);
+      expect(result.limitReached).toBe(false);
+      expect(result.shouldDisable).toBe(false);
+    });
+
+    it('provides inUseNames for highlighting', () => {
+      const result = getAvailableStorages({
+        ...baseParams,
+        maxStorages: 3,
+        instanceStorageNames: ['storage1', 'storage2'],
+      });
+      expect(result.inUseNames).toEqual(new Set(['storage1', 'storage2']));
+    });
+  });
+
+  describe('when active == 0 (no storages on instance yet)', () => {
+    it('shows all namespace storages regardless of limit', () => {
+      const result = getAvailableStorages({
+        ...baseParams,
+        maxStorages: 1,
+        instanceStorageNames: [],
+      });
+      expect(result.storagesToShow).toEqual(allStorages);
+      expect(result.limitReached).toBe(false);
+      expect(result.shouldDisable).toBe(false);
+      expect(result.activeStoragesCount).toBe(0);
+    });
+  });
+
+  describe('when limit == active && limit > 1', () => {
+    it('shows only instance storages', () => {
+      const result = getAvailableStorages({
+        ...baseParams,
+        maxStorages: 2,
+        instanceStorageNames: ['storage1', 'storage3'],
+      });
+      expect(result.storagesToShow.map((s) => s.name)).toEqual([
+        'storage1',
+        'storage3',
+      ]);
+      expect(result.limitReached).toBe(true);
+      expect(result.shouldDisable).toBe(false);
+    });
+  });
+
+  describe('when limit == active == 1', () => {
+    it('shows single instance storage and shouldDisable is true', () => {
+      const result = getAvailableStorages({
+        ...baseParams,
+        maxStorages: 1,
+        instanceStorageNames: ['storage2'],
+      });
+      expect(result.storagesToShow.map((s) => s.name)).toEqual(['storage2']);
+      expect(result.limitReached).toBe(true);
+      expect(result.shouldDisable).toBe(true);
+      expect(result.activeStoragesCount).toBe(1);
+    });
+  });
+
+  describe('cascading maxSchedulesPerStorage filter', () => {
+    it('removes storages that have reached schedule limit', () => {
+      const result = getAvailableStorages({
+        ...baseParams,
+        maxStorages: 2,
+        maxSchedulesPerStorage: 1,
+        instanceStorageNames: ['storage1', 'storage2'],
+        schedules: [
+          {
+            name: 'sched1',
+            schedule: '0 0 * * *',
+            backupStorageName: 'storage1',
+            enabled: true,
+          },
+        ],
+      });
+      // storage1 has 1 schedule, maxSchedulesPerStorage is 1 → filtered out
+      expect(result.storagesToShow.map((s) => s.name)).toEqual(['storage2']);
+    });
+
+    it('applies after maxStorages filter', () => {
+      const result = getAvailableStorages({
+        ...baseParams,
+        maxStorages: 3,
+        maxSchedulesPerStorage: 2,
+        instanceStorageNames: ['storage1', 'storage2', 'storage3'],
+        schedules: [
+          {
+            name: 'sched1',
+            schedule: '0 0 * * *',
+            backupStorageName: 'storage1',
+            enabled: true,
+          },
+          {
+            name: 'sched2',
+            schedule: '0 0 * * *',
+            backupStorageName: 'storage1',
+            enabled: true,
+          },
+          {
+            name: 'sched3',
+            schedule: '0 0 * * *',
+            backupStorageName: 'storage2',
+            enabled: true,
+          },
+        ],
+      });
+      // limit reached (3==3) → only instance storages shown
+      // storage1 has 2 schedules (>= maxSchedulesPerStorage 2) → filtered
+      // storage2 has 1 schedule (< 2) → kept
+      // storage3 has 0 schedules → kept
+      expect(result.storagesToShow.map((s) => s.name)).toEqual([
+        'storage2',
+        'storage3',
+      ]);
+    });
+  });
+
+  describe('backward compatibility (no instanceStorageNames)', () => {
+    it('falls back to 0 active count when instanceStorageNames not provided', () => {
+      const result = getAvailableStorages({
+        ...baseParams,
+        maxStorages: 1,
+      });
+      // No instanceStorageNames → activeStoragesCount = 0 → shows all
+      expect(result.storagesToShow).toEqual(allStorages);
+      expect(result.activeStoragesCount).toBe(0);
+      expect(result.limitReached).toBe(false);
+    });
+  });
+});
+
+// --- Component integration tests ---
+
+describe('BackupStoragesInput (on-demand context)', () => {
+  it('shows all storages and helper text when limit > active', () => {
     render(
       <FormProviderWrapper>
         <QueryClientProvider client={queryClient}>
           <BackupStoragesInput
             namespace="test"
-            schedules={[
-              {
-                name: 'schedule1',
-                schedule: '0 0 * * *',
-                backupStorageName: 'storage1',
-                enabled: true,
-              },
-              {
-                name: 'schedule2',
-                schedule: '0 0 * * *',
-                backupStorageName: 'storage2',
-                enabled: true,
-              },
-              {
-                name: 'schedule3',
-                schedule: '0 0 * * *',
-                backupStorageName: 'storage3',
-                enabled: true,
-              },
-            ]}
+            schedules={[]}
+            maxStorages={2}
+            instanceStorageNames={['storage1']}
           />
         </QueryClientProvider>
       </FormProviderWrapper>
     );
 
+    expect(
+      screen.getByText(
+        'You are currently using 1 out of 2 available storages.'
+      )
+    ).toBeInTheDocument();
+
     fireEvent.click(
       screen.getAllByRole('button').find((el) => el.title === 'Open')!
     );
     expect(screen.getAllByRole('option').length).toBe(4);
-    expect(screen.queryByText('<SLOTS ACHIEVED>')).not.toBeInTheDocument();
   });
 
-  it('should show only occupied storages when limit is reached across schedules', async () => {
-    // TODO: migrate to v2 backup API when ready
-    // backupMocks.useDbBackups.mockReturnValue({
-    //   data: [
-    //     {
-    //       backupStorageName: 'storage1',
-    //     },
-    //     {
-    //       backupStorageName: 'storage2',
-    //     },
-    //   ],
-    //   isFetching: false,
-    // });
+  it('shows "(in use)" highlight for instance storages when limit not reached', () => {
     render(
       <FormProviderWrapper>
         <QueryClientProvider client={queryClient}>
           <BackupStoragesInput
             namespace="test"
+            schedules={[]}
             maxStorages={3}
-            schedules={[
-              {
-                name: 'schedule3',
-                schedule: '0 0 * * *',
-                backupStorageName: 'storage3',
-                enabled: true,
-              },
-            ]}
+            instanceStorageNames={['storage1', 'storage2']}
           />
         </QueryClientProvider>
       </FormProviderWrapper>
@@ -135,136 +266,109 @@ describe.skip('BackupStoragesInput', () => {
     fireEvent.click(
       screen.getAllByRole('button').find((el) => el.title === 'Open')!
     );
-    // TODO: this assertion will change once v2 backup API is integrated
+    // All 4 storages shown
     expect(screen.getAllByRole('option').length).toBe(4);
-
-    // backupMocks.useDbBackups.mockClear();
+    // In-use labels shown for storage1 and storage2
+    expect(screen.getAllByText('(in use)').length).toBe(2);
   });
 
-  // This is a specific case of the previous test
-  it('should show only occupied storages when limit is reached from schedules', async () => {
+  it('shows only instance storages when limit == active > 1', () => {
     render(
       <FormProviderWrapper>
         <QueryClientProvider client={queryClient}>
           <BackupStoragesInput
             namespace="test"
-            maxStorages={3}
-            schedules={[
-              {
-                name: 'schedule1',
-                schedule: '0 0 * * *',
-                backupStorageName: 'storage1',
-                enabled: true,
-              },
-              {
-                name: 'schedule2',
-                schedule: '0 0 * * *',
-                backupStorageName: 'storage2',
-                enabled: true,
-              },
-              {
-                name: 'schedule3',
-                schedule: '0 0 * * *',
-                backupStorageName: 'storage3',
-                enabled: true,
-              },
-            ]}
+            schedules={[]}
+            maxStorages={2}
+            instanceStorageNames={['storage1', 'storage3']}
           />
         </QueryClientProvider>
       </FormProviderWrapper>
     );
 
-    fireEvent.click(
-      screen.getAllByRole('button').find((el) => el.title === 'Open')!
-    );
-    expect(screen.getAllByRole('option').length).toBe(3);
-
-    // backupMocks.useDbBackups.mockClear();
-  });
-
-  // This is a specific case of the previous test
-  it('should show only occupied storages when limit is reached from backups', async () => {
-    // TODO: migrate to v2 backup API when ready
-    // backupMocks.useDbBackups.mockReturnValue({
-    //   data: [
-    //     {
-    //       backupStorageName: 'storage1',
-    //     },
-    //     {
-    //       backupStorageName: 'storage2',
-    //     },
-    //     {
-    //       backupStorageName: 'storage3',
-    //     },
-    //   ],
-    //   isFetching: false,
-    // });
-    render(
-      <FormProviderWrapper>
-        <QueryClientProvider client={queryClient}>
-          <BackupStoragesInput namespace="test" schedules={[]} />
-        </QueryClientProvider>
-      </FormProviderWrapper>
-    );
-
-    fireEvent.click(
-      screen.getAllByRole('button').find((el) => el.title === 'Open')!
-    );
-    // TODO: this assertion will change once v2 backup API is integrated
-    expect(screen.getAllByRole('option').length).toBe(4);
-
-    // backupMocks.useDbBackups.mockClear();
-  });
-
-  it('should hide used storages in schedules when required', async () => {
-    // TODO: migrate to v2 backup API when ready
-    // backupMocks.useDbBackups.mockReturnValue({
-    //   data: [
-    //     {
-    //       backupStorageName: 'storage1',
-    //     },
-    //     {
-    //       backupStorageName: 'storage2',
-    //     },
-    //     {
-    //       backupStorageName: 'storage3',
-    //     },
-    //     {
-    //       backupStorageName: 'storage4',
-    //     },
-    //   ],
-    //   isFetching: false,
-    // });
-    render(
-      <FormProviderWrapper>
-        <QueryClientProvider client={queryClient}>
-          <BackupStoragesInput
-            namespace="test"
-            maxSchedulesPerStorage={1}
-            schedules={[
-              {
-                name: 'schedule1',
-                schedule: '0 0 * * *',
-                backupStorageName: 'storage1',
-                enabled: true,
-              },
-              {
-                name: 'schedule2',
-                schedule: '0 0 * * *',
-                backupStorageName: 'storage2',
-                enabled: true,
-              },
-            ]}
-          />
-        </QueryClientProvider>
-      </FormProviderWrapper>
-    );
+    expect(
+      screen.getByText(
+        'Storage limit reached. You are using 2 out of 2 available storages.'
+      )
+    ).toBeInTheDocument();
 
     fireEvent.click(
       screen.getAllByRole('button').find((el) => el.title === 'Open')!
     );
     expect(screen.getAllByRole('option').length).toBe(2);
+    // No "(in use)" labels when showing restricted list
+    expect(screen.queryByText('(in use)')).not.toBeInTheDocument();
+  });
 
-    // backupMocks.useDbBackups.mockClear();
+  it('disables field and prefills when limit == active == 1', () => {
+    render(
+      <FormProviderWrapper>
+        <QueryClientProvider client={queryClient}>
+          <BackupStoragesInput
+            namespace="test"
+            schedules={[]}
+            maxStorages={1}
+            instanceStorageNames={['storage2']}
+          />
+        </QueryClientProvider>
+      </FormProviderWrapper>
+    );
+
+    expect(
+      screen.getByText(
+        'Storage limit reached. You are using 1 out of 1 available storages.'
+      )
+    ).toBeInTheDocument();
+
+    // Field should be disabled
+    const input = screen.getByRole('combobox');
+    expect(input).toBeDisabled();
+  });
+
+  it('shows all storages when active == 0 and limit == 1', () => {
+    render(
+      <FormProviderWrapper>
+        <QueryClientProvider client={queryClient}>
+          <BackupStoragesInput
+            namespace="test"
+            schedules={[]}
+            maxStorages={1}
+            instanceStorageNames={[]}
+          />
+        </QueryClientProvider>
+      </FormProviderWrapper>
+    );
+
+    expect(
+      screen.getByText(
+        'You are currently using 0 out of 1 available storages.'
+      )
+    ).toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getAllByRole('button').find((el) => el.title === 'Open')!
+    );
+    expect(screen.getAllByRole('option').length).toBe(4);
+  });
+
+  it('shows all storages with no helper text when maxStorages is undefined', () => {
+    render(
+      <FormProviderWrapper>
+        <QueryClientProvider client={queryClient}>
+          <BackupStoragesInput
+            namespace="test"
+            schedules={[]}
+            instanceStorageNames={['storage1']}
+          />
+        </QueryClientProvider>
+      </FormProviderWrapper>
+    );
+
+    expect(screen.queryByText(/available storages/)).not.toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getAllByRole('button').find((el) => el.title === 'Open')!
+    );
+    expect(screen.getAllByRole('option').length).toBe(4);
   });
 });

@@ -35,9 +35,10 @@ import {
   schema,
 } from './on-demand-backup-modal.types.ts';
 import { ScheduleModalContext } from '../backups.context.ts';
-import { Typography } from '@mui/material';
+import { CircularProgress, Typography } from '@mui/material';
 import { useClusterName } from 'hooks/api/useClusterName.ts';
 import { useUpdateDbInstanceWithConflictRetry } from 'hooks/api/db-instances/useUpdateDbInstance.ts';
+import { useBackupStoragesByNamespace } from 'hooks/api/backup-storages/useBackupStorages.ts';
 
 export const OnDemandBackupModal = () => {
   const queryClient = useQueryClient();
@@ -56,10 +57,15 @@ export const OnDemandBackupModal = () => {
   const { openOnDemandModal, setOpenOnDemandModal, instance } =
     useContext(ScheduleModalContext);
 
+  // Fetch backup storages at modal level to compute initial form defaults.
+  const { isLoading: loadingStorages } =
+    useBackupStoragesByNamespace(namespace);
+
   // Resolve BackupClass uiSchema for the currently selected class.
   // For schema building we use the instance's default class from the list.
   const instanceClassRef = instance.spec?.backup?.classRef?.name;
-  const { data: backupClasses = [] } = useBackupClassesList(clusterName);
+  const { data: backupClasses = [], isLoading: loadingClasses } =
+    useBackupClassesList(clusterName);
   const defaultClass = useMemo(
     () => backupClasses.find((bc) => bc.metadata?.name === instanceClassRef),
     [backupClasses, instanceClassRef]
@@ -68,6 +74,13 @@ export const OnDemandBackupModal = () => {
 
   const { mutate: updateInstance, isPending: updatingInstance } =
     useUpdateDbInstanceWithConflictRetry(instance);
+
+  // Wait for essential data before rendering the form.
+  const dataReady = !loadingStorages && !loadingClasses;
+
+  // Compute defaultValues once data is ready. Storage auto-fills via
+  // BackupStoragesInput useEffect since storages are already loaded.
+  const values = useMemo(() => defaultValuesFc(), []);
 
   const createBackup = (data: BackupFormData) => {
     // UIGenerator fields use `path` from the uiSchema as their form field names,
@@ -148,8 +161,6 @@ export const OnDemandBackupModal = () => {
     });
   };
 
-  const values = useMemo(() => defaultValuesFc(), []);
-
   return (
     <FormDialog
       isOpen={openOnDemandModal}
@@ -161,11 +172,18 @@ export const OnDemandBackupModal = () => {
       schema={schema(backupNames, backupSections)}
       defaultValues={values}
       size="XL"
+      disableSubmit={!dataReady}
     >
-      <Typography variant="body1">
-        Select a backup class and storage to create an on-demand backup.
-      </Typography>
-      <OnDemandBackupFieldsWrapper />
+      {dataReady ? (
+        <>
+          <Typography variant="body1">
+            Select a backup class and storage to create an on-demand backup.
+          </Typography>
+          <OnDemandBackupFieldsWrapper />
+        </>
+      ) : (
+        <CircularProgress sx={{ display: 'block', mx: 'auto', my: 4 }} />
+      )}
     </FormDialog>
   );
 };

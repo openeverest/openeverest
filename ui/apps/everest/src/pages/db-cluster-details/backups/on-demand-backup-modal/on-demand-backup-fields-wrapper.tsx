@@ -13,7 +13,7 @@
 // limitations under the License.
 
 import { MenuItem } from '@mui/material';
-import { SelectInput } from '@percona/ui-lib';
+import { SelectInput, TextInput } from '@percona/ui-lib';
 import {
   useBackupClassesList,
   useBackupClassUiSchema,
@@ -33,7 +33,7 @@ export const OnDemandBackupFieldsWrapper = () => {
   const clusterName = useClusterName();
   const { namespace = '' } = useParams();
   const { instance } = useContext(ScheduleModalContext);
-  const { watch, setValue } = useFormContext();
+  const { watch, setValue, trigger } = useFormContext();
   const appliedDefaultsClassRef = useRef<string>('');
 
   const selectedClassName: string = watch(BackupFields.backupClassName);
@@ -75,11 +75,21 @@ export const OnDemandBackupFieldsWrapper = () => {
     );
   }, [instance]);
 
+  // Storage names currently registered on the instance (authoritative source for active count).
+  const instanceStorageNames = useMemo(
+    () =>
+      (instance.spec?.backup?.storages ?? [])
+        .map((s) => s.storageRef?.name)
+        .filter((n): n is string => Boolean(n)),
+    [instance]
+  );
+
   useEffect(() => {
     if (availableClasses.length > 0 && !selectedClassName) {
       setValue(
         BackupFields.backupClassName,
-        availableClasses[0].metadata?.name ?? ''
+        availableClasses[0].metadata?.name ?? '',
+        { shouldValidate: true }
       );
     }
   }, [availableClasses, selectedClassName, setValue]);
@@ -92,7 +102,11 @@ export const OnDemandBackupFieldsWrapper = () => {
       return;
     }
 
-    const explicitDefaults = getSectionExplicitDefaults(backupSections?.config);
+    // Wait until sections are loaded — prevents the ref from being set prematurely
+    // (before backupSections resolves), which would block defaults from ever being applied.
+    if (!backupSections) return;
+
+    const explicitDefaults = getSectionExplicitDefaults(backupSections.config);
 
     Object.entries(explicitDefaults).forEach(([fieldName, defaultValue]) => {
       setValue(fieldName, defaultValue, {
@@ -103,10 +117,21 @@ export const OnDemandBackupFieldsWrapper = () => {
     });
 
     appliedDefaultsClassRef.current = selectedClassName;
-  }, [backupSections, selectedClassName, setValue]);
+    // Re-run validation on fields managed by this wrapper so isValid reflects
+    // the newly-applied defaults. Avoid validating storageName here — it auto-fills
+    // via BackupStoragesInput and triggering it before that effect runs causes a flash.
+    trigger([BackupFields.name, BackupFields.backupClassName]);
+  }, [backupSections, selectedClassName, setValue, trigger]);
 
   return (
     <>
+      <TextInput
+        name={BackupFields.name}
+        textFieldProps={{
+          label: 'Backup name',
+        }}
+        isRequired
+      />
       <SelectInput
         name={BackupFields.backupClassName}
         label="Backup class"
@@ -127,9 +152,9 @@ export const OnDemandBackupFieldsWrapper = () => {
         schedules={instanceSchedules}
         maxStorages={maxStorages}
         maxSchedulesPerStorage={maxSchedulesPerStorage}
+        instanceStorageNames={instanceStorageNames}
         autoFillProps={{
           isRequired: true,
-          enableFillFirst: true,
         }}
       />
       {backupSections && (
