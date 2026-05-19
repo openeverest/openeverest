@@ -105,6 +105,8 @@ export const OnDemandBackupModal = () => {
               config: cleanedConfig,
             }),
         },
+      // The API accepts a partial Backup object for creation; generated types
+      // require the full shape, so we cast through unknown.
       } as unknown as CreateBackupPayload,
       {
         onSuccess() {

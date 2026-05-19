@@ -56,10 +56,6 @@ export type NormalizedBackupStatus =
   | BackupStateFromAPI
   | (typeof BackupStatus)['UNKNOWN'];
 
-// TODO remove
-// Backwards-compatible alias for call sites that already import `BackupStatus` as a type.
-export type BackupStatus = NormalizedBackupStatus;
-
 /** Normalize a Backup's state to a safe UI value. Centralizes the `?? UNKNOWN` fallback. */
 export const getBackupState = (backup: Backup): NormalizedBackupStatus =>
   (backup.status?.state as NormalizedBackupStatus) ?? BackupStatus.UNKNOWN;

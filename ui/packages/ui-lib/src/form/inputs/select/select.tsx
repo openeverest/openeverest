@@ -105,7 +105,6 @@ const SelectInput = ({
             )}
           </>
         )}
-        {...controllerProps}
       />
     </FormControl>
   );

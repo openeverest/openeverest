@@ -64,6 +64,8 @@ export const useBackupClassUiSchema = (
   return useMemo(() => {
     if (!backupClass) return { sections: undefined, uiSchema: undefined };
 
+    // The generated CRD types define uiSchema as Record<string, never> (opaque).
+    // We cast to our typed alias to access the known runtime shape.
     const uiSchema = backupClass.spec?.uiSchema as unknown as
       | BackupClassUiSchemaSections
       | undefined;

@@ -1,4 +1,3 @@
-// @ts-nocheck
 // TODO: This entire modal is legacy v1 code — needs full rewrite for v2 Instance API
 import { Alert, MenuItem, Typography } from '@mui/material';
 import { DbType } from '@percona/types';
@@ -16,7 +15,9 @@ import { DATE_FORMAT, PITR_DATE_FORMAT } from 'consts';
 import { format } from 'date-fns';
 import {
   BACKUPS_QUERY_KEY,
+  // @ts-expect-error Legacy v1 hook — removed in v2, modal needs full rewrite
   useDbBackups,
+  // @ts-expect-error Legacy v1 hook — removed in v2, modal needs full rewrite
   useDbClusterPitr,
 } from 'hooks/api/backups/useBackups';
 import {
@@ -26,7 +27,9 @@ import {
 import { FieldValues, useFormContext } from 'react-hook-form';
 import { useNavigate } from 'react-router-dom';
 import {
+  // @ts-expect-error Legacy v1 type — removed in v2
   LegacyBackup as Backup,
+  // @ts-expect-error Legacy v1 type — removed in v2
   LegacyBackupStatus as BackupStatus,
   DatabaseClusterPitr,
 } from 'shared-types/backups.types';
@@ -288,6 +291,7 @@ const RestoreDbModal = <T extends FieldValues>({
         if (isNewClusterMode) {
           closeModal();
           const selectedBackup = backups?.find(
+            // @ts-expect-error Legacy v1 Backup type — resolves to `any`
             (backup) => backup.name === backupName
           );
           if (backupType === BackuptypeValues.fromBackup) {

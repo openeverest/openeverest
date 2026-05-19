@@ -1,5 +1,5 @@
-import { useContext, useMemo, useState } from 'react';
-import { Box, Button, MenuItem, Tooltip } from '@mui/material';
+import { useContext, /* useMemo, */ useState } from 'react';
+import { Box, Button, MenuItem, /* Tooltip */ } from '@mui/material';
 import KeyboardArrowDownOutlinedIcon from '@mui/icons-material/KeyboardArrowDownOutlined';
 import KeyboardArrowUpOutlined from '@mui/icons-material/KeyboardArrowUpOutlined';
 import { MenuButton } from '@percona/ui-lib';
@@ -9,18 +9,19 @@ import ScheduledBackupsList from './scheduled-backups-list';
 import { BackupListTableHeaderProps } from './backups-list-table-header.types';
 import { Messages } from './backups-list-table-header.messages';
 import { useRBACPermissions } from 'hooks/rbac';
-import { useBackupClassesList } from 'hooks/api/backup-classes/useBackupClasses';
-import { useClusterName } from 'hooks/api/useClusterName';
+// TODO: v2 — uncomment when schedule limit checking is implemented
+// import { useBackupClassesList } from 'hooks/api/backup-classes/useBackupClasses';
+// import { useClusterName } from 'hooks/api/useClusterName';
 
 const BackupListTableHeader = ({
   onNowClick,
-  onScheduleClick,
-  noStoragesAvailable,
-  currentBackups,
+  // TODO: v2 — schedule feature props, uncomment when ready
+  // onScheduleClick,
+  // noStoragesAvailable,
 }: BackupListTableHeaderProps) => {
   const [showSchedules, setShowSchedules] = useState(false);
   const { instance } = useContext(ScheduleModalContext);
-  const clusterName = useClusterName();
+  // const clusterName = useClusterName();
 
   const allSchedules =
     instance.spec.backup?.storages?.flatMap((s) => s.schedules ?? []) ?? [];
@@ -28,28 +29,28 @@ const BackupListTableHeader = ({
 
   const restoring = instance.status?.phase === DbInstancePhaseStatus.Restoring;
 
-  // Check schedule limits from the BackupClass assigned to this instance.
-  const { data: backupClasses = [] } = useBackupClassesList(clusterName);
-  const classRef = instance.spec?.backup?.classRef?.name;
-  const activeClass = useMemo(
-    () => backupClasses.find((bc) => bc.metadata?.name === classRef),
-    [backupClasses, classRef]
-  );
-  const maxStorages = activeClass?.spec?.providerManaged?.limits?.maxStorages;
-  const scheduleLimitExceeded =
-    maxStorages != null &&
-    (instance.spec?.backup?.storages?.length ?? 0) >= maxStorages;
-  const disableScheduleBackups = noStoragesAvailable || scheduleLimitExceeded;
+  // TODO: v2 — schedule limit checking, uncomment when ready
+  // const { data: backupClasses = [] } = useBackupClassesList(clusterName);
+  // const classRef = instance.spec?.backup?.classRef?.name;
+  // const activeClass = useMemo(
+  //   () => backupClasses.find((bc) => bc.metadata?.name === classRef),
+  //   [backupClasses, classRef]
+  // );
+  // const maxStorages = activeClass?.spec?.providerManaged?.limits?.maxStorages;
+  // const scheduleLimitExceeded =
+  //   maxStorages != null &&
+  //   (instance.spec?.backup?.storages?.length ?? 0) >= maxStorages;
+  // const disableScheduleBackups = noStoragesAvailable || scheduleLimitExceeded;
 
   const handleNowClick = (handleClose: () => void) => {
     onNowClick();
     handleClose();
   };
 
-  const handleScheduleClick = (handleClose: () => void) => {
-    onScheduleClick();
-    handleClose();
-  };
+  // const handleScheduleClick = (handleClose: () => void) => {
+  //   onScheduleClick();
+  //   handleClose();
+  // };
 
   const handleShowSchedules = () => {
     setShowSchedules((prev) => !prev);
@@ -61,12 +62,11 @@ const BackupListTableHeader = ({
     'backups',
     `${instance.metadata?.namespace}/${instance.metadata?.name}`
   );
-
-  // TODO: RBAC for instances — resource name TBD
-  const { canUpdate: canUpdateInstance } = useRBACPermissions(
-    'instances',
-    `${instance.metadata?.namespace}/${instance.metadata?.name}`
-  );
+  // TODO: v2 — RBAC for instances resource name TBD
+  // const { canUpdate: canUpdateInstance } = useRBACPermissions(
+  //   'instances',
+  //   `${instance.metadata?.namespace}/${instance.metadata?.name}`
+  // );
 
   return (
     <>
@@ -129,41 +129,32 @@ const BackupListTableHeader = ({
               >
                 {Messages.now}
               </MenuItem>,
-              canUpdateInstance && (
-                <Box key="schedule">
-                  {disableScheduleBackups ? (
-                    <Tooltip
-                      title={
-                        scheduleLimitExceeded
-                          ? Messages.exceededScheduleBackupsNumber(maxStorages!)
-                          : Messages.noStoragesAvailable
-                      }
-                      placement="right"
-                      arrow
-                    >
-                      <div>
-                        <MenuItem data-testid="schedule-menu-item" disabled>
-                          {Messages.schedule}
-                        </MenuItem>
-                      </div>
-                    </Tooltip>
-                  ) : (
-                    <MenuItem
-                      onClick={() => handleScheduleClick(handleClose)}
-                      data-testid="schedule-menu-item"
-                    >
-                      {Messages.schedule}
-                    </MenuItem>
-                  )}
-                </Box>
-              ),
-            ]}
-          </MenuButton>
+              // TODO: v2 — Schedule feature not yet implemented
+              // To restore: remove the comment markers below and fix the props/hooks above
+              // canUpdateInstance && (
+              //   <Box key="schedule">
+              //     {disableScheduleBackups ? (
+              //       <Tooltip title={scheduleLimitExceeded
+              //           ? Messages.exceededScheduleBackupsNumber(maxStorages!)
+              //           : Messages.noStoragesAvailable} placement="right" arrow>
+              //         <div>
+              //           <MenuItem data-testid="schedule-menu-item" disabled>
+              //             {Messages.schedule}
+              //           </MenuItem>
+              //         </div>
+              //       </Tooltip>
+              //     ) : (
+              //       <MenuItem onClick={() => handleScheduleClick(handleClose)}
+              //         data-testid="schedule-menu-item">
+              //         {Messages.schedule}
+              //       </MenuItem>
+              //     )}
+              //   </Box>
+              // ),
+            ]}          </MenuButton>
         )}
       </Box>
-      {schedulesNumber > 0 && showSchedules && (
-        <ScheduledBackupsList currentBackups={currentBackups} />
-      )}
+      {schedulesNumber > 0 && showSchedules && <ScheduledBackupsList />}
     </>
   );
 };

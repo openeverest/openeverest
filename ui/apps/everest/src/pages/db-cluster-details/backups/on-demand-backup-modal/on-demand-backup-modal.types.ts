@@ -4,6 +4,7 @@ import { rfc_123_schema } from 'utils/common-validation';
 import type { Section } from 'components/ui-generator/ui-generator.types';
 import { buildSectionZodSchema } from 'components/ui-generator/utils/schema-builder';
 import { FormMode } from 'components/ui-generator/ui-generator.types';
+import { Messages } from './on-demand-backup-modal.messages';
 
 export enum BackupFields {
   name = 'name',
@@ -24,13 +25,13 @@ const staticSchema = (backupsNamesList: string[]) =>
         if (backupsNamesList.find((item) => item === input)) {
           ctx.addIssue({
             code: z.ZodIssueCode.custom,
-            message: 'You already have a backup with this name',
+            message: Messages.duplicateBackupName,
           });
         }
       }),
     [BackupFields.backupClassName]: z
       .string()
-      .min(1, 'Backup class is required'),
+      .min(1, Messages.backupClassRequired),
     [BackupFields.storageName]: z
       .string()
       .or(z.object({ name: z.string() }))

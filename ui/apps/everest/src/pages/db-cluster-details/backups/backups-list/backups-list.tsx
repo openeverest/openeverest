@@ -34,6 +34,7 @@ import BackupListTableHeader from './table-header';
 import { BackupActionButtons } from './backups-list-menu-actions';
 import { useClusterName } from 'hooks/api/useClusterName.ts';
 import { useQueryClient } from '@tanstack/react-query';
+import { useRBACPermissions } from 'hooks/rbac';
 
 export const BackupsList = () => {
   const { instanceName = '', namespace = '' } = useParams();
@@ -42,8 +43,13 @@ export const BackupsList = () => {
   const [openDeleteDialog, setOpenDeleteDialog] = useState(false);
   const [selectedBackup, setSelectedBackup] = useState('');
 
-  const { instance, setOpenOnDemandModal, setOpenScheduleModal } =
+  const { instance, setOpenOnDemandModal } =
     useContext(ScheduleModalContext);
+
+  const { canDelete } = useRBACPermissions(
+    'backups',
+    `${namespace}/${instanceName}`
+  );
 
   const { data: backups = [] } = useBackupsList(
     clusterName,
@@ -170,11 +176,9 @@ export const BackupsList = () => {
         renderTopToolbarCustomActions={() => (
           <BackupListTableHeader
             onNowClick={handleManualBackup}
-            onScheduleClick={() => setOpenScheduleModal(true)}
-            currentBackups={backups}
           />
         )}
-        enableRowActions
+        enableRowActions={canDelete}
         renderRowActions={({ row }) => (
           <TableActionsMenu
             menuItems={BackupActionButtons(row, handleDeleteBackup)}

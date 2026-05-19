@@ -117,10 +117,8 @@ export const OnDemandBackupFieldsWrapper = () => {
     });
 
     appliedDefaultsClassRef.current = selectedClassName;
-    // Re-run validation on fields managed by this wrapper so isValid reflects
-    // the newly-applied defaults. Avoid validating storageName here — it auto-fills
-    // via BackupStoragesInput and triggering it before that effect runs causes a flash.
-    trigger([BackupFields.name, BackupFields.backupClassName]);
+    // Re-run full validation so isValid reflects the newly-applied defaults.
+    trigger();
   }, [backupSections, selectedClassName, setValue, trigger]);
 
   return (

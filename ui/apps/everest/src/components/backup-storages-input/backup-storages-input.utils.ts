@@ -43,11 +43,8 @@ export const getAvailableStorages = ({
   ) {
     // Limit not reached (or no limit / no active storages): show all namespace storages
     storagesToShow = backupStorages;
-  } else if (maxStorages === activeStoragesCount && maxStorages > 1) {
-    // Limit reached, multiple storages: show only instance storages
-    storagesToShow = backupStorages.filter((s) => inUseNames.has(s.name));
   } else {
-    // Limit reached, single storage (limit == active == 1): show the single storage
+    // Limit reached: show only instance storages
     storagesToShow = backupStorages.filter((s) => inUseNames.has(s.name));
   }
 

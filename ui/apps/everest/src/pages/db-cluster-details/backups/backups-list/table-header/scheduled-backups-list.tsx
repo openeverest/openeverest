@@ -10,12 +10,7 @@ import { Messages } from './backups-list-table-header.messages';
 import { useRBACPermissions } from 'hooks/rbac';
 import { useUpdateDbInstanceWithConflictRetry } from 'hooks/api/db-instances/useUpdateDbInstance';
 import { FormMode } from 'components/ui-generator/ui-generator.types';
-import { Backup } from 'shared-types/backups.types';
 import { Instance } from 'shared-types/api.types';
-
-type Props = {
-  currentBackups: Backup[];
-};
 
 /** Flatten all schedules from every storage on the Instance, annotating with storageName. */
 const flattenSchedules = (instance: Instance) =>

@@ -1,1 +1,1 @@
-export { default } from './backup-storages-input';
+export { default } from './BackupStoragesInput';

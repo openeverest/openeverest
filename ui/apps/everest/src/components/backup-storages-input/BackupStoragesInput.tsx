@@ -34,7 +34,7 @@ const BackupStoragesInput = ({
   maxSchedulesPerStorage,
   instanceStorageNames,
 }: Props) => {
-  const { data: backupStorages = [], isFetching, isLoading } =
+  const { data: backupStorages = [], isFetching } =
     useBackupStoragesByNamespace(namespace);
   const { setValue, getValues } = useFormContext();
 
@@ -55,12 +55,12 @@ const BackupStoragesInput = ({
   const isDisabled = shouldDisable || autoFillProps?.disabled;
 
   useEffect(() => {
-    if (!enableFillFirst || isLoading || !storagesToShow.length) return;
+    if (!enableFillFirst || isFetching || !storagesToShow.length) return;
     const current = getValues(name);
     if (current == null) {
       setValue(name, storagesToShow[0], { shouldValidate: true });
     }
-  }, [storagesToShow, enableFillFirst, isLoading, name, setValue, getValues]);
+  }, [storagesToShow, enableFillFirst, isFetching, name, setValue, getValues]);
 
   const helperText =
     maxStorages !== undefined
