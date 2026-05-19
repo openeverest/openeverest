@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"regexp"
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/AlekSi/pointer"
@@ -273,6 +274,75 @@ func s3Access(
 		return errors.New("could not delete an object from S3 bucket")
 	}
 
+	return nil
+}
+
+// s3ReadOnlyAccessFn is the indirection used by callers; tests overwrite this
+// to assert which credentials were resolved without making real S3 calls.
+//
+//nolint:gochecknoglobals
+var s3ReadOnlyAccessFn = s3ReadOnlyAccess
+
+// s3ReadOnlyAccess validates that the given S3 credentials can reach the bucket
+// and that at least one object exists under the given prefix. It performs only
+// non-mutating operations (HeadBucket + ListObjectsV2 with MaxKeys=1) and is
+// intended for credential paths where the caller has read-only intent — e.g.
+// validating an import source or a backup-restore source.
+func s3ReadOnlyAccess(
+	l *zap.SugaredLogger,
+	endpoint *string,
+	accessKey, secretKey, bucketName, region, prefix string,
+	verifyTLS bool,
+	forcePathStyle bool,
+) error {
+	if config.Debug {
+		return nil
+	}
+
+	if endpoint != nil && *endpoint == "" {
+		endpoint = nil
+	}
+
+	c := &http.Client{
+		Timeout: timeoutS3AccessSec * time.Second,
+		Transport: &http.Transport{
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: !verifyTLS}, //nolint:gosec
+		},
+	}
+	sess, err := session.NewSession(&aws.Config{
+		Endpoint:         endpoint,
+		Region:           aws.String(region),
+		Credentials:      credentials.NewStaticCredentials(accessKey, secretKey, ""),
+		HTTPClient:       c,
+		S3ForcePathStyle: aws.Bool(forcePathStyle),
+	})
+	if err != nil {
+		l.Error(err)
+		return errors.New("could not initialize S3 session")
+	}
+
+	svc := s3.New(sess)
+	if _, err := svc.HeadBucket(&s3.HeadBucketInput{Bucket: aws.String(bucketName)}); err != nil {
+		l.Error(err)
+		return fmt.Errorf("unable to access S3 bucket '%s'. Check credentials, bucket name, region, and endpoint", bucketName)
+	}
+
+	// Normalise the prefix: drop a leading '/' (S3 keys are not rooted), keep a
+	// trailing '/' if the user gave one so directory-style paths only match dirs.
+	normalisedPrefix := strings.TrimPrefix(prefix, "/")
+
+	out, err := svc.ListObjectsV2(&s3.ListObjectsV2Input{
+		Bucket:  aws.String(bucketName),
+		Prefix:  aws.String(normalisedPrefix),
+		MaxKeys: aws.Int64(1),
+	})
+	if err != nil {
+		l.Error(err)
+		return fmt.Errorf("could not list objects under '%s' in S3 bucket '%s'", prefix, bucketName)
+	}
+	if aws.Int64Value(out.KeyCount) == 0 && len(out.CommonPrefixes) == 0 && len(out.Contents) == 0 {
+		return fmt.Errorf("no objects found at path '%s' in S3 bucket '%s'", prefix, bucketName)
+	}
 	return nil
 }
 
