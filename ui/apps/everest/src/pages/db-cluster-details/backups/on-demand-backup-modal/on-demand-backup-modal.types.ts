@@ -58,7 +58,7 @@ const staticSchema = (backupsNamesList: string[]) =>
         if (v == null) return '';
         return typeof v === 'string' ? v : v.name;
       })
-      .pipe(z.string().min(1, 'Storage is required')),
+      .pipe(z.string().min(1, Messages.storageRequired)),
   });
 
 /**

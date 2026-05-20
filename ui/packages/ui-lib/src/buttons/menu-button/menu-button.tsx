@@ -56,6 +56,7 @@ const MenuButton = ({
         anchorEl={anchorEl}
         open={open}
         onClose={handleClose}
+        {...menuProps}
         MenuListProps={{
           'aria-labelledby': 'menu-button',
           ...menuProps?.MenuListProps,
@@ -66,7 +67,6 @@ const MenuButton = ({
             : {}),
           ...menuProps?.PaperProps,
         }}
-        {...menuProps}
       >
         {children && children(handleClose)}
       </Menu>

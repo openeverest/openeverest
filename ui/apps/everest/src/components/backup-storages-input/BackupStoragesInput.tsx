@@ -66,6 +66,7 @@ const BackupStoragesInput = ({
       enableFillFirst
       loading={isFetching}
       options={storagesToShow}
+      {...autoFillProps}
       controllerProps={{ name, defaultValue: null }}
       autoCompleteProps={{
         isOptionEqualToValue: (option, value) => option.name === value.name,
@@ -90,7 +91,6 @@ const BackupStoragesInput = ({
         }),
       }}
       disabled={isDisabled}
-      {...autoFillProps}
     />
   );
 };
