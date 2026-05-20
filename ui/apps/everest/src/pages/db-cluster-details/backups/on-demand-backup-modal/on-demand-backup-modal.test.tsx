@@ -18,7 +18,8 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { OnDemandBackupModal } from './on-demand-backup-modal';
 import { ScheduleModalContext } from '../backups.context';
 import { Instance } from 'shared-types/api.types';
-import { WizardMode } from 'shared-types/wizard.types';
+import { FormMode } from 'components/ui-generator/ui-generator.types';
+import { ScheduleWizardMode } from 'shared-types/wizard.types';
 
 const mockCreateBackup = vi.fn();
 const mockUpdateInstance = vi.fn();
@@ -109,7 +110,7 @@ const renderModal = (contextOverrides = {}) => {
     setOpenOnDemandModal: vi.fn(),
     openScheduleModal: false,
     setOpenScheduleModal: vi.fn(),
-    mode: WizardMode.New,
+    mode: FormMode.New as ScheduleWizardMode,
     setMode: vi.fn(),
     selectedScheduleName: '',
     setSelectedScheduleName: vi.fn(),

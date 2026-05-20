@@ -20,7 +20,8 @@ import { OnDemandBackupFieldsWrapper } from './on-demand-backup-fields-wrapper';
 import { ScheduleModalContext } from '../backups.context';
 import { BackupFields } from './on-demand-backup-modal.types';
 import { Instance } from 'shared-types/api.types';
-import { WizardMode } from 'shared-types/wizard.types';
+import { FormMode } from 'components/ui-generator/ui-generator.types';
+import { ScheduleWizardMode } from 'shared-types/wizard.types';
 
 const mockBackupClasses = [
   {
@@ -96,7 +97,7 @@ const contextValue = {
   setOpenOnDemandModal: vi.fn(),
   openScheduleModal: false,
   setOpenScheduleModal: vi.fn(),
-  mode: WizardMode.New,
+  mode: FormMode.New as ScheduleWizardMode,
   setMode: vi.fn(),
   selectedScheduleName: '',
   setSelectedScheduleName: vi.fn(),
