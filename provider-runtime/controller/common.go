@@ -263,6 +263,57 @@ func (c *Context) TryDecodeComponentCustomSpec(component v1alpha1.ComponentSpec,
 	return err == nil
 }
 
+// ComponentConfig fetches the configuration string for a component from its
+// referenced Secret or ConfigMap (via component.Config).
+// Returns ("", nil) when Config is nil or neither ref is set.
+// The Config.Key field must be non-empty whenever a ref is provided.
+//
+// Example:
+//
+//	engine := c.Instance().Spec.Components["engine"]
+//	config, err := c.ComponentConfig(engine)
+//	if err != nil {
+//	    return err
+//	}
+func (c *Context) ComponentConfig(component v1alpha1.ComponentSpec) (string, error) {
+	cfg := component.Config
+	if cfg == nil {
+		return "", nil
+	}
+
+	if cfg.ConfigMapRef.Name != "" {
+		cm := &corev1.ConfigMap{}
+		if err := c.Get(cm, cfg.ConfigMapRef.Name); err != nil {
+			return "", fmt.Errorf("get config ConfigMap %q: %w", cfg.ConfigMapRef.Name, err)
+		}
+		if cfg.Key == "" {
+			return "", fmt.Errorf("config.key must be set when configMapRef is used")
+		}
+		value, ok := cm.Data[cfg.Key]
+		if !ok {
+			return "", fmt.Errorf("key %q not found in ConfigMap %q", cfg.Key, cfg.ConfigMapRef.Name)
+		}
+		return value, nil
+	}
+
+	if cfg.SecretRef.Name != "" {
+		secret := &corev1.Secret{}
+		if err := c.Get(secret, cfg.SecretRef.Name); err != nil {
+			return "", fmt.Errorf("get config Secret %q: %w", cfg.SecretRef.Name, err)
+		}
+		if cfg.Key == "" {
+			return "", fmt.Errorf("config.key must be set when secretRef is used")
+		}
+		data, ok := secret.Data[cfg.Key]
+		if !ok {
+			return "", fmt.Errorf("key %q not found in Secret %q", cfg.Key, cfg.SecretRef.Name)
+		}
+		return string(data), nil
+	}
+
+	return "", nil
+}
+
 // =============================================================================
 // CONNECTION DETAILS
 // =============================================================================
