@@ -69,8 +69,8 @@ type BackupClassSpec struct {
 	// +optional
 	ProviderManaged *ProviderManagedSpec `json:"providerManaged,omitempty"`
 	// Config contains the OpenAPI v3 schema describing the backup-time
-	// configuration accepted by this class. Backup.spec.config is validated
-	// against this schema.
+	// configuration accepted by this class. Backup.spec.config and
+	// InstanceBackupSchedule.config are both validated against this schema.
 	Config BackupClassConfig `json:"config,omitempty"`
 	// RestoreConfig contains the OpenAPI v3 schema describing the restore-time
 	// configuration accepted by this class. Restore.spec.config is validated

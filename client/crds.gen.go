@@ -422,8 +422,8 @@ type BackupClass struct {
 	// Spec BackupClassSpec defines the desired state of BackupClass.
 	Spec struct {
 		// Config Config contains the OpenAPI v3 schema describing the backup-time
-		// configuration accepted by this class. Backup.spec.config is validated
-		// against this schema.
+		// configuration accepted by this class. Backup.spec.config and
+		// InstanceBackupSchedule.config are both validated against this schema.
 		Config *struct {
 			// OpenAPIV3Schema OpenAPIV3Schema is the OpenAPI v3 schema of the backup class.
 			OpenAPIV3Schema interface{} `json:"openAPIV3Schema,omitempty"`
@@ -873,6 +873,12 @@ type Instance struct {
 				// ProviderManaged BackupClasses. Schedule names must be unique across
 				// all storages on the Instance.
 				Schedules *[]struct {
+					// Config Config is schedule-specific configuration validated against the
+					// BackupClass's .spec.scheduleConfig.openAPIV3Schema. When unset the
+					// provider falls back to engine defaults. The schema is the same as for
+					// Backup.spec.config but applied per-schedule rather than per-backup-run.
+					Config *map[string]interface{} `json:"config,omitempty"`
+
 					// Cron Cron is a standard 5-field cron expression. The provider may reject
 					// expressions the engine does not support.
 					Cron string `json:"cron"`

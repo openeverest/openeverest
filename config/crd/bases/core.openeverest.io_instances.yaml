@@ -123,6 +123,14 @@ spec:
                               backups are mirrored back into Backup CRs by the provider, sharing the
                               operator backup's name.
                             properties:
+                              config:
+                                description: |-
+                                  Config is schedule-specific configuration validated against the
+                                  BackupClass's .spec.scheduleConfig.openAPIV3Schema. When unset the
+                                  provider falls back to engine defaults. The schema is the same as for
+                                  Backup.spec.config but applied per-schedule rather than per-backup-run.
+                                type: object
+                                x-kubernetes-preserve-unknown-fields: true
                               cron:
                                 description: |-
                                   Cron is a standard 5-field cron expression. The provider may reject

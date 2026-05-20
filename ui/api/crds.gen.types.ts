@@ -186,8 +186,8 @@ export interface components {
             spec: {
                 /**
                  * @description Config contains the OpenAPI v3 schema describing the backup-time
-                 *     configuration accepted by this class. Backup.spec.config is validated
-                 *     against this schema.
+                 *     configuration accepted by this class. Backup.spec.config and
+                 *     InstanceBackupSchedule.config are both validated against this schema.
                  */
                 config?: {
                     /** @description OpenAPIV3Schema is the OpenAPI v3 schema of the backup class. */
@@ -671,6 +671,13 @@ export interface components {
                          *     all storages on the Instance.
                          */
                         schedules?: {
+                            /**
+                             * @description Config is schedule-specific configuration validated against the
+                             *     BackupClass's .spec.scheduleConfig.openAPIV3Schema. When unset the
+                             *     provider falls back to engine defaults. The schema is the same as for
+                             *     Backup.spec.config but applied per-schedule rather than per-backup-run.
+                             */
+                            config?: Record<string, never>;
                             /**
                              * @description Cron is a standard 5-field cron expression. The provider may reject
                              *     expressions the engine does not support.

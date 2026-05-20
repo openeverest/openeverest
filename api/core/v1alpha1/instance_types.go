@@ -199,6 +199,13 @@ type InstanceBackupSchedule struct {
 	// +kubebuilder:validation:Minimum=0
 	// +optional
 	RetentionCopies int32 `json:"retentionCopies,omitempty"`
+	// Config is schedule-specific configuration validated against the
+	// BackupClass's .spec.scheduleConfig.openAPIV3Schema. When unset the
+	// provider falls back to engine defaults. The schema is the same as for
+	// Backup.spec.config but applied per-schedule rather than per-backup-run.
+	// +kubebuilder:pruning:PreserveUnknownFields
+	// +optional
+	Config *runtime.RawExtension `json:"config,omitempty"`
 }
 
 // InstanceBackupStoragePITR configures point-in-time recovery writing to
