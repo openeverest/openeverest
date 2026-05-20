@@ -32,8 +32,8 @@ import BackupStoragesInput from 'components/backup-storages-input';
 export const ScheduleForm = ({
   allowScheduleSelection,
   disableStorageSelection = false,
+  autoFillLocation = false,
   disableNameInput,
-  autoFillLocation,
   schedules,
   showTypeRadio,
   disableNameEdit = false,
@@ -93,9 +93,9 @@ export const ScheduleForm = ({
         namespace={namespace}
         schedules={schedules}
         maxSchedulesPerStorage={maxSchedulesPerStorage}
-        enableFillFirst={autoFillLocation}
         autoFillProps={{
           isRequired: true,
+          enableFillFirst: autoFillLocation,
           disabled: disableStorageSelection,
         }}
       />

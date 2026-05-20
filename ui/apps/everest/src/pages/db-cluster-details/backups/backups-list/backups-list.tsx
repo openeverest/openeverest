@@ -1,3 +1,4 @@
+// TODO: check main — review this file against main for any lost functionality
 // Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");

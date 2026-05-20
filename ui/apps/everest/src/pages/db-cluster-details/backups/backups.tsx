@@ -61,6 +61,8 @@ export const Backups = () => {
         <>
           <BackupsList />
           {openOnDemandModal && <OnDemandBackupModal />}
+          {/* TODO: v2 schedules — uncomment when ScheduledBackupModal is migrated */}
+          {/* {openScheduleModal && <ScheduledBackupModal />} */}
         </>
       )}
     </ScheduleModalContext.Provider>

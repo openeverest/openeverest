@@ -10,8 +10,8 @@ enum ScheduleForm {
 export type ScheduleFormProps = {
   allowScheduleSelection?: boolean;
   disableStorageSelection?: boolean;
-  disableNameInput?: boolean;
   autoFillLocation?: boolean;
+  disableNameInput?: boolean;
   schedules: Schedule[];
   showTypeRadio: boolean;
   disableNameEdit?: boolean;

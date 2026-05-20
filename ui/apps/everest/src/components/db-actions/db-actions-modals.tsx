@@ -33,6 +33,8 @@ export const DbActionsModals = ({
   deleteMutation: { isPending: deletingCluster },
 }: DbActionsModalsProps) => {
   const clusterName = useClusterName();
+  // TODO: check main — disableKeepDataCheckbox disabled "keep data" for PG (PG doesn't support
+  // selective backup data cleanup). Check if v2 Instance API has equivalent field.
   // const disableKeepDataCheckbox =
   //   dbInstance?.spec.components?.engine?.type === DbEngineType.POSTGRESQL;
   const { data: backups = [] } = useBackupsList(

@@ -36,6 +36,9 @@ const staticSchema = (backupsNamesList: string[]) =>
       .string()
       .or(z.object({ name: z.string() }))
       .nullish()
+      // AutoComplete can return either a string or { name: string } object.
+      // In v1 this normalization was done in the hook (backupStorageName: typeof ... === 'string' ? ... : ....name).
+      // Now we handle it at the schema level via transform.
       .transform((v) => {
         if (v == null) return '';
         return typeof v === 'string' ? v : v.name;

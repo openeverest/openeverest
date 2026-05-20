@@ -151,8 +151,6 @@ const renderFieldsWrapper = (initialClass?: string) =>
     </MemoryRouter>
   );
 
-// --- Tests ---
-
 describe('OnDemandBackupFieldsWrapper', () => {
   beforeEach(() => {
     queryClient.clear();

@@ -6,4 +6,5 @@ export type MenuButtonProps = {
   buttonText: string;
   buttonProps?: ButtonProps;
   menuProps?: MenuProps;
+  matchAnchorWidth?: boolean;
 };

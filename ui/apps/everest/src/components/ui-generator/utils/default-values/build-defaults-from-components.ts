@@ -22,6 +22,14 @@ import { UI_TYPE_DEFAULT_VALUE } from 'components/ui-generator/constants';
 export const buildDefaultsFromComponents = (
   components: { [key: string]: Component | ComponentGroup },
   basePath: string = '',
+  /**
+   * When true, only includes defaults explicitly set in the schema's
+   * `fieldParams.defaultValue`. Skips the fallback to UI_TYPE_DEFAULT_VALUE
+   * (which assigns empty string / false / etc. based on uiType).
+   * This is useful when applying provider-driven defaults on top of an
+   * already-initialized form — we want to set only what the schema declares,
+   * without resetting other fields to generic empty values.
+   */
   buildOnlySchemaDefaults: boolean = false
 ): Record<string, unknown> => {
   const result: Record<string, unknown> = {};

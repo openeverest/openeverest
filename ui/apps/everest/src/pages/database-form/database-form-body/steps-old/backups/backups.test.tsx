@@ -27,7 +27,7 @@ vi.mock('hooks/api/backup-storages/useBackupStorages', async () => {
   };
 });
 vi.mock('hooks/api/db-cluster/useDbCluster');
-// TODO: migrate to v2 backup API when ready
+// TODO schedules: this test was written for v1 code and needs to be deleted or rewritten for v2
 // vi.mock('hooks/api/backups/useBackups', () => ({
 //   useDbBackups: () => ({
 //     data: [],

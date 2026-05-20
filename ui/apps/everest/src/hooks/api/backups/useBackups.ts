@@ -51,6 +51,9 @@ export const getBackupListQueryKey = (
 
 type DeleteBackupArgType = {
   backupName: string;
+  // TODO: restore when cleanup-on-delete is implemented
+  // See: https://github.com/openeverest/openeverest/issues/2268
+  // cleanupBackupStorage: boolean;
 };
 
 export const useBackupsList = (
@@ -94,6 +97,7 @@ export const useCreateBackupOnDemand = (
     unknown
   >
 ) => {
+  // TODO RBAC: resource name 'backups' needs additional testing with real v2 RBAC policies
   const { canCreate } = useRBACPermissions('backups', `${namespace}/*`);
 
   return useMutation({

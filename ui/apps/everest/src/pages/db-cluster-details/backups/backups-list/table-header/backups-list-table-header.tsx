@@ -1,5 +1,7 @@
-import { useContext, /* useMemo, */ useState } from 'react';
-import { Box, Button, MenuItem, /* Tooltip */ } from '@mui/material';
+import { useContext, useState } from 'react';
+// import { useMemo } from 'react';
+import { Box, Button, MenuItem } from '@mui/material';
+// import { Tooltip } from '@mui/material';
 import KeyboardArrowDownOutlinedIcon from '@mui/icons-material/KeyboardArrowDownOutlined';
 import KeyboardArrowUpOutlined from '@mui/icons-material/KeyboardArrowUpOutlined';
 import { MenuButton } from '@percona/ui-lib';
@@ -18,6 +20,8 @@ const BackupListTableHeader = ({
   // TODO: v2 — schedule feature props, uncomment when ready
   // onScheduleClick,
   // noStoragesAvailable,
+  // TODO: check main — currentBackups was passed to ScheduledBackupsList
+  // currentBackups,
 }: BackupListTableHeaderProps) => {
   const [showSchedules, setShowSchedules] = useState(false);
   const { instance } = useContext(ScheduleModalContext);
@@ -116,12 +120,12 @@ const BackupListTableHeader = ({
         )}
         {canCreate && (
           <MenuButton
+            matchAnchorWidth
             buttonProps={{
               disabled: restoring,
             }}
             buttonText="Create backup"
-          >
-            {(handleClose) => [
+            children={(handleClose) => [
               <MenuItem
                 key="now"
                 data-testid="now-menu-item"
@@ -129,7 +133,10 @@ const BackupListTableHeader = ({
               >
                 {Messages.now}
               </MenuItem>,
-              // TODO: v2 — Schedule feature not yet implemented
+              <MenuItem key="schedule" data-testid="schedule-menu-item" disabled>
+                {Messages.schedule}
+              </MenuItem>,
+              // TODO: v2 — Schedule feature not yet implemented — check main for original
               // To restore: remove the comment markers below and fix the props/hooks above
               // canUpdateInstance && (
               //   <Box key="schedule">
@@ -151,7 +158,8 @@ const BackupListTableHeader = ({
               //     )}
               //   </Box>
               // ),
-            ]}          </MenuButton>
+            ]}
+          />
         )}
       </Box>
       {schedulesNumber > 0 && showSchedules && <ScheduledBackupsList />}

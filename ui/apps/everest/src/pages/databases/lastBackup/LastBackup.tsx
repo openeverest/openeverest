@@ -9,6 +9,17 @@ import {
   sortBackupsByTime,
 } from '../DbClusterView.utils';
 import { BackupStatus } from 'shared-types/backups.types';
+// TODO backups: check main — this file was migrated from v1 useDbBackups to v2 useBackupsList.
+// Original v1 code used useDbBackups, useDbClusterPitr, useDbCluster, and had PITR gap warning.
+// Verify nothing was lost when reviewing the backups table feature.
+
+// Original v1 imports (removed because hooks no longer exist):
+// import { useDbBackups, useDbClusterPitr } from 'hooks/api/backups/useBackups';
+// import { IconButton, Tooltip, Typography } from '@mui/material';
+// import { WarningIcon } from '@percona/ui-lib';
+// import { useDbCluster } from 'hooks/api/db-cluster/useDbCluster';
+// import { useNavigate } from 'react-router-dom';
+// import { Messages } from '../dbClusterView.messages';
 
 export const LastBackup = ({ dbName, namespace }: LastBackupProps) => {
   const clusterName = useClusterName();
@@ -46,7 +57,25 @@ export const LastBackup = ({ dbName, namespace }: LastBackupProps) => {
           <Typography variant="body2">
             {getLastBackupTimeDiff(lastFinishedBackupDate)}
           </Typography>
-          {/* TODO: wire PITR gaps warning when useDbClusterPitr is available */}
+          {/* TODO backups: wire PITR gaps warning when useDbClusterPitr is available */}
+          {/* Original v1 PITR warning:
+          {pitrData?.gaps && (
+            <Tooltip
+              title={Messages.lastBackup.warningTooltip}
+              placement="right"
+              arrow
+            >
+              <IconButton
+                onClick={(e) => {
+                  e.stopPropagation();
+                  navigate(`${namespace}/${dbName}/backups`);
+                }}
+              >
+                <WarningIcon />
+              </IconButton>
+            </Tooltip>
+          )}
+          */}
         </>
       ) : (
         <Typography variant="body2">

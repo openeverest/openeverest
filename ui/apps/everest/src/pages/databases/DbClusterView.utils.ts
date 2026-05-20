@@ -132,6 +132,13 @@ export const getLastBackupTimeDiff = (lastBackup: Date): string => {
     `;
 };
 
+// TODO backups: check main — this function was migrated from v1 Backup shape to v2.
+// Original v1 conditions (for reference when reviewing):
+//   - signature: getLastBackupStatus(backups: Backup[], schedules: Schedule[])
+//   - filter: backup.state !== BackupStatus.FAILED
+//   - pending check: lastBackup.state === BackupStatus.IN_PROGRESS
+//   - unknown check: lastBackup.state === BackupStatus.UNKNOWN
+//   - schedules check: !schedules.length
 export const getLastBackupStatus = (
   backups: Backup[],
   hasSchedules: boolean
@@ -164,6 +171,7 @@ export const getLastBackupStatus = (
   }
 };
 
+// TODO backups: check main — was `b1.completed / b2.completed` in v1
 export const sortBackupsByTime = (backups: Backup[]) => {
   return [...backups].sort((b1, b2) => {
     const date1 = b1.status?.completedAt

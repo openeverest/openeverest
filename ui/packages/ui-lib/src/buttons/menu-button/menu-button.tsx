@@ -8,6 +8,7 @@ const MenuButton = ({
   buttonText,
   buttonProps,
   menuProps,
+  matchAnchorWidth,
 }: MenuButtonProps) => {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const open = !!anchorEl;
@@ -44,6 +45,12 @@ const MenuButton = ({
         MenuListProps={{
           'aria-labelledby': 'menu-button',
           ...menuProps?.MenuListProps,
+        }}
+        PaperProps={{
+          ...(matchAnchorWidth && anchorEl
+            ? { style: { minWidth: anchorEl.offsetWidth } }
+            : {}),
+          ...menuProps?.PaperProps,
         }}
         {...menuProps}
       >

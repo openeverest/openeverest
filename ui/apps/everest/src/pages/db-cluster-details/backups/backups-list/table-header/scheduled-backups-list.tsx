@@ -12,6 +12,8 @@ import { useUpdateDbInstanceWithConflictRetry } from 'hooks/api/db-instances/use
 import { FormMode } from 'components/ui-generator/ui-generator.types';
 import { Instance } from 'shared-types/api.types';
 
+// TODO: check main — verify nothing was lost during v2 migration of this component
+
 /** Flatten all schedules from every storage on the Instance, annotating with storageName. */
 const flattenSchedules = (instance: Instance) =>
   (instance.spec?.backup?.storages ?? []).flatMap((storage) =>

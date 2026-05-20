@@ -12,7 +12,43 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// TODO: Migrate scheduled backup modal to v2 Instance API
+// TODO: Migrate scheduled backup modal to v2 Instance API — check main for full implementation
+// Original v1 implementation (from main):
+// import { useContext } from 'react';
+// import { ScheduleFormDialog } from 'components/schedule-form-dialog/schedule-form-dialog';
+// import { ScheduleModalContext } from '../backups.context';
+// import { useUpdateDbClusterWithConflictRetry } from 'hooks/api/db-cluster/useUpdateDbCluster';
+// import { FormMode } from 'components/ui-generator/ui-generator.types';
+//
+// export const ScheduledBackupModal = () => {
+//   const {
+//     mode,
+//     selectedScheduleName,
+//     openScheduleModal,
+//     setOpenScheduleModal,
+//     dbCluster,
+//   } = useContext(ScheduleModalContext);
+//
+//   const { mutate: updateDbCluster } = useUpdateDbClusterWithConflictRetry(
+//     dbCluster?.metadata?.name ?? '',
+//     dbCluster?.metadata?.namespace ?? ''
+//   );
+//
+//   const handleSubmit = (data) => { ... };
+//   const handleClose = () => setOpenScheduleModal(false);
+//
+//   if (!openScheduleModal || !dbCluster) return null;
+//
+//   return (
+//     <ScheduleFormDialog
+//       mode={mode}
+//       dbCluster={dbCluster}
+//       selectedScheduleName={selectedScheduleName}
+//       onSubmit={handleSubmit}
+//       onClose={handleClose}
+//     />
+//   );
+// };
 export const ScheduledBackupModal = () => {
   return null;
 };

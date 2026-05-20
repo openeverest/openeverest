@@ -61,7 +61,6 @@ export const OnDemandBackupFieldsWrapper = () => {
   const maxSchedulesPerStorage =
     selectedClass?.spec?.providerManaged?.limits?.maxSchedulesPerStorage;
 
-  // Existing schedules from the instance — needed for storage availability filtering.
   const instanceSchedules = useMemo(() => {
     const storages = instance.spec?.backup?.storages ?? [];
     return storages.flatMap((s) =>
