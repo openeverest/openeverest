@@ -1,4 +1,4 @@
-REPO_ROOT=$(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))
+REPO_ROOT=$(shell dirname "$(realpath $(firstword $(MAKEFILE_LIST)))")
 RELEASE_VERSION ?= v0.0.0-$(shell git rev-parse --short HEAD)
 RELEASE_FULLCOMMIT ?= $(shell git rev-parse HEAD)
 IMAGE_PREFIX ?= ghcr.io/openeverest
@@ -170,8 +170,8 @@ release-cli: ## Build Everest CLI release versions for different OS and ARCH. (U
 .PHONY: build-ui
 build-ui:
 	$(info Building Everest UI)
-	$(MAKE) -C ${TEST_ROOT}/ui init
-	$(MAKE) -C ${TEST_ROOT}/ui build EVEREST_OUT_DIR=${TEST_ROOT}/public/dist
+	$(MAKE) -C "$(REPO_ROOT)/ui" init
+	$(MAKE) -C "$(REPO_ROOT)/ui" build EVEREST_OUT_DIR="$(REPO_ROOT)/public/dist"
 
 .PHONY: docker-build
 docker-build: ## Build docker image with Everest API server.
