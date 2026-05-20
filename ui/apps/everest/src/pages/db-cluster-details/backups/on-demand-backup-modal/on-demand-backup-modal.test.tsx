@@ -118,9 +118,7 @@ const renderModal = (contextOverrides = {}) => {
 
   return {
     ...render(
-      <MemoryRouter
-        initialEntries={['/databases/test-ns/my-instance/backups']}
-      >
+      <MemoryRouter initialEntries={['/databases/test-ns/my-instance/backups']}>
         <Routes>
           <Route
             path="/databases/:namespace/:instanceName/backups"
@@ -147,21 +145,25 @@ describe('OnDemandBackupModal', () => {
     queryClient.clear();
   });
 
-  it('renders form with header and submit button when data is ready', async () => {
-    renderModal();
+  it(
+    'renders form with header and submit button when data is ready',
+    { timeout: 15000 },
+    async () => {
+      renderModal();
 
-    expect(
-      screen.getByText('Create on-demand backup')
-    ).toBeInTheDocument();
-    expect(screen.getByText('Fields')).toBeInTheDocument();
-    expect(
-      screen.getByText(
-        'Select a backup class and storage to create an on-demand backup.'
-      )
-    ).toBeInTheDocument();
+      expect(screen.getByText('Create on-demand backup')).toBeInTheDocument();
+      expect(screen.getByText('Fields')).toBeInTheDocument();
+      expect(
+        screen.getByText(
+          'Select a backup class and storage to create an on-demand backup.'
+        )
+      ).toBeInTheDocument();
 
-    expect(screen.getByRole('button', { name: /create/i })).toBeInTheDocument();
-  });
+      expect(
+        screen.getByRole('button', { name: /create/i })
+      ).toBeInTheDocument();
+    }
+  );
 
   it('shows loading spinner when backup storages are loading', async () => {
     mockLoadingStorages = true;

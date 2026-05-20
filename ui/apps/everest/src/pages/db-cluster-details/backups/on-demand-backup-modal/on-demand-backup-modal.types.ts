@@ -20,15 +20,16 @@ export const defaultValuesFc = () => ({
 
 const staticSchema = (backupsNamesList: string[]) =>
   z.object({
-    [BackupFields.name]: rfc_123_schema({ fieldName: 'backup name' })
-      .superRefine((input, ctx) => {
-        if (backupsNamesList.find((item) => item === input)) {
-          ctx.addIssue({
-            code: z.ZodIssueCode.custom,
-            message: Messages.duplicateBackupName,
-          });
-        }
-      }),
+    [BackupFields.name]: rfc_123_schema({
+      fieldName: 'backup name',
+    }).superRefine((input, ctx) => {
+      if (backupsNamesList.find((item) => item === input)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: Messages.duplicateBackupName,
+        });
+      }
+    }),
     [BackupFields.backupClassName]: z
       .string()
       .min(1, Messages.backupClassRequired),

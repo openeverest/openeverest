@@ -86,8 +86,10 @@ export const OnDemandBackupModal = () => {
     // UIGenerator fields use `path` from the uiSchema as their form field names,
     // so they appear at the top level of form data alongside static fields.
     // Extract them by removing the known static keys.
-    const { name, backupClassName, storageName, ...dynamicFields } =
-      data as Record<string, unknown>;
+    const staticKeys = new Set(['name', 'backupClassName', 'storageName']);
+    const dynamicFields = Object.fromEntries(
+      Object.entries(data).filter(([key]) => !staticKeys.has(key))
+    );
     const cleanedConfig =
       Object.keys(dynamicFields).length > 0
         ? removeEmptyFieldValues(dynamicFields)
@@ -105,8 +107,8 @@ export const OnDemandBackupModal = () => {
               config: cleanedConfig,
             }),
         },
-      // The API accepts a partial Backup object for creation; generated types
-      // require the full shape, so we cast through unknown.
+        // The API accepts a partial Backup object for creation; generated types
+        // require the full shape, so we cast through unknown.
       } as unknown as CreateBackupPayload,
       {
         onSuccess() {

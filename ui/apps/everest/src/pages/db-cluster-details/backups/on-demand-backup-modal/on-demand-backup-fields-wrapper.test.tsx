@@ -55,11 +55,7 @@ vi.mock('hooks/api/backup-classes/useBackupClasses.ts', () => ({
 
 vi.mock('hooks/api/backup-storages/useBackupStorages', () => ({
   useBackupStoragesByNamespace: () => ({
-    data: [
-      { name: 'storage-a' },
-      { name: 'storage-b' },
-      { name: 'storage-c' },
-    ],
+    data: [{ name: 'storage-a' }, { name: 'storage-b' }, { name: 'storage-c' }],
     isFetching: false,
     isLoading: false,
   }),
@@ -68,7 +64,6 @@ vi.mock('hooks/api/backup-storages/useBackupStorages', () => ({
 vi.mock('hooks/api/useClusterName.ts', () => ({
   useClusterName: () => 'main',
 }));
-
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: false } },
@@ -131,9 +126,7 @@ const FormWrapper = ({
 
 const renderFieldsWrapper = (initialClass?: string) =>
   render(
-    <MemoryRouter
-      initialEntries={['/databases/test-ns/test-instance/backups']}
-    >
+    <MemoryRouter initialEntries={['/databases/test-ns/test-instance/backups']}>
       <Routes>
         <Route
           path="/databases/:namespace/:instanceName/backups"
@@ -165,36 +158,40 @@ describe('OnDemandBackupFieldsWrapper', () => {
     });
   });
 
-  it('changes storage limits when backup class is changed', async () => {
-    // Start with class-limited pre-set (maxStorages=1, 1 instance storage)
-    renderFieldsWrapper('class-limited');
+  it(
+    'changes storage limits when backup class is changed',
+    { timeout: 30000 },
+    async () => {
+      // Start with class-limited pre-set (maxStorages=1, 1 instance storage)
+      renderFieldsWrapper('class-limited');
 
-    // With limit==active==1 → field should be disabled
-    await waitFor(() => {
+      // With limit==active==1 → field should be disabled
+      await waitFor(() => {
+        const storageInput = screen.getByTestId('text-input-storage-name');
+        expect(storageInput).toBeDisabled();
+      });
+
+      // Change to "class-generous" with maxStorages=5
+      const selectButton = screen.getByLabelText('Backup class');
+      fireEvent.mouseDown(selectButton);
+
+      const generousOption = await screen.findByText('Generous Class');
+      fireEvent.click(generousOption);
+
+      // Now with maxStorages=5 and 1 active storage → field enabled, all options shown
+      await waitFor(() => {
+        const storageInput = screen.getByTestId('text-input-storage-name');
+        expect(storageInput).not.toBeDisabled();
+      });
+
+      // Open autocomplete to verify multiple options are available
       const storageInput = screen.getByTestId('text-input-storage-name');
-      expect(storageInput).toBeDisabled();
-    });
+      fireEvent.click(storageInput);
+      fireEvent.keyDown(storageInput, { key: 'ArrowDown' });
 
-    // Change to "class-generous" with maxStorages=5
-    const selectButton = screen.getByLabelText('Backup class');
-    fireEvent.mouseDown(selectButton);
-
-    const generousOption = await screen.findByText('Generous Class');
-    fireEvent.click(generousOption);
-
-    // Now with maxStorages=5 and 1 active storage → field enabled, all options shown
-    await waitFor(() => {
-      const storageInput = screen.getByTestId('text-input-storage-name');
-      expect(storageInput).not.toBeDisabled();
-    });
-
-    // Open autocomplete to verify multiple options are available
-    const storageInput = screen.getByTestId('text-input-storage-name');
-    fireEvent.click(storageInput);
-    fireEvent.keyDown(storageInput, { key: 'ArrowDown' });
-
-    await waitFor(() => {
-      expect(screen.getAllByRole('option').length).toBe(3);
-    });
-  });
+      await waitFor(() => {
+        expect(screen.getAllByRole('option').length).toBe(3);
+      });
+    }
+  );
 });

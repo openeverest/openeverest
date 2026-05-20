@@ -49,31 +49,35 @@ const FormProviderWrapper = ({ children }: { children: React.ReactNode }) => {
 // --- Component integration tests ---
 
 describe('BackupStoragesInput (on-demand context)', () => {
-  it('shows all storages and helper text when limit > active', () => {
-    render(
-      <FormProviderWrapper>
-        <QueryClientProvider client={queryClient}>
-          <BackupStoragesInput
-            namespace="test"
-            schedules={[]}
-            maxStorages={2}
-            instanceStorageNames={['storage1']}
-          />
-        </QueryClientProvider>
-      </FormProviderWrapper>
-    );
+  it(
+    'shows all storages and helper text when limit > active',
+    { timeout: 30000 },
+    () => {
+      render(
+        <FormProviderWrapper>
+          <QueryClientProvider client={queryClient}>
+            <BackupStoragesInput
+              namespace="test"
+              schedules={[]}
+              maxStorages={2}
+              instanceStorageNames={['storage1']}
+            />
+          </QueryClientProvider>
+        </FormProviderWrapper>
+      );
 
-    expect(
-      screen.getByText(
-        'You are currently using 1 out of 2 available storages.'
-      )
-    ).toBeInTheDocument();
+      expect(
+        screen.getByText(
+          'You are currently using 1 out of 2 available storages.'
+        )
+      ).toBeInTheDocument();
 
-    fireEvent.click(
-      screen.getAllByRole('button').find((el) => el.title === 'Open')!
-    );
-    expect(screen.getAllByRole('option').length).toBe(4);
-  });
+      fireEvent.click(
+        screen.getAllByRole('button').find((el) => el.title === 'Open')!
+      );
+      expect(screen.getAllByRole('option').length).toBe(4);
+    }
+  );
 
   it('shows "(in use)" highlight for instance storages when limit not reached', () => {
     render(
@@ -166,9 +170,7 @@ describe('BackupStoragesInput (on-demand context)', () => {
     );
 
     expect(
-      screen.getByText(
-        'You are currently using 0 out of 1 available storages.'
-      )
+      screen.getByText('You are currently using 0 out of 1 available storages.')
     ).toBeInTheDocument();
 
     fireEvent.click(

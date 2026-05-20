@@ -7,13 +7,13 @@ export type BackupStoragesInputProps = {
   namespace: string;
   schedules: Schedule[];
   /**
-    * Controls how the backup storage field behaves in different product flows.
-    *
-    * Typical usage:
-    * - On-demand and schedule creation forms: keep default auto-selection of the first
-    *   available storage to reduce user actions.
-    * - Schedule edit and similar update flows: disable auto-selection to preserve
-    *   the storage already saved in the existing configuration.
+   * Controls how the backup storage field behaves in different product flows.
+   *
+   * Typical usage:
+   * - On-demand and schedule creation forms: keep default auto-selection of the first
+   *   available storage to reduce user actions.
+   * - Schedule edit and similar update flows: disable auto-selection to preserve
+   *   the storage already saved in the existing configuration.
    */
   autoFillProps?: Partial<AutoCompleteAutoFillProps<BackupStorage>>;
   maxStorages?: number;

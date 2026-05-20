@@ -44,8 +44,7 @@ export const BackupsList = () => {
   const [openDeleteDialog, setOpenDeleteDialog] = useState(false);
   const [selectedBackup, setSelectedBackup] = useState('');
 
-  const { instance, setOpenOnDemandModal } =
-    useContext(ScheduleModalContext);
+  const { instance, setOpenOnDemandModal } = useContext(ScheduleModalContext);
 
   const { canDelete } = useRBACPermissions(
     'backups',
@@ -175,9 +174,7 @@ export const BackupsList = () => {
           ],
         }}
         renderTopToolbarCustomActions={() => (
-          <BackupListTableHeader
-            onNowClick={handleManualBackup}
-          />
+          <BackupListTableHeader onNowClick={handleManualBackup} />
         )}
         enableRowActions={canDelete}
         renderRowActions={({ row }) => (

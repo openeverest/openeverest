@@ -133,7 +133,11 @@ const BackupListTableHeader = ({
               >
                 {Messages.now}
               </MenuItem>,
-              <MenuItem key="schedule" data-testid="schedule-menu-item" disabled>
+              <MenuItem
+                key="schedule"
+                data-testid="schedule-menu-item"
+                disabled
+              >
                 {Messages.schedule}
               </MenuItem>,
               // TODO: v2 — Schedule feature not yet implemented — check main for original
