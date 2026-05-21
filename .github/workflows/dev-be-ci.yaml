@@ -240,7 +240,7 @@ jobs:
 
       - name: Load image to KIND cluster
         run: |
-          kind load docker-image ghcr.io/openeverest/openeverest-dev:0.0.0
+          kind load docker-image ghcr.io/openeverest/openeverest-dev:0.0.0 --name chart-testing
 
       - name: Run integration tests
         id: cli-tests
