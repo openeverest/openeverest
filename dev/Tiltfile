@@ -977,7 +977,7 @@ if need_backup_storage:
                             'name': storage_name
                         }
                     })
-                    obj['spec'].update({
+                    obj['spec']['s3'].update({
                             'bucket': '{0}'.format(storage_name),
                             'description': storage_name,
                             'credentialsSecretName': storage_name,
