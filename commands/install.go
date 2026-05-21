@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -90,6 +91,7 @@ func installPreRun(cmd *cobra.Command, _ []string) { //nolint:revive
 	installCfg.Pretty = rootCmdFlags.Pretty
 	installCfg.KubeconfigPath = rootCmdFlags.KubeconfigPath
 	installCfg.NamespaceAddConfig.KubeconfigPath = rootCmdFlags.KubeconfigPath
+	installCfg.NamespaceAddConfig.SystemNamespace = installCfg.Namespace
 
 	// Check if Everest is already installed.
 	if err := install.CheckEverestAlreadyInstalled(cmd.Context(), logger.GetLogger(), installCfg.KubeconfigPath, installCfg.Namespace); err != nil {

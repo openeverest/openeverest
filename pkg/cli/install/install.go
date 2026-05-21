@@ -146,6 +146,7 @@ func NewInstall(c InstallConfig, l *zap.SugaredLogger) (*Installer, error) {
 	c.NamespaceAddConfig.KubeconfigPath = c.KubeconfigPath
 	c.NamespaceAddConfig.DisableTelemetry = c.DisableTelemetry
 	c.NamespaceAddConfig.SkipEnvDetection = c.SkipEnvDetection
+	c.NamespaceAddConfig.SystemNamespace = c.Namespace
 	cli.cfg = c
 
 	var err error
