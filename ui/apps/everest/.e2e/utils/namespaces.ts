@@ -2,13 +2,17 @@ import { APIRequestContext, expect, Page } from '@playwright/test';
 import { EVEREST_CI_NAMESPACES } from '../constants';
 export const getNamespacesFn = async (
   token: string,
-  request: APIRequestContext
+  request: APIRequestContext,
+  clusterName = 'main'
 ) => {
-  const namespacesInfo = await request.get('/v1/namespaces', {
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-  });
+  const namespacesInfo = await request.get(
+    `/v1/clusters/${clusterName}/namespaces`,
+    {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    }
+  );
   expect(namespacesInfo.ok()).toBeTruthy();
   return namespacesInfo.json();
 };

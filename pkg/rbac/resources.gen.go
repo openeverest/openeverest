@@ -10,6 +10,7 @@ var AllResources = []string{
 	"clusters",
 	"instances",
 	"monitoring-configs",
+	"namespaces",
 	"providers",
 	"restores",
 }
@@ -20,6 +21,7 @@ var resourcePathMap = map[string]string{
 	"/clusters":                                                               "clusters",
 	"/clusters/:cluster/backup-classes":                                       "backup-classes",
 	"/clusters/:cluster/backup-classes/:backupClass":                          "backup-classes",
+	"/clusters/:cluster/namespaces":                                           "namespaces",
 	"/clusters/:cluster/namespaces/:namespace/backup-storages":                "backup-storages",
 	"/clusters/:cluster/namespaces/:namespace/backup-storages/:name":          "backup-storages",
 	"/clusters/:cluster/namespaces/:namespace/backups":                        "backups",

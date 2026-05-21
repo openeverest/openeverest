@@ -861,9 +861,9 @@ func (_m *MockHandler) ListMonitoringConfigs(ctx context.Context, cluster string
 	return r0, r1
 }
 
-// ListNamespaces provides a mock function with given fields: ctx
-func (_m *MockHandler) ListNamespaces(ctx context.Context) ([]string, error) {
-	ret := _m.Called(ctx)
+// ListNamespaces provides a mock function with given fields: ctx, cluster
+func (_m *MockHandler) ListNamespaces(ctx context.Context, cluster string) ([]string, error) {
+	ret := _m.Called(ctx, cluster)
 
 	if len(ret) == 0 {
 		panic("no return value specified for ListNamespaces")
@@ -871,19 +871,19 @@ func (_m *MockHandler) ListNamespaces(ctx context.Context) ([]string, error) {
 
 	var r0 []string
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context) ([]string, error)); ok {
-		return rf(ctx)
+	if rf, ok := ret.Get(0).(func(context.Context, string) ([]string, error)); ok {
+		return rf(ctx, cluster)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context) []string); ok {
-		r0 = rf(ctx)
+	if rf, ok := ret.Get(0).(func(context.Context, string) []string); ok {
+		r0 = rf(ctx, cluster)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).([]string)
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(context.Context) error); ok {
-		r1 = rf(ctx)
+	if rf, ok := ret.Get(1).(func(context.Context, string) error); ok {
+		r1 = rf(ctx, cluster)
 	} else {
 		r1 = ret.Error(1)
 	}

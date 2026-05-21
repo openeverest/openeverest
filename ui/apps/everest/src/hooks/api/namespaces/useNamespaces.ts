@@ -16,6 +16,7 @@
 import { useQueries, useQuery, UseQueryOptions } from '@tanstack/react-query';
 import { GetNamespacesPayload } from 'shared-types/namespaces.types';
 import { getNamespacesFn } from 'api/namespaces';
+import { useClusterName } from '../useClusterName';
 import { dbEnginesQuerySelect } from '../db-engines/useDbEngines';
 import { getDbEnginesFn } from 'api/dbEngineApi';
 import { DbEngine } from 'shared-types/dbEngines.types';
@@ -27,13 +28,15 @@ export const NAMESPACES_QUERY_KEY = 'namespace';
 
 export const useNamespaces = (
   options?: PerconaQueryOptions<GetNamespacesPayload, unknown, string[]>
-) =>
-  useQuery<GetNamespacesPayload, unknown, string[]>({
-    queryKey: [NAMESPACES_QUERY_KEY],
-    queryFn: getNamespacesFn,
+) => {
+  const clusterName = useClusterName();
+  return useQuery<GetNamespacesPayload, unknown, string[]>({
+    queryKey: [NAMESPACES_QUERY_KEY, clusterName],
+    queryFn: () => getNamespacesFn(clusterName),
     select: (namespaces) => namespaces.sort((a, b) => a.localeCompare(b)),
     ...options,
   });
+};
 
 export const useDBEnginesForNamespaces = (
   retrieveUpgradingEngines = false,
@@ -168,10 +171,12 @@ export const useNamespace = (
     unknown,
     string | undefined
   >
-) =>
-  useQuery<GetNamespacesPayload, unknown, string | undefined>({
-    queryKey: [NAMESPACES_QUERY_KEY],
-    queryFn: getNamespacesFn,
+) => {
+  const clusterName = useClusterName();
+  return useQuery<GetNamespacesPayload, unknown, string | undefined>({
+    queryKey: [NAMESPACES_QUERY_KEY, clusterName],
+    queryFn: () => getNamespacesFn(clusterName),
     select: (data) => data.find((item) => item === namespace),
     ...options,
   });
+};

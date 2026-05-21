@@ -56,7 +56,7 @@ type Handler interface {
 
 // NamespacesHandler provides methods for handling operations on namespaces.
 type NamespacesHandler interface {
-	ListNamespaces(ctx context.Context) ([]string, error)
+	ListNamespaces(ctx context.Context, cluster string) ([]string, error)
 }
 
 // BackupStorageHandler provides methods for handling operations on backup storages.
