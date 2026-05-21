@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -28,16 +29,16 @@ import { ScheduleFormDialogContext } from '../schedule-form-dialog-context/sched
 import { DbEngineType } from '@percona/types';
 import LinkedAlert from '../../linked-alert';
 import BackupStoragesInput from 'components/backup-storages-input';
-import { dbEngineToDbType } from '@percona/utils';
 
 export const ScheduleForm = ({
   allowScheduleSelection,
   disableStorageSelection = false,
+  autoFillLocation = false,
   disableNameInput,
-  autoFillLocation,
   schedules,
   showTypeRadio,
   disableNameEdit = false,
+  maxSchedulesPerStorage,
 }: ScheduleFormProps) => {
   const {
     formState: { errors },
@@ -45,7 +46,7 @@ export const ScheduleForm = ({
   const schedulesNamesList =
     (schedules && schedules.map((item) => item?.name)) || [];
   const {
-    dbClusterInfo: { dbEngine, namespace, dbClusterName },
+    dbInstanceInfo: { dbEngine, namespace },
   } = useContext(ScheduleFormDialogContext);
 
   const errorInfoAlert = errors?.root ? (
@@ -91,15 +92,13 @@ export const ScheduleForm = ({
       </LabeledContent>
       <BackupStoragesInput
         namespace={namespace}
-        dbClusterName={dbClusterName}
-        dbType={dbEngineToDbType(dbEngine)}
         schedules={schedules}
+        maxSchedulesPerStorage={maxSchedulesPerStorage}
         autoFillProps={{
           isRequired: true,
           enableFillFirst: autoFillLocation,
           disabled: disableStorageSelection,
         }}
-        hideUsedStoragesInSchedules={dbEngine === DbEngineType.POSTGRESQL}
       />
       <TextInput
         name={ScheduleFormFields.retentionCopies}

@@ -1,5 +1,4 @@
-// everest
-// Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,75 +12,43 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { useContext } from 'react';
-import { ScheduleModalContext } from '../backups.context.ts';
-import { ScheduleFormData } from 'components/schedule-form-dialog/schedule-form/schedule-form-schema';
-import { ScheduleFormDialogContext } from 'components/schedule-form-dialog/schedule-form-dialog-context/schedule-form-dialog.context';
-import { ScheduleFormDialog } from 'components/schedule-form-dialog';
-import { useUpdateDbClusterWithConflictRetry } from 'hooks';
-import { backupScheduleFormValuesToDbClusterPayload } from 'components/schedule-form-dialog/schedule-form/schedule-form.utils.ts';
-import { WizardMode } from 'shared-types/wizard.types.ts';
-
+// TODO: Migrate scheduled backup modal to v2 Instance API — check main for full implementation
+// Original v1 implementation (from main):
+// import { useContext } from 'react';
+// import { ScheduleFormDialog } from 'components/schedule-form-dialog/schedule-form-dialog';
+// import { ScheduleModalContext } from '../backups.context';
+// import { useUpdateDbClusterWithConflictRetry } from 'hooks/api/db-cluster/useUpdateDbCluster';
+// import { FormMode } from 'components/ui-generator/ui-generator.types';
+//
+// export const ScheduledBackupModal = () => {
+//   const {
+//     mode,
+//     selectedScheduleName,
+//     openScheduleModal,
+//     setOpenScheduleModal,
+//     dbCluster,
+//   } = useContext(ScheduleModalContext);
+//
+//   const { mutate: updateDbCluster } = useUpdateDbClusterWithConflictRetry(
+//     dbCluster?.metadata?.name ?? '',
+//     dbCluster?.metadata?.namespace ?? ''
+//   );
+//
+//   const handleSubmit = (data) => { ... };
+//   const handleClose = () => setOpenScheduleModal(false);
+//
+//   if (!openScheduleModal || !dbCluster) return null;
+//
+//   return (
+//     <ScheduleFormDialog
+//       mode={mode}
+//       dbCluster={dbCluster}
+//       selectedScheduleName={selectedScheduleName}
+//       onSubmit={handleSubmit}
+//       onClose={handleClose}
+//     />
+//   );
+// };
 export const ScheduledBackupModal = () => {
-  const {
-    mode = WizardMode.New,
-    setMode,
-    selectedScheduleName,
-    openScheduleModal,
-    setOpenScheduleModal,
-    setSelectedScheduleName,
-    dbCluster,
-  } = useContext(ScheduleModalContext);
-
-  const {
-    metadata: { name: dbClusterName, namespace },
-    status,
-    spec,
-  } = dbCluster;
-
-  const { mutate: updateCluster, isPending: updatingCluster } =
-    useUpdateDbClusterWithConflictRetry(dbCluster, {
-      onSuccess: () => handleClose(),
-    });
-
-  const schedules = (dbCluster && dbCluster?.spec?.backup?.schedules) || [];
-
-  const handleClose = () => {
-    if (setOpenScheduleModal) {
-      setOpenScheduleModal(false);
-    }
-  };
-
-  const handleSubmit = (data: ScheduleFormData) => {
-    updateCluster(
-      backupScheduleFormValuesToDbClusterPayload(data, dbCluster, mode)
-    );
-  };
-
-  return (
-    <ScheduleFormDialogContext.Provider
-      value={{
-        mode,
-        handleSubmit,
-        handleClose,
-        isPending: updatingCluster,
-        setMode,
-        selectedScheduleName,
-        setSelectedScheduleName,
-        openScheduleModal,
-        setOpenScheduleModal,
-        externalContext: 'db-details-backups',
-        dbClusterInfo: {
-          schedules,
-          defaultSchedules: spec?.backup?.schedules,
-          activeStorage: status?.activeStorage,
-          namespace,
-          dbEngine: spec?.engine?.type,
-          dbClusterName,
-        },
-      }}
-    >
-      <ScheduleFormDialog />
-    </ScheduleFormDialogContext.Provider>
-  );
+  return null;
 };

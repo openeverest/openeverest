@@ -42,8 +42,8 @@ spec:
               config:
                 description: |-
                   Config contains the OpenAPI v3 schema describing the backup-time
-                  configuration accepted by this class. Backup.spec.config is validated
-                  against this schema.
+                  configuration accepted by this class. Backup.spec.config and
+                  InstanceBackupSchedule.config are both validated against this schema.
                 properties:
                   openAPIV3Schema:
                     description: OpenAPIV3Schema is the OpenAPI v3 schema of the backup

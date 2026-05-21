@@ -16,7 +16,8 @@
 
 import { Messages } from './db-actions.messages';
 import { CustomConfirmDialog } from 'components/custom-confirm-dialog';
-import { useDbBackups } from 'hooks';
+import { useBackupsList } from 'hooks/api/backups/useBackups';
+import { useClusterName } from 'hooks/api/useClusterName';
 import { DbActionsModalsProps } from './db-actions-modals.types';
 
 export const DbActionsModals = ({
@@ -31,11 +32,15 @@ export const DbActionsModals = ({
   handleConfirmDelete,
   deleteMutation: { isPending: deletingCluster },
 }: DbActionsModalsProps) => {
+  const clusterName = useClusterName();
+  // TODO: check main — disableKeepDataCheckbox disabled "keep data" for PG (PG doesn't support
+  // selective backup data cleanup). Check if v2 Instance API has equivalent field.
   // const disableKeepDataCheckbox =
   //   dbInstance?.spec.components?.engine?.type === DbEngineType.POSTGRESQL;
-  const { data: backups = [] } = useDbBackups(
-    dbInstance?.metadata?.name!,
+  const { data: backups = [] } = useBackupsList(
+    clusterName,
     dbInstance?.metadata?.namespace!,
+    dbInstance?.metadata?.name!,
     {
       enabled: !!dbInstance?.metadata?.name,
       refetchInterval: 10 * 1000,

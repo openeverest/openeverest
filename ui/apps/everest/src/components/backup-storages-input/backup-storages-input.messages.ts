@@ -12,13 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { ReactNode } from 'react';
-import { ButtonProps, MenuProps } from '@mui/material';
-
-export type MenuButtonProps = {
-  children?: (handleClose: () => void) => ReactNode;
-  buttonText: string;
-  buttonProps?: ButtonProps;
-  menuProps?: MenuProps;
-  matchAnchorWidth?: boolean;
+export const Messages = {
+  storageLimitHelperText: (activeStorages: number, maxStorages: number) =>
+    activeStorages >= maxStorages
+      ? `Storage limit reached. You are using ${activeStorages} out of ${maxStorages} available storages.`
+      : `You are currently using ${activeStorages} out of ${maxStorages} available storages.`,
+  inUseLabel: '(in use)',
 };

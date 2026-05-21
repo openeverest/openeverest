@@ -12,13 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { ReactNode } from 'react';
-import { ButtonProps, MenuProps } from '@mui/material';
+import { Section } from 'components/ui-generator/ui-generator.types';
+import { buildDefaultsFromComponents } from 'components/ui-generator/utils/default-values/build-defaults-from-components';
 
-export type MenuButtonProps = {
-  children?: (handleClose: () => void) => ReactNode;
-  buttonText: string;
-  buttonProps?: ButtonProps;
-  menuProps?: MenuProps;
-  matchAnchorWidth?: boolean;
+export const getSectionExplicitDefaults = (
+  section: Section | undefined
+): Record<string, unknown> => {
+  if (!section?.components) {
+    return {};
+  }
+
+  return buildDefaultsFromComponents(section.components, '', true);
 };

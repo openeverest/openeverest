@@ -1,46 +1,63 @@
-import { useContext, useEffect, useState } from 'react';
+// Copyright (C) 2026 The OpenEverest Contributors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+import { useContext, useState } from 'react';
 import { Box, IconButton, Paper, Stack, Typography } from '@mui/material';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import DeleteOutlineOutlinedIcon from '@mui/icons-material/DeleteOutlineOutlined';
-import { ManageableSchedules } from 'shared-types/dbCluster.types';
 import { ConfirmDialog } from 'components/confirm-dialog/confirm-dialog';
-import { ScheduleModalContext } from '../../backups.context';
 import { getTimeSelectionPreviewMessage } from 'pages/database-form/database-preview/database.preview.messages';
 import { getFormValuesFromCronExpression } from 'components/time-selection/time-selection.utils';
+import { ScheduleModalContext } from '../../backups.context';
 import { Messages } from './backups-list-table-header.messages';
 import { useRBACPermissions } from 'hooks/rbac';
-import {
-  deleteScheduleFromDbCluster,
-  transformSchedulesIntoManageableSchedules,
-} from 'utils/db';
-import { useUpdateDbClusterWithConflictRetry } from 'hooks';
-import { WizardMode } from 'shared-types/wizard.types';
-import { DbEngineType } from 'shared-types/dbEngines.types';
-import { Backup, BackupStatus } from 'shared-types/backups.types';
+import { useUpdateDbInstanceWithConflictRetry } from 'hooks/api/db-instances/useUpdateDbInstance';
+import { FormMode } from 'components/ui-generator/ui-generator.types';
+import { Instance } from 'shared-types/api.types';
 
-type Props = {
-  currentBackups: Backup[];
-};
+// TODO: check main — verify nothing was lost during v2 migration of this component
 
-const ScheduledBackupsList = ({ currentBackups }: Props) => {
+/** Flatten all schedules from every storage on the Instance, annotating with storageName. */
+const flattenSchedules = (instance: Instance) =>
+  (instance.spec?.backup?.storages ?? []).flatMap((storage) =>
+    (storage.schedules ?? []).map((schedule) => ({
+      ...schedule,
+      storageName: storage.storageRef.name,
+    }))
+  );
+
+const ScheduledBackupsList = () => {
   const [openDeleteDialog, setOpenDeleteDialog] = useState(false);
-  const [selectedSchedule, setSelectedSchedule] = useState<string>('');
+  const [selectedSchedule, setSelectedSchedule] = useState('');
   const {
-    dbCluster,
+    instance,
     setMode: setScheduleModalMode,
     setSelectedScheduleName: setSelectedScheduleToModalContext,
     setOpenScheduleModal,
   } = useContext(ScheduleModalContext);
-  const { mutate: updateCluster, isPending: updatingCluster } =
-    useUpdateDbClusterWithConflictRetry(dbCluster, {
+
+  const { mutate: updateInstance, isPending: updatingInstance } =
+    useUpdateDbInstanceWithConflictRetry(instance, {
       onSuccess: () => handleCloseDeleteDialog(),
     });
-  const [schedules, setSchedules] = useState<ManageableSchedules[]>([]);
-  const pitrEnabled = !!dbCluster.spec?.backup?.pitr?.enabled;
-  const emptyBackups =
-    currentBackups.length === 0 ||
-    currentBackups.every((b) => b.state === BackupStatus.DELETING);
-  const willDisablePITR = emptyBackups && schedules.length === 1 && pitrEnabled;
+
+  const schedules = flattenSchedules(instance);
+
+  // TODO: PITR delete logic — when PITR support is added, disable PITR if
+  // the last schedule is deleted and there are no remaining backups.
+  const willDisablePITR = false;
+
   const handleDelete = (scheduleName: string) => {
     setSelectedSchedule(scheduleName);
     setOpenDeleteDialog(true);
@@ -51,57 +68,42 @@ const ScheduledBackupsList = ({ currentBackups }: Props) => {
   };
 
   const handleConfirmDelete = (scheduleName: string) => {
-    const newClusterData = deleteScheduleFromDbCluster(
-      scheduleName,
-      dbCluster,
-      willDisablePITR
+    // Remove the schedule from its storage entry.
+    const updatedStorages = (instance.spec?.backup?.storages ?? []).map(
+      (storage) => ({
+        ...storage,
+        schedules: (storage.schedules ?? []).filter(
+          (s) => s.name !== scheduleName
+        ),
+      })
     );
 
-    if (dbCluster.spec.engine.type === DbEngineType.POSTGRESQL) {
-      if (
-        currentBackups.length === 0 &&
-        !newClusterData.spec.backup?.schedules?.length &&
-        newClusterData.spec.backup?.pitr
-      ) {
-        newClusterData.spec.backup = {
-          ...newClusterData.spec.backup,
-          pitr: {
-            ...newClusterData.spec.backup?.pitr,
-            enabled: false,
-            backupStorageName: '',
-          },
-        };
-      }
-    }
-    updateCluster(newClusterData);
+    const updatedInstance: Instance = {
+      ...instance,
+      spec: {
+        ...instance.spec,
+        backup: {
+          ...instance.spec?.backup,
+          classRef: instance.spec?.backup?.classRef ?? { name: '' },
+          enabled: instance.spec?.backup?.enabled ?? true,
+          storages: updatedStorages,
+        },
+      },
+    };
+
+    updateInstance(updatedInstance);
   };
 
   const handleEdit = (scheduleName: string) => {
-    setScheduleModalMode(WizardMode.Edit);
+    setScheduleModalMode(FormMode.Edit);
     setSelectedScheduleToModalContext(scheduleName);
     setOpenScheduleModal(true);
   };
 
-  const { canUpdate: canUpdateDb } = useRBACPermissions(
-    'database-clusters',
-    `${dbCluster.metadata.namespace}/${dbCluster.metadata.name}`
+  const { canUpdate: canUpdateInstance } = useRBACPermissions(
+    'instances',
+    `${instance.metadata?.namespace}/${instance.metadata?.name}`
   );
-
-  const { canCreate: canCreateBackups } = useRBACPermissions(
-    'database-cluster-backups',
-    `${dbCluster.metadata.namespace}/${dbCluster.metadata.name}`
-  );
-
-  useEffect(() => {
-    transformSchedulesIntoManageableSchedules(
-      dbCluster.spec.backup?.schedules || [],
-      dbCluster.metadata.namespace,
-      canCreateBackups,
-      canUpdateDb
-    ).then((newSchedules) => {
-      setSchedules(newSchedules);
-    });
-  }, [canCreateBackups, canUpdateDb, dbCluster]);
 
   return (
     <Stack
@@ -115,14 +117,14 @@ const ScheduledBackupsList = ({ currentBackups }: Props) => {
     >
       {schedules.map((item) => (
         <Paper
-          key={`schedule-${item?.name}`}
+          key={`schedule-${item.name}`}
           sx={{
             py: 1,
             px: 2,
             borderRadius: 1,
             boxShadow: 'none',
           }}
-          data-testid={`schedule-${item?.name}`}
+          data-testid={`schedule-${item.name}`}
         >
           <Box
             sx={{
@@ -135,35 +137,33 @@ const ScheduledBackupsList = ({ currentBackups }: Props) => {
               <Stack>
                 <Typography variant="body1">{item.name}</Typography>
                 <Typography
-                  data-testid={`schedule-${item?.schedule}-text`}
+                  data-testid={`schedule-${item.cron}-text`}
                   variant="body2"
                 >
                   {getTimeSelectionPreviewMessage(
-                    getFormValuesFromCronExpression(item.schedule)
+                    getFormValuesFromCronExpression(item.cron)
                   )}
                 </Typography>
               </Stack>
             </Box>
             <Box sx={{ width: '30%' }}>
               <Typography variant="body2">
-                {`Retention copies: 
-                ${item?.retentionCopies || 'infinite'}`}
+                {`Retention copies: ${item.retentionCopies || 'infinite'}`}
               </Typography>
             </Box>
             <Box sx={{ width: '15%' }}>
-              {' '}
               <Typography variant="body2">
-                {' '}
-                {`Storage: ${item.backupStorageName}`}
+                {`Storage: ${item.storageName}`}
               </Typography>
             </Box>
             <Box display="flex">
-              {item.canBeManaged && (
+              {canUpdateInstance && (
                 <>
                   <IconButton
                     color="primary"
                     onClick={() => handleEdit(item.name)}
                     data-testid="edit-schedule-button"
+                    disabled // TODO: re-enable when ScheduledBackupModal is migrated to v2
                   >
                     <EditOutlinedIcon />
                   </IconButton>
@@ -188,7 +188,7 @@ const ScheduledBackupsList = ({ currentBackups }: Props) => {
           cancelMessage="Cancel"
           headerMessage={Messages.deleteModal.header}
           handleConfirm={handleConfirmDelete}
-          disabledButtons={updatingCluster}
+          disabledButtons={updatingInstance}
         >
           {Messages.deleteModal.content(selectedSchedule, willDisablePITR)}
         </ConfirmDialog>

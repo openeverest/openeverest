@@ -12,13 +12,4 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { ReactNode } from 'react';
-import { ButtonProps, MenuProps } from '@mui/material';
-
-export type MenuButtonProps = {
-  children?: (handleClose: () => void) => ReactNode;
-  buttonText: string;
-  buttonProps?: ButtonProps;
-  menuProps?: MenuProps;
-  matchAnchorWidth?: boolean;
-};
+export * from './useBackupClasses';
