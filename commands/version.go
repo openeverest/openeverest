@@ -61,7 +61,7 @@ func versionRunE(cmd *cobra.Command, _ []string) error { //nolint:revive
 			return err
 		}
 
-		ev, err := version.EverestVersionFromDeployment(cmd.Context(), k)
+		ev, err := version.EverestVersionFromDeployment(cmd.Context(), k, k.Namespace())
 		if client.IgnoreNotFound(err) != nil {
 			cmdLogger.Error(err)
 			return err

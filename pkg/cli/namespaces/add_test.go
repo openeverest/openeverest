@@ -121,13 +121,13 @@ func TestValidateNamespaces(t *testing.T) {
 		},
 		{
 			name:  "reserved system ns",
-			input: []string{"everest-system"},
-			error: ErrNamespaceReserved("everest-system"),
+			input: []string{"test-ns"},
+			error: ErrNamespaceReserved("test-ns"),
 		},
 		{
 			name:  "reserved system ns and empty ns",
-			input: []string{"everest-system", "    "},
-			error: ErrNamespaceReserved("everest-system"),
+			input: []string{"test-ns", "    "},
+			error: ErrNamespaceReserved("test-ns"),
 		},
 		{
 			name:  "reserved monitoring ns",
@@ -164,7 +164,7 @@ func TestValidateNamespaces(t *testing.T) {
 	for _, tc := range tcases {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			err := validateNamespaceNames(tc.input)
+			err := validateNamespaceNames(tc.input, "test-ns")
 			assert.Equal(t, tc.error, err)
 			// assert.ElementsMatch(t, tc.output, output)
 		})

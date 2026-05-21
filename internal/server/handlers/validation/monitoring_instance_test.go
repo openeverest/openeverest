@@ -126,7 +126,7 @@ func TestValidate_DeleteMonitoringInstance(t *testing.T) {
 				WithScheme(kubernetes.CreateScheme()).
 				WithObjects(tc.objs...).
 				Build()
-			k := kubernetes.NewEmpty(zap.NewNop().Sugar()).WithKubernetesClient(mockClient)
+			k := kubernetes.NewEmpty(zap.NewNop().Sugar(), "test-ns").WithKubernetesClient(mockClient)
 			k8sHandler := k8s.New(zap.NewNop().Sugar(), k, "")
 
 			valHandler := New(zap.NewNop().Sugar(), k)

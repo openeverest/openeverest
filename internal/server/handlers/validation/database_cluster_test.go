@@ -660,7 +660,7 @@ func TestValidateBackupStoragesFor(t *testing.T) {
 			t.Parallel()
 
 			mockClient := fakeclient.NewClientBuilder().WithScheme(kubernetes.CreateScheme()).WithObjects(&tc.cluster, &tc.storage)
-			k := kubernetes.NewEmpty(zap.NewNop().Sugar()).WithKubernetesClient(mockClient.Build())
+			k := kubernetes.NewEmpty(zap.NewNop().Sugar(), "test-ns").WithKubernetesClient(mockClient.Build())
 			h := validateHandler{
 				kubeConnector: k,
 			}
@@ -1373,7 +1373,7 @@ func TestValidatePGReposForAPIDB(t *testing.T) {
 				WithScheme(kubernetes.CreateScheme()).
 				WithObjects(&tc.cluster).
 				WithObjects(tc.dbClusterBackups...)
-			k := kubernetes.NewEmpty(zap.NewNop().Sugar()).WithKubernetesClient(mockClient.Build())
+			k := kubernetes.NewEmpty(zap.NewNop().Sugar(), "test-ns").WithKubernetesClient(mockClient.Build())
 			assert.Equal(t, tc.err, validatePGReposForAPIDB(context.Background(), &tc.cluster, k.ListDatabaseClusterBackups))
 		})
 	}
@@ -2287,7 +2287,7 @@ func TestValidatePodSchedulingPolicy(t *testing.T) {
 				WithScheme(kubernetes.CreateScheme()).
 				WithObjects(tc.objs...).
 				Build()
-			k := kubernetes.NewEmpty(zap.NewNop().Sugar()).WithKubernetesClient(mockClient)
+			k := kubernetes.NewEmpty(zap.NewNop().Sugar(), "test-ns").WithKubernetesClient(mockClient)
 			k8sHandler := k8s.New(zap.NewNop().Sugar(), k, "")
 
 			valHandler := &validateHandler{

@@ -286,7 +286,7 @@ func TestConnectionURL(t *testing.T) {
 			mockClient := fakeclient.NewClientBuilder().
 				WithScheme(kubernetes.CreateScheme()).
 				WithObjects(&tc.db)
-			k := kubernetes.NewEmpty(zap.NewNop().Sugar()).WithKubernetesClient(mockClient.Build())
+			k := kubernetes.NewEmpty(zap.NewNop().Sugar(), "test-ns").WithKubernetesClient(mockClient.Build())
 			h := &k8sHandler{kubeConnector: k}
 			url := h.connectionURL(context.Background(), &tc.db, tc.user, tc.password)
 			require.Equal(t, tc.expected, *url)
@@ -372,7 +372,7 @@ func TestCreateDatabaseClusterSecret(t *testing.T) {
 				Build()
 
 			// Create k8s handler with mock client
-			k := kubernetes.NewEmpty(zap.NewNop().Sugar()).WithKubernetesClient(mockClient)
+			k := kubernetes.NewEmpty(zap.NewNop().Sugar(), testNamespace).WithKubernetesClient(mockClient)
 			k8sH := New(zap.NewNop().Sugar(), k, "")
 
 			// Call the function under test

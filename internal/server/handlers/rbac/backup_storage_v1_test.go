@@ -764,7 +764,7 @@ func newConfigMapMock(policy string) kubernetes.KubernetesConnector {
 	mockClient := fakeclient.NewClientBuilder().
 		WithScheme(kubernetes.CreateScheme()).
 		WithObjects(newConfigMapPolicy(policy))
-	return kubernetes.NewEmpty(zap.NewNop().Sugar()).WithKubernetesClient(mockClient.Build())
+	return kubernetes.NewEmpty(zap.NewNop().Sugar(), "test-ns").WithKubernetesClient(mockClient.Build())
 }
 
 func newPolicy(lines ...string) string {
@@ -774,7 +774,7 @@ func newPolicy(lines ...string) string {
 func newConfigMapPolicy(policy string) *corev1.ConfigMap {
 	return &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: common.SystemNamespace,
+			Namespace: "test-ns",
 			Name:      common.EverestRBACConfigMapName,
 		},
 		Data: map[string]string{

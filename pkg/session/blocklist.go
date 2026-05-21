@@ -73,7 +73,7 @@ type TokenStore interface {
 }
 
 // NewBlocklist creates a new block list
-func NewBlocklist(ctx context.Context, logger *zap.SugaredLogger) (Blocklist, error) {
+func NewBlocklist(ctx context.Context, logger *zap.SugaredLogger, namespace string) (Blocklist, error) {
 	options := &cache.Options{
 		ByObject: map[client.Object]cache.ByObject{
 			&corev1.Secret{}: {
@@ -83,12 +83,12 @@ func NewBlocklist(ctx context.Context, logger *zap.SugaredLogger) (Blocklist, er
 	}
 	// A separate client is needed to apply the controller-runtime cache only to the related objects.
 	// Using the controller-runtime client is also beneficial because it supports HA mode.
-	tokenStoreClient, err := kubernetes.NewInCluster(logger, ctx, options)
+	tokenStoreClient, err := kubernetes.NewInCluster(logger, ctx, options, namespace)
 	if err != nil {
 		return nil, errors.Join(err, errors.New("failed creating Kubernetes client for blockList"))
 	}
 
-	store, err := newTokenStore(ctx, tokenStoreClient, logger)
+	store, err := newTokenStore(ctx, tokenStoreClient, logger, namespace)
 	if err != nil {
 		return nil, err
 	}

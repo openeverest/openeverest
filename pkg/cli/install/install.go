@@ -256,7 +256,7 @@ func (o *Installer) printPostInstallMessage(out io.Writer) {
 	}
 
 	webURL := fmt.Sprintf("%s://localhost:%d", urlScheme, pfSrcPort)
-	portFwdCmd := fmt.Sprintf("kubectl port-forward -n everest-system svc/%s %d:%d", svcName, pfSrcPort, targetPort)
+	portFwdCmd := fmt.Sprintf("kubectl port-forward -n %s svc/%s %d:%d", o.kubeClient.Namespace(), svcName, pfSrcPort, targetPort)
 	message += fmt.Sprintf("\n\n%s", output.Numeric(count, "%s", titleStyle.Render("ACCESS THE EVEREST UI:")))
 	count++
 	message += fmt.Sprintf("To access the web UI, set up port-forwarding and visit %s in your browser:\n\n", webURL)
@@ -299,7 +299,7 @@ func (o *Installer) checkRequirements(supVer *common.SupportedVersion) error {
 
 // setupHelmInstaller initializes the Helm installer.
 func (o *Installer) setupHelmInstaller(ctx context.Context) error {
-	nsExists, err := o.namespaceExists(ctx, common.SystemNamespace)
+	nsExists, err := o.namespaceExists(ctx, o.kubeClient.Namespace())
 	if err != nil {
 		return err
 	}
@@ -310,8 +310,8 @@ func (o *Installer) setupHelmInstaller(ctx context.Context) error {
 	})
 	values := Must(helmutils.MergeVals(o.cfg.HelmConfig.Values, overrides))
 	installer := &helm.Installer{
-		ReleaseName:            common.SystemNamespace,
-		ReleaseNamespace:       common.SystemNamespace,
+		ReleaseName:            o.kubeClient.Namespace(),
+		ReleaseNamespace:       o.kubeClient.Namespace(),
 		Values:                 values,
 		CreateReleaseNamespace: !nsExists,
 	}
@@ -399,7 +399,7 @@ func CheckEverestAlreadyinstalled(ctx context.Context, l *zap.SugaredLogger, kub
 		return fmt.Errorf("failed to create kubernetes client: %w", err)
 	}
 
-	installedVersion, err := version.EverestVersionFromDeployment(ctx, kubeClient)
+	installedVersion, err := version.EverestVersionFromDeployment(ctx, kubeClient, kubeClient.Namespace())
 	if client.IgnoreNotFound(err) != nil {
 		return errors.Join(err, errors.New("cannot check if Everest is already installed"))
 	} else if err == nil {

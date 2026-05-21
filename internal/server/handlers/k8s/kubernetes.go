@@ -73,7 +73,7 @@ func (h *k8sHandler) GetKubernetesClusterInfo(ctx context.Context) (*api.Kuberne
 }
 
 func (h *k8sHandler) GetUserPermissions(ctx context.Context) (*api.UserPermissions, error) {
-	cm, err := h.kubeConnector.GetConfigMap(ctx, types.NamespacedName{Namespace: common.SystemNamespace, Name: common.EverestRBACConfigMapName})
+	cm, err := h.kubeConnector.GetConfigMap(ctx, types.NamespacedName{Namespace: h.kubeConnector.Namespace(), Name: common.EverestRBACConfigMapName})
 	if err != nil {
 		return nil, errors.Join(err, errors.New("could not get Everest RBAC ConfigMap"))
 	}

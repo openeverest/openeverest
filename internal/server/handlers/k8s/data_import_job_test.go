@@ -123,7 +123,7 @@ func TestListDataImportJobs(t *testing.T) {
 				Build()
 
 			// Create k8s handler with mock client
-			k := kubernetes.NewEmpty(zap.NewNop().Sugar()).WithKubernetesClient(mockClient)
+			k := kubernetes.NewEmpty(zap.NewNop().Sugar(), testNamespace).WithKubernetesClient(mockClient)
 			k8sH := New(zap.NewNop().Sugar(), k, "")
 
 			// Call the function under test

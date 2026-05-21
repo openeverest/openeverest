@@ -181,7 +181,7 @@ type KubernetesConnector interface {
 	Config() *rest.Config
 	// WithKubernetesClient sets the k8s client.
 	WithKubernetesClient(c ctrlclient.Client) *Kubernetes
-	// Namespace returns the Everest system namespace.
+	// Namespace returns the namespace OpenEverest is installed.
 	Namespace() string
 	// GetEverestID returns the ID of the namespace where everest is deployed.
 	GetEverestID(ctx context.Context) (string, error)

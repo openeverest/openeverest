@@ -161,7 +161,7 @@ func refreshEnforcerInBackground(
 	inf, err := informer.New(
 		informer.WithConfig(kubeConnector.Config()),
 		informer.WithLogger(l),
-		informer.Watches(&corev1.ConfigMap{}, common.SystemNamespace),
+		informer.Watches(&corev1.ConfigMap{}, kubeConnector.Namespace()),
 	)
 	inf.OnUpdate(func(_, newObj interface{}) {
 		cm, ok := newObj.(*corev1.ConfigMap)
@@ -243,7 +243,7 @@ func NewEnforcerWithRefresh(ctx context.Context, kubeConnector kubernetes.Kubern
 // NewEnforcer creates a new Casbin enforcer with the RBAC model and ConfigMap adapter.
 func NewEnforcer(ctx context.Context, kubeConnector kubernetes.KubernetesConnector, l *zap.SugaredLogger) (*casbin.Enforcer, error) {
 	cmReq := types.NamespacedName{
-		Namespace: common.SystemNamespace,
+		Namespace: kubeConnector.Namespace(),
 		Name:      common.EverestRBACConfigMapName,
 	}
 	adapter := configmapadapter.New(l, kubeConnector, cmReq)

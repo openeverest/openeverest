@@ -60,6 +60,9 @@ type EverestConfig struct {
 	// TLSCertsPath contains the path to the directory with the TLS certificates.
 	// Setting this will enable HTTPS on ListenPort.
 	TLSCertsPath string `envconfig:"TLS_CERTS_PATH"`
+	// Namespace is the namespace where OpenEverest is installed.
+	// Must be provided via the NAMESPACE env var (set by the Helm chart).
+	Namespace string `envconfig:"NAMESPACE" required:"true"`
 }
 
 // ParseConfig parses env vars and fills EverestConfig.

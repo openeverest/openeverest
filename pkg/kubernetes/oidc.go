@@ -18,7 +18,7 @@ func (k *Kubernetes) UpdateEverestSettings(ctx context.Context, settings common.
 		return err
 	}
 
-	cm, err := k.GetConfigMap(ctx, types.NamespacedName{Namespace: common.SystemNamespace, Name: common.EverestSettingsConfigMapName})
+	cm, err := k.GetConfigMap(ctx, types.NamespacedName{Namespace: k.Namespace(), Name: common.EverestSettingsConfigMapName})
 	// This should never happen because the ConfigMap is installed as a part of the Helm chart.
 	// We handle this case anyway so the user can continue to use the settings (and related features such as OIDC),
 	// but we can no longer prevent Helm from deleting the ConfigMap during upgrades.
@@ -26,7 +26,7 @@ func (k *Kubernetes) UpdateEverestSettings(ctx context.Context, settings common.
 	if k8serrors.IsNotFound(err) {
 		_, err = k.CreateConfigMap(ctx, &corev1.ConfigMap{
 			ObjectMeta: v1.ObjectMeta{
-				Namespace: common.SystemNamespace,
+				Namespace: k.Namespace(),
 				Name:      common.EverestSettingsConfigMapName,
 			},
 			Data: configMapData,
@@ -44,7 +44,7 @@ func (k *Kubernetes) UpdateEverestSettings(ctx context.Context, settings common.
 // GetEverestSettings returns Everest settings.
 func (k *Kubernetes) GetEverestSettings(ctx context.Context) (common.EverestSettings, error) {
 	settings := common.EverestSettings{}
-	m, err := k.GetConfigMap(ctx, types.NamespacedName{Namespace: common.SystemNamespace, Name: common.EverestSettingsConfigMapName})
+	m, err := k.GetConfigMap(ctx, types.NamespacedName{Namespace: k.Namespace(), Name: common.EverestSettingsConfigMapName})
 	if err != nil {
 		return settings, err
 	}

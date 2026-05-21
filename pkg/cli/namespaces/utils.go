@@ -55,13 +55,13 @@ func ParseNamespaceNames(namespaces string) []string {
 // It validates the names to be:
 // - RFC-1035 compatible
 // - not reserved by Everest core
-func validateNamespaceNames(nsList []string) error {
+func validateNamespaceNames(nsList []string, systemNamespace string) error {
 	if len(nsList) == 0 {
 		return ErrNamespaceListEmpty
 	}
 
 	for _, ns := range nsList {
-		if ns == common.SystemNamespace ||
+		if ns == systemNamespace ||
 			ns == common.MonitoringNamespace ||
 			ns == kubernetes.OLMNamespace {
 			return ErrNamespaceReserved(ns)

@@ -212,14 +212,14 @@ func TestIsBlocked(t *testing.T) {
 func mockManager(ctx context.Context, usersFile, blocklistContent string) (*Manager, error) {
 	l := zap.NewNop().Sugar()
 
-	blocklistSecret := getBlockListSecretTemplate(blocklistContent)
+	blocklistSecret := getBlockListSecretTemplate("test-ns", blocklistContent)
 	usersSecret := userSecret(usersFile)
 
 	objs := []ctrlclient.Object{blocklistSecret, usersSecret}
 	mockClient := fakeclient.NewClientBuilder().WithScheme(kubernetes.CreateScheme())
 	mockClient.WithObjects(objs...)
 
-	k := kubernetes.NewEmpty(l).WithKubernetesClient(mockClient.Build())
+	k := kubernetes.NewEmpty(l, "test-ns").WithKubernetesClient(mockClient.Build())
 
 	bl, err := mockNewBlocklist(ctx, l, k)
 	if err != nil {
@@ -242,7 +242,7 @@ func userSecret(file string) *corev1.Secret {
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      common.EverestAccountsSecretName,
-			Namespace: common.SystemNamespace,
+			Namespace: "test-ns",
 		},
 		Data: map[string][]byte{
 			common.EverestAccountsFileName: []byte(file),

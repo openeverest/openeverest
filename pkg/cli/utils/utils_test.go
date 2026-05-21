@@ -51,7 +51,7 @@ func TestCheckHelmInstallation(t *testing.T) {
 		mockClient := fakeclient.NewClientBuilder().
 			WithScheme(kubernetes.CreateScheme()).
 			WithObjects(tc.getDpFunc(tc.everestVersion))
-		k := kubernetes.NewEmpty(zap.NewNop().Sugar()).WithKubernetesClient(mockClient.Build())
+		k := kubernetes.NewEmpty(zap.NewNop().Sugar(), "test-ns").WithKubernetesClient(mockClient.Build())
 
 		v, err := CheckHelmInstallation(ctx, k)
 		if tc.wantErr {
@@ -75,7 +75,7 @@ func getDeployment(v, depName string) *appsv1.Deployment {
 	return &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      depName,
-			Namespace: common.SystemNamespace,
+			Namespace: "test-ns",
 			CreationTimestamp: metav1.Time{
 				Time: metav1.Now().Add(-5),
 			},

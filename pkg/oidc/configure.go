@@ -171,7 +171,7 @@ func (u *OIDC) getOIDCProviderConfigureSteps() []steps.Step {
 		Desc: "Restarting Everest",
 		F: func(ctx context.Context) error {
 			return u.kubeClient.RestartDeployment(ctx, types.NamespacedName{
-				Namespace: common.SystemNamespace,
+				Namespace: u.kubeClient.Namespace(),
 				Name:      common.PerconaEverestDeploymentName,
 			})
 		},

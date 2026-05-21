@@ -48,7 +48,6 @@ import (
 	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
 	"github.com/openeverest/openeverest/v2/api/core/v1alpha1"
 	monitoringv1alpha1 "github.com/openeverest/openeverest/v2/api/monitoring/v1alpha1"
-	"github.com/openeverest/openeverest/v2/pkg/common"
 )
 
 type (
@@ -95,6 +94,8 @@ type Kubernetes struct {
 	l          *zap.SugaredLogger
 	restConfig *rest.Config
 	kubeconfig string
+	// namespace is the namespace where OpenEverest is installed.
+	namespace string
 	// it is required for handling plain runtime.Objects (ApplyManifestFile)
 	// WARNING: do not access this field directly, use getDiscoveryClient() instead.
 	// This field is lazy initialized because it is not always needed.
@@ -108,7 +109,7 @@ func (k *Kubernetes) Kubeconfig() string {
 }
 
 // New returns new Kubernetes object based on provided kubeconfig.
-func New(kubeconfigPath string, l *zap.SugaredLogger) (KubernetesConnector, error) {
+func New(kubeconfigPath string, l *zap.SugaredLogger, namespace string) (KubernetesConnector, error) {
 	home := os.Getenv("HOME")
 	path := strings.ReplaceAll(kubeconfigPath, "~", home)
 	path = filepath.Clean(path)
@@ -134,11 +135,12 @@ func New(kubeconfigPath string, l *zap.SugaredLogger) (KubernetesConnector, erro
 		l:          l.With("component", "kubernetes"),
 		restConfig: restConfig,
 		kubeconfig: path,
+		namespace:  namespace,
 	}, nil
 }
 
 // NewInCluster creates a new kubernetes client using incluster authentication.
-func NewInCluster(l *zap.SugaredLogger, ctx context.Context, cacheOptions *cache.Options) (KubernetesConnector, error) {
+func NewInCluster(l *zap.SugaredLogger, ctx context.Context, cacheOptions *cache.Options, namespace string) (KubernetesConnector, error) {
 	restConfig := ctrl.GetConfigOrDie()
 	// restConfig.QPS = defaultQPSLimit
 	// restConfig.QPS = -1 // disable QPS limit, because it causes issues with large clusters
@@ -170,6 +172,7 @@ func NewInCluster(l *zap.SugaredLogger, ctx context.Context, cacheOptions *cache
 		k8sClient:  k8sclient,
 		l:          l.With("component", "kubernetes"),
 		restConfig: restConfig,
+		namespace:  namespace,
 	}, nil
 }
 
@@ -228,9 +231,10 @@ func (k *Kubernetes) Config() *rest.Config {
 
 // NewEmpty returns new empty Kubernetes object.
 // useful for testing.
-func NewEmpty(l *zap.SugaredLogger) *Kubernetes {
+func NewEmpty(l *zap.SugaredLogger, namespace string) *Kubernetes {
 	return &Kubernetes{
-		l: l.With("component", "kubernetes"),
+		l:         l.With("component", "kubernetes"),
+		namespace: namespace,
 	}
 }
 
@@ -240,9 +244,9 @@ func (k *Kubernetes) WithKubernetesClient(c ctrlclient.Client) *Kubernetes {
 	return k
 }
 
-// Namespace returns the Everest system namespace.
+// Namespace returns the namespace OpenEverest is installed.
 func (k *Kubernetes) Namespace() string {
-	return common.SystemNamespace
+	return k.namespace
 }
 
 // GetEverestID returns the ID of the namespace where everest is deployed.

@@ -674,7 +674,7 @@ func TestRBAC_UpdatePodSchedulingPolicy(t *testing.T) {
 			}
 			_, err = h.UpdatePodSchedulingPolicy(ctx, &everestv1alpha1.PodSchedulingPolicy{ObjectMeta: metav1.ObjectMeta{
 				Name:      "test-policy-1",
-				Namespace: common.SystemNamespace,
+				Namespace: "test-ns",
 			}})
 			assert.ErrorIs(t, err, tc.wantErr)
 		})

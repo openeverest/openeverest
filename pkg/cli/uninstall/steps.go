@@ -60,7 +60,7 @@ func (u *Uninstall) deleteEverestCRDs(ctx context.Context) error {
 	// This chart may be found only if Everest had been upgraded at least once.
 	uninstaller, err := helm.NewUninstaller(
 		helm.EverestCRDChartName,
-		common.SystemNamespace,
+		u.kubeConnector.Namespace(),
 		u.config.KubeconfigPath,
 	)
 	if err != nil {
@@ -96,7 +96,7 @@ func (u *Uninstall) listAndDeleteEverestCRDs(ctx context.Context) error {
 
 func (u *Uninstall) uninstallHelmChart(_ context.Context) error {
 	// Delete helm chart.
-	uninstaller, err := helm.NewUninstaller(common.SystemNamespace, common.SystemNamespace, u.config.KubeconfigPath)
+	uninstaller, err := helm.NewUninstaller(u.kubeConnector.Namespace(), u.kubeConnector.Namespace(), u.config.KubeconfigPath)
 	if err != nil {
 		return fmt.Errorf("failed to create Helm uninstaller: %w", err)
 	}

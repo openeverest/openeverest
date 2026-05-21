@@ -674,7 +674,7 @@ func TestRBAC_UpdateLoadBalancerConfig(t *testing.T) {
 			}
 			_, err = h.UpdateLoadBalancerConfig(ctx, &everestv1alpha1.LoadBalancerConfig{ObjectMeta: metav1.ObjectMeta{
 				Name:      "test-config-1",
-				Namespace: common.SystemNamespace,
+				Namespace: "test-ns",
 			}})
 			assert.ErrorIs(t, err, tc.wantErr)
 		})

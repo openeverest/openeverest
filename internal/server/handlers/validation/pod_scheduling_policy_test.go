@@ -559,7 +559,7 @@ func TestValidate_CreatePodSchedulingPolicy(t *testing.T) {
 				WithScheme(kubernetes.CreateScheme()).
 				WithObjects(tc.objs...).
 				Build()
-			k := kubernetes.NewEmpty(zap.NewNop().Sugar()).WithKubernetesClient(mockClient)
+			k := kubernetes.NewEmpty(zap.NewNop().Sugar(), "test-ns").WithKubernetesClient(mockClient)
 			k8sHandler := k8s.New(zap.NewNop().Sugar(), k, "")
 
 			valHandler := New(zap.NewNop().Sugar(), k)
@@ -623,7 +623,7 @@ func TestValidate_ListPodSchedulingPolicy(t *testing.T) {
 				WithScheme(kubernetes.CreateScheme()).
 				WithObjects(tc.objs...).
 				Build()
-			k := kubernetes.NewEmpty(zap.NewNop().Sugar()).WithKubernetesClient(mockClient)
+			k := kubernetes.NewEmpty(zap.NewNop().Sugar(), "test-ns").WithKubernetesClient(mockClient)
 			k8sHandler := k8s.New(zap.NewNop().Sugar(), k, "")
 
 			valHandler := New(zap.NewNop().Sugar(), k)
@@ -697,7 +697,7 @@ func TestValidate_GetPodSchedulingPolicy(t *testing.T) {
 				WithScheme(kubernetes.CreateScheme()).
 				WithObjects(tc.objs...).
 				Build()
-			k := kubernetes.NewEmpty(zap.NewNop().Sugar()).WithKubernetesClient(mockClient)
+			k := kubernetes.NewEmpty(zap.NewNop().Sugar(), "test-ns").WithKubernetesClient(mockClient)
 			k8sHandler := k8s.New(zap.NewNop().Sugar(), k, "")
 
 			valHandler := New(zap.NewNop().Sugar(), k)
@@ -1930,7 +1930,7 @@ func TestValidate_UpdatePodSchedulingPolicy(t *testing.T) {
 				WithScheme(kubernetes.CreateScheme()).
 				WithObjects(tc.objs...).
 				Build()
-			k := kubernetes.NewEmpty(zap.NewNop().Sugar()).WithKubernetesClient(mockClient)
+			k := kubernetes.NewEmpty(zap.NewNop().Sugar(), "test-ns").WithKubernetesClient(mockClient)
 			k8sHandler := k8s.New(zap.NewNop().Sugar(), k, "")
 
 			valHandler := New(zap.NewNop().Sugar(), k)
@@ -2061,7 +2061,7 @@ func TestValidate_DeletePodSchedulingPolicy(t *testing.T) {
 				WithScheme(kubernetes.CreateScheme()).
 				WithObjects(tc.objs...).
 				Build()
-			k := kubernetes.NewEmpty(zap.NewNop().Sugar()).WithKubernetesClient(mockClient)
+			k := kubernetes.NewEmpty(zap.NewNop().Sugar(), "test-ns").WithKubernetesClient(mockClient)
 			k8sHandler := k8s.New(zap.NewNop().Sugar(), k, "")
 
 			valHandler := New(zap.NewNop().Sugar(), k)

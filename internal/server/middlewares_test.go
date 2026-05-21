@@ -128,7 +128,7 @@ func TestShouldAllowRequestDuringEngineUpgrade(t *testing.T) {
 		t.Run(tc.description, func(t *testing.T) {
 			t.Parallel()
 			mockClient := fakeclient.NewClientBuilder().WithScheme(kubernetes.CreateScheme()).WithObjects(tc.objs...)
-			k := kubernetes.NewEmpty(zap.NewNop().Sugar()).WithKubernetesClient(mockClient.Build())
+			k := kubernetes.NewEmpty(zap.NewNop().Sugar(), "test-ns").WithKubernetesClient(mockClient.Build())
 			e := EverestServer{kubeConnector: k}
 			ctx := tc.ctxFn()
 

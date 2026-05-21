@@ -637,7 +637,7 @@ func TestValidate_ListPodSchedulingPolicy(t *testing.T) {
 				WithObjects(tc.objs...).
 				Build()
 
-			k := kubernetes.NewEmpty(zap.NewNop().Sugar()).WithKubernetesClient(mockClient)
+			k := kubernetes.NewEmpty(zap.NewNop().Sugar(), "test-ns").WithKubernetesClient(mockClient)
 			k8sH := New(zap.NewNop().Sugar(), k, "")
 
 			pspList, err := k8sH.ListPodSchedulingPolicies(context.Background(), tc.listParams)

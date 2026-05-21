@@ -163,7 +163,7 @@ func (u *Uninstall) newUninstallSteps(nsList *corev1.NamespaceList) []steps.Step
 
 	uninstallSteps = append(uninstallSteps, u.newStepUninstallHelmChart())
 	uninstallSteps = append(uninstallSteps, u.newStepDeleteNamespace(common.MonitoringNamespace))
-	uninstallSteps = append(uninstallSteps, u.newStepDeleteNamespace(common.SystemNamespace))
+	uninstallSteps = append(uninstallSteps, u.newStepDeleteNamespace(u.kubeConnector.Namespace()))
 	uninstallSteps = append(uninstallSteps, u.newStepDeleteCRDs())
 	return uninstallSteps
 }
