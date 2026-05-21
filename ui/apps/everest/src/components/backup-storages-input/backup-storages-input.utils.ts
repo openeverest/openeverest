@@ -15,18 +15,6 @@
 import { BackupStorage } from 'shared-types/backupStorages.types';
 import { ScheduleWithStorage } from './backup-storages-input.types';
 
-// TODO [v2 refactoring]: The `schedules` parameter uses a v1-era flat array pattern
-// (ScheduleWithStorage[]) which is unintuitive for the v2 data model where schedules
-// are naturally nested under storages (Instance.spec.backup.storages[].schedules[]).
-//
-// Suggested refactoring:
-// - Accept the entire `instanceStorages` array (Instance.spec.backup.storages[])
-//   as the single source of truth instead of separate `schedules` + `instanceStorageNames`.
-// - Derive `instanceStorageNames` internally from `instanceStorages[].storageRef.name`.
-// - Derive per-storage schedule counts directly from `instanceStorages[].schedules.length`
-//   instead of reducing a flat array.
-// - This eliminates the need for the ScheduleWithStorage intermediate type and
-//   makes the function's contract match the v2 data shape.
 export type GetAvailableStoragesParams = {
   backupStorages: BackupStorage[];
   schedules: ScheduleWithStorage[];

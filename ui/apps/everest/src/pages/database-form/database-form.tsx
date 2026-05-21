@@ -302,9 +302,7 @@ export const DatabasePage = () => {
 
     // Transform flat backup schedules into nested storages structure
     const formData = postProcessedData as Record<string, unknown>;
-    const backupData = formData.backup as
-      | Record<string, unknown>
-      | undefined;
+    const backupData = formData.backup as Record<string, unknown> | undefined;
     if (backupData?.schedules) {
       const backupSpec = buildBackupSpecFromWizard(
         backupData.schedules as Parameters<typeof buildBackupSpecFromWizard>[0],

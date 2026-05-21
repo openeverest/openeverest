@@ -19,10 +19,7 @@ import { TimeSelection } from '../../time-selection/time-selection';
 import { BackupConfigFields } from 'components/backup-config-fields';
 import { FormMode } from 'components/ui-generator/ui-generator.types';
 import { Messages } from './schedule-form.messages';
-import {
-  ScheduleFormFields,
-  ScheduleFormProps,
-} from './schedule-form.types';
+import { ScheduleFormFields, ScheduleFormProps } from './schedule-form.types';
 import { Alert } from '@mui/material';
 import { useFormContext } from 'react-hook-form';
 import { useContext, useMemo } from 'react';
@@ -110,10 +107,7 @@ export const ScheduleForm = ({
         isRequired
       />
       <LabeledContent label={Messages.repeats}>
-        <TimeSelection
-          showInfoAlert
-          errorInfoAlert={errorInfoAlert}
-        />
+        <TimeSelection showInfoAlert errorInfoAlert={errorInfoAlert} />
       </LabeledContent>
       <BackupConfigFields
         backupClass={backupClass}

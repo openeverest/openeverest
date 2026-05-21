@@ -39,8 +39,7 @@ export const ScheduleFormWrapper = () => {
     mode === WizardMode.Edit && !isJustAddedSchedule;
 
   // Extract limits from the backup class
-  const maxStorages =
-    backupClass?.spec?.providerManaged?.limits?.maxStorages;
+  const maxStorages = backupClass?.spec?.providerManaged?.limits?.maxStorages;
   const maxSchedulesPerStorage =
     backupClass?.spec?.providerManaged?.limits?.maxSchedulesPerStorage;
 

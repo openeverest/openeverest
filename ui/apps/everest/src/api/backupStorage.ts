@@ -1,5 +1,5 @@
-// everest
 // Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,45 +14,57 @@
 // limitations under the License.
 import {
   BackupStorage,
+  BackupStorageListCRD,
   GetBackupStoragesPayload,
 } from 'shared-types/backupStorages.types';
 import { api } from './api';
+import {
+  crdToFlat,
+  flatToCrdCreate,
+  flatToCrdEdit,
+} from './backupStorage.mappers';
 
-export const getBackupStoragesFn = async (namespace: string) => {
-  const response = await api.get<GetBackupStoragesPayload>(
-    `namespaces/${namespace}/backup-storages`
+export const getBackupStoragesFn = async (
+  cluster: string,
+  namespace: string
+): Promise<GetBackupStoragesPayload> => {
+  const response = await api.get<BackupStorageListCRD>(
+    `clusters/${cluster}/namespaces/${namespace}/backup-storages`
   );
-  return response.data;
+  return response.data?.items?.map(crdToFlat) ?? [];
 };
 
-export const createBackupStorageFn = async (formData: BackupStorage) => {
-  const { namespace, ...createFormData } = formData;
+export const createBackupStorageFn = async (
+  cluster: string,
+  formData: BackupStorage
+) => {
+  const { namespace } = formData;
   const response = await api.post(
-    `namespaces/${namespace}/backup-storages`,
-    createFormData
+    `clusters/${cluster}/namespaces/${namespace}/backup-storages`,
+    flatToCrdCreate(formData)
   );
-
   return response.data;
 };
 
-export const editBackupStorageFn = async (formData: BackupStorage) => {
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const { name, namespace, type, ...editableFormData } = formData;
+export const editBackupStorageFn = async (
+  cluster: string,
+  formData: BackupStorage
+) => {
+  const { name, namespace } = formData;
   const response = await api.patch(
-    `namespaces/${namespace}/backup-storages/${name}`,
-    editableFormData
+    `clusters/${cluster}/namespaces/${namespace}/backup-storages/${name}`,
+    flatToCrdEdit(formData)
   );
-
   return response.data;
 };
 
 export const deleteBackupStorageFn = async (
+  cluster: string,
   backupStorageId: string,
   namespace: string
 ) => {
   const response = await api.delete(
-    `namespaces/${namespace}/backup-storages/${backupStorageId}`
+    `clusters/${cluster}/namespaces/${namespace}/backup-storages/${backupStorageId}`
   );
-
   return response.data;
 };

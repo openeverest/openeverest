@@ -17,7 +17,7 @@ import { generateShortUID } from 'utils/generateShortUID';
 import { rfc_123_schema } from 'utils/common-validation';
 import type { Section } from 'components/ui-generator/ui-generator.types';
 import { FormMode } from 'components/ui-generator/ui-generator.types';
-import { buildBackupConfigSchema } from 'components/backup-config-fields';
+import { buildSectionZodSchema } from 'components/ui-generator/utils/schema-builder';
 import { Messages } from './on-demand-backup-modal.messages';
 
 export enum BackupFields {
@@ -77,7 +77,11 @@ export const schema = (
     return base.passthrough();
   }
 
-  const dynamicSchema = buildBackupConfigSchema(configSections, FormMode.New);
+  const dynamicSchema = configSections
+    ? buildSectionZodSchema('config', configSections, {
+        formMode: FormMode.New,
+      }).schema
+    : undefined;
 
   if (!dynamicSchema) {
     return base.passthrough();

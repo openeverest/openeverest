@@ -1,5 +1,5 @@
-// everest
 // Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -31,6 +31,7 @@ import {
 } from 'shared-types/backupStorages.types';
 import { PerconaQueryOptions } from 'shared-types/query.types';
 import { useNamespaces } from '../namespaces';
+import { useClusterName } from '../useClusterName';
 
 export const BACKUP_STORAGES_QUERY_KEY = 'backupStorages';
 
@@ -38,13 +39,14 @@ export type BackupStoragesForNamespaceResult =
   PerconaQueryOptions<GetBackupStoragesPayload>;
 
 export const useBackupStorages = () => {
+  const cluster = useClusterName();
   const { data: namespaces = [] } = useNamespaces({
     refetchInterval: 5 * 1000,
   });
   const queries = namespaces.map((namespace) => {
     return {
-      queryKey: [BACKUP_STORAGES_QUERY_KEY, namespace],
-      queryFn: () => getBackupStoragesFn(namespace),
+      queryKey: [BACKUP_STORAGES_QUERY_KEY, cluster, namespace],
+      queryFn: () => getBackupStoragesFn(cluster, namespace),
       refetchInterval: 5 * 1000,
     };
   });
@@ -64,28 +66,35 @@ export const useBackupStoragesByNamespace = (
     BackupStorage[]
   >
 ) => {
+  const cluster = useClusterName();
   return useQuery<GetBackupStoragesPayload, unknown, BackupStorage[]>({
-    queryKey: [BACKUP_STORAGES_QUERY_KEY, namespace],
-    queryFn: () => getBackupStoragesFn(namespace),
+    queryKey: [BACKUP_STORAGES_QUERY_KEY, cluster, namespace],
+    queryFn: () => getBackupStoragesFn(cluster, namespace),
     ...options,
   });
 };
 
 export const useCreateBackupStorage = (
   options?: UseMutationOptions<unknown, unknown, BackupStorage, unknown>
-) =>
-  useMutation({
-    mutationFn: createBackupStorageFn,
+) => {
+  const cluster = useClusterName();
+  return useMutation({
+    mutationFn: (formData: BackupStorage) =>
+      createBackupStorageFn(cluster, formData),
     ...options,
   });
+};
 
 export const useEditBackupStorage = (
   options?: UseMutationOptions<unknown, unknown, BackupStorage, unknown>
-) =>
-  useMutation({
-    mutationFn: editBackupStorageFn,
+) => {
+  const cluster = useClusterName();
+  return useMutation({
+    mutationFn: (formData: BackupStorage) =>
+      editBackupStorageFn(cluster, formData),
     ...options,
   });
+};
 
 type DeleteBackupStorageArgType = {
   backupStorageId: string;
@@ -99,9 +108,11 @@ export const useDeleteBackupStorage = (
     DeleteBackupStorageArgType,
     unknown
   >
-) =>
-  useMutation({
+) => {
+  const cluster = useClusterName();
+  return useMutation({
     mutationFn: ({ backupStorageId, namespace }: DeleteBackupStorageArgType) =>
-      deleteBackupStorageFn(backupStorageId, namespace),
+      deleteBackupStorageFn(cluster, backupStorageId, namespace),
     ...options,
   });
+};

@@ -18,20 +18,12 @@ import { ScheduleWizardMode, WizardMode } from 'shared-types/wizard.types';
 import { BackupClass } from 'shared-types/backups.types';
 import { Instance } from 'shared-types/api.types';
 
-/** Extracts the schedule type from Instance.spec.backup.storages[].schedules[] */
 type InstanceSchedule = NonNullable<
   NonNullable<
     NonNullable<Instance['spec']['backup']>['storages']
   >[number]['schedules']
 >[number];
 
-/**
- * A v2 schedule flattened from Instance.spec.backup.storages[].schedules[]
- * with the parent storage name attached.
- *
- * `config` is widened from `Record<string, never>` (CRD schema) to
- * `Record<string, unknown>` because at runtime it carries provider-specific data.
- */
 export type FlattenedSchedule = Omit<InstanceSchedule, 'config'> & {
   config?: Record<string, unknown>;
   storageName: string;

@@ -14,16 +14,21 @@
 
 import { AutoCompleteAutoFillProps } from 'components/auto-complete-auto-fill/auto-complete-auto-fill.types';
 import { BackupStorage } from 'shared-types/backupStorages.types';
+import { Instance } from 'shared-types/api.types';
 
 // Minimal schedule shape required by BackupStoragesInput for limit calculations
 export interface ScheduleWithStorage {
   backupStorageName: string;
 }
 
+/** A single entry from Instance.spec.backup.storages[] */
+export type InstanceStorage = NonNullable<
+  NonNullable<Instance['spec']['backup']>['storages']
+>[number];
+
 export type BackupStoragesInputProps = {
   name?: string;
   namespace: string;
-  schedules: ScheduleWithStorage[];
   /**
    * Controls how the backup storage field behaves in different product flows.
    *
@@ -36,10 +41,21 @@ export type BackupStoragesInputProps = {
   autoFillProps?: Partial<AutoCompleteAutoFillProps<BackupStorage>>;
   maxStorages?: number;
   maxSchedulesPerStorage?: number;
-  /** Storage names currently active on the instance (instance.spec.backup.storages[].storageRef.name). */
-  instanceStorageNames?: string[];
-  // TODO: schedules — hideUsedStoragesInSchedules was used for PostgreSQL
-  // to hide storages already assigned to other schedules (PG slot limit).
-  // Re-enable when schedule feature is implemented.
-  // hideUsedStoragesInSchedules?: boolean;
-};
+} & (
+  | {
+      /**
+       * Nested instance storages (v2 model). When provided, `schedules` and
+       * `instanceStorageNames` are derived internally and should NOT be passed.
+       */
+      instanceStorages: InstanceStorage[];
+      schedules?: never;
+      instanceStorageNames?: never;
+    }
+  | {
+      /** Flat schedules list (wizard/legacy path). */
+      schedules: ScheduleWithStorage[];
+      /** Storage names currently active on the instance. */
+      instanceStorageNames?: string[];
+      instanceStorages?: never;
+    }
+);

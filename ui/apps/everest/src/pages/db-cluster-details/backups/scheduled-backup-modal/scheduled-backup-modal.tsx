@@ -41,15 +41,22 @@ const flattenSchedules = (instance: Instance): FlattenedSchedule[] =>
 const buildStoragesFromSchedules = (
   instance: Instance,
   schedules: FlattenedSchedule[]
-): NonNullable<NonNullable<NonNullable<Instance['spec']>['backup']>['storages']> => {
+): NonNullable<
+  NonNullable<NonNullable<Instance['spec']>['backup']>['storages']
+> => {
   const existingStorages = instance.spec?.backup?.storages ?? [];
   return existingStorages.map((storage) => ({
     ...storage,
     schedules: schedules
       .filter((s) => s.storageName === (storage.storageRef.name ?? ''))
-      .map(({ storageName: _, config, ...rest }) => ({
-        ...rest,
-        ...(config ? { config: config as Record<string, never> } : {}),
+      .map((schedule) => ({
+        name: schedule.name,
+        cron: schedule.cron,
+        enabled: schedule.enabled,
+        retentionCopies: schedule.retentionCopies,
+        ...(schedule.config
+          ? { config: schedule.config as Record<string, never> }
+          : {}),
       })),
   }));
 };
@@ -107,9 +114,14 @@ export const ScheduledBackupModal = () => {
         storageRef: { name: newStorageName },
         schedules: updatedSchedules
           .filter((s) => s.storageName === newStorageName)
-          .map(({ storageName: _, config, ...rest }) => ({
-            ...rest,
-            ...(config && { config: config as Record<string, never> }),
+          .map((schedule) => ({
+            name: schedule.name,
+            cron: schedule.cron,
+            enabled: schedule.enabled,
+            retentionCopies: schedule.retentionCopies,
+            ...(schedule.config && {
+              config: schedule.config as Record<string, never>,
+            }),
           })),
       });
     }
@@ -146,6 +158,7 @@ export const ScheduledBackupModal = () => {
         setSelectedScheduleName,
         openScheduleModal,
         setOpenScheduleModal,
+        externalContext: 'db-details-backups',
         dbInstanceInfo: {
           dbInstanceName: instance.metadata?.name,
           namespace,

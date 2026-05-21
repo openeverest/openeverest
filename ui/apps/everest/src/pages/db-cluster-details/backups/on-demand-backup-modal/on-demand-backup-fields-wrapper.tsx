@@ -54,27 +54,7 @@ export const OnDemandBackupFieldsWrapper = () => {
   const maxSchedulesPerStorage =
     selectedClass?.spec?.providerManaged?.limits?.maxSchedulesPerStorage;
 
-  const instanceSchedules = useMemo(() => {
-    const storages = instance.spec?.backup?.storages ?? [];
-    return storages.flatMap((s) =>
-      (s.schedules ?? []).map((sched) => ({
-        name: sched.name,
-        enabled: sched.enabled,
-        schedule: sched.cron,
-        backupStorageName: s.storageRef?.name ?? '',
-        retentionCopies: sched.retentionCopies,
-      }))
-    );
-  }, [instance]);
-
-  // Storage names currently registered on the instance (authoritative source for active count).
-  const instanceStorageNames = useMemo(
-    () =>
-      (instance.spec?.backup?.storages ?? [])
-        .map((s) => s.storageRef?.name)
-        .filter((n): n is string => Boolean(n)),
-    [instance]
-  );
+  const instanceStorages = instance.spec?.backup?.storages ?? [];
 
   useEffect(() => {
     if (availableClasses.length > 0 && !selectedClassName) {
@@ -112,10 +92,9 @@ export const OnDemandBackupFieldsWrapper = () => {
       <BackupStoragesInput
         name={BackupFields.storageName}
         namespace={namespace}
-        schedules={instanceSchedules}
+        instanceStorages={instanceStorages}
         maxStorages={maxStorages}
         maxSchedulesPerStorage={maxSchedulesPerStorage}
-        instanceStorageNames={instanceStorageNames}
         autoFillProps={{
           isRequired: true,
         }}

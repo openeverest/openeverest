@@ -16,15 +16,9 @@ import { useEffect, useRef } from 'react';
 import { useFormContext } from 'react-hook-form';
 import { useBackupClassUiSchema } from 'hooks/api/backup-classes/useBackupClasses';
 import { UIGenerator } from 'components/ui-generator/ui-generator';
-import { getSectionExplicitDefaults } from './backup-config-fields.utils';
+import { buildDefaultsFromComponents } from 'components/ui-generator/utils/default-values/build-defaults-from-components';
 import { BackupConfigFieldsProps } from './backup-config-fields.types';
 
-/**
- * Renders dynamic backup config fields from a BackupClass uiSchema.
- * Applies explicit defaults when the backup class changes.
- *
- * Must be rendered inside a react-hook-form `<FormProvider>` context.
- */
 export const BackupConfigFields = ({
   backupClass,
   formMode,
@@ -44,7 +38,9 @@ export const BackupConfigFields = ({
 
     if (!backupSections) return;
 
-    const explicitDefaults = getSectionExplicitDefaults(backupSections.config);
+    const explicitDefaults = backupSections.config?.components
+      ? buildDefaultsFromComponents(backupSections.config.components, '', true)
+      : {};
 
     Object.entries(explicitDefaults).forEach(([fieldName, defaultValue]) => {
       setValue(fieldName, defaultValue, {

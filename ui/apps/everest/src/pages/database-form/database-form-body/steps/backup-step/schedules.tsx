@@ -60,7 +60,8 @@ export const Schedules = ({ backupStorages }: Props) => {
 
   const k8sNamespace: string = watch(DbWizardFormFields.k8sNamespace);
   const dbName: string = watch(DbWizardFormFields.dbName);
-  const formSchedules: FlattenedSchedule[] = watch(BACKUP_SCHEDULES_FIELD) ?? [];
+  const formSchedules: FlattenedSchedule[] =
+    watch(BACKUP_SCHEDULES_FIELD) ?? [];
 
   // In wizard mode, the first backup class is auto-selected.
   // User can change it inside the modal (BackupConfigFields).
@@ -74,7 +75,11 @@ export const Schedules = ({ backupStorages }: Props) => {
 
   // Auto-set the backup class if not yet selected
   useMemo(() => {
-    if (!selectedClassName && backupClasses.length > 0 && backupClasses[0]?.metadata?.name) {
+    if (
+      !selectedClassName &&
+      backupClasses.length > 0 &&
+      backupClasses[0]?.metadata?.name
+    ) {
       setValue(BACKUP_CLASS_REF_FIELD, backupClasses[0].metadata.name);
     }
   }, [backupClasses, selectedClassName, setValue]);
@@ -82,7 +87,10 @@ export const Schedules = ({ backupStorages }: Props) => {
   const createButtonDisabled = openScheduleModal || backupStorages.length === 0;
 
   const handleDelete = (name: string) => {
-    setValue(BACKUP_SCHEDULES_FIELD, removeScheduleFromArray(name, formSchedules));
+    setValue(
+      BACKUP_SCHEDULES_FIELD,
+      removeScheduleFromArray(name, formSchedules)
+    );
   };
 
   const handleEdit = (name: string) => {
