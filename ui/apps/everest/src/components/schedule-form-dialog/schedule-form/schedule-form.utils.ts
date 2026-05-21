@@ -18,6 +18,20 @@ import { ScheduleFormData } from './schedule-form-schema';
 import { FlattenedSchedule } from '../schedule-form-dialog-context/schedule-form-dialog-context.types';
 import { getCronExpressionFromFormValues } from '../../time-selection/time-selection.utils';
 import { ScheduleWizardMode, WizardMode } from 'shared-types/wizard.types';
+import { removeEmptyFieldValues } from 'components/ui-generator/utils/postprocess/postprocess-schema';
+
+/** Known static field keys in ScheduleFormData (everything else is dynamic config). */
+const STATIC_KEYS = new Set([
+  'scheduleName',
+  'storageLocation',
+  'retentionCopies',
+  'selectedTime',
+  'minute',
+  'hour',
+  'amPm',
+  'onDay',
+  'weekDay',
+]);
 
 type UpdateScheduleArrayProps = {
   formData: ScheduleFormData;
@@ -55,12 +69,33 @@ export const getSchedulesPayload = ({
       ? storageLocation
       : storageLocation!.name;
 
+  // Extract dynamic config fields (UIGenerator backup config) from form data.
+  // UIGenerator registers fields with sectionKey prefix ("config.X"), so in form
+  // data they appear as a nested object: { config: { compressionType: ... } }.
+  // Unwrap one level to produce the flat config the API expects.
+  const dynamicFields = Object.fromEntries(
+    Object.entries(formData).filter(([key]) => !STATIC_KEYS.has(key))
+  );
+  const rawConfig =
+    'config' in dynamicFields &&
+    typeof dynamicFields.config === 'object' &&
+    dynamicFields.config !== null
+      ? (dynamicFields.config as Record<string, unknown>)
+      : dynamicFields;
+  const cleanedConfig =
+    Object.keys(rawConfig).length > 0
+      ? removeEmptyFieldValues(rawConfig)
+      : undefined;
+
   const newSchedule: FlattenedSchedule = {
     enabled: true,
     name: scheduleName,
     storageName,
     cron,
     retentionCopies: parseInt(retentionCopies, 10),
+    ...(cleanedConfig && Object.keys(cleanedConfig).length > 0
+      ? { config: cleanedConfig }
+      : {}),
   };
 
   if (mode === WizardMode.New) {

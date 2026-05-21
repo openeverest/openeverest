@@ -96,6 +96,7 @@ export const schema = (schedules: FlattenedSchedule[], mode: WizardMode) => {
       ...timeSelectionSchemaObject,
       ...storageLocationScheduleFormSchema('scheduledBackups'),
     })
+    .passthrough()
     .superRefine(
       (
         { selectedTime, hour, minute, onDay, weekDay, amPm, scheduleName },
