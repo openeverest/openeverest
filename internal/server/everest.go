@@ -72,6 +72,8 @@ type EverestServer struct {
 	oidcProvider  *oidc.ProviderConfig
 }
 
+var errFailedToReadRequestBody = errors.New("failed to read request body")
+
 func getOIDCProviderConfig(ctx context.Context, kubeClient kubernetes.KubernetesConnector) (*oidc.ProviderConfig, error) {
 	settings, err := kubeClient.GetEverestSettings(ctx)
 	if client.IgnoreNotFound(err) != nil {
