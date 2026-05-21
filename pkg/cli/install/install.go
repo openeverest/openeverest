@@ -57,6 +57,8 @@ type (
 	InstallConfig struct {
 		// KubeconfigPath is the path to the kubeconfig file.
 		KubeconfigPath string
+		// Namespace is the namespace where OpenEverest will be installed.
+		Namespace string
 		// VersionMetadataURL Version service URL to retrieve version metadata information from.
 		VersionMetadataURL string
 		// Version defines Everest version to be installed. If empty, the latest version is installed.
@@ -109,7 +111,7 @@ func (cfg *InstallConfig) detectKubernetesEnv(ctx context.Context, l *zap.Sugare
 		return nil
 	}
 
-	kubeClient, err := cliutils.NewKubeConnector(l, cfg.KubeconfigPath)
+	kubeClient, err := kubernetes.New(cfg.KubeconfigPath, l, cfg.Namespace)
 	if err != nil {
 		return fmt.Errorf("failed to create kubernetes client: %w", err)
 	}
@@ -147,7 +149,7 @@ func NewInstall(c InstallConfig, l *zap.SugaredLogger) (*Installer, error) {
 	cli.cfg = c
 
 	var err error
-	cli.kubeClient, err = cliutils.NewKubeConnector(cli.l, c.KubeconfigPath)
+	cli.kubeClient, err = kubernetes.New(c.KubeconfigPath, cli.l, c.Namespace)
 	if err != nil {
 		return nil, err
 	}
@@ -392,9 +394,9 @@ func (o *Installer) namespaceExists(ctx context.Context, namespace string) (bool
 	return true, nil
 }
 
-// CheckEverestAlreadyinstalled checks if Everest is already installed.
-func CheckEverestAlreadyinstalled(ctx context.Context, l *zap.SugaredLogger, kubeConfig string) error {
-	kubeClient, err := cliutils.NewKubeConnector(l, kubeConfig)
+// CheckEverestAlreadyInstalled checks if Everest is already installed.
+func CheckEverestAlreadyInstalled(ctx context.Context, l *zap.SugaredLogger, kubeConfig, namespace string) error {
+	kubeClient, err := kubernetes.New(kubeConfig, l, namespace)
 	if err != nil {
 		return fmt.Errorf("failed to create kubernetes client: %w", err)
 	}
