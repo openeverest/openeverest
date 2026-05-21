@@ -48,8 +48,8 @@ const (
 	FlagSkipEnvDetection = "skip-env-detection"
 	// FlagDisableTelemetry disables telemetry.
 	FlagDisableTelemetry = "disable-telemetry"
-	// FlagInstallNamespace is the name of the namespace flag for install.
-	FlagInstallNamespace = "namespace"
+	// FlagInstallSystemNamespace is the name of the system-namespace flag for install.
+	FlagInstallSystemNamespace = "system-namespace"
 	// FlagInstallSkipDBNamespace is the name of the skip-db-namespace flag.
 	FlagInstallSkipDBNamespace = "skip-db-namespace"
 
