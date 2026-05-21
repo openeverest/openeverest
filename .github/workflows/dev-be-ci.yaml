@@ -232,10 +232,14 @@ jobs:
       - name: Create KIND cluster
         uses: helm/kind-action@ef37e7f390d99f746eb8b610417061a60e82a6cc # v1.14.0
 
-      - name: Build and load Everest server image into KIND cluster
+      - name: Build controller and server
         run: |
           make build-debug
+          make build-controller
           make docker-build
+
+      - name: Load image to KIND cluster
+        run: |
           kind load docker-image ghcr.io/openeverest/openeverest-dev:0.0.0
 
       - name: Run integration tests
