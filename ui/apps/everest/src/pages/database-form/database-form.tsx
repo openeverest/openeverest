@@ -44,6 +44,7 @@ import { getDefaultValues } from 'components/ui-generator/utils/default-values';
 import {
   BASE_STEP_ID,
   IMPORT_STEP_ID,
+  BACKUP_STEP_ID,
 } from './database-form-body/steps/constants';
 import {
   useFormEngine,
@@ -54,6 +55,13 @@ import {
 import { DataSourcePrefetcher } from 'components/ui-generator/api-providers';
 import { BaseInfoStep } from './database-form-body/steps/base-step/base-step';
 import { ImportStep } from './database-form-body/steps-old/import/import-step';
+import {
+  BackupStep,
+  BACKUP_SCHEDULES_FIELD,
+  buildBackupSpecFromWizard,
+} from './database-form-body/steps/backup-step';
+import { useBackupClassesList } from 'hooks/api/backup-classes/useBackupClasses';
+import { useClusterName } from 'hooks/api/useClusterName';
 import { mergeTopologyDefaults } from 'components/ui-generator/utils/default-values/merge-topology-defaults';
 
 export const DatabasePage = () => {
@@ -73,6 +81,11 @@ export const DatabasePage = () => {
   const defaultTopology = topologies[0] || '';
   const hasImportStep = !!location.state?.showImport;
   const providerObject = location.state?.selectedDbProvider;
+
+  // ── Backup classes (determines if backup step is shown)
+  const clusterName = useClusterName();
+  const { data: backupClasses = [] } = useBackupClassesList(clusterName);
+  const hasBackupStep = backupClasses.length > 0;
 
   // ── Page-level defaults (merges schema defaults + wizard-specific ones)
   const { defaultValues } = useDatabasePageDefaultValues(
@@ -167,8 +180,16 @@ export const DatabasePage = () => {
         fields: Object.values(ImportFields) as string[],
       });
     }
+    if (hasBackupStep) {
+      steps.push({
+        id: BACKUP_STEP_ID,
+        label: 'Backups',
+        component: BackupStep,
+        fields: [BACKUP_SCHEDULES_FIELD],
+      });
+    }
     return steps;
-  }, [hasImportStep]);
+  }, [hasImportStep, hasBackupStep]);
 
   const engine = useFormEngine({
     uiSchema,
@@ -278,6 +299,23 @@ export const DatabasePage = () => {
     const postProcessedData = engine.postprocess(
       data as Record<string, unknown>
     ) as DbWizardType;
+
+    // Transform flat backup schedules into nested storages structure
+    const formData = postProcessedData as Record<string, unknown>;
+    const backupData = formData.backup as
+      | Record<string, unknown>
+      | undefined;
+    if (backupData?.schedules) {
+      const backupSpec = buildBackupSpecFromWizard(
+        backupData.schedules as Parameters<typeof buildBackupSpecFromWizard>[0],
+        (backupData.classRef as { name?: string })?.name
+      );
+      if (backupSpec) {
+        formData.backup = backupSpec;
+      } else {
+        delete formData.backup;
+      }
+    }
 
     latestDataRef.current = postProcessedData;
 

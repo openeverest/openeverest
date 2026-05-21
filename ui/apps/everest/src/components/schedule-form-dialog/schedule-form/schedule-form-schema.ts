@@ -19,7 +19,7 @@ import { Messages } from './schedule-form.messages.ts';
 import { ScheduleFormFields } from './schedule-form.types.ts';
 import { rfc_123_schema } from 'utils/common-validation';
 import { timeSelectionSchemaObject } from '../../time-selection/time-selection-schema.ts';
-import { Schedule } from 'shared-types/dbCluster.types';
+import { FlattenedSchedule } from '../schedule-form-dialog-context/schedule-form-dialog-context.types';
 import { getCronExpressionFromFormValues } from '../../time-selection/time-selection.utils';
 import { sameScheduleFunc } from '../schedule-form-dialog.utils';
 import { WizardMode } from 'shared-types/wizard.types.ts';
@@ -57,7 +57,7 @@ export const storageLocationScheduleFormSchema = (
   };
 };
 
-export const schema = (schedules: Schedule[], mode: WizardMode) => {
+export const schema = (schedules: FlattenedSchedule[], mode: WizardMode) => {
   const schedulesNamesList = schedules.map((item) => item?.name);
   return z
     .object({

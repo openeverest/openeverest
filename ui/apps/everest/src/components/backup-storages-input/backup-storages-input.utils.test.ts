@@ -124,10 +124,7 @@ describe('getAvailableStorages', () => {
         instanceStorageNames: ['storage1', 'storage2'],
         schedules: [
           {
-            name: 'sched1',
-            schedule: '0 0 * * *',
             backupStorageName: 'storage1',
-            enabled: true,
           },
         ],
       });
@@ -143,22 +140,13 @@ describe('getAvailableStorages', () => {
         instanceStorageNames: ['storage1', 'storage2', 'storage3'],
         schedules: [
           {
-            name: 'sched1',
-            schedule: '0 0 * * *',
             backupStorageName: 'storage1',
-            enabled: true,
           },
           {
-            name: 'sched2',
-            schedule: '0 0 * * *',
             backupStorageName: 'storage1',
-            enabled: true,
           },
           {
-            name: 'sched3',
-            schedule: '0 0 * * *',
             backupStorageName: 'storage2',
-            enabled: true,
           },
         ],
       });

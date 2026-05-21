@@ -28,6 +28,7 @@ import { MRT_ColumnDef } from 'material-react-table';
 import { useContext, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { Backup } from 'shared-types/backups.types.ts';
+import { WizardMode } from 'shared-types/wizard.types';
 import { ScheduleModalContext } from '../backups.context.ts';
 import { BACKUP_STATUS_TO_BASE_STATUS } from './backups-list.constants';
 import { Messages } from './backups-list.messages';
@@ -44,7 +45,8 @@ export const BackupsList = () => {
   const [openDeleteDialog, setOpenDeleteDialog] = useState(false);
   const [selectedBackup, setSelectedBackup] = useState('');
 
-  const { instance, setOpenOnDemandModal } = useContext(ScheduleModalContext);
+  const { instance, setOpenOnDemandModal, setOpenScheduleModal, setMode } =
+    useContext(ScheduleModalContext);
 
   const { canDelete } = useRBACPermissions(
     'backups',
@@ -157,6 +159,11 @@ export const BackupsList = () => {
     setOpenOnDemandModal(true);
   };
 
+  const handleScheduleBackup = () => {
+    setMode(WizardMode.New);
+    setOpenScheduleModal(true);
+  };
+
   return (
     <>
       <Table
@@ -174,7 +181,10 @@ export const BackupsList = () => {
           ],
         }}
         renderTopToolbarCustomActions={() => (
-          <BackupListTableHeader onNowClick={handleManualBackup} />
+          <BackupListTableHeader
+            onNowClick={handleManualBackup}
+            onScheduleClick={handleScheduleBackup}
+          />
         )}
         enableRowActions={canDelete}
         renderRowActions={({ row }) => (

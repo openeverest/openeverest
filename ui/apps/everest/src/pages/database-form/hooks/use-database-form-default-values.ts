@@ -47,12 +47,17 @@ export const useDatabasePageDefaultValues = (
         ...defaultSchemaValues,
         ...dbWizardDefaultValues,
         topology: { type: defaultSelectedTopology },
+        backup: { schedules: [], classRef: { name: '' } },
       };
     } else {
       // TODO edit,restore,templates mode
+      // When edit mode is implemented, map instance.spec.backup to form:
+      //   backup.schedules = flattenSchedules(instance) → FlattenedSchedule[]
+      //   backup.classRef.name = instance.spec.backup.classRef.name
       return {
         ...defaultSchemaValues,
         topology: { type: defaultSelectedTopology },
+        backup: { schedules: [], classRef: { name: '' } },
       };
       //   return dbClusterRequestStatus === 'success'
       //     ? DbClusterPayloadToFormValues(dbCluster, mode, namespace)

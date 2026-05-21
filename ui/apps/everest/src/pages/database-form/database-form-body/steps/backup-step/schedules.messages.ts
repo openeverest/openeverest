@@ -1,3 +1,5 @@
+// everest
+// Copyright (C) 2023 Percona LLC
 // Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -12,15 +14,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { Section } from 'components/ui-generator/ui-generator.types';
-import { buildDefaultsFromComponents } from 'components/ui-generator/utils/default-values/build-defaults-from-components';
-
-export const getSectionExplicitDefaults = (
-  section: Section | undefined
-): Record<string, unknown> => {
-  if (!section?.components) {
-    return {};
-  }
-
-  return buildDefaultsFromComponents(section.components, '', true);
+export const Messages = {
+  label: 'Backup schedules',
+  create: 'Create backup schedule',
+  noSchedules: 'You currently do not have any backup schedules set up.',
 };

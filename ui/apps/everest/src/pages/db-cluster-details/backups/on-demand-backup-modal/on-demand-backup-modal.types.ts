@@ -16,8 +16,8 @@ import z from 'zod';
 import { generateShortUID } from 'utils/generateShortUID';
 import { rfc_123_schema } from 'utils/common-validation';
 import type { Section } from 'components/ui-generator/ui-generator.types';
-import { buildSectionZodSchema } from 'components/ui-generator/utils/schema-builder';
 import { FormMode } from 'components/ui-generator/ui-generator.types';
+import { buildBackupConfigSchema } from 'components/backup-config-fields';
 import { Messages } from './on-demand-backup-modal.messages';
 
 export enum BackupFields {
@@ -77,11 +77,11 @@ export const schema = (
     return base.passthrough();
   }
 
-  const { schema: dynamicSchema } = buildSectionZodSchema(
-    'config',
-    configSections,
-    { formMode: FormMode.New }
-  );
+  const dynamicSchema = buildBackupConfigSchema(configSections, FormMode.New);
+
+  if (!dynamicSchema) {
+    return base.passthrough();
+  }
 
   // ZodIntersection (.and()) fails when `base` contains .transform() fields (storageName).
   // Validate UIGenerator fields separately via superRefine to avoid merge conflicts.

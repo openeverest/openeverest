@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,15 +15,15 @@
 // limitations under the License.
 
 import { Stack, Typography } from '@mui/material';
-import { Schedule } from 'shared-types/dbCluster.types';
-import { getTimeSelectionPreviewMessage } from '../../../../../database-preview/database.preview.messages';
+import { FlattenedSchedule } from 'components/schedule-form-dialog/schedule-form-dialog-context/schedule-form-dialog-context.types';
+import { getTimeSelectionPreviewMessage } from 'pages/database-form/database-preview/database.preview.messages';
 import { getFormValuesFromCronExpression } from 'components/time-selection/time-selection.utils';
 
-const ScheduleContent = ({
+export const ScheduleContent = ({
   schedule,
   storageName,
 }: {
-  schedule: Schedule;
+  schedule: FlattenedSchedule;
   storageName: string;
 }) => {
   return (
@@ -41,7 +42,7 @@ const ScheduleContent = ({
         <Typography variant="body1">{schedule.name}</Typography>
         <Typography variant="body2">
           {getTimeSelectionPreviewMessage(
-            getFormValuesFromCronExpression(schedule.schedule)
+            getFormValuesFromCronExpression(schedule.cron)
           )}
         </Typography>
       </Stack>
@@ -56,5 +57,3 @@ const ScheduleContent = ({
     </Stack>
   );
 };
-
-export default ScheduleContent;

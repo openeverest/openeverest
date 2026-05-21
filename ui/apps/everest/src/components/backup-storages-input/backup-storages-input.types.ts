@@ -14,12 +14,16 @@
 
 import { AutoCompleteAutoFillProps } from 'components/auto-complete-auto-fill/auto-complete-auto-fill.types';
 import { BackupStorage } from 'shared-types/backupStorages.types';
-import { Schedule } from 'shared-types/dbCluster.types';
+
+// Minimal schedule shape required by BackupStoragesInput for limit calculations
+export interface ScheduleWithStorage {
+  backupStorageName: string;
+}
 
 export type BackupStoragesInputProps = {
   name?: string;
   namespace: string;
-  schedules: Schedule[];
+  schedules: ScheduleWithStorage[];
   /**
    * Controls how the backup storage field behaves in different product flows.
    *

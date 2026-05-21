@@ -1,3 +1,5 @@
+// everest
+// Copyright (C) 2023 Percona LLC
 // Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -12,6 +14,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-export const BASE_STEP_ID = 'base';
-export const IMPORT_STEP_ID = 'import';
-export const BACKUP_STEP_ID = 'backups';
+export const Messages = {
+  backups: 'Scheduled Backups',
+  captionBackups:
+    'Create a task that regularly backs up this database according to your specified schedule.',
+};

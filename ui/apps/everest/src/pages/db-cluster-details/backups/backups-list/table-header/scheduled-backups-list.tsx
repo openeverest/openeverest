@@ -163,7 +163,6 @@ const ScheduledBackupsList = () => {
                     color="primary"
                     onClick={() => handleEdit(item.name)}
                     data-testid="edit-schedule-button"
-                    disabled // TODO: re-enable when ScheduledBackupModal is migrated to v2
                   >
                     <EditOutlinedIcon />
                   </IconButton>

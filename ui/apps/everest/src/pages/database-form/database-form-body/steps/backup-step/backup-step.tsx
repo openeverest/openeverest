@@ -13,42 +13,27 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-// @ts-nocheck
-// TODO remove this file after release of v2
 
 import { FormGroup, Box, Skeleton } from '@mui/material';
-import { DbType } from '@percona/types';
 import { useBackupStoragesByNamespace } from 'hooks/api/backup-storages/useBackupStorages';
 import { useFormContext } from 'react-hook-form';
 import { DbWizardFormFields } from 'consts.ts';
 import BackupsActionableAlert from 'components/actionable-alert/backups-actionable-alert';
-import { StepHeader } from '../step-header/step-header.tsx';
-import { Messages } from './backups.messages.ts';
-import Schedules from './schedules/index.ts';
-import PITR from './pitr/index.ts';
+import { StepHeader } from '../../steps-old/step-header/step-header.tsx';
+import { Messages } from './backup-step.messages.ts';
+import { Schedules } from './schedules.tsx';
+import { StepProps } from '../../../database-form.types';
 
-export const Backups = () => {
+export const BackupStep = (
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  _props: StepProps
+) => {
   const { watch } = useFormContext();
 
-  const [selectedNamespace, schedules, dbType] = watch([
-    DbWizardFormFields.k8sNamespace,
-    DbWizardFormFields.schedules,
-    DbWizardFormFields.dbType,
-  ]);
+  const selectedNamespace: string = watch(DbWizardFormFields.k8sNamespace);
+
   const { data: backupStorages = [], isLoading } =
     useBackupStoragesByNamespace(selectedNamespace);
-
-  // In v2, storage limits are provider-driven (via BackupClass).
-  // Simple schedule-based filtering for PG only.
-  const storagesInSchedules = (schedules ?? []).map((s) => s.backupStorageName);
-  const storagesToShow =
-    dbType === DbType.Postresql
-      ? backupStorages.filter(
-          (storage) => !storagesInSchedules.includes(storage.name)
-        )
-      : backupStorages;
-  const scheduleCreationDisabled =
-    dbType === DbType.Postresql && storagesToShow.length === 0;
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column' }}>
@@ -63,18 +48,9 @@ export const Backups = () => {
           <Skeleton />
         </>
       ) : backupStorages.length > 0 ? (
-        <>
-          {scheduleCreationDisabled && (
-            <BackupsActionableAlert namespace={selectedNamespace} />
-          )}
-          <FormGroup sx={{ mt: 3 }}>
-            <Schedules
-              storagesToShow={storagesToShow}
-              disableCreateButton={scheduleCreationDisabled}
-            />
-            <PITR />
-          </FormGroup>
-        </>
+        <FormGroup sx={{ mt: 3 }}>
+          <Schedules backupStorages={backupStorages} />
+        </FormGroup>
       ) : (
         <BackupsActionableAlert namespace={selectedNamespace} />
       )}

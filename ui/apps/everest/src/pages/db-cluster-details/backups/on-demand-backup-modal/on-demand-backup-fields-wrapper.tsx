@@ -14,27 +14,22 @@
 
 import { MenuItem } from '@mui/material';
 import { SelectInput, TextInput } from '@percona/ui-lib';
-import {
-  useBackupClassesList,
-  useBackupClassUiSchema,
-} from 'hooks/api/backup-classes/useBackupClasses.ts';
-import { useClusterName } from 'hooks/api/useClusterName.ts';
-import { useContext, useEffect, useMemo, useRef } from 'react';
+import { useBackupClassesList } from 'hooks/api/backup-classes/useBackupClasses';
+import { useClusterName } from 'hooks/api/useClusterName';
+import { useContext, useEffect, useMemo } from 'react';
 import { useFormContext } from 'react-hook-form';
 import { useParams } from 'react-router-dom';
-import { UIGenerator } from 'components/ui-generator/ui-generator';
 import { FormMode } from 'components/ui-generator/ui-generator.types';
 import BackupStoragesInput from 'components/backup-storages-input';
-import { BackupFields } from './on-demand-backup-modal.types.ts';
-import { ScheduleModalContext } from '../backups.context.ts';
-import { getSectionExplicitDefaults } from './on-demand-backup-fields-wrapper.utils';
+import { BackupConfigFields } from 'components/backup-config-fields';
+import { BackupFields } from './on-demand-backup-modal.types';
+import { ScheduleModalContext } from '../backups.context';
 
 export const OnDemandBackupFieldsWrapper = () => {
   const clusterName = useClusterName();
   const { namespace = '' } = useParams();
   const { instance } = useContext(ScheduleModalContext);
-  const { watch, setValue, trigger } = useFormContext();
-  const appliedDefaultsClassRef = useRef<string>('');
+  const { watch, setValue } = useFormContext();
 
   const selectedClassName: string = watch(BackupFields.backupClassName);
 
@@ -45,8 +40,6 @@ export const OnDemandBackupFieldsWrapper = () => {
     () => backupClasses.find((bc) => bc.metadata?.name === selectedClassName),
     [backupClasses, selectedClassName]
   );
-
-  const { sections: backupSections } = useBackupClassUiSchema(selectedClass);
 
   // Filter classes that support this instance's provider.
   const providerType = instance.spec?.provider;
@@ -93,33 +86,6 @@ export const OnDemandBackupFieldsWrapper = () => {
     }
   }, [availableClasses, selectedClassName, setValue]);
 
-  useEffect(() => {
-    if (
-      !selectedClassName ||
-      appliedDefaultsClassRef.current === selectedClassName
-    ) {
-      return;
-    }
-
-    // Wait until sections are loaded — prevents the ref from being set prematurely
-    // (before backupSections resolves), which would block defaults from ever being applied.
-    if (!backupSections) return;
-
-    const explicitDefaults = getSectionExplicitDefaults(backupSections.config);
-
-    Object.entries(explicitDefaults).forEach(([fieldName, defaultValue]) => {
-      setValue(fieldName, defaultValue, {
-        shouldDirty: false,
-        shouldTouch: false,
-        shouldValidate: false,
-      });
-    });
-
-    appliedDefaultsClassRef.current = selectedClassName;
-    // Re-run full validation so isValid reflects the newly-applied defaults.
-    trigger();
-  }, [backupSections, selectedClassName, setValue, trigger]);
-
   return (
     <>
       <TextInput
@@ -154,14 +120,11 @@ export const OnDemandBackupFieldsWrapper = () => {
           isRequired: true,
         }}
       />
-      {backupSections && (
-        <UIGenerator
-          sectionKey="config"
-          sections={backupSections}
-          formMode={FormMode.New}
-          namespace={namespace}
-        />
-      )}
+      <BackupConfigFields
+        backupClass={selectedClass}
+        formMode={FormMode.New}
+        namespace={namespace}
+      />
     </>
   );
 };

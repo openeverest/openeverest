@@ -14,28 +14,21 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { useContext, useEffect } from 'react';
+import { useContext, useEffect, useMemo } from 'react';
 import { useFormContext } from 'react-hook-form';
-import { DbEngineType } from 'shared-types/dbEngines.types.ts';
 import { ScheduleFormDialogContext } from '../schedule-form-dialog-context/schedule-form-dialog.context';
 import { ScheduleFormFields } from '../schedule-form/schedule-form.types';
 import { ScheduleForm } from '../schedule-form/schedule-form';
 import { WizardMode } from 'shared-types/wizard.types';
 
 export const ScheduleFormWrapper = () => {
-  const { watch, setValue, trigger } = useFormContext();
+  const { watch, trigger } = useFormContext();
   const {
     mode = WizardMode.New,
     setSelectedScheduleName,
     dbInstanceInfo,
-    externalContext,
   } = useContext(ScheduleFormDialogContext);
-  const {
-    schedules = [],
-    defaultSchedules = [],
-    activeStorage,
-    dbEngine,
-  } = dbInstanceInfo;
+  const { schedules = [], defaultSchedules = [], backupClass } = dbInstanceInfo;
 
   const [scheduleName] = watch([ScheduleFormFields.scheduleName]);
 
@@ -43,11 +36,20 @@ export const ScheduleFormWrapper = () => {
     (item) => item?.name === scheduleName
   );
   const disableStorageSelection =
-    !!activeStorage ||
-    (dbEngine === DbEngineType.POSTGRESQL &&
-      mode === WizardMode.Edit &&
-      (externalContext === 'db-details-backups' ||
-        (externalContext === 'db-wizard-edit' && !isJustAddedSchedule)));
+    mode === WizardMode.Edit && !isJustAddedSchedule;
+
+  // Extract limits from the backup class
+  const maxStorages =
+    backupClass?.spec?.providerManaged?.limits?.maxStorages;
+  const maxSchedulesPerStorage =
+    backupClass?.spec?.providerManaged?.limits?.maxSchedulesPerStorage;
+
+  // Compute active storage names from existing schedules
+  // (in create/wizard mode these are the storages chosen so far in the form)
+  const instanceStorageNames = useMemo(
+    () => [...new Set(schedules.map((s) => s.storageName).filter(Boolean))],
+    [schedules]
+  );
 
   const [amPm, hour, minute, onDay, weekDay, selectedTime] = watch([
     ScheduleFormFields.amPm,
@@ -59,7 +61,6 @@ export const ScheduleFormWrapper = () => {
   ]);
 
   useEffect(() => {
-    // This allowed us to get an error from zod .superRefine to avoid duplication of checking the schedule with the same time
     trigger();
   }, [amPm, hour, minute, onDay, weekDay, selectedTime, trigger]);
 
@@ -69,23 +70,16 @@ export const ScheduleFormWrapper = () => {
     }
   }, [scheduleName, mode, setSelectedScheduleName]);
 
-  useEffect(() => {
-    if (activeStorage) {
-      setValue(ScheduleFormFields.storageLocation, {
-        name: activeStorage,
-      });
-      trigger(ScheduleFormFields.storageLocation);
-    }
-  }, [activeStorage, setValue, trigger]);
-
   return (
     <ScheduleForm
-      showTypeRadio={dbEngine === DbEngineType.PSMDB}
       allowScheduleSelection={mode === WizardMode.Edit}
       disableStorageSelection={disableStorageSelection}
       autoFillLocation={mode === WizardMode.New}
       disableNameEdit={mode === WizardMode.Edit}
       schedules={schedules}
+      maxStorages={maxStorages}
+      maxSchedulesPerStorage={maxSchedulesPerStorage}
+      instanceStorageNames={instanceStorageNames}
     />
   );
 };

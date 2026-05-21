@@ -1,5 +1,4 @@
-// everest
-// Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,13 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// @ts-nocheck
-// TODO remove this file after release of v2
-export const Messages = {
-  label: 'Backup schedules',
-  create: 'Create backup schedule',
-  noSchedules: 'You currently do not have any backup schedules set up.',
-  mongoDb:
-    'The backup storage you select for your first backup schedule will be used for all subsequent schedules and PITR.',
-  pg: 'Note: Maximum 3 schedules for PostgreSQL',
-};
+import { BackupClass } from 'shared-types/backups.types';
+import { FormMode } from 'components/ui-generator/ui-generator.types';
+
+export interface BackupConfigFieldsProps {
+  backupClass: BackupClass | undefined;
+  formMode: FormMode;
+  namespace: string;
+}

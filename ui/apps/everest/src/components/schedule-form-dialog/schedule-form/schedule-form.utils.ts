@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,22 +15,21 @@
 // limitations under the License.
 
 import { ScheduleFormData } from './schedule-form-schema';
-import { DbCluster, Schedule } from 'shared-types/dbCluster.types';
+import { FlattenedSchedule } from '../schedule-form-dialog-context/schedule-form-dialog-context.types';
 import { getCronExpressionFromFormValues } from '../../time-selection/time-selection.utils';
 import { ScheduleWizardMode, WizardMode } from 'shared-types/wizard.types';
-import { DbEngineType } from 'shared-types/dbEngines.types';
 
 type UpdateScheduleArrayProps = {
   formData: ScheduleFormData;
   mode: ScheduleWizardMode;
-  schedules: Schedule[];
+  schedules: FlattenedSchedule[];
 };
 
 export const getSchedulesPayload = ({
   formData,
   mode,
   schedules,
-}: UpdateScheduleArrayProps): Schedule[] => {
+}: UpdateScheduleArrayProps): FlattenedSchedule[] => {
   const {
     selectedTime,
     minute,
@@ -41,7 +41,7 @@ export const getSchedulesPayload = ({
     storageLocation,
     retentionCopies,
   } = formData;
-  const backupSchedule = getCronExpressionFromFormValues({
+  const cron = getCronExpressionFromFormValues({
     selectedTime,
     minute,
     hour,
@@ -49,135 +49,41 @@ export const getSchedulesPayload = ({
     onDay,
     weekDay,
   });
-  let schedulesPayload: Schedule[] = [];
+
+  const storageName =
+    typeof storageLocation === 'string'
+      ? storageLocation
+      : storageLocation!.name;
+
+  const newSchedule: FlattenedSchedule = {
+    enabled: true,
+    name: scheduleName,
+    storageName,
+    cron,
+    retentionCopies: parseInt(retentionCopies, 10),
+  };
 
   if (mode === WizardMode.New) {
-    schedulesPayload = [
-      ...(schedules ?? []),
-      {
-        enabled: true,
-        name: scheduleName,
-        backupStorageName:
-          typeof storageLocation === 'string'
-            ? storageLocation
-            : storageLocation!.name,
-        schedule: backupSchedule,
-        retentionCopies: parseInt(retentionCopies, 10),
-      },
-    ];
+    return [...(schedules ?? []), newSchedule];
   }
 
   if (mode === WizardMode.Edit) {
-    const newSchedulesArray = schedules && [...(schedules || [])];
-    const editedScheduleIndex = newSchedulesArray?.findIndex(
+    const newSchedulesArray = [...(schedules || [])];
+    const editedScheduleIndex = newSchedulesArray.findIndex(
       (item) => item.name === scheduleName
     );
-    if (newSchedulesArray && editedScheduleIndex !== undefined) {
-      newSchedulesArray[editedScheduleIndex] = {
-        enabled: true,
-        name: scheduleName,
-        backupStorageName:
-          typeof storageLocation === 'string'
-            ? storageLocation
-            : storageLocation!.name,
-        schedule: backupSchedule,
-        retentionCopies: parseInt(retentionCopies, 10),
-      };
-      schedulesPayload = newSchedulesArray;
+    if (editedScheduleIndex !== -1) {
+      newSchedulesArray[editedScheduleIndex] = newSchedule;
     }
+    return newSchedulesArray;
   }
-  return schedulesPayload;
+
+  return schedules;
 };
 
 export const removeScheduleFromArray = (
   name: string,
-  schedules: Schedule[]
+  schedules: FlattenedSchedule[]
 ) => {
   return schedules.filter((item) => item.name !== name);
-};
-
-export const backupScheduleFormValuesToDbClusterPayload = (
-  dbPayload: ScheduleFormData,
-  dbCluster: DbCluster,
-  mode: WizardMode
-): DbCluster => {
-  const {
-    selectedTime,
-    minute,
-    hour,
-    amPm,
-    onDay,
-    weekDay,
-    scheduleName,
-    retentionCopies,
-  } = dbPayload;
-  const schedule = getCronExpressionFromFormValues({
-    selectedTime,
-    minute,
-    hour,
-    amPm,
-    onDay,
-    weekDay,
-  });
-
-  let schedulesPayload: Schedule[] = [];
-  if (mode === WizardMode.New) {
-    schedulesPayload = [
-      ...(dbCluster.spec.backup?.schedules || []).map((schedule) => ({
-        ...schedule,
-      })),
-      {
-        enabled: true,
-        retentionCopies: parseInt(retentionCopies, 10),
-        name: scheduleName,
-        backupStorageName:
-          typeof dbPayload.storageLocation === 'string'
-            ? dbPayload.storageLocation
-            : dbPayload.storageLocation!.name,
-        schedule,
-      },
-    ];
-  }
-
-  if (mode === WizardMode.Edit) {
-    const schedulesArray = dbCluster?.spec?.backup?.schedules || [];
-    const editedScheduleIndex = schedulesArray?.findIndex(
-      (item) => item.name === scheduleName
-    );
-    if (schedulesArray && editedScheduleIndex !== undefined) {
-      schedulesArray[editedScheduleIndex] = {
-        enabled: true,
-        name: scheduleName,
-        retentionCopies: parseInt(retentionCopies, 10),
-        backupStorageName:
-          typeof dbPayload.storageLocation === 'string'
-            ? dbPayload.storageLocation
-            : dbPayload.storageLocation!.name,
-        schedule,
-      };
-      schedulesPayload = schedulesArray;
-    }
-  }
-
-  return {
-    apiVersion: 'everest.percona.com/v1alpha1',
-    kind: 'DatabaseCluster',
-    metadata: dbCluster.metadata,
-    spec: {
-      ...dbCluster?.spec,
-      backup: {
-        ...dbCluster.spec.backup,
-        pitr: {
-          ...dbCluster.spec.backup?.pitr,
-          backupStorageName:
-            dbCluster.spec.backup?.pitr?.backupStorageName || '',
-          enabled:
-            dbCluster.spec.engine.type === DbEngineType.POSTGRESQL
-              ? schedulesPayload.length > 0
-              : !!dbCluster.spec.backup?.pitr?.enabled,
-        },
-        schedules: schedulesPayload.length > 0 ? schedulesPayload : undefined,
-      },
-    },
-  };
 };

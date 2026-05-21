@@ -13,7 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { Schedule } from 'shared-types/dbCluster.types.ts';
+import { FlattenedSchedule } from './schedule-form-dialog-context/schedule-form-dialog-context.types';
 import { getFormValuesFromCronExpression } from 'components/time-selection/time-selection.utils.ts';
 import { TIME_SELECTION_DEFAULTS } from '../time-selection/time-selection.constants';
 import { ScheduleFormData } from './schedule-form/schedule-form-schema';
@@ -23,15 +23,14 @@ import { WizardMode } from 'shared-types/wizard.types';
 
 export const scheduleModalDefaultValues = (
   mode: WizardMode,
-  selectedSchedule?: Schedule
+  selectedSchedule?: FlattenedSchedule
 ): ScheduleFormData => {
   if (mode === WizardMode.Edit && selectedSchedule) {
-    const { name, backupStorageName, schedule, retentionCopies } =
-      selectedSchedule;
-    const formValues = getFormValuesFromCronExpression(schedule);
+    const { name, storageName, cron, retentionCopies } = selectedSchedule;
+    const formValues = getFormValuesFromCronExpression(cron);
     return {
       [ScheduleFormFields.scheduleName]: name || '',
-      [ScheduleFormFields.storageLocation]: { name: backupStorageName },
+      [ScheduleFormFields.storageLocation]: { name: storageName },
       [ScheduleFormFields.retentionCopies]: retentionCopies?.toString() || '0',
       ...formValues,
     };
@@ -45,22 +44,22 @@ export const scheduleModalDefaultValues = (
 };
 
 export const sameScheduleFunc = (
-  schedules: Schedule[],
+  schedules: FlattenedSchedule[],
   mode: WizardMode,
   currentSchedule: string,
   scheduleName: string
 ) => {
   if (mode === WizardMode.Edit) {
     return schedules.find(
-      (item) => item.schedule === currentSchedule && item.name !== scheduleName
+      (item) => item.cron === currentSchedule && item.name !== scheduleName
     );
   } else {
-    return schedules.find((item) => item.schedule === currentSchedule);
+    return schedules.find((item) => item.cron === currentSchedule);
   }
 };
 
 export const sameStorageLocationFunc = (
-  schedules: Schedule[],
+  schedules: FlattenedSchedule[],
   mode: WizardMode,
   currentBackupStorage: string | { name: string } | undefined | null,
   scheduleName: string
@@ -72,9 +71,9 @@ export const sameStorageLocationFunc = (
   if (mode === WizardMode.Edit) {
     return schedules.find(
       (item) =>
-        item.backupStorageName === currentStorage && item.name !== scheduleName
+        item.storageName === currentStorage && item.name !== scheduleName
     );
   } else {
-    return schedules.find((item) => item.backupStorageName === currentStorage);
+    return schedules.find((item) => item.storageName === currentStorage);
   }
 };

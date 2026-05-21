@@ -15,19 +15,18 @@
 // limitations under the License.
 
 import { AutoCompleteInput, LabeledContent, TextInput } from '@percona/ui-lib';
-import LogicalPhysicalRadioGroup from 'components/logical-physical-radio-group';
 import { TimeSelection } from '../../time-selection/time-selection';
-import { Messages } from './schedule-form.messages.ts';
+import { BackupConfigFields } from 'components/backup-config-fields';
+import { FormMode } from 'components/ui-generator/ui-generator.types';
+import { Messages } from './schedule-form.messages';
 import {
   ScheduleFormFields,
   ScheduleFormProps,
-} from './schedule-form.types.ts';
+} from './schedule-form.types';
 import { Alert } from '@mui/material';
 import { useFormContext } from 'react-hook-form';
-import { useContext } from 'react';
+import { useContext, useMemo } from 'react';
 import { ScheduleFormDialogContext } from '../schedule-form-dialog-context/schedule-form-dialog.context';
-import { DbEngineType } from '@percona/types';
-import LinkedAlert from '../../linked-alert';
 import BackupStoragesInput from 'components/backup-storages-input';
 
 export const ScheduleForm = ({
@@ -36,9 +35,10 @@ export const ScheduleForm = ({
   autoFillLocation = false,
   disableNameInput,
   schedules,
-  showTypeRadio,
   disableNameEdit = false,
+  maxStorages,
   maxSchedulesPerStorage,
+  instanceStorageNames,
 }: ScheduleFormProps) => {
   const {
     formState: { errors },
@@ -46,8 +46,17 @@ export const ScheduleForm = ({
   const schedulesNamesList =
     (schedules && schedules.map((item) => item?.name)) || [];
   const {
-    dbInstanceInfo: { dbEngine, namespace },
+    dbInstanceInfo: { namespace, backupClass },
   } = useContext(ScheduleFormDialogContext);
+
+  // Map flattened schedules to the shape BackupStoragesInput expects
+  const storageSchedules = useMemo(
+    () =>
+      schedules.map((s) => ({
+        backupStorageName: s.storageName,
+      })),
+    [schedules]
+  );
 
   const errorInfoAlert = errors?.root ? (
     <Alert data-testid="same-schedule-warning" severity="error">
@@ -57,18 +66,7 @@ export const ScheduleForm = ({
 
   return (
     <>
-      {showTypeRadio && <LogicalPhysicalRadioGroup />}
       <LabeledContent label={Messages.backupDetails}>
-        {dbEngine === DbEngineType.POSTGRESQL && disableStorageSelection && (
-          <LinkedAlert
-            severity="warning"
-            message={Messages.pgStorageEditRestriction}
-            linkProps={{
-              linkContent: 'Learn More',
-              href: 'https://openeverest.io/documentation/current/reference/known_limitations.html',
-            }}
-          />
-        )}
         {allowScheduleSelection ? (
           <AutoCompleteInput
             name={ScheduleFormFields.scheduleName}
@@ -92,8 +90,10 @@ export const ScheduleForm = ({
       </LabeledContent>
       <BackupStoragesInput
         namespace={namespace}
-        schedules={schedules}
+        schedules={storageSchedules}
+        maxStorages={maxStorages}
         maxSchedulesPerStorage={maxSchedulesPerStorage}
+        instanceStorageNames={instanceStorageNames}
         autoFillProps={{
           isRequired: true,
           enableFillFirst: autoFillLocation,
@@ -113,9 +113,13 @@ export const ScheduleForm = ({
         <TimeSelection
           showInfoAlert
           errorInfoAlert={errorInfoAlert}
-          shouldRestrictSelectableHours={dbEngine === DbEngineType.PSMDB}
         />
       </LabeledContent>
+      <BackupConfigFields
+        backupClass={backupClass}
+        formMode={FormMode.New}
+        namespace={namespace}
+      />
     </>
   );
 };
