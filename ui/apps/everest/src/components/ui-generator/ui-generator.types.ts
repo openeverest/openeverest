@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+import { FormControlLabelProps, SwitchProps } from '@mui/material';
 import { Provider } from 'shared-types/api.types';
 
 export enum FormMode {
@@ -56,6 +57,7 @@ export enum FieldType {
   Number = 'number',
   Select = 'select',
   Text = 'text',
+  Toggle = 'toggle',
   Hidden = 'hidden',
 }
 
@@ -103,6 +105,15 @@ export type SelectFieldParams =
       options?: never;
     });
 
+export interface ToggleFieldParams extends CommonFieldParams {
+  labelCaption?: string;
+  switchFieldProps?: SwitchProps;
+  formControlLabelProps?: Omit<
+    FormControlLabelProps,
+    'control' | 'label'
+  >;
+}
+
 export interface TextFieldParams extends CommonFieldParams {
   placeholder?: string;
   multiline?: boolean;
@@ -119,10 +130,13 @@ export interface TextFieldParams extends CommonFieldParams {
   margin?: 'none' | 'dense' | 'normal';
 }
 
+export type ToggleValidation = CommonValidation;
+
 export type FieldParamsMap = {
   [FieldType.Number]: NumberFieldParams;
   [FieldType.Select]: SelectFieldParams;
   [FieldType.Text]: TextFieldParams;
+  [FieldType.Toggle]: ToggleFieldParams;
   [FieldType.Hidden]: CommonFieldParams;
 };
 
@@ -172,7 +186,15 @@ export type ValidationMap = {
   [FieldType.Number]: NumberValidation;
   [FieldType.Text]: TextValidation;
   [FieldType.Select]: CommonValidation;
+  [FieldType.Toggle]: ToggleValidation;
   [FieldType.Hidden]: CommonValidation;
+};
+
+type ComponentCommonFields = {
+  techPreview?: boolean;
+  modes?: ComponentModeOverrides;
+  _normalized?: NormalizedPathMeta;
+  dataSource?: DataSource;
 };
 
 export type ModeAwareValidation<T extends CommonValidation> = T & {
@@ -180,14 +202,10 @@ export type ModeAwareValidation<T extends CommonValidation> = T & {
 };
 
 export type Component = {
-  [K in keyof FieldParamsMap]: {
+  [K in keyof FieldParamsMap]: ComponentCommonFields & {
     uiType: K;
-    techPreview?: boolean;
     validation?: ModeAwareValidation<ValidationMap[K]>;
     fieldParams: FieldParamsMap[K];
-    modes?: ComponentModeOverrides;
-    _normalized?: NormalizedPathMeta;
-    dataSource?: DataSource;
   } & PathOrId;
 }[keyof FieldParamsMap];
 

@@ -17,6 +17,7 @@ import {
   NumberFieldParams,
   SelectFieldParams,
   TextFieldParams,
+  ToggleFieldParams,
   FieldParamsMap,
   ValidationMap,
   FieldType,
@@ -57,7 +58,8 @@ export const getMappedParams = <K extends keyof FieldParamsMap>(
       return mapTextFieldParams(fieldParams as TextFieldParams);
     case 'select':
       return mapSelectFieldParams(fieldParams as SelectFieldParams);
-    // Add more cases for other field types as needed
+    case 'toggle':
+      return mapToggleFieldParams(fieldParams as ToggleFieldParams);
     default:
       return fieldParams;
   }
@@ -139,6 +141,35 @@ const mapSelectFieldParams = (fieldParams: SelectFieldParams) => {
     selectFieldProps,
     badge,
     controllerProps: { defaultValue: defaultValue ?? '' },
+  };
+};
+
+const mapToggleFieldParams = (fieldParams: ToggleFieldParams) => {
+  const {
+    label,
+    defaultValue,
+    disabled,
+    helperText,
+    labelCaption,
+    badge,
+    switchFieldProps,
+    formControlLabelProps,
+    ...rest
+  } = fieldParams;
+
+  const resolvedCaption = labelCaption ?? helperText;
+
+  return {
+    ...rest,
+    label,
+    labelCaption: resolvedCaption,
+    badge,
+    switchFieldProps: filterDefined({
+      ...switchFieldProps,
+      disabled,
+    }),
+    formControlLabelProps,
+    controllerProps: { defaultValue: defaultValue ?? false },
   };
 };
 

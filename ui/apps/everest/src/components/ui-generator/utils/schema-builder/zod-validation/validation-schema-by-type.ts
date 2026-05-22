@@ -240,6 +240,11 @@ export const buildTextValidationSchema = (
   );
 };
 
+/** Toggle fields only support optional boolean values; `required` is ignored. */
+export const buildToggleValidationSchema = (): z.ZodTypeAny => {
+  return z.boolean().optional();
+};
+
 export const buildGenericValidationSchema = (
   component: Component,
   baseSchema: z.ZodTypeAny
