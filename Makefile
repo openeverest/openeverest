@@ -389,7 +389,7 @@ add-pxc-namespaces: ## Add PXC namespace to Everest using Everest CLI(usage: DB_
 
 .PHONY: expose
 expose:
-	kubectl patch svc -n openeverest-system everest --type=merge \
+	kubectl patch svc -n everest-system everest --type=merge \
 	-p '{"spec": {"type": "NodePort", "ports": [{"name": "http", "port": 8080, "protocol": "TCP", "targetPort": 8080, "nodePort": 30080}]}}'
 
 .PHONY: k3d-cluster-up

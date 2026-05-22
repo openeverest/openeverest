@@ -20,7 +20,7 @@ test.describe('Everest CLI install', async () => {
   test('install only mongodb-operator', async ({ page, cli, request }) => {
     const verifyClusterResources = async () => {
       await test.step('verify installed operators in k8s', async () => {
-        const perconaEverestPodsOut = await cli.exec('kubectl get pods --namespace=openeverest-system');
+        const perconaEverestPodsOut = await cli.exec('kubectl get pods --namespace=everest-system');
 
         await perconaEverestPodsOut.outContainsNormalizedMany([
           'everest-operator',

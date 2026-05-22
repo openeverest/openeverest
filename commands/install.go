@@ -57,7 +57,7 @@ func init() {
 	rootCmd.AddCommand(installCmd)
 
 	// local command flags
-	installCmd.Flags().StringVar(&installCfg.Namespace, cli.FlagInstallSystemNamespace, "openeverest-system", "Namespace where OpenEverest system components will be installed")
+	installCmd.Flags().StringVar(&installCfg.Namespace, cli.FlagInstallSystemNamespace, "everest-system", "Namespace where OpenEverest system components will be installed")
 	_ = installCmd.Flags().MarkHidden(cli.FlagInstallSystemNamespace)
 	installCmd.Flags().StringVar(&namespacesToAdd, cli.FlagNamespaces, common.DefaultDBNamespaceName, "Comma-separated namespaces list Percona Everest can manage")
 	installCmd.Flags().BoolVar(&installCfg.NamespaceAddConfig.SkipWizard, cli.FlagSkipWizard, false, "Skip installation wizard")

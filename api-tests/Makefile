@@ -41,8 +41,8 @@ create-test-users: ## Create test users and add everest_ci user to admin role.
 	$(info Creating test users in Everest)
 	$(EVERESTCTL) accounts create -u test -p password
 	$(EVERESTCTL) accounts create -u everest_ci -p password
-	kubectl patch configmap everest-rbac -n openeverest-system --patch "$$(kubectl get configmap everest-rbac -n openeverest-system -o json | jq '.data["policy.csv"] += "\ng, everest_ci, role:admin"' | jq '{data: { "policy.csv": .data["policy.csv"] } }')"
-	kubectl get configmap everest-rbac -n openeverest-system -ojsonpath='{.data.policy\.csv}'
+	kubectl patch configmap everest-rbac -n everest-system --patch "$$(kubectl get configmap everest-rbac -n everest-system -o json | jq '.data["policy.csv"] += "\ng, everest_ci, role:admin"' | jq '{data: { "policy.csv": .data["policy.csv"] } }')"
+	kubectl get configmap everest-rbac -n everest-system -ojsonpath='{.data.policy\.csv}'
 
 DATA_IMPORTER_RESOURCE=$(TEST_ROOT)/manifests/dataimporter.yaml
 .PHONY: deploy-data-importer

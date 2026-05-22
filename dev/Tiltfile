@@ -4,7 +4,7 @@ def str2bool(v):
 
 # ===========================
 # CONSTANTS
-EVEREST_NAMESPACE = 'openeverest-system'
+EVEREST_NAMESPACE = 'everest-system'
 EVEREST_MONITORING_NAMESPACE = 'everest-monitoring'
 UI_ADMIN_PASSWORD = 'admin'
 

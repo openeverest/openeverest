@@ -182,7 +182,7 @@ jobs:
       - name: Expose Everest API Server
         shell: bash
         run: |
-          kubectl port-forward -n openeverest-system deployment/everest-server 8080:8080 &
+          kubectl port-forward -n everest-system deployment/everest-server 8080:8080 &
 
       - name: Run Everest UI
         shell: bash
@@ -222,9 +222,9 @@ jobs:
       - name: Run debug commands on failure
         if: ${{ failure() }}
         run: |
-          kubectl -n openeverest-system describe pods
+          kubectl -n everest-system describe pods
           kubectl -n everest-monitoring describe pods
-          kubectl -n openeverest-system logs deploy/everest-server
+          kubectl -n everest-system logs deploy/everest-server
           kubectl -n pxc-only describe pods
           kubectl -n psmdb-only describe pods
           kubectl -n pg-only describe pods

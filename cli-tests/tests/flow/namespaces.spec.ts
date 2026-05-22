@@ -27,7 +27,7 @@ test.describe('Everest CLI install', async () => {
 
      verifyEverestSystem = async () => {
       await test.step('verify Everest', async () => {
-        const out = await cli.exec(`kubectl get deploy --namespace=openeverest-system`);
+        const out = await cli.exec(`kubectl get deploy --namespace=everest-system`);
 
         await out.outContainsNormalizedMany([
             'everest-operator',

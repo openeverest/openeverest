@@ -19,7 +19,7 @@ test.describe('Everest CLI install', async () => {
   test('install all operators', async ({ page, cli, request }) => {
     const verifyClusterResources = async () => {
       await test.step('verify installed operators in k8s', async () => {
-        const perconaEverestPodsOut = await cli.exec('kubectl get pods --namespace=openeverest-system');
+        const perconaEverestPodsOut = await cli.exec('kubectl get pods --namespace=everest-system');
 
         await perconaEverestPodsOut.outContainsNormalizedMany([
           'everest-operator',
@@ -62,10 +62,10 @@ test.describe('Everest CLI install', async () => {
 
       await out.assertSuccess();
       // check that the namespace does not exist
-      out = await cli.exec('kubectl get ns openeverest-system everest-monitoring everest-olm everest-all');
+      out = await cli.exec('kubectl get ns everest-system everest-monitoring everest-olm everest-all');
 
       await out.outErrContainsNormalizedMany([
-        'Error from server (NotFound): namespaces "openeverest-system" not found',
+        'Error from server (NotFound): namespaces "everest-system" not found',
         'Error from server (NotFound): namespaces "everest-monitoring" not found',
         'Error from server (NotFound): namespaces "everest-olm" not found',
         'Error from server (NotFound): namespaces "everest-all" not found',
