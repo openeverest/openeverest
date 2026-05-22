@@ -46,9 +46,9 @@ vi.mock('../utils/schema-builder/cel-validation', () => ({
   validateCelExpression: vi.fn(() => true),
 }));
 
-/** MUI Switch puts data-testid on the root; use role="switch" for checked/disabled assertions. */
+/** MUI Switch exposes the native input as role="checkbox" with the field label as name. */
 const getTestToggleSwitch = () =>
-  screen.getByRole('switch', { name: /Test Toggle Field/i });
+  screen.getByRole('checkbox', { name: /Test Toggle Field/i });
 
 const createTestSchema = (
   fieldParams: Partial<ToggleFieldParams> = {},
