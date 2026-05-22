@@ -12,26 +12,22 @@ info:
 tags:
   - name: Kubernetes
     description: Everything related to the Kubernetes Clusters
-  - name: Database Cluster
-    description: Everything related to the Database Clusters
-  - name: Database Engine
-    description: Everything related to the Database Engines
-  - name: Restore
-    description: Everything related to the Database Cluster Restores
-  - name: Backup
-    description: Everything related to the Database Cluster Backups
-  - name: Backup Storage
-    description: Everything related to the Backup storage
-  - name: Monitoring
-    description: Everything related to monitoring
-  - name: Authentication & Authorization
-    description: Everything related to authentication and authorization
   - name: General info
     description: General information about the Everest installation
-  - name: Operators
-    description: Everything related to the Database Engine Operators
-  - name: Pod Scheduling Policy
-    description: Everything related to policies for allocating DB cluster pods to nodes
+  - name: Authentication & Authorization
+    description: Everything related to authentication and authorization
+  - name: Provider
+    description: Everything related to providers
+  - name: Instance
+    description: Everything related to instances
+  - name: Backup
+    description: Everything related to backups
+  - name: Restore
+    description: Everything related to restores
+  - name: Backup Storage
+    description: Everything related to backup storage
+  - name: Monitoring
+    description: Everything related to monitoring
 security:
   - BearerAuth: []
 paths:
