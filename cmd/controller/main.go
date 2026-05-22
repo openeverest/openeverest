@@ -41,7 +41,7 @@ import (
 	backupcontroller "github.com/openeverest/openeverest/v2/internal/controller/backup"
 	monitoringcontroller "github.com/openeverest/openeverest/v2/internal/controller/monitoring"
 	plugincontroller "github.com/openeverest/openeverest/v2/internal/controller/plugin"
-	webhookmonitoringv1alpha2 "github.com/openeverest/openeverest/v2/internal/webhook/monitoring/v1alpha2"
+	webhookmonitoringv1alpha1 "github.com/openeverest/openeverest/v2/internal/webhook/monitoring/v1alpha1"
 )
 
 var (

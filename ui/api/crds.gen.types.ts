@@ -1185,7 +1185,7 @@ export interface components {
                  *     is not returned by the list endpoint and its proxy routes are inactive.
                  * @default true
                  */
-                enabled: boolean;
+                enabled?: boolean;
                 /** @description Frontend defines the optional frontend contribution of the plugin. */
                 frontend?: {
                     /** @description BundleIntegrity is an optional SRI hash for verifying the bundle. */
@@ -1196,7 +1196,7 @@ export interface components {
                      *     this as /v1/plugins/<name>/<bundlePath> for the UI to import().
                      * @default /main.js
                      */
-                    bundlePath: string;
+                    bundlePath?: string;
                     /**
                      * @description ExtensionPoints declares the UI extension points this plugin fills.
                      *     This enables the host to show/hide contributions before loading the bundle
@@ -1327,7 +1327,7 @@ export interface components {
                  * @description Enabled controls whether the plugin is active in this namespace.
                  * @default true
                  */
-                enabled: boolean;
+                enabled?: boolean;
                 /** @description PluginName references the cluster-scoped Plugin CR by name. */
                 pluginName: string;
             };
