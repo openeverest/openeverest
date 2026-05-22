@@ -1,37 +1,33 @@
-p, role:admin, namespaces, read, *
-p, role:admin, database-engines, *, */*
-p, role:admin, database-clusters, *, */*
-p, role:admin, database-cluster-backups, *, */*
-p, role:admin, database-cluster-restores, *, */*
-p, role:admin, backup-storages, *, */*
-p, role:admin, monitoring-instances, *, */*
-p, role:admin, enginefeatures/split-horizon-dns-configs, *, */*
-p, role:admin, pod-scheduling-policies, *, *
-p, role:admin, load-balancer-configs, *, *
+p, role:admin, namespaces, read, */*
+p, role:admin, clusters, *, *
+p, role:admin, providers, *, */*
+p, role:admin, instances, *, */*/*
+p, role:admin, backups, *, */*/*
+p, role:admin, restores, *, */*/*
+p, role:admin, backup-storages, *, */*/*
+p, role:admin, backup-classes, *, */*
+p, role:admin, monitoring-configs, *, */*/*
 
-p, role:readonly, namespaces, read, *
-p, role:readonly, database-engines, read, */*
-p, role:readonly, database-clusters, read, */*
-p, role:readonly, database-cluster-backups, read, */*
-p, role:readonly, database-cluster-restores, read, */*
-p, role:readonly, backup-storages, read, */*
-p, role:readonly, monitoring-instances, read, */*
-p, role:readonly, enginefeatures/split-horizon-dns-configs, read, */*
-p, role:readonly, pod-scheduling-policies, read, *
-p, role:readonly, load-balancer-configs, read, *
+p, role:readonly, namespaces, read, */*
+p, role:readonly, clusters, read, *
+p, role:readonly, providers, read, */*
+p, role:readonly, instances, read, */*/*
+p, role:readonly, backups, read, */*/*
+p, role:readonly, restores, read, */*/*
+p, role:readonly, backup-storages, read, */*/*
+p, role:readonly, backup-classes, read, */*
+p, role:readonly, monitoring-configs, read, */*/*
 
-p, role:devteam, namespaces, *, *
-p, role:devteam, database-engines, *, dev/*
-p, role:devteam, database-clusters, *, dev/*
-p, role:devteam, database-cluster-backups, *, dev/*
-p, role:devteam, database-cluster-restores, *, dev/*
-p, role:devteam, backup-storages, *, */*
-p, role:devteam, monitoring-instances, *, */*
-p, role:devteam, enginefeatures/split-horizon-dns-configs, *, */*
-p, role:devteam, pod-scheduling-policies, *, *
-p, role:devteam, load-balancer-configs, *, *
+p, role:devteam, namespaces, *, */*
+p, role:devteam, providers, *, dev/*
+p, role:devteam, instances, *, dev/*/*
+p, role:devteam, backups, *, dev/*/*
+p, role:devteam, restores, *, dev/*/*
+p, role:devteam, backup-storages, *, dev/*/*
+p, role:devteam, backup-classes, *, dev/*
+p, role:devteam, monitoring-configs, *, dev/*/*
 
-p, alice, database-clusters, create, alice/*
+p, alice, instances, create, prod/ns1/*
 
 g, admin, role:admin
 g, alice, role:readonly

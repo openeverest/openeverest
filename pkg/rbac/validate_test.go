@@ -1,3 +1,17 @@
+// Copyright (C) 2026 The OpenEverest Contributors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package rbac
 
 import (
@@ -71,15 +85,15 @@ func TestCheckResourceNames(t *testing.T) {
 	}{
 		{
 			policies: [][]string{
-				{"role:admin", "database-clusters", "create", "*"},
-				{"role:admin", "monitoring-instances", "*", "*"},
+				{"role:admin", "instances", "create", "*"},
+				{"role:admin", "monitoring-configs", "*", "*"},
 			},
 			valid: true,
 		},
 		{
 			policies: [][]string{
-				{"role:admin", "database-clusters", "create", "*"},
-				{"role:admin", "monitoring-instances", "*", "*"},
+				{"role:admin", "instances", "create", "*"},
+				{"role:admin", "monitoring-configs", "*", "*"},
 				{"role:admin", "does-not-exist", "*", "*"},
 			},
 			valid: false,
@@ -110,17 +124,17 @@ func TestCheckRoles(t *testing.T) {
 		{
 			roles: []string{"role:admin", "role:viewer"},
 			policies: [][]string{
-				{"role:admin", "database-clusters", "create", "*"},
-				{"role:admin", "monitoring-instances", "*", "*"},
+				{"role:admin", "instances", "create", "*"},
+				{"role:admin", "monitoring-configs", "*", "*"},
 			},
 			valid: true,
 		},
 		{
 			roles: []string{"role:admin", "role:viewer"},
 			policies: [][]string{
-				{"role:admin", "database-clusters", "create", "*"},
-				{"role:admin", "monitoring-instances", "*", "*"},
-				{"role:does-not-exist", "monitoring-instances", "*", "*"},
+				{"role:admin", "instances", "create", "*"},
+				{"role:admin", "monitoring-configs", "*", "*"},
+				{"role:does-not-exist", "monitoring-configs", "*", "*"},
 			},
 			valid: false,
 		},
@@ -147,15 +161,15 @@ func TestValidateTerms(t *testing.T) {
 		valid bool
 	}{
 		{
-			terms: []string{"role:admin", "database-clusters", "create", "*"},
+			terms: []string{"role:admin", "instances", "create", "*"},
 			valid: true,
 		},
 		{
-			terms: []string{"role:admin!!", "database-clusters", "create", "*"},
+			terms: []string{"role:admin!!", "instances", "create", "*"},
 			valid: false,
 		},
 		{
-			terms: []string{"role:admin!!", "database clusters", "create", "*"},
+			terms: []string{"role:admin!!", "instances names", "create", "*"},
 			valid: false,
 		},
 		{
@@ -188,8 +202,8 @@ func TestCan(t *testing.T) {
 			request: []string{
 				"admin",
 				"create",
-				"database-clusters",
-				"*",
+				"instances",
+				"prod/ns1/test-cluster",
 			},
 			can: true,
 		},
@@ -197,8 +211,8 @@ func TestCan(t *testing.T) {
 			request: []string{
 				"admin",
 				"read",
-				"database-clusters",
-				"*",
+				"instances",
+				"prod/ns1/test-cluster",
 			},
 			can: true,
 		},
@@ -206,8 +220,8 @@ func TestCan(t *testing.T) {
 			request: []string{
 				"admin",
 				"update",
-				"database-clusters",
-				"*",
+				"instances",
+				"prod/ns1/test-cluster",
 			},
 			can: true,
 		},
@@ -215,8 +229,8 @@ func TestCan(t *testing.T) {
 			request: []string{
 				"admin",
 				"update",
-				"database-cluster-backups",
-				"*",
+				"backups",
+				"prod/ns1/test-backup",
 			},
 			can: true,
 		},
@@ -224,8 +238,8 @@ func TestCan(t *testing.T) {
 			request: []string{
 				"alice",
 				"create",
-				"database-clusters",
-				"*",
+				"instances",
+				"dev/ns1/test",
 			},
 			can: false,
 		},
@@ -233,8 +247,8 @@ func TestCan(t *testing.T) {
 			request: []string{
 				"alice",
 				"read",
-				"database-engines",
-				"*",
+				"providers",
+				"prod/psmdb",
 			},
 			can: true,
 		},
@@ -242,8 +256,8 @@ func TestCan(t *testing.T) {
 			request: []string{
 				"alice",
 				"create",
-				"database-clusters",
-				"alice/alice-cluster-1",
+				"instances",
+				"prod/ns1/alice-cluster-1",
 			},
 			can: true,
 		},
@@ -251,8 +265,8 @@ func TestCan(t *testing.T) {
 			request: []string{
 				"bob",
 				"create",
-				"database-clusters",
-				"*",
+				"instances",
+				"prod/ns1/test",
 			},
 			can: false,
 		},
@@ -260,8 +274,8 @@ func TestCan(t *testing.T) {
 			request: []string{
 				"bob",
 				"create",
-				"database-clusters",
-				"dev/*",
+				"instances",
+				"dev/*/*",
 			},
 			can: true,
 		},
@@ -269,8 +283,8 @@ func TestCan(t *testing.T) {
 			request: []string{
 				"bob",
 				"create",
-				"database-clusters",
-				"dev/bob-1",
+				"instances",
+				"dev/default/bob-1",
 			},
 			can: true,
 		},

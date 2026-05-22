@@ -76,7 +76,6 @@ const (
 
 // GlobalResources is a list of all Everest API resources that are considered global.
 var GlobalResources = []string{
-	ResourceNamespaces,
 	ResourcePodSchedulingPolicies,
 	ResourceLoadBalancerConfigs,
 	ResourceDataImporters,
@@ -85,6 +84,7 @@ var GlobalResources = []string{
 
 // ClusterScopedResources is a list of v2 resources scoped to a cluster (but not a namespace).
 var ClusterScopedResources = []string{
+	ResourceNamespaces,
 	ResourceProviders,
 	ResourceBackupClasses,
 }
