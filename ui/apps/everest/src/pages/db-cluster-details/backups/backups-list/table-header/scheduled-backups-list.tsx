@@ -156,7 +156,7 @@ const ScheduledBackupsList = () => {
                 {`Storage: ${item.storageName}`}
               </Typography>
             </Box>
-            <Box display="flex">
+            <Box display="flex" ml="auto">
               {canUpdateInstance && (
                 <>
                   <IconButton

@@ -17,16 +17,17 @@ import DeleteIcon from '@mui/icons-material/Delete';
 // import AddIcon from '@mui/icons-material/Add';
 // import KeyboardReturnIcon from '@mui/icons-material/KeyboardReturn';
 import { MRT_Row } from 'material-react-table';
-import { Backup } from 'shared-types/backups.types';
-// import { BackupStatus } from 'shared-types/backups.types';
+import { Backup, BackupStatus, getBackupState } from 'shared-types/backups.types';
 // import { DbCluster } from 'shared-types/dbCluster.types';
-// import { useRBACPermissions } from 'hooks/rbac';
+import { useRBACPermissions } from 'hooks/rbac';
 import { Messages } from './backups-list.messages';
 
 // TODO: check main — original had restore/restoreToNewDb actions with RBAC checks.
 // Restore these when restore feature is implemented in v2.
 export const BackupActionButtons = (
   row: MRT_Row<Backup>,
+  namespace: string,
+  instanceName: string,
   // TODO: v2 restore feature — uncomment when ready
   // blockActions: boolean,
   handleDeleteBackup: (backupName: string) => void
@@ -36,11 +37,12 @@ export const BackupActionButtons = (
 ) => {
   const backupName = row.original.metadata?.name ?? '';
 
-  // TODO: v2 restore — original RBAC checks:
-  // const { canDelete } = useRBACPermissions(
-  //   'database-cluster-backups',
-  //   `${dbCluster.metadata.namespace}/${row.original.dbClusterName}`
-  // );
+  const { canDelete } = useRBACPermissions(
+    'backups',
+    `${namespace}/${instanceName}`
+  );
+
+  // TODO: v2 restore — original restore RBAC checks (from main):
   // const { canCreate: canCreateRestore } = useRBACPermissions(
   //   'database-cluster-restores',
   //   `${dbCluster.metadata.namespace}/${row.original.dbClusterName}`
@@ -72,13 +74,18 @@ export const BackupActionButtons = (
     //     <AddIcon /> {Messages.restoreToNewDb}
     //   </MenuItem>,
     // ] : []),
-    <MenuItem
-      key="delete"
-      onClick={() => handleDeleteBackup(backupName)}
-      sx={{ m: 0, gap: 1, px: 2, py: '10px' }}
-    >
-      <DeleteIcon />
-      {Messages.delete}
-    </MenuItem>,
+    ...(canDelete
+      ? [
+          <MenuItem
+            key="delete"
+            disabled={getBackupState(row.original) === BackupStatus.DELETING}
+            onClick={() => handleDeleteBackup(backupName)}
+            sx={{ m: 0, gap: 1, px: 2, py: '10px' }}
+          >
+            <DeleteIcon />
+            {Messages.delete}
+          </MenuItem>,
+        ]
+      : []),
   ];
 };

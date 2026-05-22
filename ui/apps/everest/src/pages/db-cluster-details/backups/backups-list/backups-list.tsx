@@ -27,7 +27,7 @@ import {
 import { MRT_ColumnDef } from 'material-react-table';
 import { useContext, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { Backup } from 'shared-types/backups.types.ts';
+import { Backup, BackupStatus } from 'shared-types/backups.types.ts';
 import { WizardMode } from 'shared-types/wizard.types';
 import { ScheduleModalContext } from '../backups.context.ts';
 import { BACKUP_STATUS_TO_BASE_STATUS } from './backups-list.constants';
@@ -36,7 +36,6 @@ import BackupListTableHeader from './table-header';
 import { BackupActionButtons } from './backups-list-menu-actions';
 import { useClusterName } from 'hooks/api/useClusterName.ts';
 import { useQueryClient } from '@tanstack/react-query';
-import { useRBACPermissions } from 'hooks/rbac';
 
 export const BackupsList = () => {
   const { instanceName = '', namespace = '' } = useParams();
@@ -47,11 +46,6 @@ export const BackupsList = () => {
 
   const { instance, setOpenOnDemandModal, setOpenScheduleModal, setMode } =
     useContext(ScheduleModalContext);
-
-  const { canDelete } = useRBACPermissions(
-    'backups',
-    `${namespace}/${instanceName}`
-  );
 
   const { data: backups = [] } = useBackupsList(
     clusterName,
@@ -75,6 +69,21 @@ export const BackupsList = () => {
       { backupName },
       {
         onSuccess: () => {
+          // Optimistically mark the backup as Deleting in the cache so the
+          // actions menu disables immediately, before the next poll cycle.
+          queryClient.setQueryData<Backup[]>(
+            getBackupListQueryKey(clusterName, namespace, instanceName),
+            (prev) =>
+              prev?.map((b) =>
+                b.metadata?.name === backupName
+                  ? {
+                      ...b,
+                      status: { ...b.status, state: BackupStatus.DELETING },
+                    }
+                  : b
+              )
+          );
+          setOpenDeleteDialog(false);
           queryClient.invalidateQueries({
             queryKey: getBackupListQueryKey(
               clusterName,
@@ -82,7 +91,6 @@ export const BackupsList = () => {
               instanceName
             ),
           });
-          setOpenDeleteDialog(false);
         },
       }
     );
@@ -186,10 +194,15 @@ export const BackupsList = () => {
             onScheduleClick={handleScheduleBackup}
           />
         )}
-        enableRowActions={canDelete}
+        enableRowActions
         renderRowActions={({ row }) => (
           <TableActionsMenu
-            menuItems={BackupActionButtons(row, handleDeleteBackup)}
+            menuItems={BackupActionButtons(
+              row,
+              namespace,
+              instanceName,
+              handleDeleteBackup
+            )}
           />
         )}
       />
