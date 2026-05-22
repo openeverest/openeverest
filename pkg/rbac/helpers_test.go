@@ -66,7 +66,7 @@ func TestIsGlobalResource(t *testing.T) {
 		want     bool
 	}{
 		{ResourceClusters, true},
-		{ResourceNamespaces, true},
+		{ResourceNamespaces, false},
 		{ResourcePodSchedulingPolicies, true},
 		{ResourceLoadBalancerConfigs, true},
 		{ResourceDataImporters, true},
@@ -91,6 +91,7 @@ func TestIsClusterScopedResource(t *testing.T) {
 		resource string
 		want     bool
 	}{
+		{ResourceNamespaces, true},
 		{ResourceProviders, true},
 		{ResourceBackupClasses, true},
 		{ResourceInstances, false},

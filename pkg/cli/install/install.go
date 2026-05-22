@@ -57,6 +57,8 @@ type (
 	InstallConfig struct {
 		// KubeconfigPath is the path to the kubeconfig file.
 		KubeconfigPath string
+		// Namespace is the namespace where OpenEverest will be installed.
+		Namespace string
 		// VersionMetadataURL Version service URL to retrieve version metadata information from.
 		VersionMetadataURL string
 		// Version defines Everest version to be installed. If empty, the latest version is installed.
@@ -109,7 +111,7 @@ func (cfg *InstallConfig) detectKubernetesEnv(ctx context.Context, l *zap.Sugare
 		return nil
 	}
 
-	kubeClient, err := cliutils.NewKubeConnector(l, cfg.KubeconfigPath)
+	kubeClient, err := kubernetes.New(cfg.KubeconfigPath, l, cfg.Namespace)
 	if err != nil {
 		return fmt.Errorf("failed to create kubernetes client: %w", err)
 	}
@@ -144,10 +146,11 @@ func NewInstall(c InstallConfig, l *zap.SugaredLogger) (*Installer, error) {
 	c.NamespaceAddConfig.KubeconfigPath = c.KubeconfigPath
 	c.NamespaceAddConfig.DisableTelemetry = c.DisableTelemetry
 	c.NamespaceAddConfig.SkipEnvDetection = c.SkipEnvDetection
+	c.NamespaceAddConfig.SystemNamespace = c.Namespace
 	cli.cfg = c
 
 	var err error
-	cli.kubeClient, err = cliutils.NewKubeConnector(cli.l, c.KubeconfigPath)
+	cli.kubeClient, err = kubernetes.New(c.KubeconfigPath, cli.l, c.Namespace)
 	if err != nil {
 		return nil, err
 	}
@@ -256,7 +259,7 @@ func (o *Installer) printPostInstallMessage(out io.Writer) {
 	}
 
 	webURL := fmt.Sprintf("%s://localhost:%d", urlScheme, pfSrcPort)
-	portFwdCmd := fmt.Sprintf("kubectl port-forward -n everest-system svc/%s %d:%d", svcName, pfSrcPort, targetPort)
+	portFwdCmd := fmt.Sprintf("kubectl port-forward -n %s svc/%s %d:%d", o.kubeClient.Namespace(), svcName, pfSrcPort, targetPort)
 	message += fmt.Sprintf("\n\n%s", output.Numeric(count, "%s", titleStyle.Render("ACCESS THE EVEREST UI:")))
 	count++
 	message += fmt.Sprintf("To access the web UI, set up port-forwarding and visit %s in your browser:\n\n", webURL)
@@ -299,7 +302,7 @@ func (o *Installer) checkRequirements(supVer *common.SupportedVersion) error {
 
 // setupHelmInstaller initializes the Helm installer.
 func (o *Installer) setupHelmInstaller(ctx context.Context) error {
-	nsExists, err := o.namespaceExists(ctx, common.SystemNamespace)
+	nsExists, err := o.namespaceExists(ctx, o.kubeClient.Namespace())
 	if err != nil {
 		return err
 	}
@@ -310,8 +313,8 @@ func (o *Installer) setupHelmInstaller(ctx context.Context) error {
 	})
 	values := Must(helmutils.MergeVals(o.cfg.HelmConfig.Values, overrides))
 	installer := &helm.Installer{
-		ReleaseName:            common.SystemNamespace,
-		ReleaseNamespace:       common.SystemNamespace,
+		ReleaseName:            o.kubeClient.Namespace(),
+		ReleaseNamespace:       o.kubeClient.Namespace(),
 		Values:                 values,
 		CreateReleaseNamespace: !nsExists,
 	}
@@ -392,14 +395,14 @@ func (o *Installer) namespaceExists(ctx context.Context, namespace string) (bool
 	return true, nil
 }
 
-// CheckEverestAlreadyinstalled checks if Everest is already installed.
-func CheckEverestAlreadyinstalled(ctx context.Context, l *zap.SugaredLogger, kubeConfig string) error {
-	kubeClient, err := cliutils.NewKubeConnector(l, kubeConfig)
+// CheckEverestAlreadyInstalled checks if Everest is already installed.
+func CheckEverestAlreadyInstalled(ctx context.Context, l *zap.SugaredLogger, kubeConfig, namespace string) error {
+	kubeClient, err := kubernetes.New(kubeConfig, l, namespace)
 	if err != nil {
 		return fmt.Errorf("failed to create kubernetes client: %w", err)
 	}
 
-	installedVersion, err := version.EverestVersionFromDeployment(ctx, kubeClient)
+	installedVersion, err := version.EverestVersionFromDeployment(ctx, kubeClient, kubeClient.Namespace())
 	if client.IgnoreNotFound(err) != nil {
 		return errors.Join(err, errors.New("cannot check if Everest is already installed"))
 	} else if err == nil {

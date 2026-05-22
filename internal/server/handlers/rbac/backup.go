@@ -19,6 +19,7 @@ import (
 	"context"
 
 	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
+	api "github.com/openeverest/openeverest/v2/internal/server/api"
 	"github.com/openeverest/openeverest/v2/pkg/rbac"
 )
 
@@ -41,10 +42,10 @@ func (h *rbacHandler) CreateBackup(ctx context.Context, cluster string, backup *
 }
 
 // DeleteBackup deletes a backup, gated by RBAC.
-func (h *rbacHandler) DeleteBackup(ctx context.Context, cluster, namespace, name string) error {
+func (h *rbacHandler) DeleteBackup(ctx context.Context, cluster, namespace, name string, params *api.DeleteBackupParams) error {
 	object := rbac.ClusterNamespacedObjectName(cluster, namespace, name)
 	if err := h.enforce(ctx, rbac.ResourceBackups, rbac.ActionDelete, object); err != nil {
 		return err
 	}
-	return h.next.DeleteBackup(ctx, cluster, namespace, name)
+	return h.next.DeleteBackup(ctx, cluster, namespace, name, params)
 }

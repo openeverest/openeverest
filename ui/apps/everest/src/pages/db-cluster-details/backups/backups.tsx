@@ -1,5 +1,4 @@
-// everest
-// Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,19 +13,19 @@
 // limitations under the License.
 
 import { useBackupStoragesByNamespace } from 'hooks/api/backup-storages/useBackupStorages.ts';
-import { useDbCluster } from 'hooks/api/db-cluster/useDbCluster.ts';
-import { useState } from 'react';
+import { useContext, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { BackupsList } from './backups-list/backups-list';
 import { ScheduleModalContext } from './backups.context.ts';
 import { NoStoragesMessage } from './no-storages-message/no-storages-message';
-import { ScheduledBackupModal } from './scheduled-backup-modal/scheduled-backup-modal';
 import { OnDemandBackupModal } from './on-demand-backup-modal/on-demand-backup-modal';
 import { ScheduleWizardMode, WizardMode } from 'shared-types/wizard.types.ts';
+import { DbInstanceContext } from '../dbCluster.context';
 
 export const Backups = () => {
-  const { dbClusterName = '', namespace = '' } = useParams();
-  const { data: dbCluster } = useDbCluster(dbClusterName, namespace);
+  const { namespace = '' } = useParams();
+  const { instance, isLoading: instanceLoading } =
+    useContext(DbInstanceContext);
 
   const { data: backupStorages = [], isLoading } =
     useBackupStoragesByNamespace(namespace);
@@ -38,14 +37,14 @@ export const Backups = () => {
 
   const noStorages = !backupStorages.length;
 
-  if (!dbCluster || isLoading) {
+  if (!instance || isLoading || instanceLoading) {
     return null;
   }
 
   return (
     <ScheduleModalContext.Provider
       value={{
-        dbCluster,
+        instance,
         mode,
         setMode,
         openScheduleModal,
@@ -61,8 +60,9 @@ export const Backups = () => {
       ) : (
         <>
           <BackupsList />
-          {openOnDemandModal && <OnDemandBackupModal dbCluster={dbCluster} />}
-          {openScheduleModal && <ScheduledBackupModal />}
+          {openOnDemandModal && <OnDemandBackupModal />}
+          {/* TODO: v2 schedules — uncomment when ScheduledBackupModal is migrated */}
+          {/* {openScheduleModal && <ScheduledBackupModal />} */}
         </>
       )}
     </ScheduleModalContext.Provider>

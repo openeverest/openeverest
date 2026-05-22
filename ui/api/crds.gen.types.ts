@@ -54,7 +54,7 @@ export interface components {
                  *     itself.
                  * @default Delete
                  */
-                deletionPolicy: string & (("Retain" | "Delete") & ("Retain" | "Delete"));
+                deletionPolicy?: string & (("Retain" | "Delete") & ("Retain" | "Delete"));
                 /**
                  * @description InstanceName is the name of the Instance to back up. The Instance must
                  *     live in the same namespace as this Backup.
@@ -186,8 +186,8 @@ export interface components {
             spec: {
                 /**
                  * @description Config contains the OpenAPI v3 schema describing the backup-time
-                 *     configuration accepted by this class. Backup.spec.config is validated
-                 *     against this schema.
+                 *     configuration accepted by this class. Backup.spec.config and
+                 *     InstanceBackupSchedule.config are both validated against this schema.
                  */
                 config?: {
                     /** @description OpenAPIV3Schema is the OpenAPI v3 schema of the backup class. */
@@ -292,6 +292,46 @@ export interface components {
                  */
                 providerManaged?: {
                     /**
+                     * @description Limits caps how many storages, PITR-enabled storages, and schedules per
+                     *     storage an Instance may declare under .spec.backup when this class is
+                     *     selected. Unset fields mean "unlimited" (still subject to the core
+                     *     MaxItems ceilings on InstanceBackupSpec). The runtime enforces these
+                     *     caps both at admission time (provider validation webhook) and before
+                     *     dispatching ConfigureBackup; providers may add engine-specific
+                     *     constraints on top via Context.BackupClassLimits().
+                     */
+                    limits?: {
+                        /**
+                         * Format: int32
+                         * @description MaxPITREnabledStorages is the maximum number of storages on an Instance
+                         *     that may set .pitr.enabled=true at the same time. Engines that support
+                         *     a single PITR stream (e.g. PSMDB, PXC) declare 1 here. Engines that
+                         *     archive WAL to every repo (e.g. PG) leave this unset.
+                         */
+                        maxPITREnabledStorages?: number;
+                        /**
+                         * Format: int32
+                         * @description MaxSchedulesPerStorage is the maximum number of recurring schedules
+                         *     allowed per Instance storage entry.
+                         */
+                        maxSchedulesPerStorage?: number;
+                        /**
+                         * Format: int32
+                         * @description MaxStorages is the maximum number of entries allowed in
+                         *     Instance.spec.backup.storages.
+                         */
+                        maxStorages?: number;
+                    };
+                    /**
+                     * @description PITRConfigSchema describes the shape of per-storage PITR custom config
+                     *     (InstanceBackupStoragePITR.Config). The field is free-form and opaque
+                     *     to the runtime; the provider validates Instance.spec.backup PITR
+                     *     payloads against it inside Validate(). The recommended payload is an
+                     *     OpenAPI v3 schema fragment so the UI can render a matching form, but
+                     *     any provider-specific dialect is permitted.
+                     */
+                    pitrConfigSchema?: Record<string, never>;
+                    /**
                      * @description SupportsPITR indicates whether this class supports point-in-time recovery.
                      *     Used by Restore validation when Restore.spec.dataSource.pitr is set.
                      */
@@ -382,6 +422,14 @@ export interface components {
                  *     class to be usable on that Instance.
                  */
                 supportedProviders?: string[];
+                /**
+                 * @description UISchema contains free-form rendering hints for the frontend forms that
+                 *     configure backup, restore, and PITR for an Instance using this class.
+                 *     The runtime treats this field as opaque; only the UI consumes it. The
+                 *     recommended shape groups fields by the modal that renders them
+                 *     (e.g. "backup", "pitr", "restore"), mirroring Provider.spec.uiSchema.
+                 */
+                uiSchema?: Record<string, never>;
             };
             /** @description BackupClassStatus defines the observed state of BackupClass. */
             status?: {
@@ -508,7 +556,7 @@ export interface components {
                      *     instead of the host). Defaults to false.
                      * @default false
                      */
-                    forcePathStyle: boolean;
+                    forcePathStyle?: boolean;
                     /** @description Region is the region of the S3 bucket. */
                     region: string;
                     /** @description SecretAccessKey is a write-only convenience input. See AccessKeyID. */
@@ -518,7 +566,7 @@ export interface components {
                      *     Defaults to true.
                      * @default true
                      */
-                    verifyTLS: boolean;
+                    verifyTLS?: boolean;
                 };
                 /**
                  * @description Type is the object storage type. Today only "s3" is supported.
@@ -594,11 +642,6 @@ export interface components {
                      */
                     storages?: {
                         /**
-                         * @description Main marks this storage as the engine's default. At most one storage
-                         *     per Instance may be marked main.
-                         */
-                        main?: boolean;
-                        /**
                          * @description Name is the logical name the engine uses for this storage. It is also
                          *     the value that Backup CRs target via .spec.storageName.
                          */
@@ -628,6 +671,13 @@ export interface components {
                          *     all storages on the Instance.
                          */
                         schedules?: {
+                            /**
+                             * @description Config is schedule-specific configuration validated against the
+                             *     BackupClass's .spec.scheduleConfig.openAPIV3Schema. When unset the
+                             *     provider falls back to engine defaults. The schema is the same as for
+                             *     Backup.spec.config but applied per-schedule rather than per-backup-run.
+                             */
+                            config?: Record<string, never>;
                             /**
                              * @description Cron is a standard 5-field cron expression. The provider may reject
                              *     expressions the engine does not support.
@@ -663,7 +713,7 @@ export interface components {
                              *     More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
                              * @default
                              */
-                            name: string;
+                            name?: string;
                         };
                     }[];
                 };
@@ -689,7 +739,7 @@ export interface components {
                                  *     More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
                                  * @default
                                  */
-                                name: string;
+                                name?: string;
                             };
                             key?: string;
                             /**
@@ -705,7 +755,7 @@ export interface components {
                                  *     More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
                                  * @default
                                  */
-                                name: string;
+                                name?: string;
                             };
                         };
                         /**
@@ -783,6 +833,29 @@ export interface components {
                     };
                 };
                 /**
+                 * @description DeletionPolicy controls what happens to Backup and Restore CRs that
+                 *     reference this Instance when the Instance is deleted.
+                 *     Cascade (default) instructs the runtime to delete every Backup and
+                 *     Restore in the Instance's namespace whose .spec.instanceName matches
+                 *     this Instance before tearing down the engine. Each Backup's own
+                 *     .spec.deletionPolicy then independently controls whether its
+                 *     underlying data in the BackupStorage is purged or retained.
+                 *     Orphan instructs the runtime to leave Backup and Restore CRs in
+                 *     place; they survive the Instance deletion and can later be used to
+                 *     restore into a newly-created Instance.
+                 *
+                 *     The Instance is held in the Terminating phase until all referenced
+                 *     Backups/Restores have been deleted (Cascade) or until the engine
+                 *     resources have been torn down (both policies).
+                 *
+                 *     The field is mutable on a live Instance but is frozen once deletion
+                 *     has started: switching policies after .metadata.deletionTimestamp
+                 *     has been set is rejected so the cascade path cannot race with
+                 *     itself.
+                 * @default Cascade
+                 */
+                deletionPolicy?: string & (("Cascade" | "Orphan") & ("Cascade" | "Orphan"));
+                /**
                  * @description Global contains provider-level configuration that applies to the entire cluster.
                  *     The schema for this field is defined by the provider's GlobalConfigSchema.
                  */
@@ -825,7 +898,7 @@ export interface components {
                          *     More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
                          * @default
                          */
-                        name: string;
+                        name?: string;
                     }[];
                     /** Format: int32 */
                     ready?: number;
@@ -891,7 +964,7 @@ export interface components {
                      *     More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
                      * @default
                      */
-                    name: string;
+                    name?: string;
                 };
                 /**
                  * @description Phase of the database cluster.
@@ -966,23 +1039,29 @@ export interface components {
             /** @description spec defines the desired state of MonitoringConfig */
             spec: {
                 /**
-                 * @description CredentialsSecretName is the reference to the secret containing the API key.
-                 *     It contains `apiKey` key with the API key value.
+                 * @description PMM contains PMM-specific monitoring configuration.
+                 *     Required when type is "pmm".
                  */
-                credentialsSecretName: string;
+                pmm?: {
+                    /**
+                     * @description CredentialsSecretName is the reference to the secret containing the API key.
+                     *     It contains `apiKey` key with the API key value.
+                     */
+                    credentialsSecretName: string;
+                    /** @description URL is the URL of the PMM server. */
+                    url: string;
+                    /**
+                     * @description VerifyTLS is set to ensure TLS/SSL verification.
+                     *     If unspecified, the default value is true.
+                     * @default true
+                     */
+                    verifyTLS?: boolean;
+                };
                 /**
                  * @description Type is the name of monitoring tool (e.g., "pmm").
                  * @enum {string}
                  */
                 type: "pmm";
-                /** @description URL is the URL of the monitoring server (e.g., PMM server URL). */
-                url: string;
-                /**
-                 * @description VerifyTLS is set to ensure TLS/SSL verification.
-                 *     If unspecified, the default value is true.
-                 * @default true
-                 */
-                verifyTLS: boolean;
             };
             /**
              * @description status defines the observed state of MonitoringConfig
@@ -990,19 +1069,22 @@ export interface components {
              *       "inUse": false
              *     }
              */
-            status: {
+            status?: {
                 /**
                  * @description InUse is a flag that indicates if any Instance uses the monitoring config.
                  * @default false
                  */
-                inUse: boolean;
+                inUse?: boolean;
                 /**
                  * Format: int64
                  * @description LastObservedGeneration is the most recent generation observed for this MonitoringConfig.
                  */
                 lastObservedGeneration?: number;
-                /** @description PMMServerVersion shows PMM server version. */
-                pmmServerVersion?: string;
+                /** @description PMM contains PMM-specific status information. */
+                pmm?: {
+                    /** @description ServerVersion shows the PMM server version. */
+                    serverVersion?: string;
+                };
             };
         };
         /** @description MonitoringConfigList is an object that contains the list of the existing monitoringconfigs. */

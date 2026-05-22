@@ -26,9 +26,9 @@ export const convertMonitoringConfigsToTableFormat = (
         name: config.metadata?.name ?? '',
         namespace: item.namespace,
         type: config.spec.type,
-        url: config.spec.url,
+        url: config.spec.pmm?.url ?? '',
         inUse: config.status?.inUse ?? false,
-        pmmServerVersion: config.status?.pmmServerVersion ?? '-',
+        pmmServerVersion: config.status?.pmm?.serverVersion ?? '-',
         raw: config,
       })
     );

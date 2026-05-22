@@ -141,6 +141,13 @@ func (r *BackupReconciler) Reconcile( //nolint:nonamedreturns
 	}
 
 	if !backup.GetDeletionTimestamp().IsZero() {
+		if backup.Status.State != backupv1alpha1.BackupStateDeleting {
+			backup.Status.State = backupv1alpha1.BackupStateDeleting
+			if updErr := r.Client.Status().Update(ctx, backup); updErr != nil {
+				logger.Error(updErr, "Failed to update backup status to Deleting")
+				return ctrl.Result{}, updErr
+			}
+		}
 		ok, err := r.handleFinalizers(ctx, backup)
 		if err != nil {
 			logger.Error(err, "Failed to handle finalizers")

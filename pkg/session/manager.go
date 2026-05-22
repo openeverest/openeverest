@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -59,7 +60,8 @@ type Manager struct {
 	accountManager accounts.Interface
 	signingKey     *rsa.PrivateKey
 	Blocklist
-	l *zap.SugaredLogger
+	l         *zap.SugaredLogger
+	namespace string
 }
 
 // Option is a function that modifies a SessionManager.
@@ -106,11 +108,12 @@ func (mgr *Manager) IsBlocked(ctx context.Context, token *jwt.Token) (bool, erro
 }
 
 // New creates a new session manager with the given options.
-func New(ctx context.Context, l *zap.SugaredLogger, options ...Option) (*Manager, error) {
-	m := &Manager{}
+func New(ctx context.Context, l *zap.SugaredLogger, namespace string, options ...Option) (*Manager, error) {
+	m := &Manager{namespace: namespace}
 	for _, opt := range options {
 		opt(m)
 	}
+
 	privKey, err := getPrivateKey()
 	if err != nil {
 		return nil, errors.Join(err, errors.New("failed to get private key"))
@@ -118,7 +121,7 @@ func New(ctx context.Context, l *zap.SugaredLogger, options ...Option) (*Manager
 	m.signingKey = privKey
 	m.l = l
 
-	blockList, err := NewBlocklist(ctx, l)
+	blockList, err := NewBlocklist(ctx, l, m.namespace)
 	if err != nil {
 		return nil, errors.Join(err, errors.New("failed to configure tokens blocklist"))
 	}
@@ -271,14 +274,14 @@ func extractCreationTime(token *jwt.Token) (*time.Time, error) {
 // To avoid overwhelming k8s API with requests, the client should cache the accounts secret,
 // because every authenticated API request checks the secret.
 // It also defines a rule for the system namespace which gets requested otherwise the ByObject won't allow to read the ns.
-func ClientCacheOptions() *cache.Options {
+func ClientCacheOptions(namespace string) *cache.Options {
 	return &cache.Options{
 		ByObject: map[client.Object]cache.ByObject{
 			&corev1.Secret{}: {
 				Field: fields.SelectorFromSet(fields.Set{"metadata.name": common.EverestAccountsSecretName}),
 			},
 			&corev1.Namespace{}: {
-				Field: fields.SelectorFromSet(fields.Set{"metadata.name": common.SystemNamespace}),
+				Field: fields.SelectorFromSet(fields.Set{"metadata.name": namespace}),
 			},
 		},
 	}

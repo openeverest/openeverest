@@ -1,68 +1,96 @@
-import { DbType } from '@percona/types';
-import { AutoCompleteAutoFill } from 'components/auto-complete-auto-fill/auto-complete-auto-fill';
-import { AutoCompleteAutoFillProps } from 'components/auto-complete-auto-fill/auto-complete-auto-fill.types';
-import { useBackupStoragesByNamespace } from 'hooks/api/backup-storages/useBackupStorages';
-import { useDbBackups } from 'hooks/api/backups/useBackups';
-import { BackupStorage } from 'shared-types/backupStorages.types';
-import { Schedule } from 'shared-types/dbCluster.types';
-import { Messages } from './BackupStoragesInput.messages';
-import { getAvailableBackupStoragesForBackups } from 'utils/backups';
+// Copyright (C) 2026 The OpenEverest Contributors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
-type Props = {
-  dbClusterName?: string;
-  namespace: string;
-  dbType: DbType;
-  schedules: Schedule[];
-  autoFillProps?: Partial<AutoCompleteAutoFillProps<BackupStorage>>;
-  hideUsedStoragesInSchedules?: boolean;
-};
+import { Typography } from '@mui/material';
+import { AutoCompleteAutoFill } from 'components/auto-complete-auto-fill/auto-complete-auto-fill';
+import { useBackupStoragesByNamespace } from 'hooks/api/backup-storages/useBackupStorages';
+import { BackupStorage } from 'shared-types/backupStorages.types';
+import { Messages } from './backup-storages-input.messages';
+import { getAvailableStorages } from './backup-storages-input.utils';
+import { BackupStoragesInputProps } from './backup-storages-input.types';
 
 const BackupStoragesInput = ({
+  name = 'storageLocation',
   namespace,
-  dbClusterName,
-  dbType,
   schedules,
   autoFillProps,
-  hideUsedStoragesInSchedules,
-}: Props) => {
-  const { data: backupStorages = [], isFetching: fetchingStorages } =
+  maxStorages,
+  maxSchedulesPerStorage,
+  instanceStorageNames,
+}: BackupStoragesInputProps) => {
+  const { data: backupStorages = [], isFetching } =
     useBackupStoragesByNamespace(namespace);
-  const { data: backups = [], isFetching: fetchingBackups } = useDbBackups(
-    dbClusterName!,
-    namespace,
-    {
-      enabled: !!dbClusterName && dbType === DbType.Postresql,
-    }
-  );
-  const isFetching = fetchingStorages || fetchingBackups;
-  const { storagesToShow, uniqueStoragesInUse } =
-    getAvailableBackupStoragesForBackups(
-      backups,
-      schedules,
-      backupStorages,
-      dbType,
-      hideUsedStoragesInSchedules
-    );
+
+  const {
+    storagesToShow,
+    activeStoragesCount,
+    shouldDisable,
+    inUseNames,
+    limitReached,
+  } = getAvailableStorages({
+    backupStorages,
+    schedules,
+    maxStorages,
+    maxSchedulesPerStorage,
+    instanceStorageNames,
+  });
+
+  const isDisabled = shouldDisable || autoFillProps?.disabled;
+
+  const helperText =
+    maxStorages !== undefined
+      ? Messages.storageLimitHelperText(activeStoragesCount, maxStorages)
+      : undefined;
+
+  // Show "(in use)" label only when displaying the full namespace list (limit not reached)
+  const showInUseHighlight = !limitReached && inUseNames.size > 0;
 
   return (
     <AutoCompleteAutoFill<BackupStorage>
-      name="storageLocation"
+      name={name}
       textFieldProps={{
         label: 'Backup storage',
-        helperText:
-          dbType === DbType.Postresql && !autoFillProps?.disabled
-            ? Messages.pgHelperText(uniqueStoragesInUse.length)
-            : undefined,
+        helperText,
       }}
+      enableFillFirst
       loading={isFetching}
       options={storagesToShow}
-      enableFillFirst
+      {...autoFillProps}
+      controllerProps={{ name, defaultValue: null }}
       autoCompleteProps={{
         isOptionEqualToValue: (option, value) => option.name === value.name,
         getOptionLabel: (option) =>
           typeof option === 'string' ? option : option.name,
+        ...(showInUseHighlight && {
+          renderOption: (props, option) => (
+            <li {...props} key={option.name}>
+              {option.name}
+              {inUseNames.has(option.name) && (
+                <Typography
+                  component="span"
+                  variant="body2"
+                  color="text.secondary"
+                  sx={{ ml: 1 }}
+                >
+                  {Messages.inUseLabel}
+                </Typography>
+              )}
+            </li>
+          ),
+        }),
       }}
-      {...autoFillProps}
+      disabled={isDisabled}
     />
   );
 };

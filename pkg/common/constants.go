@@ -40,8 +40,6 @@ const (
 
 	// DefaultDBNamespaceName is the name of the default DB namespace during installation.
 	DefaultDBNamespaceName = "everest"
-	// SystemNamespace is the namespace where everest is installed.
-	SystemNamespace = "everest-system"
 	// MonitoringNamespace is the namespace where monitoring configs are created.
 	MonitoringNamespace = "everest-monitoring"
 	// PerconaEverestDeploymentName stores the name of everest API Server deployment.

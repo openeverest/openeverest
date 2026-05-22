@@ -72,12 +72,12 @@ type (
 // - namespace names
 // - namespace ownership
 func (cfg *NamespaceRemoveConfig) ValidateNamespaces(ctx context.Context, nsList []string) error {
-	if err := validateNamespaceNames(nsList); err != nil {
+	k, err := cliutils.NewKubeConnector(zap.NewNop().Sugar(), cfg.KubeconfigPath)
+	if err != nil {
 		return err
 	}
 
-	k, err := cliutils.NewKubeConnector(zap.NewNop().Sugar(), cfg.KubeconfigPath)
-	if err != nil {
+	if err := validateNamespaceNames(nsList, k.Namespace()); err != nil {
 		return err
 	}
 

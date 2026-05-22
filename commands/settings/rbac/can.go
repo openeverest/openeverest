@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -26,6 +27,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/openeverest/openeverest/v2/pkg/cli"
+	"github.com/openeverest/openeverest/v2/pkg/cli/helm"
 	"github.com/openeverest/openeverest/v2/pkg/kubernetes"
 	"github.com/openeverest/openeverest/v2/pkg/logger"
 	"github.com/openeverest/openeverest/v2/pkg/output"
@@ -98,7 +100,12 @@ func settingsRBACCanRun(cmd *cobra.Command, args []string) {
 			l = logger.GetLogger().With("component", "rbac")
 		}
 
-		client, err := kubernetes.New(rbacCanKubeconfigPath, l)
+		ns, err := helm.DiscoverOpenEverestNamespace(rbacCanKubeconfigPath)
+		if err != nil {
+			output.PrintError(err, logger.GetLogger(), rbacCanPretty)
+			os.Exit(1)
+		}
+		client, err := kubernetes.New(rbacCanKubeconfigPath, l, ns)
 		if err != nil {
 			output.PrintError(err, logger.GetLogger(), rbacCanPretty)
 			os.Exit(1)

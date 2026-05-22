@@ -115,6 +115,12 @@ func (r *backupRuntimeReconciler) Reconcile(ctx context.Context, req reconcile.R
 		if !controllerutil.ContainsFinalizer(backup, backupRuntimeFinalizer) {
 			return reconcile.Result{}, nil
 		}
+		if backup.Status.State != backupv1alpha1.BackupStateDeleting {
+			backup.Status.State = backupv1alpha1.BackupStateDeleting
+			if err := r.updateStatus(ctx, backup, bc); err != nil {
+				return reconcile.Result{}, err
+			}
+		}
 		done, cerr := r.provider.CleanupBackup(inCtx, backup)
 		if cerr != nil {
 			if controller.IsWaitError(cerr) {

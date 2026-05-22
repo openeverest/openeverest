@@ -45,8 +45,8 @@ func (h *validateHandler) UpdateInstance(ctx context.Context, cluster string, in
 }
 
 // DeleteInstance proxies the request to the next handler.
-func (h *validateHandler) DeleteInstance(ctx context.Context, cluster, namespace, name string) error {
-	return h.next.DeleteInstance(ctx, cluster, namespace, name)
+func (h *validateHandler) DeleteInstance(ctx context.Context, cluster, namespace, name string, params *api.DeleteInstanceParams) error {
+	return h.next.DeleteInstance(ctx, cluster, namespace, name, params)
 }
 
 // GetInstanceConnection proxies the request to the next handler.

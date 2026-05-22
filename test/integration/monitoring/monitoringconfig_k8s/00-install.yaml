@@ -5,15 +5,16 @@ metadata:
 data:
   apiKey: YWJjZGVm
 ---
-apiVersion: monitoring.openeverest.io/v1alpha2
+apiVersion: monitoring.openeverest.io/v1alpha1
 kind: MonitoringConfig
 metadata:
   name: mc-1
 spec:
   type: pmm
-  credentialsSecretName: mc-1-secret
-  verifyTLS: false
-  url: http://localhost-mc-1
+  pmm:
+    credentialsSecretName: mc-1-secret
+    verifyTLS: false
+    url: http://localhost-mc-1
     # image: percona/pmm-client:latest
 ---
 apiVersion: v1
@@ -23,12 +24,13 @@ metadata:
 data:
   apiKey: YWJjZGVm
 ---
-apiVersion: monitoring.openeverest.io/v1alpha2
+apiVersion: monitoring.openeverest.io/v1alpha1
 kind: MonitoringConfig
 metadata:
   name: mc-2
 spec:
   type: pmm
-  credentialsSecretName: mc-2-secret
-  url: http://localhost-mc-2
+  pmm:
+    credentialsSecretName: mc-2-secret
+    url: http://localhost-mc-2
     # image: percona/pmm-client:latest

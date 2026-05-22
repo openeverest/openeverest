@@ -1,3 +1,17 @@
+// Copyright (C) 2026 The OpenEverest Contributors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package uninstall
 
 import (
@@ -60,7 +74,7 @@ func (u *Uninstall) deleteEverestCRDs(ctx context.Context) error {
 	// This chart may be found only if Everest had been upgraded at least once.
 	uninstaller, err := helm.NewUninstaller(
 		helm.EverestCRDChartName,
-		common.SystemNamespace,
+		u.kubeConnector.Namespace(),
 		u.config.KubeconfigPath,
 	)
 	if err != nil {
@@ -96,7 +110,7 @@ func (u *Uninstall) listAndDeleteEverestCRDs(ctx context.Context) error {
 
 func (u *Uninstall) uninstallHelmChart(_ context.Context) error {
 	// Delete helm chart.
-	uninstaller, err := helm.NewUninstaller(common.SystemNamespace, common.SystemNamespace, u.config.KubeconfigPath)
+	uninstaller, err := helm.NewUninstaller(u.kubeConnector.Namespace(), u.kubeConnector.Namespace(), u.config.KubeconfigPath)
 	if err != nil {
 		return fmt.Errorf("failed to create Helm uninstaller: %w", err)
 	}

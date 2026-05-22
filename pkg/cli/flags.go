@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -48,6 +49,8 @@ const (
 	FlagSkipEnvDetection = "skip-env-detection"
 	// FlagDisableTelemetry disables telemetry.
 	FlagDisableTelemetry = "disable-telemetry"
+	// FlagInstallSystemNamespace is the name of the system-namespace flag for install.
+	FlagInstallSystemNamespace = "system-namespace"
 	// FlagInstallSkipDBNamespace is the name of the skip-db-namespace flag.
 	FlagInstallSkipDBNamespace = "skip-db-namespace"
 

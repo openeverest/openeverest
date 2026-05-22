@@ -95,7 +95,7 @@ func newTestEnforcer(t *testing.T, policy string) *rbacTestEnforcer {
 	t.Helper()
 	cm := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: common.SystemNamespace,
+			Namespace: "test-ns",
 			Name:      common.EverestRBACConfigMapName,
 		},
 		Data: map[string]string{
@@ -106,7 +106,7 @@ func newTestEnforcer(t *testing.T, policy string) *rbacTestEnforcer {
 	mockClient := fakeclient.NewClientBuilder().
 		WithScheme(kubernetes.CreateScheme()).
 		WithObjects(cm)
-	k := kubernetes.NewEmpty(zap.NewNop().Sugar()).WithKubernetesClient(mockClient.Build())
+	k := kubernetes.NewEmpty(zap.NewNop().Sugar(), "test-ns").WithKubernetesClient(mockClient.Build())
 	enf, err := NewEnforcer(context.Background(), k, zap.NewNop().Sugar())
 	require.NoError(t, err)
 	return &rbacTestEnforcer{enf: enf, t: t}
@@ -146,17 +146,16 @@ func TestLoadAdminPolicy(t *testing.T) {
 		t.Parallel()
 		enf.assertAllowed("admin-user", ResourceClusters, ActionRead, "any-cluster")
 		enf.assertAllowed("admin-user", ResourceClusters, ActionCreate, "new-cluster")
-		enf.assertAllowed("admin-user", ResourceNamespaces, ActionRead, "any-ns")
-		enf.assertAllowed("admin-user", ResourcePodSchedulingPolicies, ActionDelete, "some-policy")
 	})
 
 	t.Run("admin can access cluster-scoped resources", func(t *testing.T) {
 		t.Parallel()
+		enf.assertAllowed("admin-user", ResourceNamespaces, ActionRead, "any-cluster/any-ns")
 		enf.assertAllowed("admin-user", ResourceProviders, ActionRead, "prod/psmdb")
 		enf.assertAllowed("admin-user", ResourceBackupClasses, ActionRead, "staging/my-class")
 	})
 
-	t.Run("admin can access cluster-namespaced resources (v2)", func(t *testing.T) {
+	t.Run("admin can access cluster-namespaced resources", func(t *testing.T) {
 		t.Parallel()
 		enf.assertAllowed("admin-user", ResourceInstances, ActionRead, "prod/ns1/my-db")
 		enf.assertAllowed("admin-user", ResourceInstances, ActionCreate, "prod/ns1/new-db")
@@ -164,13 +163,6 @@ func TestLoadAdminPolicy(t *testing.T) {
 		enf.assertAllowed("admin-user", ResourceRestores, ActionCreate, "staging/ns2/restore-1")
 		enf.assertAllowed("admin-user", ResourceBackupStorages, ActionUpdate, "prod/default/my-storage")
 		enf.assertAllowed("admin-user", ResourceMonitoringConfigs, ActionDelete, "prod/ns1/mc-1")
-	})
-
-	t.Run("admin can access v1 namespaced resources", func(t *testing.T) {
-		t.Parallel()
-		enf.assertAllowed("admin-user", ResourceDatabaseClusters, ActionRead, "default/my-db")
-		enf.assertAllowed("admin-user", ResourceDatabaseClusterBackups, ActionCreate, "default/my-backup")
-		enf.assertAllowed("admin-user", ResourceDatabaseClusterRestores, ActionRead, "ns1/restore-1")
 	})
 
 	t.Run("admin cannot access cluster-namespaced resources via v1 format", func(t *testing.T) {

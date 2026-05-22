@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2025 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -35,26 +36,27 @@ import (
 	"github.com/openeverest/openeverest/v2/pkg/kubernetes"
 )
 
-// skipNamespaces is a list of namespaces that cannot be added to Everest management.
+// getSkipNamespaces returns a list of namespaces that cannot be added to Everest management.
 // It contains Kubernetes system, reserved by Everest core and cloud providers specific namespaces.
-// Note: this list is not exhaustive and can be extended.
-var skipNamespaces = []string{
-	// Kubernetes native system namespaces.
-	"kube-system",
-	"kube-public",
-	"kube-node-lease",
+func getSkipNamespaces(systemNamespace string) []string {
+	return []string{
+		// Kubernetes native system namespaces.
+		"kube-system",
+		"kube-public",
+		"kube-node-lease",
 
-	// Everest core namespaces.
-	common.SystemNamespace,
-	common.MonitoringNamespace,
-	kubernetes.OLMNamespace,
+		// Everest core namespaces.
+		systemNamespace,
+		common.MonitoringNamespace,
+		kubernetes.OLMNamespace,
 
-	// GKE namespaces.
-	"gke-managed-cim",
-	"gke-managed-system",
-	"gke-managed-volumepopulator",
-	"gmp-public",
-	"gmp-system",
+		// GKE namespaces.
+		"gke-managed-cim",
+		"gke-managed-system",
+		"gke-managed-volumepopulator",
+		"gmp-public",
+		"gmp-system",
+	}
 }
 
 type (
@@ -126,8 +128,9 @@ func (nsL *NamespaceLister) Run(ctx context.Context) ([]NamespaceInfo, error) {
 	}
 
 	// filter out namespaces that are listed in skipNamespaces and non-active namespaces.
+	skip := getSkipNamespaces(nsL.kubeClient.Namespace())
 	nsList.Items = slices.DeleteFunc(nsList.Items, func(ns corev1.Namespace) bool {
-		return slices.Contains(skipNamespaces, ns.Name)
+		return slices.Contains(skip, ns.Name)
 	})
 
 	var toReturn []NamespaceInfo

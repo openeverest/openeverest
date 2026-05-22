@@ -56,7 +56,55 @@ type InstanceSpec struct {
 	// individual Backup CRs.
 	// +optional
 	Backup *InstanceBackupSpec `json:"backup,omitempty"`
+
+	// DeletionPolicy controls what happens to Backup and Restore CRs that
+	// reference this Instance when the Instance is deleted.
+	// Cascade (default) instructs the runtime to delete every Backup and
+	// Restore in the Instance's namespace whose .spec.instanceName matches
+	// this Instance before tearing down the engine. Each Backup's own
+	// .spec.deletionPolicy then independently controls whether its
+	// underlying data in the BackupStorage is purged or retained.
+	// Orphan instructs the runtime to leave Backup and Restore CRs in
+	// place; they survive the Instance deletion and can later be used to
+	// restore into a newly-created Instance.
+	//
+	// The Instance is held in the Terminating phase until all referenced
+	// Backups/Restores have been deleted (Cascade) or until the engine
+	// resources have been torn down (both policies).
+	//
+	// The field is mutable on a live Instance but is frozen once deletion
+	// has started: switching policies after .metadata.deletionTimestamp
+	// has been set is rejected so the cascade path cannot race with
+	// itself.
+	// +kubebuilder:validation:Enum=Cascade;Orphan
+	// +kubebuilder:default=Cascade
+	// +optional
+	DeletionPolicy InstanceDeletionPolicy `json:"deletionPolicy,omitempty"`
 }
+
+// InstanceDeletionPolicy controls what happens to Backup and Restore CRs
+// referencing an Instance when the Instance is deleted. See
+// InstanceSpec.DeletionPolicy for the full semantics.
+//
+// +kubebuilder:validation:Enum=Cascade;Orphan
+type InstanceDeletionPolicy string
+
+const (
+	// InstanceDeletionPolicyCascade instructs the runtime to delete every
+	// Backup and Restore in the Instance's namespace whose
+	// .spec.instanceName matches this Instance before tearing down the
+	// engine. Each Backup's own .spec.deletionPolicy independently
+	// controls whether its underlying data in the BackupStorage is purged
+	// or retained. This is the default and matches the historical
+	// behavior of the platform.
+	InstanceDeletionPolicyCascade InstanceDeletionPolicy = "Cascade"
+
+	// InstanceDeletionPolicyOrphan instructs the runtime to leave Backup
+	// and Restore CRs in place when the Instance is deleted. They survive
+	// the Instance and can be used to restore into a newly-created
+	// Instance.
+	InstanceDeletionPolicyOrphan InstanceDeletionPolicy = "Orphan"
+)
 
 // InstanceBackupSpec configures the backup feature on an Instance.
 //
@@ -104,10 +152,6 @@ type InstanceBackupStorage struct {
 	// StorageRef references a BackupStorage in the same namespace.
 	// +kubebuilder:validation:Required
 	StorageRef corev1.LocalObjectReference `json:"storageRef"`
-	// Main marks this storage as the engine's default. At most one storage
-	// per Instance may be marked main.
-	// +optional
-	Main bool `json:"main,omitempty"`
 	// Schedules registers recurring backup tasks that write to this storage.
 	// Schedules produce Backup CRs (via the provider's mirroring loop) using
 	// the operator-native scheduler — the runtime never spawns CronJobs for
@@ -155,6 +199,13 @@ type InstanceBackupSchedule struct {
 	// +kubebuilder:validation:Minimum=0
 	// +optional
 	RetentionCopies int32 `json:"retentionCopies,omitempty"`
+	// Config is schedule-specific configuration validated against the
+	// BackupClass's .spec.scheduleConfig.openAPIV3Schema. When unset the
+	// provider falls back to engine defaults. The schema is the same as for
+	// Backup.spec.config but applied per-schedule rather than per-backup-run.
+	// +kubebuilder:pruning:PreserveUnknownFields
+	// +optional
+	Config *runtime.RawExtension `json:"config,omitempty"`
 }
 
 // InstanceBackupStoragePITR configures point-in-time recovery writing to

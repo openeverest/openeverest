@@ -24,6 +24,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
@@ -260,6 +261,57 @@ func (c *Context) TryDecodeGlobalConfig(target interface{}) bool {
 func (c *Context) TryDecodeComponentCustomSpec(component v1alpha1.ComponentSpec, target interface{}) bool {
 	err := c.DecodeComponentCustomSpec(component, target)
 	return err == nil
+}
+
+// ComponentConfig fetches the configuration string for a component from its
+// referenced Secret or ConfigMap (via component.Config).
+// Returns ("", nil) when Config is nil or neither ref is set.
+// The Config.Key field must be non-empty whenever a ref is provided.
+//
+// Example:
+//
+//	engine := c.Instance().Spec.Components["engine"]
+//	config, err := c.ComponentConfig(engine)
+//	if err != nil {
+//	    return err
+//	}
+func (c *Context) ComponentConfig(component v1alpha1.ComponentSpec) (string, error) {
+	cfg := component.Config
+	if cfg == nil {
+		return "", nil
+	}
+
+	if cfg.ConfigMapRef.Name != "" {
+		cm := &corev1.ConfigMap{}
+		if err := c.Get(cm, cfg.ConfigMapRef.Name); err != nil {
+			return "", fmt.Errorf("get config ConfigMap %q: %w", cfg.ConfigMapRef.Name, err)
+		}
+		if cfg.Key == "" {
+			return "", fmt.Errorf("config.key must be set when configMapRef is used")
+		}
+		value, ok := cm.Data[cfg.Key]
+		if !ok {
+			return "", fmt.Errorf("key %q not found in ConfigMap %q", cfg.Key, cfg.ConfigMapRef.Name)
+		}
+		return value, nil
+	}
+
+	if cfg.SecretRef.Name != "" {
+		secret := &corev1.Secret{}
+		if err := c.Get(secret, cfg.SecretRef.Name); err != nil {
+			return "", fmt.Errorf("get config Secret %q: %w", cfg.SecretRef.Name, err)
+		}
+		if cfg.Key == "" {
+			return "", fmt.Errorf("config.key must be set when secretRef is used")
+		}
+		data, ok := secret.Data[cfg.Key]
+		if !ok {
+			return "", fmt.Errorf("key %q not found in Secret %q", cfg.Key, cfg.SecretRef.Name)
+		}
+		return string(data), nil
+	}
+
+	return "", nil
 }
 
 // =============================================================================
@@ -560,6 +612,45 @@ func (c *Context) BackupClass(name string) (*backupv1alpha1.BackupClass, error) 
 	return bc, nil
 }
 
+// BackupClassForInstance fetches the BackupClass referenced by
+// Instance.spec.backup.classRef, if any. Returns (nil, nil) when the Instance
+// has no backup configuration.
+func (c *Context) BackupClassForInstance() (*backupv1alpha1.BackupClass, error) {
+	if c.in == nil || c.in.Spec.Backup == nil || c.in.Spec.Backup.ClassRef.Name == "" {
+		return nil, nil
+	}
+	return c.BackupClass(c.in.Spec.Backup.ClassRef.Name)
+}
+
+// BackupClassLimits returns the limits declared by the BackupClass referenced
+// by the Instance, or nil when the class is Job-mode, has no limits set, or
+// the Instance has no backup configuration. The returned pointer aliases the
+// BackupClass; callers must not mutate it.
+func (c *Context) BackupClassLimits() (*backupv1alpha1.BackupClassLimits, error) {
+	bc, err := c.BackupClassForInstance()
+	if err != nil || bc == nil {
+		return nil, err
+	}
+	if bc.Spec.ProviderManaged == nil {
+		return nil, nil
+	}
+	return bc.Spec.ProviderManaged.Limits, nil
+}
+
+// PITRConfigSchema returns the free-form PITR config schema declared by the
+// BackupClass referenced by the Instance, or nil when no schema is set.
+// The runtime treats this payload as opaque; providers interpret it.
+func (c *Context) PITRConfigSchema() (*runtime.RawExtension, error) {
+	bc, err := c.BackupClassForInstance()
+	if err != nil || bc == nil {
+		return nil, err
+	}
+	if bc.Spec.ProviderManaged == nil {
+		return nil, nil
+	}
+	return bc.Spec.ProviderManaged.PITRConfigSchema, nil
+}
+
 // BackupStorage fetches a BackupStorage by name from the instance namespace.
 func (c *Context) BackupStorage(name string) (*backupv1alpha1.BackupStorage, error) {
 	bs := &backupv1alpha1.BackupStorage{}
@@ -620,6 +711,22 @@ const IndexBackupInstanceName = "spec.instanceName"
 
 // IndexRestoreInstanceName is the field index path used for Restore.spec.instanceName.
 const IndexRestoreInstanceName = "spec.instanceName"
+
+// ShouldRetainBackupData returns true when the underlying backup data in the
+// configured BackupStorage (e.g., the S3 object) must be preserved on
+// deletion of the supplied Backup CR.
+//
+// Providers should call this from CleanupBackup to decide whether to invoke
+// the engine's data-purge path or to merely strip protection finalizers and
+// delete the operator-native backup CR. Centralizing the decision in the
+// runtime lets us layer in additional inputs (e.g., BackupClass-level
+// defaults) later without changing provider code.
+func (c *Context) ShouldRetainBackupData(b *backupv1alpha1.Backup) bool {
+	if b == nil {
+		return false
+	}
+	return b.Spec.DeletionPolicy == backupv1alpha1.BackupDeletionPolicyRetain
+}
 
 // =============================================================================
 // BACKUP / RESTORE EXECUTION STATUS

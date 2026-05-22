@@ -25,7 +25,7 @@ import (
 	"go.uber.org/zap"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	monitoringv1alpha2 "github.com/openeverest/openeverest/v2/api/monitoring/v1alpha2"
+	monitoringv1alpha1 "github.com/openeverest/openeverest/v2/api/monitoring/v1alpha1"
 	api "github.com/openeverest/openeverest/v2/internal/server/api"
 	"github.com/openeverest/openeverest/v2/internal/server/handlers"
 	"github.com/openeverest/openeverest/v2/pkg/common"
@@ -38,23 +38,23 @@ func TestRBAC_MonitoringConfig(t *testing.T) {
 	mockMonitoring := func() *handlers.MockHandler {
 		h := &handlers.MockHandler{}
 		h.On("ListMonitoringConfigs", mock.Anything, mock.Anything, mock.Anything).Return(
-			&monitoringv1alpha2.MonitoringConfigList{
-				Items: []monitoringv1alpha2.MonitoringConfig{
+			&monitoringv1alpha1.MonitoringConfigList{
+				Items: []monitoringv1alpha1.MonitoringConfig{
 					{ObjectMeta: metav1.ObjectMeta{Name: "pmm-prod", Namespace: "ns1"}},
 					{ObjectMeta: metav1.ObjectMeta{Name: "pmm-staging", Namespace: "ns1"}},
 				},
 			}, nil,
 		)
 		h.On("GetMonitoringConfig", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(
-			&monitoringv1alpha2.MonitoringConfig{ObjectMeta: metav1.ObjectMeta{Name: "pmm-prod", Namespace: "ns1"}},
+			&monitoringv1alpha1.MonitoringConfig{ObjectMeta: metav1.ObjectMeta{Name: "pmm-prod", Namespace: "ns1"}},
 			nil,
 		)
 		h.On("CreateMonitoringConfig", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(
-			&monitoringv1alpha2.MonitoringConfig{ObjectMeta: metav1.ObjectMeta{Name: "pmm-prod", Namespace: "ns1"}},
+			&monitoringv1alpha1.MonitoringConfig{ObjectMeta: metav1.ObjectMeta{Name: "pmm-prod", Namespace: "ns1"}},
 			nil,
 		)
 		h.On("UpdateMonitoringConfig", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(
-			&monitoringv1alpha2.MonitoringConfig{ObjectMeta: metav1.ObjectMeta{Name: "pmm-prod", Namespace: "ns1"}},
+			&monitoringv1alpha1.MonitoringConfig{ObjectMeta: metav1.ObjectMeta{Name: "pmm-prod", Namespace: "ns1"}},
 			nil,
 		)
 		h.On("DeleteMonitoringConfig", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
@@ -69,7 +69,7 @@ func TestRBAC_MonitoringConfig(t *testing.T) {
 			cluster string
 			ns      string
 			policy  string
-			assert  func(list *monitoringv1alpha2.MonitoringConfigList) bool
+			assert  func(list *monitoringv1alpha1.MonitoringConfigList) bool
 		}{
 			{
 				desc:    "admin",
@@ -78,7 +78,7 @@ func TestRBAC_MonitoringConfig(t *testing.T) {
 				policy: newPolicy(
 					"g, bob, role:admin",
 				),
-				assert: func(list *monitoringv1alpha2.MonitoringConfigList) bool {
+				assert: func(list *monitoringv1alpha1.MonitoringConfigList) bool {
 					return len(list.Items) == 2
 				},
 			},
@@ -90,7 +90,7 @@ func TestRBAC_MonitoringConfig(t *testing.T) {
 					"p, role:test, monitoring-configs, read, prod/ns1/*",
 					"g, bob, role:test",
 				),
-				assert: func(list *monitoringv1alpha2.MonitoringConfigList) bool {
+				assert: func(list *monitoringv1alpha1.MonitoringConfigList) bool {
 					return len(list.Items) == 2
 				},
 			},
@@ -102,7 +102,7 @@ func TestRBAC_MonitoringConfig(t *testing.T) {
 					"p, role:test, monitoring-configs, read, prod/ns1/pmm-prod",
 					"g, bob, role:test",
 				),
-				assert: func(list *monitoringv1alpha2.MonitoringConfigList) bool {
+				assert: func(list *monitoringv1alpha1.MonitoringConfigList) bool {
 					return len(list.Items) == 1 && list.Items[0].Name == "pmm-prod"
 				},
 			},
@@ -114,7 +114,7 @@ func TestRBAC_MonitoringConfig(t *testing.T) {
 					"p, role:test, monitoring-configs, read, staging/ns1/*",
 					"g, bob, role:test",
 				),
-				assert: func(list *monitoringv1alpha2.MonitoringConfigList) bool {
+				assert: func(list *monitoringv1alpha1.MonitoringConfigList) bool {
 					return len(list.Items) == 0
 				},
 			},
@@ -126,7 +126,7 @@ func TestRBAC_MonitoringConfig(t *testing.T) {
 					"p, role:test, monitoring-configs, read, prod/ns2/*",
 					"g, bob, role:test",
 				),
-				assert: func(list *monitoringv1alpha2.MonitoringConfigList) bool {
+				assert: func(list *monitoringv1alpha1.MonitoringConfigList) bool {
 					return len(list.Items) == 0
 				},
 			},
@@ -137,7 +137,7 @@ func TestRBAC_MonitoringConfig(t *testing.T) {
 				policy: newPolicy(
 					"g, bob, role:test",
 				),
-				assert: func(list *monitoringv1alpha2.MonitoringConfigList) bool {
+				assert: func(list *monitoringv1alpha1.MonitoringConfigList) bool {
 					return len(list.Items) == 0
 				},
 			},
@@ -150,10 +150,10 @@ func TestRBAC_MonitoringConfig(t *testing.T) {
 					"p, role:test, monitoring-configs, read, prod/ns1/pmm-staging",
 					"g, bob, role:test",
 				),
-				assert: func(list *monitoringv1alpha2.MonitoringConfigList) bool {
+				assert: func(list *monitoringv1alpha1.MonitoringConfigList) bool {
 					return len(list.Items) == 2 &&
-						slices.ContainsFunc(list.Items, func(mc monitoringv1alpha2.MonitoringConfig) bool { return mc.Name == "pmm-prod" }) &&
-						slices.ContainsFunc(list.Items, func(mc monitoringv1alpha2.MonitoringConfig) bool { return mc.Name == "pmm-staging" })
+						slices.ContainsFunc(list.Items, func(mc monitoringv1alpha1.MonitoringConfig) bool { return mc.Name == "pmm-prod" }) &&
+						slices.ContainsFunc(list.Items, func(mc monitoringv1alpha1.MonitoringConfig) bool { return mc.Name == "pmm-staging" })
 				},
 			},
 		}

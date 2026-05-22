@@ -28,6 +28,7 @@ import (
 
 	version "github.com/Percona-Lab/percona-version-service/versionpb"
 	goversion "github.com/hashicorp/go-version"
+	"github.com/kelseyhightower/envconfig"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/types"
 
@@ -47,6 +48,14 @@ const (
 	pollInterval = 5 * time.Second
 	pollTimeout  = 10 * time.Minute
 )
+
+// inClusterConfig is read from environment variables when the upgrade
+// runs as a Helm pre-upgrade hook Job. The Job needs to know which
+// namespace OpenEverest is installed in to build a Kubernetes client.
+// The Helm chart injects NAMESPACE via the Kubernetes downward API.
+type inClusterConfig struct {
+	Namespace string `envconfig:"NAMESPACE" required:"true"`
+}
 
 type (
 	// Config defines configuration required for upgrade command.
@@ -113,7 +122,11 @@ func NewUpgrade(cfg *Config, l *zap.SugaredLogger) (*Upgrade, error) {
 
 	var kubeClient kubernetes.KubernetesConnector
 	if cfg.InCluster {
-		k, err := kubernetes.NewInCluster(cli.l, nil, nil)
+		var ic inClusterConfig
+		if err := envconfig.Process("", &ic); err != nil {
+			return nil, fmt.Errorf("could not read in-cluster config: %w", err)
+		}
+		k, err := kubernetes.NewInCluster(cli.l, nil, nil, ic.Namespace)
 		if err != nil {
 			return nil, fmt.Errorf("could not create in-cluster kubernetes client: %w", err)
 		}
@@ -137,7 +150,7 @@ func NewUpgrade(cfg *Config, l *zap.SugaredLogger) (*Upgrade, error) {
 
 // Run runs the operators installation process.
 func (u *Upgrade) Run(ctx context.Context) error {
-	everestVersion, err := cliVersion.EverestVersionFromDeployment(ctx, u.kubeConnector)
+	everestVersion, err := cliVersion.EverestVersionFromDeployment(ctx, u.kubeConnector, u.kubeConnector.Namespace())
 	if err != nil {
 		return errors.Join(err, errors.New("could not retrieve Everest version"))
 	}
@@ -168,7 +181,7 @@ func (u *Upgrade) Run(ctx context.Context) error {
 		return fmt.Errorf("could not initialize Helm installer: %w", err)
 	}
 
-	u.l.Infof("Upgrading Everest to %s in namespace %s", u.upgradeToVersion, common.SystemNamespace)
+	u.l.Infof("Upgrading Everest to %s in namespace %s", u.upgradeToVersion, u.kubeConnector.Namespace())
 
 	// Helm based installation was added to the CLI in 1.4.0. Versions below that are not managed by helm.
 	// We use this flag to trigger an adoption of the existing installation to Helm chart.
@@ -216,8 +229,8 @@ func (u *Upgrade) setupHelmInstaller(ctx context.Context) error {
 
 	values := Must(helmutils.MergeVals(u.config.Values, overrides))
 	installer := &helm.Installer{
-		ReleaseName:      common.SystemNamespace,
-		ReleaseNamespace: common.SystemNamespace,
+		ReleaseName:      u.kubeConnector.Namespace(),
+		ReleaseNamespace: u.kubeConnector.Namespace(),
 		Values:           values,
 	}
 	if err := installer.Init(u.config.KubeconfigPath, helm.ChartOptions{

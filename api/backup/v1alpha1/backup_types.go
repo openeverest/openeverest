@@ -143,6 +143,8 @@ const (
 	BackupStateFailed BackupState = "Failed"
 	// BackupStateError indicates a transient error; the controller may retry.
 	BackupStateError BackupState = "Error"
+	// BackupStateDeleting indicates that the backup is in the process of being deleted.
+	BackupStateDeleting BackupState = "Deleting"
 )
 
 // +kubebuilder:object:root=true

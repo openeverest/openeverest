@@ -27,7 +27,7 @@ export const ScheduleFormWrapper = () => {
   const {
     mode = WizardMode.New,
     setSelectedScheduleName,
-    dbClusterInfo,
+    dbInstanceInfo,
     externalContext,
   } = useContext(ScheduleFormDialogContext);
   const {
@@ -35,7 +35,7 @@ export const ScheduleFormWrapper = () => {
     defaultSchedules = [],
     activeStorage,
     dbEngine,
-  } = dbClusterInfo;
+  } = dbInstanceInfo;
 
   const [scheduleName] = watch([ScheduleFormFields.scheduleName]);
 

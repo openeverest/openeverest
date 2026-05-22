@@ -58,7 +58,7 @@ func TestRBAC_Instance(t *testing.T) {
 			&corev1alpha1.Instance{ObjectMeta: metav1.ObjectMeta{Name: "db1", Namespace: "ns1"}},
 			nil,
 		)
-		h.On("DeleteInstance", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+		h.On("DeleteInstance", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 		host := "db1.ns1.svc"
 		h.On("GetInstanceConnection", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(
 			&api.InstanceConnectionDetails{Host: &host},
@@ -535,7 +535,7 @@ func TestRBAC_Instance(t *testing.T) {
 					userGetter: testUserGetter,
 				}
 
-				err = h.DeleteInstance(ctx, tc.cluster, "ns1", "db1")
+				err = h.DeleteInstance(ctx, tc.cluster, "ns1", "db1", nil)
 				if tc.wantErr != nil {
 					require.ErrorIs(t, err, tc.wantErr)
 				} else {

@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -42,7 +43,7 @@ func (o *Installer) newStepEnsureEverestOperator() steps.Step {
 	return steps.Step{
 		Desc: "Ensuring Everest operator deployment is ready",
 		F: func(ctx context.Context) error {
-			return o.waitForDeployment(ctx, common.PerconaEverestOperatorDeploymentName, common.SystemNamespace)
+			return o.waitForDeployment(ctx, common.PerconaEverestOperatorDeploymentName, o.kubeClient.Namespace())
 		},
 	}
 }
@@ -51,7 +52,7 @@ func (o *Installer) newStepEnsureEverestAPI() steps.Step {
 	return steps.Step{
 		Desc: "Ensuring Everest API deployment is ready",
 		F: func(ctx context.Context) error {
-			return o.waitForDeployment(ctx, common.PerconaEverestDeploymentName, common.SystemNamespace)
+			return o.waitForDeployment(ctx, common.PerconaEverestDeploymentName, o.kubeClient.Namespace())
 		},
 	}
 }

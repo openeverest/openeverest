@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -56,6 +57,8 @@ func init() {
 	rootCmd.AddCommand(installCmd)
 
 	// local command flags
+	installCmd.Flags().StringVar(&installCfg.Namespace, cli.FlagInstallSystemNamespace, "everest-system", "Namespace where OpenEverest system components will be installed")
+	_ = installCmd.Flags().MarkHidden(cli.FlagInstallSystemNamespace)
 	installCmd.Flags().StringVar(&namespacesToAdd, cli.FlagNamespaces, common.DefaultDBNamespaceName, "Comma-separated namespaces list Percona Everest can manage")
 	installCmd.Flags().BoolVar(&installCfg.NamespaceAddConfig.SkipWizard, cli.FlagSkipWizard, false, "Skip installation wizard")
 	installCmd.Flags().StringVar(&installCfg.VersionMetadataURL, cli.FlagVersionMetadataURL, "https://check.percona.com", "URL to retrieve version metadata information from")
@@ -88,9 +91,10 @@ func installPreRun(cmd *cobra.Command, _ []string) { //nolint:revive
 	installCfg.Pretty = rootCmdFlags.Pretty
 	installCfg.KubeconfigPath = rootCmdFlags.KubeconfigPath
 	installCfg.NamespaceAddConfig.KubeconfigPath = rootCmdFlags.KubeconfigPath
+	installCfg.NamespaceAddConfig.SystemNamespace = installCfg.Namespace
 
 	// Check if Everest is already installed.
-	if err := install.CheckEverestAlreadyinstalled(cmd.Context(), logger.GetLogger(), installCfg.KubeconfigPath); err != nil {
+	if err := install.CheckEverestAlreadyInstalled(cmd.Context(), logger.GetLogger(), installCfg.KubeconfigPath, installCfg.Namespace); err != nil {
 		output.PrintError(err, logger.GetLogger(), installCfg.Pretty)
 		os.Exit(1)
 	}

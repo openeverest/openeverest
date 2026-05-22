@@ -22,7 +22,7 @@ import { DBClusterDetailsTabs } from 'pages/db-cluster-details/db-cluster-detail
 import { SettingsTabs } from 'pages/settings/settings.types';
 import { DbInstanceContextProvider } from 'pages/db-cluster-details/dbCluster.context';
 import {
-  // Backups,
+  Backups,
   InstanceOverview,
   // Components,
   DatabasePage,
@@ -92,10 +92,10 @@ const router = createBrowserRouter([
             index: true,
             element: <Navigate to={DBClusterDetailsTabs.overview} replace />,
           },
-          // {
-          //   path: DBClusterDetailsTabs.backups,
-          //   element: withSuspense(<Backups />),
-          // },
+          {
+            path: DBClusterDetailsTabs.backups,
+            element: withSuspense(<Backups />),
+          },
           {
             path: DBClusterDetailsTabs.overview,
             element: withSuspense(<InstanceOverview />),

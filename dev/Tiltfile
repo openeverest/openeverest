@@ -1068,7 +1068,7 @@ if not helm_remote_deps_present(psmdb_provider_chart_dir):
 
 # Named resource: ensures PSMDB provider dependencies are built before templating
 local_resource(
-    'psmdb-provider-deps',
+    'provider-percona-server-mongodb-deps',
     'cd {chart_dir} && helm dependency build'.format(
         chart_dir=psmdb_provider_chart_dir,
     ),
@@ -1080,7 +1080,7 @@ local_resource(
 
 # Re-run make generate when the definition folder changes (updates provider-spec.yaml in the Helm chart)
 local_resource(
-  'psmdb-provider-generate',
+  'provider-percona-server-mongodb-generate',
   'make -C {0} generate'.format(psmdb_provider_dir),
   deps=[
     '{0}/definition'.format(psmdb_provider_dir),
@@ -1090,7 +1090,7 @@ local_resource(
 
 # Build the PSMDB provider binary locally to take advantage of the go cache
 local_resource(
-  'psmdb-provider-build',
+  'provider-percona-server-mongodb-build',
   'cd {provider_dir} && {build_env} go build -o bin/provider ./cmd/provider/'.format(
     provider_dir=psmdb_provider_dir,
     build_env=psmdb_provider_build_env,
@@ -1104,7 +1104,7 @@ local_resource(
   ignore=[
     '{0}/**/*_test.go'.format(psmdb_provider_dir),
   ],
-  resource_deps=['psmdb-provider-generate'],
+  resource_deps=['provider-percona-server-mongodb-generate'],
   labels=['providers'],
 )
 
@@ -1122,42 +1122,43 @@ docker_build_with_restart('ghcr.io/openeverest/provider-percona-server-mongodb-d
 
 psmdb_provider_yaml = helm(
     psmdb_provider_chart_dir,
-    name='psmdb-provider',
+    name='provider-percona-server-mongodb',
     namespace='default',
     set=['securityContext.readOnlyRootFilesystem=false'],
 )
 k8s_yaml(psmdb_provider_yaml)
 k8s_resource(
-  workload='psmdb-provider-provider-percona-server-mongodb',
+  workload='provider-percona-server-mongodb',
   objects=[
-    'psmdb-provider-provider-percona-server-mongodb:serviceaccount',
-    'psmdb-provider-provider-percona-server-mongodb:clusterrole',
-    'psmdb-provider-provider-percona-server-mongodb:clusterrolebinding',
-    'percona-server-mongodb:provider'
+    'provider-percona-server-mongodb:serviceaccount',
+    'provider-percona-server-mongodb:clusterrole',
+    'provider-percona-server-mongodb:clusterrolebinding',
+    'percona-server-mongodb:provider',
+    'percona-backup-mongodb:backupclass',
   ],
   resource_deps = [
     'crds',
-    'psmdb-provider-deps',
-    'psmdb-provider-generate',
-    'psmdb-provider-build',
+    'provider-percona-server-mongodb-deps',
+    'provider-percona-server-mongodb-generate',
+    'provider-percona-server-mongodb-build',
   ],
-  new_name='psmdb-provider',
+  new_name='provider-percona-server-mongodb',
   labels=["providers"]
 )
 k8s_resource(
-  workload='psmdb-provider-psmdb-operator',
+  workload='provider-percona-server-mongodb-operator',
   objects=[
     'perconaservermongodbbackups.psmdb.percona.com:customresourcedefinition:default',
     'perconaservermongodbrestores.psmdb.percona.com:customresourcedefinition:default',
     'perconaservermongodbs.psmdb.percona.com:customresourcedefinition:default',
-    'psmdb-provider-psmdb-operator:serviceaccount:default',
-    'psmdb-provider-psmdb-operator:clusterrole',
-    'service-account-psmdb-provider-psmdb-operator:clusterrolebinding'
+    'provider-percona-server-mongodb-operator:serviceaccount:default',
+    'provider-percona-server-mongodb-operator:clusterrole:default',
+    'service-account-provider-percona-server-mongodb-operator:clusterrolebinding:default'
   ],
   resource_deps = [
     'crds',
-    'psmdb-provider-deps',
+    'provider-percona-server-mongodb-deps',
   ],
-  new_name='psmdb-operator',
+  new_name='provider-percona-server-mongodb-operator',
   labels=["providers"]
 )

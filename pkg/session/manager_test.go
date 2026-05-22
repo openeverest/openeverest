@@ -1,3 +1,17 @@
+// Copyright (C) 2026 The OpenEverest Contributors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package session
 
 import (
@@ -212,14 +226,14 @@ func TestIsBlocked(t *testing.T) {
 func mockManager(ctx context.Context, usersFile, blocklistContent string) (*Manager, error) {
 	l := zap.NewNop().Sugar()
 
-	blocklistSecret := getBlockListSecretTemplate(blocklistContent)
+	blocklistSecret := getBlockListSecretTemplate("test-ns", blocklistContent)
 	usersSecret := userSecret(usersFile)
 
 	objs := []ctrlclient.Object{blocklistSecret, usersSecret}
 	mockClient := fakeclient.NewClientBuilder().WithScheme(kubernetes.CreateScheme())
 	mockClient.WithObjects(objs...)
 
-	k := kubernetes.NewEmpty(l).WithKubernetesClient(mockClient.Build())
+	k := kubernetes.NewEmpty(l, "test-ns").WithKubernetesClient(mockClient.Build())
 
 	bl, err := mockNewBlocklist(ctx, l, k)
 	if err != nil {
@@ -242,7 +256,7 @@ func userSecret(file string) *corev1.Secret {
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      common.EverestAccountsSecretName,
-			Namespace: common.SystemNamespace,
+			Namespace: "test-ns",
 		},
 		Data: map[string][]byte{
 			common.EverestAccountsFileName: []byte(file),

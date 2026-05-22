@@ -19,18 +19,18 @@ import (
 	"errors"
 	"fmt"
 
-	monitoringv1alpha2 "github.com/openeverest/openeverest/v2/api/monitoring/v1alpha2"
+	monitoringv1alpha1 "github.com/openeverest/openeverest/v2/api/monitoring/v1alpha1"
 	api "github.com/openeverest/openeverest/v2/internal/server/api"
 	"github.com/openeverest/openeverest/v2/pkg/rbac"
 )
 
 // ListMonitoringConfigs returns monitoring configs filtered by RBAC permissions.
-func (h *rbacHandler) ListMonitoringConfigs(ctx context.Context, cluster, namespace string) (*monitoringv1alpha2.MonitoringConfigList, error) {
+func (h *rbacHandler) ListMonitoringConfigs(ctx context.Context, cluster, namespace string) (*monitoringv1alpha1.MonitoringConfigList, error) {
 	list, err := h.next.ListMonitoringConfigs(ctx, cluster, namespace)
 	if err != nil {
 		return nil, fmt.Errorf("ListMonitoringConfigs failed: %w", err)
 	}
-	filtered := make([]monitoringv1alpha2.MonitoringConfig, 0, len(list.Items))
+	filtered := make([]monitoringv1alpha1.MonitoringConfig, 0, len(list.Items))
 	for _, mc := range list.Items {
 		object := rbac.ClusterNamespacedObjectName(cluster, mc.GetNamespace(), mc.GetName())
 		if err := h.enforce(ctx, rbac.ResourceMonitoringConfigs, rbac.ActionRead, object); errors.Is(err, ErrInsufficientPermissions) {
@@ -45,7 +45,7 @@ func (h *rbacHandler) ListMonitoringConfigs(ctx context.Context, cluster, namesp
 }
 
 // CreateMonitoringConfig creates a monitoring config, gated by RBAC.
-func (h *rbacHandler) CreateMonitoringConfig(ctx context.Context, cluster, namespace string, req *api.MonitoringConfigCreateParams) (*monitoringv1alpha2.MonitoringConfig, error) {
+func (h *rbacHandler) CreateMonitoringConfig(ctx context.Context, cluster, namespace string, req *api.MonitoringConfigCreateParams) (*monitoringv1alpha1.MonitoringConfig, error) {
 	object := rbac.ClusterNamespacedObjectName(cluster, namespace, req.Name)
 	if err := h.enforce(ctx, rbac.ResourceMonitoringConfigs, rbac.ActionCreate, object); err != nil {
 		return nil, err
@@ -63,7 +63,7 @@ func (h *rbacHandler) DeleteMonitoringConfig(ctx context.Context, cluster, names
 }
 
 // GetMonitoringConfig returns a monitoring config, gated by RBAC.
-func (h *rbacHandler) GetMonitoringConfig(ctx context.Context, cluster, namespace, name string) (*monitoringv1alpha2.MonitoringConfig, error) {
+func (h *rbacHandler) GetMonitoringConfig(ctx context.Context, cluster, namespace, name string) (*monitoringv1alpha1.MonitoringConfig, error) {
 	object := rbac.ClusterNamespacedObjectName(cluster, namespace, name)
 	if err := h.enforce(ctx, rbac.ResourceMonitoringConfigs, rbac.ActionRead, object); err != nil {
 		return nil, err
@@ -72,7 +72,7 @@ func (h *rbacHandler) GetMonitoringConfig(ctx context.Context, cluster, namespac
 }
 
 // UpdateMonitoringConfig updates a monitoring config, gated by RBAC.
-func (h *rbacHandler) UpdateMonitoringConfig(ctx context.Context, cluster, namespace, name string, req *api.MonitoringConfigUpdateParams) (*monitoringv1alpha2.MonitoringConfig, error) {
+func (h *rbacHandler) UpdateMonitoringConfig(ctx context.Context, cluster, namespace, name string, req *api.MonitoringConfigUpdateParams) (*monitoringv1alpha1.MonitoringConfig, error) {
 	object := rbac.ClusterNamespacedObjectName(cluster, namespace, name)
 	if err := h.enforce(ctx, rbac.ResourceMonitoringConfigs, rbac.ActionUpdate, object); err != nil {
 		return nil, err

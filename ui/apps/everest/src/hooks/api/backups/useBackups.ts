@@ -18,146 +18,191 @@ import {
   useQuery,
 } from '@tanstack/react-query';
 import {
-  createBackupOnDemand,
+  createBackupOnDemandFn,
   deleteBackupFn,
-  getBackupsFn,
-  getPitrFn,
+  getBackupFn,
+  getBackupsListFn,
 } from 'api/backups';
 import {
   Backup,
+  BackupList,
   BackupStatus,
-  DatabaseClusterPitr,
-  DatabaseClusterPitrPayload,
-  GetBackupsPayload,
-  SingleBackupPayload,
+  CreateBackupPayload,
+  CreateBackupResponse,
+  DeleteBackupPayload,
+  GetBackupPayload,
 } from 'shared-types/backups.types';
-import { mapBackupState } from 'utils/backups';
-import { BackupFormData } from 'pages/db-cluster-details/backups/on-demand-backup-modal/on-demand-backup-modal.types';
 import { PerconaQueryOptions } from 'shared-types/query.types';
 import { useRBACPermissions } from 'hooks/rbac';
 
 export const BACKUPS_QUERY_KEY = 'backups';
 
+export const getBackupQueryKey = (
+  clusterName: string,
+  namespace: string,
+  backupName: string
+) => [BACKUPS_QUERY_KEY, clusterName, namespace, backupName] as const;
+
+export const getBackupListQueryKey = (
+  clusterName: string,
+  namespace: string,
+  instanceName: string
+) => [BACKUPS_QUERY_KEY, clusterName, namespace, instanceName, 'list'] as const;
+
 type DeleteBackupArgType = {
   backupName: string;
-  cleanupBackupStorage: boolean;
+  // TODO: restore when cleanup-on-delete is implemented
+  // See: https://github.com/openeverest/openeverest/issues/2268
+  // cleanupBackupStorage: boolean;
 };
 
-export const useDbBackups = (
-  dbClusterName: string,
+export const useBackupsList = (
+  clusterName: string,
   namespace: string,
-  options?: PerconaQueryOptions<GetBackupsPayload, unknown, Backup[]>
+  instanceName: string,
+  options?: PerconaQueryOptions<BackupList, unknown, Backup[]>
 ) => {
   const { canRead } = useRBACPermissions(
-    'database-cluster-backups',
-    `${namespace}/${dbClusterName}`
+    'backups',
+    `${namespace}/${instanceName}`
   );
-  return useQuery<GetBackupsPayload, unknown, Backup[]>({
-    queryKey: [BACKUPS_QUERY_KEY, namespace, dbClusterName],
-    queryFn: () => getBackupsFn(dbClusterName, namespace),
+
+  return useQuery<BackupList, unknown, Backup[]>({
+    queryKey: getBackupListQueryKey(clusterName, namespace, instanceName),
+    queryFn: () => getBackupsListFn(clusterName, namespace, instanceName),
     select: canRead
       ? ({ items = [] }) =>
-          items.map(
-            ({ metadata: { name }, status, spec: { backupStorageName } }) => ({
-              name,
-              created: status?.created,
-              completed: status?.completed,
-              state: status
-                ? mapBackupState(status?.state)
-                : BackupStatus.UNKNOWN,
-              size: status?.size,
-              dbClusterName,
-              backupStorageName,
-            })
-          )
+          items
+            .filter((backup) => backup.spec.instanceName === instanceName)
+            .map((backup) => ({
+              ...backup,
+              status: {
+                ...backup.status,
+                state: backup.status?.state ?? BackupStatus.UNKNOWN,
+              },
+            }))
       : () => [],
-    ...options,
     enabled: (options?.enabled ?? true) && canRead,
+    ...options,
   });
 };
 
 export const useCreateBackupOnDemand = (
-  dbClusterName: string,
+  clusterName: string,
   namespace: string,
   options?: UseMutationOptions<
-    SingleBackupPayload,
+    CreateBackupResponse,
     unknown,
-    BackupFormData,
+    CreateBackupPayload,
     unknown
   >
-) =>
-  useMutation({
-    mutationFn: (formData: BackupFormData) =>
-      createBackupOnDemand(
-        {
-          apiVersion: 'everest.percona.com/v1alpha1',
-          kind: 'DatabaseClusterBackup',
-          metadata: {
-            name: formData.name,
-          },
-          spec: {
-            dbClusterName,
-            backupStorageName:
-              typeof formData.storageLocation === 'string'
-                ? formData.storageLocation
-                : formData.storageLocation!.name,
-          },
-        },
-        namespace
-      ),
-    ...options,
-  });
-
-export const useDeleteBackup = (
-  namespace: string,
-  options?: UseMutationOptions<unknown, unknown, DeleteBackupArgType, unknown>
-) =>
-  useMutation({
-    mutationFn: ({ backupName, cleanupBackupStorage }: DeleteBackupArgType) =>
-      deleteBackupFn(backupName, namespace, cleanupBackupStorage),
-    ...options,
-  });
-
-export const useDbClusterPitr = (
-  dbClusterName: string,
-  namespace: string,
-  options?: PerconaQueryOptions<
-    DatabaseClusterPitrPayload,
-    unknown,
-    DatabaseClusterPitr | undefined
-  >
 ) => {
-  const { canRead } = useRBACPermissions(
-    'database-clusters',
-    `${namespace}/${dbClusterName}`
-  );
+  // TODO RBAC: resource name 'backups' needs additional testing with real v2 RBAC policies
+  const { canCreate } = useRBACPermissions('backups', `${namespace}/*`);
 
-  return useQuery<
-    DatabaseClusterPitrPayload,
-    unknown,
-    DatabaseClusterPitr | undefined
-  >({
-    queryKey: [dbClusterName, 'pitr'],
-    queryFn: () => getPitrFn(dbClusterName, namespace),
-    select: (pitrData) => {
-      const { earliestDate, latestDate, latestBackupName, gaps } = pitrData;
-      if (
-        !Object.keys(pitrData).length ||
-        !earliestDate ||
-        !latestDate ||
-        !latestBackupName
-      ) {
-        return undefined;
+  return useMutation({
+    mutationFn: (payload: CreateBackupPayload) => {
+      if (!canCreate) {
+        throw new Error('Not enough permissions to create backups');
       }
-
-      return {
-        earliestDate: new Date(earliestDate),
-        latestDate: new Date(latestDate),
-        latestBackupName,
-        gaps,
-      };
+      return createBackupOnDemandFn(clusterName, namespace, payload);
     },
     ...options,
-    enabled: (options?.enabled ?? true) && canRead,
+    meta: {
+      ...(options?.meta ?? {}),
+    },
   });
 };
+
+export const useDeleteBackup = (
+  clusterName: string,
+  namespace: string,
+  instanceName: string,
+  options?: UseMutationOptions<
+    DeleteBackupPayload,
+    unknown,
+    DeleteBackupArgType,
+    unknown
+  >
+) => {
+  const { canDelete } = useRBACPermissions(
+    'backups',
+    `${namespace}/${instanceName}`
+  );
+
+  return useMutation({
+    mutationFn: ({ backupName }: DeleteBackupArgType) => {
+      if (!canDelete) {
+        throw new Error('Not enough permissions to delete backups');
+      }
+      return deleteBackupFn(clusterName, namespace, backupName);
+    },
+    ...options,
+  });
+};
+
+export const useGetBackup = (
+  clusterName: string,
+  namespace: string,
+  backupName: string,
+  options?: PerconaQueryOptions<GetBackupPayload, unknown, Backup>
+) => {
+  const { canRead } = useRBACPermissions('backups', `${namespace}/*`);
+
+  return useQuery<GetBackupPayload, unknown, Backup>({
+    queryKey: getBackupQueryKey(clusterName, namespace, backupName),
+    queryFn: () => getBackupFn(clusterName, namespace, backupName),
+    enabled: (options?.enabled ?? true) && canRead,
+    ...options,
+  });
+};
+
+// TODO: PITR is not part of this task — uncomment when working on PITR feature.
+// The v2 API endpoint for PITR may change; update getPitrFn in api/backups.ts accordingly.
+//
+// import { DatabaseClusterPitrPayload, DatabaseClusterPitr } from 'shared-types/backups.types';
+// import { getPitrFn } from 'api/backups';
+//
+// export const useDbClusterPitr = (
+//   dbClusterName: string,
+//   namespace: string,
+//   options?: PerconaQueryOptions<
+//     DatabaseClusterPitrPayload,
+//     unknown,
+//     DatabaseClusterPitr | undefined
+//   >
+// ) => {
+//   const { canRead } = useRBACPermissions(
+//     'database-clusters',
+//     `${namespace}/${dbClusterName}`
+//   );
+//
+//   return useQuery<
+//     DatabaseClusterPitrPayload,
+//     unknown,
+//     DatabaseClusterPitr | undefined
+//   >({
+//     queryKey: [dbClusterName, 'pitr'],
+//     queryFn: () => getPitrFn(dbClusterName, namespace),
+//     select: (pitrData) => {
+//       const { earliestDate, latestDate, latestBackupName, gaps } = pitrData;
+//       if (
+//         !Object.keys(pitrData).length ||
+//         !earliestDate ||
+//         !latestDate ||
+//         !latestBackupName
+//       ) {
+//         return undefined;
+//       }
+//
+//       return {
+//         earliestDate: new Date(earliestDate),
+//         latestDate: new Date(latestDate),
+//         latestBackupName,
+//         gaps,
+//       };
+//     },
+//     ...options,
+//     enabled: (options?.enabled ?? true) && canRead,
+//   });
+// };

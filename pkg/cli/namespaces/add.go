@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -56,6 +57,9 @@ type (
 		SkipWizard bool
 		// KubeconfigPath is the path to the kubeconfig file.
 		KubeconfigPath string
+		// SystemNamespace is the namespace where OpenEverest is installed.
+		// Required during install (when Helm discovery is not available).
+		SystemNamespace string
 		// DisableTelemetry is set if telemetry should be disabled.
 		DisableTelemetry bool
 		// TakeOwnership make an existing namespace managed by Everest.
@@ -182,12 +186,22 @@ func (cfg *NamespaceAddConfig) PopulateOperators(ctx context.Context) error {
 // - namespace names
 // - namespace ownership
 func (cfg *NamespaceAddConfig) ValidateNamespaces(ctx context.Context, nsList []string) error {
-	if err := validateNamespaceNames(nsList); err != nil {
+	var k kubernetes.KubernetesConnector
+	var err error
+	// SystemNamespace is set upon `everestctl install --system-namespace`.
+	// During install, no Helm release exists yet, so we cannot discover the
+	// namespace and must pass the flag value directly.
+	if cfg.Update {
+		k, err = cliutils.NewKubeConnector(zap.NewNop().Sugar(), cfg.KubeconfigPath)
+	} else {
+		k, err = kubernetes.New(cfg.KubeconfigPath, zap.NewNop().Sugar(), cfg.SystemNamespace)
+	}
+
+	if err != nil {
 		return err
 	}
 
-	k, err := cliutils.NewKubeConnector(zap.NewNop().Sugar(), cfg.KubeconfigPath)
-	if err != nil {
+	if err := validateNamespaceNames(nsList, k.Namespace()); err != nil {
 		return err
 	}
 
@@ -281,7 +295,17 @@ func NewNamespaceAdd(c NamespaceAddConfig, l *zap.SugaredLogger) (*NamespaceAdde
 		n.l = zap.NewNop().Sugar()
 	}
 
-	k, err := cliutils.NewKubeConnector(n.l, c.KubeconfigPath)
+	var k kubernetes.KubernetesConnector
+	var err error
+	// SystemNamespace is set upon `everestctl install --system-namespace`.
+	// During install, no Helm release exists yet, so we cannot discover the
+	// namespace and must pass the flag value directly.
+	if c.SystemNamespace != "" {
+		k, err = kubernetes.New(c.KubeconfigPath, n.l, c.SystemNamespace)
+	} else {
+		k, err = cliutils.NewKubeConnector(n.l, c.KubeconfigPath)
+	}
+
 	if err != nil {
 		return nil, err
 	}

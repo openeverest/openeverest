@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -163,7 +164,7 @@ func (u *Uninstall) newUninstallSteps(nsList *corev1.NamespaceList) []steps.Step
 
 	uninstallSteps = append(uninstallSteps, u.newStepUninstallHelmChart())
 	uninstallSteps = append(uninstallSteps, u.newStepDeleteNamespace(common.MonitoringNamespace))
-	uninstallSteps = append(uninstallSteps, u.newStepDeleteNamespace(common.SystemNamespace))
+	uninstallSteps = append(uninstallSteps, u.newStepDeleteNamespace(u.kubeConnector.Namespace()))
 	uninstallSteps = append(uninstallSteps, u.newStepDeleteCRDs())
 	return uninstallSteps
 }

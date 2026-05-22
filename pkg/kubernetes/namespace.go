@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2025 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -51,7 +52,7 @@ func (k *Kubernetes) GetDBNamespaces(ctx context.Context, opts ...ctrlclient.Lis
 		return nil, errors.Join(err, errors.New("failed to get managed namespaces"))
 	}
 
-	internalNs := []string{common.SystemNamespace, common.MonitoringNamespace}
+	internalNs := []string{k.Namespace(), common.MonitoringNamespace}
 	// filter out Everest system and monitoring namespaces.
 	result.Items = slices.DeleteFunc(result.Items, func(ns corev1.Namespace) bool {
 		return slices.Contains(internalNs, ns.Name)

@@ -237,8 +237,8 @@ components:
             config:
               description: |-
                 Config contains the OpenAPI v3 schema describing the backup-time
-                configuration accepted by this class. Backup.spec.config is validated
-                against this schema.
+                configuration accepted by this class. Backup.spec.config and
+                InstanceBackupSchedule.config are both validated against this schema.
               properties:
                 openAPIV3Schema:
                   description: OpenAPIV3Schema is the OpenAPI v3 schema of the backup
@@ -421,6 +421,50 @@ components:
                 dialect) without forcing a CRD change. Must be unset when
                 ExecutionMode is "Job".
               properties:
+                limits:
+                  description: |-
+                    Limits caps how many storages, PITR-enabled storages, and schedules per
+                    storage an Instance may declare under .spec.backup when this class is
+                    selected. Unset fields mean "unlimited" (still subject to the core
+                    MaxItems ceilings on InstanceBackupSpec). The runtime enforces these
+                    caps both at admission time (provider validation webhook) and before
+                    dispatching ConfigureBackup; providers may add engine-specific
+                    constraints on top via Context.BackupClassLimits().
+                  properties:
+                    maxPITREnabledStorages:
+                      description: |-
+                        MaxPITREnabledStorages is the maximum number of storages on an Instance
+                        that may set .pitr.enabled=true at the same time. Engines that support
+                        a single PITR stream (e.g. PSMDB, PXC) declare 1 here. Engines that
+                        archive WAL to every repo (e.g. PG) leave this unset.
+                      format: int32
+                      minimum: 0
+                      type: integer
+                    maxSchedulesPerStorage:
+                      description: |-
+                        MaxSchedulesPerStorage is the maximum number of recurring schedules
+                        allowed per Instance storage entry.
+                      format: int32
+                      minimum: 0
+                      type: integer
+                    maxStorages:
+                      description: |-
+                        MaxStorages is the maximum number of entries allowed in
+                        Instance.spec.backup.storages.
+                      format: int32
+                      minimum: 1
+                      type: integer
+                  type: object
+                pitrConfigSchema:
+                  description: |-
+                    PITRConfigSchema describes the shape of per-storage PITR custom config
+                    (InstanceBackupStoragePITR.Config). The field is free-form and opaque
+                    to the runtime; the provider validates Instance.spec.backup PITR
+                    payloads against it inside Validate(). The recommended payload is an
+                    OpenAPI v3 schema fragment so the UI can render a matching form, but
+                    any provider-specific dialect is permitted.
+                  type: object
+                  x-kubernetes-preserve-unknown-fields: true
                 supportsPITR:
                   description: |-
                     SupportsPITR indicates whether this class supports point-in-time recovery.
@@ -588,6 +632,15 @@ components:
               items:
                 type: string
               type: array
+            uiSchema:
+              description: |-
+                UISchema contains free-form rendering hints for the frontend forms that
+                configure backup, restore, and PITR for an Instance using this class.
+                The runtime treats this field as opaque; only the UI consumes it. The
+                recommended shape groups fields by the modal that renders them
+                (e.g. "backup", "pitr", "restore"), mirroring Provider.spec.uiSchema.
+              type: object
+              x-kubernetes-preserve-unknown-fields: true
           required:
           - executionMode
           type: object
@@ -917,11 +970,6 @@ components:
                       InstanceBackupStorage registers a BackupStorage on the Instance and
                       carries the backup policy (schedules, PITR) that targets it.
                     properties:
-                      main:
-                        description: |-
-                          Main marks this storage as the engine's default. At most one storage
-                          per Instance may be marked main.
-                        type: boolean
                       name:
                         description: |-
                           Name is the logical name the engine uses for this storage. It is also
@@ -965,6 +1013,14 @@ components:
                             backups are mirrored back into Backup CRs by the provider, sharing the
                             operator backup's name.
                           properties:
+                            config:
+                              description: |-
+                                Config is schedule-specific configuration validated against the
+                                BackupClass's .spec.scheduleConfig.openAPIV3Schema. When unset the
+                                provider falls back to engine defaults. The schema is the same as for
+                                Backup.spec.config but applied per-schedule rather than per-backup-run.
+                              type: object
+                              x-kubernetes-preserve-unknown-fields: true
                             cron:
                               description: |-
                                 Cron is a standard 5-field cron expression. The provider may reject
@@ -1178,6 +1234,36 @@ components:
                 The keys are component names (e.g., "engine", "proxy", "backupAgent").
                 Which components are valid depends on the selected topology.
               type: object
+            deletionPolicy:
+              allOf:
+              - enum:
+                - Cascade
+                - Orphan
+              - enum:
+                - Cascade
+                - Orphan
+              default: Cascade
+              description: |-
+                DeletionPolicy controls what happens to Backup and Restore CRs that
+                reference this Instance when the Instance is deleted.
+                Cascade (default) instructs the runtime to delete every Backup and
+                Restore in the Instance's namespace whose .spec.instanceName matches
+                this Instance before tearing down the engine. Each Backup's own
+                .spec.deletionPolicy then independently controls whether its
+                underlying data in the BackupStorage is purged or retained.
+                Orphan instructs the runtime to leave Backup and Restore CRs in
+                place; they survive the Instance deletion and can later be used to
+                restore into a newly-created Instance.
+
+                The Instance is held in the Terminating phase until all referenced
+                Backups/Restores have been deleted (Cascade) or until the engine
+                resources have been torn down (both policies).
+
+                The field is mutable on a live Instance but is frozen once deletion
+                has started: switching policies after .metadata.deletionTimestamp
+                has been set is rejected so the cascade path cannot race with
+                itself.
+              type: string
             global:
               description: |-
                 Global contains provider-level configuration that applies to the entire cluster.
@@ -1454,31 +1540,42 @@ components:
         spec:
           description: spec defines the desired state of MonitoringConfig
           properties:
-            credentialsSecretName:
+            pmm:
               description: |-
-                CredentialsSecretName is the reference to the secret containing the API key.
-                It contains `apiKey` key with the API key value.
-              type: string
+                PMM contains PMM-specific monitoring configuration.
+                Required when type is "pmm".
+              properties:
+                credentialsSecretName:
+                  description: |-
+                    CredentialsSecretName is the reference to the secret containing the API key.
+                    It contains `apiKey` key with the API key value.
+                  type: string
+                url:
+                  description: URL is the URL of the PMM server.
+                  type: string
+                verifyTLS:
+                  default: true
+                  description: |-
+                    VerifyTLS is set to ensure TLS/SSL verification.
+                    If unspecified, the default value is true.
+                  type: boolean
+              required:
+              - credentialsSecretName
+              - url
+              type: object
             type:
               description: Type is the name of monitoring tool (e.g., "pmm").
               enum:
               - pmm
               type: string
-            url:
-              description: URL is the URL of the monitoring server (e.g., PMM server
-                URL).
-              type: string
-            verifyTLS:
-              default: true
-              description: |-
-                VerifyTLS is set to ensure TLS/SSL verification.
-                If unspecified, the default value is true.
-              type: boolean
           required:
-          - credentialsSecretName
           - type
-          - url
           type: object
+          x-kubernetes-validations:
+          - message: pmm config is required when type is pmm
+            rule: self.type != 'pmm' || has(self.pmm)
+          - message: pmm config is only allowed when type is pmm
+            rule: '!has(self.pmm) || self.type == ''pmm'''
         status:
           default:
             inUse: false
@@ -1494,9 +1591,13 @@ components:
                 for this MonitoringConfig.
               format: int64
               type: integer
-            pmmServerVersion:
-              description: PMMServerVersion shows PMM server version.
-              type: string
+            pmm:
+              description: PMM contains PMM-specific status information.
+              properties:
+                serverVersion:
+                  description: ServerVersion shows the PMM server version.
+                  type: string
+              type: object
           type: object
       required:
       - spec

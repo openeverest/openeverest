@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -73,6 +74,8 @@ type EverestServer struct {
 	eventHub      *events.Hub
 }
 
+var errFailedToReadRequestBody = errors.New("failed to read request body")
+
 func getOIDCProviderConfig(ctx context.Context, kubeClient kubernetes.KubernetesConnector) (*oidc.ProviderConfig, error) {
 	settings, err := kubeClient.GetEverestSettings(ctx)
 	if client.IgnoreNotFound(err) != nil {
@@ -98,7 +101,7 @@ func getOIDCProviderConfig(ctx context.Context, kubeClient kubernetes.Kubernetes
 
 // NewEverestServer creates and configures everest API.
 func NewEverestServer(ctx context.Context, c *config.EverestConfig, l *zap.SugaredLogger) (*EverestServer, error) {
-	kubeConnector, err := kubernetes.NewInCluster(l, ctx, nil)
+	kubeConnector, err := kubernetes.NewInCluster(l, ctx, nil, c.Namespace)
 	if err != nil {
 		return nil, errors.Join(err, errors.New("failed creating Kubernetes client"))
 	}
@@ -115,12 +118,12 @@ func NewEverestServer(ctx context.Context, c *config.EverestConfig, l *zap.Sugar
 	middleware, store := sessionRateLimiter(c.CreateSessionRateLimit)
 	echoServer.Use(middleware)
 
-	sessionManagerClient, err := createSessionManagerClient(ctx, l)
+	sessionManagerClient, err := createSessionManagerClient(ctx, l, kubeConnector.Namespace())
 	if err != nil {
 		return nil, errors.Join(err, errors.New("failed creating session manager client"))
 	}
 	sessMgr, err := session.New(
-		ctx, l,
+		ctx, l, kubeConnector.Namespace(),
 		session.WithAccountManager(sessionManagerClient),
 	)
 	if err != nil {
@@ -537,9 +540,9 @@ func trimWebhookErrorText(fullText string) string {
 }
 
 // createSessionManagerClient creates a k8s client for a session manager.
-func createSessionManagerClient(ctx context.Context, l *zap.SugaredLogger) (accounts.Interface, error) {
-	sessionMgrClientCacheOptions := session.ClientCacheOptions()
-	sessionMgrClient, err := kubernetes.NewInCluster(l, ctx, sessionMgrClientCacheOptions)
+func createSessionManagerClient(ctx context.Context, l *zap.SugaredLogger, namespace string) (accounts.Interface, error) {
+	sessionMgrClientCacheOptions := session.ClientCacheOptions(namespace)
+	sessionMgrClient, err := kubernetes.NewInCluster(l, ctx, sessionMgrClientCacheOptions, namespace)
 	if err != nil {
 		return nil, err
 	}

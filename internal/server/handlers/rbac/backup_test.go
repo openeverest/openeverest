@@ -43,7 +43,7 @@ func TestRBAC_Backup(t *testing.T) {
 			&backupv1alpha1.Backup{ObjectMeta: metav1.ObjectMeta{Name: "backup-1", Namespace: "ns1"}},
 			nil,
 		)
-		h.On("DeleteBackup", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+		h.On("DeleteBackup", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 		return h
 	}
 
@@ -265,7 +265,7 @@ func TestRBAC_Backup(t *testing.T) {
 					userGetter: testUserGetter,
 				}
 
-				err = h.DeleteBackup(ctx, tc.cluster, "ns1", "backup-1")
+				err = h.DeleteBackup(ctx, tc.cluster, "ns1", "backup-1", nil)
 				if tc.wantErr != nil {
 					require.ErrorIs(t, err, tc.wantErr)
 				} else {
