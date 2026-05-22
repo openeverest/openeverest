@@ -16,7 +16,7 @@ import { ListItemProps } from '@mui/material';
 
 export type NavItemProps = {
   open: boolean;
-  icon: React.ElementType;
+  icon: React.ElementType | string;
   text: string;
   to: string;
   onClick: () => void;

@@ -66,15 +66,17 @@ print('Using PSMDB Provider chart dir: {0}'.format(psmdb_provider_chart_dir))
 psmdb_provider_dir = os.path.dirname(os.path.dirname(psmdb_provider_chart_dir))
 print('Using PSMDB Provider dir: {0}'.format(psmdb_provider_dir))
 
-# Optional: Hello Plugin (external repo)
-hello_plugin_dir = os.getenv('HELLO_PLUGIN_DIR', '')
-if hello_plugin_dir:
-    hello_plugin_dir = os.path.realpath(hello_plugin_dir)
-    if not os.path.exists(hello_plugin_dir):
-        fail('Hello Plugin dir does not exist: {0}'.format(hello_plugin_dir))
-    print('Using Hello Plugin dir: {0}'.format(hello_plugin_dir))
+# Optional: Hello Plugin (installed from OCI Helm chart)
+# Set HELLO_PLUGIN_CHART to the OCI chart reference, e.g.:
+#   export HELLO_PLUGIN_CHART=oci://ghcr.io/openeverest/generic-plugin-template
+# Optionally set HELLO_PLUGIN_VERSION to pin a version (defaults to latest).
+hello_plugin_chart = os.getenv('HELLO_PLUGIN_CHART', '')
+hello_plugin_version = os.getenv('HELLO_PLUGIN_VERSION', '')
+if hello_plugin_chart:
+    print('Using Hello Plugin chart: {0} (version: {1})'.format(
+        hello_plugin_chart, hello_plugin_version or 'latest'))
 else:
-    print('HELLO_PLUGIN_DIR not set — skipping hello plugin')
+    print('HELLO_PLUGIN_CHART not set — skipping hello plugin')
 
 # Optional env vars
 pxc_operator_version = os.getenv('PXC_OPERATOR_VERSION', '1.19.0')
@@ -935,55 +937,26 @@ k8s_resource(
 ######## Hello Plugin PoC #######
 #################################
 
-if hello_plugin_dir:
-    hello_plugin_sdk_dir = '{0}/ui/packages/plugin-sdk'.format(backend_dir)
-
-    # Build the hello plugin with npm (ensure SDK types are built first)
+if hello_plugin_chart:
+    # Install the hello plugin from an OCI Helm chart registry.
+    # Usage:
+    #   export HELLO_PLUGIN_CHART=oci://ghcr.io/openeverest/generic-plugin-template
+    #   export HELLO_PLUGIN_VERSION=0.1.0  # optional, omit for latest
+    #
+    # If your registry requires authentication, log in first:
+    #   helm registry login ghcr.io -u <user> -p <token>
+    version_flag = '--version {0}'.format(hello_plugin_version) if hello_plugin_version else ''
     local_resource(
-      'hello-plugin-build',
-      'cd {0} && pnpm --filter @openeverest/plugin-sdk build && cd {1} && npm install && npx vite build'.format(
-        frontend_dir, hello_plugin_dir,
+      'hello-plugin-install',
+      'helm upgrade --install my-plugin {chart} {version} -n {ns} --wait'.format(
+        chart=hello_plugin_chart,
+        version=version_flag,
+        ns=EVEREST_NAMESPACE,
       ),
-      deps=[
-        '{0}/src'.format(hello_plugin_dir),
-        '{0}/package.json'.format(hello_plugin_dir),
-        '{0}/vite.config.ts'.format(hello_plugin_dir),
-        '{0}/src'.format(hello_plugin_sdk_dir),
-      ],
-      resource_deps=['frontend-init'],
-      labels=["plugins"],
-    )
-
-    # Build the hello plugin Docker image — only copy the pre-built dist/ output
-    docker_build(
-      'hello-plugin:dev',
-      context=hello_plugin_dir,
-      dockerfile='{0}/Dockerfile'.format(hello_plugin_dir),
-      only=['{0}/dist'.format(hello_plugin_dir)],
-      live_update=[
-        sync('{0}/dist'.format(hello_plugin_dir), '/app/dist'),
-      ]
-    )
-
-    # Deploy from the Helm chart templates
-    k8s_yaml(helm(
-      '{0}/charts/plugin-hello'.format(hello_plugin_dir),
-      name='hello',
-      namespace=EVEREST_NAMESPACE,
-      set=[
-        'image.repository=hello-plugin',
-        'image.tag=dev',
-        'image.pullPolicy=Never',
-      ],
-    ))
-    k8s_resource(
-      workload='hello-plugin-hello',
       resource_deps=[
         'everest-namespace',
         'crds',
-        'hello-plugin-build',
       ],
-      new_name='hello-plugin-deploy',
       labels=["plugins"],
     )
 
@@ -1075,6 +1048,7 @@ k8s_resource(
     'instances.core.openeverest.io:customresourcedefinition',
     'monitoringconfigs.monitoring.openeverest.io:customresourcedefinition',
     'plugins.core.openeverest.io:customresourcedefinition',
+    'plugininstallations.core.openeverest.io:customresourcedefinition',
     'providers.core.openeverest.io:customresourcedefinition',
     'restores.backup.openeverest.io:customresourcedefinition'
   ],

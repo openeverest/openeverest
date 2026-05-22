@@ -46,7 +46,11 @@ export const NavItem = ({
               justifyContent: 'center',
             }}
           >
-            {React.createElement(icon)}
+            {typeof icon === 'string' ? (
+              <img src={icon} alt="" width={24} height={24} />
+            ) : (
+              React.createElement(icon)
+            )}
           </ListItemIcon>
 
           <ListItemText primary={text} />
@@ -62,7 +66,11 @@ export const NavItem = ({
         >
           <Tooltip title={text} placement="right" arrow>
             <IconButton onClick={() => redirect(to)}>
-              {React.createElement(icon)}
+              {typeof icon === 'string' ? (
+                <img src={icon} alt="" width={24} height={24} />
+              ) : (
+                React.createElement(icon)
+              )}
             </IconButton>
           </Tooltip>
         </Box>

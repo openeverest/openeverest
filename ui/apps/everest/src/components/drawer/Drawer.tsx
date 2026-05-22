@@ -53,7 +53,7 @@ const DrawerContent = ({ open }: { open: boolean }) => {
         .map((ext) => ({
           to: `/plugins/${plugin.name}`,
           text: ext.label,
-          icon: ExtensionIcon,
+          icon: ext.icon || ExtensionIcon,
         }))
     );
     return [...ROUTES, ...pluginRoutes];

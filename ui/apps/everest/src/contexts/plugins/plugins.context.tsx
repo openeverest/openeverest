@@ -113,6 +113,23 @@ export const PluginProvider = ({ children }: { children: ReactNode }) => {
               : undefined;
             const pluginApi = createPluginApi(descriptor.name, registrations, allowedTypes);
             registerFn(pluginApi);
+
+            // Forward icon from the CRD descriptor into registered sidebarItem extensions.
+            // The plugin bundle may not include the icon, so we fill it in from the descriptor.
+            // The backend already resolves relative paths to full proxy URLs.
+            const registration = registrations[registrations.length - 1];
+            if (registration && descriptor.extensionPoints?.length) {
+              for (const ext of registration.extensions) {
+                if (ext.type === 'sidebarItem' && !ext.icon) {
+                  const match = descriptor.extensionPoints.find(
+                    (ep) => ep.type === 'sidebarItem' && ep.label === ext.label
+                  );
+                  if (match?.icon) {
+                    ext.icon = match.icon;
+                  }
+                }
+              }
+            }
           }
         } catch (err) {
           console.error(`[plugins] Failed to load plugin "${descriptor.name}":`, err);

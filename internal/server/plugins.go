@@ -185,7 +185,7 @@ func (pp *pluginProxy) listPluginsHandler(c echo.Context) error {
 					Type:      ep.Type,
 					Label:     ep.Label,
 					Path:      ep.Path,
-					Icon:      ep.Icon,
+					Icon:      resolvePluginAssetPath(p.Name, ep.Icon),
 					Providers: ep.Providers,
 				})
 			}
@@ -196,12 +196,31 @@ func (pp *pluginProxy) listPluginsHandler(c echo.Context) error {
 			Description:     p.Spec.Description,
 			Version:         p.Spec.Version,
 			Vendor:          p.Spec.Vendor,
-			Icon:            p.Spec.Icon,
+			Icon:            resolvePluginAssetPath(p.Name, p.Spec.Icon),
 			BundleURL:       path.Join("/v1/plugins", p.Name, bundlePath),
 			ExtensionPoints: extPoints,
 		})
 	}
 	return c.JSON(http.StatusOK, descriptors)
+}
+
+// resolvePluginAssetPath resolves a relative asset path (e.g. "/icon.png") to
+// the full plugin proxy URL (e.g. "/v1/plugins/my-plugin/icon.png").
+// Absolute URLs (http://, https://) and data URIs are returned unchanged.
+// Empty strings are returned as-is.
+func resolvePluginAssetPath(pluginName, assetPath string) string {
+	if assetPath == "" {
+		return ""
+	}
+	// Already absolute URL or data URI — return unchanged.
+	if strings.HasPrefix(assetPath, "http://") ||
+		strings.HasPrefix(assetPath, "https://") ||
+		strings.HasPrefix(assetPath, "data:") ||
+		strings.HasPrefix(assetPath, "/v1/plugins/") {
+		return assetPath
+	}
+	// Relative path — prefix with plugin proxy base.
+	return path.Join("/v1/plugins", pluginName, assetPath)
 }
 
 // proxyHandler reverse-proxies requests to a plugin's backend (no RBAC).

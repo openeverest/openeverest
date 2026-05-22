@@ -18,7 +18,7 @@ export interface SidebarExtension {
   type: "sidebarItem";
   /** Text shown in the sidebar */
   label: string;
-  /** Optional MUI icon name (future: allow custom icon components) */
+  /** Optional icon URL (absolute or relative path to a PNG/SVG image). */
   icon?: string;
 }
 

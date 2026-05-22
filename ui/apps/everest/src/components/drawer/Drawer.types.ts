@@ -22,5 +22,5 @@ export interface DrawerContextProps {
 export type EverestRoute = {
   to: string;
   text: string;
-  icon: React.ElementType;
+  icon: React.ElementType | string;
 };
