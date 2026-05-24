@@ -1,0 +1,264 @@
+---
+name: Release v2
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "The RC/Release version, format: X.Y.Z-rcN for RC, X.Y.Z for releases"
+        required: true
+
+permissions:
+  contents: read
+  packages: read
+
+env:
+  GONOPROXY: 'github.com/percona'
+  GONOSUMDB: 'github.com/percona'
+  GOPRIVATE: 'github.com/percona'
+  GOCACHE: '/mnt/go_cache'
+  GOMODCACHE: '/mnt/go_mod_cache'
+  REGISTRY: ghcr.io
+
+jobs:
+  build:
+    name: Build (${{ matrix.arch }})
+    
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-latest
+            platform: linux/amd64
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+            platform: linux/arm64
+    
+    runs-on: ${{ matrix.runner }}
+    permissions:
+      contents: write
+      packages: write
+      id-token: write
+      attestations: write
+    
+    env:
+      TOOLS_PATH: "/opt/tools/bin"
+      VERSION: ${{ github.event.inputs.version }}
+      # version in format "X.Y" which is going to be updated with each patch release
+      FLOATING_TAG: ""
+      # branch name in format "release-X.Y"
+      BRANCH_NAME: ""
+      # GitHub tag name to use for the RC/Release
+      GH_TAG: ""
+      # Shows if this workflow is triggered for RC or Release
+      IS_RC: 0
+      ARCH: ""
+      OS: ""
+      IMAGE_PREFIX: 'ghcr.io/openeverest'
+      EVEREST_SERVER_IMAGE_NAME: 'openeverest'
+      EVEREST_SERVER_DEV_IMAGE_NAME: 'openeverest-dev'
+    steps:
+      - name: Enable /mnt (big volume) to be used by runner
+        run: |
+          sudo chown -v runner:runner /mnt
+
+      - name: Validate input
+        run: |
+          if [[ ! $VERSION =~ ^[0-9]+\.[0-9]+\.[0-9]+(-rc[1-9][0-9]*)?$ ]]; then
+            echo "Wrong version format provided, please use "X.Y.Z-rcN" format for an RC or "X.Y.Z" format for a release"
+            exit 1
+          fi
+
+      - name: Set environment variables
+        run: |
+          floating_tag=${VERSION%.*}
+          echo "FLOATING_TAG=$floating_tag" >> $GITHUB_ENV
+          echo "BRANCH_NAME=release-$floating_tag" >> $GITHUB_ENV
+          echo "GH_TAG=v$VERSION" >> $GITHUB_ENV
+          if [[ ! $VERSION =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "IS_RC=1" >> $GITHUB_ENV
+          fi
+          echo "ARCH=$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/')" >> $GITHUB_ENV
+          echo "OS=$(uname | awk '{print tolower($0)}')" >> $GITHUB_ENV
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@4d04d5d9486b7bd6fa91e7baf45bbb4f8b9deedd # v4.0.0
+
+      - name: Everest - check out
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          token: ${{ secrets.ROBOT_TOKEN }}
+
+      - name: Set up Go release
+        uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6.4.0
+        with:
+          go-version-file: "./go.mod"
+          cache: true
+
+      - name: Everest - create and update release branch
+        if: matrix.arch == 'amd64'
+        run: |
+          # Check if the branch already exists
+          git fetch
+          check_branch=$(git ls-remote --heads origin ${BRANCH_NAME})
+
+          if [[ -z ${check_branch} ]]; then
+            git checkout -b $BRANCH_NAME
+            git push origin $BRANCH_NAME
+          fi
+          git checkout $BRANCH_NAME
+
+          # Change version in Makefile
+          sed -i "s/RELEASE_VERSION ?=.*/RELEASE_VERSION ?= v$VERSION/g" Makefile
+
+          # if there is something to commit, commit it and add the tag 
+          if [[ -n $(git status --porcelain) ]]; then
+            if git tag --list | grep -q "^$GH_TAG$"; then
+              echo "The tag is already present in github. Please create a different RC/Release"
+              exit 1
+            fi
+            # configure userdata for commits
+            git config --global user.email "everest-ci@percona.com"
+            git config --global user.name "Everest RC CI triggered by ${{ github.actor }}"
+
+            # commit and push the updated files
+            git commit -a -m "update version tag"
+            git push origin $BRANCH_NAME
+
+            git tag $GH_TAG
+            git push origin $GH_TAG
+          fi
+
+      - name: Everest UI - setup pnpm
+        uses: pnpm/action-setup@8912a9102ac27614460f54aedde9e1e7f9aec20d # v6.0.5
+        with:
+          version: 9.4.0
+
+      - name: Everest UI - run with Node 20
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: 20.x
+          cache: "pnpm"
+          cache-dependency-path: ui/pnpm-lock.yaml
+
+      - name: Everest UI - build
+        run: |
+          cd ui
+          pnpm install
+          EVEREST_OUT_DIR=${GITHUB_WORKSPACE}/public/dist/ pnpm build
+
+      - name: Everest - build binary
+        run: |
+          if [[ $IS_RC == 1 ]]; then 
+            CGO_ENABLED=0 GOOS=linux GOARCH=${{ matrix.arch }} make rc
+          else
+            CGO_ENABLED=0 GOOS=linux GOARCH=${{ matrix.arch }} make release
+          fi
+
+      - name: Everest - setup docker build metadata
+        uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051 # v5.10.0
+        id: everest_meta
+        with:
+          images: |
+            ${{ env.IMAGE_PREFIX }}/${{ env.EVEREST_SERVER_IMAGE_NAME }},enable=${{ env.IS_RC == 0 }}
+            ${{ env.IMAGE_PREFIX }}/${{ env.EVEREST_SERVER_DEV_IMAGE_NAME }}
+          tags: |
+            type=raw,value=${{ env.VERSION }}-${{ matrix.arch }}
+            type=raw,value=latest-${{ matrix.arch }}
+            type=raw,value=${{ env.FLOATING_TAG }}-${{ matrix.arch }},enable=${{ env.IS_RC == 0 }}
+
+      - name: Everest - build Everest image
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
+        with:
+          context: .
+          push: false
+          provenance: false
+          platforms: ${{ matrix.platform }}
+          tags: ${{ steps.everest_meta.outputs.tags }}
+
+
+      - name: Everest - push Everest image
+        id: everest_push
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
+        with:
+          context: .
+          push: true
+          provenance: false
+          platforms: ${{ matrix.platform }}
+          tags: ${{ steps.everest_meta.outputs.tags }}
+
+      - name: Everest - attest Everest image
+        uses: actions/attest-build-provenance@a2bbfa25375fe432b6a289bc6b6cd05ecd0c4c32 # v4.1.0
+        with:
+          subject-name: ${{ env.IMAGE_PREFIX }}/${{ env.EVEREST_SERVER_DEV_IMAGE_NAME }}
+          subject-digest: ${{ steps.everest_push.outputs.digest }}
+          push-to-registry: true
+
+      - name: Everest - attest Everest prod image
+        if: env.IS_RC == 0
+        uses: actions/attest-build-provenance@a2bbfa25375fe432b6a289bc6b6cd05ecd0c4c32 # v4.1.0
+        with:
+          subject-name: ${{ env.IMAGE_PREFIX }}/${{ env.EVEREST_SERVER_IMAGE_NAME }}
+          subject-digest: ${{ steps.everest_push.outputs.digest }}
+          push-to-registry: true
+
+
+  create-manifests:
+    name: Create multi-arch manifests
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    
+    env:
+      REGISTRY: ghcr.io
+      IMAGE_PREFIX: 'ghcr.io/openeverest'
+      VERSION: ${{ github.event.inputs.version }}
+      IS_RC: ${{ contains(github.event.inputs.version, '-rc') }}
+
+    steps:
+      - name: Set environment variables
+        run: |
+          floating_tag=${VERSION%.*}
+          echo "FLOATING_TAG=$floating_tag" >> $GITHUB_ENV
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create and push multi-arch manifests
+        run: |
+          # Determine image names based on RC or Release
+          if [[ "$IS_RC" == "true" ]]; then
+            EVEREST_IMAGE="openeverest-dev"
+          else
+            EVEREST_IMAGE="openeverest"
+          fi
+          
+          # Everest - version tag
+          docker buildx imagetools create -t $IMAGE_PREFIX/$EVEREST_IMAGE:$VERSION \
+            $IMAGE_PREFIX/$EVEREST_IMAGE:$VERSION-amd64 \
+            $IMAGE_PREFIX/$EVEREST_IMAGE:$VERSION-arm64
+          
+          # Everest - latest tag
+          docker buildx imagetools create -t $IMAGE_PREFIX/$EVEREST_IMAGE:latest \
+            $IMAGE_PREFIX/$EVEREST_IMAGE:latest-amd64 \
+            $IMAGE_PREFIX/$EVEREST_IMAGE:latest-arm64
+          
+          # Everest - floating tag (only for releases)
+          if [[ "$IS_RC" != "true" ]]; then
+            docker buildx imagetools create -t $IMAGE_PREFIX/$EVEREST_IMAGE:$FLOATING_TAG \
+              $IMAGE_PREFIX/$EVEREST_IMAGE:$FLOATING_TAG-amd64 \
+              $IMAGE_PREFIX/$EVEREST_IMAGE:$FLOATING_TAG-arm64
+          fi

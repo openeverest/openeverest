@@ -1,0 +1,246 @@
+---
+name: Feature build v2
+on:
+  workflow_dispatch:
+    inputs:
+      everest_branch:
+        required: false
+        default: v2
+        description: "Everest branch with the feature to checkout"
+      helm_branch:
+        required: false
+        default: v2
+        description: "Helm charts branch with the feature to checkout"
+      artifacts_retention_days:
+        required: false
+        description: "How many days the artifacts will be stored in GitHub"
+        default: 30
+  workflow_call:
+    inputs:
+      everest_branch:
+        required: false
+        type: string
+        default: v2
+        description: "Everest branch with the feature to checkout"
+      helm_branch:
+        required: false
+        type: string
+        default: v2
+        description: "Helm charts branch with the feature to checkout"
+      artifacts_retention_days:
+        required: false
+        type: number
+        description: "How many days the artifacts will be stored in GitHub"
+        default: 30
+
+
+permissions:
+  contents: read
+  packages: read
+
+env:
+  GONOPROXY: 'github.com/percona'
+  GONOSUMDB: 'github.com/percona'
+  GOPRIVATE: 'github.com/percona'
+  GOCACHE: '/mnt/go_cache'
+  GOMODCACHE: '/mnt/go_mod_cache'
+  REGISTRY: ghcr.io
+
+jobs:
+  prepare:
+    name: Prepare build metadata
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.set_version.outputs.version }}
+      version_tag: ${{ steps.set_version.outputs.version_tag }}
+    steps:
+      - name: Generate version
+        id: set_version
+        run: |
+          TIMESTAMP=$(date +'%Y%m%d%H%M%S')
+          V="2.10000.0-rc$TIMESTAMP"
+          echo "version=$V" >> $GITHUB_OUTPUT
+          echo "version_tag=v$V" >> $GITHUB_OUTPUT
+
+  build:
+    name: Build (${{ matrix.arch }})
+    needs: prepare
+    timeout-minutes: 90
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-latest
+            platform: linux/amd64
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+            platform: linux/arm64
+
+    runs-on: ${{ matrix.runner }}
+    permissions:
+      contents: read
+      packages: write
+
+    env:
+      TOOLS_PATH: "/opt/tools/bin"
+      ARTIFACTS_RETENTION_DAYS: ${{ inputs.artifacts_retention_days }}
+      HELM_BRANCH: ${{ inputs.helm_branch }}
+      EVEREST_BRANCH: ${{ inputs.everest_branch }}
+
+      IMAGE_PREFIX: 'ghcr.io/openeverest'
+      EVEREST_SERVER_DEV_IMAGE_NAME: 'openeverest-dev'
+
+      ARCH: ""
+      OS: ""
+      VERSION: ""
+      VERSION_TAG: ""
+
+    steps:
+
+      - name: Enable /mnt (big volume) to be used by runner
+        run: |
+          sudo chown -v runner:runner /mnt
+
+      - name: Input validation
+        run: |
+          if [[ ! "$ARTIFACTS_RETENTION_DAYS" =~ ^[0-9]+$ ]]; then
+            echo "Wrong artifacts_retention_days format. Use an integer number. 0 means default GitHub repo settings."
+            exit 1
+          fi
+          
+      - name: Set environment variables
+        id: set_env
+        run: |
+          echo "ARCH=$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/')" | tee -a $GITHUB_ENV
+          echo "OS=$(uname | awk '{print tolower($0)}')" | tee -a $GITHUB_ENV
+          
+          # Use version from prepare job
+          echo "VERSION=${{ needs.prepare.outputs.version }}" | tee -a $GITHUB_ENV
+          echo "VERSION_TAG=${{ needs.prepare.outputs.version_tag }}" | tee -a $GITHUB_ENV
+
+          # Fall back to default branch if the specified branch does not exist
+          git ls-remote --heads --exit-code --quiet https://github.com/openeverest/helm-charts.git $HELM_BRANCH > /dev/null || echo "HELM_BRANCH=v2" | tee -a $GITHUB_ENV
+          git ls-remote --heads --exit-code --quiet https://github.com/openeverest/openeverest.git $EVEREST_BRANCH > /dev/null || echo "EVEREST_BRANCH=v2" | tee -a $GITHUB_ENV
+
+      - name: Create temporary directory for storing artifacts
+        run: |
+          mkdir -p /tmp/${VERSION}
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@4d04d5d9486b7bd6fa91e7baf45bbb4f8b9deedd # v4.0.0
+
+      - name: Helm - checkout
+        if: matrix.arch == 'amd64'
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          repository: openeverest/helm-charts
+          ref: ${{ env.HELM_BRANCH }}
+          path: helm-charts
+          token: ${{ secrets.ROBOT_TOKEN }}
+
+      - name: Helm - build
+        if: matrix.arch == 'amd64'
+        run: |
+          cd helm-charts/charts/everest
+          CRD_VERSION=${{ env.VERSION_TAG }} VERSION=${{ env.VERSION }} make crds-gen link-crds
+          make release-dev
+
+      - name: Helm - copy chart
+        if: matrix.arch == 'amd64'
+        run: |
+          cp -r helm-charts/charts/everest /tmp/${{ env.VERSION }}/helm-chart
+
+
+      - name: Everest - check out
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          token: ${{ secrets.ROBOT_TOKEN }}
+          ref: ${{ env.EVEREST_BRANCH }}
+
+      - name: Set up Go release
+        uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6.4.0
+        with:
+          go-version-file: "./go.mod"
+          cache: true
+
+      - name: Everest UI - setup pnpm
+        uses: pnpm/action-setup@8912a9102ac27614460f54aedde9e1e7f9aec20d # v6.0.5
+        with:
+          version: 9.4.0
+
+      - name: Everest UI - run with Node 20
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: 20.x
+          cache: "pnpm"
+          cache-dependency-path: ui/pnpm-lock.yaml
+
+      - name: Everest UI - build
+        run: |
+          cd ui
+          pnpm install
+          EVEREST_OUT_DIR=${GITHUB_WORKSPACE}/public/dist/ pnpm build
+
+      - name: Everest - build binary
+        run: |
+          RELEASE_VERSION=${VERSION_TAG} CGO_ENABLED=0 GOOS=linux GOARCH=${{ matrix.arch }} make rc
+
+      - name: Everest - push Everest image
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
+        with:
+          context: .
+          push: true
+          provenance: false
+          platforms: ${{ matrix.platform }}
+          tags: ${{ env.IMAGE_PREFIX }}/${{ env.EVEREST_SERVER_DEV_IMAGE_NAME }}:${{ env.VERSION }}-${{ matrix.arch }}
+
+      - name: Upload artifacts
+        if: matrix.arch == 'amd64'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: ${{ env.VERSION }}
+          path: /tmp/${{ env.VERSION }}
+          retention-days: ${{ env.ARTIFACTS_RETENTION_DAYS }}
+
+
+  create-manifests:
+    name: Create multi-arch manifests
+    needs: [prepare, build]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    
+    env:
+      REGISTRY: ghcr.io
+      IMAGE_PREFIX: 'ghcr.io/openeverest'
+      VERSION: ${{ needs.prepare.outputs.version }}
+
+    steps:
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create and push multi-arch manifests
+        run: |
+          # Everest
+          docker buildx imagetools create -t $IMAGE_PREFIX/openeverest-dev:$VERSION \
+            $IMAGE_PREFIX/openeverest-dev:$VERSION-amd64 \
+            $IMAGE_PREFIX/openeverest-dev:$VERSION-arm64
+
+# Enable to debug workflow execution
+#      - name: "Setup tmate session"
+#        uses: "percona/gh-action-action-tmate@v3"
+#        if: ${{ always() }}
