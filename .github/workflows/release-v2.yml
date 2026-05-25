@@ -20,8 +20,64 @@ env:
   REGISTRY: ghcr.io
 
 jobs:
+  setup-release-branch:
+    name: Create / update release branch
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      VERSION: ${{ github.event.inputs.version }}
+      BRANCH_NAME: ""
+      GH_TAG: ""
+    steps:
+      - name: Validate input
+        run: |
+          if [[ ! $VERSION =~ ^[0-9]+\.[0-9]+\.[0-9]+(-rc[1-9][0-9]*)?$ ]]; then
+            echo "Wrong version format provided, please use \"X.Y.Z-rcN\" format for an RC or \"X.Y.Z\" format for a release"
+            exit 1
+          fi
+
+      - name: Set environment variables
+        run: |
+          echo "BRANCH_NAME=release-${VERSION%.*}" >> $GITHUB_ENV
+          echo "GH_TAG=v$VERSION" >> $GITHUB_ENV
+
+      - name: Check out
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          token: ${{ secrets.ROBOT_TOKEN }}
+
+      - name: Create and update release branch
+        run: |
+          git fetch
+          check_branch=$(git ls-remote --heads origin ${BRANCH_NAME})
+
+          if [[ -z ${check_branch} ]]; then
+            git checkout -b $BRANCH_NAME
+            git push origin $BRANCH_NAME
+          fi
+          git checkout $BRANCH_NAME
+
+          sed -i "s/RELEASE_VERSION ?=.*/RELEASE_VERSION ?= v$VERSION/g" Makefile
+
+          if [[ -n $(git status --porcelain) ]]; then
+            if git tag --list | grep -q "^$GH_TAG$"; then
+              echo "The tag is already present in github. Please create a different RC/Release"
+              exit 1
+            fi
+            git config --global user.email "everest-ci@percona.com"
+            git config --global user.name "Everest RC CI triggered by ${{ github.actor }}"
+
+            git commit -a -m "update version tag"
+            git push origin $BRANCH_NAME
+
+            git tag $GH_TAG
+            git push origin $GH_TAG
+          fi
+
   build:
     name: Build (${{ matrix.arch }})
+    needs: setup-release-branch
     
     strategy:
       fail-fast: false
@@ -62,13 +118,6 @@ jobs:
         run: |
           sudo chown -v runner:runner /mnt
 
-      - name: Validate input
-        run: |
-          if [[ ! $VERSION =~ ^[0-9]+\.[0-9]+\.[0-9]+(-rc[1-9][0-9]*)?$ ]]; then
-            echo "Wrong version format provided, please use "X.Y.Z-rcN" format for an RC or "X.Y.Z" format for a release"
-            exit 1
-          fi
-
       - name: Set environment variables
         run: |
           floating_tag=${VERSION%.*}
@@ -102,39 +151,10 @@ jobs:
           go-version-file: "./go.mod"
           cache: true
 
-      - name: Everest - create and update release branch
-        if: matrix.arch == 'amd64'
+      - name: Checkout release branch
         run: |
-          # Check if the branch already exists
           git fetch
-          check_branch=$(git ls-remote --heads origin ${BRANCH_NAME})
-
-          if [[ -z ${check_branch} ]]; then
-            git checkout -b $BRANCH_NAME
-            git push origin $BRANCH_NAME
-          fi
           git checkout $BRANCH_NAME
-
-          # Change version in Makefile
-          sed -i "s/RELEASE_VERSION ?=.*/RELEASE_VERSION ?= v$VERSION/g" Makefile
-
-          # if there is something to commit, commit it and add the tag 
-          if [[ -n $(git status --porcelain) ]]; then
-            if git tag --list | grep -q "^$GH_TAG$"; then
-              echo "The tag is already present in github. Please create a different RC/Release"
-              exit 1
-            fi
-            # configure userdata for commits
-            git config --global user.email "everest-ci@percona.com"
-            git config --global user.name "Everest RC CI triggered by ${{ github.actor }}"
-
-            # commit and push the updated files
-            git commit -a -m "update version tag"
-            git push origin $BRANCH_NAME
-
-            git tag $GH_TAG
-            git push origin $GH_TAG
-          fi
 
       - name: Everest UI - setup pnpm
         uses: pnpm/action-setup@8912a9102ac27614460f54aedde9e1e7f9aec20d # v6.0.5
