@@ -199,6 +199,7 @@ jobs:
         with:
           context: .
           file: build/package/server/Dockerfile
+          target: openeverest
           push: true
           provenance: false
           platforms: ${{ matrix.platform }}
