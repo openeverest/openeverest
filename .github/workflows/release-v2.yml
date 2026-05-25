@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: "The RC/Release version, format: X.Y.Z-rcN for RC, X.Y.Z for releases"
+        description: "The version to release, e.g. X.Y.Z for a release or X.Y.Z-<suffix> (e.g. X.Y.Z-rc1, X.Y.Z-dev) for a dev build"
         required: true
 
 permissions:
@@ -32,8 +32,8 @@ jobs:
     steps:
       - name: Validate input
         run: |
-          if [[ ! $VERSION =~ ^[0-9]+\.[0-9]+\.[0-9]+(-rc[1-9][0-9]*)?$ ]]; then
-            echo "Wrong version format provided, please use \"X.Y.Z-rcN\" format for an RC or \"X.Y.Z\" format for a release"
+          if [[ ! $VERSION =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9][a-zA-Z0-9.-]*)?$ ]]; then
+            echo "Wrong version format provided, please use \"X.Y.Z\" for a release or \"X.Y.Z-<suffix>\" (e.g. X.Y.Z-rc1, X.Y.Z-dev) for a dev build"
             exit 1
           fi
 
@@ -244,7 +244,7 @@ jobs:
       REGISTRY: ghcr.io
       IMAGE_PREFIX: 'ghcr.io/openeverest'
       VERSION: ${{ github.event.inputs.version }}
-      IS_RC: ${{ contains(github.event.inputs.version, '-rc') }}
+      IS_RC: ${{ contains(github.event.inputs.version, '-') }}
 
     steps:
       - name: Set environment variables
