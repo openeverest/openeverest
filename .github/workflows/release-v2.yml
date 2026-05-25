@@ -39,7 +39,7 @@ jobs:
 
       - name: Set environment variables
         run: |
-          echo "BRANCH_NAME=release-${VERSION%.*}" >> $GITHUB_ENV
+          echo "BRANCH_NAME=release-$(echo "$VERSION" | cut -d. -f1-2)" >> $GITHUB_ENV
           echo "GH_TAG=v$VERSION" >> $GITHUB_ENV
 
       - name: Check out
@@ -120,7 +120,7 @@ jobs:
 
       - name: Set environment variables
         run: |
-          floating_tag=${VERSION%.*}
+          floating_tag=$(echo "$VERSION" | cut -d. -f1-2)
           echo "FLOATING_TAG=$floating_tag" >> $GITHUB_ENV
           echo "BRANCH_NAME=release-$floating_tag" >> $GITHUB_ENV
           echo "GH_TAG=v$VERSION" >> $GITHUB_ENV
@@ -251,7 +251,7 @@ jobs:
     steps:
       - name: Set environment variables
         run: |
-          floating_tag=${VERSION%.*}
+          floating_tag=$(echo "$VERSION" | cut -d. -f1-2)
           echo "FLOATING_TAG=$floating_tag" >> $GITHUB_ENV
 
       - name: Login to GitHub Container Registry
