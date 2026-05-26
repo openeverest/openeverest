@@ -991,7 +991,7 @@ if need_backup_storage:
                 new_name='bs-{0}-{1}'.format(ns_name, storage_name),
                 labels=["backup-storage"],
                 resource_deps=[
-                    'everest-crds',
+                    'crds',
                     'minIO-deploy'
                 ]
             )
