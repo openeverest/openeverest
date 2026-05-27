@@ -1007,7 +1007,9 @@ type Instance struct {
 		//
 		// Only ProviderManaged BackupClasses are supported. The referenced Backup
 		// must be in the same namespace, in Succeeded state, and its BackupClass
-		// must list the Instance's provider in SupportedProviders.
+		// must list the Instance's provider in SupportedProviders. Instance must
+		// also have backup enabled and include a storage entry that matches the
+		// storage used by the source Backup so the provider can access the data.
 		DataSource *struct {
 			// BackupName BackupName is the name of an existing Backup CR in the same namespace
 			// to seed the new Instance from.

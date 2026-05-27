@@ -86,7 +86,9 @@ type InstanceSpec struct {
 	//
 	// Only ProviderManaged BackupClasses are supported. The referenced Backup
 	// must be in the same namespace, in Succeeded state, and its BackupClass
-	// must list the Instance's provider in SupportedProviders.
+	// must list the Instance's provider in SupportedProviders. Instance must
+	// also have backup enabled and include a storage entry that matches the
+	// storage used by the source Backup so the provider can access the data.
 	// +optional
 	DataSource *InstanceDataSource `json:"dataSource,omitempty"`
 }
@@ -124,6 +126,12 @@ const (
 //   - Be in Succeeded state.
 //   - Belong to a ProviderManaged BackupClass whose SupportedProviders
 //     includes the new Instance's provider.
+//
+// The Instance must also:
+//   - Have .spec.backup.enabled=true (enforced by validation rule on InstanceSpec).
+//   - Include an InstanceBackupStorage in .spec.backup.storages whose .name
+//     matches the storage name used by the source Backup. This ensures the
+//     restore operation can locate the backup data (e.g., S3 bucket, credentials).
 type InstanceDataSource struct {
 	// BackupName is the name of an existing Backup CR in the same namespace
 	// to seed the new Instance from.
