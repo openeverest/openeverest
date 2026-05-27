@@ -140,12 +140,23 @@ type InstanceDataSource struct {
 	PITR *InstanceDataSourcePITR `json:"pitr,omitempty"`
 }
 
+// PITRType defines the type of point-in-time recovery.
+//
+// +kubebuilder:validation:Enum=date;latest
+type PITRType string
+
+const (
+	// PITRTypeDate indicates recovery to a specific date and time.
+	PITRTypeDate PITRType = "date"
+	// PITRTypeLatest indicates recovery to the latest available point in time.
+	PITRTypeLatest PITRType = "latest"
+)
+
 // InstanceDataSourcePITR configures point-in-time recovery for a DataSource.
 type InstanceDataSourcePITR struct {
 	// Type is the type of point-in-time recovery: "date" or "latest".
 	// +kubebuilder:validation:Required
-	// +kubebuilder:validation:Enum=date;latest
-	Type string `json:"type"`
+	Type PITRType `json:"type"`
 	// Date is the target recovery point in time. Required when Type is "date".
 	// +optional
 	Date *metav1.Time `json:"date,omitempty"`
