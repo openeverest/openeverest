@@ -146,6 +146,8 @@ const BackupListTableHeader = ({
               <MenuItem
                 key="schedule"
                 data-testid="schedule-menu-item"
+                // TODO: v2 RBAC - disable/hide Schedule when instances:update
+                // permission check is available and wired in UI.
                 onClick={() => handleScheduleClick(handleClose)}
               >
                 {Messages.schedule}
