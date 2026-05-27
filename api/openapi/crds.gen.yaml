@@ -1234,6 +1234,50 @@ components:
                 The keys are component names (e.g., "engine", "proxy", "backupAgent").
                 Which components are valid depends on the selected topology.
               type: object
+            dataSource:
+              description: |-
+                DataSource allows creating a new Instance from an existing
+                Backup CR of another Instance.
+
+                Only ProviderManaged BackupClasses are supported. The referenced Backup
+                must be in the same namespace, in Succeeded state, and its BackupClass
+                must list the Instance's provider in SupportedProviders.
+              properties:
+                backupName:
+                  description: |-
+                    BackupName is the name of an existing Backup CR in the same namespace
+                    to seed the new Instance from.
+                  minLength: 1
+                  type: string
+                pitr:
+                  description: |-
+                    PITR optionally specifies a point-in-time recovery target. When set,
+                    the provider restores to the given point in time rather than to the
+                    exact backup snapshot. Requires the BackupClass to advertise PITR
+                    support.
+                  properties:
+                    date:
+                      description: Date is the target recovery point in time. Required
+                        when Type is "date".
+                      format: date-time
+                      type: string
+                    type:
+                      description: 'Type is the type of point-in-time recovery: "date"
+                        or "latest".'
+                      enum:
+                      - date
+                      - latest
+                      type: string
+                  required:
+                  - type
+                  type: object
+              required:
+              - backupName
+              type: object
+              x-kubernetes-validations:
+              - message: pitr.date is required when pitr.type is 'date'
+                rule: 'has(self.pitr) && self.pitr.type == ''date'' ? has(self.pitr.date)
+                  : true'
             deletionPolicy:
               allOf:
               - enum:

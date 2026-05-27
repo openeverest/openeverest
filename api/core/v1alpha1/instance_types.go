@@ -80,6 +80,15 @@ type InstanceSpec struct {
 	// +kubebuilder:default=Cascade
 	// +optional
 	DeletionPolicy InstanceDeletionPolicy `json:"deletionPolicy,omitempty"`
+
+	// DataSource allows creating a new Instance from an existing
+	// Backup CR of another Instance.
+	//
+	// Only ProviderManaged BackupClasses are supported. The referenced Backup
+	// must be in the same namespace, in Succeeded state, and its BackupClass
+	// must list the Instance's provider in SupportedProviders.
+	// +optional
+	DataSource *InstanceDataSource `json:"dataSource,omitempty"`
 }
 
 // InstanceDeletionPolicy controls what happens to Backup and Restore CRs
@@ -105,6 +114,42 @@ const (
 	// Instance.
 	InstanceDeletionPolicyOrphan InstanceDeletionPolicy = "Orphan"
 )
+
+// InstanceDataSource configures initial data population for a new Instance
+// from an existing Backup CR. This enables atomic "create instance from
+// backup" workflows without requiring a separate Restore CR.
+//
+// The referenced Backup must:
+//   - Exist in the same namespace as the new Instance.
+//   - Be in Succeeded state.
+//   - Belong to a ProviderManaged BackupClass whose SupportedProviders
+//     includes the new Instance's provider.
+//
+// +kubebuilder:validation:XValidation:rule="has(self.pitr) && self.pitr.type == 'date' ? has(self.pitr.date) : true",message="pitr.date is required when pitr.type is 'date'"
+type InstanceDataSource struct {
+	// BackupName is the name of an existing Backup CR in the same namespace
+	// to seed the new Instance from.
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
+	BackupName string `json:"backupName"`
+	// PITR optionally specifies a point-in-time recovery target. When set,
+	// the provider restores to the given point in time rather than to the
+	// exact backup snapshot. Requires the BackupClass to advertise PITR
+	// support.
+	// +optional
+	PITR *InstanceDataSourcePITR `json:"pitr,omitempty"`
+}
+
+// InstanceDataSourcePITR configures point-in-time recovery for a DataSource.
+type InstanceDataSourcePITR struct {
+	// Type is the type of point-in-time recovery: "date" or "latest".
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:Enum=date;latest
+	Type string `json:"type"`
+	// Date is the target recovery point in time. Required when Type is "date".
+	// +optional
+	Date *metav1.Time `json:"date,omitempty"`
+}
 
 // InstanceBackupSpec configures the backup feature on an Instance.
 //
