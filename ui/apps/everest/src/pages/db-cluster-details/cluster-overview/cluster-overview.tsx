@@ -22,7 +22,6 @@ import { useClusterOverviewData } from './hooks/use-cluster-overview-data';
 import BasicInfoSection from './sections/basic-info-section';
 import ConnectionSection from './sections/connection-section';
 import SchemaDrivenCard from './sections/schema-driven-card';
-import OtherFieldsCard from './sections/other-fields-card';
 import { SectionEditModal } from './sections/section-edit-modal';
 import { FormMode } from 'components/ui-generator/ui-generator.types';
 import { isSectionEditable } from 'components/ui-generator/utils/section-editable';
@@ -35,7 +34,6 @@ export const ClusterOverview = () => {
     isLoading,
     credentials,
     schemaSectionCards,
-    otherFields,
     provider,
     sections,
   } = useClusterOverviewData();
@@ -98,12 +96,8 @@ export const ClusterOverview = () => {
         );
       })}
 
-      {/* Uncovered instance fields */}
-      {/* TODO: temporarily hidden until properly formatted
-      {otherFields.length > 0 && (
-        <OtherFieldsCard fields={otherFields} loading={isLoading} />
-      )}
-      */}
+      {/* TODO: temporarily hidden until properly formatted — re-enable OtherFieldsCard
+         when connected and import it + otherFields from hook */}
 
       {editingSectionKey && provider && (
         <SectionEditModal
