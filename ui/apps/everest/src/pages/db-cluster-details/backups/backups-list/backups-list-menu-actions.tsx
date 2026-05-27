@@ -24,7 +24,6 @@ import {
 } from 'shared-types/backups.types';
 // TODO: Re-enable when RBAC-based restore actions are restored.
 // import { DbCluster } from 'shared-types/dbCluster.types';
-// import { useRBACPermissions } from 'hooks/rbac';
 import { Messages } from './backups-list.messages';
 
 // TODO: check main — original had restore/restoreToNewDb actions with RBAC checks.

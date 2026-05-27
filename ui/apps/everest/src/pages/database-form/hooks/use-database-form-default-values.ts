@@ -113,6 +113,7 @@ export const useDatabasePageDefaultValues = (
   }, [
     defaultSchemaValues,
     defaultSelectedTopology,
+    hasBackupStep,
     mode,
     sourceInstance,
     sourceNamespace,

@@ -1002,6 +1002,20 @@ type Instance struct {
 			Version *string `json:"version,omitempty"`
 		} `json:"components,omitempty"`
 
+		// DataSource DataSource allows creating a new Instance from an existing
+		// Backup CR of another Instance.
+		//
+		// Only ProviderManaged BackupClasses are supported. The referenced Backup
+		// must be in the same namespace, in Succeeded state, and its BackupClass
+		// must list the Instance's provider in SupportedProviders. Instance must
+		// also have backup enabled and include a storage entry that matches the
+		// storage used by the source Backup so the provider can access the data.
+		DataSource *struct {
+			// BackupName BackupName is the name of an existing Backup CR in the same namespace
+			// to seed the new Instance from.
+			BackupName string `json:"backupName"`
+		} `json:"dataSource,omitempty"`
+
 		// DeletionPolicy DeletionPolicy controls what happens to Backup and Restore CRs that
 		// reference this Instance when the Instance is deleted.
 		// Cascade (default) instructs the runtime to delete every Backup and
