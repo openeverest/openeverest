@@ -480,6 +480,18 @@ func (r *ProviderReconciler) Reconcile(ctx context.Context, req reconcile.Reques
 		return reconcile.Result{}, err
 	}
 
+	// Manage datasource restore: creates Restore CR after Instance is Ready, then monitors it.
+	// Called AFTER status update so the provider's status is persisted first.
+	// On subsequent reconciles, this checks the persisted status and manages the Restore CR.
+	if result, err := r.handleDataSource(ctx, in, logger); !result.IsZero() || err != nil {
+		// Phase was modified by handleDataSource, update it
+		if updateErr := r.Client.Status().Update(ctx, in); updateErr != nil {
+			logger.Error(updateErr, "Failed to update status after datasource handling")
+			return reconcile.Result{}, updateErr
+		}
+		return result, err
+	}
+
 	logger.Info("Reconciliation complete", "phase", in.Status.Phase)
 	return reconcile.Result{}, nil
 }
@@ -585,6 +597,92 @@ func (r *ProviderReconciler) cascadeDeleteChildren(
 	}
 
 	return len(backups) + len(restores), nil
+}
+
+// handleDataSource creates and monitors a Restore CR for Instance.spec.dataSource.
+// Returns a non-zero result to stop reconciliation and update status, or zero to continue.
+// The actual restore logic is handled by the restore reconciler and provider's SyncRestore.
+func (r *ProviderReconciler) handleDataSource(
+	ctx context.Context,
+	in *v1alpha1.Instance,
+	logger interface{ Info(string, ...interface{}) },
+) (reconcile.Result, error) {
+	ds := in.Spec.DataSource
+	if ds == nil {
+		return reconcile.Result{}, nil
+	}
+
+	// Datasource restore requires BackupProvider implementation
+	if _, ok := r.provider.(controller.BackupProvider); !ok {
+		logger.Info("Provider does not implement BackupProvider, ignoring spec.dataSource")
+		return reconcile.Result{}, nil
+	}
+
+	// Can't create Restore CR until Instance is ready - Sync needs to create the cluster first.
+	// Return zero result to allow normal status update flow to continue.
+	if in.Status.Phase != v1alpha1.InstancePhaseReady {
+		logger.Info("DataSource: waiting for Instance to be ready before creating Restore", "phase", in.Status.Phase)
+		return reconcile.Result{}, nil
+	}
+
+	restoreName := "datasource-" + in.Name
+
+	// Check if Restore CR exists
+	restore := &backupv1alpha1.Restore{}
+	err := r.Client.Get(ctx, client.ObjectKey{
+		Namespace: in.Namespace,
+		Name:      restoreName,
+	}, restore)
+
+	if apierrors.IsNotFound(err) {
+		// Create Restore CR from dataSource
+		restore = &backupv1alpha1.Restore{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      restoreName,
+				Namespace: in.Namespace,
+			},
+			Spec: backupv1alpha1.RestoreSpec{
+				InstanceName: in.Name,
+				DataSource: backupv1alpha1.RestoreDataSource{
+					BackupName: ds.BackupName,
+				},
+			},
+		}
+
+		if err := r.Client.Create(ctx, restore); err != nil {
+			if apierrors.IsAlreadyExists(err) {
+				return reconcile.Result{Requeue: true}, nil
+			}
+			return reconcile.Result{}, fmt.Errorf("creating datasource Restore CR: %w", err)
+		}
+
+		logger.Info("DataSource: created Restore CR", "restore", restoreName)
+		in.Status.Phase = v1alpha1.InstancePhaseRestoring
+		return reconcile.Result{RequeueAfter: controller.GetWaitDuration(controller.WaitFor("restore created"))}, nil
+	}
+	if err != nil {
+		return reconcile.Result{}, fmt.Errorf("fetching datasource Restore CR: %w", err)
+	}
+
+	// Monitor Restore CR status
+	switch restore.Status.State {
+	case backupv1alpha1.RestoreStateSucceeded:
+		logger.Info("DataSource: Restore succeeded", "restore", restoreName)
+		// Continue with normal status update
+		return reconcile.Result{}, nil
+
+	case backupv1alpha1.RestoreStateFailed:
+		logger.Info("DataSource: Restore failed", "restore", restoreName, "message", restore.Status.Message)
+		in.Status.Phase = v1alpha1.InstancePhaseFailed
+		// Stop reconciliation (no requeue for terminal state)
+		return reconcile.Result{}, nil
+
+	default:
+		// Still in progress (Pending, Running, Error)
+		logger.Info("DataSource: Restore in progress", "restore", restoreName, "state", restore.Status.State)
+		in.Status.Phase = v1alpha1.InstancePhaseRestoring
+		return reconcile.Result{RequeueAfter: controller.GetWaitDuration(controller.WaitFor("restore in progress"))}, nil
+	}
 }
 
 // reconcileConnectionSecret creates or updates the connection details Secret

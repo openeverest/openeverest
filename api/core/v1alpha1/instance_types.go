@@ -80,6 +80,17 @@ type InstanceSpec struct {
 	// +kubebuilder:default=Cascade
 	// +optional
 	DeletionPolicy InstanceDeletionPolicy `json:"deletionPolicy,omitempty"`
+
+	// DataSource allows creating a new Instance from an existing
+	// Backup CR of another Instance.
+	//
+	// Only ProviderManaged BackupClasses are supported. The referenced Backup
+	// must be in the same namespace, in Succeeded state, and its BackupClass
+	// must list the Instance's provider in SupportedProviders. Instance must
+	// also have backup enabled and include a storage entry that matches the
+	// storage used by the source Backup so the provider can access the data.
+	// +optional
+	DataSource *InstanceDataSource `json:"dataSource,omitempty"`
 }
 
 // InstanceDeletionPolicy controls what happens to Backup and Restore CRs
@@ -105,6 +116,29 @@ const (
 	// Instance.
 	InstanceDeletionPolicyOrphan InstanceDeletionPolicy = "Orphan"
 )
+
+// InstanceDataSource configures initial data population for a new Instance
+// from an existing Backup CR. This enables atomic "create instance from
+// backup" workflows without requiring a separate Restore CR.
+//
+// The referenced Backup must:
+//   - Exist in the same namespace as the new Instance.
+//   - Be in Succeeded state.
+//   - Belong to a ProviderManaged BackupClass whose SupportedProviders
+//     includes the new Instance's provider.
+//
+// The Instance must also:
+//   - Have .spec.backup.enabled=true (enforced by validation rule on InstanceSpec).
+//   - Include an InstanceBackupStorage in .spec.backup.storages whose .name
+//     matches the storage name used by the source Backup. This ensures the
+//     restore operation can locate the backup data (e.g., S3 bucket, credentials).
+type InstanceDataSource struct {
+	// BackupName is the name of an existing Backup CR in the same namespace
+	// to seed the new Instance from.
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
+	BackupName string `json:"backupName"`
+}
 
 // InstanceBackupSpec configures the backup feature on an Instance.
 //
