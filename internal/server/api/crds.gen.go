@@ -104,24 +104,6 @@ func (e BackupStorageSpecType) Valid() bool {
 	}
 }
 
-// Defines values for InstanceSpecDataSourcePitrType.
-const (
-	InstanceSpecDataSourcePitrTypeDate   InstanceSpecDataSourcePitrType = "date"
-	InstanceSpecDataSourcePitrTypeLatest InstanceSpecDataSourcePitrType = "latest"
-)
-
-// Valid indicates whether the value is a known member of the InstanceSpecDataSourcePitrType enum.
-func (e InstanceSpecDataSourcePitrType) Valid() bool {
-	switch e {
-	case InstanceSpecDataSourcePitrTypeDate:
-		return true
-	case InstanceSpecDataSourcePitrTypeLatest:
-		return true
-	default:
-		return false
-	}
-}
-
 // Defines values for InstanceStatusConditionsStatus.
 const (
 	InstanceStatusConditionsStatusFalse   InstanceStatusConditionsStatus = "False"
@@ -1030,18 +1012,6 @@ type Instance struct {
 			// BackupName BackupName is the name of an existing Backup CR in the same namespace
 			// to seed the new Instance from.
 			BackupName string `json:"backupName"`
-
-			// Pitr PITR optionally specifies a point-in-time recovery target. When set,
-			// the provider restores to the given point in time rather than to the
-			// exact backup snapshot. Requires the BackupClass to advertise PITR
-			// support.
-			Pitr *struct {
-				// Date Date is the target recovery point in time. Required when Type is "date".
-				Date *time.Time `json:"date,omitempty"`
-
-				// Type Type is the type of point-in-time recovery: "date" or "latest".
-				Type InstanceSpecDataSourcePitrType `json:"type"`
-			} `json:"pitr,omitempty"`
 		} `json:"dataSource,omitempty"`
 
 		// DeletionPolicy DeletionPolicy controls what happens to Backup and Restore CRs that
@@ -1205,9 +1175,6 @@ type InstanceSpecComponentsStorageSize1 = string
 type Instance_Spec_Components_Storage_Size struct {
 	union json.RawMessage
 }
-
-// InstanceSpecDataSourcePitrType Type is the type of point-in-time recovery: "date" or "latest".
-type InstanceSpecDataSourcePitrType string
 
 // InstanceStatusConditionsStatus status of the condition, one of True, False, Unknown.
 type InstanceStatusConditionsStatus string

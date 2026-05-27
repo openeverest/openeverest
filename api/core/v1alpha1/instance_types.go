@@ -124,42 +124,12 @@ const (
 //   - Be in Succeeded state.
 //   - Belong to a ProviderManaged BackupClass whose SupportedProviders
 //     includes the new Instance's provider.
-//
-// +kubebuilder:validation:XValidation:rule="has(self.pitr) && self.pitr.type == 'date' ? has(self.pitr.date) : true",message="pitr.date is required when pitr.type is 'date'"
 type InstanceDataSource struct {
 	// BackupName is the name of an existing Backup CR in the same namespace
 	// to seed the new Instance from.
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinLength=1
 	BackupName string `json:"backupName"`
-	// PITR optionally specifies a point-in-time recovery target. When set,
-	// the provider restores to the given point in time rather than to the
-	// exact backup snapshot. Requires the BackupClass to advertise PITR
-	// support.
-	// +optional
-	PITR *InstanceDataSourcePITR `json:"pitr,omitempty"`
-}
-
-// PITRType defines the type of point-in-time recovery.
-//
-// +kubebuilder:validation:Enum=date;latest
-type PITRType string
-
-const (
-	// PITRTypeDate indicates recovery to a specific date and time.
-	PITRTypeDate PITRType = "date"
-	// PITRTypeLatest indicates recovery to the latest available point in time.
-	PITRTypeLatest PITRType = "latest"
-)
-
-// InstanceDataSourcePITR configures point-in-time recovery for a DataSource.
-type InstanceDataSourcePITR struct {
-	// Type is the type of point-in-time recovery: "date" or "latest".
-	// +kubebuilder:validation:Required
-	Type PITRType `json:"type"`
-	// Date is the target recovery point in time. Required when Type is "date".
-	// +optional
-	Date *metav1.Time `json:"date,omitempty"`
 }
 
 // InstanceBackupSpec configures the backup feature on an Instance.

@@ -846,24 +846,6 @@ export interface components {
                      *     to seed the new Instance from.
                      */
                     backupName: string;
-                    /**
-                     * @description PITR optionally specifies a point-in-time recovery target. When set,
-                     *     the provider restores to the given point in time rather than to the
-                     *     exact backup snapshot. Requires the BackupClass to advertise PITR
-                     *     support.
-                     */
-                    pitr?: {
-                        /**
-                         * Format: date-time
-                         * @description Date is the target recovery point in time. Required when Type is "date".
-                         */
-                        date?: string;
-                        /**
-                         * @description Type is the type of point-in-time recovery: "date" or "latest".
-                         * @enum {string}
-                         */
-                        type: "date" | "latest";
-                    };
                 };
                 /**
                  * @description DeletionPolicy controls what happens to Backup and Restore CRs that

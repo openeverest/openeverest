@@ -359,35 +359,9 @@ spec:
                       to seed the new Instance from.
                     minLength: 1
                     type: string
-                  pitr:
-                    description: |-
-                      PITR optionally specifies a point-in-time recovery target. When set,
-                      the provider restores to the given point in time rather than to the
-                      exact backup snapshot. Requires the BackupClass to advertise PITR
-                      support.
-                    properties:
-                      date:
-                        description: Date is the target recovery point in time. Required
-                          when Type is "date".
-                        format: date-time
-                        type: string
-                      type:
-                        description: 'Type is the type of point-in-time recovery:
-                          "date" or "latest".'
-                        enum:
-                        - date
-                        - latest
-                        type: string
-                    required:
-                    - type
-                    type: object
                 required:
                 - backupName
                 type: object
-                x-kubernetes-validations:
-                - message: pitr.date is required when pitr.type is 'date'
-                  rule: 'has(self.pitr) && self.pitr.type == ''date'' ? has(self.pitr.date)
-                    : true'
               deletionPolicy:
                 allOf:
                 - enum:
