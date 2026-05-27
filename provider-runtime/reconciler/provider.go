@@ -459,6 +459,12 @@ func (r *ProviderReconciler) Reconcile(ctx context.Context, req reconcile.Reques
 
 	in.Status = status.ToV2Alpha1()
 
+	// Creates Restore CR after Instance is Ready, then monitors it.
+	// It updates the Instance status based on the Restore status conditions and phase.
+	if shouldRequeue, err := r.handleDataSource(ctx, in, logger); shouldRequeue || err != nil {
+		return reconcile.Result{RequeueAfter: controller.GetWaitDuration(controller.WaitFor("datasource restore in progress"))}, err
+	}
+
 	// Freeze the effective bundle name in status so it remains stable across
 	// Provider upgrades. On subsequent reconciliations the reconciler reads this
 	// value back (when spec.version is empty) instead of re-resolving the
@@ -585,6 +591,90 @@ func (r *ProviderReconciler) cascadeDeleteChildren(
 	}
 
 	return len(backups) + len(restores), nil
+}
+
+// handleDataSource creates a Restore CR for Instance.spec.dataSource.
+// The actual restore logic is handled by the restore reconciler and provider's SyncRestore.
+// Returns true if reconciliation should stop and requeue, false to continue with normal status update.
+func (r *ProviderReconciler) handleDataSource(
+	ctx context.Context,
+	in *v1alpha1.Instance,
+	logger interface{ Info(string, ...interface{}) },
+) (shouldRequeue bool, err error) {
+	ds := in.Spec.DataSource
+	if ds == nil {
+		return false, nil
+	}
+
+	// Datasource restore requires BackupProvider implementation
+	if _, ok := r.provider.(controller.BackupProvider); !ok {
+		logger.Info("Provider does not implement BackupProvider, ignoring spec.dataSource")
+		return false, nil
+	}
+
+	// Can't create Restore CR until Instance is ready - Sync needs to create the cluster first
+	if in.Status.Phase != v1alpha1.InstancePhaseReady {
+		logger.Info("DataSource: waiting for Instance to be ready before creating Restore", "phase", in.Status.Phase)
+		return false, nil
+	}
+
+	restoreName := "datasource-" + in.Name
+
+	// Check if Restore CR exists
+	restore := &backupv1alpha1.Restore{}
+	err = r.Client.Get(ctx, client.ObjectKey{
+		Namespace: in.Namespace,
+		Name:      restoreName,
+	}, restore)
+
+	if apierrors.IsNotFound(err) {
+		// Create Restore CR from dataSource
+		restore = &backupv1alpha1.Restore{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      restoreName,
+				Namespace: in.Namespace,
+			},
+			Spec: backupv1alpha1.RestoreSpec{
+				InstanceName: in.Name,
+				DataSource: backupv1alpha1.RestoreDataSource{
+					BackupName: ds.BackupName,
+				},
+			},
+		}
+
+		if err := r.Client.Create(ctx, restore); err != nil {
+			if apierrors.IsAlreadyExists(err) {
+				return true, nil
+			}
+			return false, fmt.Errorf("creating datasource Restore CR: %w", err)
+		}
+
+		logger.Info("DataSource: created Restore CR", "restore", restoreName)
+		in.Status.Phase = v1alpha1.InstancePhaseRestoring
+		return true, nil
+	}
+	if err != nil {
+		return false, fmt.Errorf("fetching datasource Restore CR: %w", err)
+	}
+
+	// Monitor Restore CR status
+	switch restore.Status.State {
+	case backupv1alpha1.RestoreStateSucceeded:
+		logger.Info("DataSource: Restore succeeded")
+		// Continue with normal status update
+		return false, nil
+
+	case backupv1alpha1.RestoreStateFailed:
+		logger.Info("DataSource: Restore failed", "message", restore.Status.Message)
+		in.Status.Phase = v1alpha1.InstancePhaseFailed
+		return true, nil
+
+	default:
+		// Still in progress (Pending, Running, Error)
+		logger.Info("DataSource: Restore in progress", "state", restore.Status.State)
+		in.Status.Phase = v1alpha1.InstancePhaseRestoring
+		return true, nil
+	}
 }
 
 // reconcileConnectionSecret creates or updates the connection details Secret
