@@ -26,7 +26,6 @@ import { BackupStatus } from 'shared-types/backups.types';
 import {
   BackupTypeValues,
   defaultValues,
-  RestoreDbFields,
   RestoreDbFormData,
   schema,
 } from './restore-db-modal-schema';
@@ -48,7 +47,6 @@ const RestoreDbModal = ({
   instanceName,
   namespace,
   isNewClusterMode = false,
-  preselectedBackupName,
 }: RestoreDbModalProps) => {
   const clusterName = useClusterName();
   const queryClient = useQueryClient();
