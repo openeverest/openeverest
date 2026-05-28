@@ -19,9 +19,13 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+
+	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
 )
 
 // InstanceSpec defines the desired state of Instance
+// +kubebuilder:validation:XValidation:rule="!has(self.dataSource) || (has(self.backup) && self.backup.enabled)",message="spec.dataSource requires spec.backup.enabled=true with at least one storage so the provider can read the source backup"
+// +kubebuilder:validation:XValidation:rule="!has(oldSelf.dataSource) || (has(self.dataSource) && self.dataSource == oldSelf.dataSource)",message="spec.dataSource is immutable once set"
 type InstanceSpec struct {
 	// Provider is the name of the database provider (e.g., "psmdb", "postgresql").
 	Provider string `json:"provider,omitempty"`
@@ -90,7 +94,7 @@ type InstanceSpec struct {
 	// also have backup enabled and include a storage entry that matches the
 	// storage used by the source Backup so the provider can access the data.
 	// +optional
-	DataSource *InstanceDataSource `json:"dataSource,omitempty"`
+	DataSource *backupv1alpha1.DataSource `json:"dataSource,omitempty"`
 }
 
 // InstanceDeletionPolicy controls what happens to Backup and Restore CRs
@@ -116,29 +120,6 @@ const (
 	// Instance.
 	InstanceDeletionPolicyOrphan InstanceDeletionPolicy = "Orphan"
 )
-
-// InstanceDataSource configures initial data population for a new Instance
-// from an existing Backup CR. This enables atomic "create instance from
-// backup" workflows without requiring a separate Restore CR.
-//
-// The referenced Backup must:
-//   - Exist in the same namespace as the new Instance.
-//   - Be in Succeeded state.
-//   - Belong to a ProviderManaged BackupClass whose SupportedProviders
-//     includes the new Instance's provider.
-//
-// The Instance must also:
-//   - Have .spec.backup.enabled=true (enforced by validation rule on InstanceSpec).
-//   - Include an InstanceBackupStorage in .spec.backup.storages whose .name
-//     matches the storage name used by the source Backup. This ensures the
-//     restore operation can locate the backup data (e.g., S3 bucket, credentials).
-type InstanceDataSource struct {
-	// BackupName is the name of an existing Backup CR in the same namespace
-	// to seed the new Instance from.
-	// +kubebuilder:validation:Required
-	// +kubebuilder:validation:MinLength=1
-	BackupName string `json:"backupName"`
-}
 
 // InstanceBackupSpec configures the backup feature on an Instance.
 //
@@ -477,6 +458,53 @@ const (
 	// the reason and message explain the configuration failure (e.g., storage
 	// resolution or PITR wiring error).
 	ConditionBackupConfigured = "BackupConfigured"
+
+	// ConditionDataSourceReady indicates the outcome of seeding an Instance
+	// from .spec.dataSource. The condition is set only when the Instance has
+	// a DataSource configured. Status=True means the source data has been
+	// fully restored into the new Instance; Status=False with the matching
+	// reason explains why the seeding is still in progress or has failed.
+	// The condition is sticky: once True it remains True for the lifetime of
+	// the Instance.
+	ConditionDataSourceReady = "DataSourceReady"
+)
+
+// Reasons for the DataSourceReady condition.
+const (
+	// ReasonDataSourceWaitingForCluster indicates the provider is waiting
+	// for the engine cluster to reach a state where a restore can be issued.
+	ReasonDataSourceWaitingForCluster = "WaitingForCluster"
+
+	// ReasonDataSourceRestoring indicates a Restore CR has been created and
+	// the operator-native restore is in progress.
+	ReasonDataSourceRestoring = "Restoring"
+
+	// ReasonDataSourceSucceeded indicates the initial restore completed
+	// successfully and the Instance has been seeded from the source backup.
+	ReasonDataSourceSucceeded = "Succeeded"
+
+	// ReasonDataSourceFailed indicates the initial restore failed terminally;
+	// the Instance will not be seeded automatically and operator intervention
+	// is required.
+	ReasonDataSourceFailed = "Failed"
+
+	// ReasonDataSourceSourceBackupNotFound indicates the Backup CR referenced
+	// by .spec.dataSource.backup.backupName does not exist in the Instance namespace.
+	ReasonDataSourceSourceBackupNotFound = "SourceBackupNotFound"
+
+	// ReasonDataSourceSourceBackupNotSucceeded indicates the source Backup
+	// exists but is not in the Succeeded state, so it cannot be restored.
+	ReasonDataSourceSourceBackupNotSucceeded = "SourceBackupNotSucceeded"
+
+	// ReasonDataSourceStorageMismatch indicates the Instance's
+	// .spec.backup.storages does not include an entry matching the storage
+	// used by the source Backup, so the provider cannot access the data.
+	ReasonDataSourceStorageMismatch = "StorageMismatch"
+
+	// ReasonDataSourceClassUnsupported indicates the source Backup's
+	// BackupClass either does not exist, is not ProviderManaged, or does not
+	// list the target Instance's provider in SupportedProviders.
+	ReasonDataSourceClassUnsupported = "BackupClassUnsupported"
 )
 
 // Reasons for the StorageResizing condition.

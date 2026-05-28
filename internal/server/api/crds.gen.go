@@ -104,6 +104,21 @@ func (e BackupStorageSpecType) Valid() bool {
 	}
 }
 
+// Defines values for InstanceSpecDataSourceType.
+const (
+	InstanceSpecDataSourceTypeBackup InstanceSpecDataSourceType = "Backup"
+)
+
+// Valid indicates whether the value is a known member of the InstanceSpecDataSourceType enum.
+func (e InstanceSpecDataSourceType) Valid() bool {
+	switch e {
+	case InstanceSpecDataSourceTypeBackup:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for InstanceStatusConditionsStatus.
 const (
 	InstanceStatusConditionsStatusFalse   InstanceStatusConditionsStatus = "False"
@@ -206,18 +221,15 @@ func (e ProviderStatusConditionsStatus) Valid() bool {
 	}
 }
 
-// Defines values for RestoreSpecDataSourcePitrType.
+// Defines values for RestoreSpecDataSourceType.
 const (
-	RestoreSpecDataSourcePitrTypeDate   RestoreSpecDataSourcePitrType = "date"
-	RestoreSpecDataSourcePitrTypeLatest RestoreSpecDataSourcePitrType = "latest"
+	RestoreSpecDataSourceTypeBackup RestoreSpecDataSourceType = "Backup"
 )
 
-// Valid indicates whether the value is a known member of the RestoreSpecDataSourcePitrType enum.
-func (e RestoreSpecDataSourcePitrType) Valid() bool {
+// Valid indicates whether the value is a known member of the RestoreSpecDataSourceType enum.
+func (e RestoreSpecDataSourceType) Valid() bool {
 	switch e {
-	case RestoreSpecDataSourcePitrTypeDate:
-		return true
-	case RestoreSpecDataSourcePitrTypeLatest:
+	case RestoreSpecDataSourceTypeBackup:
 		return true
 	default:
 		return false
@@ -738,7 +750,6 @@ type BackupStorage struct {
 	//
 	//   - Instance.spec.backup.storages[].storageRef
 	//   - Backup.spec.storageName
-	//   - Restore.spec.dataSource.external.storageName
 	//
 	// Decoupling storage from individual Backup CRs makes provider-managed
 	// backups (e.g. PBM, pgBackRest) practical: the provider can register a
@@ -1011,9 +1022,26 @@ type Instance struct {
 		// also have backup enabled and include a storage entry that matches the
 		// storage used by the source Backup so the provider can access the data.
 		DataSource *struct {
-			// BackupName BackupName is the name of an existing Backup CR in the same namespace
-			// to seed the new Instance from.
-			BackupName string `json:"backupName"`
+			// Backup Backup references an existing Backup CR in the same namespace.
+			// Required when type=Backup.
+			Backup *struct {
+				// BackupName BackupName is the name of the Backup CR in the same namespace.
+				BackupName string `json:"backupName"`
+
+				// Pitr PITR configures point-in-time recovery on top of this backup.
+				// The resolved BackupClass must advertise PITR support via
+				// .spec.providerManaged for this to be honoured.
+				Pitr *struct {
+					// Date Date is the target recovery point. Required when Type is "date".
+					Date *time.Time `json:"date,omitempty"`
+
+					// Type Type selects date-based or latest recovery.
+					Type interface{} `json:"type"`
+				} `json:"pitr,omitempty"`
+			} `json:"backup,omitempty"`
+
+			// Type Type selects the data source kind.
+			Type InstanceSpecDataSourceType `json:"type"`
 		} `json:"dataSource,omitempty"`
 
 		// DeletionPolicy DeletionPolicy controls what happens to Backup and Restore CRs that
@@ -1177,6 +1205,9 @@ type InstanceSpecComponentsStorageSize1 = string
 type Instance_Spec_Components_Storage_Size struct {
 	union json.RawMessage
 }
+
+// InstanceSpecDataSourceType Type selects the data source kind.
+type InstanceSpecDataSourceType string
 
 // InstanceStatusConditionsStatus status of the condition, one of True, False, Unknown.
 type InstanceStatusConditionsStatus string
@@ -1436,36 +1467,26 @@ type Restore struct {
 
 		// DataSource DataSource defines where the backup data to restore from is located.
 		DataSource struct {
-			// BackupName BackupName references an existing Backup CR in the same namespace to
-			// restore from. The BackupClass and storage are resolved from the
-			// referenced Backup.
-			BackupName *string `json:"backupName,omitempty"`
+			// Backup Backup references an existing Backup CR in the same namespace.
+			// Required when type=Backup.
+			Backup *struct {
+				// BackupName BackupName is the name of the Backup CR in the same namespace.
+				BackupName string `json:"backupName"`
 
-			// External External describes a backup that has no corresponding Backup CR in the
-			// cluster (e.g., a backup taken outside of OpenEverest).
-			External *struct {
-				// BackupClassName BackupClassName is the name of the BackupClass that defines how to
-				// restore this external backup.
-				BackupClassName string `json:"backupClassName"`
+				// Pitr PITR configures point-in-time recovery on top of this backup.
+				// The resolved BackupClass must advertise PITR support via
+				// .spec.providerManaged for this to be honoured.
+				Pitr *struct {
+					// Date Date is the target recovery point. Required when Type is "date".
+					Date *time.Time `json:"date,omitempty"`
 
-				// Config Config is forwarded to the BackupClass's restore configuration. It is
-				// validated against the same schema as Restore.spec.config.
-				Config *map[string]interface{} `json:"config,omitempty"`
+					// Type Type selects date-based or latest recovery.
+					Type interface{} `json:"type"`
+				} `json:"pitr,omitempty"`
+			} `json:"backup,omitempty"`
 
-				// StorageName StorageName references the BackupStorage in the same namespace that
-				// describes where the external backup data is located.
-				StorageName string `json:"storageName"`
-			} `json:"external,omitempty"`
-
-			// Pitr PITR defines point-in-time recovery options. Requires the resolved
-			// BackupClass to advertise PITR support via .spec.providerManaged.
-			Pitr *struct {
-				// Date Date is the target recovery point in time. Required when Type is "date".
-				Date *time.Time `json:"date,omitempty"`
-
-				// Type Type is the type of point-in-time recovery: "date" or "latest".
-				Type RestoreSpecDataSourcePitrType `json:"type"`
-			} `json:"pitr,omitempty"`
+			// Type Type selects the data source kind.
+			Type RestoreSpecDataSourceType `json:"type"`
 		} `json:"dataSource"`
 
 		// InstanceName InstanceName is the name of the Instance to restore into. The Instance
@@ -1544,8 +1565,8 @@ type Restore struct {
 	} `json:"status,omitempty"`
 }
 
-// RestoreSpecDataSourcePitrType Type is the type of point-in-time recovery: "date" or "latest".
-type RestoreSpecDataSourcePitrType string
+// RestoreSpecDataSourceType Type selects the data source kind.
+type RestoreSpecDataSourceType string
 
 // RestoreStatusConditionsStatus status of the condition, one of True, False, Unknown.
 type RestoreStatusConditionsStatus string

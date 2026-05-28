@@ -803,7 +803,6 @@ components:
 
               - Instance.spec.backup.storages[].storageRef
               - Backup.spec.storageName
-              - Restore.spec.dataSource.external.storageName
 
             Decoupling storage from individual Backup CRs makes provider-managed
             backups (e.g. PBM, pgBackRest) practical: the provider can register a
@@ -1245,15 +1244,54 @@ components:
                 also have backup enabled and include a storage entry that matches the
                 storage used by the source Backup so the provider can access the data.
               properties:
-                backupName:
+                backup:
                   description: |-
-                    BackupName is the name of an existing Backup CR in the same namespace
-                    to seed the new Instance from.
-                  minLength: 1
+                    Backup references an existing Backup CR in the same namespace.
+                    Required when type=Backup.
+                  properties:
+                    backupName:
+                      description: BackupName is the name of the Backup CR in the
+                        same namespace.
+                      minLength: 1
+                      type: string
+                    pitr:
+                      description: |-
+                        PITR configures point-in-time recovery on top of this backup.
+                        The resolved BackupClass must advertise PITR support via
+                        .spec.providerManaged for this to be honoured.
+                      properties:
+                        date:
+                          description: Date is the target recovery point. Required
+                            when Type is "date".
+                          format: date-time
+                          type: string
+                        type:
+                          allOf:
+                          - enum:
+                            - date
+                            - latest
+                          - enum:
+                            - date
+                            - latest
+                          description: Type selects date-based or latest recovery.
+                          type: string
+                      required:
+                      - type
+                      type: object
+                  required:
+                  - backupName
+                  type: object
+                type:
+                  description: Type selects the data source kind.
+                  enum:
+                  - Backup
                   type: string
               required:
-              - backupName
+              - type
               type: object
+              x-kubernetes-validations:
+              - message: backup must be set when type is Backup
+                rule: 'self.type == ''Backup'' ? has(self.backup) : true'
             deletionPolicy:
               allOf:
               - enum:
@@ -1319,6 +1357,13 @@ components:
                 If omitted and the provider defines a default bundle, that bundle is used.
               type: string
           type: object
+          x-kubernetes-validations:
+          - message: spec.dataSource requires spec.backup.enabled=true with at least
+              one storage so the provider can read the source backup
+            rule: '!has(self.dataSource) || (has(self.backup) && self.backup.enabled)'
+          - message: spec.dataSource is immutable once set
+            rule: '!has(oldSelf.dataSource) || (has(self.dataSource) && self.dataSource
+              == oldSelf.dataSource)'
         status:
           description: InstanceStatus defines the observed state of Instance.
           properties:
@@ -1894,58 +1939,54 @@ components:
               description: DataSource defines where the backup data to restore from
                 is located.
               properties:
-                backupName:
+                backup:
                   description: |-
-                    BackupName references an existing Backup CR in the same namespace to
-                    restore from. The BackupClass and storage are resolved from the
-                    referenced Backup.
-                  type: string
-                external:
-                  description: |-
-                    External describes a backup that has no corresponding Backup CR in the
-                    cluster (e.g., a backup taken outside of OpenEverest).
+                    Backup references an existing Backup CR in the same namespace.
+                    Required when type=Backup.
                   properties:
-                    backupClassName:
-                      description: |-
-                        BackupClassName is the name of the BackupClass that defines how to
-                        restore this external backup.
+                    backupName:
+                      description: BackupName is the name of the Backup CR in the
+                        same namespace.
+                      minLength: 1
                       type: string
-                    config:
+                    pitr:
                       description: |-
-                        Config is forwarded to the BackupClass's restore configuration. It is
-                        validated against the same schema as Restore.spec.config.
+                        PITR configures point-in-time recovery on top of this backup.
+                        The resolved BackupClass must advertise PITR support via
+                        .spec.providerManaged for this to be honoured.
+                      properties:
+                        date:
+                          description: Date is the target recovery point. Required
+                            when Type is "date".
+                          format: date-time
+                          type: string
+                        type:
+                          allOf:
+                          - enum:
+                            - date
+                            - latest
+                          - enum:
+                            - date
+                            - latest
+                          description: Type selects date-based or latest recovery.
+                          type: string
+                      required:
+                      - type
                       type: object
-                      x-kubernetes-preserve-unknown-fields: true
-                    storageName:
-                      description: |-
-                        StorageName references the BackupStorage in the same namespace that
-                        describes where the external backup data is located.
-                      type: string
                   required:
-                  - backupClassName
-                  - storageName
+                  - backupName
                   type: object
-                pitr:
-                  description: |-
-                    PITR defines point-in-time recovery options. Requires the resolved
-                    BackupClass to advertise PITR support via .spec.providerManaged.
-                  properties:
-                    date:
-                      description: Date is the target recovery point in time. Required
-                        when Type is "date".
-                      format: date-time
-                      type: string
-                    type:
-                      description: 'Type is the type of point-in-time recovery: "date"
-                        or "latest".'
-                      enum:
-                      - date
-                      - latest
-                      type: string
-                  required:
-                  - type
-                  type: object
+                type:
+                  description: Type selects the data source kind.
+                  enum:
+                  - Backup
+                  type: string
+              required:
+              - type
               type: object
+              x-kubernetes-validations:
+              - message: backup must be set when type is Backup
+                rule: 'self.type == ''Backup'' ? has(self.backup) : true'
             instanceName:
               description: |-
                 InstanceName is the name of the Instance to restore into. The Instance
