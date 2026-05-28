@@ -37,7 +37,7 @@ test.describe('Everest CLI install', async () => {
 
     await test.step('run everest install command (pretty))', async () => {
       const out = await cli.everestExecSkipWizard(
-        `install --namespaces=everest-all --version 0.0.0 --helm.set server.image=ghcr.io/openeverest/openeverest-dev --helm.set operator.image=ghcr.io/openeverest/openeverest-operator-dev --helm.set olm.catalogSourceImage=ghcr.io/openeverest/openeverest-catalog-dev`,
+        `install --namespaces=everest-all --version 0.0.0 --helm.set server.image.repository=ghcr.io/openeverest/openeverest-dev --helm.set operator.image=ghcr.io/openeverest/openeverest-operator-dev --helm.set olm.catalogSourceImage=ghcr.io/openeverest/openeverest-catalog-dev`,
       );
 
       await out.assertSuccess();
