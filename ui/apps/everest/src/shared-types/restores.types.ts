@@ -33,7 +33,7 @@ export type GetRestorePayload = {
         };
       };
     };
-    status: {
+    status?: {
       state: string;
       startedAt?: string;
       completedAt?: string;
