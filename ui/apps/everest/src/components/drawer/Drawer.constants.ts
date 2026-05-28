@@ -14,7 +14,7 @@
 // limitations under the License.
 import StorageIcon from '@mui/icons-material/Storage';
 import SettingsIcon from '@mui/icons-material/Settings';
-import SchemaIcon from '@mui/icons-material/Schema';
+// import SchemaIcon from '@mui/icons-material/Schema'; // TODO: re-enable when ui-generator-builder is restored
 import { EverestRoute } from './Drawer.types';
 import { SettingsTabs } from 'pages/settings/settings.types';
 

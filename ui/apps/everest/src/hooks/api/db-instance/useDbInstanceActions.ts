@@ -116,16 +116,14 @@ export const useDbInstanceActions = (dbInstance: Instance) => {
   };
 
   const handleConfirmDelete = (
-    // TODO 1942 check if needed for instance deletion API.
-    _keepBackupStorageData: boolean,
+    keepBackupStorageData: boolean,
     onSuccess?: () => void
   ) => {
     deleteDbInstance(
       {
         dbInstanceName: dbInstance.metadata?.name || '',
         namespace: dbInstance.metadata?.namespace || '',
-        // TODO 1942 check if needed
-        // cleanupBackupStorage: !keepBackupStorageData,
+        deletionPolicy: keepBackupStorageData ? 'Orphan' : 'Cascade',
       },
       {
         onSuccess: (_, variables) => {
