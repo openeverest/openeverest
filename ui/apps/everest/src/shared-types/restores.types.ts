@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -22,11 +23,14 @@ export type GetRestorePayload = {
     spec: {
       instanceName: string;
       dataSource: {
-        pitr?: {
-          type: string;
-          date?: string;
+        type: string;
+        backup?: {
+          backupName: string;
+          pitr?: {
+            type: string;
+            date?: string;
+          };
         };
-        backupName?: string;
       };
     };
     status: {
@@ -63,7 +67,10 @@ export type CreateRestorePayload = {
   spec: {
     instanceName: string;
     dataSource: {
-      backupName: string;
+      type: 'Backup';
+      backup: {
+        backupName: string;
+      };
     };
   };
 };

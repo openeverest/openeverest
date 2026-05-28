@@ -147,29 +147,21 @@ const RestoreDbModal = ({
       dataTestId="restore-modal"
       closeModal={closeModal}
       headerMessage={
-        isNewClusterMode
-          ? Messages.headerMessageCreate
-          : Messages.headerMessage
+        isNewClusterMode ? Messages.headerMessageCreate : Messages.headerMessage
       }
       // TODO: Re-enable PITR schema when PITR restore flow is implemented.
       // schema={pitrSchema}
-      schema={schema(false)}
+      schema={schema()}
       // TODO: Re-enable PITR pending state when PITR restore flow is implemented.
       // submitting={restoringFromBackup || restoringFromPointInTime}
       submitting={restoringFromBackup}
-      defaultValues={{
-        ...defaultValues,
-        [RestoreDbFields.backupName]:
-          preselectedBackupName || succeededBackups[0]?.name || '',
-      }}
+      defaultValues={defaultValues}
       onSubmit={handleSubmit}
       submitMessage={isNewClusterMode ? Messages.create : Messages.restore}
     >
       <ModalContent
         isLoading={isLoading}
-        header={
-          isNewClusterMode ? Messages.subHeadCreate : Messages.subHead
-        }
+        header={isNewClusterMode ? Messages.subHeadCreate : Messages.subHead}
         succeededBackups={succeededBackups}
       />
     </FormDialog>

@@ -32,7 +32,8 @@ export const useSchema = (): {
   // Restore mode: resolve provider from the source instance
   const sourceInstanceName = state?.selectedDbCluster as string | undefined;
   const sourceNamespace = state?.namespace as string | undefined;
-  const isRestore = !!sourceInstanceName && !!state?.backupName;
+  const isRestore =
+    !!sourceInstanceName && !!sourceNamespace && !!state?.backupName;
 
   const { data: sourceInstance } = useDbInstance(
     sourceNamespace ?? '',
@@ -41,7 +42,8 @@ export const useSchema = (): {
   );
 
   const { data: providers } = useProviders({
-    enabled: isRestore && !selectedDbProvider && !!sourceInstance?.spec?.provider,
+    enabled:
+      isRestore && !selectedDbProvider && !!sourceInstance?.spec?.provider,
   });
 
   const resolvedProvider = useMemo(() => {

@@ -14,7 +14,10 @@
 
 import { useDefaultValues } from 'components/ui-generator/hooks/use-default-values';
 import { extractInstanceValues } from 'components/ui-generator/utils/default-values/extract-instance-values';
-import { FormMode, TopologyUISchemas } from 'components/ui-generator/ui-generator.types';
+import {
+  FormMode,
+  TopologyUISchemas,
+} from 'components/ui-generator/ui-generator.types';
 import { useDbInstance } from 'hooks/api/db-instances/useDbInstance';
 import { useMemo } from 'react';
 import { useLocation } from 'react-router-dom';

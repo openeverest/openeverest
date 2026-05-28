@@ -98,7 +98,12 @@ export const DatabasePage = () => {
 
   // ── Page-level defaults (merges schema defaults + wizard-specific ones)
   const { defaultValues, dbClusterRequestStatus } =
-    useDatabasePageDefaultValues(mode, uiSchema, defaultTopology, hasBackupStep);
+    useDatabasePageDefaultValues(
+      mode,
+      uiSchema,
+      defaultTopology,
+      hasBackupStep
+    );
   const loadingClusterValues = !defaultValues;
 
   // ── Data queries ─────────────────────────────────────────────────────────
