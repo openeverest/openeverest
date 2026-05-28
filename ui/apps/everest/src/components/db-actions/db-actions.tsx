@@ -28,6 +28,8 @@ import { Messages } from './db-actions.messages';
 import { ArrowDropDownIcon } from '@mui/x-date-pickers/icons';
 import DbActionsModals from './db-actions-modals';
 import { useDbInstanceActions } from 'hooks/api/db-instance';
+import { useBackupsList } from 'hooks/api/backups/useBackups';
+import { useClusterName } from 'hooks/api/useClusterName';
 
 export const DbActions = ({
   // showDetailsAction = false,
@@ -54,7 +56,11 @@ export const DbActions = ({
   } = useDbInstanceActions(dbInstance);
   const open = Boolean(anchorEl);
   const dbInstanceName = dbInstance.metadata?.name;
-  // const namespace = dbInstance.metadata?.namespace;
+  const namespace = dbInstance.metadata?.namespace ?? '';
+  const clusterName = useClusterName();
+
+  const { data: backups = [] } = useBackupsList(clusterName, namespace, dbInstanceName ?? '');
+  const hasBackups = backups.length > 0;
   // const redirectURL = `/databases/${namespace}/${dbInstanceName}/overview`;
 
   // const navigate = useNavigate();
@@ -208,18 +214,21 @@ export const DbActions = ({
           >
             <AddIcon /> {Messages.menuItems.createNewDbFromBackup}
           </MenuItem> */}
-          <MenuItem
-            data-testid={`${dbInstanceName}-restore`}
-            disabled={actionsBlocked}
-            key={3}
-            onClick={() => {
-              setIsNewClusterMode(false);
-              handleRestoreDbCluster();
-            }}
-            sx={sx}
-          >
-            <KeyboardReturnIcon /> {Messages.menuItems.restoreFromBackup}
-          </MenuItem>
+          {/*TODO RBAC */}
+          {hasBackups && (
+            <MenuItem
+              data-testid={`${dbInstanceName}-restore`}
+              disabled={actionsBlocked}
+              key={3}
+              onClick={() => {
+                setIsNewClusterMode(false);
+                handleRestoreDbCluster();
+              }}
+              sx={sx}
+            >
+              <KeyboardReturnIcon /> {Messages.menuItems.restoreFromBackup}
+            </MenuItem>
+          )}
           {/*
           {showStatusActions && dbInstance?.status?.details && (
             <MenuItem
