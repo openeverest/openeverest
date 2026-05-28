@@ -132,9 +132,9 @@ export const useInstanceRestores = (
     select: (data) =>
       data.items.map((item) => ({
         name: item.metadata.name,
-        startTime: item.status.startedAt || item.metadata.creationTimestamp,
-        endTime: item.status.completedAt,
-        state: item.status.state || 'unknown',
+        startTime: item.status?.startedAt || item.metadata.creationTimestamp,
+        endTime: item.status?.completedAt,
+        state: item.status?.state || 'unknown',
         type: item.spec.dataSource.backup?.pitr ? 'pitr' : 'full',
         backupSource: item.spec.dataSource.backup?.backupName || '',
       })),
