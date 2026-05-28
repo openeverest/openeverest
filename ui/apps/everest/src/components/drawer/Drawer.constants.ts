@@ -31,10 +31,10 @@ export const ROUTES: EverestRoute[] = [
     icon: SettingsIcon,
     text: 'Settings',
   },
-  //TODO ui-generator builder should be hided from ui and delivered separately with tests coverage
-  {
-    to: '/ui-generator-builder',
-    icon: SchemaIcon,
-    text: 'UI Generator Builder',
-  },
+  // TODO: ui-generator-builder hidden from nav until tests coverage is delivered
+  // {
+  //   to: '/ui-generator-builder',
+  //   icon: SchemaIcon,
+  //   text: 'UI Generator Builder',
+  // },
 ];

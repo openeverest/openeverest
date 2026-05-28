@@ -15,7 +15,7 @@
 import { MenuItem } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
 import KeyboardReturnIcon from '@mui/icons-material/KeyboardReturn';
-import AddIcon from '@mui/icons-material/Add';
+// import AddIcon from '@mui/icons-material/Add'; // TODO: re-enable when create-new-db is restored
 import { MRT_Row } from 'material-react-table';
 import {
   Backup,
@@ -32,7 +32,8 @@ export const getBackupActionButtons = (
   row: MRT_Row<Backup>,
   handleDeleteBackup: (backupName: string) => void,
   handleRestoreBackup: (backupName: string) => void,
-  handleRestoreToNewDbBackup: (backupName: string) => void,
+  // handleRestoreToNewDbBackup: (backupName: string) => void, // TODO: re-enable when create-new-db is restored
+  _handleRestoreToNewDbBackup: (backupName: string) => void,
   canDelete: boolean,
   isDeleting = false
 ) => {
@@ -67,15 +68,15 @@ export const getBackupActionButtons = (
     >
       <KeyboardReturnIcon /> {Messages.restore}
     </MenuItem>,
-    //TODO RBAC ...(canCreateClusterFromBackup
-    <MenuItem
-      key="restore-to-new"
-      disabled={backupState !== BackupStatus.SUCCEEDED}
-      onClick={() => handleRestoreToNewDbBackup(backupName)}
-      sx={{ m: 0, gap: 1, px: 2, py: '10px' }}
-    >
-      <AddIcon /> {Messages.restoreToNewDb}
-    </MenuItem>,
+    // TODO: Temporarily hidden — create new DB from backup deferred by team
+    // <MenuItem
+    //   key="restore-to-new"
+    //   disabled={backupState !== BackupStatus.SUCCEEDED}
+    //   onClick={() => handleRestoreToNewDbBackup(backupName)}
+    //   sx={{ m: 0, gap: 1, px: 2, py: '10px' }}
+    // >
+    //   <AddIcon /> {Messages.restoreToNewDb}
+    // </MenuItem>,
     ...(canDelete
       ? [
           <MenuItem

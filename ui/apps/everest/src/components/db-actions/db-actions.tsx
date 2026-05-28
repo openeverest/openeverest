@@ -19,7 +19,7 @@ import { Box, Button, IconButton, Menu, MenuItem } from '@mui/material';
 import {
   DeleteOutline as DeleteOutlineIcon,
   KeyboardReturn as KeyboardReturnIcon,
-  Add as AddIcon,
+  // Add as AddIcon, // TODO: re-enable when create-new-db-from-backup is restored
 } from '@mui/icons-material';
 import MoreHorizIcon from '@mui/icons-material/MoreHoriz';
 import { DbActionsProps } from './db-actions.types';
@@ -195,8 +195,8 @@ export const DbActions = ({
               <RestartAltIcon /> {Messages.menuItems.restart}
             </MenuItem>
           )*/}
-          {/* TODO RBAC canCreateClusterFromBackup && */}
-          <MenuItem
+          {/* TODO: Temporarily hidden — create new DB from backup deferred by team */}
+          {/* <MenuItem
             data-testid={`${dbInstanceName}-create-new-db-from-backup`}
             disabled={actionsBlocked}
             key={1}
@@ -207,7 +207,7 @@ export const DbActions = ({
             sx={sx}
           >
             <AddIcon /> {Messages.menuItems.createNewDbFromBackup}
-          </MenuItem>
+          </MenuItem> */}
           <MenuItem
             data-testid={`${dbInstanceName}-restore`}
             disabled={actionsBlocked}
