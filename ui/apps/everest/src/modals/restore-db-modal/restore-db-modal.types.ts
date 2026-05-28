@@ -12,15 +12,25 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { Section } from 'components/ui-generator/ui-generator.types';
-import { buildDefaultsFromComponents } from 'components/ui-generator/utils/default-values/build-defaults-from-components';
+export interface RestoreDbModalProps {
+  isOpen: boolean;
+  closeModal: () => void;
+  instanceName: string;
+  namespace: string;
+  isNewClusterMode?: boolean;
+  preselectedBackupName?: string;
+}
 
-export const getSectionExplicitDefaults = (
-  section: Section | undefined
-): Record<string, unknown> => {
-  if (!section?.components) {
-    return {};
-  }
+export interface RestorableBackupOption {
+  name: string;
+  startedAt?: string;
+}
 
-  return buildDefaultsFromComponents(section.components, '', true);
-};
+export interface ModalContentProps {
+  isLoading: boolean;
+  header: string;
+  succeededBackups: RestorableBackupOption[];
+  // TODO: Re-enable PITR props when PITR restore flow is implemented.
+  // pitrData?: DatabaseClusterPitr;
+  // backupName?: string;
+}

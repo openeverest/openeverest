@@ -1,3 +1,17 @@
+// Copyright (C) 2026 The OpenEverest Contributors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 import { Add } from '@mui/icons-material';
 import { Box, Button } from '@mui/material';
 import { Table } from '@percona/ui-lib';
@@ -13,12 +27,11 @@ import {
 import { type MRT_ColumnDef } from 'material-react-table';
 import { ExpandedRowInfoLine } from './ExpandedRowInfoLine/ExpandedRowInfoLine';
 import { useMemo, useState } from 'react';
-import { BackupStorage, StorageType } from 'shared-types/backupStorages.types';
 import {
-  updateDataAfterCreate,
-  updateDataAfterDelete,
-  updateDataAfterEdit,
-} from 'utils/generalOptimisticDataUpdate';
+  BackupStorageCRD,
+  BackupStorageFormValues,
+  StorageType,
+} from 'shared-types/backupStorages.types';
 import { CreateEditModalStorage } from './createEditModal/create-edit-modal';
 import { Messages } from './storage-locations.messages';
 import {
@@ -30,11 +43,13 @@ import {
   convertStoragesType,
 } from './storage-locations.utils';
 import { useNamespacePermissionsForResource } from 'hooks/rbac';
+import { useClusterName } from 'hooks/api/useClusterName';
 import TableActionsMenu from '../../../components/table-actions-menu';
 import { StorageLocationsActionButtons } from './storage-locations-menu-actions';
 
 export const StorageLocations = () => {
   const queryClient = useQueryClient();
+  const clusterName = useClusterName();
   const { canCreate } = useNamespacePermissionsForResource('backup-storages');
   const backupStorages = useBackupStorages();
 
@@ -60,7 +75,7 @@ export const StorageLocations = () => {
     useState<string>('');
   const [openDeleteDialog, setOpenDeleteDialog] = useState(false);
   const [selectedStorageLocation, setSelectedStorageLocation] =
-    useState<BackupStorage>();
+    useState<BackupStorageCRD>();
 
   const columns = useMemo<MRT_ColumnDef<BackupStorageTableElement>[]>(
     () => [
@@ -80,11 +95,6 @@ export const StorageLocations = () => {
       {
         accessorKey: StorageLocationsFields.namespace,
         header: Messages.namespace,
-      },
-      {
-        accessorKey: StorageLocationsFields.description,
-        header: Messages.description,
-        enableHiding: false,
       },
       {
         accessorKey: StorageLocationsFields.url,
@@ -110,32 +120,29 @@ export const StorageLocations = () => {
     setOpenCreateEditModal(false);
   };
 
-  const handleEditBackup = (data: BackupStorage) => {
+  const handleEditBackup = (data: BackupStorageFormValues) => {
     editBackupStorage(data, {
-      onSuccess: (updatedLocation) => {
-        updateDataAfterEdit(
-          queryClient,
-          [BACKUP_STORAGES_QUERY_KEY, data.namespace],
-          StorageLocationsFields.name
-        )(updatedLocation as BackupStorage);
+      onSuccess: () => {
+        queryClient.invalidateQueries({
+          queryKey: [BACKUP_STORAGES_QUERY_KEY, clusterName, data.namespace],
+        });
         handleCloseModal();
       },
     });
   };
 
-  const handleCreateBackup = (data: BackupStorage) => {
+  const handleCreateBackup = (data: BackupStorageFormValues) => {
     createBackupStorage(data, {
-      onSuccess: (newLocation) => {
-        updateDataAfterCreate(queryClient, [
-          BACKUP_STORAGES_QUERY_KEY,
-          data.namespace,
-        ])(newLocation as BackupStorage);
+      onSuccess: () => {
+        queryClient.invalidateQueries({
+          queryKey: [BACKUP_STORAGES_QUERY_KEY, clusterName, data.namespace],
+        });
         handleCloseModal();
       },
     });
   };
 
-  const handleSubmit = (isEdit: boolean, data: BackupStorage) => {
+  const handleSubmit = (isEdit: boolean, data: BackupStorageFormValues) => {
     if (isEdit) {
       handleEditBackup(data);
     } else {
@@ -160,12 +167,10 @@ export const StorageLocations = () => {
     deleteBackupStorage(
       { backupStorageId: backupStorageName, namespace: namespace },
       {
-        onSuccess: (_, locationName) => {
-          updateDataAfterDelete(
-            queryClient,
-            [BACKUP_STORAGES_QUERY_KEY, namespace],
-            'name'
-          )(_ as object, locationName.backupStorageId);
+        onSuccess: () => {
+          queryClient.invalidateQueries({
+            queryKey: [BACKUP_STORAGES_QUERY_KEY, clusterName, namespace],
+          });
           handleCloseDeleteDialog();
         },
       }
@@ -180,7 +185,6 @@ export const StorageLocations = () => {
         hideExpandAllIcon
         state={{
           columnVisibility: {
-            description: false,
             url: false,
             accessKey: false,
             secretKey: false,
@@ -225,10 +229,6 @@ export const StorageLocations = () => {
               <ExpandedRowInfoLine
                 label={Messages.url}
                 value={row.original.url}
-              />
-              <ExpandedRowInfoLine
-                label={Messages.description}
-                value={row.original.description}
               />
             </Box>
             {/* TODO: uncomment when endpoint is ready

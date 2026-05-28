@@ -15,8 +15,7 @@
 export enum DBClusterDetailsTabs {
   overview = 'overview',
   backups = 'backups',
-  // TODO: Re-enable once restore feature is implemented
-  // restores = 'restores',
+  restores = 'restores',
   // components = 'components',
   // logs = 'logs',
 }

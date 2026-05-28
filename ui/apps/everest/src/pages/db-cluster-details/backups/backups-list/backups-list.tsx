@@ -16,6 +16,7 @@
 import { Table } from '@percona/ui-lib';
 import StatusField from 'components/status-field';
 import { ConfirmDialog } from 'components/confirm-dialog/confirm-dialog';
+import { RestoreDbModal } from 'modals';
 import TableActionsMenu from 'components/table-actions-menu';
 import { DATE_FORMAT } from 'consts';
 import { format } from 'date-fns';
@@ -27,14 +28,22 @@ import {
 import { MRT_ColumnDef } from 'material-react-table';
 import { useContext, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { Backup } from 'shared-types/backups.types.ts';
+import {
+  Backup,
+  BackupList,
+  BackupStatus,
+} from 'shared-types/backups.types.ts';
+import { FormMode } from 'components/ui-generator/ui-generator.types';
 import { ScheduleModalContext } from '../backups.context.ts';
 import { BACKUP_STATUS_TO_BASE_STATUS } from './backups-list.constants';
 import { Messages } from './backups-list.messages';
 import BackupListTableHeader from './table-header';
-import { BackupActionButtons } from './backups-list-menu-actions';
+import { getBackupActionButtons } from './backups-list-menu-actions';
 import { useClusterName } from 'hooks/api/useClusterName.ts';
 import { useQueryClient } from '@tanstack/react-query';
+import { useUpdateDbInstanceWithConflictRetry } from 'hooks/api/db-instances/useUpdateDbInstance';
+import { Instance } from 'shared-types/api.types';
+import { removeUnusedStorages } from '../backups.utils';
 import { useRBACPermissions } from 'hooks/rbac';
 
 export const BackupsList = () => {
@@ -43,8 +52,12 @@ export const BackupsList = () => {
   const queryClient = useQueryClient();
   const [openDeleteDialog, setOpenDeleteDialog] = useState(false);
   const [selectedBackup, setSelectedBackup] = useState('');
+  const [openRestoreModal, setOpenRestoreModal] = useState(false);
+  const [isNewClusterMode, setIsNewClusterMode] = useState(false);
+  const [selectedRestoreBackup, setSelectedRestoreBackup] = useState('');
 
-  const { instance, setOpenOnDemandModal } = useContext(ScheduleModalContext);
+  const { instance, setOpenOnDemandModal, setOpenScheduleModal, setMode } =
+    useContext(ScheduleModalContext);
 
   const { canDelete } = useRBACPermissions(
     'backups',
@@ -63,16 +76,54 @@ export const BackupsList = () => {
   const { mutate: deleteBackupMutate, isPending: deletingBackup } =
     useDeleteBackup(clusterName, namespace, instanceName);
 
+  const { mutate: updateInstance } =
+    useUpdateDbInstanceWithConflictRetry(instance);
+
   const handleDeleteBackup = (backupName: string) => {
     setSelectedBackup(backupName);
     setOpenDeleteDialog(true);
   };
 
+  const handleRestoreBackup = (backupName: string) => {
+    setSelectedRestoreBackup(backupName);
+    setIsNewClusterMode(false);
+    setOpenRestoreModal(true);
+  };
+
+  const handleRestoreToNewDbBackup = (backupName: string) => {
+    setSelectedRestoreBackup(backupName);
+    setIsNewClusterMode(true);
+    setOpenRestoreModal(true);
+  };
+
   const handleConfirmDelete = (backupName: string) => {
+    setOpenDeleteDialog(false);
     deleteBackupMutate(
       { backupName },
       {
         onSuccess: () => {
+          // Optimistically mark the backup as Deleting in the cache so the
+          // actions menu disables immediately, before the next poll cycle.
+          queryClient.setQueryData<BackupList>(
+            getBackupListQueryKey(clusterName, namespace, instanceName),
+            (prev) =>
+              prev
+                ? {
+                    ...prev,
+                    items: prev.items?.map((b) =>
+                      b.metadata?.name === backupName
+                        ? {
+                            ...b,
+                            status: {
+                              ...b.status,
+                              state: BackupStatus.DELETING,
+                            },
+                          }
+                        : b
+                    ),
+                  }
+                : prev
+          );
           queryClient.invalidateQueries({
             queryKey: getBackupListQueryKey(
               clusterName,
@@ -80,7 +131,35 @@ export const BackupsList = () => {
               instanceName
             ),
           });
-          setOpenDeleteDialog(false);
+
+          // Clean up instance storages that are no longer referenced.
+          const remainingBackups = backups.filter(
+            (b) => b.metadata?.name !== backupName
+          );
+          const existingStorages = instance.spec?.backup?.storages ?? [];
+          const remainingStorages = removeUnusedStorages(
+            existingStorages,
+            remainingBackups
+          );
+          if (remainingStorages.length < existingStorages.length) {
+            const updatedInstance: Instance = {
+              ...instance,
+              spec: {
+                ...instance.spec,
+                backup:
+                  remainingStorages.length > 0
+                    ? {
+                        classRef: instance.spec?.backup?.classRef ?? {
+                          name: '',
+                        },
+                        enabled: instance.spec?.backup?.enabled ?? true,
+                        storages: remainingStorages,
+                      }
+                    : undefined,
+              },
+            };
+            updateInstance(updatedInstance);
+          }
         },
       }
     );
@@ -157,6 +236,11 @@ export const BackupsList = () => {
     setOpenOnDemandModal(true);
   };
 
+  const handleScheduleBackup = () => {
+    setMode(FormMode.New);
+    setOpenScheduleModal(true);
+  };
+
   return (
     <>
       <Table
@@ -174,12 +258,23 @@ export const BackupsList = () => {
           ],
         }}
         renderTopToolbarCustomActions={() => (
-          <BackupListTableHeader onNowClick={handleManualBackup} />
+          <BackupListTableHeader
+            onNowClick={handleManualBackup}
+            onScheduleClick={handleScheduleBackup}
+          />
         )}
-        enableRowActions={canDelete}
+        enableRowActions
         renderRowActions={({ row }) => (
           <TableActionsMenu
-            menuItems={BackupActionButtons(row, handleDeleteBackup)}
+            menuItems={getBackupActionButtons(
+              row,
+              handleDeleteBackup,
+              handleRestoreBackup,
+              handleRestoreToNewDbBackup,
+              canDelete,
+              deletingBackup &&
+                selectedBackup === (row.original.metadata?.name ?? '')
+            )}
           />
         )}
       />
@@ -195,6 +290,16 @@ export const BackupsList = () => {
         >
           {Messages.deleteDialog.content(selectedBackup)}
         </ConfirmDialog>
+      )}
+      {openRestoreModal && (
+        <RestoreDbModal
+          isOpen={openRestoreModal}
+          closeModal={() => setOpenRestoreModal(false)}
+          instanceName={instanceName}
+          namespace={namespace}
+          isNewClusterMode={isNewClusterMode}
+          preselectedBackupName={selectedRestoreBackup}
+        />
       )}
     </>
   );

@@ -19,6 +19,7 @@ import { BackupsList } from './backups-list/backups-list';
 import { ScheduleModalContext } from './backups.context.ts';
 import { NoStoragesMessage } from './no-storages-message/no-storages-message';
 import { OnDemandBackupModal } from './on-demand-backup-modal/on-demand-backup-modal';
+import { ScheduledBackupModal } from './scheduled-backup-modal';
 import { ScheduleWizardMode, WizardMode } from 'shared-types/wizard.types.ts';
 import { DbInstanceContext } from '../dbCluster.context';
 
@@ -61,8 +62,7 @@ export const Backups = () => {
         <>
           <BackupsList />
           {openOnDemandModal && <OnDemandBackupModal />}
-          {/* TODO: v2 schedules — uncomment when ScheduledBackupModal is migrated */}
-          {/* {openScheduleModal && <ScheduledBackupModal />} */}
+          {openScheduleModal && <ScheduledBackupModal />}
         </>
       )}
     </ScheduleModalContext.Provider>

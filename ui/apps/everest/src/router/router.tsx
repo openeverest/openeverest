@@ -43,6 +43,7 @@ import {
   PoliciesList,
   PolicyDetails,
   // Restores,
+  Restores,
   Settings,
   SettingsPoliciesRouter,
   SplitHorizon,
@@ -104,10 +105,10 @@ const router = createBrowserRouter([
           //   path: DBClusterDetailsTabs.components,
           //   element: withSuspense(<Components />),
           // },
-          // {
-          //   path: DBClusterDetailsTabs.restores,
-          //   element: withSuspense(<Restores />),
-          // },
+          {
+            path: DBClusterDetailsTabs.restores,
+            element: withSuspense(<Restores />),
+          },
           // {
           //   path: DBClusterDetailsTabs.logs,
           //   element: withSuspense(<Logs />),

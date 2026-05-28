@@ -1,3 +1,17 @@
+// Copyright (C) 2026 The OpenEverest Contributors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 export const Messages = {
   createEditModal: {
     addEditModal: (isEditMode: boolean) =>
@@ -6,7 +20,6 @@ export const Messages = {
     cancel: 'Cancel',
     placeholders: {
       name: 'Enter storage display name',
-      description: 'Enter an optional description',
       namespace: 'Select namespace',
       type: 'Enter bucket name',
       region: 'Enter region',
@@ -32,7 +45,6 @@ export const Messages = {
   namespace: 'Namespace',
   type: 'Type',
   bucketName: 'Bucket Name',
-  description: 'Description',
   region: 'Region',
   url: 'Endpoint',
   accessKey: 'Access Key',

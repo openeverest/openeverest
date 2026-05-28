@@ -1,12 +1,28 @@
+// Copyright (C) 2026 The OpenEverest Contributors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 import { z } from 'zod';
-import { BackupStorage, StorageType } from 'shared-types/backupStorages.types';
+import {
+  BackupStorageCRD,
+  StorageType,
+} from 'shared-types/backupStorages.types';
 import { rfc_123_schema } from 'utils/common-validation';
 
 export enum StorageLocationsFields {
   name = 'name',
   type = 'type',
   bucketName = 'bucketName',
-  description = 'description',
   region = 'region',
   url = 'url',
   accessKey = 'accessKey',
@@ -21,7 +37,6 @@ export const storageLocationDefaultValues = (namespace: string) => ({
   [StorageLocationsFields.name]: '',
   [StorageLocationsFields.type]: StorageType.S3,
   [StorageLocationsFields.url]: '',
-  [StorageLocationsFields.description]: '',
   [StorageLocationsFields.region]: '',
   [StorageLocationsFields.accessKey]: '',
   [StorageLocationsFields.secretKey]: '',
@@ -31,23 +46,19 @@ export const storageLocationDefaultValues = (namespace: string) => ({
   [StorageLocationsFields.forcePathStyle]: false,
 });
 
-export const storageLocationEditValues = (
-  selectedStorageLocationForEdit: BackupStorageType
-) => ({
-  [StorageLocationsFields.name]: selectedStorageLocationForEdit.name,
-  [StorageLocationsFields.type]: StorageType.S3,
-  [StorageLocationsFields.url]: selectedStorageLocationForEdit.url,
-  [StorageLocationsFields.description]:
-    selectedStorageLocationForEdit.description,
-  [StorageLocationsFields.region]: selectedStorageLocationForEdit.region,
-  [StorageLocationsFields.accessKey]: selectedStorageLocationForEdit.accessKey,
-  [StorageLocationsFields.secretKey]: selectedStorageLocationForEdit.secretKey,
-  [StorageLocationsFields.bucketName]:
-    selectedStorageLocationForEdit.bucketName,
-  [StorageLocationsFields.namespace]: selectedStorageLocationForEdit.namespace,
-  [StorageLocationsFields.verifyTLS]: selectedStorageLocationForEdit.verifyTLS,
+export const storageLocationEditValues = (crd: BackupStorageCRD) => ({
+  [StorageLocationsFields.name]: crd.metadata?.name ?? '',
+  [StorageLocationsFields.type]:
+    (crd.spec?.type as StorageType) ?? StorageType.S3,
+  [StorageLocationsFields.url]: crd.spec?.s3?.endpointURL ?? '',
+  [StorageLocationsFields.region]: crd.spec?.s3?.region ?? '',
+  [StorageLocationsFields.accessKey]: crd.spec?.s3?.accessKeyId ?? '',
+  [StorageLocationsFields.secretKey]: crd.spec?.s3?.secretAccessKey ?? '',
+  [StorageLocationsFields.bucketName]: crd.spec?.s3?.bucket ?? '',
+  [StorageLocationsFields.namespace]: crd.metadata?.namespace ?? '',
+  [StorageLocationsFields.verifyTLS]: crd.spec?.s3?.verifyTLS ?? true,
   [StorageLocationsFields.forcePathStyle]:
-    selectedStorageLocationForEdit.forcePathStyle,
+    crd.spec?.s3?.forcePathStyle ?? false,
 });
 
 export const storageLocationsSchema = z.object({
@@ -57,7 +68,6 @@ export const storageLocationsSchema = z.object({
   }),
   [StorageLocationsFields.type]: z.nativeEnum(StorageType),
   [StorageLocationsFields.bucketName]: z.string().nonempty(),
-  [StorageLocationsFields.description]: z.string().optional(),
   [StorageLocationsFields.url]: z.string().nonempty().url(),
   [StorageLocationsFields.region]: z.string().nonempty(),
   [StorageLocationsFields.accessKey]: z.string().nonempty(),
@@ -75,6 +85,5 @@ export interface BackupStorageTableElement {
   bucketName: string;
   url: string;
   namespace: string;
-  description?: string | undefined;
-  raw: BackupStorage;
+  raw: BackupStorageCRD;
 }

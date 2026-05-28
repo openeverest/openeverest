@@ -12,21 +12,35 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { DbCluster } from 'shared-types/dbCluster.types';
 import { ScheduleFormData } from '../schedule-form/schedule-form-schema';
 import { kebabize } from '@percona/utils';
 import { ScheduleWizardMode, WizardMode } from 'shared-types/wizard.types';
+import { BackupClass } from 'shared-types/backups.types';
+import { Instance } from 'shared-types/api.types';
+
+type InstanceSchedule = NonNullable<
+  NonNullable<
+    NonNullable<Instance['spec']['backup']>['storages']
+  >[number]['schedules']
+>[number];
+
+export type FlattenedSchedule = Omit<InstanceSchedule, 'config'> & {
+  config?: Record<string, unknown>;
+  storageName: string;
+};
 
 export type ScheduleFormDialogExternalContext =
   | 'db-wizard-new'
   | 'db-wizard-edit'
   | 'db-wizard-restore-from-backup'
   | 'db-details-backups';
+
 export const dbWizardToScheduleFormDialogMap = (dbWizardMode: WizardMode) => {
   return `db-wizard-${kebabize(
     dbWizardMode
   )}` as ScheduleFormDialogExternalContext;
 };
+
 export type ScheduleFormDialogContextType = {
   mode: ScheduleWizardMode;
   externalContext?: ScheduleFormDialogExternalContext;
@@ -39,11 +53,13 @@ export type ScheduleFormDialogContextType = {
   handleSubmit: (data: ScheduleFormData) => void;
   isPending: boolean;
   dbInstanceInfo: {
-    dbInstanceName?: DbCluster['metadata']['name'];
-    namespace: DbCluster['metadata']['namespace'];
-    schedules: NonNullable<DbCluster['spec']['backup']>['schedules'];
-    activeStorage?: NonNullable<DbCluster['status']>['activeStorage'];
-    dbEngine: DbCluster['spec']['engine']['type'];
-    defaultSchedules: NonNullable<DbCluster['spec']['backup']>['schedules'];
+    dbInstanceName?: string;
+    namespace: string;
+    schedules: FlattenedSchedule[];
+    defaultSchedules: FlattenedSchedule[];
+    backupClass?: BackupClass;
+    availableBackupClasses: BackupClass[];
+    disableClassSelection: boolean;
+    instanceStorageNames: string[];
   };
 };

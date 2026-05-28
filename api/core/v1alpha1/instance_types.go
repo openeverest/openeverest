@@ -19,9 +19,13 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+
+	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
 )
 
 // InstanceSpec defines the desired state of Instance
+// +kubebuilder:validation:XValidation:rule="!has(self.dataSource) || (has(self.backup) && self.backup.enabled)",message="spec.dataSource requires spec.backup.enabled=true with at least one storage so the provider can read the source backup"
+// +kubebuilder:validation:XValidation:rule="!has(oldSelf.dataSource) || (has(self.dataSource) && self.dataSource == oldSelf.dataSource)",message="spec.dataSource is immutable once set"
 type InstanceSpec struct {
 	// Provider is the name of the database provider (e.g., "psmdb", "postgresql").
 	Provider string `json:"provider,omitempty"`
@@ -80,6 +84,17 @@ type InstanceSpec struct {
 	// +kubebuilder:default=Cascade
 	// +optional
 	DeletionPolicy InstanceDeletionPolicy `json:"deletionPolicy,omitempty"`
+
+	// DataSource allows creating a new Instance from an existing
+	// Backup CR of another Instance.
+	//
+	// Only ProviderManaged BackupClasses are supported. The referenced Backup
+	// must be in the same namespace, in Succeeded state, and its BackupClass
+	// must list the Instance's provider in SupportedProviders. Instance must
+	// also have backup enabled and include a storage entry that matches the
+	// storage used by the source Backup so the provider can access the data.
+	// +optional
+	DataSource *backupv1alpha1.DataSource `json:"dataSource,omitempty"`
 }
 
 // InstanceDeletionPolicy controls what happens to Backup and Restore CRs
@@ -443,6 +458,53 @@ const (
 	// the reason and message explain the configuration failure (e.g., storage
 	// resolution or PITR wiring error).
 	ConditionBackupConfigured = "BackupConfigured"
+
+	// ConditionDataSourceReady indicates the outcome of seeding an Instance
+	// from .spec.dataSource. The condition is set only when the Instance has
+	// a DataSource configured. Status=True means the source data has been
+	// fully restored into the new Instance; Status=False with the matching
+	// reason explains why the seeding is still in progress or has failed.
+	// The condition is sticky: once True it remains True for the lifetime of
+	// the Instance.
+	ConditionDataSourceReady = "DataSourceReady"
+)
+
+// Reasons for the DataSourceReady condition.
+const (
+	// ReasonDataSourceWaitingForCluster indicates the provider is waiting
+	// for the engine cluster to reach a state where a restore can be issued.
+	ReasonDataSourceWaitingForCluster = "WaitingForCluster"
+
+	// ReasonDataSourceRestoring indicates a Restore CR has been created and
+	// the operator-native restore is in progress.
+	ReasonDataSourceRestoring = "Restoring"
+
+	// ReasonDataSourceSucceeded indicates the initial restore completed
+	// successfully and the Instance has been seeded from the source backup.
+	ReasonDataSourceSucceeded = "Succeeded"
+
+	// ReasonDataSourceFailed indicates the initial restore failed terminally;
+	// the Instance will not be seeded automatically and operator intervention
+	// is required.
+	ReasonDataSourceFailed = "Failed"
+
+	// ReasonDataSourceSourceBackupNotFound indicates the Backup CR referenced
+	// by .spec.dataSource.backup.backupName does not exist in the Instance namespace.
+	ReasonDataSourceSourceBackupNotFound = "SourceBackupNotFound"
+
+	// ReasonDataSourceSourceBackupNotSucceeded indicates the source Backup
+	// exists but is not in the Succeeded state, so it cannot be restored.
+	ReasonDataSourceSourceBackupNotSucceeded = "SourceBackupNotSucceeded"
+
+	// ReasonDataSourceStorageMismatch indicates the Instance's
+	// .spec.backup.storages does not include an entry matching the storage
+	// used by the source Backup, so the provider cannot access the data.
+	ReasonDataSourceStorageMismatch = "StorageMismatch"
+
+	// ReasonDataSourceClassUnsupported indicates the source Backup's
+	// BackupClass either does not exist, is not ProviderManaged, or does not
+	// list the target Instance's provider in SupportedProviders.
+	ReasonDataSourceClassUnsupported = "BackupClassUnsupported"
 )
 
 // Reasons for the StorageResizing condition.

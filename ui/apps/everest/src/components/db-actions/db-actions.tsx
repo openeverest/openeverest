@@ -16,7 +16,11 @@
 
 import { useMemo, useState } from 'react';
 import { Box, Button, Dialog, DialogContent, IconButton, Menu, MenuItem } from '@mui/material';
-import { DeleteOutline } from '@mui/icons-material';
+import {
+  DeleteOutline as DeleteOutlineIcon,
+  KeyboardReturn as KeyboardReturnIcon,
+  // Add as AddIcon, // TODO: re-enable when create-new-db-from-backup is restored
+} from '@mui/icons-material';
 import ExtensionIcon from '@mui/icons-material/Extension';
 import MoreHorizIcon from '@mui/icons-material/MoreHoriz';
 import { DbActionsProps } from './db-actions.types';
@@ -28,6 +32,9 @@ import { useDbInstanceActions } from 'hooks/api/db-instance';
 import { usePlugins } from 'contexts/plugins';
 import type { ClusterActionExtension } from '@openeverest/plugin-sdk';
 import PluginErrorBoundary from 'components/plugin-host/PluginErrorBoundary';
+import { useBackupsList } from 'hooks/api/backups/useBackups';
+import { useClusterName } from 'hooks/api/useClusterName';
+import { BackupStatus } from 'shared-types/backups.types';
 
 export const DbActions = ({
   // showDetailsAction = false,
@@ -35,7 +42,7 @@ export const DbActions = ({
   dbInstance,
 }: DbActionsProps) => {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
-  const [isNewClusterMode /*setIsNewClusterMode*/] = useState(false);
+  const [isNewClusterMode, setIsNewClusterMode] = useState(false);
   const [activePluginAction, setActivePluginAction] = useState<{
     pluginName: string;
     ext: ClusterActionExtension;
@@ -53,17 +60,29 @@ export const DbActions = ({
     // handleOpenDbDetailsDialog,
     handleCloseDetailsDialog,
     // handleDbSuspendOrResumed,
-    // handleRestoreDbCluster,
+    handleRestoreDbCluster,
     deleteMutation,
   } = useDbInstanceActions(dbInstance);
   const open = Boolean(anchorEl);
   const dbInstanceName = dbInstance.metadata?.name;
-  // const namespace = dbInstance.metadata?.namespace;
+  const namespace = dbInstance.metadata?.namespace ?? '';
+  const clusterName = useClusterName();
+
+  const { data: backups = [] } = useBackupsList(
+    clusterName,
+    namespace,
+    dbInstanceName ?? ''
+  );
+  const hasBackups = backups.length > 0;
+  const hasReadyBackup = backups.some(
+    (b) => b.status?.state === BackupStatus.SUCCEEDED
+  );
   // const redirectURL = `/databases/${namespace}/${dbInstanceName}/overview`;
 
   // const navigate = useNavigate();
   // TODO needs a final enum
   // const actionsBlocked = shouldDbActionsBeBlocked(dbInstance.status?.phase as DbInstanceStatus || '');
+  const actionsBlocked = dbInstance?.status?.phase === 'Terminating';
   // const hasSchedules = !!(
   //   dbInstance.spec.backup && (dbInstance.spec.backup.schedules || []).length > 0
   // );
@@ -210,24 +229,24 @@ export const DbActions = ({
               <RestartAltIcon /> {Messages.menuItems.restart}
             </MenuItem>
           )*/}
-          {/*canCreateClusterFromBackup && (
-            <MenuItem
-              data-testid={`${dbInstanceName}-create-new-db-from-backup`}
-              disabled={actionsBlocked}
-              key={1}
-              onClick={() => {
-                setIsNewClusterMode(true);
-                handleRestoreDbCluster();
-              }}
-              sx={sx}
-            >
-              <AddIcon /> {Messages.menuItems.createNewDbFromBackup}
-            </MenuItem>
-          )*/}
-          {/*canRestore && (
+          {/* TODO: Temporarily hidden — create new DB from backup deferred by team */}
+          {/* <MenuItem
+            data-testid={`${dbInstanceName}-create-new-db-from-backup`}
+            disabled={actionsBlocked}
+            key={1}
+            onClick={() => {
+              setIsNewClusterMode(true);
+              handleRestoreDbCluster();
+            }}
+            sx={sx}
+          >
+            <AddIcon /> {Messages.menuItems.createNewDbFromBackup}
+          </MenuItem> */}
+          {/*TODO RBAC */}
+          {hasBackups && (
             <MenuItem
               data-testid={`${dbInstanceName}-restore`}
-              disabled={actionsBlocked}
+              disabled={actionsBlocked || !hasReadyBackup}
               key={3}
               onClick={() => {
                 setIsNewClusterMode(false);
@@ -237,7 +256,7 @@ export const DbActions = ({
             >
               <KeyboardReturnIcon /> {Messages.menuItems.restoreFromBackup}
             </MenuItem>
-          )*/}
+          )}
           {/*
           {showStatusActions && dbInstance?.status?.details && (
             <MenuItem
@@ -267,7 +286,7 @@ export const DbActions = ({
           )} */}
           {canDelete && (
             <MenuItem
-              disabled={dbInstance?.status?.phase === 'Terminating'}
+              disabled={actionsBlocked}
               data-testid={`${dbInstanceName}-delete`}
               key={5}
               onClick={() => {
@@ -275,7 +294,7 @@ export const DbActions = ({
               }}
               sx={sx}
             >
-              <DeleteOutline /> {Messages.menuItems.delete}
+              <DeleteOutlineIcon /> {Messages.menuItems.delete}
             </MenuItem>
           )}
           {pluginActions.map((pa) => (

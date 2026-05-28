@@ -14,27 +14,24 @@
 
 import { MenuItem } from '@mui/material';
 import { SelectInput, TextInput } from '@percona/ui-lib';
-import {
-  useBackupClassesList,
-  useBackupClassUiSchema,
-} from 'hooks/api/backup-classes/useBackupClasses.ts';
-import { useClusterName } from 'hooks/api/useClusterName.ts';
-import { useContext, useEffect, useMemo, useRef } from 'react';
+import { useBackupClassesList } from 'hooks/api/backup-classes/useBackupClasses';
+import { useBackupsList } from 'hooks/api/backups/useBackups';
+import { useClusterName } from 'hooks/api/useClusterName';
+import { useContext, useEffect, useMemo } from 'react';
 import { useFormContext } from 'react-hook-form';
 import { useParams } from 'react-router-dom';
-import { UIGenerator } from 'components/ui-generator/ui-generator';
+import { removeUnusedStorages } from '../backups.utils';
 import { FormMode } from 'components/ui-generator/ui-generator.types';
 import BackupStoragesInput from 'components/backup-storages-input';
-import { BackupFields } from './on-demand-backup-modal.types.ts';
-import { ScheduleModalContext } from '../backups.context.ts';
-import { getSectionExplicitDefaults } from './on-demand-backup-fields-wrapper.utils';
+import { BackupConfigFields } from 'components/backup-config-fields';
+import { BackupFields } from './on-demand-backup-modal.types';
+import { ScheduleModalContext } from '../backups.context';
 
 export const OnDemandBackupFieldsWrapper = () => {
   const clusterName = useClusterName();
-  const { namespace = '' } = useParams();
+  const { instanceName = '', namespace = '' } = useParams();
   const { instance } = useContext(ScheduleModalContext);
-  const { watch, setValue, trigger } = useFormContext();
-  const appliedDefaultsClassRef = useRef<string>('');
+  const { watch, setValue } = useFormContext();
 
   const selectedClassName: string = watch(BackupFields.backupClassName);
 
@@ -46,41 +43,45 @@ export const OnDemandBackupFieldsWrapper = () => {
     [backupClasses, selectedClassName]
   );
 
-  const { sections: backupSections } = useBackupClassUiSchema(selectedClass);
-
   // Filter classes that support this instance's provider.
   const providerType = instance.spec?.provider;
+  const instanceClassRef = instance.spec?.backup?.classRef?.name;
+  const instanceClass = backupClasses.find(
+    (bc) => bc.metadata?.name === instanceClassRef
+  );
+  const instanceUsesProviderManaged =
+    instanceClass?.spec?.executionMode === 'ProviderManaged';
+
   const availableClasses = backupClasses.filter((bc) => {
     const supported = bc.spec?.supportedProviders;
-    if (!supported || supported.length === 0) return true;
-    if (!providerType) return true;
-    return supported.includes(providerType);
+    if (supported && supported.length > 0 && providerType) {
+      if (!supported.includes(providerType)) return false;
+    }
+    // If the instance already uses a ProviderManaged class,
+    // only allow that same PM class or any Job class.
+    if (
+      instanceUsesProviderManaged &&
+      bc.spec?.executionMode === 'ProviderManaged'
+    ) {
+      return bc.metadata?.name === instanceClassRef;
+    }
+    return true;
   });
 
   const maxStorages = selectedClass?.spec?.providerManaged?.limits?.maxStorages;
   const maxSchedulesPerStorage =
     selectedClass?.spec?.providerManaged?.limits?.maxSchedulesPerStorage;
 
-  const instanceSchedules = useMemo(() => {
-    const storages = instance.spec?.backup?.storages ?? [];
-    return storages.flatMap((s) =>
-      (s.schedules ?? []).map((sched) => ({
-        name: sched.name,
-        enabled: sched.enabled,
-        schedule: sched.cron,
-        backupStorageName: s.storageRef?.name ?? '',
-        retentionCopies: sched.retentionCopies,
-      }))
-    );
-  }, [instance]);
+  const instanceStorages = instance.spec?.backup?.storages ?? [];
 
-  // Storage names currently registered on the instance (authoritative source for active count).
-  const instanceStorageNames = useMemo(
-    () =>
-      (instance.spec?.backup?.storages ?? [])
-        .map((s) => s.storageRef?.name)
-        .filter((n): n is string => Boolean(n)),
-    [instance]
+  const { data: backups = [] } = useBackupsList(
+    clusterName,
+    namespace,
+    instanceName
+  );
+  const liveInstanceStorages = useMemo(
+    () => removeUnusedStorages(instanceStorages, backups),
+    [instanceStorages, backups]
   );
 
   useEffect(() => {
@@ -92,33 +93,6 @@ export const OnDemandBackupFieldsWrapper = () => {
       );
     }
   }, [availableClasses, selectedClassName, setValue]);
-
-  useEffect(() => {
-    if (
-      !selectedClassName ||
-      appliedDefaultsClassRef.current === selectedClassName
-    ) {
-      return;
-    }
-
-    // Wait until sections are loaded — prevents the ref from being set prematurely
-    // (before backupSections resolves), which would block defaults from ever being applied.
-    if (!backupSections) return;
-
-    const explicitDefaults = getSectionExplicitDefaults(backupSections.config);
-
-    Object.entries(explicitDefaults).forEach(([fieldName, defaultValue]) => {
-      setValue(fieldName, defaultValue, {
-        shouldDirty: false,
-        shouldTouch: false,
-        shouldValidate: false,
-      });
-    });
-
-    appliedDefaultsClassRef.current = selectedClassName;
-    // Re-run full validation so isValid reflects the newly-applied defaults.
-    trigger();
-  }, [backupSections, selectedClassName, setValue, trigger]);
 
   return (
     <>
@@ -146,22 +120,18 @@ export const OnDemandBackupFieldsWrapper = () => {
       <BackupStoragesInput
         name={BackupFields.storageName}
         namespace={namespace}
-        schedules={instanceSchedules}
+        instanceStorages={liveInstanceStorages}
         maxStorages={maxStorages}
         maxSchedulesPerStorage={maxSchedulesPerStorage}
-        instanceStorageNames={instanceStorageNames}
         autoFillProps={{
           isRequired: true,
         }}
       />
-      {backupSections && (
-        <UIGenerator
-          sectionKey="config"
-          sections={backupSections}
-          formMode={FormMode.New}
-          namespace={namespace}
-        />
-      )}
+      <BackupConfigFields
+        backupClass={selectedClass}
+        formMode={FormMode.New}
+        namespace={namespace}
+      />
     </>
   );
 };

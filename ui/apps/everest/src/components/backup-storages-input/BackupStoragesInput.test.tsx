@@ -22,10 +22,10 @@ const queryClient = new QueryClient();
 vi.mock('hooks/api/backup-storages/useBackupStorages', () => ({
   useBackupStoragesByNamespace: () => ({
     data: [
-      { name: 'storage1' },
-      { name: 'storage2' },
-      { name: 'storage3' },
-      { name: 'storage4' },
+      { metadata: { name: 'storage1' } },
+      { metadata: { name: 'storage2' } },
+      { metadata: { name: 'storage3' } },
+      { metadata: { name: 'storage4' } },
     ],
     isFetching: false,
   }),

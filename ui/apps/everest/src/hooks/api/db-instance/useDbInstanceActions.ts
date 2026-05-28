@@ -122,7 +122,6 @@ export const useDbInstanceActions = (dbInstance: Instance) => {
   ) => {
     deleteDbInstance(
       {
-        // TODO
         dbInstanceName: dbInstance.metadata?.name || '',
         namespace: dbInstance.metadata?.namespace || '',
         // TODO 1942 check if needed
