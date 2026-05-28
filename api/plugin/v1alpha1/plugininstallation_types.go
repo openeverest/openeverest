@@ -18,7 +18,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// PluginInstallationSpec defines the desired state of a PluginInstallation.
+// PluginInstallationSpec defines the desired state of PluginInstallation
 type PluginInstallationSpec struct {
 	// PluginName references the cluster-scoped Plugin CR by name.
 	// +required
@@ -35,7 +35,7 @@ type PluginInstallationSpec struct {
 	ConfigSecretRef string `json:"configSecretRef,omitempty"`
 }
 
-// PluginInstallationStatus defines the observed state of a PluginInstallation.
+// PluginInstallationStatus defines the observed state of PluginInstallation.
 type PluginInstallationStatus struct {
 	// +listType=map
 	// +listMapKey=type
@@ -49,9 +49,7 @@ type PluginInstallationStatus struct {
 // +kubebuilder:printcolumn:name="Plugin",type="string",JSONPath=".spec.pluginName"
 // +kubebuilder:printcolumn:name="Enabled",type="boolean",JSONPath=".spec.enabled"
 
-// PluginInstallation enables a Plugin within a specific namespace and holds
-// per-tenant configuration. Multiple PluginInstallations for the same plugin
-// allow per-team configuration.
+// PluginInstallation is the Schema for the plugininstallations API
 type PluginInstallation struct {
 	metav1.TypeMeta `json:",inline"`
 	// +optional
@@ -65,7 +63,7 @@ type PluginInstallation struct {
 
 // +kubebuilder:object:root=true
 
-// PluginInstallationList contains a list of PluginInstallation.
+// PluginInstallationList contains a list of PluginInstallation
 type PluginInstallationList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitzero"`

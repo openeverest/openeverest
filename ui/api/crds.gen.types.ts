@@ -1332,11 +1332,7 @@ export interface components {
                 }[];
             };
         };
-        /**
-         * @description PluginInstallation enables a Plugin within a specific namespace and holds
-         *     per-tenant configuration. Multiple PluginInstallations for the same plugin
-         *     allow per-team configuration.
-         */
+        /** @description PluginInstallation is the Schema for the plugininstallations API */
         PluginInstallation: {
             /**
              * @description APIVersion defines the versioned schema of this representation of an object.
@@ -1354,7 +1350,7 @@ export interface components {
              */
             kind?: string;
             metadata?: Record<string, never>;
-            /** @description PluginInstallationSpec defines the desired state of a PluginInstallation. */
+            /** @description PluginInstallationSpec defines the desired state of PluginInstallation */
             spec: {
                 /**
                  * @description ConfigSecretRef is an optional reference to a Secret in the same namespace
@@ -1369,7 +1365,7 @@ export interface components {
                 /** @description PluginName references the cluster-scoped Plugin CR by name. */
                 pluginName: string;
             };
-            /** @description PluginInstallationStatus defines the observed state of a PluginInstallation. */
+            /** @description PluginInstallationStatus defines the observed state of PluginInstallation. */
             status?: {
                 conditions?: {
                     /**

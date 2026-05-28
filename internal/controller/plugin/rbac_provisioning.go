@@ -25,7 +25,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
-	corev1alpha1 "github.com/openeverest/openeverest/v2/api/core/v1alpha1"
+	pluginv1alpha1 "github.com/openeverest/openeverest/v2/api/plugin/v1alpha1"
 )
 
 const (
@@ -49,8 +49,8 @@ func roleName(pluginName string) string {
 // PluginInstallation so it is garbage-collected on deletion.
 func (r *PluginInstallationReconciler) ensurePluginRole(
 	ctx context.Context,
-	pi *corev1alpha1.PluginInstallation,
-	plugin *corev1alpha1.Plugin,
+	pi *pluginv1alpha1.PluginInstallation,
+	plugin *pluginv1alpha1.Plugin,
 ) error {
 	logger := log.FromContext(ctx)
 
@@ -108,8 +108,8 @@ func (r *PluginInstallationReconciler) ensurePluginRole(
 // PluginInstallation for garbage collection.
 func (r *PluginInstallationReconciler) ensurePluginRoleBinding(
 	ctx context.Context,
-	pi *corev1alpha1.PluginInstallation,
-	plugin *corev1alpha1.Plugin,
+	pi *pluginv1alpha1.PluginInstallation,
+	plugin *pluginv1alpha1.Plugin,
 ) error {
 	logger := log.FromContext(ctx)
 
@@ -168,7 +168,7 @@ func (r *PluginInstallationReconciler) ensurePluginRoleBinding(
 // deletePluginRole removes the plugin Role if it exists.
 func (r *PluginInstallationReconciler) deletePluginRole(
 	ctx context.Context,
-	pi *corev1alpha1.PluginInstallation,
+	pi *pluginv1alpha1.PluginInstallation,
 ) error {
 	name := roleName(pi.Spec.PluginName)
 	role := &rbacv1.Role{}
@@ -185,7 +185,7 @@ func (r *PluginInstallationReconciler) deletePluginRole(
 // deletePluginRoleBinding removes the plugin RoleBinding if it exists.
 func (r *PluginInstallationReconciler) deletePluginRoleBinding(
 	ctx context.Context,
-	pi *corev1alpha1.PluginInstallation,
+	pi *pluginv1alpha1.PluginInstallation,
 ) error {
 	name := roleName(pi.Spec.PluginName)
 	rb := &rbacv1.RoleBinding{}
@@ -202,7 +202,7 @@ func (r *PluginInstallationReconciler) deletePluginRoleBinding(
 // pluginServiceAccountNamespace returns the namespace where the plugin's
 // ServiceAccount lives. For in-cluster backends, this is the backend service
 // namespace; otherwise defaults to "everest-system".
-func pluginServiceAccountNamespace(plugin *corev1alpha1.Plugin) string {
+func pluginServiceAccountNamespace(plugin *pluginv1alpha1.Plugin) string {
 	if plugin.Spec.Backend != nil && plugin.Spec.Backend.ServiceRef != nil {
 		return plugin.Spec.Backend.ServiceRef.Namespace
 	}

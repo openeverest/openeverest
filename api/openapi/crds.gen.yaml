@@ -1998,10 +1998,7 @@ components:
       - spec
       type: object
     PluginInstallation:
-      description: |-
-        PluginInstallation enables a Plugin within a specific namespace and holds
-        per-tenant configuration. Multiple PluginInstallations for the same plugin
-        allow per-team configuration.
+      description: PluginInstallation is the Schema for the plugininstallations API
       properties:
         apiVersion:
           description: |-
@@ -2021,7 +2018,7 @@ components:
         metadata:
           type: object
         spec:
-          description: PluginInstallationSpec defines the desired state of a PluginInstallation.
+          description: PluginInstallationSpec defines the desired state of PluginInstallation
           properties:
             configSecretRef:
               description: |-
@@ -2039,7 +2036,7 @@ components:
           - pluginName
           type: object
         status:
-          description: PluginInstallationStatus defines the observed state of a PluginInstallation.
+          description: PluginInstallationStatus defines the observed state of PluginInstallation.
           properties:
             conditions:
               items:

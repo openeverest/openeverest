@@ -1555,9 +1555,7 @@ type Plugin struct {
 // PluginStatusConditionsStatus status of the condition, one of True, False, Unknown.
 type PluginStatusConditionsStatus string
 
-// PluginInstallation PluginInstallation enables a Plugin within a specific namespace and holds
-// per-tenant configuration. Multiple PluginInstallations for the same plugin
-// allow per-team configuration.
+// PluginInstallation PluginInstallation is the Schema for the plugininstallations API
 type PluginInstallation struct {
 	// ApiVersion APIVersion defines the versioned schema of this representation of an object.
 	// Servers should convert recognized schemas to the latest internal value, and
@@ -1573,7 +1571,7 @@ type PluginInstallation struct {
 	Kind     *string                 `json:"kind,omitempty"`
 	Metadata *map[string]interface{} `json:"metadata,omitempty"`
 
-	// Spec PluginInstallationSpec defines the desired state of a PluginInstallation.
+	// Spec PluginInstallationSpec defines the desired state of PluginInstallation
 	Spec struct {
 		// ConfigSecretRef ConfigSecretRef is an optional reference to a Secret in the same namespace
 		// that holds plugin-specific configuration (mounted as env vars in the backend).
@@ -1586,7 +1584,7 @@ type PluginInstallation struct {
 		PluginName string `json:"pluginName"`
 	} `json:"spec"`
 
-	// Status PluginInstallationStatus defines the observed state of a PluginInstallation.
+	// Status PluginInstallationStatus defines the observed state of PluginInstallation.
 	Status *struct {
 		Conditions *[]struct {
 			// LastTransitionTime lastTransitionTime is the last time the condition transitioned from one status to another.

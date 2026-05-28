@@ -4,9 +4,9 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.18.0
-  name: plugininstallations.core.openeverest.io
+  name: plugininstallations.plugin.openeverest.io
 spec:
-  group: core.openeverest.io
+  group: plugin.openeverest.io
   names:
     kind: PluginInstallation
     listKind: PluginInstallationList
@@ -27,10 +27,8 @@ spec:
     name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: |-
-          PluginInstallation enables a Plugin within a specific namespace and holds
-          per-tenant configuration. Multiple PluginInstallations for the same plugin
-          allow per-team configuration.
+        description: PluginInstallation is the Schema for the plugininstallations
+          API
         properties:
           apiVersion:
             description: |-
@@ -50,7 +48,7 @@ spec:
           metadata:
             type: object
           spec:
-            description: PluginInstallationSpec defines the desired state of a PluginInstallation.
+            description: PluginInstallationSpec defines the desired state of PluginInstallation
             properties:
               configSecretRef:
                 description: |-
@@ -70,8 +68,7 @@ spec:
             - pluginName
             type: object
           status:
-            description: PluginInstallationStatus defines the observed state of a
-              PluginInstallation.
+            description: PluginInstallationStatus defines the observed state of PluginInstallation.
             properties:
               conditions:
                 items:

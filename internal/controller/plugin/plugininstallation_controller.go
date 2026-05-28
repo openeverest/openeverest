@@ -29,11 +29,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	corev1alpha1 "github.com/openeverest/openeverest/v2/api/core/v1alpha1"
+	pluginv1alpha1 "github.com/openeverest/openeverest/v2/api/plugin/v1alpha1"
 )
 
 const (
-	pluginInstallationFinalizer = "plugininstallation.core.openeverest.io/finalizer"
+	pluginInstallationFinalizer = "plugininstallation.plugin.openeverest.io/finalizer"
 
 	reasonPluginNotFound  = "PluginNotFound"
 	reasonPluginDisabled  = "PluginDisabled"
@@ -41,7 +41,7 @@ const (
 	reasonReady           = "Ready"
 )
 
-// PluginInstallationReconciler reconciles PluginInstallation resources.
+// PluginInstallationReconciler reconciles a PluginInstallation object
 //
 // Phase 1 responsibilities:
 //   - Add/remove a finalizer.
@@ -51,63 +51,25 @@ const (
 // Phase 2+: per-namespace config injection, token minting.
 // Phase 3+: Deployment lifecycle management.
 type PluginInstallationReconciler struct {
-	Client client.Client
+	client.Client
 	Scheme *runtime.Scheme
 }
 
-// +kubebuilder:rbac:groups=core.openeverest.io,resources=plugininstallations,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=core.openeverest.io,resources=plugininstallations/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=core.openeverest.io,resources=plugininstallations/finalizers,verbs=update
+// +kubebuilder:rbac:groups=plugin.openeverest.io,resources=plugininstallations,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=plugin.openeverest.io,resources=plugininstallations/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=plugin.openeverest.io,resources=plugininstallations/finalizers,verbs=update
 // +kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=roles,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=rolebindings,verbs=get;list;watch;create;update;patch;delete
 
-// SetupWithManager registers the controller with the manager.
-// It also watches Plugin CRs and enqueues all PluginInstallations that reference them,
-// so that installation status is refreshed whenever the parent Plugin changes.
-func (r *PluginInstallationReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewControllerManagedBy(mgr).
-		Named("PluginInstallation").
-		For(&corev1alpha1.PluginInstallation{}).
-		// Re-reconcile all PluginInstallations when a Plugin changes.
-		Watches(
-			&corev1alpha1.Plugin{},
-			handler.EnqueueRequestsFromMapFunc(r.pluginToInstallations),
-		).
-		Complete(r)
-}
-
-// pluginToInstallations maps a Plugin event to all PluginInstallations that reference it.
-func (r *PluginInstallationReconciler) pluginToInstallations(
-	ctx context.Context,
-	obj client.Object,
-) []reconcile.Request {
-	pluginName := obj.GetName()
-	list := &corev1alpha1.PluginInstallationList{}
-	if err := r.Client.List(ctx, list); err != nil {
-		return nil
-	}
-	var requests []reconcile.Request
-	for _, pi := range list.Items {
-		if pi.Spec.PluginName == pluginName {
-			requests = append(requests, reconcile.Request{
-				NamespacedName: types.NamespacedName{
-					Namespace: pi.Namespace,
-					Name:      pi.Name,
-				},
-			})
-		}
-	}
-	return requests
-}
-
-// Reconcile moves the PluginInstallation towards its desired state.
+// Reconcile is part of the main kubernetes reconciliation loop which aims to
+// move the current state of the cluster closer to the desired state.
 func (r *PluginInstallationReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	logger := log.FromContext(ctx).
 		WithName("PluginInstallationReconciler").
 		WithValues("name", req.Name, "namespace", req.Namespace)
 	logger.Info("Reconciling")
 
-	pi := &corev1alpha1.PluginInstallation{}
+	pi := &pluginv1alpha1.PluginInstallation{}
 	if err := r.Client.Get(ctx, req.NamespacedName, pi); err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
@@ -144,7 +106,7 @@ func (r *PluginInstallationReconciler) Reconcile(ctx context.Context, req ctrl.R
 	// --- Reconcile status conditions ---
 	patch := client.MergeFrom(pi.DeepCopy())
 
-	plugin := &corev1alpha1.Plugin{}
+	plugin := &pluginv1alpha1.Plugin{}
 	pluginErr := r.Client.Get(ctx, types.NamespacedName{Name: pi.Spec.PluginName}, plugin)
 
 	r.reconcileConditions(pi, plugin, pluginErr)
@@ -176,8 +138,8 @@ func (r *PluginInstallationReconciler) Reconcile(ctx context.Context, req ctrl.R
 }
 
 func (r *PluginInstallationReconciler) reconcileConditions(
-	pi *corev1alpha1.PluginInstallation,
-	plugin *corev1alpha1.Plugin,
+	pi *pluginv1alpha1.PluginInstallation,
+	plugin *pluginv1alpha1.Plugin,
 	pluginErr error,
 ) {
 	now := metav1.Now()
@@ -241,4 +203,40 @@ func removeFinalizer(obj metav1.Object, finalizer string) {
 		}
 	}
 	obj.SetFinalizers(updated)
+}
+
+// SetupWithManager sets up the controller with the Manager.
+func (r *PluginInstallationReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	return ctrl.NewControllerManagedBy(mgr).
+		For(&pluginv1alpha1.PluginInstallation{}).
+		Watches(
+			&pluginv1alpha1.Plugin{},
+			handler.EnqueueRequestsFromMapFunc(r.pluginToInstallations),
+		).
+		Named("plugin-plugininstallation").
+		Complete(r)
+}
+
+// pluginToInstallations maps a Plugin event to all PluginInstallations that reference it.
+func (r *PluginInstallationReconciler) pluginToInstallations(
+	ctx context.Context,
+	obj client.Object,
+) []reconcile.Request {
+	pluginName := obj.GetName()
+	list := &pluginv1alpha1.PluginInstallationList{}
+	if err := r.Client.List(ctx, list); err != nil {
+		return nil
+	}
+	var requests []reconcile.Request
+	for _, pi := range list.Items {
+		if pi.Spec.PluginName == pluginName {
+			requests = append(requests, reconcile.Request{
+				NamespacedName: types.NamespacedName{
+					Namespace: pi.Namespace,
+					Name:      pi.Name,
+				},
+			})
+		}
+	}
+	return requests
 }

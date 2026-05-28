@@ -22,7 +22,6 @@ import (
 	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
 	"github.com/openeverest/openeverest/v2/api/core/v1alpha1"
 	monitoringv1alpha1 "github.com/openeverest/openeverest/v2/api/monitoring/v1alpha1"
-	"github.com/openeverest/openeverest/v2/api/plugin/v1alpha1"
 	pluginv1alpha1 "github.com/openeverest/openeverest/v2/api/plugin/v1alpha1"
 	"github.com/openeverest/openeverest/v2/pkg/accounts"
 	"github.com/openeverest/openeverest/v2/pkg/common"
@@ -268,13 +267,13 @@ type KubernetesConnector interface {
 	// DeletePlugin deletes a plugin.
 	DeletePlugin(ctx context.Context, obj *pluginv1alpha1.Plugin) error
 	// ListPluginInstallations returns plugin installations that match the criteria.
-	ListPluginInstallations(ctx context.Context, opts ...ctrlclient.ListOption) (*v1alpha1.PluginInstallationList, error)
+	ListPluginInstallations(ctx context.Context, opts ...ctrlclient.ListOption) (*pluginv1alpha1.PluginInstallationList, error)
 	// GetPluginInstallation returns a plugin installation that matches the criteria.
-	GetPluginInstallation(ctx context.Context, key ctrlclient.ObjectKey) (*v1alpha1.PluginInstallation, error)
+	GetPluginInstallation(ctx context.Context, key ctrlclient.ObjectKey) (*pluginv1alpha1.PluginInstallation, error)
 	// CreatePluginInstallation creates a new plugin installation.
-	CreatePluginInstallation(ctx context.Context, pi *v1alpha1.PluginInstallation) (*v1alpha1.PluginInstallation, error)
+	CreatePluginInstallation(ctx context.Context, pi *pluginv1alpha1.PluginInstallation) (*pluginv1alpha1.PluginInstallation, error)
 	// DeletePluginInstallation deletes a plugin installation.
-	DeletePluginInstallation(ctx context.Context, obj *v1alpha1.PluginInstallation) error
+	DeletePluginInstallation(ctx context.Context, obj *pluginv1alpha1.PluginInstallation) error
 	// ListPodSchedulingPolicies returns a list of pod scheduling policy that matches the criteria.
 	// This method returns a list of full objects (meta and spec).
 	ListPodSchedulingPolicies(ctx context.Context, opts ...ctrlclient.ListOption) (*everestv1alpha1.PodSchedulingPolicyList, error)
