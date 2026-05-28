@@ -1390,7 +1390,7 @@ type Plugin struct {
 	Kind     *string                 `json:"kind,omitempty"`
 	Metadata *map[string]interface{} `json:"metadata,omitempty"`
 
-	// Spec PluginSpec defines the desired state of a Plugin.
+	// Spec PluginSpec defines the desired state of Plugin
 	Spec struct {
 		// Backend Backend defines the optional backend contribution of the plugin.
 		Backend *struct {
@@ -1520,7 +1520,7 @@ type Plugin struct {
 		Version *string `json:"version,omitempty"`
 	} `json:"spec"`
 
-	// Status PluginStatus defines the observed state of a Plugin.
+	// Status PluginStatus defines the observed state of Plugin.
 	Status *struct {
 		Conditions *[]struct {
 			// LastTransitionTime lastTransitionTime is the last time the condition transitioned from one status to another.

@@ -1161,7 +1161,7 @@ export interface components {
              */
             kind?: string;
             metadata?: Record<string, never>;
-            /** @description PluginSpec defines the desired state of a Plugin. */
+            /** @description PluginSpec defines the desired state of Plugin */
             spec: {
                 /** @description Backend defines the optional backend contribution of the plugin. */
                 backend?: {
@@ -1293,7 +1293,7 @@ export interface components {
                 /** @description Version is the SemVer version of the plugin. */
                 version?: string;
             };
-            /** @description PluginStatus defines the observed state of a Plugin. */
+            /** @description PluginStatus defines the observed state of Plugin. */
             status?: {
                 conditions?: {
                     /**

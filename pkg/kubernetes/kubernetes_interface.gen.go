@@ -22,6 +22,8 @@ import (
 	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
 	"github.com/openeverest/openeverest/v2/api/core/v1alpha1"
 	monitoringv1alpha1 "github.com/openeverest/openeverest/v2/api/monitoring/v1alpha1"
+	"github.com/openeverest/openeverest/v2/api/plugin/v1alpha1"
+	pluginv1alpha1 "github.com/openeverest/openeverest/v2/api/plugin/v1alpha1"
 	"github.com/openeverest/openeverest/v2/pkg/accounts"
 	"github.com/openeverest/openeverest/v2/pkg/common"
 )
@@ -258,13 +260,13 @@ type KubernetesConnector interface {
 	// GetEverestSettings returns Everest settings.
 	GetEverestSettings(ctx context.Context) (common.EverestSettings, error)
 	// ListPlugins returns list of plugins that match the criteria.
-	ListPlugins(ctx context.Context, opts ...ctrlclient.ListOption) (*v1alpha1.PluginList, error)
+	ListPlugins(ctx context.Context, opts ...ctrlclient.ListOption) (*pluginv1alpha1.PluginList, error)
 	// GetPlugin returns plugin that matches the criteria.
-	GetPlugin(ctx context.Context, key ctrlclient.ObjectKey) (*v1alpha1.Plugin, error)
+	GetPlugin(ctx context.Context, key ctrlclient.ObjectKey) (*pluginv1alpha1.Plugin, error)
 	// CreatePlugin creates a new plugin.
-	CreatePlugin(ctx context.Context, plugin *v1alpha1.Plugin) (*v1alpha1.Plugin, error)
+	CreatePlugin(ctx context.Context, plugin *pluginv1alpha1.Plugin) (*pluginv1alpha1.Plugin, error)
 	// DeletePlugin deletes a plugin.
-	DeletePlugin(ctx context.Context, obj *v1alpha1.Plugin) error
+	DeletePlugin(ctx context.Context, obj *pluginv1alpha1.Plugin) error
 	// ListPluginInstallations returns plugin installations that match the criteria.
 	ListPluginInstallations(ctx context.Context, opts ...ctrlclient.ListOption) (*v1alpha1.PluginInstallationList, error)
 	// GetPluginInstallation returns a plugin installation that matches the criteria.

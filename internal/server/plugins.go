@@ -28,7 +28,7 @@ import (
 	"go.uber.org/zap"
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 
-	corev1alpha1 "github.com/openeverest/openeverest/v2/api/core/v1alpha1"
+	pluginv1alpha1 "github.com/openeverest/openeverest/v2/api/plugin/v1alpha1"
 	"github.com/openeverest/openeverest/v2/pkg/kubernetes"
 	"github.com/openeverest/openeverest/v2/pkg/rbac"
 )
@@ -306,7 +306,7 @@ func (pp *pluginProxy) doProxy(c echo.Context) error {
 
 // resolveBackendURL returns the base URL and optional bearer token for the plugin backend.
 // Priority: ServiceRef > ExternalURL.
-func (pp *pluginProxy) resolveBackendURL(backend *corev1alpha1.PluginBackend) (string, string, error) {
+func (pp *pluginProxy) resolveBackendURL(backend *pluginv1alpha1.PluginBackend) (string, string, error) {
 	if backend.ServiceRef != nil {
 		ref := backend.ServiceRef
 		if ref.Namespace == "" || ref.Name == "" || ref.Port == 0 {

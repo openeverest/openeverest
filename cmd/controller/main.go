@@ -38,6 +38,7 @@ import (
 	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
 	corev1alpha1 "github.com/openeverest/openeverest/v2/api/core/v1alpha1"
 	monitoringv1alpha1 "github.com/openeverest/openeverest/v2/api/monitoring/v1alpha1"
+	pluginv1alpha1 "github.com/openeverest/openeverest/v2/api/plugin/v1alpha1"
 	backupcontroller "github.com/openeverest/openeverest/v2/internal/controller/backup"
 	monitoringcontroller "github.com/openeverest/openeverest/v2/internal/controller/monitoring"
 	plugincontroller "github.com/openeverest/openeverest/v2/internal/controller/plugin"
@@ -55,6 +56,7 @@ func init() {
 	utilruntime.Must(corev1alpha1.AddToScheme(scheme))
 	utilruntime.Must(backupv1alpha1.AddToScheme(scheme))
 	utilruntime.Must(monitoringv1alpha1.AddToScheme(scheme))
+	utilruntime.Must(pluginv1alpha1.AddToScheme(scheme))
 	utilruntime.Must(vmv1beta1.AddToScheme(scheme))
 	// +kubebuilder:scaffold:scheme
 }

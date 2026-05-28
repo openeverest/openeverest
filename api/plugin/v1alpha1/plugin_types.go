@@ -18,7 +18,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// PluginSpec defines the desired state of a Plugin.
+// PluginSpec defines the desired state of Plugin
 type PluginSpec struct {
 	// DisplayName is the human-readable name shown in the UI sidebar.
 	// +required
@@ -208,7 +208,7 @@ type PluginCLI struct {
 	Description string `json:"description,omitempty"`
 }
 
-// PluginStatus defines the observed state of a Plugin.
+// PluginStatus defines the observed state of Plugin.
 type PluginStatus struct {
 	// +listType=map
 	// +listMapKey=type
@@ -241,7 +241,7 @@ type Plugin struct {
 
 // +kubebuilder:object:root=true
 
-// PluginList contains a list of Plugin.
+// PluginList contains a list of Plugin
 type PluginList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitzero"`

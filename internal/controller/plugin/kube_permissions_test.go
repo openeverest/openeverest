@@ -17,11 +17,11 @@ package plugin
 import (
 	"testing"
 
-	corev1alpha1 "github.com/openeverest/openeverest/v2/api/core/v1alpha1"
+	pluginv1alpha1 "github.com/openeverest/openeverest/v2/api/plugin/v1alpha1"
 )
 
 func TestValidateKubePermissions_Valid(t *testing.T) {
-	rules := []corev1alpha1.KubePermissionRule{
+	rules := []pluginv1alpha1.KubePermissionRule{
 		{
 			APIGroups: []string{"apps"},
 			Resources: []string{"deployments"},
@@ -41,7 +41,7 @@ func TestValidateKubePermissions_Valid(t *testing.T) {
 }
 
 func TestValidateKubePermissions_WildcardAPIGroup(t *testing.T) {
-	rules := []corev1alpha1.KubePermissionRule{
+	rules := []pluginv1alpha1.KubePermissionRule{
 		{
 			APIGroups: []string{"*"},
 			Resources: []string{"deployments"},
@@ -56,7 +56,7 @@ func TestValidateKubePermissions_WildcardAPIGroup(t *testing.T) {
 }
 
 func TestValidateKubePermissions_WildcardResource(t *testing.T) {
-	rules := []corev1alpha1.KubePermissionRule{
+	rules := []pluginv1alpha1.KubePermissionRule{
 		{
 			APIGroups: []string{"apps"},
 			Resources: []string{"*"},
@@ -71,7 +71,7 @@ func TestValidateKubePermissions_WildcardResource(t *testing.T) {
 }
 
 func TestValidateKubePermissions_WildcardVerb(t *testing.T) {
-	rules := []corev1alpha1.KubePermissionRule{
+	rules := []pluginv1alpha1.KubePermissionRule{
 		{
 			APIGroups: []string{"apps"},
 			Resources: []string{"deployments"},
@@ -86,7 +86,7 @@ func TestValidateKubePermissions_WildcardVerb(t *testing.T) {
 }
 
 func TestValidateKubePermissions_DeniedAPIGroup(t *testing.T) {
-	rules := []corev1alpha1.KubePermissionRule{
+	rules := []pluginv1alpha1.KubePermissionRule{
 		{
 			APIGroups: []string{"rbac.authorization.k8s.io"},
 			Resources: []string{"roles"},
@@ -101,7 +101,7 @@ func TestValidateKubePermissions_DeniedAPIGroup(t *testing.T) {
 }
 
 func TestValidateKubePermissions_DeniedCoreResource(t *testing.T) {
-	rules := []corev1alpha1.KubePermissionRule{
+	rules := []pluginv1alpha1.KubePermissionRule{
 		{
 			APIGroups: []string{""},
 			Resources: []string{"secrets"},
@@ -116,7 +116,7 @@ func TestValidateKubePermissions_DeniedCoreResource(t *testing.T) {
 }
 
 func TestValidateKubePermissions_MultipleViolations(t *testing.T) {
-	rules := []corev1alpha1.KubePermissionRule{
+	rules := []pluginv1alpha1.KubePermissionRule{
 		{
 			APIGroups: []string{"*"},
 			Resources: []string{"*"},
@@ -150,7 +150,7 @@ func TestValidateKubePermissions_EmptyRules(t *testing.T) {
 		t.Errorf("expected no violations for nil input, got: %v", violations)
 	}
 
-	violations = validateKubePermissions([]corev1alpha1.KubePermissionRule{})
+	violations = validateKubePermissions([]pluginv1alpha1.KubePermissionRule{})
 	if len(violations) != 0 {
 		t.Errorf("expected no violations for empty input, got: %v", violations)
 	}

@@ -4,9 +4,9 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.18.0
-  name: plugins.core.openeverest.io
+  name: plugins.plugin.openeverest.io
 spec:
-  group: core.openeverest.io
+  group: plugin.openeverest.io
   names:
     kind: Plugin
     listKind: PluginList
@@ -53,7 +53,7 @@ spec:
           metadata:
             type: object
           spec:
-            description: PluginSpec defines the desired state of a Plugin.
+            description: PluginSpec defines the desired state of Plugin
             properties:
               backend:
                 description: Backend defines the optional backend contribution of
@@ -261,7 +261,7 @@ spec:
             - displayName
             type: object
           status:
-            description: PluginStatus defines the observed state of a Plugin.
+            description: PluginStatus defines the observed state of Plugin.
             properties:
               conditions:
                 items:

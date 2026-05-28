@@ -1047,7 +1047,7 @@ k8s_resource(
     'backupstorages.backup.openeverest.io:customresourcedefinition',
     'instances.core.openeverest.io:customresourcedefinition',
     'monitoringconfigs.monitoring.openeverest.io:customresourcedefinition',
-    'plugins.core.openeverest.io:customresourcedefinition',
+    'plugins.plugin.openeverest.io:customresourcedefinition',
     'plugininstallations.core.openeverest.io:customresourcedefinition',
     'providers.core.openeverest.io:customresourcedefinition',
     'restores.backup.openeverest.io:customresourcedefinition'

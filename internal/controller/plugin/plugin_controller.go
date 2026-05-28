@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package plugin contains reconcilers for Plugin and PluginInstallation resources.
 package plugin
 
 import (
@@ -29,11 +28,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
-	corev1alpha1 "github.com/openeverest/openeverest/v2/api/core/v1alpha1"
+	pluginv1alpha1 "github.com/openeverest/openeverest/v2/api/plugin/v1alpha1"
 )
 
 const (
-	pluginFinalizer = "plugin.core.openeverest.io/finalizer"
+	pluginFinalizer = "plugin.plugin.openeverest.io/finalizer"
 
 	// ConditionTypeAvailable is True when the Plugin CR is valid and the
 	// backend (if declared) was reachable at last check.
@@ -50,7 +49,7 @@ const (
 	reasonKubePermsDenied = "KubePermissionsDenied"
 )
 
-// PluginReconciler reconciles Plugin resources.
+// PluginReconciler reconciles a Plugin object
 //
 // Phase 1 responsibilities:
 //   - Add/remove a finalizer so we can react to deletion.
@@ -60,30 +59,23 @@ const (
 // Phase 2+ will add: serviceRef DNS resolution, health checks, RBAC auto-provisioning.
 // Phase 3+ will add: daemon token minting, NetworkPolicy generation.
 type PluginReconciler struct {
-	Client client.Client
+	client.Client
 	Scheme *runtime.Scheme
 }
 
-// +kubebuilder:rbac:groups=core.openeverest.io,resources=plugins,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=core.openeverest.io,resources=plugins/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=core.openeverest.io,resources=plugins/finalizers,verbs=update
+// +kubebuilder:rbac:groups=plugin.openeverest.io,resources=plugins,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=plugin.openeverest.io,resources=plugins/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=plugin.openeverest.io,resources=plugins/finalizers,verbs=update
 
-// SetupWithManager registers the controller with the manager.
-func (r *PluginReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewControllerManagedBy(mgr).
-		Named("Plugin").
-		For(&corev1alpha1.Plugin{}).
-		Complete(r)
-}
-
-// Reconcile moves the Plugin CR towards its desired state.
+// Reconcile is part of the main kubernetes reconciliation loop which aims to
+// move the current state of the cluster closer to the desired state.
 func (r *PluginReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	logger := log.FromContext(ctx).
 		WithName("PluginReconciler").
 		WithValues("name", req.Name)
 	logger.Info("Reconciling")
 
-	plugin := &corev1alpha1.Plugin{}
+	plugin := &pluginv1alpha1.Plugin{}
 	if err := r.Client.Get(ctx, req.NamespacedName, plugin); err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
@@ -126,7 +118,7 @@ func (r *PluginReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 }
 
 // reconcileConditions sets Available and Ready conditions based on spec state.
-func (r *PluginReconciler) reconcileConditions(plugin *corev1alpha1.Plugin) {
+func (r *PluginReconciler) reconcileConditions(plugin *pluginv1alpha1.Plugin) {
 	now := metav1.Now()
 
 	// Available: plugin spec is valid.
@@ -184,4 +176,12 @@ func isConditionTrue(conditions []metav1.Condition, condType string) bool {
 		}
 	}
 	return false
+}
+
+// SetupWithManager sets up the controller with the Manager.
+func (r *PluginReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	return ctrl.NewControllerManagedBy(mgr).
+		For(&pluginv1alpha1.Plugin{}).
+		Named("plugin-plugin").
+		Complete(r)
 }

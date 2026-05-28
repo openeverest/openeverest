@@ -18,7 +18,7 @@ import (
 	"fmt"
 	"strings"
 
-	corev1alpha1 "github.com/openeverest/openeverest/v2/api/core/v1alpha1"
+	pluginv1alpha1 "github.com/openeverest/openeverest/v2/api/plugin/v1alpha1"
 )
 
 // Denied API groups — plugins must not touch these.
@@ -42,7 +42,7 @@ var deniedCoreResources = map[string]bool{
 // validateKubePermissions checks that the declared kubePermissions do not
 // violate the hard-coded denylist. Returns a list of human-readable violation
 // messages. An empty slice means the rules are valid.
-func validateKubePermissions(rules []corev1alpha1.KubePermissionRule) []string {
+func validateKubePermissions(rules []pluginv1alpha1.KubePermissionRule) []string {
 	var violations []string
 
 	for i, rule := range rules {
