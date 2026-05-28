@@ -305,8 +305,6 @@ test-crosscover: setup-envtest ## Run unit tests and collect cross-package cover
 test-integration-monitoring: docker-build-controller k3d-upload-controller-image
 	kubectl get namespace everest-monitoring || kubectl create namespace everest-monitoring
 	$(MAKE) deploy-test-controller
-	kubectl apply -f https://raw.githubusercontent.com/VictoriaMetrics/operator/v$(VICTORIAMETRICS_OPERATOR_VERSION)/config/crd/overlay/crd.yaml
-	kubectl wait --for condition=established --timeout=10s crd vmagents.operator.victoriametrics.com
 	kubectl delete pod -n openeverest-system -l control-plane=controller-manager
 	$(MAKE) wait-test-controller
 	chainsaw test --config test/integration/.monitoring.yaml test/integration/monitoring
@@ -519,6 +517,8 @@ build-installer: gen-crds-manifests kustomize ## Generate a consolidated YAML wi
 
 .PHONY: deploy-test-controller
 deploy-test-controller: gen-crds-manifests kustomize deploy-cert-manager
+	kubectl apply -f https://raw.githubusercontent.com/VictoriaMetrics/operator/v$(VICTORIAMETRICS_OPERATOR_VERSION)/config/crd/overlay/crd.yaml
+	kubectl wait --for condition=established --timeout=10s crd vmagents.operator.victoriametrics.com
 	cd config/test && "$(KUSTOMIZE)" edit set image controller=${EVEREST_CONTROLLER_IMG}
 	$(KUSTOMIZE) build config/test | kubectl apply -f -
 
