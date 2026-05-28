@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -64,7 +65,10 @@ export const useCreateRestoreFromBackup = (
         spec: {
           instanceName,
           dataSource: {
-            backupName,
+            type: 'Backup',
+            backup: {
+              backupName,
+            },
           },
         },
       };
@@ -131,8 +135,8 @@ export const useInstanceRestores = (
         startTime: item.status.startedAt || item.metadata.creationTimestamp,
         endTime: item.status.completedAt,
         state: item.status.state || 'unknown',
-        type: item.spec.dataSource.pitr ? 'pitr' : 'full',
-        backupSource: item.spec.dataSource.backupName || '',
+        type: item.spec.dataSource.backup?.pitr ? 'pitr' : 'full',
+        backupSource: item.spec.dataSource.backup?.backupName || '',
       })),
     ...options,
   });

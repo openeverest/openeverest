@@ -169,8 +169,7 @@ export const BaseInfoStep = ({ loadingDefaultsForEdition }: StepProps) => {
             name={DbWizardFormFields.topology}
             label="Database Topology"
             selectFieldProps={{
-              disabled:
-                mode === FormMode.Restore || loadingDefaultsForEdition,
+              disabled: mode === FormMode.Restore || loadingDefaultsForEdition,
             }}
           >
             {topologies.map((topology) => (

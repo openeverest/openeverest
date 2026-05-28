@@ -30,6 +30,7 @@ import DbActionsModals from './db-actions-modals';
 import { useDbInstanceActions } from 'hooks/api/db-instance';
 import { useBackupsList } from 'hooks/api/backups/useBackups';
 import { useClusterName } from 'hooks/api/useClusterName';
+import { BackupStatus } from 'shared-types/backups.types';
 
 export const DbActions = ({
   // showDetailsAction = false,
@@ -59,8 +60,15 @@ export const DbActions = ({
   const namespace = dbInstance.metadata?.namespace ?? '';
   const clusterName = useClusterName();
 
-  const { data: backups = [] } = useBackupsList(clusterName, namespace, dbInstanceName ?? '');
+  const { data: backups = [] } = useBackupsList(
+    clusterName,
+    namespace,
+    dbInstanceName ?? ''
+  );
   const hasBackups = backups.length > 0;
+  const hasReadyBackup = backups.some(
+    (b) => b.status?.state === BackupStatus.SUCCEEDED
+  );
   // const redirectURL = `/databases/${namespace}/${dbInstanceName}/overview`;
 
   // const navigate = useNavigate();
@@ -218,7 +226,7 @@ export const DbActions = ({
           {hasBackups && (
             <MenuItem
               data-testid={`${dbInstanceName}-restore`}
-              disabled={actionsBlocked}
+              disabled={actionsBlocked || !hasReadyBackup}
               key={3}
               onClick={() => {
                 setIsNewClusterMode(false);
