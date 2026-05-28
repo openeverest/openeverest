@@ -276,22 +276,19 @@ func (r *RestoreReconciler) resolveBackupClass(
 
 	ds := restore.Spec.DataSource
 	switch {
-	case ds.BackupName != "":
+	case ds.Backup != nil && ds.Backup.BackupName != "":
 		// Resolve from the referenced Backup CR.
 		backup := &backupv1alpha1.Backup{}
 		if err := r.Client.Get(ctx, client.ObjectKey{
-			Name:      ds.BackupName,
+			Name:      ds.Backup.BackupName,
 			Namespace: restore.GetNamespace(),
 		}, backup); err != nil {
-			return nil, fmt.Errorf("failed to get backup %q: %w", ds.BackupName, err)
+			return nil, fmt.Errorf("failed to get backup %q: %w", ds.Backup.BackupName, err)
 		}
 		backupClassName = backup.Spec.BackupClassName
 
-	case ds.External != nil:
-		backupClassName = ds.External.BackupClassName
-
 	default:
-		return nil, fmt.Errorf("dataSource must specify either backupName or external")
+		return nil, fmt.Errorf("dataSource must specify backup")
 	}
 
 	bc := &backupv1alpha1.BackupClass{}
@@ -436,23 +433,20 @@ func (r *RestoreReconciler) ensurePayloadSecret(
 		}
 	}
 
-	// Resolve storage details from the DataSource. The DataSource may either
-	// reference an existing Backup CR (in which case we read its storageName)
-	// or describe an external backup (which carries its own storageName).
+	// Resolve storage details from the DataSource. The DataSource references
+	// an existing Backup CR, from which we read its storageName.
 	var storageName string
 	ds := restore.Spec.DataSource
 	switch {
-	case ds.BackupName != "":
+	case ds.Backup != nil && ds.Backup.BackupName != "":
 		backup := &backupv1alpha1.Backup{}
 		if err := r.Client.Get(ctx, client.ObjectKey{
-			Name:      ds.BackupName,
+			Name:      ds.Backup.BackupName,
 			Namespace: restore.GetNamespace(),
 		}, backup); err != nil {
-			return fmt.Errorf("failed to get backup %q: %w", ds.BackupName, err)
+			return fmt.Errorf("failed to get backup %q: %w", ds.Backup.BackupName, err)
 		}
 		storageName = backup.Spec.StorageName
-	case ds.External != nil:
-		storageName = ds.External.StorageName
 	}
 
 	if storageName != "" {
@@ -492,12 +486,12 @@ func (r *RestoreReconciler) ensurePayloadSecret(
 	}
 
 	// Populate PITR details.
-	if ds.PITR != nil {
+	if ds.Backup != nil && ds.Backup.PITR != nil {
 		spec.PITR = &jobspec.PITRDetails{
-			Type: string(ds.PITR.Type),
+			Type: string(ds.Backup.PITR.Type),
 		}
-		if ds.PITR.Date != nil {
-			spec.PITR.Date = ds.PITR.Date.Format("2006-01-02T15:04:05Z")
+		if ds.Backup.PITR.Date != nil {
+			spec.PITR.Date = ds.Backup.PITR.Date.Format("2006-01-02T15:04:05Z")
 		}
 	}
 

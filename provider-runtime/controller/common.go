@@ -43,6 +43,11 @@ type Context struct {
 	client       client.Client
 	in           *v1alpha1.Instance
 	providerName string
+
+	// dataSourceStatus is staged by ReconcileDataSource so the reconciler can
+	// flush the corresponding condition onto the Instance after Sync. It is
+	// nil when the provider has not invoked the helper this reconcile pass.
+	dataSourceStatus *DataSourceStatus
 }
 
 // NewContext creates a new Context handle (used internally by the reconciler).
@@ -571,6 +576,38 @@ func AsBackupConfigError(err error) *BackupConfigError {
 	return nil
 }
 
+// DataSourceConfigError is returned from Sync when the initial-seeding
+// preconditions cannot be met (e.g., the source Instance's credentials secret
+// has been deleted). The runtime surfaces it on the DataSourceReady condition
+// without marking the Instance as Failed, so operators can see the database
+// is still running but seeding requires manual intervention.
+//
+// Usage inside Sync:
+//
+//	if err := ensureDataSourceCredentials(c, secretName); err != nil {
+//	    return &controller.DataSourceConfigError{Reason: "SourceSecretNotFound", Message: err.Error()}
+//	}
+type DataSourceConfigError struct {
+	// Reason is a short CamelCase identifier (used as the condition reason).
+	Reason string
+	// Message is a human-readable description of the problem.
+	Message string
+}
+
+func (e *DataSourceConfigError) Error() string {
+	return e.Message
+}
+
+// AsDataSourceConfigError extracts a *DataSourceConfigError from err
+// (including wrapped errors), returning nil if err is not one.
+func AsDataSourceConfigError(err error) *DataSourceConfigError {
+	var dse *DataSourceConfigError
+	if errors.As(err, &dse) {
+		return dse
+	}
+	return nil
+}
+
 func (e *WaitError) Error() string {
 	return fmt.Sprintf("waiting: %s", e.Reason)
 }
@@ -764,4 +801,242 @@ type RestoreExecutionStatus struct {
 // Convenience wrapper so providers don't have to import apimachinery directly.
 func IsNotFound(err error) bool {
 	return apierrors.IsNotFound(err)
+}
+
+// =============================================================================
+// DATASOURCE HELPER — initial seeding from .spec.dataSource
+// =============================================================================
+
+// DataSourceRestoreNameSuffix is appended to the Instance name to form the
+// fixed Restore CR name used for initial seeding. Keeping it deterministic
+// makes the resource easy to find and prevents duplicate Restore CRs from
+// being created across reconciles.
+const DataSourceRestoreNameSuffix = "-datasource"
+
+// DataSourceState classifies the progress of an initial-seeding restore.
+type DataSourceState string
+
+const (
+	// DataSourceStateNone means the Instance has no .spec.dataSource.
+	DataSourceStateNone DataSourceState = ""
+	// DataSourceStateWaiting means the helper has not yet created the Restore
+	// because a precondition is not satisfied (e.g., source Backup missing or
+	// not Succeeded, storage mismatch, BackupClass unsupported). Providers
+	// typically treat this as "keep the engine in Restoring phase and let the
+	// next reconcile re-evaluate".
+	DataSourceStateWaiting DataSourceState = "Waiting"
+	// DataSourceStateRestoring means the Restore CR exists and the
+	// operator-native restore is in flight.
+	DataSourceStateRestoring DataSourceState = "Restoring"
+	// DataSourceStateSucceeded means the Restore reached Succeeded; the
+	// Instance has been seeded.
+	DataSourceStateSucceeded DataSourceState = "Succeeded"
+	// DataSourceStateFailed means the Restore reached a terminal failure.
+	DataSourceStateFailed DataSourceState = "Failed"
+)
+
+// DataSourceStatus is returned by Context.ReconcileDataSource and staged on
+// the Context so the reconciler can flush the corresponding
+// ConditionDataSourceReady onto the Instance. Providers should branch on Done
+// to decide whether the engine is free to expose connection details: while
+// Done is false the engine is still being seeded and should be reported as
+// Restoring.
+type DataSourceStatus struct {
+	// Done is true when the Instance has no DataSource or when the initial
+	// restore has reached a terminal state (Succeeded or Failed).
+	Done bool
+	// State is the current high-level state of the seeding restore.
+	State DataSourceState
+	// Reason is the condition reason that the reconciler should publish on
+	// ConditionDataSourceReady (one of the v1alpha1.ReasonDataSource* values).
+	Reason string
+	// Message is a human-readable explanation suitable for the condition
+	// message and for surfacing in `kubectl describe`.
+	Message string
+	// RestoreName is the name of the Restore CR the helper created, when one
+	// was created. Empty when the helper short-circuited on a precondition.
+	RestoreName string
+}
+
+// SetDataSourceStatus stages a DataSourceStatus on the Context. The runtime
+// reconciler reads it after Sync completes and reflects the result onto the
+// ConditionDataSourceReady condition. Providers do not normally call this
+// directly — ReconcileDataSource does it for them.
+func (c *Context) SetDataSourceStatus(s DataSourceStatus) {
+	c.dataSourceStatus = &s
+}
+
+// GetDataSourceStatus returns the most recently staged DataSourceStatus, or
+// nil when none has been set. Used by the runtime reconciler.
+func (c *Context) GetDataSourceStatus() *DataSourceStatus {
+	return c.dataSourceStatus
+}
+
+// ReconcileDataSource implements the initial-seeding flow for
+// .spec.dataSource. It is safe to call unconditionally from Sync: when the
+// Instance has no DataSource, the helper returns Done=true immediately
+// without creating any resources.
+//
+// Behaviour when DataSource is set:
+//  1. Validate the source Backup (exists, Succeeded, BackupClass is
+//     ProviderManaged and supports the target provider, and the target
+//     Instance has a backup storage entry that matches the source Backup's
+//     storage).
+//  2. Create or update a Restore CR named "{instance}-datasource", owned by
+//     the Instance, with .spec.instanceName pointing at the target Instance
+//     and .spec.dataSource.backup.backupName pointing at the source Backup.
+//  3. Read back .status.state on the Restore and translate it into a
+//     DataSourceStatus. The returned status is also staged on the Context so
+//     the runtime reconciler can flush ConditionDataSourceReady.
+//
+// Done=true means the Instance no longer needs to be held in the Restoring
+// phase — either no DataSource is configured, or the restore reached a
+// terminal state (Succeeded or Failed). Providers should report
+// InstancePhaseRestoring while Done is false.
+func (c *Context) ReconcileDataSource() (DataSourceStatus, error) {
+	ds := c.in.Spec.DataSource
+	if ds == nil {
+		s := DataSourceStatus{Done: true, State: DataSourceStateNone}
+		c.SetDataSourceStatus(s)
+		return s, nil
+	}
+
+	// 1. Source Backup must exist and be Succeeded.
+	backupName := ds.Backup.BackupName
+	src := &backupv1alpha1.Backup{}
+	if err := c.Get(src, backupName); err != nil {
+		if apierrors.IsNotFound(err) {
+			s := DataSourceStatus{
+				Done:    false,
+				State:   DataSourceStateWaiting,
+				Reason:  v1alpha1.ReasonDataSourceSourceBackupNotFound,
+				Message: fmt.Sprintf("source Backup %q not found in namespace %q", backupName, c.in.Namespace),
+			}
+			c.SetDataSourceStatus(s)
+			return s, nil
+		}
+		return DataSourceStatus{}, fmt.Errorf("get source Backup %q: %w", backupName, err)
+	}
+	if src.Status.State != backupv1alpha1.BackupStateSucceeded {
+		s := DataSourceStatus{
+			Done:    false,
+			State:   DataSourceStateWaiting,
+			Reason:  v1alpha1.ReasonDataSourceSourceBackupNotSucceeded,
+			Message: fmt.Sprintf("source Backup %q is in state %q, waiting for Succeeded", backupName, src.Status.State),
+		}
+		c.SetDataSourceStatus(s)
+		return s, nil
+	}
+
+	// 2. The source Backup's BackupClass must be ProviderManaged and support
+	// this Instance's provider.
+	bc, err := c.BackupClass(src.Spec.BackupClassName)
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			s := DataSourceStatus{
+				Done:    false,
+				State:   DataSourceStateWaiting,
+				Reason:  v1alpha1.ReasonDataSourceClassUnsupported,
+				Message: fmt.Sprintf("BackupClass %q referenced by source Backup not found", src.Spec.BackupClassName),
+			}
+			c.SetDataSourceStatus(s)
+			return s, nil
+		}
+		return DataSourceStatus{}, fmt.Errorf("get BackupClass %q: %w", src.Spec.BackupClassName, err)
+	}
+	if bc.Spec.ExecutionMode != backupv1alpha1.BackupExecutionModeProviderManaged {
+		s := DataSourceStatus{
+			Done:    true,
+			State:   DataSourceStateFailed,
+			Reason:  v1alpha1.ReasonDataSourceClassUnsupported,
+			Message: fmt.Sprintf("BackupClass %q is %q; only ProviderManaged classes are supported for spec.dataSource", bc.Name, bc.Spec.ExecutionMode),
+		}
+		c.SetDataSourceStatus(s)
+		return s, nil
+	}
+	if !bc.Spec.SupportedProviders.Has(c.providerName) {
+		s := DataSourceStatus{
+			Done:    true,
+			State:   DataSourceStateFailed,
+			Reason:  v1alpha1.ReasonDataSourceClassUnsupported,
+			Message: fmt.Sprintf("BackupClass %q does not list provider %q in SupportedProviders", bc.Name, c.providerName),
+		}
+		c.SetDataSourceStatus(s)
+		return s, nil
+	}
+
+	// 3. Target Instance must declare a backup storage with the same logical
+	// name as the source Backup so the provider can read the data.
+	if c.in.Spec.Backup == nil || !hasInstanceStorage(c.in.Spec.Backup, src.Spec.StorageName) {
+		s := DataSourceStatus{
+			Done:    false,
+			State:   DataSourceStateWaiting,
+			Reason:  v1alpha1.ReasonDataSourceStorageMismatch,
+			Message: fmt.Sprintf("Instance.spec.backup.storages does not include storage %q used by source Backup %q", src.Spec.StorageName, src.Name),
+		}
+		c.SetDataSourceStatus(s)
+		return s, nil
+	}
+
+	// 4. Create or update the Restore CR.
+	restoreName := c.in.Name + DataSourceRestoreNameSuffix
+	restore := &backupv1alpha1.Restore{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      restoreName,
+			Namespace: c.in.Namespace,
+		},
+	}
+	if _, err := controllerutil.CreateOrUpdate(c.ctx, c.client, restore, func() error {
+		if restore.Labels == nil {
+			restore.Labels = map[string]string{}
+		}
+		restore.Labels["app.kubernetes.io/managed-by"] = "everest"
+		restore.Labels["app.kubernetes.io/instance"] = c.in.Name
+		restore.Spec.InstanceName = c.in.Name
+		restore.Spec.DataSource = *ds
+		return controllerutil.SetControllerReference(c.in, restore, c.client.Scheme())
+	}); err != nil {
+		return DataSourceStatus{}, fmt.Errorf("create or update seeding Restore %q: %w", restoreName, err)
+	}
+
+	// 5. Translate Restore status into DataSourceStatus.
+	var s DataSourceStatus
+	s.RestoreName = restoreName
+	switch restore.Status.State {
+	case backupv1alpha1.RestoreStateSucceeded:
+		s.Done = true
+		s.State = DataSourceStateSucceeded
+		s.Reason = v1alpha1.ReasonDataSourceSucceeded
+		s.Message = fmt.Sprintf("Instance seeded from Backup %q via Restore %q", backupName, restoreName)
+	case backupv1alpha1.RestoreStateFailed:
+		s.Done = true
+		s.State = DataSourceStateFailed
+		s.Reason = v1alpha1.ReasonDataSourceFailed
+		s.Message = fmt.Sprintf("Restore %q failed: %s", restoreName, restore.Status.Message)
+	default:
+		s.Done = false
+		s.State = DataSourceStateRestoring
+		s.Reason = v1alpha1.ReasonDataSourceRestoring
+		if restore.Status.Message != "" {
+			s.Message = restore.Status.Message
+		} else {
+			s.Message = fmt.Sprintf("Restore %q in progress (state=%q)", restoreName, restore.Status.State)
+		}
+	}
+	c.SetDataSourceStatus(s)
+	return s, nil
+}
+
+// hasInstanceStorage reports whether the InstanceBackupSpec declares a storage
+// entry whose logical name matches the supplied name.
+func hasInstanceStorage(b *v1alpha1.InstanceBackupSpec, name string) bool {
+	if b == nil {
+		return false
+	}
+	for _, s := range b.Storages {
+		if s.Name == name {
+			return true
+		}
+	}
+	return false
 }

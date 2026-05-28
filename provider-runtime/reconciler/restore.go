@@ -66,20 +66,15 @@ func (r *restoreRuntimeReconciler) Reconcile(ctx context.Context, req reconcile.
 		return reconcile.Result{}, client.IgnoreNotFound(err)
 	}
 
-	instance, bc, ours, err := resolveRestoreOwnership(ctx, r.client, restore, r.providerName)
-	if err != nil {
-		return reconcile.Result{}, err
-	}
-	if !ours {
-		return reconcile.Result{}, nil
-	}
-
-	inCtx := controller.NewContext(ctx, r.client, instance, r.providerName)
-
 	if !restore.DeletionTimestamp.IsZero() {
 		if !controllerutil.ContainsFinalizer(restore, restoreRuntimeFinalizer) {
 			return reconcile.Result{}, nil
 		}
+		// Build a minimal context using the Restore's namespace. CleanupRestore
+		// only performs namespace-scoped Get/Delete and does not access Instance fields.
+		cleanupInst := &corev1alpha1.Instance{}
+		cleanupInst.Namespace = restore.Namespace
+		inCtx := controller.NewContext(ctx, r.client, cleanupInst, r.providerName)
 		done, cerr := r.provider.CleanupRestore(inCtx, restore)
 		if cerr != nil {
 			if controller.IsWaitError(cerr) {
@@ -96,6 +91,16 @@ func (r *restoreRuntimeReconciler) Reconcile(ctx context.Context, req reconcile.
 		}
 		return reconcile.Result{}, nil
 	}
+
+	instance, bc, ours, err := resolveRestoreOwnership(ctx, r.client, restore, r.providerName)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+	if !ours {
+		return reconcile.Result{}, nil
+	}
+
+	inCtx := controller.NewContext(ctx, r.client, instance, r.providerName)
 
 	if controllerutil.AddFinalizer(restore, restoreRuntimeFinalizer) {
 		if err := r.client.Update(ctx, restore); err != nil {
@@ -130,8 +135,7 @@ func (r *restoreRuntimeReconciler) Reconcile(ctx context.Context, req reconcile.
 
 // resolveRestoreOwnership resolves the BackupClass and Instance for a Restore
 // and reports whether this provider should handle it. The BackupClass is
-// resolved from either spec.dataSource.external.backupClassName or via the
-// referenced Backup CR.
+// resolved via the referenced Backup CR.
 func resolveRestoreOwnership(
 	ctx context.Context,
 	c client.Client,
@@ -172,14 +176,11 @@ func resolveRestoreOwnership(
 }
 
 func backupClassNameForRestore(ctx context.Context, c client.Client, restore *backupv1alpha1.Restore) (string, error) {
-	if restore.Spec.DataSource.External != nil && restore.Spec.DataSource.External.BackupClassName != "" {
-		return restore.Spec.DataSource.External.BackupClassName, nil
-	}
-	if restore.Spec.DataSource.BackupName != "" {
+	if restore.Spec.DataSource.Backup != nil && restore.Spec.DataSource.Backup.BackupName != "" {
 		backup := &backupv1alpha1.Backup{}
 		if err := c.Get(ctx, client.ObjectKey{
 			Namespace: restore.Namespace,
-			Name:      restore.Spec.DataSource.BackupName,
+			Name:      restore.Spec.DataSource.Backup.BackupName,
 		}, backup); err != nil {
 			if apierrors.IsNotFound(err) {
 				return "", nil
