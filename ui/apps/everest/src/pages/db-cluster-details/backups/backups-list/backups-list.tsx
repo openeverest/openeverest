@@ -308,6 +308,16 @@ export const BackupsList = () => {
           preselectedBackupName={selectedRestoreBackup}
         />
       )}
+      {openRestoreModal && (
+        <RestoreDbModal
+          isOpen={openRestoreModal}
+          closeModal={() => setOpenRestoreModal(false)}
+          instanceName={instanceName}
+          namespace={namespace}
+          isNewClusterMode={isNewClusterMode}
+          preselectedBackupName={selectedRestoreBackup}
+        />
+      )}
     </>
   );
 };

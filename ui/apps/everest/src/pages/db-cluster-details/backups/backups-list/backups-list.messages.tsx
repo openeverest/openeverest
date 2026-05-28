@@ -24,6 +24,28 @@ export const Messages = {
         Are you sure you want to permanently delete <b>{backupName}</b> backup?
       </>
     ),
+    // TODO: Re-enable when PITR/PG deletion logic is restored.
+    // content: (
+    //   backupName: string,
+    //   dbType: DbEngineType,
+    //   willDisablePITR: boolean
+    // ) => (
+    //   <>
+    //     {dbType === DbEngineType.POSTGRESQL ? (
+    //       <>
+    //         Are you sure you want to permanently delete <b>{backupName}</b>{' '}
+    //         backup? The backup data will not be deleted from the backup storage.
+    //       </>
+    //     ) : (
+    //       <>
+    //         Are you sure you want to permanently delete <b>{backupName}</b>{' '}
+    //         backup?
+    //       </>
+    //     )}
+    //     {willDisablePITR &&
+    //       ' This will disable point-in-time recovery, as it requires a full backup.'}
+    //   </>
+    // ),
     alertMessage:
       'This action will permanently destroy your backup and you will not be able to recover it.',
     confirmButton: 'Delete',
