@@ -98,12 +98,12 @@ export const BackupsList = () => {
   };
 
   const handleConfirmDelete = (data: CustomConfirmDialogType) => {
-    const keepStorageData = data.dataCheckbox;
+    const deleteStorageData = data.dataCheckbox;
     setOpenDeleteDialog(false);
     deleteBackupMutate(
       {
         backupName: selectedBackup,
-        deletionPolicy: keepStorageData ? 'Retain' : 'Delete',
+        deletionPolicy: deleteStorageData ? 'Delete' : 'Retain',
       },
       {
         onSuccess: () => {
@@ -296,16 +296,6 @@ export const BackupsList = () => {
           checkboxMessage={Messages.deleteDialog.checkboxMessage}
           confirmationInput={false}
           submitting={deletingBackup}
-        />
-      )}
-      {openRestoreModal && (
-        <RestoreDbModal
-          isOpen={openRestoreModal}
-          closeModal={() => setOpenRestoreModal(false)}
-          instanceName={instanceName}
-          namespace={namespace}
-          isNewClusterMode={isNewClusterMode}
-          preselectedBackupName={selectedRestoreBackup}
         />
       )}
       {openRestoreModal && (
