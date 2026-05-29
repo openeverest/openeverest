@@ -39,6 +39,7 @@ class PluginErrorBoundary extends Component<
   }
 
   componentDidCatch(error: Error, info: ErrorInfo) {
+    // eslint-disable-next-line no-console
     console.error(
       `[plugins] Plugin "${this.props.pluginName}" crashed:`,
       error,

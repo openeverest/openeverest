@@ -160,6 +160,7 @@ export const PluginProvider = ({ children }: { children: ReactNode }) => {
             }
           }
         } catch (err) {
+          // eslint-disable-next-line no-console
           console.error(
             `[plugins] Failed to load plugin "${descriptor.name}":`,
             err

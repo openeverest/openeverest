@@ -153,6 +153,7 @@ const PluginFormSection: React.FC<PluginFormSectionItemProps> = ({
       </AccordionSummary>
       <AccordionDetails>
         {React.createElement(
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           section.component as React.ComponentType<any>,
           props
         )}
