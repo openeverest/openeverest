@@ -359,9 +359,6 @@ type KubernetesConnector interface {
 	CreateInstance(ctx context.Context, instance *v1alpha1.Instance) (*v1alpha1.Instance, error)
 	// UpdateInstance updates instance.
 	UpdateInstance(ctx context.Context, instance *v1alpha1.Instance) (*v1alpha1.Instance, error)
-	// WatchDatabaseClusters returns a watch.Interface that streams
-	// DatabaseCluster events across all namespaces.
-	WatchDatabaseClusters(ctx context.Context) (watch.Interface, error)
 	// WatchBackups returns a watch.Interface that streams
 	// DatabaseClusterBackup events across all namespaces.
 	WatchBackups(ctx context.Context) (watch.Interface, error)

@@ -18,29 +18,23 @@ import (
 	"context"
 	"fmt"
 
-	everestv1alpha1 "github.com/percona/everest-operator/api/everest/v1alpha1"
 	"k8s.io/apimachinery/pkg/watch"
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 
+	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
 	corev1alpha1 "github.com/openeverest/openeverest/v2/api/core/v1alpha1"
 )
-
-// WatchDatabaseClusters returns a watch.Interface that streams
-// DatabaseCluster events across all namespaces.
-func (k *Kubernetes) WatchDatabaseClusters(ctx context.Context) (watch.Interface, error) {
-	return k.watchList(ctx, &everestv1alpha1.DatabaseClusterList{})
-}
 
 // WatchBackups returns a watch.Interface that streams
 // DatabaseClusterBackup events across all namespaces.
 func (k *Kubernetes) WatchBackups(ctx context.Context) (watch.Interface, error) {
-	return k.watchList(ctx, &everestv1alpha1.DatabaseClusterBackupList{})
+	return k.watchList(ctx, &backupv1alpha1.BackupList{})
 }
 
 // WatchRestores returns a watch.Interface that streams
 // DatabaseClusterRestore events across all namespaces.
 func (k *Kubernetes) WatchRestores(ctx context.Context) (watch.Interface, error) {
-	return k.watchList(ctx, &everestv1alpha1.DatabaseClusterRestoreList{})
+	return k.watchList(ctx, &backupv1alpha1.RestoreList{})
 }
 
 // WatchInstances returns a watch.Interface that streams
