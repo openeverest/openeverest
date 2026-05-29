@@ -26,7 +26,7 @@ const EmptyStateNamespaces = () => {
           <Typography> {Messages.createToStart}</Typography>
           <CommandInstructions
             message="If you are using CLI, run the following command:"
-            command="everestctl namespaces add <NAMESPACE>"
+            command="kubectl create namespace <NAMESPACE>"
           />
           <CommandInstructions
             message="If you are using Helm, run the following command:"
