@@ -19,7 +19,7 @@ init:     ## Install tests dependencies.
 # NOTE: API tests do not wait for DB clusters to be ready.
 # The only exception is pg-data-importer test, so that only PG images are pre-uploaded to K3D cluster.
 CI_INIT_DEPS := init deploy-monitoring create-test-users k3d-upload-images
-CI_INIT_DEPS += deploy-data-importer deploy-minio
+CI_INIT_DEPS += deploy-minio
 .PHONY: ci-init
 ci-init: $(CI_INIT_DEPS) 	## Prepare environment for running tests.
 
@@ -43,12 +43,6 @@ create-test-users: ## Create test users and add everest_ci user to admin role.
 	$(EVERESTCTL) accounts create -u everest_ci -p password
 	kubectl patch configmap everest-rbac -n everest-system --patch "$$(kubectl get configmap everest-rbac -n everest-system -o json | jq '.data["policy.csv"] += "\ng, everest_ci, role:admin"' | jq '{data: { "policy.csv": .data["policy.csv"] } }')"
 	kubectl get configmap everest-rbac -n everest-system -ojsonpath='{.data.policy\.csv}'
-
-DATA_IMPORTER_RESOURCE=$(TEST_ROOT)/manifests/dataimporter.yaml
-.PHONY: deploy-data-importer
-deploy-data-importer:
-	$(info Deploying Data Importer to K3D cluster)
-	kubectl apply -f $(DATA_IMPORTER_RESOURCE)
 
 MINIO_RESOURCE=$(TEST_ROOT)/manifests/minio.yaml
 .PHONY: deploy-minio

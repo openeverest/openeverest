@@ -159,7 +159,6 @@ func patchDevChartVersions(chartDir string) error {
 
 	// Patch sub-charts that use exact versions (not wildcards) declared by the main chart.
 	for _, rel := range []string{
-		filepath.Join("charts", "everest-db-namespace", "Chart.yaml"),
 		filepath.Join("charts", "everest-crds", "Chart.yaml"),
 	} {
 		if err := patchChartYAMLVersion(filepath.Join(chartDir, rel), devVersion); err != nil {

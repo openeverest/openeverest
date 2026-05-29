@@ -38,7 +38,7 @@ test.describe('Everest CLI install', async () => {
 
     await test.step('run everest install (no database namespace))', async () => {
       const out = await cli.everestExecSkipWizard(
-        `install --skip-db-namespace --version 0.0.0 --helm.set server.image=ghcr.io/openeverest/openeverest-dev --helm.set operator.image=ghcr.io/openeverest/openeverest-operator-dev --helm.set olm.catalogSourceImage=ghcr.io/openeverest/openeverest-catalog-dev`,
+        `install --skip-db-namespace --version 0.0.0 --helm.set server.image.repository=ghcr.io/openeverest/openeverest-dev --helm.set operator.image=ghcr.io/openeverest/openeverest-operator-dev --helm.set olm.catalogSourceImage=ghcr.io/openeverest/openeverest-catalog-dev`,
       );
 
       await out.assertSuccess();

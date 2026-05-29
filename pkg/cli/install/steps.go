@@ -20,10 +20,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/AlekSi/pointer"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/wait"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/openeverest/openeverest/v2/pkg/cli/steps"
 	"github.com/openeverest/openeverest/v2/pkg/common"
@@ -39,38 +36,11 @@ func (o *Installer) newStepInstallEverestHelmChart() steps.Step {
 	}
 }
 
-func (o *Installer) newStepEnsureEverestOperator() steps.Step {
-	return steps.Step{
-		Desc: "Ensuring Everest operator deployment is ready",
-		F: func(ctx context.Context) error {
-			return o.waitForDeployment(ctx, common.PerconaEverestOperatorDeploymentName, o.kubeClient.Namespace())
-		},
-	}
-}
-
 func (o *Installer) newStepEnsureEverestAPI() steps.Step {
 	return steps.Step{
 		Desc: "Ensuring Everest API deployment is ready",
 		F: func(ctx context.Context) error {
 			return o.waitForDeployment(ctx, common.PerconaEverestDeploymentName, o.kubeClient.Namespace())
-		},
-	}
-}
-
-func (o *Installer) newStepEnsureEverestOLM() steps.Step {
-	return steps.Step{
-		Desc: "Ensuring OLM components are ready",
-		F: func(ctx context.Context) error {
-			depls, err := o.kubeClient.ListDeployments(ctx, client.InNamespace(kubernetes.OLMNamespace))
-			if err != nil {
-				return err
-			}
-			for _, depl := range depls.Items {
-				if err := o.waitForDeployment(ctx, depl.GetName(), depl.GetNamespace()); err != nil {
-					return err
-				}
-			}
-			return nil
 		},
 	}
 }
@@ -88,29 +58,6 @@ func (o *Installer) newStepEnsureEverestMonitoring() steps.Step {
 				}
 			}
 			return nil
-		},
-	}
-}
-
-func (o *Installer) newStepEnsureCatalogSource() steps.Step {
-	return steps.Step{
-		Desc: "Ensuring Everest CatalogSource is ready",
-		F: func(ctx context.Context) error {
-			manifests, err := o.helmInstaller.RenderTemplates(ctx)
-			if err != nil {
-				return fmt.Errorf("could not get Everest CatalogSource namespace: %w", err)
-			}
-			catalogNs, err := manifests.GetEverestCatalogNamespace()
-			if err != nil {
-				return fmt.Errorf("could not get Everest CatalogSource namespace: %w", err)
-			}
-			return wait.PollUntilContextTimeout(ctx, pollInterval, pollTimeout, false, func(ctx context.Context) (bool, error) {
-				cs, err := o.kubeClient.GetCatalogSource(ctx, types.NamespacedName{Namespace: catalogNs, Name: common.PerconaEverestCatalogName})
-				if err != nil {
-					return false, fmt.Errorf("cannot get CatalogSource: %w", err)
-				}
-				return pointer.Get(cs.Status.GRPCConnectionState).LastObservedState == "READY", nil
-			})
 		},
 	}
 }

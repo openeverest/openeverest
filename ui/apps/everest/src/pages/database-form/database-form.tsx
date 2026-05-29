@@ -14,7 +14,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { useLocation, useBlocker, useNavigate } from 'react-router-dom';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Stack } from '@mui/material';
@@ -64,16 +64,26 @@ import {
 import { useBackupClassesList } from 'hooks/api/backup-classes/useBackupClasses';
 import { useClusterName } from 'hooks/api/useClusterName';
 import { mergeTopologyDefaults } from 'components/ui-generator/utils/default-values/merge-topology-defaults';
+import { PluginFormSections } from './plugin-form-sections';
+import { useSubmitPluginInstanceConfig } from 'hooks/api/plugins/useSubmitPluginInstanceConfig';
 
 export const DatabasePage = () => {
   const latestDataRef = useRef<DbWizardType | null>(null);
   const [formSubmitted, setFormSubmitted] = useState(false);
 
-  const location = useLocation();
-  const navigate = useNavigate();
-
   const { mutate: createInstance, isPending: isCreating } =
     useCreateDbInstance();
+  const { mutate: submitPluginConfig } = useSubmitPluginInstanceConfig();
+  const pluginConfigsRef = useRef<Record<string, Record<string, unknown>>>({});
+
+  const handlePluginConfigChange = useCallback(
+    (pluginName: string, config: Record<string, unknown>) => {
+      pluginConfigsRef.current[pluginName] = config;
+    },
+    []
+  );
+  const location = useLocation();
+  const navigate = useNavigate();
 
   const { isDesktop } = useActiveBreakpoint();
   const mode = useDatabasePageMode();
@@ -338,6 +348,19 @@ export const DatabasePage = () => {
         { formValue: postProcessedData },
         {
           onSuccess: () => {
+            // Submit plugin configs for each plugin that provided config.
+            const instanceName = postProcessedData.dbName || '';
+            const ns = postProcessedData.k8sNamespace || '';
+            for (const [pluginName, config] of Object.entries(pluginConfigsRef.current)) {
+              if (Object.keys(config).length > 0) {
+                submitPluginConfig({
+                  pluginName,
+                  instanceName,
+                  namespace: ns,
+                  config,
+                });
+              }
+            }
             setFormSubmitted(true);
           },
         }
@@ -402,6 +425,15 @@ export const DatabasePage = () => {
             handleNextStep={handleNext}
             handlePreviousStep={handleBack}
           />
+          {nav.activeStepIndex === 0 && (
+            <PluginFormSections
+              formValues={methods.getValues() as Record<string, unknown>}
+              namespace={selectedNamespace || namespaces[0] || ''}
+              engineType={providerObject?.name}
+              isCreate={true}
+              onPluginConfigChange={handlePluginConfigChange}
+            />
+          )}
           <DatabaseFormSideDrawer
             disabled={loadingClusterValues}
             activeStepId={nav.activeStepId}

@@ -305,25 +305,28 @@ jobs:
           kubectl describe pod -n openeverest-system -l control-plane=controller-manager
           kubectl get events -n openeverest-system --sort-by='.lastTimestamp'
 
-  integration_tests_flows:
-    strategy:
-      fail-fast: false
-      matrix:
-        make_target: [
-          'test-all-operators',
-          'test-mongo-operator',
-          'test-pg-operator',
-          'test-pxc-operator',
-          'test-namespaces'
-        ]
-    name: CLI tests
-    uses: ./.github/workflows/cli-tests.yml
-    secrets: inherit
-    with:
-      make_target: ${{ matrix.make_target }}
+  # Skip operator installations tests.
+  # Operators are now installed by the provider, not by the CLI.
+  #
+  # integration_tests_flows:
+  #   strategy:
+  #     fail-fast: false
+  #     matrix:
+  #       make_target: [
+  #         'test-all-operators',
+  #         'test-mongo-operator',
+  #         'test-pg-operator',
+  #         'test-pxc-operator',
+  #         'test-namespaces'
+  #       ]
+  #   name: CLI tests
+  #   uses: ./.github/workflows/cli-tests.yml
+  #   secrets: inherit
+  #   with:
+  #     make_target: ${{ matrix.make_target }}
 
   merge-gatekeeper:
-    needs: [ test, check, integration_tests_api, integration_tests_flows, integration_tests_cli]
+    needs: [ test, check, integration_tests_api, integration_tests_cli]
     name: Merge Gatekeeper
     if: ${{ always() }}
     runs-on: ubuntu-latest

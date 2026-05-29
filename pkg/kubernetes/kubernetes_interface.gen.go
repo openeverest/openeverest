@@ -15,12 +15,14 @@ import (
 	apiextv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/rest"
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
 	"github.com/openeverest/openeverest/v2/api/core/v1alpha1"
 	monitoringv1alpha1 "github.com/openeverest/openeverest/v2/api/monitoring/v1alpha1"
+	pluginv1alpha1 "github.com/openeverest/openeverest/v2/api/plugin/v1alpha1"
 	"github.com/openeverest/openeverest/v2/pkg/accounts"
 	"github.com/openeverest/openeverest/v2/pkg/common"
 )
@@ -256,6 +258,22 @@ type KubernetesConnector interface {
 	UpdateEverestSettings(ctx context.Context, settings common.EverestSettings) error
 	// GetEverestSettings returns Everest settings.
 	GetEverestSettings(ctx context.Context) (common.EverestSettings, error)
+	// ListPlugins returns list of plugins that match the criteria.
+	ListPlugins(ctx context.Context, opts ...ctrlclient.ListOption) (*pluginv1alpha1.PluginList, error)
+	// GetPlugin returns plugin that matches the criteria.
+	GetPlugin(ctx context.Context, key ctrlclient.ObjectKey) (*pluginv1alpha1.Plugin, error)
+	// CreatePlugin creates a new plugin.
+	CreatePlugin(ctx context.Context, plugin *pluginv1alpha1.Plugin) (*pluginv1alpha1.Plugin, error)
+	// DeletePlugin deletes a plugin.
+	DeletePlugin(ctx context.Context, obj *pluginv1alpha1.Plugin) error
+	// ListPluginInstallations returns plugin installations that match the criteria.
+	ListPluginInstallations(ctx context.Context, opts ...ctrlclient.ListOption) (*pluginv1alpha1.PluginInstallationList, error)
+	// GetPluginInstallation returns a plugin installation that matches the criteria.
+	GetPluginInstallation(ctx context.Context, key ctrlclient.ObjectKey) (*pluginv1alpha1.PluginInstallation, error)
+	// CreatePluginInstallation creates a new plugin installation.
+	CreatePluginInstallation(ctx context.Context, pi *pluginv1alpha1.PluginInstallation) (*pluginv1alpha1.PluginInstallation, error)
+	// DeletePluginInstallation deletes a plugin installation.
+	DeletePluginInstallation(ctx context.Context, obj *pluginv1alpha1.PluginInstallation) error
 	// ListPodSchedulingPolicies returns a list of pod scheduling policy that matches the criteria.
 	// This method returns a list of full objects (meta and spec).
 	ListPodSchedulingPolicies(ctx context.Context, opts ...ctrlclient.ListOption) (*everestv1alpha1.PodSchedulingPolicyList, error)
@@ -340,4 +358,16 @@ type KubernetesConnector interface {
 	CreateInstance(ctx context.Context, instance *v1alpha1.Instance) (*v1alpha1.Instance, error)
 	// UpdateInstance updates instance.
 	UpdateInstance(ctx context.Context, instance *v1alpha1.Instance) (*v1alpha1.Instance, error)
+	// WatchDatabaseClusters returns a watch.Interface that streams
+	// DatabaseCluster events across all namespaces.
+	WatchDatabaseClusters(ctx context.Context) (watch.Interface, error)
+	// WatchBackups returns a watch.Interface that streams
+	// DatabaseClusterBackup events across all namespaces.
+	WatchBackups(ctx context.Context) (watch.Interface, error)
+	// WatchRestores returns a watch.Interface that streams
+	// DatabaseClusterRestore events across all namespaces.
+	WatchRestores(ctx context.Context) (watch.Interface, error)
+	// WatchInstances returns a watch.Interface that streams
+	// Instance events across all namespaces.
+	WatchInstances(ctx context.Context) (watch.Interface, error)
 }

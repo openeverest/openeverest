@@ -334,9 +334,6 @@ func (o *Installer) newInstallSteps() []steps.Step {
 	return []steps.Step{
 		o.newStepInstallEverestHelmChart(),
 		o.newStepEnsureEverestAPI(),
-		o.newStepEnsureEverestOperator(),
-		o.newStepEnsureEverestOLM(),
-		o.newStepEnsureCatalogSource(),
 		o.newStepEnsureEverestMonitoring(),
 	}
 }
