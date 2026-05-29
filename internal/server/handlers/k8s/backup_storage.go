@@ -16,8 +16,12 @@ package k8s
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
+	corev1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -36,18 +40,22 @@ func (h *k8sHandler) GetBackupStorage(ctx context.Context, cluster, namespace, n
 
 // CreateBackupStorage creates a backup storage.
 func (h *k8sHandler) CreateBackupStorage(ctx context.Context, cluster string, bs *backupv1alpha1.BackupStorage) (*backupv1alpha1.BackupStorage, error) {
+	if err := h.applyS3Credentials(ctx, bs); err != nil {
+		return nil, fmt.Errorf("failed to apply S3 credentials: %w", err)
+	}
 	return h.kubeConnector.CreateBackupStorage(ctx, bs)
 }
 
 // UpdateBackupStorage updates a backup storage.
 func (h *k8sHandler) UpdateBackupStorage(ctx context.Context, cluster string, bs *backupv1alpha1.BackupStorage) (*backupv1alpha1.BackupStorage, error) {
+	if err := h.applyS3Credentials(ctx, bs); err != nil {
+		return nil, fmt.Errorf("failed to apply S3 credentials: %w", err)
+	}
 	return h.kubeConnector.UpdateBackupStorage(ctx, bs)
 }
 
 // PatchBackupStorage patches a backup storage by fetching the current state and
 // merging only the non-zero fields from bs onto it before updating.
-// Write-only credential fields (AccessKeyID, SecretAccessKey) are forwarded as-is
-// so the mutating webhook can extract them into the credentials Secret.
 func (h *k8sHandler) PatchBackupStorage(ctx context.Context, cluster string, bs *backupv1alpha1.BackupStorage) (*backupv1alpha1.BackupStorage, error) {
 	current, err := h.kubeConnector.GetBackupStorage(ctx, types.NamespacedName{
 		Namespace: bs.GetNamespace(),
@@ -80,11 +88,14 @@ func (h *k8sHandler) PatchBackupStorage(ctx context.Context, cluster string, bs 
 		if s3.ForcePathStyle != nil {
 			current.Spec.S3.ForcePathStyle = s3.ForcePathStyle
 		}
-		// Write-only fields: pass through to be consumed by the mutating webhook.
+		// Credential fields: merge into current so applyS3Credentials sees them.
 		current.Spec.S3.AccessKeyID = s3.AccessKeyID
 		current.Spec.S3.SecretAccessKey = s3.SecretAccessKey
 	}
 
+	if err := h.applyS3Credentials(ctx, current); err != nil {
+		return nil, fmt.Errorf("failed to apply S3 credentials: %w", err)
+	}
 	return h.kubeConnector.UpdateBackupStorage(ctx, current)
 }
 
@@ -104,5 +115,55 @@ func (h *k8sHandler) DeleteBackupStorage(ctx context.Context, cluster, namespace
 		return fmt.Errorf("failed to delete backup storage: %w", err)
 	}
 
+	return nil
+}
+
+// applyS3Credentials creates or updates the credentials Secret when AccessKeyID
+// and SecretAccessKey are set on the spec, then clears the write-only fields so
+// they are never persisted on the BackupStorage CR.
+// Returns an error if exactly one of the two credential fields is provided.
+func (h *k8sHandler) applyS3Credentials(ctx context.Context, bs *backupv1alpha1.BackupStorage) error {
+	if bs.Spec.S3 == nil {
+		return nil
+	}
+	s3 := bs.Spec.S3
+	switch {
+	case s3.AccessKeyID != "" && s3.SecretAccessKey == "":
+		return errors.New("secretAccessKey is not provided")
+	case s3.AccessKeyID == "" && s3.SecretAccessKey != "":
+		return errors.New("accessKeyID is not provided")
+	case s3.AccessKeyID == "" && s3.SecretAccessKey == "":
+		return nil // no credentials to update
+	}
+
+	secret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      s3.CredentialsSecretName,
+			Namespace: bs.GetNamespace(),
+		},
+		Type: corev1.SecretTypeOpaque,
+		StringData: map[string]string{
+			"AWS_ACCESS_KEY_ID":     s3.AccessKeyID,
+			"AWS_SECRET_ACCESS_KEY": s3.SecretAccessKey,
+		},
+	}
+	if _, err := h.kubeConnector.CreateSecret(ctx, secret); k8serrors.IsAlreadyExists(err) {
+		existing, err := h.kubeConnector.GetSecret(ctx, types.NamespacedName{
+			Name:      s3.CredentialsSecretName,
+			Namespace: bs.GetNamespace(),
+		})
+		if err != nil {
+			return fmt.Errorf("failed to get existing credentials secret: %w", err)
+		}
+		existing.StringData = secret.StringData
+		if _, err := h.kubeConnector.UpdateSecret(ctx, existing); err != nil {
+			return fmt.Errorf("failed to update credentials secret: %w", err)
+		}
+	} else if err != nil {
+		return fmt.Errorf("failed to create credentials secret: %w", err)
+	}
+
+	s3.AccessKeyID = ""
+	s3.SecretAccessKey = ""
 	return nil
 }
