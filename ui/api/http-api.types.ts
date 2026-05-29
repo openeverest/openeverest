@@ -571,7 +571,11 @@ export interface paths {
         delete: operations["deleteBackupStorage"];
         options?: never;
         head?: never;
-        patch?: never;
+        /**
+         * Patch backup storage
+         * @description This API patches the backup storage specified by the `name` in the specified `namespace` and `cluster`.
+         */
+        patch: operations["patchBackupStorage"];
         trace?: never;
     };
     "/clusters/{cluster}/namespaces/{namespace}/monitoring-configs": {
@@ -3838,6 +3842,65 @@ export interface operations {
             };
             /** @description Unsuccessful operation */
             400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    patchBackupStorage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The name of the cluster */
+                cluster: string;
+                /** @description The namespace of the backup storage */
+                namespace: string;
+                /** @description The name of the backup storage */
+                name: string;
+            };
+            cookie?: never;
+        };
+        /** @description The backup storage fields to be patched */
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BackupStorage"];
+            };
+        };
+        responses: {
+            /** @description Successful operation */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BackupStorage"];
+                };
+            };
+            /** @description Unsuccessful operation */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Backup storage not found */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

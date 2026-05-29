@@ -44,6 +44,11 @@ func (h *k8sHandler) UpdateBackupStorage(ctx context.Context, cluster string, bs
 	return h.kubeConnector.UpdateBackupStorage(ctx, bs)
 }
 
+// PatchBackupStorage patches a backup storage.
+func (h *k8sHandler) PatchBackupStorage(ctx context.Context, cluster string, bs *backupv1alpha1.BackupStorage) (*backupv1alpha1.BackupStorage, error) {
+	return h.kubeConnector.UpdateBackupStorage(ctx, bs)
+}
+
 // DeleteBackupStorage deletes a backup storage.
 func (h *k8sHandler) DeleteBackupStorage(ctx context.Context, cluster, namespace, name string) error {
 	bs, err := h.kubeConnector.GetBackupStorage(ctx, types.NamespacedName{Namespace: namespace, Name: name})
