@@ -56,10 +56,12 @@ export const ClusterOverview = () => {
     () =>
       plugins.flatMap((p) =>
         p.extensions
-          .filter((ext): ext is ClusterCardExtension => ext.type === 'clusterCard')
-          .map((ext) => ({ pluginName: p.name, ext })),
+          .filter(
+            (ext): ext is ClusterCardExtension => ext.type === 'clusterCard'
+          )
+          .map((ext) => ({ pluginName: p.name, ext }))
       ),
-    [plugins],
+    [plugins]
   );
 
   if (isLoading || !instance) {

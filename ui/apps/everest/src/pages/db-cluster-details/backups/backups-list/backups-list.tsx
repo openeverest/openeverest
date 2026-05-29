@@ -15,7 +15,8 @@
 
 import { Table } from '@percona/ui-lib';
 import StatusField from 'components/status-field';
-import { ConfirmDialog } from 'components/confirm-dialog/confirm-dialog';
+import { CustomConfirmDialog } from 'components/custom-confirm-dialog/custom-confirm-dialog';
+import { CustomConfirmDialogType } from 'components/custom-confirm-dialog/custom-confirm-dialog.types';
 import { RestoreDbModal } from 'modals';
 import TableActionsMenu from 'components/table-actions-menu';
 import { DATE_FORMAT } from 'consts';
@@ -96,10 +97,14 @@ export const BackupsList = () => {
     setOpenRestoreModal(true);
   };
 
-  const handleConfirmDelete = (backupName: string) => {
+  const handleConfirmDelete = (data: CustomConfirmDialogType) => {
+    const deleteStorageData = data.dataCheckbox;
     setOpenDeleteDialog(false);
     deleteBackupMutate(
-      { backupName },
+      {
+        backupName: selectedBackup,
+        deletionPolicy: deleteStorageData ? 'Delete' : 'Retain',
+      },
       {
         onSuccess: () => {
           // Optimistically mark the backup as Deleting in the cache so the
@@ -111,7 +116,7 @@ export const BackupsList = () => {
                 ? {
                     ...prev,
                     items: prev.items?.map((b) =>
-                      b.metadata?.name === backupName
+                      b.metadata?.name === selectedBackup
                         ? {
                             ...b,
                             status: {
@@ -134,7 +139,7 @@ export const BackupsList = () => {
 
           // Clean up instance storages that are no longer referenced.
           const remainingBackups = backups.filter(
-            (b) => b.metadata?.name !== backupName
+            (b) => b.metadata?.name !== selectedBackup
           );
           const existingStorages = instance.spec?.backup?.storages ?? [];
           const remainingStorages = removeUnusedStorages(
@@ -279,17 +284,19 @@ export const BackupsList = () => {
         )}
       />
       {openDeleteDialog && (
-        <ConfirmDialog
-          open={openDeleteDialog}
-          selectedId={selectedBackup}
-          cancelMessage="Cancel"
+        <CustomConfirmDialog
+          isOpen={openDeleteDialog}
           closeModal={() => setOpenDeleteDialog(false)}
           headerMessage={Messages.deleteDialog.header}
           handleConfirm={handleConfirmDelete}
-          disabledButtons={deletingBackup}
-        >
-          {Messages.deleteDialog.content(selectedBackup)}
-        </ConfirmDialog>
+          selectedId={selectedBackup}
+          alertMessage={Messages.deleteDialog.alertMessage}
+          dialogContent={Messages.deleteDialog.content(selectedBackup)}
+          submitMessage={Messages.deleteDialog.confirmButton}
+          checkboxMessage={Messages.deleteDialog.checkboxMessage}
+          confirmationInput={false}
+          submitting={deletingBackup}
+        />
       )}
       {openRestoreModal && (
         <RestoreDbModal

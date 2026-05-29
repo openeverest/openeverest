@@ -49,8 +49,7 @@ export const Messages = {
     alertMessage:
       'This action will permanently destroy your backup and you will not be able to recover it.',
     confirmButton: 'Delete',
-    // TODO: Re-enable when PITR/PG deletion logic is restored.
-    // checkboxMessage: 'Delete backups storage data',
+    checkboxMessage: 'Delete backups storage data',
   },
   // TODO: Re-enable when restore dialogs are restored.
   // restoreDialog: {

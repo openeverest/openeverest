@@ -30,10 +30,12 @@ export const Settings = () => {
     () =>
       plugins.flatMap((p) =>
         p.extensions
-          .filter((ext): ext is SettingsPanelExtension => ext.type === 'settingsPanel')
-          .map((ext) => ({ pluginName: p.name, ...ext })),
+          .filter(
+            (ext): ext is SettingsPanelExtension => ext.type === 'settingsPanel'
+          )
+          .map((ext) => ({ pluginName: p.name, ...ext }))
       ),
-    [plugins],
+    [plugins]
   );
 
   if (!currentTab) {

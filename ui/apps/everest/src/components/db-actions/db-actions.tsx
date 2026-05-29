@@ -15,7 +15,15 @@
 // limitations under the License.
 
 import { useMemo, useState } from 'react';
-import { Box, Button, Dialog, DialogContent, IconButton, Menu, MenuItem } from '@mui/material';
+import {
+  Box,
+  Button,
+  Dialog,
+  DialogContent,
+  IconButton,
+  Menu,
+  MenuItem,
+} from '@mui/material';
 import {
   DeleteOutline as DeleteOutlineIcon,
   KeyboardReturn as KeyboardReturnIcon,
@@ -138,10 +146,12 @@ export const DbActions = ({
     () =>
       plugins.flatMap((p) =>
         p.extensions
-          .filter((ext): ext is ClusterActionExtension => ext.type === 'clusterAction')
-          .map((ext) => ({ pluginName: p.name, ext })),
+          .filter(
+            (ext): ext is ClusterActionExtension => ext.type === 'clusterAction'
+          )
+          .map((ext) => ({ pluginName: p.name, ext }))
       ),
-    [plugins],
+    [plugins]
   );
   // let canCreateClusterFromBackup = canRestore && canCreateClusters;
 
@@ -321,27 +331,28 @@ export const DbActions = ({
         handleCloseDetailsDialog={handleCloseDetailsDialog}
         deleteMutation={deleteMutation}
       />
-      {activePluginAction && (() => {
-        const ActionComponent = activePluginAction.ext.component;
-        return (
-          <Dialog
-            open
-            onClose={() => setActivePluginAction(null)}
-            maxWidth="md"
-            fullWidth
-          >
-            <DialogContent>
-              <PluginErrorBoundary pluginName={activePluginAction.pluginName}>
-                <ActionComponent
-                  cluster={dbInstance}
-                  namespace={dbInstance.metadata?.namespace ?? ''}
-                  onClose={() => setActivePluginAction(null)}
-                />
-              </PluginErrorBoundary>
-            </DialogContent>
-          </Dialog>
-        );
-      })()}
+      {activePluginAction &&
+        (() => {
+          const ActionComponent = activePluginAction.ext.component;
+          return (
+            <Dialog
+              open
+              onClose={() => setActivePluginAction(null)}
+              maxWidth="md"
+              fullWidth
+            >
+              <DialogContent>
+                <PluginErrorBoundary pluginName={activePluginAction.pluginName}>
+                  <ActionComponent
+                    cluster={dbInstance}
+                    namespace={dbInstance.metadata?.namespace ?? ''}
+                    onClose={() => setActivePluginAction(null)}
+                  />
+                </PluginErrorBoundary>
+              </DialogContent>
+            </Dialog>
+          );
+        })()}
     </>
   );
 };

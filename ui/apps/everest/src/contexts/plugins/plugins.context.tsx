@@ -12,8 +12,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
-import type { Extension, PluginApi, PluginRegisterFn } from '@openeverest/plugin-sdk';
+import React, {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+  ReactNode,
+} from 'react';
+import type {
+  Extension,
+  PluginApi,
+  PluginRegisterFn,
+} from '@openeverest/plugin-sdk';
 import AuthContext from 'contexts/auth/auth.context';
 
 export interface PluginRegistration {
@@ -53,7 +63,7 @@ export const usePlugins = () => useContext(PluginContext);
 function createPluginApi(
   pluginName: string,
   registrations: PluginRegistration[],
-  allowedTypes?: Set<string>,
+  allowedTypes?: Set<string>
 ): PluginApi {
   const registration: PluginRegistration = { name: pluginName, extensions: [] };
   registrations.push(registration);
@@ -125,7 +135,11 @@ export const PluginProvider = ({ children }: { children: ReactNode }) => {
             const allowedTypes = descriptor.extensionPoints?.length
               ? new Set(descriptor.extensionPoints.map((ep) => ep.type))
               : undefined;
-            const pluginApi = createPluginApi(descriptor.name, registrations, allowedTypes);
+            const pluginApi = createPluginApi(
+              descriptor.name,
+              registrations,
+              allowedTypes
+            );
             registerFn(pluginApi);
 
             // Forward icon from the CRD descriptor into registered sidebarItem extensions.
@@ -146,7 +160,11 @@ export const PluginProvider = ({ children }: { children: ReactNode }) => {
             }
           }
         } catch (err) {
-          console.error(`[plugins] Failed to load plugin "${descriptor.name}":`, err);
+          // eslint-disable-next-line no-console
+          console.error(
+            `[plugins] Failed to load plugin "${descriptor.name}":`,
+            err
+          );
         }
       }
 
@@ -156,7 +174,9 @@ export const PluginProvider = ({ children }: { children: ReactNode }) => {
       }
     })();
 
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [authStatus]);
 
   return (
