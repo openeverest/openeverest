@@ -39,24 +39,7 @@ import (
 // getSkipNamespaces returns a list of namespaces that cannot be added to Everest management.
 // It contains Kubernetes system, reserved by Everest core and cloud providers specific namespaces.
 func getSkipNamespaces(systemNamespace string) []string {
-	return []string{
-		// Kubernetes native system namespaces.
-		"kube-system",
-		"kube-public",
-		"kube-node-lease",
-
-		// Everest core namespaces.
-		systemNamespace,
-		common.MonitoringNamespace,
-		kubernetes.OLMNamespace,
-
-		// GKE namespaces.
-		"gke-managed-cim",
-		"gke-managed-system",
-		"gke-managed-volumepopulator",
-		"gmp-public",
-		"gmp-system",
-	}
+	return kubernetes.GetSystemNamespaces(systemNamespace)
 }
 
 type (

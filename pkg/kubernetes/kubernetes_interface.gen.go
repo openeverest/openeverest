@@ -234,7 +234,8 @@ type KubernetesConnector interface {
 	CreateNamespace(ctx context.Context, namespace *corev1.Namespace) (*corev1.Namespace, error)
 	// GetNamespace returns a namespace that matches the criteria.
 	GetNamespace(ctx context.Context, key ctrlclient.ObjectKey) (*corev1.Namespace, error)
-	// GetDBNamespaces returns a list of DB namespaces that managed by the Everest and match the criteria.
+	// GetDBNamespaces returns namespaces that can be used to manage databases.
+	// Filters out Kubernetes system namespaces, Everest core namespaces, and cloud provider-specific namespaces.
 	GetDBNamespaces(ctx context.Context, opts ...ctrlclient.ListOption) (*corev1.NamespaceList, error)
 	// DeleteNamespace deletes a namespace that matches the criteria.
 	DeleteNamespace(ctx context.Context, obj *corev1.Namespace) error
