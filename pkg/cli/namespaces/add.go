@@ -25,6 +25,7 @@ import (
 
 	"go.uber.org/zap"
 	"helm.sh/helm/v3/pkg/cli/values"
+	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/openeverest/openeverest/v2/pkg/cli/helm"
@@ -36,7 +37,6 @@ import (
 	"github.com/openeverest/openeverest/v2/pkg/kubernetes"
 	"github.com/openeverest/openeverest/v2/pkg/output"
 	"github.com/openeverest/openeverest/v2/pkg/version"
-	corev1 "k8s.io/api/core/v1"
 )
 
 type (
@@ -408,12 +408,7 @@ func (n *NamespaceAdder) provisionDBNamespace(
 	if err != nil {
 		return err
 	}
-	
-	// TODO: The everest-db-namespace chart has been removed from the helm-charts repository.
-	// Database namespace provisioning is now handled differently or is no longer needed as a separate chart.
-	// This functionality needs to be reimplemented or removed entirely.
-	n.l.Infof("Skipping DB namespace Helm chart installation for namespace %s (chart no longer exists)", namespace)
-	
+
 	// Create namespace if it doesn't exist
 	if !nsExists {
 		n.l.Infof("Creating namespace %s", namespace)
@@ -423,7 +418,7 @@ func (n *NamespaceAdder) provisionDBNamespace(
 			return fmt.Errorf("could not create namespace: %w", err)
 		}
 	}
-	
+
 	return nil
 }
 
