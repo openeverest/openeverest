@@ -20,6 +20,7 @@ import (
 	everestv1alpha1 "github.com/percona/everest-operator/api/everest/v1alpha1"
 	"k8s.io/apimachinery/pkg/watch"
 
+	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
 	corev1alpha1 "github.com/openeverest/openeverest/v2/api/core/v1alpha1"
 )
 
@@ -118,8 +119,8 @@ func NormalizeDatabaseCluster(we watch.Event, old *everestv1alpha1.DatabaseClust
 }
 
 // NormalizeBackup converts a kube watch event on a DatabaseClusterBackup.
-func NormalizeBackup(we watch.Event, old *everestv1alpha1.DatabaseClusterBackup) []Event {
-	obj, ok := we.Object.(*everestv1alpha1.DatabaseClusterBackup)
+func NormalizeBackup(we watch.Event, old *backupv1alpha1.Backup) []Event {
+	obj, ok := we.Object.(*backupv1alpha1.Backup)
 	if !ok {
 		return nil
 	}
@@ -181,8 +182,8 @@ func NormalizeBackup(we watch.Event, old *everestv1alpha1.DatabaseClusterBackup)
 }
 
 // NormalizeRestore converts a kube watch event on a DatabaseClusterRestore.
-func NormalizeRestore(we watch.Event, old *everestv1alpha1.DatabaseClusterRestore) []Event {
-	obj, ok := we.Object.(*everestv1alpha1.DatabaseClusterRestore)
+func NormalizeRestore(we watch.Event, old *backupv1alpha1.Restore) []Event {
+	obj, ok := we.Object.(*backupv1alpha1.Restore)
 	if !ok {
 		return nil
 	}

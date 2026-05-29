@@ -19,10 +19,11 @@ import (
 	"sync"
 	"time"
 
-	everestv1alpha1 "github.com/percona/everest-operator/api/everest/v1alpha1"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/watch"
 
+	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
+	corev1alpha1 "github.com/openeverest/openeverest/v2/api/core/v1alpha1"
 	"github.com/openeverest/openeverest/v2/pkg/kubernetes"
 )
 
@@ -50,21 +51,21 @@ type Hub struct {
 	kc          kubernetes.KubernetesConnector
 
 	// prevState caches for normalisation — keyed by namespace/name.
-	clusterCache map[string]*everestv1alpha1.DatabaseCluster
-	backupCache  map[string]*everestv1alpha1.DatabaseClusterBackup
-	restoreCache map[string]*everestv1alpha1.DatabaseClusterRestore
-	cacheMu      sync.RWMutex
+	instanceCache map[string]*corev1alpha1.Instance
+	backupCache   map[string]*backupv1alpha1.Backup
+	restoreCache  map[string]*backupv1alpha1.Restore
+	cacheMu       sync.RWMutex
 }
 
 // NewHub creates a new event hub.
 func NewHub(l *zap.SugaredLogger, kc kubernetes.KubernetesConnector) *Hub {
 	return &Hub{
-		subscribers:  make(map[*Subscriber]struct{}),
-		l:            l.With("component", "event-hub"),
-		kc:           kc,
-		clusterCache: make(map[string]*everestv1alpha1.DatabaseCluster),
-		backupCache:  make(map[string]*everestv1alpha1.DatabaseClusterBackup),
-		restoreCache: make(map[string]*everestv1alpha1.DatabaseClusterRestore),
+		subscribers:   make(map[*Subscriber]struct{}),
+		l:             l.With("component", "event-hub"),
+		kc:            kc,
+		instanceCache: make(map[string]*corev1alpha1.Instance),
+		backupCache:   make(map[string]*backupv1alpha1.Backup),
+		restoreCache:  make(map[string]*backupv1alpha1.Restore),
 	}
 }
 
@@ -148,7 +149,6 @@ func (h *Hub) Start(ctx context.Context) error {
 		name string
 		fn   func(context.Context) error
 	}{
-		{"DatabaseClusters", h.watchDatabaseClusters},
 		{"Backups", h.watchBackups},
 		{"Restores", h.watchRestores},
 		{"Instances", h.watchInstances},
@@ -183,49 +183,6 @@ func (h *Hub) watchWithRetry(ctx context.Context, name string, fn func(context.C
 	}
 }
 
-func (h *Hub) watchDatabaseClusters(ctx context.Context) error {
-	watcher, err := h.kc.WatchDatabaseClusters(ctx)
-	if err != nil {
-		return err
-	}
-	defer watcher.Stop()
-
-	for {
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case we, ok := <-watcher.ResultChan():
-			if !ok {
-				return nil // channel closed, reconnect handled by caller
-			}
-			obj, ok := we.Object.(*everestv1alpha1.DatabaseCluster)
-			if !ok {
-				continue
-			}
-			key := cacheKey(obj.Namespace, obj.Name)
-
-			h.cacheMu.RLock()
-			old := h.clusterCache[key]
-			h.cacheMu.RUnlock()
-
-			events := NormalizeDatabaseCluster(we, old)
-			for _, evt := range events {
-				h.l.Infof("broadcasting event: %s %s/%s", evt.Type, evt.Namespace, evt.Resource.Name)
-				h.broadcast(evt)
-			}
-
-			// Update cache.
-			h.cacheMu.Lock()
-			if we.Type == watch.Deleted {
-				delete(h.clusterCache, key)
-			} else {
-				h.clusterCache[key] = obj.DeepCopy()
-			}
-			h.cacheMu.Unlock()
-		}
-	}
-}
-
 func (h *Hub) watchBackups(ctx context.Context) error {
 	watcher, err := h.kc.WatchBackups(ctx)
 	if err != nil {
@@ -241,7 +198,7 @@ func (h *Hub) watchBackups(ctx context.Context) error {
 			if !ok {
 				return nil
 			}
-			obj, ok := we.Object.(*everestv1alpha1.DatabaseClusterBackup)
+			obj, ok := we.Object.(*backupv1alpha1.Backup)
 			if !ok {
 				continue
 			}
@@ -282,7 +239,7 @@ func (h *Hub) watchRestores(ctx context.Context) error {
 			if !ok {
 				return nil
 			}
-			obj, ok := we.Object.(*everestv1alpha1.DatabaseClusterRestore)
+			obj, ok := we.Object.(*backupv1alpha1.Restore)
 			if !ok {
 				continue
 			}
