@@ -339,7 +339,7 @@ deploy:  ## Deploy Everest to K8S cluster using Everest CLI.
 	--operator.mysql=true \
 	--skip-wizard \
 	--namespaces $(DB_NAMESPACES) \
-	--helm.set server.image=$(IMAGE_PREFIX)/$(EVEREST_SERVER_DEV_IMAGE_NAME) \
+	--helm.set server.image.repository=$(IMAGE_PREFIX)/$(EVEREST_SERVER_DEV_IMAGE_NAME) \
 	--helm.set server.apiRequestsRateLimit=500 \
 	--helm.set server.sessionRequestsRateLimit=200 \
 	--helm.set versionMetadataURL=https://check-dev.percona.com \
