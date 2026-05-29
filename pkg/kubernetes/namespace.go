@@ -27,6 +27,29 @@ import (
 	"github.com/openeverest/openeverest/v2/pkg/common"
 )
 
+// GetSystemNamespaces returns a list of namespaces that should be excluded from database operations.
+// It includes Kubernetes system namespaces, Everest core namespaces, and cloud provider-specific namespaces.
+func GetSystemNamespaces(systemNamespace string) []string {
+	return []string{
+		// Kubernetes native system namespaces.
+		"kube-system",
+		"kube-public",
+		"kube-node-lease",
+
+		// Everest core namespaces.
+		systemNamespace,
+		common.MonitoringNamespace,
+		OLMNamespace,
+
+		// GKE namespaces.
+		"gke-managed-cim",
+		"gke-managed-system",
+		"gke-managed-volumepopulator",
+		"gmp-public",
+		"gmp-system",
+	}
+}
+
 // CreateNamespace creates the given namespace.
 func (k *Kubernetes) CreateNamespace(ctx context.Context, namespace *corev1.Namespace) (*corev1.Namespace, error) {
 	if err := k.k8sClient.Create(ctx, namespace); err != nil {
@@ -45,16 +68,17 @@ func (k *Kubernetes) GetNamespace(ctx context.Context, key ctrlclient.ObjectKey)
 }
 
 // GetDBNamespaces returns namespaces that can be used to manage databases.
+// Filters out Kubernetes system namespaces, Everest core namespaces, and cloud provider-specific namespaces.
 func (k *Kubernetes) GetDBNamespaces(ctx context.Context, opts ...ctrlclient.ListOption) (*corev1.NamespaceList, error) {
 	result, err := k.ListNamespaces(ctx, opts...)
 	if err != nil {
 		return nil, errors.Join(err, errors.New("failed to get namespaces"))
 	}
 
-	internalNs := []string{k.Namespace(), common.MonitoringNamespace}
-	// filter out Everest system and monitoring namespaces.
+	systemNamespaces := GetSystemNamespaces(k.Namespace())
+	// Filter out all system namespaces to prevent database operations in reserved namespaces.
 	result.Items = slices.DeleteFunc(result.Items, func(ns corev1.Namespace) bool {
-		return slices.Contains(internalNs, ns.Name)
+		return slices.Contains(systemNamespaces, ns.Name)
 	})
 	return result, nil
 }
