@@ -67,7 +67,7 @@ export const ScheduleFormWrapper = () => {
       setValue(
         ScheduleFormFields.backupClassName,
         availableBackupClasses[0]?.metadata?.name ?? '',
-        { shouldValidate: false }
+        { shouldValidate: true }
       );
     }
   }, [availableBackupClasses, selectedBackupClassName, setValue]);
@@ -91,6 +91,8 @@ export const ScheduleFormWrapper = () => {
     }
   }, [scheduleName, mode, setSelectedScheduleName]);
 
+  const { loadingBackupClasses = false } = dbInstanceInfo;
+
   return (
     <ScheduleForm
       allowScheduleSelection={mode === WizardMode.Edit}
@@ -102,6 +104,7 @@ export const ScheduleFormWrapper = () => {
       maxSchedulesPerStorage={maxSchedulesPerStorage}
       instanceStorageNames={instanceStorageNames}
       availableClasses={availableBackupClasses}
+      loadingClasses={loadingBackupClasses}
       disableClassSelection={disableClassSelection}
       backupClass={currentBackupClass}
     />
