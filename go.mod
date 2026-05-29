@@ -24,7 +24,7 @@ require (
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/oapi-codegen/echo-middleware v1.0.2
 	github.com/oapi-codegen/runtime v1.4.0
-	github.com/openeverest/helm-charts/charts/everest v0.0.0-20260529002858-8b0543fc1a3d
+	github.com/openeverest/helm-charts/charts/everest v0.0.0-20260528233041-9e9e8e5c0ae0
 	github.com/operator-framework/api v0.42.0
 	github.com/percona/everest-operator v0.6.0-dev1.0.20260429065444-70caa52c384a
 	github.com/rodaine/table v1.3.1
