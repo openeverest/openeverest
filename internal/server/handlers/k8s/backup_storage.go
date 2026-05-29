@@ -44,9 +44,48 @@ func (h *k8sHandler) UpdateBackupStorage(ctx context.Context, cluster string, bs
 	return h.kubeConnector.UpdateBackupStorage(ctx, bs)
 }
 
-// PatchBackupStorage patches a backup storage.
+// PatchBackupStorage patches a backup storage by fetching the current state and
+// merging only the non-zero fields from bs onto it before updating.
+// Write-only credential fields (AccessKeyID, SecretAccessKey) are forwarded as-is
+// so the mutating webhook can extract them into the credentials Secret.
 func (h *k8sHandler) PatchBackupStorage(ctx context.Context, cluster string, bs *backupv1alpha1.BackupStorage) (*backupv1alpha1.BackupStorage, error) {
-	return h.kubeConnector.UpdateBackupStorage(ctx, bs)
+	current, err := h.kubeConnector.GetBackupStorage(ctx, types.NamespacedName{
+		Namespace: bs.GetNamespace(),
+		Name:      bs.GetName(),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to get backup storage: %w", err)
+	}
+
+	if bs.Spec.S3 != nil {
+		if current.Spec.S3 == nil {
+			current.Spec.S3 = &backupv1alpha1.BackupStorageS3Spec{}
+		}
+		s3 := bs.Spec.S3
+		if s3.Bucket != "" {
+			current.Spec.S3.Bucket = s3.Bucket
+		}
+		if s3.Region != "" {
+			current.Spec.S3.Region = s3.Region
+		}
+		if s3.EndpointURL != "" {
+			current.Spec.S3.EndpointURL = s3.EndpointURL
+		}
+		if s3.CredentialsSecretName != "" {
+			current.Spec.S3.CredentialsSecretName = s3.CredentialsSecretName
+		}
+		if s3.VerifyTLS != nil {
+			current.Spec.S3.VerifyTLS = s3.VerifyTLS
+		}
+		if s3.ForcePathStyle != nil {
+			current.Spec.S3.ForcePathStyle = s3.ForcePathStyle
+		}
+		// Write-only fields: pass through to be consumed by the mutating webhook.
+		current.Spec.S3.AccessKeyID = s3.AccessKeyID
+		current.Spec.S3.SecretAccessKey = s3.SecretAccessKey
+	}
+
+	return h.kubeConnector.UpdateBackupStorage(ctx, current)
 }
 
 // DeleteBackupStorage deletes a backup storage.
