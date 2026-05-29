@@ -77,18 +77,27 @@ const WithPermissionDetails = ({
 
   // Build a set of plugin names enabled in this namespace.
   // When no PluginInstallation CRs exist in the namespace, skip filtering entirely.
-  const enabledInNs = nsPlugins?.length ? new Set(nsPlugins.map((p) => p.name)) : null;
+  const enabledInNs = nsPlugins?.length
+    ? new Set(nsPlugins.map((p) => p.name))
+    : null;
 
   const pluginTabs = useMemo(
     () =>
       plugins.flatMap((p) =>
         p.extensions
-          .filter((ext): ext is ClusterDetailTabExtension => ext.type === 'clusterDetailTab')
-          .filter((ext) => !ext.providers?.length || (engineType != null && ext.providers.includes(engineType)))
+          .filter(
+            (ext): ext is ClusterDetailTabExtension =>
+              ext.type === 'clusterDetailTab'
+          )
+          .filter(
+            (ext) =>
+              !ext.providers?.length ||
+              (engineType != null && ext.providers.includes(engineType))
+          )
           .filter(() => enabledInNs === null || enabledInNs.has(p.name))
-          .map((ext) => ({ pluginName: p.name, ...ext })),
+          .map((ext) => ({ pluginName: p.name, ...ext }))
       ),
-    [plugins, engineType, enabledInNs],
+    [plugins, engineType, enabledInNs]
   );
 
   return (

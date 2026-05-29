@@ -30,8 +30,14 @@ const PluginSettingsHost = () => {
   const match = useMemo(() => {
     for (const plugin of plugins) {
       for (const ext of plugin.extensions) {
-        if (ext.type === 'settingsPanel' && (ext as SettingsPanelExtension).path === tabPath) {
-          return { pluginName: plugin.name, ext: ext as SettingsPanelExtension };
+        if (
+          ext.type === 'settingsPanel' &&
+          (ext as SettingsPanelExtension).path === tabPath
+        ) {
+          return {
+            pluginName: plugin.name,
+            ext: ext as SettingsPanelExtension,
+          };
         }
       }
     }

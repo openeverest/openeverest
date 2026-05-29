@@ -74,11 +74,7 @@ export const PluginsPage = () => {
         </Box>
       )}
 
-      {error && (
-        <Typography color="error">
-          Failed to load plugins.
-        </Typography>
-      )}
+      {error && <Typography color="error">Failed to load plugins.</Typography>}
 
       {!isLoading && plugins?.length === 0 && (
         <Box sx={{ textAlign: 'center', mt: 6 }}>
@@ -101,57 +97,66 @@ export const PluginsPage = () => {
                   onClick={() => navigate(`/plugins/${plugin.name}`)}
                   sx={{ height: '100%' }}
                 >
-                <CardContent>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                    {plugin.icon ? (
-                      <Box
-                        component="img"
-                        src={plugin.icon}
-                        alt=""
-                        sx={{ width: 32, height: 32, borderRadius: 1 }}
-                      />
-                    ) : (
-                      <ExtensionIcon sx={{ fontSize: 32, color: 'primary.main' }} />
-                    )}
-                    <Box sx={{ minWidth: 0 }}>
-                      <Typography variant="subtitle1" noWrap>
-                        {plugin.displayName}
-                      </Typography>
-                      {plugin.vendor && (
-                        <Typography variant="caption" color="text.secondary">
-                          by {plugin.vendor}
-                        </Typography>
-                      )}
-                    </Box>
-                    {plugin.version && (
-                      <Chip
-                        label={`v${plugin.version}`}
-                        size="small"
-                        color="primary"
-                        variant="outlined"
-                        sx={{ ml: 'auto', flexShrink: 0 }}
-                      />
-                    )}
-                  </Box>
-
-                  {plugin.description && (
-                    <Typography
-                      variant="body2"
-                      color="text.secondary"
+                  <CardContent>
+                    <Box
                       sx={{
-                        mt: 1,
-                        display: '-webkit-box',
-                        WebkitLineClamp: 3,
-                        WebkitBoxOrient: 'vertical',
-                        overflow: 'hidden',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 1,
+                        mb: 1,
                       }}
                     >
-                      {plugin.description}
-                    </Typography>
-                  )}
+                      {plugin.icon ? (
+                        <Box
+                          component="img"
+                          src={plugin.icon}
+                          alt=""
+                          sx={{ width: 32, height: 32, borderRadius: 1 }}
+                        />
+                      ) : (
+                        <ExtensionIcon
+                          sx={{ fontSize: 32, color: 'primary.main' }}
+                        />
+                      )}
+                      <Box sx={{ minWidth: 0 }}>
+                        <Typography variant="subtitle1" noWrap>
+                          {plugin.displayName}
+                        </Typography>
+                        {plugin.vendor && (
+                          <Typography variant="caption" color="text.secondary">
+                            by {plugin.vendor}
+                          </Typography>
+                        )}
+                      </Box>
+                      {plugin.version && (
+                        <Chip
+                          label={`v${plugin.version}`}
+                          size="small"
+                          color="primary"
+                          variant="outlined"
+                          sx={{ ml: 'auto', flexShrink: 0 }}
+                        />
+                      )}
+                    </Box>
 
-                  <ExtensionChips plugin={plugin} />
-                </CardContent>
+                    {plugin.description && (
+                      <Typography
+                        variant="body2"
+                        color="text.secondary"
+                        sx={{
+                          mt: 1,
+                          display: '-webkit-box',
+                          WebkitLineClamp: 3,
+                          WebkitBoxOrient: 'vertical',
+                          overflow: 'hidden',
+                        }}
+                      >
+                        {plugin.description}
+                      </Typography>
+                    )}
+
+                    <ExtensionChips plugin={plugin} />
+                  </CardContent>
                 </CardActionArea>
               </Card>
             </Grid>
