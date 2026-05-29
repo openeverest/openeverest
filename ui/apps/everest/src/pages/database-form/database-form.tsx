@@ -351,7 +351,9 @@ export const DatabasePage = () => {
             // Submit plugin configs for each plugin that provided config.
             const instanceName = postProcessedData.dbName || '';
             const ns = postProcessedData.k8sNamespace || '';
-            for (const [pluginName, config] of Object.entries(pluginConfigsRef.current)) {
+            for (const [pluginName, config] of Object.entries(
+              pluginConfigsRef.current
+            )) {
               if (Object.keys(config).length > 0) {
                 submitPluginConfig({
                   pluginName,

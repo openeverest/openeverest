@@ -52,10 +52,12 @@ export const createBackupOnDemandFn = async (
 export const deleteBackupFn = async (
   clusterName: string,
   namespace: string,
-  backupName: string
+  backupName: string,
+  deletionPolicy?: 'Delete' | 'Retain'
 ) => {
+  const params = deletionPolicy ? `?deletionPolicy=${deletionPolicy}` : '';
   const response = await api.delete<DeleteBackupPayload>(
-    `clusters/${clusterName}/namespaces/${namespace}/backups/${backupName}`
+    `clusters/${clusterName}/namespaces/${namespace}/backups/${backupName}${params}`
   );
 
   return response.data;

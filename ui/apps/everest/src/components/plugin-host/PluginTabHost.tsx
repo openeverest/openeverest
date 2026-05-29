@@ -32,8 +32,14 @@ const PluginTabHost = () => {
   const match = useMemo(() => {
     for (const plugin of plugins) {
       for (const ext of plugin.extensions) {
-        if (ext.type === 'clusterDetailTab' && (ext as ClusterDetailTabExtension).path === tabPath) {
-          return { pluginName: plugin.name, ext: ext as ClusterDetailTabExtension };
+        if (
+          ext.type === 'clusterDetailTab' &&
+          (ext as ClusterDetailTabExtension).path === tabPath
+        ) {
+          return {
+            pluginName: plugin.name,
+            ext: ext as ClusterDetailTabExtension,
+          };
         }
       }
     }
@@ -51,7 +57,11 @@ const PluginTabHost = () => {
   const Component = match.ext.component;
   return (
     <PluginErrorBoundary pluginName={match.pluginName}>
-      <Component cluster={instance} namespace={namespace} instanceName={instanceName} />
+      <Component
+        cluster={instance}
+        namespace={namespace}
+        instanceName={instanceName}
+      />
     </PluginErrorBoundary>
   );
 };

@@ -182,11 +182,11 @@ export const DbClusterView = () => {
         p.extensions
           .filter(
             (ext): ext is GlobalDashboardWidgetExtension =>
-              ext.type === 'globalDashboardWidget',
+              ext.type === 'globalDashboardWidget'
           )
-          .map((ext) => ({ pluginName: p.name, ext })),
+          .map((ext) => ({ pluginName: p.name, ext }))
       ),
-    [plugins],
+    [plugins]
   );
 
   return (
@@ -196,7 +196,11 @@ export const DbClusterView = () => {
           sx={{
             width: '100%',
             display: 'grid',
-            gridTemplateColumns: { xs: '1fr', md: 'repeat(2, 1fr)', xl: 'repeat(3, 1fr)' },
+            gridTemplateColumns: {
+              xs: '1fr',
+              md: 'repeat(2, 1fr)',
+              xl: 'repeat(3, 1fr)',
+            },
             gap: 2,
             mb: 2,
           }}
@@ -204,8 +208,14 @@ export const DbClusterView = () => {
           {dashboardWidgets.map((w) => {
             const WidgetComponent = w.ext.component;
             return (
-              <Card key={`widget-${w.pluginName}-${w.ext.label}`} variant="outlined">
-                <CardHeader title={w.ext.label} titleTypographyProps={{ variant: 'subtitle1' }} />
+              <Card
+                key={`widget-${w.pluginName}-${w.ext.label}`}
+                variant="outlined"
+              >
+                <CardHeader
+                  title={w.ext.label}
+                  titleTypographyProps={{ variant: 'subtitle1' }}
+                />
                 <CardContent>
                   <PluginErrorBoundary pluginName={w.pluginName}>
                     <WidgetComponent namespaces={namespaces} />

@@ -31,13 +31,18 @@ export interface PluginDescriptor {
   }[];
 }
 
-async function fetchPluginsForNamespace(namespace: string): Promise<PluginDescriptor[]> {
+async function fetchPluginsForNamespace(
+  namespace: string
+): Promise<PluginDescriptor[]> {
   const token = localStorage.getItem('everestToken');
   const headers: Record<string, string> = {};
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;
   }
-  const resp = await window.fetch(`/v1/plugins?namespace=${encodeURIComponent(namespace)}`, { headers });
+  const resp = await window.fetch(
+    `/v1/plugins?namespace=${encodeURIComponent(namespace)}`,
+    { headers }
+  );
   if (!resp.ok) return [];
   return resp.json();
 }

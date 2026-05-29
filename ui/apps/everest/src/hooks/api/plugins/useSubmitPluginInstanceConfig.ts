@@ -21,7 +21,9 @@ export interface PluginInstanceConfig {
   config: Record<string, unknown>;
 }
 
-async function submitPluginInstanceConfig(payload: PluginInstanceConfig): Promise<void> {
+async function submitPluginInstanceConfig(
+  payload: PluginInstanceConfig
+): Promise<void> {
   const token = localStorage.getItem('everestToken');
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',

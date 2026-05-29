@@ -39,7 +39,10 @@ interface PluginFormSectionsProps {
   /** Whether this is create mode (true) or edit mode (false). */
   isCreate: boolean;
   /** Callback to collect plugin configs. Keyed by plugin name. */
-  onPluginConfigChange: (pluginName: string, config: Record<string, unknown>) => void;
+  onPluginConfigChange: (
+    pluginName: string,
+    config: Record<string, unknown>
+  ) => void;
 }
 
 /**
@@ -72,8 +75,11 @@ export const PluginFormSections: React.FC<PluginFormSectionsProps> = ({
     return plugins.flatMap((p) =>
       p.extensions
         .filter(
-          (ext): ext is InstanceCreateFormSectionExtension | InstanceEditFormSectionExtension =>
-            ext.type === extensionType
+          (
+            ext
+          ): ext is
+            | InstanceCreateFormSectionExtension
+            | InstanceEditFormSectionExtension => ext.type === extensionType
         )
         .filter(
           (ext) =>
@@ -107,7 +113,10 @@ export const PluginFormSections: React.FC<PluginFormSectionsProps> = ({
 
 interface PluginFormSectionItemProps {
   pluginName: string;
-  section: (InstanceCreateFormSectionExtension | InstanceEditFormSectionExtension) & {
+  section: (
+    | InstanceCreateFormSectionExtension
+    | InstanceEditFormSectionExtension
+  ) & {
     pluginName: string;
   };
   formValues: Record<string, unknown>;
@@ -143,7 +152,11 @@ const PluginFormSection: React.FC<PluginFormSectionItemProps> = ({
         <Typography variant="subtitle1">{section.label}</Typography>
       </AccordionSummary>
       <AccordionDetails>
-        {React.createElement(section.component as React.ComponentType<any>, props)}
+        {React.createElement(
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          section.component as React.ComponentType<any>,
+          props
+        )}
       </AccordionDetails>
     </Accordion>
   );

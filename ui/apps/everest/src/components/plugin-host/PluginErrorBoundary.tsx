@@ -25,7 +25,10 @@ interface ErrorBoundaryState {
   error: Error | null;
 }
 
-class PluginErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
+class PluginErrorBoundary extends Component<
+  ErrorBoundaryProps,
+  ErrorBoundaryState
+> {
   constructor(props: ErrorBoundaryProps) {
     super(props);
     this.state = { hasError: false, error: null };
@@ -36,7 +39,12 @@ class PluginErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySta
   }
 
   componentDidCatch(error: Error, info: ErrorInfo) {
-    console.error(`[plugins] Plugin "${this.props.pluginName}" crashed:`, error, info);
+    // eslint-disable-next-line no-console
+    console.error(
+      `[plugins] Plugin "${this.props.pluginName}" crashed:`,
+      error,
+      info
+    );
   }
 
   render() {
@@ -47,9 +55,13 @@ class PluginErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySta
             Plugin Error
           </Typography>
           <Typography color="text.secondary" gutterBottom>
-            The plugin &quot;{this.props.pluginName}&quot; encountered an error and could not render.
+            The plugin &quot;{this.props.pluginName}&quot; encountered an error
+            and could not render.
           </Typography>
-          <Typography variant="body2" sx={{ fontFamily: 'monospace', mt: 1, mb: 2 }}>
+          <Typography
+            variant="body2"
+            sx={{ fontFamily: 'monospace', mt: 1, mb: 2 }}
+          >
             {this.state.error?.message}
           </Typography>
           <Button

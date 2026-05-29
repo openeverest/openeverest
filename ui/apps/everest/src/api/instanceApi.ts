@@ -58,11 +58,12 @@ export const getDbInstancesFn = async (
 export const deleteDbInstanceFn = async (
   clusterName: string,
   dbInstanceName: string,
-  namespace: string
-  // cleanupBackupStorage: boolean
+  namespace: string,
+  deletionPolicy?: 'Cascade' | 'Orphan'
 ) => {
+  const params = deletionPolicy ? `?deletionPolicy=${deletionPolicy}` : '';
   const response = await api.delete<Instance>(
-    `clusters/${clusterName}/namespaces/${namespace}/instances/${dbInstanceName}`
+    `clusters/${clusterName}/namespaces/${namespace}/instances/${dbInstanceName}${params}`
   );
   return response.data;
 };
