@@ -44,12 +44,11 @@ func (k *Kubernetes) GetNamespace(ctx context.Context, key ctrlclient.ObjectKey)
 	return result, nil
 }
 
-// GetDBNamespaces returns a list of DB namespaces that managed by the Everest and match the criteria.
+// GetDBNamespaces returns namespaces that can be used to manage databases.
 func (k *Kubernetes) GetDBNamespaces(ctx context.Context, opts ...ctrlclient.ListOption) (*corev1.NamespaceList, error) {
-	opts = append(opts, ctrlclient.MatchingLabels{common.KubernetesManagedByLabel: common.Everest})
 	result, err := k.ListNamespaces(ctx, opts...)
 	if err != nil {
-		return nil, errors.Join(err, errors.New("failed to get managed namespaces"))
+		return nil, errors.Join(err, errors.New("failed to get namespaces"))
 	}
 
 	internalNs := []string{k.Namespace(), common.MonitoringNamespace}
