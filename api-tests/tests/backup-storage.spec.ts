@@ -46,6 +46,13 @@ test.describe.parallel('Backup Storage V2 tests', () => {
         expect(backupStorage.metadata.name).toBe(bsName)
         expect(backupStorage.spec.type).toBe('s3')
         expect(backupStorage.spec.s3.bucket).toBe(payload.spec.s3.bucket)
+        expect(backupStorage.spec.s3.region).toBe(payload.spec.s3.region)
+        expect(backupStorage.spec.s3.endpointURL).toBe(payload.spec.s3.endpointURL)
+        expect(backupStorage.spec.s3.credentialsSecretName).toBe(payload.spec.s3.credentialsSecretName)
+        expect(backupStorage.spec.s3.accessKeyId).toBe("")
+        expect(backupStorage.spec.s3.secretAccessKey).toBe("")
+        expect(backupStorage.spec.s3.forcePathStyle).toBe(payload.spec.s3.forcePathStyle)
+        expect(backupStorage.spec.s3.verifyTLS).toBe(payload.spec.s3.verifyTLS)
       });
 
       await test.step('list backup storages', async () => {
