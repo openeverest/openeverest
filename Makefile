@@ -1,5 +1,5 @@
 REPO_ROOT=$(shell dirname "$(realpath $(firstword $(MAKEFILE_LIST)))")
-RELEASE_VERSION ?= v2.0.0-dev.1
+RELEASE_VERSION ?= v0.0.0-$(shell git rev-parse --short HEAD)
 RELEASE_FULLCOMMIT ?= $(shell git rev-parse HEAD)
 IMAGE_PREFIX ?= ghcr.io/openeverest
 EVEREST_SERVER_DEV_IMAGE_NAME ?= openeverest-dev
