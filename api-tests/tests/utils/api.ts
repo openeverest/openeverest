@@ -295,6 +295,16 @@ export const updateBackupStorageRaw = async (request, name, data) => {
   return await request.put(`/v1/clusters/${CLUSTER_NAME}/namespaces/${EVEREST_CI_NAMESPACE}/backup-storages/${name}`, {data: data})
 }
 
+export const patchBackupStorage = async (request, name, data) => {
+  const response = await patchBackupStorageRaw(request, name, data)
+  await checkError(response)
+  return (await response.json())
+}
+
+export const patchBackupStorageRaw = async (request, name, data) => {
+  return await request.patch(`/v1/clusters/${CLUSTER_NAME}/namespaces/${EVEREST_CI_NAMESPACE}/backup-storages/${name}`, {data: data})
+}
+
 export const deleteBackupStorage = async (request, name) => {
   // Wait for deletion mark.
   await expect(async () => {
