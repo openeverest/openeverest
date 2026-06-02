@@ -301,12 +301,12 @@ test-crosscover: setup-envtest ## Run unit tests and collect cross-package cover
 	KUBEBUILDER_ASSETS="$$("$(ENVTEST)" use $(ENVTEST_K8S_VERSION) --bin-dir "$(LOCALBIN)" -p path)" \
 	CGO_ENABLED=1 go test -race -timeout=20m -count=1 -coverprofile=crosscover.out -covermode=atomic -p=1 -coverpkg=./... ./...
 
+.PHONY: test-integration-backup
+test-integration-backup: docker-build-controller k3d-upload-controller-image deploy-test-controller
+	chainsaw test --config test/integration/.backup.yaml test/integration/backup
+
 .PHONY: test-integration-monitoring
-test-integration-monitoring: docker-build-controller k3d-upload-controller-image
-	kubectl get namespace everest-monitoring || kubectl create namespace everest-monitoring
-	$(MAKE) deploy-test-controller
-	kubectl delete pod -n openeverest-system -l control-plane=controller-manager
-	$(MAKE) wait-test-controller
+test-integration-monitoring: docker-build-controller k3d-upload-controller-image deploy-test-controller
 	chainsaw test --config test/integration/.monitoring.yaml test/integration/monitoring
 
 ##@ Deployment management
@@ -521,6 +521,8 @@ deploy-test-controller: gen-crds-manifests kustomize deploy-cert-manager
 	kubectl wait --for condition=established --timeout=10s crd vmagents.operator.victoriametrics.com
 	cd config/test && "$(KUSTOMIZE)" edit set image controller=${EVEREST_CONTROLLER_IMG}
 	$(KUSTOMIZE) build config/test | kubectl apply -f -
+	kubectl delete pod -n openeverest-system -l control-plane=controller-manager
+	$(MAKE) wait-test-controller
 
 .PHONY: wait-test-controller
 wait-test-controller: # Wait for the test controller deployment to be available.
