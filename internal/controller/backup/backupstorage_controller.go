@@ -175,9 +175,13 @@ func (r *BackupStorageReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Owns(&corev1.Secret{}).
 		Watches(&corev1alpha1.Instance{},
 			handler.EnqueueRequestsFromMapFunc(r.enqueueBackupStoragesFromInstance),
-			builder.WithPredicates(instanceBackupChangePredicate())).
+			builder.WithPredicates(
+				instanceBackupChangePredicate(),
+				predicate.GenerationChangedPredicate{},
+			)).
 		Watches(&backupv1alpha1.Backup{},
-			handler.EnqueueRequestsFromMapFunc(r.enqueueBackupStorageFromBackup)).
+			handler.EnqueueRequestsFromMapFunc(r.enqueueBackupStorageFromBackup),
+			builder.WithPredicates(predicate.GenerationChangedPredicate{})).
 		Complete(r)
 }
 
