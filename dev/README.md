@@ -98,6 +98,9 @@ export EVEREST_CHART_DIR=<path to github.com/openeverest/helm-charts>/charts/eve
 export PSMDB_PROVIDER_CHART_DIR=<path to github.com/openeverest/provider-percona-server-mongodb repository directory>/charts/provider-percona-server-mongodb
 ```
 
+For OpenEverest v2 development use `v2` branch of `EVEREST_CHART_DIR`.
+If your Tilt environment starts with errors, ensure you have the latest pull of `main` branch for `PSMDB_PROVIDER_CHART_DIR` and latest `v2` branch for `EVEREST_CHART_DIR`.
+
 2. Set namespaces for the Everest components:
 
 Copy file dev/config.yaml.example to dev/config.yaml and:
