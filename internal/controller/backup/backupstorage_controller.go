@@ -74,14 +74,12 @@ func (r *BackupStorageReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
-	// --- Deletion path ---
 	if !bs.GetDeletionTimestamp().IsZero() {
 		err := r.handleFinalizer(ctx, bs)
 
 		return ctrl.Result{}, err
 	}
 
-	// --- Ensure finalizer ---
 	if !controllerutil.ContainsFinalizer(bs, backupStorageFinalizer) {
 		controllerutil.AddFinalizer(bs, backupStorageFinalizer)
 		if err := r.Update(ctx, bs); err != nil {
@@ -89,7 +87,6 @@ func (r *BackupStorageReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		}
 	}
 
-	// --- Adopt credentials secret ---
 	if bs.Spec.S3 == nil || bs.Spec.S3.CredentialsSecretName == "" {
 		return ctrl.Result{}, nil
 	}

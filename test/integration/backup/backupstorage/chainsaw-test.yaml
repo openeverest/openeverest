@@ -319,8 +319,3 @@ spec:
             content: kubectl delete backupclass test-backupclass -n $NAMESPACE
         - script:
             content: kubectl delete provider test-provider -n $NAMESPACE
-      catch:
-        - podLogs:
-            namespace: openeverest-system
-            selector: control-plane=controller-manager
-            tail: 100
