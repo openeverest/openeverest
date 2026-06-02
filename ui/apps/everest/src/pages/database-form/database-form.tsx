@@ -14,7 +14,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { useLocation, useBlocker, useNavigate } from 'react-router-dom';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Stack } from '@mui/material';
@@ -25,13 +25,14 @@ import {
   useWatch,
 } from 'react-hook-form';
 import { useCreateDbInstance } from 'hooks/api/db-instances/useCreateDbInstance';
+import { useCreateRestoreFromBackup } from 'hooks/api/restores/useDbClusterRestore';
 import { useActiveBreakpoint } from 'hooks/utils/useActiveBreakpoint';
 import { DbWizardType } from './database-form-schema';
 import DatabaseFormCancelDialog from './database-form-cancel-dialog/index';
 import DatabaseFormBody from './database-form-body';
 import DatabaseFormSideDrawer from './database-form-side-drawer';
 import { useInstancesForNamespaces, useNamespaces } from 'hooks';
-import { WizardMode } from 'shared-types/wizard.types';
+import { FormMode } from 'components/ui-generator/ui-generator.types';
 import { ZodType } from 'zod';
 import { useDatabasePageDefaultValues } from './hooks/use-database-form-default-values';
 import { useDatabasePageMode } from './hooks/use-database-page-mode';
@@ -44,6 +45,7 @@ import { getDefaultValues } from 'components/ui-generator/utils/default-values';
 import {
   BASE_STEP_ID,
   IMPORT_STEP_ID,
+  BACKUP_STEP_ID,
 } from './database-form-body/steps/constants';
 import {
   useFormEngine,
@@ -54,7 +56,16 @@ import {
 import { DataSourcePrefetcher } from 'components/ui-generator/api-providers';
 import { BaseInfoStep } from './database-form-body/steps/base-step/base-step';
 import { ImportStep } from './database-form-body/steps-old/import/import-step';
+import {
+  BackupStep,
+  BACKUP_SCHEDULES_FIELD,
+  buildBackupSpecFromWizard,
+} from './database-form-body/steps/backup-step';
+import { useBackupClassesList } from 'hooks/api/backup-classes/useBackupClasses';
+import { useClusterName } from 'hooks/api/useClusterName';
 import { mergeTopologyDefaults } from 'components/ui-generator/utils/default-values/merge-topology-defaults';
+import { PluginFormSections } from './plugin-form-sections';
+import { useSubmitPluginInstanceConfig } from 'hooks/api/plugins/useSubmitPluginInstanceConfig';
 
 export const DatabasePage = () => {
   const latestDataRef = useRef<DbWizardType | null>(null);
@@ -62,6 +73,15 @@ export const DatabasePage = () => {
 
   const { mutate: createInstance, isPending: isCreating } =
     useCreateDbInstance();
+  const { mutate: submitPluginConfig } = useSubmitPluginInstanceConfig();
+  const pluginConfigsRef = useRef<Record<string, Record<string, unknown>>>({});
+
+  const handlePluginConfigChange = useCallback(
+    (pluginName: string, config: Record<string, unknown>) => {
+      pluginConfigsRef.current[pluginName] = config;
+    },
+    []
+  );
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -69,17 +89,31 @@ export const DatabasePage = () => {
   const mode = useDatabasePageMode();
 
   // ── Schema & topology
-  const { uiSchema, topologies, hasMultipleTopologies } = useSchema();
+  const { uiSchema, topologies, hasMultipleTopologies, resolvedProvider } =
+    useSchema();
   const defaultTopology = topologies[0] || '';
   const hasImportStep = !!location.state?.showImport;
-  const providerObject = location.state?.selectedDbProvider;
+  const providerObject = location.state?.selectedDbProvider ?? resolvedProvider;
+
+  // ── Backup classes (determines if backup step is shown)
+  const clusterName = useClusterName();
+  const { data: backupClasses = [] } = useBackupClassesList(clusterName);
+  const hasBackupStep = backupClasses.length > 0;
+
+  // ── Restore mutation (needs clusterName + namespace from navigation state)
+  const { mutate: createRestore } = useCreateRestoreFromBackup(
+    clusterName,
+    location.state?.namespace ?? ''
+  );
 
   // ── Page-level defaults (merges schema defaults + wizard-specific ones)
-  const { defaultValues } = useDatabasePageDefaultValues(
-    mode,
-    uiSchema,
-    defaultTopology
-  );
+  const { defaultValues, dbClusterRequestStatus } =
+    useDatabasePageDefaultValues(
+      mode,
+      uiSchema,
+      defaultTopology,
+      hasBackupStep
+    );
   const loadingClusterValues = !defaultValues;
 
   // ── Data queries ─────────────────────────────────────────────────────────
@@ -167,8 +201,16 @@ export const DatabasePage = () => {
         fields: Object.values(ImportFields) as string[],
       });
     }
+    if (hasBackupStep && mode !== FormMode.Restore) {
+      steps.push({
+        id: BACKUP_STEP_ID,
+        label: 'Backups',
+        component: BackupStep,
+        fields: [BACKUP_SCHEDULES_FIELD],
+      });
+    }
     return steps;
-  }, [hasImportStep]);
+  }, [hasImportStep, hasBackupStep, mode]);
 
   const engine = useFormEngine({
     uiSchema,
@@ -176,6 +218,7 @@ export const DatabasePage = () => {
     staticSteps,
     providerObject,
     namespace: selectedNamespace || namespaces[0],
+    formMode: mode,
   });
 
   // Navigation
@@ -248,13 +291,17 @@ export const DatabasePage = () => {
     trigger();
   }, [nav.activeStepId, trigger]);
 
-  // Restore mode defaults
+  // Restore mode defaults — force reset when source instance data arrives.
+  // We track whether the "real" (instance-backed) defaults have been applied,
+  // and skip the isDirty guard the first time they arrive.
+  const restoreDefaultsApplied = useRef(false);
   useEffect(() => {
-    if (isDirty) return;
-    if (mode === WizardMode.Restore) {
-      reset(defaultValues);
-    }
-  }, [defaultValues, isDirty, reset, mode]);
+    if (mode !== FormMode.Restore) return;
+    if (dbClusterRequestStatus !== 'success') return;
+    if (restoreDefaultsApplied.current && isDirty) return;
+    restoreDefaultsApplied.current = true;
+    reset(defaultValues);
+  }, [defaultValues, isDirty, reset, mode, dbClusterRequestStatus]);
 
   // Route guards
   useEffect(() => {
@@ -279,14 +326,62 @@ export const DatabasePage = () => {
       data as Record<string, unknown>
     ) as DbWizardType;
 
+    // Transform flat backup schedules into nested storages structure
+    const formData = postProcessedData as Record<string, unknown>;
+    const backupData = formData.backup as Record<string, unknown> | undefined;
+    if (backupData?.schedules) {
+      const backupSpec = buildBackupSpecFromWizard(
+        backupData.schedules as Parameters<typeof buildBackupSpecFromWizard>[0],
+        (backupData.classRef as { name?: string })?.name
+      );
+      if (backupSpec) {
+        formData.backup = backupSpec;
+      } else {
+        delete formData.backup;
+      }
+    }
+
     latestDataRef.current = postProcessedData;
 
-    if (mode === WizardMode.New) {
+    if (mode === FormMode.New) {
       createInstance(
         { formValue: postProcessedData },
         {
           onSuccess: () => {
+            // Submit plugin configs for each plugin that provided config.
+            const instanceName = postProcessedData.dbName || '';
+            const ns = postProcessedData.k8sNamespace || '';
+            for (const [pluginName, config] of Object.entries(
+              pluginConfigsRef.current
+            )) {
+              if (Object.keys(config).length > 0) {
+                submitPluginConfig({
+                  pluginName,
+                  instanceName,
+                  namespace: ns,
+                  config,
+                });
+              }
+            }
             setFormSubmitted(true);
+          },
+        }
+      );
+    } else if (mode === FormMode.Restore) {
+      const backupName = location.state?.backupName as string;
+      createInstance(
+        { formValue: postProcessedData },
+        {
+          onSuccess: () => {
+            const newInstanceName = postProcessedData.dbName as string;
+            createRestore(
+              { instanceName: newInstanceName, backupName },
+              {
+                onSuccess: () => {
+                  setFormSubmitted(true);
+                },
+              }
+            );
           },
         }
       );
@@ -294,7 +389,9 @@ export const DatabasePage = () => {
   };
 
   // ── Render ───────────────────────────────────────────────────────────────
-  if (!uiSchema) return null;
+  if (!uiSchema || (mode === FormMode.Restore && topologies.length === 0)) {
+    return null;
+  }
 
   return (
     <DatabaseFormProvider
@@ -306,6 +403,7 @@ export const DatabasePage = () => {
         sections: engine.sections,
         sectionsOrder: engine.sectionsOrder,
         providerObject,
+        hasBackupStep: hasBackupStep && mode !== FormMode.Restore,
       }}
     >
       <Stack direction={isDesktop ? 'row' : 'column'}>
@@ -329,6 +427,15 @@ export const DatabasePage = () => {
             handleNextStep={handleNext}
             handlePreviousStep={handleBack}
           />
+          {nav.activeStepIndex === 0 && (
+            <PluginFormSections
+              formValues={methods.getValues() as Record<string, unknown>}
+              namespace={selectedNamespace || namespaces[0] || ''}
+              engineType={providerObject?.name}
+              isCreate={true}
+              onPluginConfigChange={handlePluginConfigChange}
+            />
+          )}
           <DatabaseFormSideDrawer
             disabled={loadingClusterValues}
             activeStepId={nav.activeStepId}

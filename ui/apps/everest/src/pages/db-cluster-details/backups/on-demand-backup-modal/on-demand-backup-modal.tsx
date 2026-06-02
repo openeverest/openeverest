@@ -90,9 +90,17 @@ export const OnDemandBackupModal = () => {
     const dynamicFields = Object.fromEntries(
       Object.entries(data).filter(([key]) => !staticKeys.has(key))
     );
+    // UIGenerator uses sectionKey="config", so fields are nested as { config: { ... } }.
+    // Unwrap one level to produce the flat config the API expects.
+    const rawConfig =
+      'config' in dynamicFields &&
+      typeof dynamicFields.config === 'object' &&
+      dynamicFields.config !== null
+        ? (dynamicFields.config as Record<string, unknown>)
+        : dynamicFields;
     const cleanedConfig =
-      Object.keys(dynamicFields).length > 0
-        ? removeEmptyFieldValues(dynamicFields)
+      Object.keys(rawConfig).length > 0
+        ? removeEmptyFieldValues(rawConfig)
         : undefined;
 
     createBackupOnDemand(

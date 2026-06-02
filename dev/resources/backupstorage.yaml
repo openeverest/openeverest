@@ -5,11 +5,12 @@ data:
 kind: Secret
 type: Opaque
 ---
-apiVersion: everest.percona.com/v1alpha1
+apiVersion: backup.openeverest.io/v1alpha1
 kind: BackupStorage
 spec:
-  endpointURL: https://minio.minio.svc.cluster.local
-  forcePathStyle: true
-  region: us-east-1
   type: s3
-  verifyTLS: false
+  s3:
+    endpointURL: https://minio.minio.svc.cluster.local
+    forcePathStyle: true
+    region: us-east-1
+    verifyTLS: false

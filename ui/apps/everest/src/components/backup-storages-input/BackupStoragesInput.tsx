@@ -15,20 +15,46 @@
 import { Typography } from '@mui/material';
 import { AutoCompleteAutoFill } from 'components/auto-complete-auto-fill/auto-complete-auto-fill';
 import { useBackupStoragesByNamespace } from 'hooks/api/backup-storages/useBackupStorages';
-import { BackupStorage } from 'shared-types/backupStorages.types';
+import { useMemo } from 'react';
+import { BackupStorageCRD } from 'shared-types/backupStorages.types';
 import { Messages } from './backup-storages-input.messages';
 import { getAvailableStorages } from './backup-storages-input.utils';
-import { BackupStoragesInputProps } from './backup-storages-input.types';
+import {
+  BackupStoragesInputProps,
+  ScheduleWithStorage,
+} from './backup-storages-input.types';
 
 const BackupStoragesInput = ({
   name = 'storageLocation',
   namespace,
-  schedules,
   autoFillProps,
   maxStorages,
   maxSchedulesPerStorage,
-  instanceStorageNames,
+  ...rest
 }: BackupStoragesInputProps) => {
+  // Derive flat schedules and instanceStorageNames from nested storages when provided
+  const { schedules, instanceStorageNames } = useMemo(() => {
+    if ('instanceStorages' in rest && rest.instanceStorages) {
+      const storages = rest.instanceStorages;
+      const derivedSchedules: ScheduleWithStorage[] = storages.flatMap((s) =>
+        (s.schedules ?? []).map(() => ({
+          backupStorageName: s.storageRef?.name ?? '',
+        }))
+      );
+      const derivedNames = storages
+        .map((s) => s.storageRef?.name)
+        .filter((n): n is string => Boolean(n));
+      return {
+        schedules: derivedSchedules,
+        instanceStorageNames: derivedNames,
+      };
+    }
+    return {
+      schedules: rest.schedules ?? [],
+      instanceStorageNames: rest.instanceStorageNames,
+    };
+  }, [rest]);
+
   const { data: backupStorages = [], isFetching } =
     useBackupStoragesByNamespace(namespace);
 
@@ -57,7 +83,7 @@ const BackupStoragesInput = ({
   const showInUseHighlight = !limitReached && inUseNames.size > 0;
 
   return (
-    <AutoCompleteAutoFill<BackupStorage>
+    <AutoCompleteAutoFill<BackupStorageCRD>
       name={name}
       textFieldProps={{
         label: 'Backup storage',
@@ -69,14 +95,15 @@ const BackupStoragesInput = ({
       {...autoFillProps}
       controllerProps={{ name, defaultValue: null }}
       autoCompleteProps={{
-        isOptionEqualToValue: (option, value) => option.name === value.name,
+        isOptionEqualToValue: (option, value) =>
+          option.metadata?.name === value.metadata?.name,
         getOptionLabel: (option) =>
-          typeof option === 'string' ? option : option.name,
+          typeof option === 'string' ? option : (option.metadata?.name ?? ''),
         ...(showInUseHighlight && {
           renderOption: (props, option) => (
-            <li {...props} key={option.name}>
-              {option.name}
-              {inUseNames.has(option.name) && (
+            <li {...props} key={option.metadata?.name}>
+              {option.metadata?.name}
+              {inUseNames.has(option.metadata?.name ?? '') && (
                 <Typography
                   component="span"
                   variant="body2"

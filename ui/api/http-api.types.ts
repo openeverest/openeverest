@@ -571,7 +571,11 @@ export interface paths {
         delete: operations["deleteBackupStorage"];
         options?: never;
         head?: never;
-        patch?: never;
+        /**
+         * Patch backup storage
+         * @description This API patches the backup storage specified by the `name` in the specified `namespace` and `cluster`.
+         */
+        patch: operations["patchBackupStorage"];
         trace?: never;
     };
     "/clusters/{cluster}/namespaces/{namespace}/monitoring-configs": {
@@ -1418,6 +1422,45 @@ export interface components {
                     };
                 };
                 /**
+                 * @description DataSource allows creating a new Instance from an existing
+                 *     Backup CR of another Instance.
+                 *
+                 *     Only ProviderManaged BackupClasses are supported. The referenced Backup
+                 *     must be in the same namespace, in Succeeded state, and its BackupClass
+                 *     must list the Instance's provider in SupportedProviders. Instance must
+                 *     also have backup enabled and include a storage entry that matches the
+                 *     storage used by the source Backup so the provider can access the data.
+                 */
+                dataSource?: {
+                    /**
+                     * @description Backup references an existing Backup CR in the same namespace.
+                     *     Required when type=Backup.
+                     */
+                    backup?: {
+                        /** @description BackupName is the name of the Backup CR in the same namespace. */
+                        backupName: string;
+                        /**
+                         * @description PITR configures point-in-time recovery on top of this backup.
+                         *     The resolved BackupClass must advertise PITR support via
+                         *     .spec.providerManaged for this to be honoured.
+                         */
+                        pitr?: {
+                            /**
+                             * Format: date-time
+                             * @description Date is the target recovery point. Required when Type is "date".
+                             */
+                            date?: string;
+                            /** @description Type selects date-based or latest recovery. */
+                            type: string & (("date" | "latest") & ("date" | "latest"));
+                        };
+                    };
+                    /**
+                     * @description Type selects the data source kind.
+                     * @enum {string}
+                     */
+                    type: "Backup";
+                };
+                /**
                  * @description DeletionPolicy controls what happens to Backup and Restore CRs that
                  *     reference this Instance when the Instance is deleted.
                  *     Cascade (default) instructs the runtime to delete every Backup and
@@ -1802,48 +1845,32 @@ export interface components {
                 /** @description DataSource defines where the backup data to restore from is located. */
                 dataSource: {
                     /**
-                     * @description BackupName references an existing Backup CR in the same namespace to
-                     *     restore from. The BackupClass and storage are resolved from the
-                     *     referenced Backup.
+                     * @description Backup references an existing Backup CR in the same namespace.
+                     *     Required when type=Backup.
                      */
-                    backupName?: string;
-                    /**
-                     * @description External describes a backup that has no corresponding Backup CR in the
-                     *     cluster (e.g., a backup taken outside of OpenEverest).
-                     */
-                    external?: {
+                    backup?: {
+                        /** @description BackupName is the name of the Backup CR in the same namespace. */
+                        backupName: string;
                         /**
-                         * @description BackupClassName is the name of the BackupClass that defines how to
-                         *     restore this external backup.
+                         * @description PITR configures point-in-time recovery on top of this backup.
+                         *     The resolved BackupClass must advertise PITR support via
+                         *     .spec.providerManaged for this to be honoured.
                          */
-                        backupClassName: string;
-                        /**
-                         * @description Config is forwarded to the BackupClass's restore configuration. It is
-                         *     validated against the same schema as Restore.spec.config.
-                         */
-                        config?: Record<string, never>;
-                        /**
-                         * @description StorageName references the BackupStorage in the same namespace that
-                         *     describes where the external backup data is located.
-                         */
-                        storageName: string;
+                        pitr?: {
+                            /**
+                             * Format: date-time
+                             * @description Date is the target recovery point. Required when Type is "date".
+                             */
+                            date?: string;
+                            /** @description Type selects date-based or latest recovery. */
+                            type: string & (("date" | "latest") & ("date" | "latest"));
+                        };
                     };
                     /**
-                     * @description PITR defines point-in-time recovery options. Requires the resolved
-                     *     BackupClass to advertise PITR support via .spec.providerManaged.
+                     * @description Type selects the data source kind.
+                     * @enum {string}
                      */
-                    pitr?: {
-                        /**
-                         * Format: date-time
-                         * @description Date is the target recovery point in time. Required when Type is "date".
-                         */
-                        date?: string;
-                        /**
-                         * @description Type is the type of point-in-time recovery: "date" or "latest".
-                         * @enum {string}
-                         */
-                        type: "date" | "latest";
-                    };
+                    type: "Backup";
                 };
                 /**
                  * @description InstanceName is the name of the Instance to restore into. The Instance
@@ -2297,7 +2324,6 @@ export interface components {
              *
              *       - Instance.spec.backup.storages[].storageRef
              *       - Backup.spec.storageName
-             *       - Restore.spec.dataSource.external.storageName
              *
              *     Decoupling storage from individual Backup CRs makes provider-managed
              *     backups (e.g. PBM, pgBackRest) practical: the provider can register a
@@ -3816,6 +3842,65 @@ export interface operations {
             };
             /** @description Unsuccessful operation */
             400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    patchBackupStorage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The name of the cluster */
+                cluster: string;
+                /** @description The namespace of the backup storage */
+                namespace: string;
+                /** @description The name of the backup storage */
+                name: string;
+            };
+            cookie?: never;
+        };
+        /** @description The backup storage fields to be patched */
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BackupStorage"];
+            };
+        };
+        responses: {
+            /** @description Successful operation */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BackupStorage"];
+                };
+            };
+            /** @description Unsuccessful operation */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Backup storage not found */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

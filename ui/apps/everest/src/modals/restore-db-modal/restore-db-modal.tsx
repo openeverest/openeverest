@@ -12,272 +12,131 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// TODO: This entire modal is legacy v1 code — needs full rewrite for v2 Instance API
-import { Alert, MenuItem, Typography } from '@mui/material';
-import { DbType } from '@percona/types';
-import {
-  DateTimePickerInput,
-  LoadableChildren,
-  RadioGroup,
-  SelectInput,
-} from '@percona/ui-lib';
-import { dbEngineToDbType } from '@percona/utils';
-import ActionableAlert from 'components/actionable-alert';
-import { FormDialog } from 'components/form-dialog';
-import { FormDialogProps } from 'components/form-dialog/form-dialog.types';
-import { DATE_FORMAT, PITR_DATE_FORMAT } from 'consts';
-import { format } from 'date-fns';
-import {
-  BACKUPS_QUERY_KEY,
-  // @ts-expect-error Legacy v1 hook — removed in v2, modal needs full rewrite
-  useDbBackups,
-  // @ts-expect-error Legacy v1 hook — removed in v2, modal needs full rewrite
-  useDbClusterPitr,
-} from 'hooks/api/backups/useBackups';
-import {
-  useDbClusterRestoreFromBackup,
-  useDbClusterRestoreFromPointInTime,
-} from 'hooks/api/restores/useDbClusterRestore';
-import { FieldValues, useFormContext } from 'react-hook-form';
+import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
+import { FormDialog } from 'components/form-dialog';
+import { useBackupsList } from 'hooks/api/backups/useBackups';
 import {
-  // @ts-expect-error Legacy v1 type — removed in v2
-  LegacyBackup as Backup,
-  // @ts-expect-error Legacy v1 type — removed in v2
-  LegacyBackupStatus as BackupStatus,
-  DatabaseClusterPitr,
-} from 'shared-types/backups.types';
-import { DbCluster } from 'shared-types/dbCluster.types';
+  getRestoresListQueryKey,
+  useCreateRestoreFromBackup,
+} from 'hooks/api/restores/useDbClusterRestore';
+import { useClusterName } from 'hooks/api/useClusterName';
+import { BackupStatus } from 'shared-types/backups.types';
 import {
-  BackuptypeValues,
-  RestoreDbFields,
+  BackupTypeValues,
   defaultValues,
+  RestoreDbFormData,
   schema,
 } from './restore-db-modal-schema';
 import { Messages } from './restore-db-modal.messages';
-import { useEffect, useMemo } from 'react';
+import { ModalContent } from './modal-content';
+import {
+  RestorableBackupOption,
+  RestoreDbModalProps,
+} from './restore-db-modal.types';
+import {
+  getBackupName,
+  getMetadataCreationTimestamp,
+  getSafeTimeValue,
+} from './restore-db-modal.utils';
 
-const ModalContent = ({
-  backupName,
-  header,
-  dbType,
-  isLoading,
-  pitrData,
-  backups,
-  backupStorageName,
-}: {
-  backupName?: string;
-  isLoading: boolean;
-  header: string;
-  dbType: DbType;
-  pitrData?: DatabaseClusterPitr;
-  backups: Backup[];
-  backupStorageName?: string;
-}) => {
-  const { watch, resetField, setValue, getValues } = useFormContext();
-  const backupType: BackuptypeValues = watch(RestoreDbFields.backupType);
+const RestoreDbModal = ({
+  isOpen,
+  closeModal,
+  instanceName,
+  namespace,
+  isNewClusterMode = false,
+}: RestoreDbModalProps) => {
+  const clusterName = useClusterName();
+  const queryClient = useQueryClient();
+  const navigate = useNavigate();
 
-  useEffect(() => {
-    if (!pitrData) {
+  const { data: backups = [], isLoading } = useBackupsList(
+    clusterName,
+    namespace,
+    instanceName,
+    { enabled: !!instanceName }
+  );
+
+  // TODO: Re-enable PITR hooks when PITR restore flow is implemented.
+  // const { data: pitrData } = useDbClusterPitr(instanceName, namespace, {
+  //   queryKey: [instanceName, namespace, 'pitr', 'restore-modal'],
+  //   gcTime: 0,
+  // });
+
+  const succeededBackups = useMemo<RestorableBackupOption[]>(() => {
+    return backups
+      .filter((backup) => backup.status?.state === BackupStatus.SUCCEEDED)
+      .map((backup) => ({
+        name: getBackupName(backup),
+        startedAt:
+          backup.status?.startedAt ?? getMetadataCreationTimestamp(backup),
+      }))
+      .filter((backup) => !!backup.name)
+      .sort(
+        (a, b) => getSafeTimeValue(b.startedAt) - getSafeTimeValue(a.startedAt)
+      );
+  }, [backups]);
+
+  const { mutate: createRestore, isPending: restoringFromBackup } =
+    useCreateRestoreFromBackup(clusterName, namespace);
+
+  // TODO: Re-enable PITR mutation when PITR restore flow is implemented.
+  // const {
+  //   mutate: restoreBackupFromPointInTime,
+  //   isPending: restoringFromPointInTime,
+  // } = useDbClusterRestoreFromPointInTime(instanceName);
+
+  // TODO: Re-enable PITR schema when PITR restore flow is implemented.
+  // const pitrSchema = useMemo(
+  //   () => schema(!!pitrData?.gaps, pitrData?.earliestDate, pitrData?.latestDate),
+  //   [pitrData]
+  // );
+
+  const handleSubmit = ({ backupName, backupType }: RestoreDbFormData) => {
+    if (backupType === BackupTypeValues.fromBackup) {
+      if (!backupName) {
+        return;
+      }
+
+      if (isNewClusterMode) {
+        closeModal();
+        navigate('/databases/new', {
+          state: {
+            selectedDbCluster: instanceName,
+            backupName,
+            namespace,
+          },
+        });
+        return;
+      }
+
+      createRestore(
+        { instanceName, backupName },
+        {
+          onSuccess: () => {
+            queryClient.invalidateQueries({
+              queryKey: getRestoresListQueryKey(
+                clusterName,
+                namespace,
+                instanceName
+              ),
+            });
+            closeModal();
+          },
+        }
+      );
       return;
     }
-    if (!getValues(RestoreDbFields.pitrBackup)) {
-      setValue(RestoreDbFields.pitrBackup, pitrData.latestDate);
-    }
-  }, [getValues, pitrData, setValue]);
 
-  return (
-    <LoadableChildren loading={isLoading}>
-      <Typography variant="body1">{header}</Typography>
-      <RadioGroup
-        name={RestoreDbFields.backupType}
-        radioGroupFieldProps={{
-          sx: {
-            ml: 1,
-            display: 'flex',
-            gap: 3,
-            '& label': {
-              display: 'flex',
-              gap: '10px',
-              alignItems: 'center',
-              padding: 1,
-              '& span': {
-                padding: '0px !important',
-              },
-            },
-          },
-        }}
-        options={[
-          {
-            label: Messages.fromBackup,
-            value: BackuptypeValues.fromBackup,
-            radioProps: {
-              onClick: () => {
-                resetField(RestoreDbFields.pitrBackup, {
-                  keepError: false,
-                  defaultValue: getValues(RestoreDbFields.pitrBackup),
-                });
-              },
-            },
-          },
-          {
-            label: Messages.fromPitr,
-            value: BackuptypeValues.fromPitr,
-            radioProps: {
-              onClick: () => {
-                resetField(RestoreDbFields.backupName, {
-                  keepError: false,
-                });
-              },
-            },
-            disabled:
-              !!backupName &&
-              pitrData?.latestBackupName !== watch(RestoreDbFields.backupName),
-          },
-        ]}
-      />
-      {backupType === BackuptypeValues.fromBackup ? (
-        <SelectInput
-          label={Messages.selectBackup}
-          name={RestoreDbFields.backupName}
-          selectFieldProps={{
-            labelId: 'restore-backup',
-            label: Messages.selectBackup,
-          }}
-        >
-          {backups
-            .filter((value) => value.state === BackupStatus.OK)
-            .sort((a, b) => {
-              if (a.created && b.created) {
-                return (
-                  new Date(b.created).valueOf() - new Date(a.created).valueOf()
-                );
-              }
-              return -1;
-            })
-            .map((value) => {
-              const valueWithTime = `${
-                value.name
-              } - ${format(value.created!, DATE_FORMAT)}`;
-              return (
-                <MenuItem key={value.name} value={value.name}>
-                  {valueWithTime}
-                </MenuItem>
-              );
-            })}
-        </SelectInput>
-      ) : (
-        <>
-          {pitrData && dbType === DbType.Postresql && (
-            <ActionableAlert
-              sx={{ mt: 1.5 }}
-              message={Messages.pitrLimitationAlert}
-              buttonMessage={Messages.seeDocs}
-              onClick={() =>
-                window.open(
-                  'https://openeverest.io/documentation/current/reference/known_limitations.html#postgresql-limitation-for-pitr',
-                  '_blank',
-                  'noopener'
-                )
-              }
-              buttonProps={{
-                sx: { whiteSpace: 'nowrap' },
-              }}
-            />
-          )}
-          {pitrData && (
-            <Alert
-              sx={{ mt: 1.5, mb: 1.5 }}
-              severity={pitrData?.gaps ? 'error' : 'info'}
-            >
-              {pitrData?.gaps
-                ? Messages.gapDisclaimer
-                : Messages.pitrDisclaimer(
-                    format(
-                      pitrData?.earliestDate || new Date(),
-                      PITR_DATE_FORMAT
-                    ),
-                    format(
-                      pitrData?.latestDate || new Date(),
-                      PITR_DATE_FORMAT
-                    ),
-                    backupStorageName || ''
-                  )}
-            </Alert>
-          )}
-
-          {!pitrData?.gaps && (
-            <DateTimePickerInput
-              ampm={false}
-              views={['year', 'month', 'day', 'hours', 'minutes', 'seconds']}
-              timeSteps={{ hours: 1, minutes: 1, seconds: 1 }}
-              disableFuture
-              disabled={!pitrData}
-              minDate={new Date(pitrData?.earliestDate || new Date())}
-              maxDate={new Date(pitrData?.latestDate || new Date())}
-              format={PITR_DATE_FORMAT}
-              name={RestoreDbFields.pitrBackup}
-              label={pitrData ? 'Select point in time' : 'No options'}
-              sx={{ mt: 1.5 }}
-            />
-          )}
-        </>
-      )}
-    </LoadableChildren>
-  );
-};
-
-const RestoreDbModal = <T extends FieldValues>({
-  closeModal,
-  isOpen,
-  dbCluster,
-  namespace,
-  isNewClusterMode,
-  backupName,
-}: Pick<FormDialogProps<T>, 'closeModal' | 'isOpen'> & {
-  dbCluster: DbCluster;
-  namespace: string;
-  isNewClusterMode: boolean;
-  backupName?: string;
-}) => {
-  const navigate = useNavigate();
-  // We use a memo to prevent changes in dbCluster from causing changes in PITR data
-  // Even though gcTime is now set to 0 to prevent old data from populating the input, we avoid that situation
-  const cluster = useMemo(() => dbCluster, []);
-  // we use a different query key for the restore modal to avoid re-renders from "useDbBackups" running in the background
-  const { data: backups = [], isLoading } = useDbBackups(
-    cluster.metadata.name,
-    namespace,
-    {
-      queryKey: [
-        BACKUPS_QUERY_KEY,
-        namespace,
-        cluster.metadata.name,
-        'restore-modal',
-      ],
-    }
-  );
-  const { data: pitrData } = useDbClusterPitr(
-    cluster.metadata.name,
-    namespace,
-    {
-      queryKey: [cluster.metadata.name, namespace, 'pitr', 'restore-modal'],
-      gcTime: 0,
-    }
-  );
-
-  const { mutate: restoreBackupFromBackup, isPending: restoringFromBackup } =
-    useDbClusterRestoreFromBackup(cluster.metadata.name);
-  const {
-    mutate: restoreBackupFromPointInTime,
-    isPending: restoringFromPointInTime,
-  } = useDbClusterRestoreFromPointInTime(cluster.metadata.name);
-
-  const pitrSchema = useMemo(
-    () =>
-      schema(!!pitrData?.gaps, pitrData?.earliestDate, pitrData?.latestDate),
-    [pitrData]
-  );
+    // TODO: Re-enable PITR submit branch when PITR restore flow is implemented.
+    // restoreBackupFromPointInTime({
+    //   backupName: pitrBackupName,
+    //   namespace,
+    //   pointInTimeDate,
+    // });
+  };
 
   return (
     <FormDialog
@@ -288,83 +147,20 @@ const RestoreDbModal = <T extends FieldValues>({
       headerMessage={
         isNewClusterMode ? Messages.headerMessageCreate : Messages.headerMessage
       }
-      schema={pitrSchema}
-      submitting={restoringFromBackup || restoringFromPointInTime}
-      defaultValues={{ ...defaultValues, backupName: backupName || '' }}
-      onSubmit={({ backupName, backupType, pitrBackup }) => {
-        let pointInTimeDate = '';
-        let pitrBackupName = '';
-        if (pitrData) {
-          pitrBackupName = pitrData.latestBackupName;
-        }
-
-        if (pitrBackup) {
-          const pitrDateObj = new Date(pitrBackup);
-          pointInTimeDate = pitrDateObj.toISOString().split('.')[0] + 'Z';
-        }
-        if (isNewClusterMode) {
-          closeModal();
-          const selectedBackup = backups?.find(
-            // @ts-expect-error Legacy v1 Backup type — resolves to `any`
-            (backup) => backup.name === backupName
-          );
-          if (backupType === BackuptypeValues.fromBackup) {
-            navigate('/databases/new', {
-              state: {
-                selectedDbCluster: cluster.metadata.name,
-                backupName,
-                namespace,
-                backupStorageName: selectedBackup,
-              },
-            });
-          } else {
-            navigate('/databases/new', {
-              state: {
-                selectedDbCluster: cluster.metadata.name,
-                backupName: pitrBackupName,
-                namespace,
-                backupStorageName: selectedBackup,
-                pointInTimeDate: pointInTimeDate,
-              },
-            });
-          }
-        } else {
-          if (backupType === BackuptypeValues.fromBackup) {
-            restoreBackupFromBackup(
-              { backupName, namespace },
-              {
-                onSuccess() {
-                  closeModal();
-                  navigate('/');
-                },
-              }
-            );
-          } else {
-            restoreBackupFromPointInTime(
-              {
-                backupName: pitrBackupName,
-                namespace,
-                pointInTimeDate: pointInTimeDate,
-              },
-              {
-                onSuccess() {
-                  closeModal();
-                  navigate('/');
-                },
-              }
-            );
-          }
-        }
-      }}
+      // TODO: Re-enable PITR schema when PITR restore flow is implemented.
+      // schema={pitrSchema}
+      schema={schema()}
+      // TODO: Re-enable PITR pending state when PITR restore flow is implemented.
+      // submitting={restoringFromBackup || restoringFromPointInTime}
+      submitting={restoringFromBackup}
+      defaultValues={defaultValues}
+      onSubmit={handleSubmit}
       submitMessage={isNewClusterMode ? Messages.create : Messages.restore}
     >
       <ModalContent
         isLoading={isLoading}
         header={isNewClusterMode ? Messages.subHeadCreate : Messages.subHead}
-        dbType={dbEngineToDbType(cluster.spec.engine.type)}
-        pitrData={pitrData}
-        backups={backups}
-        backupStorageName={cluster.spec.backup?.pitr?.backupStorageName}
+        succeededBackups={succeededBackups}
       />
     </FormDialog>
   );

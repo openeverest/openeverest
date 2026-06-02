@@ -25,6 +25,7 @@ import (
 
 	"go.uber.org/zap"
 	"helm.sh/helm/v3/pkg/cli/values"
+	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/openeverest/openeverest/v2/pkg/cli/helm"
@@ -35,7 +36,6 @@ import (
 	"github.com/openeverest/openeverest/v2/pkg/common"
 	"github.com/openeverest/openeverest/v2/pkg/kubernetes"
 	"github.com/openeverest/openeverest/v2/pkg/output"
-	. "github.com/openeverest/openeverest/v2/pkg/utils/must" //nolint:revive,stylecheck
 	"github.com/openeverest/openeverest/v2/pkg/version"
 )
 
@@ -408,23 +408,18 @@ func (n *NamespaceAdder) provisionDBNamespace(
 	if err != nil {
 		return err
 	}
-	values := Must(helmutils.MergeVals(n.getValues(), nil))
-	installer := helm.Installer{
-		ReleaseName:            namespace,
-		ReleaseNamespace:       namespace,
-		Values:                 values,
-		CreateReleaseNamespace: !nsExists,
+
+	// Create namespace if it doesn't exist
+	if !nsExists {
+		n.l.Infof("Creating namespace %s", namespace)
+		ns := &corev1.Namespace{}
+		ns.Name = namespace
+		if _, err := n.kubeClient.CreateNamespace(ctx, ns); err != nil {
+			return fmt.Errorf("could not create namespace: %w", err)
+		}
 	}
-	if err := installer.Init(n.cfg.KubeconfigPath, helm.ChartOptions{
-		Directory: cliutils.DBNamespaceSubChartPath(n.cfg.HelmConfig.ChartDir),
-		URL:       n.cfg.HelmConfig.RepoURL,
-		Name:      helm.EverestDBNamespaceChartName,
-		Version:   version,
-	}); err != nil {
-		return fmt.Errorf("could not initialize Helm installer: %w", err)
-	}
-	n.l.Info("Installing DB namespace Helm chart in namespace ", namespace)
-	return installer.Install(ctx)
+
+	return nil
 }
 
 func (n *NamespaceAdder) validateNamespaceUpdate(ctx context.Context, namespace string) error {

@@ -15,7 +15,7 @@
 // limitations under the License.
 
 import { useQueries, useQuery, UseQueryOptions } from '@tanstack/react-query';
-import { GetNamespacesPayload } from 'shared-types/namespaces.types';
+import { GetNamespacesPayload } from 'shared-types/api.types';
 import { getNamespacesFn } from 'api/namespaces';
 import { useClusterName } from '../useClusterName';
 import { dbEnginesQuerySelect } from '../db-engines/useDbEngines';

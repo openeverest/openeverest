@@ -47,6 +47,7 @@ export const BackupStatus = {
   SUCCEEDED: 'Succeeded',
   FAILED: 'Failed',
   ERROR: 'Error',
+  DELETING: 'Deleting',
   UNKNOWN: 'Unknown',
 } as const;
 

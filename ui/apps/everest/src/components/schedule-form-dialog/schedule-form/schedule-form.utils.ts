@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,22 +15,36 @@
 // limitations under the License.
 
 import { ScheduleFormData } from './schedule-form-schema';
-import { DbCluster, Schedule } from 'shared-types/dbCluster.types';
+import { FlattenedSchedule } from '../schedule-form-dialog-context/schedule-form-dialog-context.types';
 import { getCronExpressionFromFormValues } from '../../time-selection/time-selection.utils';
 import { ScheduleWizardMode, WizardMode } from 'shared-types/wizard.types';
-import { DbEngineType } from 'shared-types/dbEngines.types';
+import { removeEmptyFieldValues } from 'components/ui-generator/utils/postprocess/postprocess-schema';
+
+/** Known static field keys in ScheduleFormData (everything else is dynamic config). */
+const STATIC_KEYS = new Set([
+  'scheduleName',
+  'backupClassName',
+  'storageLocation',
+  'retentionCopies',
+  'selectedTime',
+  'minute',
+  'hour',
+  'amPm',
+  'onDay',
+  'weekDay',
+]);
 
 type UpdateScheduleArrayProps = {
   formData: ScheduleFormData;
   mode: ScheduleWizardMode;
-  schedules: Schedule[];
+  schedules: FlattenedSchedule[];
 };
 
 export const getSchedulesPayload = ({
   formData,
   mode,
   schedules,
-}: UpdateScheduleArrayProps): Schedule[] => {
+}: UpdateScheduleArrayProps): FlattenedSchedule[] => {
   const {
     selectedTime,
     minute,
@@ -41,7 +56,7 @@ export const getSchedulesPayload = ({
     storageLocation,
     retentionCopies,
   } = formData;
-  const backupSchedule = getCronExpressionFromFormValues({
+  const cron = getCronExpressionFromFormValues({
     selectedTime,
     minute,
     hour,
@@ -49,135 +64,62 @@ export const getSchedulesPayload = ({
     onDay,
     weekDay,
   });
-  let schedulesPayload: Schedule[] = [];
+
+  const storageName =
+    typeof storageLocation === 'string'
+      ? storageLocation
+      : (storageLocation!.metadata?.name ?? '');
+
+  // Extract dynamic config fields (UIGenerator backup config) from form data.
+  // UIGenerator registers fields with sectionKey prefix ("config.X"), so in form
+  // data they appear as a nested object: { config: { compressionType: ... } }.
+  // Unwrap one level to produce the flat config the API expects.
+  const dynamicFields = Object.fromEntries(
+    Object.entries(formData).filter(([key]) => !STATIC_KEYS.has(key))
+  );
+  const rawConfig =
+    'config' in dynamicFields &&
+    typeof dynamicFields.config === 'object' &&
+    dynamicFields.config !== null
+      ? (dynamicFields.config as Record<string, unknown>)
+      : dynamicFields;
+  const cleanedConfig =
+    Object.keys(rawConfig).length > 0
+      ? removeEmptyFieldValues(rawConfig)
+      : undefined;
+
+  const newSchedule: FlattenedSchedule = {
+    enabled: true,
+    name: scheduleName,
+    storageName,
+    cron,
+    retentionCopies: parseInt(retentionCopies, 10),
+    ...(cleanedConfig && Object.keys(cleanedConfig).length > 0
+      ? { config: cleanedConfig }
+      : {}),
+  };
 
   if (mode === WizardMode.New) {
-    schedulesPayload = [
-      ...(schedules ?? []),
-      {
-        enabled: true,
-        name: scheduleName,
-        backupStorageName:
-          typeof storageLocation === 'string'
-            ? storageLocation
-            : storageLocation!.name,
-        schedule: backupSchedule,
-        retentionCopies: parseInt(retentionCopies, 10),
-      },
-    ];
+    return [...(schedules ?? []), newSchedule];
   }
 
   if (mode === WizardMode.Edit) {
-    const newSchedulesArray = schedules && [...(schedules || [])];
-    const editedScheduleIndex = newSchedulesArray?.findIndex(
+    const newSchedulesArray = [...(schedules || [])];
+    const editedScheduleIndex = newSchedulesArray.findIndex(
       (item) => item.name === scheduleName
     );
-    if (newSchedulesArray && editedScheduleIndex !== undefined) {
-      newSchedulesArray[editedScheduleIndex] = {
-        enabled: true,
-        name: scheduleName,
-        backupStorageName:
-          typeof storageLocation === 'string'
-            ? storageLocation
-            : storageLocation!.name,
-        schedule: backupSchedule,
-        retentionCopies: parseInt(retentionCopies, 10),
-      };
-      schedulesPayload = newSchedulesArray;
+    if (editedScheduleIndex !== -1) {
+      newSchedulesArray[editedScheduleIndex] = newSchedule;
     }
+    return newSchedulesArray;
   }
-  return schedulesPayload;
+
+  return schedules;
 };
 
 export const removeScheduleFromArray = (
   name: string,
-  schedules: Schedule[]
+  schedules: FlattenedSchedule[]
 ) => {
   return schedules.filter((item) => item.name !== name);
-};
-
-export const backupScheduleFormValuesToDbClusterPayload = (
-  dbPayload: ScheduleFormData,
-  dbCluster: DbCluster,
-  mode: WizardMode
-): DbCluster => {
-  const {
-    selectedTime,
-    minute,
-    hour,
-    amPm,
-    onDay,
-    weekDay,
-    scheduleName,
-    retentionCopies,
-  } = dbPayload;
-  const schedule = getCronExpressionFromFormValues({
-    selectedTime,
-    minute,
-    hour,
-    amPm,
-    onDay,
-    weekDay,
-  });
-
-  let schedulesPayload: Schedule[] = [];
-  if (mode === WizardMode.New) {
-    schedulesPayload = [
-      ...(dbCluster.spec.backup?.schedules || []).map((schedule) => ({
-        ...schedule,
-      })),
-      {
-        enabled: true,
-        retentionCopies: parseInt(retentionCopies, 10),
-        name: scheduleName,
-        backupStorageName:
-          typeof dbPayload.storageLocation === 'string'
-            ? dbPayload.storageLocation
-            : dbPayload.storageLocation!.name,
-        schedule,
-      },
-    ];
-  }
-
-  if (mode === WizardMode.Edit) {
-    const schedulesArray = dbCluster?.spec?.backup?.schedules || [];
-    const editedScheduleIndex = schedulesArray?.findIndex(
-      (item) => item.name === scheduleName
-    );
-    if (schedulesArray && editedScheduleIndex !== undefined) {
-      schedulesArray[editedScheduleIndex] = {
-        enabled: true,
-        name: scheduleName,
-        retentionCopies: parseInt(retentionCopies, 10),
-        backupStorageName:
-          typeof dbPayload.storageLocation === 'string'
-            ? dbPayload.storageLocation
-            : dbPayload.storageLocation!.name,
-        schedule,
-      };
-      schedulesPayload = schedulesArray;
-    }
-  }
-
-  return {
-    apiVersion: 'everest.percona.com/v1alpha1',
-    kind: 'DatabaseCluster',
-    metadata: dbCluster.metadata,
-    spec: {
-      ...dbCluster?.spec,
-      backup: {
-        ...dbCluster.spec.backup,
-        pitr: {
-          ...dbCluster.spec.backup?.pitr,
-          backupStorageName:
-            dbCluster.spec.backup?.pitr?.backupStorageName || '',
-          enabled:
-            dbCluster.spec.engine.type === DbEngineType.POSTGRESQL
-              ? schedulesPayload.length > 0
-              : !!dbCluster.spec.backup?.pitr?.enabled,
-        },
-        schedules: schedulesPayload.length > 0 ? schedulesPayload : undefined,
-      },
-    },
-  };
 };

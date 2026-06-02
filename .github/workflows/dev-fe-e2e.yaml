@@ -131,7 +131,7 @@ jobs:
           --version-metadata-url https://check-dev.percona.com \
           --skip-wizard \
           --skip-db-namespace \
-          --helm.set server.image=localhost:5000/openeverest/openeverest-dev \
+          --helm.set server.image.repository=localhost:5000/openeverest/openeverest-dev \
           --helm.set server.apiRequestsRateLimit=200 \
           --helm.set versionMetadataURL=https://check-dev.percona.com \
           --helm.set operator.init=false \

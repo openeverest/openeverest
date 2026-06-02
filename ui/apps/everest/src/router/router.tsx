@@ -15,6 +15,9 @@
 import { Navigate, createBrowserRouter } from 'react-router-dom';
 import ProtectedRoute from 'components/protected-route/ProtectedRoute';
 import { Main } from 'components/main/Main';
+import PluginHost from 'components/plugin-host/PluginHost';
+import PluginTabHost from 'components/plugin-host/PluginTabHost';
+import PluginSettingsHost from 'components/plugin-host/PluginSettingsHost';
 import { DBClusterDetailsTabs } from 'pages/db-cluster-details/db-cluster-details.types';
 import { SettingsTabs } from 'pages/settings/settings.types';
 import { DbInstanceContextProvider } from 'pages/db-cluster-details/dbCluster.context';
@@ -25,23 +28,25 @@ import {
   DatabasePage,
   DbDetails,
   DbClusterView,
-  LoadBalancerConfigDetails,
-  LoadBalancerConfiguration,
+  // LoadBalancerConfigDetails,
+  // LoadBalancerConfiguration,
   Login,
   LoginCallback,
   Logout,
+  PluginsPage,
   // Logs,
   MonitoringEndpoints,
   NamespaceDetails,
   Namespaces,
   NoMatch,
-  Policies,
-  PoliciesList,
-  PolicyDetails,
+  // Policies,
+  // PoliciesList,
+  // PolicyDetails,
   // Restores,
+  Restores,
   Settings,
-  SettingsPoliciesRouter,
-  SplitHorizon,
+  // SettingsPoliciesRouter,
+  // SplitHorizon,
   StorageLocations,
   UIGeneratorBuilder,
 } from './router-lazy-pages';
@@ -100,14 +105,19 @@ const router = createBrowserRouter([
           //   path: DBClusterDetailsTabs.components,
           //   element: withSuspense(<Components />),
           // },
-          // {
-          //   path: DBClusterDetailsTabs.restores,
-          //   element: withSuspense(<Restores />),
-          // },
+          {
+            path: DBClusterDetailsTabs.restores,
+            element: withSuspense(<Restores />),
+          },
           // {
           //   path: DBClusterDetailsTabs.logs,
           //   element: withSuspense(<Logs />),
           // },
+          // Catch-all for plugin-contributed clusterDetailTab extensions.
+          {
+            path: ':tabs',
+            element: <PluginTabHost />,
+          },
         ],
       },
       {
@@ -130,49 +140,62 @@ const router = createBrowserRouter([
             path: SettingsTabs.namespaces,
             element: withSuspense(<Namespaces />),
           },
+          // {
+          //   path: SettingsTabs.policies,
+          //   element: withSuspense(<Policies />),
+          // },
+          // Catch-all for plugin-contributed settingsPanel extensions.
           {
-            path: SettingsTabs.policies,
-            element: withSuspense(<Policies />),
+            path: ':tabs',
+            element: <PluginSettingsHost />,
           },
         ],
+      },
+      {
+        path: 'plugins',
+        element: withSuspense(<PluginsPage />),
       },
       {
         path: 'ui-generator-builder',
         element: withSuspense(<UIGeneratorBuilder />),
       },
-      {
-        path: '/settings/policies/details',
-        element: withSuspense(<SettingsPoliciesRouter />),
-        children: [
-          {
-            path: 'pod-scheduling',
-            element: withSuspense(<PoliciesList />),
-          },
-          {
-            path: 'pod-scheduling/:name',
-            element: withSuspense(<PolicyDetails />),
-          },
-          {
-            path: 'load-balancer-configuration',
-            element: withSuspense(<LoadBalancerConfiguration />),
-          },
-          {
-            path: 'load-balancer-configuration/:configName',
-            element: withSuspense(<LoadBalancerConfigDetails />),
-          },
-          {
-            path: 'split-horizon',
-            element: withSuspense(<SplitHorizon />),
-          },
-          {
-            index: true,
-            element: <Navigate to="pod-scheduling" replace />,
-          },
-        ],
-      },
+      // {
+      //   path: '/settings/policies/details',
+      //   element: withSuspense(<SettingsPoliciesRouter />),
+      //   children: [
+      //     {
+      //       path: 'pod-scheduling',
+      //       element: withSuspense(<PoliciesList />),
+      //     },
+      //     {
+      //       path: 'pod-scheduling/:name',
+      //       element: withSuspense(<PolicyDetails />),
+      //     },
+      //     {
+      //       path: 'load-balancer-configuration',
+      //       element: withSuspense(<LoadBalancerConfiguration />),
+      //     },
+      //     {
+      //       path: 'load-balancer-configuration/:configName',
+      //       element: withSuspense(<LoadBalancerConfigDetails />),
+      //     },
+      //     {
+      //       path: 'split-horizon',
+      //       element: withSuspense(<SplitHorizon />),
+      //     },
+      //     {
+      //       index: true,
+      //       element: <Navigate to="pod-scheduling" replace />,
+      //     },
+      //   ],
+      // },
       {
         path: '/settings/namespaces/:namespace',
         element: withSuspense(<NamespaceDetails />),
+      },
+      {
+        path: 'plugins/:pluginName/*',
+        element: <PluginHost />,
       },
       {
         path: '*',

@@ -58,6 +58,7 @@ const (
 	ResourcePodSchedulingPolicies      = "pod-scheduling-policies"
 	ResourceDataImporters              = "data-importers"
 	ResourceDataImportJobs             = "data-import-jobs"
+	ResourcePlugins                    = "plugins"
 
 	// Engine Features resources
 
@@ -97,6 +98,7 @@ var ClusterNamespacedResources = []string{
 	ResourceRestores,
 	ResourceBackupStorages,
 	ResourceMonitoringConfigs,
+	ResourcePlugins,
 }
 
 func IsGlobalResource(resource string) bool {
@@ -136,14 +138,19 @@ const (
 	ActionRead   = "read"
 	ActionUpdate = "update"
 	ActionDelete = "delete"
-	ActionAll    = "*"
+	// ActionUse is the verb granted to users for consuming a plugin via the
+	// /v1/plugins/{name}/* proxy. It is separate from CRUD so admins can
+	// install plugins (create) without automatically granting broad read
+	// access to every user.
+	ActionUse = "use"
+	ActionAll = "*"
 )
 
 const (
 	rbacEnabledValueTrue = "true"
 )
 
-var SupportedActions = []string{ActionCreate, ActionRead, ActionUpdate, ActionDelete, ActionAll}
+var SupportedActions = []string{ActionCreate, ActionRead, ActionUpdate, ActionDelete, ActionUse, ActionAll}
 
 type User struct {
 	Subject string

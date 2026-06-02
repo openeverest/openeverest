@@ -66,6 +66,18 @@ print('Using PSMDB Provider chart dir: {0}'.format(psmdb_provider_chart_dir))
 psmdb_provider_dir = os.path.dirname(os.path.dirname(psmdb_provider_chart_dir))
 print('Using PSMDB Provider dir: {0}'.format(psmdb_provider_dir))
 
+# Optional: Hello Plugin (installed from OCI Helm chart)
+# Set HELLO_PLUGIN_CHART to the OCI chart reference, e.g.:
+#   export HELLO_PLUGIN_CHART=oci://ghcr.io/openeverest/generic-plugin-template
+# Optionally set HELLO_PLUGIN_VERSION to pin a version (defaults to latest).
+hello_plugin_chart = os.getenv('HELLO_PLUGIN_CHART', '')
+hello_plugin_version = os.getenv('HELLO_PLUGIN_VERSION', '')
+if hello_plugin_chart:
+    print('Using Hello Plugin chart: {0} (version: {1})'.format(
+        hello_plugin_chart, hello_plugin_version or 'latest'))
+else:
+    print('HELLO_PLUGIN_CHART not set — skipping hello plugin')
+
 # Optional env vars
 pxc_operator_version = os.getenv('PXC_OPERATOR_VERSION', '1.19.0')
 print('Using PXC operator version: {0}'.format(pxc_operator_version))
@@ -613,134 +625,134 @@ k8s_resource(
 ####### Everest operator #######
 ################################
 
-everest_operator_build_target='build'
-everest_operator_target='dev'
-everest_operator_entrypoint=["./manager"]
-everest_operator_port_forwards=[]
-if everest_operator_debug:
-    everest_operator_build_target='build-debug'
-    everest_operator_target='debug'
-    everest_operator_entrypoint=[
-        "/dlv",
-        "--listen=:40001",
-        "--headless=true",
-        "--api-version=2",
-        "--continue=true",
-        "--accept-multiclient=true",
-        "exec",
-        "/home/everest/manager",
-        "--",
-    ]
-    everest_operator_port_forwards=[
-        port_forward(40001, 40001, 'Everest Operator debugger'),
-    ]
+# everest_operator_build_target='build'
+# everest_operator_target='dev'
+# everest_operator_entrypoint=["./manager"]
+# everest_operator_port_forwards=[]
+# if everest_operator_debug:
+#     everest_operator_build_target='build-debug'
+#     everest_operator_target='debug'
+#     everest_operator_entrypoint=[
+#         "/dlv",
+#         "--listen=:40001",
+#         "--headless=true",
+#         "--api-version=2",
+#         "--continue=true",
+#         "--accept-multiclient=true",
+#         "exec",
+#         "/home/everest/manager",
+#         "--",
+#     ]
+#     everest_operator_port_forwards=[
+#         port_forward(40001, 40001, 'Everest Operator debugger'),
+#     ]
 
-# Build the Everest operator manager locally to take advantage of the go cache
-local_resource(
-  'operator-build',
-  '{0} make -C {1} {2}'.format(everest_operator_build_env, operator_dir, everest_operator_build_target),
-  deps=[
-    '{0}/go.mod'.format(operator_dir),
-    '{0}/go.sum'.format(operator_dir),
-    '{0}/internal'.format(operator_dir),
-    '{0}/cmd'.format(operator_dir),
-  ],
-  ignore=[
-      '{0}/**/*.deepcopy.go*'.format(operator_dir),
-      '{0}/**/mock_*.go*'.format(operator_dir),
-      '{0}/**/*_test.go'.format(operator_dir),
-      '{0}/**/*.gen.go*'.format(operator_dir),
-  ],
-  labels=["everest-operator"],
-)
+# # Build the Everest operator manager locally to take advantage of the go cache
+# local_resource(
+#   'operator-build',
+#   '{0} make -C {1} {2}'.format(everest_operator_build_env, operator_dir, everest_operator_build_target),
+#   deps=[
+#     '{0}/go.mod'.format(operator_dir),
+#     '{0}/go.sum'.format(operator_dir),
+#     '{0}/internal'.format(operator_dir),
+#     '{0}/cmd'.format(operator_dir),
+#   ],
+#   ignore=[
+#       '{0}/**/*.deepcopy.go*'.format(operator_dir),
+#       '{0}/**/mock_*.go*'.format(operator_dir),
+#       '{0}/**/*_test.go'.format(operator_dir),
+#       '{0}/**/*.gen.go*'.format(operator_dir),
+#   ],
+#   labels=["everest-operator"],
+# )
 
-# Live update the Everest operator manager without generating a new pod
+# # Live update the Everest operator manager without generating a new pod
 load('ext://restart_process', 'docker_build_with_restart')
-docker_build_with_restart('ghcr.io/openeverest/openeverest-operator',
-  context=operator_dir,
-  dockerfile='./everest-operator.Dockerfile',
-  target=everest_operator_target,
-  entrypoint=everest_operator_entrypoint,
-  only=['{0}/bin/manager'.format(operator_dir)],
-  live_update=[
-    sync('{0}/bin/manager'.format(operator_dir), '/home/everest/manager'),
-  ]
-)
+# docker_build_with_restart('ghcr.io/openeverest/openeverest-operator',
+#   context=operator_dir,
+#   dockerfile='./everest-operator.Dockerfile',
+#   target=everest_operator_target,
+#   entrypoint=everest_operator_entrypoint,
+#   only=['{0}/bin/manager'.format(operator_dir)],
+#   live_update=[
+#     sync('{0}/bin/manager'.format(operator_dir), '/home/everest/manager'),
+#   ]
+# )
 
-k8s_resource(
-    objects=[
-        'backupstorages.everest.percona.com:customresourcedefinition',
-        'databaseclusterbackups.everest.percona.com:customresourcedefinition',
-        'databaseclusterrestores.everest.percona.com:customresourcedefinition',
-        'databaseclusters.everest.percona.com:customresourcedefinition',
-        'databaseengines.everest.percona.com:customresourcedefinition',
-        'monitoringconfigs.everest.percona.com:customresourcedefinition',
-        'podschedulingpolicies.everest.percona.com:customresourcedefinition',
-        'loadbalancerconfigs.everest.percona.com:customresourcedefinition',
-        'dataimporters.everest.percona.com:customresourcedefinition',
-        'dataimportjobs.everest.percona.com:customresourcedefinition',
-        'splithorizondnsconfigs.enginefeatures.everest.percona.com:customresourcedefinition',
-    ],
-    new_name='everest-crds',
-    labels=["everest-operator"]
-)
-k8s_resource(
-    workload='everest-operator',
-    objects=[
-    'everest-operator-controller-manager:serviceaccount:{0}'.format(EVEREST_NAMESPACE),
-    'everest-operator-leader-election-role:role:{0}'.format(EVEREST_NAMESPACE),
-    'everest-operator-local:rolebinding:{0}'.format(EVEREST_NAMESPACE),
-    'everest-operator-metrics-reader:clusterrole',
-    'everest-operator-metrics-auth-role:clusterrole',
-    'everest-operator-metrics-auth-rolebinding:clusterrolebinding',
-    'everest-operator-manager-role:clusterrole',
-    'everest-operator-leader-election-rolebinding:rolebinding',
-    'everest-operator-manager-rolebinding:clusterrolebinding',
-    'webhook-server-cert:secret',
-    'everest-operator-validating-webhook-configuration:validatingwebhookconfiguration',
-    'everest-operator-mutating-webhook-configuration:mutatingwebhookconfiguration',
-    'everest-operator-backupstorage-editor-role:clusterrole',
-    'everest-operator-backupstorage-viewer-role:clusterrole',
-    'everest-operator-databasecluster-editor-role:clusterrole',
-    'everest-operator-databasecluster-viewer-role:clusterrole',
-    'everest-operator-databaseclusterbackup-editor-role:clusterrole',
-    'everest-operator-databaseclusterbackup-viewer-role:clusterrole',
-    'everest-operator-databaseclusterrestore-editor-role:clusterrole',
-    'everest-operator-databaseclusterrestore-viewer-role:clusterrole',
-    'everest-operator-databaseengine-editor-role:clusterrole',
-    'everest-operator-databaseengine-viewer-role:clusterrole',
-    'everest-operator-monitoringconfig-editor-role:clusterrole',
-    'everest-operator-monitoringconfig-viewer-role:clusterrole',
-    'everest-operator-podschedulingpolicy-editor-role:clusterrole',
-    'everest-operator-podschedulingpolicy-viewer-role:clusterrole',
-    'everest-operator-loadbalancerconfig-editor-role:clusterrole',
-    'everest-operator-loadbalancerconfig-viewer-role:clusterrole',
-    'enginefeatures.everest-splithorizondnsconfig-editor-role:clusterrole',
-    'enginefeatures.everest-splithorizondnsconfig-viewer-role:clusterrole',
-    'everest-helm-lbc-cleanup-hook:serviceaccount',
-    'everest-helm-lbc-cleanup-hook:clusterrole',
-    'everest-helm-lbc-cleanup-hook:clusterrolebinding',
-    'everest-helm-psp-cleanup-hook:serviceaccount',
-    'everest-helm-psp-cleanup-hook:clusterrole',
-    'everest-helm-psp-cleanup-hook:clusterrolebinding',
-    'everest-percona-pg-operator:dataimporter',
-    'everest-percona-psmdb-operator:dataimporter',
-    'everest-percona-pxc-operator:dataimporter',
-    'eks-default:loadbalancerconfig',
-    'everest-default-mysql:podschedulingpolicy',
-    'everest-default-postgresql:podschedulingpolicy',
-    'everest-default-mongodb:podschedulingpolicy'
-    ],
-    resource_deps = [
-      'everest-namespace',
-      'everest-crds',
-      'operator-build',
-      'helm-deps',
-    ],
-    port_forwards=everest_operator_port_forwards,
-    new_name='everest-operator-deploy',
-    labels=["everest-operator"]
-)
+# k8s_resource(
+#     objects=[
+#         'backupstorages.everest.percona.com:customresourcedefinition',
+#         'databaseclusterbackups.everest.percona.com:customresourcedefinition',
+#         'databaseclusterrestores.everest.percona.com:customresourcedefinition',
+#         'databaseclusters.everest.percona.com:customresourcedefinition',
+#         'databaseengines.everest.percona.com:customresourcedefinition',
+#         'monitoringconfigs.everest.percona.com:customresourcedefinition',
+#         'podschedulingpolicies.everest.percona.com:customresourcedefinition',
+#         'loadbalancerconfigs.everest.percona.com:customresourcedefinition',
+#         'dataimporters.everest.percona.com:customresourcedefinition',
+#         'dataimportjobs.everest.percona.com:customresourcedefinition',
+#         'splithorizondnsconfigs.enginefeatures.everest.percona.com:customresourcedefinition',
+#     ],
+#     new_name='everest-crds',
+#     labels=["everest-operator"]
+# )
+# k8s_resource(
+#     workload='everest-operator',
+#     objects=[
+#     'everest-operator-controller-manager:serviceaccount:{0}'.format(EVEREST_NAMESPACE),
+#     'everest-operator-leader-election-role:role:{0}'.format(EVEREST_NAMESPACE),
+#     'everest-operator-local:rolebinding:{0}'.format(EVEREST_NAMESPACE),
+#     'everest-operator-metrics-reader:clusterrole',
+#     'everest-operator-metrics-auth-role:clusterrole',
+#     'everest-operator-metrics-auth-rolebinding:clusterrolebinding',
+#     'everest-operator-manager-role:clusterrole',
+#     'everest-operator-leader-election-rolebinding:rolebinding',
+#     'everest-operator-manager-rolebinding:clusterrolebinding',
+#     'webhook-server-cert:secret',
+#     'everest-operator-validating-webhook-configuration:validatingwebhookconfiguration',
+#     'everest-operator-mutating-webhook-configuration:mutatingwebhookconfiguration',
+#     'everest-operator-backupstorage-editor-role:clusterrole',
+#     'everest-operator-backupstorage-viewer-role:clusterrole',
+#     'everest-operator-databasecluster-editor-role:clusterrole',
+#     'everest-operator-databasecluster-viewer-role:clusterrole',
+#     'everest-operator-databaseclusterbackup-editor-role:clusterrole',
+#     'everest-operator-databaseclusterbackup-viewer-role:clusterrole',
+#     'everest-operator-databaseclusterrestore-editor-role:clusterrole',
+#     'everest-operator-databaseclusterrestore-viewer-role:clusterrole',
+#     'everest-operator-databaseengine-editor-role:clusterrole',
+#     'everest-operator-databaseengine-viewer-role:clusterrole',
+#     'everest-operator-monitoringconfig-editor-role:clusterrole',
+#     'everest-operator-monitoringconfig-viewer-role:clusterrole',
+#     'everest-operator-podschedulingpolicy-editor-role:clusterrole',
+#     'everest-operator-podschedulingpolicy-viewer-role:clusterrole',
+#     'everest-operator-loadbalancerconfig-editor-role:clusterrole',
+#     'everest-operator-loadbalancerconfig-viewer-role:clusterrole',
+#     'enginefeatures.everest-splithorizondnsconfig-editor-role:clusterrole',
+#     'enginefeatures.everest-splithorizondnsconfig-viewer-role:clusterrole',
+#     'everest-helm-lbc-cleanup-hook:serviceaccount',
+#     'everest-helm-lbc-cleanup-hook:clusterrole',
+#     'everest-helm-lbc-cleanup-hook:clusterrolebinding',
+#     'everest-helm-psp-cleanup-hook:serviceaccount',
+#     'everest-helm-psp-cleanup-hook:clusterrole',
+#     'everest-helm-psp-cleanup-hook:clusterrolebinding',
+#     'everest-percona-pg-operator:dataimporter',
+#     'everest-percona-psmdb-operator:dataimporter',
+#     'everest-percona-pxc-operator:dataimporter',
+#     'eks-default:loadbalancerconfig',
+#     'everest-default-mysql:podschedulingpolicy',
+#     'everest-default-postgresql:podschedulingpolicy',
+#     'everest-default-mongodb:podschedulingpolicy'
+#     ],
+#     resource_deps = [
+#       'everest-namespace',
+#       'everest-crds',
+#       'operator-build',
+#       'helm-deps',
+#     ],
+#     port_forwards=everest_operator_port_forwards,
+#     new_name='everest-operator-deploy',
+#     labels=["everest-operator"]
+# )
 
 #################################
 ############ Everest ############
@@ -921,6 +933,33 @@ k8s_resource(
     labels=["everest"]
 )
 
+#################################
+######## Hello Plugin PoC #######
+#################################
+
+if hello_plugin_chart:
+    # Install the hello plugin from an OCI Helm chart registry.
+    # Usage:
+    #   export HELLO_PLUGIN_CHART=oci://ghcr.io/openeverest/generic-plugin-template
+    #   export HELLO_PLUGIN_VERSION=0.1.0  # optional, omit for latest
+    #
+    # If your registry requires authentication, log in first:
+    #   helm registry login ghcr.io -u <user> -p <token>
+    version_flag = '--version {0}'.format(hello_plugin_version) if hello_plugin_version else ''
+    local_resource(
+      'hello-plugin-install',
+      'helm upgrade --install my-plugin {chart} {version} -n {ns} --wait'.format(
+        chart=hello_plugin_chart,
+        version=version_flag,
+        ns=EVEREST_NAMESPACE,
+      ),
+      resource_deps=[
+        'everest-namespace',
+        'crds',
+      ],
+      labels=["plugins"],
+    )
+
 #######################################
 ############ Backup Storages ##########
 #######################################
@@ -977,7 +1016,7 @@ if need_backup_storage:
                             'name': storage_name
                         }
                     })
-                    obj['spec'].update({
+                    obj['spec']['s3'].update({
                             'bucket': '{0}'.format(storage_name),
                             'description': storage_name,
                             'credentialsSecretName': storage_name,
@@ -991,7 +1030,7 @@ if need_backup_storage:
                 new_name='bs-{0}-{1}'.format(ns_name, storage_name),
                 labels=["backup-storage"],
                 resource_deps=[
-                    'everest-crds',
+                    'crds',
                     'minIO-deploy'
                 ]
             )
@@ -1008,7 +1047,10 @@ k8s_resource(
     'backupstorages.backup.openeverest.io:customresourcedefinition',
     'instances.core.openeverest.io:customresourcedefinition',
     'monitoringconfigs.monitoring.openeverest.io:customresourcedefinition',
-    'providers.core.openeverest.io:customresourcedefinition'
+    'plugins.plugin.openeverest.io:customresourcedefinition',
+    'plugininstallations.plugin.openeverest.io:customresourcedefinition',
+    'providers.core.openeverest.io:customresourcedefinition',
+    'restores.backup.openeverest.io:customresourcedefinition'
   ],
   new_name='crds',
   labels=["everest"]

@@ -13,24 +13,30 @@
 // limitations under the License.
 
 import { TimeSelectionFields } from '../../time-selection/time-selection.types';
-import { Schedule } from 'shared-types/dbCluster.types';
+import { FlattenedSchedule } from '../schedule-form-dialog-context/schedule-form-dialog-context.types';
+import { BackupClass } from 'shared-types/backups.types';
 
 enum ScheduleForm {
   scheduleName = 'scheduleName',
   storageLocation = 'storageLocation',
   retentionCopies = 'retentionCopies',
+  backupClassName = 'backupClassName',
 }
 
-export type ScheduleFormProps = {
+export interface ScheduleFormProps {
   allowScheduleSelection?: boolean;
   disableStorageSelection?: boolean;
   autoFillLocation?: boolean;
   disableNameInput?: boolean;
-  schedules: Schedule[];
-  showTypeRadio: boolean;
+  schedules: FlattenedSchedule[];
   disableNameEdit?: boolean;
+  maxStorages?: number;
   maxSchedulesPerStorage?: number;
-};
+  instanceStorageNames?: string[];
+  availableClasses: BackupClass[];
+  disableClassSelection?: boolean;
+  backupClass?: BackupClass;
+}
 
 export const ScheduleFormFields = { ...ScheduleForm, ...TimeSelectionFields };
 export type ScheduleFormFields = ScheduleForm | TimeSelectionFields;

@@ -29,7 +29,7 @@ type RestoreSpec struct {
 	InstanceName string `json:"instanceName"`
 	// DataSource defines where the backup data to restore from is located.
 	// +kubebuilder:validation:Required
-	DataSource RestoreDataSource `json:"dataSource"`
+	DataSource DataSource `json:"dataSource"`
 	// Config is the restore-time configuration validated against the
 	// BackupClass's .spec.restoreConfig.openAPIV3Schema.
 	// +kubebuilder:pruning:PreserveUnknownFields
@@ -37,40 +37,57 @@ type RestoreSpec struct {
 	Config *runtime.RawExtension `json:"config,omitempty"`
 }
 
-// RestoreDataSource defines the source of the backup data for the restore
-// operation. Exactly one of BackupName or External must be set.
-type RestoreDataSource struct {
-	// BackupName references an existing Backup CR in the same namespace to
-	// restore from. The BackupClass and storage are resolved from the
-	// referenced Backup.
+// DataSourceType selects the kind of data source for initial seeding or
+// restore operations.
+//
+// +kubebuilder:validation:Enum=Backup
+type DataSourceType string
+
+const (
+	// DataSourceTypeBackup seeds from an existing Backup CR in the same
+	// namespace.
+	DataSourceTypeBackup DataSourceType = "Backup"
+)
+
+// DataSourceBackup references an existing Backup CR as the data source.
+type DataSourceBackup struct {
+	// BackupName is the name of the Backup CR in the same namespace.
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
+	BackupName string `json:"backupName"`
+	// PITR configures point-in-time recovery on top of this backup.
+	// The resolved BackupClass must advertise PITR support via
+	// .spec.providerManaged for this to be honoured.
 	// +optional
-	BackupName string `json:"backupName,omitempty"`
-	// External describes a backup that has no corresponding Backup CR in the
-	// cluster (e.g., a backup taken outside of OpenEverest).
-	// +optional
-	External *ExternalRestoreSource `json:"external,omitempty"`
-	// PITR defines point-in-time recovery options. Requires the resolved
-	// BackupClass to advertise PITR support via .spec.providerManaged.
-	// +optional
-	PITR *PITR `json:"pitr,omitempty"`
+	PITR *DataSourcePITR `json:"pitr,omitempty"`
 }
 
-// ExternalRestoreSource defines an external backup source for restore
-// operations when no Backup CR exists in the cluster.
-type ExternalRestoreSource struct {
-	// BackupClassName is the name of the BackupClass that defines how to
-	// restore this external backup.
+// DataSourcePITR specifies point-in-time recovery options that can be applied
+// on top of a data source. Not all source types support PITR; the provider
+// validates compatibility and rejects unsupported combinations.
+type DataSourcePITR struct {
+	// Type selects date-based or latest recovery.
 	// +kubebuilder:validation:Required
-	BackupClassName string `json:"backupClassName"`
-	// StorageName references the BackupStorage in the same namespace that
-	// describes where the external backup data is located.
-	// +kubebuilder:validation:Required
-	StorageName string `json:"storageName"`
-	// Config is forwarded to the BackupClass's restore configuration. It is
-	// validated against the same schema as Restore.spec.config.
-	// +kubebuilder:pruning:PreserveUnknownFields
+	// +kubebuilder:validation:Enum=date;latest
+	Type PITRType `json:"type"`
+	// Date is the target recovery point. Required when Type is "date".
 	// +optional
-	Config *runtime.RawExtension `json:"config,omitempty"`
+	Date *metav1.Time `json:"date,omitempty"`
+}
+
+// DataSource defines the source from which data is obtained for a restore
+// or initial Instance seeding operation. The Type field selects which
+// source-specific block is populated.
+//
+// +kubebuilder:validation:XValidation:rule="self.type == 'Backup' ? has(self.backup) : true",message="backup must be set when type is Backup"
+type DataSource struct {
+	// Type selects the data source kind.
+	// +kubebuilder:validation:Required
+	Type DataSourceType `json:"type"`
+	// Backup references an existing Backup CR in the same namespace.
+	// Required when type=Backup.
+	// +optional
+	Backup *DataSourceBackup `json:"backup,omitempty"`
 }
 
 // PITRType defines the type of point-in-time recovery.
@@ -84,16 +101,6 @@ const (
 	// PITRTypeLatest indicates recovery to the latest available point in time.
 	PITRTypeLatest PITRType = "latest"
 )
-
-// PITR defines point-in-time recovery configuration.
-type PITR struct {
-	// Type is the type of point-in-time recovery: "date" or "latest".
-	// +kubebuilder:validation:Required
-	Type PITRType `json:"type"`
-	// Date is the target recovery point in time. Required when Type is "date".
-	// +optional
-	Date *metav1.Time `json:"date,omitempty"`
-}
 
 // RestoreState is a type representing the state of a restore.
 type RestoreState string

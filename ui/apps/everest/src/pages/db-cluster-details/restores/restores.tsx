@@ -14,12 +14,16 @@
 
 import { useParams } from 'react-router-dom';
 import { capitalize } from '@mui/material';
+// TODO: Re-enable PITR alert when PITR is restored.
+// import { Alert } from '@mui/material';
 import { MRT_ColumnDef } from 'material-react-table';
 import { format } from 'date-fns';
 import { Table } from '@percona/ui-lib';
 import { DATE_FORMAT } from 'consts';
 import StatusField from 'components/status-field/status-field';
 import { ConfirmDialog } from 'components/confirm-dialog/confirm-dialog';
+// TODO: Re-enable PITR and import jobs when data-import-jobs is migrated to v2 API.
+// import { useDbClusterPitr } from 'hooks/api/backups/useBackups';
 import {
   PG_STATUS,
   PSMDB_STATUS,
@@ -27,10 +31,11 @@ import {
   Restore,
 } from 'shared-types/restores.types';
 import { Messages } from './restores.messages';
+// TODO: Re-enable PITR alert when PITR is restored.
 // import { Messages as DbDetailsMessages } from '../db-cluster-details.messages';
 import {
-  RESTORES_QUERY_KEY,
-  useDbClusterRestores,
+  getRestoresListQueryKey,
+  useInstanceRestores,
   useDeleteRestore,
 } from 'hooks/api/restores/useDbClusterRestore';
 import { useMemo, useState } from 'react';
@@ -38,24 +43,26 @@ import { RESTORE_STATUS_TO_BASE_STATUS } from './restores.constants';
 import { useQueryClient } from '@tanstack/react-query';
 import TableActionsMenu from 'components/table-actions-menu';
 import { RestoreActionButtons } from './restores-menu-actions';
-import { useDbClusterImportJobs } from 'hooks';
-import {
-  DataImportJob,
-  DataImportJobs,
-} from 'shared-types/dataImporters.types';
+// TODO: Re-enable when data-import-jobs endpoint is migrated to v2 API.
+// import { useDbClusterImportJobs } from 'hooks';
+// import {
+//   DataImportJob,
+//   DataImportJobs,
+// } from 'shared-types/dataImporters.types';
+import { useClusterName } from 'hooks/api/useClusterName';
 
-const getImportJobsData = (imports?: DataImportJobs): Restore[] => {
-  if (!imports?.items || !imports.items.length) return [];
-
-  return imports.items.map((importItem: DataImportJob) => ({
-    backupSource: importItem.spec.dataImporterName,
-    endTime: importItem.status?.completedAt || '',
-    name: importItem.metadata.name,
-    startTime: importItem.status?.startedAt || '',
-    state: importItem.status?.state || '',
-    type: 'import',
-  }));
-};
+// TODO: Re-enable when data-import-jobs endpoint is migrated to v2 API.
+// const getImportJobsData = (imports?: DataImportJobs): Restore[] => {
+//   if (!imports?.items || !imports.items.length) return [];
+//   return imports.items.map((importItem: DataImportJob) => ({
+//     backupSource: importItem.spec.dataImporterName,
+//     endTime: importItem.status?.completedAt || '',
+//     name: importItem.metadata.name,
+//     startTime: importItem.status?.startedAt || '',
+//     state: importItem.status?.state || '',
+//     type: 'import',
+//   }));
+// };
 
 function getTypeCellValue(type: string) {
   if (type === 'import') return 'Import';
@@ -66,22 +73,36 @@ function getTypeCellValue(type: string) {
 const Restores = () => {
   const [openDeleteDialog, setOpenDeleteDialog] = useState(false);
   const [selectedRestore, setSelectedRestore] = useState('');
-  const { dbClusterName, namespace = '' } = useParams();
+  const { instanceName = '', namespace = '' } = useParams();
+  // TODO: Re-enable when v1 dbClusterName param is restored.
+  // const { dbClusterName, namespace = '' } = useParams();
+  const clusterName = useClusterName();
   const queryClient = useQueryClient();
+  // TODO: Re-enable PITR data when PITR is restored.
   // const { data: pitrData } = useDbClusterPitr(dbClusterName!, namespace, {
   //   enabled: !!dbClusterName && !!namespace,
   // });
   const { data: restores = [], isLoading: loadingRestores } =
-    useDbClusterRestores(namespace, dbClusterName!, {
-      enabled: !!dbClusterName && !!namespace,
+    useInstanceRestores(clusterName, namespace, instanceName, {
+      enabled: !!instanceName && !!namespace,
     });
+  // TODO: Re-enable v1 restores hook when PITR/import logic is restored.
+  // const { data: restores = [], isLoading: loadingRestores } =
+  //   useDbClusterRestores(namespace, dbClusterName!, {
+  //     enabled: !!dbClusterName && !!namespace,
+  //   });
 
-  const { data: imports } = useDbClusterImportJobs(namespace, dbClusterName!);
+  // TODO: Re-enable when data-import-jobs endpoint is migrated to v2 API.
+  // const { data: imports } = useDbClusterImportJobs(namespace, instanceName);
 
-  const tableData = [...restores, ...getImportJobsData(imports)];
+  // const tableData = [...restores, ...getImportJobsData(imports)];
+  const tableData = restores;
 
   const { mutate: deleteRestore, isPending: deletingRestore } =
-    useDeleteRestore(namespace);
+    useDeleteRestore(clusterName, namespace);
+  // TODO: Re-enable v1 delete restore when PITR/import logic is restored.
+  // const { mutate: deleteRestore, isPending: deletingRestore } =
+  //   useDeleteRestore(namespace);
 
   const columns = useMemo<MRT_ColumnDef<Restore>[]>(() => {
     return [
@@ -142,7 +163,11 @@ const Restores = () => {
     deleteRestore(restoreName, {
       onSuccess: () => {
         queryClient.invalidateQueries({
-          queryKey: [RESTORES_QUERY_KEY, namespace, dbClusterName],
+          queryKey: getRestoresListQueryKey(
+            clusterName,
+            namespace,
+            instanceName
+          ),
         });
         setOpenDeleteDialog(false);
       },
@@ -151,13 +176,17 @@ const Restores = () => {
 
   return (
     <>
-      {/* {pitrData?.gaps && (
+      {/* TODO: Re-enable PITR alert when PITR is restored.
+      {pitrData?.gaps && (
         <Alert severity="error">{DbDetailsMessages.pitrError}</Alert>
-      )} */}
+      )}
+      */}
       <Table
         getRowId={(row) => row.name}
         state={{ isLoading: loadingRestores }}
-        tableName={`${dbClusterName}-restore`}
+        tableName={`${instanceName}-restore`}
+        // TODO: Re-enable v1 dbClusterName when PITR/import logic is restored.
+        // tableName={`${dbClusterName}-restore`}
         columns={columns}
         data={tableData}
         initialState={{
@@ -176,11 +205,13 @@ const Restores = () => {
             row,
             handleDeleteBackup,
             namespace,
-            dbClusterName!
+            instanceName
           );
-          return row.original.type !== 'import' ? (
-            <TableActionsMenu menuItems={menuItems} />
-          ) : null;
+          // TODO: Re-enable 'import' type check when data-import-jobs is migrated to v2 API.
+          // return row.original.type !== 'import' ? (
+          //   <TableActionsMenu menuItems={menuItems} />
+          // ) : null;
+          return <TableActionsMenu menuItems={menuItems} />;
         }}
       />
       {openDeleteDialog && (

@@ -36,7 +36,16 @@ export const ScheduleFormDialog = () => {
     handleSubmit,
   } = useContext(ScheduleFormDialogContext);
 
-  const { schedules = [] } = dbInstanceInfo;
+  const {
+    schedules = [],
+    backupClass,
+    availableBackupClasses = [],
+  } = dbInstanceInfo;
+
+  const initialBackupClassName =
+    backupClass?.metadata?.name ??
+    availableBackupClasses[0]?.metadata?.name ??
+    '';
 
   const scheduledBackupSchema = useMemo(
     () => schema(schedules, mode),
@@ -50,8 +59,12 @@ export const ScheduleFormDialog = () => {
   }, [mode, schedules, selectedScheduleName]);
 
   const values = useMemo(() => {
-    return scheduleModalDefaultValues(mode, selectedSchedule);
-  }, [mode, selectedSchedule]);
+    return scheduleModalDefaultValues(
+      mode,
+      selectedSchedule,
+      initialBackupClassName
+    );
+  }, [mode, selectedSchedule, initialBackupClassName]);
 
   return (
     <FormDialog

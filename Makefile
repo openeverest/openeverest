@@ -175,10 +175,12 @@ build-debug: build-server-helper	## Build Everest API server binary with debug s
 .PHONY: rc
 rc: SERVER_LD_FLAGS += -X 'github.com/openeverest/openeverest/v2/cmd/config.TelemetryURL=https://check-dev.percona.com'
 rc: build-server-helper	## Build Everest API server RC version.
+rc: build-controller-helper	## Build Everest controller RC version.
 
 .PHONY: release
 release: SERVER_LD_FLAGS += -X 'github.com/openeverest/openeverest/v2/cmd/config.TelemetryURL=https://check.percona.com'
 release: build-server-helper	## Build Everest API server release version. (Use for building release only!)
+release: build-controller-helper	## Build Everest controller release version. (Use for building release only!)
 
 # Everest CLI
 CLI_LD_FLAGS = -X 'github.com/openeverest/openeverest/v2/pkg/version.Version=$(RELEASE_VERSION)' \
@@ -303,8 +305,6 @@ test-crosscover: setup-envtest ## Run unit tests and collect cross-package cover
 test-integration-monitoring: docker-build-controller k3d-upload-controller-image
 	kubectl get namespace everest-monitoring || kubectl create namespace everest-monitoring
 	$(MAKE) deploy-test-controller
-	kubectl apply -f https://raw.githubusercontent.com/VictoriaMetrics/operator/v$(VICTORIAMETRICS_OPERATOR_VERSION)/config/crd/overlay/crd.yaml
-	kubectl wait --for condition=established --timeout=10s crd vmagents.operator.victoriametrics.com
 	kubectl delete pod -n openeverest-system -l control-plane=controller-manager
 	$(MAKE) wait-test-controller
 	chainsaw test --config test/integration/.monitoring.yaml test/integration/monitoring
@@ -339,7 +339,7 @@ deploy:  ## Deploy Everest to K8S cluster using Everest CLI.
 	--operator.mysql=true \
 	--skip-wizard \
 	--namespaces $(DB_NAMESPACES) \
-	--helm.set server.image=$(IMAGE_PREFIX)/$(EVEREST_SERVER_DEV_IMAGE_NAME) \
+	--helm.set server.image.repository=$(IMAGE_PREFIX)/$(EVEREST_SERVER_DEV_IMAGE_NAME) \
 	--helm.set server.apiRequestsRateLimit=500 \
 	--helm.set server.sessionRequestsRateLimit=200 \
 	--helm.set versionMetadataURL=https://check-dev.percona.com \
@@ -517,6 +517,8 @@ build-installer: gen-crds-manifests kustomize ## Generate a consolidated YAML wi
 
 .PHONY: deploy-test-controller
 deploy-test-controller: gen-crds-manifests kustomize deploy-cert-manager
+	kubectl apply -f https://raw.githubusercontent.com/VictoriaMetrics/operator/v$(VICTORIAMETRICS_OPERATOR_VERSION)/config/crd/overlay/crd.yaml
+	kubectl wait --for condition=established --timeout=10s crd vmagents.operator.victoriametrics.com
 	cd config/test && "$(KUSTOMIZE)" edit set image controller=${EVEREST_CONTROLLER_IMG}
 	$(KUSTOMIZE) build config/test | kubectl apply -f -
 

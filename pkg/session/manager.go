@@ -72,6 +72,13 @@ func (mgr *Manager) IsBlocked(ctx context.Context, token *jwt.Token) (bool, erro
 	if err != nil {
 		return false, fmt.Errorf("failed to extract username: %w", err)
 	}
+
+	// Plugin service tokens (sub starts with "plugin:") are not user accounts.
+	// They are validated by expiry only, not against the account manager.
+	if strings.HasPrefix(username, "plugin:") {
+		return mgr.Blocklist.IsBlocked(ctx, token)
+	}
+
 	// for the built-in users check if the account exists
 	if isBuiltInUser {
 		user, err := mgr.accountManager.Get(ctx, username)

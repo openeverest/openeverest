@@ -16,15 +16,21 @@ import {
   getAvailableStorages,
   GetAvailableStoragesParams,
 } from './backup-storages-input.utils';
-import { BackupStorage } from 'shared-types/backupStorages.types';
+import { BackupStorageCRD } from 'shared-types/backupStorages.types';
 
 describe('getAvailableStorages', () => {
-  const allStorages: BackupStorage[] = [
-    { name: 'storage1' },
-    { name: 'storage2' },
-    { name: 'storage3' },
-    { name: 'storage4' },
-  ] as BackupStorage[];
+  const mkStorage = (name: string) =>
+    ({
+      metadata: { name },
+      spec: { type: 's3' },
+    }) as unknown as BackupStorageCRD;
+
+  const allStorages: BackupStorageCRD[] = [
+    mkStorage('storage1'),
+    mkStorage('storage2'),
+    mkStorage('storage3'),
+    mkStorage('storage4'),
+  ];
 
   const baseParams: GetAvailableStoragesParams = {
     backupStorages: allStorages,
@@ -51,7 +57,7 @@ describe('getAvailableStorages', () => {
         maxStorages: 2,
         instanceStorageNames: ['storage1'],
       });
-      expect(result.storagesToShow.map((s) => s.name)).toEqual([
+      expect(result.storagesToShow.map((s) => s.metadata?.name)).toEqual([
         'storage1',
         'storage2',
         'storage3',
@@ -92,7 +98,7 @@ describe('getAvailableStorages', () => {
         maxStorages: 2,
         instanceStorageNames: ['storage1', 'storage3'],
       });
-      expect(result.storagesToShow.map((s) => s.name)).toEqual([
+      expect(result.storagesToShow.map((s) => s.metadata?.name)).toEqual([
         'storage1',
         'storage3',
       ]);
@@ -108,7 +114,9 @@ describe('getAvailableStorages', () => {
         maxStorages: 1,
         instanceStorageNames: ['storage2'],
       });
-      expect(result.storagesToShow.map((s) => s.name)).toEqual(['storage2']);
+      expect(result.storagesToShow.map((s) => s.metadata?.name)).toEqual([
+        'storage2',
+      ]);
       expect(result.limitReached).toBe(true);
       expect(result.shouldDisable).toBe(true);
       expect(result.activeStoragesCount).toBe(1);
@@ -124,15 +132,14 @@ describe('getAvailableStorages', () => {
         instanceStorageNames: ['storage1', 'storage2'],
         schedules: [
           {
-            name: 'sched1',
-            schedule: '0 0 * * *',
             backupStorageName: 'storage1',
-            enabled: true,
           },
         ],
       });
       // storage1 has 1 schedule, maxSchedulesPerStorage is 1 → filtered out
-      expect(result.storagesToShow.map((s) => s.name)).toEqual(['storage2']);
+      expect(result.storagesToShow.map((s) => s.metadata?.name)).toEqual([
+        'storage2',
+      ]);
     });
 
     it('applies after maxStorages filter', () => {
@@ -143,22 +150,13 @@ describe('getAvailableStorages', () => {
         instanceStorageNames: ['storage1', 'storage2', 'storage3'],
         schedules: [
           {
-            name: 'sched1',
-            schedule: '0 0 * * *',
             backupStorageName: 'storage1',
-            enabled: true,
           },
           {
-            name: 'sched2',
-            schedule: '0 0 * * *',
             backupStorageName: 'storage1',
-            enabled: true,
           },
           {
-            name: 'sched3',
-            schedule: '0 0 * * *',
             backupStorageName: 'storage2',
-            enabled: true,
           },
         ],
       });
@@ -166,7 +164,7 @@ describe('getAvailableStorages', () => {
       // storage1 has 2 schedules (>= maxSchedulesPerStorage 2) → filtered
       // storage2 has 1 schedule (< 2) → kept
       // storage3 has 0 schedules → kept
-      expect(result.storagesToShow.map((s) => s.name)).toEqual([
+      expect(result.storagesToShow.map((s) => s.metadata?.name)).toEqual([
         'storage2',
         'storage3',
       ]);

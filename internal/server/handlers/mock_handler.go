@@ -921,6 +921,36 @@ func (_m *MockHandler) ListProviders(ctx context.Context, cluster string) (*core
 	return r0, r1
 }
 
+// PatchBackupStorage provides a mock function with given fields: ctx, cluster, bs
+func (_m *MockHandler) PatchBackupStorage(ctx context.Context, cluster string, bs *v1alpha1.BackupStorage) (*v1alpha1.BackupStorage, error) {
+	ret := _m.Called(ctx, cluster, bs)
+
+	if len(ret) == 0 {
+		panic("no return value specified for PatchBackupStorage")
+	}
+
+	var r0 *v1alpha1.BackupStorage
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, *v1alpha1.BackupStorage) (*v1alpha1.BackupStorage, error)); ok {
+		return rf(ctx, cluster, bs)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, *v1alpha1.BackupStorage) *v1alpha1.BackupStorage); ok {
+		r0 = rf(ctx, cluster, bs)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*v1alpha1.BackupStorage)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, *v1alpha1.BackupStorage) error); ok {
+		r1 = rf(ctx, cluster, bs)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // SetNext provides a mock function with given fields: h
 func (_m *MockHandler) SetNext(h Handler) {
 	_m.Called(h)

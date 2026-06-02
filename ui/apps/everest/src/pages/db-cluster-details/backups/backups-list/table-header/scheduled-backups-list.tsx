@@ -23,19 +23,11 @@ import { ScheduleModalContext } from '../../backups.context';
 import { Messages } from './backups-list-table-header.messages';
 import { useRBACPermissions } from 'hooks/rbac';
 import { useUpdateDbInstanceWithConflictRetry } from 'hooks/api/db-instances/useUpdateDbInstance';
+import { useBackupsList } from 'hooks/api/backups/useBackups';
+import { useClusterName } from 'hooks/api/useClusterName';
 import { FormMode } from 'components/ui-generator/ui-generator.types';
 import { Instance } from 'shared-types/api.types';
-
-// TODO: check main — verify nothing was lost during v2 migration of this component
-
-/** Flatten all schedules from every storage on the Instance, annotating with storageName. */
-const flattenSchedules = (instance: Instance) =>
-  (instance.spec?.backup?.storages ?? []).flatMap((storage) =>
-    (storage.schedules ?? []).map((schedule) => ({
-      ...schedule,
-      storageName: storage.storageRef.name,
-    }))
-  );
+import { flattenSchedules, removeUnusedStorages } from '../../backups.utils';
 
 const ScheduledBackupsList = () => {
   const [openDeleteDialog, setOpenDeleteDialog] = useState(false);
@@ -47,10 +39,17 @@ const ScheduledBackupsList = () => {
     setOpenScheduleModal,
   } = useContext(ScheduleModalContext);
 
+  const clusterName = useClusterName();
+  const namespace = instance.metadata?.namespace ?? '';
+  const instanceName = instance.metadata?.name ?? '';
+  const { data: backups = [] } = useBackupsList(
+    clusterName,
+    namespace,
+    instanceName
+  );
+
   const { mutate: updateInstance, isPending: updatingInstance } =
-    useUpdateDbInstanceWithConflictRetry(instance, {
-      onSuccess: () => handleCloseDeleteDialog(),
-    });
+    useUpdateDbInstanceWithConflictRetry(instance);
 
   const schedules = flattenSchedules(instance);
 
@@ -68,14 +67,21 @@ const ScheduledBackupsList = () => {
   };
 
   const handleConfirmDelete = (scheduleName: string) => {
+    handleCloseDeleteDialog();
     // Remove the schedule from its storage entry.
-    const updatedStorages = (instance.spec?.backup?.storages ?? []).map(
+    const storagesWithoutSchedule = (instance.spec?.backup?.storages ?? []).map(
       (storage) => ({
         ...storage,
         schedules: (storage.schedules ?? []).filter(
           (s) => s.name !== scheduleName
         ),
       })
+    );
+
+    // Remove storage entries that no longer have schedules or active backups.
+    const updatedStorages = removeUnusedStorages(
+      storagesWithoutSchedule,
+      backups
     );
 
     const updatedInstance: Instance = {
@@ -156,14 +162,13 @@ const ScheduledBackupsList = () => {
                 {`Storage: ${item.storageName}`}
               </Typography>
             </Box>
-            <Box display="flex">
+            <Box display="flex" ml="auto">
               {canUpdateInstance && (
                 <>
                   <IconButton
                     color="primary"
                     onClick={() => handleEdit(item.name)}
                     data-testid="edit-schedule-button"
-                    disabled // TODO: re-enable when ScheduledBackupModal is migrated to v2
                   >
                     <EditOutlinedIcon />
                   </IconButton>

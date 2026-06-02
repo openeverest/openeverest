@@ -14,20 +14,21 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { AutoCompleteInput, LabeledContent, TextInput } from '@percona/ui-lib';
-import LogicalPhysicalRadioGroup from 'components/logical-physical-radio-group';
-import { TimeSelection } from '../../time-selection/time-selection';
-import { Messages } from './schedule-form.messages.ts';
 import {
-  ScheduleFormFields,
-  ScheduleFormProps,
-} from './schedule-form.types.ts';
-import { Alert } from '@mui/material';
+  AutoCompleteInput,
+  LabeledContent,
+  SelectInput,
+  TextInput,
+} from '@percona/ui-lib';
+import { TimeSelection } from '../../time-selection/time-selection';
+import { BackupConfigFields } from 'components/backup-config-fields';
+import { FormMode } from 'components/ui-generator/ui-generator.types';
+import { Messages } from './schedule-form.messages';
+import { ScheduleFormFields, ScheduleFormProps } from './schedule-form.types';
+import { Alert, MenuItem } from '@mui/material';
 import { useFormContext } from 'react-hook-form';
-import { useContext } from 'react';
+import { useContext, useMemo } from 'react';
 import { ScheduleFormDialogContext } from '../schedule-form-dialog-context/schedule-form-dialog.context';
-import { DbEngineType } from '@percona/types';
-import LinkedAlert from '../../linked-alert';
 import BackupStoragesInput from 'components/backup-storages-input';
 
 export const ScheduleForm = ({
@@ -36,9 +37,13 @@ export const ScheduleForm = ({
   autoFillLocation = false,
   disableNameInput,
   schedules,
-  showTypeRadio,
   disableNameEdit = false,
+  maxStorages,
   maxSchedulesPerStorage,
+  instanceStorageNames,
+  availableClasses,
+  disableClassSelection = false,
+  backupClass,
 }: ScheduleFormProps) => {
   const {
     formState: { errors },
@@ -46,8 +51,17 @@ export const ScheduleForm = ({
   const schedulesNamesList =
     (schedules && schedules.map((item) => item?.name)) || [];
   const {
-    dbInstanceInfo: { dbEngine, namespace },
+    dbInstanceInfo: { namespace },
   } = useContext(ScheduleFormDialogContext);
+
+  // Map flattened schedules to the shape BackupStoragesInput expects
+  const storageSchedules = useMemo(
+    () =>
+      schedules.map((s) => ({
+        backupStorageName: s.storageName,
+      })),
+    [schedules]
+  );
 
   const errorInfoAlert = errors?.root ? (
     <Alert data-testid="same-schedule-warning" severity="error">
@@ -57,18 +71,7 @@ export const ScheduleForm = ({
 
   return (
     <>
-      {showTypeRadio && <LogicalPhysicalRadioGroup />}
       <LabeledContent label={Messages.backupDetails}>
-        {dbEngine === DbEngineType.POSTGRESQL && disableStorageSelection && (
-          <LinkedAlert
-            severity="warning"
-            message={Messages.pgStorageEditRestriction}
-            linkProps={{
-              linkContent: 'Learn More',
-              href: 'https://openeverest.io/documentation/current/reference/known_limitations.html',
-            }}
-          />
-        )}
         {allowScheduleSelection ? (
           <AutoCompleteInput
             name={ScheduleFormFields.scheduleName}
@@ -89,11 +92,33 @@ export const ScheduleForm = ({
             isRequired
           />
         )}
+        <SelectInput
+          name={ScheduleFormFields.backupClassName}
+          label={Messages.backupClass.label}
+          helperText={
+            disableClassSelection
+              ? Messages.backupClass.disabledHelperText
+              : undefined
+          }
+          formControlProps={{ disabled: disableClassSelection }}
+          selectFieldProps={{
+            label: Messages.backupClass.label,
+            disabled: disableClassSelection,
+          }}
+        >
+          {availableClasses.map((bc) => (
+            <MenuItem key={bc.metadata?.name} value={bc.metadata?.name ?? ''}>
+              {bc.spec?.displayName || bc.metadata?.name}
+            </MenuItem>
+          ))}
+        </SelectInput>
       </LabeledContent>
       <BackupStoragesInput
         namespace={namespace}
-        schedules={schedules}
+        schedules={storageSchedules}
+        maxStorages={maxStorages}
         maxSchedulesPerStorage={maxSchedulesPerStorage}
+        instanceStorageNames={instanceStorageNames}
         autoFillProps={{
           isRequired: true,
           enableFillFirst: autoFillLocation,
@@ -110,12 +135,13 @@ export const ScheduleForm = ({
         isRequired
       />
       <LabeledContent label={Messages.repeats}>
-        <TimeSelection
-          showInfoAlert
-          errorInfoAlert={errorInfoAlert}
-          shouldRestrictSelectableHours={dbEngine === DbEngineType.PSMDB}
-        />
+        <TimeSelection showInfoAlert errorInfoAlert={errorInfoAlert} />
       </LabeledContent>
+      <BackupConfigFields
+        backupClass={backupClass}
+        formMode={FormMode.New}
+        namespace={namespace}
+      />
     </>
   );
 };

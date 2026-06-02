@@ -1,3 +1,17 @@
+// Copyright (C) 2026 The OpenEverest Contributors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFnsV3';
 import createCache from '@emotion/cache';
@@ -17,6 +31,7 @@ import { EverestConfig } from 'shared-types/configs.types';
 import { getEverestConfigs } from 'api/everestConfigs';
 import LoadingPageSkeleton from 'components/loading-page-skeleton/LoadingPageSkeleton';
 import UpgradeEverestProvider from 'contexts/upgrade-everest/upgrade-everest.provider';
+import { PluginProvider } from 'contexts/plugins';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -97,9 +112,11 @@ const App = () => {
                 }}
               >
                 <DrawerContextProvider>
-                  <UpgradeEverestProvider>
-                    <RouterProvider router={router} />
-                  </UpgradeEverestProvider>
+                  <PluginProvider>
+                    <UpgradeEverestProvider>
+                      <RouterProvider router={router} />
+                    </UpgradeEverestProvider>
+                  </PluginProvider>
                 </DrawerContextProvider>
                 <ReactQueryDevtools initialIsOpen={false} />
               </AuthProvider>

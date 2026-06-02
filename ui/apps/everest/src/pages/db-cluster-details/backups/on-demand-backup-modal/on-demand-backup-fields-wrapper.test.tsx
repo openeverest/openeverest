@@ -66,6 +66,18 @@ vi.mock('hooks/api/useClusterName.ts', () => ({
   useClusterName: () => 'main',
 }));
 
+vi.mock('hooks/api/backups/useBackups', () => ({
+  useBackupsList: () => ({
+    data: [
+      {
+        metadata: { name: 'backup-1' },
+        spec: { storageName: 'storage-a', instanceName: 'test-instance' },
+        status: { state: 'Completed' },
+      },
+    ],
+  }),
+}));
+
 const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: false } },
 });
