@@ -24,9 +24,14 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/event"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
 	corev1alpha1 "github.com/openeverest/openeverest/v2/api/core/v1alpha1"
@@ -36,7 +41,7 @@ const (
 	backupStorageFinalizer = "backupstorage.backup.openeverest.io/in-use-protection"
 
 	// instanceBackupStorageRefField is the field path used for indexing Instances
-	// by their backup storage reference names.
+	// by their scheduled backup storage reference names.
 	instanceBackupStorageRefField = ".spec.backup.storages.storageRef.name"
 
 	// backupStorageNameField is the field path used for indexing Backups
@@ -171,6 +176,11 @@ func (r *BackupStorageReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		For(&backupv1alpha1.BackupStorage{}).
 		Named("backup-backupstorage").
 		Owns(&corev1.Secret{}).
+		Watches(&corev1alpha1.Instance{},
+			handler.EnqueueRequestsFromMapFunc(r.enqueueBackupStoragesFromInstance),
+			builder.WithPredicates(instanceBackupChangePredicate())).
+		Watches(&backupv1alpha1.Backup{},
+			handler.EnqueueRequestsFromMapFunc(r.enqueueBackupStorageFromBackup)).
 		Complete(r)
 }
 
@@ -223,4 +233,69 @@ func (r *BackupStorageReconciler) initIndexers(ctx context.Context, mgr ctrl.Man
 	}
 
 	return nil
+}
+
+// enqueueBackupStoragesFromInstance maps an Instance change to reconcile requests
+// for all BackupStorage resources referenced by the Instance's backup config.
+func (r *BackupStorageReconciler) enqueueBackupStoragesFromInstance(ctx context.Context, obj client.Object) []reconcile.Request {
+	instance, ok := obj.(*corev1alpha1.Instance)
+	if !ok {
+		return nil
+	}
+
+	if instance.Spec.Backup == nil || !instance.Spec.Backup.Enabled {
+		return nil
+	}
+
+	var requests []reconcile.Request
+	for _, storage := range instance.Spec.Backup.Storages {
+		if storage.StorageRef.Name != "" {
+			requests = append(requests, reconcile.Request{
+				NamespacedName: types.NamespacedName{
+					Name:      storage.StorageRef.Name,
+					Namespace: instance.Namespace,
+				},
+			})
+		}
+	}
+
+	return requests
+}
+
+// enqueueBackupStorageFromBackup maps a Backup change to a reconcile request
+// for the BackupStorage it references.
+func (r *BackupStorageReconciler) enqueueBackupStorageFromBackup(ctx context.Context, obj client.Object) []reconcile.Request {
+	backup, ok := obj.(*backupv1alpha1.Backup)
+	if !ok {
+		return nil
+	}
+
+	if backup.Spec.StorageName == "" {
+		return nil
+	}
+
+	return []reconcile.Request{
+		{
+			NamespacedName: types.NamespacedName{
+				Name:      backup.Spec.StorageName,
+				Namespace: backup.Namespace,
+			},
+		},
+	}
+}
+
+// instanceBackupChangePredicate filters Instance events to only reconcile
+// BackupStorages when backup configuration is present.
+func instanceBackupChangePredicate() predicate.Funcs {
+	hasBackup := func(obj client.Object) bool {
+		instance, ok := obj.(*corev1alpha1.Instance)
+		return ok && instance.Spec.Backup != nil && instance.Spec.Backup.Enabled
+	}
+
+	return predicate.Funcs{
+		CreateFunc:  func(e event.CreateEvent) bool { return hasBackup(e.Object) },
+		UpdateFunc:  func(e event.UpdateEvent) bool { return hasBackup(e.ObjectOld) || hasBackup(e.ObjectNew) },
+		DeleteFunc:  func(e event.DeleteEvent) bool { return hasBackup(e.Object) },
+		GenericFunc: func(e event.GenericEvent) bool { return hasBackup(e.Object) },
+	}
 }

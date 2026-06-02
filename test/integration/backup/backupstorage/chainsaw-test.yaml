@@ -10,7 +10,55 @@ spec:
     assert: 30s
     delete: 30s
   steps:
-    # Step 0: Create BackupStorage with credentials secret
+    # Step 0: Create Provider and BackupClass for testing
+    - name: create-provider-and-backupclass
+      try:
+        - apply:
+            resource:
+              apiVersion: core.openeverest.io/v1alpha1
+              kind: Provider
+              metadata:
+                name: test-provider
+                labels:
+                  app.kubernetes.io/managed-by: openeverest
+              spec:
+                componentTypes:
+                  engine:
+                    versions:
+                      - default: true
+                        image: fake/fake:1.0.0
+                        version: 1.0.0
+                  backupAgent:
+                    versions:
+                      - default: true
+                        image: fake/fake:1.0.0
+                        version: 1.0.0
+                components:
+                  engine:
+                    type: engine
+                topologies:
+                  replicaSet:
+                    components:
+                      engine:
+                        optional: false
+                uiSchema:
+        - apply:
+            resource:
+              apiVersion: backup.openeverest.io/v1alpha1
+              kind: BackupClass
+              metadata:
+                name: test-backupclass
+              spec:
+                executionMode: ProviderManaged
+                supportedProviders:
+                  - test-provider
+      catch:
+        - podLogs:
+            namespace: openeverest-system
+            selector: control-plane=controller-manager
+            tail: 100
+
+    # Step 1: Create BackupStorage with credentials secret
     - name: create-backupstorage
       try:
         - apply:
@@ -34,7 +82,7 @@ spec:
                 s3:
                   bucket: test-bucket
                   credentialsSecretName: bs-test-secret
-                  endpoint: https://s3.amazonaws.com
+                  endpointURL: https://s3.amazonaws.com
                   region: us-east-1
         # Assert BackupStorage is created with finalizer
         - assert:
@@ -50,7 +98,7 @@ spec:
                 s3:
                   bucket: test-bucket
                   credentialsSecretName: bs-test-secret
-                  endpoint: https://s3.amazonaws.com
+                  endpointURL: https://s3.amazonaws.com
                   region: us-east-1
         # Assert Secret has ownerReference to BackupStorage
         - assert:
@@ -73,54 +121,6 @@ spec:
             content: kubectl get backupstorage/bs-test -o yaml
         - script:
             content: kubectl get secret/bs-test-secret -o yaml
-        - podLogs:
-            namespace: openeverest-system
-            selector: control-plane=controller-manager
-            tail: 100
-
-    # Step 1: Create Provider and BackupClass for testing
-    - name: create-provider-and-backupclass
-      try:
-        - apply:
-            resource:
-              apiVersion: core.openeverest.io/v1alpha1
-              kind: Provider
-              metadata:
-                name: test-provider
-                labels:
-                  app.kubernetes.io/managed-by: openeverest
-              spec:
-                componentTypes:
-                  engine:
-                    versions:
-                      - default: true
-                        image: percona/percona-server-mongodb:7.0.0
-                        version: 7.0.0
-                  backupAgent:
-                    versions:
-                      - default: true
-                        image: percona/percona-backup-mongodb:2.3.0
-                        version: 2.3.0
-                components:
-                  engine:
-                    type: engine
-                topologies:
-                  replicaSet:
-                    components:
-                      engine:
-                        optional: false
-                uiSchema:
-        - apply:
-            resource:
-              apiVersion: backup.openeverest.io/v1alpha1
-              kind: BackupClass
-              metadata:
-                name: test-backupclass
-              spec:
-                executionMode: ProviderManaged
-                supportedProviders:
-                  - test-provider
-      catch:
         - podLogs:
             namespace: openeverest-system
             selector: control-plane=controller-manager
@@ -175,14 +175,8 @@ spec:
     # Step 3: Try to delete BackupStorage (should be blocked by Instance)
     - name: try-delete-backupstorage-blocked-by-instance
       try:
-        - delete:
-            ref:
-              apiVersion: backup.openeverest.io/v1alpha1
-              kind: BackupStorage
-              name: bs-test
-        # Wait a bit for reconciliation
-        - sleep:
-            duration: 3s
+        - script:
+            content: kubectl delete backupstorage bs-test -n $NAMESPACE --wait=false
         # Assert BackupStorage still exists with deletion timestamp and finalizer
         - assert:
             resource:
@@ -268,32 +262,12 @@ spec:
     # Step 6: Delete Instance (BackupStorage should still be blocked by Backup)
     - name: delete-instance
       try:
-        - delete:
-            ref:
-              apiVersion: core.openeverest.io/v1alpha1
-              kind: Instance
-              name: test-instance-bs
-        # Assert Instance is deleted
-        - error:
-            resource:
-              apiVersion: core.openeverest.io/v1alpha1
-              kind: Instance
-              metadata:
-                name: test-instance-bs
-      catch:
         - script:
-            content: kubectl get instance/test-instance-bs -o yaml
-        - podLogs:
-            namespace: openeverest-system
-            selector: control-plane=controller-manager
-            tail: 100
+            content: kubectl delete instance test-instance-bs -n $NAMESPACE --wait=false
 
     # Step 7: BackupStorage should still be in Terminating state (blocked by Backup only now)
     - name: assert-backupstorage-still-blocked-by-backup
       try:
-        # Wait a bit for reconciliation
-        - sleep:
-            duration: 2s
         # Assert BackupStorage still exists with deletion timestamp and finalizer
         - assert:
             resource:
@@ -317,25 +291,8 @@ spec:
     # Step 8: Delete Backup to unblock BackupStorage deletion
     - name: delete-backup
       try:
-        - delete:
-            ref:
-              apiVersion: backup.openeverest.io/v1alpha1
-              kind: Backup
-              name: test-backup-bs
-        # Assert Backup is deleted
-        - error:
-            resource:
-              apiVersion: backup.openeverest.io/v1alpha1
-              kind: Backup
-              metadata:
-                name: test-backup-bs
-      catch:
         - script:
-            content: kubectl get backup/test-backup-bs -o yaml
-        - podLogs:
-            namespace: openeverest-system
-            selector: control-plane=controller-manager
-            tail: 100
+            content: kubectl delete backup test-backup-bs -n $NAMESPACE --wait=false
 
     # Step 9: Assert BackupStorage is now deleted
     - name: assert-backupstorage-deleted
@@ -358,16 +315,10 @@ spec:
     # Step 10: Cleanup - Delete remaining resources
     - name: cleanup
       try:
-        - delete:
-            ref:
-              apiVersion: backup.openeverest.io/v1alpha1
-              kind: BackupClass
-              name: test-backupclass
-        - delete:
-            ref:
-              apiVersion: core.openeverest.io/v1alpha1
-              kind: Provider
-              name: test-provider
+        - script:
+            content: kubectl delete backupclass test-backupclass -n $NAMESPACE
+        - script:
+            content: kubectl delete provider test-provider -n $NAMESPACE
       catch:
         - podLogs:
             namespace: openeverest-system

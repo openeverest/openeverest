@@ -7,5 +7,6 @@ spec:
     apply: 30s
     assert: 30s
     delete: 30s
+    exec: 30s
   cleanup:
     skipDelete: false
