@@ -20,6 +20,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -28,6 +29,19 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
+	corev1alpha1 "github.com/openeverest/openeverest/v2/api/core/v1alpha1"
+)
+
+const (
+	backupStorageFinalizer = "backupstorage.backup.openeverest.io/in-use-protection"
+
+	// instanceBackupStorageRefField is the field path used for indexing Instances
+	// by their backup storage reference names.
+	instanceBackupStorageRefField = ".spec.backup.storages.storageRef.name"
+
+	// backupStorageNameField is the field path used for indexing Backups
+	// by their storage name.
+	backupStorageNameField = ".spec.storageName"
 )
 
 // BackupStorageReconciler reconciles a BackupStorage object
@@ -39,9 +53,12 @@ type BackupStorageReconciler struct {
 // +kubebuilder:rbac:groups=backup.openeverest.io,resources=backupstorages,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=backup.openeverest.io,resources=backupstorages/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=backup.openeverest.io,resources=backupstorages/finalizers,verbs=update
+// +kubebuilder:rbac:groups=backup.openeverest.io,resources=backups,verbs=get;list;watch
 // +kubebuilder:rbac:groups=core,resources=secrets,verbs=get;list;watch;update
+// +kubebuilder:rbac:groups=core.openeverest.io,resources=instances,verbs=get;list;watch
 
-// Reconcile reconciles a BackupStorage by adopting the credentials Secret as
+// Reconcile reconciles a BackupStorage by adding a finalizer to protect against
+// deletion when in use by Instances or Backups, and adopting the credentials Secret as
 // a child resource (setting a controller owner reference on it) so that the
 // Secret is garbage-collected when the BackupStorage is deleted.
 func (r *BackupStorageReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
@@ -52,6 +69,22 @@ func (r *BackupStorageReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
+	// --- Deletion path ---
+	if !bs.GetDeletionTimestamp().IsZero() {
+		err := r.handleFinalizer(ctx, bs)
+
+		return ctrl.Result{}, err
+	}
+
+	// --- Ensure finalizer ---
+	if !controllerutil.ContainsFinalizer(bs, backupStorageFinalizer) {
+		controllerutil.AddFinalizer(bs, backupStorageFinalizer)
+		if err := r.Update(ctx, bs); err != nil {
+			return ctrl.Result{}, fmt.Errorf("failed to add finalizer: %w", err)
+		}
+	}
+
+	// --- Adopt credentials secret ---
 	if bs.Spec.S3 == nil || bs.Spec.S3.CredentialsSecretName == "" {
 		return ctrl.Result{}, nil
 	}
@@ -78,11 +111,116 @@ func (r *BackupStorageReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	return ctrl.Result{}, nil
 }
 
+// handleFinalizer handles the deletion logic for BackupStorage.
+// It checks if any Instances or Backups are using this BackupStorage.
+// If in use, it returns successfully, keeping the BackupStorage in Terminating
+// state. If not in use, it removes the finalizer to allow deletion.
+func (r *BackupStorageReconciler) handleFinalizer(ctx context.Context, bs *backupv1alpha1.BackupStorage) error {
+	logger := logf.FromContext(ctx)
+
+	if !controllerutil.ContainsFinalizer(bs, backupStorageFinalizer) {
+		return nil
+	}
+
+	// Check if any Instance is using this BackupStorage
+	instances := &corev1alpha1.InstanceList{}
+	if err := r.List(ctx, instances, &client.ListOptions{
+		FieldSelector: fields.OneTermEqualSelector(instanceBackupStorageRefField, bs.Name),
+		Namespace:     bs.Namespace,
+	}); err != nil {
+		return fmt.Errorf("failed to list instances: %w", err)
+	}
+
+	if len(instances.Items) > 0 {
+		logger.Info("Cannot delete BackupStorage: still in use by Instances",
+			"backupStorage", bs.Name)
+		return nil
+	}
+
+	// Check if any Backup is using this BackupStorage
+	backups := &backupv1alpha1.BackupList{}
+	if err := r.List(ctx, backups, &client.ListOptions{
+		FieldSelector: fields.OneTermEqualSelector(backupStorageNameField, bs.Name),
+		Namespace:     bs.Namespace,
+	}); err != nil {
+		return fmt.Errorf("failed to list backups: %w", err)
+	}
+
+	if len(backups.Items) > 0 {
+		logger.Info("Cannot delete BackupStorage: still in use by Backups",
+			"backupStorage", bs.Name)
+		return nil
+	}
+
+	// No Instances or Backups are using this BackupStorage, safe to remove finalizer
+	controllerutil.RemoveFinalizer(bs, backupStorageFinalizer)
+	if err := r.Update(ctx, bs); err != nil {
+		return fmt.Errorf("failed to remove finalizer: %w", err)
+	}
+
+	return nil
+}
+
 // SetupWithManager sets up the controller with the Manager.
 func (r *BackupStorageReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	if err := r.initIndexers(context.Background(), mgr); err != nil {
+		return fmt.Errorf("init field indexers: %w", err)
+	}
+
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&backupv1alpha1.BackupStorage{}).
 		Named("backup-backupstorage").
 		Owns(&corev1.Secret{}).
 		Complete(r)
+}
+
+// initIndexers registers the field indexers required by this controller.
+func (r *BackupStorageReconciler) initIndexers(ctx context.Context, mgr ctrl.Manager) error {
+	// Index Instances by backup storage reference name
+	if err := mgr.GetFieldIndexer().IndexField(
+		ctx,
+		&corev1alpha1.Instance{},
+		instanceBackupStorageRefField,
+		func(obj client.Object) []string {
+			instance, ok := obj.(*corev1alpha1.Instance)
+			if !ok {
+				return nil
+			}
+			if instance.Spec.Backup == nil || !instance.Spec.Backup.Enabled {
+				return nil
+			}
+
+			// Return all storage reference names from the instance
+			var storageNames []string
+			for _, storage := range instance.Spec.Backup.Storages {
+				if storage.StorageRef.Name != "" {
+					storageNames = append(storageNames, storage.StorageRef.Name)
+				}
+			}
+			return storageNames
+		},
+	); err != nil {
+		return fmt.Errorf("indexing instance by backup storage ref: %w", err)
+	}
+
+	// Index Backups by storage name
+	if err := mgr.GetFieldIndexer().IndexField(
+		ctx,
+		&backupv1alpha1.Backup{},
+		backupStorageNameField,
+		func(obj client.Object) []string {
+			backup, ok := obj.(*backupv1alpha1.Backup)
+			if !ok {
+				return nil
+			}
+			if backup.Spec.StorageName == "" {
+				return nil
+			}
+			return []string{backup.Spec.StorageName}
+		},
+	); err != nil {
+		return fmt.Errorf("indexing backup by storage name: %w", err)
+	}
+
+	return nil
 }
