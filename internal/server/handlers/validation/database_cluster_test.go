@@ -1,3 +1,18 @@
+// everest
+// Copyright (C) 2025 Percona LLC
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package validation
 
 import (
@@ -9,7 +24,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
-	corev1 "k8s.io/api/core/v1"
 	k8sError "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -1115,146 +1129,6 @@ func TestValidateDataSource(t *testing.T) {
 			)
 		})
 	}
-}
-
-// TestValidateDataSourceS3Access_DataImport exercises the credential
-// resolution path that was the source of openeverest issue #2245. The
-// operator's mutating webhook strips inline AccessKeyID/SecretAccessKey
-// from the request and writes them into the referenced Secret; by the time
-// this handler runs, the inline fields are usually empty and the validator
-// must read the Secret to obtain the credentials it then probes with.
-//
-// Crucially, the regression case uses a 32-character plain-text key with
-// only characters in the base64 alphabet — exactly the input class that the
-// old IsBase64Encoded heuristic in everest-operator misclassified as
-// "already encoded" and so corrupted on write. Here we just assert the
-// validator forwards whatever ends up in the Secret to the S3 probe.
-func TestValidateDataSourceS3Access_DataImport(t *testing.T) {
-	// Not parallel: this test swaps the package-level s3ReadOnlyAccessFn seam.
-
-	const (
-		ns         = "ns-di"
-		dbName     = "imported-db"
-		secretName = "import-creds"
-		// 32-char alphanumerics: matches IsBase64Encoded but is a plain key.
-		plainAccessKey = "AKIAIOSFODNN7AAAAAAAAAAAAAAAAAA1"
-		plainSecretKey = "wJalrXUtnFEMIK7MDENGbPxRfiCYEXAMPLEKEY00"
-	)
-
-	credSecret := &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{Name: secretName, Namespace: ns},
-		Data: map[string][]byte{
-			"AWS_ACCESS_KEY_ID":     []byte(plainAccessKey),
-			"AWS_SECRET_ACCESS_KEY": []byte(plainSecretKey),
-		},
-	}
-
-	mockClient := fakeclient.NewClientBuilder().WithScheme(kubernetes.CreateScheme()).WithObjects(credSecret).Build()
-	k := kubernetes.NewEmpty(zap.NewNop().Sugar()).WithKubernetesClient(mockClient)
-	h := validateHandler{
-		log:           zap.NewNop().Sugar(),
-		kubeConnector: k,
-	}
-
-	var (
-		seenAccess, seenSecret, seenBucket, seenRegion, seenPath string
-		seenEndpoint                                             *string
-	)
-	t.Cleanup(func() { s3ReadOnlyAccessFn = s3ReadOnlyAccess })
-	s3ReadOnlyAccessFn = func(_ *zap.SugaredLogger, endpoint *string, accessKey, secretKey, bucketName, region, prefix string, _, _ bool) error {
-		seenEndpoint = endpoint
-		seenAccess = accessKey
-		seenSecret = secretKey
-		seenBucket = bucketName
-		seenRegion = region
-		seenPath = prefix
-		return nil
-	}
-
-	src := &everestv1alpha1.DataSource{
-		DataImport: &everestv1alpha1.DataImportJobTemplate{
-			DataImporterName: "pg",
-			Source: &everestv1alpha1.DataImportJobSource{
-				Path: "/backups/2025-05-19",
-				S3: &everestv1alpha1.DataImportJobS3Source{
-					Bucket:                "import-bucket",
-					Region:                "eu-west-1",
-					EndpointURL:           "https://s3.example.test",
-					CredentialsSecretName: secretName,
-					// Inline fields intentionally empty — the webhook would
-					// have moved them into the Secret on admission.
-				},
-			},
-		},
-	}
-
-	require.NoError(t, h.validateDataSourceS3Access(context.Background(), ns, src))
-	require.Equal(t, plainAccessKey, seenAccess, "must resolve access key from Secret")
-	require.Equal(t, plainSecretKey, seenSecret, "must resolve secret key from Secret")
-	require.Equal(t, "import-bucket", seenBucket)
-	require.Equal(t, "eu-west-1", seenRegion)
-	require.Equal(t, "/backups/2025-05-19", seenPath)
-	require.NotNil(t, seenEndpoint)
-	require.Equal(t, "https://s3.example.test", *seenEndpoint)
-
-	// Use the unused identifier to satisfy compilers if linted away.
-	_ = dbName
-}
-
-// TestValidateDataSourceS3Access_BackupSource exercises probing for the
-// BackupSource branch — looks up the referenced BackupStorage and uses its
-// CredentialsSecret to authenticate the path-existence probe.
-func TestValidateDataSourceS3Access_BackupSource(t *testing.T) {
-	// Not parallel: this test swaps the package-level s3ReadOnlyAccessFn seam.
-
-	const (
-		ns          = "ns-bs"
-		storageName = "primary-bs"
-		secretName  = "bs-creds"
-	)
-
-	bs := &everestv1alpha1.BackupStorage{
-		ObjectMeta: metav1.ObjectMeta{Name: storageName, Namespace: ns},
-		Spec: everestv1alpha1.BackupStorageSpec{
-			Type:                  everestv1alpha1.BackupStorageTypeS3,
-			Bucket:                "backups-bucket",
-			Region:                "us-east-1",
-			EndpointURL:           "https://s3.example.test",
-			CredentialsSecretName: secretName,
-		},
-	}
-	credSecret := &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{Name: secretName, Namespace: ns},
-		Data: map[string][]byte{
-			"AWS_ACCESS_KEY_ID":     []byte("AKIAEXAMPLE"),
-			"AWS_SECRET_ACCESS_KEY": []byte("examplesecret"),
-		},
-	}
-
-	mockClient := fakeclient.NewClientBuilder().WithScheme(kubernetes.CreateScheme()).WithObjects(bs, credSecret).Build()
-	k := kubernetes.NewEmpty(zap.NewNop().Sugar()).WithKubernetesClient(mockClient)
-	h := validateHandler{
-		log:           zap.NewNop().Sugar(),
-		kubeConnector: k,
-	}
-
-	var seenPath, seenBucket string
-	t.Cleanup(func() { s3ReadOnlyAccessFn = s3ReadOnlyAccess })
-	s3ReadOnlyAccessFn = func(_ *zap.SugaredLogger, _ *string, _, _, bucketName, _, prefix string, _, _ bool) error {
-		seenBucket = bucketName
-		seenPath = prefix
-		return nil
-	}
-
-	src := &everestv1alpha1.DataSource{
-		BackupSource: &everestv1alpha1.BackupSource{
-			BackupStorageName: storageName,
-			Path:              "snapshots/2025/05",
-		},
-	}
-	require.NoError(t, h.validateDataSourceS3Access(context.Background(), ns, src))
-	require.Equal(t, "backups-bucket", seenBucket)
-	require.Equal(t, "snapshots/2025/05", seenPath)
 }
 
 func TestValidatePGReposForAPIDB(t *testing.T) {

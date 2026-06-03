@@ -1,3 +1,18 @@
+// everest
+// Copyright (C) 2025 Percona LLC
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package validation
 
 import (
@@ -507,11 +522,6 @@ func (h *validateHandler) probeBackupSourceAccess(
 	accessKey := string(secret.Data[awsAccessKeyIDField])
 	secretKey := string(secret.Data[awsSecretAccessKeyField])
 
-	var endpoint *string
-	if bs.Spec.EndpointURL != "" {
-		ep := bs.Spec.EndpointURL
-		endpoint = &ep
-	}
 	// VerifyTLS defaults to true, ForcePathStyle defaults to false per CRD
 	// kubebuilder defaults — pointer.Get returns the zero value when nil, so
 	// for VerifyTLS we explicitly default to true to preserve admission-time
@@ -524,9 +534,9 @@ func (h *validateHandler) probeBackupSourceAccess(
 	if bs.Spec.ForcePathStyle != nil {
 		forcePathStyle = *bs.Spec.ForcePathStyle
 	}
-	return s3ReadOnlyAccessFn(
+	return s3ReadOnlyAccess(
 		h.log,
-		endpoint,
+		bs.Spec.EndpointURL,
 		accessKey,
 		secretKey,
 		bs.Spec.Bucket,
@@ -560,11 +570,6 @@ func (h *validateHandler) probeDataImportS3Access(
 		}
 	}
 
-	var endpoint *string
-	if s3src.EndpointURL != "" {
-		ep := s3src.EndpointURL
-		endpoint = &ep
-	}
 	verifyTLS := true
 	if s3src.VerifyTLS != nil {
 		verifyTLS = *s3src.VerifyTLS
@@ -573,9 +578,9 @@ func (h *validateHandler) probeDataImportS3Access(
 	if s3src.ForcePathStyle != nil {
 		forcePathStyle = *s3src.ForcePathStyle
 	}
-	return s3ReadOnlyAccessFn(
+	return s3ReadOnlyAccess(
 		h.log,
-		endpoint,
+		s3src.EndpointURL,
 		accessKey,
 		secretKey,
 		s3src.Bucket,

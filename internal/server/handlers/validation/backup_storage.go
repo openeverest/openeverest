@@ -1,3 +1,18 @@
+// everest
+// Copyright (C) 2025 Percona LLC
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package validation
 
 import (
@@ -157,7 +172,7 @@ func validateBucketName(s string) error {
 func validateStorageAccessByCreate(ctx context.Context, params *api.CreateBackupStorageParams, l *zap.SugaredLogger) error {
 	switch params.Type {
 	case api.CreateBackupStorageParamsTypeS3:
-		return s3Access(l, params.Url, params.AccessKey, params.SecretKey, params.BucketName, params.Region, pointer.Get(params.VerifyTLS), pointer.Get(params.ForcePathStyle))
+		return s3Access(l, pointer.Get(params.Url), params.AccessKey, params.SecretKey, params.BucketName, params.Region, pointer.Get(params.VerifyTLS), pointer.Get(params.ForcePathStyle))
 	case api.CreateBackupStorageParamsTypeAzure:
 		return azureAccess(ctx, l, params.AccessKey, params.SecretKey, params.BucketName)
 	default:
@@ -179,7 +194,7 @@ func validateBackupStorageAccess(
 		if region == "" {
 			return errors.New("region is required when using S3 storage type")
 		}
-		if err := s3Access(l, url, accessKey, secretKey, bucketName, region, verifyTLS, forcePathStyle); err != nil {
+		if err := s3Access(l, pointer.Get(url), accessKey, secretKey, bucketName, region, verifyTLS, forcePathStyle); err != nil {
 			return err
 		}
 	case string(api.BackupStorageTypeAzure):
@@ -193,11 +208,38 @@ func validateBackupStorageAccess(
 	return nil
 }
 
-//nolint:funlen
+// newS3Client builds an *s3.S3 with the given credentials, endpoint, region,
+// and TLS / path-style settings. Shared by s3Access (read-write probe used
+// for BackupStorage create/update) and s3ReadOnlyAccess (non-mutating probe
+// used for DataSource admission validation).
+func newS3Client(
+	endpoint, accessKey, secretKey, region string,
+	verifyTLS, forcePathStyle bool,
+) (*s3.S3, error) {
+	cfg := &aws.Config{
+		Region:           aws.String(region),
+		Credentials:      credentials.NewStaticCredentials(accessKey, secretKey, ""),
+		S3ForcePathStyle: aws.Bool(forcePathStyle),
+		HTTPClient: &http.Client{
+			Timeout: timeoutS3AccessSec * time.Second,
+			Transport: &http.Transport{
+				TLSClientConfig: &tls.Config{InsecureSkipVerify: !verifyTLS}, //nolint:gosec
+			},
+		},
+	}
+	if endpoint != "" {
+		cfg.Endpoint = aws.String(endpoint)
+	}
+	sess, err := session.NewSession(cfg)
+	if err != nil {
+		return nil, err
+	}
+	return s3.New(sess), nil
+}
+
 func s3Access(
 	l *zap.SugaredLogger,
-	endpoint *string,
-	accessKey, secretKey, bucketName, region string,
+	endpoint, accessKey, secretKey, bucketName, region string,
 	verifyTLS bool,
 	forcePathStyle bool,
 ) error {
@@ -205,83 +247,51 @@ func s3Access(
 		return nil
 	}
 
-	if endpoint != nil && *endpoint == "" {
-		endpoint = nil
-	}
-
-	c := http.DefaultClient
-	c.Timeout = timeoutS3AccessSec * time.Second
-	c.Transport = &http.Transport{
-		TLSClientConfig: &tls.Config{InsecureSkipVerify: !verifyTLS}, //nolint:gosec
-	}
-	// Create a new session with the provided credentials
-	sess, err := session.NewSession(&aws.Config{
-		Endpoint:         endpoint,
-		Region:           aws.String(region),
-		Credentials:      credentials.NewStaticCredentials(accessKey, secretKey, ""),
-		HTTPClient:       c,
-		S3ForcePathStyle: aws.Bool(forcePathStyle),
-	})
+	svc, err := newS3Client(endpoint, accessKey, secretKey, region, verifyTLS, forcePathStyle)
 	if err != nil {
 		l.Error(err)
 		return errors.New("could not initialize S3 session")
 	}
 
-	// Create a new S3 client with the session
-	svc := s3.New(sess)
-
-	_, err = svc.HeadBucket(&s3.HeadBucketInput{
-		Bucket: aws.String(bucketName),
-	})
-	if err != nil {
+	if _, err := svc.HeadBucket(&s3.HeadBucketInput{Bucket: aws.String(bucketName)}); err != nil {
 		l.Error(err)
 		return errors.New("unable to connect to s3. Check your credentials")
 	}
 
 	testKey := "everest-write-test"
-	_, err = svc.PutObject(&s3.PutObjectInput{
+	if _, err := svc.PutObject(&s3.PutObjectInput{
 		Bucket: aws.String(bucketName),
 		Body:   bytes.NewReader([]byte{}),
 		Key:    aws.String(testKey),
-	})
-	if err != nil {
+	}); err != nil {
 		l.Error(err)
 		return errors.New("could not write to S3 bucket")
 	}
 
-	_, err = svc.GetObject(&s3.GetObjectInput{
+	if _, err := svc.GetObject(&s3.GetObjectInput{
 		Bucket: aws.String(bucketName),
 		Key:    aws.String(testKey),
-	})
-	if err != nil {
+	}); err != nil {
 		l.Error(err)
 		return errors.New("could not read from S3 bucket")
 	}
 
-	_, err = svc.ListObjectsV2(&s3.ListObjectsV2Input{
+	if _, err := svc.ListObjectsV2(&s3.ListObjectsV2Input{
 		Bucket: aws.String(bucketName),
-	})
-	if err != nil {
+	}); err != nil {
 		return errors.New("could not list objects in S3 bucket")
 	}
 
-	_, err = svc.DeleteObject(&s3.DeleteObjectInput{
+	if _, err := svc.DeleteObject(&s3.DeleteObjectInput{
 		Bucket: aws.String(bucketName),
 		Key:    aws.String(testKey),
-	})
-	if err != nil {
+	}); err != nil {
 		l.Error(err)
 		return errors.New("could not delete an object from S3 bucket")
 	}
 
 	return nil
 }
-
-// s3ReadOnlyAccessFn is the indirection used by callers; tests overwrite this
-// to assert which credentials were resolved without making real S3 calls.
-//
-//nolint:gochecknoglobals
-var s3ReadOnlyAccessFn = s3ReadOnlyAccess
 
 // s3ReadOnlyAccess validates that the given S3 credentials can reach the bucket
 // and that at least one object exists under the given prefix. It performs only
@@ -290,8 +300,7 @@ var s3ReadOnlyAccessFn = s3ReadOnlyAccess
 // validating an import source or a backup-restore source.
 func s3ReadOnlyAccess(
 	l *zap.SugaredLogger,
-	endpoint *string,
-	accessKey, secretKey, bucketName, region, prefix string,
+	endpoint, accessKey, secretKey, bucketName, region, prefix string,
 	verifyTLS bool,
 	forcePathStyle bool,
 ) error {
@@ -299,29 +308,12 @@ func s3ReadOnlyAccess(
 		return nil
 	}
 
-	if endpoint != nil && *endpoint == "" {
-		endpoint = nil
-	}
-
-	c := &http.Client{
-		Timeout: timeoutS3AccessSec * time.Second,
-		Transport: &http.Transport{
-			TLSClientConfig: &tls.Config{InsecureSkipVerify: !verifyTLS}, //nolint:gosec
-		},
-	}
-	sess, err := session.NewSession(&aws.Config{
-		Endpoint:         endpoint,
-		Region:           aws.String(region),
-		Credentials:      credentials.NewStaticCredentials(accessKey, secretKey, ""),
-		HTTPClient:       c,
-		S3ForcePathStyle: aws.Bool(forcePathStyle),
-	})
+	svc, err := newS3Client(endpoint, accessKey, secretKey, region, verifyTLS, forcePathStyle)
 	if err != nil {
 		l.Error(err)
 		return errors.New("could not initialize S3 session")
 	}
 
-	svc := s3.New(sess)
 	if _, err := svc.HeadBucket(&s3.HeadBucketInput{Bucket: aws.String(bucketName)}); err != nil {
 		l.Error(err)
 		return fmt.Errorf("unable to access S3 bucket '%s'. Check credentials, bucket name, region, and endpoint", bucketName)
