@@ -40,7 +40,7 @@ test.describe.parallel('DataSource S3 admission validation', () => {
             bucket: 'irrelevant-bucket',
             region: 'us-east-1',
             endpointURL: 'https://s3.us-east-1.amazonaws.com',
-            credentialsSecretName: th.limitedSuffixedName('missing-sec'),
+            credentialsSecretName: 'ds-val-missing-sec',
           },
         },
       },
@@ -59,7 +59,7 @@ test.describe.parallel('DataSource S3 admission validation', () => {
 
     payload.spec.dataSource = {
       backupSource: {
-        backupStorageName: th.limitedSuffixedName('missing-bs'),
+        backupStorageName: 'ds-val-missing-bs',
         path: 'snapshots/2025/01',
       },
     }
