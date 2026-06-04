@@ -61,6 +61,9 @@ const (
 	// PerconaEverestCRDLabel is the label used to identify Everest CRDs.
 	PerconaEverestCRDLabel = "everest.percona.com/crd"
 
+	// CleanupAfterAnnotation is the annotation used to indicate that a resource should be cleaned up after a certain time.
+	CleanupAfterAnnotation = "everest.percona.com/cleanup-after"
+
 	// EverestOperatorName holds the name for Everest operator.
 	EverestOperatorName = "everest-operator"
 
