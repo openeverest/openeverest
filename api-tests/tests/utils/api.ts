@@ -15,7 +15,11 @@
 // limitations under the License.
 
 import {expect} from '@playwright/test'
-import {EVEREST_CI_NAMESPACE, TIMEOUTS} from '@root/constants';
+import type {APIRequestContext} from '@playwright/test'
+import {EVEREST_CI_NAMESPACE, TIMEOUTS, CLUSTER_NAME} from '@root/constants';
+import {setRequestContext} from '@helpers/playwright-fetcher'
+import * as client from '@root/generated/http-api.client.gen'
+import type {BackupStorage} from '@root/generated/http-api.client.gen'
 
 
 // --------------------- General helpers --------------------------------------------------
@@ -232,15 +236,13 @@ export const deleteDBClusterRaw = async (request, name) => {
 
 // --------------------- Backup Storage helpers -----------------------------------------
 
-const CLUSTER_NAME = 'main'
-
 export const getBackupStoragePayload = (bsName: string) => {
   return {
     metadata: {
       name: bsName,
     },
     spec: {
-      type: 's3',
+      type: 's3' as const,
       s3: {
         bucket: 'bucket-4',
         region: 'us-east-1',
@@ -255,47 +257,51 @@ export const getBackupStoragePayload = (bsName: string) => {
   }
 }
 
-export const generateBackupStorage = async (request, data) => {
+export const generateBackupStorage = async (request: APIRequestContext, data: BackupStorage) => {
   const response = await createBackupStorageRaw(request, data)
   await checkError(response)
   return (await response.json())
 }
 
-export const createBackupStorageRaw = async (request, data) => {
-  return await request.post(`/v1/clusters/${CLUSTER_NAME}/namespaces/${EVEREST_CI_NAMESPACE}/backup-storages`, {data: data})
+export const createBackupStorageRaw = async (request: APIRequestContext, data: BackupStorage) => {
+  setRequestContext(request)
+  return await client.createBackupStorage(CLUSTER_NAME, EVEREST_CI_NAMESPACE, data) as any
 }
 
-export const getBackupStorage = async (request, name) => {
+export const getBackupStorage = async (request: APIRequestContext, name: string) => {
   const response = await getBackupStorageRaw(request, name)
   await checkError(response)
   return (await response.json())
 }
 
-export const getBackupStorageRaw = async (request, name) => {
-  return await request.get(`/v1/clusters/${CLUSTER_NAME}/namespaces/${EVEREST_CI_NAMESPACE}/backup-storages/${name}`)
+export const getBackupStorageRaw = async (request: APIRequestContext, name: string) => {
+  setRequestContext(request)
+  return await client.getBackupStorage(CLUSTER_NAME, EVEREST_CI_NAMESPACE, name) as any
 }
 
-export const listBackupStorages = async (request) => {
+export const listBackupStorages = async (request: APIRequestContext) => {
   const response = await listBackupStoragesRaw(request)
   await checkError(response)
   return (await response.json())
 }
 
-export const listBackupStoragesRaw = async (request) => {
-  return await request.get(`/v1/clusters/${CLUSTER_NAME}/namespaces/${EVEREST_CI_NAMESPACE}/backup-storages`)
+export const listBackupStoragesRaw = async (request: APIRequestContext) => {
+  setRequestContext(request)
+  return await client.listBackupStorages(CLUSTER_NAME, EVEREST_CI_NAMESPACE) as any
 }
 
-export const updateBackupStorage = async (request, name, data) => {
+export const updateBackupStorage = async (request: APIRequestContext, name: string, data: BackupStorage) => {
   const response = await updateBackupStorageRaw(request, name, data)
   await checkError(response)
   return (await response.json())
 }
 
-export const updateBackupStorageRaw = async (request, name, data) => {
-  return await request.put(`/v1/clusters/${CLUSTER_NAME}/namespaces/${EVEREST_CI_NAMESPACE}/backup-storages/${name}`, {data: data})
+export const updateBackupStorageRaw = async (request: APIRequestContext, name: string, data: BackupStorage) => {
+  setRequestContext(request)
+  return await client.updateBackupStorage(CLUSTER_NAME, EVEREST_CI_NAMESPACE, name, data) as any
 }
 
-export const deleteBackupStorage = async (request, name) => {
+export const deleteBackupStorage = async (request: APIRequestContext, name: string) => {
   // Wait for deletion mark.
   await expect(async () => {
     await deleteBackupStorageRaw(request, name)
@@ -307,8 +313,9 @@ export const deleteBackupStorage = async (request, name) => {
   })
 }
 
-export const deleteBackupStorageRaw = async (request, name) => {
-  return await request.delete(`/v1/clusters/${CLUSTER_NAME}/namespaces/${EVEREST_CI_NAMESPACE}/backup-storages/${name}`)
+export const deleteBackupStorageRaw = async (request: APIRequestContext, name: string) => {
+  setRequestContext(request)
+  return await client.deleteBackupStorage(CLUSTER_NAME, EVEREST_CI_NAMESPACE, name) as any
 }
 
 // --------------------- Monitoring Config helpers (V2 - using new endpoints) -----

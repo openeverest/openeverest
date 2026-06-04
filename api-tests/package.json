@@ -10,7 +10,8 @@
     "lint:ts:fix": "eslint --fix .",
     "typecheck": "tsc --noEmit",
     "report": "playwright show-report",
-    "generate-types": "openapi-typescript ../api/openapi/http-api.yaml --output ./generated/types.ts"
+    "generate-types": "openapi-typescript ../api/openapi/http-api.yaml --output ./generated/types.ts",
+    "generate-client": "orval"
   },
   "prettier": "@percona/prettier-config",
   "keywords": [],
@@ -23,7 +24,8 @@
     "@types/shelljs": "^0.10.0",
     "eslint": "^10.3.0",
     "globals": "^17.6.0",
-    "openapi-typescript": "^7.13.0"
+    "openapi-typescript": "^7.13.0",
+    "orval": "^8.10.0"
   },
   "dependencies": {
     "@playwright/test": "^1.59.1",

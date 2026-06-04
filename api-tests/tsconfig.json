@@ -23,6 +23,12 @@
       "@generatedTypes": [
         "generated/types.ts"
       ],
+      "@generatedClient": [
+        "generated/http-api.client.gen.ts"
+      ],
+      "@generatedClient/*": [
+        "generated/*"
+      ],
       "@root/*": [
         "./*"
       ]

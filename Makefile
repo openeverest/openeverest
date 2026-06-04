@@ -56,13 +56,17 @@ gen-crds-openapi: ## Extract OpenAPI schemas from CRD manifests.
 gen-openapi-ts-types: ## Generate TypeScript types from all OpenAPI YAML files in api/openapi/.
 	$(MAKE) -C ui generate-openapi-types
 
+.PHONY: gen-api-tests
+gen-api-tests: ## Generate API tests types from OpenAPI spec.
+	$(MAKE) -C api-tests generate
+
 # `make generate` is used by kubebuilder to create new API.
 # The presence of generate target is purely for kubebuilder succeed without an error.
 .PHONY: generate
 generate: gen
 
 .PHONY: gen
-gen: gen-crds-deepcopy gen-crds-manifests gen-crds-openapi gen-openapi-ts-types ## Generate code.
+gen: gen-crds-deepcopy gen-crds-manifests gen-crds-openapi gen-openapi-ts-types gen-api-tests ## Generate code.
 	go generate ./...
 	python3 hack/add_copyright.py \
 		internal/server/api/everest-server.gen.go \
@@ -71,6 +75,7 @@ gen: gen-crds-deepcopy gen-crds-manifests gen-crds-openapi gen-openapi-ts-types 
 		client/crds.gen.go \
 		internal/server/handlers/mock_handler.go \
 		pkg/rbac/mocks/i_enforcer.go \
+		api-tests/generated/http-api.client.gen.ts \
 		ui/api/crds.gen.types.ts \
 		ui/api/http-api.types.ts \
 		ui/api/index.ts || true
