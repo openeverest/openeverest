@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: everest-monitoring
+  labels:
+    app.kubernetes.io/name: everest-monitoring
+    app.kubernetes.io/part-of: openeverest
