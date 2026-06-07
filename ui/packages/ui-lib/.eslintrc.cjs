@@ -9,7 +9,7 @@ module.exports = {
       {
         patterns: [
           {
-            group: ['../../..', '../../../index', '../../../*'],
+            group: ['../../..', '../../../index'],
             message:
               "Do not import from the ui-lib package root barrel inside src/. Use a direct relative path (e.g. '../../../labeled-content') instead.",
           },
