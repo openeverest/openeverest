@@ -1261,7 +1261,7 @@ k8s_resource(
   labels=["providers"]
 )
 k8s_resource(
-  workload='provider-percona-xtradb-cluster-pxc-operator',
+  workload='provider-percona-xtradb-cluster-operator',
   resource_deps = [
     'crds',
     'provider-percona-xtradb-cluster-deps',
