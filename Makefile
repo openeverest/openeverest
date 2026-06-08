@@ -350,6 +350,7 @@ deploy:  ## Deploy Everest to K8S cluster using Everest CLI.
 	$(MAKE) expose
 
 DEPLOY_ALL_DEPS := build-ui build-debug build-controller-debug docker-build
+DEPLOY_ALL_DEPS += build-cli-debug
 DEPLOY_ALL_DEPS += k3d-upload-server-image k3d-upload-server-image deploy
 .PHONY: deploy-all
 deploy-all: $(DEPLOY_ALL_DEPS) ## Helper to build Everest and its dependencies and deploy to K3D test cluster.
