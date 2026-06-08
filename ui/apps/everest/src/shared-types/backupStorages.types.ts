@@ -39,6 +39,6 @@ export interface BackupStorageFormValues {
 
 export enum StorageType {
   S3 = 's3',
-  AZURE = 'azure',
-  GCS = 'gcs',
+  // AZURE = 'azure',
+  // GCS = 'gcs',
 }

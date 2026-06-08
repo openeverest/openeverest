@@ -19,6 +19,16 @@ import {
 } from 'shared-types/backupStorages.types';
 import { rfc_123_schema } from 'utils/common-validation';
 
+export type BackupStoragesMutationContext = {
+  queryKey: readonly [string, string, string];
+  previousStorages?: BackupStorageCRD[];
+};
+
+export type DeleteBackupStorageArgs = {
+  backupStorageId: string;
+  namespace: string;
+};
+
 export enum StorageLocationsFields {
   name = 'name',
   type = 'type',
@@ -27,7 +37,6 @@ export enum StorageLocationsFields {
   url = 'url',
   accessKey = 'accessKey',
   secretKey = 'secretKey',
-  namespaces = 'allowedNamespaces',
   namespace = 'namespace',
   verifyTLS = 'verifyTLS',
   forcePathStyle = 'forcePathStyle',
