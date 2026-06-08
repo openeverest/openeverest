@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -22,10 +23,7 @@ import { createDbClusterFn, deleteDbClusterFn } from '@e2e/utils/db-cluster';
 import { getTokenFromLocalStorage } from '@e2e/utils/localStorage';
 import { advancedConfigurationStepCheck } from './steps/advanced-configuration-step';
 import { backupsStepCheck } from './steps/backups-step';
-import {
-  basicInformationStepCheck,
-  DEFAULT_CLUSTER_VERSION,
-} from './steps/basic-information-step';
+import { basicInformationStepCheck } from './steps/basic-information-step';
 import { resourcesStepCheck } from './steps/resources-step';
 import {
   goToLastAndSubmit,
@@ -114,6 +112,8 @@ test.describe('DB Cluster creation', () => {
       namespace,
       request
     );
+    const selectedVersion =
+      engineVersions.psmdb[engineVersions.psmdb.length - 1];
 
     await selectDbEngine(page, 'psmdb');
 
@@ -121,7 +121,8 @@ test.describe('DB Cluster creation', () => {
       page,
       engineVersions,
       recommendedEngineVersions,
-      clusterName
+      clusterName,
+      selectedVersion
     );
 
     const dbName = await page.getByTestId('text-input-db-name').inputValue();
@@ -163,9 +164,7 @@ test.describe('DB Cluster creation', () => {
     // Test the mechanism for default number of nodes
     await page.getByTestId('button-edit-preview-basic-information').click();
     // Here we test that version wasn't reset to default
-    await expect(
-      page.getByText(`Version: ${DEFAULT_CLUSTER_VERSION}`)
-    ).toBeVisible();
+    await expect(page.getByText(`Version: ${selectedVersion}`)).toBeVisible();
 
     // Make sure name doesn't change when we go back to first step
     expect(await page.getByTestId('text-input-db-name').inputValue()).toBe(
@@ -315,12 +314,15 @@ test.describe('DB Cluster creation', () => {
       namespace,
       request
     );
+    const selectedVersion =
+      engineVersions.psmdb[engineVersions.psmdb.length - 1];
 
     await basicInformationStepCheck(
       page,
       engineVersions,
       recommendedEngineVersions,
-      clusterName
+      clusterName,
+      selectedVersion
     );
     await moveForward(page);
     await resourcesStepCheck(page);

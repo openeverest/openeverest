@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,6 +17,9 @@
 import { expect, test } from '@playwright/test';
 import { Messages } from '../../../src/modals/restore-db-modal/restore-db-modal.messages';
 import { createDbClusterFn, deleteDbClusterFn } from '@e2e/utils/db-cluster';
+import { getLastAvailableEngineVersion } from '@e2e/utils/database-engines';
+import { getTokenFromLocalStorage } from '@e2e/utils/localStorage';
+import { getNamespacesFn } from '@e2e/utils/namespaces';
 import {
   findDbAndClickActions,
   findDbAndClickRow,
@@ -24,13 +28,25 @@ import { getBucketNamespacesMap } from '@e2e/constants';
 import { goToStep, moveForward } from '@e2e/utils/db-wizard';
 
 const dbClusterName = 'restore-to-new-cluster';
+let token: string;
+let namespace: string;
+let mongoVersion: string;
 
 test.describe('DB Cluster Restore to the new cluster', () => {
   test.beforeAll(async ({ request }) => {
+    token = await getTokenFromLocalStorage();
+    const namespaces = await getNamespacesFn(token, request);
+    namespace = namespaces[0];
+    mongoVersion = await getLastAvailableEngineVersion(
+      token,
+      namespace,
+      request,
+      'mongodb'
+    );
     await createDbClusterFn(request, {
       dbName: dbClusterName,
       dbType: 'mongodb',
-      dbVersion: '8.0.4-1',
+      dbVersion: mongoVersion,
       numberOfNodes: '1',
       numberOfProxies: '3',
       cpu: '1',
@@ -130,7 +146,7 @@ test.describe('DB Cluster Restore to the new cluster', () => {
 
     const comboboxes = page.getByRole('combobox');
     const dbVersionCombobox = comboboxes.nth(1);
-    expect(await dbVersionCombobox.textContent()).toBe('8.0.4-1');
+    expect(await dbVersionCombobox.textContent()).toBe(mongoVersion);
     await page.getByTestId('text-input-db-name').fill('new-db-cluster');
     await moveForward(page);
 
@@ -192,10 +208,16 @@ test.describe('DB Cluster Restore to the new cluster', () => {
 
   test('PG Cluster correct schedules restore', async ({ page, request }) => {
     const dbName = 'pg-cluster-restore';
+    const pgVersion = await getLastAvailableEngineVersion(
+      token,
+      namespace,
+      request,
+      'postgresql'
+    );
     await createDbClusterFn(request, {
       dbName,
       dbType: 'postgresql',
-      dbVersion: '15.13',
+      dbVersion: pgVersion,
       numberOfNodes: '4',
       numberOfProxies: '1',
       storageClass: 'my-storage-class',
@@ -268,7 +290,7 @@ test.describe('DB Cluster Restore to the new cluster', () => {
 
     const comboboxes = page.getByRole('combobox');
     const dbVersionCombobox = comboboxes.nth(1);
-    expect(await dbVersionCombobox.textContent()).toBe('15.13');
+    expect(await dbVersionCombobox.textContent()).toBe(pgVersion);
 
     await moveForward(page);
 
