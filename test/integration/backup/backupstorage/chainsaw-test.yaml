@@ -1,0 +1,321 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: backupstorage
+spec:
+  description: |
+    Test BackupStorage
+  timeouts:
+    apply: 10s
+    assert: 30s
+    delete: 30s
+  steps:
+    # Step 0: Create Provider and BackupClass for testing
+    - name: create-provider-and-backupclass
+      try:
+        - apply:
+            resource:
+              apiVersion: core.openeverest.io/v1alpha1
+              kind: Provider
+              metadata:
+                name: test-provider
+                labels:
+                  app.kubernetes.io/managed-by: openeverest
+              spec:
+                componentTypes:
+                  engine:
+                    versions:
+                      - default: true
+                        image: fake/fake:1.0.0
+                        version: 1.0.0
+                  backupAgent:
+                    versions:
+                      - default: true
+                        image: fake/fake:1.0.0
+                        version: 1.0.0
+                components:
+                  engine:
+                    type: engine
+                topologies:
+                  replicaSet:
+                    components:
+                      engine:
+                        optional: false
+                uiSchema:
+        - apply:
+            resource:
+              apiVersion: backup.openeverest.io/v1alpha1
+              kind: BackupClass
+              metadata:
+                name: test-backupclass
+              spec:
+                executionMode: ProviderManaged
+                supportedProviders:
+                  - test-provider
+      catch:
+        - podLogs:
+            namespace: openeverest-system
+            selector: control-plane=controller-manager
+            tail: 100
+
+    # Step 1: Create BackupStorage with credentials secret
+    - name: create-backupstorage
+      try:
+        - apply:
+            resource:
+              apiVersion: v1
+              kind: Secret
+              metadata:
+                name: bs-test-secret
+              type: Opaque
+              data:
+                AWS_ACCESS_KEY_ID: dGVzdC1hY2Nlc3Mta2V5
+                AWS_SECRET_ACCESS_KEY: dGVzdC1zZWNyZXQta2V5
+        - apply:
+            resource:
+              apiVersion: backup.openeverest.io/v1alpha1
+              kind: BackupStorage
+              metadata:
+                name: bs-test
+              spec:
+                type: s3
+                s3:
+                  bucket: test-bucket
+                  credentialsSecretName: bs-test-secret
+                  endpointURL: https://s3.amazonaws.com
+                  region: us-east-1
+        # Assert BackupStorage is created with finalizer
+        - assert:
+            resource:
+              apiVersion: backup.openeverest.io/v1alpha1
+              kind: BackupStorage
+              metadata:
+                name: bs-test
+                finalizers:
+                  - backupstorage.backup.openeverest.io/in-use-protection
+              spec:
+                type: s3
+                s3:
+                  bucket: test-bucket
+                  credentialsSecretName: bs-test-secret
+                  endpointURL: https://s3.amazonaws.com
+                  region: us-east-1
+        # Assert Secret has ownerReference to BackupStorage
+        - assert:
+            resource:
+              apiVersion: v1
+              kind: Secret
+              metadata:
+                name: bs-test-secret
+                ownerReferences:
+                  - apiVersion: backup.openeverest.io/v1alpha1
+                    blockOwnerDeletion: true
+                    controller: true
+                    kind: BackupStorage
+                    name: bs-test
+              data:
+                AWS_ACCESS_KEY_ID: dGVzdC1hY2Nlc3Mta2V5
+                AWS_SECRET_ACCESS_KEY: dGVzdC1zZWNyZXQta2V5
+      catch:
+        - script:
+            content: kubectl get backupstorage/bs-test -o yaml
+        - script:
+            content: kubectl get secret/bs-test-secret -o yaml
+        - podLogs:
+            namespace: openeverest-system
+            selector: control-plane=controller-manager
+            tail: 100
+
+    # Step 2: Create Instance that uses BackupStorage
+    - name: create-instance-with-backupstorage
+      try:
+        - apply:
+            resource:
+              apiVersion: core.openeverest.io/v1alpha1
+              kind: Instance
+              metadata:
+                name: test-instance-bs
+              spec:
+                provider: test-provider
+                backup:
+                  enabled: true
+                  classRef:
+                    name: test-backupclass
+                  storages:
+                    - name: storage1
+                      storageRef:
+                        name: bs-test
+        # Assert Instance is created
+        - assert:
+            resource:
+              apiVersion: core.openeverest.io/v1alpha1
+              kind: Instance
+              metadata:
+                name: test-instance-bs
+              spec:
+                provider: test-provider
+                backup:
+                  enabled: true
+                  classRef:
+                    name: test-backupclass
+                  storages:
+                    - name: storage1
+                      storageRef:
+                        name: bs-test
+      catch:
+        - script:
+            content: kubectl get instance/test-instance-bs -o yaml
+        - script:
+            content: kubectl get backupstorage/bs-test -o yaml
+        - podLogs:
+            namespace: openeverest-system
+            selector: control-plane=controller-manager
+            tail: 100
+
+    # Step 3: Try to delete BackupStorage (should be blocked by Instance)
+    - name: try-delete-backupstorage-blocked-by-instance
+      try:
+        - script:
+            content: kubectl delete backupstorage bs-test -n $NAMESPACE --wait=false
+        # Assert BackupStorage still exists with deletion timestamp and finalizer
+        - assert:
+            resource:
+              apiVersion: backup.openeverest.io/v1alpha1
+              kind: BackupStorage
+              metadata:
+                name: bs-test
+                finalizers:
+                  - backupstorage.backup.openeverest.io/in-use-protection
+                (deletionTimestamp != null): true
+      catch:
+        - script:
+            content: kubectl get backupstorage/bs-test -o yaml
+        - script:
+            content: kubectl get instance/test-instance-bs -o yaml
+        - podLogs:
+            namespace: openeverest-system
+            selector: control-plane=controller-manager
+            tail: 100
+
+    # Step 4: Create Backup that also references the same BackupStorage
+    - name: create-backup-with-backupstorage
+      try:
+        - apply:
+            resource:
+              apiVersion: backup.openeverest.io/v1alpha1
+              kind: Backup
+              metadata:
+                name: test-backup-bs
+              spec:
+                instanceName: test-instance-bs
+                backupClassName: test-backupclass
+                storageName: bs-test
+        # Assert Backup is created
+        - assert:
+            resource:
+              apiVersion: backup.openeverest.io/v1alpha1
+              kind: Backup
+              metadata:
+                name: test-backup-bs
+              spec:
+                instanceName: test-instance-bs
+                backupClassName: test-backupclass
+                storageName: bs-test
+      catch:
+        - script:
+            content: kubectl get backup/test-backup-bs -o yaml
+        - script:
+            content: kubectl get backupstorage/bs-test -o yaml
+        - podLogs:
+            namespace: openeverest-system
+            selector: control-plane=controller-manager
+            tail: 100
+
+    # Step 5: BackupStorage should still be in Terminating state (blocked by both Instance and Backup)
+    - name: assert-backupstorage-still-terminating
+      try:
+        # Wait a bit for reconciliation
+        - sleep:
+            duration: 2s
+        # Assert BackupStorage still exists with deletion timestamp and finalizer
+        - assert:
+            resource:
+              apiVersion: backup.openeverest.io/v1alpha1
+              kind: BackupStorage
+              metadata:
+                name: bs-test
+                finalizers:
+                  - backupstorage.backup.openeverest.io/in-use-protection
+                (deletionTimestamp != null): true
+      catch:
+        - script:
+            content: kubectl get backupstorage/bs-test -o yaml
+        - script:
+            content: kubectl get instance/test-instance-bs -o yaml
+        - script:
+            content: kubectl get backup/test-backup-bs -o yaml
+        - podLogs:
+            namespace: openeverest-system
+            selector: control-plane=controller-manager
+            tail: 100
+
+    # Step 6: Delete Instance (BackupStorage should still be blocked by Backup)
+    - name: delete-instance
+      try:
+        - script:
+            content: kubectl delete instance test-instance-bs -n $NAMESPACE --wait=false
+
+    # Step 7: BackupStorage should still be in Terminating state (blocked by Backup only now)
+    - name: assert-backupstorage-still-blocked-by-backup
+      try:
+        # Assert BackupStorage still exists with deletion timestamp and finalizer
+        - assert:
+            resource:
+              apiVersion: backup.openeverest.io/v1alpha1
+              kind: BackupStorage
+              metadata:
+                name: bs-test
+                finalizers:
+                  - backupstorage.backup.openeverest.io/in-use-protection
+                (deletionTimestamp != null): true
+      catch:
+        - script:
+            content: kubectl get backupstorage/bs-test -o yaml
+        - script:
+            content: kubectl get backup/test-backup-bs -o yaml
+        - podLogs:
+            namespace: openeverest-system
+            selector: control-plane=controller-manager
+            tail: 100
+
+    # Step 8: Delete Backup to unblock BackupStorage deletion
+    - name: delete-backup
+      try:
+        - script:
+            content: kubectl delete backup test-backup-bs -n $NAMESPACE --wait=false
+
+    # Step 9: Assert BackupStorage is now deleted
+    - name: assert-backupstorage-deleted
+      try:
+        # BackupStorage should be gone now
+        - error:
+            resource:
+              apiVersion: backup.openeverest.io/v1alpha1
+              kind: BackupStorage
+              metadata:
+                name: bs-test
+      catch:
+        - script:
+            content: kubectl get backupstorage/bs-test -o yaml
+        - podLogs:
+            namespace: openeverest-system
+            selector: control-plane=controller-manager
+            tail: 100
+
+    # Step 10: Cleanup - Delete remaining resources
+    - name: cleanup
+      try:
+        - script:
+            content: kubectl delete backupclass test-backupclass -n $NAMESPACE
+        - script:
+            content: kubectl delete provider test-provider -n $NAMESPACE

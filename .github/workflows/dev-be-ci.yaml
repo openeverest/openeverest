@@ -263,9 +263,10 @@ jobs:
       fail-fast: true
       matrix:
         make_target:
+          - test-integration-backup
           - test-integration-monitoring
     continue-on-error: false
-    name: Controller Integration Tests
+    name: Controller Integration Tests (${{ matrix.make_target }})
     runs-on: ubuntu-latest
     steps:
       - name: Check out code
