@@ -84,7 +84,8 @@ export const DataSourceField: React.FC<DataSourceFieldProps> = ({
     return entry?.emptyStateFallback?.component ?? null;
   }, [dataSource.provider]);
 
-  const showFallback = isEmpty && !isLoading && !!FallbackComponent && !!namespace;
+  const showFallback =
+    isEmpty && !isLoading && !!FallbackComponent && !!namespace;
 
   // We always render the children (Select/Controller) and hide them with
   // display:none instead of conditionally unmounting. This keeps the RHF
