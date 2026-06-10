@@ -1251,6 +1251,12 @@ pxc_provider_yaml = helm(
 k8s_yaml(pxc_provider_yaml)
 k8s_resource(
   workload='provider-percona-xtradb-cluster',
+  objects=[
+    'provider-percona-xtradb-cluster:serviceaccount',
+    'provider-percona-xtradb-cluster:clusterrole',
+    'provider-percona-xtradb-cluster:clusterrolebinding',
+    'percona-xtradb-cluster:provider',
+  ],
   resource_deps = [
     'crds',
     'provider-percona-xtradb-cluster-deps',
