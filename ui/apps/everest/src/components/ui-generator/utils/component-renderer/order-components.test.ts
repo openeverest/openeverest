@@ -23,39 +23,40 @@ const makeField = (path: string): Component => ({
   fieldParams: { label: path },
 });
 
-const components = {
+const makeComponents = () => ({
   a: makeField('spec.a'),
   b: makeField('spec.b'),
   c: makeField('spec.c'),
-};
+});
 
 describe('orderComponents', () => {
   it('returns original order when no componentsOrder is given', () => {
-    const result = orderComponents(components);
+    const result = orderComponents(makeComponents());
     expect(result.map(([k]) => k)).toEqual(['a', 'b', 'c']);
   });
 
   it('returns original order when componentsOrder is an empty array', () => {
-    const result = orderComponents(components, []);
+    const result = orderComponents(makeComponents(), []);
     expect(result.map(([k]) => k)).toEqual(['a', 'b', 'c']);
   });
 
   it('reorders components according to componentsOrder', () => {
-    const result = orderComponents(components, ['c', 'a', 'b']);
+    const result = orderComponents(makeComponents(), ['c', 'a', 'b']);
     expect(result.map(([k]) => k)).toEqual(['c', 'a', 'b']);
   });
 
   it('appends unordered components after ordered ones', () => {
-    const result = orderComponents(components, ['c']);
+    const result = orderComponents(makeComponents(), ['c']);
     expect(result.map(([k]) => k)).toEqual(['c', 'a', 'b']);
   });
 
   it('silently skips keys in componentsOrder that do not exist', () => {
-    const result = orderComponents(components, ['z', 'b', 'a']);
+    const result = orderComponents(makeComponents(), ['z', 'b', 'a']);
     expect(result.map(([k]) => k)).toEqual(['b', 'a', 'c']);
   });
 
   it('preserves the component value at each key', () => {
+    const components = makeComponents();
     const result = orderComponents(components, ['b']);
     const bEntry = result.find(([k]) => k === 'b');
     expect(bEntry?.[1]).toBe(components.b);

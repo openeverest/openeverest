@@ -35,20 +35,20 @@ describe('generateFieldId', () => {
     expect(generateFieldId(item, 'resources')).toBe('g-resources');
   });
 
-  it('returns g-{name} fallback for a hidden field (no path resolution)', () => {
-    const item: Component = {
+  it('returns g-{name} fallback for a hidden group (no path resolution)', () => {
+    const item: ComponentGroup = {
       uiType: 'hidden',
-      path: 'spec.hidden',
-      fieldParams: {},
-    } as unknown as Component;
+      components: {},
+    };
     expect(generateFieldId(item, 'hiddenField')).toBe('g-hiddenField');
   });
 
-  it('returns g-{name} when component has no path', () => {
-    const item = {
+  it('returns g-{name} when component path is undefined', () => {
+    const item: Component = {
       uiType: FieldType.Text,
+      path: undefined as unknown as string,
       fieldParams: { label: 'No path' },
-    } as unknown as Component;
+    };
     expect(generateFieldId(item, 'noPath')).toBe('g-noPath');
   });
 });
