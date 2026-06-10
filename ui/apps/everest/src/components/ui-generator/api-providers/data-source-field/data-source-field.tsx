@@ -97,7 +97,11 @@ export const DataSourceField: React.FC<DataSourceFieldProps> = ({
       {showFallback && (
         <FallbackComponent namespace={namespace!} cluster={cluster} />
       )}
-      <div style={showFallback ? { display: 'none' } : undefined}>
+      <div
+        style={{
+          display: showFallback ? 'none' : 'contents',
+        }}
+      >
         {children(patchedItem)}
       </div>
     </>
