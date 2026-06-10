@@ -129,9 +129,11 @@ export const StorageLocations = () => {
     const queryKey = getBackupStoragesQueryKey(clusterName, data.namespace);
     editBackupStorage(data, {
       onSuccess: (updatedLocation) => {
-        updateDataAfterEdit(queryClient, queryKey, StorageLocationsFields.name)(
-          updatedLocation as BackupStorageCRD
-        );
+        updateDataAfterEdit(
+          queryClient,
+          queryKey,
+          StorageLocationsFields.name
+        )(updatedLocation as BackupStorageCRD);
         handleCloseModal();
       },
     });
@@ -141,9 +143,10 @@ export const StorageLocations = () => {
     const queryKey = getBackupStoragesQueryKey(clusterName, data.namespace);
     createBackupStorage(data, {
       onSuccess: (newLocation) => {
-        updateDataAfterCreate(queryClient, queryKey)(
-          newLocation as BackupStorageCRD
-        );
+        updateDataAfterCreate(
+          queryClient,
+          queryKey
+        )(newLocation as BackupStorageCRD);
         handleCloseModal();
       },
     });
@@ -179,10 +182,11 @@ export const StorageLocations = () => {
       },
       {
         onSuccess: () => {
-          updateDataAfterDelete(queryClient, queryKey, StorageLocationsFields.name)(
-            {} as BackupStorageCRD,
-            backupStorageName
-          );
+          updateDataAfterDelete(
+            queryClient,
+            queryKey,
+            StorageLocationsFields.name
+          )({} as BackupStorageCRD, backupStorageName);
           handleCloseDeleteDialog();
         },
       }

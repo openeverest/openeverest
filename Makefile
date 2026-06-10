@@ -350,6 +350,7 @@ deploy:  ## Deploy Everest to K8S cluster using Everest CLI.
 	$(MAKE) expose
 
 DEPLOY_ALL_DEPS := build-ui build-debug docker-build k3d-upload-server-image
+DEPLOY_ALL_DEPS += build-cli-debug
 DEPLOY_ALL_DEPS += docker-build-operator k3d-upload-operator-image
 DEPLOY_ALL_DEPS += k3d-upload-server-image deploy
 .PHONY: deploy-all
@@ -360,32 +361,29 @@ undeploy: build-cli-debug ## Undeploy Everest from K8S cluster using Everest CLI
 	$(info Uninstalling Everest from K8S cluster using everestctl)
 	"$(LOCALBIN)/everestctl" uninstall -y -f -v
 
-.PHONY: add-pg-namespaces
-add-pg-namespaces: ## Add PostgreSQL namespace to Everest using Everest CLI(usage: DB_NAMESPACES=ns-1,ns-2 make add-pg-namespaces).
-	$(info Adding PostgreSQL namespaces=${DB_NAMESPACE} to Everest using everestctl)
-	$(LOCALBIN)/everestctl namespaces add $(DB_NAMESPACES) -v \
-	--operator.mongodb=false \
-	--operator.postgresql=true \
-	--operator.mysql=false \
-	--skip-wizard
-
-.PHONY: add-psmdb-namespaces
-add-psmdb-namespaces: ## Add PSMDB namespace to Everest using Everest CLI(usage: DB_NAMESPACES=ns-1,ns-2 make add-psmdb-namespaces).
-	$(info Adding PSMDB namespaces=${DB_NAMESPACE} to Everest using everestctl)
+.PHONY: add-shared-everest-namespace
+add-shared-everest-namespace: ## Add shared Everest namespace with all operators (usage: DB_NAMESPACES=everest make add-shared-everest-namespace).
+	$(info Adding shared namespaces=${DB_NAMESPACES} to Everest using everestctl)
 	$(LOCALBIN)/everestctl namespaces add $(DB_NAMESPACES) -v \
 	--operator.mongodb=true \
-	--operator.postgresql=false \
-	--operator.mysql=false \
+	--operator.postgresql=true \
+	--operator.mysql=true \
+	--take-ownership \
 	--skip-wizard
 
-.PHONY: add-pxc-namespaces
-add-pxc-namespaces: ## Add PXC namespace to Everest using Everest CLI(usage: DB_NAMESPACES=ns-1,ns-2 make add-pxc-namespaces).
-	$(info Adding PXC namespaces=${DB_NAMESPACE} to Everest using everestctl)
-	$(LOCALBIN)/everestctl namespaces add $(DB_NAMESPACES) -v \
-	--operator.mongodb=false \
-	--operator.postgresql=false \
-	--operator.mysql=true \
-	--skip-wizard
+.PHONY: cleanup-legacy-provider-namespaces
+cleanup-legacy-provider-namespaces: ## LEGACY manual one-time migration cleanup for upgraded environments.
+	# TODO(legacy-cleanup): Drop this target after confirming no upgraded environments need legacy namespace cleanup.
+	$(info Cleaning legacy provider namespaces from Everest management)
+	@{ \
+	if ! $(LOCALBIN)/everestctl namespaces remove psmdb-only,pxc-only,pg-only -v --keep-namespace ; then \
+		echo "Skipping cleanup: provider namespaces are absent, unmanaged, or in use"; \
+	fi; \
+	if ! $(LOCALBIN)/everestctl namespaces remove everest-ui -v --keep-namespace ; then \
+		echo "Skipping cleanup: everest-ui is absent, unmanaged, or in use"; \
+	fi; \
+	kubectl delete namespace everest-ui --ignore-not-found=true >/dev/null 2>&1 || true; \
+	}
 
 .PHONY: expose
 expose:

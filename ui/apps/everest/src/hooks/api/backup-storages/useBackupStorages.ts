@@ -35,10 +35,8 @@ import { useClusterName } from '../useClusterName';
 
 export const BACKUP_STORAGES_QUERY_KEY = 'backupStorages';
 
-export const getBackupStoragesQueryKey = (
-  cluster: string,
-  namespace: string
-) => [BACKUP_STORAGES_QUERY_KEY, cluster, namespace] as const;
+export const getBackupStoragesQueryKey = (cluster: string, namespace: string) =>
+  [BACKUP_STORAGES_QUERY_KEY, cluster, namespace] as const;
 
 export const useBackupStorages = () => {
   const cluster = useClusterName();

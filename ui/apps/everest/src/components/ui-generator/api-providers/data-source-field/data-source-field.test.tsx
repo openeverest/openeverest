@@ -35,7 +35,7 @@ vi.mock('../../ui-generator-context', () => ({
   useUiGeneratorContext: () => ({ namespace: 'ns' }),
 }));
 
-vi.mock('hooks/useClusterName', () => ({
+vi.mock('hooks/api/useClusterName', () => ({
   useClusterName: () => 'main',
 }));
 

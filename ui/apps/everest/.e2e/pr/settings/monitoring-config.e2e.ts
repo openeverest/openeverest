@@ -105,7 +105,7 @@ test.describe.serial('Monitoring Configs', () => {
       // filling out the form
       await page.getByTestId('text-input-name').fill(monitoringConfigName);
       await page.getByTestId('text-input-namespace').click();
-      await page.getByRole('option', { name: namespace }).click();
+      await page.getByRole('option', { name: namespace, exact: true }).click();
       await page.getByTestId('text-input-url').fill(MONITORING_URL!);
       await page.getByTestId('text-input-user').fill(MONITORING_USER!);
       await page.getByTestId('text-input-password').fill(MONITORING_PASSWORD!);
