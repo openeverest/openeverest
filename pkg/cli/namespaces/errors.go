@@ -51,7 +51,7 @@ var (
 
 	// ErrNamespaceAlreadyManagedByEverest appears when the namespace is already owned by Everest.
 	NewErrNamespaceAlreadyManagedByEverest = func(namespace string) error {
-		return fmt.Errorf("'%s': %s", namespace, ErrNamespaceAlreadyManagedByEverest)
+		return fmt.Errorf("'%s': %w", namespace, ErrNamespaceAlreadyManagedByEverest)
 	}
 
 	// ErrNamespaceListEmpty appears when the provided list of the namespaces is considered empty.
