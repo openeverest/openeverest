@@ -288,7 +288,9 @@ test.describe.serial('Monitoring Configs', () => {
 
       const selectInput = page.getByRole('combobox').first();
       await expect(selectInput).toBeVisible({ timeout: TIMEOUTS.TenSeconds });
-      await expect(selectInput).toContainText(fallbackConfigName);
+      await expect(selectInput).toContainText(fallbackConfigName, {
+        timeout: TIMEOUTS.TenSeconds,
+      });
     });
   });
 });

@@ -84,9 +84,22 @@ export const DataSourceField: React.FC<DataSourceFieldProps> = ({
     return entry?.emptyStateFallback?.component ?? null;
   }, [dataSource.provider]);
 
-  if (isEmpty && !isLoading && FallbackComponent && namespace) {
-    return <FallbackComponent namespace={namespace} cluster={cluster} />;
-  }
+  const showFallback = isEmpty && !isLoading && !!FallbackComponent && !!namespace;
 
-  return <>{children(patchedItem)}</>;
+  // We always render the children (Select/Controller) and hide them with
+  // display:none instead of conditionally unmounting. This keeps the RHF
+  // Controller mounted so the field stays registered in the form. Without this,
+  // when options arrive after inline creation via the FallbackComponent, the
+  // Controller would remount and setValue() would fire before the field is
+  // re-registered — making it a no-op and leaving the Select empty.
+  return (
+    <>
+      {showFallback && (
+        <FallbackComponent namespace={namespace!} cluster={cluster} />
+      )}
+      <div style={showFallback ? { display: 'none' } : undefined}>
+        {children(patchedItem)}
+      </div>
+    </>
+  );
 };
