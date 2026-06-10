@@ -301,12 +301,12 @@ test-crosscover: setup-envtest ## Run unit tests and collect cross-package cover
 	KUBEBUILDER_ASSETS="$$("$(ENVTEST)" use $(ENVTEST_K8S_VERSION) --bin-dir "$(LOCALBIN)" -p path)" \
 	CGO_ENABLED=1 go test -race -timeout=20m -count=1 -coverprofile=crosscover.out -covermode=atomic -p=1 -coverpkg=./... ./...
 
+.PHONY: test-integration-backup
+test-integration-backup: docker-build-controller k3d-upload-controller-image deploy-test-controller
+	chainsaw test --config test/integration/.backup.yaml test/integration/backup
+
 .PHONY: test-integration-monitoring
-test-integration-monitoring: docker-build-controller k3d-upload-controller-image
-	kubectl get namespace everest-monitoring || kubectl create namespace everest-monitoring
-	$(MAKE) deploy-test-controller
-	kubectl delete pod -n openeverest-system -l control-plane=controller-manager
-	$(MAKE) wait-test-controller
+test-integration-monitoring: docker-build-controller k3d-upload-controller-image deploy-test-controller
 	chainsaw test --config test/integration/.monitoring.yaml test/integration/monitoring
 
 ##@ Deployment management
@@ -349,10 +349,9 @@ deploy:  ## Deploy Everest to K8S cluster using Everest CLI.
 	--helm.set olm.catalogSourceImage=$(IMAGE_PREFIX)/$(EVEREST_CATALOG_DEV_IMAGE_NAME)
 	$(MAKE) expose
 
-DEPLOY_ALL_DEPS := build-ui build-debug docker-build k3d-upload-server-image
+DEPLOY_ALL_DEPS := build-ui build-debug build-controller-debug docker-build
 DEPLOY_ALL_DEPS += build-cli-debug
-DEPLOY_ALL_DEPS += docker-build-operator k3d-upload-operator-image
-DEPLOY_ALL_DEPS += k3d-upload-server-image deploy
+DEPLOY_ALL_DEPS += k3d-upload-server-image k3d-upload-server-image deploy
 .PHONY: deploy-all
 deploy-all: $(DEPLOY_ALL_DEPS) ## Helper to build Everest and its dependencies and deploy to K3D test cluster.
 
@@ -519,6 +518,8 @@ deploy-test-controller: gen-crds-manifests kustomize deploy-cert-manager
 	kubectl wait --for condition=established --timeout=10s crd vmagents.operator.victoriametrics.com
 	cd config/test && "$(KUSTOMIZE)" edit set image controller=${EVEREST_CONTROLLER_IMG}
 	$(KUSTOMIZE) build config/test | kubectl apply -f -
+	kubectl delete pod -n openeverest-system -l control-plane=controller-manager
+	$(MAKE) wait-test-controller
 
 .PHONY: wait-test-controller
 wait-test-controller: # Wait for the test controller deployment to be available.
