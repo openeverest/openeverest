@@ -1,3 +1,17 @@
+// Copyright (C) 2026 The OpenEverest Contributors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 import {
   CI_USER_STORAGE_STATE_FILE,
   SESSION_USER_STORAGE_STATE_FILE,
@@ -54,13 +68,11 @@ const login = async (
     // Modal not visible, skip
   }
 
-  const origins = (await page.context().storageState()).origins;
-  expect(origins.length).toBeGreaterThan(0);
+  // The session is persisted through the HttpOnly refresh token cookie;
+  // the access token itself is kept in memory only.
+  const cookies = (await page.context().storageState()).cookies;
   expect(
-    origins.find(
-      (origin) =>
-        !!origin.localStorage.find((storage) => storage.name === 'everestToken')
-    )
+    cookies.find((cookie) => cookie.name === 'everest_refresh_token')
   ).not.toBeUndefined();
   await page.context().storageState({ path: storageFile });
 };

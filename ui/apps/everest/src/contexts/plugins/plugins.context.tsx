@@ -25,6 +25,7 @@ import type {
   PluginRegisterFn,
 } from '@openeverest/plugin-sdk';
 import AuthContext from 'contexts/auth/auth.context';
+import { getAuthToken } from 'api/session-token';
 
 export interface PluginRegistration {
   name: string;
@@ -91,7 +92,7 @@ function createPluginApi(
 }
 
 function getAuthHeaders(): Record<string, string> {
-  const token = localStorage.getItem('everestToken');
+  const token = getAuthToken();
   if (token) {
     return { Authorization: `Bearer ${token}` };
   }

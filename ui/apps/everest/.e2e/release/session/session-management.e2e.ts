@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,7 +16,6 @@
 
 import { test, expect } from '@playwright/test';
 import { loginSessionUser, logoutSessionUser } from '@e2e/utils/user';
-import { getSessionTokenFromLocalStorage } from '@e2e/utils/localStorage';
 import { execSync } from 'child_process';
 import { getCliPath } from '@e2e/utils/session-cli';
 import { SESSION_USER_STORAGE_STATE_FILE, TIMEOUTS } from '@e2e/constants';
@@ -51,8 +51,13 @@ test.describe.serial('Session', () => {
 
   test.beforeEach(async ({ page }) => {
     await test.step('Login as session user', async () => {
+      // The access token is kept in memory by the UI (not in localStorage),
+      // so it is captured from the token endpoint response during login.
+      const tokenResponse = page.waitForResponse(
+        (resp) => resp.url().includes('/v1/auth/token') && resp.ok()
+      );
       await loginSessionUser(page);
-      token = await getSessionTokenFromLocalStorage();
+      token = (await (await tokenResponse).json()).access_token;
       expect(token).toBeTruthy();
     });
   });
@@ -60,6 +65,7 @@ test.describe.serial('Session', () => {
   test.afterEach(async ({ page }) => {
     await page.evaluate(() => localStorage.clear());
     await page.evaluate(() => sessionStorage.clear());
+    await page.context().clearCookies();
     await page
       .context()
       .storageState({ path: SESSION_USER_STORAGE_STATE_FILE });
