@@ -370,20 +370,6 @@ add-shared-everest-namespace: ## Add shared Everest namespace with all operators
 	--take-ownership \
 	--skip-wizard
 
-.PHONY: cleanup-legacy-provider-namespaces
-cleanup-legacy-provider-namespaces: ## LEGACY manual one-time migration cleanup for upgraded environments.
-	# TODO(legacy-cleanup): Drop this target after confirming no upgraded environments need legacy namespace cleanup.
-	$(info Cleaning legacy provider namespaces from Everest management)
-	@{ \
-	if ! $(LOCALBIN)/everestctl namespaces remove psmdb-only,pxc-only,pg-only -v --keep-namespace ; then \
-		echo "Skipping cleanup: provider namespaces are absent, unmanaged, or in use"; \
-	fi; \
-	if ! $(LOCALBIN)/everestctl namespaces remove everest-ui -v --keep-namespace ; then \
-		echo "Skipping cleanup: everest-ui is absent, unmanaged, or in use"; \
-	fi; \
-	kubectl delete namespace everest-ui --ignore-not-found=true >/dev/null 2>&1 || true; \
-	}
-
 .PHONY: expose
 expose:
 	kubectl patch svc -n everest-system everest --type=merge \
