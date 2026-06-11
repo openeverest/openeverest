@@ -53,8 +53,7 @@ export const MonitoringEndpoints = () => {
 
   const monitoringConfigsLoading =
     isNamespacesLoading ||
-    (monitoringConfigs.length > 0 &&
-      !monitoringConfigs.some((result) => result.queryResult.isSuccess));
+    monitoringConfigs.some((result) => result.queryResult.isLoading);
 
   const { mutate: createMonitoringConfig, isPending: creatingConfig } =
     useCreateMonitoringConfig();

@@ -47,9 +47,9 @@ import { useClusterName } from 'hooks/api/useClusterName';
 import TableActionsMenu from '../../../components/table-actions-menu';
 import { StorageLocationsActionButtons } from './storage-locations-menu-actions';
 import {
-  updateDataAfterCreate,
-  updateDataAfterDelete,
-  updateDataAfterEdit,
+  optimisticCreateBy,
+  optimisticDeleteBy,
+  optimisticEditBy,
 } from 'utils/generalOptimisticDataUpdate';
 
 export const StorageLocations = () => {
@@ -129,11 +129,15 @@ export const StorageLocations = () => {
     const queryKey = getBackupStoragesQueryKey(clusterName, data.namespace);
     editBackupStorage(data, {
       onSuccess: (updatedLocation) => {
-        updateDataAfterEdit(
+        const updatedStorage = updatedLocation as BackupStorageCRD;
+        optimisticEditBy<BackupStorageCRD>(
           queryClient,
           queryKey,
-          StorageLocationsFields.name
-        )(updatedLocation as BackupStorageCRD);
+          updatedStorage,
+          (item) =>
+            item.metadata?.name === updatedStorage.metadata?.name &&
+            item.metadata?.namespace === updatedStorage.metadata?.namespace
+        );
         handleCloseModal();
       },
     });
@@ -143,10 +147,15 @@ export const StorageLocations = () => {
     const queryKey = getBackupStoragesQueryKey(clusterName, data.namespace);
     createBackupStorage(data, {
       onSuccess: (newLocation) => {
-        updateDataAfterCreate(
+        const createdStorage = newLocation as BackupStorageCRD;
+        optimisticCreateBy<BackupStorageCRD>(
           queryClient,
-          queryKey
-        )(newLocation as BackupStorageCRD);
+          queryKey,
+          createdStorage,
+          (item) =>
+            item.metadata?.name === createdStorage.metadata?.name &&
+            item.metadata?.namespace === createdStorage.metadata?.namespace
+        );
         handleCloseModal();
       },
     });
@@ -182,11 +191,13 @@ export const StorageLocations = () => {
       },
       {
         onSuccess: () => {
-          updateDataAfterDelete(
+          optimisticDeleteBy<BackupStorageCRD>(
             queryClient,
             queryKey,
-            StorageLocationsFields.name
-          )({} as BackupStorageCRD, backupStorageName);
+            (item) =>
+              item.metadata?.name === backupStorageName &&
+              item.metadata?.namespace === namespace
+          );
           handleCloseDeleteDialog();
         },
       }

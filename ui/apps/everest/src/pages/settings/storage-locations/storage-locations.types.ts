@@ -86,6 +86,11 @@ export const storageLocationsSchema = z.object({
   [StorageLocationsFields.forcePathStyle]: z.boolean(),
 });
 
+export const storageLocationsEditSchema = storageLocationsSchema.extend({
+  [StorageLocationsFields.accessKey]: z.string(),
+  [StorageLocationsFields.secretKey]: z.string(),
+});
+
 export type BackupStorageType = z.infer<typeof storageLocationsSchema>;
 
 export interface BackupStorageTableElement {

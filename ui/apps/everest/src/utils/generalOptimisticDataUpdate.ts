@@ -68,39 +68,3 @@ export const optimisticDeleteBy = <T>(
     oldData.filter((item) => !shouldDelete(item))
   );
 };
-
-export const updateDataAfterEdit =
-  (
-    queryClient: QueryClient,
-    queryKey: readonly unknown[],
-    identifier: string | undefined = 'id'
-  ) =>
-  <T extends object>(updatedObject: T) => {
-    queryClient.setQueryData(queryKey, (oldData?: T[]) => {
-      return (oldData || []).map((value) =>
-        // @ts-ignore
-        value[identifier] === updatedObject[identifier] ? updatedObject : value
-      );
-    });
-  };
-
-export const updateDataAfterCreate =
-  (queryClient: QueryClient, queryKey: readonly unknown[]) =>
-  <T extends object>(createdObject: T) => {
-    queryClient.setQueryData(queryKey, (oldData?: T[]) => {
-      return [createdObject, ...(oldData || [])];
-    });
-  };
-
-export const updateDataAfterDelete =
-  (
-    queryClient: QueryClient,
-    queryKey: readonly unknown[],
-    identifier: string | undefined = 'id'
-  ) =>
-  <T extends object>(_: T, objectId: string) => {
-    queryClient.setQueryData(queryKey, (oldData?: T[]) => {
-      // @ts-ignore
-      return (oldData || []).filter((value) => value[identifier] !== objectId);
-    });
-  };
