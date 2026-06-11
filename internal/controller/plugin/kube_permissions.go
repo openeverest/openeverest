@@ -18,7 +18,7 @@ import (
 	"fmt"
 	"strings"
 
-	pluginv1alpha1 "github.com/openeverest/openeverest/v2/api/plugin/v1alpha1"
+	pluginv1alpha1 "github.com/openeverest/openeverest/v2/api/core/v1alpha1"
 )
 
 // Denied API groups — plugins must not touch these.

@@ -19,7 +19,7 @@ import (
 
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 
-	pluginv1alpha1 "github.com/openeverest/openeverest/v2/api/plugin/v1alpha1"
+	pluginv1alpha1 "github.com/openeverest/openeverest/v2/api/core/v1alpha1"
 )
 
 // ListPlugins returns list of plugins that match the criteria.

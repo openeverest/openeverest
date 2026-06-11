@@ -21,8 +21,9 @@ import (
 
 	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
 	"github.com/openeverest/openeverest/v2/api/core/v1alpha1"
+	corev1alpha1 "github.com/openeverest/openeverest/v2/api/core/v1alpha1"
+	pluginv1alpha1 "github.com/openeverest/openeverest/v2/api/core/v1alpha1"
 	monitoringv1alpha1 "github.com/openeverest/openeverest/v2/api/monitoring/v1alpha1"
-	pluginv1alpha1 "github.com/openeverest/openeverest/v2/api/plugin/v1alpha1"
 	"github.com/openeverest/openeverest/v2/pkg/accounts"
 	"github.com/openeverest/openeverest/v2/pkg/common"
 )
@@ -267,14 +268,16 @@ type KubernetesConnector interface {
 	CreatePlugin(ctx context.Context, plugin *pluginv1alpha1.Plugin) (*pluginv1alpha1.Plugin, error)
 	// DeletePlugin deletes a plugin.
 	DeletePlugin(ctx context.Context, obj *pluginv1alpha1.Plugin) error
-	// ListPluginInstallations returns plugin installations that match the criteria.
-	ListPluginInstallations(ctx context.Context, opts ...ctrlclient.ListOption) (*pluginv1alpha1.PluginInstallationList, error)
-	// GetPluginInstallation returns a plugin installation that matches the criteria.
-	GetPluginInstallation(ctx context.Context, key ctrlclient.ObjectKey) (*pluginv1alpha1.PluginInstallation, error)
-	// CreatePluginInstallation creates a new plugin installation.
-	CreatePluginInstallation(ctx context.Context, pi *pluginv1alpha1.PluginInstallation) (*pluginv1alpha1.PluginInstallation, error)
-	// DeletePluginInstallation deletes a plugin installation.
-	DeletePluginInstallation(ctx context.Context, obj *pluginv1alpha1.PluginInstallation) error
+	// ListInstalledExtensions returns InstalledExtension records that match the criteria.
+	ListInstalledExtensions(ctx context.Context, opts ...ctrlclient.ListOption) (*corev1alpha1.InstalledExtensionList, error)
+	// GetInstalledExtension returns the InstalledExtension that matches the criteria.
+	GetInstalledExtension(ctx context.Context, key ctrlclient.ObjectKey) (*corev1alpha1.InstalledExtension, error)
+	// CreateInstalledExtension creates a new InstalledExtension.
+	CreateInstalledExtension(ctx context.Context, ie *corev1alpha1.InstalledExtension) (*corev1alpha1.InstalledExtension, error)
+	// UpdateInstalledExtension updates an existing InstalledExtension.
+	UpdateInstalledExtension(ctx context.Context, ie *corev1alpha1.InstalledExtension) (*corev1alpha1.InstalledExtension, error)
+	// DeleteInstalledExtension deletes an InstalledExtension.
+	DeleteInstalledExtension(ctx context.Context, obj *corev1alpha1.InstalledExtension) error
 	// ListPodSchedulingPolicies returns a list of pod scheduling policy that matches the criteria.
 	// This method returns a list of full objects (meta and spec).
 	ListPodSchedulingPolicies(ctx context.Context, opts ...ctrlclient.ListOption) (*everestv1alpha1.PodSchedulingPolicyList, error)

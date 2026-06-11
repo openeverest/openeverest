@@ -19,36 +19,44 @@ import (
 
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 
-	pluginv1alpha1 "github.com/openeverest/openeverest/v2/api/plugin/v1alpha1"
+	corev1alpha1 "github.com/openeverest/openeverest/v2/api/core/v1alpha1"
 )
 
-// ListPluginInstallations returns plugin installations that match the criteria.
-func (k *Kubernetes) ListPluginInstallations(ctx context.Context, opts ...ctrlclient.ListOption) (*pluginv1alpha1.PluginInstallationList, error) {
-	result := &pluginv1alpha1.PluginInstallationList{}
+// ListInstalledExtensions returns InstalledExtension records that match the criteria.
+func (k *Kubernetes) ListInstalledExtensions(ctx context.Context, opts ...ctrlclient.ListOption) (*corev1alpha1.InstalledExtensionList, error) {
+	result := &corev1alpha1.InstalledExtensionList{}
 	if err := k.k8sClient.List(ctx, result, opts...); err != nil {
 		return nil, err
 	}
 	return result, nil
 }
 
-// GetPluginInstallation returns a plugin installation that matches the criteria.
-func (k *Kubernetes) GetPluginInstallation(ctx context.Context, key ctrlclient.ObjectKey) (*pluginv1alpha1.PluginInstallation, error) {
-	result := &pluginv1alpha1.PluginInstallation{}
+// GetInstalledExtension returns the InstalledExtension that matches the criteria.
+func (k *Kubernetes) GetInstalledExtension(ctx context.Context, key ctrlclient.ObjectKey) (*corev1alpha1.InstalledExtension, error) {
+	result := &corev1alpha1.InstalledExtension{}
 	if err := k.k8sClient.Get(ctx, key, result); err != nil {
 		return nil, err
 	}
 	return result, nil
 }
 
-// CreatePluginInstallation creates a new plugin installation.
-func (k *Kubernetes) CreatePluginInstallation(ctx context.Context, pi *pluginv1alpha1.PluginInstallation) (*pluginv1alpha1.PluginInstallation, error) {
-	if err := k.k8sClient.Create(ctx, pi); err != nil {
+// CreateInstalledExtension creates a new InstalledExtension.
+func (k *Kubernetes) CreateInstalledExtension(ctx context.Context, ie *corev1alpha1.InstalledExtension) (*corev1alpha1.InstalledExtension, error) {
+	if err := k.k8sClient.Create(ctx, ie); err != nil {
 		return nil, err
 	}
-	return pi, nil
+	return ie, nil
 }
 
-// DeletePluginInstallation deletes a plugin installation.
-func (k *Kubernetes) DeletePluginInstallation(ctx context.Context, obj *pluginv1alpha1.PluginInstallation) error {
+// UpdateInstalledExtension updates an existing InstalledExtension.
+func (k *Kubernetes) UpdateInstalledExtension(ctx context.Context, ie *corev1alpha1.InstalledExtension) (*corev1alpha1.InstalledExtension, error) {
+	if err := k.k8sClient.Update(ctx, ie); err != nil {
+		return nil, err
+	}
+	return ie, nil
+}
+
+// DeleteInstalledExtension deletes an InstalledExtension.
+func (k *Kubernetes) DeleteInstalledExtension(ctx context.Context, obj *corev1alpha1.InstalledExtension) error {
 	return k.k8sClient.Delete(ctx, obj)
 }

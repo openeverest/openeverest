@@ -17,7 +17,7 @@ package plugin
 import (
 	"testing"
 
-	pluginv1alpha1 "github.com/openeverest/openeverest/v2/api/plugin/v1alpha1"
+	pluginv1alpha1 "github.com/openeverest/openeverest/v2/api/core/v1alpha1"
 )
 
 func TestValidateKubePermissions_Valid(t *testing.T) {

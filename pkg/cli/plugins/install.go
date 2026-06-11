@@ -23,15 +23,16 @@ import (
 	"strings"
 
 	"go.uber.org/zap"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/yaml"
 
-	"github.com/openeverest/openeverest/v2/api/plugin/v1alpha1"
+	corev1alpha1 "github.com/openeverest/openeverest/v2/api/core/v1alpha1"
 	cliutils "github.com/openeverest/openeverest/v2/pkg/cli/utils"
 	"github.com/openeverest/openeverest/v2/pkg/kubernetes"
 )
 
-// InstallConfig holds configuration for the plugin install operation.
+// InstallConfig holds configuration for the extension install operation.
 type InstallConfig struct {
 	KubeconfigPath string
 	Pretty         bool
@@ -43,9 +44,14 @@ type InstallConfig struct {
 	BackendURL  string
 	BundlePath  string
 	Enabled     bool
+	// AllowClusterScope opts into cluster-wide RBAC. When true, the
+	// resulting InstalledExtension is created with spec.plugin.scope=Cluster
+	// and spec.plugin.allowClusterScope=true.
+	AllowClusterScope bool
 }
 
-// PluginInstaller installs a plugin by creating a Plugin CR.
+// PluginInstaller installs an extension by creating a Plugin CR (when needed)
+// and an InstalledExtension CR.
 type PluginInstaller struct {
 	cfg        InstallConfig
 	kubeClient kubernetes.KubernetesConnector
@@ -70,9 +76,9 @@ func NewPluginInstaller(cfg InstallConfig, l *zap.SugaredLogger) (*PluginInstall
 	return pi, nil
 }
 
-// Run creates the Plugin CR.
+// Run creates the Plugin CR and the matching InstalledExtension.
 func (pi *PluginInstaller) Run(ctx context.Context) error {
-	var plugin *v1alpha1.Plugin
+	var plugin *corev1alpha1.Plugin
 
 	if pi.cfg.File != "" {
 		p, err := readPluginManifest(pi.cfg.File)
@@ -91,14 +97,14 @@ func (pi *PluginInstaller) Run(ctx context.Context) error {
 			bundlePath = "/main.js"
 		}
 
-		plugin = &v1alpha1.Plugin{
+		plugin = &corev1alpha1.Plugin{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: pi.cfg.Name,
 			},
-			Spec: v1alpha1.PluginSpec{
+			Spec: corev1alpha1.PluginSpec{
 				DisplayName: displayName,
-				Backend:     &v1alpha1.PluginBackend{ExternalURL: pi.cfg.BackendURL},
-				Frontend:    &v1alpha1.PluginFrontend{BundlePath: bundlePath},
+				Backend:     &corev1alpha1.PluginBackend{ExternalURL: pi.cfg.BackendURL},
+				Frontend:    &corev1alpha1.PluginFrontend{BundlePath: bundlePath},
 				Enabled:     pi.cfg.Enabled,
 			},
 		}
@@ -112,15 +118,38 @@ func (pi *PluginInstaller) Run(ctx context.Context) error {
 	}
 
 	if _, err := pi.kubeClient.CreatePlugin(ctx, plugin); err != nil {
-		return fmt.Errorf("cannot install plugin %q: %w", plugin.Name, err)
+		if !apierrors.IsAlreadyExists(err) {
+			return fmt.Errorf("cannot install plugin %q: %w", plugin.Name, err)
+		}
 	}
 
-	fmt.Printf("Plugin %q installed successfully.\n", plugin.Name)
+	scope := corev1alpha1.PluginInstallScopeNamespaces
+	if pi.cfg.AllowClusterScope {
+		scope = corev1alpha1.PluginInstallScopeCluster
+	}
+	ie := &corev1alpha1.InstalledExtension{
+		ObjectMeta: metav1.ObjectMeta{Name: plugin.Name},
+		Spec: corev1alpha1.InstalledExtensionSpec{
+			Type: corev1alpha1.InstalledExtensionTypePlugin,
+			Plugin: &corev1alpha1.PluginInstall{
+				PluginCRName:      plugin.Name,
+				Scope:             scope,
+				AllowClusterScope: pi.cfg.AllowClusterScope,
+			},
+		},
+	}
+	if _, err := pi.kubeClient.CreateInstalledExtension(ctx, ie); err != nil {
+		if !apierrors.IsAlreadyExists(err) {
+			return fmt.Errorf("cannot create InstalledExtension %q: %w", plugin.Name, err)
+		}
+	}
+
+	fmt.Printf("Extension %q installed.\n", plugin.Name)
 	return nil
 }
 
 // readPluginManifest reads a Plugin CR from a local file path or URL.
-func readPluginManifest(source string) (*v1alpha1.Plugin, error) {
+func readPluginManifest(source string) (*corev1alpha1.Plugin, error) {
 	var data []byte
 	var err error
 
@@ -141,7 +170,7 @@ func readPluginManifest(source string) (*v1alpha1.Plugin, error) {
 		return nil, err
 	}
 
-	plugin := &v1alpha1.Plugin{}
+	plugin := &corev1alpha1.Plugin{}
 	if err := yaml.UnmarshalStrict(data, plugin); err != nil {
 		return nil, fmt.Errorf("invalid plugin manifest: %w", err)
 	}

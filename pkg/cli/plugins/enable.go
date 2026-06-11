@@ -19,14 +19,14 @@ import (
 	"fmt"
 
 	"go.uber.org/zap"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/openeverest/openeverest/v2/api/plugin/v1alpha1"
+	corev1alpha1 "github.com/openeverest/openeverest/v2/api/core/v1alpha1"
 	cliutils "github.com/openeverest/openeverest/v2/pkg/cli/utils"
 	"github.com/openeverest/openeverest/v2/pkg/kubernetes"
 )
 
-// EnableConfig holds configuration for the plugin enable operation.
+// EnableConfig holds configuration for adding a namespace to an extension.
 type EnableConfig struct {
 	KubeconfigPath string
 	Pretty         bool
@@ -34,7 +34,8 @@ type EnableConfig struct {
 	Namespace      string
 }
 
-// PluginEnabler enables a plugin in a namespace by creating a PluginInstallation CR.
+// PluginEnabler adds a namespace to an InstalledExtension's
+// spec.plugin.namespaces[] list.
 type PluginEnabler struct {
 	cfg        EnableConfig
 	kubeClient kubernetes.KubernetesConnector
@@ -59,23 +60,28 @@ func NewPluginEnabler(cfg EnableConfig, l *zap.SugaredLogger) (*PluginEnabler, e
 	return pe, nil
 }
 
-// Run creates the PluginInstallation CR.
+// Run appends pe.cfg.Namespace to the InstalledExtension's
+// spec.plugin.namespaces[] list (idempotent).
 func (pe *PluginEnabler) Run(ctx context.Context) error {
-	pi := &v1alpha1.PluginInstallation{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      pe.cfg.Name,
-			Namespace: pe.cfg.Namespace,
-		},
-		Spec: v1alpha1.PluginInstallationSpec{
-			PluginName: pe.cfg.Name,
-			Enabled:    true,
-		},
+	ie, err := pe.kubeClient.GetInstalledExtension(ctx, ctrlclient.ObjectKey{Name: pe.cfg.Name})
+	if err != nil {
+		return fmt.Errorf("InstalledExtension %q not found: %w", pe.cfg.Name, err)
 	}
-
-	if _, err := pe.kubeClient.CreatePluginInstallation(ctx, pi); err != nil {
+	if ie.Spec.Type != corev1alpha1.InstalledExtensionTypePlugin || ie.Spec.Plugin == nil {
+		return fmt.Errorf("InstalledExtension %q is not a plugin install", pe.cfg.Name)
+	}
+	for _, nsCfg := range ie.Spec.Plugin.Namespaces {
+		if nsCfg.Name == pe.cfg.Namespace {
+			fmt.Printf("Plugin %q already enabled in namespace %q.\n", pe.cfg.Name, pe.cfg.Namespace)
+			return nil
+		}
+	}
+	ie.Spec.Plugin.Namespaces = append(ie.Spec.Plugin.Namespaces, corev1alpha1.PluginNamespaceConfig{
+		Name: pe.cfg.Namespace,
+	})
+	if _, err := pe.kubeClient.UpdateInstalledExtension(ctx, ie); err != nil {
 		return fmt.Errorf("cannot enable plugin %q in namespace %q: %w", pe.cfg.Name, pe.cfg.Namespace, err)
 	}
-
 	fmt.Printf("Plugin %q enabled in namespace %q.\n", pe.cfg.Name, pe.cfg.Namespace)
 	return nil
 }

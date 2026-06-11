@@ -58,20 +58,34 @@ func NewPluginDisabler(cfg DisableConfig, l *zap.SugaredLogger) (*PluginDisabler
 	return pd, nil
 }
 
-// Run deletes the PluginInstallation CR.
+// Run removes pd.cfg.Namespace from the InstalledExtension's
+// spec.plugin.namespaces[] list (idempotent).
 func (pd *PluginDisabler) Run(ctx context.Context) error {
-	pi, err := pd.kubeClient.GetPluginInstallation(ctx, ctrlclient.ObjectKey{
-		Name:      pd.cfg.Name,
-		Namespace: pd.cfg.Namespace,
-	})
+	ie, err := pd.kubeClient.GetInstalledExtension(ctx, ctrlclient.ObjectKey{Name: pd.cfg.Name})
 	if err != nil {
-		return fmt.Errorf("plugin %q is not enabled in namespace %q: %w", pd.cfg.Name, pd.cfg.Namespace, err)
+		return fmt.Errorf("InstalledExtension %q not found: %w", pd.cfg.Name, err)
 	}
-
-	if err := pd.kubeClient.DeletePluginInstallation(ctx, pi); err != nil {
+	if ie.Spec.Plugin == nil {
+		fmt.Printf("Plugin %q is not enabled in namespace %q.\n", pd.cfg.Name, pd.cfg.Namespace)
+		return nil
+	}
+	filtered := ie.Spec.Plugin.Namespaces[:0]
+	removed := false
+	for _, nsCfg := range ie.Spec.Plugin.Namespaces {
+		if nsCfg.Name == pd.cfg.Namespace {
+			removed = true
+			continue
+		}
+		filtered = append(filtered, nsCfg)
+	}
+	if !removed {
+		fmt.Printf("Plugin %q is not enabled in namespace %q.\n", pd.cfg.Name, pd.cfg.Namespace)
+		return nil
+	}
+	ie.Spec.Plugin.Namespaces = filtered
+	if _, err := pd.kubeClient.UpdateInstalledExtension(ctx, ie); err != nil {
 		return fmt.Errorf("cannot disable plugin %q in namespace %q: %w", pd.cfg.Name, pd.cfg.Namespace, err)
 	}
-
 	fmt.Printf("Plugin %q disabled in namespace %q.\n", pd.cfg.Name, pd.cfg.Namespace)
 	return nil
 }
