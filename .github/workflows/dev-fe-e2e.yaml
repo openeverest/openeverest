@@ -199,9 +199,6 @@ jobs:
           kubectl -n everest-system describe pods
           kubectl -n everest-monitoring describe pods
           kubectl -n everest-system logs deploy/everest-server
-          kubectl -n pxc-only describe pods || true
-          kubectl -n psmdb-only describe pods || true
-          kubectl -n pg-only describe pods || true
 
       - name: Archive report
         if: always()
