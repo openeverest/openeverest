@@ -72,6 +72,8 @@ const (
 	EverestJWTSecretName = "everest-jwt"
 	// EverestBlocklistSecretName is the name of the secret that holds JWT blocklist.
 	EverestBlocklistSecretName = "everest-blocklist"
+	// EverestAuthTokensSecretName is the name of the secret that holds the auth token registry
+	EverestAuthTokensSecretName = "everest-auth-tokens"
 	// EverestJWTPrivateKeyFile is the path to the JWT private key.
 	EverestJWTPrivateKeyFile = "/etc/jwt/id_rsa"
 	// EverestJWTPublicKeyFile is the path to the JWT public key.

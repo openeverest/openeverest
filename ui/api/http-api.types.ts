@@ -4,6 +4,58 @@
  */
 
 export interface paths {
+    "/auth/token": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Issue API tokens
+         * @description OAuth 2.0-style token endpoint (RFC 6749). Issues a short-lived access JWT
+         *     together with a rotatable refresh token.
+         *
+         *     Supported grant types:
+         *     - `password` — log in with username/password. The user must have the `login` capability.
+         *     - `refresh_token` — exchange a refresh token for a new token pair. The presented
+         *       refresh token is rotated (consumed and replaced).
+         *
+         *     When `refresh_token_delivery` is set to `cookie`, the refresh token is returned in an
+         *     `HttpOnly` cookie instead of the response body. For the `refresh_token` grant the
+         *     refresh token may then be omitted from the request body; it is read from the cookie.
+         */
+        post: operations["createAuthToken"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/revoke": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Revoke API tokens (logout)
+         * @description Revokes the supplied refresh token (or the one carried by the refresh token cookie)
+         *     and adds the caller's current access JWT to the blocklist until it expires.
+         *     Inspired by RFC 7009.
+         */
+        post: operations["revokeAuthToken"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/session": {
         parameters: {
             query?: never;
@@ -646,6 +698,47 @@ export interface components {
         UserPermissions: {
             enabled: boolean;
             permissions?: string[][];
+        };
+        /** @description OAuth 2.0-style token request (RFC 6749, JSON-encoded) */
+        AuthTokenRequest: {
+            /** @enum {string} */
+            grant_type: "password" | "refresh_token";
+            /** @description The username. Required for the `password` grant. */
+            username?: string;
+            /** @description The password. Required for the `password` grant. */
+            password?: string;
+            /**
+             * @description The refresh token to exchange. Used by the `refresh_token` grant.
+             *     May be omitted when the refresh token is carried by the refresh token cookie.
+             */
+            refresh_token?: string;
+            /**
+             * @description How the refresh token is returned to the client.
+             *     `body` returns it in the response body; `cookie` sets an HttpOnly cookie
+             *     and omits it from the body.
+             * @default body
+             * @enum {string}
+             */
+            refresh_token_delivery?: "body" | "cookie";
+        };
+        /** @description OAuth 2.0-style token response (RFC 6749) */
+        AuthTokenResponse: {
+            /** @description A short-lived access JWT. */
+            access_token: string;
+            /** @enum {string} */
+            token_type: "Bearer";
+            /** @description Access token lifetime in seconds. */
+            expires_in: number;
+            /** @description The refresh token. Omitted when `refresh_token_delivery` is `cookie`. */
+            refresh_token?: string;
+        };
+        /** @description Token revocation request (RFC 7009) */
+        AuthRevokeRequest: {
+            /**
+             * @description The refresh token to revoke. May be omitted when the refresh token is
+             *     carried by the refresh token cookie.
+             */
+            token?: string;
         };
         UserCredentials: {
             username?: string;
@@ -2483,6 +2576,117 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    createAuthToken: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The token request */
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AuthTokenRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful operation */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthTokenResponse"];
+                };
+            };
+            /** @description Unsuccessful operation */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Too many attempts */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    revokeAuthToken: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The token to revoke */
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["AuthRevokeRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful operation */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Too many attempts */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
     createSession: {
         parameters: {
             query?: never;
