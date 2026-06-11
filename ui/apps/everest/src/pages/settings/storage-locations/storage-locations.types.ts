@@ -19,6 +19,16 @@ import {
 } from 'shared-types/backupStorages.types';
 import { rfc_123_schema } from 'utils/common-validation';
 
+export type BackupStoragesMutationContext = {
+  queryKey: readonly [string, string, string];
+  previousStorages?: BackupStorageCRD[];
+};
+
+export type DeleteBackupStorageArgs = {
+  backupStorageId: string;
+  namespace: string;
+};
+
 export enum StorageLocationsFields {
   name = 'name',
   type = 'type',
@@ -27,7 +37,6 @@ export enum StorageLocationsFields {
   url = 'url',
   accessKey = 'accessKey',
   secretKey = 'secretKey',
-  namespaces = 'allowedNamespaces',
   namespace = 'namespace',
   verifyTLS = 'verifyTLS',
   forcePathStyle = 'forcePathStyle',
@@ -75,6 +84,11 @@ export const storageLocationsSchema = z.object({
   [StorageLocationsFields.namespace]: z.string().nonempty(),
   [StorageLocationsFields.verifyTLS]: z.boolean(),
   [StorageLocationsFields.forcePathStyle]: z.boolean(),
+});
+
+export const storageLocationsEditSchema = storageLocationsSchema.extend({
+  [StorageLocationsFields.accessKey]: z.string(),
+  [StorageLocationsFields.secretKey]: z.string(),
 });
 
 export type BackupStorageType = z.infer<typeof storageLocationsSchema>;

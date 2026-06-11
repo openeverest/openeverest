@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,6 +15,7 @@
 // limitations under the License.
 
 import { APIRequestContext, expect } from '@playwright/test';
+import { EVEREST_CI_CLUSTER } from '@e2e/constants';
 
 export const getBackupStorage = async (
   request: APIRequestContext,
@@ -22,7 +24,7 @@ export const getBackupStorage = async (
   token: string
 ) => {
   const response = await request.get(
-    `/v1/namespaces/${namespace}/backup-storages/${name}`,
+    `/v1/clusters/${EVEREST_CI_CLUSTER}/namespaces/${namespace}/backup-storages/${name}`,
     {
       headers: {
         Authorization: `Bearer ${token}`,
@@ -40,7 +42,7 @@ export const deleteBackupStorage = async (
   token: string
 ) => {
   const response = await request.delete(
-      `/v1/namespaces/${namespace}/backup-storages/${name}`,
+      `/v1/clusters/${EVEREST_CI_CLUSTER}/namespaces/${namespace}/backup-storages/${name}`,
       {
         headers: {
           'Content-Type': 'application/json',
