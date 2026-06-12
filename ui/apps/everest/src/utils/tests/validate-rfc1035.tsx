@@ -73,11 +73,11 @@ export const validateInputWithRFC1035 = ({
         });
         fireEvent.blur(input);
 
-        await waitFor(() => {
+        await waitFor(() =>
           Object.values(errors).forEach((val) => {
             expect(screen.queryByText(val)).not.toBeInTheDocument();
-          });
-        });
+          })
+        );
       });
 
       it('should display error for empty string', async () => {
@@ -87,18 +87,40 @@ export const validateInputWithRFC1035 = ({
         fireEvent.change(input, {
           target: { value: 'a' },
         });
+        fireEvent.blur(input);
+
+        await waitFor(() =>
+          expect(screen.queryByText(errors.MIN1_ERROR)).not.toBeInTheDocument()
+        );
+
         fireEvent.change(input, {
           target: { value: '' },
         });
         fireEvent.blur(input);
 
-        await waitFor(() => {
-          expect(screen.getByText(errors.MIN1_ERROR)).toBeInTheDocument();
-        });
+        expect(input.value).toBe('');
+
+        await waitFor(() =>
+          expect(screen.getByText(errors.MIN1_ERROR)).toBeInTheDocument()
+        );
       });
 
       it('should display error for a string too long', async () => {
         const nameInput = screen.getByTestId('text-input-name');
+
+        // First enter a valid-length string (22 chars) — no error
+        fireEvent.change(nameInput, {
+          target: {
+            value: 'abcdefghijklmnopqrstuv',
+          },
+        });
+        fireEvent.blur(nameInput);
+
+        await waitFor(() =>
+          expect(screen.queryByText(errors.MAX22_ERROR)).not.toBeInTheDocument()
+        );
+
+        // Now enter a too-long string (24 chars) — error
         fireEvent.change(nameInput, {
           target: {
             value: 'abcdefghijklmnopqrstuvwx',
@@ -106,13 +128,29 @@ export const validateInputWithRFC1035 = ({
         });
         fireEvent.blur(nameInput);
 
-        await waitFor(() => {
-          expect(screen.getByText(errors.MAX22_ERROR)).toBeInTheDocument();
-        });
+        await waitFor(() =>
+          expect(screen.getByText(errors.MAX22_ERROR)).toBeInTheDocument()
+        );
       });
 
       it('should display error for a string containing anything else than lowercase letters, numbers and hyphens.', async () => {
         const nameInput = screen.getByTestId('text-input-name');
+
+        // Valid string — no error
+        fireEvent.change(nameInput, {
+          target: {
+            value: 'test-123',
+          },
+        });
+        fireEvent.blur(nameInput);
+
+        await waitFor(() =>
+          expect(
+            screen.queryByText(errors.SPECIAL_CHAR_ERROR)
+          ).not.toBeInTheDocument()
+        );
+
+        // Invalid string with special chars — error
         fireEvent.change(nameInput, {
           target: {
             value: 'test@123',
@@ -120,15 +158,31 @@ export const validateInputWithRFC1035 = ({
         });
         fireEvent.blur(nameInput);
 
-        await waitFor(() => {
+        await waitFor(() =>
           expect(
             screen.getByText(errors.SPECIAL_CHAR_ERROR)
-          ).toBeInTheDocument();
-        });
+          ).toBeInTheDocument()
+        );
       });
 
       it('should display error for a string ending with a hyphen', async () => {
         const nameInput = screen.getByTestId('text-input-name');
+
+        // Valid string — no error
+        fireEvent.change(nameInput, {
+          target: {
+            value: 'test-123',
+          },
+        });
+        fireEvent.blur(nameInput);
+
+        await waitFor(() =>
+          expect(
+            screen.queryByText(errors.END_CHAR_ERROR)
+          ).not.toBeInTheDocument()
+        );
+
+        // String ending with hyphen — error
         fireEvent.change(nameInput, {
           target: {
             value: 'test123-',
@@ -136,13 +190,29 @@ export const validateInputWithRFC1035 = ({
         });
         fireEvent.blur(nameInput);
 
-        await waitFor(() => {
-          expect(screen.getByText(errors.END_CHAR_ERROR)).toBeInTheDocument();
-        });
+        await waitFor(() =>
+          expect(screen.getByText(errors.END_CHAR_ERROR)).toBeInTheDocument()
+        );
       });
 
       it('should display error for a string starting with a hyphen or number', async () => {
         const nameInput = screen.getByTestId('text-input-name');
+
+        // Valid string — no error
+        fireEvent.change(nameInput, {
+          target: {
+            value: 'test-123',
+          },
+        });
+        fireEvent.blur(nameInput);
+
+        await waitFor(() =>
+          expect(
+            screen.queryByText(errors.START_CHAR_ERROR)
+          ).not.toBeInTheDocument()
+        );
+
+        // String starting with hyphen — error
         fireEvent.change(nameInput, {
           target: {
             value: '-test123',
@@ -150,9 +220,21 @@ export const validateInputWithRFC1035 = ({
         });
         fireEvent.blur(nameInput);
 
-        await waitFor(() => {
-          expect(screen.getByText(errors.START_CHAR_ERROR)).toBeInTheDocument();
+        await waitFor(() =>
+          expect(screen.getByText(errors.START_CHAR_ERROR)).toBeInTheDocument()
+        );
+
+        // String starting with number — error
+        fireEvent.change(nameInput, {
+          target: {
+            value: '1test',
+          },
         });
+        fireEvent.blur(nameInput);
+
+        await waitFor(() =>
+          expect(screen.getByText(errors.START_CHAR_ERROR)).toBeInTheDocument()
+        );
       });
     });
   });
