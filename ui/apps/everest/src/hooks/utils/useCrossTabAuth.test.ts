@@ -27,7 +27,10 @@ describe('useCrossTabAuth', () => {
 
   beforeEach(() => {
     mockChannel = { postMessage: vi.fn(), close: vi.fn(), onmessage: null };
-    vi.stubGlobal('BroadcastChannel', vi.fn(() => mockChannel));
+    vi.stubGlobal(
+      'BroadcastChannel',
+      vi.fn(() => mockChannel)
+    );
   });
 
   afterEach(() => {
