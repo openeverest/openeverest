@@ -48,9 +48,10 @@ async function fetchPluginsForNamespace(
 }
 
 /**
- * Returns the list of plugins with an active PluginInstallation in the given
- * namespace. Used to filter cluster-detail tabs to only plugins the namespace
- * operator has explicitly enabled.
+ * Returns the list of plugins enabled for the given namespace via an
+ * InstalledExtension entry (spec.plugin.namespaces[] or scope: Cluster with
+ * allowClusterScope). Used to filter cluster-detail tabs to only plugins the
+ * namespace operator has explicitly enabled.
  *
  * When `namespace` is empty/undefined, the query is disabled and an empty
  * array is returned (no filter applied).

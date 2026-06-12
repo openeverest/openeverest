@@ -70,13 +70,13 @@ const WithPermissionDetails = ({
 
   // Collect clusterDetailTab extensions, filtered by:
   // 1. engine type (providers field)
-  // 2. namespace: only plugins with an active PluginInstallation in this namespace
+  // 2. namespace: only plugins enabled for this namespace via an InstalledExtension
   const { plugins } = usePlugins();
   const { data: nsPlugins } = usePluginsForNamespace(namespace);
   const engineType = instance?.spec?.provider;
 
   // Build a set of plugin names enabled in this namespace.
-  // When no PluginInstallation CRs exist in the namespace, skip filtering entirely.
+  // When no InstalledExtension entry covers this namespace, skip filtering entirely.
   const enabledInNs = nsPlugins?.length
     ? new Set(nsPlugins.map((p) => p.name))
     : null;

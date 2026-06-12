@@ -33,7 +33,8 @@ type DisableConfig struct {
 	Namespace      string
 }
 
-// PluginDisabler disables a plugin in a namespace by deleting its PluginInstallation CR.
+// PluginDisabler disables a plugin in a namespace by removing the namespace
+// from the corresponding InstalledExtension's spec.plugin.namespaces[].
 type PluginDisabler struct {
 	cfg        DisableConfig
 	kubeClient kubernetes.KubernetesConnector
