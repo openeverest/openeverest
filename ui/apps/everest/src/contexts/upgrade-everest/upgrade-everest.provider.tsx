@@ -41,7 +41,7 @@ const UpgradeEverestProvider = ({
       commitVersion.current !== null &&
       commitVersion.current !== apiVersion?.fullCommit
     ) {
-      commitVersion.current = apiVersion!.fullCommit;
+      commitVersion.current = apiVersion?.fullCommit ?? commitVersion.current;
       setOpenReloadEverestDialog(true);
     }
   }, [apiVersion?.fullCommit, apiVersion?.version]);
