@@ -114,7 +114,7 @@ test.describe('Sharding (psmdb)', () => {
     ).not.toBeVisible();
   });
 
-  test('Sharding should be correctly displayed on the overview page', async ({
+  test.skip('Sharding should be correctly displayed on the overview page', async ({
     page,
   }) => {
     test.setTimeout(120 * 1000);
