@@ -17,9 +17,8 @@ package controller
 import (
 	"testing"
 
-	"github.com/stretchr/testify/assert"
-
 	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestShouldRetainBackupData(t *testing.T) {

@@ -1199,6 +1199,9 @@ type Instance struct {
 			Name *string `json:"name,omitempty"`
 		} `json:"connectionSecretRef,omitempty"`
 
+		// Message Message is a custom user-facing message describing the current state of the instance.
+		Message *string `json:"message,omitempty"`
+
 		// Phase Phase of the database cluster.
 		Phase *InstanceStatusPhase `json:"phase,omitempty"`
 
