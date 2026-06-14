@@ -333,13 +333,13 @@ dev-destroy: dev-down k3d-cluster-down-dev ## Stop Tilt and destroy the k3d clus
 CHART_BRANCH ?= main
 .PHONY: update-dev-chart
 update-dev-chart: ## Update dependency to Everest Helm chart to the latest version from the specified branch (default main).
-	GOPROXY=direct go get -u -v github.com/openeverest/helm-charts/charts/everest@${CHART_BRANCH}
+	go get -u github.com/openeverest/helm-charts/charts/everest@${CHART_BRANCH}
 	go mod tidy
 
 EVEREST_OPERATOR_BRANCH ?= main
 .PHONY: update-dev-everest-operator
 update-dev-everest-operator: ## Update dependency to Everest operator to the latest version from the specified branch (default main).
-	GOPROXY=direct go get -u -v github.com/percona/everest-operator@${EVEREST_OPERATOR_BRANCH}
+	go get -u github.com/percona/everest-operator@${EVEREST_OPERATOR_BRANCH}
 	go mod tidy
 
 .PHONY: prepare-pr
