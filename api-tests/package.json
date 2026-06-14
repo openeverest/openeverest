@@ -30,7 +30,7 @@
     "@typescript-eslint/eslint-plugin": "^8.59.2",
     "@typescript-eslint/parser": "^8.59.2",
     "eslint-config-prettier": "^10.1.8",
-    "eslint-plugin-playwright": "^2.10.2",
+    "eslint-plugin-playwright": "^2.10.4",
     "shelljs": "^0.10.0"
   },
   "engines": {
