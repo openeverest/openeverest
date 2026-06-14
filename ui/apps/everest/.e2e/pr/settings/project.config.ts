@@ -21,21 +21,21 @@ export const settingsProject: PlaywrightTestProject[] = [
     testMatch: /.^/,
     dependencies: [
       'pr:settings:monitoring-config',
-      // 'pr:settings:backup-storage',
+      'pr:settings:backup-storage',
       // 'pr:settings:namespace',
       // 'pr:settings:psp',
       // 'pr:settings:operator-upgrade',
     ],
   },
-  // {
-  //   name: 'pr:settings:backup-storage',
-  //   testDir: './pr/settings',
-  //   testMatch: /backup-storage\.e2e\.ts/,
-  //   dependencies: ['global:auth:ci:setup'],
-  //   use: {
-  //     storageState: CI_USER_STORAGE_STATE_FILE,
-  //   },
-  // },
+  {
+    name: 'pr:settings:backup-storage',
+    testDir: './pr/settings',
+    testMatch: /backup-storage\.e2e\.ts/,
+    dependencies: ['global:auth:ci:setup'],
+    use: {
+      storageState: CI_USER_STORAGE_STATE_FILE,
+    },
+  },
   {
     name: 'pr:settings:monitoring-config',
     testDir: './pr/settings',
