@@ -12,32 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import React, { useEffect, useMemo, useRef } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { useFormContext } from 'react-hook-form';
 import type { Component } from '../../ui-generator.types';
 import { providerRegistry, useProviderOptions } from '../registry';
 import { useUiGeneratorContext } from '../../ui-generator-context';
 import { useClusterName } from 'hooks/api/useClusterName';
 import type { DataSourceFieldProps } from './data-source-field.types';
-
-const resolveFieldValue = (
-  current: unknown,
-  options: { value: string }[]
-): string | null => {
-  const validValues = options.map((o) => o.value);
-  const currentStr = typeof current === 'string' ? current : '';
-
-  if (currentStr && !validValues.includes(currentStr)) {
-    return options.length > 0 ? options[0].value : '';
-  }
-  if (
-    (currentStr === '' || current === undefined || current === null) &&
-    options.length > 0
-  ) {
-    return options[0].value;
-  }
-  return null;
-};
+import { getReconciledDataSourceValue } from './data-source-field.utils';
 
 export const DataSourceField: React.FC<DataSourceFieldProps> = ({
   item,
@@ -60,38 +42,13 @@ export const DataSourceField: React.FC<DataSourceFieldProps> = ({
     { enabled: hasValidContext }
   );
 
-  // Synchronous value sync: ensures the form value is correct BEFORE the
-  // child Controller renders. This eliminates the timing gap where the
-  // Controller would mount with a stale/empty value and then re-render
-  // one tick later after the useEffect fires.
-  const lastSyncedRef = useRef<{ options: typeof options; name: string }>();
-
-  if (
-    !isLoading &&
-    name &&
-    options.length > 0 &&
-    (lastSyncedRef.current?.options !== options ||
-      lastSyncedRef.current?.name !== name)
-  ) {
-    const current = getValues(name);
-    const corrected = resolveFieldValue(current, options);
-    if (corrected !== null) {
-      setValue(name, corrected);
-    }
-    lastSyncedRef.current = { options, name };
-  }
-
-  // Async fallback: handles value invalidation when options change after
-  // the component is already mounted (e.g. namespace switch, config deletion).
   useEffect(() => {
     if (isLoading || !name) return;
 
-    const current = getValues(name);
-    const corrected = resolveFieldValue(current, options);
-    if (corrected !== null) {
-      setValue(name, corrected, {
-        shouldValidate: true,
-      });
+    const nextValue = getReconciledDataSourceValue(getValues(name), options);
+
+    if (nextValue !== null) {
+      setValue(name, nextValue, { shouldValidate: true });
     }
   }, [isLoading, options, name, getValues, setValue]);
 
@@ -122,16 +79,32 @@ export const DataSourceField: React.FC<DataSourceFieldProps> = ({
     } as Component;
   }, [baseComponent, options, isLoading, error, isEmpty]);
 
-  const fallback = useMemo(() => {
+  const FallbackComponent = useMemo(() => {
     const entry = providerRegistry.get(dataSource.provider);
-    return entry?.emptyStateFallback ?? null;
+    return entry?.emptyStateFallback?.component ?? null;
   }, [dataSource.provider]);
 
-  if (isEmpty && !isLoading && fallback && namespace) {
-    const { component: FallbackComponent } = fallback;
+  const showFallback =
+    isEmpty && !isLoading && !!FallbackComponent && !!namespace;
 
-    return <FallbackComponent namespace={namespace} cluster={cluster} />;
-  }
-
-  return <>{children(patchedItem)}</>;
+  // We always render the children (Select/Controller) and hide them with
+  // display:none instead of conditionally unmounting. This keeps the RHF
+  // Controller mounted so the field stays registered in the form. Without this,
+  // when options arrive after inline creation via the FallbackComponent, the
+  // Controller would remount and setValue() would fire before the field is
+  // re-registered — making it a no-op and leaving the Select empty.
+  return (
+    <>
+      {showFallback && (
+        <FallbackComponent namespace={namespace!} cluster={cluster} />
+      )}
+      <div
+        style={{
+          display: showFallback ? 'none' : 'contents',
+        }}
+      >
+        {children(patchedItem)}
+      </div>
+    </>
+  );
 };

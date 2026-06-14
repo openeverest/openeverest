@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,7 +17,11 @@
 import { test, expect } from '@playwright/test';
 import { findRowAndClickActions, waitForDelete } from '@e2e/utils/table';
 import { goToUrl, limitedSuffixedName } from '@e2e/utils/generic';
-import { EVEREST_CI_NAMESPACES, TIMEOUTS } from '@e2e/constants';
+import {
+  EVEREST_CI_NAMESPACES,
+  EVEREST_CI_CLUSTER,
+  TIMEOUTS,
+} from '@e2e/constants';
 import { getCITokenFromLocalStorage } from '@e2e/utils/localStorage';
 import {
   deleteBackupStorage,
@@ -60,10 +65,9 @@ test.describe.serial('Backup storage', () => {
     await test.step(`Create Backup Storage`, async () => {
       await page.getByTestId('add-backup-storage').click();
       await page.getByTestId('text-input-name').fill(backupStorageName);
-      await page.getByTestId('text-input-description').fill('test-description');
 
       await page.getByTestId('text-input-namespace').click();
-      await page.getByRole('option', { name: namespace }).click();
+      await page.getByRole('option', { name: namespace, exact: true }).click();
       await expect(page.getByTestId('select-input-type')).toHaveValue('s3');
       await page.getByTestId('text-input-bucket-name').fill(bucketName);
       await page.getByTestId('text-input-region').fill(EVEREST_LOCATION_REGION);
@@ -106,18 +110,24 @@ test.describe.serial('Backup storage', () => {
   });
 
   test('Edit Backup Storage', async ({ page }) => {
-    const newDescription = 'new-test-description';
+    const newUrl = 'https://minio-updated.minio.svc.cluster.local';
 
-    await test.step('Update Backup Storage description', async () => {
+    await test.step('Update Backup Storage URL', async () => {
       await findRowAndClickActions(page, backupStorageName, 'Edit');
-      await page.getByTestId('text-input-description').fill(newDescription);
+      await page.getByTestId('text-input-url').fill(newUrl);
+      await page
+        .getByTestId('text-input-access-key')
+        .fill(EVEREST_LOCATION_ACCESS_KEY);
+      await page
+        .getByTestId('text-input-secret-key')
+        .fill(EVEREST_LOCATION_SECRET_KEY);
       const updResponse = page.waitForResponse(
         (resp) =>
           resp.request().method() === 'PATCH' &&
           resp
             .url()
             .includes(
-              `/v1/namespaces/${namespace}/backup-storages/${backupStorageName}`
+              `/v1/clusters/${EVEREST_CI_CLUSTER}/namespaces/${namespace}/backup-storages/${backupStorageName}`
             ) &&
           resp.status() === 200
       );
@@ -125,12 +135,10 @@ test.describe.serial('Backup storage', () => {
       await updResponse;
     });
 
-    await test.step('Check updated Backup Storage description', async () => {
+    await test.step('Check updated Backup Storage URL', async () => {
       await goToUrl(page, '/settings/storage-locations');
       await findRowAndClickActions(page, backupStorageName, 'Edit');
-      await expect(page.getByTestId('text-input-description')).toHaveValue(
-        newDescription
-      );
+      await expect(page.getByTestId('text-input-url')).toHaveValue(newUrl);
       await page.getByTestId('form-dialog-cancel').click();
     });
   });
@@ -143,7 +151,7 @@ test.describe.serial('Backup storage', () => {
         resp
           .url()
           .includes(
-            `/v1/namespaces/${namespace}/backup-storages/${backupStorageName}`
+            `/v1/clusters/${EVEREST_CI_CLUSTER}/namespaces/${namespace}/backup-storages/${backupStorageName}`
           ) &&
         resp.status() === 204
     );

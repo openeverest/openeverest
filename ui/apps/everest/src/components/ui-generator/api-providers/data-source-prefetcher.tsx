@@ -20,6 +20,7 @@ import { useProviderOptions } from './registry';
 import { ComponentErrorBoundary } from '../component-error-boundary';
 import { getComponentSourcePath } from '../utils/preprocess/normalized-component';
 import { useClusterName } from 'hooks/api/useClusterName';
+import { getReconciledDataSourceValue } from './data-source-field/data-source-field.utils';
 
 type DataSourceDeclaration = {
   provider: string;
@@ -83,21 +84,11 @@ const PrefetchItem = ({
   useEffect(() => {
     if (isLoading) return;
 
-    const validValues = options.map((o) => o.value);
-
     for (const path of fieldPaths) {
-      const current = getValues(path);
+      const nextValue = getReconciledDataSourceValue(getValues(path), options);
 
-      // this block checks if the current form value is not in the valid options list (can happen during namespace change)
-      if (current && !validValues.includes(current as string)) {
-        setValue(path, options.length > 0 ? options[0].value : '', {
-          shouldValidate: true,
-        });
-      } else if (
-        (current === '' || current === undefined || current === null) &&
-        options.length > 0
-      ) {
-        setValue(path, options[0].value, { shouldValidate: true });
+      if (nextValue !== null) {
+        setValue(path, nextValue, { shouldValidate: true });
       }
     }
   }, [isLoading, options, fieldPaths, getValues, setValue]);

@@ -206,7 +206,7 @@ export const useDbClusterCredentials = (
   );
 
   return useQuery<GetDbClusterCredentialsPayload, unknown, ClusterCredentials>({
-    queryKey: ['cluster-credentials', dbClusterName],
+    queryKey: ['cluster-credentials', namespace, dbClusterName],
     queryFn: () => getDbClusterCredentialsFn(dbClusterName, namespace),
     select: canReadCredentials
       ? (creds) => creds

@@ -35,6 +35,9 @@ import { useClusterName } from '../useClusterName';
 
 export const BACKUP_STORAGES_QUERY_KEY = 'backupStorages';
 
+export const getBackupStoragesQueryKey = (cluster: string, namespace: string) =>
+  [BACKUP_STORAGES_QUERY_KEY, cluster, namespace] as const;
+
 export const useBackupStorages = () => {
   const cluster = useClusterName();
   const { data: namespaces = [] } = useNamespaces({
@@ -42,7 +45,7 @@ export const useBackupStorages = () => {
   });
   const queries = namespaces.map((namespace) => {
     return {
-      queryKey: [BACKUP_STORAGES_QUERY_KEY, cluster, namespace],
+      queryKey: getBackupStoragesQueryKey(cluster, namespace),
       queryFn: () => getBackupStoragesFn(cluster, namespace),
       refetchInterval: 5 * 1000,
     };
@@ -61,7 +64,7 @@ export const useBackupStoragesByNamespace = (
 ) => {
   const cluster = useClusterName();
   return useQuery<BackupStorageCRD[], unknown, BackupStorageCRD[]>({
-    queryKey: [BACKUP_STORAGES_QUERY_KEY, cluster, namespace],
+    queryKey: getBackupStoragesQueryKey(cluster, namespace),
     queryFn: () => getBackupStoragesFn(cluster, namespace),
     ...options,
   });
