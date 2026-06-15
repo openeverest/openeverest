@@ -49,7 +49,12 @@ const AppBarUserIcon = () => {
     setAnchorEl(null);
   };
   const token = getAuthToken();
-  const decoded = jwtDecode(token!) as UserToken;
+
+  if (!token) {
+    return null;
+  }
+
+  const decoded = jwtDecode(token) as UserToken;
 
   const preferredUsername = decoded.preferred_username;
   const name = decoded.name;

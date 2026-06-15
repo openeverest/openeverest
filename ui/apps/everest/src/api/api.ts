@@ -65,11 +65,13 @@ export const addApiErrorInterceptor = () => {
               const newToken = await refreshSession();
               if (newToken) {
                 originalRequest.retriedAfterRefresh = true;
-                originalRequest.headers['Authorization'] =
-                  `Bearer ${newToken}`;
+                originalRequest.headers['Authorization'] = `Bearer ${newToken}`;
                 return api(originalRequest);
               }
             }
+            enqueueSnackbar('Your session has expired. Please sign in again.', {
+              variant: 'info',
+            });
             location.href = '/logout';
             return;
           }

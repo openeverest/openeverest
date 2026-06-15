@@ -48,6 +48,7 @@ import {
   initializeAuthorizerFetchLoop,
   stopAuthorizerFetchLoop,
 } from 'utils/rbac';
+import { components } from '../../../../../api/http-api.types';
 
 const Provider = ({
   oidcConfig,
@@ -82,14 +83,16 @@ const AuthProvider = ({ children, isSsoEnabled }: AuthProviderProps) => {
     } else {
       const { username, password } = manualAuthArgs!;
       try {
-        const response = await api.post('/auth/token', {
+        const response = await api.post<
+          components['schemas']['AuthTokenResponse']
+        >('/auth/token', {
           grant_type: 'password',
           username,
           password,
           // The refresh token is delivered as an HttpOnly cookie, never
           // exposed to JS. The access token is kept in memory only.
           refresh_token_delivery: 'cookie',
-        });
+        } satisfies components['schemas']['AuthTokenRequest']);
         setAccessToken(response.data.access_token, response.data.expires_in);
         setLoggedInStatus(username);
       } catch (error) {
@@ -173,8 +176,12 @@ const AuthProvider = ({ children, isSsoEnabled }: AuthProviderProps) => {
   useEffect(() => {
     if (isSsoEnabled) {
       userManager.events.addUserLoaded((user) => {
-        localStorage.setItem('everestToken', user.access_token || '');
-        const decoded = jwtDecode(user.access_token || '');
+        const token = user.access_token;
+        if (!token) {
+          return;
+        }
+        localStorage.setItem('everestToken', token);
+        const decoded = jwtDecode(token);
         setLoggedInStatus(decoded.sub || '');
       });
 
@@ -269,6 +276,10 @@ const AuthProvider = ({ children, isSsoEnabled }: AuthProviderProps) => {
         if (token) {
           schedule();
         } else {
+          enqueueSnackbar(
+            'Your session has expired. Please sign in again.',
+            { variant: 'info' }
+          );
           setLogoutStatus();
         }
       }, delay);

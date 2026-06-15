@@ -23,6 +23,10 @@
 // localStorage entry managed by oidc-react.
 
 import axios from 'axios';
+import type { components } from '../../../../api/http-api.types';
+
+type AuthTokenRequest = components['schemas']['AuthTokenRequest'];
+type AuthTokenResponse = components['schemas']['AuthTokenResponse'];
 
 // Bare client without interceptors to avoid recursion from the api module's
 // 401-handling interceptor.
@@ -58,14 +62,15 @@ let refreshPromise: Promise<string | null> | null = null;
 // refreshed.
 export const refreshSession = (): Promise<string | null> => {
   if (!refreshPromise) {
+    const payload: AuthTokenRequest = {
+      grant_type: 'refresh_token',
+      refresh_token_delivery: 'cookie',
+    };
     refreshPromise = authClient
-      .post('/auth/token', {
-        grant_type: 'refresh_token',
-        refresh_token_delivery: 'cookie',
-      })
+      .post<AuthTokenResponse>('/auth/token', payload)
       .then(({ data }) => {
         setAccessToken(data.access_token, data.expires_in);
-        return data.access_token as string;
+        return data.access_token;
       })
       .catch(() => {
         clearAccessToken();
