@@ -138,40 +138,14 @@ jobs:
           --helm.set operator.image=ghcr.io/openeverest/openeverest-operator-dev \
           --helm.set olm.catalogSourceImage=ghcr.io/openeverest/openeverest-catalog-dev
 
-      - name: Add everest-ui namespace
+      - name: Add everest namespace
         shell: bash
         run: |
-          ./bin/everestctl namespaces add everest-ui -v \
+          ./bin/everestctl namespaces add everest -v \
           --operator.mongodb=true \
           --operator.postgresql=true \
           --operator.mysql=true \
-          --skip-wizard
-
-      - name: Adding psmdb namespace
-        shell: bash
-        run: |
-          ./bin/everestctl namespaces add psmdb-only -v \
-          --operator.mongodb=true \
-          --operator.postgresql=false \
-          --operator.mysql=false \
-          --skip-wizard
-
-      - name: Adding pxc namespace
-        shell: bash
-        run: |
-          ./bin/everestctl namespaces add pxc-only -v \
-          --operator.mongodb=false \
-          --operator.postgresql=false \
-          --operator.mysql=true \
-          --skip-wizard
-
-      - name: Adding pg namespace
-        shell: bash
-        run: |
-          ./bin/everestctl namespaces add pg-only -v \
-          --operator.mongodb=false \
-          --operator.postgresql=true \
-          --operator.mysql=false \
+          --take-ownership \
           --skip-wizard
 
       - name: Get Everest admin password
@@ -202,7 +176,7 @@ jobs:
         shell: bash
         env:
           EVEREST_URL: "http://localhost:3000"
-          EVEREST_BUCKETS_NAMESPACES_MAP: '[["bucket-1","everest-ui"],["bucket-2","psmdb-only"],["bucket-3","pxc-only"],["bucket-4","pg-only"],["bucket-5","everest-ui"]]'
+          EVEREST_BUCKETS_NAMESPACES_MAP: '[["bucket-1","everest"]]'
           EVEREST_LOCATION_ACCESS_KEY: "minioadmin"
           EVEREST_LOCATION_SECRET_KEY: "minioadmin"
           EVEREST_LOCATION_REGION: "us-east-1"
@@ -225,9 +199,6 @@ jobs:
           kubectl -n everest-system describe pods
           kubectl -n everest-monitoring describe pods
           kubectl -n everest-system logs deploy/everest-server
-          kubectl -n pxc-only describe pods
-          kubectl -n psmdb-only describe pods
-          kubectl -n pg-only describe pods
 
       - name: Archive report
         if: always()

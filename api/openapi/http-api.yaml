@@ -31,6 +31,102 @@ tags:
 security:
   - BearerAuth: []
 paths:
+  '/auth/token':
+    post:
+      tags:
+        - Authentication & Authorization
+      security: []
+      summary: Issue API tokens
+      description: |
+        OAuth 2.0-style token endpoint (RFC 6749). Issues a short-lived access JWT
+        together with a rotatable refresh token.
+
+        Supported grant types:
+        - `password` — log in with username/password. The user must have the `login` capability.
+        - `refresh_token` — exchange a refresh token for a new token pair. The presented
+          refresh token is rotated (consumed and replaced).
+
+        When `refresh_token_delivery` is set to `cookie`, the refresh token is returned in an
+        `HttpOnly` cookie instead of the response body. For the `refresh_token` grant the
+        refresh token may then be omitted from the request body; it is read from the cookie.
+      operationId: createAuthToken
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthTokenResponse'
+        '400':
+          description: Unsuccessful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: Too many attempts
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      requestBody:
+        description: The token request
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AuthTokenRequest'
+  '/auth/revoke':
+    post:
+      tags:
+        - Authentication & Authorization
+      summary: Revoke API tokens (logout)
+      description: |
+        Revokes the supplied refresh token (or the one carried by the refresh token cookie)
+        and adds the caller's current access JWT to the blocklist until it expires.
+        Inspired by RFC 7009.
+      operationId: revokeAuthToken
+      responses:
+        '204':
+          description: Successful operation
+        '429':
+          description: Too many attempts
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      requestBody:
+        description: The token to revoke
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AuthRevokeRequest'
+
   '/session':
     post:
       tags:
@@ -98,6 +194,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+
   '/permissions':
     get:
       tags:
@@ -1711,6 +1808,70 @@ components:
               type: string
       required:
         - enabled
+    AuthTokenRequest:
+      type: object
+      description: OAuth 2.0-style token request (RFC 6749, JSON-encoded)
+      properties:
+        grant_type:
+          type: string
+          enum:
+            - password
+            - refresh_token
+        username:
+          description: The username. Required for the `password` grant.
+          type: string
+        password:
+          description: The password. Required for the `password` grant.
+          type: string
+        refresh_token:
+          description: |
+            The refresh token to exchange. Used by the `refresh_token` grant.
+            May be omitted when the refresh token is carried by the refresh token cookie.
+          type: string
+        refresh_token_delivery:
+          description: |
+            How the refresh token is returned to the client.
+            `body` returns it in the response body; `cookie` sets an HttpOnly cookie
+            and omits it from the body.
+          type: string
+          enum:
+            - body
+            - cookie
+          default: body
+      required:
+        - grant_type
+    AuthTokenResponse:
+      type: object
+      description: OAuth 2.0-style token response (RFC 6749)
+      properties:
+        access_token:
+          description: A short-lived access JWT.
+          type: string
+        token_type:
+          type: string
+          enum:
+            - Bearer
+        expires_in:
+          description: Access token lifetime in seconds.
+          type: integer
+        refresh_token:
+          description: |
+            The refresh token. Omitted when `refresh_token_delivery` is `cookie`.
+          type: string
+          x-go-type-skip-optional-pointer: true
+      required:
+        - access_token
+        - token_type
+        - expires_in
+    AuthRevokeRequest:
+      type: object
+      description: Token revocation request (RFC 7009)
+      properties:
+        token:
+          description: |
+            The refresh token to revoke. May be omitted when the refresh token is
+            carried by the refresh token cookie.
+          type: string
     UserCredentials:
       type: object
       properties:

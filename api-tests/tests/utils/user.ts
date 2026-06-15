@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -30,9 +31,9 @@ export const login = async (
   password: string,
   env_name: string
 ) => {
-  const resp = await request.post(`/v1/session`, {data: {username: user, password: password}});
+  const resp = await request.post(`/v1/auth/token`, {data: {grant_type: 'password', username: user, password: password}});
   expect(resp.ok()).toBeTruthy();
-  process.env[env_name] = (await resp.json())['token']
+  process.env[env_name] = (await resp.json())['access_token']
 };
 
 export const loginCIUser = async (request: APIRequestContext) => {
@@ -48,7 +49,7 @@ const logout = async (
   request: APIRequestContext,
   env_name: string
 ) => {
-  const resp = await request.delete(`/v1/session`);
+  const resp = await request.post(`/v1/auth/revoke`, {data: {}});
   expect(resp.ok()).toBeTruthy();
   delete process.env[env_name];
 };

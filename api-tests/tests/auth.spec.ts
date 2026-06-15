@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -48,7 +49,7 @@ test.describe.parallel('Auth tests', () => {
       const versionBeforeLogout = await request.get('/v1/version');
       expect(versionBeforeLogout.status()).toEqual(200);
 
-      const response = await request.delete('/v1/session');
+      const response = await request.post('/v1/auth/revoke', {data: {}});
       expect(response.status()).toEqual(204);
 
       const versionAfterLogout = await request.get('/v1/version');

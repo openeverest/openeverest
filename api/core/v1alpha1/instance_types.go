@@ -277,6 +277,11 @@ type ComponentSpec struct {
 	// Replicas specifies the number of replicas for this component.
 	// +optional
 	Replicas *int32 `json:"replicas,omitempty"`
+	// Affinity controls pod scheduling rules for this component, including node
+	// selection (where pods run), pod co-location (scheduling pods together), and
+	// pod anti-affinity (spreading pods across nodes/zones for high availability).
+	// +optional
+	Affinity *corev1.Affinity `json:"affinity,omitempty"`
 	// +kubebuilder:pruning:PreserveUnknownFields
 	// CustomSpec provides an API for customising this component.
 	// The API schema is defined by the provider's ComponentSchemas.

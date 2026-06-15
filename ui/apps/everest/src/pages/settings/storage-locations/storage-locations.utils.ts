@@ -23,16 +23,13 @@ import { BackupStorageTableElement } from './storage-locations.types';
 export const convertStoragesType = (value: StorageType) =>
   ({
     [StorageType.S3]: Messages.s3,
-    [StorageType.GCS]: Messages.gcs,
-    [StorageType.AZURE]: Messages.azure,
-  })[value];
+  })[value] ?? value;
 
 export const convertBackupStoragesPayloadToTableFormat = (
   data: UseQueryResult<BackupStorageCRD[], Error>[]
 ): BackupStorageTableElement[] => {
-  const result: BackupStorageTableElement[] = [];
-  data.forEach((item) => {
-    const tableDataForNamespace: BackupStorageTableElement[] = item.isSuccess
+  return data.flatMap((item) =>
+    item.isSuccess
       ? item.data.map((storage) => ({
           namespace: storage.metadata?.namespace ?? '',
           name: storage.metadata?.name ?? '',
@@ -41,8 +38,6 @@ export const convertBackupStoragesPayloadToTableFormat = (
           url: storage.spec?.s3?.endpointURL ?? '',
           raw: storage,
         }))
-      : [];
-    result.push(...tableDataForNamespace);
-  });
-  return result;
+      : []
+  );
 };

@@ -360,31 +360,14 @@ undeploy: build-cli-debug ## Undeploy Everest from K8S cluster using Everest CLI
 	$(info Uninstalling Everest from K8S cluster using everestctl)
 	"$(LOCALBIN)/everestctl" uninstall -y -f -v
 
-.PHONY: add-pg-namespaces
-add-pg-namespaces: ## Add PostgreSQL namespace to Everest using Everest CLI(usage: DB_NAMESPACES=ns-1,ns-2 make add-pg-namespaces).
-	$(info Adding PostgreSQL namespaces=${DB_NAMESPACE} to Everest using everestctl)
-	$(LOCALBIN)/everestctl namespaces add $(DB_NAMESPACES) -v \
-	--operator.mongodb=false \
-	--operator.postgresql=true \
-	--operator.mysql=false \
-	--skip-wizard
-
-.PHONY: add-psmdb-namespaces
-add-psmdb-namespaces: ## Add PSMDB namespace to Everest using Everest CLI(usage: DB_NAMESPACES=ns-1,ns-2 make add-psmdb-namespaces).
-	$(info Adding PSMDB namespaces=${DB_NAMESPACE} to Everest using everestctl)
+.PHONY: add-shared-everest-namespace
+add-shared-everest-namespace: ## Add shared Everest namespace with all operators (usage: DB_NAMESPACES=everest make add-shared-everest-namespace).
+	$(info Adding shared namespaces=${DB_NAMESPACES} to Everest using everestctl)
 	$(LOCALBIN)/everestctl namespaces add $(DB_NAMESPACES) -v \
 	--operator.mongodb=true \
-	--operator.postgresql=false \
-	--operator.mysql=false \
-	--skip-wizard
-
-.PHONY: add-pxc-namespaces
-add-pxc-namespaces: ## Add PXC namespace to Everest using Everest CLI(usage: DB_NAMESPACES=ns-1,ns-2 make add-pxc-namespaces).
-	$(info Adding PXC namespaces=${DB_NAMESPACE} to Everest using everestctl)
-	$(LOCALBIN)/everestctl namespaces add $(DB_NAMESPACES) -v \
-	--operator.mongodb=false \
-	--operator.postgresql=false \
+	--operator.postgresql=true \
 	--operator.mysql=true \
+	--take-ownership \
 	--skip-wizard
 
 .PHONY: expose
@@ -462,13 +445,13 @@ CHART_BRANCH ?= v2
 .PHONY: update-dev-chart
 update-dev-chart: ## Update dependency to Everest Helm chart to the latest version from the specified branch (default v2).
 	COMMIT=$$(git ls-remote https://github.com/openeverest/helm-charts refs/heads/$(CHART_BRANCH) | cut -f1) && \
-	GOPROXY=direct go get -u -v github.com/openeverest/helm-charts/charts/everest@$$COMMIT
+	go get -u github.com/openeverest/helm-charts/charts/everest@$$COMMIT
 	go mod tidy
 
 EVEREST_OPERATOR_BRANCH ?= main
 .PHONY: update-dev-everest-operator
 update-dev-everest-operator: ## Update dependency to Everest operator to the latest version from the specified branch (default main).
-	GOPROXY=direct go get -u -v github.com/percona/everest-operator@${EVEREST_OPERATOR_BRANCH}
+	go get -u github.com/percona/everest-operator@${EVEREST_OPERATOR_BRANCH}
 	go mod tidy
 
 .PHONY: prepare-pr

@@ -42,6 +42,8 @@ var resourcePathMap = map[string]string{
 
 // skipPaths lists API paths that should skip RBAC checks.
 var skipPaths = []string{
+	"/auth/revoke",
+	"/auth/token",
 	"/cluster-info",
 	"/permissions",
 	"/resources",
