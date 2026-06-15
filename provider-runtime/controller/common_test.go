@@ -17,8 +17,9 @@ package controller
 import (
 	"testing"
 
-	"github.com/openeverest/openeverest/v2/api/core/v1alpha1"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/openeverest/openeverest/v2/api/core/v1alpha1"
 )
 
 func TestStatus_ToV2Alpha1(t *testing.T) {

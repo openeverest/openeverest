@@ -315,6 +315,8 @@ type KubernetesConnector interface {
 	CreateSecret(ctx context.Context, secret *corev1.Secret) (*corev1.Secret, error)
 	// UpdateSecret updates a secret.
 	UpdateSecret(ctx context.Context, secret *corev1.Secret) (*corev1.Secret, error)
+	// PatchSecret patches a secret using the provided patch.
+	PatchSecret(ctx context.Context, secret *corev1.Secret, patch ctrlclient.Patch) (*corev1.Secret, error)
 	// DeleteSecret deletes a secret that matches the criteria.
 	DeleteSecret(ctx context.Context, obj *corev1.Secret) error
 	// GetService returns service that matches the criteria.
