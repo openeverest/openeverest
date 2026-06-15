@@ -22,6 +22,7 @@ import {
   StorageLocationsFields,
   storageLocationDefaultValues,
   storageLocationEditValues,
+  storageLocationsEditSchema,
   storageLocationsSchema,
 } from '../storage-locations.types';
 import { CreateEditStorageForm } from './create-edit-form';
@@ -37,13 +38,7 @@ export const CreateEditModalStorage = ({
 }: CreateEditModalStorageProps) => {
   const isEditMode = !!selectedStorageLocation;
   const schema = useMemo(
-    () =>
-      isEditMode
-        ? storageLocationsSchema.partial({
-            [StorageLocationsFields.accessKey]: true,
-            [StorageLocationsFields.secretKey]: true,
-          })
-        : storageLocationsSchema,
+    () => (isEditMode ? storageLocationsEditSchema : storageLocationsSchema),
     [isEditMode]
   );
 

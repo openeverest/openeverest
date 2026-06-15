@@ -84,6 +84,11 @@ func (in *ComponentSpec) DeepCopyInto(out *ComponentSpec) {
 		*out = new(int32)
 		**out = **in
 	}
+	if in.Affinity != nil {
+		in, out := &in.Affinity, &out.Affinity
+		*out = new(v1.Affinity)
+		(*in).DeepCopyInto(*out)
+	}
 	if in.CustomSpec != nil {
 		in, out := &in.CustomSpec, &out.CustomSpec
 		*out = new(runtime.RawExtension)

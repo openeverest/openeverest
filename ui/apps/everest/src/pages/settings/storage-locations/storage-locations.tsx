@@ -18,7 +18,7 @@ import { Table } from '@percona/ui-lib';
 import { useQueryClient } from '@tanstack/react-query';
 import { ConfirmDialog } from 'components/confirm-dialog/confirm-dialog';
 import {
-  BACKUP_STORAGES_QUERY_KEY,
+  getBackupStoragesQueryKey,
   useBackupStorages,
   useCreateBackupStorage,
   useDeleteBackupStorage,
@@ -46,6 +46,11 @@ import { useNamespacePermissionsForResource } from 'hooks/rbac';
 import { useClusterName } from 'hooks/api/useClusterName';
 import TableActionsMenu from '../../../components/table-actions-menu';
 import { StorageLocationsActionButtons } from './storage-locations-menu-actions';
+import {
+  optimisticCreateBy,
+  optimisticDeleteBy,
+  optimisticEditBy,
+} from 'utils/generalOptimisticDataUpdate';
 
 export const StorageLocations = () => {
   const queryClient = useQueryClient();
@@ -120,23 +125,37 @@ export const StorageLocations = () => {
     setOpenCreateEditModal(false);
   };
 
-  const handleEditBackup = (data: BackupStorageFormValues) => {
+  const handleEditBackupStorage = (data: BackupStorageFormValues) => {
+    const queryKey = getBackupStoragesQueryKey(clusterName, data.namespace);
     editBackupStorage(data, {
-      onSuccess: () => {
-        queryClient.invalidateQueries({
-          queryKey: [BACKUP_STORAGES_QUERY_KEY, clusterName, data.namespace],
-        });
+      onSuccess: (updatedLocation) => {
+        const updatedStorage = updatedLocation as BackupStorageCRD;
+        optimisticEditBy<BackupStorageCRD>(
+          queryClient,
+          queryKey,
+          updatedStorage,
+          (item) =>
+            item.metadata?.name === updatedStorage.metadata?.name &&
+            item.metadata?.namespace === updatedStorage.metadata?.namespace
+        );
         handleCloseModal();
       },
     });
   };
 
   const handleCreateBackup = (data: BackupStorageFormValues) => {
+    const queryKey = getBackupStoragesQueryKey(clusterName, data.namespace);
     createBackupStorage(data, {
-      onSuccess: () => {
-        queryClient.invalidateQueries({
-          queryKey: [BACKUP_STORAGES_QUERY_KEY, clusterName, data.namespace],
-        });
+      onSuccess: (newLocation) => {
+        const createdStorage = newLocation as BackupStorageCRD;
+        optimisticCreateBy<BackupStorageCRD>(
+          queryClient,
+          queryKey,
+          createdStorage,
+          (item) =>
+            item.metadata?.name === createdStorage.metadata?.name &&
+            item.metadata?.namespace === createdStorage.metadata?.namespace
+        );
         handleCloseModal();
       },
     });
@@ -144,7 +163,7 @@ export const StorageLocations = () => {
 
   const handleSubmit = (isEdit: boolean, data: BackupStorageFormValues) => {
     if (isEdit) {
-      handleEditBackup(data);
+      handleEditBackupStorage(data);
     } else {
       handleCreateBackup(data);
     }
@@ -164,18 +183,27 @@ export const StorageLocations = () => {
     backupStorageName: string,
     namespace: string
   ) => {
+    const queryKey = getBackupStoragesQueryKey(clusterName, namespace);
     deleteBackupStorage(
-      { backupStorageId: backupStorageName, namespace: namespace },
+      {
+        backupStorageId: backupStorageName,
+        namespace,
+      },
       {
         onSuccess: () => {
-          queryClient.invalidateQueries({
-            queryKey: [BACKUP_STORAGES_QUERY_KEY, clusterName, namespace],
-          });
+          optimisticDeleteBy<BackupStorageCRD>(
+            queryClient,
+            queryKey,
+            (item) =>
+              item.metadata?.name === backupStorageName &&
+              item.metadata?.namespace === namespace
+          );
           handleCloseDeleteDialog();
         },
       }
     );
   };
+
   return (
     <>
       <Table
