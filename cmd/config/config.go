@@ -20,6 +20,7 @@ package config
 import (
 	"crypto/aes"
 	"path/filepath"
+	"time"
 
 	"github.com/kelseyhightower/envconfig"
 )
@@ -54,8 +55,13 @@ type EverestConfig struct {
 	DisableTelemetry bool `default:"false" envconfig:"DISABLE_TELEMETRY"`
 	// APIRequestsRateLimit allowed amount of API requests per second
 	APIRequestsRateLimit int `default:"100" envconfig:"API_REQUESTS_RATE_LIMIT"`
-	// CreateSessionRateLimit allowed amount of API requests per second to the /session method
-	CreateSessionRateLimit int `default:"1" envconfig:"CREATE_SESSION_RATE_LIMIT"`
+	// CreateAuthTokenRateLimit allowed amount of API requests per second to the /auth/token method
+	CreateAuthTokenRateLimit int `default:"1" envconfig:"CREATE_AUTH_TOKEN_RATE_LIMIT"`
+	// AccessTokenTTL is the lifetime of access JWTs.
+	AccessTokenTTL time.Duration `default:"15m" envconfig:"ACCESS_TOKEN_TTL"`
+	// RefreshTokenTTL is the lifetime of refresh tokens.
+	// The window is sliding: every refresh token rotation grants a fresh TTL.
+	RefreshTokenTTL time.Duration `default:"720h" envconfig:"REFRESH_TOKEN_TTL"`
 	// VersionServiceURL contains the URL of the version service.
 	VersionServiceURL string `default:"https://check.percona.com" envconfig:"VERSION_SERVICE_URL"`
 	// TLSCertsPath contains the path to the directory with the TLS certificates.
