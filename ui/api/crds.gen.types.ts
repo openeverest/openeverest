@@ -1412,6 +1412,36 @@ export interface components {
                                 [key: string]: number | string;
                             };
                         };
+                        /** @description Service defines how this component is exposed. */
+                        service?: {
+                            /**
+                             * @description LoadBalancerService contains LoadBalancer-specific configuration.
+                             *     Only applicable when ServiceType is "LoadBalancer".
+                             */
+                            loadBalancerService?: {
+                                /**
+                                 * @description Annotations is a map of key-value pairs for annotating the Service.
+                                 *     Commonly used to configure cloud provider settings
+                                 *     (e.g., AWS ELB annotations, GCP load balancer settings).
+                                 */
+                                annotations?: {
+                                    [key: string]: string;
+                                };
+                                /**
+                                 * @description SourceRanges lists IP source ranges (CIDR notation) that are
+                                 *     allowed to access the load balancer.
+                                 *     If unset, there is no limitations.
+                                 */
+                                sourceRanges?: string[];
+                            };
+                            /**
+                             * @description ServiceType defines how the component is exposed.
+                             *     The provider decides which service types are supported and implements them accordingly.
+                             *     Common values include standard Kubernetes types: "ClusterIP", "LoadBalancer", "NodePort",
+                             *     and provider-specific types.
+                             */
+                            serviceType?: string;
+                        };
                         /**
                          * @description Storage requirements for this component.
                          *     For stateless components, this is an optional field.

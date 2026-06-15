@@ -2129,6 +2129,39 @@ components:
                           More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
                         type: object
                     type: object
+                  service:
+                    description: Service defines how this component is exposed.
+                    properties:
+                      loadBalancerService:
+                        description: |-
+                          LoadBalancerService contains LoadBalancer-specific configuration.
+                          Only applicable when ServiceType is "LoadBalancer".
+                        properties:
+                          annotations:
+                            additionalProperties:
+                              type: string
+                            description: |-
+                              Annotations is a map of key-value pairs for annotating the Service.
+                              Commonly used to configure cloud provider settings
+                              (e.g., AWS ELB annotations, GCP load balancer settings).
+                            type: object
+                          sourceRanges:
+                            description: |-
+                              SourceRanges lists IP source ranges (CIDR notation) that are
+                              allowed to access the load balancer.
+                              If unset, there is no limitations.
+                            items:
+                              type: string
+                            type: array
+                        type: object
+                      serviceType:
+                        description: |-
+                          ServiceType defines how the component is exposed.
+                          The provider decides which service types are supported and implements them accordingly.
+                          Common values include standard Kubernetes types: "ClusterIP", "LoadBalancer", "NodePort",
+                          and provider-specific types.
+                        type: string
+                    type: object
                   storage:
                     description: |-
                       Storage requirements for this component.

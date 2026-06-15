@@ -1548,6 +1548,29 @@ type Instance struct {
 				Requests *map[string]Instance_Spec_Components_Resources_Requests_AdditionalProperties `json:"requests,omitempty"`
 			} `json:"resources,omitempty"`
 
+			// Service Service defines how this component is exposed.
+			Service *struct {
+				// LoadBalancerService LoadBalancerService contains LoadBalancer-specific configuration.
+				// Only applicable when ServiceType is "LoadBalancer".
+				LoadBalancerService *struct {
+					// Annotations Annotations is a map of key-value pairs for annotating the Service.
+					// Commonly used to configure cloud provider settings
+					// (e.g., AWS ELB annotations, GCP load balancer settings).
+					Annotations *map[string]string `json:"annotations,omitempty"`
+
+					// SourceRanges SourceRanges lists IP source ranges (CIDR notation) that are
+					// allowed to access the load balancer.
+					// If unset, there is no limitations.
+					SourceRanges *[]string `json:"sourceRanges,omitempty"`
+				} `json:"loadBalancerService,omitempty"`
+
+				// ServiceType ServiceType defines how the component is exposed.
+				// The provider decides which service types are supported and implements them accordingly.
+				// Common values include standard Kubernetes types: "ClusterIP", "LoadBalancer", "NodePort",
+				// and provider-specific types.
+				ServiceType *string `json:"serviceType,omitempty"`
+			} `json:"service,omitempty"`
+
 			// Storage Storage requirements for this component.
 			// For stateless components, this is an optional field.
 			Storage *struct {
