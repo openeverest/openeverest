@@ -1551,7 +1551,7 @@ type Instance struct {
 			// Service Service defines how this component is exposed.
 			Service *struct {
 				// LoadBalancerService LoadBalancerService contains LoadBalancer-specific configuration.
-				// Only applicable when ServiceType is "LoadBalancer".
+				// Only applicable for "LoadBalancer" ServiceType.
 				LoadBalancerService *struct {
 					// Annotations Annotations is a map of key-value pairs for annotating the Service.
 					// Commonly used to configure cloud provider settings
@@ -1565,9 +1565,9 @@ type Instance struct {
 				} `json:"loadBalancerService,omitempty"`
 
 				// ServiceType ServiceType defines how the component is exposed.
-				// The provider decides which service types are supported and implements them accordingly.
-				// Common values include standard Kubernetes types: "ClusterIP", "LoadBalancer", "NodePort",
-				// and provider-specific types.
+				// The provider ultimately decides which service types are supported.
+				// Common ServiceTypes include standard Kubernetes types "ClusterIP", "LoadBalancer"
+				// and "NodePort".
 				ServiceType *string `json:"serviceType,omitempty"`
 			} `json:"service,omitempty"`
 

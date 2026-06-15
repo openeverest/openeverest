@@ -1416,7 +1416,7 @@ export interface components {
                         service?: {
                             /**
                              * @description LoadBalancerService contains LoadBalancer-specific configuration.
-                             *     Only applicable when ServiceType is "LoadBalancer".
+                             *     Only applicable for "LoadBalancer" ServiceType.
                              */
                             loadBalancerService?: {
                                 /**
@@ -1436,9 +1436,9 @@ export interface components {
                             };
                             /**
                              * @description ServiceType defines how the component is exposed.
-                             *     The provider decides which service types are supported and implements them accordingly.
-                             *     Common values include standard Kubernetes types: "ClusterIP", "LoadBalancer", "NodePort",
-                             *     and provider-specific types.
+                             *     The provider ultimately decides which service types are supported.
+                             *     Common ServiceTypes include standard Kubernetes types "ClusterIP", "LoadBalancer"
+                             *     and "NodePort".
                              */
                             serviceType?: string;
                         };

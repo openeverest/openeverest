@@ -295,13 +295,13 @@ type ComponentSpec struct {
 
 type Service struct {
 	// ServiceType defines how the component is exposed.
-	// The provider decides which service types are supported and implements them accordingly.
-	// Common values include standard Kubernetes types: "ClusterIP", "LoadBalancer", "NodePort",
-	// and provider-specific types.
+	// The provider ultimately decides which service types are supported.
+	// Common ServiceTypes include standard Kubernetes types "ClusterIP", "LoadBalancer"
+	// and "NodePort".
 	// +optional
 	ServiceType string `json:"serviceType,omitempty"`
 	// LoadBalancerService contains LoadBalancer-specific configuration.
-	// Only applicable when ServiceType is "LoadBalancer".
+	// Only applicable for "LoadBalancer" ServiceType.
 	// +optional
 	LoadBalancerService *LoadBalancerService `json:"loadBalancerService,omitempty"`
 }
@@ -361,15 +361,15 @@ func (in *Instance) GetTopologyConfig() *runtime.RawExtension {
 }
 
 // NormalizedSourceRanges returns source ranges with CIDR notation.
-// Single IP addresses are automatically converted to CIDR format (/32 for IPv4, /128 for IPv6).
+// Single IP addresses are converted to CIDR format (/32 for IPv4, /128 for IPv6).
 // Returns nil if SourceRanges is empty.
-func (sl *SourceRanges) NormalizedSourceRanges() SourceRanges {
-	if sl == nil || len(*sl) == 0 {
+func (sr *SourceRanges) NormalizedSourceRanges() SourceRanges {
+	if sr == nil || len(*sr) == 0 {
 		return nil
 	}
 
-	ret := make([]string, 0, len(*sl))
-	ret = append(ret, *sl...)
+	ret := make([]string, 0, len(*sr))
+	ret = append(ret, *sr...)
 	for k, v := range ret {
 		if _, _, err := net.ParseCIDR(v); err == nil {
 			continue
