@@ -28,6 +28,7 @@ let authInterceptor: number | null = null;
 
 export const api = axios.create({
   baseURL: BASE_URL,
+  withCredentials: true,
 });
 
 export const addApiErrorInterceptor = () => {

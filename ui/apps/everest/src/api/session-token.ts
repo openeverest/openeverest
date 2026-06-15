@@ -30,7 +30,7 @@ type AuthTokenResponse = components['schemas']['AuthTokenResponse'];
 
 // Bare client without interceptors to avoid recursion from the api module's
 // 401-handling interceptor.
-const authClient = axios.create({ baseURL: '/v1/' });
+const authClient = axios.create({ baseURL: '/v1/', withCredentials: true });
 
 let accessToken: string | null = null;
 let accessTokenExpiry: number | null = null; // epoch ms

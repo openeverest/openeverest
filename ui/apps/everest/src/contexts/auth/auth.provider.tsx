@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   AuthProvider as OidcAuthProvider,
   AuthProviderProps as OidcAuthProviderProps,
@@ -48,7 +48,10 @@ import {
   initializeAuthorizerFetchLoop,
   stopAuthorizerFetchLoop,
 } from 'utils/rbac';
-import { components } from '../../../../../api/http-api.types';
+import type { components } from '../../../../../api/http-api.types';
+
+const LOGOUT_SYNC_CHANNEL = 'everest-auth-sync';
+const LOGOUT_SYNC_STORAGE_KEY = 'everest-auth-sync';
 
 const Provider = ({
   oidcConfig,
@@ -73,6 +76,8 @@ const Provider = ({
 const AuthProvider = ({ children, isSsoEnabled }: AuthProviderProps) => {
   const [authStatus, setAuthStatus] = useState<UserAuthStatus>('unknown');
   const [redirect, setRedirect] = useState<string | null>(null);
+  const logoutSyncRef = useRef<BroadcastChannel | null>(null);
+  const tabIdRef = useRef(`tab-${Math.random().toString(36).slice(2)}`);
 
   const { signIn, userManager } = useOidcAuth();
 
@@ -116,6 +121,22 @@ const AuthProvider = ({ children, isSsoEnabled }: AuthProviderProps) => {
     }
   };
 
+  const broadcastLogoutSync = useCallback(() => {
+    const payload = {
+      type: 'logout',
+      sender: tabIdRef.current,
+      ts: Date.now(),
+    };
+
+    if (logoutSyncRef.current) {
+      logoutSyncRef.current.postMessage(payload);
+      return;
+    }
+
+    // Fallback for environments without BroadcastChannel support.
+    localStorage.setItem(LOGOUT_SYNC_STORAGE_KEY, JSON.stringify(payload));
+  }, []);
+
   const logout = async () => {
     try {
       // Revokes the refresh token (carried by the HttpOnly cookie) and
@@ -124,18 +145,9 @@ const AuthProvider = ({ children, isSsoEnabled }: AuthProviderProps) => {
     } catch {
       // Best-effort: local session state is cleared regardless.
     }
-    if (isSsoEnabled) {
-      await userManager.clearStaleState();
-      await setLogoutStatus();
-    }
 
-    setAuthStatus('loggedOut');
-    clearAccessToken();
-    localStorage.removeItem('everestToken');
-    sessionStorage.clear();
-    setRedirect(null);
-    removeApiErrorInterceptor();
-    removeApiAuthInterceptor();
+    broadcastLogoutSync();
+    await setLogoutStatus();
   };
 
   const setRedirectRoute = (route: string) => {
@@ -153,12 +165,16 @@ const AuthProvider = ({ children, isSsoEnabled }: AuthProviderProps) => {
     setAuthStatus('loggedOut');
     clearAccessToken();
     localStorage.removeItem('everestToken');
+    sessionStorage.clear();
+    setRedirect(null);
+    removeApiErrorInterceptor();
+    removeApiAuthInterceptor();
     if (isSsoEnabled) {
       await userManager.clearStaleState();
       await userManager.removeUser();
     }
     stopAuthorizerFetchLoop();
-  }, [userManager]);
+  }, [isSsoEnabled, userManager]);
 
   const silentlyRenewToken = useCallback(async () => {
     try {
@@ -174,23 +190,86 @@ const AuthProvider = ({ children, isSsoEnabled }: AuthProviderProps) => {
   }, [userManager]);
 
   useEffect(() => {
-    if (isSsoEnabled) {
-      userManager.events.addUserLoaded((user) => {
-        const token = user.access_token;
-        if (!token) {
-          return;
+    if (typeof BroadcastChannel !== 'undefined') {
+      logoutSyncRef.current = new BroadcastChannel(LOGOUT_SYNC_CHANNEL);
+    }
+
+    const handleSyncLogout = async () => {
+      await setLogoutStatus();
+    };
+
+    const handleChannelMessage = async (event: MessageEvent) => {
+      if (event.data?.type !== 'logout') {
+        return;
+      }
+
+      if (event.data.sender === tabIdRef.current) {
+        return;
+      }
+
+      await handleSyncLogout();
+    };
+
+    const handleStorageEvent = async (event: StorageEvent) => {
+      if (event.key !== LOGOUT_SYNC_STORAGE_KEY || !event.newValue) {
+        return;
+      }
+
+      try {
+        const payload = JSON.parse(event.newValue);
+        if (payload?.type === 'logout' && payload.sender !== tabIdRef.current) {
+          await handleSyncLogout();
         }
-        localStorage.setItem('everestToken', token);
-        const decoded = jwtDecode(token);
-        setLoggedInStatus(decoded.sub || '');
-      });
+      } catch {
+        // Ignore malformed sync payloads.
+      }
+    };
 
-      userManager.events.addAccessTokenExpiring(() => {
-        silentlyRenewToken();
-      });
+    logoutSyncRef.current?.addEventListener('message', handleChannelMessage);
+    window.addEventListener('storage', handleStorageEvent);
 
+    return () => {
+      logoutSyncRef.current?.removeEventListener(
+        'message',
+        handleChannelMessage
+      );
+      window.removeEventListener('storage', handleStorageEvent);
+      logoutSyncRef.current?.close();
+      logoutSyncRef.current = null;
+    };
+  }, [setLogoutStatus]);
+
+  useEffect(() => {
+    if (!isSsoEnabled) {
+      return;
+    }
+
+    const handleUserLoaded = (user: { access_token?: string }) => {
+      const token = user.access_token;
+      if (!token) {
+        return;
+      }
+      localStorage.setItem('everestToken', token);
+      const decoded = jwtDecode(token);
+      setLoggedInStatus(decoded.sub || '');
+    };
+
+    const handleTokenExpiring = () => {
+      silentlyRenewToken();
+    };
+
+    userManager.events.addUserLoaded(handleUserLoaded);
+    userManager.events.addAccessTokenExpiring(handleTokenExpiring);
+
+    // signinSilentCallback is only relevant inside the silent-renew iframe.
+    if (window.location !== window.parent.location) {
       userManager.signinSilentCallback();
     }
+
+    return () => {
+      userManager.events.removeUserLoaded(handleUserLoaded);
+      userManager.events.removeAccessTokenExpiring(handleTokenExpiring);
+    };
   }, [isSsoEnabled, silentlyRenewToken, userManager]);
 
   useEffect(() => {
@@ -276,10 +355,9 @@ const AuthProvider = ({ children, isSsoEnabled }: AuthProviderProps) => {
         if (token) {
           schedule();
         } else {
-          enqueueSnackbar(
-            'Your session has expired. Please sign in again.',
-            { variant: 'info' }
-          );
+          enqueueSnackbar('Your session has expired. Please sign in again.', {
+            variant: 'info',
+          });
           setLogoutStatus();
         }
       }, delay);
