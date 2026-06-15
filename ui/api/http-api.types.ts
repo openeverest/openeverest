@@ -56,31 +56,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/session": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Everest API Login
-         * @description This API issues a new JWT token for logging in from the Everest API.
-         *     The provided user must have the `login` capability.
-         */
-        post: operations["createSession"];
-        /**
-         * Everest API Logout
-         * @description This API invalidates Everest API JWT token.
-         */
-        delete: operations["deleteSession"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/permissions": {
         parameters: {
             query?: never;
@@ -739,10 +714,6 @@ export interface components {
              *     carried by the refresh token cookie.
              */
             token?: string;
-        };
-        UserCredentials: {
-            username?: string;
-            password?: string;
         };
         /** @description Backup storage parameters */
         CreateBackupStorageParams: {
@@ -3254,96 +3225,6 @@ export interface operations {
                 "application/json": components["schemas"]["AuthRevokeRequest"];
             };
         };
-        responses: {
-            /** @description Successful operation */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Too many attempts */
-            429: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Internal server error */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    createSession: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** @description The user credentials */
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["UserCredentials"];
-            };
-        };
-        responses: {
-            /** @description Successful operation */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        token?: string;
-                    };
-                };
-            };
-            /** @description Unsuccessful operation */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Too many attempts */
-            429: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Internal server error */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    deleteSession: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
         responses: {
             /** @description Successful operation */
             204: {

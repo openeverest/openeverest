@@ -127,73 +127,6 @@ paths:
             schema:
               $ref: '#/components/schemas/AuthRevokeRequest'
 
-  '/session':
-    post:
-      tags:
-        - Authentication & Authorization
-      security: []
-      summary: Everest API Login
-      description: |
-        This API issues a new JWT token for logging in from the Everest API.
-        The provided user must have the `login` capability.
-      operationId: createSession
-      responses:
-        '200':
-          description: Successful operation
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  token:
-                    type: string
-        '400':
-          description: Unsuccessful operation
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-        '429':
-          description: Too many attempts
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-        '500':
-          description: Internal server error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-      requestBody:
-        description: The user credentials
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/UserCredentials'
-    delete:
-      tags:
-        - Authentication & Authorization
-      summary: Everest API Logout
-      description: |
-        This API invalidates Everest API JWT token.
-      operationId: deleteSession
-      responses:
-        '204':
-          description: Successful operation
-        '429':
-          description: Too many attempts
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-        '500':
-          description: Internal server error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
 
   '/permissions':
     get:
@@ -1871,13 +1804,6 @@ components:
           description: |
             The refresh token to revoke. May be omitted when the refresh token is
             carried by the refresh token cookie.
-          type: string
-    UserCredentials:
-      type: object
-      properties:
-        username:
-          type: string
-        password:
           type: string
     CreateBackupStorageParams:
       type: object
