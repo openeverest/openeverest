@@ -2155,11 +2155,13 @@ components:
                             type: array
                         type: object
                       serviceType:
+                        default: ClusterIP
                         description: |-
                           ServiceType defines how the component is exposed.
-                          The provider ultimately decides which service types are supported.
                           Common ServiceTypes include standard Kubernetes types "ClusterIP", "LoadBalancer"
                           and "NodePort".
+                          The provider ultimately decides which service types are supported, and may
+                          support additional ServiceTypes.
                         type: string
                     type: object
                   storage:
