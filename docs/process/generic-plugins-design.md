@@ -124,7 +124,7 @@ as a CLI subcommand through `everestctl`.
 ### 5.1 `Plugin` (cluster-scoped)
 
 ```yaml
-apiVersion: core.openeverest.io/v1alpha1
+apiVersion: extensions.openeverest.io/v1alpha1
 kind: Plugin
 metadata:
   name: sql-explorer
@@ -244,7 +244,7 @@ The CR is created by `everestctl extension install` (never by the user
 directly editing YAML). Cluster-admin owns it.
 
 ```yaml
-apiVersion: core.openeverest.io/v1alpha1
+apiVersion: extensions.openeverest.io/v1alpha1
 kind: InstalledExtension
 metadata:
   name: sql-explorer
@@ -816,7 +816,7 @@ writes an HTTP handler; the host does the Kubernetes plumbing.
 A new `spec.customResources[]` field on the `Plugin` CR:
 
 ```yaml
-apiVersion: core.openeverest.io/v1alpha1
+apiVersion: extensions.openeverest.io/v1alpha1
 kind: Plugin
 metadata:
   name: presets
@@ -1161,8 +1161,9 @@ graph TB
    watches the resulting CRDs; reconciliation is handled by the plugin backend
    via HTTP callbacks (see §8.8). Plugins do **not** run their own operators.
    All plugin CRDs live under the `<pluginName>.plugins.openeverest.io` API
-   group — plugins cannot declare CRDs in the `core.openeverest.io` group or
-   any other core API group. CRDs for spec 001 Providers remain host-exclusive.
+   group — plugins cannot declare CRDs in the `core.openeverest.io`,
+   `extensions.openeverest.io`, or any other core API group. CRDs for spec
+   001 Providers remain host-exclusive.
 
 2. **What is the minimal backend surface OpenEverest must expose?**
    The existing v1 API, plus four new additions:
