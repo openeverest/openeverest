@@ -30,6 +30,7 @@ import (
 	"slices"
 	"strings"
 	"text/template"
+	"time"
 
 	"github.com/getkin/kin-openapi/openapi3filter"
 	"github.com/golang-jwt/jwt/v5"
@@ -51,6 +52,7 @@ import (
 	k8shandler "github.com/openeverest/openeverest/v2/internal/server/handlers/k8s"
 	rbachandler "github.com/openeverest/openeverest/v2/internal/server/handlers/rbac"
 	valhandler "github.com/openeverest/openeverest/v2/internal/server/handlers/validation"
+	"github.com/openeverest/openeverest/v2/internal/tokenregistry"
 	"github.com/openeverest/openeverest/v2/pkg/accounts"
 	"github.com/openeverest/openeverest/v2/pkg/common"
 	"github.com/openeverest/openeverest/v2/pkg/events"
@@ -68,6 +70,7 @@ type EverestServer struct {
 	kubeConnector kubernetes.KubernetesConnector
 	kubeStreamer  clientgo.Interface
 	sessionMgr    *session.Manager
+	tokenRegistry *tokenregistry.Registry
 	attemptsStore *RateLimiterMemoryStore
 	handler       handlers.Handler
 	oidcProvider  *oidc.ProviderConfig
@@ -115,7 +118,7 @@ func NewEverestServer(ctx context.Context, c *config.EverestConfig, l *zap.Sugar
 
 	echoServer := echo.New()
 	echoServer.Use(echomiddleware.RateLimiter(echomiddleware.NewRateLimiterMemoryStore(rate.Limit(c.APIRequestsRateLimit))))
-	middleware, store := sessionRateLimiter(c.CreateSessionRateLimit)
+	middleware, store := sessionRateLimiter(c.CreateAuthTokenRateLimit)
 	echoServer.Use(middleware)
 
 	sessionManagerClient, err := createSessionManagerClient(ctx, l, kubeConnector.Namespace())
@@ -135,6 +138,11 @@ func NewEverestServer(ctx context.Context, c *config.EverestConfig, l *zap.Sugar
 		return nil, errors.Join(err, errors.New("failed to get OIDC provider config"))
 	}
 
+	tokenRegistry, err := tokenregistry.New(ctx, l, kubeConnector, kubeConnector.Namespace())
+	if err != nil {
+		return nil, errors.Join(err, errors.New("failed to create API token registry"))
+	}
+
 	e := &EverestServer{
 		config:        c,
 		l:             l,
@@ -142,6 +150,7 @@ func NewEverestServer(ctx context.Context, c *config.EverestConfig, l *zap.Sugar
 		kubeConnector: kubeConnector,
 		kubeStreamer:  kubeStreamer,
 		sessionMgr:    sessMgr,
+		tokenRegistry: tokenRegistry,
 		attemptsStore: store,
 		oidcProvider:  oidcProvider,
 		eventHub:      events.NewHub(l, kubeConnector),
@@ -404,6 +413,9 @@ func (e *EverestServer) Start(ctx context.Context) error {
 		}
 	}()
 
+	// Periodically prune expired API token records.
+	go e.pruneExpiredTokens(ctx)
+
 	addr := fmt.Sprintf("0.0.0.0:%d", e.config.ListenPort)
 	if e.config.TLSCertsPath != "" {
 		return e.startHTTPS(ctx, addr)
@@ -439,6 +451,23 @@ func (e *EverestServer) startHTTPS(ctx context.Context, addr string) error {
 	return e.echo.StartServer(e.echo.TLSServer)
 }
 
+// pruneExpiredTokens periodically removes expired records from the API token registry.
+func (e *EverestServer) pruneExpiredTokens(ctx context.Context) {
+	const pruneInterval = time.Hour
+	ticker := time.NewTicker(pruneInterval)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			if err := e.tokenRegistry.PruneExpired(ctx); err != nil && ctx.Err() == nil {
+				e.l.Errorf("failed to prune expired API tokens: %v", err)
+			}
+		}
+	}
+}
+
 // Shutdown gracefully stops the Everest server.
 func (e *EverestServer) Shutdown(ctx context.Context) error {
 	e.l.Info("Shutting down http server")
@@ -466,11 +495,11 @@ func (e *EverestServer) getBodyFromContext(ctx echo.Context, into any) error {
 }
 
 func sessionRateLimiter(limit int) (echo.MiddlewareFunc, *RateLimiterMemoryStore) {
-	allButSession := func(c echo.Context) bool {
-		return c.Request().URL.Path != "/v1/session"
+	allButAuthToken := func(c echo.Context) bool {
+		return c.Request().URL.Path != "/v1/auth/token"
 	}
 	config := echomiddleware.DefaultRateLimiterConfig
-	config.Skipper = allButSession
+	config.Skipper = allButAuthToken
 	store := NewRateLimiterMemoryStoreWithConfig(RateLimiterMemoryStoreConfig{
 		Rate: rate.Limit(limit),
 	})

@@ -66,6 +66,16 @@ print('Using PSMDB Provider chart dir: {0}'.format(psmdb_provider_chart_dir))
 psmdb_provider_dir = os.path.dirname(os.path.dirname(psmdb_provider_chart_dir))
 print('Using PSMDB Provider dir: {0}'.format(psmdb_provider_dir))
 
+pxc_provider_chart_dir = os.getenv('PXC_PROVIDER_CHART_DIR')
+if not pxc_provider_chart_dir:
+    fail('PXC_PROVIDER_CHART_DIR must be set')
+pxc_provider_chart_dir = os.path.realpath(pxc_provider_chart_dir)
+if not os.path.exists(pxc_provider_chart_dir):
+    fail('PXC Provider chart dir does not exist: {0}'.format(pxc_provider_chart_dir))
+print('Using PXC Provider chart dir: {0}'.format(pxc_provider_chart_dir))
+pxc_provider_dir = os.path.dirname(os.path.dirname(pxc_provider_chart_dir))
+print('Using PXC Provider dir: {0}'.format(pxc_provider_dir))
+
 # Optional: Hello Plugin (installed from OCI Helm chart)
 # Set HELLO_PLUGIN_CHART to the OCI chart reference, e.g.:
 #   export HELLO_PLUGIN_CHART=oci://ghcr.io/openeverest/generic-plugin-template
@@ -98,6 +108,10 @@ print('Using Everest server backend build ENV vars: {0}'.format(everest_backend_
 # Check for PSMDB provider Go build options
 psmdb_provider_build_env = os.getenv('PSMDB_PROVIDER_BUILD_ENV', go_default_build_env)
 print('Using PSMDB provider build ENV vars: {0}'.format(psmdb_provider_build_env))
+
+# Check for PXC provider Go build options
+pxc_provider_build_env = os.getenv('PXC_PROVIDER_BUILD_ENV', go_default_build_env)
+print('Using PXC provider build ENV vars: {0}'.format(pxc_provider_build_env))
 
 # External resources set up
 k8s_context = os.getenv('K8S_CONTEXT', '')
@@ -1162,3 +1176,103 @@ k8s_resource(
   new_name='provider-percona-server-mongodb-operator',
   labels=["providers"]
 )
+
+####################################
+### Deploy PXC Provider Helm chart ##
+####################################
+
+# Synchronous guard: download PXC provider chart dependencies if missing
+if not helm_remote_deps_present(pxc_provider_chart_dir):
+    local(
+        'cd {0} && helm dependency build'.format(pxc_provider_chart_dir),
+    )
+
+# Named resource: ensures PXC provider dependencies are built before templating
+local_resource(
+    'provider-percona-xtradb-cluster-deps',
+    'cd {chart_dir} && helm dependency build'.format(
+        chart_dir=pxc_provider_chart_dir,
+    ),
+    deps=[
+        '{0}/Chart.yaml'.format(pxc_provider_chart_dir),
+    ],
+    labels=['providers'],
+)
+
+# Re-run make generate when the definition folder changes (updates provider-spec.yaml in the Helm chart)
+local_resource(
+  'provider-percona-xtradb-cluster-generate',
+  'make -C {0} generate'.format(pxc_provider_dir),
+  deps=[
+    '{0}/definition'.format(pxc_provider_dir),
+  ],
+  labels=['providers'],
+)
+
+# Build the PXC provider binary locally to take advantage of the go cache
+local_resource(
+  'provider-percona-xtradb-cluster-build',
+  'cd {provider_dir} && {build_env} go build -o bin/provider ./cmd/provider/'.format(
+    provider_dir=pxc_provider_dir,
+    build_env=pxc_provider_build_env,
+  ),
+  deps=[
+    '{0}/go.mod'.format(pxc_provider_dir),
+    '{0}/go.sum'.format(pxc_provider_dir),
+    '{0}/internal'.format(pxc_provider_dir),
+    '{0}/cmd/provider'.format(pxc_provider_dir),
+  ],
+  ignore=[
+    '{0}/**/*_test.go'.format(pxc_provider_dir),
+  ],
+  resource_deps=['provider-percona-xtradb-cluster-generate'],
+  labels=['providers'],
+)
+
+# Live update the PXC provider without generating a new pod
+docker_build_with_restart('ghcr.io/openeverest/provider-percona-xtradb-cluster-dev',
+  context=pxc_provider_dir,
+  dockerfile='./pxc-provider.Dockerfile',
+  target='dev',
+  entrypoint=['/home/provider/provider'],
+  only=['{0}/bin/provider'.format(pxc_provider_dir)],
+  live_update=[
+    sync('{0}/bin/provider'.format(pxc_provider_dir), '/home/provider/provider'),
+  ]
+)
+
+pxc_provider_yaml = helm(
+    pxc_provider_chart_dir,
+    name='provider-percona-xtradb-cluster',
+    namespace='default',
+    skip_crds=True,
+    set=['securityContext.readOnlyRootFilesystem=false'],
+)
+k8s_yaml(pxc_provider_yaml)
+k8s_resource(
+  workload='provider-percona-xtradb-cluster',
+  objects=[
+    'provider-percona-xtradb-cluster:serviceaccount',
+    'provider-percona-xtradb-cluster:clusterrole',
+    'provider-percona-xtradb-cluster:clusterrolebinding',
+    'percona-xtradb-cluster:provider',
+  ],
+  resource_deps = [
+    'crds',
+    'provider-percona-xtradb-cluster-deps',
+    'provider-percona-xtradb-cluster-generate',
+    'provider-percona-xtradb-cluster-build',
+  ],
+  new_name='provider-percona-xtradb-cluster',
+  labels=["providers"]
+)
+k8s_resource(
+  workload='provider-percona-xtradb-cluster-operator',
+  resource_deps = [
+    'crds',
+    'provider-percona-xtradb-cluster-deps',
+  ],
+  new_name='provider-percona-xtradb-cluster-operator',
+  labels=["providers"]
+)
+

@@ -17,7 +17,6 @@
 package server
 
 import (
-	"errors"
 	"fmt"
 	"net/http"
 	"time"
@@ -32,7 +31,6 @@ import (
 )
 
 const (
-	jwtSubjectTml    = "%s:%s" // username:capability
 	jwtDefaultExpiry = time.Hour * 24
 )
 
@@ -84,26 +82,4 @@ func (e *EverestServer) DeleteSession(ctx echo.Context) error {
 	}
 
 	return ctx.NoContent(http.StatusNoContent)
-}
-
-func sessionErrToHTTPRes(ctx echo.Context, err error) error {
-	if errors.Is(err, accounts.ErrAccountNotFound) ||
-		errors.Is(err, accounts.ErrIncorrectPassword) {
-		return ctx.JSON(http.StatusUnauthorized, api.Error{
-			Message: pointer.To("Incorrect username or password provided"),
-		})
-	}
-
-	if errors.Is(err, accounts.ErrAccountDisabled) {
-		return ctx.JSON(http.StatusForbidden, api.Error{
-			Message: pointer.To("User account is disabled"),
-		})
-	}
-
-	if errors.Is(err, accounts.ErrInsufficientCapabilities) {
-		return ctx.JSON(http.StatusForbidden, api.Error{
-			Message: pointer.To("User account lacks required capabilities"),
-		})
-	}
-	return err
 }

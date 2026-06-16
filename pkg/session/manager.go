@@ -174,19 +174,26 @@ func (mgr *Manager) Authenticate(ctx context.Context, username string, password 
 		return err
 	}
 
+	_, err := mgr.CanLogin(ctx, username)
+	return err
+}
+
+// CanLogin checks that the given account exists, is enabled and holds the login
+// capability, and returns the account.
+func (mgr *Manager) CanLogin(ctx context.Context, username string) (*accounts.Account, error) {
 	account, err := mgr.accountManager.Get(ctx, username)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	if !account.Enabled {
-		return accounts.ErrAccountDisabled
+		return nil, accounts.ErrAccountDisabled
 	}
 
 	if !account.HasCapability(accounts.AccountCapabilityLogin) {
-		return errors.Join(accounts.ErrInsufficientCapabilities, errors.New("user does not have capability to login"))
+		return nil, errors.Join(accounts.ErrInsufficientCapabilities, errors.New("user does not have capability to login"))
 	}
-	return nil
+	return account, nil
 }
 
 func getPrivateKey() (*rsa.PrivateKey, error) {
