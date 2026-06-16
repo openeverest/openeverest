@@ -1,4 +1,4 @@
-FROM alpine:3.23@sha256:5b10f432ef3da1b8d4c7eb6c487f2f5a8f096bc91145e68878dd4a5019afde11 AS dev
+FROM alpine:3.24@sha256:f5064d3e5f88c467c714509f491853ab2d951932c5cad699c0cb969dcec6f3b4 AS dev
 WORKDIR /home/everest
 RUN adduser -D everest
 USER 1000:1000
