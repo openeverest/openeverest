@@ -52,9 +52,7 @@ const AppBarUserIcon = () => {
   const token = getAuthToken();
 
   if (!token) {
-    return (
-      <Skeleton variant="circular" width={40} height={40} />
-    );
+    return <Skeleton variant="circular" width={40} height={40} />;
   }
 
   const decoded = jwtDecode(token) as UserToken;

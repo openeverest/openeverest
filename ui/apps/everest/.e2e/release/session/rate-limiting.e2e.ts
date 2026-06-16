@@ -35,5 +35,8 @@ test('Rate limiting on login (429)', async ({ page }) => {
     }
   }
 
-  expect(false, 'Server did not return 429 after ' + attempts + ' failed logins').toBeTruthy();
+  expect(
+    false,
+    'Server did not return 429 after ' + attempts + ' failed logins'
+  ).toBeTruthy();
 });
