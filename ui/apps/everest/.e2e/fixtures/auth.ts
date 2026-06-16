@@ -13,6 +13,7 @@
 // limitations under the License.
 
 import { test as base, expect } from '@playwright/test';
+import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { TIMEOUTS } from '@e2e/constants';
@@ -25,10 +26,14 @@ const { CI_USER, CI_PASSWORD } = process.env;
 
 /**
  * Rate-limiter stagger delay per worker (ms).
- * The auth endpoint has a rate limit of 1 req/s with burst=1.
+ * The auth endpoint has a configurable rate limit (default 1 req/s, burst=1).
  * Staggering worker logins avoids 429 responses.
  */
-const WORKER_STAGGER_MS = 1500;
+const WORKER_STAGGER_MS = 3000;
+
+/** Maximum number of login attempts before giving up. */
+const MAX_LOGIN_ATTEMPTS = 3;
+const LOGIN_RETRY_DELAY_MS = 3000;
 
 /** Options configurable per-project via `use: { ... }` in project config. */
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type
@@ -69,7 +74,10 @@ export const test = base.extend<AuthOptions, AuthWorkerFixtures>({
       const id = workerInfo.workerIndex;
       const stateFile = path.join(AUTH_DIR, `ci_worker_${id}.json`);
 
-      // Stagger logins to respect the per-IP rate limiter (1 req/s, burst=1).
+      // Ensure .auth directory exists.
+      fs.mkdirSync(AUTH_DIR, { recursive: true });
+
+      // Stagger logins to respect the per-IP rate limiter.
       if (id > 0) {
         await new Promise((r) => setTimeout(r, id * WORKER_STAGGER_MS));
       }
@@ -78,16 +86,43 @@ export const test = base.extend<AuthOptions, AuthWorkerFixtures>({
       const context = await browser.newContext({ baseURL });
       const page = await context.newPage();
 
-      await page.goto('/login');
-      await page.waitForLoadState('networkidle');
+      for (let attempt = 1; attempt <= MAX_LOGIN_ATTEMPTS; attempt++) {
+        await page.goto('/login');
+        await page.waitForLoadState('networkidle');
 
-      await page.getByTestId('text-input-username').fill(authUser);
-      await page.getByTestId('text-input-password').fill(authPassword);
-      await page.getByTestId('login-button').click();
+        await page.getByTestId('text-input-username').fill(authUser);
+        await page.getByTestId('text-input-password').fill(authPassword);
+        await page.getByTestId('login-button').click();
 
-      await expect(page.getByTestId('user-appbar-button')).toBeVisible({
-        timeout: TIMEOUTS.ThirtySeconds,
-      });
+        // Check if we were rate-limited (429 → toast with "too many attempts").
+        const rateLimited = page.getByText(/too many attempts/i);
+        const appBar = page.getByTestId('user-appbar-button');
+
+        const result = await Promise.race([
+          appBar
+            .waitFor({ state: 'visible', timeout: TIMEOUTS.ThirtySeconds })
+            .then(() => 'ok' as const),
+          rateLimited
+            .waitFor({ state: 'visible', timeout: TIMEOUTS.TenSeconds })
+            .then(() => 'rate-limited' as const)
+            .catch(() => null), // Not rate-limited, keep waiting for appBar
+        ]);
+
+        if (result === 'ok') {
+          break;
+        }
+
+        if (result === 'rate-limited' && attempt < MAX_LOGIN_ATTEMPTS) {
+          // Wait for the rate limiter to recover before retrying.
+          await page.waitForTimeout(LOGIN_RETRY_DELAY_MS * attempt);
+          continue;
+        }
+
+        // Last attempt — let the original expect assertion produce a clear error.
+        await expect(appBar).toBeVisible({
+          timeout: TIMEOUTS.ThirtySeconds,
+        });
+      }
 
       await dismissOnboarding(page);
 
@@ -102,7 +137,7 @@ export const test = base.extend<AuthOptions, AuthWorkerFixtures>({
 
       await use(stateFile);
     },
-    { scope: 'worker' },
+    { scope: 'worker', timeout: TIMEOUTS.ThreeMinutes },
   ],
 });
 
