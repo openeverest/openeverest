@@ -133,7 +133,6 @@ jobs:
           --skip-db-namespace \
           --helm.set server.image.repository=localhost:5000/openeverest/openeverest-dev \
           --helm.set server.apiRequestsRateLimit=200 \
-          --helm.set-json 'server.env=[{"name":"CREATE_AUTH_TOKEN_RATE_LIMIT","value":"10"}]' \
           --helm.set versionMetadataURL=https://check-dev.percona.com \
           --helm.set operator.init=false \
           --helm.set operator.image=ghcr.io/openeverest/openeverest-operator-dev \

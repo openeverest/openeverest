@@ -341,7 +341,7 @@ deploy:  ## Deploy Everest to K8S cluster using Everest CLI.
 	--namespaces $(DB_NAMESPACES) \
 	--helm.set server.image.repository=$(IMAGE_PREFIX)/$(EVEREST_SERVER_DEV_IMAGE_NAME) \
 	--helm.set server.apiRequestsRateLimit=500 \
-	--helm.set-json 'server.env=[{"name":"CREATE_AUTH_TOKEN_RATE_LIMIT","value":"10"}]' \
+	--helm.set server.sessionRequestsRateLimit=200 \
 	--helm.set versionMetadataURL=https://check-dev.percona.com \
 	--helm.set server.initialAdminPassword=admin \
 	--helm.set operator.init=false \
