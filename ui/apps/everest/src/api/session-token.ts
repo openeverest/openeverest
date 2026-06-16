@@ -23,10 +23,10 @@
 // localStorage entry managed by oidc-react.
 
 import axios from 'axios';
-import type { components } from '../../../../api/http-api.types';
+import type { HttpApi } from '@generated/api-types';
 
-type AuthTokenRequest = components['schemas']['AuthTokenRequest'];
-type AuthTokenResponse = components['schemas']['AuthTokenResponse'];
+type AuthTokenRequest = HttpApi.components['schemas']['AuthTokenRequest'];
+type AuthTokenResponse = HttpApi.components['schemas']['AuthTokenResponse'];
 
 // Bare client without interceptors to avoid recursion from the api module's
 // 401-handling interceptor.
@@ -51,6 +51,8 @@ export const clearAccessToken = () => {
 
 // Returns the credential for API requests: the in-memory access token for
 // internal sessions, falling back to localStorage for OIDC sessions.
+// TODO: Remove localStorage fallback once OIDC is migrated to the same
+// cookie-based token mechanism (requires backend support).
 export const getAuthToken = () =>
   accessToken || localStorage.getItem('everestToken');
 

@@ -48,7 +48,7 @@ import {
   initializeAuthorizerFetchLoop,
   stopAuthorizerFetchLoop,
 } from 'utils/rbac';
-import type { components } from '../../../../../api/http-api.types';
+import type { HttpApi } from '@generated/api-types';
 
 const LOGOUT_SYNC_CHANNEL = 'everest-auth-sync';
 const LOGOUT_SYNC_STORAGE_KEY = 'everest-auth-sync';
@@ -89,7 +89,7 @@ const AuthProvider = ({ children, isSsoEnabled }: AuthProviderProps) => {
       const { username, password } = manualAuthArgs!;
       try {
         const response = await api.post<
-          components['schemas']['AuthTokenResponse']
+          HttpApi.components['schemas']['AuthTokenResponse']
         >('/auth/token', {
           grant_type: 'password',
           username,
@@ -97,7 +97,7 @@ const AuthProvider = ({ children, isSsoEnabled }: AuthProviderProps) => {
           // The refresh token is delivered as an HttpOnly cookie, never
           // exposed to JS. The access token is kept in memory only.
           refresh_token_delivery: 'cookie',
-        } satisfies components['schemas']['AuthTokenRequest']);
+        } satisfies HttpApi.components['schemas']['AuthTokenRequest']);
         setAccessToken(response.data.access_token, response.data.expires_in);
         setLoggedInStatus(username);
       } catch (error) {
@@ -218,6 +218,7 @@ const AuthProvider = ({ children, isSsoEnabled }: AuthProviderProps) => {
       try {
         const payload = JSON.parse(event.newValue);
         if (payload?.type === 'logout' && payload.sender !== tabIdRef.current) {
+          localStorage.removeItem(LOGOUT_SYNC_STORAGE_KEY);
           await handleSyncLogout();
         }
       } catch {

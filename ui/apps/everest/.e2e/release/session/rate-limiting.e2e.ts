@@ -35,5 +35,5 @@ test('Rate limiting on login (429)', async ({ page }) => {
     }
   }
 
-  test.skip(true, 'Server did not return 429 after repeated failed logins');
+  expect(false, 'Server did not return 429 after ' + attempts + ' failed logins').toBeTruthy();
 });

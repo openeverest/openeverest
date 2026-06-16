@@ -28,6 +28,7 @@ import { ColorModeContext } from '@percona/design';
 import { AuthContext } from 'contexts/auth';
 import { getAuthToken } from 'api/session-token';
 import { jwtDecode } from 'jwt-decode';
+import { Skeleton } from '@mui/material';
 
 interface UserToken {
   preferred_username?: string;
@@ -51,7 +52,9 @@ const AppBarUserIcon = () => {
   const token = getAuthToken();
 
   if (!token) {
-    return null;
+    return (
+      <Skeleton variant="circular" width={40} height={40} />
+    );
   }
 
   const decoded = jwtDecode(token) as UserToken;

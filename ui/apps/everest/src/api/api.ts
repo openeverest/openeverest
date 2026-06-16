@@ -74,7 +74,7 @@ export const addApiErrorInterceptor = () => {
               variant: 'info',
             });
             location.href = '/logout';
-            return;
+            return Promise.reject(error);
           }
 
           if (!notificationsDisabled) {
