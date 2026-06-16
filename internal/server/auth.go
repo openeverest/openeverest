@@ -61,6 +61,12 @@ func (e *EverestServer) CreateAuthToken(ctx echo.Context) error {
 }
 
 func (e *EverestServer) handlePasswordGrant(ctx echo.Context, params api.AuthTokenRequest) error {
+	if ok, _ := e.attemptsStore.Allow(ctx.RealIP()); !ok {
+		return ctx.JSON(http.StatusTooManyRequests, api.Error{
+			Message: pointer.To("Too many login attempts"),
+		})
+	}
+
 	if params.Username == nil || params.Password == nil {
 		return ctx.JSON(http.StatusBadRequest, api.Error{
 			Message: pointer.To("username and password are required for the password grant"),

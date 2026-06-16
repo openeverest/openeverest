@@ -55,8 +55,8 @@ type EverestConfig struct {
 	DisableTelemetry bool `default:"false" envconfig:"DISABLE_TELEMETRY"`
 	// APIRequestsRateLimit allowed amount of API requests per second
 	APIRequestsRateLimit int `default:"100" envconfig:"API_REQUESTS_RATE_LIMIT"`
-	// CreateAuthTokenRateLimit allowed amount of API requests per second to the /auth/token method
-	CreateAuthTokenRateLimit int `default:"1" envconfig:"CREATE_AUTH_TOKEN_RATE_LIMIT"`
+	// LoginRateLimit is the maximum number of login (password grant) requests per second per IP.
+	LoginRateLimit int `default:"5" envconfig:"LOGIN_RATE_LIMIT"`
 	// AccessTokenTTL is the lifetime of access JWTs.
 	AccessTokenTTL time.Duration `default:"15m" envconfig:"ACCESS_TOKEN_TTL"`
 	// RefreshTokenTTL is the lifetime of refresh tokens.
