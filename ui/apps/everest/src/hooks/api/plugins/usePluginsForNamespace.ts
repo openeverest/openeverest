@@ -14,7 +14,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 
-export interface PluginDescriptor {
+export interface EnabledPluginDescriptor {
   name: string;
   displayName: string;
   description?: string;
@@ -33,7 +33,7 @@ export interface PluginDescriptor {
 
 async function fetchPluginsForNamespace(
   namespace: string
-): Promise<PluginDescriptor[]> {
+): Promise<EnabledPluginDescriptor[]> {
   const token = localStorage.getItem('everestToken');
   const headers: Record<string, string> = {};
   if (token) {
@@ -49,15 +49,16 @@ async function fetchPluginsForNamespace(
 
 /**
  * Returns the list of plugins enabled for the given namespace via an
- * InstalledExtension entry (spec.plugin.namespaces[] or scope: Cluster with
- * allowClusterScope). Used to filter cluster-detail tabs to only plugins the
- * namespace operator has explicitly enabled.
+ * `InstalledExtension` (covered by `spec.plugin.namespaces[]`, or installed
+ * with `scope: Cluster` and `allowClusterScope`). Used to filter
+ * extension-point contributions (cluster-detail tabs, form sections, etc.)
+ * to only plugins the namespace operator has explicitly enabled.
  *
  * When `namespace` is empty/undefined, the query is disabled and an empty
  * array is returned (no filter applied).
  */
 export const usePluginsForNamespace = (namespace: string | undefined) => {
-  return useQuery<PluginDescriptor[]>({
+  return useQuery<EnabledPluginDescriptor[]>({
     queryKey: ['plugins', 'namespace', namespace],
     queryFn: () => fetchPluginsForNamespace(namespace!),
     enabled: Boolean(namespace),
