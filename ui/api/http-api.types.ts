@@ -2119,10 +2119,7 @@ export interface components {
                             };
                             /**
                              * @description ServiceType defines how the component is exposed.
-                             *     Common ServiceTypes include standard Kubernetes types "ClusterIP", "LoadBalancer"
-                             *     and "NodePort".
-                             *     The provider ultimately decides which service types are supported, and may
-                             *     support additional ServiceTypes.
+                             *     The provider ultimately decides which service types are supported.
                              * @default ClusterIP
                              */
                             serviceType?: string;

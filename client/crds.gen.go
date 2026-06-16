@@ -1565,10 +1565,7 @@ type Instance struct {
 				} `json:"loadBalancerService,omitempty"`
 
 				// ServiceType ServiceType defines how the component is exposed.
-				// Common ServiceTypes include standard Kubernetes types "ClusterIP", "LoadBalancer"
-				// and "NodePort".
-				// The provider ultimately decides which service types are supported, and may
-				// support additional ServiceTypes.
+				// The provider ultimately decides which service types are supported.
 				ServiceType *string `json:"serviceType,omitempty"`
 			} `json:"service,omitempty"`
 

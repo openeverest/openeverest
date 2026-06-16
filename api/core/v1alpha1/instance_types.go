@@ -295,12 +295,9 @@ type ComponentSpec struct {
 
 type Service struct {
 	// ServiceType defines how the component is exposed.
-	// Common ServiceTypes include standard Kubernetes types "ClusterIP", "LoadBalancer"
-	// and "NodePort".
-	// The provider ultimately decides which service types are supported, and may
-	// support additional ServiceTypes.
+	// The provider ultimately decides which service types are supported.
 	// +kubebuilder:default:=ClusterIP
-	ServiceType string `json:"serviceType,omitempty"`
+	ServiceType corev1.ServiceType `json:"serviceType,omitempty"`
 	// LoadBalancerService contains LoadBalancer-specific configuration.
 	// Only applicable for "LoadBalancer" ServiceType.
 	// +optional
