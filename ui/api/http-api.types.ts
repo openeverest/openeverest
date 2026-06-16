@@ -2098,18 +2098,18 @@ export interface components {
                         /** @description Service defines how this component is exposed. */
                         service?: {
                             /**
+                             * @description Annotations is a map of key-value pairs for annotating the Service.
+                             *     Commonly used to configure cloud provider settings
+                             *     (e.g., AWS ELB annotations, GCP load balancer settings).
+                             */
+                            annotations?: {
+                                [key: string]: string;
+                            };
+                            /**
                              * @description LoadBalancerService contains LoadBalancer-specific configuration.
                              *     Only applicable for "LoadBalancer" ServiceType.
                              */
                             loadBalancerService?: {
-                                /**
-                                 * @description Annotations is a map of key-value pairs for annotating the Service.
-                                 *     Commonly used to configure cloud provider settings
-                                 *     (e.g., AWS ELB annotations, GCP load balancer settings).
-                                 */
-                                annotations?: {
-                                    [key: string]: string;
-                                };
                                 /**
                                  * @description SourceRanges lists IP source ranges (CIDR notation) that are
                                  *     allowed to access the load balancer.
@@ -2119,7 +2119,7 @@ export interface components {
                             };
                             /**
                              * @description ServiceType defines how the component is exposed.
-                             *     The provider ultimately decides which service types are supported.
+                             *     The provider ultimately decides and validates supported service types.
                              * @default ClusterIP
                              */
                             serviceType?: string;

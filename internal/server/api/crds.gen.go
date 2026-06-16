@@ -1550,14 +1550,14 @@ type Instance struct {
 
 			// Service Service defines how this component is exposed.
 			Service *struct {
+				// Annotations Annotations is a map of key-value pairs for annotating the Service.
+				// Commonly used to configure cloud provider settings
+				// (e.g., AWS ELB annotations, GCP load balancer settings).
+				Annotations *map[string]string `json:"annotations,omitempty"`
+
 				// LoadBalancerService LoadBalancerService contains LoadBalancer-specific configuration.
 				// Only applicable for "LoadBalancer" ServiceType.
 				LoadBalancerService *struct {
-					// Annotations Annotations is a map of key-value pairs for annotating the Service.
-					// Commonly used to configure cloud provider settings
-					// (e.g., AWS ELB annotations, GCP load balancer settings).
-					Annotations *map[string]string `json:"annotations,omitempty"`
-
 					// SourceRanges SourceRanges lists IP source ranges (CIDR notation) that are
 					// allowed to access the load balancer.
 					// If unset, there is no limitations.
@@ -1565,7 +1565,7 @@ type Instance struct {
 				} `json:"loadBalancerService,omitempty"`
 
 				// ServiceType ServiceType defines how the component is exposed.
-				// The provider ultimately decides which service types are supported.
+				// The provider ultimately decides and validates supported service types.
 				ServiceType *string `json:"serviceType,omitempty"`
 			} `json:"service,omitempty"`
 

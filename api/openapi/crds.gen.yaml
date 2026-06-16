@@ -2132,19 +2132,19 @@ components:
                   service:
                     description: Service defines how this component is exposed.
                     properties:
+                      annotations:
+                        additionalProperties:
+                          type: string
+                        description: |-
+                          Annotations is a map of key-value pairs for annotating the Service.
+                          Commonly used to configure cloud provider settings
+                          (e.g., AWS ELB annotations, GCP load balancer settings).
+                        type: object
                       loadBalancerService:
                         description: |-
                           LoadBalancerService contains LoadBalancer-specific configuration.
                           Only applicable for "LoadBalancer" ServiceType.
                         properties:
-                          annotations:
-                            additionalProperties:
-                              type: string
-                            description: |-
-                              Annotations is a map of key-value pairs for annotating the Service.
-                              Commonly used to configure cloud provider settings
-                              (e.g., AWS ELB annotations, GCP load balancer settings).
-                            type: object
                           sourceRanges:
                             description: |-
                               SourceRanges lists IP source ranges (CIDR notation) that are
@@ -2158,7 +2158,7 @@ components:
                         default: ClusterIP
                         description: |-
                           ServiceType defines how the component is exposed.
-                          The provider ultimately decides which service types are supported.
+                          The provider ultimately decides and validates supported service types.
                         type: string
                     type: object
                   storage:

@@ -295,9 +295,14 @@ type ComponentSpec struct {
 
 type Service struct {
 	// ServiceType defines how the component is exposed.
-	// The provider ultimately decides which service types are supported.
+	// The provider ultimately decides and validates supported service types.
 	// +kubebuilder:default:=ClusterIP
 	ServiceType corev1.ServiceType `json:"serviceType,omitempty"`
+	// Annotations is a map of key-value pairs for annotating the Service.
+	// Commonly used to configure cloud provider settings
+	// (e.g., AWS ELB annotations, GCP load balancer settings).
+	// +optional
+	Annotations map[string]string `json:"annotations,omitempty"`
 	// LoadBalancerService contains LoadBalancer-specific configuration.
 	// Only applicable for "LoadBalancer" ServiceType.
 	// +optional
@@ -307,11 +312,6 @@ type Service struct {
 type SourceRanges []string
 
 type LoadBalancerService struct {
-	// Annotations is a map of key-value pairs for annotating the Service.
-	// Commonly used to configure cloud provider settings
-	// (e.g., AWS ELB annotations, GCP load balancer settings).
-	// +optional
-	Annotations map[string]string `json:"annotations,omitempty"`
 	// SourceRanges lists IP source ranges (CIDR notation) that are
 	// allowed to access the load balancer.
 	// If unset, there is no limitations.
