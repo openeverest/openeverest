@@ -81,6 +81,14 @@ rules:
 - apiGroups:
   - core.openeverest.io
   resources:
+  - instances
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - extensions.openeverest.io
+  resources:
   - installedextensions
   - plugins
   verbs:
@@ -92,14 +100,14 @@ rules:
   - update
   - watch
 - apiGroups:
-  - core.openeverest.io
+  - extensions.openeverest.io
   resources:
   - installedextensions/finalizers
   - plugins/finalizers
   verbs:
   - update
 - apiGroups:
-  - core.openeverest.io
+  - extensions.openeverest.io
   resources:
   - installedextensions/status
   - plugins/status
@@ -107,14 +115,6 @@ rules:
   - get
   - patch
   - update
-- apiGroups:
-  - core.openeverest.io
-  resources:
-  - instances
-  verbs:
-  - get
-  - list
-  - watch
 - apiGroups:
   - monitoring.openeverest.io
   resources:

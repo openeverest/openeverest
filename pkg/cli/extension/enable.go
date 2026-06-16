@@ -21,7 +21,7 @@ import (
 	"go.uber.org/zap"
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 
-	corev1alpha1 "github.com/openeverest/openeverest/v2/api/core/v1alpha1"
+	corev1alpha1 "github.com/openeverest/openeverest/v2/api/extensions/v1alpha1"
 	cliutils "github.com/openeverest/openeverest/v2/pkg/cli/utils"
 	"github.com/openeverest/openeverest/v2/pkg/kubernetes"
 )

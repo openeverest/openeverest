@@ -1,0 +1,273 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.18.0
+  name: installedextensions.extensions.openeverest.io
+spec:
+  group: extensions.openeverest.io
+  names:
+    kind: InstalledExtension
+    listKind: InstalledExtensionList
+    plural: installedextensions
+    shortNames:
+    - ie
+    - extinst
+    singular: installedextension
+  scope: Cluster
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .spec.type
+      name: Type
+      type: string
+    - jsonPath: .spec.version
+      name: Version
+      type: string
+    - jsonPath: .spec.channel
+      name: Channel
+      type: string
+    - jsonPath: .status.phase
+      name: Phase
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: |-
+          InstalledExtension is the cluster-scoped record of an installed extension
+          (a generic plugin or a spec 001 provider). It is created by
+          `everestctl extension install` and owned by cluster-admin.
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: InstalledExtensionSpec defines the desired state of an InstalledExtension.
+            properties:
+              catalogId:
+                description: |-
+                  CatalogID identifies the catalog this install was sourced from.
+                  Empty for manual installs.
+                type: string
+              channel:
+                description: Channel is the catalog channel selected at install time
+                  (e.g. "stable").
+                type: string
+              chartDigest:
+                description: |-
+                  ChartDigest is the OCI digest of the Helm chart installed for this
+                  extension. Optional in early phases; required once hub install lands.
+                type: string
+              plugin:
+                description: |-
+                  Plugin holds plugin-specific install state. Required when type=plugin;
+                  must be nil when type=provider.
+                properties:
+                  allowClusterScope:
+                    description: |-
+                      AllowClusterScope must be true for the reconciler to provision a
+                      ClusterRole/ClusterRoleBinding when Scope=Cluster. Without it, the
+                      reconciler refuses to create cluster-wide RBAC and sets
+                      RoleSynced=False, reason=ClusterScopeNotAllowed.
+                    type: boolean
+                  backendImageDigest:
+                    description: BackendImageDigest pins the OCI digest of the backend
+                      image.
+                    type: string
+                  frontendDigest:
+                    description: FrontendDigest pins the OCI digest of the frontend
+                      bundle artifact.
+                    type: string
+                  namespaces:
+                    description: |-
+                      Namespaces lists the namespaces this plugin is enabled in. Required
+                      when Scope=Namespaces. Each entry may attach a per-tenant config
+                      secret reference.
+                    items:
+                      description: |-
+                        PluginNamespaceConfig pairs a namespace name with an optional per-tenant
+                        configuration secret reference.
+                      properties:
+                        configSecretRef:
+                          description: |-
+                            ConfigSecretRef names a Secret in Name whose data is mounted as env
+                            vars on the plugin backend for this tenant.
+                          type: string
+                        name:
+                          description: Name is the Kubernetes namespace this plugin
+                            is enabled in.
+                          type: string
+                      required:
+                      - name
+                      type: object
+                    type: array
+                    x-kubernetes-list-map-keys:
+                    - name
+                    x-kubernetes-list-type: map
+                  pluginCRName:
+                    description: |-
+                      PluginCRName is the name of the cluster-scoped Plugin CR that this
+                      install record points at.
+                    type: string
+                  scope:
+                    default: Cluster
+                    description: |-
+                      Scope controls how kubePermissions translate to RBAC.
+                      Defaults to Cluster.
+                    enum:
+                    - Cluster
+                    - Namespaces
+                    type: string
+                required:
+                - pluginCRName
+                type: object
+              provider:
+                description: |-
+                  Provider holds provider-specific install state. Required when
+                  type=provider; must be nil when type=plugin.
+                properties:
+                  providerName:
+                    description: |-
+                      ProviderName is the name of the cluster-scoped Provider CR that this
+                      install record points at.
+                    type: string
+                required:
+                - providerName
+                type: object
+              type:
+                description: |-
+                  Type discriminates between plugin and provider installs. Exactly one of
+                  Plugin or Provider must be set, matching Type.
+                enum:
+                - plugin
+                - provider
+                type: string
+              version:
+                description: Version is the SemVer version of the extension that was
+                  installed.
+                type: string
+            required:
+            - type
+            type: object
+          status:
+            description: InstalledExtensionStatus defines the observed state of an
+              InstalledExtension.
+            properties:
+              availableUpgrade:
+                description: AvailableUpgrade, when set, advertises a newer version
+                  available.
+                properties:
+                  chartDigest:
+                    description: ChartDigest is the OCI digest of the upgrade's Helm
+                      chart.
+                    type: string
+                  version:
+                    description: Version is the SemVer version of the upgrade candidate.
+                    type: string
+                required:
+                - version
+                type: object
+              conditions:
+                description: Conditions describes the current state of the install.
+                items:
+                  description: Condition contains details for one aspect of the current
+                    state of this API Resource.
+                  properties:
+                    lastTransitionTime:
+                      description: |-
+                        lastTransitionTime is the last time the condition transitioned from one status to another.
+                        This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                      format: date-time
+                      type: string
+                    message:
+                      description: |-
+                        message is a human readable message indicating details about the transition.
+                        This may be an empty string.
+                      maxLength: 32768
+                      type: string
+                    observedGeneration:
+                      description: |-
+                        observedGeneration represents the .metadata.generation that the condition was set based upon.
+                        For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                        with respect to the current state of the instance.
+                      format: int64
+                      minimum: 0
+                      type: integer
+                    reason:
+                      description: |-
+                        reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                        Producers of specific condition types may define expected values and meanings for this field,
+                        and whether the values are considered a guaranteed API.
+                        The value should be a CamelCase string.
+                        This field may not be empty.
+                      maxLength: 1024
+                      minLength: 1
+                      pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                      type: string
+                    status:
+                      description: status of the condition, one of True, False, Unknown.
+                      enum:
+                      - "True"
+                      - "False"
+                      - Unknown
+                      type: string
+                    type:
+                      description: type of condition in CamelCase or in foo.example.com/CamelCase.
+                      maxLength: 316
+                      pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - message
+                  - reason
+                  - status
+                  - type
+                  type: object
+                type: array
+                x-kubernetes-list-map-keys:
+                - type
+                x-kubernetes-list-type: map
+              installedAt:
+                description: InstalledAt is the time the extension first reached Phase=Installed.
+                format: date-time
+                type: string
+              lastCheckedAt:
+                description: |-
+                  LastCheckedAt is the last time the reconciler polled the catalog for
+                  available upgrades.
+                format: date-time
+                type: string
+              phase:
+                description: Phase is the rollup of Conditions.
+                enum:
+                - Pending
+                - Installed
+                - Upgrading
+                - Failed
+                - Uninstalling
+                type: string
+            type: object
+        required:
+        - spec
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}

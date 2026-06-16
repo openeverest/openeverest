@@ -29,7 +29,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	corev1alpha1 "github.com/openeverest/openeverest/v2/api/core/v1alpha1"
+	coreapi "github.com/openeverest/openeverest/v2/api/core/v1alpha1"
+	corev1alpha1 "github.com/openeverest/openeverest/v2/api/extensions/v1alpha1"
 )
 
 const (
@@ -51,9 +52,9 @@ type InstalledExtensionReconciler struct {
 	Scheme *runtime.Scheme
 }
 
-// +kubebuilder:rbac:groups=core.openeverest.io,resources=installedextensions,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=core.openeverest.io,resources=installedextensions/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=core.openeverest.io,resources=installedextensions/finalizers,verbs=update
+// +kubebuilder:rbac:groups=extensions.openeverest.io,resources=installedextensions,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=extensions.openeverest.io,resources=installedextensions/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=extensions.openeverest.io,resources=installedextensions/finalizers,verbs=update
 // +kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=roles;rolebindings,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=clusterroles;clusterrolebindings,verbs=get;list;watch;create;update;patch;delete
 
@@ -187,7 +188,7 @@ func (r *InstalledExtensionReconciler) reconcileProvider(ctx context.Context, ie
 		ie.Status.Phase = corev1alpha1.InstalledExtensionPhaseFailed
 		return
 	}
-	provider := &corev1alpha1.Provider{}
+	provider := &coreapi.Provider{}
 	err := r.Client.Get(ctx, types.NamespacedName{Name: ie.Spec.Provider.ProviderName}, provider)
 	switch {
 	case apierrors.IsNotFound(err):

@@ -28,7 +28,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
-	pluginv1alpha1 "github.com/openeverest/openeverest/v2/api/core/v1alpha1"
+	pluginv1alpha1 "github.com/openeverest/openeverest/v2/api/extensions/v1alpha1"
 )
 
 const (
@@ -63,9 +63,9 @@ type PluginReconciler struct {
 	Scheme *runtime.Scheme
 }
 
-// +kubebuilder:rbac:groups=core.openeverest.io,resources=plugins,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=core.openeverest.io,resources=plugins/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=core.openeverest.io,resources=plugins/finalizers,verbs=update
+// +kubebuilder:rbac:groups=extensions.openeverest.io,resources=plugins,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=extensions.openeverest.io,resources=plugins/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=extensions.openeverest.io,resources=plugins/finalizers,verbs=update
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.

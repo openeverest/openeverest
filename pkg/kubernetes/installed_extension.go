@@ -19,12 +19,12 @@ import (
 
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 
-	corev1alpha1 "github.com/openeverest/openeverest/v2/api/core/v1alpha1"
+	extensionsv1alpha1 "github.com/openeverest/openeverest/v2/api/extensions/v1alpha1"
 )
 
 // ListInstalledExtensions returns InstalledExtension records that match the criteria.
-func (k *Kubernetes) ListInstalledExtensions(ctx context.Context, opts ...ctrlclient.ListOption) (*corev1alpha1.InstalledExtensionList, error) {
-	result := &corev1alpha1.InstalledExtensionList{}
+func (k *Kubernetes) ListInstalledExtensions(ctx context.Context, opts ...ctrlclient.ListOption) (*extensionsv1alpha1.InstalledExtensionList, error) {
+	result := &extensionsv1alpha1.InstalledExtensionList{}
 	if err := k.k8sClient.List(ctx, result, opts...); err != nil {
 		return nil, err
 	}
@@ -32,8 +32,8 @@ func (k *Kubernetes) ListInstalledExtensions(ctx context.Context, opts ...ctrlcl
 }
 
 // GetInstalledExtension returns the InstalledExtension that matches the criteria.
-func (k *Kubernetes) GetInstalledExtension(ctx context.Context, key ctrlclient.ObjectKey) (*corev1alpha1.InstalledExtension, error) {
-	result := &corev1alpha1.InstalledExtension{}
+func (k *Kubernetes) GetInstalledExtension(ctx context.Context, key ctrlclient.ObjectKey) (*extensionsv1alpha1.InstalledExtension, error) {
+	result := &extensionsv1alpha1.InstalledExtension{}
 	if err := k.k8sClient.Get(ctx, key, result); err != nil {
 		return nil, err
 	}
@@ -41,7 +41,7 @@ func (k *Kubernetes) GetInstalledExtension(ctx context.Context, key ctrlclient.O
 }
 
 // CreateInstalledExtension creates a new InstalledExtension.
-func (k *Kubernetes) CreateInstalledExtension(ctx context.Context, ie *corev1alpha1.InstalledExtension) (*corev1alpha1.InstalledExtension, error) {
+func (k *Kubernetes) CreateInstalledExtension(ctx context.Context, ie *extensionsv1alpha1.InstalledExtension) (*extensionsv1alpha1.InstalledExtension, error) {
 	if err := k.k8sClient.Create(ctx, ie); err != nil {
 		return nil, err
 	}
@@ -49,7 +49,7 @@ func (k *Kubernetes) CreateInstalledExtension(ctx context.Context, ie *corev1alp
 }
 
 // UpdateInstalledExtension updates an existing InstalledExtension.
-func (k *Kubernetes) UpdateInstalledExtension(ctx context.Context, ie *corev1alpha1.InstalledExtension) (*corev1alpha1.InstalledExtension, error) {
+func (k *Kubernetes) UpdateInstalledExtension(ctx context.Context, ie *extensionsv1alpha1.InstalledExtension) (*extensionsv1alpha1.InstalledExtension, error) {
 	if err := k.k8sClient.Update(ctx, ie); err != nil {
 		return nil, err
 	}
@@ -57,6 +57,6 @@ func (k *Kubernetes) UpdateInstalledExtension(ctx context.Context, ie *corev1alp
 }
 
 // DeleteInstalledExtension deletes an InstalledExtension.
-func (k *Kubernetes) DeleteInstalledExtension(ctx context.Context, obj *corev1alpha1.InstalledExtension) error {
+func (k *Kubernetes) DeleteInstalledExtension(ctx context.Context, obj *extensionsv1alpha1.InstalledExtension) error {
 	return k.k8sClient.Delete(ctx, obj)
 }

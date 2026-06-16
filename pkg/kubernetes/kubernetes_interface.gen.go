@@ -6,6 +6,12 @@ import (
 	"context"
 
 	goversion "github.com/hashicorp/go-version"
+	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
+	"github.com/openeverest/openeverest/v2/api/core/v1alpha1"
+	extensionsv1alpha1 "github.com/openeverest/openeverest/v2/api/extensions/v1alpha1"
+	monitoringv1alpha1 "github.com/openeverest/openeverest/v2/api/monitoring/v1alpha1"
+	"github.com/openeverest/openeverest/v2/pkg/accounts"
+	"github.com/openeverest/openeverest/v2/pkg/common"
 	olmv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	enginefeaturesv1alpha1 "github.com/percona/everest-operator/api/enginefeatures.everest/v1alpha1"
 	everestv1alpha1 "github.com/percona/everest-operator/api/everest/v1alpha1"
@@ -18,14 +24,6 @@ import (
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/rest"
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
-
-	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
-	"github.com/openeverest/openeverest/v2/api/core/v1alpha1"
-	corev1alpha1 "github.com/openeverest/openeverest/v2/api/core/v1alpha1"
-	pluginv1alpha1 "github.com/openeverest/openeverest/v2/api/core/v1alpha1"
-	monitoringv1alpha1 "github.com/openeverest/openeverest/v2/api/monitoring/v1alpha1"
-	"github.com/openeverest/openeverest/v2/pkg/accounts"
-	"github.com/openeverest/openeverest/v2/pkg/common"
 )
 
 // KubernetesConnector ...
@@ -261,23 +259,23 @@ type KubernetesConnector interface {
 	// GetEverestSettings returns Everest settings.
 	GetEverestSettings(ctx context.Context) (common.EverestSettings, error)
 	// ListPlugins returns list of plugins that match the criteria.
-	ListPlugins(ctx context.Context, opts ...ctrlclient.ListOption) (*pluginv1alpha1.PluginList, error)
+	ListPlugins(ctx context.Context, opts ...ctrlclient.ListOption) (*extensionsv1alpha1.PluginList, error)
 	// GetPlugin returns plugin that matches the criteria.
-	GetPlugin(ctx context.Context, key ctrlclient.ObjectKey) (*pluginv1alpha1.Plugin, error)
+	GetPlugin(ctx context.Context, key ctrlclient.ObjectKey) (*extensionsv1alpha1.Plugin, error)
 	// CreatePlugin creates a new plugin.
-	CreatePlugin(ctx context.Context, plugin *pluginv1alpha1.Plugin) (*pluginv1alpha1.Plugin, error)
+	CreatePlugin(ctx context.Context, plugin *extensionsv1alpha1.Plugin) (*extensionsv1alpha1.Plugin, error)
 	// DeletePlugin deletes a plugin.
-	DeletePlugin(ctx context.Context, obj *pluginv1alpha1.Plugin) error
+	DeletePlugin(ctx context.Context, obj *extensionsv1alpha1.Plugin) error
 	// ListInstalledExtensions returns InstalledExtension records that match the criteria.
-	ListInstalledExtensions(ctx context.Context, opts ...ctrlclient.ListOption) (*corev1alpha1.InstalledExtensionList, error)
+	ListInstalledExtensions(ctx context.Context, opts ...ctrlclient.ListOption) (*extensionsv1alpha1.InstalledExtensionList, error)
 	// GetInstalledExtension returns the InstalledExtension that matches the criteria.
-	GetInstalledExtension(ctx context.Context, key ctrlclient.ObjectKey) (*corev1alpha1.InstalledExtension, error)
+	GetInstalledExtension(ctx context.Context, key ctrlclient.ObjectKey) (*extensionsv1alpha1.InstalledExtension, error)
 	// CreateInstalledExtension creates a new InstalledExtension.
-	CreateInstalledExtension(ctx context.Context, ie *corev1alpha1.InstalledExtension) (*corev1alpha1.InstalledExtension, error)
+	CreateInstalledExtension(ctx context.Context, ie *extensionsv1alpha1.InstalledExtension) (*extensionsv1alpha1.InstalledExtension, error)
 	// UpdateInstalledExtension updates an existing InstalledExtension.
-	UpdateInstalledExtension(ctx context.Context, ie *corev1alpha1.InstalledExtension) (*corev1alpha1.InstalledExtension, error)
+	UpdateInstalledExtension(ctx context.Context, ie *extensionsv1alpha1.InstalledExtension) (*extensionsv1alpha1.InstalledExtension, error)
 	// DeleteInstalledExtension deletes an InstalledExtension.
-	DeleteInstalledExtension(ctx context.Context, obj *corev1alpha1.InstalledExtension) error
+	DeleteInstalledExtension(ctx context.Context, obj *extensionsv1alpha1.InstalledExtension) error
 	// ListPodSchedulingPolicies returns a list of pod scheduling policy that matches the criteria.
 	// This method returns a list of full objects (meta and spec).
 	ListPodSchedulingPolicies(ctx context.Context, opts ...ctrlclient.ListOption) (*everestv1alpha1.PodSchedulingPolicyList, error)
