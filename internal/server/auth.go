@@ -175,7 +175,6 @@ func (e *EverestServer) respondWithTokens(ctx echo.Context, username, refreshTok
 // The refresh token (from the body or cookie) is deleted from the registry and
 // the presented access JWT is added to the blocklist until it expires.
 func (e *EverestServer) RevokeAuthToken(ctx echo.Context) error {
-	e.attemptsStore.IncreaseTimeout(ctx.RealIP())
 	c := ctx.Request().Context()
 
 	var params api.AuthRevokeRequest
