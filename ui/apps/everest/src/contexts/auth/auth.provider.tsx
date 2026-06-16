@@ -278,7 +278,11 @@ const AuthProvider = ({ children, isSsoEnabled }: AuthProviderProps) => {
       return;
     }
 
-    if (authStatus === 'loggedIn' || authStatus === 'loggingIn') {
+    if (
+      authStatus === 'loggedIn' ||
+      authStatus === 'loggingIn' ||
+      authStatus === 'loggedOut'
+    ) {
       return;
     }
 
