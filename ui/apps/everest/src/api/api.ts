@@ -17,6 +17,7 @@
 
 import axios, { AxiosError } from 'axios';
 import { enqueueSnackbar } from 'notistack';
+import { getAuthToken, refreshSession } from './session-token';
 
 const BASE_URL = '/v1/';
 const DEFAULT_ERROR_MESSAGE = 'Something went wrong';
@@ -27,13 +28,14 @@ let authInterceptor: number | null = null;
 
 export const api = axios.create({
   baseURL: BASE_URL,
+  withCredentials: true,
 });
 
 export const addApiErrorInterceptor = () => {
   if (errorInterceptor === null) {
     errorInterceptor = api.interceptors.response.use(
       (response) => response,
-      (error: AxiosError<{ message?: string }>) => {
+      async (error: AxiosError<{ message?: string }>) => {
         if (
           error.response &&
           error.response.status >= 400 &&
@@ -52,8 +54,27 @@ export const addApiErrorInterceptor = () => {
             (error.response.status === 400 &&
               message.includes(MISSING_MALFORMED_JWT_MESSAGE))
           ) {
+            // The access token may simply have expired. Try a silent refresh
+            // (single-flight) and retry the request once before giving up.
+            const originalRequest = error.config;
+            if (originalRequest?.url?.includes('auth/')) {
+              // Auth endpoint failures are handled by their callers and must
+              // not trigger a redirect (avoids logout/login loops).
+              return Promise.reject(error);
+            }
+            if (originalRequest && !originalRequest.retriedAfterRefresh) {
+              const newToken = await refreshSession();
+              if (newToken) {
+                originalRequest.retriedAfterRefresh = true;
+                originalRequest.headers['Authorization'] = `Bearer ${newToken}`;
+                return api(originalRequest);
+              }
+            }
+            enqueueSnackbar('Your session has expired. Please sign in again.', {
+              variant: 'info',
+            });
             location.href = '/logout';
-            return;
+            return Promise.reject(error);
           }
 
           if (!notificationsDisabled) {
@@ -84,7 +105,7 @@ export const removeApiErrorInterceptor = () => {
 export const addApiAuthInterceptor = () => {
   if (authInterceptor === null) {
     authInterceptor = api.interceptors.request.use((config) => {
-      const token = localStorage.getItem('everestToken');
+      const token = getAuthToken();
       if (token) {
         config.headers['Authorization'] = `Bearer ${token}`;
       }

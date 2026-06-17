@@ -17,7 +17,6 @@ import { defineConfig } from '@playwright/test';
 import path from 'path';
 import { dirname } from 'path';
 import { fileURLToPath } from 'url';
-import { CI_USER_STORAGE_STATE_FILE } from './constants';
 import 'dotenv/config';
 // import { dbClusterProject } from './pr/db-cluster/project.config';
 // import { dbClusterDetailsProject } from './pr/db-cluster-details/project.config';
@@ -25,6 +24,7 @@ import 'dotenv/config';
 // import { multinamespacesProject } from './pr/multinamespaces/project.config';
 // import { noMatchProject } from './pr/no-match/project.config';
 import { settingsProject } from './pr/settings/project.config';
+import { releaseProject } from './release/project.config';
 // import { rbacProject } from './pr/rbac/project.config';
 
 // Convert 'import.meta.url' to the equivalent __dirname
@@ -74,29 +74,11 @@ export default defineConfig({
 
   /* Configure projects for major browsers */
   projects: [
-    // ---------------------- global setup and teardown ----------------------
-    // global:auth
-    {
-      name: 'global:auth:ci:setup',
-      testDir: './setup',
-      testMatch: /auth.setup\.ts/,
-      teardown: 'global:auth:ci:teardown',
-    },
-    {
-      name: 'global:auth:ci:teardown',
-      testDir: './teardown',
-      testMatch: /auth\.teardown\.ts/,
-      use: {
-        storageState: CI_USER_STORAGE_STATE_FILE,
-      },
-    },
-    // global:backup-storage
     {
       name: 'global:backup-storage:setup',
       testDir: './setup',
       testMatch: /backup-storage.setup\.ts/,
       teardown: 'global:backup-storage:teardown',
-      dependencies: ['global:auth:ci:setup'],
     },
     {
       name: 'global:backup-storage:teardown',
@@ -108,27 +90,12 @@ export default defineConfig({
       testDir: './setup',
       testMatch: /monitoring-config.setup\.ts/,
       teardown: 'global:monitoring-config:teardown',
-      dependencies: ['global:auth:ci:setup'],
     },
     {
       name: 'global:monitoring-config:teardown',
       testDir: './teardown',
       testMatch: /monitoring-config\.teardown\.ts/,
     },
-    // global:session:
-    {
-      name: 'global:session:setup',
-      testDir: './setup',
-      testMatch: /session\.setup\.ts$/,
-      teardown: 'global:session:teardown',
-    },
-    {
-      name: 'global:session:teardown',
-      testDir: './teardown',
-      testMatch: /session\.teardown\.ts$/,
-    },
-
-    // ---------------------- PR TESTS ----------------------
     {
       name: 'pr',
       testMatch: /.^/,
@@ -152,19 +119,7 @@ export default defineConfig({
     // ...noMatchProject,
     ...settingsProject,
     // ...rbacProject,
-
-    // ---------------------- RELEASE TESTS ----------------------
-    // release project
-    // {
-    //   name: 'release',
-    //   dependencies: ['release:session'],
-    // },
-    // release:session:session project
-    // {
-    //   name: 'release:session',
-    //   testDir: './release/session',
-    //   dependencies: ['global:session:setup'],
-    // },
+    ...releaseProject,
 
     // -----------------------------------
     // e2e:rbac project
