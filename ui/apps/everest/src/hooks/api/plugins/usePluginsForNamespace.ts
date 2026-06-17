@@ -34,7 +34,7 @@ export interface EnabledPluginDescriptor {
 
 async function fetchPluginsForNamespace(
   namespace: string
-): Promise<PluginDescriptor[]> {
+): Promise<EnabledPluginDescriptor[]> {
   const token = getAuthToken();
   const headers: Record<string, string> = {};
   if (token) {
