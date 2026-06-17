@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,6 +16,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRBACPermissions } from 'hooks/rbac';
+import { getAuthToken } from 'api/session-token';
 
 const BASE_URL = '/v1/';
 const MAX_LOG_LINES = 10000;
@@ -68,7 +70,7 @@ export const useDbClusterComponentLogsStream = (
         params.append('follow', 'true');
         const url = `${BASE_URL}namespaces/${namespace}/database-clusters/${dbClusterName}/components/${componentName}/logs?${params}`;
 
-        const token = localStorage.getItem('everestToken');
+        const token = getAuthToken();
         const response = await fetch(url, {
           signal: abortController.signal,
           headers: token ? { Authorization: `Bearer ${token}` } : {},
@@ -129,7 +131,7 @@ export const useDbClusterComponentLogsStream = (
     params.append('follow', 'false');
 
     const url = `${BASE_URL}namespaces/${namespace}/database-clusters/${dbClusterName}/components/${componentName}/logs?${params}`;
-    const token = localStorage.getItem('everestToken');
+    const token = getAuthToken();
     const response = await fetch(url, {
       headers: token ? { Authorization: `Bearer ${token}` } : {},
     });

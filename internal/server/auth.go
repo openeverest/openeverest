@@ -61,6 +61,12 @@ func (e *EverestServer) CreateAuthToken(ctx echo.Context) error {
 }
 
 func (e *EverestServer) handlePasswordGrant(ctx echo.Context, params api.AuthTokenRequest) error {
+	if ok, _ := e.attemptsStore.Allow(ctx.RealIP()); !ok {
+		return ctx.JSON(http.StatusTooManyRequests, api.Error{
+			Message: pointer.To("Too many login attempts"),
+		})
+	}
+
 	if params.Username == nil || params.Password == nil {
 		return ctx.JSON(http.StatusBadRequest, api.Error{
 			Message: pointer.To("username and password are required for the password grant"),
@@ -175,7 +181,6 @@ func (e *EverestServer) respondWithTokens(ctx echo.Context, username, refreshTok
 // The refresh token (from the body or cookie) is deleted from the registry and
 // the presented access JWT is added to the blocklist until it expires.
 func (e *EverestServer) RevokeAuthToken(ctx echo.Context) error {
-	e.attemptsStore.IncreaseTimeout(ctx.RealIP())
 	c := ctx.Request().Context()
 
 	var params api.AuthRevokeRequest

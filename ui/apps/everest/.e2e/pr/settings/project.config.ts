@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { CI_USER_STORAGE_STATE_FILE } from '@e2e/constants';
 import { PlaywrightTestProject } from '@playwright/test';
 
 export const settingsProject: PlaywrightTestProject[] = [
@@ -31,10 +30,6 @@ export const settingsProject: PlaywrightTestProject[] = [
     name: 'pr:settings:backup-storage',
     testDir: './pr/settings',
     testMatch: /backup-storage\.e2e\.ts/,
-    dependencies: ['global:auth:ci:setup'],
-    use: {
-      storageState: CI_USER_STORAGE_STATE_FILE,
-    },
   },
   {
     name: 'pr:settings:monitoring-config',
@@ -43,10 +38,6 @@ export const settingsProject: PlaywrightTestProject[] = [
     // TODO(OE-2038): keep this project isolated from global:monitoring-config:setup.
     // When pr:multinamespaces is re-enabled, preserve project ordering or namespace
     // isolation so the fallback test still runs against an empty namespace.
-    dependencies: ['global:auth:ci:setup'],
-    use: {
-      storageState: CI_USER_STORAGE_STATE_FILE,
-    },
   },
   // {
   //   name: 'pr:settings:namespace',
