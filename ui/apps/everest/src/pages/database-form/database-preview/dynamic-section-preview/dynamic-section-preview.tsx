@@ -20,9 +20,11 @@ import { Section } from 'components/ui-generator/ui-generator.types';
 export const DynamicSectionPreview = ({
   section,
   formValues,
+  onMultilineExpand,
 }: {
   section: Section;
   formValues: Record<string, unknown>;
+  onMultilineExpand?: () => void;
 }) => {
   const sectionComponents = section?.components;
   if (!sectionComponents || typeof sectionComponents !== 'object') {
@@ -37,7 +39,8 @@ export const DynamicSectionPreview = ({
             key,
             comp,
             formValues,
-            `${section?.label || ''}.${key}`
+            `${section?.label || ''}.${key}`,
+            onMultilineExpand
           )
       )}
     </>

@@ -13,8 +13,12 @@
 // limitations under the License.
 
 export { default } from './expandable-clamped-text';
-export type { ExpandableClampedTextProps } from './expandable-clamped-text.types';
+export { ExpandableClampedText } from './expandable-clamped-text';
+export type {
+  ExpandableClampedTextExpandStrategy,
+  ExpandableClampedTextProps,
+} from './expandable-clamped-text.types';
 export {
-  DEFAULT_INLINE_MAX_LINES,
+  DEFAULT_SCROLL_MAX_HEIGHT,
   DEFAULT_LINE_CLAMP,
 } from './expandable-clamped-text';

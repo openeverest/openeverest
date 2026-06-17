@@ -75,7 +75,7 @@ export const DatabasePreview = ({
           {
             stepId: BACKUP_STEP_ID,
             title: 'Backups',
-            component: PreviewBackupSection,
+            content: <PreviewBackupSection {...values} />,
           },
         ]
       : []),
@@ -83,7 +83,11 @@ export const DatabasePreview = ({
       stepId: getSectionStepId(key),
       title: sections[key]?.label || key,
       content: (
-        <DynamicSectionPreview section={sections[key]} formValues={values} />
+        <DynamicSectionPreview
+          section={sections[key]}
+          formValues={values}
+          onMultilineExpand={() => onSectionEdit(getSectionStepId(key))}
+        />
       ),
     })),
   ];

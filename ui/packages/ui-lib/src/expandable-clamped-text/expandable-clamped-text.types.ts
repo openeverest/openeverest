@@ -12,22 +12,39 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import type { DialogProps as MuiDialogProps } from '@mui/material';
+import type { DialogProps as UiDialogProps } from '../dialog/dialog.types';
 import type { TypographyProps } from '@mui/material/Typography';
+
+type TextStyleProps = Pick<TypographyProps, 'variant' | 'color' | 'sx'>;
+
+export type ExpandableClampedTextExpandStrategy =
+  | {
+      type: 'inline';
+    }
+  | {
+      type: 'dialog';
+      dialogTitle?: string;
+      closeDialogLabel?: string;
+      dialogProps?: Omit<UiDialogProps, 'open' | 'onClose' | 'children'>;
+    }
+  | {
+      type: 'navigate';
+      onExpand: () => void;
+    }
+  | {
+      type: 'scroll';
+      maxHeight?: number;
+    };
 
 export type ExpandableClampedTextProps = {
   value: string;
   /** CSS line clamp when collapsed. Default 2 */
   lineClamp?: number;
-  /** Above this line count expanded content opens in a dialog instead of inline. Default 16 */
-  inlineMaxLines?: number;
   dataTestId?: string;
+  /** Expansion behavior. Default is inline expand/collapse. */
+  expandStrategy?: ExpandableClampedTextExpandStrategy;
   /** Applied to main text Typography (variant, color, etc.) */
-  textTypographyProps?: TypographyProps;
+  textTypographyProps?: TextStyleProps;
   /** Applied to Show more / Show less links */
-  linkTypographyProps?: TypographyProps;
-  dialogTitle?: string;
-  closeDialogLabel?: string;
-  /** Forwarded to the ui-lib Dialog wrapper (portal target, maxWidth, etc.) */
-  dialogProps?: Omit<MuiDialogProps, 'open' | 'onClose' | 'children'>;
+  linkTypographyProps?: TextStyleProps;
 };

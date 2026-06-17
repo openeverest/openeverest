@@ -33,10 +33,13 @@ import {
 } from '@mui/material';
 import Dialog from '../dialog';
 import { Messages as DefaultMessages } from './expandable-clamped-text.messages';
-import type { ExpandableClampedTextProps } from './expandable-clamped-text.types';
+import {
+  type ExpandableClampedTextExpandStrategy,
+  type ExpandableClampedTextProps,
+} from './expandable-clamped-text.types';
 
-export const DEFAULT_INLINE_MAX_LINES = 16;
 export const DEFAULT_LINE_CLAMP = 2;
+export const DEFAULT_SCROLL_MAX_HEIGHT = 120;
 
 const linkSx = {
   cursor: 'pointer',
@@ -49,85 +52,83 @@ const ExpandedTextSx = {
   wordBreak: 'break-word' as const,
 };
 
-const ExpandableClampedText = ({
+const INLINE_STRATEGY: ExpandableClampedTextExpandStrategy = {
+  type: 'inline',
+};
+
+export const ExpandableClampedText = ({
   value,
   lineClamp = DEFAULT_LINE_CLAMP,
-  inlineMaxLines = DEFAULT_INLINE_MAX_LINES,
   dataTestId = 'expandable-clamped-text',
+  expandStrategy = INLINE_STRATEGY,
   textTypographyProps,
   linkTypographyProps,
-  dialogTitle,
-  closeDialogLabel,
-  dialogProps,
 }: ExpandableClampedTextProps) => {
-  const lineCount = useMemo(() => value.split(/\r\n|\r|\n/).length, [value]);
-  const useModalForExpand = lineCount > inlineMaxLines;
-
   const [expandedInline, setExpandedInline] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   const [hasOverflow, setHasOverflow] = useState(false);
   const valueRef = useRef<HTMLDivElement>(null);
-  const measureRef = useRef<HTMLDivElement>(null);
+  const resizeFrameRef = useRef<number | null>(null);
+
+  const strategyType = expandStrategy.type;
+  const isScrollStrategy = strategyType === 'scroll';
+
+  const dialogConfig =
+    strategyType === 'dialog'
+      ? {
+          title: expandStrategy.dialogTitle ?? DefaultMessages.dialogTitle,
+          closeLabel: expandStrategy.closeDialogLabel ?? DefaultMessages.close,
+          props: expandStrategy.dialogProps,
+        }
+      : null;
 
   useEffect(() => {
     setExpandedInline(false);
     setModalOpen(false);
-    setHasOverflow(false);
-  }, [value]);
+  }, [value, strategyType]);
 
   const measureOverflow = useCallback(() => {
     const el = valueRef.current;
-    if (!el || expandedInline) {
+    if (!el || expandedInline || isScrollStrategy) {
       return;
     }
 
-    // Primary path: works for most layouts.
-    const fastOverflowCheck = el.scrollHeight > el.clientHeight + 1;
-    if (fastOverflowCheck) {
-      setHasOverflow(true);
-      return;
-    }
-
-    // Fallback for cases where -webkit-line-clamp flattens scroll/client heights.
-    const measureEl = measureRef.current;
-    if (!measureEl) {
-      setHasOverflow(false);
-      return;
-    }
-    const computed = window.getComputedStyle(el);
-    measureEl.textContent = value;
-    measureEl.style.width = `${el.clientWidth}px`;
-    measureEl.style.font = computed.font;
-    measureEl.style.lineHeight = computed.lineHeight;
-    measureEl.style.letterSpacing = computed.letterSpacing;
-    measureEl.style.padding = computed.padding;
-    measureEl.style.boxSizing = computed.boxSizing;
-
-    const fullHeight = measureEl.getBoundingClientRect().height;
-
-    setHasOverflow(fullHeight > el.clientHeight + 1);
-  }, [expandedInline, value]);
+    setHasOverflow(el.scrollHeight > el.clientHeight + 1);
+  }, [expandedInline, isScrollStrategy]);
 
   useLayoutEffect(() => {
     measureOverflow();
-  }, [measureOverflow, value, expandedInline, lineClamp]);
+  }, [measureOverflow, value, expandedInline, lineClamp, strategyType]);
 
   useEffect(() => {
-    if (expandedInline) {
+    if (expandedInline || isScrollStrategy) {
       return;
     }
+
     const el = valueRef.current;
     if (!el || typeof ResizeObserver === 'undefined') {
       return;
     }
+
     const ro = new ResizeObserver(() => {
-      measureOverflow();
+      if (resizeFrameRef.current !== null) {
+        cancelAnimationFrame(resizeFrameRef.current);
+      }
+      resizeFrameRef.current = requestAnimationFrame(() => {
+        measureOverflow();
+      });
     });
+
     ro.observe(el);
+
     return () => {
       ro.disconnect();
+      if (resizeFrameRef.current !== null) {
+        cancelAnimationFrame(resizeFrameRef.current);
+        resizeFrameRef.current = null;
+      }
     };
-  }, [expandedInline, measureOverflow, value]);
+  }, [expandedInline, isScrollStrategy, measureOverflow]);
 
   const clampedSx = useMemo(
     () => ({
@@ -141,16 +142,52 @@ const ExpandableClampedText = ({
     [lineClamp]
   );
 
-  const showExpandInline =
-    hasOverflow && !useModalForExpand && !expandedInline;
-  const showCollapseInline =
-    hasOverflow && !useModalForExpand && expandedInline;
-  const showModalExpand = hasOverflow && useModalForExpand;
+  const shouldShowToggle = hasOverflow && strategyType !== 'scroll';
 
-  const moreLabel = DefaultMessages.showMore;
-  const lessLabel = DefaultMessages.showLess;
-  const title = dialogTitle ?? DefaultMessages.dialogTitle;
-  const closeLbl = closeDialogLabel ?? DefaultMessages.close;
+  const toggleLabel =
+    strategyType === 'inline' && expandedInline
+      ? DefaultMessages.showLess
+      : DefaultMessages.showMore;
+
+  const toggleAriaExpanded =
+    strategyType === 'inline'
+      ? expandedInline
+      : strategyType === 'dialog'
+        ? modalOpen
+        : false;
+
+  const handleToggleClick = (e: MouseEvent<HTMLElement>) => {
+    e.preventDefault();
+
+    switch (strategyType) {
+      case 'inline': {
+        setExpandedInline((prev) => !prev);
+        return;
+      }
+      case 'dialog': {
+        setModalOpen(true);
+        return;
+      }
+      case 'navigate': {
+        expandStrategy.onExpand();
+        return;
+      }
+      case 'scroll':
+      default:
+        return;
+    }
+  };
+
+  const contentSx = isScrollStrategy
+    ? {
+        ...ExpandedTextSx,
+        maxHeight: expandStrategy.maxHeight ?? DEFAULT_SCROLL_MAX_HEIGHT,
+        overflowY: 'auto' as const,
+        width: '100%',
+      }
+    : {
+        ...(expandedInline ? ExpandedTextSx : clampedSx),
+      };
 
   return (
     <>
@@ -159,113 +196,65 @@ const ExpandableClampedText = ({
           ref={valueRef}
           component="div"
           data-testid={`${dataTestId}-value`}
-          {...textTypographyProps}
+          variant={textTypographyProps?.variant}
+          color={textTypographyProps?.color}
           sx={{
-            ...(expandedInline ? ExpandedTextSx : clampedSx),
+            ...contentSx,
             ...textTypographyProps?.sx,
           }}
         >
           {value}
         </Typography>
 
-        {showExpandInline ? (
+        {shouldShowToggle ? (
           <Link
             component="button"
             type="button"
             underline="always"
-            onClick={(e: MouseEvent<HTMLElement>) => {
-              e.preventDefault();
-              setExpandedInline(true);
-            }}
-            aria-expanded={false}
+            variant={linkTypographyProps?.variant}
+            color={linkTypographyProps?.color}
+            onClick={handleToggleClick}
+            aria-expanded={toggleAriaExpanded}
             data-testid={`${dataTestId}-toggle`}
-            {...linkTypographyProps}
             sx={{ ...linkSx, ...linkTypographyProps?.sx }}
           >
-            {moreLabel}
-          </Link>
-        ) : null}
-        {showCollapseInline ? (
-          <Link
-            component="button"
-            type="button"
-            underline="always"
-            onClick={(e: MouseEvent<HTMLElement>) => {
-              e.preventDefault();
-              setExpandedInline(false);
-            }}
-            aria-expanded
-            data-testid={`${dataTestId}-toggle`}
-            {...linkTypographyProps}
-            sx={{ ...linkSx, ...linkTypographyProps?.sx }}
-          >
-            {lessLabel}
-          </Link>
-        ) : null}
-        {showModalExpand ? (
-          <Link
-            component="button"
-            type="button"
-            underline="always"
-            onClick={(e: MouseEvent<HTMLElement>) => {
-              e.preventDefault();
-              setModalOpen(true);
-            }}
-            aria-expanded={modalOpen}
-            data-testid={`${dataTestId}-toggle`}
-            {...linkTypographyProps}
-            sx={{ ...linkSx, ...linkTypographyProps?.sx }}
-          >
-            {moreLabel}
+            {toggleLabel}
           </Link>
         ) : null}
       </Stack>
 
-      <div
-        ref={measureRef}
-        aria-hidden="true"
-        style={{
-          position: 'absolute',
-          visibility: 'hidden',
-          pointerEvents: 'none',
-          zIndex: -1,
-          whiteSpace: 'pre-wrap',
-          wordBreak: 'break-word',
-          border: '0',
-          margin: '0',
-        }}
-      />
-
-      <Dialog
-        open={modalOpen}
-        onClose={() => setModalOpen(false)}
-        fullWidth
-        maxWidth="md"
-        scroll="paper"
-        {...dialogProps}
-      >
-        <DialogTitle>{title}</DialogTitle>
-        <DialogContent sx={{ pt: 1, overflow: 'auto', maxHeight: 'calc(90vh - 140px)' }}>
-          <Typography
-            component="div"
-            sx={{
-              typography: textTypographyProps?.variant ? undefined : 'body2',
-              ...ExpandedTextSx,
-            }}
-          >
-            {value}
-          </Typography>
-        </DialogContent>
-        <DialogActions>
-          <Button
-            variant="text"
-            onClick={() => setModalOpen(false)}
-            data-testid={`${dataTestId}-dialog-close`}
-          >
-            {closeLbl}
-          </Button>
-        </DialogActions>
-      </Dialog>
+      {dialogConfig && (
+        <Dialog
+          open={modalOpen}
+          onClose={() => setModalOpen(false)}
+          fullWidth
+          maxWidth="md"
+          scroll="paper"
+          {...dialogConfig.props}
+        >
+          <DialogTitle>{dialogConfig.title}</DialogTitle>
+          <DialogContent sx={{ pt: 1 }}>
+            <Typography
+              component="div"
+              sx={{
+                typography: textTypographyProps?.variant ? undefined : 'body2',
+                ...ExpandedTextSx,
+              }}
+            >
+              {value}
+            </Typography>
+          </DialogContent>
+          <DialogActions>
+            <Button
+              variant="text"
+              onClick={() => setModalOpen(false)}
+              data-testid={`${dataTestId}-dialog-close`}
+            >
+              {dialogConfig.closeLabel}
+            </Button>
+          </DialogActions>
+        </Dialog>
+      )}
     </>
   );
 };
