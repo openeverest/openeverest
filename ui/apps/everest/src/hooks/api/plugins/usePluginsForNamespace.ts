@@ -14,7 +14,6 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { getAuthToken } from 'api/session-token';
-import { getAuthToken } from 'api/session-token';
 
 export interface EnabledPluginDescriptor {
   name: string;
