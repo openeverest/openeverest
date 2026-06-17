@@ -93,23 +93,6 @@ const basicInfoSchema = (dbInstances: DbInstanceName[]) =>
 //       }
 //     });
 
-// const stepFiveSchema = () =>
-//   z
-//     .object({
-//       monitoring: z.boolean(),
-//       monitoringInstance: z.string().nullable(),
-//     })
-//     .passthrough()
-//     .superRefine(({ monitoring, monitoringInstance }, ctx) => {
-//       if (monitoring && !monitoringInstance) {
-//         ctx.addIssue({
-//           code: z.ZodIssueCode.custom,
-//           path: [DbWizardFormFields.monitoringInstance],
-//           message: Messages.errors.monitoringEndpoint.invalidOption,
-//         });
-//       }
-//     });
-
 export const getDBWizardSchema = (
   dbInstances: DbInstanceName[],
   hasImportStep: boolean,

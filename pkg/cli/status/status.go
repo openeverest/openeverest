@@ -106,7 +106,7 @@ func (s *Status) Run(ctx context.Context) error {
 	}
 
 	// Get Everest version.
-	ev, err := version.EverestVersionFromDeployment(ctx, s.kubeClient)
+	ev, err := version.EverestVersionFromDeployment(ctx, s.kubeClient, s.kubeClient.Namespace())
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
 			result.EverestVersion = "[NOT INSTALLED]"
@@ -146,8 +146,8 @@ func (s *Status) checkCoreComponents(ctx context.Context, result *OverallStatus)
 		name      string
 		namespace string
 	}{
-		{common.PerconaEverestDeploymentName, common.SystemNamespace},
-		{common.PerconaEverestOperatorDeploymentName, common.SystemNamespace},
+		{common.PerconaEverestDeploymentName, s.kubeClient.Namespace()},
+		{common.PerconaEverestOperatorDeploymentName, s.kubeClient.Namespace()},
 	}
 
 	for _, d := range coreDeployments {

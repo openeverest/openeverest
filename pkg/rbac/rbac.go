@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -57,23 +58,74 @@ const (
 	ResourcePodSchedulingPolicies      = "pod-scheduling-policies"
 	ResourceDataImporters              = "data-importers"
 	ResourceDataImportJobs             = "data-import-jobs"
+	ResourcePlugins                    = "plugins"
 
 	// Engine Features resources
 
 	ResourceEngineFeatures_SplitHorizonDNSConfigs = "enginefeatures/split-horizon-dns-configs"
+
+	// v2 multi-cluster resource names.
+
+	ResourceClusters          = "clusters"
+	ResourceProviders         = "providers"
+	ResourceInstances         = "instances"
+	ResourceBackupClasses     = "backup-classes"
+	ResourceBackups           = "backups"
+	ResourceRestores          = "restores"
+	ResourceMonitoringConfigs = "monitoring-configs"
 )
 
 // GlobalResources is a list of all Everest API resources that are considered global.
 var GlobalResources = []string{
-	ResourceNamespaces,
 	ResourcePodSchedulingPolicies,
 	ResourceLoadBalancerConfigs,
 	ResourceDataImporters,
+	ResourceClusters,
+}
+
+// ClusterScopedResources is a list of v2 resources scoped to a cluster (but not a namespace).
+var ClusterScopedResources = []string{
+	ResourceNamespaces,
+	ResourceProviders,
+	ResourceBackupClasses,
+}
+
+// ClusterNamespacedResources is a list of v2 resources scoped to cluster + namespace.
+// These use the 3-segment object format: cluster/namespace/name.
+var ClusterNamespacedResources = []string{
+	ResourceInstances,
+	ResourceBackups,
+	ResourceRestores,
+	ResourceBackupStorages,
+	ResourceMonitoringConfigs,
+	ResourcePlugins,
 }
 
 func IsGlobalResource(resource string) bool {
 	for _, globalResource := range GlobalResources {
 		if resource == globalResource {
+			return true
+		}
+	}
+	return false
+}
+
+// IsClusterScopedResource returns true if the resource is scoped to a cluster
+// but not to a namespace (e.g., providers, backup-classes).
+func IsClusterScopedResource(resource string) bool {
+	for _, r := range ClusterScopedResources {
+		if resource == r {
+			return true
+		}
+	}
+	return false
+}
+
+// IsClusterNamespacedResource returns true if the resource uses the v2
+// cluster/namespace/name object format.
+func IsClusterNamespacedResource(resource string) bool {
+	for _, r := range ClusterNamespacedResources {
+		if resource == r {
 			return true
 		}
 	}
@@ -86,14 +138,19 @@ const (
 	ActionRead   = "read"
 	ActionUpdate = "update"
 	ActionDelete = "delete"
-	ActionAll    = "*"
+	// ActionUse is the verb granted to users for consuming a plugin via the
+	// /v1/plugins/{name}/* proxy. It is separate from CRUD so admins can
+	// install plugins (create) without automatically granting broad read
+	// access to every user.
+	ActionUse = "use"
+	ActionAll = "*"
 )
 
 const (
 	rbacEnabledValueTrue = "true"
 )
 
-var SupportedActions = []string{ActionCreate, ActionRead, ActionUpdate, ActionDelete, ActionAll}
+var SupportedActions = []string{ActionCreate, ActionRead, ActionUpdate, ActionDelete, ActionUse, ActionAll}
 
 type User struct {
 	Subject string
@@ -111,7 +168,7 @@ func refreshEnforcerInBackground(
 	inf, err := informer.New(
 		informer.WithConfig(kubeConnector.Config()),
 		informer.WithLogger(l),
-		informer.Watches(&corev1.ConfigMap{}, common.SystemNamespace),
+		informer.Watches(&corev1.ConfigMap{}, kubeConnector.Namespace()),
 	)
 	inf.OnUpdate(func(_, newObj interface{}) {
 		cm, ok := newObj.(*corev1.ConfigMap)
@@ -193,7 +250,7 @@ func NewEnforcerWithRefresh(ctx context.Context, kubeConnector kubernetes.Kubern
 // NewEnforcer creates a new Casbin enforcer with the RBAC model and ConfigMap adapter.
 func NewEnforcer(ctx context.Context, kubeConnector kubernetes.KubernetesConnector, l *zap.SugaredLogger) (*casbin.Enforcer, error) {
 	cmReq := types.NamespacedName{
-		Namespace: common.SystemNamespace,
+		Namespace: kubeConnector.Namespace(),
 		Name:      common.EverestRBACConfigMapName,
 	}
 	adapter := configmapadapter.New(l, kubeConnector, cmReq)
@@ -273,13 +330,25 @@ func loadAdminPolicy(enf casbin.IEnforcer) error {
 
 	action := ActionAll
 	for resource := range resources {
-		object := "*/*"
-		if IsGlobalResource(resource) {
-			object = "*"
-		}
-
-		if _, err := enf.AddPolicy(common.EverestAdminRole, resource, action, object); err != nil {
-			return err
+		switch {
+		case IsGlobalResource(resource):
+			if _, err := enf.AddPolicy(common.EverestAdminRole, resource, action, "*"); err != nil {
+				return err
+			}
+		case IsClusterScopedResource(resource):
+			if _, err := enf.AddPolicy(common.EverestAdminRole, resource, action, "*/*"); err != nil {
+				return err
+			}
+		case IsClusterNamespacedResource(resource):
+			// v2 cluster+namespace-scoped resources use cluster/namespace/name.
+			if _, err := enf.AddPolicy(common.EverestAdminRole, resource, action, "*/*/*"); err != nil {
+				return err
+			}
+		default:
+			// v1 namespaced resources use namespace/name.
+			if _, err := enf.AddPolicy(common.EverestAdminRole, resource, action, "*/*"); err != nil {
+				return err
+			}
 		}
 	}
 	return nil
@@ -322,6 +391,18 @@ func IsEnabled(cm *corev1.ConfigMap) bool {
 // ObjectName returns the a string that represents the name of an object in RBAC format.
 func ObjectName(args ...string) string {
 	return strings.Join(args, "/")
+}
+
+// ClusterObjectName formats the RBAC object for cluster-scoped resources.
+// Example: ClusterObjectName("prod", "percona-mongodb") → "prod/percona-mongodb"
+func ClusterObjectName(cluster, name string) string {
+	return cluster + "/" + name
+}
+
+// ClusterNamespacedObjectName formats the RBAC object for cluster+namespace-scoped resources.
+// Example: ClusterNamespacedObjectName("prod", "default", "my-db") → "prod/default/my-db"
+func ClusterNamespacedObjectName(cluster, namespace, name string) string {
+	return cluster + "/" + namespace + "/" + name
 }
 
 // ValidateAction validates the action is supported.

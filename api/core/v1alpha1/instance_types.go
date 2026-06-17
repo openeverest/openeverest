@@ -19,9 +19,13 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+
+	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
 )
 
 // InstanceSpec defines the desired state of Instance
+// +kubebuilder:validation:XValidation:rule="!has(self.dataSource) || (has(self.backup) && self.backup.enabled)",message="spec.dataSource requires spec.backup.enabled=true with at least one storage so the provider can read the source backup"
+// +kubebuilder:validation:XValidation:rule="!has(oldSelf.dataSource) || (has(self.dataSource) && self.dataSource == oldSelf.dataSource)",message="spec.dataSource is immutable once set"
 type InstanceSpec struct {
 	// Provider is the name of the database provider (e.g., "psmdb", "postgresql").
 	Provider string `json:"provider,omitempty"`
@@ -47,6 +51,188 @@ type InstanceSpec struct {
 	// The keys are component names (e.g., "engine", "proxy", "backupAgent").
 	// Which components are valid depends on the selected topology.
 	Components map[string]ComponentSpec `json:"components,omitempty"`
+
+	// Backup configures the backup feature for this Instance. When enabled,
+	// the provider's reconciler is given the resolved BackupClass and storage
+	// list so it can configure the engine accordingly (sidecars, agent
+	// configuration, etc.). Required for ProviderManaged BackupClasses; Job
+	// classes do not need an entry here because they read directly from
+	// individual Backup CRs.
+	// +optional
+	Backup *InstanceBackupSpec `json:"backup,omitempty"`
+
+	// DeletionPolicy controls what happens to Backup and Restore CRs that
+	// reference this Instance when the Instance is deleted.
+	// Cascade (default) instructs the runtime to delete every Backup and
+	// Restore in the Instance's namespace whose .spec.instanceName matches
+	// this Instance before tearing down the engine. Each Backup's own
+	// .spec.deletionPolicy then independently controls whether its
+	// underlying data in the BackupStorage is purged or retained.
+	// Orphan instructs the runtime to leave Backup and Restore CRs in
+	// place; they survive the Instance deletion and can later be used to
+	// restore into a newly-created Instance.
+	//
+	// The Instance is held in the Terminating phase until all referenced
+	// Backups/Restores have been deleted (Cascade) or until the engine
+	// resources have been torn down (both policies).
+	//
+	// The field is mutable on a live Instance but is frozen once deletion
+	// has started: switching policies after .metadata.deletionTimestamp
+	// has been set is rejected so the cascade path cannot race with
+	// itself.
+	// +kubebuilder:validation:Enum=Cascade;Orphan
+	// +kubebuilder:default=Cascade
+	// +optional
+	DeletionPolicy InstanceDeletionPolicy `json:"deletionPolicy,omitempty"`
+
+	// DataSource allows creating a new Instance from an existing
+	// Backup CR of another Instance.
+	//
+	// Only ProviderManaged BackupClasses are supported. The referenced Backup
+	// must be in the same namespace, in Succeeded state, and its BackupClass
+	// must list the Instance's provider in SupportedProviders. Instance must
+	// also have backup enabled and include a storage entry that matches the
+	// storage used by the source Backup so the provider can access the data.
+	// +optional
+	DataSource *backupv1alpha1.DataSource `json:"dataSource,omitempty"`
+}
+
+// InstanceDeletionPolicy controls what happens to Backup and Restore CRs
+// referencing an Instance when the Instance is deleted. See
+// InstanceSpec.DeletionPolicy for the full semantics.
+//
+// +kubebuilder:validation:Enum=Cascade;Orphan
+type InstanceDeletionPolicy string
+
+const (
+	// InstanceDeletionPolicyCascade instructs the runtime to delete every
+	// Backup and Restore in the Instance's namespace whose
+	// .spec.instanceName matches this Instance before tearing down the
+	// engine. Each Backup's own .spec.deletionPolicy independently
+	// controls whether its underlying data in the BackupStorage is purged
+	// or retained. This is the default and matches the historical
+	// behavior of the platform.
+	InstanceDeletionPolicyCascade InstanceDeletionPolicy = "Cascade"
+
+	// InstanceDeletionPolicyOrphan instructs the runtime to leave Backup
+	// and Restore CRs in place when the Instance is deleted. They survive
+	// the Instance and can be used to restore into a newly-created
+	// Instance.
+	InstanceDeletionPolicyOrphan InstanceDeletionPolicy = "Orphan"
+)
+
+// InstanceBackupSpec configures the backup feature on an Instance.
+//
+// Schedules and PITR are configured per storage (under
+// .spec.backup.storages[].schedules and .spec.backup.storages[].pitr) so
+// that each storage carries its own backup policy. Schedule names must be
+// unique across all storages on the Instance because engines use them as
+// global identifiers and they appear on mirrored Backup CRs as
+// .spec.scheduleName.
+//
+// +kubebuilder:validation:XValidation:rule="!has(self.storages) || self.storages.all(s1, !has(s1.schedules) || s1.schedules.all(sch1, self.storages.filter(s2, has(s2.schedules) && s2.schedules.exists(sch2, sch2.name == sch1.name)).size() <= 1 && s1.schedules.filter(sch2, sch2.name == sch1.name).size() == 1))",message="schedule names must be unique across all storages"
+type InstanceBackupSpec struct {
+	// Enabled toggles the backup feature for this Instance. When false the
+	// runtime skips ConfigureBackup() and the rest of this struct is ignored.
+	Enabled bool `json:"enabled"`
+	// ClassRef references the BackupClass that the provider should use to
+	// configure the engine. The class must have ExecutionMode=ProviderManaged
+	// and list the Instance's provider in its SupportedProviders.
+	// +kubebuilder:validation:Required
+	ClassRef BackupClassReference `json:"classRef"`
+	// Storages registers BackupStorages on the engine. Each entry maps a
+	// logical name (visible to the engine and reused by Backup CRs via
+	// .spec.storageName) to a BackupStorage resource. Schedules and PITR are
+	// configured per storage via the nested .schedules and .pitr fields.
+	// +optional
+	// +kubebuilder:validation:MaxItems=10
+	Storages []InstanceBackupStorage `json:"storages,omitempty"`
+}
+
+// BackupClassReference references a BackupClass by name.
+type BackupClassReference struct {
+	// Name is the BackupClass name. BackupClasses are cluster-scoped.
+	// +kubebuilder:validation:Required
+	Name string `json:"name"`
+}
+
+// InstanceBackupStorage registers a BackupStorage on the Instance and
+// carries the backup policy (schedules, PITR) that targets it.
+type InstanceBackupStorage struct {
+	// Name is the logical name the engine uses for this storage. It is also
+	// the value that Backup CRs target via .spec.storageName.
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MaxLength=63
+	Name string `json:"name"`
+	// StorageRef references a BackupStorage in the same namespace.
+	// +kubebuilder:validation:Required
+	StorageRef corev1.LocalObjectReference `json:"storageRef"`
+	// Schedules registers recurring backup tasks that write to this storage.
+	// Schedules produce Backup CRs (via the provider's mirroring loop) using
+	// the operator-native scheduler — the runtime never spawns CronJobs for
+	// ProviderManaged BackupClasses. Schedule names must be unique across
+	// all storages on the Instance.
+	// +optional
+	// +kubebuilder:validation:MaxItems=10
+	Schedules []InstanceBackupSchedule `json:"schedules,omitempty"`
+	// PITR enables and configures point-in-time recovery writing to this
+	// storage. Requires the BackupClass to advertise PITR support via
+	// .spec.providerManaged. Engines that support only a single PITR stream
+	// (e.g. PSMDB, PXC) require at most one storage on the Instance to set
+	// .pitr.enabled=true; this is enforced by the provider, not by the
+	// core schema (PG legitimately archives WAL to every configured repo).
+	// +optional
+	PITR *InstanceBackupStoragePITR `json:"pitr,omitempty"`
+}
+
+// InstanceBackupSchedule configures a recurring backup task on the engine
+// for the parent storage. The provider translates each schedule into the
+// engine's native scheduler (e.g. PSMDB BackupTaskSpec, PXC
+// PXCScheduledBackupSchedule, pgBackRest schedule). Operator-produced
+// backups are mirrored back into Backup CRs by the provider, sharing the
+// operator backup's name.
+type InstanceBackupSchedule struct {
+	// Name uniquely identifies the schedule. The provider uses it as the
+	// schedule key on the engine and as the value of Backup.spec.scheduleName
+	// on mirrored Backup CRs. Names must be unique across all storages on
+	// the Instance.
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=63
+	Name string `json:"name"`
+	// Enabled toggles the schedule. A disabled schedule is removed from
+	// the engine without losing its definition on the Instance.
+	Enabled bool `json:"enabled"`
+	// Cron is a standard 5-field cron expression. The provider may reject
+	// expressions the engine does not support.
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
+	Cron string `json:"cron"`
+	// RetentionCopies is the number of recent backups to keep for this
+	// schedule. Zero (or unset) means "keep all". Negative values are
+	// rejected.
+	// +kubebuilder:validation:Minimum=0
+	// +optional
+	RetentionCopies int32 `json:"retentionCopies,omitempty"`
+	// Config is schedule-specific configuration validated against the
+	// BackupClass's .spec.scheduleConfig.openAPIV3Schema. When unset the
+	// provider falls back to engine defaults. The schema is the same as for
+	// Backup.spec.config but applied per-schedule rather than per-backup-run.
+	// +kubebuilder:pruning:PreserveUnknownFields
+	// +optional
+	Config *runtime.RawExtension `json:"config,omitempty"`
+}
+
+// InstanceBackupStoragePITR configures point-in-time recovery writing to
+// the parent storage.
+type InstanceBackupStoragePITR struct {
+	// Enabled toggles PITR for this storage.
+	Enabled bool `json:"enabled"`
+	// Config holds provider-specific PITR options. The schema is defined by
+	// the BackupClass via .spec.providerManaged.
+	// +kubebuilder:pruning:PreserveUnknownFields
+	// +optional
+	Config *runtime.RawExtension `json:"config,omitempty"`
 }
 
 // TopologySpec defines the deployment topology and its configuration.
@@ -91,6 +277,11 @@ type ComponentSpec struct {
 	// Replicas specifies the number of replicas for this component.
 	// +optional
 	Replicas *int32 `json:"replicas,omitempty"`
+	// Affinity controls pod scheduling rules for this component, including node
+	// selection (where pods run), pod co-location (scheduling pods together), and
+	// pod anti-affinity (spreading pods across nodes/zones for high availability).
+	// +optional
+	Affinity *corev1.Affinity `json:"affinity,omitempty"`
 	// +kubebuilder:pruning:PreserveUnknownFields
 	// CustomSpec provides an API for customising this component.
 	// The API schema is defined by the provider's ComponentSchemas.
@@ -265,6 +456,60 @@ const (
 	// target version. External CI/CD pipelines can use this to block subsequent
 	// infrastructure changes until the upgrade completes.
 	ConditionUpgrading = "Upgrading"
+
+	// ConditionBackupConfigured indicates whether the provider has successfully
+	// configured the backup feature on the instance engine. This condition is
+	// only set when Backup.Enabled=true; it remains absent otherwise. When False,
+	// the reason and message explain the configuration failure (e.g., storage
+	// resolution or PITR wiring error).
+	ConditionBackupConfigured = "BackupConfigured"
+
+	// ConditionDataSourceReady indicates the outcome of seeding an Instance
+	// from .spec.dataSource. The condition is set only when the Instance has
+	// a DataSource configured. Status=True means the source data has been
+	// fully restored into the new Instance; Status=False with the matching
+	// reason explains why the seeding is still in progress or has failed.
+	// The condition is sticky: once True it remains True for the lifetime of
+	// the Instance.
+	ConditionDataSourceReady = "DataSourceReady"
+)
+
+// Reasons for the DataSourceReady condition.
+const (
+	// ReasonDataSourceWaitingForCluster indicates the provider is waiting
+	// for the engine cluster to reach a state where a restore can be issued.
+	ReasonDataSourceWaitingForCluster = "WaitingForCluster"
+
+	// ReasonDataSourceRestoring indicates a Restore CR has been created and
+	// the operator-native restore is in progress.
+	ReasonDataSourceRestoring = "Restoring"
+
+	// ReasonDataSourceSucceeded indicates the initial restore completed
+	// successfully and the Instance has been seeded from the source backup.
+	ReasonDataSourceSucceeded = "Succeeded"
+
+	// ReasonDataSourceFailed indicates the initial restore failed terminally;
+	// the Instance will not be seeded automatically and operator intervention
+	// is required.
+	ReasonDataSourceFailed = "Failed"
+
+	// ReasonDataSourceSourceBackupNotFound indicates the Backup CR referenced
+	// by .spec.dataSource.backup.backupName does not exist in the Instance namespace.
+	ReasonDataSourceSourceBackupNotFound = "SourceBackupNotFound"
+
+	// ReasonDataSourceSourceBackupNotSucceeded indicates the source Backup
+	// exists but is not in the Succeeded state, so it cannot be restored.
+	ReasonDataSourceSourceBackupNotSucceeded = "SourceBackupNotSucceeded"
+
+	// ReasonDataSourceStorageMismatch indicates the Instance's
+	// .spec.backup.storages does not include an entry matching the storage
+	// used by the source Backup, so the provider cannot access the data.
+	ReasonDataSourceStorageMismatch = "StorageMismatch"
+
+	// ReasonDataSourceClassUnsupported indicates the source Backup's
+	// BackupClass either does not exist, is not ProviderManaged, or does not
+	// list the target Instance's provider in SupportedProviders.
+	ReasonDataSourceClassUnsupported = "BackupClassUnsupported"
 )
 
 // Reasons for the StorageResizing condition.

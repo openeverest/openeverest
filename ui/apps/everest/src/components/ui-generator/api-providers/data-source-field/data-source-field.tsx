@@ -15,34 +15,40 @@
 import React, { useEffect, useMemo } from 'react';
 import { useFormContext } from 'react-hook-form';
 import type { Component } from '../../ui-generator.types';
-import { useProviderOptions } from '../registry';
+import { providerRegistry, useProviderOptions } from '../registry';
 import { useUiGeneratorContext } from '../../ui-generator-context';
+import { useClusterName } from 'hooks/api/useClusterName';
 import type { DataSourceFieldProps } from './data-source-field.types';
+import { getReconciledDataSourceValue } from './data-source-field.utils';
 
 export const DataSourceField: React.FC<DataSourceFieldProps> = ({
   item,
   name,
   children,
 }) => {
-  const { namespace, cluster } = useUiGeneratorContext();
+  const { namespace } = useUiGeneratorContext();
+  const cluster = useClusterName();
   const { getValues, setValue } = useFormContext();
   const { dataSource, ...baseComponent } = item;
+
+  const hasValidContext = !!namespace && !!cluster;
 
   const { options, isLoading, error, isEmpty } = useProviderOptions(
     dataSource.provider,
     {
       namespace: namespace ?? '',
-      cluster: cluster ?? '',
-      config: dataSource.config,
-    }
+      cluster,
+    },
+    { enabled: hasValidContext }
   );
 
   useEffect(() => {
-    if (isLoading || options.length === 0 || !name) return;
+    if (isLoading || !name) return;
 
-    const current = getValues(name);
-    if (current === '' || current === undefined || current === null) {
-      setValue(name, options[0].value, { shouldValidate: true });
+    const nextValue = getReconciledDataSourceValue(getValues(name), options);
+
+    if (nextValue !== null) {
+      setValue(name, nextValue, { shouldValidate: true });
     }
   }, [isLoading, options, name, getValues, setValue]);
 
@@ -73,8 +79,32 @@ export const DataSourceField: React.FC<DataSourceFieldProps> = ({
     } as Component;
   }, [baseComponent, options, isLoading, error, isEmpty]);
 
-  // TODO: Render fallback component when isEmpty/error and fallback is defined
-  // (requires Alert component — see separate issue)
+  const FallbackComponent = useMemo(() => {
+    const entry = providerRegistry.get(dataSource.provider);
+    return entry?.emptyStateFallback?.component ?? null;
+  }, [dataSource.provider]);
 
-  return <>{children(patchedItem)}</>;
+  const showFallback =
+    isEmpty && !isLoading && !!FallbackComponent && !!namespace;
+
+  // We always render the children (Select/Controller) and hide them with
+  // display:none instead of conditionally unmounting. This keeps the RHF
+  // Controller mounted so the field stays registered in the form. Without this,
+  // when options arrive after inline creation via the FallbackComponent, the
+  // Controller would remount and setValue() would fire before the field is
+  // re-registered — making it a no-op and leaving the Select empty.
+  return (
+    <>
+      {showFallback && (
+        <FallbackComponent namespace={namespace!} cluster={cluster} />
+      )}
+      <div
+        style={{
+          display: showFallback ? 'none' : 'contents',
+        }}
+      >
+        {children(patchedItem)}
+      </div>
+    </>
+  );
 };

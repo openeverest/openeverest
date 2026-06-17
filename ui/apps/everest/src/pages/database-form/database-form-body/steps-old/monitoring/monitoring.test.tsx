@@ -62,9 +62,10 @@ const queryClient = new QueryClient({
   },
 });
 
-vi.mock('hooks/api/monitoring/useMonitoringInstancesList', () => ({
-  useMonitoringInstancesList: mocks.useMonitoringInstancesList,
-  useCreateMonitoringInstance: mocks.useCreateMonitoringInstance,
+vi.mock('hooks/api/monitoring/useMonitoringConfigsList', () => ({
+  useMonitoringConfigsList: mocks.useMonitoringInstancesList,
+  useCreateMonitoringConfig: mocks.useCreateMonitoringInstance,
+  MONITORING_CONFIGS_QUERY_KEY: 'monitoringConfigs',
 }));
 
 vi.mock('../../useDatabasePageMode', () => ({

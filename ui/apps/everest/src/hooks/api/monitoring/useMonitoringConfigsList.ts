@@ -12,10 +12,29 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { useQuery } from '@tanstack/react-query';
-import { getMonitoringConfigsFn } from 'api/monitoringConfigs';
+import {
+  UseMutationOptions,
+  useMutation,
+  useQueries,
+  useQuery,
+  UseQueryResult,
+} from '@tanstack/react-query';
+import {
+  createMonitoringConfigFn,
+  deleteMonitoringConfigFn,
+  getMonitoringConfigsFn,
+  updateMonitoringConfigFn,
+} from 'api/monitoring';
+import {
+  MonitoringConfig,
+  MonitoringConfigCreateParams,
+  MonitoringConfigUpdateParams,
+} from 'shared-types/api.types';
+import { useNamespaces } from '../namespaces';
 
 export const MONITORING_CONFIGS_QUERY_KEY = 'monitoringConfigs';
+
+const CLUSTER_NAME = 'main';
 
 export const useMonitoringConfigsList = (
   cluster: string,
@@ -29,3 +48,86 @@ export const useMonitoringConfigsList = (
     enabled: options?.enabled ?? (!!namespace && !!cluster),
   });
 };
+
+// Multi-namespace variant for the Settings page (fetches all namespaces in parallel)
+export interface MonitoringConfigForNamespaceResult {
+  namespace: string;
+  queryResult: UseQueryResult<MonitoringConfig[], unknown>;
+}
+
+export const useMonitoringConfigsListMultiNs = (options?: {
+  refetchInterval?: number;
+}) => {
+  const { data: namespaces = [], isLoading: isNamespacesLoading } =
+    useNamespaces({
+      refetchInterval: options?.refetchInterval ?? 10_000,
+    });
+  const queries = namespaces.map((namespace) => ({
+    queryKey: [MONITORING_CONFIGS_QUERY_KEY, CLUSTER_NAME, namespace],
+    queryFn: () => getMonitoringConfigsFn(CLUSTER_NAME, namespace),
+    refetchInterval: options?.refetchInterval ?? 5_000,
+  }));
+
+  const queryResults = useQueries({ queries });
+
+  const configs = queryResults.map((item, i) => ({
+    namespace: namespaces[i],
+    queryResult: item,
+  }));
+
+  return { configs, isNamespacesLoading };
+};
+
+export const useCreateMonitoringConfig = (
+  options?: UseMutationOptions<
+    MonitoringConfig,
+    unknown,
+    { namespace: string; payload: MonitoringConfigCreateParams },
+    unknown
+  >
+) =>
+  useMutation({
+    mutationFn: ({
+      namespace,
+      payload,
+    }: {
+      namespace: string;
+      payload: MonitoringConfigCreateParams;
+    }) => createMonitoringConfigFn(CLUSTER_NAME, namespace, payload),
+    ...options,
+  });
+
+export const useUpdateMonitoringConfig = (
+  options?: UseMutationOptions<
+    MonitoringConfig,
+    unknown,
+    { namespace: string; name: string; payload: MonitoringConfigUpdateParams },
+    unknown
+  >
+) =>
+  useMutation({
+    mutationFn: ({
+      namespace,
+      name,
+      payload,
+    }: {
+      namespace: string;
+      name: string;
+      payload: MonitoringConfigUpdateParams;
+    }) => updateMonitoringConfigFn(CLUSTER_NAME, namespace, name, payload),
+    ...options,
+  });
+
+export const useDeleteMonitoringConfig = (
+  options?: UseMutationOptions<
+    void,
+    unknown,
+    { namespace: string; name: string },
+    unknown
+  >
+) =>
+  useMutation({
+    mutationFn: ({ namespace, name }: { namespace: string; name: string }) =>
+      deleteMonitoringConfigFn(CLUSTER_NAME, namespace, name),
+    ...options,
+  });

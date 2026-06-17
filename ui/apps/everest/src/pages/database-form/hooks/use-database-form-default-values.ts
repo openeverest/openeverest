@@ -13,16 +13,23 @@
 // limitations under the License.
 
 import { useDefaultValues } from 'components/ui-generator/hooks/use-default-values';
-import { TopologyUISchemas } from 'components/ui-generator/ui-generator.types';
+import { extractInstanceValues } from 'components/ui-generator/utils/default-values/extract-instance-values';
+import {
+  FormMode,
+  TopologyUISchemas,
+} from 'components/ui-generator/ui-generator.types';
+import { useDbInstance } from 'hooks/api/db-instances/useDbInstance';
 import { useMemo } from 'react';
 import { useLocation } from 'react-router-dom';
-import { WizardMode } from 'shared-types/wizard.types';
 import { getDbWizardDefaultValues } from '../utils/get-default-values';
+import { generateShortUID } from 'utils/generateShortUID';
 
 export const useDatabasePageDefaultValues = (
-  mode: WizardMode,
+  mode: FormMode,
   uiSchema: TopologyUISchemas,
-  defaultSelectedTopology: string
+  defaultSelectedTopology: string,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  _hasBackupStep = false
 ): {
   // TODO add typescript types
   defaultValues: Record<string, unknown>;
@@ -37,51 +44,91 @@ export const useDatabasePageDefaultValues = (
     defaultSelectedTopology
   );
 
+  // ── Restore mode: fetch source instance ──────────────────────────────────
+  const isRestore = mode === FormMode.Restore;
+  const sourceInstanceName = state?.selectedDbCluster as string | undefined;
+  const sourceNamespace = state?.namespace as string | undefined;
+
+  const {
+    data: sourceInstance,
+    status: sourceInstanceStatus,
+    isFetching: sourceInstanceFetching,
+  } = useDbInstance(sourceNamespace ?? '', sourceInstanceName ?? '', {
+    enabled: isRestore && !!sourceInstanceName && !!sourceNamespace,
+  });
+
   const defaultValues = useMemo(() => {
     const providerName =
       state?.selectedDbProvider?.metadata?.name || 'unknown-provider';
-    if (mode === WizardMode.New) {
+
+    if (mode === FormMode.New) {
       const dbWizardDefaultValues = getDbWizardDefaultValues(providerName);
-      // Add topology to default values
       return {
         ...defaultSchemaValues,
         ...dbWizardDefaultValues,
         topology: { type: defaultSelectedTopology },
+        backup: { schedules: [], classRef: { name: '' } },
       };
-    } else {
-      // TODO edit,restore,templates mode
+    }
+
+    if (mode === FormMode.Restore) {
+      if (!sourceInstance) {
+        // Still loading — return schema defaults as placeholder
+        return {
+          ...defaultSchemaValues,
+          topology: { type: defaultSelectedTopology },
+          backup: { schedules: [], classRef: { name: '' } },
+        };
+      }
+
+      const topologyType =
+        (sourceInstance.spec?.topology?.type as string) ||
+        defaultSelectedTopology;
+      const sections = uiSchema[topologyType]?.sections ?? {};
+
+      const extractedValues = extractInstanceValues(
+        sections,
+        sourceInstance as unknown as Record<string, unknown>,
+        FormMode.Restore
+      );
+
       return {
         ...defaultSchemaValues,
-        topology: { type: defaultSelectedTopology },
+        ...extractedValues,
+        topology: { type: topologyType },
+        // Generate a new name for the restored instance
+        dbName: `inst-${generateShortUID()}`,
+        // Provider name from source instance
+        provider: (sourceInstance.spec?.provider as string) ?? '',
+        // Keep namespace from source
+        k8sNamespace: sourceNamespace ?? '',
+        // No backup schedules on new-from-restore
+        backup: { schedules: [], classRef: { name: '' } },
       };
-      //   return dbClusterRequestStatus === 'success'
-      //     ? DbClusterPayloadToFormValues(dbCluster, mode, namespace)
-      //     : defaults;
     }
+
+    // Fallback (edit/import modes — not yet implemented)
+    return {
+      ...defaultSchemaValues,
+      topology: { type: defaultSelectedTopology },
+      backup: { schedules: [], classRef: { name: '' } },
+    };
   }, [
     defaultSchemaValues,
     defaultSelectedTopology,
     mode,
-    state?.selectedDbEngine,
+    sourceInstance,
+    sourceNamespace,
+    state?.selectedDbProvider?.metadata?.name,
+    uiSchema,
   ]);
-
-  // TODO edit,restore,templates mode
-  //   useEffect(() => {
-  //     // dbClusterRequestStatus === 'success' when the request is enabled, which only happens if shouldRetrieveDbClusterData === true
-  //     // hence, no need to re-check mode and so on here
-  //     if (dbClusterRequestStatus === 'success' && dbCluster) {
-  //       setDefaultValues(
-  //         DbClusterPayloadToFormValues(dbCluster, mode, namespace)
-  //       );
-  //     }
-  //   }, [dbCluster, dbClusterRequestStatus, mode, namespace]);
 
   return {
     defaultValues,
-    dbClusterData: {},
-    // TODO change when api is ready
-    dbClusterRequestStatus: 'success',
-    // TODO change when api is ready
-    isFetching: false,
+    dbClusterData: sourceInstance
+      ? (sourceInstance as unknown as Record<string, unknown>)
+      : {},
+    dbClusterRequestStatus: isRestore ? sourceInstanceStatus : 'success',
+    isFetching: isRestore ? sourceInstanceFetching : false,
   };
 };

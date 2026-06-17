@@ -15,12 +15,14 @@ import (
 	apiextv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/rest"
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
 	"github.com/openeverest/openeverest/v2/api/core/v1alpha1"
-	monitoringv1alpha2 "github.com/openeverest/openeverest/v2/api/monitoring/v1alpha2"
+	monitoringv1alpha1 "github.com/openeverest/openeverest/v2/api/monitoring/v1alpha1"
+	pluginv1alpha1 "github.com/openeverest/openeverest/v2/api/plugin/v1alpha1"
 	"github.com/openeverest/openeverest/v2/pkg/accounts"
 	"github.com/openeverest/openeverest/v2/pkg/common"
 )
@@ -46,12 +48,24 @@ type KubernetesConnector interface {
 	// DeleteBackupStoragesV1 deletes all backup storages in provided namespace.
 	// This function will wait until all storages are deleted.
 	DeleteBackupStoragesV1(ctx context.Context, opts ...ctrlclient.ListOption) error
+	// ListBackupStorages returns list of backup storages in a given namespace.
+	ListBackupStorages(ctx context.Context, opts ...ctrlclient.ListOption) (*backupv1alpha1.BackupStorageList, error)
+	// GetBackupStorage returns a backup storage by name and namespace.
+	GetBackupStorage(ctx context.Context, key ctrlclient.ObjectKey) (*backupv1alpha1.BackupStorage, error)
+	// CreateBackupStorage creates a backup storage.
+	CreateBackupStorage(ctx context.Context, storage *backupv1alpha1.BackupStorage) (*backupv1alpha1.BackupStorage, error)
+	// UpdateBackupStorage updates a backup storage.
+	UpdateBackupStorage(ctx context.Context, storage *backupv1alpha1.BackupStorage) (*backupv1alpha1.BackupStorage, error)
+	// DeleteBackupStorage deletes a backup storage.
+	DeleteBackupStorage(ctx context.Context, obj *backupv1alpha1.BackupStorage) error
 	// GetBackup returns backup that matches the criteria.
 	GetBackup(ctx context.Context, key ctrlclient.ObjectKey) (*backupv1alpha1.Backup, error)
 	// DeleteBackup deletes backup that matches the criteria.
 	DeleteBackup(ctx context.Context, obj *backupv1alpha1.Backup) error
 	// CreateBackup creates backup.
 	CreateBackup(ctx context.Context, backup *backupv1alpha1.Backup) (*backupv1alpha1.Backup, error)
+	// UpdateBackup updates backup.
+	UpdateBackup(ctx context.Context, backup *backupv1alpha1.Backup) (*backupv1alpha1.Backup, error)
 	// ListBackupClasses returns list of backup classes that match the criteria.
 	ListBackupClasses(ctx context.Context, opts ...ctrlclient.ListOption) (*backupv1alpha1.BackupClassList, error)
 	// GetBackupClass returns backup class that matches the criteria.
@@ -146,6 +160,16 @@ type KubernetesConnector interface {
 	RestartDeployment(ctx context.Context, key ctrlclient.ObjectKey) error
 	// WaitForRollout waits for rollout of deployment that matches the criteria.
 	WaitForRollout(ctx context.Context, key ctrlclient.ObjectKey) error
+	// ListInstanceBackups returns backups for the specified instance.
+	ListInstanceBackups(ctx context.Context, namespace, instance string) (*backupv1alpha1.BackupList, error)
+	// ListInstanceRestores returns restores performed for the specified instance.
+	ListInstanceRestores(ctx context.Context, namespace, instance string) (*backupv1alpha1.RestoreList, error)
+	// GetRestore returns a specific restore by namespaced name.
+	GetRestore(ctx context.Context, key ctrlclient.ObjectKey) (*backupv1alpha1.Restore, error)
+	// CreateRestore creates a new restore.
+	CreateRestore(ctx context.Context, restore *backupv1alpha1.Restore) (*backupv1alpha1.Restore, error)
+	// DeleteRestore deletes a restore.
+	DeleteRestore(ctx context.Context, obj *backupv1alpha1.Restore) error
 	// GetInstallPlan retrieves an OLM install plan that matches the criteria.
 	GetInstallPlan(ctx context.Context, key ctrlclient.ObjectKey) (*olmv1alpha1.InstallPlan, error)
 	// UpdateInstallPlan updates OLM install plan.
@@ -159,7 +183,7 @@ type KubernetesConnector interface {
 	Config() *rest.Config
 	// WithKubernetesClient sets the k8s client.
 	WithKubernetesClient(c ctrlclient.Client) *Kubernetes
-	// Namespace returns the Everest system namespace.
+	// Namespace returns the namespace OpenEverest is installed.
 	Namespace() string
 	// GetEverestID returns the ID of the namespace where everest is deployed.
 	GetEverestID(ctx context.Context) (string, error)
@@ -185,11 +209,11 @@ type KubernetesConnector interface {
 	// This method returns a list of full objects (meta and spec).
 	//
 	// TODO Rename it to ListMonitoringConfigs once v1 code is removed.
-	ListMonitoringConfigsV2(ctx context.Context, opts ...ctrlclient.ListOption) (*monitoringv1alpha2.MonitoringConfigList, error)
+	ListMonitoringConfigsV2(ctx context.Context, opts ...ctrlclient.ListOption) (*monitoringv1alpha1.MonitoringConfigList, error)
 	// GetMonitoringConfigV2 returns monitoring config(full object) that matches the criteria.
 	//
 	// TODO Rename it to GetMonitoringConfig once v1 code is removed.
-	GetMonitoringConfigV2(ctx context.Context, key ctrlclient.ObjectKey) (*monitoringv1alpha2.MonitoringConfig, error)
+	GetMonitoringConfigV2(ctx context.Context, key ctrlclient.ObjectKey) (*monitoringv1alpha1.MonitoringConfig, error)
 	// GetMonitoringConfigMetaV2 returns monitoring config(metadata only) that matches the criteria.
 	//
 	// TODO Rename it to GetMonitoringConfigMeta once v1 code is removed.
@@ -197,20 +221,21 @@ type KubernetesConnector interface {
 	// CreateMonitoringConfigV2 creates monitoring config.
 	//
 	// TODO Rename it to CreateMonitoringConfig once v1 code is removed.
-	CreateMonitoringConfigV2(ctx context.Context, config *monitoringv1alpha2.MonitoringConfig) (*monitoringv1alpha2.MonitoringConfig, error)
+	CreateMonitoringConfigV2(ctx context.Context, config *monitoringv1alpha1.MonitoringConfig) (*monitoringv1alpha1.MonitoringConfig, error)
 	// UpdateMonitoringConfigV2 updates monitoring config.
 	//
 	// TODO Rename it to UpdateMonitoringConfig once v1 code is removed.
-	UpdateMonitoringConfigV2(ctx context.Context, config *monitoringv1alpha2.MonitoringConfig) (*monitoringv1alpha2.MonitoringConfig, error)
+	UpdateMonitoringConfigV2(ctx context.Context, config *monitoringv1alpha1.MonitoringConfig) (*monitoringv1alpha1.MonitoringConfig, error)
 	// DeleteMonitoringConfigV2 deletes monitoring config that matches the criteria.
 	//
 	// TODO Rename it to DeleteMonitoringConfig once v1 code is removed.
-	DeleteMonitoringConfigV2(ctx context.Context, obj *monitoringv1alpha2.MonitoringConfig) error
+	DeleteMonitoringConfigV2(ctx context.Context, obj *monitoringv1alpha1.MonitoringConfig) error
 	// CreateNamespace creates the given namespace.
 	CreateNamespace(ctx context.Context, namespace *corev1.Namespace) (*corev1.Namespace, error)
 	// GetNamespace returns a namespace that matches the criteria.
 	GetNamespace(ctx context.Context, key ctrlclient.ObjectKey) (*corev1.Namespace, error)
-	// GetDBNamespaces returns a list of DB namespaces that managed by the Everest and match the criteria.
+	// GetDBNamespaces returns namespaces that can be used to manage databases.
+	// Filters out Kubernetes system namespaces, Everest core namespaces, and cloud provider-specific namespaces.
 	GetDBNamespaces(ctx context.Context, opts ...ctrlclient.ListOption) (*corev1.NamespaceList, error)
 	// DeleteNamespace deletes a namespace that matches the criteria.
 	DeleteNamespace(ctx context.Context, obj *corev1.Namespace) error
@@ -234,6 +259,22 @@ type KubernetesConnector interface {
 	UpdateEverestSettings(ctx context.Context, settings common.EverestSettings) error
 	// GetEverestSettings returns Everest settings.
 	GetEverestSettings(ctx context.Context) (common.EverestSettings, error)
+	// ListPlugins returns list of plugins that match the criteria.
+	ListPlugins(ctx context.Context, opts ...ctrlclient.ListOption) (*pluginv1alpha1.PluginList, error)
+	// GetPlugin returns plugin that matches the criteria.
+	GetPlugin(ctx context.Context, key ctrlclient.ObjectKey) (*pluginv1alpha1.Plugin, error)
+	// CreatePlugin creates a new plugin.
+	CreatePlugin(ctx context.Context, plugin *pluginv1alpha1.Plugin) (*pluginv1alpha1.Plugin, error)
+	// DeletePlugin deletes a plugin.
+	DeletePlugin(ctx context.Context, obj *pluginv1alpha1.Plugin) error
+	// ListPluginInstallations returns plugin installations that match the criteria.
+	ListPluginInstallations(ctx context.Context, opts ...ctrlclient.ListOption) (*pluginv1alpha1.PluginInstallationList, error)
+	// GetPluginInstallation returns a plugin installation that matches the criteria.
+	GetPluginInstallation(ctx context.Context, key ctrlclient.ObjectKey) (*pluginv1alpha1.PluginInstallation, error)
+	// CreatePluginInstallation creates a new plugin installation.
+	CreatePluginInstallation(ctx context.Context, pi *pluginv1alpha1.PluginInstallation) (*pluginv1alpha1.PluginInstallation, error)
+	// DeletePluginInstallation deletes a plugin installation.
+	DeletePluginInstallation(ctx context.Context, obj *pluginv1alpha1.PluginInstallation) error
 	// ListPodSchedulingPolicies returns a list of pod scheduling policy that matches the criteria.
 	// This method returns a list of full objects (meta and spec).
 	ListPodSchedulingPolicies(ctx context.Context, opts ...ctrlclient.ListOption) (*everestv1alpha1.PodSchedulingPolicyList, error)
@@ -274,6 +315,8 @@ type KubernetesConnector interface {
 	CreateSecret(ctx context.Context, secret *corev1.Secret) (*corev1.Secret, error)
 	// UpdateSecret updates a secret.
 	UpdateSecret(ctx context.Context, secret *corev1.Secret) (*corev1.Secret, error)
+	// PatchSecret patches a secret using the provided patch.
+	PatchSecret(ctx context.Context, secret *corev1.Secret, patch ctrlclient.Patch) (*corev1.Secret, error)
 	// DeleteSecret deletes a secret that matches the criteria.
 	DeleteSecret(ctx context.Context, obj *corev1.Secret) error
 	// GetService returns service that matches the criteria.
@@ -318,4 +361,13 @@ type KubernetesConnector interface {
 	CreateInstance(ctx context.Context, instance *v1alpha1.Instance) (*v1alpha1.Instance, error)
 	// UpdateInstance updates instance.
 	UpdateInstance(ctx context.Context, instance *v1alpha1.Instance) (*v1alpha1.Instance, error)
+	// WatchBackups returns a watch.Interface that streams
+	// DatabaseClusterBackup events across all namespaces.
+	WatchBackups(ctx context.Context) (watch.Interface, error)
+	// WatchRestores returns a watch.Interface that streams
+	// DatabaseClusterRestore events across all namespaces.
+	WatchRestores(ctx context.Context) (watch.Interface, error)
+	// WatchInstances returns a watch.Interface that streams
+	// Instance events across all namespaces.
+	WatchInstances(ctx context.Context) (watch.Interface, error)
 }

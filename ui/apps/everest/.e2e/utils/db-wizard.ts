@@ -1,5 +1,38 @@
+// Copyright (C) 2026 The OpenEverest Contributors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 import { expect, Page } from '@playwright/test';
 import { TIMEOUTS } from '@e2e/constants';
+
+export const openDbCreationForm = async (page: Page, providerName?: string) => {
+  const btn = page.getByTestId('add-db-cluster-button');
+  await btn.click();
+
+  // If the button opened a menu (multiple providers), pick an item
+  const menu = page.getByTestId('add-db-cluster-button-menu');
+  const menuVisible = await menu.isVisible().catch(() => false);
+
+  if (menuVisible) {
+    if (providerName) {
+      await menu.getByRole('menuitem', { name: providerName }).click();
+    } else {
+      await menu.getByRole('menuitem').first().click();
+    }
+  }
+
+  await page.waitForURL('/databases/new', { timeout: TIMEOUTS.ThirtySeconds });
+};
 
 export const storageLocationAutocompleteEmptyValidationCheck = async (
   page: Page,
@@ -337,16 +370,22 @@ export const populateMonitoringModalForm = async (
   warningCheck: boolean = true
 ) => {
   if (warningCheck) {
-    // check monitoring is not available
-    await expect(page.getByTestId('monitoring-warning')).toBeVisible();
+    // check monitoring fallback is visible (no monitoring configs available)
+    await expect(page.getByTestId('monitoring-empty-fallback')).toBeVisible();
   }
-  expect(await page.getByLabel('Enable monitoring').isChecked()).toBeFalsy();
+
+  // TODO return switch logic with switch component in ui-generator
+  const enableMonitoringToggle = page.getByLabel('Enable monitoring');
+  if (await enableMonitoringToggle.isVisible().catch(() => false)) {
+    expect(await enableMonitoringToggle.isChecked()).toBeFalsy();
+  }
+
   await page.getByRole('button', { name: 'Add monitoring endpoint' }).click();
 
   await page.getByTestId('text-input-name').fill(endpointName);
   const namespaces = page.getByTestId('text-input-namespace');
   await namespaces.click();
-  await page.getByRole('option', { name: namespace }).click();
+  await page.getByRole('option', { name: namespace, exact: true }).click();
   await page.getByTestId('text-input-url').fill(url);
   await page.getByTestId('text-input-user').fill(user);
   await page.getByTestId('text-input-password').fill(password);
@@ -354,6 +393,10 @@ export const populateMonitoringModalForm = async (
   await expect(page.getByTestId('form-dialog-add')).toBeEnabled();
   await page.getByTestId('form-dialog-add').click();
 
-  await expect(page.getByTestId('monitoring-warning')).not.toBeVisible();
-  await expect(page.getByTestId('switch-input-monitoring')).toBeEnabled();
+  await expect(page.getByTestId('monitoring-empty-fallback')).not.toBeVisible();
+
+  const monitoringSwitch = page.getByTestId('switch-input-monitoring');
+  if (await monitoringSwitch.isVisible().catch(() => false)) {
+    await expect(monitoringSwitch).toBeEnabled();
+  }
 };

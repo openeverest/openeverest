@@ -2,6 +2,7 @@
 # Applies test-specific patches on top of the default configuration.
 resources:
 - ../default
+- namespace.yaml
 
 patches:
 - path: manager_deployment_patch.yaml

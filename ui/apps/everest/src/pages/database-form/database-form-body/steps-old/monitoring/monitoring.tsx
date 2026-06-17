@@ -1,3 +1,17 @@
+// Copyright (C) 2026 The OpenEverest Contributors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 // @ts-nocheck
 // TODO remove this file after release of v2
 import { FormGroup } from '@mui/material';
@@ -7,12 +21,12 @@ import {
   MONITORING_INSTANCES_QUERY_KEY,
   useCreateMonitoringInstance,
   useMonitoringInstancesList,
-} from 'hooks/api/monitoring/useMonitoringInstancesList';
+} from 'hooks/api/monitoring/useMonitoringConfigsList.js';
 import { CreateEditEndpointModal } from 'pages/settings/monitoring-endpoints/createEditModal/create-edit-modal.tsx';
 import { EndpointFormType } from 'pages/settings/monitoring-endpoints/createEditModal/create-edit-modal.types.ts';
 import { useFormContext } from 'react-hook-form';
 import { useQueryClient } from '@tanstack/react-query';
-import { updateDataAfterCreate } from 'utils/generalOptimisticDataUpdate.ts';
+import { optimisticCreateBy } from 'utils/generalOptimisticDataUpdate.ts';
 import { DbWizardFormFields } from 'consts.ts';
 import { useDatabasePageMode } from '../../../hooks/use-database-page-mode.js';
 import { StepHeader } from '../step-header/step-header.js';
@@ -21,6 +35,7 @@ import ActionableAlert from 'components/actionable-alert';
 import { convertMonitoringInstancesPayloadToTableFormat } from 'pages/settings/monitoring-endpoints/monitoring-endpoints.utils.ts';
 import { useRBACPermissions } from 'hooks/rbac';
 import { WizardMode } from 'shared-types/wizard.types.ts';
+import { MonitoringConfig } from 'shared-types/api.types';
 
 export const Monitoring = () => {
   const [openCreateEditModal, setOpenCreateEditModal] = useState(false);
@@ -93,10 +108,14 @@ export const Monitoring = () => {
       },
       {
         onSuccess: (newInstance) => {
-          updateDataAfterCreate(queryClient, [
-            MONITORING_INSTANCES_QUERY_KEY,
-            newInstance.namespace,
-          ])(newInstance);
+          optimisticCreateBy<MonitoringConfig>(
+            queryClient,
+            [MONITORING_INSTANCES_QUERY_KEY, newInstance.namespace],
+            newInstance,
+            (item) =>
+              item.metadata?.name === newInstance.metadata?.name &&
+              item.metadata?.namespace === newInstance.metadata?.namespace
+          );
           handleCloseModal();
         },
       }

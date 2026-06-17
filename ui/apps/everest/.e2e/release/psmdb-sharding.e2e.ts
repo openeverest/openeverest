@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -44,7 +45,7 @@ import {
   queryTestDB,
 } from '@e2e/utils/db-cmd-line';
 import { getDbClusterAPI } from '@e2e/utils/db-cluster';
-import { checkDBMetrics, checkQAN } from '@e2e/utils/monitoring-instance';
+import { checkDBMetrics, checkQAN } from '@e2e/utils/monitoring-config';
 import { shouldExecuteDBCombination } from '@e2e/utils/generic';
 
 let token: string;

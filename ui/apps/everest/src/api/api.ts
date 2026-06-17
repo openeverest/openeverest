@@ -1,5 +1,4 @@
-// everest
-// Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,6 +11,10 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
+// Copyright (c) 2024 Percona LLC
+// Licensed under the Apache License, Version 2.0
+
 import axios, { AxiosError } from 'axios';
 import { enqueueSnackbar } from 'notistack';
 
@@ -93,7 +96,7 @@ export const addApiAuthInterceptor = () => {
 
 export const removeApiAuthInterceptor = () => {
   if (authInterceptor !== null) {
-    api.interceptors.response.eject(authInterceptor);
+    api.interceptors.request.eject(authInterceptor);
     authInterceptor = null;
   }
 };

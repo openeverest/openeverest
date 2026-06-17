@@ -20,6 +20,10 @@ export type MonitoringConfig =
   CrdsGen.components['schemas']['MonitoringConfig'];
 export type MonitoringConfigList =
   CrdsGen.components['schemas']['MonitoringConfigList'];
+export type MonitoringConfigCreateParams =
+  HttpApi.components['schemas']['MonitoringConfigCreateParams'];
+export type MonitoringConfigUpdateParams =
+  HttpApi.components['schemas']['MonitoringConfigUpdateParams'];
 export type GetInstances = CrdsGen.components['schemas']['InstanceList'];
 export type Instance = CrdsGen.components['schemas']['Instance'];
 export type InstanceConnectionDetails =
@@ -36,3 +40,6 @@ export type GetDbInstancesPayload =
   HttpApi.paths['/clusters/{cluster}/namespaces/{namespace}/instances']['get']['responses']['200']['content']['application/json'];
 export type UpdateDbInstancePayload =
   HttpApi.paths['/clusters/{cluster}/namespaces/{namespace}/instances/{instance}']['put']['requestBody']['content']['application/json'];
+
+export type GetNamespacesPayload =
+  HttpApi.components['schemas']['NamespaceList'];

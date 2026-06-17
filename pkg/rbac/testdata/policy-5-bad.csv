@@ -1,4 +1,4 @@
 p, role:admin, namespaces, read, *
-p, role:admin, database-engines, *, */*
-p, role:admin, monitoring-instances, *, */*, asdfasdf
+p, role:admin, clusters, *, *
+p, role:admin, monitoring-configs, *, */*, asdfasdf
 g, admin, role:admin

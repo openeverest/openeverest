@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -39,8 +40,6 @@ const (
 
 	// DefaultDBNamespaceName is the name of the default DB namespace during installation.
 	DefaultDBNamespaceName = "everest"
-	// SystemNamespace is the namespace where everest is installed.
-	SystemNamespace = "everest-system"
 	// MonitoringNamespace is the namespace where monitoring configs are created.
 	MonitoringNamespace = "everest-monitoring"
 	// PerconaEverestDeploymentName stores the name of everest API Server deployment.
@@ -73,6 +72,8 @@ const (
 	EverestJWTSecretName = "everest-jwt"
 	// EverestBlocklistSecretName is the name of the secret that holds JWT blocklist.
 	EverestBlocklistSecretName = "everest-blocklist"
+	// EverestAuthTokensSecretName is the name of the secret that holds the auth token registry
+	EverestAuthTokensSecretName = "everest-auth-tokens"
 	// EverestJWTPrivateKeyFile is the path to the JWT private key.
 	EverestJWTPrivateKeyFile = "/etc/jwt/id_rsa"
 	// EverestJWTPublicKeyFile is the path to the JWT public key.
@@ -95,6 +96,8 @@ const (
 	KubernetesManagedByLabel = "app.kubernetes.io/managed-by"
 	// DatabaseClusterNameLabel is the label used to identify resources by DB cluster name.
 	DatabaseClusterNameLabel = "clusterName"
+	// InstanceNameLabel is the label used to identify resources by instance name.
+	InstanceNameLabel = "instanceName"
 	// ForegroundDeletionFinalizer is the finalizer used to delete resources in foreground.
 	ForegroundDeletionFinalizer = "foregroundDeletion"
 	// UserCtxKey is the key used to store the user in the context.

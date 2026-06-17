@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,12 +18,12 @@ import { test as teardown } from '@playwright/test';
 import { getCITokenFromLocalStorage } from '../utils/localStorage';
 import { getBucketNamespacesMap } from '../constants';
 import {
-  deleteMonitoringInstance,
-  listMonitoringInstances,
-} from '@e2e/utils/monitoring-instance';
+  deleteMonitoringConfig,
+  listMonitoringConfigs,
+} from '@e2e/utils/monitoring-config';
 
 teardown.describe.serial('Global teardown', () => {
-  // teardown('Delete Monitoring Instances', async ({ request }) => {
+  // teardown('Delete Monitoring Configs', async ({ request }) => {
   //   const token = await getCITokenFromLocalStorage();
   //   const bucketNamespacesMap = getBucketNamespacesMap();
   //   const allNamespaces = Array.from(
@@ -31,17 +32,17 @@ teardown.describe.serial('Global teardown', () => {
   //   const promises: Promise<any>[] = [];
   //
   //   for (const [idx, namespace] of allNamespaces.entries()) {
-  //     const monitoringInstances = await listMonitoringInstances(
+  //     const monitoringConfigs = await listMonitoringConfigs(
   //       request,
   //       namespace,
   //       token
   //     );
-  //     for (const instance of monitoringInstances) {
+  //     for (const config of monitoringConfigs) {
   //       promises.push(
-  //         await deleteMonitoringInstance(
+  //         await deleteMonitoringConfig(
   //           request,
   //           namespace,
-  //           instance.name,
+  //           config.name,
   //           token
   //         );
   //     }

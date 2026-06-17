@@ -194,7 +194,7 @@ func TestCheckDeployment(t *testing.T) {
 				builder = builder.WithObjects(&tc.objects[i])
 			}
 
-			k := kubernetes.NewEmpty(zap.NewNop().Sugar()).
+			k := kubernetes.NewEmpty(zap.NewNop().Sugar(), "test-ns").
 				WithKubernetesClient(builder.Build())
 
 			s := &Status{
@@ -240,15 +240,15 @@ func TestCheckCoreComponents(t *testing.T) {
 		{
 			name: "All core components healthy",
 			objects: []*appsv1.Deployment{
-				readyDeployment(common.PerconaEverestDeploymentName, common.SystemNamespace),
-				readyDeployment(common.PerconaEverestOperatorDeploymentName, common.SystemNamespace),
+				readyDeployment(common.PerconaEverestDeploymentName, "test-ns"),
+				readyDeployment(common.PerconaEverestOperatorDeploymentName, "test-ns"),
 			},
 			wantHealthy: true,
 		},
 		{
 			name: "Server missing",
 			objects: []*appsv1.Deployment{
-				readyDeployment(common.PerconaEverestOperatorDeploymentName, common.SystemNamespace),
+				readyDeployment(common.PerconaEverestOperatorDeploymentName, "test-ns"),
 			},
 			wantHealthy: false,
 		},
@@ -269,7 +269,7 @@ func TestCheckCoreComponents(t *testing.T) {
 				builder = builder.WithObjects(obj)
 			}
 
-			k := kubernetes.NewEmpty(zap.NewNop().Sugar()).
+			k := kubernetes.NewEmpty(zap.NewNop().Sugar(), "test-ns").
 				WithKubernetesClient(builder.Build())
 
 			s := &Status{
@@ -313,7 +313,7 @@ func TestGetManagedNamespaces(t *testing.T) {
 				// System namespace should be filtered out.
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:   common.SystemNamespace,
+						Name:   "test-ns",
 						Labels: map[string]string{common.KubernetesManagedByLabel: common.Everest},
 					},
 				},
@@ -344,7 +344,7 @@ func TestGetManagedNamespaces(t *testing.T) {
 				builder = builder.WithObjects(ns)
 			}
 
-			k := kubernetes.NewEmpty(zap.NewNop().Sugar()).
+			k := kubernetes.NewEmpty(zap.NewNop().Sugar(), "test-ns").
 				WithKubernetesClient(builder.Build())
 
 			s := &Status{
@@ -370,7 +370,7 @@ func TestRun_Healthy(t *testing.T) {
 			&appsv1.Deployment{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:       common.PerconaEverestDeploymentName,
-					Namespace:  common.SystemNamespace,
+					Namespace:  "test-ns",
 					Generation: 1,
 					Labels:     map[string]string{"app.kubernetes.io/name": "everest-server"},
 				},
@@ -397,7 +397,7 @@ func TestRun_Healthy(t *testing.T) {
 			&appsv1.Deployment{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:       common.PerconaEverestOperatorDeploymentName,
-					Namespace:  common.SystemNamespace,
+					Namespace:  "test-ns",
 					Generation: 1,
 				},
 				Status: appsv1.DeploymentStatus{
@@ -443,7 +443,7 @@ func TestRun_Healthy(t *testing.T) {
 			},
 		)
 
-	k := kubernetes.NewEmpty(zap.NewNop().Sugar()).
+	k := kubernetes.NewEmpty(zap.NewNop().Sugar(), "test-ns").
 		WithKubernetesClient(builder.Build())
 
 	s := &Status{
@@ -466,7 +466,7 @@ func TestRun_Unhealthy(t *testing.T) {
 			&appsv1.Deployment{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:       common.PerconaEverestDeploymentName,
-					Namespace:  common.SystemNamespace,
+					Namespace:  "test-ns",
 					Generation: 1,
 					Labels:     map[string]string{"app.kubernetes.io/name": "everest-server"},
 				},
@@ -493,7 +493,7 @@ func TestRun_Unhealthy(t *testing.T) {
 			// everest-operator is MISSING - should cause unhealthy status
 		)
 
-	k := kubernetes.NewEmpty(zap.NewNop().Sugar()).
+	k := kubernetes.NewEmpty(zap.NewNop().Sugar(), "test-ns").
 		WithKubernetesClient(builder.Build())
 
 	s := &Status{

@@ -5,6 +5,9 @@ on:
     branches:
       - main
 
+permissions:
+  contents: read
+
 jobs:
   auto-update-base:
     runs-on: ubuntu-latest

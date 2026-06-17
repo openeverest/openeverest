@@ -30,37 +30,51 @@ import (
 )
 
 // ListInstances returns list of instances in a namespace.
-func (h *k8sHandler) ListInstances(ctx context.Context, namespace string) (*corev1alpha1.InstanceList, error) {
+func (h *k8sHandler) ListInstances(ctx context.Context, cluster, namespace string) (*corev1alpha1.InstanceList, error) {
 	return h.kubeConnector.ListInstances(ctx, ctrlclient.InNamespace(namespace))
 }
 
 // GetInstance returns instance that matches the criteria.
-func (h *k8sHandler) GetInstance(ctx context.Context, namespace, name string) (*corev1alpha1.Instance, error) {
+func (h *k8sHandler) GetInstance(ctx context.Context, cluster, namespace, name string) (*corev1alpha1.Instance, error) {
 	return h.kubeConnector.GetInstance(ctx, types.NamespacedName{Namespace: namespace, Name: name})
 }
 
 // CreateInstance creates an instance.
-func (h *k8sHandler) CreateInstance(ctx context.Context, instance *corev1alpha1.Instance) (*corev1alpha1.Instance, error) {
+func (h *k8sHandler) CreateInstance(ctx context.Context, cluster string, instance *corev1alpha1.Instance) (*corev1alpha1.Instance, error) {
 	return h.kubeConnector.CreateInstance(ctx, instance)
 }
 
 // UpdateInstance updates an instance.
-func (h *k8sHandler) UpdateInstance(ctx context.Context, instance *corev1alpha1.Instance) (*corev1alpha1.Instance, error) {
+func (h *k8sHandler) UpdateInstance(ctx context.Context, cluster string, instance *corev1alpha1.Instance) (*corev1alpha1.Instance, error) {
 	return h.kubeConnector.UpdateInstance(ctx, instance)
 }
 
-// DeleteInstance deletes an instance.
-func (h *k8sHandler) DeleteInstance(ctx context.Context, namespace, name string) error {
+// DeleteInstance deletes an instance. If the deletionPolicy query parameter is
+// provided, the instance's spec.deletionPolicy is patched before deletion so
+// the controller sees the caller's intent (Cascade vs Orphan child resources).
+func (h *k8sHandler) DeleteInstance(ctx context.Context, cluster, namespace, name string, params *api.DeleteInstanceParams) error {
 	instance, err := h.kubeConnector.GetInstance(ctx, types.NamespacedName{Namespace: namespace, Name: name})
 	if err != nil {
 		return err
 	}
+
+	if params != nil && params.DeletionPolicy != nil {
+		policy := corev1alpha1.InstanceDeletionPolicy(*params.DeletionPolicy)
+		if instance.Spec.DeletionPolicy != policy {
+			instance.Spec.DeletionPolicy = policy
+			instance, err = h.kubeConnector.UpdateInstance(ctx, instance)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
 	return h.kubeConnector.DeleteInstance(ctx, instance)
 }
 
 // GetInstanceConnection returns connection details for an instance by reading
 // the connection Secret referenced in the Instance status.
-func (h *k8sHandler) GetInstanceConnection(ctx context.Context, namespace, name string) (*api.InstanceConnectionDetails, error) {
+func (h *k8sHandler) GetInstanceConnection(ctx context.Context, cluster, namespace, name string) (*api.InstanceConnectionDetails, error) {
 	instance, err := h.kubeConnector.GetInstance(ctx, types.NamespacedName{Namespace: namespace, Name: name})
 	if err != nil {
 		return nil, err

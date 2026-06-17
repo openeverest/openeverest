@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,16 +18,16 @@ import { MRT_Row } from 'material-react-table';
 import { MenuItem } from '@mui/material';
 import { Delete, Edit } from '@mui/icons-material';
 import { Messages } from './monitoring-endpoints.messages';
-import { MonitoringInstanceTableElement } from './monitoring-endpoints.types';
+import { MonitoringConfigTableElement } from './monitoring-endpoints.types';
 import { useRBACPermissions } from 'hooks/rbac';
 
 export const MonitoringActionButtons = (
-  row: MRT_Row<MonitoringInstanceTableElement>,
-  handleDeleteInstance: (instance: MonitoringInstanceTableElement) => void,
-  handleOpenEditModal: (instance: MonitoringInstanceTableElement) => void
+  row: MRT_Row<MonitoringConfigTableElement>,
+  handleDeleteConfig: (instance: MonitoringConfigTableElement) => void,
+  handleOpenEditModal: (instance: MonitoringConfigTableElement) => void
 ) => {
   const { canUpdate, canDelete } = useRBACPermissions(
-    'monitoring-instances',
+    'monitoring-configs',
     `${row.original.namespace}/${row.original.name}`
   );
   return [
@@ -53,7 +54,7 @@ export const MonitoringActionButtons = (
           <MenuItem
             key={1}
             onClick={() => {
-              handleDeleteInstance(row.original);
+              handleDeleteConfig(row.original);
             }}
           >
             <Delete /> {Messages.delete}

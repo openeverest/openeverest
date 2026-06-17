@@ -12,10 +12,13 @@ on:
       RBAC_PASSWORD:
         required: true
 
+permissions:
+  contents: read
+
 env:
-  GONOPROXY: 'github.com/percona'
-  GONOSUMDB: 'github.com/percona'
-  GOPRIVATE: 'github.com/percona'
+  GONOPROXY: "github.com/percona"
+  GONOSUMDB: "github.com/percona"
+  GOPRIVATE: "github.com/percona"
 
 jobs:
   e2e:
@@ -27,7 +30,7 @@ jobs:
       PMM_HELM_VER: "1.3.21"
     steps:
       - name: Check out code into the Go module directory
-        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           lfs: true
           ref: ${{ github.event.pull_request.head.sha }}
@@ -36,7 +39,7 @@ jobs:
       - name: Set up Go release
         uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6.4.0
         with:
-          go-version-file: 'go.mod'
+          go-version-file: "go.mod"
           cache: true
 
       - name: Adjust GitHub worker node
@@ -46,12 +49,12 @@ jobs:
           mount-docker-data: true
 
       # Setup Node
-      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4.3.0
+      - uses: pnpm/action-setup@8912a9102ac27614460f54aedde9e1e7f9aec20d # v6.0.5
         with:
           version: 9.4.0
 
       - name: Use Node
-        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
         with:
           node-version: 20.x
           cache: "pnpm"
@@ -94,6 +97,10 @@ jobs:
         run: |
           CGO_ENABLED=0 GOOS=linux GOARCH=amd64 make build-debug
 
+      - name: Build Everest Controller
+        run: |
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 make build-controller
+
       - name: Build Everest docker container
         uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051 # v5.10.0
         id: meta
@@ -105,6 +112,8 @@ jobs:
         uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
         with:
           context: .
+          file: build/package/server/Dockerfile
+          target: openeverest
           push: true
           tags: ${{ steps.meta.outputs.tags }}
 
@@ -122,47 +131,21 @@ jobs:
           --version-metadata-url https://check-dev.percona.com \
           --skip-wizard \
           --skip-db-namespace \
-          --helm.set server.image=localhost:5000/openeverest/openeverest-dev \
+          --helm.set server.image.repository=localhost:5000/openeverest/openeverest-dev \
           --helm.set server.apiRequestsRateLimit=200 \
           --helm.set versionMetadataURL=https://check-dev.percona.com \
           --helm.set operator.init=false \
           --helm.set operator.image=ghcr.io/openeverest/openeverest-operator-dev \
           --helm.set olm.catalogSourceImage=ghcr.io/openeverest/openeverest-catalog-dev
 
-      - name: Add everest-ui namespace
+      - name: Add everest namespace
         shell: bash
         run: |
-          ./bin/everestctl namespaces add everest-ui -v \
+          ./bin/everestctl namespaces add everest -v \
           --operator.mongodb=true \
           --operator.postgresql=true \
           --operator.mysql=true \
-          --skip-wizard
-
-      - name: Adding psmdb namespace
-        shell: bash
-        run: |
-          ./bin/everestctl namespaces add psmdb-only -v \
-          --operator.mongodb=true \
-          --operator.postgresql=false \
-          --operator.mysql=false \
-          --skip-wizard
-
-      - name: Adding pxc namespace
-        shell: bash
-        run: |
-          ./bin/everestctl namespaces add pxc-only -v \
-          --operator.mongodb=false \
-          --operator.postgresql=false \
-          --operator.mysql=true \
-          --skip-wizard
-
-      - name: Adding pg namespace
-        shell: bash
-        run: |
-          ./bin/everestctl namespaces add pg-only -v \
-          --operator.mongodb=false \
-          --operator.postgresql=true \
-          --operator.mysql=false \
+          --take-ownership \
           --skip-wizard
 
       - name: Get Everest admin password
@@ -192,7 +175,8 @@ jobs:
       - name: Run integration tests
         shell: bash
         env:
-          EVEREST_BUCKETS_NAMESPACES_MAP: '[["bucket-1","everest-ui"],["bucket-2","psmdb-only"],["bucket-3","pxc-only"],["bucket-4","pg-only"],["bucket-5","everest-ui"]]'
+          EVEREST_URL: "http://localhost:3000"
+          EVEREST_BUCKETS_NAMESPACES_MAP: '[["bucket-1","everest"]]'
           EVEREST_LOCATION_ACCESS_KEY: "minioadmin"
           EVEREST_LOCATION_SECRET_KEY: "minioadmin"
           EVEREST_LOCATION_REGION: "us-east-1"
@@ -215,15 +199,11 @@ jobs:
           kubectl -n everest-system describe pods
           kubectl -n everest-monitoring describe pods
           kubectl -n everest-system logs deploy/everest-server
-          kubectl -n pxc-only describe pods
-          kubectl -n psmdb-only describe pods
-          kubectl -n pg-only describe pods
 
       - name: Archive report
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: playwright-report
           path: ui/apps/everest/.e2e/playwright-report/
           overwrite: true
-

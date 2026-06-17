@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -24,12 +25,12 @@ import (
 	"github.com/labstack/echo/v4"
 
 	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
+	api "github.com/openeverest/openeverest/v2/internal/server/api"
 )
 
 // GetBackup returns a specific backup.
 func (e *EverestServer) GetBackup(c echo.Context, cluster string, namespace string, backup string) error {
-	// The cluster parameter is currently ignored as we operate on the configured cluster
-	result, err := e.handler.GetBackup(c.Request().Context(), namespace, backup)
+	result, err := e.handler.GetBackup(c.Request().Context(), cluster, namespace, backup)
 	if err != nil {
 		e.l.Errorf("GetBackup failed: %v", err)
 		return err
@@ -39,7 +40,6 @@ func (e *EverestServer) GetBackup(c echo.Context, cluster string, namespace stri
 
 // CreateBackup creates a new backup.
 func (e *EverestServer) CreateBackup(c echo.Context, cluster string, namespace string) error {
-	// The cluster parameter is currently ignored as we operate on the configured cluster
 	backup := &backupv1alpha1.Backup{}
 	body, err := io.ReadAll(c.Request().Body)
 	if err != nil {
@@ -52,7 +52,7 @@ func (e *EverestServer) CreateBackup(c echo.Context, cluster string, namespace s
 	}
 
 	backup.Namespace = namespace
-	result, err := e.handler.CreateBackup(c.Request().Context(), backup)
+	result, err := e.handler.CreateBackup(c.Request().Context(), cluster, backup)
 	if err != nil {
 		e.l.Errorf("CreateBackup failed: %v", err)
 		return err
@@ -61,9 +61,8 @@ func (e *EverestServer) CreateBackup(c echo.Context, cluster string, namespace s
 }
 
 // DeleteBackup deletes a backup.
-func (e *EverestServer) DeleteBackup(c echo.Context, cluster string, namespace string, backup string) error {
-	// The cluster parameter is currently ignored as we operate on the configured cluster
-	if err := e.handler.DeleteBackup(c.Request().Context(), namespace, backup); err != nil {
+func (e *EverestServer) DeleteBackup(c echo.Context, cluster string, namespace string, backup string, params api.DeleteBackupParams) error {
+	if err := e.handler.DeleteBackup(c.Request().Context(), cluster, namespace, backup, &params); err != nil {
 		e.l.Errorf("DeleteBackup failed: %v", err)
 		return err
 	}

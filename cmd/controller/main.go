@@ -37,10 +37,12 @@ import (
 	// +kubebuilder:scaffold:imports
 	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
 	corev1alpha1 "github.com/openeverest/openeverest/v2/api/core/v1alpha1"
-	monitoringv1alpha2 "github.com/openeverest/openeverest/v2/api/monitoring/v1alpha2"
+	monitoringv1alpha1 "github.com/openeverest/openeverest/v2/api/monitoring/v1alpha1"
+	pluginv1alpha1 "github.com/openeverest/openeverest/v2/api/plugin/v1alpha1"
 	backupcontroller "github.com/openeverest/openeverest/v2/internal/controller/backup"
 	monitoringcontroller "github.com/openeverest/openeverest/v2/internal/controller/monitoring"
-	webhookmonitoringv1alpha2 "github.com/openeverest/openeverest/v2/internal/webhook/monitoring/v1alpha2"
+	plugincontroller "github.com/openeverest/openeverest/v2/internal/controller/plugin"
+	webhookmonitoringv1alpha1 "github.com/openeverest/openeverest/v2/internal/webhook/monitoring/v1alpha1"
 )
 
 var (
@@ -53,7 +55,8 @@ func init() {
 
 	utilruntime.Must(corev1alpha1.AddToScheme(scheme))
 	utilruntime.Must(backupv1alpha1.AddToScheme(scheme))
-	utilruntime.Must(monitoringv1alpha2.AddToScheme(scheme))
+	utilruntime.Must(monitoringv1alpha1.AddToScheme(scheme))
+	utilruntime.Must(pluginv1alpha1.AddToScheme(scheme))
 	utilruntime.Must(vmv1beta1.AddToScheme(scheme))
 	// +kubebuilder:scaffold:scheme
 }
@@ -195,6 +198,22 @@ func main() {
 		os.Exit(1)
 	}
 
+	if err := (&backupcontroller.RestoreReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "Failed to create controller", "controller", "Restore")
+		os.Exit(1)
+	}
+
+	if err := (&backupcontroller.BackupStorageReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "Failed to create controller", "controller", "BackupStorage")
+		os.Exit(1)
+	}
+
 	if err := (&monitoringcontroller.MonitoringConfigReconciler{
 		Client:              mgr.GetClient(),
 		Scheme:              mgr.GetScheme(),
@@ -204,9 +223,25 @@ func main() {
 		os.Exit(1)
 	}
 
+	if err := (&plugincontroller.PluginReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "Failed to create controller", "controller", "Plugin")
+		os.Exit(1)
+	}
+
+	if err := (&plugincontroller.PluginInstallationReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "Failed to create controller", "controller", "PluginInstallation")
+		os.Exit(1)
+	}
+
 	// nolint:goconst
 	if os.Getenv("ENABLE_WEBHOOKS") != "false" {
-		if err := webhookmonitoringv1alpha2.SetupMonitoringConfigWebhookWithManager(mgr); err != nil {
+		if err := webhookmonitoringv1alpha1.SetupMonitoringConfigWebhookWithManager(mgr); err != nil {
 			setupLog.Error(err, "Failed to create webhook", "webhook", "MonitoringConfig")
 			os.Exit(1)
 		}

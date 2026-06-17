@@ -19,6 +19,7 @@ import (
 	"fmt"
 
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -32,6 +33,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
 	"github.com/openeverest/openeverest/v2/api/core/v1alpha1"
 	"github.com/openeverest/openeverest/v2/provider-runtime/controller"
 	"github.com/openeverest/openeverest/v2/provider-runtime/server"
@@ -144,6 +146,13 @@ func newReconciler(ctx context.Context, p providerAdapter, opts ...ReconcilerOpt
 		return nil, fmt.Errorf("failed to add v1alpha1 scheme: %w", err)
 	}
 
+	// Register backup types so providers and the runtime can read/write
+	// BackupClass/Backup/Restore/BackupStorage CRs without requiring each
+	// provider to register them explicitly.
+	if err := backupv1alpha1.AddToScheme(scheme); err != nil {
+		return nil, fmt.Errorf("failed to add backup v1alpha1 scheme: %w", err)
+	}
+
 	// Register provider-specific types
 	if typesFunc := p.Types(); typesFunc != nil {
 		if err := typesFunc(scheme); err != nil {
@@ -180,6 +189,29 @@ func newReconciler(ctx context.Context, p providerAdapter, opts ...ReconcilerOpt
 		}
 	}
 
+	// Setup field indexes required by BackupProvider helpers (Backups/Restores
+	// for an Instance) when the provider opts in.
+	if _, isBackupProvider := p.(controller.BackupProvider); isBackupProvider {
+		if err := mgr.GetFieldIndexer().IndexField(ctx, &backupv1alpha1.Backup{}, controller.IndexBackupInstanceName, func(obj client.Object) []string {
+			b, ok := obj.(*backupv1alpha1.Backup)
+			if !ok || b.Spec.InstanceName == "" {
+				return nil
+			}
+			return []string{b.Spec.InstanceName}
+		}); err != nil {
+			return nil, fmt.Errorf("failed to register backup instanceName index: %w", err)
+		}
+		if err := mgr.GetFieldIndexer().IndexField(ctx, &backupv1alpha1.Restore{}, controller.IndexRestoreInstanceName, func(obj client.Object) []string {
+			rs, ok := obj.(*backupv1alpha1.Restore)
+			if !ok || rs.Spec.InstanceName == "" {
+				return nil
+			}
+			return []string{rs.Spec.InstanceName}
+		}); err != nil {
+			return nil, fmt.Errorf("failed to register restore instanceName index: %w", err)
+		}
+	}
+
 	r := &ProviderReconciler{
 		provider:     p,
 		manager:      mgr,
@@ -198,6 +230,24 @@ func newReconciler(ctx context.Context, p providerAdapter, opts ...ReconcilerOpt
 		return nil, fmt.Errorf("failed to setup reconciler: %w", err)
 	}
 
+	// Register the BackupProvider-aware ancillary reconcilers when the
+	// provider implements the optional interface. These dispatch to
+	// SyncBackup/SyncRestore for ProviderManaged BackupClasses.
+	if bp, ok := p.(controller.BackupProvider); ok {
+		if err := setupBackupReconciler(mgr, bp, p.Name()); err != nil {
+			return nil, fmt.Errorf("failed to setup backup reconciler: %w", err)
+		}
+		if err := setupRestoreReconciler(mgr, bp, p.Name()); err != nil {
+			return nil, fmt.Errorf("failed to setup restore reconciler: %w", err)
+		}
+	}
+
+	if bm, ok := p.(controller.BackupMirror); ok {
+		if err := setupBackupMirrorReconciler(mgr, bm, p.Name()); err != nil {
+			return nil, fmt.Errorf("failed to setup backup mirror reconciler: %w", err)
+		}
+	}
+
 	return r, nil
 }
 
@@ -211,6 +261,9 @@ func (r *ProviderReconciler) setupServer(p providerAdapter) error {
 	// Create validator function that wraps the provider's Validate method
 	validator := func(ctx context.Context, c client.Client, in *v1alpha1.Instance) error {
 		if err := validateVersionBundle(ctx, c, in); err != nil {
+			return err
+		}
+		if err := validateBackupClassLimits(ctx, c, in); err != nil {
 			return err
 		}
 		inCtx := controller.NewContext(ctx, c, in, p.Name())
@@ -338,6 +391,18 @@ func (r *ProviderReconciler) Reconcile(ctx context.Context, req reconcile.Reques
 		}
 		return reconcile.Result{}, err
 	}
+	if err := validateBackupClassLimits(ctx, r.Client, in); err != nil {
+		logger.Error(err, "Backup class limits validation failed")
+		// Surface the violation on the BackupConfigured condition without
+		// marking the Instance Failed: the engine itself is healthy and the
+		// user can fix the configuration without a full redeploy.
+		setCondition(in, v1alpha1.ConditionBackupConfigured, metav1.ConditionFalse,
+			controller.LimitsExceededReason, err.Error(), metav1.Now())
+		if updateErr := r.Client.Status().Update(ctx, in); updateErr != nil {
+			logger.Error(updateErr, "Failed to update status after backup limits violation")
+		}
+		return reconcile.Result{}, nil
+	}
 	if err := r.provider.Validate(inCtx); err != nil {
 		logger.Error(err, "Validation failed")
 		// Update status to failed
@@ -366,8 +431,45 @@ func (r *ProviderReconciler) Reconcile(ctx context.Context, req reconcile.Reques
 			logger.Info("Sync waiting", "reason", err.Error())
 			return reconcile.Result{RequeueAfter: controller.GetWaitDuration(err)}, nil
 		}
+		// BackupConfigError means the engine is healthy but backup wiring failed.
+		// Surface it on the BackupConfigured condition without marking Instance Failed.
+		if bce := controller.AsBackupConfigError(err); bce != nil {
+			logger.Error(err, "Backup configuration failed")
+			setCondition(in, v1alpha1.ConditionBackupConfigured, metav1.ConditionFalse,
+				bce.Reason, bce.Message, metav1.Now())
+			_ = r.Client.Status().Update(ctx, in)
+			return reconcile.Result{}, nil
+		}
+		// DataSourceConfigError means the engine is healthy but initial seeding
+		// cannot proceed (e.g., source credentials secret missing). Surface it on
+		// the DataSourceReady condition without marking Instance Failed.
+		if dse := controller.AsDataSourceConfigError(err); dse != nil {
+			logger.Error(err, "DataSource configuration failed")
+			setCondition(in, v1alpha1.ConditionDataSourceReady, metav1.ConditionFalse,
+				dse.Reason, dse.Message, metav1.Now())
+			_ = r.Client.Status().Update(ctx, in)
+			return reconcile.Result{}, nil
+		}
 		logger.Error(err, "Sync failed")
 		return reconcile.Result{}, err
+	}
+	// Clear any stale BackupConfigured=False condition left from a previous failed Sync.
+	if _, ok := r.provider.(controller.BackupProvider); ok {
+		setCondition(in, v1alpha1.ConditionBackupConfigured, metav1.ConditionTrue,
+			"Configured", "Backup configuration applied to engine", metav1.Now())
+	}
+
+	// Flush ConditionDataSourceReady when the provider invoked
+	// Context.ReconcileDataSource during Sync. Status=True when the seeding
+	// restore has Succeeded; Status=False otherwise with the staged reason
+	// and message explaining what the helper is waiting on.
+	if ds := syncCtx.GetDataSourceStatus(); ds != nil && ds.State != controller.DataSourceStateNone {
+		condStatus := metav1.ConditionFalse
+		if ds.State == controller.DataSourceStateSucceeded {
+			condStatus = metav1.ConditionTrue
+		}
+		setCondition(in, v1alpha1.ConditionDataSourceReady, condStatus,
+			ds.Reason, ds.Message, metav1.Now())
 	}
 
 	// Compute and update status
@@ -425,6 +527,23 @@ func (r *ProviderReconciler) handleDeletion(
 		}
 	}
 
+	// Cascade delete Backup/Restore CRs that reference this Instance before
+	// tearing down the engine. We only attempt this when the provider opts
+	// into BackupProvider (the case in which the Backup/Restore field
+	// indexes are registered and the user is expected to be creating
+	// Backup CRs against this Instance).
+	if _, isBackupProvider := r.provider.(controller.BackupProvider); isBackupProvider &&
+		in.Spec.DeletionPolicy == v1alpha1.InstanceDeletionPolicyCascade {
+		remaining, err := r.cascadeDeleteChildren(ctx, inCtx, logger)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+		if remaining > 0 {
+			logger.Info("Waiting for child Backup/Restore CRs to terminate", "remaining", remaining)
+			return reconcile.Result{RequeueAfter: controller.GetWaitDuration(controller.WaitFor("waiting for child Backup/Restore CRs"))}, nil
+		}
+	}
+
 	// Run cleanup
 	if err := r.provider.Cleanup(inCtx); err != nil {
 		if controller.IsWaitError(err) {
@@ -442,6 +561,53 @@ func (r *ProviderReconciler) handleDeletion(
 
 	logger.Info("Cleanup complete")
 	return reconcile.Result{}, nil
+}
+
+// cascadeDeleteChildren issues Delete on every Backup and Restore CR in the
+// Instance's namespace whose .spec.instanceName matches this Instance, then
+// returns the number of CRs still present (counting both freshly-deleted ones
+// that have not yet been reaped by their own controllers and any older ones
+// still finalizing). The caller should requeue while remaining > 0.
+//
+// Each child Backup's own .spec.deletionPolicy controls whether the
+// underlying data in the BackupStorage is purged or retained — this function
+// only triggers Delete on the CR itself and never overrides that decision.
+func (r *ProviderReconciler) cascadeDeleteChildren(
+	ctx context.Context,
+	inCtx *controller.Context,
+	logger interface{ Info(string, ...interface{}) },
+) (int, error) {
+	backups, err := inCtx.BackupsForInstance()
+	if err != nil {
+		return 0, fmt.Errorf("list backups for cascade delete: %w", err)
+	}
+	for i := range backups {
+		b := &backups[i]
+		if !b.GetDeletionTimestamp().IsZero() {
+			continue
+		}
+		if err := r.Client.Delete(ctx, b); err != nil && !apierrors.IsNotFound(err) {
+			return 0, fmt.Errorf("delete child Backup %q: %w", b.Name, err)
+		}
+		logger.Info("Cascade delete: issued Delete on Backup", "name", b.Name)
+	}
+
+	restores, err := inCtx.RestoresForInstance()
+	if err != nil {
+		return 0, fmt.Errorf("list restores for cascade delete: %w", err)
+	}
+	for i := range restores {
+		rs := &restores[i]
+		if !rs.GetDeletionTimestamp().IsZero() {
+			continue
+		}
+		if err := r.Client.Delete(ctx, rs); err != nil && !apierrors.IsNotFound(err) {
+			return 0, fmt.Errorf("delete child Restore %q: %w", rs.Name, err)
+		}
+		logger.Info("Cascade delete: issued Delete on Restore", "name", rs.Name)
+	}
+
+	return len(backups) + len(restores), nil
 }
 
 // reconcileConnectionSecret creates or updates the connection details Secret
@@ -599,4 +765,36 @@ func validateVersionBundle(ctx context.Context, c client.Client, in *v1alpha1.In
 		return fmt.Errorf("version %q is not defined by provider %q", in.Spec.Version, in.Spec.Provider)
 	}
 	return nil
+}
+
+// fetchBackupClassForInstance returns the BackupClass referenced by
+// .spec.backup.classRef, or (nil, nil) when the Instance has no backup
+// configuration. Returns (nil, nil) when the referenced BackupClass does not
+// (yet) exist; the reconciler will requeue via Sync and surface the missing
+// dependency as a BackupConfigError.
+func fetchBackupClassForInstance(ctx context.Context, c client.Client, in *v1alpha1.Instance) (*backupv1alpha1.BackupClass, error) {
+	if in.Spec.Backup == nil || in.Spec.Backup.ClassRef.Name == "" {
+		return nil, nil
+	}
+	bc := &backupv1alpha1.BackupClass{}
+	if err := c.Get(ctx, client.ObjectKey{Name: in.Spec.Backup.ClassRef.Name}, bc); err != nil {
+		if apierrors.IsNotFound(err) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("fetching backup class for limits validation: %w", err)
+	}
+	return bc, nil
+}
+
+// validateBackupClassLimits enforces the generic numeric limits declared on a
+// ProviderManaged BackupClass against an Instance's .spec.backup. It is a
+// no-op when no class is referenced, when the class is Job-mode, or when no
+// limits are declared. Returns the same sentinel
+// controller.ErrBackupClassLimitsExceeded that providers see via the helper.
+func validateBackupClassLimits(ctx context.Context, c client.Client, in *v1alpha1.Instance) error {
+	bc, err := fetchBackupClassForInstance(ctx, c, in)
+	if err != nil {
+		return err
+	}
+	return controller.ValidateInstanceBackupAgainstClass(in, bc)
 }

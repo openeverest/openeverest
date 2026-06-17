@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+import { useMemo } from 'react';
 import type { ProviderOptions } from 'components/ui-generator/api-providers/types';
 import { useKubernetesClusterInfo } from './useKubernetesClusterInfo';
 
@@ -27,8 +28,10 @@ export const useStorageClassesOptions = (): ProviderOptions => {
     STORAGE_CLASSES_QUERY_KEY
   );
 
-  const names = data?.storageClassNames ?? [];
-  const options = names.map((name) => ({ label: name, value: name }));
+  const options = useMemo(() => {
+    const names = data?.storageClassNames ?? [];
+    return names.map((name) => ({ label: name, value: name }));
+  }, [data]);
 
   return {
     options,

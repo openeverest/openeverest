@@ -132,7 +132,14 @@ const mapSelectFieldParams = (fieldParams: SelectFieldParams) => {
     selectProps as Record<string, unknown>
   ) as Partial<SelectProps>;
 
-  return { label, defaultValue, options, helperText, selectFieldProps, badge };
+  return {
+    label,
+    options,
+    helperText,
+    selectFieldProps,
+    badge,
+    controllerProps: { defaultValue: defaultValue ?? '' },
+  };
 };
 
 const mapTextFieldParams = (fieldParams: TextFieldParams) => {

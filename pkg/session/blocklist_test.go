@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2025 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -195,12 +196,12 @@ func TestBlocklist_Block(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			mockClient := fakeclient.NewClientBuilder().WithScheme(kubernetes.CreateScheme())
-			k := kubernetes.NewEmpty(l).WithKubernetesClient(mockClient.Build())
+			k := kubernetes.NewEmpty(l, "test-ns").WithKubernetesClient(mockClient.Build())
 
 			// check there is no blocklist secret before the blocklist creation
 			secret, err := k.GetSecret(ctx, ctrlclient.ObjectKey{
 				Name:      common.EverestBlocklistSecretName,
-				Namespace: common.SystemNamespace,
+				Namespace: "test-ns",
 			})
 			assert.True(t, k8serrors.IsNotFound(err))
 			assert.Nil(t, secret)
@@ -211,7 +212,7 @@ func TestBlocklist_Block(t *testing.T) {
 			// blocklist secret appears after the blocklist creation
 			secret, err = k.GetSecret(ctx, ctrlclient.ObjectKey{
 				Name:      common.EverestBlocklistSecretName,
-				Namespace: common.SystemNamespace,
+				Namespace: "test-ns",
 			})
 			assert.NoError(t, err)
 			assert.NotNil(t, secret)
@@ -228,7 +229,7 @@ func TestBlocklist_Block(t *testing.T) {
 
 			secret, err = k.GetSecret(ctx, ctrlclient.ObjectKey{
 				Name:      common.EverestBlocklistSecretName,
-				Namespace: common.SystemNamespace,
+				Namespace: "test-ns",
 			})
 			assert.NoError(t, err)
 			// the mocked client does not do this StringData -> Data transformation in Secrets which the actual k8a API do, so
@@ -300,7 +301,7 @@ func TestBlocklist_IsBlocked(t *testing.T) {
 					},
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      common.EverestBlocklistSecretName,
-						Namespace: common.SystemNamespace,
+						Namespace: "test-ns",
 					},
 					StringData: map[string]string{
 						dataKey: "some-another-jti331743679478",
@@ -325,7 +326,7 @@ func TestBlocklist_IsBlocked(t *testing.T) {
 					},
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      common.EverestBlocklistSecretName,
-						Namespace: common.SystemNamespace,
+						Namespace: "test-ns",
 					},
 					StringData: map[string]string{
 						dataKey: "9d1c1f98-a479-41e3-8939-c7cb3e049a331743679478",
@@ -360,7 +361,7 @@ func TestBlocklist_IsBlocked(t *testing.T) {
 					},
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      common.EverestBlocklistSecretName,
-						Namespace: common.SystemNamespace,
+						Namespace: "test-ns",
 					},
 					StringData: map[string]string{
 						dataKey: "some-another-jti331743679478",
@@ -386,7 +387,7 @@ func TestBlocklist_IsBlocked(t *testing.T) {
 					},
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      common.EverestBlocklistSecretName,
-						Namespace: common.SystemNamespace,
+						Namespace: "test-ns",
 					},
 					StringData: map[string]string{
 						dataKey: "keQ6r7TMsEikaoCHni2bAA331743679478",
@@ -411,7 +412,7 @@ func TestBlocklist_IsBlocked(t *testing.T) {
 			t.Parallel()
 			mockClient := fakeclient.NewClientBuilder().WithScheme(kubernetes.CreateScheme())
 			mockClient.WithObjects(tc.objs...)
-			k := kubernetes.NewEmpty(l).WithKubernetesClient(mockClient.Build())
+			k := kubernetes.NewEmpty(l, "test-ns").WithKubernetesClient(mockClient.Build())
 
 			b, err := mockNewBlocklist(ctx, l, k)
 			assert.NoError(t, err)
@@ -429,7 +430,7 @@ func TestBlocklist_IsBlocked(t *testing.T) {
 }
 
 func mockNewBlocklist(ctx context.Context, logger *zap.SugaredLogger, mockClient TokenStoreClient) (Blocklist, error) {
-	store, err := newTokenStore(ctx, mockClient, logger)
+	store, err := newTokenStore(ctx, mockClient, logger, "test-ns")
 	if err != nil {
 		return nil, err
 	}

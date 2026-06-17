@@ -44,6 +44,7 @@ const SectionEditModal = ({
   sections,
   instance,
   provider,
+  namespace,
   onClose,
   onSuccess,
 }: SectionEditModalProps) => {
@@ -142,6 +143,7 @@ const SectionEditModal = ({
         sections={editSections}
         providerObject={provider}
         formMode={FormMode.Edit}
+        namespace={namespace}
       />
     </FormDialog>
   );

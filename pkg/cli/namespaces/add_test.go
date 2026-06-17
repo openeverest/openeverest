@@ -1,3 +1,17 @@
+// Copyright (C) 2026 The OpenEverest Contributors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package namespaces
 
 import (
@@ -121,13 +135,13 @@ func TestValidateNamespaces(t *testing.T) {
 		},
 		{
 			name:  "reserved system ns",
-			input: []string{"everest-system"},
-			error: ErrNamespaceReserved("everest-system"),
+			input: []string{"test-ns"},
+			error: ErrNamespaceReserved("test-ns"),
 		},
 		{
 			name:  "reserved system ns and empty ns",
-			input: []string{"everest-system", "    "},
-			error: ErrNamespaceReserved("everest-system"),
+			input: []string{"test-ns", "    "},
+			error: ErrNamespaceReserved("test-ns"),
 		},
 		{
 			name:  "reserved monitoring ns",
@@ -164,7 +178,7 @@ func TestValidateNamespaces(t *testing.T) {
 	for _, tc := range tcases {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			err := validateNamespaceNames(tc.input)
+			err := validateNamespaceNames(tc.input, "test-ns")
 			assert.Equal(t, tc.error, err)
 			// assert.ElementsMatch(t, tc.output, output)
 		})

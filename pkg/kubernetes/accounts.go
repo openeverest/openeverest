@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -71,7 +72,7 @@ func (a *configMapsClient) List(ctx context.Context) (map[string]*accounts.Accou
 
 func (a *configMapsClient) listAllAccounts(ctx context.Context) (map[string]*accounts.Account, error) {
 	result := make(map[string]*accounts.Account)
-	secret, err := a.k.GetSecret(ctx, types.NamespacedName{Namespace: common.SystemNamespace, Name: common.EverestAccountsSecretName})
+	secret, err := a.k.GetSecret(ctx, types.NamespacedName{Namespace: a.k.Namespace(), Name: common.EverestAccountsSecretName})
 	if err != nil {
 		return nil, err
 	}
@@ -134,7 +135,7 @@ func (a *configMapsClient) insertOrUpdateAccount(
 	account *accounts.Account,
 	secure bool,
 ) error {
-	secret, err := a.k.GetSecret(ctx, types.NamespacedName{Namespace: common.SystemNamespace, Name: common.EverestAccountsSecretName})
+	secret, err := a.k.GetSecret(ctx, types.NamespacedName{Namespace: a.k.Namespace(), Name: common.EverestAccountsSecretName})
 	if err != nil {
 		return err
 	}
@@ -172,7 +173,7 @@ func (a *configMapsClient) insertOrUpdateAccount(
 }
 
 func (a *configMapsClient) salt(ctx context.Context) ([]byte, error) {
-	ns, err := a.k.GetNamespace(ctx, types.NamespacedName{Name: common.SystemNamespace})
+	ns, err := a.k.GetNamespace(ctx, types.NamespacedName{Name: a.k.Namespace()})
 	if err != nil {
 		return nil, err
 	}
@@ -191,7 +192,7 @@ func (a *configMapsClient) Delete(ctx context.Context, username string) error {
 	}
 
 	delete(users, username)
-	secret, err := a.k.GetSecret(ctx, types.NamespacedName{Namespace: common.SystemNamespace, Name: common.EverestAccountsSecretName})
+	secret, err := a.k.GetSecret(ctx, types.NamespacedName{Namespace: a.k.Namespace(), Name: common.EverestAccountsSecretName})
 	if err != nil {
 		return err
 	}
@@ -207,7 +208,7 @@ func (a *configMapsClient) Delete(ctx context.Context, username string) error {
 }
 
 func (a *configMapsClient) Verify(ctx context.Context, username, password string) error {
-	secret, err := a.k.GetSecret(ctx, types.NamespacedName{Namespace: common.SystemNamespace, Name: common.EverestAccountsSecretName})
+	secret, err := a.k.GetSecret(ctx, types.NamespacedName{Namespace: a.k.Namespace(), Name: common.EverestAccountsSecretName})
 	if err != nil {
 		return err
 	}
@@ -247,7 +248,7 @@ func (a *configMapsClient) Verify(ctx context.Context, username, password string
 
 // IsSecure returns true if the password for the given user is stored as a hash.
 func (a *configMapsClient) IsSecure(ctx context.Context, username string) (bool, error) {
-	secret, err := a.k.GetSecret(ctx, types.NamespacedName{Namespace: common.SystemNamespace, Name: common.EverestAccountsSecretName})
+	secret, err := a.k.GetSecret(ctx, types.NamespacedName{Namespace: a.k.Namespace(), Name: common.EverestAccountsSecretName})
 	if err != nil {
 		return false, err
 	}

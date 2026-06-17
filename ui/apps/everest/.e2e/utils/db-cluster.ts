@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -37,8 +38,8 @@ export const createDbClusterFn = async (
   const dbType = customOptions?.dbType || 'postgresql';
   const dbEngineType = dbTypeToDbEngine(dbType);
   const dbTypeVersions = dbEngines[dbEngineType];
-  const dbClusterInfo = await getClusterDetailedInfo(token, request);
-  const storageClassNames = dbClusterInfo?.storageClassNames[0];
+  const dbInstanceInfo = await getClusterDetailedInfo(token, request);
+  const storageClassNames = dbInstanceInfo?.storageClassNames[0];
   const lastVersion = dbTypeVersions[dbTypeVersions.length - 1];
 
   // const payload: DbCluster = {

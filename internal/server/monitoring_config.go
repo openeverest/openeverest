@@ -31,7 +31,7 @@ func (e *EverestServer) CreateMonitoringConfig(c echo.Context, cluster, namespac
 		return err
 	}
 
-	result, err := e.handler.CreateMonitoringConfig(c.Request().Context(), namespace, &req)
+	result, err := e.handler.CreateMonitoringConfig(c.Request().Context(), cluster, namespace, &req)
 	if err != nil {
 		e.l.Errorf("CreateMonitoringConfig failed: %v", err)
 		return err
@@ -42,8 +42,7 @@ func (e *EverestServer) CreateMonitoringConfig(c echo.Context, cluster, namespac
 
 // ListMonitoringConfigs lists all monitoring configs.
 func (e *EverestServer) ListMonitoringConfigs(c echo.Context, cluster, namespace string) error {
-	// The cluster parameter is currently ignored as we operate on the configured cluster
-	result, err := e.handler.ListMonitoringConfigs(c.Request().Context(), namespace)
+	result, err := e.handler.ListMonitoringConfigs(c.Request().Context(), cluster, namespace)
 	if err != nil {
 		e.l.Errorf("ListMonitoringConfigs failed: %v", err)
 		return err
@@ -54,8 +53,7 @@ func (e *EverestServer) ListMonitoringConfigs(c echo.Context, cluster, namespace
 
 // GetMonitoringConfig retrieves a monitoring config.
 func (e *EverestServer) GetMonitoringConfig(c echo.Context, cluster, namespace, name string) error {
-	// The cluster parameter is currently ignored as we operate on the configured cluster
-	result, err := e.handler.GetMonitoringConfig(c.Request().Context(), namespace, name)
+	result, err := e.handler.GetMonitoringConfig(c.Request().Context(), cluster, namespace, name)
 	if err != nil {
 		e.l.Errorf("GetMonitoringConfig failed: %v", err)
 		return err
@@ -73,7 +71,7 @@ func (e *EverestServer) UpdateMonitoringConfig(c echo.Context, cluster, namespac
 		return err
 	}
 
-	result, err := e.handler.UpdateMonitoringConfig(c.Request().Context(), namespace, name, &req)
+	result, err := e.handler.UpdateMonitoringConfig(c.Request().Context(), cluster, namespace, name, &req)
 	if err != nil {
 		e.l.Errorf("UpdateMonitoringConfig failed: %v", err)
 		return err
@@ -84,8 +82,7 @@ func (e *EverestServer) UpdateMonitoringConfig(c echo.Context, cluster, namespac
 
 // DeleteMonitoringConfig deletes a monitoring config.
 func (e *EverestServer) DeleteMonitoringConfig(c echo.Context, cluster, namespace, name string) error {
-	// The cluster parameter is currently ignored as we operate on the configured cluster
-	if err := e.handler.DeleteMonitoringConfig(c.Request().Context(), namespace, name); err != nil {
+	if err := e.handler.DeleteMonitoringConfig(c.Request().Context(), cluster, namespace, name); err != nil {
 		e.l.Errorf("DeleteMonitoringConfig failed: %v", err)
 		return err
 	}

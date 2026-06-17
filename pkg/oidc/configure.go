@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -171,7 +172,7 @@ func (u *OIDC) getOIDCProviderConfigureSteps() []steps.Step {
 		Desc: "Restarting Everest",
 		F: func(ctx context.Context) error {
 			return u.kubeClient.RestartDeployment(ctx, types.NamespacedName{
-				Namespace: common.SystemNamespace,
+				Namespace: u.kubeClient.Namespace(),
 				Name:      common.PerconaEverestDeploymentName,
 			})
 		},

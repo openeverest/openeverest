@@ -1,3 +1,17 @@
+// Copyright (C) 2026 The OpenEverest Contributors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package kubernetes
 
 import (
@@ -18,7 +32,7 @@ func (k *Kubernetes) UpdateEverestSettings(ctx context.Context, settings common.
 		return err
 	}
 
-	cm, err := k.GetConfigMap(ctx, types.NamespacedName{Namespace: common.SystemNamespace, Name: common.EverestSettingsConfigMapName})
+	cm, err := k.GetConfigMap(ctx, types.NamespacedName{Namespace: k.Namespace(), Name: common.EverestSettingsConfigMapName})
 	// This should never happen because the ConfigMap is installed as a part of the Helm chart.
 	// We handle this case anyway so the user can continue to use the settings (and related features such as OIDC),
 	// but we can no longer prevent Helm from deleting the ConfigMap during upgrades.
@@ -26,7 +40,7 @@ func (k *Kubernetes) UpdateEverestSettings(ctx context.Context, settings common.
 	if k8serrors.IsNotFound(err) {
 		_, err = k.CreateConfigMap(ctx, &corev1.ConfigMap{
 			ObjectMeta: v1.ObjectMeta{
-				Namespace: common.SystemNamespace,
+				Namespace: k.Namespace(),
 				Name:      common.EverestSettingsConfigMapName,
 			},
 			Data: configMapData,
@@ -44,7 +58,7 @@ func (k *Kubernetes) UpdateEverestSettings(ctx context.Context, settings common.
 // GetEverestSettings returns Everest settings.
 func (k *Kubernetes) GetEverestSettings(ctx context.Context) (common.EverestSettings, error) {
 	settings := common.EverestSettings{}
-	m, err := k.GetConfigMap(ctx, types.NamespacedName{Namespace: common.SystemNamespace, Name: common.EverestSettingsConfigMapName})
+	m, err := k.GetConfigMap(ctx, types.NamespacedName{Namespace: k.Namespace(), Name: common.EverestSettingsConfigMapName})
 	if err != nil {
 		return settings, err
 	}

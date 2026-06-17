@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,7 +20,7 @@ import { Messages } from './schedule-form.messages.ts';
 import { ScheduleFormFields } from './schedule-form.types.ts';
 import { rfc_123_schema } from 'utils/common-validation';
 import { timeSelectionSchemaObject } from '../../time-selection/time-selection-schema.ts';
-import { Schedule } from 'shared-types/dbCluster.types';
+import { FlattenedSchedule } from '../schedule-form-dialog-context/schedule-form-dialog-context.types';
 import { getCronExpressionFromFormValues } from '../../time-selection/time-selection.utils';
 import { sameScheduleFunc } from '../schedule-form-dialog.utils';
 import { WizardMode } from 'shared-types/wizard.types.ts';
@@ -27,9 +28,11 @@ import { WizardMode } from 'shared-types/wizard.types.ts';
 export const storageLocationZodObject = z
   .string()
   .or(
-    z.object({
-      name: z.string(),
-    })
+    z
+      .object({
+        metadata: z.object({ name: z.string() }).passthrough(),
+      })
+      .passthrough()
   )
   .nullable();
 
@@ -44,7 +47,7 @@ export const storageLocationScheduleFormSchema = (
         //  will become mandatory everywhere and it will be possible to remove the null check at all,
         const checkNullStorage = mode !== 'dbWizard';
         if (
-          (!input || typeof input === 'string' || !input.name) &&
+          (!input || typeof input === 'string' || !input.metadata?.name) &&
           (checkNullStorage ? true : input !== null)
         ) {
           ctx.addIssue({
@@ -57,7 +60,7 @@ export const storageLocationScheduleFormSchema = (
   };
 };
 
-export const schema = (schedules: Schedule[], mode: WizardMode) => {
+export const schema = (schedules: FlattenedSchedule[], mode: WizardMode) => {
   const schedulesNamesList = schedules.map((item) => item?.name);
   return z
     .object({
@@ -93,9 +96,13 @@ export const schema = (schedules: Schedule[], mode: WizardMode) => {
             });
           }
         }),
+      [ScheduleFormFields.backupClassName]: z
+        .string()
+        .min(1, Messages.backupClass.required),
       ...timeSelectionSchemaObject,
       ...storageLocationScheduleFormSchema('scheduledBackups'),
     })
+    .passthrough()
     .superRefine(
       (
         { selectedTime, hour, minute, onDay, weekDay, amPm, scheduleName },

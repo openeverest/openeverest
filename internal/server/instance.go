@@ -25,12 +25,12 @@ import (
 	"github.com/labstack/echo/v4"
 
 	corev1alpha1 "github.com/openeverest/openeverest/v2/api/core/v1alpha1"
+	api "github.com/openeverest/openeverest/v2/internal/server/api"
 )
 
 // ListInstances lists all instances in a namespace.
 func (e *EverestServer) ListInstances(c echo.Context, cluster string, namespace string) error {
-	// The cluster parameter is currently ignored as we operate on the configured cluster
-	result, err := e.handler.ListInstances(c.Request().Context(), namespace)
+	result, err := e.handler.ListInstances(c.Request().Context(), cluster, namespace)
 	if err != nil {
 		e.l.Errorf("ListInstances failed: %v", err)
 		return err
@@ -40,8 +40,7 @@ func (e *EverestServer) ListInstances(c echo.Context, cluster string, namespace 
 
 // GetInstance returns a specific instance.
 func (e *EverestServer) GetInstance(c echo.Context, cluster string, namespace string, instance string) error {
-	// The cluster parameter is currently ignored as we operate on the configured cluster
-	result, err := e.handler.GetInstance(c.Request().Context(), namespace, instance)
+	result, err := e.handler.GetInstance(c.Request().Context(), cluster, namespace, instance)
 	if err != nil {
 		e.l.Errorf("GetInstance failed: %v", err)
 		return err
@@ -51,7 +50,6 @@ func (e *EverestServer) GetInstance(c echo.Context, cluster string, namespace st
 
 // CreateInstance creates a new instance.
 func (e *EverestServer) CreateInstance(c echo.Context, cluster string, namespace string) error {
-	// The cluster parameter is currently ignored as we operate on the configured cluster
 	instance := &corev1alpha1.Instance{}
 	body, err := io.ReadAll(c.Request().Body)
 	if err != nil {
@@ -66,7 +64,7 @@ func (e *EverestServer) CreateInstance(c echo.Context, cluster string, namespace
 	// Ensure the namespace matches
 	instance.Namespace = namespace
 
-	result, err := e.handler.CreateInstance(c.Request().Context(), instance)
+	result, err := e.handler.CreateInstance(c.Request().Context(), cluster, instance)
 	if err != nil {
 		e.l.Errorf("CreateInstance failed: %v", err)
 		return err
@@ -76,7 +74,6 @@ func (e *EverestServer) CreateInstance(c echo.Context, cluster string, namespace
 
 // UpdateInstance updates an existing instance.
 func (e *EverestServer) UpdateInstance(c echo.Context, cluster string, namespace string, instance string) error {
-	// The cluster parameter is currently ignored as we operate on the configured cluster
 	inst := &corev1alpha1.Instance{}
 	body, err := io.ReadAll(c.Request().Body)
 	if err != nil {
@@ -92,7 +89,7 @@ func (e *EverestServer) UpdateInstance(c echo.Context, cluster string, namespace
 	inst.Namespace = namespace
 	inst.Name = instance
 
-	result, err := e.handler.UpdateInstance(c.Request().Context(), inst)
+	result, err := e.handler.UpdateInstance(c.Request().Context(), cluster, inst)
 	if err != nil {
 		e.l.Errorf("UpdateInstance failed: %v", err)
 		return err
@@ -101,9 +98,8 @@ func (e *EverestServer) UpdateInstance(c echo.Context, cluster string, namespace
 }
 
 // DeleteInstance deletes an instance.
-func (e *EverestServer) DeleteInstance(c echo.Context, cluster string, namespace string, instance string) error {
-	// The cluster parameter is currently ignored as we operate on the configured cluster
-	if err := e.handler.DeleteInstance(c.Request().Context(), namespace, instance); err != nil {
+func (e *EverestServer) DeleteInstance(c echo.Context, cluster string, namespace string, instance string, params api.DeleteInstanceParams) error {
+	if err := e.handler.DeleteInstance(c.Request().Context(), cluster, namespace, instance, &params); err != nil {
 		e.l.Errorf("DeleteInstance failed: %v", err)
 		return err
 	}
@@ -112,7 +108,7 @@ func (e *EverestServer) DeleteInstance(c echo.Context, cluster string, namespace
 
 // GetInstanceConnection returns connection details for an instance.
 func (e *EverestServer) GetInstanceConnection(c echo.Context, cluster string, namespace string, instance string) error {
-	result, err := e.handler.GetInstanceConnection(c.Request().Context(), namespace, instance)
+	result, err := e.handler.GetInstanceConnection(c.Request().Context(), cluster, namespace, instance)
 	if err != nil {
 		e.l.Errorf("GetInstanceConnection failed: %v", err)
 		return err

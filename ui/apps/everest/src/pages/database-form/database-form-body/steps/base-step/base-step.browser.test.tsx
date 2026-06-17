@@ -66,6 +66,7 @@ const contextValue = {
   sections: {},
   sectionsOrder: [],
   providerObject: undefined,
+  hasBackupStep: false,
 };
 
 const Wrapper = ({ children }: { children: React.ReactNode }) => {

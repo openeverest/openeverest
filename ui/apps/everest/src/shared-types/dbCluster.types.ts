@@ -122,10 +122,6 @@ export interface DataSourcePitr {
   type: 'date';
 }
 
-export interface Monitoring {
-  monitoringConfigName?: string;
-}
-
 export interface Sharding {
   configServer: {
     replicas: number;
@@ -160,7 +156,6 @@ export interface Spec {
   proxy: Proxy;
   paused?: boolean;
   dataSource?: DataSource;
-  monitoring: Monitoring;
   sharding?: Sharding;
   podSchedulingPolicyName?: string;
   engineFeatures?: EngineFeatures;

@@ -1,3 +1,17 @@
+// Copyright (C) 2026 The OpenEverest Contributors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package upgrade
 
 import (
@@ -48,7 +62,7 @@ func (u *Upgrade) newStepEnsureEverestOperator() steps.Step {
 	return steps.Step{
 		Desc: "Ensuring Everest operator deployment is ready",
 		F: func(ctx context.Context) error {
-			return u.waitForDeployment(ctx, common.PerconaEverestOperatorDeploymentName, common.SystemNamespace)
+			return u.waitForDeployment(ctx, common.PerconaEverestOperatorDeploymentName, u.kubeConnector.Namespace())
 		},
 	}
 }
@@ -57,7 +71,7 @@ func (u *Upgrade) newStepEnsureEverestAPI() steps.Step {
 	return steps.Step{
 		Desc: "Ensuring Everest API deployment is ready",
 		F: func(ctx context.Context) error {
-			return u.waitForDeployment(ctx, common.PerconaEverestDeploymentName, common.SystemNamespace)
+			return u.waitForDeployment(ctx, common.PerconaEverestDeploymentName, u.kubeConnector.Namespace())
 		},
 	}
 }
@@ -102,7 +116,7 @@ func (u *Upgrade) upgradeCustomResourceDefinitions(ctx context.Context) error {
 	}
 	installer := helm.Installer{
 		ReleaseName:      helm.EverestCRDChartName,
-		ReleaseNamespace: common.SystemNamespace,
+		ReleaseNamespace: u.kubeConnector.Namespace(),
 	}
 	if err := installer.Init(u.config.KubeconfigPath, helm.ChartOptions{
 		URL:       u.config.RepoURL,
@@ -126,7 +140,7 @@ func (u *Upgrade) legacyUpgradeCRDs(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("could not get CRDs: %w", err)
 	}
-	return u.kubeConnector.ApplyManifestFile(ctx, helmutils.YAMLStringsToBytes(crds), common.SystemNamespace)
+	return u.kubeConnector.ApplyManifestFile(ctx, helmutils.YAMLStringsToBytes(crds), u.kubeConnector.Namespace())
 }
 
 func (u *Upgrade) upgradeHelmChart(ctx context.Context) error {
@@ -214,7 +228,7 @@ func (u *Upgrade) helmAdoptDBNamespaces(ctx context.Context, namespace, version 
 		ClusterType:        u.clusterType,
 		VersionMetadataURL: u.config.VersionMetadataURL,
 	})
-	values := Must(helmutils.MergeVals(helmValuesForDBEngines(dbEngines), overrides))
+	values := Must(helmutils.MergeVals(helmValuesForDBEngines(dbEngines, u.config.DisableTelemetry), overrides))
 	installer := helm.Installer{
 		ReleaseName:      namespace,
 		ReleaseNamespace: namespace,
@@ -242,14 +256,14 @@ func (u *Upgrade) helmAdoptDBNamespaces(ctx context.Context, namespace, version 
 	})
 }
 
-func helmValuesForDBEngines(list *everestv1alpha1.DatabaseEngineList) values.Options {
+func helmValuesForDBEngines(list *everestv1alpha1.DatabaseEngineList, disableTelemetry bool) values.Options {
 	var vals []string
 	for _, dbEngine := range list.Items {
 		t := dbEngine.Spec.Type
 		vals = append(vals, fmt.Sprintf("%s=%t", t, dbEngine.Status.State == everestv1alpha1.DBEngineStateInstalled))
 	}
 	vals = append(vals, "cleanupOnUninstall=false") // uninstall command will do the clean-up on its own.
-	// TODO: figure out how to set telemetry.
+	vals = append(vals, fmt.Sprintf("telemetry=%t", !disableTelemetry))
 	return values.Options{Values: vals}
 }
 
@@ -276,10 +290,10 @@ func (u *Upgrade) cleanupLegacyResources(ctx context.Context) error {
 	}
 
 	// Delete resources related to Everest Operator Subscription.
-	if err := deleteOLMOperator(ctx, u.kubeConnector, common.EverestOperatorName, common.SystemNamespace); err != nil {
+	if err := deleteOLMOperator(ctx, u.kubeConnector, common.EverestOperatorName, u.kubeConnector.Namespace()); err != nil {
 		return fmt.Errorf("could not delete operator='%s' in namespace='%s': %w",
 			common.EverestOperatorName,
-			common.SystemNamespace,
+			u.kubeConnector.Namespace(),
 			err,
 		)
 	}
@@ -293,14 +307,14 @@ func (u *Upgrade) cleanupLegacyResources(ctx context.Context) error {
 	}
 	delDep := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: common.SystemNamespace,
+			Namespace: u.kubeConnector.Namespace(),
 			Name:      common.PerconaEverestDeploymentName,
 		},
 	}
 	if err := u.kubeConnector.DeleteDeployment(ctx, delDep); client.IgnoreNotFound(err) != nil {
 		return fmt.Errorf("could not delete deployment='%s' in namespace='%s': %w",
 			common.PerconaEverestDeploymentName,
-			common.SystemNamespace,
+			u.kubeConnector.Namespace(),
 			err,
 		)
 	}

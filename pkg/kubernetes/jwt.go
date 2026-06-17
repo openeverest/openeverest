@@ -89,7 +89,7 @@ func (k *Kubernetes) CreateRSAKeyPair(ctx context.Context) error {
 
 	// Check if the secret exists?
 	exists := false
-	secret, err := k.GetSecret(ctx, types.NamespacedName{Namespace: common.SystemNamespace, Name: common.EverestJWTSecretName})
+	secret, err := k.GetSecret(ctx, types.NamespacedName{Namespace: k.Namespace(), Name: common.EverestJWTSecretName})
 	if err == nil {
 		exists = true
 	} else if !k8serrors.IsNotFound(err) {
@@ -101,7 +101,7 @@ func (k *Kubernetes) CreateRSAKeyPair(ctx context.Context) error {
 		secret = &corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      common.EverestJWTSecretName,
-				Namespace: common.SystemNamespace,
+				Namespace: k.Namespace(),
 			},
 			Data: map[string][]byte{
 				publicKeyFile:  publicKey,
@@ -112,7 +112,7 @@ func (k *Kubernetes) CreateRSAKeyPair(ctx context.Context) error {
 			return err
 		}
 		// Restart the deployment to pick up the new secret.
-		return k.RestartDeployment(ctx, types.NamespacedName{Namespace: common.SystemNamespace, Name: common.PerconaEverestDeploymentName})
+		return k.RestartDeployment(ctx, types.NamespacedName{Namespace: k.Namespace(), Name: common.PerconaEverestDeploymentName})
 	}
 
 	// Otherwise, update the secret.
@@ -122,5 +122,5 @@ func (k *Kubernetes) CreateRSAKeyPair(ctx context.Context) error {
 		return err
 	}
 	// Restart the deployment to pick up the new secret.
-	return k.RestartDeployment(ctx, types.NamespacedName{Namespace: common.SystemNamespace, Name: common.PerconaEverestDeploymentName})
+	return k.RestartDeployment(ctx, types.NamespacedName{Namespace: k.Namespace(), Name: common.PerconaEverestDeploymentName})
 }

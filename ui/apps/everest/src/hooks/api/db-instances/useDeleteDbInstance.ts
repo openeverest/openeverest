@@ -18,7 +18,7 @@ import { deleteDbInstanceFn } from 'api/instanceApi';
 export type DeleteDbInstanceArgType = {
   dbInstanceName: string;
   namespace: string;
-  // cleanupBackupStorage: boolean;
+  deletionPolicy?: 'Cascade' | 'Orphan';
 };
 export const useDeleteDbInstance = (
   dbInstanceName: string,
@@ -36,12 +36,14 @@ export const useDeleteDbInstance = (
     mutationKey: ['deleteDbInstance', dbInstanceName],
     mutationFn: ({
       namespace,
-      dbInstanceName /*cleanupBackupStorage*/,
+      dbInstanceName,
+      deletionPolicy,
     }: DeleteDbInstanceArgType) =>
       deleteDbInstanceFn(
         clusterName,
         dbInstanceName,
-        namespace /*, cleanupBackupStorage*/
+        namespace,
+        deletionPolicy
       ),
     ...options,
   });

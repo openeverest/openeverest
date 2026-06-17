@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -205,7 +206,8 @@ test.describe.parallel('DB cluster wizard creation', () => {
     });
 
     try {
-      let addedCluster;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      let addedCluster: any;
       await test.step('Wait for DB cluster creation', async () => {
         await expect(async () => {
           // new DB cluster appears in response not immediately
@@ -368,7 +370,8 @@ test.describe.parallel('DB cluster wizard creation', () => {
     });
 
     try {
-      let addedCluster;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      let addedCluster: any;
       await test.step('Wait for DB cluster creation', async () => {
         await expect(async () => {
           // new DB cluster appears in response not immediately

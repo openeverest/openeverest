@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -29,6 +30,7 @@ import (
 	"slices"
 	"strings"
 	"text/template"
+	"time"
 
 	"github.com/getkin/kin-openapi/openapi3filter"
 	"github.com/golang-jwt/jwt/v5"
@@ -50,8 +52,10 @@ import (
 	k8shandler "github.com/openeverest/openeverest/v2/internal/server/handlers/k8s"
 	rbachandler "github.com/openeverest/openeverest/v2/internal/server/handlers/rbac"
 	valhandler "github.com/openeverest/openeverest/v2/internal/server/handlers/validation"
+	"github.com/openeverest/openeverest/v2/internal/tokenregistry"
 	"github.com/openeverest/openeverest/v2/pkg/accounts"
 	"github.com/openeverest/openeverest/v2/pkg/common"
+	"github.com/openeverest/openeverest/v2/pkg/events"
 	"github.com/openeverest/openeverest/v2/pkg/kubernetes"
 	"github.com/openeverest/openeverest/v2/pkg/oidc"
 	"github.com/openeverest/openeverest/v2/pkg/session"
@@ -66,10 +70,14 @@ type EverestServer struct {
 	kubeConnector kubernetes.KubernetesConnector
 	kubeStreamer  clientgo.Interface
 	sessionMgr    *session.Manager
+	tokenRegistry *tokenregistry.Registry
 	attemptsStore *RateLimiterMemoryStore
 	handler       handlers.Handler
 	oidcProvider  *oidc.ProviderConfig
+	eventHub      *events.Hub
 }
+
+var errFailedToReadRequestBody = errors.New("failed to read request body")
 
 func getOIDCProviderConfig(ctx context.Context, kubeClient kubernetes.KubernetesConnector) (*oidc.ProviderConfig, error) {
 	settings, err := kubeClient.GetEverestSettings(ctx)
@@ -96,7 +104,7 @@ func getOIDCProviderConfig(ctx context.Context, kubeClient kubernetes.Kubernetes
 
 // NewEverestServer creates and configures everest API.
 func NewEverestServer(ctx context.Context, c *config.EverestConfig, l *zap.SugaredLogger) (*EverestServer, error) {
-	kubeConnector, err := kubernetes.NewInCluster(l, ctx, nil)
+	kubeConnector, err := kubernetes.NewInCluster(l, ctx, nil, c.Namespace)
 	if err != nil {
 		return nil, errors.Join(err, errors.New("failed creating Kubernetes client"))
 	}
@@ -110,15 +118,15 @@ func NewEverestServer(ctx context.Context, c *config.EverestConfig, l *zap.Sugar
 
 	echoServer := echo.New()
 	echoServer.Use(echomiddleware.RateLimiter(echomiddleware.NewRateLimiterMemoryStore(rate.Limit(c.APIRequestsRateLimit))))
-	middleware, store := sessionRateLimiter(c.CreateSessionRateLimit)
+	middleware, store := sessionRateLimiter(c.CreateAuthTokenRateLimit)
 	echoServer.Use(middleware)
 
-	sessionManagerClient, err := createSessionManagerClient(ctx, l)
+	sessionManagerClient, err := createSessionManagerClient(ctx, l, kubeConnector.Namespace())
 	if err != nil {
 		return nil, errors.Join(err, errors.New("failed creating session manager client"))
 	}
 	sessMgr, err := session.New(
-		ctx, l,
+		ctx, l, kubeConnector.Namespace(),
 		session.WithAccountManager(sessionManagerClient),
 	)
 	if err != nil {
@@ -130,6 +138,11 @@ func NewEverestServer(ctx context.Context, c *config.EverestConfig, l *zap.Sugar
 		return nil, errors.Join(err, errors.New("failed to get OIDC provider config"))
 	}
 
+	tokenRegistry, err := tokenregistry.New(ctx, l, kubeConnector, kubeConnector.Namespace())
+	if err != nil {
+		return nil, errors.Join(err, errors.New("failed to create API token registry"))
+	}
+
 	e := &EverestServer{
 		config:        c,
 		l:             l,
@@ -137,8 +150,10 @@ func NewEverestServer(ctx context.Context, c *config.EverestConfig, l *zap.Sugar
 		kubeConnector: kubeConnector,
 		kubeStreamer:  kubeStreamer,
 		sessionMgr:    sessMgr,
+		tokenRegistry: tokenRegistry,
 		attemptsStore: store,
 		oidcProvider:  oidcProvider,
+		eventHub:      events.NewHub(l, kubeConnector),
 	}
 	e.echo.HTTPErrorHandler = e.errorHandlerChain()
 
@@ -232,6 +247,37 @@ func (e *EverestServer) initHTTPServer(ctx context.Context) error {
 
 	apiGroup.Use(e.checkOperatorUpgradeState)
 	api.RegisterHandlers(apiGroup, e)
+
+	// Setup plugin proxy routes (outside OpenAPI validation).
+	pp, err := newPluginProxy(ctx, e.l, e.kubeConnector)
+	if err != nil {
+		return err
+	}
+
+	// Plugin bundle serving — no JWT required.
+	// Bundles are static JS assets, same as the main app's JS files.
+	// Only GET requests on the wildcard path are served without auth.
+	e.echo.GET("/v1/plugins/:name/*", pp.proxyHandler)
+
+	// Plugin discovery & API — JWT protected.
+	pluginGroup := e.echo.Group("/v1/plugins")
+	pluginGroup.Use(jwtMW)
+	pluginGroup.Use(blocklistMW)
+	pluginGroup.GET("", pp.listPluginsHandler)
+	pluginGroup.GET("/context", e.pluginContextHandler)
+	pluginGroup.Any("/:name", pp.authedProxyHandler)
+	// Register non-GET methods on the wildcard subpath. GET is handled by
+	// the unauthenticated route above (for bundle serving via dynamic import).
+	pluginGroup.POST("/:name/*", pp.authedProxyHandler)
+	pluginGroup.PUT("/:name/*", pp.authedProxyHandler)
+	pluginGroup.DELETE("/:name/*", pp.authedProxyHandler)
+	pluginGroup.PATCH("/:name/*", pp.authedProxyHandler)
+
+	// Event stream — JWT protected, outside OpenAPI validation.
+	eventsGroup := e.echo.Group("/v1/events")
+	eventsGroup.Use(jwtMW)
+	eventsGroup.Use(blocklistMW)
+	eventsGroup.GET("", e.eventsHandler)
 
 	return nil
 }
@@ -360,6 +406,16 @@ func newSkipperFunc() (echomiddleware.Skipper, error) {
 
 // Start starts everest server.
 func (e *EverestServer) Start(ctx context.Context) error {
+	// Start the event hub in the background.
+	go func() {
+		if err := e.eventHub.Start(ctx); err != nil && ctx.Err() == nil {
+			e.l.Errorf("event hub stopped: %v", err)
+		}
+	}()
+
+	// Periodically prune expired API token records.
+	go e.pruneExpiredTokens(ctx)
+
 	addr := fmt.Sprintf("0.0.0.0:%d", e.config.ListenPort)
 	if e.config.TLSCertsPath != "" {
 		return e.startHTTPS(ctx, addr)
@@ -395,6 +451,23 @@ func (e *EverestServer) startHTTPS(ctx context.Context, addr string) error {
 	return e.echo.StartServer(e.echo.TLSServer)
 }
 
+// pruneExpiredTokens periodically removes expired records from the API token registry.
+func (e *EverestServer) pruneExpiredTokens(ctx context.Context) {
+	const pruneInterval = time.Hour
+	ticker := time.NewTicker(pruneInterval)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			if err := e.tokenRegistry.PruneExpired(ctx); err != nil && ctx.Err() == nil {
+				e.l.Errorf("failed to prune expired API tokens: %v", err)
+			}
+		}
+	}
+}
+
 // Shutdown gracefully stops the Everest server.
 func (e *EverestServer) Shutdown(ctx context.Context) error {
 	e.l.Info("Shutting down http server")
@@ -422,11 +495,11 @@ func (e *EverestServer) getBodyFromContext(ctx echo.Context, into any) error {
 }
 
 func sessionRateLimiter(limit int) (echo.MiddlewareFunc, *RateLimiterMemoryStore) {
-	allButSession := func(c echo.Context) bool {
-		return c.Request().URL.Path != "/v1/session"
+	allButAuthToken := func(c echo.Context) bool {
+		return c.Request().URL.Path != "/v1/auth/token"
 	}
 	config := echomiddleware.DefaultRateLimiterConfig
-	config.Skipper = allButSession
+	config.Skipper = allButAuthToken
 	store := NewRateLimiterMemoryStoreWithConfig(RateLimiterMemoryStoreConfig{
 		Rate: rate.Limit(limit),
 	})
@@ -496,9 +569,9 @@ func trimWebhookErrorText(fullText string) string {
 }
 
 // createSessionManagerClient creates a k8s client for a session manager.
-func createSessionManagerClient(ctx context.Context, l *zap.SugaredLogger) (accounts.Interface, error) {
-	sessionMgrClientCacheOptions := session.ClientCacheOptions()
-	sessionMgrClient, err := kubernetes.NewInCluster(l, ctx, sessionMgrClientCacheOptions)
+func createSessionManagerClient(ctx context.Context, l *zap.SugaredLogger, namespace string) (accounts.Interface, error) {
+	sessionMgrClientCacheOptions := session.ClientCacheOptions(namespace)
+	sessionMgrClient, err := kubernetes.NewInCluster(l, ctx, sessionMgrClientCacheOptions, namespace)
 	if err != nil {
 		return nil, err
 	}

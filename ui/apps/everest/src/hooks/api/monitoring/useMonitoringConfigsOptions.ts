@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+import { useMemo } from 'react';
 import type {
   ProviderParams,
   ProviderOptions,
@@ -23,16 +24,19 @@ export const useMonitoringConfigsOptions = (
 ): ProviderOptions => {
   const { data, isLoading, error } = useMonitoringConfigsList(
     params.cluster,
-    params.namespace,
-    { refetchInterval: params.config?.refetchInterval }
+    params.namespace
   );
 
-  const options = (data ?? [])
-    .filter((mc) => mc.metadata?.name)
-    .map((mc) => ({
-      label: mc.metadata!.name!,
-      value: mc.metadata!.name!,
-    }));
+  const options = useMemo(
+    () =>
+      (data ?? [])
+        .filter((mc) => mc.metadata?.name)
+        .map((mc) => ({
+          label: mc.metadata!.name!,
+          value: mc.metadata!.name!,
+        })),
+    [data]
+  );
 
   return {
     options,

@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -35,8 +36,9 @@ type deploymentGetter interface {
 }
 
 // EverestVersionFromDeployment returns Everest version from the k8s deployment resource.
-func EverestVersionFromDeployment(ctx context.Context, dg deploymentGetter) (*goversion.Version, error) {
-	dep, err := dg.GetDeployment(ctx, types.NamespacedName{Namespace: common.SystemNamespace, Name: common.PerconaEverestDeploymentName})
+// The namespace parameter specifies the namespace where Everest is installed.
+func EverestVersionFromDeployment(ctx context.Context, dg deploymentGetter, namespace string) (*goversion.Version, error) {
+	dep, err := dg.GetDeployment(ctx, types.NamespacedName{Namespace: namespace, Name: common.PerconaEverestDeploymentName})
 	// Ignore not found error, we will try again with legacy name.
 	if ctrlclient.IgnoreNotFound(err) != nil {
 		return nil, err
@@ -44,7 +46,7 @@ func EverestVersionFromDeployment(ctx context.Context, dg deploymentGetter) (*go
 
 	// If the deployment is not found, try to get it with the legacy name.
 	if dep == nil || dep.GetCreationTimestamp().Time.IsZero() {
-		dep, err = dg.GetDeployment(ctx, types.NamespacedName{Namespace: common.SystemNamespace, Name: common.PerconaEverestDeploymentNameLegacy})
+		dep, err = dg.GetDeployment(ctx, types.NamespacedName{Namespace: namespace, Name: common.PerconaEverestDeploymentNameLegacy})
 		if err != nil {
 			return nil, err
 		}

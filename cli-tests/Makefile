@@ -10,13 +10,14 @@ init:               ## Install dependencies
 install-operators:  ## Install operators to k8s
 	../bin/everestctl install -v \
 		--disable-telemetry \
+		--system-namespace openeverest-system \
 		--version 0.0.0 \
 		--version-metadata-url https://check-dev.percona.com \
 		--namespaces percona-everest-operators \
 		--skip-wizard \
 		--helm.set versionMetadataURL=https://check-dev.percona.com \
 		--helm.set operator.init=false \
-		--helm.set server.image=$(IMAGE_PREFIX)/$(EVEREST_SERVER_DEV_IMAGE_NAME) \
+		--helm.set server.image.repository=$(IMAGE_PREFIX)/$(EVEREST_SERVER_DEV_IMAGE_NAME) \
 		--helm.set operator.image=$(IMAGE_PREFIX)/$(EVEREST_OPERATOR_DEV_IMAGE_NAME) \
 		--helm.set olm.catalogSourceImage=$(IMAGE_PREFIX)/$(EVEREST_CATALOG_DEV_IMAGE_NAME)
 

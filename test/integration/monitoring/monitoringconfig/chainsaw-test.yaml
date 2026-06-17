@@ -46,27 +46,29 @@ spec:
                 apiKey: YWJjZGVm
         - apply:
             resource:
-              apiVersion: monitoring.openeverest.io/v1alpha2
+              apiVersion: monitoring.openeverest.io/v1alpha1
               kind: MonitoringConfig
               metadata:
                 name: mc-test
               spec:
                 type: pmm
-                credentialsSecretName: mc-test-secret
-                verifyTLS: false
-                url: http://localhost-mc-test
+                pmm:
+                  credentialsSecretName: mc-test-secret
+                  verifyTLS: false
+                  url: http://localhost-mc-test
         # Assert MonitoringConfig is created with correct status
         - assert:
             resource:
-              apiVersion: monitoring.openeverest.io/v1alpha2
+              apiVersion: monitoring.openeverest.io/v1alpha1
               kind: MonitoringConfig
               metadata:
                 name: mc-test
               spec:
                 type: pmm
-                credentialsSecretName: mc-test-secret
-                verifyTLS: false
-                url: http://localhost-mc-test
+                pmm:
+                  credentialsSecretName: mc-test-secret
+                  verifyTLS: false
+                  url: http://localhost-mc-test
               status:
                 inUse: false
         # Assert Secret has ownerReference to MonitoringConfig
@@ -77,7 +79,7 @@ spec:
               metadata:
                 name: mc-test-secret
                 ownerReferences:
-                  - apiVersion: monitoring.openeverest.io/v1alpha2
+                  - apiVersion: monitoring.openeverest.io/v1alpha1
                     blockOwnerDeletion: true
                     controller: true
                     kind: MonitoringConfig
@@ -113,17 +115,20 @@ spec:
         # Assert MonitoringConfig is now in-use with finalizer
         - assert:
             resource:
-              apiVersion: monitoring.openeverest.io/v1alpha2
+              apiVersion: monitoring.openeverest.io/v1alpha1
               kind: MonitoringConfig
               metadata:
                 name: mc-test
                 finalizers:
+                  - openeverest.io/vmagent
+                  - openeverest.io/cleanup-secrets
                   - monitoring.openeverest.io/in-use-protection
               spec:
                 type: pmm
-                credentialsSecretName: mc-test-secret
-                verifyTLS: false
-                url: http://localhost-mc-test
+                pmm:
+                  credentialsSecretName: mc-test-secret
+                  verifyTLS: false
+                  url: http://localhost-mc-test
               status:
                 inUse: true
         - assert:
@@ -133,7 +138,7 @@ spec:
               metadata:
                 name: mc-test-secret
                 ownerReferences:
-                  - apiVersion: monitoring.openeverest.io/v1alpha2
+                  - apiVersion: monitoring.openeverest.io/v1alpha1
                     blockOwnerDeletion: true
                     controller: true
                     kind: MonitoringConfig
@@ -168,28 +173,32 @@ spec:
       try:
         - apply:
             resource:
-              apiVersion: monitoring.openeverest.io/v1alpha2
+              apiVersion: monitoring.openeverest.io/v1alpha1
               kind: MonitoringConfig
               metadata:
                 name: mc-test
               spec:
                 type: pmm
-                credentialsSecretName: mc-test-secret
-                url: http://localhost-mc-test-updated
+                pmm:
+                  credentialsSecretName: mc-test-secret
+                  url: http://localhost-mc-test-updated
         # Assert URL is updated and finalizer is still present
         - assert:
             resource:
-              apiVersion: monitoring.openeverest.io/v1alpha2
+              apiVersion: monitoring.openeverest.io/v1alpha1
               kind: MonitoringConfig
               metadata:
                 name: mc-test
                 finalizers:
+                  - openeverest.io/vmagent
+                  - openeverest.io/cleanup-secrets
                   - monitoring.openeverest.io/in-use-protection
               spec:
                 type: pmm
-                credentialsSecretName: mc-test-secret
-                verifyTLS: false
-                url: http://localhost-mc-test-updated
+                pmm:
+                  credentialsSecretName: mc-test-secret
+                  verifyTLS: false
+                  url: http://localhost-mc-test-updated
               status:
                 inUse: true
         - assert:
@@ -199,7 +208,7 @@ spec:
               metadata:
                 name: mc-test-secret
                 ownerReferences:
-                  - apiVersion: monitoring.openeverest.io/v1alpha2
+                  - apiVersion: monitoring.openeverest.io/v1alpha1
                     blockOwnerDeletion: true
                     controller: true
                     kind: MonitoringConfig
@@ -230,17 +239,20 @@ spec:
         # Assert credentials updated, finalizer and in-use still present
         - assert:
             resource:
-              apiVersion: monitoring.openeverest.io/v1alpha2
+              apiVersion: monitoring.openeverest.io/v1alpha1
               kind: MonitoringConfig
               metadata:
                 name: mc-test
                 finalizers:
+                  - openeverest.io/vmagent
+                  - openeverest.io/cleanup-secrets
                   - monitoring.openeverest.io/in-use-protection
               spec:
                 type: pmm
-                credentialsSecretName: mc-test-secret
-                verifyTLS: false
-                url: http://localhost-mc-test-updated
+                pmm:
+                  credentialsSecretName: mc-test-secret
+                  verifyTLS: false
+                  url: http://localhost-mc-test-updated
               status:
                 inUse: true
         - assert:
@@ -250,7 +262,7 @@ spec:
               metadata:
                 name: mc-test-secret
                 ownerReferences:
-                  - apiVersion: monitoring.openeverest.io/v1alpha2
+                  - apiVersion: monitoring.openeverest.io/v1alpha1
                     blockOwnerDeletion: true
                     controller: true
                     kind: MonitoringConfig
@@ -277,7 +289,7 @@ spec:
         # Assert MonitoringConfig still exists (protected by finalizer)
         - assert:
             resource:
-              apiVersion: monitoring.openeverest.io/v1alpha2
+              apiVersion: monitoring.openeverest.io/v1alpha1
               kind: MonitoringConfig
               metadata:
                 name: mc-test
@@ -285,9 +297,10 @@ spec:
                   - monitoring.openeverest.io/in-use-protection
               spec:
                 type: pmm
-                credentialsSecretName: mc-test-secret
-                verifyTLS: false
-                url: http://localhost-mc-test-updated
+                pmm:
+                  credentialsSecretName: mc-test-secret
+                  verifyTLS: false
+                  url: http://localhost-mc-test-updated
               status:
                 inUse: true
         - assert:
@@ -297,7 +310,7 @@ spec:
               metadata:
                 name: mc-test-secret
                 ownerReferences:
-                  - apiVersion: monitoring.openeverest.io/v1alpha2
+                  - apiVersion: monitoring.openeverest.io/v1alpha1
                     blockOwnerDeletion: true
                     controller: true
                     kind: MonitoringConfig

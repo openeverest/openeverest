@@ -46,7 +46,7 @@ generate-openapi-types: init ## Generate TypeScript types from all OpenAPI YAML 
 	@for f in $(OPENAPI_SRC)/*.yaml; do \
 		b=$$(basename "$$f"); \
 		echo "Generating $$b -> ui/api/$${b%.yaml}.types.ts"; \
-		$(OPENAPI_BIN) "$$f" --output "$(OPENAPI_OUT)/$${b%.yaml}.types.ts"; \
+		$(OPENAPI_BIN) "$$f" --output "$(OPENAPI_OUT)/$${b%.yaml}.types.ts" --default-non-nullable=false; \
 	done
 	$(MAKE) generate-openapi-barrel
 
@@ -56,7 +56,7 @@ ifndef FILE
 	$(error FILE is not set. Usage: make generate-openapi-type FILE=crds.gen.yaml)
 endif
 	mkdir -p $(OPENAPI_OUT)
-	$(OPENAPI_BIN) "$(OPENAPI_SRC)/$(FILE)" --output "$(OPENAPI_OUT)/$(subst .yaml,.types.ts,$(FILE))"
+	$(OPENAPI_BIN) "$(OPENAPI_SRC)/$(FILE)" --output "$(OPENAPI_OUT)/$(subst .yaml,.types.ts,$(FILE))" --default-non-nullable=false
 	$(MAKE) generate-openapi-barrel
 
 .PHONY: generate-openapi-barrel

@@ -25,7 +25,6 @@ export const UIGenerator = ({
   loadingDefaultsForEdition,
   formMode,
   namespace,
-  cluster,
 }: UIGeneratorProps) => {
   const section = sections[sectionKey];
   const components = section?.components;
@@ -48,7 +47,6 @@ export const UIGenerator = ({
       loadingDefaultsForEdition={loadingDefaultsForEdition}
       formMode={formMode}
       namespace={namespace}
-      cluster={cluster}
     >
       <FormGroup sx={{ mt: 3 }}>
         <Stack spacing={2}>

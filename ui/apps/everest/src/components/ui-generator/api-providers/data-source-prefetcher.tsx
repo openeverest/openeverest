@@ -14,20 +14,16 @@
 
 import { useEffect, useMemo } from 'react';
 import { useFormContext } from 'react-hook-form';
-import type {
-  Component,
-  ComponentGroup,
-  DataSourceConfig,
-  Section,
-} from '../ui-generator.types';
+import type { Component, ComponentGroup, Section } from '../ui-generator.types';
 import { hasDataSource } from './data-source-field';
 import { useProviderOptions } from './registry';
 import { ComponentErrorBoundary } from '../component-error-boundary';
 import { getComponentSourcePath } from '../utils/preprocess/normalized-component';
+import { useClusterName } from 'hooks/api/useClusterName';
+import { getReconciledDataSourceValue } from './data-source-field/data-source-field.utils';
 
 type DataSourceDeclaration = {
   provider: string;
-  config?: DataSourceConfig;
   fieldPaths: string[];
 };
 
@@ -35,7 +31,7 @@ const collectDataSources = (
   sections: Record<string, Section>
 ): DataSourceDeclaration[] => {
   const results: DataSourceDeclaration[] = [];
-  const byProvider = new Map<string, DataSourceDeclaration>();
+  const byKey = new Map<string, DataSourceDeclaration>();
 
   const walk = (components: Record<string, Component | ComponentGroup>) => {
     for (const comp of Object.values(components)) {
@@ -45,16 +41,15 @@ const collectDataSources = (
       const asComponent = comp as Component;
       if (hasDataSource(asComponent)) {
         const fieldPath = getComponentSourcePath(asComponent);
-        const existing = byProvider.get(asComponent.dataSource.provider);
+        const existing = byKey.get(asComponent.dataSource.provider);
         if (existing) {
           if (fieldPath) existing.fieldPaths.push(fieldPath);
         } else {
           const decl: DataSourceDeclaration = {
             provider: asComponent.dataSource.provider,
-            config: asComponent.dataSource.config,
             fieldPaths: fieldPath ? [fieldPath] : [],
           };
-          byProvider.set(asComponent.dataSource.provider, decl);
+          byKey.set(asComponent.dataSource.provider, decl);
           results.push(decl);
         }
       }
@@ -73,30 +68,27 @@ const collectDataSources = (
 const PrefetchItem = ({
   provider,
   namespace,
-  cluster,
-  config,
   fieldPaths,
 }: {
   provider: string;
   namespace: string;
-  cluster: string;
-  config?: DataSourceConfig;
   fieldPaths: string[];
 }) => {
+  const cluster = useClusterName();
   const { options, isLoading } = useProviderOptions(provider, {
     namespace,
     cluster,
-    config,
   });
   const { getValues, setValue } = useFormContext();
 
   useEffect(() => {
-    if (isLoading || options.length === 0) return;
+    if (isLoading) return;
 
     for (const path of fieldPaths) {
-      const current = getValues(path);
-      if (current === '' || current === undefined || current === null) {
-        setValue(path, options[0].value, { shouldValidate: true });
+      const nextValue = getReconciledDataSourceValue(getValues(path), options);
+
+      if (nextValue !== null) {
+        setValue(path, nextValue, { shouldValidate: true });
       }
     }
   }, [isLoading, options, fieldPaths, getValues, setValue]);
@@ -107,17 +99,15 @@ const PrefetchItem = ({
 type DataSourcePrefetcherProps = {
   sections: Record<string, Section>;
   namespace?: string;
-  cluster?: string;
 };
 
 export const DataSourcePrefetcher = ({
   sections,
   namespace,
-  cluster,
 }: DataSourcePrefetcherProps) => {
   const dataSources = useMemo(() => collectDataSources(sections), [sections]);
 
-  if (!namespace || !cluster) return null;
+  if (!namespace) return null;
 
   // TODO: Support enable/disable toggle wrappers — when a component has
   // an on/off toggle (e.g. monitoring enabled/disabled), the prefetch
@@ -135,8 +125,6 @@ export const DataSourcePrefetcher = ({
           <PrefetchItem
             provider={ds.provider}
             namespace={namespace}
-            cluster={cluster}
-            config={ds.config}
             fieldPaths={ds.fieldPaths}
           />
         </ComponentErrorBoundary>

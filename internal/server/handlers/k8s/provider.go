@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -24,12 +25,12 @@ import (
 )
 
 // ListProviders returns list of providers.
-func (h *k8sHandler) ListProviders(ctx context.Context) (*corev1alpha1.ProviderList, error) {
+func (h *k8sHandler) ListProviders(ctx context.Context, cluster string) (*corev1alpha1.ProviderList, error) {
 	return h.kubeConnector.ListProviders(ctx)
 }
 
 // GetProvider returns provider that matches the criteria.
-func (h *k8sHandler) GetProvider(ctx context.Context, name string) (*corev1alpha1.Provider, error) {
+func (h *k8sHandler) GetProvider(ctx context.Context, cluster, name string) (*corev1alpha1.Provider, error) {
 	// Providers are cluster-scoped, so no namespace
 	return h.kubeConnector.GetProvider(ctx, types.NamespacedName{Name: name})
 }

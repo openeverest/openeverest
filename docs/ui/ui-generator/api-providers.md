@@ -32,8 +32,6 @@ fieldKey:
   uiType: select
   dataSource:
     provider: <providerKey> # required — see Available Providers
-    config: # optional
-      refetchInterval: 5000
   path: <dot.separated.path> # required if the value should be submitted
   fieldParams:
     label: string
@@ -58,35 +56,42 @@ A `dataSource` field is still a regular `select` — the only difference is that
 
 ## Available Providers
 
-| Key                 | Returns                                     | Scoped to         |
-| ------------------- | ------------------------------------------- | ----------------- |
-| `monitoringConfigs` | MonitoringConfig resource names             | cluster/namespace |
-| `storageClasses`    | StorageClass names available on the cluster | cluster           |
+| Key                 | Returns                                     | Scoped to         | Empty State Fallback           |
+| ------------------- | ------------------------------------------- | ----------------- | ------------------------------ |
+| `monitoringConfigs` | MonitoringConfig resource names             | cluster/namespace | ActionableAlert + create modal |
+| `storageClasses`    | StorageClass names available on the cluster | cluster           | None (not user-creatable)      |
 
 ## Field Behavior
 
-| State          | Field    | Text                       |
-| -------------- | -------- | -------------------------- |
-| Loading        | disabled | Loading...                 |
-| Fetch failed   | disabled | Failed to load options     |
-| No options     | enabled  | No options available       |
-| Options loaded | enabled  | first option auto-selected |
+| State          | Field    | Text                       | Fallback                                                     |
+| -------------- | -------- | -------------------------- | ------------------------------------------------------------ |
+| Loading        | disabled | Loading...                 | not shown                                                    |
+| Fetch failed   | disabled | Failed to load options     | not shown                                                    |
+| No options     | hidden   | —                          | shown instead of select if provider has `emptyStateFallback` |
+| Options loaded | enabled  | first option auto-selected | not shown                                                    |
+
+When a provider registers an `emptyStateFallback`, `DataSourceField` renders the fallback component **instead of** the select field whenever options are empty. The select is not shown at all — the fallback completely replaces it. This is used for resources that can be user-created (e.g. monitoring endpoints). Providers for non-creatable resources (e.g. StorageClasses) register `emptyStateFallback: null`, in which case the select is rendered normally with a "No options available" helper text.
 
 ## Adding a New Provider in https://github.com/openeverest/openeverest
 
 1. Create a `useXxxOptions` hook in `hooks/api/<resource>/` that accepts `ProviderParams` and returns `ProviderOptions`.
-2. Register it in `api-providers/providers.ts`:
+2. If the resource can be user-created, create a fallback component in `api-providers/fallbacks/` (see `monitoring-empty-fallback.tsx` for the pattern).
+3. Register it in `api-providers/providers.ts`:
 
    ```ts
    import { useXxxOptions } from "hooks/api/<resource>/useXxxOptions";
+   import { XxxEmptyFallback } from "./fallbacks";
 
    providerRegistry.register("xxx", {
      description: "Short description.",
      useOptions: useXxxOptions,
+     // Use { component: XxxEmptyFallback } for user-creatable resources,
+     // or null for resources that cannot be created by the user.
+     emptyStateFallback: { component: XxxEmptyFallback },
    });
    ```
 
-3. Use `provider: xxx` in the schema schema.
+4. Use `provider: xxx` in the schema.
 
 ### ProviderParams / ProviderOptions types
 
@@ -94,7 +99,6 @@ A `dataSource` field is still a regular `select` — the only difference is that
 interface ProviderParams {
   namespace: string;
   cluster: string;
-  config?: { refetchInterval?: number };
 }
 
 interface ProviderOptions {
@@ -105,3 +109,9 @@ interface ProviderOptions {
   rawData?: unknown;
 }
 ```
+
+## Future Ideas
+
+<!-- TODO: These features are not yet implemented and are listed as potential improvements for openeverest. -->
+
+- **`dataSource.config`** — per-field configuration for providers (e.g. custom `refetchInterval`, filtering, `enabled` via CEL expressions depending on other form fields). Currently not implemented because all built-in providers use sensible internal defaults and there is no real use-case for two different queries to the same resource within a single form. Can be added back to `DataSource`, `ProviderParams`, and the provider hooks when a concrete need arises.

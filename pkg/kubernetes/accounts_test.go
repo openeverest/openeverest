@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2025 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -33,18 +34,18 @@ func TestAccounts(t *testing.T) {
 
 	objs := []ctrlclient.Object{
 		&corev1.Namespace{
-			ObjectMeta: metav1.ObjectMeta{Name: common.SystemNamespace},
+			ObjectMeta: metav1.ObjectMeta{Name: "test-ns"},
 		},
 		&corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      common.EverestAccountsSecretName,
-				Namespace: common.SystemNamespace,
+				Namespace: "test-ns",
 			},
 		},
 	}
 
 	mockClient := fakeclient.NewClientBuilder().WithScheme(CreateScheme())
 	mockClient.WithObjects(objs...)
-	k := NewEmpty(zap.NewNop().Sugar()).WithKubernetesClient(mockClient.Build())
+	k := NewEmpty(zap.NewNop().Sugar(), "test-ns").WithKubernetesClient(mockClient.Build())
 	accounts.Tests(t, k.Accounts())
 }

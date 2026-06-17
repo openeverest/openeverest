@@ -26,4 +26,6 @@ export type {
   ProviderParams,
   ProviderOptions,
   ProviderRegistryEntry,
+  EmptyStateFallback,
+  EmptyStateFallbackProps,
 } from './types';

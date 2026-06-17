@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,7 +14,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { Schedule } from 'shared-types/dbCluster.types.ts';
+import { FlattenedSchedule } from './schedule-form-dialog-context/schedule-form-dialog-context.types';
 import { getFormValuesFromCronExpression } from 'components/time-selection/time-selection.utils.ts';
 import { TIME_SELECTION_DEFAULTS } from '../time-selection/time-selection.constants';
 import { ScheduleFormData } from './schedule-form/schedule-form-schema';
@@ -23,44 +24,50 @@ import { WizardMode } from 'shared-types/wizard.types';
 
 export const scheduleModalDefaultValues = (
   mode: WizardMode,
-  selectedSchedule?: Schedule
+  selectedSchedule?: FlattenedSchedule,
+  initialBackupClassName?: string
 ): ScheduleFormData => {
   if (mode === WizardMode.Edit && selectedSchedule) {
-    const { name, backupStorageName, schedule, retentionCopies } =
+    const { name, storageName, cron, retentionCopies, config } =
       selectedSchedule;
-    const formValues = getFormValuesFromCronExpression(schedule);
+    const formValues = getFormValuesFromCronExpression(cron);
     return {
       [ScheduleFormFields.scheduleName]: name || '',
-      [ScheduleFormFields.storageLocation]: { name: backupStorageName },
+      [ScheduleFormFields.storageLocation]: { metadata: { name: storageName } },
       [ScheduleFormFields.retentionCopies]: retentionCopies?.toString() || '0',
+      [ScheduleFormFields.backupClassName]: initialBackupClassName ?? '',
       ...formValues,
+      // UIGenerator fields are registered under sectionKey "config" (e.g. config.compressionType).
+      // Wrap the flat config so react-hook-form maps values to the correct field paths.
+      ...(config ? { config } : {}),
     };
   }
   return {
     [ScheduleFormFields.scheduleName]: `backup-${generateShortUID()}`,
     [ScheduleFormFields.storageLocation]: null,
     [ScheduleFormFields.retentionCopies]: '0',
+    [ScheduleFormFields.backupClassName]: initialBackupClassName ?? '',
     ...TIME_SELECTION_DEFAULTS,
   };
 };
 
 export const sameScheduleFunc = (
-  schedules: Schedule[],
+  schedules: FlattenedSchedule[],
   mode: WizardMode,
   currentSchedule: string,
   scheduleName: string
 ) => {
   if (mode === WizardMode.Edit) {
     return schedules.find(
-      (item) => item.schedule === currentSchedule && item.name !== scheduleName
+      (item) => item.cron === currentSchedule && item.name !== scheduleName
     );
   } else {
-    return schedules.find((item) => item.schedule === currentSchedule);
+    return schedules.find((item) => item.cron === currentSchedule);
   }
 };
 
 export const sameStorageLocationFunc = (
-  schedules: Schedule[],
+  schedules: FlattenedSchedule[],
   mode: WizardMode,
   currentBackupStorage: string | { name: string } | undefined | null,
   scheduleName: string
@@ -72,9 +79,9 @@ export const sameStorageLocationFunc = (
   if (mode === WizardMode.Edit) {
     return schedules.find(
       (item) =>
-        item.backupStorageName === currentStorage && item.name !== scheduleName
+        item.storageName === currentStorage && item.name !== scheduleName
     );
   } else {
-    return schedules.find((item) => item.backupStorageName === currentStorage);
+    return schedules.find((item) => item.storageName === currentStorage);
   }
 };

@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,7 +15,7 @@
 // limitations under the License.
 
 import { Page, expect } from '@playwright/test';
-import { testMonitoringName2 } from '@e2e/utils/monitoring-instance';
+import { testMonitoringName2 } from '@e2e/utils/monitoring-config';
 import { TIMEOUTS } from '@e2e/constants';
 
 export const monitoringStepCheck = async (page: Page) => {

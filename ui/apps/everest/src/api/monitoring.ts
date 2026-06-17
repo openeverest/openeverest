@@ -1,63 +1,66 @@
+// Copyright (C) 2026 The OpenEverest Contributors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 import { api } from './api';
 import {
-  CreateMonitoringInstancePayload,
-  MonitoringInstanceList,
-  UpdateMonitoringInstancePayload,
-} from 'shared-types/monitoring.types';
+  MonitoringConfig,
+  MonitoringConfigCreateParams,
+  MonitoringConfigList,
+  MonitoringConfigUpdateParams,
+} from 'shared-types/api.types';
 
-const filterPmmDataInPayload = (
-  payload: CreateMonitoringInstancePayload | UpdateMonitoringInstancePayload
-) => {
-  // @ts-ignore
-  ['user', 'password'].forEach((key: keyof typeof payload.pmm) => {
-    if (!payload.pmm[key]) {
-      delete payload.pmm[key];
-    }
-  });
-
-  return payload;
-};
-
-export const getMonitoringInstancesFn = async (namespace: string) => {
-  const response = await api.get<MonitoringInstanceList>(
-    `namespaces/${namespace}/monitoring-instances`
-  );
-  return response.data;
-};
-
-export const createMonitoringInstanceFn = async (
-  payload: CreateMonitoringInstancePayload,
+export const getMonitoringConfigsFn = async (
+  cluster: string,
   namespace: string
-) => {
-  const response = await api.post(
-    `namespaces/${namespace}/monitoring-instances`,
-    filterPmmDataInPayload(payload)
+): Promise<MonitoringConfig[]> => {
+  const response = await api.get<MonitoringConfigList>(
+    `clusters/${cluster}/namespaces/${namespace}/monitoring-configs`
   );
+  return response.data?.items ?? [];
+};
 
+export const createMonitoringConfigFn = async (
+  cluster: string,
+  namespace: string,
+  payload: MonitoringConfigCreateParams
+): Promise<MonitoringConfig> => {
+  const response = await api.post<MonitoringConfig>(
+    `clusters/${cluster}/namespaces/${namespace}/monitoring-configs`,
+    payload
+  );
   return response.data;
 };
 
-export const deleteMonitoringInstanceFn = async (
-  instanceName: string,
-  namespace: string
-) => {
-  const response = await api.delete(
-    `namespaces/${namespace}/monitoring-instances/${instanceName}`
+export const deleteMonitoringConfigFn = async (
+  cluster: string,
+  namespace: string,
+  name: string
+): Promise<void> => {
+  await api.delete(
+    `clusters/${cluster}/namespaces/${namespace}/monitoring-configs/${name}`
   );
-
-  return response.data;
 };
 
-export const updateMonitoringInstanceFn = async (
-  instanceName: string,
-  payload: UpdateMonitoringInstancePayload
-) => {
-  const { namespace } = payload;
-
-  const response = await api.patch(
-    `namespaces/${namespace}/monitoring-instances/${instanceName}`,
-    filterPmmDataInPayload(payload)
+export const updateMonitoringConfigFn = async (
+  cluster: string,
+  namespace: string,
+  name: string,
+  payload: MonitoringConfigUpdateParams
+): Promise<MonitoringConfig> => {
+  const response = await api.patch<MonitoringConfig>(
+    `clusters/${cluster}/namespaces/${namespace}/monitoring-configs/${name}`,
+    payload
   );
-
   return response.data;
 };

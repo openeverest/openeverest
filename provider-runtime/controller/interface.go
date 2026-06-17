@@ -18,11 +18,15 @@ package controller
 // Embed BaseProvider for default implementations.
 
 import (
+	"context"
+
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
+
+	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
 )
 
 // ProviderInterface defines the interface for a database provider.
@@ -229,6 +233,97 @@ type FieldIndex struct {
 type FieldIndexProvider interface {
 	// FieldIndexes returns the list of field indexes to create for this provider.
 	FieldIndexes() []FieldIndex
+}
+
+// =============================================================================
+// BACKUP PROVIDER (Optional interface for ProviderManaged backup classes)
+// =============================================================================
+
+// BackupProvider is an optional interface that providers can implement to
+// participate in the backup/restore lifecycle for ProviderManaged BackupClass
+// resources (operator-native backup tooling such as PBM, pgBackRest, or Barman).
+//
+// When a provider implements this interface the runtime automatically:
+//   - Registers field indexes on backup.spec.instanceName and
+//     restore.spec.instanceName so the provider can list backups/restores for
+//     a given Instance efficiently.
+//   - Starts ancillary reconcilers for Backup and Restore CRs that dispatch to
+//     SyncBackup/SyncRestore when the resolved BackupClass uses
+//     executionMode "ProviderManaged".
+//
+// All methods receive the same *Context handle as ProviderInterface; helpers
+// such as Context.BackupStorage, Context.BackupClass and
+// Context.BackupsForInstance are available for resolving related resources.
+type BackupProvider interface {
+	// SyncBackup reconciles a single Backup CR whose BackupClass uses
+	// executionMode "ProviderManaged". The provider creates or updates the
+	// operator-native backup resource and reports its observed state. The
+	// returned BackupExecutionStatus is reflected onto the Backup CR by the
+	// runtime.
+	SyncBackup(c *Context, backup *backupv1alpha1.Backup) (BackupExecutionStatus, error)
+
+	// SyncRestore reconciles a single Restore CR whose BackupClass uses
+	// executionMode "ProviderManaged".
+	SyncRestore(c *Context, restore *backupv1alpha1.Restore) (RestoreExecutionStatus, error)
+
+	// CleanupBackup is invoked when a Backup CR is being deleted. Implementations
+	// must delete any operator-native resources they created and return true once
+	// cleanup is complete (which allows the runtime to remove its finalizer).
+	CleanupBackup(c *Context, backup *backupv1alpha1.Backup) (done bool, err error)
+
+	// CleanupRestore mirrors CleanupBackup for Restore CRs. Most providers can
+	// return (true, nil) since restores are typically run-to-completion.
+	CleanupRestore(c *Context, restore *backupv1alpha1.Restore) (done bool, err error)
+}
+
+// BackupWatcher is an optional interface a BackupProvider may implement to
+// register additional watch sources on the runtime's Backup reconciler.
+//
+// The typical use case is watching the operator-native backup CR (e.g.
+// PerconaServerMongoDBBackup) so status changes route directly to the owning
+// Backup CR via owner-reference based enqueue, rather than fanning out via
+// the parent Instance. SyncBackup must set a controller reference from the
+// Backup CR to the operator backup CR for owner-based enqueue (WatchOwned)
+// to work.
+type BackupWatcher interface {
+	// BackupWatches returns watch configurations to attach to the runtime's
+	// Backup reconciler. Each entry is wired the same way as WatchProvider.Watches:
+	// Owned=true uses Owns(), Owned=false uses Watches() with the supplied handler.
+	BackupWatches() []WatchConfig
+}
+
+// RestoreWatcher is the Restore counterpart of BackupWatcher.
+type RestoreWatcher interface {
+	RestoreWatches() []WatchConfig
+}
+
+// BackupMirror is an optional interface that providers implement to mirror
+// operator-emitted backup CRs (typically produced by the wrapped operator's own
+// scheduler, e.g. PSMDB BackupTask, pgBackRest cron, Barman scheduler) into
+// first-class Backup CRs. This makes operator-scheduled backups visible via
+// `kubectl get backups` and lets the runtime drive their lifecycle the same
+// way as on-demand backups.
+//
+// Provider devs only need to answer two questions:
+//   - Which operator type should be watched? (OperatorBackupType)
+//   - Given an operator object, what Backup CR should exist for it, if any?
+//     (Mirror; return nil to skip)
+//
+// The runtime owns all controller-runtime wiring (watch, reconcile loop,
+// idempotent create, conflict handling). Mirror is invoked once per operator
+// event; the runtime treats AlreadyExists as success, so subsequent calls
+// for the same operator object are safe no-ops once the Backup CR has been
+// adopted by SyncBackup.
+type BackupMirror interface {
+	// OperatorBackupType returns a typed empty instance of the operator CR to
+	// watch (e.g. &psmdbv1.PerconaServerMongoDBBackup{}).
+	OperatorBackupType() client.Object
+
+	// Mirror returns the Backup CR to create for operatorBackup, or nil to
+	// skip. The provider may return errors only for unexpected failures;
+	// "this operator object should not be mirrored" must be expressed by
+	// returning (nil, nil).
+	Mirror(ctx context.Context, c client.Client, operatorBackup client.Object) (*backupv1alpha1.Backup, error)
 }
 
 // =============================================================================

@@ -43,7 +43,7 @@ test.describe.parallel('Monitoring configs tests', () => {
 
       const created = await th.createMonitoringConfigWithDataV2(request, data)
       expect(created.metadata.name).toBe(data.name)
-      expect(created.spec.url).toBe(data.url)
+      expect(created.spec.pmm.url).toBe(data.url)
       expect(created.spec.type).toBe(data.type)
     })
 
@@ -61,7 +61,7 @@ test.describe.parallel('Monitoring configs tests', () => {
 
       const created = await th.createMonitoringConfigWithDataV2(request, data)
       expect(created.metadata.name).toBe(data.name)
-      expect(created.spec.url).toBe(data.url)
+      expect(created.spec.pmm.url).toBe(data.url)
       expect(created.spec.type).toBe(data.type)
     })
 
@@ -80,7 +80,7 @@ test.describe.parallel('Monitoring configs tests', () => {
 
       await expect(async () => {
         const updated = await th.updateMonitoringConfigV2(request, mcNameKey, patchData)
-        expect(updated.spec.url).toMatch(patchData.url)
+        expect(updated.spec.pmm.url).toMatch(patchData.url)
       }).toPass({
         intervals: [1000],
         timeout: 30 * 1000,
@@ -112,7 +112,7 @@ test.describe.parallel('Monitoring configs tests', () => {
 
       await expect(async () => {
         const updated = await th.updateMonitoringConfigV2(request, mcNameKey, patchData)
-        expect(updated.spec.url).toBe(patchData.url)
+        expect(updated.spec.pmm.url).toBe(patchData.url)
       }).toPass({
         intervals: [1000],
         timeout: 30 * 1000,
@@ -130,7 +130,7 @@ test.describe.parallel('Monitoring configs tests', () => {
 
       await expect(async () => {
         const updated = await th.updateMonitoringConfigV2(request, mcNameKey, patchData)
-        expect(updated.spec.url).toBe(patchData.url)
+        expect(updated.spec.pmm.url).toBe(patchData.url)
       }).toPass({
         intervals: [1000],
         timeout: 30 * 1000,

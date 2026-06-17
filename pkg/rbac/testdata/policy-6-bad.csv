@@ -1,4 +1,4 @@
 p, role:admin, namespaces, read, *
-p, role:admin, database-engines, *, */*
+p, role:admin, clusters, *, *
 p, alice, non-existent-resource, *, */*
 g, admin, role:admin

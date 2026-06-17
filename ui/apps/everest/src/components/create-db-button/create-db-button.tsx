@@ -214,7 +214,7 @@ export const CreateDbButton = ({
                     py: '10px',
                   }}
                   state={{
-                    selectedDbEngine: item,
+                    selectedDbProvider: item,
                     showImport: createFromImport,
                   }}
                 >

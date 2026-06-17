@@ -12,12 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import type { DataSourceConfig } from '../ui-generator.types';
+import type React from 'react';
 
 export interface ProviderParams {
   namespace: string;
   cluster: string;
-  config?: DataSourceConfig;
   // TODO: Add currentValue?: string for filtering out unavailable options at edit time
 }
 
@@ -29,9 +28,19 @@ export interface ProviderOptions {
   rawData?: unknown;
 }
 
+export interface EmptyStateFallbackProps {
+  namespace: string;
+  cluster: string;
+}
+
+export interface EmptyStateFallback {
+  component: React.ComponentType<EmptyStateFallbackProps>;
+}
+
 export interface ProviderRegistryEntry {
   useOptions: (params: ProviderParams) => ProviderOptions;
   description: string;
+  emptyStateFallback: EmptyStateFallback | null;
   // TODO: Add lifecycle hooks — beforeFetch, afterFetch, onError
   // TODO: Add optional `validate` callback for dev-time schema validation
 }

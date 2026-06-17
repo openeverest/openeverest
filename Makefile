@@ -1,4 +1,4 @@
-REPO_ROOT=$(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))
+REPO_ROOT=$(shell dirname "$(realpath $(firstword $(MAKEFILE_LIST)))")
 RELEASE_VERSION ?= v0.0.0-$(shell git rev-parse --short HEAD)
 RELEASE_FULLCOMMIT ?= $(shell git rev-parse HEAD)
 IMAGE_PREFIX ?= ghcr.io/openeverest
@@ -26,7 +26,7 @@ help: ## Display this help.
 CWD = $(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))
 LOCALBIN := $(CWD)/bin
 $(LOCALBIN):
-	mkdir -p $(LOCALBIN)
+	mkdir -p "$(LOCALBIN)"
 
 CONTROLLER_GEN ?= $(LOCALBIN)/controller-gen
 ENVTEST ?= $(LOCALBIN)/setup-envtest
@@ -161,7 +161,7 @@ build-server-helper: $(LOCALBIN)
 # unnecessary rebuilds when only the timestamp of the file changes.
 	mkdir -p ./public/dist && [ -f ./public/dist/index.html ] || touch ./public/dist/index.html
 	$(info Building Everest API server for $(GOOS)/$(GOARCH) with CGO_ENABLED=$(CGO_ENABLED))
-	go build -v $(SERVER_BUILD_TAGS) $(SERVER_GC_FLAGS) -ldflags "$(SERVER_LD_FLAGS)" -o $(LOCALBIN)/everest ./cmd
+	go build -v $(SERVER_BUILD_TAGS) $(SERVER_GC_FLAGS) -ldflags "$(SERVER_LD_FLAGS)" -o "$(LOCALBIN)/everest" ./cmd
 
 .PHONY: build
 build: SERVER_LD_FLAGS += -s -w
@@ -175,10 +175,12 @@ build-debug: build-server-helper	## Build Everest API server binary with debug s
 .PHONY: rc
 rc: SERVER_LD_FLAGS += -X 'github.com/openeverest/openeverest/v2/cmd/config.TelemetryURL=https://check-dev.percona.com'
 rc: build-server-helper	## Build Everest API server RC version.
+rc: build-controller-helper	## Build Everest controller RC version.
 
 .PHONY: release
 release: SERVER_LD_FLAGS += -X 'github.com/openeverest/openeverest/v2/cmd/config.TelemetryURL=https://check.percona.com'
 release: build-server-helper	## Build Everest API server release version. (Use for building release only!)
+release: build-controller-helper	## Build Everest controller release version. (Use for building release only!)
 
 # Everest CLI
 CLI_LD_FLAGS = -X 'github.com/openeverest/openeverest/v2/pkg/version.Version=$(RELEASE_VERSION)' \
@@ -191,7 +193,7 @@ CLI_GC_FLAGS =
 .PHONY: build-cli-helper
 build-cli-helper: $(LOCALBIN) charts
 	$(info Building Everest CLI for $(GOOS)/$(GOARCH) with CGO_ENABLED=$(CGO_ENABLED))
-	go build -v $(CLI_BUILD_TAGS) $(CLI_GC_FLAGS) -ldflags "$(CLI_LD_FLAGS)" -o $(LOCALBIN)/everestctl ./cmd/cli
+	go build -v $(CLI_BUILD_TAGS) $(CLI_GC_FLAGS) -ldflags "$(CLI_LD_FLAGS)" -o "$(LOCALBIN)/everestctl" ./cmd/cli
 
 .PHONY: build-cli
 build-cli: CLI_LD_FLAGS += -s -w
@@ -205,9 +207,10 @@ build-cli-debug: build-cli-helper	## Build Everest CLI binary with debug symbols
 
 UI_DIR = $(CWD)/ui
 .PHONY: build-ui
-build-ui: ## Build Everest UI and embed it into the Everest API server binary.
+build-ui:
 	$(info Building Everest UI)
-	cd $(UI_DIR) && $(MAKE) init build EVEREST_OUT_DIR=$(CWD)/public/dist
+	$(MAKE) -C "$(UI_DIR)" init
+	$(MAKE) -C "$(UI_DIR)" build EVEREST_OUT_DIR="$(CWD)/public/dist"
 
 .PHONY: release-cli
 release-cli: CLI_LD_FLAGS += -s -w
@@ -263,7 +266,7 @@ docker-push: ## Push docker image with Everest API server and controller.
 
 .PHONY: clean
 clean:
-	rm -rf $(LOCALBIN)/*
+	rm -rf "$(LOCALBIN)"/*
 	rm -rf ./dist/*
 
 ##@ Test
@@ -298,18 +301,12 @@ test-crosscover: setup-envtest ## Run unit tests and collect cross-package cover
 	KUBEBUILDER_ASSETS="$$("$(ENVTEST)" use $(ENVTEST_K8S_VERSION) --bin-dir "$(LOCALBIN)" -p path)" \
 	CGO_ENABLED=1 go test -race -timeout=20m -count=1 -coverprofile=crosscover.out -covermode=atomic -p=1 -coverpkg=./... ./...
 
-.PHONY: test-integration-monitoring
-test-integration-monitoring: docker-build-controller k3d-upload-controller-image
-	. ./test/vars.sh && kubectl kuttl test --config test/integration/kuttl-monitoring.yaml
+.PHONY: test-integration-backup
+test-integration-backup: docker-build-controller k3d-upload-controller-image deploy-test-controller
+	chainsaw test --config test/integration/.backup.yaml test/integration/backup
 
-.PHONY: test-integration-monitoring-chainsaw
-test-integration-monitoring-chainsaw: docker-build-controller k3d-upload-controller-image ## Run monitoring integration tests with chainsaw
-	kubectl get namespace everest-monitoring || kubectl create namespace everest-monitoring
-	$(MAKE) deploy-test-controller
-	kubectl apply -f https://raw.githubusercontent.com/VictoriaMetrics/operator/v$(VICTORIAMETRICS_OPERATOR_VERSION)/config/crd/overlay/crd.yaml
-	kubectl wait --for condition=established --timeout=10s crd vmagents.operator.victoriametrics.com
-	kubectl delete pod -n openeverest-system -l control-plane=controller-manager
-	$(MAKE) wait-test-controller
+.PHONY: test-integration-monitoring
+test-integration-monitoring: docker-build-controller k3d-upload-controller-image deploy-test-controller
 	chainsaw test --config test/integration/.monitoring.yaml test/integration/monitoring
 
 ##@ Deployment management
@@ -322,7 +319,7 @@ docker-build-operator:
 	@{ \
 	set -xe ;\
 	operator_commit_id=$(word 3, $(subst -,  ,$(word 2, $(shell go list -m github.com/percona/everest-operator)))) ;\
-	cd $(shell mktemp -d) ;\
+	cd "$(shell mktemp -d)" ;\
 	git clone -q https://github.com/percona/everest-operator.git ;\
 	cd ./everest-operator ;\
 	git reset --hard $${operator_commit_id} ;\
@@ -333,7 +330,7 @@ DB_NAMESPACES = everest
 .PHONY: deploy
 deploy:  ## Deploy Everest to K8S cluster using Everest CLI.
 	$(info Deploying Everest ($(IMG)) into K8S cluster using everestctl)
-	$(LOCALBIN)/everestctl install -v \
+	"$(LOCALBIN)/everestctl" install -v \
 	--disable-telemetry \
 	--version=$(IMAGE_TAG) \
 	--version-metadata-url=https://check-dev.percona.com \
@@ -342,7 +339,7 @@ deploy:  ## Deploy Everest to K8S cluster using Everest CLI.
 	--operator.mysql=true \
 	--skip-wizard \
 	--namespaces $(DB_NAMESPACES) \
-	--helm.set server.image=$(IMAGE_PREFIX)/$(EVEREST_SERVER_DEV_IMAGE_NAME) \
+	--helm.set server.image.repository=$(IMAGE_PREFIX)/$(EVEREST_SERVER_DEV_IMAGE_NAME) \
 	--helm.set server.apiRequestsRateLimit=500 \
 	--helm.set server.sessionRequestsRateLimit=200 \
 	--helm.set versionMetadataURL=https://check-dev.percona.com \
@@ -352,42 +349,25 @@ deploy:  ## Deploy Everest to K8S cluster using Everest CLI.
 	--helm.set olm.catalogSourceImage=$(IMAGE_PREFIX)/$(EVEREST_CATALOG_DEV_IMAGE_NAME)
 	$(MAKE) expose
 
-DEPLOY_ALL_DEPS := build-ui build-debug docker-build k3d-upload-server-image
-DEPLOY_ALL_DEPS += docker-build-operator k3d-upload-operator-image
-DEPLOY_ALL_DEPS += k3d-upload-server-image deploy
+DEPLOY_ALL_DEPS := build-ui build-debug build-controller-debug docker-build
+DEPLOY_ALL_DEPS += build-cli-debug
+DEPLOY_ALL_DEPS += k3d-upload-server-image k3d-upload-server-image deploy
 .PHONY: deploy-all
 deploy-all: $(DEPLOY_ALL_DEPS) ## Helper to build Everest and its dependencies and deploy to K3D test cluster.
 
 .PHONY: undeploy-cli
 undeploy: build-cli-debug ## Undeploy Everest from K8S cluster using Everest CLI.
 	$(info Uninstalling Everest from K8S cluster using everestctl)
-	$(LOCALBIN)/everestctl uninstall -y -f -v
+	"$(LOCALBIN)/everestctl" uninstall -y -f -v
 
-.PHONY: add-pg-namespaces
-add-pg-namespaces: ## Add PostgreSQL namespace to Everest using Everest CLI(usage: DB_NAMESPACES=ns-1,ns-2 make add-pg-namespaces).
-	$(info Adding PostgreSQL namespaces=${DB_NAMESPACE} to Everest using everestctl)
-	$(LOCALBIN)/everestctl namespaces add $(DB_NAMESPACES) -v \
-	--operator.mongodb=false \
-	--operator.postgresql=true \
-	--operator.mysql=false \
-	--skip-wizard
-
-.PHONY: add-psmdb-namespaces
-add-psmdb-namespaces: ## Add PSMDB namespace to Everest using Everest CLI(usage: DB_NAMESPACES=ns-1,ns-2 make add-psmdb-namespaces).
-	$(info Adding PSMDB namespaces=${DB_NAMESPACE} to Everest using everestctl)
+.PHONY: add-shared-everest-namespace
+add-shared-everest-namespace: ## Add shared Everest namespace with all operators (usage: DB_NAMESPACES=everest make add-shared-everest-namespace).
+	$(info Adding shared namespaces=${DB_NAMESPACES} to Everest using everestctl)
 	$(LOCALBIN)/everestctl namespaces add $(DB_NAMESPACES) -v \
 	--operator.mongodb=true \
-	--operator.postgresql=false \
-	--operator.mysql=false \
-	--skip-wizard
-
-.PHONY: add-pxc-namespaces
-add-pxc-namespaces: ## Add PXC namespace to Everest using Everest CLI(usage: DB_NAMESPACES=ns-1,ns-2 make add-pxc-namespaces).
-	$(info Adding PXC namespaces=${DB_NAMESPACE} to Everest using everestctl)
-	$(LOCALBIN)/everestctl namespaces add $(DB_NAMESPACES) -v \
-	--operator.mongodb=false \
-	--operator.postgresql=false \
+	--operator.postgresql=true \
 	--operator.mysql=true \
+	--take-ownership \
 	--skip-wizard
 
 .PHONY: expose
@@ -465,13 +445,13 @@ CHART_BRANCH ?= v2
 .PHONY: update-dev-chart
 update-dev-chart: ## Update dependency to Everest Helm chart to the latest version from the specified branch (default v2).
 	COMMIT=$$(git ls-remote https://github.com/openeverest/helm-charts refs/heads/$(CHART_BRANCH) | cut -f1) && \
-	GOPROXY=direct go get -u -v github.com/openeverest/helm-charts/charts/everest@$$COMMIT
+	go get -u github.com/openeverest/helm-charts/charts/everest@$$COMMIT
 	go mod tidy
 
 EVEREST_OPERATOR_BRANCH ?= main
 .PHONY: update-dev-everest-operator
 update-dev-everest-operator: ## Update dependency to Everest operator to the latest version from the specified branch (default main).
-	GOPROXY=direct go get -u -v github.com/percona/everest-operator@${EVEREST_OPERATOR_BRANCH}
+	go get -u github.com/percona/everest-operator@${EVEREST_OPERATOR_BRANCH}
 	go mod tidy
 
 .PHONY: prepare-pr
@@ -520,8 +500,12 @@ build-installer: gen-crds-manifests kustomize ## Generate a consolidated YAML wi
 
 .PHONY: deploy-test-controller
 deploy-test-controller: gen-crds-manifests kustomize deploy-cert-manager
+	kubectl apply -f https://raw.githubusercontent.com/VictoriaMetrics/operator/v$(VICTORIAMETRICS_OPERATOR_VERSION)/config/crd/overlay/crd.yaml
+	kubectl wait --for condition=established --timeout=10s crd vmagents.operator.victoriametrics.com
 	cd config/test && "$(KUSTOMIZE)" edit set image controller=${EVEREST_CONTROLLER_IMG}
 	$(KUSTOMIZE) build config/test | kubectl apply -f -
+	kubectl delete pod -n openeverest-system -l control-plane=controller-manager
+	$(MAKE) wait-test-controller
 
 .PHONY: wait-test-controller
 wait-test-controller: # Wait for the test controller deployment to be available.

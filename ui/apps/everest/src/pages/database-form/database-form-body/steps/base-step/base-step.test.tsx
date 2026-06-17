@@ -61,6 +61,7 @@ const makeContextValue = (topologies: string[] = ['replica']) => ({
   sections: {},
   sectionsOrder: [],
   providerObject: undefined,
+  hasBackupStep: false,
 });
 
 interface WrapperProps {

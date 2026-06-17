@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,7 +15,8 @@
 // limitations under the License.
 import StorageIcon from '@mui/icons-material/Storage';
 import SettingsIcon from '@mui/icons-material/Settings';
-import SchemaIcon from '@mui/icons-material/Schema';
+// import SchemaIcon from '@mui/icons-material/Schema';
+import ExtensionIcon from '@mui/icons-material/Extension';
 import { EverestRoute } from './Drawer.types';
 import { SettingsTabs } from 'pages/settings/settings.types';
 
@@ -27,14 +29,19 @@ export const ROUTES: EverestRoute[] = [
     text: 'Databases',
   },
   {
+    to: '/plugins',
+    icon: ExtensionIcon,
+    text: 'Plugins',
+  },
+  {
     to: `settings/${SettingsTabs.storageLocations}`,
     icon: SettingsIcon,
     text: 'Settings',
   },
-  //TODO ui-generator builder should be hided from ui and delivered separately with tests coverage
-  {
-    to: '/ui-generator-builder',
-    icon: SchemaIcon,
-    text: 'UI Generator Builder',
-  },
+  // TODO: ui-generator-builder hidden from nav until tests coverage is delivered
+  // {
+  //   to: '/ui-generator-builder',
+  //   icon: SchemaIcon,
+  //   text: 'UI Generator Builder',
+  // },
 ];

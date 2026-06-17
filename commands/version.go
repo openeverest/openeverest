@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -61,7 +62,7 @@ func versionRunE(cmd *cobra.Command, _ []string) error { //nolint:revive
 			return err
 		}
 
-		ev, err := version.EverestVersionFromDeployment(cmd.Context(), k)
+		ev, err := version.EverestVersionFromDeployment(cmd.Context(), k, k.Namespace())
 		if client.IgnoreNotFound(err) != nil {
 			cmdLogger.Error(err)
 			return err
