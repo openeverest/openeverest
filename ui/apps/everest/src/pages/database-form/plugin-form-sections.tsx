@@ -60,8 +60,7 @@ export const PluginFormSections: React.FC<PluginFormSectionsProps> = ({
   onPluginConfigChange,
 }) => {
   const { plugins } = usePlugins();
-  const { data: pluginsEnabledInNamespace } =
-    usePluginsForNamespace(namespace);
+  const { data: pluginsEnabledInNamespace } = usePluginsForNamespace(namespace);
 
   // Set of plugins installed in this namespace (or null = no filter).
   const enabledInNs = pluginsEnabledInNamespace?.length

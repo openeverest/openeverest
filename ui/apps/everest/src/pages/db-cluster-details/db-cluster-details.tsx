@@ -72,8 +72,7 @@ const WithPermissionDetails = ({
   // 1. engine type (providers field)
   // 2. namespace: only plugins enabled for this namespace via an InstalledExtension
   const { plugins } = usePlugins();
-  const { data: pluginsEnabledInNamespace } =
-    usePluginsForNamespace(namespace);
+  const { data: pluginsEnabledInNamespace } = usePluginsForNamespace(namespace);
   const engineType = instance?.spec?.provider;
 
   // Build a set of plugin names enabled in this namespace.
