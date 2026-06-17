@@ -1,5 +1,4 @@
-// everest
-// Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,11 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { test as teardown } from '@playwright/test';
-import { logoutCIUser } from '@e2e/utils/user';
+import { PlaywrightTestProject } from '@playwright/test';
+import { sessionProject } from './session/project.config';
 
-teardown.describe.serial('Auth teardown', () => {
-  teardown('Logout CI user', async ({ page }) => {
-    await logoutCIUser(page);
-  });
-});
+export const releaseProject: PlaywrightTestProject[] = [
+  {
+    name: 'release',
+    testMatch: /.^/,
+    dependencies: ['pr', 'release:session:rate-limiting'],
+  },
+  ...sessionProject,
+];

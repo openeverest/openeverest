@@ -13,6 +13,7 @@
 // limitations under the License.
 
 import { useQuery } from '@tanstack/react-query';
+import { getAuthToken } from 'api/session-token';
 
 export interface PluginDescriptor {
   name: string;
@@ -34,7 +35,7 @@ export interface PluginDescriptor {
 async function fetchPluginsForNamespace(
   namespace: string
 ): Promise<PluginDescriptor[]> {
-  const token = localStorage.getItem('everestToken');
+  const token = getAuthToken();
   const headers: Record<string, string> = {};
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;
