@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -35,6 +36,7 @@ export const AdvancedConfigurationEditModal = ({
   handleSubmitModal,
   dbCluster,
   submitting,
+  showProxyConfig = false,
 }: AdvancedConfigurationModalProps) => {
   const onSubmit: SubmitHandler<AdvancedConfigurationFormType> = ({
     exposureMethod,
@@ -47,6 +49,8 @@ export const AdvancedConfigurationEditModal = ({
     loadBalancerConfigName,
     splitHorizonDNSEnabled,
     splitHorizonDNS,
+    proxyConfigEnabled,
+    proxyConfig,
   }) => {
     handleSubmitModal({
       engineParametersEnabled,
@@ -62,6 +66,8 @@ export const AdvancedConfigurationEditModal = ({
           : '',
       splitHorizonDNSEnabled,
       splitHorizonDNS,
+      proxyConfigEnabled,
+      proxyConfig,
     });
   };
 
@@ -101,6 +107,7 @@ export const AdvancedConfigurationEditModal = ({
         activePolicy={dbCluster?.spec.podSchedulingPolicyName}
         namespace={dbCluster?.metadata.namespace}
         showSplitHorizonDNS={false}
+        showProxyConfig={showProxyConfig}
       />
     </FormDialog>
   );
