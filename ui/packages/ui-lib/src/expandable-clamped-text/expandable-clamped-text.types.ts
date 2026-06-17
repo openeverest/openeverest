@@ -20,7 +20,6 @@ type TextStyleProps = Pick<TypographyProps, 'variant' | 'color' | 'sx'>;
 export type ExpandableClampedTextExpandStrategy =
   | {
       type: 'inline';
-      /** Title for the fallback dialog when text is too long for inline expand. */
       dialogTitle?: string;
     }
   | {
