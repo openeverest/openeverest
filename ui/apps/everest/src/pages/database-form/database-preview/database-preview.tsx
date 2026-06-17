@@ -86,7 +86,6 @@ export const DatabasePreview = ({
         <DynamicSectionPreview
           section={sections[key]}
           formValues={values}
-          onMultilineExpand={() => onSectionEdit(getSectionStepId(key))}
         />
       ),
     })),

@@ -43,8 +43,7 @@ export const renderComponent = (
   componentKey: string,
   component: Component | ComponentGroup,
   formValues: Record<string, unknown>,
-  parentPrefix = '',
-  onMultilineExpand?: () => void
+  parentPrefix = ''
 ): React.ReactNode => {
   if (!component) return null;
 
@@ -55,8 +54,7 @@ export const renderComponent = (
           `${componentKey}.${subKey}`,
           subComp,
           formValues,
-          parentPrefix ? `${parentPrefix}.${componentKey}` : componentKey,
-          onMultilineExpand
+          parentPrefix ? `${parentPrefix}.${componentKey}` : componentKey
         )
     );
   }
@@ -104,16 +102,7 @@ export const renderComponent = (
         <ExpandableClampedText
           value={displayValue}
           dataTestId="preview-truncated-field"
-          expandStrategy={
-            onMultilineExpand
-              ? {
-                  type: 'navigate',
-                  onExpand: onMultilineExpand,
-                }
-              : {
-                  type: 'inline',
-                }
-          }
+          expandStrategy={{ type: 'inline', dialogTitle: label }}
           textTypographyProps={{
             variant: 'caption',
             color: 'text.secondary',

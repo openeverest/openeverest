@@ -40,11 +40,17 @@ import {
 
 export const DEFAULT_LINE_CLAMP = 2;
 export const DEFAULT_SCROLL_MAX_HEIGHT = 120;
+const INLINE_CHAR_LIMIT = 255;
+const INLINE_LINE_LIMIT = 5;
 
 const linkSx = {
   cursor: 'pointer',
   typography: 'inherit',
-  alignSelf: 'flex-end',
+  alignSelf: 'flex-start',
+  lineHeight: 1.2,
+  px: 0,
+  py: 0,
+  minHeight: 'auto',
 };
 
 const ExpandedTextSx = {
@@ -73,12 +79,29 @@ export const ExpandableClampedText = ({
   const strategyType = expandStrategy.type;
   const isScrollStrategy = strategyType === 'scroll';
 
+  // When inline strategy is used but text is too long, auto-escalate to dialog
+  const tooLongForInline =
+    strategyType === 'inline' &&
+    (value.length > INLINE_CHAR_LIMIT ||
+      value.split('\n').length > INLINE_LINE_LIMIT);
+
+  const effectiveStrategy = tooLongForInline ? 'dialog' : strategyType;
+
   const dialogConfig =
-    strategyType === 'dialog'
+    effectiveStrategy === 'dialog'
       ? {
-          title: expandStrategy.dialogTitle ?? DefaultMessages.dialogTitle,
-          closeLabel: expandStrategy.closeDialogLabel ?? DefaultMessages.close,
-          props: expandStrategy.dialogProps,
+          title:
+            (strategyType === 'dialog'
+              ? expandStrategy.dialogTitle
+              : strategyType === 'inline'
+                ? expandStrategy.dialogTitle
+                : undefined) ?? DefaultMessages.dialogTitle,
+          closeLabel:
+            (strategyType === 'dialog'
+              ? expandStrategy.closeDialogLabel
+              : undefined) ?? DefaultMessages.close,
+          props:
+            strategyType === 'dialog' ? expandStrategy.dialogProps : undefined,
         }
       : null;
 
@@ -142,24 +165,24 @@ export const ExpandableClampedText = ({
     [lineClamp]
   );
 
-  const shouldShowToggle = hasOverflow && strategyType !== 'scroll';
+  const shouldShowToggle = hasOverflow && effectiveStrategy !== 'scroll';
 
   const toggleLabel =
-    strategyType === 'inline' && expandedInline
+    effectiveStrategy === 'inline' && expandedInline
       ? DefaultMessages.showLess
       : DefaultMessages.showMore;
 
   const toggleAriaExpanded =
-    strategyType === 'inline'
+    effectiveStrategy === 'inline'
       ? expandedInline
-      : strategyType === 'dialog'
+      : effectiveStrategy === 'dialog'
         ? modalOpen
         : false;
 
   const handleToggleClick = (e: MouseEvent<HTMLElement>) => {
     e.preventDefault();
 
-    switch (strategyType) {
+    switch (effectiveStrategy) {
       case 'inline': {
         setExpandedInline((prev) => !prev);
         return;
@@ -169,7 +192,9 @@ export const ExpandableClampedText = ({
         return;
       }
       case 'navigate': {
-        expandStrategy.onExpand();
+        if (expandStrategy.type === 'navigate') {
+          expandStrategy.onExpand();
+        }
         return;
       }
       case 'scroll':
@@ -211,7 +236,9 @@ export const ExpandableClampedText = ({
             component="button"
             type="button"
             underline="always"
-            variant={linkTypographyProps?.variant}
+            variant={
+              linkTypographyProps?.variant ?? textTypographyProps?.variant ?? 'caption'
+            }
             color={linkTypographyProps?.color}
             onClick={handleToggleClick}
             aria-expanded={toggleAriaExpanded}
