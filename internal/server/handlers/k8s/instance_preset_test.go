@@ -113,13 +113,15 @@ func TestApplyNamespaceDefaults_New(t *testing.T) {
 			input: newTestPreset(map[string]corev1alpha1.ComponentSpec{
 				"pmm": {
 					CustomSpec: &runtime.RawExtension{
-						Raw: mustMarshal(t, map[string]any{"monitoringConfigName": ""})},
+						Raw: mustMarshal(t, map[string]any{"monitoringConfigName": ""}),
+					},
 				},
 			}),
 			expected: newTestPreset(map[string]corev1alpha1.ComponentSpec{
 				"pmm": {
 					CustomSpec: &runtime.RawExtension{
-						Raw: mustMarshal(t, map[string]any{"monitoringConfigName": "default-monitoring"})},
+						Raw: mustMarshal(t, map[string]any{"monitoringConfigName": "default-monitoring"}),
+					},
 				},
 			}),
 		},
@@ -128,13 +130,15 @@ func TestApplyNamespaceDefaults_New(t *testing.T) {
 			input: newTestPreset(map[string]corev1alpha1.ComponentSpec{
 				"pmm": {
 					CustomSpec: &runtime.RawExtension{
-						Raw: mustMarshal(t, map[string]any{"monitoringConfig": ""})},
+						Raw: mustMarshal(t, map[string]any{"monitoringConfig": ""}),
+					},
 				},
 			}),
 			expected: newTestPreset(map[string]corev1alpha1.ComponentSpec{
 				"pmm": {
 					CustomSpec: &runtime.RawExtension{
-						Raw: mustMarshal(t, map[string]any{"monitoringConfig": "default-monitoring"})},
+						Raw: mustMarshal(t, map[string]any{"monitoringConfig": "default-monitoring"}),
+					},
 				},
 			}),
 		},
@@ -143,13 +147,15 @@ func TestApplyNamespaceDefaults_New(t *testing.T) {
 			input: newTestPreset(map[string]corev1alpha1.ComponentSpec{
 				"pmm": {
 					CustomSpec: &runtime.RawExtension{
-						Raw: mustMarshal(t, map[string]any{"monitoringConfigRef": corev1.LocalObjectReference{Name: ""}})},
+						Raw: mustMarshal(t, map[string]any{"monitoringConfigRef": corev1.LocalObjectReference{Name: ""}}),
+					},
 				},
 			}),
 			expected: newTestPreset(map[string]corev1alpha1.ComponentSpec{
 				"pmm": {
 					CustomSpec: &runtime.RawExtension{
-						Raw: mustMarshal(t, map[string]any{"monitoringConfigRef": corev1.LocalObjectReference{Name: "default-monitoring"}})},
+						Raw: mustMarshal(t, map[string]any{"monitoringConfigRef": corev1.LocalObjectReference{Name: "default-monitoring"}}),
+					},
 				},
 			}),
 		},
@@ -158,13 +164,15 @@ func TestApplyNamespaceDefaults_New(t *testing.T) {
 			input: newTestPreset(map[string]corev1alpha1.ComponentSpec{
 				"other": {
 					CustomSpec: &runtime.RawExtension{
-						Raw: mustMarshal(t, map[string]any{"monitoringConfigName": ""})},
+						Raw: mustMarshal(t, map[string]any{"monitoringConfigName": ""}),
+					},
 				},
 			}),
 			expected: newTestPreset(map[string]corev1alpha1.ComponentSpec{
 				"other": {
 					CustomSpec: &runtime.RawExtension{
-						Raw: mustMarshal(t, map[string]any{"monitoringConfigName": ""})},
+						Raw: mustMarshal(t, map[string]any{"monitoringConfigName": ""}),
+					},
 				},
 			}),
 		},
@@ -173,12 +181,16 @@ func TestApplyNamespaceDefaults_New(t *testing.T) {
 			input: newTestPreset(map[string]corev1alpha1.ComponentSpec{
 				"pmm": {
 					CustomSpec: &runtime.RawExtension{
-						Raw: mustMarshal(t, map[string]any{"nested": map[string]any{"monitoringConfigName": ""}})}},
+						Raw: mustMarshal(t, map[string]any{"nested": map[string]any{"monitoringConfigName": ""}}),
+					},
+				},
 			}),
 			expected: newTestPreset(map[string]corev1alpha1.ComponentSpec{
 				"pmm": {
 					CustomSpec: &runtime.RawExtension{
-						Raw: mustMarshal(t, map[string]any{"nested": map[string]any{"monitoringConfigName": "default-monitoring"}})}},
+						Raw: mustMarshal(t, map[string]any{"nested": map[string]any{"monitoringConfigName": "default-monitoring"}}),
+					},
+				},
 			}),
 		},
 		{
@@ -186,13 +198,15 @@ func TestApplyNamespaceDefaults_New(t *testing.T) {
 			input: newTestPreset(map[string]corev1alpha1.ComponentSpec{
 				"pmm": {
 					CustomSpec: &runtime.RawExtension{
-						Raw: mustMarshal(t, map[string]any{"randomField": ""})},
+						Raw: mustMarshal(t, map[string]any{"randomField": ""}),
+					},
 				},
 			}),
 			expected: newTestPreset(map[string]corev1alpha1.ComponentSpec{
 				"pmm": {
 					CustomSpec: &runtime.RawExtension{
-						Raw: mustMarshal(t, map[string]any{"randomField": ""})},
+						Raw: mustMarshal(t, map[string]any{"randomField": ""}),
+					},
 				},
 			}),
 		},
