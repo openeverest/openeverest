@@ -20,6 +20,8 @@ tags:
     description: Everything related to providers
   - name: Instance
     description: Everything related to instances
+  - name: Preset
+    description: Everything related to presets
   - name: Backup
     description: Everything related to backups
   - name: Restore
@@ -436,7 +438,7 @@ paths:
     x-everest-resource-name: instance-presets
     get:
       tags:
-        - Instance
+        - Preset
       summary: List instance presets
       description: |
         This API lists all instance presets in the specified cluster.
@@ -472,7 +474,7 @@ paths:
     x-everest-resource-name: instance-presets
     get:
       tags:
-        - Instance
+        - Preset
       summary: Get instance preset
       description: |
         This API gets the instance preset specified by the `name` in the specified `cluster`.
@@ -513,7 +515,7 @@ paths:
     x-everest-resource-name: instance-presets
     get:
       tags:
-        - Instance
+        - Preset
       summary: Resolve instance preset with namespace defaults
       description: |
         This API resolves the instance preset specified by the `name` in the specified `cluster`.

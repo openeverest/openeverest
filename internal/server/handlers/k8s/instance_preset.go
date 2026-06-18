@@ -34,7 +34,6 @@ func (h *k8sHandler) ListInstancePresets(ctx context.Context, cluster string, pr
 		return nil, fmt.Errorf("failed to list instance presets: %w", err)
 	}
 
-	// Filter by provider if specified
 	if provider != "" {
 		filtered := make([]corev1alpha1.InstancePreset, 0)
 		for _, preset := range list.Items {
@@ -50,7 +49,6 @@ func (h *k8sHandler) ListInstancePresets(ctx context.Context, cluster string, pr
 
 // GetInstancePreset returns an instance preset that matches the criteria.
 func (h *k8sHandler) GetInstancePreset(ctx context.Context, cluster, name string) (*corev1alpha1.InstancePreset, error) {
-	// InstancePresets are cluster-scoped, so no namespace
 	return h.kubeConnector.GetInstancePreset(ctx, types.NamespacedName{Name: name})
 }
 
@@ -67,15 +65,20 @@ func (h *k8sHandler) ResolveInstancePreset(ctx context.Context, cluster, name, n
 	return h.resolveNamespaceDefaults(ctx, resolved, namespace)
 }
 
-// resolveNamespaceDefaults scans components and resolves empty namespace reference fields
-// and populates them.
+// resolveNamespaceDefaults scans components and resolves
+// empty namespace reference fields and populates them.
 // The fields that could have namespace references are in config and customSpec.
-// Other fields such as resources, image, etc. are not namespace-specific and are not resolved here.
+// It skips other fields like resources, image, etc. since they are not
+// namespace-specific, and also skips fields with unknown type.
+// Supported types are Secret and MonitoringConfig.
+// The resolution is based on the most recently created resource with the
+// annotation "openeverest.io/is-default-components-<componentName>" set
+// to "true" in the specified namespace.
 func (h *k8sHandler) resolveNamespaceDefaults(ctx context.Context, preset *corev1alpha1.InstancePreset, namespace string) (*corev1alpha1.InstancePreset, error) {
 	for componentName, component := range preset.Spec.Components {
 		var err error
 
-		// Resolve structured Config fields
+		// Resolve Config fields
 		if component.Config != nil {
 			component, err = h.resolveConfigFields(ctx, component, componentName, namespace)
 			if err != nil {
@@ -83,7 +86,7 @@ func (h *k8sHandler) resolveNamespaceDefaults(ctx context.Context, preset *corev
 			}
 		}
 
-		// Resolve unstructured customSpec fields
+		// Resolve customSpec fields
 		if component.CustomSpec != nil && len(component.CustomSpec.Raw) > 0 {
 			component, err = h.resolveCustomSpecFields(ctx, component, componentName, namespace)
 			if err != nil {
@@ -98,7 +101,7 @@ func (h *k8sHandler) resolveNamespaceDefaults(ctx context.Context, preset *corev
 }
 
 // resolveConfigFields handles structured Config.SecretRef.Name.
-// TODO: resolve Config.ConfigMapRef.Name.
+// TODO: support Config.ConfigMapRef.Name.
 func (h *k8sHandler) resolveConfigFields(ctx context.Context, component corev1alpha1.ComponentSpec, componentName, namespace string) (corev1alpha1.ComponentSpec, error) {
 	if component.Config == nil {
 		return component, nil
@@ -115,7 +118,7 @@ func (h *k8sHandler) resolveConfigFields(ctx context.Context, component corev1al
 	return component, nil
 }
 
-// resolveCustomSpecFields handles unstructured customSpec fields recursively
+// resolveCustomSpecFields handles unstructured customSpec fields recursively.
 func (h *k8sHandler) resolveCustomSpecFields(ctx context.Context, component corev1alpha1.ComponentSpec, componentName, namespace string) (corev1alpha1.ComponentSpec, error) {
 	var data map[string]any
 	if err := json.Unmarshal(component.CustomSpec.Raw, &data); err != nil {
@@ -143,8 +146,7 @@ func (h *k8sHandler) resolveMapFieldsRecursive(ctx context.Context, data map[str
 	var modified bool
 
 	for fieldName, value := range data {
-		// Check if this is a field is the type it can be resolved
-		resourceType := inferResourceType(fieldName)
+		resourceType := inferSupportedResourceType(fieldName)
 		if resourceType == "" {
 			if nested, ok := value.(map[string]any); ok {
 				m, err := h.resolveMapFieldsRecursive(ctx, nested, componentName, namespace)
@@ -238,11 +240,11 @@ func (h *k8sHandler) findDefaultResource(ctx context.Context, namespace, resourc
 	return mostRecent.GetName(), nil
 }
 
-// inferResourceType derives resource type from field name.
+// inferSupportedResourceType derives resource type from field name.
 // Returns empty string if field is not supported resource type.
 // secretRef -> Secret
 // monitoringConfigName -> MonitoringConfig
-func inferResourceType(fieldName string) string {
+func inferSupportedResourceType(fieldName string) string {
 	resolvableFields := map[string]string{
 		"secret":               "Secret",
 		"secretName":           "Secret",
