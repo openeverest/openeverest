@@ -40,6 +40,7 @@ type Handler interface {
 	BackupStorageHandler
 	ProviderHandler
 	InstanceHandler
+	InstancePresetHandler
 	ClusterHandler
 	BackupClassHandler
 	BackupHandler
@@ -83,6 +84,13 @@ type InstanceHandler interface {
 	UpdateInstance(ctx context.Context, cluster string, instance *corev1alpha1.Instance) (*corev1alpha1.Instance, error)
 	DeleteInstance(ctx context.Context, cluster, namespace, name string, params *api.DeleteInstanceParams) error
 	GetInstanceConnection(ctx context.Context, cluster, namespace, name string) (*api.InstanceConnectionDetails, error)
+}
+
+// InstancePresetHandler provides methods for handling operations on instance presets.
+type InstancePresetHandler interface {
+	ListInstancePresets(ctx context.Context, cluster string, provider string) (*corev1alpha1.InstancePresetList, error)
+	GetInstancePreset(ctx context.Context, cluster, name string) (*corev1alpha1.InstancePreset, error)
+	ResolveInstancePreset(ctx context.Context, cluster, name, namespace string) (*corev1alpha1.InstancePreset, error)
 }
 
 // ClusterHandler provides methods for handling operations on clusters.

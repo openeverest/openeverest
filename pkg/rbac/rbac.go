@@ -69,6 +69,7 @@ const (
 	ResourceClusters          = "clusters"
 	ResourceProviders         = "providers"
 	ResourceInstances         = "instances"
+	ResourceInstancePresets   = "instance-presets"
 	ResourceBackupClasses     = "backup-classes"
 	ResourceBackups           = "backups"
 	ResourceRestores          = "restores"
