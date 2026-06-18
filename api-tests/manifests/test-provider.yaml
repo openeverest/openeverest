@@ -1,0 +1,35 @@
+# Basic test provider for instance preset testing
+apiVersion: core.openeverest.io/v1alpha1
+kind: Provider
+metadata:
+  name: test-provider
+spec:
+  componentTypes:
+    engine:
+      versions:
+        - version: "1.0.0"
+          image: "test/engine:1.0.0"
+          default: true
+    monitoring:
+      versions:
+        - version: "1.0.0"
+          image: "test/monitoring:1.0.0"
+          default: true
+  components:
+    engine:
+      type: engine
+    monitoring:
+      type: monitoring
+  topologies:
+    standalone:
+      components:
+        engine:
+          optional: false
+        monitoring:
+          optional: true
+  versions:
+    - name: "1.0.0"
+      components:
+        engine: "1.0.0"
+        monitoring: "1.0.0"
+      default: true

@@ -135,6 +135,7 @@ export default defineConfig({
       dependencies: [
         'auth',
         'backup-storage',
+        'instance-preset',
         'kubernetes',
         'monitoring-config-v2',
         'settings',
@@ -210,6 +211,18 @@ export default defineConfig({
       name: 'version',
       testDir: 'tests',
       testMatch: /version\.spec\.ts/,
+      dependencies: ['global:auth:ci:setup'],
+      use: {
+        extraHTTPHeaders: {
+          'Authorization': `Bearer ${process.env[API_CI_TOKEN]}`,
+        }
+      },
+    },
+    // instance-preset tests
+    {
+      name: 'instance-preset',
+      testDir: 'tests',
+      testMatch: /instance-preset\.spec\.ts/,
       dependencies: ['global:auth:ci:setup'],
       use: {
         extraHTTPHeaders: {

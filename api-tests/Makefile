@@ -18,7 +18,7 @@ init:     ## Install tests dependencies.
 
 # NOTE: API tests do not wait for DB clusters to be ready.
 # The only exception is pg-data-importer test, so that only PG images are pre-uploaded to K3D cluster.
-CI_INIT_DEPS := init deploy-monitoring create-test-users k3d-upload-images
+CI_INIT_DEPS := init deploy-monitoring create-test-users k3d-upload-images create-provider
 CI_INIT_DEPS += deploy-minio
 .PHONY: ci-init
 ci-init: $(CI_INIT_DEPS) 	## Prepare environment for running tests.
@@ -59,6 +59,20 @@ deploy-minio:
 		kubectl get events -n minio --sort-by=.lastTimestamp || true; \
 		exit 1; \
     fi
+
+TEST_PROVIDER_RESOURCE=$(TEST_ROOT)/manifests/test-provider.yaml
+TEST_PRESET_RESOURCE=$(TEST_ROOT)/manifests/test-preset.yaml
+.PHONY: create-provider
+create-provider:
+	$(info Deploying test provider and preset)
+	kubectl apply -f $(TEST_PROVIDER_RESOURCE)
+	kubectl apply -f $(TEST_PRESET_RESOURCE)
+
+.PHONY: cleanup-provider
+cleanup-provider:
+	$(info Cleaning up test provider and preset)
+	kubectl delete -f $(TEST_PRESET_RESOURCE) --ignore-not-found=true
+	kubectl delete -f $(TEST_PROVIDER_RESOURCE) --ignore-not-found=true
 
 .PHONY: k3d-upload-pg-images
 k3d-upload-pg-images: ## Pre-upload Postgresql images to K3D test  cluster to speedup tests execution.
