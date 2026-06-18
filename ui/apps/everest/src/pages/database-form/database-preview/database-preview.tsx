@@ -83,10 +83,7 @@ export const DatabasePreview = ({
       stepId: getSectionStepId(key),
       title: sections[key]?.label || key,
       content: (
-        <DynamicSectionPreview
-          section={sections[key]}
-          formValues={values}
-        />
+        <DynamicSectionPreview section={sections[key]} formValues={values} />
       ),
     })),
   ];

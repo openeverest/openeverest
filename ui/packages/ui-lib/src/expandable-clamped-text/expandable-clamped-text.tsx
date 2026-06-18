@@ -237,7 +237,9 @@ export const ExpandableClampedText = ({
             type="button"
             underline="always"
             variant={
-              linkTypographyProps?.variant ?? textTypographyProps?.variant ?? 'caption'
+              linkTypographyProps?.variant ??
+              textTypographyProps?.variant ??
+              'caption'
             }
             color={linkTypographyProps?.color}
             onClick={handleToggleClick}
