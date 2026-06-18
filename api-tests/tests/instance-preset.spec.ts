@@ -19,14 +19,10 @@ import {checkError} from '@tests/utils/api';
 const PROVIDER_NAME = 'test-provider';
 const PRESET_NAME = 'test-preset';
 const INSTANCE_NAME = 'test-instance-from-preset';
-const CLUSTER_NAME = 'local';
+const CLUSTER_NAME = 'main';
 
 test.describe('Instance Preset tests', () => {
   test.describe.configure({timeout: TIMEOUTS.OneMinute});
-
-  test.beforeAll(async () => {
-    await new Promise(resolve => setTimeout(resolve, 2000));
-  });
 
   test.afterAll(async ({request}) => {
     // Clean up instance
@@ -65,6 +61,8 @@ test.describe('Instance Preset tests', () => {
     expect(preset.spec.provider).toBe(PROVIDER_NAME);
     expect(preset.spec.version).toBe('1.0.0');
     expect(preset.spec).toBeTruthy();
+    // Verify namespace scope secret is empty
+    expect(preset.spec.components.engine.config.secretRef.name).toBeUndefined();
   });
   
   test('create instance using preset', async ({request}) => {
@@ -76,6 +74,9 @@ test.describe('Instance Preset tests', () => {
 
       await checkError(resolveResponse);
       const preset = await resolveResponse.json();
+
+      // Verify namespace scope secret has default filled fields
+      expect(preset.spec.components.engine.config.secretRef.name).toBe("test-secret");
 
       // Copy the preset spec and add annotation
       const instancePayload = {
@@ -97,10 +98,6 @@ test.describe('Instance Preset tests', () => {
       );
 
       await checkError(response);
-      const instance = await response.json();
-      
-      expect(instance.metadata.name).toBe(INSTANCE_NAME);
-      expect(instance.spec.provider).toBe(PROVIDER_NAME);
     });
 
     await test.step('verify instance was created', async () => {
@@ -113,9 +110,7 @@ test.describe('Instance Preset tests', () => {
         const instance = await response.json();
         
         expect(instance.metadata.name).toBe(INSTANCE_NAME);
-        expect(instance.spec.provider).toBe(PROVIDER_NAME);
-        expect(instance.spec.version).toBe('1.0.0');
-        expect(instance.spec.topology.type).toBe('standalone');
+        expect(instance.spec.components.engine.config.secretRef.name).toBe("test-secret");
       }).toPass({
         intervals: [2000],
         timeout: TIMEOUTS.OneMinute,

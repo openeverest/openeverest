@@ -19,3 +19,6 @@ spec:
         limits:
           cpu: "2"
           memory: "2Gi"
+      config:
+        secretRef:
+          name: ""

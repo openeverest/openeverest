@@ -5,31 +5,20 @@ metadata:
   name: test-provider
 spec:
   componentTypes:
-    engine:
+    enginex:
       versions:
         - version: "1.0.0"
           image: "test/engine:1.0.0"
           default: true
-    monitoring:
-      versions:
-        - version: "1.0.0"
-          image: "test/monitoring:1.0.0"
-          default: true
   components:
     engine:
-      type: engine
-    monitoring:
-      type: monitoring
+      type: enginex
   topologies:
     standalone:
       components:
         engine:
-          optional: false
-        monitoring:
-          optional: true
   versions:
     - name: "1.0.0"
       components:
-        engine: "1.0.0"
-        monitoring: "1.0.0"
+        enginex: "1.0.0"
       default: true
