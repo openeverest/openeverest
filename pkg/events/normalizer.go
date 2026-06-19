@@ -18,10 +18,13 @@ import (
 	"time"
 
 	everestv1alpha1 "github.com/percona/everest-operator/api/everest/v1alpha1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/watch"
 
 	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
 	corev1alpha1 "github.com/openeverest/openeverest/v2/api/core/v1alpha1"
+	extensionsv1alpha1 "github.com/openeverest/openeverest/v2/api/extensions/v1alpha1"
+	"github.com/openeverest/openeverest/v2/pkg/common"
 )
 
 // NormalizeDatabaseCluster converts a kube watch event on a DatabaseCluster
@@ -299,4 +302,180 @@ func isRestoreComplete(state string) bool {
 
 func isRestoreFailed(state string) bool {
 	return state == "Failed" || state == "Error"
+}
+
+// NormalizeNamespace converts a kube watch event on a managed Namespace
+// into a namespace.added / namespace.removed event.
+func NormalizeNamespace(we watch.Event) []Event {
+	obj, ok := we.Object.(*corev1.Namespace)
+	if !ok {
+		return nil
+	}
+	ref := ResourceRef{
+		Kind: "Namespace",
+		Name: obj.Name,
+		UID:  string(obj.UID),
+	}
+	now := time.Now().UTC()
+	switch we.Type {
+	case watch.Added:
+		return []Event{{
+			ResourceVersion: obj.ResourceVersion,
+			Type:            NamespaceAdded,
+			OccurredAt:      now,
+			Namespace:       obj.Name,
+			Resource:        ref,
+		}}
+	case watch.Deleted:
+		return []Event{{
+			ResourceVersion: obj.ResourceVersion,
+			Type:            NamespaceRemoved,
+			OccurredAt:      now,
+			Namespace:       obj.Name,
+			Resource:        ref,
+		}}
+	}
+	return nil
+}
+
+// NormalizePlugin converts a kube watch event on a Plugin CR into a
+// plugin.installed / plugin.uninstalled event. Plugin is cluster-scoped.
+func NormalizePlugin(we watch.Event) []Event {
+	obj, ok := we.Object.(*extensionsv1alpha1.Plugin)
+	if !ok {
+		return nil
+	}
+	ref := ResourceRef{
+		Kind: "Plugin",
+		Name: obj.Name,
+		UID:  string(obj.UID),
+	}
+	now := time.Now().UTC()
+	switch we.Type {
+	case watch.Added:
+		return []Event{{
+			ResourceVersion: obj.ResourceVersion,
+			Type:            PluginInstalled,
+			OccurredAt:      now,
+			Resource:        ref,
+		}}
+	case watch.Deleted:
+		return []Event{{
+			ResourceVersion: obj.ResourceVersion,
+			Type:            PluginUninstalled,
+			OccurredAt:      now,
+			Resource:        ref,
+		}}
+	}
+	return nil
+}
+
+// NormalizeInstalledExtension converts a kube watch event on an
+// InstalledExtension CR into a plugin.enabled / plugin.disabled event when
+// the rolled-up phase crosses the Installed boundary.
+func NormalizeInstalledExtension(we watch.Event, old *extensionsv1alpha1.InstalledExtension) []Event {
+	obj, ok := we.Object.(*extensionsv1alpha1.InstalledExtension)
+	if !ok {
+		return nil
+	}
+	pluginName := ""
+	if obj.Spec.Plugin != nil {
+		pluginName = obj.Spec.Plugin.PluginCRName
+	}
+	ref := ResourceRef{
+		Kind: "InstalledExtension",
+		Name: obj.Name,
+		UID:  string(obj.UID),
+	}
+	now := time.Now().UTC()
+	newPhase := string(obj.Status.Phase)
+	oldPhase := ""
+	if old != nil {
+		oldPhase = string(old.Status.Phase)
+	}
+	installed := func(p string) bool {
+		return p == string(extensionsv1alpha1.InstalledExtensionPhaseInstalled)
+	}
+
+	switch we.Type {
+	case watch.Added:
+		if installed(newPhase) {
+			return []Event{{
+				ResourceVersion: obj.ResourceVersion,
+				Type:            PluginEnabled,
+				OccurredAt:      now,
+				Namespace:       obj.Namespace,
+				Resource:        ref,
+				NewState:        StateSnapshot{Phase: newPhase},
+				Actor:           Actor{Type: "plugin", ID: pluginName},
+			}}
+		}
+	case watch.Modified:
+		switch {
+		case installed(newPhase) && !installed(oldPhase):
+			return []Event{{
+				ResourceVersion: obj.ResourceVersion,
+				Type:            PluginEnabled,
+				OccurredAt:      now,
+				Namespace:       obj.Namespace,
+				Resource:        ref,
+				PrevState:       StateSnapshot{Phase: oldPhase},
+				NewState:        StateSnapshot{Phase: newPhase},
+				Actor:           Actor{Type: "plugin", ID: pluginName},
+			}}
+		case !installed(newPhase) && installed(oldPhase):
+			return []Event{{
+				ResourceVersion: obj.ResourceVersion,
+				Type:            PluginDisabled,
+				OccurredAt:      now,
+				Namespace:       obj.Namespace,
+				Resource:        ref,
+				PrevState:       StateSnapshot{Phase: oldPhase},
+				NewState:        StateSnapshot{Phase: newPhase},
+				Actor:           Actor{Type: "plugin", ID: pluginName},
+			}}
+		}
+	case watch.Deleted:
+		if installed(oldPhase) || installed(newPhase) {
+			return []Event{{
+				ResourceVersion: obj.ResourceVersion,
+				Type:            PluginDisabled,
+				OccurredAt:      now,
+				Namespace:       obj.Namespace,
+				Resource:        ref,
+				PrevState:       StateSnapshot{Phase: oldPhase},
+				Actor:           Actor{Type: "plugin", ID: pluginName},
+			}}
+		}
+	}
+	return nil
+}
+
+// NormalizeEverestSettings converts a kube watch event on the Everest
+// settings ConfigMap into a settings.updated event. Non-settings ConfigMaps
+// in the watched namespace are filtered out.
+func NormalizeEverestSettings(we watch.Event) []Event {
+	obj, ok := we.Object.(*corev1.ConfigMap)
+	if !ok {
+		return nil
+	}
+	if obj.Name != common.EverestSettingsConfigMapName {
+		return nil
+	}
+	// Only Modified is meaningful: Added fires on every controller restart for
+	// the bootstrap configmap, and Deleted is effectively unrecoverable here.
+	if we.Type != watch.Modified {
+		return nil
+	}
+	return []Event{{
+		ResourceVersion: obj.ResourceVersion,
+		Type:            SettingsUpdated,
+		OccurredAt:      time.Now().UTC(),
+		Namespace:       obj.Namespace,
+		Resource: ResourceRef{
+			Kind: "ConfigMap",
+			Name: obj.Name,
+			UID:  string(obj.UID),
+		},
+	}}
 }

@@ -38,6 +38,20 @@ const (
 
 	InstanceCreated Type = "instance.created"
 	InstanceDeleted Type = "instance.deleted"
+
+	UserLogin       Type = "user.login"
+	UserLoginFailed Type = "user.login-failed"
+	UserLogout      Type = "user.logout"
+
+	PluginInstalled   Type = "plugin.installed"
+	PluginUninstalled Type = "plugin.uninstalled"
+	PluginEnabled     Type = "plugin.enabled"
+	PluginDisabled    Type = "plugin.disabled"
+
+	NamespaceAdded   Type = "namespace.added"
+	NamespaceRemoved Type = "namespace.removed"
+
+	SettingsUpdated Type = "settings.updated"
 )
 
 // AllTypes is the complete set of recognised event types.
@@ -48,6 +62,10 @@ var AllTypes = []Type{
 	BackupStarted, BackupCompleted, BackupFailed,
 	RestoreStarted, RestoreCompleted, RestoreFailed,
 	InstanceCreated, InstanceDeleted,
+	UserLogin, UserLoginFailed, UserLogout,
+	PluginInstalled, PluginUninstalled, PluginEnabled, PluginDisabled,
+	NamespaceAdded, NamespaceRemoved,
+	SettingsUpdated,
 }
 
 // ResourceRef identifies the Kubernetes resource that triggered the event.

@@ -30,6 +30,7 @@ import (
 	"github.com/openeverest/openeverest/v2/internal/tokenregistry"
 	"github.com/openeverest/openeverest/v2/pkg/accounts"
 	"github.com/openeverest/openeverest/v2/pkg/common"
+	"github.com/openeverest/openeverest/v2/pkg/events"
 )
 
 const (
@@ -76,6 +77,7 @@ func (e *EverestServer) handlePasswordGrant(ctx echo.Context, params api.AuthTok
 	c := ctx.Request().Context()
 	if err := e.sessionMgr.Authenticate(c, *params.Username, *params.Password); err != nil {
 		e.attemptsStore.IncreaseTimeout(ctx.RealIP())
+		e.publishAuthEvent(events.UserLoginFailed, *params.Username, ctx.RealIP(), err.Error())
 		return sessionErrToHTTPRes(ctx, err)
 	}
 
@@ -86,6 +88,7 @@ func (e *EverestServer) handlePasswordGrant(ctx echo.Context, params api.AuthTok
 	}
 
 	e.attemptsStore.CleanupVisitor(ctx.RealIP())
+	e.publishAuthEvent(events.UserLogin, *params.Username, ctx.RealIP(), "")
 
 	return e.respondWithTokens(ctx, *params.Username, refreshToken, useCookieDelivery(params))
 }
@@ -212,6 +215,7 @@ func (e *EverestServer) RevokeAuthToken(ctx echo.Context) error {
 		return errFailedLogout(ctx)
 	}
 
+	e.publishAuthEvent(events.UserLogout, subjectFromJWT(token), ctx.RealIP(), "")
 	return ctx.NoContent(http.StatusNoContent)
 }
 
