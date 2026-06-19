@@ -104,6 +104,90 @@ func (e BackupStorageSpecType) Valid() bool {
 	}
 }
 
+// Defines values for InstalledExtensionSpecPluginScope.
+const (
+	InstalledExtensionSpecPluginScopeCluster    InstalledExtensionSpecPluginScope = "Cluster"
+	InstalledExtensionSpecPluginScopeNamespaces InstalledExtensionSpecPluginScope = "Namespaces"
+)
+
+// Valid indicates whether the value is a known member of the InstalledExtensionSpecPluginScope enum.
+func (e InstalledExtensionSpecPluginScope) Valid() bool {
+	switch e {
+	case InstalledExtensionSpecPluginScopeCluster:
+		return true
+	case InstalledExtensionSpecPluginScopeNamespaces:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for InstalledExtensionSpecType.
+const (
+	InstalledExtensionSpecTypePlugin   InstalledExtensionSpecType = "plugin"
+	InstalledExtensionSpecTypeProvider InstalledExtensionSpecType = "provider"
+)
+
+// Valid indicates whether the value is a known member of the InstalledExtensionSpecType enum.
+func (e InstalledExtensionSpecType) Valid() bool {
+	switch e {
+	case InstalledExtensionSpecTypePlugin:
+		return true
+	case InstalledExtensionSpecTypeProvider:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for InstalledExtensionStatusConditionsStatus.
+const (
+	InstalledExtensionStatusConditionsStatusFalse   InstalledExtensionStatusConditionsStatus = "False"
+	InstalledExtensionStatusConditionsStatusTrue    InstalledExtensionStatusConditionsStatus = "True"
+	InstalledExtensionStatusConditionsStatusUnknown InstalledExtensionStatusConditionsStatus = "Unknown"
+)
+
+// Valid indicates whether the value is a known member of the InstalledExtensionStatusConditionsStatus enum.
+func (e InstalledExtensionStatusConditionsStatus) Valid() bool {
+	switch e {
+	case InstalledExtensionStatusConditionsStatusFalse:
+		return true
+	case InstalledExtensionStatusConditionsStatusTrue:
+		return true
+	case InstalledExtensionStatusConditionsStatusUnknown:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for InstalledExtensionStatusPhase.
+const (
+	InstalledExtensionStatusPhaseFailed       InstalledExtensionStatusPhase = "Failed"
+	InstalledExtensionStatusPhaseInstalled    InstalledExtensionStatusPhase = "Installed"
+	InstalledExtensionStatusPhasePending      InstalledExtensionStatusPhase = "Pending"
+	InstalledExtensionStatusPhaseUninstalling InstalledExtensionStatusPhase = "Uninstalling"
+	InstalledExtensionStatusPhaseUpgrading    InstalledExtensionStatusPhase = "Upgrading"
+)
+
+// Valid indicates whether the value is a known member of the InstalledExtensionStatusPhase enum.
+func (e InstalledExtensionStatusPhase) Valid() bool {
+	switch e {
+	case InstalledExtensionStatusPhaseFailed:
+		return true
+	case InstalledExtensionStatusPhaseInstalled:
+		return true
+	case InstalledExtensionStatusPhasePending:
+		return true
+	case InstalledExtensionStatusPhaseUninstalling:
+		return true
+	case InstalledExtensionStatusPhaseUpgrading:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for InstanceSpecDataSourceType.
 const (
 	InstanceSpecDataSourceTypeBackup InstanceSpecDataSourceType = "Backup"
@@ -251,27 +335,6 @@ func (e PluginStatusConditionsStatus) Valid() bool {
 	case PluginStatusConditionsStatusTrue:
 		return true
 	case PluginStatusConditionsStatusUnknown:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for PluginInstallationStatusConditionsStatus.
-const (
-	PluginInstallationStatusConditionsStatusFalse   PluginInstallationStatusConditionsStatus = "False"
-	PluginInstallationStatusConditionsStatusTrue    PluginInstallationStatusConditionsStatus = "True"
-	PluginInstallationStatusConditionsStatusUnknown PluginInstallationStatusConditionsStatus = "Unknown"
-)
-
-// Valid indicates whether the value is a known member of the PluginInstallationStatusConditionsStatus enum.
-func (e PluginInstallationStatusConditionsStatus) Valid() bool {
-	switch e {
-	case PluginInstallationStatusConditionsStatusFalse:
-		return true
-	case PluginInstallationStatusConditionsStatusTrue:
-		return true
-	case PluginInstallationStatusConditionsStatusUnknown:
 		return true
 	default:
 		return false
@@ -892,6 +955,169 @@ type BackupStorageList struct {
 
 		// Namespace Namespace defines the space within which each name must be unique. An empty namespace is equivalent to the "default" namespace, but "default" is the canonical representation. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces
 		Namespace *string `json:"namespace,omitempty"`
+	} `json:"metadata,omitempty"`
+}
+
+// InstalledExtension InstalledExtension is the cluster-scoped record of an installed extension
+// (a generic plugin or a spec 001 provider). It is created by
+// `everestctl extension install` and owned by cluster-admin.
+type InstalledExtension struct {
+	// ApiVersion APIVersion defines the versioned schema of this representation of an object.
+	// Servers should convert recognized schemas to the latest internal value, and
+	// may reject unrecognized values.
+	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+	ApiVersion *string `json:"apiVersion,omitempty"`
+
+	// Kind Kind is a string value representing the REST resource this object represents.
+	// Servers may infer this from the endpoint the client submits requests to.
+	// Cannot be updated.
+	// In CamelCase.
+	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+	Kind     *string                 `json:"kind,omitempty"`
+	Metadata *map[string]interface{} `json:"metadata,omitempty"`
+
+	// Spec InstalledExtensionSpec defines the desired state of an InstalledExtension.
+	Spec struct {
+		// CatalogId CatalogID identifies the catalog this install was sourced from.
+		// Empty for manual installs.
+		CatalogId *string `json:"catalogId,omitempty"`
+
+		// Channel Channel is the catalog channel selected at install time (e.g. "stable").
+		Channel *string `json:"channel,omitempty"`
+
+		// ChartDigest ChartDigest is the OCI digest of the Helm chart installed for this
+		// extension. Optional in early phases; required once hub install lands.
+		ChartDigest *string `json:"chartDigest,omitempty"`
+
+		// Plugin Plugin holds plugin-specific install state. Required when type=plugin;
+		// must be nil when type=provider.
+		Plugin *struct {
+			// AllowClusterScope AllowClusterScope must be true for the reconciler to provision a
+			// ClusterRole/ClusterRoleBinding when Scope=Cluster. Without it, the
+			// reconciler refuses to create cluster-wide RBAC and sets
+			// RoleSynced=False, reason=ClusterScopeNotAllowed.
+			AllowClusterScope *bool `json:"allowClusterScope,omitempty"`
+
+			// BackendImageDigest BackendImageDigest pins the OCI digest of the backend image.
+			BackendImageDigest *string `json:"backendImageDigest,omitempty"`
+
+			// FrontendDigest FrontendDigest pins the OCI digest of the frontend bundle artifact.
+			FrontendDigest *string `json:"frontendDigest,omitempty"`
+
+			// Namespaces Namespaces lists the namespaces this plugin is enabled in. Required
+			// when Scope=Namespaces. Each entry may attach a per-tenant config
+			// secret reference.
+			Namespaces *[]struct {
+				// ConfigSecretRef ConfigSecretRef names a Secret in Name whose data is mounted as env
+				// vars on the plugin backend for this tenant.
+				ConfigSecretRef *string `json:"configSecretRef,omitempty"`
+
+				// Name Name is the Kubernetes namespace this plugin is enabled in.
+				Name string `json:"name"`
+			} `json:"namespaces,omitempty"`
+
+			// PluginCRName PluginCRName is the name of the cluster-scoped Plugin CR that this
+			// install record points at.
+			PluginCRName string `json:"pluginCRName"`
+
+			// Scope Scope controls how kubePermissions translate to RBAC.
+			// Defaults to Cluster.
+			Scope *InstalledExtensionSpecPluginScope `json:"scope,omitempty"`
+		} `json:"plugin,omitempty"`
+
+		// Provider Provider holds provider-specific install state. Required when
+		// type=provider; must be nil when type=plugin.
+		Provider *struct {
+			// ProviderName ProviderName is the name of the cluster-scoped Provider CR that this
+			// install record points at.
+			ProviderName string `json:"providerName"`
+		} `json:"provider,omitempty"`
+
+		// Type Type discriminates between plugin and provider installs. Exactly one of
+		// Plugin or Provider must be set, matching Type.
+		Type InstalledExtensionSpecType `json:"type"`
+
+		// Version Version is the SemVer version of the extension that was installed.
+		Version *string `json:"version,omitempty"`
+	} `json:"spec"`
+
+	// Status InstalledExtensionStatus defines the observed state of an InstalledExtension.
+	Status *struct {
+		// AvailableUpgrade AvailableUpgrade, when set, advertises a newer version available.
+		AvailableUpgrade *struct {
+			// ChartDigest ChartDigest is the OCI digest of the upgrade's Helm chart.
+			ChartDigest *string `json:"chartDigest,omitempty"`
+
+			// Version Version is the SemVer version of the upgrade candidate.
+			Version string `json:"version"`
+		} `json:"availableUpgrade,omitempty"`
+
+		// Conditions Conditions describes the current state of the install.
+		Conditions *[]struct {
+			// LastTransitionTime lastTransitionTime is the last time the condition transitioned from one status to another.
+			// This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+			LastTransitionTime time.Time `json:"lastTransitionTime"`
+
+			// Message message is a human readable message indicating details about the transition.
+			// This may be an empty string.
+			Message string `json:"message"`
+
+			// ObservedGeneration observedGeneration represents the .metadata.generation that the condition was set based upon.
+			// For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+			// with respect to the current state of the instance.
+			ObservedGeneration *int64 `json:"observedGeneration,omitempty"`
+
+			// Reason reason contains a programmatic identifier indicating the reason for the condition's last transition.
+			// Producers of specific condition types may define expected values and meanings for this field,
+			// and whether the values are considered a guaranteed API.
+			// The value should be a CamelCase string.
+			// This field may not be empty.
+			Reason string `json:"reason"`
+
+			// Status status of the condition, one of True, False, Unknown.
+			Status InstalledExtensionStatusConditionsStatus `json:"status"`
+
+			// Type type of condition in CamelCase or in foo.example.com/CamelCase.
+			Type string `json:"type"`
+		} `json:"conditions,omitempty"`
+
+		// InstalledAt InstalledAt is the time the extension first reached Phase=Installed.
+		InstalledAt *time.Time `json:"installedAt,omitempty"`
+
+		// LastCheckedAt LastCheckedAt is the last time the reconciler polled the catalog for
+		// available upgrades.
+		LastCheckedAt *time.Time `json:"lastCheckedAt,omitempty"`
+
+		// Phase Phase is the rollup of Conditions.
+		Phase *InstalledExtensionStatusPhase `json:"phase,omitempty"`
+	} `json:"status,omitempty"`
+}
+
+// InstalledExtensionSpecPluginScope Scope controls how kubePermissions translate to RBAC.
+// Defaults to Cluster.
+type InstalledExtensionSpecPluginScope string
+
+// InstalledExtensionSpecType Type discriminates between plugin and provider installs. Exactly one of
+// Plugin or Provider must be set, matching Type.
+type InstalledExtensionSpecType string
+
+// InstalledExtensionStatusConditionsStatus status of the condition, one of True, False, Unknown.
+type InstalledExtensionStatusConditionsStatus string
+
+// InstalledExtensionStatusPhase Phase is the rollup of Conditions.
+type InstalledExtensionStatusPhase string
+
+// InstalledExtensionList InstalledExtensionList is an object that contains the list of the existing installedextensions.
+type InstalledExtensionList struct {
+	// ApiVersion APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+	ApiVersion *string               `json:"apiVersion,omitempty"`
+	Items      *[]InstalledExtension `json:"items,omitempty"`
+
+	// Kind Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+	Kind     *string `json:"kind,omitempty"`
+	Metadata *struct {
+		// Name Name must be unique within a namespace. Is required when creating resources, although some resources may allow a client to request the generation of an appropriate name automatically. Name is primarily intended for creation idempotence and configuration definition. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names#names
+		Name *string `json:"name,omitempty"`
 	} `json:"metadata,omitempty"`
 }
 
@@ -2805,9 +3031,9 @@ type Plugin struct {
 		// Backend Backend defines the optional backend contribution of the plugin.
 		Backend *struct {
 			// CredentialsSecretRef CredentialsSecretRef is the name of a Secret in the same namespace as
-			// the PluginInstallation (or in everest-system for cluster-wide installs)
-			// whose "token" key is forwarded as the Authorization header to the external backend.
-			// Only meaningful when ExternalURL is set.
+			// the InstalledExtension entry whose "token" key is forwarded as the
+			// Authorization header to the external backend. Only meaningful when
+			// ExternalURL is set.
 			CredentialsSecretRef *string `json:"credentialsSecretRef,omitempty"`
 
 			// ExternalUrl ExternalURL is the HTTPS base URL of an externally hosted backend
@@ -2829,7 +3055,7 @@ type Plugin struct {
 			} `json:"serviceRef,omitempty"`
 		} `json:"backend,omitempty"`
 
-		// Cli CLI defines an optional CLI contribution. When set, `everestctl plugin run`
+		// Cli CLI defines an optional CLI contribution. When set, `everestctl extension run`
 		// can exec a container from the specified image.
 		Cli *struct {
 			// Description Description is a short human-readable description for the CLI help text.
@@ -2838,7 +3064,7 @@ type Plugin struct {
 			// Image Image is the OCI image reference for the CLI container.
 			Image string `json:"image"`
 
-			// Subcommand Subcommand is the name used under `everestctl plugin run <subcommand>`.
+			// Subcommand Subcommand is the name used under `everestctl extension run <subcommand>`.
 			// Defaults to the plugin name if not set.
 			Subcommand *string `json:"subcommand,omitempty"`
 		} `json:"cli,omitempty"`
@@ -2901,8 +3127,9 @@ type Plugin struct {
 		// ServiceAccount needs beyond the OpenEverest API. Used by infrastructure
 		// plugins that create per-cluster resources (e.g., ProxySQL deployments).
 		// The host auto-generates a Role from these rules and binds it to the
-		// plugin's ServiceAccount in each namespace where a PluginInstallation exists.
-		// Rules are validated against a hard-coded denylist at reconcile time.
+		// plugin's ServiceAccount in each namespace listed in the matching
+		// InstalledExtension's spec.plugin.namespaces[]. Rules are validated
+		// against a hard-coded denylist at reconcile time.
 		KubePermissions *[]struct {
 			// ApiGroups APIGroups is the list of API groups (e.g. "", "apps"). Use "" for core.
 			ApiGroups []string `json:"apiGroups"`
@@ -2964,87 +3191,6 @@ type Plugin struct {
 
 // PluginStatusConditionsStatus status of the condition, one of True, False, Unknown.
 type PluginStatusConditionsStatus string
-
-// PluginInstallation PluginInstallation is the Schema for the plugininstallations API
-type PluginInstallation struct {
-	// ApiVersion APIVersion defines the versioned schema of this representation of an object.
-	// Servers should convert recognized schemas to the latest internal value, and
-	// may reject unrecognized values.
-	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
-	ApiVersion *string `json:"apiVersion,omitempty"`
-
-	// Kind Kind is a string value representing the REST resource this object represents.
-	// Servers may infer this from the endpoint the client submits requests to.
-	// Cannot be updated.
-	// In CamelCase.
-	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
-	Kind     *string                 `json:"kind,omitempty"`
-	Metadata *map[string]interface{} `json:"metadata,omitempty"`
-
-	// Spec PluginInstallationSpec defines the desired state of PluginInstallation
-	Spec struct {
-		// ConfigSecretRef ConfigSecretRef is an optional reference to a Secret in the same namespace
-		// that holds plugin-specific configuration (mounted as env vars in the backend).
-		ConfigSecretRef *string `json:"configSecretRef,omitempty"`
-
-		// Enabled Enabled controls whether the plugin is active in this namespace.
-		Enabled *bool `json:"enabled,omitempty"`
-
-		// PluginName PluginName references the cluster-scoped Plugin CR by name.
-		PluginName string `json:"pluginName"`
-	} `json:"spec"`
-
-	// Status PluginInstallationStatus defines the observed state of PluginInstallation.
-	Status *struct {
-		Conditions *[]struct {
-			// LastTransitionTime lastTransitionTime is the last time the condition transitioned from one status to another.
-			// This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
-			LastTransitionTime time.Time `json:"lastTransitionTime"`
-
-			// Message message is a human readable message indicating details about the transition.
-			// This may be an empty string.
-			Message string `json:"message"`
-
-			// ObservedGeneration observedGeneration represents the .metadata.generation that the condition was set based upon.
-			// For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
-			// with respect to the current state of the instance.
-			ObservedGeneration *int64 `json:"observedGeneration,omitempty"`
-
-			// Reason reason contains a programmatic identifier indicating the reason for the condition's last transition.
-			// Producers of specific condition types may define expected values and meanings for this field,
-			// and whether the values are considered a guaranteed API.
-			// The value should be a CamelCase string.
-			// This field may not be empty.
-			Reason string `json:"reason"`
-
-			// Status status of the condition, one of True, False, Unknown.
-			Status PluginInstallationStatusConditionsStatus `json:"status"`
-
-			// Type type of condition in CamelCase or in foo.example.com/CamelCase.
-			Type string `json:"type"`
-		} `json:"conditions,omitempty"`
-	} `json:"status,omitempty"`
-}
-
-// PluginInstallationStatusConditionsStatus status of the condition, one of True, False, Unknown.
-type PluginInstallationStatusConditionsStatus string
-
-// PluginInstallationList PluginInstallationList is an object that contains the list of the existing plugininstallations.
-type PluginInstallationList struct {
-	// ApiVersion APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
-	ApiVersion *string               `json:"apiVersion,omitempty"`
-	Items      *[]PluginInstallation `json:"items,omitempty"`
-
-	// Kind Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
-	Kind     *string `json:"kind,omitempty"`
-	Metadata *struct {
-		// Name Name must be unique within a namespace. Is required when creating resources, although some resources may allow a client to request the generation of an appropriate name automatically. Name is primarily intended for creation idempotence and configuration definition. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names#names
-		Name *string `json:"name,omitempty"`
-
-		// Namespace Namespace defines the space within which each name must be unique. An empty namespace is equivalent to the "default" namespace, but "default" is the canonical representation. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces
-		Namespace *string `json:"namespace,omitempty"`
-	} `json:"metadata,omitempty"`
-}
 
 // PluginList PluginList is an object that contains the list of the existing plugins.
 type PluginList struct {

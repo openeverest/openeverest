@@ -590,6 +590,180 @@ export interface components {
                 namespace?: string;
             };
         };
+        /**
+         * @description InstalledExtension is the cluster-scoped record of an installed extension
+         *     (a generic plugin or a spec 001 provider). It is created by
+         *     `everestctl extension install` and owned by cluster-admin.
+         */
+        InstalledExtension: {
+            /**
+             * @description APIVersion defines the versioned schema of this representation of an object.
+             *     Servers should convert recognized schemas to the latest internal value, and
+             *     may reject unrecognized values.
+             *     More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+             */
+            apiVersion?: string;
+            /**
+             * @description Kind is a string value representing the REST resource this object represents.
+             *     Servers may infer this from the endpoint the client submits requests to.
+             *     Cannot be updated.
+             *     In CamelCase.
+             *     More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+             */
+            kind?: string;
+            metadata?: Record<string, never>;
+            /** @description InstalledExtensionSpec defines the desired state of an InstalledExtension. */
+            spec: {
+                /**
+                 * @description CatalogID identifies the catalog this install was sourced from.
+                 *     Empty for manual installs.
+                 */
+                catalogId?: string;
+                /** @description Channel is the catalog channel selected at install time (e.g. "stable"). */
+                channel?: string;
+                /**
+                 * @description ChartDigest is the OCI digest of the Helm chart installed for this
+                 *     extension. Optional in early phases; required once hub install lands.
+                 */
+                chartDigest?: string;
+                /**
+                 * @description Plugin holds plugin-specific install state. Required when type=plugin;
+                 *     must be nil when type=provider.
+                 */
+                plugin?: {
+                    /**
+                     * @description AllowClusterScope must be true for the reconciler to provision a
+                     *     ClusterRole/ClusterRoleBinding when Scope=Cluster. Without it, the
+                     *     reconciler refuses to create cluster-wide RBAC and sets
+                     *     RoleSynced=False, reason=ClusterScopeNotAllowed.
+                     */
+                    allowClusterScope?: boolean;
+                    /** @description BackendImageDigest pins the OCI digest of the backend image. */
+                    backendImageDigest?: string;
+                    /** @description FrontendDigest pins the OCI digest of the frontend bundle artifact. */
+                    frontendDigest?: string;
+                    /**
+                     * @description Namespaces lists the namespaces this plugin is enabled in. Required
+                     *     when Scope=Namespaces. Each entry may attach a per-tenant config
+                     *     secret reference.
+                     */
+                    namespaces?: {
+                        /**
+                         * @description ConfigSecretRef names a Secret in Name whose data is mounted as env
+                         *     vars on the plugin backend for this tenant.
+                         */
+                        configSecretRef?: string;
+                        /** @description Name is the Kubernetes namespace this plugin is enabled in. */
+                        name: string;
+                    }[];
+                    /**
+                     * @description PluginCRName is the name of the cluster-scoped Plugin CR that this
+                     *     install record points at.
+                     */
+                    pluginCRName: string;
+                    /**
+                     * @description Scope controls how kubePermissions translate to RBAC.
+                     *     Defaults to Cluster.
+                     * @default Cluster
+                     * @enum {string}
+                     */
+                    scope?: "Cluster" | "Namespaces";
+                };
+                /**
+                 * @description Provider holds provider-specific install state. Required when
+                 *     type=provider; must be nil when type=plugin.
+                 */
+                provider?: {
+                    /**
+                     * @description ProviderName is the name of the cluster-scoped Provider CR that this
+                     *     install record points at.
+                     */
+                    providerName: string;
+                };
+                /**
+                 * @description Type discriminates between plugin and provider installs. Exactly one of
+                 *     Plugin or Provider must be set, matching Type.
+                 * @enum {string}
+                 */
+                type: "plugin" | "provider";
+                /** @description Version is the SemVer version of the extension that was installed. */
+                version?: string;
+            };
+            /** @description InstalledExtensionStatus defines the observed state of an InstalledExtension. */
+            status?: {
+                /** @description AvailableUpgrade, when set, advertises a newer version available. */
+                availableUpgrade?: {
+                    /** @description ChartDigest is the OCI digest of the upgrade's Helm chart. */
+                    chartDigest?: string;
+                    /** @description Version is the SemVer version of the upgrade candidate. */
+                    version: string;
+                };
+                /** @description Conditions describes the current state of the install. */
+                conditions?: {
+                    /**
+                     * Format: date-time
+                     * @description lastTransitionTime is the last time the condition transitioned from one status to another.
+                     *     This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                     */
+                    lastTransitionTime: string;
+                    /**
+                     * @description message is a human readable message indicating details about the transition.
+                     *     This may be an empty string.
+                     */
+                    message: string;
+                    /**
+                     * Format: int64
+                     * @description observedGeneration represents the .metadata.generation that the condition was set based upon.
+                     *     For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                     *     with respect to the current state of the instance.
+                     */
+                    observedGeneration?: number;
+                    /**
+                     * @description reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                     *     Producers of specific condition types may define expected values and meanings for this field,
+                     *     and whether the values are considered a guaranteed API.
+                     *     The value should be a CamelCase string.
+                     *     This field may not be empty.
+                     */
+                    reason: string;
+                    /**
+                     * @description status of the condition, one of True, False, Unknown.
+                     * @enum {string}
+                     */
+                    status: "True" | "False" | "Unknown";
+                    /** @description type of condition in CamelCase or in foo.example.com/CamelCase. */
+                    type: string;
+                }[];
+                /**
+                 * Format: date-time
+                 * @description InstalledAt is the time the extension first reached Phase=Installed.
+                 */
+                installedAt?: string;
+                /**
+                 * Format: date-time
+                 * @description LastCheckedAt is the last time the reconciler polled the catalog for
+                 *     available upgrades.
+                 */
+                lastCheckedAt?: string;
+                /**
+                 * @description Phase is the rollup of Conditions.
+                 * @enum {string}
+                 */
+                phase?: "Pending" | "Installed" | "Upgrading" | "Failed" | "Uninstalling";
+            };
+        };
+        /** @description InstalledExtensionList is an object that contains the list of the existing installedextensions. */
+        InstalledExtensionList: {
+            /** @description APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources */
+            apiVersion?: string;
+            items?: components["schemas"]["InstalledExtension"][];
+            /** @description Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds */
+            kind?: string;
+            metadata?: {
+                /** @description Name must be unique within a namespace. Is required when creating resources, although some resources may allow a client to request the generation of an appropriate name automatically. Name is primarily intended for creation idempotence and configuration definition. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names#names */
+                name?: string;
+            };
+        };
         /** @description Instance is the Schema for the instances API */
         Instance: {
             /**
@@ -2741,9 +2915,9 @@ export interface components {
                 backend?: {
                     /**
                      * @description CredentialsSecretRef is the name of a Secret in the same namespace as
-                     *     the PluginInstallation (or in everest-system for cluster-wide installs)
-                     *     whose "token" key is forwarded as the Authorization header to the external backend.
-                     *     Only meaningful when ExternalURL is set.
+                     *     the InstalledExtension entry whose "token" key is forwarded as the
+                     *     Authorization header to the external backend. Only meaningful when
+                     *     ExternalURL is set.
                      */
                     credentialsSecretRef?: string;
                     /**
@@ -2769,7 +2943,7 @@ export interface components {
                     };
                 };
                 /**
-                 * @description CLI defines an optional CLI contribution. When set, `everestctl plugin run`
+                 * @description CLI defines an optional CLI contribution. When set, `everestctl extension run`
                  *     can exec a container from the specified image.
                  */
                 cli?: {
@@ -2778,7 +2952,7 @@ export interface components {
                     /** @description Image is the OCI image reference for the CLI container. */
                     image: string;
                     /**
-                     * @description Subcommand is the name used under `everestctl plugin run <subcommand>`.
+                     * @description Subcommand is the name used under `everestctl extension run <subcommand>`.
                      *     Defaults to the plugin name if not set.
                      */
                     subcommand?: string;
@@ -2844,8 +3018,9 @@ export interface components {
                  *     ServiceAccount needs beyond the OpenEverest API. Used by infrastructure
                  *     plugins that create per-cluster resources (e.g., ProxySQL deployments).
                  *     The host auto-generates a Role from these rules and binds it to the
-                 *     plugin's ServiceAccount in each namespace where a PluginInstallation exists.
-                 *     Rules are validated against a hard-coded denylist at reconcile time.
+                 *     plugin's ServiceAccount in each namespace listed in the matching
+                 *     InstalledExtension's spec.plugin.namespaces[]. Rules are validated
+                 *     against a hard-coded denylist at reconcile time.
                  */
                 kubePermissions?: {
                     /** @description APIGroups is the list of API groups (e.g. "", "apps"). Use "" for core. */
@@ -2904,92 +3079,6 @@ export interface components {
                     /** @description type of condition in CamelCase or in foo.example.com/CamelCase. */
                     type: string;
                 }[];
-            };
-        };
-        /** @description PluginInstallation is the Schema for the plugininstallations API */
-        PluginInstallation: {
-            /**
-             * @description APIVersion defines the versioned schema of this representation of an object.
-             *     Servers should convert recognized schemas to the latest internal value, and
-             *     may reject unrecognized values.
-             *     More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
-             */
-            apiVersion?: string;
-            /**
-             * @description Kind is a string value representing the REST resource this object represents.
-             *     Servers may infer this from the endpoint the client submits requests to.
-             *     Cannot be updated.
-             *     In CamelCase.
-             *     More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
-             */
-            kind?: string;
-            metadata?: Record<string, never>;
-            /** @description PluginInstallationSpec defines the desired state of PluginInstallation */
-            spec: {
-                /**
-                 * @description ConfigSecretRef is an optional reference to a Secret in the same namespace
-                 *     that holds plugin-specific configuration (mounted as env vars in the backend).
-                 */
-                configSecretRef?: string;
-                /**
-                 * @description Enabled controls whether the plugin is active in this namespace.
-                 * @default true
-                 */
-                enabled?: boolean;
-                /** @description PluginName references the cluster-scoped Plugin CR by name. */
-                pluginName: string;
-            };
-            /** @description PluginInstallationStatus defines the observed state of PluginInstallation. */
-            status?: {
-                conditions?: {
-                    /**
-                     * Format: date-time
-                     * @description lastTransitionTime is the last time the condition transitioned from one status to another.
-                     *     This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
-                     */
-                    lastTransitionTime: string;
-                    /**
-                     * @description message is a human readable message indicating details about the transition.
-                     *     This may be an empty string.
-                     */
-                    message: string;
-                    /**
-                     * Format: int64
-                     * @description observedGeneration represents the .metadata.generation that the condition was set based upon.
-                     *     For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
-                     *     with respect to the current state of the instance.
-                     */
-                    observedGeneration?: number;
-                    /**
-                     * @description reason contains a programmatic identifier indicating the reason for the condition's last transition.
-                     *     Producers of specific condition types may define expected values and meanings for this field,
-                     *     and whether the values are considered a guaranteed API.
-                     *     The value should be a CamelCase string.
-                     *     This field may not be empty.
-                     */
-                    reason: string;
-                    /**
-                     * @description status of the condition, one of True, False, Unknown.
-                     * @enum {string}
-                     */
-                    status: "True" | "False" | "Unknown";
-                    /** @description type of condition in CamelCase or in foo.example.com/CamelCase. */
-                    type: string;
-                }[];
-            };
-        };
-        /** @description PluginInstallationList is an object that contains the list of the existing plugininstallations. */
-        PluginInstallationList: {
-            /** @description APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources */
-            apiVersion?: string;
-            items?: components["schemas"]["PluginInstallation"][];
-            /** @description Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds */
-            kind?: string;
-            metadata?: {
-                /** @description Name must be unique within a namespace. Is required when creating resources, although some resources may allow a client to request the generation of an appropriate name automatically. Name is primarily intended for creation idempotence and configuration definition. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names#names */
-                name?: string;
-                /** @description Namespace defines the space within which each name must be unique. An empty namespace is equivalent to the "default" namespace, but "default" is the canonical representation. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces */
-                namespace?: string;
             };
         };
         /** @description PluginList is an object that contains the list of the existing plugins. */

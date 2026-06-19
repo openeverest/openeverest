@@ -28,7 +28,7 @@ and backend API logic, all without rebuilding or redeploying the OpenEverest cor
 | **Backend** | An optional HTTP service that implements custom logic on behalf of the plugin. |
 | **Frontend bundle** | An optional ESM JavaScript module loaded at runtime into the web UI shell. |
 | **Extension point** | A named, typed slot in the host UI or CLI where a plugin registers a contribution. |
-| **PluginInstallation** | A namespace-scoped CR that enables a plugin within a specific namespace and holds per-tenant config. |
+| **InstalledExtension** | A cluster-scoped CR that records an installed extension (a generic plugin or a spec 001 provider) and — for plugins — the namespaces it is enabled in plus per-namespace config. Replaces the previous draft's `PluginInstallation`. |
 | **Infrastructure plugin** | A generic plugin that creates and manages its own Kubernetes resources (Deployments, Services, ConfigMaps) in response to lifecycle events. Requires `spec.kubePermissions` to declare the additional RBAC it needs beyond the OpenEverest API. |
 | **Stateful plugin** | A generic plugin that declares custom resource schemas in its manifest. The host installs the CRDs, watches instances via a dynamic informer, and routes reconciliation events to the plugin backend over HTTP. The plugin does not run its own operator. |
 | **Plugin CRD** | A `CustomResourceDefinition` declared by a stateful plugin under the `plugins.openeverest.io` API group. Installed, validated, and watched by the host; reconciled by the plugin backend via webhook-style HTTP callbacks. |
@@ -86,7 +86,7 @@ Any HTTP service. The host never calls it directly from the browser — all traf
 goes through the OpenEverest API proxy. Two hosting modes:
 
 - **In-cluster**: a `Service` name + port in a declared namespace.
-- **External**: an HTTPS URL with credentials stored in a `Secret` referenced by the `PluginInstallation`.
+- **External**: an HTTPS URL with credentials stored in a `Secret` referenced by the `InstalledExtension` entry for the namespace.
 
 A backend can operate in one or more **operation modes** (see §8 for the full
 model):
@@ -124,7 +124,7 @@ as a CLI subcommand through `everestctl`.
 ### 5.1 `Plugin` (cluster-scoped)
 
 ```yaml
-apiVersion: core.openeverest.io/v1alpha1
+apiVersion: extensions.openeverest.io/v1alpha1
 kind: Plugin
 metadata:
   name: sql-explorer
@@ -233,23 +233,65 @@ spec:
     description: "Interact with SQL Explorer from the terminal."
 ```
 
-### 5.2 `PluginInstallation` (namespace-scoped)
+### 5.2 `InstalledExtension` (cluster-scoped)
 
-Enables a plugin for a specific namespace and holds tenant-specific secrets
-(e.g., external API keys). Multiple `PluginInstallation` CRs for the same plugin
-allow per-team configuration.
+A single cluster-scoped CR records the install state of an extension — either
+a generic plugin or a spec 001 provider. For plugins it also captures the
+namespaces the plugin is enabled in and any per-namespace config secrets.
+For providers it records install metadata only.
+
+The CR is created by `everestctl extension install` (never by the user
+directly editing YAML). Cluster-admin owns it.
 
 ```yaml
-apiVersion: core.openeverest.io/v1alpha1
-kind: PluginInstallation
+apiVersion: extensions.openeverest.io/v1alpha1
+kind: InstalledExtension
 metadata:
   name: sql-explorer
-  namespace: team-alpha
 spec:
-  pluginName: sql-explorer      # references Plugin CR
-  enabled: true
-  # Optional: pass arbitrary config to the backend (mounted as env from Secret).
-  configSecretRef: "sql-explorer-team-alpha-config"
+  type: plugin                       # provider | plugin
+  catalogId: openeverest-official    # optional; empty for manual installs
+  channel: stable                    # optional
+  version: "1.2.0"
+  chartDigest: "sha256:..."          # optional in early phases
+
+  plugin:                            # required when type=plugin
+    pluginCRName: sql-explorer       # references the Plugin CR
+    frontendDigest: "sha256:..."     # optional
+    backendImageDigest: "sha256:..." # optional
+
+    scope: Cluster                   # Cluster | Namespaces (default Cluster)
+
+    # Required when scope=Cluster to opt in to ClusterRole/ClusterRoleBinding
+    # generation from spec.kubePermissions. The reconciler refuses to create
+    # cluster-scoped RBAC otherwise and surfaces RoleSynced=False.
+    allowClusterScope: false
+
+    # Required only when scope=Namespaces. Per-tenant config optional.
+    namespaces:
+      - name: team-alpha
+        configSecretRef: sql-explorer-team-alpha
+      - name: team-bravo
+        configSecretRef: sql-explorer-team-bravo
+
+  # Mutually exclusive with spec.plugin.
+  provider:                          # required when type=provider
+    providerName: percona-server-mongodb
+
+status:
+  phase: Installed                   # Installed | Upgrading | Failed | Uninstalling
+  conditions:
+    - type: Ready
+    - type: RoleSynced               # plugin-only, kubePermissions
+    - type: BundleServed             # plugin-only
+    - type: BackendReachable         # plugin-only
+    - type: TokenIssued              # plugin-only, daemon mode
+    - type: CRDsInstalled            # plugin-only, stateful plugins
+    - type: ProviderRegistered       # provider-only
+  installedAt: "2026-05-08T12:00:00Z"
+  availableUpgrade:
+    version: "1.3.0"
+    chartDigest: "sha256:..."
 ```
 
 ---
@@ -440,7 +482,7 @@ core UI — plugins feel native, not bolted on.
 
 **Enforcement:**
 
-- The `everestctl plugin lint` command (P1 DX tooling) will statically analyse
+- The `everestctl extension lint` command (P1 DX tooling) will statically analyse
   the bundle for prohibited imports and global CSS injection patterns.
 - The `@everest/plugin-sdk/testing` mock host renders plugins inside a real
   `ThemeProvider` so visual regressions are caught in plugin unit tests.
@@ -509,13 +551,14 @@ API so:
 - The audit trail is centralised.
 - The hard "no writes to spec-001 resources" guarantee can be enforced uniformly.
 
-**Lifecycle.** When a `PluginInstallation` is created and the plugin declares
-`backend.modes.daemon`, the host:
+**Lifecycle.** When an `InstalledExtension` for a plugin that declares
+`backend.modes.daemon` reaches `Ready`, the host:
 
 1. Generates the service token and writes it to the projected `Secret`.
 2. Ensures the backend `Deployment` has at least one replica.
-3. Polls `healthPath` to track liveness; surfaces status on the `PluginInstallation`.
-4. On `PluginInstallation` deletion, scales to zero and revokes the token.
+3. Polls `healthPath` to track liveness; surfaces status on the
+   `InstalledExtension` as the `TokenIssued` / `BackendReachable` conditions.
+4. On `InstalledExtension` deletion, scales to zero and revokes the token.
 
 ### 8.5 Event stream
 
@@ -580,8 +623,9 @@ client; the host streams events as they happen.
 **Authentication.** The stream is authenticated like any other `/v1` endpoint
 — a daemon plugin uses its service token (§8.4); a user-facing tool uses the
 user's session token. The events the client receives are filtered by the
-token's permissions and (if applicable) the namespaces the plugin is enabled
-in via `PluginInstallation`.
+token's permissions and (if applicable) the namespaces listed in the plugin's
+`InstalledExtension.spec.plugin.namespaces[]` (or all permitted namespaces
+when `scope: Cluster`).
 
 **Why pull and not push?** A push model requires the host to track which
 events have been delivered to which plugin, manage retry queues, and persist
@@ -664,22 +708,28 @@ are always denied:
 - Resources in `""` group: `secrets`, `nodes`, `persistentvolumes`.
 
 If any rule matches the denylist, the `Plugin` CR is rejected at admission
-time and the plugin pod is not started. A `ClusterRole` is always flagged
-for manual review.
+time and the plugin pod is not started.
 
 #### Automatic Role generation
 
-When a `PluginInstallation` is created in a namespace, the host:
+When an `InstalledExtension` for a plugin is reconciled, the host generates
+RBAC from the plugin's `kubePermissions` according to the install's scope:
 
-1. Creates a namespace-scoped `Role` from the declared `kubePermissions`,
-   named `everest-plugin-<name>`.
-2. Creates a `RoleBinding` binding that `Role` to the plugin's
-   `ServiceAccount`.
-3. On `PluginInstallation` deletion, the `Role` and `RoleBinding` are
-   garbage-collected via `ownerReferences`.
+- **`scope: Namespaces`** — for each entry in `spec.plugin.namespaces[]` the
+  host creates a namespace-scoped `Role` (named `everest-plugin-<name>`) and
+  a `RoleBinding` binding it to the plugin's `ServiceAccount` in that
+  namespace. Removing a namespace from the list drops its binding on the
+  next reconcile.
+- **`scope: Cluster`** — requires explicit opt-in via
+  `spec.plugin.allowClusterScope: true` (and `everestctl extension install
+  --allow-cluster-scope` on the CLI side). When set, the host creates a
+  `ClusterRole` plus a `ClusterRoleBinding`. Without the opt-in the
+  reconciler refuses to provision and sets `RoleSynced=False,
+  reason=ClusterScopeNotAllowed`. This intentional friction prevents
+  plugins from silently acquiring cluster-wide RBAC.
 
-This ensures the plugin can only manage resources in namespaces where it is
-installed.
+All generated bindings carry `ownerReferences` to the `InstalledExtension`
+so Kubernetes garbage-collects them when the install record is deleted.
 
 #### Lifecycle integration — ProxySQL example
 
@@ -688,8 +738,10 @@ ProxySQL as the canonical example:
 
 1. **Installation.** Admin installs the ProxySQL plugin. The `Plugin` CR
    declares `kubePermissions` for `apps/deployments` and
-   `core/services,configmaps`. The admin creates a `PluginInstallation` in
-   the target namespace.
+   `core/services,configmaps`. The admin runs
+   `everestctl extension install proxysql --namespace team-alpha`, which
+   creates an `InstalledExtension` with `scope: Namespaces` listing
+   `team-alpha`.
 
 2. **Cluster creation.** User creates a new PXC cluster. In the create-
    instance wizard, the ProxySQL plugin's `instanceCreateFormSection`
@@ -764,7 +816,7 @@ writes an HTTP handler; the host does the Kubernetes plumbing.
 A new `spec.customResources[]` field on the `Plugin` CR:
 
 ```yaml
-apiVersion: core.openeverest.io/v1alpha1
+apiVersion: extensions.openeverest.io/v1alpha1
 kind: Plugin
 metadata:
   name: presets
@@ -812,7 +864,9 @@ The generated CRD will have:
 - Group: `presets.plugins.openeverest.io`
 - Version: `v1alpha1` (auto-assigned; plugin controls via manifest version)
 - Kind: `Preset`
-- Scope: Namespaced (restricted to namespaces where `PluginInstallation` exists)
+- Scope: Namespaced (restricted to namespaces listed in the plugin's
+  `InstalledExtension.spec.plugin.namespaces[]`, or any namespace when
+  `scope: Cluster`)
 
 #### Host reconciliation model
 
@@ -856,11 +910,12 @@ and sets a `Reconciling` condition on the CR.
 
 #### Namespace scoping
 
-Plugin CRs are only permitted in namespaces where a `PluginInstallation`
-exists for the declaring plugin. The host rejects (via a validating webhook
-or informer-level filter) any CR created in a namespace without a matching
-installation. This prevents tenants from creating plugin CRs in namespaces
-where the plugin is not enabled.
+Plugin CRs are only permitted in namespaces listed in the plugin's
+`InstalledExtension.spec.plugin.namespaces[]`, or in any namespace when the
+plugin is installed with `scope: Cluster`. The host rejects (via a
+validating webhook or informer-level filter) any CR created in a namespace
+where the plugin is not enabled. This prevents tenants from creating plugin
+CRs in namespaces the install does not cover.
 
 #### Security & validation
 
@@ -891,8 +946,10 @@ Stateful plugins typically combine custom resources with other capabilities:
 
 1. Admin installs the Presets plugin. The host creates the `Preset` CRD
    under `presets.plugins.openeverest.io`.
-2. Admin creates `PluginInstallation` in `team-alpha`. Users in that
-   namespace can now create `Preset` CRs.
+2. Admin runs `everestctl extension namespace add presets team-alpha`,
+   which appends `team-alpha` to the Presets `InstalledExtension`'s
+   `spec.plugin.namespaces[]`. Users in that namespace can now create
+   `Preset` CRs.
 3. A user creates a `Preset` named `production-large` with topology,
    component sizing, and backup config for their PXC clusters.
 4. The Presets backend receives the `/reconcile` call, validates the Preset
@@ -940,7 +997,7 @@ For **daemon mode**, the autonomous plugin service token (§8.4) is bound to
 the declared `spec.permissions` and to the plugin name — it is not a user
 identity. It cannot be used to assume a user's privileges, and it is
 unconditionally denied write access to spec-001 resources. The token is
-rotated automatically and revoked on `PluginInstallation` deletion.
+rotated automatically and revoked on `InstalledExtension` deletion.
 
 ---
 
@@ -954,7 +1011,7 @@ toolchains are promising but immature. The pragmatic choice is **subcommand-via-
 The plugin manifest declares a `cli.image` (OCI). When the user runs:
 
 ```sh
-everestctl plugin run sql-explorer -- query --db my-db "SELECT 1"
+everestctl extension run sql-explorer -- query --db my-db "SELECT 1"
 ```
 
 `everestctl`:
@@ -963,15 +1020,20 @@ everestctl plugin run sql-explorer -- query --db my-db "SELECT 1"
    the user-supplied arguments via `stdin`/`stdout`.
 3. Streams output back to the terminal.
 
-Discovery:
+Discovery & lifecycle:
 
 ```sh
-everestctl plugin list                     # shows installed plugins with CLI support
-everestctl plugin install <oci-ref>        # installs a plugin
-everestctl plugin uninstall <name>
-everestctl plugin enable   <name> -n <ns>  # creates PluginInstallation
-everestctl plugin disable  <name> -n <ns>
+everestctl extension list                          # installed extensions (plugins + providers)
+everestctl extension info     <name>               # show install metadata and conditions
+everestctl extension install  <oci-ref> [--allow-cluster-scope]
+everestctl extension uninstall <name>
+everestctl extension namespace add    <name> <ns>  # patches spec.plugin.namespaces[]
+everestctl extension namespace remove <name> <ns>
 ```
+
+There is no `everestctl plugin` subcommand. Plugins and providers are both
+managed via `everestctl extension`; the `--type` filter on `list` distinguishes
+them when needed.
 
 ---
 
@@ -1000,16 +1062,16 @@ cached independently.
 - `spec.compatibleHostVersions` is a semver range (same syntax as npm).
 - The host rejects installation of a plugin whose range does not include the
   running host version.
-- Plugins are upgraded independently of the host: `everestctl plugin upgrade <name>`.
+- Plugins are upgraded independently of the host: `everestctl extension upgrade <name>`.
 
 ### 11.3 Air-gapped environments
 
 ```sh
 # Export on an internet-connected machine
-everestctl plugin export sql-explorer --output sql-explorer.tar
+everestctl extension export sql-explorer --output sql-explorer.tar
 
 # Import on an air-gapped machine
-everestctl plugin install --from-tar sql-explorer.tar
+everestctl extension install --from-tar sql-explorer.tar
 ```
 
 The `--from-tar` flag pushes images into the in-cluster registry if one is
@@ -1028,12 +1090,12 @@ configured (e.g., Harbor), then creates the `Plugin` CR.
 | In-cluster lateral movement | Plugin backend runs in its own `ServiceAccount` with a minimal `Role` auto-generated from `spec.permissions`. `NetworkPolicy` restricts egress to declared endpoints only. |
 | Supply chain | Manifest must include OCI image digests. Host verifies cosign signatures when `spec.signatureVerification: true` is set on the cluster. |
 | Secrets in manifests | Credentials for external backends are stored exclusively in `Secret` resources, never in the `Plugin` CR itself. |
-| Admin-only install | Creating a `Plugin` CR requires cluster-admin RBAC. Enabling per namespace (`PluginInstallation`) requires namespace admin. Regular users only get `use`. |
-| Daemon token theft | Plugin service token is mounted via a projected `Secret` (short-lived, auto-rotated, default TTL 24 h). Token is bound to plugin name + declared permissions, never a user identity, and revoked on `PluginInstallation` deletion. |
+| Admin-only install | Creating a `Plugin` CR and the corresponding `InstalledExtension` requires cluster-admin RBAC. Adding namespaces to an existing install requires cluster-admin (or, in a future iteration, a namespaced opt-in CR). Regular users only get `use`. |
+| Daemon token theft | Plugin service token is mounted via a projected `Secret` (short-lived, auto-rotated, default TTL 24 h). Token is bound to plugin name + declared permissions, never a user identity, and revoked on `InstalledExtension` deletion. |
 | Forged events | The event stream is delivered over the plugin's authenticated HTTPS connection to OpenEverest — there is no inbound push the plugin needs to validate. |
 | Event-driven privilege escalation | Events are informational only — they do not authorise the plugin to perform any action. Any follow-up API call still goes through normal RBAC checks. |
 | Slow event consumer / DoS on host | Per-connection bounded buffer; slow consumers are dropped and reconnect with `since=`. No unbounded queue grows in the host. |
-| Infrastructure plugin kube access | `kubePermissions` validated against a hard-coded denylist at admission time. Auto-generated `Role` is namespace-scoped; `ClusterRole` requests are flagged for manual review. Plugin never shares the host's `ServiceAccount`. |
+| Infrastructure plugin kube access | `kubePermissions` validated against a hard-coded denylist at admission time. Default scope `Namespaces` produces namespace-scoped `Role`/`RoleBinding` per entry in `InstalledExtension.spec.plugin.namespaces[]`. `scope: Cluster` requires explicit `--allow-cluster-scope` opt-in before any `ClusterRole`/`ClusterRoleBinding` is created. Plugin never shares the host's `ServiceAccount`. |
 | Plugin creates orphaned resources | Plugin must handle `database-cluster.deleted` events to clean up. As a safety net, plugin-created resources should carry `ownerReferences` pointing to the `DatabaseCluster` CR for Kubernetes GC. |
 
 ---
@@ -1059,7 +1121,7 @@ graph TB
 
     subgraph Kubernetes
         PluginCR[Plugin CR]
-        PIcr[PluginInstallation CR]
+        IEcr[InstalledExtension CR]
         Secret[Secret\nCredentials]
     end
 
@@ -1083,7 +1145,7 @@ graph TB
     TokenSvc -->|projected Secret\nplugin service token| Daemon
     Daemon -->|API calls with service token| API
     API --> PluginCR
-    API --> PIcr
+    API --> IEcr
     API --> Secret
 ```
 
@@ -1099,8 +1161,9 @@ graph TB
    watches the resulting CRDs; reconciliation is handled by the plugin backend
    via HTTP callbacks (see §8.8). Plugins do **not** run their own operators.
    All plugin CRDs live under the `<pluginName>.plugins.openeverest.io` API
-   group — plugins cannot declare CRDs in the `core.openeverest.io` group or
-   any other core API group. CRDs for spec 001 Providers remain host-exclusive.
+   group — plugins cannot declare CRDs in the `core.openeverest.io`,
+   `extensions.openeverest.io`, or any other core API group. CRDs for spec
+   001 Providers remain host-exclusive.
 
 2. **What is the minimal backend surface OpenEverest must expose?**
    The existing v1 API, plus four new additions:
@@ -1134,14 +1197,14 @@ graph TB
    ESM loader is a natural extension. (See §7 for details.)
 
 7. **What does the `everestctl` extension surface look like?**
-   Subcommand-via-shellout to a plugin-declared OCI image. `everestctl plugin run
+   Subcommand-via-shellout to a plugin-declared OCI image. `everestctl extension run
    <name> -- <args>` execs the container with a short-lived API token injected.
    (See §10 for details.)
 
 8. **How are plugins versioned independently of the host?**
    SemVer on the plugin; `spec.compatibleHostVersions` semver range in the
    manifest; host enforces the range at install time. Plugins upgrade
-   independently via `everestctl plugin upgrade`.
+   independently via `everestctl extension upgrade`.
 
 9. **Are there categories of plugins we would explicitly disallow?**
    Yes: plugins may not write to `DatabaseCluster`, `Instance`, `Provider`, or
@@ -1152,7 +1215,7 @@ graph TB
    declares.
 
 10. **Air-gapped / regulated environments?**
-    Supported via `everestctl plugin export` / `--from-tar`. Images pushed to the
+    Supported via `everestctl extension export` / `--from-tar`. Images pushed to the
     in-cluster registry; no internet egress required after initial export.
 
 ---
@@ -1163,18 +1226,22 @@ graph TB
 
 Deliver the minimal complete path for a plugin author to ship a UI page.
 
-- `Plugin` CRD (no `PluginInstallation` yet — cluster-wide enable only).
+- `Plugin` and `InstalledExtension` CRDs (both cluster-scoped; install record
+  defaults to `scope: Cluster` with no per-namespace config).
 - `GET /v1/plugins` discovery endpoint.
+- `GET /v1/installed-extensions` list endpoint.
 - Dynamic ESM loader in the React shell.
 - `@everest/plugin-sdk` stub: `registerExtension`, `useEverestApi`.
 - Extension points: `route` and `sidebarItem` only.
 - Simple backend proxy (`/v1/plugins/{name}/*`) with session auth.
-- Admin-only `Plugin` create gate in RBAC.
-- `everestctl plugin install / list / uninstall`.
+- Admin-only `InstalledExtension` create gate in RBAC.
+- `everestctl extension install / list / uninstall`.
 
 ### Phase 2 — Multi-tenant & access control
 
-- `PluginInstallation` CRD — per-namespace enable/disable + config secret.
+- `InstalledExtension` gains `scope: Namespaces` mode with
+  `spec.plugin.namespaces[]` and per-namespace `configSecretRef` handling.
+- `everestctl extension namespace add / remove` commands.
 - `plugin/{name}` resource in Casbin model — per-user `use` grants.
 - In-cluster backend `serviceRef` discovery (DNS resolution, health check).
 - Credentials broker: `GET /v1/databases/{id}/connection-details`.
@@ -1186,7 +1253,7 @@ Unlocks the metering / billing / audit / external-sync class of plugins.
 
 - Plugin token service — mint, mount, and rotate autonomous service tokens.
 - Daemon mode: host-managed `Deployment` lifecycle, health tracking, status
-  conditions on `PluginInstallation`.
+  conditions on `InstalledExtension`.
 - `GET /v1/events` SSE endpoint backed by a kube watch on the relevant CRs
   (`DatabaseCluster`, `Instance`, `Backup`, `Restore`).
 - Event normaliser: maps kube watch events into the plugin-facing schema (§8.5).
@@ -1197,8 +1264,10 @@ Unlocks the metering / billing / audit / external-sync class of plugins.
 ### Phase 4 — Infrastructure plugins & form extension points
 
 - `spec.kubePermissions` declaration and hard-coded denylist validation.
-- Automatic `Role` / `RoleBinding` generation from `kubePermissions` on
-  `PluginInstallation` create; garbage-collection on delete.
+- Scope-aware RBAC generation from `kubePermissions`: namespace-scoped
+  `Role`/`RoleBinding` per entry in `InstalledExtension.spec.plugin.namespaces[]`
+  (default), or `ClusterRole`/`ClusterRoleBinding` when `scope: Cluster` and
+  `allowClusterScope: true`. Bindings garbage-collected via `ownerReferences`.
 - `instanceCreateFormSection` and `instanceEditFormSection` extension points.
 - `POST /v1/plugins/{name}/instance-config` endpoint for plugin config handoff.
 - ProxySQL reference plugin as the canonical infrastructure plugin example.
@@ -1207,8 +1276,8 @@ Unlocks the metering / billing / audit / external-sync class of plugins.
 
 - Extension points: `clusterDetailTab`, `clusterAction`, `clusterCard`,
   `globalDashboardWidget`, `settingsPanel`.
-- `everestctl plugin run` shellout for CLI extensions.
-- OCI artifact packaging: `everestctl plugin export` / `--from-tar`.
+- `everestctl extension run` shellout for CLI extensions.
+- OCI artifact packaging: `everestctl extension export` / `--from-tar`.
 - Bundle SRI verification + optional cosign signature check.
 - Auto-generated `ServiceAccount` + `Role` + `NetworkPolicy` for backend pods.
 
@@ -1223,7 +1292,7 @@ without running their own operator.
 - `POST /v1/plugins/{name}/reconcile` endpoint — host calls plugin backend
   on CR create/update/delete; backend returns status + requeue.
 - Validating webhook (or informer filter) restricting plugin CRs to
-  namespaces with a matching `PluginInstallation`.
+  namespaces covered by the plugin's `InstalledExtension`.
 - Denylist: `apiextensions.k8s.io` added to `kubePermissions` denylist;
   Kind uniqueness enforced across all plugins.
 - Presets reference plugin as the canonical stateful-plugin example.
@@ -1238,7 +1307,7 @@ without running their own operator.
   and event-consumer modes (the external backend opens a held SSE connection
   back to the host — no inbound push required).
 - Marketplace / catalog UI (`Plugin` browser in the web UI).
-- `everestctl plugin upgrade` with version-range enforcement.
+- `everestctl extension upgrade` with version-range enforcement.
 
 ---
 
@@ -1348,12 +1417,12 @@ only two areas require genuinely new infrastructure.
   validates JWTs; the plugin token service can reuse the same signing key
   infrastructure.
 - **CRDs / controllers** ([api/core/v1alpha1/](api/core/v1alpha1/), [internal/controller/](internal/controller/))
-  — kubebuilder-style; adding `Plugin` and `PluginInstallation` follows the
+  — kubebuilder-style; adding `Plugin` and `InstalledExtension` follows the
   same pattern as existing CRDs.
 - **RBAC** ([pkg/rbac/](pkg/rbac/), [data/rbac/model.conf](data/rbac/model.conf)) — Casbin model
   already supports glob matching on the resource field. Adding `plugin/{name}`
   is a constants change plus a few policy lines, no model rewrite.
-- **CLI** ([commands/](commands/)) — Cobra; `everestctl plugin ...` slots in alongside
+- **CLI** ([commands/](commands/)) — Cobra; `everestctl extension ...` slots in alongside
   existing subcommand groups like [accounts/](commands/accounts/).
 - **UI build** ([ui/apps/everest/](ui/apps/everest/)) — Vite is ESM-native, dynamic
   `import()` works out of the box.
@@ -1390,12 +1459,12 @@ only two areas require genuinely new infrastructure.
 
 | Area | New / modified files | Approx. LoC |
 |---|---|---|
-| `Plugin` + `PluginInstallation` CRDs ([api/core/v1alpha1/](api/core/v1alpha1/)) | new | 300–500 |
-| Plugin reconciler ([internal/controller/](internal/controller/)) | new | 400–600 |
+| `Plugin` + `InstalledExtension` CRDs ([api/core/v1alpha1/](api/core/v1alpha1/)) | new | 300–500 |
+| Extension reconciler ([internal/controller/](internal/controller/)) | new | 400–600 |
 | Plugin proxy + discovery + token service ([internal/server/](internal/server/)) | new | 500–800 |
 | `GET /v1/events` SSE handler + kube-watch normaliser (`internal/server/events.go`) | new | 250–400 |
 | RBAC additions ([pkg/rbac/](pkg/rbac/)) | modified | 100–150 |
-| `everestctl plugin ...` ([commands/](commands/)) | new | 400–600 |
+| `everestctl extension ...` ([commands/](commands/)) | new | 400–600 |
 | `@everest/plugin-sdk` ([ui/packages/](ui/packages/)) | new package | 400–600 |
 | UI dynamic loader + `<PluginHost>` ([ui/apps/everest/](ui/apps/everest/)) | modified | 300–500 |
 | Dynamic CRD manager + reconcile proxy (Phase 6) | new | 1,500–2,500 |
@@ -1443,7 +1512,7 @@ extension points only and validate the architecture.
 7. **Reconcile endpoint reliability** (Phase 6). If the plugin backend is
    down, CRs pile up in a pending state. **Mitigation**: exponential backoff
    with jitter; status condition `Reconciling=Unknown, reason=BackendUnreachable`;
-   surface on `PluginInstallation` status. No silent data loss — CRs stay in
+   surface on `InstalledExtension` status. No silent data loss — CRs stay in
    etcd, the informer retries.
 
 ### 17.3 Plugin author developer experience
@@ -1458,10 +1527,10 @@ should be tracked alongside the implementation roadmap.
 
 **P0 — minimum required for any external plugin author to succeed:**
 
-- **`everestctl plugin scaffold <name>`** — generates a working plugin in one
+- **`everestctl extension scaffold <name>`** — generates a working plugin in one
   command: `manifest.yaml`, a TypeScript frontend stub with the SDK wired
   up, an optional Go backend stub, a `Makefile`, and a sample
-  `PluginInstallation`. This is the single highest-leverage DX item.
+  `InstalledExtension`. This is the single highest-leverage DX item.
 - **Plugin SDK with strong types** — every extension point's props are typed
   in `@everest/plugin-sdk`. Event payloads are typed. The `EverestApi` client
   is generated from the OpenAPI spec so the client and server types can never
@@ -1471,14 +1540,14 @@ should be tracked alongside the implementation roadmap.
   repo (to be created) covering a UI-only plugin, a daemon plugin, and an
   event-subscriber plugin. Each example is a working, tested codebase, not a
   snippet in docs.
-- **A working dev-mode loop**: `everestctl plugin dev` runs the plugin's Vite
+- **A working dev-mode loop**: `everestctl extension dev` runs the plugin's Vite
   dev server and patches the host's plugin discovery to point at
   `http://localhost:3001/main.js`. Hot-reload works in the browser without
   rebuilding/redeploying anything.
 
 **P1 — significantly improves authoring quality:**
 
-- **Manifest linter**: `everestctl plugin lint` validates the manifest
+- **Manifest linter**: `everestctl extension lint` validates the manifest
   against the CRD schema, checks that declared permissions exist in the
   OpenAPI spec, verifies SemVer ranges, and warns on unsigned bundles.
 - **Mock SDK for unit tests**: `@everest/plugin-sdk/testing` exports
@@ -1488,7 +1557,7 @@ should be tracked alongside the implementation roadmap.
   module): wraps JWT verification, event signature verification, the
   service-token bootstrap, and the OpenEverest API client. Plugin backends
   shouldn't have to reimplement these.
-- **Compatibility check at install time**: `everestctl plugin install`
+- **Compatibility check at install time**: `everestctl extension install`
   refuses to install plugins whose `compatibleHostVersions` excludes the
   running host, with a clear error message.
 
@@ -1507,10 +1576,10 @@ should be tracked alongside the implementation roadmap.
 
 | Item | Priority | Effort |
 |---|---|---|
-| `everestctl plugin scaffold` | P0 | 1–2 weeks |
+| `everestctl extension scaffold` | P0 | 1–2 weeks |
 | Plugin SDK + generated types + mock utils | P0 | 2–3 weeks |
 | Reference plugins repo + docs | P0 | 1–2 weeks |
-| `everestctl plugin dev` (hot-reload) | P0 | 2–3 weeks |
+| `everestctl extension dev` (hot-reload) | P0 | 2–3 weeks |
 | Manifest linter | P1 | 1–2 weeks |
 | Backend SDK (Node + Go) | P1 | 1–2 weeks |
 | Install-time compatibility check | P1 | < 1 week |

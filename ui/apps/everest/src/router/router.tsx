@@ -33,7 +33,6 @@ import {
   Login,
   LoginCallback,
   Logout,
-  PluginsPage,
   // Logs,
   MonitoringEndpoints,
   NamespaceDetails,
@@ -150,10 +149,6 @@ const router = createBrowserRouter([
             element: <PluginSettingsHost />,
           },
         ],
-      },
-      {
-        path: 'plugins',
-        element: withSuspense(<PluginsPage />),
       },
       {
         path: 'ui-generator-builder',
