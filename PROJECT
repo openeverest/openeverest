@@ -75,20 +75,20 @@ resources:
   version: v1alpha1
 - api:
     crdVersion: v1
-    namespaced: true
+    namespaced: false
   controller: true
   domain: openeverest.io
-  group: plugin
+  group: extensions
   kind: Plugin
-  path: github.com/openeverest/openeverest/v2/api/plugin/v1alpha1
+  path: github.com/openeverest/openeverest/v2/api/extensions/v1alpha1
   version: v1alpha1
 - api:
     crdVersion: v1
-    namespaced: true
+    namespaced: false
   controller: true
   domain: openeverest.io
-  group: plugin
-  kind: PluginInstallation
-  path: github.com/openeverest/openeverest/v2/api/plugin/v1alpha1
+  group: extensions
+  kind: InstalledExtension
+  path: github.com/openeverest/openeverest/v2/api/extensions/v1alpha1
   version: v1alpha1
 version: "3"

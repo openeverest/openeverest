@@ -1,0 +1,333 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.18.0
+  name: plugins.extensions.openeverest.io
+spec:
+  group: extensions.openeverest.io
+  names:
+    kind: Plugin
+    listKind: PluginList
+    plural: plugins
+    singular: plugin
+  scope: Cluster
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .spec.displayName
+      name: Display Name
+      type: string
+    - jsonPath: .spec.version
+      name: Version
+      type: string
+    - jsonPath: .spec.backend.url
+      name: Backend URL
+      type: string
+    - jsonPath: .spec.enabled
+      name: Enabled
+      type: boolean
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: |-
+          Plugin is the Schema for the plugins API. It registers an external plugin
+          with the Everest platform, enabling its UI bundle to be loaded dynamically
+          and its backend to be reverse-proxied through the Everest server.
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: PluginSpec defines the desired state of Plugin
+            properties:
+              backend:
+                description: Backend defines the optional backend contribution of
+                  the plugin.
+                properties:
+                  credentialsSecretRef:
+                    description: |-
+                      CredentialsSecretRef is the name of a Secret in the same namespace as
+                      the InstalledExtension entry whose "token" key is forwarded as the
+                      Authorization header to the external backend. Only meaningful when
+                      ExternalURL is set.
+                    type: string
+                  externalUrl:
+                    description: |-
+                      ExternalURL is the HTTPS base URL of an externally hosted backend
+                      (e.g. "https://sql-explorer.example.com"). Mutually exclusive with ServiceRef.
+                    type: string
+                  serviceRef:
+                    description: |-
+                      ServiceRef references an in-cluster Kubernetes Service.
+                      The Everest server resolves it to http://<name>.<namespace>.svc:<port>
+                      and reverse-proxies /v1/plugins/<pluginName>/* to that address.
+                    properties:
+                      name:
+                        description: Name of the Service.
+                        type: string
+                      namespace:
+                        description: Namespace of the Service.
+                        type: string
+                      port:
+                        description: Port is the service port number.
+                        format: int32
+                        maximum: 65535
+                        minimum: 1
+                        type: integer
+                    required:
+                    - name
+                    - namespace
+                    - port
+                    type: object
+                type: object
+              cli:
+                description: |-
+                  CLI defines an optional CLI contribution. When set, `everestctl extension run`
+                  can exec a container from the specified image.
+                properties:
+                  description:
+                    description: Description is a short human-readable description
+                      for the CLI help text.
+                    type: string
+                  image:
+                    description: Image is the OCI image reference for the CLI container.
+                    type: string
+                  subcommand:
+                    description: |-
+                      Subcommand is the name used under `everestctl extension run <subcommand>`.
+                      Defaults to the plugin name if not set.
+                    type: string
+                required:
+                - image
+                type: object
+              compatibleHostVersions:
+                description: |-
+                  CompatibleHostVersions is a SemVer range expression specifying which
+                  OpenEverest host versions this plugin supports (e.g. ">=2.0.0 <3.0.0").
+                type: string
+              description:
+                description: Description is a short human-readable description of
+                  what the plugin does.
+                type: string
+              displayName:
+                description: DisplayName is the human-readable name shown in the UI
+                  sidebar.
+                type: string
+              enabled:
+                default: true
+                description: |-
+                  Enabled controls whether the plugin is active. A disabled plugin
+                  is not returned by the list endpoint and its proxy routes are inactive.
+                type: boolean
+              frontend:
+                description: Frontend defines the optional frontend contribution of
+                  the plugin.
+                properties:
+                  bundleIntegrity:
+                    description: BundleIntegrity is an optional SRI hash for verifying
+                      the bundle.
+                    type: string
+                  bundlePath:
+                    default: /main.js
+                    description: |-
+                      BundlePath is the path on the backend that serves the plugin's
+                      frontend ESM bundle (e.g. "/main.js"). The Everest server exposes
+                      this as /v1/plugins/<name>/<bundlePath> for the UI to import().
+                    type: string
+                  extensionPoints:
+                    description: |-
+                      ExtensionPoints declares the UI extension points this plugin fills.
+                      This enables the host to show/hide contributions before loading the bundle
+                      and enables RBAC-based filtering.
+                    items:
+                      description: PluginExtensionPoint declares a single UI extension
+                        point contribution.
+                      properties:
+                        icon:
+                          description: Icon is an optional icon identifier.
+                          type: string
+                        label:
+                          description: Label is the human-readable label displayed
+                            for this contribution.
+                          type: string
+                        path:
+                          description: Path is an optional sub-path (used by "route"
+                            and tab-type extension points).
+                          type: string
+                        providers:
+                          description: |-
+                            Providers is an optional list of database engine types this extension point
+                            applies to. Values match spec.engine.type on the DatabaseCluster CR:
+                            "postgresql", "psmdb", "pxc".
+                            When omitted or empty, the extension point is shown for all engine types.
+                          items:
+                            type: string
+                          type: array
+                        type:
+                          description: |-
+                            Type is the kind of extension point (e.g. "route", "sidebarItem",
+                            "clusterDetailTab", "clusterAction", "clusterCard",
+                            "globalDashboardWidget", "settingsPanel", "instanceCreateFormSection",
+                            "instanceEditFormSection", "themeOverride").
+                          type: string
+                      required:
+                      - type
+                      type: object
+                    type: array
+                type: object
+              icon:
+                description: Icon is a URL to the plugin's icon image.
+                type: string
+              kubePermissions:
+                description: |-
+                  KubePermissions declares additional Kubernetes API permissions the plugin's
+                  ServiceAccount needs beyond the OpenEverest API. Used by infrastructure
+                  plugins that create per-cluster resources (e.g., ProxySQL deployments).
+                  The host auto-generates a Role from these rules and binds it to the
+                  plugin's ServiceAccount in each namespace listed in the matching
+                  InstalledExtension's spec.plugin.namespaces[]. Rules are validated
+                  against a hard-coded denylist at reconcile time.
+                items:
+                  description: |-
+                    KubePermissionRule declares a single Kubernetes RBAC rule that an
+                    infrastructure plugin requires. Mirrors the structure of
+                    rbacv1.PolicyRule but with explicit JSON tags and kubebuilder markers.
+                  properties:
+                    apiGroups:
+                      description: APIGroups is the list of API groups (e.g. "", "apps").
+                        Use "" for core.
+                      items:
+                        type: string
+                      type: array
+                    resources:
+                      description: Resources is the list of resources (e.g. "deployments",
+                        "services").
+                      items:
+                        type: string
+                      type: array
+                    verbs:
+                      description: Verbs is the list of verbs (e.g. "get", "list",
+                        "create", "delete").
+                      items:
+                        type: string
+                      type: array
+                  required:
+                  - apiGroups
+                  - resources
+                  - verbs
+                  type: object
+                type: array
+              permissions:
+                description: Permissions declares what OpenEverest API resources this
+                  plugin needs access to.
+                items:
+                  description: PluginPermission declares a single permission the plugin
+                    requires.
+                  properties:
+                    resource:
+                      description: Resource is the OpenEverest API resource (e.g.
+                        "database-clusters").
+                      type: string
+                    verb:
+                      description: Verb is the action (e.g. "read", "create", "update",
+                        "delete").
+                      type: string
+                  required:
+                  - resource
+                  - verb
+                  type: object
+                type: array
+              vendor:
+                description: Vendor is the name of the plugin author or organisation.
+                type: string
+              version:
+                description: Version is the SemVer version of the plugin.
+                type: string
+            required:
+            - displayName
+            type: object
+          status:
+            description: PluginStatus defines the observed state of Plugin.
+            properties:
+              conditions:
+                items:
+                  description: Condition contains details for one aspect of the current
+                    state of this API Resource.
+                  properties:
+                    lastTransitionTime:
+                      description: |-
+                        lastTransitionTime is the last time the condition transitioned from one status to another.
+                        This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                      format: date-time
+                      type: string
+                    message:
+                      description: |-
+                        message is a human readable message indicating details about the transition.
+                        This may be an empty string.
+                      maxLength: 32768
+                      type: string
+                    observedGeneration:
+                      description: |-
+                        observedGeneration represents the .metadata.generation that the condition was set based upon.
+                        For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                        with respect to the current state of the instance.
+                      format: int64
+                      minimum: 0
+                      type: integer
+                    reason:
+                      description: |-
+                        reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                        Producers of specific condition types may define expected values and meanings for this field,
+                        and whether the values are considered a guaranteed API.
+                        The value should be a CamelCase string.
+                        This field may not be empty.
+                      maxLength: 1024
+                      minLength: 1
+                      pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                      type: string
+                    status:
+                      description: status of the condition, one of True, False, Unknown.
+                      enum:
+                      - "True"
+                      - "False"
+                      - Unknown
+                      type: string
+                    type:
+                      description: type of condition in CamelCase or in foo.example.com/CamelCase.
+                      maxLength: 316
+                      pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - message
+                  - reason
+                  - status
+                  - type
+                  type: object
+                type: array
+                x-kubernetes-list-map-keys:
+                - type
+                x-kubernetes-list-type: map
+            type: object
+        required:
+        - spec
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
