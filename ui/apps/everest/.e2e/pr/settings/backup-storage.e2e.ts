@@ -14,7 +14,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { test, expect } from '@playwright/test';
+import { test, expect } from '@e2e/fixtures/auth';
 import { findRowAndClickActions, waitForDelete } from '@e2e/utils/table';
 import { goToUrl, limitedSuffixedName } from '@e2e/utils/generic';
 import {

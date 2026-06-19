@@ -118,8 +118,7 @@ func NewEverestServer(ctx context.Context, c *config.EverestConfig, l *zap.Sugar
 
 	echoServer := echo.New()
 	echoServer.Use(echomiddleware.RateLimiter(echomiddleware.NewRateLimiterMemoryStore(rate.Limit(c.APIRequestsRateLimit))))
-	middleware, store := sessionRateLimiter(c.CreateAuthTokenRateLimit)
-	echoServer.Use(middleware)
+	store := newPasswordGrantLimiter(c.LoginRateLimit)
 
 	sessionManagerClient, err := createSessionManagerClient(ctx, l, kubeConnector.Namespace())
 	if err != nil {
@@ -494,17 +493,10 @@ func (e *EverestServer) getBodyFromContext(ctx echo.Context, into any) error {
 	return nil
 }
 
-func sessionRateLimiter(limit int) (echo.MiddlewareFunc, *RateLimiterMemoryStore) {
-	allButAuthToken := func(c echo.Context) bool {
-		return c.Request().URL.Path != "/v1/auth/token"
-	}
-	config := echomiddleware.DefaultRateLimiterConfig
-	config.Skipper = allButAuthToken
-	store := NewRateLimiterMemoryStoreWithConfig(RateLimiterMemoryStoreConfig{
+func newPasswordGrantLimiter(limit int) *RateLimiterMemoryStore {
+	return NewRateLimiterMemoryStoreWithConfig(RateLimiterMemoryStoreConfig{
 		Rate: rate.Limit(limit),
 	})
-	config.Store = store
-	return echomiddleware.RateLimiterWithConfig(config), store
 }
 
 func (e *EverestServer) errorHandlerChain() echo.HTTPErrorHandler {

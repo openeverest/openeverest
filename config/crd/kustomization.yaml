@@ -9,8 +9,8 @@ resources:
 - bases/monitoring.openeverest.io_monitoringconfigs.yaml
 - bases/backup.openeverest.io_restores.yaml
 - bases/backup.openeverest.io_backupstorages.yaml
-- bases/plugin.openeverest.io_plugins.yaml
-- bases/plugin.openeverest.io_plugininstallations.yaml
+- bases/extensions.openeverest.io_plugins.yaml
+- bases/extensions.openeverest.io_installedextensions.yaml
 # +kubebuilder:scaffold:crdkustomizeresource
 
 patches:
