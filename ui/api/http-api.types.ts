@@ -3324,6 +3324,8 @@ export interface components {
                      */
                     name?: string;
                 };
+                /** @description Message is a custom user-facing message describing the current state of the instance. */
+                message?: string;
                 /**
                  * @description Phase of the database cluster.
                  * @enum {string}

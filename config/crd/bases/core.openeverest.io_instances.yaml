@@ -1519,6 +1519,10 @@ spec:
                     type: string
                 type: object
                 x-kubernetes-map-type: atomic
+              message:
+                description: Message is a custom user-facing message describing the
+                  current state of the instance.
+                type: string
               phase:
                 description: Phase of the database cluster.
                 enum:

@@ -480,7 +480,9 @@ func (r *ProviderReconciler) Reconcile(ctx context.Context, req reconcile.Reques
 		return reconcile.Result{}, err
 	}
 
-	in.Status = status.ToV2Alpha1()
+	instanceStatus := status.ToV2Alpha1()
+	in.Status.Phase = instanceStatus.Phase
+	in.Status.Message = instanceStatus.Message
 
 	// Freeze the effective bundle name in status so it remains stable across
 	// Provider upgrades. On subsequent reconciliations the reconciler reads this

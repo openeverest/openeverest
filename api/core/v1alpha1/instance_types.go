@@ -361,6 +361,10 @@ type InstanceStatus struct {
 	ConnectionSecretRef corev1.LocalObjectReference `json:"connectionSecretRef,omitempty"`
 	// Components is the status of the components in the database cluster.
 	Components []ComponentStatus `json:"components,omitempty"`
+
+	// Message is a custom user-facing message describing the current state of the instance.
+	// +optional
+	Message string `json:"message,omitempty"`
 	// +listType=map
 	// +listMapKey=type
 	// +optional
