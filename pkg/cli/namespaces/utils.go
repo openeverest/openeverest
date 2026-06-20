@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2025 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -119,4 +120,23 @@ func ensureNoOperatorsRemoved(
 		}
 	}
 	return true
+}
+
+func operatorsFromSubscriptions(subscriptions []olmv1alpha1.Subscription) OperatorConfig {
+	ops := OperatorConfig{}
+
+	for _, subscription := range subscriptions {
+		switch subscription.GetName() {
+		case common.PostgreSQLOperatorName:
+			ops.PG = true
+		case common.MongoDBOperatorName:
+			ops.PSMDB = true
+		case common.MySQLOperatorName:
+			ops.PXC = true
+		default:
+			continue
+		}
+	}
+
+	return ops
 }

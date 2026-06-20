@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -86,19 +87,29 @@ func namespacesUpdatePreRun(cmd *cobra.Command, args []string) { //nolint:revive
 		namespacesUpdateCfg.NamespaceList = nsList
 	}
 
-	// If user doesn't pass any --operator.* flags - need to ask explicitly.
-	askOperators := !(cmd.Flags().Lookup(cli.FlagOperatorMongoDB).Changed ||
-		cmd.Flags().Lookup(cli.FlagOperatorPostgresql).Changed ||
-		cmd.Flags().Lookup(cli.FlagOperatorXtraDBCluster).Changed ||
-		cmd.Flags().Lookup(cli.FlagOperatorMySQL).Changed)
+	operatorFlagsChanged := operatorFlagsChangedOnUpdateCommand(cmd)
+	operatorFlagsChangedDetails := operatorFlagsChangedDetailsOnUpdateCommand(cmd)
 
-	if askOperators {
+	// If user doesn't pass any --operator.* flags - need to ask explicitly
+	// (unless --skip-wizard, which must not call interactive prompts).
+	if shouldPromptOperatorsForNamespaceUpdate(
+		operatorFlagsChanged,
+		namespacesUpdateCfg.SkipWizard,
+	) {
 		// need to ask user to provide operators to be installed in interactive mode.
 		if err := namespacesUpdateCfg.PopulateOperators(cmd.Context()); err != nil {
 			output.PrintError(err, logger.GetLogger(), namespacesUpdateCfg.Pretty)
 			os.Exit(1)
 		}
 	}
+
+	// For non-interactive update with no explicit --operator.* flags, keep current
+	// operators from each namespace. Explicit --operator.* flags are applied
+	// as overrides on top of installed operators.
+	namespacesUpdateCfg.UpdateUseInstalledOperators = shouldUseInstalledOperatorsForNamespaceUpdate(
+		namespacesUpdateCfg.SkipWizard,
+	)
+	namespacesUpdateCfg.OperatorFlagsChanged = operatorFlagsChangedDetails
 }
 
 func namespacesUpdateRun(cmd *cobra.Command, _ []string) {
@@ -120,6 +131,36 @@ func namespacesUpdateRun(cmd *cobra.Command, _ []string) {
 		output.PrintError(err, logger.GetLogger(), namespacesUpdateCfg.Pretty)
 		os.Exit(1)
 	}
+}
+
+// operatorFlagsChangedOnUpdateCommand reports whether any --operator.* flag was set on the command line.
+func operatorFlagsChangedOnUpdateCommand(cmd *cobra.Command) bool {
+	return cmd.Flags().Lookup(cli.FlagOperatorMongoDB).Changed ||
+		cmd.Flags().Lookup(cli.FlagOperatorPostgresql).Changed ||
+		cmd.Flags().Lookup(cli.FlagOperatorXtraDBCluster).Changed ||
+		cmd.Flags().Lookup(cli.FlagOperatorMySQL).Changed
+}
+
+func operatorFlagsChangedDetailsOnUpdateCommand(cmd *cobra.Command) namespaces.OperatorFlagsChanged {
+	return namespaces.OperatorFlagsChanged{
+		PSMDB: cmd.Flags().Lookup(cli.FlagOperatorMongoDB).Changed,
+		PG:    cmd.Flags().Lookup(cli.FlagOperatorPostgresql).Changed,
+		PXC: cmd.Flags().Lookup(cli.FlagOperatorXtraDBCluster).Changed ||
+			cmd.Flags().Lookup(cli.FlagOperatorMySQL).Changed,
+	}
+}
+
+// shouldPromptOperatorsForNamespaceUpdate returns whether the update command should run
+// the interactive operator picker. When skipWizard is true, it always returns false.
+func shouldPromptOperatorsForNamespaceUpdate(operatorFlagsChanged, skipWizard bool) bool {
+	if skipWizard {
+		return false
+	}
+	return !operatorFlagsChanged
+}
+
+func shouldUseInstalledOperatorsForNamespaceUpdate(skipWizard bool) bool {
+	return skipWizard
 }
 
 // GetNamespacesUpdateCmd returns the command to update namespaces.

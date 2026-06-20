@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -39,6 +40,13 @@ import (
 )
 
 type (
+	// OperatorFlagsChanged tracks which operator flags were explicitly provided.
+	OperatorFlagsChanged struct {
+		PG    bool
+		PSMDB bool
+		PXC   bool
+	}
+
 	// OperatorConfig identifies which operators shall be installed.
 	OperatorConfig struct {
 		PG    bool // is set if PostgresSQL shall be installed.
@@ -80,6 +88,11 @@ type (
 		Update bool
 		// Helm related options
 		HelmConfig helm.CLIOptions
+		// UpdateUseInstalledOperators keeps the existing operators on namespace update
+		// when user did not provide explicit --operator.* flags.
+		UpdateUseInstalledOperators bool
+		// OperatorFlagsChanged tracks explicit operator flags to apply as overrides.
+		OperatorFlagsChanged OperatorFlagsChanged
 	}
 
 	// NamespaceAdder provides the functionality to add namespaces.
@@ -349,11 +362,15 @@ func (n *NamespaceAdder) GetNamespaceInstallSteps(ctx context.Context, dbNSChart
 }
 
 func (n *NamespaceAdder) getValues() values.Options {
+	return n.getValuesForOperators(n.cfg.Operators)
+}
+
+func (n *NamespaceAdder) getValuesForOperators(ops OperatorConfig) values.Options {
 	var v []string
 	v = append(v, "cleanupOnUninstall=false") // uninstall command will do the clean-up on its own.
-	v = append(v, fmt.Sprintf("pxc=%t", n.cfg.Operators.PXC))
-	v = append(v, fmt.Sprintf("postgresql=%t", n.cfg.Operators.PG))
-	v = append(v, fmt.Sprintf("psmdb=%t", n.cfg.Operators.PSMDB))
+	v = append(v, fmt.Sprintf("pxc=%t", ops.PXC))
+	v = append(v, fmt.Sprintf("postgresql=%t", ops.PG))
+	v = append(v, fmt.Sprintf("psmdb=%t", ops.PSMDB))
 	v = append(v, fmt.Sprintf("telemetry=%t", !n.cfg.DisableTelemetry))
 
 	if n.cfg.ClusterType == kubernetes.ClusterTypeOpenShift {
@@ -384,7 +401,17 @@ func (n *NamespaceAdder) provisionDBNamespace(
 	if err != nil {
 		return err
 	}
-	values := Must(helmutils.MergeVals(n.getValues(), nil))
+
+	ops := n.cfg.Operators
+	if n.cfg.Update && n.cfg.UpdateUseInstalledOperators {
+		ops, err = n.getInstalledOperatorsForNamespace(ctx, namespace)
+		if err != nil {
+			return err
+		}
+		ops = applyOperatorOverrides(ops, n.cfg.Operators, n.cfg.OperatorFlagsChanged)
+	}
+
+	values := Must(helmutils.MergeVals(n.getValuesForOperators(ops), nil))
 	installer := helm.Installer{
 		ReleaseName:            namespace,
 		ReleaseNamespace:       namespace,
@@ -401,6 +428,31 @@ func (n *NamespaceAdder) provisionDBNamespace(
 	}
 	n.l.Info("Installing DB namespace Helm chart in namespace ", namespace)
 	return installer.Install(ctx)
+}
+
+func applyOperatorOverrides(
+	base OperatorConfig,
+	overrides OperatorConfig,
+	changed OperatorFlagsChanged,
+) OperatorConfig {
+	if changed.PG {
+		base.PG = overrides.PG
+	}
+	if changed.PSMDB {
+		base.PSMDB = overrides.PSMDB
+	}
+	if changed.PXC {
+		base.PXC = overrides.PXC
+	}
+	return base
+}
+
+func (n *NamespaceAdder) getInstalledOperatorsForNamespace(ctx context.Context, namespace string) (OperatorConfig, error) {
+	subscriptions, err := n.kubeClient.ListSubscriptions(ctx, client.InNamespace(namespace))
+	if err != nil {
+		return OperatorConfig{}, fmt.Errorf("cannot list subscriptions: %w", err)
+	}
+	return operatorsFromSubscriptions(subscriptions.Items), nil
 }
 
 func (n *NamespaceAdder) validateNamespaceUpdate(ctx context.Context, namespace string) error {
