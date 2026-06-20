@@ -94,21 +94,24 @@ func (lo *Login) Run(ctx context.Context, opts LoginOptions, cfgPath string) err
 		return fmt.Errorf("failed to parse token response: %w", err)
 	}
 
+	srvName := serverName(opts.Server)
+	userName := opts.Username + "@" + srvName
 	contextName := opts.ContextName
 	if contextName == "" {
-		contextName = defaultContextName(opts.Username, opts.Server)
+		contextName = userName
 	}
 
 	cfg, err := config.Load(cfgPath)
 	if err != nil {
 		return err
 	}
-	cfg.UpsertContext(contextName, config.Context{
-		Server:       opts.Server,
+	cfg.UpsertServer(srvName, config.Server{URL: opts.Server})
+	cfg.UpsertUser(userName, config.User{
 		AccessToken:  tokenResp.AccessToken,
 		RefreshToken: tokenResp.RefreshToken,
 		ExpiresAt:    time.Now().Add(time.Duration(tokenResp.ExpiresIn) * time.Second),
 	})
+	cfg.UpsertContext(contextName, config.Context{Server: srvName, User: userName})
 	cfg.CurrentContext = contextName
 
 	if err := cfg.Save(cfgPath); err != nil {
@@ -140,15 +143,12 @@ func normalizeServerURL(server string) string {
 	return server
 }
 
-// defaultContextName produces a context name in the form username@host:port,
-// allowing multiple accounts against the same server to coexist.
-func defaultContextName(username, server string) string {
-	host := server
+// serverName strips the URL scheme from server, returning just the host[:port].
+func serverName(server string) string {
 	for _, prefix := range []string{"https://", "http://"} {
 		if strings.HasPrefix(server, prefix) {
-			host = server[len(prefix):]
-			break
+			return server[len(prefix):]
 		}
 	}
-	return username + "@" + host
+	return server
 }

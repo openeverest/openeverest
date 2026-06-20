@@ -63,12 +63,27 @@ func TestLogin_Run_Success(t *testing.T) {
 
 	cfg, err := config.Load(cfgPath)
 	require.NoError(t, err)
-	assert.Equal(t, defaultContextName("admin", srv.URL), cfg.CurrentContext)
+
+	srvName := serverName(srv.URL)
+	userName := "admin@" + srvName
+
+	assert.Equal(t, userName, cfg.CurrentContext)
+
 	require.Len(t, cfg.Contexts, 1)
-	ctx := cfg.Contexts[0].Context
-	assert.Equal(t, "new-access-jwt", ctx.AccessToken)
-	assert.Equal(t, "everest_rt_abc", ctx.RefreshToken)
-	assert.False(t, ctx.ExpiresAt.IsZero())
+	assert.Equal(t, userName, cfg.Contexts[0].Name)
+	assert.Equal(t, srvName, cfg.Contexts[0].Context.Server)
+	assert.Equal(t, userName, cfg.Contexts[0].Context.User)
+
+	require.Len(t, cfg.Servers, 1)
+	assert.Equal(t, srvName, cfg.Servers[0].Name)
+	assert.Equal(t, srv.URL, cfg.Servers[0].Server.URL)
+
+	require.Len(t, cfg.Users, 1)
+	assert.Equal(t, userName, cfg.Users[0].Name)
+	u := cfg.Users[0].User
+	assert.Equal(t, "new-access-jwt", u.AccessToken)
+	assert.Equal(t, "everest_rt_abc", u.RefreshToken)
+	assert.False(t, u.ExpiresAt.IsZero())
 
 	info, err := os.Stat(cfgPath)
 	require.NoError(t, err)
@@ -102,6 +117,9 @@ func TestLogin_Run_CustomContextName(t *testing.T) {
 	assert.Equal(t, "my-cluster", cfg.CurrentContext)
 	require.Len(t, cfg.Contexts, 1)
 	assert.Equal(t, "my-cluster", cfg.Contexts[0].Name)
+	// server and user entries still use auto-derived names
+	assert.Equal(t, serverName(srv.URL), cfg.Contexts[0].Context.Server)
+	assert.Equal(t, "admin@"+serverName(srv.URL), cfg.Contexts[0].Context.User)
 }
 
 func TestLogin_Run_AuthFailure(t *testing.T) {
@@ -172,21 +190,20 @@ func TestNormalizeServerURL(t *testing.T) {
 	}
 }
 
-func TestDefaultContextName(t *testing.T) {
+func TestServerName(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
-		username string
-		server   string
-		want     string
+		input string
+		want  string
 	}{
-		{"admin", "http://localhost:8080", "admin@localhost:8080"},
-		{"readonly", "https://everest.prod.example", "readonly@everest.prod.example"},
-		{"alice", "localhost:8080", "alice@localhost:8080"},
+		{"http://localhost:8080", "localhost:8080"},
+		{"https://everest.prod.example", "everest.prod.example"},
+		{"localhost:8080", "localhost:8080"},
 	}
 	for _, tc := range tests {
-		t.Run(tc.username+"@"+tc.server, func(t *testing.T) {
+		t.Run(tc.input, func(t *testing.T) {
 			t.Parallel()
-			assert.Equal(t, tc.want, defaultContextName(tc.username, tc.server))
+			assert.Equal(t, tc.want, serverName(tc.input))
 		})
 	}
 }

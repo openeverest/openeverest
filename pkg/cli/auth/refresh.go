@@ -36,29 +36,33 @@ func (lo *Login) Refresh(ctx context.Context, cfgPath string) error {
 		return err
 	}
 
-	var current *config.Context
-	for i, nc := range cfg.Contexts {
-		if nc.Name == cfg.CurrentContext {
-			current = &cfg.Contexts[i].Context
-			break
-		}
-	}
-	if current == nil {
+	currentCtx, ok := cfg.GetCurrentContext()
+	if !ok {
 		return fmt.Errorf("no active context %q found in config", cfg.CurrentContext)
 	}
 
-	if err := validateServerURL(current.Server); err != nil {
+	srv, ok := cfg.GetServer(currentCtx.Server)
+	if !ok {
+		return fmt.Errorf("server %q not found in config", currentCtx.Server)
+	}
+
+	usr, ok := cfg.GetUser(currentCtx.User)
+	if !ok {
+		return fmt.Errorf("user %q not found in config", currentCtx.User)
+	}
+
+	if err := validateServerURL(srv.URL); err != nil {
 		return fmt.Errorf("invalid server URL in config: %w", err)
 	}
 
-	c, err := client.NewClient(normalizeServerURL(current.Server))
+	c, err := client.NewClient(normalizeServerURL(srv.URL))
 	if err != nil {
 		return fmt.Errorf("failed to create API client: %w", err)
 	}
 
 	resp, err := c.CreateAuthToken(ctx, client.CreateAuthTokenJSONRequestBody{
 		GrantType:    client.AuthTokenRequestGrantTypeRefreshToken,
-		RefreshToken: &current.RefreshToken,
+		RefreshToken: &usr.RefreshToken,
 	})
 	if err != nil {
 		return fmt.Errorf("refresh request failed: %w", err)
@@ -75,9 +79,11 @@ func (lo *Login) Refresh(ctx context.Context, cfgPath string) error {
 		return fmt.Errorf("failed to parse token response: %w", err)
 	}
 
-	current.AccessToken = tokenResp.AccessToken
-	current.RefreshToken = tokenResp.RefreshToken
-	current.ExpiresAt = time.Now().Add(time.Duration(tokenResp.ExpiresIn) * time.Second)
+	cfg.UpsertUser(currentCtx.User, config.User{
+		AccessToken:  tokenResp.AccessToken,
+		RefreshToken: tokenResp.RefreshToken,
+		ExpiresAt:    time.Now().Add(time.Duration(tokenResp.ExpiresIn) * time.Second),
+	})
 
 	return cfg.Save(cfgPath)
 }

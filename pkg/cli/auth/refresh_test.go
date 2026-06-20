@@ -31,6 +31,30 @@ import (
 	"github.com/openeverest/openeverest/v2/pkg/cli/config"
 )
 
+// newRefreshConfig builds a minimal config with one server, one user, and one context.
+func newRefreshConfig(serverURL, refreshToken string) *config.Config {
+	srvName := serverName(serverURL)
+	userName := "admin@" + srvName
+	return &config.Config{
+		APIVersion:     "config.openeverest.io/v1alpha1",
+		Kind:           "ClientConfig",
+		CurrentContext: userName,
+		Contexts: []config.NamedContext{
+			{Name: userName, Context: config.Context{Server: srvName, User: userName}},
+		},
+		Servers: []config.NamedServer{
+			{Name: srvName, Server: config.Server{URL: serverURL}},
+		},
+		Users: []config.NamedUser{
+			{Name: userName, User: config.User{
+				AccessToken:  "old-access",
+				RefreshToken: refreshToken,
+				ExpiresAt:    time.Now().Add(-time.Minute),
+			}},
+		},
+	}
+}
+
 func TestRefresh_Success(t *testing.T) {
 	t.Parallel()
 
@@ -46,34 +70,18 @@ func TestRefresh_Success(t *testing.T) {
 	defer srv.Close()
 
 	cfgPath := filepath.Join(t.TempDir(), "config.yaml")
-	cfg := &config.Config{
-		APIVersion:     "v1",
-		Kind:           "Config",
-		CurrentContext: "local",
-		Contexts: []config.NamedContext{
-			{
-				Name: "local",
-				Context: config.Context{
-					Server:       srv.URL,
-					AccessToken:  "old-access",
-					RefreshToken: "everest_rt_old",
-					ExpiresAt:    time.Now().Add(-time.Minute),
-				},
-			},
-		},
-	}
-	require.NoError(t, cfg.Save(cfgPath))
+	require.NoError(t, newRefreshConfig(srv.URL, "everest_rt_old").Save(cfgPath))
 
 	lo := NewLogin(Config{}, zap.NewNop().Sugar())
 	require.NoError(t, lo.Refresh(t.Context(), cfgPath))
 
 	updated, err := config.Load(cfgPath)
 	require.NoError(t, err)
-	require.Len(t, updated.Contexts, 1)
-	ctx := updated.Contexts[0].Context
-	assert.Equal(t, "rotated-access-jwt", ctx.AccessToken)
-	assert.Equal(t, "everest_rt_new", ctx.RefreshToken)
-	assert.True(t, ctx.ExpiresAt.After(time.Now()))
+	require.Len(t, updated.Users, 1)
+	u := updated.Users[0].User
+	assert.Equal(t, "rotated-access-jwt", u.AccessToken)
+	assert.Equal(t, "everest_rt_new", u.RefreshToken)
+	assert.True(t, u.ExpiresAt.After(time.Now()))
 }
 
 func TestRefresh_InvalidToken(t *testing.T) {
@@ -87,21 +95,7 @@ func TestRefresh_InvalidToken(t *testing.T) {
 	defer srv.Close()
 
 	cfgPath := filepath.Join(t.TempDir(), "config.yaml")
-	cfg := &config.Config{
-		APIVersion:     "v1",
-		Kind:           "Config",
-		CurrentContext: "local",
-		Contexts: []config.NamedContext{
-			{
-				Name: "local",
-				Context: config.Context{
-					Server:       srv.URL,
-					RefreshToken: "everest_rt_expired",
-				},
-			},
-		},
-	}
-	require.NoError(t, cfg.Save(cfgPath))
+	require.NoError(t, newRefreshConfig(srv.URL, "everest_rt_expired").Save(cfgPath))
 
 	lo := NewLogin(Config{}, zap.NewNop().Sugar())
 	err := lo.Refresh(t.Context(), cfgPath)
@@ -111,7 +105,7 @@ func TestRefresh_InvalidToken(t *testing.T) {
 	// config must be unchanged
 	loaded, err := config.Load(cfgPath)
 	require.NoError(t, err)
-	assert.Equal(t, "everest_rt_expired", loaded.Contexts[0].Context.RefreshToken)
+	assert.Equal(t, "everest_rt_expired", loaded.Users[0].User.RefreshToken)
 }
 
 func TestRefresh_NoActiveContext(t *testing.T) {
@@ -119,8 +113,8 @@ func TestRefresh_NoActiveContext(t *testing.T) {
 
 	cfgPath := filepath.Join(t.TempDir(), "config.yaml")
 	cfg := &config.Config{
-		APIVersion:     "v1",
-		Kind:           "Config",
+		APIVersion:     "config.openeverest.io/v1alpha1",
+		Kind:           "ClientConfig",
 		CurrentContext: "missing",
 	}
 	require.NoError(t, cfg.Save(cfgPath))
