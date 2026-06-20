@@ -1,3 +1,18 @@
+// everest
+// Copyright (C) 2025 Percona LLC
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package validation
 
 import (
@@ -37,6 +52,12 @@ var (
 	errDataSourceWrongDateFormat     = errors.New("failed to parse .Spec.DataSource.Pitr.Date as 2006-01-02T15:04:05Z")
 	errDataSourceNoBackupStorageName = errors.New("'backupStorageName' should be specified in .Spec.DataSource.BackupSource")
 	errDataSourceNoPath              = errors.New("'path' should be specified in .Spec.DataSource.BackupSource")
+	errDataImportSourceMissing       = errors.New("'source' is required in .Spec.DataSource.DataImport")
+	errDataImportS3Missing           = errors.New("'source.s3' is required in .Spec.DataSource.DataImport")
+	errDataImportNoBucket            = errors.New("'source.s3.bucket' is required in .Spec.DataSource.DataImport")
+	errDataImportNoRegion            = errors.New("'source.s3.region' is required in .Spec.DataSource.DataImport")
+	errDataImportNoCredentialsSecret = errors.New("'source.s3.credentialsSecretName' is required in .Spec.DataSource.DataImport")
+	errDataImportNoPath              = errors.New("'source.path' is required in .Spec.DataSource.DataImport")
 	errUnsupportedPitrType           = errors.New("the given point-in-time recovery type is not supported")
 	errTooManyPGStorages             = fmt.Errorf("only %d different storages are allowed in a PostgreSQL cluster", pgReposLimit)
 	errInvalidBucketName             = fmt.Errorf("invalid bucketName")

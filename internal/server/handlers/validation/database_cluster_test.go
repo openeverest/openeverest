@@ -1,3 +1,18 @@
+// everest
+// Copyright (C) 2025 Percona LLC
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package validation
 
 import (
@@ -1016,6 +1031,92 @@ func TestValidateDataSource(t *testing.T) {
 				},
 			},
 			err: errUnsupportedPitrType,
+		},
+		{
+			name: "dataImport missing source",
+			source: everestv1alpha1.DataSource{
+				DataImport: &everestv1alpha1.DataImportJobTemplate{
+					DataImporterName: "pg",
+				},
+			},
+			err: errDataImportSourceMissing,
+		},
+		{
+			name: "dataImport missing path",
+			source: everestv1alpha1.DataSource{
+				DataImport: &everestv1alpha1.DataImportJobTemplate{
+					DataImporterName: "pg",
+					Source: &everestv1alpha1.DataImportJobSource{
+						S3: &everestv1alpha1.DataImportJobS3Source{
+							Bucket:                "b",
+							Region:                "r",
+							CredentialsSecretName: "s",
+						},
+					},
+				},
+			},
+			err: errDataImportNoPath,
+		},
+		{
+			name: "dataImport missing s3 block",
+			source: everestv1alpha1.DataSource{
+				DataImport: &everestv1alpha1.DataImportJobTemplate{
+					DataImporterName: "pg",
+					Source: &everestv1alpha1.DataImportJobSource{
+						Path: "/some/path",
+					},
+				},
+			},
+			err: errDataImportS3Missing,
+		},
+		{
+			name: "dataImport missing bucket",
+			source: everestv1alpha1.DataSource{
+				DataImport: &everestv1alpha1.DataImportJobTemplate{
+					DataImporterName: "pg",
+					Source: &everestv1alpha1.DataImportJobSource{
+						Path: "/some/path",
+						S3: &everestv1alpha1.DataImportJobS3Source{
+							Region:                "r",
+							CredentialsSecretName: "s",
+						},
+					},
+				},
+			},
+			err: errDataImportNoBucket,
+		},
+		{
+			name: "dataImport missing credentialsSecretName",
+			source: everestv1alpha1.DataSource{
+				DataImport: &everestv1alpha1.DataImportJobTemplate{
+					DataImporterName: "pg",
+					Source: &everestv1alpha1.DataImportJobSource{
+						Path: "/some/path",
+						S3: &everestv1alpha1.DataImportJobS3Source{
+							Bucket: "b",
+							Region: "r",
+						},
+					},
+				},
+			},
+			err: errDataImportNoCredentialsSecret,
+		},
+		{
+			name: "dataImport ok",
+			source: everestv1alpha1.DataSource{
+				DataImport: &everestv1alpha1.DataImportJobTemplate{
+					DataImporterName: "pg",
+					Source: &everestv1alpha1.DataImportJobSource{
+						Path: "/some/path",
+						S3: &everestv1alpha1.DataImportJobS3Source{
+							Bucket:                "b",
+							Region:                "r",
+							CredentialsSecretName: "s",
+						},
+					},
+				},
+			},
+			err: nil,
 		},
 	}
 	for _, tc := range cases {

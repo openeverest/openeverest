@@ -1,3 +1,18 @@
+// everest
+// Copyright (C) 2025 Percona LLC
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package validation
 
 import (
@@ -30,6 +45,12 @@ const (
 	minPXCProxyReplicas             = 2
 	minConfigServersNum1NodeReplset = 1
 	pgReposLimit                    = 3
+
+	// awsAccessKeyIDField / awsSecretAccessKeyField are the data keys this
+	// project uses when persisting S3 credentials into a Kubernetes Secret;
+	// they match what BackupStorage create/update reads (see backup_storage.go).
+	awsAccessKeyIDField     = "AWS_ACCESS_KEY_ID"
+	awsSecretAccessKeyField = "AWS_SECRET_ACCESS_KEY"
 )
 
 func (h *validateHandler) CreateDatabaseCluster(ctx context.Context, db *everestv1alpha1.DatabaseCluster) (*everestv1alpha1.DatabaseCluster, error) {
@@ -134,6 +155,9 @@ func (h *validateHandler) validateDatabaseClusterCR(
 
 	if databaseCluster.Spec.DataSource != nil {
 		if err := validateDataSource(databaseCluster.Spec.DataSource); err != nil {
+			return err
+		}
+		if err := h.validateDataSourceS3Access(ctx, namespace, databaseCluster.Spec.DataSource); err != nil {
 			return err
 		}
 	}
@@ -414,6 +438,28 @@ func validateDataSource(dataSource *everestv1alpha1.DataSource) error {
 		}
 	}
 
+	if dataSource.DataImport != nil {
+		if dataSource.DataImport.Source == nil {
+			return errDataImportSourceMissing
+		}
+		if dataSource.DataImport.Source.Path == "" {
+			return errDataImportNoPath
+		}
+		if dataSource.DataImport.Source.S3 == nil {
+			return errDataImportS3Missing
+		}
+		s3src := dataSource.DataImport.Source.S3
+		if s3src.Bucket == "" {
+			return errDataImportNoBucket
+		}
+		if s3src.Region == "" {
+			return errDataImportNoRegion
+		}
+		if s3src.CredentialsSecretName == "" {
+			return errDataImportNoCredentialsSecret
+		}
+	}
+
 	if dataSource.PITR != nil { //nolint:nestif
 		if dataSource.PITR.Type == "" || dataSource.PITR.Type == everestv1alpha1.PITRTypeDate {
 			if dataSource.PITR.Date == nil {
@@ -428,6 +474,121 @@ func validateDataSource(dataSource *everestv1alpha1.DataSource) error {
 		}
 	}
 	return nil
+}
+
+// validateDataSourceS3Access performs a read-only S3 probe for the data source
+// at admission time so users get a real error up-front rather than a cluster
+// stuck in "importing" later (see issue #2229). The DataImport.Source.S3 path
+// goes through the operator's mutating webhook which writes any inline
+// AccessKeyID / SecretAccessKey into the referenced Secret; by the time the
+// request reaches this handler the credentials live only in that Secret, so
+// we resolve them via the cluster API.
+func (h *validateHandler) validateDataSourceS3Access(
+	ctx context.Context,
+	namespace string,
+	dataSource *everestv1alpha1.DataSource,
+) error {
+	if dataSource == nil {
+		return nil
+	}
+	if dataSource.BackupSource != nil {
+		return h.probeBackupSourceAccess(ctx, namespace, dataSource.BackupSource)
+	}
+	if dataSource.DataImport != nil && dataSource.DataImport.Source != nil && dataSource.DataImport.Source.S3 != nil {
+		return h.probeDataImportS3Access(ctx, namespace, dataSource.DataImport)
+	}
+	return nil
+}
+
+func (h *validateHandler) probeBackupSourceAccess(
+	ctx context.Context,
+	namespace string,
+	src *everestv1alpha1.BackupSource,
+) error {
+	bs, err := h.kubeConnector.GetBackupStorage(ctx, types.NamespacedName{Namespace: namespace, Name: src.BackupStorageName})
+	if err != nil {
+		return fmt.Errorf("failed to GetBackupStorage '%s': %w", src.BackupStorageName, err)
+	}
+	// Only S3 is probed here; Azure restore-source validation is left to the
+	// existing BackupStorage create/update path which already covers
+	// connectivity.
+	if bs.Spec.Type != everestv1alpha1.BackupStorageTypeS3 {
+		return nil
+	}
+	secret, err := h.kubeConnector.GetSecret(ctx, types.NamespacedName{Namespace: namespace, Name: bs.Spec.CredentialsSecretName})
+	if err != nil {
+		return fmt.Errorf("failed to GetSecret '%s' for BackupStorage '%s': %w", bs.Spec.CredentialsSecretName, src.BackupStorageName, err)
+	}
+	accessKey := string(secret.Data[awsAccessKeyIDField])
+	secretKey := string(secret.Data[awsSecretAccessKeyField])
+
+	// VerifyTLS defaults to true, ForcePathStyle defaults to false per CRD
+	// kubebuilder defaults — pointer.Get returns the zero value when nil, so
+	// for VerifyTLS we explicitly default to true to preserve admission-time
+	// behaviour even if the API server stripped the default.
+	verifyTLS := true
+	if bs.Spec.VerifyTLS != nil {
+		verifyTLS = *bs.Spec.VerifyTLS
+	}
+	forcePathStyle := false
+	if bs.Spec.ForcePathStyle != nil {
+		forcePathStyle = *bs.Spec.ForcePathStyle
+	}
+	return s3ReadOnlyAccess(
+		h.log,
+		bs.Spec.EndpointURL,
+		accessKey,
+		secretKey,
+		bs.Spec.Bucket,
+		bs.Spec.Region,
+		src.Path,
+		verifyTLS,
+		forcePathStyle,
+	)
+}
+
+func (h *validateHandler) probeDataImportS3Access(
+	ctx context.Context,
+	namespace string,
+	di *everestv1alpha1.DataImportJobTemplate,
+) error {
+	s3src := di.Source.S3
+	accessKey, secretKey := s3src.AccessKeyID, s3src.SecretAccessKey
+	// Inline creds may be empty here: the operator's mutating webhook moves
+	// them into the referenced Secret on admission. In that case (and when
+	// the user passed only credentialsSecretName), read them from the Secret.
+	if accessKey == "" || secretKey == "" {
+		secret, err := h.kubeConnector.GetSecret(ctx, types.NamespacedName{Namespace: namespace, Name: s3src.CredentialsSecretName})
+		if err != nil {
+			return fmt.Errorf("failed to GetSecret '%s' for DataImport S3 source: %w", s3src.CredentialsSecretName, err)
+		}
+		if accessKey == "" {
+			accessKey = string(secret.Data[awsAccessKeyIDField])
+		}
+		if secretKey == "" {
+			secretKey = string(secret.Data[awsSecretAccessKeyField])
+		}
+	}
+
+	verifyTLS := true
+	if s3src.VerifyTLS != nil {
+		verifyTLS = *s3src.VerifyTLS
+	}
+	forcePathStyle := false
+	if s3src.ForcePathStyle != nil {
+		forcePathStyle = *s3src.ForcePathStyle
+	}
+	return s3ReadOnlyAccess(
+		h.log,
+		s3src.EndpointURL,
+		accessKey,
+		secretKey,
+		s3src.Bucket,
+		s3src.Region,
+		di.Source.Path,
+		verifyTLS,
+		forcePathStyle,
+	)
 }
 
 func (h *validateHandler) validatePGSchedulesRestrictions(ctx context.Context, newDbc *everestv1alpha1.DatabaseCluster) error {
