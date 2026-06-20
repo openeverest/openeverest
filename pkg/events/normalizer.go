@@ -137,6 +137,7 @@ func NormalizeBackup(we watch.Event, old *backupv1alpha1.Backup) []Event {
 	rv := obj.ResourceVersion
 	ns := obj.Namespace
 	now := time.Now().UTC()
+	userActor := ActorFromAnnotations(obj.GetAnnotations())
 
 	var out []Event
 	newState := string(obj.Status.State)
@@ -154,6 +155,7 @@ func NormalizeBackup(we watch.Event, old *backupv1alpha1.Backup) []Event {
 			Namespace:       ns,
 			Resource:        ref,
 			NewState:        StateSnapshot{Phase: newState},
+			Actor:           userActor,
 		})
 	case watch.Modified:
 		switch {
@@ -166,6 +168,7 @@ func NormalizeBackup(we watch.Event, old *backupv1alpha1.Backup) []Event {
 				Resource:        ref,
 				PrevState:       StateSnapshot{Phase: oldState},
 				NewState:        StateSnapshot{Phase: newState},
+				Actor:           systemActor,
 			})
 		case isBackupFailed(newState) && !isBackupFailed(oldState):
 			out = append(out, Event{
@@ -176,6 +179,7 @@ func NormalizeBackup(we watch.Event, old *backupv1alpha1.Backup) []Event {
 				Resource:        ref,
 				PrevState:       StateSnapshot{Phase: oldState},
 				NewState:        StateSnapshot{Phase: newState},
+				Actor:           systemActor,
 			})
 		}
 	case watch.Deleted:
@@ -200,6 +204,7 @@ func NormalizeRestore(we watch.Event, old *backupv1alpha1.Restore) []Event {
 	rv := obj.ResourceVersion
 	ns := obj.Namespace
 	now := time.Now().UTC()
+	userActor := ActorFromAnnotations(obj.GetAnnotations())
 
 	var out []Event
 	newState := string(obj.Status.State)
@@ -217,6 +222,7 @@ func NormalizeRestore(we watch.Event, old *backupv1alpha1.Restore) []Event {
 			Namespace:       ns,
 			Resource:        ref,
 			NewState:        StateSnapshot{Phase: newState},
+			Actor:           userActor,
 		})
 	case watch.Modified:
 		switch {
@@ -229,6 +235,7 @@ func NormalizeRestore(we watch.Event, old *backupv1alpha1.Restore) []Event {
 				Resource:        ref,
 				PrevState:       StateSnapshot{Phase: oldState},
 				NewState:        StateSnapshot{Phase: newState},
+				Actor:           systemActor,
 			})
 		case isRestoreFailed(newState) && !isRestoreFailed(oldState):
 			out = append(out, Event{
@@ -239,6 +246,7 @@ func NormalizeRestore(we watch.Event, old *backupv1alpha1.Restore) []Event {
 				Resource:        ref,
 				PrevState:       StateSnapshot{Phase: oldState},
 				NewState:        StateSnapshot{Phase: newState},
+				Actor:           systemActor,
 			})
 		}
 	case watch.Deleted:
@@ -263,6 +271,9 @@ func NormalizeInstance(we watch.Event) []Event {
 	rv := obj.ResourceVersion
 	ns := obj.Namespace
 	now := time.Now().UTC()
+	// Both create and delete are user-triggered API calls, so the actor
+	// recorded on the object by the API server applies to both branches.
+	actor := ActorFromAnnotations(obj.GetAnnotations())
 
 	var out []Event
 	switch we.Type {
@@ -274,6 +285,7 @@ func NormalizeInstance(we watch.Event) []Event {
 			Namespace:       ns,
 			Resource:        ref,
 			NewState:        StateSnapshot{Phase: string(obj.Status.Phase)},
+			Actor:           actor,
 		})
 	case watch.Deleted:
 		out = append(out, Event{
@@ -283,6 +295,7 @@ func NormalizeInstance(we watch.Event) []Event {
 			Namespace:       ns,
 			Resource:        ref,
 			PrevState:       StateSnapshot{Phase: string(obj.Status.Phase)},
+			Actor:           actor,
 		})
 	}
 	return out

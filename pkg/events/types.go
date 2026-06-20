@@ -82,10 +82,13 @@ type StateSnapshot struct {
 	Phase string `json:"phase,omitempty"`
 }
 
-// Actor describes who or what triggered the event.
+// Actor describes who or what triggered the event. Both fields use
+// `omitempty` so an unattributed event simply omits the `actor` object
+// rather than emitting `{"type":"","id":""}` and looking deceptively
+// populated to audit consumers.
 type Actor struct {
-	Type string `json:"type"` // "user" or "system"
-	ID   string `json:"id"`
+	Type string `json:"type,omitempty"` // "user", "system", "plugin"
+	ID   string `json:"id,omitempty"`
 }
 
 // Event is the normalised envelope streamed to plugins.
