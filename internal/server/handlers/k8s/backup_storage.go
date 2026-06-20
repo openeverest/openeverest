@@ -2,8 +2,8 @@ package k8s
 
 import (
 	"context"
-	"errors"
 	"fmt"
+	"time"
 
 	"github.com/AlekSi/pointer"
 	corev1 "k8s.io/api/core/v1"
@@ -15,6 +15,7 @@ import (
 
 	everestv1alpha1 "github.com/percona/everest-operator/api/everest/v1alpha1"
 	"github.com/percona/everest/api"
+	"github.com/percona/everest/pkg/common"
 )
 
 func (h *k8sHandler) ListBackupStorages(ctx context.Context, namespace string) (*everestv1alpha1.BackupStorageList, error) {
@@ -42,6 +43,9 @@ func (h *k8sHandler) CreateBackupStorage(ctx context.Context, namespace string, 
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      req.Name,
 			Namespace: namespace,
+			Annotations: map[string]string{
+				common.CleanupAfterAnnotation: time.Now().Add(5 * time.Minute).Format(time.RFC3339),
+			},
 		},
 		Type:       corev1.SecretTypeOpaque,
 		StringData: backupSecretData(req.SecretKey, req.AccessKey),
@@ -77,17 +81,6 @@ func (h *k8sHandler) CreateBackupStorage(ctx context.Context, namespace string, 
 	}
 	created, err := h.kubeConnector.CreateBackupStorage(ctx, bs)
 	if err != nil {
-		// TODO: Move this logic to the operator
-		delObj := &corev1.Secret{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      req.Name,
-				Namespace: namespace,
-			},
-		}
-		dErr := h.kubeConnector.DeleteSecret(ctx, delObj)
-		if dErr != nil {
-			return nil, errors.Join(err, dErr)
-		}
 		return nil, fmt.Errorf("failed to create backup storage: %w", err)
 	}
 
