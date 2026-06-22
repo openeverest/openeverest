@@ -35,7 +35,7 @@ vi.mock('../../ui-generator-context', () => ({
   useUiGeneratorContext: () => ({ namespace: 'ns' }),
 }));
 
-vi.mock('hooks/useClusterName', () => ({
+vi.mock('hooks/api/useClusterName', () => ({
   useClusterName: () => 'main',
 }));
 
@@ -248,7 +248,7 @@ describe('DataSourceField', () => {
       render(<Harness />);
 
       expect(screen.getByTestId('fallback')).toBeInTheDocument();
-      expect(screen.queryByTestId('child')).not.toBeInTheDocument();
+      expect(screen.getByTestId('child')).not.toBeVisible();
     });
 
     it('does not render fallback when emptyStateFallback is null', () => {

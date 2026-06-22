@@ -26,12 +26,12 @@ format:
 format-check:
 	pnpm format-check
 
-# TODO v2 should be changed before release to main
+# TODO release-2.0 should be changed before release to main
 preflight:
 	$(MAKE) format
 	$(MAKE) lint
 	$(MAKE) test
-	$(MAKE) -C .. copyright-headers BASE_BRANCH=v2
+	$(MAKE) -C .. copyright-headers BASE_BRANCH=release-2.0
 	$(MAKE) build
 
 # This might change in the future if we have more apps, but for now keep it simple

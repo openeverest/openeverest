@@ -39,6 +39,8 @@ test.describe.parallel('Backup Storage V2 tests', () => {
         expect(backupStorage.spec.s3.bucket).toBe(payload.spec.s3.bucket)
         expect(backupStorage.spec.s3.region).toBe(payload.spec.s3.region)
         expect(backupStorage.spec.s3.endpointURL).toBe(payload.spec.s3.endpointURL)
+        expect(backupStorage.spec.s3.accessKeyId).toBeUndefined()
+        expect(backupStorage.spec.s3.secretAccessKey).toBeUndefined()
       });
 
       await test.step('get backup storage', async () => {
@@ -46,6 +48,13 @@ test.describe.parallel('Backup Storage V2 tests', () => {
         expect(backupStorage.metadata.name).toBe(bsName)
         expect(backupStorage.spec.type).toBe('s3')
         expect(backupStorage.spec.s3.bucket).toBe(payload.spec.s3.bucket)
+        expect(backupStorage.spec.s3.region).toBe(payload.spec.s3.region)
+        expect(backupStorage.spec.s3.endpointURL).toBe(payload.spec.s3.endpointURL)
+        expect(backupStorage.spec.s3.credentialsSecretName).toBe(payload.spec.s3.credentialsSecretName)
+        expect(backupStorage.spec.s3.accessKeyId).toBeUndefined()
+        expect(backupStorage.spec.s3.secretAccessKey).toBeUndefined()
+        expect(backupStorage.spec.s3.forcePathStyle).toBe(payload.spec.s3.forcePathStyle)
+        expect(backupStorage.spec.s3.verifyTLS).toBe(payload.spec.s3.verifyTLS)
       });
 
       await test.step('list backup storages', async () => {
@@ -73,6 +82,30 @@ test.describe.parallel('Backup Storage V2 tests', () => {
           expect(backupStorage.spec.s3.bucket).toBe(updatePayload.spec.s3.bucket)
           expect(backupStorage.spec.s3.region).toBe(payload.spec.s3.region)
           expect(backupStorage.spec.type).toBe('s3')
+        }).toPass({
+          intervals: [1000],
+          timeout: 30 * 1000,
+        })
+      });
+
+      await test.step('patch backup storage', async () => {
+        const patchPayload = {
+          ...backupStorage,
+          spec: {
+            ...backupStorage.spec,
+            s3: {
+              ...backupStorage.spec.s3,
+              bucket: 'bucket-6',
+              accessKeyId: 'patchAccessKeyId',
+              secretAccessKey: 'patchSecretAccessKey',
+            },
+          },
+        }
+
+        await expect(async () => {
+          backupStorage = await th.patchBackupStorage(request, bsName, patchPayload)
+          expect(backupStorage.spec.s3.accessKeyId).toBeUndefined()
+          expect(backupStorage.spec.s3.secretAccessKey).toBeUndefined()
         }).toPass({
           intervals: [1000],
           timeout: 30 * 1000,

@@ -15,6 +15,29 @@
 import type { Component } from '../../ui-generator.types';
 import type { ComponentWithDataSource } from './data-source-field.types';
 
+type OptionValue = { value: string };
+
+export const getReconciledDataSourceValue = (
+  current: unknown,
+  options: OptionValue[]
+): string | null => {
+  const validValues = options.map((o) => o.value);
+  const currentStr = typeof current === 'string' ? current : '';
+
+  if (currentStr && !validValues.includes(currentStr)) {
+    return options.length > 0 ? options[0].value : '';
+  }
+
+  if (
+    (currentStr === '' || current === undefined || current === null) &&
+    options.length > 0
+  ) {
+    return options[0].value;
+  }
+
+  return null;
+};
+
 export const hasDataSource = (
   item: Component
 ): item is ComponentWithDataSource => {
