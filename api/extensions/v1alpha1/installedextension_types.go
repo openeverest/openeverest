@@ -30,20 +30,6 @@ const (
 	InstalledExtensionTypeProvider InstalledExtensionType = "provider"
 )
 
-// PluginInstallScope controls how kubePermissions translate to RBAC.
-// +kubebuilder:validation:Enum=Cluster;Namespaces
-type PluginInstallScope string
-
-const (
-	// PluginInstallScopeCluster grants the plugin's kubePermissions via a
-	// ClusterRole/ClusterRoleBinding. Requires spec.plugin.allowClusterScope=true.
-	PluginInstallScopeCluster PluginInstallScope = "Cluster"
-	// PluginInstallScopeNamespaces grants the plugin's kubePermissions via
-	// per-namespace Role/RoleBinding for each entry in
-	// spec.plugin.namespaces[].
-	PluginInstallScopeNamespaces PluginInstallScope = "Namespaces"
-)
-
 // InstalledExtensionSpec defines the desired state of an InstalledExtension.
 type InstalledExtensionSpec struct {
 	// Type discriminates between plugin and provider installs. Exactly one of
@@ -95,22 +81,11 @@ type PluginInstall struct {
 	// +optional
 	BackendImageDigest string `json:"backendImageDigest,omitempty"`
 
-	// Scope controls how kubePermissions translate to RBAC.
-	// Defaults to Cluster.
-	// +optional
-	// +kubebuilder:default=Cluster
-	Scope PluginInstallScope `json:"scope,omitempty"`
-
-	// AllowClusterScope must be true for the reconciler to provision a
-	// ClusterRole/ClusterRoleBinding when Scope=Cluster. Without it, the
-	// reconciler refuses to create cluster-wide RBAC and sets
-	// RoleSynced=False, reason=ClusterScopeNotAllowed.
-	// +optional
-	AllowClusterScope bool `json:"allowClusterScope,omitempty"`
-
-	// Namespaces lists the namespaces this plugin is enabled in. Required
-	// when Scope=Namespaces. Each entry may attach a per-tenant config
-	// secret reference.
+	// Namespaces lists the namespaces this plugin is enabled in, along with
+	// any per-tenant config secret. When empty the plugin is enabled
+	// cluster-wide (visible in every namespace the caller can see). The
+	// Kubernetes RBAC the plugin needs is owned by the plugin's own bundle;
+	// the host does not provision Role/ClusterRole objects.
 	// +optional
 	// +listType=map
 	// +listMapKey=name
@@ -191,9 +166,6 @@ const (
 	// ConditionReady is the rollup condition. True when the install is
 	// fully reconciled.
 	ConditionReady = "Ready"
-	// ConditionRoleSynced reports the state of kubePermissions RBAC
-	// provisioning (plugin-only).
-	ConditionRoleSynced = "RoleSynced"
 	// ConditionBundleServed reports that the frontend bundle is being served
 	// (plugin-only, frontend mode).
 	ConditionBundleServed = "BundleServed"
@@ -216,13 +188,12 @@ const (
 
 // Reason constants for status conditions.
 const (
-	ReasonReady                  = "Ready"
-	ReasonPluginNotFound         = "PluginNotFound"
-	ReasonPluginDisabled         = "PluginDisabled"
-	ReasonProviderNotFound       = "ProviderNotFound"
-	ReasonClusterScopeNotAllowed = "ClusterScopeNotAllowed"
-	ReasonInvalidSpec            = "InvalidSpec"
-	ReasonReconciling            = "Reconciling"
+	ReasonReady            = "Ready"
+	ReasonPluginNotFound   = "PluginNotFound"
+	ReasonPluginDisabled   = "PluginDisabled"
+	ReasonProviderNotFound = "ProviderNotFound"
+	ReasonInvalidSpec      = "InvalidSpec"
+	ReasonReconciling      = "Reconciling"
 )
 
 // +kubebuilder:object:root=true

@@ -631,21 +631,16 @@ export interface components {
                  *     must be nil when type=provider.
                  */
                 plugin?: {
-                    /**
-                     * @description AllowClusterScope must be true for the reconciler to provision a
-                     *     ClusterRole/ClusterRoleBinding when Scope=Cluster. Without it, the
-                     *     reconciler refuses to create cluster-wide RBAC and sets
-                     *     RoleSynced=False, reason=ClusterScopeNotAllowed.
-                     */
-                    allowClusterScope?: boolean;
                     /** @description BackendImageDigest pins the OCI digest of the backend image. */
                     backendImageDigest?: string;
                     /** @description FrontendDigest pins the OCI digest of the frontend bundle artifact. */
                     frontendDigest?: string;
                     /**
-                     * @description Namespaces lists the namespaces this plugin is enabled in. Required
-                     *     when Scope=Namespaces. Each entry may attach a per-tenant config
-                     *     secret reference.
+                     * @description Namespaces lists the namespaces this plugin is enabled in, along with
+                     *     any per-tenant config secret. When empty the plugin is enabled
+                     *     cluster-wide (visible in every namespace the caller can see). The
+                     *     Kubernetes RBAC the plugin needs is owned by the plugin's own bundle;
+                     *     the host does not provision Role/ClusterRole objects.
                      */
                     namespaces?: {
                         /**
@@ -661,13 +656,6 @@ export interface components {
                      *     install record points at.
                      */
                     pluginCRName: string;
-                    /**
-                     * @description Scope controls how kubePermissions translate to RBAC.
-                     *     Defaults to Cluster.
-                     * @default Cluster
-                     * @enum {string}
-                     */
-                    scope?: "Cluster" | "Namespaces";
                 };
                 /**
                  * @description Provider holds provider-specific install state. Required when
@@ -3073,23 +3061,6 @@ export interface components {
                 };
                 /** @description Icon is a URL to the plugin's icon image. */
                 icon?: string;
-                /**
-                 * @description KubePermissions declares additional Kubernetes API permissions the plugin's
-                 *     ServiceAccount needs beyond the OpenEverest API. Used by infrastructure
-                 *     plugins that create per-cluster resources (e.g., ProxySQL deployments).
-                 *     The host auto-generates a Role from these rules and binds it to the
-                 *     plugin's ServiceAccount in each namespace listed in the matching
-                 *     InstalledExtension's spec.plugin.namespaces[]. Rules are validated
-                 *     against a hard-coded denylist at reconcile time.
-                 */
-                kubePermissions?: {
-                    /** @description APIGroups is the list of API groups (e.g. "", "apps"). Use "" for core. */
-                    apiGroups: string[];
-                    /** @description Resources is the list of resources (e.g. "deployments", "services"). */
-                    resources: string[];
-                    /** @description Verbs is the list of verbs (e.g. "get", "list", "create", "delete"). */
-                    verbs: string[];
-                }[];
                 /** @description Permissions declares what OpenEverest API resources this plugin needs access to. */
                 permissions?: {
                     /** @description Resource is the OpenEverest API resource (e.g. "database-clusters"). */

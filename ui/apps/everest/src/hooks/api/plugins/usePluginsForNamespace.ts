@@ -51,7 +51,7 @@ async function fetchPluginsForNamespace(
 /**
  * Returns the list of plugins enabled for the given namespace via an
  * `InstalledExtension` (covered by `spec.plugin.namespaces[]`, or installed
- * with `scope: Cluster` and `allowClusterScope`). Used to filter
+ * cluster-wide with an empty `spec.plugin.namespaces[]`). Used to filter
  * extension-point contributions (cluster-detail tabs, form sections, etc.)
  * to only plugins the namespace operator has explicitly enabled.
  *

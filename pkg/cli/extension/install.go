@@ -44,10 +44,6 @@ type InstallConfig struct {
 	BackendURL  string
 	BundlePath  string
 	Enabled     bool
-	// AllowClusterScope opts into cluster-wide RBAC. When true, the
-	// resulting InstalledExtension is created with spec.plugin.scope=Cluster
-	// and spec.plugin.allowClusterScope=true.
-	AllowClusterScope bool
 }
 
 // PluginInstaller installs an extension by creating a Plugin CR (when needed)
@@ -123,18 +119,12 @@ func (pi *PluginInstaller) Run(ctx context.Context) error {
 		}
 	}
 
-	scope := corev1alpha1.PluginInstallScopeNamespaces
-	if pi.cfg.AllowClusterScope {
-		scope = corev1alpha1.PluginInstallScopeCluster
-	}
 	ie := &corev1alpha1.InstalledExtension{
 		ObjectMeta: metav1.ObjectMeta{Name: plugin.Name},
 		Spec: corev1alpha1.InstalledExtensionSpec{
 			Type: corev1alpha1.InstalledExtensionTypePlugin,
 			Plugin: &corev1alpha1.PluginInstall{
-				PluginCRName:      plugin.Name,
-				Scope:             scope,
-				AllowClusterScope: pi.cfg.AllowClusterScope,
+				PluginCRName: plugin.Name,
 			},
 		},
 	}

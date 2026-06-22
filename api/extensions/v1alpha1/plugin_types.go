@@ -63,37 +63,10 @@ type PluginSpec struct {
 	// +optional
 	Permissions []PluginPermission `json:"permissions,omitempty"`
 
-	// KubePermissions declares additional Kubernetes API permissions the plugin's
-	// ServiceAccount needs beyond the OpenEverest API. Used by infrastructure
-	// plugins that create per-cluster resources (e.g., ProxySQL deployments).
-	// The host auto-generates a Role from these rules and binds it to the
-	// plugin's ServiceAccount in each namespace listed in the matching
-	// InstalledExtension's spec.plugin.namespaces[]. Rules are validated
-	// against a hard-coded denylist at reconcile time.
-	// +optional
-	KubePermissions []KubePermissionRule `json:"kubePermissions,omitempty"`
-
 	// CLI defines an optional CLI contribution. When set, `everestctl extension run`
 	// can exec a container from the specified image.
 	// +optional
 	CLI *PluginCLI `json:"cli,omitempty"`
-}
-
-// KubePermissionRule declares a single Kubernetes RBAC rule that an
-// infrastructure plugin requires. Mirrors the structure of
-// rbacv1.PolicyRule but with explicit JSON tags and kubebuilder markers.
-type KubePermissionRule struct {
-	// APIGroups is the list of API groups (e.g. "", "apps"). Use "" for core.
-	// +required
-	APIGroups []string `json:"apiGroups"`
-
-	// Resources is the list of resources (e.g. "deployments", "services").
-	// +required
-	Resources []string `json:"resources"`
-
-	// Verbs is the list of verbs (e.g. "get", "list", "create", "delete").
-	// +required
-	Verbs []string `json:"verbs"`
 }
 
 // PluginFrontend defines the frontend contribution of a plugin.

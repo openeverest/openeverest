@@ -103,8 +103,8 @@ func (pp *pluginProxy) canUsePlugin(c echo.Context, name string) (bool, error) {
 // listPluginsHandler returns the list of enabled plugins the caller can use.
 // Query params:
 //   - namespace (optional) — when provided, only plugins whose
-//     InstalledExtension lists this namespace (or has cluster scope opted in)
-//     are returned.
+//     InstalledExtension lists this namespace are returned. An empty
+//     spec.plugin.namespaces[] is treated as "enabled cluster-wide".
 func (pp *pluginProxy) listPluginsHandler(c echo.Context) error {
 	if err := pp.checkPluginsReadAccess(c); err != nil {
 		return err
@@ -150,8 +150,8 @@ func (pp *pluginProxy) listPluginsHandler(c echo.Context) error {
 			if ie.Spec.Type != pluginv1alpha1.InstalledExtensionTypePlugin || ie.Spec.Plugin == nil {
 				continue
 			}
-			// Cluster-scope installs are visible in every namespace.
-			if ie.Spec.Plugin.Scope == pluginv1alpha1.PluginInstallScopeCluster && ie.Spec.Plugin.AllowClusterScope {
+			// Empty namespaces[] means the plugin is enabled cluster-wide.
+			if len(ie.Spec.Plugin.Namespaces) == 0 {
 				enabledInNamespace[ie.Spec.Plugin.PluginCRName] = struct{}{}
 				continue
 			}

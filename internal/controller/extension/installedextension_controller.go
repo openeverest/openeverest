@@ -40,13 +40,13 @@ const (
 // InstalledExtensionReconciler reconciles an InstalledExtension object.
 //
 // Responsibilities:
-//   - Add/remove a finalizer for clean teardown of provisioned RBAC.
-//   - For type=plugin: validate the referenced Plugin CR exists and is enabled;
-//     gate cluster-scope RBAC behind spec.plugin.allowClusterScope; provision
-//     ClusterRole/ClusterRoleBinding or per-namespace Role/RoleBinding from
-//     the Plugin's kubePermissions.
+//   - Add/remove a finalizer for clean teardown.
+//   - For type=plugin: validate the referenced Plugin CR exists and is enabled.
 //   - For type=provider: validate the referenced Provider CR exists.
 //   - Set status.phase + per-aspect Conditions.
+//
+// Kubernetes RBAC for the plugin's own pod is owned by the plugin bundle
+// (Helm chart). The reconciler does not provision Role/ClusterRole objects.
 type InstalledExtensionReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
@@ -55,8 +55,6 @@ type InstalledExtensionReconciler struct {
 // +kubebuilder:rbac:groups=extensions.openeverest.io,resources=installedextensions,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=extensions.openeverest.io,resources=installedextensions/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=extensions.openeverest.io,resources=installedextensions/finalizers,verbs=update
-// +kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=roles;rolebindings,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=clusterroles;clusterrolebindings,verbs=get;list;watch;create;update;patch;delete
 
 // Reconcile is part of the main kubernetes reconciliation loop.
 func (r *InstalledExtensionReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
@@ -73,9 +71,6 @@ func (r *InstalledExtensionReconciler) Reconcile(ctx context.Context, req ctrl.R
 	// --- Deletion path ---
 	if !ie.GetDeletionTimestamp().IsZero() {
 		if hasFinalizer(ie, installedExtensionFinalizer) {
-			if err := r.cleanupRBAC(ctx, ie); err != nil {
-				return ctrl.Result{}, fmt.Errorf("cleanup RBAC: %w", err)
-			}
 			removeFinalizer(ie, installedExtensionFinalizer)
 			if err := r.Client.Update(ctx, ie); err != nil {
 				return ctrl.Result{}, fmt.Errorf("remove finalizer: %w", err)
@@ -149,30 +144,9 @@ func (r *InstalledExtensionReconciler) reconcilePlugin(ctx context.Context, ie *
 			corev1alpha1.ReasonPluginDisabled,
 			fmt.Sprintf("Plugin %q is disabled", plugin.Name))
 		ie.Status.Phase = corev1alpha1.InstalledExtensionPhaseFailed
-		// Still clean up RBAC for a disabled plugin.
-		return r.cleanupRBAC(ctx, ie)
-	}
-
-	// Cluster scope gating.
-	if ie.Spec.Plugin.Scope == corev1alpha1.PluginInstallScopeCluster && !ie.Spec.Plugin.AllowClusterScope {
-		setCondition(ie, corev1alpha1.ConditionRoleSynced, metav1.ConditionFalse,
-			corev1alpha1.ReasonClusterScopeNotAllowed,
-			"spec.plugin.scope=Cluster requires spec.plugin.allowClusterScope=true")
-		setCondition(ie, corev1alpha1.ConditionReady, metav1.ConditionFalse,
-			corev1alpha1.ReasonClusterScopeNotAllowed,
-			"cluster-scope RBAC refused; set spec.plugin.allowClusterScope=true to opt in")
-		ie.Status.Phase = corev1alpha1.InstalledExtensionPhaseFailed
 		return nil
 	}
 
-	// Provision RBAC.
-	if err := r.ensureRBAC(ctx, ie, plugin); err != nil {
-		setCondition(ie, corev1alpha1.ConditionRoleSynced, metav1.ConditionFalse,
-			corev1alpha1.ReasonReconciling, err.Error())
-		return err
-	}
-	setCondition(ie, corev1alpha1.ConditionRoleSynced, metav1.ConditionTrue,
-		corev1alpha1.ReasonReady, "RBAC provisioned")
 	setCondition(ie, corev1alpha1.ConditionReady, metav1.ConditionTrue,
 		corev1alpha1.ReasonReady,
 		fmt.Sprintf("InstalledExtension %q is installed", ie.Name))

@@ -36,10 +36,7 @@ var (
   everestctl extension install -f https://raw.githubusercontent.com/author/my-plugin/main/plugin.yaml
 
   # Install with inline flags:
-  everestctl extension install --name hello --backend-url http://hello-plugin.everest-system:3001
-
-  # Install with cluster-wide RBAC (requires explicit opt-in):
-  everestctl extension install -f plugin.yaml --allow-cluster-scope`,
+  everestctl extension install --name hello --backend-url http://hello-plugin.everest-system:3001`,
 		Long:   "Install an extension from a manifest file, URL, or inline flags",
 		Short:  "Install an extension",
 		PreRun: pluginInstallPreRun,
@@ -57,7 +54,6 @@ func init() {
 	pluginInstallCmd.Flags().StringVar(&pluginInstallCfg.BackendURL, "backend-url", "", "URL of the plugin backend service (required without -f)")
 	pluginInstallCmd.Flags().StringVar(&pluginInstallCfg.BundlePath, "bundle-path", "/main.js", "Path to the frontend bundle on the backend")
 	pluginInstallCmd.Flags().BoolVar(&pluginInstallCfg.Enabled, "enabled", true, "Whether the plugin is enabled")
-	pluginInstallCmd.Flags().BoolVar(&pluginInstallCfg.AllowClusterScope, "allow-cluster-scope", false, "Opt in to cluster-wide RBAC (ClusterRole/ClusterRoleBinding) generation from spec.kubePermissions")
 }
 
 func pluginInstallPreRun(cmd *cobra.Command, _ []string) { //nolint:revive
