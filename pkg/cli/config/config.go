@@ -170,3 +170,56 @@ func (c *Config) GetUser(name string) (User, bool) {
 	}
 	return User{}, false
 }
+
+// RemoveContext removes the named context from the config.
+func (c *Config) RemoveContext(name string) {
+	out := c.Contexts[:0]
+	for _, nc := range c.Contexts {
+		if nc.Name != name {
+			out = append(out, nc)
+		}
+	}
+	c.Contexts = out
+}
+
+// RemoveServer removes the named server from the config.
+func (c *Config) RemoveServer(name string) {
+	out := c.Servers[:0]
+	for _, ns := range c.Servers {
+		if ns.Name != name {
+			out = append(out, ns)
+		}
+	}
+	c.Servers = out
+}
+
+// RemoveUser removes the named user from the config.
+func (c *Config) RemoveUser(name string) {
+	out := c.Users[:0]
+	for _, nu := range c.Users {
+		if nu.Name != name {
+			out = append(out, nu)
+		}
+	}
+	c.Users = out
+}
+
+// IsServerReferenced reports whether any context references the named server.
+func (c *Config) IsServerReferenced(name string) bool {
+	for _, nc := range c.Contexts {
+		if nc.Context.Server == name {
+			return true
+		}
+	}
+	return false
+}
+
+// IsUserReferenced reports whether any context references the named user.
+func (c *Config) IsUserReferenced(name string) bool {
+	for _, nc := range c.Contexts {
+		if nc.Context.User == name {
+			return true
+		}
+	}
+	return false
+}
