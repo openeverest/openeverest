@@ -91,4 +91,12 @@ resources:
   kind: InstalledExtension
   path: github.com/openeverest/openeverest/v2/api/extensions/v1alpha1
   version: v1alpha1
+- api:
+    crdVersion: v1
+    namespaced: true
+  domain: openeverest.io
+  group: core
+  kind: InstancePreset
+  path: github.com/openeverest/openeverest/v2/api/core/v1alpha1
+  version: v1alpha1
 version: "3"

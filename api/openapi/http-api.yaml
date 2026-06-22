@@ -20,6 +20,8 @@ tags:
     description: Everything related to providers
   - name: Instance
     description: Everything related to instances
+  - name: Preset
+    description: Everything related to presets
   - name: Backup
     description: Everything related to backups
   - name: Restore
@@ -432,6 +434,132 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/NamespaceList'
+  '/clusters/{cluster}/instance-presets':
+    x-everest-resource-name: instance-presets
+    get:
+      tags:
+        - Preset
+      summary: List instance presets
+      description: |
+        This API lists all instance presets in the specified cluster.
+        Optionally filter by provider.
+      operationId: listInstancePresets
+      parameters:
+        - name: cluster
+          in: path
+          required: true
+          description: The name of the cluster
+          schema:
+            type: string
+        - name: provider
+          in: query
+          required: false
+          description: Filter presets by provider name
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of instance presets
+          content:
+            application/json:
+              schema:
+                $ref: 'crds.gen.yaml#/components/schemas/InstancePresetList'
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  '/clusters/{cluster}/instance-presets/{name}':
+    x-everest-resource-name: instance-presets
+    get:
+      tags:
+        - Preset
+      summary: Get instance preset
+      description: |
+        This API gets the instance preset specified by the `name` in the specified `cluster`.
+      operationId: getInstancePreset
+      parameters:
+        - name: cluster
+          in: path
+          required: true
+          description: The name of the cluster
+          schema:
+            type: string
+        - name: name
+          in: path
+          required: true
+          description: The name of the instance preset
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Instance preset details
+          content:
+            application/json:
+              schema:
+                $ref: 'crds.gen.yaml#/components/schemas/InstancePreset'
+        '404':
+          description: Instance preset not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  '/clusters/{cluster}/instance-presets/{name}/resolve':
+    x-everest-resource-name: instance-presets
+    get:
+      tags:
+        - Preset
+      summary: Resolve instance preset with namespace defaults
+      description: |
+        This API resolves the instance preset specified by the `name` in the specified `cluster`.
+        This endpoint is useful when creating instances from presets, as it provides a
+        fully-populated preset with all namespace defaults pre-filled.
+      operationId: resolveInstancePreset
+      parameters:
+        - name: cluster
+          in: path
+          required: true
+          description: The name of the cluster
+          schema:
+            type: string
+        - name: name
+          in: path
+          required: true
+          description: The name of the instance preset
+          schema:
+            type: string
+        - name: namespace
+          in: query
+          required: true
+          description: The namespace for which to resolve default values
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Resolved instance preset with namespace defaults
+          content:
+            application/json:
+              schema:
+                $ref: 'crds.gen.yaml#/components/schemas/InstancePreset'
+        '404':
+          description: Instance preset not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
   '/clusters/{cluster}/providers':
     x-everest-resource-name: providers
     get:
