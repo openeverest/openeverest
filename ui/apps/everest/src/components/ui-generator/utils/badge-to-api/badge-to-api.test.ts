@@ -17,6 +17,7 @@ import {
   extractBadgeMappings,
   applyBadgesToFormData,
   stripBadgeFromValue,
+  stripBadgesFromData,
 } from './badge-to-api';
 import { FieldType, TopologyUISchemas } from '../../ui-generator.types';
 
@@ -135,5 +136,20 @@ describe('stripBadgeFromValue', () => {
 
   it('returns non-string values unchanged', () => {
     expect(stripBadgeFromValue(16, 'Gi')).toBe(16);
+  });
+
+  it('converts milli-byte quantities to the badge unit', () => {
+    expect(stripBadgeFromValue('1073741824000m', 'Gi')).toBe(1);
+  });
+});
+
+describe('stripBadgesFromData', () => {
+  it('converts milli-byte values at badge field paths', () => {
+    const result = stripBadgesFromData(
+      { spec: { memory: '1073741824000m' } },
+      [{ path: 'spec.memory', badge: 'Gi' }]
+    );
+
+    expect(result).toEqual({ spec: { memory: 1 } });
   });
 });

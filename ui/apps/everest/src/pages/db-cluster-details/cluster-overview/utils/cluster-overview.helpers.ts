@@ -20,12 +20,26 @@ import {
   getByPath,
   formatDisplayValue,
 } from 'components/ui-generator/utils/object-path';
+import { stripBadgeFromValue } from 'components/ui-generator/utils/badge-to-api/badge-to-api';
 import { getComponentTargetPaths } from 'components/ui-generator/utils/preprocess/normalized-component';
 
 export type SectionField = {
   label: string;
   path: string;
   value: string;
+};
+
+const formatFieldValue = (value: unknown, component: Component): string => {
+  const { badge, badgeToApi } = component.fieldParams ?? {};
+
+  if (badge && badgeToApi && typeof value === 'string') {
+    const stripped = stripBadgeFromValue(value, badge);
+    if (stripped !== value) {
+      return `${stripped}${badge}`;
+    }
+  }
+
+  return formatDisplayValue(value);
 };
 
 export const collectSectionFields = (
@@ -62,7 +76,7 @@ export const collectSectionFields = (
     fields.push({
       label: component.fieldParams?.label ?? key,
       path,
-      value: formatDisplayValue(getByPath(instance, path)),
+      value: formatFieldValue(getByPath(instance, path), component),
     });
   }
 

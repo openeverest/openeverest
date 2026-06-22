@@ -1,4 +1,5 @@
-type kubernetesUnit =
+export type kubernetesUnit =
+  | 'm'
   | 'k'
   | 'M'
   | 'G'
@@ -13,6 +14,7 @@ type kubernetesUnit =
   | 'Ei';
 
 const memoryMultipliers: Record<kubernetesUnit, number> = {
+  m: 10 ** -3,
   k: 10 ** 3,
   M: 10 ** 6,
   G: 10 ** 9,
@@ -26,6 +28,9 @@ const memoryMultipliers: Record<kubernetesUnit, number> = {
   Pi: 1024 ** 5,
   Ei: 1024 ** 6,
 };
+
+export const isKubernetesUnit = (unit: string): unit is kubernetesUnit =>
+  Object.prototype.hasOwnProperty.call(memoryMultipliers, unit);
 
 export const cpuParser = (input: string) => {
   const milliMatch = input.match(/^([0-9]+)m$/);

@@ -1,4 +1,4 @@
-import { cpuParser, memoryParser } from '.';
+import { cpuParser, isKubernetesUnit, memoryParser } from '.';
 
 describe('cpu parser', () => {
   // pattern is [description, input, output]
@@ -18,6 +18,18 @@ describe('cpu parser', () => {
   );
 });
 
+describe('isKubernetesUnit', () => {
+  it('recognizes supported memory units', () => {
+    expect(isKubernetesUnit('Gi')).toBe(true);
+    expect(isKubernetesUnit('m')).toBe(true);
+  });
+
+  it('rejects unsupported badge values', () => {
+    expect(isKubernetesUnit('GB')).toBe(false);
+    expect(isKubernetesUnit('cores')).toBe(false);
+  });
+});
+
 describe('memory parser', () => {
   it('correctly parses memory strings', () => {
     expect(memoryParser('1')).toEqual({ value: 1, originalUnit: '' });
@@ -30,5 +42,13 @@ describe('memory parser', () => {
       originalUnit: 'G',
     });
     expect(memoryParser('1G', 'G')).toEqual({ value: 1, originalUnit: 'G' });
+    expect(memoryParser('3000m', 'Gi')).toEqual({
+      value: 3 / 1024 ** 3,
+      originalUnit: 'm',
+    });
+    expect(memoryParser('1073741824000m', 'Gi')).toEqual({
+      value: 1,
+      originalUnit: 'm',
+    });
   });
 });
