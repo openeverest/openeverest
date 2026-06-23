@@ -1,0 +1,15 @@
+apiVersion: core.openeverest.io/v1alpha1
+kind: InstalledExtension
+metadata:
+  labels:
+    app.kubernetes.io/name: openeverest
+    app.kubernetes.io/managed-by: kustomize
+  name: plugin-sample
+spec:
+  type: plugin
+  version: "0.1.0"
+  plugin:
+    pluginCRName: plugin-sample
+    scope: Namespaces
+    namespaces:
+      - name: team-alpha

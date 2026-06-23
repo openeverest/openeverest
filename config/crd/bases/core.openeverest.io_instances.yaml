@@ -1241,6 +1241,38 @@ spec:
                             More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
                           type: object
                       type: object
+                    service:
+                      description: Service defines how this component is exposed.
+                      properties:
+                        annotations:
+                          additionalProperties:
+                            type: string
+                          description: |-
+                            Annotations is a map of key-value pairs for annotating the Service.
+                            Commonly used to configure cloud provider settings
+                            (e.g., AWS ELB annotations, GCP load balancer settings).
+                          type: object
+                        loadBalancerService:
+                          description: |-
+                            LoadBalancerService contains LoadBalancer-specific configuration.
+                            Only applicable for "LoadBalancer" ServiceType.
+                          properties:
+                            sourceRanges:
+                              description: |-
+                                SourceRanges lists IP source ranges (CIDR notation) that are
+                                allowed to access the load balancer.
+                                If unset, there is no limitations.
+                              items:
+                                type: string
+                              type: array
+                          type: object
+                        serviceType:
+                          default: ClusterIP
+                          description: |-
+                            ServiceType defines how the component is exposed.
+                            The provider ultimately decides and validates supported service types.
+                          type: string
+                      type: object
                     storage:
                       description: |-
                         Storage requirements for this component.
@@ -1519,6 +1551,10 @@ spec:
                     type: string
                 type: object
                 x-kubernetes-map-type: atomic
+              message:
+                description: Message is a custom user-facing message describing the
+                  current state of the instance.
+                type: string
               phase:
                 description: Phase of the database cluster.
                 enum:

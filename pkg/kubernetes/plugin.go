@@ -19,12 +19,12 @@ import (
 
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 
-	pluginv1alpha1 "github.com/openeverest/openeverest/v2/api/plugin/v1alpha1"
+	extensionsv1alpha1 "github.com/openeverest/openeverest/v2/api/extensions/v1alpha1"
 )
 
 // ListPlugins returns list of plugins that match the criteria.
-func (k *Kubernetes) ListPlugins(ctx context.Context, opts ...ctrlclient.ListOption) (*pluginv1alpha1.PluginList, error) {
-	result := &pluginv1alpha1.PluginList{}
+func (k *Kubernetes) ListPlugins(ctx context.Context, opts ...ctrlclient.ListOption) (*extensionsv1alpha1.PluginList, error) {
+	result := &extensionsv1alpha1.PluginList{}
 	if err := k.k8sClient.List(ctx, result, opts...); err != nil {
 		return nil, err
 	}
@@ -32,8 +32,8 @@ func (k *Kubernetes) ListPlugins(ctx context.Context, opts ...ctrlclient.ListOpt
 }
 
 // GetPlugin returns plugin that matches the criteria.
-func (k *Kubernetes) GetPlugin(ctx context.Context, key ctrlclient.ObjectKey) (*pluginv1alpha1.Plugin, error) {
-	result := &pluginv1alpha1.Plugin{}
+func (k *Kubernetes) GetPlugin(ctx context.Context, key ctrlclient.ObjectKey) (*extensionsv1alpha1.Plugin, error) {
+	result := &extensionsv1alpha1.Plugin{}
 	if err := k.k8sClient.Get(ctx, key, result); err != nil {
 		return nil, err
 	}
@@ -41,7 +41,7 @@ func (k *Kubernetes) GetPlugin(ctx context.Context, key ctrlclient.ObjectKey) (*
 }
 
 // CreatePlugin creates a new plugin.
-func (k *Kubernetes) CreatePlugin(ctx context.Context, plugin *pluginv1alpha1.Plugin) (*pluginv1alpha1.Plugin, error) {
+func (k *Kubernetes) CreatePlugin(ctx context.Context, plugin *extensionsv1alpha1.Plugin) (*extensionsv1alpha1.Plugin, error) {
 	if err := k.k8sClient.Create(ctx, plugin); err != nil {
 		return nil, err
 	}
@@ -49,6 +49,6 @@ func (k *Kubernetes) CreatePlugin(ctx context.Context, plugin *pluginv1alpha1.Pl
 }
 
 // DeletePlugin deletes a plugin.
-func (k *Kubernetes) DeletePlugin(ctx context.Context, obj *pluginv1alpha1.Plugin) error {
+func (k *Kubernetes) DeletePlugin(ctx context.Context, obj *extensionsv1alpha1.Plugin) error {
 	return k.k8sClient.Delete(ctx, obj)
 }

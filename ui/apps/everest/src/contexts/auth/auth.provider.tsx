@@ -1,4 +1,18 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+// Copyright (C) 2026 The OpenEverest Contributors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   AuthProvider as OidcAuthProvider,
   AuthProviderProps as OidcAuthProviderProps,
@@ -13,6 +27,13 @@ import {
   addApiAuthInterceptor,
   removeApiAuthInterceptor,
 } from 'api/api';
+import {
+  setAccessToken,
+  getAccessToken,
+  getAccessTokenExpiry,
+  clearAccessToken,
+  refreshSession,
+} from 'api/session-token';
 import { enqueueSnackbar } from 'notistack';
 import AuthContext from './auth.context';
 import { EVEREST_JWT_ISSUER } from 'consts';
@@ -27,6 +48,10 @@ import {
   initializeAuthorizerFetchLoop,
   stopAuthorizerFetchLoop,
 } from 'utils/rbac';
+import type { HttpApi } from '@generated/api-types';
+
+const LOGOUT_SYNC_CHANNEL = 'everest-auth-sync';
+const LOGOUT_SYNC_STORAGE_KEY = 'everest-auth-sync';
 
 const Provider = ({
   oidcConfig,
@@ -51,18 +76,10 @@ const Provider = ({
 const AuthProvider = ({ children, isSsoEnabled }: AuthProviderProps) => {
   const [authStatus, setAuthStatus] = useState<UserAuthStatus>('unknown');
   const [redirect, setRedirect] = useState<string | null>(null);
+  const logoutSyncRef = useRef<BroadcastChannel | null>(null);
+  const tabIdRef = useRef(`tab-${Math.random().toString(36).slice(2)}`);
 
   const { signIn, userManager } = useOidcAuth();
-  const checkAuth = useCallback(async (token: string) => {
-    try {
-      await api.get('/version', {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      return true;
-    } catch {
-      return false;
-    }
-  }, []);
 
   const login = async (mode: AuthMode, manualAuthArgs?: ManualAuthArgs) => {
     setAuthStatus('loggingIn');
@@ -71,9 +88,17 @@ const AuthProvider = ({ children, isSsoEnabled }: AuthProviderProps) => {
     } else {
       const { username, password } = manualAuthArgs!;
       try {
-        const response = await api.post('/session', { username, password });
-        const token = response.data.token; // Assuming the response structure has a token field
-        localStorage.setItem('everestToken', token);
+        const response = await api.post<
+          HttpApi.components['schemas']['AuthTokenResponse']
+        >('/auth/token', {
+          grant_type: 'password',
+          username,
+          password,
+          // The refresh token is delivered as an HttpOnly cookie, never
+          // exposed to JS. The access token is kept in memory only.
+          refresh_token_delivery: 'cookie',
+        } satisfies HttpApi.components['schemas']['AuthTokenRequest']);
+        setAccessToken(response.data.access_token, response.data.expires_in);
         setLoggedInStatus(username);
       } catch (error) {
         if (error instanceof AxiosError) {
@@ -96,20 +121,33 @@ const AuthProvider = ({ children, isSsoEnabled }: AuthProviderProps) => {
     }
   };
 
-  const logout = async () => {
-    const token = localStorage.getItem('everestToken');
-    await api.delete('/session', { headers: { token: token } });
-    if (isSsoEnabled) {
-      await userManager.clearStaleState();
-      await setLogoutStatus();
+  const broadcastLogoutSync = useCallback(() => {
+    const payload = {
+      type: 'logout',
+      sender: tabIdRef.current,
+      ts: Date.now(),
+    };
+
+    if (logoutSyncRef.current) {
+      logoutSyncRef.current.postMessage(payload);
+      return;
     }
 
-    setAuthStatus('loggedOut');
-    localStorage.removeItem('everestToken');
-    sessionStorage.clear();
-    setRedirect(null);
-    removeApiErrorInterceptor();
-    removeApiAuthInterceptor();
+    // Fallback for environments without BroadcastChannel support.
+    localStorage.setItem(LOGOUT_SYNC_STORAGE_KEY, JSON.stringify(payload));
+  }, []);
+
+  const logout = async () => {
+    try {
+      // Revokes the refresh token (carried by the HttpOnly cookie) and
+      // blocklists the current access JWT.
+      await api.post('/auth/revoke', {});
+    } catch {
+      // Best-effort: local session state is cleared regardless.
+    }
+
+    broadcastLogoutSync();
+    await setLogoutStatus();
   };
 
   const setRedirectRoute = (route: string) => {
@@ -125,13 +163,18 @@ const AuthProvider = ({ children, isSsoEnabled }: AuthProviderProps) => {
 
   const setLogoutStatus = useCallback(async () => {
     setAuthStatus('loggedOut');
+    clearAccessToken();
     localStorage.removeItem('everestToken');
+    sessionStorage.clear();
+    setRedirect(null);
+    removeApiErrorInterceptor();
+    removeApiAuthInterceptor();
     if (isSsoEnabled) {
       await userManager.clearStaleState();
       await userManager.removeUser();
     }
     stopAuthorizerFetchLoop();
-  }, [userManager]);
+  }, [isSsoEnabled, userManager]);
 
   const silentlyRenewToken = useCallback(async () => {
     try {
@@ -147,19 +190,87 @@ const AuthProvider = ({ children, isSsoEnabled }: AuthProviderProps) => {
   }, [userManager]);
 
   useEffect(() => {
-    if (isSsoEnabled) {
-      userManager.events.addUserLoaded((user) => {
-        localStorage.setItem('everestToken', user.access_token || '');
-        const decoded = jwtDecode(user.access_token || '');
-        setLoggedInStatus(decoded.sub || '');
-      });
+    if (typeof BroadcastChannel !== 'undefined') {
+      logoutSyncRef.current = new BroadcastChannel(LOGOUT_SYNC_CHANNEL);
+    }
 
-      userManager.events.addAccessTokenExpiring(() => {
-        silentlyRenewToken();
-      });
+    const handleSyncLogout = async () => {
+      await setLogoutStatus();
+    };
 
+    const handleChannelMessage = async (event: MessageEvent) => {
+      if (event.data?.type !== 'logout') {
+        return;
+      }
+
+      if (event.data.sender === tabIdRef.current) {
+        return;
+      }
+
+      await handleSyncLogout();
+    };
+
+    const handleStorageEvent = async (event: StorageEvent) => {
+      if (event.key !== LOGOUT_SYNC_STORAGE_KEY || !event.newValue) {
+        return;
+      }
+
+      try {
+        const payload = JSON.parse(event.newValue);
+        if (payload?.type === 'logout' && payload.sender !== tabIdRef.current) {
+          localStorage.removeItem(LOGOUT_SYNC_STORAGE_KEY);
+          await handleSyncLogout();
+        }
+      } catch {
+        // Ignore malformed sync payloads.
+      }
+    };
+
+    logoutSyncRef.current?.addEventListener('message', handleChannelMessage);
+    window.addEventListener('storage', handleStorageEvent);
+
+    return () => {
+      logoutSyncRef.current?.removeEventListener(
+        'message',
+        handleChannelMessage
+      );
+      window.removeEventListener('storage', handleStorageEvent);
+      logoutSyncRef.current?.close();
+      logoutSyncRef.current = null;
+    };
+  }, [setLogoutStatus]);
+
+  useEffect(() => {
+    if (!isSsoEnabled) {
+      return;
+    }
+
+    const handleUserLoaded = (user: { access_token?: string }) => {
+      const token = user.access_token;
+      if (!token) {
+        return;
+      }
+      localStorage.setItem('everestToken', token);
+      const decoded = jwtDecode(token);
+      setLoggedInStatus(decoded.sub || '');
+    };
+
+    const handleTokenExpiring = () => {
+      silentlyRenewToken();
+    };
+
+    userManager.events.addUserLoaded(handleUserLoaded);
+    userManager.events.addAccessTokenExpiring(handleTokenExpiring);
+
+    // signinSilentCallback is only relevant inside the silent-renew iframe.
+    if (window.location !== window.parent.location) {
       userManager.signinSilentCallback();
     }
+
+    return () => {
+      userManager.events.removeUserLoaded(handleUserLoaded);
+      userManager.events.removeAccessTokenExpiring(handleTokenExpiring);
+    };
   }, [isSsoEnabled, silentlyRenewToken, userManager]);
 
   useEffect(() => {
@@ -168,52 +279,98 @@ const AuthProvider = ({ children, isSsoEnabled }: AuthProviderProps) => {
       return;
     }
 
-    if (authStatus === 'loggedIn' || authStatus === 'loggingIn') {
+    if (
+      authStatus === 'loggedIn' ||
+      authStatus === 'loggingIn' ||
+      authStatus === 'loggedOut'
+    ) {
       return;
     }
 
-    const authRoutine = async (token: string) => {
+    // OIDC sessions are persisted in localStorage by oidc-react.
+    const oidcAuthRoutine = async (token: string) => {
       try {
         const decoded = jwtDecode(token);
-        const iss = decoded.iss;
         const exp = decoded.exp;
-        if (iss === EVEREST_JWT_ISSUER) {
-          const isTokenValid = await checkAuth(token);
-          const username =
-            decoded.sub?.substring(0, decoded.sub.indexOf(':')) || '';
-          if (isTokenValid) {
-            setLoggedInStatus(username);
-          } else {
-            setLogoutStatus();
-          }
+        if (isAfter(new Date(), new Date((exp || 0) * 1000))) {
+          silentlyRenewToken();
+          return;
+        }
+
+        const user = await userManager.getUser();
+
+        if (!user) {
+          setLogoutStatus();
         } else {
-          if (isAfter(new Date(), new Date((exp || 0) * 1000))) {
-            silentlyRenewToken();
-            return;
-          }
-
-          const user = await userManager.getUser();
-
-          if (!user) {
-            setLogoutStatus();
-          } else {
-            setLoggedInStatus(decoded.sub || '');
-            return;
-          }
+          setLoggedInStatus(decoded.sub || '');
         }
       } catch (error) {
         logout();
       }
     };
-    const savedToken = localStorage.getItem('everestToken');
 
-    if (!savedToken) {
-      setLogoutStatus();
+    const bootstrapSession = async () => {
+      // Try to restore an internal session: the in-memory access token is
+      // lost on reload, but the HttpOnly refresh token cookie (if present)
+      // can be exchanged for a fresh token pair.
+      const accessToken = getAccessToken() || (await refreshSession());
+      if (accessToken) {
+        try {
+          const decoded = jwtDecode(accessToken);
+          if (decoded.iss === EVEREST_JWT_ISSUER) {
+            const username =
+              decoded.sub?.substring(0, decoded.sub.indexOf(':')) || '';
+            setLoggedInStatus(username);
+            return;
+          }
+        } catch {
+          clearAccessToken();
+        }
+      }
+
+      const savedToken = localStorage.getItem('everestToken');
+
+      if (!savedToken) {
+        setLogoutStatus();
+        return;
+      }
+
+      oidcAuthRoutine(savedToken);
+    };
+
+    bootstrapSession();
+  }, [authStatus, silentlyRenewToken, userManager]);
+
+  // Proactively rotates internal sessions shortly before the access token
+  // expires, so requests rarely hit a 401.
+  useEffect(() => {
+    if (authStatus !== 'loggedIn' || !getAccessToken()) {
       return;
     }
 
-    authRoutine(savedToken);
-  }, [authStatus, silentlyRenewToken, userManager]);
+    let timer: ReturnType<typeof setTimeout>;
+    const schedule = () => {
+      const expiry = getAccessTokenExpiry();
+      if (!expiry) {
+        return;
+      }
+      const delay = Math.max(expiry - Date.now() - 60 * 1000, 5 * 1000);
+      timer = setTimeout(async () => {
+        const token = await refreshSession();
+        if (token) {
+          schedule();
+        } else {
+          enqueueSnackbar('Your session has expired. Please sign in again.', {
+            variant: 'info',
+          });
+          setLogoutStatus();
+        }
+      }, delay);
+    };
+    schedule();
+
+    return () => clearTimeout(timer);
+  }, [authStatus, setLogoutStatus]);
 
   return (
     <AuthContext.Provider

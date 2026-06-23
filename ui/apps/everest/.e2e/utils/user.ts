@@ -1,16 +1,31 @@
+// Copyright (C) 2026 The OpenEverest Contributors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 import {
   CI_USER_STORAGE_STATE_FILE,
   SESSION_USER_STORAGE_STATE_FILE,
   TIMEOUTS,
 } from '@e2e/constants';
 import { Page, expect } from '@playwright/test';
-const { CI_USER, CI_PASSWORD } = process.env;
-const { SESSION_USER, SESSION_PASS } = process.env;
+
+const { CI_USER, CI_PASSWORD, SESSION_USER, SESSION_PASS } = process.env;
 
 export const switchUser = async (
   page: Page,
   user: string,
-  password: string
+  password: string,
+  storageFile: string = CI_USER_STORAGE_STATE_FILE
 ) => {
   await page.goto('/');
   await page.getByTestId('user-appbar-button').click();
@@ -25,7 +40,15 @@ export const switchUser = async (
   await expect(page.getByTestId('user-appbar-button')).toBeVisible({
     timeout: TIMEOUTS.ThirtySeconds,
   });
-  await page.context().storageState({ path: CI_USER_STORAGE_STATE_FILE });
+  await page.context().storageState({ path: storageFile });
+};
+
+/** Dismiss onboarding modal if visible (safe to call unconditionally). */
+export const dismissOnboarding = async (page: Page) => {
+  const btn = page.getByTestId('lets-go-button');
+  if (await btn.isVisible({ timeout: 3000 }).catch(() => false)) {
+    await btn.click();
+  }
 };
 
 // Login functions
@@ -36,6 +59,11 @@ const login = async (
   storageFile: string
 ) => {
   await page.goto('/login');
+  await page.waitForLoadState('networkidle');
+  // Wait for rate limiter token bucket to refill (1 req/s, burst=1).
+  // After a rate-limiting test (5 rapid requests), we need ~6s for full recovery.
+  await page.waitForTimeout(6000);
+
   await page.getByTestId('text-input-username').fill(user);
   await page.getByTestId('text-input-password').fill(password);
   await page.getByTestId('login-button').click();
@@ -44,36 +72,24 @@ const login = async (
     timeout: TIMEOUTS.ThirtySeconds,
   });
 
-  try {
-    // Disable 'Let's Go' Modal permanently
-    await expect(page.getByTestId('lets-go-button')).toBeVisible({
-      timeout: 3 * 1000,
-    });
-    await page.getByTestId('lets-go-button').click();
-  } catch {
-    // Modal not visible, skip
-  }
+  await dismissOnboarding(page);
 
-  const origins = (await page.context().storageState()).origins;
-  expect(origins.length).toBeGreaterThan(0);
+  const cookies = (await page.context().storageState()).cookies;
   expect(
-    origins.find(
-      (origin) =>
-        !!origin.localStorage.find((storage) => storage.name === 'everestToken')
-    )
+    cookies.find((cookie) => cookie.name === 'everest_refresh_token')
   ).not.toBeUndefined();
   await page.context().storageState({ path: storageFile });
 };
 
 export const loginCIUser = async (page: Page) => {
-  await login(page, CI_USER, CI_PASSWORD, CI_USER_STORAGE_STATE_FILE);
+  await login(page, CI_USER!, CI_PASSWORD!, CI_USER_STORAGE_STATE_FILE);
 };
 
 export const loginSessionUser = async (page: Page) => {
   await login(
     page,
-    SESSION_USER,
-    SESSION_PASS,
+    SESSION_USER!,
+    SESSION_PASS!,
     SESSION_USER_STORAGE_STATE_FILE
   );
 };
