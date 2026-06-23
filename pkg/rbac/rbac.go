@@ -69,6 +69,7 @@ const (
 	ResourceClusters          = "clusters"
 	ResourceProviders         = "providers"
 	ResourceInstances         = "instances"
+	ResourceInstancePresets   = "instance-presets"
 	ResourceBackupClasses     = "backup-classes"
 	ResourceBackups           = "backups"
 	ResourceRestores          = "restores"
@@ -143,14 +144,18 @@ const (
 	// install plugins (create) without automatically granting broad read
 	// access to every user.
 	ActionUse = "use"
-	ActionAll = "*"
+	// ActionDeploy allows creating instances with custom values that deviate
+	// from preset specifications. Users without this permission can only create
+	// instances that exactly match their referenced presets.
+	ActionDeploy = "deploy"
+	ActionAll    = "*"
 )
 
 const (
 	rbacEnabledValueTrue = "true"
 )
 
-var SupportedActions = []string{ActionCreate, ActionRead, ActionUpdate, ActionDelete, ActionUse, ActionAll}
+var SupportedActions = []string{ActionCreate, ActionRead, ActionUpdate, ActionDelete, ActionUse, ActionDeploy, ActionAll}
 
 type User struct {
 	Subject string

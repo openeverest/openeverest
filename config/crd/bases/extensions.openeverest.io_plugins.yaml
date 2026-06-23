@@ -193,45 +193,6 @@ spec:
               icon:
                 description: Icon is a URL to the plugin's icon image.
                 type: string
-              kubePermissions:
-                description: |-
-                  KubePermissions declares additional Kubernetes API permissions the plugin's
-                  ServiceAccount needs beyond the OpenEverest API. Used by infrastructure
-                  plugins that create per-cluster resources (e.g., ProxySQL deployments).
-                  The host auto-generates a Role from these rules and binds it to the
-                  plugin's ServiceAccount in each namespace listed in the matching
-                  InstalledExtension's spec.plugin.namespaces[]. Rules are validated
-                  against a hard-coded denylist at reconcile time.
-                items:
-                  description: |-
-                    KubePermissionRule declares a single Kubernetes RBAC rule that an
-                    infrastructure plugin requires. Mirrors the structure of
-                    rbacv1.PolicyRule but with explicit JSON tags and kubebuilder markers.
-                  properties:
-                    apiGroups:
-                      description: APIGroups is the list of API groups (e.g. "", "apps").
-                        Use "" for core.
-                      items:
-                        type: string
-                      type: array
-                    resources:
-                      description: Resources is the list of resources (e.g. "deployments",
-                        "services").
-                      items:
-                        type: string
-                      type: array
-                    verbs:
-                      description: Verbs is the list of verbs (e.g. "get", "list",
-                        "create", "delete").
-                      items:
-                        type: string
-                      type: array
-                  required:
-                  - apiGroups
-                  - resources
-                  - verbs
-                  type: object
-                type: array
               permissions:
                 description: Permissions declares what OpenEverest API resources this
                   plugin needs access to.

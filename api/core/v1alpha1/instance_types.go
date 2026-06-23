@@ -15,6 +15,8 @@
 package v1alpha1
 
 import (
+	"net"
+
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -282,10 +284,39 @@ type ComponentSpec struct {
 	// pod anti-affinity (spreading pods across nodes/zones for high availability).
 	// +optional
 	Affinity *corev1.Affinity `json:"affinity,omitempty"`
+	// Service defines how this component is exposed.
+	// +optional
+	Service *Service `json:"service,omitempty"`
 	// +kubebuilder:pruning:PreserveUnknownFields
 	// CustomSpec provides an API for customising this component.
 	// The API schema is defined by the provider's ComponentSchemas.
 	CustomSpec *runtime.RawExtension `json:"customSpec,omitempty"`
+}
+
+type Service struct {
+	// ServiceType defines how the component is exposed.
+	// The provider ultimately decides and validates supported service types.
+	// +kubebuilder:default:=ClusterIP
+	ServiceType corev1.ServiceType `json:"serviceType,omitempty"`
+	// Annotations is a map of key-value pairs for annotating the Service.
+	// Commonly used to configure cloud provider settings
+	// (e.g., AWS ELB annotations, GCP load balancer settings).
+	// +optional
+	Annotations map[string]string `json:"annotations,omitempty"`
+	// LoadBalancerService contains LoadBalancer-specific configuration.
+	// Only applicable for "LoadBalancer" ServiceType.
+	// +optional
+	LoadBalancerService *LoadBalancerService `json:"loadBalancerService,omitempty"`
+}
+
+type SourceRanges []string
+
+type LoadBalancerService struct {
+	// SourceRanges lists IP source ranges (CIDR notation) that are
+	// allowed to access the load balancer.
+	// If unset, there is no limitations.
+	// +optional
+	SourceRanges SourceRanges `json:"sourceRanges,omitempty"`
 }
 
 type Storage struct {
@@ -325,6 +356,38 @@ func (in *Instance) GetTopologyConfig() *runtime.RawExtension {
 		return nil
 	}
 	return in.Spec.Topology.Config
+}
+
+// NormalizedSourceRanges returns source ranges with CIDR notation.
+// Single IP addresses are converted to CIDR format (/32 for IPv4, /128 for IPv6).
+// Returns nil if SourceRanges is empty.
+func (sr *SourceRanges) NormalizedSourceRanges() SourceRanges {
+	if sr == nil || len(*sr) == 0 {
+		return nil
+	}
+
+	ret := make([]string, 0, len(*sr))
+	ret = append(ret, *sr...)
+	for k, v := range ret {
+		if _, _, err := net.ParseCIDR(v); err == nil {
+			continue
+		}
+
+		ip := net.ParseIP(v)
+		if ip == nil {
+			continue
+		}
+
+		if ip.To4() != nil {
+			// IPv4 without a subnet. Add /32 subnet by default.
+			ret[k] = v + "/32"
+		} else {
+			// IPv6 without a subnet. Add /128 subnet by default.
+			ret[k] = v + "/128"
+		}
+	}
+
+	return ret
 }
 
 // InstanceStatus defines the observed state of Instance.
