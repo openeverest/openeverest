@@ -25,10 +25,10 @@ require (
 	github.com/lestrrat-go/jwx/v2 v2.1.6
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/oapi-codegen/echo-middleware v1.0.2
-	github.com/oapi-codegen/runtime v1.4.1
-	github.com/openeverest/helm-charts/charts/everest v0.0.0-20260506204041-00f7ea3e6e95
+	github.com/oapi-codegen/runtime v1.4.2
+	github.com/openeverest/helm-charts/charts/everest v0.0.0-20260622122026-4c28e1ea24dd
 	github.com/operator-framework/api v0.44.0
-	github.com/percona/everest-operator v0.6.0-dev1.0.20260601065009-6a3e11cc9048
+	github.com/percona/everest-operator v0.6.0-dev1.0.20260622121956-f2f942efeb9d
 	github.com/rodaine/table v1.3.1
 	github.com/spf13/cobra v1.10.2
 	github.com/stretchr/testify v1.11.1
@@ -41,7 +41,7 @@ require (
 	google.golang.org/protobuf v1.36.12-0.20260120151049-f2248ac996af
 	gopkg.in/yaml.v2 v2.4.0
 	gopkg.in/yaml.v3 v3.0.1
-	helm.sh/helm/v3 v3.21.1
+	helm.sh/helm/v3 v3.21.2
 	k8s.io/api v0.36.2
 	k8s.io/apiextensions-apiserver v0.36.2
 	k8s.io/apimachinery v0.36.2
@@ -116,7 +116,7 @@ require (
 	github.com/ckaznocha/intrange v0.3.1 // indirect
 	github.com/clipperhouse/displaywidth v0.11.0 // indirect
 	github.com/clipperhouse/uax29/v2 v2.7.0 // indirect
-	github.com/containerd/containerd v1.7.32 // indirect
+	github.com/containerd/containerd v1.7.33 // indirect
 	github.com/containerd/errdefs v1.0.0 // indirect
 	github.com/containerd/log v0.1.0 // indirect
 	github.com/containerd/platforms v0.2.1 // indirect
