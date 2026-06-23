@@ -1064,7 +1064,8 @@ k8s_resource(
     'plugins.extensions.openeverest.io:customresourcedefinition',
     'installedextensions.extensions.openeverest.io:customresourcedefinition',
     'providers.core.openeverest.io:customresourcedefinition',
-    'restores.backup.openeverest.io:customresourcedefinition'
+    'restores.backup.openeverest.io:customresourcedefinition',
+    'instancepresets.core.openeverest.io:customresourcedefinition'
   ],
   new_name='crds',
   labels=["everest"]
@@ -1149,6 +1150,8 @@ k8s_resource(
     'provider-percona-server-mongodb:clusterrolebinding',
     'percona-server-mongodb:provider',
     'percona-backup-mongodb:backupclass',
+    'default-replicaset:instancepreset',
+    'default-sharded:instancepreset'
   ],
   resource_deps = [
     'crds',

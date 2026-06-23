@@ -4,6 +4,7 @@
 resources:
 - bases/core.openeverest.io_providers.yaml
 - bases/core.openeverest.io_instances.yaml
+- bases/core.openeverest.io_instancepresets.yaml
 - bases/backup.openeverest.io_backupclasses.yaml
 - bases/backup.openeverest.io_backups.yaml
 - bases/monitoring.openeverest.io_monitoringconfigs.yaml
