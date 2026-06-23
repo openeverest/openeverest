@@ -21,7 +21,6 @@ import {
 } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { usePlugins } from 'contexts/plugins';
-import { usePluginsForNamespace } from 'hooks/api/plugins/usePluginsForNamespace';
 import type {
   InstanceCreateFormSectionExtension,
   InstanceEditFormSectionExtension,
@@ -48,8 +47,8 @@ interface PluginFormSectionsProps {
 /**
  * Renders collapsible accordion sections for each plugin that registered
  * an `instanceCreateFormSection` or `instanceEditFormSection` extension.
- * Only shows plugins that are installed in the target namespace and match
- * the engine type filter.
+ * Only sections whose `providers` filter matches the current engine type
+ * are shown.
  */
 export const PluginFormSections: React.FC<PluginFormSectionsProps> = ({
   formValues,
@@ -60,12 +59,6 @@ export const PluginFormSections: React.FC<PluginFormSectionsProps> = ({
   onPluginConfigChange,
 }) => {
   const { plugins } = usePlugins();
-  const { data: pluginsEnabledInNamespace } = usePluginsForNamespace(namespace);
-
-  // Set of plugins installed in this namespace (or null = no filter).
-  const enabledInNs = pluginsEnabledInNamespace?.length
-    ? new Set(pluginsEnabledInNamespace.map((p) => p.name))
-    : null;
 
   const extensionType = isCreate
     ? 'instanceCreateFormSection'
@@ -86,10 +79,9 @@ export const PluginFormSections: React.FC<PluginFormSectionsProps> = ({
             !ext.providers?.length ||
             (engineType != null && ext.providers.includes(engineType))
         )
-        .filter(() => enabledInNs === null || enabledInNs.has(p.name))
         .map((ext) => ({ pluginName: p.name, ...ext }))
     );
-  }, [plugins, extensionType, engineType, enabledInNs]);
+  }, [plugins, extensionType, engineType]);
 
   if (sections.length === 0) return null;
 

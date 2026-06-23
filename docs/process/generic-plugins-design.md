@@ -28,7 +28,7 @@ and backend API logic, all without rebuilding or redeploying the OpenEverest cor
 | **Backend** | An optional HTTP service that implements custom logic on behalf of the plugin. |
 | **Frontend bundle** | An optional ESM JavaScript module loaded at runtime into the web UI shell. |
 | **Extension point** | A named, typed slot in the host UI or CLI where a plugin registers a contribution. |
-| **InstalledExtension** | A cluster-scoped CR that records an installed extension (a generic plugin or a spec 001 provider) and — for plugins — the namespaces it is enabled in plus per-namespace config. Replaces the previous draft's `PluginInstallation`. |
+| **InstalledExtension** | A cluster-scoped CR that records an installed extension (a generic plugin or a spec 001 provider). Per-namespace plugin visibility is governed by Everest RBAC, not by fields on this CR. Replaces the previous draft's `PluginInstallation`. |
 | **Infrastructure plugin** | A generic plugin that creates and manages its own Kubernetes resources (Deployments, Services, ConfigMaps) in response to lifecycle events. Its `ServiceAccount`, `Role`/`ClusterRole`, and `RoleBinding`/`ClusterRoleBinding` are shipped by the plugin bundle itself (Helm chart); the host does not generate plugin RBAC. |
 | **Stateful plugin** | A generic plugin that declares custom resource schemas in its manifest. The host installs the CRDs, watches instances via a dynamic informer, and routes reconciliation events to the plugin backend over HTTP. The plugin does not run its own operator. |
 | **Plugin CRD** | A `CustomResourceDefinition` declared by a stateful plugin under the `plugins.openeverest.io` API group. Installed, validated, and watched by the host; reconciled by the plugin backend via webhook-style HTTP callbacks. |
@@ -229,9 +229,9 @@ rejected at install time.
 ### 5.2 `InstalledExtension` (cluster-scoped)
 
 A single cluster-scoped CR records the install state of an extension — either
-a generic plugin or a spec 001 provider. For plugins it also captures the
-namespaces the plugin is enabled in and any per-namespace config secrets.
-For providers it records install metadata only.
+a generic plugin or a spec 001 provider. It records install metadata only;
+per-namespace plugin visibility and user access are governed by Everest RBAC
+(see §9), not by fields on this CR.
 
 The CR is created by `everestctl extension install` (never by the user
 directly editing YAML). Cluster-admin owns it.
@@ -252,17 +252,6 @@ spec:
     pluginCRName: sql-explorer       # references the Plugin CR
     frontendDigest: "sha256:..."     # optional
     backendImageDigest: "sha256:..." # optional
-
-    # Namespaces the plugin is enabled in plus optional per-tenant config.
-    # Empty namespaces[] means the plugin is enabled cluster-wide (visible
-    # in every namespace the caller can see). Kubernetes RBAC the plugin
-    # needs is shipped by the plugin's Helm chart and is not influenced by
-    # this list.
-    namespaces:
-      - name: team-alpha
-        configSecretRef: sql-explorer-team-alpha
-      - name: team-bravo
-        configSecretRef: sql-explorer-team-bravo
 
   # Mutually exclusive with spec.plugin.
   provider:                          # required when type=provider
@@ -612,9 +601,8 @@ client; the host streams events as they happen.
 **Authentication.** The stream is authenticated like any other `/v1` endpoint
 — a daemon plugin uses its service token (§8.4); a user-facing tool uses the
 user's session token. The events the client receives are filtered by the
-token's permissions and (if applicable) the namespaces listed in the plugin's
-`InstalledExtension.spec.plugin.namespaces[]` (or all permitted namespaces
-when `scope: Cluster`).
+token's permissions (the user's accessible namespaces, or the daemon token's
+declared scope).
 
 **Why pull and not push?** A push model requires the host to track which
 events have been delivered to which plugin, manage retry queues, and persist
@@ -711,9 +699,8 @@ proxysql-plugin/
 ```
 
 The chart author decides scope: a single `ClusterRole` + `ClusterRoleBinding`
-for a cluster-wide plugin, or a `Role` per namespace templated from
-`values.namespaces[]` for a per-tenant deployment. The chart is the single
-source of truth.
+for a cluster-wide plugin, or a `Role` + `RoleBinding` per target namespace.
+The chart is the single source of truth.
 
 #### Lifecycle integration — ProxySQL example
 
@@ -724,11 +711,12 @@ source of truth.
    installing.
 
 2. **Installation.** Admin runs `everestctl extension install proxysql
-   --namespace team-alpha`. The CLI fetches the chart, renders it with
-   `namespaces=[team-alpha]`, and applies the result. The `Plugin` CR, the
+   --namespace team-alpha`. The CLI fetches the chart, renders it with the
+   target namespace, and applies the result. The `Plugin` CR, the
    `ServiceAccount`, the `Role`, the `RoleBinding`, the backend
-   `Deployment`, and an `InstalledExtension` (`namespaces: [team-alpha]`)
-   are all created together.
+   `Deployment`, and an `InstalledExtension` are all created together.
+   Which users can actually invoke the plugin in which namespaces is
+   governed by Everest RBAC (`plugin/proxysql` resource, §9.2).
 
 3. **Cluster creation.** User creates a new PXC cluster. The ProxySQL
    plugin's `instanceCreateFormSection` renders an "Enable ProxySQL"
@@ -843,9 +831,8 @@ The generated CRD will have:
 - Group: `presets.plugins.openeverest.io`
 - Version: `v1alpha1` (auto-assigned; plugin controls via manifest version)
 - Kind: `Preset`
-- Scope: Namespaced (restricted to namespaces listed in the plugin's
-  `InstalledExtension.spec.plugin.namespaces[]`, or any namespace when
-  `scope: Cluster`)
+- Scope: Namespaced (the plugin CR can be created in any namespace where the
+  caller has Everest RBAC to `use` the plugin)
 
 #### Host reconciliation model
 
@@ -889,12 +876,13 @@ and sets a `Reconciling` condition on the CR.
 
 #### Namespace scoping
 
-Plugin CRs are only permitted in namespaces listed in the plugin's
-`InstalledExtension.spec.plugin.namespaces[]`, or in any namespace when the
-plugin is installed with `scope: Cluster`. The host rejects (via a
-validating webhook or informer-level filter) any CR created in a namespace
-where the plugin is not enabled. This prevents tenants from creating plugin
-CRs in namespaces the install does not cover.
+Plugin CRs are permitted in any namespace where the caller has Everest RBAC
+to `use` the plugin (the `plugin/{name}` resource, §9.2). The host rejects
+(via a validating webhook or informer-level filter) any CR created by a user
+without that grant. There is no separate per-namespace enable list on the
+`InstalledExtension` — namespace scoping is a pure RBAC concern, consistent
+with how `BackupStorage`, `MonitoringConfig`, and other namespaced resources
+are gated.
 
 #### Security & validation
 
@@ -925,10 +913,9 @@ Stateful plugins typically combine custom resources with other capabilities:
 
 1. Admin installs the Presets plugin. The host creates the `Preset` CRD
    under `presets.plugins.openeverest.io`.
-2. Admin runs `everestctl extension namespace add presets team-alpha`,
-   which appends `team-alpha` to the Presets `InstalledExtension`'s
-   `spec.plugin.namespaces[]`. Users in that namespace can now create
-   `Preset` CRs.
+2. Admin grants the `use` verb on `plugin/presets` to the `team-alpha`
+   role (or specific users) via Everest RBAC. Users in that namespace can
+   now create `Preset` CRs there.
 3. A user creates a `Preset` named `production-large` with topology,
    component sizing, and backup config for their PXC clusters.
 4. The Presets backend receives the `/reconcile` call, validates the Preset
@@ -1006,9 +993,11 @@ everestctl extension list                          # installed extensions (plugi
 everestctl extension info     <name>               # show install metadata and conditions
 everestctl extension install  <oci-ref>
 everestctl extension uninstall <name>
-everestctl extension namespace add    <name> <ns>  # patches spec.plugin.namespaces[]
-everestctl extension namespace remove <name> <ns>
 ```
+
+Per-namespace plugin access is granted via Everest RBAC (`plugin/{name}`
+resource, §9.2) — there is no separate `extension namespace add/remove`
+subcommand.
 
 There is no `everestctl plugin` subcommand. Plugins and providers are both
 managed via `everestctl extension`; the `--type` filter on `list` distinguishes
@@ -1069,7 +1058,7 @@ configured (e.g., Harbor), then creates the `Plugin` CR.
 | In-cluster lateral movement | Plugin backend runs in its own `ServiceAccount` with a minimal `Role` auto-generated from `spec.permissions`. `NetworkPolicy` restricts egress to declared endpoints only. |
 | Supply chain | Manifest must include OCI image digests. Host verifies cosign signatures when `spec.signatureVerification: true` is set on the cluster. |
 | Secrets in manifests | Credentials for external backends are stored exclusively in `Secret` resources, never in the `Plugin` CR itself. |
-| Admin-only install | Creating a `Plugin` CR and the corresponding `InstalledExtension` requires cluster-admin RBAC. Adding namespaces to an existing install requires cluster-admin (or, in a future iteration, a namespaced opt-in CR). Regular users only get `use`. |
+| Admin-only install | Creating a `Plugin` CR and the corresponding `InstalledExtension` requires cluster-admin RBAC. Per-namespace access for end users is granted via Everest RBAC (`plugin/{name}` resource, §9.2); regular users only get `use` on the specific plugin/namespace combinations the admin allows. |
 | Daemon token theft | Plugin service token is mounted via a projected `Secret` (short-lived, auto-rotated, default TTL 24 h). Token is bound to plugin name + declared permissions, never a user identity, and revoked on `InstalledExtension` deletion. |
 | Forged events | The event stream is delivered over the plugin's authenticated HTTPS connection to OpenEverest — there is no inbound push the plugin needs to validate. |
 | Event-driven privilege escalation | Events are informational only — they do not authorise the plugin to perform any action. Any follow-up API call still goes through normal RBAC checks. |
@@ -1205,8 +1194,8 @@ graph TB
 
 Deliver the minimal complete path for a plugin author to ship a UI page.
 
-- `Plugin` and `InstalledExtension` CRDs (both cluster-scoped; install record
-  defaults to `scope: Cluster` with no per-namespace config).
+- `Plugin` and `InstalledExtension` CRDs (both cluster-scoped; install
+  metadata only — no per-namespace enable list).
 - `GET /v1/plugins` discovery endpoint.
 - `GET /v1/installed-extensions` list endpoint.
 - Dynamic ESM loader in the React shell.
@@ -1218,10 +1207,12 @@ Deliver the minimal complete path for a plugin author to ship a UI page.
 
 ### Phase 2 — Multi-tenant & access control
 
-- `InstalledExtension` gains `scope: Namespaces` mode with
-  `spec.plugin.namespaces[]` and per-namespace `configSecretRef` handling.
-- `everestctl extension namespace add / remove` commands.
-- `plugin/{name}` resource in Casbin model — per-user `use` grants.
+- `plugin/{name}` resource in Casbin model — per-user, per-namespace `use`
+  grants are the sole control over which users can invoke which plugin in
+  which namespace.
+- Per-tenant config secrets: plugin authors who need per-namespace runtime
+  config consume a `ConfigMap`/`Secret` named by convention (e.g.,
+  `<plugin>-config` in the target namespace) — no host-side wiring.
 - In-cluster backend `serviceRef` discovery (DNS resolution, health check).
 - Credentials broker: `GET /v1/databases/{id}/connection-details`.
 - `GET /v1/plugin-context` endpoint.

@@ -961,34 +961,6 @@ components:
                   description: FrontendDigest pins the OCI digest of the frontend
                     bundle artifact.
                   type: string
-                namespaces:
-                  description: |-
-                    Namespaces lists the namespaces this plugin is enabled in, along with
-                    any per-tenant config secret. When empty the plugin is enabled
-                    cluster-wide (visible in every namespace the caller can see). The
-                    Kubernetes RBAC the plugin needs is owned by the plugin's own bundle;
-                    the host does not provision Role/ClusterRole objects.
-                  items:
-                    description: |-
-                      PluginNamespaceConfig pairs a namespace name with an optional per-tenant
-                      configuration secret reference.
-                    properties:
-                      configSecretRef:
-                        description: |-
-                          ConfigSecretRef names a Secret in Name whose data is mounted as env
-                          vars on the plugin backend for this tenant.
-                        type: string
-                      name:
-                        description: Name is the Kubernetes namespace this plugin
-                          is enabled in.
-                        type: string
-                    required:
-                    - name
-                    type: object
-                  type: array
-                  x-kubernetes-list-map-keys:
-                  - name
-                  x-kubernetes-list-type: map
                 pluginCRName:
                   description: |-
                     PluginCRName is the name of the cluster-scoped Plugin CR that this

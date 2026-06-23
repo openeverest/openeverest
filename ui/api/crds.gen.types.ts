@@ -636,22 +636,6 @@ export interface components {
                     /** @description FrontendDigest pins the OCI digest of the frontend bundle artifact. */
                     frontendDigest?: string;
                     /**
-                     * @description Namespaces lists the namespaces this plugin is enabled in, along with
-                     *     any per-tenant config secret. When empty the plugin is enabled
-                     *     cluster-wide (visible in every namespace the caller can see). The
-                     *     Kubernetes RBAC the plugin needs is owned by the plugin's own bundle;
-                     *     the host does not provision Role/ClusterRole objects.
-                     */
-                    namespaces?: {
-                        /**
-                         * @description ConfigSecretRef names a Secret in Name whose data is mounted as env
-                         *     vars on the plugin backend for this tenant.
-                         */
-                        configSecretRef?: string;
-                        /** @description Name is the Kubernetes namespace this plugin is enabled in. */
-                        name: string;
-                    }[];
-                    /**
                      * @description PluginCRName is the name of the cluster-scoped Plugin CR that this
                      *     install record points at.
                      */

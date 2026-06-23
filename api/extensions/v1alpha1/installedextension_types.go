@@ -80,29 +80,6 @@ type PluginInstall struct {
 	// BackendImageDigest pins the OCI digest of the backend image.
 	// +optional
 	BackendImageDigest string `json:"backendImageDigest,omitempty"`
-
-	// Namespaces lists the namespaces this plugin is enabled in, along with
-	// any per-tenant config secret. When empty the plugin is enabled
-	// cluster-wide (visible in every namespace the caller can see). The
-	// Kubernetes RBAC the plugin needs is owned by the plugin's own bundle;
-	// the host does not provision Role/ClusterRole objects.
-	// +optional
-	// +listType=map
-	// +listMapKey=name
-	Namespaces []PluginNamespaceConfig `json:"namespaces,omitempty"`
-}
-
-// PluginNamespaceConfig pairs a namespace name with an optional per-tenant
-// configuration secret reference.
-type PluginNamespaceConfig struct {
-	// Name is the Kubernetes namespace this plugin is enabled in.
-	// +required
-	Name string `json:"name"`
-
-	// ConfigSecretRef names a Secret in Name whose data is mounted as env
-	// vars on the plugin backend for this tenant.
-	// +optional
-	ConfigSecretRef string `json:"configSecretRef,omitempty"`
 }
 
 // ProviderInstall captures provider-specific install state.

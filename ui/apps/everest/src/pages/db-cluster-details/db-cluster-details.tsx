@@ -38,14 +38,11 @@ import {
 } from 'shared-types/instance.types';
 import { usePlugins } from 'contexts/plugins';
 import type { ClusterDetailTabExtension } from '@openeverest/plugin-sdk';
-import { usePluginsForNamespace } from 'hooks/api/plugins/usePluginsForNamespace';
 
 const WithPermissionDetails = ({
   instanceName,
-  namespace,
   tab,
 }: {
-  namespace: string;
   instanceName: string;
   tab: string;
 }) => {
@@ -68,18 +65,11 @@ const WithPermissionDetails = ({
     keyof typeof DBClusterDetailsTabs
   >;
 
-  // Collect clusterDetailTab extensions, filtered by:
-  // 1. engine type (providers field)
-  // 2. namespace: only plugins enabled for this namespace via an InstalledExtension
+  // Collect clusterDetailTab extensions, filtered by engine type
+  // (providers field). Per-namespace plugin visibility is governed by
+  // Everest RBAC on the `/v1/plugins` endpoint.
   const { plugins } = usePlugins();
-  const { data: pluginsEnabledInNamespace } = usePluginsForNamespace(namespace);
   const engineType = instance?.spec?.provider;
-
-  // Build a set of plugin names enabled in this namespace.
-  // When no InstalledExtension entry covers this namespace, skip filtering entirely.
-  const enabledInNs = pluginsEnabledInNamespace?.length
-    ? new Set(pluginsEnabledInNamespace.map((p) => p.name))
-    : null;
 
   const pluginTabs = useMemo(
     () =>
@@ -94,10 +84,9 @@ const WithPermissionDetails = ({
               !ext.providers?.length ||
               (engineType != null && ext.providers.includes(engineType))
           )
-          .filter(() => enabledInNs === null || enabledInNs.has(p.name))
           .map((ext) => ({ pluginName: p.name, ...ext }))
       ),
-    [plugins, engineType, enabledInNs]
+    [plugins, engineType]
   );
 
   return (
@@ -188,7 +177,6 @@ export const DbClusterDetails = () => {
   const { instance, isLoading } = useContext(DbInstanceContext);
   const routeMatch = useMatch('/databases/:namespace/:instanceName/:tabs');
   const currentTab = routeMatch?.params?.tabs;
-  const namespace = routeMatch?.params?.namespace;
 
   if (!currentTab) {
     return <Navigate to={DBClusterDetailsTabs.overview} replace />;
@@ -212,11 +200,5 @@ export const DbClusterDetails = () => {
   }
 
   // All clear, show the cluster data
-  return (
-    <WithPermissionDetails
-      namespace={namespace!}
-      instanceName={instanceName}
-      tab={currentTab}
-    />
-  );
+  return <WithPermissionDetails instanceName={instanceName} tab={currentTab} />;
 };
