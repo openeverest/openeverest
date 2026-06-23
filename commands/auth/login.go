@@ -77,7 +77,7 @@ func loginPreRun(cmd *cobra.Command, _ []string) { //nolint:revive
 	}
 
 	if loginOpts.Password == "" {
-		password, err := accountscli.PopulatePassword(cmd.Context())
+		password, err := tui.NewInputPassword(cmd.Context(), "Provide password").Run()
 		if err != nil {
 			output.PrintError(err, logger.GetLogger(), loginCfg.Pretty)
 			os.Exit(1)
