@@ -53,6 +53,7 @@ type InstancePreset struct {
 }
 
 // +kubebuilder:object:root=true
+// +kubebuilder:resource:shortName=pre;preset
 
 // InstancePresetList contains a list of InstancePreset
 type InstancePresetList struct {
