@@ -436,3 +436,5 @@ tool (
 	helm.sh/helm/v3/cmd/helm
 	mvdan.cc/gofumpt
 )
+
+replace github.com/percona/everest-operator => ../everest-operator

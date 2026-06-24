@@ -4100,6 +4100,26 @@ components:
             dbClusterName:
               description: DBClusterName is the original database cluster name.
               type: string
+            backupJobResources:
+              description: |-
+                BackupJobResources defines resource limits for the backup job container.
+                If not set, operator defaults are used (600m CPU, 1G memory).
+              properties:
+                cpu:
+                  anyOf:
+                    - type: integer
+                    - type: string
+                  description: CPU is the CPU resource requirements
+                  pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                  x-kubernetes-int-or-string: true
+                memory:
+                  anyOf:
+                    - type: integer
+                    - type: string
+                  description: Memory is the memory resource requirements
+                  pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                  x-kubernetes-int-or-string: true
+              type: object
           required:
             - backupStorageName
             - dbClusterName

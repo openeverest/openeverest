@@ -1110,6 +1110,16 @@ type DatabaseClusterBackup struct {
 		// The BackupStorage must be created in the same namespace as the DatabaseCluster.
 		BackupStorageName string `json:"backupStorageName"`
 
+		// BackupJobResources defines resource limits for the backup job container.
+		// If not set, operator defaults are used (600m CPU, 1G memory).
+		BackupJobResources *struct {
+			// Cpu CPU is the CPU resource requirements
+			Cpu *string `json:"cpu,omitempty"`
+
+			// Memory Memory is the memory resource requirements
+			Memory *string `json:"memory,omitempty"`
+		} `json:"backupJobResources,omitempty"`
+
 		// DbClusterName DBClusterName is the original database cluster name.
 		DbClusterName string `json:"dbClusterName"`
 	} `json:"spec,omitempty"`
