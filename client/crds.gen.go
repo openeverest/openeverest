@@ -104,24 +104,6 @@ func (e BackupStorageSpecType) Valid() bool {
 	}
 }
 
-// Defines values for InstalledExtensionSpecPluginScope.
-const (
-	InstalledExtensionSpecPluginScopeCluster    InstalledExtensionSpecPluginScope = "Cluster"
-	InstalledExtensionSpecPluginScopeNamespaces InstalledExtensionSpecPluginScope = "Namespaces"
-)
-
-// Valid indicates whether the value is a known member of the InstalledExtensionSpecPluginScope enum.
-func (e InstalledExtensionSpecPluginScope) Valid() bool {
-	switch e {
-	case InstalledExtensionSpecPluginScopeCluster:
-		return true
-	case InstalledExtensionSpecPluginScopeNamespaces:
-		return true
-	default:
-		return false
-	}
-}
-
 // Defines values for InstalledExtensionSpecType.
 const (
 	InstalledExtensionSpecTypePlugin   InstalledExtensionSpecType = "plugin"
@@ -992,37 +974,15 @@ type InstalledExtension struct {
 		// Plugin Plugin holds plugin-specific install state. Required when type=plugin;
 		// must be nil when type=provider.
 		Plugin *struct {
-			// AllowClusterScope AllowClusterScope must be true for the reconciler to provision a
-			// ClusterRole/ClusterRoleBinding when Scope=Cluster. Without it, the
-			// reconciler refuses to create cluster-wide RBAC and sets
-			// RoleSynced=False, reason=ClusterScopeNotAllowed.
-			AllowClusterScope *bool `json:"allowClusterScope,omitempty"`
-
 			// BackendImageDigest BackendImageDigest pins the OCI digest of the backend image.
 			BackendImageDigest *string `json:"backendImageDigest,omitempty"`
 
 			// FrontendDigest FrontendDigest pins the OCI digest of the frontend bundle artifact.
 			FrontendDigest *string `json:"frontendDigest,omitempty"`
 
-			// Namespaces Namespaces lists the namespaces this plugin is enabled in. Required
-			// when Scope=Namespaces. Each entry may attach a per-tenant config
-			// secret reference.
-			Namespaces *[]struct {
-				// ConfigSecretRef ConfigSecretRef names a Secret in Name whose data is mounted as env
-				// vars on the plugin backend for this tenant.
-				ConfigSecretRef *string `json:"configSecretRef,omitempty"`
-
-				// Name Name is the Kubernetes namespace this plugin is enabled in.
-				Name string `json:"name"`
-			} `json:"namespaces,omitempty"`
-
 			// PluginCRName PluginCRName is the name of the cluster-scoped Plugin CR that this
 			// install record points at.
 			PluginCRName string `json:"pluginCRName"`
-
-			// Scope Scope controls how kubePermissions translate to RBAC.
-			// Defaults to Cluster.
-			Scope *InstalledExtensionSpecPluginScope `json:"scope,omitempty"`
 		} `json:"plugin,omitempty"`
 
 		// Provider Provider holds provider-specific install state. Required when
@@ -1092,10 +1052,6 @@ type InstalledExtension struct {
 		Phase *InstalledExtensionStatusPhase `json:"phase,omitempty"`
 	} `json:"status,omitempty"`
 }
-
-// InstalledExtensionSpecPluginScope Scope controls how kubePermissions translate to RBAC.
-// Defaults to Cluster.
-type InstalledExtensionSpecPluginScope string
 
 // InstalledExtensionSpecType Type discriminates between plugin and provider installs. Exactly one of
 // Plugin or Provider must be set, matching Type.
@@ -3167,24 +3123,6 @@ type Plugin struct {
 
 		// Icon Icon is a URL to the plugin's icon image.
 		Icon *string `json:"icon,omitempty"`
-
-		// KubePermissions KubePermissions declares additional Kubernetes API permissions the plugin's
-		// ServiceAccount needs beyond the OpenEverest API. Used by infrastructure
-		// plugins that create per-cluster resources (e.g., ProxySQL deployments).
-		// The host auto-generates a Role from these rules and binds it to the
-		// plugin's ServiceAccount in each namespace listed in the matching
-		// InstalledExtension's spec.plugin.namespaces[]. Rules are validated
-		// against a hard-coded denylist at reconcile time.
-		KubePermissions *[]struct {
-			// ApiGroups APIGroups is the list of API groups (e.g. "", "apps"). Use "" for core.
-			ApiGroups []string `json:"apiGroups"`
-
-			// Resources Resources is the list of resources (e.g. "deployments", "services").
-			Resources []string `json:"resources"`
-
-			// Verbs Verbs is the list of verbs (e.g. "get", "list", "create", "delete").
-			Verbs []string `json:"verbs"`
-		} `json:"kubePermissions,omitempty"`
 
 		// Permissions Permissions declares what OpenEverest API resources this plugin needs access to.
 		Permissions *[]struct {

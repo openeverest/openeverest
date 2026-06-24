@@ -1,3 +1,4 @@
+// everest
 // Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -18,22 +19,18 @@ package commands
 import (
 	"github.com/spf13/cobra"
 
-	"github.com/openeverest/openeverest/v2/commands/extension"
+	"github.com/openeverest/openeverest/v2/commands/auth"
 )
 
-var extensionCmd = &cobra.Command{
-	Use:   "extension <command> [flags]",
+var authCmd = &cobra.Command{
+	Use:   "auth <command> [flags]",
 	Args:  cobra.ExactArgs(1),
-	Long:  "Manage Everest extensions (generic plugins and providers)",
-	Short: "Manage Everest extensions",
+	Short: "Manage Everest authentication",
+	Long:  "Manage Everest authentication",
 	Run:   func(_ *cobra.Command, _ []string) {},
 }
 
 func init() {
-	rootCmd.AddCommand(extensionCmd)
-
-	extensionCmd.AddCommand(extension.GetListCmd())
-	extensionCmd.AddCommand(extension.GetInstallCmd())
-	extensionCmd.AddCommand(extension.GetUninstallCmd())
-	extensionCmd.AddCommand(extension.GetRunCmd())
+	rootCmd.AddCommand(authCmd)
+	authCmd.AddCommand(auth.GetLoginCmd())
 }

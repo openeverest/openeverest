@@ -101,10 +101,9 @@ func (pp *pluginProxy) canUsePlugin(c echo.Context, name string) (bool, error) {
 }
 
 // listPluginsHandler returns the list of enabled plugins the caller can use.
-// Query params:
-//   - namespace (optional) — when provided, only plugins whose
-//     InstalledExtension lists this namespace (or has cluster scope opted in)
-//     are returned.
+// Per-namespace plugin visibility is governed entirely by Everest RBAC
+// (`plugins/use` grants); this endpoint returns every enabled plugin the
+// caller is permitted to use.
 func (pp *pluginProxy) listPluginsHandler(c echo.Context) error {
 	if err := pp.checkPluginsReadAccess(c); err != nil {
 		return err
@@ -136,44 +135,10 @@ func (pp *pluginProxy) listPluginsHandler(c echo.Context) error {
 		})
 	}
 
-	// Build an enabled-plugin set when a namespace filter is requested.
-	namespace := c.QueryParam("namespace")
-	enabledInNamespace := map[string]struct{}{}
-	if namespace != "" {
-		installs, err := pp.kubeConnector.ListInstalledExtensions(c.Request().Context())
-		if err != nil {
-			return c.JSON(http.StatusInternalServerError, map[string]string{
-				"error": "failed to list installed extensions: " + err.Error(),
-			})
-		}
-		for _, ie := range installs.Items {
-			if ie.Spec.Type != pluginv1alpha1.InstalledExtensionTypePlugin || ie.Spec.Plugin == nil {
-				continue
-			}
-			// Cluster-scope installs are visible in every namespace.
-			if ie.Spec.Plugin.Scope == pluginv1alpha1.PluginInstallScopeCluster && ie.Spec.Plugin.AllowClusterScope {
-				enabledInNamespace[ie.Spec.Plugin.PluginCRName] = struct{}{}
-				continue
-			}
-			for _, nsCfg := range ie.Spec.Plugin.Namespaces {
-				if nsCfg.Name == namespace {
-					enabledInNamespace[ie.Spec.Plugin.PluginCRName] = struct{}{}
-					break
-				}
-			}
-		}
-	}
-
 	descriptors := make([]pluginDescriptor, 0, len(plugins.Items))
 	for _, p := range plugins.Items {
 		if !p.Spec.Enabled {
 			continue
-		}
-		// Namespace filter: skip plugins without a matching InstalledExtension entry.
-		if namespace != "" {
-			if _, ok := enabledInNamespace[p.Name]; !ok {
-				continue
-			}
 		}
 		// Only return plugins the caller is allowed to use.
 		if allowed, err := pp.canUsePlugin(c, p.Name); err != nil {
