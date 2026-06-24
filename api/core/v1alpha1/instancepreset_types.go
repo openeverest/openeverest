@@ -33,7 +33,7 @@ type InstancePresetStatus struct {
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
-// +kubebuilder:resource:scope=Cluster
+// +kubebuilder:resource:scope=Cluster,shortName=pre;preset
 
 // InstancePreset is the Schema for the instancepresets API
 type InstancePreset struct {
@@ -53,7 +53,6 @@ type InstancePreset struct {
 }
 
 // +kubebuilder:object:root=true
-// +kubebuilder:resource:shortName=pre;preset
 
 // InstancePresetList contains a list of InstancePreset
 type InstancePresetList struct {
