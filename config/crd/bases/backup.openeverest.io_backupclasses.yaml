@@ -11,6 +11,8 @@ spec:
     kind: BackupClass
     listKind: BackupClassList
     plural: backupclasses
+    shortNames:
+    - bc
     singular: backupclass
   scope: Cluster
   versions:

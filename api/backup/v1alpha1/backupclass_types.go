@@ -299,8 +299,7 @@ type BackupClassStatus struct {
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
-// +kubebuilder:resource:shortName=bc
-// +kubebuilder:resource:scope=Cluster
+// +kubebuilder:resource:scope=Cluster,shortName=bc
 
 // BackupClass is the Schema for the backupclasses API
 type BackupClass struct {
