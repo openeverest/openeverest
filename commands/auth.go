@@ -1,5 +1,4 @@
 // everest
-// Copyright (C) 2023 Percona LLC
 // Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -20,22 +19,18 @@ package commands
 import (
 	"github.com/spf13/cobra"
 
-	"github.com/openeverest/openeverest/v2/commands/namespaces"
+	"github.com/openeverest/openeverest/v2/commands/auth"
 )
 
-var namespacesCmd = &cobra.Command{
-	Use:   "namespaces <command> [flags]",
+var authCmd = &cobra.Command{
+	Use:   "auth <command> [flags]",
 	Args:  cobra.ExactArgs(1),
-	Long:  "Manage Everest database namespaces",
-	Short: "Manage Everest database namespaces",
+	Short: "Manage Everest authentication",
+	Long:  "Manage Everest authentication",
 	Run:   func(_ *cobra.Command, _ []string) {},
 }
 
 func init() {
-	rootCmd.AddCommand(namespacesCmd)
-
-	namespacesCmd.AddCommand(namespaces.GetNamespacesAddCmd())
-	namespacesCmd.AddCommand(namespaces.GetNamespacesRemoveCmd())
-	namespacesCmd.AddCommand(namespaces.GetNamespacesUpdateCmd())
-	namespacesCmd.AddCommand(namespaces.GetNamespacesListCmd())
+	rootCmd.AddCommand(authCmd)
+	authCmd.AddCommand(auth.GetLoginCmd())
 }
