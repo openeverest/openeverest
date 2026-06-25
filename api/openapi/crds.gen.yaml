@@ -4286,6 +4286,31 @@ components:
         spec:
           description: spec defines the desired state of MonitoringConfig
           properties:
+            datadog:
+              description: |-
+                Datadog contains Datadog-specific monitoring configuration.
+                Required when type is "datadog".
+              properties:
+                credentialsSecretName:
+                  description: |-
+                    CredentialsSecretName is the reference to the secret containing the API key.
+                    It contains `apiKey` key with the API key value.
+                  type: string
+                site:
+                  description: Site is the Datadog site (e.g., "datadoghq.com").
+                  type: string
+                url:
+                  description: URL is the URL of the Datadog server/endpoint.
+                  type: string
+                verifyTLS:
+                  default: true
+                  description: |-
+                    VerifyTLS is set to ensure TLS/SSL verification.
+                    If unspecified, the default value is true.
+                  type: boolean
+              required:
+              - credentialsSecretName
+              type: object
             pmm:
               description: |-
                 PMM contains PMM-specific monitoring configuration.
@@ -4310,9 +4335,10 @@ components:
               - url
               type: object
             type:
-              description: Type is the name of monitoring tool (e.g., "pmm").
+              description: Type is the name of monitoring tool (e.g., "pmm" or "datadog").
               enum:
               - pmm
+              - datadog
               type: string
           required:
           - type
@@ -4322,6 +4348,10 @@ components:
             rule: self.type != 'pmm' || has(self.pmm)
           - message: pmm config is only allowed when type is pmm
             rule: '!has(self.pmm) || self.type == ''pmm'''
+          - message: datadog config is required when type is datadog
+            rule: self.type != 'datadog' || has(self.datadog)
+          - message: datadog config is only allowed when type is datadog
+            rule: '!has(self.datadog) || self.type == ''datadog'''
         status:
           default:
             inUse: false

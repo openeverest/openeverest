@@ -51,6 +51,15 @@ func (h *validateHandler) CreateMonitoringConfig(ctx context.Context, cluster, n
 			return nil, errors.Join(ErrInvalidRequest, errors.New("pmm.apiKey or pmm.user with pmm.password fields are required"))
 		}
 
+	case api.MonitoringConfigCreateParamsTypeDatadog:
+		if req.Datadog == nil {
+			return nil, errors.Join(ErrInvalidRequest, fmt.Errorf("datadog key is required for type %s", req.Type))
+		}
+
+		if req.Datadog.ApiKey == "" {
+			return nil, errors.Join(ErrInvalidRequest, errors.New("datadog.apiKey field is required"))
+		}
+
 	default:
 		return nil, errors.Join(ErrInvalidRequest, fmt.Errorf("monitoring type %s is not supported", req.Type))
 	}
@@ -83,6 +92,10 @@ func (h *validateHandler) UpdateMonitoringConfig(ctx context.Context, cluster, n
 	case api.MonitoringConfigUpdateParamsTypePmm:
 		if req.Pmm == nil {
 			return nil, errors.Join(ErrInvalidRequest, fmt.Errorf("pmm key is required for type %s", req.Type))
+		}
+	case api.MonitoringConfigUpdateParamsTypeDatadog:
+		if req.Datadog == nil {
+			return nil, errors.Join(ErrInvalidRequest, fmt.Errorf("datadog key is required for type %s", req.Type))
 		}
 	default:
 		return nil, errors.Join(ErrInvalidRequest, fmt.Errorf("monitoring type %s is not supported", req.Type))

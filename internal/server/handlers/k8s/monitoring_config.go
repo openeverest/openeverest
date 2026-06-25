@@ -72,6 +72,12 @@ func (h *k8sHandler) CreateMonitoringConfig(ctx context.Context, cluster, namesp
 		}
 	}
 
+	if req.Datadog != nil {
+		if err := h.createOrUpdateMonitoringConfigSecret(ctx, req.Name, namespace, req.Datadog.ApiKey); err != nil {
+			return nil, err
+		}
+	}
+
 	mc := &monitoringv1alpha1.MonitoringConfig{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      req.Name,
@@ -79,12 +85,22 @@ func (h *k8sHandler) CreateMonitoringConfig(ctx context.Context, cluster, namesp
 		},
 		Spec: monitoringv1alpha1.MonitoringConfigSpec{
 			Type: monitoringv1alpha1.MonitoringType(req.Type),
-			PMM: &monitoringv1alpha1.PMMMonitoringSpec{
-				URL:                   req.Url,
-				CredentialsSecretName: req.Name,
-				VerifyTLS:             req.VerifyTLS,
-			},
 		},
+	}
+
+	if req.Type == api.MonitoringConfigCreateParamsTypePmm {
+		mc.Spec.PMM = &monitoringv1alpha1.PMMMonitoringSpec{
+			URL:                   req.Url,
+			CredentialsSecretName: req.Name,
+			VerifyTLS:             req.VerifyTLS,
+		}
+	} else if req.Type == api.MonitoringConfigCreateParamsTypeDatadog {
+		mc.Spec.Datadog = &monitoringv1alpha1.DatadogMonitoringSpec{
+			URL:                   req.Url,
+			CredentialsSecretName: req.Name,
+			VerifyTLS:             req.VerifyTLS,
+			Site:                  req.Datadog.Site,
+		}
 	}
 
 	result, err := h.kubeConnector.CreateMonitoringConfigV2(ctx, mc)
@@ -154,17 +170,31 @@ func (h *k8sHandler) UpdateMonitoringConfig(ctx context.Context, cluster, namesp
 	}
 
 	if req.Url != "" {
-		if m.Spec.PMM == nil {
-			m.Spec.PMM = &monitoringv1alpha1.PMMMonitoringSpec{}
+		if m.Spec.Type == monitoringv1alpha1.PMMMonitoringType {
+			if m.Spec.PMM == nil {
+				m.Spec.PMM = &monitoringv1alpha1.PMMMonitoringSpec{}
+			}
+			m.Spec.PMM.URL = req.Url
+		} else if m.Spec.Type == monitoringv1alpha1.DatadogMonitoringType {
+			if m.Spec.Datadog == nil {
+				m.Spec.Datadog = &monitoringv1alpha1.DatadogMonitoringSpec{}
+			}
+			m.Spec.Datadog.URL = req.Url
 		}
-		m.Spec.PMM.URL = req.Url
 	}
 
 	if req.VerifyTLS != nil {
-		if m.Spec.PMM == nil {
-			m.Spec.PMM = &monitoringv1alpha1.PMMMonitoringSpec{}
+		if m.Spec.Type == monitoringv1alpha1.PMMMonitoringType {
+			if m.Spec.PMM == nil {
+				m.Spec.PMM = &monitoringv1alpha1.PMMMonitoringSpec{}
+			}
+			m.Spec.PMM.VerifyTLS = req.VerifyTLS
+		} else if m.Spec.Type == monitoringv1alpha1.DatadogMonitoringType {
+			if m.Spec.Datadog == nil {
+				m.Spec.Datadog = &monitoringv1alpha1.DatadogMonitoringSpec{}
+			}
+			m.Spec.Datadog.VerifyTLS = req.VerifyTLS
 		}
-		m.Spec.PMM.VerifyTLS = req.VerifyTLS
 	}
 
 	if req.Pmm != nil {
@@ -186,6 +216,23 @@ func (h *k8sHandler) UpdateMonitoringConfig(ctx context.Context, cluster, namesp
 
 		if apiKey != "" {
 			secret := newMonitoringConfigSecret(name, namespace, apiKey)
+
+			if _, err = h.kubeConnector.UpdateSecret(ctx, secret); err != nil {
+				return nil, fmt.Errorf("could not update k8s secret %s", name)
+			}
+		}
+	}
+
+	if req.Datadog != nil {
+		if req.Datadog.Site != "" {
+			if m.Spec.Datadog == nil {
+				m.Spec.Datadog = &monitoringv1alpha1.DatadogMonitoringSpec{}
+			}
+			m.Spec.Datadog.Site = req.Datadog.Site
+		}
+
+		if req.Datadog.ApiKey != "" {
+			secret := newMonitoringConfigSecret(name, namespace, req.Datadog.ApiKey)
 
 			if _, err = h.kubeConnector.UpdateSecret(ctx, secret); err != nil {
 				return nil, fmt.Errorf("could not update k8s secret %s", name)

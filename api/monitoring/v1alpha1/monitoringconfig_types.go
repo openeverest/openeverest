@@ -22,6 +22,8 @@ import metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 const (
 	// PMMMonitoringType represents monitoring via PMM.
 	PMMMonitoringType MonitoringType = "pmm"
+	// DatadogMonitoringType represents monitoring via Datadog.
+	DatadogMonitoringType MonitoringType = "datadog"
 )
 
 // MonitoringType is a type of monitoring.
@@ -34,14 +36,20 @@ type PMMServerVersion string
 //
 // +kubebuilder:validation:XValidation:rule="self.type != 'pmm' || has(self.pmm)",message="pmm config is required when type is pmm"
 // +kubebuilder:validation:XValidation:rule="!has(self.pmm) || self.type == 'pmm'",message="pmm config is only allowed when type is pmm"
+// +kubebuilder:validation:XValidation:rule="self.type != 'datadog' || has(self.datadog)",message="datadog config is required when type is datadog"
+// +kubebuilder:validation:XValidation:rule="!has(self.datadog) || self.type == 'datadog'",message="datadog config is only allowed when type is datadog"
 type MonitoringConfigSpec struct {
-	// Type is the name of monitoring tool (e.g., "pmm").
-	// +kubebuilder:validation:Enum=pmm
+	// Type is the name of monitoring tool (e.g., "pmm" or "datadog").
+	// +kubebuilder:validation:Enum=pmm;datadog
 	Type MonitoringType `json:"type"`
 	// PMM contains PMM-specific monitoring configuration.
 	// Required when type is "pmm".
 	// +optional
 	PMM *PMMMonitoringSpec `json:"pmm,omitempty"`
+	// Datadog contains Datadog-specific monitoring configuration.
+	// Required when type is "datadog".
+	// +optional
+	Datadog *DatadogMonitoringSpec `json:"datadog,omitempty"`
 }
 
 // PMMMonitoringSpec contains configuration specific to PMM monitoring.
@@ -51,6 +59,24 @@ type PMMMonitoringSpec struct {
 	CredentialsSecretName string `json:"credentialsSecretName"`
 	// URL is the URL of the PMM server.
 	URL string `json:"url"`
+	// VerifyTLS is set to ensure TLS/SSL verification.
+	// If unspecified, the default value is true.
+	//
+	// +kubebuilder:default:=true
+	VerifyTLS *bool `json:"verifyTLS,omitempty"`
+}
+
+// DatadogMonitoringSpec contains configuration specific to Datadog monitoring.
+type DatadogMonitoringSpec struct {
+	// CredentialsSecretName is the reference to the secret containing the API key.
+	// It contains `apiKey` key with the API key value.
+	CredentialsSecretName string `json:"credentialsSecretName"`
+	// Site is the Datadog site (e.g., "datadoghq.com").
+	// +optional
+	Site string `json:"site,omitempty"`
+	// URL is the URL of the Datadog server/endpoint.
+	// +optional
+	URL string `json:"url,omitempty"`
 	// VerifyTLS is set to ensure TLS/SSL verification.
 	// If unspecified, the default value is true.
 	//

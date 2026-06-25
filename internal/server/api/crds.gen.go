@@ -289,12 +289,15 @@ func (e InstancePresetStatusConditionsStatus) Valid() bool {
 
 // Defines values for MonitoringConfigSpecType.
 const (
-	MonitoringConfigSpecTypePmm MonitoringConfigSpecType = "pmm"
+	MonitoringConfigSpecTypeDatadog MonitoringConfigSpecType = "datadog"
+	MonitoringConfigSpecTypePmm     MonitoringConfigSpecType = "pmm"
 )
 
 // Valid indicates whether the value is a known member of the MonitoringConfigSpecType enum.
 func (e MonitoringConfigSpecType) Valid() bool {
 	switch e {
+	case MonitoringConfigSpecTypeDatadog:
+		return true
 	case MonitoringConfigSpecTypePmm:
 		return true
 	default:
@@ -2954,6 +2957,24 @@ type MonitoringConfig struct {
 
 	// Spec spec defines the desired state of MonitoringConfig
 	Spec struct {
+		// Datadog Datadog contains Datadog-specific monitoring configuration.
+		// Required when type is "datadog".
+		Datadog *struct {
+			// CredentialsSecretName CredentialsSecretName is the reference to the secret containing the API key.
+			// It contains `apiKey` key with the API key value.
+			CredentialsSecretName string `json:"credentialsSecretName"`
+
+			// Site Site is the Datadog site (e.g., "datadoghq.com").
+			Site *string `json:"site,omitempty"`
+
+			// Url URL is the URL of the Datadog server/endpoint.
+			Url *string `json:"url,omitempty"`
+
+			// VerifyTLS VerifyTLS is set to ensure TLS/SSL verification.
+			// If unspecified, the default value is true.
+			VerifyTLS *bool `json:"verifyTLS,omitempty"`
+		} `json:"datadog,omitempty"`
+
 		// Pmm PMM contains PMM-specific monitoring configuration.
 		// Required when type is "pmm".
 		Pmm *struct {
@@ -2969,7 +2990,7 @@ type MonitoringConfig struct {
 			VerifyTLS *bool `json:"verifyTLS,omitempty"`
 		} `json:"pmm,omitempty"`
 
-		// Type Type is the name of monitoring tool (e.g., "pmm").
+		// Type Type is the name of monitoring tool (e.g., "pmm" or "datadog").
 		Type MonitoringConfigSpecType `json:"type"`
 	} `json:"spec"`
 
@@ -2989,7 +3010,7 @@ type MonitoringConfig struct {
 	} `json:"status,omitempty"`
 }
 
-// MonitoringConfigSpecType Type is the name of monitoring tool (e.g., "pmm").
+// MonitoringConfigSpecType Type is the name of monitoring tool (e.g., "pmm" or "datadog").
 type MonitoringConfigSpecType string
 
 // MonitoringConfigList MonitoringConfigList is an object that contains the list of the existing monitoringconfigs.

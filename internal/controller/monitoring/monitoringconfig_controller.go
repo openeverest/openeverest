@@ -225,16 +225,23 @@ func (r *MonitoringConfigReconciler) ensureSecretOwnership(
 	ctx context.Context,
 	mc *monitoringv1alpha1.MonitoringConfig,
 ) error {
-	if mc.Spec.PMM == nil {
+	var secretName string
+	if mc.Spec.Type == monitoringv1alpha1.PMMMonitoringType && mc.Spec.PMM != nil {
+		secretName = mc.Spec.PMM.CredentialsSecretName
+	} else if mc.Spec.Type == monitoringv1alpha1.DatadogMonitoringType && mc.Spec.Datadog != nil {
+		secretName = mc.Spec.Datadog.CredentialsSecretName
+	}
+
+	if secretName == "" {
 		return nil
 	}
 
 	secret := &corev1.Secret{}
 	if err := r.Get(ctx, types.NamespacedName{
-		Name:      mc.Spec.PMM.CredentialsSecretName,
+		Name:      secretName,
 		Namespace: mc.GetNamespace(),
 	}, secret); err != nil {
-		return fmt.Errorf("failed to get credentials secret %q: %w", mc.Spec.PMM.CredentialsSecretName, err)
+		return fmt.Errorf("failed to get credentials secret %q: %w", secretName, err)
 	}
 
 	// Skip if the Secret already has a controller owner.
@@ -587,6 +594,24 @@ func (r *MonitoringConfigReconciler) initIndexers(ctx context.Context, mgr ctrl.
 		},
 	); err != nil {
 		return fmt.Errorf("indexing monitoringconfig by credentialsSecretName: %w", err)
+	}
+
+	if err := mgr.GetFieldIndexer().IndexField(
+		ctx,
+		&monitoringv1alpha1.MonitoringConfig{},
+		".spec.datadog.credentialsSecretName",
+		func(obj client.Object) []string {
+			mc, ok := obj.(*monitoringv1alpha1.MonitoringConfig)
+			if !ok {
+				return nil
+			}
+			if mc.Spec.Datadog == nil {
+				return nil
+			}
+			return []string{mc.Spec.Datadog.CredentialsSecretName}
+		},
+	); err != nil {
+		return fmt.Errorf("indexing monitoringconfig by datadog credentialsSecretName: %w", err)
 	}
 
 	if err := mgr.GetFieldIndexer().IndexField(

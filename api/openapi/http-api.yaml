@@ -2244,6 +2244,7 @@ components:
           type: string
           enum:
           - pmm
+          - datadog
           x-go-type-skip-optional-pointer: true
         url:
           type: string
@@ -2294,11 +2295,28 @@ components:
               minLength: 1
               x-go-type-skip-optional-pointer: true
               example: apikey
+    MonitoringInstanceDatadog:
+      type: object
+      properties:
+        datadog:
+          type: object
+          x-go-type-name: DatadogMonitoringInstanceSpec
+          properties:
+            apiKey:
+              type: string
+              minLength: 1
+              x-go-type-skip-optional-pointer: true
+              example: apikey
+            site:
+              type: string
+              x-go-type-skip-optional-pointer: true
+              example: datadoghq.com
     MonitoringInstanceCreateParams:
       description: Monitoring instance create information
       allOf:
         - $ref: '#/components/schemas/MonitoringInstanceBaseWithName'
         - $ref: '#/components/schemas/MonitoringInstancePMM'
+        - $ref: '#/components/schemas/MonitoringInstanceDatadog'
       required:
         - type
         - url
@@ -2308,6 +2326,7 @@ components:
       allOf:
         - $ref: '#/components/schemas/MonitoringInstanceBase'
         - $ref: '#/components/schemas/MonitoringInstancePMM'
+        - $ref: '#/components/schemas/MonitoringInstanceDatadog'
     MonitoringInstance:
       description: Monitoring instance information
       allOf:
@@ -2329,6 +2348,7 @@ components:
           type: string
           enum:
           - pmm
+          - datadog
           x-go-type-skip-optional-pointer: true
         url:
           type: string
@@ -2371,11 +2391,29 @@ components:
               minLength: 1
               x-go-type-skip-optional-pointer: true
               example: apikey
+    MonitoringConfigDatadog:
+      type: object
+      description: MonitoringConfigDatadog contains Datadog-specific fields for monitoring config
+      properties:
+        datadog:
+          type: object
+          x-go-type-name: MonitoringConfigDatadogSpec
+          properties:
+            apiKey:
+              type: string
+              minLength: 1
+              x-go-type-skip-optional-pointer: true
+              example: apikey
+            site:
+              type: string
+              x-go-type-skip-optional-pointer: true
+              example: datadoghq.com
     MonitoringConfigCreateParams:
       description: MonitoringConfigCreateParams contains parameters for creating a monitoring config
       allOf:
         - $ref: '#/components/schemas/MonitoringConfigBaseWithName'
         - $ref: '#/components/schemas/MonitoringConfigPMM'
+        - $ref: '#/components/schemas/MonitoringConfigDatadog'
       required:
         - type
         - url
@@ -2385,6 +2423,7 @@ components:
       allOf:
         - $ref: '#/components/schemas/MonitoringConfigBase'
         - $ref: '#/components/schemas/MonitoringConfigPMM'
+        - $ref: '#/components/schemas/MonitoringConfigDatadog'
     DatabaseClusterCredential:
       type: object
       description: kubernetes object
