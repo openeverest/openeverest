@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,6 +15,8 @@
 // limitations under the License.
 
 import { APIRequestContext, expect } from '@playwright/test';
+import { dbTypeToDbEngine } from '@percona/utils';
+import { DbType } from '@percona/types';
 import { getTokenFromLocalStorage } from './localStorage';
 
 export const getEnginesList = async (
@@ -55,6 +58,19 @@ export const getEnginesVersions = async (
   });
 
   return engineVersions;
+};
+
+export const getLastAvailableEngineVersion = async (
+  token: string,
+  namespace: string,
+  request: APIRequestContext,
+  dbType: string
+): Promise<string> => {
+  const dbEngines = await getEnginesVersions(token, namespace, request);
+  const dbEngineType = dbTypeToDbEngine(dbType as DbType);
+  const dbTypeVersions = dbEngines[dbEngineType] || [];
+
+  return dbTypeVersions[dbTypeVersions.length - 1];
 };
 
 export const getEnginesLatestRecommendedVersions = async (

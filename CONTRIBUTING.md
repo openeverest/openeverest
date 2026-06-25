@@ -83,6 +83,23 @@ git config --global alias.ci "commit -s"
 git ci -m "your commit message"
 ```
 
+## UI Changes
+
+When a pull request touches the UI, include visual context so reviewers can understand the change without having to run the app locally.
+
+### Screenshots
+
+Attach screenshots when your change affects layout, styling, component appearance, or static content. Use a **before/after** format:
+
+- **Before** — screenshot of the existing behavior
+- **After** — screenshot with your change applied
+
+### Video demos
+
+Record a short screen capture for changes that involve motion or interaction: multi-step workflows, form flows, animations, hover states, or anything that is easier to understand in motion than in a still image. Keep recordings short and focused — trim dead time at the start and end.
+
+GitHub accepts GIF and MP4 attachments directly in PR descriptions.
+
 ## Local quality checks
 
 Before opening a PR, run local checks to keep CI green.

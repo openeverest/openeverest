@@ -1,4 +1,4 @@
-FROM alpine:3.23@sha256:5b10f432ef3da1b8d4c7eb6c487f2f5a8f096bc91145e68878dd4a5019afde11 AS dev
+FROM alpine:3.24@sha256:28bd5fe8b56d1bd048e5babf5b10710ebe0bae67db86916198a6eec434943f8b AS dev
 WORKDIR /home/everest
 RUN adduser -D everest
 USER 1000:1000
@@ -8,7 +8,7 @@ EXPOSE 8080
 ENTRYPOINT ["./everest-api"]
 
 # Build the Delve debuger
-FROM golang:1.26-alpine@sha256:f85330846cde1e57ca9ec309382da3b8e6ae3ab943d2739500e08c86393a21b1 AS delve
+FROM golang:1.26-alpine@sha256:3ad57304ad93bbec8548a0437ad9e06a455660655d9af011d58b993f6f615648 AS delve
 RUN go install github.com/go-delve/delve/cmd/dlv@v1.25.2
 RUN chmod +x /go/bin/dlv
 
