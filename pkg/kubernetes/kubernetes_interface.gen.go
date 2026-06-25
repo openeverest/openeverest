@@ -376,9 +376,6 @@ type KubernetesConnector interface {
 	// WatchInstances returns a watch.Interface that streams
 	// Instance events across all namespaces.
 	WatchInstances(ctx context.Context) (watch.Interface, error)
-	// WatchDatabaseClusters returns a watch.Interface that streams
-	// DatabaseCluster events across all namespaces.
-	WatchDatabaseClusters(ctx context.Context) (watch.Interface, error)
 	// WatchPlugins returns a watch.Interface that streams Plugin CR events.
 	// Plugin is cluster-scoped.
 	WatchPlugins(ctx context.Context) (watch.Interface, error)

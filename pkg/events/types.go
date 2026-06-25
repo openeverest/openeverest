@@ -22,12 +22,6 @@ type Type string
 
 // Lifecycle event types.
 const (
-	DatabaseClusterCreated Type = "database-cluster.created"
-	DatabaseClusterReady   Type = "database-cluster.ready"
-	DatabaseClusterUpdated Type = "database-cluster.updated"
-	DatabaseClusterDeleted Type = "database-cluster.deleted"
-	DatabaseClusterFailed  Type = "database-cluster.failed"
-
 	BackupStarted   Type = "backup.started"
 	BackupCompleted Type = "backup.completed"
 	BackupFailed    Type = "backup.failed"
@@ -56,9 +50,6 @@ const (
 
 // AllTypes is the complete set of recognised event types.
 var AllTypes = []Type{
-	DatabaseClusterCreated, DatabaseClusterReady,
-	DatabaseClusterUpdated, DatabaseClusterDeleted,
-	DatabaseClusterFailed,
 	BackupStarted, BackupCompleted, BackupFailed,
 	RestoreStarted, RestoreCompleted, RestoreFailed,
 	InstanceCreated, InstanceDeleted,

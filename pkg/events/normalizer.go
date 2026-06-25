@@ -17,7 +17,6 @@ package events
 import (
 	"time"
 
-	everestv1alpha1 "github.com/percona/everest-operator/api/everest/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/watch"
 
@@ -26,100 +25,6 @@ import (
 	extensionsv1alpha1 "github.com/openeverest/openeverest/v2/api/extensions/v1alpha1"
 	"github.com/openeverest/openeverest/v2/pkg/common"
 )
-
-// NormalizeDatabaseCluster converts a kube watch event on a DatabaseCluster
-// into zero or more plugin-facing events.
-func NormalizeDatabaseCluster(we watch.Event, old *everestv1alpha1.DatabaseCluster) []Event {
-	obj, ok := we.Object.(*everestv1alpha1.DatabaseCluster)
-	if !ok {
-		return nil
-	}
-
-	ref := ResourceRef{
-		Kind: "DatabaseCluster",
-		Name: obj.Name,
-		UID:  string(obj.UID),
-	}
-	if obj.Spec.Engine.Type != "" {
-		ref.Engine = string(obj.Spec.Engine.Type)
-	}
-	if obj.Spec.Engine.Version != "" {
-		ref.Version = obj.Spec.Engine.Version
-	}
-
-	rv := obj.ResourceVersion
-	ns := obj.Namespace
-	now := time.Now().UTC()
-
-	var out []Event
-
-	switch we.Type {
-	case watch.Added:
-		out = append(out, Event{
-			ResourceVersion: rv,
-			Type:            DatabaseClusterCreated,
-			OccurredAt:      now,
-			Namespace:       ns,
-			Resource:        ref,
-			NewState:        StateSnapshot{Phase: string(obj.Status.Status)},
-		})
-	case watch.Modified:
-		newPhase := string(obj.Status.Status)
-		oldPhase := ""
-		if old != nil {
-			oldPhase = string(old.Status.Status)
-		}
-
-		// Emit a targeted event when the phase transitions.
-		switch {
-		case newPhase == "Ready" && oldPhase != "Ready":
-			out = append(out, Event{
-				ResourceVersion: rv,
-				Type:            DatabaseClusterReady,
-				OccurredAt:      now,
-				Namespace:       ns,
-				Resource:        ref,
-				PrevState:       StateSnapshot{Phase: oldPhase},
-				NewState:        StateSnapshot{Phase: newPhase},
-			})
-		case newPhase == "Error" && oldPhase != "Error":
-			out = append(out, Event{
-				ResourceVersion: rv,
-				Type:            DatabaseClusterFailed,
-				OccurredAt:      now,
-				Namespace:       ns,
-				Resource:        ref,
-				PrevState:       StateSnapshot{Phase: oldPhase},
-				NewState:        StateSnapshot{Phase: newPhase},
-			})
-		default:
-			out = append(out, Event{
-				ResourceVersion: rv,
-				Type:            DatabaseClusterUpdated,
-				OccurredAt:      now,
-				Namespace:       ns,
-				Resource:        ref,
-				PrevState:       StateSnapshot{Phase: oldPhase},
-				NewState:        StateSnapshot{Phase: newPhase},
-			})
-		}
-	case watch.Deleted:
-		prevPhase := ""
-		if old != nil {
-			prevPhase = string(old.Status.Status)
-		}
-		out = append(out, Event{
-			ResourceVersion: rv,
-			Type:            DatabaseClusterDeleted,
-			OccurredAt:      now,
-			Namespace:       ns,
-			Resource:        ref,
-			PrevState:       StateSnapshot{Phase: prevPhase},
-			NewState:        StateSnapshot{Phase: "Deleting"},
-		})
-	}
-	return out
-}
 
 // NormalizeBackup converts a kube watch event on a DatabaseClusterBackup.
 func NormalizeBackup(we watch.Event, old *backupv1alpha1.Backup) []Event {

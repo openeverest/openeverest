@@ -18,7 +18,6 @@ import (
 	"context"
 	"fmt"
 
-	everestv1alpha1 "github.com/percona/everest-operator/api/everest/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/watch"
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -45,12 +44,6 @@ func (k *Kubernetes) WatchRestores(ctx context.Context) (watch.Interface, error)
 // Instance events across all namespaces.
 func (k *Kubernetes) WatchInstances(ctx context.Context) (watch.Interface, error) {
 	return k.watchList(ctx, &corev1alpha1.InstanceList{})
-}
-
-// WatchDatabaseClusters returns a watch.Interface that streams
-// DatabaseCluster events across all namespaces.
-func (k *Kubernetes) WatchDatabaseClusters(ctx context.Context) (watch.Interface, error) {
-	return k.watchList(ctx, &everestv1alpha1.DatabaseClusterList{})
 }
 
 // WatchPlugins returns a watch.Interface that streams Plugin CR events.
