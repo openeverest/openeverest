@@ -1,6 +1,8 @@
 export const Messages = {
-  noDbClusters: 'You currently do not have any database cluster.',
-  createToStart: 'Create one to get started.',
-  noPermissions:
-    'There are no database engines available or you lack permission to create a database cluster.',
+  createFirstResource: 'Create your first resource',
+  pickProvider: 'Pick a provider to get started.',
+  noPermissions: 'You lack permission to create a resource.',
+  noProvidersTitle: 'No providers installed',
+  noProvidersBody:
+    'There are no providers installed yet. Install a provider first to create storage, database or AI service.',
 };

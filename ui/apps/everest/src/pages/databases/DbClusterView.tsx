@@ -227,65 +227,65 @@ export const DbClusterView = () => {
         </Box>
       )}
       <Box sx={{ width: '100%' }}>
-        <Table
-          getRowId={(row) => row.instanceName}
-          tableName="dbClusterView"
-          emptyState={
-            namespaces.length > 0 ? (
-              <EmptyStateDatabases
-                showCreationButton={canAddCluster}
-                hasCreatePermission={canAddCluster}
-              />
-            ) : (
-              <EmptyStateNamespaces />
-            )
-          }
-          state={{ isLoading: instancesLoading || loadingNamespaces }}
-          columns={columns}
-          data={tableData}
-          enableRowActions
-          renderRowActions={({ row }) => {
-            return (
-              <DbActions dbInstance={row.original.raw} showDetailsAction />
-            );
-          }}
-          muiTableBodyRowProps={({ row, isDetailPanel }) => ({
-            onClick: (e) => {
-              if (
-                !isDetailPanel &&
-                e.currentTarget.contains(e.target as Node)
-              ) {
-                navigate(
-                  `/databases/${row.original.namespace}/${row.original.instanceName}/overview`
-                );
-              }
-            },
-            sx: {
-              ...(!isDetailPanel && {
-                cursor: 'pointer', // you might want to change the cursor too when adding an onClick
-              }),
-            },
-          })}
-          enableRowHoverAction
-          rowHoverAction={(row) =>
-            navigate(
-              `/databases/${row.original.namespace}/${row.original.instanceName}/overview`
-            )
-          }
-          renderTopToolbarCustomActions={() =>
-            canAddCluster &&
-            tableData.length > 0 && (
-              <Box display="flex" mb={1}>
-                {/*TODO uncomment when providerImporters will be ready */}
-                {/* {(availableEnginesForImport?.items || []).length > 0 && (
-                  <CreateDbButton createFromImport />
-                )} */}
-                <CreateDbButton />
-              </Box>
-            )
-          }
-          hideExpandAllIcon
-        />
+        {!instancesLoading &&
+        !loadingNamespaces &&
+        tableData.length === 0 ? (
+          namespaces.length > 0 ? (
+            <EmptyStateDatabases />
+          ) : (
+            <EmptyStateNamespaces />
+          )
+        ) : (
+          <Table
+            getRowId={(row) => row.instanceName}
+            tableName="dbClusterView"
+            state={{ isLoading: instancesLoading || loadingNamespaces }}
+            columns={columns}
+            data={tableData}
+            enableRowActions
+            renderRowActions={({ row }) => {
+              return (
+                <DbActions dbInstance={row.original.raw} showDetailsAction />
+              );
+            }}
+            muiTableBodyRowProps={({ row, isDetailPanel }) => ({
+              onClick: (e) => {
+                if (
+                  !isDetailPanel &&
+                  e.currentTarget.contains(e.target as Node)
+                ) {
+                  navigate(
+                    `/databases/${row.original.namespace}/${row.original.instanceName}/overview`
+                  );
+                }
+              },
+              sx: {
+                ...(!isDetailPanel && {
+                  cursor: 'pointer', // you might want to change the cursor too when adding an onClick
+                }),
+              },
+            })}
+            enableRowHoverAction
+            rowHoverAction={(row) =>
+              navigate(
+                `/databases/${row.original.namespace}/${row.original.instanceName}/overview`
+              )
+            }
+            renderTopToolbarCustomActions={() =>
+              canAddCluster &&
+              tableData.length > 0 && (
+                <Box display="flex" mb={1}>
+                  {/*TODO uncomment when providerImporters will be ready */}
+                  {/* {(availableEnginesForImport?.items || []).length > 0 && (
+                    <CreateDbButton createFromImport />
+                  )} */}
+                  <CreateDbButton />
+                </Box>
+              )
+            }
+            hideExpandAllIcon
+          />
+        )}
       </Box>
     </Stack>
   );
