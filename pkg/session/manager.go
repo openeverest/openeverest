@@ -221,7 +221,7 @@ func (mgr *Manager) KeyFunc() jwt.Keyfunc {
 func (mgr *Manager) BlockRaw(ctx context.Context, rawToken string) error {
 	token, err := jwt.ParseWithClaims(
 		rawToken,
-		&jwt.RegisteredClaims{},
+		jwt.MapClaims{},
 		mgr.KeyFunc(),
 		jwt.WithValidMethods([]string{jwt.SigningMethodRS256.Alg()}),
 	)
