@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -38,6 +39,8 @@ export const advancedConfigurationsSchema = () =>
       ),
       [AdvancedConfigurationFields.engineParametersEnabled]: z.boolean(),
       [AdvancedConfigurationFields.engineParameters]: z.string().optional(),
+      [AdvancedConfigurationFields.proxyConfigEnabled]: z.boolean(),
+      [AdvancedConfigurationFields.proxyConfig]: z.string().optional(),
       [AdvancedConfigurationFields.podSchedulingPolicyEnabled]: z.boolean(),
       [AdvancedConfigurationFields.podSchedulingPolicy]: z.string().optional(),
       [AdvancedConfigurationFields.loadBalancerConfigName]: z

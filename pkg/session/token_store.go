@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2025 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -94,9 +95,9 @@ func (ts *tokenStore) Add(ctx context.Context, shortenedToken string) error {
 	}
 
 	secret = addDataToSecret(ts.l, secret, shortenedToken, time.Now().UTC())
-	_, updateErr := ts.client.UpdateSecret(ctx, secret)
-	if updateErr != nil {
-		ts.l.Errorf("failed to update %s secret in the %s namespace with the %s shortened token, retrying: %v", secret.Name, secret.Namespace, shortenedToken, updateErr)
+	_, err = ts.client.UpdateSecret(ctx, secret)
+	if err != nil {
+		ts.l.Errorf("failed to update %s secret in the %s namespace with the %s shortened token, retrying: %v", secret.Name, secret.Namespace, shortenedToken, err)
 		return err
 	}
 	return nil
