@@ -178,8 +178,10 @@ func (e *EverestServer) respondWithTokens(ctx echo.Context, username, refreshTok
 }
 
 // RevokeAuthToken revokes the caller's tokens (POST /v1/auth/revoke).
-// The refresh token (from the body or cookie) is deleted from the registry and
-// the presented access JWT is added to the blocklist until it expires.
+// The refresh token (from the body or cookie) is deleted from the registry.
+// If a valid access JWT is present in the Authorization header it is also
+// added to the blocklist, but this is best-effort: callers with an expired
+// or absent access token can still log out cleanly via their refresh token.
 func (e *EverestServer) RevokeAuthToken(ctx echo.Context) error {
 	c := ctx.Request().Context()
 
@@ -202,14 +204,13 @@ func (e *EverestServer) RevokeAuthToken(ctx echo.Context) error {
 		}
 	}
 
-	// Blocklist the presented access JWT.
-	token, err := common.ExtractToken(c)
-	if err != nil {
-		return err
-	}
-	if err := e.sessionMgr.Block(c, token); err != nil {
-		e.l.Errorf("blocklist error: %v", err)
-		return errFailedLogout(ctx)
+	// Best-effort: blocklist the access JWT if one is present and valid.
+	// This is skipped gracefully when the access token is expired or absent,
+	// which is acceptable given the short (15 min) TTL.
+	if token, err := common.ExtractToken(c); err == nil && token != nil {
+		if err := e.sessionMgr.Block(c, token); err != nil {
+			e.l.Warnf("blocklist skipped (token may be expired): %v", err)
+		}
 	}
 
 	return ctx.NoContent(http.StatusNoContent)
