@@ -213,6 +213,24 @@ func (mgr *Manager) KeyFunc() jwt.Keyfunc {
 	}
 }
 
+// BlockRaw parses rawToken and adds it to the blocklist.
+// It is equivalent to calling Block with the already-parsed token returned by
+// the JWT middleware, but can be used when the middleware has not run (e.g. on
+// unauthenticated endpoints that still want to opportunistically blocklist a
+// presented access JWT).
+func (mgr *Manager) BlockRaw(ctx context.Context, rawToken string) error {
+	token, err := jwt.ParseWithClaims(
+		rawToken,
+		jwt.MapClaims{},
+		mgr.KeyFunc(),
+		jwt.WithValidMethods([]string{jwt.SigningMethodRS256.Alg()}),
+	)
+	if err != nil {
+		return fmt.Errorf("parse token: %w", err)
+	}
+	return mgr.Block(ctx, token)
+}
+
 func (mgr *Manager) BlocklistMiddleWare(skipperFunc func() (echomiddleware.Skipper, error)) (echo.MiddlewareFunc, error) {
 	skipper, err := skipperFunc()
 	if err != nil {

@@ -38,7 +38,6 @@ import {
   getTotalResourcesDetailedString,
   memoryParser,
 } from 'utils/k8ResourceParser';
-import { dbEngineToDbType } from '@percona/utils';
 import { useUpdateDbClusterWithConflictRetry } from 'hooks';
 import { DbType } from '@percona/types';
 import {
@@ -73,7 +72,7 @@ export const ResourcesDetails = ({
   const parsedDiskValues = memoryParser(disk.toString());
   const parsedMemoryValues = memoryParser(memory.toString(), 'G');
   const parsedProxyMemoryValues = memoryParser(proxyMemory.toString(), 'G');
-  const dbType = dbEngineToDbType(dbCluster.spec.engine.type);
+  const dbType = dbCluster.spec.engine.type as unknown as DbType;
   const replicas = dbCluster.spec.engine.replicas.toString();
   const proxies = isProxy(dbCluster.spec.proxy)
     ? (dbCluster.spec.proxy.replicas || 0).toString()
@@ -217,11 +216,11 @@ export const ResourcesDetails = ({
           </OverviewSection>
           {numberOfProxiesInt > 0 && (
             <OverviewSection
-              title={`${proxies} ${getProxyUnitNamesFromDbType(dbEngineToDbType(dbCluster.spec.engine.type))[numberOfProxiesInt > 1 ? 'plural' : 'singular']}`}
+              title={`${proxies} ${getProxyUnitNamesFromDbType(dbType)[numberOfProxiesInt > 1 ? 'plural' : 'singular']}`}
               loading={loading}
             >
               <OverviewSectionRow
-                dataTestId={`${getProxyUnitNamesFromDbType(dbEngineToDbType(dbCluster.spec.engine.type))[numberOfProxiesInt > 1 ? 'plural' : 'singular']}-cpu`}
+                dataTestId={`${getProxyUnitNamesFromDbType(dbType)[numberOfProxiesInt > 1 ? 'plural' : 'singular']}-cpu`}
                 label={Messages.fields.cpu}
                 content={getTotalResourcesDetailedString(
                   cpuParser(proxyCpu.toString() || '0'),

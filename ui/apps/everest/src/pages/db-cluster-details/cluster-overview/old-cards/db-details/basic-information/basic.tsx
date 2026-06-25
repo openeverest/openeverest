@@ -14,7 +14,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { beautifyDbTypeName } from '@percona/utils';
 import { Messages } from '../../../cluster-overview.messages';
 import OverviewSection from '../../../overview-section';
 import { BasicInformationOverviewCardProps } from '../../card.types';
@@ -115,7 +114,7 @@ export const BasicInformationSection = ({
       //     }
       //   : undefined)}
     >
-      <OverviewSectionRow label="Type" content={beautifyDbTypeName(type)} />
+      <OverviewSectionRow label="Type" content={String(type)} />
       <OverviewSectionRow label="Name" content={name} />
       <OverviewSectionRow label="Namespace" content={namespace} />
       <OverviewSectionRow label="Version" content={version} />
