@@ -20,6 +20,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/AlekSi/pointer"
@@ -29,7 +30,6 @@ import (
 	api "github.com/openeverest/openeverest/v2/internal/server/api"
 	"github.com/openeverest/openeverest/v2/internal/tokenregistry"
 	"github.com/openeverest/openeverest/v2/pkg/accounts"
-	"github.com/openeverest/openeverest/v2/pkg/common"
 )
 
 const (
@@ -207,8 +207,10 @@ func (e *EverestServer) RevokeAuthToken(ctx echo.Context) error {
 	// Best-effort: blocklist the access JWT if one is present and valid.
 	// This is skipped gracefully when the access token is expired or absent,
 	// which is acceptable given the short (15 min) TTL.
-	if token, err := common.ExtractToken(c); err == nil && token != nil {
-		if err := e.sessionMgr.Block(c, token); err != nil {
+	// Note: the JWT middleware is skipped for this unauthenticated endpoint,
+	// so we parse the raw Authorization header value directly.
+	if raw := strings.TrimPrefix(ctx.Request().Header.Get("Authorization"), "Bearer "); raw != "" {
+		if err := e.sessionMgr.BlockRaw(c, raw); err != nil {
 			e.l.Warnf("blocklist skipped (token may be expired): %v", err)
 		}
 	}
