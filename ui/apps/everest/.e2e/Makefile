@@ -57,8 +57,8 @@ create-db-namespaces:
 
 ##@ Test
 
-# Set a particular test, e.g. make test PROJECT=pr,release:session
-PROJECT = pr
+# Set a particular test, e.g. make test PROJECT=pr
+PROJECT = pr,release
 # FLAGS =
 .PHONY: test
 ## Run all tests.

@@ -1,9 +1,0 @@
-apiVersion: plugin.openeverest.io/v1alpha1
-kind: PluginInstallation
-metadata:
-  labels:
-    app.kubernetes.io/name: openeverest
-    app.kubernetes.io/managed-by: kustomize
-  name: plugininstallation-sample
-spec:
-  # TODO(user): Add fields here
