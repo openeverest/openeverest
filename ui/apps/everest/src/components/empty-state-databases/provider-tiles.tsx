@@ -19,10 +19,8 @@ import {
   CardContent,
   Typography,
 } from '@mui/material';
-import { dbEngineToDbType } from '@percona/utils';
 import { Link } from 'react-router-dom';
 import type { Provider } from 'shared-types/api.types';
-import { humanizeDbType } from 'utils/db';
 
 type ProviderTilesProps = {
   providers: Provider[];
@@ -50,9 +48,6 @@ const ProviderTiles = ({
     >
       {providers.map((provider) => {
         const name = provider?.metadata?.name ?? '';
-        const label = name
-          ? humanizeDbType(dbEngineToDbType(name))
-          : 'Unknown';
         return (
           <Card
             key={name}
@@ -88,7 +83,7 @@ const ProviderTiles = ({
                 }}
               >
                 <Typography variant="subtitle1" fontWeight={600}>
-                  {label}
+                  {name}
                 </Typography>
               </CardContent>
             </CardActionArea>
