@@ -14,7 +14,7 @@
 
 import { ComponentType } from 'react';
 import { z } from 'zod';
-import { Section, TopologyUISchemas } from '../ui-generator.types';
+import { FormMode, Section, TopologyUISchemas } from '../ui-generator.types';
 import { Provider } from 'shared-types/api.types';
 
 // Step - a single unit in the multi-step wizard.  Both "static" steps (hand-coded
@@ -47,6 +47,7 @@ export type FormEngineConfig = {
   staticSteps?: StepDefinition[];
   providerObject?: Provider;
   namespace?: string;
+  formMode?: FormMode;
 };
 
 export type FormEngineResult = {

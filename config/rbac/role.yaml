@@ -38,6 +38,7 @@ rules:
   - backup.openeverest.io
   resources:
   - backups
+  - backupstorages
   - restores
   verbs:
   - create
@@ -51,6 +52,7 @@ rules:
   - backup.openeverest.io
   resources:
   - backups/finalizers
+  - backupstorages/finalizers
   - restores/finalizers
   verbs:
   - update
@@ -58,6 +60,7 @@ rules:
   - backup.openeverest.io
   resources:
   - backups/status
+  - backupstorages/status
   - restores/status
   verbs:
   - get
@@ -83,6 +86,35 @@ rules:
   - get
   - list
   - watch
+- apiGroups:
+  - extensions.openeverest.io
+  resources:
+  - installedextensions
+  - plugins
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - extensions.openeverest.io
+  resources:
+  - installedextensions/finalizers
+  - plugins/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - extensions.openeverest.io
+  resources:
+  - installedextensions/status
+  - plugins/status
+  verbs:
+  - get
+  - patch
+  - update
 - apiGroups:
   - monitoring.openeverest.io
   resources:

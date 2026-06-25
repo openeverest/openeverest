@@ -51,9 +51,7 @@ export const getBackupListQueryKey = (
 
 type DeleteBackupArgType = {
   backupName: string;
-  // TODO: restore when cleanup-on-delete is implemented
-  // See: https://github.com/openeverest/openeverest/issues/2268
-  // cleanupBackupStorage: boolean;
+  deletionPolicy?: 'Delete' | 'Retain';
 };
 
 export const useBackupsList = (
@@ -131,11 +129,11 @@ export const useDeleteBackup = (
   );
 
   return useMutation({
-    mutationFn: ({ backupName }: DeleteBackupArgType) => {
+    mutationFn: ({ backupName, deletionPolicy }: DeleteBackupArgType) => {
       if (!canDelete) {
         throw new Error('Not enough permissions to delete backups');
       }
-      return deleteBackupFn(clusterName, namespace, backupName);
+      return deleteBackupFn(clusterName, namespace, backupName, deletionPolicy);
     },
     ...options,
   });

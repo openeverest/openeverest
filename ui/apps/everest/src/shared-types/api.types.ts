@@ -40,3 +40,6 @@ export type GetDbInstancesPayload =
   HttpApi.paths['/clusters/{cluster}/namespaces/{namespace}/instances']['get']['responses']['200']['content']['application/json'];
 export type UpdateDbInstancePayload =
   HttpApi.paths['/clusters/{cluster}/namespaces/{namespace}/instances/{instance}']['put']['requestBody']['content']['application/json'];
+
+export type GetNamespacesPayload =
+  HttpApi.components['schemas']['NamespaceList'];

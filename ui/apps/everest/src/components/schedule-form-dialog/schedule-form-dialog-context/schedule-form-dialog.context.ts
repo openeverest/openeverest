@@ -14,7 +14,6 @@
 
 import { createContext } from 'react';
 import { ScheduleFormDialogContextType } from './schedule-form-dialog-context.types';
-import { DbEngineType } from '@percona/types';
 import { WizardMode } from 'shared-types/wizard.types';
 
 export const ScheduleFormDialogContext =
@@ -34,7 +33,8 @@ export const ScheduleFormDialogContext =
       namespace: '',
       schedules: [],
       defaultSchedules: [],
-      activeStorage: '',
-      dbEngine: '' as DbEngineType,
+      availableBackupClasses: [],
+      disableClassSelection: false,
+      instanceStorageNames: [],
     },
   });

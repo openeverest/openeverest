@@ -15,13 +15,19 @@
 package v1alpha1
 
 import (
+	"net"
+
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+
+	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
 )
 
 // InstanceSpec defines the desired state of Instance
+// +kubebuilder:validation:XValidation:rule="!has(self.dataSource) || (has(self.backup) && self.backup.enabled)",message="spec.dataSource requires spec.backup.enabled=true with at least one storage so the provider can read the source backup"
+// +kubebuilder:validation:XValidation:rule="!has(oldSelf.dataSource) || (has(self.dataSource) && self.dataSource == oldSelf.dataSource)",message="spec.dataSource is immutable once set"
 type InstanceSpec struct {
 	// Provider is the name of the database provider (e.g., "psmdb", "postgresql").
 	Provider string `json:"provider,omitempty"`
@@ -80,6 +86,17 @@ type InstanceSpec struct {
 	// +kubebuilder:default=Cascade
 	// +optional
 	DeletionPolicy InstanceDeletionPolicy `json:"deletionPolicy,omitempty"`
+
+	// DataSource allows creating a new Instance from an existing
+	// Backup CR of another Instance.
+	//
+	// Only ProviderManaged BackupClasses are supported. The referenced Backup
+	// must be in the same namespace, in Succeeded state, and its BackupClass
+	// must list the Instance's provider in SupportedProviders. Instance must
+	// also have backup enabled and include a storage entry that matches the
+	// storage used by the source Backup so the provider can access the data.
+	// +optional
+	DataSource *backupv1alpha1.DataSource `json:"dataSource,omitempty"`
 }
 
 // InstanceDeletionPolicy controls what happens to Backup and Restore CRs
@@ -262,10 +279,44 @@ type ComponentSpec struct {
 	// Replicas specifies the number of replicas for this component.
 	// +optional
 	Replicas *int32 `json:"replicas,omitempty"`
+	// Affinity controls pod scheduling rules for this component, including node
+	// selection (where pods run), pod co-location (scheduling pods together), and
+	// pod anti-affinity (spreading pods across nodes/zones for high availability).
+	// +optional
+	Affinity *corev1.Affinity `json:"affinity,omitempty"`
+	// Service defines how this component is exposed.
+	// +optional
+	Service *Service `json:"service,omitempty"`
 	// +kubebuilder:pruning:PreserveUnknownFields
 	// CustomSpec provides an API for customising this component.
 	// The API schema is defined by the provider's ComponentSchemas.
 	CustomSpec *runtime.RawExtension `json:"customSpec,omitempty"`
+}
+
+type Service struct {
+	// ServiceType defines how the component is exposed.
+	// The provider ultimately decides and validates supported service types.
+	// +kubebuilder:default:=ClusterIP
+	ServiceType corev1.ServiceType `json:"serviceType,omitempty"`
+	// Annotations is a map of key-value pairs for annotating the Service.
+	// Commonly used to configure cloud provider settings
+	// (e.g., AWS ELB annotations, GCP load balancer settings).
+	// +optional
+	Annotations map[string]string `json:"annotations,omitempty"`
+	// LoadBalancerService contains LoadBalancer-specific configuration.
+	// Only applicable for "LoadBalancer" ServiceType.
+	// +optional
+	LoadBalancerService *LoadBalancerService `json:"loadBalancerService,omitempty"`
+}
+
+type SourceRanges []string
+
+type LoadBalancerService struct {
+	// SourceRanges lists IP source ranges (CIDR notation) that are
+	// allowed to access the load balancer.
+	// If unset, there is no limitations.
+	// +optional
+	SourceRanges SourceRanges `json:"sourceRanges,omitempty"`
 }
 
 type Storage struct {
@@ -307,6 +358,38 @@ func (in *Instance) GetTopologyConfig() *runtime.RawExtension {
 	return in.Spec.Topology.Config
 }
 
+// NormalizedSourceRanges returns source ranges with CIDR notation.
+// Single IP addresses are converted to CIDR format (/32 for IPv4, /128 for IPv6).
+// Returns nil if SourceRanges is empty.
+func (sr *SourceRanges) NormalizedSourceRanges() SourceRanges {
+	if sr == nil || len(*sr) == 0 {
+		return nil
+	}
+
+	ret := make([]string, 0, len(*sr))
+	ret = append(ret, *sr...)
+	for k, v := range ret {
+		if _, _, err := net.ParseCIDR(v); err == nil {
+			continue
+		}
+
+		ip := net.ParseIP(v)
+		if ip == nil {
+			continue
+		}
+
+		if ip.To4() != nil {
+			// IPv4 without a subnet. Add /32 subnet by default.
+			ret[k] = v + "/32"
+		} else {
+			// IPv6 without a subnet. Add /128 subnet by default.
+			ret[k] = v + "/128"
+		}
+	}
+
+	return ret
+}
+
 // InstanceStatus defines the observed state of Instance.
 type InstanceStatus struct {
 	// Phase of the database cluster.
@@ -341,6 +424,10 @@ type InstanceStatus struct {
 	ConnectionSecretRef corev1.LocalObjectReference `json:"connectionSecretRef,omitempty"`
 	// Components is the status of the components in the database cluster.
 	Components []ComponentStatus `json:"components,omitempty"`
+
+	// Message is a custom user-facing message describing the current state of the instance.
+	// +optional
+	Message string `json:"message,omitempty"`
 	// +listType=map
 	// +listMapKey=type
 	// +optional
@@ -443,6 +530,53 @@ const (
 	// the reason and message explain the configuration failure (e.g., storage
 	// resolution or PITR wiring error).
 	ConditionBackupConfigured = "BackupConfigured"
+
+	// ConditionDataSourceReady indicates the outcome of seeding an Instance
+	// from .spec.dataSource. The condition is set only when the Instance has
+	// a DataSource configured. Status=True means the source data has been
+	// fully restored into the new Instance; Status=False with the matching
+	// reason explains why the seeding is still in progress or has failed.
+	// The condition is sticky: once True it remains True for the lifetime of
+	// the Instance.
+	ConditionDataSourceReady = "DataSourceReady"
+)
+
+// Reasons for the DataSourceReady condition.
+const (
+	// ReasonDataSourceWaitingForCluster indicates the provider is waiting
+	// for the engine cluster to reach a state where a restore can be issued.
+	ReasonDataSourceWaitingForCluster = "WaitingForCluster"
+
+	// ReasonDataSourceRestoring indicates a Restore CR has been created and
+	// the operator-native restore is in progress.
+	ReasonDataSourceRestoring = "Restoring"
+
+	// ReasonDataSourceSucceeded indicates the initial restore completed
+	// successfully and the Instance has been seeded from the source backup.
+	ReasonDataSourceSucceeded = "Succeeded"
+
+	// ReasonDataSourceFailed indicates the initial restore failed terminally;
+	// the Instance will not be seeded automatically and operator intervention
+	// is required.
+	ReasonDataSourceFailed = "Failed"
+
+	// ReasonDataSourceSourceBackupNotFound indicates the Backup CR referenced
+	// by .spec.dataSource.backup.backupName does not exist in the Instance namespace.
+	ReasonDataSourceSourceBackupNotFound = "SourceBackupNotFound"
+
+	// ReasonDataSourceSourceBackupNotSucceeded indicates the source Backup
+	// exists but is not in the Succeeded state, so it cannot be restored.
+	ReasonDataSourceSourceBackupNotSucceeded = "SourceBackupNotSucceeded"
+
+	// ReasonDataSourceStorageMismatch indicates the Instance's
+	// .spec.backup.storages does not include an entry matching the storage
+	// used by the source Backup, so the provider cannot access the data.
+	ReasonDataSourceStorageMismatch = "StorageMismatch"
+
+	// ReasonDataSourceClassUnsupported indicates the source Backup's
+	// BackupClass either does not exist, is not ProviderManaged, or does not
+	// list the target Instance's provider in SupportedProviders.
+	ReasonDataSourceClassUnsupported = "BackupClassUnsupported"
 )
 
 // Reasons for the StorageResizing condition.

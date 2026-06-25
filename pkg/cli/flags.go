@@ -83,6 +83,13 @@ const (
 	// FlagAccountsNewPassword is the name of the new-password flag.
 	FlagAccountsNewPassword = "new-password"
 
+	// `auth` flags
+
+	// FlagAuthServer is the name of the server flag.
+	FlagAuthServer = "server"
+	// FlagAuthContextName is the name of the context-name flag.
+	FlagAuthContextName = "context-name"
+
 	// settings flags
 
 	// FlagOIDCIssuerURL is the name of the issuer-url flag.

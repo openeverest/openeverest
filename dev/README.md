@@ -39,7 +39,9 @@ NOTE: for MacOS tilt needs to have installed and runing `docker-desktop` tool. T
 
 9. Clone [helm-charts](https://github.com/openeverest/helm-charts).
 
-5. Clone [provider-percona-server-mongodb](https://github.com/openeverest/provider-percona-server-mongodb).
+10. Clone [provider-percona-server-mongodb](https://github.com/openeverest/provider-percona-server-mongodb).
+
+11. Clone [provider-percona-xtradb-cluster](https://github.com/openeverest/provider-percona-xtradb-cluster).
 
 ## Set up the environment
 
@@ -88,6 +90,7 @@ Copy file dev/.env.example to dev/.env and set the following environment variabl
 EVEREST_OPERATOR_DIR=<path to github.com/percona/everest-operator repository directory>
 EVEREST_CHART_DIR=<path to github.com/openeverest/helm-charts>/charts/everest
 PSMDB_PROVIDER_CHART_DIR=<path to github.com/openeverest/provider-percona-server-mongodb repository directory>/charts/provider-percona-server-mongodb
+PXC_PROVIDER_CHART_DIR=<path to github.com/openeverest/provider-percona-xtradb-cluster repository directory>/charts/provider-percona-xtradb-cluster
 ```
 
 or set environment variables manually in the terminal:
@@ -96,7 +99,11 @@ or set environment variables manually in the terminal:
 export EVEREST_OPERATOR_DIR=<path to github.com/percona/everest-operator repository directory>
 export EVEREST_CHART_DIR=<path to github.com/openeverest/helm-charts>/charts/everest
 export PSMDB_PROVIDER_CHART_DIR=<path to github.com/openeverest/provider-percona-server-mongodb repository directory>/charts/provider-percona-server-mongodb
+export PXC_PROVIDER_CHART_DIR=<path to github.com/openeverest/provider-percona-xtradb-cluster repository directory>/charts/provider-percona-xtradb-cluster
 ```
+
+For OpenEverest v2 development use `v2` branch of `EVEREST_CHART_DIR`.
+If your Tilt environment starts with errors, ensure you have the latest pull of `main` branch for `PSMDB_PROVIDER_CHART_DIR` and `PXC_PROVIDER_CHART_DIR`, and latest `v2` branch for `EVEREST_CHART_DIR`.
 
 2. Set namespaces for the Everest components:
 
@@ -105,14 +112,25 @@ Copy file dev/config.yaml.example to dev/config.yaml and:
 - Set the needed DB namespaces that will be created automatically.
 - (Mostly for FE devs) If you want to disable the Tilt frontend build, save time and avoid FE rebuilds (and, therefore, BE rebuilds), keeping the dev flow of using Vite, set `enableFrontend: false`
 
-3. (Optional) If you want to test a specific version of a given DB operator you can set the following environment variables in .env file or in the terminal:
+3. (Optional) If you want to install a generic plugin (e.g. the [template plugin](https://github.com/openeverest/generic-plugin-template)), set the OCI chart reference:
+```sh
+export HELLO_PLUGIN_CHART=oci://ghcr.io/openeverest/generic-plugin-template
+export HELLO_PLUGIN_VERSION=0.1.0  # optional, omit to use latest
+```
+If the registry requires authentication, log in first:
+```sh
+helm registry login ghcr.io -u <github-user> -p <token>
+```
+If `HELLO_PLUGIN_CHART` is not set, Tilt skips the plugin step entirely.
+
+4. (Optional) If you want to test a specific version of a given DB operator you can set the following environment variables in .env file or in the terminal:
 ```sh
 export PXC_OPERATOR_VERSION=1.19.0
 export PSMDB_OPERATOR_VERSION=1.22.0
 export PG_OPERATOR_VERSION=2.8.2
 ```
 
-4. (Optional) If you want to debug Everest Server and/or Everest operator remotely, you can set the following environment variables in .env file or in the terminal: 
+5. (Optional) If you want to debug Everest Server and/or Everest operator remotely, you can set the following environment variables in .env file or in the terminal: 
 ```sh
 export EVEREST_DEBUG=true
 export EVEREST_OPERATOR_DEBUG=true
@@ -127,7 +145,7 @@ Refer to instructions in your IDE on how to setup remote debugging.
 
 For GoLand, you can refer to [this](https://www.jetbrains.com/help/go/attach-to-running-go-processes-with-debugger.html#step-2-create-the-go-remote-run-debug-configuration) link.
 
-5. Start Tilt:
+6. Start Tilt:
 ```sh
 make dev-up
 ```

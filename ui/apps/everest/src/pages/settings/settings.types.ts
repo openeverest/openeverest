@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,12 +17,12 @@ export enum SettingsTabs {
   storageLocations = 'storage-locations',
   monitoringEndpoints = 'monitoring-endpoints',
   namespaces = 'namespaces',
-  policies = 'policies',
+  // policies = 'policies',
 }
 
 export const settingsTabsMui: Record<SettingsTabs, number> = {
   [SettingsTabs.storageLocations]: 1,
   [SettingsTabs.monitoringEndpoints]: 2,
   [SettingsTabs.namespaces]: 3,
-  [SettingsTabs.policies]: 4,
+  // [SettingsTabs.policies]: 4,
 };

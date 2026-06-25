@@ -12,12 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { BackupStorage } from 'shared-types/backupStorages.types';
-import { Schedule } from 'shared-types/dbCluster.types';
+import { BackupStorageCRD } from 'shared-types/backupStorages.types';
+import { ScheduleWithStorage } from './backup-storages-input.types';
 
 export type GetAvailableStoragesParams = {
-  backupStorages: BackupStorage[];
-  schedules: Schedule[];
+  backupStorages: BackupStorageCRD[];
+  schedules: ScheduleWithStorage[];
   maxStorages?: number;
   // Applied as a cascading filter AFTER the maxStorages filter.
   maxSchedulesPerStorage?: number;
@@ -26,7 +26,7 @@ export type GetAvailableStoragesParams = {
 };
 
 export type GetAvailableStoragesResult = {
-  storagesToShow: BackupStorage[];
+  storagesToShow: BackupStorageCRD[];
   activeStoragesCount: number;
   limitReached: boolean;
   shouldDisable: boolean;
@@ -48,7 +48,7 @@ export const getAvailableStorages = ({
     activeStoragesCount > 0 &&
     activeStoragesCount >= maxStorages;
 
-  let storagesToShow: BackupStorage[];
+  let storagesToShow: BackupStorageCRD[];
 
   if (
     activeStoragesCount === 0 ||
@@ -59,7 +59,9 @@ export const getAvailableStorages = ({
     storagesToShow = backupStorages;
   } else {
     // Limit reached: show only instance storages
-    storagesToShow = backupStorages.filter((s) => inUseNames.has(s.name));
+    storagesToShow = backupStorages.filter((s) =>
+      inUseNames.has(s.metadata?.name ?? '')
+    );
   }
 
   const shouldDisable =
@@ -78,7 +80,8 @@ export const getAvailableStorages = ({
     );
     storagesToShow = storagesToShow.filter(
       (storage) =>
-        (schedulesPerStorage[storage.name] ?? 0) < maxSchedulesPerStorage
+        (schedulesPerStorage[storage.metadata?.name ?? ''] ?? 0) <
+        maxSchedulesPerStorage
     );
   }
 

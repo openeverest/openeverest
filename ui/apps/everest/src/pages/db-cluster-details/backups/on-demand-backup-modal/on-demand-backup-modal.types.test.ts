@@ -23,7 +23,7 @@ describe('on-demand-backup schema', () => {
       const result = testSchema.safeParse({
         name: 'backup-abc123',
         backupClassName: 'standard',
-        storageName: { name: 'my-storage' },
+        storageName: { metadata: { name: 'my-storage' } },
       });
       expect(result.success).toBe(false);
       if (!result.success) {
@@ -41,7 +41,7 @@ describe('on-demand-backup schema', () => {
       const result = testSchema.safeParse({
         name: 'backup-new001',
         backupClassName: 'standard',
-        storageName: { name: 'my-storage' },
+        storageName: { metadata: { name: 'my-storage' } },
       });
       expect(result.success).toBe(true);
     });

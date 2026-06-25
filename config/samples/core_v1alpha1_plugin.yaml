@@ -1,0 +1,18 @@
+apiVersion: core.openeverest.io/v1alpha1
+kind: Plugin
+metadata:
+  labels:
+    app.kubernetes.io/name: openeverest
+    app.kubernetes.io/managed-by: kustomize
+  name: plugin-sample
+spec:
+  displayName: "Sample Plugin"
+  version: "0.1.0"
+  vendor: "OpenEverest"
+  frontend:
+    bundleUrl: "https://example.com/main.js"
+  backend:
+    serviceRef:
+      namespace: everest-system
+      name: plugin-sample-svc
+      port: 8080

@@ -44,6 +44,7 @@
     "@mui/icons-material": "^5.14.15",
     "@mui/material": "^5.14.14",
     "@mui/x-date-pickers": "^7.6.2",
+    "@openeverest/plugin-sdk": "workspace:^",
     "@percona/design": "workspace:^",
     "@percona/types": "workspace:^",
     "@percona/ui-lib": "workspace:^",

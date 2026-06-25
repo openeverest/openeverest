@@ -31,11 +31,7 @@ import { useRBACPermissions } from 'hooks/rbac';
 
 const BackupListTableHeader = ({
   onNowClick,
-  // TODO: v2 — schedule feature props, uncomment when ready
-  // onScheduleClick,
-  // noStoragesAvailable,
-  // TODO: check main — currentBackups was passed to ScheduledBackupsList
-  // currentBackups,
+  onScheduleClick,
 }: BackupListTableHeaderProps) => {
   const [showSchedules, setShowSchedules] = useState(false);
   const { instance } = useContext(ScheduleModalContext);
@@ -65,10 +61,10 @@ const BackupListTableHeader = ({
     handleClose();
   };
 
-  // const handleScheduleClick = (handleClose: () => void) => {
-  //   onScheduleClick();
-  //   handleClose();
-  // };
+  const handleScheduleClick = (handleClose: () => void) => {
+    onScheduleClick();
+    handleClose();
+  };
 
   const handleShowSchedules = () => {
     setShowSchedules((prev) => !prev);
@@ -150,32 +146,12 @@ const BackupListTableHeader = ({
               <MenuItem
                 key="schedule"
                 data-testid="schedule-menu-item"
-                disabled
+                // TODO: v2 RBAC - disable/hide Schedule when instances:update
+                // permission check is available and wired in UI.
+                onClick={() => handleScheduleClick(handleClose)}
               >
                 {Messages.schedule}
               </MenuItem>,
-              // TODO: v2 — Schedule feature not yet implemented — check main for original
-              // To restore: remove the comment markers below and fix the props/hooks above
-              // canUpdateInstance && (
-              //   <Box key="schedule">
-              //     {disableScheduleBackups ? (
-              //       <Tooltip title={scheduleLimitExceeded
-              //           ? Messages.exceededScheduleBackupsNumber(maxStorages!)
-              //           : Messages.noStoragesAvailable} placement="right" arrow>
-              //         <div>
-              //           <MenuItem data-testid="schedule-menu-item" disabled>
-              //             {Messages.schedule}
-              //           </MenuItem>
-              //         </div>
-              //       </Tooltip>
-              //     ) : (
-              //       <MenuItem onClick={() => handleScheduleClick(handleClose)}
-              //         data-testid="schedule-menu-item">
-              //         {Messages.schedule}
-              //       </MenuItem>
-              //     )}
-              //   </Box>
-              // ),
             ]}
           />
         )}

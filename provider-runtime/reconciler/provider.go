@@ -440,6 +440,16 @@ func (r *ProviderReconciler) Reconcile(ctx context.Context, req reconcile.Reques
 			_ = r.Client.Status().Update(ctx, in)
 			return reconcile.Result{}, nil
 		}
+		// DataSourceConfigError means the engine is healthy but initial seeding
+		// cannot proceed (e.g., source credentials secret missing). Surface it on
+		// the DataSourceReady condition without marking Instance Failed.
+		if dse := controller.AsDataSourceConfigError(err); dse != nil {
+			logger.Error(err, "DataSource configuration failed")
+			setCondition(in, v1alpha1.ConditionDataSourceReady, metav1.ConditionFalse,
+				dse.Reason, dse.Message, metav1.Now())
+			_ = r.Client.Status().Update(ctx, in)
+			return reconcile.Result{}, nil
+		}
 		logger.Error(err, "Sync failed")
 		return reconcile.Result{}, err
 	}
@@ -447,6 +457,19 @@ func (r *ProviderReconciler) Reconcile(ctx context.Context, req reconcile.Reques
 	if _, ok := r.provider.(controller.BackupProvider); ok {
 		setCondition(in, v1alpha1.ConditionBackupConfigured, metav1.ConditionTrue,
 			"Configured", "Backup configuration applied to engine", metav1.Now())
+	}
+
+	// Flush ConditionDataSourceReady when the provider invoked
+	// Context.ReconcileDataSource during Sync. Status=True when the seeding
+	// restore has Succeeded; Status=False otherwise with the staged reason
+	// and message explaining what the helper is waiting on.
+	if ds := syncCtx.GetDataSourceStatus(); ds != nil && ds.State != controller.DataSourceStateNone {
+		condStatus := metav1.ConditionFalse
+		if ds.State == controller.DataSourceStateSucceeded {
+			condStatus = metav1.ConditionTrue
+		}
+		setCondition(in, v1alpha1.ConditionDataSourceReady, condStatus,
+			ds.Reason, ds.Message, metav1.Now())
 	}
 
 	// Compute and update status
@@ -457,7 +480,9 @@ func (r *ProviderReconciler) Reconcile(ctx context.Context, req reconcile.Reques
 		return reconcile.Result{}, err
 	}
 
-	in.Status = status.ToV2Alpha1()
+	instanceStatus := status.ToV2Alpha1()
+	in.Status.Phase = instanceStatus.Phase
+	in.Status.Message = instanceStatus.Message
 
 	// Freeze the effective bundle name in status so it remains stable across
 	// Provider upgrades. On subsequent reconciliations the reconciler reads this

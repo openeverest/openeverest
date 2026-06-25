@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,7 +17,7 @@ import { ListItemProps } from '@mui/material';
 
 export type NavItemProps = {
   open: boolean;
-  icon: React.ElementType;
+  icon: React.ElementType | string;
   text: string;
   to: string;
   onClick: () => void;

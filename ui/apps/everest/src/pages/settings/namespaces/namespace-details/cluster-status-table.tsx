@@ -16,7 +16,6 @@ import { useCallback, useMemo, useRef, useState } from 'react';
 import { MRT_ColumnDef } from 'material-react-table';
 import { Button } from '@mui/material';
 import { Table } from '@percona/ui-lib';
-import { beautifyDbTypeName, dbEngineToDbType } from '@percona/utils';
 import semverCoerce from 'semver/functions/coerce';
 import {
   DbEngineToolStatus,
@@ -166,7 +165,7 @@ const ClusterStatusTable = ({
             return 'N/A';
           }
 
-          return `${beautifyDbTypeName(dbEngineToDbType(engine.type))} ${engine.version}`;
+          return `${String(engine.type)} ${engine.version}`;
         },
       },
       {

@@ -13,7 +13,7 @@
 // limitations under the License.
 
 import { api } from './api';
-import { GetNamespacesPayload } from 'shared-types/namespaces.types';
+import { GetNamespacesPayload } from 'shared-types/api.types';
 
 export const getNamespacesFn = async (clusterName: string) => {
   const response = await api.get<GetNamespacesPayload>(

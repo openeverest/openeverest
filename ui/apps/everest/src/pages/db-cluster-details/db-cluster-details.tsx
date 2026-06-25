@@ -26,7 +26,7 @@ import { NoMatch } from '../404/NoMatch';
 import BackNavigationText from 'components/back-navigation-text';
 import { DBClusterDetailsTabs } from './db-cluster-details.types';
 import { DbInstanceContext } from './dbCluster.context';
-import { useContext } from 'react';
+import { useContext, useMemo } from 'react';
 import DbActions from 'components/db-actions/db-actions';
 import { Messages } from './db-cluster-details.messages';
 import StatusField from 'components/status-field';
@@ -36,12 +36,13 @@ import {
   DB_INSTANCE_UNKNOWN_PHASE,
   DbInstancePhase,
 } from 'shared-types/instance.types';
+import { usePlugins } from 'contexts/plugins';
+import type { ClusterDetailTabExtension } from '@openeverest/plugin-sdk';
 
 const WithPermissionDetails = ({
   instanceName,
   tab,
 }: {
-  namespace: string;
   instanceName: string;
   tab: string;
 }) => {
@@ -63,6 +64,30 @@ const WithPermissionDetails = ({
   const tabs = Object.keys(DBClusterDetailsTabs) as Array<
     keyof typeof DBClusterDetailsTabs
   >;
+
+  // Collect clusterDetailTab extensions, filtered by engine type
+  // (providers field). Per-namespace plugin visibility is governed by
+  // Everest RBAC on the `/v1/plugins` endpoint.
+  const { plugins } = usePlugins();
+  const engineType = instance?.spec?.provider;
+
+  const pluginTabs = useMemo(
+    () =>
+      plugins.flatMap((p) =>
+        p.extensions
+          .filter(
+            (ext): ext is ClusterDetailTabExtension =>
+              ext.type === 'clusterDetailTab'
+          )
+          .filter(
+            (ext) =>
+              !ext.providers?.length ||
+              (engineType != null && ext.providers.includes(engineType))
+          )
+          .map((ext) => ({ pluginName: p.name, ...ext }))
+      ),
+    [plugins, engineType]
+  );
 
   return (
     <>
@@ -123,6 +148,16 @@ const WithPermissionDetails = ({
                 data-testid={`${DBClusterDetailsTabs[item]}`}
               />
             ))}
+            {pluginTabs.map((pt) => (
+              <Tab
+                label={pt.label}
+                key={`plugin-${pt.pluginName}-${pt.path}`}
+                value={pt.path}
+                to={pt.path}
+                component={Link}
+                data-testid={`plugin-tab-${pt.path}`}
+              />
+            ))}
           </Tabs>
         </Box>
         {/*TODO return when statuses will be ready */}
@@ -142,7 +177,6 @@ export const DbClusterDetails = () => {
   const { instance, isLoading } = useContext(DbInstanceContext);
   const routeMatch = useMatch('/databases/:namespace/:instanceName/:tabs');
   const currentTab = routeMatch?.params?.tabs;
-  const namespace = routeMatch?.params?.namespace;
 
   if (!currentTab) {
     return <Navigate to={DBClusterDetailsTabs.overview} replace />;
@@ -166,11 +200,5 @@ export const DbClusterDetails = () => {
   }
 
   // All clear, show the cluster data
-  return (
-    <WithPermissionDetails
-      namespace={namespace!}
-      instanceName={instanceName}
-      tab={currentTab}
-    />
-  );
+  return <WithPermissionDetails instanceName={instanceName} tab={currentTab} />;
 };

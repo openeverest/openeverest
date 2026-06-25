@@ -42,6 +42,12 @@ func (h *validateHandler) UpdateBackupStorage(ctx context.Context, cluster strin
 	return h.next.UpdateBackupStorage(ctx, cluster, bs)
 }
 
+// PatchBackupStorage proxies the request to the next handler.
+func (h *validateHandler) PatchBackupStorage(ctx context.Context, cluster string, bs *backupv1alpha1.BackupStorage) (*backupv1alpha1.BackupStorage, error) {
+	// Add validation here if needed in the future
+	return h.next.PatchBackupStorage(ctx, cluster, bs)
+}
+
 // DeleteBackupStorage proxies the request to the next handler.
 func (h *validateHandler) DeleteBackupStorage(ctx context.Context, cluster, namespace, name string) error {
 	return h.next.DeleteBackupStorage(ctx, cluster, namespace, name)

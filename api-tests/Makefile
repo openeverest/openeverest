@@ -19,7 +19,7 @@ init:     ## Install tests dependencies.
 # NOTE: API tests do not wait for DB clusters to be ready.
 # The only exception is pg-data-importer test, so that only PG images are pre-uploaded to K3D cluster.
 CI_INIT_DEPS := init deploy-monitoring create-test-users k3d-upload-images
-CI_INIT_DEPS += deploy-data-importer deploy-minio
+CI_INIT_DEPS += deploy-minio create-test-manifests
 .PHONY: ci-init
 ci-init: $(CI_INIT_DEPS) 	## Prepare environment for running tests.
 
@@ -44,12 +44,6 @@ create-test-users: ## Create test users and add everest_ci user to admin role.
 	kubectl patch configmap everest-rbac -n everest-system --patch "$$(kubectl get configmap everest-rbac -n everest-system -o json | jq '.data["policy.csv"] += "\ng, everest_ci, role:admin"' | jq '{data: { "policy.csv": .data["policy.csv"] } }')"
 	kubectl get configmap everest-rbac -n everest-system -ojsonpath='{.data.policy\.csv}'
 
-DATA_IMPORTER_RESOURCE=$(TEST_ROOT)/manifests/dataimporter.yaml
-.PHONY: deploy-data-importer
-deploy-data-importer:
-	$(info Deploying Data Importer to K3D cluster)
-	kubectl apply -f $(DATA_IMPORTER_RESOURCE)
-
 MINIO_RESOURCE=$(TEST_ROOT)/manifests/minio.yaml
 .PHONY: deploy-minio
 deploy-minio:
@@ -65,6 +59,23 @@ deploy-minio:
 		kubectl get events -n minio --sort-by=.lastTimestamp || true; \
 		exit 1; \
     fi
+
+TEST_PROVIDER_RESOURCE=$(TEST_ROOT)/manifests/test-provider.yaml
+TEST_PRESET_RESOURCE=$(TEST_ROOT)/manifests/test-preset.yaml
+TEST_SECRET_RESOURCE=$(TEST_ROOT)/manifests/test-secret.yaml
+.PHONY: create-test-manifests
+create-test-manifests:
+	$(info Deploying test provider and preset)
+	kubectl apply -f $(TEST_PROVIDER_RESOURCE)
+	kubectl apply -f $(TEST_PRESET_RESOURCE)
+	kubectl apply -f $(TEST_SECRET_RESOURCE)
+
+.PHONY: cleanup-test-manifests
+cleanup-test-manifests:
+	$(info Cleaning up test provider and preset)
+	kubectl delete -f $(TEST_PRESET_RESOURCE) --ignore-not-found=true
+	kubectl delete -f $(TEST_PROVIDER_RESOURCE) --ignore-not-found=true
+	kubectl delete -f $(TEST_SECRET_RESOURCE) --ignore-not-found=true
 
 .PHONY: k3d-upload-pg-images
 k3d-upload-pg-images: ## Pre-upload Postgresql images to K3D test  cluster to speedup tests execution.

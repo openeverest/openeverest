@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -24,7 +25,6 @@ import {
   PitrEditModalProps,
 } from './edit-pitr.types';
 import { SwitchInput } from '@percona/ui-lib';
-import { dbEngineToDbType } from '@percona/utils';
 import { DbType } from '@percona/types';
 import PitrStorage from './pitr-storage';
 import { Messages as PITRMessages } from 'pages/common/pitr.messages';
@@ -37,7 +37,7 @@ export const PitrEditModal = ({
   handleSubmitModal,
   dbCluster,
 }: PitrEditModalProps) => {
-  const dbType = dbEngineToDbType(dbCluster.spec.engine.type);
+  const dbType = dbCluster.spec.engine.type as unknown as DbType;
   const schedules = dbCluster.spec.backup?.schedules || [];
   const backup = dbCluster?.spec?.backup;
   const backupsEnabled = schedules.length > 0;
@@ -57,7 +57,8 @@ export const PitrEditModal = ({
       enabled,
       (typeof storageLocation === 'string'
         ? storageLocation
-        : storageLocation!.name) || schedules[0].backupStorageName
+        : (storageLocation?.metadata?.name ?? '')) ||
+        schedules[0].backupStorageName
     );
   };
   return (

@@ -14,9 +14,22 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { useState } from 'react';
-import { Box, Button, IconButton, Menu, MenuItem } from '@mui/material';
-import { DeleteOutline } from '@mui/icons-material';
+import { useMemo, useState } from 'react';
+import {
+  Box,
+  Button,
+  Dialog,
+  DialogContent,
+  IconButton,
+  Menu,
+  MenuItem,
+} from '@mui/material';
+import {
+  DeleteOutline as DeleteOutlineIcon,
+  KeyboardReturn as KeyboardReturnIcon,
+  // Add as AddIcon, // TODO: re-enable when create-new-db-from-backup is restored
+} from '@mui/icons-material';
+import ExtensionIcon from '@mui/icons-material/Extension';
 import MoreHorizIcon from '@mui/icons-material/MoreHoriz';
 import { DbActionsProps } from './db-actions.types';
 import { useRBACPermissions } from 'hooks/rbac';
@@ -24,6 +37,12 @@ import { Messages } from './db-actions.messages';
 import { ArrowDropDownIcon } from '@mui/x-date-pickers/icons';
 import DbActionsModals from './db-actions-modals';
 import { useDbInstanceActions } from 'hooks/api/db-instance';
+import { usePlugins } from 'contexts/plugins';
+import type { ClusterActionExtension } from '@openeverest/plugin-sdk';
+import PluginErrorBoundary from 'components/plugin-host/PluginErrorBoundary';
+import { useBackupsList } from 'hooks/api/backups/useBackups';
+import { useClusterName } from 'hooks/api/useClusterName';
+import { BackupStatus } from 'shared-types/backups.types';
 
 export const DbActions = ({
   // showDetailsAction = false,
@@ -31,7 +50,11 @@ export const DbActions = ({
   dbInstance,
 }: DbActionsProps) => {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
-  const [isNewClusterMode /*setIsNewClusterMode*/] = useState(false);
+  const [isNewClusterMode, setIsNewClusterMode] = useState(false);
+  const [activePluginAction, setActivePluginAction] = useState<{
+    pluginName: string;
+    ext: ClusterActionExtension;
+  } | null>(null);
   const {
     openRestoreDialog,
     handleCloseRestoreDialog,
@@ -45,17 +68,29 @@ export const DbActions = ({
     // handleOpenDbDetailsDialog,
     handleCloseDetailsDialog,
     // handleDbSuspendOrResumed,
-    // handleRestoreDbCluster,
+    handleRestoreDbCluster,
     deleteMutation,
   } = useDbInstanceActions(dbInstance);
   const open = Boolean(anchorEl);
   const dbInstanceName = dbInstance.metadata?.name;
-  // const namespace = dbInstance.metadata?.namespace;
+  const namespace = dbInstance.metadata?.namespace ?? '';
+  const clusterName = useClusterName();
+
+  const { data: backups = [] } = useBackupsList(
+    clusterName,
+    namespace,
+    dbInstanceName ?? ''
+  );
+  const hasBackups = backups.length > 0;
+  const hasReadyBackup = backups.some(
+    (b) => b.status?.state === BackupStatus.SUCCEEDED
+  );
   // const redirectURL = `/databases/${namespace}/${dbInstanceName}/overview`;
 
   // const navigate = useNavigate();
   // TODO needs a final enum
   // const actionsBlocked = shouldDbActionsBeBlocked(dbInstance.status?.phase as DbInstanceStatus || '');
+  const actionsBlocked = dbInstance?.status?.phase === 'Terminating';
   // const hasSchedules = !!(
   //   dbInstance.spec.backup && (dbInstance.spec.backup.schedules || []).length > 0
   // );
@@ -104,6 +139,20 @@ export const DbActions = ({
   // TODO RBAC
   // const noActionAvailable = !canUpdate && !canDelete && !canRestore;
   const noActionAvailable = false;
+
+  // Collect plugin clusterAction extensions.
+  const { plugins } = usePlugins();
+  const pluginActions = useMemo(
+    () =>
+      plugins.flatMap((p) =>
+        p.extensions
+          .filter(
+            (ext): ext is ClusterActionExtension => ext.type === 'clusterAction'
+          )
+          .map((ext) => ({ pluginName: p.name, ext }))
+      ),
+    [plugins]
+  );
   // let canCreateClusterFromBackup = canRestore && canCreateClusters;
 
   // if (hasSchedules) {
@@ -190,24 +239,24 @@ export const DbActions = ({
               <RestartAltIcon /> {Messages.menuItems.restart}
             </MenuItem>
           )*/}
-          {/*canCreateClusterFromBackup && (
-            <MenuItem
-              data-testid={`${dbInstanceName}-create-new-db-from-backup`}
-              disabled={actionsBlocked}
-              key={1}
-              onClick={() => {
-                setIsNewClusterMode(true);
-                handleRestoreDbCluster();
-              }}
-              sx={sx}
-            >
-              <AddIcon /> {Messages.menuItems.createNewDbFromBackup}
-            </MenuItem>
-          )*/}
-          {/*canRestore && (
+          {/* TODO: Temporarily hidden — create new DB from backup deferred by team */}
+          {/* <MenuItem
+            data-testid={`${dbInstanceName}-create-new-db-from-backup`}
+            disabled={actionsBlocked}
+            key={1}
+            onClick={() => {
+              setIsNewClusterMode(true);
+              handleRestoreDbCluster();
+            }}
+            sx={sx}
+          >
+            <AddIcon /> {Messages.menuItems.createNewDbFromBackup}
+          </MenuItem> */}
+          {/*TODO RBAC */}
+          {hasBackups && (
             <MenuItem
               data-testid={`${dbInstanceName}-restore`}
-              disabled={actionsBlocked}
+              disabled={actionsBlocked || !hasReadyBackup}
               key={3}
               onClick={() => {
                 setIsNewClusterMode(false);
@@ -217,7 +266,7 @@ export const DbActions = ({
             >
               <KeyboardReturnIcon /> {Messages.menuItems.restoreFromBackup}
             </MenuItem>
-          )*/}
+          )}
           {/*
           {showStatusActions && dbInstance?.status?.details && (
             <MenuItem
@@ -247,7 +296,7 @@ export const DbActions = ({
           )} */}
           {canDelete && (
             <MenuItem
-              disabled={dbInstance?.status?.phase === 'Terminating'}
+              disabled={actionsBlocked}
               data-testid={`${dbInstanceName}-delete`}
               key={5}
               onClick={() => {
@@ -255,9 +304,19 @@ export const DbActions = ({
               }}
               sx={sx}
             >
-              <DeleteOutline /> {Messages.menuItems.delete}
+              <DeleteOutlineIcon /> {Messages.menuItems.delete}
             </MenuItem>
           )}
+          {pluginActions.map((pa) => (
+            <MenuItem
+              key={`plugin-${pa.pluginName}-${pa.ext.label}`}
+              data-testid={`${dbInstanceName}-plugin-${pa.pluginName}`}
+              onClick={() => setActivePluginAction(pa)}
+              sx={sx}
+            >
+              <ExtensionIcon /> {pa.ext.label}
+            </MenuItem>
+          ))}
         </Menu>
       </Box>
       <DbActionsModals
@@ -272,6 +331,28 @@ export const DbActions = ({
         handleCloseDetailsDialog={handleCloseDetailsDialog}
         deleteMutation={deleteMutation}
       />
+      {activePluginAction &&
+        (() => {
+          const ActionComponent = activePluginAction.ext.component;
+          return (
+            <Dialog
+              open
+              onClose={() => setActivePluginAction(null)}
+              maxWidth="md"
+              fullWidth
+            >
+              <DialogContent>
+                <PluginErrorBoundary pluginName={activePluginAction.pluginName}>
+                  <ActionComponent
+                    cluster={dbInstance}
+                    namespace={dbInstance.metadata?.namespace ?? ''}
+                    onClose={() => setActivePluginAction(null)}
+                  />
+                </PluginErrorBoundary>
+              </DialogContent>
+            </Dialog>
+          );
+        })()}
     </>
   );
 };

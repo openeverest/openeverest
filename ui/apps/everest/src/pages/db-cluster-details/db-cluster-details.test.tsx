@@ -23,6 +23,10 @@ vi.mock('components/db-actions/db-actions', () => ({
   default: () => <div data-testid="db-actions" />,
 }));
 
+vi.mock('contexts/plugins', () => ({
+  usePlugins: () => ({ plugins: [] }),
+}));
+
 const mockInstance: Instance = {
   apiVersion: 'core.openeverest.io/v1alpha1',
   kind: 'Instance',

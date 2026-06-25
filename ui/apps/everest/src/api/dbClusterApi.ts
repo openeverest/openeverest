@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -98,10 +99,11 @@ export const getDbClusterFn = async (
 export const deleteDbClusterFn = async (
   dbClusterName: string,
   namespace: string,
-  cleanupBackupStorage: boolean
+  deletionPolicy?: 'Cascade' | 'Orphan'
 ) => {
+  const params = deletionPolicy ? `?deletionPolicy=${deletionPolicy}` : '';
   const response = await api.delete<DbCluster>(
-    `namespaces/${namespace}/database-clusters/${dbClusterName}?cleanupBackupStorage=${cleanupBackupStorage}`
+    `namespaces/${namespace}/database-clusters/${dbClusterName}${params}`
   );
   return response.data;
 };

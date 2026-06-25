@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,7 +16,6 @@
 
 import { expect, Locator, Page } from '@playwright/test';
 import { getBucketNamespacesMap, TIMEOUTS } from '@e2e/constants';
-import { beautifyDbTypeName } from '@percona/utils';
 import { DbType } from '@percona/types';
 
 export type ScheduleTimeOptions = {
@@ -102,7 +102,7 @@ export const addScheduleInDbWizard = async (
 };
 
 const checkDbTypeisVisibleInPreview = async (page: Page, dbType: DbType) => {
-  const dbTypeLocator = page.getByText(beautifyDbTypeName(dbType));
+  const dbTypeLocator = page.getByText(String(dbType));
   return (await dbTypeLocator.allInnerTexts())?.length > 0;
 };
 

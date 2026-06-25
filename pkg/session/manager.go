@@ -72,6 +72,13 @@ func (mgr *Manager) IsBlocked(ctx context.Context, token *jwt.Token) (bool, erro
 	if err != nil {
 		return false, fmt.Errorf("failed to extract username: %w", err)
 	}
+
+	// Plugin service tokens (sub starts with "plugin:") are not user accounts.
+	// They are validated by expiry only, not against the account manager.
+	if strings.HasPrefix(username, "plugin:") {
+		return mgr.Blocklist.IsBlocked(ctx, token)
+	}
+
 	// for the built-in users check if the account exists
 	if isBuiltInUser {
 		user, err := mgr.accountManager.Get(ctx, username)
@@ -167,19 +174,26 @@ func (mgr *Manager) Authenticate(ctx context.Context, username string, password 
 		return err
 	}
 
+	_, err := mgr.CanLogin(ctx, username)
+	return err
+}
+
+// CanLogin checks that the given account exists, is enabled and holds the login
+// capability, and returns the account.
+func (mgr *Manager) CanLogin(ctx context.Context, username string) (*accounts.Account, error) {
 	account, err := mgr.accountManager.Get(ctx, username)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	if !account.Enabled {
-		return accounts.ErrAccountDisabled
+		return nil, accounts.ErrAccountDisabled
 	}
 
 	if !account.HasCapability(accounts.AccountCapabilityLogin) {
-		return errors.Join(accounts.ErrInsufficientCapabilities, errors.New("user does not have capability to login"))
+		return nil, errors.Join(accounts.ErrInsufficientCapabilities, errors.New("user does not have capability to login"))
 	}
-	return nil
+	return account, nil
 }
 
 func getPrivateKey() (*rsa.PrivateKey, error) {
@@ -197,6 +211,24 @@ func (mgr *Manager) KeyFunc() jwt.Keyfunc {
 	return func(_ *jwt.Token) (interface{}, error) {
 		return mgr.signingKey.Public(), nil
 	}
+}
+
+// BlockRaw parses rawToken and adds it to the blocklist.
+// It is equivalent to calling Block with the already-parsed token returned by
+// the JWT middleware, but can be used when the middleware has not run (e.g. on
+// unauthenticated endpoints that still want to opportunistically blocklist a
+// presented access JWT).
+func (mgr *Manager) BlockRaw(ctx context.Context, rawToken string) error {
+	token, err := jwt.ParseWithClaims(
+		rawToken,
+		jwt.MapClaims{},
+		mgr.KeyFunc(),
+		jwt.WithValidMethods([]string{jwt.SigningMethodRS256.Alg()}),
+	)
+	if err != nil {
+		return fmt.Errorf("parse token: %w", err)
+	}
+	return mgr.Block(ctx, token)
 }
 
 func (mgr *Manager) BlocklistMiddleWare(skipperFunc func() (echomiddleware.Skipper, error)) (echo.MiddlewareFunc, error) {

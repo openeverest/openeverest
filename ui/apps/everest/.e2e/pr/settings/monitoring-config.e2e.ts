@@ -14,7 +14,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { expect, test } from '@playwright/test';
+import { expect, test } from '@e2e/fixtures/auth';
 import { findRowAndClickActions, waitForDelete } from '@e2e/utils/table';
 import {
   EVEREST_CI_CLUSTER,
@@ -105,7 +105,7 @@ test.describe.serial('Monitoring Configs', () => {
       // filling out the form
       await page.getByTestId('text-input-name').fill(monitoringConfigName);
       await page.getByTestId('text-input-namespace').click();
-      await page.getByRole('option', { name: namespace }).click();
+      await page.getByRole('option', { name: namespace, exact: true }).click();
       await page.getByTestId('text-input-url').fill(MONITORING_URL!);
       await page.getByTestId('text-input-user').fill(MONITORING_USER!);
       await page.getByTestId('text-input-password').fill(MONITORING_PASSWORD!);
@@ -288,7 +288,9 @@ test.describe.serial('Monitoring Configs', () => {
 
       const selectInput = page.getByRole('combobox').first();
       await expect(selectInput).toBeVisible({ timeout: TIMEOUTS.TenSeconds });
-      await expect(selectInput).toContainText(fallbackConfigName);
+      await expect(selectInput).toContainText(fallbackConfigName, {
+        timeout: TIMEOUTS.TenSeconds,
+      });
     });
   });
 });

@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -22,12 +23,12 @@ import {
   advancedConfigurationsSchema,
 } from 'components/cluster-form/advanced-configuration/advanced-configuration-schema';
 import { Messages } from './edit-advanced-configuration.messages';
-import { dbEngineToDbType } from '@percona/utils';
 import { advancedConfigurationModalDefaultValues } from 'components/cluster-form/advanced-configuration/advanced-configuration.utils';
 import { EMPTY_LOAD_BALANCER_CONFIGURATION } from 'consts';
 import { AllowedFieldsToInitiallyLoadDefaults } from 'components/cluster-form/advanced-configuration/advanced-configuration.types';
 import { useMemo } from 'react';
 import { ProxyExposeType } from 'shared-types/dbCluster.types';
+import { DbType } from '@percona/types';
 
 export const AdvancedConfigurationEditModal = ({
   open,
@@ -90,7 +91,7 @@ export const AdvancedConfigurationEditModal = ({
       defaultValues={advancedConfigurationModalDefaultValues(dbCluster)}
     >
       <AdvancedConfigurationForm
-        dbType={dbEngineToDbType(dbCluster?.spec?.engine?.type)}
+        dbType={dbCluster?.spec?.engine?.type as unknown as DbType}
         allowedFieldsToInitiallyLoadDefaults={
           allowedFieldsToInitiallyLoadDefaults
         }

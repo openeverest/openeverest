@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,34 +21,76 @@ export type GetRestorePayload = {
       name: string;
     };
     spec: {
+      instanceName: string;
       dataSource: {
-        pitr?: object;
-        dbClusterBackupName?: string;
+        type: string;
+        backup?: {
+          backupName: string;
+          pitr?: {
+            type: string;
+            date?: string;
+          };
+        };
       };
     };
-    status: {
+    status?: {
       state: string;
-      completed?: string;
+      startedAt?: string;
+      completedAt?: string;
     };
   }>;
 };
+// TODO: Re-enable when v1 restore payload shape is needed.
+// export type GetRestorePayload = {
+//   items: Array<{
+//     metadata: {
+//       creationTimestamp: string;
+//       name: string;
+//     };
+//     spec: {
+//       dataSource: {
+//         pitr?: object;
+//         dbClusterBackupName?: string;
+//       };
+//     };
+//     status: {
+//       state: string;
+//       completed?: string;
+//     };
+//   }>;
+// };
 
 export type CreateRestorePayload = {
-  apiVersion: 'everest.percona.com/v1alpha1';
-  kind: 'DatabaseClusterRestore';
   metadata: {
     name: string;
   };
   spec: {
-    dbClusterName: string;
+    instanceName: string;
     dataSource: {
-      dbClusterBackupName?: string;
-      pitr?: {
-        date: string;
+      type: 'Backup';
+      backup: {
+        backupName: string;
       };
     };
   };
 };
+// TODO: Re-enable when v1 restore payload shape is needed.
+// export type CreateRestorePayload = {
+//   apiVersion: 'everest.percona.com/v1alpha1';
+//   kind: 'DatabaseClusterRestore';
+//   metadata: {
+//     name: string;
+//   };
+//   spec: {
+//     dbClusterName: string;
+//     dataSource: {
+//       dbClusterBackupName?: string;
+//       pitr?: {
+//         date: string;
+//       };
+//     };
+//   };
+// };
 
 export type Restore = {
   name: string;

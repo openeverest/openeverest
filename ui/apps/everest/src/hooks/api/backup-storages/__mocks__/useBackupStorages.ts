@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,16 +14,23 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { StorageType } from 'shared-types/backupStorages.types';
+import { BackupStorageCRD } from 'shared-types/backupStorages.types';
 
 const storageDataObject = {
-  id: 'backup-storage-1',
-  name: 'Backup Storage One',
-  type: StorageType.S3,
-  bucketName: 'bucket-001',
-  region: 'Us',
-  allowedNamespaces: ['the-dark-side'],
-};
+  metadata: {
+    name: 'backup-storage-1',
+    namespace: 'the-dark-side',
+  },
+  spec: {
+    type: 's3',
+    s3: {
+      bucket: 'bucket-001',
+      region: 'Us',
+      credentialsSecretName: 'secret-1',
+      endpointURL: 'http://localhost',
+    },
+  },
+} as unknown as BackupStorageCRD;
 
 // was moved as separate object to avoid recreation since the original use of useQuery caches the data
 const backupStorageMockData = {
@@ -35,8 +43,8 @@ export const useCreateBackupStorage = () => storageDataObject;
 
 export const useBackupStoragesByNamespace = (namespace: string) => {
   return {
-    data: backupStorageMockData.data.filter((item) =>
-      item.allowedNamespaces.includes(namespace)
+    data: backupStorageMockData.data.filter(
+      (item) => item.metadata?.namespace === namespace
     ),
   };
 };

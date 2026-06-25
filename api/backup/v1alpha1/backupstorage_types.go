@@ -36,7 +36,6 @@ const (
 //
 //   - Instance.spec.backup.storages[].storageRef
 //   - Backup.spec.storageName
-//   - Restore.spec.dataSource.external.storageName
 //
 // Decoupling storage from individual Backup CRs makes provider-managed
 // backups (e.g. PBM, pgBackRest) practical: the provider can register a

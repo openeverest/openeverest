@@ -16,23 +16,51 @@ import { TopologyUISchemas } from 'components/ui-generator/ui-generator.types';
 import { preprocessSchema } from 'components/ui-generator/utils/preprocess/preprocess-schema';
 import { useMemo } from 'react';
 import { useLocation } from 'react-router-dom';
+import { useDbInstance } from 'hooks/api/db-instances/useDbInstance';
+import { useProviders } from 'hooks/api/providers/useProviders';
 import { Provider } from 'shared-types/api.types';
 
 export const useSchema = (): {
   uiSchema: TopologyUISchemas;
   topologies: string[];
   hasMultipleTopologies: boolean;
+  resolvedProvider: Provider | undefined;
 } => {
   const { state } = useLocation();
-  const selectedDbProvider = state?.selectedDbProvider as Provider;
+  const selectedDbProvider = state?.selectedDbProvider as Provider | undefined;
+
+  // Restore mode: resolve provider from the source instance
+  const sourceInstanceName = state?.selectedDbCluster as string | undefined;
+  const sourceNamespace = state?.namespace as string | undefined;
+  const isRestore =
+    !!sourceInstanceName && !!sourceNamespace && !!state?.backupName;
+
+  const { data: sourceInstance } = useDbInstance(
+    sourceNamespace ?? '',
+    sourceInstanceName ?? '',
+    { enabled: isRestore && !selectedDbProvider }
+  );
+
+  const { data: providers } = useProviders({
+    enabled:
+      isRestore && !selectedDbProvider && !!sourceInstance?.spec?.provider,
+  });
+
+  const resolvedProvider = useMemo(() => {
+    if (selectedDbProvider) return selectedDbProvider;
+    if (!sourceInstance?.spec?.provider || !providers) return undefined;
+    return providers.find(
+      (p) => p.metadata?.name === sourceInstance.spec.provider
+    );
+  }, [selectedDbProvider, sourceInstance?.spec?.provider, providers]);
 
   const uiSchema = useMemo(
     () =>
       preprocessSchema(
-        selectedDbProvider?.spec?.uiSchema || {},
-        selectedDbProvider
+        resolvedProvider?.spec?.uiSchema || {},
+        resolvedProvider
       ),
-    [selectedDbProvider]
+    [resolvedProvider]
   );
 
   const topologies = useMemo(
@@ -45,5 +73,5 @@ export const useSchema = (): {
     [topologies.length]
   );
 
-  return { uiSchema, topologies, hasMultipleTopologies };
+  return { uiSchema, topologies, hasMultipleTopologies, resolvedProvider };
 };

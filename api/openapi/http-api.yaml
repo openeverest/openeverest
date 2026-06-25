@@ -20,6 +20,8 @@ tags:
     description: Everything related to providers
   - name: Instance
     description: Everything related to instances
+  - name: Preset
+    description: Everything related to presets
   - name: Backup
     description: Everything related to backups
   - name: Restore
@@ -31,6 +33,107 @@ tags:
 security:
   - BearerAuth: []
 paths:
+  '/auth/token':
+    post:
+      tags:
+        - Authentication & Authorization
+      security: []
+      summary: Issue API tokens
+      description: |
+        OAuth 2.0-style token endpoint (RFC 6749). Issues a short-lived access JWT
+        together with a rotatable refresh token.
+
+        Supported grant types:
+        - `password` — log in with username/password. The user must have the `login` capability.
+        - `refresh_token` — exchange a refresh token for a new token pair. The presented
+          refresh token is rotated (consumed and replaced).
+
+        When `refresh_token_delivery` is set to `cookie`, the refresh token is returned in an
+        `HttpOnly` cookie instead of the response body. For the `refresh_token` grant the
+        refresh token may then be omitted from the request body; it is read from the cookie.
+      operationId: createAuthToken
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthTokenResponse'
+        '400':
+          description: Unsuccessful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: Too many attempts
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      requestBody:
+        description: The token request
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AuthTokenRequest'
+  '/auth/revoke':
+    post:
+      tags:
+        - Authentication & Authorization
+      security: []
+      summary: Revoke API tokens (logout)
+      description: |
+        Revokes the supplied refresh token (or the one carried by the refresh token cookie)
+        and, if a valid access JWT is present in the Authorization header, adds it to the
+        blocklist until it expires. Inspired by RFC 7009.
+
+        This endpoint is intentionally unauthenticated: the refresh token itself is the
+        proof of session ownership. Callers with an expired (or absent) access token can
+        still log out cleanly by presenting only their refresh token.
+      operationId: revokeAuthToken
+      responses:
+        '204':
+          description: Successful operation
+        '429':
+          description: Too many attempts
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      requestBody:
+        description: The token to revoke
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AuthRevokeRequest'
+
   '/session':
     post:
       tags:
@@ -98,6 +201,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+
   '/permissions':
     get:
       tags:
@@ -335,6 +439,132 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/NamespaceList'
+  '/clusters/{cluster}/instance-presets':
+    x-everest-resource-name: instance-presets
+    get:
+      tags:
+        - Preset
+      summary: List instance presets
+      description: |
+        This API lists all instance presets in the specified cluster.
+        Optionally filter by provider.
+      operationId: listInstancePresets
+      parameters:
+        - name: cluster
+          in: path
+          required: true
+          description: The name of the cluster
+          schema:
+            type: string
+        - name: provider
+          in: query
+          required: false
+          description: Filter presets by provider name
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of instance presets
+          content:
+            application/json:
+              schema:
+                $ref: 'crds.gen.yaml#/components/schemas/InstancePresetList'
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  '/clusters/{cluster}/instance-presets/{name}':
+    x-everest-resource-name: instance-presets
+    get:
+      tags:
+        - Preset
+      summary: Get instance preset
+      description: |
+        This API gets the instance preset specified by the `name` in the specified `cluster`.
+      operationId: getInstancePreset
+      parameters:
+        - name: cluster
+          in: path
+          required: true
+          description: The name of the cluster
+          schema:
+            type: string
+        - name: name
+          in: path
+          required: true
+          description: The name of the instance preset
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Instance preset details
+          content:
+            application/json:
+              schema:
+                $ref: 'crds.gen.yaml#/components/schemas/InstancePreset'
+        '404':
+          description: Instance preset not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  '/clusters/{cluster}/instance-presets/{name}/resolve':
+    x-everest-resource-name: instance-presets
+    get:
+      tags:
+        - Preset
+      summary: Resolve instance preset with namespace defaults
+      description: |
+        This API resolves the instance preset specified by the `name` in the specified `cluster`.
+        This endpoint is useful when creating instances from presets, as it provides a
+        fully-populated preset with all namespace defaults pre-filled.
+      operationId: resolveInstancePreset
+      parameters:
+        - name: cluster
+          in: path
+          required: true
+          description: The name of the cluster
+          schema:
+            type: string
+        - name: name
+          in: path
+          required: true
+          description: The name of the instance preset
+          schema:
+            type: string
+        - name: namespace
+          in: query
+          required: true
+          description: The namespace for which to resolve default values
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Resolved instance preset with namespace defaults
+          content:
+            application/json:
+              schema:
+                $ref: 'crds.gen.yaml#/components/schemas/InstancePreset'
+        '404':
+          description: Instance preset not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
   '/clusters/{cluster}/providers':
     x-everest-resource-name: providers
     get:
@@ -1280,6 +1510,64 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+    patch:
+      tags:
+        - Backup Storage
+      summary: Patch backup storage
+      description: |
+        This API patches the backup storage specified by the `name` in the specified `namespace` and `cluster`.
+      operationId: patchBackupStorage
+      parameters:
+        - name: cluster
+          in: path
+          required: true
+          description: The name of the cluster
+          schema:
+            type: string
+        - name: namespace
+          in: path
+          required: true
+          description: The namespace of the backup storage
+          schema:
+            type: string
+        - name: name
+          in: path
+          required: true
+          description: The name of the backup storage
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: 'crds.gen.yaml#/components/schemas/BackupStorage'
+        '400':
+          description: Unsuccessful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Backup storage not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      requestBody:
+        description: The backup storage fields to be patched
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: 'crds.gen.yaml#/components/schemas/BackupStorage'
     put:
       tags:
         - Backup Storage
@@ -1653,6 +1941,70 @@ components:
               type: string
       required:
         - enabled
+    AuthTokenRequest:
+      type: object
+      description: OAuth 2.0-style token request (RFC 6749, JSON-encoded)
+      properties:
+        grant_type:
+          type: string
+          enum:
+            - password
+            - refresh_token
+        username:
+          description: The username. Required for the `password` grant.
+          type: string
+        password:
+          description: The password. Required for the `password` grant.
+          type: string
+        refresh_token:
+          description: |
+            The refresh token to exchange. Used by the `refresh_token` grant.
+            May be omitted when the refresh token is carried by the refresh token cookie.
+          type: string
+        refresh_token_delivery:
+          description: |
+            How the refresh token is returned to the client.
+            `body` returns it in the response body; `cookie` sets an HttpOnly cookie
+            and omits it from the body.
+          type: string
+          enum:
+            - body
+            - cookie
+          default: body
+      required:
+        - grant_type
+    AuthTokenResponse:
+      type: object
+      description: OAuth 2.0-style token response (RFC 6749)
+      properties:
+        access_token:
+          description: A short-lived access JWT.
+          type: string
+        token_type:
+          type: string
+          enum:
+            - Bearer
+        expires_in:
+          description: Access token lifetime in seconds.
+          type: integer
+        refresh_token:
+          description: |
+            The refresh token. Omitted when `refresh_token_delivery` is `cookie`.
+          type: string
+          x-go-type-skip-optional-pointer: true
+      required:
+        - access_token
+        - token_type
+        - expires_in
+    AuthRevokeRequest:
+      type: object
+      description: Token revocation request (RFC 7009)
+      properties:
+        token:
+          description: |
+            The refresh token to revoke. May be omitted when the refresh token is
+            carried by the refresh token cookie.
+          type: string
     UserCredentials:
       type: object
       properties:
