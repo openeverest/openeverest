@@ -43,8 +43,20 @@ jobs:
       - name: Install dependencies
         run: make init
 
+      - name: Check Snyk token
+        id: snyk-token-check
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        run: |
+          if [ -z "$SNYK_TOKEN" ]; then
+            echo "available=false" >> "$GITHUB_OUTPUT"
+            echo "SNYK_TOKEN secret is not configured; skipping scan."
+          else
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Snyk test (PRs)
-        if: github.event_name == 'pull_request'
+        if: github.event_name == 'pull_request' && steps.snyk-token-check.outputs.available == 'true'
         uses: snyk/actions/node@b98d498629f1c5e001c0701a9312bf0f636d8a00 # v0.4.0
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
@@ -53,7 +65,7 @@ jobs:
           command: test
 
       - name: Snyk monitor (main)
-        if: github.event_name == 'push'
+        if: github.event_name == 'push' && steps.snyk-token-check.outputs.available == 'true'
         uses: snyk/actions/node@b98d498629f1c5e001c0701a9312bf0f636d8a00 # v0.4.0
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
