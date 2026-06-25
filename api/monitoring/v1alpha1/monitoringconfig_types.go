@@ -111,6 +111,25 @@ type MonitoringConfigList struct {
 	Items           []MonitoringConfig `json:"items"`
 }
 
+// Default returns the most recently created MonitoringConfig with the specified annotationKey set to "true".
+// Filter by annotation. Note: Kubernetes API doesn't support annotation selectors,
+// so we must list all MonitoringConfigs and filter client-side (same limitation as StorageClass).
+// If performance becomes an issue with many configs, consider adding labels instead.
+func (l *MonitoringConfigList) Default(annotationKey string) *MonitoringConfig {
+	var mostRecent *MonitoringConfig
+	for i := range l.Items {
+		config := &l.Items[i]
+		if annotations := config.GetAnnotations(); annotations != nil {
+			if annotations[annotationKey] == "true" {
+				if mostRecent == nil || config.GetCreationTimestamp().After(mostRecent.GetCreationTimestamp().Time) {
+					mostRecent = config
+				}
+			}
+		}
+	}
+	return mostRecent
+}
+
 func init() {
 	SchemeBuilder.Register(&MonitoringConfig{}, &MonitoringConfigList{})
 }

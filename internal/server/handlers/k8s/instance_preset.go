@@ -24,7 +24,6 @@ import (
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	corev1alpha1 "github.com/openeverest/openeverest/v2/api/core/v1alpha1"
-	monitoringv1alpha1 "github.com/openeverest/openeverest/v2/api/monitoring/v1alpha1"
 )
 
 // ListInstancePresets returns list of instance presets, optionally filtered by provider.
@@ -298,23 +297,10 @@ func (h *k8sHandler) findDefaultMonitoringConfig(ctx context.Context, namespace,
 		return nil, err
 	}
 
-	// Filter by annotation. Note: Kubernetes API doesn't support annotation selectors,
-	// so we must list all MonitoringConfigs and filter client-side (same limitation as StorageClass).
-	// If performance becomes an issue with many configs, consider adding labels instead.
-	filtered := make([]monitoringv1alpha1.MonitoringConfig, 0)
-	for _, config := range configs.Items {
-		if annotations := config.GetAnnotations(); annotations != nil {
-			if annotations[annotationKey] == "true" {
-				filtered = append(filtered, config)
-			}
-		}
+	if def := configs.Default(annotationKey); def != nil {
+		return def, nil
 	}
-
-	if len(filtered) == 0 {
-		return nil, nil
-	}
-
-	return getMostRecentlyCreated(convertMonitoringConfigsToObjects(filtered)), nil
+	return nil, nil
 }
 
 // getMostRecentlyCreated returns the most recently created resource
@@ -334,14 +320,6 @@ func getMostRecentlyCreated(items []ctrlclient.Object) ctrlclient.Object {
 }
 
 func convertSecretsToObjects(items []corev1.Secret) []ctrlclient.Object {
-	result := make([]ctrlclient.Object, len(items))
-	for i := range items {
-		result[i] = &items[i]
-	}
-	return result
-}
-
-func convertMonitoringConfigsToObjects(items []monitoringv1alpha1.MonitoringConfig) []ctrlclient.Object {
 	result := make([]ctrlclient.Object, len(items))
 	for i := range items {
 		result[i] = &items[i]
