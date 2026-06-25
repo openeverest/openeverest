@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,7 +21,7 @@ import {
   TextArray,
   TextInput,
 } from '@percona/ui-lib';
-import { Messages } from './messages';
+import { getProxyConfigLabel, Messages } from './messages';
 import {
   AdvancedConfigurationFields,
   AllowedFieldsToInitiallyLoadDefaults,
@@ -64,6 +65,7 @@ import ToggableFormCard from 'components/toggable-form-card';
 interface AdvancedConfigurationFormProps {
   dbType: DbType;
   showSplitHorizonDNS: boolean;
+  showProxyConfig?: boolean;
   loadingDefaultsForEdition?: boolean;
   automaticallyTogglePodSchedulingPolicySwitch?: boolean;
   allowedFieldsToInitiallyLoadDefaults?: AllowedFieldsToInitiallyLoadDefaults[];
@@ -81,6 +83,7 @@ export const AdvancedConfigurationForm = ({
   activePolicy,
   namespace,
   showSplitHorizonDNS,
+  showProxyConfig = false,
 }: AdvancedConfigurationFormProps) => {
   const { watch, setValue, getFieldState, getValues, trigger } =
     useFormContext();
@@ -99,11 +102,13 @@ export const AdvancedConfigurationForm = ({
     policiesEnabled,
     exposureMethod,
     splitHorizonDNSEnabled,
+    proxyConfigEnabled,
   ] = watch([
     AdvancedConfigurationFields.engineParametersEnabled,
     AdvancedConfigurationFields.podSchedulingPolicyEnabled,
     AdvancedConfigurationFields.exposureMethod,
     AdvancedConfigurationFields.splitHorizonDNSEnabled,
+    AdvancedConfigurationFields.proxyConfigEnabled,
   ]);
   const { data: clusterInfo, isLoading: clusterInfoLoading } =
     useKubernetesClusterInfo(['wizard-k8-info']);
@@ -591,6 +596,32 @@ export const AdvancedConfigurationForm = ({
           />
         }
       />
+      {showProxyConfig && (
+        <FormCard
+          title={getProxyConfigLabel(dbType)}
+          description={Messages.cards.proxyConfig.description}
+          cardContent={
+            <Stack>
+              {proxyConfigEnabled && (
+                <TextInput
+                  name={AdvancedConfigurationFields.proxyConfig}
+                  textFieldProps={{
+                    placeholder: Messages.cards.proxyConfig.placeholder,
+                    multiline: true,
+                    minRows: 3,
+                  }}
+                />
+              )}
+            </Stack>
+          }
+          controlComponent={
+            <SwitchInput
+              label={Messages.enable}
+              name={AdvancedConfigurationFields.proxyConfigEnabled}
+            />
+          }
+        />
+      )}
       {policyDialogOpen && (
         <PoliciesDialog
           engineType={selectedPolicy.current!.spec.engineType}

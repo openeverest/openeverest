@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -26,6 +27,8 @@ import {
   changeDbClusterAdvancedConfig,
   shouldDbActionsBeBlocked,
 } from 'utils/db';
+import { getProxyConfigLabel } from 'components/cluster-form/advanced-configuration/messages';
+import { DbType } from '@percona/types';
 import { Link } from 'react-router-dom';
 import { useRBACPermissions } from 'hooks/rbac';
 import { EMPTY_LOAD_BALANCER_CONFIGURATION } from 'consts';
@@ -43,7 +46,11 @@ export const AdvancedConfiguration = ({
   loadBalancerConfig,
   splitHorizonDNS,
   splitHorizonDomains,
+  type,
+  proxyConfig,
+  shardingEnabled,
 }: AdvancedConfigurationOverviewCardProps) => {
+  const showProxyConfig = !(type === DbType.Mongo && !shardingEnabled);
   const {
     canUpdateDb,
     dbCluster,
@@ -84,6 +91,8 @@ export const AdvancedConfiguration = ({
     exposureMethod,
     loadBalancerConfigName,
     splitHorizonDNS,
+    proxyConfigEnabled,
+    proxyConfig: proxyConfigValue,
   }: AdvancedConfigurationFormType) => {
     setUpdating(true);
     updateCluster(
@@ -96,7 +105,9 @@ export const AdvancedConfiguration = ({
         podSchedulingPolicyEnabled,
         podSchedulingPolicy,
         loadBalancerConfigName,
-        splitHorizonDNS
+        splitHorizonDNS,
+        proxyConfigEnabled,
+        proxyConfigValue
       )
     );
   };
@@ -131,6 +142,14 @@ export const AdvancedConfiguration = ({
           parameters ? Messages.fields.enabled : Messages.fields.disabled
         }
       />
+      {showProxyConfig && (
+        <OverviewSectionRow
+          label={getProxyConfigLabel(type)}
+          content={
+            proxyConfig ? Messages.fields.enabled : Messages.fields.disabled
+          }
+        />
+      )}
       <OverviewSectionRow
         label={Messages.fields.storageClass}
         content={storageClass}
@@ -191,6 +210,7 @@ export const AdvancedConfiguration = ({
           handleSubmitModal={handleSubmit}
           dbCluster={dbCluster}
           submitting={updating}
+          showProxyConfig={showProxyConfig}
         />
       )}
       {showSplitHorizonDomainsTable && (

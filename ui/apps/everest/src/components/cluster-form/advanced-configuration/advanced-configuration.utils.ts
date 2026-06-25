@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,8 +14,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { DbType } from '@percona/types';
 import { DbCluster, ProxyExposeType } from 'shared-types/dbCluster.types';
+import { DbType } from '@percona/types';
 import { AdvancedConfigurationFields } from './advanced-configuration.types';
 import { AdvancedConfigurationFormType } from './advanced-configuration-schema';
 import { EMPTY_LOAD_BALANCER_CONFIGURATION } from 'consts';
@@ -74,6 +75,9 @@ export const advancedConfigurationModalDefaultValues = (
       !!dbCluster?.spec?.engine?.config,
     [AdvancedConfigurationFields.engineParameters]:
       dbCluster?.spec?.engine?.config,
+    [AdvancedConfigurationFields.proxyConfigEnabled]:
+      !!dbCluster?.spec?.proxy?.config,
+    [AdvancedConfigurationFields.proxyConfig]: dbCluster?.spec?.proxy?.config,
     [AdvancedConfigurationFields.sourceRanges]: sourceRangesSource
       ? sourceRangesSource.map((sourceRange) => ({ sourceRange }))
       : [{ sourceRange: '' }],

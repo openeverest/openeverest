@@ -19,18 +19,18 @@
   "devDependencies": {
     "@eslint/eslintrc": "^3.3.5",
     "@eslint/js": "^10.0.1",
-    "@types/node": "^25.6.0",
+    "@types/node": "^25.9.3",
     "@types/shelljs": "^0.10.0",
-    "eslint": "^10.3.0",
+    "eslint": "^10.5.0",
     "globals": "^17.6.0",
     "openapi-typescript": "^7.13.0"
   },
   "dependencies": {
-    "@playwright/test": "^1.59.1",
+    "@playwright/test": "^1.61.0",
     "@typescript-eslint/eslint-plugin": "^8.59.2",
-    "@typescript-eslint/parser": "^8.59.2",
+    "@typescript-eslint/parser": "^8.61.0",
     "eslint-config-prettier": "^10.1.8",
-    "eslint-plugin-playwright": "^2.10.2",
+    "eslint-plugin-playwright": "^2.10.4",
     "shelljs": "^0.10.0"
   },
   "engines": {
