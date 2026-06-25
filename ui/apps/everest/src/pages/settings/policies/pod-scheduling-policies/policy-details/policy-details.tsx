@@ -1,3 +1,17 @@
+// Copyright (C) 2026 The OpenEverest Contributors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 import { Alert, Box, Button, Skeleton, Typography } from '@mui/material';
 import ArrowBack from '@mui/icons-material/ArrowBack';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -10,11 +24,10 @@ import { useRef, useState } from 'react';
 import { AffinityFormDialog } from '../affinity/affinity-form-dialog/affinity-form-dialog';
 import {
   dbPayloadToAffinityRules,
-  humanizeDbType,
   insertAffinityRuleToExistingPolicy,
   removeRuleInExistingPolicy,
 } from 'utils/db';
-import { dbEngineToDbType } from '@percona/utils';
+import { DbType } from '@percona/types';
 import { AffinityRule } from 'shared-types/affinity.types';
 import PodSchedulingPoliciesTable from 'components/pod-scheduling-policies-table';
 import { useRBACPermissionRoute, useRBACPermissions } from 'hooks/rbac';
@@ -126,9 +139,7 @@ const PolicyDetails = () => {
       <Box display="flex" alignItems="center" gap={1} mt={3} mb={2}>
         <Typography variant="h6">
           {policyName}
-          {policy
-            ? ` / ${humanizeDbType(dbEngineToDbType(policy?.spec.engineType))}`
-            : ''}
+          {policy ? ` / ${String(policy?.spec.engineType ?? '')}` : ''}
         </Typography>
       </Box>
       <PodSchedulingPoliciesTable
@@ -150,7 +161,7 @@ const PolicyDetails = () => {
           isOpen
           submitting={updatingPolicy}
           showInUseWarning={policyInUse}
-          dbType={dbEngineToDbType(policy.spec.engineType)}
+          dbType={policy.spec.engineType as unknown as DbType}
           handleClose={() => setOpenAffinityDialog(false)}
           handleSubmit={handleFormSubmit}
           defaultValues={selectedRule.current}
