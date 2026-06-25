@@ -227,9 +227,7 @@ export const DbClusterView = () => {
         </Box>
       )}
       <Box sx={{ width: '100%' }}>
-        {!instancesLoading &&
-        !loadingNamespaces &&
-        tableData.length === 0 ? (
+        {!instancesLoading && !loadingNamespaces && tableData.length === 0 ? (
           namespaces.length > 0 ? (
             <EmptyStateDatabases />
           ) : (

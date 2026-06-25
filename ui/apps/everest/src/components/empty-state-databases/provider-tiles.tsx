@@ -13,13 +13,17 @@
 // limitations under the License.
 
 import {
+  Avatar,
   Box,
   Card,
   CardActionArea,
   CardContent,
+  Tooltip,
   Typography,
 } from '@mui/material';
+import HelpOutlineIcon from '@mui/icons-material/HelpOutlineOutlined';
 import { Link } from 'react-router-dom';
+import { useExtensionCatalog } from 'hooks/api/extension-catalog';
 import type { Provider } from 'shared-types/api.types';
 
 type ProviderTilesProps = {
@@ -31,28 +35,32 @@ const ProviderTiles = ({
   providers,
   showImport = false,
 }: ProviderTilesProps) => {
+  const { getProviderMeta } = useExtensionCatalog();
+
   return (
     <Box
       sx={{
-        display: 'grid',
+        display: 'flex',
+        flexWrap: 'wrap',
+        justifyContent: 'center',
         gap: 2,
         width: '100%',
-        maxWidth: 720,
-        gridTemplateColumns: {
-          xs: '1fr',
-          sm: 'repeat(2, 1fr)',
-          md: 'repeat(3, 1fr)',
-          lg: 'repeat(4, 1fr)',
-        },
+        maxWidth: 900,
       }}
     >
       {providers.map((provider) => {
         const name = provider?.metadata?.name ?? '';
+        const meta = getProviderMeta(name);
+        const label = meta?.displayName || name;
         return (
           <Card
             key={name}
             variant="outlined"
             sx={{
+              flex: '1 1 200px',
+              minWidth: 200,
+              maxWidth: 220,
+              display: 'flex',
               borderRadius: 2,
               transition: 'border-color 0.15s, box-shadow 0.15s',
               '&:hover': {
@@ -69,22 +77,62 @@ const ProviderTiles = ({
                 selectedDbProvider: provider,
                 showImport,
               }}
-              sx={{ height: '100%' }}
+              sx={{ height: '100%', display: 'flex' }}
             >
               <CardContent
                 sx={{
+                  flexGrow: 1,
                   display: 'flex',
-                  flexDirection: 'column',
+                  flexDirection: 'row',
                   alignItems: 'center',
-                  justifyContent: 'center',
-                  textAlign: 'center',
-                  py: 3,
-                  gap: 1,
+                  gap: 1.5,
+                  py: 2,
+                  px: 2,
                 }}
               >
-                <Typography variant="subtitle1" fontWeight={600}>
-                  {name}
+                {/* Enriched visuals only when catalog metadata is available
+                    (plugin-hub installed and reachable). Otherwise fall back to
+                    showing just the provider name. */}
+                {meta && (
+                  <Avatar
+                    src={meta.icon}
+                    variant="rounded"
+                    sx={{
+                      width: 36,
+                      height: 36,
+                      flexShrink: 0,
+                      // Only tint the avatar when falling back to a letter;
+                      // a real icon should render without a background.
+                      bgcolor: meta.icon
+                        ? 'transparent'
+                        : (theme) => theme.palette.primary.main,
+                      fontSize: '1rem',
+                      textTransform: 'uppercase',
+                    }}
+                  >
+                    {label.charAt(0)}
+                  </Avatar>
+                )}
+                <Typography
+                  variant="subtitle1"
+                  fontWeight={400}
+                  sx={{ flexGrow: 1, textAlign: 'left' }}
+                >
+                  {label}
                 </Typography>
+                {meta?.description && (
+                  <Tooltip title={meta.description} placement="top" arrow>
+                    <HelpOutlineIcon
+                      fontSize="small"
+                      sx={{ flexShrink: 0, color: 'text.secondary' }}
+                      // Prevent the tooltip icon from triggering navigation.
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                      }}
+                    />
+                  </Tooltip>
+                )}
               </CardContent>
             </CardActionArea>
           </Card>

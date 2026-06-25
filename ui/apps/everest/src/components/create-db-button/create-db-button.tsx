@@ -16,17 +16,19 @@
 
 import { useEffect, useState } from 'react';
 import {
+  Avatar,
   Box,
   Button,
-  Divider,
-  Menu,
-  MenuItem,
+  Drawer,
+  IconButton,
   Skeleton,
   Tooltip,
   Typography,
 } from '@mui/material';
+import CloseIcon from '@mui/icons-material/Close';
 import { ArrowDropDownIcon } from '@mui/x-date-pickers/icons';
 import { Link, useNavigate } from 'react-router-dom';
+import { useExtensionCatalog } from 'hooks/api/extension-catalog';
 import { useProviders } from 'hooks/api/providers';
 
 export const CreateDbButton = ({
@@ -34,7 +36,7 @@ export const CreateDbButton = ({
 }: {
   createFromImport?: boolean;
 }) => {
-  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+  const [drawerOpen, setDrawerOpen] = useState(false);
   const [showDropdownButton, setShowDropdownButton] = useState(false);
   // TODO check how it should work with Providers
   // const { canCreate } = useNamespacePermissionsForResource('database-clusters');
@@ -47,15 +49,14 @@ export const CreateDbButton = ({
   //     .flat()
   // );
 
-  const open = Boolean(anchorEl);
-
   const { data: providers = [], isLoading: providersLoading } = useProviders();
+  const { getProviderMeta } = useExtensionCatalog();
   const navigate = useNavigate();
 
   const handleClick = (event: React.MouseEvent<HTMLButtonElement>) => {
     if (providers.length > 1) {
       event.stopPropagation();
-      setAnchorEl(event.currentTarget);
+      setDrawerOpen(true);
     } else {
       navigate('/databases/new', {
         state: {
@@ -66,7 +67,7 @@ export const CreateDbButton = ({
     }
   };
   const closeMenu = () => {
-    setAnchorEl(null);
+    setDrawerOpen(false);
   };
 
   useEffect(() => {
@@ -103,13 +104,12 @@ export const CreateDbButton = ({
       variant={createFromImport ? 'text' : 'contained'}
       sx={buttonStyle}
       aria-controls={
-        open
-          ? `${createFromImport ? 'import' : 'add'}
-            -db-cluster-button-menu`
+        drawerOpen
+          ? `${createFromImport ? 'import' : 'add'}-db-cluster-button-menu`
           : undefined
       }
       aria-haspopup="true"
-      aria-expanded={open ? 'true' : undefined}
+      aria-expanded={drawerOpen ? 'true' : undefined}
       onClick={handleClick}
       endIcon={providers.length > 1 && <ArrowDropDownIcon />}
     >
@@ -131,63 +131,144 @@ export const CreateDbButton = ({
         <Skeleton variant="rounded" sx={skeletonStyle} />
       )}
       {providers.length > 1 && (
-        <Menu
+        <Drawer
           data-testid={`${
             createFromImport ? 'import' : 'add'
           }-db-cluster-button-menu`}
-          anchorEl={anchorEl}
-          open={open}
+          anchor="right"
+          open={drawerOpen}
           onClose={closeMenu}
-          MenuListProps={{
-            'aria-labelledby': 'basic-button',
-            sx: { width: anchorEl && anchorEl.offsetWidth },
+          sx={{ zIndex: (theme) => theme.zIndex.modal }}
+          PaperProps={{
+            sx: {
+              width: { xs: '100vw', sm: 420 },
+              maxWidth: '100vw',
+            },
           }}
         >
-          {
-            <Box>
-              {createFromImport && (
-                <>
-                  <MenuItem
-                    disableTouchRipple
+          <Box
+            sx={{
+              display: 'flex',
+              flexDirection: 'column',
+              height: '100%',
+            }}
+          >
+            <Box
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                px: 3,
+                py: 2,
+                borderBottom: (theme) => `1px solid ${theme.palette.divider}`,
+              }}
+            >
+              <Box>
+                <Typography variant="h6">
+                  {createFromImport ? 'Import database' : 'Create database'}
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Select a provider to continue
+                </Typography>
+              </Box>
+              <IconButton aria-label="Close" onClick={closeMenu} size="small">
+                <CloseIcon fontSize="small" />
+              </IconButton>
+            </Box>
+
+            {createFromImport && (
+              <Box
+                sx={{
+                  px: 3,
+                  py: 1.5,
+                  bgcolor: (theme) => theme.palette.action.hover,
+                  borderBottom: (theme) => `1px solid ${theme.palette.divider}`,
+                }}
+              >
+                <Typography variant="caption" color="text.secondary">
+                  {techPreviewText}
+                </Typography>
+              </Box>
+            )}
+
+            <Box
+              sx={{
+                flexGrow: 1,
+                overflowY: 'auto',
+                p: 2,
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 1,
+              }}
+            >
+              {providers.map((item) => {
+                const providerName = item?.metadata?.name ?? '';
+                const meta = getProviderMeta(providerName);
+                const label = meta?.displayName || providerName;
+                return (
+                  <Box
+                    key={providerName}
+                    data-testid={`${createFromImport ? 'import' : 'add'}-db-cluster-button-${providerName}`}
+                    component={Link}
+                    to="/databases/new"
+                    state={{
+                      selectedDbProvider: item,
+                      showImport: createFromImport,
+                    }}
+                    onClick={closeMenu}
                     sx={{
-                      pointerEvents: 'none',
-                      cursor: 'default',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 1.5,
+                      px: 2,
+                      py: 1.25,
+                      borderRadius: 1,
+                      border: (theme) => `1px solid ${theme.palette.divider}`,
+                      textDecoration: 'none',
+                      color: 'inherit',
+                      transition: 'border-color 0.15s, background-color 0.15s',
+                      '&:hover': {
+                        borderColor: (theme) => theme.palette.primary.main,
+                        backgroundColor: (theme) => theme.palette.action.hover,
+                      },
                     }}
                   >
+                    {meta && (
+                      <Avatar
+                        src={meta.icon}
+                        variant="rounded"
+                        sx={{
+                          width: 36,
+                          height: 36,
+                          flexShrink: 0,
+                          bgcolor: meta.icon
+                            ? 'transparent'
+                            : (theme) => theme.palette.primary.main,
+                          fontSize: '1rem',
+                          textTransform: 'uppercase',
+                        }}
+                      >
+                        {label.charAt(0)}
+                      </Avatar>
+                    )}
                     <Typography
-                      sx={{ fontSize: '14px !important' }}
-                      color="text.secondary"
+                      variant="body1"
+                      sx={{
+                        flexGrow: 1,
+                        minWidth: 0,
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                      }}
                     >
-                      {techPreviewText}
+                      {label}
                     </Typography>
-                  </MenuItem>
-                  <Divider />
-                </>
-              )}
-              {providers.map((item) => (
-                <MenuItem
-                  data-testid={`${createFromImport ? 'import' : 'add'}-db-cluster-button-${item.metadata?.name}`}
-                  key={item?.metadata?.name}
-                  component={Link}
-                  to="/databases/new"
-                  sx={{
-                    display: 'flex',
-                    gap: 1,
-                    alignItems: 'center',
-                    px: 2,
-                    py: '10px',
-                  }}
-                  state={{
-                    selectedDbProvider: item,
-                    showImport: createFromImport,
-                  }}
-                >
-                  {item?.metadata?.name!}
-                </MenuItem>
-              ))}
+                  </Box>
+                );
+              })}
             </Box>
-          }
-        </Menu>
+          </Box>
+        </Drawer>
       )}
     </Box>
   ) : null;

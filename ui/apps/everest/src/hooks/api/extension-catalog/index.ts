@@ -1,0 +1,1 @@
+export { useExtensionCatalog } from './useExtensionCatalog';
