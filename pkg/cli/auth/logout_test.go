@@ -16,11 +16,9 @@
 package auth
 
 import (
-	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
-	"strings"
 	"testing"
 	"time"
 
@@ -28,7 +26,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 
-	"github.com/openeverest/openeverest/v2/client"
 	"github.com/openeverest/openeverest/v2/pkg/cli/config"
 )
 
@@ -78,7 +75,7 @@ func TestLogout_Success(t *testing.T) {
 	assert.Empty(t, updated.Servers)
 }
 
-func TestLogout_ServerError(t *testing.T) {
+func TestLogout_ServerError_ClearsLocalConfig(t *testing.T) {
 	t.Parallel()
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
@@ -90,15 +87,15 @@ func TestLogout_ServerError(t *testing.T) {
 	require.NoError(t, newLogoutConfig(srv.URL).Save(cfgPath))
 
 	lo := NewLogin(Config{}, zap.NewNop().Sugar())
-	err := lo.Logout(t.Context(), cfgPath)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "500")
+	// server error must not block logout — local credentials are always cleared
+	require.NoError(t, lo.Logout(t.Context(), cfgPath))
 
-	// config must be unchanged
-	loaded, err := config.Load(cfgPath)
+	updated, err := config.Load(cfgPath)
 	require.NoError(t, err)
-	assert.Len(t, loaded.Contexts, 1)
-	assert.Len(t, loaded.Users, 1)
+	assert.Empty(t, updated.CurrentContext)
+	assert.Empty(t, updated.Contexts)
+	assert.Empty(t, updated.Users)
+	assert.Empty(t, updated.Servers)
 }
 
 func TestLogout_NoActiveContext(t *testing.T) {
@@ -118,42 +115,29 @@ func TestLogout_NoActiveContext(t *testing.T) {
 	assert.Contains(t, err.Error(), "missing")
 }
 
-func TestLogout_ExpiredToken_RefreshesBeforeRevoke(t *testing.T) {
+func TestLogout_ExpiredToken_NoBearerHeader(t *testing.T) {
 	t.Parallel()
 
-	var refreshCalled bool
+	var authHeader string
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if strings.HasSuffix(r.URL.Path, "/auth/token") {
-			refreshCalled = true
-			w.Header().Set("Content-Type", "application/json")
-			_ = json.NewEncoder(w).Encode(client.AuthTokenResponse{
-				AccessToken:  "new-access-jwt",
-				RefreshToken: "everest_rt_new",
-				ExpiresIn:    900,
-				TokenType:    client.AuthTokenResponseTokenTypeBearer,
-			})
-			return
-		}
+		authHeader = r.Header.Get("Authorization")
 		w.WriteHeader(http.StatusNoContent)
 	}))
 	defer srv.Close()
 
 	cfgPath := filepath.Join(t.TempDir(), "config.yaml")
 	cfg := newLogoutConfig(srv.URL)
-	cfg.Users[0].User.ExpiresAt = time.Now().Add(-time.Minute)
+	cfg.Users[0].User.ExpiresAt = time.Now().Add(-time.Minute) // expired
 	require.NoError(t, cfg.Save(cfgPath))
 
 	lo := NewLogin(Config{}, zap.NewNop().Sugar())
 	require.NoError(t, lo.Logout(t.Context(), cfgPath))
 
-	assert.True(t, refreshCalled, "expected refresh endpoint to be called for expired token")
+	assert.Empty(t, authHeader, "expired access token must not be sent as Bearer header")
 
 	updated, err := config.Load(cfgPath)
 	require.NoError(t, err)
-	assert.Empty(t, updated.CurrentContext)
 	assert.Empty(t, updated.Contexts)
-	assert.Empty(t, updated.Users)
-	assert.Empty(t, updated.Servers)
 }
 
 func TestLogout_MultiContext_PreservesSharedServer(t *testing.T) {
@@ -195,7 +179,7 @@ func TestLogout_MultiContext_PreservesSharedServer(t *testing.T) {
 	assert.Empty(t, updated.CurrentContext)
 	assert.Len(t, updated.Contexts, 1, "ctx-b should remain")
 	assert.Equal(t, "ctx-b", updated.Contexts[0].Name)
-	assert.Len(t, updated.Servers, 1, "shared server should not be removed")
+	assert.Len(t, updated.Servers, 1, "shared server must not be removed")
 	assert.Len(t, updated.Users, 1, "user-b should remain")
 	assert.Equal(t, userB, updated.Users[0].Name)
 }

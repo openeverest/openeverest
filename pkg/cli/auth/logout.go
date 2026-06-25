@@ -29,8 +29,13 @@ import (
 
 // Logout revokes the current session on the server and removes its context, user,
 // and (if unreferenced) server entry from the local config.
+//
+// The /auth/revoke endpoint is unauthenticated per RFC 7009: the refresh token in
+// the request body is sufficient proof of session ownership. If the access token is
+// still valid it is included opportunistically so the server can blocklist it;
+// if expired it is omitted and the server skips blocklisting (acceptable given the
+// 15-minute TTL). Local credentials are always cleared regardless of server response.
 func (lo *Login) Logout(ctx context.Context, cfgPath string) error {
-	// If the access token is expired, refresh it so the revoke endpoint accepts it.
 	cfg, err := config.Load(cfgPath)
 	if err != nil {
 		return err
@@ -44,25 +49,6 @@ func (lo *Login) Logout(ctx context.Context, cfgPath string) error {
 	usr, ok := cfg.GetUser(currentCtx.User)
 	if !ok {
 		return fmt.Errorf("user %q not found in config", currentCtx.User)
-	}
-
-	if time.Now().After(usr.ExpiresAt) {
-		if err := lo.Refresh(ctx, cfgPath); err != nil {
-			return fmt.Errorf("access token expired and refresh failed: %w", err)
-		}
-		// Reload config so we use the refreshed access token.
-		cfg, err = config.Load(cfgPath)
-		if err != nil {
-			return err
-		}
-		currentCtx, ok = cfg.GetCurrentContext()
-		if !ok {
-			return fmt.Errorf("context %q disappeared after token refresh", cfg.CurrentContext)
-		}
-		usr, ok = cfg.GetUser(currentCtx.User)
-		if !ok {
-			return fmt.Errorf("user %q disappeared after token refresh", currentCtx.User)
-		}
 	}
 
 	srv, ok := cfg.GetServer(currentCtx.Server)
@@ -79,19 +65,28 @@ func (lo *Login) Logout(ctx context.Context, cfgPath string) error {
 		return fmt.Errorf("failed to create API client: %w", err)
 	}
 
+	// Include the access token only if it is still valid so the server can
+	// blocklist it. If expired, omit it — the refresh token alone is enough.
+	var reqEditors []client.RequestEditorFn
+	if time.Now().Before(usr.ExpiresAt) {
+		reqEditors = append(reqEditors, bearerToken(usr.AccessToken))
+	}
+
 	resp, err := c.RevokeAuthToken(ctx, client.RevokeAuthTokenJSONRequestBody{
 		Token: &usr.RefreshToken,
-	}, bearerToken(usr.AccessToken))
+	}, reqEditors...)
 	if err != nil {
-		return fmt.Errorf("revoke request failed: %w", err)
+		lo.l.Warnf("revoke request failed: %v — clearing local credentials anyway", err)
+	} else {
+		defer resp.Body.Close() //nolint:errcheck
+		if resp.StatusCode != http.StatusNoContent {
+			body, _ := io.ReadAll(resp.Body)
+			lo.l.Warnf("server returned %d during logout: %s — clearing local credentials anyway",
+				resp.StatusCode, strings.TrimSpace(string(body)))
+		}
 	}
-	defer resp.Body.Close() //nolint:errcheck
 
-	if resp.StatusCode != http.StatusNoContent {
-		body, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("logout failed (%d): %s", resp.StatusCode, strings.TrimSpace(string(body)))
-	}
-
+	// Always clear local credentials regardless of server response.
 	contextName := cfg.CurrentContext
 	srvName := currentCtx.Server
 	userName := currentCtx.User
