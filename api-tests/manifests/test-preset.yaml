@@ -1,0 +1,24 @@
+# Basic instance preset for testing
+apiVersion: core.openeverest.io/v1alpha1
+kind: InstancePreset
+metadata:
+  name: test-preset
+spec:
+  provider: test-provider
+  version: "1.0.0"
+  topology:
+    type: standalone
+  components:
+    engine:
+      version: "1.0.0"
+      replicas: 1
+      resources:
+        requests:
+          cpu: "1"
+          memory: "1Gi"
+        limits:
+          cpu: "2"
+          memory: "2Gi"
+      config:
+        secretRef:
+          name: ""

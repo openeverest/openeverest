@@ -16,7 +16,6 @@
 import StorageIcon from '@mui/icons-material/Storage';
 import SettingsIcon from '@mui/icons-material/Settings';
 // import SchemaIcon from '@mui/icons-material/Schema';
-import ExtensionIcon from '@mui/icons-material/Extension';
 import { EverestRoute } from './Drawer.types';
 import { SettingsTabs } from 'pages/settings/settings.types';
 
@@ -27,11 +26,6 @@ export const ROUTES: EverestRoute[] = [
     to: '/databases',
     icon: StorageIcon,
     text: 'Databases',
-  },
-  {
-    to: '/plugins',
-    icon: ExtensionIcon,
-    text: 'Plugins',
   },
   {
     to: `settings/${SettingsTabs.storageLocations}`,
