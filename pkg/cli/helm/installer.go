@@ -331,7 +331,10 @@ func newChartFromRemoteWithCache(version, name string, repository string) (*char
 	if err != nil {
 		// The cached file may be corrupt or partial (e.g. interrupted download).
 		// Remove it and retry the download once before giving up.
-		_ = os.Remove(file)
+		if removeErr := os.Remove(file); removeErr != nil && !errors.Is(removeErr, fs.ErrNotExist) {
+			return nil, fmt.Errorf("corrupt cached chart and cache eviction failed: %w",
+				errors.Join(err, removeErr))
+		}
 		if err = downloadChartToCache(name, version, repository, cacheDir, file); err != nil {
 			return nil, err
 		}
@@ -350,8 +353,9 @@ func downloadChartToCache(name, version, repository, cacheDir, file string) erro
 	pull.DestDir = cacheDir
 	pull.RepoURL = repository
 	if _, err := pull.Run(name); err != nil {
-		// Clean up any partial file left by the failed download.
-		_ = os.Remove(file)
+		if removeErr := os.Remove(file); removeErr != nil && !errors.Is(removeErr, fs.ErrNotExist) {
+			return errors.Join(err, fmt.Errorf("failed to remove partial download: %w", removeErr))
+		}
 		return err
 	}
 	return nil
