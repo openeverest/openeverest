@@ -30,12 +30,16 @@ const (
 
 //nolint:gochecknoglobals
 var (
-	// TelemetryURL Everest telemetry endpoint. The variable is set for the release builds via ldflags
-	// to have the correct default telemetry url.
-	TelemetryURL string
-	// TelemetryInterval Everest telemetry sending frequency. The variable is set for the release builds via ldflags
-	// to have the correct default telemetry interval.
+	// TelemetryURL is the default Everest telemetry endpoint. Points at the
+	// Scarf Gateway Event Collection endpoint; can be overridden at build
+	// time via ldflags or at runtime via the TELEMETRY_URL env var.
+	TelemetryURL = "https://openeverest.gateway.scarf.sh/telemetry"
+	// TelemetryInterval is the default telemetry sending frequency. Set via
+	// ldflags for release builds.
 	TelemetryInterval string
+	// BuildChannel identifies the release channel of this binary
+	// ("dev", "rc", or "release"). Set via ldflags for rc and release builds.
+	BuildChannel = "dev"
 )
 
 // EverestConfig stores the configuration for the application.

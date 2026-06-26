@@ -23,7 +23,6 @@ import (
 	"io"
 	"math/rand"
 	"net/http"
-	"time"
 
 	"github.com/labstack/echo/v4"
 	corev1 "k8s.io/api/core/v1"
@@ -53,16 +52,6 @@ func (e *EverestServer) CreateDatabaseCluster(c echo.Context, namespace string) 
 		e.l.Errorf("CreateDatabaseCluster failed: %v", err)
 		return err
 	}
-
-	// Collect metrics immediately after a DB cluster has been created.
-	go func() {
-		ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
-		defer cancel()
-
-		if err := e.collectMetrics(ctx, *e.config); err != nil {
-			e.l.Errorf("Could not send metrics: %v", err)
-		}
-	}()
 	return c.JSON(http.StatusCreated, result)
 }
 

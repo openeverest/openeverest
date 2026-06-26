@@ -30,6 +30,7 @@ require (
 	github.com/operator-framework/api v0.44.0
 	github.com/percona/everest-operator v0.6.0-dev1.0.20260622121956-f2f942efeb9d
 	github.com/rodaine/table v1.3.1
+	github.com/scarf-sh/scarf-go v0.1.0
 	github.com/spf13/cobra v1.10.2
 	github.com/stretchr/testify v1.11.1
 	github.com/unrolled/secure v1.17.0

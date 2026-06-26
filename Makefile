@@ -128,11 +128,11 @@ build-debug: SERVER_GC_FLAGS = -gcflags=all="-N -l"
 build-debug: build-server-helper	## Build Everest API server binary with debug symbols.
 
 .PHONY: rc
-rc: SERVER_LD_FLAGS += -X 'github.com/percona/everest/cmd/config.TelemetryURL=https://check-dev.percona.com'
+rc: SERVER_LD_FLAGS += -X 'github.com/percona/everest/cmd/config.BuildChannel=rc'
 rc: build-server-helper	## Build Everest API server RC version.
 
 .PHONY: release
-release: SERVER_LD_FLAGS += -X 'github.com/percona/everest/cmd/config.TelemetryURL=https://check.percona.com'
+release: SERVER_LD_FLAGS += -X 'github.com/percona/everest/cmd/config.BuildChannel=release'
 release: build-server-helper	## Build Everest API server release version. (Use for building release only!)
 
 # Everest CLI
