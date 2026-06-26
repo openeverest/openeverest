@@ -46,8 +46,12 @@ export interface paths {
         /**
          * Revoke API tokens (logout)
          * @description Revokes the supplied refresh token (or the one carried by the refresh token cookie)
-         *     and adds the caller's current access JWT to the blocklist until it expires.
-         *     Inspired by RFC 7009.
+         *     and, if a valid access JWT is present in the Authorization header, adds it to the
+         *     blocklist until it expires. Inspired by RFC 7009.
+         *
+         *     This endpoint is intentionally unauthenticated: the refresh token itself is the
+         *     proof of session ownership. Callers with an expired (or absent) access token can
+         *     still log out cleanly by presenting only their refresh token.
          */
         post: operations["revokeAuthToken"];
         delete?: never;
