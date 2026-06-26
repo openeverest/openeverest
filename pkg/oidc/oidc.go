@@ -80,7 +80,7 @@ func NewProviderConfig(ctx context.Context, issuer string) (ProviderConfig, erro
 		return ProviderConfig{}, fmt.Errorf("failed to unmarshal json response: %w", err)
 	}
 
-	// It appears that issuerUrl provided by user is not always
+	// It appears that issuer URL provided by user is not always
 	// the same as the one fetched from the OIDC provider's .well-known/openid-configuration (Microsoft Entra case).
 	// Need to store the original issuer URL too.
 	result.OriginalIssuer = issuer

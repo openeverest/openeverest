@@ -105,7 +105,7 @@ func (e *EverestServer) securityHeaders() echo.MiddlewareFunc {
 		connectSrc = append(connectSrc, issuer)
 		connectSrc = append(connectSrc, oidcProvider.TokenURL)
 		if oidcProvider.OriginalIssuer != oidcProvider.Issuer {
-			// It appears that original issuerUrl provided by user for OIDC configuration is not always
+			// It appears that original issuer URL provided by user for OIDC configuration is not always
 			// the same as the one fetched from the OIDC provider's .well-known/openid-configuration (Microsoft Entra case).
 			// Need to add original issuer URL provided by user, otherwise there will be issues with browser login using SSO.
 			origIssuer, _ := url.JoinPath(oidcProvider.OriginalIssuer, oidc.WellKnownPath)
@@ -125,7 +125,7 @@ func (e *EverestServer) securityHeaders() echo.MiddlewareFunc {
 				// the index.html template.
 				"$NONCE",
 				// @emotion adds an extra inline style with the SHA256 hash of
-				// an empty string, so we need to explicity allow it, see:
+				// an empty string, so we need to explicitly allow it, see:
 				// https://github.com/emotion-js/emotion/issues/2996
 				"'sha256-47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU='",
 			},

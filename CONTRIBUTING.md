@@ -32,7 +32,7 @@ The best way to reach us with a question when contributing is to join our commun
 
 ## Raising Issues
 
-When raising [Issues](https://github.com/openeverest/openeverest/issues), please follow the template and fill the correponding fields. Details matter.
+When raising [Issues](https://github.com/openeverest/openeverest/issues), please follow the template and fill the corresponding fields. Details matter.
 
 If you are trying to report a vulnerability, please refer to our [Security Policy](https://github.com/openeverest/openeverest/blob/main/SECURITY.md).
 
