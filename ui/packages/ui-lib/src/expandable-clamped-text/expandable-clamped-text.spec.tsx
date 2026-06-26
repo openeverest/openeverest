@@ -172,6 +172,42 @@ it('should reset expanded state when value changes', () => {
   );
 });
 
+it('should auto-escalate long inline text to dialog by default', () => {
+  hasOverflow = true;
+  const longValue = 'a'.repeat(300);
+
+  render(
+    <ExpandableClampedText
+      value={longValue}
+      dataTestId="escalate-test"
+      expandStrategy={{ type: 'inline' }}
+    />
+  );
+
+  fireEvent.click(screen.getByTestId('escalate-test-toggle'));
+
+  expect(screen.getByText('Full text')).toBeInTheDocument();
+});
+
+it('should not auto-escalate when autoEscalateToDialog is false', () => {
+  hasOverflow = true;
+  const longValue = 'a'.repeat(300);
+
+  render(
+    <ExpandableClampedText
+      value={longValue}
+      dataTestId="no-escalate-test"
+      expandStrategy={{ type: 'inline', autoEscalateToDialog: false }}
+    />
+  );
+
+  const toggle = screen.getByTestId('no-escalate-test-toggle');
+  fireEvent.click(toggle);
+
+  expect(toggle).toHaveTextContent('Show less');
+  expect(screen.queryByText('Full text')).toBeNull();
+});
+
 it('should handle empty string without toggle', () => {
   hasOverflow = false;
 

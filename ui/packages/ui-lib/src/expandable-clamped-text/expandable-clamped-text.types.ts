@@ -21,6 +21,7 @@ export type ExpandableClampedTextExpandStrategy =
   | {
       type: 'inline';
       dialogTitle?: string;
+      autoEscalateToDialog?: boolean;
     }
   | {
       type: 'dialog';

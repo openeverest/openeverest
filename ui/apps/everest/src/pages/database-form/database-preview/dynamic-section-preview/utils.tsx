@@ -102,7 +102,11 @@ export const renderComponent = (
         <ExpandableClampedText
           value={displayValue}
           dataTestId="preview-truncated-field"
-          expandStrategy={{ type: 'inline', dialogTitle: label }}
+          expandStrategy={{
+            type: 'inline',
+            dialogTitle: label,
+            autoEscalateToDialog: true,
+          }}
           textTypographyProps={{
             variant: 'caption',
             color: 'text.secondary',

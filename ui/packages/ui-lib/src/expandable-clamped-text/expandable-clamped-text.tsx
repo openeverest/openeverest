@@ -80,8 +80,12 @@ export const ExpandableClampedText = ({
   const isScrollStrategy = strategyType === 'scroll';
 
   // When inline strategy is used but text is too long, auto-escalate to dialog
+  // (opt-out via autoEscalateToDialog: false on the inline strategy)
+  const autoEscalate =
+    strategyType === 'inline' && (expandStrategy.autoEscalateToDialog ?? true);
+
   const tooLongForInline =
-    strategyType === 'inline' &&
+    autoEscalate &&
     (value.length > INLINE_CHAR_LIMIT ||
       value.split('\n').length > INLINE_LINE_LIMIT);
 
