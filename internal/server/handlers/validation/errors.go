@@ -20,6 +20,8 @@ var (
 	errCannotShrinkStorageSize       = errors.New("cannot shrink storage size")
 	errNotEnoughMemory               = fmt.Errorf("memory limits should be above %s", minMemQuantity.String())
 	errNotEnoughCPU                  = fmt.Errorf("CPU limits should be above %s", minCPUQuantity.String())
+	errCPURequestAboveLimit          = errors.New("CPU request cannot be above the CPU limit")
+	errMemoryRequestAboveLimit       = errors.New("memory request cannot be above the memory limit")
 	errNotEnoughDiskSize             = fmt.Errorf("storage size should be above %s", minStorageQuantity.String())
 	errUnsupportedPXCProxy           = errors.New("you can use either HAProxy or Proxy SQL for PXC clusters")
 	errUnsupportedPGProxy            = errors.New("you can use only PGBouncer as a proxy type for Postgres clusters")

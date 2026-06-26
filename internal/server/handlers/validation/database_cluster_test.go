@@ -927,6 +927,121 @@ func TestValidateResourceLimits(t *testing.T) {
 			},
 			err: errNotEnoughMemory,
 		},
+		{
+			name: "explicit limits satisfy minimums",
+			cluster: everestv1alpha1.DatabaseCluster{
+				Spec: everestv1alpha1.DatabaseClusterSpec{
+					Engine: everestv1alpha1.Engine{
+						Resources: everestv1alpha1.Resources{
+							Limits: &everestv1alpha1.ResourceSpec{
+								CPU:    resource.MustParse("600m"),
+								Memory: resource.MustParse("1G"),
+							},
+							Requests: &everestv1alpha1.ResourceSpec{
+								CPU:    resource.MustParse("300m"),
+								Memory: resource.MustParse("512M"),
+							},
+						},
+						Storage: everestv1alpha1.Storage{
+							Size: resource.MustParse("2G"),
+						},
+					},
+				},
+			},
+			err: nil,
+		},
+		{
+			name: "explicit limits below minimum CPU",
+			cluster: everestv1alpha1.DatabaseCluster{
+				Spec: everestv1alpha1.DatabaseClusterSpec{
+					Engine: everestv1alpha1.Engine{
+						Resources: everestv1alpha1.Resources{
+							Limits: &everestv1alpha1.ResourceSpec{
+								CPU:    resource.MustParse("200m"),
+								Memory: resource.MustParse("1G"),
+							},
+						},
+						Storage: everestv1alpha1.Storage{
+							Size: resource.MustParse("2G"),
+						},
+					},
+				},
+			},
+			err: errNotEnoughCPU,
+		},
+		{
+			name: "engine CPU request above limit",
+			cluster: everestv1alpha1.DatabaseCluster{
+				Spec: everestv1alpha1.DatabaseClusterSpec{
+					Engine: everestv1alpha1.Engine{
+						Resources: everestv1alpha1.Resources{
+							Limits: &everestv1alpha1.ResourceSpec{
+								CPU:    resource.MustParse("600m"),
+								Memory: resource.MustParse("1G"),
+							},
+							Requests: &everestv1alpha1.ResourceSpec{
+								CPU:    resource.MustParse("800m"),
+								Memory: resource.MustParse("512M"),
+							},
+						},
+						Storage: everestv1alpha1.Storage{
+							Size: resource.MustParse("2G"),
+						},
+					},
+				},
+			},
+			err: errCPURequestAboveLimit,
+		},
+		{
+			name: "engine memory request above limit",
+			cluster: everestv1alpha1.DatabaseCluster{
+				Spec: everestv1alpha1.DatabaseClusterSpec{
+					Engine: everestv1alpha1.Engine{
+						Resources: everestv1alpha1.Resources{
+							Limits: &everestv1alpha1.ResourceSpec{
+								CPU:    resource.MustParse("600m"),
+								Memory: resource.MustParse("1G"),
+							},
+							Requests: &everestv1alpha1.ResourceSpec{
+								CPU:    resource.MustParse("300m"),
+								Memory: resource.MustParse("2G"),
+							},
+						},
+						Storage: everestv1alpha1.Storage{
+							Size: resource.MustParse("2G"),
+						},
+					},
+				},
+			},
+			err: errMemoryRequestAboveLimit,
+		},
+		{
+			name: "proxy request above limit",
+			cluster: everestv1alpha1.DatabaseCluster{
+				Spec: everestv1alpha1.DatabaseClusterSpec{
+					Engine: everestv1alpha1.Engine{
+						Resources: everestv1alpha1.Resources{
+							CPU:    resource.MustParse("600m"),
+							Memory: resource.MustParse("1G"),
+						},
+						Storage: everestv1alpha1.Storage{
+							Size: resource.MustParse("2G"),
+						},
+					},
+					Proxy: everestv1alpha1.Proxy{
+						Resources: everestv1alpha1.Resources{
+							Limits: &everestv1alpha1.ResourceSpec{
+								CPU: resource.MustParse("600m"),
+							},
+							Requests: &everestv1alpha1.ResourceSpec{
+								CPU: resource.MustParse("800m"),
+							},
+						},
+					},
+				},
+			},
+			err: errCPURequestAboveLimit,
+		},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

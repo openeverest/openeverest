@@ -522,24 +522,28 @@ func validateResourceLimits(cluster *everestv1alpha1.DatabaseCluster) error {
 	if err := validateMemory(cluster); err != nil {
 		return err
 	}
+	if err := validateRequestsNotAboveLimits(cluster); err != nil {
+		return err
+	}
 	return validateStorageSize(cluster)
 }
 
 func ensureNonEmptyResources(cluster *everestv1alpha1.DatabaseCluster) error {
-	if cluster.Spec.Engine.Resources.CPU.IsZero() && cluster.Spec.Engine.Resources.Memory.IsZero() {
+	limits := cluster.Spec.Engine.Resources.EffectiveLimits()
+	if limits.CPU.IsZero() && limits.Memory.IsZero() {
 		return errNoResourceDefined
 	}
-	if cluster.Spec.Engine.Resources.CPU.IsZero() {
+	if limits.CPU.IsZero() {
 		return errNotEnoughCPU
 	}
-	if cluster.Spec.Engine.Resources.Memory.IsZero() {
+	if limits.Memory.IsZero() {
 		return errNotEnoughMemory
 	}
 	return nil
 }
 
 func validateCPU(cluster *everestv1alpha1.DatabaseCluster) error {
-	cpu := cluster.Spec.Engine.Resources.CPU
+	cpu := cluster.Spec.Engine.Resources.EffectiveLimits().CPU
 	if cpu.Cmp(minCPUQuantity) == -1 {
 		return errNotEnoughCPU
 	}
@@ -547,9 +551,34 @@ func validateCPU(cluster *everestv1alpha1.DatabaseCluster) error {
 }
 
 func validateMemory(cluster *everestv1alpha1.DatabaseCluster) error {
-	mem := cluster.Spec.Engine.Resources.Memory
+	mem := cluster.Spec.Engine.Resources.EffectiveLimits().Memory
 	if mem.Cmp(minMemQuantity) == -1 {
 		return errNotEnoughMemory
+	}
+	return nil
+}
+
+// validateRequestsNotAboveLimits ensures that, when both requests and limits are
+// specified for the engine or proxy, the requested CPU and memory do not exceed
+// the corresponding limits.
+func validateRequestsNotAboveLimits(cluster *everestv1alpha1.DatabaseCluster) error {
+	if err := requestsNotAboveLimits(&cluster.Spec.Engine.Resources); err != nil {
+		return err
+	}
+	return requestsNotAboveLimits(&cluster.Spec.Proxy.Resources)
+}
+
+func requestsNotAboveLimits(resources *everestv1alpha1.Resources) error {
+	requests := resources.EffectiveRequests()
+	if requests == nil {
+		return nil
+	}
+	limits := resources.EffectiveLimits()
+	if !requests.CPU.IsZero() && !limits.CPU.IsZero() && requests.CPU.Cmp(limits.CPU) == 1 {
+		return errCPURequestAboveLimit
+	}
+	if !requests.Memory.IsZero() && !limits.Memory.IsZero() && requests.Memory.Cmp(limits.Memory) == 1 {
+		return errMemoryRequestAboveLimit
 	}
 	return nil
 }
