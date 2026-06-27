@@ -17,14 +17,16 @@ enum DbType {
   Postresql = "postgresql",
   Mongo = "mongodb",
   Mysql = "mysql",
+  Clickhouse = "clickhouse",
 }
 
 enum DbEngineType {
   PSMDB = "psmdb",
   PXC = "pxc",
   POSTGRESQL = "postgresql",
+  CLICKHOUSE = "clickhouse",
 }
 
-export type ProxyType = "mongos" | "haproxy" | "proxysql" | "pgbouncer";
+export type ProxyType = "mongos" | "haproxy" | "proxysql" | "pgbouncer" | "chproxy";
 
 export { DbType, DbEngineType };

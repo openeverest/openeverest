@@ -20,6 +20,8 @@ export const dbTypeToDbEngine = (dbType: DbType): DbEngineType => {
       return DbEngineType.PSMDB;
     case DbType.Mysql:
       return DbEngineType.PXC;
+    case DbType.Clickhouse:
+      return DbEngineType.CLICKHOUSE;
     default:
       return DbEngineType.POSTGRESQL;
   }
@@ -31,6 +33,8 @@ export const dbTypeToProxyType = (dbType: DbType): ProxyType => {
       return 'mongos';
     case DbType.Mysql:
       return 'haproxy';
+    case DbType.Clickhouse:
+      return 'chproxy';
     default:
       return 'pgbouncer';
   }

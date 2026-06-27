@@ -188,3 +188,23 @@ export const MongoLeafIcon = (props: SvgIconProps) => (
 );
 
 MongoLeafIcon.displayName = 'MongoLeafIcon';
+
+export const ClickHouseIcon = (props: SvgIconProps) => (
+  <SvgIcon viewBox="0 0 214 203" {...props}>
+    <rect x="30" y="120" width="50" height="50" fill="#FFCC00" />
+    <rect x="80" y="70" width="50" height="100" fill="#FF6600" />
+    <rect x="130" y="20" width="50" height="150" fill="#CC0000" />
+  </SvgIcon>
+);
+
+ClickHouseIcon.displayName = 'ClickHouseIcon';
+
+export const ClickHouseSmallIcon = (props: SvgIconProps) => (
+  <SvgIcon viewBox="0 0 21 20" {...props}>
+    <rect x="2" y="12" width="5" height="6" fill="#FFCC00" />
+    <rect x="8" y="7" width="5" height="11" fill="#FF6600" />
+    <rect x="14" y="2" width="5" height="16" fill="#CC0000" />
+  </SvgIcon>
+);
+
+ClickHouseSmallIcon.displayName = 'ClickHouseSmallIcon';

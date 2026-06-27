@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { MongoIcon, MySqlIcon, PostgreSqlIcon } from '@percona/ui-lib';
+import { ClickHouseIcon, MongoIcon, MySqlIcon, PostgreSqlIcon } from '@percona/ui-lib';
 import { DbEngineType, DbType, ProxyType } from '@percona/types';
 import {
   DbCluster,
@@ -55,6 +55,8 @@ export const dbTypeToIcon = (dbType: DbType) => {
       return MongoIcon;
     case DbType.Mysql:
       return MySqlIcon;
+    case DbType.Clickhouse:
+      return ClickHouseIcon;
     default:
       return PostgreSqlIcon;
   }
@@ -73,6 +75,10 @@ export const shortenOperatorName = (name: string) => {
     return 'psmdb';
   }
 
+  if (name.includes('clickhouse')) {
+    return 'clickhouse';
+  }
+
   return name;
 };
 
@@ -82,6 +88,8 @@ export const dbTypeToProxyType = (dbType: DbType): ProxyType => {
       return 'mongos';
     case DbType.Mysql:
       return 'haproxy';
+    case DbType.Clickhouse:
+      return 'chproxy';
     default:
       return 'pgbouncer';
   }
@@ -95,6 +103,8 @@ export const getProxyUnitNamesFromDbType = (
       return { singular: 'PG Bouncer', plural: 'PG Bouncers' };
     case DbType.Mongo:
       return { singular: 'router', plural: 'routers' };
+    case DbType.Clickhouse:
+      return { singular: 'CH Proxy', plural: 'CH Proxies' };
     case DbType.Mysql:
     default:
       return { singular: 'proxy', plural: 'proxies' };

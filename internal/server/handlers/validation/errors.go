@@ -41,6 +41,7 @@ var (
 	errUnsupportedPXCProxy           = errors.New("you can use either HAProxy or Proxy SQL for PXC clusters")
 	errUnsupportedPGProxy            = errors.New("you can use only PGBouncer as a proxy type for Postgres clusters")
 	errUnsupportedPSMDBProxy         = errors.New("you can use only Mongos as a proxy type for MongoDB clusters")
+	errUnsupportedClickHouseProxy    = errors.New("you can use only chproxy as a proxy type for ClickHouse clusters")
 	errNoNameInSchedule              = errors.New("'name' field for the backup schedules cannot be empty")
 	errScheduleNoBackupStorageName   = errors.New("'backupStorageName' field cannot be empty when schedule is enabled")
 	errPitrNoBackupStorageName       = errors.New("'backupStorageName' field cannot be empty when pitr is enabled")

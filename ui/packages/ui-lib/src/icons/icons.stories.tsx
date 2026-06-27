@@ -1,5 +1,7 @@
 import { type Meta, type StoryObj } from '@storybook/react';
 import {
+  ClickHouseIcon,
+  ClickHouseSmallIcon,
   MongoIcon,
   MongoLeafIcon,
   MySqlDolphinIcon,
@@ -58,9 +60,11 @@ const icons = {
     MySqlIcon,
     MongoIcon,
     PostgreSqlIcon,
+    ClickHouseIcon,
     MySqlDolphinIcon,
     PostgreSqlElephantIcon,
     MongoLeafIcon,
+    ClickHouseSmallIcon,
   ],
 
   everest: [

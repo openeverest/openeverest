@@ -1,4 +1,5 @@
 import {
+  ClickHouseSmallIcon,
   MongoLeafIcon,
   MySqlDolphinIcon,
   PostgreSqlElephantIcon,
@@ -19,6 +20,9 @@ export const DbTypeIconProvider = ({ dbType }: DbTypeIconProviderProps) => {
     case DbEngineType.POSTGRESQL:
     case DbType.Postresql:
       return <PostgreSqlElephantIcon />;
+    case DbEngineType.CLICKHOUSE:
+    case DbType.Clickhouse:
+      return <ClickHouseSmallIcon />;
     default:
       return null;
   }
