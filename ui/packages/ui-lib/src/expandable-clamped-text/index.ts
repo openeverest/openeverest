@@ -12,26 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { DbType, DbEngineType, ProxyType } from '@percona/types';
-
-export const dbTypeToDbEngine = (dbType: DbType): DbEngineType => {
-  switch (dbType) {
-    case DbType.Mongo:
-      return DbEngineType.PSMDB;
-    case DbType.Mysql:
-      return DbEngineType.PXC;
-    default:
-      return DbEngineType.POSTGRESQL;
-  }
-};
-
-export const dbTypeToProxyType = (dbType: DbType): ProxyType => {
-  switch (dbType) {
-    case DbType.Mongo:
-      return 'mongos';
-    case DbType.Mysql:
-      return 'haproxy';
-    default:
-      return 'pgbouncer';
-  }
-};
+export { default } from './expandable-clamped-text';
+export { ExpandableClampedText } from './expandable-clamped-text';
+export type {
+  ExpandableClampedTextExpandStrategy,
+  ExpandableClampedTextProps,
+} from './expandable-clamped-text.types';
+export {
+  DEFAULT_SCROLL_MAX_HEIGHT,
+  DEFAULT_LINE_CLAMP,
+} from './expandable-clamped-text';
