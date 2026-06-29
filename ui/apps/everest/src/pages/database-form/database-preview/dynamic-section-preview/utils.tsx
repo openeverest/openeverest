@@ -12,11 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+import { Stack, Typography } from '@mui/material';
+import { ExpandableClampedText } from '@percona/ui-lib';
 import { PreviewContentText } from '../preview-section';
 import { orderComponents } from 'components/ui-generator/utils/component-renderer';
 import {
   Component,
   ComponentGroup,
+  FieldType,
 } from 'components/ui-generator/ui-generator.types';
 import { getValueByPath } from 'components/ui-generator/ui-component/utils/get-value-by-path';
 
@@ -76,6 +79,43 @@ export const renderComponent = (
   }
 
   const uniqueKey = `${parentPrefix || ''}:${primaryPath || componentKey}`;
+
+  const isMultilineText =
+    leafComponent.uiType === FieldType.Text &&
+    !!leafComponent.fieldParams?.multiline;
+
+  if (isMultilineText && displayValue !== '-') {
+    return (
+      <Stack
+        key={uniqueKey}
+        spacing={0.25}
+        data-testid="preview-truncated-field"
+        sx={{ alignItems: 'flex-start', width: '100%' }}
+      >
+        <Typography
+          variant="caption"
+          color="text.secondary"
+          data-testid="preview-truncated-field-label"
+        >
+          {label}:
+        </Typography>
+        <ExpandableClampedText
+          value={displayValue}
+          dataTestId="preview-truncated-field"
+          expandStrategy={{
+            type: 'inline',
+            dialogTitle: label,
+            autoEscalateToDialog: true,
+          }}
+          textTypographyProps={{
+            variant: 'caption',
+            color: 'text.secondary',
+          }}
+        />
+      </Stack>
+    );
+  }
+
   return (
     <PreviewContentText key={uniqueKey} text={`${label}: ${displayValue}`} />
   );
