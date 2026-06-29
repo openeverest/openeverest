@@ -22,12 +22,6 @@ type Type string
 
 // Lifecycle event types.
 const (
-	DatabaseClusterCreated Type = "database-cluster.created"
-	DatabaseClusterReady   Type = "database-cluster.ready"
-	DatabaseClusterUpdated Type = "database-cluster.updated"
-	DatabaseClusterDeleted Type = "database-cluster.deleted"
-	DatabaseClusterFailed  Type = "database-cluster.failed"
-
 	BackupStarted   Type = "backup.started"
 	BackupCompleted Type = "backup.completed"
 	BackupFailed    Type = "backup.failed"
@@ -38,16 +32,31 @@ const (
 
 	InstanceCreated Type = "instance.created"
 	InstanceDeleted Type = "instance.deleted"
+
+	UserLogin       Type = "user.login"
+	UserLoginFailed Type = "user.login-failed"
+	UserLogout      Type = "user.logout"
+
+	PluginInstalled   Type = "plugin.installed"
+	PluginUninstalled Type = "plugin.uninstalled"
+	PluginEnabled     Type = "plugin.enabled"
+	PluginDisabled    Type = "plugin.disabled"
+
+	NamespaceAdded   Type = "namespace.added"
+	NamespaceRemoved Type = "namespace.removed"
+
+	SettingsUpdated Type = "settings.updated"
 )
 
 // AllTypes is the complete set of recognised event types.
 var AllTypes = []Type{
-	DatabaseClusterCreated, DatabaseClusterReady,
-	DatabaseClusterUpdated, DatabaseClusterDeleted,
-	DatabaseClusterFailed,
 	BackupStarted, BackupCompleted, BackupFailed,
 	RestoreStarted, RestoreCompleted, RestoreFailed,
 	InstanceCreated, InstanceDeleted,
+	UserLogin, UserLoginFailed, UserLogout,
+	PluginInstalled, PluginUninstalled, PluginEnabled, PluginDisabled,
+	NamespaceAdded, NamespaceRemoved,
+	SettingsUpdated,
 }
 
 // ResourceRef identifies the Kubernetes resource that triggered the event.
@@ -64,10 +73,13 @@ type StateSnapshot struct {
 	Phase string `json:"phase,omitempty"`
 }
 
-// Actor describes who or what triggered the event.
+// Actor describes who or what triggered the event. Both fields use
+// `omitempty` so an unattributed event simply omits the `actor` object
+// rather than emitting `{"type":"","id":""}` and looking deceptively
+// populated to audit consumers.
 type Actor struct {
-	Type string `json:"type"` // "user" or "system"
-	ID   string `json:"id"`
+	Type string `json:"type,omitempty"` // "user", "system", "plugin"
+	ID   string `json:"id,omitempty"`
 }
 
 // Event is the normalised envelope streamed to plugins.
