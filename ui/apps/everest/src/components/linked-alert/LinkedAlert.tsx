@@ -34,7 +34,7 @@ const LinkedAlert = ({
             underline="none"
             color="inherit"
             target="_blank"
-            rel="noopener"
+            rel="noopener noreferrer"
             {...linkProps}
           >
             {linkContent}

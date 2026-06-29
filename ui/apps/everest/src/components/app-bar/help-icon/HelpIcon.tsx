@@ -56,7 +56,7 @@ const AppBarHelpIcon = () => {
           underline="none"
           color="inherit"
           target="_blank"
-          rel="noopener"
+          rel="noopener noreferrer"
           href="https://openeverest.io/support/"
         >
           <MenuItem onClick={handleClose}>
@@ -67,7 +67,7 @@ const AppBarHelpIcon = () => {
           underline="none"
           color="inherit"
           target="_blank"
-          rel="noopener"
+          rel="noopener noreferrer"
           href="https://openeverest.io/docs/"
         >
           <MenuItem onClick={handleClose}>
@@ -78,7 +78,7 @@ const AppBarHelpIcon = () => {
           underline="none"
           color="inherit"
           target="_blank"
-          rel="noopener"
+          rel="noopener noreferrer"
           href="https://github.com/openeverest/openeverest/issues"
         >
           <MenuItem onClick={handleClose}>
@@ -89,7 +89,7 @@ const AppBarHelpIcon = () => {
           underline="none"
           color="inherit"
           target="_blank"
-          rel="noopener"
+          rel="noopener noreferrer"
           href="https://openeverest.io/#community"
         >
           <MenuItem onClick={handleClose}>
