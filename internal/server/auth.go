@@ -30,7 +30,6 @@ import (
 	api "github.com/openeverest/openeverest/v2/internal/server/api"
 	"github.com/openeverest/openeverest/v2/internal/tokenregistry"
 	"github.com/openeverest/openeverest/v2/pkg/accounts"
-	"github.com/openeverest/openeverest/v2/pkg/common"
 	"github.com/openeverest/openeverest/v2/pkg/events"
 )
 
@@ -196,8 +195,10 @@ func (e *EverestServer) RevokeAuthToken(ctx echo.Context) error {
 
 	// Revoke the refresh token, if one was presented.
 	// Per RFC 7009, an invalid token does not fail the revocation request.
+	var subject string
 	if presented, fromCookie := refreshTokenFromRequest(ctx, params.Token); presented != "" {
 		if rec, err := e.tokenRegistry.Validate(c, presented); err == nil {
+			subject = rec.OwnerSubject
 			if err := e.tokenRegistry.Revoke(c, rec.ID); err != nil {
 				e.l.Errorf("failed to revoke refresh token: %v", err)
 				return errFailedLogout(ctx)
@@ -219,7 +220,7 @@ func (e *EverestServer) RevokeAuthToken(ctx echo.Context) error {
 		}
 	}
 
-	e.publishAuthEvent(events.UserLogout, subjectFromJWT(token), ctx.RealIP(), "")
+	e.publishAuthEvent(events.UserLogout, subject, ctx.RealIP(), "")
 	return ctx.NoContent(http.StatusNoContent)
 }
 
