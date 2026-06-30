@@ -12,16 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { Control, UseControllerProps } from 'react-hook-form';
-import { CheckboxProps as MUICheckboxProps } from '@mui/material';
-import { type LabeledContentProps } from '../../../labeled-content';
-
-export type CheckboxProps = {
-  name: string;
-  label?: string;
-  control?: Control;
-  controllerProps?: Omit<UseControllerProps, 'name'>;
-  checkboxProps?: MUICheckboxProps;
-  labelProps?: LabeledContentProps;
-  disabled?: boolean;
+export const Messages = {
+  showMore: 'Show more',
+  showLess: 'Show less',
+  dialogTitle: 'Full text',
+  close: 'Close',
 };

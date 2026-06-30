@@ -20,10 +20,12 @@ import (
 	"time"
 
 	"go.uber.org/zap"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/watch"
 
 	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
 	corev1alpha1 "github.com/openeverest/openeverest/v2/api/core/v1alpha1"
+	extensionsv1alpha1 "github.com/openeverest/openeverest/v2/api/extensions/v1alpha1"
 	"github.com/openeverest/openeverest/v2/pkg/kubernetes"
 )
 
@@ -54,6 +56,7 @@ type Hub struct {
 	instanceCache map[string]*corev1alpha1.Instance
 	backupCache   map[string]*backupv1alpha1.Backup
 	restoreCache  map[string]*backupv1alpha1.Restore
+	ieCache       map[string]*extensionsv1alpha1.InstalledExtension
 	cacheMu       sync.RWMutex
 }
 
@@ -66,6 +69,7 @@ func NewHub(l *zap.SugaredLogger, kc kubernetes.KubernetesConnector) *Hub {
 		instanceCache: make(map[string]*corev1alpha1.Instance),
 		backupCache:   make(map[string]*backupv1alpha1.Backup),
 		restoreCache:  make(map[string]*backupv1alpha1.Restore),
+		ieCache:       make(map[string]*extensionsv1alpha1.InstalledExtension),
 	}
 }
 
@@ -152,6 +156,10 @@ func (h *Hub) Start(ctx context.Context) error {
 		{"Backups", h.watchBackups},
 		{"Restores", h.watchRestores},
 		{"Instances", h.watchInstances},
+		{"Plugins", h.watchPlugins},
+		{"InstalledExtensions", h.watchInstalledExtensions},
+		{"Namespaces", h.watchNamespaces},
+		{"EverestSettings", h.watchEverestSettings},
 	}
 
 	for _, w := range watchers {
@@ -160,6 +168,16 @@ func (h *Hub) Start(ctx context.Context) error {
 
 	<-ctx.Done()
 	return ctx.Err()
+}
+
+// Publish broadcasts an event from a non-watch source (e.g. an API handler
+// for session create/delete) into the same fan-out pipeline. Spec §10.5
+// "Direct publish".
+func (h *Hub) Publish(evt Event) {
+	if evt.OccurredAt.IsZero() {
+		evt.OccurredAt = time.Now().UTC()
+	}
+	h.broadcast(evt)
 }
 
 // watchWithRetry runs a watch function in a loop, reconnecting on close/error.
@@ -284,6 +302,115 @@ func (h *Hub) watchInstances(ctx context.Context) error {
 			events := NormalizeInstance(we)
 			for _, evt := range events {
 				h.l.Infof("broadcasting event: %s %s/%s", evt.Type, evt.Namespace, evt.Resource.Name)
+				h.broadcast(evt)
+			}
+		}
+	}
+}
+
+func (h *Hub) watchPlugins(ctx context.Context) error {
+	watcher, err := h.kc.WatchPlugins(ctx)
+	if err != nil {
+		return err
+	}
+	defer watcher.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case we, ok := <-watcher.ResultChan():
+			if !ok {
+				return nil
+			}
+			for _, evt := range NormalizePlugin(we) {
+				h.broadcast(evt)
+			}
+		}
+	}
+}
+
+func (h *Hub) watchInstalledExtensions(ctx context.Context) error {
+	watcher, err := h.kc.WatchInstalledExtensions(ctx)
+	if err != nil {
+		return err
+	}
+	defer watcher.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case we, ok := <-watcher.ResultChan():
+			if !ok {
+				return nil
+			}
+			obj, ok := we.Object.(*extensionsv1alpha1.InstalledExtension)
+			if !ok {
+				continue
+			}
+			key := cacheKey(obj.Namespace, obj.Name)
+
+			h.cacheMu.RLock()
+			old := h.ieCache[key]
+			h.cacheMu.RUnlock()
+
+			for _, evt := range NormalizeInstalledExtension(we, old) {
+				h.broadcast(evt)
+			}
+
+			h.cacheMu.Lock()
+			if we.Type == watch.Deleted {
+				delete(h.ieCache, key)
+			} else {
+				h.ieCache[key] = obj.DeepCopy()
+			}
+			h.cacheMu.Unlock()
+		}
+	}
+}
+
+func (h *Hub) watchNamespaces(ctx context.Context) error {
+	watcher, err := h.kc.WatchEverestManagedNamespaces(ctx)
+	if err != nil {
+		return err
+	}
+	defer watcher.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case we, ok := <-watcher.ResultChan():
+			if !ok {
+				return nil
+			}
+			if _, ok := we.Object.(*corev1.Namespace); !ok {
+				continue
+			}
+			for _, evt := range NormalizeNamespace(we) {
+				h.broadcast(evt)
+			}
+		}
+	}
+}
+
+func (h *Hub) watchEverestSettings(ctx context.Context) error {
+	watcher, err := h.kc.WatchEverestSettings(ctx)
+	if err != nil {
+		return err
+	}
+	defer watcher.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case we, ok := <-watcher.ResultChan():
+			if !ok {
+				return nil
+			}
+			for _, evt := range NormalizeEverestSettings(we) {
 				h.broadcast(evt)
 			}
 		}

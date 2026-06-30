@@ -22,8 +22,8 @@ import (
 	"github.com/spf13/cobra"
 
 	accountscli "github.com/openeverest/openeverest/v2/pkg/accounts/cli"
-	authcli "github.com/openeverest/openeverest/v2/pkg/cli/auth"
 	"github.com/openeverest/openeverest/v2/pkg/cli"
+	authcli "github.com/openeverest/openeverest/v2/pkg/cli/auth"
 	"github.com/openeverest/openeverest/v2/pkg/cli/config"
 	"github.com/openeverest/openeverest/v2/pkg/cli/tui"
 	"github.com/openeverest/openeverest/v2/pkg/logger"
@@ -41,8 +41,8 @@ var (
 Exchanges your username and password for an access token and refresh token,
 persisted to ~/.config/everest/config.yaml. The context is named
 username@host:port by default; use --context-name to override.`,
-		PreRun:  loginPreRun,
-		Run:     loginRun,
+		PreRun: loginPreRun,
+		Run:    loginRun,
 	}
 	loginCfg  = &authcli.Config{}
 	loginOpts = &authcli.LoginOptions{}

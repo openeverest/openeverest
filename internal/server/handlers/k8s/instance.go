@@ -41,11 +41,13 @@ func (h *k8sHandler) GetInstance(ctx context.Context, cluster, namespace, name s
 
 // CreateInstance creates an instance.
 func (h *k8sHandler) CreateInstance(ctx context.Context, cluster string, instance *corev1alpha1.Instance) (*corev1alpha1.Instance, error) {
+	stampActor(ctx, instance)
 	return h.kubeConnector.CreateInstance(ctx, instance)
 }
 
 // UpdateInstance updates an instance.
 func (h *k8sHandler) UpdateInstance(ctx context.Context, cluster string, instance *corev1alpha1.Instance) (*corev1alpha1.Instance, error) {
+	stampActor(ctx, instance)
 	return h.kubeConnector.UpdateInstance(ctx, instance)
 }
 
@@ -58,15 +60,24 @@ func (h *k8sHandler) DeleteInstance(ctx context.Context, cluster, namespace, nam
 		return err
 	}
 
+	// Stamp the deleter on the object so the watch tombstone delivered to
+	// the event normalizer carries their identity. If the deletion policy
+	// also needs updating we fold both writes into a single Update.
+	actorChanged := stampActor(ctx, instance)
+	policyChanged := false
 	if params != nil && params.DeletionPolicy != nil {
 		policy := corev1alpha1.InstanceDeletionPolicy(*params.DeletionPolicy)
 		if instance.Spec.DeletionPolicy != policy {
 			instance.Spec.DeletionPolicy = policy
-			instance, err = h.kubeConnector.UpdateInstance(ctx, instance)
-			if err != nil {
-				return err
-			}
+			policyChanged = true
 		}
+	}
+	if actorChanged || policyChanged {
+		updated, err := h.kubeConnector.UpdateInstance(ctx, instance)
+		if err != nil {
+			return err
+		}
+		instance = updated
 	}
 
 	return h.kubeConnector.DeleteInstance(ctx, instance)
