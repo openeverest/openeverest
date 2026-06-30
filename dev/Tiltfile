@@ -76,18 +76,6 @@ print('Using PXC Provider chart dir: {0}'.format(pxc_provider_chart_dir))
 pxc_provider_dir = os.path.dirname(os.path.dirname(pxc_provider_chart_dir))
 print('Using PXC Provider dir: {0}'.format(pxc_provider_dir))
 
-# Optional: Hello Plugin (installed from OCI Helm chart)
-# Set HELLO_PLUGIN_CHART to the OCI chart reference, e.g.:
-#   export HELLO_PLUGIN_CHART=oci://ghcr.io/openeverest/generic-plugin-template
-# Optionally set HELLO_PLUGIN_VERSION to pin a version (defaults to latest).
-hello_plugin_chart = os.getenv('HELLO_PLUGIN_CHART', '')
-hello_plugin_version = os.getenv('HELLO_PLUGIN_VERSION', '')
-if hello_plugin_chart:
-    print('Using Hello Plugin chart: {0} (version: {1})'.format(
-        hello_plugin_chart, hello_plugin_version or 'latest'))
-else:
-    print('HELLO_PLUGIN_CHART not set — skipping hello plugin')
-
 # Optional env vars
 pxc_operator_version = os.getenv('PXC_OPERATOR_VERSION', '1.19.0')
 print('Using PXC operator version: {0}'.format(pxc_operator_version))
@@ -946,33 +934,6 @@ k8s_resource(
     new_name='everest-controller-deploy',
     labels=["everest"]
 )
-
-#################################
-######## Hello Plugin PoC #######
-#################################
-
-if hello_plugin_chart:
-    # Install the hello plugin from an OCI Helm chart registry.
-    # Usage:
-    #   export HELLO_PLUGIN_CHART=oci://ghcr.io/openeverest/generic-plugin-template
-    #   export HELLO_PLUGIN_VERSION=0.1.0  # optional, omit for latest
-    #
-    # If your registry requires authentication, log in first:
-    #   helm registry login ghcr.io -u <user> -p <token>
-    version_flag = '--version {0}'.format(hello_plugin_version) if hello_plugin_version else ''
-    local_resource(
-      'hello-plugin-install',
-      'helm upgrade --install my-plugin {chart} {version} -n {ns} --wait'.format(
-        chart=hello_plugin_chart,
-        version=version_flag,
-        ns=EVEREST_NAMESPACE,
-      ),
-      resource_deps=[
-        'everest-namespace',
-        'crds',
-      ],
-      labels=["plugins"],
-    )
 
 #######################################
 ############ Backup Storages ##########
