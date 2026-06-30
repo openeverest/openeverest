@@ -46,10 +46,7 @@ import {
   setPitrEnabledStatus,
   submitWizard,
 } from '@e2e/utils/db-wizard';
-import {
-  checkAmountOfDbEngines,
-  selectDbEngine,
-} from '../db-wizard-utils';
+import { checkAmountOfDbEngines, selectDbEngine } from '../db-wizard-utils';
 import { findDbAndClickActions } from '@e2e/utils/db-clusters-list';
 import { waitForInitializingState } from '@e2e/utils/table';
 import { EVEREST_CI_NAMESPACES, TIMEOUTS } from '@e2e/constants';

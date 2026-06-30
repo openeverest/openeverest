@@ -38,7 +38,11 @@ export const openDbCreationForm = async (page: Page, providerName?: string) => {
 
     // If the button opened a drawer (multiple providers), pick an item.
     const drawer = page.getByTestId('add-db-cluster-button-menu');
-    if (await drawer.isVisible({ timeout: TIMEOUTS.FiveSeconds }).catch(() => false)) {
+    if (
+      await drawer
+        .isVisible({ timeout: TIMEOUTS.FiveSeconds })
+        .catch(() => false)
+    ) {
       const item = providerName
         ? drawer.getByTestId(`add-db-cluster-button-${providerName}`)
         : drawer.locator('[data-testid^="add-db-cluster-button-"]').first();
