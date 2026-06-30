@@ -62,16 +62,17 @@ npx playwright test --project=pr:visual -g "Databases list page" --workers=1
 
 ### Key flags
 
-| Flag | Purpose |
-|------|---------|
-| `--update-snapshots` | Overwrite baseline `.png` files with current state |
-| _(no flag)_ | Compare against existing baselines — fails on mismatch |
-| `--reporter=line` | Compact single-line output per test |
-| `-g "pattern"` | Run only tests matching the name pattern |
+| Flag                 | Purpose                                                |
+| -------------------- | ------------------------------------------------------ |
+| `--update-snapshots` | Overwrite baseline `.png` files with current state     |
+| _(no flag)_          | Compare against existing baselines — fails on mismatch |
+| `--reporter=line`    | Compact single-line output per test                    |
+| `-g "pattern"`       | Run only tests matching the name pattern               |
 
 ### What happens on failure
 
 When comparison mode detects a mismatch, Playwright writes three files into `test-results/`:
+
 - `*-expected.png` — the baseline
 - `*-actual.png` — what was rendered
 - `*-diff.png` — highlighted pixel differences
