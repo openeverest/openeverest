@@ -13,7 +13,7 @@
 // limitations under the License.
 
 import { useQuery } from '@tanstack/react-query';
-import { getExtensionCatalogFn } from 'api/extension-catalog';
+import { getExtensionCatalogFn, PLUGIN_HUB_NAME } from 'api/extension-catalog';
 import {
   ExtensionCatalogEntry,
   ExtensionIndex,
@@ -30,13 +30,32 @@ const resolveVersion = (entry: ExtensionCatalogEntry): string | undefined => {
   return channelName ? chart.channels[channelName]?.version : undefined;
 };
 
+// The plugin-hub backend rewrites cross-origin icon URLs to a path relative to
+// its own mount (e.g. `api/icon/<sha256>`) to avoid CSP failures. Prepend the
+// plugin's mount prefix so the resulting URL works as an `<img src>`.
+const resolveIconSrc = (rawIcon?: string): string | undefined => {
+  if (!rawIcon) {
+    return undefined;
+  }
+  if (
+    rawIcon.startsWith('http://') ||
+    rawIcon.startsWith('https://') ||
+    rawIcon.startsWith('data:') ||
+    rawIcon.startsWith('/v1/plugins/')
+  ) {
+    return rawIcon;
+  }
+  const stripped = rawIcon.startsWith('/') ? rawIcon.slice(1) : rawIcon;
+  return `/v1/plugins/${PLUGIN_HUB_NAME}/${stripped}`;
+};
+
 const toResolvedMeta = (
   entry: ExtensionCatalogEntry
 ): ResolvedExtensionMeta => ({
   name: entry.name,
   displayName: entry.displayName || entry.name,
   description: entry.description,
-  icon: entry.icon || undefined,
+  icon: resolveIconSrc(entry.icon),
   version: resolveVersion(entry),
   categories: entry.categories,
   maturity: entry.maturity,
