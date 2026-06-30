@@ -30,6 +30,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/openeverest/openeverest/v2/client"
+	"github.com/openeverest/openeverest/v2/pkg/cli"
 	"github.com/openeverest/openeverest/v2/pkg/cli/config"
 )
 
@@ -431,17 +432,17 @@ func TestBuildSpecOverrides_SetOnly(t *testing.T) {
 
 func TestValidateServerURL(t *testing.T) {
 	t.Parallel()
-	assert.NoError(t, validateServerURL("http://localhost:8080"))
-	assert.NoError(t, validateServerURL("https://prod.example.com"))
-	assert.Error(t, validateServerURL("localhost:8080"))
-	assert.Error(t, validateServerURL("ftp://bad.example.com"))
+	assert.NoError(t, cli.ValidateServerURL("http://localhost:8080"))
+	assert.NoError(t, cli.ValidateServerURL("https://prod.example.com"))
+	assert.Error(t, cli.ValidateServerURL("localhost:8080"))
+	assert.Error(t, cli.ValidateServerURL("ftp://bad.example.com"))
 }
 
 func TestNormalizeServerURL(t *testing.T) {
 	t.Parallel()
-	assert.Equal(t, "http://localhost:8080/v1", normalizeServerURL("http://localhost:8080"))
-	assert.Equal(t, "http://localhost:8080/v1", normalizeServerURL("http://localhost:8080/"))
-	assert.Equal(t, "http://localhost:8080/v1", normalizeServerURL("http://localhost:8080/v1"))
+	assert.Equal(t, "http://localhost:8080/v1", cli.NormalizeServerURL("http://localhost:8080"))
+	assert.Equal(t, "http://localhost:8080/v1", cli.NormalizeServerURL("http://localhost:8080/"))
+	assert.Equal(t, "http://localhost:8080/v1", cli.NormalizeServerURL("http://localhost:8080/v1"))
 }
 
 // ---- Run integration tests --------------------------------------------------

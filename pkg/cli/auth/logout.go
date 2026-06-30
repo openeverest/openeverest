@@ -24,7 +24,7 @@ import (
 	"time"
 
 	"github.com/openeverest/openeverest/v2/client"
-	"github.com/openeverest/openeverest/v2/pkg/cli/config"
+	"github.com/openeverest/openeverest/v2/pkg/cli"
 )
 
 // Logout revokes the current session on the server and removes its context, user,
@@ -36,31 +36,17 @@ import (
 // if expired it is omitted and the server skips blocklisting (acceptable given the
 // 15-minute TTL). Local credentials are always cleared regardless of server response.
 func (lo *Login) Logout(ctx context.Context, cfgPath string) error {
-	cfg, err := config.Load(cfgPath)
+	sess, err := cli.LoadSession(cfgPath, "")
 	if err != nil {
 		return err
 	}
 
-	currentCtx, ok := cfg.GetCurrentContext()
-	if !ok {
-		return fmt.Errorf("no active context %q found in config", cfg.CurrentContext)
-	}
+	cfg := sess.Cfg
+	currentCtx := sess.Ctx
+	usr := sess.User
+	srv := sess.Server
 
-	usr, ok := cfg.GetUser(currentCtx.User)
-	if !ok {
-		return fmt.Errorf("user %q not found in config", currentCtx.User)
-	}
-
-	srv, ok := cfg.GetServer(currentCtx.Server)
-	if !ok {
-		return fmt.Errorf("server %q not found in config", currentCtx.Server)
-	}
-
-	if err := validateServerURL(srv.URL); err != nil {
-		return fmt.Errorf("invalid server URL in config: %w", err)
-	}
-
-	c, err := client.NewClient(normalizeServerURL(srv.URL))
+	c, err := client.NewClient(cli.NormalizeServerURL(srv.URL))
 	if err != nil {
 		return fmt.Errorf("failed to create API client: %w", err)
 	}
@@ -69,7 +55,7 @@ func (lo *Login) Logout(ctx context.Context, cfgPath string) error {
 	// blocklist it. If expired, omit it — the refresh token alone is enough.
 	var reqEditors []client.RequestEditorFn
 	if time.Now().Before(usr.ExpiresAt) {
-		reqEditors = append(reqEditors, bearerToken(usr.AccessToken))
+		reqEditors = append(reqEditors, cli.BearerToken(usr.AccessToken))
 	}
 
 	resp, err := c.RevokeAuthToken(ctx, client.RevokeAuthTokenJSONRequestBody{
@@ -104,10 +90,3 @@ func (lo *Login) Logout(ctx context.Context, cfgPath string) error {
 	return cfg.Save(cfgPath)
 }
 
-// bearerToken returns a request editor that sets the Authorization header.
-func bearerToken(token string) client.RequestEditorFn {
-	return func(_ context.Context, req *http.Request) error {
-		req.Header.Set("Authorization", "Bearer "+token)
-		return nil
-	}
-}

@@ -32,8 +32,8 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"github.com/openeverest/openeverest/v2/client"
+	"github.com/openeverest/openeverest/v2/pkg/cli"
 	authcli "github.com/openeverest/openeverest/v2/pkg/cli/auth"
-	"github.com/openeverest/openeverest/v2/pkg/cli/config"
 	"github.com/openeverest/openeverest/v2/pkg/output"
 )
 
@@ -66,63 +66,30 @@ func NewInstanceCreator(cfg Config, l *zap.SugaredLogger) *InstanceCreator {
 	return ic
 }
 
-func (ic *InstanceCreator) resolveContext(cfg *config.Config, name string) (config.Context, bool) {
-	if name != "" {
-		return cfg.GetContext(name)
-	}
-	return cfg.GetCurrentContext()
-}
-
 func (ic *InstanceCreator) Run(ctx context.Context, opts CreateOptions, cfgPath string) error {
-	cfg, err := config.Load(cfgPath)
+	sess, err := cli.LoadSession(cfgPath, opts.Context)
 	if err != nil {
 		return err
 	}
 
-	currentCtx, ok := ic.resolveContext(cfg, opts.Context)
-	if !ok {
-		if opts.Context != "" {
-			return fmt.Errorf("context %q not found in config", opts.Context)
-		}
-		return fmt.Errorf("no active context found in config — run 'everestctl auth login' first")
-	}
-
-	usr, ok := cfg.GetUser(currentCtx.User)
-	if !ok {
-		return fmt.Errorf("user %q not found in config", currentCtx.User)
-	}
-
-	srv, ok := cfg.GetServer(currentCtx.Server)
-	if !ok {
-		return fmt.Errorf("server %q not found in config", currentCtx.Server)
-	}
-
-	if err := validateServerURL(srv.URL); err != nil {
-		return fmt.Errorf("invalid server URL in config: %w", err)
-	}
-
 	// Refresh proactively within 30s of expiry to avoid a mid-flight 401.
-	if time.Now().After(usr.ExpiresAt.Add(-30 * time.Second)) {
+	if time.Now().After(sess.User.ExpiresAt.Add(-30 * time.Second)) {
 		lo := authcli.NewLogin(authcli.Config{Pretty: ic.config.Pretty}, ic.l.Desugar().Sugar())
 		if err := lo.Refresh(ctx, cfgPath); err != nil {
 			return fmt.Errorf("access token expired and refresh failed: %w", err)
 		}
-		cfg, err = config.Load(cfgPath)
+		sess, err = cli.LoadSession(cfgPath, opts.Context)
 		if err != nil {
 			return err
 		}
-		usr, ok = cfg.GetUser(currentCtx.User)
-		if !ok {
-			return fmt.Errorf("user %q not found in config after refresh", currentCtx.User)
-		}
 	}
 
-	c, err := client.NewClientWithResponses(normalizeServerURL(srv.URL))
+	c, err := client.NewClientWithResponses(cli.NormalizeServerURL(sess.Server.URL))
 	if err != nil {
 		return fmt.Errorf("failed to create API client: %w", err)
 	}
 
-	token := bearerToken(usr.AccessToken)
+	token := cli.BearerToken(sess.User.AccessToken)
 
 	provResp, err := c.GetProviderWithResponse(ctx, opts.Cluster, opts.Provider, token)
 	if err != nil {
@@ -468,24 +435,3 @@ func buildPayload(name, provider, version, topology string, specOverrides map[st
 	}
 }
 
-func validateServerURL(server string) error {
-	if !strings.HasPrefix(server, "http://") && !strings.HasPrefix(server, "https://") {
-		return fmt.Errorf("server URL must start with http:// or https://")
-	}
-	return nil
-}
-
-func normalizeServerURL(server string) string {
-	server = strings.TrimRight(server, "/")
-	if !strings.HasSuffix(server, "/v1") {
-		server += "/v1"
-	}
-	return server
-}
-
-func bearerToken(token string) client.RequestEditorFn {
-	return func(_ context.Context, req *http.Request) error {
-		req.Header.Set("Authorization", "Bearer "+token)
-		return nil
-	}
-}
