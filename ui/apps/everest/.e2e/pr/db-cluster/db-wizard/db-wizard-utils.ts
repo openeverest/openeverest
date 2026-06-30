@@ -207,46 +207,100 @@ export const openCreateScheduleDialogFromDBWizard = async (page: Page) => {
   ).toBeVisible();
 };
 
-export const clickAddDbClusterBtn = async (page: Page) => {
-  await page.getByTestId('add-db-cluster-button').waitFor();
-  await page.getByTestId('add-db-cluster-button').click();
+// Drives the "open creation flow" entry point on the /databases page. Handles
+// both UI states:
+//   - Populated list: clicks the toolbar `add-db-cluster-button`. If `dbType`
+//     is provided AND the button opens a drawer (multiple providers), clicks
+//     the matching drawer item.
+//   - Empty list: clicks the `provider-tile-<dbType>` tile directly (or the
+//     first tile if `dbType` is omitted).
+export const clickAddDbClusterBtn = async (page: Page, dbType?: string) => {
+  const toolbarBtn = page.getByTestId('add-db-cluster-button');
+  const tileFallback = dbType
+    ? page.getByTestId(`provider-tile-${dbType}`)
+    : page.locator('[data-testid^="provider-tile-"]').first();
+
+  await expect(toolbarBtn.or(tileFallback).first()).toBeVisible({
+    timeout: TIMEOUTS.ThirtySeconds,
+  });
+
+  if (await toolbarBtn.isVisible().catch(() => false)) {
+    await toolbarBtn.click();
+    if (dbType) {
+      const drawer = page.getByTestId('add-db-cluster-button-menu');
+      if (
+        await drawer
+          .isVisible({ timeout: TIMEOUTS.FiveSeconds })
+          .catch(() => false)
+      ) {
+        await page.getByTestId(`add-db-cluster-button-${dbType}`).click();
+      }
+    }
+    return;
+  }
+
+  await tileFallback.click();
 };
 
 export const checkAmountOfDbEngines = async (page: Page): Promise<Locator> => {
-  await clickAddDbClusterBtn(page);
-  await page
-    .getByTestId('add-db-cluster-button-menu')
-    .getByRole('menuitem')
-    .first()
-    .waitFor();
-  const dbEnginesButtons = page
-    .getByTestId('add-db-cluster-button-menu')
-    .getByRole('menuitem');
-  expect(await dbEnginesButtons.count()).toBe(3);
-  return dbEnginesButtons;
+  const toolbarBtn = page.getByTestId('add-db-cluster-button');
+  const tiles = page.locator('[data-testid^="provider-tile-"]');
+
+  await expect(toolbarBtn.or(tiles.first()).first()).toBeVisible({
+    timeout: TIMEOUTS.ThirtySeconds,
+  });
+
+  if (await toolbarBtn.isVisible().catch(() => false)) {
+    await clickAddDbClusterBtn(page);
+    await page
+      .getByTestId('add-db-cluster-button-menu')
+      .getByRole('menuitem')
+      .first()
+      .waitFor();
+    const dbEnginesButtons = page
+      .getByTestId('add-db-cluster-button-menu')
+      .getByRole('menuitem');
+    expect(await dbEnginesButtons.count()).toBe(3);
+    return dbEnginesButtons;
+  }
+
+  // Empty state — tiles are rendered directly.
+  expect(await tiles.count()).toBe(3);
+  return tiles;
 };
 
 export const selectDbEngine = async (
   page: Page,
   dbType: 'pxc' | 'psmdb' | 'postgresql'
 ) => {
-  await clickAddDbClusterBtn(page);
-  await page
-    .getByTestId('add-db-cluster-button-menu')
-    .getByRole('menuitem')
-    .first()
-    .waitFor();
-  expect(
-    await page.getByTestId('add-db-cluster-button-psmdb').textContent()
-  ).toBe('MongoDB');
-  expect(
-    await page.getByTestId('add-db-cluster-button-pxc').textContent()
-  ).toBe('MySQL');
-  expect(
-    await page.getByTestId('add-db-cluster-button-postgresql').textContent()
-  ).toBe('PostgreSQL');
+  const toolbarBtn = page.getByTestId('add-db-cluster-button');
+  const tileFallback = page.getByTestId(`provider-tile-${dbType}`);
 
-  await page.getByTestId(`add-db-cluster-button-${dbType}`).click();
+  await expect(toolbarBtn.or(tileFallback).first()).toBeVisible({
+    timeout: TIMEOUTS.ThirtySeconds,
+  });
+
+  if (await toolbarBtn.isVisible().catch(() => false)) {
+    await clickAddDbClusterBtn(page);
+    await page
+      .getByTestId('add-db-cluster-button-menu')
+      .getByRole('menuitem')
+      .first()
+      .waitFor();
+    expect(
+      await page.getByTestId('add-db-cluster-button-psmdb').textContent()
+    ).toBe('MongoDB');
+    expect(
+      await page.getByTestId('add-db-cluster-button-pxc').textContent()
+    ).toBe('MySQL');
+    expect(
+      await page.getByTestId('add-db-cluster-button-postgresql').textContent()
+    ).toBe('PostgreSQL');
+
+    await page.getByTestId(`add-db-cluster-button-${dbType}`).click();
+  } else {
+    await tileFallback.click();
+  }
 
   await page.waitForURL('/databases/new');
   await page.waitForLoadState('load', { timeout: TIMEOUTS.ThirtySeconds });

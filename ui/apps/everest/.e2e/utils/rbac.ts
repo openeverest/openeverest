@@ -1,6 +1,7 @@
 import { Page } from '@playwright/test';
 import {
   moveForward,
+  openDbCreationForm,
   populateAdvancedConfig,
   populateBasicInformation,
   submitWizard,
@@ -24,9 +25,7 @@ export const createDbWithParameters = async ({
   addBackupSchedule?: boolean;
   addMonitoring?: boolean;
 }) => {
-  await page.getByTestId('add-db-cluster-button').waitFor();
-  await page.getByTestId('add-db-cluster-button').click();
-  await page.getByTestId(`add-db-cluster-button-${dbType}`).click();
+  await openDbCreationForm(page, dbType);
 
   // Basic information Step
   await populateBasicInformation(

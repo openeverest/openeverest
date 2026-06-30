@@ -15,20 +15,37 @@
 import { expect, Page } from '@playwright/test';
 import { TIMEOUTS } from '@e2e/constants';
 
+// Opens the DB creation form from the /databases page. Works for both UI
+// states:
+//   - Populated list: the toolbar `add-db-cluster-button` is rendered. When
+//     multiple providers exist, it opens a drawer with `add-db-cluster-button-<provider>`
+//     items; with a single provider it navigates straight to /databases/new.
+//   - Empty list: the empty state renders `provider-tile-<provider>` tiles
+//     directly (no toolbar button).
 export const openDbCreationForm = async (page: Page, providerName?: string) => {
-  const btn = page.getByTestId('add-db-cluster-button');
-  await btn.click();
+  const toolbarBtn = page.getByTestId('add-db-cluster-button');
+  const tileFallback = providerName
+    ? page.getByTestId(`provider-tile-${providerName}`)
+    : page.locator('[data-testid^="provider-tile-"]').first();
 
-  // If the button opened a menu (multiple providers), pick an item
-  const menu = page.getByTestId('add-db-cluster-button-menu');
-  const menuVisible = await menu.isVisible().catch(() => false);
+  // Wait for either entry point to become available.
+  await expect(toolbarBtn.or(tileFallback).first()).toBeVisible({
+    timeout: TIMEOUTS.ThirtySeconds,
+  });
 
-  if (menuVisible) {
-    if (providerName) {
-      await menu.getByRole('menuitem', { name: providerName }).click();
-    } else {
-      await menu.getByRole('menuitem').first().click();
+  if (await toolbarBtn.isVisible().catch(() => false)) {
+    await toolbarBtn.click();
+
+    // If the button opened a drawer (multiple providers), pick an item.
+    const drawer = page.getByTestId('add-db-cluster-button-menu');
+    if (await drawer.isVisible({ timeout: TIMEOUTS.FiveSeconds }).catch(() => false)) {
+      const item = providerName
+        ? drawer.getByTestId(`add-db-cluster-button-${providerName}`)
+        : drawer.locator('[data-testid^="add-db-cluster-button-"]').first();
+      await item.click();
     }
+  } else {
+    await tileFallback.click();
   }
 
   await page.waitForURL('/databases/new', { timeout: TIMEOUTS.ThirtySeconds });

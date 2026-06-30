@@ -30,8 +30,13 @@ test.describe.parallel('No match (404) page', () => {
     await page.goto('/databases');
     await getResp;
 
+    // The databases page renders either the toolbar `add-db-cluster-button`
+    // (when the list has rows) or the empty-state provider tiles.
     const button = page.getByTestId('add-db-cluster-button');
-    await expect(button).toBeVisible({ timeout: TIMEOUTS.ThirtySeconds });
+    const tiles = page.locator('[data-testid^="provider-tile-"]').first();
+    await expect(button.or(tiles).first()).toBeVisible({
+      timeout: TIMEOUTS.ThirtySeconds,
+    });
   });
 
   test('non existing url should render no match page', async ({ page }) => {

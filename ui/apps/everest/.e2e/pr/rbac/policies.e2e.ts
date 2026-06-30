@@ -14,6 +14,7 @@ import {
   populateBasicInformation,
   submitWizard,
 } from '@e2e/utils/db-wizard';
+import { clickAddDbClusterBtn } from '@e2e/pr/db-cluster/db-wizard/db-wizard-utils';
 import { deleteDbCluster } from '@e2e/utils/db-clusters-list';
 import { waitForDelete, waitForStatus } from '@e2e/utils/table';
 import { CI_USER_STORAGE_STATE_FILE } from '@e2e/constants';
@@ -167,9 +168,7 @@ test.describe('Pod scheduling policies RBAC', () => {
       ['database-clusters', '*', '*/*'],
     ]);
     await page.goto('/databases');
-    await page.getByTestId('add-db-cluster-button').waitFor();
-    await page.getByTestId('add-db-cluster-button').click();
-    await page.getByTestId('add-db-cluster-button-pxc').click();
+    await clickAddDbClusterBtn(page, 'pxc');
     await populateBasicInformation(
       page,
       namespace,

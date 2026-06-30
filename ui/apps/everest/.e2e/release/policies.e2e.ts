@@ -24,6 +24,7 @@ import {
   populateResources,
   populateAdvancedConfig,
 } from '@e2e/utils/db-wizard';
+import { clickAddDbClusterBtn } from '@e2e/pr/db-cluster/db-wizard/db-wizard-utils';
 import { EVEREST_CI_NAMESPACES } from '@e2e/constants';
 import {
   waitForStatus,
@@ -87,9 +88,7 @@ test.describe.configure({ retries: 0 });
         expect(storageClasses.length).toBeGreaterThan(0);
 
         await page.goto('/databases');
-        await page.getByTestId('add-db-cluster-button').waitFor();
-        await page.getByTestId('add-db-cluster-button').click();
-        await page.getByTestId(`add-db-cluster-button-${db}`).click();
+        await clickAddDbClusterBtn(page, db);
 
         await test.step('Populate basic information', async () => {
           await populateBasicInformation(
@@ -227,9 +226,7 @@ test.describe.configure({ retries: 0 });
           expect(storageClasses.length).toBeGreaterThan(0);
 
           await page.goto('/databases');
-          await page.getByTestId('add-db-cluster-button').waitFor();
-          await page.getByTestId('add-db-cluster-button').click();
-          await page.getByTestId(`add-db-cluster-button-${db}`).click();
+          await clickAddDbClusterBtn(page, db);
 
           await test.step('Populate basic information', async () => {
             await populateBasicInformation(
@@ -388,9 +385,7 @@ test.describe(
 
       await test.step('Create MySQL cluster with policy', async () => {
         await page.goto('/databases');
-        await page.getByTestId('add-db-cluster-button').waitFor();
-        await page.getByTestId('add-db-cluster-button').click();
-        await page.getByTestId('add-db-cluster-button-pxc').click();
+        await clickAddDbClusterBtn(page, 'pxc');
         await populateBasicInformation(
           page,
           EVEREST_CI_NAMESPACES.EVEREST_UI,
@@ -435,9 +430,7 @@ test.describe(
 
       await test.step('Create MySQL cluster with no policy', async () => {
         await page.goto('/databases');
-        await page.getByTestId('add-db-cluster-button').waitFor();
-        await page.getByTestId('add-db-cluster-button').click();
-        await page.getByTestId('add-db-cluster-button-pxc').click();
+        await clickAddDbClusterBtn(page, 'pxc');
         await populateBasicInformation(
           page,
           EVEREST_CI_NAMESPACES.EVEREST_UI,
