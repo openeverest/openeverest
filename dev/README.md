@@ -39,9 +39,10 @@ NOTE: for MacOS tilt needs to have installed and runing `docker-desktop` tool. T
 
 9. Clone [helm-charts](https://github.com/openeverest/helm-charts).
 
-10. Clone [provider-percona-server-mongodb](https://github.com/openeverest/provider-percona-server-mongodb).
-
-11. Clone [provider-percona-xtradb-cluster](https://github.com/openeverest/provider-percona-xtradb-cluster).
+> **NOTE**: This Tiltfile is focused on OpenEverest **core** development (the
+> API server, controller, CRDs and UI). Database providers (PSMDB, PXC, ...) are
+> developed in their own repositories, each with its own `dev/Tiltfile`. See
+> [Developing providers](#developing-providers) below.
 
 ## Set up the environment
 
@@ -89,8 +90,6 @@ Copy file dev/.env.example to dev/.env and set the following environment variabl
 ```sh
 EVEREST_OPERATOR_DIR=<path to github.com/percona/everest-operator repository directory>
 EVEREST_CHART_DIR=<path to github.com/openeverest/helm-charts>/charts/everest
-PSMDB_PROVIDER_CHART_DIR=<path to github.com/openeverest/provider-percona-server-mongodb repository directory>/charts/provider-percona-server-mongodb
-PXC_PROVIDER_CHART_DIR=<path to github.com/openeverest/provider-percona-xtradb-cluster repository directory>/charts/provider-percona-xtradb-cluster
 ```
 
 or set environment variables manually in the terminal:
@@ -98,12 +97,10 @@ or set environment variables manually in the terminal:
 ```sh
 export EVEREST_OPERATOR_DIR=<path to github.com/percona/everest-operator repository directory>
 export EVEREST_CHART_DIR=<path to github.com/openeverest/helm-charts>/charts/everest
-export PSMDB_PROVIDER_CHART_DIR=<path to github.com/openeverest/provider-percona-server-mongodb repository directory>/charts/provider-percona-server-mongodb
-export PXC_PROVIDER_CHART_DIR=<path to github.com/openeverest/provider-percona-xtradb-cluster repository directory>/charts/provider-percona-xtradb-cluster
 ```
 
 For OpenEverest v2 development use `v2` branch of `EVEREST_CHART_DIR`.
-If your Tilt environment starts with errors, ensure you have the latest pull of `main` branch for `PSMDB_PROVIDER_CHART_DIR` and `PXC_PROVIDER_CHART_DIR`, and latest `v2` branch for `EVEREST_CHART_DIR`.
+If your Tilt environment starts with errors, ensure you have the latest `v2` branch for `EVEREST_CHART_DIR`.
 
 2. Set namespaces for the Everest components:
 
@@ -123,14 +120,7 @@ helm registry login ghcr.io -u <github-user> -p <token>
 ```
 If `HELLO_PLUGIN_CHART` is not set, Tilt skips the plugin step entirely.
 
-4. (Optional) If you want to test a specific version of a given DB operator you can set the following environment variables in .env file or in the terminal:
-```sh
-export PXC_OPERATOR_VERSION=1.19.0
-export PSMDB_OPERATOR_VERSION=1.22.0
-export PG_OPERATOR_VERSION=2.8.2
-```
-
-5. (Optional) If you want to debug Everest Server and/or Everest operator remotely, you can set the following environment variables in .env file or in the terminal: 
+4. (Optional) If you want to debug Everest Server and/or Everest operator remotely, you can set the following environment variables in .env file or in the terminal: 
 ```sh
 export EVEREST_DEBUG=true
 export EVEREST_OPERATOR_DEBUG=true
@@ -145,7 +135,7 @@ Refer to instructions in your IDE on how to setup remote debugging.
 
 For GoLand, you can refer to [this](https://www.jetbrains.com/help/go/attach-to-running-go-processes-with-debugger.html#step-2-create-the-go-remote-run-debug-configuration) link.
 
-6. Start Tilt:
+5. Start Tilt:
 ```sh
 make dev-up
 ```
@@ -174,3 +164,29 @@ tilt as described in [Set up the environment](#set-up-the-environment) section
 but then run a local dev instance of the frontend by running `make dev` from
 the frontend repo. This dev instance will be available at http://localhost:3000
 while still connecting to the everest API server running inside k8s.
+
+## Developing providers
+
+This Tiltfile builds and deploys the OpenEverest core only. Each provider
+repository ships its own `dev/Tiltfile` that installs a released OpenEverest
+core and then builds and deploys just that provider. For day-to-day provider
+development, use the provider repo's `make dev-up` (see its `dev/README.md`).
+
+### Testing a provider against a locally built core
+
+When you need a provider to run against the core you are building from source,
+run two Tilt instances against the same cluster:
+
+1. Start this core dev environment as usual (`make dev-up`). It manages
+   `everest-system` and the core CRDs.
+2. In the provider repo, start its Tilt instance on a different port with the
+   core installation disabled:
+
+   ```sh
+   INSTALL_OPENEVEREST=false tilt up -f dev/Tiltfile --port 10351
+   ```
+
+The two instances manage disjoint Kubernetes objects (core owns
+`everest-system` + the core CRDs; the provider owns its own namespace + the
+database operator), so they run side by side without conflicting.
+

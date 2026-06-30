@@ -10,4 +10,5 @@ resources:
 - backup_v1alpha1_backupstorage.yaml
 - core_v1alpha1_plugin.yaml
 - core_v1alpha1_installedextension.yaml
+- core_v1alpha1_instancepreset.yaml
 # +kubebuilder:scaffold:manifestskustomizesamples
