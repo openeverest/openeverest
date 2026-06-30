@@ -55,17 +55,27 @@ const ProviderTiles = ({
         return (
           <Card
             key={name}
-            variant="outlined"
+            elevation={0}
             sx={{
               flex: '1 1 200px',
               minWidth: 200,
               maxWidth: 220,
               display: 'flex',
               borderRadius: 2,
-              transition: 'border-color 0.15s, box-shadow 0.15s',
+              border: '1px solid',
+              borderColor: (theme) =>
+                theme.palette.dividers?.divider ?? theme.palette.divider,
+              backgroundColor: (theme) =>
+                theme.palette.surfaces?.elevation1 ??
+                theme.palette.background.paper,
+              transition: 'border-color 0.15s, background-color 0.15s',
               '&:hover': {
-                borderColor: (theme) => theme.palette.primary.main,
-                boxShadow: 2,
+                borderColor: (theme) =>
+                  theme.palette.dividers?.dividerStrong ??
+                  theme.palette.divider,
+                backgroundColor: (theme) =>
+                  theme.palette.surfaces?.elevation0 ??
+                  theme.palette.action.hover,
               },
             }}
           >
@@ -105,7 +115,10 @@ const ProviderTiles = ({
                       // a real icon should render without a background.
                       bgcolor: meta.icon
                         ? 'transparent'
-                        : (theme) => theme.palette.primary.main,
+                        : (theme) =>
+                            theme.palette.surfaces?.elevation0 ??
+                            theme.palette.action.selected,
+                      color: (theme) => theme.palette.text.primary,
                       fontSize: '1rem',
                       textTransform: 'uppercase',
                     }}
@@ -114,8 +127,7 @@ const ProviderTiles = ({
                   </Avatar>
                 )}
                 <Typography
-                  variant="subtitle1"
-                  fontWeight={400}
+                  variant="sectionHeading"
                   sx={{ flexGrow: 1, textAlign: 'left' }}
                 >
                   {label}
