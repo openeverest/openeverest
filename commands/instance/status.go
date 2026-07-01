@@ -31,8 +31,8 @@ var (
 	statusCmd = &cobra.Command{
 		Use:   "status [flags]",
 		Args:  cobra.NoArgs,
-		Short: "Show the status of a database instance",
-		Long: `Fetch and display the current status of a database instance.
+		Short: "Show the status of an instance",
+		Long: `Fetch and display the current status of an instance.
 
 Shows the phase, version, per-component ready/total counts, and Kubernetes
 conditions reported by the Everest API. Pass --json / --verbose to get the

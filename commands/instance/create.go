@@ -32,37 +32,37 @@ var (
 	createCmd = &cobra.Command{
 		Use:   "create [flags]",
 		Args:  cobra.NoArgs,
-		Short: "Create a new database instance",
-		Long: `Provision a new database instance through the Everest API.
+		Short: "Create a new instance",
+		Long: `Provision a new instance through the Everest API.
 
 The provider, name, and namespace flags are required. Version and topology are
 resolved automatically from the provider's defaults if not specified. Use --set
 to override any Instance spec field using dot-notation paths rooted at the spec
 (e.g. --set components.engine.replicas=3 or --set backup.enabled=true).`,
 		Example: `  # Minimal: server defaults for all components
-  everestctl instance create --name my-mongo --namespace everest --provider psmdb
+  everestctl instance create --name my-mongo --namespace everest --provider percona-server-mongodb
 
   # Override component fields via --set
-  everestctl instance create --name my-mongo --namespace everest --provider psmdb \
+  everestctl instance create --name my-mongo --namespace everest --provider percona-server-mongodb \
     --set components.engine.replicas=3 \
     --set components.engine.storage.size=50Gi
 
   # Enable backup alongside component config
-  everestctl instance create --name my-mongo --namespace everest --provider psmdb \
+  everestctl instance create --name my-mongo --namespace everest --provider percona-server-mongodb \
     --set components.engine.replicas=3 \
     --set backup.enabled=true
 
   # Complex config via values file (like helm -f values.yaml)
-  everestctl instance create --name my-mongo --namespace everest --provider psmdb \
+  everestctl instance create --name my-mongo --namespace everest --provider percona-server-mongodb \
     -f my-values.yaml
 
   # File as base, --set overrides specific fields on top
-  everestctl instance create --name my-mongo --namespace everest --provider psmdb \
+  everestctl instance create --name my-mongo --namespace everest --provider percona-server-mongodb \
     -f my-values.yaml --set components.engine.replicas=5
 
   # Explicit version and topology
-  everestctl instance create --name my-pg --namespace everest --provider postgresql \
-    --version 16.3.0 --topology ha`,
+  everestctl instance create --name my-mongo --namespace everest --provider percona-server-mongodb \
+    --version 8.0.12 --topology sharded`,
 		PreRun: createPreRun,
 		Run:    createRun,
 	}
@@ -73,7 +73,7 @@ to override any Instance spec field using dot-notation paths rooted at the spec
 func init() {
 	createCmd.Flags().StringVar(&createOpts.Name, cli.FlagInstanceName, "", "Instance name (required)")
 	createCmd.Flags().StringVar(&createOpts.Namespace, cli.FlagInstanceNamespace, "", "Namespace to create the instance in (required)")
-	createCmd.Flags().StringVar(&createOpts.Provider, cli.FlagInstanceProvider, "", "Provider name, e.g. psmdb, postgresql, pxc (required)")
+	createCmd.Flags().StringVar(&createOpts.Provider, cli.FlagInstanceProvider, "", "Provider name, e.g. percona-server-mongodb, percona-xtradb-cluster (required)")
 	createCmd.Flags().StringVar(&createOpts.Cluster, cli.FlagInstanceCluster, "main", "Cluster name")
 	createCmd.Flags().StringVar(&createOpts.Version, cli.FlagInstanceVersion, "", "Version bundle name (default: provider's default bundle)")
 	createCmd.Flags().StringVar(&createOpts.Topology, cli.FlagInstanceTopology, "", "Topology name (default: provider's first topology)")
