@@ -219,7 +219,7 @@ jobs:
           tags: ${{ steps.everest_meta.outputs.tags }}
 
       - name: Everest - attest Everest image
-        uses: actions/attest-build-provenance@a2bbfa25375fe432b6a289bc6b6cd05ecd0c4c32 # v4.1.0
+        uses: actions/attest@59d89421af93a897026c735860bf21b6eb4f7b26 # v4.1.0
         with:
           subject-name: ${{ env.IMAGE_PREFIX }}/${{ env.EVEREST_SERVER_DEV_IMAGE_NAME }}
           subject-digest: ${{ steps.everest_push.outputs.digest }}
@@ -227,10 +227,59 @@ jobs:
 
       - name: Everest - attest Everest prod image
         if: env.IS_RC == 0
-        uses: actions/attest-build-provenance@a2bbfa25375fe432b6a289bc6b6cd05ecd0c4c32 # v4.1.0
+        uses: actions/attest@59d89421af93a897026c735860bf21b6eb4f7b26 # v4.1.0
         with:
           subject-name: ${{ env.IMAGE_PREFIX }}/${{ env.EVEREST_SERVER_IMAGE_NAME }}
           subject-digest: ${{ steps.everest_push.outputs.digest }}
+          push-to-registry: true
+
+      - name: Everest - generate SBOM
+        uses: anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610 # v0.24.0
+        with:
+          image: ${{ env.IMAGE_PREFIX }}/${{ env.EVEREST_SERVER_DEV_IMAGE_NAME }}@${{ steps.everest_push.outputs.digest }}
+          format: spdx-json
+          output-file: everest-sbom-${{ matrix.arch }}.spdx.json
+
+      - name: Everest - attest SBOM
+        uses: actions/attest@59d89421af93a897026c735860bf21b6eb4f7b26 # v4.1.0
+        with:
+          subject-name: ${{ env.IMAGE_PREFIX }}/${{ env.EVEREST_SERVER_DEV_IMAGE_NAME }}
+          subject-digest: ${{ steps.everest_push.outputs.digest }}
+          sbom-path: everest-sbom-${{ matrix.arch }}.spdx.json
+          push-to-registry: true
+
+      - name: Everest - attest prod SBOM
+        if: env.IS_RC == 0
+        uses: actions/attest@59d89421af93a897026c735860bf21b6eb4f7b26 # v4.1.0
+        with:
+          subject-name: ${{ env.IMAGE_PREFIX }}/${{ env.EVEREST_SERVER_IMAGE_NAME }}
+          subject-digest: ${{ steps.everest_push.outputs.digest }}
+          sbom-path: everest-sbom-${{ matrix.arch }}.spdx.json
+          push-to-registry: true
+
+      - name: Everest - generate source SBOM
+        if: matrix.arch == 'amd64'
+        uses: anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610 # v0.24.0
+        with:
+          format: spdx-json
+          output-file: everest-source-sbom.spdx.json
+
+      - name: Everest - attest source SBOM
+        if: matrix.arch == 'amd64'
+        uses: actions/attest@59d89421af93a897026c735860bf21b6eb4f7b26 # v4.1.0
+        with:
+          subject-name: ${{ env.IMAGE_PREFIX }}/${{ env.EVEREST_SERVER_DEV_IMAGE_NAME }}
+          subject-digest: ${{ steps.everest_push.outputs.digest }}
+          sbom-path: everest-source-sbom.spdx.json
+          push-to-registry: true
+
+      - name: Everest - attest prod source SBOM
+        if: matrix.arch == 'amd64' && env.IS_RC == 0
+        uses: actions/attest@59d89421af93a897026c735860bf21b6eb4f7b26 # v4.1.0
+        with:
+          subject-name: ${{ env.IMAGE_PREFIX }}/${{ env.EVEREST_SERVER_IMAGE_NAME }}
+          subject-digest: ${{ steps.everest_push.outputs.digest }}
+          sbom-path: everest-source-sbom.spdx.json
           push-to-registry: true
 
 
@@ -241,6 +290,8 @@ jobs:
     permissions:
       contents: read
       packages: write
+      id-token: write
+      attestations: write
     
     env:
       REGISTRY: ghcr.io
@@ -286,3 +337,21 @@ jobs:
               $IMAGE_PREFIX/$EVEREST_IMAGE:$FLOATING_TAG-amd64 \
               $IMAGE_PREFIX/$EVEREST_IMAGE:$FLOATING_TAG-arm64
           fi
+
+      - name: Get multi-arch manifest digest
+        id: manifest_digest
+        run: |
+          if [[ "$IS_RC" == "true" ]]; then
+            EVEREST_IMAGE="openeverest-dev"
+          else
+            EVEREST_IMAGE="openeverest"
+          fi
+          echo "everest_image=$EVEREST_IMAGE" >> $GITHUB_OUTPUT
+          echo "everest_digest=$(docker buildx imagetools inspect $IMAGE_PREFIX/$EVEREST_IMAGE:$VERSION --format '{{.Manifest.Digest}}')" >> $GITHUB_OUTPUT
+
+      - name: Everest - attest multi-arch manifest
+        uses: actions/attest@59d89421af93a897026c735860bf21b6eb4f7b26 # v4.1.0
+        with:
+          subject-name: ${{ env.IMAGE_PREFIX }}/${{ steps.manifest_digest.outputs.everest_image }}
+          subject-digest: ${{ steps.manifest_digest.outputs.everest_digest }}
+          push-to-registry: true
