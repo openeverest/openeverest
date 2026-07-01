@@ -26,9 +26,9 @@ require (
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/oapi-codegen/echo-middleware v1.0.2
 	github.com/oapi-codegen/runtime v1.4.2
-	github.com/openeverest/helm-charts/charts/everest v0.0.0-20260622122026-4c28e1ea24dd
+	github.com/openeverest/helm-charts/charts/everest v0.0.0-20260702172909-5d551d14128b
 	github.com/operator-framework/api v0.44.0
-	github.com/percona/everest-operator v0.6.0-dev1.0.20260622121956-f2f942efeb9d
+	github.com/percona/everest-operator v0.6.0-dev1.0.20260702172611-bb7ce06b03fd
 	github.com/rodaine/table v1.3.1
 	github.com/spf13/cobra v1.10.2
 	github.com/stretchr/testify v1.11.1
@@ -294,7 +294,7 @@ require (
 	github.com/opencontainers/image-spec v1.1.1 // indirect
 	github.com/pelletier/go-toml/v2 v2.2.4 // indirect
 	github.com/percona/percona-backup-mongodb v1.8.1-0.20251104101930-05ab6d7e1004 // indirect
-	github.com/percona/percona-postgresql-operator/v2 v2.9.0 // indirect
+	github.com/percona/percona-postgresql-operator/v2 v2.9.1-0.20260522133121-1f77e9d3c184 // indirect
 	github.com/percona/percona-server-mongodb-operator v1.22.0 // indirect
 	github.com/percona/percona-xtradb-cluster-operator v1.19.1 // indirect
 	github.com/peterbourgon/diskv v2.0.1+incompatible // indirect
