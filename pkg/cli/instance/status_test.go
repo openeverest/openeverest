@@ -54,19 +54,19 @@ func TestInstanceStatus_HappyPath(t *testing.T) {
 				Total *int32  `json:"total,omitempty"`
 			} `json:"components,omitempty"`
 			Conditions *[]struct {
-				LastTransitionTime    time.Time                          `json:"lastTransitionTime"`
-				Message               string                             `json:"message"`
-				ObservedGeneration    *int64                             `json:"observedGeneration,omitempty"`
-				Reason                string                             `json:"reason"`
-				Status                client.InstanceStatusConditionsStatus `json:"status"`
-				Type                  string                             `json:"type"`
+				LastTransitionTime time.Time                             `json:"lastTransitionTime"`
+				Message            string                                `json:"message"`
+				ObservedGeneration *int64                                `json:"observedGeneration,omitempty"`
+				Reason             string                                `json:"reason"`
+				Status             client.InstanceStatusConditionsStatus `json:"status"`
+				Type               string                                `json:"type"`
 			} `json:"conditions,omitempty"`
 			ConnectionSecretRef *struct {
 				Name *string `json:"name,omitempty"`
 			} `json:"connectionSecretRef,omitempty"`
-			Message *string                      `json:"message,omitempty"`
-			Phase   *client.InstanceStatusPhase  `json:"phase,omitempty"`
-			Version *string                      `json:"version,omitempty"`
+			Message *string                     `json:"message,omitempty"`
+			Phase   *client.InstanceStatusPhase `json:"phase,omitempty"`
+			Version *string                     `json:"version,omitempty"`
 		}{
 			Phase:   &phase,
 			Version: &version,
@@ -82,12 +82,12 @@ func TestInstanceStatus_HappyPath(t *testing.T) {
 				{Ready: &ready, Total: &total, State: &state},
 			},
 			Conditions: &[]struct {
-				LastTransitionTime    time.Time                          `json:"lastTransitionTime"`
-				Message               string                             `json:"message"`
-				ObservedGeneration    *int64                             `json:"observedGeneration,omitempty"`
-				Reason                string                             `json:"reason"`
-				Status                client.InstanceStatusConditionsStatus `json:"status"`
-				Type                  string                             `json:"type"`
+				LastTransitionTime time.Time                             `json:"lastTransitionTime"`
+				Message            string                                `json:"message"`
+				ObservedGeneration *int64                                `json:"observedGeneration,omitempty"`
+				Reason             string                                `json:"reason"`
+				Status             client.InstanceStatusConditionsStatus `json:"status"`
+				Type               string                                `json:"type"`
 			}{
 				{Type: "Available", Status: condStatus, Reason: "Ready", Message: "All replicas are ready"},
 			},
@@ -194,12 +194,12 @@ func TestInstanceStatus_JSONOutput(t *testing.T) {
 				Total *int32  `json:"total,omitempty"`
 			} `json:"components,omitempty"`
 			Conditions *[]struct {
-				LastTransitionTime    time.Time                             `json:"lastTransitionTime"`
-				Message               string                                `json:"message"`
-				ObservedGeneration    *int64                                `json:"observedGeneration,omitempty"`
-				Reason                string                                `json:"reason"`
-				Status                client.InstanceStatusConditionsStatus `json:"status"`
-				Type                  string                                `json:"type"`
+				LastTransitionTime time.Time                             `json:"lastTransitionTime"`
+				Message            string                                `json:"message"`
+				ObservedGeneration *int64                                `json:"observedGeneration,omitempty"`
+				Reason             string                                `json:"reason"`
+				Status             client.InstanceStatusConditionsStatus `json:"status"`
+				Type               string                                `json:"type"`
 			} `json:"conditions,omitempty"`
 			ConnectionSecretRef *struct {
 				Name *string `json:"name,omitempty"`
