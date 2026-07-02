@@ -12,16 +12,29 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { PreviewSectionFive } from './section-five';
-import { AdvancedConfigurationsPreviewSection } from './advanced-configurations-section';
-import { PreviewSectionOne } from './section-one';
-import { BackupsPreviewSection } from './backups-section';
-import { ResourcesPreviewSection } from './resources-section';
+import { Paper } from '@mui/material';
+import { CustomPaperProps } from './custom-paper.types';
 
-export {
-  PreviewSectionOne,
-  ResourcesPreviewSection,
-  BackupsPreviewSection,
-  AdvancedConfigurationsPreviewSection,
-  PreviewSectionFive,
+const CustomPaper = ({ children, sx, paperProps }: CustomPaperProps) => {
+  return (
+    <Paper
+      variant="outlined"
+      sx={{
+        flexDirection: 'row',
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        p: 2,
+        '.MuiFormControl-root': {
+          mt: 0,
+        },
+        ...sx,
+      }}
+      {...paperProps}
+    >
+      {children}
+    </Paper>
+  );
 };
+
+export default CustomPaper;

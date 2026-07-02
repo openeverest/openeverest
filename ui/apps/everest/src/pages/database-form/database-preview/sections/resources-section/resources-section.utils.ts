@@ -12,16 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { PreviewSectionFive } from './section-five';
-import { AdvancedConfigurationsPreviewSection } from './advanced-configurations-section';
-import { PreviewSectionOne } from './section-one';
-import { BackupsPreviewSection } from './backups-section';
-import { ResourcesPreviewSection } from './resources-section';
-
-export {
-  PreviewSectionOne,
-  ResourcesPreviewSection,
-  BackupsPreviewSection,
-  AdvancedConfigurationsPreviewSection,
-  PreviewSectionFive,
-};
+// Formats a resource value for the preview, applying the shards multiplier the
+// same way the limits do. Returns an empty string for NaN values.
+export const formatResourceValue = (
+  parsedResource: number,
+  unit: string,
+  shardMultiplier?: number
+) =>
+  Number.isNaN(parsedResource)
+    ? ''
+    : `${
+        shardMultiplier
+          ? (shardMultiplier * parsedResource).toFixed(2)
+          : parsedResource.toFixed(2)
+      } ${unit}`;

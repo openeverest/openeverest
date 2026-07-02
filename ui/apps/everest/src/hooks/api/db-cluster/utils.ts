@@ -49,6 +49,8 @@ export const getProxySpec = (
   cpu: number,
   memory: number,
   sharding: boolean,
+  cpuRequests?: number,
+  memoryRequests?: number,
   sourceRanges?: Array<{ sourceRange?: string }>,
   loadBalancerConfigName?: string,
   proxyConfigEnabled = false,
@@ -76,8 +78,14 @@ export const getProxySpec = (
     type: dbTypeToProxyType(dbType),
     replicas: proxyNr,
     resources: {
-      cpu: `${cpu}`,
-      memory: `${memory}G`,
+      limits: {
+        cpu: `${cpu}`,
+        memory: `${memory}G`,
+      },
+      requests: {
+        cpu: `${cpuRequests ?? cpu}`,
+        memory: `${memoryRequests ?? memory}G`,
+      },
     },
     expose: getExposteConfig(
       exposureMethod,

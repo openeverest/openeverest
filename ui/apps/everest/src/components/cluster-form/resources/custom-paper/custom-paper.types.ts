@@ -12,16 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { PreviewSectionFive } from './section-five';
-import { AdvancedConfigurationsPreviewSection } from './advanced-configurations-section';
-import { PreviewSectionOne } from './section-one';
-import { BackupsPreviewSection } from './backups-section';
-import { ResourcesPreviewSection } from './resources-section';
+import { PaperProps, SxProps, Theme } from '@mui/material';
+import { ReactNode } from 'react';
 
-export {
-  PreviewSectionOne,
-  ResourcesPreviewSection,
-  BackupsPreviewSection,
-  AdvancedConfigurationsPreviewSection,
-  PreviewSectionFive,
+export type CustomPaperProps = {
+  children: ReactNode;
+  sx?: SxProps<Theme>;
+  paperProps?: Omit<PaperProps, 'sx'>;
 };

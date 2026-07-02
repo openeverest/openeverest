@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -28,15 +29,21 @@ import {
   resourcesFormSchema,
 } from 'components/cluster-form';
 import OverviewSection from '../overview-section';
-import { ResourcesDetailsOverviewProps } from './card.types';
 import OverviewSectionRow from '../overview-section-row';
+import { ResourcesDetailsOverviewProps } from './card.types';
 import { Messages } from '../cluster-overview.messages';
 import { ResourcesEditModal } from './resources';
+import ResourcesSummary from './resources-summary';
 import {
   cpuParser,
   getResourcesDetailedString,
   getTotalResourcesDetailedString,
   memoryParser,
+  extractResourceCpuRequestValue,
+  extractResourceCpuValue,
+  extractResourceMemoryRequestValue,
+  extractResourceMemoryValue,
+  areResourceRequestsSynced,
 } from 'utils/k8ResourceParser';
 import { dbEngineToDbType } from '@percona/utils';
 import { useUpdateDbClusterWithConflictRetry } from 'hooks';
@@ -62,14 +69,35 @@ export const ResourcesDetails = ({
     }
   );
   const storageClass = dbCluster.spec.engine.storage.class;
-  const cpu = dbCluster.spec.engine.resources?.cpu || 0;
+  const cpu = extractResourceCpuValue(dbCluster.spec.engine.resources) || 0;
   const proxyCpu = isProxy(dbCluster.spec.proxy)
-    ? dbCluster.spec.proxy.resources?.cpu || 0
+    ? extractResourceCpuValue(dbCluster.spec.proxy?.resources) || 0
     : 0;
-  const memory = dbCluster.spec.engine.resources?.memory || 0;
+  const memory =
+    extractResourceMemoryValue(dbCluster.spec.engine.resources) || 0;
   const proxyMemory = isProxy(dbCluster.spec.proxy)
-    ? dbCluster.spec.proxy.resources?.memory || 0
+    ? extractResourceMemoryValue(dbCluster.spec.proxy?.resources) || 0
     : 0;
+  const cpuRequests = extractResourceCpuRequestValue(
+    dbCluster.spec.engine.resources
+  );
+  const proxyCpuRequests = isProxy(dbCluster.spec.proxy)
+    ? extractResourceCpuRequestValue(dbCluster.spec.proxy?.resources)
+    : undefined;
+  const memoryRequests = extractResourceMemoryRequestValue(
+    dbCluster.spec.engine.resources
+  );
+  const proxyMemoryRequests = isProxy(dbCluster.spec.proxy)
+    ? extractResourceMemoryRequestValue(dbCluster.spec.proxy?.resources)
+    : undefined;
+  // Requests are considered "synced" with the limits when they are absent or
+  // identical to the limits. When they differ, they were configured separately.
+  const nodeRequestsSynced = areResourceRequestsSynced(
+    dbCluster.spec.engine.resources
+  );
+  const proxyRequestsSynced = isProxy(dbCluster.spec.proxy)
+    ? areResourceRequestsSynced(dbCluster.spec.proxy?.resources)
+    : true;
   const disk = dbCluster.spec.engine.storage.size;
   const parsedDiskValues = memoryParser(disk.toString());
   const parsedMemoryValues = memoryParser(memory.toString(), 'G');
@@ -95,8 +123,12 @@ export const ResourcesDetails = ({
     disk,
     diskUnit,
     memory,
+    cpuRequests,
+    memoryRequests,
     proxyCpu,
     proxyMemory,
+    proxyCpuRequests,
+    proxyMemoryRequests,
     numberOfNodes,
     numberOfProxies,
     customNrOfNodes,
@@ -112,8 +144,12 @@ export const ResourcesDetails = ({
           disk,
           diskUnit,
           memory,
+          cpuRequests,
+          memoryRequests,
           proxyCpu,
           proxyMemory,
+          proxyCpuRequests,
+          proxyMemoryRequests,
           numberOfProxies: parseInt(
             numberOfProxies === CUSTOM_NR_UNITS_INPUT_VALUE
               ? customNrOfProxies || '1'
@@ -188,27 +224,40 @@ export const ResourcesDetails = ({
             title={`${numberOfNodesStr} node${+numberOfNodesStr > 1 ? 's' : ''} ${dbType === DbType.Mongo && sharding?.enabled ? 'per shard' : ''}`}
             loading={loading}
           >
-            <OverviewSectionRow
-              dataTestId="node-cpu"
-              label={Messages.fields.cpu}
-              content={getResourcesDetailedString(
-                cpuParser(cpu.toString() || '0'),
-                ''
-              )}
-            />
-            <OverviewSectionRow
-              label={Messages.fields.memory}
-              content={getResourcesDetailedString(
-                parsedMemoryValues.value,
-                'GB'
-              )}
-            />
-            <OverviewSectionRow
-              label={Messages.fields.disk}
-              content={getResourcesDetailedString(
-                parsedDiskValues.value,
-                parsedDiskValues.originalUnit
-              )}
+            <ResourcesSummary
+              rows={[
+                {
+                  label: Messages.fields.cpu,
+                  dataTestId: 'node-cpu',
+                  limit: getResourcesDetailedString(
+                    cpuParser(cpu.toString() || '0'),
+                    ''
+                  ),
+                  request: getResourcesDetailedString(
+                    cpuParser((cpuRequests ?? cpu).toString() || '0'),
+                    ''
+                  ),
+                },
+                {
+                  label: Messages.fields.memory,
+                  limit: getResourcesDetailedString(
+                    parsedMemoryValues.value,
+                    'GB'
+                  ),
+                  request: getResourcesDetailedString(
+                    memoryParser((memoryRequests ?? memory).toString(), 'G')
+                      .value,
+                    'GB'
+                  ),
+                },
+                {
+                  label: Messages.fields.disk,
+                  limit: getResourcesDetailedString(
+                    parsedDiskValues.value,
+                    parsedDiskValues.originalUnit
+                  ),
+                },
+              ]}
             />
           </OverviewSection>
           {numberOfProxiesInt > 0 && (
@@ -216,22 +265,41 @@ export const ResourcesDetails = ({
               title={`${proxies} ${getProxyUnitNamesFromDbType(dbEngineToDbType(dbCluster.spec.engine.type))[numberOfProxiesInt > 1 ? 'plural' : 'singular']}`}
               loading={loading}
             >
-              <OverviewSectionRow
-                dataTestId={`${getProxyUnitNamesFromDbType(dbEngineToDbType(dbCluster.spec.engine.type))[numberOfProxiesInt > 1 ? 'plural' : 'singular']}-cpu`}
-                label={Messages.fields.cpu}
-                content={getTotalResourcesDetailedString(
-                  cpuParser(proxyCpu.toString() || '0'),
-                  parseInt(proxies, 10),
-                  ''
-                )}
-              />
-              <OverviewSectionRow
-                label={Messages.fields.memory}
-                content={getTotalResourcesDetailedString(
-                  parsedProxyMemoryValues.value,
-                  parseInt(proxies, 10),
-                  'GB'
-                )}
+              <ResourcesSummary
+                rows={[
+                  {
+                    label: Messages.fields.cpu,
+                    dataTestId: `${getProxyUnitNamesFromDbType(dbEngineToDbType(dbCluster.spec.engine.type))[numberOfProxiesInt > 1 ? 'plural' : 'singular']}-cpu`,
+                    limit: getTotalResourcesDetailedString(
+                      cpuParser(proxyCpu.toString() || '0'),
+                      parseInt(proxies, 10),
+                      ''
+                    ),
+                    request: getTotalResourcesDetailedString(
+                      cpuParser(
+                        (proxyCpuRequests ?? proxyCpu).toString() || '0'
+                      ),
+                      parseInt(proxies, 10),
+                      ''
+                    ),
+                  },
+                  {
+                    label: Messages.fields.memory,
+                    limit: getTotalResourcesDetailedString(
+                      parsedProxyMemoryValues.value,
+                      parseInt(proxies, 10),
+                      'GB'
+                    ),
+                    request: getTotalResourcesDetailedString(
+                      memoryParser(
+                        (proxyMemoryRequests ?? proxyMemory).toString(),
+                        'G'
+                      ).value,
+                      parseInt(proxies, 10),
+                      'GB'
+                    ),
+                  },
+                ]}
               />
             </OverviewSection>
           )}
@@ -249,11 +317,28 @@ export const ResourcesDetails = ({
             dbType,
             [DbWizardFormFields.dbVersion]: dbCluster.spec.engine.version || '',
             cpu: cpuParser(cpu.toString() || '0'),
+            cpuRequests: nodeRequestsSynced
+              ? cpuParser(cpu.toString() || '0')
+              : cpuParser((cpuRequests ?? cpu).toString() || '0'),
             disk: parsedDiskValues.value,
             diskUnit: parsedDiskValues.originalUnit,
             memory: memoryParser(memory.toString(), 'G').value,
+            memoryRequests: nodeRequestsSynced
+              ? memoryParser(memory.toString(), 'G').value
+              : memoryParser((memoryRequests ?? memory).toString(), 'G').value,
             proxyCpu: cpuParser(proxyCpu.toString() || '0'),
+            proxyCpuRequests: proxyRequestsSynced
+              ? cpuParser(proxyCpu.toString() || '0')
+              : cpuParser((proxyCpuRequests ?? proxyCpu).toString() || '0'),
             proxyMemory: memoryParser(proxyMemory.toString(), 'G').value,
+            proxyMemoryRequests: proxyRequestsSynced
+              ? memoryParser(proxyMemory.toString(), 'G').value
+              : memoryParser(
+                  (proxyMemoryRequests ?? proxyMemory).toString(),
+                  'G'
+                ).value,
+            [DbWizardFormFields.nodeRequestsSynced]: nodeRequestsSynced,
+            [DbWizardFormFields.proxyRequestsSynced]: proxyRequestsSynced,
             sharding: !!sharding?.enabled,
             ...(!!sharding?.enabled && {
               shardConfigServers: sharding?.configServer?.replicas,

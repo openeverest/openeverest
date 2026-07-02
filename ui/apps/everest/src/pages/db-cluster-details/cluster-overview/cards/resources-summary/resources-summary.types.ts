@@ -1,3 +1,5 @@
+// everest
+// Copyright (C) 2023 Percona LLC
 // Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -12,16 +14,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { PreviewSectionFive } from './section-five';
-import { AdvancedConfigurationsPreviewSection } from './advanced-configurations-section';
-import { PreviewSectionOne } from './section-one';
-import { BackupsPreviewSection } from './backups-section';
-import { ResourcesPreviewSection } from './resources-section';
+export type ResourceSummaryRow = {
+  label: string;
+  limit: string;
+  request?: string;
+  dataTestId?: string;
+};
 
-export {
-  PreviewSectionOne,
-  ResourcesPreviewSection,
-  BackupsPreviewSection,
-  AdvancedConfigurationsPreviewSection,
-  PreviewSectionFive,
+export type ResourcesSummaryProps = {
+  rows: ResourceSummaryRow[];
 };

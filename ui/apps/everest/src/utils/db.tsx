@@ -842,12 +842,16 @@ export const changeDbClusterResources = (
   dbCluster: DbCluster,
   newResources: {
     cpu: number;
+    cpuRequests?: number;
     memory: number;
+    memoryRequests?: number;
     disk: number;
     diskUnit: string;
     numberOfNodes: number;
     proxyCpu: number;
+    proxyCpuRequests?: number;
     proxyMemory: number;
+    proxyMemoryRequests?: number;
     numberOfProxies: number;
   },
   sharding = false,
@@ -861,8 +865,14 @@ export const changeDbClusterResources = (
       ...dbCluster.spec.engine,
       replicas: newResources.numberOfNodes,
       resources: {
-        cpu: `${newResources.cpu}`,
-        memory: `${newResources.memory}G`,
+        limits: {
+          cpu: `${newResources.cpu}`,
+          memory: `${newResources.memory}G`,
+        },
+        requests: {
+          cpu: `${newResources.cpuRequests ?? newResources.cpu}`,
+          memory: `${newResources.memoryRequests ?? newResources.memory}G`,
+        },
       },
       storage: {
         ...dbCluster.spec.engine.storage,
@@ -882,6 +892,8 @@ export const changeDbClusterResources = (
         newResources.proxyCpu,
         newResources.proxyMemory,
         !!sharding,
+        newResources.proxyCpuRequests,
+        newResources.proxyMemoryRequests,
         ((dbCluster.spec.proxy as Proxy)?.expose?.ipSourceRanges || []).map(
           (sourceRange) => ({ sourceRange })
         ),

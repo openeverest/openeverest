@@ -12,16 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { PreviewSectionFive } from './section-five';
-import { AdvancedConfigurationsPreviewSection } from './advanced-configurations-section';
-import { PreviewSectionOne } from './section-one';
-import { BackupsPreviewSection } from './backups-section';
-import { ResourcesPreviewSection } from './resources-section';
+import { ReactNode } from 'react';
+import { Typography } from '@mui/material';
 
-export {
-  PreviewSectionOne,
-  ResourcesPreviewSection,
-  BackupsPreviewSection,
-  AdvancedConfigurationsPreviewSection,
-  PreviewSectionFive,
-};
+export const SectionHeading = ({ children }: { children: ReactNode }) => (
+  <Typography
+    variant="caption"
+    color="text.secondary"
+    fontWeight={600}
+    sx={{ display: 'block', mt: 0.5 }}
+  >
+    {children}
+  </Typography>
+);

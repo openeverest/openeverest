@@ -12,16 +12,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { PreviewSectionFive } from './section-five';
-import { AdvancedConfigurationsPreviewSection } from './advanced-configurations-section';
-import { PreviewSectionOne } from './section-one';
-import { BackupsPreviewSection } from './backups-section';
-import { ResourcesPreviewSection } from './resources-section';
-
-export {
-  PreviewSectionOne,
-  ResourcesPreviewSection,
-  BackupsPreviewSection,
-  AdvancedConfigurationsPreviewSection,
-  PreviewSectionFive,
+export type ResourceRequestsSectionProps = {
+  switchName: string;
+  synced: boolean;
+  cpuInputName: string;
+  memoryInputName: string;
+  cpuLimitName: string;
+  memoryLimitName: string;
+  numberOfUnitsName: string;
+  customNrOfUnitsName: string;
+  unit: string;
+  unitPlural: string;
+  // Whether the limits above include a DISK column. When true, an empty third
+  // slot keeps the CPU/Memory request fields aligned with the limits; when
+  // false (e.g. proxies without disk) the fields fill the row evenly instead.
+  hasDiskColumn?: boolean;
 };

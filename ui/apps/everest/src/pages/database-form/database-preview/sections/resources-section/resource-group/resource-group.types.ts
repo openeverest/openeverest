@@ -12,16 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { PreviewSectionFive } from './section-five';
-import { AdvancedConfigurationsPreviewSection } from './advanced-configurations-section';
-import { PreviewSectionOne } from './section-one';
-import { BackupsPreviewSection } from './backups-section';
-import { ResourcesPreviewSection } from './resources-section';
+export type ResourceTableRow = {
+  label: string;
+  limit: string;
+  // undefined means the resource has no request concept (e.g. Disk)
+  request?: string;
+};
 
-export {
-  PreviewSectionOne,
-  ResourcesPreviewSection,
-  BackupsPreviewSection,
-  AdvancedConfigurationsPreviewSection,
-  PreviewSectionFive,
+export type ResourceGroupProps = {
+  title: string;
+  rows: ResourceTableRow[];
+  // Whether the requests are synced with (mirror) the limits.
+  synced: boolean;
+  dataTestId?: string;
 };
