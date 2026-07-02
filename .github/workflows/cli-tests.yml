@@ -50,6 +50,7 @@ jobs:
       - name: Install Kubernetes tools
         uses: ./.github/actions/install-kubernetes-tools
         with:
+          arch: ${{ matrix.arch }}
           install-kubectl: true
           install-k3d: true
 

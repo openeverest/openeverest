@@ -5,6 +5,10 @@ inputs:
     description: 'Tools path to install binaries'
     required: false
     default: '/opt/tools/bin'
+  arch:
+    description: 'Architecture (amd64 or arm64)'
+    required: false
+    default: 'amd64'
   install-kubectl:
     description: 'Install Kubectl'
     required: false
@@ -33,7 +37,7 @@ runs:
     - name: Install Kubectl
       if: ${{ inputs.install-kubectl == 'true' }}
       run: |
-        curl -s -L -o ${{ inputs.tools-path }}/kubectl https://dl.k8s.io/release/v${{ inputs.kubectl-version }}/bin/linux/amd64/kubectl 
+        curl -s -L -o ${{ inputs.tools-path }}/kubectl https://dl.k8s.io/release/v${{ inputs.kubectl-version }}/bin/linux/${{ inputs.arch }}/kubectl
         chmod +x ${{ inputs.tools-path }}/kubectl
         kubectl version --client --output=yaml
       shell: bash
@@ -41,7 +45,7 @@ runs:
     - name: Install K3D
       if: ${{ inputs.install-k3d == 'true' }}
       run: |
-        curl -s -L -o ${{ inputs.tools-path }}/k3d https://github.com/k3d-io/k3d/releases/download/v${{ inputs.k3d-version }}/k3d-linux-amd64
+        curl -s -L -o ${{ inputs.tools-path }}/k3d https://github.com/k3d-io/k3d/releases/download/v${{ inputs.k3d-version }}/k3d-linux-${{ inputs.arch }}
         chmod +x ${{ inputs.tools-path }}/k3d
         k3d version
       shell: bash
