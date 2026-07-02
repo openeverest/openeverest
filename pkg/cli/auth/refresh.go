@@ -25,37 +25,24 @@ import (
 	"time"
 
 	"github.com/openeverest/openeverest/v2/client"
+	"github.com/openeverest/openeverest/v2/pkg/cli"
 	"github.com/openeverest/openeverest/v2/pkg/cli/config"
 )
 
 // Refresh exchanges the stored refresh token for a new token pair and persists it to cfgPath.
 // The caller decides when to invoke this (e.g. on 401 or when ExpiresAt is near).
 func (lo *Login) Refresh(ctx context.Context, cfgPath string) error {
-	cfg, err := config.Load(cfgPath)
+	sess, err := cli.LoadSession(cfgPath, "")
 	if err != nil {
 		return err
 	}
 
-	currentCtx, ok := cfg.GetCurrentContext()
-	if !ok {
-		return fmt.Errorf("no active context %q found in config", cfg.CurrentContext)
-	}
+	cfg := sess.Cfg
+	currentCtx := sess.Ctx
+	usr := sess.User
+	srv := sess.Server
 
-	srv, ok := cfg.GetServer(currentCtx.Server)
-	if !ok {
-		return fmt.Errorf("server %q not found in config", currentCtx.Server)
-	}
-
-	usr, ok := cfg.GetUser(currentCtx.User)
-	if !ok {
-		return fmt.Errorf("user %q not found in config", currentCtx.User)
-	}
-
-	if err := validateServerURL(srv.URL); err != nil {
-		return fmt.Errorf("invalid server URL in config: %w", err)
-	}
-
-	c, err := client.NewClient(normalizeServerURL(srv.URL))
+	c, err := client.NewClient(cli.NormalizeServerURL(srv.URL))
 	if err != nil {
 		return fmt.Errorf("failed to create API client: %w", err)
 	}

@@ -12,16 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { Control, UseControllerProps } from 'react-hook-form';
-import { CheckboxProps as MUICheckboxProps } from '@mui/material';
-import { type LabeledContentProps } from '../../../labeled-content';
-
-export type CheckboxProps = {
-  name: string;
-  label?: string;
-  control?: Control;
-  controllerProps?: Omit<UseControllerProps, 'name'>;
-  checkboxProps?: MUICheckboxProps;
-  labelProps?: LabeledContentProps;
-  disabled?: boolean;
-};
+export { default } from './expandable-clamped-text';
+export { ExpandableClampedText } from './expandable-clamped-text';
+export type {
+  ExpandableClampedTextExpandStrategy,
+  ExpandableClampedTextProps,
+} from './expandable-clamped-text.types';
+export {
+  DEFAULT_SCROLL_MAX_HEIGHT,
+  DEFAULT_LINE_CLAMP,
+} from './expandable-clamped-text';

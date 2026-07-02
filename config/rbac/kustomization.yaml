@@ -22,6 +22,9 @@ resources:
 # default, aiding admins in cluster management. Those roles are
 # not used by the openeverest itself. You can comment the following lines
 # if you do not want those helpers be installed with your Project.
+- core_instancepreset_admin_role.yaml
+- core_instancepreset_editor_role.yaml
+- core_instancepreset_viewer_role.yaml
 - extensions_installedextension_admin_role.yaml
 - extensions_installedextension_editor_role.yaml
 - extensions_installedextension_viewer_role.yaml

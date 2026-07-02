@@ -11,6 +11,7 @@ resources:
 - bases/backup.openeverest.io_backupstorages.yaml
 - bases/extensions.openeverest.io_plugins.yaml
 - bases/extensions.openeverest.io_installedextensions.yaml
+- bases/core.openeverest.io_instancepresets.yaml
 # +kubebuilder:scaffold:crdkustomizeresource
 
 patches:

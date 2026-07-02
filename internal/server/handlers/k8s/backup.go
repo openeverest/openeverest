@@ -32,6 +32,7 @@ func (h *k8sHandler) GetBackup(ctx context.Context, cluster, namespace, name str
 
 // CreateBackup creates a backup.
 func (h *k8sHandler) CreateBackup(ctx context.Context, cluster string, backup *backupv1alpha1.Backup) (*backupv1alpha1.Backup, error) {
+	stampActor(ctx, backup)
 	return h.kubeConnector.CreateBackup(ctx, backup)
 }
 
@@ -44,13 +45,18 @@ func (h *k8sHandler) DeleteBackup(ctx context.Context, cluster, namespace, name 
 		return err
 	}
 
+	actorChanged := stampActor(ctx, backup)
+	policyChanged := false
 	if params != nil && params.DeletionPolicy != nil {
 		policy := backupv1alpha1.BackupDeletionPolicy(*params.DeletionPolicy)
 		if backup.Spec.DeletionPolicy != policy {
 			backup.Spec.DeletionPolicy = policy
-			if _, err := h.kubeConnector.UpdateBackup(ctx, backup); err != nil {
-				return err
-			}
+			policyChanged = true
+		}
+	}
+	if actorChanged || policyChanged {
+		if _, err := h.kubeConnector.UpdateBackup(ctx, backup); err != nil {
+			return err
 		}
 	}
 

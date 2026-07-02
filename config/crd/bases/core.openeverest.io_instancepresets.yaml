@@ -11,6 +11,9 @@ spec:
     kind: InstancePreset
     listKind: InstancePresetList
     plural: instancepresets
+    shortNames:
+    - pre
+    - preset
     singular: instancepreset
   scope: Cluster
   versions:

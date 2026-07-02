@@ -1,3 +1,4 @@
+// everest
 // Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -12,16 +13,24 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { Control, UseControllerProps } from 'react-hook-form';
-import { CheckboxProps as MUICheckboxProps } from '@mui/material';
-import { type LabeledContentProps } from '../../../labeled-content';
+// Package commands ...
+package commands
 
-export type CheckboxProps = {
-  name: string;
-  label?: string;
-  control?: Control;
-  controllerProps?: Omit<UseControllerProps, 'name'>;
-  checkboxProps?: MUICheckboxProps;
-  labelProps?: LabeledContentProps;
-  disabled?: boolean;
-};
+import (
+	"github.com/spf13/cobra"
+
+	"github.com/openeverest/openeverest/v2/commands/instance"
+)
+
+var instanceCmd = &cobra.Command{
+	Use:   "instance <command> [flags]",
+	Short: "Manage Everest instances",
+	Long:  "Manage Everest instances",
+	RunE:  func(cmd *cobra.Command, _ []string) error { return cmd.Help() },
+}
+
+func init() {
+	rootCmd.AddCommand(instanceCmd)
+	instanceCmd.AddCommand(instance.GetCreateCmd())
+	instanceCmd.AddCommand(instance.GetStatusCmd())
+}
