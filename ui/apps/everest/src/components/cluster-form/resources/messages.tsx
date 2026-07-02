@@ -43,4 +43,5 @@ export const Messages = {
   syncWithLimits: 'Sync requests with limits',
   requestCeiling: (limit: number, units: string) =>
     limit ? `Max: ${limit} ${units} (limit)` : '',
+  requestRequired: 'This field is required',
 };

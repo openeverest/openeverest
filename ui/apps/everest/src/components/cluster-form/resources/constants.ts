@@ -450,7 +450,13 @@ export const resourcesFormSchema = (
         });
       }
 
-      if (
+      if (!nodeRequestsSynced && cpuRequests === undefined) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: Messages.requestRequired,
+          path: [DbWizardFormFields.cpuRequests],
+        });
+      } else if (
         !nodeRequestsSynced &&
         cpuRequests !== undefined &&
         cpuRequests > cpu
@@ -462,7 +468,13 @@ export const resourcesFormSchema = (
         });
       }
 
-      if (
+      if (!nodeRequestsSynced && memoryRequests === undefined) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: Messages.requestRequired,
+          path: [DbWizardFormFields.memoryRequests],
+        });
+      } else if (
         !nodeRequestsSynced &&
         memoryRequests !== undefined &&
         memoryRequests > memory
@@ -474,7 +486,13 @@ export const resourcesFormSchema = (
         });
       }
 
-      if (
+      if (!proxyRequestsSynced && proxyCpuRequests === undefined) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: Messages.requestRequired,
+          path: [DbWizardFormFields.proxyCpuRequests],
+        });
+      } else if (
         !proxyRequestsSynced &&
         proxyCpuRequests !== undefined &&
         proxyCpuRequests > proxyCpu
@@ -486,7 +504,13 @@ export const resourcesFormSchema = (
         });
       }
 
-      if (
+      if (!proxyRequestsSynced && proxyMemoryRequests === undefined) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: Messages.requestRequired,
+          path: [DbWizardFormFields.proxyMemoryRequests],
+        });
+      } else if (
         !proxyRequestsSynced &&
         proxyMemoryRequests !== undefined &&
         proxyMemoryRequests > proxyMemory
