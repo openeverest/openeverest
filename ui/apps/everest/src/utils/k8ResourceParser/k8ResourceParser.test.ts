@@ -21,6 +21,7 @@ import {
   extractResourceMemoryValue,
   memoryParser,
 } from '.';
+import { DbEngineType } from '@percona/types';
 
 describe('cpu parser', () => {
   // pattern is [description, input, output]
@@ -79,6 +80,50 @@ describe('resource value extraction (legacy vs new format)', () => {
     // Legacy clusters have no separate requests.
     expect(extractResourceCpuRequestValue(legacyResources)).toBeUndefined();
     expect(extractResourceMemoryRequestValue(legacyResources)).toBeUndefined();
+  });
+
+  it('mirrors legacy flat requests from limits only for PXC', () => {
+    const legacyResources = { cpu: '600m', memory: '1G' };
+
+    // PXC historically mirrored the flat value into the requests.
+    expect(
+      extractResourceCpuRequestValue(legacyResources, DbEngineType.PXC)
+    ).toBe('600m');
+    expect(
+      extractResourceMemoryRequestValue(legacyResources, DbEngineType.PXC)
+    ).toBe('1G');
+
+    // PSMDB and PostgreSQL left the legacy requests unset.
+    expect(
+      extractResourceCpuRequestValue(legacyResources, DbEngineType.PSMDB)
+    ).toBeUndefined();
+    expect(
+      extractResourceMemoryRequestValue(legacyResources, DbEngineType.PSMDB)
+    ).toBeUndefined();
+    expect(
+      extractResourceCpuRequestValue(legacyResources, DbEngineType.POSTGRESQL)
+    ).toBeUndefined();
+    expect(
+      extractResourceMemoryRequestValue(
+        legacyResources,
+        DbEngineType.POSTGRESQL
+      )
+    ).toBeUndefined();
+  });
+
+  it('always prefers explicit requests over the legacy engine fallback', () => {
+    const resources = {
+      limits: { cpu: '2', memory: '4G' },
+      requests: { cpu: '1', memory: '2G' },
+    };
+
+    // Even for PXC, explicit requests take precedence over the flat fallback.
+    expect(extractResourceCpuRequestValue(resources, DbEngineType.PXC)).toBe(
+      '1'
+    );
+    expect(
+      extractResourceMemoryRequestValue(resources, DbEngineType.PSMDB)
+    ).toBe('2G');
   });
 
   it('prefers new limits over legacy flat fields when both are present', () => {

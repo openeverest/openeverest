@@ -72,9 +72,8 @@ describe('ResourcesDetails - legacy clusters', () => {
   it('maps legacy PXC cpu/memory into the displayed limits and mirrors them as requests', () => {
     renderCard(makeLegacyCluster(DbEngineType.PXC, { cpu: '2', memory: '4G' }));
 
-    // Legacy flat values are read as the limits, and because no explicit
-    // requests exist they are shown as identical to the limits (the operator
-    // treats absent requests as equal to limits).
+    // PXC historically mirrored the legacy flat value into the requests, so the
+    // card shows the requests equal to the limits (limit / request).
     expect(
       screen.getByTestId('node-cpu-overview-section-row')
     ).toHaveTextContent(/2\s*\/\s*2/);
@@ -83,16 +82,27 @@ describe('ResourcesDetails - legacy clusters', () => {
     );
   });
 
-  it('maps legacy PSMDB (MongoDB) cpu/memory into the displayed limits', () => {
+  it('shows only the limits for legacy PSMDB (MongoDB), without mirrored requests', () => {
     renderCard(
       makeLegacyCluster(DbEngineType.PSMDB, { cpu: '1', memory: '2G' })
     );
 
-    expect(
-      screen.getByTestId('node-cpu-overview-section-row')
-    ).toHaveTextContent(/1\s*\/\s*1/);
-    expect(screen.getByTestId('memory-overview-section-row')).toHaveTextContent(
-      /2\s*GB\s*\/\s*2\s*GB/
+    const cpuRow = screen.getByTestId('node-cpu-overview-section-row');
+    expect(cpuRow).toHaveTextContent(/1\s*\/\s*—/);
+
+    const memoryRow = screen.getByTestId('memory-overview-section-row');
+    expect(memoryRow).toHaveTextContent(/2\s*GB\s*\/\s*—/);
+  });
+
+  it('shows only the limits for legacy PostgreSQL, without mirrored requests', () => {
+    renderCard(
+      makeLegacyCluster(DbEngineType.POSTGRESQL, { cpu: '1', memory: '2G' })
     );
+
+    const cpuRow = screen.getByTestId('node-cpu-overview-section-row');
+    expect(cpuRow).toHaveTextContent(/1\s*\/\s*—/);
+
+    const memoryRow = screen.getByTestId('memory-overview-section-row');
+    expect(memoryRow).toHaveTextContent(/2\s*GB\s*\/\s*—/);
   });
 });

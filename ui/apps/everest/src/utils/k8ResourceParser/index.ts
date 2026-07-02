@@ -13,6 +13,7 @@
 // limitations under the License.
 
 import { Resources } from 'shared-types/dbCluster.types';
+import { DbEngineType } from '@percona/types';
 
 type kubernetesUnit =
   | 'k'
@@ -119,11 +120,37 @@ export const extractResourceMemoryValue = (
   resources?: Resources
 ): number | string => resources?.limits?.memory ?? resources?.memory ?? 0;
 
-export const extractResourceCpuRequestValue = (resources?: Resources) =>
-  resources?.requests?.cpu;
+// Legacy clusters (before the requests/limits split) stored a single flat
+// cpu/memory value with no explicit requests. Historically the operators
+// mirrored that flat value into the requests only for PXC; PSMDB and
+// PostgreSQL left the requests unset. So when reading a legacy cluster the
+// effective request depends on the engine type.
+const legacyMirrorsRequestsFromLimits = (engineType?: DbEngineType): boolean =>
+  engineType === DbEngineType.PXC;
 
-export const extractResourceMemoryRequestValue = (resources?: Resources) =>
-  resources?.requests?.memory;
+export const extractResourceCpuRequestValue = (
+  resources?: Resources,
+  engineType?: DbEngineType
+): number | string | undefined => {
+  if (resources?.requests?.cpu !== undefined) {
+    return resources.requests.cpu;
+  }
+  return legacyMirrorsRequestsFromLimits(engineType)
+    ? resources?.cpu
+    : undefined;
+};
+
+export const extractResourceMemoryRequestValue = (
+  resources?: Resources,
+  engineType?: DbEngineType
+): number | string | undefined => {
+  if (resources?.requests?.memory !== undefined) {
+    return resources.requests.memory;
+  }
+  return legacyMirrorsRequestsFromLimits(engineType)
+    ? resources?.memory
+    : undefined;
+};
 
 // Tolerance for comparing parsed resource values. Memory parsing round-trips
 // through byte multipliers (G -> bytes -> G), so two logically-equal values can

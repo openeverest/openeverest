@@ -79,16 +79,24 @@ export const ResourcesDetails = ({
     ? extractResourceMemoryValue(dbCluster.spec.proxy?.resources) || 0
     : 0;
   const cpuRequests = extractResourceCpuRequestValue(
-    dbCluster.spec.engine.resources
+    dbCluster.spec.engine.resources,
+    dbCluster.spec.engine.type
   );
   const proxyCpuRequests = isProxy(dbCluster.spec.proxy)
-    ? extractResourceCpuRequestValue(dbCluster.spec.proxy?.resources)
+    ? extractResourceCpuRequestValue(
+        dbCluster.spec.proxy?.resources,
+        dbCluster.spec.engine.type
+      )
     : undefined;
   const memoryRequests = extractResourceMemoryRequestValue(
-    dbCluster.spec.engine.resources
+    dbCluster.spec.engine.resources,
+    dbCluster.spec.engine.type
   );
   const proxyMemoryRequests = isProxy(dbCluster.spec.proxy)
-    ? extractResourceMemoryRequestValue(dbCluster.spec.proxy?.resources)
+    ? extractResourceMemoryRequestValue(
+        dbCluster.spec.proxy?.resources,
+        dbCluster.spec.engine.type
+      )
     : undefined;
   // Requests are considered "synced" with the limits when they are absent or
   // identical to the limits. When they differ, they were configured separately.
@@ -233,10 +241,13 @@ export const ResourcesDetails = ({
                     cpuParser(cpu.toString() || '0'),
                     ''
                   ),
-                  request: getResourcesDetailedString(
-                    cpuParser((cpuRequests ?? cpu).toString() || '0'),
-                    ''
-                  ),
+                  request:
+                    cpuRequests !== undefined
+                      ? getResourcesDetailedString(
+                          cpuParser(cpuRequests.toString() || '0'),
+                          ''
+                        )
+                      : '—',
                 },
                 {
                   label: Messages.fields.memory,
@@ -244,11 +255,13 @@ export const ResourcesDetails = ({
                     parsedMemoryValues.value,
                     'GB'
                   ),
-                  request: getResourcesDetailedString(
-                    memoryParser((memoryRequests ?? memory).toString(), 'G')
-                      .value,
-                    'GB'
-                  ),
+                  request:
+                    memoryRequests !== undefined
+                      ? getResourcesDetailedString(
+                          memoryParser(memoryRequests.toString(), 'G').value,
+                          'GB'
+                        )
+                      : '—',
                 },
                 {
                   label: Messages.fields.disk,
@@ -275,13 +288,14 @@ export const ResourcesDetails = ({
                       parseInt(proxies, 10),
                       ''
                     ),
-                    request: getTotalResourcesDetailedString(
-                      cpuParser(
-                        (proxyCpuRequests ?? proxyCpu).toString() || '0'
-                      ),
-                      parseInt(proxies, 10),
-                      ''
-                    ),
+                    request:
+                      proxyCpuRequests !== undefined
+                        ? getTotalResourcesDetailedString(
+                            cpuParser(proxyCpuRequests.toString() || '0'),
+                            parseInt(proxies, 10),
+                            ''
+                          )
+                        : '—',
                   },
                   {
                     label: Messages.fields.memory,
@@ -290,14 +304,15 @@ export const ResourcesDetails = ({
                       parseInt(proxies, 10),
                       'GB'
                     ),
-                    request: getTotalResourcesDetailedString(
-                      memoryParser(
-                        (proxyMemoryRequests ?? proxyMemory).toString(),
-                        'G'
-                      ).value,
-                      parseInt(proxies, 10),
-                      'GB'
-                    ),
+                    request:
+                      proxyMemoryRequests !== undefined
+                        ? getTotalResourcesDetailedString(
+                            memoryParser(proxyMemoryRequests.toString(), 'G')
+                              .value,
+                            parseInt(proxies, 10),
+                            'GB'
+                          )
+                        : '—',
                   },
                 ]}
               />

@@ -121,8 +121,8 @@ describe('DatabasePreview', () => {
     // the values with a sync icon between the Limits and Requests labels.
     expect(within(nodesTable).getByText('3 nodes:')).toBeInTheDocument();
     expect(
-      within(nodesTable).getByText('Requests: CPU: 3.00 CPU; Memory: 6.00 GB')
-    ).toBeInTheDocument();
+      within(nodesTable).getByTestId('nodes-resources-table-limits-line')
+    ).toHaveTextContent('Limits & Requests: CPU: 3.00 CPU; Memory: 6.00 GB');
     expect(within(nodesTable).getByText('Disk: 90.00 Gi')).toBeInTheDocument();
     expect(
       within(nodesTable).getByTestId('nodes-resources-table-sync-icon')

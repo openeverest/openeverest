@@ -13,7 +13,6 @@
 // limitations under the License.
 
 import { Box, Tooltip, Typography } from '@mui/material';
-import LinkIcon from '@mui/icons-material/Link';
 import { ResourceGroupProps } from './resource-group.types';
 
 export const ResourceGroup = ({
@@ -45,24 +44,20 @@ export const ResourceGroup = ({
       </Typography>
       {hasRowsWithRequests &&
         (synced ? (
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-            <Typography variant="caption" color="text.secondary">
-              Limits
-            </Typography>
+          <Typography
+            variant="caption"
+            color="text.secondary"
+            data-testid={`${dataTestId}-limits-line`}
+            sx={{ display: 'block' }}
+          >
+            {'Limits '}
             <Tooltip title="Requests are synced with limits" arrow>
-              <LinkIcon
-                data-testid={`${dataTestId}-sync-icon`}
-                sx={{ width: '14px', height: '14px', color: 'text.secondary' }}
-              />
+              <Box component="span" data-testid={`${dataTestId}-sync-icon`}>
+                &amp;
+              </Box>
             </Tooltip>
-            <Typography
-              variant="caption"
-              color="text.secondary"
-              data-testid={`${dataTestId}-limits-line`}
-            >
-              {`Requests: ${limitsText}`}
-            </Typography>
-          </Box>
+            {` Requests: ${limitsText}`}
+          </Typography>
         ) : (
           <>
             <Typography

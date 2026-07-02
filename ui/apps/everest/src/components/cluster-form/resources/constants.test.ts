@@ -39,7 +39,7 @@ const baseInput = {
 
 const findIssue = (
   result: ReturnType<typeof schema.safeParse>,
-  field: DbWizardFormFields
+  field: string
 ) => {
   if (result.success) {
     return undefined;
