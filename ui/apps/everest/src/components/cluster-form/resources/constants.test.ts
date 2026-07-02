@@ -85,9 +85,9 @@ describe('resourcesFormSchema – requests required when unsynced', () => {
       [DbWizardFormFields.proxyMemoryRequests]: '',
     });
     expect(result.success).toBe(false);
-    expect(findIssue(result, DbWizardFormFields.proxyCpuRequests)?.message).toBe(
-      Messages.requestRequired
-    );
+    expect(
+      findIssue(result, DbWizardFormFields.proxyCpuRequests)?.message
+    ).toBe(Messages.requestRequired);
     expect(
       findIssue(result, DbWizardFormFields.proxyMemoryRequests)?.message
     ).toBe(Messages.requestRequired);
