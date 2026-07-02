@@ -70,9 +70,7 @@ const renderCard = (dbCluster: DbCluster) =>
 
 describe('ResourcesDetails - legacy clusters', () => {
   it('maps legacy PXC cpu/memory into the displayed limits and mirrors them as requests', () => {
-    renderCard(
-      makeLegacyCluster(DbEngineType.PXC, { cpu: '2', memory: '4G' })
-    );
+    renderCard(makeLegacyCluster(DbEngineType.PXC, { cpu: '2', memory: '4G' }));
 
     // Legacy flat values are read as the limits, and because no explicit
     // requests exist they are shown as identical to the limits (the operator
@@ -80,9 +78,9 @@ describe('ResourcesDetails - legacy clusters', () => {
     expect(
       screen.getByTestId('node-cpu-overview-section-row')
     ).toHaveTextContent(/2\s*\/\s*2/);
-    expect(
-      screen.getByTestId('memory-overview-section-row')
-    ).toHaveTextContent(/4\s*GB\s*\/\s*4\s*GB/);
+    expect(screen.getByTestId('memory-overview-section-row')).toHaveTextContent(
+      /4\s*GB\s*\/\s*4\s*GB/
+    );
   });
 
   it('maps legacy PSMDB (MongoDB) cpu/memory into the displayed limits', () => {
@@ -93,8 +91,8 @@ describe('ResourcesDetails - legacy clusters', () => {
     expect(
       screen.getByTestId('node-cpu-overview-section-row')
     ).toHaveTextContent(/1\s*\/\s*1/);
-    expect(
-      screen.getByTestId('memory-overview-section-row')
-    ).toHaveTextContent(/2\s*GB\s*\/\s*2\s*GB/);
+    expect(screen.getByTestId('memory-overview-section-row')).toHaveTextContent(
+      /2\s*GB\s*\/\s*2\s*GB/
+    );
   });
 });
