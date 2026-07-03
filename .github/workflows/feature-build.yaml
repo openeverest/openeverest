@@ -449,10 +449,7 @@ jobs:
         if: matrix.arch == 'amd64'
         run: |
           curl -fsSL https://raw.githubusercontent.com/Percona-Lab/percona-version-service/main/deploy.yaml  > /tmp/${VERSION}/vs_deploy.yaml
-
-          # k3d uses containerd and returns error if no matching platform is found in manifest.
-          # By forcing the platform to be amd64, ARM64 systems can use it via emulation.
-          sed -i "s|perconalab/version-service:.*|$IMAGE_PREFIX/$EVEREST_VERSION_SERVICE_DEV_IMAGE_NAME:$VS_TAG-amd64|g" /tmp/${VERSION}/vs_deploy.yaml
+          sed -i "s|perconalab/version-service:.*|$IMAGE_PREFIX/$EVEREST_VERSION_SERVICE_DEV_IMAGE_NAME:$VS_TAG|g" /tmp/${VERSION}/vs_deploy.yaml
           sed -i "s/replicas: [0-9]/replicas: 1/g" /tmp/${VERSION}/vs_deploy.yaml
 
       - name: Upload artifacts
