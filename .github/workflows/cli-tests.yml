@@ -20,16 +20,9 @@ jobs:
   integration_tests:
     strategy:
       fail-fast: true
-      matrix:
-        arch: [amd64, arm64]
-        include:
-          - arch: amd64
-            runner: ubuntu-24.04
-          - arch: arm64
-            runner: ubuntu-24.04-arm
     continue-on-error: false
-    name: CLI ${{inputs.make_target}} (${{ matrix.arch }})
-    runs-on: ${{ matrix.runner }}
+    name: CLI ${{inputs.make_target}}
+    runs-on: ubuntu-latest
     timeout-minutes: 60
     env:
       PERCONA_VERSION_SERVICE_URL: https://check-dev.percona.com/versions/v1
@@ -50,7 +43,6 @@ jobs:
       - name: Install Kubernetes tools
         uses: ./.github/actions/install-kubernetes-tools
         with:
-          arch: ${{ matrix.arch }}
           install-kubectl: true
           install-k3d: true
 
@@ -108,6 +100,6 @@ jobs:
         if: ${{ always() && steps.cli-tests.outcome != 'skipped' }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: ${{ env.MAKE_TARGET }}-${{ matrix.arch }}-report
+          name: ${{ env.MAKE_TARGET }}-report
           path: cli-tests/test-report
           overwrite: true
