@@ -449,7 +449,10 @@ jobs:
         if: matrix.arch == 'amd64'
         run: |
           curl -fsSL https://raw.githubusercontent.com/Percona-Lab/percona-version-service/main/deploy.yaml  > /tmp/${VERSION}/vs_deploy.yaml
-          sed -i "s|perconalab/version-service:.*|$IMAGE_PREFIX/$EVEREST_VERSION_SERVICE_DEV_IMAGE_NAME:$VS_TAG|g" /tmp/${VERSION}/vs_deploy.yaml
+
+          # k3d uses containerd and returns error if no matching platform is found in manifest.
+          # By forcing the platform to be amd64, ARM64 systems can use it via emulation.
+          sed -i "s|perconalab/version-service:.*|$IMAGE_PREFIX/$EVEREST_VERSION_SERVICE_DEV_IMAGE_NAME:$VS_TAG-amd64|g" /tmp/${VERSION}/vs_deploy.yaml
           sed -i "s/replicas: [0-9]/replicas: 1/g" /tmp/${VERSION}/vs_deploy.yaml
 
       - name: Upload artifacts
@@ -514,8 +517,6 @@ jobs:
             $IMAGE_PREFIX/openeverest-operator-bundle-dev:$VERSION-arm64
           
           # Version Service (AMD64 only)
-          # The -amd64 suffix identifies the platform, and this manifest enables ARM64 systems
-          # to automatically pull and emulate the AMD64 image.
           docker buildx imagetools create -t $IMAGE_PREFIX/version-service-dev:$VS_TAG \
             $IMAGE_PREFIX/version-service-dev:$VS_TAG-amd64
           
