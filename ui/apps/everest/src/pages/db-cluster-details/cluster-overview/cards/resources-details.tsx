@@ -79,24 +79,16 @@ export const ResourcesDetails = ({
     ? extractResourceMemoryValue(dbCluster.spec.proxy?.resources) || 0
     : 0;
   const cpuRequests = extractResourceCpuRequestValue(
-    dbCluster.spec.engine.resources,
-    dbCluster.spec.engine.type
+    dbCluster.spec.engine.resources
   );
   const proxyCpuRequests = isProxy(dbCluster.spec.proxy)
-    ? extractResourceCpuRequestValue(
-        dbCluster.spec.proxy?.resources,
-        dbCluster.spec.engine.type
-      )
+    ? extractResourceCpuRequestValue(dbCluster.spec.proxy?.resources)
     : undefined;
   const memoryRequests = extractResourceMemoryRequestValue(
-    dbCluster.spec.engine.resources,
-    dbCluster.spec.engine.type
+    dbCluster.spec.engine.resources
   );
   const proxyMemoryRequests = isProxy(dbCluster.spec.proxy)
-    ? extractResourceMemoryRequestValue(
-        dbCluster.spec.proxy?.resources,
-        dbCluster.spec.engine.type
-      )
+    ? extractResourceMemoryRequestValue(dbCluster.spec.proxy?.resources)
     : undefined;
   // Requests are considered "synced" with the limits when they are absent or
   // identical to the limits. When they differ, they were configured separately.
@@ -143,6 +135,8 @@ export const ResourcesDetails = ({
     customNrOfProxies,
     shardConfigServers,
     shardNr,
+    nodeRequestsSynced: nodeRequestsSyncedInput,
+    proxyRequestsSynced: proxyRequestsSyncedInput,
   }) => {
     updateCluster(
       changeDbClusterResources(
@@ -158,6 +152,8 @@ export const ResourcesDetails = ({
           proxyMemory,
           proxyCpuRequests,
           proxyMemoryRequests,
+          nodeRequestsSynced: nodeRequestsSyncedInput,
+          proxyRequestsSynced: proxyRequestsSyncedInput,
           numberOfProxies: parseInt(
             numberOfProxies === CUSTOM_NR_UNITS_INPUT_VALUE
               ? customNrOfProxies || '1'
@@ -233,6 +229,7 @@ export const ResourcesDetails = ({
             loading={loading}
           >
             <ResourcesSummary
+              synced={nodeRequestsSynced}
               rows={[
                 {
                   label: Messages.fields.cpu,
@@ -247,7 +244,7 @@ export const ResourcesDetails = ({
                           cpuParser(cpuRequests.toString() || '0'),
                           ''
                         )
-                      : '—',
+                      : undefined,
                 },
                 {
                   label: Messages.fields.memory,
@@ -261,7 +258,7 @@ export const ResourcesDetails = ({
                           memoryParser(memoryRequests.toString(), 'G').value,
                           'GB'
                         )
-                      : '—',
+                      : undefined,
                 },
                 {
                   label: Messages.fields.disk,
@@ -279,6 +276,7 @@ export const ResourcesDetails = ({
               loading={loading}
             >
               <ResourcesSummary
+                synced={proxyRequestsSynced}
                 rows={[
                   {
                     label: Messages.fields.cpu,
@@ -295,7 +293,7 @@ export const ResourcesDetails = ({
                             parseInt(proxies, 10),
                             ''
                           )
-                        : '—',
+                        : undefined,
                   },
                   {
                     label: Messages.fields.memory,
@@ -312,7 +310,7 @@ export const ResourcesDetails = ({
                             parseInt(proxies, 10),
                             'GB'
                           )
-                        : '—',
+                        : undefined,
                   },
                 ]}
               />

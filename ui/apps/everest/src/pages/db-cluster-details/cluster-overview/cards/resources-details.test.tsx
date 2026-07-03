@@ -69,40 +69,25 @@ const renderCard = (dbCluster: DbCluster) =>
   );
 
 describe('ResourcesDetails - legacy clusters', () => {
-  it('maps legacy PXC cpu/memory into the displayed limits and mirrors them as requests', () => {
-    renderCard(makeLegacyCluster(DbEngineType.PXC, { cpu: '2', memory: '4G' }));
+  it.each([
+    ['PXC', DbEngineType.PXC],
+    ['PSMDB', DbEngineType.PSMDB],
+    ['PostgreSQL', DbEngineType.POSTGRESQL],
+  ])(
+    'shows a single value for legacy %s because requests are synced with limits',
+    (_engineName, engineType) => {
+      renderCard(makeLegacyCluster(engineType, { cpu: '2', memory: '4G' }));
 
-    // PXC historically mirrored the legacy flat value into the requests, so the
-    // card shows the requests equal to the limits (limit / request).
-    expect(
-      screen.getByTestId('node-cpu-overview-section-row')
-    ).toHaveTextContent(/2\s*\/\s*2/);
-    expect(screen.getByTestId('memory-overview-section-row')).toHaveTextContent(
-      /4\s*GB\s*\/\s*4\s*GB/
-    );
-  });
+      // Legacy clusters are treated as if limits and requests were equal, so
+      // the card shows a single value (no "limit / request" slash) for every
+      // engine.
+      const cpuRow = screen.getByTestId('node-cpu-overview-section-row');
+      expect(cpuRow).toHaveTextContent(/CPU\s*2$/);
+      expect(cpuRow).not.toHaveTextContent('/');
 
-  it('shows only the limits for legacy PSMDB (MongoDB), without mirrored requests', () => {
-    renderCard(
-      makeLegacyCluster(DbEngineType.PSMDB, { cpu: '1', memory: '2G' })
-    );
-
-    const cpuRow = screen.getByTestId('node-cpu-overview-section-row');
-    expect(cpuRow).toHaveTextContent(/1\s*\/\s*—/);
-
-    const memoryRow = screen.getByTestId('memory-overview-section-row');
-    expect(memoryRow).toHaveTextContent(/2\s*GB\s*\/\s*—/);
-  });
-
-  it('shows only the limits for legacy PostgreSQL, without mirrored requests', () => {
-    renderCard(
-      makeLegacyCluster(DbEngineType.POSTGRESQL, { cpu: '1', memory: '2G' })
-    );
-
-    const cpuRow = screen.getByTestId('node-cpu-overview-section-row');
-    expect(cpuRow).toHaveTextContent(/1\s*\/\s*—/);
-
-    const memoryRow = screen.getByTestId('memory-overview-section-row');
-    expect(memoryRow).toHaveTextContent(/2\s*GB\s*\/\s*—/);
-  });
+      const memoryRow = screen.getByTestId('memory-overview-section-row');
+      expect(memoryRow).toHaveTextContent(/4\s*GB/);
+      expect(memoryRow).not.toHaveTextContent('/');
+    }
+  );
 });

@@ -23,4 +23,5 @@ export type ResourceSummaryRow = {
 
 export type ResourcesSummaryProps = {
   rows: ResourceSummaryRow[];
+  synced?: boolean;
 };

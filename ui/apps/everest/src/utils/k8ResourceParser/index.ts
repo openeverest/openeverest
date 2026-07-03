@@ -13,7 +13,6 @@
 // limitations under the License.
 
 import { Resources } from 'shared-types/dbCluster.types';
-import { DbEngineType } from '@percona/types';
 
 type kubernetesUnit =
   | 'k'
@@ -121,36 +120,21 @@ export const extractResourceMemoryValue = (
 ): number | string => resources?.limits?.memory ?? resources?.memory ?? 0;
 
 // Legacy clusters (before the requests/limits split) stored a single flat
-// cpu/memory value with no explicit requests. Historically the operators
-// mirrored that flat value into the requests only for PXC; PSMDB and
-// PostgreSQL left the requests unset. So when reading a legacy cluster the
-// effective request depends on the engine type.
-const legacyMirrorsRequestsFromLimits = (engineType?: DbEngineType): boolean =>
-  engineType === DbEngineType.PXC;
-
+// cpu/memory value with no explicit requests. 
+// When a legacy cluster is edited with requests kept synced we intentionally
+// write only limits (to avoid an unnecessary restart), leaving the flat
+// cpu/memory fields as residual "0" values. In that hybrid state the effective
+// request equals the limit (Kubernetes defaults absent requests to the limit),
+// so we must fall back to the limit before the residual flat value.
 export const extractResourceCpuRequestValue = (
-  resources?: Resources,
-  engineType?: DbEngineType
-): number | string | undefined => {
-  if (resources?.requests?.cpu !== undefined) {
-    return resources.requests.cpu;
-  }
-  return legacyMirrorsRequestsFromLimits(engineType)
-    ? resources?.cpu
-    : undefined;
-};
+  resources?: Resources
+): number | string | undefined =>
+  resources?.requests?.cpu ?? resources?.limits?.cpu ?? resources?.cpu;
 
 export const extractResourceMemoryRequestValue = (
-  resources?: Resources,
-  engineType?: DbEngineType
-): number | string | undefined => {
-  if (resources?.requests?.memory !== undefined) {
-    return resources.requests.memory;
-  }
-  return legacyMirrorsRequestsFromLimits(engineType)
-    ? resources?.memory
-    : undefined;
-};
+  resources?: Resources
+): number | string | undefined =>
+  resources?.requests?.memory ?? resources?.limits?.memory ?? resources?.memory;
 
 // Tolerance for comparing parsed resource values. Memory parsing round-trips
 // through byte multipliers (G -> bytes -> G), so two logically-equal values can

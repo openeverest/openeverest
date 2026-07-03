@@ -64,6 +64,7 @@ export const Messages = {
     disk: 'Disk',
     memory: 'Memory',
     limitRequestLegend: 'limit / request',
+    limitRequestSyncedLegend: 'limits & requests',
     backupStorages: 'Backup\u00A0storage',
     storageClass: 'Storage class',
     podSchedulingPolicy: 'Pod scheduling policy',

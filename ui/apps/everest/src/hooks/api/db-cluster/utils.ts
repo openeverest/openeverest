@@ -54,7 +54,8 @@ export const getProxySpec = (
   sourceRanges?: Array<{ sourceRange?: string }>,
   loadBalancerConfigName?: string,
   proxyConfigEnabled = false,
-  proxyConfig = ''
+  proxyConfig = '',
+  omitRequests = false
 ): Proxy => {
   if (dbType === DbType.Mongo && !sharding) {
     return {
@@ -82,10 +83,14 @@ export const getProxySpec = (
         cpu: `${cpu}`,
         memory: `${memory}G`,
       },
-      requests: {
-        cpu: `${cpuRequests ?? cpu}`,
-        memory: `${memoryRequests ?? memory}G`,
-      },
+      ...(omitRequests
+        ? {}
+        : {
+            requests: {
+              cpu: `${cpuRequests ?? cpu}`,
+              memory: `${memoryRequests ?? memory}G`,
+            },
+          }),
     },
     expose: getExposteConfig(
       exposureMethod,

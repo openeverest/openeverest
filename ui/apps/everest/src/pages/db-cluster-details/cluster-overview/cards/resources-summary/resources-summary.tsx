@@ -19,12 +19,14 @@ import OverviewSectionRow from '../../overview-section-row';
 import { Messages } from '../../cluster-overview.messages';
 import { ResourcesSummaryProps } from './resources-summary.types';
 
-export const ResourcesSummary = ({ rows }: ResourcesSummaryProps) => (
+export const ResourcesSummary = ({ rows, synced }: ResourcesSummaryProps) => (
   <>
     <Box sx={{ display: 'flex', alignItems: 'center' }}>
       <Box sx={{ flex: '0 0 50%', minWidth: '90px' }} />
       <Typography variant="caption" color="text.secondary">
-        {Messages.fields.limitRequestLegend}
+        {synced
+          ? Messages.fields.limitRequestSyncedLegend
+          : Messages.fields.limitRequestLegend}
       </Typography>
     </Box>
     {rows.map((row) => (
@@ -33,9 +35,9 @@ export const ResourcesSummary = ({ rows }: ResourcesSummaryProps) => (
         label={row.label}
         dataTestId={row.dataTestId}
         content={
-          row.request !== undefined
-            ? `${row.limit} / ${row.request}`
-            : row.limit
+          row.request === undefined || synced
+            ? row.limit
+            : `${row.limit} / ${row.request}`
         }
       />
     ))}

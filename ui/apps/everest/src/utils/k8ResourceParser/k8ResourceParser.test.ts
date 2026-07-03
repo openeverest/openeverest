@@ -21,7 +21,6 @@ import {
   extractResourceMemoryValue,
   memoryParser,
 } from '.';
-import { DbEngineType } from '@percona/types';
 
 describe('cpu parser', () => {
   // pattern is [description, input, output]
@@ -77,53 +76,20 @@ describe('resource value extraction (legacy vs new format)', () => {
 
     expect(extractResourceCpuValue(legacyResources)).toBe('600m');
     expect(extractResourceMemoryValue(legacyResources)).toBe('1G');
-    // Legacy clusters have no separate requests.
-    expect(extractResourceCpuRequestValue(legacyResources)).toBeUndefined();
-    expect(extractResourceMemoryRequestValue(legacyResources)).toBeUndefined();
+    // Legacy clusters are treated as if limits and requests were equal, so the
+    // flat value is returned as the effective request for every engine.
+    expect(extractResourceCpuRequestValue(legacyResources)).toBe('600m');
+    expect(extractResourceMemoryRequestValue(legacyResources)).toBe('1G');
   });
 
-  it('mirrors legacy flat requests from limits only for PXC', () => {
-    const legacyResources = { cpu: '600m', memory: '1G' };
-
-    // PXC historically mirrored the flat value into the requests.
-    expect(
-      extractResourceCpuRequestValue(legacyResources, DbEngineType.PXC)
-    ).toBe('600m');
-    expect(
-      extractResourceMemoryRequestValue(legacyResources, DbEngineType.PXC)
-    ).toBe('1G');
-
-    // PSMDB and PostgreSQL left the legacy requests unset.
-    expect(
-      extractResourceCpuRequestValue(legacyResources, DbEngineType.PSMDB)
-    ).toBeUndefined();
-    expect(
-      extractResourceMemoryRequestValue(legacyResources, DbEngineType.PSMDB)
-    ).toBeUndefined();
-    expect(
-      extractResourceCpuRequestValue(legacyResources, DbEngineType.POSTGRESQL)
-    ).toBeUndefined();
-    expect(
-      extractResourceMemoryRequestValue(
-        legacyResources,
-        DbEngineType.POSTGRESQL
-      )
-    ).toBeUndefined();
-  });
-
-  it('always prefers explicit requests over the legacy engine fallback', () => {
+  it('always prefers explicit requests over the legacy flat fallback', () => {
     const resources = {
       limits: { cpu: '2', memory: '4G' },
       requests: { cpu: '1', memory: '2G' },
     };
 
-    // Even for PXC, explicit requests take precedence over the flat fallback.
-    expect(extractResourceCpuRequestValue(resources, DbEngineType.PXC)).toBe(
-      '1'
-    );
-    expect(
-      extractResourceMemoryRequestValue(resources, DbEngineType.PSMDB)
-    ).toBe('2G');
+    expect(extractResourceCpuRequestValue(resources)).toBe('1');
+    expect(extractResourceMemoryRequestValue(resources)).toBe('2G');
   });
 
   it('prefers new limits over legacy flat fields when both are present', () => {
@@ -135,6 +101,20 @@ describe('resource value extraction (legacy vs new format)', () => {
 
     expect(extractResourceCpuValue(resources)).toBe('2');
     expect(extractResourceMemoryValue(resources)).toBe('4G');
+  });
+
+  it('falls back to the limit (not the residual flat "0") when a synced legacy cluster was saved with limits only', () => {
+    // After editing a legacy cluster with requests kept synced, only limits are
+    // written and the flat cpu/memory fields are left as residual "0" values.
+    // The effective request equals the limit, so the "0" must not leak through.
+    const hybridResources = {
+      cpu: '0',
+      memory: '0',
+      limits: { cpu: '1', memory: '2G' },
+    };
+
+    expect(extractResourceCpuRequestValue(hybridResources)).toBe('1');
+    expect(extractResourceMemoryRequestValue(hybridResources)).toBe('2G');
   });
 
   it('returns 0 for missing cpu/memory', () => {
@@ -151,6 +131,16 @@ describe('areResourceRequestsSynced', () => {
   it('treats absent requests as synced', () => {
     expect(
       areResourceRequestsSynced({ limits: { cpu: '2', memory: '4G' } })
+    ).toBe(true);
+  });
+
+  it('treats a limits-only save with residual flat "0" fields as synced', () => {
+    expect(
+      areResourceRequestsSynced({
+        cpu: '0',
+        memory: '0',
+        limits: { cpu: '1', memory: '2G' },
+      })
     ).toBe(true);
   });
 

@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -24,11 +25,16 @@ import {
   populateBasicInformation,
   submitWizard,
 } from '@e2e/utils/db-wizard';
-import { waitForDelete, waitForStatus } from '@e2e/utils/table';
+import { waitForInitializingState } from '@e2e/utils/table';
 import { selectDbEngine } from '@e2e/pr/db-cluster/db-wizard/db-wizard-utils';
+import {
+  createDbClusterFn,
+  deleteDbClusterFn,
+  getDbClusterAPI,
+} from '@e2e/utils/db-cluster';
+import { getNamespacesFn } from '@e2e/utils/namespaces';
 
 let token: string;
-
 const openResourcesModal = async (page: Page) => {
   const editResourcesButton = page.getByTestId('edit-resources-button');
   await editResourcesButton.waitFor();
@@ -230,3 +236,133 @@ const openResourcesModal = async (page: Page) => {
     });
   }
 );
+
+// A "legacy" cluster is one created before the requests/limits split: it stores
+// a single flat cpu/memory value with no explicit limits/requests. Editing such
+// a cluster while keeping requests synced with limits must persist limits only,
+// otherwise PSMDB/PostgreSQL would restart. `createDbClusterFn` intentionally
+// writes the legacy flat shape, so we use it to reproduce the scenario.
+
+test.describe
+  .serial('Legacy cluster resources editing keeps limits only', () => {
+  test.describe.configure({ timeout: 1000000 });
+
+  const clusterName = 'legacy-pxc-resources-edit';
+  let namespace: string;
+
+  const openResourcesModal = async (page: Page) => {
+    const editResourcesButton = page.getByTestId('edit-resources-button');
+    await editResourcesButton.waitFor();
+    await editResourcesButton.click();
+    await expect(page.getByTestId('edit-resources-form-dialog')).toBeVisible();
+  };
+
+  test.beforeAll(async ({ request }) => {
+    token = await getTokenFromLocalStorage();
+    const namespaces = await getNamespacesFn(token, request);
+    namespace = namespaces[0];
+
+    await createDbClusterFn(
+      request,
+      {
+        dbName: clusterName,
+        dbType: 'mysql',
+        numberOfNodes: '1',
+        cpu: 1,
+        disk: 1,
+        memory: 1,
+        proxyCpu: 1,
+        proxyMemory: 1,
+      },
+      namespace
+    );
+  });
+
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/databases');
+    await waitForInitializingState(page, clusterName);
+  });
+
+  test.afterAll(async ({ request }) => {
+    await deleteDbClusterFn(request, clusterName, namespace);
+  });
+
+  test('starts synced and persists limits only when saved without changes', async ({
+    page,
+    request,
+  }) => {
+    await findDbAndClickRow(page, clusterName);
+
+    await test.step('Open edit resource modal', async () => {
+      await openResourcesModal(page);
+    });
+
+    await test.step('Requests are synced and hidden for a legacy cluster', async () => {
+      const syncSwitch = page
+        .getByTestId('switch-input-node-requests-synced-label')
+        .getByRole('checkbox');
+      await expect(syncSwitch).toBeChecked();
+      await expect(
+        page.getByTestId('text-input-cpu-requests')
+      ).not.toBeVisible();
+    });
+
+    await test.step('Save without changes', async () => {
+      await expect(page.getByTestId('form-dialog-save')).not.toBeDisabled();
+      await page.getByTestId('form-dialog-save').click();
+    });
+
+    await test.step('The CR still has limits only (no requests)', async () => {
+      await expect(async () => {
+        const cluster = await getDbClusterAPI(
+          clusterName,
+          namespace,
+          request,
+          token
+        );
+        expect(cluster.spec.engine.resources.limits).toBeDefined();
+        expect(cluster.spec.engine.resources.requests).toBeUndefined();
+      }).toPass({ timeout: 30000 });
+    });
+  });
+
+  test('writes requests when the user consciously desyncs them', async ({
+    page,
+    request,
+  }) => {
+    await findDbAndClickRow(page, clusterName);
+
+    await test.step('Open edit resource modal', async () => {
+      await openResourcesModal(page);
+    });
+
+    await test.step('Turn off sync and set a lower CPU request', async () => {
+      const syncSwitch = page
+        .getByTestId('switch-input-node-requests-synced-label')
+        .getByRole('checkbox');
+      await syncSwitch.uncheck();
+
+      const cpuRequest = page.getByTestId('text-input-cpu-requests');
+      await expect(cpuRequest).toBeVisible();
+      await cpuRequest.fill('0.5');
+    });
+
+    await test.step('Save the form', async () => {
+      await expect(page.getByTestId('form-dialog-save')).not.toBeDisabled();
+      await page.getByTestId('form-dialog-save').click();
+    });
+
+    await test.step('The CR now has explicit requests', async () => {
+      await expect(async () => {
+        const cluster = await getDbClusterAPI(
+          clusterName,
+          namespace,
+          request,
+          token
+        );
+        expect(cluster.spec.engine.resources.requests).toBeDefined();
+        expect(cluster.spec.engine.resources.requests.cpu).toBeDefined();
+      }).toPass({ timeout: 30000 });
+    });
+  });
+});
