@@ -314,6 +314,7 @@ jobs:
 
 
       - name: VS - update
+        if: matrix.arch == 'amd64'
         run: |
           cd percona-version-service
           make init
@@ -328,6 +329,7 @@ jobs:
           cat "$VERSION.yaml"
 
       - name: Build and Push VS dev image
+        if: matrix.arch == 'amd64'
         uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
         with:
           context: percona-version-service
@@ -511,10 +513,11 @@ jobs:
             $IMAGE_PREFIX/openeverest-operator-bundle-dev:$VERSION-amd64 \
             $IMAGE_PREFIX/openeverest-operator-bundle-dev:$VERSION-arm64
           
-          # Version Service
+          # Version Service (AMD64 only)
+          # The -amd64 suffix identifies the platform, and this manifest enables ARM64 systems
+          # to automatically pull and emulate the AMD64 image.
           docker buildx imagetools create -t $IMAGE_PREFIX/version-service-dev:$VS_TAG \
-            $IMAGE_PREFIX/version-service-dev:$VS_TAG-amd64 \
-            $IMAGE_PREFIX/version-service-dev:$VS_TAG-arm64
+            $IMAGE_PREFIX/version-service-dev:$VS_TAG-amd64
           
           # Catalog
           docker buildx imagetools create -t $IMAGE_PREFIX/openeverest-catalog-dev:$VERSION \
