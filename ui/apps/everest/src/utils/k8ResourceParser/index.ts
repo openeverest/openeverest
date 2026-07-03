@@ -120,7 +120,7 @@ export const extractResourceMemoryValue = (
 ): number | string => resources?.limits?.memory ?? resources?.memory ?? 0;
 
 // Legacy clusters (before the requests/limits split) stored a single flat
-// cpu/memory value with no explicit requests. 
+// cpu/memory value with no explicit requests.
 // When a legacy cluster is edited with requests kept synced we intentionally
 // write only limits (to avoid an unnecessary restart), leaving the flat
 // cpu/memory fields as residual "0" values. In that hybrid state the effective
