@@ -192,8 +192,7 @@ type PluginStatus struct {
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
-// +kubebuilder:resource:shortName=plg;plugin
-// +kubebuilder:resource:scope=Cluster
+// +kubebuilder:resource:scope=Cluster,shortName=plg;plugin
 // +kubebuilder:printcolumn:name="Display Name",type="string",JSONPath=".spec.displayName"
 // +kubebuilder:printcolumn:name="Version",type="string",JSONPath=".spec.version"
 // +kubebuilder:printcolumn:name="Backend URL",type="string",JSONPath=".spec.backend.url"

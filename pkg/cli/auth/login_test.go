@@ -28,6 +28,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/openeverest/openeverest/v2/client"
+	"github.com/openeverest/openeverest/v2/pkg/cli"
 	"github.com/openeverest/openeverest/v2/pkg/cli/config"
 )
 
@@ -160,7 +161,7 @@ func TestValidateServerURL(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.input, func(t *testing.T) {
 			t.Parallel()
-			err := validateServerURL(tc.input)
+			err := cli.ValidateServerURL(tc.input)
 			if tc.wantErr {
 				assert.Error(t, err)
 			} else {
@@ -185,7 +186,7 @@ func TestNormalizeServerURL(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.input, func(t *testing.T) {
 			t.Parallel()
-			assert.Equal(t, tc.want, normalizeServerURL(tc.input))
+			assert.Equal(t, tc.want, cli.NormalizeServerURL(tc.input))
 		})
 	}
 }

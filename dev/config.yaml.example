@@ -7,18 +7,8 @@ namespaces:
     backupStorages:
       - bs-msp-1
       - bs-msp-2
-    # List of DB operators that will be deployed into DB namespace
-    operators:
-      - pxc
-      - psmdb
-      - pg
   - name: the-dark-side
     # List of BackupStorages that will be created automatically in this namespace
     backupStorages:
       - bs-tds-1
       - bs-tds-2
-    # List of DB operators that will be deployed into DB namespace
-    operators:
-      - pxc
-      - psmdb
-      - pg

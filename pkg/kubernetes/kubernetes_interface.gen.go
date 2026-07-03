@@ -376,4 +376,19 @@ type KubernetesConnector interface {
 	// WatchInstances returns a watch.Interface that streams
 	// Instance events across all namespaces.
 	WatchInstances(ctx context.Context) (watch.Interface, error)
+	// WatchPlugins returns a watch.Interface that streams Plugin CR events.
+	// Plugin is cluster-scoped.
+	WatchPlugins(ctx context.Context) (watch.Interface, error)
+	// WatchInstalledExtensions returns a watch.Interface that streams
+	// InstalledExtension events across all namespaces.
+	WatchInstalledExtensions(ctx context.Context) (watch.Interface, error)
+	// WatchEverestManagedNamespaces returns a watch.Interface that streams
+	// events for Namespaces carrying the Everest managed-by label.
+	WatchEverestManagedNamespaces(ctx context.Context) (watch.Interface, error)
+	// WatchEverestSettings returns a watch.Interface that streams ConfigMap
+	// events for the Everest settings ConfigMap in the system namespace.
+	// Callers must filter results by name (the watch returns all ConfigMaps in
+	// the namespace; field-selector watches are not portable across the
+	// controller-runtime client).
+	WatchEverestSettings(ctx context.Context) (watch.Interface, error)
 }

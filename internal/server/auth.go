@@ -30,6 +30,7 @@ import (
 	api "github.com/openeverest/openeverest/v2/internal/server/api"
 	"github.com/openeverest/openeverest/v2/internal/tokenregistry"
 	"github.com/openeverest/openeverest/v2/pkg/accounts"
+	"github.com/openeverest/openeverest/v2/pkg/events"
 )
 
 const (
@@ -76,6 +77,7 @@ func (e *EverestServer) handlePasswordGrant(ctx echo.Context, params api.AuthTok
 	c := ctx.Request().Context()
 	if err := e.sessionMgr.Authenticate(c, *params.Username, *params.Password); err != nil {
 		e.attemptsStore.IncreaseTimeout(ctx.RealIP())
+		e.publishAuthEvent(events.UserLoginFailed, *params.Username, ctx.RealIP(), err.Error())
 		return sessionErrToHTTPRes(ctx, err)
 	}
 
@@ -86,6 +88,7 @@ func (e *EverestServer) handlePasswordGrant(ctx echo.Context, params api.AuthTok
 	}
 
 	e.attemptsStore.CleanupVisitor(ctx.RealIP())
+	e.publishAuthEvent(events.UserLogin, *params.Username, ctx.RealIP(), "")
 
 	return e.respondWithTokens(ctx, *params.Username, refreshToken, useCookieDelivery(params))
 }
@@ -192,8 +195,10 @@ func (e *EverestServer) RevokeAuthToken(ctx echo.Context) error {
 
 	// Revoke the refresh token, if one was presented.
 	// Per RFC 7009, an invalid token does not fail the revocation request.
+	var subject string
 	if presented, fromCookie := refreshTokenFromRequest(ctx, params.Token); presented != "" {
 		if rec, err := e.tokenRegistry.Validate(c, presented); err == nil {
+			subject = rec.OwnerSubject
 			if err := e.tokenRegistry.Revoke(c, rec.ID); err != nil {
 				e.l.Errorf("failed to revoke refresh token: %v", err)
 				return errFailedLogout(ctx)
@@ -215,6 +220,7 @@ func (e *EverestServer) RevokeAuthToken(ctx echo.Context) error {
 		}
 	}
 
+	e.publishAuthEvent(events.UserLogout, subject, ctx.RealIP(), "")
 	return ctx.NoContent(http.StatusNoContent)
 }
 

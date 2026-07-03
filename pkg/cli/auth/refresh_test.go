@@ -122,5 +122,5 @@ func TestRefresh_NoActiveContext(t *testing.T) {
 	lo := NewLogin(Config{}, zap.NewNop().Sugar())
 	err := lo.Refresh(t.Context(), cfgPath)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "missing")
+	assert.Contains(t, err.Error(), "no active context")
 }

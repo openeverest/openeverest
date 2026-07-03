@@ -151,6 +151,16 @@ func (c *Config) GetCurrentContext() (Context, bool) {
 	return Context{}, false
 }
 
+// GetContext returns the named context.
+func (c *Config) GetContext(name string) (Context, bool) {
+	for _, nc := range c.Contexts {
+		if nc.Name == name {
+			return nc.Context, true
+		}
+	}
+	return Context{}, false
+}
+
 // GetServer returns the server with the given name.
 func (c *Config) GetServer(name string) (Server, bool) {
 	for _, ns := range c.Servers {

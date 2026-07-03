@@ -29,6 +29,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/openeverest/openeverest/v2/client"
+	"github.com/openeverest/openeverest/v2/pkg/cli"
 	"github.com/openeverest/openeverest/v2/pkg/cli/config"
 	"github.com/openeverest/openeverest/v2/pkg/output"
 )
@@ -63,11 +64,11 @@ func NewLogin(cfg Config, l *zap.SugaredLogger) *Login {
 
 // Run exchanges username/password for tokens and saves them to cfgPath.
 func (lo *Login) Run(ctx context.Context, opts LoginOptions, cfgPath string) error {
-	if err := validateServerURL(opts.Server); err != nil {
+	if err := cli.ValidateServerURL(opts.Server); err != nil {
 		return err
 	}
 
-	c, err := client.NewClient(normalizeServerURL(opts.Server))
+	c, err := client.NewClient(cli.NormalizeServerURL(opts.Server))
 	if err != nil {
 		return fmt.Errorf("failed to create API client: %w", err)
 	}
@@ -123,24 +124,6 @@ func (lo *Login) Run(ctx context.Context, opts LoginOptions, cfgPath string) err
 		_, _ = fmt.Fprint(os.Stdout, output.Success("Logged in to %s as %s", opts.Server, opts.Username))
 	}
 	return nil
-}
-
-// validateServerURL returns an error if the URL scheme is not http or https.
-func validateServerURL(server string) error {
-	if !strings.HasPrefix(server, "http://") && !strings.HasPrefix(server, "https://") {
-		return fmt.Errorf("server URL must start with http:// or https://")
-	}
-	return nil
-}
-
-// normalizeServerURL ensures the URL ends with /v1 (no trailing slash).
-// The generated client resolves ./auth/token relative to this base.
-func normalizeServerURL(server string) string {
-	server = strings.TrimRight(server, "/")
-	if !strings.HasSuffix(server, "/v1") {
-		server += "/v1"
-	}
-	return server
 }
 
 // serverName strips the URL scheme from server, returning just the host[:port].

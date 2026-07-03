@@ -87,10 +87,6 @@ jobs:
       - name: Run linters
         run: |
           go tool golangci-lint run --new --out-format=line-number | env REVIEWDOG_GITHUB_API_TOKEN=${{ secrets.GITHUB_TOKEN }} go tool reviewdog -f=golangci-lint -reporter=github-pr-review -filter-mode=nofilter -fail-on-error=true
-      - name: Check that dev Helm chart is up-to-date
-        run: |
-          make update-dev-chart
-          git diff --exit-code
 
       - name: Check that there are no source code changes
         run: |
@@ -98,6 +94,11 @@ jobs:
           pushd tools && go mod tidy -v
           popd        && go mod tidy -v
           git status
+          git diff --exit-code
+
+      - name: Check that dev Helm chart is up-to-date
+        run: |
+          make update-dev-chart
           git diff --exit-code
 
       - name: Check the Makefile references dev version
