@@ -57,7 +57,7 @@ let token: string;
             .getByRole('button')
             .getByText(size + ' node')
             .click();
-          await expect(page.getByText(`1 node - CPU`)).toBeVisible();
+          await expect(page.getByText(`1 node:`)).toBeVisible();
         });
 
         await test.step('Move forward form with default values', async () => {

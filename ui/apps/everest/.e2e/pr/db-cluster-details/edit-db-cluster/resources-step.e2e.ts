@@ -91,7 +91,7 @@ const openResourcesModal = async (page: Page) => {
           const numberOfNodes = size * (db !== 'psmdb' ? 1 : 2);
           await expect(
             page.getByText(
-              numberOfNodes + ` node${numberOfNodes === 1 ? '' : 's'} - CPU`
+              numberOfNodes + ` node${numberOfNodes === 1 ? '' : 's'}:`
             )
           ).toBeVisible();
         });
