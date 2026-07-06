@@ -184,6 +184,7 @@ func (c *Context) ObjectMeta(name string) metav1.ObjectMeta {
 		Labels: map[string]string{
 			"app.kubernetes.io/managed-by": "everest",
 			"app.kubernetes.io/instance":   c.Name(),
+			ProviderLabel:                  c.providerName,
 		},
 	}
 }
@@ -752,6 +753,10 @@ const IndexBackupInstanceName = "spec.instanceName"
 // IndexRestoreInstanceName is the field index path used for Restore.spec.instanceName.
 const IndexRestoreInstanceName = "spec.instanceName"
 
+// ProviderLabel is the label key used to identify which provider
+// manages an Instance. Set automatically by the provider reconciler.
+const ProviderLabel = "core.openeverest.io/provider"
+
 // ShouldRetainBackupData returns true when the underlying backup data in the
 // configured BackupStorage (e.g., the S3 object) must be preserved on
 // deletion of the supplied Backup CR.
@@ -1048,29 +1053,42 @@ func hasInstanceStorage(b *v1alpha1.InstanceBackupSpec, name string) bool {
 // WATCH HANDLER HELPERS
 // =============================================================================
 
-// FilterInstancesByProvider returns reconcile requests for Instances belonging
-// to the specified provider. This is useful in watch handler mapping functions
-// that list Instances to determine which ones need reconciliation.
+// RequestsForInstancesMatching lists Instances belonging to the specified provider
+// that match the given ListOptions, and returns them as reconcile.Request objects.
 //
 // Example usage in a watch handler:
 //
-//	func enqueueInstances(providerName string) func(ctx context.Context, obj client.Object) []reconcile.Request {
+//	func enqueueMonitoringConfig(providerName string) func(ctx context.Context, obj client.Object) []reconcile.Request {
 //	    return func(ctx context.Context, obj client.Object) []reconcile.Request {
-//	        // ... list instances ...
-//	        return controller.FilterInstancesByProvider(instanceList.Items, providerName)
+//	        mc := obj.(*monitoringv1alpha1.MonitoringConfig)
+//	        requests, err := controller.RequestsForInstancesMatching(ctx, client, providerName,
+//	            client.InNamespace(mc.GetNamespace()),
+//	            client.MatchingFields{monitoringConfigPath: mc.GetName()},
+//	        )
+//	        if err != nil {
+//	            return []reconcile.Request{}
+//	        }
+//	        return requests
 //	    }
 //	}
-func FilterInstancesByProvider(instances []v1alpha1.Instance, providerName string) []reconcile.Request {
-	var requests []reconcile.Request
-	for _, item := range instances {
-		if item.Spec.Provider == providerName {
-			requests = append(requests, reconcile.Request{
-				NamespacedName: types.NamespacedName{
-					Name:      item.GetName(),
-					Namespace: item.GetNamespace(),
-				},
-			})
-		}
+func RequestsForInstancesMatching(ctx context.Context, c client.Client, providerName string, opts ...client.ListOption) ([]reconcile.Request, error) {
+	// Add label selector to opts for efficient server-side filtering
+	opts = append(opts, client.MatchingLabels{ProviderLabel: providerName})
+
+	list := &v1alpha1.InstanceList{}
+	if err := c.List(ctx, list, opts...); err != nil {
+		return nil, err
 	}
-	return requests
+
+	// Convert to reconcile requests
+	requests := make([]reconcile.Request, 0, len(list.Items))
+	for _, item := range list.Items {
+		requests = append(requests, reconcile.Request{
+			NamespacedName: types.NamespacedName{
+				Name:      item.GetName(),
+				Namespace: item.GetNamespace(),
+			},
+		})
+	}
+	return requests, nil
 }
