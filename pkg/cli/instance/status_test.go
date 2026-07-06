@@ -249,12 +249,12 @@ func minimalInst() *client.Instance {
 				Total *int32  `json:"total,omitempty"`
 			} `json:"components,omitempty"`
 			Conditions *[]struct {
-				LastTransitionTime    time.Time                             `json:"lastTransitionTime"`
-				Message               string                                `json:"message"`
-				ObservedGeneration    *int64                                `json:"observedGeneration,omitempty"`
-				Reason                string                                `json:"reason"`
-				Status                client.InstanceStatusConditionsStatus `json:"status"`
-				Type                  string                                `json:"type"`
+				LastTransitionTime time.Time                             `json:"lastTransitionTime"`
+				Message            string                                `json:"message"`
+				ObservedGeneration *int64                                `json:"observedGeneration,omitempty"`
+				Reason             string                                `json:"reason"`
+				Status             client.InstanceStatusConditionsStatus `json:"status"`
+				Type               string                                `json:"type"`
 			} `json:"conditions,omitempty"`
 			ConnectionSecretRef *struct {
 				Name *string `json:"name,omitempty"`
@@ -306,7 +306,12 @@ func TestWatch_StopsOnContextCancel(t *testing.T) {
 func TestWatch_StopsOnTokenExpiry(t *testing.T) {
 	t.Parallel()
 
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+	// POST = token refresh; return 401 so proactive rotation fails and the error surfaces.
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost {
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		_ = json.NewEncoder(w).Encode(minimalInst())

@@ -56,8 +56,9 @@ func NewInstanceStatusRunner(cfg Config, l *zap.SugaredLogger) *InstanceStatusRu
 	return is
 }
 
-// Run fetches the instance status. If opts.Watch is set, it hands off to the
-// watch loop after the first render, reusing the same HTTP client.
+// Run fetches the current status of an instance, printing it to stdout.
+// With opts.Watch set, it polls continuously until the context is cancelled,
+// the instance is deleted, or token refresh fails.
 func (is *InstanceStatusRunner) Run(ctx context.Context, opts StatusOptions, cfgPath string) error {
 	sess, err := cli.LoadSession(cfgPath, opts.Context)
 	if err != nil {
@@ -67,16 +68,13 @@ func (is *InstanceStatusRunner) Run(ctx context.Context, opts StatusOptions, cfg
 	// Refresh proactively within 30s of expiry to avoid a mid-flight 401.
 	if time.Now().After(sess.User.ExpiresAt.Add(-30 * time.Second)) {
 		lo := authcli.NewLogin(authcli.Config{Pretty: is.config.Pretty}, is.l.Desugar().Sugar())
-		if err := lo.Refresh(ctx, cfgPath); err != nil {
+		newSess, err := lo.Refresh(ctx, cfgPath)
+		if err != nil {
 			return fmt.Errorf("access token expired and refresh failed: %w", err)
 		}
-		sess, err = cli.LoadSession(cfgPath, opts.Context)
-		if err != nil {
-			return err
-		}
+		sess = newSess
 	}
 
-	// Client created once — reused by the watch loop across all ticks.
 	c, err := client.NewClientWithResponses(cli.NormalizeServerURL(sess.Server.URL))
 	if err != nil {
 		return fmt.Errorf("failed to create API client: %w", err)
@@ -98,7 +96,7 @@ func (is *InstanceStatusRunner) Run(ctx context.Context, opts StatusOptions, cfg
 	is.render(resp.JSON200, opts.Namespace)
 
 	if opts.Watch {
-		return is.watch(ctx, c, sess, token, opts)
+		return is.watch(ctx, c, sess, token, opts, cfgPath)
 	}
 	return nil
 }
@@ -109,6 +107,7 @@ func (is *InstanceStatusRunner) watch(
 	sess *cli.Session,
 	token client.RequestEditorFn,
 	opts StatusOptions,
+	cfgPath string,
 ) error {
 	interval := opts.Interval
 	if interval <= 0 {
@@ -123,9 +122,15 @@ func (is *InstanceStatusRunner) watch(
 		case <-ctx.Done():
 			return nil
 		case <-ticker.C:
-			// Proactive expiry check — exit before sending an expired token.
+			// Proactive rotation — refresh before the token expires.
 			if time.Now().After(sess.User.ExpiresAt.Add(-30 * time.Second)) {
-				return fmt.Errorf("access token expired — re-run with --watch to continue")
+				lo := authcli.NewLogin(authcli.Config{Pretty: is.config.Pretty}, is.l.Desugar().Sugar())
+				newSess, err := lo.Refresh(ctx, cfgPath)
+				if err != nil {
+					return fmt.Errorf("access token expired and refresh failed: %w", err)
+				}
+				sess = newSess
+				token = cli.BearerToken(sess.User.AccessToken)
 			}
 
 			resp, err := c.GetInstanceWithResponse(ctx, opts.Cluster, opts.Namespace, opts.Name, token)
@@ -147,7 +152,32 @@ func (is *InstanceStatusRunner) watch(
 			case http.StatusNotFound:
 				return fmt.Errorf("instance %q has been deleted", opts.Name)
 			case http.StatusUnauthorized:
-				return fmt.Errorf("access token expired — re-run with --watch to continue")
+				// Refresh and retry once before surfacing the error.
+				lo := authcli.NewLogin(authcli.Config{Pretty: is.config.Pretty}, is.l.Desugar().Sugar())
+				newSess, err := lo.Refresh(ctx, cfgPath)
+				if err != nil {
+					return fmt.Errorf("access token expired and refresh failed: %w", err)
+				}
+				sess = newSess
+				token = cli.BearerToken(sess.User.AccessToken)
+
+				retry, retryErr := c.GetInstanceWithResponse(ctx, opts.Cluster, opts.Namespace, opts.Name, token)
+				if retryErr != nil {
+					return fmt.Errorf("failed to fetch instance %q after token refresh: %w", opts.Name, retryErr)
+				}
+				switch retry.StatusCode() {
+				case http.StatusOK:
+					if retry.JSON200 != nil {
+						if is.config.Pretty {
+							fmt.Fprintln(os.Stdout, "---")
+						}
+						is.render(retry.JSON200, opts.Namespace)
+					}
+				case http.StatusNotFound:
+					return fmt.Errorf("instance %q has been deleted", opts.Name)
+				default:
+					return fmt.Errorf("access token expired — re-run with --watch to continue")
+				}
 			default:
 				is.l.Warnf("unexpected response %s — retrying in %s", resp.Status(), interval)
 			}
@@ -155,7 +185,6 @@ func (is *InstanceStatusRunner) watch(
 	}
 }
 
-// render prints the instance to stdout — pretty table or raw JSON depending on config.
 func (is *InstanceStatusRunner) render(inst *client.Instance, namespace string) {
 	if !is.config.Pretty {
 		_ = json.NewEncoder(os.Stdout).Encode(inst)

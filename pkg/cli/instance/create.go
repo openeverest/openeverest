@@ -75,13 +75,11 @@ func (ic *InstanceCreator) Run(ctx context.Context, opts CreateOptions, cfgPath 
 	// Refresh proactively within 30s of expiry to avoid a mid-flight 401.
 	if time.Now().After(sess.User.ExpiresAt.Add(-30 * time.Second)) {
 		lo := authcli.NewLogin(authcli.Config{Pretty: ic.config.Pretty}, ic.l.Desugar().Sugar())
-		if err := lo.Refresh(ctx, cfgPath); err != nil {
+		newSess, err := lo.Refresh(ctx, cfgPath)
+		if err != nil {
 			return fmt.Errorf("access token expired and refresh failed: %w", err)
 		}
-		sess, err = cli.LoadSession(cfgPath, opts.Context)
-		if err != nil {
-			return err
-		}
+		sess = newSess
 	}
 
 	c, err := client.NewClientWithResponses(cli.NormalizeServerURL(sess.Server.URL))
