@@ -145,10 +145,9 @@ describe('stripBadgeFromValue', () => {
 
 describe('stripBadgesFromData', () => {
   it('converts milli-byte values at badge field paths', () => {
-    const result = stripBadgesFromData(
-      { spec: { memory: '1073741824000m' } },
-      [{ path: 'spec.memory', badge: 'Gi' }]
-    );
+    const result = stripBadgesFromData({ spec: { memory: '1073741824000m' } }, [
+      { path: 'spec.memory', badge: 'Gi' },
+    ]);
 
     expect(result).toEqual({ spec: { memory: 1 } });
   });
