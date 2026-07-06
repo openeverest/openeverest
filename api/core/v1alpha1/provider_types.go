@@ -102,8 +102,7 @@ type ProviderStatus struct {
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
-// +kubebuilder:resource:shortName=pr;prv;prov
-// +kubebuilder:resource:scope=Cluster
+// +kubebuilder:resource:scope=Cluster,shortName=pr;prv;prov
 
 // Provider is the Schema for the providers API
 type Provider struct {

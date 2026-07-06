@@ -54,19 +54,19 @@ export const DatabasePreview = ({
   const previewSections: {
     stepId: string;
     title: string;
-    component: React.ComponentType<DbWizardType>;
+    content: React.ReactNode;
   }[] = [
     {
       stepId: BASE_STEP_ID,
       title: 'Basic Information',
-      component: PreviewSectionOne,
+      content: <PreviewSectionOne {...values} />,
     },
     ...(showImportStep
       ? [
           {
             stepId: IMPORT_STEP_ID,
             title: 'Import information',
-            component: () => <PreviewContentText text="" />,
+            content: <PreviewContentText text="" />,
           },
         ]
       : []),
@@ -75,15 +75,15 @@ export const DatabasePreview = ({
           {
             stepId: BACKUP_STEP_ID,
             title: 'Backups',
-            component: PreviewBackupSection,
+            content: <PreviewBackupSection {...values} />,
           },
         ]
       : []),
     ...orderedSectionKeys.map((key) => ({
       stepId: getSectionStepId(key),
       title: sections[key]?.label || key,
-      component: (v: DbWizardType) => (
-        <DynamicSectionPreview section={sections[key]} formValues={v} />
+      content: (
+        <DynamicSectionPreview section={sections[key]} formValues={values} />
       ),
     })),
   ];
@@ -93,9 +93,8 @@ export const DatabasePreview = ({
       <Typography variant="overline">{Messages.title}</Typography>
       <Stack>
         {previewSections.map((section, idx) => {
-          const Section = section.component;
           return (
-            <React.Fragment key={`section-${idx + 1}`}>
+            <React.Fragment key={section.stepId}>
               <PreviewSection
                 order={idx + 1}
                 title={section.title}
@@ -109,7 +108,7 @@ export const DatabasePreview = ({
                 onEditClick={() => onSectionEdit(section.stepId)}
                 sx={{ mt: idx === 0 ? 2 : 0 }}
               >
-                <Section {...values} />
+                {section.content}
               </PreviewSection>
             </React.Fragment>
           );

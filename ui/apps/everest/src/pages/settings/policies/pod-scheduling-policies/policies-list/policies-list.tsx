@@ -1,3 +1,17 @@
+// Copyright (C) 2026 The OpenEverest Contributors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 import Add from '@mui/icons-material/Add';
 import { Button, Typography } from '@mui/material';
 import { Table } from '@percona/ui-lib';
@@ -14,8 +28,6 @@ import {
   usePodSchedulingPolicies,
 } from 'hooks';
 import { PodSchedulingPolicy } from 'shared-types/affinity.types';
-import { humanizeDbType } from 'utils/db';
-import { dbEngineToDbType } from '@percona/utils';
 import { useQueryClient } from '@tanstack/react-query';
 import EmptyState from 'components/empty-state';
 import { useRBACPermissions } from 'hooks/rbac';
@@ -53,7 +65,7 @@ const PoliciesList = () => {
         header: 'Technology',
         Cell: ({ cell }) => {
           const engineType = cell.getValue<DbEngineType>();
-          return humanizeDbType(dbEngineToDbType(engineType));
+          return String(engineType);
         },
       },
     ],

@@ -19,7 +19,6 @@ import { MenuItem, Typography } from '@mui/material';
 import { LoadableChildren, RadioGroup, SelectInput } from '@percona/ui-lib';
 // TODO: Re-enable PITR UI when PITR restore flow is implemented.
 // import { DateTimePickerInput } from '@percona/ui-lib';
-// import { dbEngineToDbType } from '@percona/utils';
 // import ActionableAlert from 'components/actionable-alert';
 import { DATE_FORMAT } from 'consts';
 // TODO: Re-enable PITR UI when PITR restore flow is implemented.

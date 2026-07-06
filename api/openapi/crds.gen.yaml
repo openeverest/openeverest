@@ -953,13 +953,6 @@ components:
                 Plugin holds plugin-specific install state. Required when type=plugin;
                 must be nil when type=provider.
               properties:
-                allowClusterScope:
-                  description: |-
-                    AllowClusterScope must be true for the reconciler to provision a
-                    ClusterRole/ClusterRoleBinding when Scope=Cluster. Without it, the
-                    reconciler refuses to create cluster-wide RBAC and sets
-                    RoleSynced=False, reason=ClusterScopeNotAllowed.
-                  type: boolean
                 backendImageDigest:
                   description: BackendImageDigest pins the OCI digest of the backend
                     image.
@@ -968,45 +961,10 @@ components:
                   description: FrontendDigest pins the OCI digest of the frontend
                     bundle artifact.
                   type: string
-                namespaces:
-                  description: |-
-                    Namespaces lists the namespaces this plugin is enabled in. Required
-                    when Scope=Namespaces. Each entry may attach a per-tenant config
-                    secret reference.
-                  items:
-                    description: |-
-                      PluginNamespaceConfig pairs a namespace name with an optional per-tenant
-                      configuration secret reference.
-                    properties:
-                      configSecretRef:
-                        description: |-
-                          ConfigSecretRef names a Secret in Name whose data is mounted as env
-                          vars on the plugin backend for this tenant.
-                        type: string
-                      name:
-                        description: Name is the Kubernetes namespace this plugin
-                          is enabled in.
-                        type: string
-                    required:
-                    - name
-                    type: object
-                  type: array
-                  x-kubernetes-list-map-keys:
-                  - name
-                  x-kubernetes-list-type: map
                 pluginCRName:
                   description: |-
                     PluginCRName is the name of the cluster-scoped Plugin CR that this
                     install record points at.
-                  type: string
-                scope:
-                  default: Cluster
-                  description: |-
-                    Scope controls how kubePermissions translate to RBAC.
-                    Defaults to Cluster.
-                  enum:
-                  - Cluster
-                  - Namespaces
                   type: string
               required:
               - pluginCRName
@@ -4588,45 +4546,6 @@ components:
             icon:
               description: Icon is a URL to the plugin's icon image.
               type: string
-            kubePermissions:
-              description: |-
-                KubePermissions declares additional Kubernetes API permissions the plugin's
-                ServiceAccount needs beyond the OpenEverest API. Used by infrastructure
-                plugins that create per-cluster resources (e.g., ProxySQL deployments).
-                The host auto-generates a Role from these rules and binds it to the
-                plugin's ServiceAccount in each namespace listed in the matching
-                InstalledExtension's spec.plugin.namespaces[]. Rules are validated
-                against a hard-coded denylist at reconcile time.
-              items:
-                description: |-
-                  KubePermissionRule declares a single Kubernetes RBAC rule that an
-                  infrastructure plugin requires. Mirrors the structure of
-                  rbacv1.PolicyRule but with explicit JSON tags and kubebuilder markers.
-                properties:
-                  apiGroups:
-                    description: APIGroups is the list of API groups (e.g. "", "apps").
-                      Use "" for core.
-                    items:
-                      type: string
-                    type: array
-                  resources:
-                    description: Resources is the list of resources (e.g. "deployments",
-                      "services").
-                    items:
-                      type: string
-                    type: array
-                  verbs:
-                    description: Verbs is the list of verbs (e.g. "get", "list", "create",
-                      "delete").
-                    items:
-                      type: string
-                    type: array
-                required:
-                - apiGroups
-                - resources
-                - verbs
-                type: object
-              type: array
             permissions:
               description: Permissions declares what OpenEverest API resources this
                 plugin needs access to.
