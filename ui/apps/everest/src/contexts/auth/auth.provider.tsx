@@ -1,3 +1,17 @@
+// Copyright (C) 2026 The OpenEverest Contributors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   AuthProvider as OidcAuthProvider,
@@ -14,6 +28,7 @@ import {
   removeApiAuthInterceptor,
 } from 'api/api';
 import { enqueueSnackbar } from 'notistack';
+import { useQueryClient } from '@tanstack/react-query';
 import AuthContext from './auth.context';
 import { EVEREST_JWT_ISSUER } from 'consts';
 import {
@@ -27,6 +42,7 @@ import {
   initializeAuthorizerFetchLoop,
   stopAuthorizerFetchLoop,
 } from 'utils/rbac';
+import { useCrossTabAuth } from 'hooks/utils';
 
 const Provider = ({
   oidcConfig,
@@ -51,6 +67,7 @@ const Provider = ({
 const AuthProvider = ({ children, isSsoEnabled }: AuthProviderProps) => {
   const [authStatus, setAuthStatus] = useState<UserAuthStatus>('unknown');
   const [redirect, setRedirect] = useState<string | null>(null);
+  const queryClient = useQueryClient();
 
   const { signIn, userManager } = useOidcAuth();
   const checkAuth = useCallback(async (token: string) => {
@@ -96,20 +113,32 @@ const AuthProvider = ({ children, isSsoEnabled }: AuthProviderProps) => {
     }
   };
 
-  const logout = async () => {
-    const token = localStorage.getItem('everestToken');
-    await api.delete('/session', { headers: { token: token } });
-    if (isSsoEnabled) {
-      await userManager.clearStaleState();
-      await setLogoutStatus();
-    }
-
+  const runLogoutCleanup = useCallback(async () => {
     setAuthStatus('loggedOut');
     localStorage.removeItem('everestToken');
     sessionStorage.clear();
     setRedirect(null);
+    stopAuthorizerFetchLoop();
+    queryClient.clear();
     removeApiErrorInterceptor();
     removeApiAuthInterceptor();
+    if (isSsoEnabled) {
+      await userManager.clearStaleState();
+      await userManager.removeUser();
+    }
+  }, [isSsoEnabled, queryClient, userManager]);
+
+  const { broadcastLogout } = useCrossTabAuth(runLogoutCleanup);
+
+  const logout = async () => {
+    const token = localStorage.getItem('everestToken');
+    try {
+      await api.delete('/session', { headers: { token: token } });
+    } catch {
+      // proceed with cleanup even if the session delete request fails
+    }
+    broadcastLogout();
+    await runLogoutCleanup();
   };
 
   const setRedirectRoute = (route: string) => {
@@ -126,12 +155,13 @@ const AuthProvider = ({ children, isSsoEnabled }: AuthProviderProps) => {
   const setLogoutStatus = useCallback(async () => {
     setAuthStatus('loggedOut');
     localStorage.removeItem('everestToken');
+    queryClient.clear();
     if (isSsoEnabled) {
       await userManager.clearStaleState();
       await userManager.removeUser();
     }
     stopAuthorizerFetchLoop();
-  }, [userManager]);
+  }, [isSsoEnabled, queryClient, userManager]);
 
   const silentlyRenewToken = useCallback(async () => {
     try {
