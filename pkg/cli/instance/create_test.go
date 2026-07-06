@@ -36,14 +36,15 @@ import (
 
 // ---- helpers ----------------------------------------------------------------
 
-func boolPtr(b bool) *bool   { return &b }
+func boolPtr(b bool) *bool    { return &b }
 func strPtr(s string) *string { return &s }
 
 // buildProvider builds a minimal Provider fixture for tests.
 func buildProvider(name string, versions []struct {
-	name     string
+	name      string
 	isDefault bool
-}, topologies map[string][]string) *client.Provider {
+}, topologies map[string][]string,
+) *client.Provider {
 	meta := map[string]any{"name": name}
 
 	var vers []struct {
@@ -74,7 +75,9 @@ func buildProvider(name string, versions []struct {
 			Optional *bool `json:"optional,omitempty"`
 		}{}
 		for _, c := range comps {
-			compMap[c] = struct{ Optional *bool `json:"optional,omitempty"` }{}
+			compMap[c] = struct {
+				Optional *bool `json:"optional,omitempty"`
+			}{}
 		}
 		topos[topo] = struct {
 			Components *map[string]struct {
@@ -168,8 +171,8 @@ func TestDefaultVersion_NoVersions(t *testing.T) {
 func TestFirstTopology_AlphabeticalOrder(t *testing.T) {
 	t.Parallel()
 	prov := buildProvider("psmdb", nil, map[string][]string{
-		"standalone":  {"engine"},
-		"replicaset":  {"engine", "proxy"},
+		"standalone": {"engine"},
+		"replicaset": {"engine", "proxy"},
 	})
 	assert.Equal(t, "replicaset", firstTopology(prov))
 }
@@ -372,7 +375,7 @@ func TestBuildPayload_EmptyVersionAndTopologyOmitted(t *testing.T) {
 func TestLoadValuesFile_Valid(t *testing.T) {
 	t.Parallel()
 	f := filepath.Join(t.TempDir(), "values.yaml")
-	require.NoError(t, os.WriteFile(f, []byte("components:\n  engine:\n    replicas: 3\n"), 0600))
+	require.NoError(t, os.WriteFile(f, []byte("components:\n  engine:\n    replicas: 3\n"), 0o600))
 	m, err := loadValuesFile(f)
 	require.NoError(t, err)
 	comps := m["components"].(map[string]any)
@@ -390,7 +393,7 @@ func TestLoadValuesFile_MissingFile(t *testing.T) {
 func TestLoadValuesFile_InvalidYAML(t *testing.T) {
 	t.Parallel()
 	f := filepath.Join(t.TempDir(), "bad.yaml")
-	require.NoError(t, os.WriteFile(f, []byte(":\t:bad"), 0600))
+	require.NoError(t, os.WriteFile(f, []byte(":\t:bad"), 0o600))
 	_, err := loadValuesFile(f)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "cannot parse")
@@ -401,7 +404,7 @@ func TestLoadValuesFile_InvalidYAML(t *testing.T) {
 func TestBuildSpecOverrides_SetWinsOverFile(t *testing.T) {
 	t.Parallel()
 	f := filepath.Join(t.TempDir(), "values.yaml")
-	require.NoError(t, os.WriteFile(f, []byte("components:\n  engine:\n    replicas: 1\n"), 0600))
+	require.NoError(t, os.WriteFile(f, []byte("components:\n  engine:\n    replicas: 1\n"), 0o600))
 	m, err := buildSpecOverrides(f, []string{"components.engine.replicas=5"})
 	require.NoError(t, err)
 	comps := m["components"].(map[string]any)
@@ -412,7 +415,7 @@ func TestBuildSpecOverrides_SetWinsOverFile(t *testing.T) {
 func TestBuildSpecOverrides_FileOnly(t *testing.T) {
 	t.Parallel()
 	f := filepath.Join(t.TempDir(), "values.yaml")
-	require.NoError(t, os.WriteFile(f, []byte("backup:\n  enabled: true\n"), 0600))
+	require.NoError(t, os.WriteFile(f, []byte("backup:\n  enabled: true\n"), 0o600))
 	m, err := buildSpecOverrides(f, nil)
 	require.NoError(t, err)
 	backup := m["backup"].(map[string]any)
