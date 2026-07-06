@@ -867,14 +867,20 @@ export const changeDbClusterResources = (
   // limits we only persist the limits and let the operator keep the effective
   // requests equal to them. When the user explicitly desyncs requests, or the
   // cluster already had explicit requests, we always write both.
+  //
+  // PXC is the exception: its operator does NOT default absent requests to the
+  // limits, so omitting requests would silently drop the request values. For
+  // PXC we therefore always write requests explicitly (equal to the limits
+  // when synced) to preserve the effective resource configuration.
+  const isPXC = dbCluster.spec.engine.type === DbEngineType.PXC;
   const engineHasNoRequests = !dbCluster.spec.engine.resources?.requests;
   const proxyResources = (dbCluster.spec.proxy as Proxy)?.resources;
   const proxyHasNoRequests = !proxyResources?.requests;
 
   const omitEngineRequests =
-    !!newResources.nodeRequestsSynced && engineHasNoRequests;
+    !isPXC && !!newResources.nodeRequestsSynced && engineHasNoRequests;
   const omitProxyRequests =
-    !!newResources.proxyRequestsSynced && proxyHasNoRequests;
+    !isPXC && !!newResources.proxyRequestsSynced && proxyHasNoRequests;
 
   return {
     ...dbCluster,

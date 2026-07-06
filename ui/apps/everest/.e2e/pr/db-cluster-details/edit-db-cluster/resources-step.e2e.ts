@@ -238,13 +238,16 @@ const openResourcesModal = async (page: Page) => {
 );
 
 // A "legacy" cluster is one created before the requests/limits split: it stores
-// a single flat cpu/memory value with no explicit limits/requests. Editing such
-// a cluster while keeping requests synced with limits must persist limits only,
-// otherwise PSMDB/PostgreSQL would restart. `createDbClusterFn` intentionally
-// writes the legacy flat shape, so we use it to reproduce the scenario.
+// a single flat cpu/memory value with no explicit limits/requests.
+// `createDbClusterFn` intentionally writes the legacy flat shape, so we use it
+// to reproduce the scenario.
+//
+// PXC's operator does NOT default absent requests to the limits, so editing a
+// legacy PXC cluster must always migrate it to explicit requests (equal to the
+// limits when synced) to preserve the effective resource configuration.
 
 test.describe
-  .serial('Legacy cluster resources editing keeps limits only', () => {
+  .serial('Legacy PXC cluster resources editing always writes requests', () => {
   test.describe.configure({ timeout: 1000000 });
 
   const clusterName = 'legacy-pxc-res-edit';
@@ -267,6 +270,140 @@ test.describe
       {
         dbName: clusterName,
         dbType: 'mysql',
+        numberOfNodes: '1',
+        cpu: 1,
+        disk: 1,
+        memory: 1,
+        proxyCpu: 1,
+        proxyMemory: 1,
+      },
+      namespace
+    );
+  });
+
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/databases');
+    await waitForInitializingState(page, clusterName);
+  });
+
+  test.afterAll(async ({ request }) => {
+    await deleteDbClusterFn(request, clusterName, namespace);
+  });
+
+  test('writes requests equal to limits when saved while synced', async ({
+    page,
+    request,
+  }) => {
+    await findDbAndClickRow(page, clusterName);
+
+    await test.step('Open edit resource modal', async () => {
+      await openResourcesModal(page);
+    });
+
+    await test.step('Requests are synced and hidden for a legacy PXC cluster', async () => {
+      const syncSwitch = page
+        .getByTestId('switch-input-node-requests-synced-label')
+        .getByRole('checkbox');
+      await expect(syncSwitch).toBeChecked();
+      await expect(
+        page.getByTestId('text-input-cpu-requests')
+      ).not.toBeVisible();
+    });
+
+    await test.step('Save without changes', async () => {
+      await expect(page.getByTestId('form-dialog-save')).not.toBeDisabled();
+      await page.getByTestId('form-dialog-save').click();
+    });
+
+    await test.step('The CR has both limits and requests (equal)', async () => {
+      await expect(async () => {
+        const cluster = await getDbClusterAPI(
+          clusterName,
+          namespace,
+          request,
+          token
+        );
+        expect(cluster.spec.engine.resources.limits).toBeDefined();
+        expect(cluster.spec.engine.resources.requests).toBeDefined();
+        expect(cluster.spec.engine.resources.requests.cpu.toString()).toBe(
+          cluster.spec.engine.resources.limits.cpu.toString()
+        );
+        expect(cluster.spec.engine.resources.requests.memory.toString()).toBe(
+          cluster.spec.engine.resources.limits.memory.toString()
+        );
+      }).toPass({ timeout: 30000 });
+    });
+  });
+
+  test('writes a lower request when the user consciously desyncs it', async ({
+    page,
+    request,
+  }) => {
+    await findDbAndClickRow(page, clusterName);
+
+    await test.step('Open edit resource modal', async () => {
+      await openResourcesModal(page);
+    });
+
+    await test.step('Turn off sync and set a lower CPU request', async () => {
+      const syncSwitch = page
+        .getByTestId('switch-input-node-requests-synced-label')
+        .getByRole('checkbox');
+      await syncSwitch.uncheck();
+
+      const cpuRequest = page.getByTestId('text-input-cpu-requests');
+      await expect(cpuRequest).toBeVisible();
+      await cpuRequest.fill('0.5');
+    });
+
+    await test.step('Save the form', async () => {
+      await expect(page.getByTestId('form-dialog-save')).not.toBeDisabled();
+      await page.getByTestId('form-dialog-save').click();
+    });
+
+    await test.step('The CR now has explicit requests', async () => {
+      await expect(async () => {
+        const cluster = await getDbClusterAPI(
+          clusterName,
+          namespace,
+          request,
+          token
+        );
+        expect(cluster.spec.engine.resources.requests).toBeDefined();
+        expect(cluster.spec.engine.resources.requests.cpu).toBeDefined();
+      }).toPass({ timeout: 30000 });
+    });
+  });
+});
+
+// PostgreSQL (like PSMDB) defaults absent requests to the limits, so editing a
+// legacy PostgreSQL cluster while keeping requests synced must persist limits
+// only. Adding explicit requests here would trigger an unnecessary restart.
+
+test.describe
+  .serial('Legacy PostgreSQL cluster resources editing keeps limits only', () => {
+  test.describe.configure({ timeout: 1000000 });
+
+  const clusterName = 'legacy-pg-res-edit';
+  let namespace: string;
+
+  const openResourcesModal = async (page: Page) => {
+    const editResourcesButton = page.getByTestId('edit-resources-button');
+    await editResourcesButton.waitFor();
+    await editResourcesButton.click();
+    await expect(page.getByTestId('edit-resources-form-dialog')).toBeVisible();
+  };
+
+  test.beforeAll(async ({ request }) => {
+    token = await getTokenFromLocalStorage();
+    const namespaces = await getNamespacesFn(token, request);
+    namespace = namespaces[0];
+
+    await createDbClusterFn(
+      request,
+      {
+        dbName: clusterName,
+        dbType: 'postgresql',
         numberOfNodes: '1',
         cpu: 1,
         disk: 1,
@@ -322,46 +459,6 @@ test.describe
         );
         expect(cluster.spec.engine.resources.limits).toBeDefined();
         expect(cluster.spec.engine.resources.requests).toBeUndefined();
-      }).toPass({ timeout: 30000 });
-    });
-  });
-
-  test('writes requests when the user consciously desyncs them', async ({
-    page,
-    request,
-  }) => {
-    await findDbAndClickRow(page, clusterName);
-
-    await test.step('Open edit resource modal', async () => {
-      await openResourcesModal(page);
-    });
-
-    await test.step('Turn off sync and set a lower CPU request', async () => {
-      const syncSwitch = page
-        .getByTestId('switch-input-node-requests-synced-label')
-        .getByRole('checkbox');
-      await syncSwitch.uncheck();
-
-      const cpuRequest = page.getByTestId('text-input-cpu-requests');
-      await expect(cpuRequest).toBeVisible();
-      await cpuRequest.fill('0.5');
-    });
-
-    await test.step('Save the form', async () => {
-      await expect(page.getByTestId('form-dialog-save')).not.toBeDisabled();
-      await page.getByTestId('form-dialog-save').click();
-    });
-
-    await test.step('The CR now has explicit requests', async () => {
-      await expect(async () => {
-        const cluster = await getDbClusterAPI(
-          clusterName,
-          namespace,
-          request,
-          token
-        );
-        expect(cluster.spec.engine.resources.requests).toBeDefined();
-        expect(cluster.spec.engine.resources.requests.cpu).toBeDefined();
       }).toPass({ timeout: 30000 });
     });
   });

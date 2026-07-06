@@ -773,7 +773,7 @@ describe('changeDbClusterResources', () => {
   });
 
   it('omits proxy requests for a legacy proxy when requests stay synced', () => {
-    const cluster = makeCluster(DbEngineType.PXC, {
+    const cluster = makeCluster(DbEngineType.POSTGRESQL, {
       cpu: '2',
       memory: '4G',
     });
@@ -794,7 +794,7 @@ describe('changeDbClusterResources', () => {
   });
 
   it('keeps limits only when re-saving a limits-only proxy while synced', () => {
-    const cluster = makeCluster(DbEngineType.PXC, {
+    const cluster = makeCluster(DbEngineType.POSTGRESQL, {
       cpu: '2',
       memory: '4G',
     });
@@ -854,6 +854,48 @@ describe('changeDbClusterResources', () => {
     });
 
     const proxy = result.spec.proxy as Proxy;
+    expect(proxy.resources?.requests).toEqual({ cpu: '1', memory: '2G' });
+  });
+
+  it('always writes engine requests for a legacy PXC cluster even when synced', () => {
+    // PXC does not default absent requests to the limits, so we must always
+    // persist explicit requests (equal to the limits when synced) to keep the
+    // effective resource configuration intact.
+    const cluster = makeCluster(DbEngineType.PXC, {
+      cpu: '2',
+      memory: '4G',
+    });
+
+    const result = changeDbClusterResources(cluster, {
+      ...newResources,
+      nodeRequestsSynced: true,
+      proxyRequestsSynced: true,
+    });
+
+    expect(result.spec.engine.resources?.limits).toEqual({
+      cpu: '2',
+      memory: '4G',
+    });
+    expect(result.spec.engine.resources?.requests).toEqual({
+      cpu: '2',
+      memory: '4G',
+    });
+  });
+
+  it('always writes proxy requests for a legacy PXC proxy even when synced', () => {
+    const cluster = makeCluster(DbEngineType.PXC, {
+      cpu: '2',
+      memory: '4G',
+    });
+
+    const result = changeDbClusterResources(cluster, {
+      ...newResources,
+      nodeRequestsSynced: true,
+      proxyRequestsSynced: true,
+    });
+
+    const proxy = result.spec.proxy as Proxy;
+    expect(proxy.resources?.limits).toEqual({ cpu: '1', memory: '2G' });
     expect(proxy.resources?.requests).toEqual({ cpu: '1', memory: '2G' });
   });
 });
