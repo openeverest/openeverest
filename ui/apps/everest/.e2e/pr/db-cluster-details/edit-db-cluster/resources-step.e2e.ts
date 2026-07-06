@@ -247,7 +247,7 @@ test.describe
   .serial('Legacy cluster resources editing keeps limits only', () => {
   test.describe.configure({ timeout: 1000000 });
 
-  const clusterName = 'legacy-pxc-resources-edit';
+  const clusterName = 'legacy-pxc-res-edit';
   let namespace: string;
 
   const openResourcesModal = async (page: Page) => {
