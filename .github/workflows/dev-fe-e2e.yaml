@@ -101,7 +101,7 @@ jobs:
           CGO_ENABLED=0 GOOS=linux GOARCH=amd64 make build-debug
 
       - name: Build Everest docker container
-        uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051 # v5.10.0
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
         id: meta
         with:
           images: localhost:5000/openeverest/openeverest-dev

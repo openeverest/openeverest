@@ -61,7 +61,7 @@ jobs:
           CGO_ENABLED=0 GOOS=linux GOARCH=amd64 make build
 
       - name: Setup docker build metadata
-        uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051 # v5.10.0
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
         id: meta
         with:
           images: ${{ env.IMAGE_PREFIX }}/${{ env.EVEREST_SERVER_DEV_IMAGE_NAME }}
@@ -82,7 +82,7 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
 
       - name: Setup docker build metadata for everestctl
-        uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051 # v5.10.0
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
         id: everestctl_meta
         with:
           images: ${{ env.IMAGE_PREFIX }}/${{ env.EVEREST_CTL_DEV_IMAGE_NAME }}
