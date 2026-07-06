@@ -37,6 +37,8 @@ type StatusOptions struct {
 	Namespace string
 	Cluster   string
 	Context   string
+	Watch     bool
+	Interval  time.Duration
 }
 
 // InstanceStatusRunner fetches and prints the status of an instance.
@@ -54,7 +56,8 @@ func NewInstanceStatusRunner(cfg Config, l *zap.SugaredLogger) *InstanceStatusRu
 	return is
 }
 
-// Run fetches the instance and prints its status to stdout.
+// Run fetches the instance status. If opts.Watch is set, it hands off to the
+// watch loop after the first render, reusing the same HTTP client.
 func (is *InstanceStatusRunner) Run(ctx context.Context, opts StatusOptions, cfgPath string) error {
 	sess, err := cli.LoadSession(cfgPath, opts.Context)
 	if err != nil {
@@ -73,6 +76,7 @@ func (is *InstanceStatusRunner) Run(ctx context.Context, opts StatusOptions, cfg
 		}
 	}
 
+	// Client created once — reused by the watch loop across all ticks.
 	c, err := client.NewClientWithResponses(cli.NormalizeServerURL(sess.Server.URL))
 	if err != nil {
 		return fmt.Errorf("failed to create API client: %w", err)
@@ -84,21 +88,80 @@ func (is *InstanceStatusRunner) Run(ctx context.Context, opts StatusOptions, cfg
 	if err != nil {
 		return fmt.Errorf("failed to fetch instance %q: %w", opts.Name, err)
 	}
-
 	if resp.StatusCode() == http.StatusNotFound {
 		return fmt.Errorf("instance %q not found in namespace %q", opts.Name, opts.Namespace)
 	}
-
 	if resp.StatusCode() != http.StatusOK || resp.JSON200 == nil {
 		return fmt.Errorf("unexpected response fetching instance %q: %s", opts.Name, resp.Status())
 	}
 
-	if !is.config.Pretty {
-		return json.NewEncoder(os.Stdout).Encode(resp.JSON200)
+	is.render(resp.JSON200, opts.Namespace)
+
+	if opts.Watch {
+		return is.watch(ctx, c, sess, token, opts)
+	}
+	return nil
+}
+
+func (is *InstanceStatusRunner) watch(
+	ctx context.Context,
+	c *client.ClientWithResponses,
+	sess *cli.Session,
+	token client.RequestEditorFn,
+	opts StatusOptions,
+) error {
+	interval := opts.Interval
+	if interval <= 0 {
+		interval = 2 * time.Second
 	}
 
-	printInstanceStatus(resp.JSON200, opts.Namespace)
-	return nil
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return nil
+		case <-ticker.C:
+			// Proactive expiry check — exit before sending an expired token.
+			if time.Now().After(sess.User.ExpiresAt.Add(-30 * time.Second)) {
+				return fmt.Errorf("access token expired — re-run with --watch to continue")
+			}
+
+			resp, err := c.GetInstanceWithResponse(ctx, opts.Cluster, opts.Namespace, opts.Name, token)
+			if err != nil {
+				is.l.Warnf("fetch failed: %v — retrying in %s", err, interval)
+				continue
+			}
+
+			switch resp.StatusCode() {
+			case http.StatusOK:
+				if resp.JSON200 == nil {
+					is.l.Warnf("empty response body — retrying in %s", interval)
+					continue
+				}
+				if is.config.Pretty {
+					fmt.Fprintln(os.Stdout, "---")
+				}
+				is.render(resp.JSON200, opts.Namespace)
+			case http.StatusNotFound:
+				return fmt.Errorf("instance %q has been deleted", opts.Name)
+			case http.StatusUnauthorized:
+				return fmt.Errorf("access token expired — re-run with --watch to continue")
+			default:
+				is.l.Warnf("unexpected response %s — retrying in %s", resp.Status(), interval)
+			}
+		}
+	}
+}
+
+// render prints the instance to stdout — pretty table or raw JSON depending on config.
+func (is *InstanceStatusRunner) render(inst *client.Instance, namespace string) {
+	if !is.config.Pretty {
+		_ = json.NewEncoder(os.Stdout).Encode(inst)
+		return
+	}
+	printInstanceStatus(inst, namespace)
 }
 
 func printInstanceStatus(inst *client.Instance, namespace string) {
