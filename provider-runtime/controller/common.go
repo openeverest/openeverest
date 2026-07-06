@@ -25,8 +25,10 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
 	"github.com/openeverest/openeverest/v2/api/core/v1alpha1"
@@ -1040,4 +1042,35 @@ func hasInstanceStorage(b *v1alpha1.InstanceBackupSpec, name string) bool {
 		}
 	}
 	return false
+}
+
+// =============================================================================
+// WATCH HANDLER HELPERS
+// =============================================================================
+
+// FilterInstancesByProvider returns reconcile requests for Instances belonging
+// to the specified provider. This is useful in watch handler mapping functions
+// that list Instances to determine which ones need reconciliation.
+//
+// Example usage in a watch handler:
+//
+//	func enqueueInstances(providerName string) func(ctx context.Context, obj client.Object) []reconcile.Request {
+//	    return func(ctx context.Context, obj client.Object) []reconcile.Request {
+//	        // ... list instances ...
+//	        return controller.FilterInstancesByProvider(instanceList.Items, providerName)
+//	    }
+//	}
+func FilterInstancesByProvider(instances []v1alpha1.Instance, providerName string) []reconcile.Request {
+	var requests []reconcile.Request
+	for _, item := range instances {
+		if item.Spec.Provider == providerName {
+			requests = append(requests, reconcile.Request{
+				NamespacedName: types.NamespacedName{
+					Name:      item.GetName(),
+					Namespace: item.GetNamespace(),
+				},
+			})
+		}
+	}
+	return requests
 }
