@@ -105,9 +105,9 @@ func (e *EverestServer) securityHeaders() echo.MiddlewareFunc {
 		connectSrc = append(connectSrc, issuer)
 		connectSrc = append(connectSrc, oidcProvider.TokenURL)
 		if oidcProvider.OriginalIssuer != oidcProvider.Issuer {
-			// It appears that original issuer URL provided by user for OIDC configuration is not always
+			// It appears that original issuerUrl provided by user for OIDC configuration is not always
 			// the same as the one fetched from the OIDC provider's .well-known/openid-configuration (Microsoft Entra case).
-			// Need to add original issuer URL provided by user, otherwise there will be issues with browser login using SSO.
+			// Need to add original issuerUrl provided by user, otherwise there will be issues with browser login using SSO.
 			origIssuer, _ := url.JoinPath(oidcProvider.OriginalIssuer, oidc.WellKnownPath)
 			connectSrc = append(connectSrc, origIssuer)
 		}
