@@ -89,4 +89,3 @@ func (lo *Login) Logout(ctx context.Context, cfgPath string) error {
 
 	return cfg.Save(cfgPath)
 }
-
