@@ -223,9 +223,6 @@ jobs:
           kubectl -n everest-system describe pods
           kubectl -n everest-monitoring describe pods
           kubectl -n everest-system logs deploy/everest-server
-          # TODO(debug #2509): confirm whether operator persists nested limits/requests.
-          # Remove this block once the resources persistence is confirmed.
-          kubectl get databasecluster -A -o jsonpath='{range .items[*]}{.metadata.namespace}{"/"}{.metadata.name}{"\n"}{.spec.engine.resources}{"\n---\n"}{end}'
           kubectl -n pxc-only describe pods
           kubectl -n psmdb-only describe pods
           kubectl -n pg-only describe pods

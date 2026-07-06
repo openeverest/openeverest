@@ -212,13 +212,6 @@ test.describe('DB Cluster creation', () => {
     const addedCluster = clusters.find(
       (cluster) => cluster.metadata.name === clusterName
     );
-    // TODO(debug #2509): confirm what BE persisted for engine.resources.
-    // UI sends nested-only limits/requests; suspicion is CI operator drops them.
-    // Remove this log once persistence is confirmed.
-    console.log(
-      'DEBUG #2509 engine.resources:',
-      JSON.stringify(addedCluster?.spec?.engine?.resources)
-    );
     await deleteDbClusterFn(request, addedCluster?.metadata.name, namespace);
     //TODO: Add check for PITR ones backend is ready
 
