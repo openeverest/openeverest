@@ -18,7 +18,15 @@ import { DbEngineType, DbType } from '@percona/types';
 import { DbCluster } from 'shared-types/dbCluster.types';
 import { DbWizardFormFields } from 'consts.ts';
 import { dbEngineToDbType } from '@percona/utils';
-import { cpuParser, memoryParser } from 'utils/k8ResourceParser';
+import {
+  cpuParser,
+  memoryParser,
+  extractResourceCpuValue,
+  extractResourceMemoryValue,
+  extractResourceCpuRequestValue,
+  extractResourceMemoryRequestValue,
+  areResourceRequestsSynced,
+} from 'utils/k8ResourceParser';
 import { MAX_DB_CLUSTER_NAME_LENGTH } from 'consts';
 import { DbWizardType } from './database-form-schema.ts';
 import { DEFAULT_NODES } from './database-form.constants.ts';
@@ -67,11 +75,19 @@ export const getDbWizardDefaultValues = (dbType: DbType): DbWizardType => ({
   [DbWizardFormFields.customNrOfNodes]: DEFAULT_NODES[dbType],
   [DbWizardFormFields.customNrOfProxies]: DEFAULT_NODES[dbType],
   [DbWizardFormFields.cpu]: NODES_DEFAULT_SIZES(dbType).small.cpu,
+  [DbWizardFormFields.cpuRequests]: NODES_DEFAULT_SIZES(dbType).small.cpu,
   [DbWizardFormFields.proxyCpu]: PROXIES_DEFAULT_SIZES[dbType].small.cpu,
+  [DbWizardFormFields.proxyCpuRequests]:
+    PROXIES_DEFAULT_SIZES[dbType].small.cpu,
   [DbWizardFormFields.disk]: NODES_DEFAULT_SIZES(dbType).small.disk,
   [DbWizardFormFields.diskUnit]: 'Gi',
   [DbWizardFormFields.memory]: NODES_DEFAULT_SIZES(dbType).small.memory,
+  [DbWizardFormFields.memoryRequests]: NODES_DEFAULT_SIZES(dbType).small.memory,
   [DbWizardFormFields.proxyMemory]: PROXIES_DEFAULT_SIZES[dbType].small.memory,
+  [DbWizardFormFields.proxyMemoryRequests]:
+    PROXIES_DEFAULT_SIZES[dbType].small.memory,
+  [DbWizardFormFields.nodeRequestsSynced]: true,
+  [DbWizardFormFields.proxyRequestsSynced]: true,
   [DbWizardFormFields.sharding]: false,
   [DbWizardFormFields.shardNr]: '2',
   [DbWizardFormFields.shardConfigServers]:
@@ -108,9 +124,8 @@ export const DbClusterPayloadToFormValues = (
   mode: WizardMode,
   namespace: string
 ): DbWizardType => {
-  const defaults = getDbWizardDefaultValues(
-    dbEngineToDbType(dbCluster.spec.engine.type)
-  );
+  const dbType = dbEngineToDbType(dbCluster?.spec?.engine?.type);
+  const defaults = getDbWizardDefaultValues(dbType);
   const backup = dbCluster?.spec?.backup;
   const replicas = dbCluster?.spec?.engine?.replicas.toString();
   const proxies = (
@@ -121,18 +136,62 @@ export const DbClusterPayloadToFormValues = (
   );
 
   const sharding = dbCluster?.spec?.sharding;
-  const numberOfNodes = replicasToNodes(
-    replicas,
-    dbEngineToDbType(dbCluster?.spec?.engine?.type)
+  const numberOfNodes = replicasToNodes(replicas, dbType);
+
+  const engineResources = dbCluster?.spec?.engine?.resources;
+  const proxyResources = isProxy(dbCluster?.spec?.proxy)
+    ? dbCluster?.spec?.proxy?.resources
+    : undefined;
+
+  const nodeCpuLimit = cpuParser(
+    extractResourceCpuValue(engineResources).toString()
   );
+  const nodeMemoryLimit = memoryParser(
+    extractResourceMemoryValue(engineResources).toString(),
+    'G'
+  ).value;
+  const proxyCpuLimit = proxyResources
+    ? cpuParser(extractResourceCpuValue(proxyResources).toString())
+    : 0;
+  const proxyMemoryLimit = proxyResources
+    ? memoryParser(extractResourceMemoryValue(proxyResources).toString(), 'G')
+        .value
+    : 0;
+
+  const rawNodeCpuRequest = extractResourceCpuRequestValue(engineResources);
+  const rawNodeMemoryRequest =
+    extractResourceMemoryRequestValue(engineResources);
+  const rawProxyCpuRequest = extractResourceCpuRequestValue(proxyResources);
+  const rawProxyMemoryRequest =
+    extractResourceMemoryRequestValue(proxyResources);
+
+  const nodeCpuRequest =
+    rawNodeCpuRequest !== undefined
+      ? cpuParser(rawNodeCpuRequest.toString())
+      : undefined;
+  const nodeMemoryRequest =
+    rawNodeMemoryRequest !== undefined
+      ? memoryParser(rawNodeMemoryRequest.toString(), 'G').value
+      : undefined;
+  const proxyCpuRequest =
+    rawProxyCpuRequest !== undefined
+      ? cpuParser(rawProxyCpuRequest.toString())
+      : undefined;
+  const proxyMemoryRequest =
+    rawProxyMemoryRequest !== undefined
+      ? memoryParser(rawProxyMemoryRequest.toString(), 'G').value
+      : undefined;
+
+  // Requests are "synced" with limits when they are absent or identical to the
+  // limits. When they differ, the user configured them separately (desynced).
+  const nodeRequestsSynced = areResourceRequestsSynced(engineResources);
+  const proxyRequestsSynced = areResourceRequestsSynced(proxyResources);
 
   return {
     //basic info
     [DbWizardFormFields.k8sNamespace]:
       namespace || defaults[DbWizardFormFields.k8sNamespace],
-    [DbWizardFormFields.dbType]: dbEngineToDbType(
-      dbCluster?.spec?.engine?.type
-    ),
+    [DbWizardFormFields.dbType]: dbType,
     [DbWizardFormFields.dbName]:
       mode === WizardMode.Restore
         ? `${dbCluster?.metadata?.name.slice(
@@ -144,24 +203,16 @@ export const DbClusterPayloadToFormValues = (
 
     //resources
     [DbWizardFormFields.numberOfNodes]: numberOfNodes,
-    [DbWizardFormFields.numberOfProxies]: replicasToNodes(
-      proxies,
-      dbEngineToDbType(dbCluster?.spec?.engine?.type)
-    ),
+    [DbWizardFormFields.numberOfProxies]: replicasToNodes(proxies, dbType),
     [DbWizardFormFields.customNrOfNodes]: replicas,
     [DbWizardFormFields.customNrOfProxies]: proxies,
     [DbWizardFormFields.resourceSizePerNode]: matchFieldsValueToResourceSize(
-      NODES_DEFAULT_SIZES(
-        dbEngineToDbType(dbCluster?.spec?.engine?.type),
-        dbCluster?.spec?.engine?.version || ''
-      ),
+      NODES_DEFAULT_SIZES(dbType, dbCluster?.spec?.engine?.version || ''),
       dbCluster?.spec?.engine?.resources
     ),
     [DbWizardFormFields.resourceSizePerProxy]: isProxy(dbCluster?.spec?.proxy)
       ? matchFieldsValueToResourceSize(
-          PROXIES_DEFAULT_SIZES[
-            dbEngineToDbType(dbCluster?.spec?.engine?.type)
-          ],
+          PROXIES_DEFAULT_SIZES[dbType],
           dbCluster?.spec?.proxy.resources
         )
       : ResourceSize.small,
@@ -172,25 +223,26 @@ export const DbClusterPayloadToFormValues = (
     [DbWizardFormFields.shardNr]: (
       sharding?.shards || (defaults[DbWizardFormFields.shardNr] as string)
     ).toString(),
-    [DbWizardFormFields.cpu]: cpuParser(
-      dbCluster?.spec?.engine?.resources?.cpu.toString() || '0'
-    ),
-    [DbWizardFormFields.proxyCpu]: isProxy(dbCluster?.spec?.proxy)
-      ? cpuParser(dbCluster?.spec?.proxy?.resources?.cpu.toString() || '0')
-      : 0,
+    [DbWizardFormFields.cpu]: nodeCpuLimit,
+    [DbWizardFormFields.proxyCpu]: proxyCpuLimit,
     [DbWizardFormFields.disk]: diskValues.value,
     [DbWizardFormFields.diskUnit]: diskValues.originalUnit,
-    [DbWizardFormFields.memory]: memoryParser(
-      (dbCluster?.spec?.engine?.resources?.memory || 0).toString(),
-      'G'
-    ).value,
-    [DbWizardFormFields.proxyMemory]: memoryParser(
-      (isProxy(dbCluster?.spec?.proxy)
-        ? dbCluster?.spec?.proxy?.resources?.memory || 0
-        : 0
-      ).toString(),
-      'G'
-    ).value,
+    [DbWizardFormFields.memory]: nodeMemoryLimit,
+    [DbWizardFormFields.cpuRequests]: nodeRequestsSynced
+      ? nodeCpuLimit
+      : nodeCpuRequest,
+    [DbWizardFormFields.memoryRequests]: nodeRequestsSynced
+      ? nodeMemoryLimit
+      : nodeMemoryRequest,
+    [DbWizardFormFields.proxyMemory]: proxyMemoryLimit,
+    [DbWizardFormFields.proxyCpuRequests]: proxyRequestsSynced
+      ? proxyCpuLimit
+      : proxyCpuRequest,
+    [DbWizardFormFields.proxyMemoryRequests]: proxyRequestsSynced
+      ? proxyMemoryLimit
+      : proxyMemoryRequest,
+    [DbWizardFormFields.nodeRequestsSynced]: nodeRequestsSynced,
+    [DbWizardFormFields.proxyRequestsSynced]: proxyRequestsSynced,
     //backups
 
     [DbWizardFormFields.backupsEnabled]: (backup?.schedules || []).length > 0,
