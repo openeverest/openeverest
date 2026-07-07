@@ -1,3 +1,17 @@
+// Copyright (C) 2026 The OpenEverest Contributors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 import {
   AffinityRule,
   Affinity,
@@ -11,8 +25,10 @@ import {
   affinityRulesToDbPayload,
   insertAffinityRuleToExistingPolicy,
   removeRuleInExistingPolicy,
+  changeDbClusterResources,
 } from './db';
 import { DbEngineType } from '@percona/types';
+import { DbCluster, Proxy } from 'shared-types/dbCluster.types';
 
 describe('affinityRulesToDbPayload', () => {
   const tests: [string, AffinityRule[], Affinity][] = [
@@ -610,5 +626,276 @@ describe('removeRuleInExistingPolicy', () => {
       policy.spec.affinityConfig.psmdb?.engine?.nodeAffinity
         ?.preferredDuringSchedulingIgnoredDuringExecution
     ).toHaveLength(1);
+  });
+});
+
+describe('changeDbClusterResources', () => {
+  const makeCluster = (
+    engineType: DbEngineType,
+    engineResources: Record<string, unknown>
+  ): DbCluster =>
+    ({
+      apiVersion: 'everest.percona.com/v1alpha1',
+      kind: 'DatabaseCluster',
+      metadata: { name: 'cluster', namespace: 'default' },
+      spec: {
+        engine: {
+          type: engineType,
+          version: '1.0.0',
+          replicas: 1,
+          resources: engineResources,
+          storage: { size: '25Gi', class: 'standard' },
+        },
+        proxy: {
+          type: 'haproxy',
+          replicas: 1,
+          resources: { cpu: '1', memory: '2G' },
+          expose: { type: 'internal' },
+        },
+      },
+    }) as unknown as DbCluster;
+
+  const newResources = {
+    cpu: 2,
+    memory: 4,
+    disk: 25,
+    diskUnit: 'Gi',
+    numberOfNodes: 1,
+    proxyCpu: 1,
+    proxyMemory: 2,
+    numberOfProxies: 1,
+  };
+
+  it('omits engine requests for a legacy cluster when requests stay synced', () => {
+    const cluster = makeCluster(DbEngineType.PSMDB, {
+      cpu: '2',
+      memory: '4G',
+    });
+
+    const result = changeDbClusterResources(cluster, {
+      ...newResources,
+      nodeRequestsSynced: true,
+      proxyRequestsSynced: true,
+    });
+
+    expect(result.spec.engine.resources?.limits).toEqual({
+      cpu: '2',
+      memory: '4G',
+    });
+    expect(result.spec.engine.resources?.requests).toBeUndefined();
+  });
+
+  it('keeps limits only for a legacy cluster when the user toggles requests back to synced after prefilling them', () => {
+    const cluster = makeCluster(DbEngineType.PSMDB, {
+      cpu: '2',
+      memory: '4G',
+    });
+
+    // Simulates the user turning the sync toggle off (fields get prefilled with
+    // the limit values) and then turning it back on before saving. The
+    // prefilled request values are still present in the form payload, but
+    // because the cluster was legacy and stays synced we must ignore them and
+    // persist limits only, so PSMDB/PostgreSQL do not restart.
+    const result = changeDbClusterResources(cluster, {
+      ...newResources,
+      cpuRequests: 2,
+      memoryRequests: 4,
+      nodeRequestsSynced: true,
+      proxyRequestsSynced: true,
+    });
+
+    expect(result.spec.engine.resources?.limits).toEqual({
+      cpu: '2',
+      memory: '4G',
+    });
+    expect(result.spec.engine.resources?.requests).toBeUndefined();
+  });
+
+  it('writes engine requests for a legacy cluster when requests are desynced', () => {
+    const cluster = makeCluster(DbEngineType.PSMDB, {
+      cpu: '2',
+      memory: '4G',
+    });
+
+    const result = changeDbClusterResources(cluster, {
+      ...newResources,
+      cpuRequests: 1,
+      memoryRequests: 2,
+      nodeRequestsSynced: false,
+      proxyRequestsSynced: true,
+    });
+
+    expect(result.spec.engine.resources?.requests).toEqual({
+      cpu: '1',
+      memory: '2G',
+    });
+  });
+
+  it('writes engine requests for a non-legacy cluster even when synced', () => {
+    const cluster = makeCluster(DbEngineType.PSMDB, {
+      limits: { cpu: '2', memory: '4G' },
+      requests: { cpu: '2', memory: '4G' },
+    });
+
+    const result = changeDbClusterResources(cluster, {
+      ...newResources,
+      nodeRequestsSynced: true,
+      proxyRequestsSynced: true,
+    });
+
+    expect(result.spec.engine.resources?.requests).toEqual({
+      cpu: '2',
+      memory: '4G',
+    });
+  });
+
+  it('keeps limits only when re-saving a limits-only engine while synced', () => {
+    // After a first synced save, a legacy cluster becomes "limits only" (no
+    // explicit requests). Re-opening and saving it while still synced must not
+    // add requests back, otherwise PSMDB/PostgreSQL would restart needlessly.
+    const cluster = makeCluster(DbEngineType.PSMDB, {
+      cpu: '0',
+      memory: '0',
+      limits: { cpu: '2', memory: '4G' },
+    });
+
+    const result = changeDbClusterResources(cluster, {
+      ...newResources,
+      nodeRequestsSynced: true,
+      proxyRequestsSynced: true,
+    });
+
+    expect(result.spec.engine.resources?.limits).toEqual({
+      cpu: '2',
+      memory: '4G',
+    });
+    expect(result.spec.engine.resources?.requests).toBeUndefined();
+  });
+
+  it('omits proxy requests for a legacy proxy when requests stay synced', () => {
+    const cluster = makeCluster(DbEngineType.POSTGRESQL, {
+      cpu: '2',
+      memory: '4G',
+    });
+
+    const result = changeDbClusterResources(cluster, {
+      ...newResources,
+      // Even with prefilled proxy requests, a legacy synced proxy keeps limits
+      // only so the workload does not restart.
+      proxyCpuRequests: 1,
+      proxyMemoryRequests: 2,
+      nodeRequestsSynced: true,
+      proxyRequestsSynced: true,
+    });
+
+    const proxy = result.spec.proxy as Proxy;
+    expect(proxy.resources?.limits).toEqual({ cpu: '1', memory: '2G' });
+    expect(proxy.resources?.requests).toBeUndefined();
+  });
+
+  it('keeps limits only when re-saving a limits-only proxy while synced', () => {
+    const cluster = makeCluster(DbEngineType.POSTGRESQL, {
+      cpu: '2',
+      memory: '4G',
+    });
+    // The proxy was already saved with limits only (no explicit requests).
+    (cluster.spec.proxy as Proxy).resources = {
+      cpu: '0',
+      memory: '0',
+      limits: { cpu: '1', memory: '2G' },
+    } as Proxy['resources'];
+
+    const result = changeDbClusterResources(cluster, {
+      ...newResources,
+      proxyCpuRequests: 1,
+      proxyMemoryRequests: 2,
+      nodeRequestsSynced: true,
+      proxyRequestsSynced: true,
+    });
+
+    const proxy = result.spec.proxy as Proxy;
+    expect(proxy.resources?.limits).toEqual({ cpu: '1', memory: '2G' });
+    expect(proxy.resources?.requests).toBeUndefined();
+  });
+
+  it('writes proxy requests for a legacy proxy when requests are desynced', () => {
+    const cluster = makeCluster(DbEngineType.PXC, {
+      cpu: '2',
+      memory: '4G',
+    });
+
+    const result = changeDbClusterResources(cluster, {
+      ...newResources,
+      proxyCpuRequests: 1,
+      proxyMemoryRequests: 2,
+      nodeRequestsSynced: true,
+      proxyRequestsSynced: false,
+    });
+
+    const proxy = result.spec.proxy as Proxy;
+    expect(proxy.resources?.requests).toEqual({ cpu: '1', memory: '2G' });
+  });
+
+  it('writes proxy requests for a non-legacy proxy even when synced', () => {
+    const cluster = makeCluster(DbEngineType.PXC, {
+      cpu: '2',
+      memory: '4G',
+    });
+    // Promote the proxy to the new format so it is no longer legacy.
+    (cluster.spec.proxy as Proxy).resources = {
+      limits: { cpu: '1', memory: '2G' },
+      requests: { cpu: '1', memory: '2G' },
+    };
+
+    const result = changeDbClusterResources(cluster, {
+      ...newResources,
+      nodeRequestsSynced: true,
+      proxyRequestsSynced: true,
+    });
+
+    const proxy = result.spec.proxy as Proxy;
+    expect(proxy.resources?.requests).toEqual({ cpu: '1', memory: '2G' });
+  });
+
+  it('always writes engine requests for a legacy PXC cluster even when synced', () => {
+    // PXC does not default absent requests to the limits, so we must always
+    // persist explicit requests (equal to the limits when synced) to keep the
+    // effective resource configuration intact.
+    const cluster = makeCluster(DbEngineType.PXC, {
+      cpu: '2',
+      memory: '4G',
+    });
+
+    const result = changeDbClusterResources(cluster, {
+      ...newResources,
+      nodeRequestsSynced: true,
+      proxyRequestsSynced: true,
+    });
+
+    expect(result.spec.engine.resources?.limits).toEqual({
+      cpu: '2',
+      memory: '4G',
+    });
+    expect(result.spec.engine.resources?.requests).toEqual({
+      cpu: '2',
+      memory: '4G',
+    });
+  });
+
+  it('always writes proxy requests for a legacy PXC proxy even when synced', () => {
+    const cluster = makeCluster(DbEngineType.PXC, {
+      cpu: '2',
+      memory: '4G',
+    });
+
+    const result = changeDbClusterResources(cluster, {
+      ...newResources,
+      nodeRequestsSynced: true,
+      proxyRequestsSynced: true,
+    });
+
+    const proxy = result.spec.proxy as Proxy;
+    expect(proxy.resources?.limits).toEqual({ cpu: '1', memory: '2G' });
+    expect(proxy.resources?.requests).toEqual({ cpu: '1', memory: '2G' });
   });
 });

@@ -777,8 +777,8 @@ github.com/opencontainers/go-digest v1.0.0 h1:apOUWs51W5PlhuyGyz9FCeeBIOUDA/6nW8
 github.com/opencontainers/go-digest v1.0.0/go.mod h1:0JzlMkj0TRzQZfJkVvzbP0HBR3IKzErnv2BNG4W4MAM=
 github.com/opencontainers/image-spec v1.1.1 h1:y0fUlFfIZhPF1W537XOLg0/fcx6zcHCJwooC2xJA040=
 github.com/opencontainers/image-spec v1.1.1/go.mod h1:qpqAh3Dmcf36wStyyWU+kCeDgrGnAve2nCC8+7h8Q0M=
-github.com/openeverest/helm-charts/charts/everest v0.0.0-20260702172909-5d551d14128b h1:ucHsEfUOZsl9fhwb4suFA9n7CgqWQISMlSmxXwAt9Oo=
-github.com/openeverest/helm-charts/charts/everest v0.0.0-20260702172909-5d551d14128b/go.mod h1:Mwy0zH9GgTrrVy08klocVAXxhLmQfDqhuUz88uYckgQ=
+github.com/openeverest/helm-charts/charts/everest v0.0.0-20260706135153-83a0cdff4b7d h1:yVwXd6ogqTJf5XyK7knHhp3rVxUD3polD7wbIUUP73Q=
+github.com/openeverest/helm-charts/charts/everest v0.0.0-20260706135153-83a0cdff4b7d/go.mod h1:Mwy0zH9GgTrrVy08klocVAXxhLmQfDqhuUz88uYckgQ=
 github.com/operator-framework/api v0.44.0 h1:UPPNVVI2HJyfH17cnL/8PADV4DCaNLqfL08e+AyYrO8=
 github.com/operator-framework/api v0.44.0/go.mod h1:H46wpymo4j3kJZraarbuBUPLF5OzTCw4u0n2xb9sMNQ=
 github.com/otiai10/copy v1.2.0/go.mod h1:rrF5dJ5F0t/EWSYODDu4j9/vEeYHMkc8jt0zJChqQWw=
@@ -791,8 +791,8 @@ github.com/otiai10/mint v1.3.1/go.mod h1:/yxELlJQ0ufhjUwhshSj+wFjZ78CnZ48/1wtmBH
 github.com/pborman/getopt v0.0.0-20170112200414-7148bc3a4c30/go.mod h1:85jBQOZwpVEaDAr341tbn15RS4fCAsIst0qp7i8ex1o=
 github.com/pelletier/go-toml/v2 v2.3.1 h1:MYEvvGnQjeNkRF1qUuGolNtNExTDwct51yp7olPtrEc=
 github.com/pelletier/go-toml/v2 v2.3.1/go.mod h1:2gIqNv+qfxSVS7cM2xJQKtLSTLUE9V8t9Stt+h56mCY=
-github.com/percona/everest-operator v0.6.0-dev1.0.20260703123440-b296204ed61c h1:iH1U8WZGrbNlj5/SvJ8ix0P7faHV7LVy12pzXIcGeqs=
-github.com/percona/everest-operator v0.6.0-dev1.0.20260703123440-b296204ed61c/go.mod h1:lJgfo2uZuwhR3pU7Vna9sBpNZb+amBc8KtBM39DbZoM=
+github.com/percona/everest-operator v0.6.0-dev1.0.20260706135125-a00ffa03a8fb h1:YE+YQfui1FBVOiOhSgCD153QXN4TttdPeMdJA0Fts9g=
+github.com/percona/everest-operator v0.6.0-dev1.0.20260706135125-a00ffa03a8fb/go.mod h1:lJgfo2uZuwhR3pU7Vna9sBpNZb+amBc8KtBM39DbZoM=
 github.com/percona/percona-backup-mongodb v1.8.1-0.20251104101930-05ab6d7e1004 h1:Q/HeUxMI63ekZYY0TlnfF0Vp3WZ0mmx7gI9iBzehjeY=
 github.com/percona/percona-backup-mongodb v1.8.1-0.20251104101930-05ab6d7e1004/go.mod h1:NYc9wcoGLNXmOHwfsaed+Ej3nxv3dUViHOcCfQneJ84=
 github.com/percona/percona-postgresql-operator/v2 v2.9.1-0.20260522133121-1f77e9d3c184 h1:5UsPFYemyDyw772RfvRMbpW8DKlcE0Gbz6vg3heUWcY=

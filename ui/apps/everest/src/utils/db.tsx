@@ -842,68 +842,111 @@ export const changeDbClusterResources = (
   dbCluster: DbCluster,
   newResources: {
     cpu: number;
+    cpuRequests?: number;
     memory: number;
+    memoryRequests?: number;
     disk: number;
     diskUnit: string;
     numberOfNodes: number;
     proxyCpu: number;
+    proxyCpuRequests?: number;
     proxyMemory: number;
+    proxyMemoryRequests?: number;
     numberOfProxies: number;
+    nodeRequestsSynced?: boolean;
+    proxyRequestsSynced?: boolean;
   },
   sharding = false,
   shardNr = '',
   shardConfigServers?: number
-) => ({
-  ...dbCluster,
-  spec: {
-    ...dbCluster.spec,
-    engine: {
-      ...dbCluster.spec.engine,
-      replicas: newResources.numberOfNodes,
-      resources: {
-        cpu: `${newResources.cpu}`,
-        memory: `${newResources.memory}G`,
-      },
-      storage: {
-        ...dbCluster.spec.engine.storage,
-        size: `${newResources.disk}${newResources.diskUnit}`,
-      },
-    },
-    proxy: (() => {
-      const exposeType = dbCluster.spec.proxy?.expose?.type;
-      const mappedExposeType = mapDeprecatedExposeType(exposeType);
-      const existingProxyConfig = dbCluster.spec.proxy?.config;
+) => {
+  // Adding explicit requests to a cluster that had none forces a restart on
+  // PSMDB/PostgreSQL. This covers both truly "legacy" clusters (a single flat
+  // cpu/memory value) and clusters that were previously saved with limits only
+  // while synced. In either case, when the user keeps requests synced with the
+  // limits we only persist the limits and let the operator keep the effective
+  // requests equal to them. When the user explicitly desyncs requests, or the
+  // cluster already had explicit requests, we always write both.
+  //
+  // PXC is the exception: its operator does NOT default absent requests to the
+  // limits, so omitting requests would silently drop the request values. For
+  // PXC we therefore always write requests explicitly (equal to the limits
+  // when synced) to preserve the effective resource configuration.
+  const isPXC = dbCluster.spec.engine.type === DbEngineType.PXC;
+  const engineHasNoRequests = !dbCluster.spec.engine.resources?.requests;
+  const proxyResources = (dbCluster.spec.proxy as Proxy)?.resources;
+  const proxyHasNoRequests = !proxyResources?.requests;
 
-      return getProxySpec(
-        dbEngineToDbType(dbCluster.spec.engine.type),
-        newResources.numberOfProxies.toString(),
-        '',
-        mappedExposeType,
-        newResources.proxyCpu,
-        newResources.proxyMemory,
-        !!sharding,
-        ((dbCluster.spec.proxy as Proxy)?.expose?.ipSourceRanges || []).map(
-          (sourceRange) => ({ sourceRange })
-        ),
-        mappedExposeType === ProxyExposeType.LoadBalancer
-          ? dbCluster.spec.proxy?.expose?.loadBalancerConfigName
-          : undefined,
-        !!existingProxyConfig,
-        existingProxyConfig
-      );
-    })(),
-    ...(dbCluster.spec.engine.type === DbEngineType.PSMDB &&
-      sharding && {
-        sharding: {
-          enabled: sharding,
-          shards: +(shardNr ?? MIN_NUMBER_OF_SHARDS),
-          configServer: {
-            replicas: shardConfigServers ?? 3,
+  const omitEngineRequests =
+    !isPXC && !!newResources.nodeRequestsSynced && engineHasNoRequests;
+  const omitProxyRequests =
+    !isPXC && !!newResources.proxyRequestsSynced && proxyHasNoRequests;
+
+  return {
+    ...dbCluster,
+    spec: {
+      ...dbCluster.spec,
+      engine: {
+        ...dbCluster.spec.engine,
+        replicas: newResources.numberOfNodes,
+        resources: {
+          limits: {
+            cpu: `${newResources.cpu}`,
+            memory: `${newResources.memory}G`,
           },
+          ...(omitEngineRequests
+            ? {}
+            : {
+                requests: {
+                  cpu: `${newResources.cpuRequests ?? newResources.cpu}`,
+                  memory: `${newResources.memoryRequests ?? newResources.memory}G`,
+                },
+              }),
         },
-      }),
-  },
-});
+        storage: {
+          ...dbCluster.spec.engine.storage,
+          size: `${newResources.disk}${newResources.diskUnit}`,
+        },
+      },
+      proxy: (() => {
+        const exposeType = dbCluster.spec.proxy?.expose?.type;
+        const mappedExposeType = mapDeprecatedExposeType(exposeType);
+        const existingProxyConfig = dbCluster.spec.proxy?.config;
+
+        return getProxySpec(
+          dbEngineToDbType(dbCluster.spec.engine.type),
+          newResources.numberOfProxies.toString(),
+          '',
+          mappedExposeType,
+          newResources.proxyCpu,
+          newResources.proxyMemory,
+          !!sharding,
+          newResources.proxyCpuRequests,
+          newResources.proxyMemoryRequests,
+          ((dbCluster.spec.proxy as Proxy)?.expose?.ipSourceRanges || []).map(
+            (sourceRange) => ({ sourceRange })
+          ),
+          mappedExposeType === ProxyExposeType.LoadBalancer
+            ? dbCluster.spec.proxy?.expose?.loadBalancerConfigName
+            : undefined,
+          !!existingProxyConfig,
+          existingProxyConfig,
+          omitProxyRequests
+        );
+      })(),
+      ...(dbCluster.spec.engine.type === DbEngineType.PSMDB &&
+        sharding && {
+          sharding: {
+            enabled: sharding,
+            shards: +(shardNr ?? MIN_NUMBER_OF_SHARDS),
+            configServer: {
+              replicas: shardConfigServers ?? 3,
+            },
+          },
+        }),
+    },
+  };
+};
 
 export const changeDbClusterEngine = (
   dbCluster: DbCluster,

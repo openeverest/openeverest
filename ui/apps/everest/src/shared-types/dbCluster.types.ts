@@ -60,9 +60,19 @@ export interface Backup {
   schedules?: Array<Schedule>;
 }
 
+export interface ResourceRequirements {
+  cpu?: number | string;
+  memory?: number | string;
+}
+
 export interface Resources {
-  cpu: number | string;
-  memory: number | string;
+  limits?: ResourceRequirements;
+  requests?: ResourceRequirements;
+  // Legacy flat fields: older clusters stored cpu/memory directly on
+  // `resources` (no limits/requests split). Kept for backward compatibility so
+  // existing payloads keep parsing; new code reads/writes `limits`/`requests`.
+  cpu?: number | string;
+  memory?: number | string;
 }
 
 interface Storage {

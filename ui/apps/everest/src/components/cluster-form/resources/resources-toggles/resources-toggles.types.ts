@@ -22,14 +22,3 @@ export type ResourcesTogglesProps = {
   disableCustom?: boolean;
   warnForUpscaling?: boolean;
 };
-
-export type ResourceInputProps = {
-  unit: string;
-  unitPlural: string;
-  name: string;
-  label: string;
-  helperText: string;
-  endSuffix: string;
-  numberOfUnits: number;
-  disabled?: boolean;
-};
