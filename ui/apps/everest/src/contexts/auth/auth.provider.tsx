@@ -182,7 +182,9 @@ const AuthProvider = ({ children, isSsoEnabled }: AuthProviderProps) => {
       // "No matching state found in storage" and leaves the user on a blank
       // page after an SSO redirect.
       if (isRunningInIframe()) {
-        userManager.signinSilentCallback();
+        userManager.signinSilentCallback().catch((error) => {
+          logAuthError('silent renew callback failed', error);
+        });
       }
     }
   }, [isSsoEnabled, silentlyRenewToken, userManager]);

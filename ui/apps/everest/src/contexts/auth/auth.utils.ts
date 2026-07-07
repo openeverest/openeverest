@@ -12,10 +12,23 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Axios/network errors carry the request config (including Authorization headers 
+// with bearer tokens), so dumping the whole object would leak credentials into the
+// browser console.
+const sanitizeError = (error: unknown): string => {
+  if (error instanceof Error) {
+    return error.stack || `${error.name}: ${error.message}`;
+  }
+  if (typeof error === 'string') {
+    return error;
+  }
+  return 'Unknown error';
+};
+
 // Logs authentication-related failures to the browser console.
 export const logAuthError = (context: string, error: unknown) => {
   // eslint-disable-next-line no-console
-  console.error(`[auth] ${context}:`, error);
+  console.error(`[auth] ${context}: ${sanitizeError(error)}`);
 };
 
 export const SSO_LOGIN_ERROR_KEY = 'ssoLoginError';
