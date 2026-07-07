@@ -94,7 +94,11 @@ export const useNamespacePermissionsForResource = (
   const queryResult = useNamespaces();
   const { data: namespaces } = queryResult;
 
+  const latestRequestIdRef = useRef(0);
+
   const checkPermissions = useCallback(async () => {
+    const requestId = ++latestRequestIdRef.current;
+
     const newPermissions: Record<RBACAction, string[]> = {
       read: [],
       update: [],
@@ -121,6 +125,10 @@ export const useNamespacePermissionsForResource = (
       }
     }
     await Promise.all(permissionsPromisesArr);
+
+    if (requestId !== latestRequestIdRef.current) {
+      return;
+    }
     setPermissions(newPermissions);
   }, [namespaces, resource, specificResource]);
 
