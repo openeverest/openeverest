@@ -100,8 +100,14 @@ const formValuesToPayloadMapping = (
         version: dbPayload.dbVersion,
         replicas: numberOfNodes,
         resources: {
-          cpu: `${dbPayload.cpu}`,
-          memory: `${dbPayload.memory}G`,
+          limits: {
+            cpu: `${dbPayload.cpu}`,
+            memory: `${dbPayload.memory}G`,
+          },
+          requests: {
+            cpu: `${dbPayload.cpuRequests ?? dbPayload.cpu}`,
+            memory: `${dbPayload.memoryRequests ?? dbPayload.memory}G`,
+          },
         },
         storage: {
           class: dbPayload.storageClass!,
@@ -131,6 +137,8 @@ const formValuesToPayloadMapping = (
         dbPayload.proxyCpu,
         dbPayload.proxyMemory,
         dbPayload.sharding,
+        dbPayload.proxyCpuRequests,
+        dbPayload.proxyMemoryRequests,
         dbPayload.sourceRanges || [],
         dbPayload.exposureMethod === ProxyExposeType.LoadBalancer ||
           dbPayload.loadBalancerConfigName === EMPTY_LOAD_BALANCER_CONFIGURATION
