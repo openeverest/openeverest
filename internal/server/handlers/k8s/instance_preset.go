@@ -20,11 +20,17 @@ import (
 	"fmt"
 
 	corev1 "k8s.io/api/core/v1"
+	storagev1 "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/types"
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	corev1alpha1 "github.com/openeverest/openeverest/v2/api/core/v1alpha1"
 	monitoringv1alpha1 "github.com/openeverest/openeverest/v2/api/monitoring/v1alpha1"
+)
+
+const (
+	// defaultStorageClassAnnotation is the standard Kubernetes annotation for marking a StorageClass as default
+	defaultStorageClassAnnotation = "storageclass.kubernetes.io/is-default-class"
 )
 
 // ListInstancePresets returns list of instance presets, optionally filtered by provider.
@@ -66,7 +72,7 @@ func (h *k8sHandler) ResolveInstancePreset(ctx context.Context, cluster, name, n
 }
 
 // resolveNamespaceDefaults scans components and resolves
-// empty namespace reference fields and populates them.
+// empty namespace reference fields and empty StorageClass and populates them.
 // The fields that could have namespace references are in config and customSpec.
 // It skips other fields like resources, image, etc. since they are not
 // namespace-specific, and also skips fields with unknown type.
@@ -94,6 +100,14 @@ func (h *k8sHandler) resolveNamespaceDefaults(ctx context.Context, preset *corev
 			}
 		}
 
+		// Resolve Storage fields
+		if component.Storage != nil {
+			component, err = h.resolveStorageFields(ctx, component)
+			if err != nil {
+				return nil, fmt.Errorf("failed to resolve component %s: %w", componentName, err)
+			}
+		}
+
 		preset.Spec.Components[componentName] = component
 	}
 
@@ -113,6 +127,26 @@ func (h *k8sHandler) resolveConfigFields(ctx context.Context, component corev1al
 			return component, err
 		}
 		component.Config.SecretRef.Name = defaultSecretName
+	}
+
+	return component, nil
+}
+
+// resolveStorageFields handles structured Storage.StorageClass.
+func (h *k8sHandler) resolveStorageFields(ctx context.Context, component corev1alpha1.ComponentSpec) (corev1alpha1.ComponentSpec, error) {
+	if component.Storage == nil {
+		return component, nil
+	}
+
+	if isEmptyValue(component.Storage.StorageClass) {
+		defaultStorageClass, err := h.findDefaultStorageClass(ctx)
+		if err != nil {
+			return component, err
+		}
+		if defaultStorageClass != nil {
+			name := defaultStorageClass.GetName()
+			component.Storage.StorageClass = &name
+		}
 	}
 
 	return component, nil
@@ -192,6 +226,8 @@ func isEmptyValue(value any) bool {
 	switch v := value.(type) {
 	case string:
 		return v == ""
+	case *string:
+		return v == nil || *v == ""
 	case corev1.LocalObjectReference:
 		return v.Name == ""
 	case map[string]any:
@@ -317,6 +353,32 @@ func (h *k8sHandler) findDefaultMonitoringConfig(ctx context.Context, namespace,
 	return getMostRecentlyCreated(convertMonitoringConfigsToObjects(filtered)), nil
 }
 
+// findDefaultStorageClass finds the most recent StorageClass using the same annotation
+// as PVC finds the default StorageClass.
+func (h *k8sHandler) findDefaultStorageClass(ctx context.Context) (ctrlclient.Object, error) {
+	storageClasses, err := h.kubeConnector.ListStorageClasses(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	// Kubernetes API doesn't support annotation selectors, so we must list all StorageClasses
+	// and filter client-side.
+	filtered := make([]storagev1.StorageClass, 0)
+	for _, sc := range storageClasses.Items {
+		if annotations := sc.GetAnnotations(); annotations != nil {
+			if annotations[defaultStorageClassAnnotation] == "true" {
+				filtered = append(filtered, sc)
+			}
+		}
+	}
+
+	if len(filtered) == 0 {
+		return nil, nil
+	}
+
+	return getMostRecentlyCreated(convertStorageClassesToObjects(filtered)), nil
+}
+
 // getMostRecentlyCreated returns the most recently created resource
 func getMostRecentlyCreated(items []ctrlclient.Object) ctrlclient.Object {
 	if len(items) == 0 {
@@ -342,6 +404,14 @@ func convertSecretsToObjects(items []corev1.Secret) []ctrlclient.Object {
 }
 
 func convertMonitoringConfigsToObjects(items []monitoringv1alpha1.MonitoringConfig) []ctrlclient.Object {
+	result := make([]ctrlclient.Object, len(items))
+	for i := range items {
+		result[i] = &items[i]
+	}
+	return result
+}
+
+func convertStorageClassesToObjects(items []storagev1.StorageClass) []ctrlclient.Object {
 	result := make([]ctrlclient.Object, len(items))
 	for i := range items {
 		result[i] = &items[i]

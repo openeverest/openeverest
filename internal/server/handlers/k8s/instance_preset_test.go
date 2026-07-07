@@ -22,8 +22,10 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
+	storagev1 "k8s.io/api/storage/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	corev1alpha1 "github.com/openeverest/openeverest/v2/api/core/v1alpha1"
@@ -48,6 +50,7 @@ func TestApplyNamespaceDefaults_New(t *testing.T) {
 
 	scheme := runtime.NewScheme()
 	require.NoError(t, corev1.AddToScheme(scheme))
+	require.NoError(t, storagev1.AddToScheme(scheme))
 	require.NoError(t, monitoringv1alpha1.AddToScheme(scheme))
 
 	fakeClient := fake.NewClientBuilder().
@@ -67,6 +70,18 @@ func TestApplyNamespaceDefaults_New(t *testing.T) {
 					Annotations: map[string]string{"openeverest.io/is-default-components-pmm": "true"},
 				},
 				Spec: monitoringv1alpha1.MonitoringConfigSpec{Type: "pmm"},
+			},
+			&storagev1.StorageClass{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:        "default-storage",
+					Annotations: map[string]string{"storageclass.kubernetes.io/is-default-class": "true"},
+				},
+			},
+			&storagev1.StorageClass{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:        "non-default-storage",
+					Annotations: map[string]string{"storageclass.kubernetes.io/is-default-class": "false"},
+				},
 			},
 		).
 		Build()
@@ -207,6 +222,45 @@ func TestApplyNamespaceDefaults_New(t *testing.T) {
 					CustomSpec: &runtime.RawExtension{
 						Raw: mustMarshal(t, map[string]any{"randomField": ""}),
 					},
+				},
+			}),
+		},
+		{
+			name: "resolve storageClass",
+			input: newTestPreset(map[string]corev1alpha1.ComponentSpec{
+				"engine": {
+					Storage: &corev1alpha1.Storage{StorageClass: nil},
+				},
+			}),
+			expected: newTestPreset(map[string]corev1alpha1.ComponentSpec{
+				"engine": {
+					Storage: &corev1alpha1.Storage{StorageClass: ptr.To("default-storage")},
+				},
+			}),
+		},
+		{
+			name: "resolve empty storageClass pointer",
+			input: newTestPreset(map[string]corev1alpha1.ComponentSpec{
+				"engine": {
+					Storage: &corev1alpha1.Storage{StorageClass: ptr.To("")},
+				},
+			}),
+			expected: newTestPreset(map[string]corev1alpha1.ComponentSpec{
+				"engine": {
+					Storage: &corev1alpha1.Storage{StorageClass: ptr.To("default-storage")},
+				},
+			}),
+		},
+		{
+			name: "does not override existing storageClass",
+			input: newTestPreset(map[string]corev1alpha1.ComponentSpec{
+				"engine": {
+					Storage: &corev1alpha1.Storage{StorageClass: ptr.To("custom-storage")},
+				},
+			}),
+			expected: newTestPreset(map[string]corev1alpha1.ComponentSpec{
+				"engine": {
+					Storage: &corev1alpha1.Storage{StorageClass: ptr.To("custom-storage")},
 				},
 			}),
 		},
