@@ -24,7 +24,7 @@ import { AxiosError } from 'axios';
 import { RouterProvider } from 'react-router-dom';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { AuthProvider } from 'contexts/auth';
-import { logAuthError } from 'contexts/auth/auth.utils';
+import { logAuthError, SSO_LOGIN_ERROR_KEY } from 'contexts/auth/auth.utils';
 import { DrawerContextProvider } from 'contexts/drawer/drawer.context';
 import router from 'router';
 import { useEffect, useState } from 'react';
@@ -121,6 +121,8 @@ const App = () => {
                   },
                   onSignInError: (error) => {
                     logAuthError('SSO login callback failed', error);
+                    sessionStorage.setItem(SSO_LOGIN_ERROR_KEY, '1');
+                    window.location.href = '/login';
                   },
                 }}
               >

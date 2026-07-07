@@ -41,7 +41,7 @@ import {
   initializeAuthorizerFetchLoop,
   stopAuthorizerFetchLoop,
 } from 'utils/rbac';
-import { logAuthError } from './auth.utils';
+import { logAuthError, isRunningInIframe } from './auth.utils';
 
 const Provider = ({
   oidcConfig,
@@ -181,14 +181,14 @@ const AuthProvider = ({ children, isSsoEnabled }: AuthProviderProps) => {
       // stored auth state, which makes one of the two calls fail with
       // "No matching state found in storage" and leaves the user on a blank
       // page after an SSO redirect.
-      if (window.location !== window.parent.location) {
+      if (isRunningInIframe()) {
         userManager.signinSilentCallback();
       }
     }
   }, [isSsoEnabled, silentlyRenewToken, userManager]);
 
   useEffect(() => {
-    if (window.location !== window.parent.location) {
+    if (isRunningInIframe()) {
       // This is running in the iframe, so we are renewing the token silently
       return;
     }

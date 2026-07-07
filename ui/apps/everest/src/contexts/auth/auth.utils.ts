@@ -17,3 +17,13 @@ export const logAuthError = (context: string, error: unknown) => {
   // eslint-disable-next-line no-console
   console.error(`[auth] ${context}:`, error);
 };
+
+export const SSO_LOGIN_ERROR_KEY = 'ssoLoginError';
+
+export const isRunningInIframe = (): boolean => {
+  try {
+    return window.self !== window.top;
+  } catch {
+    return true;
+  }
+};
