@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Axios/network errors carry the request config (including Authorization headers 
+// Axios/network errors carry the request config (including Authorization headers
 // with bearer tokens), so dumping the whole object would leak credentials into the
 // browser console.
 const sanitizeError = (error: unknown): string => {
