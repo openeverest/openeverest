@@ -13,7 +13,7 @@
 // limitations under the License.
 
 import { useNamespaces } from 'hooks/api/namespaces';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   can,
@@ -34,7 +34,10 @@ export const useRBACPermissions = (
     delete: false,
   });
 
+  const latestRequestIdRef = useRef(0);
+
   const checkPermissions = useCallback(async () => {
+    const requestId = ++latestRequestIdRef.current;
     const multipleSpecificResources = Array.isArray(specificResources);
     const canRead = await (multipleSpecificResources
       ? canAll('read', resource, specificResources)
@@ -48,6 +51,11 @@ export const useRBACPermissions = (
     const canCreate = await (multipleSpecificResources
       ? canAll('create', resource, specificResources)
       : can('create', resource, specificResources));
+
+    // Discard results from a stale invocation that resolved after a newer one.
+    if (requestId !== latestRequestIdRef.current) {
+      return;
+    }
 
     setPermissions({
       read: canRead,
