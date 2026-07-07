@@ -104,8 +104,8 @@ export const Logs = lazy(
   () => import('pages/db-cluster-details/component-logs/component-logs')
 );
 
-export const LoginCallback = lazy(
-  () => import('components/login-callback/LoginCallback')
+export const LoginCallbackLoader = lazy(
+  () => import('components/login-callback/LoginCallbackLoader')
 );
 
 export const Logout = lazy(() => import('pages/logout'));
