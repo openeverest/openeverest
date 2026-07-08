@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -123,14 +124,13 @@ test.describe(
         await expect(page.getByText('Routers (3)')).toBeVisible();
         await expect(page.getByText('2 shards')).toBeVisible();
         await expect(
-          page.getByText(
-            '6 nodes - CPU - 6.00 CPU; Memory - 24.00 GB; Disk - 150.00 Gi'
-          )
-        ).toBeVisible();
+          page.getByTestId('nodes-resources-table-limits-line')
+        ).toContainText('CPU: 6.00 CPU; Memory: 24.00 GB');
+        await expect(page.getByText('Disk: 150.00 Gi')).toBeVisible();
         await expect(page.getByText('3 configuration servers')).toBeVisible();
         await expect(
-          page.getByText('3 routers - CPU - 3.00 CPU; Memory - 6.00 GB')
-        ).toBeVisible();
+          page.getByTestId('proxies-resources-table-limits-line')
+        ).toContainText('CPU: 3.00 CPU; Memory: 6.00 GB');
         await populateResources(page, 0.6, 1, 1, size, 2, 0.6, 1, 2, 3);
         await moveForward(page);
       });
@@ -176,11 +176,11 @@ test.describe(
         expect(addedCluster?.spec.engine.type).toBe(db);
         expect(addedCluster?.spec.engine.replicas).toBe(size);
         expect(['600m', '0.6']).toContain(
-          addedCluster?.spec.engine.resources?.cpu.toString()
+          addedCluster?.spec.engine.resources?.limits.cpu.toString()
         );
-        expect(addedCluster?.spec.engine.resources?.memory.toString()).toBe(
-          '1G'
-        );
+        expect(
+          addedCluster?.spec.engine.resources?.limits.memory.toString()
+        ).toBe('1G');
         expect(addedCluster?.spec.engine.storage.size.toString()).toBe('1Gi');
         expect(addedCluster?.spec.proxy.expose.type).toBe('ClusterIP');
         if (db != 'psmdb') {

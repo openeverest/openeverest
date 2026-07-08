@@ -743,11 +743,33 @@ type DatabaseCluster struct {
 			// Resources Resources are the resource limits for each engine replica.
 			// If not set, resource limits are not imposed
 			Resources *struct {
-				// Cpu CPU is the CPU resource requirements
+				// Cpu CPU is the CPU resource requirements.
+				// Deprecated: use limits.cpu instead.
 				Cpu *DatabaseCluster_Spec_Engine_Resources_Cpu `json:"cpu,omitempty"`
 
-				// Memory Memory is the memory resource requirements
+				// Limits Limits are the resource limits applied to each replica.
+				// If set, it takes precedence over the deprecated cpu and memory fields.
+				Limits *struct {
+					// Cpu CPU is the CPU resource requirements
+					Cpu *DatabaseCluster_Spec_Engine_Resources_Limits_Cpu `json:"cpu,omitempty"`
+
+					// Memory Memory is the memory resource requirements
+					Memory *DatabaseCluster_Spec_Engine_Resources_Limits_Memory `json:"memory,omitempty"`
+				} `json:"limits,omitempty"`
+
+				// Memory Memory is the memory resource requirements.
+				// Deprecated: use limits.memory instead.
 				Memory *DatabaseCluster_Spec_Engine_Resources_Memory `json:"memory,omitempty"`
+
+				// Requests Requests are the resource requests applied to each replica.
+				// If unset, the request behavior is engine-specific.
+				Requests *struct {
+					// Cpu CPU is the CPU resource requirements
+					Cpu *DatabaseCluster_Spec_Engine_Resources_Requests_Cpu `json:"cpu,omitempty"`
+
+					// Memory Memory is the memory resource requirements
+					Memory *DatabaseCluster_Spec_Engine_Resources_Requests_Memory `json:"memory,omitempty"`
+				} `json:"requests,omitempty"`
 			} `json:"resources,omitempty"`
 
 			// Storage Storage is the engine storage configuration
@@ -851,11 +873,33 @@ type DatabaseCluster struct {
 			// Resources Resources are the resource limits for each proxy replica.
 			// If not set, resource limits are not imposed
 			Resources *struct {
-				// Cpu CPU is the CPU resource requirements
+				// Cpu CPU is the CPU resource requirements.
+				// Deprecated: use limits.cpu instead.
 				Cpu *DatabaseCluster_Spec_Proxy_Resources_Cpu `json:"cpu,omitempty"`
 
-				// Memory Memory is the memory resource requirements
+				// Limits Limits are the resource limits applied to each replica.
+				// If set, it takes precedence over the deprecated cpu and memory fields.
+				Limits *struct {
+					// Cpu CPU is the CPU resource requirements
+					Cpu *DatabaseCluster_Spec_Proxy_Resources_Limits_Cpu `json:"cpu,omitempty"`
+
+					// Memory Memory is the memory resource requirements
+					Memory *DatabaseCluster_Spec_Proxy_Resources_Limits_Memory `json:"memory,omitempty"`
+				} `json:"limits,omitempty"`
+
+				// Memory Memory is the memory resource requirements.
+				// Deprecated: use limits.memory instead.
 				Memory *DatabaseCluster_Spec_Proxy_Resources_Memory `json:"memory,omitempty"`
+
+				// Requests Requests are the resource requests applied to each replica.
+				// If unset, the request behavior is engine-specific.
+				Requests *struct {
+					// Cpu CPU is the CPU resource requirements
+					Cpu *DatabaseCluster_Spec_Proxy_Resources_Requests_Cpu `json:"cpu,omitempty"`
+
+					// Memory Memory is the memory resource requirements
+					Memory *DatabaseCluster_Spec_Proxy_Resources_Requests_Memory `json:"memory,omitempty"`
+				} `json:"requests,omitempty"`
 			} `json:"resources,omitempty"`
 
 			// Storage Storage is the proxy storage configuration
@@ -995,8 +1039,31 @@ type DatabaseClusterSpecEngineResourcesCpu0 = int
 // DatabaseClusterSpecEngineResourcesCpu1 defines model for .
 type DatabaseClusterSpecEngineResourcesCpu1 = string
 
-// DatabaseCluster_Spec_Engine_Resources_Cpu CPU is the CPU resource requirements
+// DatabaseCluster_Spec_Engine_Resources_Cpu CPU is the CPU resource requirements.
+// Deprecated: use limits.cpu instead.
 type DatabaseCluster_Spec_Engine_Resources_Cpu struct {
+	union json.RawMessage
+}
+
+// DatabaseClusterSpecEngineResourcesLimitsCpu0 defines model for .
+type DatabaseClusterSpecEngineResourcesLimitsCpu0 = int
+
+// DatabaseClusterSpecEngineResourcesLimitsCpu1 defines model for .
+type DatabaseClusterSpecEngineResourcesLimitsCpu1 = string
+
+// DatabaseCluster_Spec_Engine_Resources_Limits_Cpu CPU is the CPU resource requirements
+type DatabaseCluster_Spec_Engine_Resources_Limits_Cpu struct {
+	union json.RawMessage
+}
+
+// DatabaseClusterSpecEngineResourcesLimitsMemory0 defines model for .
+type DatabaseClusterSpecEngineResourcesLimitsMemory0 = int
+
+// DatabaseClusterSpecEngineResourcesLimitsMemory1 defines model for .
+type DatabaseClusterSpecEngineResourcesLimitsMemory1 = string
+
+// DatabaseCluster_Spec_Engine_Resources_Limits_Memory Memory is the memory resource requirements
+type DatabaseCluster_Spec_Engine_Resources_Limits_Memory struct {
 	union json.RawMessage
 }
 
@@ -1006,8 +1073,31 @@ type DatabaseClusterSpecEngineResourcesMemory0 = int
 // DatabaseClusterSpecEngineResourcesMemory1 defines model for .
 type DatabaseClusterSpecEngineResourcesMemory1 = string
 
-// DatabaseCluster_Spec_Engine_Resources_Memory Memory is the memory resource requirements
+// DatabaseCluster_Spec_Engine_Resources_Memory Memory is the memory resource requirements.
+// Deprecated: use limits.memory instead.
 type DatabaseCluster_Spec_Engine_Resources_Memory struct {
+	union json.RawMessage
+}
+
+// DatabaseClusterSpecEngineResourcesRequestsCpu0 defines model for .
+type DatabaseClusterSpecEngineResourcesRequestsCpu0 = int
+
+// DatabaseClusterSpecEngineResourcesRequestsCpu1 defines model for .
+type DatabaseClusterSpecEngineResourcesRequestsCpu1 = string
+
+// DatabaseCluster_Spec_Engine_Resources_Requests_Cpu CPU is the CPU resource requirements
+type DatabaseCluster_Spec_Engine_Resources_Requests_Cpu struct {
+	union json.RawMessage
+}
+
+// DatabaseClusterSpecEngineResourcesRequestsMemory0 defines model for .
+type DatabaseClusterSpecEngineResourcesRequestsMemory0 = int
+
+// DatabaseClusterSpecEngineResourcesRequestsMemory1 defines model for .
+type DatabaseClusterSpecEngineResourcesRequestsMemory1 = string
+
+// DatabaseCluster_Spec_Engine_Resources_Requests_Memory Memory is the memory resource requirements
+type DatabaseCluster_Spec_Engine_Resources_Requests_Memory struct {
 	union json.RawMessage
 }
 
@@ -1056,8 +1146,31 @@ type DatabaseClusterSpecProxyResourcesCpu0 = int
 // DatabaseClusterSpecProxyResourcesCpu1 defines model for .
 type DatabaseClusterSpecProxyResourcesCpu1 = string
 
-// DatabaseCluster_Spec_Proxy_Resources_Cpu CPU is the CPU resource requirements
+// DatabaseCluster_Spec_Proxy_Resources_Cpu CPU is the CPU resource requirements.
+// Deprecated: use limits.cpu instead.
 type DatabaseCluster_Spec_Proxy_Resources_Cpu struct {
+	union json.RawMessage
+}
+
+// DatabaseClusterSpecProxyResourcesLimitsCpu0 defines model for .
+type DatabaseClusterSpecProxyResourcesLimitsCpu0 = int
+
+// DatabaseClusterSpecProxyResourcesLimitsCpu1 defines model for .
+type DatabaseClusterSpecProxyResourcesLimitsCpu1 = string
+
+// DatabaseCluster_Spec_Proxy_Resources_Limits_Cpu CPU is the CPU resource requirements
+type DatabaseCluster_Spec_Proxy_Resources_Limits_Cpu struct {
+	union json.RawMessage
+}
+
+// DatabaseClusterSpecProxyResourcesLimitsMemory0 defines model for .
+type DatabaseClusterSpecProxyResourcesLimitsMemory0 = int
+
+// DatabaseClusterSpecProxyResourcesLimitsMemory1 defines model for .
+type DatabaseClusterSpecProxyResourcesLimitsMemory1 = string
+
+// DatabaseCluster_Spec_Proxy_Resources_Limits_Memory Memory is the memory resource requirements
+type DatabaseCluster_Spec_Proxy_Resources_Limits_Memory struct {
 	union json.RawMessage
 }
 
@@ -1067,8 +1180,31 @@ type DatabaseClusterSpecProxyResourcesMemory0 = int
 // DatabaseClusterSpecProxyResourcesMemory1 defines model for .
 type DatabaseClusterSpecProxyResourcesMemory1 = string
 
-// DatabaseCluster_Spec_Proxy_Resources_Memory Memory is the memory resource requirements
+// DatabaseCluster_Spec_Proxy_Resources_Memory Memory is the memory resource requirements.
+// Deprecated: use limits.memory instead.
 type DatabaseCluster_Spec_Proxy_Resources_Memory struct {
+	union json.RawMessage
+}
+
+// DatabaseClusterSpecProxyResourcesRequestsCpu0 defines model for .
+type DatabaseClusterSpecProxyResourcesRequestsCpu0 = int
+
+// DatabaseClusterSpecProxyResourcesRequestsCpu1 defines model for .
+type DatabaseClusterSpecProxyResourcesRequestsCpu1 = string
+
+// DatabaseCluster_Spec_Proxy_Resources_Requests_Cpu CPU is the CPU resource requirements
+type DatabaseCluster_Spec_Proxy_Resources_Requests_Cpu struct {
+	union json.RawMessage
+}
+
+// DatabaseClusterSpecProxyResourcesRequestsMemory0 defines model for .
+type DatabaseClusterSpecProxyResourcesRequestsMemory0 = int
+
+// DatabaseClusterSpecProxyResourcesRequestsMemory1 defines model for .
+type DatabaseClusterSpecProxyResourcesRequestsMemory1 = string
+
+// DatabaseCluster_Spec_Proxy_Resources_Requests_Memory Memory is the memory resource requirements
+type DatabaseCluster_Spec_Proxy_Resources_Requests_Memory struct {
 	union json.RawMessage
 }
 
@@ -5688,6 +5824,130 @@ func (t *DatabaseCluster_Spec_Engine_Resources_Cpu) UnmarshalJSON(b []byte) erro
 	return err
 }
 
+// AsDatabaseClusterSpecEngineResourcesLimitsCpu0 returns the union data inside the DatabaseCluster_Spec_Engine_Resources_Limits_Cpu as a DatabaseClusterSpecEngineResourcesLimitsCpu0
+func (t DatabaseCluster_Spec_Engine_Resources_Limits_Cpu) AsDatabaseClusterSpecEngineResourcesLimitsCpu0() (DatabaseClusterSpecEngineResourcesLimitsCpu0, error) {
+	var body DatabaseClusterSpecEngineResourcesLimitsCpu0
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromDatabaseClusterSpecEngineResourcesLimitsCpu0 overwrites any union data inside the DatabaseCluster_Spec_Engine_Resources_Limits_Cpu as the provided DatabaseClusterSpecEngineResourcesLimitsCpu0
+func (t *DatabaseCluster_Spec_Engine_Resources_Limits_Cpu) FromDatabaseClusterSpecEngineResourcesLimitsCpu0(v DatabaseClusterSpecEngineResourcesLimitsCpu0) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeDatabaseClusterSpecEngineResourcesLimitsCpu0 performs a merge with any union data inside the DatabaseCluster_Spec_Engine_Resources_Limits_Cpu, using the provided DatabaseClusterSpecEngineResourcesLimitsCpu0
+func (t *DatabaseCluster_Spec_Engine_Resources_Limits_Cpu) MergeDatabaseClusterSpecEngineResourcesLimitsCpu0(v DatabaseClusterSpecEngineResourcesLimitsCpu0) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsDatabaseClusterSpecEngineResourcesLimitsCpu1 returns the union data inside the DatabaseCluster_Spec_Engine_Resources_Limits_Cpu as a DatabaseClusterSpecEngineResourcesLimitsCpu1
+func (t DatabaseCluster_Spec_Engine_Resources_Limits_Cpu) AsDatabaseClusterSpecEngineResourcesLimitsCpu1() (DatabaseClusterSpecEngineResourcesLimitsCpu1, error) {
+	var body DatabaseClusterSpecEngineResourcesLimitsCpu1
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromDatabaseClusterSpecEngineResourcesLimitsCpu1 overwrites any union data inside the DatabaseCluster_Spec_Engine_Resources_Limits_Cpu as the provided DatabaseClusterSpecEngineResourcesLimitsCpu1
+func (t *DatabaseCluster_Spec_Engine_Resources_Limits_Cpu) FromDatabaseClusterSpecEngineResourcesLimitsCpu1(v DatabaseClusterSpecEngineResourcesLimitsCpu1) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeDatabaseClusterSpecEngineResourcesLimitsCpu1 performs a merge with any union data inside the DatabaseCluster_Spec_Engine_Resources_Limits_Cpu, using the provided DatabaseClusterSpecEngineResourcesLimitsCpu1
+func (t *DatabaseCluster_Spec_Engine_Resources_Limits_Cpu) MergeDatabaseClusterSpecEngineResourcesLimitsCpu1(v DatabaseClusterSpecEngineResourcesLimitsCpu1) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+func (t DatabaseCluster_Spec_Engine_Resources_Limits_Cpu) MarshalJSON() ([]byte, error) {
+	b, err := t.union.MarshalJSON()
+	return b, err
+}
+
+func (t *DatabaseCluster_Spec_Engine_Resources_Limits_Cpu) UnmarshalJSON(b []byte) error {
+	err := t.union.UnmarshalJSON(b)
+	return err
+}
+
+// AsDatabaseClusterSpecEngineResourcesLimitsMemory0 returns the union data inside the DatabaseCluster_Spec_Engine_Resources_Limits_Memory as a DatabaseClusterSpecEngineResourcesLimitsMemory0
+func (t DatabaseCluster_Spec_Engine_Resources_Limits_Memory) AsDatabaseClusterSpecEngineResourcesLimitsMemory0() (DatabaseClusterSpecEngineResourcesLimitsMemory0, error) {
+	var body DatabaseClusterSpecEngineResourcesLimitsMemory0
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromDatabaseClusterSpecEngineResourcesLimitsMemory0 overwrites any union data inside the DatabaseCluster_Spec_Engine_Resources_Limits_Memory as the provided DatabaseClusterSpecEngineResourcesLimitsMemory0
+func (t *DatabaseCluster_Spec_Engine_Resources_Limits_Memory) FromDatabaseClusterSpecEngineResourcesLimitsMemory0(v DatabaseClusterSpecEngineResourcesLimitsMemory0) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeDatabaseClusterSpecEngineResourcesLimitsMemory0 performs a merge with any union data inside the DatabaseCluster_Spec_Engine_Resources_Limits_Memory, using the provided DatabaseClusterSpecEngineResourcesLimitsMemory0
+func (t *DatabaseCluster_Spec_Engine_Resources_Limits_Memory) MergeDatabaseClusterSpecEngineResourcesLimitsMemory0(v DatabaseClusterSpecEngineResourcesLimitsMemory0) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsDatabaseClusterSpecEngineResourcesLimitsMemory1 returns the union data inside the DatabaseCluster_Spec_Engine_Resources_Limits_Memory as a DatabaseClusterSpecEngineResourcesLimitsMemory1
+func (t DatabaseCluster_Spec_Engine_Resources_Limits_Memory) AsDatabaseClusterSpecEngineResourcesLimitsMemory1() (DatabaseClusterSpecEngineResourcesLimitsMemory1, error) {
+	var body DatabaseClusterSpecEngineResourcesLimitsMemory1
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromDatabaseClusterSpecEngineResourcesLimitsMemory1 overwrites any union data inside the DatabaseCluster_Spec_Engine_Resources_Limits_Memory as the provided DatabaseClusterSpecEngineResourcesLimitsMemory1
+func (t *DatabaseCluster_Spec_Engine_Resources_Limits_Memory) FromDatabaseClusterSpecEngineResourcesLimitsMemory1(v DatabaseClusterSpecEngineResourcesLimitsMemory1) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeDatabaseClusterSpecEngineResourcesLimitsMemory1 performs a merge with any union data inside the DatabaseCluster_Spec_Engine_Resources_Limits_Memory, using the provided DatabaseClusterSpecEngineResourcesLimitsMemory1
+func (t *DatabaseCluster_Spec_Engine_Resources_Limits_Memory) MergeDatabaseClusterSpecEngineResourcesLimitsMemory1(v DatabaseClusterSpecEngineResourcesLimitsMemory1) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+func (t DatabaseCluster_Spec_Engine_Resources_Limits_Memory) MarshalJSON() ([]byte, error) {
+	b, err := t.union.MarshalJSON()
+	return b, err
+}
+
+func (t *DatabaseCluster_Spec_Engine_Resources_Limits_Memory) UnmarshalJSON(b []byte) error {
+	err := t.union.UnmarshalJSON(b)
+	return err
+}
+
 // AsDatabaseClusterSpecEngineResourcesMemory0 returns the union data inside the DatabaseCluster_Spec_Engine_Resources_Memory as a DatabaseClusterSpecEngineResourcesMemory0
 func (t DatabaseCluster_Spec_Engine_Resources_Memory) AsDatabaseClusterSpecEngineResourcesMemory0() (DatabaseClusterSpecEngineResourcesMemory0, error) {
 	var body DatabaseClusterSpecEngineResourcesMemory0
@@ -5746,6 +6006,130 @@ func (t DatabaseCluster_Spec_Engine_Resources_Memory) MarshalJSON() ([]byte, err
 }
 
 func (t *DatabaseCluster_Spec_Engine_Resources_Memory) UnmarshalJSON(b []byte) error {
+	err := t.union.UnmarshalJSON(b)
+	return err
+}
+
+// AsDatabaseClusterSpecEngineResourcesRequestsCpu0 returns the union data inside the DatabaseCluster_Spec_Engine_Resources_Requests_Cpu as a DatabaseClusterSpecEngineResourcesRequestsCpu0
+func (t DatabaseCluster_Spec_Engine_Resources_Requests_Cpu) AsDatabaseClusterSpecEngineResourcesRequestsCpu0() (DatabaseClusterSpecEngineResourcesRequestsCpu0, error) {
+	var body DatabaseClusterSpecEngineResourcesRequestsCpu0
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromDatabaseClusterSpecEngineResourcesRequestsCpu0 overwrites any union data inside the DatabaseCluster_Spec_Engine_Resources_Requests_Cpu as the provided DatabaseClusterSpecEngineResourcesRequestsCpu0
+func (t *DatabaseCluster_Spec_Engine_Resources_Requests_Cpu) FromDatabaseClusterSpecEngineResourcesRequestsCpu0(v DatabaseClusterSpecEngineResourcesRequestsCpu0) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeDatabaseClusterSpecEngineResourcesRequestsCpu0 performs a merge with any union data inside the DatabaseCluster_Spec_Engine_Resources_Requests_Cpu, using the provided DatabaseClusterSpecEngineResourcesRequestsCpu0
+func (t *DatabaseCluster_Spec_Engine_Resources_Requests_Cpu) MergeDatabaseClusterSpecEngineResourcesRequestsCpu0(v DatabaseClusterSpecEngineResourcesRequestsCpu0) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsDatabaseClusterSpecEngineResourcesRequestsCpu1 returns the union data inside the DatabaseCluster_Spec_Engine_Resources_Requests_Cpu as a DatabaseClusterSpecEngineResourcesRequestsCpu1
+func (t DatabaseCluster_Spec_Engine_Resources_Requests_Cpu) AsDatabaseClusterSpecEngineResourcesRequestsCpu1() (DatabaseClusterSpecEngineResourcesRequestsCpu1, error) {
+	var body DatabaseClusterSpecEngineResourcesRequestsCpu1
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromDatabaseClusterSpecEngineResourcesRequestsCpu1 overwrites any union data inside the DatabaseCluster_Spec_Engine_Resources_Requests_Cpu as the provided DatabaseClusterSpecEngineResourcesRequestsCpu1
+func (t *DatabaseCluster_Spec_Engine_Resources_Requests_Cpu) FromDatabaseClusterSpecEngineResourcesRequestsCpu1(v DatabaseClusterSpecEngineResourcesRequestsCpu1) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeDatabaseClusterSpecEngineResourcesRequestsCpu1 performs a merge with any union data inside the DatabaseCluster_Spec_Engine_Resources_Requests_Cpu, using the provided DatabaseClusterSpecEngineResourcesRequestsCpu1
+func (t *DatabaseCluster_Spec_Engine_Resources_Requests_Cpu) MergeDatabaseClusterSpecEngineResourcesRequestsCpu1(v DatabaseClusterSpecEngineResourcesRequestsCpu1) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+func (t DatabaseCluster_Spec_Engine_Resources_Requests_Cpu) MarshalJSON() ([]byte, error) {
+	b, err := t.union.MarshalJSON()
+	return b, err
+}
+
+func (t *DatabaseCluster_Spec_Engine_Resources_Requests_Cpu) UnmarshalJSON(b []byte) error {
+	err := t.union.UnmarshalJSON(b)
+	return err
+}
+
+// AsDatabaseClusterSpecEngineResourcesRequestsMemory0 returns the union data inside the DatabaseCluster_Spec_Engine_Resources_Requests_Memory as a DatabaseClusterSpecEngineResourcesRequestsMemory0
+func (t DatabaseCluster_Spec_Engine_Resources_Requests_Memory) AsDatabaseClusterSpecEngineResourcesRequestsMemory0() (DatabaseClusterSpecEngineResourcesRequestsMemory0, error) {
+	var body DatabaseClusterSpecEngineResourcesRequestsMemory0
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromDatabaseClusterSpecEngineResourcesRequestsMemory0 overwrites any union data inside the DatabaseCluster_Spec_Engine_Resources_Requests_Memory as the provided DatabaseClusterSpecEngineResourcesRequestsMemory0
+func (t *DatabaseCluster_Spec_Engine_Resources_Requests_Memory) FromDatabaseClusterSpecEngineResourcesRequestsMemory0(v DatabaseClusterSpecEngineResourcesRequestsMemory0) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeDatabaseClusterSpecEngineResourcesRequestsMemory0 performs a merge with any union data inside the DatabaseCluster_Spec_Engine_Resources_Requests_Memory, using the provided DatabaseClusterSpecEngineResourcesRequestsMemory0
+func (t *DatabaseCluster_Spec_Engine_Resources_Requests_Memory) MergeDatabaseClusterSpecEngineResourcesRequestsMemory0(v DatabaseClusterSpecEngineResourcesRequestsMemory0) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsDatabaseClusterSpecEngineResourcesRequestsMemory1 returns the union data inside the DatabaseCluster_Spec_Engine_Resources_Requests_Memory as a DatabaseClusterSpecEngineResourcesRequestsMemory1
+func (t DatabaseCluster_Spec_Engine_Resources_Requests_Memory) AsDatabaseClusterSpecEngineResourcesRequestsMemory1() (DatabaseClusterSpecEngineResourcesRequestsMemory1, error) {
+	var body DatabaseClusterSpecEngineResourcesRequestsMemory1
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromDatabaseClusterSpecEngineResourcesRequestsMemory1 overwrites any union data inside the DatabaseCluster_Spec_Engine_Resources_Requests_Memory as the provided DatabaseClusterSpecEngineResourcesRequestsMemory1
+func (t *DatabaseCluster_Spec_Engine_Resources_Requests_Memory) FromDatabaseClusterSpecEngineResourcesRequestsMemory1(v DatabaseClusterSpecEngineResourcesRequestsMemory1) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeDatabaseClusterSpecEngineResourcesRequestsMemory1 performs a merge with any union data inside the DatabaseCluster_Spec_Engine_Resources_Requests_Memory, using the provided DatabaseClusterSpecEngineResourcesRequestsMemory1
+func (t *DatabaseCluster_Spec_Engine_Resources_Requests_Memory) MergeDatabaseClusterSpecEngineResourcesRequestsMemory1(v DatabaseClusterSpecEngineResourcesRequestsMemory1) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+func (t DatabaseCluster_Spec_Engine_Resources_Requests_Memory) MarshalJSON() ([]byte, error) {
+	b, err := t.union.MarshalJSON()
+	return b, err
+}
+
+func (t *DatabaseCluster_Spec_Engine_Resources_Requests_Memory) UnmarshalJSON(b []byte) error {
 	err := t.union.UnmarshalJSON(b)
 	return err
 }
@@ -5998,6 +6382,130 @@ func (t *DatabaseCluster_Spec_Proxy_Resources_Cpu) UnmarshalJSON(b []byte) error
 	return err
 }
 
+// AsDatabaseClusterSpecProxyResourcesLimitsCpu0 returns the union data inside the DatabaseCluster_Spec_Proxy_Resources_Limits_Cpu as a DatabaseClusterSpecProxyResourcesLimitsCpu0
+func (t DatabaseCluster_Spec_Proxy_Resources_Limits_Cpu) AsDatabaseClusterSpecProxyResourcesLimitsCpu0() (DatabaseClusterSpecProxyResourcesLimitsCpu0, error) {
+	var body DatabaseClusterSpecProxyResourcesLimitsCpu0
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromDatabaseClusterSpecProxyResourcesLimitsCpu0 overwrites any union data inside the DatabaseCluster_Spec_Proxy_Resources_Limits_Cpu as the provided DatabaseClusterSpecProxyResourcesLimitsCpu0
+func (t *DatabaseCluster_Spec_Proxy_Resources_Limits_Cpu) FromDatabaseClusterSpecProxyResourcesLimitsCpu0(v DatabaseClusterSpecProxyResourcesLimitsCpu0) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeDatabaseClusterSpecProxyResourcesLimitsCpu0 performs a merge with any union data inside the DatabaseCluster_Spec_Proxy_Resources_Limits_Cpu, using the provided DatabaseClusterSpecProxyResourcesLimitsCpu0
+func (t *DatabaseCluster_Spec_Proxy_Resources_Limits_Cpu) MergeDatabaseClusterSpecProxyResourcesLimitsCpu0(v DatabaseClusterSpecProxyResourcesLimitsCpu0) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsDatabaseClusterSpecProxyResourcesLimitsCpu1 returns the union data inside the DatabaseCluster_Spec_Proxy_Resources_Limits_Cpu as a DatabaseClusterSpecProxyResourcesLimitsCpu1
+func (t DatabaseCluster_Spec_Proxy_Resources_Limits_Cpu) AsDatabaseClusterSpecProxyResourcesLimitsCpu1() (DatabaseClusterSpecProxyResourcesLimitsCpu1, error) {
+	var body DatabaseClusterSpecProxyResourcesLimitsCpu1
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromDatabaseClusterSpecProxyResourcesLimitsCpu1 overwrites any union data inside the DatabaseCluster_Spec_Proxy_Resources_Limits_Cpu as the provided DatabaseClusterSpecProxyResourcesLimitsCpu1
+func (t *DatabaseCluster_Spec_Proxy_Resources_Limits_Cpu) FromDatabaseClusterSpecProxyResourcesLimitsCpu1(v DatabaseClusterSpecProxyResourcesLimitsCpu1) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeDatabaseClusterSpecProxyResourcesLimitsCpu1 performs a merge with any union data inside the DatabaseCluster_Spec_Proxy_Resources_Limits_Cpu, using the provided DatabaseClusterSpecProxyResourcesLimitsCpu1
+func (t *DatabaseCluster_Spec_Proxy_Resources_Limits_Cpu) MergeDatabaseClusterSpecProxyResourcesLimitsCpu1(v DatabaseClusterSpecProxyResourcesLimitsCpu1) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+func (t DatabaseCluster_Spec_Proxy_Resources_Limits_Cpu) MarshalJSON() ([]byte, error) {
+	b, err := t.union.MarshalJSON()
+	return b, err
+}
+
+func (t *DatabaseCluster_Spec_Proxy_Resources_Limits_Cpu) UnmarshalJSON(b []byte) error {
+	err := t.union.UnmarshalJSON(b)
+	return err
+}
+
+// AsDatabaseClusterSpecProxyResourcesLimitsMemory0 returns the union data inside the DatabaseCluster_Spec_Proxy_Resources_Limits_Memory as a DatabaseClusterSpecProxyResourcesLimitsMemory0
+func (t DatabaseCluster_Spec_Proxy_Resources_Limits_Memory) AsDatabaseClusterSpecProxyResourcesLimitsMemory0() (DatabaseClusterSpecProxyResourcesLimitsMemory0, error) {
+	var body DatabaseClusterSpecProxyResourcesLimitsMemory0
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromDatabaseClusterSpecProxyResourcesLimitsMemory0 overwrites any union data inside the DatabaseCluster_Spec_Proxy_Resources_Limits_Memory as the provided DatabaseClusterSpecProxyResourcesLimitsMemory0
+func (t *DatabaseCluster_Spec_Proxy_Resources_Limits_Memory) FromDatabaseClusterSpecProxyResourcesLimitsMemory0(v DatabaseClusterSpecProxyResourcesLimitsMemory0) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeDatabaseClusterSpecProxyResourcesLimitsMemory0 performs a merge with any union data inside the DatabaseCluster_Spec_Proxy_Resources_Limits_Memory, using the provided DatabaseClusterSpecProxyResourcesLimitsMemory0
+func (t *DatabaseCluster_Spec_Proxy_Resources_Limits_Memory) MergeDatabaseClusterSpecProxyResourcesLimitsMemory0(v DatabaseClusterSpecProxyResourcesLimitsMemory0) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsDatabaseClusterSpecProxyResourcesLimitsMemory1 returns the union data inside the DatabaseCluster_Spec_Proxy_Resources_Limits_Memory as a DatabaseClusterSpecProxyResourcesLimitsMemory1
+func (t DatabaseCluster_Spec_Proxy_Resources_Limits_Memory) AsDatabaseClusterSpecProxyResourcesLimitsMemory1() (DatabaseClusterSpecProxyResourcesLimitsMemory1, error) {
+	var body DatabaseClusterSpecProxyResourcesLimitsMemory1
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromDatabaseClusterSpecProxyResourcesLimitsMemory1 overwrites any union data inside the DatabaseCluster_Spec_Proxy_Resources_Limits_Memory as the provided DatabaseClusterSpecProxyResourcesLimitsMemory1
+func (t *DatabaseCluster_Spec_Proxy_Resources_Limits_Memory) FromDatabaseClusterSpecProxyResourcesLimitsMemory1(v DatabaseClusterSpecProxyResourcesLimitsMemory1) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeDatabaseClusterSpecProxyResourcesLimitsMemory1 performs a merge with any union data inside the DatabaseCluster_Spec_Proxy_Resources_Limits_Memory, using the provided DatabaseClusterSpecProxyResourcesLimitsMemory1
+func (t *DatabaseCluster_Spec_Proxy_Resources_Limits_Memory) MergeDatabaseClusterSpecProxyResourcesLimitsMemory1(v DatabaseClusterSpecProxyResourcesLimitsMemory1) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+func (t DatabaseCluster_Spec_Proxy_Resources_Limits_Memory) MarshalJSON() ([]byte, error) {
+	b, err := t.union.MarshalJSON()
+	return b, err
+}
+
+func (t *DatabaseCluster_Spec_Proxy_Resources_Limits_Memory) UnmarshalJSON(b []byte) error {
+	err := t.union.UnmarshalJSON(b)
+	return err
+}
+
 // AsDatabaseClusterSpecProxyResourcesMemory0 returns the union data inside the DatabaseCluster_Spec_Proxy_Resources_Memory as a DatabaseClusterSpecProxyResourcesMemory0
 func (t DatabaseCluster_Spec_Proxy_Resources_Memory) AsDatabaseClusterSpecProxyResourcesMemory0() (DatabaseClusterSpecProxyResourcesMemory0, error) {
 	var body DatabaseClusterSpecProxyResourcesMemory0
@@ -6056,6 +6564,130 @@ func (t DatabaseCluster_Spec_Proxy_Resources_Memory) MarshalJSON() ([]byte, erro
 }
 
 func (t *DatabaseCluster_Spec_Proxy_Resources_Memory) UnmarshalJSON(b []byte) error {
+	err := t.union.UnmarshalJSON(b)
+	return err
+}
+
+// AsDatabaseClusterSpecProxyResourcesRequestsCpu0 returns the union data inside the DatabaseCluster_Spec_Proxy_Resources_Requests_Cpu as a DatabaseClusterSpecProxyResourcesRequestsCpu0
+func (t DatabaseCluster_Spec_Proxy_Resources_Requests_Cpu) AsDatabaseClusterSpecProxyResourcesRequestsCpu0() (DatabaseClusterSpecProxyResourcesRequestsCpu0, error) {
+	var body DatabaseClusterSpecProxyResourcesRequestsCpu0
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromDatabaseClusterSpecProxyResourcesRequestsCpu0 overwrites any union data inside the DatabaseCluster_Spec_Proxy_Resources_Requests_Cpu as the provided DatabaseClusterSpecProxyResourcesRequestsCpu0
+func (t *DatabaseCluster_Spec_Proxy_Resources_Requests_Cpu) FromDatabaseClusterSpecProxyResourcesRequestsCpu0(v DatabaseClusterSpecProxyResourcesRequestsCpu0) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeDatabaseClusterSpecProxyResourcesRequestsCpu0 performs a merge with any union data inside the DatabaseCluster_Spec_Proxy_Resources_Requests_Cpu, using the provided DatabaseClusterSpecProxyResourcesRequestsCpu0
+func (t *DatabaseCluster_Spec_Proxy_Resources_Requests_Cpu) MergeDatabaseClusterSpecProxyResourcesRequestsCpu0(v DatabaseClusterSpecProxyResourcesRequestsCpu0) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsDatabaseClusterSpecProxyResourcesRequestsCpu1 returns the union data inside the DatabaseCluster_Spec_Proxy_Resources_Requests_Cpu as a DatabaseClusterSpecProxyResourcesRequestsCpu1
+func (t DatabaseCluster_Spec_Proxy_Resources_Requests_Cpu) AsDatabaseClusterSpecProxyResourcesRequestsCpu1() (DatabaseClusterSpecProxyResourcesRequestsCpu1, error) {
+	var body DatabaseClusterSpecProxyResourcesRequestsCpu1
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromDatabaseClusterSpecProxyResourcesRequestsCpu1 overwrites any union data inside the DatabaseCluster_Spec_Proxy_Resources_Requests_Cpu as the provided DatabaseClusterSpecProxyResourcesRequestsCpu1
+func (t *DatabaseCluster_Spec_Proxy_Resources_Requests_Cpu) FromDatabaseClusterSpecProxyResourcesRequestsCpu1(v DatabaseClusterSpecProxyResourcesRequestsCpu1) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeDatabaseClusterSpecProxyResourcesRequestsCpu1 performs a merge with any union data inside the DatabaseCluster_Spec_Proxy_Resources_Requests_Cpu, using the provided DatabaseClusterSpecProxyResourcesRequestsCpu1
+func (t *DatabaseCluster_Spec_Proxy_Resources_Requests_Cpu) MergeDatabaseClusterSpecProxyResourcesRequestsCpu1(v DatabaseClusterSpecProxyResourcesRequestsCpu1) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+func (t DatabaseCluster_Spec_Proxy_Resources_Requests_Cpu) MarshalJSON() ([]byte, error) {
+	b, err := t.union.MarshalJSON()
+	return b, err
+}
+
+func (t *DatabaseCluster_Spec_Proxy_Resources_Requests_Cpu) UnmarshalJSON(b []byte) error {
+	err := t.union.UnmarshalJSON(b)
+	return err
+}
+
+// AsDatabaseClusterSpecProxyResourcesRequestsMemory0 returns the union data inside the DatabaseCluster_Spec_Proxy_Resources_Requests_Memory as a DatabaseClusterSpecProxyResourcesRequestsMemory0
+func (t DatabaseCluster_Spec_Proxy_Resources_Requests_Memory) AsDatabaseClusterSpecProxyResourcesRequestsMemory0() (DatabaseClusterSpecProxyResourcesRequestsMemory0, error) {
+	var body DatabaseClusterSpecProxyResourcesRequestsMemory0
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromDatabaseClusterSpecProxyResourcesRequestsMemory0 overwrites any union data inside the DatabaseCluster_Spec_Proxy_Resources_Requests_Memory as the provided DatabaseClusterSpecProxyResourcesRequestsMemory0
+func (t *DatabaseCluster_Spec_Proxy_Resources_Requests_Memory) FromDatabaseClusterSpecProxyResourcesRequestsMemory0(v DatabaseClusterSpecProxyResourcesRequestsMemory0) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeDatabaseClusterSpecProxyResourcesRequestsMemory0 performs a merge with any union data inside the DatabaseCluster_Spec_Proxy_Resources_Requests_Memory, using the provided DatabaseClusterSpecProxyResourcesRequestsMemory0
+func (t *DatabaseCluster_Spec_Proxy_Resources_Requests_Memory) MergeDatabaseClusterSpecProxyResourcesRequestsMemory0(v DatabaseClusterSpecProxyResourcesRequestsMemory0) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsDatabaseClusterSpecProxyResourcesRequestsMemory1 returns the union data inside the DatabaseCluster_Spec_Proxy_Resources_Requests_Memory as a DatabaseClusterSpecProxyResourcesRequestsMemory1
+func (t DatabaseCluster_Spec_Proxy_Resources_Requests_Memory) AsDatabaseClusterSpecProxyResourcesRequestsMemory1() (DatabaseClusterSpecProxyResourcesRequestsMemory1, error) {
+	var body DatabaseClusterSpecProxyResourcesRequestsMemory1
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromDatabaseClusterSpecProxyResourcesRequestsMemory1 overwrites any union data inside the DatabaseCluster_Spec_Proxy_Resources_Requests_Memory as the provided DatabaseClusterSpecProxyResourcesRequestsMemory1
+func (t *DatabaseCluster_Spec_Proxy_Resources_Requests_Memory) FromDatabaseClusterSpecProxyResourcesRequestsMemory1(v DatabaseClusterSpecProxyResourcesRequestsMemory1) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeDatabaseClusterSpecProxyResourcesRequestsMemory1 performs a merge with any union data inside the DatabaseCluster_Spec_Proxy_Resources_Requests_Memory, using the provided DatabaseClusterSpecProxyResourcesRequestsMemory1
+func (t *DatabaseCluster_Spec_Proxy_Resources_Requests_Memory) MergeDatabaseClusterSpecProxyResourcesRequestsMemory1(v DatabaseClusterSpecProxyResourcesRequestsMemory1) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+func (t DatabaseCluster_Spec_Proxy_Resources_Requests_Memory) MarshalJSON() ([]byte, error) {
+	b, err := t.union.MarshalJSON()
+	return b, err
+}
+
+func (t *DatabaseCluster_Spec_Proxy_Resources_Requests_Memory) UnmarshalJSON(b []byte) error {
 	err := t.union.UnmarshalJSON(b)
 	return err
 }
