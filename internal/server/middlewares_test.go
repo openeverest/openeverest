@@ -1,3 +1,17 @@
+// Copyright (C) 2026 The OpenEverest Contributors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 // http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
@@ -38,9 +52,10 @@ func TestShouldAllowRequestDuringEngineUpgrade(t *testing.T) {
 		{
 			description: "allow all GET requests",
 			ctxFn: func() echo.Context {
-				return echo.New().NewContext(&http.Request{
-					Method: http.MethodGet,
-				}, nil,
+				return echo.New().NewContext(
+					&http.Request{
+						Method: http.MethodGet,
+					}, nil,
 				)
 			},
 			allow: true,
@@ -48,12 +63,13 @@ func TestShouldAllowRequestDuringEngineUpgrade(t *testing.T) {
 		{
 			description: "allow non-target paths",
 			ctxFn: func() echo.Context {
-				return echo.New().NewContext(&http.Request{
-					Method: http.MethodPost,
-					URL: &url.URL{
-						Path: "/api/v1/namespaces/default/monitoring-instances",
-					},
-				}, nil,
+				return echo.New().NewContext(
+					&http.Request{
+						Method: http.MethodPost,
+						URL: &url.URL{
+							Path: "/api/v1/namespaces/default/monitoring-instances",
+						},
+					}, nil,
 				)
 			},
 			allow: true,
@@ -61,12 +77,13 @@ func TestShouldAllowRequestDuringEngineUpgrade(t *testing.T) {
 		{
 			description: "allow target paths with no namespace",
 			ctxFn: func() echo.Context {
-				return echo.New().NewContext(&http.Request{
-					Method: http.MethodPost,
-					URL: &url.URL{
-						Path: "/api/v1/database-clusters",
-					},
-				}, nil,
+				return echo.New().NewContext(
+					&http.Request{
+						Method: http.MethodPost,
+						URL: &url.URL{
+							Path: "/api/v1/database-clusters",
+						},
+					}, nil,
 				)
 			},
 			allow: true,
@@ -74,12 +91,13 @@ func TestShouldAllowRequestDuringEngineUpgrade(t *testing.T) {
 		{
 			description: "allow target path with no lock annotation",
 			ctxFn: func() echo.Context {
-				ctx := echo.New().NewContext(&http.Request{
-					Method: http.MethodDelete,
-					URL: &url.URL{
-						Path: "/api/v1/namespaces/default/database-clusters/1234",
-					},
-				}, nil,
+				ctx := echo.New().NewContext(
+					&http.Request{
+						Method: http.MethodDelete,
+						URL: &url.URL{
+							Path: "/api/v1/namespaces/default/database-clusters/1234",
+						},
+					}, nil,
 				)
 				ctx.SetParamNames("namespace")
 				ctx.SetParamValues("default")
@@ -98,12 +116,13 @@ func TestShouldAllowRequestDuringEngineUpgrade(t *testing.T) {
 		{
 			description: "deny request on target path with lock annotation",
 			ctxFn: func() echo.Context {
-				ctx := echo.New().NewContext(&http.Request{
-					Method: http.MethodDelete,
-					URL: &url.URL{
-						Path: "/api/v1/namespaces/default/database-clusters/1234",
-					},
-				}, nil,
+				ctx := echo.New().NewContext(
+					&http.Request{
+						Method: http.MethodDelete,
+						URL: &url.URL{
+							Path: "/api/v1/namespaces/default/database-clusters/1234",
+						},
+					}, nil,
 				)
 				ctx.SetParamNames("namespace")
 				ctx.SetParamValues("default")

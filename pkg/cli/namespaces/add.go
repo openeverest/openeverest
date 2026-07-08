@@ -114,7 +114,8 @@ func (cfg *NamespaceAddConfig) PopulateNamespaces(ctx context.Context) error {
 	var err error
 	var ns string
 	// Ask user to provide namespaces in interactive mode.
-	if ns, err = tui.NewInput(ctx,
+	if ns, err = tui.NewInput(
+		ctx,
 		"Provide database namespaces to be managed by Everest",
 		tui.WithInputDefaultValue(common.DefaultDBNamespaceName),
 		tui.WithInputHint("Namespaces can be provided in comma-separated form: ns-1,ns-2"),
@@ -341,7 +342,8 @@ func (n *NamespaceAdder) GetNamespaceInstallSteps(ctx context.Context, dbNSChart
 
 	var installSteps []steps.Step
 	for _, namespace := range n.cfg.NamespaceList {
-		installSteps = append(installSteps,
+		installSteps = append(
+			installSteps,
 			n.newStepInstallNamespace(dbNSChartVersion, namespace),
 		)
 	}
@@ -409,7 +411,8 @@ func (n *NamespaceAdder) validateNamespaceUpdate(ctx context.Context, namespace 
 	if err != nil {
 		return fmt.Errorf("cannot list subscriptions: %w", err)
 	}
-	if !ensureNoOperatorsRemoved(subscriptions.Items,
+	if !ensureNoOperatorsRemoved(
+		subscriptions.Items,
 		n.cfg.Operators.PG, n.cfg.Operators.PXC, n.cfg.Operators.PSMDB,
 	) {
 		return ErrCannotRemoveOperators

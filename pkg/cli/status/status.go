@@ -275,7 +275,8 @@ func (s *Status) checkDeployment(ctx context.Context, name, namespace string) Co
 
 	cs.Ready = isDeploymentReady(depl)
 	if !cs.Ready {
-		cs.Message = fmt.Sprintf("%d/%d ready",
+		cs.Message = fmt.Sprintf(
+			"%d/%d ready",
 			depl.Status.ReadyReplicas,
 			depl.Status.Replicas,
 		)

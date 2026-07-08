@@ -1,3 +1,17 @@
+// Copyright (C) 2026 The OpenEverest Contributors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package k8s
 
 import (
@@ -101,14 +115,15 @@ func (h *k8sHandler) setLockDBEnginesForUpgrade(
 	up *api.UpgradePlan,
 	lock bool,
 ) error {
-	return backoff.Retry(func() error {
-		for _, upgrade := range pointer.Get(up.Upgrades) {
-			if err := h.kubeConnector.SetDatabaseEngineLock(ctx, types.NamespacedName{Namespace: namespace, Name: pointer.Get(upgrade.Name)}, lock); err != nil {
-				return err
+	return backoff.Retry(
+		func() error {
+			for _, upgrade := range pointer.Get(up.Upgrades) {
+				if err := h.kubeConnector.SetDatabaseEngineLock(ctx, types.NamespacedName{Namespace: namespace, Name: pointer.Get(upgrade.Name)}, lock); err != nil {
+					return err
+				}
 			}
-		}
-		return nil
-	}, backoff.WithContext(everestAPIConstantBackoff, ctx),
+			return nil
+		}, backoff.WithContext(everestAPIConstantBackoff, ctx),
 	)
 }
 
@@ -253,7 +268,8 @@ func getUpgradePreflightCheckResultForDatabase(
 			Name:        pointer.To(database.GetName()),
 			PendingTask: pointer.To(api.UpgradeEngine),
 			Message: pointer.ToString(
-				fmt.Sprintf("Upgrade DB version to %s or higher", minReqVer)),
+				fmt.Sprintf("Upgrade DB version to %s or higher", minReqVer),
+			),
 		}, nil
 	}
 
@@ -263,7 +279,8 @@ func getUpgradePreflightCheckResultForDatabase(
 			Name:        pointer.To(database.GetName()),
 			PendingTask: pointer.To(api.Restart),
 			Message: pointer.ToString(
-				fmt.Sprintf("Update CRVersion to %s", *recCRVersion)),
+				fmt.Sprintf("Update CRVersion to %s", *recCRVersion),
+			),
 		}, nil
 	}
 
@@ -361,9 +378,10 @@ func (h *k8sHandler) getDBPostUpgradeTasks(
 // startOperatorUpgradeWithRetry wraps the startOperatorUpgrade function with a retry mechanism.
 // This is done to reduce the chances of failures due to resource conflicts.
 func (h *k8sHandler) startOperatorUpgradeWithRetry(ctx context.Context, namespace string) error {
-	return backoff.Retry(func() error {
-		return h.startOperatorUpgrade(ctx, namespace)
-	},
+	return backoff.Retry(
+		func() error {
+			return h.startOperatorUpgrade(ctx, namespace)
+		},
 		backoff.WithContext(everestAPIConstantBackoff, ctx),
 	)
 }
@@ -394,10 +412,11 @@ func (h *k8sHandler) startOperatorUpgrade(ctx context.Context, namespace string)
 
 	// approve install plans.
 	for _, plan := range installPlans {
-		if err := backoff.Retry(func() error {
-			_, err := h.kubeConnector.ApproveInstallPlan(ctx, types.NamespacedName{Namespace: namespace, Name: plan})
-			return err
-		}, backoff.WithContext(everestAPIConstantBackoff, ctx),
+		if err := backoff.Retry(
+			func() error {
+				_, err := h.kubeConnector.ApproveInstallPlan(ctx, types.NamespacedName{Namespace: namespace, Name: plan})
+				return err
+			}, backoff.WithContext(everestAPIConstantBackoff, ctx),
 		); err != nil {
 			return err
 		}

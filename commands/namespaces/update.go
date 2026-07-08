@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -37,7 +38,8 @@ var (
 		Args:  cobra.ExactArgs(1),
 		Long:  "Add database operator to existing namespace managed by Everest",
 		Short: "Add database operator to existing namespace managed by Everest",
-		Example: fmt.Sprintf("everestctl namespaces update ns-1,ns-2 --%s --%s=true --%s=false --%s=false",
+		Example: fmt.Sprintf(
+			"everestctl namespaces update ns-1,ns-2 --%s --%s=true --%s=false --%s=false",
 			cli.FlagSkipWizard, cli.FlagOperatorMySQL, cli.FlagOperatorPostgresql, cli.FlagOperatorMongoDB,
 		),
 		PreRun: namespacesUpdatePreRun,
@@ -110,7 +112,8 @@ func namespacesUpdateRun(cmd *cobra.Command, _ []string) {
 
 	if err := op.Run(cmd.Context()); err != nil {
 		if errors.Is(err, namespaces.ErrNamespaceNotManagedByEverest) {
-			err = fmt.Errorf("%w. HINT: use 'everestctl namespaces add --%s %s' first to make namespace managed by Everest",
+			err = fmt.Errorf(
+				"%w. HINT: use 'everestctl namespaces add --%s %s' first to make namespace managed by Everest",
 				err,
 				cli.FlagTakeNamespaceOwnership,
 				strings.Join(namespacesUpdateCfg.NamespaceList, ", "),

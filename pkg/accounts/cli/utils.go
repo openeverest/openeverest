@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2025 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -68,7 +69,8 @@ func ValidatePassword(password string) error {
 // This function shall be called only in cases when there is no other way to obtain username value.
 // User will be asked to provide the username in interactive mode.
 func PopulateUsername(ctx context.Context) (string, error) {
-	if username, err := tui.NewInput(ctx, "Provide username",
+	if username, err := tui.NewInput(
+		ctx, "Provide username",
 		tui.WithInputHint(usernameCriteria),
 		tui.WithInputValidation(ValidateUsername),
 	).Run(); err != nil {
@@ -83,7 +85,8 @@ func PopulateUsername(ctx context.Context) (string, error) {
 // User will be asked to provide the password in interactive mode.
 func PopulatePassword(ctx context.Context) (string, error) {
 	// ask user to provide password
-	if password, err := tui.NewInputPassword(ctx, "Provide password",
+	if password, err := tui.NewInputPassword(
+		ctx, "Provide password",
 		tui.WithPasswordHint(passwordCriteria),
 		tui.WithPasswordValidation(ValidatePassword),
 	).Run(); err != nil {
@@ -100,14 +103,16 @@ func PopulateNewPassword(ctx context.Context) (string, error) {
 	// ask user to provide new password
 	var newPassword, newConfPassword string
 	var err error
-	if newPassword, err = tui.NewInputPassword(ctx, "Provide a new password",
+	if newPassword, err = tui.NewInputPassword(
+		ctx, "Provide a new password",
 		tui.WithPasswordHint(passwordCriteria),
 		tui.WithPasswordValidation(ValidatePassword),
 	).Run(); err != nil {
 		return "", err
 	}
 
-	if newConfPassword, err = tui.NewInputPassword(ctx, "Confirm a new password",
+	if newConfPassword, err = tui.NewInputPassword(
+		ctx, "Confirm a new password",
 		tui.WithPasswordHint(passwordCriteria),
 		tui.WithPasswordValidation(ValidatePassword),
 	).Run(); err != nil {

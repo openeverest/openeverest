@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -167,14 +168,16 @@ func (e *EverestServer) initHTTPServer(ctx context.Context) error {
 	e.echo.Renderer = &Template{
 		templates: template.Must(template.ParseFS(indexFS, "index.html")),
 	}
-	e.echo.GET("/*", func(c echo.Context) error {
-		// Embed the CSP nonce into the template. This nonce was auto-generated
-		// for this request and stored in the context by the secure middleware.
-		// See the securityHeaders middleware for more information.
-		return c.Render(http.StatusOK, "index.html",
-			map[string]interface{}{"CSPNonce": secure.CSPNonce(c.Request().Context())},
-		)
-	}, e.securityHeaders(),
+	e.echo.GET(
+		"/*", func(c echo.Context) error {
+			// Embed the CSP nonce into the template. This nonce was auto-generated
+			// for this request and stored in the context by the secure middleware.
+			// See the securityHeaders middleware for more information.
+			return c.Render(
+				http.StatusOK, "index.html",
+				map[string]interface{}{"CSPNonce": secure.CSPNonce(c.Request().Context())},
+			)
+		}, e.securityHeaders(),
 	)
 
 	// Serve static files.

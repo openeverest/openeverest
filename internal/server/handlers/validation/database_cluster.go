@@ -377,7 +377,8 @@ func (h *validateHandler) validateBackupStoragesFor(
 		if databaseCluster.Spec.Backup.PITR.BackupStorageName == nil || *databaseCluster.Spec.Backup.PITR.BackupStorageName == "" {
 			return errPitrNoBackupStorageName
 		}
-		storage, err := h.kubeConnector.GetBackupStorage(ctx,
+		storage, err := h.kubeConnector.GetBackupStorage(
+			ctx,
 			types.NamespacedName{
 				Namespace: namespace,
 				Name:      *databaseCluster.Spec.Backup.PITR.BackupStorageName,

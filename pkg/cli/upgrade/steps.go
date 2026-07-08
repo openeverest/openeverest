@@ -291,7 +291,8 @@ func (u *Upgrade) cleanupLegacyResources(ctx context.Context) error {
 
 	// Delete resources related to Everest Operator Subscription.
 	if err := deleteOLMOperator(ctx, u.kubeConnector, common.EverestOperatorName, common.SystemNamespace); err != nil {
-		return fmt.Errorf("could not delete operator='%s' in namespace='%s': %w",
+		return fmt.Errorf(
+			"could not delete operator='%s' in namespace='%s': %w",
 			common.EverestOperatorName,
 			common.SystemNamespace,
 			err,
@@ -299,7 +300,8 @@ func (u *Upgrade) cleanupLegacyResources(ctx context.Context) error {
 	}
 	// Delete resources related to victoria metrics operator Subscription.
 	if err := deleteOLMOperator(ctx, u.kubeConnector, common.VictoriaMetricsOperatorName, common.MonitoringNamespace); err != nil {
-		return fmt.Errorf("could not delete operator='%s' in namespace='%s': %w",
+		return fmt.Errorf(
+			"could not delete operator='%s' in namespace='%s': %w",
 			common.VictoriaMetricsOperatorName,
 			common.MonitoringNamespace,
 			err,
@@ -312,7 +314,8 @@ func (u *Upgrade) cleanupLegacyResources(ctx context.Context) error {
 		},
 	}
 	if err := u.kubeConnector.DeleteDeployment(ctx, delDep); client.IgnoreNotFound(err) != nil {
-		return fmt.Errorf("could not delete deployment='%s' in namespace='%s': %w",
+		return fmt.Errorf(
+			"could not delete deployment='%s' in namespace='%s': %w",
 			common.PerconaEverestDeploymentName,
 			common.SystemNamespace,
 			err,
@@ -327,7 +330,8 @@ func (u *Upgrade) cleanupLegacyResources(ctx context.Context) error {
 		},
 	}
 	if err := u.kubeConnector.DeleteCatalogSource(ctx, delObj); client.IgnoreNotFound(err) != nil {
-		return fmt.Errorf("could not delete CatalogSource='%s' in namespace='%s': %w",
+		return fmt.Errorf(
+			"could not delete CatalogSource='%s' in namespace='%s': %w",
 			common.PerconaEverestCatalogName,
 			kubernetes.OLMNamespace,
 			err,

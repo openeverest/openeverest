@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2025 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -43,7 +44,8 @@ func Test_rbacHandler_CreateSplitHorizonDNSConfig(t *testing.T) {
 	t.Parallel()
 	data := func() *handlers.MockHandler {
 		next := handlers.MockHandler{}
-		next.On("CreateSplitHorizonDNSConfig",
+		next.On(
+			"CreateSplitHorizonDNSConfig",
 			mock.Anything,
 			mock.Anything,
 		).
@@ -198,7 +200,8 @@ func Test_rbacHandler_DeleteSplitHorizonDNSConfig(t *testing.T) {
 	t.Parallel()
 	data := func() *handlers.MockHandler {
 		next := handlers.MockHandler{}
-		next.On("DeleteSplitHorizonDNSConfig",
+		next.On(
+			"DeleteSplitHorizonDNSConfig",
 			mock.Anything,
 			mock.Anything,
 			mock.Anything,
@@ -349,7 +352,8 @@ func Test_rbacHandler_GetSplitHorizonDNSConfig(t *testing.T) {
 	t.Parallel()
 	data := func() *handlers.MockHandler {
 		next := handlers.MockHandler{}
-		next.On("GetSplitHorizonDNSConfig",
+		next.On(
+			"GetSplitHorizonDNSConfig",
 			mock.Anything,
 			mock.Anything,
 			mock.Anything,
@@ -502,7 +506,8 @@ func Test_rbacHandler_ListSplitHorizonDNSConfigs(t *testing.T) {
 
 	data := func() *handlers.MockHandler {
 		next := handlers.MockHandler{}
-		next.On("ListSplitHorizonDNSConfigs",
+		next.On(
+			"ListSplitHorizonDNSConfigs",
 			mock.Anything,
 			mock.Anything,
 		).Return(
@@ -771,7 +776,8 @@ func Test_rbacHandler_UpdateSplitHorizonDNSConfig(t *testing.T) {
 
 	data := func() *handlers.MockHandler {
 		next := handlers.MockHandler{}
-		next.On("UpdateSplitHorizonDNSConfig",
+		next.On(
+			"UpdateSplitHorizonDNSConfig",
 			mock.Anything,
 			mock.Anything,
 			mock.Anything,

@@ -2119,10 +2119,11 @@ func TestValidatePodSchedulingPolicy(t *testing.T) {
 					PodSchedulingPolicyName: "absent-policy",
 				},
 			},
-			wantErr: k8sError.NewNotFound(schema.GroupResource{
-				Group:    everestv1alpha1.GroupVersion.Group,
-				Resource: "podschedulingpolicies",
-			},
+			wantErr: k8sError.NewNotFound(
+				schema.GroupResource{
+					Group:    everestv1alpha1.GroupVersion.Group,
+					Resource: "podschedulingpolicies",
+				},
 				"absent-policy",
 			),
 		},

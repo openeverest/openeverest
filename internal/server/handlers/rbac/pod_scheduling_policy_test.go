@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2025 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -37,7 +38,8 @@ func TestRBAC_ListPodSchedulingPolicies(t *testing.T) {
 
 	data := func() *handlers.MockHandler {
 		next := handlers.MockHandler{}
-		next.On("ListPodSchedulingPolicies",
+		next.On(
+			"ListPodSchedulingPolicies",
 			mock.Anything,
 			mock.Anything,
 		).Return(
@@ -266,7 +268,8 @@ func TestRBAC_GetPodSchedulingPolicy(t *testing.T) {
 
 	data := func() *handlers.MockHandler {
 		next := handlers.MockHandler{}
-		next.On("GetPodSchedulingPolicy",
+		next.On(
+			"GetPodSchedulingPolicy",
 			mock.Anything,
 			mock.Anything,
 		).Return(
@@ -409,7 +412,8 @@ func TestRBAC_CreatePodSchedulingPolicy(t *testing.T) {
 
 	data := func() *handlers.MockHandler {
 		next := handlers.MockHandler{}
-		next.On("CreatePodSchedulingPolicy",
+		next.On(
+			"CreatePodSchedulingPolicy",
 			mock.Anything,
 			mock.Anything,
 		).
@@ -548,7 +552,8 @@ func TestRBAC_UpdatePodSchedulingPolicy(t *testing.T) {
 
 	data := func() *handlers.MockHandler {
 		next := handlers.MockHandler{}
-		next.On("UpdatePodSchedulingPolicy",
+		next.On(
+			"UpdatePodSchedulingPolicy",
 			mock.Anything,
 			mock.Anything,
 		).
@@ -686,7 +691,8 @@ func TestRBAC_DeletePodSchedulingPolicy(t *testing.T) {
 
 	data := func() *handlers.MockHandler {
 		next := handlers.MockHandler{}
-		next.On("DeletePodSchedulingPolicy",
+		next.On(
+			"DeletePodSchedulingPolicy",
 			mock.Anything,
 			mock.Anything,
 		).

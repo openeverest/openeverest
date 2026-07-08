@@ -217,7 +217,8 @@ func (i *Installer) Install(ctx context.Context) error {
 	// This is how Helm expects us to re-apply manifests.
 	// To prevent accidental version upgrades, we will explicitly check that the resolved chart version matches the installed chart version.
 	if i.chart.Metadata.Version != rel.Chart.Metadata.Version {
-		return fmt.Errorf("cannot overwrite existing release with a different chart version. Expected %s, got %s",
+		return fmt.Errorf(
+			"cannot overwrite existing release with a different chart version. Expected %s, got %s",
 			rel.Chart.Metadata.Version, i.chart.Metadata.Version,
 		)
 	}
@@ -293,8 +294,9 @@ func resolveDir(version, dir string) (*chart.Chart, error) {
 	// When loading from a directory, ensure that the loaded chart version
 	// matches the specified version.
 	if chart.Metadata.Version != version {
-		return nil, fmt.Errorf("chart version does not match specified version."+
-			"Expected chart version %s, got %s", version, chart.Metadata.Version,
+		return nil, fmt.Errorf(
+			"chart version does not match specified version."+
+				"Expected chart version %s, got %s", version, chart.Metadata.Version,
 		)
 	}
 	return chart, nil

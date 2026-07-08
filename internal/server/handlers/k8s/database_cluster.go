@@ -219,7 +219,8 @@ func (h *k8sHandler) GetDatabaseClusterPitr(ctx context.Context, namespace, name
 		return response, nil
 	}
 
-	backups, err := h.kubeConnector.ListDatabaseClusterBackups(ctx,
+	backups, err := h.kubeConnector.ListDatabaseClusterBackups(
+		ctx,
 		ctrlclient.InNamespace(namespace),
 		ctrlclient.MatchingLabels{common.DatabaseClusterNameLabel: name},
 	)
@@ -264,31 +265,33 @@ var everestAPIConstantBackoff = backoff.WithMaxRetries(backoff.NewConstantBackOf
 
 func (h *k8sHandler) ensureBackupStorageProtection(ctx context.Context, backup *everestv1alpha1.DatabaseClusterBackup) error {
 	// We wrap this logic in a retry loop to reduce the chances of resource conflicts.
-	return backoff.Retry(func() error {
-		backup, err := h.kubeConnector.GetDatabaseClusterBackup(ctx, types.NamespacedName{Namespace: backup.GetNamespace(), Name: backup.GetName()})
-		if err != nil {
+	return backoff.Retry(
+		func() error {
+			backup, err := h.kubeConnector.GetDatabaseClusterBackup(ctx, types.NamespacedName{Namespace: backup.GetNamespace(), Name: backup.GetName()})
+			if err != nil {
+				return err
+			}
+			controllerutil.AddFinalizer(backup, everestv1alpha1.DBBackupStorageProtectionFinalizer)
+			controllerutil.AddFinalizer(backup, common.ForegroundDeletionFinalizer)
+			_, err = h.kubeConnector.UpdateDatabaseClusterBackup(ctx, backup)
 			return err
-		}
-		controllerutil.AddFinalizer(backup, everestv1alpha1.DBBackupStorageProtectionFinalizer)
-		controllerutil.AddFinalizer(backup, common.ForegroundDeletionFinalizer)
-		_, err = h.kubeConnector.UpdateDatabaseClusterBackup(ctx, backup)
-		return err
-	},
+		},
 		backoff.WithContext(everestAPIConstantBackoff, ctx),
 	)
 }
 
 func (h *k8sHandler) ensureBackupForegroundDeletion(ctx context.Context, backup *everestv1alpha1.DatabaseClusterBackup) error {
 	// We wrap this logic in a retry loop to reduce the chances of resource conflicts.
-	return backoff.Retry(func() error {
-		backup, err := h.kubeConnector.GetDatabaseClusterBackup(ctx, types.NamespacedName{Namespace: backup.GetNamespace(), Name: backup.GetName()})
-		if err != nil {
+	return backoff.Retry(
+		func() error {
+			backup, err := h.kubeConnector.GetDatabaseClusterBackup(ctx, types.NamespacedName{Namespace: backup.GetNamespace(), Name: backup.GetName()})
+			if err != nil {
+				return err
+			}
+			controllerutil.AddFinalizer(backup, common.ForegroundDeletionFinalizer)
+			_, err = h.kubeConnector.UpdateDatabaseClusterBackup(ctx, backup)
 			return err
-		}
-		controllerutil.AddFinalizer(backup, common.ForegroundDeletionFinalizer)
-		_, err = h.kubeConnector.UpdateDatabaseClusterBackup(ctx, backup)
-		return err
-	},
+		},
 		backoff.WithContext(everestAPIConstantBackoff, ctx),
 	)
 }

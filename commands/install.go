@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -42,7 +43,8 @@ var (
 		Args:  cobra.NoArgs,
 		Short: "Install Percona Everest using Helm",
 		Long:  "Install Percona Everest using Helm",
-		Example: fmt.Sprintf("everestctl install --%s dev,staging,prod --%s=true --%s=false --%s=false --%s",
+		Example: fmt.Sprintf(
+			"everestctl install --%s dev,staging,prod --%s=true --%s=false --%s=false --%s",
 			cli.FlagNamespaces, cli.FlagOperatorMongoDB, cli.FlagOperatorPostgresql, cli.FlagOperatorMySQL, cli.FlagSkipWizard,
 		),
 		PreRun: installPreRun,

@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2025 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -163,7 +164,8 @@ func (nsL *NamespaceLister) getNamespaceOperators(ctx context.Context, ns *v1.Na
 			}
 			v, err := goversion.NewVersion(csv.Spec.Version.FinalizeVersion())
 			if err != nil {
-				return []string{}, fmt.Errorf("cannot parse operator='%s' version in namespace='%s': %w",
+				return []string{}, fmt.Errorf(
+					"cannot parse operator='%s' version in namespace='%s': %w",
 					sub.Spec.CatalogSourceNamespace,
 					ns.GetName(),
 					err,

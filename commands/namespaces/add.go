@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -39,7 +40,8 @@ var (
 		Args:  cobra.ExactArgs(1),
 		Long:  "Add a new namespace and make managed by Everest",
 		Short: "Add a new namespace and make managed by Everest",
-		Example: fmt.Sprintf("everestctl namespaces add ns-1,ns-2 --%s --%s=true --%s=false --%s=false",
+		Example: fmt.Sprintf(
+			"everestctl namespaces add ns-1,ns-2 --%s --%s=true --%s=false --%s=false",
 			cli.FlagSkipWizard, cli.FlagOperatorMySQL, cli.FlagOperatorPostgresql, cli.FlagOperatorMongoDB,
 		),
 		PreRun: namespacesAddPreRun,

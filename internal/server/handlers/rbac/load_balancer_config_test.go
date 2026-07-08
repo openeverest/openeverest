@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2025 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -37,7 +38,8 @@ func TestRBAC_ListLoadBalancerConfigs(t *testing.T) {
 
 	data := func() *handlers.MockHandler {
 		next := handlers.MockHandler{}
-		next.On("ListLoadBalancerConfigs",
+		next.On(
+			"ListLoadBalancerConfigs",
 			mock.Anything,
 			mock.Anything,
 		).Return(
@@ -266,7 +268,8 @@ func TestRBAC_GetLoadBalancerConfig(t *testing.T) {
 
 	data := func() *handlers.MockHandler {
 		next := handlers.MockHandler{}
-		next.On("GetLoadBalancerConfig",
+		next.On(
+			"GetLoadBalancerConfig",
 			mock.Anything,
 			mock.Anything,
 		).Return(
@@ -409,7 +412,8 @@ func TestRBAC_CreateLoadBalancerConfig(t *testing.T) {
 
 	data := func() *handlers.MockHandler {
 		next := handlers.MockHandler{}
-		next.On("CreateLoadBalancerConfig",
+		next.On(
+			"CreateLoadBalancerConfig",
 			mock.Anything,
 			mock.Anything,
 		).
@@ -548,7 +552,8 @@ func TestRBAC_UpdateLoadBalancerConfig(t *testing.T) {
 
 	data := func() *handlers.MockHandler {
 		next := handlers.MockHandler{}
-		next.On("UpdateLoadBalancerConfig",
+		next.On(
+			"UpdateLoadBalancerConfig",
 			mock.Anything,
 			mock.Anything,
 		).
@@ -686,7 +691,8 @@ func TestRBAC_DeleteLoadBalancerConfig(t *testing.T) {
 
 	data := func() *handlers.MockHandler {
 		next := handlers.MockHandler{}
-		next.On("DeleteLoadBalancerConfig",
+		next.On(
+			"DeleteLoadBalancerConfig",
 			mock.Anything,
 			mock.Anything,
 		).
