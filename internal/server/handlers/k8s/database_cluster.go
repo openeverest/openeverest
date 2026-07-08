@@ -1,3 +1,17 @@
+// Copyright (C) 2026 The OpenEverest Contributors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package k8s
 
 import (
@@ -163,9 +177,9 @@ func (h *k8sHandler) GetDatabaseClusterComponents(ctx context.Context, namespace
 				startedString = pointer.ToString(started.Format(time.RFC3339))
 			}
 			containers = append(containers, api.DatabaseClusterComponentContainer{
-				Name:     &c.Name, //nolint:exportloopref
+				Name:     &c.Name,
 				Started:  startedString,
-				Ready:    &c.Ready, //nolint:exportloopref
+				Ready:    &c.Ready,
 				Restarts: pointer.ToInt(int(c.RestartCount)),
 				Status:   &status,
 			})
@@ -177,7 +191,7 @@ func (h *k8sHandler) GetDatabaseClusterComponents(ctx context.Context, namespace
 		}
 		res = append(res, api.DatabaseClusterComponent{
 			Status:     pointer.ToString(string(pod.Status.Phase)),
-			Name:       &pod.Name, //nolint:exportloopref
+			Name:       &pod.Name,
 			Type:       &component,
 			Started:    started,
 			Restarts:   pointer.ToInt(restarts),

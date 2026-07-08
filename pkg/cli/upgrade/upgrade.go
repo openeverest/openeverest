@@ -38,7 +38,7 @@ import (
 	"github.com/percona/everest/pkg/common"
 	"github.com/percona/everest/pkg/kubernetes"
 	"github.com/percona/everest/pkg/output"
-	. "github.com/percona/everest/pkg/utils/must" //nolint:revive,stylecheck
+	. "github.com/percona/everest/pkg/utils/must" //nolint:revive,staticcheck
 	cliVersion "github.com/percona/everest/pkg/version"
 	versionservice "github.com/percona/everest/pkg/version_service"
 )
