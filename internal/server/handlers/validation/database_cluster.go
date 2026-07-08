@@ -91,6 +91,10 @@ func (h *validateHandler) GetDatabaseClusterComponentLogs(ctx context.Context, n
 	return h.next.GetDatabaseClusterComponentLogs(ctx, namespace, clusterName, componentName, params, stream)
 }
 
+func (h *validateHandler) GetDatabaseClusterMetrics(ctx context.Context, namespace, name string, params api.GetDatabaseClusterMetricsParams) (map[string]interface{}, error) {
+	return h.next.GetDatabaseClusterMetrics(ctx, namespace, name, params)
+}
+
 func (h *validateHandler) GetDatabaseClusterPitr(ctx context.Context, namespace, name string) (*api.DatabaseClusterPitr, error) {
 	return h.next.GetDatabaseClusterPitr(ctx, namespace, name)
 }

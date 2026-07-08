@@ -1,0 +1,24 @@
+# Dependencies
+node_modules/
+
+# Build output
+/dist/
+
+# Go — override: keep embed placeholders
+backend/dist/*
+!backend/dist/main.js
+!backend/dist/icon.png
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Env
+.env
+.env.local

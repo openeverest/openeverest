@@ -7,9 +7,8 @@ import (
 
 	api "github.com/percona/everest/api"
 
-	mock "github.com/stretchr/testify/mock"
-
 	enginefeatures_everestv1alpha1 "github.com/percona/everest-operator/api/enginefeatures.everest/v1alpha1"
+	mock "github.com/stretchr/testify/mock"
 
 	v1 "k8s.io/api/core/v1"
 
@@ -614,6 +613,36 @@ func (_m *MockHandler) GetDatabaseClusterCredentials(ctx context.Context, namesp
 
 	if rf, ok := ret.Get(1).(func(context.Context, string, string) error); ok {
 		r1 = rf(ctx, namespace, name)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// GetDatabaseClusterMetrics provides a mock function with given fields: ctx, namespace, name, params
+func (_m *MockHandler) GetDatabaseClusterMetrics(ctx context.Context, namespace string, name string, params api.GetDatabaseClusterMetricsParams) (map[string]interface{}, error) {
+	ret := _m.Called(ctx, namespace, name, params)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetDatabaseClusterMetrics")
+	}
+
+	var r0 map[string]interface{}
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, api.GetDatabaseClusterMetricsParams) (map[string]interface{}, error)); ok {
+		return rf(ctx, namespace, name, params)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, api.GetDatabaseClusterMetricsParams) map[string]interface{}); ok {
+		r0 = rf(ctx, namespace, name, params)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(map[string]interface{})
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, string, api.GetDatabaseClusterMetricsParams) error); ok {
+		r1 = rf(ctx, namespace, name, params)
 	} else {
 		r1 = ret.Error(1)
 	}

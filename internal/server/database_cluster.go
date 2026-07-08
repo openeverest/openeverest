@@ -296,8 +296,20 @@ func (e *EverestServer) GetDatabaseClusterPitr(c echo.Context, namespace, name s
 	result, err := e.handler.GetDatabaseClusterPitr(c.Request().Context(), namespace, name)
 	if err != nil {
 		e.l.Errorf("GetDatabaseClusterPitr failed: %v", err)
-		return err
+		return c.JSON(http.StatusInternalServerError, api.Error{Message: ptr.To(err.Error())})
 	}
+
+	return c.JSON(http.StatusOK, result)
+}
+
+// GetDatabaseClusterMetrics retrieves the metrics for a database cluster.
+func (e *EverestServer) GetDatabaseClusterMetrics(c echo.Context, namespace, name string, params api.GetDatabaseClusterMetricsParams) error {
+	result, err := e.handler.GetDatabaseClusterMetrics(c.Request().Context(), namespace, name, params)
+	if err != nil {
+		e.l.Errorf("GetDatabaseClusterMetrics failed: %v", err)
+		return c.JSON(http.StatusInternalServerError, api.Error{Message: ptr.To(err.Error())})
+	}
+
 	return c.JSON(http.StatusOK, result)
 }
 

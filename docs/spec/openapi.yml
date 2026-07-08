@@ -810,6 +810,74 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
 
+  '/namespaces/{namespace}/database-clusters/{name}/monitoring/metrics':
+    x-everest-resource-name: database-clusters
+    get:
+      tags:
+        - Monitoring
+      summary: Get metrics for a database cluster
+      description: |
+        This API gets Prometheus/PMM metrics for the database cluster specified by the `name` and `namespace`.
+      operationId: getDatabaseClusterMetrics
+      parameters:
+        - name: namespace
+          in: path
+          description: Name of the namespace
+          required: true
+          schema:
+            type: string
+        - name: name
+          in: path
+          description: Name of the database cluster. Can be found under Metadata["name"] of the DatabaseCluster object.
+          required: true
+          schema:
+            type: string
+        - name: query
+          in: query
+          description: The PromQL query to execute against the monitoring endpoint.
+          required: true
+          schema:
+            type: string
+        - name: start
+          in: query
+          description: Start time for the query range (Unix timestamp or RFC3339)
+          required: true
+          schema:
+            type: string
+        - name: end
+          in: query
+          description: End time for the query range (Unix timestamp or RFC3339)
+          required: true
+          schema:
+            type: string
+        - name: step
+          in: query
+          description: Query resolution step width in duration format or float number of seconds
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                type: object
+                description: The raw response from Prometheus API
+                additionalProperties: true
+        '400':
+          description: Unsuccessful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
   '/namespaces/{namespace}/database-clusters/{dbName}/data-import-jobs':
     x-everest-resource-name: data-import-jobs
     get:

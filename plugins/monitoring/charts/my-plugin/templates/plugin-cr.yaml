@@ -1,0 +1,48 @@
+apiVersion: extensions.openeverest.io/v1alpha1
+kind: Plugin
+metadata:
+  name: {{ .Release.Name }}
+spec:
+  displayName: {{ .Values.plugin.displayName | quote }}
+  description: {{ .Values.plugin.description | quote }}
+  version: {{ .Chart.AppVersion | quote }}
+  vendor: {{ .Values.plugin.vendor | quote }}
+  enabled: {{ .Values.plugin.enabled }}
+  backend:
+    serviceRef:
+      namespace: {{ .Release.Namespace }}
+      name: {{ include "my-plugin.fullname" . }}
+      port: {{ .Values.service.port }}
+    modes:
+      eventConsumer:
+        types:
+          - database-cluster.created
+          - database-cluster.ready
+          - database-cluster.updated
+          - database-cluster.deleted
+          - database-cluster.failed
+          - backup.started
+          - backup.completed
+          - backup.failed
+          - restore.started
+          - restore.completed
+          - restore.failed
+          - instance.created
+          - instance.deleted
+          - user.login
+          - user.login-failed
+          - user.logout
+          - plugin.installed
+          - plugin.uninstalled
+          - plugin.enabled
+          - plugin.disabled
+          - namespace.added
+          - namespace.removed
+          - settings.updated
+  frontend:
+    bundlePath: {{ .Values.plugin.bundlePath | quote }}
+    extensionPoints:
+      {{- toYaml .Values.plugin.extensionPoints | nindent 6 }}
+  permissions:
+    - verb: read
+      resource: database-clusters

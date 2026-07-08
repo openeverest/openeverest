@@ -207,6 +207,13 @@ func (h *rbacHandler) GetDatabaseClusterComponentLogs(ctx context.Context, names
 	return h.next.GetDatabaseClusterComponentLogs(ctx, namespace, clusterName, componentName, params, stream)
 }
 
+func (h *rbacHandler) GetDatabaseClusterMetrics(ctx context.Context, namespace, name string, params api.GetDatabaseClusterMetricsParams) (map[string]interface{}, error) {
+	if err := h.enforce(ctx, rbac.ResourceDatabaseClusters, rbac.ActionRead, rbac.ObjectName(namespace, name)); err != nil {
+		return nil, err
+	}
+	return h.next.GetDatabaseClusterMetrics(ctx, namespace, name, params)
+}
+
 func (h *rbacHandler) GetDatabaseClusterPitr(ctx context.Context, namespace, name string) (*api.DatabaseClusterPitr, error) {
 	if err := h.enforce(ctx, rbac.ResourceDatabaseClusters, rbac.ActionRead, rbac.ObjectName(namespace, name)); err != nil {
 		return nil, err

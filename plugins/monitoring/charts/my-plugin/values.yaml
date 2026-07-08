@@ -1,0 +1,47 @@
+replicaCount: 1
+
+image:
+  repository: ghcr.io/openeverest/generic-plugin-template
+  pullPolicy: IfNotPresent
+  # Overrides the image tag whose default is the chart appVersion.
+  tag: ""
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+service:
+  port: 8080
+
+plugin:
+  displayName: "My Plugin"
+  description: "A working OpenEverest generic plugin template — customize it to build your own plugin."
+  vendor: "OpenEverest"
+  enabled: true
+  bundlePath: "/main.js"
+  extensionPoints:
+    - type: route
+      path: /my-plugin
+      label: My Plugin
+    - type: sidebarItem
+      path: /my-plugin
+      label: My Plugin
+      icon: "/icon.png"
+    - type: clusterDetailTab
+      path: my-plugin
+      label: My Plugin
+
+# Optional override for the Everest API URL. When left empty the backend
+# auto-discovers the everest Service via Kubernetes-injected env vars
+# (EVEREST_SERVICE_HOST / EVEREST_SERVICE_PORT), which are available for
+# free when the plugin runs in the same namespace as the everest Service.
+# Only set this for local dev or non-standard deployments.
+everestAPIURL: ""
+
+resources:
+  limits:
+    cpu: 200m
+    memory: 128Mi
+  requests:
+    cpu: 50m
+    memory: 64Mi
