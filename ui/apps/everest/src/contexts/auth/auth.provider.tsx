@@ -81,17 +81,6 @@ const AuthProvider = ({ children, isSsoEnabled }: AuthProviderProps) => {
   const tabIdRef = useRef(`tab-${Math.random().toString(36).slice(2)}`);
 
   const { signIn, userManager } = useOidcAuth();
-  const checkAuth = useCallback(async (token: string) => {
-    try {
-      await api.get('/version', {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      return true;
-    } catch (error) {
-      logAuthError('token validation (/version) failed', error);
-      return false;
-    }
-  }, []);
 
   const login = async (mode: AuthMode, manualAuthArgs?: ManualAuthArgs) => {
     setAuthStatus('loggingIn');
@@ -275,17 +264,16 @@ const AuthProvider = ({ children, isSsoEnabled }: AuthProviderProps) => {
     userManager.events.addUserLoaded(handleUserLoaded);
     userManager.events.addAccessTokenExpiring(handleTokenExpiring);
 
-      // signinSilentCallback() must only run inside the hidden silent-renew
-      // iframe. In the main window it races with oidc-react's own
-      // signinCallback() (fired on the /login-callback redirect) for the same
-      // stored auth state, which makes one of the two calls fail with
-      // "No matching state found in storage" and leaves the user on a blank
-      // page after an SSO redirect.
-      if (isRunningInIframe()) {
-        userManager.signinSilentCallback().catch((error) => {
-          logAuthError('silent renew callback failed', error);
-        });
-      }
+    // signinSilentCallback() must only run inside the hidden silent-renew
+    // iframe. In the main window it races with oidc-react's own
+    // signinCallback() (fired on the /login-callback redirect) for the same
+    // stored auth state, which makes one of the two calls fail with
+    // "No matching state found in storage" and leaves the user on a blank
+    // page after an SSO redirect.
+    if (isRunningInIframe()) {
+      userManager.signinSilentCallback().catch((error) => {
+        logAuthError('silent renew callback failed', error);
+      });
     }
 
     return () => {
