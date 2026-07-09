@@ -43,7 +43,7 @@ var (
 // EverestConfig stores the configuration for the application.
 type EverestConfig struct {
 	DSN string `default:"postgres://admin:pwd@127.0.0.1:5432/postgres?sslmode=disable" envconfig:"DSN"`
-	// DEPRECATED: Use ListenPort instead.
+	// Deprecated: Use ListenPort instead.
 	HTTPPort   int  `envconfig:"HTTP_PORT"`
 	ListenPort int  `default:"8080" envconfig:"PORT"`
 	Verbose    bool `default:"false" envconfig:"VERBOSE"`

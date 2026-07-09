@@ -22,3 +22,5 @@ spec:
       config:
         secretRef:
           name: ""
+      storage:
+        size: 10Gi

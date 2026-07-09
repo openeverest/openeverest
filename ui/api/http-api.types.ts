@@ -342,10 +342,11 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Resolve instance preset with namespace defaults
+         * Resolve instance preset with namespace defaults and default StorageClass of the cluster
          * @description This API resolves the instance preset specified by the `name` in the specified `cluster`.
          *     This endpoint is useful when creating instances from presets, as it provides a
-         *     fully-populated preset with all namespace defaults pre-filled.
+         *     fully-populated preset with all namespace defaults, and default StorageClass of the cluster
+         *     if it has empty StorageClass.
          */
         get: operations["resolveInstancePreset"];
         put?: never;

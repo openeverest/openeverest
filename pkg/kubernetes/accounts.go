@@ -70,18 +70,6 @@ func (a *configMapsClient) List(ctx context.Context) (map[string]*accounts.Accou
 	return a.listAllAccounts(ctx)
 }
 
-func (a *configMapsClient) listAllAccounts(ctx context.Context) (map[string]*accounts.Account, error) {
-	result := make(map[string]*accounts.Account)
-	secret, err := a.k.GetSecret(ctx, types.NamespacedName{Namespace: a.k.Namespace(), Name: common.EverestAccountsSecretName})
-	if err != nil {
-		return nil, err
-	}
-	if err := yaml.Unmarshal(secret.Data[common.EverestAccountsFileName], result); err != nil {
-		return nil, err
-	}
-	return result, nil
-}
-
 // Create a new user account.
 func (a *configMapsClient) Create(ctx context.Context, username, password string) error {
 	// Ensure that the user does not already exist.
@@ -127,57 +115,6 @@ func (a *configMapsClient) SetPassword(ctx context.Context, username, newPasswor
 	}
 	user.PasswordMtime = time.Now().Format(time.RFC3339)
 	return a.insertOrUpdateAccount(ctx, username, user, secure)
-}
-
-func (a *configMapsClient) insertOrUpdateAccount(
-	ctx context.Context,
-	username string,
-	account *accounts.Account,
-	secure bool,
-) error {
-	secret, err := a.k.GetSecret(ctx, types.NamespacedName{Namespace: a.k.Namespace(), Name: common.EverestAccountsSecretName})
-	if err != nil {
-		return err
-	}
-
-	accounts := make(map[string]*accounts.Account)
-	if err := yaml.Unmarshal(secret.Data[common.EverestAccountsFileName], &accounts); err != nil {
-		return err
-	}
-
-	accounts[username] = account
-	data, err := yaml.Marshal(accounts)
-	if err != nil {
-		return err
-	}
-
-	if secret.Data == nil {
-		secret.Data = make(map[string][]byte)
-	}
-	secret.Data[common.EverestAccountsFileName] = data
-
-	annotations := secret.GetAnnotations()
-	if annotations == nil {
-		annotations = make(map[string]string)
-	}
-	delete(annotations, fmt.Sprintf(insecurePasswordAnnotation, username))
-	if !secure {
-		annotations[fmt.Sprintf(insecurePasswordAnnotation, username)] = insecurePasswordValueTrue
-	}
-	secret.SetAnnotations(annotations)
-
-	if _, err := a.k.UpdateSecret(ctx, secret); err != nil {
-		return err
-	}
-	return nil
-}
-
-func (a *configMapsClient) salt(ctx context.Context) ([]byte, error) {
-	ns, err := a.k.GetNamespace(ctx, types.NamespacedName{Name: a.k.Namespace()})
-	if err != nil {
-		return nil, err
-	}
-	return []byte(ns.UID), nil
 }
 
 // Delete an existing user account specified by username.
@@ -264,4 +201,67 @@ func (a *configMapsClient) computePasswordHash(ctx context.Context, password str
 	}
 	hash := pbkdf2.Key([]byte(password), salt, iter, keyLength, sha256.New)
 	return string(hash), nil
+}
+
+func (a *configMapsClient) listAllAccounts(ctx context.Context) (map[string]*accounts.Account, error) {
+	result := make(map[string]*accounts.Account)
+	secret, err := a.k.GetSecret(ctx, types.NamespacedName{Namespace: a.k.Namespace(), Name: common.EverestAccountsSecretName})
+	if err != nil {
+		return nil, err
+	}
+	if err := yaml.Unmarshal(secret.Data[common.EverestAccountsFileName], result); err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
+func (a *configMapsClient) insertOrUpdateAccount(
+	ctx context.Context,
+	username string,
+	account *accounts.Account,
+	secure bool,
+) error {
+	secret, err := a.k.GetSecret(ctx, types.NamespacedName{Namespace: a.k.Namespace(), Name: common.EverestAccountsSecretName})
+	if err != nil {
+		return err
+	}
+
+	accounts := make(map[string]*accounts.Account)
+	if err := yaml.Unmarshal(secret.Data[common.EverestAccountsFileName], &accounts); err != nil {
+		return err
+	}
+
+	accounts[username] = account
+	data, err := yaml.Marshal(accounts)
+	if err != nil {
+		return err
+	}
+
+	if secret.Data == nil {
+		secret.Data = make(map[string][]byte)
+	}
+	secret.Data[common.EverestAccountsFileName] = data
+
+	annotations := secret.GetAnnotations()
+	if annotations == nil {
+		annotations = make(map[string]string)
+	}
+	delete(annotations, fmt.Sprintf(insecurePasswordAnnotation, username))
+	if !secure {
+		annotations[fmt.Sprintf(insecurePasswordAnnotation, username)] = insecurePasswordValueTrue
+	}
+	secret.SetAnnotations(annotations)
+
+	if _, err := a.k.UpdateSecret(ctx, secret); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (a *configMapsClient) salt(ctx context.Context) ([]byte, error) {
+	ns, err := a.k.GetNamespace(ctx, types.NamespacedName{Name: a.k.Namespace()})
+	if err != nil {
+		return nil, err
+	}
+	return []byte(ns.UID), nil
 }

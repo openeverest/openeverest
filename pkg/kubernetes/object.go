@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2025 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -93,7 +94,7 @@ func (k *Kubernetes) getObjects(f []byte) ([]*unstructured.Unstructured, error) 
 		objs = append(objs, &unstructured.Unstructured{Object: unstructuredMap})
 	}
 
-	return objs, nil
+	return objs, nil //nolint:nilerr // the decode loop intentionally stops at the first error (typically io.EOF) and returns the objects decoded so far
 }
 
 // ApplyObject applies object.
@@ -174,13 +175,13 @@ func (k *Kubernetes) updateClusterRoleBinding(u *unstructured.Unstructured, name
 		return nil
 	}
 
-	subjects, ok := sub.([]interface{})
+	subjects, ok := sub.([]any)
 	if !ok {
 		return nil
 	}
 
 	for _, s := range subjects {
-		sub, ok := s.(map[string]interface{})
+		sub, ok := s.(map[string]any)
 		if !ok {
 			continue
 		}
