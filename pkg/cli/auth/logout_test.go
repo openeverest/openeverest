@@ -112,7 +112,7 @@ func TestLogout_NoActiveContext(t *testing.T) {
 	lo := NewLogin(Config{}, zap.NewNop().Sugar())
 	err := lo.Logout(t.Context(), cfgPath)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "missing")
+	assert.Contains(t, err.Error(), "no active context")
 }
 
 func TestLogout_ExpiredToken_NoBearerHeader(t *testing.T) {

@@ -373,9 +373,20 @@ func (r *ProviderReconciler) Reconcile(ctx context.Context, req reconcile.Reques
 		return r.handleDeletion(ctx, inCtx, in, logger)
 	}
 
-	// Ensure finalizer is present
+	// Ensure provider label and finalizer are present
+	var needsUpdate bool
+	if in.Labels == nil {
+		in.Labels = make(map[string]string)
+	}
+	if in.Labels[controller.ProviderLabel] != r.provider.Name() {
+		in.Labels[controller.ProviderLabel] = r.provider.Name()
+		needsUpdate = true
+	}
 	if !controllerutil.ContainsFinalizer(in, finalizerName) {
 		controllerutil.AddFinalizer(in, finalizerName)
+		needsUpdate = true
+	}
+	if needsUpdate {
 		if err := r.Client.Update(ctx, in); err != nil {
 			return reconcile.Result{}, err
 		}

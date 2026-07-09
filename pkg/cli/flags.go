@@ -90,6 +90,27 @@ const (
 	// FlagAuthContextName is the name of the context-name flag.
 	FlagAuthContextName = "context-name"
 
+	// `instance` flags
+
+	// FlagInstanceName is the name of the instance name flag.
+	FlagInstanceName = "name"
+	// FlagInstanceNamespace is the name of the namespace flag.
+	FlagInstanceNamespace = "namespace"
+	// FlagInstanceProvider is the name of the provider flag.
+	FlagInstanceProvider = "provider"
+	// FlagInstanceCluster is the name of the cluster flag.
+	FlagInstanceCluster = "cluster"
+	// FlagInstanceVersion is the name of the version flag.
+	FlagInstanceVersion = "version"
+	// FlagInstanceTopology is the name of the topology flag.
+	FlagInstanceTopology = "topology"
+	// FlagInstanceSet is the name of the repeatable set flag for component overrides.
+	FlagInstanceSet = "set"
+	// FlagInstanceFile is the name of the values file flag for component overrides.
+	FlagInstanceFile = "file"
+	// FlagInstanceContext overrides the active context for this command.
+	FlagInstanceContext = "context"
+
 	// settings flags
 
 	// FlagOIDCIssuerURL is the name of the issuer-url flag.

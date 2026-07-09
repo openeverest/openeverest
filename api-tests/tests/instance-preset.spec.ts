@@ -77,6 +77,7 @@ test.describe('Instance Preset tests', () => {
 
       // Verify namespace scope secret has default filled fields
       expect(preset.spec.components.engine.config.secretRef.name).toBe("test-secret");
+      expect(preset.spec.components.engine.storage.storageClass).toBe("local-path");
 
       // Copy the preset spec and add annotation
       const instancePayload = {
