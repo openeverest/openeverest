@@ -57,7 +57,7 @@ func (h *k8sHandler) GetUpgradePlan(ctx context.Context, namespace string) (*api
 	}
 	// No upgrades available, so we will check if our clusters are ready for current version.
 	if len(pointer.Get(result.Upgrades)) == 0 {
-		result.PendingActions = pointer.To([]api.UpgradeTask{})
+		result.PendingActions = &[]api.UpgradeTask{}
 		engines, err := h.kubeConnector.ListDatabaseEngines(ctx, ctrlclient.InNamespace(namespace))
 		if err != nil {
 			return nil, err
@@ -137,8 +137,8 @@ func (h *k8sHandler) getUpgradePlan(
 	}
 
 	result := &api.UpgradePlan{
-		Upgrades:       pointer.To([]api.Upgrade{}),
-		PendingActions: pointer.To([]api.UpgradeTask{}),
+		Upgrades:       &[]api.Upgrade{},
+		PendingActions: &[]api.UpgradeTask{},
 	}
 
 	for _, engine := range engines.Items {
@@ -148,9 +148,9 @@ func (h *k8sHandler) getUpgradePlan(
 		}
 
 		upgrade := &api.Upgrade{
-			CurrentVersion: pointer.To(engine.Status.OperatorVersion),
-			Name:           pointer.To(engine.GetName()),
-			TargetVersion:  pointer.To(nextVersion),
+			CurrentVersion: new(engine.Status.OperatorVersion),
+			Name:           new(engine.GetName()),
+			TargetVersion:  new(nextVersion),
 		}
 		*result.Upgrades = append(*result.Upgrades, *upgrade)
 		pf, err := h.getOperatorUpgradePreflight(ctx, nextVersion, &engine)
@@ -265,9 +265,9 @@ func getUpgradePreflightCheckResultForDatabase(
 			errors.Join(err, errors.New("failed to validate database engine version for operator upgrade"))
 	} else if !valid {
 		return api.UpgradeTask{
-			Name:        pointer.To(database.GetName()),
+			Name:        new(database.GetName()),
 			PendingTask: pointer.To(api.UpgradeEngine),
-			Message: pointer.ToString(
+			Message: new(
 				fmt.Sprintf("Upgrade DB version to %s or higher", minReqVer),
 			),
 		}, nil
@@ -276,9 +276,9 @@ func getUpgradePreflightCheckResultForDatabase(
 	// Check that DB is at recommended CRVersion.
 	if recCRVersion := database.Status.RecommendedCRVersion; recCRVersion != nil {
 		return api.UpgradeTask{
-			Name:        pointer.To(database.GetName()),
+			Name:        new(database.GetName()),
 			PendingTask: pointer.To(api.Restart),
-			Message: pointer.ToString(
+			Message: new(
 				fmt.Sprintf("Update CRVersion to %s", *recCRVersion),
 			),
 		}, nil
@@ -287,15 +287,15 @@ func getUpgradePreflightCheckResultForDatabase(
 	// Check that DB is running.
 	if database.Status.Status != everestv1alpha1.AppStateReady {
 		return api.UpgradeTask{
-			Name:        pointer.To(database.GetName()),
+			Name:        new(database.GetName()),
 			PendingTask: pointer.To(api.NotReady),
-			Message:     pointer.ToString("Database is not ready"),
+			Message:     new("Database is not ready"),
 		}, nil
 	}
 
 	// Database is in desired state for performing operator upgrade.
 	return api.UpgradeTask{
-		Name:        pointer.To(database.GetName()),
+		Name:        new(database.GetName()),
 		PendingTask: pointer.To(api.Ready),
 	}, nil
 }
@@ -363,12 +363,12 @@ func (h *k8sHandler) getDBPostUpgradeTasks(
 			continue
 		}
 		check := api.UpgradeTask{
-			Name: pointer.To(cluster.Name),
+			Name: new(cluster.Name),
 		}
 		check.PendingTask = pointer.To(api.Ready)
 		if recVer := cluster.Status.RecommendedCRVersion; recVer != nil {
 			check.PendingTask = pointer.To(api.Restart)
-			check.Message = pointer.To(fmt.Sprintf("Database needs restart to use CRVersion '%s'", *recVer))
+			check.Message = new(fmt.Sprintf("Database needs restart to use CRVersion '%s'", *recVer))
 		}
 		checks = append(checks, check)
 	}

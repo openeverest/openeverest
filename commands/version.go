@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -36,7 +37,7 @@ var (
 		RunE:  versionRunE,
 	}
 
-	// Command flag values
+	// Command flag values.
 	clientOnlyFlag bool // Means only info about the client shall be printed
 )
 
@@ -47,7 +48,7 @@ func init() {
 	versionCmd.Flags().BoolVar(&clientOnlyFlag, "client-only", false, "Print client version only")
 }
 
-func versionRunE(cmd *cobra.Command, _ []string) error { //nolint:revive
+func versionRunE(cmd *cobra.Command, _ []string) error {
 	v := version.Info{
 		ProjectName: version.ProjectName,
 		Version:     version.Version,

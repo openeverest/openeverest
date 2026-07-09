@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2025 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,13 +19,13 @@ package namespaces
 import (
 	"context"
 	"fmt"
+	"slices"
 	"strings"
 
 	olmv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	v1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/utils/strings/slices"
 
 	operatorUtils "github.com/percona/everest-operator/utils"
 	"github.com/percona/everest/pkg/common"
@@ -37,7 +38,7 @@ import (
 // Use validateNamespaceNames to validate them.
 func ParseNamespaceNames(namespaces string) []string {
 	result := []string{}
-	for _, ns := range strings.Split(namespaces, ",") {
+	for ns := range strings.SplitSeq(namespaces, ",") {
 		ns = strings.TrimSpace(ns)
 		if ns == "" {
 			continue
@@ -54,7 +55,7 @@ func ParseNamespaceNames(namespaces string) []string {
 // validateNamespaceNames validates a list of namespaces parsed by ParseNamespaceNames.
 // It validates the names to be:
 // - RFC-1035 compatible
-// - not reserved by Everest core
+// - not reserved by Everest core.
 func validateNamespaceNames(nsList []string) error {
 	if len(nsList) == 0 {
 		return ErrNamespaceListEmpty

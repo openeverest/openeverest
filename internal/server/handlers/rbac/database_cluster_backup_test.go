@@ -15,7 +15,6 @@
 package rbac
 
 import (
-	"context"
 	"slices"
 	"testing"
 
@@ -28,7 +27,6 @@ import (
 	everestv1alpha1 "github.com/percona/everest-operator/api/everest/v1alpha1"
 	"github.com/percona/everest/api"
 	"github.com/percona/everest/internal/server/handlers"
-	"github.com/percona/everest/pkg/common"
 	"github.com/percona/everest/pkg/rbac"
 )
 
@@ -142,7 +140,7 @@ func TestRBAC_DatabaseClusterBackup(t *testing.T) {
 				},
 			},
 			{
-				desc: "missing read permissons for database-cluster-backups on cluster 'cluster1'",
+				desc: "missing read permissions for database-cluster-backups on cluster 'cluster1'",
 				policy: newPolicy(
 					"p, role:test, backup-storages, read, default/bs1",
 					"p, role:test, backup-storages, read, default/bs2",
@@ -154,7 +152,7 @@ func TestRBAC_DatabaseClusterBackup(t *testing.T) {
 			},
 		}
 
-		ctx := context.WithValue(context.Background(), common.UserCtxKey, rbac.User{Subject: "bob"})
+		ctx := testUserContext(rbac.User{Subject: "bob"})
 		for _, tc := range testCases {
 			t.Run(tc.desc, func(t *testing.T) {
 				t.Parallel()
@@ -225,7 +223,7 @@ func TestRBAC_DatabaseClusterBackup(t *testing.T) {
 				wantErr: ErrInsufficientPermissions,
 			},
 			{
-				desc: "missing read permissons for database-cluster-backups on cluster 'cluster1'",
+				desc: "missing read permissions for database-cluster-backups on cluster 'cluster1'",
 				policy: newPolicy(
 					"p, role:test, backup-storages, read, default/bs1",
 					"g, bob, role:test",
@@ -234,7 +232,7 @@ func TestRBAC_DatabaseClusterBackup(t *testing.T) {
 			},
 		}
 
-		ctx := context.WithValue(context.Background(), common.UserCtxKey, rbac.User{Subject: "bob"})
+		ctx := testUserContext(rbac.User{Subject: "bob"})
 		for _, tc := range testCases {
 			t.Run(tc.desc, func(t *testing.T) {
 				t.Parallel()
@@ -291,7 +289,7 @@ func TestRBAC_DatabaseClusterBackup(t *testing.T) {
 				wantErr: ErrInsufficientPermissions,
 			},
 			{
-				desc: "missing create permissons for database-cluster-backups on cluster 'cluster1'",
+				desc: "missing create permissions for database-cluster-backups on cluster 'cluster1'",
 				policy: newPolicy(
 					"p, role:test, backup-storages, read, default/bs1",
 					"g, bob, role:test",
@@ -300,7 +298,7 @@ func TestRBAC_DatabaseClusterBackup(t *testing.T) {
 			},
 		}
 
-		ctx := context.WithValue(context.Background(), common.UserCtxKey, rbac.User{Subject: "bob"})
+		ctx := testUserContext(rbac.User{Subject: "bob"})
 		for _, tc := range testCases {
 			t.Run(tc.desc, func(t *testing.T) {
 				t.Parallel()
@@ -371,13 +369,13 @@ func TestRBAC_DatabaseClusterBackup(t *testing.T) {
 				),
 			},
 			{
-				desc:    "missing delete permissons for database-cluster-backups on cluster 'cluster1'",
+				desc:    "missing delete permissions for database-cluster-backups on cluster 'cluster1'",
 				policy:  newPolicy(),
 				wantErr: ErrInsufficientPermissions,
 			},
 		}
 
-		ctx := context.WithValue(context.Background(), common.UserCtxKey, rbac.User{Subject: "bob"})
+		ctx := testUserContext(rbac.User{Subject: "bob"})
 		for _, tc := range testCases {
 			t.Run(tc.desc, func(t *testing.T) {
 				t.Parallel()

@@ -261,7 +261,7 @@ func TestGetUpgradePreflightChecks(t *testing.T) {
 			},
 			Status: everestv1alpha1.DatabaseClusterStatus{
 				CRVersion:            crVersion,
-				RecommendedCRVersion: pointer.To(operatorVersion),
+				RecommendedCRVersion: new(operatorVersion),
 			},
 		}}
 
@@ -341,7 +341,7 @@ func TestGetUpgradePreflightChecks(t *testing.T) {
 		assert.Len(t, result.databases, 1)
 		dbResult := result.databases[0]
 		assert.Equal(t, "test-db", pointer.Get(dbResult.Name))
-		assert.Equal(t, dbResult.Message, pointer.ToString("Database is not ready"))
+		assert.Equal(t, dbResult.Message, new("Database is not ready"))
 		assert.Equal(t, api.NotReady, pointer.Get(dbResult.PendingTask))
 	})
 

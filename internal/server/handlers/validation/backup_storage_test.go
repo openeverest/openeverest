@@ -19,7 +19,6 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/AlekSi/pointer"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
@@ -78,7 +77,7 @@ func TestValidateDuplicateStorageByUpdate(t *testing.T) {
 				},
 			},
 			currentStorageName: "storageA",
-			params:             everestapi.UpdateBackupStorageParams{Url: pointer.ToString("url1"), BucketName: pointer.ToString("bucket1"), Region: pointer.ToString("region1")},
+			params:             everestapi.UpdateBackupStorageParams{Url: new("url1"), BucketName: new("bucket1"), Region: new("region1")},
 			isDuplicate:        true,
 		},
 		{
@@ -110,7 +109,7 @@ func TestValidateDuplicateStorageByUpdate(t *testing.T) {
 				},
 			},
 			currentStorageName: "storageA",
-			params:             everestapi.UpdateBackupStorageParams{Url: pointer.ToString("url1")},
+			params:             everestapi.UpdateBackupStorageParams{Url: new("url1")},
 			isDuplicate:        true,
 		},
 		{
@@ -142,7 +141,7 @@ func TestValidateDuplicateStorageByUpdate(t *testing.T) {
 				},
 			},
 			currentStorageName: "storageA",
-			params:             everestapi.UpdateBackupStorageParams{BucketName: pointer.ToString("bucket1")},
+			params:             everestapi.UpdateBackupStorageParams{BucketName: new("bucket1")},
 			isDuplicate:        true,
 		},
 		{
@@ -174,7 +173,7 @@ func TestValidateDuplicateStorageByUpdate(t *testing.T) {
 				},
 			},
 			currentStorageName: "storageA",
-			params:             everestapi.UpdateBackupStorageParams{Region: pointer.ToString("region1")},
+			params:             everestapi.UpdateBackupStorageParams{Region: new("region1")},
 			isDuplicate:        true,
 		},
 		{
@@ -206,7 +205,7 @@ func TestValidateDuplicateStorageByUpdate(t *testing.T) {
 				},
 			},
 			currentStorageName: "storageA",
-			params:             everestapi.UpdateBackupStorageParams{Region: pointer.ToString("region1"), BucketName: pointer.ToString("bucket1")},
+			params:             everestapi.UpdateBackupStorageParams{Region: new("region1"), BucketName: new("bucket1")},
 			isDuplicate:        true,
 		},
 		{
@@ -238,7 +237,7 @@ func TestValidateDuplicateStorageByUpdate(t *testing.T) {
 				},
 			},
 			currentStorageName: "storageA",
-			params:             everestapi.UpdateBackupStorageParams{Url: pointer.ToString("url1"), BucketName: pointer.ToString("bucket1"), Region: pointer.ToString("region1")},
+			params:             everestapi.UpdateBackupStorageParams{Url: new("url1"), BucketName: new("bucket1"), Region: new("region1")},
 			isDuplicate:        false,
 		},
 	}

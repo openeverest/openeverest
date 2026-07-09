@@ -15,11 +15,9 @@
 package rbac
 
 import (
-	"context"
 	"slices"
 	"testing"
 
-	"github.com/AlekSi/pointer"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -30,7 +28,6 @@ import (
 	everestv1alpha1 "github.com/percona/everest-operator/api/everest/v1alpha1"
 	"github.com/percona/everest/api"
 	"github.com/percona/everest/internal/server/handlers"
-	"github.com/percona/everest/pkg/common"
 	"github.com/percona/everest/pkg/rbac"
 )
 
@@ -39,6 +36,7 @@ func TestRBAC_DatabaseCluster(t *testing.T) {
 	t.Parallel()
 
 	t.Run("CreateDatabaseCluster - PXC", func(t *testing.T) {
+		t.Parallel()
 		testCases := []struct {
 			desc    string
 			wantErr error
@@ -213,8 +211,8 @@ func TestRBAC_DatabaseCluster(t *testing.T) {
 			},
 		}
 
-		ctx := context.WithValue(context.Background(), common.UserCtxKey, rbac.User{Subject: "bob"})
-		for _, tc := range testCases { //nolint:dupl
+		ctx := testUserContext(rbac.User{Subject: "bob"})
+		for _, tc := range testCases {
 			t.Run(tc.desc, func(t *testing.T) {
 				t.Parallel()
 				k8sMock := newConfigMapMock(tc.policy)
@@ -265,6 +263,7 @@ func TestRBAC_DatabaseCluster(t *testing.T) {
 	})
 
 	t.Run("CreateDatabaseCluster - PSMDB", func(t *testing.T) {
+		t.Parallel()
 		testCases := []struct {
 			desc    string
 			wantErr error
@@ -464,8 +463,8 @@ func TestRBAC_DatabaseCluster(t *testing.T) {
 			},
 		}
 
-		ctx := context.WithValue(context.Background(), common.UserCtxKey, rbac.User{Subject: "bob"})
-		for _, tc := range testCases { //nolint:dupl
+		ctx := testUserContext(rbac.User{Subject: "bob"})
+		for _, tc := range testCases {
 			t.Run(tc.desc, func(t *testing.T) {
 				t.Parallel()
 				k8sMock := newConfigMapMock(tc.policy)
@@ -521,6 +520,7 @@ func TestRBAC_DatabaseCluster(t *testing.T) {
 	})
 
 	t.Run("UpdateDatabaseCluster - PXC", func(t *testing.T) {
+		t.Parallel()
 		testCases := []struct {
 			desc    string
 			wantErr error
@@ -579,7 +579,7 @@ func TestRBAC_DatabaseCluster(t *testing.T) {
 			},
 		}
 
-		ctx := context.WithValue(context.Background(), common.UserCtxKey, rbac.User{Subject: "bob"})
+		ctx := testUserContext(rbac.User{Subject: "bob"})
 		for _, tc := range testCases {
 			t.Run(tc.desc, func(t *testing.T) {
 				t.Parallel()
@@ -630,6 +630,7 @@ func TestRBAC_DatabaseCluster(t *testing.T) {
 	})
 
 	t.Run("UpdateDatabaseCluster - PSMDB", func(t *testing.T) {
+		t.Parallel()
 		testCases := []struct {
 			desc    string
 			wantErr error
@@ -702,7 +703,7 @@ func TestRBAC_DatabaseCluster(t *testing.T) {
 			},
 		}
 
-		ctx := context.WithValue(context.Background(), common.UserCtxKey, rbac.User{Subject: "bob"})
+		ctx := testUserContext(rbac.User{Subject: "bob"})
 		for _, tc := range testCases {
 			t.Run(tc.desc, func(t *testing.T) {
 				t.Parallel()
@@ -757,7 +758,8 @@ func TestRBAC_DatabaseCluster(t *testing.T) {
 		}
 	})
 
-	t.Run("GetDatabaseCluster - PXC", func(t *testing.T) { //nolint:dupl
+	t.Run("GetDatabaseCluster - PXC", func(t *testing.T) {
+		t.Parallel()
 		testCases := []struct {
 			desc    string
 			wantErr error
@@ -850,7 +852,7 @@ func TestRBAC_DatabaseCluster(t *testing.T) {
 			},
 		}
 
-		ctx := context.WithValue(context.Background(), common.UserCtxKey, rbac.User{Subject: "bob"})
+		ctx := testUserContext(rbac.User{Subject: "bob"})
 		for _, tc := range testCases {
 			t.Run(tc.desc, func(t *testing.T) {
 				t.Parallel()
@@ -877,7 +879,7 @@ func TestRBAC_DatabaseCluster(t *testing.T) {
 										},
 									},
 									PITR: everestv1alpha1.PITRSpec{
-										BackupStorageName: pointer.To("test-backup-storage-pitr"),
+										BackupStorageName: new("test-backup-storage-pitr"),
 									},
 								},
 								Monitoring: &everestv1alpha1.Monitoring{
@@ -904,7 +906,8 @@ func TestRBAC_DatabaseCluster(t *testing.T) {
 		}
 	})
 
-	t.Run("GetDatabaseCluster - PSMDB", func(t *testing.T) { //nolint:dupl
+	t.Run("GetDatabaseCluster - PSMDB", func(t *testing.T) {
+		t.Parallel()
 		testCases := []struct {
 			desc    string
 			wantErr error
@@ -997,7 +1000,7 @@ func TestRBAC_DatabaseCluster(t *testing.T) {
 			},
 		}
 
-		ctx := context.WithValue(context.Background(), common.UserCtxKey, rbac.User{Subject: "bob"})
+		ctx := testUserContext(rbac.User{Subject: "bob"})
 		for _, tc := range testCases {
 			t.Run(tc.desc, func(t *testing.T) {
 				t.Parallel()
@@ -1024,7 +1027,7 @@ func TestRBAC_DatabaseCluster(t *testing.T) {
 										},
 									},
 									PITR: everestv1alpha1.PITRSpec{
-										BackupStorageName: pointer.To("test-backup-storage-pitr"),
+										BackupStorageName: new("test-backup-storage-pitr"),
 									},
 								},
 								Monitoring: &everestv1alpha1.Monitoring{
@@ -1052,6 +1055,7 @@ func TestRBAC_DatabaseCluster(t *testing.T) {
 	})
 
 	t.Run("ListDatabaseClusters", func(t *testing.T) {
+		t.Parallel()
 		// setup mocks.
 		next := func() *handlers.MockHandler {
 			h := &handlers.MockHandler{}
@@ -1074,7 +1078,7 @@ func TestRBAC_DatabaseCluster(t *testing.T) {
 										},
 									},
 									PITR: everestv1alpha1.PITRSpec{
-										BackupStorageName: pointer.To("test-backup-storage-pitr-1"),
+										BackupStorageName: new("test-backup-storage-pitr-1"),
 									},
 								},
 								Monitoring: &everestv1alpha1.Monitoring{
@@ -1098,7 +1102,7 @@ func TestRBAC_DatabaseCluster(t *testing.T) {
 										},
 									},
 									PITR: everestv1alpha1.PITRSpec{
-										BackupStorageName: pointer.To("test-backup-storage-pitr-2"),
+										BackupStorageName: new("test-backup-storage-pitr-2"),
 									},
 								},
 								Monitoring: &everestv1alpha1.Monitoring{
@@ -1122,7 +1126,7 @@ func TestRBAC_DatabaseCluster(t *testing.T) {
 										},
 									},
 									PITR: everestv1alpha1.PITRSpec{
-										BackupStorageName: pointer.To("test-backup-storage-pitr-3"),
+										BackupStorageName: new("test-backup-storage-pitr-3"),
 									},
 								},
 								Monitoring: &everestv1alpha1.Monitoring{
@@ -1446,7 +1450,7 @@ func TestRBAC_DatabaseCluster(t *testing.T) {
 			},
 		}
 
-		ctx := context.WithValue(context.Background(), common.UserCtxKey, rbac.User{Subject: "bob"})
+		ctx := testUserContext(rbac.User{Subject: "bob"})
 		for _, tc := range testCases {
 			t.Run(tc.desc, func(t *testing.T) {
 				t.Parallel()
@@ -1461,7 +1465,7 @@ func TestRBAC_DatabaseCluster(t *testing.T) {
 					userGetter: testUserGetter,
 				}
 				res, err := h.ListDatabaseClusters(ctx, "default")
-				assert.NoError(t, err)
+				require.NoError(t, err)
 				assert.Condition(t, func() bool {
 					return tc.assert(res)
 				})
@@ -1470,6 +1474,7 @@ func TestRBAC_DatabaseCluster(t *testing.T) {
 	})
 
 	t.Run("DeleteDatabaseCluster", func(t *testing.T) {
+		t.Parallel()
 		testCases := []struct {
 			desc    string
 			wantErr error
@@ -1526,7 +1531,7 @@ func TestRBAC_DatabaseCluster(t *testing.T) {
 			)
 			return h
 		}
-		ctx := context.WithValue(context.Background(), common.UserCtxKey, rbac.User{Subject: "bob"})
+		ctx := testUserContext(rbac.User{Subject: "bob"})
 		for _, tc := range testCases {
 			t.Run(tc.desc, func(t *testing.T) {
 				t.Parallel()
@@ -1547,6 +1552,7 @@ func TestRBAC_DatabaseCluster(t *testing.T) {
 	})
 
 	t.Run("GetDatabaseClusterCredentials", func(t *testing.T) {
+		t.Parallel()
 		testCases := []struct {
 			desc    string
 			wantErr error
@@ -1591,7 +1597,7 @@ func TestRBAC_DatabaseCluster(t *testing.T) {
 			)
 			return h
 		}
-		ctx := context.WithValue(context.Background(), common.UserCtxKey, rbac.User{Subject: "bob"})
+		ctx := testUserContext(rbac.User{Subject: "bob"})
 		for _, tc := range testCases {
 			t.Run(tc.desc, func(t *testing.T) {
 				t.Parallel()
@@ -1612,6 +1618,7 @@ func TestRBAC_DatabaseCluster(t *testing.T) {
 	})
 
 	t.Run("GetDatabaseClusterComponents", func(t *testing.T) {
+		t.Parallel()
 		testCases := []struct {
 			desc    string
 			wantErr error
@@ -1647,7 +1654,7 @@ func TestRBAC_DatabaseCluster(t *testing.T) {
 			)
 			return h
 		}
-		ctx := context.WithValue(context.Background(), common.UserCtxKey, rbac.User{Subject: "bob"})
+		ctx := testUserContext(rbac.User{Subject: "bob"})
 		for _, tc := range testCases {
 			t.Run(tc.desc, func(t *testing.T) {
 				t.Parallel()
@@ -1668,6 +1675,7 @@ func TestRBAC_DatabaseCluster(t *testing.T) {
 	})
 
 	t.Run("GetDatabaseClusterPitr", func(t *testing.T) {
+		t.Parallel()
 		testCases := []struct {
 			desc    string
 			wantErr error
@@ -1703,7 +1711,7 @@ func TestRBAC_DatabaseCluster(t *testing.T) {
 			)
 			return h
 		}
-		ctx := context.WithValue(context.Background(), common.UserCtxKey, rbac.User{Subject: "bob"})
+		ctx := testUserContext(rbac.User{Subject: "bob"})
 		for _, tc := range testCases {
 			t.Run(tc.desc, func(t *testing.T) {
 				t.Parallel()
@@ -1724,6 +1732,7 @@ func TestRBAC_DatabaseCluster(t *testing.T) {
 	})
 
 	t.Run("CreateDatabaseClusterSecret", func(t *testing.T) {
+		t.Parallel()
 		testCases := []struct {
 			desc    string
 			wantErr error
@@ -1772,7 +1781,7 @@ func TestRBAC_DatabaseCluster(t *testing.T) {
 			},
 		}
 
-		ctx := context.WithValue(context.Background(), common.UserCtxKey, rbac.User{Subject: "bob"})
+		ctx := testUserContext(rbac.User{Subject: "bob"})
 		for _, tc := range testCases {
 			t.Run(tc.desc, func(t *testing.T) {
 				t.Parallel()

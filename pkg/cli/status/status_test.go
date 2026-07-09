@@ -448,7 +448,7 @@ func TestRun_Healthy(t *testing.T) {
 
 	s := &Status{
 		l:          zap.NewNop().Sugar(),
-		cfg:        StatusConfig{JSON: true},
+		cfg:        Config{JSON: true},
 		kubeClient: k,
 	}
 
@@ -498,7 +498,7 @@ func TestRun_Unhealthy(t *testing.T) {
 
 	s := &Status{
 		l:          zap.NewNop().Sugar(),
-		cfg:        StatusConfig{JSON: true},
+		cfg:        Config{JSON: true},
 		kubeClient: k,
 	}
 

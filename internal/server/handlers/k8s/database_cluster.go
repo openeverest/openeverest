@@ -119,15 +119,15 @@ func (h *k8sHandler) GetDatabaseClusterCredentials(ctx context.Context, namespac
 	response := &api.DatabaseClusterCredential{}
 	switch databaseCluster.Spec.Engine.Type {
 	case everestv1alpha1.DatabaseEnginePXC:
-		response.Username = pointer.ToString("root")
-		response.Password = pointer.ToString(string(secret.Data["root"]))
+		response.Username = new("root")
+		response.Password = new(string(secret.Data["root"]))
 	case everestv1alpha1.DatabaseEnginePSMDB:
-		response.Username = pointer.ToString(string(secret.Data["MONGODB_DATABASE_ADMIN_USER"]))
-		response.Password = pointer.ToString(string(secret.Data["MONGODB_DATABASE_ADMIN_PASSWORD"]))
+		response.Username = new(string(secret.Data["MONGODB_DATABASE_ADMIN_USER"]))
+		response.Password = new(string(secret.Data["MONGODB_DATABASE_ADMIN_PASSWORD"]))
 		response.ConnectionUrl = h.connectionURL(ctx, databaseCluster, *response.Username, *response.Password)
 	case everestv1alpha1.DatabaseEnginePostgresql:
-		response.Username = pointer.ToString("postgres")
-		response.Password = pointer.ToString(string(secret.Data["password"]))
+		response.Username = new("postgres")
+		response.Password = new(string(secret.Data["password"]))
 		response.ConnectionUrl = h.connectionURL(ctx, databaseCluster, *response.Username, *response.Password)
 	default:
 		return nil, fmt.Errorf("unsupported database engine type: %s", databaseCluster.Spec.Engine.Type)
@@ -174,28 +174,28 @@ func (h *k8sHandler) GetDatabaseClusterComponents(ctx context.Context, namespace
 
 			var startedString *string
 			if !started.IsZero() {
-				startedString = pointer.ToString(started.Format(time.RFC3339))
+				startedString = new(started.Format(time.RFC3339))
 			}
 			containers = append(containers, api.DatabaseClusterComponentContainer{
 				Name:     &c.Name,
 				Started:  startedString,
 				Ready:    &c.Ready,
-				Restarts: pointer.ToInt(int(c.RestartCount)),
+				Restarts: new(int(c.RestartCount)),
 				Status:   &status,
 			})
 		}
 
 		var started *string
 		if startTime := pod.Status.StartTime; startTime != nil && !startTime.Time.IsZero() {
-			started = pointer.ToString(pod.Status.StartTime.Time.Format(time.RFC3339))
+			started = new(pod.Status.StartTime.Format(time.RFC3339))
 		}
 		res = append(res, api.DatabaseClusterComponent{
-			Status:     pointer.ToString(string(pod.Status.Phase)),
+			Status:     new(string(pod.Status.Phase)),
 			Name:       &pod.Name,
 			Type:       &component,
 			Started:    started,
-			Restarts:   pointer.ToInt(restarts),
-			Ready:      pointer.ToString(fmt.Sprintf("%d/%d", ready, len(pod.Status.ContainerStatuses))),
+			Restarts:   new(restarts),
+			Ready:      new(fmt.Sprintf("%d/%d", ready, len(pod.Status.ContainerStatuses))),
 			Containers: &containers,
 		})
 	}
@@ -310,7 +310,7 @@ func (h *k8sHandler) connectionURL(ctx context.Context, db *everestv1alpha1.Data
 	case everestv1alpha1.DatabaseEnginePostgresql:
 		url = queryEscapedURL("postgres", user, password, defaultHost)
 	}
-	return pointer.ToString(url)
+	return new(url)
 }
 
 // Using own format instead of url.URL bc it uses the password encoding policy which does not encode char like ','
@@ -321,9 +321,9 @@ func queryEscapedURL(scheme, user, password, hosts string) string {
 }
 
 func psmdbHosts(
-	ctx context.Context,
+	_ context.Context,
 	db *everestv1alpha1.DatabaseCluster,
-	getPods func(ctx context.Context, opts ...ctrlclient.ListOption) (*corev1.PodList, error),
+	_ func(ctx context.Context, opts ...ctrlclient.ListOption) (*corev1.PodList, error),
 ) string {
 	// for sharded clusters use a single entry point (mongos)
 	if db.Spec.Sharding != nil && db.Spec.Sharding.Enabled {

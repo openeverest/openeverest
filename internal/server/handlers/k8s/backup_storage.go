@@ -69,7 +69,28 @@ func (h *k8sHandler) CreateBackupStorage(ctx context.Context, namespace string, 
 	} else if err != nil {
 		return nil, fmt.Errorf("failed to create secret: %w", err)
 	}
-	bs = &everestv1alpha1.BackupStorage{
+	bs = backupStorageFromParams(namespace, req)
+	created, err := h.kubeConnector.CreateBackupStorage(ctx, bs)
+	if err != nil {
+		// TODO: Move this logic to the operator
+		delObj := &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      req.Name,
+				Namespace: namespace,
+			},
+		}
+		dErr := h.kubeConnector.DeleteSecret(ctx, delObj)
+		if dErr != nil {
+			return nil, errors.Join(err, dErr)
+		}
+		return nil, fmt.Errorf("failed to create backup storage: %w", err)
+	}
+
+	return created, nil
+}
+
+func backupStorageFromParams(namespace string, req *api.CreateBackupStorageParams) *everestv1alpha1.BackupStorage {
+	bs := &everestv1alpha1.BackupStorage{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      req.Name,
 			Namespace: namespace,
@@ -90,23 +111,7 @@ func (h *k8sHandler) CreateBackupStorage(ctx context.Context, namespace string, 
 	if req.Description != nil {
 		bs.Spec.Description = *req.Description
 	}
-	created, err := h.kubeConnector.CreateBackupStorage(ctx, bs)
-	if err != nil {
-		// TODO: Move this logic to the operator
-		delObj := &corev1.Secret{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      req.Name,
-				Namespace: namespace,
-			},
-		}
-		dErr := h.kubeConnector.DeleteSecret(ctx, delObj)
-		if dErr != nil {
-			return nil, errors.Join(err, dErr)
-		}
-		return nil, fmt.Errorf("failed to create backup storage: %w", err)
-	}
-
-	return created, nil
+	return bs
 }
 
 func (h *k8sHandler) UpdateBackupStorage(ctx context.Context, namespace, name string, req *api.UpdateBackupStorageParams) (*everestv1alpha1.BackupStorage, error) {

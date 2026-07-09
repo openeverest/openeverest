@@ -560,7 +560,7 @@ func TestValidateBackupStoragesFor(t *testing.T) {
 					Backup: everestv1alpha1.Backup{
 						PITR: everestv1alpha1.PITRSpec{
 							Enabled:           true,
-							BackupStorageName: pointer.To("storage"),
+							BackupStorageName: new("storage"),
 						},
 						Schedules: []everestv1alpha1.BackupSchedule{
 							{
@@ -639,7 +639,7 @@ func TestValidateBackupStoragesFor(t *testing.T) {
 					Backup: everestv1alpha1.Backup{
 						PITR: everestv1alpha1.PITRSpec{
 							Enabled:           true,
-							BackupStorageName: pointer.To("storage"),
+							BackupStorageName: new("storage"),
 						},
 						Schedules: []everestv1alpha1.BackupSchedule{
 							{
@@ -705,7 +705,7 @@ func TestValidatePitrSpec(t *testing.T) {
 					Backup: everestv1alpha1.Backup{
 						PITR: everestv1alpha1.PITRSpec{
 							Enabled:           true,
-							BackupStorageName: pointer.To("name"),
+							BackupStorageName: new("name"),
 						},
 					},
 				},
@@ -789,8 +789,8 @@ func TestValidatePitrSpec(t *testing.T) {
 					Backup: everestv1alpha1.Backup{
 						PITR: everestv1alpha1.PITRSpec{
 							Enabled:           true,
-							BackupStorageName: pointer.To("name"),
-							UploadIntervalSec: pointer.ToInt(0),
+							BackupStorageName: new("name"),
+							UploadIntervalSec: new(0),
 						},
 					},
 				},
@@ -804,8 +804,8 @@ func TestValidatePitrSpec(t *testing.T) {
 					Backup: everestv1alpha1.Backup{
 						PITR: everestv1alpha1.PITRSpec{
 							Enabled:           true,
-							BackupStorageName: pointer.To("name"),
-							UploadIntervalSec: pointer.ToInt(-100),
+							BackupStorageName: new("name"),
+							UploadIntervalSec: new(-100),
 						},
 					},
 				},

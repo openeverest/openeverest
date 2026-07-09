@@ -55,13 +55,13 @@ func init() {
 	)
 }
 
-func accountsListPreRun(cmd *cobra.Command, _ []string) { //nolint:revive
+func accountsListPreRun(cmd *cobra.Command, _ []string) {
 	// Copy global flags to config
-	accountsListCfg.Pretty = !(cmd.Flag(cli.FlagVerbose).Changed || cmd.Flag(cli.FlagJSON).Changed)
+	accountsListCfg.Pretty = !cmd.Flag(cli.FlagVerbose).Changed && !cmd.Flag(cli.FlagJSON).Changed
 	accountsListCfg.KubeconfigPath = cmd.Flag(cli.FlagKubeconfig).Value.String()
 }
 
-func accountsListRun(cmd *cobra.Command, _ []string) { //nolint:revive
+func accountsListRun(cmd *cobra.Command, _ []string) {
 	cliA, err := accountscli.NewAccounts(*accountsListCfg, logger.GetLogger())
 	if err != nil {
 		output.PrintError(err, logger.GetLogger(), accountsListCfg.Pretty)

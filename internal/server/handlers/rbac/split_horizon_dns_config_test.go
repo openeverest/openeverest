@@ -17,7 +17,6 @@
 package rbac
 
 import (
-	"context"
 	"fmt"
 	"slices"
 	"testing"
@@ -31,7 +30,6 @@ import (
 	enginefeatureseverestv1alpha1 "github.com/percona/everest-operator/api/enginefeatures.everest/v1alpha1"
 	"github.com/percona/everest/api"
 	"github.com/percona/everest/internal/server/handlers"
-	"github.com/percona/everest/pkg/common"
 	"github.com/percona/everest/pkg/rbac"
 )
 
@@ -70,42 +68,42 @@ func Test_rbacHandler_CreateSplitHorizonDNSConfig(t *testing.T) {
 		{
 			desc: "all actions for all everestfeatures/splithorizondnsconfigs in all namespaces",
 			policy: newPolicy(
-				fmt.Sprintf("p, role:test, %s, *, */*", rbac.ResourceEngineFeatures_SplitHorizonDNSConfigs),
+				fmt.Sprintf("p, role:test, %s, *, */*", rbac.ResourceEngineFeaturesSplitHorizonDNSConfigs),
 				"g, bob, role:test",
 			),
 		},
 		{
 			desc: "all actions for default/shdc-test-1",
 			policy: newPolicy(
-				fmt.Sprintf("p, role:test, %s, *, %s/%s", rbac.ResourceEngineFeatures_SplitHorizonDNSConfigs, namespace, shdcName),
+				fmt.Sprintf("p, role:test, %s, *, %s/%s", rbac.ResourceEngineFeaturesSplitHorizonDNSConfigs, namespace, shdcName),
 				"g, bob, role:test",
 			),
 		},
 		{
 			desc: "create only action for all everestfeatures/splithorizondnsconfigs in namespace",
 			policy: newPolicy(
-				fmt.Sprintf("p, role:test, %s, create, %s/*", rbac.ResourceEngineFeatures_SplitHorizonDNSConfigs, namespace),
+				fmt.Sprintf("p, role:test, %s, create, %s/*", rbac.ResourceEngineFeaturesSplitHorizonDNSConfigs, namespace),
 				"g, bob, role:test",
 			),
 		},
 		{
 			desc: "create only action for all everestfeatures/splithorizondnsconfigs in all namespaces",
 			policy: newPolicy(
-				fmt.Sprintf("p, role:test, %s, create, */*", rbac.ResourceEngineFeatures_SplitHorizonDNSConfigs),
+				fmt.Sprintf("p, role:test, %s, create, */*", rbac.ResourceEngineFeaturesSplitHorizonDNSConfigs),
 				"g, bob, role:test",
 			),
 		},
 		{
 			desc: "create only action for particular everestfeatures/splithorizondnsconfigs in namespace",
 			policy: newPolicy(
-				fmt.Sprintf("p, role:test, %s, create, %s/%s", rbac.ResourceEngineFeatures_SplitHorizonDNSConfigs, namespace, shdcName),
+				fmt.Sprintf("p, role:test, %s, create, %s/%s", rbac.ResourceEngineFeaturesSplitHorizonDNSConfigs, namespace, shdcName),
 				"g, bob, role:test",
 			),
 		},
 		{
 			desc: "create only action for particular everestfeatures/splithorizondnsconfigs in another namespace",
 			policy: newPolicy(
-				fmt.Sprintf("p, role:test, %s, create, some/%s", rbac.ResourceEngineFeatures_SplitHorizonDNSConfigs, shdcName),
+				fmt.Sprintf("p, role:test, %s, create, some/%s", rbac.ResourceEngineFeaturesSplitHorizonDNSConfigs, shdcName),
 				"g, bob, role:test",
 			),
 			wantErr: ErrInsufficientPermissions,
@@ -113,7 +111,7 @@ func Test_rbacHandler_CreateSplitHorizonDNSConfig(t *testing.T) {
 		{
 			desc: "create only action for another everestfeatures/splithorizondnsconfigs in namespace",
 			policy: newPolicy(
-				fmt.Sprintf("p, role:test, %s, create, %s/some", rbac.ResourceEngineFeatures_SplitHorizonDNSConfigs, namespace),
+				fmt.Sprintf("p, role:test, %s, create, %s/some", rbac.ResourceEngineFeaturesSplitHorizonDNSConfigs, namespace),
 				"g, bob, role:test",
 			),
 			wantErr: ErrInsufficientPermissions,
@@ -122,7 +120,7 @@ func Test_rbacHandler_CreateSplitHorizonDNSConfig(t *testing.T) {
 		{
 			desc: "update only action for all everestfeatures/splithorizondnsconfigs in namespace",
 			policy: newPolicy(
-				fmt.Sprintf("p, role:test, %s, update, %s/*", rbac.ResourceEngineFeatures_SplitHorizonDNSConfigs, namespace),
+				fmt.Sprintf("p, role:test, %s, update, %s/*", rbac.ResourceEngineFeaturesSplitHorizonDNSConfigs, namespace),
 				"g, bob, role:test",
 			),
 			wantErr: ErrInsufficientPermissions,
@@ -130,7 +128,7 @@ func Test_rbacHandler_CreateSplitHorizonDNSConfig(t *testing.T) {
 		{
 			desc: "update only action for everestfeatures/splithorizondnsconfigs in all namespaces",
 			policy: newPolicy(
-				fmt.Sprintf("p, role:test, %s, update, */*", rbac.ResourceEngineFeatures_SplitHorizonDNSConfigs),
+				fmt.Sprintf("p, role:test, %s, update, */*", rbac.ResourceEngineFeaturesSplitHorizonDNSConfigs),
 				"g, bob, role:test",
 			),
 			wantErr: ErrInsufficientPermissions,
@@ -138,7 +136,7 @@ func Test_rbacHandler_CreateSplitHorizonDNSConfig(t *testing.T) {
 		{
 			desc: "read only action for all everestfeatures/splithorizondnsconfigs in namespace",
 			policy: newPolicy(
-				fmt.Sprintf("p, role:test, %s, read, %s/*", rbac.ResourceEngineFeatures_SplitHorizonDNSConfigs, namespace),
+				fmt.Sprintf("p, role:test, %s, read, %s/*", rbac.ResourceEngineFeaturesSplitHorizonDNSConfigs, namespace),
 				"g, bob, role:test",
 			),
 			wantErr: ErrInsufficientPermissions,
@@ -146,7 +144,7 @@ func Test_rbacHandler_CreateSplitHorizonDNSConfig(t *testing.T) {
 		{
 			desc: "read only action for everestfeatures/splithorizondnsconfigs in all namespaces",
 			policy: newPolicy(
-				fmt.Sprintf("p, role:test, %s, read, */*", rbac.ResourceEngineFeatures_SplitHorizonDNSConfigs),
+				fmt.Sprintf("p, role:test, %s, read, */*", rbac.ResourceEngineFeaturesSplitHorizonDNSConfigs),
 				"g, bob, role:test",
 			),
 			wantErr: ErrInsufficientPermissions,
@@ -154,7 +152,7 @@ func Test_rbacHandler_CreateSplitHorizonDNSConfig(t *testing.T) {
 		{
 			desc: "delete only action for all everestfeatures/splithorizondnsconfigs in namespace",
 			policy: newPolicy(
-				fmt.Sprintf("p, role:test, %s, delete, %s/*", rbac.ResourceEngineFeatures_SplitHorizonDNSConfigs, namespace),
+				fmt.Sprintf("p, role:test, %s, delete, %s/*", rbac.ResourceEngineFeaturesSplitHorizonDNSConfigs, namespace),
 				"g, bob, role:test",
 			),
 			wantErr: ErrInsufficientPermissions,
@@ -162,14 +160,14 @@ func Test_rbacHandler_CreateSplitHorizonDNSConfig(t *testing.T) {
 		{
 			desc: "delete only action for everestfeatures/splithorizondnsconfigs in all namespaces",
 			policy: newPolicy(
-				fmt.Sprintf("p, role:test, %s, delete, */*", rbac.ResourceEngineFeatures_SplitHorizonDNSConfigs),
+				fmt.Sprintf("p, role:test, %s, delete, */*", rbac.ResourceEngineFeaturesSplitHorizonDNSConfigs),
 				"g, bob, role:test",
 			),
 			wantErr: ErrInsufficientPermissions,
 		},
 	}
 
-	ctx := context.WithValue(context.Background(), common.UserCtxKey, rbac.User{Subject: "bob"})
+	ctx := testUserContext(rbac.User{Subject: "bob"})
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
 			t.Parallel()
@@ -227,42 +225,42 @@ func Test_rbacHandler_DeleteSplitHorizonDNSConfig(t *testing.T) {
 		{
 			desc: "all actions for all everestfeatures/splithorizondnsconfigs in all namespaces",
 			policy: newPolicy(
-				fmt.Sprintf("p, role:test, %s, *, */*", rbac.ResourceEngineFeatures_SplitHorizonDNSConfigs),
+				fmt.Sprintf("p, role:test, %s, *, */*", rbac.ResourceEngineFeaturesSplitHorizonDNSConfigs),
 				"g, bob, role:test",
 			),
 		},
 		{
 			desc: "all actions for default/shdc-test-1",
 			policy: newPolicy(
-				fmt.Sprintf("p, role:test, %s, *, %s/%s", rbac.ResourceEngineFeatures_SplitHorizonDNSConfigs, namespace, shdcName),
+				fmt.Sprintf("p, role:test, %s, *, %s/%s", rbac.ResourceEngineFeaturesSplitHorizonDNSConfigs, namespace, shdcName),
 				"g, bob, role:test",
 			),
 		},
 		{
 			desc: "delete only action for all everestfeatures/splithorizondnsconfigs in namespace",
 			policy: newPolicy(
-				fmt.Sprintf("p, role:test, %s, delete, %s/*", rbac.ResourceEngineFeatures_SplitHorizonDNSConfigs, namespace),
+				fmt.Sprintf("p, role:test, %s, delete, %s/*", rbac.ResourceEngineFeaturesSplitHorizonDNSConfigs, namespace),
 				"g, bob, role:test",
 			),
 		},
 		{
 			desc: "delete only action for all everestfeatures/splithorizondnsconfigs in all namespaces",
 			policy: newPolicy(
-				fmt.Sprintf("p, role:test, %s, delete, */*", rbac.ResourceEngineFeatures_SplitHorizonDNSConfigs),
+				fmt.Sprintf("p, role:test, %s, delete, */*", rbac.ResourceEngineFeaturesSplitHorizonDNSConfigs),
 				"g, bob, role:test",
 			),
 		},
 		{
 			desc: "delete only action for particular everestfeatures/splithorizondnsconfigs in namespace",
 			policy: newPolicy(
-				fmt.Sprintf("p, role:test, %s, delete, %s/%s", rbac.ResourceEngineFeatures_SplitHorizonDNSConfigs, namespace, shdcName),
+				fmt.Sprintf("p, role:test, %s, delete, %s/%s", rbac.ResourceEngineFeaturesSplitHorizonDNSConfigs, namespace, shdcName),
 				"g, bob, role:test",
 			),
 		},
 		{
 			desc: "delete only action for particular everestfeatures/splithorizondnsconfigs in another namespace",
 			policy: newPolicy(
-				fmt.Sprintf("p, role:test, %s, delete, some/%s", rbac.ResourceEngineFeatures_SplitHorizonDNSConfigs, shdcName),
+				fmt.Sprintf("p, role:test, %s, delete, some/%s", rbac.ResourceEngineFeaturesSplitHorizonDNSConfigs, shdcName),
 				"g, bob, role:test",
 			),
 			wantErr: ErrInsufficientPermissions,
@@ -270,7 +268,7 @@ func Test_rbacHandler_DeleteSplitHorizonDNSConfig(t *testing.T) {
 		{
 			desc: "delete only action for another everestfeatures/splithorizondnsconfigs in namespace",
 			policy: newPolicy(
-				fmt.Sprintf("p, role:test, %s, delete, %s/some", rbac.ResourceEngineFeatures_SplitHorizonDNSConfigs, namespace),
+				fmt.Sprintf("p, role:test, %s, delete, %s/some", rbac.ResourceEngineFeaturesSplitHorizonDNSConfigs, namespace),
 				"g, bob, role:test",
 			),
 			wantErr: ErrInsufficientPermissions,
@@ -279,7 +277,7 @@ func Test_rbacHandler_DeleteSplitHorizonDNSConfig(t *testing.T) {
 		{
 			desc: "update only action for all everestfeatures/splithorizondnsconfigs in namespace",
 			policy: newPolicy(
-				fmt.Sprintf("p, role:test, %s, update, %s/*", rbac.ResourceEngineFeatures_SplitHorizonDNSConfigs, namespace),
+				fmt.Sprintf("p, role:test, %s, update, %s/*", rbac.ResourceEngineFeaturesSplitHorizonDNSConfigs, namespace),
 				"g, bob, role:test",
 			),
 			wantErr: ErrInsufficientPermissions,
@@ -287,7 +285,7 @@ func Test_rbacHandler_DeleteSplitHorizonDNSConfig(t *testing.T) {
 		{
 			desc: "update only action for everestfeatures/splithorizondnsconfigs in all namespaces",
 			policy: newPolicy(
-				fmt.Sprintf("p, role:test, %s, update, */*", rbac.ResourceEngineFeatures_SplitHorizonDNSConfigs),
+				fmt.Sprintf("p, role:test, %s, update, */*", rbac.ResourceEngineFeaturesSplitHorizonDNSConfigs),
 				"g, bob, role:test",
 			),
 			wantErr: ErrInsufficientPermissions,
@@ -295,7 +293,7 @@ func Test_rbacHandler_DeleteSplitHorizonDNSConfig(t *testing.T) {
 		{
 			desc: "read only action for all everestfeatures/splithorizondnsconfigs in namespace",
 			policy: newPolicy(
-				fmt.Sprintf("p, role:test, %s, read, %s/*", rbac.ResourceEngineFeatures_SplitHorizonDNSConfigs, namespace),
+				fmt.Sprintf("p, role:test, %s, read, %s/*", rbac.ResourceEngineFeaturesSplitHorizonDNSConfigs, namespace),
 				"g, bob, role:test",
 			),
 			wantErr: ErrInsufficientPermissions,
@@ -303,7 +301,7 @@ func Test_rbacHandler_DeleteSplitHorizonDNSConfig(t *testing.T) {
 		{
 			desc: "read only action for everestfeatures/splithorizondnsconfigs in all namespaces",
 			policy: newPolicy(
-				fmt.Sprintf("p, role:test, %s, read, */*", rbac.ResourceEngineFeatures_SplitHorizonDNSConfigs),
+				fmt.Sprintf("p, role:test, %s, read, */*", rbac.ResourceEngineFeaturesSplitHorizonDNSConfigs),
 				"g, bob, role:test",
 			),
 			wantErr: ErrInsufficientPermissions,
@@ -311,7 +309,7 @@ func Test_rbacHandler_DeleteSplitHorizonDNSConfig(t *testing.T) {
 		{
 			desc: "create only action for all everestfeatures/splithorizondnsconfigs in namespace",
 			policy: newPolicy(
-				fmt.Sprintf("p, role:test, %s, create, %s/*", rbac.ResourceEngineFeatures_SplitHorizonDNSConfigs, namespace),
+				fmt.Sprintf("p, role:test, %s, create, %s/*", rbac.ResourceEngineFeaturesSplitHorizonDNSConfigs, namespace),
 				"g, bob, role:test",
 			),
 			wantErr: ErrInsufficientPermissions,
@@ -319,14 +317,14 @@ func Test_rbacHandler_DeleteSplitHorizonDNSConfig(t *testing.T) {
 		{
 			desc: "create only action for everestfeatures/splithorizondnsconfigs in all namespaces",
 			policy: newPolicy(
-				fmt.Sprintf("p, role:test, %s, create, */*", rbac.ResourceEngineFeatures_SplitHorizonDNSConfigs),
+				fmt.Sprintf("p, role:test, %s, create, */*", rbac.ResourceEngineFeaturesSplitHorizonDNSConfigs),
 				"g, bob, role:test",
 			),
 			wantErr: ErrInsufficientPermissions,
 		},
 	}
 
-	ctx := context.WithValue(context.Background(), common.UserCtxKey, rbac.User{Subject: "bob"})
+	ctx := testUserContext(rbac.User{Subject: "bob"})
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
 			t.Parallel()
@@ -380,42 +378,42 @@ func Test_rbacHandler_GetSplitHorizonDNSConfig(t *testing.T) {
 		{
 			desc: "all actions for all everestfeatures/splithorizondnsconfigs in all namespaces",
 			policy: newPolicy(
-				fmt.Sprintf("p, role:test, %s, *, */*", rbac.ResourceEngineFeatures_SplitHorizonDNSConfigs),
+				fmt.Sprintf("p, role:test, %s, *, */*", rbac.ResourceEngineFeaturesSplitHorizonDNSConfigs),
 				"g, bob, role:test",
 			),
 		},
 		{
 			desc: "all actions for default/shdc-test-1",
 			policy: newPolicy(
-				fmt.Sprintf("p, role:test, %s, *, %s/%s", rbac.ResourceEngineFeatures_SplitHorizonDNSConfigs, namespace, shdcName),
+				fmt.Sprintf("p, role:test, %s, *, %s/%s", rbac.ResourceEngineFeaturesSplitHorizonDNSConfigs, namespace, shdcName),
 				"g, bob, role:test",
 			),
 		},
 		{
 			desc: "read only action for all everestfeatures/splithorizondnsconfigs in namespace",
 			policy: newPolicy(
-				fmt.Sprintf("p, role:test, %s, read, %s/*", rbac.ResourceEngineFeatures_SplitHorizonDNSConfigs, namespace),
+				fmt.Sprintf("p, role:test, %s, read, %s/*", rbac.ResourceEngineFeaturesSplitHorizonDNSConfigs, namespace),
 				"g, bob, role:test",
 			),
 		},
 		{
 			desc: "read only action for all everestfeatures/splithorizondnsconfigs in all namespaces",
 			policy: newPolicy(
-				fmt.Sprintf("p, role:test, %s, read, */*", rbac.ResourceEngineFeatures_SplitHorizonDNSConfigs),
+				fmt.Sprintf("p, role:test, %s, read, */*", rbac.ResourceEngineFeaturesSplitHorizonDNSConfigs),
 				"g, bob, role:test",
 			),
 		},
 		{
 			desc: "read only action for particular everestfeatures/splithorizondnsconfigs in namespace",
 			policy: newPolicy(
-				fmt.Sprintf("p, role:test, %s, read, %s/%s", rbac.ResourceEngineFeatures_SplitHorizonDNSConfigs, namespace, shdcName),
+				fmt.Sprintf("p, role:test, %s, read, %s/%s", rbac.ResourceEngineFeaturesSplitHorizonDNSConfigs, namespace, shdcName),
 				"g, bob, role:test",
 			),
 		},
 		{
 			desc: "read only action for particular everestfeatures/splithorizondnsconfigs in another namespace",
 			policy: newPolicy(
-				fmt.Sprintf("p, role:test, %s, read, some/%s", rbac.ResourceEngineFeatures_SplitHorizonDNSConfigs, shdcName),
+				fmt.Sprintf("p, role:test, %s, read, some/%s", rbac.ResourceEngineFeaturesSplitHorizonDNSConfigs, shdcName),
 				"g, bob, role:test",
 			),
 			wantErr: ErrInsufficientPermissions,
@@ -423,7 +421,7 @@ func Test_rbacHandler_GetSplitHorizonDNSConfig(t *testing.T) {
 		{
 			desc: "read only action for another everestfeatures/splithorizondnsconfigs in namespace",
 			policy: newPolicy(
-				fmt.Sprintf("p, role:test, %s, read, %s/some", rbac.ResourceEngineFeatures_SplitHorizonDNSConfigs, namespace),
+				fmt.Sprintf("p, role:test, %s, read, %s/some", rbac.ResourceEngineFeaturesSplitHorizonDNSConfigs, namespace),
 				"g, bob, role:test",
 			),
 			wantErr: ErrInsufficientPermissions,
@@ -432,7 +430,7 @@ func Test_rbacHandler_GetSplitHorizonDNSConfig(t *testing.T) {
 		{
 			desc: "update only action for all everestfeatures/splithorizondnsconfigs in namespace",
 			policy: newPolicy(
-				fmt.Sprintf("p, role:test, %s, update, %s/*", rbac.ResourceEngineFeatures_SplitHorizonDNSConfigs, namespace),
+				fmt.Sprintf("p, role:test, %s, update, %s/*", rbac.ResourceEngineFeaturesSplitHorizonDNSConfigs, namespace),
 				"g, bob, role:test",
 			),
 			wantErr: ErrInsufficientPermissions,
@@ -440,7 +438,7 @@ func Test_rbacHandler_GetSplitHorizonDNSConfig(t *testing.T) {
 		{
 			desc: "update only action for everestfeatures/splithorizondnsconfigs in all namespaces",
 			policy: newPolicy(
-				fmt.Sprintf("p, role:test, %s, update, */*", rbac.ResourceEngineFeatures_SplitHorizonDNSConfigs),
+				fmt.Sprintf("p, role:test, %s, update, */*", rbac.ResourceEngineFeaturesSplitHorizonDNSConfigs),
 				"g, bob, role:test",
 			),
 			wantErr: ErrInsufficientPermissions,
@@ -448,7 +446,7 @@ func Test_rbacHandler_GetSplitHorizonDNSConfig(t *testing.T) {
 		{
 			desc: "create only action for all everestfeatures/splithorizondnsconfigs in namespace",
 			policy: newPolicy(
-				fmt.Sprintf("p, role:test, %s, create, %s/*", rbac.ResourceEngineFeatures_SplitHorizonDNSConfigs, namespace),
+				fmt.Sprintf("p, role:test, %s, create, %s/*", rbac.ResourceEngineFeaturesSplitHorizonDNSConfigs, namespace),
 				"g, bob, role:test",
 			),
 			wantErr: ErrInsufficientPermissions,
@@ -456,7 +454,7 @@ func Test_rbacHandler_GetSplitHorizonDNSConfig(t *testing.T) {
 		{
 			desc: "create only action for everestfeatures/splithorizondnsconfigs in all namespaces",
 			policy: newPolicy(
-				fmt.Sprintf("p, role:test, %s, create, */*", rbac.ResourceEngineFeatures_SplitHorizonDNSConfigs),
+				fmt.Sprintf("p, role:test, %s, create, */*", rbac.ResourceEngineFeaturesSplitHorizonDNSConfigs),
 				"g, bob, role:test",
 			),
 			wantErr: ErrInsufficientPermissions,
@@ -464,7 +462,7 @@ func Test_rbacHandler_GetSplitHorizonDNSConfig(t *testing.T) {
 		{
 			desc: "delete only action for all everestfeatures/splithorizondnsconfigs in namespace",
 			policy: newPolicy(
-				fmt.Sprintf("p, role:test, %s, delete, %s/*", rbac.ResourceEngineFeatures_SplitHorizonDNSConfigs, namespace),
+				fmt.Sprintf("p, role:test, %s, delete, %s/*", rbac.ResourceEngineFeaturesSplitHorizonDNSConfigs, namespace),
 				"g, bob, role:test",
 			),
 			wantErr: ErrInsufficientPermissions,
@@ -472,14 +470,14 @@ func Test_rbacHandler_GetSplitHorizonDNSConfig(t *testing.T) {
 		{
 			desc: "delete only action for everestfeatures/splithorizondnsconfigs in all namespaces",
 			policy: newPolicy(
-				fmt.Sprintf("p, role:test, %s, delete, */*", rbac.ResourceEngineFeatures_SplitHorizonDNSConfigs),
+				fmt.Sprintf("p, role:test, %s, delete, */*", rbac.ResourceEngineFeaturesSplitHorizonDNSConfigs),
 				"g, bob, role:test",
 			),
 			wantErr: ErrInsufficientPermissions,
 		},
 	}
 
-	ctx := context.WithValue(context.Background(), common.UserCtxKey, rbac.User{Subject: "bob"})
+	ctx := testUserContext(rbac.User{Subject: "bob"})
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
 			t.Parallel()
@@ -541,7 +539,6 @@ func Test_rbacHandler_ListSplitHorizonDNSConfigs(t *testing.T) {
 	type testCase struct {
 		desc   string
 		policy string
-		outLen int
 		assert func(list *enginefeatureseverestv1alpha1.SplitHorizonDNSConfigList) bool
 	}
 	testCases := []testCase{
@@ -566,7 +563,7 @@ func Test_rbacHandler_ListSplitHorizonDNSConfigs(t *testing.T) {
 		{
 			desc: "all actions for all everestfeatures/splithorizondnsconfigs in all namespaces",
 			policy: newPolicy(
-				fmt.Sprintf("p, role:test, %s, *, */*", rbac.ResourceEngineFeatures_SplitHorizonDNSConfigs),
+				fmt.Sprintf("p, role:test, %s, *, */*", rbac.ResourceEngineFeaturesSplitHorizonDNSConfigs),
 				"g, bob, role:test",
 			),
 			assert: func(list *enginefeatureseverestv1alpha1.SplitHorizonDNSConfigList) bool {
@@ -585,7 +582,7 @@ func Test_rbacHandler_ListSplitHorizonDNSConfigs(t *testing.T) {
 		{
 			desc: "all actions for default/shdc-test-1",
 			policy: newPolicy(
-				fmt.Sprintf("p, role:test, %s, *, %s/%s-1", rbac.ResourceEngineFeatures_SplitHorizonDNSConfigs, namespace, shdcName),
+				fmt.Sprintf("p, role:test, %s, *, %s/%s-1", rbac.ResourceEngineFeaturesSplitHorizonDNSConfigs, namespace, shdcName),
 				"g, bob, role:test",
 			),
 			assert: func(list *enginefeatureseverestv1alpha1.SplitHorizonDNSConfigList) bool {
@@ -598,7 +595,7 @@ func Test_rbacHandler_ListSplitHorizonDNSConfigs(t *testing.T) {
 		{
 			desc: "read only action for all everestfeatures/splithorizondnsconfigs in namespace",
 			policy: newPolicy(
-				fmt.Sprintf("p, role:test, %s, read, %s/*", rbac.ResourceEngineFeatures_SplitHorizonDNSConfigs, namespace),
+				fmt.Sprintf("p, role:test, %s, read, %s/*", rbac.ResourceEngineFeaturesSplitHorizonDNSConfigs, namespace),
 				"g, bob, role:test",
 			),
 			assert: func(list *enginefeatureseverestv1alpha1.SplitHorizonDNSConfigList) bool {
@@ -617,7 +614,7 @@ func Test_rbacHandler_ListSplitHorizonDNSConfigs(t *testing.T) {
 		{
 			desc: "read only action for all everestfeatures/splithorizondnsconfigs in all namespaces",
 			policy: newPolicy(
-				fmt.Sprintf("p, role:test, %s, read, */*", rbac.ResourceEngineFeatures_SplitHorizonDNSConfigs),
+				fmt.Sprintf("p, role:test, %s, read, */*", rbac.ResourceEngineFeaturesSplitHorizonDNSConfigs),
 				"g, bob, role:test",
 			),
 			assert: func(list *enginefeatureseverestv1alpha1.SplitHorizonDNSConfigList) bool {
@@ -636,7 +633,7 @@ func Test_rbacHandler_ListSplitHorizonDNSConfigs(t *testing.T) {
 		{
 			desc: "read only action for shdc-test-1 in namespace",
 			policy: newPolicy(
-				fmt.Sprintf("p, role:test, %s, read, %s/%s-1", rbac.ResourceEngineFeatures_SplitHorizonDNSConfigs, namespace, shdcName),
+				fmt.Sprintf("p, role:test, %s, read, %s/%s-1", rbac.ResourceEngineFeaturesSplitHorizonDNSConfigs, namespace, shdcName),
 				"g, bob, role:test",
 			),
 			assert: func(list *enginefeatureseverestv1alpha1.SplitHorizonDNSConfigList) bool {
@@ -649,7 +646,7 @@ func Test_rbacHandler_ListSplitHorizonDNSConfigs(t *testing.T) {
 		{
 			desc: "read only action for shdc-test-1 in another namespace",
 			policy: newPolicy(
-				fmt.Sprintf("p, role:test, %s, read, some/%s", rbac.ResourceEngineFeatures_SplitHorizonDNSConfigs, shdcName),
+				fmt.Sprintf("p, role:test, %s, read, some/%s", rbac.ResourceEngineFeaturesSplitHorizonDNSConfigs, shdcName),
 				"g, bob, role:test",
 			),
 			assert: func(list *enginefeatureseverestv1alpha1.SplitHorizonDNSConfigList) bool {
@@ -659,7 +656,7 @@ func Test_rbacHandler_ListSplitHorizonDNSConfigs(t *testing.T) {
 		{
 			desc: "read only action for another everestfeatures/splithorizondnsconfigs in namespace",
 			policy: newPolicy(
-				fmt.Sprintf("p, role:test, %s, read, %s/some", rbac.ResourceEngineFeatures_SplitHorizonDNSConfigs, namespace),
+				fmt.Sprintf("p, role:test, %s, read, %s/some", rbac.ResourceEngineFeaturesSplitHorizonDNSConfigs, namespace),
 				"g, bob, role:test",
 			),
 			assert: func(list *enginefeatureseverestv1alpha1.SplitHorizonDNSConfigList) bool {
@@ -669,8 +666,8 @@ func Test_rbacHandler_ListSplitHorizonDNSConfigs(t *testing.T) {
 		{
 			desc: "read only action for shdc-test-1 and shdc-test-2 in namespace",
 			policy: newPolicy(
-				fmt.Sprintf("p, role:test, %s, read, %s/%s-1", rbac.ResourceEngineFeatures_SplitHorizonDNSConfigs, namespace, shdcName),
-				fmt.Sprintf("p, role:test, %s, read, %s/%s-2", rbac.ResourceEngineFeatures_SplitHorizonDNSConfigs, namespace, shdcName),
+				fmt.Sprintf("p, role:test, %s, read, %s/%s-1", rbac.ResourceEngineFeaturesSplitHorizonDNSConfigs, namespace, shdcName),
+				fmt.Sprintf("p, role:test, %s, read, %s/%s-2", rbac.ResourceEngineFeaturesSplitHorizonDNSConfigs, namespace, shdcName),
 				"g, bob, role:test",
 			),
 			assert: func(list *enginefeatureseverestv1alpha1.SplitHorizonDNSConfigList) bool {
@@ -687,7 +684,7 @@ func Test_rbacHandler_ListSplitHorizonDNSConfigs(t *testing.T) {
 		{
 			desc: "update only action for all everestfeatures/splithorizondnsconfigs in namespace",
 			policy: newPolicy(
-				fmt.Sprintf("p, role:test, %s, update, %s/*", rbac.ResourceEngineFeatures_SplitHorizonDNSConfigs, namespace),
+				fmt.Sprintf("p, role:test, %s, update, %s/*", rbac.ResourceEngineFeaturesSplitHorizonDNSConfigs, namespace),
 				"g, bob, role:test",
 			),
 			assert: func(list *enginefeatureseverestv1alpha1.SplitHorizonDNSConfigList) bool {
@@ -697,7 +694,7 @@ func Test_rbacHandler_ListSplitHorizonDNSConfigs(t *testing.T) {
 		{
 			desc: "update only action for everestfeatures/splithorizondnsconfigs in all namespaces",
 			policy: newPolicy(
-				fmt.Sprintf("p, role:test, %s, update, */*", rbac.ResourceEngineFeatures_SplitHorizonDNSConfigs),
+				fmt.Sprintf("p, role:test, %s, update, */*", rbac.ResourceEngineFeaturesSplitHorizonDNSConfigs),
 				"g, bob, role:test",
 			),
 			assert: func(list *enginefeatureseverestv1alpha1.SplitHorizonDNSConfigList) bool {
@@ -707,7 +704,7 @@ func Test_rbacHandler_ListSplitHorizonDNSConfigs(t *testing.T) {
 		{
 			desc: "create only action for all everestfeatures/splithorizondnsconfigs in namespace",
 			policy: newPolicy(
-				fmt.Sprintf("p, role:test, %s, create, %s/*", rbac.ResourceEngineFeatures_SplitHorizonDNSConfigs, namespace),
+				fmt.Sprintf("p, role:test, %s, create, %s/*", rbac.ResourceEngineFeaturesSplitHorizonDNSConfigs, namespace),
 				"g, bob, role:test",
 			),
 			assert: func(list *enginefeatureseverestv1alpha1.SplitHorizonDNSConfigList) bool {
@@ -717,7 +714,7 @@ func Test_rbacHandler_ListSplitHorizonDNSConfigs(t *testing.T) {
 		{
 			desc: "create only action for everestfeatures/splithorizondnsconfigs in all namespaces",
 			policy: newPolicy(
-				fmt.Sprintf("p, role:test, %s, create, */*", rbac.ResourceEngineFeatures_SplitHorizonDNSConfigs),
+				fmt.Sprintf("p, role:test, %s, create, */*", rbac.ResourceEngineFeaturesSplitHorizonDNSConfigs),
 				"g, bob, role:test",
 			),
 			assert: func(list *enginefeatureseverestv1alpha1.SplitHorizonDNSConfigList) bool {
@@ -727,7 +724,7 @@ func Test_rbacHandler_ListSplitHorizonDNSConfigs(t *testing.T) {
 		{
 			desc: "delete only action for all everestfeatures/splithorizondnsconfigs in namespace",
 			policy: newPolicy(
-				fmt.Sprintf("p, role:test, %s, delete, %s/*", rbac.ResourceEngineFeatures_SplitHorizonDNSConfigs, namespace),
+				fmt.Sprintf("p, role:test, %s, delete, %s/*", rbac.ResourceEngineFeaturesSplitHorizonDNSConfigs, namespace),
 				"g, bob, role:test",
 			),
 			assert: func(list *enginefeatureseverestv1alpha1.SplitHorizonDNSConfigList) bool {
@@ -737,7 +734,7 @@ func Test_rbacHandler_ListSplitHorizonDNSConfigs(t *testing.T) {
 		{
 			desc: "delete only action for everestfeatures/splithorizondnsconfigs in all namespaces",
 			policy: newPolicy(
-				fmt.Sprintf("p, role:test, %s, delete, */*", rbac.ResourceEngineFeatures_SplitHorizonDNSConfigs),
+				fmt.Sprintf("p, role:test, %s, delete, */*", rbac.ResourceEngineFeaturesSplitHorizonDNSConfigs),
 				"g, bob, role:test",
 			),
 			assert: func(list *enginefeatureseverestv1alpha1.SplitHorizonDNSConfigList) bool {
@@ -746,7 +743,7 @@ func Test_rbacHandler_ListSplitHorizonDNSConfigs(t *testing.T) {
 		},
 	}
 
-	ctx := context.WithValue(context.Background(), common.UserCtxKey, rbac.User{Subject: "bob"})
+	ctx := testUserContext(rbac.User{Subject: "bob"})
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
 			t.Parallel()
@@ -804,42 +801,42 @@ func Test_rbacHandler_UpdateSplitHorizonDNSConfig(t *testing.T) {
 		{
 			desc: "all actions for all everestfeatures/splithorizondnsconfigs in all namespaces",
 			policy: newPolicy(
-				fmt.Sprintf("p, role:test, %s, *, */*", rbac.ResourceEngineFeatures_SplitHorizonDNSConfigs),
+				fmt.Sprintf("p, role:test, %s, *, */*", rbac.ResourceEngineFeaturesSplitHorizonDNSConfigs),
 				"g, bob, role:test",
 			),
 		},
 		{
 			desc: "all actions for default/shdc-test-1",
 			policy: newPolicy(
-				fmt.Sprintf("p, role:test, %s, *, %s/%s", rbac.ResourceEngineFeatures_SplitHorizonDNSConfigs, namespace, shdcName),
+				fmt.Sprintf("p, role:test, %s, *, %s/%s", rbac.ResourceEngineFeaturesSplitHorizonDNSConfigs, namespace, shdcName),
 				"g, bob, role:test",
 			),
 		},
 		{
 			desc: "update only action for all everestfeatures/splithorizondnsconfigs in namespace",
 			policy: newPolicy(
-				fmt.Sprintf("p, role:test, %s, update, %s/*", rbac.ResourceEngineFeatures_SplitHorizonDNSConfigs, namespace),
+				fmt.Sprintf("p, role:test, %s, update, %s/*", rbac.ResourceEngineFeaturesSplitHorizonDNSConfigs, namespace),
 				"g, bob, role:test",
 			),
 		},
 		{
 			desc: "update only action for all everestfeatures/splithorizondnsconfigs in all namespaces",
 			policy: newPolicy(
-				fmt.Sprintf("p, role:test, %s, update, */*", rbac.ResourceEngineFeatures_SplitHorizonDNSConfigs),
+				fmt.Sprintf("p, role:test, %s, update, */*", rbac.ResourceEngineFeaturesSplitHorizonDNSConfigs),
 				"g, bob, role:test",
 			),
 		},
 		{
 			desc: "update only action for particular everestfeatures/splithorizondnsconfigs in namespace",
 			policy: newPolicy(
-				fmt.Sprintf("p, role:test, %s, update, %s/%s", rbac.ResourceEngineFeatures_SplitHorizonDNSConfigs, namespace, shdcName),
+				fmt.Sprintf("p, role:test, %s, update, %s/%s", rbac.ResourceEngineFeaturesSplitHorizonDNSConfigs, namespace, shdcName),
 				"g, bob, role:test",
 			),
 		},
 		{
 			desc: "update only action for particular everestfeatures/splithorizondnsconfigs in another namespace",
 			policy: newPolicy(
-				fmt.Sprintf("p, role:test, %s, update, some/%s", rbac.ResourceEngineFeatures_SplitHorizonDNSConfigs, shdcName),
+				fmt.Sprintf("p, role:test, %s, update, some/%s", rbac.ResourceEngineFeaturesSplitHorizonDNSConfigs, shdcName),
 				"g, bob, role:test",
 			),
 			wantErr: ErrInsufficientPermissions,
@@ -847,7 +844,7 @@ func Test_rbacHandler_UpdateSplitHorizonDNSConfig(t *testing.T) {
 		{
 			desc: "update only action for another everestfeatures/splithorizondnsconfigs in namespace",
 			policy: newPolicy(
-				fmt.Sprintf("p, role:test, %s, update, %s/some", rbac.ResourceEngineFeatures_SplitHorizonDNSConfigs, namespace),
+				fmt.Sprintf("p, role:test, %s, update, %s/some", rbac.ResourceEngineFeaturesSplitHorizonDNSConfigs, namespace),
 				"g, bob, role:test",
 			),
 			wantErr: ErrInsufficientPermissions,
@@ -856,7 +853,7 @@ func Test_rbacHandler_UpdateSplitHorizonDNSConfig(t *testing.T) {
 		{
 			desc: "create only action for all everestfeatures/splithorizondnsconfigs in namespace",
 			policy: newPolicy(
-				fmt.Sprintf("p, role:test, %s, create, %s/*", rbac.ResourceEngineFeatures_SplitHorizonDNSConfigs, namespace),
+				fmt.Sprintf("p, role:test, %s, create, %s/*", rbac.ResourceEngineFeaturesSplitHorizonDNSConfigs, namespace),
 				"g, bob, role:test",
 			),
 			wantErr: ErrInsufficientPermissions,
@@ -864,7 +861,7 @@ func Test_rbacHandler_UpdateSplitHorizonDNSConfig(t *testing.T) {
 		{
 			desc: "create only action for everestfeatures/splithorizondnsconfigs in all namespaces",
 			policy: newPolicy(
-				fmt.Sprintf("p, role:test, %s, create, */*", rbac.ResourceEngineFeatures_SplitHorizonDNSConfigs),
+				fmt.Sprintf("p, role:test, %s, create, */*", rbac.ResourceEngineFeaturesSplitHorizonDNSConfigs),
 				"g, bob, role:test",
 			),
 			wantErr: ErrInsufficientPermissions,
@@ -872,7 +869,7 @@ func Test_rbacHandler_UpdateSplitHorizonDNSConfig(t *testing.T) {
 		{
 			desc: "read only action for all everestfeatures/splithorizondnsconfigs in namespace",
 			policy: newPolicy(
-				fmt.Sprintf("p, role:test, %s, read, %s/*", rbac.ResourceEngineFeatures_SplitHorizonDNSConfigs, namespace),
+				fmt.Sprintf("p, role:test, %s, read, %s/*", rbac.ResourceEngineFeaturesSplitHorizonDNSConfigs, namespace),
 				"g, bob, role:test",
 			),
 			wantErr: ErrInsufficientPermissions,
@@ -880,7 +877,7 @@ func Test_rbacHandler_UpdateSplitHorizonDNSConfig(t *testing.T) {
 		{
 			desc: "read only action for everestfeatures/splithorizondnsconfigs in all namespaces",
 			policy: newPolicy(
-				fmt.Sprintf("p, role:test, %s, read, */*", rbac.ResourceEngineFeatures_SplitHorizonDNSConfigs),
+				fmt.Sprintf("p, role:test, %s, read, */*", rbac.ResourceEngineFeaturesSplitHorizonDNSConfigs),
 				"g, bob, role:test",
 			),
 			wantErr: ErrInsufficientPermissions,
@@ -888,7 +885,7 @@ func Test_rbacHandler_UpdateSplitHorizonDNSConfig(t *testing.T) {
 		{
 			desc: "delete only action for all everestfeatures/splithorizondnsconfigs in namespace",
 			policy: newPolicy(
-				fmt.Sprintf("p, role:test, %s, delete, %s/*", rbac.ResourceEngineFeatures_SplitHorizonDNSConfigs, namespace),
+				fmt.Sprintf("p, role:test, %s, delete, %s/*", rbac.ResourceEngineFeaturesSplitHorizonDNSConfigs, namespace),
 				"g, bob, role:test",
 			),
 			wantErr: ErrInsufficientPermissions,
@@ -896,14 +893,14 @@ func Test_rbacHandler_UpdateSplitHorizonDNSConfig(t *testing.T) {
 		{
 			desc: "delete only action for everestfeatures/splithorizondnsconfigs in all namespaces",
 			policy: newPolicy(
-				fmt.Sprintf("p, role:test, %s, delete, */*", rbac.ResourceEngineFeatures_SplitHorizonDNSConfigs),
+				fmt.Sprintf("p, role:test, %s, delete, */*", rbac.ResourceEngineFeaturesSplitHorizonDNSConfigs),
 				"g, bob, role:test",
 			),
 			wantErr: ErrInsufficientPermissions,
 		},
 	}
 
-	ctx := context.WithValue(context.Background(), common.UserCtxKey, rbac.User{Subject: "bob"})
+	ctx := testUserContext(rbac.User{Subject: "bob"})
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
 			t.Parallel()

@@ -83,7 +83,7 @@ type (
 		// ReleaseNamespace is the namespace where the Helm release will be installed.
 		ReleaseNamespace string
 		// Values are the Helm values to be used during installation.
-		Values map[string]interface{}
+		Values map[string]any
 		// CreateReleaseNamespace indicates whether to create the release namespace.
 		CreateReleaseNamespace bool
 		// internal fields, set only after Init() is called.
@@ -180,7 +180,7 @@ func installDryRun(
 	cfg *action.Configuration,
 	chart *chart.Chart,
 	releaseName, releaseNamespace string,
-	values map[string]interface{},
+	values map[string]any,
 ) (*release.Release, error) {
 	install := action.NewInstall(cfg)
 	install.ReleaseName = releaseName
@@ -233,21 +233,6 @@ func (i *Installer) GetRelease() (*release.Release, error) {
 	return i.release, nil
 }
 
-func (i *Installer) install(ctx context.Context) error {
-	install := action.NewInstall(i.cfg)
-	install.ReleaseName = i.ReleaseName
-	install.Namespace = i.ReleaseNamespace
-	install.CreateNamespace = i.CreateReleaseNamespace
-	install.TakeOwnership = true
-
-	rel, err := install.RunWithContext(ctx, i.chart, i.Values)
-	if err != nil {
-		return err
-	}
-	i.release = rel
-	return nil
-}
-
 // UpgradeOptions provide options for upgrading a Helm chart.
 type UpgradeOptions struct {
 	DisableHooks         bool
@@ -269,6 +254,21 @@ func (i *Installer) Upgrade(ctx context.Context, opts UpgradeOptions) error {
 	upgrade.Force = opts.Force
 
 	rel, err := upgrade.RunWithContext(ctx, i.ReleaseName, i.chart, i.Values)
+	if err != nil {
+		return err
+	}
+	i.release = rel
+	return nil
+}
+
+func (i *Installer) install(ctx context.Context) error {
+	install := action.NewInstall(i.cfg)
+	install.ReleaseName = i.ReleaseName
+	install.Namespace = i.ReleaseNamespace
+	install.CreateNamespace = i.CreateReleaseNamespace
+	install.TakeOwnership = true
+
+	rel, err := install.RunWithContext(ctx, i.chart, i.Values)
 	if err != nil {
 		return err
 	}
@@ -371,7 +371,7 @@ func buildChartDeps(chartDir string) error {
 }
 
 func newActionsCfg(namespace, kubeconfig string) (*action.Configuration, error) {
-	logger := func(_ string, _ ...interface{}) {}
+	logger := func(_ string, _ ...any) {}
 	cfg := action.Configuration{}
 	restClientGetter := genericclioptions.ConfigFlags{
 		Namespace: &namespace,

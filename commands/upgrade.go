@@ -66,13 +66,13 @@ func init() {
 	upgradeCmd.Flags().BoolVar(&upgradeCfg.ResetThenReuseValues, helm.FlagHelmResetThenReuseValues, false, "Reset the values to the ones built into the chart, apply the last release's values and merge in any overrides from the command line via --set and -f.")
 }
 
-func upgradePreRun(_ *cobra.Command, _ []string) { //nolint:revive
+func upgradePreRun(_ *cobra.Command, _ []string) {
 	// Copy global flags to config
 	upgradeCfg.Pretty = rootCmdFlags.Pretty
 	upgradeCfg.KubeconfigPath = rootCmdFlags.KubeconfigPath
 }
 
-func upgradeRun(cmd *cobra.Command, _ []string) { //nolint:revive
+func upgradeRun(cmd *cobra.Command, _ []string) {
 	op, err := upgrade.NewUpgrade(upgradeCfg, logger.GetLogger())
 	if err != nil {
 		output.PrintError(err, logger.GetLogger(), upgradeCfg.Pretty)

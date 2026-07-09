@@ -26,7 +26,6 @@ import (
 	goversion "github.com/hashicorp/go-version"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
-	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -39,6 +38,8 @@ import (
 // skipNamespaces is a list of namespaces that cannot be added to Everest management.
 // It contains Kubernetes system, reserved by Everest core and cloud providers specific namespaces.
 // Note: this list is not exhaustive and can be extended.
+//
+//nolint:gochecknoglobals // immutable list of system namespaces to skip
 var skipNamespaces = []string{
 	// Kubernetes native system namespaces.
 	"kube-system",
@@ -145,7 +146,7 @@ func (nsL *NamespaceLister) Run(ctx context.Context) ([]NamespaceInfo, error) {
 
 // getNamespaceOperators returns a list of installed operators in the namespace.
 // It returns an empty list if the namespace is not managed by Everest.
-func (nsL *NamespaceLister) getNamespaceOperators(ctx context.Context, ns *v1.Namespace) ([]string, error) {
+func (nsL *NamespaceLister) getNamespaceOperators(ctx context.Context, ns *corev1.Namespace) ([]string, error) {
 	var toReturn []string
 	if isManagedByEverest(ns) {
 		// no need to look for installed operators from namespaces not managed by Everest.

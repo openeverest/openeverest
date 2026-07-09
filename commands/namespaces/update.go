@@ -53,13 +53,13 @@ func init() {
 
 	// local command flags
 	namespacesUpdateCmd.Flags().BoolVar(&namespacesUpdateCfg.DisableTelemetry, cli.FlagDisableTelemetry, false, "Disable telemetry")
-	_ = namespacesUpdateCmd.Flags().MarkHidden(cli.FlagDisableTelemetry) //nolint:errcheck,gosec
+	_ = namespacesUpdateCmd.Flags().MarkHidden(cli.FlagDisableTelemetry)
 	namespacesUpdateCmd.Flags().BoolVar(&namespacesUpdateCfg.SkipWizard, cli.FlagSkipWizard, false, "Skip installation wizard")
 	namespacesUpdateCmd.Flags().BoolVar(&namespacesUpdateCfg.SkipEnvDetection, cli.FlagSkipEnvDetection, false, "Skip detecting Kubernetes environment where Everest is installed")
 
 	// --helm.* flags
 	namespacesUpdateCmd.Flags().StringVar(&namespacesUpdateCfg.HelmConfig.ChartDir, helm.FlagChartDir, "", "Path to the chart directory. If not set, the chart will be downloaded from the repository")
-	_ = namespacesUpdateCmd.Flags().MarkHidden(helm.FlagChartDir) //nolint:errcheck,gosec
+	_ = namespacesUpdateCmd.Flags().MarkHidden(helm.FlagChartDir)
 	namespacesUpdateCmd.Flags().StringVar(&namespacesUpdateCfg.HelmConfig.RepoURL, helm.FlagRepository, helm.DefaultHelmRepoURL, "Helm chart repository to download the Everest charts from")
 	namespacesUpdateCmd.Flags().StringSliceVar(&namespacesUpdateCfg.HelmConfig.Values.Values, helm.FlagHelmSet, []string{}, "Set helm values on the command line (can specify multiple values with commas: key1=val1,key2=val2)")
 	namespacesUpdateCmd.Flags().StringSliceVarP(&namespacesUpdateCfg.HelmConfig.Values.ValueFiles, helm.FlagHelmValues, "f", []string{}, "Specify values in a YAML file or a URL (can specify multiple)")
@@ -72,9 +72,9 @@ func init() {
 	namespacesUpdateCmd.Flags().BoolVar(&namespacesUpdateCfg.Operators.PXC, cli.FlagOperatorMySQL, true, "Install MySQL operator")
 }
 
-func namespacesUpdatePreRun(cmd *cobra.Command, args []string) { //nolint:revive
+func namespacesUpdatePreRun(cmd *cobra.Command, args []string) {
 	// Copy global flags to config
-	namespacesUpdateCfg.Pretty = !(cmd.Flag(cli.FlagVerbose).Changed || cmd.Flag(cli.FlagJSON).Changed)
+	namespacesUpdateCfg.Pretty = !cmd.Flag(cli.FlagVerbose).Changed && !cmd.Flag(cli.FlagJSON).Changed
 	namespacesUpdateCfg.KubeconfigPath = cmd.Flag(cli.FlagKubeconfig).Value.String()
 
 	{
@@ -89,10 +89,7 @@ func namespacesUpdatePreRun(cmd *cobra.Command, args []string) { //nolint:revive
 	}
 
 	// If user doesn't pass any --operator.* flags - need to ask explicitly.
-	askOperators := !(cmd.Flags().Lookup(cli.FlagOperatorMongoDB).Changed ||
-		cmd.Flags().Lookup(cli.FlagOperatorPostgresql).Changed ||
-		cmd.Flags().Lookup(cli.FlagOperatorXtraDBCluster).Changed ||
-		cmd.Flags().Lookup(cli.FlagOperatorMySQL).Changed)
+	askOperators := !cmd.Flags().Lookup(cli.FlagOperatorMongoDB).Changed && !cmd.Flags().Lookup(cli.FlagOperatorPostgresql).Changed && !cmd.Flags().Lookup(cli.FlagOperatorXtraDBCluster).Changed && !cmd.Flags().Lookup(cli.FlagOperatorMySQL).Changed
 
 	if askOperators {
 		// need to ask user to provide operators to be installed in interactive mode.

@@ -580,10 +580,9 @@ func TestValidate_ListPodSchedulingPolicy(t *testing.T) {
 	t.Parallel()
 
 	type testCase struct {
-		name    string
-		objs    []ctrlclient.Object
-		assert  func(*everestv1alpha1.PodSchedulingPolicyList) bool
-		wantErr error
+		name   string
+		objs   []ctrlclient.Object
+		assert func(*everestv1alpha1.PodSchedulingPolicyList) bool
 	}
 
 	testCases := []testCase{

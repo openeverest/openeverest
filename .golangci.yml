@@ -37,16 +37,45 @@ linters:
         - fmt.Fprint
         - fmt.Fprintf
         - fmt.Fprintln
+    ireturn:
+      # Returning interfaces is the deliberate contract of these constructors
+      # (and bubbletea's Model.Update is required to return tea.Model).
+      allow:
+        - anon
+        - error
+        - empty
+        - stdlib
+        - generic
+        - github.com/charmbracelet/bubbletea.Model
+        - github.com/percona/everest/pkg/kubernetes.KubernetesConnector
+        - github.com/percona/everest/pkg/accounts.Interface
+        - github.com/percona/everest/pkg/session.Blocklist
+        - github.com/percona/everest/pkg/session.TokenStore
+        - k8s.io/client-go/rest.Interface
     unparam:
       check-exported: true
   exclusions:
     generated: lax
     rules:
+      # Table-driven tests idiomatically repeat literals and parallel
+      # structure; size/duplication linters don't apply to them.
       - linters:
+          - cyclop
+          - dupl
           - funlen
+          - gocognit
+          - goconst
+          - maintidx
           - testpackage
         path: _test\.go
+      # Cobra requires package-level command variables and init() registration.
+      - linters:
+          - gochecknoglobals
+          - gochecknoinits
+        path: ^commands/
     paths:
+      # Vendored JS dependencies may contain Go files that must not be linted.
+      - node_modules
       - third_party$
       - builtin$
       - examples$
@@ -68,6 +97,7 @@ formatters:
   exclusions:
     generated: lax
     paths:
+      - node_modules
       - third_party$
       - builtin$
       - examples$

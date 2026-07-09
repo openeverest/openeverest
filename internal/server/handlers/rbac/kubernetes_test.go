@@ -15,7 +15,6 @@
 package rbac
 
 import (
-	"context"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -25,7 +24,6 @@ import (
 
 	"github.com/percona/everest/api"
 	"github.com/percona/everest/internal/server/handlers"
-	"github.com/percona/everest/pkg/common"
 	"github.com/percona/everest/pkg/rbac"
 )
 
@@ -145,7 +143,7 @@ func TestRBAC_Kubernetes(t *testing.T) {
 		}
 
 		for _, tc := range testCases {
-			ctx := context.WithValue(context.Background(), common.UserCtxKey, tc.user)
+			ctx := testUserContext(tc.user)
 			t.Run(tc.desc, func(t *testing.T) {
 				t.Parallel()
 				k8sMock := newConfigMapMock(tc.policy)

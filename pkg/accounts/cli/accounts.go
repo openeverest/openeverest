@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -99,7 +100,7 @@ func (c *Accounts) Create(ctx context.Context, opts CreateOptions) error {
 		return err
 	}
 
-	c.l.Infof("User '%s' has been created succesfully", opts.Username)
+	c.l.Infof("User '%s' has been created successfully", opts.Username)
 	if c.config.Pretty {
 		_, _ = fmt.Fprintln(os.Stdout, output.Success("User '%s' has been created successfully", opts.Username))
 	}
@@ -149,7 +150,7 @@ func (c *Accounts) SetPassword(ctx context.Context, opts SetPasswordOptions) err
 		return err
 	}
 
-	c.l.Infof("Password for user '%s' has been set succesfully", opts.Username)
+	c.l.Infof("Password for user '%s' has been set successfully", opts.Username)
 	if c.config.Pretty {
 		_, _ = fmt.Fprintln(os.Stdout, output.Success("Password for user '%s' has been set successfully", opts.Username))
 	}
@@ -175,16 +176,16 @@ const (
 // List all user accounts in the system.
 func (c *Accounts) List(ctx context.Context, opts ListOptions) error {
 	// Prepare table headings.
-	headings := []interface{}{ColumnUser, ColumnCapabilities, ColumnEnabled}
+	headings := []any{ColumnUser, ColumnCapabilities, ColumnEnabled}
 	if len(opts.Columns) > 0 {
-		headings = []interface{}{}
+		headings = make([]any, 0, len(opts.Columns))
 		for _, col := range opts.Columns {
 			headings = append(headings, col)
 		}
 	}
 	// Prepare table header.
 	tbl := table.New(headings...)
-	tbl.WithHeaderFormatter(func(format string, vals ...interface{}) string {
+	tbl.WithHeaderFormatter(func(format string, vals ...any) string {
 		if opts.NoHeaders { // Skip printing headers.
 			return ""
 		}
@@ -236,7 +237,7 @@ func (c *Accounts) GetInitAdminPassword(ctx context.Context) (string, error) {
 }
 
 // CreateRSAKeyPair creates a new RSA key pair for user authentication. New RSA key pair is stored in the Kubernetes secret.
-func (c *Accounts) CreateRSAKeyPair(ctx context.Context) error {
+func (c *Accounts) CreateRSAKeyPair(ctx context.Context) {
 	c.l.Info("Creating/Updating JWT keys and restarting Everest.")
 	if err := c.kubeClient.CreateRSAKeyPair(ctx); err != nil {
 		c.l.Error(err)
@@ -247,5 +248,4 @@ func (c *Accounts) CreateRSAKeyPair(ctx context.Context) error {
 	if c.config.Pretty {
 		_, _ = fmt.Fprintln(os.Stdout, output.Success("JWT keys have been created/updated successfully"))
 	}
-	return nil
 }

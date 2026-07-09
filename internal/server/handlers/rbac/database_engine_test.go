@@ -15,7 +15,6 @@
 package rbac
 
 import (
-	"context"
 	"slices"
 	"testing"
 
@@ -214,7 +213,7 @@ func TestRBAC_DatabaseEngines(t *testing.T) {
 				},
 			},
 		}
-		ctx := context.WithValue(context.Background(), common.UserCtxKey, rbac.User{Subject: "bob"})
+		ctx := testUserContext(rbac.User{Subject: "bob"})
 		for _, tc := range testCases {
 			t.Run(tc.desc, func(t *testing.T) {
 				t.Parallel()
@@ -273,7 +272,7 @@ func TestRBAC_DatabaseEngines(t *testing.T) {
 			return &h
 		}
 
-		ctx := context.WithValue(context.Background(), common.UserCtxKey, rbac.User{Subject: "bob"})
+		ctx := testUserContext(rbac.User{Subject: "bob"})
 		for _, tc := range testCases {
 			t.Run(tc.desc, func(t *testing.T) {
 				t.Parallel()
@@ -329,7 +328,7 @@ func TestRBAC_DatabaseEngines(t *testing.T) {
 			return &h
 		}
 
-		ctx := context.WithValue(context.Background(), common.UserCtxKey, rbac.User{Subject: "bob"})
+		ctx := testUserContext(rbac.User{Subject: "bob"})
 		for _, tc := range testCases {
 			t.Run(tc.desc, func(t *testing.T) {
 				t.Parallel()
@@ -466,7 +465,7 @@ func TestRBAC_DatabaseEngines(t *testing.T) {
 			},
 		}
 
-		ctx := context.WithValue(context.Background(), common.UserCtxKey, rbac.User{Subject: "bob"})
+		ctx := testUserContext(rbac.User{Subject: "bob"})
 		for _, tc := range testCases {
 			t.Run(tc.desc, func(t *testing.T) {
 				t.Parallel()
@@ -483,7 +482,7 @@ func TestRBAC_DatabaseEngines(t *testing.T) {
 				}
 
 				res, err := h.GetUpgradePlan(ctx, "default")
-				assert.ErrorIs(t, tc.wantErr, err)
+				require.ErrorIs(t, tc.wantErr, err)
 				if tc.assert != nil {
 					assert.Condition(t, func() bool {
 						return tc.assert(res)
@@ -587,7 +586,7 @@ func TestRBAC_DatabaseEngines(t *testing.T) {
 			},
 		}
 
-		ctx := context.WithValue(context.Background(), common.UserCtxKey, rbac.User{Subject: "bob"})
+		ctx := testUserContext(rbac.User{Subject: "bob"})
 		for _, tc := range testCases {
 			t.Run(tc.desc, func(t *testing.T) {
 				t.Parallel()

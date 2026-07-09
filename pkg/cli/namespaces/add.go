@@ -144,9 +144,9 @@ func (cfg *NamespaceAddConfig) PopulateOperators(ctx context.Context) error {
 
 	// By default, all operators are selected.
 	defaultOpts := []tui.MultiSelectOption{
-		{common.MySQLProductName, true},
-		{common.MongoDBProductName, true},
-		{common.PostgreSQLProductName, true},
+		{Text: common.MySQLProductName, Selected: true},
+		{Text: common.MongoDBProductName, Selected: true},
+		{Text: common.PostgreSQLProductName, Selected: true},
 	}
 
 	var selectedOpts []tui.MultiSelectOption
@@ -171,7 +171,7 @@ func (cfg *NamespaceAddConfig) PopulateOperators(ctx context.Context) error {
 		}
 	}
 
-	if !(cfg.Operators.PXC || cfg.Operators.PG || cfg.Operators.PSMDB) {
+	if !cfg.Operators.PXC && !cfg.Operators.PG && !cfg.Operators.PSMDB {
 		// need to select at least one operator to install
 		return ErrOperatorsNotSelected
 	}
@@ -182,7 +182,7 @@ func (cfg *NamespaceAddConfig) PopulateOperators(ctx context.Context) error {
 // ValidateNamespaces validates the provided list of namespaces.
 // It validates:
 // - namespace names
-// - namespace ownership
+// - namespace ownership.
 func (cfg *NamespaceAddConfig) ValidateNamespaces(ctx context.Context, nsList []string) error {
 	if err := validateNamespaceNames(nsList); err != nil {
 		return err
@@ -269,7 +269,7 @@ func NewNamespaceAdd(c NamespaceAddConfig, l *zap.SugaredLogger) (*NamespaceAdde
 			return nil, ErrNamespaceListEmpty
 		}
 
-		if !(c.Operators.PXC || c.Operators.PG || c.Operators.PSMDB) {
+		if !c.Operators.PXC && !c.Operators.PG && !c.Operators.PSMDB {
 			// need to select at least one operator to install
 			return nil, ErrOperatorsNotSelected
 		}
@@ -301,7 +301,7 @@ func (n *NamespaceAdder) Run(ctx context.Context) error {
 
 	if version.IsDev(dbNSChartVersion) && n.cfg.HelmConfig.ChartDir == "" {
 		// Note: new value will be set to n.cfg.ChartDir inside SetupEverestDevChart
-		cleanup, err := helmutils.SetupEverestDevChart(n.l, &n.cfg.HelmConfig.ChartDir)
+		cleanup, err := helmutils.SetupEverestDevChart(ctx, n.l, &n.cfg.HelmConfig.ChartDir)
 		if err != nil {
 			return err
 		}

@@ -148,24 +148,8 @@ func (h *rbacHandler) UpdateDatabaseCluster(ctx context.Context, db *everestv1al
 	slices.SortFunc(oldSched, sortFn)
 	slices.SortFunc(updatedSched, sortFn)
 
-	isSchedEqual := func() bool {
-		if len(oldSched) != len(updatedSched) {
-			return false
-		}
-		for i := range oldSched {
-			if oldSched[i].Name != updatedSched[i].Name ||
-				oldSched[i].Enabled != updatedSched[i].Enabled ||
-				oldSched[i].BackupStorageName != updatedSched[i].BackupStorageName ||
-				oldSched[i].Schedule != updatedSched[i].Schedule ||
-				oldSched[i].RetentionCopies != updatedSched[i].RetentionCopies {
-				return false
-			}
-		}
-		return true
-	}
-
 	// If shedules are updated, user should have permissions to create a backup for this cluster.
-	if !isSchedEqual() {
+	if !backupSchedulesEqual(oldSched, updatedSched) {
 		if err := h.enforce(ctx, rbac.ResourceDatabaseClusterBackups, rbac.ActionCreate, rbac.ObjectName(oldDB.GetNamespace(), db.GetName())); err != nil {
 			return nil, err
 		}
@@ -186,6 +170,22 @@ func (h *rbacHandler) UpdateDatabaseCluster(ctx context.Context, db *everestv1al
 		return nil, err
 	}
 	return h.next.UpdateDatabaseCluster(ctx, db)
+}
+
+func backupSchedulesEqual(oldSched, updatedSched []everestv1alpha1.BackupSchedule) bool {
+	if len(oldSched) != len(updatedSched) {
+		return false
+	}
+	for i := range oldSched {
+		if oldSched[i].Name != updatedSched[i].Name ||
+			oldSched[i].Enabled != updatedSched[i].Enabled ||
+			oldSched[i].BackupStorageName != updatedSched[i].BackupStorageName ||
+			oldSched[i].Schedule != updatedSched[i].Schedule ||
+			oldSched[i].RetentionCopies != updatedSched[i].RetentionCopies {
+			return false
+		}
+	}
+	return true
 }
 
 func (h *rbacHandler) GetDatabaseCluster(ctx context.Context, namespace, name string) (*everestv1alpha1.DatabaseCluster, error) {
@@ -288,7 +288,7 @@ func (h *rbacHandler) enforceEngineFeaturesRead(ctx context.Context, db *everest
 		// SplitHorizonDNSConfig feature.
 		if psmdbFeatures.SplitHorizonDNSConfigName != "" {
 			if err := h.enforce(
-				ctx, rbac.ResourceEngineFeatures_SplitHorizonDNSConfigs,
+				ctx, rbac.ResourceEngineFeaturesSplitHorizonDNSConfigs,
 				rbac.ActionRead,
 				rbac.ObjectName(namespace, psmdbFeatures.SplitHorizonDNSConfigName),
 			); err != nil {

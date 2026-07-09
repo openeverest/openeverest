@@ -17,7 +17,6 @@
 package rbac
 
 import (
-	"context"
 	"slices"
 	"testing"
 
@@ -73,7 +72,6 @@ func TestRBAC_ListPodSchedulingPolicies(t *testing.T) {
 	type testCase struct {
 		desc   string
 		policy string
-		outLen int
 		assert func(*everestv1alpha1.PodSchedulingPolicyList) bool
 	}
 	testCases := []testCase{
@@ -238,7 +236,7 @@ func TestRBAC_ListPodSchedulingPolicies(t *testing.T) {
 		},
 	}
 
-	ctx := context.WithValue(context.Background(), common.UserCtxKey, rbac.User{Subject: "bob"})
+	ctx := testUserContext(rbac.User{Subject: "bob"})
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
 			t.Parallel()
@@ -385,7 +383,7 @@ func TestRBAC_GetPodSchedulingPolicy(t *testing.T) {
 		},
 	}
 
-	ctx := context.WithValue(context.Background(), common.UserCtxKey, rbac.User{Subject: "bob"})
+	ctx := testUserContext(rbac.User{Subject: "bob"})
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
 			t.Parallel()
@@ -521,7 +519,7 @@ func TestRBAC_CreatePodSchedulingPolicy(t *testing.T) {
 		},
 	}
 
-	ctx := context.WithValue(context.Background(), common.UserCtxKey, rbac.User{Subject: "bob"})
+	ctx := testUserContext(rbac.User{Subject: "bob"})
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
 			t.Parallel()
@@ -661,7 +659,7 @@ func TestRBAC_UpdatePodSchedulingPolicy(t *testing.T) {
 		},
 	}
 
-	ctx := context.WithValue(context.Background(), common.UserCtxKey, rbac.User{Subject: "bob"})
+	ctx := testUserContext(rbac.User{Subject: "bob"})
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
 			t.Parallel()
@@ -799,7 +797,7 @@ func TestRBAC_DeletePodSchedulingPolicy(t *testing.T) {
 		},
 	}
 
-	ctx := context.WithValue(context.Background(), common.UserCtxKey, rbac.User{Subject: "bob"})
+	ctx := testUserContext(rbac.User{Subject: "bob"})
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
 			t.Parallel()

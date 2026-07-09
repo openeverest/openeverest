@@ -158,7 +158,7 @@ func TestRBAC_BackupStorage(t *testing.T) {
 			},
 		}
 
-		ctx := context.WithValue(context.Background(), common.UserCtxKey, rbac.User{Subject: "bob"})
+		ctx := testUserContext(rbac.User{Subject: "bob"})
 		for _, tc := range testCases {
 			t.Run(tc.desc, func(t *testing.T) {
 				t.Parallel()
@@ -244,7 +244,7 @@ func TestRBAC_BackupStorage(t *testing.T) {
 			},
 		}
 
-		ctx := context.WithValue(context.Background(), common.UserCtxKey, rbac.User{Subject: "bob"})
+		ctx := testUserContext(rbac.User{Subject: "bob"})
 		for _, tc := range testCases {
 			t.Run(tc.desc, func(t *testing.T) {
 				t.Parallel()
@@ -411,7 +411,7 @@ func TestRBAC_BackupStorage(t *testing.T) {
 			},
 		}
 
-		ctx := context.WithValue(context.Background(), common.UserCtxKey, rbac.User{Subject: "bob"})
+		ctx := testUserContext(rbac.User{Subject: "bob"})
 		for _, tc := range testCases {
 			t.Run(tc.desc, func(t *testing.T) {
 				t.Parallel()
@@ -579,7 +579,7 @@ func TestRBAC_BackupStorage(t *testing.T) {
 			},
 		}
 
-		ctx := context.WithValue(context.Background(), common.UserCtxKey, rbac.User{Subject: "bob"})
+		ctx := testUserContext(rbac.User{Subject: "bob"})
 		for _, tc := range testCases {
 			t.Run(tc.desc, func(t *testing.T) {
 				t.Parallel()
@@ -743,7 +743,7 @@ func TestRBAC_BackupStorage(t *testing.T) {
 			},
 		}
 
-		ctx := context.WithValue(context.Background(), common.UserCtxKey, rbac.User{Subject: "bob"})
+		ctx := testUserContext(rbac.User{Subject: "bob"})
 		for _, tc := range testCases {
 			t.Run(tc.desc, func(t *testing.T) {
 				t.Parallel()
@@ -795,4 +795,10 @@ func testUserGetter(ctx context.Context) (rbac.User, error) {
 		return rbac.User{}, errors.New("user not found in context")
 	}
 	return user, nil
+}
+
+// testUserContext returns a context carrying the given RBAC user, as set by the auth middleware.
+func testUserContext(user rbac.User) context.Context {
+	//nolint:staticcheck // common.UserCtxKey is a string key kept for echo-jwt compatibility
+	return context.WithValue(context.Background(), common.UserCtxKey, user)
 }

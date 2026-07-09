@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -28,7 +29,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/AlekSi/pointer"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/labstack/echo/v4"
 	echomiddleware "github.com/labstack/echo/v4/middleware"
@@ -46,6 +46,9 @@ import (
 const (
 	// SessionManagerClaimsIssuer fills the "iss" field of the token.
 	SessionManagerClaimsIssuer = "everest"
+
+	// metadataNameField is the field selector key for filtering objects by name.
+	metadataNameField = "metadata.name"
 )
 
 var (
@@ -56,15 +59,19 @@ var (
 
 // Manager provides functionality for creating and managing JWT tokens.
 type Manager struct {
+	Blocklist
+
 	accountManager accounts.Interface
 	signingKey     *rsa.PrivateKey
-	Blocklist
-	l *zap.SugaredLogger
+	l              *zap.SugaredLogger
 }
 
 // Option is a function that modifies a SessionManager.
 type Option func(*Manager)
 
+// IsBlocked checks if the given token is blocked. In addition to the blocklist check,
+// tokens of built-in users are considered blocked if the account no longer exists or
+// if the token was issued before the account's password was last updated.
 func (mgr *Manager) IsBlocked(ctx context.Context, token *jwt.Token) (bool, error) {
 	username, isBuiltInUser, err := extractUsername(token)
 	if err != nil {
@@ -72,27 +79,12 @@ func (mgr *Manager) IsBlocked(ctx context.Context, token *jwt.Token) (bool, erro
 	}
 	// for the built-in users check if the account exists
 	if isBuiltInUser {
-		user, err := mgr.accountManager.Get(ctx, username)
+		blocked, err := mgr.isBuiltInUserBlocked(ctx, username, token)
 		if err != nil {
-			if errors.Is(err, accounts.ErrAccountNotFound) {
-				return true, nil
-			}
 			return false, err
 		}
-		// checking the time when the password was last updated
-		if user.PasswordMtime != "" {
-			passwordCreationTime, err := time.Parse(time.RFC3339, user.PasswordMtime)
-			if err != nil {
-				return false, err
-			}
-			tokenIssueTime, err := extractCreationTime(token)
-			if err != nil {
-				return false, err
-			}
-			// if the token was issued before the password was last updated for the user - consider the token as invalid.
-			if tokenIssueTime.Before(passwordCreationTime) {
-				return true, nil
-			}
+		if blocked {
+			return true, nil
 		}
 	}
 	return mgr.Blocklist.IsBlocked(ctx, token)
@@ -149,11 +141,6 @@ func (mgr *Manager) Create(subject string, secondsBeforeExpiry int64, id string)
 	return mgr.signClaims(claims)
 }
 
-func (mgr *Manager) signClaims(claims jwt.Claims) (string, error) {
-	token := jwt.NewWithClaims(jwt.SigningMethodRS256, claims)
-	return token.SignedString(mgr.signingKey)
-}
-
 // Authenticate verifies the given username and password.
 func (mgr *Manager) Authenticate(ctx context.Context, username string, password string) error {
 	if password == "" {
@@ -191,11 +178,14 @@ func getPrivateKey() (*rsa.PrivateKey, error) {
 // KeyFunc retruns a function for getting the public RSA keys used
 // for verifying the JWT tokens signed by everest.
 func (mgr *Manager) KeyFunc() jwt.Keyfunc {
-	return func(_ *jwt.Token) (interface{}, error) {
+	return func(_ *jwt.Token) (any, error) {
 		return mgr.signingKey.Public(), nil
 	}
 }
 
+// BlocklistMiddleWare returns an echo middleware that rejects requests carrying
+// a blocked JWT token. The provided skipperFunc builds a skipper that decides
+// which requests bypass the check.
 func (mgr *Manager) BlocklistMiddleWare(skipperFunc func() (echomiddleware.Skipper, error)) (echo.MiddlewareFunc, error) {
 	skipper, err := skipperFunc()
 	if err != nil {
@@ -214,11 +204,11 @@ func (mgr *Manager) BlocklistMiddleWare(skipperFunc func() (echomiddleware.Skipp
 			if isBlocked, err := mgr.IsBlocked(ctx, token); err != nil {
 				mgr.l.Error(err)
 				return c.JSON(http.StatusInternalServerError, api.Error{
-					Message: pointer.ToString("Internal error"),
+					Message: new("Internal error"),
 				})
 			} else if isBlocked {
 				return c.JSON(http.StatusUnauthorized, api.Error{
-					Message: pointer.ToString("Invalid token"),
+					Message: new("Invalid token"),
 				})
 			}
 			return next(c)
@@ -226,10 +216,41 @@ func (mgr *Manager) BlocklistMiddleWare(skipperFunc func() (echomiddleware.Skipp
 	}, nil
 }
 
+// isBuiltInUserBlocked checks if the token of a built-in user should be considered blocked:
+// either the account no longer exists, or the token was issued before the password was last updated.
+func (mgr *Manager) isBuiltInUserBlocked(ctx context.Context, username string, token *jwt.Token) (bool, error) {
+	user, err := mgr.accountManager.Get(ctx, username)
+	if err != nil {
+		if errors.Is(err, accounts.ErrAccountNotFound) {
+			return true, nil
+		}
+		return false, err
+	}
+	// checking the time when the password was last updated
+	if user.PasswordMtime == "" {
+		return false, nil
+	}
+	passwordCreationTime, err := time.Parse(time.RFC3339, user.PasswordMtime)
+	if err != nil {
+		return false, err
+	}
+	tokenIssueTime, err := extractCreationTime(token)
+	if err != nil {
+		return false, err
+	}
+	// if the token was issued before the password was last updated for the user - consider the token as invalid.
+	return tokenIssueTime.Before(passwordCreationTime), nil
+}
+
+func (mgr *Manager) signClaims(claims jwt.Claims) (string, error) {
+	token := jwt.NewWithClaims(jwt.SigningMethodRS256, claims)
+	return token.SignedString(mgr.signingKey)
+}
+
 // extractUsername returns
 // - the current username from the token
 // - a bool flag that indicates whereas it's a built-in auth user
-// - an error
+// - an error.
 func extractUsername(token *jwt.Token) (string, bool, error) {
 	content, err := extractContent(token)
 	if err != nil {
@@ -268,10 +289,10 @@ func ClientCacheOptions() *cache.Options {
 	return &cache.Options{
 		ByObject: map[client.Object]cache.ByObject{
 			&corev1.Secret{}: {
-				Field: fields.SelectorFromSet(fields.Set{"metadata.name": common.EverestAccountsSecretName}),
+				Field: fields.SelectorFromSet(fields.Set{metadataNameField: common.EverestAccountsSecretName}),
 			},
 			&corev1.Namespace{}: {
-				Field: fields.SelectorFromSet(fields.Set{"metadata.name": common.SystemNamespace}),
+				Field: fields.SelectorFromSet(fields.Set{metadataNameField: common.SystemNamespace}),
 			},
 		},
 	}

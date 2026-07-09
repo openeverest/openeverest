@@ -257,7 +257,7 @@ func (u *Upgrade) helmAdoptDBNamespaces(ctx context.Context, namespace, version 
 }
 
 func helmValuesForDBEngines(list *everestv1alpha1.DatabaseEngineList, disableTelemetry bool) values.Options {
-	var vals []string
+	vals := make([]string, 0, len(list.Items)+2)
 	for _, dbEngine := range list.Items {
 		t := dbEngine.Spec.Type
 		vals = append(vals, fmt.Sprintf("%s=%t", t, dbEngine.Status.State == everestv1alpha1.DBEngineStateInstalled))
@@ -267,11 +267,9 @@ func helmValuesForDBEngines(list *everestv1alpha1.DatabaseEngineList, disableTel
 	return values.Options{Values: vals}
 }
 
-// cleanupLegacyResources removes resources that were created as a part of the legacy installation method
-// and no longer exist as a part of the Helm chart.
-func (u *Upgrade) cleanupLegacyResources(ctx context.Context) error {
-	// Delete OLM PackageServer CSV.
-	if err := wait.PollUntilContextTimeout(ctx, pollInterval, pollTimeout, true, func(ctx context.Context) (bool, error) {
+// deletePackageServerCSV deletes the OLM PackageServer CSV.
+func (u *Upgrade) deletePackageServerCSV(ctx context.Context) error {
+	return wait.PollUntilContextTimeout(ctx, pollInterval, pollTimeout, true, func(ctx context.Context) (bool, error) {
 		delObj := &olmv1alpha1.ClusterServiceVersion{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: kubernetes.OLMNamespace,
@@ -285,7 +283,14 @@ func (u *Upgrade) cleanupLegacyResources(ctx context.Context) error {
 			return false, err
 		}
 		return false, nil
-	}); err != nil {
+	})
+}
+
+// cleanupLegacyResources removes resources that were created as a part of the legacy installation method
+// and no longer exist as a part of the Helm chart.
+func (u *Upgrade) cleanupLegacyResources(ctx context.Context) error {
+	// Delete OLM PackageServer CSV.
+	if err := u.deletePackageServerCSV(ctx); err != nil {
 		return err
 	}
 
