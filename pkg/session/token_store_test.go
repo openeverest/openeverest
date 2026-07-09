@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2025 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -28,6 +29,7 @@ import (
 )
 
 func TestCleanupOld(t *testing.T) {
+	t.Parallel()
 	type tcase struct {
 		name          string
 		data          string
@@ -71,6 +73,7 @@ func TestCleanupOld(t *testing.T) {
 }
 
 func TestAddDataToSecret(t *testing.T) {
+	t.Parallel()
 	type tcase struct {
 		name          string
 		data          string
@@ -171,7 +174,7 @@ goarch: arm64
 pkg: github.com/openeverest/openeverest/v2/pkg/session
 cpu: Apple M3 Pro
 BenchmarkCleanupOld
-BenchmarkCleanupOld-12    	    1500	    671899 ns/op
+BenchmarkCleanupOld-12    	    1500	    671899 ns/op.
 */
 func BenchmarkCleanupOld(b *testing.B) {
 	numTokens := 10000
@@ -179,7 +182,7 @@ func BenchmarkCleanupOld(b *testing.B) {
 	thresholdDate := time.Date(2025, 4, 3, 13, 33, 1, 0, time.UTC)
 	l := zap.L().Sugar()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		cleanupOld(l, list, thresholdDate)
 	}
 }
@@ -187,7 +190,7 @@ func BenchmarkCleanupOld(b *testing.B) {
 func generateTestList(numTokens int) string {
 	var builder strings.Builder
 	expDate := time.Date(2070, 4, 3, 13, 33, 1, 0, time.UTC).Unix()
-	for i := 0; i < numTokens; i++ {
+	for i := range numTokens {
 		// expiration date is year 2070 which is long ahead, so all the tokens should be kept
 		builder.WriteString("21669bd9-2374-4dc1-9238-77d5cad01fed" + fmt.Sprintf("%d", expDate))
 		if i < numTokens-1 {
@@ -213,7 +216,7 @@ func generateLargeString(sizeMB int) string {
 	pattern := "abcdefghijklmnopqrstuvwxyz"
 	patternLen := len(pattern)
 
-	for i := 0; i < size; i++ {
+	for i := range size {
 		builder.WriteByte(pattern[i%patternLen])
 	}
 
@@ -229,7 +232,7 @@ func BenchmarkStringsContains(b *testing.B) {
 	// Reset the timer to exclude the setup time.
 	b.ResetTimer()
 
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		strings.Contains(largeString, substring)
 	}
 }
@@ -241,7 +244,7 @@ func BenchmarkStringsContainsNotFound(b *testing.B) {
 
 	b.ResetTimer() // Reset the timer to exclude the setup time.
 
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		strings.Contains(largeString, substring)
 	}
 }

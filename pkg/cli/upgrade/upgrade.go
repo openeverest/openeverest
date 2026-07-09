@@ -39,7 +39,7 @@ import (
 	"github.com/openeverest/openeverest/v2/pkg/common"
 	"github.com/openeverest/openeverest/v2/pkg/kubernetes"
 	"github.com/openeverest/openeverest/v2/pkg/output"
-	. "github.com/openeverest/openeverest/v2/pkg/utils/must" //nolint:revive,stylecheck
+	. "github.com/openeverest/openeverest/v2/pkg/utils/must" //nolint:revive,staticcheck
 	cliVersion "github.com/openeverest/openeverest/v2/pkg/version"
 	versionservice "github.com/openeverest/openeverest/v2/pkg/version_service"
 )
@@ -60,6 +60,8 @@ type inClusterConfig struct {
 type (
 	// Config defines configuration required for upgrade command.
 	Config struct {
+		helm.CLIOptions
+
 		// KubeconfigPath is a path to a kubeconfig
 		KubeconfigPath string
 		// InCluster is set if the upgrade process should use in-cluster configuration.
@@ -78,8 +80,6 @@ type (
 		// VersionToUpgrade specifies the version to upgrade to.
 		// This version may be ahead by at most one minor version from the current version.
 		VersionToUpgrade string
-
-		helm.CLIOptions
 	}
 
 	// Upgrade struct implements upgrade command.
@@ -126,7 +126,7 @@ func NewUpgrade(cfg *Config, l *zap.SugaredLogger) (*Upgrade, error) {
 		if err := envconfig.Process("", &ic); err != nil {
 			return nil, fmt.Errorf("could not read in-cluster config: %w", err)
 		}
-		k, err := kubernetes.NewInCluster(cli.l, nil, nil, ic.Namespace)
+		k, err := kubernetes.NewInCluster(context.Background(), cli.l, nil, ic.Namespace)
 		if err != nil {
 			return nil, fmt.Errorf("could not create in-cluster kubernetes client: %w", err)
 		}
@@ -220,7 +220,7 @@ func (u *Upgrade) setKubernetesEnv(ctx context.Context) error {
 	return nil
 }
 
-func (u *Upgrade) setupHelmInstaller(ctx context.Context) error {
+func (u *Upgrade) setupHelmInstaller(_ context.Context) error {
 	overrides := helm.NewValues(helm.Values{
 		ClusterType:        u.clusterType,
 		VersionMetadataURL: u.config.VersionMetadataURL,
