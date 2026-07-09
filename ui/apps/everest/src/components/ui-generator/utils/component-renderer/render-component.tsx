@@ -47,7 +47,7 @@ export const renderComponent = ({
       (item as ComponentGroup).components,
       (item as ComponentGroup).componentsOrder
     ).map(([childKey, childItem]) => {
-      const childFieldName = `${fieldName}.${childKey}`;
+      const childFieldName = fieldName ? `${fieldName}.${childKey}` : childKey;
       return (
         <React.Fragment key={childFieldName}>
           {renderComponent({
