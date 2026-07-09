@@ -1697,6 +1697,7 @@ export interface components {
             status?: {
                 /** @description Components is the status of the components in the database cluster. */
                 components?: {
+                    name: string;
                     pods?: {
                         /**
                          * @description Name of the referent.

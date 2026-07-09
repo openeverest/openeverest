@@ -628,6 +628,7 @@ const (
 )
 
 type ComponentStatus struct {
+	Name  string                        `json:"name"`
 	Pods  []corev1.LocalObjectReference `json:"pods,omitempty"`
 	Total *int32                        `json:"total,omitempty"`
 	Ready *int32                        `json:"ready,omitempty"`

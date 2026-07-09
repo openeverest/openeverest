@@ -1438,6 +1438,8 @@ spec:
                   cluster.
                 items:
                   properties:
+                    name:
+                      type: string
                     pods:
                       items:
                         description: |-
@@ -1464,6 +1466,8 @@ spec:
                     total:
                       format: int32
                       type: integer
+                  required:
+                  - name
                   type: object
                 type: array
               conditions:

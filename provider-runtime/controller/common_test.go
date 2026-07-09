@@ -18,6 +18,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	corev1 "k8s.io/api/core/v1"
 
 	"github.com/openeverest/openeverest/v2/api/core/v1alpha1"
 )
@@ -25,8 +26,28 @@ import (
 func TestStatus_ToV2Alpha1(t *testing.T) {
 	t.Parallel()
 
-	status := Provisioning("waiting for cluster...").ToV2Alpha1()
+	s := Provisioning("waiting for cluster...")
+	s.Components = []ComponentStatus{
+		{
+			Name:  "test-component",
+			Ready: 1,
+			Total: 2,
+			State: "InProgress",
+			Pods: []corev1.LocalObjectReference{
+				{Name: "pod-1"},
+			},
+		},
+	}
+
+	status := s.ToV2Alpha1()
 
 	assert.Equal(t, v1alpha1.InstancePhaseProvisioning, status.Phase)
 	assert.Equal(t, "waiting for cluster...", status.Message)
+	assert.Len(t, status.Components, 1)
+	assert.Equal(t, "test-component", status.Components[0].Name)
+	assert.Equal(t, int32(1), *status.Components[0].Ready)
+	assert.Equal(t, int32(2), *status.Components[0].Total)
+	assert.Equal(t, "InProgress", status.Components[0].State)
+	assert.Len(t, status.Components[0].Pods, 1)
+	assert.Equal(t, "pod-1", status.Components[0].Pods[0].Name)
 }

@@ -419,14 +419,30 @@ type ComponentStatus struct {
 	Ready int32
 	Total int32
 	State string // "Ready", "InProgress", "Error"
+	Pods  []corev1.LocalObjectReference
 }
 
 // ToV2Alpha1 converts Status to the API type.
 func (s Status) ToV2Alpha1() v1alpha1.InstanceStatus {
-	return v1alpha1.InstanceStatus{
+	res := v1alpha1.InstanceStatus{
 		Phase:   s.Phase,
 		Message: s.Message,
 	}
+	if len(s.Components) > 0 {
+		res.Components = make([]v1alpha1.ComponentStatus, len(s.Components))
+		for i, c := range s.Components {
+			ready := c.Ready
+			total := c.Total
+			res.Components[i] = v1alpha1.ComponentStatus{
+				Name:  c.Name,
+				Ready: &ready,
+				Total: &total,
+				State: c.State,
+				Pods:  c.Pods,
+			}
+		}
+	}
+	return res
 }
 
 // =============================================================================

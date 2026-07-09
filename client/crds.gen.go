@@ -1884,6 +1884,7 @@ type Instance struct {
 	Status *struct {
 		// Components Components is the status of the components in the database cluster.
 		Components *[]struct {
+			Name string `json:"name"`
 			Pods *[]struct {
 				// Name Name of the referent.
 				// This field is effectively required, but due to backwards compatibility is
