@@ -19,6 +19,8 @@
     "release:session": "playwright test --project=release:session --config=.e2e/playwright.config.ts",
     "pr:settings": "playwright test --project=pr:settings --config=.e2e/playwright.config.ts",
     "e2e:upgrade": "pnpm pre-e2e && cd .e2e && playwright test --project=upgrade",
+    "e2e:visual": "pnpm pre-e2e && cd .e2e && playwright test --project=pr:visual --reporter=line --workers=1",
+    "e2e:visual:update": "pnpm pre-e2e && cd .e2e && playwright test --project=pr:visual --update-snapshots --reporter=line --workers=1",
     "e2e:release": "node ./setup-e2e-rbac-user.js && pnpm pre-e2e && cd .e2e && playwright test --project=release",
     "build": "tsc --incremental && vite build --emptyOutDir",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --fix",
