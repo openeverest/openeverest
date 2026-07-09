@@ -83,10 +83,11 @@ export const mockNamespacesRoute = (page: Page) =>
   page.route(/\/namespaces$/, (route) => route.fulfill(json(mockNamespaces)));
 
 // GET clusters/main/namespaces/{ns}/monitoring-configs -> MonitoringConfigList
-export const mockMonitoringConfigsRoute = (page: Page, payload = mockMonitoringConfigs) =>
-  page.route(/\/monitoring-configs$/, (route) =>
-    route.fulfill(json(payload))
-  );
+export const mockMonitoringConfigsRoute = (
+  page: Page,
+  payload = mockMonitoringConfigs
+) =>
+  page.route(/\/monitoring-configs$/, (route) => route.fulfill(json(payload)));
 
 // Variant: monitoring-configs with no endpoints (no-endpoint-available state).
 export const mockMonitoringConfigsEmptyRoute = (page: Page) =>

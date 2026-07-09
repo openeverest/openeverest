@@ -42,7 +42,7 @@ const screenshotOpts = {
 };
 
 // Helper: wait for a MRT table to finish loading.
-async function waitForTableContent (page: Page, headerText: string) {
+async function waitForTableContent(page: Page, headerText: string) {
   await page
     .locator(`th:has-text("${headerText}")`)
     .first()
@@ -78,7 +78,9 @@ test.describe('Visual Baseline - Pages', () => {
     await goToUrl(page, '/settings/storage-locations');
     await waitForTableContent(page, 'Bucket');
     await page.getByTestId('add-backup-storage').click();
-    await page.getByRole('dialog').waitFor({ state: 'visible', timeout: 10000 });
+    await page
+      .getByRole('dialog')
+      .waitFor({ state: 'visible', timeout: 10000 });
     await page.waitForTimeout(300);
     await expect(page).toHaveScreenshot(
       'settings-storage-add-modal.png',
@@ -100,7 +102,9 @@ test.describe('Visual Baseline - Pages', () => {
     await goToUrl(page, '/settings/monitoring-endpoints');
     await waitForTableContent(page, 'Endpoint');
     await page.getByTestId('add-monitoring-endpoint').click();
-    await page.getByRole('dialog').waitFor({ state: 'visible', timeout: 10000 });
+    await page
+      .getByRole('dialog')
+      .waitFor({ state: 'visible', timeout: 10000 });
     await page.waitForTimeout(300);
     await expect(page).toHaveScreenshot(
       'settings-monitoring-add-modal.png',
@@ -388,9 +392,13 @@ test.describe('Visual Baseline - Mocked States', () => {
 
     // Open the "Create backup schedule" dialog if available
     const createScheduleBtn = page.getByTestId('create-schedule');
-    if (await createScheduleBtn.isVisible({ timeout: 5000 }).catch(() => false)) {
+    if (
+      await createScheduleBtn.isVisible({ timeout: 5000 }).catch(() => false)
+    ) {
       await createScheduleBtn.click();
-      await page.getByRole('dialog').waitFor({ state: 'visible', timeout: 10000 });
+      await page
+        .getByRole('dialog')
+        .waitFor({ state: 'visible', timeout: 10000 });
       await page.waitForTimeout(500);
       await expect(page).toHaveScreenshot(
         'db-wizard-schedule-create-modal.png',
@@ -410,7 +418,9 @@ test.describe('Visual Baseline - Mocked States', () => {
     const editButton = page.locator('[data-testid$="-edit-button"]').first();
     await editButton.waitFor({ state: 'visible', timeout: 10000 });
     await editButton.click();
-    await page.getByRole('dialog').waitFor({ state: 'visible', timeout: 10000 });
+    await page
+      .getByRole('dialog')
+      .waitFor({ state: 'visible', timeout: 10000 });
     await page.waitForTimeout(500);
     await expect(page).toHaveScreenshot(
       'db-details-edit-section-modal.png',
@@ -464,7 +474,9 @@ test.describe('Visual Baseline - Mocked States', () => {
     await page.waitForTimeout(300);
 
     await page.getByTestId('delete-schedule-button').first().click();
-    await page.getByRole('dialog').waitFor({ state: 'visible', timeout: 10000 });
+    await page
+      .getByRole('dialog')
+      .waitFor({ state: 'visible', timeout: 10000 });
     await page.waitForTimeout(500);
     await expect(page).toHaveScreenshot(
       'confirm-delete-schedule-dialog.png',
@@ -483,14 +495,18 @@ test.describe('Visual Baseline - Mocked States', () => {
     await page.waitForTimeout(500);
 
     // Open "Create backup" menu and click "Schedule"
-    const createBackupBtn = page.getByRole('button', { name: /create backup/i });
+    const createBackupBtn = page.getByRole('button', {
+      name: /create backup/i,
+    });
     await createBackupBtn.waitFor({ state: 'visible', timeout: 10000 });
     await createBackupBtn.click();
     await page
       .getByTestId('schedule-menu-item')
       .waitFor({ state: 'visible', timeout: 5000 });
     await page.getByTestId('schedule-menu-item').click();
-    await page.getByRole('dialog').waitFor({ state: 'visible', timeout: 10000 });
+    await page
+      .getByRole('dialog')
+      .waitFor({ state: 'visible', timeout: 10000 });
     await page.waitForTimeout(500);
     await expect(page).toHaveScreenshot(
       'db-details-schedule-form-dialog.png',
@@ -498,7 +514,9 @@ test.describe('Visual Baseline - Mocked States', () => {
     );
   });
 
-  test('DB Details - schedule form with autocomplete open', async ({ page }) => {
+  test('DB Details - schedule form with autocomplete open', async ({
+    page,
+  }) => {
     await mockInstanceDetailWithSchedules(page);
 
     await goToUrl(page, `/databases/${DB_NAMESPACE}/${DB_NAME}/backups`);
@@ -509,14 +527,18 @@ test.describe('Visual Baseline - Mocked States', () => {
     await page.waitForTimeout(500);
 
     // Open "Create backup" menu → "Schedule"
-    const createBackupBtn = page.getByRole('button', { name: /create backup/i });
+    const createBackupBtn = page.getByRole('button', {
+      name: /create backup/i,
+    });
     await createBackupBtn.waitFor({ state: 'visible', timeout: 10000 });
     await createBackupBtn.click();
     await page
       .getByTestId('schedule-menu-item')
       .waitFor({ state: 'visible', timeout: 5000 });
     await page.getByTestId('schedule-menu-item').click();
-    await page.getByRole('dialog').waitFor({ state: 'visible', timeout: 10000 });
+    await page
+      .getByRole('dialog')
+      .waitFor({ state: 'visible', timeout: 10000 });
     await page.waitForTimeout(1000);
 
     // Force-open the backup-storage autocomplete dropdown
@@ -526,7 +548,9 @@ test.describe('Visual Baseline - Mocked States', () => {
       .first();
     await popupIcon.waitFor({ state: 'visible', timeout: 10000 });
     await popupIcon.click();
-    await page.getByRole('listbox').waitFor({ state: 'visible', timeout: 5000 });
+    await page
+      .getByRole('listbox')
+      .waitFor({ state: 'visible', timeout: 5000 });
     await page.waitForTimeout(300);
     await expect(page).toHaveScreenshot(
       'schedule-form-autocomplete-open.png',
@@ -554,7 +578,9 @@ test.describe('Visual Baseline - Mocked States', () => {
     const deleteItem = page.getByRole('menuitem', { name: /delete/i });
     await deleteItem.waitFor({ state: 'visible', timeout: 5000 });
     await deleteItem.click();
-    await page.getByRole('dialog').waitFor({ state: 'visible', timeout: 10000 });
+    await page
+      .getByRole('dialog')
+      .waitFor({ state: 'visible', timeout: 10000 });
     await page.waitForTimeout(500);
     await expect(page).toHaveScreenshot(
       'confirm-delete-backup-dialog.png',
