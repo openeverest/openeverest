@@ -30,9 +30,9 @@ import (
 )
 
 // Refresh exchanges the stored refresh token for a new token pair, persists it to cfgPath,
-// and returns the updated session.
-func (lo *Login) Refresh(ctx context.Context, cfgPath string) (*cli.Session, error) {
-	sess, err := cli.LoadSession(cfgPath, "")
+// and returns the updated session. Pass "" for contextName to use the current context.
+func (lo *Login) Refresh(ctx context.Context, cfgPath, contextName string) (*cli.Session, error) {
+	sess, err := cli.LoadSession(cfgPath, contextName)
 	if err != nil {
 		return nil, err
 	}

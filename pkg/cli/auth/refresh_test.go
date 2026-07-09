@@ -73,7 +73,7 @@ func TestRefresh_Success(t *testing.T) {
 	require.NoError(t, newRefreshConfig(srv.URL, "everest_rt_old").Save(cfgPath))
 
 	lo := NewLogin(Config{}, zap.NewNop().Sugar())
-	sess, err := lo.Refresh(t.Context(), cfgPath)
+	sess, err := lo.Refresh(t.Context(), cfgPath, "")
 	require.NoError(t, err)
 	require.NotNil(t, sess)
 	assert.Equal(t, "rotated-access-jwt", sess.User.AccessToken)
@@ -102,7 +102,7 @@ func TestRefresh_InvalidToken(t *testing.T) {
 	require.NoError(t, newRefreshConfig(srv.URL, "everest_rt_expired").Save(cfgPath))
 
 	lo := NewLogin(Config{}, zap.NewNop().Sugar())
-	_, err := lo.Refresh(t.Context(), cfgPath)
+	_, err := lo.Refresh(t.Context(), cfgPath, "")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "401")
 
@@ -124,7 +124,7 @@ func TestRefresh_NoActiveContext(t *testing.T) {
 	require.NoError(t, cfg.Save(cfgPath))
 
 	lo := NewLogin(Config{}, zap.NewNop().Sugar())
-	_, err := lo.Refresh(t.Context(), cfgPath)
+	_, err := lo.Refresh(t.Context(), cfgPath, "")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "no active context")
 }

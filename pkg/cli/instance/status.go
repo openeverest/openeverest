@@ -18,6 +18,7 @@ package instance
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"os"
@@ -27,7 +28,6 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/openeverest/openeverest/v2/client"
-	"github.com/openeverest/openeverest/v2/pkg/cli"
 	authcli "github.com/openeverest/openeverest/v2/pkg/cli/auth"
 )
 
@@ -60,29 +60,12 @@ func NewInstanceStatusRunner(cfg Config, l *zap.SugaredLogger) *InstanceStatusRu
 // With opts.Watch set, it polls continuously until the context is cancelled,
 // the instance is deleted, or token refresh fails.
 func (is *InstanceStatusRunner) Run(ctx context.Context, opts StatusOptions, cfgPath string) error {
-	sess, err := cli.LoadSession(cfgPath, opts.Context)
+	c, err := authcli.NewAPIClient(authcli.Config{Pretty: is.config.Pretty}, is.l.Desugar().Sugar(), cfgPath, opts.Context)
 	if err != nil {
 		return err
 	}
 
-	// Refresh proactively within 30s of expiry to avoid a mid-flight 401.
-	if time.Now().After(sess.User.ExpiresAt.Add(-30 * time.Second)) {
-		lo := authcli.NewLogin(authcli.Config{Pretty: is.config.Pretty}, is.l.Desugar().Sugar())
-		newSess, err := lo.Refresh(ctx, cfgPath)
-		if err != nil {
-			return fmt.Errorf("access token expired and refresh failed: %w", err)
-		}
-		sess = newSess
-	}
-
-	c, err := client.NewClientWithResponses(cli.NormalizeServerURL(sess.Server.URL))
-	if err != nil {
-		return fmt.Errorf("failed to create API client: %w", err)
-	}
-
-	token := cli.BearerToken(sess.User.AccessToken)
-
-	resp, err := c.GetInstanceWithResponse(ctx, opts.Cluster, opts.Namespace, opts.Name, token)
+	resp, err := c.GetInstanceWithResponse(ctx, opts.Cluster, opts.Namespace, opts.Name)
 	if err != nil {
 		return fmt.Errorf("failed to fetch instance %q: %w", opts.Name, err)
 	}
@@ -96,7 +79,7 @@ func (is *InstanceStatusRunner) Run(ctx context.Context, opts StatusOptions, cfg
 	is.render(resp.JSON200, opts.Namespace)
 
 	if opts.Watch {
-		return is.watch(ctx, c, sess, token, opts, cfgPath)
+		return is.watch(ctx, c, opts)
 	}
 	return nil
 }
@@ -104,10 +87,7 @@ func (is *InstanceStatusRunner) Run(ctx context.Context, opts StatusOptions, cfg
 func (is *InstanceStatusRunner) watch(
 	ctx context.Context,
 	c *client.ClientWithResponses,
-	sess *cli.Session,
-	token client.RequestEditorFn,
 	opts StatusOptions,
-	cfgPath string,
 ) error {
 	interval := opts.Interval
 	if interval <= 0 {
@@ -122,19 +102,11 @@ func (is *InstanceStatusRunner) watch(
 		case <-ctx.Done():
 			return nil
 		case <-ticker.C:
-			// Proactive rotation — refresh before the token expires.
-			if time.Now().After(sess.User.ExpiresAt.Add(-30 * time.Second)) {
-				lo := authcli.NewLogin(authcli.Config{Pretty: is.config.Pretty}, is.l.Desugar().Sugar())
-				newSess, err := lo.Refresh(ctx, cfgPath)
-				if err != nil {
-					return fmt.Errorf("access token expired and refresh failed: %w", err)
-				}
-				sess = newSess
-				token = cli.BearerToken(sess.User.AccessToken)
-			}
-
-			resp, err := c.GetInstanceWithResponse(ctx, opts.Cluster, opts.Namespace, opts.Name, token)
+			resp, err := c.GetInstanceWithResponse(ctx, opts.Cluster, opts.Namespace, opts.Name)
 			if err != nil {
+				if errors.Is(err, authcli.ErrTokenRefresh) {
+					return err
+				}
 				is.l.Warnf("fetch failed: %v — retrying in %s", err, interval)
 				continue
 			}
@@ -151,33 +123,6 @@ func (is *InstanceStatusRunner) watch(
 				is.render(resp.JSON200, opts.Namespace)
 			case http.StatusNotFound:
 				return fmt.Errorf("instance %q has been deleted", opts.Name)
-			case http.StatusUnauthorized:
-				// Refresh and retry once before surfacing the error.
-				lo := authcli.NewLogin(authcli.Config{Pretty: is.config.Pretty}, is.l.Desugar().Sugar())
-				newSess, err := lo.Refresh(ctx, cfgPath)
-				if err != nil {
-					return fmt.Errorf("access token expired and refresh failed: %w", err)
-				}
-				sess = newSess
-				token = cli.BearerToken(sess.User.AccessToken)
-
-				retry, retryErr := c.GetInstanceWithResponse(ctx, opts.Cluster, opts.Namespace, opts.Name, token)
-				if retryErr != nil {
-					return fmt.Errorf("failed to fetch instance %q after token refresh: %w", opts.Name, retryErr)
-				}
-				switch retry.StatusCode() {
-				case http.StatusOK:
-					if retry.JSON200 != nil {
-						if is.config.Pretty {
-							fmt.Fprintln(os.Stdout, "---")
-						}
-						is.render(retry.JSON200, opts.Namespace)
-					}
-				case http.StatusNotFound:
-					return fmt.Errorf("instance %q has been deleted", opts.Name)
-				default:
-					return fmt.Errorf("access token expired — re-run with --watch to continue")
-				}
 			default:
 				is.l.Warnf("unexpected response %s — retrying in %s", resp.Status(), interval)
 			}
