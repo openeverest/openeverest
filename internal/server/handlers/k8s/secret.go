@@ -26,6 +26,7 @@ import (
 
 // CreateSecret creates a Secret and labels it as managed by OpenEverest.
 // Provider and category labels supplied by the caller are preserved.
+// Secret contents are stripped so only metadata is returned.
 func (h *k8sHandler) CreateSecret(ctx context.Context, _ string, namespace string, secret *corev1.Secret) (*corev1.Secret, error) {
 	if secret.Labels == nil {
 		secret.Labels = map[string]string{}
@@ -67,6 +68,7 @@ func (h *k8sHandler) ListSecrets(ctx context.Context, _ string, namespace, provi
 
 // GetSecret returns the secret specified by name. Secret contents are stripped
 // so only metadata is returned.
+// Secret contents are stripped so only metadata is returned.
 func (h *k8sHandler) GetSecret(ctx context.Context, _ string, namespace, name string) (*corev1.Secret, error) {
 	secret, err := h.kubeConnector.GetSecret(ctx, ctrlclient.ObjectKey{
 		Name:      name,
