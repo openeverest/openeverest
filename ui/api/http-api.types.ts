@@ -754,6 +754,56 @@ export interface paths {
         patch: operations["updateMonitoringConfig"];
         trace?: never;
     };
+    "/clusters/{cluster}/namespaces/{namespace}/configmaps": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List configmaps
+         * @description This API lists all OpenEverest-managed ConfigMaps in the specified namespace and cluster.
+         *     Optionally filter by provider and category.
+         */
+        get: operations["listConfigMaps"];
+        put?: never;
+        /**
+         * Create configmap
+         * @description This API creates a new ConfigMap in the specified namespace and cluster.
+         *     The ConfigMap is labeled as managed by OpenEverest.
+         */
+        post: operations["createConfigMap"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/clusters/{cluster}/namespaces/{namespace}/configmaps/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get configmap
+         * @description This API gets OpenEverest-managed ConfigMap specified by the `name` in the specified `namespace` and `cluster`.
+         */
+        get: operations["getConfigMap"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete configmap
+         * @description This API deletes the OpenEverest-managed ConfigMap specified by the `name` in the specified `namespace` and `cluster`.
+         */
+        delete: operations["deleteConfigMap"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1154,6 +1204,33 @@ export interface components {
             };
             /** @description Used to facilitate programmatic handling of secret data. More info: https://kubernetes.io/docs/concepts/configuration/secret/#secret-types */
             type?: string;
+        };
+        /** @description ConfigMap holds configuration data for pods to consume. */
+        ConfigMap: {
+            /** @description APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources */
+            apiVersion?: string;
+            /** @description Data contains the configuration data. Each key must consist of alphanumeric characters, '-', '_' or '.'. Values with non-UTF-8 byte sequences must use the BinaryData field. The keys stored in Data must not overlap with the keys in the BinaryData field. */
+            data?: {
+                [key: string]: string;
+            };
+            /** @description BinaryData contains the binary data. Each key must consist of alphanumeric characters, '-', '_' or '.'. BinaryData can contain byte sequences that are not in the UTF-8 range. The keys stored in BinaryData must not overlap with the ones in the Data field. */
+            binaryData?: {
+                [key: string]: string;
+            };
+            /** @description Immutable, if set to true, ensures that data stored in the ConfigMap cannot be updated (only object metadata can be modified). If not set to true, the field can be modified at any time. Defaulted to nil. */
+            immutable?: boolean;
+            /** @description Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds */
+            kind?: string;
+            /** @description Standard object's metadata. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata */
+            metadata?: Record<string, never>;
+        };
+        /** @description A list of OpenEverest-managed ConfigMaps. */
+        ConfigMapList: {
+            /** @example v1 */
+            apiVersion?: string;
+            /** @example ConfigMapList */
+            kind?: string;
+            items: components["schemas"]["ConfigMap"][];
         };
         /** @description ListMeta describes metadata that synthetic resources must have, including lists and various status objects. A resource may have only one of {ObjectMeta, ListMeta}. */
         "io.k8s.apimachinery.pkg.apis.meta.v1.ListMeta": {
@@ -6186,6 +6263,190 @@ export interface operations {
                 };
             };
             /** @description Monitoring config not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    listConfigMaps: {
+        parameters: {
+            query?: {
+                /** @description Filter configmaps by provider name */
+                provider?: string;
+                /** @description Filter configmaps by category */
+                category?: string;
+            };
+            header?: never;
+            path: {
+                /** @description The name of the cluster */
+                cluster: string;
+                /** @description The namespace of the configmaps */
+                namespace: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description List of configmaps */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConfigMapList"];
+                };
+            };
+            /** @description Unsuccessful operation */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    createConfigMap: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The name of the cluster */
+                cluster: string;
+                /** @description The namespace where the configmap will be created */
+                namespace: string;
+            };
+            cookie?: never;
+        };
+        /** @description The configmap object to be created */
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConfigMap"];
+            };
+        };
+        responses: {
+            /** @description ConfigMap created successfully */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConfigMap"];
+                };
+            };
+            /** @description Unsuccessful operation */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getConfigMap: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The name of the cluster */
+                cluster: string;
+                /** @description The namespace of the configmap */
+                namespace: string;
+                /** @description The name of the configmap */
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description ConfigMap details */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConfigMap"];
+                };
+            };
+            /** @description ConfigMap not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    deleteConfigMap: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The name of the cluster */
+                cluster: string;
+                /** @description The namespace of the configmap */
+                namespace: string;
+                /** @description The name of the configmap */
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description ConfigMap deleted successfully */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description ConfigMap not found */
             404: {
                 headers: {
                     [name: string]: unknown;
