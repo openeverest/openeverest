@@ -74,6 +74,7 @@ const (
 	ResourceBackups           = "backups"
 	ResourceRestores          = "restores"
 	ResourceMonitoringConfigs = "monitoring-configs"
+	ResourceSecrets           = "secrets"
 )
 
 // GlobalResources is a list of all Everest API resources that are considered global.
@@ -99,6 +100,7 @@ var ClusterNamespacedResources = []string{
 	ResourceRestores,
 	ResourceBackupStorages,
 	ResourceMonitoringConfigs,
+	ResourceSecrets,
 	ResourcePlugins,
 }
 

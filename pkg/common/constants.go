@@ -106,6 +106,13 @@ const (
 	// EverestAPIExtnResourceName is the name of the Everest API extension header
 	// that holds the name of the resource being served by an API endpoint.
 	EverestAPIExtnResourceName = "x-everest-resource-name"
+
+	// OpenEverestManagedLabel indicates a Secret or ConfigMap is managed by OpenEverest.
+	OpenEverestManagedLabel = "openeverest.io/managed"
+	// OpenEverestProviderLabel identifies the provider that uses the Secret or ConfigMap.
+	OpenEverestProviderLabel = "openeverest.io/provider"
+	// OpenEverestCategoryLabel identifies the Secret or ConfigMap category for filtering.
+	OpenEverestCategoryLabel = "openeverest.io/category"
 )
 
 // OperatorTypeToName maps the engine type to the operator name.
