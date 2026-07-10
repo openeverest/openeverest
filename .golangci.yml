@@ -1,65 +1,103 @@
----
-# Almost all linters; some of them are optional.
-
-linters-settings:
-  cyclop:
-    max-complexity: 15
-
-  depguard:
-    rules:
-      main:
-        files:
-        - $all
-        - "!$test"
-        deny:
-          - pkg: github.com/pkg/errors
-            desc: use "errors" instead
-          - pkg: github.com/gogo/protobuf/proto
-            desc: use "github.com/golang/protobuf/proto" instead
-
-  goimports:
-    local-prefixes: github.com/openeverest/openeverest/v2
-
-  unused:
-    check-exported: true
-
-  unparam:
-    check-exported: true
-
-  gci:
-    sections:
-      - standard # Captures all standard packages if they do not match another section.
-      - default # Contains all imports that could not be matched to another section type.
-      - prefix(github.com/openeverest/openeverest/v2) # Groups all local imports.
-
-  errcheck:
-    exclude-functions:
-      - fmt.Fprint
-      - fmt.Fprintf
-      - fmt.Fprintln
-
-
+version: "2"
 linters:
-  enable-all: true
+  default: all
   disable:
-    - err113           # not useful after migration to the standard errors
-    - exhaustruct      # not useful
-    - godox            # fails to be nolint-ed when necessary
-    - gomnd            # not useful
-    - lll              # generated signatures are long
-    - nlreturn         # too many empty lines makes methods too long
-    - tagalign         # not useful
-    - varnamelen       # it's useful sometime to have a one-letter name
-    - wrapcheck        # forces to wrap errors everywhere
-    - wsl              # too many empty lines makes methods too long
-    - perfsprint       # keep the format for consistency
-    - execinquery      # deprecated
-    - gomoddirectives  # we have been forced to use a replacement for k8s.io/client-go, see https://github.com/openeverest/openeverest/v2/pull/901
-
-issues:
-  exclude-use-default: false
-  exclude-rules:
-    - path: _test\.go
-      linters:
-        - funlen       # tests may be long
-        - testpackage  # senseless
+    - err113
+    - exhaustruct
+    - godoclint # too strict doc-comment rules
+    - godox
+    - gomoddirectives
+    - gomodguard # deprecated, replaced by gomodguard_v2
+    - lll
+    - mnd
+    - nlreturn
+    - noinlineerr # inline errors are idiomatic
+    - perfsprint
+    - tagalign
+    - varnamelen
+    - wrapcheck
+    - wsl
+    - wsl_v5 # too many empty lines makes methods too long
+  settings:
+    cyclop:
+      max-complexity: 15
+    depguard:
+      rules:
+        main:
+          files:
+            - $all
+            - '!$test'
+          deny:
+            - pkg: github.com/pkg/errors
+              desc: use "errors" instead
+            - pkg: github.com/gogo/protobuf/proto
+              desc: use "github.com/golang/protobuf/proto" instead
+    errcheck:
+      exclude-functions:
+        - fmt.Fprint
+        - fmt.Fprintf
+        - fmt.Fprintln
+    ireturn:
+      # Returning interfaces is the deliberate contract of these constructors
+      # (and bubbletea's Model.Update is required to return tea.Model).
+      allow:
+        - anon
+        - error
+        - empty
+        - stdlib
+        - generic
+        - github.com/charmbracelet/bubbletea.Model
+        - github.com/openeverest/openeverest/v2/pkg/kubernetes.KubernetesConnector
+        - github.com/openeverest/openeverest/v2/pkg/accounts.Interface
+        - github.com/openeverest/openeverest/v2/pkg/session.Blocklist
+        - github.com/openeverest/openeverest/v2/pkg/session.TokenStore
+        - k8s.io/client-go/rest.Interface
+    unparam:
+      check-exported: true
+  exclusions:
+    generated: lax
+    rules:
+      # Table-driven tests idiomatically repeat literals and parallel
+      # structure; size/duplication linters don't apply to them.
+      - linters:
+          - cyclop
+          - dupl
+          - funlen
+          - gocognit
+          - goconst
+          - maintidx
+          - testpackage
+        path: _test\.go
+      # Cobra requires package-level command variables and init() registration.
+      - linters:
+          - gochecknoglobals
+          - gochecknoinits
+        path: ^commands/
+    paths:
+      # Vendored JS dependencies may contain Go files that must not be linted.
+      - node_modules
+      - third_party$
+      - builtin$
+      - examples$
+formatters:
+  enable:
+    - gci
+    - gofmt
+    - gofumpt
+    - goimports
+  settings:
+    gci:
+      sections:
+        - standard
+        - default
+        - prefix(github.com/openeverest/openeverest/v2)
+    goimports:
+      local-prefixes:
+        - github.com/openeverest/openeverest/v2
+  exclusions:
+    generated: lax
+    paths:
+      - node_modules
+      - third_party$
+      - builtin$
+      - examples$

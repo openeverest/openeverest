@@ -104,16 +104,16 @@ func getOIDCProviderConfig(ctx context.Context, kubeClient kubernetes.Kubernetes
 
 // NewEverestServer creates and configures everest API.
 func NewEverestServer(ctx context.Context, c *config.EverestConfig, l *zap.SugaredLogger) (*EverestServer, error) {
-	kubeConnector, err := kubernetes.NewInCluster(l, ctx, nil, c.Namespace)
+	kubeConnector, err := kubernetes.NewInCluster(ctx, l, nil, c.Namespace)
 	if err != nil {
 		return nil, errors.Join(err, errors.New("failed creating Kubernetes client"))
 	}
 
 	kubeStreamer := clientgo.NewForConfigOrDie(kubeConnector.Config())
 
-	if c.HTTPPort != 0 {
+	if c.HTTPPort != 0 { //nolint:staticcheck // intentionally reads deprecated HTTPPort for backward compatibility
 		l.Warn("HTTP_PORT is deprecated, use PORT instead")
-		c.ListenPort = c.HTTPPort
+		c.ListenPort = c.HTTPPort //nolint:staticcheck // intentionally reads deprecated HTTPPort for backward compatibility
 	}
 
 	echoServer := echo.New()
@@ -166,11 +166,44 @@ func NewEverestServer(ctx context.Context, c *config.EverestConfig, l *zap.Sugar
 	return e, err
 }
 
+// Start starts everest server.
+func (e *EverestServer) Start(ctx context.Context) error {
+	// Start the event hub in the background.
+	go func() {
+		if err := e.eventHub.Start(ctx); err != nil && ctx.Err() == nil {
+			e.l.Errorf("event hub stopped: %v", err)
+		}
+	}()
+
+	// Periodically prune expired API token records.
+	go e.pruneExpiredTokens(ctx)
+
+	addr := fmt.Sprintf("0.0.0.0:%d", e.config.ListenPort)
+	if e.config.TLSCertsPath != "" {
+		return e.startHTTPS(ctx, addr)
+	}
+	return e.echo.Start(addr)
+}
+
+// Shutdown gracefully stops the Everest server.
+func (e *EverestServer) Shutdown(ctx context.Context) error {
+	e.l.Info("Shutting down http server")
+	if err := e.echo.Shutdown(ctx); err != nil {
+		e.l.Error(errors.Join(err, errors.New("could not shut down http server")))
+		return err
+	}
+	e.l.Info("http server shut down")
+
+	return nil
+}
+
+// Template is an echo renderer for the embedded UI templates.
 type Template struct {
 	templates *template.Template
 }
 
-func (t *Template) Render(w io.Writer, name string, data interface{}, c echo.Context) error {
+// Render renders the named template with the given data into w.
+func (t *Template) Render(w io.Writer, name string, data any, _ echo.Context) error {
 	return t.templates.ExecuteTemplate(w, name, data)
 }
 
@@ -181,14 +214,16 @@ func (e *EverestServer) initHTTPServer(ctx context.Context) error {
 	e.echo.Renderer = &Template{
 		templates: template.Must(template.ParseFS(indexFS, "index.html")),
 	}
-	e.echo.GET("/*", func(c echo.Context) error {
-		// Embed the CSP nonce into the template. This nonce was auto-generated
-		// for this request and stored in the context by the secure middleware.
-		// See the securityHeaders middleware for more information.
-		return c.Render(http.StatusOK, "index.html",
-			map[string]interface{}{"CSPNonce": secure.CSPNonce(c.Request().Context())},
-		)
-	}, e.securityHeaders(),
+	e.echo.GET(
+		"/*", func(c echo.Context) error {
+			// Embed the CSP nonce into the template. This nonce was auto-generated
+			// for this request and stored in the context by the secure middleware.
+			// See the securityHeaders middleware for more information.
+			return c.Render(
+				http.StatusOK, "index.html",
+				map[string]any{"CSPNonce": secure.CSPNonce(c.Request().Context())},
+			)
+		}, e.securityHeaders(),
 	)
 
 	// Serve static files.
@@ -200,17 +235,11 @@ func (e *EverestServer) initHTTPServer(ctx context.Context) error {
 	e.echo.GET("/static/*", echo.WrapHandler(staticFilesHandler), e.securityHeaders())
 
 	// Middlewares
-	e.echo.Use(echomiddleware.LoggerWithConfig(echomiddleware.LoggerConfig{
-		Format:           echomiddleware.DefaultLoggerConfig.Format,
-		CustomTimeFormat: echomiddleware.DefaultLoggerConfig.CustomTimeFormat,
-		Skipper: func(c echo.Context) bool {
-			return c.Request().RequestURI == "/healthz"
-		},
-	}))
+	e.echo.Use(e.requestLoggerMiddleware())
 	e.echo.Pre(echomiddleware.RemoveTrailingSlash())
 
 	// Setup the API handlers.
-	swagger, err := api.GetSwagger()
+	swagger, err := api.GetSpec()
 	if err != nil {
 		return err
 	}
@@ -238,7 +267,7 @@ func (e *EverestServer) initHTTPServer(ctx context.Context) error {
 	}
 	apiGroup.Use(jwtMW)
 
-	blocklistMW, err := e.sessionMgr.BlocklistMiddleWare(newSkipperFunc)
+	blocklistMW, err := e.sessionMgr.BlocklistMiddleWare(newSkipperFunc) //nolint:contextcheck // the middleware closure uses the per-request context by design, not the server init context
 	if err != nil {
 		return err
 	}
@@ -281,6 +310,45 @@ func (e *EverestServer) initHTTPServer(ctx context.Context) error {
 	return nil
 }
 
+// requestLoggerMiddleware returns a middleware that logs each request,
+// preserving the fields previously emitted by echo's default Logger middleware.
+func (e *EverestServer) requestLoggerMiddleware() echo.MiddlewareFunc {
+	return echomiddleware.RequestLoggerWithConfig(echomiddleware.RequestLoggerConfig{
+		Skipper: func(c echo.Context) bool {
+			return c.Request().RequestURI == "/healthz"
+		},
+		LogRequestID:     true,
+		LogRemoteIP:      true,
+		LogHost:          true,
+		LogMethod:        true,
+		LogURI:           true,
+		LogUserAgent:     true,
+		LogStatus:        true,
+		LogError:         true,
+		LogLatency:       true,
+		LogContentLength: true,
+		LogResponseSize:  true,
+		LogValuesFunc: func(_ echo.Context, v echomiddleware.RequestLoggerValues) error {
+			e.l.Infow(
+				"request",
+				"id", v.RequestID,
+				"remote_ip", v.RemoteIP,
+				"host", v.Host,
+				"method", v.Method,
+				"uri", v.URI,
+				"user_agent", v.UserAgent,
+				"status", v.Status,
+				"error", v.Error,
+				"latency", v.Latency.Nanoseconds(),
+				"latency_human", v.Latency.String(),
+				"bytes_in", v.ContentLength,
+				"bytes_out", v.ResponseSize,
+			)
+			return nil
+		},
+	})
+}
+
 func (e *EverestServer) setupHandlers(
 	ctx context.Context,
 	log *zap.SugaredLogger,
@@ -309,7 +377,7 @@ func newHandlerChain(hs ...handlers.Handler) handlers.Handler { //nolint:ireturn
 	if len(hs) == 1 {
 		return hs[0]
 	}
-	for i := 0; i < len(hs)-1; i++ {
+	for i := range len(hs) - 1 {
 		hs[i].SetNext(hs[i+1])
 	}
 	return hs[0]
@@ -325,7 +393,7 @@ func (e *EverestServer) newJWTKeyFunc(ctx context.Context) (jwt.Keyfunc, error) 
 		oidcKeyFn = fn
 	}
 
-	return func(token *jwt.Token) (interface{}, error) {
+	return func(token *jwt.Token) (any, error) {
 		claims, ok := token.Claims.(jwt.MapClaims)
 		if !ok {
 			return nil, errors.New("failed to get claims from token")
@@ -368,7 +436,7 @@ func (e *EverestServer) jwtMiddleWare(ctx context.Context) (echo.MiddlewareFunc,
 			// The user key exists only in the echo.Context object.
 			// We will copy it to the context.Context as well.
 			ctx := c.Request().Context()
-			newCtx := context.WithValue(ctx, common.UserCtxKey, c.Get(common.UserCtxKey))
+			newCtx := context.WithValue(ctx, common.UserCtxKey, c.Get(common.UserCtxKey)) //nolint:staticcheck // common.UserCtxKey is a shared string key read via ctx.Value in pkg/common (out of scope); changing its type requires coordinated changes
 			newReq := c.Request().WithContext(newCtx)
 			c.SetRequest(newReq)
 		},
@@ -376,7 +444,7 @@ func (e *EverestServer) jwtMiddleWare(ctx context.Context) (echo.MiddlewareFunc,
 }
 
 func newSkipperFunc() (echomiddleware.Skipper, error) {
-	swagger, err := api.GetSwagger()
+	swagger, err := api.GetSpec()
 	if err != nil {
 		return nil, err
 	}
@@ -403,25 +471,6 @@ func newSkipperFunc() (echomiddleware.Skipper, error) {
 	}, nil
 }
 
-// Start starts everest server.
-func (e *EverestServer) Start(ctx context.Context) error {
-	// Start the event hub in the background.
-	go func() {
-		if err := e.eventHub.Start(ctx); err != nil && ctx.Err() == nil {
-			e.l.Errorf("event hub stopped: %v", err)
-		}
-	}()
-
-	// Periodically prune expired API token records.
-	go e.pruneExpiredTokens(ctx)
-
-	addr := fmt.Sprintf("0.0.0.0:%d", e.config.ListenPort)
-	if e.config.TLSCertsPath != "" {
-		return e.startHTTPS(ctx, addr)
-	}
-	return e.echo.Start(addr)
-}
-
 func (e *EverestServer) startHTTPS(ctx context.Context, addr string) error {
 	// The certwatcher will watch the certificate and key files
 	// and reload the certificate if they change.
@@ -441,7 +490,8 @@ func (e *EverestServer) startHTTPS(ctx context.Context, addr string) error {
 	}()
 
 	e.echo.TLSServer = &http.Server{
-		Addr: addr,
+		Addr:              addr,
+		ReadHeaderTimeout: 5 * time.Second,
 		TLSConfig: &tls.Config{
 			// server periodically calls GetCertificate and reloads the certificate.
 			GetCertificate: watcher.GetCertificate,
@@ -465,18 +515,6 @@ func (e *EverestServer) pruneExpiredTokens(ctx context.Context) {
 			}
 		}
 	}
-}
-
-// Shutdown gracefully stops the Everest server.
-func (e *EverestServer) Shutdown(ctx context.Context) error {
-	e.l.Info("Shutting down http server")
-	if err := e.echo.Shutdown(ctx); err != nil {
-		e.l.Error(errors.Join(err, errors.New("could not shut down http server")))
-		return err
-	}
-	e.l.Info("http server shut down")
-
-	return nil
 }
 
 func (e *EverestServer) getBodyFromContext(ctx echo.Context, into any) error {
@@ -563,7 +601,7 @@ func trimWebhookErrorText(fullText string) string {
 // createSessionManagerClient creates a k8s client for a session manager.
 func createSessionManagerClient(ctx context.Context, l *zap.SugaredLogger, namespace string) (accounts.Interface, error) {
 	sessionMgrClientCacheOptions := session.ClientCacheOptions(namespace)
-	sessionMgrClient, err := kubernetes.NewInCluster(l, ctx, sessionMgrClientCacheOptions, namespace)
+	sessionMgrClient, err := kubernetes.NewInCluster(ctx, l, sessionMgrClientCacheOptions, namespace)
 	if err != nil {
 		return nil, err
 	}

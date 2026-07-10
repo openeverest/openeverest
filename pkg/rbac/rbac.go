@@ -60,9 +60,9 @@ const (
 	ResourceDataImportJobs             = "data-import-jobs"
 	ResourcePlugins                    = "plugins"
 
-	// Engine Features resources
+	// Engine Features resources.
 
-	ResourceEngineFeatures_SplitHorizonDNSConfigs = "enginefeatures/split-horizon-dns-configs"
+	ResourceEngineFeaturesSplitHorizonDNSConfigs = "enginefeatures/split-horizon-dns-configs"
 
 	// v2 multi-cluster resource names.
 
@@ -78,6 +78,8 @@ const (
 )
 
 // GlobalResources is a list of all Everest API resources that are considered global.
+//
+//nolint:gochecknoglobals // immutable lookup table
 var GlobalResources = []string{
 	ResourcePodSchedulingPolicies,
 	ResourceLoadBalancerConfigs,
@@ -104,13 +106,9 @@ var ClusterNamespacedResources = []string{
 	ResourcePlugins,
 }
 
+// IsGlobalResource returns true if the given resource is a global (non-namespaced) Everest API resource.
 func IsGlobalResource(resource string) bool {
-	for _, globalResource := range GlobalResources {
-		if resource == globalResource {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(GlobalResources, resource)
 }
 
 // IsClusterScopedResource returns true if the resource is scoped to a cluster
@@ -157,8 +155,12 @@ const (
 	rbacEnabledValueTrue = "true"
 )
 
+// SupportedActions is the list of all RBAC actions supported by Everest.
+//
+//nolint:gochecknoglobals // immutable lookup table
 var SupportedActions = []string{ActionCreate, ActionRead, ActionUpdate, ActionDelete, ActionUse, ActionDeploy, ActionAll}
 
+// User represents an authenticated subject and its groups for RBAC checks.
 type User struct {
 	Subject string
 	Groups  []string
@@ -177,7 +179,7 @@ func refreshEnforcerInBackground(
 		informer.WithLogger(l),
 		informer.Watches(&corev1.ConfigMap{}, kubeConnector.Namespace()),
 	)
-	inf.OnUpdate(func(_, newObj interface{}) {
+	inf.OnUpdate(func(_, newObj any) {
 		cm, ok := newObj.(*corev1.ConfigMap)
 		if !ok || cm.GetName() != common.EverestRBACConfigMapName {
 			return
@@ -312,7 +314,7 @@ func getScopeValues(claims jwt.MapClaims, scopes []string) []string {
 		}
 
 		switch val := scopeIf.(type) {
-		case []interface{}:
+		case []any:
 			for _, groupIf := range val {
 				group, ok := groupIf.(string)
 				if ok {

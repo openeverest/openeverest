@@ -43,7 +43,8 @@ var (
 		Args:  cobra.NoArgs,
 		Short: "Install Percona Everest using Helm",
 		Long:  "Install Percona Everest using Helm",
-		Example: fmt.Sprintf("everestctl install --%s dev,staging,prod --%s=true --%s=false --%s=false --%s",
+		Example: fmt.Sprintf(
+			"everestctl install --%s dev,staging,prod --%s=true --%s=false --%s=false --%s",
 			cli.FlagNamespaces, cli.FlagOperatorMongoDB, cli.FlagOperatorPostgresql, cli.FlagOperatorMySQL, cli.FlagSkipWizard,
 		),
 		PreRun: installPreRun,
@@ -86,7 +87,7 @@ func init() {
 	installCmd.Flags().BoolVar(&installCfg.NamespaceAddConfig.Operators.PXC, cli.FlagOperatorMySQL, true, "Install MySQL operator")
 }
 
-func installPreRun(cmd *cobra.Command, _ []string) { //nolint:revive
+func installPreRun(cmd *cobra.Command, _ []string) {
 	// Copy global flags to config
 	installCfg.Pretty = rootCmdFlags.Pretty
 	installCfg.KubeconfigPath = rootCmdFlags.KubeconfigPath
@@ -113,8 +114,7 @@ func installPreRun(cmd *cobra.Command, _ []string) { //nolint:revive
 func checkDBNamespaceParameters(cmd *cobra.Command) error {
 	// Check DB namespaces parameters
 	// If user doesn't pass --namespaces flag - need to ask explicitly.
-	askNamespaces := !(cmd.Flags().Lookup(cli.FlagNamespaces).Changed ||
-		installCfg.NamespaceAddConfig.SkipWizard)
+	askNamespaces := !cmd.Flags().Lookup(cli.FlagNamespaces).Changed && !installCfg.NamespaceAddConfig.SkipWizard
 
 	// Note: there are the following cases possible:
 	// - user doesn't provide '--namespaces' flag -> namespacesToAdd="everest" (default).
@@ -135,11 +135,7 @@ func checkDBNamespaceParameters(cmd *cobra.Command) error {
 	}
 
 	// If user doesn't pass any --operator.* flags - need to ask explicitly.
-	askOperators := !(cmd.Flags().Lookup(cli.FlagOperatorMongoDB).Changed ||
-		cmd.Flags().Lookup(cli.FlagOperatorPostgresql).Changed ||
-		cmd.Flags().Lookup(cli.FlagOperatorXtraDBCluster).Changed ||
-		cmd.Flags().Lookup(cli.FlagOperatorMySQL).Changed ||
-		installCfg.NamespaceAddConfig.SkipWizard)
+	askOperators := !cmd.Flags().Lookup(cli.FlagOperatorMongoDB).Changed && !cmd.Flags().Lookup(cli.FlagOperatorPostgresql).Changed && !cmd.Flags().Lookup(cli.FlagOperatorXtraDBCluster).Changed && !cmd.Flags().Lookup(cli.FlagOperatorMySQL).Changed && !installCfg.NamespaceAddConfig.SkipWizard
 
 	if askOperators {
 		// need to ask user to provide operators to be installed in interactive mode.
@@ -151,7 +147,7 @@ func checkDBNamespaceParameters(cmd *cobra.Command) error {
 	return nil
 }
 
-func installRun(cmd *cobra.Command, _ []string) { //nolint:revive
+func installRun(cmd *cobra.Command, _ []string) {
 	op, err := install.NewInstall(installCfg, logger.GetLogger())
 	if err != nil {
 		output.PrintError(err, logger.GetLogger(), installCfg.Pretty)

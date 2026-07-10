@@ -23,6 +23,7 @@ import (
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -35,12 +36,14 @@ import (
 )
 
 func TestShortenToken(t *testing.T) {
+	t.Parallel()
 	type tcase struct {
 		name           string
 		claims         jwt.MapClaims
 		shortenedToken string
 		error          error
 	}
+	//nolint:gosec // test JWT token data, not credentials
 	tcases := []tcase{
 		{
 			name: "valid jti",
@@ -89,6 +92,7 @@ func TestShortenToken(t *testing.T) {
 }
 
 func TestExtractContent(t *testing.T) {
+	t.Parallel()
 	type tcase struct {
 		name   string
 		token  *jwt.Token
@@ -113,7 +117,7 @@ func TestExtractContent(t *testing.T) {
 			name:  "valid empty payload",
 			token: jwt.New(jwt.SigningMethodHS256),
 			result: &JWTContent{
-				Payload: make(map[string]interface{}),
+				Payload: make(map[string]any),
 			},
 			error: nil,
 		},
@@ -121,7 +125,7 @@ func TestExtractContent(t *testing.T) {
 			name:  "valid with payload - jti claim",
 			token: jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{"jti": "9d1c1f98-a479-41e3-8939-c7cb3e049a", "exp": float64(331743679478)}),
 			result: &JWTContent{
-				Payload: map[string]interface{}{"exp": float64(331743679478), "jti": "9d1c1f98-a479-41e3-8939-c7cb3e049a"},
+				Payload: map[string]any{"exp": float64(331743679478), "jti": "9d1c1f98-a479-41e3-8939-c7cb3e049a"},
 			},
 			error: nil,
 		},
@@ -130,7 +134,7 @@ func TestExtractContent(t *testing.T) {
 			name:  "valid with payload - uti claim",
 			token: jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{"uti": "9d1c1f98-a479-41e3-8939-c7cb3e049a", "exp": float64(331743679478)}),
 			result: &JWTContent{
-				Payload: map[string]interface{}{"exp": float64(331743679478), "uti": "9d1c1f98-a479-41e3-8939-c7cb3e049a"},
+				Payload: map[string]any{"exp": float64(331743679478), "uti": "9d1c1f98-a479-41e3-8939-c7cb3e049a"},
 			},
 			error: nil,
 		},
@@ -147,6 +151,7 @@ func TestExtractContent(t *testing.T) {
 }
 
 func TestBlocklist_Block(t *testing.T) {
+	t.Parallel()
 	type tcase struct {
 		name    string
 		token   *jwt.Token
@@ -155,6 +160,7 @@ func TestBlocklist_Block(t *testing.T) {
 	}
 
 	tokenUnsupportedClaims := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.RegisteredClaims{})
+	//nolint:gosec // test JWT token data, not credentials
 	tcases := []tcase{
 		{
 			name:    "empty token",
@@ -207,16 +213,16 @@ func TestBlocklist_Block(t *testing.T) {
 			assert.Nil(t, secret)
 
 			b, err := mockNewBlocklist(ctx, l, k)
-			assert.NoError(t, err)
+			require.NoError(t, err)
 
 			// blocklist secret appears after the blocklist creation
 			secret, err = k.GetSecret(ctx, ctrlclient.ObjectKey{
 				Name:      common.EverestBlocklistSecretName,
 				Namespace: "test-ns",
 			})
-			assert.NoError(t, err)
+			require.NoError(t, err)
 			assert.NotNil(t, secret)
-			assert.Equal(t, "", secret.StringData[dataKey])
+			assert.Empty(t, secret.StringData[dataKey])
 
 			// block the token from the context and check the secret has been changed accordingly
 			err = b.Block(ctx, tc.token)
@@ -225,29 +231,30 @@ func TestBlocklist_Block(t *testing.T) {
 				return
 			}
 
-			assert.NoError(t, err)
+			require.NoError(t, err)
 
 			secret, err = k.GetSecret(ctx, ctrlclient.ObjectKey{
 				Name:      common.EverestBlocklistSecretName,
 				Namespace: "test-ns",
 			})
-			assert.NoError(t, err)
+			require.NoError(t, err)
 			// the mocked client does not do this StringData -> Data transformation in Secrets which the actual k8a API do, so
 			// we only check the StringData field
 			assert.Equal(t, tc.tokenID, secret.StringData[dataKey])
 
 			// deleting secret to test the backoff
 			err = k.DeleteSecret(ctx, secret)
-			assert.NoError(t, err)
+			require.NoError(t, err)
 
 			// after deleting secret - try to block again, get the NotFound error
 			err = b.Block(ctx, tc.token)
-			assert.Equal(t, true, k8serrors.IsNotFound(err))
+			assert.True(t, k8serrors.IsNotFound(err))
 		})
 	}
 }
 
 func TestBlocklist_IsBlocked(t *testing.T) {
+	t.Parallel()
 	type tcase struct {
 		name    string
 		objs    []ctrlclient.Object
@@ -258,6 +265,7 @@ func TestBlocklist_IsBlocked(t *testing.T) {
 	}
 
 	tokenUnsupportedClaims := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.RegisteredClaims{})
+	//nolint:gosec // test JWT token data, not credentials
 	tcases := []tcase{
 		{
 			name:    "empty token",
@@ -415,7 +423,7 @@ func TestBlocklist_IsBlocked(t *testing.T) {
 			k := kubernetes.NewEmpty(l, "test-ns").WithKubernetesClient(mockClient.Build())
 
 			b, err := mockNewBlocklist(ctx, l, k)
-			assert.NoError(t, err)
+			require.NoError(t, err)
 
 			blocked, err := b.IsBlocked(ctx, tc.token)
 			if tc.error != nil {
@@ -423,7 +431,7 @@ func TestBlocklist_IsBlocked(t *testing.T) {
 				return
 			}
 
-			assert.NoError(t, err)
+			require.NoError(t, err)
 			assert.Equal(t, tc.blocked, blocked)
 		})
 	}

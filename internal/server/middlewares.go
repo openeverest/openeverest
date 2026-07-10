@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -21,7 +22,6 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/AlekSi/pointer"
 	"github.com/labstack/echo/v4"
 	everestv1alpha1 "github.com/percona/everest-operator/api/everest/v1alpha1"
 	"github.com/unrolled/secure"
@@ -32,6 +32,7 @@ import (
 	"github.com/openeverest/openeverest/v2/pkg/oidc"
 )
 
+// Security header values used by the securityHeaders middleware.
 const (
 	CSPSelf           = "'self'"
 	CSPNone           = "'none'"
@@ -89,7 +90,7 @@ func (e *EverestServer) checkOperatorUpgradeState(next echo.HandlerFunc) echo.Ha
 			return err
 		} else if !allow {
 			return c.JSON(http.StatusPreconditionFailed, api.Error{
-				Message: pointer.ToString("Cannot perform this operation while the operator is upgrading"),
+				Message: new("Cannot perform this operation while the operator is upgrading"),
 			})
 		}
 		return next(c)
@@ -125,7 +126,7 @@ func (e *EverestServer) securityHeaders() echo.MiddlewareFunc {
 				// the index.html template.
 				"$NONCE",
 				// @emotion adds an extra inline style with the SHA256 hash of
-				// an empty string, so we need to explicity allow it, see:
+				// an empty string, so we need to explicitly allow it, see:
 				// https://github.com/emotion-js/emotion/issues/2996
 				"'sha256-47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU='",
 			},

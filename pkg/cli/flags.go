@@ -18,7 +18,7 @@
 package cli
 
 const (
-	// global flags
+	// global flags.
 
 	// FlagKubeconfig is the name of the kubeconfig flag.
 	FlagKubeconfig = "kubeconfig"
@@ -27,7 +27,7 @@ const (
 	// FlagJSON is the name of the json flag.
 	FlagJSON = "json"
 
-	// `install` flags
+	// `install` flags.
 
 	// FlagOperatorPostgresql represents the pg operator flag.
 	FlagOperatorPostgresql = "operator.postgresql"
@@ -54,7 +54,7 @@ const (
 	// FlagInstallSkipDBNamespace is the name of the skip-db-namespace flag.
 	FlagInstallSkipDBNamespace = "skip-db-namespace"
 
-	// `namespaces` flags
+	// `namespaces` flags.
 
 	// FlagTakeNamespaceOwnership is the name of the take-ownership flag.
 	FlagTakeNamespaceOwnership = "take-ownership"
@@ -65,7 +65,7 @@ const (
 	// FlagNamespaceAll is the name of the all flag.
 	FlagNamespaceAll = "all"
 
-	// `upgrade` flags
+	// `upgrade` flags.
 
 	// FlagUpgradeDryRun is the name of the dry-run flag.
 	FlagUpgradeDryRun = "dry-run"
@@ -74,7 +74,7 @@ const (
 	// FlagUpgradeVersionToUpgrade is the name of the version flag.
 	FlagUpgradeVersionToUpgrade = "version"
 
-	// `accounts` flags
+	// `accounts` flags.
 
 	// FlagAccountsUsername is the name of the username flag.
 	FlagAccountsUsername = "username"
@@ -111,7 +111,7 @@ const (
 	// FlagInstanceContext overrides the active context for this command.
 	FlagInstanceContext = "context"
 
-	// settings flags
+	// settings flags.
 
 	// FlagOIDCIssuerURL is the name of the issuer-url flag.
 	FlagOIDCIssuerURL = "issuer-url"

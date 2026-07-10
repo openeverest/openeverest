@@ -84,6 +84,9 @@ format:                 ## Format source code.
 
 .PHONY: check
 check:                  ## Run checks/linters for the whole project.
+# We need to ensure that /public/dist/index.html exists before linting because
+# it's embedded into the binary and a missing file breaks typechecking.
+	mkdir -p ./public/dist && [ -f ./public/dist/index.html ] || touch ./public/dist/index.html
 	go tool go-consistent -pedantic ./...
 	LOG_LEVEL=error go tool golangci-lint run
 
