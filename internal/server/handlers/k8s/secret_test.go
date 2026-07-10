@@ -30,7 +30,7 @@ import (
 	"github.com/openeverest/openeverest/v2/pkg/kubernetes"
 )
 
-func TestStripSecretData(t *testing.T) {
+func TestCreateSecret(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
@@ -49,7 +49,7 @@ func TestStripSecretData(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "secret-stringdata",
 					Labels: map[string]string{
-						common.OpenEverestCategoryLabel: "backup-storage",
+						common.OpenEverestCategoryLabel: "database-credentials",
 					},
 				},
 				Type: corev1.SecretTypeOpaque,
@@ -78,7 +78,9 @@ func TestStripSecretData(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		t.Run("CreateSecret_"+tt.name, func(t *testing.T) {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			fakeClient := fake.NewClientBuilder().WithScheme(scheme).Build()
 
 			handler := &k8sHandler{
@@ -87,12 +89,86 @@ func TestStripSecretData(t *testing.T) {
 			}
 
 			result, err := handler.CreateSecret(ctx, "", namespace, tt.secret)
+
 			require.NoError(t, err)
+			assert.Contains(t, tt.secret.Labels, "openeverest.io/managed")
 			assert.Nil(t, result.Data)
 			assert.Nil(t, result.StringData)
 		})
+	}
+}
 
-		t.Run("GetSecret_"+tt.name, func(t *testing.T) {
+func TestGetSecret(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	namespace := "test-namespace"
+
+	scheme := runtime.NewScheme()
+	require.NoError(t, corev1.AddToScheme(scheme))
+
+	tests := []struct {
+		name          string
+		secret        *corev1.Secret
+		expectedError string
+	}{
+		{
+			name: "secret with stringData",
+			secret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "secret-stringdata",
+					Namespace: namespace,
+					Labels: map[string]string{
+						common.OpenEverestCategoryLabel: "database-credentials",
+						common.OpenEverestManagedLabel:  "true",
+					},
+				},
+				Type: corev1.SecretTypeOpaque,
+				StringData: map[string]string{
+					"accessKey": "myaccesskey",
+					"secretKey": "mysecretkey",
+				},
+			},
+		},
+		{
+			name: "secret with data",
+			secret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "secret-data",
+					Namespace: namespace,
+					Labels: map[string]string{
+						common.OpenEverestCategoryLabel: "database-credentials",
+						common.OpenEverestManagedLabel:  "true",
+					},
+				},
+				Type: corev1.SecretTypeOpaque,
+				Data: map[string][]byte{
+					"username": []byte("admin"),
+					"password": []byte("secret123"),
+				},
+			},
+		},
+		{
+			name: "secret not managed by OpenEverest",
+			secret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "secret-unmanaged",
+					Namespace: namespace,
+				},
+				Type: corev1.SecretTypeOpaque,
+				Data: map[string][]byte{
+					"username": []byte("admin"),
+					"password": []byte("secret123"),
+				},
+			},
+			expectedError: "not managed by OpenEverest",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(tt.secret).Build()
 
 			handler := &k8sHandler{
@@ -101,27 +177,88 @@ func TestStripSecretData(t *testing.T) {
 			}
 
 			result, err := handler.GetSecret(ctx, "", namespace, tt.secret.Name)
+
+			if tt.expectedError != "" {
+				require.ErrorContains(t, err, tt.expectedError)
+
+				return
+			}
+
 			require.NoError(t, err)
 			assert.Nil(t, result.Data)
 			assert.Nil(t, result.StringData)
 		})
-
-		t.Run("ListSecrets_"+tt.name, func(t *testing.T) {
-			fakeClient := fake.NewClientBuilder().
-				WithScheme(scheme).
-				WithLists(&corev1.SecretList{Items: []corev1.Secret{*tt.secret}}).
-				Build()
-
-			handler := &k8sHandler{
-				kubeConnector: kubernetes.NewEmpty(zap.NewNop().Sugar(), namespace).WithKubernetesClient(fakeClient),
-				log:           zap.NewNop().Sugar(),
-			}
-
-			result, err := handler.ListSecrets(ctx, "", namespace, "", "")
-			require.NoError(t, err)
-			assert.Len(t, result.Items, 1, "Should have expected number of secrets")
-			assert.Nil(t, result.Items[0].Data)
-			assert.Nil(t, result.Items[0].StringData)
-		})
 	}
+}
+
+func TestListSecrets(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	namespace := "test-namespace"
+
+	scheme := runtime.NewScheme()
+	require.NoError(t, corev1.AddToScheme(scheme))
+
+	secrets := []corev1.Secret{
+		{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "secret-stringdata",
+				Namespace: namespace,
+				Labels: map[string]string{
+					common.OpenEverestCategoryLabel: "database-credentials",
+					common.OpenEverestManagedLabel:  "true",
+				},
+			},
+			Type: corev1.SecretTypeOpaque,
+			Data: map[string][]byte{
+				"accessKey": []byte("myaccesskey"),
+				"secretKey": []byte("mysecretkey"),
+			},
+		},
+		{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "secret-data",
+				Namespace: namespace,
+				Labels: map[string]string{
+					common.OpenEverestCategoryLabel: "database-credentials",
+					common.OpenEverestManagedLabel:  "true",
+				},
+			},
+			Type: corev1.SecretTypeOpaque,
+			Data: map[string][]byte{
+				"username": []byte("admin"),
+				"password": []byte("secret123"),
+			},
+		},
+		{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "not-managed-by-openeverest",
+				Namespace: namespace,
+			},
+			Type: corev1.SecretTypeOpaque,
+			Data: map[string][]byte{
+				"username": []byte("admin"),
+				"password": []byte("secret123"),
+			},
+		},
+	}
+
+	fakeClient := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithObjects(&secrets[0], &secrets[1], &secrets[2]).
+		Build()
+
+	handler := &k8sHandler{
+		kubeConnector: kubernetes.NewEmpty(zap.NewNop().Sugar(), namespace).WithKubernetesClient(fakeClient),
+		log:           zap.NewNop().Sugar(),
+	}
+
+	result, err := handler.ListSecrets(ctx, "", namespace, "", "database-credentials")
+	require.NoError(t, err)
+	assert.Len(t, result.Items, 2)
+	assert.Nil(t, result.Items[0].Data)
+	assert.Nil(t, result.Items[0].StringData)
+	assert.Nil(t, result.Items[1].Data)
+	assert.Nil(t, result.Items[1].StringData)
 }

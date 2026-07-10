@@ -763,7 +763,7 @@ export interface paths {
         };
         /**
          * List secrets
-         * @description This API lists all OpenEverest-managed Secrets in the specified namespace and cluster.
+         * @description This API lists OpenEverest-managed Secrets in the specified namespace and cluster.
          *     Only metadata is returned; secret data is never included.
          *     Optionally filter by provider and category.
          */
@@ -790,7 +790,7 @@ export interface paths {
         };
         /**
          * Get secret
-         * @description This API gets the Secret specified by the `name` in the specified `namespace` and `cluster`.
+         * @description This API gets OpenEverest-managed Secret specified by the `name` in the specified `namespace` and `cluster`.
          *     Note: Secret data is NOT included in the response for security reasons. Only metadata is returned.
          */
         get: operations["getSecret"];
@@ -798,7 +798,7 @@ export interface paths {
         post?: never;
         /**
          * Delete secret
-         * @description This API deletes the Secret specified by the `name` in the specified `namespace` and `cluster`.
+         * @description This API deletes the OpenEverest-managed Secret specified by the `name` in the specified `namespace` and `cluster`.
          */
         delete: operations["deleteSecret"];
         options?: never;

@@ -18,7 +18,6 @@ import (
 	"context"
 
 	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/openeverest/openeverest/v2/pkg/common"
@@ -31,7 +30,7 @@ func (h *k8sHandler) CreateSecret(ctx context.Context, _ string, namespace strin
 	if secret.Labels == nil {
 		secret.Labels = map[string]string{}
 	}
-	secret.Labels[common.OpenEverestManagedLabel] = "true"
+	secret.Labels[common.OpenEverestManagedLabel] = "true" //nolint:goconst
 	secret.Namespace = namespace
 
 	res, err := h.kubeConnector.CreateSecret(ctx, secret)
@@ -78,17 +77,28 @@ func (h *k8sHandler) GetSecret(ctx context.Context, _ string, namespace, name st
 		return nil, err
 	}
 
+	if v, ok := secret.Labels[common.OpenEverestManagedLabel]; !ok || v != "true" {
+		return nil, ErrNotFound
+	}
+
 	return stripSecretData(secret), nil
 }
 
 // DeleteSecret deletes the secret specified by name in the namespace.
 func (h *k8sHandler) DeleteSecret(ctx context.Context, _ string, namespace, name string) error {
-	return h.kubeConnector.DeleteSecret(ctx, &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: namespace,
-		},
+	secret, err := h.kubeConnector.GetSecret(ctx, ctrlclient.ObjectKey{
+		Name:      name,
+		Namespace: namespace,
 	})
+	if err != nil {
+		return err
+	}
+
+	if v, ok := secret.Labels[common.OpenEverestManagedLabel]; !ok || v != "true" {
+		return ErrNotFound
+	}
+
+	return h.kubeConnector.DeleteSecret(ctx, secret)
 }
 
 // stripSecretData removes the contents of a secret, leaving only metadata.

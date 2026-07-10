@@ -581,6 +581,11 @@ func everestErrorHandler(next echo.HTTPErrorHandler) echo.HTTPErrorHandler {
 				Code:    http.StatusBadRequest,
 				Message: err.Error(),
 			}
+		case errors.Is(err, k8shandler.ErrNotFound):
+			err = &echo.HTTPError{
+				Code:    http.StatusNotFound,
+				Message: err.Error(),
+			}
 		default:
 			err = &echo.HTTPError{
 				Code:    http.StatusInternalServerError,
