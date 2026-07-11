@@ -238,7 +238,7 @@ func TestInstanceStatus_JSONOutput(t *testing.T) {
 func minimalInst() *client.Instance {
 	phase := client.InstanceStatusPhaseReady
 	return &client.Instance{
-		Metadata: &map[string]interface{}{"name": "my-mongo"},
+		Metadata: &map[string]any{"name": "my-mongo"},
 		Status: &struct {
 			Components *[]struct {
 				Pods *[]struct {

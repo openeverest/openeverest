@@ -16,10 +16,13 @@
 package auth
 
 import (
+	"bytes"
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -74,8 +77,9 @@ func TestTransport_InjectsBearerToken(t *testing.T) {
 	tr := &authTransport{source: ts, base: http.DefaultTransport}
 
 	req, _ := http.NewRequestWithContext(t.Context(), http.MethodGet, srv.URL, nil)
-	_, err := tr.RoundTrip(req)
+	resp, err := tr.RoundTrip(req)
 	require.NoError(t, err)
+	defer resp.Body.Close() //nolint:errcheck
 	assert.Equal(t, "Bearer valid-access", gotAuth)
 }
 
@@ -93,7 +97,7 @@ func TestTransport_ProactiveRefresh(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodPost {
 			w.Header().Set("Content-Type", "application/json")
-			_ = json.NewEncoder(w).Encode(refreshResp)
+			_ = json.NewEncoder(w).Encode(refreshResp) //nolint:gosec
 			return
 		}
 		gotAuth = r.Header.Get("Authorization")
@@ -110,8 +114,9 @@ func TestTransport_ProactiveRefresh(t *testing.T) {
 	tr := &authTransport{source: ts, base: http.DefaultTransport}
 
 	req, _ := http.NewRequestWithContext(t.Context(), http.MethodGet, srv.URL, nil)
-	_, err := tr.RoundTrip(req)
+	resp, err := tr.RoundTrip(req)
 	require.NoError(t, err)
+	defer resp.Body.Close() //nolint:errcheck
 	assert.Equal(t, "Bearer refreshed-access", gotAuth)
 }
 
@@ -129,7 +134,7 @@ func TestTransport_On401_RefreshAndRetry(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodPost {
 			w.Header().Set("Content-Type", "application/json")
-			_ = json.NewEncoder(w).Encode(refreshResp)
+			_ = json.NewEncoder(w).Encode(refreshResp) //nolint:gosec
 			return
 		}
 		getCount++
@@ -150,6 +155,7 @@ func TestTransport_On401_RefreshAndRetry(t *testing.T) {
 	req, _ := http.NewRequestWithContext(t.Context(), http.MethodGet, srv.URL, nil)
 	resp, err := tr.RoundTrip(req)
 	require.NoError(t, err)
+	defer resp.Body.Close() //nolint:errcheck
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 	assert.Equal(t, 2, getCount)
 }
@@ -176,6 +182,49 @@ func TestTransport_On401_RefreshFails_ReturnsErrTokenRefresh(t *testing.T) {
 	_, err := tr.RoundTrip(req)
 	require.ErrorIs(t, err, ErrTokenRefresh)
 	assert.Equal(t, 1, getCount, "should not retry when refresh also fails")
+}
+
+func TestTransport_On401_RetryReplaysBody(t *testing.T) {
+	t.Parallel()
+
+	refreshResp := client.AuthTokenResponse{
+		AccessToken:  "rotated-access",
+		RefreshToken: "rotated-rt",
+		ExpiresIn:    900,
+		TokenType:    client.AuthTokenResponseTokenTypeBearer,
+	}
+
+	var bodies []string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasSuffix(r.URL.Path, "/token") {
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode(refreshResp) //nolint:gosec
+			return
+		}
+		b, _ := io.ReadAll(r.Body)
+		bodies = append(bodies, string(b))
+		if len(bodies) == 1 {
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer srv.Close()
+
+	cfgPath := filepath.Join(t.TempDir(), "config.yaml")
+	require.NoError(t, newTransportConfig(srv.URL).Save(cfgPath))
+
+	ts := loadTokenSource(t, cfgPath, NewLogin(Config{}, zap.NewNop().Sugar()))
+	tr := &authTransport{source: ts, base: http.DefaultTransport}
+
+	payload := `{"metadata":{"name":"my-mongo"}}`
+	req, _ := http.NewRequestWithContext(t.Context(), http.MethodPost, srv.URL+"/instances", bytes.NewReader([]byte(payload)))
+	resp, err := tr.RoundTrip(req)
+	require.NoError(t, err)
+	defer resp.Body.Close() //nolint:errcheck
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
+	require.Len(t, bodies, 2)
+	assert.Equal(t, payload, bodies[1], "retried request must carry the original body")
 }
 
 func TestNewAPIClient_LoadsSession(t *testing.T) {

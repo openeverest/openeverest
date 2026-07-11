@@ -105,8 +105,8 @@ func (t *authTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 		return resp, nil
 	}
 
-	io.Copy(io.Discard, resp.Body) //nolint:errcheck
-	resp.Body.Close()              //nolint:errcheck
+	io.Copy(io.Discard, resp.Body) //nolint:errcheck,gosec
+	resp.Body.Close()              //nolint:errcheck,gosec
 
 	newTok, err := t.source.forceRefresh(req.Context())
 	if err != nil {
@@ -141,10 +141,14 @@ func NewAPIClient(cfg Config, l *zap.SugaredLogger, cfgPath, contextName string)
 		contextName: contextName,
 	}
 
-	return client.NewClientWithResponses(
+	c, err := client.NewClientWithResponses(
 		cli.NormalizeServerURL(sess.Server.URL),
 		client.WithHTTPClient(&http.Client{
 			Transport: &authTransport{source: ts, base: http.DefaultTransport},
 		}),
 	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create API client: %w", err)
+	}
+	return c, nil
 }

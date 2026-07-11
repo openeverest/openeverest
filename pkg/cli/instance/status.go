@@ -123,6 +123,8 @@ func (is *InstanceStatusRunner) watch(
 				is.render(resp.JSON200, opts.Namespace)
 			case http.StatusNotFound:
 				return fmt.Errorf("instance %q has been deleted", opts.Name)
+			case http.StatusUnauthorized:
+				return fmt.Errorf("server rejected credentials — run 'everestctl auth login' again")
 			default:
 				is.l.Warnf("unexpected response %s — retrying in %s", resp.Status(), interval)
 			}
@@ -132,7 +134,7 @@ func (is *InstanceStatusRunner) watch(
 
 func (is *InstanceStatusRunner) render(inst *client.Instance, namespace string) {
 	if !is.config.Pretty {
-		_ = json.NewEncoder(os.Stdout).Encode(inst)
+		_ = json.NewEncoder(os.Stdout).Encode(inst) //nolint:errchkjson
 		return
 	}
 	printInstanceStatus(inst, namespace)
