@@ -179,7 +179,10 @@ func TestTransport_On401_RefreshFails_ReturnsErrTokenRefresh(t *testing.T) {
 	tr := &authTransport{source: ts, base: http.DefaultTransport}
 
 	req, _ := http.NewRequestWithContext(t.Context(), http.MethodGet, srv.URL, nil)
-	_, err := tr.RoundTrip(req)
+	resp, err := tr.RoundTrip(req)
+	if resp != nil {
+		defer resp.Body.Close() //nolint:errcheck
+	}
 	require.ErrorIs(t, err, ErrTokenRefresh)
 	assert.Equal(t, 1, getCount, "should not retry when refresh also fails")
 }

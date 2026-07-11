@@ -16,10 +16,12 @@
 package instance
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"text/tabwriter"
@@ -76,10 +78,12 @@ func (is *InstanceStatusRunner) Run(ctx context.Context, opts StatusOptions, cfg
 		return fmt.Errorf("unexpected response fetching instance %q: %s", opts.Name, resp.Status())
 	}
 
-	is.render(resp.JSON200, opts.Namespace)
+	var buf bytes.Buffer
+	is.render(&buf, resp.JSON200, opts.Namespace)
+	fmt.Fprint(os.Stdout, buf.String())
 
 	if opts.Watch {
-		return is.watch(ctx, c, opts)
+		return is.watch(ctx, c, opts, buf.String())
 	}
 	return nil
 }
@@ -88,6 +92,7 @@ func (is *InstanceStatusRunner) watch(
 	ctx context.Context,
 	c *client.ClientWithResponses,
 	opts StatusOptions,
+	lastOutput string,
 ) error {
 	interval := opts.Interval
 	if interval <= 0 {
@@ -117,10 +122,16 @@ func (is *InstanceStatusRunner) watch(
 					is.l.Warnf("empty response body — retrying in %s", interval)
 					continue
 				}
+				var buf bytes.Buffer
+				is.render(&buf, resp.JSON200, opts.Namespace)
+				if buf.String() == lastOutput {
+					continue
+				}
+				lastOutput = buf.String()
 				if is.config.Pretty {
 					fmt.Fprintln(os.Stdout, "---")
 				}
-				is.render(resp.JSON200, opts.Namespace)
+				fmt.Fprint(os.Stdout, lastOutput)
 			case http.StatusNotFound:
 				return fmt.Errorf("instance %q has been deleted", opts.Name)
 			case http.StatusUnauthorized:
@@ -132,24 +143,15 @@ func (is *InstanceStatusRunner) watch(
 	}
 }
 
-func (is *InstanceStatusRunner) render(inst *client.Instance, namespace string) {
+func (is *InstanceStatusRunner) render(w io.Writer, inst *client.Instance, namespace string) {
 	if !is.config.Pretty {
-		_ = json.NewEncoder(os.Stdout).Encode(inst) //nolint:errchkjson
+		_ = json.NewEncoder(w).Encode(inst) //nolint:errchkjson
 		return
 	}
-	printInstanceStatus(inst, namespace)
+	printInstanceStatus(w, inst, namespace)
 }
 
-func printInstanceStatus(inst *client.Instance, namespace string) {
-	name := "-"
-	if inst.Metadata != nil {
-		if n, ok := (*inst.Metadata)["name"]; ok {
-			if s, ok := n.(string); ok {
-				name = s
-			}
-		}
-	}
-
+func printInstanceStatus(w io.Writer, inst *client.Instance, namespace string) {
 	phase := "-"
 	message := "-"
 	version := "-"
@@ -166,44 +168,68 @@ func printInstanceStatus(inst *client.Instance, namespace string) {
 		}
 	}
 
-	fmt.Fprintf(os.Stdout, "Instance:  %s\n", name)
-	fmt.Fprintf(os.Stdout, "Namespace: %s\n", namespace)
-	fmt.Fprintf(os.Stdout, "Phase:     %s\n", phase)
-	fmt.Fprintf(os.Stdout, "Version:   %s\n", version)
-	fmt.Fprintf(os.Stdout, "Message:   %s\n", message)
+	fmt.Fprintf(w, "Instance:  %s\n", instanceName(inst))
+	fmt.Fprintf(w, "Namespace: %s\n", namespace)
+	fmt.Fprintf(w, "Phase:     %s\n", phase)
+	fmt.Fprintf(w, "Version:   %s\n", version)
+	fmt.Fprintf(w, "Message:   %s\n", message)
 
-	if inst.Status != nil && inst.Status.Components != nil && len(*inst.Status.Components) > 0 {
-		fmt.Fprintln(os.Stdout, "\nComponents:")
-		w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-		fmt.Fprintln(w, "  STATE\tREADY\tTOTAL")
-		for _, comp := range *inst.Status.Components {
-			state := "-"
-			if comp.State != nil {
-				state = *comp.State
-			}
-			var ready, total int32
-			if comp.Ready != nil {
-				ready = *comp.Ready
-			}
-			if comp.Total != nil {
-				total = *comp.Total
-			}
-			fmt.Fprintf(w, "  %s\t%d\t%d\n", state, ready, total)
-		}
-		w.Flush() //nolint:errcheck
-	}
+	printComponentTable(w, inst)
+	printConditionTable(w, inst)
+}
 
-	if inst.Status != nil && inst.Status.Conditions != nil && len(*inst.Status.Conditions) > 0 {
-		fmt.Fprintln(os.Stdout, "\nConditions:")
-		w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-		fmt.Fprintln(w, "  TYPE\tSTATUS\tREASON\tMESSAGE")
-		for _, cond := range *inst.Status.Conditions {
-			msg := cond.Message
-			if msg == "" {
-				msg = "-"
-			}
-			fmt.Fprintf(w, "  %s\t%s\t%s\t%s\n", cond.Type, string(cond.Status), cond.Reason, msg)
-		}
-		w.Flush() //nolint:errcheck
+func instanceName(inst *client.Instance) string {
+	if inst.Metadata == nil {
+		return "-"
 	}
+	n, ok := (*inst.Metadata)["name"]
+	if !ok {
+		return "-"
+	}
+	s, ok := n.(string)
+	if !ok {
+		return "-"
+	}
+	return s
+}
+
+func printComponentTable(w io.Writer, inst *client.Instance) {
+	if inst.Status == nil || inst.Status.Components == nil || len(*inst.Status.Components) == 0 {
+		return
+	}
+	fmt.Fprintln(w, "\nComponents:")
+	tw := tabwriter.NewWriter(w, 0, 0, 2, ' ', 0)
+	fmt.Fprintln(tw, "  STATE\tREADY\tTOTAL")
+	for _, comp := range *inst.Status.Components {
+		state := "-"
+		if comp.State != nil {
+			state = *comp.State
+		}
+		var ready, total int32
+		if comp.Ready != nil {
+			ready = *comp.Ready
+		}
+		if comp.Total != nil {
+			total = *comp.Total
+		}
+		fmt.Fprintf(tw, "  %s\t%d\t%d\n", state, ready, total)
+	}
+	tw.Flush() //nolint:errcheck,gosec
+}
+
+func printConditionTable(w io.Writer, inst *client.Instance) {
+	if inst.Status == nil || inst.Status.Conditions == nil || len(*inst.Status.Conditions) == 0 {
+		return
+	}
+	fmt.Fprintln(w, "\nConditions:")
+	tw := tabwriter.NewWriter(w, 0, 0, 2, ' ', 0)
+	fmt.Fprintln(tw, "  TYPE\tSTATUS\tREASON\tMESSAGE")
+	for _, cond := range *inst.Status.Conditions {
+		msg := cond.Message
+		if msg == "" {
+			msg = "-"
+		}
+		fmt.Fprintf(tw, "  %s\t%s\t%s\t%s\n", cond.Type, string(cond.Status), cond.Reason, msg)
+	}
+	tw.Flush() //nolint:errcheck,gosec
 }
