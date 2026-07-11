@@ -213,6 +213,7 @@ func (e *EverestServer) initHTTPServer(ctx context.Context) error {
 	e.echo.GET("/static/*", echo.WrapHandler(staticFilesHandler), e.securityHeaders())
 
 	// Middlewares
+	e.echo.Use(echomiddleware.Recover())
 	e.echo.Use(e.requestLoggerMiddleware())
 	e.echo.Pre(echomiddleware.RemoveTrailingSlash())
 
