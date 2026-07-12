@@ -185,14 +185,14 @@ func (r *RestoreReconciler) Reconcile( //nolint:nonamedreturns
 		}
 	}()
 
-	if bc.Spec.RestoreJob == nil || bc.Spec.RestoreJob.JobSpec == nil {
+	if bc.Spec.Job == nil || bc.Spec.Job.Restore == nil || bc.Spec.Job.Restore.JobSpec == nil {
 		restore.Status.State = backupv1alpha1.RestoreStateFailed
-		restore.Status.Message = "BackupClass does not define spec.restoreJob.jobSpec"
+		restore.Status.Message = "BackupClass does not define spec.job.restore.jobSpec"
 		return ctrl.Result{}, nil
 	}
 
 	// Create RBAC resources.
-	requiresRbac := len(bc.Spec.RestoreJob.Permissions) > 0 || len(bc.Spec.RestoreJob.ClusterPermissions) > 0
+	requiresRbac := len(bc.Spec.Job.Restore.Permissions) > 0 || len(bc.Spec.Job.Restore.ClusterPermissions) > 0
 	if requiresRbac { //nolint:nestif
 		if controllerutil.AddFinalizer(restore, restoreRBACCleanupFinalizer) {
 			if err := r.Client.Update(ctx, restore); err != nil {
@@ -204,7 +204,7 @@ func (r *RestoreReconciler) Reconcile( //nolint:nonamedreturns
 			restore.Status.Message = fmt.Errorf("failed to ensure service account: %w", err).Error()
 			return ctrl.Result{}, err
 		}
-		if err := r.ensureRBACResources(ctx, restore, bc.Spec.RestoreJob.Permissions, bc.Spec.RestoreJob.ClusterPermissions); err != nil {
+		if err := r.ensureRBACResources(ctx, restore, bc.Spec.Job.Restore.Permissions, bc.Spec.Job.Restore.ClusterPermissions); err != nil {
 			restore.Status.State = backupv1alpha1.RestoreStateError
 			restore.Status.Message = fmt.Errorf("failed to ensure RBAC resources: %w", err).Error()
 			return ctrl.Result{}, err
@@ -540,8 +540,8 @@ func (r *RestoreReconciler) getJobSpec(
 				RestartPolicy:                 corev1.RestartPolicyNever,
 				Containers: []corev1.Container{{
 					Name:    "restorer",
-					Image:   bc.Spec.RestoreJob.JobSpec.Image,
-					Command: bc.Spec.RestoreJob.JobSpec.Command,
+					Image:   bc.Spec.Job.Restore.JobSpec.Image,
+					Command: bc.Spec.Job.Restore.JobSpec.Command,
 					Args:    []string{fmt.Sprintf("%s/%s", payloadMountPath, backupJobJSONSecretKey)},
 					VolumeMounts: []corev1.VolumeMount{
 						{
