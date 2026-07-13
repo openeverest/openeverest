@@ -28,12 +28,12 @@
 export const DB_NAMESPACE = 'default';
 export const DB_NAME = 'inst-u3y';
 
-// The provider name MUST match a real provider served by the (un-mocked)
-// `/clusters/main/providers` endpoint so the overview/edit UIGenerator can
-// resolve its uiSchema. The mongodb operator installed in CI registers the
-// provider under `percona-server-mongodb` (see commands/instance/create.go and
-// api/core/v1alpha1/instance_types.go). This intentionally differs from the
-// `psmdb-provider` placeholder used by the src unit-test __mocks__.
+// The provider name MUST match the mocked `/clusters/main/providers` fixture
+// (see ./providers.data.ts) so the overview/edit UIGenerator can resolve its
+// uiSchema. The provider is registered under `percona-server-mongodb` (see
+// commands/instance/create.go and api/core/v1alpha1/instance_types.go). This
+// intentionally differs from the `psmdb-provider` placeholder used by the src
+// unit-test __mocks__.
 const PROVIDER_NAME = 'percona-server-mongodb';
 
 // Canonical shape: src/hooks/api/db-instances/__mocks__/useDbInstanceList.ts

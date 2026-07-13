@@ -12,21 +12,59 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Visual-regression test fixture. Composes over the shared auth fixture WITHOUT
-// modifying it: freezes time and installs the default deterministic API mocks
-// for every authenticated visual test.
+// Hermetic visual-regression fixture. The suite needs NO backend: every /v1
+// request (data, platform, and auth) is mocked, and the authenticated session
+// is granted by mocking POST /v1/auth/token. This makes screenshots fully
+// deterministic and lets CI run without a cluster.
+//
+// - `test`      : authenticated context (fake session + platform + data mocks).
+// - `baseTest`  : unauthenticated context (platform mocks + /auth/token -> 401)
+//                 for the login-page screenshot.
 
-import { test as authTest, expect } from '@e2e/fixtures/auth';
-import { installVisualMocks } from './routes';
+import { test as base, expect } from '@playwright/test';
+import type { Page } from '@playwright/test';
+import {
+  installVisualMocks,
+  installPlatformMocks,
+  mockAuthenticatedSessionRoute,
+  mockUnauthenticatedSessionRoute,
+} from './routes';
 
-export const test = authTest.extend({
+// Suppress the first-run welcome dialog (localStorage-gated) so it never leaks
+// into a screenshot.
+const dismissWelcomeDialog = (page: Page) =>
+  page.addInitScript(() => {
+    window.localStorage.setItem('welcomeModal', 'false');
+  });
+
+// Freeze wall-clock time so any relative/absolute date rendering is stable.
+// setFixedTime overrides Date.now()/new Date() for deterministic rendering
+// while keeping real timers running.
+const freezeClock = (page: Page) =>
+  page.clock.setFixedTime(new Date('2026-07-08T00:00:00Z'));
+
+export const test = base.extend({
+  // No real login: start from a clean storage state and let the mocked
+  // /auth/token bootstrap the session.
+  storageState: { cookies: [], origins: [] },
   page: async ({ page }, use) => {
-    // Freeze wall-clock time so any relative/absolute date rendering is stable.
-    // Use setFixedTime (NOT clock.install): it overrides Date.now()/new Date()
-    // for deterministic rendering while keeping real timers running, so the
-    // auth token-refresh scheduling in the app is not frozen mid-test.
-    await page.clock.setFixedTime(new Date('2026-07-08T00:00:00Z'));
+    await dismissWelcomeDialog(page);
+    await freezeClock(page);
+    await mockAuthenticatedSessionRoute(page);
+    await installPlatformMocks(page);
     await installVisualMocks(page);
+    await use(page);
+  },
+});
+
+// Unauthenticated fixture for the login-page screenshot.
+export const baseTest = base.extend({
+  storageState: { cookies: [], origins: [] },
+  page: async ({ page }, use) => {
+    await dismissWelcomeDialog(page);
+    await freezeClock(page);
+    await mockUnauthenticatedSessionRoute(page);
+    await installPlatformMocks(page);
     await use(page);
   },
 });

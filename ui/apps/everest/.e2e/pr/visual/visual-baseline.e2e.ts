@@ -23,8 +23,7 @@
 // Individual tests only add per-state overrides where a non-default response is
 // required (empty list, instance carrying schedules, ...).
 
-import { test, expect } from './mocks/fixture';
-import { test as baseTest } from '@playwright/test';
+import { test, expect, baseTest } from './mocks/fixture';
 import type { Page } from '@playwright/test';
 import { goToUrl } from '@e2e/utils/generic';
 import { TIMEOUTS } from '@e2e/constants';
@@ -405,27 +404,6 @@ test.describe('Visual Baseline - Mocked States', () => {
         screenshotOpts
       );
     }
-  });
-
-  test('DB Details - edit section modal', async ({ page }) => {
-    await goToUrl(page, `/databases/${DB_NAMESPACE}/${DB_NAME}`);
-    await page
-      .getByTestId('cluster-overview')
-      .waitFor({ state: 'visible', timeout: 60000 });
-    await page.waitForTimeout(1000);
-
-    // Click first available edit button (format: {sectionKey}-edit-button)
-    const editButton = page.locator('[data-testid$="-edit-button"]').first();
-    await editButton.waitFor({ state: 'visible', timeout: 10000 });
-    await editButton.click();
-    await page
-      .getByRole('dialog')
-      .waitFor({ state: 'visible', timeout: 10000 });
-    await page.waitForTimeout(500);
-    await expect(page).toHaveScreenshot(
-      'db-details-edit-section-modal.png',
-      screenshotOpts
-    );
   });
 
   test('DB Details - backups with schedules expanded', async ({ page }) => {

@@ -19,9 +19,10 @@
 // path, so URLs look like `/v1/clusters/main/namespaces/default/instances/...`.
 // We match them with tail regexes (proven by the previous committed baselines).
 //
-// The `/clusters/main/providers` endpoint is intentionally NOT mocked: it is
-// served by the real backend from the installed operators and drives the
-// UIGenerator uiSchema for the overview/edit/wizard schema steps.
+// The `/clusters/main/providers` endpoint is mocked from a captured fixture
+// (see ./providers.data.ts) so the suite is fully hermetic and does not depend
+// on the real backend having its provider operators Ready. The provider
+// `spec.uiSchema` drives the UIGenerator for the overview/edit/wizard steps.
 
 import { Page } from '@playwright/test';
 import {
@@ -39,6 +40,15 @@ import {
   mockRestores,
   mockDbEngines,
 } from './data';
+import { mockProviders } from './providers.data';
+import {
+  mockAuthTokenResponse,
+  mockVersion,
+  mockSettings,
+  mockPermissions,
+  mockClusterInfo,
+  mockPlugins,
+} from './platform.data';
 
 const json = (payload: unknown) => ({
   status: 200,
@@ -78,9 +88,13 @@ export const mockInstanceConnectionRoute = (page: Page) =>
     route.fulfill(json(mockInstanceConnection))
   );
 
-// GET clusters/main/namespaces -> NamespaceList (string[])
+// GET clusters/main/namespaces -> NamespaceList (string[]).
+// Anchored to the API path so it does NOT clobber the SPA route
+// `/settings/namespaces` (which also ends in `/namespaces`).
 export const mockNamespacesRoute = (page: Page) =>
-  page.route(/\/namespaces$/, (route) => route.fulfill(json(mockNamespaces)));
+  page.route(/\/clusters\/[^/]+\/namespaces$/, (route) =>
+    route.fulfill(json(mockNamespaces))
+  );
 
 // GET clusters/main/namespaces/{ns}/monitoring-configs -> MonitoringConfigList
 export const mockMonitoringConfigsRoute = (
@@ -123,6 +137,56 @@ export const mockDbEnginesRoute = (page: Page) =>
     route.fulfill(json(mockDbEngines))
   );
 
+// GET clusters/main/providers -> ProviderList (drives the UIGenerator uiSchema)
+export const mockProvidersRoute = (page: Page) =>
+  page.route(/\/clusters\/[^/]+\/providers$/, (route) =>
+    route.fulfill(json(mockProviders))
+  );
+
+// --- Platform / auth handlers ----------------------------------------------
+
+// POST /v1/auth/token -> AuthTokenResponse. Grants a fake in-memory session so
+// the app's silent bootstrap (refreshSession) authenticates without a backend.
+export const mockAuthenticatedSessionRoute = (page: Page) =>
+  page.route(/\/auth\/token$/, (route) =>
+    route.fulfill(json(mockAuthTokenResponse))
+  );
+
+// POST /v1/auth/token -> 401. Keeps the app on the unauthenticated login page.
+export const mockUnauthenticatedSessionRoute = (page: Page) =>
+  page.route(/\/auth\/token$/, (route) =>
+    route.fulfill({ status: 401, contentType: 'application/json', body: '{}' })
+  );
+
+// GET /v1/version
+export const mockVersionRoute = (page: Page) =>
+  page.route(/\/version$/, (route) => route.fulfill(json(mockVersion)));
+
+// GET /v1/settings (empty oidcConfig -> manual login form)
+export const mockSettingsRoute = (page: Page) =>
+  page.route(/\/settings$/, (route) => route.fulfill(json(mockSettings)));
+
+// GET /v1/permissions (RBAC disabled)
+export const mockPermissionsRoute = (page: Page) =>
+  page.route(/\/permissions$/, (route) => route.fulfill(json(mockPermissions)));
+
+// GET /v1/cluster-info
+export const mockClusterInfoRoute = (page: Page) =>
+  page.route(/\/cluster-info$/, (route) => route.fulfill(json(mockClusterInfo)));
+
+// GET /v1/plugins (may carry a query string)
+export const mockPluginsRoute = (page: Page) =>
+  page.route(/\/plugins(\?|$)/, (route) => route.fulfill(json(mockPlugins)));
+
+// Platform endpoints needed by every page (auth-independent).
+export const installPlatformMocks = async (page: Page) => {
+  await mockVersionRoute(page);
+  await mockSettingsRoute(page);
+  await mockPermissionsRoute(page);
+  await mockClusterInfoRoute(page);
+  await mockPluginsRoute(page);
+};
+
 // --- Aggregate -------------------------------------------------------------
 
 // Registers the full default deterministic state. Order matters: the more
@@ -131,6 +195,7 @@ export const mockDbEnginesRoute = (page: Page) =>
 // there is no ambiguity between them.
 export const installVisualMocks = async (page: Page) => {
   await mockNamespacesRoute(page);
+  await mockProvidersRoute(page);
   await mockDbEnginesRoute(page);
   await mockInstancesListRoute(page);
   await mockInstanceDetail(page);

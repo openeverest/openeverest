@@ -15,37 +15,24 @@ on:
       - "ui/**"
       - ".github/workflows/dev-fe-visual.yaml"
 
+# `contents: write` is required so the update_baselines run can commit the
+# regenerated screenshots back to the branch.
 permissions:
-  contents: read
-
-env:
-  GONOPROXY: 'github.com/percona'
-  GONOSUMDB: 'github.com/percona'
-  GOPRIVATE: 'github.com/percona'
+  contents: write
 
 jobs:
   visual-screenshots:
     name: Generate Visual Screenshots
     runs-on: ubuntu-latest
     steps:
+      # The visual suite is fully hermetic: every /v1 request (data, platform
+      # and auth) is mocked at the network layer, so NO Kubernetes cluster or
+      # Everest backend is needed — only the built UI served by Vite.
       - name: Check out code
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           lfs: true
-          ref: ${{ github.event.pull_request.head.sha || github.sha }}
-          fetch-depth: 0
-
-      - name: Set up Go release
-        uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6.4.0
-        with:
-          go-version-file: 'go.mod'
-          cache: true
-
-      - name: Adjust GitHub worker node
-        uses: ./.github/actions/adjust-github-node
-        with:
-          adjust-host-for-k3d: true
-          mount-docker-data: true
+          ref: ${{ github.event.pull_request.head.sha || github.ref }}
 
       - name: Setup pnpm
         uses: pnpm/action-setup@8912a9102ac27614460f54aedde9e1e7f9aec20d # v6.0.5
@@ -59,105 +46,27 @@ jobs:
           cache: "pnpm"
           cache-dependency-path: ui/pnpm-lock.yaml
 
-      - name: Start local Kubernetes cluster with the local registry
-        uses: medyagh/setup-minikube@e9e035a86bbc3caea26a450bd4dbf9d0c453682e # latest
-        id: minikube
-        with:
-          cpus: 4
-          memory: 12g
-          addons: registry
-          kubernetes-version: v1.32.8
-          insecure-registry: "localhost:5000"
-
-      - name: Expose local registry
-        run: |
-          kubectl port-forward --namespace kube-system service/registry 5000:80 &
-
-      - name: Build Everest API Server
-        run: |
-          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 make build-debug
-
-      - name: Build Everest Controller
-        run: |
-          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 make build-controller
-
-      - name: Build Everest docker container
-        uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051 # v5.10.0
-        id: meta
-        with:
-          images: localhost:5000/openeverest/openeverest-dev
-          tags: 0.0.0
-
-      - name: Build and Push everest dev image
-        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
-        with:
-          context: .
-          file: build/package/server/Dockerfile
-          target: openeverest
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-
-      - name: Build CLI
-        shell: bash
-        run: |
-          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 make build-cli
-
-      - name: Install Everest
-        shell: bash
-        run: |
-          ./bin/everestctl install -v \
-          --disable-telemetry \
-          --version 0.0.0 \
-          --version-metadata-url https://check-dev.percona.com \
-          --skip-wizard \
-          --skip-db-namespace \
-          --helm.set server.image.repository=localhost:5000/openeverest/openeverest-dev \
-          --helm.set server.apiRequestsRateLimit=200 \
-          --helm.set versionMetadataURL=https://check-dev.percona.com \
-          --helm.set operator.init=false \
-          --helm.set operator.image=ghcr.io/openeverest/openeverest-operator-dev \
-          --helm.set olm.catalogSourceImage=ghcr.io/openeverest/openeverest-catalog-dev
-
-      - name: Add everest namespace
-        shell: bash
-        run: |
-          ./bin/everestctl namespaces add everest -v \
-          --operator.mongodb=true \
-          --operator.postgresql=true \
-          --operator.mysql=true \
-          --take-ownership \
-          --skip-wizard
-
-      - name: Get Everest admin password
-        shell: bash
-        run: |
-          echo "EVEREST_ADMIN_PASSWORD=$(./bin/everestctl accounts initial-admin-password)" >> $GITHUB_ENV
-
-      - name: Expose Everest API Server
-        shell: bash
-        run: |
-          kubectl port-forward -n everest-system deployment/everest-server 8080:8080 &
-
-      - name: Run Everest UI
+      - name: Build UI and start the dev server
         shell: bash
         run: |
           cd ui
           make init
           make build
           pnpm --filter "@percona/everest" dev &
+          # Wait for the Vite dev server to serve the SPA. No backend is needed:
+          # the visual suite intercepts every /v1 call before it leaves the page.
+          timeout 120 bash -c 'until curl -sf http://localhost:3000 >/dev/null; do sleep 2; done'
 
       - name: Install Chromium for Playwright
         shell: bash
         run: |
           cd ui/apps/everest
-          npx playwright install chromium
+          npx playwright install --with-deps chromium
 
       - name: Run visual screenshot tests
         shell: bash
         env:
-          EVEREST_URL: 'http://localhost:3000'
-          CI_USER: "admin"
-          CI_PASSWORD: "${{ env.EVEREST_ADMIN_PASSWORD }}"
+          EVEREST_URL: "http://localhost:3000"
         run: |
           cd ui
           if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ inputs.update_baselines }}" = "true" ]; then
@@ -168,13 +77,21 @@ jobs:
             pnpm --filter "@percona/everest" e2e:visual
           fi
 
-      - name: Archive visual screenshots
-        if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: visual-screenshots
-          path: ui/apps/everest/.e2e/pr/visual/**/*.png
-          overwrite: true
+      - name: Commit updated baselines
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.update_baselines }}
+        shell: bash
+        run: |
+          cd ui/apps/everest/.e2e/pr/visual
+          snapshots="visual-baseline.e2e.ts-snapshots"
+          if [ -n "$(git status --porcelain "$snapshots")" ]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git add "$snapshots"
+            git commit -m "chore(ui): update visual baselines [skip ci]"
+            git push
+          else
+            echo "No baseline changes to commit"
+          fi
 
       - name: Archive playwright report
         if: always()
@@ -184,8 +101,11 @@ jobs:
           path: ui/apps/everest/.e2e/playwright-report/
           overwrite: true
 
-      - name: Run debug commands on failure
-        if: ${{ failure() }}
-        run: |
-          kubectl -n everest-system describe pods
-          kubectl -n everest-system logs deploy/everest-server
+      - name: Archive test results (traces, diffs, error context)
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: visual-test-results
+          path: ui/apps/everest/.e2e/test-results/
+          if-no-files-found: ignore
+          overwrite: true
