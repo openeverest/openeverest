@@ -30,7 +30,8 @@ func (h *k8sHandler) CreateConfigMap(ctx context.Context, _ string, namespace st
 	if configMap.Labels == nil {
 		configMap.Labels = map[string]string{}
 	}
-	configMap.Labels[common.OpenEverestManagedLabel] = "true"
+
+	configMap.Labels[common.OpenEverestManagedLabel] = "true" //nolint:goconst
 	configMap.Namespace = namespace
 
 	return h.kubeConnector.CreateConfigMap(ctx, configMap)
@@ -43,6 +44,7 @@ func (h *k8sHandler) ListConfigMaps(ctx context.Context, _ string, namespace, pr
 	if provider != "" {
 		selector[common.OpenEverestProviderLabel] = provider
 	}
+
 	if category != "" {
 		selector[common.OpenEverestCategoryLabel] = category
 	}

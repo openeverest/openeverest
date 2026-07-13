@@ -81,7 +81,7 @@ func TestRBAC_ConfigMap(t *testing.T) {
 				cluster: "prod",
 				ns:      "ns1",
 				policy: newPolicy(
-					"p, role:test, configmaps, read, prod/ns1/*",
+					"p, role:test, config-maps, read, prod/ns1/*",
 					"g, bob, role:test",
 				),
 				assert: func(list *corev1.ConfigMapList) bool {
@@ -93,7 +93,7 @@ func TestRBAC_ConfigMap(t *testing.T) {
 				cluster: "prod",
 				ns:      "ns1",
 				policy: newPolicy(
-					"p, role:test, configmaps, read, prod/ns1/configmap-prod",
+					"p, role:test, config-maps, read, prod/ns1/configmap-prod",
 					"g, bob, role:test",
 				),
 				assert: func(list *corev1.ConfigMapList) bool {
@@ -105,7 +105,7 @@ func TestRBAC_ConfigMap(t *testing.T) {
 				cluster: "prod",
 				ns:      "ns1",
 				policy: newPolicy(
-					"p, role:test, configmaps, read, staging/ns1/configmap-prod",
+					"p, role:test, config-maps, read, staging/ns1/configmap-prod",
 					"g, bob, role:test",
 				),
 				assert: func(list *corev1.ConfigMapList) bool {
@@ -117,7 +117,7 @@ func TestRBAC_ConfigMap(t *testing.T) {
 				cluster: "prod",
 				ns:      "ns1",
 				policy: newPolicy(
-					"p, role:test, configmaps, read, prod/ns2/configmap-prod",
+					"p, role:test, config-maps, read, prod/ns2/configmap-prod",
 					"g, bob, role:test",
 				),
 				assert: func(list *corev1.ConfigMapList) bool {
@@ -138,8 +138,8 @@ func TestRBAC_ConfigMap(t *testing.T) {
 				cluster: "prod",
 				ns:      "ns1",
 				policy: newPolicy(
-					"p, role:test, configmaps, read, prod/ns1/configmap-prod",
-					"p, role:test, configmaps, read, prod/ns1/configmap-staging",
+					"p, role:test, config-maps, read, prod/ns1/configmap-prod",
+					"p, role:test, config-maps, read, prod/ns1/configmap-staging",
 					"g, bob, role:test",
 				),
 				assert: func(list *corev1.ConfigMapList) bool {
@@ -148,7 +148,7 @@ func TestRBAC_ConfigMap(t *testing.T) {
 			},
 		}
 
-		ctx := context.WithValue(context.Background(), common.UserCtxKey, rbac.User{Subject: "bob"})
+		ctx := context.WithValue(context.Background(), common.UserCtxKey, rbac.User{Subject: "bob"}) //nolint:staticcheck
 		for _, tc := range testCases {
 			t.Run(tc.desc, func(t *testing.T) {
 				t.Parallel()
@@ -191,7 +191,7 @@ func TestRBAC_ConfigMap(t *testing.T) {
 				desc:    "exact match",
 				cluster: "prod",
 				policy: newPolicy(
-					"p, role:test, configmaps, read, prod/ns1/configmap-prod",
+					"p, role:test, config-maps, read, prod/ns1/configmap-prod",
 					"g, bob, role:test",
 				),
 			},
@@ -199,7 +199,7 @@ func TestRBAC_ConfigMap(t *testing.T) {
 				desc:    "wrong cluster",
 				cluster: "prod",
 				policy: newPolicy(
-					"p, role:test, configmaps, read, staging/ns1/configmap-prod",
+					"p, role:test, config-maps, read, staging/ns1/configmap-prod",
 					"g, bob, role:test",
 				),
 				wantErr: ErrInsufficientPermissions,
@@ -212,7 +212,7 @@ func TestRBAC_ConfigMap(t *testing.T) {
 			},
 		}
 
-		ctx := context.WithValue(context.Background(), common.UserCtxKey, rbac.User{Subject: "bob"})
+		ctx := context.WithValue(context.Background(), common.UserCtxKey, rbac.User{Subject: "bob"}) //nolint:staticcheck
 		for _, tc := range testCases {
 			t.Run(tc.desc, func(t *testing.T) {
 				t.Parallel()
@@ -257,7 +257,7 @@ func TestRBAC_ConfigMap(t *testing.T) {
 				desc:    "has create permission",
 				cluster: "prod",
 				policy: newPolicy(
-					"p, role:test, configmaps, create, prod/ns1/configmap-prod",
+					"p, role:test, config-maps, create, prod/ns1/configmap-prod",
 					"g, bob, role:test",
 				),
 			},
@@ -265,7 +265,7 @@ func TestRBAC_ConfigMap(t *testing.T) {
 				desc:    "namespace wildcard",
 				cluster: "prod",
 				policy: newPolicy(
-					"p, role:test, configmaps, create, prod/ns1/*",
+					"p, role:test, config-maps, create, prod/ns1/*",
 					"g, bob, role:test",
 				),
 			},
@@ -273,7 +273,7 @@ func TestRBAC_ConfigMap(t *testing.T) {
 				desc:    "has read but not create",
 				cluster: "prod",
 				policy: newPolicy(
-					"p, role:test, configmaps, read, prod/ns1/configmap-prod",
+					"p, role:test, config-maps, read, prod/ns1/configmap-prod",
 					"g, bob, role:test",
 				),
 				wantErr: ErrInsufficientPermissions,
@@ -286,7 +286,7 @@ func TestRBAC_ConfigMap(t *testing.T) {
 			},
 		}
 
-		ctx := context.WithValue(context.Background(), common.UserCtxKey, rbac.User{Subject: "bob"})
+		ctx := context.WithValue(context.Background(), common.UserCtxKey, rbac.User{Subject: "bob"}) //nolint:staticcheck
 		for _, tc := range testCases {
 			t.Run(tc.desc, func(t *testing.T) {
 				t.Parallel()
@@ -337,7 +337,7 @@ func TestRBAC_ConfigMap(t *testing.T) {
 				desc:    "has delete permission",
 				cluster: "prod",
 				policy: newPolicy(
-					"p, role:test, configmaps, delete, prod/ns1/configmap-prod",
+					"p, role:test, config-maps, delete, prod/ns1/configmap-prod",
 					"g, bob, role:test",
 				),
 			},
@@ -349,7 +349,7 @@ func TestRBAC_ConfigMap(t *testing.T) {
 			},
 		}
 
-		ctx := context.WithValue(context.Background(), common.UserCtxKey, rbac.User{Subject: "bob"})
+		ctx := context.WithValue(context.Background(), common.UserCtxKey, rbac.User{Subject: "bob"}) //nolint:staticcheck
 		for _, tc := range testCases {
 			t.Run(tc.desc, func(t *testing.T) {
 				t.Parallel()

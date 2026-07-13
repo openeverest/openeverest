@@ -74,7 +74,7 @@ const (
 	ResourceBackups           = "backups"
 	ResourceRestores          = "restores"
 	ResourceMonitoringConfigs = "monitoring-configs"
-	ResourceConfigMaps        = "configmaps"
+	ResourceConfigMaps        = "config-maps"
 )
 
 // GlobalResources is a list of all Everest API resources that are considered global.
