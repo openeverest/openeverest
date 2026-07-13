@@ -8,7 +8,11 @@ const TlsCheckbox = ({ formControlLabelProps }: TlsCheckboxProps) => (
   <FormControlLabel
     {...formControlLabelProps}
     label={
-      <Box display="flex" mt={0}>
+      <Box
+        sx={{
+          display: "flex",
+          mt: 0
+        }}>
         {Messages.verifyTLS}
         <Tooltip
           title={Messages.tooltip}

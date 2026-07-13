@@ -24,23 +24,23 @@ const makeTextComponent = (
   path: string,
   overrides: Partial<Component> = {}
 ): Component =>
-  ({
+  (({
     uiType: FieldType.Text,
     path,
     fieldParams: { label: path },
-    ...overrides,
-  }) as Component;
+    ...overrides
+  }) as Component);
 
 const makeNumberComponent = (
   path: string,
   overrides: Partial<Component> = {}
 ): Component =>
-  ({
+  (({
     uiType: FieldType.Number,
     path,
     fieldParams: { label: path },
-    ...overrides,
-  }) as Component;
+    ...overrides
+  }) as Component);
 
 describe('buildSectionZodSchema', () => {
   it('returns passthrough schema for missing section', () => {

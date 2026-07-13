@@ -11,7 +11,13 @@ const Header = ({
   title: string;
   controlComponent?: React.ReactNode;
 }) => (
-  <Box display="flex" justifyContent="space-between" alignItems="center" mb={1}>
+  <Box
+    sx={{
+      display: "flex",
+      justifyContent: "space-between",
+      alignItems: "center",
+      mb: 1
+    }}>
     <Typography variant="sectionHeading">{title}</Typography>
     {controlComponent && (
       <Box
@@ -64,15 +70,15 @@ const FormCardWithCheck: React.FC<FormCardWithCheckProps> = ({
   return (
     <Box
       className="percona-rounded-box"
-      sx={{
+      sx={theme => ({
         p: 2,
         borderStyle: 'solid',
         borderWidth: '1px',
-        borderColor: (theme) => theme.palette.divider,
+        borderColor: theme.palette.divider,
         borderRadius: 2,
         display: 'flex',
-        justifyContent: 'space-between',
-      }}
+        justifyContent: 'space-between'
+      })}
     >
       <Box sx={{ display: 'flex', alignItems: 'center' }}>
         {fieldValue && <CheckCircleIcon color="success" />}
@@ -107,16 +113,16 @@ const FormCardWithDialog: React.FC<FormCardWithDialogProps> = ({
   return (
     <Box
       className="percona-rounded-box"
-      sx={{
+      sx={theme => ({
         marginTop: 1,
         p: 2,
         borderStyle: 'solid',
         borderWidth: '1px',
-        borderColor: (theme) => theme.palette.divider,
+        borderColor: theme.palette.divider,
         borderRadius: 2,
         display: 'flex',
-        justifyContent: 'space-between',
-      }}
+        justifyContent: 'space-between'
+      })}
     >
       <Box sx={{ display: 'flex', alignItems: 'center' }}>
         {isSectionSaved && <CheckCircleIcon color="success" />}

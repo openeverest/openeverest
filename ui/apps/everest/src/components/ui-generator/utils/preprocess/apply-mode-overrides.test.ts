@@ -23,12 +23,12 @@ import {
 } from '../../ui-generator.types';
 
 const makeComponent = (overrides: Partial<Component> = {}): Component =>
-  ({
+  (({
     uiType: FieldType.Text,
     path: 'spec.name',
     fieldParams: { label: 'Name' },
-    ...overrides,
-  }) as Component;
+    ...overrides
+  }) as Component);
 
 describe('applyModeOverrides', () => {
   it('returns components unchanged when no modes are defined', () => {

@@ -22,12 +22,13 @@ const BackTo = ({ to, prevPage }: BackToProps) => {
         }}
       >
         <ArrowBackIcon sx={{ color: 'primary.main' }} />
-        <Typography variant="body2" color="primary.main">
+        <Typography variant="body2" sx={{
+          color: "primary.main"
+        }}>
           {messages.backTo.back} {prevPage}
         </Typography>
       </Box>
     </Link>
   );
 };
-
 export default BackTo;

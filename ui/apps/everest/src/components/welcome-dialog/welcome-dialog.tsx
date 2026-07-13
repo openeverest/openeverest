@@ -26,15 +26,21 @@ export const WelcomeDialog = ({
 
   return (
     <Dialog
-      PaperProps={{ sx: { px: 4, pt: 4 } }}
       open={open}
       onClose={closeDialog}
+      slotProps={{
+        paper: { sx: { px: 4, pt: 4 } }
+      }}
     >
       <DialogContent sx={{ display: 'flex', flexFlow: 'column' }}>
-        <Stack alignItems="center">
+        <Stack sx={{
+          alignItems: "center"
+        }}>
           <EverestMainIcon sx={{ fontSize: '100px', mb: 2 }} />
           <Typography variant="h2">{Messages.allSet}</Typography>
-          <Typography variant="h6" textAlign="center">
+          <Typography variant="h6" sx={{
+            textAlign: "center"
+          }}>
             {Messages.start}
           </Typography>
         </Stack>

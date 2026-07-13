@@ -99,7 +99,11 @@ export const CustomConfirmDialog = ({
         <CustomCheckbox
           checkboxMessage={
             disableCheckbox ? (
-              <Box display="flex" mt={0}>
+              <Box
+                sx={{
+                  display: "flex",
+                  mt: 0
+                }}>
                 {checkboxMessage}
                 <Tooltip
                   title={tooltipText}

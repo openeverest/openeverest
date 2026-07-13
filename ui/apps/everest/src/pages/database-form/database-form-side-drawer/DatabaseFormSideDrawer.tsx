@@ -34,12 +34,11 @@ const DatabaseFormSideDrawer = ({
         activeStepId={activeStepId}
         onSectionEdit={handleSectionEdit}
         stepsWithErrors={stepsWithErrors}
-        sx={{
-          mt: 2,
-          ...(!isDesktop && {
-            padding: 0,
-          }),
-        }}
+        sx={[{
+          mt: 2
+        }, !isDesktop && {
+          padding: 0,
+        }]}
       />
     ),
     [disabled, activeStepId, handleSectionEdit, stepsWithErrors, isDesktop]
@@ -50,18 +49,18 @@ const DatabaseFormSideDrawer = ({
       <Drawer
         variant="permanent"
         anchor="right"
-        sx={{
+        sx={theme => ({
           // MuiDrawer-paper will take 25% of the whole screen because it has a "fixed" positioning
           // Hence, we must use vw here to have the same calculation
           // We subtract the padding
-          width: (theme) => `calc(25vw - ${theme.spacing(4)})`,
+          width: `calc(25vw - ${theme.spacing(4)})`,
           flexShrink: 0,
           ml: 3,
           [`& .MuiDrawer-paper`]: {
             width: '25%',
             boxSizing: 'border-box',
-          },
-        }}
+          }
+        })}
       >
         <Toolbar />
         {PreviewContent}
@@ -74,15 +73,15 @@ const DatabaseFormSideDrawer = ({
       <Divider
         orientation="horizontal"
         flexItem
-        sx={{
+        sx={theme => ({
           // This is a little tweak
           // We make the divider longer, adding the main padding value
           // Then, to make it begin before the main padding, we add a negative margin
           // This way, the divider will cross the whole section
           width: `calc(100% + ${theme.spacing(4 * 2)})`,
           ml: -4,
-          mt: 6,
-        }}
+          mt: 6
+        })}
       />
       {PreviewContent}
     </>

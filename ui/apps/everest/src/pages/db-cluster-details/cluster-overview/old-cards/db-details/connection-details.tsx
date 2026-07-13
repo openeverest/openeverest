@@ -53,9 +53,10 @@ export const ConnectionDetails = ({
         <>
           <Typography
             variant="body2"
-            color="text.secondary"
-            sx={{ marginBottom: '5px' }}
-          >
+            sx={{
+              color: "text.secondary",
+              marginBottom: '5px'
+            }}>
             To access the cluster via NodePort see the{' '}
             <Link
               href="https://openeverest.io/documentation/current/networking/nodeport_support.html"
@@ -103,28 +104,30 @@ export const ConnectionDetails = ({
           size="small"
           sx={{ maxHeight: '50px', marginTop: '20px', width: '100%' }}
           type={showUrl ? 'text' : 'password'}
-          InputProps={{
-            endAdornment: (
-              <>
-                <IconButton onClick={() => setShowUrl(!showUrl)}>
-                  {showUrl ? (
-                    <VisibilityOutlinedIcon />
-                  ) : (
-                    <VisibilityOffOutlinedIcon />
-                  )}
-                </IconButton>
-                <CopyToClipboardButton
-                  buttonProps={{
-                    sx: { mt: -0.5 },
-                    size: 'small',
-                  }}
-                  textToCopy={connectionUrl}
-                />
-              </>
-            ),
-          }}
-          InputLabelProps={{ shrink: true }}
-        />
+          slotProps={{
+            input: {
+              endAdornment: (
+                <>
+                  <IconButton onClick={() => setShowUrl(!showUrl)}>
+                    {showUrl ? (
+                      <VisibilityOutlinedIcon />
+                    ) : (
+                      <VisibilityOffOutlinedIcon />
+                    )}
+                  </IconButton>
+                  <CopyToClipboardButton
+                    buttonProps={{
+                      sx: { mt: -0.5 },
+                      size: 'small',
+                    }}
+                    textToCopy={connectionUrl}
+                  />
+                </>
+              ),
+            },
+
+            inputLabel: { shrink: true }
+          }} />
       )}
       {splitHorizonUrl && (
         <TextField
@@ -133,28 +136,30 @@ export const ConnectionDetails = ({
           size="small"
           sx={{ maxHeight: '50px', marginTop: '20px', width: '100%' }}
           type={showSplitHorizonUrl ? 'text' : 'password'}
-          InputProps={{
-            endAdornment: (
-              <>
-                <IconButton onClick={() => setShowSplitHorizonUrl((s) => !s)}>
-                  {showSplitHorizonUrl ? (
-                    <VisibilityOutlinedIcon />
-                  ) : (
-                    <VisibilityOffOutlinedIcon />
-                  )}
-                </IconButton>
-                <CopyToClipboardButton
-                  buttonProps={{
-                    sx: { mt: -0.5 },
-                    size: 'small',
-                  }}
-                  textToCopy={splitHorizonUrl}
-                />
-              </>
-            ),
-          }}
-          InputLabelProps={{ shrink: true }}
-        />
+          slotProps={{
+            input: {
+              endAdornment: (
+                <>
+                  <IconButton onClick={() => setShowSplitHorizonUrl((s) => !s)}>
+                    {showSplitHorizonUrl ? (
+                      <VisibilityOutlinedIcon />
+                    ) : (
+                      <VisibilityOffOutlinedIcon />
+                    )}
+                  </IconButton>
+                  <CopyToClipboardButton
+                    buttonProps={{
+                      sx: { mt: -0.5 },
+                      size: 'small',
+                    }}
+                    textToCopy={splitHorizonUrl}
+                  />
+                </>
+              ),
+            },
+
+            inputLabel: { shrink: true }
+          }} />
       )}
     </OverviewSection>
   );

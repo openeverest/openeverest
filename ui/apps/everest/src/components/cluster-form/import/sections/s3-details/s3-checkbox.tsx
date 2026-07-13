@@ -12,7 +12,11 @@ export const S3Checkbox = ({ name, text, tooltip }: S3CheckboxProps) => {
   return (
     <FormControlLabel
       label={
-        <Box display="flex" mt={0}>
+        <Box
+          sx={{
+            display: "flex",
+            mt: 0
+          }}>
           {text}
           <Tooltip title={tooltip} arrow placement="right" sx={{ ml: 1 }}>
             <InfoOutlinedIcon />

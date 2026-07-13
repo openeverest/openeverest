@@ -10,7 +10,11 @@ const ForcePathCheckbox = ({
   <FormControlLabel
     {...formControlLabelProps}
     label={
-      <Box display="flex" mt={0}>
+      <Box
+        sx={{
+          display: "flex",
+          mt: 0
+        }}>
         {Messages.forcePathStyle}
         <Tooltip
           title={Messages.tooltip}

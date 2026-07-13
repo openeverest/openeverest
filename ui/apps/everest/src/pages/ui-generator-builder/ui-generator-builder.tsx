@@ -107,13 +107,16 @@ export const UIGeneratorBuilder = () => {
       }}
     >
       <Box
-        sx={{
+        sx={[{
           width: `${leftWidth}%`,
           height: '100%',
           display: 'flex',
-          flexDirection: 'column',
-          transition: isDragging ? 'none' : 'width 0.2s ease',
-        }}
+          flexDirection: 'column'
+        }, isDragging ? {
+          transition: 'none'
+        } : {
+          transition: 'width 0.2s ease'
+        }]}
       >
         <JsonEditorPanel
           yamlText={yamlText}
@@ -124,7 +127,7 @@ export const UIGeneratorBuilder = () => {
       </Box>
       <Box
         onMouseDown={() => setIsDragging(true)}
-        sx={{
+        sx={[{
           width: '8px',
           height: '100%',
           backgroundColor: 'divider',
@@ -133,21 +136,26 @@ export const UIGeneratorBuilder = () => {
           '&:hover': {
             backgroundColor: 'primary.main',
             opacity: 0.6,
-          },
-          transition: isDragging ? 'none' : 'backgroundColor 0.2s ease',
-        }}
+          }
+        }, isDragging ? {
+          transition: 'none'
+        } : {
+          transition: 'backgroundColor 0.2s ease'
+        }]}
       />
-
       <Box
-        sx={{
+        sx={[{
           flex: 1,
           width: `${100 - leftWidth}%`,
           height: '100%',
           display: 'flex',
           flexDirection: 'column',
-          transition: isDragging ? 'none' : 'width 0.2s ease',
-          overflow: 'hidden',
-        }}
+          overflow: 'hidden'
+        }, isDragging ? {
+          transition: 'none'
+        } : {
+          transition: 'width 0.2s ease'
+        }]}
       >
         <Paper
           elevation={0}

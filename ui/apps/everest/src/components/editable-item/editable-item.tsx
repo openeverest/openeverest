@@ -42,13 +42,16 @@ const EditableItem = ({
       {...paperProps}
     >
       {children}
-
       {!!endText && (
         <Typography variant="body2" sx={{ color: 'grey', width: '100px' }}>
           {endText}
         </Typography>
       )}
-      <Box flexWrap="nowrap" display="flex">
+      <Box
+        sx={{
+          flexWrap: "nowrap",
+          display: "flex"
+        }}>
         {editButtonProps && (
           <IconButton
             size="small"

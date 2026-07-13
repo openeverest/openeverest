@@ -13,23 +13,36 @@ const WithInfoIcon = ({
   tooltip: string;
 }) => {
   return (
-    <Box display="flex" ml="auto" alignItems="center">
+    <Box
+      sx={{
+        display: "flex",
+        ml: "auto",
+        alignItems: "center"
+      }}>
       {children}
       <Tooltip title={tooltip} placement="right" arrow>
         <span>
           <IconButton
             onClick={onClick}
             disabled={disabled}
-            sx={{
-              opacity: disabled ? 0.5 : 1,
-              cursor: disabled ? 'not-allowed' : 'pointer',
-            }}
+            sx={[disabled ? {
+              opacity: 0.5
+            } : {
+              opacity: 1
+            }, disabled ? {
+              cursor: 'not-allowed'
+            } : {
+              cursor: 'pointer'
+            }]}
           >
             <InfoIcon
-              sx={{
-                width: '20px',
-                color: disabled ? 'GrayText' : 'default',
-              }}
+              sx={[{
+                width: '20px'
+              }, disabled ? {
+                color: 'GrayText'
+              } : {
+                color: 'default'
+              }]}
             />
           </IconButton>
         </span>

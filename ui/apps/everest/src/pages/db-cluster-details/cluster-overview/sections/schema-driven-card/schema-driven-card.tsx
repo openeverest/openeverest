@@ -44,7 +44,9 @@ const SchemaDrivenCard = ({
         ) : undefined,
       }}
     >
-      <Stack gap={3}>
+      <Stack sx={{
+        gap: 3
+      }}>
         <OverviewSection dataTestId={card.key} loading={loading}>
           {card.fields.length > 0 ? (
             card.fields.map(({ label, path, value }) => (
@@ -62,5 +64,4 @@ const SchemaDrivenCard = ({
     </OverviewCard>
   </Box>
 );
-
 export default SchemaDrivenCard;

@@ -26,7 +26,9 @@ const showLimitationInfo = () => {
           placement="right"
           sx={{ ml: 1 }}
         >
-          <Typography variant="helperText" color="text.secondary">
+          <Typography variant="helperText" sx={{
+            color: "text.secondary"
+          }}>
             {Messages.help}
           </Typography>
         </Tooltip>
@@ -35,7 +37,6 @@ const showLimitationInfo = () => {
     </Box>
   );
 };
-
 export const TimeFields = ({
   selectableHours = HOURS_AM_PM,
   selectableMinutes = MINUTES,
@@ -48,7 +49,6 @@ export const TimeFields = ({
   shouldRestrictTime: boolean;
 }) => {
   const { control } = useFormContext();
-
   return (
     <Box
       sx={(theme) => ({

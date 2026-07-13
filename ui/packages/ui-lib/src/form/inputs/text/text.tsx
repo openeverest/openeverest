@@ -30,47 +30,50 @@ const TextInput = ({
           variant="outlined"
           required={isRequired}
           error={!!error}
-          InputLabelProps={{
-            shrink: true,
-          }}
-          inputProps={{
-            'data-testid': `text-input-${kebabize(name)}`,
-            onWheel: (e) => {
-              (e.target as HTMLElement).blur();
-            },
-            onBlur: (event: React.FocusEvent<HTMLInputElement>) => {
-              if (textFieldProps?.onBlur) {
-                const modifiedEvent = {
-                  ...event,
-                  target: {
-                    ...event.target,
-                    value: textFieldProps.onBlur(event),
-                  },
-                };
-                field.onChange(modifiedEvent);
-              }
-            },
-            onChange: (event: React.ChangeEvent<HTMLInputElement>) => {
-              if (onChange) {
-                const modifiedEvent = {
-                  ...event,
-                  target: {
-                    ...event.target,
-                    value: onChange(event),
-                  },
-                };
-                field.onChange(modifiedEvent);
-              } else {
-                field.onChange(event);
-              }
-            },
-            ...restFieldProps?.inputProps,
-          }}
           helperText={error ? error.message : restFieldProps?.helperText}
-          FormHelperTextProps={{
-            sx: formHelperTextPropsSx,
-          }}
-        />
+          slotProps={{
+            htmlInput: {
+              'data-testid': `text-input-${kebabize(name)}`,
+              onWheel: (e) => {
+                (e.target as HTMLElement).blur();
+              },
+              onBlur: (event: React.FocusEvent<HTMLInputElement>) => {
+                if (textFieldProps?.onBlur) {
+                  const modifiedEvent = {
+                    ...event,
+                    target: {
+                      ...event.target,
+                      value: textFieldProps.onBlur(event),
+                    },
+                  };
+                  field.onChange(modifiedEvent);
+                }
+              },
+              onChange: (event: React.ChangeEvent<HTMLInputElement>) => {
+                if (onChange) {
+                  const modifiedEvent = {
+                    ...event,
+                    target: {
+                      ...event.target,
+                      value: onChange(event),
+                    },
+                  };
+                  field.onChange(modifiedEvent);
+                } else {
+                  field.onChange(event);
+                }
+              },
+              ...restFieldProps?.inputProps,
+            },
+
+            inputLabel: {
+              shrink: true,
+            },
+
+            formHelperText: {
+              sx: formHelperTextPropsSx,
+            }
+          }} />
       )}
       {...controllerProps}
     />

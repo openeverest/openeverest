@@ -36,8 +36,9 @@ const RadioGroup = ({
               control={
                 <Radio
                   {...option.radioProps}
-                  // @ts-expect-error
-                  inputProps={{ 'data-testid': `radio-option-${option.value}` }}
+                  slotProps={{
+                    input: { 'data-testid': `radio-option-${option.value}` }
+                  }}
                 />
               }
               label={option.label}

@@ -48,5 +48,4 @@ const UpgradeEverestReloadDialog = ({
     </Dialog>
   );
 };
-
 export default UpgradeEverestReloadDialog;

@@ -31,7 +31,7 @@ const ProgressBar = ({
         value={value1Percentage}
         valueBuffer={value2Percentage}
         data-testid={dataTestId ?? 'progress-bar'}
-        sx={{
+        sx={[{
           '&': {
             padding: '4px',
             backgroundColor: 'action.selected',
@@ -43,17 +43,32 @@ const ProgressBar = ({
           },
           '& .MuiLinearProgress-dashed': {
             display: 'none',
-          },
-          '& .MuiLinearProgress-bar1Buffer': {
-            display: isOverLimit ? 'none' : 'block',
-          },
-          '& .MuiLinearProgress-bar2Buffer': {
-            backgroundColor: isOverLimit
-              ? 'warning.main'
-              : 'primary.contrastText',
-            transform: isOverLimit ? 'none !important' : undefined,
-          },
-        }}
+          }
+        }, isOverLimit ? {
+          "&.MuiLinearProgress-buffer > .MuiLinearProgress-bar1": {
+            display: 'none'
+          }
+        } : {
+          "&.MuiLinearProgress-buffer > .MuiLinearProgress-bar1": {
+            display: 'block'
+          }
+        }, isOverLimit ? {
+          "&.MuiLinearProgress-buffer > .MuiLinearProgress-bar2": {
+            backgroundColor: 'warning.main'
+          }
+        } : {
+          "&.MuiLinearProgress-buffer > .MuiLinearProgress-bar2": {
+            backgroundColor: 'primary.contrastText'
+          }
+        }, isOverLimit ? {
+          "&.MuiLinearProgress-buffer > .MuiLinearProgress-bar2": {
+            transform: 'none !important'
+          }
+        } : {
+          "&.MuiLinearProgress-buffer > .MuiLinearProgress-bar2": {
+            transform: null
+          }
+        }]}
       />
     </Box>
   );

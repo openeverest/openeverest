@@ -13,7 +13,9 @@ const Listing = ({
   <>
     {items.map((item, idx) => (
       <Fragment key={item.name}>
-        <Typography key={item.name} variant="body1" px={2}>
+        <Typography key={item.name} variant="body1" sx={{
+          px: 2
+        }}>
           {shortenOperatorName(item.name)} v{item.currentVersion}
           {upgradeable ? ' (Upgrade available)' : ''}
         </Typography>

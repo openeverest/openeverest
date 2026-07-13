@@ -15,11 +15,12 @@ const UpgradeHeader = ({
 
   return (
     <Box
-      display="flex"
-      justifyContent="space-between"
-      alignItems="center"
       {...boxProps}
-    >
+      sx={[{
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center"
+      }, ...(Array.isArray(boxProps.sx) ? boxProps.sx : [boxProps.sx])]}>
       <Typography variant="body1">
         A new version of the operators is available.
         {pendingUpgradeTasks
@@ -37,5 +38,4 @@ const UpgradeHeader = ({
     </Box>
   );
 };
-
 export default UpgradeHeader;

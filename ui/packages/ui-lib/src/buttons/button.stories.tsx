@@ -41,7 +41,12 @@ const meta = {
   },
   render: function Render({ variant, size, ...args }) {
     return (
-      <Box display="flex" alignItems="center" gap="10px">
+      <Box
+        sx={{
+          display: "flex",
+          alignItems: "center",
+          gap: "10px"
+        }}>
         <Button variant={variant} size={size} {...args}>
           Large
         </Button>
@@ -49,38 +54,37 @@ const meta = {
     );
   },
 } satisfies Meta<ButtonProps>;
-
 export default meta;
 type Story = StoryObj<ButtonProps>;
-
 export const Contained: Story = {
   args: {
     variant: 'contained',
   },
 };
-
 export const Outlined: Story = {
   args: {
     variant: 'outlined',
   },
 };
-
 export const Text: Story = {
   args: {
     variant: 'text',
   },
 };
-
 export const Hovered: Story = {
   parameters: {
     pseudo: {
       hover: true,
     },
   },
-
   render: function Render({ size }) {
     return (
-      <Box display="flex" alignItems="center" gap="10px">
+      <Box
+        sx={{
+          display: "flex",
+          alignItems: "center",
+          gap: "10px"
+        }}>
         <Button variant="contained" size={size}>
           Large
         </Button>
@@ -94,11 +98,15 @@ export const Hovered: Story = {
     );
   },
 };
-
 export const Disabled: Story = {
   render: function Render({ size }) {
     return (
-      <Box display="flex" alignItems="center" gap="10px">
+      <Box
+        sx={{
+          display: "flex",
+          alignItems: "center",
+          gap: "10px"
+        }}>
         <Button variant="contained" size={size} disabled={true}>
           Large
         </Button>
@@ -112,7 +120,6 @@ export const Disabled: Story = {
     );
   },
 };
-
 export const WithIcon: Story = {
   args: {
     variant: 'contained',
@@ -121,7 +128,12 @@ export const WithIcon: Story = {
   },
   render: function Render({ variant, size, startIcon, endIcon }) {
     return (
-      <Box display="flex" alignItems="center" gap="10px">
+      <Box
+        sx={{
+          display: "flex",
+          alignItems: "center",
+          gap: "10px"
+        }}>
         <Button startIcon={startIcon} variant={variant} size={size}>
           Large
         </Button>

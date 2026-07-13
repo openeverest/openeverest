@@ -45,12 +45,14 @@ export const GenericError = () => {
           })}
           disableFocusListener
           disableTouchListener
-          PopperProps={{
-            disablePortal: true,
-          }}
           title={
             clipboardAvailable ? Messages.copyClipboard : Messages.copyError
           }
+          slotProps={{
+            popper: {
+              disablePortal: true,
+            }
+          }}
         >
           <Button variant="text" onClick={handleCopy}>
             {Messages.copyAndReport}

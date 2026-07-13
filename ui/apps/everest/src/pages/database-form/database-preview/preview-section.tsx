@@ -28,23 +28,21 @@ export const PreviewSection = ({
   return (
     <Stack
       data-testid={`section-${kebabize(title).replaceAll(' ', '')}`}
-      sx={{
+      sx={[{
         pl: 3,
         pt: 1,
         pb: 1,
         pr: 1,
-        ...(!hasBeenReached &&
-          !active && {
-            pt: 0,
-            pb: 0,
-          }),
-        ...(active &&
-          isDesktop && {
-            backgroundColor: 'action.hover',
-            mb: 1.5,
-          }),
-        ...sx,
-      }}
+        ...sx
+      }, !hasBeenReached &&
+        !active && {
+          pt: 0,
+          pb: 0,
+        }, active &&
+        isDesktop && {
+          backgroundColor: 'action.hover',
+          mb: 1.5,
+        }]}
       {...stackProps}
     >
       <Stack direction="row">

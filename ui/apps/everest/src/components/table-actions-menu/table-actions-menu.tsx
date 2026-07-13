@@ -75,11 +75,12 @@ export const TableActionsMenu = ({
             onClick={(event) => {
               handleClose(event);
             }}
-            MenuListProps={{
-              'aria-labelledby': 'row-actions-button',
-            }}
             {...menuProps}
-          >
+            slotProps={{
+              list: {
+                'aria-labelledby': 'row-actions-button',
+              }
+            }}>
             {...menuItems}
           </Menu>
         </>

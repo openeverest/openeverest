@@ -36,28 +36,30 @@ const FileInput = ({
           type="text"
           size="small"
           error={!!error}
-          InputProps={{
-            endAdornment: (
-              <IconButton component="label">
-                <UpgradeIcon fontSize="medium" />
-                <input
-                  style={{ display: 'none' }}
-                  type="file"
-                  hidden
-                  onChange={(event) => {
-                    const { files } = event.target;
-
-                    if (files) {
-                      const file = files[0];
-                      field.onChange(file);
-                    }
-                  }}
-                  {...fileInputProps}
-                />
-              </IconButton>
-            ),
-          }}
           helperText={error ? error.message : textFieldProps?.helperText}
+          slotProps={{
+            input: {
+              endAdornment: (
+                <IconButton component="label">
+                  <UpgradeIcon fontSize="medium" />
+                  <input
+                    style={{ display: 'none' }}
+                    type="file"
+                    hidden
+                    onChange={(event) => {
+                      const { files } = event.target;
+
+                      if (files) {
+                        const file = files[0];
+                        field.onChange(file);
+                      }
+                    }}
+                    {...fileInputProps}
+                  />
+                </IconButton>
+              ),
+            }
+          }}
         />
       )}
     />

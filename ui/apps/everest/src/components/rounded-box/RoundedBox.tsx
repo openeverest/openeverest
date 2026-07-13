@@ -12,14 +12,14 @@ const RoundedBox = ({ title, children, boxProps }: Props) => {
   return (
     <Box
       className="percona-rounded-box"
-      sx={{
+      sx={theme => ({
         p: 2,
         borderStyle: 'solid',
         borderWidth: '1px',
-        borderColor: (theme) => theme.palette.divider,
+        borderColor: theme.palette.divider,
         borderRadius: 2,
-        ...sx,
-      }}
+        ...sx
+      })}
       {...restProps}
     >
       <Stack>

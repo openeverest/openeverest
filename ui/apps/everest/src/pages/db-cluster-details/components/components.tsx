@@ -86,9 +86,11 @@ const Components = () => {
         />
       ) : (
         <Box
-          height="500px"
-          sx={{ backgroundColor: 'surfaces.elevation0', borderRadius: 2 }}
-        >
+          sx={{
+            height: "500px",
+            backgroundColor: 'surfaces.elevation0',
+            borderRadius: 2
+          }}>
           <ReactFlowProvider>
             <ComponentsDiagramView components={filteredComponents} />
           </ReactFlowProvider>
@@ -97,5 +99,4 @@ const Components = () => {
     </Stack>
   );
 };
-
 export default Components;

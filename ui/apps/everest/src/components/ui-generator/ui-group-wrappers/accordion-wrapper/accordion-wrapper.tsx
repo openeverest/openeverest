@@ -14,14 +14,20 @@ const AccordionWrapper = ({ children, label }: AccordionWrapperProps) => {
     <Accordion defaultExpanded>
       {label && (
         <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-          <Box display="flex" alignItems="center">
+          <Box
+            sx={{
+              display: "flex",
+              alignItems: "center"
+            }}>
             {/* {hasError && (
                             <ErrorOutlineIcon
                                 color="error"
                                 sx={{ mr: 1, position: 'relative', bottom: 1 }}
                             />
                         )} */}
-            <Typography variant="sectionHeading" textTransform="capitalize">
+            <Typography variant="sectionHeading" sx={{
+              textTransform: "capitalize"
+            }}>
               {label}
             </Typography>
           </Box>
@@ -33,5 +39,4 @@ const AccordionWrapper = ({ children, label }: AccordionWrapperProps) => {
     </Accordion>
   );
 };
-
 export default AccordionWrapper;

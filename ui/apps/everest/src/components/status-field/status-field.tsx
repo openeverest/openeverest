@@ -18,14 +18,13 @@ function StatusField<T extends string | number | symbol>({
   return (
     <Stack
       direction="row"
-      gap={1}
       data-testid={`${dataTestId ? `${dataTestId}-` : ''}status`}
-      sx={{
-        height: 'fit-content',
-        alignItems: 'center',
-      }}
       {...stackProps}
-    >
+      sx={[{
+        gap: 1,
+        height: 'fit-content',
+        alignItems: 'center'
+      }, ...(Array.isArray(stackProps.sx) ? stackProps.sx : [stackProps.sx])]}>
       <MappedIcon {...iconProps} />
       {children}
     </Stack>

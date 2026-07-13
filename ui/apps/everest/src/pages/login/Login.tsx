@@ -80,14 +80,29 @@ const Login = () => {
   }
 
   return (
-    <Stack flexDirection="row" height="100vh">
-      <Stack py={16} px={5} width="35%">
+    <Stack
+      sx={{
+        flexDirection: "row",
+        height: "100vh"
+      }}>
+      <Stack
+        sx={{
+          py: 16,
+          px: 5,
+          width: "35%"
+        }}>
         <EverestMainIcon sx={{ fontSize: '110px', mb: 3 }} />
-        <Typography variant="h4" mb={3}>
+        <Typography variant="h4" sx={{
+          mb: 3
+        }}>
           {Messages.welcome}
         </Typography>
         <Typography>{Messages.intro}</Typography>
-        <Stack mt="auto" alignItems="flex-start">
+        <Stack
+          sx={{
+            mt: "auto",
+            alignItems: "flex-start"
+          }}>
           <LoginLinkButton
             icon={<ArrowForwardIcon />}
             text="Join Community"
@@ -111,16 +126,15 @@ const Login = () => {
         </Stack>
       </Stack>
       <Box
-        width="65%"
         sx={{
+          width: "65%",
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
           backgroundImage: "url('static/login_bg.svg')",
           backgroundRepeat: 'no-repeat',
-          backgroundSize: 'cover',
-        }}
-      >
+          backgroundSize: 'cover'
+        }}>
         <Card
           dataTestId="foo"
           sx={{
@@ -129,11 +143,17 @@ const Login = () => {
             px: 3,
           }}
           content={
-            <Stack alignItems="center">
-              <Typography variant="h6" mb={3}>
+            <Stack sx={{
+              alignItems: "center"
+            }}>
+              <Typography variant="h6" sx={{
+                mb: 3
+              }}>
                 {Messages.login}
               </Typography>
-              <Typography variant="caption" mb={2}>
+              <Typography variant="caption" sx={{
+                mb: 2
+              }}>
                 {Messages.insertCredentials}
               </Typography>
               <FormProvider {...methods}>

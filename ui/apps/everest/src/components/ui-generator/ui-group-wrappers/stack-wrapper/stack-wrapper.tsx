@@ -6,13 +6,12 @@ const StackWrapper = ({ children }: StackWrapperProps) => {
     <Stack
       direction="row"
       spacing={2}
-      alignItems="flex-start"
       sx={{
+        alignItems: "flex-start",
         width: '100%',
         flexWrap: 'nowrap',
-        '> *': { flex: '1 1 0', minWidth: 0 },
-      }}
-    >
+        '> *': { flex: '1 1 0', minWidth: 0 }
+      }}>
       {children}
     </Stack>
   );

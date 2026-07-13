@@ -17,16 +17,31 @@ export const NoMatch = ({
 
   return (
     <Box
-      sx={{
-        height: isDesktop ? '435px' : 'auto',
-        width: isDesktop ? '980px' : 'auto',
-        mt: isTablet ? '58px' : isMobile ? '13px' : '150px',
-        mx: isTablet ? '58px' : isMobile ? '13px' : 'auto',
+      sx={[{
         display: 'flex',
-        flexDirection: isDesktop ? 'row' : 'column',
         justifyContent: 'center',
-        alignItems: 'center',
-      }}
+        alignItems: 'center'
+      }, isDesktop ? {
+        height: '435px'
+      } : {
+        height: 'auto'
+      }, isDesktop ? {
+        width: '980px'
+      } : {
+        width: 'auto'
+      }, isTablet ? {
+        mt: '58px'
+      } : {
+        mt: isMobile ? '13px' : '150px'
+      }, isTablet ? {
+        mx: '58px'
+      } : {
+        mx: isMobile ? '13px' : 'auto'
+      }, isDesktop ? {
+        flexDirection: 'row'
+      } : {
+        flexDirection: 'column'
+      }]}
     >
       <Box>
         {CustomIcon ? (

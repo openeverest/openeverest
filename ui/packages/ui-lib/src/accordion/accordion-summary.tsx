@@ -22,7 +22,11 @@ const CustomAccordionSummary = ({
       }}
       expandIcon={<ExpandMoreIcon />}
     >
-      <Box display="flex" alignItems="center">
+      <Box
+        sx={{
+          display: "flex",
+          alignItems: "center"
+        }}>
         {hasError && (
           <ErrorOutlineIcon
             color="error"
@@ -32,7 +36,9 @@ const CustomAccordionSummary = ({
         {unitPlural && (
           <Typography
             variant="sectionHeading"
-            textTransform="capitalize"
+            sx={{
+              textTransform: "capitalize"
+            }}
           >{`${unitPlural} ${text}`}</Typography>
         )}
 

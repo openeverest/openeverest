@@ -28,7 +28,6 @@ const ToggleRegularButton = ({
           backgroundColor: theme.palette.primary.main,
           color: 'background.default',
         },
-
         '&.MuiButtonBase-root': {
           wordWrap: 'break-word',
           whiteSpace: 'pre-wrap',

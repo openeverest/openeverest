@@ -54,7 +54,9 @@ export const Main = () => {
             {isFetching ? (
               <LoadingPageSkeleton />
             ) : isError ? (
-              <Stack alignItems="center">
+              <Stack sx={{
+                alignItems: "center"
+              }}>
                 <Typography variant="subtitle1">
                   {Messages.somethingWrong}
                 </Typography>

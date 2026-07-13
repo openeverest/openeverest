@@ -16,7 +16,12 @@ const ComponentStatus = <T extends COMPONENT_STATUS | CONTAINER_STATUS>({
   typographyProps?: TypographyProps;
 } & StatusFieldProps<T>) => (
   <StatusField status={status} statusMap={statusMap}>
-    <Typography variant="body2" fontWeight="bold" {...typographyProps}>
+    <Typography
+      variant="body2"
+      {...typographyProps}
+      sx={[{
+        fontWeight: "bold"
+      }, ...(Array.isArray(typographyProps.sx) ? typographyProps.sx : [typographyProps.sx])]}>
       {capitalize(status)}
     </Typography>
   </StatusField>

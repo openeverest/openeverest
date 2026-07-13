@@ -92,7 +92,9 @@ const AppBarUserIcon = () => {
             cursor: 'default',
           }}
         >
-          <Typography variant="helperText" color="text.secondary">
+          <Typography variant="helperText" sx={{
+            color: "text.secondary"
+          }}>
             {userToShow}
           </Typography>
         </MenuItem>

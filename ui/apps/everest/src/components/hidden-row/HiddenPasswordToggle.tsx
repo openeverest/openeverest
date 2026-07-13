@@ -52,7 +52,14 @@ export const HiddenPasswordToggle = ({
     >
       <Typography
         variant="body2"
-        sx={{ wordBreak: 'break-all', pt: show ? 0 : 0.5, pr: 1.5 }}
+        sx={[{
+          wordBreak: 'break-all',
+          pr: 1.5
+        }, show ? {
+          pt: 0
+        } : {
+          pt: 0.5
+        }]}
       >
         {formattedValue}
       </Typography>

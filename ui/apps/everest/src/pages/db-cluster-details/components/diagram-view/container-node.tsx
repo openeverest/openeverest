@@ -19,12 +19,16 @@ const ContainerNode = ({
     dataTestId={`container-node-${name}`}
     showTopHandle
   >
-    <Stack direction={'row'} alignItems={'center'}>
+    <Stack direction={'row'} sx={{
+      alignItems: 'center'
+    }}>
       <ComponentStatus
         status={status}
         statusMap={containerStatusToBaseStatus(ready)}
       />
-      <Typography ml={'auto'} variant="body1">
+      <Typography variant="body1" sx={{
+        ml: 'auto'
+      }}>
         {ready ? 'Ready' : 'Not Ready'}
       </Typography>
     </Stack>

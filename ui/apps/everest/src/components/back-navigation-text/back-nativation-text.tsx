@@ -8,7 +8,13 @@ const BackNavigationText = ({
   stackProps,
   rightSlot,
 }: BackNavigationTextProps) => (
-  <Stack gap={1} alignItems="center" flexDirection="row" {...stackProps}>
+  <Stack
+    {...stackProps}
+    sx={[{
+      gap: 1,
+      alignItems: "center",
+      flexDirection: "row"
+    }, ...(Array.isArray(stackProps.sx) ? stackProps.sx : [stackProps.sx])]}>
     <IconButton onClick={onBackClick}>
       <ArrowBackIosIcon sx={{ pl: '10px' }} fontSize="large" />
     </IconButton>

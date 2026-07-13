@@ -47,17 +47,18 @@ const EmptyState = ({
   return (
     <>
       <Stack
-        alignItems="center"
         sx={{
+          alignItems: "center",
           flexDirection: 'column',
           backgroundColor: (theme) =>
             theme.palette.surfaces?.elevation0 || 'transparent',
           p: 3,
-          gap: 2,
-        }}
-      >
+          gap: 2
+        }}>
         <EmptyStateIcon w="60px" h="60px" />
-        <Stack alignItems="center">
+        <Stack sx={{
+          alignItems: "center"
+        }}>
           {contentSlot ? contentSlot : <Typography>No data to show</Typography>}
         </Stack>
         {buttonSlot
@@ -71,12 +72,10 @@ const EmptyState = ({
                 {buttonText || 'Create'}
               </Button>
             )}
-
         <Divider sx={{ width: '30%', marginTop: '10px' }} />
         <ContactSupportLink msg="Get support" />
       </Stack>
     </>
   );
 };
-
 export default EmptyState;

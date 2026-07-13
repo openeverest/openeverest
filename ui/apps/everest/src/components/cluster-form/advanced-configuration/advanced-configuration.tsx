@@ -371,13 +371,19 @@ export const AdvancedConfigurationForm = ({
         }}
         bottomSlot={
           <Box
-            display="flex"
-            justifyContent="space-between"
-            alignItems="top"
-            minHeight={'50px'}
-          >
+            sx={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "top",
+              minHeight: '50px'
+            }}>
             {!!policiesEnabled && (
-              <Box display="flex" ml="auto" alignItems="center">
+              <Box
+                sx={{
+                  display: "flex",
+                  ml: "auto",
+                  alignItems: "center"
+                }}>
                 <SelectInput
                   name={AdvancedConfigurationFields.podSchedulingPolicy}
                   loading={fetchingPolicies || loadingDefaultsForEdition}
@@ -417,12 +423,18 @@ export const AdvancedConfigurationForm = ({
         title={Messages.cards.enableExternalAccess.title}
         description={Messages.cards.enableExternalAccess.description}
         cardContent={
-          <Box display="flex" flexDirection="column" gap={2}>
+          <Box
+            sx={{
+              display: "flex",
+              flexDirection: "column",
+              gap: 2
+            }}>
             <Box
-              display="flex"
-              alignItems="center"
-              justifyContent="space-between"
-            >
+              sx={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between"
+              }}>
               <Typography variant="sectionHeading">
                 {Messages.cards.exposureMethod.title}
               </Typography>
@@ -443,7 +455,6 @@ export const AdvancedConfigurationForm = ({
                 ))}
               </SelectInput>
             </Box>
-
             {exposureMethod === ProxyExposeType.LoadBalancer && (
               <>
                 <FormCard
@@ -531,11 +542,12 @@ export const AdvancedConfigurationForm = ({
           switchInputName={AdvancedConfigurationFields.splitHorizonDNSEnabled}
           bottomSlot={
             <Box
-              display="flex"
-              justifyContent="space-between"
-              alignItems="top"
-              minHeight={'50px'}
-            >
+              sx={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "top",
+                minHeight: '50px'
+              }}>
               {!!splitHorizonDNSEnabled && (
                 <WithInfoIcon
                   tooltip={

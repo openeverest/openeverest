@@ -14,12 +14,7 @@ const Stepper = ({
   return (
     <MuiStepper
       data-testid={dataTestId}
-      sx={{
-        ...(noConnector && {
-          '.MuiStep-root': {
-            padding: 0,
-          },
-        }),
+      sx={[{
         '.MuiStepIcon-root.Mui-active': {
           color: theme.palette.text.primary,
         },
@@ -37,8 +32,12 @@ const Stepper = ({
         '.MuiStepLabel-label': {
           fontWeight: 600,
         },
-        ...sx,
-      }}
+        ...sx
+      }, noConnector && {
+        '.MuiStep-root': {
+          padding: 0,
+        },
+      }]}
       {...props}
       connector={noConnector ? <Fragment /> : connector}
     />

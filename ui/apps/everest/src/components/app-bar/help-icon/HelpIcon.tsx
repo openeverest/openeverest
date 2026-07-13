@@ -47,7 +47,9 @@ const AppBarHelpIcon = () => {
           disableTouchRipple
           sx={{ cursor: 'text', userSelect: 'text' }}
         >
-          <Typography variant="helperText" color="text.secondary">
+          <Typography variant="helperText" sx={{
+            color: "text.secondary"
+          }}>
             {`OpenEverest ${currentVersion}`}
           </Typography>
         </MenuItem>
@@ -100,5 +102,4 @@ const AppBarHelpIcon = () => {
     </>
   );
 };
-
 export default AppBarHelpIcon;

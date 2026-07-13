@@ -34,10 +34,12 @@ const CopyToClipboardButton = ({
       })}
       disableFocusListener
       disableTouchListener
-      PopperProps={{
-        disablePortal: true,
-      }}
       title={clipboardAvailable ? Messages.copied : Messages.restrictedAccess}
+      slotProps={{
+        popper: {
+          disablePortal: true,
+        }
+      }}
     >
       {showCopyButtonText ? (
         <Button
@@ -70,5 +72,4 @@ const CopyToClipboardButton = ({
     </Tooltip>
   );
 };
-
 export default CopyToClipboardButton;

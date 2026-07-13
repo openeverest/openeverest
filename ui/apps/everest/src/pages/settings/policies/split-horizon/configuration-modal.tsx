@@ -165,8 +165,12 @@ const ConfigurationModal = ({
           />
         </Stack>
       </Box>
-      <Box mt={2}>
-        <Stack gap={2}>
+      <Box sx={{
+        mt: 2
+      }}>
+        <Stack sx={{
+          gap: 2
+        }}>
           <Typography variant="sectionHeading">TLS</Typography>
           <TextInput
             name="secretName"
@@ -205,5 +209,4 @@ const ConfigurationModal = ({
     </FormDialog>
   );
 };
-
 export default ConfigurationModal;

@@ -74,7 +74,9 @@ export const DbDetails = ({
         avatar: <DatabaseIcon />,
       }}
     >
-      <Stack gap={3}>
+      <Stack sx={{
+        gap: 3
+      }}>
         <ConnectionDetails
           clusterName={name}
           loading={loading}

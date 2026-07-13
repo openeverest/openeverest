@@ -32,13 +32,12 @@ export const SwitchOutlinedBox = ({
 
   return children ? (
     <Box
-      sx={{
+      sx={[{
         ...switchOutlinedBoxStyles(theme),
-        ...(isTablet && {
-          flexWrap: 'wrap',
-        }),
-        ...rootSx,
-      }}
+        ...rootSx
+      }, isTablet && {
+        flexWrap: 'wrap',
+      }]}
       data-testid={`switch-outlined-box-${name}`}
     >
       <SwitchInput

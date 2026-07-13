@@ -37,30 +37,29 @@ const tooltipWrapper: FieldWrapper = (element, item) => {
   return (
     <Tooltip title={tooltip} placement="top" arrow data-testid="field-tooltip">
       <Box
-        sx={{
+        sx={[{
           display: 'block',
           alignSelf: 'flex-start',
           flex: '1 1 0',
           minWidth: 0,
           width: '100%',
-          ...(shouldCompensateMargin && {
-            mt: 3,
-            // TODO: Revisit this when tooltip becomes a first-class ui-schema
-            // feature and field spacing is refactored in ui-lib. Number and
-            // text inputs currently own their top margin, so the wrapper must
-            // temporarily move that spacing to itself to preserve flex layout.
-            '& .MuiTextField-root': {
-              mt: 0,
-            },
-            '& .MuiFormControl-root': {
-              mt: 0,
-            },
-          }),
           '& > *': {
             minWidth: 0,
             width: '100%',
+          }
+        }, shouldCompensateMargin && {
+          mt: 3,
+          // TODO: Revisit this when tooltip becomes a first-class ui-schema
+          // feature and field spacing is refactored in ui-lib. Number and
+          // text inputs currently own their top margin, so the wrapper must
+          // temporarily move that spacing to itself to preserve flex layout.
+          '& .MuiTextField-root': {
+            mt: 0,
           },
-        }}
+          '& .MuiFormControl-root': {
+            mt: 0,
+          },
+        }]}
       >
         {element}
       </Box>

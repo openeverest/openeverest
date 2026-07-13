@@ -52,26 +52,30 @@ function AutoCompleteInput<T>({
                 error={!!error}
                 label={label}
                 helperText={error ? error.message : helperText}
-                inputProps={{
-                  'data-testid': `text-input-${kebabize(name)}`,
-                  ...params.inputProps,
-                  ...textFieldProps?.inputProps,
-                }}
-                InputProps={{
-                  ...params.InputProps,
-                  endAdornment: (
-                    <>
-                      {loading ? (
-                        <CircularProgress color="inherit" size={20} />
-                      ) : null}
-                      {params.InputProps.endAdornment}
-                    </>
-                  ),
-                }}
                 size="small"
                 required={isRequired}
                 {...restTextFieldProps}
-              />
+                slotProps={{
+                  ...params.slotProps,
+
+                  input: {
+                    ...params.slotProps.input,
+                    endAdornment: (
+                      <>
+                        {loading ? (
+                          <CircularProgress color="inherit" size={20} />
+                        ) : null}
+                        {params.slotProps.input.endAdornment}
+                      </>
+                    ),
+                  },
+
+                  htmlInput: {
+                    'data-testid': `text-input-${kebabize(name)}`,
+                    ...params.slotProps.htmlInput,
+                    ...textFieldProps?.inputProps,
+                  }
+                }} />
             )}
             {...restAutocompleteProps}
           />

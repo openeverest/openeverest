@@ -147,8 +147,17 @@ const Logs = () => {
   };
 
   return (
-    <Stack gap={2} sx={{ mt: 2 }}>
-      <Stack direction="row" gap={2} sx={{ flexWrap: 'wrap' }}>
+    <Stack
+      sx={{
+        gap: 2,
+        mt: 2
+      }}>
+      <Stack
+        direction="row"
+        sx={{
+          gap: 2,
+          flexWrap: 'wrap'
+        }}>
         {filteredComponents.length > 0 && (
           <FormControl sx={{ minWidth: 250 }}>
             <InputLabel id="component-select-label">Component</InputLabel>
@@ -206,14 +215,12 @@ const Logs = () => {
           </FormControl>
         )}
       </Stack>
-
       {!selectedComponent &&
         (filteredComponents.length > 0 ? (
           <Alert severity="info">Please select a component to view logs</Alert>
         ) : (
           <Alert severity="info">No components available</Alert>
         ))}
-
       {selectedComponent && (
         <Paper
           sx={{
@@ -267,7 +274,9 @@ const Logs = () => {
             }}
           >
             {isConnecting ? (
-              <Typography color="text.secondary">...</Typography>
+              <Typography sx={{
+                color: "text.secondary"
+              }}>...</Typography>
             ) : logsError ? (
               <Alert severity="error">
                 Failed to load logs. Please try again.
@@ -287,7 +296,9 @@ const Logs = () => {
                 {logs}
               </Typography>
             ) : (
-              <Typography color="text.secondary">No logs available</Typography>
+              <Typography sx={{
+                color: "text.secondary"
+              }}>No logs available</Typography>
             )}
           </Box>
         </Paper>
@@ -295,5 +306,4 @@ const Logs = () => {
     </Stack>
   );
 };
-
 export default Logs;

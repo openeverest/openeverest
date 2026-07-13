@@ -15,7 +15,9 @@ const Policies = () => {
         gap: 2,
       }}
     >
-      <Typography variant="body2" py={2}>
+      <Typography variant="body2" sx={{
+        py: 2
+      }}>
         {messages.policiesDescription}
       </Typography>
       {policies.map((policy) => (
@@ -33,7 +35,9 @@ const Policies = () => {
                   gap: 1,
                 }}
               >
-                <Typography variant="body2" color="primary.main">
+                <Typography variant="body2" sx={{
+                  color: "primary.main"
+                }}>
                   {messages.configure}
                 </Typography>
                 <ArrowForwardIcon sx={{ color: 'primary.main' }} />
@@ -45,5 +49,4 @@ const Policies = () => {
     </Box>
   );
 };
-
 export default Policies;

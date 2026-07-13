@@ -7,7 +7,7 @@ const ToggleCard = ({ children, sx, ...props }: ToggleCardProps) => {
   return (
     <ToggleButton
       disableRipple
-      sx={{
+      sx={theme => ({
         backgroundColor: 'background.default',
         boxShadow: 4,
         color: theme.palette.text.primary,
@@ -27,7 +27,6 @@ const ToggleCard = ({ children, sx, ...props }: ToggleCardProps) => {
           '&:not(:last-of-type)': {
             borderTopRightRadius: `${theme.shape.borderRadius}px`,
             borderBottomRightRadius: `${theme.shape.borderRadius}px`,
-
             [theme.breakpoints.down('sm')]: {
               mb: 1,
             },
@@ -44,8 +43,8 @@ const ToggleCard = ({ children, sx, ...props }: ToggleCardProps) => {
           wordWrap: 'break-word',
           whiteSpace: 'pre-wrap',
         },
-        ...sx,
-      }}
+        ...sx
+      })}
       {...props}
     >
       {children}

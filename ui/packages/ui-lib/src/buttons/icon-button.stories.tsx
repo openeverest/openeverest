@@ -31,7 +31,12 @@ const meta = {
   },
   render: function Render({ color }) {
     return (
-      <Box display="flex" alignItems="center" gap="10px">
+      <Box
+        sx={{
+          display: "flex",
+          alignItems: "center",
+          gap: "10px"
+        }}>
         <IconButton color={color} size="large">
           <CachedOutlined />
         </IconButton>
@@ -45,16 +50,13 @@ const meta = {
     );
   },
 } satisfies Meta<IconButtonProps>;
-
 export default meta;
 type Story = StoryObj<IconButtonProps>;
-
 export const Primary: Story = {
   args: {
     color: 'primary',
   },
 };
-
 export const Secondary: Story = {
   args: {
     color: 'secondary',

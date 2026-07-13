@@ -97,25 +97,23 @@ const BackupListTableHeader = ({
           <Button
             size="small"
             data-testid="scheduled-backups"
-            sx={{
+            sx={[{
               ml: 'auto',
               mr: 2,
-              position: 'relative',
-              ...(showSchedules && {
-                '&::after': {
-                  content: '""',
-                  position: 'absolute',
-                  bottom: '-29px',
-                  width: '0px',
-                  height: '0px',
-                  borderStyle: 'solid',
-                  borderWidth: '0 14.5px 29px 14.5px',
-                  borderColor: (theme) =>
-                    `transparent transparent ${theme.palette.surfaces?.elevation0} transparent`,
-                  transform: 'rotate(0deg)',
-                },
-              }),
-            }}
+              position: 'relative'
+            }, showSchedules && {
+              '&::after': {
+                content: '""',
+                position: 'absolute',
+                bottom: '-29px',
+                width: '0px',
+                height: '0px',
+                borderStyle: 'solid',
+                borderWidth: '0 14.5px 29px 14.5px',
+                borderColor: `transparent transparent ${theme.palette.surfaces?.elevation0} transparent`,
+                transform: 'rotate(0deg)',
+              },
+            }]}
             onClick={handleShowSchedules}
             endIcon={
               showSchedules ? (

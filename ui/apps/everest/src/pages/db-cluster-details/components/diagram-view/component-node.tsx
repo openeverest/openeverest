@@ -52,16 +52,22 @@ const ComponentNode = ({
         },
       }}
     >
-      <Stack direction={'row'} alignItems={'center'}>
+      <Stack direction={'row'} sx={{
+        alignItems: 'center'
+      }}>
         <ComponentStatus
           status={status}
           statusMap={componentStatusToBaseStatus(ready)}
         />
-        <Typography ml={'auto'} variant="body1">
+        <Typography variant="body1" sx={{
+          ml: 'auto'
+        }}>
           {ready} Ready
         </Typography>
       </Stack>
-      <Stack mt={2}>
+      <Stack sx={{
+        mt: 2
+      }}>
         <Tooltip title={name} placement="right" arrow>
           <Typography
             variant="body1"

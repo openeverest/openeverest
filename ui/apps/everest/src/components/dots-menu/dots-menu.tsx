@@ -46,14 +46,15 @@ export const DotsMenu = ({
       </IconButton>
       <Menu
         id="more-horiz-menu"
-        MenuListProps={{
-          'aria-labelledby': 'long-button',
-        }}
         anchorEl={anchorEl}
         open={!!anchorEl}
         onClose={handleClose}
         {...menuProps}
-      >
+        slotProps={{
+          list: {
+            'aria-labelledby': 'long-button',
+          }
+        }}>
         {options.map((item) => (
           <MenuItem
             key={item.key}
