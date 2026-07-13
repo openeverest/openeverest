@@ -406,6 +406,27 @@ test.describe('Visual Baseline - Mocked States', () => {
     }
   });
 
+  test('DB Details - edit section modal', async ({ page }) => {
+    await goToUrl(page, `/databases/${DB_NAMESPACE}/${DB_NAME}`);
+    await page
+      .getByTestId('cluster-overview')
+      .waitFor({ state: 'visible', timeout: 60000 });
+    await page.waitForTimeout(1000);
+
+    // Click the first schema-driven section edit button ({sectionKey}-edit-button).
+    const editButton = page.locator('[data-testid$="-edit-button"]').first();
+    await editButton.waitFor({ state: 'visible', timeout: 10000 });
+    await editButton.click();
+    await page
+      .getByRole('dialog')
+      .waitFor({ state: 'visible', timeout: 10000 });
+    await page.waitForTimeout(500);
+    await expect(page).toHaveScreenshot(
+      'db-details-edit-section-modal.png',
+      screenshotOpts
+    );
+  });
+
   test('DB Details - backups with schedules expanded', async ({ page }) => {
     // Override the instance detail to carry backup schedules.
     await mockInstanceDetailWithSchedules(page);

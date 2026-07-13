@@ -36,8 +36,13 @@ export const DB_NAME = 'inst-u3y';
 // unit-test __mocks__.
 const PROVIDER_NAME = 'percona-server-mongodb';
 
-// Canonical shape: src/hooks/api/db-instances/__mocks__/useDbInstanceList.ts
-// (apiVersion core.openeverest.io/v1alpha1, kind Instance).
+// Canonical shape captured verbatim from a live OpenEverest v2 instance
+// (provider percona-server-mongodb, sharded topology) via
+// GET /clusters/main/namespaces/{ns}/instances/{name}. The component/topology
+// structure (spec.components.engine|proxy|configServer, spec.topology.type) MUST
+// match what the provider uiSchema references, otherwise the schema-driven
+// overview cards render empty. Only the status is synthesized (deterministic
+// Ready) so screenshots are stable.
 export const mockInstance = {
   apiVersion: 'core.openeverest.io/v1alpha1',
   kind: 'Instance',
@@ -48,23 +53,37 @@ export const mockInstance = {
   },
   spec: {
     provider: PROVIDER_NAME,
-    components: {
-      psmdb: {
-        replicas: 3,
-        resources: {
-          requests: { cpu: '500m', memory: '1Gi' },
-          limits: { cpu: '1', memory: '2Gi' },
-        },
-        storage: {
-          size: '10Gi',
-          storageClass: 'gp3',
-        },
-        version: '7.0.11-8',
-        type: 'mongodb',
-      },
-    },
+    version: '8.0.12',
     topology: {
-      type: 'ha',
+      type: 'sharded',
+      config: { numShards: 3 },
+    },
+    components: {
+      backupAgent: { type: 'backup', replicas: 1 },
+      configServer: {
+        type: 'mongod',
+        storage: { size: '5Gi' },
+        replicas: 3,
+      },
+      engine: {
+        type: 'mongod',
+        storage: { size: '10Gi', storageClass: 'standard' },
+        resources: {
+          limits: { cpu: '2', memory: '4Gi' },
+          requests: { cpu: '2', memory: '4Gi' },
+        },
+        replicas: 3,
+      },
+      proxy: {
+        type: 'mongos',
+        replicas: 3,
+        service: {
+          serviceType: 'LoadBalancer',
+          annotations: {
+            'service.beta.kubernetes.io/aws-load-balancer-internal': 'true',
+          },
+        },
+      },
     },
   },
   status: {
