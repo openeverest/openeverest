@@ -35,44 +35,38 @@ export const mockAuthTokenResponse = {
 
 // GET /v1/version
 export const mockVersion = {
-  "fullCommit": "0a6672caca542f888e663ee21e232c8f07e1a0b0",
-  "projectName": "Everest API Server",
-  "version": "v0.0.0-0a6672cac"
+  fullCommit: '0a6672caca542f888e663ee21e232c8f07e1a0b0',
+  projectName: 'Everest API Server',
+  version: 'v0.0.0-0a6672cac',
 };
 
 // GET /v1/settings (empty oidcConfig -> manual login, no SSO)
 export const mockSettings = {
-  "oidcConfig": {
-    "clientId": "",
-    "issuerURL": "",
-    "scopes": [
-      "openid",
-      "profile",
-      "email"
-    ]
-  }
+  oidcConfig: {
+    clientId: '',
+    issuerURL: '',
+    scopes: ['openid', 'profile', 'email'],
+  },
 };
 
 // GET /v1/permissions (RBAC disabled -> all allowed)
 export const mockPermissions = {
-  "enabled": false,
-  "permissions": null
+  enabled: false,
+  permissions: null,
 };
 
 // GET /v1/cluster-info (base64 annotations stripped)
 export const mockClusterInfo = {
-  "clusterType": "generic",
-  "storageClassNames": [
-    "local-path"
-  ],
-  "storageClasses": [
+  clusterType: 'generic',
+  storageClassNames: ['local-path'],
+  storageClasses: [
     {
-      "allowVolumeExpansion": false,
-      "metadata": {
-        "name": "local-path"
-      }
-    }
-  ]
+      allowVolumeExpansion: false,
+      metadata: {
+        name: 'local-path',
+      },
+    },
+  ],
 };
 
 // GET /v1/plugins
