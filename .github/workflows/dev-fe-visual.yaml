@@ -15,10 +15,8 @@ on:
       - "ui/**"
       - ".github/workflows/dev-fe-visual.yaml"
 
-# `contents: write` is required so the update_baselines run can commit the
-# regenerated screenshots back to the branch.
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   visual-screenshots:
@@ -77,21 +75,14 @@ jobs:
             pnpm --filter "@percona/everest" e2e:visual
           fi
 
-      - name: Commit updated baselines
+      - name: Upload regenerated baselines
         if: ${{ github.event_name == 'workflow_dispatch' && inputs.update_baselines }}
-        shell: bash
-        run: |
-          cd ui/apps/everest/.e2e/pr/visual
-          snapshots="visual-baseline.e2e.ts-snapshots"
-          if [ -n "$(git status --porcelain "$snapshots")" ]; then
-            git config user.name "github-actions[bot]"
-            git config user.email "github-actions[bot]@users.noreply.github.com"
-            git add "$snapshots"
-            git commit -m "chore(ui): update visual baselines [skip ci]"
-            git push
-          else
-            echo "No baseline changes to commit"
-          fi
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: visual-baselines
+          path: ui/apps/everest/.e2e/pr/visual/visual-baseline.e2e.ts-snapshots/
+          if-no-files-found: error
+          overwrite: true
 
       - name: Archive playwright report
         if: always()
