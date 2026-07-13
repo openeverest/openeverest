@@ -13,7 +13,7 @@
 // limitations under the License.
 
 import { useMemo } from 'react';
-import { Divider, Drawer, Toolbar, useTheme } from '@mui/material';
+import { Divider, Drawer, Toolbar } from '@mui/material';
 import { useActiveBreakpoint } from 'hooks/utils/useActiveBreakpoint';
 import { DatabasePreview } from '../database-preview/database-preview';
 import { DatabaseFormSideDrawerProps } from './DatabaseFormSideDrawer.types';
@@ -24,7 +24,6 @@ const DatabaseFormSideDrawer = ({
   disabled,
   stepsWithErrors,
 }: DatabaseFormSideDrawerProps) => {
-  const theme = useTheme();
   const { isDesktop } = useActiveBreakpoint();
 
   const PreviewContent = useMemo(

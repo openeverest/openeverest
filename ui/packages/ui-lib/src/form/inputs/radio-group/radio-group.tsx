@@ -37,7 +37,10 @@ const RadioGroup = ({
                 <Radio
                   {...option.radioProps}
                   slotProps={{
-                    input: { 'data-testid': `radio-option-${option.value}` }
+                    input: {
+                      // @ts-expect-error
+                      'data-testid': `radio-option-${option.value}`,
+                    },
                   }}
                 />
               }

@@ -36,7 +36,9 @@ const ComponentAge = ({ date, render, typographyProps }: ComponentAgeProps) => {
         {...typographyProps}
         sx={[{
           color: "text.secondary"
-        }, ...(Array.isArray(typographyProps.sx) ? typographyProps.sx : [typographyProps.sx])]}>
+        }, ...(typographyProps?.sx
+          ? (Array.isArray(typographyProps.sx) ? typographyProps.sx : [typographyProps.sx])
+          : [])]}>
         {render ? render(resultStr) : resultStr}
       </Typography>
     </Tooltip>

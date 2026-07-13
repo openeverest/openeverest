@@ -102,7 +102,7 @@ const ComponentsTableView = ({
       data={components}
       noDataMessage={'No components'}
       renderDetailPanel={({ row }) => <ExpandedRow row={row} />}
-      muiTableDetailPanelProps={{
+      muiDetailPanelProps={{
         sx: {
           padding: 0,
           width: '100%',

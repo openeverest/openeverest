@@ -33,8 +33,7 @@ export const PreviewSection = ({
         pt: 1,
         pb: 1,
         pr: 1,
-        ...sx
-      }, !hasBeenReached &&
+      }, ...(sx ? (Array.isArray(sx) ? sx : [sx]) : []), !hasBeenReached &&
         !active && {
           pt: 0,
           pb: 0,

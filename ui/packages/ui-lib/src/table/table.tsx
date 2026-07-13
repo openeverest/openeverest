@@ -286,7 +286,7 @@ function Table<T extends Record<string, any>>(props: TableProps<T>) {
           },
         },
       }}
-      muiTableDetailPanelProps={{
+      muiDetailPanelProps={{
         sx: {
           width: '100%',
         },

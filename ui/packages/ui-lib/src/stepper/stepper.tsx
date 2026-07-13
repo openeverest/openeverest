@@ -32,12 +32,11 @@ const Stepper = ({
         '.MuiStepLabel-label': {
           fontWeight: 600,
         },
-        ...sx
       }, noConnector && {
         '.MuiStep-root': {
           padding: 0,
         },
-      }]}
+      }, ...(Array.isArray(sx) ? sx : [sx])]}
       {...props}
       connector={noConnector ? <Fragment /> : connector}
     />

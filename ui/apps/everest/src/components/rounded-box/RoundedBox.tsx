@@ -12,14 +12,13 @@ const RoundedBox = ({ title, children, boxProps }: Props) => {
   return (
     <Box
       className="percona-rounded-box"
-      sx={theme => ({
+      sx={[(theme) => ({
         p: 2,
         borderStyle: 'solid',
         borderWidth: '1px',
         borderColor: theme.palette.divider,
         borderRadius: 2,
-        ...sx
-      })}
+      }), ...(sx ? (Array.isArray(sx) ? sx : [sx]) : [])]}
       {...restProps}
     >
       <Stack>

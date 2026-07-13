@@ -1,10 +1,10 @@
 import { TypographyPropsVariantOverrides } from '@mui/material';
-import { Variant } from '@mui/material/styles/createTypography';
+import { TypographyVariant } from '@mui/material/styles';
 import { OverridableStringUnion } from '@mui/types';
 
 type Typography = Array<{
   variant: OverridableStringUnion<
-    Variant | 'inherit',
+    TypographyVariant | 'inherit',
     TypographyPropsVariantOverrides
   >;
   text: string;

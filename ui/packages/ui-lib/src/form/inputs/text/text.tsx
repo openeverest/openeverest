@@ -34,7 +34,7 @@ const TextInput = ({
           slotProps={{
             htmlInput: {
               'data-testid': `text-input-${kebabize(name)}`,
-              onWheel: (e) => {
+              onWheel: (e: React.WheelEvent<HTMLInputElement>) => {
                 (e.target as HTMLElement).blur();
               },
               onBlur: (event: React.FocusEvent<HTMLInputElement>) => {

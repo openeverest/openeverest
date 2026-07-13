@@ -14,9 +14,11 @@ export const AppBar = () => {
     <Box>
       <MuiAppBar
         position="fixed"
-        sx={[(theme) => ({}), activeBreakpoint !== 'mobile' && {
-          zIndex: theme.zIndex.drawer + 1,
-        }]}
+        sx={(theme) => ({
+          ...(activeBreakpoint !== 'mobile' && {
+            zIndex: theme.zIndex.drawer + 1,
+          }),
+        })}
       >
         <Toolbar>
           {activeBreakpoint === 'mobile' && (

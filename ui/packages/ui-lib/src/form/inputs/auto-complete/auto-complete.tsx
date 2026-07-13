@@ -56,23 +56,21 @@ function AutoCompleteInput<T>({
                 required={isRequired}
                 {...restTextFieldProps}
                 slotProps={{
-                  ...params.slotProps,
-
                   input: {
-                    ...params.slotProps.input,
+                    ...params.InputProps,
                     endAdornment: (
                       <>
                         {loading ? (
                           <CircularProgress color="inherit" size={20} />
                         ) : null}
-                        {params.slotProps.input.endAdornment}
+                        {params.InputProps.endAdornment}
                       </>
                     ),
                   },
 
                   htmlInput: {
                     'data-testid': `text-input-${kebabize(name)}`,
-                    ...params.slotProps.htmlInput,
+                    ...params.inputProps,
                     ...textFieldProps?.inputProps,
                   }
                 }} />

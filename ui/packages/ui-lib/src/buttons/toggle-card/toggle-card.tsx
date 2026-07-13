@@ -1,13 +1,11 @@
-import { ToggleButton, useTheme } from '@mui/material';
+import { ToggleButton } from '@mui/material';
 import { ToggleCardProps } from './toggle-card.types';
 
 const ToggleCard = ({ children, sx, ...props }: ToggleCardProps) => {
-  const theme = useTheme();
-
   return (
     <ToggleButton
       disableRipple
-      sx={theme => ({
+      sx={[(theme) => ({
         backgroundColor: 'background.default',
         boxShadow: 4,
         color: theme.palette.text.primary,
@@ -43,8 +41,7 @@ const ToggleCard = ({ children, sx, ...props }: ToggleCardProps) => {
           wordWrap: 'break-word',
           whiteSpace: 'pre-wrap',
         },
-        ...sx
-      })}
+      }), ...(Array.isArray(sx) ? sx : [sx])]}
       {...props}
     >
       {children}

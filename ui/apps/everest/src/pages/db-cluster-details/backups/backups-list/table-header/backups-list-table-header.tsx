@@ -101,7 +101,7 @@ const BackupListTableHeader = ({
               ml: 'auto',
               mr: 2,
               position: 'relative'
-            }, showSchedules && {
+            }, showSchedules && ((theme) => ({
               '&::after': {
                 content: '""',
                 position: 'absolute',
@@ -113,7 +113,7 @@ const BackupListTableHeader = ({
                 borderColor: `transparent transparent ${theme.palette.surfaces?.elevation0} transparent`,
                 transform: 'rotate(0deg)',
               },
-            }]}
+            }))]}
             onClick={handleShowSchedules}
             endIcon={
               showSchedules ? (

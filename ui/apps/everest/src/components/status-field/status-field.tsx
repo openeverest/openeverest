@@ -24,7 +24,9 @@ function StatusField<T extends string | number | symbol>({
         gap: 1,
         height: 'fit-content',
         alignItems: 'center'
-      }, ...(Array.isArray(stackProps.sx) ? stackProps.sx : [stackProps.sx])]}>
+      }, ...(stackProps?.sx
+        ? (Array.isArray(stackProps.sx) ? stackProps.sx : [stackProps.sx])
+        : [])]}>
       <MappedIcon {...iconProps} />
       {children}
     </Stack>
