@@ -15,7 +15,6 @@
 package rbac
 
 import (
-	"context"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -25,7 +24,6 @@ import (
 
 	api "github.com/openeverest/openeverest/v2/internal/server/api"
 	"github.com/openeverest/openeverest/v2/internal/server/handlers"
-	"github.com/openeverest/openeverest/v2/pkg/common"
 	"github.com/openeverest/openeverest/v2/pkg/rbac"
 )
 
@@ -34,7 +32,8 @@ func TestRBAC_Kubernetes(t *testing.T) {
 
 	data := func() *handlers.MockHandler {
 		next := handlers.MockHandler{}
-		next.On("GetUserPermissions",
+		next.On(
+			"GetUserPermissions",
 			mock.Anything,
 		).Return(
 			&api.UserPermissions{
@@ -141,7 +140,7 @@ func TestRBAC_Kubernetes(t *testing.T) {
 		}
 
 		for _, tc := range testCases {
-			ctx := context.WithValue(context.Background(), common.UserCtxKey, tc.user)
+			ctx := testUserContext(tc.user)
 			t.Run(tc.desc, func(t *testing.T) {
 				t.Parallel()
 				k8sMock := newConfigMapMock(tc.policy)

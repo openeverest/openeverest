@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2025 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -29,7 +30,7 @@ import (
 )
 
 // Key bindings.
-var confirmKeys = confirmKeyMap{
+var confirmKeys = confirmKeyMap{ //nolint:gochecknoglobals // immutable TUI style/keybinding definitions
 	Confirm: key.NewBinding(
 		key.WithKeys("y"),
 		key.WithHelp("y", "confirm"),
@@ -105,11 +106,15 @@ func NewConfirm(ctx context.Context, message string) Confirm {
 // Run runs the confirm element.
 func (m Confirm) Run() (bool, error) {
 	model, err := m.p.Run()
-	if model.(Confirm).interrupt {
+	result, ok := model.(Confirm)
+	if !ok {
+		return false, fmt.Errorf("unexpected model type: %T", model)
+	}
+	if result.interrupt {
 		os.Exit(1)
 	}
 
-	return model.(Confirm).confirm, err
+	return result.confirm, err
 }
 
 // Init initializes the text confirm element.
@@ -128,19 +133,18 @@ func (m Confirm) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var textInputCmd tea.Cmd
 	m.textInput, textInputCmd = m.textInput.Update(msg)
 
-	switch msg := msg.(type) {
-	case tea.KeyMsg:
+	if keyMsg, ok := msg.(tea.KeyMsg); ok {
 		switch {
-		case key.Matches(msg, m.keys.Quit):
+		case key.Matches(keyMsg, m.keys.Quit):
 			m.interrupt = true
 			m.textInput.Blur()
 			cmd = tea.Quit
-		case key.Matches(msg, m.keys.Confirm):
+		case key.Matches(keyMsg, m.keys.Confirm):
 			m.confirm = true
 			m.done = true
 			m.textInput.Blur()
 			cmd = tea.Quit
-		case key.Matches(msg, m.keys.Abort):
+		case key.Matches(keyMsg, m.keys.Abort):
 			m.confirm = false
 			m.done = true
 			m.textInput.Blur()
@@ -155,10 +159,10 @@ func (m Confirm) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 // Implements bubbletea.Model interface.
 func (m Confirm) View() string {
 	s := strings.Builder{}
-	s.WriteString(fmt.Sprintf("%s\n", m.textInput.View()))
+	fmt.Fprintf(&s, "%s\n", m.textInput.View())
 
 	if !m.done {
-		s.WriteString(fmt.Sprintf("\n%s\n", m.help.View(m.keys)))
+		fmt.Fprintf(&s, "\n%s\n", m.help.View(m.keys))
 	}
 
 	return s.String()

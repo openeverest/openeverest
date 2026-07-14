@@ -77,6 +77,7 @@ jobs:
         with:
           lfs: true
           ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
 
       - name: Set up Go release
         uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6.4.0
@@ -86,7 +87,9 @@ jobs:
 
       - name: Run linters
         run: |
-          go tool golangci-lint run --new --out-format=line-number | env REVIEWDOG_GITHUB_API_TOKEN=${{ secrets.GITHUB_TOKEN }} go tool reviewdog -f=golangci-lint -reporter=github-pr-review -filter-mode=nofilter -fail-on-error=true
+          # Stub the embedded UI build output so `//go:embed dist/*` typechecks (see `make build`/`make test`).
+          mkdir -p ./public/dist && [ -f ./public/dist/index.html ] || touch ./public/dist/index.html
+          go tool golangci-lint run --new-from-rev=$(git merge-base origin/${{ github.base_ref }} HEAD) --show-stats=false | env REVIEWDOG_GITHUB_API_TOKEN=${{ secrets.GITHUB_TOKEN }} go tool reviewdog -f=golangci-lint -reporter=github-pr-review -filter-mode=nofilter -fail-level=any
 
       - name: Check that there are no source code changes
         run: |

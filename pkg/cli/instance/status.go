@@ -16,9 +16,12 @@
 package instance
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"text/tabwriter"
@@ -27,7 +30,6 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/openeverest/openeverest/v2/client"
-	"github.com/openeverest/openeverest/v2/pkg/cli"
 	authcli "github.com/openeverest/openeverest/v2/pkg/cli/auth"
 )
 
@@ -37,6 +39,8 @@ type StatusOptions struct {
 	Namespace string
 	Cluster   string
 	Context   string
+	Watch     bool
+	Interval  time.Duration
 }
 
 // InstanceStatusRunner fetches and prints the status of an instance.
@@ -54,63 +58,100 @@ func NewInstanceStatusRunner(cfg Config, l *zap.SugaredLogger) *InstanceStatusRu
 	return is
 }
 
-// Run fetches the instance and prints its status to stdout.
+// Run fetches the current status of an instance, printing it to stdout.
+// With opts.Watch set, it polls continuously until the context is cancelled,
+// the instance is deleted, or token refresh fails.
 func (is *InstanceStatusRunner) Run(ctx context.Context, opts StatusOptions, cfgPath string) error {
-	sess, err := cli.LoadSession(cfgPath, opts.Context)
+	c, err := authcli.NewAPIClient(authcli.Config{Pretty: is.config.Pretty}, is.l.Desugar().Sugar(), cfgPath, opts.Context)
 	if err != nil {
 		return err
 	}
 
-	// Refresh proactively within 30s of expiry to avoid a mid-flight 401.
-	if time.Now().After(sess.User.ExpiresAt.Add(-30 * time.Second)) {
-		lo := authcli.NewLogin(authcli.Config{Pretty: is.config.Pretty}, is.l.Desugar().Sugar())
-		if err := lo.Refresh(ctx, cfgPath); err != nil {
-			return fmt.Errorf("access token expired and refresh failed: %w", err)
-		}
-		sess, err = cli.LoadSession(cfgPath, opts.Context)
-		if err != nil {
-			return err
-		}
-	}
-
-	c, err := client.NewClientWithResponses(cli.NormalizeServerURL(sess.Server.URL))
-	if err != nil {
-		return fmt.Errorf("failed to create API client: %w", err)
-	}
-
-	token := cli.BearerToken(sess.User.AccessToken)
-
-	resp, err := c.GetInstanceWithResponse(ctx, opts.Cluster, opts.Namespace, opts.Name, token)
+	resp, err := c.GetInstanceWithResponse(ctx, opts.Cluster, opts.Namespace, opts.Name)
 	if err != nil {
 		return fmt.Errorf("failed to fetch instance %q: %w", opts.Name, err)
 	}
-
 	if resp.StatusCode() == http.StatusNotFound {
 		return fmt.Errorf("instance %q not found in namespace %q", opts.Name, opts.Namespace)
 	}
-
 	if resp.StatusCode() != http.StatusOK || resp.JSON200 == nil {
 		return fmt.Errorf("unexpected response fetching instance %q: %s", opts.Name, resp.Status())
 	}
 
-	if !is.config.Pretty {
-		return json.NewEncoder(os.Stdout).Encode(resp.JSON200)
-	}
+	var buf bytes.Buffer
+	is.render(&buf, resp.JSON200, opts.Namespace)
+	fmt.Fprint(os.Stdout, buf.String())
 
-	printInstanceStatus(resp.JSON200, opts.Namespace)
+	if opts.Watch {
+		return is.watch(ctx, c, opts, buf.String())
+	}
 	return nil
 }
 
-func printInstanceStatus(inst *client.Instance, namespace string) {
-	name := "-"
-	if inst.Metadata != nil {
-		if n, ok := (*inst.Metadata)["name"]; ok {
-			if s, ok := n.(string); ok {
-				name = s
+func (is *InstanceStatusRunner) watch(
+	ctx context.Context,
+	c *client.ClientWithResponses,
+	opts StatusOptions,
+	lastOutput string,
+) error {
+	interval := opts.Interval
+	if interval <= 0 {
+		interval = 2 * time.Second
+	}
+
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return nil
+		case <-ticker.C:
+			resp, err := c.GetInstanceWithResponse(ctx, opts.Cluster, opts.Namespace, opts.Name)
+			if err != nil {
+				if errors.Is(err, authcli.ErrTokenRefresh) {
+					return err
+				}
+				is.l.Warnf("fetch failed: %v — retrying in %s", err, interval)
+				continue
+			}
+
+			switch resp.StatusCode() {
+			case http.StatusOK:
+				if resp.JSON200 == nil {
+					is.l.Warnf("empty response body — retrying in %s", interval)
+					continue
+				}
+				var buf bytes.Buffer
+				is.render(&buf, resp.JSON200, opts.Namespace)
+				if buf.String() == lastOutput {
+					continue
+				}
+				lastOutput = buf.String()
+				if is.config.Pretty {
+					fmt.Fprintln(os.Stdout, "---")
+				}
+				fmt.Fprint(os.Stdout, lastOutput)
+			case http.StatusNotFound:
+				return fmt.Errorf("instance %q has been deleted", opts.Name)
+			case http.StatusUnauthorized:
+				return fmt.Errorf("server rejected credentials — run 'everestctl auth login' again")
+			default:
+				is.l.Warnf("unexpected response %s — retrying in %s", resp.Status(), interval)
 			}
 		}
 	}
+}
 
+func (is *InstanceStatusRunner) render(w io.Writer, inst *client.Instance, namespace string) {
+	if !is.config.Pretty {
+		_ = json.NewEncoder(w).Encode(inst) //nolint:errchkjson
+		return
+	}
+	printInstanceStatus(w, inst, namespace)
+}
+
+func printInstanceStatus(w io.Writer, inst *client.Instance, namespace string) {
 	phase := "-"
 	message := "-"
 	version := "-"
@@ -127,44 +168,68 @@ func printInstanceStatus(inst *client.Instance, namespace string) {
 		}
 	}
 
-	fmt.Fprintf(os.Stdout, "Instance:  %s\n", name)
-	fmt.Fprintf(os.Stdout, "Namespace: %s\n", namespace)
-	fmt.Fprintf(os.Stdout, "Phase:     %s\n", phase)
-	fmt.Fprintf(os.Stdout, "Version:   %s\n", version)
-	fmt.Fprintf(os.Stdout, "Message:   %s\n", message)
+	fmt.Fprintf(w, "Instance:  %s\n", instanceName(inst))
+	fmt.Fprintf(w, "Namespace: %s\n", namespace)
+	fmt.Fprintf(w, "Phase:     %s\n", phase)
+	fmt.Fprintf(w, "Version:   %s\n", version)
+	fmt.Fprintf(w, "Message:   %s\n", message)
 
-	if inst.Status != nil && inst.Status.Components != nil && len(*inst.Status.Components) > 0 {
-		fmt.Fprintln(os.Stdout, "\nComponents:")
-		w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-		fmt.Fprintln(w, "  STATE\tREADY\tTOTAL")
-		for _, comp := range *inst.Status.Components {
-			state := "-"
-			if comp.State != nil {
-				state = *comp.State
-			}
-			var ready, total int32
-			if comp.Ready != nil {
-				ready = *comp.Ready
-			}
-			if comp.Total != nil {
-				total = *comp.Total
-			}
-			fmt.Fprintf(w, "  %s\t%d\t%d\n", state, ready, total)
-		}
-		w.Flush() //nolint:errcheck
-	}
+	printComponentTable(w, inst)
+	printConditionTable(w, inst)
+}
 
-	if inst.Status != nil && inst.Status.Conditions != nil && len(*inst.Status.Conditions) > 0 {
-		fmt.Fprintln(os.Stdout, "\nConditions:")
-		w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-		fmt.Fprintln(w, "  TYPE\tSTATUS\tREASON\tMESSAGE")
-		for _, cond := range *inst.Status.Conditions {
-			msg := cond.Message
-			if msg == "" {
-				msg = "-"
-			}
-			fmt.Fprintf(w, "  %s\t%s\t%s\t%s\n", cond.Type, string(cond.Status), cond.Reason, msg)
-		}
-		w.Flush() //nolint:errcheck
+func instanceName(inst *client.Instance) string {
+	if inst.Metadata == nil {
+		return "-"
 	}
+	n, ok := (*inst.Metadata)["name"]
+	if !ok {
+		return "-"
+	}
+	s, ok := n.(string)
+	if !ok {
+		return "-"
+	}
+	return s
+}
+
+func printComponentTable(w io.Writer, inst *client.Instance) {
+	if inst.Status == nil || inst.Status.Components == nil || len(*inst.Status.Components) == 0 {
+		return
+	}
+	fmt.Fprintln(w, "\nComponents:")
+	tw := tabwriter.NewWriter(w, 0, 0, 2, ' ', 0)
+	fmt.Fprintln(tw, "  STATE\tREADY\tTOTAL")
+	for _, comp := range *inst.Status.Components {
+		state := "-"
+		if comp.State != nil {
+			state = *comp.State
+		}
+		var ready, total int32
+		if comp.Ready != nil {
+			ready = *comp.Ready
+		}
+		if comp.Total != nil {
+			total = *comp.Total
+		}
+		fmt.Fprintf(tw, "  %s\t%d\t%d\n", state, ready, total)
+	}
+	tw.Flush() //nolint:errcheck,gosec
+}
+
+func printConditionTable(w io.Writer, inst *client.Instance) {
+	if inst.Status == nil || inst.Status.Conditions == nil || len(*inst.Status.Conditions) == 0 {
+		return
+	}
+	fmt.Fprintln(w, "\nConditions:")
+	tw := tabwriter.NewWriter(w, 0, 0, 2, ' ', 0)
+	fmt.Fprintln(tw, "  TYPE\tSTATUS\tREASON\tMESSAGE")
+	for _, cond := range *inst.Status.Conditions {
+		msg := cond.Message
+		if msg == "" {
+			msg = "-"
+		}
+		fmt.Fprintf(tw, "  %s\t%s\t%s\t%s\n", cond.Type, string(cond.Status), cond.Reason, msg)
+	}
+	tw.Flush() //nolint:errcheck,gosec
 }
