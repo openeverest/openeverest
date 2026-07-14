@@ -70,7 +70,7 @@ type (
 // ValidateNamespaces validates the provided list of namespaces.
 // It validates:
 // - namespace names
-// - namespace ownership
+// - namespace ownership.
 func (cfg *NamespaceRemoveConfig) ValidateNamespaces(ctx context.Context, nsList []string) error {
 	k, err := cliutils.NewKubeConnector(zap.NewNop().Sugar(), cfg.KubeconfigPath)
 	if err != nil {
@@ -157,6 +157,10 @@ func (r *NamespaceRemover) Run(ctx context.Context) error {
 
 // NewRemoveNamespaceSteps returns the steps to remove a namespace.
 func NewRemoveNamespaceSteps(namespace string, keepNs bool, k kubernetes.KubernetesConnector) []steps.Step {
+	nsStepDesc := fmt.Sprintf("Deleting database namespace '%s'", namespace)
+	if keepNs {
+		nsStepDesc = fmt.Sprintf("Deleting resources from namespace '%s'", namespace)
+	}
 	removeSteps := []steps.Step{
 		{
 			Desc: fmt.Sprintf("Deleting database clusters in namespace '%s'", namespace),
@@ -176,34 +180,30 @@ func NewRemoveNamespaceSteps(namespace string, keepNs bool, k kubernetes.Kuberne
 				return k.DeleteMonitoringConfigs(ctx, ctrlclient.InNamespace(namespace))
 			},
 		},
-	}
-	nsStepDesc := fmt.Sprintf("Deleting database namespace '%s'", namespace)
-	if keepNs {
-		nsStepDesc = fmt.Sprintf("Deleting resources from namespace '%s'", namespace)
-	}
-	removeSteps = append(removeSteps, steps.Step{
-		Desc: nsStepDesc,
-		F: func(ctx context.Context) error {
-			u, err := helm.NewUninstaller(namespace, namespace, k.Kubeconfig())
-			if err != nil {
-				return errors.Join(err, errors.New("failed to create helm uninstaller"))
-			}
-			if _, err := u.Uninstall(false); err != nil {
-				return errors.Join(err, errors.New("failed to uninstall helm chart"))
-			}
-			if keepNs {
-				// keep the namespace, but remove the Everest label
-				return removeEverestLabelFromNamespace(ctx, k, namespace)
-			}
-			delObj := &corev1.Namespace{
-				ObjectMeta: metav1.ObjectMeta{Name: namespace},
-			}
-			if err := k.DeleteNamespace(ctx, delObj); err != nil {
-				return err
-			}
-			return ensureNamespaceGone(ctx, namespace, k)
+		{
+			Desc: nsStepDesc,
+			F: func(ctx context.Context) error {
+				u, err := helm.NewUninstaller(namespace, namespace, k.Kubeconfig())
+				if err != nil {
+					return errors.Join(err, errors.New("failed to create helm uninstaller"))
+				}
+				if _, err := u.Uninstall(false); err != nil {
+					return errors.Join(err, errors.New("failed to uninstall helm chart"))
+				}
+				if keepNs {
+					// keep the namespace, but remove the Everest label
+					return removeEverestLabelFromNamespace(ctx, k, namespace)
+				}
+				delObj := &corev1.Namespace{
+					ObjectMeta: metav1.ObjectMeta{Name: namespace},
+				}
+				if err := k.DeleteNamespace(ctx, delObj); err != nil {
+					return err
+				}
+				return ensureNamespaceGone(ctx, namespace, k)
+			},
 		},
-	})
+	}
 	return removeSteps
 }
 

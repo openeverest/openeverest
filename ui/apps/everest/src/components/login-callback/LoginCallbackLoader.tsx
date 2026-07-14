@@ -1,5 +1,3 @@
-// everest
-// Copyright (C) 2023 Percona LLC
 // Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -14,32 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package utils
+import LoadingPageSkeleton from 'components/loading-page-skeleton/LoadingPageSkeleton';
 
-import (
-	"testing"
+// This is the component rendered at the OIDC redirect route (/login-callback).
+// It is only a loading placeholder: the authorization-code response is processed
+// by oidc-react's AuthProvider (see App.tsx `onSignIn`/`onSignInError`), which is
+// the single owner of the OIDC state and performs the redirect once done.
+const LoginCallbackLoader = () => <LoadingPageSkeleton />;
 
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-)
-
-func TestParseValues(t *testing.T) {
-	t.Parallel()
-	in := map[string]any{
-		"server": map[string]any{
-			"tls": map[string]any{
-				"enabled": true,
-			},
-			"service": map[string]any{
-				"name": "test",
-				"port": 8080,
-			},
-		},
-	}
-
-	result, err := ParseValues(in)
-	require.NoError(t, err)
-	assert.True(t, result.Server.TLS.Enabled)
-	assert.Equal(t, "test", result.Server.Service.Name)
-	assert.Equal(t, 8080, result.Server.Service.Port)
-}
+export default LoginCallbackLoader;

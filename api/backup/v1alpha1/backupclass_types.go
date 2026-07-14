@@ -44,11 +44,15 @@ const (
 
 	// BackupExecutionModeJob runs backup and restore operations as Kubernetes
 	// Jobs that talk to the database from outside (e.g., pg_dump, mysqldump).
-	// All execution detail lives under .spec.job and .spec.restoreJob.
+	// All execution detail lives under .spec.job.
 	BackupExecutionModeJob BackupExecutionMode = "Job"
 )
 
 // BackupClassSpec defines the desired state of BackupClass.
+//
+// +kubebuilder:validation:XValidation:rule="self.executionMode != 'Job' || has(self.job)",message="spec.job is required when executionMode is Job"
+// +kubebuilder:validation:XValidation:rule="!has(self.job) || self.executionMode == 'Job'",message="spec.job is only allowed when executionMode is Job"
+// +kubebuilder:validation:XValidation:rule="!has(self.providerManaged) || self.executionMode == 'ProviderManaged'",message="spec.providerManaged is only allowed when executionMode is ProviderManaged"
 type BackupClassSpec struct {
 	// DisplayName is a human-readable name for the backup class.
 	DisplayName string `json:"displayName,omitempty"`
@@ -91,15 +95,23 @@ type BackupClassSpec struct {
 	// +kubebuilder:pruning:PreserveUnknownFields
 	UISchema *runtime.RawExtension `json:"uiSchema,omitempty"`
 
-	// Job contains execution detail for ExecutionMode="Job". Must be unset
-	// when ExecutionMode is "ProviderManaged".
-	// +optional
-	Job *JobExecution `json:"job,omitempty"`
-	// RestoreJob contains execution detail for the restore job in
-	// ExecutionMode="Job". Must be unset when ExecutionMode is
+	// Job contains all execution detail for ExecutionMode="Job". Required
+	// when ExecutionMode is "Job"; must be unset when ExecutionMode is
 	// "ProviderManaged".
 	// +optional
-	RestoreJob *JobExecution `json:"restoreJob,omitempty"`
+	Job *JobModeSpec `json:"job,omitempty"`
+}
+
+// JobModeSpec bundles everything the in-tree controller needs to run backup
+// and restore operations as Kubernetes Jobs in ExecutionMode="Job".
+type JobModeSpec struct {
+	// Backup describes the job spawned per Backup CR.
+	// +kubebuilder:validation:Required
+	Backup JobExecution `json:"backup"`
+	// Restore describes the job spawned per Restore CR. When unset, restores
+	// are not supported by this class.
+	// +optional
+	Restore *JobExecution `json:"restore,omitempty"`
 }
 
 // JobExecution bundles the Kubernetes resources the controller needs to spawn
@@ -251,32 +263,6 @@ type BackupJobSpec struct {
 	// Command is the command to run the backup class.
 	// +optional
 	Command []string `json:"command,omitempty"`
-}
-
-// ErrInvalidExecutionMode is returned when the BackupClassSpec mixes fields
-// from multiple execution modes or omits the required block for the chosen
-// mode.
-var ErrInvalidExecutionMode = errors.New("invalid execution mode configuration")
-
-// ValidateExecutionMode enforces the invariants between ExecutionMode and the
-// mode-specific blocks (Job/RestoreJob vs ProviderManaged).
-func (s *BackupClassSpec) ValidateExecutionMode() error {
-	switch s.ExecutionMode {
-	case BackupExecutionModeProviderManaged:
-		if s.Job != nil || s.RestoreJob != nil {
-			return fmt.Errorf("%w: executionMode=ProviderManaged must not set .spec.job or .spec.restoreJob", ErrInvalidExecutionMode)
-		}
-	case BackupExecutionModeJob:
-		if s.Job == nil {
-			return fmt.Errorf("%w: executionMode=Job requires .spec.job", ErrInvalidExecutionMode)
-		}
-		if s.ProviderManaged != nil {
-			return fmt.Errorf("%w: executionMode=Job must not set .spec.providerManaged", ErrInvalidExecutionMode)
-		}
-	default:
-		return fmt.Errorf("%w: unknown executionMode %q", ErrInvalidExecutionMode, s.ExecutionMode)
-	}
-	return nil
 }
 
 // BackupClassInstanceConstraints defines compatibility requirements and prerequisites

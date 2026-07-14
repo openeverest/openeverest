@@ -19,6 +19,7 @@ package namespaces
 import (
 	"context"
 	"fmt"
+	"slices"
 	"strings"
 
 	olmv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
@@ -26,7 +27,6 @@ import (
 	v1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/utils/strings/slices"
 
 	"github.com/openeverest/openeverest/v2/pkg/common"
 	"github.com/openeverest/openeverest/v2/pkg/kubernetes"
@@ -38,7 +38,7 @@ import (
 // Use validateNamespaceNames to validate them.
 func ParseNamespaceNames(namespaces string) []string {
 	result := []string{}
-	for _, ns := range strings.Split(namespaces, ",") {
+	for ns := range strings.SplitSeq(namespaces, ",") {
 		ns = strings.TrimSpace(ns)
 		if ns == "" {
 			continue
@@ -55,7 +55,7 @@ func ParseNamespaceNames(namespaces string) []string {
 // validateNamespaceNames validates a list of namespaces parsed by ParseNamespaceNames.
 // It validates the names to be:
 // - RFC-1035 compatible
-// - not reserved by Everest core
+// - not reserved by Everest core.
 func validateNamespaceNames(nsList []string, systemNamespace string) error {
 	if len(nsList) == 0 {
 		return ErrNamespaceListEmpty

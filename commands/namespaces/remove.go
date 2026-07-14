@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -50,9 +51,9 @@ func init() {
 	namespacesRemoveCmd.Flags().BoolVar(&namespacesRemoveCfg.Force, cli.FlagNamespaceForce, false, "If set, forcefully deletes database clusters in the namespace (if any)")
 }
 
-func namespacesRemovePreRun(cmd *cobra.Command, args []string) { //nolint:revive
+func namespacesRemovePreRun(cmd *cobra.Command, args []string) {
 	// Copy global flags to config
-	namespacesRemoveCfg.Pretty = !(cmd.Flag(cli.FlagVerbose).Changed || cmd.Flag(cli.FlagJSON).Changed)
+	namespacesRemoveCfg.Pretty = !cmd.Flag(cli.FlagVerbose).Changed && !cmd.Flag(cli.FlagJSON).Changed
 	namespacesRemoveCfg.KubeconfigPath = cmd.Flag(cli.FlagKubeconfig).Value.String()
 
 	// Parse and validate provided namespaces

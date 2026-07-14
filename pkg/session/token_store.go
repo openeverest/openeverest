@@ -61,34 +61,13 @@ func newTokenStore(ctx context.Context, client TokenStoreClient, logger *zap.Sug
 	return s, nil
 }
 
-func (ts *tokenStore) init(ctx context.Context) error {
-	_, err := ts.client.GetSecret(ctx, types.NamespacedName{Namespace: ts.namespace, Name: common.EverestBlocklistSecretName})
-	if err == nil {
-		return err
-	}
-	if !k8serrors.IsNotFound(err) {
-		err = fmt.Errorf("failed to get %s secret in the %s namespace: %w", common.EverestBlocklistSecretName, ts.namespace, err)
-		ts.l.Error(err)
-		return err
-	}
-	var createErr error
-	secret := getBlockListSecretTemplate(ts.namespace, "")
-	_, createErr = ts.client.CreateSecret(ctx, secret)
-	if createErr != nil {
-		err = fmt.Errorf("failed to create secret %s in namespace %s: %w", secret.Name, secret.Namespace, createErr)
-		ts.l.Error(err)
-		return err
-	}
-	return nil
-}
-
 type tokenStore struct {
 	client    TokenStoreClient
 	l         *zap.SugaredLogger
 	namespace string
 }
 
-// Add adds the shortened token to the blocklist
+// Add adds the shortened token to the blocklist.
 func (ts *tokenStore) Add(ctx context.Context, shortenedToken string) error {
 	secret, err := ts.client.GetSecret(ctx, types.NamespacedName{Namespace: ts.namespace, Name: common.EverestBlocklistSecretName})
 	if err != nil {
@@ -105,7 +84,7 @@ func (ts *tokenStore) Add(ctx context.Context, shortenedToken string) error {
 	return nil
 }
 
-// Exists checks if the shortened token is in the blocklist
+// Exists checks if the shortened token is in the blocklist.
 func (ts *tokenStore) Exists(ctx context.Context, shortenedToken string) (bool, error) {
 	// no worries about overwhelming k8s API - the secret is cached
 	secret, err := ts.client.GetSecret(ctx, types.NamespacedName{Namespace: ts.namespace, Name: common.EverestBlocklistSecretName})
@@ -115,6 +94,27 @@ func (ts *tokenStore) Exists(ctx context.Context, shortenedToken string) (bool, 
 	}
 	list, ok := secret.Data[dataKey]
 	return ok && strings.Contains(string(list), shortenedToken), nil
+}
+
+func (ts *tokenStore) init(ctx context.Context) error {
+	_, err := ts.client.GetSecret(ctx, types.NamespacedName{Namespace: ts.namespace, Name: common.EverestBlocklistSecretName})
+	if err == nil {
+		return nil
+	}
+	if !k8serrors.IsNotFound(err) {
+		err = fmt.Errorf("failed to get %s secret in the %s namespace: %w", common.EverestBlocklistSecretName, ts.namespace, err)
+		ts.l.Error(err)
+		return err
+	}
+	var createErr error
+	secret := getBlockListSecretTemplate(ts.namespace, "")
+	_, createErr = ts.client.CreateSecret(ctx, secret)
+	if createErr != nil {
+		err = fmt.Errorf("failed to create secret %s in namespace %s: %w", secret.Name, secret.Namespace, createErr)
+		ts.l.Error(err)
+		return err
+	}
+	return nil
 }
 
 func addDataToSecret(l *zap.SugaredLogger, secret *corev1.Secret, shortenedToken string, now time.Time) *corev1.Secret {

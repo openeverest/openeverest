@@ -89,6 +89,8 @@ type KubernetesConnector interface {
 	DeleteClusterServiceVersion(ctx context.Context, obj *olmv1alpha1.ClusterServiceVersion) error
 	// DeleteClusterServiceVersions deletes all ClusterServiceVersion that match the criteria.
 	// This function will wait until all ClusterServiceVersion are deleted.
+	//
+	//nolint:dupl // per-resource client wrappers are intentionally similar
 	DeleteClusterServiceVersions(ctx context.Context, opts ...ctrlclient.ListOption) error
 	// ListCRDs lists all CRDs that match the criteria.
 	ListCRDs(ctx context.Context, opts ...ctrlclient.ListOption) (*apiextv1.CustomResourceDefinitionList, error)
@@ -146,7 +148,7 @@ type KubernetesConnector interface {
 	// ListDataImporters lists all DataImporters in the cluster.
 	ListDataImporters(ctx context.Context, opts ...ctrlclient.ListOption) (*everestv1alpha1.DataImporterList, error)
 	// ListDataImportJobs lists all DataImportJobs for the specified database cluster.
-	ListDataImportJobs(ctx context.Context, namespace, dbName string, opts ...ctrlclient.ListOption) (*everestv1alpha1.DataImportJobList, error)
+	ListDataImportJobs(ctx context.Context, namespace, dbName string, _ ...ctrlclient.ListOption) (*everestv1alpha1.DataImportJobList, error)
 	// GetDeployment returns k8s deployment that matches the criteria.
 	GetDeployment(ctx context.Context, key ctrlclient.ObjectKey) (*appsv1.Deployment, error)
 	// UpdateDeployment updates a deployment and returns the updated object.
@@ -305,7 +307,7 @@ type KubernetesConnector interface {
 	GetAllClusterResources(ctx context.Context, clusterType ClusterType, volumes *corev1.PersistentVolumeList) (uint64, uint64, uint64, error)
 	// GetConsumedCPUAndMemory returns consumed CPU and Memory in given namespace. If namespace
 	// is empty, it tries to get them from all namespaces.
-	GetConsumedCPUAndMemory(ctx context.Context, namespace string) (cpuMillis uint64, memoryBytes uint64, err error)
+	GetConsumedCPUAndMemory(ctx context.Context, namespace string) (uint64, uint64, error)
 	// GetConsumedDiskBytes returns consumed bytes. The strategy differs based on k8s cluster type.
 	GetConsumedDiskBytes(_ context.Context, clusterType ClusterType, volumes *corev1.PersistentVolumeList) (uint64, error)
 	// ListSecrets returns list of secrets that match the criteria.

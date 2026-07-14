@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -95,17 +96,17 @@ func New(opts ...OptionsFunc) (*Informer, error) {
 }
 
 // OnUpdate is triggered when an object is updated.
-func (i *Informer) OnUpdate(cb func(oldObj, newObj interface{})) {
+func (i *Informer) OnUpdate(cb func(oldObj, newObj any)) {
 	i.eventHandlers.UpdateFunc = cb
 }
 
 // OnAdd is triggered when an object is added.
-func (i *Informer) OnAdd(cb func(obj interface{})) {
+func (i *Informer) OnAdd(cb func(obj any)) {
 	i.eventHandlers.AddFunc = cb
 }
 
 // OnDelete is triggered when an object is deleted.
-func (i *Informer) OnDelete(cb func(obj interface{})) {
+func (i *Informer) OnDelete(cb func(obj any)) {
 	i.eventHandlers.DeleteFunc = cb
 }
 

@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -58,14 +59,14 @@ func init() {
 	rootCmd.PersistentFlags().StringVarP(&rootCmdFlags.KubeconfigPath, cli.FlagKubeconfig, "k", rootCmdFlags.KubeconfigPath, "Path to a kubeconfig. If not set, will use KUBECONFIG env var")
 }
 
-func rootPersistentPreRun(_ *cobra.Command, _ []string) { //nolint:revive
+func rootPersistentPreRun(_ *cobra.Command, _ []string) {
 	logger.InitLoggerInRootCmd(rootCmdFlags.Verbose, rootCmdFlags.JSON, "everestctl")
 
 	// This is required because controller-runtime requires a logger
 	// to be set within 30 seconds of the program initialization.
 	ctrlruntimelog.SetLogger(zapr.NewLogger(logger.GetLogger().Desugar()))
 
-	rootCmdFlags.Pretty = !(rootCmdFlags.Verbose || rootCmdFlags.JSON)
+	rootCmdFlags.Pretty = !rootCmdFlags.Verbose && !rootCmdFlags.JSON
 	logger.GetLogger().Debug("Debug logging enabled")
 }
 

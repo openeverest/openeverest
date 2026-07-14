@@ -16,6 +16,9 @@ package helm
 
 import "github.com/openeverest/openeverest/v2/pkg/kubernetes"
 
+// valueFalse is the string representation of a disabled Helm chart value.
+const valueFalse = "false"
+
 // Values contains the different values that can be set in the Helm chart.
 type Values struct {
 	ClusterType        kubernetes.ClusterType
@@ -28,24 +31,24 @@ func NewValues(v Values) map[string]string {
 	values := make(map[string]string)
 	// the CLI does the preflight checks already,
 	// no need to re-run them during the upgrade.
-	values["upgrade.preflightChecks"] = "false"
+	values["upgrade.preflightChecks"] = valueFalse
 
 	// No need to deploy the default DB namespace with the helm chart.
 	// We will create it separately so that we're able to provide its
 	// details as a separate step and also to avoid any potential issues.
-	values["dbNamespace.enabled"] = "false"
+	values["dbNamespace.enabled"] = valueFalse
 
 	if v.ClusterType == kubernetes.ClusterTypeOpenShift {
 		values["compatibility.openshift"] = "true"
-		values["olm.install"] = "false"
-		values["kube-state-metrics.rbac.create"] = "false"
-		values["kube-state-metrics.securityContext.enabled"] = "false"
+		values["olm.install"] = valueFalse
+		values["kube-state-metrics.rbac.create"] = valueFalse
+		values["kube-state-metrics.securityContext.enabled"] = valueFalse
 	}
 	if v.VersionMetadataURL != "" {
 		values["versionMetadataURL"] = v.VersionMetadataURL
 	}
 	if v.DisableTelemetry {
-		values["telemetry"] = "false"
+		values["telemetry"] = valueFalse
 	}
 	return values
 }

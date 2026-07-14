@@ -73,15 +73,19 @@ func TestRefresh_Success(t *testing.T) {
 	require.NoError(t, newRefreshConfig(srv.URL, "everest_rt_old").Save(cfgPath))
 
 	lo := NewLogin(Config{}, zap.NewNop().Sugar())
-	require.NoError(t, lo.Refresh(t.Context(), cfgPath))
+	sess, err := lo.Refresh(t.Context(), cfgPath, "")
+	require.NoError(t, err)
+	require.NotNil(t, sess)
+	assert.Equal(t, "rotated-access-jwt", sess.User.AccessToken)
+	assert.Equal(t, "everest_rt_new", sess.User.RefreshToken)
+	assert.True(t, sess.User.ExpiresAt.After(time.Now()))
 
+	// Verify the new token was persisted to disk.
 	updated, err := config.Load(cfgPath)
 	require.NoError(t, err)
 	require.Len(t, updated.Users, 1)
 	u := updated.Users[0].User
 	assert.Equal(t, "rotated-access-jwt", u.AccessToken)
-	assert.Equal(t, "everest_rt_new", u.RefreshToken)
-	assert.True(t, u.ExpiresAt.After(time.Now()))
 }
 
 func TestRefresh_InvalidToken(t *testing.T) {
@@ -98,7 +102,7 @@ func TestRefresh_InvalidToken(t *testing.T) {
 	require.NoError(t, newRefreshConfig(srv.URL, "everest_rt_expired").Save(cfgPath))
 
 	lo := NewLogin(Config{}, zap.NewNop().Sugar())
-	err := lo.Refresh(t.Context(), cfgPath)
+	_, err := lo.Refresh(t.Context(), cfgPath, "")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "401")
 
@@ -120,7 +124,7 @@ func TestRefresh_NoActiveContext(t *testing.T) {
 	require.NoError(t, cfg.Save(cfgPath))
 
 	lo := NewLogin(Config{}, zap.NewNop().Sugar())
-	err := lo.Refresh(t.Context(), cfgPath)
+	_, err := lo.Refresh(t.Context(), cfgPath, "")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "no active context")
 }

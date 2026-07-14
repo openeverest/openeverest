@@ -48,6 +48,7 @@ import {
   initializeAuthorizerFetchLoop,
   stopAuthorizerFetchLoop,
 } from 'utils/rbac';
+import { logAuthError, isRunningInIframe } from './auth.utils';
 import type { HttpApi } from '@generated/api-types';
 
 const LOGOUT_SYNC_CHANNEL = 'everest-auth-sync';
@@ -185,6 +186,7 @@ const AuthProvider = ({ children, isSsoEnabled }: AuthProviderProps) => {
         setLogoutStatus();
       }
     } catch (error) {
+      logAuthError('silent token renewal failed', error);
       setLogoutStatus();
     }
   }, [userManager]);
@@ -262,9 +264,16 @@ const AuthProvider = ({ children, isSsoEnabled }: AuthProviderProps) => {
     userManager.events.addUserLoaded(handleUserLoaded);
     userManager.events.addAccessTokenExpiring(handleTokenExpiring);
 
-    // signinSilentCallback is only relevant inside the silent-renew iframe.
-    if (window.location !== window.parent.location) {
-      userManager.signinSilentCallback();
+    // signinSilentCallback() must only run inside the hidden silent-renew
+    // iframe. In the main window it races with oidc-react's own
+    // signinCallback() (fired on the /login-callback redirect) for the same
+    // stored auth state, which makes one of the two calls fail with
+    // "No matching state found in storage" and leaves the user on a blank
+    // page after an SSO redirect.
+    if (isRunningInIframe()) {
+      userManager.signinSilentCallback().catch((error) => {
+        logAuthError('silent renew callback failed', error);
+      });
     }
 
     return () => {
@@ -274,7 +283,7 @@ const AuthProvider = ({ children, isSsoEnabled }: AuthProviderProps) => {
   }, [isSsoEnabled, silentlyRenewToken, userManager]);
 
   useEffect(() => {
-    if (window.location !== window.parent.location) {
+    if (isRunningInIframe()) {
       // This is running in the iframe, so we are renewing the token silently
       return;
     }
