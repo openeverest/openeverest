@@ -26,13 +26,11 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-	"time"
 
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v3"
 
 	"github.com/openeverest/openeverest/v2/client"
-	"github.com/openeverest/openeverest/v2/pkg/cli"
 	authcli "github.com/openeverest/openeverest/v2/pkg/cli/auth"
 	"github.com/openeverest/openeverest/v2/pkg/output"
 )
@@ -67,31 +65,12 @@ func NewInstanceCreator(cfg Config, l *zap.SugaredLogger) *InstanceCreator {
 }
 
 func (ic *InstanceCreator) Run(ctx context.Context, opts CreateOptions, cfgPath string) error {
-	sess, err := cli.LoadSession(cfgPath, opts.Context)
+	c, err := authcli.NewAPIClient(authcli.Config{Pretty: ic.config.Pretty}, ic.l.Desugar().Sugar(), cfgPath, opts.Context)
 	if err != nil {
 		return err
 	}
 
-	// Refresh proactively within 30s of expiry to avoid a mid-flight 401.
-	if time.Now().After(sess.User.ExpiresAt.Add(-30 * time.Second)) {
-		lo := authcli.NewLogin(authcli.Config{Pretty: ic.config.Pretty}, ic.l.Desugar().Sugar())
-		if err := lo.Refresh(ctx, cfgPath); err != nil {
-			return fmt.Errorf("access token expired and refresh failed: %w", err)
-		}
-		sess, err = cli.LoadSession(cfgPath, opts.Context)
-		if err != nil {
-			return err
-		}
-	}
-
-	c, err := client.NewClientWithResponses(cli.NormalizeServerURL(sess.Server.URL))
-	if err != nil {
-		return fmt.Errorf("failed to create API client: %w", err)
-	}
-
-	token := cli.BearerToken(sess.User.AccessToken)
-
-	provResp, err := c.GetProviderWithResponse(ctx, opts.Cluster, opts.Provider, token)
+	provResp, err := c.GetProviderWithResponse(ctx, opts.Cluster, opts.Provider)
 	if err != nil {
 		return fmt.Errorf("failed to fetch provider %q: %w", opts.Provider, err)
 	}
@@ -142,7 +121,6 @@ func (ic *InstanceCreator) Run(ctx context.Context, opts CreateOptions, cfgPath 
 		opts.Namespace,
 		"application/json",
 		bytes.NewReader(body),
-		token,
 	)
 	if err != nil {
 		return fmt.Errorf("create instance request failed: %w", err)
