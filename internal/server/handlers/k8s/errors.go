@@ -16,5 +16,5 @@ package k8s
 
 import "errors"
 
-// ErrNotFound is an error that appears when the requested resource is not found.
-var ErrNotFound = errors.New("not found")
+// ErrNotFound is an error that appears when the requested resource is not managed by OpenEverest.
+var ErrNotFound = errors.New("not managed by OpenEverest")
