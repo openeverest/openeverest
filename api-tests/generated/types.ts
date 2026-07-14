@@ -764,7 +764,7 @@ export interface paths {
         /**
          * List configmaps
          * @description This API lists all OpenEverest-managed ConfigMaps in the specified namespace and cluster.
-         *     Optionally filter by provider and category.
+         *     Optionally filter by provider and definition.
          */
         get: operations["listConfigMaps"];
         put?: never;
@@ -6290,8 +6290,8 @@ export interface operations {
             query?: {
                 /** @description Filter configmaps by provider name */
                 provider?: string;
-                /** @description Filter configmaps by category */
-                category?: string;
+                /** @description Filter configmaps by definition */
+                definition?: string;
             };
             header?: never;
             path: {

@@ -31,17 +31,17 @@ func (h *validateHandler) CreateConfigMap(ctx context.Context, cluster, namespac
 		return nil, errors.Join(ErrInvalidRequest, fmt.Errorf("invalid ConfigMap name: %w", err))
 	}
 
-	// Validate required category label.
-	if configMap.Labels == nil || configMap.Labels[common.OpenEverestCategoryLabel] == "" {
-		return nil, errors.Join(ErrInvalidRequest, fmt.Errorf("ConfigMap must have a '%s' label", common.OpenEverestCategoryLabel))
+	// Validate required definition label.
+	if configMap.Labels == nil || configMap.Labels[common.OpenEverestDefinitionLabel] == "" {
+		return nil, errors.Join(ErrInvalidRequest, fmt.Errorf("ConfigMap must have a '%s' label", common.OpenEverestDefinitionLabel))
 	}
 
 	return h.next.CreateConfigMap(ctx, cluster, namespace, configMap)
 }
 
 // ListConfigMaps proxies the request to the next handler.
-func (h *validateHandler) ListConfigMaps(ctx context.Context, cluster, namespace, provider, category string) (*corev1.ConfigMapList, error) {
-	return h.next.ListConfigMaps(ctx, cluster, namespace, provider, category)
+func (h *validateHandler) ListConfigMaps(ctx context.Context, cluster, namespace, provider, definition string) (*corev1.ConfigMapList, error) {
+	return h.next.ListConfigMaps(ctx, cluster, namespace, provider, definition)
 }
 
 // GetConfigMap proxies the request to the next handler.

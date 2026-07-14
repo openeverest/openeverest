@@ -34,7 +34,7 @@ test.describe.parallel('ConfigMaps tests', () => {
         metadata: {
           name: configMapName1,
           labels: {
-            'openeverest.io/category': 'test-config',
+            'openeverest.io/definition': 'test-config',
             'openeverest.io/provider': 'test-provider',
           },
         },
@@ -52,7 +52,7 @@ test.describe.parallel('ConfigMaps tests', () => {
     await test.step('get config-map - verify data is returned', async () => {
       const configMap = await th.getConfigMap(request, configMapName1)
       expect(configMap.metadata.name).toBe(configMapName1)
-      expect(configMap.metadata.labels['openeverest.io/category']).toBe('test-config')
+      expect(configMap.metadata.labels['openeverest.io/definition']).toBe('test-config')
       expect(configMap.metadata.labels['openeverest.io/provider']).toBe('test-provider')
       expect(configMap.metadata.labels['openeverest.io/managed']).toBe('true')
       expect(configMap.data).toBeDefined()
@@ -71,18 +71,18 @@ test.describe.parallel('ConfigMaps tests', () => {
       expect(configMap.data['config.yaml']).toBe('key: value\nanother: setting')
     })
 
-    await test.step('list config-maps with category filter', async () => {
-      const list = await th.listConfigMapsWithCategory(request, 'test-config')
+    await test.step('list config-maps with definition filter', async () => {
+      const list = await th.listConfigMapsWithDefinition(request, 'test-config')
       
-      const configMap = list.items.find(cm => cm.metadata.name === configMapName1)
-      expect(configMap).toBeDefined()
-      expect(configMap.metadata.labels['openeverest.io/category']).toBe('test-config')
+      const found = list.items.find(cm => cm.metadata.name === configMapName1)
+      expect(found).toBeDefined()
+      expect(found.metadata.labels['openeverest.io/definition']).toBe('test-config')
       
-      const emptyList = await th.listConfigMapsWithCategory(request, 'non-existent-category')
+      const emptyList = await th.listConfigMapsWithDefinition(request, 'non-existent-definition')
       expect(emptyList.items.length).toBe(0)
     })
 
-    await test.step('create config-map without category label should fail', async () => {
+    await test.step('create config-map without definition label should fail', async () => {
       const data = {
         apiVersion: 'v1',
         kind: 'ConfigMap',
@@ -101,7 +101,7 @@ test.describe.parallel('ConfigMaps tests', () => {
       expect(response.ok()).toBeFalsy()
       const error = await response.json()
       expect(response.status()).toBe(400)
-      expect(error.message).toContain('category')
+      expect(error.message).toContain('definition')
     })
 
     await test.step('create config-map without provider label', async () => {
@@ -111,7 +111,7 @@ test.describe.parallel('ConfigMaps tests', () => {
         metadata: {
           name: configMapName3,
           labels: {
-            'openeverest.io/category': 'test',
+            'openeverest.io/definition': 'test',
           },
         },
         data: {

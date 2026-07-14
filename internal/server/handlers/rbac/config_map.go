@@ -33,8 +33,8 @@ func (h *rbacHandler) CreateConfigMap(ctx context.Context, cluster, namespace st
 }
 
 // ListConfigMaps lists ConfigMaps with RBAC filtering.
-func (h *rbacHandler) ListConfigMaps(ctx context.Context, cluster, namespace, provider, category string) (*corev1.ConfigMapList, error) {
-	list, err := h.next.ListConfigMaps(ctx, cluster, namespace, provider, category)
+func (h *rbacHandler) ListConfigMaps(ctx context.Context, cluster, namespace, provider, definition string) (*corev1.ConfigMapList, error) {
+	list, err := h.next.ListConfigMaps(ctx, cluster, namespace, provider, definition)
 	if err != nil {
 		return nil, err
 	}

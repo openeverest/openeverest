@@ -1968,7 +1968,7 @@ paths:
       summary: List configmaps
       description: |
         This API lists all OpenEverest-managed ConfigMaps in the specified namespace and cluster.
-        Optionally filter by provider and category.
+        Optionally filter by provider and definition.
       operationId: listConfigMaps
       parameters:
         - name: cluster
@@ -1989,10 +1989,10 @@ paths:
           description: Filter configmaps by provider name
           schema:
             type: string
-        - name: category
+        - name: definition
           in: query
           required: false
-          description: Filter configmaps by category
+          description: Filter configmaps by definition
           schema:
             type: string
       responses:

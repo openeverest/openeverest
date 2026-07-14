@@ -44,14 +44,14 @@ func (e *EverestServer) CreateConfigMap(ctx echo.Context, cluster, namespace str
 }
 
 // ListConfigMaps lists OpenEverest-managed ConfigMaps in the namespace, optionally filtered by
-// provider and category.
+// provider and definition.
 func (e *EverestServer) ListConfigMaps(ctx echo.Context, cluster, namespace string, params api.ListConfigMapsParams) error {
 	result, err := e.handler.ListConfigMaps(
 		ctx.Request().Context(),
 		cluster,
 		namespace,
 		pointer.GetString(params.Provider),
-		pointer.GetString(params.Category),
+		pointer.GetString(params.Definition),
 	)
 	if err != nil {
 		e.l.Errorf("ListConfigMaps failed: %v", err)

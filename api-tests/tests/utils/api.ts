@@ -414,14 +414,14 @@ export const listConfigMapsRaw = async (request) => {
   return await request.get(`/v1/clusters/main/namespaces/${EVEREST_CI_NAMESPACE}/config-maps`)
 }
 
-export const listConfigMapsWithCategory = async (request, category: string) => {
-  const response = await listConfigMapsWithCategoryRaw(request, category)
+export const listConfigMapsWithDefinition = async (request, definition: string) => {
+  const response = await listConfigMapsWithDefinitionRaw(request, definition)
   await checkError(response)
   return (await response.json())
 }
 
-export const listConfigMapsWithCategoryRaw = async (request, category: string) => {
-  return await request.get(`/v1/clusters/main/namespaces/${EVEREST_CI_NAMESPACE}/config-maps?category=${category}`)
+export const listConfigMapsWithDefinitionRaw = async (request, definition: string) => {
+  return await request.get(`/v1/clusters/main/namespaces/${EVEREST_CI_NAMESPACE}/config-maps?definition=${definition}`)
 }
 
 export const deleteConfigMap = async (request, name) => {

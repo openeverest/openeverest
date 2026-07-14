@@ -144,7 +144,7 @@ type InstanceRestoreHandler interface {
 // ConfigMapHandler provides methods for handling operations on configmaps.
 type ConfigMapHandler interface {
 	CreateConfigMap(ctx context.Context, cluster, namespace string, configMap *corev1.ConfigMap) (*corev1.ConfigMap, error)
-	ListConfigMaps(ctx context.Context, cluster, namespace, provider, category string) (*corev1.ConfigMapList, error)
+	ListConfigMaps(ctx context.Context, cluster, namespace, provider, definition string) (*corev1.ConfigMapList, error)
 	GetConfigMap(ctx context.Context, cluster, namespace, name string) (*corev1.ConfigMap, error)
 	DeleteConfigMap(ctx context.Context, cluster, namespace, name string) error
 }

@@ -851,9 +851,9 @@ func (_m *MockHandler) ListClusters(ctx context.Context) (*api.ClusterList, erro
 	return r0, r1
 }
 
-// ListConfigMaps provides a mock function with given fields: ctx, cluster, namespace, provider, category
-func (_m *MockHandler) ListConfigMaps(ctx context.Context, cluster string, namespace string, provider string, category string) (*v1.ConfigMapList, error) {
-	ret := _m.Called(ctx, cluster, namespace, provider, category)
+// ListConfigMaps provides a mock function with given fields: ctx, cluster, namespace, provider, definition
+func (_m *MockHandler) ListConfigMaps(ctx context.Context, cluster string, namespace string, provider string, definition string) (*v1.ConfigMapList, error) {
+	ret := _m.Called(ctx, cluster, namespace, provider, definition)
 
 	if len(ret) == 0 {
 		panic("no return value specified for ListConfigMaps")
@@ -862,10 +862,10 @@ func (_m *MockHandler) ListConfigMaps(ctx context.Context, cluster string, names
 	var r0 *v1.ConfigMapList
 	var r1 error
 	if rf, ok := ret.Get(0).(func(context.Context, string, string, string, string) (*v1.ConfigMapList, error)); ok {
-		return rf(ctx, cluster, namespace, provider, category)
+		return rf(ctx, cluster, namespace, provider, definition)
 	}
 	if rf, ok := ret.Get(0).(func(context.Context, string, string, string, string) *v1.ConfigMapList); ok {
-		r0 = rf(ctx, cluster, namespace, provider, category)
+		r0 = rf(ctx, cluster, namespace, provider, definition)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*v1.ConfigMapList)
@@ -873,7 +873,7 @@ func (_m *MockHandler) ListConfigMaps(ctx context.Context, cluster string, names
 	}
 
 	if rf, ok := ret.Get(1).(func(context.Context, string, string, string, string) error); ok {
-		r1 = rf(ctx, cluster, namespace, provider, category)
+		r1 = rf(ctx, cluster, namespace, provider, definition)
 	} else {
 		r1 = ret.Error(1)
 	}

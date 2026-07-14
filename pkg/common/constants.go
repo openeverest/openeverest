@@ -111,8 +111,8 @@ const (
 	OpenEverestManagedLabel = "openeverest.io/managed"
 	// OpenEverestProviderLabel identifies the provider that uses the Secret or ConfigMap.
 	OpenEverestProviderLabel = "openeverest.io/provider"
-	// OpenEverestCategoryLabel identifies the Secret or ConfigMap category for filtering.
-	OpenEverestCategoryLabel = "openeverest.io/category"
+	// OpenEverestDefinitionLabel identifies the Secret or ConfigMap definition for filtering.
+	OpenEverestDefinitionLabel = "openeverest.io/definition"
 )
 
 // OperatorTypeToName maps the engine type to the operator name.

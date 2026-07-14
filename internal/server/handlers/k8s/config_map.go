@@ -25,7 +25,7 @@ import (
 )
 
 // CreateConfigMap creates a ConfigMap and labels it as managed by OpenEverest.
-// Provider and category labels supplied by the caller are preserved.
+// Provider and definition labels supplied by the caller are preserved.
 func (h *k8sHandler) CreateConfigMap(ctx context.Context, _ string, namespace string, configMap *corev1.ConfigMap) (*corev1.ConfigMap, error) {
 	if configMap.Labels == nil {
 		configMap.Labels = map[string]string{}
@@ -38,15 +38,15 @@ func (h *k8sHandler) CreateConfigMap(ctx context.Context, _ string, namespace st
 }
 
 // ListConfigMaps lists OpenEverest-managed ConfigMaps matching the optional provider and
-// category filters.
-func (h *k8sHandler) ListConfigMaps(ctx context.Context, _ string, namespace, provider, category string) (*corev1.ConfigMapList, error) {
+// definition filters.
+func (h *k8sHandler) ListConfigMaps(ctx context.Context, _ string, namespace, provider, definition string) (*corev1.ConfigMapList, error) {
 	selector := ctrlclient.MatchingLabels{common.OpenEverestManagedLabel: "true"}
 	if provider != "" {
 		selector[common.OpenEverestProviderLabel] = provider
 	}
 
-	if category != "" {
-		selector[common.OpenEverestCategoryLabel] = category
+	if definition != "" {
+		selector[common.OpenEverestDefinitionLabel] = definition
 	}
 
 	return h.kubeConnector.ListConfigMaps(ctx, ctrlclient.InNamespace(namespace), selector)
