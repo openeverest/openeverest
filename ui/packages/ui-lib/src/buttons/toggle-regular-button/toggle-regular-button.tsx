@@ -13,27 +13,29 @@ const ToggleRegularButton = ({
     <ToggleButton
       data-testid={dataTestId ?? 'toggle-button-group-btn'}
       disableRipple
-      sx={{
-        backgroundColor: 'background.default',
-        color: theme.palette.text.primary,
-        textTransform: 'none',
-        borderStyle: 'solid',
-        borderColor: theme.palette.primary.main,
-        borderWidth: '2px',
-        ':hover, &.Mui-selected:hover': {
-          backgroundColor: theme.palette.action.hover,
+      sx={[
+        {
+          backgroundColor: 'background.default',
           color: theme.palette.text.primary,
+          textTransform: 'none',
+          borderStyle: 'solid',
+          borderColor: theme.palette.primary.main,
+          borderWidth: '2px',
+          ':hover, &.Mui-selected:hover': {
+            backgroundColor: theme.palette.action.hover,
+            color: theme.palette.text.primary,
+          },
+          '&.Mui-selected, &.Mui-selected:hover': {
+            backgroundColor: theme.palette.primary.main,
+            color: 'background.default',
+          },
+          '&.MuiButtonBase-root': {
+            wordWrap: 'break-word',
+            whiteSpace: 'pre-wrap',
+          },
         },
-        '&.Mui-selected, &.Mui-selected:hover': {
-          backgroundColor: theme.palette.primary.main,
-          color: 'background.default',
-        },
-        '&.MuiButtonBase-root': {
-          wordWrap: 'break-word',
-          whiteSpace: 'pre-wrap',
-        },
-        ...sx,
-      }}
+        ...(Array.isArray(sx) ? sx : [sx]),
+      ]}
       {...props}
     >
       {children}

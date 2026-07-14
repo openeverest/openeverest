@@ -120,8 +120,9 @@ const ScheduledBackupsList = () => {
         order: 3,
         bgcolor: (theme) => theme.palette.surfaces?.elevation0,
         p: 2,
-        mt: 2
-      }}>
+        mt: 1,
+      }}
+    >
       {schedules.map((item) => (
         <Paper
           key={`schedule-${item.name}`}

@@ -34,7 +34,7 @@ function AutoCompleteInput<T>({
         <Tooltip title={tooltipText} placement="top" arrow>
           <Autocomplete
             {...field}
-            sx={{ mt: 3, ...sx }}
+            sx={[{ mt: 3 }, ...(Array.isArray(sx) ? sx : [sx])]}
             options={options}
             forcePopupIcon
             disabled={disabled}

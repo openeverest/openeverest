@@ -24,14 +24,16 @@ const NoDataAlertMessage = ({
   return (
     <Alert
       severity="info"
-      sx={{
-        width: '100%',
-        alignItems: 'center',
-        marginTop: 1,
-        marginBottom: 1,
-        height: '60px',
-        ...sx,
-      }}
+      sx={[
+        {
+          width: '100%',
+          alignItems: 'center',
+          marginTop: 1,
+          marginBottom: 1,
+          height: '60px',
+        },
+        ...(Array.isArray(sx) ? sx : [sx]),
+      ]}
       {...alertProps}
     >
       {message}
@@ -320,13 +322,13 @@ function Table<T extends Record<string, any>>(props: TableProps<T>) {
               onClick?.(e);
             }
           },
-          sx: {
-            ...(!isDetailPanel &&
+          sx: [
+            !isDetailPanel &&
               enableRowHoverAction && {
                 cursor: 'pointer', // you might want to change the cursor too when adding an onClick
-              }),
-            ...sx,
-          },
+              },
+            ...(Array.isArray(sx) ? sx : [sx]),
+          ],
           ...restOfProps,
         };
       }}

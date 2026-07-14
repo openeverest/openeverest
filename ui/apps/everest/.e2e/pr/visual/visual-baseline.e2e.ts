@@ -37,15 +37,22 @@ import {
 
 const screenshotOpts = {
   fullPage: true,
-  maxDiffPixelRatio: 0.01,
+  maxDiffPixelRatio: 0.001,
 };
 
 // Helper: wait for a MRT table to finish loading.
+// We additionally wait for all MRT skeletons to disappear so the
+// captured state is deterministic.
 async function waitForTableContent(page: Page, headerText: string) {
   await page
     .locator(`th:has-text("${headerText}")`)
     .first()
     .waitFor({ state: 'visible', timeout: 60000 });
+  await page.waitForFunction(
+    () => document.querySelectorAll('.MuiSkeleton-root').length === 0,
+    undefined,
+    { timeout: 60000 }
+  );
   await page.waitForTimeout(500);
 }
 
@@ -626,7 +633,7 @@ baseTest.describe('Visual Baseline - Login (unauthenticated)', () => {
     await page.waitForTimeout(500);
     await expect(page).toHaveScreenshot('login-page.png', {
       ...screenshotOpts,
-      maxDiffPixelRatio: 0.02,
+      maxDiffPixelRatio: 0.01,
     });
   });
 });

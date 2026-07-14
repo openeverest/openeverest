@@ -25,7 +25,12 @@ const TextInput = ({
           label={label}
           {...field}
           size={restFieldProps?.size || 'small'}
-          sx={{ mt: 3, ...textFieldPropsSx }}
+          sx={[
+            { mt: 3 },
+            ...(Array.isArray(textFieldPropsSx)
+              ? textFieldPropsSx
+              : [textFieldPropsSx]),
+          ]}
           {...restFieldProps}
           variant="outlined"
           required={isRequired}

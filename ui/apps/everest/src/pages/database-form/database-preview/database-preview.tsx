@@ -89,7 +89,10 @@ export const DatabasePreview = ({
   ];
 
   return (
-    <Stack sx={{ pr: 2, pl: 2, ...sx }} {...stackProps}>
+    <Stack
+      sx={[{ pr: 2, pl: 2 }, ...(Array.isArray(sx) ? sx : [sx])]}
+      {...stackProps}
+    >
       <Typography variant="overline">{Messages.title}</Typography>
       <Stack>
         {previewSections.map((section, idx) => {

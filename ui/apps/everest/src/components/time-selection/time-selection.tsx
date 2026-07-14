@@ -143,13 +143,15 @@ export const TimeSelection = ({
       }}
     >
       <Box
-        sx={{
-          display: 'flex',
-          flexWrap: 'wrap',
-          alignItems: 'center',
-          gap: 2,
-          ...sx,
-        }}
+        sx={[
+          {
+            display: 'flex',
+            flexWrap: 'wrap',
+            alignItems: 'center',
+            gap: 2,
+          },
+          ...(Array.isArray(sx) ? sx : [sx]),
+        ]}
       >
         <SelectInput
           name="selectedTime"

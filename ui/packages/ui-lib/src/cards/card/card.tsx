@@ -44,7 +44,10 @@ const Card = ({
   return (
     <MuiCard
       data-testid={`${dataTestId}-card`}
-      sx={{ width: '320px', height: 'fit-content', ...sx }}
+      sx={[
+        { width: '320px', height: 'fit-content' },
+        ...(Array.isArray(sx) ? sx : [sx]),
+      ]}
       {...props}
     >
       <CardContent
