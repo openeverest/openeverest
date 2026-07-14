@@ -110,6 +110,10 @@ const (
 	FlagInstanceFile = "file"
 	// FlagInstanceContext overrides the active context for this command.
 	FlagInstanceContext = "context"
+	// FlagInstanceWatch enables continuous polling mode.
+	FlagInstanceWatch = "watch"
+	// FlagInstanceInterval sets the poll interval for --watch.
+	FlagInstanceInterval = "interval"
 
 	// settings flags.
 
