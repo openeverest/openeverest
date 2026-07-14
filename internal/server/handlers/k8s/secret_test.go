@@ -49,7 +49,7 @@ func TestCreateSecret(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "secret-stringdata",
 					Labels: map[string]string{
-						common.OpenEverestCategoryLabel: "database-credentials",
+						common.OpenEverestDefinitionLabel: "database-credentials",
 					},
 				},
 				Type: corev1.SecretTypeOpaque,
@@ -65,7 +65,7 @@ func TestCreateSecret(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "secret-data",
 					Labels: map[string]string{
-						common.OpenEverestCategoryLabel: "database-credentials",
+						common.OpenEverestDefinitionLabel: "database-credentials",
 					},
 				},
 				Type: corev1.SecretTypeOpaque,
@@ -119,8 +119,8 @@ func TestGetSecret(t *testing.T) {
 					Name:      "secret-stringdata",
 					Namespace: namespace,
 					Labels: map[string]string{
-						common.OpenEverestCategoryLabel: "database-credentials",
-						common.OpenEverestManagedLabel:  "true",
+						common.OpenEverestDefinitionLabel: "database-credentials",
+						common.OpenEverestManagedLabel:    "true",
 					},
 				},
 				Type: corev1.SecretTypeOpaque,
@@ -137,8 +137,8 @@ func TestGetSecret(t *testing.T) {
 					Name:      "secret-data",
 					Namespace: namespace,
 					Labels: map[string]string{
-						common.OpenEverestCategoryLabel: "database-credentials",
-						common.OpenEverestManagedLabel:  "true",
+						common.OpenEverestDefinitionLabel: "database-credentials",
+						common.OpenEverestManagedLabel:    "true",
 					},
 				},
 				Type: corev1.SecretTypeOpaque,
@@ -206,8 +206,8 @@ func TestListSecrets(t *testing.T) {
 				Name:      "secret-stringdata",
 				Namespace: namespace,
 				Labels: map[string]string{
-					common.OpenEverestCategoryLabel: "database-credentials",
-					common.OpenEverestManagedLabel:  "true",
+					common.OpenEverestDefinitionLabel: "database-credentials",
+					common.OpenEverestManagedLabel:    "true",
 				},
 			},
 			Type: corev1.SecretTypeOpaque,
@@ -221,8 +221,8 @@ func TestListSecrets(t *testing.T) {
 				Name:      "secret-data",
 				Namespace: namespace,
 				Labels: map[string]string{
-					common.OpenEverestCategoryLabel: "database-credentials",
-					common.OpenEverestManagedLabel:  "true",
+					common.OpenEverestDefinitionLabel: "database-credentials",
+					common.OpenEverestManagedLabel:    "true",
 				},
 			},
 			Type: corev1.SecretTypeOpaque,

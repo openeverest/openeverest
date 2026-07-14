@@ -1061,9 +1061,9 @@ func (_m *MockHandler) ListProviders(ctx context.Context, cluster string) (*core
 	return r0, r1
 }
 
-// ListSecrets provides a mock function with given fields: ctx, cluster, namespace, provider, category
-func (_m *MockHandler) ListSecrets(ctx context.Context, cluster string, namespace string, provider string, category string) (*v1.SecretList, error) {
-	ret := _m.Called(ctx, cluster, namespace, provider, category)
+// ListSecrets provides a mock function with given fields: ctx, cluster, namespace, provider, definition
+func (_m *MockHandler) ListSecrets(ctx context.Context, cluster string, namespace string, provider string, definition string) (*v1.SecretList, error) {
+	ret := _m.Called(ctx, cluster, namespace, provider, definition)
 
 	if len(ret) == 0 {
 		panic("no return value specified for ListSecrets")
@@ -1072,10 +1072,10 @@ func (_m *MockHandler) ListSecrets(ctx context.Context, cluster string, namespac
 	var r0 *v1.SecretList
 	var r1 error
 	if rf, ok := ret.Get(0).(func(context.Context, string, string, string, string) (*v1.SecretList, error)); ok {
-		return rf(ctx, cluster, namespace, provider, category)
+		return rf(ctx, cluster, namespace, provider, definition)
 	}
 	if rf, ok := ret.Get(0).(func(context.Context, string, string, string, string) *v1.SecretList); ok {
-		r0 = rf(ctx, cluster, namespace, provider, category)
+		r0 = rf(ctx, cluster, namespace, provider, definition)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*v1.SecretList)
@@ -1083,7 +1083,7 @@ func (_m *MockHandler) ListSecrets(ctx context.Context, cluster string, namespac
 	}
 
 	if rf, ok := ret.Get(1).(func(context.Context, string, string, string, string) error); ok {
-		r1 = rf(ctx, cluster, namespace, provider, category)
+		r1 = rf(ctx, cluster, namespace, provider, definition)
 	} else {
 		r1 = ret.Error(1)
 	}

@@ -30,7 +30,7 @@ test.describe.parallel('Secrets tests', () => {
         metadata: {
           name: secretName,
           labels: {
-            'openeverest.io/category': 'test-credentials',
+            'openeverest.io/definition': 'test-credentials',
             'openeverest.io/provider': 'test-provider',
           },
         },
@@ -53,7 +53,7 @@ test.describe.parallel('Secrets tests', () => {
       const secret = await th.getSecret(request, secretName)
       expect(secret.metadata.name).toBe(secretName)
       expect(secret.metadata.labels['openeverest.io/managed']).toBe('true')
-      expect(secret.metadata.labels['openeverest.io/category']).toBe('test-credentials')
+      expect(secret.metadata.labels['openeverest.io/definition']).toBe('test-credentials')
       expect(secret.metadata.labels['openeverest.io/provider']).toBe('test-provider')
       // Verify no sensitive data is returned
       expect(secret.data).toBeUndefined()
@@ -77,18 +77,18 @@ test.describe.parallel('Secrets tests', () => {
       
       const secret1 = list.items.find(s => s.metadata.name === secretName)
       expect(secret1).toBeDefined()
-      expect(secret1.metadata.labels['openeverest.io/category']).toBe('test-credentials')
+      expect(secret1.metadata.labels['openeverest.io/definition']).toBe('test-credentials')
       
       const emptyList = await th.listSecretsWithFilters(request, 'test-provider', 'non-existent')
       expect(emptyList.items.length).toBe(0)
     })
 
-    await test.step('create secret without category label should fail', async () => {
+    await test.step('create secret without definition label should fail', async () => {
       const data = {
         apiVersion: 'v1',
         kind: 'Secret',
         metadata: {
-          name: th.limitedSuffixedName('no-category'),
+          name: th.limitedSuffixedName('no-definition'),
           labels: {
             'openeverest.io/provider': 'test-provider',
           },
@@ -102,7 +102,7 @@ test.describe.parallel('Secrets tests', () => {
       const response = await th.createSecretRaw(request, data)
       expect(response.status()).toBe(400)
       const error = await response.json()
-      expect(error.message).toContain('category')
+      expect(error.message).toContain('definition')
     })
 
     await test.step('create secret without provider label', async () => {
@@ -112,7 +112,7 @@ test.describe.parallel('Secrets tests', () => {
         metadata: {
           name: th.limitedSuffixedName('no-provider'),
           labels: {
-            'openeverest.io/category': 'test-credentials',
+            'openeverest.io/definition': 'test-credentials',
           },
         },
         type: 'Opaque',

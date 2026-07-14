@@ -765,7 +765,7 @@ export interface paths {
          * List secrets
          * @description This API lists OpenEverest-managed Secrets in the specified namespace and cluster.
          *     Only metadata is returned; secret data is never included.
-         *     Optionally filter by provider and category.
+         *     Optionally filter by provider and definition.
          */
         get: operations["listSecrets"];
         put?: never;
@@ -6273,8 +6273,8 @@ export interface operations {
             query?: {
                 /** @description Filter secrets by provider name */
                 provider?: string;
-                /** @description Filter secrets by category */
-                category?: string;
+                /** @description Filter secrets by definition */
+                definition?: string;
             };
             header?: never;
             path: {

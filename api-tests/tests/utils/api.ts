@@ -414,14 +414,14 @@ export const listSecretsRaw = async (request) => {
   return await request.get(`/v1/clusters/main/namespaces/${EVEREST_CI_NAMESPACE}/secrets`)
 }
 
-export const listSecretsWithFilters = async (request, provider: string, category: string) => {
-  const response = await listSecretsWithFiltersRaw(request, provider, category)
+export const listSecretsWithFilters = async (request, provider: string, definition: string) => {
+  const response = await listSecretsWithFiltersRaw(request, provider, definition)
   await checkError(response)
   return (await response.json())
 }
 
-export const listSecretsWithFiltersRaw = async (request, provider: string, category: string) => {
-  return await request.get(`/v1/clusters/main/namespaces/${EVEREST_CI_NAMESPACE}/secrets?provider=${provider}&category=${category}`)
+export const listSecretsWithFiltersRaw = async (request, provider: string, definition: string) => {
+  return await request.get(`/v1/clusters/main/namespaces/${EVEREST_CI_NAMESPACE}/secrets?provider=${provider}&definition=${definition}`)
 }
 
 export const deleteSecret = async (request, name) => {

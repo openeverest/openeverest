@@ -172,7 +172,7 @@ func TestRBAC_Secret(t *testing.T) {
 					userGetter: testUserGetter,
 				}
 
-				list, err := h.ListSecrets(ctx, tc.cluster, tc.ns, "test-provider", "test-category")
+				list, err := h.ListSecrets(ctx, tc.cluster, tc.ns, "test-provider", "test-definition")
 				require.NoError(t, err)
 				assert.Condition(t, func() bool {
 					return tc.assert(list)

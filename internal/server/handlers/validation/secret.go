@@ -31,16 +31,16 @@ func (h *validateHandler) CreateSecret(ctx context.Context, cluster, namespace s
 	}
 
 	labels := secret.GetLabels()
-	if labels == nil || labels[common.OpenEverestCategoryLabel] == "" {
-		return nil, errors.Join(ErrInvalidRequest, errors.New("secret must have a category label"))
+	if labels == nil || labels[common.OpenEverestDefinitionLabel] == "" {
+		return nil, errors.Join(ErrInvalidRequest, errors.New("secret must have a definition label"))
 	}
 
 	return h.next.CreateSecret(ctx, cluster, namespace, secret)
 }
 
 // ListSecrets proxies the request to the next handler.
-func (h *validateHandler) ListSecrets(ctx context.Context, cluster, namespace, provider, category string) (*corev1.SecretList, error) {
-	return h.next.ListSecrets(ctx, cluster, namespace, provider, category)
+func (h *validateHandler) ListSecrets(ctx context.Context, cluster, namespace, provider, definition string) (*corev1.SecretList, error) {
+	return h.next.ListSecrets(ctx, cluster, namespace, provider, definition)
 }
 
 // GetSecret proxies the request to the next handler.

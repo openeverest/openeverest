@@ -34,8 +34,8 @@ func (h *rbacHandler) CreateSecret(ctx context.Context, cluster, namespace strin
 }
 
 // ListSecrets returns secrets filtered by RBAC permissions.
-func (h *rbacHandler) ListSecrets(ctx context.Context, cluster, namespace, provider, category string) (*corev1.SecretList, error) {
-	list, err := h.next.ListSecrets(ctx, cluster, namespace, provider, category)
+func (h *rbacHandler) ListSecrets(ctx context.Context, cluster, namespace, provider, definition string) (*corev1.SecretList, error) {
+	list, err := h.next.ListSecrets(ctx, cluster, namespace, provider, definition)
 	if err != nil {
 		return nil, fmt.Errorf("ListSecrets failed: %w", err)
 	}

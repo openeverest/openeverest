@@ -1969,7 +1969,7 @@ paths:
       description: |
         This API lists OpenEverest-managed Secrets in the specified namespace and cluster.
         Only metadata is returned; secret data is never included.
-        Optionally filter by provider and category.
+        Optionally filter by provider and definition.
       operationId: listSecrets
       parameters:
         - name: cluster
@@ -1990,10 +1990,10 @@ paths:
           description: Filter secrets by provider name
           schema:
             type: string
-        - name: category
+        - name: definition
           in: query
           required: false
-          description: Filter secrets by category
+          description: Filter secrets by definition
           schema:
             type: string
       responses:

@@ -24,7 +24,7 @@ import (
 )
 
 // CreateSecret creates a Secret and labels it as managed by OpenEverest.
-// Provider and category labels supplied by the caller are preserved.
+// Provider and definition labels supplied by the caller are preserved.
 // Secret contents are stripped so only metadata is returned.
 func (h *k8sHandler) CreateSecret(ctx context.Context, _ string, namespace string, secret *corev1.Secret) (*corev1.Secret, error) {
 	if secret.Labels == nil {
@@ -42,14 +42,14 @@ func (h *k8sHandler) CreateSecret(ctx context.Context, _ string, namespace strin
 }
 
 // ListSecrets lists OpenEverest-managed secrets matching the optional provider and
-// category filters. Secret contents are stripped so only metadata is returned.
-func (h *k8sHandler) ListSecrets(ctx context.Context, _ string, namespace, provider, category string) (*corev1.SecretList, error) {
+// definition filters. Secret contents are stripped so only metadata is returned.
+func (h *k8sHandler) ListSecrets(ctx context.Context, _ string, namespace, provider, definition string) (*corev1.SecretList, error) {
 	selector := ctrlclient.MatchingLabels{common.OpenEverestManagedLabel: "true"}
 	if provider != "" {
 		selector[common.OpenEverestProviderLabel] = provider
 	}
-	if category != "" {
-		selector[common.OpenEverestCategoryLabel] = category
+	if definition != "" {
+		selector[common.OpenEverestDefinitionLabel] = definition
 	}
 
 	list, err := h.kubeConnector.ListSecrets(ctx, ctrlclient.InNamespace(namespace), selector)

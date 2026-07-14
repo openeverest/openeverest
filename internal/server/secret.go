@@ -42,13 +42,13 @@ func (e *EverestServer) CreateSecret(c echo.Context, cluster, namespace string) 
 }
 
 // ListSecrets lists OpenEverest-managed secrets in the namespace, optionally filtered by
-// provider and category. Only metadata is returned; secret data is never included.
+// provider and definition. Only metadata is returned; secret data is never included.
 func (e *EverestServer) ListSecrets(c echo.Context, cluster, namespace string, params api.ListSecretsParams) error {
 	result, err := e.handler.ListSecrets(
 		c.Request().Context(),
 		cluster, namespace,
 		pointer.GetString(params.Provider),
-		pointer.GetString(params.Category),
+		pointer.GetString(params.Definition),
 	)
 	if err != nil {
 		e.l.Errorf("ListSecrets failed: %v", err)
