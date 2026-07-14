@@ -41,11 +41,18 @@ const screenshotOpts = {
 };
 
 // Helper: wait for a MRT table to finish loading.
+// We additionally wait for all MRT skeletons to disappear so the
+// captured (and regenerated) baseline is always the settled, loaded state.
 async function waitForTableContent(page: Page, headerText: string) {
   await page
     .locator(`th:has-text("${headerText}")`)
     .first()
     .waitFor({ state: 'visible', timeout: 60000 });
+  await page.waitForFunction(
+    () => document.querySelectorAll('.MuiSkeleton-root').length === 0,
+    undefined,
+    { timeout: 60000 }
+  );
   await page.waitForTimeout(500);
 }
 
