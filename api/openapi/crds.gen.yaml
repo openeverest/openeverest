@@ -2463,6 +2463,9 @@ components:
                       required:
                       - type
                       type: object
+                      x-kubernetes-validations:
+                      - message: date must be set when type is date
+                        rule: 'self.type == ''date'' ? has(self.date) : true'
                   required:
                   - backupName
                   type: object
@@ -2552,6 +2555,39 @@ components:
         status:
           description: InstanceStatus defines the observed state of Instance.
           properties:
+            backup:
+              description: |-
+                Backup surfaces backup-related observability data reported by the
+                provider, such as the latest restorable time for PITR-enabled storages.
+              properties:
+                storages:
+                  description: |-
+                    Storages is the per-storage backup status, keyed by the logical storage
+                    name declared in spec.backup.storages.
+                  items:
+                    description: |-
+                      InstanceBackupStorageStatus reports the observed backup state of a single
+                      entry in spec.backup.storages.
+                    properties:
+                      latestRestorableTime:
+                        description: |-
+                          LatestRestorableTime is the most recent point in time to which the
+                          instance can be restored using point-in-time recovery from this
+                          storage. Only populated when PITR is enabled for the storage and the
+                          engine reports a recovery window.
+                        format: date-time
+                        type: string
+                      name:
+                        description: Name is the logical storage name (matches spec.backup.storages[].name).
+                        type: string
+                    required:
+                    - name
+                    type: object
+                  type: array
+                  x-kubernetes-list-map-keys:
+                  - name
+                  x-kubernetes-list-type: map
+              type: object
             components:
               description: Components is the status of the components in the database
                 cluster.
@@ -4095,6 +4131,9 @@ components:
                       required:
                       - type
                       type: object
+                      x-kubernetes-validations:
+                      - message: date must be set when type is date
+                        rule: 'self.type == ''date'' ? has(self.date) : true'
                   required:
                   - backupName
                   type: object
@@ -4954,6 +4993,9 @@ components:
                       required:
                       - type
                       type: object
+                      x-kubernetes-validations:
+                      - message: date must be set when type is date
+                        rule: 'self.type == ''date'' ? has(self.date) : true'
                   required:
                   - backupName
                   type: object

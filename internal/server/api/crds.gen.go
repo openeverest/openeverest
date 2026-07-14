@@ -1885,6 +1885,23 @@ type Instance struct {
 
 	// Status InstanceStatus defines the observed state of Instance.
 	Status *struct {
+		// Backup Backup surfaces backup-related observability data reported by the
+		// provider, such as the latest restorable time for PITR-enabled storages.
+		Backup *struct {
+			// Storages Storages is the per-storage backup status, keyed by the logical storage
+			// name declared in spec.backup.storages.
+			Storages *[]struct {
+				// LatestRestorableTime LatestRestorableTime is the most recent point in time to which the
+				// instance can be restored using point-in-time recovery from this
+				// storage. Only populated when PITR is enabled for the storage and the
+				// engine reports a recovery window.
+				LatestRestorableTime *time.Time `json:"latestRestorableTime,omitempty"`
+
+				// Name Name is the logical storage name (matches spec.backup.storages[].name).
+				Name string `json:"name"`
+			} `json:"storages,omitempty"`
+		} `json:"backup,omitempty"`
+
 		// Components Components is the status of the components in the database cluster.
 		Components *[]struct {
 			Pods *[]struct {
