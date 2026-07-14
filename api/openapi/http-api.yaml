@@ -1913,7 +1913,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
-  '/clusters/{cluster}/namespaces/{namespace}/configmaps':
+  '/clusters/{cluster}/namespaces/{namespace}/config-maps':
     x-everest-resource-name: config-maps
     post:
       tags:
@@ -2014,7 +2014,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
-  '/clusters/{cluster}/namespaces/{namespace}/configmaps/{name}':
+  '/clusters/{cluster}/namespaces/{namespace}/config-maps/{name}':
     x-everest-resource-name: config-maps
     get:
       tags:

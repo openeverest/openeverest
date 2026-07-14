@@ -16,6 +16,7 @@ package validation
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/percona/everest-operator/utils"
@@ -27,12 +28,12 @@ import (
 // CreateConfigMap validates and creates a ConfigMap.
 func (h *validateHandler) CreateConfigMap(ctx context.Context, cluster, namespace string, configMap *corev1.ConfigMap) (*corev1.ConfigMap, error) {
 	if err := utils.ValidateEverestResourceName(configMap.Name, "name"); err != nil {
-		return nil, fmt.Errorf("invalid ConfigMap name: %w", err)
+		return nil, errors.Join(ErrInvalidRequest, fmt.Errorf("invalid ConfigMap name: %w", err))
 	}
 
 	// Validate required category label.
 	if configMap.Labels == nil || configMap.Labels[common.OpenEverestCategoryLabel] == "" {
-		return nil, fmt.Errorf("ConfigMap must have a '%s' label", common.OpenEverestCategoryLabel)
+		return nil, errors.Join(ErrInvalidRequest, fmt.Errorf("ConfigMap must have a '%s' label", common.OpenEverestCategoryLabel))
 	}
 
 	return h.next.CreateConfigMap(ctx, cluster, namespace, configMap)

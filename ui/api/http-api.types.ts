@@ -754,7 +754,7 @@ export interface paths {
         patch: operations["updateMonitoringConfig"];
         trace?: never;
     };
-    "/clusters/{cluster}/namespaces/{namespace}/configmaps": {
+    "/clusters/{cluster}/namespaces/{namespace}/config-maps": {
         parameters: {
             query?: never;
             header?: never;
@@ -780,7 +780,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/clusters/{cluster}/namespaces/{namespace}/configmaps/{name}": {
+    "/clusters/{cluster}/namespaces/{namespace}/config-maps/{name}": {
         parameters: {
             query?: never;
             header?: never;

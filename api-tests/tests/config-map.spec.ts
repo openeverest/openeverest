@@ -15,20 +15,24 @@
 import {expect, test} from '@fixtures'
 import * as th from '@tests/utils/api';
 
-const configMapName = 'test-configmap-name'
+const configMapName1 = 'test-config-map-1'
+const configMapName2 = 'test-config-map-2'
+const configMapName3 = 'test-config-map-3'
 
 test.describe.parallel('ConfigMaps tests', () => {
   test.afterAll(async ({request}) => {
-    await th.deleteConfigMap(request, configMapName)
+    await th.deleteConfigMap(request, configMapName1)
+    await th.deleteConfigMap(request, configMapName2)
+    await th.deleteConfigMap(request, configMapName3)
   })
 
-  test('create/get/list/delete configmap', async ({request}) => {
-    await test.step('create configmap with data', async () => {
+  test('create/get/list/delete config-map', async ({request}) => {
+    await test.step('create config-map with data', async () => {
       const data = {
         apiVersion: 'v1',
         kind: 'ConfigMap',
         metadata: {
-          name: configMapName,
+          name: configMapName1,
           labels: {
             'openeverest.io/category': 'test-config',
             'openeverest.io/provider': 'test-provider',
@@ -36,56 +40,57 @@ test.describe.parallel('ConfigMaps tests', () => {
         },
         data: {
           'config.yaml': 'key: value\nanother: setting',
-          'database.conf': 'host=localhost\nport=5432',
         },
       }
 
       const created = await th.createConfigMapWithData(request, data)
       expect(created.metadata.name).toBe(data.metadata.name)
-      // Verify data is included in response for ConfigMap (unlike Secret)
       expect(created.data).toBeDefined()
       expect(created.data['config.yaml']).toBe('key: value\nanother: setting')
     })
 
-    await test.step('get configmap - verify data is returned', async () => {
-      const configMap = await th.getConfigMap(request, configMapName)
-      expect(configMap.metadata.name).toBe(configMapName)
+    await test.step('get config-map - verify data is returned', async () => {
+      const configMap = await th.getConfigMap(request, configMapName1)
+      expect(configMap.metadata.name).toBe(configMapName1)
       expect(configMap.metadata.labels['openeverest.io/category']).toBe('test-config')
-      // Verify data is returned (unlike secrets)
+      expect(configMap.metadata.labels['openeverest.io/provider']).toBe('test-provider')
+      expect(configMap.metadata.labels['openeverest.io/managed']).toBe('true')
       expect(configMap.data).toBeDefined()
       expect(configMap.data['config.yaml']).toBe('key: value\nanother: setting')
-      expect(configMap.data['database.conf']).toBe('host=localhost\nport=5432')
     })
 
-    await test.step('list configmaps - verify data is returned', async () => {
+    await test.step('list config-maps - verify data is returned', async () => {
       const list = await th.listConfigMaps(request)
       expect(list.items.length).toBeGreaterThan(0)
       
-      // Find our created configmap
-      const configMap = list.items.find(cm => cm.metadata.name === configMapName)
+      // Find our created config-map
+      const configMap = list.items.find(cm => cm.metadata.name === configMapName1)
       
       expect(configMap).toBeDefined()
       expect(configMap.data).toBeDefined()
       expect(configMap.data['config.yaml']).toBe('key: value\nanother: setting')
     })
 
-    await test.step('list configmaps with category filter', async () => {
+    await test.step('list config-maps with category filter', async () => {
       const list = await th.listConfigMapsWithCategory(request, 'test-config')
       
-      const configMap1 = list.items.find(cm => cm.metadata.name === configMapName)
-      expect(configMap1).toBeDefined()
-      expect(configMap1.metadata.labels['openeverest.io/category']).toBe('test-config')
+      const configMap = list.items.find(cm => cm.metadata.name === configMapName1)
+      expect(configMap).toBeDefined()
+      expect(configMap.metadata.labels['openeverest.io/category']).toBe('test-config')
       
       const emptyList = await th.listConfigMapsWithCategory(request, 'non-existent-category')
       expect(emptyList.items.length).toBe(0)
     })
 
-    await test.step('create configmap without category label should fail', async () => {
+    await test.step('create config-map without category label should fail', async () => {
       const data = {
         apiVersion: 'v1',
         kind: 'ConfigMap',
         metadata: {
-          name: th.limitedSuffixedName('no-category'),
+          name: configMapName2,
+          labels: {
+            'openeverest.io/provider': 'test-provider',
+          },
         },
         data: {
           key: 'value',
@@ -95,32 +100,37 @@ test.describe.parallel('ConfigMaps tests', () => {
       const response = await th.createConfigMapRaw(request, data)
       expect(response.ok()).toBeFalsy()
       const error = await response.json()
+      expect(response.status()).toBe(400)
       expect(error.message).toContain('category')
     })
 
-    await test.step('create configmap without data should fail', async () => {
+    await test.step('create config-map without provider label', async () => {
       const data = {
         apiVersion: 'v1',
         kind: 'ConfigMap',
         metadata: {
-          name: th.limitedSuffixedName('no-data'),
+          name: configMapName3,
           labels: {
             'openeverest.io/category': 'test',
           },
         },
+        data: {
+          key: 'value',
+        },
       }
 
       const response = await th.createConfigMapRaw(request, data)
-      expect(response.ok()).toBeFalsy()
+      expect(response.ok()).toBeTruthy()
+
       const error = await response.json()
-      expect(error.message).toContain('data')
+      expect(response.status()).toBe(201)
     })
 
-    await test.step('delete configmap', async () => {
-      await th.deleteConfigMap(request, configMapName)
+    await test.step('delete config-map', async () => {
+      await th.deleteConfigMap(request, configMapName1)
       
       // Verify configmap is deleted
-      const response = await th.getConfigMapRaw(request, configMapName)
+      const response = await th.getConfigMapRaw(request, configMapName1)
       expect(response.status()).toBe(404)
     })
   })

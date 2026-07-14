@@ -558,16 +558,16 @@ type ServerInterface interface {
 	// (GET /clusters/{cluster}/namespaces/{namespace}/backups/{backup})
 	GetBackup(ctx echo.Context, cluster string, namespace string, backup string) error
 	// List configmaps
-	// (GET /clusters/{cluster}/namespaces/{namespace}/configmaps)
+	// (GET /clusters/{cluster}/namespaces/{namespace}/config-maps)
 	ListConfigMaps(ctx echo.Context, cluster string, namespace string, params ListConfigMapsParams) error
 	// Create configmap
-	// (POST /clusters/{cluster}/namespaces/{namespace}/configmaps)
+	// (POST /clusters/{cluster}/namespaces/{namespace}/config-maps)
 	CreateConfigMap(ctx echo.Context, cluster string, namespace string) error
 	// Delete configmap
-	// (DELETE /clusters/{cluster}/namespaces/{namespace}/configmaps/{name})
+	// (DELETE /clusters/{cluster}/namespaces/{namespace}/config-maps/{name})
 	DeleteConfigMap(ctx echo.Context, cluster string, namespace string, name string) error
 	// Get configmap
-	// (GET /clusters/{cluster}/namespaces/{namespace}/configmaps/{name})
+	// (GET /clusters/{cluster}/namespaces/{namespace}/config-maps/{name})
 	GetConfigMap(ctx echo.Context, cluster string, namespace string, name string) error
 	// List instances
 	// (GET /clusters/{cluster}/namespaces/{namespace}/instances)
@@ -1971,10 +1971,10 @@ func RegisterHandlersWithOptions(router EchoRouter, si ServerInterface, options 
 	router.POST(options.BaseURL+"/clusters/:cluster/namespaces/:namespace/backups", wrapper.CreateBackup, options.OperationMiddlewares["createBackup"]...)
 	router.DELETE(options.BaseURL+"/clusters/:cluster/namespaces/:namespace/backups/:backup", wrapper.DeleteBackup, options.OperationMiddlewares["deleteBackup"]...)
 	router.GET(options.BaseURL+"/clusters/:cluster/namespaces/:namespace/backups/:backup", wrapper.GetBackup, options.OperationMiddlewares["getBackup"]...)
-	router.GET(options.BaseURL+"/clusters/:cluster/namespaces/:namespace/configmaps", wrapper.ListConfigMaps, options.OperationMiddlewares["listConfigMaps"]...)
-	router.POST(options.BaseURL+"/clusters/:cluster/namespaces/:namespace/configmaps", wrapper.CreateConfigMap, options.OperationMiddlewares["createConfigMap"]...)
-	router.DELETE(options.BaseURL+"/clusters/:cluster/namespaces/:namespace/configmaps/:name", wrapper.DeleteConfigMap, options.OperationMiddlewares["deleteConfigMap"]...)
-	router.GET(options.BaseURL+"/clusters/:cluster/namespaces/:namespace/configmaps/:name", wrapper.GetConfigMap, options.OperationMiddlewares["getConfigMap"]...)
+	router.GET(options.BaseURL+"/clusters/:cluster/namespaces/:namespace/config-maps", wrapper.ListConfigMaps, options.OperationMiddlewares["listConfigMaps"]...)
+	router.POST(options.BaseURL+"/clusters/:cluster/namespaces/:namespace/config-maps", wrapper.CreateConfigMap, options.OperationMiddlewares["createConfigMap"]...)
+	router.DELETE(options.BaseURL+"/clusters/:cluster/namespaces/:namespace/config-maps/:name", wrapper.DeleteConfigMap, options.OperationMiddlewares["deleteConfigMap"]...)
+	router.GET(options.BaseURL+"/clusters/:cluster/namespaces/:namespace/config-maps/:name", wrapper.GetConfigMap, options.OperationMiddlewares["getConfigMap"]...)
 	router.GET(options.BaseURL+"/clusters/:cluster/namespaces/:namespace/instances", wrapper.ListInstances, options.OperationMiddlewares["listInstances"]...)
 	router.POST(options.BaseURL+"/clusters/:cluster/namespaces/:namespace/instances", wrapper.CreateInstance, options.OperationMiddlewares["createInstance"]...)
 	router.DELETE(options.BaseURL+"/clusters/:cluster/namespaces/:namespace/instances/:instance", wrapper.DeleteInstance, options.OperationMiddlewares["deleteInstance"]...)
@@ -2471,43 +2471,43 @@ var swaggerSpec = []string{
 	"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",
-	"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",
+	"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",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,
