@@ -42,6 +42,13 @@ to override any Instance spec field using dot-notation paths rooted at the spec
 		Example: `  # Minimal: server defaults for all components
   everestctl instance create --name my-mongo --namespace everest --provider percona-server-mongodb
 
+  # Bootstrap from a preset (provider inferred; version/topology/components from preset)
+  everestctl instance create --name my-mongo --namespace everest --preset mongodb-production
+
+  # Preset as base, override a field on top
+  everestctl instance create --name my-mongo --namespace everest --preset mongodb-production \
+    --set components.engine.replicas=5
+
   # Override component fields via --set
   everestctl instance create --name my-mongo --namespace everest --provider percona-server-mongodb \
     --set components.engine.replicas=3 \
@@ -73,17 +80,17 @@ to override any Instance spec field using dot-notation paths rooted at the spec
 func init() {
 	createCmd.Flags().StringVar(&createOpts.Name, cli.FlagInstanceName, "", "Instance name (required)")
 	createCmd.Flags().StringVar(&createOpts.Namespace, cli.FlagInstanceNamespace, "", "Namespace to create the instance in (required)")
-	createCmd.Flags().StringVar(&createOpts.Provider, cli.FlagInstanceProvider, "", "Provider name, e.g. percona-server-mongodb, percona-xtradb-cluster (required)")
+	createCmd.Flags().StringVar(&createOpts.Provider, cli.FlagInstanceProvider, "", "Provider name, e.g. percona-server-mongodb (required unless --preset is given)")
+	createCmd.Flags().StringVar(&createOpts.Preset, cli.FlagInstancePreset, "", "InstancePreset name to bootstrap from; --provider is inferred from the preset when omitted")
 	createCmd.Flags().StringVar(&createOpts.Cluster, cli.FlagInstanceCluster, "main", "Cluster name")
-	createCmd.Flags().StringVar(&createOpts.Version, cli.FlagInstanceVersion, "", "Version bundle name (default: provider's default bundle)")
-	createCmd.Flags().StringVar(&createOpts.Topology, cli.FlagInstanceTopology, "", "Topology name (default: provider's first topology)")
+	createCmd.Flags().StringVar(&createOpts.Version, cli.FlagInstanceVersion, "", "Provider version bundle to use (default: taken from preset if --preset is given, otherwise provider's default)")
+	createCmd.Flags().StringVar(&createOpts.Topology, cli.FlagInstanceTopology, "", "Topology name; cannot be used with --preset (default: provider's first topology)")
 	createCmd.Flags().StringVar(&createOpts.Context, cli.FlagInstanceContext, "", "Context to use (default: current context)")
 	createCmd.Flags().StringVarP(&createOpts.ValuesFile, cli.FlagInstanceFile, "f", "", "Path to a YAML file with component overrides (--set takes precedence)")
 	createCmd.Flags().StringArrayVar(&createOpts.Set, cli.FlagInstanceSet, nil, "Set a spec field: --set components.engine.replicas=3 or --set backup.enabled=true (repeatable)")
 
 	_ = createCmd.MarkFlagRequired(cli.FlagInstanceName)
 	_ = createCmd.MarkFlagRequired(cli.FlagInstanceNamespace)
-	_ = createCmd.MarkFlagRequired(cli.FlagInstanceProvider)
 }
 
 func createPreRun(cmd *cobra.Command, _ []string) { //nolint:revive
