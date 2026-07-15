@@ -58,6 +58,7 @@ function Table<T extends Record<string, any>>(props: TableProps<T>) {
     enableRowHoverAction = false,
     rowHoverAction = () => {},
     muiTableBodyRowProps,
+    getRowId,
     ...rest
   } = props;
   const [columnVisibility, setColumnVisibility] =
@@ -75,6 +76,21 @@ function Table<T extends Record<string, any>>(props: TableProps<T>) {
   const stopPropagation = (e: Event) => {
     e.stopPropagation();
   };
+
+  // While loading with no data, MRT renders fake skeleton rows whose columns
+  // are all `null`. A consumer `getRowId` that reads those columns then returns
+  // the same id for every skeleton row (e.g. "null/null"), producing duplicate
+  // React keys. React can no longer reconcile those rows away once real data
+  // arrives, leaving phantom skeleton rows stuck forever. Give skeleton rows a
+  // unique index-based id instead, matching MRT's own skeleton condition.
+  const showingSkeletonRows =
+    !!(state?.isLoading || state?.showSkeletons) && !data.length;
+  const safeGetRowId: typeof getRowId = getRowId
+    ? (originalRow, index, parentRow) =>
+        showingSkeletonRows
+          ? `mrt-skeleton-row-${index}`
+          : getRowId(originalRow, index, parentRow)
+    : undefined;
 
   // @ts-expect-error
   const { sx: muiTopToolbarPropsSx = {}, ...muiTopToolbarRestProps } =
@@ -294,6 +310,7 @@ function Table<T extends Record<string, any>>(props: TableProps<T>) {
       {...rest}
       columns={customColumns}
       data={data}
+      getRowId={safeGetRowId}
       state={{
         columnVisibility: { ...columnVisibility, ...columnVisibilityState },
         ...restOfState,
