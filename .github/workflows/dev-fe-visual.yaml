@@ -67,7 +67,7 @@ jobs:
           EVEREST_URL: "http://localhost:3000"
         run: |
           cd ui
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ inputs.update_baselines }}" = "true" ]; then
+          if true; then # TEMP(revert): force update mode on push to regenerate monitoring baselines
             echo "Regenerating baseline screenshots (update mode)"
             pnpm --filter "@percona/everest" e2e:visual:update
           else
@@ -76,7 +76,7 @@ jobs:
           fi
 
       - name: Upload regenerated baselines
-        if: ${{ github.event_name == 'workflow_dispatch' && inputs.update_baselines }}
+        if: ${{ always() }} # TEMP(revert): also upload baselines on push
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: visual-baselines
