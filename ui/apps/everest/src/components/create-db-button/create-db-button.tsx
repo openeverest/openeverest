@@ -16,7 +16,6 @@
 
 import { useEffect, useState } from 'react';
 import {
-  Avatar,
   Box,
   Button,
   Drawer,
@@ -27,30 +26,30 @@ import {
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import { ArrowDropDownIcon } from '@mui/x-date-pickers/icons';
-import { Link, useNavigate } from 'react-router-dom';
-import { useExtensionCatalog } from 'hooks/api/extension-catalog';
+import { useNavigate } from 'react-router-dom';
 import { useProviders } from 'hooks/api/providers';
+import type { CreateDbButtonProps } from './create-db-button.types';
+import { Messages } from './create-db-button.messages';
+import {
+  buttonSx,
+  drawerBannerSx,
+  drawerContainerSx,
+  drawerHeaderSx,
+  drawerPaperSx,
+  REVEAL_DELAY_MS,
+  skeletonSx,
+} from './create-db-button.constants';
+import { DrawerBody } from './drawer-body';
 
 export const CreateDbButton = ({
   createFromImport = false,
-}: {
-  createFromImport?: boolean;
-}) => {
+}: CreateDbButtonProps) => {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [showDropdownButton, setShowDropdownButton] = useState(false);
   // TODO check how it should work with Providers
   // const { canCreate } = useNamespacePermissionsForResource('database-clusters');
 
-  // const { data: availableDbImporters } = useDataImporters();
-  // TODO check how it should work with Providers
-  // const supportedEngineTypesForImport = new Set(
-  //   availableDbImporters?.items
-  //     .map((importer) => importer.spec.supportedEngines)
-  //     .flat()
-  // );
-
   const { data: providers = [], isLoading: providersLoading } = useProviders();
-  const { getProviderMeta } = useExtensionCatalog();
   const navigate = useNavigate();
 
   const handleClick = (event: React.MouseEvent<HTMLButtonElement>) => {
@@ -66,7 +65,8 @@ export const CreateDbButton = ({
       });
     }
   };
-  const closeMenu = () => {
+
+  const closeDrawer = () => {
     setDrawerOpen(false);
   };
 
@@ -78,7 +78,7 @@ export const CreateDbButton = ({
     } else {
       timeoutId = setTimeout(() => {
         setShowDropdownButton(true);
-      }, 300);
+      }, REVEAL_DELAY_MS);
     }
 
     return () => {
@@ -88,190 +88,92 @@ export const CreateDbButton = ({
     };
   }, [providersLoading]);
 
-  const buttonStyle = { display: 'flex', minHeight: '34px', width: '165px' };
-  const skeletonStyle = {
-    ...buttonStyle,
-    borderRadius: '128px',
-  };
+  const testIdPrefix = createFromImport ? 'import' : 'add';
   const showTechPreviewTooltip = createFromImport && providers.length === 1;
-
-  const techPreviewText = 'Technical Preview';
 
   const createButton = (
     <Button
-      data-testid={`${createFromImport ? 'import' : 'add'}-db-cluster-button`}
+      data-testid={`${testIdPrefix}-db-cluster-button`}
       size="small"
       variant={createFromImport ? 'text' : 'contained'}
-      sx={buttonStyle}
+      sx={buttonSx}
       aria-controls={
-        drawerOpen
-          ? `${createFromImport ? 'import' : 'add'}-db-cluster-button-menu`
-          : undefined
+        drawerOpen ? `${testIdPrefix}-db-cluster-button-menu` : undefined
       }
-      aria-haspopup="true"
-      aria-expanded={drawerOpen ? 'true' : undefined}
+      aria-haspopup={providers.length > 1 ? 'dialog' : undefined}
+      aria-expanded={
+        providers.length > 1 ? (drawerOpen ? 'true' : 'false') : undefined
+      }
       onClick={handleClick}
       endIcon={providers.length > 1 && <ArrowDropDownIcon />}
     >
-      {createFromImport ? 'Import' : 'Create database'}
+      {createFromImport ? Messages.import : Messages.createDatabase}
     </Button>
   );
 
-  return providers.length > 0 ? (
+  if (providers.length === 0) {
+    return null;
+  }
+
+  return (
     <Box>
       {showDropdownButton ? (
         showTechPreviewTooltip ? (
-          <Tooltip title={techPreviewText} enterDelay={0}>
+          <Tooltip title={Messages.technicalPreview} enterDelay={0}>
             {createButton}
           </Tooltip>
         ) : (
           createButton
         )
       ) : (
-        <Skeleton variant="rounded" sx={skeletonStyle} />
+        <Skeleton variant="rounded" sx={skeletonSx} />
       )}
       {providers.length > 1 && (
         <Drawer
-          data-testid={`${
-            createFromImport ? 'import' : 'add'
-          }-db-cluster-button-menu`}
+          data-testid={`${testIdPrefix}-db-cluster-button-menu`}
           anchor="right"
           open={drawerOpen}
-          onClose={closeMenu}
+          onClose={closeDrawer}
           sx={{ zIndex: (theme) => theme.zIndex.modal }}
-          PaperProps={{
-            sx: {
-              width: { xs: '100vw', sm: 420 },
-              maxWidth: '100vw',
-            },
-          }}
+          PaperProps={{ sx: drawerPaperSx }}
         >
-          <Box
-            sx={{
-              display: 'flex',
-              flexDirection: 'column',
-              height: '100%',
-            }}
-          >
-            <Box
-              sx={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                px: 3,
-                py: 2,
-                borderBottom: (theme) => `1px solid ${theme.palette.divider}`,
-              }}
-            >
+          <Box sx={drawerContainerSx}>
+            <Box sx={drawerHeaderSx}>
               <Box>
                 <Typography variant="h6">
-                  {createFromImport ? 'Import database' : 'Create database'}
+                  {createFromImport
+                    ? Messages.importDatabase
+                    : Messages.createDatabase}
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
-                  Select a provider to continue
+                  {Messages.selectProvider}
                 </Typography>
               </Box>
-              <IconButton aria-label="Close" onClick={closeMenu} size="small">
+              <IconButton
+                aria-label={Messages.closeDrawerAriaLabel}
+                onClick={closeDrawer}
+                size="small"
+              >
                 <CloseIcon fontSize="small" />
               </IconButton>
             </Box>
 
             {createFromImport && (
-              <Box
-                sx={{
-                  px: 3,
-                  py: 1.5,
-                  bgcolor: (theme) => theme.palette.action.hover,
-                  borderBottom: (theme) => `1px solid ${theme.palette.divider}`,
-                }}
-              >
+              <Box sx={drawerBannerSx}>
                 <Typography variant="caption" color="text.secondary">
-                  {techPreviewText}
+                  {Messages.technicalPreview}
                 </Typography>
               </Box>
             )}
 
-            <Box
-              sx={{
-                flexGrow: 1,
-                overflowY: 'auto',
-                p: 2,
-                display: 'flex',
-                flexDirection: 'column',
-                gap: 1,
-              }}
-            >
-              {providers.map((item) => {
-                const providerName = item?.metadata?.name ?? '';
-                const meta = getProviderMeta(providerName);
-                const label = meta?.displayName || providerName;
-                return (
-                  <Box
-                    key={providerName}
-                    data-testid={`${createFromImport ? 'import' : 'add'}-db-cluster-button-${providerName}`}
-                    component={Link}
-                    to="/databases/new"
-                    state={{
-                      selectedDbProvider: item,
-                      showImport: createFromImport,
-                    }}
-                    onClick={closeMenu}
-                    sx={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 1.5,
-                      px: 2,
-                      py: 1.25,
-                      borderRadius: 1,
-                      border: (theme) => `1px solid ${theme.palette.divider}`,
-                      textDecoration: 'none',
-                      color: 'inherit',
-                      transition: 'border-color 0.15s, background-color 0.15s',
-                      '&:hover': {
-                        borderColor: (theme) => theme.palette.primary.main,
-                        backgroundColor: (theme) => theme.palette.action.hover,
-                      },
-                    }}
-                  >
-                    {meta && (
-                      <Avatar
-                        src={meta.icon}
-                        variant="rounded"
-                        sx={{
-                          width: 36,
-                          height: 36,
-                          flexShrink: 0,
-                          bgcolor: meta.icon
-                            ? 'transparent'
-                            : (theme) => theme.palette.primary.main,
-                          fontSize: '1rem',
-                          textTransform: 'uppercase',
-                        }}
-                      >
-                        {label.charAt(0)}
-                      </Avatar>
-                    )}
-                    <Typography
-                      variant="body1"
-                      sx={{
-                        flexGrow: 1,
-                        minWidth: 0,
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        whiteSpace: 'nowrap',
-                      }}
-                    >
-                      {label}
-                    </Typography>
-                  </Box>
-                );
-              })}
-            </Box>
+            <DrawerBody
+              providers={providers}
+              createFromImport={createFromImport}
+              onClose={closeDrawer}
+            />
           </Box>
         </Drawer>
       )}
     </Box>
-  ) : null;
+  );
 };
-
-export default CreateDbButton;

@@ -90,3 +90,22 @@ export interface ResolvedExtensionMeta {
   categories?: string[];
   maturity?: ExtensionMaturity;
 }
+
+// Untrusted shapes for data coming off the wire. The hub is an independent
+// project that may drift from our hand-written `ExtensionCatalogEntry` /
+// `ExtensionIndex` types, so callers must guard every access. Use
+// `normalizeEntry` in the extension-catalog hook as the single narrowing point;
+// downstream code can then trust `ResolvedExtensionMeta`.
+export type RawExtensionCatalogEntry = Partial<ExtensionCatalogEntry>;
+
+export interface RawExtensionIndex {
+  apiVersion?: string;
+  kind?: string;
+  metadata?: {
+    catalogId?: string;
+    generatedAt?: string;
+    schemaVersion?: string;
+    totalExtensions?: number;
+  };
+  extensions?: RawExtensionCatalogEntry[];
+}

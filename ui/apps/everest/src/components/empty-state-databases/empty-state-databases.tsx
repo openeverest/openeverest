@@ -16,14 +16,18 @@ import { Link, Typography } from '@mui/material';
 import EmptyState from 'components/empty-state';
 import { useProviders } from 'hooks/api/providers/useProviders';
 import { Messages } from './messages';
-import ProviderTiles from './provider-tiles';
+import { ProviderTiles } from './provider-tiles';
 
 type EmptyStateDatabasesProps = {
   hasCreatePermission?: boolean;
 };
 
+// `hasCreatePermission` defaults to `false`: RBAC decisions must be made by
+// the caller (which owns the permission hook) — never assumed by presentation
+// components. Rendering create affordances without a positive grant would
+// leak actions to users who cannot perform them.
 const EmptyStateDatabases = ({
-  hasCreatePermission = true,
+  hasCreatePermission = false,
 }: EmptyStateDatabasesProps) => {
   const { data: providers = [] } = useProviders();
 

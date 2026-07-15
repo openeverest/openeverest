@@ -15,73 +15,88 @@
 import { useQuery } from '@tanstack/react-query';
 import { getExtensionCatalogFn, PLUGIN_HUB_NAME } from 'api/extension-catalog';
 import {
-  ExtensionCatalogEntry,
-  ExtensionIndex,
+  RawExtensionCatalogEntry,
+  RawExtensionIndex,
   ResolvedExtensionMeta,
 } from 'shared-types/extension-catalog.types';
 
-// Resolves the install version of a catalog entry from its default chart channel.
-const resolveVersion = (entry: ExtensionCatalogEntry): string | undefined => {
+// Resolves the install version of a catalog entry from its default chart
+// channel. Every access is guarded because the raw entry is untrusted.
+const resolveVersion = (
+  entry: RawExtensionCatalogEntry
+): string | undefined => {
   const chart = entry.artifacts?.chart;
-  if (!chart?.channels) {
+  const channels = chart?.channels;
+  if (!channels) {
     return undefined;
   }
-  const channelName = chart.defaultChannel ?? Object.keys(chart.channels)[0];
-  return channelName ? chart.channels[channelName]?.version : undefined;
+  const channelName = chart?.defaultChannel ?? Object.keys(channels)[0];
+  return channelName ? channels[channelName]?.version : undefined;
 };
 
 // The plugin-hub backend rewrites cross-origin icon URLs to a path relative to
-// its own mount (e.g. `api/icon/<sha256>`) to avoid CSP failures. Prepend the
-// plugin's mount prefix so the resulting URL works as an `<img src>`.
+// its own mount (e.g. `api/icon/<sha256>`) to avoid CSP failures, so we should
+// never see http(s):// values here — reject them defensively so a
+// misconfigured or malicious catalog can't inject external image loads that
+// CSP would block anyway.
 const resolveIconSrc = (rawIcon?: string): string | undefined => {
   if (!rawIcon) {
     return undefined;
   }
-  if (
-    rawIcon.startsWith('http://') ||
-    rawIcon.startsWith('https://') ||
-    rawIcon.startsWith('data:') ||
-    rawIcon.startsWith('/v1/plugins/')
-  ) {
+  if (rawIcon.startsWith('http://') || rawIcon.startsWith('https://')) {
+    return undefined;
+  }
+  if (rawIcon.startsWith('data:') || rawIcon.startsWith('/v1/plugins/')) {
     return rawIcon;
   }
   const stripped = rawIcon.startsWith('/') ? rawIcon.slice(1) : rawIcon;
   return `/v1/plugins/${PLUGIN_HUB_NAME}/${stripped}`;
 };
 
-const toResolvedMeta = (
-  entry: ExtensionCatalogEntry
-): ResolvedExtensionMeta => ({
-  name: entry.name,
-  displayName: entry.displayName || entry.name,
-  description: entry.description,
-  icon: resolveIconSrc(entry.icon),
-  version: resolveVersion(entry),
-  categories: entry.categories,
-  maturity: entry.maturity,
-});
+// Single narrowing point for catalog entries. Rejects anything that is not a
+// well-formed provider entry — unknown `type` values (including new ones the
+// hub might introduce) are tolerated by returning null rather than crashing.
+// Downstream consumers work with `ResolvedExtensionMeta`, which is strict.
+const normalizeEntry = (
+  raw: RawExtensionCatalogEntry
+): {
+  meta: ResolvedExtensionMeta;
+  providerName?: string;
+} | null => {
+  if (!raw?.name || raw.type !== 'provider') {
+    return null;
+  }
+  const meta: ResolvedExtensionMeta = {
+    name: raw.name,
+    displayName: raw.displayName || raw.name,
+    description: raw.description,
+    icon: resolveIconSrc(raw.icon),
+    version: resolveVersion(raw),
+    categories: raw.categories,
+    maturity: raw.maturity,
+  };
+  return { meta, providerName: raw.provider?.providerName };
+};
 
-// Builds a lookup keyed by the identifiers a provider/plugin can be matched by.
-// Providers are matched by `provider.providerName` (which equals the Provider
-// CR metadata.name), with the entry `name` as a fallback key.
+// Builds a lookup keyed by every identifier a provider can be matched by
+// (provider CR name and the catalog entry name).
 const buildProviderMetaMap = (
-  index: ExtensionIndex | null
+  index: RawExtensionIndex | null
 ): Map<string, ResolvedExtensionMeta> => {
   const map = new Map<string, ResolvedExtensionMeta>();
-  if (!index?.extensions) {
+  const entries = index?.extensions;
+  if (!entries) {
     return map;
   }
-  for (const entry of index.extensions) {
-    if (entry.type !== 'provider') {
+  for (const raw of entries) {
+    const normalized = normalizeEntry(raw);
+    if (!normalized) {
       continue;
     }
-    const meta = toResolvedMeta(entry);
-    if (entry.provider?.providerName) {
-      map.set(entry.provider.providerName, meta);
+    if (normalized.providerName) {
+      map.set(normalized.providerName, normalized.meta);
     }
-    if (entry.name) {
-      map.set(entry.name, meta);
-    }
+    map.set(normalized.meta.name, normalized.meta);
   }
   return map;
 };

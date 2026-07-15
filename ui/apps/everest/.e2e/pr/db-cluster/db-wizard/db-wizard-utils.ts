@@ -207,25 +207,51 @@ export const openCreateScheduleDialogFromDBWizard = async (page: Page) => {
   ).toBeVisible();
 };
 
-// Drives the "open creation flow" entry point on the /databases page. Handles
-// both UI states:
-//   - Populated list: clicks the toolbar `add-db-cluster-button`. If `dbType`
-//     is provided AND the button opens a drawer (multiple providers), clicks
-//     the matching drawer item.
-//   - Empty list: clicks the `provider-tile-<dbType>` tile directly (or the
-//     first tile if `dbType` is omitted).
-export const clickAddDbClusterBtn = async (page: Page, dbType?: string) => {
-  const toolbarBtn = page.getByTestId('add-db-cluster-button');
-  const tileFallback = dbType
-    ? page.getByTestId(`provider-tile-${dbType}`)
-    : page.locator('[data-testid^="provider-tile-"]').first();
+// Discriminated result of `resolveCreateEntryPoint`. The /databases page
+// exposes exactly one of two entry points for starting DB creation:
+//   - `toolbar`  → the `add-db-cluster-button` in the table's top toolbar
+//     (populated list, user has create permission).
+//   - `tiles`    → the `provider-tile-*` grid rendered by the empty state.
+type CreateEntryPoint =
+  | { mode: 'toolbar'; toolbarBtn: Locator }
+  | { mode: 'tiles'; tiles: Locator };
 
-  await expect(toolbarBtn.or(tileFallback).first()).toBeVisible({
+// Waits until either the toolbar button or the tiles grid becomes visible on
+// the /databases page and reports which entry point is active. This removes
+// the duplicated `if toolbar.isVisible … else tile` probe that previously
+// lived in every call site.
+const resolveCreateEntryPoint = async (
+  page: Page
+): Promise<CreateEntryPoint> => {
+  const toolbarBtn = page.getByTestId('add-db-cluster-button');
+  const tiles = page.locator('[data-testid^="provider-tile-"]');
+
+  await expect(toolbarBtn.or(tiles.first()).first()).toBeVisible({
     timeout: TIMEOUTS.ThirtySeconds,
   });
 
   if (await toolbarBtn.isVisible().catch(() => false)) {
-    await toolbarBtn.click();
+    return { mode: 'toolbar', toolbarBtn };
+  }
+  return { mode: 'tiles', tiles };
+};
+
+// Opens the drawer that lists providers (only present when multiple providers
+// are installed) and waits for its first menu item. Returns the menu locator
+// so callers can enumerate items or click a specific one.
+const openProviderDrawer = async (page: Page): Promise<Locator> => {
+  const menu = page.getByTestId('add-db-cluster-button-menu');
+  await menu.getByRole('menuitem').first().waitFor();
+  return menu;
+};
+
+// Drives the "open creation flow" entry point on the /databases page across
+// both the toolbar and empty-state (tiles) UI states.
+export const clickAddDbClusterBtn = async (page: Page, dbType?: string) => {
+  const entry = await resolveCreateEntryPoint(page);
+
+  if (entry.mode === 'toolbar') {
+    await entry.toolbarBtn.click();
     if (dbType) {
       const drawer = page.getByTestId('add-db-cluster-button-menu');
       if (
@@ -239,54 +265,36 @@ export const clickAddDbClusterBtn = async (page: Page, dbType?: string) => {
     return;
   }
 
-  await tileFallback.click();
+  const tile = dbType
+    ? page.getByTestId(`provider-tile-${dbType}`)
+    : entry.tiles.first();
+  await tile.click();
 };
 
 export const checkAmountOfDbEngines = async (page: Page): Promise<Locator> => {
-  const toolbarBtn = page.getByTestId('add-db-cluster-button');
-  const tiles = page.locator('[data-testid^="provider-tile-"]');
+  const entry = await resolveCreateEntryPoint(page);
 
-  await expect(toolbarBtn.or(tiles.first()).first()).toBeVisible({
-    timeout: TIMEOUTS.ThirtySeconds,
-  });
-
-  if (await toolbarBtn.isVisible().catch(() => false)) {
-    await clickAddDbClusterBtn(page);
-    await page
-      .getByTestId('add-db-cluster-button-menu')
-      .getByRole('menuitem')
-      .first()
-      .waitFor();
-    const dbEnginesButtons = page
-      .getByTestId('add-db-cluster-button-menu')
-      .getByRole('menuitem');
+  if (entry.mode === 'toolbar') {
+    await entry.toolbarBtn.click();
+    const menu = await openProviderDrawer(page);
+    const dbEnginesButtons = menu.getByRole('menuitem');
     expect(await dbEnginesButtons.count()).toBe(3);
     return dbEnginesButtons;
   }
 
-  // Empty state — tiles are rendered directly.
-  expect(await tiles.count()).toBe(3);
-  return tiles;
+  expect(await entry.tiles.count()).toBe(3);
+  return entry.tiles;
 };
 
 export const selectDbEngine = async (
   page: Page,
   dbType: 'pxc' | 'psmdb' | 'postgresql'
 ) => {
-  const toolbarBtn = page.getByTestId('add-db-cluster-button');
-  const tileFallback = page.getByTestId(`provider-tile-${dbType}`);
+  const entry = await resolveCreateEntryPoint(page);
 
-  await expect(toolbarBtn.or(tileFallback).first()).toBeVisible({
-    timeout: TIMEOUTS.ThirtySeconds,
-  });
-
-  if (await toolbarBtn.isVisible().catch(() => false)) {
-    await clickAddDbClusterBtn(page);
-    await page
-      .getByTestId('add-db-cluster-button-menu')
-      .getByRole('menuitem')
-      .first()
-      .waitFor();
+  if (entry.mode === 'toolbar') {
+    await entry.toolbarBtn.click();
+    await openProviderDrawer(page);
     expect(
       await page.getByTestId('add-db-cluster-button-psmdb').textContent()
     ).toBe('MongoDB');
@@ -296,10 +304,9 @@ export const selectDbEngine = async (
     expect(
       await page.getByTestId('add-db-cluster-button-postgresql').textContent()
     ).toBe('PostgreSQL');
-
     await page.getByTestId(`add-db-cluster-button-${dbType}`).click();
   } else {
-    await tileFallback.click();
+    await page.getByTestId(`provider-tile-${dbType}`).click();
   }
 
   await page.waitForURL('/databases/new');

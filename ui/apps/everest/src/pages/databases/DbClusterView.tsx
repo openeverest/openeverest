@@ -28,7 +28,7 @@ import {
   convertDbInstancesPayloadToTableFormat,
 } from './DbClusterView.utils';
 import { InstanceTableElement } from './dbClusterView.types';
-import CreateDbButton from 'components/create-db-button/create-db-button';
+import { CreateDbButton } from 'components/create-db-button';
 import EmptyStateDatabases from 'components/empty-state-databases/empty-state-databases';
 import EmptyStateNamespaces from 'components/empty-state-namespaces/empty-state-namespaces';
 import { DB_INSTANCE_STATUS_TO_BASE_STATUS } from './DbClusterView.constants';
@@ -40,6 +40,7 @@ import {
 import { usePlugins } from 'contexts/plugins';
 import type { GlobalDashboardWidgetExtension } from '@openeverest/plugin-sdk';
 import PluginErrorBoundary from 'components/plugin-host/PluginErrorBoundary';
+import { useNamespacePermissionsForResource } from 'hooks/rbac';
 
 export const DbClusterView = () => {
   const { data: namespaces = [], isLoading: loadingNamespaces } = useNamespaces(
@@ -59,11 +60,9 @@ export const DbClusterView = () => {
     return acc;
   }, []);
 
-  // TODO RBAC
-  // const { canCreate } = useNamespacePermissionsForResource('database-instances');
-
-  // const canAddCluster = canCreate.length > 0 && hasAvailableProviders;
-  const canAddCluster = hasAvailableProviders;
+  const { canCreate } = useNamespacePermissionsForResource('database-clusters');
+  const hasCreatePermission = canCreate.length > 0;
+  const canAddCluster = hasCreatePermission && hasAvailableProviders;
 
   // TODO uncomment when providerImporters will be ready
   // const { data: availableEnginesForImport } = useDataImporters();
@@ -229,7 +228,7 @@ export const DbClusterView = () => {
       <Box sx={{ width: '100%' }}>
         {!instancesLoading && !loadingNamespaces && tableData.length === 0 ? (
           namespaces.length > 0 ? (
-            <EmptyStateDatabases />
+            <EmptyStateDatabases hasCreatePermission={hasCreatePermission} />
           ) : (
             <EmptyStateNamespaces />
           )
