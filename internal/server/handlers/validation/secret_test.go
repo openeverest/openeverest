@@ -295,9 +295,11 @@ func TestCreateSecret_Validation(t *testing.T) {
 			t.Parallel()
 
 			// Build fake client with providers.
+			// Use DeepCopy to avoid race conditions since the fake client
+			// modifies the objects' ResourceVersion during Build().
 			clientBuilder := fake.NewClientBuilder().WithScheme(scheme)
 			for _, p := range tt.providers {
-				clientBuilder = clientBuilder.WithObjects(p)
+				clientBuilder = clientBuilder.WithObjects(p.DeepCopy())
 			}
 			fakeClient := clientBuilder.Build()
 
