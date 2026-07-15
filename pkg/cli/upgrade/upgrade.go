@@ -38,7 +38,7 @@ import (
 	"github.com/percona/everest/pkg/common"
 	"github.com/percona/everest/pkg/kubernetes"
 	"github.com/percona/everest/pkg/output"
-	. "github.com/percona/everest/pkg/utils/must" //nolint:revive,stylecheck
+	. "github.com/percona/everest/pkg/utils/must" //nolint:revive,staticcheck
 	cliVersion "github.com/percona/everest/pkg/version"
 	versionservice "github.com/percona/everest/pkg/version_service"
 )
@@ -51,6 +51,8 @@ const (
 type (
 	// Config defines configuration required for upgrade command.
 	Config struct {
+		helm.CLIOptions
+
 		// KubeconfigPath is a path to a kubeconfig
 		KubeconfigPath string
 		// InCluster is set if the upgrade process should use in-cluster configuration.
@@ -69,8 +71,6 @@ type (
 		// VersionToUpgrade specifies the version to upgrade to.
 		// This version may be ahead by at most one minor version from the current version.
 		VersionToUpgrade string
-
-		helm.CLIOptions
 	}
 
 	// Upgrade struct implements upgrade command.
@@ -113,7 +113,7 @@ func NewUpgrade(cfg *Config, l *zap.SugaredLogger) (*Upgrade, error) {
 
 	var kubeClient kubernetes.KubernetesConnector
 	if cfg.InCluster {
-		k, err := kubernetes.NewInCluster(cli.l, nil, nil)
+		k, err := kubernetes.NewInCluster(context.Background(), cli.l, nil)
 		if err != nil {
 			return nil, fmt.Errorf("could not create in-cluster kubernetes client: %w", err)
 		}
@@ -207,7 +207,7 @@ func (u *Upgrade) setKubernetesEnv(ctx context.Context) error {
 	return nil
 }
 
-func (u *Upgrade) setupHelmInstaller(ctx context.Context) error {
+func (u *Upgrade) setupHelmInstaller(_ context.Context) error {
 	overrides := helm.NewValues(helm.Values{
 		ClusterType:        u.clusterType,
 		VersionMetadataURL: u.config.VersionMetadataURL,

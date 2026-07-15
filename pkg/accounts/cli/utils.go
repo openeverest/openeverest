@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2025 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -33,7 +34,7 @@ const (
 var (
 	// Regular expression to validate username.
 	// [a-zA-Z0-9_] - Allowed characters (letters, digits, underscore)
-	// {3,} - Length of the username (minimum 3 characters)
+	// {3,} - Length of the username (minimum 3 characters).
 	userNameValidateRegex = regexp.MustCompile("^[a-zA-Z0-9_]{3,}$")
 
 	// ErrInvalidUsername is returned when the username doesn't match criteria.
@@ -41,7 +42,7 @@ var (
 
 	// Regular expression to validate password.
 	// [a-zA-Z0-9@*#$%^&+=!_-] - Allowed characters (letters, digits, special characters)
-	// {6,} - Length of the password (minimum 6 characters)
+	// {6,} - Length of the password (minimum 6 characters).
 	passwordValidateRegex = regexp.MustCompile("^[a-zA-Z0-9@*#$%^&+=!_-]{6,}$")
 
 	// ErrInvalidNewPassword is returned when the new password doesn't match criteria.
@@ -68,14 +69,15 @@ func ValidatePassword(password string) error {
 // This function shall be called only in cases when there is no other way to obtain username value.
 // User will be asked to provide the username in interactive mode.
 func PopulateUsername(ctx context.Context) (string, error) {
-	if username, err := tui.NewInput(ctx, "Provide username",
+	username, err := tui.NewInput(
+		ctx, "Provide username",
 		tui.WithInputHint(usernameCriteria),
 		tui.WithInputValidation(ValidateUsername),
-	).Run(); err != nil {
+	).Run()
+	if err != nil {
 		return "", err
-	} else {
-		return username, nil
 	}
+	return username, nil
 }
 
 // PopulatePassword function to fill the password.
@@ -83,14 +85,15 @@ func PopulateUsername(ctx context.Context) (string, error) {
 // User will be asked to provide the password in interactive mode.
 func PopulatePassword(ctx context.Context) (string, error) {
 	// ask user to provide password
-	if password, err := tui.NewInputPassword(ctx, "Provide password",
+	password, err := tui.NewInputPassword(
+		ctx, "Provide password",
 		tui.WithPasswordHint(passwordCriteria),
 		tui.WithPasswordValidation(ValidatePassword),
-	).Run(); err != nil {
+	).Run()
+	if err != nil {
 		return "", err
-	} else {
-		return password, nil
 	}
+	return password, nil
 }
 
 // PopulateNewPassword function to fill the new password.
@@ -100,14 +103,16 @@ func PopulateNewPassword(ctx context.Context) (string, error) {
 	// ask user to provide new password
 	var newPassword, newConfPassword string
 	var err error
-	if newPassword, err = tui.NewInputPassword(ctx, "Provide a new password",
+	if newPassword, err = tui.NewInputPassword(
+		ctx, "Provide a new password",
 		tui.WithPasswordHint(passwordCriteria),
 		tui.WithPasswordValidation(ValidatePassword),
 	).Run(); err != nil {
 		return "", err
 	}
 
-	if newConfPassword, err = tui.NewInputPassword(ctx, "Confirm a new password",
+	if newConfPassword, err = tui.NewInputPassword(
+		ctx, "Confirm a new password",
 		tui.WithPasswordHint(passwordCriteria),
 		tui.WithPasswordValidation(ValidatePassword),
 	).Run(); err != nil {

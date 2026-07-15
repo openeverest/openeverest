@@ -1,3 +1,17 @@
+// Copyright (C) 2026 The OpenEverest Contributors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package rbac
 
 import (
@@ -28,7 +42,8 @@ func TestRBAC_BackupStorage(t *testing.T) {
 
 	data := func() *handlers.MockHandler {
 		next := handlers.MockHandler{}
-		next.On("ListBackupStorages",
+		next.On(
+			"ListBackupStorages",
 			mock.Anything,
 			mock.Anything,
 		).Return(
@@ -143,7 +158,7 @@ func TestRBAC_BackupStorage(t *testing.T) {
 			},
 		}
 
-		ctx := context.WithValue(context.Background(), common.UserCtxKey, rbac.User{Subject: "bob"})
+		ctx := testUserContext(rbac.User{Subject: "bob"})
 		for _, tc := range testCases {
 			t.Run(tc.desc, func(t *testing.T) {
 				t.Parallel()
@@ -229,7 +244,7 @@ func TestRBAC_BackupStorage(t *testing.T) {
 			},
 		}
 
-		ctx := context.WithValue(context.Background(), common.UserCtxKey, rbac.User{Subject: "bob"})
+		ctx := testUserContext(rbac.User{Subject: "bob"})
 		for _, tc := range testCases {
 			t.Run(tc.desc, func(t *testing.T) {
 				t.Parallel()
@@ -396,7 +411,7 @@ func TestRBAC_BackupStorage(t *testing.T) {
 			},
 		}
 
-		ctx := context.WithValue(context.Background(), common.UserCtxKey, rbac.User{Subject: "bob"})
+		ctx := testUserContext(rbac.User{Subject: "bob"})
 		for _, tc := range testCases {
 			t.Run(tc.desc, func(t *testing.T) {
 				t.Parallel()
@@ -564,7 +579,7 @@ func TestRBAC_BackupStorage(t *testing.T) {
 			},
 		}
 
-		ctx := context.WithValue(context.Background(), common.UserCtxKey, rbac.User{Subject: "bob"})
+		ctx := testUserContext(rbac.User{Subject: "bob"})
 		for _, tc := range testCases {
 			t.Run(tc.desc, func(t *testing.T) {
 				t.Parallel()
@@ -728,7 +743,7 @@ func TestRBAC_BackupStorage(t *testing.T) {
 			},
 		}
 
-		ctx := context.WithValue(context.Background(), common.UserCtxKey, rbac.User{Subject: "bob"})
+		ctx := testUserContext(rbac.User{Subject: "bob"})
 		for _, tc := range testCases {
 			t.Run(tc.desc, func(t *testing.T) {
 				t.Parallel()
@@ -780,4 +795,10 @@ func testUserGetter(ctx context.Context) (rbac.User, error) {
 		return rbac.User{}, errors.New("user not found in context")
 	}
 	return user, nil
+}
+
+// testUserContext returns a context carrying the given RBAC user, as set by the auth middleware.
+func testUserContext(user rbac.User) context.Context {
+	//nolint:staticcheck // common.UserCtxKey is a string key kept for echo-jwt compatibility
+	return context.WithValue(context.Background(), common.UserCtxKey, user)
 }

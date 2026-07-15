@@ -1,7 +1,20 @@
+// Copyright (C) 2026 The OpenEverest Contributors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package rbac
 
 import (
-	"context"
 	"slices"
 	"testing"
 
@@ -14,7 +27,6 @@ import (
 	everestv1alpha1 "github.com/percona/everest-operator/api/everest/v1alpha1"
 	"github.com/percona/everest/api"
 	"github.com/percona/everest/internal/server/handlers"
-	"github.com/percona/everest/pkg/common"
 	"github.com/percona/everest/pkg/rbac"
 )
 
@@ -22,30 +34,31 @@ func TestRBAC_DatabaseClusterBackup(t *testing.T) {
 	t.Run("ListDatabaseClusterBackups", func(t *testing.T) {
 		next := func() *handlers.MockHandler {
 			h := &handlers.MockHandler{}
-			h.On("ListDatabaseClusterBackups", mock.Anything, mock.Anything, mock.Anything).Return(&everestv1alpha1.DatabaseClusterBackupList{
-				Items: []everestv1alpha1.DatabaseClusterBackup{
-					{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:      "backup1",
-							Namespace: "default",
+			h.On("ListDatabaseClusterBackups", mock.Anything, mock.Anything, mock.Anything).Return(
+				&everestv1alpha1.DatabaseClusterBackupList{
+					Items: []everestv1alpha1.DatabaseClusterBackup{
+						{
+							ObjectMeta: metav1.ObjectMeta{
+								Name:      "backup1",
+								Namespace: "default",
+							},
+							Spec: everestv1alpha1.DatabaseClusterBackupSpec{
+								DBClusterName:     "cluster1",
+								BackupStorageName: "bs1",
+							},
 						},
-						Spec: everestv1alpha1.DatabaseClusterBackupSpec{
-							DBClusterName:     "cluster1",
-							BackupStorageName: "bs1",
+						{
+							ObjectMeta: metav1.ObjectMeta{
+								Name:      "backup2",
+								Namespace: "default",
+							},
+							Spec: everestv1alpha1.DatabaseClusterBackupSpec{
+								DBClusterName:     "cluster1",
+								BackupStorageName: "bs2",
+							},
 						},
 					},
-					{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:      "backup2",
-							Namespace: "default",
-						},
-						Spec: everestv1alpha1.DatabaseClusterBackupSpec{
-							DBClusterName:     "cluster1",
-							BackupStorageName: "bs2",
-						},
-					},
-				},
-			}, nil,
+				}, nil,
 			)
 			return h
 		}
@@ -127,7 +140,7 @@ func TestRBAC_DatabaseClusterBackup(t *testing.T) {
 				},
 			},
 			{
-				desc: "missing read permissons for database-cluster-backups on cluster 'cluster1'",
+				desc: "missing read permissions for database-cluster-backups on cluster 'cluster1'",
 				policy: newPolicy(
 					"p, role:test, backup-storages, read, default/bs1",
 					"p, role:test, backup-storages, read, default/bs2",
@@ -139,7 +152,7 @@ func TestRBAC_DatabaseClusterBackup(t *testing.T) {
 			},
 		}
 
-		ctx := context.WithValue(context.Background(), common.UserCtxKey, rbac.User{Subject: "bob"})
+		ctx := testUserContext(rbac.User{Subject: "bob"})
 		for _, tc := range testCases {
 			t.Run(tc.desc, func(t *testing.T) {
 				t.Parallel()
@@ -167,16 +180,17 @@ func TestRBAC_DatabaseClusterBackup(t *testing.T) {
 	t.Run("GetDatabaseClusterBackup", func(t *testing.T) {
 		next := func() *handlers.MockHandler {
 			h := &handlers.MockHandler{}
-			h.On("GetDatabaseClusterBackup", mock.Anything, mock.Anything, mock.Anything).Return(&everestv1alpha1.DatabaseClusterBackup{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "backup1",
-					Namespace: "default",
-				},
-				Spec: everestv1alpha1.DatabaseClusterBackupSpec{
-					DBClusterName:     "cluster1",
-					BackupStorageName: "bs1",
-				},
-			}, nil,
+			h.On("GetDatabaseClusterBackup", mock.Anything, mock.Anything, mock.Anything).Return(
+				&everestv1alpha1.DatabaseClusterBackup{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "backup1",
+						Namespace: "default",
+					},
+					Spec: everestv1alpha1.DatabaseClusterBackupSpec{
+						DBClusterName:     "cluster1",
+						BackupStorageName: "bs1",
+					},
+				}, nil,
 			)
 			return h
 		}
@@ -209,7 +223,7 @@ func TestRBAC_DatabaseClusterBackup(t *testing.T) {
 				wantErr: ErrInsufficientPermissions,
 			},
 			{
-				desc: "missing read permissons for database-cluster-backups on cluster 'cluster1'",
+				desc: "missing read permissions for database-cluster-backups on cluster 'cluster1'",
 				policy: newPolicy(
 					"p, role:test, backup-storages, read, default/bs1",
 					"g, bob, role:test",
@@ -218,7 +232,7 @@ func TestRBAC_DatabaseClusterBackup(t *testing.T) {
 			},
 		}
 
-		ctx := context.WithValue(context.Background(), common.UserCtxKey, rbac.User{Subject: "bob"})
+		ctx := testUserContext(rbac.User{Subject: "bob"})
 		for _, tc := range testCases {
 			t.Run(tc.desc, func(t *testing.T) {
 				t.Parallel()
@@ -275,7 +289,7 @@ func TestRBAC_DatabaseClusterBackup(t *testing.T) {
 				wantErr: ErrInsufficientPermissions,
 			},
 			{
-				desc: "missing create permissons for database-cluster-backups on cluster 'cluster1'",
+				desc: "missing create permissions for database-cluster-backups on cluster 'cluster1'",
 				policy: newPolicy(
 					"p, role:test, backup-storages, read, default/bs1",
 					"g, bob, role:test",
@@ -284,7 +298,7 @@ func TestRBAC_DatabaseClusterBackup(t *testing.T) {
 			},
 		}
 
-		ctx := context.WithValue(context.Background(), common.UserCtxKey, rbac.User{Subject: "bob"})
+		ctx := testUserContext(rbac.User{Subject: "bob"})
 		for _, tc := range testCases {
 			t.Run(tc.desc, func(t *testing.T) {
 				t.Parallel()
@@ -319,16 +333,17 @@ func TestRBAC_DatabaseClusterBackup(t *testing.T) {
 		next := func() *handlers.MockHandler {
 			h := &handlers.MockHandler{}
 			h.On("GetDatabaseClusterBackup", mock.Anything, mock.Anything, mock.Anything).
-				Return(&everestv1alpha1.DatabaseClusterBackup{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "backup1",
-						Namespace: "default",
-					},
-					Spec: everestv1alpha1.DatabaseClusterBackupSpec{
-						DBClusterName:     "cluster1",
-						BackupStorageName: "bs1",
-					},
-				}, nil,
+				Return(
+					&everestv1alpha1.DatabaseClusterBackup{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "backup1",
+							Namespace: "default",
+						},
+						Spec: everestv1alpha1.DatabaseClusterBackupSpec{
+							DBClusterName:     "cluster1",
+							BackupStorageName: "bs1",
+						},
+					}, nil,
 				)
 			h.On("DeleteDatabaseClusterBackup", mock.Anything, mock.Anything, mock.Anything, mock.Anything).
 				Return(nil)
@@ -354,13 +369,13 @@ func TestRBAC_DatabaseClusterBackup(t *testing.T) {
 				),
 			},
 			{
-				desc:    "missing delete permissons for database-cluster-backups on cluster 'cluster1'",
+				desc:    "missing delete permissions for database-cluster-backups on cluster 'cluster1'",
 				policy:  newPolicy(),
 				wantErr: ErrInsufficientPermissions,
 			},
 		}
 
-		ctx := context.WithValue(context.Background(), common.UserCtxKey, rbac.User{Subject: "bob"})
+		ctx := testUserContext(rbac.User{Subject: "bob"})
 		for _, tc := range testCases {
 			t.Run(tc.desc, func(t *testing.T) {
 				t.Parallel()

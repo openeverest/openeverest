@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -65,8 +66,14 @@ export enum DbWizardForm {
   storageClass = 'storageClass',
   cpu = 'cpu',
   proxyCpu = 'proxyCpu',
+  cpuRequests = 'cpuRequests',
+  proxyCpuRequests = 'proxyCpuRequests',
   memory = 'memory',
   proxyMemory = 'proxyMemory',
+  memoryRequests = 'memoryRequests',
+  proxyMemoryRequests = 'proxyMemoryRequests',
+  nodeRequestsSynced = 'nodeRequestsSynced',
+  proxyRequestsSynced = 'proxyRequestsSynced',
   disk = 'disk',
   // This is for retrocompatibility reasons, as some users still have Gb as a unit
   diskUnit = 'diskUnit',

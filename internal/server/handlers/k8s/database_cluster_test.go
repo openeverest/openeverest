@@ -1,3 +1,17 @@
+// Copyright (C) 2026 The OpenEverest Contributors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package k8s
 
 import (
@@ -5,7 +19,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/AlekSi/pointer"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
@@ -28,6 +41,7 @@ func TestLatestRestorableDate(t *testing.T) {
 	}
 
 	now := time.Date(2024, 3, 12, 12, 0, 0, 0, time.UTC)
+	restorable := now.Add(-600 * time.Second)
 	cases := []tCase{
 		{
 			name:             "backup 5 min ago, upload interval 10 min",
@@ -41,7 +55,7 @@ func TestLatestRestorableDate(t *testing.T) {
 			uploadInterval:   600,
 			latestBackupTime: now.Add(-900 * time.Second),
 			now:              now,
-			expected:         pointer.ToTime(now.Add(-600 * time.Second)),
+			expected:         &restorable,
 		},
 	}
 
@@ -71,7 +85,7 @@ func TestGetDefaultUploadInterval(t *testing.T) {
 		{
 			name:     "old pxc, interval is set",
 			engine:   everestv1alpha1.Engine{Type: everestv1alpha1.DatabaseEnginePXC, Version: "1.13.0"},
-			interval: pointer.ToInt(1000),
+			interval: new(1000),
 			expected: 1000,
 		},
 		{
@@ -83,7 +97,7 @@ func TestGetDefaultUploadInterval(t *testing.T) {
 		{
 			name:     "new pxc, interval is set",
 			engine:   everestv1alpha1.Engine{Type: everestv1alpha1.DatabaseEnginePXC, Version: "1.14.0"},
-			interval: pointer.ToInt(1000),
+			interval: new(1000),
 			expected: 0,
 		},
 		{
@@ -101,7 +115,7 @@ func TestGetDefaultUploadInterval(t *testing.T) {
 		{
 			name:     "old psmdb, interval is set",
 			engine:   everestv1alpha1.Engine{Type: everestv1alpha1.DatabaseEnginePSMDB, Version: "1.15.0"},
-			interval: pointer.ToInt(1000),
+			interval: new(1000),
 			expected: 1000,
 		},
 		{
@@ -113,7 +127,7 @@ func TestGetDefaultUploadInterval(t *testing.T) {
 		{
 			name:     "new psmdb, interval is set",
 			engine:   everestv1alpha1.Engine{Type: everestv1alpha1.DatabaseEnginePSMDB, Version: "1.16.0"},
-			interval: pointer.ToInt(1000),
+			interval: new(1000),
 			expected: 1000,
 		},
 		{
@@ -132,7 +146,7 @@ func TestGetDefaultUploadInterval(t *testing.T) {
 		{
 			name:     "old pg, interval is set",
 			engine:   everestv1alpha1.Engine{Type: everestv1alpha1.DatabaseEnginePostgresql, Version: "2.3.1"},
-			interval: pointer.ToInt(1000),
+			interval: new(1000),
 			expected: 1000,
 		},
 		{
@@ -144,7 +158,7 @@ func TestGetDefaultUploadInterval(t *testing.T) {
 		{
 			name:     "new pg, interval is set",
 			engine:   everestv1alpha1.Engine{Type: everestv1alpha1.DatabaseEnginePostgresql, Version: "2.4.0"},
-			interval: pointer.ToInt(1000),
+			interval: new(1000),
 			expected: 1000,
 		},
 		{
@@ -172,6 +186,7 @@ func TestConnectionURL(t *testing.T) {
 		expected string
 	}
 
+	//nolint:gosec // test fixtures, not real credentials
 	cases := []testCase{
 		{
 			name: "non-sharded psmdb 1 node",
@@ -318,6 +333,7 @@ func TestCreateDatabaseClusterSecret(t *testing.T) {
 				},
 			},
 			verifyFunc: func(t *testing.T, secret *corev1.Secret) {
+				t.Helper()
 				require.Equal(t, testNamespace, secret.Namespace)
 				require.Equal(t, "pxc-secret", secret.Name)
 				require.Equal(t, testDBName, secret.Labels[common.DatabaseClusterNameLabel])
@@ -336,6 +352,7 @@ func TestCreateDatabaseClusterSecret(t *testing.T) {
 				},
 			},
 			verifyFunc: func(t *testing.T, secret *corev1.Secret) {
+				t.Helper()
 				require.Equal(t, testNamespace, secret.Namespace)
 				require.Equal(t, "psmdb-secret", secret.Name)
 				require.Equal(t, testDBName, secret.Labels[common.DatabaseClusterNameLabel])
@@ -354,6 +371,7 @@ func TestCreateDatabaseClusterSecret(t *testing.T) {
 				},
 			},
 			verifyFunc: func(t *testing.T, secret *corev1.Secret) {
+				t.Helper()
 				require.Equal(t, testNamespace, secret.Namespace)
 				require.Equal(t, "pg-secret", secret.Name)
 				require.Equal(t, testDBName, secret.Labels[common.DatabaseClusterNameLabel])

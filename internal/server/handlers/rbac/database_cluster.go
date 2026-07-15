@@ -1,3 +1,17 @@
+// Copyright (C) 2026 The OpenEverest Contributors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package rbac
 
 import (
@@ -33,14 +47,16 @@ func (h *rbacHandler) CreateDatabaseCluster(ctx context.Context, db *everestv1al
 	schedules := db.Spec.Backup.Schedules
 	if len(schedules) > 0 {
 		// To create a cluster with backup schedules, the user needs to explicitly have permissions to take backups for this cluster.
-		if err := h.enforce(ctx, rbac.ResourceDatabaseClusterBackups, rbac.ActionCreate,
+		if err := h.enforce(
+			ctx, rbac.ResourceDatabaseClusterBackups, rbac.ActionCreate,
 			rbac.ObjectName(namespace, db.GetName()),
 		); err != nil {
 			return nil, err
 		}
 		// User should be able to read a backup storage to use it in a backup schedule.
 		for _, sched := range schedules {
-			if err := h.enforce(ctx, rbac.ResourceBackupStorages, rbac.ActionRead,
+			if err := h.enforce(
+				ctx, rbac.ResourceBackupStorages, rbac.ActionRead,
 				rbac.ObjectName(namespace, sched.BackupStorageName),
 			); err != nil {
 				return nil, err
@@ -51,7 +67,8 @@ func (h *rbacHandler) CreateDatabaseCluster(ctx context.Context, db *everestv1al
 	// Check permissions for creating a cluster from a backup.
 	if dataSrc := db.Spec.DataSource; dataSrc != nil && dataSrc.DBClusterBackupName != "" {
 		sourceBackup := dataSrc.DBClusterBackupName
-		if err := h.enforce(ctx, rbac.ResourceDatabaseClusterRestores,
+		if err := h.enforce(
+			ctx, rbac.ResourceDatabaseClusterRestores,
 			rbac.ActionCreate, rbac.ObjectName(namespace, db.GetName()),
 		); err != nil {
 			return nil, err
@@ -131,24 +148,8 @@ func (h *rbacHandler) UpdateDatabaseCluster(ctx context.Context, db *everestv1al
 	slices.SortFunc(oldSched, sortFn)
 	slices.SortFunc(updatedSched, sortFn)
 
-	isSchedEqual := func() bool {
-		if len(oldSched) != len(updatedSched) {
-			return false
-		}
-		for i := range oldSched {
-			if oldSched[i].Name != updatedSched[i].Name ||
-				oldSched[i].Enabled != updatedSched[i].Enabled ||
-				oldSched[i].BackupStorageName != updatedSched[i].BackupStorageName ||
-				oldSched[i].Schedule != updatedSched[i].Schedule ||
-				oldSched[i].RetentionCopies != updatedSched[i].RetentionCopies {
-				return false
-			}
-		}
-		return true
-	}
-
 	// If shedules are updated, user should have permissions to create a backup for this cluster.
-	if !isSchedEqual() {
+	if !backupSchedulesEqual(oldSched, updatedSched) {
 		if err := h.enforce(ctx, rbac.ResourceDatabaseClusterBackups, rbac.ActionCreate, rbac.ObjectName(oldDB.GetNamespace(), db.GetName())); err != nil {
 			return nil, err
 		}
@@ -156,7 +157,8 @@ func (h *rbacHandler) UpdateDatabaseCluster(ctx context.Context, db *everestv1al
 
 	// User should be able to read a backup storage to use it in a backup schedule.
 	for _, sched := range updatedSched {
-		if err := h.enforce(ctx, rbac.ResourceBackupStorages, rbac.ActionRead,
+		if err := h.enforce(
+			ctx, rbac.ResourceBackupStorages, rbac.ActionRead,
 			rbac.ObjectName(oldDB.GetNamespace(), sched.BackupStorageName),
 		); err != nil {
 			return nil, err
@@ -168,6 +170,22 @@ func (h *rbacHandler) UpdateDatabaseCluster(ctx context.Context, db *everestv1al
 		return nil, err
 	}
 	return h.next.UpdateDatabaseCluster(ctx, db)
+}
+
+func backupSchedulesEqual(oldSched, updatedSched []everestv1alpha1.BackupSchedule) bool {
+	if len(oldSched) != len(updatedSched) {
+		return false
+	}
+	for i := range oldSched {
+		if oldSched[i].Name != updatedSched[i].Name ||
+			oldSched[i].Enabled != updatedSched[i].Enabled ||
+			oldSched[i].BackupStorageName != updatedSched[i].BackupStorageName ||
+			oldSched[i].Schedule != updatedSched[i].Schedule ||
+			oldSched[i].RetentionCopies != updatedSched[i].RetentionCopies {
+			return false
+		}
+	}
+	return true
 }
 
 func (h *rbacHandler) GetDatabaseCluster(ctx context.Context, namespace, name string) (*everestv1alpha1.DatabaseCluster, error) {
@@ -269,7 +287,8 @@ func (h *rbacHandler) enforceEngineFeaturesRead(ctx context.Context, db *everest
 
 		// SplitHorizonDNSConfig feature.
 		if psmdbFeatures.SplitHorizonDNSConfigName != "" {
-			if err := h.enforce(ctx, rbac.ResourceEngineFeatures_SplitHorizonDNSConfigs,
+			if err := h.enforce(
+				ctx, rbac.ResourceEngineFeaturesSplitHorizonDNSConfigs,
 				rbac.ActionRead,
 				rbac.ObjectName(namespace, psmdbFeatures.SplitHorizonDNSConfigName),
 			); err != nil {

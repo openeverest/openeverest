@@ -1,3 +1,17 @@
+// Copyright (C) 2026 The OpenEverest Contributors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package k8s
 
 import (
@@ -43,7 +57,7 @@ func (h *k8sHandler) GetUpgradePlan(ctx context.Context, namespace string) (*api
 	}
 	// No upgrades available, so we will check if our clusters are ready for current version.
 	if len(pointer.Get(result.Upgrades)) == 0 {
-		result.PendingActions = pointer.To([]api.UpgradeTask{})
+		result.PendingActions = &[]api.UpgradeTask{}
 		engines, err := h.kubeConnector.ListDatabaseEngines(ctx, ctrlclient.InNamespace(namespace))
 		if err != nil {
 			return nil, err
@@ -101,14 +115,15 @@ func (h *k8sHandler) setLockDBEnginesForUpgrade(
 	up *api.UpgradePlan,
 	lock bool,
 ) error {
-	return backoff.Retry(func() error {
-		for _, upgrade := range pointer.Get(up.Upgrades) {
-			if err := h.kubeConnector.SetDatabaseEngineLock(ctx, types.NamespacedName{Namespace: namespace, Name: pointer.Get(upgrade.Name)}, lock); err != nil {
-				return err
+	return backoff.Retry(
+		func() error {
+			for _, upgrade := range pointer.Get(up.Upgrades) {
+				if err := h.kubeConnector.SetDatabaseEngineLock(ctx, types.NamespacedName{Namespace: namespace, Name: pointer.Get(upgrade.Name)}, lock); err != nil {
+					return err
+				}
 			}
-		}
-		return nil
-	}, backoff.WithContext(everestAPIConstantBackoff, ctx),
+			return nil
+		}, backoff.WithContext(everestAPIConstantBackoff, ctx),
 	)
 }
 
@@ -122,8 +137,8 @@ func (h *k8sHandler) getUpgradePlan(
 	}
 
 	result := &api.UpgradePlan{
-		Upgrades:       pointer.To([]api.Upgrade{}),
-		PendingActions: pointer.To([]api.UpgradeTask{}),
+		Upgrades:       &[]api.Upgrade{},
+		PendingActions: &[]api.UpgradeTask{},
 	}
 
 	for _, engine := range engines.Items {
@@ -133,9 +148,9 @@ func (h *k8sHandler) getUpgradePlan(
 		}
 
 		upgrade := &api.Upgrade{
-			CurrentVersion: pointer.To(engine.Status.OperatorVersion),
-			Name:           pointer.To(engine.GetName()),
-			TargetVersion:  pointer.To(nextVersion),
+			CurrentVersion: new(engine.Status.OperatorVersion),
+			Name:           new(engine.GetName()),
+			TargetVersion:  new(nextVersion),
 		}
 		*result.Upgrades = append(*result.Upgrades, *upgrade)
 		pf, err := h.getOperatorUpgradePreflight(ctx, nextVersion, &engine)
@@ -250,35 +265,37 @@ func getUpgradePreflightCheckResultForDatabase(
 			errors.Join(err, errors.New("failed to validate database engine version for operator upgrade"))
 	} else if !valid {
 		return api.UpgradeTask{
-			Name:        pointer.To(database.GetName()),
+			Name:        new(database.GetName()),
 			PendingTask: pointer.To(api.UpgradeEngine),
-			Message: pointer.ToString(
-				fmt.Sprintf("Upgrade DB version to %s or higher", minReqVer)),
+			Message: new(
+				fmt.Sprintf("Upgrade DB version to %s or higher", minReqVer),
+			),
 		}, nil
 	}
 
 	// Check that DB is at recommended CRVersion.
 	if recCRVersion := database.Status.RecommendedCRVersion; recCRVersion != nil {
 		return api.UpgradeTask{
-			Name:        pointer.To(database.GetName()),
+			Name:        new(database.GetName()),
 			PendingTask: pointer.To(api.Restart),
-			Message: pointer.ToString(
-				fmt.Sprintf("Update CRVersion to %s", *recCRVersion)),
+			Message: new(
+				fmt.Sprintf("Update CRVersion to %s", *recCRVersion),
+			),
 		}, nil
 	}
 
 	// Check that DB is running.
 	if database.Status.Status != everestv1alpha1.AppStateReady {
 		return api.UpgradeTask{
-			Name:        pointer.To(database.GetName()),
+			Name:        new(database.GetName()),
 			PendingTask: pointer.To(api.NotReady),
-			Message:     pointer.ToString("Database is not ready"),
+			Message:     new("Database is not ready"),
 		}, nil
 	}
 
 	// Database is in desired state for performing operator upgrade.
 	return api.UpgradeTask{
-		Name:        pointer.To(database.GetName()),
+		Name:        new(database.GetName()),
 		PendingTask: pointer.To(api.Ready),
 	}, nil
 }
@@ -346,12 +363,12 @@ func (h *k8sHandler) getDBPostUpgradeTasks(
 			continue
 		}
 		check := api.UpgradeTask{
-			Name: pointer.To(cluster.Name),
+			Name: new(cluster.Name),
 		}
 		check.PendingTask = pointer.To(api.Ready)
 		if recVer := cluster.Status.RecommendedCRVersion; recVer != nil {
 			check.PendingTask = pointer.To(api.Restart)
-			check.Message = pointer.To(fmt.Sprintf("Database needs restart to use CRVersion '%s'", *recVer))
+			check.Message = new(fmt.Sprintf("Database needs restart to use CRVersion '%s'", *recVer))
 		}
 		checks = append(checks, check)
 	}
@@ -361,9 +378,10 @@ func (h *k8sHandler) getDBPostUpgradeTasks(
 // startOperatorUpgradeWithRetry wraps the startOperatorUpgrade function with a retry mechanism.
 // This is done to reduce the chances of failures due to resource conflicts.
 func (h *k8sHandler) startOperatorUpgradeWithRetry(ctx context.Context, namespace string) error {
-	return backoff.Retry(func() error {
-		return h.startOperatorUpgrade(ctx, namespace)
-	},
+	return backoff.Retry(
+		func() error {
+			return h.startOperatorUpgrade(ctx, namespace)
+		},
 		backoff.WithContext(everestAPIConstantBackoff, ctx),
 	)
 }
@@ -394,10 +412,11 @@ func (h *k8sHandler) startOperatorUpgrade(ctx context.Context, namespace string)
 
 	// approve install plans.
 	for _, plan := range installPlans {
-		if err := backoff.Retry(func() error {
-			_, err := h.kubeConnector.ApproveInstallPlan(ctx, types.NamespacedName{Namespace: namespace, Name: plan})
-			return err
-		}, backoff.WithContext(everestAPIConstantBackoff, ctx),
+		if err := backoff.Retry(
+			func() error {
+				_, err := h.kubeConnector.ApproveInstallPlan(ctx, types.NamespacedName{Namespace: namespace, Name: plan})
+				return err
+			}, backoff.WithContext(everestAPIConstantBackoff, ctx),
 		); err != nil {
 			return err
 		}

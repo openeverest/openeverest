@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -46,8 +47,6 @@ func (e *EverestServer) GetDatabaseEngine(ctx echo.Context, namespace, name stri
 }
 
 // UpdateDatabaseEngine Update the specified database engine on the specified namespace.
-//
-//nolint:dupl
 func (e *EverestServer) UpdateDatabaseEngine(ctx echo.Context, namespace, name string) error {
 	dbe := &everestv1alpha1.DatabaseEngine{}
 	if err := e.getBodyFromContext(ctx, dbe); err != nil {

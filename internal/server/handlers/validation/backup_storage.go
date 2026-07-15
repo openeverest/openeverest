@@ -1,3 +1,17 @@
+// Copyright (C) 2026 The OpenEverest Contributors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package validation
 
 import (
@@ -14,10 +28,10 @@ import (
 
 	"github.com/AlekSi/pointer"
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob"
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/credentials"
-	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/s3"
+	"github.com/aws/aws-sdk-go/aws"             //nolint:staticcheck // TODO: migrate to aws-sdk-go-v2
+	"github.com/aws/aws-sdk-go/aws/credentials" //nolint:staticcheck // TODO: migrate to aws-sdk-go-v2
+	"github.com/aws/aws-sdk-go/aws/session"     //nolint:staticcheck // TODO: migrate to aws-sdk-go-v2
+	"github.com/aws/aws-sdk-go/service/s3"      //nolint:staticcheck // TODO: migrate to aws-sdk-go-v2
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -25,7 +39,6 @@ import (
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	everestv1alpha1 "github.com/percona/everest-operator/api/everest/v1alpha1"
-	"github.com/percona/everest-operator/utils"
 	operatorUtils "github.com/percona/everest-operator/utils"
 	"github.com/percona/everest/api"
 	"github.com/percona/everest/cmd/config"
@@ -35,18 +48,19 @@ const (
 	timeoutS3AccessSec = 2
 )
 
-var (
-	errDuplicatedBackupStorage = func(namespace string) error {
-		return fmt.Errorf("backup storage with the same url, bucket and region already exists in namespace='%s'", namespace)
-	}
-	// Used backup storage errors
-	errEditInUseBackupStorage = func(namespace, name string) error {
-		return fmt.Errorf("backup storage='%s' in namespace='%s' is used and cannot be updated", name, namespace)
-	}
-	errDeleteInUseBackupStorage = func(namespace, name string) error {
-		return fmt.Errorf("backup storage='%s' in namespace='%s' is used and cannot be deleted", name, namespace)
-	}
-)
+func errDuplicatedBackupStorage(namespace string) error {
+	return fmt.Errorf("backup storage with the same url, bucket and region already exists in namespace='%s'", namespace)
+}
+
+// Used backup storage errors.
+
+func errEditInUseBackupStorage(namespace, name string) error {
+	return fmt.Errorf("backup storage='%s' in namespace='%s' is used and cannot be updated", name, namespace)
+}
+
+func errDeleteInUseBackupStorage(namespace, name string) error {
+	return fmt.Errorf("backup storage='%s' in namespace='%s' is used and cannot be deleted", name, namespace)
+}
 
 func (h *validateHandler) ListBackupStorages(ctx context.Context, namespace string) (*everestv1alpha1.BackupStorageList, error) {
 	return h.next.ListBackupStorages(ctx, namespace)
@@ -111,7 +125,7 @@ func validateCreateBackupStorageRequest(
 		return errDuplicatedBackupStorage(existingStorages.Items[0].GetNamespace())
 	}
 
-	if err := utils.ValidateEverestResourceName(params.Name, "name"); err != nil {
+	if err := operatorUtils.ValidateEverestResourceName(params.Name, "name"); err != nil {
 		return err
 	}
 
@@ -120,7 +134,7 @@ func validateCreateBackupStorageRequest(
 	}
 
 	if params.Url != nil {
-		if ok := utils.ValidateURL(*params.Url); !ok {
+		if ok := operatorUtils.ValidateURL(*params.Url); !ok {
 			err := ErrInvalidURL("url")
 			return err
 		}
@@ -216,10 +230,10 @@ func s3Access(
 	// Create a new session with the provided credentials
 	sess, err := session.NewSession(&aws.Config{
 		Endpoint:         endpoint,
-		Region:           aws.String(region),
+		Region:           new(region),
 		Credentials:      credentials.NewStaticCredentials(accessKey, secretKey, ""),
 		HTTPClient:       c,
-		S3ForcePathStyle: aws.Bool(forcePathStyle),
+		S3ForcePathStyle: new(forcePathStyle),
 	})
 	if err != nil {
 		l.Error(err)
@@ -230,7 +244,7 @@ func s3Access(
 	svc := s3.New(sess)
 
 	_, err = svc.HeadBucket(&s3.HeadBucketInput{
-		Bucket: aws.String(bucketName),
+		Bucket: new(bucketName),
 	})
 	if err != nil {
 		l.Error(err)
@@ -239,9 +253,9 @@ func s3Access(
 
 	testKey := "everest-write-test"
 	_, err = svc.PutObject(&s3.PutObjectInput{
-		Bucket: aws.String(bucketName),
+		Bucket: new(bucketName),
 		Body:   bytes.NewReader([]byte{}),
-		Key:    aws.String(testKey),
+		Key:    new(testKey),
 	})
 	if err != nil {
 		l.Error(err)
@@ -249,8 +263,8 @@ func s3Access(
 	}
 
 	_, err = svc.GetObject(&s3.GetObjectInput{
-		Bucket: aws.String(bucketName),
-		Key:    aws.String(testKey),
+		Bucket: new(bucketName),
+		Key:    new(testKey),
 	})
 	if err != nil {
 		l.Error(err)
@@ -258,15 +272,15 @@ func s3Access(
 	}
 
 	_, err = svc.ListObjectsV2(&s3.ListObjectsV2Input{
-		Bucket: aws.String(bucketName),
+		Bucket: new(bucketName),
 	})
 	if err != nil {
 		return errors.New("could not list objects in S3 bucket")
 	}
 
 	_, err = svc.DeleteObject(&s3.DeleteObjectInput{
-		Bucket: aws.String(bucketName),
-		Key:    aws.String(testKey),
+		Bucket: new(bucketName),
+		Key:    new(testKey),
 	})
 	if err != nil {
 		l.Error(err)
@@ -330,7 +344,6 @@ func basicStorageParamsAreChanged(bs *everestv1alpha1.BackupStorage, params *api
 	return false
 }
 
-//nolint:funlen
 func (h *validateHandler) validateUpdateBackupStorageRequest(
 	ctx context.Context,
 	l *zap.SugaredLogger,
