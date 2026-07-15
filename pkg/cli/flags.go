@@ -114,6 +114,8 @@ const (
 	FlagInstanceWatch = "watch"
 	// FlagInstanceInterval sets the poll interval for --watch.
 	FlagInstanceInterval = "interval"
+	// FlagInstanceAllNamespaces lists instances across all namespaces.
+	FlagInstanceAllNamespaces = "all-namespaces"
 
 	// settings flags.
 
