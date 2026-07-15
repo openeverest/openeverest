@@ -31,3 +31,12 @@ spec:
             type: string
           secretKey:
             type: string
+    shared-secret:
+      openAPIV3Schema:
+        type: object
+        properties:
+          username:
+            type: string
+          password:
+            type: string
+      shared: true

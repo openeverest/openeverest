@@ -15,11 +15,15 @@
 import {expect, test} from '@fixtures'
 import * as th from '@tests/utils/api';
 
-const secretName = 'test-secret-name'
+const secretName1 = 'test-secret-name-1'
+const secretName2 = 'test-secret-name-2'
+const secretName3 = 'test-secret-name-3'
 
 test.describe.parallel('Secrets tests', () => {
   test.afterAll(async ({request}) => {
-    await th.deleteSecret(request, secretName)
+    await th.deleteSecret(request, secretName1)
+    await th.deleteSecret(request, secretName2)
+    await th.deleteSecret(request, secretName3)
   })
 
   test('create/get/list/delete secret', async ({request}) => {
@@ -28,7 +32,7 @@ test.describe.parallel('Secrets tests', () => {
         apiVersion: 'v1',
         kind: 'Secret',
         metadata: {
-          name: secretName,
+          name: secretName1,
           labels: {
             'openeverest.io/definition': 'test-credentials',
             'openeverest.io/provider': 'test-provider',
@@ -50,8 +54,8 @@ test.describe.parallel('Secrets tests', () => {
     })
 
     await test.step('get secret', async () => {
-      const secret = await th.getSecret(request, secretName)
-      expect(secret.metadata.name).toBe(secretName)
+      const secret = await th.getSecret(request, secretName1)
+      expect(secret.metadata.name).toBe(secretName1)
       expect(secret.metadata.labels['openeverest.io/managed']).toBe('true')
       expect(secret.metadata.labels['openeverest.io/definition']).toBe('test-credentials')
       expect(secret.metadata.labels['openeverest.io/provider']).toBe('test-provider')
@@ -65,7 +69,7 @@ test.describe.parallel('Secrets tests', () => {
       expect(list.items.length).toBeGreaterThan(0)
       
       // Find our created secrets
-      const secret = list.items.find(s => s.metadata.name === secretName)
+      const secret = list.items.find(s => s.metadata.name === secretName1)
       
       expect(secret).toBeDefined()
       expect(secret.data).toBeUndefined()
@@ -75,7 +79,7 @@ test.describe.parallel('Secrets tests', () => {
     await test.step('list secrets with filters', async () => {
       const list = await th.listSecretsWithFilters(request, 'test-provider', 'test-credentials')
       
-      const secret1 = list.items.find(s => s.metadata.name === secretName)
+      const secret1 = list.items.find(s => s.metadata.name === secretName1)
       expect(secret1).toBeDefined()
       expect(secret1.metadata.labels['openeverest.io/definition']).toBe('test-credentials')
       
@@ -88,7 +92,7 @@ test.describe.parallel('Secrets tests', () => {
         apiVersion: 'v1',
         kind: 'Secret',
         metadata: {
-          name: th.limitedSuffixedName('no-definition'),
+          name: secretName2,
           labels: {
             'openeverest.io/provider': 'test-provider',
           },
@@ -110,15 +114,15 @@ test.describe.parallel('Secrets tests', () => {
         apiVersion: 'v1',
         kind: 'Secret',
         metadata: {
-          name: th.limitedSuffixedName('no-provider'),
+          name: secretName3,
           labels: {
-            'openeverest.io/definition': 'test-credentials',
+            'openeverest.io/definition': 'shared-secret',
           },
         },
         type: 'Opaque',
         stringData: {
-          accessKey: 'plainkey',
-          secretKey: 'plainsecret',
+          username: 'plainuser',
+          password: 'plainpassword',
         },
       }
 
@@ -127,10 +131,10 @@ test.describe.parallel('Secrets tests', () => {
     })
 
     await test.step('delete secret', async () => {
-      await th.deleteSecret(request, secretName)
+      await th.deleteSecret(request, secretName1)
       
       // Verify secret is deleted
-      const response = await th.getSecretRaw(request, secretName)
+      const response = await th.getSecretRaw(request, secretName1)
       expect(response.status()).toBe(404)
     })
   })

@@ -108,7 +108,7 @@ func (h *validateHandler) getSecretDefinition(ctx context.Context, providerName,
 	}
 
 	// No secret definition found
-	return nil, errors.Join(ErrInvalidRequest, fmt.Errorf("secret definition %q not found", definition))
+	return nil, errors.Join(ErrInvalidRequest, fmt.Errorf("shared secret definition %q not found for any provider", definition))
 }
 
 // validateSecretData validates the secret's data or stringData against the OpenAPI v3 schema.
