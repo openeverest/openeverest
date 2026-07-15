@@ -12,8 +12,45 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { expect, Page } from '@playwright/test';
+import { expect, Locator, Page } from '@playwright/test';
 import { TIMEOUTS } from '@e2e/constants';
+
+// Discriminated result of `resolveCreateEntryPoint`. The /databases page
+// exposes exactly one of two entry points for starting DB creation:
+//   - `toolbar` → the `add-db-cluster-button` in the table's top toolbar
+//     (populated list, user has create permission).
+//   - `tiles`   → the `provider-tile-*` grid rendered by the empty state.
+export type CreateEntryPoint =
+  | { mode: 'toolbar'; toolbarBtn: Locator }
+  | { mode: 'tiles'; tiles: Locator };
+
+// Waits until either the toolbar button or the tiles grid becomes visible on
+// the /databases page and reports which entry point is active. Consolidates
+// the previously duplicated `if toolbar.isVisible … else tile` probe.
+export const resolveCreateEntryPoint = async (
+  page: Page
+): Promise<CreateEntryPoint> => {
+  const toolbarBtn = page.getByTestId('add-db-cluster-button');
+  const tiles = page.locator('[data-testid^="provider-tile-"]');
+
+  await expect(toolbarBtn.or(tiles.first()).first()).toBeVisible({
+    timeout: TIMEOUTS.ThirtySeconds,
+  });
+
+  if (await toolbarBtn.isVisible().catch(() => false)) {
+    return { mode: 'toolbar', toolbarBtn };
+  }
+  return { mode: 'tiles', tiles };
+};
+
+// Opens the provider drawer (only present when multiple providers are
+// installed) and waits for its first menu item. Returns the drawer locator so
+// callers can enumerate items or click a specific one.
+export const openProviderDrawer = async (page: Page): Promise<Locator> => {
+  const menu = page.getByTestId('add-db-cluster-button-menu');
+  await menu.getByRole('menuitem').first().waitFor();
+  return menu;
+};
 
 // Opens the DB creation form from the /databases page. Works for both UI
 // states:
@@ -23,18 +60,10 @@ import { TIMEOUTS } from '@e2e/constants';
 //   - Empty list: the empty state renders `provider-tile-<provider>` tiles
 //     directly (no toolbar button).
 export const openDbCreationForm = async (page: Page, providerName?: string) => {
-  const toolbarBtn = page.getByTestId('add-db-cluster-button');
-  const tileFallback = providerName
-    ? page.getByTestId(`provider-tile-${providerName}`)
-    : page.locator('[data-testid^="provider-tile-"]').first();
+  const entry = await resolveCreateEntryPoint(page);
 
-  // Wait for either entry point to become available.
-  await expect(toolbarBtn.or(tileFallback).first()).toBeVisible({
-    timeout: TIMEOUTS.ThirtySeconds,
-  });
-
-  if (await toolbarBtn.isVisible().catch(() => false)) {
-    await toolbarBtn.click();
+  if (entry.mode === 'toolbar') {
+    await entry.toolbarBtn.click();
 
     // If the button opened a drawer (multiple providers), pick an item.
     const drawer = page.getByTestId('add-db-cluster-button-menu');
@@ -49,7 +78,10 @@ export const openDbCreationForm = async (page: Page, providerName?: string) => {
       await item.click();
     }
   } else {
-    await tileFallback.click();
+    const tile = providerName
+      ? page.getByTestId(`provider-tile-${providerName}`)
+      : entry.tiles.first();
+    await tile.click();
   }
 
   await page.waitForURL('/databases/new', { timeout: TIMEOUTS.ThirtySeconds });

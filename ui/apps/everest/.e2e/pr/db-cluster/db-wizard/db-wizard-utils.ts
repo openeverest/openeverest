@@ -17,6 +17,10 @@
 import { expect, Locator, Page } from '@playwright/test';
 import { getBucketNamespacesMap, TIMEOUTS } from '@e2e/constants';
 import { DbType } from '@percona/types';
+import {
+  openProviderDrawer,
+  resolveCreateEntryPoint,
+} from '@e2e/utils/db-wizard';
 
 export type ScheduleTimeOptions = {
   frequency: 'month' | 'week' | 'day' | 'hour';
@@ -205,44 +209,6 @@ export const openCreateScheduleDialogFromDBWizard = async (page: Page) => {
   await expect(
     page.getByTestId('new-scheduled-backup-form-dialog')
   ).toBeVisible();
-};
-
-// Discriminated result of `resolveCreateEntryPoint`. The /databases page
-// exposes exactly one of two entry points for starting DB creation:
-//   - `toolbar`  → the `add-db-cluster-button` in the table's top toolbar
-//     (populated list, user has create permission).
-//   - `tiles`    → the `provider-tile-*` grid rendered by the empty state.
-type CreateEntryPoint =
-  | { mode: 'toolbar'; toolbarBtn: Locator }
-  | { mode: 'tiles'; tiles: Locator };
-
-// Waits until either the toolbar button or the tiles grid becomes visible on
-// the /databases page and reports which entry point is active. This removes
-// the duplicated `if toolbar.isVisible … else tile` probe that previously
-// lived in every call site.
-const resolveCreateEntryPoint = async (
-  page: Page
-): Promise<CreateEntryPoint> => {
-  const toolbarBtn = page.getByTestId('add-db-cluster-button');
-  const tiles = page.locator('[data-testid^="provider-tile-"]');
-
-  await expect(toolbarBtn.or(tiles.first()).first()).toBeVisible({
-    timeout: TIMEOUTS.ThirtySeconds,
-  });
-
-  if (await toolbarBtn.isVisible().catch(() => false)) {
-    return { mode: 'toolbar', toolbarBtn };
-  }
-  return { mode: 'tiles', tiles };
-};
-
-// Opens the drawer that lists providers (only present when multiple providers
-// are installed) and waits for its first menu item. Returns the menu locator
-// so callers can enumerate items or click a specific one.
-const openProviderDrawer = async (page: Page): Promise<Locator> => {
-  const menu = page.getByTestId('add-db-cluster-button-menu');
-  await menu.getByRole('menuitem').first().waitFor();
-  return menu;
 };
 
 // Drives the "open creation flow" entry point on the /databases page across
