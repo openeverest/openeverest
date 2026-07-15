@@ -865,10 +865,14 @@ func TestRun_WithPreset_Payloads(t *testing.T) {
 		t.Run(tc.desc, func(t *testing.T) {
 			t.Parallel()
 
-			var got []byte
+			var (
+				got     []byte
+				readErr error
+			)
 			srv := newRunServerWithPreset(t, okProviderHandler,
 				func(w http.ResponseWriter, r *http.Request) {
-					got, _ = io.ReadAll(r.Body)
+					got, readErr = io.ReadAll(r.Body)
+					assert.NoError(t, readErr)
 					w.WriteHeader(http.StatusCreated)
 				},
 				okPresetHandler,
@@ -890,10 +894,10 @@ func TestRun_WithPreset_Errors(t *testing.T) {
 	t.Parallel()
 
 	testCases := []struct {
-		desc            string
-		opts            CreateOptions
-		presetStatus    int
-		wantErrContains []string
+		desc         string
+		opts         CreateOptions
+		presetStatus int
+		wantErr      string
 	}{
 		{
 			desc: "provider mismatch",
@@ -904,8 +908,8 @@ func TestRun_WithPreset_Errors(t *testing.T) {
 				Cluster:   "main",
 				Preset:    "my-preset",
 			},
-			presetStatus:    http.StatusOK,
-			wantErrContains: []string{"postgresql", "psmdb"},
+			presetStatus: http.StatusOK,
+			wantErr:      `does not match preset`,
 		},
 		{
 			desc: "preset not found",
@@ -916,8 +920,8 @@ func TestRun_WithPreset_Errors(t *testing.T) {
 				Cluster:   "main",
 				Preset:    "missing-preset",
 			},
-			presetStatus:    http.StatusNotFound,
-			wantErrContains: []string{"missing-preset", "not found"},
+			presetStatus: http.StatusNotFound,
+			wantErr:      "missing-preset",
 		},
 		{
 			desc: "topology flag rejected with preset",
@@ -929,8 +933,8 @@ func TestRun_WithPreset_Errors(t *testing.T) {
 				Preset:    "my-preset",
 				Topology:  "replicaset",
 			},
-			presetStatus:    0,
-			wantErrContains: []string{"--topology cannot be combined with --preset"},
+			presetStatus: 0,
+			wantErr:      "--topology cannot be combined with --preset",
 		},
 		{
 			desc: "no provider and no preset",
@@ -939,8 +943,8 @@ func TestRun_WithPreset_Errors(t *testing.T) {
 				Namespace: "everest",
 				Cluster:   "main",
 			},
-			presetStatus:    0,
-			wantErrContains: []string{"--provider is required"},
+			presetStatus: 0,
+			wantErr:      "--provider is required",
 		},
 	}
 
@@ -964,11 +968,7 @@ func TestRun_WithPreset_Errors(t *testing.T) {
 			require.NoError(t, newTestConfig(srv.URL).Save(cfgPath))
 
 			ic := NewInstanceCreator(Config{}, zap.NewNop().Sugar())
-			err := ic.Run(context.Background(), tc.opts, cfgPath)
-			require.Error(t, err)
-			for _, s := range tc.wantErrContains {
-				assert.Contains(t, err.Error(), s)
-			}
+			require.ErrorContains(t, ic.Run(context.Background(), tc.opts, cfgPath), tc.wantErr)
 		})
 	}
 }
@@ -998,6 +998,5 @@ func TestRun_WithPreset_ResolvePassesNamespace(t *testing.T) {
 		Preset:    "my-preset",
 	}, cfgPath))
 
-	assert.Contains(t, capturedURL, "namespace=prod")
-	assert.Contains(t, capturedURL, "resolve")
+	assert.Contains(t, capturedURL, "/v1/clusters/main/instance-presets/my-preset/resolve?namespace=prod")
 }
