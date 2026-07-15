@@ -15,6 +15,7 @@
 package v1alpha1
 
 import (
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 )
@@ -40,6 +41,10 @@ type ProviderSpec struct {
 	// +optional
 	// +kubebuilder:pruning:PreserveUnknownFields
 	UISchema *runtime.RawExtension `json:"uiSchema,omitempty"`
+
+	// Secrets defines Secret types this provider supports.
+	// +optional
+	Secrets map[string]SecretDefinition `json:"secrets,omitempty"`
 }
 
 // VersionBundle is a curated set of component versions known to be mutually
@@ -90,6 +95,27 @@ type TopologyComponent struct {
 	Optional bool `json:"optional,omitempty"`
 	// TODO: Do we need defaults?
 	// Defaults map[string]interface{} `json:"defaults,omitempty"`
+}
+
+// SecretDefinition describes a Secret type that a provider supports.
+type SecretDefinition struct {
+	// UISchema holds UI rendering hints for the secret creation form.
+	// +optional
+	// +kubebuilder:pruning:PreserveUnknownFields
+	UISchema *runtime.RawExtension `json:"uiSchema,omitempty"`
+
+	// OpenAPIV3Schema is the OpenAPI v3 schema for validating secret data/stringData.
+	// +optional
+	// +kubebuilder:pruning:PreserveUnknownFields
+	// +kubebuilder:validation:Schemaless
+	OpenAPIV3Schema *apiextensionsv1.JSONSchemaProps `json:"openAPIV3Schema,omitempty"`
+
+	// Shared indicates this secret definition is shared across multiple providers.
+	// When true, secrets with the same definition can be used by other providers.
+	// Each provider still explicitly declares its secret schema,
+	// it would cause issues if the schema is declared differently by different providers.
+	// +optional
+	Shared bool `json:"shared,omitempty"`
 }
 
 // ProviderStatus defines the observed state of Provider.

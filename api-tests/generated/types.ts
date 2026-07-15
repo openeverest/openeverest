@@ -2319,6 +2319,22 @@ export interface components {
                 };
                 /** @description GlobalConfigSchema holds the OpenAPI v3 schema for the global configuration. */
                 globalConfigSchema?: Record<string, never>;
+                /** @description Secrets defines Secret types this provider supports. */
+                secrets?: {
+                    [key: string]: {
+                        /** @description OpenAPIV3Schema is the OpenAPI v3 schema for validating secret data/stringData. */
+                        openAPIV3Schema?: unknown;
+                        /**
+                         * @description Shared indicates this secret definition is shared across multiple providers.
+                         *     When true, secrets with the same definition can be used by other providers.
+                         *     Each provider still explicitly declares its secret schema,
+                         *     it would cause issues if the schema is declared differently by different providers.
+                         */
+                        shared?: boolean;
+                        /** @description UISchema holds UI rendering hints for the secret creation form. */
+                        uiSchema?: Record<string, never>;
+                    };
+                };
                 topologies?: {
                     [key: string]: {
                         components?: {

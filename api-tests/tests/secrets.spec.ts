@@ -116,8 +116,9 @@ test.describe.parallel('Secrets tests', () => {
           },
         },
         type: 'Opaque',
-        data: {
-          key: Buffer.from('value').toString('base64'),
+        stringData: {
+          accessKey: 'plainkey',
+          secretKey: 'plainsecret',
         },
       }
 

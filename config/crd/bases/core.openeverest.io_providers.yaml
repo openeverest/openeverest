@@ -76,6 +76,30 @@ spec:
                   global configuration.
                 type: object
                 x-kubernetes-preserve-unknown-fields: true
+              secrets:
+                additionalProperties:
+                  description: SecretDefinition describes a Secret type that a provider
+                    supports.
+                  properties:
+                    openAPIV3Schema:
+                      description: OpenAPIV3Schema is the OpenAPI v3 schema for validating
+                        secret data/stringData.
+                      x-kubernetes-preserve-unknown-fields: true
+                    shared:
+                      description: |-
+                        Shared indicates this secret definition is shared across multiple providers.
+                        When true, secrets with the same definition can be used by other providers.
+                        Each provider still explicitly declares its secret schema,
+                        it would cause issues if the schema is declared differently by different providers.
+                      type: boolean
+                    uiSchema:
+                      description: UISchema holds UI rendering hints for the secret
+                        creation form.
+                      type: object
+                      x-kubernetes-preserve-unknown-fields: true
+                  type: object
+                description: Secrets defines Secret types this provider supports.
+                type: object
               topologies:
                 additionalProperties:
                   properties:
