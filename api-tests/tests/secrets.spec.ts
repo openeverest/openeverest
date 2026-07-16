@@ -109,7 +109,7 @@ test.describe.parallel('Secrets tests', () => {
       expect(error.message).toContain('definition')
     })
 
-    await test.step('create secret without provider label', async () => {
+    await test.step('create secret without provider label should fail', async () => {
       const data = {
         apiVersion: 'v1',
         kind: 'Secret',
@@ -127,7 +127,9 @@ test.describe.parallel('Secrets tests', () => {
       }
 
       const response = await th.createSecretRaw(request, data)
-      expect(response.status()).toBe(201)
+      expect(response.status()).toBe(400)
+      const error = await response.json()
+      expect(error.message).toContain('provider')
     })
 
     await test.step('delete secret', async () => {

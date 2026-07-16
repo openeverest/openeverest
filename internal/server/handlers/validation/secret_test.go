@@ -65,21 +65,6 @@ func TestCreateSecret_Validation(t *testing.T) {
 		},
 	}
 
-	// Provider with shared secret definition.
-	providerWithSharedSchema := &corev1alpha1.Provider{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "shared-provider",
-		},
-		Spec: corev1alpha1.ProviderSpec{
-			Secrets: map[string]corev1alpha1.SecretDefinition{
-				"shared-credentials": {
-					OpenAPIV3Schema: requiredSchema,
-					Shared:          true,
-				},
-			},
-		},
-	}
-
 	scheme := runtime.NewScheme()
 	require.NoError(t, corev1.AddToScheme(scheme))
 	require.NoError(t, corev1alpha1.AddToScheme(scheme))
@@ -127,12 +112,12 @@ func TestCreateSecret_Validation(t *testing.T) {
 			providers: []*corev1alpha1.Provider{providerWithSchema},
 		},
 		{
-			name: "valid secret without provider",
+			name: "missing provider label",
 			secret: &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
-					Name: "shared-secret",
+					Name: "no-provider-label",
 					Labels: map[string]string{
-						common.OpenEverestDefinitionLabel: "shared-credentials",
+						common.OpenEverestDefinitionLabel: "database-credentials",
 						// No provider label
 					},
 				},
@@ -142,7 +127,8 @@ func TestCreateSecret_Validation(t *testing.T) {
 					"password": "secret123",
 				},
 			},
-			providers: []*corev1alpha1.Provider{providerWithSharedSchema},
+			providers: []*corev1alpha1.Provider{providerWithSchema},
+			err:       "provider label",
 		},
 		{
 			name: "missing definition label",
@@ -235,24 +221,6 @@ func TestCreateSecret_Validation(t *testing.T) {
 			err:       "failed to get provider",
 		},
 
-		{
-			name: "no provider label and no shared definition found",
-			secret: &corev1.Secret{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "no-shared-def",
-					Labels: map[string]string{
-						common.OpenEverestDefinitionLabel: "database-credentials",
-						// No provider label
-					},
-				},
-				Type: corev1.SecretTypeOpaque,
-				StringData: map[string]string{
-					"key": "value",
-				},
-			},
-			providers: []*corev1alpha1.Provider{providerWithSchema}, // has definition but not shared
-			err:       "not found",
-		},
 		{
 			name: "empty secret data",
 			secret: &corev1.Secret{

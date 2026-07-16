@@ -44,6 +44,10 @@ func (h *validateHandler) CreateSecret(ctx context.Context, cluster, namespace s
 	definition := labels[common.OpenEverestDefinitionLabel]
 	providerName := labels[common.OpenEverestProviderLabel]
 
+	if providerName == "" {
+		return nil, errors.Join(ErrInvalidRequest, errors.New("secret must have a provider label"))
+	}
+
 	// Get the secret definition schema for validation.
 	secretDef, err := h.getSecretDefinition(ctx, providerName, definition)
 	if err != nil {
@@ -76,39 +80,20 @@ func (h *validateHandler) DeleteSecret(ctx context.Context, cluster, namespace, 
 	return h.next.DeleteSecret(ctx, cluster, namespace, name)
 }
 
-// getSecretDefinition retrieves the secret definition from provider(s).
-// If providerName is set, it fetches that specific provider.
-// If providerName is empty, it lists all providers and finds one with the definition marked as shared.
+// getSecretDefinition retrieves the secret definition from the provider.
 func (h *validateHandler) getSecretDefinition(ctx context.Context, providerName, definition string) (*corev1alpha1.SecretDefinition, error) {
-	if providerName != "" {
-		// Fetch the specific provider.
-		provider, err := h.kubeConnector.GetProvider(ctx, ctrlclient.ObjectKey{Name: providerName})
-		if err != nil {
-			return nil, errors.Join(ErrInvalidRequest, fmt.Errorf("failed to get provider %q: %w", providerName, err))
-		}
-
-		secretDef, ok := provider.Spec.Secrets[definition]
-		if !ok {
-			return nil, errors.Join(ErrInvalidRequest, fmt.Errorf("secret definition %q not found in provider %q", definition, providerName))
-		}
-
-		return &secretDef, nil
-	}
-
-	// Provider not set - list all providers and find one with shared definition.
-	providers, err := h.kubeConnector.ListProviders(ctx)
+	// Fetch the specific provider.
+	provider, err := h.kubeConnector.GetProvider(ctx, ctrlclient.ObjectKey{Name: providerName})
 	if err != nil {
-		return nil, fmt.Errorf("failed to list providers: %w", err)
+		return nil, errors.Join(ErrInvalidRequest, fmt.Errorf("failed to get provider %q: %w", providerName, err))
 	}
 
-	for _, provider := range providers.Items {
-		if secretDef, ok := provider.Spec.Secrets[definition]; ok && secretDef.Shared {
-			return &secretDef, nil
-		}
+	secretDef, ok := provider.Spec.Secrets[definition]
+	if !ok {
+		return nil, errors.Join(ErrInvalidRequest, fmt.Errorf("secret definition %q not found in provider %q", definition, providerName))
 	}
 
-	// No secret definition found
-	return nil, errors.Join(ErrInvalidRequest, fmt.Errorf("shared secret definition %q not found for any provider", definition))
+	return &secretDef, nil
 }
 
 // validateSecretData validates the secret's data or stringData against the OpenAPI v3 schema.

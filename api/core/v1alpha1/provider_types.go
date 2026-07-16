@@ -109,13 +109,6 @@ type SecretDefinition struct {
 	// +kubebuilder:pruning:PreserveUnknownFields
 	// +kubebuilder:validation:Schemaless
 	OpenAPIV3Schema *apiextensionsv1.JSONSchemaProps `json:"openAPIV3Schema,omitempty"` //nolint:tagliatelle
-
-	// Shared indicates this secret definition is shared across multiple providers.
-	// When true, secrets with the same definition can be used by other providers.
-	// Each provider still explicitly declares its secret schema,
-	// it would cause issues if the schema is declared differently by different providers.
-	// +optional
-	Shared bool `json:"shared,omitempty"`
 }
 
 // ProviderStatus defines the observed state of Provider.
