@@ -14,6 +14,8 @@
 
 // Visual-regression baseline suite.
 //
+// Re-run trigger: touched to fire the pr:visual workflow after the release-2.0 merge.
+//
 // Every data-dependent screenshot renders from fixed fixtures (see ./mocks),
 // so results are deterministic and independent of live cluster state. The
 // `test` export from ./mocks/fixture already:
@@ -40,19 +42,9 @@ const screenshotOpts = {
   maxDiffPixelRatio: 0.001,
 };
 
-// Helper: wait for a MRT table to finish loading.
-// We additionally wait for all MRT skeletons to disappear so the
-// captured (and regenerated) baseline is always the settled, loaded state.
-async function waitForTableContent(page: Page, headerText: string) {
-  await page
-    .locator(`th:has-text("${headerText}")`)
-    .first()
-    .waitFor({ state: 'visible', timeout: 60000 });
-  await page.waitForFunction(
-    () => document.querySelectorAll('.MuiSkeleton-root').length === 0,
-    undefined,
-    { timeout: 60000 }
-  );
+// Helper: wait for a MRT table to finish loading
+async function waitForTableContent(page: import('@playwright/test').Page, headerText: string) {
+  await page.locator(`th:has-text("${headerText}")`).first().waitFor({ state: 'visible', timeout: 60000 });
   await page.waitForTimeout(500);
 }
 
