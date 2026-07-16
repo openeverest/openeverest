@@ -18,7 +18,6 @@ import (
 	"context"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
@@ -89,7 +88,7 @@ func TestCreateSecret_Validation(t *testing.T) {
 				},
 			},
 			providers: []*corev1alpha1.Provider{provider},
-			err:       "provider label",
+			err:       "missing openeverest.io/provider label",
 		},
 		{
 			name: "missing definition label fails",
@@ -104,7 +103,7 @@ func TestCreateSecret_Validation(t *testing.T) {
 				},
 			},
 			providers: []*corev1alpha1.Provider{provider},
-			err:       "definition label",
+			err:       "missing openeverest.io/definition label",
 		},
 		{
 			name: "secret not conforming to schema fails",
@@ -120,7 +119,7 @@ func TestCreateSecret_Validation(t *testing.T) {
 				// No data or stringData
 			},
 			providers: []*corev1alpha1.Provider{provider},
-			err:       "is required",
+			err:       "secret does not conform to schema",
 		},
 		{
 			name: "invalid secret name fails",
@@ -139,7 +138,7 @@ func TestCreateSecret_Validation(t *testing.T) {
 				},
 			},
 			providers: []*corev1alpha1.Provider{provider},
-			err:       "name",
+			err:       "'name' can be at most 22 characters long",
 		},
 	}
 
@@ -164,17 +163,8 @@ func TestCreateSecret_Validation(t *testing.T) {
 				next:          mockNext,
 			}
 
-			result, err := handler.CreateSecret(ctx, cluster, namespace, tt.secret)
-
-			if tt.err != "" {
-				require.ErrorContains(t, err, tt.err)
-
-				return
-			}
-
-			require.NoError(t, err)
-			assert.NotNil(t, result)
-			mockNext.AssertCalled(t, "CreateSecret", mock.Anything, cluster, namespace, tt.secret)
+			_, err := handler.CreateSecret(ctx, cluster, namespace, tt.secret)
+			require.ErrorContains(t, err, tt.err)
 		})
 	}
 }
