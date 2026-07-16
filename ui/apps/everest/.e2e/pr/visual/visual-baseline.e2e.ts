@@ -43,8 +43,14 @@ const screenshotOpts = {
 };
 
 // Helper: wait for a MRT table to finish loading
-async function waitForTableContent(page: import('@playwright/test').Page, headerText: string) {
-  await page.locator(`th:has-text("${headerText}")`).first().waitFor({ state: 'visible', timeout: 60000 });
+async function waitForTableContent(
+  page: import('@playwright/test').Page,
+  headerText: string
+) {
+  await page
+    .locator(`th:has-text("${headerText}")`)
+    .first()
+    .waitFor({ state: 'visible', timeout: 60000 });
   await page.waitForTimeout(500);
 }
 
