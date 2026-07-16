@@ -117,6 +117,13 @@ const (
 	// FlagInstanceInterval sets the poll interval for --watch.
 	FlagInstanceInterval = "interval"
 
+	// `provider` flags.
+
+	// FlagProviderCluster is the name of the cluster flag.
+	FlagProviderCluster = "cluster"
+	// FlagProviderContext overrides the active context for this command.
+	FlagProviderContext = "context"
+
 	// settings flags.
 
 	// FlagOIDCIssuerURL is the name of the issuer-url flag.
