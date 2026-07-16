@@ -41,7 +41,7 @@ import (
 	"github.com/openeverest/openeverest/v2/pkg/common"
 	"github.com/openeverest/openeverest/v2/pkg/kubernetes"
 	"github.com/openeverest/openeverest/v2/pkg/output"
-	. "github.com/openeverest/openeverest/v2/pkg/utils/must" //nolint:revive,stylecheck
+	. "github.com/openeverest/openeverest/v2/pkg/utils/must" //nolint:revive,staticcheck
 	"github.com/openeverest/openeverest/v2/pkg/version"
 	versionservice "github.com/openeverest/openeverest/v2/pkg/version_service"
 )
@@ -53,8 +53,8 @@ const (
 
 // Installer implements the main logic for commands.
 type (
-	// InstallConfig holds the configuration for the `install` command.
-	InstallConfig struct {
+	// Config holds the configuration for the `install` command.
+	Config struct {
 		// KubeconfigPath is the path to the kubeconfig file.
 		KubeconfigPath string
 		// Namespace is the namespace where OpenEverest will be installed.
@@ -85,7 +85,7 @@ type (
 	// Installer provides the functionality to install Everest.
 	Installer struct {
 		l              *zap.SugaredLogger
-		cfg            InstallConfig
+		cfg            Config
 		kubeClient     kubernetes.KubernetesConnector
 		versionService versionservice.Interface
 		// these are set only when Run is called.
@@ -96,9 +96,9 @@ type (
 
 // ------ Install Config ------
 
-// NewInstallConfig returns a new InstallConfig.
-func NewInstallConfig() InstallConfig {
-	return InstallConfig{
+// NewInstallConfig returns a new Config.
+func NewInstallConfig() Config {
+	return Config{
 		ClusterType:        kubernetes.ClusterTypeUnknown,
 		Pretty:             true,
 		NamespaceAddConfig: namespaces.NewNamespaceAddConfig(),
@@ -106,7 +106,7 @@ func NewInstallConfig() InstallConfig {
 }
 
 // detectKubernetesEnv detects the Kubernetes environment where Everest is installed.
-func (cfg *InstallConfig) detectKubernetesEnv(ctx context.Context, l *zap.SugaredLogger) error {
+func (cfg *Config) detectKubernetesEnv(ctx context.Context, l *zap.SugaredLogger) error {
 	if cfg.SkipEnvDetection {
 		return nil
 	}
@@ -133,7 +133,7 @@ func (cfg *InstallConfig) detectKubernetesEnv(ctx context.Context, l *zap.Sugare
 // ------ Installer ------
 
 // NewInstall returns a new Installer struct.
-func NewInstall(c InstallConfig, l *zap.SugaredLogger) (*Installer, error) {
+func NewInstall(c Config, l *zap.SugaredLogger) (*Installer, error) {
 	cli := &Installer{
 		l: l.With("component", "install"),
 	}
@@ -171,7 +171,7 @@ func (o *Installer) Run(ctx context.Context) error {
 
 	if version.IsDev(o.installVersion) && o.cfg.HelmConfig.ChartDir == "" {
 		// Note: n.cfg.HelmConfig.ChartDir will be rewritten inside SetupEverestDevChart
-		cleanup, err := helmutils.SetupEverestDevChart(o.l, &o.cfg.HelmConfig.ChartDir)
+		cleanup, err := helmutils.SetupEverestDevChart(ctx, o.l, &o.cfg.HelmConfig.ChartDir)
 		if err != nil {
 			return err
 		}
@@ -261,7 +261,6 @@ func (o *Installer) printPostInstallMessage(out io.Writer) {
 	webURL := fmt.Sprintf("%s://localhost:%d", urlScheme, pfSrcPort)
 	portFwdCmd := fmt.Sprintf("kubectl port-forward -n %s svc/%s %d:%d", o.kubeClient.Namespace(), svcName, pfSrcPort, targetPort)
 	message += fmt.Sprintf("\n\n%s", output.Numeric(count, "%s", titleStyle.Render("ACCESS THE EVEREST UI:")))
-	count++
 	message += fmt.Sprintf("To access the web UI, set up port-forwarding and visit %s in your browser:\n\n", webURL)
 	message += fmt.Sprintf("\t%s\n", commandStyle.Render(portFwdCmd))
 

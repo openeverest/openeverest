@@ -65,7 +65,8 @@ type Config struct {
 func (cfg *Config) PopulateIssuerURL(ctx context.Context) error {
 	// ask user to provide issuer URL
 	var err error
-	if cfg.IssuerURL, err = tui.NewInput(ctx, "Provide issuer URL",
+	if cfg.IssuerURL, err = tui.NewInput(
+		ctx, "Provide issuer URL",
 		tui.WithInputValidation(ValidateURL),
 	).Run(); err != nil {
 		return err
@@ -82,7 +83,8 @@ func (cfg *Config) PopulateIssuerURL(ctx context.Context) error {
 func (cfg *Config) PopulateClientID(ctx context.Context) error {
 	// ask user to provide client ID
 	var err error
-	if cfg.ClientID, err = tui.NewInput(ctx, "Provide Client ID",
+	if cfg.ClientID, err = tui.NewInput(
+		ctx, "Provide Client ID",
 		tui.WithInputValidation(ValidateClientID),
 	).Run(); err != nil {
 		return err
@@ -139,7 +141,7 @@ func (u *OIDC) getOIDCProviderConfigureSteps() []steps.Step {
 			// Check if we can connect to the provider.
 			if _, err := NewProviderConfig(ctx, u.config.IssuerURL); err != nil {
 				if errors.Is(err, ErrUnexpectedSatusCode) {
-					return fmt.Errorf("failed to connect with OIDC provider due to incorrect response: %s", err)
+					return fmt.Errorf("failed to connect with OIDC provider due to incorrect response: %w", err)
 				}
 				return fmt.Errorf("failed to connect with OIDC provider: %w", err)
 			}
@@ -147,36 +149,38 @@ func (u *OIDC) getOIDCProviderConfigureSteps() []steps.Step {
 		},
 	})
 
-	stepList = append(stepList, steps.Step{
-		Desc: "Updating Everest settings",
-		F: func(ctx context.Context) error {
-			oidcCfg := common.OIDCConfig{
-				IssuerURL: u.config.IssuerURL,
-				ClientID:  u.config.ClientID,
-				Scopes:    u.config.Scopes,
-			}
+	stepList = append(
+		stepList, steps.Step{
+			Desc: "Updating Everest settings",
+			F: func(ctx context.Context) error {
+				oidcCfg := common.OIDCConfig{
+					IssuerURL: u.config.IssuerURL,
+					ClientID:  u.config.ClientID,
+					Scopes:    u.config.Scopes,
+				}
 
-			oidcRaw, err := oidcCfg.Raw()
-			if err != nil {
-				return err
-			}
-			return u.kubeClient.UpdateEverestSettings(ctx, common.EverestSettings{
-				OIDCConfigRaw: oidcRaw,
-			})
+				oidcRaw, err := oidcCfg.Raw()
+				if err != nil {
+					return err
+				}
+				return u.kubeClient.UpdateEverestSettings(ctx, common.EverestSettings{
+					OIDCConfigRaw: oidcRaw,
+				})
+			},
 		},
-	},
 	)
 
 	// Restart Everest to apply the changes.
-	stepList = append(stepList, steps.Step{
-		Desc: "Restarting Everest",
-		F: func(ctx context.Context) error {
-			return u.kubeClient.RestartDeployment(ctx, types.NamespacedName{
-				Namespace: u.kubeClient.Namespace(),
-				Name:      common.PerconaEverestDeploymentName,
-			})
+	stepList = append(
+		stepList, steps.Step{
+			Desc: "Restarting Everest",
+			F: func(ctx context.Context) error {
+				return u.kubeClient.RestartDeployment(ctx, types.NamespacedName{
+					Namespace: u.kubeClient.Namespace(),
+					Name:      common.PerconaEverestDeploymentName,
+				})
+			},
 		},
-	},
 	)
 
 	return stepList

@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -48,13 +49,13 @@ func init() {
 	uninstallCmd.Flags().BoolVar(&uninstallCfg.SkipEnvDetection, cli.FlagSkipEnvDetection, false, "Skip detecting Kubernetes environment where Everest is installed")
 }
 
-func uninstallPreRun(_ *cobra.Command, _ []string) { //nolint:revive
+func uninstallPreRun(_ *cobra.Command, _ []string) {
 	// Copy global flags to config
 	uninstallCfg.Pretty = rootCmdFlags.Pretty
 	uninstallCfg.KubeconfigPath = rootCmdFlags.KubeconfigPath
 }
 
-func uninstallRun(cmd *cobra.Command, _ []string) { //nolint:revive
+func uninstallRun(cmd *cobra.Command, _ []string) {
 	op, err := uninstall.NewUninstall(*uninstallCfg, logger.GetLogger())
 	if err != nil {
 		output.PrintError(err, logger.GetLogger(), uninstallCfg.Pretty)

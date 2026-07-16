@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -44,7 +45,7 @@ type Values struct {
 }
 
 // ParseValues parses the given values map into a Values struct.
-func ParseValues(values map[string]interface{}) (*Values, error) {
+func ParseValues(values map[string]any) (*Values, error) {
 	result := &Values{}
 	jsonBytes, err := json.Marshal(values)
 	if err != nil {

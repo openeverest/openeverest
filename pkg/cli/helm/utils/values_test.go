@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -23,12 +24,13 @@ import (
 )
 
 func TestParseValues(t *testing.T) {
-	in := map[string]interface{}{
-		"server": map[string]interface{}{
-			"tls": map[string]interface{}{
+	t.Parallel()
+	in := map[string]any{
+		"server": map[string]any{
+			"tls": map[string]any{
 				"enabled": true,
 			},
-			"service": map[string]interface{}{
+			"service": map[string]any{
 				"name": "test",
 				"port": 8080,
 			},
@@ -37,7 +39,7 @@ func TestParseValues(t *testing.T) {
 
 	result, err := ParseValues(in)
 	require.NoError(t, err)
-	assert.Equal(t, result.Server.TLS.Enabled, true)
-	assert.Equal(t, result.Server.Service.Name, "test")
-	assert.Equal(t, result.Server.Service.Port, 8080)
+	assert.True(t, result.Server.TLS.Enabled)
+	assert.Equal(t, "test", result.Server.Service.Name)
+	assert.Equal(t, 8080, result.Server.Service.Port)
 }

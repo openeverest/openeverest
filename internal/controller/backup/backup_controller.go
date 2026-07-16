@@ -206,9 +206,9 @@ func (r *BackupReconciler) Reconcile( //nolint:nonamedreturns
 		}
 	}()
 
-	if bc.Spec.Job == nil || bc.Spec.Job.JobSpec == nil {
+	if bc.Spec.Job == nil || bc.Spec.Job.Backup.JobSpec == nil {
 		backup.Status.State = backupv1alpha1.BackupStateFailed
-		backup.Status.Message = "BackupClass uses Job execution mode but does not define spec.job.jobSpec"
+		backup.Status.Message = "BackupClass uses Job execution mode but does not define spec.job.backup.jobSpec"
 		return ctrl.Result{}, nil
 	}
 
@@ -231,7 +231,7 @@ func (r *BackupReconciler) Reconcile( //nolint:nonamedreturns
 	}
 
 	// Create RBAC resources.
-	requiresRbac := len(bc.Spec.Job.Permissions) > 0 || len(bc.Spec.Job.ClusterPermissions) > 0
+	requiresRbac := len(bc.Spec.Job.Backup.Permissions) > 0 || len(bc.Spec.Job.Backup.ClusterPermissions) > 0
 	if requiresRbac { //nolint:nestif
 		if controllerutil.AddFinalizer(backup, backupRBACCleanupFinalizer) {
 			if err := r.Client.Update(ctx, backup); err != nil {
@@ -243,7 +243,7 @@ func (r *BackupReconciler) Reconcile( //nolint:nonamedreturns
 			backup.Status.Message = fmt.Errorf("failed to ensure service account: %w", err).Error()
 			return ctrl.Result{}, err
 		}
-		if err := r.ensureRBACResources(ctx, backup, bc.Spec.Job.Permissions, bc.Spec.Job.ClusterPermissions); err != nil {
+		if err := r.ensureRBACResources(ctx, backup, bc.Spec.Job.Backup.Permissions, bc.Spec.Job.Backup.ClusterPermissions); err != nil {
 			backup.Status.State = backupv1alpha1.BackupStateError
 			backup.Status.Message = fmt.Errorf("failed to ensure RBAC resources: %w", err).Error()
 			return ctrl.Result{}, err
@@ -506,8 +506,8 @@ func (r *BackupReconciler) getJobSpec(
 				RestartPolicy:                 corev1.RestartPolicyNever,
 				Containers: []corev1.Container{{
 					Name:    "importer",
-					Image:   bc.Spec.Job.JobSpec.Image,
-					Command: bc.Spec.Job.JobSpec.Command,
+					Image:   bc.Spec.Job.Backup.JobSpec.Image,
+					Command: bc.Spec.Job.Backup.JobSpec.Command,
 					Args:    []string{fmt.Sprintf("%s/%s", payloadMountPath, backupJobJSONSecretKey)},
 					VolumeMounts: []corev1.VolumeMount{
 						{

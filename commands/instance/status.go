@@ -17,6 +17,7 @@ package instance
 
 import (
 	"os"
+	"time"
 
 	"github.com/spf13/cobra"
 
@@ -36,12 +37,22 @@ var (
 
 Shows the phase, version, per-component ready/total counts, and Kubernetes
 conditions reported by the Everest API. Pass --json / --verbose to get the
-raw API response instead of the formatted table.`,
-		Example: `  # Status of an instance in the default cluster
+raw API response instead of the formatted table.
+
+With --watch / -w the command polls continuously until Ctrl-C, token expiry,
+or the instance is deleted. Each tick appends a --- separator in pretty mode,
+or emits one JSON object per line (NDJSON) in --json mode.`,
+		Example: `  # Single fetch
   everestctl instance status --name my-mongo --namespace everest
 
-  # Raw JSON output
-  everestctl instance status --name my-mongo --namespace everest --json
+  # Continuously watch until Ctrl-C
+  everestctl instance status --name my-mongo --namespace everest --watch
+
+  # Watch with custom poll interval
+  everestctl instance status --name my-mongo --namespace everest -w --interval 5s
+
+  # Stream NDJSON — pipe to jq
+  everestctl instance status --name my-mongo --namespace everest --watch --json | jq '.status.phase'
 
   # Specific cluster and context
   everestctl instance status --name my-mongo --namespace everest \
@@ -58,6 +69,8 @@ func init() {
 	statusCmd.Flags().StringVar(&statusOpts.Namespace, cli.FlagInstanceNamespace, "", "Namespace the instance lives in (required)")
 	statusCmd.Flags().StringVar(&statusOpts.Cluster, cli.FlagInstanceCluster, "main", "Cluster name")
 	statusCmd.Flags().StringVar(&statusOpts.Context, cli.FlagInstanceContext, "", "Context to use (default: current context)")
+	statusCmd.Flags().BoolVarP(&statusOpts.Watch, cli.FlagInstanceWatch, "w", false, "Poll continuously until Ctrl-C or token expiry")
+	statusCmd.Flags().DurationVar(&statusOpts.Interval, cli.FlagInstanceInterval, 2*time.Second, "Poll interval (only valid with --watch)")
 
 	_ = statusCmd.MarkFlagRequired(cli.FlagInstanceName)
 	_ = statusCmd.MarkFlagRequired(cli.FlagInstanceNamespace)

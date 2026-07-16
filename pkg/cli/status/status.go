@@ -38,8 +38,8 @@ import (
 	"github.com/openeverest/openeverest/v2/pkg/version"
 )
 
-// StatusConfig holds the configuration for the `status` command.
-type StatusConfig struct {
+// Config holds the configuration for the `status` command.
+type Config struct {
 	// KubeconfigPath is the path to the kubeconfig file.
 	KubeconfigPath string
 	// Pretty if set print the output in pretty mode.
@@ -51,7 +51,7 @@ type StatusConfig struct {
 // Status provides the functionality to check Everest health.
 type Status struct {
 	l          *zap.SugaredLogger
-	cfg        StatusConfig
+	cfg        Config
 	kubeClient kubernetes.KubernetesConnector
 }
 
@@ -82,7 +82,7 @@ type OverallStatus struct {
 }
 
 // NewStatus returns a new Status struct.
-func NewStatus(cfg StatusConfig, l *zap.SugaredLogger) (*Status, error) {
+func NewStatus(cfg Config, l *zap.SugaredLogger) (*Status, error) {
 	s := &Status{
 		l:   l.With("component", "status"),
 		cfg: cfg,
@@ -275,7 +275,8 @@ func (s *Status) checkDeployment(ctx context.Context, name, namespace string) Co
 
 	cs.Ready = isDeploymentReady(depl)
 	if !cs.Ready {
-		cs.Message = fmt.Sprintf("%d/%d ready",
+		cs.Message = fmt.Sprintf(
+			"%d/%d ready",
 			depl.Status.ReadyReplicas,
 			depl.Status.Replicas,
 		)
@@ -320,7 +321,7 @@ func (s *Status) printPretty(result *OverallStatus) {
 		}
 		_, _ = fmt.Fprintf(w, "  %s\t%s\t%s\t%s\n", c.Name, c.Namespace, status, c.Message)
 	}
-	w.Flush()
+	_ = w.Flush()
 
 	// Namespaces
 	if len(result.Namespaces) > 0 {
@@ -339,6 +340,6 @@ func (s *Status) printPretty(result *OverallStatus) {
 			}
 			_, _ = fmt.Fprintf(w, "  %s\t%s\t%s\t%s\t%s\n", op.Name, op.Namespace, op.Version, status, op.Message)
 		}
-		w.Flush()
+		_ = w.Flush()
 	}
 }

@@ -42,7 +42,7 @@ const screenshotOpts = {
 
 // Helper: wait for a MRT table to finish loading.
 // We additionally wait for all MRT skeletons to disappear so the
-// captured state is deterministic.
+// captured (and regenerated) baseline is always the settled, loaded state.
 async function waitForTableContent(page: Page, headerText: string) {
   await page
     .locator(`th:has-text("${headerText}")`)

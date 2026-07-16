@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -46,9 +47,9 @@ func init() {
 	accountsDeleteCmd.Flags().StringVarP(&accountsDeleteUsername, cli.FlagAccountsUsername, "u", "", "Username of the account")
 }
 
-func accountsDeletePreRun(cmd *cobra.Command, _ []string) { //nolint:revive
+func accountsDeletePreRun(cmd *cobra.Command, _ []string) {
 	// Copy global flags to config
-	accountsDeleteCfg.Pretty = !(cmd.Flag(cli.FlagVerbose).Changed || cmd.Flag(cli.FlagJSON).Changed)
+	accountsDeleteCfg.Pretty = !cmd.Flag(cli.FlagVerbose).Changed && !cmd.Flag(cli.FlagJSON).Changed
 	accountsDeleteCfg.KubeconfigPath = cmd.Flag(cli.FlagKubeconfig).Value.String()
 
 	// Check username
@@ -60,16 +61,16 @@ func accountsDeletePreRun(cmd *cobra.Command, _ []string) { //nolint:revive
 		}
 	} else {
 		// Ask user in interactive mode to provide username to delete.
-		if username, err := accountscli.PopulateUsername(cmd.Context()); err != nil {
+		username, err := accountscli.PopulateUsername(cmd.Context())
+		if err != nil {
 			output.PrintError(err, logger.GetLogger(), accountsDeleteCfg.Pretty)
 			os.Exit(1)
-		} else {
-			accountsDeleteUsername = username
 		}
+		accountsDeleteUsername = username
 	}
 }
 
-func accountsDeleteRun(cmd *cobra.Command, _ []string) { //nolint:revive
+func accountsDeleteRun(cmd *cobra.Command, _ []string) {
 	cliA, err := accountscli.NewAccounts(*accountsDeleteCfg, logger.GetLogger())
 	if err != nil {
 		output.PrintError(err, logger.GetLogger(), accountsDeleteCfg.Pretty)
