@@ -428,10 +428,39 @@ type InstanceStatus struct {
 	// Message is a custom user-facing message describing the current state of the instance.
 	// +optional
 	Message string `json:"message,omitempty"`
+	// Backup surfaces backup-related observability data reported by the
+	// provider, such as the latest restorable time for PITR-enabled storages.
+	// +optional
+	Backup *InstanceBackupStatus `json:"backup,omitempty"`
 	// +listType=map
 	// +listMapKey=type
 	// +optional
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
+}
+
+// InstanceBackupStatus surfaces backup-related observability data for the
+// Instance, mirroring the shape of spec.backup.
+type InstanceBackupStatus struct {
+	// Storages is the per-storage backup status, keyed by the logical storage
+	// name declared in spec.backup.storages.
+	// +listType=map
+	// +listMapKey=name
+	// +optional
+	Storages []InstanceBackupStorageStatus `json:"storages,omitempty"`
+}
+
+// InstanceBackupStorageStatus reports the observed backup state of a single
+// entry in spec.backup.storages.
+type InstanceBackupStorageStatus struct {
+	// Name is the logical storage name (matches spec.backup.storages[].name).
+	// +kubebuilder:validation:Required
+	Name string `json:"name"`
+	// LatestRestorableTime is the most recent point in time to which the
+	// instance can be restored using point-in-time recovery from this
+	// storage. Only populated when PITR is enabled for the storage and the
+	// engine reports a recovery window.
+	// +optional
+	LatestRestorableTime *metav1.Time `json:"latestRestorableTime,omitempty"`
 }
 
 // InstancePhase represents the high-level, mutually exclusive lifecycle state

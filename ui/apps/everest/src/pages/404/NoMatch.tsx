@@ -1,3 +1,17 @@
+// Copyright (C) 2026 The OpenEverest Contributors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 import { Box, Button, Typography } from '@mui/material';
 import { NoMatchIcon } from '@percona/ui-lib';
 import { useActiveBreakpoint } from 'hooks/utils/useActiveBreakpoint';
@@ -17,16 +31,48 @@ export const NoMatch = ({
 
   return (
     <Box
-      sx={{
-        height: isDesktop ? '435px' : 'auto',
-        width: isDesktop ? '980px' : 'auto',
-        mt: isTablet ? '58px' : isMobile ? '13px' : '150px',
-        mx: isTablet ? '58px' : isMobile ? '13px' : 'auto',
-        display: 'flex',
-        flexDirection: isDesktop ? 'row' : 'column',
-        justifyContent: 'center',
-        alignItems: 'center',
-      }}
+      sx={[
+        {
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+        },
+        isDesktop
+          ? {
+              height: '435px',
+            }
+          : {
+              height: 'auto',
+            },
+        isDesktop
+          ? {
+              width: '980px',
+            }
+          : {
+              width: 'auto',
+            },
+        isTablet
+          ? {
+              mt: '58px',
+            }
+          : {
+              mt: isMobile ? '13px' : '150px',
+            },
+        isTablet
+          ? {
+              mx: '58px',
+            }
+          : {
+              mx: isMobile ? '13px' : 'auto',
+            },
+        isDesktop
+          ? {
+              flexDirection: 'row',
+            }
+          : {
+              flexDirection: 'column',
+            },
+      ]}
     >
       <Box>
         {CustomIcon ? (

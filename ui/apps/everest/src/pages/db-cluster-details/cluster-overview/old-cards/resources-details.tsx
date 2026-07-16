@@ -157,7 +157,11 @@ export const ResourcesDetails = ({
           },
         }}
       >
-        <Stack gap={3}>
+        <Stack
+          sx={{
+            gap: 3,
+          }}
+        >
           {/* TODO v2 check type condition usage */}
           {dbType === DbType.Mongo && (
             <OverviewSection title={'Sharding'} loading={loading}>

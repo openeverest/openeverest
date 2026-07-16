@@ -29,7 +29,7 @@
     "@fontsource/poppins": "^5.0.8",
     "@fontsource/roboto": "^5.0.8",
     "@fontsource/roboto-mono": "^5.1.0",
-    "@mui/utils": "^5.14.15"
+    "@mui/utils": "^6.0.0"
   },
   "devDependencies": {
     "@percona/eslint-config-react": "workspace:*",
@@ -51,7 +51,7 @@
   "peerDependencies": {
     "@emotion/react": "^11.11.1",
     "@emotion/styled": "^11.11.0",
-    "@mui/material": "^5.14.14",
+    "@mui/material": "^6.0.0",
     "@mui/x-date-pickers": "^7.6.2",
     "react": "^18.2.0",
     "react-dom": "^18.2.0"

@@ -88,7 +88,11 @@ export const ClusterOverview = () => {
             avatar: <DatabaseIcon />,
           }}
         >
-          <Stack gap={3}>
+          <Stack
+            sx={{
+              gap: 3,
+            }}
+          >
             <BasicInfoSection
               instance={instance}
               namespace={namespace}
@@ -104,7 +108,6 @@ export const ClusterOverview = () => {
           !actionsBlocked &&
           !!section &&
           isSectionEditable(section, FormMode.Edit);
-
         return (
           <SchemaDrivenCard
             key={card.key}
@@ -115,14 +118,12 @@ export const ClusterOverview = () => {
           />
         );
       })}
-
       {/* Uncovered instance fields */}
       {/* TODO: temporarily hidden until properly formatted
       {otherFields.length > 0 && (
         <OtherFieldsCard fields={otherFields} loading={isLoading} />
       )}
       */}
-
       {/* Plugin-contributed cards */}
       {pluginCards.map((pc) => {
         const CardComponent = pc.ext.component;
@@ -140,7 +141,6 @@ export const ClusterOverview = () => {
           </Box>
         );
       })}
-
       {editingSectionKey && provider && (
         <SectionEditModal
           sectionKey={editingSectionKey}
@@ -152,7 +152,6 @@ export const ClusterOverview = () => {
           onSuccess={handleCloseModal}
         />
       )}
-
       {/* TODO: BackupsDetails card — re-enable once connected to new instance API */}
     </Box>
   );

@@ -24,6 +24,7 @@ import 'dotenv/config';
 // import { multinamespacesProject } from './pr/multinamespaces/project.config';
 // import { noMatchProject } from './pr/no-match/project.config';
 import { settingsProject } from './pr/settings/project.config';
+import { visualProject } from './pr/visual/project.config';
 import { releaseProject } from './release/project.config';
 // import { rbacProject } from './pr/rbac/project.config';
 
@@ -43,13 +44,11 @@ export default defineConfig({
   testDir: path.join(__dirname, 'tests-out'),
   outputDir: './test-results',
   testMatch: /.*\.e2e\.(js|ts)x?/,
-  /* Run tests in files in parallel */
   fullyParallel: true,
   /* Fail the build on CI if you accidentally left test.only in the source code. */
   forbidOnly: !!process.env.CI,
   /* Retry on CI only */
   retries: process.env.CI ? 2 : 0,
-  /* Opt out of parallel tests on CI. */
   workers: 4,
   /* Reporter to use. See https://playwright.dev/docs/test-reporters */
   reporter: [
@@ -119,6 +118,7 @@ export default defineConfig({
     // ...noMatchProject,
     ...settingsProject,
     // ...rbacProject,
+    ...visualProject,
     ...releaseProject,
 
     // -----------------------------------

@@ -136,7 +136,15 @@ const PolicyDetails = () => {
       >
         Back
       </Button>
-      <Box display="flex" alignItems="center" gap={1} mt={3} mb={2}>
+      <Box
+        sx={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 1,
+          mt: 3,
+          mb: 2,
+        }}
+      >
         <Typography variant="h6">
           {policyName}
           {policy ? ` / ${String(policy?.spec.engineType ?? '')}` : ''}
@@ -180,7 +188,12 @@ const PolicyDetails = () => {
           {policyInUse && (
             <Alert severity="warning">{Messages.policyInUse}</Alert>
           )}
-          <Typography px={1} pt={2}>
+          <Typography
+            sx={{
+              px: 1,
+              pt: 2,
+            }}
+          >
             Are you sure you want to delete this rule?
           </Typography>
         </ConfirmDialog>
@@ -188,5 +201,4 @@ const PolicyDetails = () => {
     </>
   );
 };
-
 export default PolicyDetails;

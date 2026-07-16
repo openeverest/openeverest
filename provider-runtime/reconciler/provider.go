@@ -16,6 +16,7 @@ package reconciler
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	corev1 "k8s.io/api/core/v1"
@@ -263,7 +264,7 @@ func (r *ProviderReconciler) setupServer(p providerAdapter) error {
 		if err := validateVersionBundle(ctx, c, in); err != nil {
 			return err
 		}
-		if err := validateBackupClassLimits(ctx, c, in); err != nil {
+		if err := validateInstanceBackupConfig(ctx, c, in); err != nil {
 			return err
 		}
 		inCtx := controller.NewContext(ctx, c, in, p.Name())
@@ -402,15 +403,19 @@ func (r *ProviderReconciler) Reconcile(ctx context.Context, req reconcile.Reques
 		}
 		return reconcile.Result{}, err
 	}
-	if err := validateBackupClassLimits(ctx, r.Client, in); err != nil {
-		logger.Error(err, "Backup class limits validation failed")
+	if err := validateInstanceBackupConfig(ctx, r.Client, in); err != nil {
+		logger.Error(err, "Backup configuration validation failed")
 		// Surface the violation on the BackupConfigured condition without
 		// marking the Instance Failed: the engine itself is healthy and the
 		// user can fix the configuration without a full redeploy.
+		reason := controller.LimitsExceededReason
+		if errors.Is(err, controller.ErrPITRConfigInvalid) {
+			reason = controller.PITRConfigInvalidReason
+		}
 		setCondition(in, v1alpha1.ConditionBackupConfigured, metav1.ConditionFalse,
-			controller.LimitsExceededReason, err.Error(), metav1.Now())
+			reason, err.Error(), metav1.Now())
 		if updateErr := r.Client.Status().Update(ctx, in); updateErr != nil {
-			logger.Error(updateErr, "Failed to update status after backup limits violation")
+			logger.Error(updateErr, "Failed to update status after backup config violation")
 		}
 		return reconcile.Result{}, nil
 	}
@@ -494,6 +499,22 @@ func (r *ProviderReconciler) Reconcile(ctx context.Context, req reconcile.Reques
 	instanceStatus := status.ToV2Alpha1()
 	in.Status.Phase = instanceStatus.Phase
 	in.Status.Message = instanceStatus.Message
+
+	// Collect per-storage backup observability data (e.g. the latest
+	// restorable time for PITR) when the provider opts into reporting it.
+	// Failures here are logged but never fail the reconcile: this is
+	// observability data and the engine itself is healthy.
+	if reporter, ok := r.provider.(controller.InstanceBackupStatusReporter); ok {
+		storageStatuses, repErr := reporter.BackupStorageStatuses(syncCtx)
+		switch {
+		case repErr != nil:
+			logger.Error(repErr, "Failed to collect backup storage statuses")
+		case len(storageStatuses) > 0:
+			in.Status.Backup = &v1alpha1.InstanceBackupStatus{Storages: storageStatuses}
+		default:
+			in.Status.Backup = nil
+		}
+	}
 
 	// Freeze the effective bundle name in status so it remains stable across
 	// Provider upgrades. On subsequent reconciliations the reconciler reads this
@@ -799,15 +820,20 @@ func fetchBackupClassForInstance(ctx context.Context, c client.Client, in *v1alp
 	return bc, nil
 }
 
-// validateBackupClassLimits enforces the generic numeric limits declared on a
-// ProviderManaged BackupClass against an Instance's .spec.backup. It is a
-// no-op when no class is referenced, when the class is Job-mode, or when no
-// limits are declared. Returns the same sentinel
-// controller.ErrBackupClassLimitsExceeded that providers see via the helper.
-func validateBackupClassLimits(ctx context.Context, c client.Client, in *v1alpha1.Instance) error {
+// validateInstanceBackupConfig enforces the generic backup configuration
+// rules declared on a ProviderManaged BackupClass against an Instance's
+// .spec.backup: the numeric limits (maxStorages, maxPITREnabledStorages,
+// maxSchedulesPerStorage) and the per-storage PITR config schema. It is a
+// no-op when no class is referenced or when the class is Job-mode. Returns
+// the sentinels controller.ErrBackupClassLimitsExceeded and
+// controller.ErrPITRConfigInvalid that providers see via the helpers.
+func validateInstanceBackupConfig(ctx context.Context, c client.Client, in *v1alpha1.Instance) error {
 	bc, err := fetchBackupClassForInstance(ctx, c, in)
 	if err != nil {
 		return err
 	}
-	return controller.ValidateInstanceBackupAgainstClass(in, bc)
+	if err := controller.ValidateInstanceBackupAgainstClass(in, bc); err != nil {
+		return err
+	}
+	return controller.ValidateInstanceBackupPITRConfigs(in, bc)
 }

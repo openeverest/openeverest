@@ -104,6 +104,8 @@ const (
 	FlagInstanceVersion = "version"
 	// FlagInstanceTopology is the name of the topology flag.
 	FlagInstanceTopology = "topology"
+	// FlagInstancePreset is the name of the preset flag.
+	FlagInstancePreset = "preset"
 	// FlagInstanceSet is the name of the repeatable set flag for component overrides.
 	FlagInstanceSet = "set"
 	// FlagInstanceFile is the name of the values file flag for component overrides.

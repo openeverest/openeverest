@@ -89,7 +89,10 @@ export const DatabasePreview = ({
   ];
 
   return (
-    <Stack sx={{ pr: 2, pl: 2, ...sx }} {...stackProps}>
+    <Stack
+      sx={[{ pr: 2, pl: 2 }, ...(Array.isArray(sx) ? sx : [sx])]}
+      {...stackProps}
+    >
       <Typography variant="overline">{Messages.title}</Typography>
       <Stack>
         {previewSections.map((section, idx) => {
@@ -106,7 +109,15 @@ export const DatabasePreview = ({
                 active={activeStepId === section.stepId}
                 disabled={disabled}
                 onEditClick={() => onSectionEdit(section.stepId)}
-                sx={{ mt: idx === 0 ? 2 : 0 }}
+                sx={[
+                  idx === 0
+                    ? {
+                        mt: 2,
+                      }
+                    : {
+                        mt: 0,
+                      },
+                ]}
               >
                 {section.content}
               </PreviewSection>

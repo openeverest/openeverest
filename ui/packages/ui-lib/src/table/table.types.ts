@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,11 +14,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 import { AlertProps } from '@mui/material';
-import { MRT_Row, type MaterialReactTableProps } from 'material-react-table';
+import { MRT_Row, type MRT_TableOptions } from 'material-react-table';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export interface TableProps<T extends Record<string, any>>
-  extends MaterialReactTableProps<T> {
+  extends MRT_TableOptions<T> {
   noDataMessage?: string;
   emptyFilterResultsMessage?: string;
   hideExpandAllIcon?: boolean;
