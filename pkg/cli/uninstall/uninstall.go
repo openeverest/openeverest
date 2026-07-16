@@ -176,9 +176,8 @@ func (u *Uninstall) runWizard(ctx context.Context) (bool, error) {
 This will uninstall Everest and all its components from the cluster.`
 	fmt.Printf("\n%s\n\n", msg) //nolint:forbidigo
 
-	confirm := false
-	var err error
-	if confirm, err = tui.NewConfirm(ctx, "Are you sure you want to uninstall Everest?").Run(); err != nil {
+	confirm, err := tui.NewConfirm(ctx, "Are you sure you want to uninstall Everest?").Run()
+	if err != nil {
 		return false, err
 	}
 
@@ -192,9 +191,8 @@ func (u *Uninstall) confirmForce(ctx context.Context) (bool, error) {
 		return true, nil
 	}
 
-	confirm := false
-	var err error
-	if confirm, err = tui.NewConfirm(ctx, "There are still database clusters managed by Everest. Do you want to delete them?").Run(); err != nil {
+	confirm, err := tui.NewConfirm(ctx, "There are still database clusters managed by Everest. Do you want to delete them?").Run()
+	if err != nil {
 		return false, err
 	}
 

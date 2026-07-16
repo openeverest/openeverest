@@ -18,7 +18,7 @@
 package cli
 
 const (
-	// global flags
+	// global flags.
 
 	// FlagKubeconfig is the name of the kubeconfig flag.
 	FlagKubeconfig = "kubeconfig"
@@ -27,7 +27,7 @@ const (
 	// FlagJSON is the name of the json flag.
 	FlagJSON = "json"
 
-	// `install` flags
+	// `install` flags.
 
 	// FlagOperatorPostgresql represents the pg operator flag.
 	FlagOperatorPostgresql = "operator.postgresql"
@@ -54,7 +54,7 @@ const (
 	// FlagInstallSkipDBNamespace is the name of the skip-db-namespace flag.
 	FlagInstallSkipDBNamespace = "skip-db-namespace"
 
-	// `namespaces` flags
+	// `namespaces` flags.
 
 	// FlagTakeNamespaceOwnership is the name of the take-ownership flag.
 	FlagTakeNamespaceOwnership = "take-ownership"
@@ -65,7 +65,7 @@ const (
 	// FlagNamespaceAll is the name of the all flag.
 	FlagNamespaceAll = "all"
 
-	// `upgrade` flags
+	// `upgrade` flags.
 
 	// FlagUpgradeDryRun is the name of the dry-run flag.
 	FlagUpgradeDryRun = "dry-run"
@@ -74,7 +74,7 @@ const (
 	// FlagUpgradeVersionToUpgrade is the name of the version flag.
 	FlagUpgradeVersionToUpgrade = "version"
 
-	// `accounts` flags
+	// `accounts` flags.
 
 	// FlagAccountsUsername is the name of the username flag.
 	FlagAccountsUsername = "username"
@@ -90,7 +90,41 @@ const (
 	// FlagAuthContextName is the name of the context-name flag.
 	FlagAuthContextName = "context-name"
 
-	// settings flags
+	// `instance` flags
+
+	// FlagInstanceName is the name of the instance name flag.
+	FlagInstanceName = "name"
+	// FlagInstanceNamespace is the name of the namespace flag.
+	FlagInstanceNamespace = "namespace"
+	// FlagInstanceProvider is the name of the provider flag.
+	FlagInstanceProvider = "provider"
+	// FlagInstanceCluster is the name of the cluster flag.
+	FlagInstanceCluster = "cluster"
+	// FlagInstanceVersion is the name of the version flag.
+	FlagInstanceVersion = "version"
+	// FlagInstanceTopology is the name of the topology flag.
+	FlagInstanceTopology = "topology"
+	// FlagInstancePreset is the name of the preset flag.
+	FlagInstancePreset = "preset"
+	// FlagInstanceSet is the name of the repeatable set flag for component overrides.
+	FlagInstanceSet = "set"
+	// FlagInstanceFile is the name of the values file flag for component overrides.
+	FlagInstanceFile = "file"
+	// FlagInstanceContext overrides the active context for this command.
+	FlagInstanceContext = "context"
+	// FlagInstanceWatch enables continuous polling mode.
+	FlagInstanceWatch = "watch"
+	// FlagInstanceInterval sets the poll interval for --watch.
+	FlagInstanceInterval = "interval"
+
+	// `provider` flags.
+
+	// FlagProviderCluster is the name of the cluster flag.
+	FlagProviderCluster = "cluster"
+	// FlagProviderContext overrides the active context for this command.
+	FlagProviderContext = "context"
+
+	// settings flags.
 
 	// FlagOIDCIssuerURL is the name of the issuer-url flag.
 	FlagOIDCIssuerURL = "issuer-url"

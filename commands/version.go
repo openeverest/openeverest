@@ -37,7 +37,7 @@ var (
 		RunE:  versionRunE,
 	}
 
-	// Command flag values
+	// Command flag values.
 	clientOnlyFlag bool // Means only info about the client shall be printed
 )
 
@@ -48,7 +48,7 @@ func init() {
 	versionCmd.Flags().BoolVar(&clientOnlyFlag, "client-only", false, "Print client version only")
 }
 
-func versionRunE(cmd *cobra.Command, _ []string) error { //nolint:revive
+func versionRunE(cmd *cobra.Command, _ []string) error {
 	v := version.Info{
 		ProjectName: version.ProjectName,
 		Version:     version.Version,

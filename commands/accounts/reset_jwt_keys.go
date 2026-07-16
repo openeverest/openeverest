@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -40,23 +41,20 @@ var (
 	accountsResetJWTKeysCfg = &accountscli.Config{}
 )
 
-func accountsResetJWTKeysPreRun(cmd *cobra.Command, _ []string) { //nolint:revive
+func accountsResetJWTKeysPreRun(cmd *cobra.Command, _ []string) {
 	// Copy global flags to config
-	accountsResetJWTKeysCfg.Pretty = !(cmd.Flag(cli.FlagVerbose).Changed || cmd.Flag(cli.FlagJSON).Changed)
+	accountsResetJWTKeysCfg.Pretty = !cmd.Flag(cli.FlagVerbose).Changed && !cmd.Flag(cli.FlagJSON).Changed
 	accountsResetJWTKeysCfg.KubeconfigPath = cmd.Flag(cli.FlagKubeconfig).Value.String()
 }
 
-func accountsResetJWTKeysRun(cmd *cobra.Command, _ []string) { //nolint:revive
+func accountsResetJWTKeysRun(cmd *cobra.Command, _ []string) {
 	cliA, err := accountscli.NewAccounts(*accountsResetJWTKeysCfg, logger.GetLogger())
 	if err != nil {
 		output.PrintError(err, logger.GetLogger(), accountsResetJWTKeysCfg.Pretty)
 		os.Exit(1)
 	}
 
-	if err := cliA.CreateRSAKeyPair(cmd.Context()); err != nil {
-		output.PrintError(err, logger.GetLogger(), accountsResetJWTKeysCfg.Pretty)
-		os.Exit(1)
-	}
+	cliA.CreateRSAKeyPair(cmd.Context())
 }
 
 // GetResetJWTKeysCmd returns the command to reset the JWT keys used for Everest user authentication.

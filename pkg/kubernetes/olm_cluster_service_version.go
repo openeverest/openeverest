@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2025 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -61,6 +62,8 @@ func (k *Kubernetes) DeleteClusterServiceVersion(ctx context.Context, obj *olmv1
 
 // DeleteClusterServiceVersions deletes all ClusterServiceVersion that match the criteria.
 // This function will wait until all ClusterServiceVersion are deleted.
+//
+//nolint:dupl // per-resource client wrappers are intentionally similar
 func (k *Kubernetes) DeleteClusterServiceVersions(ctx context.Context, opts ...ctrlclient.ListOption) error {
 	// No need to fetch full objects, we only need the fact there are objects that match the criteria(opts).
 	delList, err := k.listClusterServiceVersionMeta(ctx, opts...)

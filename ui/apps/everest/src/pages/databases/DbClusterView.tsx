@@ -125,9 +125,11 @@ export const DbClusterView = () => {
         Cell: ({ row }) => (
           <Stack
             direction="row"
-            justifyContent="center"
-            alignItems="center"
-            gap={1}
+            sx={{
+              justifyContent: 'center',
+              alignItems: 'center',
+              gap: 1,
+            }}
           >
             {row.original?.provider} {/* {row.original?.dbVersion} */}
           </Stack>
@@ -190,7 +192,12 @@ export const DbClusterView = () => {
   );
 
   return (
-    <Stack direction="column" alignItems="center">
+    <Stack
+      direction="column"
+      sx={{
+        alignItems: 'center',
+      }}
+    >
       {dashboardWidgets.length > 0 && (
         <Box
           sx={{
@@ -214,7 +221,9 @@ export const DbClusterView = () => {
               >
                 <CardHeader
                   title={w.ext.label}
-                  titleTypographyProps={{ variant: 'subtitle1' }}
+                  slotProps={{
+                    title: { variant: 'subtitle1' },
+                  }}
                 />
                 <CardContent>
                   <PluginErrorBoundary pluginName={w.pluginName}>
@@ -275,7 +284,12 @@ export const DbClusterView = () => {
           renderTopToolbarCustomActions={() =>
             canAddCluster &&
             tableData.length > 0 && (
-              <Box display="flex" mb={1}>
+              <Box
+                sx={{
+                  display: 'flex',
+                  mb: 1,
+                }}
+              >
                 {/*TODO uncomment when providerImporters will be ready */}
                 {/* {(availableEnginesForImport?.items || []).length > 0 && (
                   <CreateDbButton createFromImport />

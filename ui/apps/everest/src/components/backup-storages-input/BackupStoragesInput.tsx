@@ -107,8 +107,10 @@ const BackupStoragesInput = ({
                 <Typography
                   component="span"
                   variant="body2"
-                  color="text.secondary"
-                  sx={{ ml: 1 }}
+                  sx={{
+                    color: 'text.secondary',
+                    ml: 1,
+                  }}
                 >
                   {Messages.inUseLabel}
                 </Typography>

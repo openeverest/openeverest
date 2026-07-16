@@ -138,9 +138,11 @@ export const CreateDbButton = ({
           anchorEl={anchorEl}
           open={open}
           onClose={closeMenu}
-          MenuListProps={{
-            'aria-labelledby': 'basic-button',
-            sx: { width: anchorEl && anchorEl.offsetWidth },
+          slotProps={{
+            list: {
+              'aria-labelledby': 'basic-button',
+              sx: { width: anchorEl && anchorEl.offsetWidth },
+            },
           }}
         >
           {
@@ -155,8 +157,10 @@ export const CreateDbButton = ({
                     }}
                   >
                     <Typography
-                      sx={{ fontSize: '14px !important' }}
-                      color="text.secondary"
+                      sx={{
+                        color: 'text.secondary',
+                        fontSize: '14px !important',
+                      }}
                     >
                       {techPreviewText}
                     </Typography>

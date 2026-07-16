@@ -18,10 +18,12 @@
 package utils
 
 import (
+	"context"
 	"embed"
 	"errors"
 	"fmt"
 	"io/fs"
+	"maps"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -43,7 +45,7 @@ import (
 func MergeVals(
 	helmFlagOpts values.Options,
 	helmMapOpts map[string]string,
-) (map[string]interface{}, error) {
+) (map[string]any, error) {
 	// Create helm values from helmMapOpts
 	helmOpts := make([]string, 0, len(helmMapOpts))
 	for k, v := range helmMapOpts {
@@ -52,7 +54,7 @@ func MergeVals(
 
 	helmOptsStr := strings.Join(helmOpts, ",")
 
-	helmValues := make(map[string]interface{})
+	helmValues := make(map[string]any)
 	err := strvals.ParseInto(helmOptsStr, helmValues)
 	if err != nil {
 		return nil, fmt.Errorf("error parsing helm options %q: %w", helmOptsStr, err)
@@ -70,15 +72,13 @@ func MergeVals(
 }
 
 // MergeMaps recursively merges the values of b into a copy of a, preferring the values from b.
-func MergeMaps(a, b map[string]interface{}) map[string]interface{} {
-	out := make(map[string]interface{}, len(a))
-	for k, v := range a {
-		out[k] = v
-	}
+func MergeMaps(a, b map[string]any) map[string]any {
+	out := make(map[string]any, len(a))
+	maps.Copy(out, a)
 	for k, v := range b {
-		if v, ok := v.(map[string]interface{}); ok {
+		if v, ok := v.(map[string]any); ok {
 			if bv, ok := out[k]; ok {
-				if bv, ok := bv.(map[string]interface{}); ok {
+				if bv, ok := bv.(map[string]any); ok {
 					out[k] = MergeMaps(bv, v)
 					continue
 				}
@@ -119,7 +119,7 @@ func copyEmbedFSToDir(src embed.FS, dest string) error {
 // from the main branch of the [helm-charts](https://github.com/openeverest/helm-charts) repository.
 // It copies the files from the exported embed.FS into a temporary directory.
 // The caller is responsible for cleaning up the directory.
-func devChart() (string, error) {
+func devChart(ctx context.Context) (string, error) {
 	tmp, err := os.MkdirTemp("", "everest-dev-chart")
 	if err != nil {
 		return "", err
@@ -144,7 +144,7 @@ func devChart() (string, error) {
 	// The Helm chart contains CRDs that are symlinked to the everest-crds sub-chart.
 	// However, we use EmbedFS to reference the chart files, but EmbedFS does not honor symlinks.
 	// So we need to re-create them by calling the `make link-crds` command.
-	if err := makeCRDSymlink(tmp); err != nil {
+	if err := makeCRDSymlink(ctx, tmp); err != nil {
 		return "", err
 	}
 	return tmp, nil
@@ -177,11 +177,11 @@ func patchDevChartVersions(chartDir string) error {
 // patchChartYAMLVersion reads a Chart.yaml, sets its top-level .version field to the
 // given version, and writes it back.
 func patchChartYAMLVersion(path, version string) error {
-	data, err := os.ReadFile(path)
+	data, err := os.ReadFile(filepath.Clean(path))
 	if err != nil {
 		return err
 	}
-	var chart map[string]interface{}
+	var chart map[string]any
 	if err := yaml.Unmarshal(data, &chart); err != nil {
 		return err
 	}
@@ -198,20 +198,20 @@ func patchChartYAMLVersion(path, version string) error {
 // and also updates the .dependencies[].version for sub-charts with local file:// repositories,
 // so that `helm dep update` can resolve them against the patched sub-chart versions.
 func patchMainChartYAML(path, version string) error {
-	data, err := os.ReadFile(path)
+	data, err := os.ReadFile(filepath.Clean(path))
 	if err != nil {
 		return err
 	}
-	var chart map[string]interface{}
+	var chart map[string]any
 	if err := yaml.Unmarshal(data, &chart); err != nil {
 		return err
 	}
 	chart["version"] = version
 	chart["appVersion"] = version
 
-	if deps, ok := chart["dependencies"].([]interface{}); ok {
+	if deps, ok := chart["dependencies"].([]any); ok {
 		for _, dep := range deps {
-			d, ok := dep.(map[string]interface{})
+			d, ok := dep.(map[string]any)
 			if !ok {
 				continue
 			}
@@ -235,8 +235,8 @@ func patchMainChartYAML(path, version string) error {
 }
 
 // Runs `make link-crds` in the chartDir.
-func makeCRDSymlink(chartDir string) error {
-	cmd := exec.Command("make", "link-crds")
+func makeCRDSymlink(ctx context.Context, chartDir string) error {
+	cmd := exec.CommandContext(ctx, "make", "link-crds")
 	cmd.Dir = chartDir
 	err := cmd.Run()
 	if err != nil {
@@ -247,11 +247,11 @@ func makeCRDSymlink(chartDir string) error {
 
 // SetupEverestDevChart sets up the development chart for Everest.
 // Returns a clean-up function that should be called when the chart is no longer needed.
-func SetupEverestDevChart(l *zap.SugaredLogger, path *string) (func(), error) {
+func SetupEverestDevChart(ctx context.Context, l *zap.SugaredLogger, path *string) (func(), error) {
 	if path == nil {
 		return nil, fmt.Errorf("path is nil")
 	}
-	der, err := devChart()
+	der, err := devChart(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("error setting up Everest dev chart: %w", err)
 	}

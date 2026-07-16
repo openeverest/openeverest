@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2025 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -30,9 +31,11 @@ type (
 	ValidateInputFunc func(string) error
 )
 
+//nolint:gochecknoglobals // immutable TUI style/keybinding definitions
 var (
 	// Common errors.
 
+	// ErrUserInterrupted is returned when the user interrupts an input element (Esc or Ctrl+c).
 	ErrUserInterrupted = errors.New("user interrupted")
 
 	// Common styles.

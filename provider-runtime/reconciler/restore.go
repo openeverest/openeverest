@@ -100,6 +100,20 @@ func (r *restoreRuntimeReconciler) Reconcile(ctx context.Context, req reconcile.
 		return reconcile.Result{}, nil
 	}
 
+	// Reject PITR requests the resolved BackupClass does not support before
+	// any provider code runs. The Restore is terminally Failed: retrying
+	// cannot succeed until the user picks a different class or drops the
+	// PITR options.
+	if pitrErr := controller.ValidateRestorePITR(restore, bc); pitrErr != nil {
+		logger.Info("Rejecting restore", "reason", pitrErr.Error())
+		restore.Status.State = backupv1alpha1.RestoreStateFailed
+		restore.Status.Message = pitrErr.Error()
+		if err := r.updateStatus(ctx, restore, bc); err != nil {
+			return reconcile.Result{}, err
+		}
+		return reconcile.Result{}, nil
+	}
+
 	inCtx := controller.NewContext(ctx, r.client, instance, r.providerName)
 
 	if controllerutil.AddFinalizer(restore, restoreRuntimeFinalizer) {

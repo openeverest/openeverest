@@ -52,9 +52,9 @@ func init() {
 	settingsRBACValidateCmd.Flags().StringVar(&rbacValidatePolicyFilePath, cli.FlagRBACPolicyFile, "", "Path to the policy file to use, otherwise use policy from Everest deployment.")
 }
 
-func settingsRBACValidatePreRun(cmd *cobra.Command, _ []string) { //nolint:revive
+func settingsRBACValidatePreRun(cmd *cobra.Command, _ []string) {
 	// Copy global flags to config
-	rbacValidatePretty = !(cmd.Flag(cli.FlagVerbose).Changed || cmd.Flag(cli.FlagJSON).Changed)
+	rbacValidatePretty = !cmd.Flag(cli.FlagVerbose).Changed && !cmd.Flag(cli.FlagJSON).Changed
 	rbacValidateKubeconfigPath = cmd.Flag(cli.FlagKubeconfig).Value.String()
 }
 

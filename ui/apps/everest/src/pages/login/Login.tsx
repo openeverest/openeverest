@@ -1,9 +1,25 @@
+// Copyright (C) 2026 The OpenEverest Contributors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Box, Button, Divider, Stack, Typography, Link } from '@mui/material';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import { Card, EverestMainIcon, TextInput } from '@percona/ui-lib';
 import { AuthContext } from 'contexts/auth';
-import { useContext } from 'react';
+import { SSO_LOGIN_ERROR_KEY } from 'contexts/auth/auth.utils';
+import { useContext, useEffect } from 'react';
+import { enqueueSnackbar } from 'notistack';
 import { FormProvider, SubmitHandler, useForm } from 'react-hook-form';
 import { Navigate } from 'react-router-dom';
 import { LoginFormType, loginSchema } from './Login.constants';
@@ -35,6 +51,15 @@ const Login = () => {
   const { login, authStatus, redirectRoute, isSsoEnabled } =
     useContext(AuthContext);
 
+  useEffect(() => {
+    // Surface an SSO sign-in failure that redirected back here from
+    // login-callback
+    if (sessionStorage.getItem(SSO_LOGIN_ERROR_KEY)) {
+      sessionStorage.removeItem(SSO_LOGIN_ERROR_KEY);
+      enqueueSnackbar(Messages.ssoLoginError, { variant: 'error' });
+    }
+  }, []);
+
   const handleLogin: SubmitHandler<LoginFormType> = ({
     username,
     password,
@@ -55,14 +80,35 @@ const Login = () => {
   }
 
   return (
-    <Stack flexDirection="row" height="100vh">
-      <Stack py={16} px={5} width="35%">
+    <Stack
+      sx={{
+        flexDirection: 'row',
+        height: '100vh',
+      }}
+    >
+      <Stack
+        sx={{
+          py: 16,
+          px: 5,
+          width: '35%',
+        }}
+      >
         <EverestMainIcon sx={{ fontSize: '110px', mb: 3 }} />
-        <Typography variant="h4" mb={3}>
+        <Typography
+          variant="h4"
+          sx={{
+            mb: 3,
+          }}
+        >
           {Messages.welcome}
         </Typography>
         <Typography>{Messages.intro}</Typography>
-        <Stack mt="auto" alignItems="flex-start">
+        <Stack
+          sx={{
+            mt: 'auto',
+            alignItems: 'flex-start',
+          }}
+        >
           <LoginLinkButton
             icon={<ArrowForwardIcon />}
             text="Join Community"
@@ -86,8 +132,8 @@ const Login = () => {
         </Stack>
       </Stack>
       <Box
-        width="65%"
         sx={{
+          width: '65%',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
@@ -104,11 +150,25 @@ const Login = () => {
             px: 3,
           }}
           content={
-            <Stack alignItems="center">
-              <Typography variant="h6" mb={3}>
+            <Stack
+              sx={{
+                alignItems: 'center',
+              }}
+            >
+              <Typography
+                variant="h6"
+                sx={{
+                  mb: 3,
+                }}
+              >
                 {Messages.login}
               </Typography>
-              <Typography variant="caption" mb={2}>
+              <Typography
+                variant="caption"
+                sx={{
+                  mb: 2,
+                }}
+              >
                 {Messages.insertCredentials}
               </Typography>
               <FormProvider {...methods}>

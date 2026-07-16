@@ -93,6 +93,9 @@ spec:
                         required:
                         - type
                         type: object
+                        x-kubernetes-validations:
+                        - message: date must be set when type is date
+                          rule: 'self.type == ''date'' ? has(self.date) : true'
                     required:
                     - backupName
                     type: object
