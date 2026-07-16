@@ -41,7 +41,7 @@ describe('Switch Outlined Box', () => {
         </FormProviderWrapper>
       </TestWrapper>
     );
-    expect(screen.getByRole('checkbox')).toBeInTheDocument();
+    expect(screen.getByRole('switch')).toBeInTheDocument();
     expect(screen.getByTestId('test child')).toBeInTheDocument();
   });
 });
