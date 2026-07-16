@@ -52,7 +52,7 @@ export const FormDialog = <T extends FieldValues>({
   size = 'L',
   submitting = false,
   dataTestId,
-  scroll = 'body',
+  scroll = 'paper',
 }: FormDialogProps<T>) => {
   const methods = useForm<T>({
     mode: validationMode,
