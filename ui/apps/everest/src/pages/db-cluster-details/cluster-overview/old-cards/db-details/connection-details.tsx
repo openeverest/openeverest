@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -54,9 +55,10 @@ export const ConnectionDetails = ({
           <Typography
             variant="body2"
             sx={{
-              color: "text.secondary",
-              marginBottom: '5px'
-            }}>
+              color: 'text.secondary',
+              marginBottom: '5px',
+            }}
+          >
             To access the cluster via NodePort see the{' '}
             <Link
               href="https://openeverest.io/documentation/current/networking/nodeport_support.html"
@@ -126,8 +128,9 @@ export const ConnectionDetails = ({
               ),
             },
 
-            inputLabel: { shrink: true }
-          }} />
+            inputLabel: { shrink: true },
+          }}
+        />
       )}
       {splitHorizonUrl && (
         <TextField
@@ -158,8 +161,9 @@ export const ConnectionDetails = ({
               ),
             },
 
-            inputLabel: { shrink: true }
-          }} />
+            inputLabel: { shrink: true },
+          }}
+        />
       )}
     </OverviewSection>
   );

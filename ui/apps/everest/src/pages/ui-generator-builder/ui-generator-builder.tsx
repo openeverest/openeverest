@@ -107,16 +107,21 @@ export const UIGeneratorBuilder = () => {
       }}
     >
       <Box
-        sx={[{
-          width: `${leftWidth}%`,
-          height: '100%',
-          display: 'flex',
-          flexDirection: 'column'
-        }, isDragging ? {
-          transition: 'none'
-        } : {
-          transition: 'width 0.2s ease'
-        }]}
+        sx={[
+          {
+            width: `${leftWidth}%`,
+            height: '100%',
+            display: 'flex',
+            flexDirection: 'column',
+          },
+          isDragging
+            ? {
+                transition: 'none',
+              }
+            : {
+                transition: 'width 0.2s ease',
+              },
+        ]}
       >
         <JsonEditorPanel
           yamlText={yamlText}
@@ -127,35 +132,45 @@ export const UIGeneratorBuilder = () => {
       </Box>
       <Box
         onMouseDown={() => setIsDragging(true)}
-        sx={[{
-          width: '8px',
-          height: '100%',
-          backgroundColor: 'divider',
-          cursor: 'col-resize',
-          userSelect: 'none',
-          '&:hover': {
-            backgroundColor: 'primary.main',
-            opacity: 0.6,
-          }
-        }, isDragging ? {
-          transition: 'none'
-        } : {
-          transition: 'backgroundColor 0.2s ease'
-        }]}
+        sx={[
+          {
+            width: '8px',
+            height: '100%',
+            backgroundColor: 'divider',
+            cursor: 'col-resize',
+            userSelect: 'none',
+            '&:hover': {
+              backgroundColor: 'primary.main',
+              opacity: 0.6,
+            },
+          },
+          isDragging
+            ? {
+                transition: 'none',
+              }
+            : {
+                transition: 'backgroundColor 0.2s ease',
+              },
+        ]}
       />
       <Box
-        sx={[{
-          flex: 1,
-          width: `${100 - leftWidth}%`,
-          height: '100%',
-          display: 'flex',
-          flexDirection: 'column',
-          overflow: 'hidden'
-        }, isDragging ? {
-          transition: 'none'
-        } : {
-          transition: 'width 0.2s ease'
-        }]}
+        sx={[
+          {
+            flex: 1,
+            width: `${100 - leftWidth}%`,
+            height: '100%',
+            display: 'flex',
+            flexDirection: 'column',
+            overflow: 'hidden',
+          },
+          isDragging
+            ? {
+                transition: 'none',
+              }
+            : {
+                transition: 'width 0.2s ease',
+              },
+        ]}
       >
         <Paper
           elevation={0}

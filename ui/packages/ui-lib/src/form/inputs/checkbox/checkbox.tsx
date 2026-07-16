@@ -44,7 +44,7 @@ const Checkbox = ({
               // @ts-expect-error
               'data-testid': `checkbox-${kebabize(name)}`,
               ...checkboxProps?.inputProps,
-            }
+            },
           }}
         />
       )}

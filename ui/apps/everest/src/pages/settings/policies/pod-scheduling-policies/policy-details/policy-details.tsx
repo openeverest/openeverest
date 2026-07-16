@@ -138,12 +138,13 @@ const PolicyDetails = () => {
       </Button>
       <Box
         sx={{
-          display: "flex",
-          alignItems: "center",
+          display: 'flex',
+          alignItems: 'center',
           gap: 1,
           mt: 3,
-          mb: 2
-        }}>
+          mb: 2,
+        }}
+      >
         <Typography variant="h6">
           {policyName}
           {policy ? ` / ${String(policy?.spec.engineType ?? '')}` : ''}
@@ -190,8 +191,9 @@ const PolicyDetails = () => {
           <Typography
             sx={{
               px: 1,
-              pt: 2
-            }}>
+              pt: 2,
+            }}
+          >
             Are you sure you want to delete this rule?
           </Typography>
         </ConfirmDialog>

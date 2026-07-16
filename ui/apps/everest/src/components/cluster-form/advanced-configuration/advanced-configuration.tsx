@@ -372,18 +372,20 @@ export const AdvancedConfigurationForm = ({
         bottomSlot={
           <Box
             sx={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "top",
-              minHeight: '50px'
-            }}>
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'top',
+              minHeight: '50px',
+            }}
+          >
             {!!policiesEnabled && (
               <Box
                 sx={{
-                  display: "flex",
-                  ml: "auto",
-                  alignItems: "center"
-                }}>
+                  display: 'flex',
+                  ml: 'auto',
+                  alignItems: 'center',
+                }}
+              >
                 <SelectInput
                   name={AdvancedConfigurationFields.podSchedulingPolicy}
                   loading={fetchingPolicies || loadingDefaultsForEdition}
@@ -425,16 +427,18 @@ export const AdvancedConfigurationForm = ({
         cardContent={
           <Box
             sx={{
-              display: "flex",
-              flexDirection: "column",
-              gap: 2
-            }}>
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 2,
+            }}
+          >
             <Box
               sx={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between"
-              }}>
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+              }}
+            >
               <Typography variant="sectionHeading">
                 {Messages.cards.exposureMethod.title}
               </Typography>
@@ -543,11 +547,12 @@ export const AdvancedConfigurationForm = ({
           bottomSlot={
             <Box
               sx={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "top",
-                minHeight: '50px'
-              }}>
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'top',
+                minHeight: '50px',
+              }}
+            >
               {!!splitHorizonDNSEnabled && (
                 <WithInfoIcon
                   tooltip={

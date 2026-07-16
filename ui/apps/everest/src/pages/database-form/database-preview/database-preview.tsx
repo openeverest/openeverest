@@ -109,11 +109,15 @@ export const DatabasePreview = ({
                 active={activeStepId === section.stepId}
                 disabled={disabled}
                 onEditClick={() => onSectionEdit(section.stepId)}
-                sx={[idx === 0 ? {
-                  mt: 2
-                } : {
-                  mt: 0
-                }]}
+                sx={[
+                  idx === 0
+                    ? {
+                        mt: 2,
+                      }
+                    : {
+                        mt: 0,
+                      },
+                ]}
               >
                 {section.content}
               </PreviewSection>

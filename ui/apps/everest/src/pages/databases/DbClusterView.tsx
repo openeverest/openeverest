@@ -126,10 +126,11 @@ export const DbClusterView = () => {
           <Stack
             direction="row"
             sx={{
-              justifyContent: "center",
-              alignItems: "center",
-              gap: 1
-            }}>
+              justifyContent: 'center',
+              alignItems: 'center',
+              gap: 1,
+            }}
+          >
             {row.original?.provider} {/* {row.original?.dbVersion} */}
           </Stack>
         ),
@@ -191,9 +192,12 @@ export const DbClusterView = () => {
   );
 
   return (
-    <Stack direction="column" sx={{
-      alignItems: "center"
-    }}>
+    <Stack
+      direction="column"
+      sx={{
+        alignItems: 'center',
+      }}
+    >
       {dashboardWidgets.length > 0 && (
         <Box
           sx={{
@@ -218,7 +222,7 @@ export const DbClusterView = () => {
                 <CardHeader
                   title={w.ext.label}
                   slotProps={{
-                    title: { variant: 'subtitle1' }
+                    title: { variant: 'subtitle1' },
                   }}
                 />
                 <CardContent>
@@ -282,9 +286,10 @@ export const DbClusterView = () => {
             tableData.length > 0 && (
               <Box
                 sx={{
-                  display: "flex",
-                  mb: 1
-                }}>
+                  display: 'flex',
+                  mb: 1,
+                }}
+              >
                 {/*TODO uncomment when providerImporters will be ready */}
                 {/* {(availableEnginesForImport?.items || []).length > 0 && (
                   <CreateDbButton createFromImport />

@@ -142,7 +142,7 @@ export const CreateDbButton = ({
             list: {
               'aria-labelledby': 'basic-button',
               sx: { width: anchorEl && anchorEl.offsetWidth },
-            }
+            },
           }}
         >
           {
@@ -158,9 +158,10 @@ export const CreateDbButton = ({
                   >
                     <Typography
                       sx={{
-                        color: "text.secondary",
-                        fontSize: '14px !important'
-                      }}>
+                        color: 'text.secondary',
+                        fontSize: '14px !important',
+                      }}
+                    >
                       {techPreviewText}
                     </Typography>
                   </MenuItem>

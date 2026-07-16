@@ -108,9 +108,10 @@ const BackupStoragesInput = ({
                   component="span"
                   variant="body2"
                   sx={{
-                    color: "text.secondary",
-                    ml: 1
-                  }}>
+                    color: 'text.secondary',
+                    ml: 1,
+                  }}
+                >
                   {Messages.inUseLabel}
                 </Typography>
               )}

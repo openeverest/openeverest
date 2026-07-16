@@ -54,9 +54,12 @@ class PluginErrorBoundary extends Component<
           <Typography variant="h5" color="error" gutterBottom>
             Plugin Error
           </Typography>
-          <Typography gutterBottom sx={{
-            color: "text.secondary"
-          }}>
+          <Typography
+            gutterBottom
+            sx={{
+              color: 'text.secondary',
+            }}
+          >
             The plugin &quot;{this.props.pluginName}&quot; encountered an error
             and could not render.
           </Typography>

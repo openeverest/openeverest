@@ -28,8 +28,9 @@ const CommandInstructions = ({
   <Stack
     sx={{
       mt: 3,
-      maxWidth: "350px"
-    }}>
+      maxWidth: '350px',
+    }}
+  >
     <Typography variant="body2">{message}</Typography>
     <CodeCopyBlock message={command} />
   </Stack>

@@ -29,9 +29,11 @@ const OtherFieldsCard = ({ fields, loading }: OtherFieldsCardProps) => (
         avatar: <DatabaseIcon />,
       }}
     >
-      <Stack sx={{
-        gap: 3
-      }}>
+      <Stack
+        sx={{
+          gap: 3,
+        }}
+      >
         <OverviewSection dataTestId="other" loading={loading}>
           {fields.map(({ label, value }) => (
             <OverviewSectionRow key={label} label={label} content={value} />

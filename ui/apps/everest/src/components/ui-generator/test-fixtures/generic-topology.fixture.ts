@@ -27,12 +27,12 @@ const makeNumber = (
   path: string,
   overrides: Partial<Component> = {}
 ): Component =>
-  (({
+  ({
     uiType: FieldType.Number,
     path,
     fieldParams: { label: path },
-    ...overrides
-  }) as Component);
+    ...overrides,
+  }) as Component;
 
 export const genericResourceSections: Record<string, Section> = {
   resources: {

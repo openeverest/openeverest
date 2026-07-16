@@ -24,7 +24,7 @@ const makeComponent = (
   path: string,
   overrides: Partial<Component> = {}
 ): Component =>
-  (({
+  ({
     uiType: FieldType.Text,
     path,
     fieldParams: { label: path },
@@ -34,8 +34,8 @@ const makeComponent = (
       targetPaths: [path],
     },
 
-    ...overrides
-  }) as Component);
+    ...overrides,
+  }) as Component;
 
 describe('extractInstanceValues', () => {
   it('extracts values from instance by sourcePath', () => {

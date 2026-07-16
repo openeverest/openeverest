@@ -88,9 +88,11 @@ export const ClusterOverview = () => {
             avatar: <DatabaseIcon />,
           }}
         >
-          <Stack sx={{
-            gap: 3
-          }}>
+          <Stack
+            sx={{
+              gap: 3,
+            }}
+          >
             <BasicInfoSection
               instance={instance}
               namespace={namespace}

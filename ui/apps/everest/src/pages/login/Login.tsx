@@ -82,27 +82,33 @@ const Login = () => {
   return (
     <Stack
       sx={{
-        flexDirection: "row",
-        height: "100vh"
-      }}>
+        flexDirection: 'row',
+        height: '100vh',
+      }}
+    >
       <Stack
         sx={{
           py: 16,
           px: 5,
-          width: "35%"
-        }}>
+          width: '35%',
+        }}
+      >
         <EverestMainIcon sx={{ fontSize: '110px', mb: 3 }} />
-        <Typography variant="h4" sx={{
-          mb: 3
-        }}>
+        <Typography
+          variant="h4"
+          sx={{
+            mb: 3,
+          }}
+        >
           {Messages.welcome}
         </Typography>
         <Typography>{Messages.intro}</Typography>
         <Stack
           sx={{
-            mt: "auto",
-            alignItems: "flex-start"
-          }}>
+            mt: 'auto',
+            alignItems: 'flex-start',
+          }}
+        >
           <LoginLinkButton
             icon={<ArrowForwardIcon />}
             text="Join Community"
@@ -127,14 +133,15 @@ const Login = () => {
       </Stack>
       <Box
         sx={{
-          width: "65%",
+          width: '65%',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
           backgroundImage: "url('static/login_bg.svg')",
           backgroundRepeat: 'no-repeat',
-          backgroundSize: 'cover'
-        }}>
+          backgroundSize: 'cover',
+        }}
+      >
         <Card
           dataTestId="foo"
           sx={{
@@ -143,17 +150,25 @@ const Login = () => {
             px: 3,
           }}
           content={
-            <Stack sx={{
-              alignItems: "center"
-            }}>
-              <Typography variant="h6" sx={{
-                mb: 3
-              }}>
+            <Stack
+              sx={{
+                alignItems: 'center',
+              }}
+            >
+              <Typography
+                variant="h6"
+                sx={{
+                  mb: 3,
+                }}
+              >
                 {Messages.login}
               </Typography>
-              <Typography variant="caption" sx={{
-                mb: 2
-              }}>
+              <Typography
+                variant="caption"
+                sx={{
+                  mb: 2,
+                }}
+              >
                 {Messages.insertCredentials}
               </Typography>
               <FormProvider {...methods}>

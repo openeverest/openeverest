@@ -99,8 +99,9 @@ const ConnectionSection = ({
                   ),
                 },
 
-                inputLabel: { shrink: true }
-              }} />
+                inputLabel: { shrink: true },
+              }}
+            />
           )}
         </>
       ) : (

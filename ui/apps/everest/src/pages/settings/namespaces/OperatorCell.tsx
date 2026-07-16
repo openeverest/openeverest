@@ -66,23 +66,28 @@ export const OperatorCell = ({
     <Stack
       direction="row"
       sx={{
-        alignItems: "center",
-        width: "100%"
-      }}>
+        alignItems: 'center',
+        width: '100%',
+      }}
+    >
       <Typography variant="body1">{description}</Typography>
       {isUpgrading && canRead && (
         <Tooltip title="Operator upgrade in progress">
           <Stack
             direction="row"
             sx={{
-              alignItems: "center",
+              alignItems: 'center',
               gap: 1,
-              ml: 'auto'
-            }}>
+              ml: 'auto',
+            }}
+          >
             <CircularProgress size={16} />
-            <Typography variant="body2" sx={{
-              color: "text.secondary"
-            }}>
+            <Typography
+              variant="body2"
+              sx={{
+                color: 'text.secondary',
+              }}
+            >
               Upgrading
             </Typography>
           </Stack>

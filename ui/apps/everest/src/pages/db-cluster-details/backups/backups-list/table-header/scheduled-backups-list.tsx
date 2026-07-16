@@ -116,7 +116,7 @@ const ScheduledBackupsList = () => {
       useFlexGap
       spacing={1}
       sx={{
-        width: "100%",
+        width: '100%',
         order: 3,
         bgcolor: (theme) => theme.palette.surfaces?.elevation0,
         p: 2,
@@ -166,9 +166,10 @@ const ScheduledBackupsList = () => {
             </Box>
             <Box
               sx={{
-                display: "flex",
-                ml: "auto"
-              }}>
+                display: 'flex',
+                ml: 'auto',
+              }}
+            >
               {canUpdateInstance && (
                 <>
                   <IconButton

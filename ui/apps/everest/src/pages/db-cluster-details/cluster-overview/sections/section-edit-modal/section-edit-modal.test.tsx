@@ -38,12 +38,12 @@ const makeNumber = (
   label: string,
   validation?: Component['validation']
 ): Component =>
-  (({
+  ({
     uiType: FieldType.Number,
     path,
     fieldParams: { label },
-    ...(validation ? { validation } : {})
-  }) as Component);
+    ...(validation ? { validation } : {}),
+  }) as Component;
 
 describe('SectionEditModal CEL validation', () => {
   it('revalidates config servers CEL when number of nodes changes', async () => {

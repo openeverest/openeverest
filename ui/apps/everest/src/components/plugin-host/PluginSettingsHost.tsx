@@ -47,9 +47,13 @@ const PluginSettingsHost = () => {
   if (!match) {
     return (
       <Box sx={{ p: 2 }}>
-        <Typography sx={{
-          color: "text.secondary"
-        }}>Unknown settings tab.</Typography>
+        <Typography
+          sx={{
+            color: 'text.secondary',
+          }}
+        >
+          Unknown settings tab.
+        </Typography>
       </Box>
     );
   }

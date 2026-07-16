@@ -54,9 +54,10 @@ const EmptyStateDatabases = ({
         buttonSlot={
           <Box
             sx={{
-              display: "flex",
-              mb: 1
-            }}>
+              display: 'flex',
+              mb: 1,
+            }}
+          >
             {/* <CreateDbButton createFromImport /> */}
             <CreateDbButton />
           </Box>

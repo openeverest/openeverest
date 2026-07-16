@@ -96,7 +96,7 @@ export const renderComponent = (
           variant="caption"
           data-testid="preview-truncated-field-label"
           sx={{
-            color: "text.secondary"
+            color: 'text.secondary',
           }}
         >
           {label}:

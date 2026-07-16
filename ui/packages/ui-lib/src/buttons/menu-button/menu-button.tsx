@@ -67,7 +67,7 @@ const MenuButton = ({
           list: {
             'aria-labelledby': 'menu-button',
             ...menuProps?.MenuListProps,
-          }
+          },
         }}
       >
         {children && children(handleClose)}

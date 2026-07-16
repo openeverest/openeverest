@@ -31,9 +31,11 @@ const PluginHost = () => {
     return (
       <Box>
         <Typography variant="h5">Plugin not found</Typography>
-        <Typography sx={{
-          color: "text.secondary"
-        }}>
+        <Typography
+          sx={{
+            color: 'text.secondary',
+          }}
+        >
           No plugin registered with name &quot;{pluginName}&quot;.
         </Typography>
       </Box>
@@ -47,9 +49,11 @@ const PluginHost = () => {
     return (
       <Box>
         <Typography variant="h5">{plugin.name}</Typography>
-        <Typography sx={{
-          color: "text.secondary"
-        }}>
+        <Typography
+          sx={{
+            color: 'text.secondary',
+          }}
+        >
           This plugin does not provide a UI component for this route.
         </Typography>
       </Box>

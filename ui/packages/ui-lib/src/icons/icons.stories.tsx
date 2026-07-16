@@ -1,3 +1,17 @@
+// Copyright (C) 2026 The OpenEverest Contributors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 import { type Meta, type StoryObj } from '@storybook/react';
 import {
   MongoIcon,
@@ -113,16 +127,20 @@ export const Database: StoryObj<typeof MySqlIcon> = {
   render: function Render({ fontSize }) {
     return (
       <>
-        <Stack direction={'column'} sx={{
-          rowGap: '2rem'
-        }}>
+        <Stack
+          direction={'column'}
+          sx={{
+            rowGap: '2rem',
+          }}
+        >
           {icons.db.map((Icon) => (
             <Stack
               direction={'row'}
               sx={{
                 alignItems: 'center',
-                columnGap: '2rem'
-              }}>
+                columnGap: '2rem',
+              }}
+            >
               <Icon fontSize={fontSize} />
               <Typography variant="body1">{Icon.displayName}</Typography>
             </Stack>
@@ -153,16 +171,20 @@ export const Everest: StoryObj<typeof EverestMainIcon> = {
   },
   render: function Render({ fontSize }) {
     return (
-      <Stack direction={'column'} sx={{
-        rowGap: '2rem'
-      }}>
+      <Stack
+        direction={'column'}
+        sx={{
+          rowGap: '2rem',
+        }}
+      >
         {icons.everest.map((Icon) => (
           <Stack
             direction={'row'}
             sx={{
               alignItems: 'center',
-              columnGap: '2rem'
-            }}>
+              columnGap: '2rem',
+            }}
+          >
             <Icon fontSize={fontSize} />
             <Typography variant="body1">{Icon.displayName}</Typography>
           </Stack>
@@ -183,16 +205,20 @@ export const GenericError: StoryObj<typeof GenericErrorIcon> = {
   },
   render: function Render() {
     return (
-      <Stack direction={'column'} sx={{
-        rowGap: '2rem'
-      }}>
+      <Stack
+        direction={'column'}
+        sx={{
+          rowGap: '2rem',
+        }}
+      >
         {icons.genericError.map((Icon) => (
           <Stack
             direction={'row'}
             sx={{
               alignItems: 'center',
-              columnGap: '2rem'
-            }}>
+              columnGap: '2rem',
+            }}
+          >
             <Icon h="128px" w="128px" />
             <Typography variant="body1">{Icon.displayName}</Typography>
           </Stack>
@@ -213,16 +239,20 @@ export const NoMatch: StoryObj<typeof NoMatchIcon> = {
   },
   render: function Render() {
     return (
-      <Stack direction={'column'} sx={{
-        rowGap: '2rem'
-      }}>
+      <Stack
+        direction={'column'}
+        sx={{
+          rowGap: '2rem',
+        }}
+      >
         {icons.noMatch.map((Icon) => (
           <Stack
             direction={'row'}
             sx={{
               alignItems: 'center',
-              columnGap: '2rem'
-            }}>
+              columnGap: '2rem',
+            }}
+          >
             <Icon h="128px" w="128px" />
             <Typography variant="body1">{Icon.displayName}</Typography>
           </Stack>
@@ -243,16 +273,20 @@ export const EmptyState: StoryObj<typeof EmptyStateIcon> = {
   },
   render: function Render() {
     return (
-      <Stack direction={'column'} sx={{
-        rowGap: '2rem'
-      }}>
+      <Stack
+        direction={'column'}
+        sx={{
+          rowGap: '2rem',
+        }}
+      >
         {icons.emptyState.map((Icon) => (
           <Stack
             direction={'row'}
             sx={{
               alignItems: 'center',
-              columnGap: '2rem'
-            }}>
+              columnGap: '2rem',
+            }}
+          >
             <Icon h="60px" w="60px" />
             <Typography variant="body1">{Icon.displayName}</Typography>
           </Stack>
@@ -273,16 +307,20 @@ export const Status: StoryObj<typeof ErrorIcon> = {
   },
   render: function Render() {
     return (
-      <Stack direction={'column'} sx={{
-        rowGap: '2rem'
-      }}>
+      <Stack
+        direction={'column'}
+        sx={{
+          rowGap: '2rem',
+        }}
+      >
         {icons.status.map((Icon) => (
           <Stack
             direction={'row'}
             sx={{
               alignItems: 'center',
-              columnGap: '2rem'
-            }}>
+              columnGap: '2rem',
+            }}
+          >
             <Icon />
             <Typography variant="body1">{Icon.displayName}</Typography>
           </Stack>
@@ -303,16 +341,20 @@ export const Other: StoryObj<typeof DatabaseIcon> = {
   },
   render: function Render() {
     return (
-      <Stack direction={'column'} sx={{
-        rowGap: '2rem'
-      }}>
+      <Stack
+        direction={'column'}
+        sx={{
+          rowGap: '2rem',
+        }}
+      >
         {icons.other.map((Icon) => (
           <Stack
             direction={'row'}
             sx={{
               alignItems: 'center',
-              columnGap: '2rem'
-            }}>
+              columnGap: '2rem',
+            }}
+          >
             <Icon />
             <Typography variant="body1">{Icon.displayName}</Typography>
           </Stack>

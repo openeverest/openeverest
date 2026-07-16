@@ -214,7 +214,7 @@ export const DbActions = ({
           slotProps={{
             list: {
               'aria-labelledby': 'row-actions-button',
-            }
+            },
           }}
         >
           {/*showDetailsAction && (

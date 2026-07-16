@@ -145,9 +145,11 @@ export const BackupsDetails = ({
         ),
       }}
     >
-      <Stack sx={{
-        gap: 3
-      }}>
+      <Stack
+        sx={{
+          gap: 3,
+        }}
+      >
         {/* <OverviewSection
           dataTestId="schedules"
           title={

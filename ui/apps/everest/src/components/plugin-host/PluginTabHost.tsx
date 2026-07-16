@@ -49,9 +49,13 @@ const PluginTabHost = () => {
   if (!match) {
     return (
       <Box sx={{ p: 2 }}>
-        <Typography sx={{
-          color: "text.secondary"
-        }}>Unknown tab.</Typography>
+        <Typography
+          sx={{
+            color: 'text.secondary',
+          }}
+        >
+          Unknown tab.
+        </Typography>
       </Box>
     );
   }

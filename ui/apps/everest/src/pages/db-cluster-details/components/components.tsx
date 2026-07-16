@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -87,10 +88,11 @@ const Components = () => {
       ) : (
         <Box
           sx={{
-            height: "500px",
+            height: '500px',
             backgroundColor: 'surfaces.elevation0',
-            borderRadius: 2
-          }}>
+            borderRadius: 2,
+          }}
+        >
           <ReactFlowProvider>
             <ComponentsDiagramView components={filteredComponents} />
           </ReactFlowProvider>
