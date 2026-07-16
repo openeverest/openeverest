@@ -21,12 +21,10 @@ import (
 
 	"github.com/percona/everest-operator/utils"
 	corev1 "k8s.io/api/core/v1"
-	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 
-	corev1alpha1 "github.com/openeverest/openeverest/v2/api/core/v1alpha1"
 	"github.com/openeverest/openeverest/v2/pkg/common"
-	schemavalidation "github.com/openeverest/openeverest/v2/pkg/openapi"
+	"github.com/openeverest/openeverest/v2/provider-runtime/controller"
 )
 
 // CreateSecret validates the secret request and proxies it to the next handler.
@@ -35,30 +33,25 @@ func (h *validateHandler) CreateSecret(ctx context.Context, cluster, namespace s
 		return nil, errors.Join(ErrInvalidRequest, err)
 	}
 
-	labels := secret.GetLabels()
-
-	if labels == nil || labels[common.OpenEverestDefinitionLabel] == "" {
-		return nil, errors.Join(ErrInvalidRequest, errors.New("secret must have a definition label"))
+	definition := secret.GetLabels()[common.OpenEverestDefinitionLabel]
+	if definition == "" {
+		return nil, errors.Join(ErrInvalidRequest, fmt.Errorf("missing %s label", common.OpenEverestDefinitionLabel))
 	}
 
-	definition := labels[common.OpenEverestDefinitionLabel]
-	providerName := labels[common.OpenEverestProviderLabel]
-
+	providerName := secret.GetLabels()[common.OpenEverestProviderLabel]
 	if providerName == "" {
-		return nil, errors.Join(ErrInvalidRequest, errors.New("secret must have a provider label"))
+		return nil, errors.Join(ErrInvalidRequest, fmt.Errorf("missing %s label", common.OpenEverestProviderLabel))
 	}
 
-	// Get the secret definition schema for validation.
-	secretDef, err := h.getSecretDefinition(ctx, providerName, definition)
+	// Fetch the provider for validation.
+	provider, err := h.kubeConnector.GetProvider(ctx, ctrlclient.ObjectKey{Name: providerName})
 	if err != nil {
-		return nil, err
+		return nil, errors.Join(ErrInvalidRequest, fmt.Errorf("failed to get provider %q: %w", providerName, err))
 	}
 
-	// Validate secret data against the schema if one exists.
-	if secretDef != nil && secretDef.OpenAPIV3Schema != nil {
-		if err := h.validateSecretData(secret, secretDef.OpenAPIV3Schema); err != nil {
-			return nil, errors.Join(ErrInvalidRequest, err)
-		}
+	// Validate secret data against the schema.
+	if err := controller.ValidateSecretSchema(secret, &provider.Spec); err != nil {
+		return nil, errors.Join(ErrInvalidRequest, err)
 	}
 
 	return h.next.CreateSecret(ctx, cluster, namespace, secret)
@@ -78,43 +71,4 @@ func (h *validateHandler) GetSecret(ctx context.Context, cluster, namespace, nam
 func (h *validateHandler) DeleteSecret(ctx context.Context, cluster, namespace, name string) error {
 	// TODO: prevent deletion of secrets that are still in use by an Instance (spec 011 §4.5).
 	return h.next.DeleteSecret(ctx, cluster, namespace, name)
-}
-
-// getSecretDefinition retrieves the secret definition from the provider.
-func (h *validateHandler) getSecretDefinition(ctx context.Context, providerName, definition string) (*corev1alpha1.SecretDefinition, error) {
-	// Fetch the specific provider.
-	provider, err := h.kubeConnector.GetProvider(ctx, ctrlclient.ObjectKey{Name: providerName})
-	if err != nil {
-		return nil, errors.Join(ErrInvalidRequest, fmt.Errorf("failed to get provider %q: %w", providerName, err))
-	}
-
-	secretDef, ok := provider.Spec.Secrets[definition]
-	if !ok {
-		return nil, errors.Join(ErrInvalidRequest, fmt.Errorf("secret definition %q not found in provider %q", definition, providerName))
-	}
-
-	return &secretDef, nil
-}
-
-// validateSecretData validates the secret's data or stringData against the OpenAPI v3 schema.
-func (h *validateHandler) validateSecretData(secret *corev1.Secret, schema *apiextensionsv1.JSONSchemaProps) error {
-	// Merge data and stringData into a single map for validation.
-	// stringData takes precedence (same as Kubernetes behavior).
-	data := make(map[string]any)
-
-	// Add decoded data entries.
-	for k, v := range secret.Data {
-		data[k] = string(v)
-	}
-
-	// Add stringData entries (overrides data if same key).
-	for k, v := range secret.StringData {
-		data[k] = v
-	}
-
-	if len(data) == 0 {
-		return errors.New("secret must have data or stringData")
-	}
-
-	return schemavalidation.Validate(schema, data)
 }

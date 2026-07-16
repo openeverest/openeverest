@@ -15,6 +15,12 @@
 package v1alpha1
 
 import (
+	"encoding/json"
+	"errors"
+	"fmt"
+	"strings"
+
+	"github.com/xeipuuv/gojsonschema"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -109,6 +115,60 @@ type SecretDefinition struct {
 	// +kubebuilder:pruning:PreserveUnknownFields
 	// +kubebuilder:validation:Schemaless
 	OpenAPIV3Schema *apiextensionsv1.JSONSchemaProps `json:"openAPIV3Schema,omitempty"` //nolint:tagliatelle
+}
+
+// ErrSecretSchemaValidation is returned when data does not conform to
+// the OpenAPI v3 schema defined in the provider's secret definition.
+var ErrSecretSchemaValidation = errors.New("secret schema validation failed")
+
+// Validate validates data against the OpenAPI v3 schema in the SecretDefinition.
+// The data parameter should be a map of key-value pairs representing the secret's
+// data or stringData fields.
+//
+// If the schema is nil, validation passes for any non-nil data.
+// Returns ErrSecretSchemaValidation if validation fails.
+func (secretDef *SecretDefinition) Validate(data map[string]any) error {
+	if secretDef.OpenAPIV3Schema == nil {
+		return nil
+	}
+
+	if data == nil {
+		return fmt.Errorf("data cannot be nil: %w", ErrSecretSchemaValidation)
+	}
+
+	// Copy the schema to avoid mutating the original.
+	schemaCopy := secretDef.OpenAPIV3Schema.DeepCopy()
+
+	// Additional properties are disallowed.
+	schemaCopy.AdditionalProperties = &apiextensionsv1.JSONSchemaPropsOrBool{
+		Allows: false,
+	}
+
+	// Convert the OpenAPI v3 schema to JSON for the validator.
+	schemaJSON, err := json.Marshal(schemaCopy)
+	if err != nil {
+		return fmt.Errorf("failed to marshal schema: %w", errors.Join(ErrSecretSchemaValidation, err))
+	}
+
+	schemaLoader := gojsonschema.NewStringLoader(string(schemaJSON))
+	dataLoader := gojsonschema.NewGoLoader(data)
+
+	// Validate the data against the schema.
+	result, err := gojsonschema.Validate(schemaLoader, dataLoader)
+	if err != nil {
+		return fmt.Errorf("validation failed: %w", errors.Join(ErrSecretSchemaValidation, err))
+	}
+
+	if !result.Valid() {
+		var validationErrors []string
+		for _, verr := range result.Errors() {
+			validationErrors = append(validationErrors, verr.String())
+		}
+
+		return fmt.Errorf("%w: %s", ErrSecretSchemaValidation, strings.Join(validationErrors, "; "))
+	}
+
+	return nil
 }
 
 // ProviderStatus defines the observed state of Provider.

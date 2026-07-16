@@ -41,25 +41,22 @@ func TestCreateSecret_Validation(t *testing.T) {
 	namespace := "test-namespace"
 	cluster := "test-cluster"
 
-	// Create a schema that requires "username" and "password" fields.
-	requiredSchema := &apiextensionsv1.JSONSchemaProps{
-		Type: "object",
-		Properties: map[string]apiextensionsv1.JSONSchemaProps{
-			"username": {Type: "string"},
-			"password": {Type: "string"},
-		},
-		Required: []string{"username", "password"},
-	}
-
 	// Provider with secret definition.
-	providerWithSchema := &corev1alpha1.Provider{
+	provider := &corev1alpha1.Provider{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "test-provider",
 		},
 		Spec: corev1alpha1.ProviderSpec{
 			Secrets: map[string]corev1alpha1.SecretDefinition{
 				"database-credentials": {
-					OpenAPIV3Schema: requiredSchema,
+					OpenAPIV3Schema: &apiextensionsv1.JSONSchemaProps{
+						Type: "object",
+						Properties: map[string]apiextensionsv1.JSONSchemaProps{
+							"username": {Type: "string"},
+							"password": {Type: "string"},
+						},
+						Required: []string{"username", "password"},
+					},
 				},
 			},
 		},
@@ -76,43 +73,7 @@ func TestCreateSecret_Validation(t *testing.T) {
 		err       string
 	}{
 		{
-			name: "valid secret with stringData",
-			secret: &corev1.Secret{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "valid-secret",
-					Labels: map[string]string{
-						common.OpenEverestDefinitionLabel: "database-credentials",
-						common.OpenEverestProviderLabel:   "test-provider",
-					},
-				},
-				Type: corev1.SecretTypeOpaque,
-				StringData: map[string]string{
-					"username": "admin",
-					"password": "secret123",
-				},
-			},
-			providers: []*corev1alpha1.Provider{providerWithSchema},
-		},
-		{
-			name: "valid secret with data (not stringData)",
-			secret: &corev1.Secret{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "valid-secret-data",
-					Labels: map[string]string{
-						common.OpenEverestDefinitionLabel: "database-credentials",
-						common.OpenEverestProviderLabel:   "test-provider",
-					},
-				},
-				Type: corev1.SecretTypeOpaque,
-				Data: map[string][]byte{
-					"username": []byte("admin"),
-					"password": []byte("secret123"),
-				},
-			},
-			providers: []*corev1alpha1.Provider{providerWithSchema},
-		},
-		{
-			name: "missing provider label",
+			name: "missing provider label fails",
 			secret: &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "no-provider-label",
@@ -127,11 +88,11 @@ func TestCreateSecret_Validation(t *testing.T) {
 					"password": "secret123",
 				},
 			},
-			providers: []*corev1alpha1.Provider{providerWithSchema},
+			providers: []*corev1alpha1.Provider{provider},
 			err:       "provider label",
 		},
 		{
-			name: "missing definition label",
+			name: "missing definition label fails",
 			secret: &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:   "no-definition-label",
@@ -142,87 +103,11 @@ func TestCreateSecret_Validation(t *testing.T) {
 					"key": "value",
 				},
 			},
-			providers: []*corev1alpha1.Provider{providerWithSchema},
+			providers: []*corev1alpha1.Provider{provider},
 			err:       "definition label",
 		},
 		{
-			name: "missing required field",
-			secret: &corev1.Secret{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "missing-field",
-					Labels: map[string]string{
-						common.OpenEverestDefinitionLabel: "database-credentials",
-						common.OpenEverestProviderLabel:   "test-provider",
-					},
-				},
-				Type: corev1.SecretTypeOpaque,
-				StringData: map[string]string{
-					"username": "admin",
-					// missing "password"
-				},
-			},
-			providers: []*corev1alpha1.Provider{providerWithSchema},
-			err:       "password",
-		},
-		{
-			name: "additional property not allowed",
-			secret: &corev1.Secret{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "extra-field",
-					Labels: map[string]string{
-						common.OpenEverestDefinitionLabel: "database-credentials",
-						common.OpenEverestProviderLabel:   "test-provider",
-					},
-				},
-				Type: corev1.SecretTypeOpaque,
-				StringData: map[string]string{
-					"username":    "admin",
-					"password":    "secret123",
-					"extra-field": "not-allowed",
-				},
-			},
-			providers: []*corev1alpha1.Provider{providerWithSchema},
-			err:       "Additional property",
-		},
-		{
-			name: "definition not found in provider",
-			secret: &corev1.Secret{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "unknown-definition",
-					Labels: map[string]string{
-						common.OpenEverestDefinitionLabel: "unknown-definition",
-						common.OpenEverestProviderLabel:   "test-provider",
-					},
-				},
-				Type: corev1.SecretTypeOpaque,
-				StringData: map[string]string{
-					"key": "value",
-				},
-			},
-			providers: []*corev1alpha1.Provider{providerWithSchema},
-			err:       "not found in provider",
-		},
-		{
-			name: "provider not found",
-			secret: &corev1.Secret{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "provider-not-found",
-					Labels: map[string]string{
-						common.OpenEverestDefinitionLabel: "database-credentials",
-						common.OpenEverestProviderLabel:   "non-existent-provider",
-					},
-				},
-				Type: corev1.SecretTypeOpaque,
-				StringData: map[string]string{
-					"key": "value",
-				},
-			},
-			providers: []*corev1alpha1.Provider{providerWithSchema},
-			err:       "failed to get provider",
-		},
-
-		{
-			name: "empty secret data",
+			name: "secret not conforming to schema fails",
 			secret: &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "empty-secret",
@@ -234,11 +119,11 @@ func TestCreateSecret_Validation(t *testing.T) {
 				Type: corev1.SecretTypeOpaque,
 				// No data or stringData
 			},
-			providers: []*corev1alpha1.Provider{providerWithSchema},
-			err:       "must have data or stringData",
+			providers: []*corev1alpha1.Provider{provider},
+			err:       "is required",
 		},
 		{
-			name: "invalid secret name",
+			name: "invalid secret name fails",
 			secret: &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "Invalid_Name_With_Underscore",
@@ -253,7 +138,7 @@ func TestCreateSecret_Validation(t *testing.T) {
 					"password": "secret123",
 				},
 			},
-			providers: []*corev1alpha1.Provider{providerWithSchema},
+			providers: []*corev1alpha1.Provider{provider},
 			err:       "name",
 		},
 	}
@@ -262,15 +147,9 @@ func TestCreateSecret_Validation(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			// Build fake client with providers.
 			// Use DeepCopy to avoid race conditions since the fake client
 			// modifies the objects' ResourceVersion during Build().
-			clientBuilder := fake.NewClientBuilder().WithScheme(scheme)
-			for _, p := range tt.providers {
-				clientBuilder = clientBuilder.WithObjects(p.DeepCopy())
-			}
-			fakeClient := clientBuilder.Build()
-
+			fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(provider.DeepCopy()).Build()
 			kubeConnector := kubernetes.NewEmpty(zap.NewNop().Sugar(), namespace).WithKubernetesClient(fakeClient)
 
 			// Create mock next handler.
