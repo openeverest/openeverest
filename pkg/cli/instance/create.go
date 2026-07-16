@@ -43,12 +43,13 @@ type CreateOptions struct {
 	Name       string
 	Namespace  string
 	Provider   string
+	Preset     string // InstancePreset name; provider must match --provider
 	Cluster    string
 	Version    string
 	Topology   string
 	Context    string   // overrides the active context when set
-	ValuesFile string   // path to a YAML file with spec-level overrides (optional)
-	Set        []string // each entry: "specField.subfield=value" e.g. "components.engine.replicas=3" — takes precedence over ValuesFile
+	ValuesFile string   // path to a YAML values file with spec-level overrides (optional)
+	Set        []string // dot-notation overrides e.g. "components.engine.replicas=3"; takes precedence over ValuesFile
 }
 
 type InstanceCreator struct {
@@ -65,9 +66,32 @@ func NewInstanceCreator(cfg Config, l *zap.SugaredLogger) *InstanceCreator {
 }
 
 func (ic *InstanceCreator) Run(ctx context.Context, opts CreateOptions, cfgPath string) error {
+	if opts.Provider == "" && opts.Preset == "" {
+		return fmt.Errorf("--provider is required when --preset is not given")
+	}
+	if opts.Preset != "" && opts.Topology != "" {
+		return fmt.Errorf("--topology cannot be combined with --preset")
+	}
+
 	c, err := authcli.NewAPIClient(authcli.Config{Pretty: ic.config.Pretty}, ic.l.Desugar().Sugar(), cfgPath, opts.Context)
 	if err != nil {
 		return err
+	}
+
+	var (
+		presetSpecBase map[string]any
+		annotations    map[string]string
+	)
+	if opts.Preset != "" {
+		pr, err := ic.resolvePreset(ctx, c, opts.Preset, opts.Cluster, opts.Namespace)
+		if err != nil {
+			return err
+		}
+		if err := applyPresetDefaults(opts.Preset, &opts, pr); err != nil {
+			return err
+		}
+		presetSpecBase = pr.specMap
+		annotations = map[string]string{"openeverest.io/instance-preset": opts.Preset}
 	}
 
 	provResp, err := c.GetProviderWithResponse(ctx, opts.Cluster, opts.Provider)
@@ -103,12 +127,19 @@ func (ic *InstanceCreator) Run(ctx context.Context, opts CreateOptions, cfgPath 
 		}
 	}
 
+	// Merge order: preset < -f file < --set flags.
 	specOverrides, err := buildSpecOverrides(opts.ValuesFile, opts.Set)
 	if err != nil {
 		return err
 	}
+	if presetSpecBase != nil {
+		if specOverrides != nil {
+			deepMerge(presetSpecBase, specOverrides)
+		}
+		specOverrides = presetSpecBase
+	}
 
-	payload := buildPayload(opts.Name, opts.Provider, resolvedVersion, resolvedTopology, specOverrides)
+	payload := buildPayload(opts.Name, opts.Provider, resolvedVersion, resolvedTopology, specOverrides, annotations)
 
 	body, err := json.Marshal(payload)
 	if err != nil {
@@ -142,6 +173,82 @@ func (ic *InstanceCreator) Run(ctx context.Context, opts CreateOptions, cfgPath 
 	}
 
 	return nil
+}
+
+// applyPresetDefaults copies provider/version/topology from the preset into opts,
+// validating that an explicit --provider matches the preset's provider.
+func applyPresetDefaults(preset string, opts *CreateOptions, pr *presetResult) error {
+	if pr.provider != "" && opts.Provider != "" && pr.provider != opts.Provider {
+		return fmt.Errorf("--provider %q does not match preset %q provider %q", opts.Provider, preset, pr.provider)
+	}
+	if opts.Provider == "" {
+		if pr.provider == "" {
+			return fmt.Errorf("preset %q does not specify a provider; use --provider to set one", preset)
+		}
+		opts.Provider = pr.provider
+	}
+	if opts.Version == "" {
+		opts.Version = pr.version
+	}
+	if pr.topology != "" {
+		opts.Topology = pr.topology
+	}
+	return nil
+}
+
+type presetResult struct {
+	specMap  map[string]any
+	provider string
+	version  string
+	topology string
+}
+
+func (ic *InstanceCreator) resolvePreset(ctx context.Context, c *client.ClientWithResponses, preset, cluster, namespace string) (*presetResult, error) {
+	resp, err := c.ResolveInstancePresetWithResponse(
+		ctx,
+		cluster,
+		preset,
+		&client.ResolveInstancePresetParams{Namespace: namespace},
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to resolve preset %q: %w", preset, err)
+	}
+	if resp.StatusCode() == http.StatusNotFound {
+		return nil, fmt.Errorf("preset %q not found in cluster %q", preset, cluster)
+	}
+	if resp.StatusCode() != http.StatusOK || resp.JSON200 == nil {
+		return nil, fmt.Errorf("unexpected response resolving preset %q: %s", preset, resp.Status())
+	}
+
+	p := resp.JSON200
+	pr := &presetResult{}
+	if p.Spec.Provider != nil {
+		pr.provider = *p.Spec.Provider
+	}
+	if p.Spec.Version != nil {
+		pr.version = *p.Spec.Version
+	}
+	if p.Spec.Topology != nil && p.Spec.Topology.Type != nil {
+		pr.topology = *p.Spec.Topology.Type
+	}
+	specMap, err := presetSpecToMap(p)
+	if err != nil {
+		return nil, err
+	}
+	pr.specMap = specMap
+	return pr, nil
+}
+
+func presetSpecToMap(p *client.InstancePreset) (map[string]any, error) {
+	b, err := json.Marshal(p.Spec)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal preset spec: %w", err)
+	}
+	var m map[string]any
+	if err := json.Unmarshal(b, &m); err != nil {
+		return nil, fmt.Errorf("failed to parse preset spec: %w", err)
+	}
+	return m, nil
 }
 
 func defaultVersion(prov *client.Provider) string {
@@ -264,7 +371,7 @@ func providerName(prov *client.Provider) string {
 	if prov.Metadata == nil {
 		return "<unknown>"
 	}
-	if name, ok := (*prov.Metadata)["name"]; ok {
+	if name, ok := (*prov.Metadata)[metadataKeyName]; ok {
 		if s, ok := name.(string); ok {
 			return s
 		}
@@ -393,8 +500,10 @@ func deepSet(m map[string]any, path []string, value any) error {
 	return deepSet(childMap, path[1:], value)
 }
 
+const metadataKeyName = "name"
+
 // buildPayload builds the Instance JSON payload; explicit flags win over --set/-f.
-func buildPayload(name, provider, version, topology string, specOverrides map[string]any) map[string]any {
+func buildPayload(name, provider, version, topology string, specOverrides map[string]any, annotations map[string]string) map[string]any {
 	if specOverrides == nil {
 		specOverrides = map[string]any{}
 	}
@@ -404,11 +513,21 @@ func buildPayload(name, provider, version, topology string, specOverrides map[st
 		specOverrides["version"] = version
 	}
 	if topology != "" {
-		specOverrides["topology"] = map[string]any{"type": topology}
+		// Merge type into existing topology object to preserve topology.config from preset.
+		if existing, ok := specOverrides["topology"].(map[string]any); ok {
+			existing["type"] = topology
+		} else {
+			specOverrides["topology"] = map[string]any{"type": topology}
+		}
+	}
+
+	metadata := map[string]any{metadataKeyName: name}
+	if len(annotations) > 0 {
+		metadata["annotations"] = annotations
 	}
 
 	return map[string]any{
-		"metadata": map[string]any{"name": name},
+		"metadata": metadata,
 		"spec":     specOverrides,
 	}
 }
