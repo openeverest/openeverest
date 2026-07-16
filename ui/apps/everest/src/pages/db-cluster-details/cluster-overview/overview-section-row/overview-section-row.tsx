@@ -30,12 +30,12 @@ export const OverviewSectionRow = ({
     position="relative"
     alignItems="center"
   >
-    <Grid item xs={6} minWidth="90px" {...labelProps}>
+    <Grid size={6} minWidth="90px" {...labelProps}>
       <Typography variant="body2" sx={{ fontWeight: '700' }}>
         {label}
       </Typography>
     </Grid>
-    <Grid item>
+    <Grid>
       {typeof content === 'string' && content !== '' ? (
         <Typography variant="body2">{content}</Typography>
       ) : content === null || content === undefined || content === '' ? (
