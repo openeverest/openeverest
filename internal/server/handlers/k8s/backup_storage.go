@@ -79,8 +79,8 @@ func (h *k8sHandler) PatchBackupStorage(ctx context.Context, cluster string, bs 
 		if s3.EndpointURL != "" {
 			current.Spec.S3.EndpointURL = s3.EndpointURL
 		}
-		if s3.CredentialsSecretName != "" {
-			current.Spec.S3.CredentialsSecretName = s3.CredentialsSecretName
+		if s3.CredentialsSecretRef.Name != "" {
+			current.Spec.S3.CredentialsSecretRef = s3.CredentialsSecretRef
 		}
 		if s3.VerifyTLS != nil {
 			current.Spec.S3.VerifyTLS = s3.VerifyTLS
@@ -138,7 +138,7 @@ func (h *k8sHandler) applyS3Credentials(ctx context.Context, bs *backupv1alpha1.
 
 	secret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      s3.CredentialsSecretName,
+			Name:      s3.CredentialsSecretRef.Name,
 			Namespace: bs.GetNamespace(),
 		},
 		Type: corev1.SecretTypeOpaque,
@@ -149,7 +149,7 @@ func (h *k8sHandler) applyS3Credentials(ctx context.Context, bs *backupv1alpha1.
 	}
 	if _, err := h.kubeConnector.CreateSecret(ctx, secret); k8serrors.IsAlreadyExists(err) {
 		existing, err := h.kubeConnector.GetSecret(ctx, types.NamespacedName{
-			Name:      s3.CredentialsSecretName,
+			Name:      s3.CredentialsSecretRef.Name,
 			Namespace: bs.GetNamespace(),
 		})
 		if err != nil {

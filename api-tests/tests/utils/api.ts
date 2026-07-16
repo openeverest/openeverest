@@ -245,7 +245,7 @@ export const getBackupStoragePayload = (bsName: string) => {
         bucket: 'bucket-4',
         region: 'us-east-1',
         endpointURL: 'https://minio.minio.svc',
-        credentialsSecretName: `${bsName}-creds`,
+        credentialsSecretRef: { name: `${bsName}-creds` },
         accessKeyId: 'minioadmin',
         secretAccessKey: 'minioadmin',
         forcePathStyle: true,

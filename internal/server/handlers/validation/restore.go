@@ -50,21 +50,21 @@ func (h *validateHandler) validateRestorePITR(ctx context.Context, restore *back
 
 	backup, err := h.kubeConnector.GetBackup(ctx, ctrlclient.ObjectKey{
 		Namespace: restore.GetNamespace(),
-		Name:      ds.Backup.BackupName,
+		Name:      ds.Backup.BackupRef.Name,
 	})
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
-			return fmt.Errorf("backup '%s' does not exist", ds.Backup.BackupName)
+			return fmt.Errorf("backup '%s' does not exist", ds.Backup.BackupRef.Name)
 		}
-		return fmt.Errorf("failed to get backup '%s': %w", ds.Backup.BackupName, err)
+		return fmt.Errorf("failed to get backup '%s': %w", ds.Backup.BackupRef.Name, err)
 	}
 
-	bc, err := h.kubeConnector.GetBackupClass(ctx, ctrlclient.ObjectKey{Name: backup.Spec.BackupClassName})
+	bc, err := h.kubeConnector.GetBackupClass(ctx, ctrlclient.ObjectKey{Name: backup.Spec.ClassRef.Name})
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
-			return fmt.Errorf("backup class '%s' does not exist", backup.Spec.BackupClassName)
+			return fmt.Errorf("backup class '%s' does not exist", backup.Spec.ClassRef.Name)
 		}
-		return fmt.Errorf("failed to get backup class '%s': %w", backup.Spec.BackupClassName, err)
+		return fmt.Errorf("failed to get backup class '%s': %w", backup.Spec.ClassRef.Name, err)
 	}
 
 	return controller.ValidateRestorePITR(restore, bc)

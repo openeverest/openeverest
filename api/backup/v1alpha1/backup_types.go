@@ -15,29 +15,31 @@
 package v1alpha1
 
 import (
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+
+	common "github.com/openeverest/openeverest/v2/api/common/v1alpha1"
 )
 
 // BackupSpec defines the desired state of Backup.
 type BackupSpec struct {
-	// InstanceName is the name of the Instance to back up. The Instance must
+	// InstanceRef references the Instance to back up. The Instance must
 	// live in the same namespace as this Backup.
 	// +kubebuilder:validation:Required
-	InstanceName string `json:"instanceName"`
-	// BackupClassName is the BackupClass that defines how this Backup is
-	// executed. The class's executionMode controls the runtime path: Job
-	// classes are reconciled by the in-cluster Backup job controller;
-	// ProviderManaged classes are reconciled by the provider's runtime.
+	InstanceRef common.ObjectRef `json:"instanceRef"`
+	// ClassRef references the cluster-scoped BackupClass that defines how
+	// this Backup is executed. The class's executionMode controls the runtime
+	// path: Job classes are reconciled by the in-cluster Backup job
+	// controller; ProviderManaged classes are reconciled by the provider's
+	// runtime.
 	// +kubebuilder:validation:Required
-	BackupClassName string `json:"backupClassName"`
-	// StorageName references a BackupStorage in the same namespace that
+	ClassRef common.ObjectRef `json:"classRef"`
+	// StorageRef references a BackupStorage in the same namespace that
 	// defines where the backup data is written. For ProviderManaged classes
 	// the referenced storage must already be registered on the Instance via
 	// .spec.backup.storages so the engine can write to it.
 	// +kubebuilder:validation:Required
-	StorageName string `json:"storageName"`
+	StorageRef common.ObjectRef `json:"storageRef"`
 	// ScheduleName, when set, identifies the InstanceBackupSchedule that
 	// produced this Backup. Backups created via the API or `kubectl apply`
 	// leave this field empty (on-demand). The provider's mirroring loop
@@ -102,11 +104,11 @@ type BackupStatus struct {
 	// provider created (e.g., PerconaServerMongoDBBackup). Populated only
 	// for ProviderManaged classes.
 	// +optional
-	OperatorBackupRef *corev1.TypedLocalObjectReference `json:"operatorBackupRef,omitempty"`
-	// JobName is the reference to the Job that is running the backup.
+	OperatorBackupRef *common.TypedObjectRef `json:"operatorBackupRef,omitempty"`
+	// JobRef references the Job that is running the backup.
 	// Populated only for Job classes.
 	// +optional
-	JobName string `json:"jobName,omitempty"`
+	JobRef *common.ObjectRef `json:"jobRef,omitempty"`
 	// StartedAt is the time when the backup started.
 	// +optional
 	StartedAt *metav1.Time `json:"startedAt,omitempty"`
@@ -150,8 +152,8 @@ const (
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:shortName=bk;bak
-// +kubebuilder:printcolumn:name="Instance",type="string",JSONPath=".spec.instanceName"
-// +kubebuilder:printcolumn:name="Storage",type="string",JSONPath=".spec.storageName"
+// +kubebuilder:printcolumn:name="Instance",type="string",JSONPath=".spec.instanceRef.name"
+// +kubebuilder:printcolumn:name="Storage",type="string",JSONPath=".spec.storageRef.name"
 // +kubebuilder:printcolumn:name="State",type="string",JSONPath=".status.state"
 
 // Backup is the Schema for the backups API.

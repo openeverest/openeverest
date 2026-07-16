@@ -62,10 +62,12 @@ export const useClusterOverviewData = () => {
 
   const provider: Provider | undefined = useMemo(
     () =>
-      instance?.spec?.provider && providers
-        ? providers.find((p) => p.metadata?.name === instance.spec.provider)
+      instance?.spec?.providerRef?.name && providers
+        ? providers.find(
+            (p) => p.metadata?.name === instance.spec.providerRef.name
+          )
         : undefined,
-    [instance?.spec?.provider, providers]
+    [instance?.spec?.providerRef?.name, providers]
   );
 
   const { sections, sectionsOrder } = useMemo(() => {

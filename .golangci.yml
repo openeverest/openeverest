@@ -37,6 +37,16 @@ linters:
         - fmt.Fprint
         - fmt.Fprintf
         - fmt.Fprintln
+    goconst:
+      # JSON/YAML schema key names (e.g. "name" when building unstructured
+      # payloads) are not magic values; inline literals are idiomatic.
+      ignore-string-values:
+        - '^name$'
+    godot:
+      exclude:
+        # Machine-readable marker comments (controller-gen / apimachinery
+        # directives such as +structType=atomic) are not prose.
+        - '^\s*\+'
     ireturn:
       # Returning interfaces is the deliberate contract of these constructors
       # (and bubbletea's Model.Update is required to return tea.Model).

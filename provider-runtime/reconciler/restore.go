@@ -176,32 +176,32 @@ func resolveRestoreOwnership(
 	instance := &corev1alpha1.Instance{}
 	if err := c.Get(ctx, client.ObjectKey{
 		Namespace: restore.Namespace,
-		Name:      restore.Spec.InstanceName,
+		Name:      restore.Spec.InstanceRef.Name,
 	}, instance); err != nil {
 		if apierrors.IsNotFound(err) {
 			return nil, bc, false, nil
 		}
 		return nil, bc, false, fmt.Errorf("failed to get Instance: %w", err)
 	}
-	if instance.Spec.Provider != providerName {
+	if instance.Spec.ProviderRef.Name != providerName {
 		return instance, bc, false, nil
 	}
 	return instance, bc, true, nil
 }
 
 func backupClassNameForRestore(ctx context.Context, c client.Client, restore *backupv1alpha1.Restore) (string, error) {
-	if restore.Spec.DataSource.Backup != nil && restore.Spec.DataSource.Backup.BackupName != "" {
+	if restore.Spec.DataSource.Backup != nil && restore.Spec.DataSource.Backup.BackupRef.Name != "" {
 		backup := &backupv1alpha1.Backup{}
 		if err := c.Get(ctx, client.ObjectKey{
 			Namespace: restore.Namespace,
-			Name:      restore.Spec.DataSource.Backup.BackupName,
+			Name:      restore.Spec.DataSource.Backup.BackupRef.Name,
 		}, backup); err != nil {
 			if apierrors.IsNotFound(err) {
 				return "", nil
 			}
 			return "", fmt.Errorf("failed to get referenced Backup: %w", err)
 		}
-		return backup.Spec.BackupClassName, nil
+		return backup.Spec.ClassRef.Name, nil
 	}
 	return "", nil
 }

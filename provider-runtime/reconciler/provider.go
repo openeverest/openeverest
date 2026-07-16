@@ -195,19 +195,19 @@ func newReconciler(ctx context.Context, p providerAdapter, opts ...ReconcilerOpt
 	if _, isBackupProvider := p.(controller.BackupProvider); isBackupProvider {
 		if err := mgr.GetFieldIndexer().IndexField(ctx, &backupv1alpha1.Backup{}, controller.IndexBackupInstanceName, func(obj client.Object) []string {
 			b, ok := obj.(*backupv1alpha1.Backup)
-			if !ok || b.Spec.InstanceName == "" {
+			if !ok || b.Spec.InstanceRef.Name == "" {
 				return nil
 			}
-			return []string{b.Spec.InstanceName}
+			return []string{b.Spec.InstanceRef.Name}
 		}); err != nil {
 			return nil, fmt.Errorf("failed to register backup instanceName index: %w", err)
 		}
 		if err := mgr.GetFieldIndexer().IndexField(ctx, &backupv1alpha1.Restore{}, controller.IndexRestoreInstanceName, func(obj client.Object) []string {
 			rs, ok := obj.(*backupv1alpha1.Restore)
-			if !ok || rs.Spec.InstanceName == "" {
+			if !ok || rs.Spec.InstanceRef.Name == "" {
 				return nil
 			}
-			return []string{rs.Spec.InstanceName}
+			return []string{rs.Spec.InstanceRef.Name}
 		}); err != nil {
 			return nil, fmt.Errorf("failed to register restore instanceName index: %w", err)
 		}
@@ -318,7 +318,7 @@ func (r *ProviderReconciler) setup() error {
 		if !ok {
 			return false
 		}
-		return in.Spec.Provider == r.provider.Name()
+		return in.Spec.ProviderRef.Name == r.provider.Name()
 	})
 
 	b := ctrl.NewControllerManagedBy(r.manager).
@@ -735,7 +735,7 @@ func setCondition(in *v1alpha1.Instance, condType string, status metav1.Conditio
 // Version field is not already explicitly set by the user.
 func (r *ProviderReconciler) resolveVersionBundle(ctx context.Context, in *v1alpha1.Instance) (effectiveBundleName string, resolved *v1alpha1.Instance, err error) {
 	providerObj := &v1alpha1.Provider{}
-	if err = r.Client.Get(ctx, client.ObjectKey{Name: in.Spec.Provider}, providerObj); err != nil {
+	if err = r.Get(ctx, client.ObjectKey{Name: in.Spec.ProviderRef.Name}, providerObj); err != nil {
 		return "", nil, fmt.Errorf("fetching provider for version resolution: %w", err)
 	}
 	spec := &providerObj.Spec
@@ -785,7 +785,7 @@ func validateVersionBundle(ctx context.Context, c client.Client, in *v1alpha1.In
 		return nil
 	}
 	providerObj := &v1alpha1.Provider{}
-	if err := c.Get(ctx, client.ObjectKey{Name: in.Spec.Provider}, providerObj); err != nil {
+	if err := c.Get(ctx, client.ObjectKey{Name: in.Spec.ProviderRef.Name}, providerObj); err != nil {
 		return fmt.Errorf("fetching provider for version validation: %w", err)
 	}
 	found := false
@@ -796,7 +796,7 @@ func validateVersionBundle(ctx context.Context, c client.Client, in *v1alpha1.In
 		}
 	}
 	if !found {
-		return fmt.Errorf("version %q is not defined by provider %q", in.Spec.Version, in.Spec.Provider)
+		return fmt.Errorf("version %q is not defined by provider %q", in.Spec.Version, in.Spec.ProviderRef.Name)
 	}
 	return nil
 }

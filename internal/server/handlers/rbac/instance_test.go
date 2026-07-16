@@ -25,6 +25,7 @@ import (
 	"go.uber.org/zap"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	apicommon "github.com/openeverest/openeverest/v2/api/common/v1alpha1"
 	corev1alpha1 "github.com/openeverest/openeverest/v2/api/core/v1alpha1"
 	api "github.com/openeverest/openeverest/v2/internal/server/api"
 	"github.com/openeverest/openeverest/v2/internal/server/handlers"
@@ -410,8 +411,8 @@ func TestRBAC_Instance(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{Name: "standard-mysql"},
 			Spec: corev1alpha1.InstancePresetSpec{
 				InstanceSpec: corev1alpha1.InstanceSpec{
-					Provider: "mysql",
-					Version:  "8.0",
+					ProviderRef: apicommon.ObjectRef{Name: "mysql"},
+					Version:     "8.0",
 				},
 			},
 		}
@@ -433,8 +434,8 @@ func TestRBAC_Instance(t *testing.T) {
 						Annotations: map[string]string{"openeverest.io/instance-preset": "standard-mysql"},
 					},
 					Spec: corev1alpha1.InstanceSpec{
-						Provider: "mysql",
-						Version:  "9.0", // Different from preset!
+						ProviderRef: apicommon.ObjectRef{Name: "mysql"},
+						Version:     "9.0", // Different from preset!
 					},
 				},
 				policy: newPolicy(
@@ -451,8 +452,8 @@ func TestRBAC_Instance(t *testing.T) {
 						Annotations: map[string]string{"openeverest.io/instance-preset": "standard-mysql"},
 					},
 					Spec: corev1alpha1.InstanceSpec{
-						Provider: "mysql",
-						Version:  "9.0", // Different from preset!
+						ProviderRef: apicommon.ObjectRef{Name: "mysql"},
+						Version:     "9.0", // Different from preset!
 					},
 				},
 				policy: newPolicy(
@@ -470,8 +471,8 @@ func TestRBAC_Instance(t *testing.T) {
 						Namespace: "ns1",
 					},
 					Spec: corev1alpha1.InstanceSpec{
-						Provider: "mysql",
-						Version:  "9.0",
+						ProviderRef: apicommon.ObjectRef{Name: "mysql"},
+						Version:     "9.0",
 					},
 				},
 				policy: newPolicy(
@@ -490,8 +491,8 @@ func TestRBAC_Instance(t *testing.T) {
 						Annotations: map[string]string{"openeverest.io/instance-preset": "standard-mysql"},
 					},
 					Spec: corev1alpha1.InstanceSpec{
-						Provider: "mysql",
-						Version:  "8.0", // Matches preset exactly
+						ProviderRef: apicommon.ObjectRef{Name: "mysql"},
+						Version:     "8.0", // Matches preset exactly
 					},
 				},
 				policy: newPolicy(
@@ -509,8 +510,8 @@ func TestRBAC_Instance(t *testing.T) {
 						Namespace: "ns1",
 					},
 					Spec: corev1alpha1.InstanceSpec{
-						Provider: "mysql",
-						Version:  "8.0", // Matches preset exactly
+						ProviderRef: apicommon.ObjectRef{Name: "mysql"},
+						Version:     "8.0", // Matches preset exactly
 					},
 				},
 				policy: newPolicy(
@@ -530,8 +531,8 @@ func TestRBAC_Instance(t *testing.T) {
 						Annotations: map[string]string{"openeverest.io/instance-preset": "standard-mysql"},
 					},
 					Spec: corev1alpha1.InstanceSpec{
-						Provider: "mysql",
-						Version:  "9.0", // Different from preset!
+						ProviderRef: apicommon.ObjectRef{Name: "mysql"},
+						Version:     "9.0", // Different from preset!
 					},
 				},
 				policy: newPolicy(
@@ -551,8 +552,8 @@ func TestRBAC_Instance(t *testing.T) {
 						Annotations: map[string]string{"openeverest.io/instance-preset": "standard-mysql"},
 					},
 					Spec: corev1alpha1.InstanceSpec{
-						Provider: "mysql",
-						Version:  "8.0", // Matches preset exactly
+						ProviderRef: apicommon.ObjectRef{Name: "mysql"},
+						Version:     "8.0", // Matches preset exactly
 					},
 				},
 				policy: newPolicy(

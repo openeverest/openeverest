@@ -177,7 +177,9 @@ export const mockMonitoringConfigs = {
       spec: {
         type: 'pmm',
         pmm: {
-          credentialsSecretName: 'monitoring-config-pmm-prod-credentials',
+          credentialsSecretRef: {
+            name: 'monitoring-config-pmm-prod-credentials',
+          },
           url: 'http://monitoring.example.com',
           verifyTLS: false,
         },
@@ -210,7 +212,9 @@ export const mockBackupStorages = {
         s3: {
           bucket: 'everest-backups-prod',
           region: 'us-east-1',
-          credentialsSecretName: 'backup-storage-s3-prod-credentials',
+          credentialsSecretRef: {
+            name: 'backup-storage-s3-prod-credentials',
+          },
           endpointURL: 'https://s3.amazonaws.com',
           verifyTLS: true,
           forcePathStyle: false,

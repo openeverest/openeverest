@@ -69,7 +69,7 @@ const WithPermissionDetails = ({
   // (providers field). Per-namespace plugin visibility is governed by
   // Everest RBAC on the `/v1/plugins` endpoint.
   const { plugins } = usePlugins();
-  const engineType = instance?.spec?.provider;
+  const engineType = instance?.spec?.providerRef?.name;
 
   const pluginTabs = useMemo(
     () =>

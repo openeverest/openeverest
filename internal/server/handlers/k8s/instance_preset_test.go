@@ -28,6 +28,7 @@ import (
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
+	common "github.com/openeverest/openeverest/v2/api/common/v1alpha1"
 	corev1alpha1 "github.com/openeverest/openeverest/v2/api/core/v1alpha1"
 	monitoringv1alpha1 "github.com/openeverest/openeverest/v2/api/monitoring/v1alpha1"
 	"github.com/openeverest/openeverest/v2/pkg/kubernetes"
@@ -91,8 +92,8 @@ func TestApplyNamespaceDefaults_New(t *testing.T) {
 		log:           zap.NewNop().Sugar(),
 	}
 
-	emptySecretRef := &corev1alpha1.Config{SecretRef: corev1.LocalObjectReference{Name: ""}}
-	resolvedSecretRef := &corev1alpha1.Config{SecretRef: corev1.LocalObjectReference{Name: "default-secret"}}
+	emptySecretRef := &corev1alpha1.Config{ValueFrom: &corev1alpha1.ConfigSource{SecretKeyRef: &common.SecretKeyRef{Key: "config"}}}
+	resolvedSecretRef := &corev1alpha1.Config{ValueFrom: &corev1alpha1.ConfigSource{SecretKeyRef: &common.SecretKeyRef{Name: "default-secret", Key: "config"}}}
 
 	tests := []struct {
 		name     string

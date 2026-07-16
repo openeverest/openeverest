@@ -38,6 +38,7 @@ import (
 
 	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
 	"github.com/openeverest/openeverest/v2/api/backup/v1alpha1/jobspec"
+	apicommon "github.com/openeverest/openeverest/v2/api/common/v1alpha1"
 	corev1alpha1 "github.com/openeverest/openeverest/v2/api/core/v1alpha1"
 	"github.com/openeverest/openeverest/v2/pkg/common"
 )
@@ -214,11 +215,11 @@ func (r *RestoreReconciler) Reconcile( //nolint:nonamedreturns
 	// Fetch the target Instance.
 	instance := &corev1alpha1.Instance{}
 	if err := r.Client.Get(ctx, client.ObjectKey{
-		Name:      restore.Spec.InstanceName,
+		Name:      restore.Spec.InstanceRef.Name,
 		Namespace: restore.GetNamespace(),
 	}, instance); err != nil {
 		restore.Status.State = backupv1alpha1.RestoreStateError
-		restore.Status.Message = fmt.Errorf("failed to get instance %q: %w", restore.Spec.InstanceName, err).Error()
+		restore.Status.Message = fmt.Errorf("failed to get instance %q: %w", restore.Spec.InstanceRef.Name, err).Error()
 		return ctrl.Result{}, err
 	}
 
@@ -254,11 +255,11 @@ func (r *RestoreReconciler) ensureInstanceNameLabel(ctx context.Context, restore
 		labels = make(map[string]string)
 	}
 
-	if labels[common.InstanceNameLabel] == restore.Spec.InstanceName {
+	if labels[common.InstanceNameLabel] == restore.Spec.InstanceRef.Name {
 		return nil
 	}
 
-	labels[common.InstanceNameLabel] = restore.Spec.InstanceName
+	labels[common.InstanceNameLabel] = restore.Spec.InstanceRef.Name
 	restore.SetLabels(labels)
 	if err := r.Client.Update(ctx, restore); err != nil {
 		return fmt.Errorf("failed to update instance name label: %w", err)
@@ -276,16 +277,16 @@ func (r *RestoreReconciler) resolveBackupClass(
 
 	ds := restore.Spec.DataSource
 	switch {
-	case ds.Backup != nil && ds.Backup.BackupName != "":
+	case ds.Backup != nil && ds.Backup.BackupRef.Name != "":
 		// Resolve from the referenced Backup CR.
 		backup := &backupv1alpha1.Backup{}
 		if err := r.Client.Get(ctx, client.ObjectKey{
-			Name:      ds.Backup.BackupName,
+			Name:      ds.Backup.BackupRef.Name,
 			Namespace: restore.GetNamespace(),
 		}, backup); err != nil {
-			return nil, fmt.Errorf("failed to get backup %q: %w", ds.Backup.BackupName, err)
+			return nil, fmt.Errorf("failed to get backup %q: %w", ds.Backup.BackupRef.Name, err)
 		}
-		backupClassName = backup.Spec.BackupClassName
+		backupClassName = backup.Spec.ClassRef.Name
 
 	default:
 		return nil, fmt.Errorf("dataSource must specify backup")
@@ -314,7 +315,7 @@ func (r *RestoreReconciler) ensureRestoreJob(
 		},
 	}
 
-	restore.Status.JobName = job.GetName()
+	restore.Status.JobRef = &apicommon.ObjectRef{Name: job.GetName()}
 
 	// Check if the job already exists.
 	if err := r.Client.Get(ctx, client.ObjectKeyFromObject(job), job); err != nil {
@@ -345,11 +346,11 @@ func restoreToolRequestSecretName(restore *backupv1alpha1.Restore) string {
 }
 
 func (r *RestoreReconciler) observeJobStatus(ctx context.Context, restore *backupv1alpha1.Restore) error {
-	jobName := restore.Status.JobName
-	if jobName == "" {
+	if restore.Status.JobRef == nil {
 		restore.Status.State = backupv1alpha1.RestoreStatePending
 		return nil
 	}
+	jobName := restore.Status.JobRef.Name
 
 	job := &batchv1.Job{}
 	if err := r.Client.Get(ctx, client.ObjectKey{
@@ -438,15 +439,15 @@ func (r *RestoreReconciler) ensurePayloadSecret(
 	var storageName string
 	ds := restore.Spec.DataSource
 	switch {
-	case ds.Backup != nil && ds.Backup.BackupName != "":
+	case ds.Backup != nil && ds.Backup.BackupRef.Name != "":
 		backup := &backupv1alpha1.Backup{}
 		if err := r.Client.Get(ctx, client.ObjectKey{
-			Name:      ds.Backup.BackupName,
+			Name:      ds.Backup.BackupRef.Name,
 			Namespace: restore.GetNamespace(),
 		}, backup); err != nil {
-			return fmt.Errorf("failed to get backup %q: %w", ds.Backup.BackupName, err)
+			return fmt.Errorf("failed to get backup %q: %w", ds.Backup.BackupRef.Name, err)
 		}
-		storageName = backup.Spec.StorageName
+		storageName = backup.Spec.StorageRef.Name
 	}
 
 	if storageName != "" {
@@ -467,10 +468,10 @@ func (r *RestoreReconciler) ensurePayloadSecret(
 				ForcePathStyle: pointer.Get(s3Dest.ForcePathStyle),
 			}
 
-			if s3Dest.CredentialsSecretName != "" {
+			if s3Dest.CredentialsSecretRef.Name != "" {
 				credSecret := &corev1.Secret{}
 				if err := r.Client.Get(ctx, client.ObjectKey{
-					Name:      s3Dest.CredentialsSecretName,
+					Name:      s3Dest.CredentialsSecretRef.Name,
 					Namespace: restore.GetNamespace(),
 				}, credSecret); err != nil {
 					return fmt.Errorf("failed to get S3 credentials secret: %w", err)
@@ -603,10 +604,10 @@ func (r *RestoreReconciler) handleFinalizers(
 }
 
 func (r *RestoreReconciler) deleteJob(ctx context.Context, restore *backupv1alpha1.Restore) (bool, error) {
-	jobName := restore.Status.JobName
-	if jobName == "" {
+	if restore.Status.JobRef == nil {
 		return true, nil
 	}
+	jobName := restore.Status.JobRef.Name
 
 	job := &batchv1.Job{
 		ObjectMeta: metav1.ObjectMeta{

@@ -344,7 +344,7 @@ func TestBuildPayload_BasicFields(t *testing.T) {
 	t.Parallel()
 	p := buildPayload("my-db", "psmdb", "8.0", "replicaset", nil, nil)
 	spec := p["spec"].(map[string]any)
-	assert.Equal(t, "psmdb", spec["provider"])
+	assert.Equal(t, map[string]any{"name": "psmdb"}, spec["providerRef"])
 	assert.Equal(t, "8.0", spec["version"])
 	topo := spec["topology"].(map[string]any)
 	assert.Equal(t, "replicaset", topo["type"])
@@ -354,10 +354,10 @@ func TestBuildPayload_BasicFields(t *testing.T) {
 
 func TestBuildPayload_ExplicitFlagsWinOverOverrides(t *testing.T) {
 	t.Parallel()
-	overrides := map[string]any{"provider": "wrong", "version": "wrong"}
+	overrides := map[string]any{"providerRef": map[string]any{"name": "wrong"}, "version": "wrong"}
 	p := buildPayload("db", "psmdb", "8.0", "standalone", overrides, nil)
 	spec := p["spec"].(map[string]any)
-	assert.Equal(t, "psmdb", spec["provider"])
+	assert.Equal(t, map[string]any{"name": "psmdb"}, spec["providerRef"])
 	assert.Equal(t, "8.0", spec["version"])
 }
 
@@ -708,7 +708,7 @@ func newRunServerWithPreset(t *testing.T, providerHandler, createHandler, preset
 func presetJSON() []byte {
 	return []byte(`{
 		"spec": {
-			"provider": "psmdb",
+			"providerRef": {"name": "psmdb"},
 			"version": "8.0",
 			"topology": {"type": "replicaset"},
 			"components": {"engine": {"replicas": 3}}
@@ -755,7 +755,7 @@ func TestRun_WithPreset_Payloads(t *testing.T) {
       }
    },
    "spec":{
-      "provider":"psmdb",
+      "providerRef":{"name":"psmdb"},
       "version":"8.0",
       "topology":{
          "type":"replicaset"
@@ -786,7 +786,7 @@ func TestRun_WithPreset_Payloads(t *testing.T) {
       }
    },
    "spec": {
-      "provider": "psmdb",
+      "providerRef": {"name": "psmdb"},
       "version": "8.0",
       "topology": {
          "type": "replicaset"
@@ -817,7 +817,7 @@ func TestRun_WithPreset_Payloads(t *testing.T) {
       }
    },
    "spec": {
-      "provider": "psmdb",
+      "providerRef": {"name": "psmdb"},
       "version": "7.0",
       "topology": {
          "type": "replicaset"
@@ -846,7 +846,7 @@ func TestRun_WithPreset_Payloads(t *testing.T) {
       }
    },
    "spec": {
-      "provider": "psmdb",
+      "providerRef": {"name": "psmdb"},
       "version": "8.0",
       "topology": {
          "type": "replicaset"

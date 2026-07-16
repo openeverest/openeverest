@@ -96,7 +96,7 @@ func ValidateInstanceBackupAgainstClass(in *corev1alpha1.Instance, bc *backupv1a
 		for _, s := range storages {
 			if int32(len(s.Schedules)) > *limits.MaxSchedulesPerStorage {
 				return fmt.Errorf("%w: storage %q has %d schedules, BackupClass %q allows at most %d per storage",
-					ErrBackupClassLimitsExceeded, s.Name, len(s.Schedules), bc.Name, *limits.MaxSchedulesPerStorage)
+					ErrBackupClassLimitsExceeded, s.StorageRef.Name, len(s.Schedules), bc.Name, *limits.MaxSchedulesPerStorage)
 			}
 		}
 	}
@@ -134,7 +134,7 @@ func ValidateInstanceBackupPITRConfigs(in *corev1alpha1.Instance, bc *backupv1al
 			continue
 		}
 		if err := schemaCfg.Validate(s.PITR.Config); err != nil {
-			return fmt.Errorf("%w: storage %q: %s", ErrPITRConfigInvalid, s.Name, err.Error())
+			return fmt.Errorf("%w: storage %q: %s", ErrPITRConfigInvalid, s.StorageRef.Name, err.Error())
 		}
 	}
 	return nil

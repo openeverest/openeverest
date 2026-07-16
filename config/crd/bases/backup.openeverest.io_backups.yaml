@@ -18,10 +18,10 @@ spec:
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
-    - jsonPath: .spec.instanceName
+    - jsonPath: .spec.instanceRef.name
       name: Instance
       type: string
-    - jsonPath: .spec.storageName
+    - jsonPath: .spec.storageRef.name
       name: Storage
       type: string
     - jsonPath: .status.state
@@ -52,13 +52,24 @@ spec:
           spec:
             description: BackupSpec defines the desired state of Backup.
             properties:
-              backupClassName:
+              classRef:
                 description: |-
-                  BackupClassName is the BackupClass that defines how this Backup is
-                  executed. The class's executionMode controls the runtime path: Job
-                  classes are reconciled by the in-cluster Backup job controller;
-                  ProviderManaged classes are reconciled by the provider's runtime.
-                type: string
+                  ClassRef references the cluster-scoped BackupClass that defines how
+                  this Backup is executed. The class's executionMode controls the runtime
+                  path: Job classes are reconciled by the in-cluster Backup job
+                  controller; ProviderManaged classes are reconciled by the provider's
+                  runtime.
+                properties:
+                  name:
+                    description: Name of the referenced object.
+                    maxLength: 253
+                    minLength: 1
+                    pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                    type: string
+                required:
+                - name
+                type: object
+                x-kubernetes-map-type: atomic
               config:
                 description: |-
                   Config is the backup-time configuration validated against the
@@ -88,11 +99,21 @@ spec:
                   has been set is rejected so the cleanup path cannot race with
                   itself.
                 type: string
-              instanceName:
+              instanceRef:
                 description: |-
-                  InstanceName is the name of the Instance to back up. The Instance must
+                  InstanceRef references the Instance to back up. The Instance must
                   live in the same namespace as this Backup.
-                type: string
+                properties:
+                  name:
+                    description: Name of the referenced object.
+                    maxLength: 253
+                    minLength: 1
+                    pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                    type: string
+                required:
+                - name
+                type: object
+                x-kubernetes-map-type: atomic
               scheduleName:
                 description: |-
                   ScheduleName, when set, identifies the InstanceBackupSchedule that
@@ -101,17 +122,27 @@ spec:
                   sets it when surfacing operator-produced scheduled backups as Backup
                   CRs.
                 type: string
-              storageName:
+              storageRef:
                 description: |-
-                  StorageName references a BackupStorage in the same namespace that
+                  StorageRef references a BackupStorage in the same namespace that
                   defines where the backup data is written. For ProviderManaged classes
                   the referenced storage must already be registered on the Instance via
                   .spec.backup.storages so the engine can write to it.
-                type: string
+                properties:
+                  name:
+                    description: Name of the referenced object.
+                    maxLength: 253
+                    minLength: 1
+                    pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                    type: string
+                required:
+                - name
+                type: object
+                x-kubernetes-map-type: atomic
             required:
-            - backupClassName
-            - instanceName
-            - storageName
+            - classRef
+            - instanceRef
+            - storageRef
             type: object
           status:
             description: BackupStatus defines the observed state of Backup.
@@ -187,11 +218,21 @@ spec:
                 - ProviderManaged
                 - Job
                 type: string
-              jobName:
+              jobRef:
                 description: |-
-                  JobName is the reference to the Job that is running the backup.
+                  JobRef references the Job that is running the backup.
                   Populated only for Job classes.
-                type: string
+                properties:
+                  name:
+                    description: Name of the referenced object.
+                    maxLength: 253
+                    minLength: 1
+                    pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                    type: string
+                required:
+                - name
+                type: object
+                x-kubernetes-map-type: atomic
               lastObservedGeneration:
                 description: LastObservedGeneration is the last observed generation
                   of the Backup CR.
@@ -207,17 +248,21 @@ spec:
                   provider created (e.g., PerconaServerMongoDBBackup). Populated only
                   for ProviderManaged classes.
                 properties:
-                  apiGroup:
+                  group:
                     description: |-
-                      APIGroup is the group for the resource being referenced.
-                      If APIGroup is not specified, the specified Kind must be in the core API group.
-                      For any other third-party types, APIGroup is required.
+                      Group is the API group of the referenced object. Empty for objects in
+                      the core API group.
+                    maxLength: 253
                     type: string
                   kind:
-                    description: Kind is the type of resource being referenced
+                    description: Kind of the referenced object.
+                    maxLength: 63
+                    minLength: 1
                     type: string
                   name:
-                    description: Name is the name of resource being referenced
+                    description: Name of the referenced object.
+                    maxLength: 253
+                    minLength: 1
                     type: string
                 required:
                 - kind

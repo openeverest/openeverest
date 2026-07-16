@@ -222,9 +222,7 @@ func (ic *InstanceCreator) resolvePreset(ctx context.Context, c *client.ClientWi
 
 	p := resp.JSON200
 	pr := &presetResult{}
-	if p.Spec.Provider != nil {
-		pr.provider = *p.Spec.Provider
-	}
+	pr.provider = p.Spec.ProviderRef.Name
 	if p.Spec.Version != nil {
 		pr.version = *p.Spec.Version
 	}
@@ -371,7 +369,7 @@ func providerName(prov *client.Provider) string {
 	if prov.Metadata == nil {
 		return "<unknown>"
 	}
-	if name, ok := (*prov.Metadata)[metadataKeyName]; ok {
+	if name, ok := (*prov.Metadata)["name"]; ok {
 		if s, ok := name.(string); ok {
 			return s
 		}
@@ -500,15 +498,13 @@ func deepSet(m map[string]any, path []string, value any) error {
 	return deepSet(childMap, path[1:], value)
 }
 
-const metadataKeyName = "name"
-
 // buildPayload builds the Instance JSON payload; explicit flags win over --set/-f.
 func buildPayload(name, provider, version, topology string, specOverrides map[string]any, annotations map[string]string) map[string]any {
 	if specOverrides == nil {
 		specOverrides = map[string]any{}
 	}
 
-	specOverrides["provider"] = provider
+	specOverrides["providerRef"] = map[string]any{"name": provider}
 	if version != "" {
 		specOverrides["version"] = version
 	}
@@ -521,7 +517,7 @@ func buildPayload(name, provider, version, topology string, specOverrides map[st
 		}
 	}
 
-	metadata := map[string]any{metadataKeyName: name}
+	metadata := map[string]any{"name": name}
 	if len(annotations) > 0 {
 		metadata["annotations"] = annotations
 	}

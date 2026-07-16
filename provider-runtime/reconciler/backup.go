@@ -176,7 +176,7 @@ func resolveBackupOwnership(
 	providerName string,
 ) (*corev1alpha1.Instance, *backupv1alpha1.BackupClass, bool, error) {
 	bc := &backupv1alpha1.BackupClass{}
-	if err := c.Get(ctx, client.ObjectKey{Name: backup.Spec.BackupClassName}, bc); err != nil {
+	if err := c.Get(ctx, client.ObjectKey{Name: backup.Spec.ClassRef.Name}, bc); err != nil {
 		if apierrors.IsNotFound(err) {
 			return nil, nil, false, nil
 		}
@@ -188,14 +188,14 @@ func resolveBackupOwnership(
 	instance := &corev1alpha1.Instance{}
 	if err := c.Get(ctx, client.ObjectKey{
 		Namespace: backup.Namespace,
-		Name:      backup.Spec.InstanceName,
+		Name:      backup.Spec.InstanceRef.Name,
 	}, instance); err != nil {
 		if apierrors.IsNotFound(err) {
 			return nil, bc, false, nil
 		}
 		return nil, bc, false, fmt.Errorf("failed to get Instance: %w", err)
 	}
-	if instance.Spec.Provider != providerName {
+	if instance.Spec.ProviderRef.Name != providerName {
 		return instance, bc, false, nil
 	}
 	return instance, bc, true, nil

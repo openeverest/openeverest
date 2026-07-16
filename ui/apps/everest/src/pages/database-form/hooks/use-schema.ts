@@ -43,16 +43,19 @@ export const useSchema = (): {
 
   const { data: providers } = useProviders({
     enabled:
-      isRestore && !selectedDbProvider && !!sourceInstance?.spec?.provider,
+      isRestore &&
+      !selectedDbProvider &&
+      !!sourceInstance?.spec?.providerRef?.name,
   });
 
   const resolvedProvider = useMemo(() => {
     if (selectedDbProvider) return selectedDbProvider;
-    if (!sourceInstance?.spec?.provider || !providers) return undefined;
+    if (!sourceInstance?.spec?.providerRef?.name || !providers)
+      return undefined;
     return providers.find(
-      (p) => p.metadata?.name === sourceInstance.spec.provider
+      (p) => p.metadata?.name === sourceInstance.spec.providerRef.name
     );
-  }, [selectedDbProvider, sourceInstance?.spec?.provider, providers]);
+  }, [selectedDbProvider, sourceInstance?.spec?.providerRef?.name, providers]);
 
   const uiSchema = useMemo(
     () =>

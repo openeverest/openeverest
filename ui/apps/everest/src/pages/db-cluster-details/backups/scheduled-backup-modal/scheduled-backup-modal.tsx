@@ -45,7 +45,7 @@ export const ScheduledBackupModal = () => {
   const { instanceName = '' } = useParams();
   const { data: backupClasses = [] } = useBackupClassesList(clusterName);
   const classRef = instance.spec?.backup?.classRef?.name;
-  const providerType = instance.spec?.provider;
+  const providerType = instance.spec?.providerRef?.name;
 
   const availableBackupClasses = useMemo(
     () =>
@@ -109,7 +109,6 @@ export const ScheduledBackupModal = () => {
     );
     if (!storageExists && newStorageName) {
       updatedStorages.push({
-        name: newStorageName,
         storageRef: { name: newStorageName },
         schedules: updatedSchedules
           .filter((s) => s.storageName === newStorageName)

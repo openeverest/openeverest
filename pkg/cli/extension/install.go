@@ -27,6 +27,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/yaml"
 
+	common "github.com/openeverest/openeverest/v2/api/common/v1alpha1"
 	corev1alpha1 "github.com/openeverest/openeverest/v2/api/extensions/v1alpha1"
 	cliutils "github.com/openeverest/openeverest/v2/pkg/cli/utils"
 	"github.com/openeverest/openeverest/v2/pkg/kubernetes"
@@ -124,7 +125,7 @@ func (pi *PluginInstaller) Run(ctx context.Context) error {
 		Spec: corev1alpha1.InstalledExtensionSpec{
 			Type: corev1alpha1.InstalledExtensionTypePlugin,
 			Plugin: &corev1alpha1.PluginInstall{
-				PluginCRName: plugin.Name,
+				PluginRef: common.ObjectRef{Name: plugin.Name},
 			},
 		},
 	}

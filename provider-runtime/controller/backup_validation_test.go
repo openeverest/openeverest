@@ -19,11 +19,11 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
 	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
+	common "github.com/openeverest/openeverest/v2/api/common/v1alpha1"
 	corev1alpha1 "github.com/openeverest/openeverest/v2/api/core/v1alpha1"
 )
 
@@ -31,8 +31,7 @@ func ptrInt32(v int32) *int32 { return &v }
 
 func mkStorage(name string, pitr bool, schedules int) corev1alpha1.InstanceBackupStorage {
 	s := corev1alpha1.InstanceBackupStorage{
-		Name:       name,
-		StorageRef: corev1.LocalObjectReference{Name: name},
+		StorageRef: common.ObjectRef{Name: name},
 	}
 	if pitr {
 		s.PITR = &corev1alpha1.InstanceBackupStoragePITR{Enabled: true}
@@ -52,7 +51,7 @@ func mkInstance(storages ...corev1alpha1.InstanceBackupStorage) *corev1alpha1.In
 		Spec: corev1alpha1.InstanceSpec{
 			Backup: &corev1alpha1.InstanceBackupSpec{
 				Enabled:  true,
-				ClassRef: corev1alpha1.BackupClassReference{Name: "bc"},
+				ClassRef: common.ObjectRef{Name: "bc"},
 				Storages: storages,
 			},
 		},
@@ -280,12 +279,12 @@ func TestValidateInstanceBackupPITRConfigs(t *testing.T) {
 func mkPITRRestore(pitr *backupv1alpha1.DataSourcePITR) *backupv1alpha1.Restore {
 	return &backupv1alpha1.Restore{
 		Spec: backupv1alpha1.RestoreSpec{
-			InstanceName: "db",
+			InstanceRef: common.ObjectRef{Name: "db"},
 			DataSource: backupv1alpha1.DataSource{
 				Type: backupv1alpha1.DataSourceTypeBackup,
 				Backup: &backupv1alpha1.DataSourceBackup{
-					BackupName: "bkp",
-					PITR:       pitr,
+					BackupRef: common.ObjectRef{Name: "bkp"},
+					PITR:      pitr,
 				},
 			},
 		},

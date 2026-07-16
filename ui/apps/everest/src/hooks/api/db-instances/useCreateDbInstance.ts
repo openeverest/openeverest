@@ -47,7 +47,7 @@ export const buildCreateInstanceSpec = (
   void k8sNamespace;
 
   return {
-    provider,
+    providerRef: { name: provider },
     ...(deepMerge(
       rest as Record<string, unknown>,
       spec as unknown as Record<string, unknown>

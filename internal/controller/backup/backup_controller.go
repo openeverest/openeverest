@@ -39,6 +39,7 @@ import (
 
 	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
 	"github.com/openeverest/openeverest/v2/api/backup/v1alpha1/jobspec"
+	apicommon "github.com/openeverest/openeverest/v2/api/common/v1alpha1"
 	corev1alpha1 "github.com/openeverest/openeverest/v2/api/core/v1alpha1"
 	"github.com/openeverest/openeverest/v2/pkg/common"
 )
@@ -178,7 +179,7 @@ func (r *BackupReconciler) Reconcile( //nolint:nonamedreturns
 	// fighting with the provider-runtime reconciler.
 	bc := &backupv1alpha1.BackupClass{}
 	if err := r.Client.Get(ctx, client.ObjectKey{
-		Name: backup.Spec.BackupClassName,
+		Name: backup.Spec.ClassRef.Name,
 	}, bc); err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed to get backup class: %w", err)
 	}
@@ -215,7 +216,7 @@ func (r *BackupReconciler) Reconcile( //nolint:nonamedreturns
 	// Get the source database instance.
 	instance := &corev1alpha1.Instance{}
 	if err := r.Client.Get(ctx, client.ObjectKey{
-		Name:      backup.Spec.InstanceName,
+		Name:      backup.Spec.InstanceRef.Name,
 		Namespace: backup.GetNamespace(),
 	}, instance); err != nil {
 		backup.Status.State = backupv1alpha1.BackupStateError
@@ -274,11 +275,11 @@ func (r *BackupReconciler) ensureInstanceNameLabel(ctx context.Context, backup *
 		labels = make(map[string]string)
 	}
 
-	if labels[common.InstanceNameLabel] == backup.Spec.InstanceName {
+	if labels[common.InstanceNameLabel] == backup.Spec.InstanceRef.Name {
 		return nil
 	}
 
-	labels[common.InstanceNameLabel] = backup.Spec.InstanceName
+	labels[common.InstanceNameLabel] = backup.Spec.InstanceRef.Name
 	backup.SetLabels(labels)
 	if err := r.Client.Update(ctx, backup); err != nil {
 		return fmt.Errorf("failed to update instance name label: %w", err)
@@ -288,11 +289,11 @@ func (r *BackupReconciler) ensureInstanceNameLabel(ctx context.Context, backup *
 }
 
 func (r *BackupReconciler) observeJobStatus(ctx context.Context, backup *backupv1alpha1.Backup) error {
-	jobName := backup.Status.JobName
-	if jobName == "" {
+	if backup.Status.JobRef == nil {
 		backup.Status.State = backupv1alpha1.BackupStatePending
 		return nil
 	}
+	jobName := backup.Status.JobRef.Name
 
 	job := &batchv1.Job{}
 	if err := r.Client.Get(ctx, client.ObjectKey{
@@ -377,41 +378,19 @@ func (r *BackupReconciler) ensurePayloadSecret(
 	}
 
 	// Resolve S3 storage details from the referenced BackupStorage CR.
-	if backup.Spec.StorageName != "" {
-		storage := &backupv1alpha1.BackupStorage{}
-		if err := r.Client.Get(ctx, client.ObjectKey{
-			Name:      backup.Spec.StorageName,
-			Namespace: backup.GetNamespace(),
-		}, storage); err != nil {
-			return fmt.Errorf("failed to get BackupStorage %q: %w", backup.Spec.StorageName, err)
+	storage := &backupv1alpha1.BackupStorage{}
+	if err := r.Client.Get(ctx, client.ObjectKey{
+		Name:      backup.Spec.StorageRef.Name,
+		Namespace: backup.GetNamespace(),
+	}, storage); err != nil {
+		return fmt.Errorf("failed to get BackupStorage %q: %w", backup.Spec.StorageRef.Name, err)
+	}
+	if s3 := storage.Spec.S3; s3 != nil {
+		details, err := r.buildS3StorageDetails(ctx, backup.GetNamespace(), s3)
+		if err != nil {
+			return err
 		}
-		if storage.Spec.S3 != nil {
-			s3Dest := storage.Spec.S3
-			s3Details := &jobspec.S3Details{
-				Bucket:         s3Dest.Bucket,
-				Region:         s3Dest.Region,
-				EndpointURL:    s3Dest.EndpointURL,
-				VerifyTLS:      pointer.Get(s3Dest.VerifyTLS),
-				ForcePathStyle: pointer.Get(s3Dest.ForcePathStyle),
-			}
-
-			// Read S3 credentials from the referenced Secret.
-			if s3Dest.CredentialsSecretName != "" {
-				credSecret := &corev1.Secret{}
-				if err := r.Client.Get(ctx, client.ObjectKey{
-					Name:      s3Dest.CredentialsSecretName,
-					Namespace: backup.GetNamespace(),
-				}, credSecret); err != nil {
-					return fmt.Errorf("failed to get S3 credentials secret: %w", err)
-				}
-				s3Details.AccessKeyID = string(credSecret.Data["AWS_ACCESS_KEY_ID"])
-				s3Details.SecretAccessKey = string(credSecret.Data["AWS_SECRET_ACCESS_KEY"])
-			}
-
-			spec.Storage = &jobspec.StorageDetails{
-				S3: s3Details,
-			}
-		}
+		spec.Storage = details
 	}
 
 	// Pass through the config.
@@ -438,6 +417,37 @@ func (r *BackupReconciler) ensurePayloadSecret(
 	return nil
 }
 
+// buildS3StorageDetails converts an S3 BackupStorage spec into job-payload
+// storage details, reading the referenced credentials Secret when one is set.
+func (r *BackupReconciler) buildS3StorageDetails(
+	ctx context.Context,
+	namespace string,
+	s3Dest *backupv1alpha1.BackupStorageS3Spec,
+) (*jobspec.StorageDetails, error) {
+	s3Details := &jobspec.S3Details{
+		Bucket:         s3Dest.Bucket,
+		Region:         s3Dest.Region,
+		EndpointURL:    s3Dest.EndpointURL,
+		VerifyTLS:      pointer.Get(s3Dest.VerifyTLS),
+		ForcePathStyle: pointer.Get(s3Dest.ForcePathStyle),
+	}
+
+	// Read S3 credentials from the referenced Secret.
+	if s3Dest.CredentialsSecretRef.Name != "" {
+		credSecret := &corev1.Secret{}
+		if err := r.Client.Get(ctx, client.ObjectKey{
+			Name:      s3Dest.CredentialsSecretRef.Name,
+			Namespace: namespace,
+		}, credSecret); err != nil {
+			return nil, fmt.Errorf("failed to get S3 credentials secret: %w", err)
+		}
+		s3Details.AccessKeyID = string(credSecret.Data["AWS_ACCESS_KEY_ID"])
+		s3Details.SecretAccessKey = string(credSecret.Data["AWS_SECRET_ACCESS_KEY"])
+	}
+
+	return &jobspec.StorageDetails{S3: s3Details}, nil
+}
+
 func (r *BackupReconciler) ensureBackupJob(
 	ctx context.Context,
 	useServiceAccount bool,
@@ -451,7 +461,7 @@ func (r *BackupReconciler) ensureBackupJob(
 		},
 	}
 
-	backup.Status.JobName = job.GetName()
+	backup.Status.JobRef = &apicommon.ObjectRef{Name: job.GetName()}
 
 	// Check if the job already exists.
 	if err := r.Client.Get(ctx, client.ObjectKeyFromObject(job), job); err != nil {
@@ -572,10 +582,10 @@ func (r *BackupReconciler) handleFinalizers(
 
 // Returns: [done(bool), error] .
 func (r *BackupReconciler) deleteJob(ctx context.Context, backup *backupv1alpha1.Backup) (bool, error) {
-	jobName := backup.Status.JobName
-	if jobName == "" {
+	if backup.Status.JobRef == nil {
 		return true, nil
 	}
+	jobName := backup.Status.JobRef.Name
 
 	job := &batchv1.Job{
 		ObjectMeta: metav1.ObjectMeta{

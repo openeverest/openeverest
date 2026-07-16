@@ -87,13 +87,13 @@ func (r *BackupStorageReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		}
 	}
 
-	if bs.Spec.S3 == nil || bs.Spec.S3.CredentialsSecretName == "" {
+	if bs.Spec.S3 == nil || bs.Spec.S3.CredentialsSecretRef.Name == "" {
 		return ctrl.Result{}, nil
 	}
 
 	secret := &corev1.Secret{}
 	if err := r.Get(ctx, types.NamespacedName{
-		Name:      bs.Spec.S3.CredentialsSecretName,
+		Name:      bs.Spec.S3.CredentialsSecretRef.Name,
 		Namespace: req.Namespace,
 	}, secret); err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
@@ -224,10 +224,10 @@ func (r *BackupStorageReconciler) initIndexers(ctx context.Context, mgr ctrl.Man
 			if !ok {
 				return nil
 			}
-			if backup.Spec.StorageName == "" {
+			if backup.Spec.StorageRef.Name == "" {
 				return nil
 			}
-			return []string{backup.Spec.StorageName}
+			return []string{backup.Spec.StorageRef.Name}
 		},
 	); err != nil {
 		return fmt.Errorf("indexing backup by storage name: %w", err)
@@ -271,14 +271,14 @@ func (r *BackupStorageReconciler) enqueueBackupStorageFromBackup(ctx context.Con
 		return nil
 	}
 
-	if backup.Spec.StorageName == "" {
+	if backup.Spec.StorageRef.Name == "" {
 		return nil
 	}
 
 	return []reconcile.Request{
 		{
 			NamespacedName: types.NamespacedName{
-				Name:      backup.Spec.StorageName,
+				Name:      backup.Spec.StorageRef.Name,
 				Namespace: backup.Namespace,
 			},
 		},

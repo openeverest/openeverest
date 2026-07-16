@@ -53,7 +53,8 @@ spec:
               spec:
                 type: pmm
                 pmm:
-                  credentialsSecretName: mc-test-secret
+                  credentialsSecretRef:
+                    name: mc-test-secret
                   verifyTLS: false
                   url: http://localhost-mc-test
         # Assert MonitoringConfig is created with correct status
@@ -66,7 +67,8 @@ spec:
               spec:
                 type: pmm
                 pmm:
-                  credentialsSecretName: mc-test-secret
+                  credentialsSecretRef:
+                    name: mc-test-secret
                   verifyTLS: false
                   url: http://localhost-mc-test
               status:
@@ -106,7 +108,8 @@ spec:
               metadata:
                 name: test-mc
               spec:
-                provider: test-provider
+                providerRef:
+                  name: test-provider
                 components:
                   monitoring:
                     type: pmm
@@ -126,7 +129,8 @@ spec:
               spec:
                 type: pmm
                 pmm:
-                  credentialsSecretName: mc-test-secret
+                  credentialsSecretRef:
+                    name: mc-test-secret
                   verifyTLS: false
                   url: http://localhost-mc-test
               status:
@@ -152,7 +156,8 @@ spec:
               metadata:
                 name: test-mc
               spec:
-                provider: test-provider
+                providerRef:
+                  name: test-provider
                 components:
                   monitoring:
                     type: pmm
@@ -180,7 +185,8 @@ spec:
               spec:
                 type: pmm
                 pmm:
-                  credentialsSecretName: mc-test-secret
+                  credentialsSecretRef:
+                    name: mc-test-secret
                   url: http://localhost-mc-test-updated
         # Assert URL is updated and finalizer is still present
         - assert:
@@ -196,7 +202,8 @@ spec:
               spec:
                 type: pmm
                 pmm:
-                  credentialsSecretName: mc-test-secret
+                  credentialsSecretRef:
+                    name: mc-test-secret
                   verifyTLS: false
                   url: http://localhost-mc-test-updated
               status:
@@ -250,7 +257,8 @@ spec:
               spec:
                 type: pmm
                 pmm:
-                  credentialsSecretName: mc-test-secret
+                  credentialsSecretRef:
+                    name: mc-test-secret
                   verifyTLS: false
                   url: http://localhost-mc-test-updated
               status:
@@ -298,7 +306,8 @@ spec:
               spec:
                 type: pmm
                 pmm:
-                  credentialsSecretName: mc-test-secret
+                  credentialsSecretRef:
+                    name: mc-test-secret
                   verifyTLS: false
                   url: http://localhost-mc-test-updated
               status:
@@ -335,7 +344,8 @@ spec:
               metadata:
                 name: test-mc
               spec:
-                provider: test-provider
+                providerRef:
+                  name: test-provider
                 components:
                   monitoring:
                     type: pmm
@@ -352,7 +362,8 @@ spec:
               metadata:
                 name: test-mc
               spec:
-                provider: test-provider
+                providerRef:
+                  name: test-provider
                 components:
                   monitoring:
                     type: pmm

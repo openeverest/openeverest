@@ -24,6 +24,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 
+	common "github.com/openeverest/openeverest/v2/api/common/v1alpha1"
 	corev1alpha1 "github.com/openeverest/openeverest/v2/api/core/v1alpha1"
 	monitoringv1alpha1 "github.com/openeverest/openeverest/v2/api/monitoring/v1alpha1"
 )
@@ -43,7 +44,7 @@ func (h *k8sHandler) ListInstancePresets(ctx context.Context, cluster string, pr
 	if provider != "" {
 		filtered := make([]corev1alpha1.InstancePreset, 0)
 		for _, preset := range list.Items {
-			if preset.Spec.Provider == provider {
+			if preset.Spec.ProviderRef.Name == provider {
 				filtered = append(filtered, preset)
 			}
 		}
@@ -114,19 +115,20 @@ func (h *k8sHandler) resolveNamespaceDefaults(ctx context.Context, preset *corev
 	return preset, nil
 }
 
-// resolveConfigFields handles structured Config.SecretRef.Name.
-// TODO: support Config.ConfigMapRef.Name.
+// resolveConfigFields fills in a default Secret name on
+// Config.ValueFrom.SecretKeyRef when the preset leaves it empty.
+// TODO: support Config.ValueFrom.ConfigMapKeyRef.
 func (h *k8sHandler) resolveConfigFields(ctx context.Context, component corev1alpha1.ComponentSpec, componentName, namespace string) (corev1alpha1.ComponentSpec, error) {
-	if component.Config == nil {
+	if component.Config == nil || component.Config.ValueFrom == nil || component.Config.ValueFrom.SecretKeyRef == nil {
 		return component, nil
 	}
 
-	if isEmptyValue(component.Config.SecretRef) {
+	if component.Config.ValueFrom.SecretKeyRef.Name == "" {
 		defaultSecretName, err := h.findDefaultResource(ctx, namespace, "Secret", componentName)
 		if err != nil {
 			return component, err
 		}
-		component.Config.SecretRef.Name = defaultSecretName
+		component.Config.ValueFrom.SecretKeyRef.Name = defaultSecretName
 	}
 
 	return component, nil
@@ -228,7 +230,7 @@ func isEmptyValue(value any) bool {
 		return v == ""
 	case *string:
 		return v == nil || *v == ""
-	case corev1.LocalObjectReference:
+	case common.ObjectRef:
 		return v.Name == ""
 	case map[string]any:
 		// Empty object like {} or {"name": ""}

@@ -231,10 +231,10 @@ func (r *MonitoringConfigReconciler) ensureSecretOwnership(
 
 	secret := &corev1.Secret{}
 	if err := r.Get(ctx, types.NamespacedName{
-		Name:      mc.Spec.PMM.CredentialsSecretName,
+		Name:      mc.Spec.PMM.CredentialsSecretRef.Name,
 		Namespace: mc.GetNamespace(),
 	}, secret); err != nil {
-		return fmt.Errorf("failed to get credentials secret %q: %w", mc.Spec.PMM.CredentialsSecretName, err)
+		return fmt.Errorf("failed to get credentials secret %q: %w", mc.Spec.PMM.CredentialsSecretRef.Name, err)
 	}
 
 	// Skip if the Secret already has a controller owner.
@@ -287,15 +287,15 @@ func (r *MonitoringConfigReconciler) fetchPMMServerVersion(
 ) (monitoringv1alpha1.PMMServerVersion, error) {
 	secret := &corev1.Secret{}
 	if err := r.Get(ctx, types.NamespacedName{
-		Name:      mc.Spec.PMM.CredentialsSecretName,
+		Name:      mc.Spec.PMM.CredentialsSecretRef.Name,
 		Namespace: mc.GetNamespace(),
 	}, secret); err != nil {
-		return "", fmt.Errorf("failed to get credentials secret %q: %w", mc.Spec.PMM.CredentialsSecretName, err)
+		return "", fmt.Errorf("failed to get credentials secret %q: %w", mc.Spec.PMM.CredentialsSecretRef.Name, err)
 	}
 
 	apiKey, ok := secret.Data["apiKey"]
 	if !ok {
-		return "", fmt.Errorf("apiKey not found in secret %q", mc.Spec.PMM.CredentialsSecretName)
+		return "", fmt.Errorf("apiKey not found in secret %q", mc.Spec.PMM.CredentialsSecretRef.Name)
 	}
 
 	var skipVerifyTLS bool
@@ -492,10 +492,10 @@ func (r *MonitoringConfigReconciler) reconcileSecret(ctx context.Context, mc *mo
 	// Get the secret in the MonitoringConfig namespace.
 	src := &corev1.Secret{}
 	if err := r.Get(ctx, types.NamespacedName{
-		Name:      mc.Spec.PMM.CredentialsSecretName,
+		Name:      mc.Spec.PMM.CredentialsSecretRef.Name,
 		Namespace: mc.GetNamespace(),
 	}, src); err != nil {
-		return "", fmt.Errorf("failed to get credentials secret %q: %w", mc.Spec.PMM.CredentialsSecretName, err)
+		return "", fmt.Errorf("failed to get credentials secret %q: %w", mc.Spec.PMM.CredentialsSecretRef.Name, err)
 	}
 
 	// Create a copy in the monitoring namespace.
@@ -534,10 +534,10 @@ func (r *MonitoringConfigReconciler) reconcileSecret(ctx context.Context, mc *mo
 // on whether the MonitoringConfig is in the monitoring namespace or not.
 func (r *MonitoringConfigReconciler) monitoringSecretName(mc *monitoringv1alpha1.MonitoringConfig) string {
 	if mc.GetNamespace() == r.MonitoringNamespace {
-		return mc.Spec.PMM.CredentialsSecretName
+		return mc.Spec.PMM.CredentialsSecretRef.Name
 	}
 
-	return mc.Spec.PMM.CredentialsSecretName + "-" + mc.GetNamespace()
+	return mc.Spec.PMM.CredentialsSecretRef.Name + "-" + mc.GetNamespace()
 }
 
 // cleanupSecrets deletes all secrets in the monitoring namespace that belong to the given MonitoringConfig.
@@ -574,7 +574,7 @@ func (r *MonitoringConfigReconciler) initIndexers(ctx context.Context, mgr ctrl.
 	if err := mgr.GetFieldIndexer().IndexField(
 		ctx,
 		&monitoringv1alpha1.MonitoringConfig{},
-		".spec.pmm.credentialsSecretName",
+		".spec.pmm.credentialsSecretRef.name",
 		func(obj client.Object) []string {
 			mc, ok := obj.(*monitoringv1alpha1.MonitoringConfig)
 			if !ok {
@@ -583,10 +583,10 @@ func (r *MonitoringConfigReconciler) initIndexers(ctx context.Context, mgr ctrl.
 			if mc.Spec.PMM == nil {
 				return nil
 			}
-			return []string{mc.Spec.PMM.CredentialsSecretName}
+			return []string{mc.Spec.PMM.CredentialsSecretRef.Name}
 		},
 	); err != nil {
-		return fmt.Errorf("indexing monitoringconfig by credentialsSecretName: %w", err)
+		return fmt.Errorf("indexing monitoringconfig by credentialsSecretRef.name: %w", err)
 	}
 
 	if err := mgr.GetFieldIndexer().IndexField(

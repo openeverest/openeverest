@@ -54,9 +54,9 @@ func TestInstanceStatus_HappyPath(t *testing.T) {
 				} `json:"storages,omitempty"`
 			} `json:"backup,omitempty"`
 			Components *[]struct {
-				Pods *[]struct {
-					Name *string `json:"name,omitempty"`
-				} `json:"pods,omitempty"`
+				PodRefs *[]struct {
+					Name string `json:"name"`
+				} `json:"podRefs,omitempty"`
 				Ready *int32  `json:"ready,omitempty"`
 				State *string `json:"state,omitempty"`
 				Total *int32  `json:"total,omitempty"`
@@ -70,7 +70,7 @@ func TestInstanceStatus_HappyPath(t *testing.T) {
 				Type               string                                `json:"type"`
 			} `json:"conditions,omitempty"`
 			ConnectionSecretRef *struct {
-				Name *string `json:"name,omitempty"`
+				Name string `json:"name"`
 			} `json:"connectionSecretRef,omitempty"`
 			Message *string                     `json:"message,omitempty"`
 			Phase   *client.InstanceStatusPhase `json:"phase,omitempty"`
@@ -80,9 +80,9 @@ func TestInstanceStatus_HappyPath(t *testing.T) {
 			Version: &version,
 			Message: &msg,
 			Components: &[]struct {
-				Pods *[]struct {
-					Name *string `json:"name,omitempty"`
-				} `json:"pods,omitempty"`
+				PodRefs *[]struct {
+					Name string `json:"name"`
+				} `json:"podRefs,omitempty"`
 				Ready *int32  `json:"ready,omitempty"`
 				State *string `json:"state,omitempty"`
 				Total *int32  `json:"total,omitempty"`
@@ -200,9 +200,9 @@ func TestInstanceStatus_JSONOutput(t *testing.T) {
 				} `json:"storages,omitempty"`
 			} `json:"backup,omitempty"`
 			Components *[]struct {
-				Pods *[]struct {
-					Name *string `json:"name,omitempty"`
-				} `json:"pods,omitempty"`
+				PodRefs *[]struct {
+					Name string `json:"name"`
+				} `json:"podRefs,omitempty"`
 				Ready *int32  `json:"ready,omitempty"`
 				State *string `json:"state,omitempty"`
 				Total *int32  `json:"total,omitempty"`
@@ -216,7 +216,7 @@ func TestInstanceStatus_JSONOutput(t *testing.T) {
 				Type               string                                `json:"type"`
 			} `json:"conditions,omitempty"`
 			ConnectionSecretRef *struct {
-				Name *string `json:"name,omitempty"`
+				Name string `json:"name"`
 			} `json:"connectionSecretRef,omitempty"`
 			Message *string                     `json:"message,omitempty"`
 			Phase   *client.InstanceStatusPhase `json:"phase,omitempty"`
@@ -259,9 +259,9 @@ func minimalInst() *client.Instance {
 				} `json:"storages,omitempty"`
 			} `json:"backup,omitempty"`
 			Components *[]struct {
-				Pods *[]struct {
-					Name *string `json:"name,omitempty"`
-				} `json:"pods,omitempty"`
+				PodRefs *[]struct {
+					Name string `json:"name"`
+				} `json:"podRefs,omitempty"`
 				Ready *int32  `json:"ready,omitempty"`
 				State *string `json:"state,omitempty"`
 				Total *int32  `json:"total,omitempty"`
@@ -275,7 +275,7 @@ func minimalInst() *client.Instance {
 				Type               string                                `json:"type"`
 			} `json:"conditions,omitempty"`
 			ConnectionSecretRef *struct {
-				Name *string `json:"name,omitempty"`
+				Name string `json:"name"`
 			} `json:"connectionSecretRef,omitempty"`
 			Message *string                     `json:"message,omitempty"`
 			Phase   *client.InstanceStatusPhase `json:"phase,omitempty"`
