@@ -29,8 +29,8 @@ export const ScheduleContent = ({
   return (
     <Stack
       direction="row"
-      alignItems="center"
       sx={{
+        alignItems: 'center',
         width: '100%',
       }}
     >

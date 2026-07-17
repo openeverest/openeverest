@@ -25,12 +25,16 @@ const CommandInstructions = ({
   message: string;
   command: string;
 }) => (
-  <Stack mt={3} maxWidth="350px">
+  <Stack
+    sx={{
+      mt: 3,
+      maxWidth: '350px',
+    }}
+  >
     <Typography variant="body2">{message}</Typography>
     <CodeCopyBlock message={command} />
   </Stack>
 );
-
 const EmptyStateNamespaces = () => {
   return (
     <EmptyState
@@ -69,5 +73,4 @@ const EmptyStateNamespaces = () => {
     />
   );
 };
-
 export default EmptyStateNamespaces;

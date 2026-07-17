@@ -1885,6 +1885,23 @@ type Instance struct {
 
 	// Status InstanceStatus defines the observed state of Instance.
 	Status *struct {
+		// Backup Backup surfaces backup-related observability data reported by the
+		// provider, such as the latest restorable time for PITR-enabled storages.
+		Backup *struct {
+			// Storages Storages is the per-storage backup status, keyed by the logical storage
+			// name declared in spec.backup.storages.
+			Storages *[]struct {
+				// LatestRestorableTime LatestRestorableTime is the most recent point in time to which the
+				// instance can be restored using point-in-time recovery from this
+				// storage. Only populated when PITR is enabled for the storage and the
+				// engine reports a recovery window.
+				LatestRestorableTime *time.Time `json:"latestRestorableTime,omitempty"`
+
+				// Name Name is the logical storage name (matches spec.backup.storages[].name).
+				Name string `json:"name"`
+			} `json:"storages,omitempty"`
+		} `json:"backup,omitempty"`
+
 		// Components Components is the status of the components in the database cluster.
 		Components *[]struct {
 			Pods *[]struct {
@@ -3225,7 +3242,16 @@ type Provider struct {
 
 		// GlobalConfigSchema GlobalConfigSchema holds the OpenAPI v3 schema for the global configuration.
 		GlobalConfigSchema *map[string]interface{} `json:"globalConfigSchema,omitempty"`
-		Topologies         *map[string]struct {
+
+		// Secrets Secrets defines Secret types this provider supports.
+		Secrets *map[string]struct {
+			// OpenAPIV3Schema OpenAPIV3Schema is the OpenAPI v3 schema for validating secret data/stringData.
+			OpenAPIV3Schema interface{} `json:"openAPIV3Schema,omitempty"`
+
+			// UiSchema UISchema holds UI rendering hints for the secret creation form.
+			UiSchema *map[string]interface{} `json:"uiSchema,omitempty"`
+		} `json:"secrets,omitempty"`
+		Topologies *map[string]struct {
 			Components *map[string]struct {
 				Optional *bool `json:"optional,omitempty"`
 			} `json:"components,omitempty"`

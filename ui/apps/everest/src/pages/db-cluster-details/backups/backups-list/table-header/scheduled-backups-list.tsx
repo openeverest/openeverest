@@ -115,11 +115,13 @@ const ScheduledBackupsList = () => {
     <Stack
       useFlexGap
       spacing={1}
-      width="100%"
-      order={3}
-      bgcolor={(theme) => theme.palette.surfaces?.elevation0}
-      p={2}
-      mt={2}
+      sx={{
+        width: '100%',
+        order: 3,
+        bgcolor: (theme) => theme.palette.surfaces?.elevation0,
+        p: 2,
+        mt: 1,
+      }}
     >
       {schedules.map((item) => (
         <Paper
@@ -162,7 +164,12 @@ const ScheduledBackupsList = () => {
                 {`Storage: ${item.storageName}`}
               </Typography>
             </Box>
-            <Box display="flex" ml="auto">
+            <Box
+              sx={{
+                display: 'flex',
+                ml: 'auto',
+              }}
+            >
               {canUpdateInstance && (
                 <>
                   <IconButton

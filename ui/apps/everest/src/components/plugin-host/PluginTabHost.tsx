@@ -49,11 +49,16 @@ const PluginTabHost = () => {
   if (!match) {
     return (
       <Box sx={{ p: 2 }}>
-        <Typography color="text.secondary">Unknown tab.</Typography>
+        <Typography
+          sx={{
+            color: 'text.secondary',
+          }}
+        >
+          Unknown tab.
+        </Typography>
       </Box>
     );
   }
-
   const Component = match.ext.component;
   return (
     <PluginErrorBoundary pluginName={match.pluginName}>

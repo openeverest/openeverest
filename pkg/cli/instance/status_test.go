@@ -47,6 +47,12 @@ func TestInstanceStatus_HappyPath(t *testing.T) {
 	inst := &client.Instance{
 		Metadata: &map[string]interface{}{"name": "my-mongo"},
 		Status: &struct {
+			Backup *struct {
+				Storages *[]struct {
+					LatestRestorableTime *time.Time `json:"latestRestorableTime,omitempty"`
+					Name                 string     `json:"name"`
+				} `json:"storages,omitempty"`
+			} `json:"backup,omitempty"`
 			Components *[]struct {
 				Pods *[]struct {
 					Name *string `json:"name,omitempty"`
@@ -187,6 +193,12 @@ func TestInstanceStatus_JSONOutput(t *testing.T) {
 	inst := &client.Instance{
 		Metadata: &map[string]interface{}{"name": "my-mongo"},
 		Status: &struct {
+			Backup *struct {
+				Storages *[]struct {
+					LatestRestorableTime *time.Time `json:"latestRestorableTime,omitempty"`
+					Name                 string     `json:"name"`
+				} `json:"storages,omitempty"`
+			} `json:"backup,omitempty"`
 			Components *[]struct {
 				Pods *[]struct {
 					Name *string `json:"name,omitempty"`
@@ -240,6 +252,12 @@ func minimalInst() *client.Instance {
 	return &client.Instance{
 		Metadata: &map[string]any{"name": "my-mongo"},
 		Status: &struct {
+			Backup *struct {
+				Storages *[]struct {
+					LatestRestorableTime *time.Time `json:"latestRestorableTime,omitempty"`
+					Name                 string     `json:"name"`
+				} `json:"storages,omitempty"`
+			} `json:"backup,omitempty"`
 			Components *[]struct {
 				Pods *[]struct {
 					Name *string `json:"name,omitempty"`

@@ -135,7 +135,7 @@ export const CreateDbButton = ({
           open={drawerOpen}
           onClose={closeDrawer}
           sx={{ zIndex: (theme) => theme.zIndex.modal }}
-          PaperProps={{ sx: drawerPaperSx }}
+          slotProps={{ paper: { sx: drawerPaperSx } }}
         >
           <Box sx={drawerContainerSx}>
             <Box sx={drawerHeaderSx}>

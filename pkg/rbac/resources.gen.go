@@ -14,6 +14,7 @@ var AllResources = []string{
 	"namespaces",
 	"providers",
 	"restores",
+	"secrets",
 }
 
 // resourcePathMap maps API paths to their resource names.
@@ -39,6 +40,8 @@ var resourcePathMap = map[string]string{
 	"/clusters/:cluster/namespaces/:namespace/monitoring-configs/:name":       "monitoring-configs",
 	"/clusters/:cluster/namespaces/:namespace/restores":                       "restores",
 	"/clusters/:cluster/namespaces/:namespace/restores/:restore":              "restores",
+	"/clusters/:cluster/namespaces/:namespace/secrets":                        "secrets",
+	"/clusters/:cluster/namespaces/:namespace/secrets/:name":                  "secrets",
 	"/clusters/:cluster/providers":                                            "providers",
 	"/clusters/:cluster/providers/:provider":                                  "providers",
 	"/clusters/:name":                                                         "clusters",

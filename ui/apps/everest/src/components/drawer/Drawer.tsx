@@ -41,19 +41,27 @@ const DrawerHeader = styled('div')(({ theme }) => ({
 
 const StyledDrawer = styled(MuiDrawer, {
   shouldForwardProp: (prop) => prop !== 'open',
-})(({ theme, open }) => ({
+})(({ theme }) => ({
   width: DRAWER_WIDTH,
   flexShrink: 0,
   whiteSpace: 'nowrap',
   boxSizing: 'border-box',
-  ...(open && {
-    ...openedMixin(theme),
-    '& .MuiDrawer-paper': openedMixin(theme),
-  }),
-  ...(!open && {
-    ...closedMixin(theme),
-    '& .MuiDrawer-paper': closedMixin(theme),
-  }),
+  variants: [
+    {
+      props: ({ open }) => open,
+      style: {
+        ...openedMixin(theme),
+        '& .MuiDrawer-paper': openedMixin(theme),
+      },
+    },
+    {
+      props: ({ open }) => !open,
+      style: {
+        ...closedMixin(theme),
+        '& .MuiDrawer-paper': closedMixin(theme),
+      },
+    },
+  ],
 }));
 
 const DrawerContent = ({ open }: { open: boolean }) => {
@@ -126,10 +134,8 @@ const TabletDrawer = () => {
     </>
   );
 };
-
 const DesktopDrawer = () => {
   const { open } = useContext(DrawerContext);
-
   return (
     <StyledDrawer variant="permanent" open={open}>
       <Toolbar />
@@ -137,10 +143,8 @@ const DesktopDrawer = () => {
     </StyledDrawer>
   );
 };
-
 const MobileDrawer = () => {
   const { open } = useContext(DrawerContext);
-
   return (
     <MuiDrawer
       anchor="left"
@@ -155,17 +159,13 @@ const MobileDrawer = () => {
     </MuiDrawer>
   );
 };
-
 export const Drawer = () => {
   const { activeBreakpoint } = useContext(DrawerContext);
-
   if (activeBreakpoint === 'mobile') {
     return <MobileDrawer />;
   }
-
   if (activeBreakpoint === 'desktop') {
     return <DesktopDrawer />;
   }
-
   return <TabletDrawer />;
 };

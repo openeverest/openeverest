@@ -20,6 +20,8 @@ package handlers
 import (
 	"context"
 
+	corev1 "k8s.io/api/core/v1"
+
 	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
 	corev1alpha1 "github.com/openeverest/openeverest/v2/api/core/v1alpha1"
 	monitoringv1alpha1 "github.com/openeverest/openeverest/v2/api/monitoring/v1alpha1"
@@ -48,6 +50,7 @@ type Handler interface {
 	InstanceBackupHandler
 	MonitoringConfigHandler
 	InstanceRestoreHandler
+	SecretHandler
 
 	GetKubernetesClusterResources(ctx context.Context) (*api.KubernetesClusterResources, error)
 	GetKubernetesClusterInfo(ctx context.Context) (*api.KubernetesClusterInfo, error)
@@ -136,4 +139,12 @@ type MonitoringConfigHandler interface {
 // InstanceRestoreHandler provides methods for handling operations on instance restores.
 type InstanceRestoreHandler interface {
 	ListInstanceRestores(ctx context.Context, cluster, namespace, instanceName string) (*backupv1alpha1.RestoreList, error)
+}
+
+// SecretHandler provides methods for handling operations on secrets.
+type SecretHandler interface {
+	CreateSecret(ctx context.Context, cluster, namespace string, secret *corev1.Secret) (*corev1.Secret, error)
+	ListSecrets(ctx context.Context, cluster, namespace, provider, definition string) (*corev1.SecretList, error)
+	GetSecret(ctx context.Context, cluster, namespace, name string) (*corev1.Secret, error)
+	DeleteSecret(ctx context.Context, cluster, namespace, name string) error
 }

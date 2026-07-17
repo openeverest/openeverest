@@ -124,9 +124,11 @@ export const DbClusterView = () => {
         Cell: ({ row }) => (
           <Stack
             direction="row"
-            justifyContent="center"
-            alignItems="center"
-            gap={1}
+            sx={{
+              justifyContent: 'center',
+              alignItems: 'center',
+              gap: 1,
+            }}
           >
             {row.original?.provider} {/* {row.original?.dbVersion} */}
           </Stack>
@@ -189,7 +191,12 @@ export const DbClusterView = () => {
   );
 
   return (
-    <Stack direction="column" alignItems="center">
+    <Stack
+      direction="column"
+      sx={{
+        alignItems: 'center',
+      }}
+    >
       {dashboardWidgets.length > 0 && (
         <Box
           sx={{
@@ -213,7 +220,9 @@ export const DbClusterView = () => {
               >
                 <CardHeader
                   title={w.ext.label}
-                  titleTypographyProps={{ variant: 'subtitle1' }}
+                  slotProps={{
+                    title: { variant: 'subtitle1' },
+                  }}
                 />
                 <CardContent>
                   <PluginErrorBoundary pluginName={w.pluginName}>

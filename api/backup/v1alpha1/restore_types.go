@@ -65,6 +65,8 @@ type DataSourceBackup struct {
 // DataSourcePITR specifies point-in-time recovery options that can be applied
 // on top of a data source. Not all source types support PITR; the provider
 // validates compatibility and rejects unsupported combinations.
+//
+// +kubebuilder:validation:XValidation:rule="self.type == 'date' ? has(self.date) : true",message="date must be set when type is date"
 type DataSourcePITR struct {
 	// Type selects date-based or latest recovery.
 	// +kubebuilder:validation:Required
