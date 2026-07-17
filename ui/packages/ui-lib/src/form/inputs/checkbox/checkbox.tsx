@@ -39,10 +39,12 @@ const Checkbox = ({
           checked={field.value}
           disabled={disabled}
           {...checkboxProps}
-          inputProps={{
-            // @ts-expect-error
-            'data-testid': `checkbox-${kebabize(name)}`,
-            ...checkboxProps?.inputProps,
+          slotProps={{
+            input: {
+              // @ts-expect-error
+              'data-testid': `checkbox-${kebabize(name)}`,
+              ...checkboxProps?.inputProps,
+            },
           }}
         />
       )}

@@ -1913,6 +1913,197 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+  '/clusters/{cluster}/namespaces/{namespace}/secrets':
+    x-everest-resource-name: secrets
+    post:
+      tags:
+        - Secret
+      summary: Create secret
+      description: |
+        This API creates a new Secret in the specified namespace and cluster.
+        The Secret is labeled as managed by OpenEverest.
+      operationId: createSecret
+      parameters:
+        - name: cluster
+          in: path
+          required: true
+          description: The name of the cluster
+          schema:
+            type: string
+        - name: namespace
+          in: path
+          required: true
+          description: The namespace where the secret will be created
+          schema:
+            type: string
+      requestBody:
+        description: The secret object to be created
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Secret'
+      responses:
+        '201':
+          description: Secret created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Secret'
+        '400':
+          description: Unsuccessful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    get:
+      tags:
+        - Secret
+      summary: List secrets
+      description: |
+        This API lists OpenEverest-managed Secrets in the specified namespace and cluster.
+        Only metadata is returned; secret data is never included.
+        Optionally filter by provider and definition.
+      operationId: listSecrets
+      parameters:
+        - name: cluster
+          in: path
+          required: true
+          description: The name of the cluster
+          schema:
+            type: string
+        - name: namespace
+          in: path
+          required: true
+          description: The namespace of the secrets
+          schema:
+            type: string
+        - name: provider
+          in: query
+          required: false
+          description: Filter secrets by provider name
+          schema:
+            type: string
+        - name: definition
+          in: query
+          required: false
+          description: Filter secrets by definition
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of secrets (metadata only)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SecretList'
+        '400':
+          description: Unsuccessful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  '/clusters/{cluster}/namespaces/{namespace}/secrets/{name}':
+    x-everest-resource-name: secrets
+    get:
+      tags:
+        - Secret
+      summary: Get secret
+      description: |
+        This API gets OpenEverest-managed Secret specified by the `name` in the specified `namespace` and `cluster`.
+        Note: Secret data is NOT included in the response for security reasons. Only metadata is returned.
+      operationId: getSecret
+      parameters:
+        - name: cluster
+          in: path
+          required: true
+          description: The name of the cluster
+          schema:
+            type: string
+        - name: namespace
+          in: path
+          required: true
+          description: The namespace of the secret
+          schema:
+            type: string
+        - name: name
+          in: path
+          required: true
+          description: The name of the secret
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Secret details (metadata only)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Secret'
+        '404':
+          description: Secret not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    delete:
+      tags:
+        - Secret
+      summary: Delete secret
+      description: |
+        This API deletes the OpenEverest-managed Secret specified by the `name` in the specified `namespace` and `cluster`.
+      operationId: deleteSecret
+      parameters:
+        - name: cluster
+          in: path
+          required: true
+          description: The name of the cluster
+          schema:
+            type: string
+        - name: namespace
+          in: path
+          required: true
+          description: The namespace of the secret
+          schema:
+            type: string
+        - name: name
+          in: path
+          required: true
+          description: The name of the secret
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Secret deleted successfully
+        '404':
+          description: Secret not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
 components:
   securitySchemes:
     BearerAuth:
@@ -1925,6 +2116,22 @@ components:
       properties:
         message:
           type: string
+    SecretList:
+      type: object
+      description: A list of OpenEverest-managed Secrets (metadata only).
+      properties:
+        apiVersion:
+          type: string
+          example: v1
+        kind:
+          type: string
+          example: SecretList
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Secret'
+      required:
+        - items
     NamespaceList:
       type: array
       items:

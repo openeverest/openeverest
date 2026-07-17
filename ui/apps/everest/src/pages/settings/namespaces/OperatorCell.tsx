@@ -63,18 +63,31 @@ export const OperatorCell = ({
     (upgradeAvailable || somePendingTask) && canRead && !isUpgrading;
 
   return (
-    <Stack direction="row" alignItems="center" width="100%">
+    <Stack
+      direction="row"
+      sx={{
+        alignItems: 'center',
+        width: '100%',
+      }}
+    >
       <Typography variant="body1">{description}</Typography>
       {isUpgrading && canRead && (
         <Tooltip title="Operator upgrade in progress">
           <Stack
             direction="row"
-            alignItems="center"
-            gap={1}
-            sx={{ ml: 'auto' }}
+            sx={{
+              alignItems: 'center',
+              gap: 1,
+              ml: 'auto',
+            }}
           >
             <CircularProgress size={16} />
-            <Typography variant="body2" color="text.secondary">
+            <Typography
+              variant="body2"
+              sx={{
+                color: 'text.secondary',
+              }}
+            >
               Upgrading
             </Typography>
           </Stack>

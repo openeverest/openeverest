@@ -1698,6 +1698,28 @@ export interface components {
             };
             /** @description InstanceStatus defines the observed state of Instance. */
             status?: {
+                /**
+                 * @description Backup surfaces backup-related observability data reported by the
+                 *     provider, such as the latest restorable time for PITR-enabled storages.
+                 */
+                backup?: {
+                    /**
+                     * @description Storages is the per-storage backup status, keyed by the logical storage
+                     *     name declared in spec.backup.storages.
+                     */
+                    storages?: {
+                        /**
+                         * Format: date-time
+                         * @description LatestRestorableTime is the most recent point in time to which the
+                         *     instance can be restored using point-in-time recovery from this
+                         *     storage. Only populated when PITR is enabled for the storage and the
+                         *     engine reports a recovery window.
+                         */
+                        latestRestorableTime?: string;
+                        /** @description Name is the logical storage name (matches spec.backup.storages[].name). */
+                        name: string;
+                    }[];
+                };
                 /** @description Components is the status of the components in the database cluster. */
                 components?: {
                     pods?: {
@@ -3149,6 +3171,15 @@ export interface components {
                 };
                 /** @description GlobalConfigSchema holds the OpenAPI v3 schema for the global configuration. */
                 globalConfigSchema?: Record<string, never>;
+                /** @description Secrets defines Secret types this provider supports. */
+                secrets?: {
+                    [key: string]: {
+                        /** @description OpenAPIV3Schema is the OpenAPI v3 schema for validating secret data/stringData. */
+                        openAPIV3Schema?: unknown;
+                        /** @description UISchema holds UI rendering hints for the secret creation form. */
+                        uiSchema?: Record<string, never>;
+                    };
+                };
                 topologies?: {
                     [key: string]: {
                         components?: {

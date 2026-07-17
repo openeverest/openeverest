@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -42,13 +43,17 @@ const EditableItem = ({
       {...paperProps}
     >
       {children}
-
       {!!endText && (
         <Typography variant="body2" sx={{ color: 'grey', width: '100px' }}>
           {endText}
         </Typography>
       )}
-      <Box flexWrap="nowrap" display="flex">
+      <Box
+        sx={{
+          flexWrap: 'nowrap',
+          display: 'flex',
+        }}
+      >
         {editButtonProps && (
           <IconButton
             size="small"

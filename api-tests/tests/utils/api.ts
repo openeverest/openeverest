@@ -382,4 +382,60 @@ export const deleteMonitoringConfigRawV2 = async (request, name) => {
   return await request.delete(`/v1/clusters/main/namespaces/${EVEREST_CI_NAMESPACE}/monitoring-configs/${name}`)
 }
 
+// --------------------- Secret helpers -----------------------------------------------
 
+export const createSecretWithData = async (request, data) => {
+  const response = await createSecretRaw(request, data)
+  await checkError(response)
+  return (await response.json())
+}
+
+export const createSecretRaw = async (request, data) => {
+  return await request.post(`/v1/clusters/main/namespaces/${EVEREST_CI_NAMESPACE}/secrets`, {data: data})
+}
+
+export const getSecret = async (request, name) => {
+  const response = await getSecretRaw(request, name)
+  await checkError(response)
+  return (await response.json())
+}
+
+export const getSecretRaw = async (request, name) => {
+  return await request.get(`/v1/clusters/main/namespaces/${EVEREST_CI_NAMESPACE}/secrets/${name}`)
+}
+
+export const listSecrets = async (request) => {
+  const response = await listSecretsRaw(request)
+  await checkError(response)
+  return (await response.json())
+}
+
+export const listSecretsRaw = async (request) => {
+  return await request.get(`/v1/clusters/main/namespaces/${EVEREST_CI_NAMESPACE}/secrets`)
+}
+
+export const listSecretsWithFilters = async (request, provider: string, definition: string) => {
+  const response = await listSecretsWithFiltersRaw(request, provider, definition)
+  await checkError(response)
+  return (await response.json())
+}
+
+export const listSecretsWithFiltersRaw = async (request, provider: string, definition: string) => {
+  return await request.get(`/v1/clusters/main/namespaces/${EVEREST_CI_NAMESPACE}/secrets?provider=${provider}&definition=${definition}`)
+}
+
+export const deleteSecret = async (request, name) => {
+  // Wait for deletion mark.
+  await expect(async () => {
+    await deleteSecretRaw(request, name)
+    const res = await getSecretRaw(request, name)
+    await checkResourceDeletion(res)
+  }).toPass({
+    intervals: [1000],
+    timeout: 300 * 1000,
+  })
+}
+
+export const deleteSecretRaw = async (request, name) => {
+  return await request.delete(`/v1/clusters/main/namespaces/${EVEREST_CI_NAMESPACE}/secrets/${name}`)
+}

@@ -28,10 +28,12 @@ const makeComponent = (
     uiType: FieldType.Text,
     path,
     fieldParams: { label: path },
+
     _normalized: {
       sourcePath: path,
       targetPaths: [path],
     },
+
     ...overrides,
   }) as Component;
 

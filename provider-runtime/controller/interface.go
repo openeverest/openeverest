@@ -27,6 +27,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
+	corev1alpha1 "github.com/openeverest/openeverest/v2/api/core/v1alpha1"
 )
 
 // ProviderInterface defines the interface for a database provider.
@@ -295,6 +296,24 @@ type BackupWatcher interface {
 // RestoreWatcher is the Restore counterpart of BackupWatcher.
 type RestoreWatcher interface {
 	RestoreWatches() []WatchConfig
+}
+
+// InstanceBackupStatusReporter is an optional interface a BackupProvider may
+// implement to report per-storage backup observability data that the runtime
+// writes to instance.status.backup after every successful Sync.
+//
+// The canonical use case is surfacing the latest restorable time for
+// PITR-enabled storages: the provider aggregates the engine's recovery-window
+// information (e.g. PerconaServerMongoDBBackup.status.latestRestorableTime)
+// per logical storage name declared in instance.spec.backup.storages.
+//
+// Returning an empty slice (or nil) clears instance.status.backup. Errors are
+// logged by the runtime but never fail the reconcile: this is observability
+// data and the engine itself is healthy.
+type InstanceBackupStatusReporter interface {
+	// BackupStorageStatuses returns the per-storage backup status entries to
+	// publish on instance.status.backup.storages.
+	BackupStorageStatuses(c *Context) ([]corev1alpha1.InstanceBackupStorageStatus, error)
 }
 
 // BackupMirror is an optional interface that providers implement to mirror

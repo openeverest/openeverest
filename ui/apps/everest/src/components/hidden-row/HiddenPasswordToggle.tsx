@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -52,7 +53,19 @@ export const HiddenPasswordToggle = ({
     >
       <Typography
         variant="body2"
-        sx={{ wordBreak: 'break-all', pt: show ? 0 : 0.5, pr: 1.5 }}
+        sx={[
+          {
+            wordBreak: 'break-all',
+            pr: 1.5,
+          },
+          show
+            ? {
+                pt: 0,
+              }
+            : {
+                pt: 0.5,
+              },
+        ]}
       >
         {formattedValue}
       </Typography>
