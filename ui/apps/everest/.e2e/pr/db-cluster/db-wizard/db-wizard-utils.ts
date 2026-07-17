@@ -243,7 +243,7 @@ export const checkAmountOfDbEngines = async (page: Page): Promise<Locator> => {
   if (entry.mode === 'toolbar') {
     await entry.toolbarBtn.click();
     const menu = await openProviderDrawer(page);
-    const dbEnginesButtons = menu.getByRole('menuitem');
+    const dbEnginesButtons = menu.getByRole('link');
     expect(await dbEnginesButtons.count()).toBe(3);
     return dbEnginesButtons;
   }

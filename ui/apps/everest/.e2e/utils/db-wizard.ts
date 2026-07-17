@@ -44,11 +44,11 @@ export const resolveCreateEntryPoint = async (
 };
 
 // Opens the provider drawer (only present when multiple providers are
-// installed) and waits for its first menu item. Returns the drawer locator so
-// callers can enumerate items or click a specific one.
+// installed) and waits for its first provider link. Returns the drawer locator
+// so callers can enumerate items or click a specific one.
 export const openProviderDrawer = async (page: Page): Promise<Locator> => {
   const menu = page.getByTestId('add-db-cluster-button-menu');
-  await menu.getByRole('menuitem').first().waitFor();
+  await menu.getByRole('link').first().waitFor();
   return menu;
 };
 

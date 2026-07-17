@@ -38,6 +38,7 @@ declare module '@mui/material/styles' {
       backdrop?: string;
       elevation0?: string;
       elevation1?: string;
+      elevation2?: string;
     };
     dividers?: {
       divider?: string;
@@ -111,6 +112,12 @@ declare module '@mui/material/Typography' {
   }
 }
 
+declare module '@mui/material/Chip' {
+  interface ChipPropsSizeOverrides {
+    xs: true;
+  }
+}
+
 declare module '@mui/material/Paper' {
   interface PaperPropsVariantOverrides {
     grey: true;
@@ -180,6 +187,7 @@ const baseThemeOptions = (mode: PaletteMode): ThemeOptions => ({
             backdrop: 'rgba(44, 50, 62, 0.72)',
             elevation0: 'rgba(240, 241, 244, 1)',
             elevation1: 'rgba(255, 255, 255, 1)',
+            elevation2: 'rgba(230, 232, 238, 1)',
           },
           dividers: {
             divider: 'rgba(44, 50, 62, 0.25)',
@@ -249,6 +257,7 @@ const baseThemeOptions = (mode: PaletteMode): ThemeOptions => ({
             backdrop: 'rgba(44, 50, 62, 0.72)',
             elevation0: 'rgba(44, 50, 62, 1)',
             elevation1: 'rgba(58, 65, 81, 1)',
+            elevation2: 'rgba(72, 80, 100, 1)',
           },
           dividers: {
             divider: 'rgba(209, 213, 222, 0.25)',
@@ -823,6 +832,23 @@ const baseThemeOptions = (mode: PaletteMode): ThemeOptions => ({
           backgroundColor: theme.palette[color]?.surface,
         }),
       },
+      variants: [
+        {
+          // Extra-small chip, denser than `small` — for compact metadata tags.
+          props: { size: 'xs' },
+          style: ({ theme }) => ({
+            height: 20,
+            fontSize: '10px',
+            '.MuiChip-label': {
+              paddingLeft: theme.spacing(0.75),
+              paddingRight: theme.spacing(0.75),
+            },
+            '.MuiChip-icon, .MuiChip-deleteIcon': {
+              fontSize: '14px',
+            },
+          }),
+        },
+      ],
     },
     MuiTableHead: {
       styleOverrides: {

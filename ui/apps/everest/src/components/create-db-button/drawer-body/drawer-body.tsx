@@ -31,26 +31,27 @@ export const DrawerBody = ({
   const testIdPrefix = createFromImport ? 'import' : 'add';
 
   return (
-    <Box sx={listSx}>
+    <Box role="list" sx={listSx}>
       {providers.map((provider) => {
         const { name, label, meta } = resolveProviderDisplay(
           provider,
           getProviderMeta
         );
         return (
-          <Box
-            key={name}
-            data-testid={`${testIdPrefix}-db-cluster-button-${name}`}
-            component={Link}
-            to="/databases/new"
-            state={{
-              selectedDbProvider: provider,
-              showImport: createFromImport,
-            }}
-            onClick={onClose}
-            sx={rowSx}
-          >
-            <ProviderIdentity label={label} meta={meta} ellipsis />
+          <Box role="listitem" key={name}>
+            <Box
+              data-testid={`${testIdPrefix}-db-cluster-button-${name}`}
+              component={Link}
+              to="/databases/new"
+              state={{
+                selectedDbProvider: provider,
+                showImport: createFromImport,
+              }}
+              onClick={onClose}
+              sx={rowSx}
+            >
+              <ProviderIdentity label={label} meta={meta} ellipsis />
+            </Box>
           </Box>
         );
       })}
