@@ -89,10 +89,12 @@ const preprocessComponent = (
       ) as SelectFieldParams;
 
     // Only set defaultValue from resolved options if not already specified in schema
+    const defaultOption = options.find((option) => option.isDefault);
+    
     const defaultValue =
       baseParams.defaultValue !== undefined
         ? baseParams.defaultValue
-        : options[0].value;
+        : defaultOption?.value ?? options[0].value;
 
     return {
       ...normalizedComponent,
