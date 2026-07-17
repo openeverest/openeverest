@@ -792,3 +792,25 @@ k8s_resource(
   labels=["everest"]
 )
 
+#################################
+########## Plugin Hub ###########
+#################################
+
+# The plugin-hub subchart (helm dep of the everest chart) ships a Plugin CR.
+# Its CRD is applied by the 'crds' resource above; without this explicit
+# dependency Tilt may try to apply the CR before the CRD is established
+# ("no matches for kind Plugin in version extensions.openeverest.io/v1alpha1").
+# The Deployment/Service use `plugin-hub.fullname` → `everest-plugin-hub`,
+# but the Plugin CR uses `{{ .Chart.Name }}` → `plugin-hub`.
+k8s_resource(
+  workload='everest-plugin-hub',
+  objects=[
+    'plugin-hub:plugin',
+  ],
+  resource_deps=[
+    'everest-namespace',
+    'crds',
+  ],
+  new_name='everest-plugin-hub-deploy',
+  labels=["everest"]
+)
