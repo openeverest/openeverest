@@ -2321,67 +2321,14 @@ components:
                         type: object
                     type: object
                   config:
-                    description: Config specifies the component specific configuration.
-                    properties:
-                      value:
-                        description: |-
-                          Value is the inline configuration content (e.g. a my.cnf or
-                          mongod.conf fragment).
-                        maxLength: 65536
-                        minLength: 1
-                        type: string
-                      valueFrom:
-                        description: |-
-                          ValueFrom reads the configuration content from a key of a Secret or
-                          ConfigMap in the same namespace.
-                        properties:
-                          configMapKeyRef:
-                            description: ConfigMapKeyRef selects a key of a ConfigMap
-                              in the same namespace.
-                            properties:
-                              key:
-                                description: Key within the ConfigMap's data to select.
-                                maxLength: 253
-                                minLength: 1
-                                type: string
-                              name:
-                                description: Name of the referenced ConfigMap.
-                                maxLength: 253
-                                minLength: 1
-                                pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
-                                type: string
-                            required:
-                            - key
-                            type: object
-                            x-kubernetes-map-type: atomic
-                          secretKeyRef:
-                            description: SecretKeyRef selects a key of a Secret in
-                              the same namespace.
-                            properties:
-                              key:
-                                description: Key within the Secret's data to select.
-                                maxLength: 253
-                                minLength: 1
-                                type: string
-                              name:
-                                description: Name of the referenced Secret.
-                                maxLength: 253
-                                minLength: 1
-                                pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
-                                type: string
-                            required:
-                            - key
-                            type: object
-                            x-kubernetes-map-type: atomic
-                        type: object
-                        x-kubernetes-validations:
-                        - message: exactly one of secretKeyRef or configMapKeyRef
-                            must be set
-                          rule: has(self.secretKeyRef) != has(self.configMapKeyRef)
-                    type: object
-                    x-kubernetes-validations:
-                    - message: exactly one of value or valueFrom must be set
-                      rule: has(self.value) != has(self.valueFrom)
+                    description: |-
+                      Config is the inline content of the component's configuration file
+                      (e.g. a my.cnf or mongod.conf fragment). The dialect is engine-specific
+                      and interpreted by the provider. Note that the content is stored
+                      unencrypted in the cluster datastore and is readable by anyone who can
+                      read the Instance; credentials do not belong here.
+                    maxLength: 65536
+                    type: string
                   customSpec:
                     description: |-
                       CustomSpec provides an API for customising this component.
@@ -4039,67 +3986,14 @@ components:
                         type: object
                     type: object
                   config:
-                    description: Config specifies the component specific configuration.
-                    properties:
-                      value:
-                        description: |-
-                          Value is the inline configuration content (e.g. a my.cnf or
-                          mongod.conf fragment).
-                        maxLength: 65536
-                        minLength: 1
-                        type: string
-                      valueFrom:
-                        description: |-
-                          ValueFrom reads the configuration content from a key of a Secret or
-                          ConfigMap in the same namespace.
-                        properties:
-                          configMapKeyRef:
-                            description: ConfigMapKeyRef selects a key of a ConfigMap
-                              in the same namespace.
-                            properties:
-                              key:
-                                description: Key within the ConfigMap's data to select.
-                                maxLength: 253
-                                minLength: 1
-                                type: string
-                              name:
-                                description: Name of the referenced ConfigMap.
-                                maxLength: 253
-                                minLength: 1
-                                pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
-                                type: string
-                            required:
-                            - key
-                            type: object
-                            x-kubernetes-map-type: atomic
-                          secretKeyRef:
-                            description: SecretKeyRef selects a key of a Secret in
-                              the same namespace.
-                            properties:
-                              key:
-                                description: Key within the Secret's data to select.
-                                maxLength: 253
-                                minLength: 1
-                                type: string
-                              name:
-                                description: Name of the referenced Secret.
-                                maxLength: 253
-                                minLength: 1
-                                pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
-                                type: string
-                            required:
-                            - key
-                            type: object
-                            x-kubernetes-map-type: atomic
-                        type: object
-                        x-kubernetes-validations:
-                        - message: exactly one of secretKeyRef or configMapKeyRef
-                            must be set
-                          rule: has(self.secretKeyRef) != has(self.configMapKeyRef)
-                    type: object
-                    x-kubernetes-validations:
-                    - message: exactly one of value or valueFrom must be set
-                      rule: has(self.value) != has(self.valueFrom)
+                    description: |-
+                      Config is the inline content of the component's configuration file
+                      (e.g. a my.cnf or mongod.conf fragment). The dialect is engine-specific
+                      and interpreted by the provider. Note that the content is stored
+                      unencrypted in the cluster datastore and is readable by anyone who can
+                      read the Instance; credentials do not belong here.
+                    maxLength: 65536
+                    type: string
                   customSpec:
                     description: |-
                       CustomSpec provides an API for customising this component.

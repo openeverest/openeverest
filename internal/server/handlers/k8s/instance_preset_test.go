@@ -28,7 +28,6 @@ import (
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
-	common "github.com/openeverest/openeverest/v2/api/common/v1alpha1"
 	corev1alpha1 "github.com/openeverest/openeverest/v2/api/core/v1alpha1"
 	monitoringv1alpha1 "github.com/openeverest/openeverest/v2/api/monitoring/v1alpha1"
 	"github.com/openeverest/openeverest/v2/pkg/kubernetes"
@@ -92,9 +91,6 @@ func TestApplyNamespaceDefaults_New(t *testing.T) {
 		log:           zap.NewNop().Sugar(),
 	}
 
-	emptySecretRef := &corev1alpha1.Config{ValueFrom: &corev1alpha1.ConfigSource{SecretKeyRef: &common.SecretKeyRef{Key: "config"}}}
-	resolvedSecretRef := &corev1alpha1.Config{ValueFrom: &corev1alpha1.ConfigSource{SecretKeyRef: &common.SecretKeyRef{Name: "default-secret", Key: "config"}}}
-
 	tests := []struct {
 		name     string
 		input    *corev1alpha1.InstancePreset
@@ -111,17 +107,12 @@ func TestApplyNamespaceDefaults_New(t *testing.T) {
 			expected: newTestPreset(map[string]corev1alpha1.ComponentSpec{}),
 		},
 		{
-			name:     "resolves secretRef",
-			input:    newTestPreset(map[string]corev1alpha1.ComponentSpec{"pmm": {Config: emptySecretRef}}),
-			expected: newTestPreset(map[string]corev1alpha1.ComponentSpec{"pmm": {Config: resolvedSecretRef}}),
-		},
-		{
-			name: "other component does not resolve secretRef",
+			name: "inline config passes through unchanged",
 			input: newTestPreset(map[string]corev1alpha1.ComponentSpec{
-				"other": {Config: emptySecretRef},
+				"pmm": {Config: "key = value"},
 			}),
 			expected: newTestPreset(map[string]corev1alpha1.ComponentSpec{
-				"other": {Config: emptySecretRef},
+				"pmm": {Config: "key = value"},
 			}),
 		},
 		{

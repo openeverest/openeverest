@@ -85,14 +85,6 @@ func (h *k8sHandler) resolveNamespaceDefaults(ctx context.Context, preset *corev
 	for componentName, component := range preset.Spec.Components {
 		var err error
 
-		// Resolve Config fields
-		if component.Config != nil {
-			component, err = h.resolveConfigFields(ctx, component, componentName, namespace)
-			if err != nil {
-				return nil, fmt.Errorf("failed to resolve component %s: %w", componentName, err)
-			}
-		}
-
 		// Resolve customSpec fields
 		if component.CustomSpec != nil && len(component.CustomSpec.Raw) > 0 {
 			component, err = h.resolveCustomSpecFields(ctx, component, componentName, namespace)
@@ -113,25 +105,6 @@ func (h *k8sHandler) resolveNamespaceDefaults(ctx context.Context, preset *corev
 	}
 
 	return preset, nil
-}
-
-// resolveConfigFields fills in a default Secret name on
-// Config.ValueFrom.SecretKeyRef when the preset leaves it empty.
-// TODO: support Config.ValueFrom.ConfigMapKeyRef.
-func (h *k8sHandler) resolveConfigFields(ctx context.Context, component corev1alpha1.ComponentSpec, componentName, namespace string) (corev1alpha1.ComponentSpec, error) {
-	if component.Config == nil || component.Config.ValueFrom == nil || component.Config.ValueFrom.SecretKeyRef == nil {
-		return component, nil
-	}
-
-	if component.Config.ValueFrom.SecretKeyRef.Name == "" {
-		defaultSecretName, err := h.findDefaultResource(ctx, namespace, "Secret", componentName)
-		if err != nil {
-			return component, err
-		}
-		component.Config.ValueFrom.SecretKeyRef.Name = defaultSecretName
-	}
-
-	return component, nil
 }
 
 // resolveStorageFields handles structured Storage.StorageClass.

@@ -1713,34 +1713,12 @@ type Instance struct {
 				} `json:"podAntiAffinity,omitempty"`
 			} `json:"affinity,omitempty"`
 
-			// Config Config specifies the component specific configuration.
-			Config *struct {
-				// Value Value is the inline configuration content (e.g. a my.cnf or
-				// mongod.conf fragment).
-				Value *string `json:"value,omitempty"`
-
-				// ValueFrom ValueFrom reads the configuration content from a key of a Secret or
-				// ConfigMap in the same namespace.
-				ValueFrom *struct {
-					// ConfigMapKeyRef ConfigMapKeyRef selects a key of a ConfigMap in the same namespace.
-					ConfigMapKeyRef *struct {
-						// Key Key within the ConfigMap's data to select.
-						Key string `json:"key"`
-
-						// Name Name of the referenced ConfigMap.
-						Name *string `json:"name,omitempty"`
-					} `json:"configMapKeyRef,omitempty"`
-
-					// SecretKeyRef SecretKeyRef selects a key of a Secret in the same namespace.
-					SecretKeyRef *struct {
-						// Key Key within the Secret's data to select.
-						Key string `json:"key"`
-
-						// Name Name of the referenced Secret.
-						Name *string `json:"name,omitempty"`
-					} `json:"secretKeyRef,omitempty"`
-				} `json:"valueFrom,omitempty"`
-			} `json:"config,omitempty"`
+			// Config Config is the inline content of the component's configuration file
+			// (e.g. a my.cnf or mongod.conf fragment). The dialect is engine-specific
+			// and interpreted by the provider. Note that the content is stored
+			// unencrypted in the cluster datastore and is readable by anyone who can
+			// read the Instance; credentials do not belong here.
+			Config *string `json:"config,omitempty"`
 
 			// CustomSpec CustomSpec provides an API for customising this component.
 			// The API schema is defined by the provider's ComponentSchemas.
@@ -2701,34 +2679,12 @@ type InstancePreset struct {
 				} `json:"podAntiAffinity,omitempty"`
 			} `json:"affinity,omitempty"`
 
-			// Config Config specifies the component specific configuration.
-			Config *struct {
-				// Value Value is the inline configuration content (e.g. a my.cnf or
-				// mongod.conf fragment).
-				Value *string `json:"value,omitempty"`
-
-				// ValueFrom ValueFrom reads the configuration content from a key of a Secret or
-				// ConfigMap in the same namespace.
-				ValueFrom *struct {
-					// ConfigMapKeyRef ConfigMapKeyRef selects a key of a ConfigMap in the same namespace.
-					ConfigMapKeyRef *struct {
-						// Key Key within the ConfigMap's data to select.
-						Key string `json:"key"`
-
-						// Name Name of the referenced ConfigMap.
-						Name *string `json:"name,omitempty"`
-					} `json:"configMapKeyRef,omitempty"`
-
-					// SecretKeyRef SecretKeyRef selects a key of a Secret in the same namespace.
-					SecretKeyRef *struct {
-						// Key Key within the Secret's data to select.
-						Key string `json:"key"`
-
-						// Name Name of the referenced Secret.
-						Name *string `json:"name,omitempty"`
-					} `json:"secretKeyRef,omitempty"`
-				} `json:"valueFrom,omitempty"`
-			} `json:"config,omitempty"`
+			// Config Config is the inline content of the component's configuration file
+			// (e.g. a my.cnf or mongod.conf fragment). The dialect is engine-specific
+			// and interpreted by the provider. Note that the content is stored
+			// unencrypted in the cluster datastore and is readable by anyone who can
+			// read the Instance; credentials do not belong here.
+			Config *string `json:"config,omitempty"`
 
 			// CustomSpec CustomSpec provides an API for customising this component.
 			// The API schema is defined by the provider's ComponentSchemas.

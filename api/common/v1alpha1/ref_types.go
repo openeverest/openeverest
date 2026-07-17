@@ -61,52 +61,6 @@ type SecretRef struct {
 	Name string `json:"name"`
 }
 
-// SecretKeyRef selects a single key of a Secret in the same namespace as the
-// referrer.
-//
-// Name may be omitted only inside InstancePreset templates, where the
-// platform resolves the namespace default Secret at instantiation time; a
-// concrete Instance must always carry a name (enforced by the provider
-// validation webhook).
-//
-// +structType=atomic
-type SecretKeyRef struct {
-	// Name of the referenced Secret.
-	// +optional
-	// +kubebuilder:validation:MinLength=1
-	// +kubebuilder:validation:MaxLength=253
-	// +kubebuilder:validation:Pattern=`^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$`
-	Name string `json:"name,omitempty"`
-	// Key within the Secret's data to select.
-	// +kubebuilder:validation:Required
-	// +kubebuilder:validation:MinLength=1
-	// +kubebuilder:validation:MaxLength=253
-	Key string `json:"key"`
-}
-
-// ConfigMapKeyRef selects a single key of a ConfigMap in the same namespace
-// as the referrer.
-//
-// Name may be omitted only inside InstancePreset templates, where the
-// platform resolves the namespace default ConfigMap at instantiation time; a
-// concrete Instance must always carry a name (enforced by the provider
-// validation webhook).
-//
-// +structType=atomic
-type ConfigMapKeyRef struct {
-	// Name of the referenced ConfigMap.
-	// +optional
-	// +kubebuilder:validation:MinLength=1
-	// +kubebuilder:validation:MaxLength=253
-	// +kubebuilder:validation:Pattern=`^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$`
-	Name string `json:"name"`
-	// Key within the ConfigMap's data to select.
-	// +kubebuilder:validation:Required
-	// +kubebuilder:validation:MinLength=1
-	// +kubebuilder:validation:MaxLength=253
-	Key string `json:"key"`
-}
-
 // NamespacedObjectRef references a namespaced object from a cluster-scoped
 // referrer, so the namespace must be spelled out. Namespace-scoped referrers
 // must use ObjectRef instead; cross-namespace references between namespaced

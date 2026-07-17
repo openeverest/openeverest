@@ -272,60 +272,6 @@ func (c *Context) TryDecodeComponentCustomSpec(component v1alpha1.ComponentSpec,
 	return err == nil
 }
 
-// ComponentConfig resolves the configuration string for a component from its
-// Config union: either the inline Value or the referenced Secret/ConfigMap
-// key (via component.Config.ValueFrom).
-// Returns ("", nil) when Config is nil.
-//
-// Example:
-//
-//	engine := c.Instance().Spec.Components["engine"]
-//	config, err := c.ComponentConfig(engine)
-//	if err != nil {
-//	    return err
-//	}
-func (c *Context) ComponentConfig(component v1alpha1.ComponentSpec) (string, error) {
-	cfg := component.Config
-	if cfg == nil {
-		return "", nil
-	}
-
-	if cfg.Value != "" {
-		return cfg.Value, nil
-	}
-
-	src := cfg.ValueFrom
-	if src == nil {
-		return "", nil
-	}
-
-	if ref := src.ConfigMapKeyRef; ref != nil {
-		cm := &corev1.ConfigMap{}
-		if err := c.Get(cm, ref.Name); err != nil {
-			return "", fmt.Errorf("get config ConfigMap %q: %w", ref.Name, err)
-		}
-		value, ok := cm.Data[ref.Key]
-		if !ok {
-			return "", fmt.Errorf("key %q not found in ConfigMap %q", ref.Key, ref.Name)
-		}
-		return value, nil
-	}
-
-	if ref := src.SecretKeyRef; ref != nil {
-		secret := &corev1.Secret{}
-		if err := c.Get(secret, ref.Name); err != nil {
-			return "", fmt.Errorf("get config Secret %q: %w", ref.Name, err)
-		}
-		data, ok := secret.Data[ref.Key]
-		if !ok {
-			return "", fmt.Errorf("key %q not found in Secret %q", ref.Key, ref.Name)
-		}
-		return string(data), nil
-	}
-
-	return "", nil
-}
-
 // =============================================================================
 // CONNECTION DETAILS
 // =============================================================================

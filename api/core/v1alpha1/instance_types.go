@@ -269,9 +269,14 @@ type ComponentSpec struct {
 	// Resources requirements for this component.
 	// +optional
 	Resources *corev1.ResourceRequirements `json:"resources,omitempty"`
-	// Config specifies the component specific configuration.
+	// Config is the inline content of the component's configuration file
+	// (e.g. a my.cnf or mongod.conf fragment). The dialect is engine-specific
+	// and interpreted by the provider. Note that the content is stored
+	// unencrypted in the cluster datastore and is readable by anyone who can
+	// read the Instance; credentials do not belong here.
 	// +optional
-	Config *Config `json:"config,omitempty"`
+	// +kubebuilder:validation:MaxLength=65536
+	Config string `json:"config,omitempty"`
 	// Replicas specifies the number of replicas for this component.
 	// +optional
 	Replicas *int32 `json:"replicas,omitempty"`
@@ -318,40 +323,6 @@ type LoadBalancerService struct {
 type Storage struct {
 	Size         resource.Quantity `json:"size,omitempty"`
 	StorageClass *string           `json:"storageClass,omitempty"`
-}
-
-// Config specifies the configuration file content for a component, either
-// inline or read from a key of a Secret or ConfigMap.
-//
-// Exactly one of Value or ValueFrom must be set. Use inline Value for
-// non-sensitive configuration: it is stored unencrypted in the cluster
-// datastore and is readable by anyone who can read the Instance. Credentials
-// and other secrets belong in a Secret referenced via ValueFrom.
-//
-// +kubebuilder:validation:XValidation:rule="has(self.value) != has(self.valueFrom)",message="exactly one of value or valueFrom must be set"
-type Config struct {
-	// Value is the inline configuration content (e.g. a my.cnf or
-	// mongod.conf fragment).
-	// +optional
-	// +kubebuilder:validation:MinLength=1
-	// +kubebuilder:validation:MaxLength=65536
-	Value string `json:"value,omitempty"`
-	// ValueFrom reads the configuration content from a key of a Secret or
-	// ConfigMap in the same namespace.
-	// +optional
-	ValueFrom *ConfigSource `json:"valueFrom,omitempty"`
-}
-
-// ConfigSource represents a source for the content of a Config.
-//
-// +kubebuilder:validation:XValidation:rule="has(self.secretKeyRef) != has(self.configMapKeyRef)",message="exactly one of secretKeyRef or configMapKeyRef must be set"
-type ConfigSource struct {
-	// SecretKeyRef selects a key of a Secret in the same namespace.
-	// +optional
-	SecretKeyRef *common.SecretKeyRef `json:"secretKeyRef,omitempty"`
-	// ConfigMapKeyRef selects a key of a ConfigMap in the same namespace.
-	// +optional
-	ConfigMapKeyRef *common.ConfigMapKeyRef `json:"configMapKeyRef,omitempty"`
 }
 
 // GetComponentsOfType returns all components that match the given type.
