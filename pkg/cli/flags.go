@@ -116,6 +116,8 @@ const (
 	FlagInstanceWatch = "watch"
 	// FlagInstanceInterval sets the poll interval for --watch.
 	FlagInstanceInterval = "interval"
+	// FlagInstanceAllNamespaces lists instances across all namespaces.
+	FlagInstanceAllNamespaces = "all-namespaces"
 
 	// `provider` flags.
 
@@ -123,6 +125,13 @@ const (
 	FlagProviderCluster = "cluster"
 	// FlagProviderContext overrides the active context for this command.
 	FlagProviderContext = "context"
+
+	// `backup-class` flags.
+
+	// FlagBackupClassCluster is the name of the cluster flag.
+	FlagBackupClassCluster = "cluster"
+	// FlagBackupClassContext overrides the active context for this command.
+	FlagBackupClassContext = "context"
 
 	// settings flags.
 
