@@ -57,8 +57,8 @@ table.`,
 )
 
 func init() {
-	listCmd.Flags().StringVar(&listOpts.Namespace, cli.FlagInstanceNamespace, "", "Namespace to list instances in")
-	listCmd.Flags().BoolVar(&listOpts.AllNamespaces, cli.FlagInstanceAllNamespaces, false, "List instances across all namespaces")
+	listCmd.Flags().StringVarP(&listOpts.Namespace, cli.FlagInstanceNamespace, "n", "", "Namespace to list instances in")
+	listCmd.Flags().BoolVarP(&listOpts.AllNamespaces, cli.FlagInstanceAllNamespaces, "A", false, "List instances across all namespaces")
 	listCmd.Flags().StringVar(&listOpts.Cluster, cli.FlagInstanceCluster, "main", "Cluster name")
 	listCmd.Flags().StringVar(&listOpts.Context, cli.FlagInstanceContext, "", "Context to use (default: current context)")
 
