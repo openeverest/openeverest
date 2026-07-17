@@ -3242,7 +3242,16 @@ type Provider struct {
 
 		// GlobalConfigSchema GlobalConfigSchema holds the OpenAPI v3 schema for the global configuration.
 		GlobalConfigSchema *map[string]interface{} `json:"globalConfigSchema,omitempty"`
-		Topologies         *map[string]struct {
+
+		// Secrets Secrets defines Secret types this provider supports.
+		Secrets *map[string]struct {
+			// OpenAPIV3Schema OpenAPIV3Schema is the OpenAPI v3 schema for validating secret data/stringData.
+			OpenAPIV3Schema interface{} `json:"openAPIV3Schema,omitempty"`
+
+			// UiSchema UISchema holds UI rendering hints for the secret creation form.
+			UiSchema *map[string]interface{} `json:"uiSchema,omitempty"`
+		} `json:"secrets,omitempty"`
+		Topologies *map[string]struct {
 			Components *map[string]struct {
 				Optional *bool `json:"optional,omitempty"`
 			} `json:"components,omitempty"`
