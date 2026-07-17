@@ -1,3 +1,17 @@
+// Copyright (C) 2026 The OpenEverest Contributors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 import '@fontsource/roboto/300.css';
 import '@fontsource/roboto/400.css';
 import '@fontsource/roboto/500.css';
@@ -626,6 +640,19 @@ const baseThemeOptions = (mode: PaletteMode): ThemeOptions => ({
               opacity: 0.1,
             },
           },
+        },
+      },
+    },
+    MuiDialog: {
+      styleOverrides: {
+        // When a dialog is taller than the viewport (scroll="body"), MUI
+        // auto-focuses the Paper and the browser scrolls it into view, which
+        // otherwise clips the 32px top margin. Reserving scroll padding keeps
+        // the top (and bottom) margin visible. Has no effect on dialogs that
+        // fit within the viewport (no scroll needed).
+        container: {
+          scrollPaddingTop: BaseTheme.spacing(4),
+          scrollPaddingBottom: BaseTheme.spacing(4),
         },
       },
     },
