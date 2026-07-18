@@ -42,8 +42,8 @@ Credentials are never included in the output.`,
 		Example: `  # List backup storages in a namespace
   everestctl backup-storage list --namespace everest
 
-  # Using aliases
-  everestctl bs ls --namespace everest
+  # List across all namespaces
+  everestctl bs ls --all-namespaces
 
   # JSON output — inspect S3 details
   everestctl backup-storage list --namespace everest --json | jq '.[].spec.s3'
@@ -58,11 +58,13 @@ Credentials are never included in the output.`,
 )
 
 func init() {
-	listCmd.Flags().StringVarP(&listOpts.Namespace, cli.FlagBackupStorageNamespace, "n", "", "Namespace to list backup storages from (required)")
+	listCmd.Flags().StringVarP(&listOpts.Namespace, cli.FlagBackupStorageNamespace, "n", "", "Namespace to list backup storages from")
+	listCmd.Flags().BoolVarP(&listOpts.AllNamespaces, cli.FlagBackupStorageAllNamespaces, "A", false, "List backup storages across all namespaces")
 	listCmd.Flags().StringVar(&listOpts.Cluster, cli.FlagBackupStorageCluster, "main", "Cluster name")
 	listCmd.Flags().StringVar(&listOpts.Context, cli.FlagBackupStorageContext, "", "Context to use (default: current context)")
 
-	_ = listCmd.MarkFlagRequired(cli.FlagBackupStorageNamespace)
+	listCmd.MarkFlagsOneRequired(cli.FlagBackupStorageNamespace, cli.FlagBackupStorageAllNamespaces)
+	listCmd.MarkFlagsMutuallyExclusive(cli.FlagBackupStorageNamespace, cli.FlagBackupStorageAllNamespaces)
 }
 
 func listPreRun(cmd *cobra.Command, _ []string) {

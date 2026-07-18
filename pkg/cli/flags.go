@@ -134,6 +134,8 @@ const (
 	FlagBackupStorageCluster = "cluster"
 	// FlagBackupStorageContext overrides the active context for this command.
 	FlagBackupStorageContext = "context"
+	// FlagBackupStorageAllNamespaces lists backup storages across all namespaces.
+	FlagBackupStorageAllNamespaces = "all-namespaces"
 
 	// `backup-class` flags.
 

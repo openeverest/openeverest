@@ -42,9 +42,10 @@ type Config struct {
 
 // ListOptions holds the inputs for the list command.
 type ListOptions struct {
-	Namespace string
-	Cluster   string
-	Context   string
+	Namespace     string
+	AllNamespaces bool
+	Cluster       string
+	Context       string
 }
 
 // ListRunner lists backup storages via the Everest API.
@@ -71,12 +72,27 @@ func (sl *ListRunner) Run(ctx context.Context, opts ListOptions, cfgPath string)
 		return err
 	}
 
-	backupStorages, err := sl.listBackupStorages(ctx, c, opts.Cluster, opts.Namespace)
-	if err != nil {
-		return err
+	namespaces := []string{opts.Namespace}
+	if opts.AllNamespaces {
+		if namespaces, err = sl.listNamespaces(ctx, c, opts.Cluster); err != nil {
+			return err
+		}
+	}
+
+	backupStorages := make([]client.BackupStorage, 0, len(namespaces))
+	for _, ns := range namespaces {
+		items, err := sl.listBackupStorages(ctx, c, opts.Cluster, ns)
+		if err != nil {
+			return err
+		}
+		backupStorages = append(backupStorages, items...)
 	}
 
 	sort.Slice(backupStorages, func(i, j int) bool {
+		ni, nj := backupStorageNamespace(&backupStorages[i]), backupStorageNamespace(&backupStorages[j])
+		if ni != nj {
+			return ni < nj
+		}
 		return backupStorageName(&backupStorages[i]) < backupStorageName(&backupStorages[j])
 	})
 
@@ -86,15 +102,26 @@ func (sl *ListRunner) Run(ctx context.Context, opts ListOptions, cfgPath string)
 	return nil
 }
 
+func (sl *ListRunner) listNamespaces(ctx context.Context, c *client.ClientWithResponses, cluster string) ([]string, error) {
+	resp, err := c.ListNamespacesWithResponse(ctx, cluster)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list namespaces: %w", err)
+	}
+	if resp.StatusCode() != http.StatusOK || resp.JSON200 == nil {
+		return nil, fmt.Errorf("unexpected response listing namespaces: %s", resp.Status())
+	}
+	return *resp.JSON200, nil
+}
+
 func (sl *ListRunner) listBackupStorages(
 	ctx context.Context, c *client.ClientWithResponses, cluster, namespace string,
 ) ([]client.BackupStorage, error) {
 	resp, err := c.ListBackupStoragesWithResponse(ctx, cluster, namespace)
 	if err != nil {
-		return nil, fmt.Errorf("failed to list backup storages: %w", err)
+		return nil, fmt.Errorf("failed to list backup storages in namespace %q: %w", namespace, err)
 	}
 	if resp.StatusCode() != http.StatusOK || resp.JSON200 == nil {
-		return nil, fmt.Errorf("unexpected response listing backup storages: %s", resp.Status())
+		return nil, fmt.Errorf("unexpected response listing backup storages in namespace %q: %s", namespace, resp.Status())
 	}
 	if resp.JSON200.Items == nil {
 		return nil, nil

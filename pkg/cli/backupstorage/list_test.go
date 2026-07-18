@@ -20,6 +20,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -44,7 +45,7 @@ type testBackupStorage struct {
 	} `json:"spec"`
 }
 
-func newTestBackupStorage(name, namespace, storageType string) testBackupStorage {
+func newTestBackupStorage(name, namespace string) testBackupStorage {
 	tbs := testBackupStorage{
 		Metadata: map[string]any{
 			"name":              name,
@@ -52,7 +53,7 @@ func newTestBackupStorage(name, namespace, storageType string) testBackupStorage
 			"creationTimestamp": time.Now().Add(-time.Hour).UTC().Format(time.RFC3339),
 		},
 	}
-	tbs.Spec.Type = storageType
+	tbs.Spec.Type = "s3"
 	tbs.Spec.S3 = &struct {
 		Bucket string `json:"bucket"`
 		Region string `json:"region"`
@@ -89,8 +90,8 @@ func TestBackupStorageList_HappyPath(t *testing.T) {
 	t.Parallel()
 
 	items := []testBackupStorage{
-		newTestBackupStorage("s3-primary", "everest", "s3"),
-		newTestBackupStorage("s3-secondary", "everest", "s3"),
+		newTestBackupStorage("s3-primary", "everest"),
+		newTestBackupStorage("s3-secondary", "everest"),
 	}
 
 	var requestPath string
@@ -110,6 +111,45 @@ func TestBackupStorageList_HappyPath(t *testing.T) {
 	err := runner.Run(t.Context(), ListOptions{Cluster: "main", Namespace: "everest"}, cfgPath)
 	require.NoError(t, err)
 	assert.Contains(t, requestPath, "/namespaces/everest/backup-storages")
+}
+
+func TestBackupStorageList_AllNamespaces(t *testing.T) {
+	t.Parallel()
+
+	nsBackupStorages := map[string][]testBackupStorage{
+		"everest":  {newTestBackupStorage("s3-primary", "everest")},
+		"everest2": {newTestBackupStorage("s3-secondary", "everest2")},
+	}
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+
+		if strings.HasSuffix(r.URL.Path, "/namespaces") {
+			_ = json.NewEncoder(w).Encode([]string{"everest", "everest2"})
+			return
+		}
+
+		for ns, items := range nsBackupStorages {
+			if strings.Contains(r.URL.Path, "/namespaces/"+ns+"/backup-storages") {
+				_ = json.NewEncoder(w).Encode(map[string]any{"items": items})
+				return
+			}
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{"items": []testBackupStorage{}})
+	}))
+	defer srv.Close()
+
+	cfg := newTestConfig(srv.URL)
+	cfgPath := filepath.Join(t.TempDir(), "config.yaml")
+	require.NoError(t, cfg.Save(cfgPath))
+
+	runner := NewListRunner(Config{Pretty: true}, zap.NewNop().Sugar())
+	err := runner.Run(t.Context(), ListOptions{
+		AllNamespaces: true,
+		Cluster:       "main",
+	}, cfgPath)
+	require.NoError(t, err)
 }
 
 func TestBackupStorageList_EmptyResult(t *testing.T) {
@@ -168,7 +208,7 @@ func TestBackupStorageList_NoActiveContext(t *testing.T) {
 func TestBackupStorageList_JSONOutput(t *testing.T) {
 	t.Parallel()
 
-	items := []testBackupStorage{newTestBackupStorage("s3-primary", "everest", "s3")}
+	items := []testBackupStorage{newTestBackupStorage("s3-primary", "everest")}
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
