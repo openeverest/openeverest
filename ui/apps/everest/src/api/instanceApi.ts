@@ -20,19 +20,28 @@ import {
   InstanceConnectionDetails,
 } from 'shared-types/api.types';
 import { api } from './api';
+import { INSTANCE_PRESET_ANNOTATION } from 'consts';
 
 export const createDbInstanceFn = async (
   clusterName: string,
   instanceName: string,
   namespace: string,
-  data: CreateDbInstancePayload['spec']
+  data: CreateDbInstancePayload['spec'],
+  presetName?: string
 ) => {
+  const metadata: { name: string; annotations?: Record<string, string> } = {
+    name: instanceName,
+  };
+  if (presetName) {
+    metadata.annotations = { [INSTANCE_PRESET_ANNOTATION]: presetName };
+  }
+
   const payload: CreateDbInstancePayload = {
     apiVersion: 'core.openeverest.io/v1alpha1',
     kind: 'Instance',
     // TODO this TS error should gone after BE types updates
     // @ts-ignore
-    metadata: { name: instanceName },
+    metadata,
     spec: {
       ...data,
     },

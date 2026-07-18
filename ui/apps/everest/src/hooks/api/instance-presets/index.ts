@@ -12,19 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-export * from './backups';
-export * from './backup-storages';
-export * from './db-cluster';
-export * from './db-clusters';
-export * from './db-engines';
-export * from './monitoring';
-export * from './restores';
-export * from './kubernetesClusters';
-export * from './namespaces';
-export * from './version';
-export * from './pod-scheduling-policies';
-export * from './splitHorizon';
-export * from './schema/useSchema';
-export * from './db-instances';
-export * from './db-instance';
-export * from './instance-presets';
+export * from './useInstancePresets';
+export * from './useInstancePreset';
+export * from './useResolvedInstancePreset';

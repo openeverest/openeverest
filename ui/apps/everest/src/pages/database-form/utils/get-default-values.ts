@@ -21,4 +21,5 @@ export const getDbWizardDefaultValues = (
   [DbWizardFormFields.provider]: providerName,
   [DbWizardFormFields.dbName]: `inst-${generateShortUID()}`,
   [DbWizardFormFields.k8sNamespace]: '',
+  [DbWizardFormFields.instancePreset]: null,
 });

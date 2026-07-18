@@ -28,6 +28,7 @@ type DatabaseFormContextType = {
   sectionsOrder?: string[];
   providerObject?: Provider;
   hasBackupStep: boolean;
+  isPresetFrozen?: boolean;
 };
 
 const DatabaseFormContext = createContext<DatabaseFormContextType | null>(null);
@@ -42,4 +43,13 @@ export const useDatabaseFormContext = () => {
     );
   }
   return context;
+};
+
+/**
+ * Optional version of useDatabaseFormContext that returns null
+ * instead of throwing when used outside DatabaseFormProvider.
+ * Useful for components that may be used both inside and outside the form.
+ */
+export const useDatabaseFormContextOptional = () => {
+  return useContext(DatabaseFormContext);
 };

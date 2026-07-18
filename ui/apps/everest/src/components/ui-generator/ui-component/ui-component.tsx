@@ -22,6 +22,7 @@ import { getMappedParams, MappedFieldProps } from './utils/get-mapped-params';
 import { resolveValidationForMode } from '../utils/validation/resolve-validation-for-mode';
 import { buildFieldProps } from './utils/build-field-props';
 import { applyFieldWrappers } from './utils/field-wrappers';
+import { useDatabaseFormContextOptional } from 'pages/database-form/database-form-context';
 
 type ComponentByType<T extends Component['uiType']> = Extract<
   Component,
@@ -42,7 +43,12 @@ const UIComponent: React.FC<ComponentProps> = ({ item, name }) => {
   const { providerObject, loadingDefaultsForEdition, formMode } =
     useUiGeneratorContext();
 
-  const isDisabled = !!loadingDefaultsForEdition || !!fieldParams?.disabled;
+  // Get preset frozen state from context (may be null if outside provider)
+  const formContext = useDatabaseFormContextOptional();
+  const isPresetFrozen = formContext?.isPresetFrozen || false;
+
+  const isDisabled =
+    !!loadingDefaultsForEdition || !!fieldParams?.disabled || isPresetFrozen;
   const resolvedValidation = resolveValidationForMode(validation, formMode);
   const errorObj = get(errors, name);
   const error = errorObj?.message as string | undefined;

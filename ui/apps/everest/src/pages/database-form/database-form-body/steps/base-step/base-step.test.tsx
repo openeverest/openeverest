@@ -16,6 +16,7 @@ import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
 import { FormProvider, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { TestWrapper } from 'utils/test';
 import { WizardMode } from 'shared-types/wizard.types';
 import { DbWizardFormFields } from 'consts';
@@ -46,6 +47,17 @@ vi.mock('../../../hooks/use-database-page-mode', () => ({
   useDatabasePageMode: vi.fn(() => WizardMode.New),
 }));
 
+vi.mock('hooks/api/useClusterName', () => ({
+  useClusterName: vi.fn(() => 'test-cluster'),
+}));
+
+vi.mock('hooks/api/instance-presets/useResolvedInstancePreset', () => ({
+  useResolvedInstancePreset: vi.fn(() => ({
+    data: undefined,
+    isLoading: false,
+  })),
+}));
+
 const makeDefaultValues = (topologyType = 'replica') => ({
   [DbWizardFormFields.provider]: 'psmdb',
   [DbWizardFormFields.dbName]: 'my-test-db',
@@ -62,6 +74,7 @@ const makeContextValue = (topologies: string[] = ['replica']) => ({
   sectionsOrder: [],
   providerObject: undefined,
   hasBackupStep: false,
+  isPresetFrozen: false,
 });
 
 interface WrapperProps {
@@ -83,13 +96,21 @@ const Wrapper = ({
     ...(schema ? { resolver: zodResolver(schema) } : {}),
   });
 
+  const queryClient = new QueryClient({
+    defaultOptions: {
+      queries: { retry: false },
+    },
+  });
+
   return (
     <TestWrapper>
-      <DatabaseFormProvider value={makeContextValue(topologies)}>
-        <FormProvider {...methods}>
-          <form>{children}</form>
-        </FormProvider>
-      </DatabaseFormProvider>
+      <QueryClientProvider client={queryClient}>
+        <DatabaseFormProvider value={makeContextValue(topologies)}>
+          <FormProvider {...methods}>
+            <form>{children}</form>
+          </FormProvider>
+        </DatabaseFormProvider>
+      </QueryClientProvider>
     </TestWrapper>
   );
 };

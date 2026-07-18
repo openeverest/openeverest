@@ -46,6 +46,7 @@ export enum DbWizardForm {
   provider = 'provider',
   k8sNamespace = 'k8sNamespace',
   topology = 'topology.type',
+  instancePreset = 'instancePreset',
 }
 
 export const DbWizardFormFields = {
@@ -56,3 +57,5 @@ export const DbWizardFormFields = {
 export const EKS_DEFAULT_LOAD_BALANCER_CONFIG = 'eks-default';
 
 export const EMPTY_LOAD_BALANCER_CONFIGURATION = '- No configuration -';
+
+export const INSTANCE_PRESET_ANNOTATION = 'openeverest.io/instance-preset';

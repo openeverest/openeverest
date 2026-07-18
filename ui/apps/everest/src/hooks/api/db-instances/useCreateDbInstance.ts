@@ -65,13 +65,20 @@ export const useCreateDbInstance = (
 ) =>
   useMutation({
     mutationFn: ({ formValue }: CreateInstanceHookArgType) => {
-      const { dbName, k8sNamespace } = formValue;
+      const { dbName, k8sNamespace, instancePreset } = formValue;
+
+      // Extract preset name from object or string format
+      const presetName =
+        typeof instancePreset === 'object' && instancePreset !== null
+          ? instancePreset.value
+          : instancePreset;
 
       return createDbInstanceFn(
         'main',
         dbName,
         k8sNamespace || '',
-        buildCreateInstanceSpec(formValue)
+        buildCreateInstanceSpec(formValue),
+        presetName || undefined
       );
     },
     ...options,

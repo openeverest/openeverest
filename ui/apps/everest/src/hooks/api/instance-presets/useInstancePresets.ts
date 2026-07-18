@@ -12,19 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-export * from './backups';
-export * from './backup-storages';
-export * from './db-cluster';
-export * from './db-clusters';
-export * from './db-engines';
-export * from './monitoring';
-export * from './restores';
-export * from './kubernetesClusters';
-export * from './namespaces';
-export * from './version';
-export * from './pod-scheduling-policies';
-export * from './splitHorizon';
-export * from './schema/useSchema';
-export * from './db-instances';
-export * from './db-instance';
-export * from './instance-presets';
+import { useQuery } from '@tanstack/react-query';
+import { GetInstancePresetsPayload } from 'shared-types/api.types';
+import { getInstancePresetsFn } from './api';
+import { useClusterName } from '../useClusterName';
+
+export const useInstancePresets = (provider?: string) => {
+  const clusterName = useClusterName();
+
+  return useQuery<GetInstancePresetsPayload, Error>({
+    queryKey: ['instance-presets', clusterName, provider],
+    queryFn: () => getInstancePresetsFn(clusterName, provider),
+    enabled: !!clusterName,
+  });
+};

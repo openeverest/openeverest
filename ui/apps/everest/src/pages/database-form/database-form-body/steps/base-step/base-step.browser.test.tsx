@@ -16,6 +16,7 @@ import React from 'react';
 import { render, waitFor } from '@testing-library/react';
 import { FormProvider, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { TestWrapper } from 'utils/test';
 import { WizardMode } from 'shared-types/wizard.types';
 import { DbWizardFormFields } from 'consts';
@@ -67,6 +68,7 @@ const contextValue = {
   sectionsOrder: [],
   providerObject: undefined,
   hasBackupStep: false,
+  isPresetFrozen: false,
 };
 
 const Wrapper = ({ children }: { children: React.ReactNode }) => {
@@ -76,13 +78,21 @@ const Wrapper = ({ children }: { children: React.ReactNode }) => {
     resolver: zodResolver(schema),
   });
 
+  const queryClient = new QueryClient({
+    defaultOptions: {
+      queries: { retry: false },
+    },
+  });
+
   return (
     <TestWrapper>
-      <DatabaseFormProvider value={contextValue}>
-        <FormProvider {...methods}>
-          <form>{children}</form>
-        </FormProvider>
-      </DatabaseFormProvider>
+      <QueryClientProvider client={queryClient}>
+        <DatabaseFormProvider value={contextValue}>
+          <FormProvider {...methods}>
+            <form>{children}</form>
+          </FormProvider>
+        </DatabaseFormProvider>
+      </QueryClientProvider>
     </TestWrapper>
   );
 };

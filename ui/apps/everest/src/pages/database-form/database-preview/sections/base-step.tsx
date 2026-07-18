@@ -20,13 +20,25 @@ export const PreviewSectionOne = ({
   topology,
   provider,
   k8sNamespace,
-}: SectionProps) => (
-  <>
-    {k8sNamespace && <PreviewContentText text={`Namespace: ${k8sNamespace}`} />}
-    {provider && <PreviewContentText text={`Provider: ${provider}`} />}
-    {dbName && <PreviewContentText text={`Name: ${dbName}`} />}
-    {topology && topology?.type && (
-      <PreviewContentText text={`Topology: ${topology?.type}`} />
-    )}
-  </>
-);
+  instancePreset,
+}: SectionProps) => {
+  // Extract preset name from instancePreset (can be string or object)
+  const presetName =
+    typeof instancePreset === 'object' && instancePreset !== null
+      ? instancePreset.label || instancePreset.value
+      : instancePreset;
+
+  return (
+    <>
+      {k8sNamespace && (
+        <PreviewContentText text={`Namespace: ${k8sNamespace}`} />
+      )}
+      {provider && <PreviewContentText text={`Provider: ${provider}`} />}
+      {dbName && <PreviewContentText text={`Name: ${dbName}`} />}
+      {topology && topology?.type && (
+        <PreviewContentText text={`Topology: ${topology?.type}`} />
+      )}
+      {presetName && <PreviewContentText text={`Template: ${presetName}`} />}
+    </>
+  );
+};

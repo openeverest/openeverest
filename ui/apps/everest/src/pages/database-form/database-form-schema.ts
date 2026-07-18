@@ -29,6 +29,16 @@ const basicInfoFieldsSchema = z.object({
     .max(MAX_DB_CLUSTER_NAME_LENGTH, Messages.errors.dbName.tooLong)
     .nonempty(),
   [DbWizardFormFields.k8sNamespace]: z.string().nullable(),
+  [DbWizardFormFields.instancePreset]: z
+    .union([
+      z.string(),
+      z.object({
+        label: z.string(),
+        value: z.string(),
+      }),
+    ])
+    .nullable()
+    .optional(),
   topology: z.object({ type: z.string() }),
 });
 

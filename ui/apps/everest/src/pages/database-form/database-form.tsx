@@ -178,6 +178,21 @@ export const DatabasePage = () => {
     name: DbWizardFormFields.k8sNamespace,
   });
 
+  const selectedPreset = useWatch({
+    control,
+    name: DbWizardFormFields.instancePreset,
+  });
+
+  // Determine if preset freezing is active
+  const isPresetFrozen = useMemo(() => {
+    // Check if a preset is selected
+    const presetValue =
+      typeof selectedPreset === 'object' && selectedPreset !== null
+        ? selectedPreset.value
+        : selectedPreset;
+    return Boolean(presetValue);
+  }, [selectedPreset]);
+
   // Static step definitions
   const staticSteps = useMemo((): StepDefinition[] => {
     const steps: StepDefinition[] = [
@@ -404,6 +419,7 @@ export const DatabasePage = () => {
         sectionsOrder: engine.sectionsOrder,
         providerObject,
         hasBackupStep: hasBackupStep && mode !== FormMode.Restore,
+        isPresetFrozen,
       }}
     >
       <Stack direction={isDesktop ? 'row' : 'column'}>

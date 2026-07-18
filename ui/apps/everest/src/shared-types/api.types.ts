@@ -43,3 +43,7 @@ export type UpdateDbInstancePayload =
 
 export type GetNamespacesPayload =
   HttpApi.components['schemas']['NamespaceList'];
+
+export type InstancePreset = CrdsGen.components['schemas']['InstancePreset'];
+export type GetInstancePresetsPayload =
+  CrdsGen.components['schemas']['InstancePresetList'];

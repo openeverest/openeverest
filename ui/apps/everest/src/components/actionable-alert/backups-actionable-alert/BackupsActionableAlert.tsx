@@ -25,6 +25,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { BackupStorageFormValues } from 'shared-types/backupStorages.types';
 import { useRBACPermissions } from 'hooks/rbac';
 import { useClusterName } from 'hooks/api/useClusterName';
+import { useDatabaseFormContextOptional } from 'pages/database-form/database-form-context';
 
 const BackupsActionableAlert = ({ namespace }: BackupsActionableAlertProps) => {
   const [openCreateEditModal, setOpenCreateEditModal] = useState(false);
@@ -33,6 +34,11 @@ const BackupsActionableAlert = ({ namespace }: BackupsActionableAlertProps) => {
   const queryClient = useQueryClient();
   const clusterName = useClusterName();
   const { canCreate } = useRBACPermissions('backup-storages', `${namespace}/*`);
+
+  // Get preset frozen state from context (may be null if outside provider)
+  const formContext = useDatabaseFormContextOptional();
+  const isPresetFrozen = formContext?.isPresetFrozen || false;
+
   const handleCloseModal = () => {
     setOpenCreateEditModal(false);
   };
@@ -55,7 +61,7 @@ const BackupsActionableAlert = ({ namespace }: BackupsActionableAlertProps) => {
         buttonMessage={Messages.addStorage}
         data-testid="no-storage-message"
         onClick={() => setOpenCreateEditModal(true)}
-        {...(!canCreate && { action: undefined })}
+        {...((!canCreate || isPresetFrozen) && { action: undefined })}
       />
       {openCreateEditModal && (
         <CreateEditModalStorage

@@ -24,6 +24,7 @@ import {
 import { useRBACPermissions } from 'hooks/rbac';
 import type { EmptyStateFallbackProps } from '../types';
 import { Messages } from './monitoring-empty-fallback.messages';
+import { useDatabaseFormContextOptional } from 'pages/database-form/database-form-context';
 
 export const MonitoringEmptyFallback = ({
   namespace,
@@ -36,6 +37,10 @@ export const MonitoringEmptyFallback = ({
     'monitoring-configs',
     `${namespace}/*`
   );
+
+  // Get preset frozen state from context (may be null if outside provider)
+  const formContext = useDatabaseFormContextOptional();
+  const isPresetFrozen = formContext?.isPresetFrozen || false;
 
   const handleSubmit = (_isEditMode: boolean, data: EndpointFormType) => {
     const { name, url, verifyTLS, user, password } = data;
@@ -66,7 +71,7 @@ export const MonitoringEmptyFallback = ({
         buttonMessage={Messages.addMonitoringEndpoint}
         data-testid="monitoring-empty-fallback"
         onClick={() => setOpenModal(true)}
-        {...(!canCreate && { action: undefined })}
+        {...((!canCreate || isPresetFrozen) && { action: undefined })}
       />
       {openModal && (
         <CreateEditEndpointModal

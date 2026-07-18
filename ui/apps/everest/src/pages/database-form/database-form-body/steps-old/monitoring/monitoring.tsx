@@ -36,6 +36,7 @@ import { convertMonitoringInstancesPayloadToTableFormat } from 'pages/settings/m
 import { useRBACPermissions } from 'hooks/rbac';
 import { WizardMode } from 'shared-types/wizard.types.ts';
 import { MonitoringConfig } from 'shared-types/api.types';
+import { useDatabaseFormContextOptional } from 'pages/database-form/database-form-context';
 
 export const Monitoring = () => {
   const [openCreateEditModal, setOpenCreateEditModal] = useState(false);
@@ -51,6 +52,10 @@ export const Monitoring = () => {
   const { mutate: createMonitoringInstance, isPending: creatingInstance } =
     useCreateMonitoringInstance();
   const { setValue } = useFormContext();
+
+  // Get preset frozen state from context (may be null if outside provider)
+  const formContext = useDatabaseFormContextOptional();
+  const isPresetFrozen = formContext?.isPresetFrozen || false;
 
   const monitoringInstancesResult = useMonitoringInstancesList([
     {
@@ -159,7 +164,7 @@ export const Monitoring = () => {
           buttonMessage={Messages.addMonitoringEndpoint}
           data-testid="monitoring-warning"
           onClick={() => setOpenCreateEditModal(true)}
-          {...(!canCreate && { action: undefined })}
+          {...((!canCreate || isPresetFrozen) && { action: undefined })}
         />
       )}
       <FormGroup sx={{ mt: 2 }}>

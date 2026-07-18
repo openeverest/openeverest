@@ -16,32 +16,45 @@ import OverviewSection from '../../overview-section';
 import OverviewSectionRow from '../../overview-section-row';
 import { Messages } from '../../cluster-overview.messages';
 import type { BasicInfoSectionProps } from './basic-info-section.types';
+import { INSTANCE_PRESET_ANNOTATION } from 'consts';
 
 const BasicInfoSection = ({
   instance,
   namespace,
   loading,
-}: BasicInfoSectionProps) => (
-  <OverviewSection
-    dataTestId="basic-information"
-    title={Messages.titles.basicInformation}
-    loading={loading}
-  >
-    <OverviewSectionRow
-      label={Messages.fields.name}
-      content={instance.metadata?.name}
-    />
-    <OverviewSectionRow label={Messages.fields.namespace} content={namespace} />
-    <OverviewSectionRow label="Provider" content={instance.spec?.provider} />
-    <OverviewSectionRow
-      label="Topology"
-      content={instance.spec?.topology?.type ?? 'default'}
-    />
-    <OverviewSectionRow
-      label={Messages.fields.status}
-      content={instance.status?.phase}
-    />
-  </OverviewSection>
-);
+}: BasicInfoSectionProps) => {
+  // Extract preset name from instance annotations
+  const presetName =
+    instance.metadata?.annotations?.[INSTANCE_PRESET_ANNOTATION];
+
+  return (
+    <OverviewSection
+      dataTestId="basic-information"
+      title={Messages.titles.basicInformation}
+      loading={loading}
+    >
+      <OverviewSectionRow
+        label={Messages.fields.name}
+        content={instance.metadata?.name}
+      />
+      <OverviewSectionRow
+        label={Messages.fields.namespace}
+        content={namespace}
+      />
+      <OverviewSectionRow label="Provider" content={instance.spec?.provider} />
+      <OverviewSectionRow
+        label="Topology"
+        content={instance.spec?.topology?.type ?? 'default'}
+      />
+      {presetName && (
+        <OverviewSectionRow label="Template" content={presetName} />
+      )}
+      <OverviewSectionRow
+        label={Messages.fields.status}
+        content={instance.status?.phase}
+      />
+    </OverviewSection>
+  );
+};
 
 export default BasicInfoSection;

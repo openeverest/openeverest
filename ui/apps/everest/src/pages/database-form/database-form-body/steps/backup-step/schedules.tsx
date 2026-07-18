@@ -38,6 +38,7 @@ import { ScheduleWizardMode, WizardMode } from 'shared-types/wizard.types';
 import { BackupStorageCRD } from 'shared-types/backupStorages.types';
 import { useBackupClassesList } from 'hooks/api/backup-classes/useBackupClasses';
 import { useClusterName } from 'hooks/api/useClusterName';
+import { useDatabaseFormContext } from '../../../database-form-context';
 
 /** Form field path where wizard stores the flat schedules array. */
 export const BACKUP_SCHEDULES_FIELD = 'backup.schedules';
@@ -53,6 +54,7 @@ export const Schedules = ({ backupStorages }: Props) => {
   const dbWizardMode = useDatabasePageMode();
   const clusterName = useClusterName();
   const { data: backupClasses = [] } = useBackupClassesList(clusterName);
+  const { isPresetFrozen } = useDatabaseFormContext();
 
   const [openScheduleModal, setOpenScheduleModal] = useState(false);
   const [mode, setMode] = useState<ScheduleWizardMode>(WizardMode.New);
@@ -84,7 +86,8 @@ export const Schedules = ({ backupStorages }: Props) => {
     }
   }, [backupClasses, selectedClassName, setValue]);
 
-  const createButtonDisabled = openScheduleModal || backupStorages.length === 0;
+  const createButtonDisabled =
+    openScheduleModal || backupStorages.length === 0 || isPresetFrozen;
 
   const handleDelete = (name: string) => {
     setValue(

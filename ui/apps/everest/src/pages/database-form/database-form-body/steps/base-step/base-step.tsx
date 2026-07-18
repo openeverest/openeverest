@@ -1,4 +1,3 @@
-// everest
 // Copyright (C) 2023 Percona LLC
 // Copyright (C) 2026 The OpenEverest Contributors
 //
@@ -27,6 +26,8 @@ import { useNamespacePermissionsForResource } from 'hooks/rbac';
 import { useNamespaces } from 'hooks/index.ts';
 import { FormMode } from 'components/ui-generator/ui-generator.types.js';
 import { useDatabaseFormContext } from 'pages/database-form/database-form-context';
+import { PresetSelector } from './preset-selector';
+import { usePresetLoader } from '../../../hooks/use-preset-loader';
 
 export const BaseInfoStep = ({ loadingDefaultsForEdition }: StepProps) => {
   const mode = useDatabasePageMode();
@@ -34,12 +35,15 @@ export const BaseInfoStep = ({ loadingDefaultsForEdition }: StepProps) => {
   const { data: namespaces = [] } = useNamespaces({
     refetchInterval: 10 * 1000,
   });
-  const { topologies, hasMultipleTopologies } = useDatabaseFormContext();
+  const { topologies, hasMultipleTopologies, isPresetFrozen } =
+    useDatabaseFormContext();
   const { watch, setValue, getFieldState } = useFormContext();
 
-  // const dbType: DbType = watch(DbWizardFormFields.dbType);
-  // const dbNamespace = watch(DbWizardFormFields.k8sNamespace);
+  const provider = watch(DbWizardFormFields.provider);
   const currentTopology = watch(DbWizardFormFields.topology);
+
+  // Load preset when selected
+  usePresetLoader();
 
   // const [dbEnginesFoDbEngineTypes, dbEnginesFoDbEngineTypesFetching] =
   //   useDBEnginesForDbEngineTypes(dbTypeToDbEngine(dbType));
@@ -141,6 +145,10 @@ export const BaseInfoStep = ({ loadingDefaultsForEdition }: StepProps) => {
         pageDescription={Messages.pageDescription}
       />
       <FormGroup sx={{ mt: 3 }}>
+        <PresetSelector
+          provider={provider}
+          disabled={mode === FormMode.Restore || loadingDefaultsForEdition}
+        />
         <AutoCompleteInput
           labelProps={{
             sx: { mt: 1 },
@@ -169,7 +177,10 @@ export const BaseInfoStep = ({ loadingDefaultsForEdition }: StepProps) => {
             name={DbWizardFormFields.topology}
             label="Database Topology"
             selectFieldProps={{
-              disabled: mode === FormMode.Restore || loadingDefaultsForEdition,
+              disabled:
+                mode === FormMode.Restore ||
+                loadingDefaultsForEdition ||
+                isPresetFrozen,
             }}
           >
             {topologies.map((topology) => (
