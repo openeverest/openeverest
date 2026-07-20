@@ -394,7 +394,7 @@ func (r *BackupReconciler) ensurePayloadSecret(
 	}
 
 	// Pass through the config.
-	if cfg := backup.Spec.Config; cfg != nil {
+	if cfg := backup.Spec.Parameters; cfg != nil {
 		cfgMap := map[string]any{}
 		if err := json.Unmarshal(cfg.Raw, &cfgMap); err != nil {
 			return fmt.Errorf("failed to unmarshal backup config: %w", err)

@@ -24,7 +24,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -190,85 +189,87 @@ func (c *Context) ObjectMeta(name string) metav1.ObjectMeta {
 	}
 }
 
-// DecodeTopologyConfig unmarshals the topology configuration into the provided struct.
-// The target should be a pointer to the expected config type.
-// Returns an error if the config is nil, empty, or unmarshaling fails.
+// DecodeTopologyParameters unmarshals the topology parameters into the
+// provided struct. The target should be a pointer to the expected type.
+// Returns an error if the parameters are nil, empty, or unmarshaling fails.
 //
 // Example:
 //
-//	var config psmdbspec.ShardedTopologyConfig
-//	if err := c.DecodeTopologyConfig(&config); err != nil {
+//	var params psmdbspec.ShardedTopologyParameters
+//	if err := c.DecodeTopologyParameters(&params); err != nil {
 //	    // handle error or use defaults
 //	}
-func (c *Context) DecodeTopologyConfig(target interface{}) error {
-	topologyConfig := c.in.GetTopologyConfig()
-	if topologyConfig == nil || topologyConfig.Raw == nil {
-		return fmt.Errorf("topology config not set")
+func (c *Context) DecodeTopologyParameters(target any) error {
+	topologyParams := c.in.GetTopologyParameters()
+	if topologyParams == nil || topologyParams.Raw == nil {
+		return fmt.Errorf("topology parameters not set")
 	}
-	return json.Unmarshal(topologyConfig.Raw, target)
+	return json.Unmarshal(topologyParams.Raw, target)
 }
 
-// DecodeGlobalConfig unmarshals the global configuration into the provided struct.
-// The target should be a pointer to the expected config type.
-// Returns an error if the config is nil, empty, or unmarshaling fails.
+// DecodeParameters unmarshals the provider-level parameters
+// (Instance.spec.parameters) into the provided struct. The target should be
+// a pointer to the expected type. Returns an error if the parameters are
+// nil, empty, or unmarshaling fails.
 //
 // Example:
 //
-//	var config psmdbspec.GlobalConfig
-//	if err := c.DecodeGlobalConfig(&config); err != nil {
+//	var params psmdbspec.Parameters
+//	if err := c.DecodeParameters(&params); err != nil {
 //	    // handle error or use defaults
 //	}
-func (c *Context) DecodeGlobalConfig(target interface{}) error {
-	globalConfig := c.in.Spec.Global
-	if globalConfig == nil || globalConfig.Raw == nil {
-		return fmt.Errorf("global config not set")
+func (c *Context) DecodeParameters(target any) error {
+	params := c.in.Spec.Parameters
+	if params == nil || params.Raw == nil {
+		return fmt.Errorf("parameters not set")
 	}
-	return json.Unmarshal(globalConfig.Raw, target)
+	return json.Unmarshal(params.Raw, target)
 }
 
-// DecodeComponentCustomSpec unmarshals a component's custom spec into the provided struct.
-// The target should be a pointer to the expected custom spec type.
-// Returns an error if the custom spec is nil, empty, or unmarshaling fails.
+// DecodeComponentParameters unmarshals a component's parameters into the
+// provided struct. The target should be a pointer to the expected type.
+// Returns an error if the parameters are nil, empty, or unmarshaling fails.
 //
 // Example:
 //
 //	engine := c.wl.Spec.Components["engine"]
-//	var customSpec psmdbspec.MongodCustomSpec
-//	if err := c.DecodeComponentCustomSpec(engine, &customSpec); err != nil {
+//	var params psmdbspec.MongodParameters
+//	if err := c.DecodeComponentParameters(engine, &params); err != nil {
 //	    // handle error or use defaults
 //	}
-func (c *Context) DecodeComponentCustomSpec(component v1alpha1.ComponentSpec, target interface{}) error {
-	if component.CustomSpec == nil || component.CustomSpec.Raw == nil {
-		return fmt.Errorf("component custom spec not set")
+func (c *Context) DecodeComponentParameters(component v1alpha1.ComponentSpec, target any) error {
+	if component.Parameters == nil || component.Parameters.Raw == nil {
+		return fmt.Errorf("component parameters not set")
 	}
-	return json.Unmarshal(component.CustomSpec.Raw, target)
+	return json.Unmarshal(component.Parameters.Raw, target)
 }
 
-// TryDecodeTopologyConfig attempts to decode topology config, returning false if not set.
-// This is a convenience method that doesn't return an error for missing configs.
+// TryDecodeTopologyParameters attempts to decode topology parameters,
+// returning false if not set. This is a convenience method that doesn't
+// return an error for missing parameters.
 //
 // Example:
 //
-//	var config psmdbspec.ShardedTopologyConfig
-//	if c.TryDecodeTopologyConfig(&config) {
-//	    numShards = config.NumShards
+//	var params psmdbspec.ShardedTopologyParameters
+//	if c.TryDecodeTopologyParameters(&params) {
+//	    numShards = params.NumShards
 //	} else {
 //	    numShards = 2 // default
 //	}
-func (c *Context) TryDecodeTopologyConfig(target interface{}) bool {
-	err := c.DecodeTopologyConfig(target)
+func (c *Context) TryDecodeTopologyParameters(target any) bool {
+	err := c.DecodeTopologyParameters(target)
 	return err == nil
 }
 
-// TryDecodeGlobalConfig attempts to decode global config, returning false if not set.
-func (c *Context) TryDecodeGlobalConfig(target interface{}) bool {
-	err := c.DecodeGlobalConfig(target)
+// TryDecodeParameters attempts to decode provider-level parameters, returning false if not set.
+func (c *Context) TryDecodeParameters(target any) bool {
+	err := c.DecodeParameters(target)
 	return err == nil
 }
 
-// TryDecodeComponentCustomSpec attempts to decode component custom spec, returning false if not set.
-func (c *Context) TryDecodeComponentCustomSpec(component v1alpha1.ComponentSpec, target interface{}) bool {
-	err := c.DecodeComponentCustomSpec(component, target)
+// TryDecodeComponentParameters attempts to decode component parameters, returning false if not set.
+func (c *Context) TryDecodeComponentParameters(component v1alpha1.ComponentSpec, target any) bool {
+	err := c.DecodeComponentParameters(component, target)
 	return err == nil
 }
 
@@ -628,10 +629,9 @@ func (c *Context) BackupClassLimits() (*backupv1alpha1.BackupClassLimits, error)
 	return bc.Spec.ProviderManaged.Limits, nil
 }
 
-// PITRConfigSchema returns the free-form PITR config schema declared by the
-// BackupClass referenced by the Instance, or nil when no schema is set.
-// The runtime treats this payload as opaque; providers interpret it.
-func (c *Context) PITRConfigSchema() (*runtime.RawExtension, error) {
+// PITRParametersSchema returns the typed PITR parameters schema declared by
+// the BackupClass referenced by the Instance, or nil when no schema is set.
+func (c *Context) PITRParametersSchema() (*apicommon.ParametersSchema, error) {
 	bc, err := c.BackupClassForInstance()
 	if err != nil || bc == nil {
 		return nil, err
@@ -639,7 +639,7 @@ func (c *Context) PITRConfigSchema() (*runtime.RawExtension, error) {
 	if bc.Spec.ProviderManaged == nil {
 		return nil, nil
 	}
-	return bc.Spec.ProviderManaged.PITRConfigSchema, nil
+	return bc.Spec.ProviderManaged.PITRParametersSchema, nil
 }
 
 // BackupStorage fetches a BackupStorage by name from the instance namespace.

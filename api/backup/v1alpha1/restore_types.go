@@ -31,11 +31,11 @@ type RestoreSpec struct {
 	// DataSource defines where the backup data to restore from is located.
 	// +kubebuilder:validation:Required
 	DataSource DataSource `json:"dataSource"`
-	// Config is the restore-time configuration validated against the
-	// BackupClass's .spec.restoreConfig.openAPIV3Schema.
+	// Parameters is the restore-time structured configuration validated
+	// against the BackupClass's .spec.restoreParametersSchema.
 	// +kubebuilder:pruning:PreserveUnknownFields
 	// +optional
-	Config *runtime.RawExtension `json:"config,omitempty"`
+	Parameters *runtime.RawExtension `json:"parameters,omitempty"`
 }
 
 // DataSourceType selects the kind of data source for initial seeding or

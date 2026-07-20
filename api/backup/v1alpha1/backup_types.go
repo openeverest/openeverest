@@ -47,11 +47,11 @@ type BackupSpec struct {
 	// CRs.
 	// +optional
 	ScheduleName string `json:"scheduleName,omitempty"`
-	// Config is the backup-time configuration validated against the
-	// BackupClass's .spec.config.openAPIV3Schema.
+	// Parameters is the backup-time structured configuration validated
+	// against the BackupClass's .spec.parametersSchema.
 	// +kubebuilder:pruning:PreserveUnknownFields
 	// +optional
-	Config *runtime.RawExtension `json:"config,omitempty"`
+	Parameters *runtime.RawExtension `json:"parameters,omitempty"`
 	// DeletionPolicy controls what happens to the underlying backup data
 	// (e.g., the object stored in S3) when this Backup CR is deleted.
 	// Delete (default) instructs the provider to remove both the

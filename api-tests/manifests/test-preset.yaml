@@ -20,7 +20,8 @@ spec:
         limits:
           cpu: "2"
           memory: "2Gi"
-      config: |
-        key = value
+      parameters:
+        configuration: |
+          key = value
       storage:
         size: 10Gi

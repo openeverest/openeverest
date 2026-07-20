@@ -15,10 +15,12 @@
 package controller
 
 import (
+	"encoding/json"
 	"errors"
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
@@ -156,41 +158,44 @@ func TestValidateInstanceBackupAgainstClass(t *testing.T) {
 	}
 }
 
-// mkPITRSchema returns a RawExtension holding an OpenAPI v3 schema fragment
-// with a single integer property "oplogSpanMin" (minimum 1) and a string
-// enum property "compressionType".
-func mkPITRSchema() *runtime.RawExtension {
-	return &runtime.RawExtension{Raw: []byte(`{
+// mkPITRSchema returns a ParametersSchema holding an OpenAPI v3 schema
+// fragment with a single integer property "oplogSpanMin" (minimum 1) and a
+// string enum property "compressionType".
+func mkPITRSchema(t *testing.T) *common.ParametersSchema {
+	t.Helper()
+	var props apiextensionsv1.JSONSchemaProps
+	require.NoError(t, json.Unmarshal([]byte(`{
 		"type": "object",
 		"properties": {
 			"oplogSpanMin": {"type": "integer", "minimum": 1},
 			"compressionType": {"type": "string", "enum": ["none", "snappy", "zstd"]}
 		}
-	}`)}
+	}`), &props))
+	return &common.ParametersSchema{OpenAPIV3Schema: &props}
 }
 
-func mkPITRClass(schema *runtime.RawExtension) *backupv1alpha1.BackupClass {
+func mkPITRClass(schema *common.ParametersSchema) *backupv1alpha1.BackupClass {
 	return &backupv1alpha1.BackupClass{
 		ObjectMeta: metav1.ObjectMeta{Name: "bc"},
 		Spec: backupv1alpha1.BackupClassSpec{
 			ExecutionMode: backupv1alpha1.BackupExecutionModeProviderManaged,
 			ProviderManaged: &backupv1alpha1.ProviderManagedSpec{
-				SupportsPITR:     true,
-				PITRConfigSchema: schema,
+				SupportsPITR:         true,
+				PITRParametersSchema: schema,
 			},
 		},
 	}
 }
 
-func withPITRConfig(s corev1alpha1.InstanceBackupStorage, raw string) corev1alpha1.InstanceBackupStorage {
+func withPITRParameters(s corev1alpha1.InstanceBackupStorage, raw string) corev1alpha1.InstanceBackupStorage {
 	if s.PITR == nil {
 		s.PITR = &corev1alpha1.InstanceBackupStoragePITR{Enabled: true}
 	}
-	s.PITR.Config = &runtime.RawExtension{Raw: []byte(raw)}
+	s.PITR.Parameters = &runtime.RawExtension{Raw: []byte(raw)}
 	return s
 }
 
-func TestValidateInstanceBackupPITRConfigs(t *testing.T) {
+func TestValidateInstanceBackupPITRParameters(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -208,55 +213,55 @@ func TestValidateInstanceBackupPITRConfigs(t *testing.T) {
 		{
 			name:    "backup disabled is a no-op",
 			in:      &corev1alpha1.Instance{Spec: corev1alpha1.InstanceSpec{Backup: &corev1alpha1.InstanceBackupSpec{Enabled: false}}},
-			bc:      mkPITRClass(mkPITRSchema()),
+			bc:      mkPITRClass(mkPITRSchema(t)),
 			wantErr: false,
 		},
 		{
 			name:    "job-mode class is ignored",
-			in:      mkInstance(withPITRConfig(mkStorage("a", true, 0), `{"bogus": true}`)),
+			in:      mkInstance(withPITRParameters(mkStorage("a", true, 0), `{"bogus": true}`)),
 			bc:      &backupv1alpha1.BackupClass{Spec: backupv1alpha1.BackupClassSpec{ExecutionMode: backupv1alpha1.BackupExecutionModeJob}},
 			wantErr: false,
 		},
 		{
-			name:    "storages without pitr config are skipped",
+			name:    "storages without pitr parameters are skipped",
 			in:      mkInstance(mkStorage("a", true, 0), mkStorage("b", false, 0)),
-			bc:      mkPITRClass(mkPITRSchema()),
+			bc:      mkPITRClass(mkPITRSchema(t)),
 			wantErr: false,
 		},
 		{
-			name:    "valid config passes",
-			in:      mkInstance(withPITRConfig(mkStorage("a", true, 0), `{"oplogSpanMin": 10, "compressionType": "zstd"}`)),
-			bc:      mkPITRClass(mkPITRSchema()),
+			name:    "valid parameters pass",
+			in:      mkInstance(withPITRParameters(mkStorage("a", true, 0), `{"oplogSpanMin": 10, "compressionType": "zstd"}`)),
+			bc:      mkPITRClass(mkPITRSchema(t)),
 			wantErr: false,
 		},
 		{
 			name:    "unknown field is rejected",
-			in:      mkInstance(withPITRConfig(mkStorage("a", true, 0), `{"unknownField": 1}`)),
-			bc:      mkPITRClass(mkPITRSchema()),
+			in:      mkInstance(withPITRParameters(mkStorage("a", true, 0), `{"unknownField": 1}`)),
+			bc:      mkPITRClass(mkPITRSchema(t)),
 			wantErr: true,
 		},
 		{
 			name:    "constraint violation is rejected",
-			in:      mkInstance(withPITRConfig(mkStorage("a", true, 0), `{"oplogSpanMin": 0}`)),
-			bc:      mkPITRClass(mkPITRSchema()),
+			in:      mkInstance(withPITRParameters(mkStorage("a", true, 0), `{"oplogSpanMin": 0}`)),
+			bc:      mkPITRClass(mkPITRSchema(t)),
 			wantErr: true,
 		},
 		{
 			name:    "enum violation is rejected",
-			in:      mkInstance(withPITRConfig(mkStorage("a", true, 0), `{"compressionType": "gzip"}`)),
-			bc:      mkPITRClass(mkPITRSchema()),
+			in:      mkInstance(withPITRParameters(mkStorage("a", true, 0), `{"compressionType": "gzip"}`)),
+			bc:      mkPITRClass(mkPITRSchema(t)),
 			wantErr: true,
 		},
 		{
-			name:    "config without declared schema is rejected",
-			in:      mkInstance(withPITRConfig(mkStorage("a", true, 0), `{"oplogSpanMin": 10}`)),
+			name:    "parameters without declared schema are rejected",
+			in:      mkInstance(withPITRParameters(mkStorage("a", true, 0), `{"oplogSpanMin": 10}`)),
 			bc:      mkPITRClass(nil),
 			wantErr: true,
 		},
 		{
-			name:    "malformed schema on class is rejected",
-			in:      mkInstance(withPITRConfig(mkStorage("a", true, 0), `{"oplogSpanMin": 10}`)),
-			bc:      mkPITRClass(&runtime.RawExtension{Raw: []byte(`not-json`)}),
+			name:    "schema wrapper without openAPIV3Schema is rejected",
+			in:      mkInstance(withPITRParameters(mkStorage("a", true, 0), `{"oplogSpanMin": 10}`)),
+			bc:      mkPITRClass(&common.ParametersSchema{}),
 			wantErr: true,
 		},
 	}
@@ -265,7 +270,7 @@ func TestValidateInstanceBackupPITRConfigs(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			err := ValidateInstanceBackupPITRConfigs(tc.in, tc.bc)
+			err := ValidateInstanceBackupPITRParameters(tc.in, tc.bc)
 			if tc.wantErr {
 				require.Error(t, err)
 				require.ErrorIs(t, err, ErrPITRConfigInvalid)

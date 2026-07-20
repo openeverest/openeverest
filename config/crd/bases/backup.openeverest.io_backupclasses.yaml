@@ -41,17 +41,6 @@ spec:
           spec:
             description: BackupClassSpec defines the desired state of BackupClass.
             properties:
-              config:
-                description: |-
-                  Config contains the OpenAPI v3 schema describing the backup-time
-                  configuration accepted by this class. Backup.spec.config and
-                  InstanceBackupSchedule.config are both validated against this schema.
-                properties:
-                  openAPIV3Schema:
-                    description: OpenAPIV3Schema is the OpenAPI v3 schema of the backup
-                      class.
-                    x-kubernetes-preserve-unknown-fields: true
-                type: object
               description:
                 description: Description is the description of the backup class.
                 type: string
@@ -372,6 +361,18 @@ spec:
                 required:
                 - backup
                 type: object
+              parametersSchema:
+                description: |-
+                  ParametersSchema declares the OpenAPI v3 schema describing the
+                  backup-time parameters accepted by this class. Backup.spec.parameters
+                  and InstanceBackupSchedule.parameters are both validated against it.
+                properties:
+                  openAPIV3Schema:
+                    description: |-
+                      OpenAPIV3Schema is the OpenAPI v3 schema describing the accepted
+                      parameters payload.
+                    x-kubernetes-preserve-unknown-fields: true
+                type: object
               providerManaged:
                 description: |-
                   ProviderManaged contains hints for ExecutionMode="ProviderManaged". The
@@ -414,31 +415,35 @@ spec:
                         minimum: 1
                         type: integer
                     type: object
-                  pitrConfigSchema:
+                  pitrParametersSchema:
                     description: |-
-                      PITRConfigSchema describes the shape of per-storage PITR custom config
-                      (InstanceBackupStoragePITR.Config). The field is free-form and opaque
-                      to the runtime; the provider validates Instance.spec.backup PITR
-                      payloads against it inside Validate(). The recommended payload is an
-                      OpenAPI v3 schema fragment so the UI can render a matching form, but
-                      any provider-specific dialect is permitted.
+                      PITRParametersSchema declares the OpenAPI v3 schema for per-storage
+                      PITR parameters (InstanceBackupStoragePITR.Parameters). The provider
+                      validates Instance.spec.backup PITR payloads against it inside
+                      Validate(); the UI renders a matching form from it.
+                    properties:
+                      openAPIV3Schema:
+                        description: |-
+                          OpenAPIV3Schema is the OpenAPI v3 schema describing the accepted
+                          parameters payload.
+                        x-kubernetes-preserve-unknown-fields: true
                     type: object
-                    x-kubernetes-preserve-unknown-fields: true
                   supportsPITR:
                     description: |-
                       SupportsPITR indicates whether this class supports point-in-time recovery.
                       Used by Restore validation when Restore.spec.dataSource.pitr is set.
                     type: boolean
                 type: object
-              restoreConfig:
+              restoreParametersSchema:
                 description: |-
-                  RestoreConfig contains the OpenAPI v3 schema describing the restore-time
-                  configuration accepted by this class. Restore.spec.config is validated
-                  against this schema.
+                  RestoreParametersSchema declares the OpenAPI v3 schema describing the
+                  restore-time parameters accepted by this class. Restore.spec.parameters
+                  is validated against it.
                 properties:
                   openAPIV3Schema:
-                    description: OpenAPIV3Schema is the OpenAPI v3 schema of the backup
-                      class.
+                    description: |-
+                      OpenAPIV3Schema is the OpenAPI v3 schema describing the accepted
+                      parameters payload.
                     x-kubernetes-preserve-unknown-fields: true
                 type: object
               supportedProviders:

@@ -38,8 +38,12 @@ export const BackupConfigFields = ({
 
     if (!backupSections) return;
 
-    const explicitDefaults = backupSections.config?.components
-      ? buildDefaultsFromComponents(backupSections.config.components, '', true)
+    const explicitDefaults = backupSections.parameters?.components
+      ? buildDefaultsFromComponents(
+          backupSections.parameters.components,
+          '',
+          true
+        )
       : {};
 
     Object.entries(explicitDefaults).forEach(([fieldName, defaultValue]) => {
@@ -60,7 +64,7 @@ export const BackupConfigFields = ({
 
   return (
     <UIGenerator
-      sectionKey="config"
+      sectionKey="parameters"
       sections={backupSections}
       formMode={formMode}
       namespace={namespace}

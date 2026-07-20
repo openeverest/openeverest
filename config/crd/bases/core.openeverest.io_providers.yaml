@@ -62,20 +62,32 @@ spec:
               components:
                 additionalProperties:
                   properties:
-                    customSpecSchema:
-                      description: CustomSpecSchema holds the OpenAPI v3 schema for
-                        this component's CustomSpec.
+                    parametersSchema:
+                      description: |-
+                        ParametersSchema declares the OpenAPI v3 schema for this component's
+                        parameters payload (Instance.spec.components[].parameters).
+                      properties:
+                        openAPIV3Schema:
+                          description: |-
+                            OpenAPIV3Schema is the OpenAPI v3 schema describing the accepted
+                            parameters payload.
+                          x-kubernetes-preserve-unknown-fields: true
                       type: object
-                      x-kubernetes-preserve-unknown-fields: true
                     type:
                       type: string
                   type: object
                 type: object
-              globalConfigSchema:
-                description: GlobalConfigSchema holds the OpenAPI v3 schema for the
-                  global configuration.
+              parametersSchema:
+                description: |-
+                  ParametersSchema declares the OpenAPI v3 schema for the instance-wide
+                  parameters payload (Instance.spec.parameters).
+                properties:
+                  openAPIV3Schema:
+                    description: |-
+                      OpenAPIV3Schema is the OpenAPI v3 schema describing the accepted
+                      parameters payload.
+                    x-kubernetes-preserve-unknown-fields: true
                 type: object
-                x-kubernetes-preserve-unknown-fields: true
               secrets:
                 additionalProperties:
                   description: SecretDefinition describes a Secret type that a provider
@@ -103,11 +115,17 @@ spec:
                             type: boolean
                         type: object
                       type: object
-                    configSchema:
-                      description: ConfigSchema holds the OpenAPI v3 schema for topology-specific
-                        configuration.
+                    parametersSchema:
+                      description: |-
+                        ParametersSchema declares the OpenAPI v3 schema for topology-specific
+                        parameters (Instance.spec.topology.parameters).
+                      properties:
+                        openAPIV3Schema:
+                          description: |-
+                            OpenAPIV3Schema is the OpenAPI v3 schema describing the accepted
+                            parameters payload.
+                          x-kubernetes-preserve-unknown-fields: true
                       type: object
-                      x-kubernetes-preserve-unknown-fields: true
                   type: object
                 type: object
               uiSchema:

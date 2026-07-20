@@ -426,10 +426,6 @@ type Backup struct {
 			Name string `json:"name"`
 		} `json:"classRef"`
 
-		// Config Config is the backup-time configuration validated against the
-		// BackupClass's .spec.config.openAPIV3Schema.
-		Config *map[string]interface{} `json:"config,omitempty"`
-
 		// DeletionPolicy DeletionPolicy controls what happens to the underlying backup data
 		// (e.g., the object stored in S3) when this Backup CR is deleted.
 		// Delete (default) instructs the provider to remove both the
@@ -450,6 +446,10 @@ type Backup struct {
 			// Name Name of the referenced object.
 			Name string `json:"name"`
 		} `json:"instanceRef"`
+
+		// Parameters Parameters is the backup-time structured configuration validated
+		// against the BackupClass's .spec.parametersSchema.
+		Parameters *map[string]interface{} `json:"parameters,omitempty"`
 
 		// ScheduleName ScheduleName, when set, identifies the InstanceBackupSchedule that
 		// produced this Backup. Backups created via the API or `kubectl apply`
@@ -568,14 +568,6 @@ type BackupClass struct {
 
 	// Spec BackupClassSpec defines the desired state of BackupClass.
 	Spec struct {
-		// Config Config contains the OpenAPI v3 schema describing the backup-time
-		// configuration accepted by this class. Backup.spec.config and
-		// InstanceBackupSchedule.config are both validated against this schema.
-		Config *struct {
-			// OpenAPIV3Schema OpenAPIV3Schema is the OpenAPI v3 schema of the backup class.
-			OpenAPIV3Schema interface{} `json:"openAPIV3Schema,omitempty"`
-		} `json:"config,omitempty"`
-
 		// Description Description is the description of the backup class.
 		Description *string `json:"description,omitempty"`
 
@@ -732,6 +724,15 @@ type BackupClass struct {
 			} `json:"restore,omitempty"`
 		} `json:"job,omitempty"`
 
+		// ParametersSchema ParametersSchema declares the OpenAPI v3 schema describing the
+		// backup-time parameters accepted by this class. Backup.spec.parameters
+		// and InstanceBackupSchedule.parameters are both validated against it.
+		ParametersSchema *struct {
+			// OpenAPIV3Schema OpenAPIV3Schema is the OpenAPI v3 schema describing the accepted
+			// parameters payload.
+			OpenAPIV3Schema interface{} `json:"openAPIV3Schema,omitempty"`
+		} `json:"parametersSchema,omitempty"`
+
 		// ProviderManaged ProviderManaged contains hints for ExecutionMode="ProviderManaged". The
 		// schema is intentionally open: providers may surface capability
 		// information (e.g., whether PITR is supported, schedule expression
@@ -761,26 +762,29 @@ type BackupClass struct {
 				MaxStorages *int32 `json:"maxStorages,omitempty"`
 			} `json:"limits,omitempty"`
 
-			// PitrConfigSchema PITRConfigSchema describes the shape of per-storage PITR custom config
-			// (InstanceBackupStoragePITR.Config). The field is free-form and opaque
-			// to the runtime; the provider validates Instance.spec.backup PITR
-			// payloads against it inside Validate(). The recommended payload is an
-			// OpenAPI v3 schema fragment so the UI can render a matching form, but
-			// any provider-specific dialect is permitted.
-			PitrConfigSchema *map[string]interface{} `json:"pitrConfigSchema,omitempty"`
+			// PitrParametersSchema PITRParametersSchema declares the OpenAPI v3 schema for per-storage
+			// PITR parameters (InstanceBackupStoragePITR.Parameters). The provider
+			// validates Instance.spec.backup PITR payloads against it inside
+			// Validate(); the UI renders a matching form from it.
+			PitrParametersSchema *struct {
+				// OpenAPIV3Schema OpenAPIV3Schema is the OpenAPI v3 schema describing the accepted
+				// parameters payload.
+				OpenAPIV3Schema interface{} `json:"openAPIV3Schema,omitempty"`
+			} `json:"pitrParametersSchema,omitempty"`
 
 			// SupportsPITR SupportsPITR indicates whether this class supports point-in-time recovery.
 			// Used by Restore validation when Restore.spec.dataSource.pitr is set.
 			SupportsPITR *bool `json:"supportsPITR,omitempty"`
 		} `json:"providerManaged,omitempty"`
 
-		// RestoreConfig RestoreConfig contains the OpenAPI v3 schema describing the restore-time
-		// configuration accepted by this class. Restore.spec.config is validated
-		// against this schema.
-		RestoreConfig *struct {
-			// OpenAPIV3Schema OpenAPIV3Schema is the OpenAPI v3 schema of the backup class.
+		// RestoreParametersSchema RestoreParametersSchema declares the OpenAPI v3 schema describing the
+		// restore-time parameters accepted by this class. Restore.spec.parameters
+		// is validated against it.
+		RestoreParametersSchema *struct {
+			// OpenAPIV3Schema OpenAPIV3Schema is the OpenAPI v3 schema describing the accepted
+			// parameters payload.
 			OpenAPIV3Schema interface{} `json:"openAPIV3Schema,omitempty"`
-		} `json:"restoreConfig,omitempty"`
+		} `json:"restoreParametersSchema,omitempty"`
 
 		// SupportedProviders SupportedProviders is the list of provider names that this backup class
 		// supports. The Instance.spec.provider must appear in this list for the
@@ -1152,12 +1156,12 @@ type Instance struct {
 				// .pitr.enabled=true; this is enforced by the provider, not by the
 				// core schema (PG legitimately archives WAL to every configured repo).
 				Pitr *struct {
-					// Config Config holds provider-specific PITR options. The schema is defined by
-					// the BackupClass via .spec.providerManaged.
-					Config *map[string]interface{} `json:"config,omitempty"`
-
 					// Enabled Enabled toggles PITR for this storage.
 					Enabled bool `json:"enabled"`
+
+					// Parameters Parameters holds provider-specific PITR options, validated against the
+					// BackupClass's .spec.providerManaged.pitrParametersSchema.
+					Parameters *map[string]interface{} `json:"parameters,omitempty"`
 				} `json:"pitr,omitempty"`
 
 				// Schedules Schedules registers recurring backup tasks that write to this storage.
@@ -1166,12 +1170,6 @@ type Instance struct {
 				// ProviderManaged BackupClasses. Schedule names must be unique across
 				// all storages on the Instance.
 				Schedules *[]struct {
-					// Config Config is schedule-specific configuration validated against the
-					// BackupClass's .spec.scheduleConfig.openAPIV3Schema. When unset the
-					// provider falls back to engine defaults. The schema is the same as for
-					// Backup.spec.config but applied per-schedule rather than per-backup-run.
-					Config *map[string]interface{} `json:"config,omitempty"`
-
 					// Cron Cron is a standard 5-field cron expression. The provider may reject
 					// expressions the engine does not support.
 					Cron string `json:"cron"`
@@ -1185,6 +1183,13 @@ type Instance struct {
 					// on mirrored Backup CRs. Names must be unique across all storages on
 					// the Instance.
 					Name string `json:"name"`
+
+					// Parameters Parameters is schedule-specific structured configuration validated
+					// against the BackupClass's .spec.parametersSchema. When unset the
+					// provider falls back to engine defaults. The schema is the same as for
+					// Backup.spec.parameters but applied per-schedule rather than
+					// per-backup-run.
+					Parameters *map[string]interface{} `json:"parameters,omitempty"`
 
 					// RetentionCopies RetentionCopies is the number of recent backups to keep for this
 					// schedule. Zero (or unset) means "keep all". Negative values are
@@ -1713,17 +1718,6 @@ type Instance struct {
 				} `json:"podAntiAffinity,omitempty"`
 			} `json:"affinity,omitempty"`
 
-			// Config Config is the inline content of the component's configuration file
-			// (e.g. a my.cnf or mongod.conf fragment). The dialect is engine-specific
-			// and interpreted by the provider. Note that the content is stored
-			// unencrypted in the cluster datastore and is readable by anyone who can
-			// read the Instance; credentials do not belong here.
-			Config *string `json:"config,omitempty"`
-
-			// CustomSpec CustomSpec provides an API for customising this component.
-			// The API schema is defined by the provider's ComponentSchemas.
-			CustomSpec *map[string]interface{} `json:"customSpec,omitempty"`
-
 			// Image Image specifies an override for the image to use.
 			// When unspecified, it is autmatically set from the ComponentVersions
 			// based on the Version specified.
@@ -1731,6 +1725,12 @@ type Instance struct {
 
 			// Name Name of the component.
 			Name *string `json:"name,omitempty"`
+
+			// Parameters Parameters contains component-specific structured parameters, validated
+			// against the provider's components[].parametersSchema. Engine
+			// configuration file content is carried here as well, under the
+			// provider-declared "configuration" property.
+			Parameters *map[string]interface{} `json:"parameters,omitempty"`
 
 			// Replicas Replicas specifies the number of replicas for this component.
 			Replicas *int32 `json:"replicas,omitempty"`
@@ -1857,9 +1857,11 @@ type Instance struct {
 		// itself.
 		DeletionPolicy interface{} `json:"deletionPolicy,omitempty"`
 
-		// Global Global contains provider-level configuration that applies to the entire cluster.
-		// The schema for this field is defined by the provider's GlobalConfigSchema.
-		Global *map[string]interface{} `json:"global,omitempty"`
+		// Parameters Parameters contains structured parameters that apply to the Instance
+		// as a whole, complementing the topology- and component-scoped
+		// parameters. The payload is validated against the referenced Provider's
+		// .spec.parametersSchema.
+		Parameters *map[string]interface{} `json:"parameters,omitempty"`
 
 		// ProviderRef ProviderRef references the cluster-scoped Provider that manages this
 		// Instance (e.g., "percona-server-mongodb", "postgresql").
@@ -1870,10 +1872,10 @@ type Instance struct {
 
 		// Topology Topology defines the deployment topology and its configuration.
 		Topology *struct {
-			// Config Config contains topology-specific configuration.
-			// The schema for this field is defined by the provider's TopologyDefinition.
+			// Parameters Parameters contains topology-specific structured parameters, validated
+			// against the provider's topologies[].parametersSchema.
 			// Examples: shard count for sharded topology, replication factor, etc.
-			Config *map[string]interface{} `json:"config,omitempty"`
+			Parameters *map[string]interface{} `json:"parameters,omitempty"`
 
 			// Type Type is the topology name (e.g., "sharded", "replicaset").
 			// The available topologies are defined by the provider.
@@ -2118,12 +2120,12 @@ type InstancePreset struct {
 				// .pitr.enabled=true; this is enforced by the provider, not by the
 				// core schema (PG legitimately archives WAL to every configured repo).
 				Pitr *struct {
-					// Config Config holds provider-specific PITR options. The schema is defined by
-					// the BackupClass via .spec.providerManaged.
-					Config *map[string]interface{} `json:"config,omitempty"`
-
 					// Enabled Enabled toggles PITR for this storage.
 					Enabled bool `json:"enabled"`
+
+					// Parameters Parameters holds provider-specific PITR options, validated against the
+					// BackupClass's .spec.providerManaged.pitrParametersSchema.
+					Parameters *map[string]interface{} `json:"parameters,omitempty"`
 				} `json:"pitr,omitempty"`
 
 				// Schedules Schedules registers recurring backup tasks that write to this storage.
@@ -2132,12 +2134,6 @@ type InstancePreset struct {
 				// ProviderManaged BackupClasses. Schedule names must be unique across
 				// all storages on the Instance.
 				Schedules *[]struct {
-					// Config Config is schedule-specific configuration validated against the
-					// BackupClass's .spec.scheduleConfig.openAPIV3Schema. When unset the
-					// provider falls back to engine defaults. The schema is the same as for
-					// Backup.spec.config but applied per-schedule rather than per-backup-run.
-					Config *map[string]interface{} `json:"config,omitempty"`
-
 					// Cron Cron is a standard 5-field cron expression. The provider may reject
 					// expressions the engine does not support.
 					Cron string `json:"cron"`
@@ -2151,6 +2147,13 @@ type InstancePreset struct {
 					// on mirrored Backup CRs. Names must be unique across all storages on
 					// the Instance.
 					Name string `json:"name"`
+
+					// Parameters Parameters is schedule-specific structured configuration validated
+					// against the BackupClass's .spec.parametersSchema. When unset the
+					// provider falls back to engine defaults. The schema is the same as for
+					// Backup.spec.parameters but applied per-schedule rather than
+					// per-backup-run.
+					Parameters *map[string]interface{} `json:"parameters,omitempty"`
 
 					// RetentionCopies RetentionCopies is the number of recent backups to keep for this
 					// schedule. Zero (or unset) means "keep all". Negative values are
@@ -2679,17 +2682,6 @@ type InstancePreset struct {
 				} `json:"podAntiAffinity,omitempty"`
 			} `json:"affinity,omitempty"`
 
-			// Config Config is the inline content of the component's configuration file
-			// (e.g. a my.cnf or mongod.conf fragment). The dialect is engine-specific
-			// and interpreted by the provider. Note that the content is stored
-			// unencrypted in the cluster datastore and is readable by anyone who can
-			// read the Instance; credentials do not belong here.
-			Config *string `json:"config,omitempty"`
-
-			// CustomSpec CustomSpec provides an API for customising this component.
-			// The API schema is defined by the provider's ComponentSchemas.
-			CustomSpec *map[string]interface{} `json:"customSpec,omitempty"`
-
 			// Image Image specifies an override for the image to use.
 			// When unspecified, it is autmatically set from the ComponentVersions
 			// based on the Version specified.
@@ -2697,6 +2689,12 @@ type InstancePreset struct {
 
 			// Name Name of the component.
 			Name *string `json:"name,omitempty"`
+
+			// Parameters Parameters contains component-specific structured parameters, validated
+			// against the provider's components[].parametersSchema. Engine
+			// configuration file content is carried here as well, under the
+			// provider-declared "configuration" property.
+			Parameters *map[string]interface{} `json:"parameters,omitempty"`
 
 			// Replicas Replicas specifies the number of replicas for this component.
 			Replicas *int32 `json:"replicas,omitempty"`
@@ -2823,9 +2821,11 @@ type InstancePreset struct {
 		// itself.
 		DeletionPolicy interface{} `json:"deletionPolicy,omitempty"`
 
-		// Global Global contains provider-level configuration that applies to the entire cluster.
-		// The schema for this field is defined by the provider's GlobalConfigSchema.
-		Global *map[string]interface{} `json:"global,omitempty"`
+		// Parameters Parameters contains structured parameters that apply to the Instance
+		// as a whole, complementing the topology- and component-scoped
+		// parameters. The payload is validated against the referenced Provider's
+		// .spec.parametersSchema.
+		Parameters *map[string]interface{} `json:"parameters,omitempty"`
 
 		// ProviderRef ProviderRef references the cluster-scoped Provider that manages this
 		// Instance (e.g., "percona-server-mongodb", "postgresql").
@@ -2836,10 +2836,10 @@ type InstancePreset struct {
 
 		// Topology Topology defines the deployment topology and its configuration.
 		Topology *struct {
-			// Config Config contains topology-specific configuration.
-			// The schema for this field is defined by the provider's TopologyDefinition.
+			// Parameters Parameters contains topology-specific structured parameters, validated
+			// against the provider's topologies[].parametersSchema.
 			// Examples: shard count for sharded topology, replication factor, etc.
-			Config *map[string]interface{} `json:"config,omitempty"`
+			Parameters *map[string]interface{} `json:"parameters,omitempty"`
 
 			// Type Type is the topology name (e.g., "sharded", "replicaset").
 			// The available topologies are defined by the provider.
@@ -3225,13 +3225,23 @@ type Provider struct {
 			} `json:"versions,omitempty"`
 		} `json:"componentTypes,omitempty"`
 		Components *map[string]struct {
-			// CustomSpecSchema CustomSpecSchema holds the OpenAPI v3 schema for this component's CustomSpec.
-			CustomSpecSchema *map[string]interface{} `json:"customSpecSchema,omitempty"`
-			Type             *string                 `json:"type,omitempty"`
+			// ParametersSchema ParametersSchema declares the OpenAPI v3 schema for this component's
+			// parameters payload (Instance.spec.components[].parameters).
+			ParametersSchema *struct {
+				// OpenAPIV3Schema OpenAPIV3Schema is the OpenAPI v3 schema describing the accepted
+				// parameters payload.
+				OpenAPIV3Schema interface{} `json:"openAPIV3Schema,omitempty"`
+			} `json:"parametersSchema,omitempty"`
+			Type *string `json:"type,omitempty"`
 		} `json:"components,omitempty"`
 
-		// GlobalConfigSchema GlobalConfigSchema holds the OpenAPI v3 schema for the global configuration.
-		GlobalConfigSchema *map[string]interface{} `json:"globalConfigSchema,omitempty"`
+		// ParametersSchema ParametersSchema declares the OpenAPI v3 schema for the instance-wide
+		// parameters payload (Instance.spec.parameters).
+		ParametersSchema *struct {
+			// OpenAPIV3Schema OpenAPIV3Schema is the OpenAPI v3 schema describing the accepted
+			// parameters payload.
+			OpenAPIV3Schema interface{} `json:"openAPIV3Schema,omitempty"`
+		} `json:"parametersSchema,omitempty"`
 
 		// Secrets Secrets defines Secret types this provider supports.
 		Secrets *map[string]struct {
@@ -3246,8 +3256,13 @@ type Provider struct {
 				Optional *bool `json:"optional,omitempty"`
 			} `json:"components,omitempty"`
 
-			// ConfigSchema ConfigSchema holds the OpenAPI v3 schema for topology-specific configuration.
-			ConfigSchema *map[string]interface{} `json:"configSchema,omitempty"`
+			// ParametersSchema ParametersSchema declares the OpenAPI v3 schema for topology-specific
+			// parameters (Instance.spec.topology.parameters).
+			ParametersSchema *struct {
+				// OpenAPIV3Schema OpenAPIV3Schema is the OpenAPI v3 schema describing the accepted
+				// parameters payload.
+				OpenAPIV3Schema interface{} `json:"openAPIV3Schema,omitempty"`
+			} `json:"parametersSchema,omitempty"`
 		} `json:"topologies,omitempty"`
 
 		// UiSchema UISchema holds the UI rendering hints for each topology.
@@ -3339,10 +3354,6 @@ type Restore struct {
 
 	// Spec RestoreSpec defines the desired state of Restore.
 	Spec struct {
-		// Config Config is the restore-time configuration validated against the
-		// BackupClass's .spec.restoreConfig.openAPIV3Schema.
-		Config *map[string]interface{} `json:"config,omitempty"`
-
 		// DataSource DataSource defines where the backup data to restore from is located.
 		DataSource struct {
 			// Backup Backup references an existing Backup CR in the same namespace.
@@ -3377,6 +3388,10 @@ type Restore struct {
 			// Name Name of the referenced object.
 			Name string `json:"name"`
 		} `json:"instanceRef"`
+
+		// Parameters Parameters is the restore-time structured configuration validated
+		// against the BackupClass's .spec.restoreParametersSchema.
+		Parameters *map[string]interface{} `json:"parameters,omitempty"`
 	} `json:"spec"`
 
 	// Status RestoreStatus defines the observed state of Restore.

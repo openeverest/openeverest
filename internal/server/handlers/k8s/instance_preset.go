@@ -74,7 +74,7 @@ func (h *k8sHandler) ResolveInstancePreset(ctx context.Context, cluster, name, n
 
 // resolveNamespaceDefaults scans components and resolves
 // empty namespace reference fields and empty StorageClass and populates them.
-// The fields that could have namespace references are in config and customSpec.
+// The fields that could have namespace references are in parameters.
 // It skips other fields like resources, image, etc. since they are not
 // namespace-specific, and also skips fields with unknown type.
 // Supported types are Secret and MonitoringConfig.
@@ -85,9 +85,9 @@ func (h *k8sHandler) resolveNamespaceDefaults(ctx context.Context, preset *corev
 	for componentName, component := range preset.Spec.Components {
 		var err error
 
-		// Resolve customSpec fields
-		if component.CustomSpec != nil && len(component.CustomSpec.Raw) > 0 {
-			component, err = h.resolveCustomSpecFields(ctx, component, componentName, namespace)
+		// Resolve parameters fields
+		if component.Parameters != nil && len(component.Parameters.Raw) > 0 {
+			component, err = h.resolveParametersFields(ctx, component, componentName, namespace)
 			if err != nil {
 				return nil, fmt.Errorf("failed to resolve component %s: %w", componentName, err)
 			}
@@ -127,10 +127,10 @@ func (h *k8sHandler) resolveStorageFields(ctx context.Context, component corev1a
 	return component, nil
 }
 
-// resolveCustomSpecFields handles unstructured customSpec fields recursively.
-func (h *k8sHandler) resolveCustomSpecFields(ctx context.Context, component corev1alpha1.ComponentSpec, componentName, namespace string) (corev1alpha1.ComponentSpec, error) {
+// resolveParametersFields handles unstructured parameters fields recursively.
+func (h *k8sHandler) resolveParametersFields(ctx context.Context, component corev1alpha1.ComponentSpec, componentName, namespace string) (corev1alpha1.ComponentSpec, error) {
 	var data map[string]any
-	if err := json.Unmarshal(component.CustomSpec.Raw, &data); err != nil {
+	if err := json.Unmarshal(component.Parameters.Raw, &data); err != nil {
 		return component, err
 	}
 
@@ -144,13 +144,13 @@ func (h *k8sHandler) resolveCustomSpecFields(ctx context.Context, component core
 		if err != nil {
 			return component, err
 		}
-		component.CustomSpec.Raw = resolvedRaw
+		component.Parameters.Raw = resolvedRaw
 	}
 
 	return component, nil
 }
 
-// resolveMapFieldsRecursive walks customSpec and resolves empty fields matching patterns
+// resolveMapFieldsRecursive walks parameters and resolves empty fields matching patterns.
 func (h *k8sHandler) resolveMapFieldsRecursive(ctx context.Context, data map[string]any, componentName, namespace string) (bool, error) {
 	var modified bool
 

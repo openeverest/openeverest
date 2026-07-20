@@ -228,7 +228,7 @@ describe('scheduleModalDefaultValues', () => {
       storageName: 'my-storage',
       cron: '0 12 * * *',
       retentionCopies: 5,
-      config: { compressionType: 'gzip' },
+      parameters: { compressionType: 'gzip' },
     });
 
     it('populates name from selected schedule', () => {
@@ -257,15 +257,15 @@ describe('scheduleModalDefaultValues', () => {
       expect(result[ScheduleFormFields.retentionCopies]).toBe('5');
     });
 
-    it('includes config when present', () => {
+    it('includes parameters when present', () => {
       const result = scheduleModalDefaultValues(
         WizardMode.Edit,
         selectedSchedule
       );
-      expect(result).toHaveProperty('config', { compressionType: 'gzip' });
+      expect(result).toHaveProperty('parameters', { compressionType: 'gzip' });
     });
 
-    it('omits config when not present', () => {
+    it('omits parameters when not present', () => {
       const scheduleWithoutConfig = makeSchedule({
         name: 'no-config',
         storageName: 'storage-x',
@@ -275,7 +275,7 @@ describe('scheduleModalDefaultValues', () => {
         WizardMode.Edit,
         scheduleWithoutConfig
       );
-      expect(result).not.toHaveProperty('config');
+      expect(result).not.toHaveProperty('parameters');
     });
 
     it('falls back to New mode defaults when selectedSchedule is undefined', () => {

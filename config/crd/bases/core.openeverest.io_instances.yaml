@@ -94,15 +94,15 @@ spec:
                             .pitr.enabled=true; this is enforced by the provider, not by the
                             core schema (PG legitimately archives WAL to every configured repo).
                           properties:
-                            config:
-                              description: |-
-                                Config holds provider-specific PITR options. The schema is defined by
-                                the BackupClass via .spec.providerManaged.
-                              type: object
-                              x-kubernetes-preserve-unknown-fields: true
                             enabled:
                               description: Enabled toggles PITR for this storage.
                               type: boolean
+                            parameters:
+                              description: |-
+                                Parameters holds provider-specific PITR options, validated against the
+                                BackupClass's .spec.providerManaged.pitrParametersSchema.
+                              type: object
+                              x-kubernetes-preserve-unknown-fields: true
                           required:
                           - enabled
                           type: object
@@ -122,14 +122,6 @@ spec:
                               backups are mirrored back into Backup CRs by the provider, sharing the
                               operator backup's name.
                             properties:
-                              config:
-                                description: |-
-                                  Config is schedule-specific configuration validated against the
-                                  BackupClass's .spec.scheduleConfig.openAPIV3Schema. When unset the
-                                  provider falls back to engine defaults. The schema is the same as for
-                                  Backup.spec.config but applied per-schedule rather than per-backup-run.
-                                type: object
-                                x-kubernetes-preserve-unknown-fields: true
                               cron:
                                 description: |-
                                   Cron is a standard 5-field cron expression. The provider may reject
@@ -150,6 +142,15 @@ spec:
                                 maxLength: 63
                                 minLength: 1
                                 type: string
+                              parameters:
+                                description: |-
+                                  Parameters is schedule-specific structured configuration validated
+                                  against the BackupClass's .spec.parametersSchema. When unset the
+                                  provider falls back to engine defaults. The schema is the same as for
+                                  Backup.spec.parameters but applied per-schedule rather than
+                                  per-backup-run.
+                                type: object
+                                x-kubernetes-preserve-unknown-fields: true
                               retentionCopies:
                                 description: |-
                                   RetentionCopies is the number of recent backups to keep for this
@@ -1126,21 +1127,6 @@ spec:
                               x-kubernetes-list-type: atomic
                           type: object
                       type: object
-                    config:
-                      description: |-
-                        Config is the inline content of the component's configuration file
-                        (e.g. a my.cnf or mongod.conf fragment). The dialect is engine-specific
-                        and interpreted by the provider. Note that the content is stored
-                        unencrypted in the cluster datastore and is readable by anyone who can
-                        read the Instance; credentials do not belong here.
-                      maxLength: 65536
-                      type: string
-                    customSpec:
-                      description: |-
-                        CustomSpec provides an API for customising this component.
-                        The API schema is defined by the provider's ComponentSchemas.
-                      type: object
-                      x-kubernetes-preserve-unknown-fields: true
                     image:
                       description: |-
                         Image specifies an override for the image to use.
@@ -1150,6 +1136,14 @@ spec:
                     name:
                       description: Name of the component.
                       type: string
+                    parameters:
+                      description: |-
+                        Parameters contains component-specific structured parameters, validated
+                        against the provider's components[].parametersSchema. Engine
+                        configuration file content is carried here as well, under the
+                        provider-declared "configuration" property.
+                      type: object
+                      x-kubernetes-preserve-unknown-fields: true
                     replicas:
                       description: Replicas specifies the number of replicas for this
                         component.
@@ -1373,10 +1367,12 @@ spec:
                   has been set is rejected so the cascade path cannot race with
                   itself.
                 type: string
-              global:
+              parameters:
                 description: |-
-                  Global contains provider-level configuration that applies to the entire cluster.
-                  The schema for this field is defined by the provider's GlobalConfigSchema.
+                  Parameters contains structured parameters that apply to the Instance
+                  as a whole, complementing the topology- and component-scoped
+                  parameters. The payload is validated against the referenced Provider's
+                  .spec.parametersSchema.
                 type: object
                 x-kubernetes-preserve-unknown-fields: true
               providerRef:
@@ -1397,10 +1393,10 @@ spec:
               topology:
                 description: Topology defines the deployment topology and its configuration.
                 properties:
-                  config:
+                  parameters:
                     description: |-
-                      Config contains topology-specific configuration.
-                      The schema for this field is defined by the provider's TopologyDefinition.
+                      Parameters contains topology-specific structured parameters, validated
+                      against the provider's topologies[].parametersSchema.
                       Examples: shard count for sharded topology, replication factor, etc.
                     type: object
                     x-kubernetes-preserve-unknown-fields: true

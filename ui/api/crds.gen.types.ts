@@ -39,11 +39,6 @@ export interface components {
                     name: string;
                 };
                 /**
-                 * @description Config is the backup-time configuration validated against the
-                 *     BackupClass's .spec.config.openAPIV3Schema.
-                 */
-                config?: Record<string, never>;
-                /**
                  * @description DeletionPolicy controls what happens to the underlying backup data
                  *     (e.g., the object stored in S3) when this Backup CR is deleted.
                  *     Delete (default) instructs the provider to remove both the
@@ -67,6 +62,11 @@ export interface components {
                     /** @description Name of the referenced object. */
                     name: string;
                 };
+                /**
+                 * @description Parameters is the backup-time structured configuration validated
+                 *     against the BackupClass's .spec.parametersSchema.
+                 */
+                parameters?: Record<string, never>;
                 /**
                  * @description ScheduleName, when set, identifies the InstanceBackupSchedule that
                  *     produced this Backup. Backups created via the API or `kubectl apply`
@@ -196,15 +196,6 @@ export interface components {
             metadata?: Record<string, never>;
             /** @description BackupClassSpec defines the desired state of BackupClass. */
             spec: {
-                /**
-                 * @description Config contains the OpenAPI v3 schema describing the backup-time
-                 *     configuration accepted by this class. Backup.spec.config and
-                 *     InstanceBackupSchedule.config are both validated against this schema.
-                 */
-                config?: {
-                    /** @description OpenAPIV3Schema is the OpenAPI v3 schema of the backup class. */
-                    openAPIV3Schema?: unknown;
-                };
                 /** @description Description is the description of the backup class. */
                 description?: string;
                 /** @description DisplayName is a human-readable name for the backup class. */
@@ -369,6 +360,18 @@ export interface components {
                     };
                 };
                 /**
+                 * @description ParametersSchema declares the OpenAPI v3 schema describing the
+                 *     backup-time parameters accepted by this class. Backup.spec.parameters
+                 *     and InstanceBackupSchedule.parameters are both validated against it.
+                 */
+                parametersSchema?: {
+                    /**
+                     * @description OpenAPIV3Schema is the OpenAPI v3 schema describing the accepted
+                     *     parameters payload.
+                     */
+                    openAPIV3Schema?: unknown;
+                };
+                /**
                  * @description ProviderManaged contains hints for ExecutionMode="ProviderManaged". The
                  *     schema is intentionally open: providers may surface capability
                  *     information (e.g., whether PITR is supported, schedule expression
@@ -408,14 +411,18 @@ export interface components {
                         maxStorages?: number;
                     };
                     /**
-                     * @description PITRConfigSchema describes the shape of per-storage PITR custom config
-                     *     (InstanceBackupStoragePITR.Config). The field is free-form and opaque
-                     *     to the runtime; the provider validates Instance.spec.backup PITR
-                     *     payloads against it inside Validate(). The recommended payload is an
-                     *     OpenAPI v3 schema fragment so the UI can render a matching form, but
-                     *     any provider-specific dialect is permitted.
+                     * @description PITRParametersSchema declares the OpenAPI v3 schema for per-storage
+                     *     PITR parameters (InstanceBackupStoragePITR.Parameters). The provider
+                     *     validates Instance.spec.backup PITR payloads against it inside
+                     *     Validate(); the UI renders a matching form from it.
                      */
-                    pitrConfigSchema?: Record<string, never>;
+                    pitrParametersSchema?: {
+                        /**
+                         * @description OpenAPIV3Schema is the OpenAPI v3 schema describing the accepted
+                         *     parameters payload.
+                         */
+                        openAPIV3Schema?: unknown;
+                    };
                     /**
                      * @description SupportsPITR indicates whether this class supports point-in-time recovery.
                      *     Used by Restore validation when Restore.spec.dataSource.pitr is set.
@@ -423,12 +430,15 @@ export interface components {
                     supportsPITR?: boolean;
                 };
                 /**
-                 * @description RestoreConfig contains the OpenAPI v3 schema describing the restore-time
-                 *     configuration accepted by this class. Restore.spec.config is validated
-                 *     against this schema.
+                 * @description RestoreParametersSchema declares the OpenAPI v3 schema describing the
+                 *     restore-time parameters accepted by this class. Restore.spec.parameters
+                 *     is validated against it.
                  */
-                restoreConfig?: {
-                    /** @description OpenAPIV3Schema is the OpenAPI v3 schema of the backup class. */
+                restoreParametersSchema?: {
+                    /**
+                     * @description OpenAPIV3Schema is the OpenAPI v3 schema describing the accepted
+                     *     parameters payload.
+                     */
                     openAPIV3Schema?: unknown;
                 };
                 /**
@@ -821,13 +831,13 @@ export interface components {
                          *     core schema (PG legitimately archives WAL to every configured repo).
                          */
                         pitr?: {
-                            /**
-                             * @description Config holds provider-specific PITR options. The schema is defined by
-                             *     the BackupClass via .spec.providerManaged.
-                             */
-                            config?: Record<string, never>;
                             /** @description Enabled toggles PITR for this storage. */
                             enabled: boolean;
+                            /**
+                             * @description Parameters holds provider-specific PITR options, validated against the
+                             *     BackupClass's .spec.providerManaged.pitrParametersSchema.
+                             */
+                            parameters?: Record<string, never>;
                         };
                         /**
                          * @description Schedules registers recurring backup tasks that write to this storage.
@@ -837,13 +847,6 @@ export interface components {
                          *     all storages on the Instance.
                          */
                         schedules?: {
-                            /**
-                             * @description Config is schedule-specific configuration validated against the
-                             *     BackupClass's .spec.scheduleConfig.openAPIV3Schema. When unset the
-                             *     provider falls back to engine defaults. The schema is the same as for
-                             *     Backup.spec.config but applied per-schedule rather than per-backup-run.
-                             */
-                            config?: Record<string, never>;
                             /**
                              * @description Cron is a standard 5-field cron expression. The provider may reject
                              *     expressions the engine does not support.
@@ -861,6 +864,14 @@ export interface components {
                              *     the Instance.
                              */
                             name: string;
+                            /**
+                             * @description Parameters is schedule-specific structured configuration validated
+                             *     against the BackupClass's .spec.parametersSchema. When unset the
+                             *     provider falls back to engine defaults. The schema is the same as for
+                             *     Backup.spec.parameters but applied per-schedule rather than
+                             *     per-backup-run.
+                             */
+                            parameters?: Record<string, never>;
                             /**
                              * Format: int32
                              * @description RetentionCopies is the number of recent backups to keep for this
@@ -1483,19 +1494,6 @@ export interface components {
                             };
                         };
                         /**
-                         * @description Config is the inline content of the component's configuration file
-                         *     (e.g. a my.cnf or mongod.conf fragment). The dialect is engine-specific
-                         *     and interpreted by the provider. Note that the content is stored
-                         *     unencrypted in the cluster datastore and is readable by anyone who can
-                         *     read the Instance; credentials do not belong here.
-                         */
-                        config?: string;
-                        /**
-                         * @description CustomSpec provides an API for customising this component.
-                         *     The API schema is defined by the provider's ComponentSchemas.
-                         */
-                        customSpec?: Record<string, never>;
-                        /**
                          * @description Image specifies an override for the image to use.
                          *     When unspecified, it is autmatically set from the ComponentVersions
                          *     based on the Version specified.
@@ -1503,6 +1501,13 @@ export interface components {
                         image?: string;
                         /** @description Name of the component. */
                         name?: string;
+                        /**
+                         * @description Parameters contains component-specific structured parameters, validated
+                         *     against the provider's components[].parametersSchema. Engine
+                         *     configuration file content is carried here as well, under the
+                         *     provider-declared "configuration" property.
+                         */
+                        parameters?: Record<string, never>;
                         /**
                          * Format: int32
                          * @description Replicas specifies the number of replicas for this component.
@@ -1659,10 +1664,12 @@ export interface components {
                  */
                 deletionPolicy?: string & (("Cascade" | "Orphan") & ("Cascade" | "Orphan"));
                 /**
-                 * @description Global contains provider-level configuration that applies to the entire cluster.
-                 *     The schema for this field is defined by the provider's GlobalConfigSchema.
+                 * @description Parameters contains structured parameters that apply to the Instance
+                 *     as a whole, complementing the topology- and component-scoped
+                 *     parameters. The payload is validated against the referenced Provider's
+                 *     .spec.parametersSchema.
                  */
-                global?: Record<string, never>;
+                parameters?: Record<string, never>;
                 /**
                  * @description ProviderRef references the cluster-scoped Provider that manages this
                  *     Instance (e.g., "percona-server-mongodb", "postgresql").
@@ -1674,11 +1681,11 @@ export interface components {
                 /** @description Topology defines the deployment topology and its configuration. */
                 topology?: {
                     /**
-                     * @description Config contains topology-specific configuration.
-                     *     The schema for this field is defined by the provider's TopologyDefinition.
+                     * @description Parameters contains topology-specific structured parameters, validated
+                     *     against the provider's topologies[].parametersSchema.
                      *     Examples: shard count for sharded topology, replication factor, etc.
                      */
-                    config?: Record<string, never>;
+                    parameters?: Record<string, never>;
                     /**
                      * @description Type is the topology name (e.g., "sharded", "replicaset").
                      *     The available topologies are defined by the provider.
@@ -1902,13 +1909,13 @@ export interface components {
                          *     core schema (PG legitimately archives WAL to every configured repo).
                          */
                         pitr?: {
-                            /**
-                             * @description Config holds provider-specific PITR options. The schema is defined by
-                             *     the BackupClass via .spec.providerManaged.
-                             */
-                            config?: Record<string, never>;
                             /** @description Enabled toggles PITR for this storage. */
                             enabled: boolean;
+                            /**
+                             * @description Parameters holds provider-specific PITR options, validated against the
+                             *     BackupClass's .spec.providerManaged.pitrParametersSchema.
+                             */
+                            parameters?: Record<string, never>;
                         };
                         /**
                          * @description Schedules registers recurring backup tasks that write to this storage.
@@ -1918,13 +1925,6 @@ export interface components {
                          *     all storages on the Instance.
                          */
                         schedules?: {
-                            /**
-                             * @description Config is schedule-specific configuration validated against the
-                             *     BackupClass's .spec.scheduleConfig.openAPIV3Schema. When unset the
-                             *     provider falls back to engine defaults. The schema is the same as for
-                             *     Backup.spec.config but applied per-schedule rather than per-backup-run.
-                             */
-                            config?: Record<string, never>;
                             /**
                              * @description Cron is a standard 5-field cron expression. The provider may reject
                              *     expressions the engine does not support.
@@ -1942,6 +1942,14 @@ export interface components {
                              *     the Instance.
                              */
                             name: string;
+                            /**
+                             * @description Parameters is schedule-specific structured configuration validated
+                             *     against the BackupClass's .spec.parametersSchema. When unset the
+                             *     provider falls back to engine defaults. The schema is the same as for
+                             *     Backup.spec.parameters but applied per-schedule rather than
+                             *     per-backup-run.
+                             */
+                            parameters?: Record<string, never>;
                             /**
                              * Format: int32
                              * @description RetentionCopies is the number of recent backups to keep for this
@@ -2564,19 +2572,6 @@ export interface components {
                             };
                         };
                         /**
-                         * @description Config is the inline content of the component's configuration file
-                         *     (e.g. a my.cnf or mongod.conf fragment). The dialect is engine-specific
-                         *     and interpreted by the provider. Note that the content is stored
-                         *     unencrypted in the cluster datastore and is readable by anyone who can
-                         *     read the Instance; credentials do not belong here.
-                         */
-                        config?: string;
-                        /**
-                         * @description CustomSpec provides an API for customising this component.
-                         *     The API schema is defined by the provider's ComponentSchemas.
-                         */
-                        customSpec?: Record<string, never>;
-                        /**
                          * @description Image specifies an override for the image to use.
                          *     When unspecified, it is autmatically set from the ComponentVersions
                          *     based on the Version specified.
@@ -2584,6 +2579,13 @@ export interface components {
                         image?: string;
                         /** @description Name of the component. */
                         name?: string;
+                        /**
+                         * @description Parameters contains component-specific structured parameters, validated
+                         *     against the provider's components[].parametersSchema. Engine
+                         *     configuration file content is carried here as well, under the
+                         *     provider-declared "configuration" property.
+                         */
+                        parameters?: Record<string, never>;
                         /**
                          * Format: int32
                          * @description Replicas specifies the number of replicas for this component.
@@ -2740,10 +2742,12 @@ export interface components {
                  */
                 deletionPolicy?: string & (("Cascade" | "Orphan") & ("Cascade" | "Orphan"));
                 /**
-                 * @description Global contains provider-level configuration that applies to the entire cluster.
-                 *     The schema for this field is defined by the provider's GlobalConfigSchema.
+                 * @description Parameters contains structured parameters that apply to the Instance
+                 *     as a whole, complementing the topology- and component-scoped
+                 *     parameters. The payload is validated against the referenced Provider's
+                 *     .spec.parametersSchema.
                  */
-                global?: Record<string, never>;
+                parameters?: Record<string, never>;
                 /**
                  * @description ProviderRef references the cluster-scoped Provider that manages this
                  *     Instance (e.g., "percona-server-mongodb", "postgresql").
@@ -2755,11 +2759,11 @@ export interface components {
                 /** @description Topology defines the deployment topology and its configuration. */
                 topology?: {
                     /**
-                     * @description Config contains topology-specific configuration.
-                     *     The schema for this field is defined by the provider's TopologyDefinition.
+                     * @description Parameters contains topology-specific structured parameters, validated
+                     *     against the provider's topologies[].parametersSchema.
                      *     Examples: shard count for sharded topology, replication factor, etc.
                      */
-                    config?: Record<string, never>;
+                    parameters?: Record<string, never>;
                     /**
                      * @description Type is the topology name (e.g., "sharded", "replicaset").
                      *     The available topologies are defined by the provider.
@@ -3136,13 +3140,31 @@ export interface components {
                 };
                 components?: {
                     [key: string]: {
-                        /** @description CustomSpecSchema holds the OpenAPI v3 schema for this component's CustomSpec. */
-                        customSpecSchema?: Record<string, never>;
+                        /**
+                         * @description ParametersSchema declares the OpenAPI v3 schema for this component's
+                         *     parameters payload (Instance.spec.components[].parameters).
+                         */
+                        parametersSchema?: {
+                            /**
+                             * @description OpenAPIV3Schema is the OpenAPI v3 schema describing the accepted
+                             *     parameters payload.
+                             */
+                            openAPIV3Schema?: unknown;
+                        };
                         type?: string;
                     };
                 };
-                /** @description GlobalConfigSchema holds the OpenAPI v3 schema for the global configuration. */
-                globalConfigSchema?: Record<string, never>;
+                /**
+                 * @description ParametersSchema declares the OpenAPI v3 schema for the instance-wide
+                 *     parameters payload (Instance.spec.parameters).
+                 */
+                parametersSchema?: {
+                    /**
+                     * @description OpenAPIV3Schema is the OpenAPI v3 schema describing the accepted
+                     *     parameters payload.
+                     */
+                    openAPIV3Schema?: unknown;
+                };
                 /** @description Secrets defines Secret types this provider supports. */
                 secrets?: {
                     [key: string]: {
@@ -3159,8 +3181,17 @@ export interface components {
                                 optional?: boolean;
                             };
                         };
-                        /** @description ConfigSchema holds the OpenAPI v3 schema for topology-specific configuration. */
-                        configSchema?: Record<string, never>;
+                        /**
+                         * @description ParametersSchema declares the OpenAPI v3 schema for topology-specific
+                         *     parameters (Instance.spec.topology.parameters).
+                         */
+                        parametersSchema?: {
+                            /**
+                             * @description OpenAPIV3Schema is the OpenAPI v3 schema describing the accepted
+                             *     parameters payload.
+                             */
+                            openAPIV3Schema?: unknown;
+                        };
                     };
                 };
                 /** @description UISchema holds the UI rendering hints for each topology. */
@@ -3262,11 +3293,6 @@ export interface components {
             metadata?: Record<string, never>;
             /** @description RestoreSpec defines the desired state of Restore. */
             spec: {
-                /**
-                 * @description Config is the restore-time configuration validated against the
-                 *     BackupClass's .spec.restoreConfig.openAPIV3Schema.
-                 */
-                config?: Record<string, never>;
                 /** @description DataSource defines where the backup data to restore from is located. */
                 dataSource: {
                     /**
@@ -3309,6 +3335,11 @@ export interface components {
                     /** @description Name of the referenced object. */
                     name: string;
                 };
+                /**
+                 * @description Parameters is the restore-time structured configuration validated
+                 *     against the BackupClass's .spec.restoreParametersSchema.
+                 */
+                parameters?: Record<string, never>;
             };
             /** @description RestoreStatus defines the observed state of Restore. */
             status?: {

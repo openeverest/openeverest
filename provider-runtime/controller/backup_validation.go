@@ -15,13 +15,11 @@
 package controller
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 
-	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
-
 	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
+	apicommon "github.com/openeverest/openeverest/v2/api/common/v1alpha1"
 	corev1alpha1 "github.com/openeverest/openeverest/v2/api/core/v1alpha1"
 )
 
@@ -41,8 +39,8 @@ const PITRConfigInvalidReason = "PITRConfigInvalid"
 var ErrBackupClassLimitsExceeded = errors.New("backup class limits exceeded")
 
 // ErrPITRConfigInvalid is the sentinel returned by
-// ValidateInstanceBackupPITRConfigs when a per-storage PITR config does not
-// conform to the BackupClass's providerManaged.pitrConfigSchema.
+// ValidateInstanceBackupPITRParameters when per-storage PITR parameters do not
+// conform to the BackupClass's providerManaged.pitrParametersSchema.
 var ErrPITRConfigInvalid = errors.New("PITR config invalid")
 
 // ErrRestorePITRUnsupported is the sentinel returned by ValidateRestorePITR
@@ -104,19 +102,20 @@ func ValidateInstanceBackupAgainstClass(in *corev1alpha1.Instance, bc *backupv1a
 	return nil
 }
 
-// ValidateInstanceBackupPITRConfigs validates each per-storage PITR config
-// on the Instance (.spec.backup.storages[].pitr.config) against the OpenAPI
-// v3 schema declared by the BackupClass under
-// .spec.providerManaged.pitrConfigSchema.
+// ValidateInstanceBackupPITRParameters validates each per-storage PITR
+// parameters payload on the Instance (.spec.backup.storages[].pitr.parameters)
+// against the OpenAPI v3 schema declared by the BackupClass under
+// .spec.providerManaged.pitrParametersSchema.
 //
 // It is safe to call with any combination of nil inputs:
 //   - If the Instance has no backup config, no class is selected, or the
 //     class is not ProviderManaged, the function is a no-op and returns nil.
-//   - Storages without a PITR config are skipped.
+//   - Storages without PITR parameters are skipped.
 //
-// A PITR config on a class that declares no pitrConfigSchema is rejected,
-// mirroring BackupClassConfig.Validate's behavior for backup/restore configs.
-func ValidateInstanceBackupPITRConfigs(in *corev1alpha1.Instance, bc *backupv1alpha1.BackupClass) error {
+// PITR parameters on a class that declares no pitrParametersSchema are
+// rejected, mirroring ParametersSchema.Validate's behavior for backup and
+// restore parameters.
+func ValidateInstanceBackupPITRParameters(in *corev1alpha1.Instance, bc *backupv1alpha1.BackupClass) error {
 	if in == nil || in.Spec.Backup == nil || !in.Spec.Backup.Enabled {
 		return nil
 	}
@@ -124,39 +123,20 @@ func ValidateInstanceBackupPITRConfigs(in *corev1alpha1.Instance, bc *backupv1al
 		return nil
 	}
 
-	schemaCfg, err := pitrConfigSchemaOf(bc)
-	if err != nil {
-		return err
+	var schema *apicommon.ParametersSchema
+	if bc.Spec.ProviderManaged != nil {
+		schema = bc.Spec.ProviderManaged.PITRParametersSchema
 	}
 
 	for _, s := range in.Spec.Backup.Storages {
-		if s.PITR == nil || s.PITR.Config == nil || len(s.PITR.Config.Raw) == 0 {
+		if s.PITR == nil || s.PITR.Parameters == nil || len(s.PITR.Parameters.Raw) == 0 {
 			continue
 		}
-		if err := schemaCfg.Validate(s.PITR.Config); err != nil {
+		if err := schema.Validate(s.PITR.Parameters); err != nil {
 			return fmt.Errorf("%w: storage %q: %s", ErrPITRConfigInvalid, s.StorageRef.Name, err.Error())
 		}
 	}
 	return nil
-}
-
-// pitrConfigSchemaOf converts the free-form pitrConfigSchema declared on a
-// BackupClass into a BackupClassConfig so PITR configs can be validated with
-// the same JSON-schema machinery used for backup/restore configs. A class
-// without a schema yields an empty config, which rejects any non-nil payload.
-func pitrConfigSchemaOf(bc *backupv1alpha1.BackupClass) (backupv1alpha1.BackupClassConfig, error) {
-	if bc.Spec.ProviderManaged == nil || bc.Spec.ProviderManaged.PITRConfigSchema == nil ||
-		len(bc.Spec.ProviderManaged.PITRConfigSchema.Raw) == 0 {
-		return backupv1alpha1.BackupClassConfig{}, nil
-	}
-	schema := &apiextensionsv1.JSONSchemaProps{}
-	if err := json.Unmarshal(bc.Spec.ProviderManaged.PITRConfigSchema.Raw, schema); err != nil {
-		return backupv1alpha1.BackupClassConfig{}, fmt.Errorf(
-			"%w: BackupClass %q has a malformed providerManaged.pitrConfigSchema: %s",
-			ErrPITRConfigInvalid, bc.Name, err.Error(),
-		)
-	}
-	return backupv1alpha1.BackupClassConfig{OpenAPIV3Schema: schema}, nil
 }
 
 // ValidateRestorePITR checks whether the point-in-time recovery options on a

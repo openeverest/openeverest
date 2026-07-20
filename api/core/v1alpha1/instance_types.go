@@ -46,11 +46,13 @@ type InstanceSpec struct {
 	// +optional
 	Topology *TopologySpec `json:"topology,omitempty"`
 
-	// Global contains provider-level configuration that applies to the entire cluster.
-	// The schema for this field is defined by the provider's GlobalConfigSchema.
+	// Parameters contains structured parameters that apply to the Instance
+	// as a whole, complementing the topology- and component-scoped
+	// parameters. The payload is validated against the referenced Provider's
+	// .spec.parametersSchema.
 	// +optional
 	// +kubebuilder:pruning:PreserveUnknownFields
-	Global *runtime.RawExtension `json:"global,omitempty"`
+	Parameters *runtime.RawExtension `json:"parameters,omitempty"`
 
 	// Components defines the component instances for this cluster.
 	// The keys are component names (e.g., "engine", "proxy", "backupAgent").
@@ -212,13 +214,14 @@ type InstanceBackupSchedule struct {
 	// +kubebuilder:validation:Minimum=0
 	// +optional
 	RetentionCopies int32 `json:"retentionCopies,omitempty"`
-	// Config is schedule-specific configuration validated against the
-	// BackupClass's .spec.scheduleConfig.openAPIV3Schema. When unset the
+	// Parameters is schedule-specific structured configuration validated
+	// against the BackupClass's .spec.parametersSchema. When unset the
 	// provider falls back to engine defaults. The schema is the same as for
-	// Backup.spec.config but applied per-schedule rather than per-backup-run.
+	// Backup.spec.parameters but applied per-schedule rather than
+	// per-backup-run.
 	// +kubebuilder:pruning:PreserveUnknownFields
 	// +optional
-	Config *runtime.RawExtension `json:"config,omitempty"`
+	Parameters *runtime.RawExtension `json:"parameters,omitempty"`
 }
 
 // InstanceBackupStoragePITR configures point-in-time recovery writing to
@@ -226,11 +229,11 @@ type InstanceBackupSchedule struct {
 type InstanceBackupStoragePITR struct {
 	// Enabled toggles PITR for this storage.
 	Enabled bool `json:"enabled"`
-	// Config holds provider-specific PITR options. The schema is defined by
-	// the BackupClass via .spec.providerManaged.
+	// Parameters holds provider-specific PITR options, validated against the
+	// BackupClass's .spec.providerManaged.pitrParametersSchema.
 	// +kubebuilder:pruning:PreserveUnknownFields
 	// +optional
-	Config *runtime.RawExtension `json:"config,omitempty"`
+	Parameters *runtime.RawExtension `json:"parameters,omitempty"`
 }
 
 // TopologySpec defines the deployment topology and its configuration.
@@ -241,12 +244,12 @@ type TopologySpec struct {
 	// +optional
 	Type string `json:"type,omitempty"`
 
-	// Config contains topology-specific configuration.
-	// The schema for this field is defined by the provider's TopologyDefinition.
+	// Parameters contains topology-specific structured parameters, validated
+	// against the provider's topologies[].parametersSchema.
 	// Examples: shard count for sharded topology, replication factor, etc.
 	// +optional
 	// +kubebuilder:pruning:PreserveUnknownFields
-	Config *runtime.RawExtension `json:"config,omitempty"`
+	Parameters *runtime.RawExtension `json:"parameters,omitempty"`
 }
 
 type ComponentSpec struct {
@@ -269,14 +272,6 @@ type ComponentSpec struct {
 	// Resources requirements for this component.
 	// +optional
 	Resources *corev1.ResourceRequirements `json:"resources,omitempty"`
-	// Config is the inline content of the component's configuration file
-	// (e.g. a my.cnf or mongod.conf fragment). The dialect is engine-specific
-	// and interpreted by the provider. Note that the content is stored
-	// unencrypted in the cluster datastore and is readable by anyone who can
-	// read the Instance; credentials do not belong here.
-	// +optional
-	// +kubebuilder:validation:MaxLength=65536
-	Config string `json:"config,omitempty"`
 	// Replicas specifies the number of replicas for this component.
 	// +optional
 	Replicas *int32 `json:"replicas,omitempty"`
@@ -289,9 +284,11 @@ type ComponentSpec struct {
 	// +optional
 	Service *Service `json:"service,omitempty"`
 	// +kubebuilder:pruning:PreserveUnknownFields
-	// CustomSpec provides an API for customising this component.
-	// The API schema is defined by the provider's ComponentSchemas.
-	CustomSpec *runtime.RawExtension `json:"customSpec,omitempty"`
+	// Parameters contains component-specific structured parameters, validated
+	// against the provider's components[].parametersSchema. Engine
+	// configuration file content is carried here as well, under the
+	// provider-declared "configuration" property.
+	Parameters *runtime.RawExtension `json:"parameters,omitempty"`
 }
 
 type Service struct {
@@ -344,13 +341,13 @@ func (in *Instance) GetTopologyType() string {
 	return in.Spec.Topology.Type
 }
 
-// GetTopologyConfig returns the topology configuration as runtime.RawExtension.
-// Returns nil if no topology or topology config is specified.
-func (in *Instance) GetTopologyConfig() *runtime.RawExtension {
+// GetTopologyParameters returns the topology parameters as runtime.RawExtension.
+// Returns nil if no topology or topology parameters are specified.
+func (in *Instance) GetTopologyParameters() *runtime.RawExtension {
 	if in.Spec.Topology == nil {
 		return nil
 	}
-	return in.Spec.Topology.Config
+	return in.Spec.Topology.Parameters
 }
 
 // NormalizedSourceRanges returns source ranges with CIDR notation.

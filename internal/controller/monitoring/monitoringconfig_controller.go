@@ -69,7 +69,7 @@ const (
 
 	// instanceMonitoringConfigField is the field path used for indexing Instances
 	// by their monitoring config name.
-	instanceMonitoringConfigField = ".spec.components.monitoring.customSpec.monitoringConfigName"
+	instanceMonitoringConfigField = ".spec.components.monitoring.parameters.monitoringConfigName"
 )
 
 // MonitoringConfigReconciler reconciles a MonitoringConfig object.
@@ -609,7 +609,7 @@ func (r *MonitoringConfigReconciler) initIndexers(ctx context.Context, mgr ctrl.
 }
 
 // instanceMonitoringConfigName extracts the monitoringConfigName value from an Instance's
-// .spec.components.monitoring.customSpec.monitoringConfigName.
+// .spec.components.monitoring.parameters.monitoringConfigName.
 // Returns "" if not set.
 func instanceMonitoringConfigName(obj client.Object) string {
 	instance, ok := obj.(*corev1alpha1.Instance)
@@ -622,12 +622,12 @@ func instanceMonitoringConfigName(obj client.Object) string {
 		return ""
 	}
 
-	if monitoringSpec.CustomSpec == nil || monitoringSpec.CustomSpec.Raw == nil {
+	if monitoringSpec.Parameters == nil || monitoringSpec.Parameters.Raw == nil {
 		return ""
 	}
 
 	m := map[string]any{}
-	if err := json.Unmarshal(monitoringSpec.CustomSpec.Raw, &m); err != nil {
+	if err := json.Unmarshal(monitoringSpec.Parameters.Raw, &m); err != nil {
 		return ""
 	}
 
@@ -636,7 +636,7 @@ func instanceMonitoringConfigName(obj client.Object) string {
 }
 
 // enqueueInstances maps an Instance to a reconcile.Request for the MonitoringConfig
-// referenced in .spec.components.monitoring.customSpec.monitoringConfigName.
+// referenced in .spec.components.monitoring.parameters.monitoringConfigName.
 func (r *MonitoringConfigReconciler) enqueueInstances(_ context.Context, obj client.Object) []reconcile.Request {
 	name := instanceMonitoringConfigName(obj)
 	if name == "" {
@@ -649,7 +649,7 @@ func (r *MonitoringConfigReconciler) enqueueInstances(_ context.Context, obj cli
 }
 
 // instancePredicate returns a Predicate that passes only when the Instance's
-// .spec.components.monitoring.customSpec.monitoringConfigName field is relevant:
+// .spec.components.monitoring.parameters.monitoringConfigName field is relevant:
 //   - Create: the field is set on the new Instance.
 //   - Update: the field is set on either the old or the new Instance, covering
 //     the cases where the value is added, changed, or removed.

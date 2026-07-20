@@ -49,12 +49,6 @@ spec:
           spec:
             description: RestoreSpec defines the desired state of Restore.
             properties:
-              config:
-                description: |-
-                  Config is the restore-time configuration validated against the
-                  BackupClass's .spec.restoreConfig.openAPIV3Schema.
-                type: object
-                x-kubernetes-preserve-unknown-fields: true
               dataSource:
                 description: DataSource defines where the backup data to restore from
                   is located.
@@ -135,6 +129,12 @@ spec:
                 - name
                 type: object
                 x-kubernetes-map-type: atomic
+              parameters:
+                description: |-
+                  Parameters is the restore-time structured configuration validated
+                  against the BackupClass's .spec.restoreParametersSchema.
+                type: object
+                x-kubernetes-preserve-unknown-fields: true
             required:
             - dataSource
             - instanceRef

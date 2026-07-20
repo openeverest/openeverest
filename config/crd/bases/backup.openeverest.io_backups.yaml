@@ -70,12 +70,6 @@ spec:
                 - name
                 type: object
                 x-kubernetes-map-type: atomic
-              config:
-                description: |-
-                  Config is the backup-time configuration validated against the
-                  BackupClass's .spec.config.openAPIV3Schema.
-                type: object
-                x-kubernetes-preserve-unknown-fields: true
               deletionPolicy:
                 allOf:
                 - enum:
@@ -114,6 +108,12 @@ spec:
                 - name
                 type: object
                 x-kubernetes-map-type: atomic
+              parameters:
+                description: |-
+                  Parameters is the backup-time structured configuration validated
+                  against the BackupClass's .spec.parametersSchema.
+                type: object
+                x-kubernetes-preserve-unknown-fields: true
               scheduleName:
                 description: |-
                   ScheduleName, when set, identifies the InstanceBackupSchedule that

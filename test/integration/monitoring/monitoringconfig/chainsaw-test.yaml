@@ -113,7 +113,7 @@ spec:
                 components:
                   monitoring:
                     type: pmm
-                    customSpec:
+                    parameters:
                       monitoringConfigName: mc-test
         # Assert MonitoringConfig is now in-use with finalizer
         - assert:
@@ -161,7 +161,7 @@ spec:
                 components:
                   monitoring:
                     type: pmm
-                    customSpec:
+                    parameters:
                       monitoringConfigName: mc-test
       catch:
         - script:
@@ -349,7 +349,7 @@ spec:
                 components:
                   monitoring:
                     type: pmm
-                    customSpec: {}
+                    parameters: {}
         # Assert MonitoringConfig and its secret are deleted
         - script:
             content: kubectl wait --for=delete monitoringconfig/mc-test --timeout=30s
@@ -367,7 +367,7 @@ spec:
                 components:
                   monitoring:
                     type: pmm
-                    customSpec: {}
+                    parameters: {}
       catch:
         - script:
             content: kubectl get monitoringconfig/mc-test -o yaml

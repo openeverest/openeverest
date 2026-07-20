@@ -90,29 +90,30 @@ export const OnDemandBackupModal = () => {
     const dynamicFields = Object.fromEntries(
       Object.entries(data).filter(([key]) => !staticKeys.has(key))
     );
-    // UIGenerator uses sectionKey="config", so fields are nested as { config: { ... } }.
-    // Unwrap one level to produce the flat config the API expects.
-    const rawConfig =
-      'config' in dynamicFields &&
-      typeof dynamicFields.config === 'object' &&
-      dynamicFields.config !== null
-        ? (dynamicFields.config as Record<string, unknown>)
+    // UIGenerator uses sectionKey="parameters", so fields are nested as
+    // { parameters: { ... } }.
+    // Unwrap one level to produce the flat parameters the API expects.
+    const rawParameters =
+      'parameters' in dynamicFields &&
+      typeof dynamicFields.parameters === 'object' &&
+      dynamicFields.parameters !== null
+        ? (dynamicFields.parameters as Record<string, unknown>)
         : dynamicFields;
-    const cleanedConfig =
-      Object.keys(rawConfig).length > 0
-        ? removeEmptyFieldValues(rawConfig)
+    const cleanedParameters =
+      Object.keys(rawParameters).length > 0
+        ? removeEmptyFieldValues(rawParameters)
         : undefined;
 
     createBackupOnDemand(
       {
         metadata: { name: data.name },
         spec: {
-          instanceName: instanceName,
-          backupClassName: data.backupClassName,
-          storageName: data.storageName,
-          ...(cleanedConfig &&
-            Object.keys(cleanedConfig).length > 0 && {
-              config: cleanedConfig,
+          instanceRef: { name: instanceName },
+          classRef: { name: data.backupClassName },
+          storageRef: { name: data.storageName },
+          ...(cleanedParameters &&
+            Object.keys(cleanedParameters).length > 0 && {
+              parameters: cleanedParameters,
             }),
         },
         // The API accepts a partial Backup object for creation; generated types

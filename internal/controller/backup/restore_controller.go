@@ -497,7 +497,7 @@ func (r *RestoreReconciler) ensurePayloadSecret(
 	}
 
 	// Pass through the config.
-	if cfg := restore.Spec.Config; cfg != nil {
+	if cfg := restore.Spec.Parameters; cfg != nil {
 		cfgMap := map[string]any{}
 		if err := json.Unmarshal(cfg.Raw, &cfgMap); err != nil {
 			return fmt.Errorf("failed to unmarshal restore config: %w", err)

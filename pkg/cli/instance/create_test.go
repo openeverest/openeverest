@@ -69,7 +69,9 @@ func buildProvider(name string, versions []struct {
 		Components *map[string]struct {
 			Optional *bool `json:"optional,omitempty"`
 		} `json:"components,omitempty"`
-		ConfigSchema *map[string]any `json:"configSchema,omitempty"`
+		ParametersSchema *struct {
+			OpenAPIV3Schema any `json:"openAPIV3Schema,omitempty"` //nolint:tagliatelle
+		} `json:"parametersSchema,omitempty"`
 	}{}
 	for topo, comps := range topologies {
 		compMap := map[string]struct {
@@ -84,20 +86,26 @@ func buildProvider(name string, versions []struct {
 			Components *map[string]struct {
 				Optional *bool `json:"optional,omitempty"`
 			} `json:"components,omitempty"`
-			ConfigSchema *map[string]any `json:"configSchema,omitempty"`
+			ParametersSchema *struct {
+				OpenAPIV3Schema any `json:"openAPIV3Schema,omitempty"` //nolint:tagliatelle
+			} `json:"parametersSchema,omitempty"`
 		}{Components: &compMap}
 	}
 
 	globalComps := map[string]struct {
-		CustomSpecSchema *map[string]any `json:"customSpecSchema,omitempty"`
-		Type             *string         `json:"type,omitempty"`
+		ParametersSchema *struct {
+			OpenAPIV3Schema any `json:"openAPIV3Schema,omitempty"` //nolint:tagliatelle
+		} `json:"parametersSchema,omitempty"`
+		Type *string `json:"type,omitempty"`
 	}{}
 	for _, comps := range topologies {
 		for _, c := range comps {
 			globalComps[c] = struct {
-				CustomSpecSchema *map[string]any `json:"customSpecSchema,omitempty"`
-				Type             *string         `json:"type,omitempty"`
-			}{Type: strPtr(c + "-type")}
+				ParametersSchema *struct {
+					OpenAPIV3Schema any `json:"openAPIV3Schema,omitempty"` //nolint:tagliatelle
+				} `json:"parametersSchema,omitempty"`
+				Type *string `json:"type,omitempty"`
+			}{Type: new(c + "-type")}
 		}
 	}
 
@@ -242,7 +250,9 @@ func TestValidateComponents_EmptyTopologyFallsBackToGlobal(t *testing.T) {
 		Components *map[string]struct {
 			Optional *bool `json:"optional,omitempty"`
 		} `json:"components,omitempty"`
-		ConfigSchema *map[string]any `json:"configSchema,omitempty"`
+		ParametersSchema *struct {
+			OpenAPIV3Schema any `json:"openAPIV3Schema,omitempty"` //nolint:tagliatelle
+		} `json:"parametersSchema,omitempty"`
 	}{
 		"replicaset": {Components: nil},
 	}

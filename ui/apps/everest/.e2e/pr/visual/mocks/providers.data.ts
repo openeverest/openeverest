@@ -129,14 +129,16 @@ export const mockProviders: any = {
               },
               proxy: {},
             },
-            configSchema: {
-              properties: {
-                numShards: {
-                  format: 'int32',
-                  type: 'integer',
+            parametersSchema: {
+              openAPIV3Schema: {
+                properties: {
+                  numShards: {
+                    format: 'int32',
+                    type: 'integer',
+                  },
                 },
+                type: 'object',
               },
-              type: 'object',
             },
           },
         },
@@ -307,7 +309,7 @@ export const mockProviders: any = {
                     fieldParams: {
                       label: 'Monitoring endpoint',
                     },
-                    path: 'spec.components.monitoring.customSpec.monitoringConfigName',
+                    path: 'spec.components.monitoring.parameters.monitoringConfigName',
                     uiType: 'select',
                   },
                 },
@@ -530,7 +532,7 @@ export const mockProviders: any = {
                     fieldParams: {
                       label: 'Monitoring endpoint',
                     },
-                    path: 'spec.components.monitoring.customSpec.monitoringConfigName',
+                    path: 'spec.components.monitoring.parameters.monitoringConfigName',
                     uiType: 'select',
                   },
                 },

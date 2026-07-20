@@ -24,6 +24,8 @@ import (
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+
+	common "github.com/openeverest/openeverest/v2/api/common/v1alpha1"
 )
 
 // ProviderSpec defines the desired state of Provider
@@ -38,10 +40,10 @@ type ProviderSpec struct {
 	// the bundle whose Default field is true is used automatically.
 	Versions []VersionBundle `json:"versions,omitempty"`
 
-	// GlobalConfigSchema holds the OpenAPI v3 schema for the global configuration.
+	// ParametersSchema declares the OpenAPI v3 schema for the instance-wide
+	// parameters payload (Instance.spec.parameters).
 	// +optional
-	// +kubebuilder:pruning:PreserveUnknownFields
-	GlobalConfigSchema *runtime.RawExtension `json:"globalConfigSchema,omitempty"`
+	ParametersSchema *common.ParametersSchema `json:"parametersSchema,omitempty"`
 
 	// UISchema holds the UI rendering hints for each topology.
 	// +optional
@@ -82,19 +84,19 @@ type ComponentVersion struct {
 type Component struct {
 	Type string `json:"type,omitempty"`
 
-	// CustomSpecSchema holds the OpenAPI v3 schema for this component's CustomSpec.
+	// ParametersSchema declares the OpenAPI v3 schema for this component's
+	// parameters payload (Instance.spec.components[].parameters).
 	// +optional
-	// +kubebuilder:pruning:PreserveUnknownFields
-	CustomSpecSchema *runtime.RawExtension `json:"customSpecSchema,omitempty"`
+	ParametersSchema *common.ParametersSchema `json:"parametersSchema,omitempty"`
 }
 
 type Topology struct {
 	Components map[string]TopologyComponent `json:"components,omitempty"`
 
-	// ConfigSchema holds the OpenAPI v3 schema for topology-specific configuration.
+	// ParametersSchema declares the OpenAPI v3 schema for topology-specific
+	// parameters (Instance.spec.topology.parameters).
 	// +optional
-	// +kubebuilder:pruning:PreserveUnknownFields
-	ConfigSchema *runtime.RawExtension `json:"configSchema,omitempty"`
+	ParametersSchema *common.ParametersSchema `json:"parametersSchema,omitempty"`
 }
 
 type TopologyComponent struct {

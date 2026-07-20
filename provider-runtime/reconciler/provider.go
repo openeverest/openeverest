@@ -836,5 +836,5 @@ func validateInstanceBackupConfig(ctx context.Context, c client.Client, in *v1al
 	if err := controller.ValidateInstanceBackupAgainstClass(in, bc); err != nil {
 		return err
 	}
-	return controller.ValidateInstanceBackupPITRConfigs(in, bc)
+	return controller.ValidateInstanceBackupPITRParameters(in, bc)
 }
