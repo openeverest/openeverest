@@ -12,33 +12,39 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { Box } from '@mui/material';
+import { Box, Button } from '@mui/material';
+import { Link } from 'react-router-dom';
 import { resolveProviderDisplay } from 'components/provider-identity';
 import type { ProviderPickerProps } from '../provider-picker.types';
-import { gridSx } from './provider-tiles.constants';
-import { ProviderTile } from './provider-tile';
+import { buttonSx, rowSx } from './provider-buttons.constants';
 
-export const ProviderTiles = ({
+// Fallback provider picker used when the plugin-hub is not installed: without
+// catalog metadata there is nothing to fill a card, so a plain labelled button
+// per provider is the honest representation.
+export const ProviderButtons = ({
   providers,
   getProviderMeta,
   showImport = false,
 }: ProviderPickerProps) => {
   return (
-    <Box sx={gridSx}>
+    <Box sx={rowSx}>
       {providers.map((provider) => {
-        const { name, label, meta } = resolveProviderDisplay(
+        const { name, label } = resolveProviderDisplay(
           provider,
           getProviderMeta
         );
         return (
-          <ProviderTile
+          <Button
             key={name}
-            provider={provider}
-            name={name}
-            label={label}
-            meta={meta}
-            showImport={showImport}
-          />
+            data-testid={`provider-tile-${name}`}
+            component={Link}
+            to="/databases/new"
+            state={{ selectedDbProvider: provider, showImport }}
+            variant="outlined"
+            sx={buttonSx}
+          >
+            {label}
+          </Button>
         );
       })}
     </Box>

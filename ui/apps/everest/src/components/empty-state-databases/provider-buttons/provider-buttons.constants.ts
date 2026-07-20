@@ -12,4 +12,22 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-export { ProviderTiles } from './provider-tiles';
+import type { SxProps, Theme } from '@mui/material';
+
+export const rowSx: SxProps<Theme> = {
+  display: 'flex',
+  flexWrap: 'wrap',
+  justifyContent: 'center',
+  gap: 1.5,
+  width: '100%',
+  // Cap the row so buttons wrap onto new lines instead of stretching across
+  // the whole empty state on wide screens.
+  maxWidth: 560,
+};
+
+export const buttonSx: SxProps<Theme> = {
+  // Natural, content-based width: buttons sit side by side and wrap when the
+  // row runs out of space (never grow to fill it).
+  flex: '0 0 auto',
+  textTransform: 'none',
+};

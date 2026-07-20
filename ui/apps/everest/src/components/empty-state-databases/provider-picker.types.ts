@@ -12,4 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-export { ProviderTiles } from './provider-tiles';
+import type { Provider } from 'shared-types/api.types';
+import type { GetProviderMeta } from 'components/provider-identity';
+
+// Shared props for the empty-state provider pickers. EmptyStateDatabases owns
+// the data (providers + catalog) and chooses which picker to render: rich tiles
+// when the plugin-hub catalog is available, plain buttons otherwise. Both
+// pickers are pure presentational components that receive the resolved data.
+export interface ProviderPickerProps {
+  providers: Provider[];
+  getProviderMeta: GetProviderMeta;
+  showImport?: boolean;
+}

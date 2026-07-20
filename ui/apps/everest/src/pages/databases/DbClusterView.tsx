@@ -17,16 +17,10 @@
 import { Box, Card, CardContent, CardHeader, Stack } from '@mui/material';
 import { PendingIcon, Table } from '@percona/ui-lib';
 import StatusField from 'components/status-field';
-import { useNamespaces } from 'hooks/api/namespaces/useNamespaces';
-import { useProviders } from 'hooks/api/providers/useProviders';
 import { type MRT_ColumnDef } from 'material-react-table';
 import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useInstancesForNamespaces } from 'hooks/api/db-instances/useDbInstanceList';
-import {
-  beautifyDbInstanceStatus,
-  convertDbInstancesPayloadToTableFormat,
-} from './DbClusterView.utils';
+import { beautifyDbInstanceStatus } from './DbClusterView.utils';
 import { InstanceTableElement } from './dbClusterView.types';
 import { CreateDbButton } from 'components/create-db-button';
 import EmptyStateDatabases from 'components/empty-state-databases/empty-state-databases';
@@ -40,46 +34,18 @@ import {
 import { usePlugins } from 'contexts/plugins';
 import type { GlobalDashboardWidgetExtension } from '@openeverest/plugin-sdk';
 import PluginErrorBoundary from 'components/plugin-host/PluginErrorBoundary';
-import { useNamespacePermissionsForResource } from 'hooks/rbac';
+import LoadingPageSkeleton from 'components/loading-page-skeleton/LoadingPageSkeleton';
+import { useDatabasesView } from './hooks/useDatabasesView';
 
 export const DbClusterView = () => {
-  const { data: namespaces = [], isLoading: loadingNamespaces } = useNamespaces(
-    {
-      refetchInterval: 10 * 1000,
-    }
-  );
-
   const navigate = useNavigate();
-  const { data: providers = [] } = useProviders();
-  const hasAvailableProviders = providers.length > 0;
-  const providersNamesFilter = providers.reduce<
-    { text: string; value: string }[]
-  >((acc, p) => {
-    const name = p.metadata?.name;
-    if (name) acc.push({ text: name, value: name });
-    return acc;
-  }, []);
-
-  const { canCreate } = useNamespacePermissionsForResource('database-clusters');
-  const hasCreatePermission = canCreate.length > 0;
-  const canAddCluster = hasCreatePermission && hasAvailableProviders;
-
-  // TODO uncomment when providerImporters will be ready
-  // const { data: availableEnginesForImport } = useDataImporters();
-
-  const instancesResults = useInstancesForNamespaces(
-    namespaces.map((ns) => ({
-      namespace: ns,
-    }))
-  );
-  const instancesLoading = instancesResults.some(
-    (result) => result.queryResult.isLoading
-  );
-
-  const tableData = useMemo(
-    () => convertDbInstancesPayloadToTableFormat(instancesResults),
-    [instancesResults]
-  );
+  const {
+    state,
+    namespaces,
+    providersNamesFilter,
+    hasCreatePermission,
+    canAddCluster,
+  } = useDatabasesView();
 
   const columns = useMemo<MRT_ColumnDef<InstanceTableElement>[]>(
     () => [
@@ -190,6 +156,10 @@ export const DbClusterView = () => {
     [plugins]
   );
 
+  if (state.status === 'loading') {
+    return <LoadingPageSkeleton />;
+  }
+
   return (
     <Stack
       direction="column"
@@ -235,19 +205,17 @@ export const DbClusterView = () => {
         </Box>
       )}
       <Box sx={{ width: '100%' }}>
-        {!instancesLoading && !loadingNamespaces && tableData.length === 0 ? (
-          namespaces.length > 0 ? (
-            <EmptyStateDatabases hasCreatePermission={hasCreatePermission} />
-          ) : (
-            <EmptyStateNamespaces />
-          )
+        {state.status === 'no-namespaces' ? (
+          <EmptyStateNamespaces />
+        ) : state.status === 'empty' ? (
+          <EmptyStateDatabases hasCreatePermission={hasCreatePermission} />
         ) : (
           <Table
             getRowId={(row) => row.instanceName}
             tableName="dbClusterView"
-            state={{ isLoading: instancesLoading || loadingNamespaces }}
+            state={{ isLoading: false }}
             columns={columns}
-            data={tableData}
+            data={state.rows}
             enableRowActions
             renderRowActions={({ row }) => {
               return (
@@ -278,8 +246,7 @@ export const DbClusterView = () => {
               )
             }
             renderTopToolbarCustomActions={() =>
-              canAddCluster &&
-              tableData.length > 0 && (
+              canAddCluster && (
                 <Box display="flex" mb={1}>
                   {/*TODO uncomment when providerImporters will be ready */}
                   {/* {(availableEnginesForImport?.items || []).length > 0 && (

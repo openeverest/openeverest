@@ -12,4 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-export { ProviderTiles } from './provider-tiles';
+export type EmptyStateDatabasesProps = {
+  // Defaults to `false`: RBAC decisions must be made by the caller (which owns
+  // the permission hook) — never assumed by this presentation component.
+  // Rendering create affordances without a positive grant would leak actions
+  // to users who cannot perform them.
+  hasCreatePermission?: boolean;
+};

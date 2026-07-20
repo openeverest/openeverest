@@ -12,9 +12,4 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import type { Provider } from 'shared-types/api.types';
-
-export interface ProviderTilesProps {
-  providers: Provider[];
-  showImport?: boolean;
-}
+export { ProviderButtons } from './provider-buttons';

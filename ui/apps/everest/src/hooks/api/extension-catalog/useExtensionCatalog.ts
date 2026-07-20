@@ -13,93 +13,9 @@
 // limitations under the License.
 
 import { useQuery } from '@tanstack/react-query';
-import { getExtensionCatalogFn, PLUGIN_HUB_NAME } from 'api/extension-catalog';
-import {
-  RawExtensionCatalogEntry,
-  RawExtensionIndex,
-  ResolvedExtensionMeta,
-} from 'shared-types/extension-catalog.types';
-
-// Resolves the install version of a catalog entry from its default chart
-// channel. Every access is guarded because the raw entry is untrusted.
-const resolveVersion = (
-  entry: RawExtensionCatalogEntry
-): string | undefined => {
-  const chart = entry.artifacts?.chart;
-  const channels = chart?.channels;
-  if (!channels) {
-    return undefined;
-  }
-  const channelName = chart?.defaultChannel ?? Object.keys(channels)[0];
-  return channelName ? channels[channelName]?.version : undefined;
-};
-
-// The plugin-hub backend rewrites cross-origin icon URLs to a path relative to
-// its own mount (e.g. `api/icon/<sha256>`) to avoid CSP failures, so we should
-// never see http(s):// values here — reject them defensively so a
-// misconfigured or malicious catalog can't inject external image loads that
-// CSP would block anyway.
-const resolveIconSrc = (rawIcon?: string): string | undefined => {
-  if (!rawIcon) {
-    return undefined;
-  }
-  if (rawIcon.startsWith('http://') || rawIcon.startsWith('https://')) {
-    return undefined;
-  }
-  if (rawIcon.startsWith('data:') || rawIcon.startsWith('/v1/plugins/')) {
-    return rawIcon;
-  }
-  const stripped = rawIcon.startsWith('/') ? rawIcon.slice(1) : rawIcon;
-  return `/v1/plugins/${PLUGIN_HUB_NAME}/${stripped}`;
-};
-
-// Single narrowing point for catalog entries. Rejects anything that is not a
-// well-formed provider entry — unknown `type` values (including new ones the
-// hub might introduce) are tolerated by returning null rather than crashing.
-// Downstream consumers work with `ResolvedExtensionMeta`, which is strict.
-const normalizeEntry = (
-  raw: RawExtensionCatalogEntry
-): {
-  meta: ResolvedExtensionMeta;
-  providerName?: string;
-} | null => {
-  if (!raw?.name || raw.type !== 'provider') {
-    return null;
-  }
-  const meta: ResolvedExtensionMeta = {
-    name: raw.name,
-    displayName: raw.displayName || raw.name,
-    description: raw.description,
-    icon: resolveIconSrc(raw.icon),
-    version: resolveVersion(raw),
-    categories: raw.categories,
-    maturity: raw.maturity,
-  };
-  return { meta, providerName: raw.provider?.providerName };
-};
-
-// Builds a lookup keyed by every identifier a provider can be matched by
-// (provider CR name and the catalog entry name).
-const buildProviderMetaMap = (
-  index: RawExtensionIndex | null
-): Map<string, ResolvedExtensionMeta> => {
-  const map = new Map<string, ResolvedExtensionMeta>();
-  const entries = index?.extensions;
-  if (!entries) {
-    return map;
-  }
-  for (const raw of entries) {
-    const normalized = normalizeEntry(raw);
-    if (!normalized) {
-      continue;
-    }
-    if (normalized.providerName) {
-      map.set(normalized.providerName, normalized.meta);
-    }
-    map.set(normalized.meta.name, normalized.meta);
-  }
-  return map;
-};
+import { getExtensionCatalogFn } from 'api/extension-catalog';
+import { ResolvedExtensionMeta } from 'shared-types/extension-catalog.types';
+import { buildProviderMetaMap } from './useExtensionCatalog.utils';
 
 // Fetches the extension catalog from the plugin-hub plugin and exposes a helper
 // to resolve human-readable metadata for an installed provider. When plugin-hub

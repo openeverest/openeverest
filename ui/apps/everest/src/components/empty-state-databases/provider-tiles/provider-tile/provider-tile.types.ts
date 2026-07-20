@@ -12,4 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-export { ProviderTiles } from './provider-tiles';
+import type { Provider } from 'shared-types/api.types';
+import type { ResolvedExtensionMeta } from 'shared-types/extension-catalog.types';
+
+export type ProviderTileProps = {
+  provider: Provider;
+  name: string;
+  label: string;
+  meta?: ResolvedExtensionMeta;
+  showImport: boolean;
+};

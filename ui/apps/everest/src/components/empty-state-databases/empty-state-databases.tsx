@@ -15,21 +15,17 @@
 import { Link, Typography } from '@mui/material';
 import EmptyState from 'components/empty-state';
 import { useProviders } from 'hooks/api/providers/useProviders';
+import { useExtensionCatalog } from 'hooks/api/extension-catalog';
 import { Messages } from './messages';
 import { ProviderTiles } from './provider-tiles';
+import { ProviderButtons } from './provider-buttons';
+import type { EmptyStateDatabasesProps } from './empty-state-databases.types';
 
-type EmptyStateDatabasesProps = {
-  hasCreatePermission?: boolean;
-};
-
-// `hasCreatePermission` defaults to `false`: RBAC decisions must be made by
-// the caller (which owns the permission hook) — never assumed by presentation
-// components. Rendering create affordances without a positive grant would
-// leak actions to users who cannot perform them.
 const EmptyStateDatabases = ({
   hasCreatePermission = false,
 }: EmptyStateDatabasesProps) => {
   const { data: providers = [] } = useProviders();
+  const { getProviderMeta, providerMeta } = useExtensionCatalog();
 
   if (!hasCreatePermission) {
     return (
@@ -82,7 +78,20 @@ const EmptyStateDatabases = ({
           <Typography color="text.secondary" sx={{ mb: 2 }}>
             {Messages.pickProvider}
           </Typography>
-          <ProviderTiles providers={providers} />
+          {/* With the plugin-hub catalog we can render rich tiles; without it
+              there is no metadata to fill a card, so fall back to plain
+              provider buttons. */}
+          {providerMeta.size > 0 ? (
+            <ProviderTiles
+              providers={providers}
+              getProviderMeta={getProviderMeta}
+            />
+          ) : (
+            <ProviderButtons
+              providers={providers}
+              getProviderMeta={getProviderMeta}
+            />
+          )}
         </>
       }
     />

@@ -12,4 +12,4 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-export { ProviderTiles } from './provider-tiles';
+export { ProviderTile } from './provider-tile';
