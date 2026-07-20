@@ -73,6 +73,7 @@ const EmptyState = ({
         <EmptyStateIcon w="60px" h="60px" />
         <Stack
           sx={{
+            width: '100%',
             alignItems: 'center',
           }}
         >
