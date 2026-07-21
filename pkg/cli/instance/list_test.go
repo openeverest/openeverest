@@ -37,7 +37,9 @@ import (
 type testInstance struct {
 	Metadata map[string]any `json:"metadata"`
 	Spec     struct {
-		Provider string `json:"provider,omitempty"`
+		ProviderRef struct {
+			Name string `json:"name,omitempty"`
+		} `json:"providerRef"`
 	} `json:"spec"`
 	Status struct {
 		Phase   string `json:"phase,omitempty"`
@@ -53,7 +55,7 @@ func newTestInstance(name, namespace, provider, phase, version string) testInsta
 			"creationTimestamp": time.Now().Add(-time.Hour).UTC().Format(time.RFC3339),
 		},
 	}
-	inst.Spec.Provider = provider
+	inst.Spec.ProviderRef.Name = provider
 	inst.Status.Phase = phase
 	inst.Status.Version = version
 	return inst

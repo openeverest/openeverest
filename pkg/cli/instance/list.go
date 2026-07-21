@@ -149,10 +149,10 @@ func instanceNamespace(inst *client.Instance) string {
 }
 
 func instanceProvider(inst *client.Instance) string {
-	if inst.Spec.Provider == nil || *inst.Spec.Provider == "" {
+	if inst.Spec.ProviderRef.Name == "" {
 		return "-"
 	}
-	return *inst.Spec.Provider
+	return inst.Spec.ProviderRef.Name
 }
 
 func instanceVersionValue(inst *client.Instance) string {
