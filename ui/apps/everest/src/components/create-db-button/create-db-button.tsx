@@ -18,36 +18,36 @@ import { useEffect, useState } from 'react';
 import {
   Box,
   Button,
-  Divider,
-  Menu,
-  MenuItem,
+  Drawer,
+  IconButton,
   Skeleton,
   Tooltip,
   Typography,
 } from '@mui/material';
+import CloseIcon from '@mui/icons-material/Close';
 import { ArrowDropDownIcon } from '@mui/x-date-pickers/icons';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useProviders } from 'hooks/api/providers';
+import type { CreateDbButtonProps } from './create-db-button.types';
+import { Messages } from './create-db-button.messages';
+import {
+  buttonSx,
+  drawerBannerSx,
+  drawerContainerSx,
+  drawerHeaderSx,
+  drawerPaperSx,
+  REVEAL_DELAY_MS,
+  skeletonSx,
+} from './create-db-button.constants';
+import { DrawerBody } from './drawer-body';
 
 export const CreateDbButton = ({
   createFromImport = false,
-}: {
-  createFromImport?: boolean;
-}) => {
-  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+}: CreateDbButtonProps) => {
+  const [drawerOpen, setDrawerOpen] = useState(false);
   const [showDropdownButton, setShowDropdownButton] = useState(false);
   // TODO check how it should work with Providers
   // const { canCreate } = useNamespacePermissionsForResource('database-clusters');
-
-  // const { data: availableDbImporters } = useDataImporters();
-  // TODO check how it should work with Providers
-  // const supportedEngineTypesForImport = new Set(
-  //   availableDbImporters?.items
-  //     .map((importer) => importer.spec.supportedEngines)
-  //     .flat()
-  // );
-
-  const open = Boolean(anchorEl);
 
   const { data: providers = [], isLoading: providersLoading } = useProviders();
   const navigate = useNavigate();
@@ -55,7 +55,7 @@ export const CreateDbButton = ({
   const handleClick = (event: React.MouseEvent<HTMLButtonElement>) => {
     if (providers.length > 1) {
       event.stopPropagation();
-      setAnchorEl(event.currentTarget);
+      setDrawerOpen(true);
     } else {
       navigate('/databases/new', {
         state: {
@@ -65,8 +65,9 @@ export const CreateDbButton = ({
       });
     }
   };
-  const closeMenu = () => {
-    setAnchorEl(null);
+
+  const closeDrawer = () => {
+    setDrawerOpen(false);
   };
 
   useEffect(() => {
@@ -77,7 +78,7 @@ export const CreateDbButton = ({
     } else {
       timeoutId = setTimeout(() => {
         setShowDropdownButton(true);
-      }, 300);
+      }, REVEAL_DELAY_MS);
     }
 
     return () => {
@@ -87,114 +88,92 @@ export const CreateDbButton = ({
     };
   }, [providersLoading]);
 
-  const buttonStyle = { display: 'flex', minHeight: '34px', width: '165px' };
-  const skeletonStyle = {
-    ...buttonStyle,
-    borderRadius: '128px',
-  };
+  const testIdPrefix = createFromImport ? 'import' : 'add';
   const showTechPreviewTooltip = createFromImport && providers.length === 1;
-
-  const techPreviewText = 'Technical Preview';
 
   const createButton = (
     <Button
-      data-testid={`${createFromImport ? 'import' : 'add'}-db-cluster-button`}
+      data-testid={`${testIdPrefix}-db-cluster-button`}
       size="small"
       variant={createFromImport ? 'text' : 'contained'}
-      sx={buttonStyle}
+      sx={buttonSx}
       aria-controls={
-        open
-          ? `${createFromImport ? 'import' : 'add'}
-            -db-cluster-button-menu`
-          : undefined
+        drawerOpen ? `${testIdPrefix}-db-cluster-button-menu` : undefined
       }
-      aria-haspopup="true"
-      aria-expanded={open ? 'true' : undefined}
+      aria-haspopup={providers.length > 1 ? 'dialog' : undefined}
+      aria-expanded={
+        providers.length > 1 ? (drawerOpen ? 'true' : 'false') : undefined
+      }
       onClick={handleClick}
       endIcon={providers.length > 1 && <ArrowDropDownIcon />}
     >
-      {createFromImport ? 'Import' : 'Create database'}
+      {createFromImport ? Messages.import : Messages.createDatabase}
     </Button>
   );
 
-  return providers.length > 0 ? (
+  if (providers.length === 0) {
+    return null;
+  }
+
+  return (
     <Box>
       {showDropdownButton ? (
         showTechPreviewTooltip ? (
-          <Tooltip title={techPreviewText} enterDelay={0}>
+          <Tooltip title={Messages.technicalPreview} enterDelay={0}>
             {createButton}
           </Tooltip>
         ) : (
           createButton
         )
       ) : (
-        <Skeleton variant="rounded" sx={skeletonStyle} />
+        <Skeleton variant="rounded" sx={skeletonSx} />
       )}
       {providers.length > 1 && (
-        <Menu
-          data-testid={`${
-            createFromImport ? 'import' : 'add'
-          }-db-cluster-button-menu`}
-          anchorEl={anchorEl}
-          open={open}
-          onClose={closeMenu}
-          slotProps={{
-            list: {
-              'aria-labelledby': 'basic-button',
-              sx: { width: anchorEl && anchorEl.offsetWidth },
-            },
-          }}
+        <Drawer
+          data-testid={`${testIdPrefix}-db-cluster-button-menu`}
+          anchor="right"
+          open={drawerOpen}
+          onClose={closeDrawer}
+          sx={{ zIndex: (theme) => theme.zIndex.modal }}
+          slotProps={{ paper: { sx: drawerPaperSx } }}
         >
-          {
-            <Box>
-              {createFromImport && (
-                <>
-                  <MenuItem
-                    disableTouchRipple
-                    sx={{
-                      pointerEvents: 'none',
-                      cursor: 'default',
-                    }}
-                  >
-                    <Typography
-                      sx={{
-                        color: 'text.secondary',
-                        fontSize: '14px !important',
-                      }}
-                    >
-                      {techPreviewText}
-                    </Typography>
-                  </MenuItem>
-                  <Divider />
-                </>
-              )}
-              {providers.map((item) => (
-                <MenuItem
-                  data-testid={`${createFromImport ? 'import' : 'add'}-db-cluster-button-${item.metadata?.name}`}
-                  key={item?.metadata?.name}
-                  component={Link}
-                  to="/databases/new"
-                  sx={{
-                    display: 'flex',
-                    gap: 1,
-                    alignItems: 'center',
-                    px: 2,
-                    py: '10px',
-                  }}
-                  state={{
-                    selectedDbProvider: item,
-                    showImport: createFromImport,
-                  }}
-                >
-                  {item?.metadata?.name!}
-                </MenuItem>
-              ))}
+          <Box sx={drawerContainerSx}>
+            <Box sx={drawerHeaderSx}>
+              <Box>
+                <Typography variant="h6">
+                  {createFromImport
+                    ? Messages.importDatabase
+                    : Messages.createDatabase}
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  {Messages.selectProvider}
+                </Typography>
+              </Box>
+              <IconButton
+                aria-label={Messages.closeDrawerAriaLabel}
+                onClick={closeDrawer}
+                size="small"
+              >
+                <CloseIcon fontSize="small" />
+              </IconButton>
             </Box>
-          }
-        </Menu>
+
+            {createFromImport && (
+              <Box sx={drawerBannerSx}>
+                <Typography variant="caption" color="text.secondary">
+                  {Messages.technicalPreview}
+                </Typography>
+              </Box>
+            )}
+
+            <DrawerBody
+              providers={providers}
+              createFromImport={createFromImport}
+              onClose={closeDrawer}
+            />
+          </Box>
+        </Drawer>
       )}
     </Box>
-  ) : null;
+  );
 };
-
-export default CreateDbButton;

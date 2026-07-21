@@ -18,9 +18,14 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { DbClusterView } from './DbClusterView';
 vi.mock('hooks/api/db-instances/useDbInstanceList');
 
-vi.mock('hooks/api/namespaces/useNamespaces', () => ({
-  useNamespaces: () => ({ data: ['default'], isLoading: false }),
-}));
+// NOTE: the mocked hook must return a STABLE reference across renders, like
+// react-query does in production. `useNamespacePermissionsForResource` (used by
+// DbClusterView) derives a `useCallback` from `namespaces`; a fresh array on
+// every render would retrigger its effect -> setState -> re-render loop.
+vi.mock('hooks/api/namespaces/useNamespaces', () => {
+  const result = { data: ['default'], isLoading: false };
+  return { useNamespaces: () => result };
+});
 
 vi.mock('hooks/api/providers/useProviders', () => ({
   useProviders: () => ({ data: [] }),

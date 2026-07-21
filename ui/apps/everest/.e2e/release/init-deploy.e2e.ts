@@ -31,6 +31,7 @@ import {
   populateResources,
   populateAdvancedConfig,
 } from '@e2e/utils/db-wizard';
+import { clickAddDbClusterBtn } from '@e2e/pr/db-cluster/db-wizard/db-wizard-utils';
 import { EVEREST_CI_NAMESPACES } from '@e2e/constants';
 import { waitForStatus, waitForDelete } from '@e2e/utils/table';
 import { getDbClusterAPI } from '@e2e/utils/db-cluster';
@@ -129,9 +130,7 @@ const zephyrMap: Record<string, string> = {
         expect(storageClasses.length).toBeGreaterThan(0);
 
         await page.goto('/databases');
-        await page.getByTestId('add-db-cluster-button').waitFor();
-        await page.getByTestId('add-db-cluster-button').click();
-        await page.getByTestId(`add-db-cluster-button-${db}`).click();
+        await clickAddDbClusterBtn(page, db);
 
         // await page.getByTestId('toggle-button-group-input-db-type').waitFor();
         await page.getByTestId('select-input-db-version').waitFor();

@@ -1,3 +1,17 @@
+// Copyright (C) 2026 The OpenEverest Contributors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 import {
   createPodSchedulingPolicy,
   createPodSchedulingPolicyWithValues,
@@ -14,6 +28,7 @@ import {
   populateBasicInformation,
   submitWizard,
 } from '@e2e/utils/db-wizard';
+import { clickAddDbClusterBtn } from '@e2e/pr/db-cluster/db-wizard/db-wizard-utils';
 import { deleteDbCluster } from '@e2e/utils/db-clusters-list';
 import { waitForDelete, waitForStatus } from '@e2e/utils/table';
 import { CI_USER_STORAGE_STATE_FILE } from '@e2e/constants';
@@ -167,9 +182,7 @@ test.describe('Pod scheduling policies RBAC', () => {
       ['database-clusters', '*', '*/*'],
     ]);
     await page.goto('/databases');
-    await page.getByTestId('add-db-cluster-button').waitFor();
-    await page.getByTestId('add-db-cluster-button').click();
-    await page.getByTestId('add-db-cluster-button-pxc').click();
+    await clickAddDbClusterBtn(page, 'pxc');
     await populateBasicInformation(
       page,
       namespace,
