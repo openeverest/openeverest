@@ -15,7 +15,12 @@
 // Package events defines the plugin-facing lifecycle event model.
 package events
 
-import "time"
+import (
+	"fmt"
+	"strconv"
+	"strings"
+	"time"
+)
 
 // Type identifies the kind of lifecycle event.
 type Type string
@@ -84,6 +89,15 @@ type Actor struct {
 
 // Event is the normalised envelope streamed to plugins.
 type Event struct {
+	// Seq is a monotonic counter the Hub assigns to every event as it's
+	// broadcast, regardless of source. Unlike ResourceVersion, it's always
+	// set, so it's the one cursor value that covers direct-publish events
+	// (UserLogin, SettingsUpdated, ...) too. See Epoch and Cursor.
+	Seq uint64 `json:"seq"`
+	// Epoch identifies the Hub instance that assigned Seq. It's generated
+	// once when the Hub starts, so a Seq from a previous process is never
+	// mistaken for one from this one after a restart.
+	Epoch           string        `json:"epoch"`
 	ResourceVersion string        `json:"resourceVersion"`
 	Type            Type          `json:"type"`
 	OccurredAt      time.Time     `json:"occurredAt"`
@@ -92,4 +106,34 @@ type Event struct {
 	PrevState       StateSnapshot `json:"prevState,omitempty"`
 	NewState        StateSnapshot `json:"newState,omitempty"`
 	Actor           Actor         `json:"actor,omitempty"`
+}
+
+// Cursor is a subscriber's position in the event stream: the last Seq it
+// has seen, scoped to the Epoch it came from. It travels over the wire as
+// a single opaque string (see ParseCursor / String), so clients only ever
+// need to persist one value instead of tracking ResourceVersion and Seq
+// separately.
+type Cursor struct {
+	Epoch string
+	Seq   uint64
+}
+
+// String encodes the cursor to its wire form: "<epoch>:<seq>".
+func (c Cursor) String() string {
+	return c.Epoch + ":" + strconv.FormatUint(c.Seq, 10)
+}
+
+// ParseCursor decodes the "<epoch>:<seq>" wire form used by the `since`
+// query param. A parse error should be treated the same as an epoch
+// mismatch by the caller: the cursor can't be trusted, so resync (410).
+func ParseCursor(raw string) (Cursor, error) {
+	epoch, seqStr, ok := strings.Cut(raw, ":")
+	if !ok {
+		return Cursor{}, fmt.Errorf("invalid cursor %q: missing ':' separator", raw)
+	}
+	seq, err := strconv.ParseUint(seqStr, 10, 64)
+	if err != nil {
+		return Cursor{}, fmt.Errorf("invalid cursor %q: %w", raw, err)
+	}
+	return Cursor{Epoch: epoch, Seq: seq}, nil
 }
