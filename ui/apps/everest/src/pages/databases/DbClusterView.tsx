@@ -17,18 +17,12 @@
 import { Box, Card, CardContent, CardHeader, Stack } from '@mui/material';
 import { PendingIcon, Table } from '@percona/ui-lib';
 import StatusField from 'components/status-field';
-import { useNamespaces } from 'hooks/api/namespaces/useNamespaces';
-import { useProviders } from 'hooks/api/providers/useProviders';
 import { type MRT_ColumnDef } from 'material-react-table';
 import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useInstancesForNamespaces } from 'hooks/api/db-instances/useDbInstanceList';
-import {
-  beautifyDbInstanceStatus,
-  convertDbInstancesPayloadToTableFormat,
-} from './DbClusterView.utils';
+import { beautifyDbInstanceStatus } from './DbClusterView.utils';
 import { InstanceTableElement } from './dbClusterView.types';
-import CreateDbButton from 'components/create-db-button/create-db-button';
+import { CreateDbButton } from 'components/create-db-button';
 import EmptyStateDatabases from 'components/empty-state-databases/empty-state-databases';
 import EmptyStateNamespaces from 'components/empty-state-namespaces/empty-state-namespaces';
 import { DB_INSTANCE_STATUS_TO_BASE_STATUS } from './DbClusterView.constants';
@@ -40,47 +34,18 @@ import {
 import { usePlugins } from 'contexts/plugins';
 import type { GlobalDashboardWidgetExtension } from '@openeverest/plugin-sdk';
 import PluginErrorBoundary from 'components/plugin-host/PluginErrorBoundary';
+import LoadingPageSkeleton from 'components/loading-page-skeleton/LoadingPageSkeleton';
+import { useDatabasesView } from './hooks/useDatabasesView';
 
 export const DbClusterView = () => {
-  const { data: namespaces = [], isLoading: loadingNamespaces } = useNamespaces(
-    {
-      refetchInterval: 10 * 1000,
-    }
-  );
-
   const navigate = useNavigate();
-  const { data: providers = [] } = useProviders();
-  const hasAvailableProviders = providers.length > 0;
-  const providersNamesFilter = providers.reduce<
-    { text: string; value: string }[]
-  >((acc, p) => {
-    const name = p.metadata?.name;
-    if (name) acc.push({ text: name, value: name });
-    return acc;
-  }, []);
-
-  // TODO RBAC
-  // const { canCreate } = useNamespacePermissionsForResource('database-instances');
-
-  // const canAddCluster = canCreate.length > 0 && hasAvailableProviders;
-  const canAddCluster = hasAvailableProviders;
-
-  // TODO uncomment when providerImporters will be ready
-  // const { data: availableEnginesForImport } = useDataImporters();
-
-  const instancesResults = useInstancesForNamespaces(
-    namespaces.map((ns) => ({
-      namespace: ns,
-    }))
-  );
-  const instancesLoading = instancesResults.some(
-    (result) => result.queryResult.isLoading
-  );
-
-  const tableData = useMemo(
-    () => convertDbInstancesPayloadToTableFormat(instancesResults),
-    [instancesResults]
-  );
+  const {
+    state,
+    namespaces,
+    providersNamesFilter,
+    hasCreatePermission,
+    canAddCluster,
+  } = useDatabasesView();
 
   const columns = useMemo<MRT_ColumnDef<InstanceTableElement>[]>(
     () => [
@@ -191,6 +156,10 @@ export const DbClusterView = () => {
     [plugins]
   );
 
+  if (state.status === 'loading') {
+    return <LoadingPageSkeleton />;
+  }
+
   return (
     <Stack
       direction="column"
@@ -236,70 +205,60 @@ export const DbClusterView = () => {
         </Box>
       )}
       <Box sx={{ width: '100%' }}>
-        <Table
-          getRowId={(row) => row.instanceName}
-          tableName="dbClusterView"
-          emptyState={
-            namespaces.length > 0 ? (
-              <EmptyStateDatabases
-                showCreationButton={canAddCluster}
-                hasCreatePermission={canAddCluster}
-              />
-            ) : (
-              <EmptyStateNamespaces />
-            )
-          }
-          state={{ isLoading: instancesLoading || loadingNamespaces }}
-          columns={columns}
-          data={tableData}
-          enableRowActions
-          renderRowActions={({ row }) => {
-            return (
-              <DbActions dbInstance={row.original.raw} showDetailsAction />
-            );
-          }}
-          muiTableBodyRowProps={({ row, isDetailPanel }) => ({
-            onClick: (e) => {
-              if (
-                !isDetailPanel &&
-                e.currentTarget.contains(e.target as Node)
-              ) {
-                navigate(
-                  `/databases/${row.original.namespace}/${row.original.instanceName}/overview`
-                );
-              }
-            },
-            sx: {
-              ...(!isDetailPanel && {
-                cursor: 'pointer', // you might want to change the cursor too when adding an onClick
-              }),
-            },
-          })}
-          enableRowHoverAction
-          rowHoverAction={(row) =>
-            navigate(
-              `/databases/${row.original.namespace}/${row.original.instanceName}/overview`
-            )
-          }
-          renderTopToolbarCustomActions={() =>
-            canAddCluster &&
-            tableData.length > 0 && (
-              <Box
-                sx={{
-                  display: 'flex',
-                  mb: 1,
-                }}
-              >
-                {/*TODO uncomment when providerImporters will be ready */}
-                {/* {(availableEnginesForImport?.items || []).length > 0 && (
-                  <CreateDbButton createFromImport />
-                )} */}
-                <CreateDbButton />
-              </Box>
-            )
-          }
-          hideExpandAllIcon
-        />
+        {state.status === 'no-namespaces' ? (
+          <EmptyStateNamespaces />
+        ) : state.status === 'empty' ? (
+          <EmptyStateDatabases hasCreatePermission={hasCreatePermission} />
+        ) : (
+          <Table
+            getRowId={(row) => row.instanceName}
+            tableName="dbClusterView"
+            state={{ isLoading: false }}
+            columns={columns}
+            data={state.rows}
+            enableRowActions
+            renderRowActions={({ row }) => {
+              return (
+                <DbActions dbInstance={row.original.raw} showDetailsAction />
+              );
+            }}
+            muiTableBodyRowProps={({ row, isDetailPanel }) => ({
+              onClick: (e) => {
+                if (
+                  !isDetailPanel &&
+                  e.currentTarget.contains(e.target as Node)
+                ) {
+                  navigate(
+                    `/databases/${row.original.namespace}/${row.original.instanceName}/overview`
+                  );
+                }
+              },
+              sx: {
+                ...(!isDetailPanel && {
+                  cursor: 'pointer', // you might want to change the cursor too when adding an onClick
+                }),
+              },
+            })}
+            enableRowHoverAction
+            rowHoverAction={(row) =>
+              navigate(
+                `/databases/${row.original.namespace}/${row.original.instanceName}/overview`
+              )
+            }
+            renderTopToolbarCustomActions={() =>
+              canAddCluster && (
+                <Box display="flex" mb={1}>
+                  {/*TODO uncomment when providerImporters will be ready */}
+                  {/* {(availableEnginesForImport?.items || []).length > 0 && (
+                    <CreateDbButton createFromImport />
+                  )} */}
+                  <CreateDbButton />
+                </Box>
+              )
+            }
+            hideExpandAllIcon
+          />
+        )}
       </Box>
     </Stack>
   );

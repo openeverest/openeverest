@@ -151,10 +151,18 @@ test.describe.parallel('DB cluster wizard creation', () => {
           // We return to databases page to choose other db
           await goToUrl(page, '/databases');
 
-          await page
-            .getByTestId('add-db-cluster-button')
-            .waitFor({ timeout: TIMEOUTS.TenSeconds });
-          await page.getByTestId('add-db-cluster-button').click();
+          // In the populated-list UI we need to re-open the drawer to expose
+          // the per-engine menu items captured in `dbEnginesButtons`. In the
+          // empty-state tile UI the tiles are rendered directly, so the
+          // toolbar button is absent and no re-click is needed.
+          const toolbarBtn = page.getByTestId('add-db-cluster-button');
+          if (
+            await toolbarBtn
+              .isVisible({ timeout: TIMEOUTS.TenSeconds })
+              .catch(() => false)
+          ) {
+            await toolbarBtn.click();
+          }
         });
       });
     }
