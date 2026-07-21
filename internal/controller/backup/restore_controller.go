@@ -415,7 +415,7 @@ func (r *RestoreReconciler) ensurePayloadSecret(
 	}
 
 	// Read connection details from the Instance's ConnectionSecretRef.
-	if instance.Status.ConnectionSecretRef.Name != "" {
+	if instance.Status.ConnectionSecretRef != nil && instance.Status.ConnectionSecretRef.Name != "" {
 		connSecret := &corev1.Secret{}
 		if err := r.Client.Get(ctx, client.ObjectKey{
 			Name:      instance.Status.ConnectionSecretRef.Name,

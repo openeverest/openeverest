@@ -416,7 +416,7 @@ type InstanceStatus struct {
 	//   - "uri"      - Full connection URI including credentials
 	//
 	// +optional
-	ConnectionSecretRef common.SecretRef `json:"connectionSecretRef,omitempty"`
+	ConnectionSecretRef *common.SecretRef `json:"connectionSecretRef,omitempty"`
 	// Components is the status of the components in the database cluster.
 	Components []ComponentStatus `json:"components,omitempty"`
 

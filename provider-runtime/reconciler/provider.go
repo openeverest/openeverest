@@ -35,6 +35,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
+	commonv1alpha1 "github.com/openeverest/openeverest/v2/api/common/v1alpha1"
 	"github.com/openeverest/openeverest/v2/api/core/v1alpha1"
 	"github.com/openeverest/openeverest/v2/provider-runtime/controller"
 	"github.com/openeverest/openeverest/v2/provider-runtime/server"
@@ -686,7 +687,7 @@ func (r *ProviderReconciler) reconcileConnectionSecret(
 		return fmt.Errorf("failed to create or update connection secret: %w", err)
 	}
 
-	in.Status.ConnectionSecretRef.Name = secretName
+	in.Status.ConnectionSecretRef = &commonv1alpha1.SecretRef{Name: secretName}
 	setCondition(in, v1alpha1.ConditionConnectionDetailsReady, metav1.ConditionTrue,
 		"Available", "Connection details are available in Secret "+secretName, now)
 
