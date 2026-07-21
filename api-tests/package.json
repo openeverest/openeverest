@@ -22,7 +22,7 @@
     "@types/node": "^25.9.3",
     "@types/shelljs": "^0.10.0",
     "eslint": "^10.5.0",
-    "globals": "^17.6.0",
+    "globals": "^17.7.0",
     "openapi-typescript": "^7.13.0"
   },
   "dependencies": {
