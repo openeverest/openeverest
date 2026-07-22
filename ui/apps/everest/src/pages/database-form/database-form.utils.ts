@@ -148,13 +148,13 @@ export const DbClusterPayloadToFormValues = (
   );
   const nodeMemoryLimit = memoryParser(
     extractResourceMemoryValue(engineResources).toString(),
-    'G'
+    'Gi'
   ).value;
   const proxyCpuLimit = proxyResources
     ? cpuParser(extractResourceCpuValue(proxyResources).toString())
     : 0;
   const proxyMemoryLimit = proxyResources
-    ? memoryParser(extractResourceMemoryValue(proxyResources).toString(), 'G')
+    ? memoryParser(extractResourceMemoryValue(proxyResources).toString(), 'Gi')
         .value
     : 0;
 
@@ -171,7 +171,7 @@ export const DbClusterPayloadToFormValues = (
       : undefined;
   const nodeMemoryRequest =
     rawNodeMemoryRequest !== undefined
-      ? memoryParser(rawNodeMemoryRequest.toString(), 'G').value
+      ? memoryParser(rawNodeMemoryRequest.toString(), 'Gi').value
       : undefined;
   const proxyCpuRequest =
     rawProxyCpuRequest !== undefined
@@ -179,7 +179,7 @@ export const DbClusterPayloadToFormValues = (
       : undefined;
   const proxyMemoryRequest =
     rawProxyMemoryRequest !== undefined
-      ? memoryParser(rawProxyMemoryRequest.toString(), 'G').value
+      ? memoryParser(rawProxyMemoryRequest.toString(), 'Gi').value
       : undefined;
 
   // Requests are "synced" with limits when they are absent or identical to the

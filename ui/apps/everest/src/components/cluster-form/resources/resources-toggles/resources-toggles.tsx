@@ -273,11 +273,11 @@ const ResourcesToggles = ({
           label="MEMORY limit"
           helperText={checkResourceText(
             resourcesInfo?.available?.memoryBytes,
-            'GB',
+            'Gi',
             'memory',
             memoryCapacityExceeded
           )}
-          endSuffix="GB"
+          endSuffix="Gi"
           numberOfUnits={intNumberOfUnits}
         />
 

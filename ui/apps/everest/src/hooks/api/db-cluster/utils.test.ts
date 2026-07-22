@@ -29,8 +29,8 @@ describe('getProxySpec', () => {
       false
     );
 
-    expect(proxy.resources?.limits).toEqual({ cpu: '1', memory: '2G' });
-    expect(proxy.resources?.requests).toEqual({ cpu: '1', memory: '2G' });
+    expect(proxy.resources?.limits).toEqual({ cpu: '1', memory: '2Gi' });
+    expect(proxy.resources?.requests).toEqual({ cpu: '1', memory: '2Gi' });
   });
 
   it('uses explicit request values when provided', () => {
@@ -46,8 +46,8 @@ describe('getProxySpec', () => {
       2
     );
 
-    expect(proxy.resources?.limits).toEqual({ cpu: '2', memory: '4G' });
-    expect(proxy.resources?.requests).toEqual({ cpu: '1', memory: '2G' });
+    expect(proxy.resources?.limits).toEqual({ cpu: '2', memory: '4Gi' });
+    expect(proxy.resources?.requests).toEqual({ cpu: '1', memory: '2Gi' });
   });
 
   it('omits requests when omitRequests is true', () => {
@@ -68,7 +68,7 @@ describe('getProxySpec', () => {
       true
     );
 
-    expect(proxy.resources?.limits).toEqual({ cpu: '1', memory: '2G' });
+    expect(proxy.resources?.limits).toEqual({ cpu: '1', memory: '2Gi' });
     expect(proxy.resources?.requests).toBeUndefined();
   });
 

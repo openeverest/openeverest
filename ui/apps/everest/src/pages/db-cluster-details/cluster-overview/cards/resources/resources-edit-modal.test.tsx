@@ -25,7 +25,7 @@ describe('ResourcesEditModal', () => {
             proxyCpu: 1,
             proxyMemory: 1,
             diskUnit: 'Gi',
-            memoryUnit: 'GB',
+            memoryUnit: 'Gi',
             resourceSizePerNode: ResourceSize.custom,
             resourceSizePerProxy: ResourceSize.custom,
           }}
@@ -68,7 +68,7 @@ describe('ResourcesEditModal', () => {
             proxyCpu: 1,
             proxyMemory: 1,
             diskUnit: 'Gi',
-            memoryUnit: 'GB',
+            memoryUnit: 'Gi',
             resourceSizePerNode: ResourceSize.custom,
             resourceSizePerProxy: ResourceSize.custom,
           }}
@@ -107,7 +107,7 @@ describe('ResourcesEditModal', () => {
             proxyCpu: 1,
             proxyMemory: 1,
             diskUnit: 'Gi',
-            memoryUnit: 'GB',
+            memoryUnit: 'Gi',
             resourceSizePerNode: ResourceSize.custom,
             resourceSizePerProxy: ResourceSize.custom,
           }}
@@ -151,7 +151,7 @@ describe('ResourcesEditModal', () => {
             proxyCpu: 1,
             proxyMemory: 1,
             diskUnit: 'Gi',
-            memoryUnit: 'GB',
+            memoryUnit: 'Gi',
             resourceSizePerNode: ResourceSize.custom,
             resourceSizePerProxy: ResourceSize.custom,
           }}
@@ -192,7 +192,7 @@ describe('ResourcesEditModal', () => {
             proxyCpu: 1,
             proxyMemory: 1,
             diskUnit: 'Gi',
-            memoryUnit: 'GB',
+            memoryUnit: 'Gi',
             resourceSizePerNode: ResourceSize.custom,
             resourceSizePerProxy: ResourceSize.custom,
           }}

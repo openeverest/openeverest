@@ -122,7 +122,7 @@ describe('DatabasePreview', () => {
     expect(within(nodesTable).getByText('3 nodes:')).toBeInTheDocument();
     expect(
       within(nodesTable).getByTestId('nodes-resources-table-limits-line')
-    ).toHaveTextContent('Limits & Requests: CPU: 3.00 CPU; Memory: 6.00 GB');
+    ).toHaveTextContent('Limits & Requests: CPU: 3.00 CPU; Memory: 6.00 Gi');
     expect(within(nodesTable).getByText('Disk: 90.00 Gi')).toBeInTheDocument();
     expect(
       within(nodesTable).getByTestId('nodes-resources-table-sync-icon')

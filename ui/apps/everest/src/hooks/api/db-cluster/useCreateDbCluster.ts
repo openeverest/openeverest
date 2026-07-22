@@ -102,11 +102,11 @@ const formValuesToPayloadMapping = (
         resources: {
           limits: {
             cpu: `${dbPayload.cpu}`,
-            memory: `${dbPayload.memory}G`,
+            memory: `${dbPayload.memory}Gi`,
           },
           requests: {
             cpu: `${dbPayload.cpuRequests ?? dbPayload.cpu}`,
-            memory: `${dbPayload.memoryRequests ?? dbPayload.memory}G`,
+            memory: `${dbPayload.memoryRequests ?? dbPayload.memory}Gi`,
           },
         },
         storage: {

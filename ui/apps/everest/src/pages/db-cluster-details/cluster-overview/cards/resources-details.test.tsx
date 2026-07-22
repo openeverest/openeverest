@@ -76,7 +76,7 @@ describe('ResourcesDetails - legacy clusters', () => {
   ])(
     'shows a single value for legacy %s because requests are synced with limits',
     (_engineName, engineType) => {
-      renderCard(makeLegacyCluster(engineType, { cpu: '2', memory: '4G' }));
+      renderCard(makeLegacyCluster(engineType, { cpu: '2', memory: '4Gi' }));
 
       // Legacy clusters are treated as if limits and requests were equal, so
       // the card shows a single value (no "limit / request" slash) for every
@@ -86,7 +86,7 @@ describe('ResourcesDetails - legacy clusters', () => {
       expect(cpuRow).not.toHaveTextContent('/');
 
       const memoryRow = screen.getByTestId('memory-overview-section-row');
-      expect(memoryRow).toHaveTextContent(/4\s*GB/);
+      expect(memoryRow).toHaveTextContent(/4\s*Gi/);
       expect(memoryRow).not.toHaveTextContent('/');
     }
   );

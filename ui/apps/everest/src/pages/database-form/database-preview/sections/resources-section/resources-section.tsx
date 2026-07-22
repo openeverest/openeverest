@@ -95,10 +95,10 @@ export const ResourcesPreviewSection = ({
     },
     {
       label: 'Memory',
-      limit: formatResourceValue(parsedMemory, 'GB', nodesShardMultiplier),
+      limit: formatResourceValue(parsedMemory, 'Gi', nodesShardMultiplier),
       request: formatResourceValue(
         parsedMemoryRequests,
-        'GB',
+        'Gi',
         nodesShardMultiplier
       ),
     },
@@ -117,8 +117,8 @@ export const ResourcesPreviewSection = ({
     },
     {
       label: 'Memory',
-      limit: formatResourceValue(parsedProxyMemory, 'GB'),
-      request: formatResourceValue(parsedProxyMemoryRequests, 'GB'),
+      limit: formatResourceValue(parsedProxyMemory, 'Gi'),
+      request: formatResourceValue(parsedProxyMemoryRequests, 'Gi'),
     },
   ];
 

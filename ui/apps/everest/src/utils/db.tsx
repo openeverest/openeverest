@@ -892,14 +892,14 @@ export const changeDbClusterResources = (
         resources: {
           limits: {
             cpu: `${newResources.cpu}`,
-            memory: `${newResources.memory}G`,
+            memory: `${newResources.memory}Gi`,
           },
           ...(omitEngineRequests
             ? {}
             : {
                 requests: {
                   cpu: `${newResources.cpuRequests ?? newResources.cpu}`,
-                  memory: `${newResources.memoryRequests ?? newResources.memory}G`,
+                  memory: `${newResources.memoryRequests ?? newResources.memory}Gi`,
                 },
               }),
         },

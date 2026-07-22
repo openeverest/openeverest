@@ -100,8 +100,8 @@ export const ResourcesDetails = ({
     : true;
   const disk = dbCluster.spec.engine.storage.size;
   const parsedDiskValues = memoryParser(disk.toString());
-  const parsedMemoryValues = memoryParser(memory.toString(), 'G');
-  const parsedProxyMemoryValues = memoryParser(proxyMemory.toString(), 'G');
+  const parsedMemoryValues = memoryParser(memory.toString(), 'Gi');
+  const parsedProxyMemoryValues = memoryParser(proxyMemory.toString(), 'Gi');
   const dbType = dbEngineToDbType(dbCluster.spec.engine.type);
   const replicas = dbCluster.spec.engine.replicas.toString();
   const proxies = isProxy(dbCluster.spec.proxy)
@@ -250,13 +250,13 @@ export const ResourcesDetails = ({
                   label: Messages.fields.memory,
                   limit: getResourcesDetailedString(
                     parsedMemoryValues.value,
-                    'GB'
+                    'Gi'
                   ),
                   request:
                     memoryRequests !== undefined
                       ? getResourcesDetailedString(
-                          memoryParser(memoryRequests.toString(), 'G').value,
-                          'GB'
+                          memoryParser(memoryRequests.toString(), 'Gi').value,
+                          'Gi'
                         )
                       : undefined,
                 },
@@ -300,15 +300,15 @@ export const ResourcesDetails = ({
                     limit: getTotalResourcesDetailedString(
                       parsedProxyMemoryValues.value,
                       parseInt(proxies, 10),
-                      'GB'
+                      'Gi'
                     ),
                     request:
                       proxyMemoryRequests !== undefined
                         ? getTotalResourcesDetailedString(
-                            memoryParser(proxyMemoryRequests.toString(), 'G')
+                            memoryParser(proxyMemoryRequests.toString(), 'Gi')
                               .value,
                             parseInt(proxies, 10),
-                            'GB'
+                            'Gi'
                           )
                         : undefined,
                   },
@@ -335,20 +335,20 @@ export const ResourcesDetails = ({
               : cpuParser((cpuRequests ?? cpu).toString() || '0'),
             disk: parsedDiskValues.value,
             diskUnit: parsedDiskValues.originalUnit,
-            memory: memoryParser(memory.toString(), 'G').value,
+            memory: memoryParser(memory.toString(), 'Gi').value,
             memoryRequests: nodeRequestsSynced
-              ? memoryParser(memory.toString(), 'G').value
-              : memoryParser((memoryRequests ?? memory).toString(), 'G').value,
+              ? memoryParser(memory.toString(), 'Gi').value
+              : memoryParser((memoryRequests ?? memory).toString(), 'Gi').value,
             proxyCpu: cpuParser(proxyCpu.toString() || '0'),
             proxyCpuRequests: proxyRequestsSynced
               ? cpuParser(proxyCpu.toString() || '0')
               : cpuParser((proxyCpuRequests ?? proxyCpu).toString() || '0'),
-            proxyMemory: memoryParser(proxyMemory.toString(), 'G').value,
+            proxyMemory: memoryParser(proxyMemory.toString(), 'Gi').value,
             proxyMemoryRequests: proxyRequestsSynced
-              ? memoryParser(proxyMemory.toString(), 'G').value
+              ? memoryParser(proxyMemory.toString(), 'Gi').value
               : memoryParser(
                   (proxyMemoryRequests ?? proxyMemory).toString(),
-                  'G'
+                  'Gi'
                 ).value,
             [DbWizardFormFields.nodeRequestsSynced]: nodeRequestsSynced,
             [DbWizardFormFields.proxyRequestsSynced]: proxyRequestsSynced,

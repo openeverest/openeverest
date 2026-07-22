@@ -64,9 +64,9 @@ export const matchFieldsValueToResourceSize = (
     return ResourceSize.custom;
   }
 
-  const memory = memoryParser(extractedMemory.toString(), 'G');
+  const memory = memoryParser(extractedMemory.toString(), 'Gi');
   const res = Object.values(sizes).findIndex((item) => {
-    const sizeParsedMemory = memoryParser(item.memory.toString(), 'G');
+    const sizeParsedMemory = memoryParser(item.memory.toString(), 'Gi');
     return (
       cpuParser(item.cpu.toString()) === cpuParser(extractedCpu.toString()) &&
       sizeParsedMemory.value === memory.value

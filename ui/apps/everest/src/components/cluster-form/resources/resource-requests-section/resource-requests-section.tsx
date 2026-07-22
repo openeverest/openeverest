@@ -101,8 +101,8 @@ const ResourceRequestsSection = ({
               unitPlural={unitPlural}
               name={memoryInputName}
               label="Memory request"
-              helperText={Messages.requestCeiling(memoryLimit, 'GB')}
-              endSuffix="GB"
+              helperText={Messages.requestCeiling(memoryLimit, 'Gi')}
+              endSuffix="Gi"
               numberOfUnits={intNumberOfUnits}
               disableTopMargin
             />

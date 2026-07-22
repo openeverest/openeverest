@@ -146,7 +146,7 @@ export const areResourceRequestsSynced = (resources?: Resources): boolean => {
   const cpuLimit = cpuParser(extractResourceCpuValue(resources).toString());
   const memoryLimit = memoryParser(
     extractResourceMemoryValue(resources).toString(),
-    'G'
+    'Gi'
   ).value;
 
   const rawCpuRequest = extractResourceCpuRequestValue(resources);
@@ -159,7 +159,7 @@ export const areResourceRequestsSynced = (resources?: Resources): boolean => {
   const memorySynced =
     rawMemoryRequest === undefined ||
     Math.abs(
-      memoryParser(rawMemoryRequest.toString(), 'G').value - memoryLimit
+      memoryParser(rawMemoryRequest.toString(), 'Gi').value - memoryLimit
     ) < RESOURCE_COMPARISON_EPSILON;
 
   return cpuSynced && memorySynced;

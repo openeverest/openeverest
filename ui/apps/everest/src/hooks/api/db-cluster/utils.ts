@@ -81,14 +81,14 @@ export const getProxySpec = (
     resources: {
       limits: {
         cpu: `${cpu}`,
-        memory: `${memory}G`,
+        memory: `${memory}Gi`,
       },
       ...(omitRequests
         ? {}
         : {
             requests: {
               cpu: `${cpuRequests ?? cpu}`,
-              memory: `${memoryRequests ?? memory}G`,
+              memory: `${memoryRequests ?? memory}Gi`,
             },
           }),
     },

@@ -649,7 +649,7 @@ describe('changeDbClusterResources', () => {
         proxy: {
           type: 'haproxy',
           replicas: 1,
-          resources: { cpu: '1', memory: '2G' },
+          resources: { cpu: '1', memory: '2Gi' },
           expose: { type: 'internal' },
         },
       },
@@ -669,7 +669,7 @@ describe('changeDbClusterResources', () => {
   it('omits engine requests for a legacy cluster when requests stay synced', () => {
     const cluster = makeCluster(DbEngineType.PSMDB, {
       cpu: '2',
-      memory: '4G',
+      memory: '4Gi',
     });
 
     const result = changeDbClusterResources(cluster, {
@@ -680,7 +680,7 @@ describe('changeDbClusterResources', () => {
 
     expect(result.spec.engine.resources?.limits).toEqual({
       cpu: '2',
-      memory: '4G',
+      memory: '4Gi',
     });
     expect(result.spec.engine.resources?.requests).toBeUndefined();
   });
@@ -688,7 +688,7 @@ describe('changeDbClusterResources', () => {
   it('keeps limits only for a legacy cluster when the user toggles requests back to synced after prefilling them', () => {
     const cluster = makeCluster(DbEngineType.PSMDB, {
       cpu: '2',
-      memory: '4G',
+      memory: '4Gi',
     });
 
     // Simulates the user turning the sync toggle off (fields get prefilled with
@@ -706,7 +706,7 @@ describe('changeDbClusterResources', () => {
 
     expect(result.spec.engine.resources?.limits).toEqual({
       cpu: '2',
-      memory: '4G',
+      memory: '4Gi',
     });
     expect(result.spec.engine.resources?.requests).toBeUndefined();
   });
@@ -714,7 +714,7 @@ describe('changeDbClusterResources', () => {
   it('writes engine requests for a legacy cluster when requests are desynced', () => {
     const cluster = makeCluster(DbEngineType.PSMDB, {
       cpu: '2',
-      memory: '4G',
+      memory: '4Gi',
     });
 
     const result = changeDbClusterResources(cluster, {
@@ -727,14 +727,14 @@ describe('changeDbClusterResources', () => {
 
     expect(result.spec.engine.resources?.requests).toEqual({
       cpu: '1',
-      memory: '2G',
+      memory: '2Gi',
     });
   });
 
   it('writes engine requests for a non-legacy cluster even when synced', () => {
     const cluster = makeCluster(DbEngineType.PSMDB, {
-      limits: { cpu: '2', memory: '4G' },
-      requests: { cpu: '2', memory: '4G' },
+      limits: { cpu: '2', memory: '4Gi' },
+      requests: { cpu: '2', memory: '4Gi' },
     });
 
     const result = changeDbClusterResources(cluster, {
@@ -745,7 +745,7 @@ describe('changeDbClusterResources', () => {
 
     expect(result.spec.engine.resources?.requests).toEqual({
       cpu: '2',
-      memory: '4G',
+      memory: '4Gi',
     });
   });
 
@@ -756,7 +756,7 @@ describe('changeDbClusterResources', () => {
     const cluster = makeCluster(DbEngineType.PSMDB, {
       cpu: '0',
       memory: '0',
-      limits: { cpu: '2', memory: '4G' },
+      limits: { cpu: '2', memory: '4Gi' },
     });
 
     const result = changeDbClusterResources(cluster, {
@@ -767,7 +767,7 @@ describe('changeDbClusterResources', () => {
 
     expect(result.spec.engine.resources?.limits).toEqual({
       cpu: '2',
-      memory: '4G',
+      memory: '4Gi',
     });
     expect(result.spec.engine.resources?.requests).toBeUndefined();
   });
@@ -775,7 +775,7 @@ describe('changeDbClusterResources', () => {
   it('omits proxy requests for a legacy proxy when requests stay synced', () => {
     const cluster = makeCluster(DbEngineType.POSTGRESQL, {
       cpu: '2',
-      memory: '4G',
+      memory: '4Gi',
     });
 
     const result = changeDbClusterResources(cluster, {
@@ -789,20 +789,20 @@ describe('changeDbClusterResources', () => {
     });
 
     const proxy = result.spec.proxy as Proxy;
-    expect(proxy.resources?.limits).toEqual({ cpu: '1', memory: '2G' });
+    expect(proxy.resources?.limits).toEqual({ cpu: '1', memory: '2Gi' });
     expect(proxy.resources?.requests).toBeUndefined();
   });
 
   it('keeps limits only when re-saving a limits-only proxy while synced', () => {
     const cluster = makeCluster(DbEngineType.POSTGRESQL, {
       cpu: '2',
-      memory: '4G',
+      memory: '4Gi',
     });
     // The proxy was already saved with limits only (no explicit requests).
     (cluster.spec.proxy as Proxy).resources = {
       cpu: '0',
       memory: '0',
-      limits: { cpu: '1', memory: '2G' },
+      limits: { cpu: '1', memory: '2Gi' },
     } as Proxy['resources'];
 
     const result = changeDbClusterResources(cluster, {
@@ -814,14 +814,14 @@ describe('changeDbClusterResources', () => {
     });
 
     const proxy = result.spec.proxy as Proxy;
-    expect(proxy.resources?.limits).toEqual({ cpu: '1', memory: '2G' });
+    expect(proxy.resources?.limits).toEqual({ cpu: '1', memory: '2Gi' });
     expect(proxy.resources?.requests).toBeUndefined();
   });
 
   it('writes proxy requests for a legacy proxy when requests are desynced', () => {
     const cluster = makeCluster(DbEngineType.PXC, {
       cpu: '2',
-      memory: '4G',
+      memory: '4Gi',
     });
 
     const result = changeDbClusterResources(cluster, {
@@ -833,18 +833,18 @@ describe('changeDbClusterResources', () => {
     });
 
     const proxy = result.spec.proxy as Proxy;
-    expect(proxy.resources?.requests).toEqual({ cpu: '1', memory: '2G' });
+    expect(proxy.resources?.requests).toEqual({ cpu: '1', memory: '2Gi' });
   });
 
   it('writes proxy requests for a non-legacy proxy even when synced', () => {
     const cluster = makeCluster(DbEngineType.PXC, {
       cpu: '2',
-      memory: '4G',
+      memory: '4Gi',
     });
     // Promote the proxy to the new format so it is no longer legacy.
     (cluster.spec.proxy as Proxy).resources = {
-      limits: { cpu: '1', memory: '2G' },
-      requests: { cpu: '1', memory: '2G' },
+      limits: { cpu: '1', memory: '2Gi' },
+      requests: { cpu: '1', memory: '2Gi' },
     };
 
     const result = changeDbClusterResources(cluster, {
@@ -854,7 +854,7 @@ describe('changeDbClusterResources', () => {
     });
 
     const proxy = result.spec.proxy as Proxy;
-    expect(proxy.resources?.requests).toEqual({ cpu: '1', memory: '2G' });
+    expect(proxy.resources?.requests).toEqual({ cpu: '1', memory: '2Gi' });
   });
 
   it('always writes engine requests for a legacy PXC cluster even when synced', () => {
@@ -863,7 +863,7 @@ describe('changeDbClusterResources', () => {
     // effective resource configuration intact.
     const cluster = makeCluster(DbEngineType.PXC, {
       cpu: '2',
-      memory: '4G',
+      memory: '4Gi',
     });
 
     const result = changeDbClusterResources(cluster, {
@@ -874,18 +874,18 @@ describe('changeDbClusterResources', () => {
 
     expect(result.spec.engine.resources?.limits).toEqual({
       cpu: '2',
-      memory: '4G',
+      memory: '4Gi',
     });
     expect(result.spec.engine.resources?.requests).toEqual({
       cpu: '2',
-      memory: '4G',
+      memory: '4Gi',
     });
   });
 
   it('always writes proxy requests for a legacy PXC proxy even when synced', () => {
     const cluster = makeCluster(DbEngineType.PXC, {
       cpu: '2',
-      memory: '4G',
+      memory: '4Gi',
     });
 
     const result = changeDbClusterResources(cluster, {
@@ -895,7 +895,7 @@ describe('changeDbClusterResources', () => {
     });
 
     const proxy = result.spec.proxy as Proxy;
-    expect(proxy.resources?.limits).toEqual({ cpu: '1', memory: '2G' });
-    expect(proxy.resources?.requests).toEqual({ cpu: '1', memory: '2G' });
+    expect(proxy.resources?.limits).toEqual({ cpu: '1', memory: '2Gi' });
+    expect(proxy.resources?.requests).toEqual({ cpu: '1', memory: '2Gi' });
   });
 });
