@@ -126,6 +126,17 @@ const (
 	// FlagProviderContext overrides the active context for this command.
 	FlagProviderContext = "context"
 
+	// `backup` flags.
+
+	// FlagBackupNamespace is the name of the namespace flag.
+	FlagBackupNamespace = "namespace"
+	// FlagBackupInstance is the name of the instance flag.
+	FlagBackupInstance = "instance"
+	// FlagBackupCluster is the name of the cluster flag.
+	FlagBackupCluster = "cluster"
+	// FlagBackupContext overrides the active context for this command.
+	FlagBackupContext = "context"
+
 	// `backup-storage` flags.
 
 	// FlagBackupStorageNamespace is the name of the namespace flag.
