@@ -35,10 +35,12 @@ import (
 	authcli "github.com/openeverest/openeverest/v2/pkg/cli/auth"
 )
 
+// Config holds the shared configuration for backup CLI runners.
 type Config struct {
 	Pretty bool
 }
 
+// ListOptions holds the inputs for the list command.
 type ListOptions struct {
 	Namespace string
 	Instance  string
@@ -46,12 +48,13 @@ type ListOptions struct {
 	Context   string
 }
 
+// ListRunner lists backups via the Everest API.
 type ListRunner struct {
 	config Config
 	l      *zap.SugaredLogger
 }
 
-
+// NewListRunner creates a new ListRunner.
 func NewListRunner(cfg Config, l *zap.SugaredLogger) *ListRunner {
 	bl := &ListRunner{config: cfg, l: l.With("component", "backup-list")}
 	if cfg.Pretty {
@@ -60,6 +63,8 @@ func NewListRunner(cfg Config, l *zap.SugaredLogger) *ListRunner {
 	return bl
 }
 
+// Run fetches backups for the given instance and prints them to stdout, either
+// as a table (pretty mode) or as raw JSON.
 func (bl *ListRunner) Run(ctx context.Context, opts ListOptions, cfgPath string) error {
 	c, err := authcli.NewAPIClient(authcli.Config{Pretty: bl.config.Pretty}, bl.l.Desugar().Sugar(), cfgPath, opts.Context)
 	if err != nil {

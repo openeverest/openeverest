@@ -13,6 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package backup holds commands for backup management.
 package backup
 
 import (
@@ -89,6 +90,7 @@ func listRun(cmd *cobra.Command, _ []string) {
 	}
 }
 
+// GetListCmd returns the list command.
 func GetListCmd() *cobra.Command {
 	return listCmd
 }
