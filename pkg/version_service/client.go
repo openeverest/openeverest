@@ -108,14 +108,21 @@ func (c *versionServiceClient) GetSupportedEngineVersions(ctx context.Context, o
 		return nil, errors.New("no versions found")
 	}
 
+	firstVer := response.GetVersions()[0]
+	if firstVer == nil || firstVer.GetMatrix() == nil {
+		return nil, errors.New("no version matrix found")
+	}
+
 	var versions map[string]*perconavs.Version
 	switch operator {
 	case PXCOperatorName:
-		versions = response.GetVersions()[0].GetMatrix().GetPxc()
+		versions = firstVer.GetMatrix().GetPxc()
 	case PSMDBOperatorName:
-		versions = response.GetVersions()[0].GetMatrix().GetMongod()
+		versions = firstVer.GetMatrix().GetMongod()
 	case PGOperatorName:
-		versions = response.GetVersions()[0].GetMatrix().GetPostgresql()
+		versions = firstVer.GetMatrix().GetPostgresql()
+	default:
+		return nil, fmt.Errorf("unsupported operator: %s", operator)
 	}
 
 	result := make([]string, 0, len(versions))
