@@ -17,7 +17,28 @@ spec:
     singular: instance
   scope: Namespaced
   versions:
-  - name: v1alpha1
+  - additionalPrinterColumns:
+    - jsonPath: .spec.providerRef.name
+      name: Provider
+      type: string
+    - jsonPath: .status.version
+      name: Version
+      type: string
+    - jsonPath: .status.phase
+      name: Phase
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    - jsonPath: .spec.topology.type
+      name: Topology
+      priority: 1
+      type: string
+    - jsonPath: .status.message
+      name: Message
+      priority: 1
+      type: string
+    name: v1alpha1
     schema:
       openAPIV3Schema:
         description: Instance is the Schema for the instances API
