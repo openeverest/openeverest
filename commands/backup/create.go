@@ -17,7 +17,12 @@
 package backup
 
 import (
+	"context"
+	"errors"
+	"fmt"
 	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -25,8 +30,22 @@ import (
 	"github.com/openeverest/openeverest/v2/pkg/cli"
 	backupcli "github.com/openeverest/openeverest/v2/pkg/cli/backup"
 	"github.com/openeverest/openeverest/v2/pkg/cli/config"
+	"github.com/openeverest/openeverest/v2/pkg/cli/wait"
 	"github.com/openeverest/openeverest/v2/pkg/logger"
 	"github.com/openeverest/openeverest/v2/pkg/output"
+)
+
+// Exit codes for `backup create`, matching `instance create --wait` so CI can
+// distinguish failure modes without scraping stderr:
+//
+//	0   success
+//	1   Failed state, or any other error
+//	124 --wait timed out (matches timeout(1))
+//	130 Ctrl-C (128 + SIGINT)
+const (
+	exitFailed   = 1
+	exitTimeout  = 124
+	exitCanceled = 130
 )
 
 var (
@@ -60,7 +79,11 @@ server-side.`,
 
   # Specific cluster and context
   everestctl backup create --instance my-mongo --namespace everest \
-    --class percona-backup-mongodb --storage my-s3 --cluster staging --context staging-ctx`,
+    --class percona-backup-mongodb --storage my-s3 --cluster staging --context staging-ctx
+
+  # Bounded wait for CI, then grab the state (Ctrl-C only stops waiting; the backup keeps running)
+  everestctl backup create --instance my-mongo --namespace everest \
+    --class percona-backup-mongodb --storage my-s3 --wait --timeout 15m --json | jq '.status.state'`,
 		PreRun: createPreRun,
 		Run:    createRun,
 	}
@@ -77,8 +100,8 @@ func init() {
 	createCmd.Flags().StringVar(&createOpts.DeletionPolicy, cli.FlagBackupDeletionPolicy, "", "Delete or Retain the underlying backup data when the Backup CR is deleted (default: Delete)")
 	createCmd.Flags().StringVar(&createOpts.Cluster, cli.FlagBackupCluster, "main", "Cluster name")
 	createCmd.Flags().StringVar(&createOpts.Context, cli.FlagBackupContext, "", "Context to use (default: current context)")
-	createCmd.Flags().BoolVar(&createOpts.Wait, cli.FlagBackupWait, false, "Block until the backup reaches a terminal state")
-	createCmd.Flags().DurationVar(&createOpts.Timeout, cli.FlagBackupTimeout, 30*time.Minute, "Maximum time to wait (only valid with --wait)")
+	createCmd.Flags().BoolVar(&createOpts.Wait, cli.FlagBackupWait, false, "Block until the backup reaches a terminal state; exit non-zero if it fails or times out")
+	createCmd.Flags().DurationVar(&createOpts.Timeout, cli.FlagBackupTimeout, 30*time.Minute, "Maximum time to wait (only valid with --wait); must be positive")
 
 	_ = createCmd.MarkFlagRequired(cli.FlagBackupInstance)
 	_ = createCmd.MarkFlagRequired(cli.FlagBackupNamespace)
@@ -90,17 +113,64 @@ func createPreRun(cmd *cobra.Command, _ []string) {
 	createCfg.Pretty = !cmd.Flag(cli.FlagVerbose).Changed && !cmd.Flag(cli.FlagJSON).Changed
 }
 
-func createRun(cmd *cobra.Command, _ []string) {
+func createRun(cmd *cobra.Command, _ []string) { //nolint:revive
 	cfgPath, err := config.DefaultPath()
 	if err != nil {
 		output.PrintError(err, logger.GetLogger(), createCfg.Pretty)
-		os.Exit(1)
+		os.Exit(exitFailed)
+	}
+
+	if err := validateWaitFlags(cmd); err != nil {
+		output.PrintError(err, logger.GetLogger(), createCfg.Pretty)
+		os.Exit(exitFailed)
+	}
+
+	ctx := cmd.Context()
+	if createOpts.Wait {
+		// Ctrl-C cancels only the wait; the backup keeps running server-side.
+		var stop context.CancelFunc
+		ctx, stop = signal.NotifyContext(ctx, os.Interrupt, syscall.SIGTERM)
+		defer stop()
 	}
 
 	runner := backupcli.NewCreateRunner(*createCfg, logger.GetLogger())
-	if err := runner.Run(cmd.Context(), *createOpts, cfgPath); err != nil {
+	os.Exit(createExitCode(runner.Run(ctx, *createOpts, cfgPath)))
+}
+
+// validateWaitFlags rejects --timeout without --wait and non-positive timeouts.
+// (cobra's MarkFlagsRequiredTogether would wrongly reject a bare --wait.)
+func validateWaitFlags(cmd *cobra.Command) error {
+	if cmd.Flags().Changed(cli.FlagBackupTimeout) && !createOpts.Wait {
+		return errors.New("--timeout is only valid together with --wait")
+	}
+	if createOpts.Wait && createOpts.Timeout <= 0 {
+		return errors.New("--timeout must be a positive duration (use e.g. --timeout 15m)")
+	}
+	return nil
+}
+
+// createExitCode maps the result to an exit code (see the exit* constants)
+// and prints the matching message.
+func createExitCode(err error) int {
+	switch {
+	case err == nil:
+		return 0
+	case errors.Is(err, context.Canceled):
+		// Name omitted: the runner already printed it before waiting began.
+		_, _ = fmt.Fprint(os.Stderr, output.Warn(
+			"wait cancelled; the backup is still running — check with 'everestctl backup list'",
+		))
+		return exitCanceled
+	case errors.Is(err, wait.ErrTimeout):
+		output.PrintError(
+			fmt.Errorf("timed out after %s waiting for backup to complete", createOpts.Timeout),
+			logger.GetLogger(), createCfg.Pretty,
+		)
+		return exitTimeout
+	default:
+		// *wait.FailedError (Failed state / deleted mid-wait) and everything else.
 		output.PrintError(err, logger.GetLogger(), createCfg.Pretty)
-		os.Exit(1)
+		return exitFailed
 	}
 }
 

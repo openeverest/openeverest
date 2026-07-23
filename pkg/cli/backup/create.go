@@ -19,7 +19,6 @@ package backup
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net/http"
 	"os"
@@ -29,17 +28,15 @@ import (
 
 	"github.com/openeverest/openeverest/v2/client"
 	authcli "github.com/openeverest/openeverest/v2/pkg/cli/auth"
+	"github.com/openeverest/openeverest/v2/pkg/cli/wait"
 	"github.com/openeverest/openeverest/v2/pkg/output"
 )
 
-// terminal backup states. BackupStateError is deliberately excluded: it is a
-// transient condition the controller may retry, not a final outcome.
+// terminal backup states.
 const (
 	backupStateSucceeded = "Succeeded"
 	backupStateFailed    = "Failed"
 )
-
-const pollInterval = 2 * time.Second
 
 // Config holds the shared configuration for backup CLI runners.
 type Config struct {
@@ -75,9 +72,9 @@ func NewCreateRunner(cfg Config, l *zap.SugaredLogger) *CreateRunner {
 	return cr
 }
 
-// Run creates a Backup for the given instance and, with opts.Wait set, blocks
-// until it reaches a terminal state (Succeeded or Failed) or opts.Timeout
-// elapses.
+// Run creates a Backup and, with opts.Wait, blocks until it reaches a
+// terminal state, opts.Timeout elapses (wait.ErrTimeout), or ctx is
+// cancelled (context.Canceled).
 func (cr *CreateRunner) Run(ctx context.Context, opts CreateOptions, cfgPath string) error {
 	c, err := authcli.NewAPIClient(authcli.Config{Pretty: cr.config.Pretty}, cr.l.Desugar().Sugar(), cfgPath, opts.Context)
 	if err != nil {
@@ -120,81 +117,78 @@ func (cr *CreateRunner) Run(ctx context.Context, opts CreateOptions, cfgPath str
 	cr.l.Infof("created backup %q for instance %q in namespace %q", name, opts.Instance, opts.Namespace)
 
 	if !opts.Wait {
-		cr.printCreated(name, resp.JSON201)
-		return nil
+		return cr.emitCreated(resp.JSON201, name)
 	}
-
-	return cr.wait(ctx, c, opts, name)
+	return cr.waitForBackup(ctx, c, resp.JSON201, opts, name)
 }
 
-func (cr *CreateRunner) printCreated(name string, backup *client.Backup) {
+// emitCreated reports a non-waiting create: a success line in pretty mode, or
+// the created backup in JSON mode (so `create --json` is parseable either way).
+func (cr *CreateRunner) emitCreated(created *client.Backup, name string) error {
 	if cr.config.Pretty {
 		_, _ = fmt.Fprint(os.Stdout, output.Success("Backup %q created", name))
-		return
+		return nil
 	}
-	_ = json.NewEncoder(os.Stdout).Encode(backup) //nolint:errchkjson
+	return writeBackupJSON(created)
 }
 
-// wait polls the backup until it reaches a terminal state or the timeout
-// elapses. Ctrl-C (context cancellation) returns without cancelling the
-// backup itself, which keeps running server-side.
-func (cr *CreateRunner) wait(ctx context.Context, c *client.ClientWithResponses, opts CreateOptions, name string) error {
-	timeout := opts.Timeout
-	if timeout <= 0 {
-		timeout = 30 * time.Minute
+// waitForBackup blocks until the backup reaches a terminal state, streaming
+// progress in pretty mode. The last-known backup is surfaced even on error,
+// so a Failed/timeout/cancel still leaves the user with output.
+func (cr *CreateRunner) waitForBackup(
+	ctx context.Context,
+	c *client.ClientWithResponses,
+	created *client.Backup,
+	opts CreateOptions,
+	name string,
+) error {
+	var latest *client.Backup
+	basePoll := newBackupPoll(c, opts.Cluster, opts.Namespace, name)
+	poll := func(ctx context.Context) (*client.Backup, error) {
+		b, err := basePoll(ctx)
+		if err == nil {
+			latest = b
+		}
+		return b, err
 	}
 
-	waitCtx, cancel := context.WithTimeout(ctx, timeout)
-	defer cancel()
-
-	ticker := time.NewTicker(pollInterval)
-	defer ticker.Stop()
-
-	for {
-		select {
-		case <-ctx.Done():
-			return nil
-		case <-waitCtx.Done():
-			return fmt.Errorf("timed out after %s waiting for backup %q to complete", timeout, name)
-		case <-ticker.C:
-			resp, err := c.GetBackupWithResponse(waitCtx, opts.Cluster, opts.Namespace, name)
-			if err != nil {
-				if errors.Is(err, authcli.ErrTokenRefresh) {
-					return err
-				}
-				cr.l.Warnf("fetch failed: %v — retrying in %s", err, pollInterval)
-				continue
-			}
-			if resp.StatusCode() != http.StatusOK || resp.JSON200 == nil {
-				cr.l.Warnf("unexpected response %s — retrying in %s", resp.Status(), pollInterval)
-				continue
-			}
-
-			state := backupState(resp.JSON200)
-			switch state {
-			case backupStateSucceeded:
-				cr.printCreated(name, resp.JSON200)
-				return nil
-			case backupStateFailed:
-				cr.printCreated(name, resp.JSON200)
-				return fmt.Errorf("backup %q failed: %s", name, backupMessage(resp.JSON200))
-			}
+	var onUpdate func(string)
+	if cr.config.Pretty {
+		_, _ = fmt.Fprint(os.Stdout, output.Info("Backup %q created; waiting for it to complete...", name))
+		onUpdate = func(msg string) {
+			_, _ = fmt.Fprintf(os.Stdout, "  %s\n", msg)
 		}
 	}
+
+	err := wait.Until(ctx, poll, backupCondition, wait.Options{
+		Timeout:  opts.Timeout,
+		OnUpdate: onUpdate,
+	})
+
+	final := latest
+	if final == nil {
+		final = created
+	}
+
+	if cr.config.Pretty {
+		if err == nil {
+			_, _ = fmt.Fprint(os.Stdout, output.Success("Backup %q completed", name))
+		}
+	} else if jsonErr := writeBackupJSON(final); jsonErr != nil && err == nil {
+		err = jsonErr
+	}
+
+	return err
 }
 
-func backupState(b *client.Backup) string {
-	if b.Status == nil || b.Status.State == nil {
-		return ""
+func writeBackupJSON(b *client.Backup) error {
+	if b == nil {
+		return nil
 	}
-	return *b.Status.State
-}
-
-func backupMessage(b *client.Backup) string {
-	if b.Status == nil || b.Status.Message == nil || *b.Status.Message == "" {
-		return "no message reported"
+	if err := json.NewEncoder(os.Stdout).Encode(b); err != nil {
+		return fmt.Errorf("failed to encode backup: %w", err)
 	}
-	return *b.Status.Message
+	return nil
 }
 
 func metadataStringField(b *client.Backup, key string) string {
