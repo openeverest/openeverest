@@ -753,8 +753,9 @@ if need_backup_storage:
                     })
                     obj['spec']['s3'].update({
                             'bucket': '{0}'.format(storage_name),
-                            'description': storage_name,
-                            'credentialsSecretName': storage_name,
+                            'credentialsSecretRef': {
+                                'name': storage_name,
+                            },
                     })
             k8s_yaml(encode_yaml_stream(bs_objs))
             k8s_resource(

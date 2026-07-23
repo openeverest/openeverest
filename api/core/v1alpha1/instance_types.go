@@ -661,6 +661,12 @@ type ComponentStatus struct {
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:shortName=in;inst
+// +kubebuilder:printcolumn:name="Provider",type="string",JSONPath=".spec.providerRef.name"
+// +kubebuilder:printcolumn:name="Version",type="string",JSONPath=".status.version"
+// +kubebuilder:printcolumn:name="Phase",type="string",JSONPath=".status.phase"
+// +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
+// +kubebuilder:printcolumn:name="Topology",type="string",JSONPath=".spec.topology.type",priority=1
+// +kubebuilder:printcolumn:name="Message",type="string",JSONPath=".status.message",priority=1
 
 // Instance is the Schema for the instances API
 type Instance struct {
