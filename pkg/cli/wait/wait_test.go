@@ -44,29 +44,28 @@ func phaseCond(phase string) (wait.Outcome, string) {
 func TestUntil_SucceedsImmediately(t *testing.T) {
 	t.Parallel()
 
-	var calls int32
+	var calls atomic.Int32
 	poll := func(_ context.Context) (string, error) {
-		atomic.AddInt32(&calls, 1)
+		calls.Add(1)
 		return "Ready", nil
 	}
 
-	err := wait.Until(context.Background(), poll,
-		func(p string) (wait.Outcome, string) { return phaseCond(p) },
+	err := wait.Until(context.Background(), poll, phaseCond,
 		wait.Options{Interval: time.Millisecond, Timeout: time.Second},
 	)
 
 	require.NoError(t, err)
 	// Terminal on the very first observation — no ticker wait needed.
-	assert.Equal(t, int32(1), atomic.LoadInt32(&calls))
+	assert.Equal(t, int32(1), calls.Load())
 }
 
 func TestUntil_TransitionsThenSucceeds(t *testing.T) {
 	t.Parallel()
 
 	phases := []string{"Pending", "Provisioning", "Initializing", "Ready"}
-	var idx int32
+	var idx atomic.Int32
 	poll := func(_ context.Context) (string, error) {
-		i := atomic.AddInt32(&idx, 1) - 1
+		i := idx.Add(1) - 1
 		if int(i) >= len(phases) {
 			return phases[len(phases)-1], nil
 		}
@@ -74,8 +73,7 @@ func TestUntil_TransitionsThenSucceeds(t *testing.T) {
 	}
 
 	var updates []string
-	err := wait.Until(context.Background(), poll,
-		func(p string) (wait.Outcome, string) { return phaseCond(p) },
+	err := wait.Until(context.Background(), poll, phaseCond,
 		wait.Options{
 			Interval: time.Millisecond,
 			Timeout:  2 * time.Second,
@@ -93,8 +91,7 @@ func TestUntil_FailedPhaseReturnsFailedError(t *testing.T) {
 
 	poll := func(_ context.Context) (string, error) { return "Failed", nil }
 
-	err := wait.Until(context.Background(), poll,
-		func(p string) (wait.Outcome, string) { return phaseCond(p) },
+	err := wait.Until(context.Background(), poll, phaseCond,
 		wait.Options{Interval: time.Millisecond, Timeout: time.Second},
 	)
 
@@ -109,8 +106,7 @@ func TestUntil_TimeoutReturnsErrTimeout(t *testing.T) {
 	// Never terminal — always pending, so only the timeout can stop it.
 	poll := func(_ context.Context) (string, error) { return "Provisioning", nil }
 
-	err := wait.Until(context.Background(), poll,
-		func(p string) (wait.Outcome, string) { return phaseCond(p) },
+	err := wait.Until(context.Background(), poll, phaseCond,
 		wait.Options{Interval: 5 * time.Millisecond, Timeout: 40 * time.Millisecond},
 	)
 
@@ -128,8 +124,7 @@ func TestUntil_ParentCancelReturnsContextCanceled(t *testing.T) {
 		cancel()
 	}()
 
-	err := wait.Until(ctx, poll,
-		func(p string) (wait.Outcome, string) { return phaseCond(p) },
+	err := wait.Until(ctx, poll, phaseCond,
 		// Long timeout so the cancellation, not the deadline, is what stops us.
 		wait.Options{Interval: 5 * time.Millisecond, Timeout: 10 * time.Second},
 	)
@@ -142,46 +137,44 @@ func TestUntil_PollErrorIsTerminal(t *testing.T) {
 	t.Parallel()
 
 	sentinel := errors.New("instance \"my-mongo\" has been deleted")
-	var calls int32
+	var calls atomic.Int32
 	poll := func(_ context.Context) (string, error) {
-		atomic.AddInt32(&calls, 1)
+		calls.Add(1)
 		return "", sentinel
 	}
 
-	err := wait.Until(context.Background(), poll,
-		func(p string) (wait.Outcome, string) { return phaseCond(p) },
+	err := wait.Until(context.Background(), poll, phaseCond,
 		wait.Options{Interval: time.Millisecond, Timeout: time.Second},
 	)
 
 	require.ErrorIs(t, err, sentinel)
 	// Returned on the first poll — not retried.
-	assert.Equal(t, int32(1), atomic.LoadInt32(&calls))
+	assert.Equal(t, int32(1), calls.Load())
 }
 
 func TestUntil_OnUpdateSuppressesDuplicates(t *testing.T) {
 	t.Parallel()
 
 	// Same pending phase repeatedly, then Ready — OnUpdate should fire once.
-	var idx int32
+	var idx atomic.Int32
 	poll := func(_ context.Context) (string, error) {
-		if atomic.AddInt32(&idx, 1) >= 4 {
+		if idx.Add(1) >= 4 {
 			return "Ready", nil
 		}
 		return "Provisioning", nil
 	}
 
-	var updates int32
-	err := wait.Until(context.Background(), poll,
-		func(p string) (wait.Outcome, string) { return phaseCond(p) },
+	var updates atomic.Int32
+	err := wait.Until(context.Background(), poll, phaseCond,
 		wait.Options{
 			Interval: time.Millisecond,
 			Timeout:  time.Second,
-			OnUpdate: func(_ string) { atomic.AddInt32(&updates, 1) },
+			OnUpdate: func(_ string) { updates.Add(1) },
 		},
 	)
 
 	require.NoError(t, err)
-	assert.Equal(t, int32(1), atomic.LoadInt32(&updates))
+	assert.Equal(t, int32(1), updates.Load())
 }
 
 func TestUntil_DefaultIntervalWhenUnset(t *testing.T) {
@@ -191,8 +184,7 @@ func TestUntil_DefaultIntervalWhenUnset(t *testing.T) {
 	// so this stays fast while covering the zero-interval branch.
 	poll := func(_ context.Context) (string, error) { return "Ready", nil }
 
-	err := wait.Until(context.Background(), poll,
-		func(p string) (wait.Outcome, string) { return phaseCond(p) },
+	err := wait.Until(context.Background(), poll, phaseCond,
 		wait.Options{Timeout: time.Second},
 	)
 	require.NoError(t, err)

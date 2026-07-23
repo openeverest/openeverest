@@ -28,7 +28,7 @@ import (
 type Outcome int
 
 const (
-	//Resource is not in a terminal state yet; keep polling.
+	// Pending means the resource is not in a terminal state yet; keep polling.
 	Pending Outcome = iota
 	// Succeeded means the resource reached the desired terminal state.
 	Succeeded

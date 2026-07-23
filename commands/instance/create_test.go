@@ -20,15 +20,21 @@ import (
 	"errors"
 	"fmt"
 	"testing"
+	"time"
 
+	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
+	"github.com/openeverest/openeverest/v2/pkg/cli"
+	instancecli "github.com/openeverest/openeverest/v2/pkg/cli/instance"
 	"github.com/openeverest/openeverest/v2/pkg/cli/wait"
 )
 
 func TestCreateExitCode(t *testing.T) {
-	// Not parallel: createExitCode reads/prints via package-level createOpts.
-	createOpts.Name = "my-db"
+	t.Parallel()
+
+	opts := &instancecli.CreateOptions{Name: "my-db", Timeout: time.Minute}
 
 	tests := []struct {
 		name string
@@ -44,38 +50,44 @@ func TestCreateExitCode(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			assert.Equal(t, tc.want, createExitCode(tc.err))
+			t.Parallel()
+			assert.Equal(t, tc.want, createExitCode(tc.err, opts, true))
 		})
 	}
 }
 
 func TestValidateWaitFlags(t *testing.T) {
-	// Not parallel: mutates the shared createCmd flag state and createOpts.
-	reset := func(wait bool, timeoutChanged bool) {
-		createOpts.Wait = wait
-		createOpts.Timeout = 10_000_000_000 // 10s, positive
-		_ = createCmd.Flags().Set("timeout", "10s")
-		if !timeoutChanged {
-			// Reset the flag's Changed bit to model "user didn't pass --timeout".
-			createCmd.Flags().Lookup("timeout").Changed = false
-		}
+	t.Parallel()
+
+	tests := []struct {
+		name           string
+		wait           bool
+		timeout        time.Duration
+		timeoutChanged bool   // whether --timeout was explicitly passed
+		wantErr        string // substring; empty means no error expected
+	}{
+		{"timeout without wait", false, 10 * time.Second, true, "only valid together with --wait"},
+		{"wait with non-positive timeout", true, 0, false, "positive duration"},
+		{"wait with default timeout", true, 10 * time.Minute, false, ""},
 	}
 
-	t.Run("timeout without wait errors", func(t *testing.T) {
-		reset(false, true)
-		err := validateWaitFlags(createCmd)
-		assert.ErrorContains(t, err, "only valid together with --wait")
-	})
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 
-	t.Run("wait with non-positive timeout errors", func(t *testing.T) {
-		reset(true, false)
-		createOpts.Timeout = 0
-		err := validateWaitFlags(createCmd)
-		assert.ErrorContains(t, err, "positive duration")
-	})
+			cmd := &cobra.Command{}
+			cmd.Flags().Duration(cli.FlagInstanceTimeout, 10*time.Minute, "")
+			if tc.timeoutChanged {
+				require.NoError(t, cmd.Flags().Set(cli.FlagInstanceTimeout, "10s"))
+			}
+			opts := &instancecli.CreateOptions{Wait: tc.wait, Timeout: tc.timeout}
 
-	t.Run("wait with default timeout is fine", func(t *testing.T) {
-		reset(true, false)
-		assert.NoError(t, validateWaitFlags(createCmd))
-	})
+			err := validateWaitFlags(cmd, opts)
+			if tc.wantErr == "" {
+				assert.NoError(t, err)
+				return
+			}
+			assert.ErrorContains(t, err, tc.wantErr)
+		})
+	}
 }

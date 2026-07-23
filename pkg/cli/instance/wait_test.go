@@ -127,7 +127,7 @@ func TestProgressMessage_WithComponents(t *testing.T) {
 // makes GETs return that status instead (e.g. 404).
 func waitServer(t *testing.T, getStatus int, getPhases ...string) *httptest.Server {
 	t.Helper()
-	var gets int32
+	var gets atomic.Int32
 	mux := http.NewServeMux()
 	mux.HandleFunc("/v1/clusters/main/providers/psmdb", func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -144,13 +144,13 @@ func waitServer(t *testing.T, getStatus int, getPhases ...string) *httptest.Serv
 			w.WriteHeader(getStatus)
 			return
 		}
-		i := int(atomic.AddInt32(&gets, 1)) - 1
+		i := int(gets.Add(1)) - 1
 		if i >= len(getPhases) {
 			i = len(getPhases) - 1
 		}
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte(fmt.Sprintf(`{"metadata":{"name":"my-db"},"status":{"phase":%q}}`, getPhases[i])))
+		_, _ = w.Write(fmt.Appendf(nil, `{"metadata":{"name":"my-db"},"status":{"phase":%q}}`, getPhases[i]))
 	})
 	return httptest.NewServer(mux)
 }
@@ -186,7 +186,7 @@ func TestRunWait(t *testing.T) {
 			getStatus: http.StatusOK,
 			getPhases: []string{"Ready"},
 			timeout:   time.Minute,
-			wantErr:   func(t *testing.T, err error) { assert.NoError(t, err) },
+			wantErr:   func(t *testing.T, err error) { t.Helper(); assert.NoError(t, err) },
 		},
 		{
 			name:      "failed phase returns FailedError",
@@ -194,6 +194,7 @@ func TestRunWait(t *testing.T) {
 			getPhases: []string{"Failed"},
 			timeout:   time.Minute,
 			wantErr: func(t *testing.T, err error) {
+				t.Helper()
 				var fe *wait.FailedError
 				require.ErrorAs(t, err, &fe)
 				assert.Contains(t, fe.Error(), "Failed phase")
@@ -204,6 +205,7 @@ func TestRunWait(t *testing.T) {
 			getStatus: http.StatusNotFound,
 			timeout:   time.Minute,
 			wantErr: func(t *testing.T, err error) {
+				t.Helper()
 				require.Error(t, err)
 				assert.Contains(t, err.Error(), "was deleted")
 			},
@@ -213,7 +215,7 @@ func TestRunWait(t *testing.T) {
 			getStatus: http.StatusOK,
 			getPhases: []string{"Provisioning"},
 			timeout:   40 * time.Millisecond,
-			wantErr:   func(t *testing.T, err error) { require.ErrorIs(t, err, wait.ErrTimeout) },
+			wantErr:   func(t *testing.T, err error) { t.Helper(); require.ErrorIs(t, err, wait.ErrTimeout) },
 		},
 	}
 
@@ -246,8 +248,10 @@ func captureStdout(t *testing.T, fn func()) string {
 	return string(out)
 }
 
+// Not parallel: captures global os.Stdout.
+//
+//nolint:paralleltest // mutates global os.Stdout; must run serially
 func TestRun_JSONEmitsCreatedInstanceWithoutWait(t *testing.T) {
-	// Not parallel: captures global os.Stdout.
 	srv := waitServer(t, http.StatusOK, "Pending")
 	defer srv.Close()
 

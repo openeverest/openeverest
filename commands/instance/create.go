@@ -133,30 +133,34 @@ func createRun(cmd *cobra.Command, _ []string) { //nolint:revive
 		os.Exit(exitFailed)
 	}
 
-	if err := validateWaitFlags(cmd); err != nil {
+	if err := validateWaitFlags(cmd, createOpts); err != nil {
 		output.PrintError(err, logger.GetLogger(), createCfg.Pretty)
 		os.Exit(exitFailed)
 	}
 
 	ctx := cmd.Context()
+	stop := func() {}
 	if createOpts.Wait {
 		// Ctrl-C cancels only the wait; the instance keeps provisioning.
-		var stop context.CancelFunc
-		ctx, stop = signal.NotifyContext(ctx, os.Interrupt, syscall.SIGTERM)
-		defer stop()
+		var cancel context.CancelFunc
+		ctx, cancel = signal.NotifyContext(ctx, os.Interrupt, syscall.SIGTERM)
+		stop = cancel
 	}
 
 	ic := instancecli.NewInstanceCreator(*createCfg, logger.GetLogger())
-	os.Exit(createExitCode(ic.Run(ctx, *createOpts, cfgPath)))
+	code := createExitCode(ic.Run(ctx, *createOpts, cfgPath), createOpts, createCfg.Pretty)
+	// Release the signal handler before os.Exit (which skips defers).
+	stop()
+	os.Exit(code)
 }
 
 // validateWaitFlags rejects --timeout without --wait and non-positive timeouts.
 // (cobra's MarkFlagsRequiredTogether would wrongly reject a bare --wait.)
-func validateWaitFlags(cmd *cobra.Command) error {
-	if cmd.Flags().Changed(cli.FlagInstanceTimeout) && !createOpts.Wait {
+func validateWaitFlags(cmd *cobra.Command, opts *instancecli.CreateOptions) error {
+	if cmd.Flags().Changed(cli.FlagInstanceTimeout) && !opts.Wait {
 		return errors.New("--timeout is only valid together with --wait")
 	}
-	if createOpts.Wait && createOpts.Timeout <= 0 {
+	if opts.Wait && opts.Timeout <= 0 {
 		return errors.New("--timeout must be a positive duration (use e.g. --timeout 10m)")
 	}
 	return nil
@@ -164,25 +168,25 @@ func validateWaitFlags(cmd *cobra.Command) error {
 
 // createExitCode maps the create/wait result to an exit code and prints the
 // matching message. See the exit* constants for the contract.
-func createExitCode(err error) int {
+func createExitCode(err error, opts *instancecli.CreateOptions, pretty bool) int {
 	switch {
 	case err == nil:
 		return 0
 	case errors.Is(err, context.Canceled):
 		_, _ = fmt.Fprint(os.Stderr, output.Warn(
 			"wait cancelled; instance %q is still provisioning — check with 'everestctl instance status'",
-			createOpts.Name,
+			opts.Name,
 		))
 		return exitCanceled
 	case errors.Is(err, wait.ErrTimeout):
 		output.PrintError(
-			fmt.Errorf("timed out after %s waiting for instance %q to become ready; it is still provisioning", createOpts.Timeout, createOpts.Name),
-			logger.GetLogger(), createCfg.Pretty,
+			fmt.Errorf("timed out after %s waiting for instance %q to become ready; it is still provisioning", opts.Timeout, opts.Name),
+			logger.GetLogger(), pretty,
 		)
 		return exitTimeout
 	default:
 		// *wait.FailedError (Failed phase / deleted mid-wait) and everything else.
-		output.PrintError(err, logger.GetLogger(), createCfg.Pretty)
+		output.PrintError(err, logger.GetLogger(), pretty)
 		return exitFailed
 	}
 }
