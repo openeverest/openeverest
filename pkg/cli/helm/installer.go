@@ -35,6 +35,7 @@ import (
 	"helm.sh/helm/v3/pkg/cli/values"
 	"helm.sh/helm/v3/pkg/downloader"
 	"helm.sh/helm/v3/pkg/getter"
+	"helm.sh/helm/v3/pkg/registry"
 	"helm.sh/helm/v3/pkg/release"
 	"helm.sh/helm/v3/pkg/storage/driver"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
@@ -360,10 +361,17 @@ func everestctlCacheDir() (string, error) {
 
 // Runs `helm dependency update` in the chart directory.
 func buildChartDeps(chartDir string) error {
+	registryClient, err := registry.NewClient(
+		registry.ClientOptCredentialsFile(settings.RegistryConfig),
+	)
+	if err != nil {
+		return fmt.Errorf("failed to create registry client: %w", err)
+	}
 	man := &downloader.Manager{
 		Out:              io.Discard,
 		ChartPath:        chartDir,
 		Getters:          getter.All(settings),
+		RegistryClient:   registryClient,
 		RepositoryConfig: settings.RepositoryConfig,
 		RepositoryCache:  settings.RepositoryCache,
 	}
