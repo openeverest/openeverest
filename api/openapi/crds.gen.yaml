@@ -4837,7 +4837,19 @@ components:
                       properties:
                         default:
                           type: boolean
+                        deprecated:
+                          description: |-
+                            Deprecated marks a version as still supported but scheduled for
+                            removal. Instances running on it get a proactive warning with a
+                            remediation runway instead of a blocked upgrade.
+                          type: boolean
                         image:
+                          type: string
+                        removedInVersion:
+                          description: |-
+                            RemovedInVersion is the provider version (P) in which this engine
+                            version is dropped. Upgrading the provider to >= this version while
+                            an Instance still uses this engine version is a blocking error.
                           type: string
                         version:
                           type: string
@@ -4896,6 +4908,26 @@ components:
                     OpenAPIV3Schema is the OpenAPI v3 schema describing the accepted
                     parameters payload.
                   x-kubernetes-preserve-unknown-fields: true
+              type: object
+            release:
+              description: |-
+                Release identifies this provider release — the shipped unit of
+                controller, bundled operator, and version catalog — and its
+                upgrade-path constraints. It is read by the pre-upgrade preflight.
+              properties:
+                minUpgradableFrom:
+                  description: |-
+                    MinUpgradableFrom is the lowest provider release version from which a
+                    single-step upgrade to this release is permitted; a lower installed
+                    version is blocked and must step through intermediate releases.
+                    Empty means no floor.
+                  type: string
+                version:
+                  description: |-
+                    Version is the provider release version (P), populated from the chart
+                    appVersion (e.g. "0.3"). Named distinctly from ProviderSpec.Versions
+                    (the engine bundle catalog).
+                  type: string
               type: object
             secrets:
               additionalProperties:
