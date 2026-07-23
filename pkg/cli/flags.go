@@ -140,6 +140,18 @@ const (
 	FlagBackupCluster = "cluster"
 	// FlagBackupContext overrides the active context for this command.
 	FlagBackupContext = "context"
+	// FlagBackupClass is the name of the BackupClass flag.
+	FlagBackupClass = "class"
+	// FlagBackupStorage is the name of the BackupStorage flag.
+	FlagBackupStorage = "storage"
+	// FlagBackupName is the name of the backup name flag.
+	FlagBackupName = "name"
+	// FlagBackupDeletionPolicy is the name of the deletion-policy flag.
+	FlagBackupDeletionPolicy = "deletion-policy"
+	// FlagBackupWait blocks until the backup reaches a terminal state.
+	FlagBackupWait = "wait"
+	// FlagBackupTimeout bounds how long --wait blocks for.
+	FlagBackupTimeout = "timeout"
 
 	// `backup-storage` flags.
 
