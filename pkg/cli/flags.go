@@ -118,6 +118,10 @@ const (
 	FlagInstanceInterval = "interval"
 	// FlagInstanceAllNamespaces lists instances across all namespaces.
 	FlagInstanceAllNamespaces = "all-namespaces"
+	// FlagInstanceWait blocks create until the instance reaches the Ready phase.
+	FlagInstanceWait = "wait"
+	// FlagInstanceTimeout bounds --wait; only valid together with --wait.
+	FlagInstanceTimeout = "timeout"
 
 	// `provider` flags.
 
