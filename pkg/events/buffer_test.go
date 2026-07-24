@@ -295,3 +295,42 @@ func TestRingBuffer_ConcurrentAppendAndSince(t *testing.T) {
 		<-readerDone
 	}
 }
+
+// TestRingBuffer_NonPositiveMaxLenClampsToDefault confirms that a
+// misconfigured (<= 0) maxLen doesn't leave the buffer unbounded - it must
+// still evict, at the documented default.
+func TestRingBuffer_NonPositiveMaxLenClampsToDefault(t *testing.T) {
+	t.Parallel()
+	for _, maxLen := range []int{0, -1, -100} {
+		b := NewRingBuffer(maxLen, time.Hour)
+		for i := uint64(1); i <= defaultMaxLen+50; i++ {
+			b.Append(&Event{Seq: i})
+		}
+		if _, ok := b.Since(0); ok {
+			t.Fatalf("maxLen=%d: expected Since(0) to fail once eviction has happened (not unbounded)", maxLen)
+		}
+		got, ok := b.Since(defaultMaxLen + 50 - defaultMaxLen) // oldest retained - 1
+		if !ok {
+			t.Fatalf("maxLen=%d: expected the clamped-default boundary to be servable", maxLen)
+		}
+		if len(got) != defaultMaxLen {
+			t.Fatalf("maxLen=%d: expected exactly %d retained events (clamped to default), got %d", maxLen, defaultMaxLen, len(got))
+		}
+	}
+}
+
+// TestRingBuffer_NonPositiveMaxAgeClampsToDefault confirms that a
+// misconfigured (<= 0) maxAge doesn't disable age-based eviction entirely.
+func TestRingBuffer_NonPositiveMaxAgeClampsToDefault(t *testing.T) {
+	t.Parallel()
+	for _, maxAge := range []time.Duration{0, -time.Second, -time.Hour} {
+		b := NewRingBuffer(1000000, maxAge) // count bound effectively disabled
+		b.Append(&Event{Seq: 1})
+		// The clamped default (5m) is long enough that this event must
+		// still be retained immediately after appending it.
+		got, ok := b.Since(0)
+		if !ok || len(got) != 1 {
+			t.Fatalf("maxAge=%s: expected the just-appended event to still be retained under the clamped default", maxAge)
+		}
+	}
+}

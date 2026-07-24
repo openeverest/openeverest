@@ -67,13 +67,30 @@ type bufferedEvent struct {
 	bufferedAt time.Time
 }
 
+const (
+	// defaultMaxLen and defaultMaxAge are used when NewRingBuffer is given a
+	// non-positive value for either bound. Treating <= 0 as "unbounded"
+	// would let the buffer grow without limit on a simple misconfiguration
+	// (e.g. an empty/zero env var) - a memory-growth risk, not a graceful
+	// degradation - so it falls back to a sane bound instead. These match
+	// EverestConfig's own defaults for EventBufferMaxEvents/MaxAge.
+	defaultMaxLen = 4096
+	defaultMaxAge = 5 * time.Minute
+)
+
 // NewRingBuffer creates an in-memory Buffer. maxLen and maxAge both bound
-// retention; whichever is reached first evicts the oldest entry. A zero or
-// negative maxLen/maxAge is treated as "unbounded" for that dimension,
-// which callers should avoid in production (see config defaults).
+// retention; whichever is reached first evicts the oldest entry. A
+// non-positive maxLen or maxAge is replaced with a default rather than
+// treated as unbounded - see defaultMaxLen/defaultMaxAge.
 //
 //nolint:ireturn // the whole point of Buffer is a swappable backing store (see the interface doc) - concrete would defeat it.
 func NewRingBuffer(maxLen int, maxAge time.Duration) Buffer {
+	if maxLen <= 0 {
+		maxLen = defaultMaxLen
+	}
+	if maxAge <= 0 {
+		maxAge = defaultMaxAge
+	}
 	return &ringBuffer{
 		epoch:  uuid.NewString(),
 		maxLen: maxLen,
@@ -124,16 +141,13 @@ func (b *ringBuffer) Since(seq uint64) ([]Event, bool) {
 }
 
 // evictLocked drops entries from the front while either bound is exceeded.
-// Must be called with mu held.
+// Must be called with mu held. maxLen and maxAge are always positive by the
+// time a ringBuffer exists - NewRingBuffer clamps non-positive input to a
+// default rather than leaving either dimension unbounded.
 func (b *ringBuffer) evictLocked() {
 	cutoff := time.Now().Add(-b.maxAge)
 	i := 0
-	for i < len(b.entries) {
-		overCount := b.maxLen > 0 && len(b.entries)-i > b.maxLen
-		tooOld := b.maxAge > 0 && b.entries[i].bufferedAt.Before(cutoff)
-		if !overCount && !tooOld {
-			break
-		}
+	for i < len(b.entries) && (len(b.entries)-i > b.maxLen || b.entries[i].bufferedAt.Before(cutoff)) {
 		i++
 	}
 	if i > 0 {
