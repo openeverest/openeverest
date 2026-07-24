@@ -3154,6 +3154,21 @@ export interface components {
                         type?: string;
                     };
                 };
+                /** @description ConfigMaps defines ConfigMap types this provider supports. */
+                configMaps?: {
+                    [key: string]: {
+                        /** @description ParametersSchema declares the OpenAPI v3 schema for validating configmap data/binaryData. */
+                        parametersSchema?: {
+                            /**
+                             * @description OpenAPIV3Schema is the OpenAPI v3 schema describing the accepted
+                             *     parameters payload.
+                             */
+                            openAPIV3Schema?: unknown;
+                        };
+                        /** @description UISchema holds UI rendering hints for the configmap creation form. */
+                        uiSchema?: Record<string, never>;
+                    };
+                };
                 /**
                  * @description ParametersSchema declares the OpenAPI v3 schema for the instance-wide
                  *     parameters payload (Instance.spec.parameters).

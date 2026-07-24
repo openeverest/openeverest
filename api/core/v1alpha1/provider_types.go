@@ -53,6 +53,10 @@ type ProviderSpec struct {
 	// Secrets defines Secret types this provider supports.
 	// +optional
 	Secrets map[string]SecretDefinition `json:"secrets,omitempty"`
+
+	// ConfigMaps defines ConfigMap types this provider supports.
+	// +optional
+	ConfigMaps map[string]ConfigMapDefinition `json:"configMaps,omitempty"`
 }
 
 // VersionBundle is a curated set of component versions known to be mutually
@@ -122,6 +126,18 @@ type SecretDefinition struct {
 // ErrSecretSchemaValidation is returned when data does not conform to
 // the OpenAPI v3 schema defined in the provider's secret definition.
 var ErrSecretSchemaValidation = errors.New("secret schema validation failed")
+
+// ConfigMapDefinition describes a ConfigMap type that a provider supports.
+type ConfigMapDefinition struct {
+	// UISchema holds UI rendering hints for the configmap creation form.
+	// +optional
+	// +kubebuilder:pruning:PreserveUnknownFields
+	UISchema *runtime.RawExtension `json:"uiSchema,omitempty"`
+
+	// ParametersSchema declares the OpenAPI v3 schema for validating configmap data/binaryData.
+	// +optional
+	ParametersSchema *common.ParametersSchema `json:"parametersSchema,omitempty"`
+}
 
 // Validate validates data against the OpenAPI v3 schema in the SecretDefinition.
 // The data parameter should be a map of key-value pairs representing the secret's

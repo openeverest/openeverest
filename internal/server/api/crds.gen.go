@@ -3235,6 +3235,19 @@ type Provider struct {
 			Type *string `json:"type,omitempty"`
 		} `json:"components,omitempty"`
 
+		// ConfigMaps ConfigMaps defines ConfigMap types this provider supports.
+		ConfigMaps *map[string]struct {
+			// ParametersSchema ParametersSchema declares the OpenAPI v3 schema for validating configmap data/binaryData.
+			ParametersSchema *struct {
+				// OpenAPIV3Schema OpenAPIV3Schema is the OpenAPI v3 schema describing the accepted
+				// parameters payload.
+				OpenAPIV3Schema interface{} `json:"openAPIV3Schema,omitempty"`
+			} `json:"parametersSchema,omitempty"`
+
+			// UiSchema UISchema holds UI rendering hints for the configmap creation form.
+			UiSchema *map[string]interface{} `json:"uiSchema,omitempty"`
+		} `json:"configMaps,omitempty"`
+
 		// ParametersSchema ParametersSchema declares the OpenAPI v3 schema for the instance-wide
 		// parameters payload (Instance.spec.parameters).
 		ParametersSchema *struct {

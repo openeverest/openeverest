@@ -21,8 +21,10 @@ import (
 
 	"github.com/percona/everest-operator/utils"
 	corev1 "k8s.io/api/core/v1"
+	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/openeverest/openeverest/v2/pkg/common"
+	"github.com/openeverest/openeverest/v2/provider-runtime/controller"
 )
 
 // CreateConfigMap validates and creates a ConfigMap.
@@ -31,9 +33,25 @@ func (h *validateHandler) CreateConfigMap(ctx context.Context, cluster, namespac
 		return nil, errors.Join(ErrInvalidRequest, fmt.Errorf("invalid ConfigMap name: %w", err))
 	}
 
-	// Validate required definition label.
-	if configMap.Labels == nil || configMap.Labels[common.OpenEverestDefinitionLabel] == "" {
-		return nil, errors.Join(ErrInvalidRequest, fmt.Errorf("ConfigMap must have a '%s' label", common.OpenEverestDefinitionLabel))
+	definition := configMap.GetLabels()[common.OpenEverestDefinitionLabel]
+	if definition == "" {
+		return nil, errors.Join(ErrInvalidRequest, fmt.Errorf("missing %s label", common.OpenEverestDefinitionLabel))
+	}
+
+	providerName := configMap.GetLabels()[common.OpenEverestProviderLabel]
+	if providerName == "" {
+		return nil, errors.Join(ErrInvalidRequest, fmt.Errorf("missing %s label", common.OpenEverestProviderLabel))
+	}
+
+	// Fetch the provider for validation.
+	provider, err := h.kubeConnector.GetProvider(ctx, ctrlclient.ObjectKey{Name: providerName})
+	if err != nil {
+		return nil, errors.Join(ErrInvalidRequest, fmt.Errorf("failed to get provider %q: %w", providerName, err))
+	}
+
+	// Validate configmap data against the schema.
+	if err := controller.ValidateConfigMapSchema(configMap, &provider.Spec); err != nil {
+		return nil, errors.Join(ErrInvalidRequest, err)
 	}
 
 	return h.next.CreateConfigMap(ctx, cluster, namespace, configMap)
