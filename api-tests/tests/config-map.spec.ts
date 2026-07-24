@@ -39,14 +39,14 @@ test.describe.parallel('ConfigMaps tests', () => {
           },
         },
         data: {
-          'config.yaml': 'key: value\nanother: setting',
+          endpoint: 'https://example.com',
         },
       }
 
       const created = await th.createConfigMapWithData(request, data)
       expect(created.metadata.name).toBe(data.metadata.name)
       expect(created.data).toBeDefined()
-      expect(created.data['config.yaml']).toBe('key: value\nanother: setting')
+      expect(created.data['endpoint']).toBe('https://example.com')
     })
 
     await test.step('get config-map - verify data is returned', async () => {
@@ -56,7 +56,7 @@ test.describe.parallel('ConfigMaps tests', () => {
       expect(configMap.metadata.labels['openeverest.io/provider']).toBe('test-provider')
       expect(configMap.metadata.labels['openeverest.io/managed']).toBe('true')
       expect(configMap.data).toBeDefined()
-      expect(configMap.data['config.yaml']).toBe('key: value\nanother: setting')
+      expect(configMap.data['endpoint']).toBe('https://example.com')
     })
 
     await test.step('list config-maps - verify data is returned', async () => {
@@ -68,7 +68,7 @@ test.describe.parallel('ConfigMaps tests', () => {
       
       expect(configMap).toBeDefined()
       expect(configMap.data).toBeDefined()
-      expect(configMap.data['config.yaml']).toBe('key: value\nanother: setting')
+      expect(configMap.data['endpoint']).toBe('https://example.com')
     })
 
     await test.step('list config-maps with definition filter', async () => {
@@ -104,14 +104,14 @@ test.describe.parallel('ConfigMaps tests', () => {
       expect(error.message).toContain('definition')
     })
 
-    await test.step('create config-map without provider label', async () => {
+    await test.step('create config-map without provider label should fail', async () => {
       const data = {
         apiVersion: 'v1',
         kind: 'ConfigMap',
         metadata: {
           name: configMapName3,
           labels: {
-            'openeverest.io/definition': 'test',
+            'openeverest.io/definition': 'test-config',
           },
         },
         data: {
@@ -120,10 +120,34 @@ test.describe.parallel('ConfigMaps tests', () => {
       }
 
       const response = await th.createConfigMapRaw(request, data)
-      expect(response.ok()).toBeTruthy()
-
+      expect(response.ok()).toBeFalsy()
+      expect(response.status()).toBe(400)
       const error = await response.json()
-      expect(response.status()).toBe(201)
+      expect(error.message).toContain('provider')
+    })
+
+    await test.step('create config-map with invalid schema should fail', async () => {
+      const data = {
+        apiVersion: 'v1',
+        kind: 'ConfigMap',
+        metadata: {
+          name: configMapName3,
+          labels: {
+            'openeverest.io/definition': 'test-config',
+            'openeverest.io/provider': 'test-provider',
+          },
+        },
+        data: {
+          // Missing required 'endpoint' field
+          'other-key': 'value',
+        },
+      }
+
+      const response = await th.createConfigMapRaw(request, data)
+      expect(response.ok()).toBeFalsy()
+      expect(response.status()).toBe(400)
+      const error = await response.json()
+      expect(error.message).toContain('schema')
     })
 
     await test.step('delete config-map', async () => {
