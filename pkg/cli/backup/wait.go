@@ -35,9 +35,6 @@ func backupCondition(b *client.Backup) (wait.Outcome, string) {
 	case backupStateFailed:
 		return wait.Failed, backupFailureMessage(b)
 	default:
-		if state == "" {
-			state = "-"
-		}
 		return wait.Pending, state
 	}
 }
@@ -64,13 +61,6 @@ func newBackupPoll(
 			return nil, fmt.Errorf("unexpected response fetching backup %q: %s", name, resp.Status())
 		}
 	}
-}
-
-func backupState(b *client.Backup) string {
-	if b == nil || b.Status == nil || b.Status.State == nil {
-		return ""
-	}
-	return *b.Status.State
 }
 
 func backupFailureMessage(b *client.Backup) string {

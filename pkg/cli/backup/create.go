@@ -38,11 +38,6 @@ const (
 	backupStateFailed    = "Failed"
 )
 
-// Config holds the shared configuration for backup CLI runners.
-type Config struct {
-	Pretty bool
-}
-
 // CreateOptions holds the inputs for the create command.
 type CreateOptions struct {
 	Instance       string
@@ -91,9 +86,9 @@ func (cr *CreateRunner) Run(ctx context.Context, opts CreateOptions, cfgPath str
 	} else {
 		(*backup.Metadata)["generateName"] = opts.Instance + "-"
 	}
-	backup.Spec.InstanceName = opts.Instance
-	backup.Spec.BackupClassName = opts.Class
-	backup.Spec.StorageName = opts.Storage
+	backup.Spec.InstanceRef.Name = opts.Instance
+	backup.Spec.ClassRef.Name = opts.Class
+	backup.Spec.StorageRef.Name = opts.Storage
 	if opts.DeletionPolicy != "" {
 		backup.Spec.DeletionPolicy = opts.DeletionPolicy
 	}
@@ -189,19 +184,4 @@ func writeBackupJSON(b *client.Backup) error {
 		return fmt.Errorf("failed to encode backup: %w", err)
 	}
 	return nil
-}
-
-func metadataStringField(b *client.Backup, key string) string {
-	if b.Metadata == nil {
-		return "-"
-	}
-	v, ok := (*b.Metadata)[key]
-	if !ok {
-		return "-"
-	}
-	s, ok := v.(string)
-	if !ok || s == "" {
-		return "-"
-	}
-	return s
 }
