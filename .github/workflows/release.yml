@@ -499,6 +499,14 @@ jobs:
             CGO_ENABLED=0 GOOS=linux GOARCH=${{ matrix.arch }} make release
           fi
 
+      - name: Everest - verify binary architecture
+        run: |
+          got_arch=$(go version -m ./bin/everest | grep -o 'GOARCH=[a-z0-9]*' | head -1 | cut -d= -f2)
+          if [[ "$got_arch" != "${{ matrix.arch }}" ]]; then
+            echo "::error::bin/everest was built for '$got_arch', expected '${{ matrix.arch }}'"
+            exit 1
+          fi
+
       - name: Everest - setup docker build metadata
         uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
         id: everest_meta
