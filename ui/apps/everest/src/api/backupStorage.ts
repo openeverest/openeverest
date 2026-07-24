@@ -31,7 +31,9 @@ const formValuesToCrdCreate = (formValues: BackupStorageFormValues) => ({
       bucket: formValues.bucketName,
       endpointURL: formValues.url,
       region: formValues.region,
-      credentialsSecretName: `backup-storage-${formValues.name}-credentials`,
+      credentialsSecretRef: {
+        name: `backup-storage-${formValues.name}-credentials`,
+      },
       accessKeyId: formValues.accessKey,
       secretAccessKey: formValues.secretKey,
       verifyTLS: formValues.verifyTLS,
@@ -47,7 +49,9 @@ const formValuesToCrdEdit = (formValues: BackupStorageFormValues) => ({
       bucket: formValues.bucketName,
       endpointURL: formValues.url,
       region: formValues.region,
-      credentialsSecretName: `backup-storage-${formValues.name}-credentials`,
+      credentialsSecretRef: {
+        name: `backup-storage-${formValues.name}-credentials`,
+      },
       ...(formValues.accessKey && { accessKeyId: formValues.accessKey }),
       ...(formValues.secretKey && { secretAccessKey: formValues.secretKey }),
       verifyTLS: formValues.verifyTLS,

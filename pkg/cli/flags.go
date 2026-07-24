@@ -104,6 +104,8 @@ const (
 	FlagInstanceVersion = "version"
 	// FlagInstanceTopology is the name of the topology flag.
 	FlagInstanceTopology = "topology"
+	// FlagInstancePreset is the name of the preset flag.
+	FlagInstancePreset = "preset"
 	// FlagInstanceSet is the name of the repeatable set flag for component overrides.
 	FlagInstanceSet = "set"
 	// FlagInstanceFile is the name of the values file flag for component overrides.
@@ -114,6 +116,44 @@ const (
 	FlagInstanceWatch = "watch"
 	// FlagInstanceInterval sets the poll interval for --watch.
 	FlagInstanceInterval = "interval"
+	// FlagInstanceAllNamespaces lists instances across all namespaces.
+	FlagInstanceAllNamespaces = "all-namespaces"
+
+	// `provider` flags.
+
+	// FlagProviderCluster is the name of the cluster flag.
+	FlagProviderCluster = "cluster"
+	// FlagProviderContext overrides the active context for this command.
+	FlagProviderContext = "context"
+
+	// `backup` flags.
+
+	// FlagBackupNamespace is the name of the namespace flag.
+	FlagBackupNamespace = "namespace"
+	// FlagBackupInstance is the name of the instance flag.
+	FlagBackupInstance = "instance"
+	// FlagBackupCluster is the name of the cluster flag.
+	FlagBackupCluster = "cluster"
+	// FlagBackupContext overrides the active context for this command.
+	FlagBackupContext = "context"
+
+	// `backup-storage` flags.
+
+	// FlagBackupStorageNamespace is the name of the namespace flag.
+	FlagBackupStorageNamespace = "namespace"
+	// FlagBackupStorageCluster is the name of the cluster flag.
+	FlagBackupStorageCluster = "cluster"
+	// FlagBackupStorageContext overrides the active context for this command.
+	FlagBackupStorageContext = "context"
+	// FlagBackupStorageAllNamespaces lists backup storages across all namespaces.
+	FlagBackupStorageAllNamespaces = "all-namespaces"
+
+	// `backup-class` flags.
+
+	// FlagBackupClassCluster is the name of the cluster flag.
+	FlagBackupClassCluster = "cluster"
+	// FlagBackupClassContext overrides the active context for this command.
+	FlagBackupClassContext = "context"
 
 	// settings flags.
 

@@ -81,7 +81,7 @@ export const schema = (
   }
 
   const dynamicSchema = configSections
-    ? buildSectionZodSchema('config', configSections, {
+    ? buildSectionZodSchema('parameters', configSections, {
         formMode: FormMode.New,
       }).schema
     : undefined;

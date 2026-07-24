@@ -57,15 +57,17 @@ const MenuButton = ({
         open={open}
         onClose={handleClose}
         {...menuProps}
-        MenuListProps={{
-          'aria-labelledby': 'menu-button',
-          ...menuProps?.MenuListProps,
-        }}
         PaperProps={{
           ...(matchAnchorWidth && anchorEl
             ? { style: { minWidth: anchorEl.offsetWidth } }
             : {}),
           ...menuProps?.PaperProps,
+        }}
+        slotProps={{
+          list: {
+            'aria-labelledby': 'menu-button',
+            ...menuProps?.MenuListProps,
+          },
         }}
       >
         {children && children(handleClose)}

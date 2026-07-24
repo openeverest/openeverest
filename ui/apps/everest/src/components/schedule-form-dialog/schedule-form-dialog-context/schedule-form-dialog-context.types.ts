@@ -24,8 +24,8 @@ type InstanceSchedule = NonNullable<
   >[number]['schedules']
 >[number];
 
-export type FlattenedSchedule = Omit<InstanceSchedule, 'config'> & {
-  config?: Record<string, unknown>;
+export type FlattenedSchedule = Omit<InstanceSchedule, 'parameters'> & {
+  parameters?: Record<string, unknown>;
   storageName: string;
 };
 

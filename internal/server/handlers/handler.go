@@ -51,6 +51,7 @@ type Handler interface {
 	MonitoringConfigHandler
 	InstanceRestoreHandler
 	ConfigMapHandler
+	SecretHandler
 
 	GetKubernetesClusterResources(ctx context.Context) (*api.KubernetesClusterResources, error)
 	GetKubernetesClusterInfo(ctx context.Context) (*api.KubernetesClusterInfo, error)
@@ -147,4 +148,12 @@ type ConfigMapHandler interface {
 	ListConfigMaps(ctx context.Context, cluster, namespace, provider, definition string) (*corev1.ConfigMapList, error)
 	GetConfigMap(ctx context.Context, cluster, namespace, name string) (*corev1.ConfigMap, error)
 	DeleteConfigMap(ctx context.Context, cluster, namespace, name string) error
+}
+
+// SecretHandler provides methods for handling operations on secrets.
+type SecretHandler interface {
+	CreateSecret(ctx context.Context, cluster, namespace string, secret *corev1.Secret) (*corev1.Secret, error)
+	ListSecrets(ctx context.Context, cluster, namespace, provider, definition string) (*corev1.SecretList, error)
+	GetSecret(ctx context.Context, cluster, namespace, name string) (*corev1.Secret, error)
+	DeleteSecret(ctx context.Context, cluster, namespace, name string) error
 }

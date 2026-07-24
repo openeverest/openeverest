@@ -23,7 +23,7 @@ export const flattenSchedules = (instance: Instance): FlattenedSchedule[] =>
       cron: schedule.cron,
       enabled: schedule.enabled,
       retentionCopies: schedule.retentionCopies,
-      config: schedule.config as Record<string, unknown> | undefined,
+      parameters: schedule.parameters as Record<string, unknown> | undefined,
       storageName: storage.storageRef.name ?? '',
     }))
   );
@@ -44,8 +44,8 @@ export const applySchedulesToStorages = (
         cron: schedule.cron,
         enabled: schedule.enabled,
         retentionCopies: schedule.retentionCopies,
-        ...(schedule.config
-          ? { config: schedule.config as Record<string, never> }
+        ...(schedule.parameters
+          ? { parameters: schedule.parameters as Record<string, never> }
           : {}),
       })),
   }));
@@ -64,7 +64,7 @@ export const removeUnusedStorages = (
   storages.filter((storage) => {
     const hasSchedules = (storage.schedules ?? []).length > 0;
     const hasBackups = activeBackups.some(
-      (b) => b.spec?.storageName === storage.name
+      (b) => b.spec?.storageRef?.name === storage.storageRef.name
     );
     return hasSchedules || hasBackups;
   });

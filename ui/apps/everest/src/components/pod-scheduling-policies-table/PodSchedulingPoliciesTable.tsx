@@ -127,7 +127,11 @@ const PodSchedulingPoliciesTable = ({
           showCreationButton={canDoChanges}
           buttonText="Add rule"
           contentSlot={
-            <Stack alignItems="center">
+            <Stack
+              sx={{
+                alignItems: 'center',
+              }}
+            >
               <Typography variant="body1">
                 You currently do not have any rules in this policy.
               </Typography>
@@ -183,5 +187,4 @@ const PodSchedulingPoliciesTable = ({
     />
   );
 };
-
 export default PodSchedulingPoliciesTable;

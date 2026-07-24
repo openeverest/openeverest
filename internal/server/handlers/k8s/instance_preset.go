@@ -24,6 +24,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 
+	common "github.com/openeverest/openeverest/v2/api/common/v1alpha1"
 	corev1alpha1 "github.com/openeverest/openeverest/v2/api/core/v1alpha1"
 	monitoringv1alpha1 "github.com/openeverest/openeverest/v2/api/monitoring/v1alpha1"
 )
@@ -43,7 +44,7 @@ func (h *k8sHandler) ListInstancePresets(ctx context.Context, cluster string, pr
 	if provider != "" {
 		filtered := make([]corev1alpha1.InstancePreset, 0)
 		for _, preset := range list.Items {
-			if preset.Spec.Provider == provider {
+			if preset.Spec.ProviderRef.Name == provider {
 				filtered = append(filtered, preset)
 			}
 		}
@@ -73,7 +74,7 @@ func (h *k8sHandler) ResolveInstancePreset(ctx context.Context, cluster, name, n
 
 // resolveNamespaceDefaults scans components and resolves
 // empty namespace reference fields and empty StorageClass and populates them.
-// The fields that could have namespace references are in config and customSpec.
+// The fields that could have namespace references are in parameters.
 // It skips other fields like resources, image, etc. since they are not
 // namespace-specific, and also skips fields with unknown type.
 // Supported types are Secret and MonitoringConfig.
@@ -84,17 +85,9 @@ func (h *k8sHandler) resolveNamespaceDefaults(ctx context.Context, preset *corev
 	for componentName, component := range preset.Spec.Components {
 		var err error
 
-		// Resolve Config fields
-		if component.Config != nil {
-			component, err = h.resolveConfigFields(ctx, component, componentName, namespace)
-			if err != nil {
-				return nil, fmt.Errorf("failed to resolve component %s: %w", componentName, err)
-			}
-		}
-
-		// Resolve customSpec fields
-		if component.CustomSpec != nil && len(component.CustomSpec.Raw) > 0 {
-			component, err = h.resolveCustomSpecFields(ctx, component, componentName, namespace)
+		// Resolve parameters fields
+		if component.Parameters != nil && len(component.Parameters.Raw) > 0 {
+			component, err = h.resolveParametersFields(ctx, component, componentName, namespace)
 			if err != nil {
 				return nil, fmt.Errorf("failed to resolve component %s: %w", componentName, err)
 			}
@@ -112,24 +105,6 @@ func (h *k8sHandler) resolveNamespaceDefaults(ctx context.Context, preset *corev
 	}
 
 	return preset, nil
-}
-
-// resolveConfigFields handles structured Config.SecretRef.Name.
-// TODO: support Config.ConfigMapRef.Name.
-func (h *k8sHandler) resolveConfigFields(ctx context.Context, component corev1alpha1.ComponentSpec, componentName, namespace string) (corev1alpha1.ComponentSpec, error) {
-	if component.Config == nil {
-		return component, nil
-	}
-
-	if isEmptyValue(component.Config.SecretRef) {
-		defaultSecretName, err := h.findDefaultResource(ctx, namespace, "Secret", componentName)
-		if err != nil {
-			return component, err
-		}
-		component.Config.SecretRef.Name = defaultSecretName
-	}
-
-	return component, nil
 }
 
 // resolveStorageFields handles structured Storage.StorageClass.
@@ -152,10 +127,10 @@ func (h *k8sHandler) resolveStorageFields(ctx context.Context, component corev1a
 	return component, nil
 }
 
-// resolveCustomSpecFields handles unstructured customSpec fields recursively.
-func (h *k8sHandler) resolveCustomSpecFields(ctx context.Context, component corev1alpha1.ComponentSpec, componentName, namespace string) (corev1alpha1.ComponentSpec, error) {
+// resolveParametersFields handles unstructured parameters fields recursively.
+func (h *k8sHandler) resolveParametersFields(ctx context.Context, component corev1alpha1.ComponentSpec, componentName, namespace string) (corev1alpha1.ComponentSpec, error) {
 	var data map[string]any
-	if err := json.Unmarshal(component.CustomSpec.Raw, &data); err != nil {
+	if err := json.Unmarshal(component.Parameters.Raw, &data); err != nil {
 		return component, err
 	}
 
@@ -169,13 +144,13 @@ func (h *k8sHandler) resolveCustomSpecFields(ctx context.Context, component core
 		if err != nil {
 			return component, err
 		}
-		component.CustomSpec.Raw = resolvedRaw
+		component.Parameters.Raw = resolvedRaw
 	}
 
 	return component, nil
 }
 
-// resolveMapFieldsRecursive walks customSpec and resolves empty fields matching patterns
+// resolveMapFieldsRecursive walks parameters and resolves empty fields matching patterns.
 func (h *k8sHandler) resolveMapFieldsRecursive(ctx context.Context, data map[string]any, componentName, namespace string) (bool, error) {
 	var modified bool
 
@@ -228,7 +203,7 @@ func isEmptyValue(value any) bool {
 		return v == ""
 	case *string:
 		return v == nil || *v == ""
-	case corev1.LocalObjectReference:
+	case common.ObjectRef:
 		return v.Name == ""
 	case map[string]any:
 		// Empty object like {} or {"name": ""}

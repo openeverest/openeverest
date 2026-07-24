@@ -25,19 +25,24 @@ components:
         spec:
           description: BackupSpec defines the desired state of Backup.
           properties:
-            backupClassName:
+            classRef:
               description: |-
-                BackupClassName is the BackupClass that defines how this Backup is
-                executed. The class's executionMode controls the runtime path: Job
-                classes are reconciled by the in-cluster Backup job controller;
-                ProviderManaged classes are reconciled by the provider's runtime.
-              type: string
-            config:
-              description: |-
-                Config is the backup-time configuration validated against the
-                BackupClass's .spec.config.openAPIV3Schema.
+                ClassRef references the cluster-scoped BackupClass that defines how
+                this Backup is executed. The class's executionMode controls the runtime
+                path: Job classes are reconciled by the in-cluster Backup job
+                controller; ProviderManaged classes are reconciled by the provider's
+                runtime.
+              properties:
+                name:
+                  description: Name of the referenced object.
+                  maxLength: 253
+                  minLength: 1
+                  pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                  type: string
+              required:
+              - name
               type: object
-              x-kubernetes-preserve-unknown-fields: true
+              x-kubernetes-map-type: atomic
             deletionPolicy:
               allOf:
               - enum:
@@ -61,11 +66,27 @@ components:
                 has been set is rejected so the cleanup path cannot race with
                 itself.
               type: string
-            instanceName:
+            instanceRef:
               description: |-
-                InstanceName is the name of the Instance to back up. The Instance must
+                InstanceRef references the Instance to back up. The Instance must
                 live in the same namespace as this Backup.
-              type: string
+              properties:
+                name:
+                  description: Name of the referenced object.
+                  maxLength: 253
+                  minLength: 1
+                  pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                  type: string
+              required:
+              - name
+              type: object
+              x-kubernetes-map-type: atomic
+            parameters:
+              description: |-
+                Parameters is the backup-time structured configuration validated
+                against the BackupClass's .spec.parametersSchema.
+              type: object
+              x-kubernetes-preserve-unknown-fields: true
             scheduleName:
               description: |-
                 ScheduleName, when set, identifies the InstanceBackupSchedule that
@@ -74,17 +95,27 @@ components:
                 sets it when surfacing operator-produced scheduled backups as Backup
                 CRs.
               type: string
-            storageName:
+            storageRef:
               description: |-
-                StorageName references a BackupStorage in the same namespace that
+                StorageRef references a BackupStorage in the same namespace that
                 defines where the backup data is written. For ProviderManaged classes
                 the referenced storage must already be registered on the Instance via
                 .spec.backup.storages so the engine can write to it.
-              type: string
+              properties:
+                name:
+                  description: Name of the referenced object.
+                  maxLength: 253
+                  minLength: 1
+                  pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                  type: string
+              required:
+              - name
+              type: object
+              x-kubernetes-map-type: atomic
           required:
-          - backupClassName
-          - instanceName
-          - storageName
+          - classRef
+          - instanceRef
+          - storageRef
           type: object
         status:
           description: BackupStatus defines the observed state of Backup.
@@ -160,11 +191,21 @@ components:
               - ProviderManaged
               - Job
               type: string
-            jobName:
+            jobRef:
               description: |-
-                JobName is the reference to the Job that is running the backup.
+                JobRef references the Job that is running the backup.
                 Populated only for Job classes.
-              type: string
+              properties:
+                name:
+                  description: Name of the referenced object.
+                  maxLength: 253
+                  minLength: 1
+                  pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                  type: string
+              required:
+              - name
+              type: object
+              x-kubernetes-map-type: atomic
             lastObservedGeneration:
               description: LastObservedGeneration is the last observed generation
                 of the Backup CR.
@@ -179,17 +220,21 @@ components:
                 provider created (e.g., PerconaServerMongoDBBackup). Populated only
                 for ProviderManaged classes.
               properties:
-                apiGroup:
+                group:
                   description: |-
-                    APIGroup is the group for the resource being referenced.
-                    If APIGroup is not specified, the specified Kind must be in the core API group.
-                    For any other third-party types, APIGroup is required.
+                    Group is the API group of the referenced object. Empty for objects in
+                    the core API group.
+                  maxLength: 253
                   type: string
                 kind:
-                  description: Kind is the type of resource being referenced
+                  description: Kind of the referenced object.
+                  maxLength: 63
+                  minLength: 1
                   type: string
                 name:
-                  description: Name is the name of resource being referenced
+                  description: Name of the referenced object.
+                  maxLength: 253
+                  minLength: 1
                   type: string
               required:
               - kind
@@ -234,17 +279,6 @@ components:
         spec:
           description: BackupClassSpec defines the desired state of BackupClass.
           properties:
-            config:
-              description: |-
-                Config contains the OpenAPI v3 schema describing the backup-time
-                configuration accepted by this class. Backup.spec.config and
-                InstanceBackupSchedule.config are both validated against this schema.
-              properties:
-                openAPIV3Schema:
-                  description: OpenAPIV3Schema is the OpenAPI v3 schema of the backup
-                    class.
-                  x-kubernetes-preserve-unknown-fields: true
-              type: object
             description:
               description: Description is the description of the backup class.
               type: string
@@ -561,6 +595,18 @@ components:
               required:
               - backup
               type: object
+            parametersSchema:
+              description: |-
+                ParametersSchema declares the OpenAPI v3 schema describing the
+                backup-time parameters accepted by this class. Backup.spec.parameters
+                and InstanceBackupSchedule.parameters are both validated against it.
+              properties:
+                openAPIV3Schema:
+                  description: |-
+                    OpenAPIV3Schema is the OpenAPI v3 schema describing the accepted
+                    parameters payload.
+                  x-kubernetes-preserve-unknown-fields: true
+              type: object
             providerManaged:
               description: |-
                 ProviderManaged contains hints for ExecutionMode="ProviderManaged". The
@@ -603,31 +649,35 @@ components:
                       minimum: 1
                       type: integer
                   type: object
-                pitrConfigSchema:
+                pitrParametersSchema:
                   description: |-
-                    PITRConfigSchema describes the shape of per-storage PITR custom config
-                    (InstanceBackupStoragePITR.Config). The field is free-form and opaque
-                    to the runtime; the provider validates Instance.spec.backup PITR
-                    payloads against it inside Validate(). The recommended payload is an
-                    OpenAPI v3 schema fragment so the UI can render a matching form, but
-                    any provider-specific dialect is permitted.
+                    PITRParametersSchema declares the OpenAPI v3 schema for per-storage
+                    PITR parameters (InstanceBackupStoragePITR.Parameters). The provider
+                    validates Instance.spec.backup PITR payloads against it inside
+                    Validate(); the UI renders a matching form from it.
+                  properties:
+                    openAPIV3Schema:
+                      description: |-
+                        OpenAPIV3Schema is the OpenAPI v3 schema describing the accepted
+                        parameters payload.
+                      x-kubernetes-preserve-unknown-fields: true
                   type: object
-                  x-kubernetes-preserve-unknown-fields: true
                 supportsPITR:
                   description: |-
                     SupportsPITR indicates whether this class supports point-in-time recovery.
                     Used by Restore validation when Restore.spec.dataSource.pitr is set.
                   type: boolean
               type: object
-            restoreConfig:
+            restoreParametersSchema:
               description: |-
-                RestoreConfig contains the OpenAPI v3 schema describing the restore-time
-                configuration accepted by this class. Restore.spec.config is validated
-                against this schema.
+                RestoreParametersSchema declares the OpenAPI v3 schema describing the
+                restore-time parameters accepted by this class. Restore.spec.parameters
+                is validated against it.
               properties:
                 openAPIV3Schema:
-                  description: OpenAPIV3Schema is the OpenAPI v3 schema of the backup
-                    class.
+                  description: |-
+                    OpenAPIV3Schema is the OpenAPI v3 schema describing the accepted
+                    parameters payload.
                   x-kubernetes-preserve-unknown-fields: true
               type: object
             supportedProviders:
@@ -815,7 +865,7 @@ components:
             It is referenced by name from:
 
               - Instance.spec.backup.storages[].storageRef
-              - Backup.spec.storageName
+              - Backup.spec.storageRef
 
             Decoupling storage from individual Backup CRs makes provider-managed
             backups (e.g. PBM, pgBackRest) practical: the provider can register a
@@ -830,17 +880,27 @@ components:
                 accessKeyId:
                   description: |-
                     AccessKeyID is a write-only convenience input. When set, a webhook
-                    stores it in the Secret named by CredentialsSecretName and clears
+                    stores it in the Secret named by CredentialsSecretRef and clears
                     this field. It is never persisted on the BackupStorage object.
                   type: string
                 bucket:
                   description: Bucket is the name of the S3 bucket.
                   type: string
-                credentialsSecretName:
+                credentialsSecretRef:
                   description: |-
-                    CredentialsSecretName is the name of the Secret in the same namespace
+                    CredentialsSecretRef references the Secret in the same namespace
                     that holds the AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY keys.
-                  type: string
+                  properties:
+                    name:
+                      description: Name of the referenced Secret.
+                      maxLength: 253
+                      minLength: 1
+                      pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                      type: string
+                  required:
+                  - name
+                  type: object
+                  x-kubernetes-map-type: atomic
                 endpointURL:
                   description: EndpointURL is the endpoint URL of the S3-compatible
                     service.
@@ -869,7 +929,7 @@ components:
                   type: boolean
               required:
               - bucket
-              - credentialsSecretName
+              - credentialsSecretRef
               - endpointURL
               - region
               type: object
@@ -974,26 +1034,46 @@ components:
                   description: FrontendDigest pins the OCI digest of the frontend
                     bundle artifact.
                   type: string
-                pluginCRName:
+                pluginRef:
                   description: |-
-                    PluginCRName is the name of the cluster-scoped Plugin CR that this
-                    install record points at.
-                  type: string
+                    PluginRef references the cluster-scoped Plugin CR that this install
+                    record points at.
+                  properties:
+                    name:
+                      description: Name of the referenced object.
+                      maxLength: 253
+                      minLength: 1
+                      pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                      type: string
+                  required:
+                  - name
+                  type: object
+                  x-kubernetes-map-type: atomic
               required:
-              - pluginCRName
+              - pluginRef
               type: object
             provider:
               description: |-
                 Provider holds provider-specific install state. Required when
                 type=provider; must be nil when type=plugin.
               properties:
-                providerName:
+                providerRef:
                   description: |-
-                    ProviderName is the name of the cluster-scoped Provider CR that this
+                    ProviderRef references the cluster-scoped Provider CR that this
                     install record points at.
-                  type: string
+                  properties:
+                    name:
+                      description: Name of the referenced object.
+                      maxLength: 253
+                      minLength: 1
+                      pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                      type: string
+                  required:
+                  - name
+                  type: object
+                  x-kubernetes-map-type: atomic
               required:
-              - providerName
+              - providerRef
               type: object
             type:
               description: |-
@@ -1173,17 +1253,21 @@ components:
               properties:
                 classRef:
                   description: |-
-                    ClassRef references the BackupClass that the provider should use to
-                    configure the engine. The class must have ExecutionMode=ProviderManaged
-                    and list the Instance's provider in its SupportedProviders.
+                    ClassRef references the cluster-scoped BackupClass that the provider
+                    should use to configure the engine. The class must have
+                    ExecutionMode=ProviderManaged and list the Instance's provider in its
+                    SupportedProviders.
                   properties:
                     name:
-                      description: Name is the BackupClass name. BackupClasses are
-                        cluster-scoped.
+                      description: Name of the referenced object.
+                      maxLength: 253
+                      minLength: 1
+                      pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                       type: string
                   required:
                   - name
                   type: object
+                  x-kubernetes-map-type: atomic
                 enabled:
                   description: |-
                     Enabled toggles the backup feature for this Instance. When false the
@@ -1191,21 +1275,16 @@ components:
                   type: boolean
                 storages:
                   description: |-
-                    Storages registers BackupStorages on the engine. Each entry maps a
-                    logical name (visible to the engine and reused by Backup CRs via
-                    .spec.storageName) to a BackupStorage resource. Schedules and PITR are
-                    configured per storage via the nested .schedules and .pitr fields.
+                    Storages registers BackupStorages on the engine. Each entry references
+                    a BackupStorage resource in the same namespace; the BackupStorage name
+                    is also the storage key the engine uses and the value that Backup CRs
+                    target via .spec.storageRef. Schedules and PITR are configured per
+                    storage via the nested .schedules and .pitr fields.
                   items:
                     description: |-
                       InstanceBackupStorage registers a BackupStorage on the Instance and
                       carries the backup policy (schedules, PITR) that targets it.
                     properties:
-                      name:
-                        description: |-
-                          Name is the logical name the engine uses for this storage. It is also
-                          the value that Backup CRs target via .spec.storageName.
-                        maxLength: 63
-                        type: string
                       pitr:
                         description: |-
                           PITR enables and configures point-in-time recovery writing to this
@@ -1215,15 +1294,15 @@ components:
                           .pitr.enabled=true; this is enforced by the provider, not by the
                           core schema (PG legitimately archives WAL to every configured repo).
                         properties:
-                          config:
-                            description: |-
-                              Config holds provider-specific PITR options. The schema is defined by
-                              the BackupClass via .spec.providerManaged.
-                            type: object
-                            x-kubernetes-preserve-unknown-fields: true
                           enabled:
                             description: Enabled toggles PITR for this storage.
                             type: boolean
+                          parameters:
+                            description: |-
+                              Parameters holds provider-specific PITR options, validated against the
+                              BackupClass's .spec.providerManaged.pitrParametersSchema.
+                            type: object
+                            x-kubernetes-preserve-unknown-fields: true
                         required:
                         - enabled
                         type: object
@@ -1243,14 +1322,6 @@ components:
                             backups are mirrored back into Backup CRs by the provider, sharing the
                             operator backup's name.
                           properties:
-                            config:
-                              description: |-
-                                Config is schedule-specific configuration validated against the
-                                BackupClass's .spec.scheduleConfig.openAPIV3Schema. When unset the
-                                provider falls back to engine defaults. The schema is the same as for
-                                Backup.spec.config but applied per-schedule rather than per-backup-run.
-                              type: object
-                              x-kubernetes-preserve-unknown-fields: true
                             cron:
                               description: |-
                                 Cron is a standard 5-field cron expression. The provider may reject
@@ -1271,6 +1342,15 @@ components:
                               maxLength: 63
                               minLength: 1
                               type: string
+                            parameters:
+                              description: |-
+                                Parameters is schedule-specific structured configuration validated
+                                against the BackupClass's .spec.parametersSchema. When unset the
+                                provider falls back to engine defaults. The schema is the same as for
+                                Backup.spec.parameters but applied per-schedule rather than
+                                per-backup-run.
+                              type: object
+                              x-kubernetes-preserve-unknown-fields: true
                             retentionCopies:
                               description: |-
                                 RetentionCopies is the number of recent backups to keep for this
@@ -1287,22 +1367,22 @@ components:
                         maxItems: 10
                         type: array
                       storageRef:
-                        description: StorageRef references a BackupStorage in the
-                          same namespace.
+                        description: |-
+                          StorageRef references a BackupStorage in the same namespace. The
+                          BackupStorage name doubles as the storage key on the engine, so it
+                          must be unique across all entries.
                         properties:
                           name:
-                            default: ""
-                            description: |-
-                              Name of the referent.
-                              This field is effectively required, but due to backwards compatibility is
-                              allowed to be empty. Instances of this type with an empty value here are
-                              almost certainly wrong.
-                              More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                            description: Name of the referenced object.
+                            maxLength: 253
+                            minLength: 1
+                            pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                             type: string
+                        required:
+                        - name
                         type: object
                         x-kubernetes-map-type: atomic
                     required:
-                    - name
                     - storageRef
                     type: object
                   maxItems: 10
@@ -1312,6 +1392,9 @@ components:
               - enabled
               type: object
               x-kubernetes-validations:
+              - message: storageRef names must be unique across all storages
+                rule: '!has(self.storages) || self.storages.all(s1, self.storages.filter(s2,
+                  s2.storageRef.name == s1.storageRef.name).size() == 1)'
               - message: schedule names must be unique across all storages
                 rule: '!has(self.storages) || self.storages.all(s1, !has(s1.schedules)
                   || s1.schedules.all(sch1, self.storages.filter(s2, has(s2.schedules)
@@ -2243,50 +2326,6 @@ components:
                             x-kubernetes-list-type: atomic
                         type: object
                     type: object
-                  config:
-                    description: Config specifies the component specific configuration.
-                    properties:
-                      configMapRef:
-                        description: |-
-                          LocalObjectReference contains enough information to let you locate the
-                          referenced object inside the same namespace.
-                        properties:
-                          name:
-                            default: ""
-                            description: |-
-                              Name of the referent.
-                              This field is effectively required, but due to backwards compatibility is
-                              allowed to be empty. Instances of this type with an empty value here are
-                              almost certainly wrong.
-                              More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                            type: string
-                        type: object
-                        x-kubernetes-map-type: atomic
-                      key:
-                        type: string
-                      secretRef:
-                        description: |-
-                          LocalObjectReference contains enough information to let you locate the
-                          referenced object inside the same namespace.
-                        properties:
-                          name:
-                            default: ""
-                            description: |-
-                              Name of the referent.
-                              This field is effectively required, but due to backwards compatibility is
-                              allowed to be empty. Instances of this type with an empty value here are
-                              almost certainly wrong.
-                              More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                            type: string
-                        type: object
-                        x-kubernetes-map-type: atomic
-                    type: object
-                  customSpec:
-                    description: |-
-                      CustomSpec provides an API for customising this component.
-                      The API schema is defined by the provider's ComponentSchemas.
-                    type: object
-                    x-kubernetes-preserve-unknown-fields: true
                   image:
                     description: |-
                       Image specifies an override for the image to use.
@@ -2296,6 +2335,14 @@ components:
                   name:
                     description: Name of the component.
                     type: string
+                  parameters:
+                    description: |-
+                      Parameters contains component-specific structured parameters, validated
+                      against the provider's components[].parametersSchema. Engine
+                      configuration file content is carried here as well, under the
+                      provider-declared "configuration" property.
+                    type: object
+                    x-kubernetes-preserve-unknown-fields: true
                   replicas:
                     description: Replicas specifies the number of replicas for this
                       component.
@@ -2434,11 +2481,20 @@ components:
                     Backup references an existing Backup CR in the same namespace.
                     Required when type=Backup.
                   properties:
-                    backupName:
-                      description: BackupName is the name of the Backup CR in the
-                        same namespace.
-                      minLength: 1
-                      type: string
+                    backupRef:
+                      description: BackupRef references the Backup CR in the same
+                        namespace.
+                      properties:
+                        name:
+                          description: Name of the referenced object.
+                          maxLength: 253
+                          minLength: 1
+                          pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                          type: string
+                      required:
+                      - name
+                      type: object
+                      x-kubernetes-map-type: atomic
                     pitr:
                       description: |-
                         PITR configures point-in-time recovery on top of this backup.
@@ -2463,8 +2519,11 @@ components:
                       required:
                       - type
                       type: object
+                      x-kubernetes-validations:
+                      - message: date must be set when type is date
+                        rule: 'self.type == ''date'' ? has(self.date) : true'
                   required:
-                  - backupName
+                  - backupRef
                   type: object
                 type:
                   description: Type selects the data source kind.
@@ -2490,7 +2549,7 @@ components:
                 DeletionPolicy controls what happens to Backup and Restore CRs that
                 reference this Instance when the Instance is deleted.
                 Cascade (default) instructs the runtime to delete every Backup and
-                Restore in the Instance's namespace whose .spec.instanceName matches
+                Restore in the Instance's namespace whose .spec.instanceRef matches
                 this Instance before tearing down the engine. Each Backup's own
                 .spec.deletionPolicy then independently controls whether its
                 underlying data in the BackupStorage is purged or retained.
@@ -2507,23 +2566,36 @@ components:
                 has been set is rejected so the cascade path cannot race with
                 itself.
               type: string
-            global:
+            parameters:
               description: |-
-                Global contains provider-level configuration that applies to the entire cluster.
-                The schema for this field is defined by the provider's GlobalConfigSchema.
+                Parameters contains structured parameters that apply to the Instance
+                as a whole, complementing the topology- and component-scoped
+                parameters. The payload is validated against the referenced Provider's
+                .spec.parametersSchema.
               type: object
               x-kubernetes-preserve-unknown-fields: true
-            provider:
-              description: Provider is the name of the database provider (e.g., "psmdb",
-                "postgresql").
-              type: string
+            providerRef:
+              description: |-
+                ProviderRef references the cluster-scoped Provider that manages this
+                Instance (e.g., "percona-server-mongodb", "postgresql").
+              properties:
+                name:
+                  description: Name of the referenced object.
+                  maxLength: 253
+                  minLength: 1
+                  pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                  type: string
+              required:
+              - name
+              type: object
+              x-kubernetes-map-type: atomic
             topology:
               description: Topology defines the deployment topology and its configuration.
               properties:
-                config:
+                parameters:
                   description: |-
-                    Config contains topology-specific configuration.
-                    The schema for this field is defined by the provider's TopologyDefinition.
+                    Parameters contains topology-specific structured parameters, validated
+                    against the provider's topologies[].parametersSchema.
                     Examples: shard count for sharded topology, replication factor, etc.
                   type: object
                   x-kubernetes-preserve-unknown-fields: true
@@ -2541,6 +2613,8 @@ components:
                 in Components take precedence over the bundle.
                 If omitted and the provider defines a default bundle, that bundle is used.
               type: string
+          required:
+          - providerRef
           type: object
           x-kubernetes-validations:
           - message: spec.dataSource requires spec.backup.enabled=true with at least
@@ -2552,26 +2626,62 @@ components:
         status:
           description: InstanceStatus defines the observed state of Instance.
           properties:
+            backup:
+              description: |-
+                Backup surfaces backup-related observability data reported by the
+                provider, such as the latest restorable time for PITR-enabled storages.
+              properties:
+                storages:
+                  description: |-
+                    Storages is the per-storage backup status, keyed by the logical storage
+                    name declared in spec.backup.storages.
+                  items:
+                    description: |-
+                      InstanceBackupStorageStatus reports the observed backup state of a single
+                      entry in spec.backup.storages.
+                    properties:
+                      latestRestorableTime:
+                        description: |-
+                          LatestRestorableTime is the most recent point in time to which the
+                          instance can be restored using point-in-time recovery from this
+                          storage. Only populated when PITR is enabled for the storage and the
+                          engine reports a recovery window.
+                        format: date-time
+                        type: string
+                      name:
+                        description: |-
+                          Name is the BackupStorage name (matches
+                          spec.backup.storages[].storageRef.name).
+                        type: string
+                    required:
+                    - name
+                    type: object
+                  type: array
+                  x-kubernetes-list-map-keys:
+                  - name
+                  x-kubernetes-list-type: map
+              type: object
             components:
               description: Components is the status of the components in the database
                 cluster.
               items:
                 properties:
-                  pods:
+                  podRefs:
+                    description: PodRefs references the Pods backing this component.
                     items:
                       description: |-
-                        LocalObjectReference contains enough information to let you locate the
-                        referenced object inside the same namespace.
+                        ObjectRef references an object by name. The target is either in the same
+                        namespace as the referrer or cluster-scoped; which one applies is fixed by
+                        the field using this type and documented there.
                       properties:
                         name:
-                          default: ""
-                          description: |-
-                            Name of the referent.
-                            This field is effectively required, but due to backwards compatibility is
-                            allowed to be empty. Instances of this type with an empty value here are
-                            almost certainly wrong.
-                            More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                          description: Name of the referenced object.
+                          maxLength: 253
+                          minLength: 1
+                          pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                           type: string
+                      required:
+                      - name
                       type: object
                       x-kubernetes-map-type: atomic
                     type: array
@@ -2660,14 +2770,13 @@ components:
                   - "uri"      - Full connection URI including credentials
               properties:
                 name:
-                  default: ""
-                  description: |-
-                    Name of the referent.
-                    This field is effectively required, but due to backwards compatibility is
-                    allowed to be empty. Instances of this type with an empty value here are
-                    almost certainly wrong.
-                    More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                  description: Name of the referenced Secret.
+                  maxLength: 253
+                  minLength: 1
+                  pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                   type: string
+              required:
+              - name
               type: object
               x-kubernetes-map-type: atomic
             message:
@@ -2805,17 +2914,21 @@ components:
               properties:
                 classRef:
                   description: |-
-                    ClassRef references the BackupClass that the provider should use to
-                    configure the engine. The class must have ExecutionMode=ProviderManaged
-                    and list the Instance's provider in its SupportedProviders.
+                    ClassRef references the cluster-scoped BackupClass that the provider
+                    should use to configure the engine. The class must have
+                    ExecutionMode=ProviderManaged and list the Instance's provider in its
+                    SupportedProviders.
                   properties:
                     name:
-                      description: Name is the BackupClass name. BackupClasses are
-                        cluster-scoped.
+                      description: Name of the referenced object.
+                      maxLength: 253
+                      minLength: 1
+                      pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                       type: string
                   required:
                   - name
                   type: object
+                  x-kubernetes-map-type: atomic
                 enabled:
                   description: |-
                     Enabled toggles the backup feature for this Instance. When false the
@@ -2823,21 +2936,16 @@ components:
                   type: boolean
                 storages:
                   description: |-
-                    Storages registers BackupStorages on the engine. Each entry maps a
-                    logical name (visible to the engine and reused by Backup CRs via
-                    .spec.storageName) to a BackupStorage resource. Schedules and PITR are
-                    configured per storage via the nested .schedules and .pitr fields.
+                    Storages registers BackupStorages on the engine. Each entry references
+                    a BackupStorage resource in the same namespace; the BackupStorage name
+                    is also the storage key the engine uses and the value that Backup CRs
+                    target via .spec.storageRef. Schedules and PITR are configured per
+                    storage via the nested .schedules and .pitr fields.
                   items:
                     description: |-
                       InstanceBackupStorage registers a BackupStorage on the Instance and
                       carries the backup policy (schedules, PITR) that targets it.
                     properties:
-                      name:
-                        description: |-
-                          Name is the logical name the engine uses for this storage. It is also
-                          the value that Backup CRs target via .spec.storageName.
-                        maxLength: 63
-                        type: string
                       pitr:
                         description: |-
                           PITR enables and configures point-in-time recovery writing to this
@@ -2847,15 +2955,15 @@ components:
                           .pitr.enabled=true; this is enforced by the provider, not by the
                           core schema (PG legitimately archives WAL to every configured repo).
                         properties:
-                          config:
-                            description: |-
-                              Config holds provider-specific PITR options. The schema is defined by
-                              the BackupClass via .spec.providerManaged.
-                            type: object
-                            x-kubernetes-preserve-unknown-fields: true
                           enabled:
                             description: Enabled toggles PITR for this storage.
                             type: boolean
+                          parameters:
+                            description: |-
+                              Parameters holds provider-specific PITR options, validated against the
+                              BackupClass's .spec.providerManaged.pitrParametersSchema.
+                            type: object
+                            x-kubernetes-preserve-unknown-fields: true
                         required:
                         - enabled
                         type: object
@@ -2875,14 +2983,6 @@ components:
                             backups are mirrored back into Backup CRs by the provider, sharing the
                             operator backup's name.
                           properties:
-                            config:
-                              description: |-
-                                Config is schedule-specific configuration validated against the
-                                BackupClass's .spec.scheduleConfig.openAPIV3Schema. When unset the
-                                provider falls back to engine defaults. The schema is the same as for
-                                Backup.spec.config but applied per-schedule rather than per-backup-run.
-                              type: object
-                              x-kubernetes-preserve-unknown-fields: true
                             cron:
                               description: |-
                                 Cron is a standard 5-field cron expression. The provider may reject
@@ -2903,6 +3003,15 @@ components:
                               maxLength: 63
                               minLength: 1
                               type: string
+                            parameters:
+                              description: |-
+                                Parameters is schedule-specific structured configuration validated
+                                against the BackupClass's .spec.parametersSchema. When unset the
+                                provider falls back to engine defaults. The schema is the same as for
+                                Backup.spec.parameters but applied per-schedule rather than
+                                per-backup-run.
+                              type: object
+                              x-kubernetes-preserve-unknown-fields: true
                             retentionCopies:
                               description: |-
                                 RetentionCopies is the number of recent backups to keep for this
@@ -2919,22 +3028,22 @@ components:
                         maxItems: 10
                         type: array
                       storageRef:
-                        description: StorageRef references a BackupStorage in the
-                          same namespace.
+                        description: |-
+                          StorageRef references a BackupStorage in the same namespace. The
+                          BackupStorage name doubles as the storage key on the engine, so it
+                          must be unique across all entries.
                         properties:
                           name:
-                            default: ""
-                            description: |-
-                              Name of the referent.
-                              This field is effectively required, but due to backwards compatibility is
-                              allowed to be empty. Instances of this type with an empty value here are
-                              almost certainly wrong.
-                              More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                            description: Name of the referenced object.
+                            maxLength: 253
+                            minLength: 1
+                            pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                             type: string
+                        required:
+                        - name
                         type: object
                         x-kubernetes-map-type: atomic
                     required:
-                    - name
                     - storageRef
                     type: object
                   maxItems: 10
@@ -2944,6 +3053,9 @@ components:
               - enabled
               type: object
               x-kubernetes-validations:
+              - message: storageRef names must be unique across all storages
+                rule: '!has(self.storages) || self.storages.all(s1, self.storages.filter(s2,
+                  s2.storageRef.name == s1.storageRef.name).size() == 1)'
               - message: schedule names must be unique across all storages
                 rule: '!has(self.storages) || self.storages.all(s1, !has(s1.schedules)
                   || s1.schedules.all(sch1, self.storages.filter(s2, has(s2.schedules)
@@ -3875,50 +3987,6 @@ components:
                             x-kubernetes-list-type: atomic
                         type: object
                     type: object
-                  config:
-                    description: Config specifies the component specific configuration.
-                    properties:
-                      configMapRef:
-                        description: |-
-                          LocalObjectReference contains enough information to let you locate the
-                          referenced object inside the same namespace.
-                        properties:
-                          name:
-                            default: ""
-                            description: |-
-                              Name of the referent.
-                              This field is effectively required, but due to backwards compatibility is
-                              allowed to be empty. Instances of this type with an empty value here are
-                              almost certainly wrong.
-                              More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                            type: string
-                        type: object
-                        x-kubernetes-map-type: atomic
-                      key:
-                        type: string
-                      secretRef:
-                        description: |-
-                          LocalObjectReference contains enough information to let you locate the
-                          referenced object inside the same namespace.
-                        properties:
-                          name:
-                            default: ""
-                            description: |-
-                              Name of the referent.
-                              This field is effectively required, but due to backwards compatibility is
-                              allowed to be empty. Instances of this type with an empty value here are
-                              almost certainly wrong.
-                              More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                            type: string
-                        type: object
-                        x-kubernetes-map-type: atomic
-                    type: object
-                  customSpec:
-                    description: |-
-                      CustomSpec provides an API for customising this component.
-                      The API schema is defined by the provider's ComponentSchemas.
-                    type: object
-                    x-kubernetes-preserve-unknown-fields: true
                   image:
                     description: |-
                       Image specifies an override for the image to use.
@@ -3928,6 +3996,14 @@ components:
                   name:
                     description: Name of the component.
                     type: string
+                  parameters:
+                    description: |-
+                      Parameters contains component-specific structured parameters, validated
+                      against the provider's components[].parametersSchema. Engine
+                      configuration file content is carried here as well, under the
+                      provider-declared "configuration" property.
+                    type: object
+                    x-kubernetes-preserve-unknown-fields: true
                   replicas:
                     description: Replicas specifies the number of replicas for this
                       component.
@@ -4066,11 +4142,20 @@ components:
                     Backup references an existing Backup CR in the same namespace.
                     Required when type=Backup.
                   properties:
-                    backupName:
-                      description: BackupName is the name of the Backup CR in the
-                        same namespace.
-                      minLength: 1
-                      type: string
+                    backupRef:
+                      description: BackupRef references the Backup CR in the same
+                        namespace.
+                      properties:
+                        name:
+                          description: Name of the referenced object.
+                          maxLength: 253
+                          minLength: 1
+                          pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                          type: string
+                      required:
+                      - name
+                      type: object
+                      x-kubernetes-map-type: atomic
                     pitr:
                       description: |-
                         PITR configures point-in-time recovery on top of this backup.
@@ -4095,8 +4180,11 @@ components:
                       required:
                       - type
                       type: object
+                      x-kubernetes-validations:
+                      - message: date must be set when type is date
+                        rule: 'self.type == ''date'' ? has(self.date) : true'
                   required:
-                  - backupName
+                  - backupRef
                   type: object
                 type:
                   description: Type selects the data source kind.
@@ -4122,7 +4210,7 @@ components:
                 DeletionPolicy controls what happens to Backup and Restore CRs that
                 reference this Instance when the Instance is deleted.
                 Cascade (default) instructs the runtime to delete every Backup and
-                Restore in the Instance's namespace whose .spec.instanceName matches
+                Restore in the Instance's namespace whose .spec.instanceRef matches
                 this Instance before tearing down the engine. Each Backup's own
                 .spec.deletionPolicy then independently controls whether its
                 underlying data in the BackupStorage is purged or retained.
@@ -4139,23 +4227,36 @@ components:
                 has been set is rejected so the cascade path cannot race with
                 itself.
               type: string
-            global:
+            parameters:
               description: |-
-                Global contains provider-level configuration that applies to the entire cluster.
-                The schema for this field is defined by the provider's GlobalConfigSchema.
+                Parameters contains structured parameters that apply to the Instance
+                as a whole, complementing the topology- and component-scoped
+                parameters. The payload is validated against the referenced Provider's
+                .spec.parametersSchema.
               type: object
               x-kubernetes-preserve-unknown-fields: true
-            provider:
-              description: Provider is the name of the database provider (e.g., "psmdb",
-                "postgresql").
-              type: string
+            providerRef:
+              description: |-
+                ProviderRef references the cluster-scoped Provider that manages this
+                Instance (e.g., "percona-server-mongodb", "postgresql").
+              properties:
+                name:
+                  description: Name of the referenced object.
+                  maxLength: 253
+                  minLength: 1
+                  pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                  type: string
+              required:
+              - name
+              type: object
+              x-kubernetes-map-type: atomic
             topology:
               description: Topology defines the deployment topology and its configuration.
               properties:
-                config:
+                parameters:
                   description: |-
-                    Config contains topology-specific configuration.
-                    The schema for this field is defined by the provider's TopologyDefinition.
+                    Parameters contains topology-specific structured parameters, validated
+                    against the provider's topologies[].parametersSchema.
                     Examples: shard count for sharded topology, replication factor, etc.
                   type: object
                   x-kubernetes-preserve-unknown-fields: true
@@ -4173,6 +4274,8 @@ components:
                 in Components take precedence over the bundle.
                 If omitted and the provider defines a default bundle, that bundle is used.
               type: string
+          required:
+          - providerRef
           type: object
           x-kubernetes-validations:
           - message: spec.dataSource requires spec.backup.enabled=true with at least
@@ -4304,11 +4407,22 @@ components:
                 PMM contains PMM-specific monitoring configuration.
                 Required when type is "pmm".
               properties:
-                credentialsSecretName:
+                credentialsSecretRef:
                   description: |-
-                    CredentialsSecretName is the reference to the secret containing the API key.
-                    It contains `apiKey` key with the API key value.
-                  type: string
+                    CredentialsSecretRef references the Secret in the same namespace
+                    containing the API key. It contains an `apiKey` key with the API key
+                    value.
+                  properties:
+                    name:
+                      description: Name of the referenced Secret.
+                      maxLength: 253
+                      minLength: 1
+                      pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                      type: string
+                  required:
+                  - name
+                  type: object
+                  x-kubernetes-map-type: atomic
                 url:
                   description: URL is the URL of the PMM server.
                   type: string
@@ -4319,7 +4433,7 @@ components:
                     If unspecified, the default value is true.
                   type: boolean
               required:
-              - credentialsSecretName
+              - credentialsSecretRef
               - url
               type: object
             type:
@@ -4427,11 +4541,21 @@ components:
               properties:
                 credentialsSecretRef:
                   description: |-
-                    CredentialsSecretRef is the name of a Secret in the same namespace as
+                    CredentialsSecretRef references a Secret in the same namespace as
                     the InstalledExtension entry whose "token" key is forwarded as the
                     Authorization header to the external backend. Only meaningful when
                     ExternalURL is set.
-                  type: string
+                  properties:
+                    name:
+                      description: Name of the referenced Secret.
+                      maxLength: 253
+                      minLength: 1
+                      pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                      type: string
+                  required:
+                  - name
+                  type: object
+                  x-kubernetes-map-type: atomic
                 externalUrl:
                   description: |-
                     ExternalURL is the HTTPS base URL of an externally hosted backend
@@ -4724,20 +4848,49 @@ components:
             components:
               additionalProperties:
                 properties:
-                  customSpecSchema:
-                    description: CustomSpecSchema holds the OpenAPI v3 schema for
-                      this component's CustomSpec.
+                  parametersSchema:
+                    description: |-
+                      ParametersSchema declares the OpenAPI v3 schema for this component's
+                      parameters payload (Instance.spec.components[].parameters).
+                    properties:
+                      openAPIV3Schema:
+                        description: |-
+                          OpenAPIV3Schema is the OpenAPI v3 schema describing the accepted
+                          parameters payload.
+                        x-kubernetes-preserve-unknown-fields: true
                     type: object
-                    x-kubernetes-preserve-unknown-fields: true
                   type:
                     type: string
                 type: object
               type: object
-            globalConfigSchema:
-              description: GlobalConfigSchema holds the OpenAPI v3 schema for the
-                global configuration.
+            parametersSchema:
+              description: |-
+                ParametersSchema declares the OpenAPI v3 schema for the instance-wide
+                parameters payload (Instance.spec.parameters).
+              properties:
+                openAPIV3Schema:
+                  description: |-
+                    OpenAPIV3Schema is the OpenAPI v3 schema describing the accepted
+                    parameters payload.
+                  x-kubernetes-preserve-unknown-fields: true
               type: object
-              x-kubernetes-preserve-unknown-fields: true
+            secrets:
+              additionalProperties:
+                description: SecretDefinition describes a Secret type that a provider
+                  supports.
+                properties:
+                  openAPIV3Schema:
+                    description: OpenAPIV3Schema is the OpenAPI v3 schema for validating
+                      secret data/stringData.
+                    x-kubernetes-preserve-unknown-fields: true
+                  uiSchema:
+                    description: UISchema holds UI rendering hints for the secret
+                      creation form.
+                    type: object
+                    x-kubernetes-preserve-unknown-fields: true
+                type: object
+              description: Secrets defines Secret types this provider supports.
+              type: object
             topologies:
               additionalProperties:
                 properties:
@@ -4748,11 +4901,17 @@ components:
                           type: boolean
                       type: object
                     type: object
-                  configSchema:
-                    description: ConfigSchema holds the OpenAPI v3 schema for topology-specific
-                      configuration.
+                  parametersSchema:
+                    description: |-
+                      ParametersSchema declares the OpenAPI v3 schema for topology-specific
+                      parameters (Instance.spec.topology.parameters).
+                    properties:
+                      openAPIV3Schema:
+                        description: |-
+                          OpenAPIV3Schema is the OpenAPI v3 schema describing the accepted
+                          parameters payload.
+                        x-kubernetes-preserve-unknown-fields: true
                     type: object
-                    x-kubernetes-preserve-unknown-fields: true
                 type: object
               type: object
             uiSchema:
@@ -4910,12 +5069,6 @@ components:
         spec:
           description: RestoreSpec defines the desired state of Restore.
           properties:
-            config:
-              description: |-
-                Config is the restore-time configuration validated against the
-                BackupClass's .spec.restoreConfig.openAPIV3Schema.
-              type: object
-              x-kubernetes-preserve-unknown-fields: true
             dataSource:
               description: DataSource defines where the backup data to restore from
                 is located.
@@ -4925,11 +5078,20 @@ components:
                     Backup references an existing Backup CR in the same namespace.
                     Required when type=Backup.
                   properties:
-                    backupName:
-                      description: BackupName is the name of the Backup CR in the
-                        same namespace.
-                      minLength: 1
-                      type: string
+                    backupRef:
+                      description: BackupRef references the Backup CR in the same
+                        namespace.
+                      properties:
+                        name:
+                          description: Name of the referenced object.
+                          maxLength: 253
+                          minLength: 1
+                          pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                          type: string
+                      required:
+                      - name
+                      type: object
+                      x-kubernetes-map-type: atomic
                     pitr:
                       description: |-
                         PITR configures point-in-time recovery on top of this backup.
@@ -4954,8 +5116,11 @@ components:
                       required:
                       - type
                       type: object
+                      x-kubernetes-validations:
+                      - message: date must be set when type is date
+                        rule: 'self.type == ''date'' ? has(self.date) : true'
                   required:
-                  - backupName
+                  - backupRef
                   type: object
                 type:
                   description: Type selects the data source kind.
@@ -4968,15 +5133,31 @@ components:
               x-kubernetes-validations:
               - message: backup must be set when type is Backup
                 rule: 'self.type == ''Backup'' ? has(self.backup) : true'
-            instanceName:
+            instanceRef:
               description: |-
-                InstanceName is the name of the Instance to restore into. The Instance
+                InstanceRef references the Instance to restore into. The Instance
                 must already exist in the same namespace and use a provider listed in
                 the BackupClass's SupportedProviders.
-              type: string
+              properties:
+                name:
+                  description: Name of the referenced object.
+                  maxLength: 253
+                  minLength: 1
+                  pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                  type: string
+              required:
+              - name
+              type: object
+              x-kubernetes-map-type: atomic
+            parameters:
+              description: |-
+                Parameters is the restore-time structured configuration validated
+                against the BackupClass's .spec.restoreParametersSchema.
+              type: object
+              x-kubernetes-preserve-unknown-fields: true
           required:
           - dataSource
-          - instanceName
+          - instanceRef
           type: object
         status:
           description: RestoreStatus defines the observed state of Restore.
@@ -5052,11 +5233,21 @@ components:
               - ProviderManaged
               - Job
               type: string
-            jobName:
+            jobRef:
               description: |-
-                JobName is the reference to the Job that is running the restore.
+                JobRef references the Job that is running the restore.
                 Populated only for Job classes.
-              type: string
+              properties:
+                name:
+                  description: Name of the referenced object.
+                  maxLength: 253
+                  minLength: 1
+                  pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                  type: string
+              required:
+              - name
+              type: object
+              x-kubernetes-map-type: atomic
             lastObservedGeneration:
               description: LastObservedGeneration is the last observed generation
                 of the Restore CR.
@@ -5071,17 +5262,21 @@ components:
                 provider created (e.g., PerconaServerMongoDBRestore). Populated only
                 for ProviderManaged classes.
               properties:
-                apiGroup:
+                group:
                   description: |-
-                    APIGroup is the group for the resource being referenced.
-                    If APIGroup is not specified, the specified Kind must be in the core API group.
-                    For any other third-party types, APIGroup is required.
+                    Group is the API group of the referenced object. Empty for objects in
+                    the core API group.
+                  maxLength: 253
                   type: string
                 kind:
-                  description: Kind is the type of resource being referenced
+                  description: Kind of the referenced object.
+                  maxLength: 63
+                  minLength: 1
                   type: string
                 name:
-                  description: Name is the name of resource being referenced
+                  description: Name of the referenced object.
+                  maxLength: 253
+                  minLength: 1
                   type: string
               required:
               - kind

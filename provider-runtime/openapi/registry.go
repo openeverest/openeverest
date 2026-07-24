@@ -31,7 +31,7 @@ import (
 //
 //	defs := generated.GetOpenAPIDefinitions(openapi.DefaultReferenceCallback)
 //	registry := openapi.NewSchemaRegistryFromDefinitions(defs)
-//	registry.MapComponent("mongod", "github.com/myorg/provider/types.MongodCustomSpec")
+//	registry.MapComponent("mongod", "github.com/myorg/provider/types.MongodParameters")
 //
 // 2. With direct schema registration (for testing or dynamic schemas):
 //
@@ -106,7 +106,7 @@ func NewSchemaRegistryWithFunc(fn GetOpenAPIDefinitionsFunc) *SchemaRegistry {
 //
 // Example:
 //
-//	registry.MapComponent("mongod", "github.com/myorg/provider/types.MongodCustomSpec")
+//	registry.MapComponent("mongod", "github.com/myorg/provider/types.MongodParameters")
 func (r *SchemaRegistry) MapComponent(componentName, typeName string) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()

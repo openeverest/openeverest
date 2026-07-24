@@ -26,7 +26,7 @@ const storageDataObject = {
     s3: {
       bucket: 'bucket-001',
       region: 'Us',
-      credentialsSecretName: 'secret-1',
+      credentialsSecretRef: { name: 'secret-1' },
       endpointURL: 'http://localhost',
     },
   },

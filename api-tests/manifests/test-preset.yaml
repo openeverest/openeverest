@@ -4,7 +4,8 @@ kind: InstancePreset
 metadata:
   name: test-preset
 spec:
-  provider: test-provider
+  providerRef:
+    name: test-provider
   version: "1.0.0"
   topology:
     type: standalone
@@ -19,8 +20,8 @@ spec:
         limits:
           cpu: "2"
           memory: "2Gi"
-      config:
-        secretRef:
-          name: ""
+      parameters:
+        configuration: |
+          key = value
       storage:
         size: 10Gi

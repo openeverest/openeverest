@@ -91,9 +91,6 @@ func TestApplyNamespaceDefaults_New(t *testing.T) {
 		log:           zap.NewNop().Sugar(),
 	}
 
-	emptySecretRef := &corev1alpha1.Config{SecretRef: corev1.LocalObjectReference{Name: ""}}
-	resolvedSecretRef := &corev1alpha1.Config{SecretRef: corev1.LocalObjectReference{Name: "default-secret"}}
-
 	tests := []struct {
 		name     string
 		input    *corev1alpha1.InstancePreset
@@ -110,31 +107,34 @@ func TestApplyNamespaceDefaults_New(t *testing.T) {
 			expected: newTestPreset(map[string]corev1alpha1.ComponentSpec{}),
 		},
 		{
-			name:     "resolves secretRef",
-			input:    newTestPreset(map[string]corev1alpha1.ComponentSpec{"pmm": {Config: emptySecretRef}}),
-			expected: newTestPreset(map[string]corev1alpha1.ComponentSpec{"pmm": {Config: resolvedSecretRef}}),
-		},
-		{
-			name: "other component does not resolve secretRef",
+			name: "inline configuration parameter passes through unchanged",
 			input: newTestPreset(map[string]corev1alpha1.ComponentSpec{
-				"other": {Config: emptySecretRef},
+				"pmm": {
+					Parameters: &runtime.RawExtension{
+						Raw: mustMarshal(t, map[string]any{"configuration": "key = value"}),
+					},
+				},
 			}),
 			expected: newTestPreset(map[string]corev1alpha1.ComponentSpec{
-				"other": {Config: emptySecretRef},
+				"pmm": {
+					Parameters: &runtime.RawExtension{
+						Raw: mustMarshal(t, map[string]any{"configuration": "key = value"}),
+					},
+				},
 			}),
 		},
 		{
 			name: "resolve monitoringConfigName",
 			input: newTestPreset(map[string]corev1alpha1.ComponentSpec{
 				"pmm": {
-					CustomSpec: &runtime.RawExtension{
+					Parameters: &runtime.RawExtension{
 						Raw: mustMarshal(t, map[string]any{"monitoringConfigName": ""}),
 					},
 				},
 			}),
 			expected: newTestPreset(map[string]corev1alpha1.ComponentSpec{
 				"pmm": {
-					CustomSpec: &runtime.RawExtension{
+					Parameters: &runtime.RawExtension{
 						Raw: mustMarshal(t, map[string]any{"monitoringConfigName": "default-monitoring"}),
 					},
 				},
@@ -144,14 +144,14 @@ func TestApplyNamespaceDefaults_New(t *testing.T) {
 			name: "resolve monitoringConfig",
 			input: newTestPreset(map[string]corev1alpha1.ComponentSpec{
 				"pmm": {
-					CustomSpec: &runtime.RawExtension{
+					Parameters: &runtime.RawExtension{
 						Raw: mustMarshal(t, map[string]any{"monitoringConfig": ""}),
 					},
 				},
 			}),
 			expected: newTestPreset(map[string]corev1alpha1.ComponentSpec{
 				"pmm": {
-					CustomSpec: &runtime.RawExtension{
+					Parameters: &runtime.RawExtension{
 						Raw: mustMarshal(t, map[string]any{"monitoringConfig": "default-monitoring"}),
 					},
 				},
@@ -161,14 +161,14 @@ func TestApplyNamespaceDefaults_New(t *testing.T) {
 			name: "resolve monitoringConfigRef",
 			input: newTestPreset(map[string]corev1alpha1.ComponentSpec{
 				"pmm": {
-					CustomSpec: &runtime.RawExtension{
+					Parameters: &runtime.RawExtension{
 						Raw: mustMarshal(t, map[string]any{"monitoringConfigRef": corev1.LocalObjectReference{Name: ""}}),
 					},
 				},
 			}),
 			expected: newTestPreset(map[string]corev1alpha1.ComponentSpec{
 				"pmm": {
-					CustomSpec: &runtime.RawExtension{
+					Parameters: &runtime.RawExtension{
 						Raw: mustMarshal(t, map[string]any{"monitoringConfigRef": corev1.LocalObjectReference{Name: "default-monitoring"}}),
 					},
 				},
@@ -178,14 +178,14 @@ func TestApplyNamespaceDefaults_New(t *testing.T) {
 			name: "other component does not resolve monitoringConfig",
 			input: newTestPreset(map[string]corev1alpha1.ComponentSpec{
 				"other": {
-					CustomSpec: &runtime.RawExtension{
+					Parameters: &runtime.RawExtension{
 						Raw: mustMarshal(t, map[string]any{"monitoringConfigName": ""}),
 					},
 				},
 			}),
 			expected: newTestPreset(map[string]corev1alpha1.ComponentSpec{
 				"other": {
-					CustomSpec: &runtime.RawExtension{
+					Parameters: &runtime.RawExtension{
 						Raw: mustMarshal(t, map[string]any{"monitoringConfigName": ""}),
 					},
 				},
@@ -195,14 +195,14 @@ func TestApplyNamespaceDefaults_New(t *testing.T) {
 			name: "resolve nested monitoringConfig",
 			input: newTestPreset(map[string]corev1alpha1.ComponentSpec{
 				"pmm": {
-					CustomSpec: &runtime.RawExtension{
+					Parameters: &runtime.RawExtension{
 						Raw: mustMarshal(t, map[string]any{"nested": map[string]any{"monitoringConfigName": ""}}),
 					},
 				},
 			}),
 			expected: newTestPreset(map[string]corev1alpha1.ComponentSpec{
 				"pmm": {
-					CustomSpec: &runtime.RawExtension{
+					Parameters: &runtime.RawExtension{
 						Raw: mustMarshal(t, map[string]any{"nested": map[string]any{"monitoringConfigName": "default-monitoring"}}),
 					},
 				},
@@ -212,14 +212,14 @@ func TestApplyNamespaceDefaults_New(t *testing.T) {
 			name: "other not supported fields do not resolve",
 			input: newTestPreset(map[string]corev1alpha1.ComponentSpec{
 				"pmm": {
-					CustomSpec: &runtime.RawExtension{
+					Parameters: &runtime.RawExtension{
 						Raw: mustMarshal(t, map[string]any{"randomField": ""}),
 					},
 				},
 			}),
 			expected: newTestPreset(map[string]corev1alpha1.ComponentSpec{
 				"pmm": {
-					CustomSpec: &runtime.RawExtension{
+					Parameters: &runtime.RawExtension{
 						Raw: mustMarshal(t, map[string]any{"randomField": ""}),
 					},
 				},

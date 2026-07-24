@@ -81,7 +81,8 @@ spec:
                 type: s3
                 s3:
                   bucket: test-bucket
-                  credentialsSecretName: bs-test-secret
+                  credentialsSecretRef:
+                    name: bs-test-secret
                   endpointURL: https://s3.amazonaws.com
                   region: us-east-1
         # Assert BackupStorage is created with finalizer
@@ -97,7 +98,8 @@ spec:
                 type: s3
                 s3:
                   bucket: test-bucket
-                  credentialsSecretName: bs-test-secret
+                  credentialsSecretRef:
+                    name: bs-test-secret
                   endpointURL: https://s3.amazonaws.com
                   region: us-east-1
         # Assert Secret has ownerReference to BackupStorage
@@ -136,14 +138,14 @@ spec:
               metadata:
                 name: test-instance-bs
               spec:
-                provider: test-provider
+                providerRef:
+                  name: test-provider
                 backup:
                   enabled: true
                   classRef:
                     name: test-backupclass
                   storages:
-                    - name: storage1
-                      storageRef:
+                    - storageRef:
                         name: bs-test
         # Assert Instance is created
         - assert:
@@ -153,14 +155,14 @@ spec:
               metadata:
                 name: test-instance-bs
               spec:
-                provider: test-provider
+                providerRef:
+                  name: test-provider
                 backup:
                   enabled: true
                   classRef:
                     name: test-backupclass
                   storages:
-                    - name: storage1
-                      storageRef:
+                    - storageRef:
                         name: bs-test
       catch:
         - script:
@@ -207,9 +209,12 @@ spec:
               metadata:
                 name: test-backup-bs
               spec:
-                instanceName: test-instance-bs
-                backupClassName: test-backupclass
-                storageName: bs-test
+                instanceRef:
+                  name: test-instance-bs
+                classRef:
+                  name: test-backupclass
+                storageRef:
+                  name: bs-test
         # Assert Backup is created
         - assert:
             resource:
@@ -218,9 +223,12 @@ spec:
               metadata:
                 name: test-backup-bs
               spec:
-                instanceName: test-instance-bs
-                backupClassName: test-backupclass
-                storageName: bs-test
+                instanceRef:
+                  name: test-instance-bs
+                classRef:
+                  name: test-backupclass
+                storageRef:
+                  name: bs-test
       catch:
         - script:
             content: kubectl get backup/test-backup-bs -o yaml

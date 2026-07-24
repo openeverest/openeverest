@@ -298,7 +298,7 @@ func NormalizeInstalledExtension(we watch.Event, old *extensionsv1alpha1.Install
 	}
 	pluginName := ""
 	if obj.Spec.Plugin != nil {
-		pluginName = obj.Spec.Plugin.PluginCRName
+		pluginName = obj.Spec.Plugin.PluginRef.Name
 	}
 	ref := ResourceRef{
 		Kind: "InstalledExtension",

@@ -22,3 +22,12 @@ spec:
       components:
         enginex: "1.0.0"
       default: true
+  secrets:
+    test-credentials:
+      openAPIV3Schema:
+        type: object
+        properties:
+          accessKey:
+            type: string
+          secretKey:
+            type: string

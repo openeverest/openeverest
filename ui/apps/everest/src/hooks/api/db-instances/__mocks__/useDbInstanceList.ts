@@ -24,7 +24,7 @@ export const mockInstances: Instance[] = [
       namespace: 'default',
     } as unknown as Record<string, never>,
     spec: {
-      provider: 'psmdb-provider',
+      providerRef: { name: 'psmdb-provider' },
       components: {
         psmdb: {
           replicas: 3,
@@ -48,7 +48,7 @@ export const mockInstances: Instance[] = [
       phase: 'Ready',
       components: [
         {
-          pods: [{ name: 'psmdb-primary-0' }],
+          podRefs: [{ name: 'psmdb-primary-0' }],
           ready: 3,
           state: 'Ready',
           total: 3,
@@ -74,7 +74,7 @@ export const mockInstances: Instance[] = [
       namespace: 'ns-2',
     } as unknown as Record<string, never>,
     spec: {
-      provider: 'psmdb-provider',
+      providerRef: { name: 'psmdb-provider' },
       components: {
         psmdb: {
           replicas: 1,

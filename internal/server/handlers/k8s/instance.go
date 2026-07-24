@@ -91,7 +91,10 @@ func (h *k8sHandler) GetInstanceConnection(ctx context.Context, cluster, namespa
 		return nil, err
 	}
 
-	secretName := instance.Status.ConnectionSecretRef.Name
+	var secretName string
+	if instance.Status.ConnectionSecretRef != nil {
+		secretName = instance.Status.ConnectionSecretRef.Name
+	}
 	if secretName == "" {
 		return nil, echo.NewHTTPError(
 			http.StatusNotFound,

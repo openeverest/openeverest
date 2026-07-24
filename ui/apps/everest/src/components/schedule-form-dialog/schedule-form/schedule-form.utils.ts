@@ -70,22 +70,23 @@ export const getSchedulesPayload = ({
       ? storageLocation
       : (storageLocation!.metadata?.name ?? '');
 
-  // Extract dynamic config fields (UIGenerator backup config) from form data.
-  // UIGenerator registers fields with sectionKey prefix ("config.X"), so in form
-  // data they appear as a nested object: { config: { compressionType: ... } }.
-  // Unwrap one level to produce the flat config the API expects.
+  // Extract dynamic parameters fields (UIGenerator backup parameters) from
+  // form data. UIGenerator registers fields with sectionKey prefix
+  // ("parameters.X"), so in form data they appear as a nested object:
+  // { parameters: { compressionType: ... } }.
+  // Unwrap one level to produce the flat parameters the API expects.
   const dynamicFields = Object.fromEntries(
     Object.entries(formData).filter(([key]) => !STATIC_KEYS.has(key))
   );
-  const rawConfig =
-    'config' in dynamicFields &&
-    typeof dynamicFields.config === 'object' &&
-    dynamicFields.config !== null
-      ? (dynamicFields.config as Record<string, unknown>)
+  const rawParameters =
+    'parameters' in dynamicFields &&
+    typeof dynamicFields.parameters === 'object' &&
+    dynamicFields.parameters !== null
+      ? (dynamicFields.parameters as Record<string, unknown>)
       : dynamicFields;
-  const cleanedConfig =
-    Object.keys(rawConfig).length > 0
-      ? removeEmptyFieldValues(rawConfig)
+  const cleanedParameters =
+    Object.keys(rawParameters).length > 0
+      ? removeEmptyFieldValues(rawParameters)
       : undefined;
 
   const newSchedule: FlattenedSchedule = {
@@ -94,8 +95,8 @@ export const getSchedulesPayload = ({
     storageName,
     cron,
     retentionCopies: parseInt(retentionCopies, 10),
-    ...(cleanedConfig && Object.keys(cleanedConfig).length > 0
-      ? { config: cleanedConfig }
+    ...(cleanedParameters && Object.keys(cleanedParameters).length > 0
+      ? { parameters: cleanedParameters }
       : {}),
   };
 

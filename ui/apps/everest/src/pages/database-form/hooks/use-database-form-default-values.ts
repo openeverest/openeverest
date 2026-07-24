@@ -99,7 +99,7 @@ export const useDatabasePageDefaultValues = (
         // Generate a new name for the restored instance
         dbName: `inst-${generateShortUID()}`,
         // Provider name from source instance
-        provider: (sourceInstance.spec?.provider as string) ?? '',
+        provider: sourceInstance.spec?.providerRef?.name ?? '',
         // Keep namespace from source
         k8sNamespace: sourceNamespace ?? '',
         // No backup schedules on new-from-restore

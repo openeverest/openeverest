@@ -804,6 +804,58 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/clusters/{cluster}/namespaces/{namespace}/secrets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List secrets
+         * @description This API lists OpenEverest-managed Secrets in the specified namespace and cluster.
+         *     Only metadata is returned; secret data is never included.
+         *     Optionally filter by provider and definition.
+         */
+        get: operations["listSecrets"];
+        put?: never;
+        /**
+         * Create secret
+         * @description This API creates a new Secret in the specified namespace and cluster.
+         *     The Secret is labeled as managed by OpenEverest.
+         */
+        post: operations["createSecret"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/clusters/{cluster}/namespaces/{namespace}/secrets/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get secret
+         * @description This API gets OpenEverest-managed Secret specified by the `name` in the specified `namespace` and `cluster`.
+         *     Note: Secret data is NOT included in the response for security reasons. Only metadata is returned.
+         */
+        get: operations["getSecret"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete secret
+         * @description This API deletes the OpenEverest-managed Secret specified by the `name` in the specified `namespace` and `cluster`.
+         */
+        delete: operations["deleteSecret"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -811,6 +863,14 @@ export interface components {
         /** @description Error response */
         Error: {
             message?: string;
+        };
+        /** @description A list of OpenEverest-managed Secrets (metadata only). */
+        SecretList: {
+            /** @example v1 */
+            apiVersion?: string;
+            /** @example SecretList */
+            kind?: string;
+            items: components["schemas"]["Secret"][];
         };
         NamespaceList: string[];
         UserPermissions: {
@@ -1320,12 +1380,13 @@ export interface components {
                  */
                 backup?: {
                     /**
-                     * @description ClassRef references the BackupClass that the provider should use to
-                     *     configure the engine. The class must have ExecutionMode=ProviderManaged
-                     *     and list the Instance's provider in its SupportedProviders.
+                     * @description ClassRef references the cluster-scoped BackupClass that the provider
+                     *     should use to configure the engine. The class must have
+                     *     ExecutionMode=ProviderManaged and list the Instance's provider in its
+                     *     SupportedProviders.
                      */
                     classRef: {
-                        /** @description Name is the BackupClass name. BackupClasses are cluster-scoped. */
+                        /** @description Name of the referenced object. */
                         name: string;
                     };
                     /**
@@ -1334,17 +1395,13 @@ export interface components {
                      */
                     enabled: boolean;
                     /**
-                     * @description Storages registers BackupStorages on the engine. Each entry maps a
-                     *     logical name (visible to the engine and reused by Backup CRs via
-                     *     .spec.storageName) to a BackupStorage resource. Schedules and PITR are
-                     *     configured per storage via the nested .schedules and .pitr fields.
+                     * @description Storages registers BackupStorages on the engine. Each entry references
+                     *     a BackupStorage resource in the same namespace; the BackupStorage name
+                     *     is also the storage key the engine uses and the value that Backup CRs
+                     *     target via .spec.storageRef. Schedules and PITR are configured per
+                     *     storage via the nested .schedules and .pitr fields.
                      */
                     storages?: {
-                        /**
-                         * @description Name is the logical name the engine uses for this storage. It is also
-                         *     the value that Backup CRs target via .spec.storageName.
-                         */
-                        name: string;
                         /**
                          * @description PITR enables and configures point-in-time recovery writing to this
                          *     storage. Requires the BackupClass to advertise PITR support via
@@ -1354,13 +1411,13 @@ export interface components {
                          *     core schema (PG legitimately archives WAL to every configured repo).
                          */
                         pitr?: {
-                            /**
-                             * @description Config holds provider-specific PITR options. The schema is defined by
-                             *     the BackupClass via .spec.providerManaged.
-                             */
-                            config?: Record<string, never>;
                             /** @description Enabled toggles PITR for this storage. */
                             enabled: boolean;
+                            /**
+                             * @description Parameters holds provider-specific PITR options, validated against the
+                             *     BackupClass's .spec.providerManaged.pitrParametersSchema.
+                             */
+                            parameters?: Record<string, never>;
                         };
                         /**
                          * @description Schedules registers recurring backup tasks that write to this storage.
@@ -1370,13 +1427,6 @@ export interface components {
                          *     all storages on the Instance.
                          */
                         schedules?: {
-                            /**
-                             * @description Config is schedule-specific configuration validated against the
-                             *     BackupClass's .spec.scheduleConfig.openAPIV3Schema. When unset the
-                             *     provider falls back to engine defaults. The schema is the same as for
-                             *     Backup.spec.config but applied per-schedule rather than per-backup-run.
-                             */
-                            config?: Record<string, never>;
                             /**
                              * @description Cron is a standard 5-field cron expression. The provider may reject
                              *     expressions the engine does not support.
@@ -1395,6 +1445,14 @@ export interface components {
                              */
                             name: string;
                             /**
+                             * @description Parameters is schedule-specific structured configuration validated
+                             *     against the BackupClass's .spec.parametersSchema. When unset the
+                             *     provider falls back to engine defaults. The schema is the same as for
+                             *     Backup.spec.parameters but applied per-schedule rather than
+                             *     per-backup-run.
+                             */
+                            parameters?: Record<string, never>;
+                            /**
                              * Format: int32
                              * @description RetentionCopies is the number of recent backups to keep for this
                              *     schedule. Zero (or unset) means "keep all". Negative values are
@@ -1402,17 +1460,14 @@ export interface components {
                              */
                             retentionCopies?: number;
                         }[];
-                        /** @description StorageRef references a BackupStorage in the same namespace. */
+                        /**
+                         * @description StorageRef references a BackupStorage in the same namespace. The
+                         *     BackupStorage name doubles as the storage key on the engine, so it
+                         *     must be unique across all entries.
+                         */
                         storageRef: {
-                            /**
-                             * @description Name of the referent.
-                             *     This field is effectively required, but due to backwards compatibility is
-                             *     allowed to be empty. Instances of this type with an empty value here are
-                             *     almost certainly wrong.
-                             *     More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                             * @default
-                             */
-                            name?: string;
+                            /** @description Name of the referenced object. */
+                            name: string;
                         };
                     }[];
                 };
@@ -2018,45 +2073,6 @@ export interface components {
                                 }[];
                             };
                         };
-                        /** @description Config specifies the component specific configuration. */
-                        config?: {
-                            /**
-                             * @description LocalObjectReference contains enough information to let you locate the
-                             *     referenced object inside the same namespace.
-                             */
-                            configMapRef?: {
-                                /**
-                                 * @description Name of the referent.
-                                 *     This field is effectively required, but due to backwards compatibility is
-                                 *     allowed to be empty. Instances of this type with an empty value here are
-                                 *     almost certainly wrong.
-                                 *     More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                                 * @default
-                                 */
-                                name?: string;
-                            };
-                            key?: string;
-                            /**
-                             * @description LocalObjectReference contains enough information to let you locate the
-                             *     referenced object inside the same namespace.
-                             */
-                            secretRef?: {
-                                /**
-                                 * @description Name of the referent.
-                                 *     This field is effectively required, but due to backwards compatibility is
-                                 *     allowed to be empty. Instances of this type with an empty value here are
-                                 *     almost certainly wrong.
-                                 *     More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                                 * @default
-                                 */
-                                name?: string;
-                            };
-                        };
-                        /**
-                         * @description CustomSpec provides an API for customising this component.
-                         *     The API schema is defined by the provider's ComponentSchemas.
-                         */
-                        customSpec?: Record<string, never>;
                         /**
                          * @description Image specifies an override for the image to use.
                          *     When unspecified, it is autmatically set from the ComponentVersions
@@ -2065,6 +2081,13 @@ export interface components {
                         image?: string;
                         /** @description Name of the component. */
                         name?: string;
+                        /**
+                         * @description Parameters contains component-specific structured parameters, validated
+                         *     against the provider's components[].parametersSchema. Engine
+                         *     configuration file content is carried here as well, under the
+                         *     provider-declared "configuration" property.
+                         */
+                        parameters?: Record<string, never>;
                         /**
                          * Format: int32
                          * @description Replicas specifies the number of replicas for this component.
@@ -2171,8 +2194,11 @@ export interface components {
                      *     Required when type=Backup.
                      */
                     backup?: {
-                        /** @description BackupName is the name of the Backup CR in the same namespace. */
-                        backupName: string;
+                        /** @description BackupRef references the Backup CR in the same namespace. */
+                        backupRef: {
+                            /** @description Name of the referenced object. */
+                            name: string;
+                        };
                         /**
                          * @description PITR configures point-in-time recovery on top of this backup.
                          *     The resolved BackupClass must advertise PITR support via
@@ -2198,7 +2224,7 @@ export interface components {
                  * @description DeletionPolicy controls what happens to Backup and Restore CRs that
                  *     reference this Instance when the Instance is deleted.
                  *     Cascade (default) instructs the runtime to delete every Backup and
-                 *     Restore in the Instance's namespace whose .spec.instanceName matches
+                 *     Restore in the Instance's namespace whose .spec.instanceRef matches
                  *     this Instance before tearing down the engine. Each Backup's own
                  *     .spec.deletionPolicy then independently controls whether its
                  *     underlying data in the BackupStorage is purged or retained.
@@ -2218,20 +2244,28 @@ export interface components {
                  */
                 deletionPolicy?: string & (("Cascade" | "Orphan") & ("Cascade" | "Orphan"));
                 /**
-                 * @description Global contains provider-level configuration that applies to the entire cluster.
-                 *     The schema for this field is defined by the provider's GlobalConfigSchema.
+                 * @description Parameters contains structured parameters that apply to the Instance
+                 *     as a whole, complementing the topology- and component-scoped
+                 *     parameters. The payload is validated against the referenced Provider's
+                 *     .spec.parametersSchema.
                  */
-                global?: Record<string, never>;
-                /** @description Provider is the name of the database provider (e.g., "psmdb", "postgresql"). */
-                provider?: string;
+                parameters?: Record<string, never>;
+                /**
+                 * @description ProviderRef references the cluster-scoped Provider that manages this
+                 *     Instance (e.g., "percona-server-mongodb", "postgresql").
+                 */
+                providerRef: {
+                    /** @description Name of the referenced object. */
+                    name: string;
+                };
                 /** @description Topology defines the deployment topology and its configuration. */
                 topology?: {
                     /**
-                     * @description Config contains topology-specific configuration.
-                     *     The schema for this field is defined by the provider's TopologyDefinition.
+                     * @description Parameters contains topology-specific structured parameters, validated
+                     *     against the provider's topologies[].parametersSchema.
                      *     Examples: shard count for sharded topology, replication factor, etc.
                      */
-                    config?: Record<string, never>;
+                    parameters?: Record<string, never>;
                     /**
                      * @description Type is the topology name (e.g., "sharded", "replicaset").
                      *     The available topologies are defined by the provider.
@@ -2329,13 +2363,40 @@ export interface components {
                 };
                 components?: {
                     [key: string]: {
-                        /** @description CustomSpecSchema holds the OpenAPI v3 schema for this component's CustomSpec. */
-                        customSpecSchema?: Record<string, never>;
+                        /**
+                         * @description ParametersSchema declares the OpenAPI v3 schema for this component's
+                         *     parameters payload (Instance.spec.components[].parameters).
+                         */
+                        parametersSchema?: {
+                            /**
+                             * @description OpenAPIV3Schema is the OpenAPI v3 schema describing the accepted
+                             *     parameters payload.
+                             */
+                            openAPIV3Schema?: unknown;
+                        };
                         type?: string;
                     };
                 };
-                /** @description GlobalConfigSchema holds the OpenAPI v3 schema for the global configuration. */
-                globalConfigSchema?: Record<string, never>;
+                /**
+                 * @description ParametersSchema declares the OpenAPI v3 schema for the instance-wide
+                 *     parameters payload (Instance.spec.parameters).
+                 */
+                parametersSchema?: {
+                    /**
+                     * @description OpenAPIV3Schema is the OpenAPI v3 schema describing the accepted
+                     *     parameters payload.
+                     */
+                    openAPIV3Schema?: unknown;
+                };
+                /** @description Secrets defines Secret types this provider supports. */
+                secrets?: {
+                    [key: string]: {
+                        /** @description OpenAPIV3Schema is the OpenAPI v3 schema for validating secret data/stringData. */
+                        openAPIV3Schema?: unknown;
+                        /** @description UISchema holds UI rendering hints for the secret creation form. */
+                        uiSchema?: Record<string, never>;
+                    };
+                };
                 topologies?: {
                     [key: string]: {
                         components?: {
@@ -2343,8 +2404,17 @@ export interface components {
                                 optional?: boolean;
                             };
                         };
-                        /** @description ConfigSchema holds the OpenAPI v3 schema for topology-specific configuration. */
-                        configSchema?: Record<string, never>;
+                        /**
+                         * @description ParametersSchema declares the OpenAPI v3 schema for topology-specific
+                         *     parameters (Instance.spec.topology.parameters).
+                         */
+                        parametersSchema?: {
+                            /**
+                             * @description OpenAPIV3Schema is the OpenAPI v3 schema describing the accepted
+                             *     parameters payload.
+                             */
+                            openAPIV3Schema?: unknown;
+                        };
                     };
                 };
                 /** @description UISchema holds the UI rendering hints for each topology. */
@@ -2456,12 +2526,13 @@ export interface components {
                  */
                 backup?: {
                     /**
-                     * @description ClassRef references the BackupClass that the provider should use to
-                     *     configure the engine. The class must have ExecutionMode=ProviderManaged
-                     *     and list the Instance's provider in its SupportedProviders.
+                     * @description ClassRef references the cluster-scoped BackupClass that the provider
+                     *     should use to configure the engine. The class must have
+                     *     ExecutionMode=ProviderManaged and list the Instance's provider in its
+                     *     SupportedProviders.
                      */
                     classRef: {
-                        /** @description Name is the BackupClass name. BackupClasses are cluster-scoped. */
+                        /** @description Name of the referenced object. */
                         name: string;
                     };
                     /**
@@ -2470,17 +2541,13 @@ export interface components {
                      */
                     enabled: boolean;
                     /**
-                     * @description Storages registers BackupStorages on the engine. Each entry maps a
-                     *     logical name (visible to the engine and reused by Backup CRs via
-                     *     .spec.storageName) to a BackupStorage resource. Schedules and PITR are
-                     *     configured per storage via the nested .schedules and .pitr fields.
+                     * @description Storages registers BackupStorages on the engine. Each entry references
+                     *     a BackupStorage resource in the same namespace; the BackupStorage name
+                     *     is also the storage key the engine uses and the value that Backup CRs
+                     *     target via .spec.storageRef. Schedules and PITR are configured per
+                     *     storage via the nested .schedules and .pitr fields.
                      */
                     storages?: {
-                        /**
-                         * @description Name is the logical name the engine uses for this storage. It is also
-                         *     the value that Backup CRs target via .spec.storageName.
-                         */
-                        name: string;
                         /**
                          * @description PITR enables and configures point-in-time recovery writing to this
                          *     storage. Requires the BackupClass to advertise PITR support via
@@ -2490,13 +2557,13 @@ export interface components {
                          *     core schema (PG legitimately archives WAL to every configured repo).
                          */
                         pitr?: {
-                            /**
-                             * @description Config holds provider-specific PITR options. The schema is defined by
-                             *     the BackupClass via .spec.providerManaged.
-                             */
-                            config?: Record<string, never>;
                             /** @description Enabled toggles PITR for this storage. */
                             enabled: boolean;
+                            /**
+                             * @description Parameters holds provider-specific PITR options, validated against the
+                             *     BackupClass's .spec.providerManaged.pitrParametersSchema.
+                             */
+                            parameters?: Record<string, never>;
                         };
                         /**
                          * @description Schedules registers recurring backup tasks that write to this storage.
@@ -2506,13 +2573,6 @@ export interface components {
                          *     all storages on the Instance.
                          */
                         schedules?: {
-                            /**
-                             * @description Config is schedule-specific configuration validated against the
-                             *     BackupClass's .spec.scheduleConfig.openAPIV3Schema. When unset the
-                             *     provider falls back to engine defaults. The schema is the same as for
-                             *     Backup.spec.config but applied per-schedule rather than per-backup-run.
-                             */
-                            config?: Record<string, never>;
                             /**
                              * @description Cron is a standard 5-field cron expression. The provider may reject
                              *     expressions the engine does not support.
@@ -2531,6 +2591,14 @@ export interface components {
                              */
                             name: string;
                             /**
+                             * @description Parameters is schedule-specific structured configuration validated
+                             *     against the BackupClass's .spec.parametersSchema. When unset the
+                             *     provider falls back to engine defaults. The schema is the same as for
+                             *     Backup.spec.parameters but applied per-schedule rather than
+                             *     per-backup-run.
+                             */
+                            parameters?: Record<string, never>;
+                            /**
                              * Format: int32
                              * @description RetentionCopies is the number of recent backups to keep for this
                              *     schedule. Zero (or unset) means "keep all". Negative values are
@@ -2538,17 +2606,14 @@ export interface components {
                              */
                             retentionCopies?: number;
                         }[];
-                        /** @description StorageRef references a BackupStorage in the same namespace. */
+                        /**
+                         * @description StorageRef references a BackupStorage in the same namespace. The
+                         *     BackupStorage name doubles as the storage key on the engine, so it
+                         *     must be unique across all entries.
+                         */
                         storageRef: {
-                            /**
-                             * @description Name of the referent.
-                             *     This field is effectively required, but due to backwards compatibility is
-                             *     allowed to be empty. Instances of this type with an empty value here are
-                             *     almost certainly wrong.
-                             *     More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                             * @default
-                             */
-                            name?: string;
+                            /** @description Name of the referenced object. */
+                            name: string;
                         };
                     }[];
                 };
@@ -3154,45 +3219,6 @@ export interface components {
                                 }[];
                             };
                         };
-                        /** @description Config specifies the component specific configuration. */
-                        config?: {
-                            /**
-                             * @description LocalObjectReference contains enough information to let you locate the
-                             *     referenced object inside the same namespace.
-                             */
-                            configMapRef?: {
-                                /**
-                                 * @description Name of the referent.
-                                 *     This field is effectively required, but due to backwards compatibility is
-                                 *     allowed to be empty. Instances of this type with an empty value here are
-                                 *     almost certainly wrong.
-                                 *     More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                                 * @default
-                                 */
-                                name?: string;
-                            };
-                            key?: string;
-                            /**
-                             * @description LocalObjectReference contains enough information to let you locate the
-                             *     referenced object inside the same namespace.
-                             */
-                            secretRef?: {
-                                /**
-                                 * @description Name of the referent.
-                                 *     This field is effectively required, but due to backwards compatibility is
-                                 *     allowed to be empty. Instances of this type with an empty value here are
-                                 *     almost certainly wrong.
-                                 *     More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                                 * @default
-                                 */
-                                name?: string;
-                            };
-                        };
-                        /**
-                         * @description CustomSpec provides an API for customising this component.
-                         *     The API schema is defined by the provider's ComponentSchemas.
-                         */
-                        customSpec?: Record<string, never>;
                         /**
                          * @description Image specifies an override for the image to use.
                          *     When unspecified, it is autmatically set from the ComponentVersions
@@ -3201,6 +3227,13 @@ export interface components {
                         image?: string;
                         /** @description Name of the component. */
                         name?: string;
+                        /**
+                         * @description Parameters contains component-specific structured parameters, validated
+                         *     against the provider's components[].parametersSchema. Engine
+                         *     configuration file content is carried here as well, under the
+                         *     provider-declared "configuration" property.
+                         */
+                        parameters?: Record<string, never>;
                         /**
                          * Format: int32
                          * @description Replicas specifies the number of replicas for this component.
@@ -3307,8 +3340,11 @@ export interface components {
                      *     Required when type=Backup.
                      */
                     backup?: {
-                        /** @description BackupName is the name of the Backup CR in the same namespace. */
-                        backupName: string;
+                        /** @description BackupRef references the Backup CR in the same namespace. */
+                        backupRef: {
+                            /** @description Name of the referenced object. */
+                            name: string;
+                        };
                         /**
                          * @description PITR configures point-in-time recovery on top of this backup.
                          *     The resolved BackupClass must advertise PITR support via
@@ -3334,7 +3370,7 @@ export interface components {
                  * @description DeletionPolicy controls what happens to Backup and Restore CRs that
                  *     reference this Instance when the Instance is deleted.
                  *     Cascade (default) instructs the runtime to delete every Backup and
-                 *     Restore in the Instance's namespace whose .spec.instanceName matches
+                 *     Restore in the Instance's namespace whose .spec.instanceRef matches
                  *     this Instance before tearing down the engine. Each Backup's own
                  *     .spec.deletionPolicy then independently controls whether its
                  *     underlying data in the BackupStorage is purged or retained.
@@ -3354,20 +3390,28 @@ export interface components {
                  */
                 deletionPolicy?: string & (("Cascade" | "Orphan") & ("Cascade" | "Orphan"));
                 /**
-                 * @description Global contains provider-level configuration that applies to the entire cluster.
-                 *     The schema for this field is defined by the provider's GlobalConfigSchema.
+                 * @description Parameters contains structured parameters that apply to the Instance
+                 *     as a whole, complementing the topology- and component-scoped
+                 *     parameters. The payload is validated against the referenced Provider's
+                 *     .spec.parametersSchema.
                  */
-                global?: Record<string, never>;
-                /** @description Provider is the name of the database provider (e.g., "psmdb", "postgresql"). */
-                provider?: string;
+                parameters?: Record<string, never>;
+                /**
+                 * @description ProviderRef references the cluster-scoped Provider that manages this
+                 *     Instance (e.g., "percona-server-mongodb", "postgresql").
+                 */
+                providerRef: {
+                    /** @description Name of the referenced object. */
+                    name: string;
+                };
                 /** @description Topology defines the deployment topology and its configuration. */
                 topology?: {
                     /**
-                     * @description Config contains topology-specific configuration.
-                     *     The schema for this field is defined by the provider's TopologyDefinition.
+                     * @description Parameters contains topology-specific structured parameters, validated
+                     *     against the provider's topologies[].parametersSchema.
                      *     Examples: shard count for sharded topology, replication factor, etc.
                      */
-                    config?: Record<string, never>;
+                    parameters?: Record<string, never>;
                     /**
                      * @description Type is the topology name (e.g., "sharded", "replicaset").
                      *     The available topologies are defined by the provider.
@@ -3385,18 +3429,37 @@ export interface components {
             };
             /** @description InstanceStatus defines the observed state of Instance. */
             status?: {
+                /**
+                 * @description Backup surfaces backup-related observability data reported by the
+                 *     provider, such as the latest restorable time for PITR-enabled storages.
+                 */
+                backup?: {
+                    /**
+                     * @description Storages is the per-storage backup status, keyed by the logical storage
+                     *     name declared in spec.backup.storages.
+                     */
+                    storages?: {
+                        /**
+                         * Format: date-time
+                         * @description LatestRestorableTime is the most recent point in time to which the
+                         *     instance can be restored using point-in-time recovery from this
+                         *     storage. Only populated when PITR is enabled for the storage and the
+                         *     engine reports a recovery window.
+                         */
+                        latestRestorableTime?: string;
+                        /**
+                         * @description Name is the BackupStorage name (matches
+                         *     spec.backup.storages[].storageRef.name).
+                         */
+                        name: string;
+                    }[];
+                };
                 /** @description Components is the status of the components in the database cluster. */
                 components?: {
-                    pods?: {
-                        /**
-                         * @description Name of the referent.
-                         *     This field is effectively required, but due to backwards compatibility is
-                         *     allowed to be empty. Instances of this type with an empty value here are
-                         *     almost certainly wrong.
-                         *     More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                         * @default
-                         */
-                        name?: string;
+                    /** @description PodRefs references the Pods backing this component. */
+                    podRefs?: {
+                        /** @description Name of the referenced object. */
+                        name: string;
                     }[];
                     /** Format: int32 */
                     ready?: number;
@@ -3454,15 +3517,8 @@ export interface components {
                  *       - "uri"      - Full connection URI including credentials
                  */
                 connectionSecretRef?: {
-                    /**
-                     * @description Name of the referent.
-                     *     This field is effectively required, but due to backwards compatibility is
-                     *     allowed to be empty. Instances of this type with an empty value here are
-                     *     almost certainly wrong.
-                     *     More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                     * @default
-                     */
-                    name?: string;
+                    /** @description Name of the referenced Secret. */
+                    name: string;
                 };
                 /** @description Message is a custom user-facing message describing the current state of the instance. */
                 message?: string;
@@ -3539,17 +3595,16 @@ export interface components {
             /** @description BackupSpec defines the desired state of Backup. */
             spec: {
                 /**
-                 * @description BackupClassName is the BackupClass that defines how this Backup is
-                 *     executed. The class's executionMode controls the runtime path: Job
-                 *     classes are reconciled by the in-cluster Backup job controller;
-                 *     ProviderManaged classes are reconciled by the provider's runtime.
+                 * @description ClassRef references the cluster-scoped BackupClass that defines how
+                 *     this Backup is executed. The class's executionMode controls the runtime
+                 *     path: Job classes are reconciled by the in-cluster Backup job
+                 *     controller; ProviderManaged classes are reconciled by the provider's
+                 *     runtime.
                  */
-                backupClassName: string;
-                /**
-                 * @description Config is the backup-time configuration validated against the
-                 *     BackupClass's .spec.config.openAPIV3Schema.
-                 */
-                config?: Record<string, never>;
+                classRef: {
+                    /** @description Name of the referenced object. */
+                    name: string;
+                };
                 /**
                  * @description DeletionPolicy controls what happens to the underlying backup data
                  *     (e.g., the object stored in S3) when this Backup CR is deleted.
@@ -3567,10 +3622,18 @@ export interface components {
                  */
                 deletionPolicy?: string & (("Retain" | "Delete") & ("Retain" | "Delete"));
                 /**
-                 * @description InstanceName is the name of the Instance to back up. The Instance must
+                 * @description InstanceRef references the Instance to back up. The Instance must
                  *     live in the same namespace as this Backup.
                  */
-                instanceName: string;
+                instanceRef: {
+                    /** @description Name of the referenced object. */
+                    name: string;
+                };
+                /**
+                 * @description Parameters is the backup-time structured configuration validated
+                 *     against the BackupClass's .spec.parametersSchema.
+                 */
+                parameters?: Record<string, never>;
                 /**
                  * @description ScheduleName, when set, identifies the InstanceBackupSchedule that
                  *     produced this Backup. Backups created via the API or `kubectl apply`
@@ -3580,12 +3643,15 @@ export interface components {
                  */
                 scheduleName?: string;
                 /**
-                 * @description StorageName references a BackupStorage in the same namespace that
+                 * @description StorageRef references a BackupStorage in the same namespace that
                  *     defines where the backup data is written. For ProviderManaged classes
                  *     the referenced storage must already be registered on the Instance via
                  *     .spec.backup.storages so the engine can write to it.
                  */
-                storageName: string;
+                storageRef: {
+                    /** @description Name of the referenced object. */
+                    name: string;
+                };
             };
             /** @description BackupStatus defines the observed state of Backup. */
             status?: {
@@ -3636,10 +3702,13 @@ export interface components {
                  */
                 executionMode?: "ProviderManaged" | "Job";
                 /**
-                 * @description JobName is the reference to the Job that is running the backup.
+                 * @description JobRef references the Job that is running the backup.
                  *     Populated only for Job classes.
                  */
-                jobName?: string;
+                jobRef?: {
+                    /** @description Name of the referenced object. */
+                    name: string;
+                };
                 /**
                  * Format: int64
                  * @description LastObservedGeneration is the last observed generation of the Backup CR.
@@ -3654,14 +3723,13 @@ export interface components {
                  */
                 operatorBackupRef?: {
                     /**
-                     * @description APIGroup is the group for the resource being referenced.
-                     *     If APIGroup is not specified, the specified Kind must be in the core API group.
-                     *     For any other third-party types, APIGroup is required.
+                     * @description Group is the API group of the referenced object. Empty for objects in
+                     *     the core API group.
                      */
-                    apiGroup?: string;
-                    /** @description Kind is the type of resource being referenced */
+                    group?: string;
+                    /** @description Kind of the referenced object. */
                     kind: string;
-                    /** @description Name is the name of resource being referenced */
+                    /** @description Name of the referenced object. */
                     name: string;
                 };
                 /** @description Size is the size of the backup data as reported by the engine. */
@@ -3709,11 +3777,6 @@ export interface components {
             metadata?: Record<string, never>;
             /** @description RestoreSpec defines the desired state of Restore. */
             spec: {
-                /**
-                 * @description Config is the restore-time configuration validated against the
-                 *     BackupClass's .spec.restoreConfig.openAPIV3Schema.
-                 */
-                config?: Record<string, never>;
                 /** @description DataSource defines where the backup data to restore from is located. */
                 dataSource: {
                     /**
@@ -3721,8 +3784,11 @@ export interface components {
                      *     Required when type=Backup.
                      */
                     backup?: {
-                        /** @description BackupName is the name of the Backup CR in the same namespace. */
-                        backupName: string;
+                        /** @description BackupRef references the Backup CR in the same namespace. */
+                        backupRef: {
+                            /** @description Name of the referenced object. */
+                            name: string;
+                        };
                         /**
                          * @description PITR configures point-in-time recovery on top of this backup.
                          *     The resolved BackupClass must advertise PITR support via
@@ -3745,11 +3811,19 @@ export interface components {
                     type: "Backup";
                 };
                 /**
-                 * @description InstanceName is the name of the Instance to restore into. The Instance
+                 * @description InstanceRef references the Instance to restore into. The Instance
                  *     must already exist in the same namespace and use a provider listed in
                  *     the BackupClass's SupportedProviders.
                  */
-                instanceName: string;
+                instanceRef: {
+                    /** @description Name of the referenced object. */
+                    name: string;
+                };
+                /**
+                 * @description Parameters is the restore-time structured configuration validated
+                 *     against the BackupClass's .spec.restoreParametersSchema.
+                 */
+                parameters?: Record<string, never>;
             };
             /** @description RestoreStatus defines the observed state of Restore. */
             status?: {
@@ -3800,10 +3874,13 @@ export interface components {
                  */
                 executionMode?: "ProviderManaged" | "Job";
                 /**
-                 * @description JobName is the reference to the Job that is running the restore.
+                 * @description JobRef references the Job that is running the restore.
                  *     Populated only for Job classes.
                  */
-                jobName?: string;
+                jobRef?: {
+                    /** @description Name of the referenced object. */
+                    name: string;
+                };
                 /**
                  * Format: int64
                  * @description LastObservedGeneration is the last observed generation of the Restore CR.
@@ -3818,14 +3895,13 @@ export interface components {
                  */
                 operatorRestoreRef?: {
                     /**
-                     * @description APIGroup is the group for the resource being referenced.
-                     *     If APIGroup is not specified, the specified Kind must be in the core API group.
-                     *     For any other third-party types, APIGroup is required.
+                     * @description Group is the API group of the referenced object. Empty for objects in
+                     *     the core API group.
                      */
-                    apiGroup?: string;
-                    /** @description Kind is the type of resource being referenced */
+                    group?: string;
+                    /** @description Kind of the referenced object. */
                     kind: string;
-                    /** @description Name is the name of resource being referenced */
+                    /** @description Name of the referenced object. */
                     name: string;
                 };
                 /**
@@ -3871,15 +3947,6 @@ export interface components {
             metadata?: Record<string, never>;
             /** @description BackupClassSpec defines the desired state of BackupClass. */
             spec: {
-                /**
-                 * @description Config contains the OpenAPI v3 schema describing the backup-time
-                 *     configuration accepted by this class. Backup.spec.config and
-                 *     InstanceBackupSchedule.config are both validated against this schema.
-                 */
-                config?: {
-                    /** @description OpenAPIV3Schema is the OpenAPI v3 schema of the backup class. */
-                    openAPIV3Schema?: unknown;
-                };
                 /** @description Description is the description of the backup class. */
                 description?: string;
                 /** @description DisplayName is a human-readable name for the backup class. */
@@ -4044,6 +4111,18 @@ export interface components {
                     };
                 };
                 /**
+                 * @description ParametersSchema declares the OpenAPI v3 schema describing the
+                 *     backup-time parameters accepted by this class. Backup.spec.parameters
+                 *     and InstanceBackupSchedule.parameters are both validated against it.
+                 */
+                parametersSchema?: {
+                    /**
+                     * @description OpenAPIV3Schema is the OpenAPI v3 schema describing the accepted
+                     *     parameters payload.
+                     */
+                    openAPIV3Schema?: unknown;
+                };
+                /**
                  * @description ProviderManaged contains hints for ExecutionMode="ProviderManaged". The
                  *     schema is intentionally open: providers may surface capability
                  *     information (e.g., whether PITR is supported, schedule expression
@@ -4083,14 +4162,18 @@ export interface components {
                         maxStorages?: number;
                     };
                     /**
-                     * @description PITRConfigSchema describes the shape of per-storage PITR custom config
-                     *     (InstanceBackupStoragePITR.Config). The field is free-form and opaque
-                     *     to the runtime; the provider validates Instance.spec.backup PITR
-                     *     payloads against it inside Validate(). The recommended payload is an
-                     *     OpenAPI v3 schema fragment so the UI can render a matching form, but
-                     *     any provider-specific dialect is permitted.
+                     * @description PITRParametersSchema declares the OpenAPI v3 schema for per-storage
+                     *     PITR parameters (InstanceBackupStoragePITR.Parameters). The provider
+                     *     validates Instance.spec.backup PITR payloads against it inside
+                     *     Validate(); the UI renders a matching form from it.
                      */
-                    pitrConfigSchema?: Record<string, never>;
+                    pitrParametersSchema?: {
+                        /**
+                         * @description OpenAPIV3Schema is the OpenAPI v3 schema describing the accepted
+                         *     parameters payload.
+                         */
+                        openAPIV3Schema?: unknown;
+                    };
                     /**
                      * @description SupportsPITR indicates whether this class supports point-in-time recovery.
                      *     Used by Restore validation when Restore.spec.dataSource.pitr is set.
@@ -4098,12 +4181,15 @@ export interface components {
                     supportsPITR?: boolean;
                 };
                 /**
-                 * @description RestoreConfig contains the OpenAPI v3 schema describing the restore-time
-                 *     configuration accepted by this class. Restore.spec.config is validated
-                 *     against this schema.
+                 * @description RestoreParametersSchema declares the OpenAPI v3 schema describing the
+                 *     restore-time parameters accepted by this class. Restore.spec.parameters
+                 *     is validated against it.
                  */
-                restoreConfig?: {
-                    /** @description OpenAPIV3Schema is the OpenAPI v3 schema of the backup class. */
+                restoreParametersSchema?: {
+                    /**
+                     * @description OpenAPIV3Schema is the OpenAPI v3 schema describing the accepted
+                     *     parameters payload.
+                     */
                     openAPIV3Schema?: unknown;
                 };
                 /**
@@ -4198,7 +4284,7 @@ export interface components {
              *     It is referenced by name from:
              *
              *       - Instance.spec.backup.storages[].storageRef
-             *       - Backup.spec.storageName
+             *       - Backup.spec.storageRef
              *
              *     Decoupling storage from individual Backup CRs makes provider-managed
              *     backups (e.g. PBM, pgBackRest) practical: the provider can register a
@@ -4213,17 +4299,20 @@ export interface components {
                 s3?: {
                     /**
                      * @description AccessKeyID is a write-only convenience input. When set, a webhook
-                     *     stores it in the Secret named by CredentialsSecretName and clears
+                     *     stores it in the Secret named by CredentialsSecretRef and clears
                      *     this field. It is never persisted on the BackupStorage object.
                      */
                     accessKeyId?: string;
                     /** @description Bucket is the name of the S3 bucket. */
                     bucket: string;
                     /**
-                     * @description CredentialsSecretName is the name of the Secret in the same namespace
+                     * @description CredentialsSecretRef references the Secret in the same namespace
                      *     that holds the AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY keys.
                      */
-                    credentialsSecretName: string;
+                    credentialsSecretRef: {
+                        /** @description Name of the referenced Secret. */
+                        name: string;
+                    };
                     /** @description EndpointURL is the endpoint URL of the S3-compatible service. */
                     endpointURL: string;
                     /**
@@ -4292,10 +4381,14 @@ export interface components {
                  */
                 pmm?: {
                     /**
-                     * @description CredentialsSecretName is the reference to the secret containing the API key.
-                     *     It contains `apiKey` key with the API key value.
+                     * @description CredentialsSecretRef references the Secret in the same namespace
+                     *     containing the API key. It contains an `apiKey` key with the API key
+                     *     value.
                      */
-                    credentialsSecretName: string;
+                    credentialsSecretRef: {
+                        /** @description Name of the referenced Secret. */
+                        name: string;
+                    };
                     /** @description URL is the URL of the PMM server. */
                     url: string;
                     /**
@@ -6450,6 +6543,190 @@ export interface operations {
                 content?: never;
             };
             /** @description ConfigMap not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    listSecrets: {
+        parameters: {
+            query?: {
+                /** @description Filter secrets by provider name */
+                provider?: string;
+                /** @description Filter secrets by definition */
+                definition?: string;
+            };
+            header?: never;
+            path: {
+                /** @description The name of the cluster */
+                cluster: string;
+                /** @description The namespace of the secrets */
+                namespace: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description List of secrets (metadata only) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SecretList"];
+                };
+            };
+            /** @description Unsuccessful operation */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    createSecret: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The name of the cluster */
+                cluster: string;
+                /** @description The namespace where the secret will be created */
+                namespace: string;
+            };
+            cookie?: never;
+        };
+        /** @description The secret object to be created */
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Secret"];
+            };
+        };
+        responses: {
+            /** @description Secret created successfully */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Secret"];
+                };
+            };
+            /** @description Unsuccessful operation */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getSecret: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The name of the cluster */
+                cluster: string;
+                /** @description The namespace of the secret */
+                namespace: string;
+                /** @description The name of the secret */
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Secret details (metadata only) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Secret"];
+                };
+            };
+            /** @description Secret not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    deleteSecret: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The name of the cluster */
+                cluster: string;
+                /** @description The namespace of the secret */
+                namespace: string;
+                /** @description The name of the secret */
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Secret deleted successfully */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Secret not found */
             404: {
                 headers: {
                     [name: string]: unknown;

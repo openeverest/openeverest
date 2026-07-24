@@ -50,8 +50,8 @@ export const buildBackupSpecFromWizard = (
         ...(schedule.retentionCopies != null
           ? { retentionCopies: schedule.retentionCopies }
           : {}),
-        ...(schedule.config
-          ? { config: schedule.config as Record<string, never> }
+        ...(schedule.parameters
+          ? { parameters: schedule.parameters as Record<string, never> }
           : {}),
       })),
     })
