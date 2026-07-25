@@ -75,6 +75,27 @@ var defaultUnmarshal = protojson.UnmarshalOptions{
 	DiscardUnknown: true,
 }
 
+// versionsForOperator returns the version map for the given operator from the
+// first operator entry in a Version Service response. It returns an error if
+// the entry has no matrix (rather than panicking on a nil dereference) or if
+// the operator is not recognized.
+func versionsForOperator(firstVer *perconavs.OperatorVersion, operator string) (map[string]*perconavs.Version, error) {
+	if firstVer == nil || firstVer.GetMatrix() == nil {
+		return nil, errors.New("version service response is missing a version matrix")
+	}
+
+	switch operator {
+	case PXCOperatorName:
+		return firstVer.GetMatrix().GetPxc(), nil
+	case PSMDBOperatorName:
+		return firstVer.GetMatrix().GetMongod(), nil
+	case PGOperatorName:
+		return firstVer.GetMatrix().GetPostgresql(), nil
+	default:
+		return nil, fmt.Errorf("unsupported operator %q", operator)
+	}
+}
+
 // GetSupportedEngineVersions returns a list of supported versions for a given operator and version.
 func (c *versionServiceClient) GetSupportedEngineVersions(ctx context.Context, operator, version string) ([]string, error) {
 	p, err := url.Parse(c.url)
@@ -108,14 +129,9 @@ func (c *versionServiceClient) GetSupportedEngineVersions(ctx context.Context, o
 		return nil, errors.New("no versions found")
 	}
 
-	var versions map[string]*perconavs.Version
-	switch operator {
-	case PXCOperatorName:
-		versions = response.GetVersions()[0].GetMatrix().GetPxc()
-	case PSMDBOperatorName:
-		versions = response.GetVersions()[0].GetMatrix().GetMongod()
-	case PGOperatorName:
-		versions = response.GetVersions()[0].GetMatrix().GetPostgresql()
+	versions, err := versionsForOperator(response.GetVersions()[0], operator)
+	if err != nil {
+		return nil, err
 	}
 
 	result := make([]string, 0, len(versions))
