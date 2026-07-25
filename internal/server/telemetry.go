@@ -67,7 +67,11 @@ func (e *EverestServer) report(ctx context.Context, baseURL string, data Telemet
 		e.l.Error(errors.Join(err, errors.New("failed to send telemetry request")))
 		return err
 	}
-	defer resp.Body.Close() //nolint:errcheck
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			e.l.Warnf("failed to close telemetry response body: %s", err)
+		}
+	}()
 	if resp.StatusCode != http.StatusOK {
 		e.l.Info("Telemetry service responded with http status ", resp.StatusCode)
 	}

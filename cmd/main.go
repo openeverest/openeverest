@@ -38,8 +38,16 @@ const (
 
 func main() {
 	logger := logger.MustInitLogger(true, "everest")
-	defer logger.Sync() //nolint:errcheck
 	l := logger.Sugar()
+	// Capture logger/l by value at defer-registration time so this syncs the
+	// originally initialized logger, even though both are reassigned below.
+	// Sync() commonly returns EINVAL on stdout/stderr/pipes; the warn-log on
+	// shutdown here is intentional and expected.
+	defer func(logger *zap.Logger, l *zap.SugaredLogger) {
+		if err := logger.Sync(); err != nil {
+			l.Warnf("failed to sync logger: %s", err)
+		}
+	}(logger, l)
 
 	// This is required because controller-runtime requires a logger
 	// to be set within 30 seconds of the program initialization.

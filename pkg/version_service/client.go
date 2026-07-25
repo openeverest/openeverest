@@ -32,6 +32,7 @@ import (
 	"google.golang.org/protobuf/encoding/protojson"
 
 	everestv1alpha1 "github.com/percona/everest-operator/api/everest/v1alpha1"
+	"github.com/percona/everest/pkg/logger"
 )
 
 const (
@@ -90,7 +91,13 @@ func (c *versionServiceClient) GetSupportedEngineVersions(ctx context.Context, o
 	if err != nil {
 		return nil, errors.Join(err, errors.New("could not retrieve version response"))
 	}
-	defer res.Body.Close() //nolint:errcheck
+	defer func() {
+		// versionServiceClient has no logger field and this method has no scoped
+		// logger available, so the package-global accessor is used here deliberately.
+		if err := res.Body.Close(); err != nil {
+			logger.GetLogger().Warnf("failed to close version response body: %s", err)
+		}
+	}()
 
 	if res.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("invalid response from version service endpoint http %d", res.StatusCode)
@@ -151,7 +158,13 @@ func (c *versionServiceClient) GetEverestMetadata(ctx context.Context) (*percona
 	if err != nil {
 		return nil, errors.Join(err, errors.New("could not retrieve Everest metadata"))
 	}
-	defer res.Body.Close() //nolint:errcheck
+	defer func() {
+		// versionServiceClient has no logger field and this method has no scoped
+		// logger available, so the package-global accessor is used here deliberately.
+		if err := res.Body.Close(); err != nil {
+			logger.GetLogger().Warnf("failed to close Everest metadata response body: %s", err)
+		}
+	}()
 
 	if res.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("invalid response from Everest metadata endpoint http %d", res.StatusCode)

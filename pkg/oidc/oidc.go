@@ -28,6 +28,8 @@ import (
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/lestrrat-go/jwx/v2/jwk"
+
+	"github.com/percona/everest/pkg/logger"
 )
 
 // ProviderConfig contains the configuration of an OIDC provider.
@@ -67,7 +69,13 @@ func NewProviderConfig(ctx context.Context, issuer string) (ProviderConfig, erro
 	if err != nil {
 		return ProviderConfig{}, err
 	}
-	defer resp.Body.Close() //nolint:errcheck
+	defer func() {
+		// NewProviderConfig has no scoped logger available (no receiver/ctx/param logger),
+		// so the package-global accessor is used here deliberately.
+		if err := resp.Body.Close(); err != nil {
+			logger.GetLogger().Warnf("failed to close OIDC provider config response body: %s", err)
+		}
+	}()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
