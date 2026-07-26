@@ -211,6 +211,20 @@ func TestRunWait(t *testing.T) {
 			},
 		},
 		{
+			// A 401 makes the auth transport attempt a token refresh; when that
+			// fails it surfaces as ErrTokenRefresh, which must be terminal (not
+			// retried until timeout).
+			name:      "failed token refresh is terminal",
+			getStatus: http.StatusUnauthorized,
+			timeout:   time.Minute,
+			wantErr: func(t *testing.T, err error) {
+				t.Helper()
+				require.Error(t, err)
+				require.NotErrorIs(t, err, wait.ErrTimeout)
+				assert.Contains(t, err.Error(), "refresh failed")
+			},
+		},
+		{
 			name:      "times out when never terminal",
 			getStatus: http.StatusOK,
 			getPhases: []string{"Provisioning"},
@@ -227,6 +241,67 @@ func TestRunWait(t *testing.T) {
 			tc.wantErr(t, runWaitCreate(t, srv, Config{Pretty: true}, tc.timeout))
 		})
 	}
+}
+
+func TestRunWait_RetriesTransientFetchError(t *testing.T) {
+	t.Parallel()
+
+	// First poll returns 500 (transient), second returns Ready — the wait must
+	// retry rather than fail on the transient status.
+	var gets atomic.Int32
+	mux := http.NewServeMux()
+	mux.HandleFunc("/v1/clusters/main/providers/psmdb", func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(psmdbProvider())
+	})
+	mux.HandleFunc("/v1/clusters/main/namespaces/", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusCreated)
+			_, _ = w.Write([]byte(`{"metadata":{"name":"my-db"},"status":{"phase":"Pending"}}`))
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		if gets.Add(1) == 1 {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"metadata":{"name":"my-db"},"status":{"phase":"Ready"}}`))
+	})
+	srv := httptest.NewServer(mux)
+	defer srv.Close()
+
+	assert.NoError(t, runWaitCreate(t, srv, Config{Pretty: true}, time.Minute))
+}
+
+func TestRun_JSONErrorsOnEmptyCreateBody(t *testing.T) {
+	t.Parallel()
+
+	// 201 with no parseable body must error rather than emit empty stdout.
+	mux := http.NewServeMux()
+	mux.HandleFunc("/v1/clusters/main/providers/psmdb", func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(psmdbProvider())
+	})
+	mux.HandleFunc("/v1/clusters/main/namespaces/", func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusCreated)
+	})
+	srv := httptest.NewServer(mux)
+	defer srv.Close()
+
+	cfgPath := filepath.Join(t.TempDir(), "config.yaml")
+	require.NoError(t, newTestConfig(srv.URL).Save(cfgPath))
+
+	ic := NewInstanceCreator(Config{Pretty: false}, zap.NewNop().Sugar())
+	err := ic.Run(context.Background(), CreateOptions{
+		Name:      "my-db",
+		Namespace: "everest",
+		Provider:  "psmdb",
+		Cluster:   "main",
+	}, cfgPath)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "unreadable response body")
 }
 
 // ---- create --json output contract ------------------------------------------

@@ -173,10 +173,10 @@ func createExitCode(err error, opts *instancecli.CreateOptions, pretty bool) int
 	case err == nil:
 		return 0
 	case errors.Is(err, context.Canceled):
-		_, _ = fmt.Fprint(os.Stderr, output.Warn(
-			"wait cancelled; instance %q is still provisioning — check with 'everestctl instance status'",
-			opts.Name,
-		))
+		output.PrintWarn(
+			fmt.Sprintf("wait cancelled; instance %q is still provisioning — check with 'everestctl instance status'", opts.Name),
+			logger.GetLogger(), pretty,
+		)
 		return exitCanceled
 	case errors.Is(err, wait.ErrTimeout):
 		output.PrintError(

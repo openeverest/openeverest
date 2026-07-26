@@ -189,3 +189,47 @@ func TestUntil_DefaultIntervalWhenUnset(t *testing.T) {
 	)
 	require.NoError(t, err)
 }
+
+func TestUntil_RetryableIsRetriedNotTerminal(t *testing.T) {
+	t.Parallel()
+
+	// First two polls fail transiently, then Ready — the wait should keep going
+	// and report each transient error via OnRetry rather than stopping.
+	var calls atomic.Int32
+	poll := func(_ context.Context) (string, error) {
+		if calls.Add(1) < 3 {
+			return "", &wait.RetryableError{Err: errors.New("transient fetch failure")}
+		}
+		return "Ready", nil
+	}
+
+	var retries atomic.Int32
+	err := wait.Until(context.Background(), poll, phaseCond, wait.Options{
+		Interval: time.Millisecond,
+		Timeout:  time.Second,
+		OnRetry:  func(_ error) { retries.Add(1) },
+	})
+
+	require.NoError(t, err)
+	assert.Equal(t, int32(3), calls.Load())
+	assert.Equal(t, int32(2), retries.Load())
+}
+
+func TestUntil_ZeroTimeoutMeansNoTimeout(t *testing.T) {
+	t.Parallel()
+
+	// Timeout left unset (zero). A pending-then-ready poll must still succeed
+	// rather than time out immediately.
+	var calls atomic.Int32
+	poll := func(_ context.Context) (string, error) {
+		if calls.Add(1) < 2 {
+			return "Provisioning", nil
+		}
+		return "Ready", nil
+	}
+
+	err := wait.Until(context.Background(), poll, phaseCond, wait.Options{
+		Interval: time.Millisecond,
+	})
+	require.NoError(t, err)
+}

@@ -192,6 +192,10 @@ func (ic *InstanceCreator) emitCreated(created *client.Instance, opts CreateOpti
 		_, _ = fmt.Fprint(os.Stdout, output.Success("Instance %q created in namespace %q", opts.Name, opts.Namespace))
 		return nil
 	}
+	// A 200/201 with an unparseable body would otherwise emit empty stdout.
+	if created == nil {
+		return fmt.Errorf("instance %q was created but the server returned an unreadable response body", opts.Name)
+	}
 	return writeInstanceJSON(created)
 }
 
@@ -222,18 +226,17 @@ func (ic *InstanceCreator) waitForInstance(
 		}
 	}
 
-	err := wait.Until(ctx, poll, instanceCondition, wait.Options{
+	if err := wait.Until(ctx, poll, instanceCondition, wait.Options{
 		Timeout:  opts.Timeout,
 		OnUpdate: onUpdate,
-	})
+		OnRetry:  func(err error) { ic.l.Warnf("%v — retrying", err) },
+	}); err != nil {
+		return err
+	}
 
 	final := latest
 	if final == nil {
 		final = created
-	}
-
-	if err != nil {
-		return err
 	}
 
 	if ic.config.Pretty {

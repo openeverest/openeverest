@@ -55,6 +55,16 @@ func (e *FailedError) Error() string {
 	return e.Message
 }
 
+// RetryableError marks a transient poll error: instead of stopping, the waiter
+// reports it via Options.OnRetry and polls again on the next tick. Terminal
+// poll errors are returned bare.
+type RetryableError struct {
+	Err error
+}
+
+func (e *RetryableError) Error() string { return e.Err.Error() }
+func (e *RetryableError) Unwrap() error { return e.Err }
+
 // Condition classifies a fetched resource. Its message is surfaced via
 // Options.OnUpdate when Pending, or becomes the FailedError text when Failed.
 type Condition[T any] func(T) (Outcome, string)
@@ -65,15 +75,20 @@ type PollFunc[T any] func(ctx context.Context) (T, error)
 
 // Options tunes the waiter.
 type Options struct {
-	// Interval between polls. Internal knob (no CLI flag); the zero value means
-	// unset and falls back to DefaultInterval, so a bad value can't be typed.
+	// Interval between polls; the zero value falls back to DefaultInterval.
 	Interval time.Duration
-	// Timeout bounds the total wait and must be positive — the command layer
-	// rejects zero/negative.
+	// Timeout bounds the total wait. Zero or negative means no timeout — poll
+	// until Succeeded/Failed, a terminal poll error, or ctx cancellation —
+	// mirroring kubectl's --timeout=0 and Interval's zero-value behaviour. (The
+	// instance-create CLI still requires a positive --timeout via its own flag
+	// validation; this is only the package's self-defending default.)
 	Timeout time.Duration
 	// OnUpdate, if set, receives the Condition message on each Pending poll.
 	// Consecutive duplicates are suppressed so output advances only on change.
 	OnUpdate func(message string)
+	// OnRetry, if set, is called with each transient (RetryableError) poll error
+	// before the waiter polls again.
+	OnRetry func(err error)
 }
 
 // Until polls until cond returns Succeeded (nil), Failed (*FailedError), poll
@@ -85,9 +100,14 @@ func Until[T any](ctx context.Context, poll PollFunc[T], cond Condition[T], opts
 		interval = DefaultInterval
 	}
 
-	// Own timeout context so deadlineErr can tell a timeout from a Ctrl-C.
-	tctx, cancel := context.WithTimeout(ctx, opts.Timeout)
-	defer cancel()
+	// Own timeout context so deadlineErr can tell a timeout from a Ctrl-C. A
+	// zero/negative Timeout means "no timeout": poll against the parent ctx.
+	tctx := ctx
+	if opts.Timeout > 0 {
+		var cancel context.CancelFunc
+		tctx, cancel = context.WithTimeout(ctx, opts.Timeout)
+		defer cancel()
+	}
 
 	var lastMsg string
 	first := true
@@ -106,13 +126,10 @@ func Until[T any](ctx context.Context, poll PollFunc[T], cond Condition[T], opts
 
 		inst, err := poll(tctx)
 		if err != nil {
-			// Report a cancellation/deadline as such, not a generic fetch failure.
-			if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
-				if de := deadlineErr(ctx, tctx); de != nil {
-					return de
-				}
+			if done, rerr := classifyPollErr(ctx, tctx, err, opts.OnRetry); done {
+				return rerr
 			}
-			return err
+			continue
 		}
 
 		outcome, msg := cond(inst)
@@ -128,6 +145,27 @@ func Until[T any](ctx context.Context, poll PollFunc[T], cond Condition[T], opts
 			}
 		}
 	}
+}
+
+// classifyPollErr decides what to do with a poll error. It returns done=true
+// with the error to surface for a terminal failure (including a cancellation or
+// elapsed deadline), or done=false for a transient RetryableError — after
+// reporting it via onRetry — so the caller polls again.
+func classifyPollErr(parent, tctx context.Context, err error, onRetry func(error)) (bool, error) {
+	// A cancellation/deadline surfacing through poll is reported as such.
+	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+		if de := deadlineErr(parent, tctx); de != nil {
+			return true, de
+		}
+	}
+	var re *RetryableError
+	if errors.As(err, &re) {
+		if onRetry != nil {
+			onRetry(re.Err)
+		}
+		return false, nil
+	}
+	return true, err
 }
 
 // deadlineErr returns context.Canceled if the parent was cancelled, ErrTimeout
