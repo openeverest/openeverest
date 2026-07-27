@@ -14,14 +14,14 @@
 
 import { useContext, useState } from 'react';
 // import { useMemo } from 'react';
-import { Box, Button, MenuItem } from '@mui/material';
+import { Box, MenuItem } from '@mui/material';
 // import { Tooltip } from '@mui/material';
-import KeyboardArrowDownOutlinedIcon from '@mui/icons-material/KeyboardArrowDownOutlined';
-import KeyboardArrowUpOutlined from '@mui/icons-material/KeyboardArrowUpOutlined';
 import { MenuButton } from '@percona/ui-lib';
 import { ScheduleModalContext } from '../../backups.context';
 import { DbInstancePhaseStatus } from 'shared-types/instance.types';
 import ScheduledBackupsList from './scheduled-backups-list';
+import { StoragesList } from '../../storages-list';
+import { ExpandableSectionToggle } from 'components/expandable-section-toggle';
 import { BackupListTableHeaderProps } from './backups-list-table-header.types';
 import { Messages } from './backups-list-table-header.messages';
 import { useRBACPermissions } from 'hooks/rbac';
@@ -34,12 +34,14 @@ const BackupListTableHeader = ({
   onScheduleClick,
 }: BackupListTableHeaderProps) => {
   const [showSchedules, setShowSchedules] = useState(false);
+  const [showStorages, setShowStorages] = useState(false);
   const { instance } = useContext(ScheduleModalContext);
   // const clusterName = useClusterName();
 
   const allSchedules =
     instance.spec.backup?.storages?.flatMap((s) => s.schedules ?? []) ?? [];
   const schedulesNumber = allSchedules.length;
+  const storagesNumber = instance.spec.backup?.storages?.length ?? 0;
 
   const restoring = instance.status?.phase === DbInstancePhaseStatus.Restoring;
 
@@ -70,6 +72,10 @@ const BackupListTableHeader = ({
     setShowSchedules((prev) => !prev);
   };
 
+  const handleShowStorages = () => {
+    setShowStorages((prev) => !prev);
+  };
+
   // TODO: RBAC resource names for v2 are not finalized yet.
   // Using 'backups' as the resource name based on current v2 convention.
   const { canCreate } = useRBACPermissions(
@@ -92,43 +98,26 @@ const BackupListTableHeader = ({
           },
         })}
       >
-        {/* Order is necessary to keep filters on the left side (i.e. filters have order=0) */}
-        {schedulesNumber > 0 && (
-          <Button
-            size="small"
-            data-testid="scheduled-backups"
-            sx={[
-              {
-                ml: 'auto',
-                mr: 2,
-                position: 'relative',
-              },
-              showSchedules &&
-                ((theme) => ({
-                  '&::after': {
-                    content: '""',
-                    position: 'absolute',
-                    bottom: '-29px',
-                    width: '0px',
-                    height: '0px',
-                    borderStyle: 'solid',
-                    borderWidth: '0 14.5px 29px 14.5px',
-                    borderColor: `transparent transparent ${theme.palette.surfaces?.elevation0} transparent`,
-                    transform: 'rotate(0deg)',
-                  },
-                })),
-            ]}
-            onClick={handleShowSchedules}
-            endIcon={
-              showSchedules ? (
-                <KeyboardArrowUpOutlined />
-              ) : (
-                <KeyboardArrowDownOutlinedIcon />
-              )
-            }
-          >
-            {Messages.activeSchedules(schedulesNumber)}
-          </Button>
+        {/* Toggles are right-aligned as a group (inline-flex so the row is not broken); filters stay left (order=0). */}
+        {(schedulesNumber > 0 || storagesNumber > 0) && (
+          <Box sx={{ display: 'inline-flex', ml: 'auto' }}>
+            {schedulesNumber > 0 && (
+              <ExpandableSectionToggle
+                label={Messages.activeSchedules(schedulesNumber)}
+                open={showSchedules}
+                onToggle={handleShowSchedules}
+                dataTestId="scheduled-backups"
+              />
+            )}
+            {storagesNumber > 0 && (
+              <ExpandableSectionToggle
+                label={Messages.storages(storagesNumber)}
+                open={showStorages}
+                onToggle={handleShowStorages}
+                dataTestId="storages-toggle"
+              />
+            )}
+          </Box>
         )}
         {canCreate && (
           <MenuButton
@@ -159,6 +148,7 @@ const BackupListTableHeader = ({
         )}
       </Box>
       {schedulesNumber > 0 && showSchedules && <ScheduledBackupsList />}
+      {storagesNumber > 0 && showStorages && <StoragesList />}
     </>
   );
 };
