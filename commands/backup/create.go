@@ -18,7 +18,6 @@ package backup
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"os"
 	"os/signal"
@@ -30,22 +29,9 @@ import (
 	"github.com/openeverest/openeverest/v2/pkg/cli"
 	backupcli "github.com/openeverest/openeverest/v2/pkg/cli/backup"
 	"github.com/openeverest/openeverest/v2/pkg/cli/config"
-	"github.com/openeverest/openeverest/v2/pkg/cli/wait"
+	"github.com/openeverest/openeverest/v2/pkg/cli/waitcmd"
 	"github.com/openeverest/openeverest/v2/pkg/logger"
 	"github.com/openeverest/openeverest/v2/pkg/output"
-)
-
-// Exit codes for `backup create`, matching `instance create --wait` so CI can
-// distinguish failure modes without scraping stderr:
-//
-//	0   success
-//	1   Failed state, or any other error
-//	124 --wait timed out (matches timeout(1))
-//	130 Ctrl-C (128 + SIGINT)
-const (
-	exitFailed   = 1
-	exitTimeout  = 124
-	exitCanceled = 130
 )
 
 var (
@@ -117,12 +103,12 @@ func createRun(cmd *cobra.Command, _ []string) {
 	cfgPath, err := config.DefaultPath()
 	if err != nil {
 		output.PrintError(err, logger.GetLogger(), createCfg.Pretty)
-		os.Exit(exitFailed)
+		os.Exit(waitcmd.ExitFailed)
 	}
 
-	if err := validateWaitFlags(createOpts.Wait, cmd.Flags().Changed(cli.FlagBackupTimeout), createOpts.Timeout); err != nil {
+	if err := waitcmd.ValidateWaitFlags(createOpts.Wait, cmd.Flags().Changed(cli.FlagBackupTimeout), createOpts.Timeout); err != nil {
 		output.PrintError(err, logger.GetLogger(), createCfg.Pretty)
-		os.Exit(exitFailed)
+		os.Exit(waitcmd.ExitFailed)
 	}
 
 	ctx := cmd.Context()
@@ -137,45 +123,12 @@ func createRun(cmd *cobra.Command, _ []string) {
 	if stop != nil {
 		stop()
 	}
-	os.Exit(createExitCode(runErr, createOpts.Timeout))
-}
-
-// validateWaitFlags rejects --timeout without --wait and non-positive timeouts.
-// (cobra's MarkFlagsRequiredTogether would wrongly reject a bare --wait.)
-func validateWaitFlags(waitSet bool, timeoutChanged bool, timeout time.Duration) error {
-	if timeoutChanged && !waitSet {
-		return errors.New("--timeout is only valid together with --wait")
-	}
-	if waitSet && timeout <= 0 {
-		return errors.New("--timeout must be a positive duration (use e.g. --timeout 15m)")
-	}
-	return nil
-}
-
-// createExitCode maps the result to an exit code (see the exit* constants)
-// and prints the matching message.
-func createExitCode(err error, timeout time.Duration) int {
-	switch {
-	case err == nil:
-		return 0
-	case errors.Is(err, context.Canceled):
-		// Name omitted: the runner already printed it before waiting began.
-		output.PrintWarn(
-			"wait cancelled; the backup is still running — check with 'everestctl backup list'",
-			logger.GetLogger(), createCfg.Pretty,
-		)
-		return exitCanceled
-	case errors.Is(err, wait.ErrTimeout):
-		output.PrintError(
-			fmt.Errorf("timed out after %s waiting for backup to complete", timeout),
-			logger.GetLogger(), createCfg.Pretty,
-		)
-		return exitTimeout
-	default:
-		// *wait.FailedError (Failed state / deleted mid-wait) and everything else.
-		output.PrintError(err, logger.GetLogger(), createCfg.Pretty)
-		return exitFailed
-	}
+	// Name omitted from the cancel message: the runner already printed it
+	// before waiting began.
+	os.Exit(waitcmd.ExitCode(runErr, logger.GetLogger(), createCfg.Pretty,
+		"wait cancelled; the backup is still running — check with 'everestctl backup list'",
+		fmt.Sprintf("timed out after %s waiting for backup to complete", createOpts.Timeout),
+	))
 }
 
 // GetCreateCmd returns the create command.
