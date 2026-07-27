@@ -17,15 +17,35 @@
 package instance
 
 import (
+	"context"
+	"errors"
+	"fmt"
 	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
 	"github.com/spf13/cobra"
 
 	"github.com/openeverest/openeverest/v2/pkg/cli"
 	"github.com/openeverest/openeverest/v2/pkg/cli/config"
 	instancecli "github.com/openeverest/openeverest/v2/pkg/cli/instance"
+	"github.com/openeverest/openeverest/v2/pkg/cli/wait"
 	"github.com/openeverest/openeverest/v2/pkg/logger"
 	"github.com/openeverest/openeverest/v2/pkg/output"
+)
+
+// Exit codes for `instance create`, chosen so CI scripts can tell the failure
+// modes apart without scraping stderr:
+//
+//	0   success
+//	1   the instance reached the Failed phase (or any other error)
+//	124 the --wait timeout elapsed (matches timeout(1))
+//	130 the wait was cancelled with Ctrl-C (128 + SIGINT)
+const (
+	exitFailed   = 1
+	exitTimeout  = 124
+	exitCanceled = 130
 )
 
 var (
@@ -69,7 +89,14 @@ to override any Instance spec field using dot-notation paths rooted at the spec
 
   # Explicit version and topology
   everestctl instance create --name my-mongo --namespace everest --provider percona-server-mongodb \
-    --version 8.0.12 --topology sharded`,
+    --version 8.0.12 --topology sharded
+
+  # Block until the instance is ready (Ctrl-C only stops waiting; the instance keeps provisioning)
+  everestctl instance create --name my-mongo --namespace everest --provider percona-server-mongodb --wait
+
+  # Bounded wait for CI, then grab the phase
+  everestctl instance create --name my-mongo --namespace everest --provider percona-server-mongodb \
+    --wait --timeout 15m --json | jq '.status.phase'`,
 		PreRun: createPreRun,
 		Run:    createRun,
 	}
@@ -88,6 +115,8 @@ func init() {
 	createCmd.Flags().StringVar(&createOpts.Context, cli.FlagInstanceContext, "", "Context to use (default: current context)")
 	createCmd.Flags().StringVarP(&createOpts.ValuesFile, cli.FlagInstanceFile, "f", "", "Path to a YAML file with component overrides (--set takes precedence)")
 	createCmd.Flags().StringArrayVar(&createOpts.Set, cli.FlagInstanceSet, nil, "Set a spec field: --set components.engine.replicas=3 or --set backup.enabled=true (repeatable)")
+	createCmd.Flags().BoolVar(&createOpts.Wait, cli.FlagInstanceWait, false, "Block until the instance reaches the Ready phase; exit non-zero if it fails or times out")
+	createCmd.Flags().DurationVar(&createOpts.Timeout, cli.FlagInstanceTimeout, 10*time.Minute, "Maximum time to wait (only valid with --wait); must be positive")
 
 	_ = createCmd.MarkFlagRequired(cli.FlagInstanceName)
 	_ = createCmd.MarkFlagRequired(cli.FlagInstanceNamespace)
@@ -101,13 +130,64 @@ func createRun(cmd *cobra.Command, _ []string) { //nolint:revive
 	cfgPath, err := config.DefaultPath()
 	if err != nil {
 		output.PrintError(err, logger.GetLogger(), createCfg.Pretty)
-		os.Exit(1)
+		os.Exit(exitFailed)
+	}
+
+	if err := validateWaitFlags(cmd, createOpts); err != nil {
+		output.PrintError(err, logger.GetLogger(), createCfg.Pretty)
+		os.Exit(exitFailed)
+	}
+
+	ctx := cmd.Context()
+	stop := func() {}
+	if createOpts.Wait {
+		// Ctrl-C cancels only the wait; the instance keeps provisioning.
+		var cancel context.CancelFunc
+		ctx, cancel = signal.NotifyContext(ctx, os.Interrupt, syscall.SIGTERM)
+		stop = cancel
 	}
 
 	ic := instancecli.NewInstanceCreator(*createCfg, logger.GetLogger())
-	if err := ic.Run(cmd.Context(), *createOpts, cfgPath); err != nil {
-		output.PrintError(err, logger.GetLogger(), createCfg.Pretty)
-		os.Exit(1)
+	code := createExitCode(ic.Run(ctx, *createOpts, cfgPath), createOpts, createCfg.Pretty)
+	// Release the signal handler before os.Exit (which skips defers).
+	stop()
+	os.Exit(code)
+}
+
+// validateWaitFlags rejects --timeout without --wait and non-positive timeouts.
+// (cobra's MarkFlagsRequiredTogether would wrongly reject a bare --wait.)
+func validateWaitFlags(cmd *cobra.Command, opts *instancecli.CreateOptions) error {
+	if cmd.Flags().Changed(cli.FlagInstanceTimeout) && !opts.Wait {
+		return errors.New("--timeout is only valid together with --wait")
+	}
+	if opts.Wait && opts.Timeout <= 0 {
+		return errors.New("--timeout must be a positive duration (use e.g. --timeout 10m)")
+	}
+	return nil
+}
+
+// createExitCode maps the create/wait result to an exit code and prints the
+// matching message. See the exit* constants for the contract.
+func createExitCode(err error, opts *instancecli.CreateOptions, pretty bool) int {
+	switch {
+	case err == nil:
+		return 0
+	case errors.Is(err, context.Canceled):
+		output.PrintWarn(
+			fmt.Sprintf("wait cancelled; instance %q is still provisioning — check with 'everestctl instance status'", opts.Name),
+			logger.GetLogger(), pretty,
+		)
+		return exitCanceled
+	case errors.Is(err, wait.ErrTimeout):
+		output.PrintError(
+			fmt.Errorf("timed out after %s waiting for instance %q to become ready; it is still provisioning", opts.Timeout, opts.Name),
+			logger.GetLogger(), pretty,
+		)
+		return exitTimeout
+	default:
+		// *wait.FailedError (Failed phase / deleted mid-wait) and everything else.
+		output.PrintError(err, logger.GetLogger(), pretty)
+		return exitFailed
 	}
 }
 

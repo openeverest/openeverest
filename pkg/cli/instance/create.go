@@ -26,12 +26,14 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v3"
 
 	"github.com/openeverest/openeverest/v2/client"
 	authcli "github.com/openeverest/openeverest/v2/pkg/cli/auth"
+	"github.com/openeverest/openeverest/v2/pkg/cli/wait"
 	"github.com/openeverest/openeverest/v2/pkg/output"
 )
 
@@ -47,9 +49,11 @@ type CreateOptions struct {
 	Cluster    string
 	Version    string
 	Topology   string
-	Context    string   // overrides the active context when set
-	ValuesFile string   // path to a YAML values file with spec-level overrides (optional)
-	Set        []string // dot-notation overrides e.g. "components.engine.replicas=3"; takes precedence over ValuesFile
+	Context    string        // overrides the active context when set
+	ValuesFile string        // path to a YAML values file with spec-level overrides (optional)
+	Set        []string      // dot-notation overrides e.g. "components.engine.replicas=3"; takes precedence over ValuesFile
+	Wait       bool          // block until the instance reaches the Ready phase
+	Timeout    time.Duration // bounds --wait; must be positive
 }
 
 type InstanceCreator struct {
@@ -168,10 +172,90 @@ func (ic *InstanceCreator) Run(ctx context.Context, opts CreateOptions, cfgPath 
 	}
 
 	ic.l.Infof("created instance %q in namespace %q", opts.Name, opts.Namespace)
-	if ic.config.Pretty {
-		_, _ = fmt.Fprint(os.Stdout, output.Success("Instance %q created in namespace %q", opts.Name, opts.Namespace))
+
+	// The API returns the accepted Instance as JSON201 (or JSON200).
+	created := resp.JSON201
+	if created == nil {
+		created = resp.JSON200
 	}
 
+	if !opts.Wait {
+		return ic.emitCreated(created, opts)
+	}
+	return ic.waitForInstance(ctx, c, created, opts)
+}
+
+// emitCreated reports a non-waiting create: a success line in pretty mode, or
+// the created instance in JSON mode (so `create --json` is parseable either way).
+func (ic *InstanceCreator) emitCreated(created *client.Instance, opts CreateOptions) error {
+	if ic.config.Pretty {
+		_, _ = fmt.Fprint(os.Stdout, output.Success("Instance %q created in namespace %q", opts.Name, opts.Namespace))
+		return nil
+	}
+	// A 200/201 with an unparseable body would otherwise emit empty stdout.
+	if created == nil {
+		return fmt.Errorf("instance %q was created but the server returned an unreadable response body", opts.Name)
+	}
+	return writeInstanceJSON(created)
+}
+
+// waitForInstance blocks until the instance reaches a terminal phase. Pretty
+// mode streams progress then the final status; JSON mode emits one final object.
+func (ic *InstanceCreator) waitForInstance(
+	ctx context.Context,
+	c *client.ClientWithResponses,
+	created *client.Instance,
+	opts CreateOptions,
+) error {
+	// Keep the latest instance seen, for the final output.
+	var latest *client.Instance
+	basePoll := newInstancePoll(c, opts.Cluster, opts.Namespace, opts.Name)
+	poll := func(ctx context.Context) (*client.Instance, error) {
+		inst, err := basePoll(ctx)
+		if err == nil {
+			latest = inst
+		}
+		return inst, err
+	}
+
+	var onUpdate func(string)
+	if ic.config.Pretty {
+		_, _ = fmt.Fprint(os.Stdout, output.Info("Instance %q created; waiting for it to become ready...", opts.Name))
+		onUpdate = func(msg string) {
+			_, _ = fmt.Fprintf(os.Stdout, "  %s\n", msg)
+		}
+	}
+
+	if err := wait.Until(ctx, poll, instanceCondition, wait.Options{
+		Timeout:  opts.Timeout,
+		OnUpdate: onUpdate,
+		OnRetry:  func(err error) { ic.l.Warnf("%v — retrying", err) },
+	}); err != nil {
+		return err
+	}
+
+	final := latest
+	if final == nil {
+		final = created
+	}
+
+	if ic.config.Pretty {
+		var buf bytes.Buffer
+		printInstanceStatus(&buf, final, opts.Namespace)
+		_, _ = fmt.Fprint(os.Stdout, buf.String())
+		_, _ = fmt.Fprint(os.Stdout, output.Success("Instance %q is ready", opts.Name))
+		return nil
+	}
+	return writeInstanceJSON(final)
+}
+
+func writeInstanceJSON(inst *client.Instance) error {
+	if inst == nil {
+		return nil
+	}
+	if err := json.NewEncoder(os.Stdout).Encode(inst); err != nil {
+		return fmt.Errorf("failed to encode instance: %w", err)
+	}
 	return nil
 }
 
