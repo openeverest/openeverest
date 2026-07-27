@@ -54,7 +54,7 @@ func ValidateWaitFlags(waitSet, timeoutChanged bool, timeout time.Duration) erro
 }
 
 // ExitCode maps a create/wait result to an exit code (see the Exit*
-// constants) and prints the matching message. c
+// constants) and prints the matching message.
 func ExitCode(err error, l *zap.SugaredLogger, pretty bool, cancelMsg, timeoutMsg string) int {
 	switch {
 	case err == nil:
