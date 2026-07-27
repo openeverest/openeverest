@@ -18,7 +18,6 @@ package instance
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"os"
 	"os/signal"
@@ -30,22 +29,9 @@ import (
 	"github.com/openeverest/openeverest/v2/pkg/cli"
 	"github.com/openeverest/openeverest/v2/pkg/cli/config"
 	instancecli "github.com/openeverest/openeverest/v2/pkg/cli/instance"
-	"github.com/openeverest/openeverest/v2/pkg/cli/wait"
+	"github.com/openeverest/openeverest/v2/pkg/cli/waitcmd"
 	"github.com/openeverest/openeverest/v2/pkg/logger"
 	"github.com/openeverest/openeverest/v2/pkg/output"
-)
-
-// Exit codes for `instance create`, chosen so CI scripts can tell the failure
-// modes apart without scraping stderr:
-//
-//	0   success
-//	1   the instance reached the Failed phase (or any other error)
-//	124 the --wait timeout elapsed (matches timeout(1))
-//	130 the wait was cancelled with Ctrl-C (128 + SIGINT)
-const (
-	exitFailed   = 1
-	exitTimeout  = 124
-	exitCanceled = 130
 )
 
 var (
@@ -126,16 +112,16 @@ func createPreRun(cmd *cobra.Command, _ []string) { //nolint:revive
 	createCfg.Pretty = !(cmd.Flag(cli.FlagVerbose).Changed || cmd.Flag(cli.FlagJSON).Changed)
 }
 
-func createRun(cmd *cobra.Command, _ []string) { //nolint:revive
+func createRun(cmd *cobra.Command, _ []string) {
 	cfgPath, err := config.DefaultPath()
 	if err != nil {
 		output.PrintError(err, logger.GetLogger(), createCfg.Pretty)
-		os.Exit(exitFailed)
+		os.Exit(waitcmd.ExitFailed)
 	}
 
-	if err := validateWaitFlags(cmd, createOpts); err != nil {
+	if err := waitcmd.ValidateWaitFlags(createOpts.Wait, cmd.Flags().Changed(cli.FlagInstanceTimeout), createOpts.Timeout); err != nil {
 		output.PrintError(err, logger.GetLogger(), createCfg.Pretty)
-		os.Exit(exitFailed)
+		os.Exit(waitcmd.ExitFailed)
 	}
 
 	ctx := cmd.Context()
@@ -148,47 +134,13 @@ func createRun(cmd *cobra.Command, _ []string) { //nolint:revive
 	}
 
 	ic := instancecli.NewInstanceCreator(*createCfg, logger.GetLogger())
-	code := createExitCode(ic.Run(ctx, *createOpts, cfgPath), createOpts, createCfg.Pretty)
+	runErr := ic.Run(ctx, *createOpts, cfgPath)
 	// Release the signal handler before os.Exit (which skips defers).
 	stop()
-	os.Exit(code)
-}
-
-// validateWaitFlags rejects --timeout without --wait and non-positive timeouts.
-// (cobra's MarkFlagsRequiredTogether would wrongly reject a bare --wait.)
-func validateWaitFlags(cmd *cobra.Command, opts *instancecli.CreateOptions) error {
-	if cmd.Flags().Changed(cli.FlagInstanceTimeout) && !opts.Wait {
-		return errors.New("--timeout is only valid together with --wait")
-	}
-	if opts.Wait && opts.Timeout <= 0 {
-		return errors.New("--timeout must be a positive duration (use e.g. --timeout 10m)")
-	}
-	return nil
-}
-
-// createExitCode maps the create/wait result to an exit code and prints the
-// matching message. See the exit* constants for the contract.
-func createExitCode(err error, opts *instancecli.CreateOptions, pretty bool) int {
-	switch {
-	case err == nil:
-		return 0
-	case errors.Is(err, context.Canceled):
-		output.PrintWarn(
-			fmt.Sprintf("wait cancelled; instance %q is still provisioning — check with 'everestctl instance status'", opts.Name),
-			logger.GetLogger(), pretty,
-		)
-		return exitCanceled
-	case errors.Is(err, wait.ErrTimeout):
-		output.PrintError(
-			fmt.Errorf("timed out after %s waiting for instance %q to become ready; it is still provisioning", opts.Timeout, opts.Name),
-			logger.GetLogger(), pretty,
-		)
-		return exitTimeout
-	default:
-		// *wait.FailedError (Failed phase / deleted mid-wait) and everything else.
-		output.PrintError(err, logger.GetLogger(), pretty)
-		return exitFailed
-	}
+	os.Exit(waitcmd.ExitCode(runErr, logger.GetLogger(), createCfg.Pretty,
+		fmt.Sprintf("wait cancelled; instance %q is still provisioning — check with 'everestctl instance status'", createOpts.Name),
+		fmt.Sprintf("timed out after %s waiting for instance %q to become ready; it is still provisioning", createOpts.Timeout, createOpts.Name),
+	))
 }
 
 // GetCreateCmd returns the create command.

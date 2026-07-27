@@ -13,7 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package instance
+package waitcmd
 
 import (
 	"context"
@@ -22,19 +22,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 
-	"github.com/openeverest/openeverest/v2/pkg/cli"
-	instancecli "github.com/openeverest/openeverest/v2/pkg/cli/instance"
 	"github.com/openeverest/openeverest/v2/pkg/cli/wait"
 )
 
-func TestCreateExitCode(t *testing.T) {
+func TestExitCode(t *testing.T) {
 	t.Parallel()
-
-	opts := &instancecli.CreateOptions{Name: "my-db", Timeout: time.Minute}
 
 	tests := []struct {
 		name string
@@ -42,16 +37,17 @@ func TestCreateExitCode(t *testing.T) {
 		want int
 	}{
 		{"success", nil, 0},
-		{"failed phase", &wait.FailedError{Message: "entered the Failed phase"}, exitFailed},
-		{"generic error", errors.New("boom"), exitFailed},
-		{"timeout", fmt.Errorf("wrap: %w", wait.ErrTimeout), exitTimeout},
-		{"cancelled", fmt.Errorf("wrap: %w", context.Canceled), exitCanceled},
+		{"failed state", &wait.FailedError{Message: "entered a Failed state"}, ExitFailed},
+		{"generic error", errors.New("boom"), ExitFailed},
+		{"timeout", fmt.Errorf("wrap: %w", wait.ErrTimeout), ExitTimeout},
+		{"cancelled", fmt.Errorf("wrap: %w", context.Canceled), ExitCanceled},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			assert.Equal(t, tc.want, createExitCode(tc.err, opts, true))
+			got := ExitCode(tc.err, zap.NewNop().Sugar(), true, "cancelled", "timed out")
+			assert.Equal(t, tc.want, got)
 		})
 	}
 }
@@ -61,10 +57,10 @@ func TestValidateWaitFlags(t *testing.T) {
 
 	tests := []struct {
 		name           string
-		wait           bool
+		waitSet        bool
 		timeout        time.Duration
-		timeoutChanged bool   // whether --timeout was explicitly passed
-		wantErr        string // substring; empty means no error expected
+		timeoutChanged bool // whether --timeout was explicitly passed
+		wantErr        string
 	}{
 		{"timeout without wait", false, 10 * time.Second, true, "only valid together with --wait"},
 		{"wait with non-positive timeout", true, 0, false, "positive duration"},
@@ -74,15 +70,7 @@ func TestValidateWaitFlags(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-
-			cmd := &cobra.Command{}
-			cmd.Flags().Duration(cli.FlagInstanceTimeout, 10*time.Minute, "")
-			if tc.timeoutChanged {
-				require.NoError(t, cmd.Flags().Set(cli.FlagInstanceTimeout, "10s"))
-			}
-			opts := &instancecli.CreateOptions{Wait: tc.wait, Timeout: tc.timeout}
-
-			err := validateWaitFlags(cmd, opts)
+			err := ValidateWaitFlags(tc.waitSet, tc.timeoutChanged, tc.timeout)
 			if tc.wantErr == "" {
 				assert.NoError(t, err)
 				return
