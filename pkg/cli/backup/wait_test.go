@@ -18,6 +18,7 @@ package backup
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -26,6 +27,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/openeverest/openeverest/v2/client"
+	"github.com/openeverest/openeverest/v2/pkg/cli"
+	authcli "github.com/openeverest/openeverest/v2/pkg/cli/auth"
 	"github.com/openeverest/openeverest/v2/pkg/cli/wait"
 )
 
@@ -38,9 +41,11 @@ func backupFromJSON(t *testing.T, body string) *client.Backup {
 }
 
 // newTestClient builds an unauthenticated client for testing a poll/query
-// func directly, bypassing the config-and-auth-backed Run path.
+// func directly, bypassing the config-and-auth-backed Run path. It still
+// normalizes the URL the same way authcli.NewAPIClient does (appending /v1),
+// so mux routes registered here match what the real client actually requests.
 func newTestClient(serverURL string) (*client.ClientWithResponses, error) {
-	return client.NewClientWithResponses(serverURL)
+	return client.NewClientWithResponses(cli.NormalizeServerURL(serverURL))
 }
 
 func TestBackupCondition(t *testing.T) {
@@ -120,3 +125,67 @@ func TestNewBackupPoll_DeletedMidWait(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "was deleted while waiting")
 }
+
+func TestNewBackupPoll_UnauthorizedIsTerminal(t *testing.T) {
+	t.Parallel()
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("/v1/clusters/main/namespaces/everest/backups/my-mongo-abcde", func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusUnauthorized)
+	})
+	srv := httptest.NewServer(mux)
+	defer srv.Close()
+
+	c, err := newTestClient(srv.URL)
+	require.NoError(t, err)
+
+	poll := newBackupPoll(c, "main", "everest", "my-mongo-abcde")
+	_, err = poll(context.Background())
+	require.Error(t, err)
+	var re *wait.RetryableError
+	require.NotErrorAs(t, err, &re, "401 must be terminal, not retryable")
+	assert.Contains(t, err.Error(), "run 'everestctl auth login' again")
+}
+
+func TestNewBackupPoll_FailedTokenRefreshIsTerminal(t *testing.T) {
+	t.Parallel()
+
+	// A RoundTripper simulating the auth transport's behavior when a 401
+	// triggers a token refresh that itself fails.
+	rt := roundTripFunc(func(_ *http.Request) (*http.Response, error) {
+		return nil, fmt.Errorf("wrap: %w", authcli.ErrTokenRefresh)
+	})
+	c, err := client.NewClientWithResponses("http://example.invalid", client.WithHTTPClient(&http.Client{Transport: rt}))
+	require.NoError(t, err)
+
+	poll := newBackupPoll(c, "main", "everest", "my-mongo-abcde")
+	_, err = poll(context.Background())
+	require.Error(t, err)
+	require.ErrorIs(t, err, authcli.ErrTokenRefresh)
+	var re *wait.RetryableError
+	require.NotErrorAs(t, err, &re, "a failed token refresh must be terminal, not retryable")
+}
+
+func TestNewBackupPoll_UnexpectedStatusIsRetryable(t *testing.T) {
+	t.Parallel()
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("/v1/clusters/main/namespaces/everest/backups/my-mongo-abcde", func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+	})
+	srv := httptest.NewServer(mux)
+	defer srv.Close()
+
+	c, err := newTestClient(srv.URL)
+	require.NoError(t, err)
+
+	poll := newBackupPoll(c, "main", "everest", "my-mongo-abcde")
+	_, err = poll(context.Background())
+	require.Error(t, err)
+	var re *wait.RetryableError
+	require.ErrorAs(t, err, &re, "a transient 500 must be retryable, not terminal")
+}
+
+type roundTripFunc func(*http.Request) (*http.Response, error)
+
+func (f roundTripFunc) RoundTrip(r *http.Request) (*http.Response, error) { return f(r) }

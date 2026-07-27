@@ -160,9 +160,10 @@ func createExitCode(err error, timeout time.Duration) int {
 		return 0
 	case errors.Is(err, context.Canceled):
 		// Name omitted: the runner already printed it before waiting began.
-		_, _ = fmt.Fprint(os.Stderr, output.Warn(
+		output.PrintWarn(
 			"wait cancelled; the backup is still running — check with 'everestctl backup list'",
-		))
+			logger.GetLogger(), createCfg.Pretty,
+		)
 		return exitCanceled
 	case errors.Is(err, wait.ErrTimeout):
 		output.PrintError(

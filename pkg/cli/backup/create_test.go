@@ -209,6 +209,69 @@ func TestRun_Wait_FailsOnFailedState(t *testing.T) {
 	assert.Contains(t, err.Error(), "engine returned a non-zero exit code")
 }
 
+func TestRun_Wait_RetriesTransientFetchError(t *testing.T) {
+	t.Parallel()
+
+	// First poll returns 500 (transient), second returns Succeeded — the wait
+	// must retry rather than fail on the transient status.
+	var getCalls int
+	mux := http.NewServeMux()
+	mux.HandleFunc("/v1/clusters/main/namespaces/everest/backups", func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusCreated)
+		_ = json.NewEncoder(w).Encode(backupWithState(t, "my-mongo-abcde", ""))
+	})
+	mux.HandleFunc("/v1/clusters/main/namespaces/everest/backups/my-mongo-abcde", func(w http.ResponseWriter, _ *http.Request) {
+		getCalls++
+		if getCalls == 1 {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(backupWithState(t, "my-mongo-abcde", "Succeeded"))
+	})
+	srv := httptest.NewServer(mux)
+	defer srv.Close()
+
+	cr := NewCreateRunner(Config{Pretty: true}, zap.NewNop().Sugar())
+	err := cr.Run(context.Background(), CreateOptions{
+		Instance:  "my-mongo",
+		Namespace: "everest",
+		Class:     "psmdb-backup",
+		Storage:   "my-s3",
+		Cluster:   "main",
+		Wait:      true,
+		Timeout:   10 * time.Second,
+	}, newConfigPath(t, srv.URL))
+
+	require.NoError(t, err)
+	assert.GreaterOrEqual(t, getCalls, 2)
+}
+
+func TestRun_JSONErrorsOnEmptyCreateBody(t *testing.T) {
+	t.Parallel()
+
+	// 201 with no parseable body must error rather than emit empty stdout.
+	mux := http.NewServeMux()
+	mux.HandleFunc("/v1/clusters/main/namespaces/everest/backups", func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusCreated)
+	})
+	srv := httptest.NewServer(mux)
+	defer srv.Close()
+
+	cr := NewCreateRunner(Config{Pretty: false}, zap.NewNop().Sugar())
+	err := cr.Run(context.Background(), CreateOptions{
+		Instance:  "my-mongo",
+		Namespace: "everest",
+		Class:     "psmdb-backup",
+		Storage:   "my-s3",
+		Cluster:   "main",
+	}, newConfigPath(t, srv.URL))
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "unexpected response creating backup")
+}
+
 func TestRun_Wait_TimesOut(t *testing.T) {
 	t.Parallel()
 

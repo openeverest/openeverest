@@ -124,12 +124,15 @@ func (cr *CreateRunner) emitCreated(created *client.Backup, name string) error {
 		_, _ = fmt.Fprint(os.Stdout, output.Success("Backup %q created", name))
 		return nil
 	}
+	// A 201 with an unparseable body would otherwise emit empty stdout.
+	if created == nil {
+		return fmt.Errorf("backup %q was created but the server returned an unreadable response body", name)
+	}
 	return writeBackupJSON(created)
 }
 
 // waitForBackup blocks until the backup reaches a terminal state, streaming
-// progress in pretty mode. The last-known backup is surfaced even on error,
-// so a Failed/timeout/cancel still leaves the user with output.
+// progress in pretty mode. JSON mode emits one final object on success.
 func (cr *CreateRunner) waitForBackup(
 	ctx context.Context,
 	c *client.ClientWithResponses,
@@ -155,10 +158,13 @@ func (cr *CreateRunner) waitForBackup(
 		}
 	}
 
-	err := wait.Until(ctx, poll, backupCondition, wait.Options{
+	if err := wait.Until(ctx, poll, backupCondition, wait.Options{
 		Timeout:  opts.Timeout,
 		OnUpdate: onUpdate,
-	})
+		OnRetry:  func(err error) { cr.l.Warnf("%v — retrying", err) },
+	}); err != nil {
+		return err
+	}
 
 	final := latest
 	if final == nil {
@@ -166,14 +172,10 @@ func (cr *CreateRunner) waitForBackup(
 	}
 
 	if cr.config.Pretty {
-		if err == nil {
-			_, _ = fmt.Fprint(os.Stdout, output.Success("Backup %q completed", name))
-		}
-	} else if jsonErr := writeBackupJSON(final); jsonErr != nil && err == nil {
-		err = jsonErr
+		_, _ = fmt.Fprint(os.Stdout, output.Success("Backup %q completed", name))
+		return nil
 	}
-
-	return err
+	return writeBackupJSON(final)
 }
 
 func writeBackupJSON(b *client.Backup) error {
