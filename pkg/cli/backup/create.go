@@ -77,7 +77,7 @@ func (cr *CreateRunner) Run(ctx context.Context, opts CreateOptions, cfgPath str
 	}
 
 	backup := client.Backup{
-		Metadata: &map[string]interface{}{
+		Metadata: &map[string]any{
 			"namespace": opts.Namespace,
 		},
 	}

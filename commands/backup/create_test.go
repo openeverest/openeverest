@@ -20,6 +20,7 @@ import (
 	"errors"
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 
@@ -27,8 +28,7 @@ import (
 )
 
 func TestCreateExitCode(t *testing.T) {
-	// Not parallel: createExitCode reads/prints via package-level createOpts.
-	createOpts.Name = "pre-upgrade"
+	t.Parallel()
 
 	tests := []struct {
 		name string
@@ -44,38 +44,29 @@ func TestCreateExitCode(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			assert.Equal(t, tc.want, createExitCode(tc.err))
+			t.Parallel()
+			assert.Equal(t, tc.want, createExitCode(tc.err, 15*time.Minute))
 		})
 	}
 }
 
 func TestValidateWaitFlags(t *testing.T) {
-	// Not parallel: mutates the shared createCmd flag state and createOpts.
-	reset := func(wait bool, timeoutChanged bool) {
-		createOpts.Wait = wait
-		createOpts.Timeout = 10_000_000_000 // 10s, positive
-		_ = createCmd.Flags().Set("timeout", "10s")
-		if !timeoutChanged {
-			// Reset the flag's Changed bit to model "user didn't pass --timeout".
-			createCmd.Flags().Lookup("timeout").Changed = false
-		}
-	}
+	t.Parallel()
 
 	t.Run("timeout without wait errors", func(t *testing.T) {
-		reset(false, true)
-		err := validateWaitFlags(createCmd)
+		t.Parallel()
+		err := validateWaitFlags(false, true, 10*time.Second)
 		assert.ErrorContains(t, err, "only valid together with --wait")
 	})
 
 	t.Run("wait with non-positive timeout errors", func(t *testing.T) {
-		reset(true, false)
-		createOpts.Timeout = 0
-		err := validateWaitFlags(createCmd)
+		t.Parallel()
+		err := validateWaitFlags(true, false, 0)
 		assert.ErrorContains(t, err, "positive duration")
 	})
 
 	t.Run("wait without --timeout flag is fine", func(t *testing.T) {
-		reset(true, false)
-		assert.NoError(t, validateWaitFlags(createCmd))
+		t.Parallel()
+		assert.NoError(t, validateWaitFlags(true, false, 10*time.Second))
 	})
 }

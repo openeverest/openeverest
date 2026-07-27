@@ -113,37 +113,40 @@ func createPreRun(cmd *cobra.Command, _ []string) {
 	createCfg.Pretty = !cmd.Flag(cli.FlagVerbose).Changed && !cmd.Flag(cli.FlagJSON).Changed
 }
 
-func createRun(cmd *cobra.Command, _ []string) { //nolint:revive
+func createRun(cmd *cobra.Command, _ []string) {
 	cfgPath, err := config.DefaultPath()
 	if err != nil {
 		output.PrintError(err, logger.GetLogger(), createCfg.Pretty)
 		os.Exit(exitFailed)
 	}
 
-	if err := validateWaitFlags(cmd); err != nil {
+	if err := validateWaitFlags(createOpts.Wait, cmd.Flags().Changed(cli.FlagBackupTimeout), createOpts.Timeout); err != nil {
 		output.PrintError(err, logger.GetLogger(), createCfg.Pretty)
 		os.Exit(exitFailed)
 	}
 
 	ctx := cmd.Context()
+	var stop context.CancelFunc
 	if createOpts.Wait {
 		// Ctrl-C cancels only the wait; the backup keeps running server-side.
-		var stop context.CancelFunc
 		ctx, stop = signal.NotifyContext(ctx, os.Interrupt, syscall.SIGTERM)
-		defer stop()
 	}
 
 	runner := backupcli.NewCreateRunner(*createCfg, logger.GetLogger())
-	os.Exit(createExitCode(runner.Run(ctx, *createOpts, cfgPath)))
+	runErr := runner.Run(ctx, *createOpts, cfgPath)
+	if stop != nil {
+		stop()
+	}
+	os.Exit(createExitCode(runErr, createOpts.Timeout))
 }
 
 // validateWaitFlags rejects --timeout without --wait and non-positive timeouts.
 // (cobra's MarkFlagsRequiredTogether would wrongly reject a bare --wait.)
-func validateWaitFlags(cmd *cobra.Command) error {
-	if cmd.Flags().Changed(cli.FlagBackupTimeout) && !createOpts.Wait {
+func validateWaitFlags(waitSet bool, timeoutChanged bool, timeout time.Duration) error {
+	if timeoutChanged && !waitSet {
 		return errors.New("--timeout is only valid together with --wait")
 	}
-	if createOpts.Wait && createOpts.Timeout <= 0 {
+	if waitSet && timeout <= 0 {
 		return errors.New("--timeout must be a positive duration (use e.g. --timeout 15m)")
 	}
 	return nil
@@ -151,7 +154,7 @@ func validateWaitFlags(cmd *cobra.Command) error {
 
 // createExitCode maps the result to an exit code (see the exit* constants)
 // and prints the matching message.
-func createExitCode(err error) int {
+func createExitCode(err error, timeout time.Duration) int {
 	switch {
 	case err == nil:
 		return 0
@@ -163,7 +166,7 @@ func createExitCode(err error) int {
 		return exitCanceled
 	case errors.Is(err, wait.ErrTimeout):
 		output.PrintError(
-			fmt.Errorf("timed out after %s waiting for backup to complete", createOpts.Timeout),
+			fmt.Errorf("timed out after %s waiting for backup to complete", timeout),
 			logger.GetLogger(), createCfg.Pretty,
 		)
 		return exitTimeout

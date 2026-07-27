@@ -61,7 +61,7 @@ func TestRun_HappyPath_GeneratesName(t *testing.T) {
 	var gotBody client.Backup
 	mux := http.NewServeMux()
 	mux.HandleFunc("/v1/clusters/main/namespaces/everest/backups", func(w http.ResponseWriter, r *http.Request) {
-		require.NoError(t, json.NewDecoder(r.Body).Decode(&gotBody))
+		assert.NoError(t, json.NewDecoder(r.Body).Decode(&gotBody))
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusCreated)
 		_ = json.NewEncoder(w).Encode(backupWithState(t, "my-mongo-abcde", ""))
@@ -91,7 +91,7 @@ func TestRun_ExplicitName(t *testing.T) {
 	var gotBody client.Backup
 	mux := http.NewServeMux()
 	mux.HandleFunc("/v1/clusters/main/namespaces/everest/backups", func(w http.ResponseWriter, r *http.Request) {
-		require.NoError(t, json.NewDecoder(r.Body).Decode(&gotBody))
+		assert.NoError(t, json.NewDecoder(r.Body).Decode(&gotBody))
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusCreated)
 		_ = json.NewEncoder(w).Encode(backupWithState(t, "pre-upgrade", ""))
@@ -188,7 +188,7 @@ func TestRun_Wait_FailsOnFailedState(t *testing.T) {
 	mux.HandleFunc("/v1/clusters/main/namespaces/everest/backups/my-mongo-abcde", func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		b := backupWithState(t, "my-mongo-abcde", "Failed")
-		b.Status.Message = strPtr("engine returned a non-zero exit code")
+		b.Status.Message = new("engine returned a non-zero exit code")
 		_ = json.NewEncoder(w).Encode(b)
 	})
 	srv := httptest.NewServer(mux)
@@ -239,5 +239,3 @@ func TestRun_Wait_TimesOut(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "timed out")
 }
-
-func strPtr(s string) *string { return &s }
