@@ -438,7 +438,9 @@ export const deleteConfigMap = async (request, name) => {
 
 export const deleteConfigMapRaw = async (request, name) => {
   return await request.delete(`/v1/clusters/main/namespaces/${EVEREST_CI_NAMESPACE}/config-maps/${name}`)
-}// --------------------- Secret helpers -----------------------------------------------
+}
+
+// --------------------- Secret helpers -----------------------------------------------
 
 export const createSecretWithData = async (request, data) => {
   const response = await createSecretRaw(request, data)
