@@ -33,8 +33,9 @@ const BackupListTableHeader = ({
   onNowClick,
   onScheduleClick,
 }: BackupListTableHeaderProps) => {
-  const [showSchedules, setShowSchedules] = useState(false);
-  const [showStorages, setShowStorages] = useState(false);
+  const [expandedSection, setExpandedSection] = useState<
+    'schedules' | 'storages' | null
+  >(null);
   const { instance } = useContext(ScheduleModalContext);
   // const clusterName = useClusterName();
 
@@ -69,11 +70,11 @@ const BackupListTableHeader = ({
   };
 
   const handleShowSchedules = () => {
-    setShowSchedules((prev) => !prev);
+    setExpandedSection((prev) => (prev === 'schedules' ? null : 'schedules'));
   };
 
   const handleShowStorages = () => {
-    setShowStorages((prev) => !prev);
+    setExpandedSection((prev) => (prev === 'storages' ? null : 'storages'));
   };
 
   // TODO: RBAC resource names for v2 are not finalized yet.
@@ -104,7 +105,7 @@ const BackupListTableHeader = ({
             {schedulesNumber > 0 && (
               <ExpandableSectionToggle
                 label={Messages.activeSchedules(schedulesNumber)}
-                open={showSchedules}
+                open={expandedSection === 'schedules'}
                 onToggle={handleShowSchedules}
                 dataTestId="scheduled-backups"
               />
@@ -112,7 +113,7 @@ const BackupListTableHeader = ({
             {storagesNumber > 0 && (
               <ExpandableSectionToggle
                 label={Messages.storages(storagesNumber)}
-                open={showStorages}
+                open={expandedSection === 'storages'}
                 onToggle={handleShowStorages}
                 dataTestId="storages-toggle"
               />
@@ -147,8 +148,10 @@ const BackupListTableHeader = ({
           />
         )}
       </Box>
-      {schedulesNumber > 0 && showSchedules && <ScheduledBackupsList />}
-      {storagesNumber > 0 && showStorages && <StoragesList />}
+      {schedulesNumber > 0 && expandedSection === 'schedules' && (
+        <ScheduledBackupsList />
+      )}
+      {storagesNumber > 0 && expandedSection === 'storages' && <StoragesList />}
     </>
   );
 };

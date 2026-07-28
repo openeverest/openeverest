@@ -16,6 +16,10 @@ import KeyboardArrowDownOutlinedIcon from '@mui/icons-material/KeyboardArrowDown
 import KeyboardArrowUpOutlined from '@mui/icons-material/KeyboardArrowUpOutlined';
 import { Button } from '@mui/material';
 import { ExpandableSectionToggleProps } from './expandable-section-toggle.types';
+import {
+  CARET_HALF_WIDTH_PX,
+  CARET_HEIGHT_PX,
+} from './expandable-section-toggle.constants';
 
 export const ExpandableSectionToggle = ({
   label,
@@ -33,13 +37,12 @@ export const ExpandableSectionToggle = ({
           '&::after': {
             content: '""',
             position: 'absolute',
-            bottom: '-29px',
+            bottom: `-${CARET_HEIGHT_PX}px`,
             width: '0px',
             height: '0px',
             borderStyle: 'solid',
-            borderWidth: '0 14.5px 29px 14.5px',
+            borderWidth: `0 ${CARET_HALF_WIDTH_PX}px ${CARET_HEIGHT_PX}px ${CARET_HALF_WIDTH_PX}px`,
             borderColor: `transparent transparent ${theme.palette.surfaces?.elevation0} transparent`,
-            transform: 'rotate(0deg)',
           },
         })),
     ]}

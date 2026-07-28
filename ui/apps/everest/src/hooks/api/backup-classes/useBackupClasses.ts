@@ -23,6 +23,8 @@ import {
 import { PerconaQueryOptions } from 'shared-types/query.types';
 import { BackupClassUiSchemaSections } from 'shared-types/backups.types';
 import { useRBACPermissions } from 'hooks/rbac';
+import { useClusterName } from 'hooks/api/useClusterName';
+import { Instance } from 'shared-types/api.types';
 import type { Section } from 'components/ui-generator/ui-generator.types';
 
 export const BACKUP_CLASSES_QUERY_KEY = 'backup-classes';
@@ -52,6 +54,19 @@ export const useBackupClassesList = (
     enabled: (options?.enabled ?? true) && canRead,
     ...options,
   });
+};
+
+export const useActiveBackupClass = (
+  instance: Instance
+): BackupClass | undefined => {
+  const clusterName = useClusterName();
+  const { data: backupClasses = [] } = useBackupClassesList(clusterName);
+  const classRef = instance.spec?.backup?.classRef?.name;
+
+  return useMemo(
+    () => backupClasses.find((bc) => bc.metadata?.name === classRef),
+    [backupClasses, classRef]
+  );
 };
 
 export const useGetBackupClass = (

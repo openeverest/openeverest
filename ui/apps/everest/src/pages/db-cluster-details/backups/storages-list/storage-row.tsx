@@ -14,6 +14,7 @@
 
 import { Box, Paper, Typography } from '@mui/material';
 import { StorageRowProps } from './storage-row.types';
+import { StoragePitrToggle } from './storage-pitr-toggle';
 
 export const StorageRow = ({ storage }: StorageRowProps) => {
   const storageName = storage.storageRef.name;
@@ -36,6 +37,9 @@ export const StorageRow = ({ storage }: StorageRowProps) => {
         }}
       >
         <Typography variant="body1">{storageName}</Typography>
+        <Box sx={{ ml: 'auto' }}>
+          <StoragePitrToggle storage={storage} />
+        </Box>
       </Box>
     </Paper>
   );

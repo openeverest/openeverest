@@ -13,26 +13,18 @@
 // limitations under the License.
 
 import { render, screen } from '@testing-library/react';
+import { Instance } from 'shared-types/api.types';
+import { WizardMode } from 'shared-types/wizard.types';
+import { buildBackupInstance } from 'pages/db-cluster-details/backups/__mocks__/backups-mocks';
 import { StoragesList } from './storages-list';
 import { ScheduleModalContext } from '../backups.context';
 import { ScheduleModalContextType } from '../backups.types';
-import { Instance } from 'shared-types/api.types';
-import { WizardMode } from 'shared-types/wizard.types';
 
-const buildInstance = (
-  storages: NonNullable<
-    NonNullable<NonNullable<Instance['spec']>['backup']>['storages']
-  >
-): Instance =>
-  ({
-    spec: {
-      backup: {
-        enabled: true,
-        classRef: { name: 'psmdb-managed' },
-        storages,
-      },
-    },
-  }) as unknown as Instance;
+// The PITR toggle is data-driven (own hooks); it's covered by its own tests.
+// Stub it here so the list rendering is tested in isolation.
+vi.mock('./storage-pitr-toggle', () => ({
+  StoragePitrToggle: () => null,
+}));
 
 const renderWithContext = (instance: Instance) => {
   const contextValue: ScheduleModalContextType = {
@@ -57,7 +49,7 @@ const renderWithContext = (instance: Instance) => {
 describe('StoragesList', () => {
   it('renders a row per instance storage', () => {
     renderWithContext(
-      buildInstance([
+      buildBackupInstance([
         { storageRef: { name: 's3-prod' } },
         { storageRef: { name: 's3-archive' } },
       ])
@@ -68,7 +60,7 @@ describe('StoragesList', () => {
   });
 
   it('renders nothing when the instance has no storages', () => {
-    const { container } = renderWithContext(buildInstance([]));
+    const { container } = renderWithContext(buildBackupInstance([]));
 
     expect(container).toBeEmptyDOMElement();
   });
