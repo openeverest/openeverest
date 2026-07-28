@@ -27,6 +27,7 @@ var resourcePathMap = map[string]string{
 	"/clusters/:cluster/instance-presets":                                     "instance-presets",
 	"/clusters/:cluster/instance-presets/:name":                               "instance-presets",
 	"/clusters/:cluster/instance-presets/:name/resolve":                       "instance-presets",
+	"/clusters/:cluster/instance-presets/from-instance":                       "instance-presets",
 	"/clusters/:cluster/namespaces":                                           "namespaces",
 	"/clusters/:cluster/namespaces/:namespace/backup-storages":                "backup-storages",
 	"/clusters/:cluster/namespaces/:namespace/backup-storages/:name":          "backup-storages",

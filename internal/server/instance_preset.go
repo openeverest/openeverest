@@ -21,6 +21,7 @@ import (
 	"github.com/AlekSi/pointer"
 	"github.com/labstack/echo/v4"
 
+	corev1alpha1 "github.com/openeverest/openeverest/v2/api/core/v1alpha1"
 	api "github.com/openeverest/openeverest/v2/internal/server/api"
 )
 
@@ -52,4 +53,61 @@ func (e *EverestServer) ResolveInstancePreset(c echo.Context, cluster string, na
 		return err
 	}
 	return c.JSON(http.StatusOK, result)
+}
+
+// CreateInstancePreset creates a new instance preset.
+func (e *EverestServer) CreateInstancePreset(c echo.Context, cluster string) error {
+	preset := &corev1alpha1.InstancePreset{}
+	if err := c.Bind(preset); err != nil {
+		return err
+	}
+
+	result, err := e.handler.CreateInstancePreset(c.Request().Context(), cluster, preset)
+	if err != nil {
+		e.l.Errorf("CreateInstancePreset failed: %v", err)
+		return err
+	}
+	return c.JSON(http.StatusCreated, result)
+}
+
+// UpdateInstancePreset updates an existing instance preset.
+func (e *EverestServer) UpdateInstancePreset(c echo.Context, cluster string, name string) error {
+	preset := &corev1alpha1.InstancePreset{}
+	if err := c.Bind(preset); err != nil {
+		return err
+	}
+
+	// Ensure name matches the path parameter
+	preset.Name = name
+
+	result, err := e.handler.UpdateInstancePreset(c.Request().Context(), cluster, preset)
+	if err != nil {
+		e.l.Errorf("UpdateInstancePreset failed: %v", err)
+		return err
+	}
+	return c.JSON(http.StatusOK, result)
+}
+
+// DeleteInstancePreset deletes an instance preset.
+func (e *EverestServer) DeleteInstancePreset(c echo.Context, cluster string, name string) error {
+	if err := e.handler.DeleteInstancePreset(c.Request().Context(), cluster, name); err != nil {
+		e.l.Errorf("DeleteInstancePreset failed: %v", err)
+		return err
+	}
+	return c.NoContent(http.StatusNoContent)
+}
+
+// CreateInstancePresetFromInstance creates a new preset from an existing instance.
+func (e *EverestServer) CreateInstancePresetFromInstance(c echo.Context, cluster string) error {
+	var req api.CreateInstancePresetFromInstanceParams
+	if err := c.Bind(&req); err != nil {
+		return err
+	}
+
+	result, err := e.handler.CreateInstancePresetFromInstance(c.Request().Context(), cluster, req.InstanceNamespace, req.InstanceName, req.Name)
+	if err != nil {
+		e.l.Errorf("CreateInstancePresetFromInstance failed: %v", err)
+		return err
+	}
+	return c.JSON(http.StatusCreated, result)
 }

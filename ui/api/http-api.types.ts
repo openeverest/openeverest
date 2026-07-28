@@ -307,7 +307,33 @@ export interface paths {
          */
         get: operations["listInstancePresets"];
         put?: never;
-        post?: never;
+        /**
+         * Create instance preset
+         * @description This API creates a new instance preset in the specified cluster.
+         */
+        post: operations["createInstancePreset"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/clusters/{cluster}/instance-presets/from-instance": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create instance preset from instance
+         * @description This API creates a new instance preset from an existing instance.
+         *     The preset will be populated with the instance's spec, with namespace-scoped
+         *     fields cleared (secrets, monitoring configs, etc.).
+         */
+        post: operations["createInstancePresetFromInstance"];
         delete?: never;
         options?: never;
         head?: never;
@@ -326,9 +352,17 @@ export interface paths {
          * @description This API gets the instance preset specified by the `name` in the specified `cluster`.
          */
         get: operations["getInstancePreset"];
-        put?: never;
+        /**
+         * Update instance preset
+         * @description This API updates the instance preset specified by the `name` in the specified `cluster`.
+         */
+        put: operations["updateInstancePreset"];
         post?: never;
-        delete?: never;
+        /**
+         * Delete instance preset
+         * @description This API deletes the instance preset specified by the `name` in the specified `cluster`.
+         */
+        delete: operations["deleteInstancePreset"];
         options?: never;
         head?: never;
         patch?: never;
@@ -921,6 +955,15 @@ export interface components {
         UserCredentials: {
             username?: string;
             password?: string;
+        };
+        /** @description Parameters for creating an instance preset from an existing instance */
+        CreateInstancePresetFromInstanceParams: {
+            /** @description The name for the new preset */
+            name: string;
+            /** @description The name of the source instance */
+            instanceName: string;
+            /** @description The namespace of the source instance */
+            instanceNamespace: string;
         };
         /** @description Backup storage parameters */
         CreateBackupStorageParams: {
@@ -4981,6 +5024,87 @@ export interface operations {
             };
         };
     };
+    createInstancePreset: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The name of the cluster */
+                cluster: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InstancePreset"];
+            };
+        };
+        responses: {
+            /** @description Instance preset created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InstancePreset"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    createInstancePresetFromInstance: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The name of the cluster */
+                cluster: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateInstancePresetFromInstanceParams"];
+            };
+        };
+        responses: {
+            /** @description Instance preset created from instance */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InstancePreset"];
+                };
+            };
+            /** @description Instance not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
     getInstancePreset: {
         parameters: {
             query?: never;
@@ -5012,6 +5136,85 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["Error"];
                 };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    updateInstancePreset: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The name of the cluster */
+                cluster: string;
+                /** @description The name of the instance preset */
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InstancePreset"];
+            };
+        };
+        responses: {
+            /** @description Instance preset updated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InstancePreset"];
+                };
+            };
+            /** @description Instance preset not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    deleteInstancePreset: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The name of the cluster */
+                cluster: string;
+                /** @description The name of the instance preset */
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Instance preset deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Error */
             default: {

@@ -52,6 +52,19 @@ func TestRBAC_InstancePreset(t *testing.T) {
 			&corev1alpha1.InstancePreset{ObjectMeta: metav1.ObjectMeta{Name: "small"}},
 			nil,
 		)
+		h.On("CreateInstancePreset", mock.Anything, mock.Anything, mock.Anything).Return(
+			&corev1alpha1.InstancePreset{ObjectMeta: metav1.ObjectMeta{Name: "small"}},
+			nil,
+		)
+		h.On("UpdateInstancePreset", mock.Anything, mock.Anything, mock.Anything).Return(
+			&corev1alpha1.InstancePreset{ObjectMeta: metav1.ObjectMeta{Name: "small"}},
+			nil,
+		)
+		h.On("DeleteInstancePreset", mock.Anything, mock.Anything, mock.Anything).Return(nil)
+		h.On("CreateInstancePresetFromInstance", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(
+			&corev1alpha1.InstancePreset{ObjectMeta: metav1.ObjectMeta{Name: "small"}},
+			nil,
+		)
 		return h
 	}
 
@@ -356,6 +369,408 @@ func TestRBAC_InstancePreset(t *testing.T) {
 				}
 
 				result, err := h.ResolveInstancePreset(ctx, tc.cluster, tc.name, tc.namespace)
+				if tc.wantErr != nil {
+					require.ErrorIs(t, err, tc.wantErr)
+				} else {
+					require.NoError(t, err)
+					assert.Equal(t, "small", result.Name)
+				}
+			})
+		}
+	})
+
+	t.Run("CreateInstancePreset", func(t *testing.T) {
+		t.Parallel()
+
+		testCases := []struct {
+			desc    string
+			cluster string
+			policy  string
+			wantErr error
+		}{
+			{
+				desc:    "admin",
+				cluster: "prod",
+				policy: newPolicy(
+					"g, bob, role:admin",
+				),
+			},
+			{
+				desc:    "has create permission",
+				cluster: "prod",
+				policy: newPolicy(
+					"p, role:test, instance-presets, create, prod/small",
+					"g, bob, role:test",
+				),
+			},
+			{
+				desc:    "wildcard create permission",
+				cluster: "prod",
+				policy: newPolicy(
+					"p, role:test, instance-presets, create, prod/*",
+					"g, bob, role:test",
+				),
+			},
+			{
+				desc:    "has read but not create",
+				cluster: "prod",
+				policy: newPolicy(
+					"p, role:test, instance-presets, read, prod/small",
+					"g, bob, role:test",
+				),
+				wantErr: ErrInsufficientPermissions,
+			},
+			{
+				desc:    "wrong cluster",
+				cluster: "prod",
+				policy: newPolicy(
+					"p, role:test, instance-presets, create, staging/small",
+					"g, bob, role:test",
+				),
+				wantErr: ErrInsufficientPermissions,
+			},
+			{
+				desc:    "no permissions",
+				cluster: "prod",
+				policy: newPolicy(
+					"g, bob, role:test",
+				),
+				wantErr: ErrInsufficientPermissions,
+			},
+		}
+
+		ctx := context.WithValue(context.Background(), common.UserCtxKey, rbac.User{Subject: "bob"})
+		for _, tc := range testCases {
+			t.Run(tc.desc, func(t *testing.T) {
+				t.Parallel()
+				k8sMock := newConfigMapMock(tc.policy)
+				enf, err := rbac.NewEnforcer(ctx, k8sMock, zap.NewNop().Sugar())
+				require.NoError(t, err)
+				next := mockInstancePresets()
+
+				h := &rbacHandler{
+					next:       next,
+					log:        zap.NewNop().Sugar(),
+					enforcer:   enf,
+					userGetter: testUserGetter,
+				}
+
+				preset := &corev1alpha1.InstancePreset{
+					ObjectMeta: metav1.ObjectMeta{Name: "small"},
+				}
+				result, err := h.CreateInstancePreset(ctx, tc.cluster, preset)
+				if tc.wantErr != nil {
+					require.ErrorIs(t, err, tc.wantErr)
+				} else {
+					require.NoError(t, err)
+					assert.Equal(t, "small", result.Name)
+				}
+			})
+		}
+	})
+
+	t.Run("UpdateInstancePreset", func(t *testing.T) {
+		t.Parallel()
+
+		testCases := []struct {
+			desc    string
+			cluster string
+			policy  string
+			wantErr error
+		}{
+			{
+				desc:    "admin",
+				cluster: "prod",
+				policy: newPolicy(
+					"g, bob, role:admin",
+				),
+			},
+			{
+				desc:    "has update permission",
+				cluster: "prod",
+				policy: newPolicy(
+					"p, role:test, instance-presets, update, prod/small",
+					"g, bob, role:test",
+				),
+			},
+			{
+				desc:    "wildcard update permission",
+				cluster: "prod",
+				policy: newPolicy(
+					"p, role:test, instance-presets, update, prod/*",
+					"g, bob, role:test",
+				),
+			},
+			{
+				desc:    "has read but not update",
+				cluster: "prod",
+				policy: newPolicy(
+					"p, role:test, instance-presets, read, prod/small",
+					"g, bob, role:test",
+				),
+				wantErr: ErrInsufficientPermissions,
+			},
+			{
+				desc:    "wrong cluster",
+				cluster: "prod",
+				policy: newPolicy(
+					"p, role:test, instance-presets, update, staging/small",
+					"g, bob, role:test",
+				),
+				wantErr: ErrInsufficientPermissions,
+			},
+			{
+				desc:    "no permissions",
+				cluster: "prod",
+				policy: newPolicy(
+					"g, bob, role:test",
+				),
+				wantErr: ErrInsufficientPermissions,
+			},
+		}
+
+		ctx := context.WithValue(context.Background(), common.UserCtxKey, rbac.User{Subject: "bob"})
+		for _, tc := range testCases {
+			t.Run(tc.desc, func(t *testing.T) {
+				t.Parallel()
+				k8sMock := newConfigMapMock(tc.policy)
+				enf, err := rbac.NewEnforcer(ctx, k8sMock, zap.NewNop().Sugar())
+				require.NoError(t, err)
+				next := mockInstancePresets()
+
+				h := &rbacHandler{
+					next:       next,
+					log:        zap.NewNop().Sugar(),
+					enforcer:   enf,
+					userGetter: testUserGetter,
+				}
+
+				preset := &corev1alpha1.InstancePreset{
+					ObjectMeta: metav1.ObjectMeta{Name: "small"},
+				}
+				result, err := h.UpdateInstancePreset(ctx, tc.cluster, preset)
+				if tc.wantErr != nil {
+					require.ErrorIs(t, err, tc.wantErr)
+				} else {
+					require.NoError(t, err)
+					assert.Equal(t, "small", result.Name)
+				}
+			})
+		}
+	})
+
+	t.Run("DeleteInstancePreset", func(t *testing.T) {
+		t.Parallel()
+
+		testCases := []struct {
+			desc    string
+			cluster string
+			policy  string
+			wantErr error
+		}{
+			{
+				desc:    "admin",
+				cluster: "prod",
+				policy: newPolicy(
+					"g, bob, role:admin",
+				),
+			},
+			{
+				desc:    "has delete permission",
+				cluster: "prod",
+				policy: newPolicy(
+					"p, role:test, instance-presets, delete, prod/small",
+					"g, bob, role:test",
+				),
+			},
+			{
+				desc:    "wildcard delete permission",
+				cluster: "prod",
+				policy: newPolicy(
+					"p, role:test, instance-presets, delete, prod/*",
+					"g, bob, role:test",
+				),
+			},
+			{
+				desc:    "has read but not delete",
+				cluster: "prod",
+				policy: newPolicy(
+					"p, role:test, instance-presets, read, prod/small",
+					"g, bob, role:test",
+				),
+				wantErr: ErrInsufficientPermissions,
+			},
+			{
+				desc:    "wrong cluster",
+				cluster: "prod",
+				policy: newPolicy(
+					"p, role:test, instance-presets, delete, staging/small",
+					"g, bob, role:test",
+				),
+				wantErr: ErrInsufficientPermissions,
+			},
+			{
+				desc:    "no permissions",
+				cluster: "prod",
+				policy: newPolicy(
+					"g, bob, role:test",
+				),
+				wantErr: ErrInsufficientPermissions,
+			},
+		}
+
+		ctx := context.WithValue(context.Background(), common.UserCtxKey, rbac.User{Subject: "bob"})
+		for _, tc := range testCases {
+			t.Run(tc.desc, func(t *testing.T) {
+				t.Parallel()
+				k8sMock := newConfigMapMock(tc.policy)
+				enf, err := rbac.NewEnforcer(ctx, k8sMock, zap.NewNop().Sugar())
+				require.NoError(t, err)
+				next := mockInstancePresets()
+
+				h := &rbacHandler{
+					next:       next,
+					log:        zap.NewNop().Sugar(),
+					enforcer:   enf,
+					userGetter: testUserGetter,
+				}
+
+				err = h.DeleteInstancePreset(ctx, tc.cluster, "small")
+				if tc.wantErr != nil {
+					require.ErrorIs(t, err, tc.wantErr)
+				} else {
+					require.NoError(t, err)
+				}
+			})
+		}
+	})
+
+	t.Run("CreateInstancePresetFromInstance", func(t *testing.T) {
+		t.Parallel()
+
+		testCases := []struct {
+			desc         string
+			cluster      string
+			namespace    string
+			instanceName string
+			presetName   string
+			policy       string
+			wantErr      error
+		}{
+			{
+				desc:         "admin",
+				cluster:      "prod",
+				namespace:    "ns1",
+				instanceName: "db1",
+				presetName:   "small",
+				policy: newPolicy(
+					"g, bob, role:admin",
+				),
+			},
+			{
+				desc:         "has instance read and preset create",
+				cluster:      "prod",
+				namespace:    "ns1",
+				instanceName: "db1",
+				presetName:   "small",
+				policy: newPolicy(
+					"p, role:test, instances, read, prod/ns1/db1",
+					"p, role:test, instance-presets, create, prod/small",
+					"g, bob, role:test",
+				),
+			},
+			{
+				desc:         "wildcard instance and preset",
+				cluster:      "prod",
+				namespace:    "ns1",
+				instanceName: "db1",
+				presetName:   "small",
+				policy: newPolicy(
+					"p, role:test, instances, read, prod/ns1/*",
+					"p, role:test, instance-presets, create, prod/*",
+					"g, bob, role:test",
+				),
+			},
+			{
+				desc:         "no instance read permission",
+				cluster:      "prod",
+				namespace:    "ns1",
+				instanceName: "db1",
+				presetName:   "small",
+				policy: newPolicy(
+					"p, role:test, instance-presets, create, prod/small",
+					"g, bob, role:test",
+				),
+				wantErr: ErrInsufficientPermissions,
+			},
+			{
+				desc:         "no preset create permission",
+				cluster:      "prod",
+				namespace:    "ns1",
+				instanceName: "db1",
+				presetName:   "small",
+				policy: newPolicy(
+					"p, role:test, instances, read, prod/ns1/db1",
+					"g, bob, role:test",
+				),
+				wantErr: ErrInsufficientPermissions,
+			},
+			{
+				desc:         "wrong cluster for instance",
+				cluster:      "prod",
+				namespace:    "ns1",
+				instanceName: "db1",
+				presetName:   "small",
+				policy: newPolicy(
+					"p, role:test, instances, read, staging/ns1/db1",
+					"p, role:test, instance-presets, create, prod/small",
+					"g, bob, role:test",
+				),
+				wantErr: ErrInsufficientPermissions,
+			},
+			{
+				desc:         "wrong cluster for preset",
+				cluster:      "prod",
+				namespace:    "ns1",
+				instanceName: "db1",
+				presetName:   "small",
+				policy: newPolicy(
+					"p, role:test, instances, read, prod/ns1/db1",
+					"p, role:test, instance-presets, create, staging/small",
+					"g, bob, role:test",
+				),
+				wantErr: ErrInsufficientPermissions,
+			},
+			{
+				desc:         "no permissions",
+				cluster:      "prod",
+				namespace:    "ns1",
+				instanceName: "db1",
+				presetName:   "small",
+				policy: newPolicy(
+					"g, bob, role:test",
+				),
+				wantErr: ErrInsufficientPermissions,
+			},
+		}
+
+		ctx := context.WithValue(context.Background(), common.UserCtxKey, rbac.User{Subject: "bob"})
+		for _, tc := range testCases {
+			t.Run(tc.desc, func(t *testing.T) {
+				t.Parallel()
+				k8sMock := newConfigMapMock(tc.policy)
+				enf, err := rbac.NewEnforcer(ctx, k8sMock, zap.NewNop().Sugar())
+				require.NoError(t, err)
+				next := mockInstancePresets()
+
+				h := &rbacHandler{
+					next:       next,
+					log:        zap.NewNop().Sugar(),
+					enforcer:   enf,
+					userGetter: testUserGetter,
+				}
+
+				result, err := h.CreateInstancePresetFromInstance(ctx, tc.cluster, tc.namespace, tc.instanceName, tc.presetName)
 				if tc.wantErr != nil {
 					require.ErrorIs(t, err, tc.wantErr)
 				} else {

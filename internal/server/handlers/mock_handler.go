@@ -143,6 +143,66 @@ func (_m *MockHandler) CreateInstance(ctx context.Context, cluster string, insta
 	return r0, r1
 }
 
+// CreateInstancePreset provides a mock function with given fields: ctx, cluster, preset
+func (_m *MockHandler) CreateInstancePreset(ctx context.Context, cluster string, preset *corev1alpha1.InstancePreset) (*corev1alpha1.InstancePreset, error) {
+	ret := _m.Called(ctx, cluster, preset)
+
+	if len(ret) == 0 {
+		panic("no return value specified for CreateInstancePreset")
+	}
+
+	var r0 *corev1alpha1.InstancePreset
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, *corev1alpha1.InstancePreset) (*corev1alpha1.InstancePreset, error)); ok {
+		return rf(ctx, cluster, preset)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, *corev1alpha1.InstancePreset) *corev1alpha1.InstancePreset); ok {
+		r0 = rf(ctx, cluster, preset)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*corev1alpha1.InstancePreset)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, *corev1alpha1.InstancePreset) error); ok {
+		r1 = rf(ctx, cluster, preset)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// CreateInstancePresetFromInstance provides a mock function with given fields: ctx, cluster, namespace, instanceName, presetName
+func (_m *MockHandler) CreateInstancePresetFromInstance(ctx context.Context, cluster string, namespace string, instanceName string, presetName string) (*corev1alpha1.InstancePreset, error) {
+	ret := _m.Called(ctx, cluster, namespace, instanceName, presetName)
+
+	if len(ret) == 0 {
+		panic("no return value specified for CreateInstancePresetFromInstance")
+	}
+
+	var r0 *corev1alpha1.InstancePreset
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, string, string) (*corev1alpha1.InstancePreset, error)); ok {
+		return rf(ctx, cluster, namespace, instanceName, presetName)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, string, string) *corev1alpha1.InstancePreset); ok {
+		r0 = rf(ctx, cluster, namespace, instanceName, presetName)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*corev1alpha1.InstancePreset)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, string, string, string) error); ok {
+		r1 = rf(ctx, cluster, namespace, instanceName, presetName)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // CreateMonitoringConfig provides a mock function with given fields: ctx, cluster, namespace, req
 func (_m *MockHandler) CreateMonitoringConfig(ctx context.Context, cluster string, namespace string, req *api.MonitoringConfigCreateParams) (*monitoringv1alpha1.MonitoringConfig, error) {
 	ret := _m.Called(ctx, cluster, namespace, req)
@@ -298,6 +358,24 @@ func (_m *MockHandler) DeleteInstance(ctx context.Context, cluster string, names
 	var r0 error
 	if rf, ok := ret.Get(0).(func(context.Context, string, string, string, *api.DeleteInstanceParams) error); ok {
 		r0 = rf(ctx, cluster, namespace, name, params)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// DeleteInstancePreset provides a mock function with given fields: ctx, cluster, name
+func (_m *MockHandler) DeleteInstancePreset(ctx context.Context, cluster string, name string) error {
+	ret := _m.Called(ctx, cluster, name)
+
+	if len(ret) == 0 {
+		panic("no return value specified for DeleteInstancePreset")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string) error); ok {
+		r0 = rf(ctx, cluster, name)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -1317,6 +1395,36 @@ func (_m *MockHandler) UpdateInstance(ctx context.Context, cluster string, insta
 
 	if rf, ok := ret.Get(1).(func(context.Context, string, *corev1alpha1.Instance) error); ok {
 		r1 = rf(ctx, cluster, instance)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// UpdateInstancePreset provides a mock function with given fields: ctx, cluster, preset
+func (_m *MockHandler) UpdateInstancePreset(ctx context.Context, cluster string, preset *corev1alpha1.InstancePreset) (*corev1alpha1.InstancePreset, error) {
+	ret := _m.Called(ctx, cluster, preset)
+
+	if len(ret) == 0 {
+		panic("no return value specified for UpdateInstancePreset")
+	}
+
+	var r0 *corev1alpha1.InstancePreset
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, *corev1alpha1.InstancePreset) (*corev1alpha1.InstancePreset, error)); ok {
+		return rf(ctx, cluster, preset)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, *corev1alpha1.InstancePreset) *corev1alpha1.InstancePreset); ok {
+		r0 = rf(ctx, cluster, preset)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*corev1alpha1.InstancePreset)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, *corev1alpha1.InstancePreset) error); ok {
+		r1 = rf(ctx, cluster, preset)
 	} else {
 		r1 = ret.Error(1)
 	}

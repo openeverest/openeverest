@@ -17,8 +17,10 @@ package validation
 
 import (
 	"context"
+	"errors"
 
 	corev1alpha1 "github.com/openeverest/openeverest/v2/api/core/v1alpha1"
+	"github.com/openeverest/openeverest/v2/internal/preset"
 )
 
 // ListInstancePresets proxies the request to the next handler.
@@ -34,4 +36,36 @@ func (h *validateHandler) GetInstancePreset(ctx context.Context, cluster, name s
 // ResolveInstancePreset proxies the request to the next handler.
 func (h *validateHandler) ResolveInstancePreset(ctx context.Context, cluster, name, namespace string) (*corev1alpha1.InstancePreset, error) {
 	return h.next.ResolveInstancePreset(ctx, cluster, name, namespace)
+}
+
+// CreateInstancePreset validates and creates an instance preset.
+func (h *validateHandler) CreateInstancePreset(ctx context.Context, cluster string, instancePreset *corev1alpha1.InstancePreset) (*corev1alpha1.InstancePreset, error) {
+	if err := preset.EnsureNamespaceRefsEmpty(&instancePreset.Spec.InstanceSpec); err != nil {
+		return nil, errors.Join(ErrInvalidRequest, err)
+	}
+
+	return h.next.CreateInstancePreset(ctx, cluster, instancePreset)
+}
+
+// UpdateInstancePreset validates and updates an instance preset.
+func (h *validateHandler) UpdateInstancePreset(ctx context.Context, cluster string, instancePreset *corev1alpha1.InstancePreset) (*corev1alpha1.InstancePreset, error) {
+	if err := preset.EnsureNamespaceRefsEmpty(&instancePreset.Spec.InstanceSpec); err != nil {
+		return nil, errors.Join(ErrInvalidRequest, err)
+	}
+
+	return h.next.UpdateInstancePreset(ctx, cluster, instancePreset)
+}
+
+// DeleteInstancePreset proxies the request to the next handler.
+func (h *validateHandler) DeleteInstancePreset(ctx context.Context, cluster, name string) error {
+	return h.next.DeleteInstancePreset(ctx, cluster, name)
+}
+
+// CreateInstancePresetFromInstance validates and creates an instance preset from an instance.
+func (h *validateHandler) CreateInstancePresetFromInstance(ctx context.Context, cluster, namespace, instanceName, presetName string) (*corev1alpha1.InstancePreset, error) {
+	if presetName == "" {
+		return nil, errors.Join(ErrInvalidRequest, errors.New("presetName cannot be empty"))
+	}
+
+	return h.next.CreateInstancePresetFromInstance(ctx, cluster, namespace, instanceName, presetName)
 }

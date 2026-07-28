@@ -42,3 +42,22 @@ func (k *Kubernetes) GetInstancePreset(ctx context.Context, key ctrlclient.Objec
 	}
 	return result, nil
 }
+
+// CreateInstancePreset creates an instance preset.
+func (k *Kubernetes) CreateInstancePreset(ctx context.Context, preset *v1alpha1.InstancePreset) error {
+	return k.k8sClient.Create(ctx, preset)
+}
+
+// UpdateInstancePreset updates an instance preset.
+func (k *Kubernetes) UpdateInstancePreset(ctx context.Context, preset *v1alpha1.InstancePreset) error {
+	return k.k8sClient.Update(ctx, preset)
+}
+
+// DeleteInstancePreset deletes an instance preset.
+func (k *Kubernetes) DeleteInstancePreset(ctx context.Context, key ctrlclient.ObjectKey) error {
+	preset := &v1alpha1.InstancePreset{}
+	if err := k.k8sClient.Get(ctx, key, preset); err != nil {
+		return err
+	}
+	return k.k8sClient.Delete(ctx, preset)
+}

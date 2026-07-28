@@ -66,3 +66,45 @@ func (h *rbacHandler) ResolveInstancePreset(ctx context.Context, cluster, name, 
 	}
 	return h.next.ResolveInstancePreset(ctx, cluster, name, namespace)
 }
+
+// CreateInstancePreset creates an instance preset, gated by RBAC.
+func (h *rbacHandler) CreateInstancePreset(ctx context.Context, cluster string, preset *corev1alpha1.InstancePreset) (*corev1alpha1.InstancePreset, error) {
+	object := rbac.ClusterObjectName(cluster, preset.GetName())
+	if err := h.enforce(ctx, rbac.ResourceInstancePresets, rbac.ActionCreate, object); err != nil {
+		return nil, err
+	}
+	return h.next.CreateInstancePreset(ctx, cluster, preset)
+}
+
+// UpdateInstancePreset updates an instance preset, gated by RBAC.
+func (h *rbacHandler) UpdateInstancePreset(ctx context.Context, cluster string, preset *corev1alpha1.InstancePreset) (*corev1alpha1.InstancePreset, error) {
+	object := rbac.ClusterObjectName(cluster, preset.GetName())
+	if err := h.enforce(ctx, rbac.ResourceInstancePresets, rbac.ActionUpdate, object); err != nil {
+		return nil, err
+	}
+	return h.next.UpdateInstancePreset(ctx, cluster, preset)
+}
+
+// DeleteInstancePreset deletes an instance preset, gated by RBAC.
+func (h *rbacHandler) DeleteInstancePreset(ctx context.Context, cluster, name string) error {
+	object := rbac.ClusterObjectName(cluster, name)
+	if err := h.enforce(ctx, rbac.ResourceInstancePresets, rbac.ActionDelete, object); err != nil {
+		return err
+	}
+	return h.next.DeleteInstancePreset(ctx, cluster, name)
+}
+
+// CreateInstancePresetFromInstance creates a preset from an instance, gated by RBAC.
+func (h *rbacHandler) CreateInstancePresetFromInstance(ctx context.Context, cluster, namespace, instanceName, presetName string) (*corev1alpha1.InstancePreset, error) {
+	// Check if user can read the source instance
+	instanceObject := rbac.ClusterNamespacedObjectName(cluster, namespace, instanceName)
+	if err := h.enforce(ctx, rbac.ResourceInstances, rbac.ActionRead, instanceObject); err != nil {
+		return nil, err
+	}
+	// Check if user can create the new preset
+	presetObject := rbac.ClusterObjectName(cluster, presetName)
+	if err := h.enforce(ctx, rbac.ResourceInstancePresets, rbac.ActionCreate, presetObject); err != nil {
+		return nil, err
+	}
+	return h.next.CreateInstancePresetFromInstance(ctx, cluster, namespace, instanceName, presetName)
+}

@@ -74,10 +74,10 @@ type KubernetesConnector interface {
 	GetCatalogSource(ctx context.Context, key ctrlclient.ObjectKey) (*olmv1alpha1.CatalogSource, error)
 	// DeleteCatalogSource deletes catalog source that matches the criteria.
 	DeleteCatalogSource(ctx context.Context, obj *olmv1alpha1.CatalogSource) error
-	// ListConfigMaps returns list of configmaps that match the criteria.
-	ListConfigMaps(ctx context.Context, opts ...ctrlclient.ListOption) (*corev1.ConfigMapList, error)
 	// GetConfigMap returns k8s configmap that matches the criteria.
 	GetConfigMap(ctx context.Context, key ctrlclient.ObjectKey) (*corev1.ConfigMap, error)
+	// ListConfigMaps returns list of configmaps that match the criteria.
+	ListConfigMaps(ctx context.Context, opts ...ctrlclient.ListOption) (*corev1.ConfigMapList, error)
 	// CreateConfigMap creates k8s configmap.
 	CreateConfigMap(ctx context.Context, config *corev1.ConfigMap) (*corev1.ConfigMap, error)
 	// UpdateConfigMap updates k8s configmap.
@@ -373,6 +373,12 @@ type KubernetesConnector interface {
 	ListInstancePresets(ctx context.Context, opts ...ctrlclient.ListOption) (*v1alpha1.InstancePresetList, error)
 	// GetInstancePreset returns instance preset that matches the criteria.
 	GetInstancePreset(ctx context.Context, key ctrlclient.ObjectKey) (*v1alpha1.InstancePreset, error)
+	// CreateInstancePreset creates an instance preset.
+	CreateInstancePreset(ctx context.Context, preset *v1alpha1.InstancePreset) error
+	// UpdateInstancePreset updates an instance preset.
+	UpdateInstancePreset(ctx context.Context, preset *v1alpha1.InstancePreset) error
+	// DeleteInstancePreset deletes an instance preset.
+	DeleteInstancePreset(ctx context.Context, key ctrlclient.ObjectKey) error
 	// WatchBackups returns a watch.Interface that streams
 	// DatabaseClusterBackup events across all namespaces.
 	WatchBackups(ctx context.Context) (watch.Interface, error)
