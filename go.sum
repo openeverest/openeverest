@@ -323,8 +323,8 @@ github.com/fxamacker/cbor/v2 v2.9.2 h1:X4Ksno9+x3cz0TZv69ec1hxP/+tymuR8PXQJyDwfh
 github.com/fxamacker/cbor/v2 v2.9.2/go.mod h1:vM4b+DJCtHn+zz7h3FFp/hDAI9WNWCsZj23V5ytsSxQ=
 github.com/fzipp/gocyclo v0.6.0 h1:lsblElZG7d3ALtGMx9fmxeTKZaLLpU8mET09yN4BBLo=
 github.com/fzipp/gocyclo v0.6.0/go.mod h1:rXPyn8fnlpa0R2csP/31uerbiVBugk5whMdlyaLkLoA=
-github.com/getkin/kin-openapi v0.142.0 h1:izj0vBdFprMhitfzaX8sTqztsEQyvwhssBoB6n8NO7w=
-github.com/getkin/kin-openapi v0.142.0/go.mod h1:3BH9M9XDe/y9M5DSvEocVYAYq1w0qrhJHjC/vZi0AaY=
+github.com/getkin/kin-openapi v0.145.0 h1:htBX+Q7SevVaCUqymFegUKzH2WCbewl9tsmyn2FMGWY=
+github.com/getkin/kin-openapi v0.145.0/go.mod h1:3BH9M9XDe/y9M5DSvEocVYAYq1w0qrhJHjC/vZi0AaY=
 github.com/ghostiam/protogetter v0.3.21 h1:EeWTGvL/Eyosp653hiWb6Byx4b69iJC4/E+za7vQHoI=
 github.com/ghostiam/protogetter v0.3.21/go.mod h1:iAKSpyoHwYzay+OpjoWgwzRtPFthEfuUvmlomTThck0=
 github.com/go-critic/go-critic v0.14.4 h1:dSX4C3pWSeuMVxvQh6yG8U0ReSf3YOmKi4nwX5q7n/8=
