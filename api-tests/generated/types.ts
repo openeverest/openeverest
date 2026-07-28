@@ -1350,6 +1350,37 @@ export interface components {
         ClusterList: {
             items: components["schemas"]["Cluster"][];
         };
+        /** @description ObjectMeta is the standard Kubernetes object metadata. Only the fields relevant to the Everest API are described; unknown fields are accepted but may be ignored by the server. */
+        ObjectMeta: {
+            /** @description Annotations is an unstructured key value map stored with a resource that may be set by external tools to store and retrieve arbitrary metadata. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations */
+            annotations?: {
+                [key: string]: string;
+            };
+            /**
+             * Format: date-time
+             * @description CreationTimestamp is a timestamp representing the server time when this object was created. Populated by the system. Read-only.
+             */
+            creationTimestamp?: string;
+            /**
+             * Format: date-time
+             * @description DeletionTimestamp is the RFC 3339 date and time at which this resource will be deleted. Populated by the system when a graceful deletion is requested. Read-only.
+             */
+            deletionTimestamp?: string;
+            /** @description GenerateName is an optional prefix, used by the server, to generate a unique name ONLY IF the Name field has not been provided. */
+            generateName?: string;
+            /** @description Map of string keys and values that can be used to organize and categorize (scope and select) objects. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/labels */
+            labels?: {
+                [key: string]: string;
+            };
+            /** @description Name must be unique within a namespace. Is required when creating resources, although some resources may allow a client to request the generation of an appropriate name automatically. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names#names */
+            name?: string;
+            /** @description Namespace defines the space within which each name must be unique. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces */
+            namespace?: string;
+            /** @description An opaque value that represents the internal version of this object that can be used by clients to determine when objects have changed. Populated by the system. Read-only. */
+            resourceVersion?: string;
+            /** @description UID is the unique in time and space value for this object. Populated by the system. Read-only. */
+            uid?: string;
+        };
         /** @description InstancePreset is the Schema for the instancepresets API */
         InstancePreset: {
             /**
@@ -1367,7 +1398,7 @@ export interface components {
              *     More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
              */
             kind?: string;
-            metadata?: Record<string, never>;
+            metadata?: components["schemas"]["ObjectMeta"];
             /** @description spec defines the desired state of InstancePreset */
             spec: {
                 /**
@@ -2349,7 +2380,7 @@ export interface components {
              *     More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
              */
             kind?: string;
-            metadata?: Record<string, never>;
+            metadata?: components["schemas"]["ObjectMeta"];
             /** @description ProviderSpec defines the desired state of Provider */
             spec: {
                 componentTypes?: {
@@ -2560,7 +2591,7 @@ export interface components {
              *     More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
              */
             kind?: string;
-            metadata?: Record<string, never>;
+            metadata?: components["schemas"]["ObjectMeta"];
             /** @description InstanceSpec defines the desired state of Instance */
             spec: {
                 /**
@@ -3638,7 +3669,7 @@ export interface components {
              *     More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
              */
             kind?: string;
-            metadata?: Record<string, never>;
+            metadata?: components["schemas"]["ObjectMeta"];
             /** @description BackupSpec defines the desired state of Backup. */
             spec: {
                 /**
@@ -3821,7 +3852,7 @@ export interface components {
              *     More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
              */
             kind?: string;
-            metadata?: Record<string, never>;
+            metadata?: components["schemas"]["ObjectMeta"];
             /** @description RestoreSpec defines the desired state of Restore. */
             spec: {
                 /** @description DataSource defines where the backup data to restore from is located. */
@@ -3991,7 +4022,7 @@ export interface components {
              *     More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
              */
             kind?: string;
-            metadata?: Record<string, never>;
+            metadata?: components["schemas"]["ObjectMeta"];
             /** @description BackupClassSpec defines the desired state of BackupClass. */
             spec: {
                 /** @description Description is the description of the backup class. */
@@ -4322,7 +4353,7 @@ export interface components {
              *     More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
              */
             kind?: string;
-            metadata?: Record<string, never>;
+            metadata?: components["schemas"]["ObjectMeta"];
             /**
              * @description BackupStorageSpec defines the desired state of a BackupStorage.
              *
@@ -4419,7 +4450,7 @@ export interface components {
              *     More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
              */
             kind?: string;
-            metadata?: Record<string, never>;
+            metadata?: components["schemas"]["ObjectMeta"];
             /** @description spec defines the desired state of MonitoringConfig */
             spec: {
                 /**

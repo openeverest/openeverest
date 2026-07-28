@@ -26,6 +26,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/openeverest/openeverest/v2/client"
 	"github.com/openeverest/openeverest/v2/pkg/cli/config"
@@ -199,16 +200,16 @@ func TestRestoreList_JSONOutput(t *testing.T) {
 
 func restoreWithAge(name string, age time.Duration) client.Restore {
 	var r client.Restore
-	r.Metadata = &map[string]any{
-		"name":              name,
-		"creationTimestamp": time.Now().Add(-age).UTC().Format(time.RFC3339),
+	r.Metadata = &metav1.ObjectMeta{
+		Name:              name,
+		CreationTimestamp: metav1.NewTime(time.Now().Add(-age).UTC()),
 	}
 	return r
 }
 
 func restoreWithoutTimestamp(name string) client.Restore {
 	var r client.Restore
-	r.Metadata = &map[string]any{"name": name}
+	r.Metadata = &metav1.ObjectMeta{Name: name}
 	return r
 }
 

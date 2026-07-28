@@ -25,6 +25,7 @@ import (
 	"time"
 
 	"go.uber.org/zap"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/openeverest/openeverest/v2/client"
 	authcli "github.com/openeverest/openeverest/v2/pkg/cli/auth"
@@ -76,16 +77,13 @@ func (cr *CreateRunner) Run(ctx context.Context, opts CreateOptions, cfgPath str
 		return err
 	}
 
-	backup := client.Backup{
-		Metadata: &map[string]any{
-			"namespace": opts.Namespace,
-		},
-	}
+	md := metav1.ObjectMeta{Namespace: opts.Namespace}
 	if opts.Name != "" {
-		(*backup.Metadata)["name"] = opts.Name
+		md.Name = opts.Name
 	} else {
-		(*backup.Metadata)["generateName"] = opts.Instance + "-"
+		md.GenerateName = opts.Instance + "-"
 	}
+	backup := client.Backup{Metadata: &md}
 	backup.Spec.InstanceRef.Name = opts.Instance
 	backup.Spec.ClassRef.Name = opts.Class
 	backup.Spec.StorageRef.Name = opts.Storage
@@ -108,7 +106,7 @@ func (cr *CreateRunner) Run(ctx context.Context, opts CreateOptions, cfgPath str
 		return fmt.Errorf("unexpected response creating backup: %s", resp.Status())
 	}
 
-	name := metadataStringField(resp.JSON201, "name")
+	name := backupName(resp.JSON201)
 	cr.l.Infof("created backup %q for instance %q in namespace %q", name, opts.Instance, opts.Namespace)
 
 	if !opts.Wait {

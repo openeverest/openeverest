@@ -145,7 +145,10 @@ func printInstanceTable(w io.Writer, instances []client.Instance) {
 }
 
 func instanceNamespace(inst *client.Instance) string {
-	return metadataStringField(inst, "namespace")
+	if inst.Metadata == nil || inst.Metadata.Namespace == "" {
+		return "-"
+	}
+	return inst.Metadata.Namespace
 }
 
 func instanceProvider(inst *client.Instance) string {
@@ -170,28 +173,8 @@ func instancePhaseValue(inst *client.Instance) string {
 }
 
 func instanceAge(inst *client.Instance) string {
-	ts := metadataStringField(inst, "creationTimestamp")
-	if ts == "-" {
+	if inst.Metadata == nil || inst.Metadata.CreationTimestamp.IsZero() {
 		return "-"
 	}
-	created, err := time.Parse(time.RFC3339, ts)
-	if err != nil {
-		return "-"
-	}
-	return duration.ShortHumanDuration(time.Since(created))
-}
-
-func metadataStringField(inst *client.Instance, key string) string {
-	if inst.Metadata == nil {
-		return "-"
-	}
-	v, ok := (*inst.Metadata)[key]
-	if !ok {
-		return "-"
-	}
-	s, ok := v.(string)
-	if !ok || s == "" {
-		return "-"
-	}
-	return s
+	return duration.ShortHumanDuration(time.Since(inst.Metadata.CreationTimestamp.Time))
 }

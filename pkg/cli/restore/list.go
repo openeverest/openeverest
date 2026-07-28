@@ -125,11 +125,17 @@ func printRestoreTable(w io.Writer, restores []client.Restore) {
 }
 
 func restoreName(r *client.Restore) string {
-	return metadataStringField(r, "name")
+	if r.Metadata == nil || r.Metadata.Name == "" {
+		return "-"
+	}
+	return r.Metadata.Name
 }
 
 func restoreNamespace(r *client.Restore) string {
-	return metadataStringField(r, "namespace")
+	if r.Metadata == nil || r.Metadata.Namespace == "" {
+		return "-"
+	}
+	return r.Metadata.Namespace
 }
 
 func restoreInstance(r *client.Restore) string {
@@ -179,30 +185,10 @@ func sortRestoresByRecency(restores []client.Restore) {
 }
 
 // restoreCreationTime returns the restore's creation time and whether it could
-// be determined. Restores without a parseable timestamp sort last.
+// be determined. Restores without a timestamp sort last.
 func restoreCreationTime(r *client.Restore) (time.Time, bool) {
-	ts := metadataStringField(r, "creationTimestamp")
-	if ts == "-" {
+	if r.Metadata == nil || r.Metadata.CreationTimestamp.IsZero() {
 		return time.Time{}, false
 	}
-	created, err := time.Parse(time.RFC3339, ts)
-	if err != nil {
-		return time.Time{}, false
-	}
-	return created, true
-}
-
-func metadataStringField(r *client.Restore, key string) string {
-	if r.Metadata == nil {
-		return "-"
-	}
-	v, ok := (*r.Metadata)[key]
-	if !ok {
-		return "-"
-	}
-	s, ok := v.(string)
-	if !ok || s == "" {
-		return "-"
-	}
-	return s
+	return r.Metadata.CreationTimestamp.Time, true
 }

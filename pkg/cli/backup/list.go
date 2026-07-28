@@ -126,11 +126,17 @@ func printBackupTable(w io.Writer, backups []client.Backup) {
 }
 
 func backupName(b *client.Backup) string {
-	return metadataStringField(b, "name")
+	if b.Metadata == nil || b.Metadata.Name == "" {
+		return "-"
+	}
+	return b.Metadata.Name
 }
 
 func backupNamespace(b *client.Backup) string {
-	return metadataStringField(b, "namespace")
+	if b.Metadata == nil || b.Metadata.Namespace == "" {
+		return "-"
+	}
+	return b.Metadata.Namespace
 }
 
 func backupInstance(b *client.Backup) string {
@@ -187,30 +193,10 @@ func sortBackupsByRecency(backups []client.Backup) {
 }
 
 // backupCreationTime returns the backup's creation time and whether it could
-// be determined. Backups without a parseable timestamp sort last.
+// be determined. Backups without a timestamp sort last.
 func backupCreationTime(b *client.Backup) (time.Time, bool) {
-	ts := metadataStringField(b, "creationTimestamp")
-	if ts == "-" {
+	if b.Metadata == nil || b.Metadata.CreationTimestamp.IsZero() {
 		return time.Time{}, false
 	}
-	created, err := time.Parse(time.RFC3339, ts)
-	if err != nil {
-		return time.Time{}, false
-	}
-	return created, true
-}
-
-func metadataStringField(b *client.Backup, key string) string {
-	if b.Metadata == nil {
-		return "-"
-	}
-	v, ok := (*b.Metadata)[key]
-	if !ok {
-		return "-"
-	}
-	s, ok := v.(string)
-	if !ok || s == "" {
-		return "-"
-	}
-	return s
+	return b.Metadata.CreationTimestamp.Time, true
 }

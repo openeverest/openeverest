@@ -349,5 +349,5 @@ func TestRun_JSONEmitsCreatedInstanceWithoutWait(t *testing.T) {
 	var got client.Instance
 	require.NoError(t, json.Unmarshal([]byte(out), &got))
 	require.NotNil(t, got.Metadata)
-	assert.Equal(t, "my-db", (*got.Metadata)["name"])
+	assert.Equal(t, "my-db", got.Metadata.Name)
 }
