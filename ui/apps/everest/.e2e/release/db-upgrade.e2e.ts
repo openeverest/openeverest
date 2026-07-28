@@ -157,14 +157,14 @@ test.describe.configure({ retries: 0 });
             await expect(page.getByText('2 shards')).toBeVisible();
             await expect(
               page.getByTestId('nodes-resources-table-limits-line')
-            ).toContainText('CPU: 6.00 CPU; Memory: 24.00 GB');
-            await expect(page.getByText('Disk: 150.00 Gi')).toBeVisible();
+            ).toContainText('CPU: 1.00 CPU; Memory: 4.00 GB');
+            await expect(page.getByText('Disk: 25.00 Gi')).toBeVisible();
             await expect(
               page.getByText('3 configuration servers')
             ).toBeVisible();
             await expect(
               page.getByTestId('proxies-resources-table-limits-line')
-            ).toContainText('CPU: 3.00 CPU; Memory: 6.00 GB');
+            ).toContainText('CPU: 1.00 CPU; Memory: 2.00 GB');
             await populateResources(page, 0.6, 1, 1, size, 2, 0.6, 1, 2, 3);
           } else {
             await expect(page.getByText('Nodes (' + size + ')')).toBeVisible();
