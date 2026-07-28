@@ -26,7 +26,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/openeverest/openeverest/v2/client"
 	"github.com/openeverest/openeverest/v2/pkg/cli/config"
@@ -196,40 +195,6 @@ func TestRestoreList_JSONOutput(t *testing.T) {
 	runner := NewListRunner(Config{Pretty: false}, zap.NewNop().Sugar())
 	err := runner.Run(t.Context(), ListOptions{Cluster: "main", Namespace: "everest", Instance: "my-mongo"}, cfgPath)
 	require.NoError(t, err)
-}
-
-func restoreWithAge(name string, age time.Duration) client.Restore {
-	var r client.Restore
-	r.Metadata = &metav1.ObjectMeta{
-		Name:              name,
-		CreationTimestamp: metav1.NewTime(time.Now().Add(-age).UTC()),
-	}
-	return r
-}
-
-func restoreWithoutTimestamp(name string) client.Restore {
-	var r client.Restore
-	r.Metadata = &metav1.ObjectMeta{Name: name}
-	return r
-}
-
-func TestSortRestoresByRecency(t *testing.T) {
-	t.Parallel()
-
-	restores := []client.Restore{
-		restoreWithAge("oldest", 48*time.Hour),
-		restoreWithAge("newest", time.Hour),
-		restoreWithoutTimestamp("no-timestamp"),
-		restoreWithAge("middle", 24*time.Hour),
-	}
-
-	sortRestoresByRecency(restores)
-
-	names := make([]string, len(restores))
-	for i, r := range restores {
-		names[i] = restoreName(&r)
-	}
-	assert.Equal(t, []string{"newest", "middle", "oldest", "no-timestamp"}, names)
 }
 
 func TestRestoreBackup_NilDataSource(t *testing.T) {

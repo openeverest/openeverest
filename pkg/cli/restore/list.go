@@ -24,15 +24,16 @@ import (
 	"io"
 	"net/http"
 	"os"
-	"sort"
 	"time"
 
 	"github.com/rodaine/table"
 	"go.uber.org/zap"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/duration"
 
 	"github.com/openeverest/openeverest/v2/client"
 	authcli "github.com/openeverest/openeverest/v2/pkg/cli/auth"
+	"github.com/openeverest/openeverest/v2/pkg/cli/clientmeta"
 )
 
 // Config holds the shared configuration for restore CLI runners.
@@ -170,18 +171,7 @@ func restoreAge(r *client.Restore) string {
 // sortRestoresByRecency orders restores newest-first by creation time, falling
 // back to name for stability when timestamps tie or are unavailable.
 func sortRestoresByRecency(restores []client.Restore) {
-	sort.Slice(restores, func(i, j int) bool {
-		ti, iok := restoreCreationTime(&restores[i])
-		tj, jok := restoreCreationTime(&restores[j])
-		switch {
-		case iok && jok && !ti.Equal(tj):
-			return ti.After(tj)
-		case iok != jok:
-			return iok
-		default:
-			return restoreName(&restores[i]) < restoreName(&restores[j])
-		}
-	})
+	clientmeta.SortByRecency(restores, func(r *client.Restore) *metav1.ObjectMeta { return r.Metadata })
 }
 
 // restoreCreationTime returns the restore's creation time and whether it could

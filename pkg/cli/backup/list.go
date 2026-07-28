@@ -24,15 +24,16 @@ import (
 	"io"
 	"net/http"
 	"os"
-	"sort"
 	"time"
 
 	"github.com/rodaine/table"
 	"go.uber.org/zap"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/duration"
 
 	"github.com/openeverest/openeverest/v2/client"
 	authcli "github.com/openeverest/openeverest/v2/pkg/cli/auth"
+	"github.com/openeverest/openeverest/v2/pkg/cli/clientmeta"
 )
 
 // Config holds the shared configuration for backup CLI runners.
@@ -178,18 +179,7 @@ func backupAge(b *client.Backup) string {
 // sortBackupsByRecency orders backups newest-first by creation time, falling
 // back to name for stability when timestamps tie or are unavailable.
 func sortBackupsByRecency(backups []client.Backup) {
-	sort.Slice(backups, func(i, j int) bool {
-		ti, iok := backupCreationTime(&backups[i])
-		tj, jok := backupCreationTime(&backups[j])
-		switch {
-		case iok && jok && !ti.Equal(tj):
-			return ti.After(tj)
-		case iok != jok:
-			return iok
-		default:
-			return backupName(&backups[i]) < backupName(&backups[j])
-		}
-	})
+	clientmeta.SortByRecency(backups, func(b *client.Backup) *metav1.ObjectMeta { return b.Metadata })
 }
 
 // backupCreationTime returns the backup's creation time and whether it could
