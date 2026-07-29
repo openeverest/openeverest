@@ -20,7 +20,7 @@ We welcome many types of contributions including:
 - Answering questions on [Slack or other community channels](https://openeverest.io/#community) and GitHub Discussions
 - Blog posts, social media, and other community advocacy
 - [Website and blog posts](https://github.com/openeverest/openeverest.github.io)
-- Let us know when your talk about OpenEverest is accepted at a conference!
+- Let us know when your talk on OpenEverest is accepted at a conference!
 - Release management
 - Problems found while setting up the development environment
 
