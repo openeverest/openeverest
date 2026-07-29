@@ -14,6 +14,7 @@
 
 import { InstanceBackupStorage } from './backups.types';
 import {
+  buildPitrPayload,
   countPitrEnabledStorages,
   hasActiveSchedules,
   setStoragePitr,
@@ -71,5 +72,37 @@ describe('hasActiveSchedules', () => {
   it('is false when every schedule is disabled or absent', () => {
     expect(hasActiveSchedules([storages[1]])).toBe(false);
     expect(hasActiveSchedules([{ storageRef: { name: 'empty' } }])).toBe(false);
+  });
+});
+
+describe('buildPitrPayload', () => {
+  it('flips enabled while preserving existing parameters', () => {
+    const result = buildPitrPayload(
+      { enabled: false, parameters: { timeBetweenUploads: 60 } },
+      { enabled: true }
+    );
+
+    expect(result).toEqual({
+      enabled: true,
+      parameters: { timeBetweenUploads: 60 },
+    });
+  });
+
+  it('overwrites parameters when the patch provides them', () => {
+    const result = buildPitrPayload(
+      { enabled: true, parameters: { timeBetweenUploads: 60 } },
+      { enabled: true, parameters: { timeBetweenUploads: 120 } }
+    );
+
+    expect(result).toEqual({
+      enabled: true,
+      parameters: { timeBetweenUploads: 120 },
+    });
+  });
+
+  it('builds a payload from no previous pitr', () => {
+    expect(buildPitrPayload(undefined, { enabled: true })).toEqual({
+      enabled: true,
+    });
   });
 });

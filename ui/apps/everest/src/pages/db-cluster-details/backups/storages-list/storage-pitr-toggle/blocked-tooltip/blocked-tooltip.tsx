@@ -12,20 +12,22 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-export const Messages = {
-  pitr: 'PITR',
-  needsSchedule:
-    'Point-in-time recovery requires at least one active backup schedule.',
-  limitReached: (max: number) =>
-    `Maximum ${max} PITR-enabled storage${max > 1 ? 's' : ''} for this provider.`,
-  noPermission:
-    'You do not have permission to change PITR for this instance.',
-  configure: 'Configure PITR',
-  disable: {
-    title: 'Disable PITR?',
-    body: (storageName: string) =>
-      `Point-in-time recovery for “${storageName}” will stop. Saved settings are kept.`,
-    confirm: 'Disable',
-    cancel: 'Cancel',
-  },
-};
+import { ReactElement } from 'react';
+import { Tooltip } from '@mui/material';
+
+interface BlockedTooltipProps {
+  reason?: string;
+  children: ReactElement;
+}
+
+// A disabled MUI control swallows hover events, so wrap it in a span so the
+// tooltip explaining why the control is unavailable still shows. With no
+// reason the child renders bare (no wrapper, no tooltip).
+export const BlockedTooltip = ({ reason, children }: BlockedTooltipProps) =>
+  reason ? (
+    <Tooltip title={reason}>
+      <span>{children}</span>
+    </Tooltip>
+  ) : (
+    children
+  );

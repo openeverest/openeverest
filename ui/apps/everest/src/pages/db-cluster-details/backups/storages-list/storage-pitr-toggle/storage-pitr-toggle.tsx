@@ -12,46 +12,103 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { FormControlLabel, Switch, Tooltip } from '@mui/material';
+import { useState } from 'react';
+import { Box } from '@mui/material';
+import { ConfirmDialog } from 'components/confirm-dialog/confirm-dialog';
 import { InstanceBackupStorage } from '../../backups.types';
+import { PitrConfigModal } from '../../pitr-config-modal';
 import { useStoragePitr } from './use-storage-pitr';
 import { Messages } from './storage-pitr-toggle.messages';
+import { PitrToggleSwitch } from './pitr-toggle-switch/pitr-toggle-switch';
+import { PitrConfigButton } from './pitr-config-button/pitr-config-button';
 
 interface StoragePitrToggleProps {
   storage: InstanceBackupStorage;
 }
 
 export const StoragePitrToggle = ({ storage }: StoragePitrToggleProps) => {
-  const { visible, enabled, disabled, reason, setEnabled } =
-    useStoragePitr(storage);
+  const {
+    visible,
+    enabled,
+    disabled,
+    reason,
+    showConfig,
+    configDisabled,
+    configReason,
+    activeClass,
+    currentParameters,
+    namespace,
+    isPending,
+    setEnabled,
+    setParameters,
+  } = useStoragePitr(storage);
+  const [confirmingDisable, setConfirmingDisable] = useState(false);
+  const [configuring, setConfiguring] = useState(false);
 
   if (!visible) {
     return null;
   }
 
-  const toggle = (
-    <FormControlLabel
-      label={Messages.pitr}
-      labelPlacement="start"
-      control={
-        <Switch
-          size="small"
-          checked={enabled}
-          disabled={disabled}
-          onChange={(_, checked) => setEnabled(checked)}
-          data-testid={`pitr-toggle-${storage.storageRef.name}`}
-        />
-      }
-    />
-  );
+  const storageName = storage.storageRef.name;
 
-  // A disabled MUI control swallows hover events, so wrap it in a span so the
-  // tooltip explaining why PITR is unavailable still shows.
-  return reason ? (
-    <Tooltip title={reason}>
-      <span>{toggle}</span>
-    </Tooltip>
-  ) : (
-    toggle
+  // Enabling is a direct action; disabling always asks for confirmation.
+  const handleToggle = (checked: boolean) => {
+    if (checked) {
+      setEnabled(true);
+    } else {
+      setConfirmingDisable(true);
+    }
+  };
+
+  return (
+    <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 1.5 }}>
+      <PitrToggleSwitch
+        storageName={storageName}
+        checked={enabled}
+        disabled={disabled}
+        reason={reason}
+        onToggle={handleToggle}
+      />
+
+      {showConfig && (
+        <PitrConfigButton
+          storageName={storageName}
+          disabled={configDisabled}
+          reason={configReason}
+          onClick={() => setConfiguring(true)}
+        />
+      )}
+
+      <ConfirmDialog
+        open={confirmingDisable}
+        selectedId={storageName}
+        closeModal={() => setConfirmingDisable(false)}
+        headerMessage={Messages.disable.title}
+        cancelMessage={Messages.disable.cancel}
+        submitMessage={Messages.disable.confirm}
+        handleConfirm={() => {
+          setEnabled(false);
+          setConfirmingDisable(false);
+        }}
+      >
+        {Messages.disable.body(storageName)}
+      </ConfirmDialog>
+
+      {configuring && (
+        <PitrConfigModal
+          open
+          storageName={storageName}
+          backupClass={activeClass}
+          currentParameters={currentParameters}
+          submitting={isPending}
+          namespace={namespace}
+          onClose={() => setConfiguring(false)}
+          onSubmit={(parameters) => {
+            setParameters(parameters);
+            setConfiguring(false);
+          }}
+        />
+      )}
+    </Box>
   );
 };

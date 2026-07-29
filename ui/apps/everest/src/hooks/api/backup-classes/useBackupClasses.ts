@@ -99,12 +99,18 @@ export const useBackupClassUiSchema = (
       | BackupClassUiSchemaSections
       | undefined;
 
-    if (!uiSchema?.backup) return { sections: undefined, uiSchema };
+    if (!uiSchema) return { sections: undefined, uiSchema: undefined };
 
-    const sections: Record<string, Section> = {
-      parameters: uiSchema.backup,
+    // Map provider uiSchema sections to UIGenerator section keys: `backup` is
+    // exposed as `parameters` (on-demand / schedule fields); `pitr` drives the
+    // per-storage PITR config modal. A provider may ship either, both, or none.
+    const sections: Record<string, Section> = {};
+    if (uiSchema.backup) sections.parameters = uiSchema.backup;
+    if (uiSchema.pitr) sections.pitr = uiSchema.pitr;
+
+    return {
+      sections: Object.keys(sections).length > 0 ? sections : undefined,
+      uiSchema,
     };
-
-    return { sections, uiSchema };
   }, [backupClass]);
 };

@@ -13,12 +13,17 @@
 // limitations under the License.
 
 import { useContext } from 'react';
-import { useActiveBackupClass } from 'hooks/api/backup-classes/useBackupClasses';
+import {
+  useActiveBackupClass,
+  useBackupClassUiSchema,
+} from 'hooks/api/backup-classes/useBackupClasses';
 import { useUpdateDbInstanceWithConflictRetry } from 'hooks/api/db-instances/useUpdateDbInstance';
 import { useRBACPermissions } from 'hooks/rbac';
 import { ScheduleModalContext } from '../../backups.context';
 import { InstanceBackupStorage } from '../../backups.types';
+import { PitrParameters } from '../../pitr-config-modal/pitr-config-modal.types';
 import {
+  buildPitrPayload,
   countPitrEnabledStorages,
   hasActiveSchedules,
   setStoragePitr,
@@ -27,7 +32,10 @@ import { Messages } from './storage-pitr-toggle.messages';
 
 export const useStoragePitr = (storage: InstanceBackupStorage) => {
   const { instance } = useContext(ScheduleModalContext);
-  const providerManaged = useActiveBackupClass(instance)?.spec?.providerManaged;
+  const activeClass = useActiveBackupClass(instance);
+  const providerManaged = activeClass?.spec?.providerManaged;
+  const { sections } = useBackupClassUiSchema(activeClass);
+  const hasSchema = !!sections?.pitr;
 
   const { canUpdate } = useRBACPermissions(
     'instances',
@@ -58,7 +66,7 @@ export const useStoragePitr = (storage: InstanceBackupStorage) => {
   const { mutate: updateInstance, isPending } =
     useUpdateDbInstanceWithConflictRetry(instance);
 
-  const setEnabled = (next: boolean) => {
+  const patchPitr = (pitr: InstanceBackupStorage['pitr']) => {
     const backup = instance.spec?.backup;
     if (!backup) {
       return;
@@ -70,20 +78,31 @@ export const useStoragePitr = (storage: InstanceBackupStorage) => {
         ...instance.spec,
         backup: {
           ...backup,
-          storages: setStoragePitr(storages, storage.storageRef.name, {
-            ...storage.pitr,
-            enabled: next,
-          }),
+          storages: setStoragePitr(storages, storage.storageRef.name, pitr),
         },
       },
     });
   };
+
+  const setEnabled = (next: boolean) =>
+    patchPitr(buildPitrPayload(storage.pitr, { enabled: next }));
+
+  const setParameters = (parameters: PitrParameters | undefined) =>
+    patchPitr(buildPitrPayload(storage.pitr, { enabled: true, parameters }));
 
   return {
     visible: supported,
     enabled,
     disabled: reason !== undefined || isPending,
     reason,
+    showConfig: hasSchema,
+    configDisabled: !enabled || !canUpdate,
+    configReason: !canUpdate ? Messages.noPermission : undefined,
+    activeClass,
+    currentParameters: storage.pitr?.parameters,
+    namespace: instance.metadata?.namespace,
+    isPending,
     setEnabled,
+    setParameters,
   };
 };

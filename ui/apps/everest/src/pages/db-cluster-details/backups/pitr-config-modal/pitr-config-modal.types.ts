@@ -12,20 +12,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-export const Messages = {
-  pitr: 'PITR',
-  needsSchedule:
-    'Point-in-time recovery requires at least one active backup schedule.',
-  limitReached: (max: number) =>
-    `Maximum ${max} PITR-enabled storage${max > 1 ? 's' : ''} for this provider.`,
-  noPermission:
-    'You do not have permission to change PITR for this instance.',
-  configure: 'Configure PITR',
-  disable: {
-    title: 'Disable PITR?',
-    body: (storageName: string) =>
-      `Point-in-time recovery for “${storageName}” will stop. Saved settings are kept.`,
-    confirm: 'Disable',
-    cancel: 'Cancel',
-  },
-};
+import { BackupClass } from 'shared-types/backups.types';
+
+// PITR parameters as stored on Instance.spec.backup.storages[].pitr.parameters
+// (leaf-keyed, e.g. { timeBetweenUploads: 60 }).
+export type PitrParameters = Record<string, unknown>;
+
+export interface PitrConfigModalProps {
+  open: boolean;
+  storageName: string;
+  backupClass: BackupClass | undefined;
+  currentParameters?: PitrParameters;
+  submitting?: boolean;
+  namespace?: string;
+  onClose: () => void;
+  onSubmit: (parameters: PitrParameters | undefined) => void;
+}

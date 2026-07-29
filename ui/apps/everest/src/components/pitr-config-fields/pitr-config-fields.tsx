@@ -14,28 +14,32 @@
 
 import { useBackupClassUiSchema } from 'hooks/api/backup-classes/useBackupClasses';
 import { UIGenerator } from 'components/ui-generator/ui-generator';
+import { FormMode } from 'components/ui-generator/ui-generator.types';
 import { useApplySchemaDefaults } from 'components/ui-generator/hooks/use-apply-schema-defaults';
-import { BackupConfigFieldsProps } from './backup-config-fields.types';
+import { PitrConfigFieldsProps } from './pitr-config-fields.types';
 
-export const BackupConfigFields = ({
+export const PitrConfigFields = ({
   backupClass,
-  formMode,
   namespace,
-}: BackupConfigFieldsProps) => {
-  const { sections: backupSections } = useBackupClassUiSchema(backupClass);
+}: PitrConfigFieldsProps) => {
+  const { sections } = useBackupClassUiSchema(backupClass);
   const className = backupClass?.metadata?.name ?? '';
 
-  useApplySchemaDefaults(backupSections?.parameters?.components, className);
+  // Apply provider defaults only where the form has no value yet, so
+  // previously saved parameters are preserved.
+  useApplySchemaDefaults(sections?.pitr?.components, className, {
+    onlyWhenEmpty: true,
+  });
 
-  if (!backupSections?.parameters) {
+  if (!sections?.pitr) {
     return null;
   }
 
   return (
     <UIGenerator
-      sectionKey="parameters"
-      sections={backupSections}
-      formMode={formMode}
+      sectionKey="pitr"
+      sections={sections}
+      formMode={FormMode.Edit}
       namespace={namespace}
     />
   );

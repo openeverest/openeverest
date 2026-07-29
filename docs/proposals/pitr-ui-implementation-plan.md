@@ -236,10 +236,34 @@ Depends on Phase 1; parallel with Phase 2–4.
 
 ---
 
-### Phase 6 — Wizard PITR (deferred)
+### Phase 6 — Wizard PITR
 
-Moved into the general backups wizard step (depends on `buildSpecBackup`). Single-PITR
-(`maxPITREnabledStorages: 1`) → toggle + storage select; multi-PITR → `[+ Add PITR]` list.
+**Design (locked):** per-storage model from the start (covers single AND multi). The Backups
+step gets a PITR block below the schedules: a **per-storage list of toggles** (storages are the
+distinct `storageName`s used by `backup.schedules`), each with a toggle + configure (⚙) — the
+same UI concept as the Details Storages panel. Single vs multi is only the enable limit
+(`maxPITREnabledStorages`), not a different UI.
+
+- Providers never auto-enable (locked): the user controls PITR per storage (declarative). No
+  `dbType` special-casing; drive purely off `supportsPITR` + `maxPITREnabledStorages` +
+  `uiSchema.pitr`. (If a provider ever wants auto-on, that's a future `pitrStorageMode` flag.)
+- The **custom schema (`uiSchema.pitr`) participates only inside the config modal** (per-storage
+  parameters via `<UIGenerator sectionKey="pitr">`, reusing Phase 4's `PitrConfigModal`). The
+  toggles/list are plain React driven by the class flags. No provider schema → no ⚙, on/off only.
+
+**Form shape:** `backup.pitr: { [storageName]: { enabled: boolean; parameters?: {...} } }`.
+`buildBackupSpecFromWizard` attaches each entry to the matching `storages[i].pitr`.
+
+**Slices:**
+0. Extract pure gating (`getPitrBlockReason(storages, storageEnabled, max)` → reason code) into
+   `pitr.utils.ts`; refactor `useStoragePitr` to use it (shared by Details + Wizard). Details green.
+1. Form: add `backup.pitr` to schema (`database-form-schema.ts`) + defaults + edit-mode prefill.
+2. Wizard PITR list component (per-storage toggles, gating from class, reuses `PitrConfigModal`).
+3. `buildBackupSpecFromWizard` attaches `pitr`; update preview; wire the list into `BackupStep`.
+4. Tests (single limit gating, multi, no-schema on/off, build output, edit prefill).
+
+**Multi-PITR (PG):** built now (PG provider in development) — same list, limit > 1 allows several
+enabled. Reference: `on-demand-backup-modal.tsx`, Phase 4 `PitrConfigModal`.
 
 ---
 

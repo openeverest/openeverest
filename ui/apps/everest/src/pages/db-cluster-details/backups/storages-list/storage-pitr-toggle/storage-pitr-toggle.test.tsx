@@ -29,10 +29,12 @@ import { Messages } from './storage-pitr-toggle.messages';
 
 const mockUpdateInstance = vi.fn();
 const mockUseActiveBackupClass = vi.fn();
+const mockUseBackupClassUiSchema = vi.fn();
 const mockUseRBACPermissions = vi.fn();
 
 vi.mock('hooks/api/backup-classes/useBackupClasses', () => ({
   useActiveBackupClass: () => mockUseActiveBackupClass(),
+  useBackupClassUiSchema: () => mockUseBackupClassUiSchema(),
 }));
 vi.mock('hooks/rbac', () => ({
   useRBACPermissions: () => mockUseRBACPermissions(),
@@ -73,6 +75,7 @@ const expectTooltip = async (message: string) => {
 beforeEach(() => {
   mockUpdateInstance.mockClear();
   mockUseActiveBackupClass.mockReturnValue(buildProviderClass());
+  mockUseBackupClassUiSchema.mockReturnValue({ sections: undefined });
   mockUseRBACPermissions.mockReturnValue({ canUpdate: true });
 });
 
@@ -167,5 +170,73 @@ describe('StoragePitrToggle', () => {
     renderToggle(instance.spec!.backup!.storages![0], instance);
 
     await expectTooltip(Messages.needsSchedule);
+  });
+
+  it('confirms before disabling, then patches enabled: false', () => {
+    renderToggle({
+      storageRef: { name: 's1' },
+      schedules: withSchedule(true),
+      pitr: { enabled: true },
+    });
+
+    // Turning off does not patch immediately — it asks for confirmation first.
+    fireEvent.click(screen.getByRole('switch'));
+    expect(mockUpdateInstance).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByTestId('confirm-dialog-disable'));
+
+    expect(mockUpdateInstance).toHaveBeenCalledTimes(1);
+    const patched = mockUpdateInstance.mock.calls[0][0] as Instance;
+    expect(patched.spec?.backup?.storages?.[0].pitr?.enabled).toBe(false);
+  });
+
+  it('shows a config button that opens the modal when enabled with a schema', () => {
+    mockUseBackupClassUiSchema.mockReturnValue({
+      sections: { pitr: { label: 'PITR', components: {} } },
+    });
+
+    renderToggle({
+      storageRef: { name: 's1' },
+      schedules: withSchedule(true),
+      pitr: { enabled: true },
+    });
+
+    fireEvent.click(screen.getByTestId('pitr-configure-s1'));
+
+    expect(screen.getByText(/Configure PITR/)).toBeInTheDocument();
+  });
+
+  it('keeps the config button present but disabled when PITR is off', () => {
+    mockUseBackupClassUiSchema.mockReturnValue({
+      sections: { pitr: { label: 'PITR', components: {} } },
+    });
+
+    renderToggle({
+      storageRef: { name: 's1' },
+      schedules: withSchedule(true),
+    });
+
+    expect(screen.getByTestId('pitr-configure-s1')).toBeDisabled();
+  });
+
+  it('keeps the config button disabled with a tooltip when the user cannot update', async () => {
+    mockUseRBACPermissions.mockReturnValue({ canUpdate: false });
+    mockUseBackupClassUiSchema.mockReturnValue({
+      sections: { pitr: { label: 'PITR', components: {} } },
+    });
+
+    renderToggle({
+      storageRef: { name: 's1' },
+      schedules: withSchedule(true),
+      pitr: { enabled: true },
+    });
+
+    const configButton = screen.getByTestId('pitr-configure-s1');
+    expect(configButton).toBeDisabled();
+
+    fireEvent.mouseOver(configButton.parentElement!);
+    expect(await screen.findByRole('tooltip')).toHaveTextContent(
+      Messages.noPermission
+    );
   });
 });

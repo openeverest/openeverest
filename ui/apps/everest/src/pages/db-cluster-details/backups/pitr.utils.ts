@@ -13,6 +13,17 @@
 // limitations under the License.
 
 import { InstanceBackupStorage } from './backups.types';
+import { PitrParameters } from './pitr-config-modal/pitr-config-modal.types';
+
+// Merge a PITR patch onto the existing storage pitr. Generated CRD types model
+// pitr.parameters as Record<string, never>; the payload is provider-defined, so
+// the single unavoidable widening to the CRD type is centralized here at the
+// write boundary, keeping call sites free of casts.
+export const buildPitrPayload = (
+  previous: { enabled?: boolean; parameters?: PitrParameters } | undefined,
+  patch: { enabled: boolean; parameters?: PitrParameters }
+): InstanceBackupStorage['pitr'] =>
+  ({ ...previous, ...patch }) as unknown as InstanceBackupStorage['pitr'];
 
 export const setStoragePitr = (
   storages: InstanceBackupStorage[],

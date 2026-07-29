@@ -12,20 +12,4 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-export const Messages = {
-  pitr: 'PITR',
-  needsSchedule:
-    'Point-in-time recovery requires at least one active backup schedule.',
-  limitReached: (max: number) =>
-    `Maximum ${max} PITR-enabled storage${max > 1 ? 's' : ''} for this provider.`,
-  noPermission:
-    'You do not have permission to change PITR for this instance.',
-  configure: 'Configure PITR',
-  disable: {
-    title: 'Disable PITR?',
-    body: (storageName: string) =>
-      `Point-in-time recovery for “${storageName}” will stop. Saved settings are kept.`,
-    confirm: 'Disable',
-    cancel: 'Cancel',
-  },
-};
+export { PitrConfigFields } from './pitr-config-fields';
