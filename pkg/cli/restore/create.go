@@ -128,7 +128,7 @@ func (cr *CreateRunner) emitCreated(created *client.Restore, name string) error 
 
 // waitForRestore blocks until the restore reaches a terminal state, streaming
 // progress in pretty mode. JSON mode emits one final object on success.
-func (cr *CreateRunner) waitForRestore(ctx context.Context, c *client.ClientWithResponses, created *client.Restore, opts CreateOptions,name string) error {
+func (cr *CreateRunner) waitForRestore(ctx context.Context, c *client.ClientWithResponses, created *client.Restore, opts CreateOptions, name string) error {
 	var latest *client.Restore
 	basePoll := newRestorePoll(c, opts.Cluster, opts.Namespace, name)
 	poll := func(ctx context.Context) (*client.Restore, error) {
