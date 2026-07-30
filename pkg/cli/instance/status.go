@@ -179,18 +179,10 @@ func printInstanceStatus(w io.Writer, inst *client.Instance, namespace string) {
 }
 
 func instanceName(inst *client.Instance) string {
-	if inst.Metadata == nil {
+	if inst.Metadata == nil || inst.Metadata.Name == "" {
 		return "-"
 	}
-	n, ok := (*inst.Metadata)["name"]
-	if !ok {
-		return "-"
-	}
-	s, ok := n.(string)
-	if !ok {
-		return "-"
-	}
-	return s
+	return inst.Metadata.Name
 }
 
 func printComponentTable(w io.Writer, inst *client.Instance) {

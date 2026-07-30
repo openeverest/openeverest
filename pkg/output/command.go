@@ -41,6 +41,16 @@ func PrintError(err error, l *zap.SugaredLogger, prettyPrint bool) {
 	}
 }
 
+// PrintWarn formats and prints a warning, respecting pretty/JSON mode: the
+// emoji-styled line in pretty mode, the structured logger otherwise.
+func PrintWarn(msg string, l *zap.SugaredLogger, prettyPrint bool) {
+	if prettyPrint {
+		_, _ = fmt.Fprint(os.Stderr, Warn("%s", msg))
+	} else {
+		l.Warn(msg)
+	}
+}
+
 //nolint:gochecknoglobals
 var (
 	// Style is applied to the successful result.

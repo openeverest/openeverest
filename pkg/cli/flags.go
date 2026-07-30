@@ -118,6 +118,10 @@ const (
 	FlagInstanceInterval = "interval"
 	// FlagInstanceAllNamespaces lists instances across all namespaces.
 	FlagInstanceAllNamespaces = "all-namespaces"
+	// FlagInstanceWait blocks create until the instance reaches the Ready phase.
+	FlagInstanceWait = "wait"
+	// FlagInstanceTimeout bounds --wait; only valid together with --wait.
+	FlagInstanceTimeout = "timeout"
 
 	// `provider` flags.
 
@@ -136,6 +140,37 @@ const (
 	FlagBackupCluster = "cluster"
 	// FlagBackupContext overrides the active context for this command.
 	FlagBackupContext = "context"
+	// FlagBackupClass is the name of the BackupClass flag.
+	FlagBackupClass = "class"
+	// FlagBackupStorage is the name of the BackupStorage flag.
+	FlagBackupStorage = "storage"
+	// FlagBackupName is the name of the backup name flag.
+	FlagBackupName = "name"
+	// FlagBackupDeletionPolicy is the name of the deletion-policy flag.
+	FlagBackupDeletionPolicy = "deletion-policy"
+	// FlagBackupWait blocks until the backup reaches a terminal state.
+	FlagBackupWait = "wait"
+	// FlagBackupTimeout bounds how long --wait blocks for.
+	FlagBackupTimeout = "timeout"
+
+	// `restore` flags.
+
+	// FlagRestoreNamespace is the name of the namespace flag.
+	FlagRestoreNamespace = "namespace"
+	// FlagRestoreInstance is the name of the instance flag.
+	FlagRestoreInstance = "instance"
+	// FlagRestoreCluster is the name of the cluster flag.
+	FlagRestoreCluster = "cluster"
+	// FlagRestoreContext overrides the active context for this command.
+	FlagRestoreContext = "context"
+	// FlagRestoreBackup is the name of the source Backup flag.
+	FlagRestoreBackup = "backup"
+	// FlagRestoreName is the name of the restore name flag.
+	FlagRestoreName = "name"
+	// FlagRestoreWait blocks until the restore reaches a terminal state.
+	FlagRestoreWait = "wait"
+	// FlagRestoreTimeout bounds how long --wait blocks for.
+	FlagRestoreTimeout = "timeout"
 
 	// `backup-storage` flags.
 

@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/oapi-codegen/runtime"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // Defines values for BackupStatusConditionsStatus.
@@ -170,15 +171,54 @@ func (e InstalledExtensionStatusPhase) Valid() bool {
 	}
 }
 
+// Defines values for InstanceSpecDataSourcePointInTimeRecoveryTarget.
+const (
+	InstanceSpecDataSourcePointInTimeRecoveryTargetDate   InstanceSpecDataSourcePointInTimeRecoveryTarget = "date"
+	InstanceSpecDataSourcePointInTimeRecoveryTargetLatest InstanceSpecDataSourcePointInTimeRecoveryTarget = "latest"
+)
+
+// Valid indicates whether the value is a known member of the InstanceSpecDataSourcePointInTimeRecoveryTarget enum.
+func (e InstanceSpecDataSourcePointInTimeRecoveryTarget) Valid() bool {
+	switch e {
+	case InstanceSpecDataSourcePointInTimeRecoveryTargetDate:
+		return true
+	case InstanceSpecDataSourcePointInTimeRecoveryTargetLatest:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for InstanceSpecDataSourceType.
 const (
-	InstanceSpecDataSourceTypeBackup InstanceSpecDataSourceType = "Backup"
+	InstanceSpecDataSourceTypeBackup      InstanceSpecDataSourceType = "Backup"
+	InstanceSpecDataSourceTypePointInTime InstanceSpecDataSourceType = "PointInTime"
 )
 
 // Valid indicates whether the value is a known member of the InstanceSpecDataSourceType enum.
 func (e InstanceSpecDataSourceType) Valid() bool {
 	switch e {
 	case InstanceSpecDataSourceTypeBackup:
+		return true
+	case InstanceSpecDataSourceTypePointInTime:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for InstanceStatusBackupStoragesPitrState.
+const (
+	InstanceStatusBackupStoragesPitrStateAvailable   InstanceStatusBackupStoragesPitrState = "Available"
+	InstanceStatusBackupStoragesPitrStateUnavailable InstanceStatusBackupStoragesPitrState = "Unavailable"
+)
+
+// Valid indicates whether the value is a known member of the InstanceStatusBackupStoragesPitrState enum.
+func (e InstanceStatusBackupStoragesPitrState) Valid() bool {
+	switch e {
+	case InstanceStatusBackupStoragesPitrStateAvailable:
+		return true
+	case InstanceStatusBackupStoragesPitrStateUnavailable:
 		return true
 	default:
 		return false
@@ -251,15 +291,36 @@ func (e InstanceStatusPhase) Valid() bool {
 	}
 }
 
+// Defines values for InstancePresetSpecDataSourcePointInTimeRecoveryTarget.
+const (
+	InstancePresetSpecDataSourcePointInTimeRecoveryTargetDate   InstancePresetSpecDataSourcePointInTimeRecoveryTarget = "date"
+	InstancePresetSpecDataSourcePointInTimeRecoveryTargetLatest InstancePresetSpecDataSourcePointInTimeRecoveryTarget = "latest"
+)
+
+// Valid indicates whether the value is a known member of the InstancePresetSpecDataSourcePointInTimeRecoveryTarget enum.
+func (e InstancePresetSpecDataSourcePointInTimeRecoveryTarget) Valid() bool {
+	switch e {
+	case InstancePresetSpecDataSourcePointInTimeRecoveryTargetDate:
+		return true
+	case InstancePresetSpecDataSourcePointInTimeRecoveryTargetLatest:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for InstancePresetSpecDataSourceType.
 const (
-	InstancePresetSpecDataSourceTypeBackup InstancePresetSpecDataSourceType = "Backup"
+	InstancePresetSpecDataSourceTypeBackup      InstancePresetSpecDataSourceType = "Backup"
+	InstancePresetSpecDataSourceTypePointInTime InstancePresetSpecDataSourceType = "PointInTime"
 )
 
 // Valid indicates whether the value is a known member of the InstancePresetSpecDataSourceType enum.
 func (e InstancePresetSpecDataSourceType) Valid() bool {
 	switch e {
 	case InstancePresetSpecDataSourceTypeBackup:
+		return true
+	case InstancePresetSpecDataSourceTypePointInTime:
 		return true
 	default:
 		return false
@@ -344,15 +405,36 @@ func (e ProviderStatusConditionsStatus) Valid() bool {
 	}
 }
 
+// Defines values for RestoreSpecDataSourcePointInTimeRecoveryTarget.
+const (
+	RestoreSpecDataSourcePointInTimeRecoveryTargetDate   RestoreSpecDataSourcePointInTimeRecoveryTarget = "date"
+	RestoreSpecDataSourcePointInTimeRecoveryTargetLatest RestoreSpecDataSourcePointInTimeRecoveryTarget = "latest"
+)
+
+// Valid indicates whether the value is a known member of the RestoreSpecDataSourcePointInTimeRecoveryTarget enum.
+func (e RestoreSpecDataSourcePointInTimeRecoveryTarget) Valid() bool {
+	switch e {
+	case RestoreSpecDataSourcePointInTimeRecoveryTargetDate:
+		return true
+	case RestoreSpecDataSourcePointInTimeRecoveryTargetLatest:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for RestoreSpecDataSourceType.
 const (
-	RestoreSpecDataSourceTypeBackup RestoreSpecDataSourceType = "Backup"
+	RestoreSpecDataSourceTypeBackup      RestoreSpecDataSourceType = "Backup"
+	RestoreSpecDataSourceTypePointInTime RestoreSpecDataSourceType = "PointInTime"
 )
 
 // Valid indicates whether the value is a known member of the RestoreSpecDataSourceType enum.
 func (e RestoreSpecDataSourceType) Valid() bool {
 	switch e {
 	case RestoreSpecDataSourceTypeBackup:
+		return true
+	case RestoreSpecDataSourceTypePointInTime:
 		return true
 	default:
 		return false
@@ -411,8 +493,10 @@ type Backup struct {
 	// Cannot be updated.
 	// In CamelCase.
 	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
-	Kind     *string                 `json:"kind,omitempty"`
-	Metadata *map[string]interface{} `json:"metadata,omitempty"`
+	Kind *string `json:"kind,omitempty"`
+
+	// Metadata ObjectMeta is the standard Kubernetes object metadata. Only the fields relevant to the Everest API are described; unknown fields are accepted but may be ignored by the server.
+	Metadata *ObjectMeta `json:"metadata,omitempty"`
 
 	// Spec BackupSpec defines the desired state of Backup.
 	Spec struct {
@@ -563,8 +647,10 @@ type BackupClass struct {
 	// Cannot be updated.
 	// In CamelCase.
 	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
-	Kind     *string                 `json:"kind,omitempty"`
-	Metadata *map[string]interface{} `json:"metadata,omitempty"`
+	Kind *string `json:"kind,omitempty"`
+
+	// Metadata ObjectMeta is the standard Kubernetes object metadata. Only the fields relevant to the Everest API are described; unknown fields are accepted but may be ignored by the server.
+	Metadata *ObjectMeta `json:"metadata,omitempty"`
 
 	// Spec BackupClassSpec defines the desired state of BackupClass.
 	Spec struct {
@@ -881,8 +967,10 @@ type BackupStorage struct {
 	// Cannot be updated.
 	// In CamelCase.
 	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
-	Kind     *string                 `json:"kind,omitempty"`
-	Metadata *map[string]interface{} `json:"metadata,omitempty"`
+	Kind *string `json:"kind,omitempty"`
+
+	// Metadata ObjectMeta is the standard Kubernetes object metadata. Only the fields relevant to the Everest API are described; unknown fields are accepted but may be ignored by the server.
+	Metadata *ObjectMeta `json:"metadata,omitempty"`
 
 	// Spec BackupStorageSpec defines the desired state of a BackupStorage.
 	//
@@ -977,8 +1065,10 @@ type InstalledExtension struct {
 	// Cannot be updated.
 	// In CamelCase.
 	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
-	Kind     *string                 `json:"kind,omitempty"`
-	Metadata *map[string]interface{} `json:"metadata,omitempty"`
+	Kind *string `json:"kind,omitempty"`
+
+	// Metadata ObjectMeta is the standard Kubernetes object metadata. Only the fields relevant to the Everest API are described; unknown fields are accepted but may be ignored by the server.
+	Metadata *ObjectMeta `json:"metadata,omitempty"`
 
 	// Spec InstalledExtensionSpec defines the desired state of an InstalledExtension.
 	Spec struct {
@@ -1118,8 +1208,10 @@ type Instance struct {
 	// Cannot be updated.
 	// In CamelCase.
 	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
-	Kind     *string                 `json:"kind,omitempty"`
-	Metadata *map[string]interface{} `json:"metadata,omitempty"`
+	Kind *string `json:"kind,omitempty"`
+
+	// Metadata ObjectMeta is the standard Kubernetes object metadata. Only the fields relevant to the Everest API are described; unknown fields are accepted but may be ignored by the server.
+	Metadata *ObjectMeta `json:"metadata,omitempty"`
 
 	// Spec InstanceSpec defines the desired state of Instance
 	Spec struct {
@@ -1811,28 +1903,52 @@ type Instance struct {
 		// also have backup enabled and include a storage entry that matches the
 		// storage used by the source Backup so the provider can access the data.
 		DataSource *struct {
-			// Backup Backup references an existing Backup CR in the same namespace.
-			// Required when type=Backup.
+			// Backup Backup identifies the backup to restore. Required when type=Backup.
 			Backup *struct {
 				// BackupRef BackupRef references the Backup CR in the same namespace.
 				BackupRef struct {
 					// Name Name of the referenced object.
 					Name string `json:"name"`
 				} `json:"backupRef"`
-
-				// Pitr PITR configures point-in-time recovery on top of this backup.
-				// The resolved BackupClass must advertise PITR support via
-				// .spec.providerManaged for this to be honoured.
-				Pitr *struct {
-					// Date Date is the target recovery point. Required when Type is "date".
-					Date *time.Time `json:"date,omitempty"`
-
-					// Type Type selects date-based or latest recovery.
-					Type interface{} `json:"type"`
-				} `json:"pitr,omitempty"`
 			} `json:"backup,omitempty"`
 
-			// Type Type selects the data source kind.
+			// PointInTime PointInTime identifies the stream and the point to recover to.
+			// Required when type=PointInTime.
+			PointInTime *struct {
+				// Date Date is the recovery point, RFC 3339 with an explicit UTC offset.
+				// Required when RecoveryTarget is "date", forbidden otherwise. Providers
+				// convert it to the engine's expected representation; several engines
+				// interpret timezone-less timestamps as node-local, so the offset is not
+				// optional.
+				Date *time.Time `json:"date,omitempty"`
+
+				// RecoveryTarget RecoveryTarget selects date-based or latest recovery. This enum is
+				// deliberately closed: date and latest are the only recovery targets that
+				// are meaningful without knowing which engine is running. Engine-specific
+				// targets (GTID, LSN, XID, named restore points) are out of scope.
+				RecoveryTarget InstanceSpecDataSourcePointInTimeRecoveryTarget `json:"recoveryTarget"`
+
+				// Source Source identifies the backup stream to recover from.
+				Source struct {
+					// InstanceRef InstanceRef names the Instance whose stream to recover. Defaults to the
+					// Restore's target Instance when omitted; required when seeding a new
+					// Instance via Instance.spec.dataSource, which has no stream of its own.
+					InstanceRef *struct {
+						// Name Name of the referenced object.
+						Name string `json:"name"`
+					} `json:"instanceRef,omitempty"`
+
+					// StorageRef StorageRef selects which of the source Instance's registered
+					// BackupStorages to read the stream from. It must name a storage with
+					// .pitr.enabled=true on that Instance.
+					StorageRef struct {
+						// Name Name of the referenced object.
+						Name string `json:"name"`
+					} `json:"storageRef"`
+				} `json:"source"`
+			} `json:"pointInTime,omitempty"`
+
+			// Type Type selects the restore intent.
 			Type InstanceSpecDataSourceType `json:"type"`
 		} `json:"dataSource,omitempty"`
 
@@ -1898,15 +2014,31 @@ type Instance struct {
 			// Storages Storages is the per-storage backup status, keyed by the logical storage
 			// name declared in spec.backup.storages.
 			Storages *[]struct {
-				// LatestRestorableTime LatestRestorableTime is the most recent point in time to which the
-				// instance can be restored using point-in-time recovery from this
-				// storage. Only populated when PITR is enabled for the storage and the
-				// engine reports a recovery window.
-				LatestRestorableTime *time.Time `json:"latestRestorableTime,omitempty"`
-
 				// Name Name is the BackupStorage name (matches
 				// spec.backup.storages[].storageRef.name).
 				Name string `json:"name"`
+
+				// Pitr PITR reports the point-in-time recovery window observed on this storage.
+				// Only populated when PITR is enabled for the storage.
+				Pitr *struct {
+					// EarliestRestorableTime EarliestRestorableTime is the start of the contiguous recovery window.
+					// Providers only ever move this forward relative to the oldest successful
+					// backup, so the advertised window never spans a known discontinuity.
+					// Unset means no restorable window is known.
+					EarliestRestorableTime *time.Time `json:"earliestRestorableTime,omitempty"`
+
+					// LatestRestorableTime LatestRestorableTime is the end of the contiguous recovery window.
+					LatestRestorableTime *time.Time `json:"latestRestorableTime,omitempty"`
+
+					// Message Message is a human-readable explanation of State.
+					Message *string `json:"message,omitempty"`
+
+					// Reason Reason is a CamelCase, machine-readable explanation of State.
+					Reason *string `json:"reason,omitempty"`
+
+					// State State summarises whether a trustworthy window exists.
+					State *InstanceStatusBackupStoragesPitrState `json:"state,omitempty"`
+				} `json:"pitr,omitempty"`
 			} `json:"storages,omitempty"`
 		} `json:"backup,omitempty"`
 
@@ -2018,8 +2150,17 @@ type Instance_Spec_Components_Storage_Size struct {
 	union json.RawMessage
 }
 
-// InstanceSpecDataSourceType Type selects the data source kind.
+// InstanceSpecDataSourcePointInTimeRecoveryTarget RecoveryTarget selects date-based or latest recovery. This enum is
+// deliberately closed: date and latest are the only recovery targets that
+// are meaningful without knowing which engine is running. Engine-specific
+// targets (GTID, LSN, XID, named restore points) are out of scope.
+type InstanceSpecDataSourcePointInTimeRecoveryTarget string
+
+// InstanceSpecDataSourceType Type selects the restore intent.
 type InstanceSpecDataSourceType string
+
+// InstanceStatusBackupStoragesPitrState State summarises whether a trustworthy window exists.
+type InstanceStatusBackupStoragesPitrState string
 
 // InstanceStatusConditionsStatus status of the condition, one of True, False, Unknown.
 type InstanceStatusConditionsStatus string
@@ -2082,8 +2223,10 @@ type InstancePreset struct {
 	// Cannot be updated.
 	// In CamelCase.
 	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
-	Kind     *string                 `json:"kind,omitempty"`
-	Metadata *map[string]interface{} `json:"metadata,omitempty"`
+	Kind *string `json:"kind,omitempty"`
+
+	// Metadata ObjectMeta is the standard Kubernetes object metadata. Only the fields relevant to the Everest API are described; unknown fields are accepted but may be ignored by the server.
+	Metadata *ObjectMeta `json:"metadata,omitempty"`
 
 	// Spec spec defines the desired state of InstancePreset
 	Spec struct {
@@ -2775,28 +2918,52 @@ type InstancePreset struct {
 		// also have backup enabled and include a storage entry that matches the
 		// storage used by the source Backup so the provider can access the data.
 		DataSource *struct {
-			// Backup Backup references an existing Backup CR in the same namespace.
-			// Required when type=Backup.
+			// Backup Backup identifies the backup to restore. Required when type=Backup.
 			Backup *struct {
 				// BackupRef BackupRef references the Backup CR in the same namespace.
 				BackupRef struct {
 					// Name Name of the referenced object.
 					Name string `json:"name"`
 				} `json:"backupRef"`
-
-				// Pitr PITR configures point-in-time recovery on top of this backup.
-				// The resolved BackupClass must advertise PITR support via
-				// .spec.providerManaged for this to be honoured.
-				Pitr *struct {
-					// Date Date is the target recovery point. Required when Type is "date".
-					Date *time.Time `json:"date,omitempty"`
-
-					// Type Type selects date-based or latest recovery.
-					Type interface{} `json:"type"`
-				} `json:"pitr,omitempty"`
 			} `json:"backup,omitempty"`
 
-			// Type Type selects the data source kind.
+			// PointInTime PointInTime identifies the stream and the point to recover to.
+			// Required when type=PointInTime.
+			PointInTime *struct {
+				// Date Date is the recovery point, RFC 3339 with an explicit UTC offset.
+				// Required when RecoveryTarget is "date", forbidden otherwise. Providers
+				// convert it to the engine's expected representation; several engines
+				// interpret timezone-less timestamps as node-local, so the offset is not
+				// optional.
+				Date *time.Time `json:"date,omitempty"`
+
+				// RecoveryTarget RecoveryTarget selects date-based or latest recovery. This enum is
+				// deliberately closed: date and latest are the only recovery targets that
+				// are meaningful without knowing which engine is running. Engine-specific
+				// targets (GTID, LSN, XID, named restore points) are out of scope.
+				RecoveryTarget InstancePresetSpecDataSourcePointInTimeRecoveryTarget `json:"recoveryTarget"`
+
+				// Source Source identifies the backup stream to recover from.
+				Source struct {
+					// InstanceRef InstanceRef names the Instance whose stream to recover. Defaults to the
+					// Restore's target Instance when omitted; required when seeding a new
+					// Instance via Instance.spec.dataSource, which has no stream of its own.
+					InstanceRef *struct {
+						// Name Name of the referenced object.
+						Name string `json:"name"`
+					} `json:"instanceRef,omitempty"`
+
+					// StorageRef StorageRef selects which of the source Instance's registered
+					// BackupStorages to read the stream from. It must name a storage with
+					// .pitr.enabled=true on that Instance.
+					StorageRef struct {
+						// Name Name of the referenced object.
+						Name string `json:"name"`
+					} `json:"storageRef"`
+				} `json:"source"`
+			} `json:"pointInTime,omitempty"`
+
+			// Type Type selects the restore intent.
 			Type InstancePresetSpecDataSourceType `json:"type"`
 		} `json:"dataSource,omitempty"`
 
@@ -2919,7 +3086,13 @@ type InstancePreset_Spec_Components_Storage_Size struct {
 	union json.RawMessage
 }
 
-// InstancePresetSpecDataSourceType Type selects the data source kind.
+// InstancePresetSpecDataSourcePointInTimeRecoveryTarget RecoveryTarget selects date-based or latest recovery. This enum is
+// deliberately closed: date and latest are the only recovery targets that
+// are meaningful without knowing which engine is running. Engine-specific
+// targets (GTID, LSN, XID, named restore points) are out of scope.
+type InstancePresetSpecDataSourcePointInTimeRecoveryTarget string
+
+// InstancePresetSpecDataSourceType Type selects the restore intent.
 type InstancePresetSpecDataSourceType string
 
 // InstancePresetStatusConditionsStatus status of the condition, one of True, False, Unknown.
@@ -2952,8 +3125,10 @@ type MonitoringConfig struct {
 	// Cannot be updated.
 	// In CamelCase.
 	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
-	Kind     *string                 `json:"kind,omitempty"`
-	Metadata *map[string]interface{} `json:"metadata,omitempty"`
+	Kind *string `json:"kind,omitempty"`
+
+	// Metadata ObjectMeta is the standard Kubernetes object metadata. Only the fields relevant to the Everest API are described; unknown fields are accepted but may be ignored by the server.
+	Metadata *ObjectMeta `json:"metadata,omitempty"`
 
 	// Spec spec defines the desired state of MonitoringConfig
 	Spec struct {
@@ -3016,6 +3191,9 @@ type MonitoringConfigList struct {
 	} `json:"metadata,omitempty"`
 }
 
+// ObjectMeta ObjectMeta is the standard Kubernetes object metadata. Only the fields relevant to the Everest API are described; unknown fields are accepted but may be ignored by the server.
+type ObjectMeta = metav1.ObjectMeta
+
 // Plugin Plugin is the Schema for the plugins API. It registers an external plugin
 // with the Everest platform, enabling its UI bundle to be loaded dynamically
 // and its backend to be reverse-proxied through the Everest server.
@@ -3031,8 +3209,10 @@ type Plugin struct {
 	// Cannot be updated.
 	// In CamelCase.
 	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
-	Kind     *string                 `json:"kind,omitempty"`
-	Metadata *map[string]interface{} `json:"metadata,omitempty"`
+	Kind *string `json:"kind,omitempty"`
+
+	// Metadata ObjectMeta is the standard Kubernetes object metadata. Only the fields relevant to the Everest API are described; unknown fields are accepted but may be ignored by the server.
+	Metadata *ObjectMeta `json:"metadata,omitempty"`
 
 	// Spec PluginSpec defines the desired state of Plugin
 	Spec struct {
@@ -3212,16 +3392,28 @@ type Provider struct {
 	// Cannot be updated.
 	// In CamelCase.
 	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
-	Kind     *string                 `json:"kind,omitempty"`
-	Metadata *map[string]interface{} `json:"metadata,omitempty"`
+	Kind *string `json:"kind,omitempty"`
+
+	// Metadata ObjectMeta is the standard Kubernetes object metadata. Only the fields relevant to the Everest API are described; unknown fields are accepted but may be ignored by the server.
+	Metadata *ObjectMeta `json:"metadata,omitempty"`
 
 	// Spec ProviderSpec defines the desired state of Provider
 	Spec struct {
 		ComponentTypes *map[string]struct {
 			Versions *[]struct {
-				Default *bool   `json:"default,omitempty"`
-				Image   *string `json:"image,omitempty"`
-				Version *string `json:"version,omitempty"`
+				Default *bool `json:"default,omitempty"`
+
+				// Deprecated Deprecated marks a version as still supported but scheduled for
+				// removal. Instances running on it get a proactive warning with a
+				// remediation runway instead of a blocked upgrade.
+				Deprecated *bool   `json:"deprecated,omitempty"`
+				Image      *string `json:"image,omitempty"`
+
+				// RemovedInVersion RemovedInVersion is the provider version (P) in which this engine
+				// version is dropped. Upgrading the provider to >= this version while
+				// an Instance still uses this engine version is a blocking error.
+				RemovedInVersion *string `json:"removedInVersion,omitempty"`
+				Version          *string `json:"version,omitempty"`
 			} `json:"versions,omitempty"`
 		} `json:"componentTypes,omitempty"`
 		Components *map[string]struct {
@@ -3235,6 +3427,19 @@ type Provider struct {
 			Type *string `json:"type,omitempty"`
 		} `json:"components,omitempty"`
 
+		// ConfigMaps ConfigMaps defines ConfigMap types this provider supports.
+		ConfigMaps *map[string]struct {
+			// ParametersSchema ParametersSchema declares the OpenAPI v3 schema for validating configmap data/binaryData.
+			ParametersSchema *struct {
+				// OpenAPIV3Schema OpenAPIV3Schema is the OpenAPI v3 schema describing the accepted
+				// parameters payload.
+				OpenAPIV3Schema interface{} `json:"openAPIV3Schema,omitempty"`
+			} `json:"parametersSchema,omitempty"`
+
+			// UiSchema UISchema holds UI rendering hints for the configmap creation form.
+			UiSchema *map[string]interface{} `json:"uiSchema,omitempty"`
+		} `json:"configMaps,omitempty"`
+
 		// ParametersSchema ParametersSchema declares the OpenAPI v3 schema for the instance-wide
 		// parameters payload (Instance.spec.parameters).
 		ParametersSchema *struct {
@@ -3242,6 +3447,22 @@ type Provider struct {
 			// parameters payload.
 			OpenAPIV3Schema interface{} `json:"openAPIV3Schema,omitempty"`
 		} `json:"parametersSchema,omitempty"`
+
+		// Release Release identifies this provider release — the shipped unit of
+		// controller, bundled operator, and version catalog — and its
+		// upgrade-path constraints. It is read by the pre-upgrade preflight.
+		Release *struct {
+			// MinUpgradableFrom MinUpgradableFrom is the lowest provider release version from which a
+			// single-step upgrade to this release is permitted; a lower installed
+			// version is blocked and must step through intermediate releases.
+			// Empty means no floor.
+			MinUpgradableFrom *string `json:"minUpgradableFrom,omitempty"`
+
+			// Version Version is the provider release version (P), populated from the chart
+			// appVersion (e.g. "0.3"). Named distinctly from ProviderSpec.Versions
+			// (the engine bundle catalog).
+			Version *string `json:"version,omitempty"`
+		} `json:"release,omitempty"`
 
 		// Secrets Secrets defines Secret types this provider supports.
 		Secrets *map[string]struct {
@@ -3349,35 +3570,63 @@ type Restore struct {
 	// Cannot be updated.
 	// In CamelCase.
 	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
-	Kind     *string                 `json:"kind,omitempty"`
-	Metadata *map[string]interface{} `json:"metadata,omitempty"`
+	Kind *string `json:"kind,omitempty"`
+
+	// Metadata ObjectMeta is the standard Kubernetes object metadata. Only the fields relevant to the Everest API are described; unknown fields are accepted but may be ignored by the server.
+	Metadata *ObjectMeta `json:"metadata,omitempty"`
 
 	// Spec RestoreSpec defines the desired state of Restore.
 	Spec struct {
-		// DataSource DataSource defines where the backup data to restore from is located.
+		// DataSource DataSource identifies the data to restore from. The same type is used
+		// by Instance.spec.dataSource when seeding a new Instance, so both paths
+		// identify a source identically.
 		DataSource struct {
-			// Backup Backup references an existing Backup CR in the same namespace.
-			// Required when type=Backup.
+			// Backup Backup identifies the backup to restore. Required when type=Backup.
 			Backup *struct {
 				// BackupRef BackupRef references the Backup CR in the same namespace.
 				BackupRef struct {
 					// Name Name of the referenced object.
 					Name string `json:"name"`
 				} `json:"backupRef"`
-
-				// Pitr PITR configures point-in-time recovery on top of this backup.
-				// The resolved BackupClass must advertise PITR support via
-				// .spec.providerManaged for this to be honoured.
-				Pitr *struct {
-					// Date Date is the target recovery point. Required when Type is "date".
-					Date *time.Time `json:"date,omitempty"`
-
-					// Type Type selects date-based or latest recovery.
-					Type interface{} `json:"type"`
-				} `json:"pitr,omitempty"`
 			} `json:"backup,omitempty"`
 
-			// Type Type selects the data source kind.
+			// PointInTime PointInTime identifies the stream and the point to recover to.
+			// Required when type=PointInTime.
+			PointInTime *struct {
+				// Date Date is the recovery point, RFC 3339 with an explicit UTC offset.
+				// Required when RecoveryTarget is "date", forbidden otherwise. Providers
+				// convert it to the engine's expected representation; several engines
+				// interpret timezone-less timestamps as node-local, so the offset is not
+				// optional.
+				Date *time.Time `json:"date,omitempty"`
+
+				// RecoveryTarget RecoveryTarget selects date-based or latest recovery. This enum is
+				// deliberately closed: date and latest are the only recovery targets that
+				// are meaningful without knowing which engine is running. Engine-specific
+				// targets (GTID, LSN, XID, named restore points) are out of scope.
+				RecoveryTarget RestoreSpecDataSourcePointInTimeRecoveryTarget `json:"recoveryTarget"`
+
+				// Source Source identifies the backup stream to recover from.
+				Source struct {
+					// InstanceRef InstanceRef names the Instance whose stream to recover. Defaults to the
+					// Restore's target Instance when omitted; required when seeding a new
+					// Instance via Instance.spec.dataSource, which has no stream of its own.
+					InstanceRef *struct {
+						// Name Name of the referenced object.
+						Name string `json:"name"`
+					} `json:"instanceRef,omitempty"`
+
+					// StorageRef StorageRef selects which of the source Instance's registered
+					// BackupStorages to read the stream from. It must name a storage with
+					// .pitr.enabled=true on that Instance.
+					StorageRef struct {
+						// Name Name of the referenced object.
+						Name string `json:"name"`
+					} `json:"storageRef"`
+				} `json:"source"`
+			} `json:"pointInTime,omitempty"`
+
+			// Type Type selects the restore intent.
 			Type RestoreSpecDataSourceType `json:"type"`
 		} `json:"dataSource"`
 
@@ -3390,7 +3639,9 @@ type Restore struct {
 		} `json:"instanceRef"`
 
 		// Parameters Parameters is the restore-time structured configuration validated
-		// against the BackupClass's .spec.restoreParametersSchema.
+		// against the resolved BackupClass's .spec.restoreParametersSchema. It
+		// carries restore *operation* modifiers -- how the data is applied --
+		// and applies to both data source types.
 		Parameters *map[string]interface{} `json:"parameters,omitempty"`
 	} `json:"spec"`
 
@@ -3466,7 +3717,13 @@ type Restore struct {
 	} `json:"status,omitempty"`
 }
 
-// RestoreSpecDataSourceType Type selects the data source kind.
+// RestoreSpecDataSourcePointInTimeRecoveryTarget RecoveryTarget selects date-based or latest recovery. This enum is
+// deliberately closed: date and latest are the only recovery targets that
+// are meaningful without knowing which engine is running. Engine-specific
+// targets (GTID, LSN, XID, named restore points) are out of scope.
+type RestoreSpecDataSourcePointInTimeRecoveryTarget string
+
+// RestoreSpecDataSourceType Type selects the restore intent.
 type RestoreSpecDataSourceType string
 
 // RestoreStatusConditionsStatus status of the condition, one of True, False, Unknown.

@@ -31,3 +31,15 @@ spec:
             type: string
           secretKey:
             type: string
+  configMaps:
+    test-config:
+      parametersSchema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            endpoint:
+              type: string
+            timeout:
+              type: string
+          required:
+            - endpoint

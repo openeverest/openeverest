@@ -24,15 +24,16 @@ import (
 	"io"
 	"net/http"
 	"os"
-	"sort"
 	"time"
 
 	"github.com/rodaine/table"
 	"go.uber.org/zap"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/duration"
 
 	"github.com/openeverest/openeverest/v2/client"
 	authcli "github.com/openeverest/openeverest/v2/pkg/cli/auth"
+	"github.com/openeverest/openeverest/v2/pkg/cli/clientmeta"
 )
 
 // Config holds the shared configuration for backup CLI runners.
@@ -126,11 +127,17 @@ func printBackupTable(w io.Writer, backups []client.Backup) {
 }
 
 func backupName(b *client.Backup) string {
-	return metadataStringField(b, "name")
+	if b.Metadata == nil || b.Metadata.Name == "" {
+		return "-"
+	}
+	return b.Metadata.Name
 }
 
 func backupNamespace(b *client.Backup) string {
-	return metadataStringField(b, "namespace")
+	if b.Metadata == nil || b.Metadata.Namespace == "" {
+		return "-"
+	}
+	return b.Metadata.Namespace
 }
 
 func backupInstance(b *client.Backup) string {
@@ -172,45 +179,14 @@ func backupAge(b *client.Backup) string {
 // sortBackupsByRecency orders backups newest-first by creation time, falling
 // back to name for stability when timestamps tie or are unavailable.
 func sortBackupsByRecency(backups []client.Backup) {
-	sort.Slice(backups, func(i, j int) bool {
-		ti, iok := backupCreationTime(&backups[i])
-		tj, jok := backupCreationTime(&backups[j])
-		switch {
-		case iok && jok && !ti.Equal(tj):
-			return ti.After(tj)
-		case iok != jok:
-			return iok
-		default:
-			return backupName(&backups[i]) < backupName(&backups[j])
-		}
-	})
+	clientmeta.SortByRecency(backups, func(b *client.Backup) *metav1.ObjectMeta { return b.Metadata })
 }
 
 // backupCreationTime returns the backup's creation time and whether it could
-// be determined. Backups without a parseable timestamp sort last.
+// be determined. Backups without a timestamp sort last.
 func backupCreationTime(b *client.Backup) (time.Time, bool) {
-	ts := metadataStringField(b, "creationTimestamp")
-	if ts == "-" {
+	if b.Metadata == nil || b.Metadata.CreationTimestamp.IsZero() {
 		return time.Time{}, false
 	}
-	created, err := time.Parse(time.RFC3339, ts)
-	if err != nil {
-		return time.Time{}, false
-	}
-	return created, true
-}
-
-func metadataStringField(b *client.Backup, key string) string {
-	if b.Metadata == nil {
-		return "-"
-	}
-	v, ok := (*b.Metadata)[key]
-	if !ok {
-		return "-"
-	}
-	s, ok := v.(string)
-	if !ok || s == "" {
-		return "-"
-	}
-	return s
+	return b.Metadata.CreationTimestamp.Time, true
 }

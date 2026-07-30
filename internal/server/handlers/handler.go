@@ -50,6 +50,7 @@ type Handler interface {
 	InstanceBackupHandler
 	MonitoringConfigHandler
 	InstanceRestoreHandler
+	ConfigMapHandler
 	SecretHandler
 
 	GetKubernetesClusterResources(ctx context.Context) (*api.KubernetesClusterResources, error)
@@ -139,6 +140,14 @@ type MonitoringConfigHandler interface {
 // InstanceRestoreHandler provides methods for handling operations on instance restores.
 type InstanceRestoreHandler interface {
 	ListInstanceRestores(ctx context.Context, cluster, namespace, instanceName string) (*backupv1alpha1.RestoreList, error)
+}
+
+// ConfigMapHandler provides methods for handling operations on configmaps.
+type ConfigMapHandler interface {
+	CreateConfigMap(ctx context.Context, cluster, namespace string, configMap *corev1.ConfigMap) (*corev1.ConfigMap, error)
+	ListConfigMaps(ctx context.Context, cluster, namespace, provider, definition string) (*corev1.ConfigMapList, error)
+	GetConfigMap(ctx context.Context, cluster, namespace, name string) (*corev1.ConfigMap, error)
+	DeleteConfigMap(ctx context.Context, cluster, namespace, name string) error
 }
 
 // SecretHandler provides methods for handling operations on secrets.

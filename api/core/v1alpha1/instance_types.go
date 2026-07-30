@@ -29,6 +29,7 @@ import (
 // InstanceSpec defines the desired state of Instance
 // +kubebuilder:validation:XValidation:rule="!has(self.dataSource) || (has(self.backup) && self.backup.enabled)",message="spec.dataSource requires spec.backup.enabled=true with at least one storage so the provider can read the source backup"
 // +kubebuilder:validation:XValidation:rule="!has(oldSelf.dataSource) || (has(self.dataSource) && self.dataSource == oldSelf.dataSource)",message="spec.dataSource is immutable once set"
+// +kubebuilder:validation:XValidation:rule="!has(self.dataSource) || self.dataSource.type != 'PointInTime' || has(self.dataSource.pointInTime.source.instanceRef)",message="spec.dataSource.pointInTime.source.instanceRef is required when seeding an Instance: a new Instance has no stream of its own, so there is no target Instance to default to"
 type InstanceSpec struct {
 	// ProviderRef references the cluster-scoped Provider that manages this
 	// Instance (e.g., "percona-server-mongodb", "postgresql").
@@ -448,13 +449,58 @@ type InstanceBackupStorageStatus struct {
 	// spec.backup.storages[].storageRef.name).
 	// +kubebuilder:validation:Required
 	Name string `json:"name"`
-	// LatestRestorableTime is the most recent point in time to which the
-	// instance can be restored using point-in-time recovery from this
-	// storage. Only populated when PITR is enabled for the storage and the
-	// engine reports a recovery window.
+	// PITR reports the point-in-time recovery window observed on this storage.
+	// Only populated when PITR is enabled for the storage.
+	// +optional
+	PITR *InstanceBackupStoragePITRStatus `json:"pitr,omitempty"`
+}
+
+// InstanceBackupStoragePITRStatus reports the point-in-time recovery window
+// observed on a single backup storage.
+//
+// The window is authoritative and conservative: every point between
+// EarliestRestorableTime and LatestRestorableTime is restorable. Providers
+// truncate forward and under-report rather than advertising a range that spans
+// a known discontinuity.
+type InstanceBackupStoragePITRStatus struct {
+	// EarliestRestorableTime is the start of the contiguous recovery window.
+	// Providers only ever move this forward relative to the oldest successful
+	// backup, so the advertised window never spans a known discontinuity.
+	// Unset means no restorable window is known.
+	// +optional
+	EarliestRestorableTime *metav1.Time `json:"earliestRestorableTime,omitempty"`
+	// LatestRestorableTime is the end of the contiguous recovery window.
 	// +optional
 	LatestRestorableTime *metav1.Time `json:"latestRestorableTime,omitempty"`
+	// State summarises whether a trustworthy window exists.
+	// +optional
+	State PITRState `json:"state,omitempty"`
+	// Reason is a CamelCase, machine-readable explanation of State.
+	// +optional
+	Reason string `json:"reason,omitempty"`
+	// Message is a human-readable explanation of State.
+	// +optional
+	Message string `json:"message,omitempty"`
 }
+
+// PITRState summarises whether a point-in-time recovery window can be trusted.
+//
+// The value is deliberately binary: because providers truncate the window at
+// any known discontinuity, a published window is always trustworthy, and there
+// is no case where one exists but cannot be relied upon.
+//
+// +kubebuilder:validation:Enum=Available;Unavailable
+type PITRState string
+
+const (
+	// PITRStateAvailable indicates a contiguous, trustworthy recovery window.
+	PITRStateAvailable PITRState = "Available"
+	// PITRStateUnavailable indicates no trustworthy window can be reported.
+	// Reason distinguishes the causes: no successful backup yet, the stream
+	// has not started, a discontinuity with no clean segment after it, or the
+	// storage being unreachable.
+	PITRStateUnavailable PITRState = "Unavailable"
+)
 
 // InstancePhase represents the high-level, mutually exclusive lifecycle state
 // of an Instance. These phases are designed for human readability, providing an
@@ -583,12 +629,21 @@ const (
 	ReasonDataSourceFailed = "Failed"
 
 	// ReasonDataSourceSourceBackupNotFound indicates the Backup CR referenced
-	// by .spec.dataSource.backup.backupName does not exist in the Instance namespace.
+	// by .spec.dataSource.backup.backupRef does not exist in the Instance namespace.
 	ReasonDataSourceSourceBackupNotFound = "SourceBackupNotFound"
 
 	// ReasonDataSourceSourceBackupNotSucceeded indicates the source Backup
 	// exists but is not in the Succeeded state, so it cannot be restored.
 	ReasonDataSourceSourceBackupNotSucceeded = "SourceBackupNotSucceeded"
+
+	// ReasonDataSourceSourceInstanceNotFound indicates the Instance referenced
+	// by .spec.dataSource.pointInTime.source.instanceRef does not exist in the
+	// Instance namespace.
+	ReasonDataSourceSourceInstanceNotFound = "SourceInstanceNotFound"
+
+	// ReasonDataSourcePITRUnsupported indicates the resolved BackupClass does
+	// not advertise point-in-time recovery support.
+	ReasonDataSourcePITRUnsupported = "PITRUnsupported"
 
 	// ReasonDataSourceStorageMismatch indicates the Instance's
 	// .spec.backup.storages does not include an entry matching the storage

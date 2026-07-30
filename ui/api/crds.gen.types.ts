@@ -24,7 +24,7 @@ export interface components {
              *     More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
              */
             kind?: string;
-            metadata?: Record<string, never>;
+            metadata?: components["schemas"]["ObjectMeta"];
             /** @description BackupSpec defines the desired state of Backup. */
             spec: {
                 /**
@@ -193,7 +193,7 @@ export interface components {
              *     More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
              */
             kind?: string;
-            metadata?: Record<string, never>;
+            metadata?: components["schemas"]["ObjectMeta"];
             /** @description BackupClassSpec defines the desired state of BackupClass. */
             spec: {
                 /** @description Description is the description of the backup class. */
@@ -538,7 +538,7 @@ export interface components {
              *     More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
              */
             kind?: string;
-            metadata?: Record<string, never>;
+            metadata?: components["schemas"]["ObjectMeta"];
             /**
              * @description BackupStorageSpec defines the desired state of a BackupStorage.
              *
@@ -639,7 +639,7 @@ export interface components {
              *     More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
              */
             kind?: string;
-            metadata?: Record<string, never>;
+            metadata?: components["schemas"]["ObjectMeta"];
             /** @description InstalledExtensionSpec defines the desired state of an InstalledExtension. */
             spec: {
                 /**
@@ -787,7 +787,7 @@ export interface components {
              *     More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
              */
             kind?: string;
-            metadata?: Record<string, never>;
+            metadata?: components["schemas"]["ObjectMeta"];
             /** @description InstanceSpec defines the desired state of Instance */
             spec: {
                 /**
@@ -1609,36 +1609,63 @@ export interface components {
                  *     storage used by the source Backup so the provider can access the data.
                  */
                 dataSource?: {
-                    /**
-                     * @description Backup references an existing Backup CR in the same namespace.
-                     *     Required when type=Backup.
-                     */
+                    /** @description Backup identifies the backup to restore. Required when type=Backup. */
                     backup?: {
                         /** @description BackupRef references the Backup CR in the same namespace. */
                         backupRef: {
                             /** @description Name of the referenced object. */
                             name: string;
                         };
+                    };
+                    /**
+                     * @description PointInTime identifies the stream and the point to recover to.
+                     *     Required when type=PointInTime.
+                     */
+                    pointInTime?: {
                         /**
-                         * @description PITR configures point-in-time recovery on top of this backup.
-                         *     The resolved BackupClass must advertise PITR support via
-                         *     .spec.providerManaged for this to be honoured.
+                         * Format: date-time
+                         * @description Date is the recovery point, RFC 3339 with an explicit UTC offset.
+                         *     Required when RecoveryTarget is "date", forbidden otherwise. Providers
+                         *     convert it to the engine's expected representation; several engines
+                         *     interpret timezone-less timestamps as node-local, so the offset is not
+                         *     optional.
                          */
-                        pitr?: {
+                        date?: string;
+                        /**
+                         * @description RecoveryTarget selects date-based or latest recovery. This enum is
+                         *     deliberately closed: date and latest are the only recovery targets that
+                         *     are meaningful without knowing which engine is running. Engine-specific
+                         *     targets (GTID, LSN, XID, named restore points) are out of scope.
+                         * @enum {string}
+                         */
+                        recoveryTarget: "date" | "latest";
+                        /** @description Source identifies the backup stream to recover from. */
+                        source: {
                             /**
-                             * Format: date-time
-                             * @description Date is the target recovery point. Required when Type is "date".
+                             * @description InstanceRef names the Instance whose stream to recover. Defaults to the
+                             *     Restore's target Instance when omitted; required when seeding a new
+                             *     Instance via Instance.spec.dataSource, which has no stream of its own.
                              */
-                            date?: string;
-                            /** @description Type selects date-based or latest recovery. */
-                            type: string & (("date" | "latest") & ("date" | "latest"));
+                            instanceRef?: {
+                                /** @description Name of the referenced object. */
+                                name: string;
+                            };
+                            /**
+                             * @description StorageRef selects which of the source Instance's registered
+                             *     BackupStorages to read the stream from. It must name a storage with
+                             *     .pitr.enabled=true on that Instance.
+                             */
+                            storageRef: {
+                                /** @description Name of the referenced object. */
+                                name: string;
+                            };
                         };
                     };
                     /**
-                     * @description Type selects the data source kind.
+                     * @description Type selects the restore intent.
                      * @enum {string}
                      */
-                    type: "Backup";
+                    type: "Backup" | "PointInTime";
                 };
                 /**
                  * @description DeletionPolicy controls what happens to Backup and Restore CRs that
@@ -1714,18 +1741,38 @@ export interface components {
                      */
                     storages?: {
                         /**
-                         * Format: date-time
-                         * @description LatestRestorableTime is the most recent point in time to which the
-                         *     instance can be restored using point-in-time recovery from this
-                         *     storage. Only populated when PITR is enabled for the storage and the
-                         *     engine reports a recovery window.
-                         */
-                        latestRestorableTime?: string;
-                        /**
                          * @description Name is the BackupStorage name (matches
                          *     spec.backup.storages[].storageRef.name).
                          */
                         name: string;
+                        /**
+                         * @description PITR reports the point-in-time recovery window observed on this storage.
+                         *     Only populated when PITR is enabled for the storage.
+                         */
+                        pitr?: {
+                            /**
+                             * Format: date-time
+                             * @description EarliestRestorableTime is the start of the contiguous recovery window.
+                             *     Providers only ever move this forward relative to the oldest successful
+                             *     backup, so the advertised window never spans a known discontinuity.
+                             *     Unset means no restorable window is known.
+                             */
+                            earliestRestorableTime?: string;
+                            /**
+                             * Format: date-time
+                             * @description LatestRestorableTime is the end of the contiguous recovery window.
+                             */
+                            latestRestorableTime?: string;
+                            /** @description Message is a human-readable explanation of State. */
+                            message?: string;
+                            /** @description Reason is a CamelCase, machine-readable explanation of State. */
+                            reason?: string;
+                            /**
+                             * @description State summarises whether a trustworthy window exists.
+                             * @enum {string}
+                             */
+                            state?: "Available" | "Unavailable";
+                        };
                     }[];
                 };
                 /** @description Components is the status of the components in the database cluster. */
@@ -1865,7 +1912,7 @@ export interface components {
              *     More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
              */
             kind?: string;
-            metadata?: Record<string, never>;
+            metadata?: components["schemas"]["ObjectMeta"];
             /** @description spec defines the desired state of InstancePreset */
             spec: {
                 /**
@@ -2687,36 +2734,63 @@ export interface components {
                  *     storage used by the source Backup so the provider can access the data.
                  */
                 dataSource?: {
-                    /**
-                     * @description Backup references an existing Backup CR in the same namespace.
-                     *     Required when type=Backup.
-                     */
+                    /** @description Backup identifies the backup to restore. Required when type=Backup. */
                     backup?: {
                         /** @description BackupRef references the Backup CR in the same namespace. */
                         backupRef: {
                             /** @description Name of the referenced object. */
                             name: string;
                         };
+                    };
+                    /**
+                     * @description PointInTime identifies the stream and the point to recover to.
+                     *     Required when type=PointInTime.
+                     */
+                    pointInTime?: {
                         /**
-                         * @description PITR configures point-in-time recovery on top of this backup.
-                         *     The resolved BackupClass must advertise PITR support via
-                         *     .spec.providerManaged for this to be honoured.
+                         * Format: date-time
+                         * @description Date is the recovery point, RFC 3339 with an explicit UTC offset.
+                         *     Required when RecoveryTarget is "date", forbidden otherwise. Providers
+                         *     convert it to the engine's expected representation; several engines
+                         *     interpret timezone-less timestamps as node-local, so the offset is not
+                         *     optional.
                          */
-                        pitr?: {
+                        date?: string;
+                        /**
+                         * @description RecoveryTarget selects date-based or latest recovery. This enum is
+                         *     deliberately closed: date and latest are the only recovery targets that
+                         *     are meaningful without knowing which engine is running. Engine-specific
+                         *     targets (GTID, LSN, XID, named restore points) are out of scope.
+                         * @enum {string}
+                         */
+                        recoveryTarget: "date" | "latest";
+                        /** @description Source identifies the backup stream to recover from. */
+                        source: {
                             /**
-                             * Format: date-time
-                             * @description Date is the target recovery point. Required when Type is "date".
+                             * @description InstanceRef names the Instance whose stream to recover. Defaults to the
+                             *     Restore's target Instance when omitted; required when seeding a new
+                             *     Instance via Instance.spec.dataSource, which has no stream of its own.
                              */
-                            date?: string;
-                            /** @description Type selects date-based or latest recovery. */
-                            type: string & (("date" | "latest") & ("date" | "latest"));
+                            instanceRef?: {
+                                /** @description Name of the referenced object. */
+                                name: string;
+                            };
+                            /**
+                             * @description StorageRef selects which of the source Instance's registered
+                             *     BackupStorages to read the stream from. It must name a storage with
+                             *     .pitr.enabled=true on that Instance.
+                             */
+                            storageRef: {
+                                /** @description Name of the referenced object. */
+                                name: string;
+                            };
                         };
                     };
                     /**
-                     * @description Type selects the data source kind.
+                     * @description Type selects the restore intent.
                      * @enum {string}
                      */
-                    type: "Backup";
+                    type: "Backup" | "PointInTime";
                 };
                 /**
                  * @description DeletionPolicy controls what happens to Backup and Restore CRs that
@@ -2847,7 +2921,7 @@ export interface components {
              *     More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
              */
             kind?: string;
-            metadata?: Record<string, never>;
+            metadata?: components["schemas"]["ObjectMeta"];
             /** @description spec defines the desired state of MonitoringConfig */
             spec: {
                 /**
@@ -2917,6 +2991,37 @@ export interface components {
                 namespace?: string;
             };
         };
+        /** @description ObjectMeta is the standard Kubernetes object metadata. Only the fields relevant to the Everest API are described; unknown fields are accepted but may be ignored by the server. */
+        ObjectMeta: {
+            /** @description Annotations is an unstructured key value map stored with a resource that may be set by external tools to store and retrieve arbitrary metadata. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations */
+            annotations?: {
+                [key: string]: string;
+            };
+            /**
+             * Format: date-time
+             * @description CreationTimestamp is a timestamp representing the server time when this object was created. Populated by the system. Read-only.
+             */
+            creationTimestamp?: string;
+            /**
+             * Format: date-time
+             * @description DeletionTimestamp is the RFC 3339 date and time at which this resource will be deleted. Populated by the system when a graceful deletion is requested. Read-only.
+             */
+            deletionTimestamp?: string;
+            /** @description GenerateName is an optional prefix, used by the server, to generate a unique name ONLY IF the Name field has not been provided. */
+            generateName?: string;
+            /** @description Map of string keys and values that can be used to organize and categorize (scope and select) objects. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/labels */
+            labels?: {
+                [key: string]: string;
+            };
+            /** @description Name must be unique within a namespace. Is required when creating resources, although some resources may allow a client to request the generation of an appropriate name automatically. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names#names */
+            name?: string;
+            /** @description Namespace defines the space within which each name must be unique. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces */
+            namespace?: string;
+            /** @description An opaque value that represents the internal version of this object that can be used by clients to determine when objects have changed. Populated by the system. Read-only. */
+            resourceVersion?: string;
+            /** @description UID is the unique in time and space value for this object. Populated by the system. Read-only. */
+            uid?: string;
+        };
         /**
          * @description Plugin is the Schema for the plugins API. It registers an external plugin
          *     with the Everest platform, enabling its UI bundle to be loaded dynamically
@@ -2938,7 +3043,7 @@ export interface components {
              *     More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
              */
             kind?: string;
-            metadata?: Record<string, never>;
+            metadata?: components["schemas"]["ObjectMeta"];
             /** @description PluginSpec defines the desired state of Plugin */
             spec: {
                 /** @description Backend defines the optional backend contribution of the plugin. */
@@ -3126,14 +3231,26 @@ export interface components {
              *     More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
              */
             kind?: string;
-            metadata?: Record<string, never>;
+            metadata?: components["schemas"]["ObjectMeta"];
             /** @description ProviderSpec defines the desired state of Provider */
             spec: {
                 componentTypes?: {
                     [key: string]: {
                         versions?: {
                             default?: boolean;
+                            /**
+                             * @description Deprecated marks a version as still supported but scheduled for
+                             *     removal. Instances running on it get a proactive warning with a
+                             *     remediation runway instead of a blocked upgrade.
+                             */
+                            deprecated?: boolean;
                             image?: string;
+                            /**
+                             * @description RemovedInVersion is the provider version (P) in which this engine
+                             *     version is dropped. Upgrading the provider to >= this version while
+                             *     an Instance still uses this engine version is a blocking error.
+                             */
+                            removedInVersion?: string;
                             version?: string;
                         }[];
                     };
@@ -3154,6 +3271,21 @@ export interface components {
                         type?: string;
                     };
                 };
+                /** @description ConfigMaps defines ConfigMap types this provider supports. */
+                configMaps?: {
+                    [key: string]: {
+                        /** @description ParametersSchema declares the OpenAPI v3 schema for validating configmap data/binaryData. */
+                        parametersSchema?: {
+                            /**
+                             * @description OpenAPIV3Schema is the OpenAPI v3 schema describing the accepted
+                             *     parameters payload.
+                             */
+                            openAPIV3Schema?: unknown;
+                        };
+                        /** @description UISchema holds UI rendering hints for the configmap creation form. */
+                        uiSchema?: Record<string, never>;
+                    };
+                };
                 /**
                  * @description ParametersSchema declares the OpenAPI v3 schema for the instance-wide
                  *     parameters payload (Instance.spec.parameters).
@@ -3164,6 +3296,26 @@ export interface components {
                      *     parameters payload.
                      */
                     openAPIV3Schema?: unknown;
+                };
+                /**
+                 * @description Release identifies this provider release — the shipped unit of
+                 *     controller, bundled operator, and version catalog — and its
+                 *     upgrade-path constraints. It is read by the pre-upgrade preflight.
+                 */
+                release?: {
+                    /**
+                     * @description MinUpgradableFrom is the lowest provider release version from which a
+                     *     single-step upgrade to this release is permitted; a lower installed
+                     *     version is blocked and must step through intermediate releases.
+                     *     Empty means no floor.
+                     */
+                    minUpgradableFrom?: string;
+                    /**
+                     * @description Version is the provider release version (P), populated from the chart
+                     *     appVersion (e.g. "0.3"). Named distinctly from ProviderSpec.Versions
+                     *     (the engine bundle catalog).
+                     */
+                    version?: string;
                 };
                 /** @description Secrets defines Secret types this provider supports. */
                 secrets?: {
@@ -3290,41 +3442,72 @@ export interface components {
              *     More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
              */
             kind?: string;
-            metadata?: Record<string, never>;
+            metadata?: components["schemas"]["ObjectMeta"];
             /** @description RestoreSpec defines the desired state of Restore. */
             spec: {
-                /** @description DataSource defines where the backup data to restore from is located. */
+                /**
+                 * @description DataSource identifies the data to restore from. The same type is used
+                 *     by Instance.spec.dataSource when seeding a new Instance, so both paths
+                 *     identify a source identically.
+                 */
                 dataSource: {
-                    /**
-                     * @description Backup references an existing Backup CR in the same namespace.
-                     *     Required when type=Backup.
-                     */
+                    /** @description Backup identifies the backup to restore. Required when type=Backup. */
                     backup?: {
                         /** @description BackupRef references the Backup CR in the same namespace. */
                         backupRef: {
                             /** @description Name of the referenced object. */
                             name: string;
                         };
+                    };
+                    /**
+                     * @description PointInTime identifies the stream and the point to recover to.
+                     *     Required when type=PointInTime.
+                     */
+                    pointInTime?: {
                         /**
-                         * @description PITR configures point-in-time recovery on top of this backup.
-                         *     The resolved BackupClass must advertise PITR support via
-                         *     .spec.providerManaged for this to be honoured.
+                         * Format: date-time
+                         * @description Date is the recovery point, RFC 3339 with an explicit UTC offset.
+                         *     Required when RecoveryTarget is "date", forbidden otherwise. Providers
+                         *     convert it to the engine's expected representation; several engines
+                         *     interpret timezone-less timestamps as node-local, so the offset is not
+                         *     optional.
                          */
-                        pitr?: {
+                        date?: string;
+                        /**
+                         * @description RecoveryTarget selects date-based or latest recovery. This enum is
+                         *     deliberately closed: date and latest are the only recovery targets that
+                         *     are meaningful without knowing which engine is running. Engine-specific
+                         *     targets (GTID, LSN, XID, named restore points) are out of scope.
+                         * @enum {string}
+                         */
+                        recoveryTarget: "date" | "latest";
+                        /** @description Source identifies the backup stream to recover from. */
+                        source: {
                             /**
-                             * Format: date-time
-                             * @description Date is the target recovery point. Required when Type is "date".
+                             * @description InstanceRef names the Instance whose stream to recover. Defaults to the
+                             *     Restore's target Instance when omitted; required when seeding a new
+                             *     Instance via Instance.spec.dataSource, which has no stream of its own.
                              */
-                            date?: string;
-                            /** @description Type selects date-based or latest recovery. */
-                            type: string & (("date" | "latest") & ("date" | "latest"));
+                            instanceRef?: {
+                                /** @description Name of the referenced object. */
+                                name: string;
+                            };
+                            /**
+                             * @description StorageRef selects which of the source Instance's registered
+                             *     BackupStorages to read the stream from. It must name a storage with
+                             *     .pitr.enabled=true on that Instance.
+                             */
+                            storageRef: {
+                                /** @description Name of the referenced object. */
+                                name: string;
+                            };
                         };
                     };
                     /**
-                     * @description Type selects the data source kind.
+                     * @description Type selects the restore intent.
                      * @enum {string}
                      */
-                    type: "Backup";
+                    type: "Backup" | "PointInTime";
                 };
                 /**
                  * @description InstanceRef references the Instance to restore into. The Instance
@@ -3337,7 +3520,9 @@ export interface components {
                 };
                 /**
                  * @description Parameters is the restore-time structured configuration validated
-                 *     against the BackupClass's .spec.restoreParametersSchema.
+                 *     against the resolved BackupClass's .spec.restoreParametersSchema. It
+                 *     carries restore *operation* modifiers -- how the data is applied --
+                 *     and applies to both data source types.
                  */
                 parameters?: Record<string, never>;
             };

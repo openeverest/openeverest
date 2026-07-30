@@ -382,6 +382,64 @@ export const deleteMonitoringConfigRawV2 = async (request, name) => {
   return await request.delete(`/v1/clusters/main/namespaces/${EVEREST_CI_NAMESPACE}/monitoring-configs/${name}`)
 }
 
+// --------------------- ConfigMap helpers --------------------------------------------
+
+export const createConfigMapWithData = async (request, data) => {
+  const response = await createConfigMapRaw(request, data)
+  await checkError(response)
+  return (await response.json())
+}
+
+export const createConfigMapRaw = async (request, data) => {
+  return await request.post(`/v1/clusters/main/namespaces/${EVEREST_CI_NAMESPACE}/config-maps`, {data: data})
+}
+
+export const getConfigMap = async (request, name) => {
+  const response = await getConfigMapRaw(request, name)
+  await checkError(response)
+  return (await response.json())
+}
+
+export const getConfigMapRaw = async (request, name) => {
+  return await request.get(`/v1/clusters/main/namespaces/${EVEREST_CI_NAMESPACE}/config-maps/${name}`)
+}
+
+export const listConfigMaps = async (request) => {
+  const response = await listConfigMapsRaw(request)
+  await checkError(response)
+  return (await response.json())
+}
+
+export const listConfigMapsRaw = async (request) => {
+  return await request.get(`/v1/clusters/main/namespaces/${EVEREST_CI_NAMESPACE}/config-maps`)
+}
+
+export const listConfigMapsWithDefinition = async (request, definition: string) => {
+  const response = await listConfigMapsWithDefinitionRaw(request, definition)
+  await checkError(response)
+  return (await response.json())
+}
+
+export const listConfigMapsWithDefinitionRaw = async (request, definition: string) => {
+  return await request.get(`/v1/clusters/main/namespaces/${EVEREST_CI_NAMESPACE}/config-maps?definition=${definition}`)
+}
+
+export const deleteConfigMap = async (request, name) => {
+  // Wait for deletion mark.
+  await expect(async () => {
+    await deleteConfigMapRaw(request, name)
+    const res = await getConfigMapRaw(request, name)
+    await checkResourceDeletion(res)
+  }).toPass({
+    intervals: [1000],
+    timeout: 300 * 1000,
+  })
+}
+
+export const deleteConfigMapRaw = async (request, name) => {
+  return await request.delete(`/v1/clusters/main/namespaces/${EVEREST_CI_NAMESPACE}/config-maps/${name}`)
+}
+
 // --------------------- Secret helpers -----------------------------------------------
 
 export const createSecretWithData = async (request, data) => {

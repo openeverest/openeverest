@@ -29,6 +29,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/openeverest/openeverest/v2/client"
 	"github.com/openeverest/openeverest/v2/pkg/cli"
@@ -46,7 +47,7 @@ func buildProvider(name string, versions []struct {
 	isDefault bool
 }, topologies map[string][]string,
 ) *client.Provider {
-	meta := map[string]any{"name": name}
+	meta := metav1.ObjectMeta{Name: name}
 
 	var vers []struct {
 		Components *map[string]string `json:"components,omitempty"`
@@ -471,6 +472,14 @@ func newRunServer(t *testing.T, providerHandler, createHandler http.HandlerFunc)
 	return httptest.NewServer(mux)
 }
 
+// respondCreated writes a minimal 201 instance body, as the real API does; the
+// non-wait JSON path needs a parseable body to emit.
+func respondCreated(w http.ResponseWriter) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	_, _ = w.Write([]byte(`{"metadata":{"name":"my-db"}}`))
+}
+
 func psmdbProvider() *client.Provider {
 	return buildProvider("psmdb", []struct {
 		name      string
@@ -489,7 +498,7 @@ func TestRun_HappyPath(t *testing.T) {
 		_ = json.NewEncoder(w).Encode(psmdbProvider())
 	}
 	createHandler := func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusCreated)
+		respondCreated(w)
 	}
 
 	srv := newRunServer(t, provHandler, createHandler)
@@ -642,7 +651,7 @@ func TestRun_ContextFlag(t *testing.T) {
 		_ = json.NewEncoder(w).Encode(psmdbProvider())
 	}
 	createHandler := func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusCreated)
+		respondCreated(w)
 	}
 
 	srv := newRunServer(t, provHandler, createHandler)
@@ -883,7 +892,7 @@ func TestRun_WithPreset_Payloads(t *testing.T) {
 				func(w http.ResponseWriter, r *http.Request) {
 					got, readErr = io.ReadAll(r.Body)
 					assert.NoError(t, readErr)
-					w.WriteHeader(http.StatusCreated)
+					respondCreated(w)
 				},
 				okPresetHandler,
 			)
@@ -988,7 +997,7 @@ func TestRun_WithPreset_ResolvePassesNamespace(t *testing.T) {
 
 	var capturedURL string
 	srv := newRunServerWithPreset(t, okProviderHandler,
-		func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusCreated) },
+		func(w http.ResponseWriter, _ *http.Request) { respondCreated(w) },
 		func(w http.ResponseWriter, r *http.Request) {
 			capturedURL = r.URL.String()
 			okPresetHandler(w, r)

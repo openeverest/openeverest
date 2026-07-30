@@ -28,6 +28,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/openeverest/openeverest/v2/client"
 	"github.com/openeverest/openeverest/v2/pkg/cli/config"
@@ -45,12 +46,18 @@ func TestInstanceStatus_HappyPath(t *testing.T) {
 	condStatus := client.InstanceStatusConditionsStatusTrue
 
 	inst := &client.Instance{
-		Metadata: &map[string]interface{}{"name": "my-mongo"},
+		Metadata: &metav1.ObjectMeta{Name: "my-mongo"},
 		Status: &struct {
 			Backup *struct {
 				Storages *[]struct {
-					LatestRestorableTime *time.Time `json:"latestRestorableTime,omitempty"`
-					Name                 string     `json:"name"`
+					Name string `json:"name"`
+					Pitr *struct {
+						EarliestRestorableTime *time.Time                                    `json:"earliestRestorableTime,omitempty"`
+						LatestRestorableTime   *time.Time                                    `json:"latestRestorableTime,omitempty"`
+						Message                *string                                       `json:"message,omitempty"`
+						Reason                 *string                                       `json:"reason,omitempty"`
+						State                  *client.InstanceStatusBackupStoragesPitrState `json:"state,omitempty"`
+					} `json:"pitr,omitempty"`
 				} `json:"storages,omitempty"`
 			} `json:"backup,omitempty"`
 			Components *[]struct {
@@ -191,12 +198,18 @@ func TestInstanceStatus_JSONOutput(t *testing.T) {
 
 	phase := client.InstanceStatusPhaseReady
 	inst := &client.Instance{
-		Metadata: &map[string]interface{}{"name": "my-mongo"},
+		Metadata: &metav1.ObjectMeta{Name: "my-mongo"},
 		Status: &struct {
 			Backup *struct {
 				Storages *[]struct {
-					LatestRestorableTime *time.Time `json:"latestRestorableTime,omitempty"`
-					Name                 string     `json:"name"`
+					Name string `json:"name"`
+					Pitr *struct {
+						EarliestRestorableTime *time.Time                                    `json:"earliestRestorableTime,omitempty"`
+						LatestRestorableTime   *time.Time                                    `json:"latestRestorableTime,omitempty"`
+						Message                *string                                       `json:"message,omitempty"`
+						Reason                 *string                                       `json:"reason,omitempty"`
+						State                  *client.InstanceStatusBackupStoragesPitrState `json:"state,omitempty"`
+					} `json:"pitr,omitempty"`
 				} `json:"storages,omitempty"`
 			} `json:"backup,omitempty"`
 			Components *[]struct {
@@ -250,12 +263,18 @@ func TestInstanceStatus_JSONOutput(t *testing.T) {
 func minimalInst() *client.Instance {
 	phase := client.InstanceStatusPhaseReady
 	return &client.Instance{
-		Metadata: &map[string]any{"name": "my-mongo"},
+		Metadata: &metav1.ObjectMeta{Name: "my-mongo"},
 		Status: &struct {
 			Backup *struct {
 				Storages *[]struct {
-					LatestRestorableTime *time.Time `json:"latestRestorableTime,omitempty"`
-					Name                 string     `json:"name"`
+					Name string `json:"name"`
+					Pitr *struct {
+						EarliestRestorableTime *time.Time                                    `json:"earliestRestorableTime,omitempty"`
+						LatestRestorableTime   *time.Time                                    `json:"latestRestorableTime,omitempty"`
+						Message                *string                                       `json:"message,omitempty"`
+						Reason                 *string                                       `json:"reason,omitempty"`
+						State                  *client.InstanceStatusBackupStoragesPitrState `json:"state,omitempty"`
+					} `json:"pitr,omitempty"`
 				} `json:"storages,omitempty"`
 			} `json:"backup,omitempty"`
 			Components *[]struct {

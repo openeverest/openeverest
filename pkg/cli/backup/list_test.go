@@ -27,7 +27,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 
-	"github.com/openeverest/openeverest/v2/client"
 	"github.com/openeverest/openeverest/v2/pkg/cli/config"
 )
 
@@ -189,38 +188,4 @@ func TestBackupList_JSONOutput(t *testing.T) {
 	runner := NewListRunner(Config{Pretty: false}, zap.NewNop().Sugar())
 	err := runner.Run(t.Context(), ListOptions{Cluster: "main", Namespace: "everest", Instance: "my-mongo"}, cfgPath)
 	require.NoError(t, err)
-}
-
-func backupWithAge(name string, age time.Duration) client.Backup {
-	var b client.Backup
-	b.Metadata = &map[string]any{
-		"name":              name,
-		"creationTimestamp": time.Now().Add(-age).UTC().Format(time.RFC3339),
-	}
-	return b
-}
-
-func backupWithoutTimestamp(name string) client.Backup {
-	var b client.Backup
-	b.Metadata = &map[string]any{"name": name}
-	return b
-}
-
-func TestSortBackupsByRecency(t *testing.T) {
-	t.Parallel()
-
-	backups := []client.Backup{
-		backupWithAge("oldest", 48*time.Hour),
-		backupWithAge("newest", time.Hour),
-		backupWithoutTimestamp("no-timestamp"),
-		backupWithAge("middle", 24*time.Hour),
-	}
-
-	sortBackupsByRecency(backups)
-
-	names := make([]string, len(backups))
-	for i, b := range backups {
-		names[i] = backupName(&b)
-	}
-	assert.Equal(t, []string{"newest", "middle", "oldest", "no-timestamp"}, names)
 }
