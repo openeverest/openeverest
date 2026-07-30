@@ -182,6 +182,24 @@ const (
 	FlagBackupStorageContext = "context"
 	// FlagBackupStorageAllNamespaces lists backup storages across all namespaces.
 	FlagBackupStorageAllNamespaces = "all-namespaces"
+	// FlagBackupStorageName is the name of the backup storage name flag.
+	FlagBackupStorageName = "name"
+	// FlagBackupStorageType is the name of the storage type flag.
+	FlagBackupStorageType = "type"
+	// FlagBackupStorageBucket is the name of the bucket flag.
+	FlagBackupStorageBucket = "bucket"
+	// FlagBackupStorageRegion is the name of the region flag.
+	FlagBackupStorageRegion = "region"
+	// FlagBackupStorageEndpointURL is the name of the endpoint-url flag.
+	FlagBackupStorageEndpointURL = "endpoint-url"
+	// FlagBackupStorageVerifyTLS toggles TLS certificate verification.
+	FlagBackupStorageVerifyTLS = "verify-tls"
+	// FlagBackupStorageForcePathStyle forces path-style storage URLs.
+	FlagBackupStorageForcePathStyle = "force-path-style"
+	// FlagBackupStorageCredentialsSecret is the name of an existing credentials Secret.
+	FlagBackupStorageCredentialsSecret = "credentials-secret"
+	// FlagBackupStorageAccessKeyID is the access key ID (plain flag; the secret access key is never a flag).
+	FlagBackupStorageAccessKeyID = "access-key-id"
 
 	// `backup-class` flags.
 
