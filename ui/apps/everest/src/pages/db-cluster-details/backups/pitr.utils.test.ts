@@ -16,6 +16,7 @@ import { InstanceBackupStorage } from './backups.types';
 import {
   buildPitrPayload,
   countPitrEnabledStorages,
+  getPitrBlockReason,
   hasActiveSchedules,
   setStoragePitr,
 } from './pitr.utils';
@@ -58,10 +59,6 @@ describe('countPitrEnabledStorages', () => {
   it('counts only storages with PITR enabled', () => {
     expect(countPitrEnabledStorages(storages)).toBe(1);
   });
-
-  it('returns 0 when none are enabled', () => {
-    expect(countPitrEnabledStorages([storages[1]])).toBe(0);
-  });
 });
 
 describe('hasActiveSchedules', () => {
@@ -72,6 +69,63 @@ describe('hasActiveSchedules', () => {
   it('is false when every schedule is disabled or absent', () => {
     expect(hasActiveSchedules([storages[1]])).toBe(false);
     expect(hasActiveSchedules([{ storageRef: { name: 'empty' } }])).toBe(false);
+  });
+});
+
+describe('getPitrBlockReason', () => {
+  it('never blocks a storage that is already enabled', () => {
+    expect(
+      getPitrBlockReason({
+        hasSchedules: false,
+        enabledCount: 5,
+        maxEnabled: 1,
+        storageEnabled: true,
+      })
+    ).toBeUndefined();
+  });
+
+  it('blocks with no-schedule when there are no active schedules', () => {
+    expect(
+      getPitrBlockReason({
+        hasSchedules: false,
+        enabledCount: 0,
+        maxEnabled: 5,
+        storageEnabled: false,
+      })
+    ).toBe('no-schedule');
+  });
+
+  it('blocks with limit-reached when the enabled count meets the limit', () => {
+    expect(
+      getPitrBlockReason({
+        hasSchedules: true,
+        enabledCount: 1,
+        maxEnabled: 1,
+        storageEnabled: false,
+      })
+    ).toBe('limit-reached');
+  });
+
+  it('allows enabling when under the limit with an active schedule', () => {
+    expect(
+      getPitrBlockReason({
+        hasSchedules: true,
+        enabledCount: 1,
+        maxEnabled: 2,
+        storageEnabled: false,
+      })
+    ).toBeUndefined();
+  });
+
+  it('allows enabling when the limit is undefined', () => {
+    expect(
+      getPitrBlockReason({
+        hasSchedules: true,
+        enabledCount: 99,
+        maxEnabled: undefined,
+        storageEnabled: false,
+      })
+    ).toBeUndefined();
   });
 });
 

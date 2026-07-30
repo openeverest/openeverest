@@ -62,7 +62,9 @@ import {
   BackupStep,
   BACKUP_SCHEDULES_FIELD,
   buildBackupSpecFromWizard,
+  WizardPitrMap,
 } from './database-form-body/steps/backup-step';
+import { FlattenedSchedule } from 'components/schedule-form-dialog/schedule-form-dialog-context/schedule-form-dialog-context.types';
 import { useBackupClassesList } from 'hooks/api/backup-classes/useBackupClasses';
 import { useClusterName } from 'hooks/api/useClusterName';
 import { mergeTopologyDefaults } from 'components/ui-generator/utils/default-values/merge-topology-defaults';
@@ -334,8 +336,9 @@ export const DatabasePage = () => {
     const backupData = formData.backup as Record<string, unknown> | undefined;
     if (backupData?.schedules) {
       const backupSpec = buildBackupSpecFromWizard(
-        backupData.schedules as Parameters<typeof buildBackupSpecFromWizard>[0],
-        (backupData.classRef as { name?: string })?.name
+        backupData.schedules as FlattenedSchedule[],
+        (backupData.classRef as { name?: string })?.name,
+        backupData.pitr as WizardPitrMap | undefined
       );
       if (backupSpec) {
         formData.backup = backupSpec;

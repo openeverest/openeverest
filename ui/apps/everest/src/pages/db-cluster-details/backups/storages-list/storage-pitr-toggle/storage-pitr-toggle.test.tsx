@@ -26,6 +26,7 @@ import {
   ScheduleModalContextType,
 } from '../../backups.types';
 import { Messages } from './storage-pitr-toggle.messages';
+import { Messages as ToggleSwitchMessages } from 'components/pitr-toggle-switch/pitr-toggle-switch.messages';
 
 const mockUpdateInstance = vi.fn();
 const mockUseActiveBackupClass = vi.fn();
@@ -68,7 +69,7 @@ const renderToggle = (
 // The disabled switch lives inside a hover span; hovering the label surfaces
 // the tooltip that explains why PITR is unavailable.
 const expectTooltip = async (message: string) => {
-  fireEvent.mouseOver(screen.getByText(Messages.pitr));
+  fireEvent.mouseOver(screen.getByText(ToggleSwitchMessages.pitr));
   expect(await screen.findByRole('tooltip')).toHaveTextContent(message);
 };
 

@@ -24,4 +24,6 @@ export interface EditableItemProps {
   dataTestId: string;
   paperProps?: PaperProps;
   endText?: string;
+  // Optional control (e.g. a toggle) rendered at the end of the right actions cluster.
+  controls?: React.ReactNode;
 }

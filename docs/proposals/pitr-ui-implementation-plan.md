@@ -217,22 +217,77 @@ Depends on Phase 3.
 
 ### Phase 5 — Restore-PITR
 
-Depends on Phase 1; parallel with Phase 2–4.
+> **Status: PAUSED** — depends on BE PR
+> [#2668 "Rework PITR recovery window and point-in-time data sources"](https://github.com/openeverest/openeverest/pull/2668)
+> which reworks the restore CRD and status. That PR is DRAFT and needs companion provider
+> PRs (PSMDB/PXC/PG) before it can merge, after which `ui/api/*.gen.ts` types land on
+> `release-2.0`. **Do not build against the old `dataSource.backup.pitr` shape** — it is
+> superseded by the contract below.
 
-**Steps**
+**Confirmed contract (from #2668, FE types already regenerated in the PR)**
 
-1. Radio "Restore to backup point" / "Restore to point in time" in the restore modal.
-2. `DateTimePickerInput` bounded by the Phase 1 availability util.
-3. Submit "point in time" → `useCreateRestoreFromPointInTime`.
-4. PG limitation alert driven by a class flag; `gaps` warning omitted.
+Request `dataSource` — the same shape for `Restore.spec.dataSource` and `Instance.spec.dataSource`:
+
+```ts
+dataSource: {
+  type: 'Backup' | 'PointInTime';
+  backup?: { backupRef: { name: string } };          // required when type=Backup
+  pointInTime?: {                                     // required when type=PointInTime
+    recoveryTarget: 'date' | 'latest';
+    date?: string;                                    // required when 'date', FORBIDDEN when 'latest'
+    source: {
+      instanceRef?: { name: string };                // omit for in-place (defaults to spec.instanceRef)
+      storageRef: { name: string };                  // ALWAYS required; storage must have pitr.enabled=true
+    };
+  };
+}
+```
+
+Status window — `Instance.status.backup.storages[].pitr`:
+
+```ts
+{ earliestRestorableTime?: string; latestRestorableTime?: string;
+  state?: 'Available' | 'Unavailable'; reason?: string; message?: string }
+```
+
+The window is **authoritative, contiguous and conservative** — every point between
+earliest and latest is restorable (providers truncate forward at any discontinuity). ⇒
+**no gap logic on FE**; picker bounds = `[earliestRestorableTime, latestRestorableTime]`.
+`state` is **binary** (`Available`/`Unavailable`) — no `Degraded`.
+
+**Decisions (2026-07-30)**
+
+- **Same-namespace only.** Refs are `{name}` (no namespace); V1 posts restores to
+  `namespaces/{ns}/…`. No namespace selector; restore-to-new-DB stays same-ns.
+- **No cross-instance in-place.** In-place restore uses the instance's own history
+  (omit `source.instanceRef`). "Use another instance's data" happens only when creating a
+  **new** instance (clone/seed), exactly like V1.
+- **`recoveryTarget: 'latest'`** = one-click, send **no** `date`. `'date'` = picker over the window.
+- **Storage selector** only when 2+ PITR-enabled storages; still send `storageRef` even for 1.
+- **Restore `parameters`** (schema-driven, `BackupClass.spec.restoreParametersSchema`):
+  pending Diogo — likely reuse source/default params, no re-prompt. Out of scope until confirmed.
+
+**Steps (when unblocked)**
+
+1. Radio "Restore to backup" / "Restore to point in time" in the restore modal.
+2. `getPitrWindow(storageStatus)` pure helper → `{ available, min?, max?, message? }` from
+   `status…storages[].pitr`; combine with `spec…storages[].pitr.enabled` for the storage list.
+3. `DateTimePickerInput` bounded by the window; FE range-check (BE admission does **not**
+   range-check the date — double validation stands).
+4. `toRestoreDateISO(date)` pure util = `new Date(x).toISOString().split('.')[0] + 'Z'`
+   (ported from V1 `restore-db-modal.tsx`; already offset-safe) **+ unit test** (offset
+   correctness; no `date` emitted for `latest`).
+5. `buildRestoreDataSource(...)` → the discriminated union above; `useCreateRestore`.
+6. Gate PITR on `state === 'Available'`; surface BE `message` when `Unavailable`.
 
 **Files**
 
-- `modals/restore-db-modal/restore-db-modal.tsx` (L62 PITR TODO)
-- `modals/restore-db-modal/modal-content.tsx` (L16 PITR UI)
-- `modals/restore-db-modal/restore-db-modal-schema.ts` (enable `fromPitr`)
+- `modals/restore-db-modal/restore-db-modal.tsx` / `modal-content.tsx` / `restore-db-modal-schema.ts`
+- `hooks/api/restores/*` (`useCreateRestore`)
 
-**Verification:** radio switch, picker bounds, payload with `dataSource.backup.pitr`.
+**Verification:** radio switch; picker bounds from status window; payload
+`dataSource.pointInTime.{source.storageRef, recoveryTarget, date}`; `latest` omits date;
+`toRestoreDateISO` unit test green.
 
 ---
 
@@ -254,9 +309,9 @@ same UI concept as the Details Storages panel. Single vs multi is only the enabl
 **Form shape:** `backup.pitr: { [storageName]: { enabled: boolean; parameters?: {...} } }`.
 `buildBackupSpecFromWizard` attaches each entry to the matching `storages[i].pitr`.
 
-**Slices:**
-0. Extract pure gating (`getPitrBlockReason(storages, storageEnabled, max)` → reason code) into
-   `pitr.utils.ts`; refactor `useStoragePitr` to use it (shared by Details + Wizard). Details green.
+**Slices:** 0. Extract pure gating (`getPitrBlockReason(storages, storageEnabled, max)` → reason code) into
+`pitr.utils.ts`; refactor `useStoragePitr` to use it (shared by Details + Wizard). Details green.
+
 1. Form: add `backup.pitr` to schema (`database-form-schema.ts`) + defaults + edit-mode prefill.
 2. Wizard PITR list component (per-storage toggles, gating from class, reuses `PitrConfigModal`).
 3. `buildBackupSpecFromWizard` attaches `pitr`; update preview; wire the list into `BackupStep`.
