@@ -40,34 +40,61 @@ func (h *validateHandler) CreateRestore(ctx context.Context, restore *backupv1al
 }
 
 // validateRestorePITR rejects restores that request point-in-time recovery
-// when the BackupClass resolved via the source Backup does not advertise
-// PITR support. Restores without PITR options pass through untouched.
+// when the resolved BackupClass does not advertise PITR support. Restores that
+// do not request point-in-time recovery pass through untouched.
+//
+// The class is the *read* class, resolved the same way as in the Restore
+// controller: from the source Backup for type=Backup, and from the Instance
+// owning the stream for type=PointInTime.
 func (h *validateHandler) validateRestorePITR(ctx context.Context, restore *backupv1alpha1.Restore) error {
-	ds := restore.Spec.DataSource
-	if ds.Backup == nil || ds.Backup.PITR == nil {
+	if restore.Spec.DataSource.PointInTime == nil {
 		return nil
 	}
 
-	backup, err := h.kubeConnector.GetBackup(ctx, ctrlclient.ObjectKey{
+	// Point-in-time recovery resolves its class from the Instance owning the
+	// stream; when no source Instance is named, that is the target Instance.
+	instanceName := restore.Spec.InstanceRef.Name
+	if src := restore.Spec.DataSource.PointInTime.Source; src.InstanceRef != nil {
+		instanceName = src.InstanceRef.Name
+	}
+
+	instance, err := h.kubeConnector.GetInstance(ctx, ctrlclient.ObjectKey{
 		Namespace: restore.GetNamespace(),
-		Name:      ds.Backup.BackupRef.Name,
+		Name:      instanceName,
 	})
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
-			return fmt.Errorf("backup '%s' does not exist", ds.Backup.BackupRef.Name)
+			return fmt.Errorf("instance '%s' does not exist", instanceName)
 		}
-		return fmt.Errorf("failed to get backup '%s': %w", ds.Backup.BackupRef.Name, err)
+		return fmt.Errorf("failed to get instance '%s': %w", instanceName, err)
+	}
+	if instance.Spec.Backup == nil || instance.Spec.Backup.ClassRef.Name == "" {
+		return fmt.Errorf(
+			"instance '%s' has no backup class configured; point-in-time recovery is not available",
+			instanceName,
+		)
 	}
 
-	bc, err := h.kubeConnector.GetBackupClass(ctx, ctrlclient.ObjectKey{Name: backup.Spec.ClassRef.Name})
+	bc, err := h.kubeConnector.GetBackupClass(ctx,
+		ctrlclient.ObjectKey{Name: instance.Spec.Backup.ClassRef.Name})
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
-			return fmt.Errorf("backup class '%s' does not exist", backup.Spec.ClassRef.Name)
+			return fmt.Errorf("backup class '%s' does not exist", instance.Spec.Backup.ClassRef.Name)
 		}
-		return fmt.Errorf("failed to get backup class '%s': %w", backup.Spec.ClassRef.Name, err)
+		return fmt.Errorf("failed to get backup class '%s': %w", instance.Spec.Backup.ClassRef.Name, err)
 	}
 
-	return controller.ValidateRestorePITR(restore, bc)
+	if err := controller.ValidateRestorePITR(restore, bc); err != nil {
+		return err
+	}
+
+	// The named storage must actually carry a stream on that Instance.
+	// Rejecting here turns a wrong-storage restore into an actionable error at
+	// request time rather than a reconcile-time failure.
+	if err := controller.ValidatePITRStorage(restore.Spec.DataSource.PointInTime, instance); err != nil {
+		return err
+	}
+	return nil
 }
 
 // DeleteRestore deletes a restore by namespace and name.
