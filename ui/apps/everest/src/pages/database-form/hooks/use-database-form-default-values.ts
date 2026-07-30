@@ -67,7 +67,7 @@ export const useDatabasePageDefaultValues = (
         ...defaultSchemaValues,
         ...dbWizardDefaultValues,
         topology: { type: defaultSelectedTopology },
-        backup: { schedules: [], classRef: { name: '' } },
+        backup: { schedules: [], classRef: { name: '' }, pitr: {} },
       };
     }
 
@@ -77,7 +77,7 @@ export const useDatabasePageDefaultValues = (
         return {
           ...defaultSchemaValues,
           topology: { type: defaultSelectedTopology },
-          backup: { schedules: [], classRef: { name: '' } },
+          backup: { schedules: [], classRef: { name: '' }, pitr: {} },
         };
       }
 
@@ -103,7 +103,7 @@ export const useDatabasePageDefaultValues = (
         // Keep namespace from source
         k8sNamespace: sourceNamespace ?? '',
         // No backup schedules on new-from-restore
-        backup: { schedules: [], classRef: { name: '' } },
+        backup: { schedules: [], classRef: { name: '' }, pitr: {} },
       };
     }
 
@@ -111,7 +111,7 @@ export const useDatabasePageDefaultValues = (
     return {
       ...defaultSchemaValues,
       topology: { type: defaultSelectedTopology },
-      backup: { schedules: [], classRef: { name: '' } },
+      backup: { schedules: [], classRef: { name: '' }, pitr: {} },
     };
   }, [
     defaultSchemaValues,

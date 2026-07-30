@@ -13,17 +13,20 @@
 // limitations under the License.
 
 export const Messages = {
-  needsSchedule:
-    'Point-in-time recovery requires at least one active backup schedule.',
+  title: 'Point-in-time Recovery',
+  scheduleCount: (count: number) =>
+    `${count} backup schedule${count === 1 ? '' : 's'}`,
+  description:
+    'Point-in-time recovery keeps continuous backups of your database so you can recover from accidental writes or deletes.',
+  listLeadIn: (maxEnabled?: number) => {
+    if (maxEnabled === 1) {
+      return 'Restore your database to any point in time by enabling PITR on a backup storage.';
+    }
+    if (maxEnabled != null) {
+      return `Restore your database to any point in time by enabling PITR on up to ${maxEnabled} backup storages.`;
+    }
+    return 'Restore your database to any point in time by enabling PITR on one or more backup storages.';
+  },
   limitReached: (max: number) =>
     `Maximum ${max} PITR-enabled storage${max > 1 ? 's' : ''} for this provider.`,
-  noPermission:
-    'You do not have permission to change PITR for this instance.',
-  disable: {
-    title: 'Disable PITR?',
-    body: (storageName: string) =>
-      `Point-in-time recovery for “${storageName}” will stop. Saved settings are kept.`,
-    confirm: 'Disable',
-    cancel: 'Cancel',
-  },
 };

@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-export { BackupStep } from './backup-step';
-export { BACKUP_SCHEDULES_FIELD } from './schedules';
-export { buildBackupSpecFromWizard } from './backup-step.utils';
-export type { WizardPitrMap } from './backup-step.types';
+export const Messages = {
+  pitr: 'PITR',
+};

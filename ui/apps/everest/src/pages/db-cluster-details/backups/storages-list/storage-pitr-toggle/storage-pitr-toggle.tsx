@@ -15,12 +15,12 @@
 import { useState } from 'react';
 import { Box } from '@mui/material';
 import { ConfirmDialog } from 'components/confirm-dialog/confirm-dialog';
+import { PitrToggleSwitch } from 'components/pitr-toggle-switch';
+import { PitrConfigButton } from 'components/pitr-config-button';
+import { PitrConfigModal } from 'components/pitr-config-modal';
 import { InstanceBackupStorage } from '../../backups.types';
-import { PitrConfigModal } from '../../pitr-config-modal';
 import { useStoragePitr } from './use-storage-pitr';
 import { Messages } from './storage-pitr-toggle.messages';
-import { PitrToggleSwitch } from './pitr-toggle-switch/pitr-toggle-switch';
-import { PitrConfigButton } from './pitr-config-button/pitr-config-button';
 
 interface StoragePitrToggleProps {
   storage: InstanceBackupStorage;

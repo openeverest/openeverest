@@ -13,7 +13,7 @@
 // limitations under the License.
 
 import { InstanceBackupStorage } from './backups.types';
-import { PitrParameters } from './pitr-config-modal/pitr-config-modal.types';
+import { PitrParameters } from 'components/pitr-config-modal/pitr-config-modal.types';
 
 // Merge a PITR patch onto the existing storage pitr. Generated CRD types model
 // pitr.parameters as Record<string, never>; the payload is provider-defined, so
@@ -44,3 +44,34 @@ export const hasActiveSchedules = (
   storages.some((storage) =>
     (storage.schedules ?? []).some((schedule) => schedule.enabled)
   );
+
+export type PitrBlockReason = 'no-schedule' | 'limit-reached';
+
+// Shared gating for turning PITR on, used by both the cluster-details storages
+// panel and the creation wizard. Works on primitives (not a storage type) so
+// each surface computes the inputs from its own shape. Returns a reason code
+// (not a message) so callers own their copy; undefined means enabling is
+// allowed. Blocking applies only to turning PITR on — an already-enabled
+// storage is never blocked.
+export const getPitrBlockReason = ({
+  hasSchedules,
+  enabledCount,
+  maxEnabled,
+  storageEnabled,
+}: {
+  hasSchedules: boolean;
+  enabledCount: number;
+  maxEnabled: number | undefined;
+  storageEnabled: boolean;
+}): PitrBlockReason | undefined => {
+  if (storageEnabled) {
+    return undefined;
+  }
+  if (!hasSchedules) {
+    return 'no-schedule';
+  }
+  if (maxEnabled != null && enabledCount >= maxEnabled) {
+    return 'limit-reached';
+  }
+  return undefined;
+};

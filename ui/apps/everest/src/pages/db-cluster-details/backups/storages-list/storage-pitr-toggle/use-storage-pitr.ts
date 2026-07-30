@@ -21,10 +21,11 @@ import { useUpdateDbInstanceWithConflictRetry } from 'hooks/api/db-instances/use
 import { useRBACPermissions } from 'hooks/rbac';
 import { ScheduleModalContext } from '../../backups.context';
 import { InstanceBackupStorage } from '../../backups.types';
-import { PitrParameters } from '../../pitr-config-modal/pitr-config-modal.types';
+import { PitrParameters } from 'components/pitr-config-modal/pitr-config-modal.types';
 import {
   buildPitrPayload,
   countPitrEnabledStorages,
+  getPitrBlockReason,
   hasActiveSchedules,
   setStoragePitr,
 } from '../../pitr.utils';
@@ -47,18 +48,19 @@ export const useStoragePitr = (storage: InstanceBackupStorage) => {
   const supported = providerManaged?.supportsPITR ?? false;
 
   const maxPitrStorages = providerManaged?.limits?.maxPITREnabledStorages;
-  const limitReached =
-    maxPitrStorages != null &&
-    countPitrEnabledStorages(storages) >= maxPitrStorages;
-  const noSchedules = !hasActiveSchedules(storages);
 
   // Business rules only block turning PITR on; a missing update permission
   // blocks both directions. The reason is what drives the disabled state.
-  const blockedReason = enabled
-    ? undefined
-    : noSchedules
+  const blockReason = getPitrBlockReason({
+    hasSchedules: hasActiveSchedules(storages),
+    enabledCount: countPitrEnabledStorages(storages),
+    maxEnabled: maxPitrStorages,
+    storageEnabled: enabled,
+  });
+  const blockedReason =
+    blockReason === 'no-schedule'
       ? Messages.needsSchedule
-      : limitReached && maxPitrStorages != null
+      : blockReason === 'limit-reached' && maxPitrStorages != null
         ? Messages.limitReached(maxPitrStorages)
         : undefined;
   const reason = canUpdate ? blockedReason : Messages.noPermission;

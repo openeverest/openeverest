@@ -12,10 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { IconButton } from '@mui/material';
+import { IconButton, Tooltip } from '@mui/material';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
-import { BlockedTooltip } from '../blocked-tooltip/blocked-tooltip';
-import { Messages } from '../storage-pitr-toggle.messages';
+import { BlockedTooltip } from 'components/blocked-tooltip';
+import { Messages } from './pitr-config-button.messages';
 
 interface PitrConfigButtonProps {
   storageName: string;
@@ -31,14 +31,18 @@ export const PitrConfigButton = ({
   onClick,
 }: PitrConfigButtonProps) => (
   <BlockedTooltip reason={reason}>
-    <IconButton
-      size="small"
-      disabled={disabled}
-      onClick={onClick}
-      aria-label={Messages.configure}
-      data-testid={`pitr-configure-${storageName}`}
-    >
-      <EditOutlinedIcon fontSize="small" />
-    </IconButton>
+    <Tooltip title={reason ? '' : Messages.configure} arrow>
+      <span>
+        <IconButton
+          size="small"
+          disabled={disabled}
+          onClick={onClick}
+          aria-label={Messages.configure}
+          data-testid={`pitr-configure-${storageName}`}
+        >
+          <EditOutlinedIcon fontSize="small" />
+        </IconButton>
+      </span>
+    </Tooltip>
   </BlockedTooltip>
 );

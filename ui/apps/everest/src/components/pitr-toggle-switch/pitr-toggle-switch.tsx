@@ -11,10 +11,9 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
 import { FormControlLabel, Switch } from '@mui/material';
-import { BlockedTooltip } from '../blocked-tooltip/blocked-tooltip';
-import { Messages } from '../storage-pitr-toggle.messages';
+import { BlockedTooltip } from 'components/blocked-tooltip';
+import { Messages } from './pitr-toggle-switch.messages';
 
 interface PitrToggleSwitchProps {
   storageName: string;
@@ -33,8 +32,8 @@ export const PitrToggleSwitch = ({
 }: PitrToggleSwitchProps) => (
   <BlockedTooltip reason={reason}>
     <FormControlLabel
-      label={Messages.pitr}
       labelPlacement="start"
+      label={Messages.pitr}
       control={
         <Switch
           size="small"

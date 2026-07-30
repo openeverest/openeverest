@@ -43,6 +43,8 @@ import { useClusterName } from 'hooks/api/useClusterName';
 export const BACKUP_SCHEDULES_FIELD = 'backup.schedules';
 /** Form field path for backup class reference name. */
 export const BACKUP_CLASS_REF_FIELD = 'backup.classRef.name';
+/** Form field path for the per-storage PITR map (WizardPitrMap). */
+export const BACKUP_PITR_FIELD = 'backup.pitr';
 
 type Props = {
   backupStorages: BackupStorageCRD[];
