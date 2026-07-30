@@ -95,7 +95,7 @@ No shared base needed:
 
 - `backupType` (logical/physical) is **only** in backup config — restore type is auto-derived from source backup
 - `compressionType`/`compressionLevel` appear in both backup and PITR but for different purposes (backup data vs oplog chunks)
-- PITR target (date/latest) is already first-class in `Restore.spec.dataSource.pitr`
+- PITR target (date/latest) is already first-class in `Restore.spec.pointInTime.recoveryTarget`
 - Each schema has a different lifecycle
 
 ### Hybrid rendering: static React + dynamic UIGenerator
@@ -274,17 +274,30 @@ metadata:
 spec:
   instanceRef:
     name: my-db
-  dataSource:
-    type: Backup
-    backup:
-      backupRef:
-        name: my-db-backup-2026-05-11
-      pitr: # optional, only if PITR restore
-        type: date
-        date: "2026-05-11T01:30:00Z"
+  type: Backup
+  backup:
+    backupRef:
+      name: my-db-backup-2026-05-11
   parameters: {} # from UIGenerator restore section
 status:
   state: Succeeded
+```
+
+A point-in-time restore selects the other data source type. It names the
+stream rather than a backup — the provider resolves whatever base backup the
+engine needs:
+
+```yaml
+spec:
+  instanceRef:
+    name: my-db
+  type: PointInTime
+  pointInTime:
+    source:
+      storageRef:
+        name: minio-primary
+    recoveryTarget: date
+    date: "2026-05-11T01:30:00Z"
 ```
 
 ### BackupStorage CR
@@ -364,7 +377,7 @@ Currently PSMDB provider's `SyncBackup()` ignores `Backup.spec.config`. Required
 | Function            | Current                                             | Required                                                              |
 | ------------------- | --------------------------------------------------- | --------------------------------------------------------------------- |
 | `SyncBackup()`      | Sets only `ClusterName`, `StorageName`              | Read `backup.Spec.Config` → set `psmdbBackup.Spec.Type`, compression  |
-| `SyncRestore()`     | Reads only PITR from `restore.Spec.DataSource.Backup.PITR` | Read `restore.Spec.Parameters` (future: selective restore params)         |
+| `SyncRestore()`     | Reads only PITR from `restore.Spec.PointInTime`     | Read `restore.Spec.Parameters` (future: selective restore params)         |
 | `buildBackupSpec()` | PITR = simple bool from `storage.PITR.Enabled`      | Read `storage.PITR.Config` → set `oplogSpanMin`, compression for PITR |
 | `BackupCustomSpec`  | Empty `struct{}`                                    | Not needed — config comes from Backup CR, not provider definition     |
 
@@ -575,7 +588,7 @@ Wizard supports **restore to new cluster** (same as v1).
 - Detected via `useDatabasePageMode()` — checks `location.state.selectedDbCluster`
 - Source cluster's config loaded as form defaults
 - Fields locked: namespace read-only, name may be pre-filled
-- On submit: POST Instance with `spec.dataSource.dbClusterBackupName` + optional `pitr`
+- On submit: POST Instance with `spec.dataSource` (`type: Backup`, or `type: PointInTime` for a point-in-time seed)
 - User can modify backup/schedule config before creating the new cluster
 
 ### Default storage (`main` field)
@@ -832,7 +845,7 @@ Instance Details → Tab: Backups
 │   ├── <UIGenerator section="restore" />  ← dynamic (empty for PSMDB initially)
 │   ├── ⚠️ "Restoring will replace all data. Cannot be undone."
 │   └── [Restore]
-│       → POST Restore CR with dataSource.pitr + config
+│       → POST Restore CR with type=PointInTime + pointInTime + parameters
 │
 ├── Instance: Ready → Restoring → Ready
 │
