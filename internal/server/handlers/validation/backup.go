@@ -17,9 +17,15 @@ package validation
 
 import (
 	"context"
+	"errors"
+	"fmt"
+
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
 	api "github.com/openeverest/openeverest/v2/internal/server/api"
+	backupvalidation "github.com/openeverest/openeverest/v2/provider-runtime/controller/backup"
 )
 
 // GetBackup proxies the request to the next handler.
@@ -27,10 +33,48 @@ func (h *validateHandler) GetBackup(ctx context.Context, cluster, namespace, nam
 	return h.next.GetBackup(ctx, cluster, namespace, name)
 }
 
-// CreateBackup proxies the request to the next handler.
+// CreateBackup validates the Backup's referenced resources before creating it.
 func (h *validateHandler) CreateBackup(ctx context.Context, cluster string, backup *v1alpha1.Backup) (*v1alpha1.Backup, error) {
-	// Add validation here if needed in the future
+	if err := h.validateBackupRefs(ctx, backup); err != nil {
+		return nil, errors.Join(ErrInvalidRequest, err)
+	}
 	return h.next.CreateBackup(ctx, cluster, backup)
+}
+
+// validateBackupRefs rejects backups whose instanceRef, storageRef, or
+// classRef do not point to existing resources, or whose BackupClass does
+// not support the target Instance's provider.
+func (h *validateHandler) validateBackupRefs(ctx context.Context, backup *v1alpha1.Backup) error {
+	instance, err := h.kubeConnector.GetInstance(ctx, ctrlclient.ObjectKey{
+		Namespace: backup.GetNamespace(),
+		Name:      backup.Spec.InstanceRef.Name,
+	})
+	if err != nil {
+		if k8serrors.IsNotFound(err) {
+			return fmt.Errorf("instance '%s' does not exist", backup.Spec.InstanceRef.Name)
+		}
+		return fmt.Errorf("failed to get instance '%s': %w", backup.Spec.InstanceRef.Name, err)
+	}
+
+	if _, err := h.kubeConnector.GetBackupStorage(ctx, ctrlclient.ObjectKey{
+		Namespace: backup.GetNamespace(),
+		Name:      backup.Spec.StorageRef.Name,
+	}); err != nil {
+		if k8serrors.IsNotFound(err) {
+			return fmt.Errorf("backup storage '%s' does not exist", backup.Spec.StorageRef.Name)
+		}
+		return fmt.Errorf("failed to get backup storage '%s': %w", backup.Spec.StorageRef.Name, err)
+	}
+
+	bc, err := backupvalidation.ResolveBackupClass(ctx, backup.Spec.ClassRef.Name,
+		func(ctx context.Context, name string) (*v1alpha1.BackupClass, error) {
+			return h.kubeConnector.GetBackupClass(ctx, ctrlclient.ObjectKey{Name: name})
+		})
+	if err != nil {
+		return err
+	}
+
+	return backupvalidation.ValidateClassSupportsProvider(bc, instance.Spec.ProviderRef.Name)
 }
 
 // DeleteBackup proxies the request to the next handler.

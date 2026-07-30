@@ -28,6 +28,7 @@ import (
 	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
 	corev1alpha1 "github.com/openeverest/openeverest/v2/api/core/v1alpha1"
 	"github.com/openeverest/openeverest/v2/provider-runtime/controller"
+	backupvalidation "github.com/openeverest/openeverest/v2/provider-runtime/controller/backup"
 )
 
 const restoreRuntimeFinalizer = "everest.percona.com/restore-runtime-finalizer"
@@ -104,7 +105,7 @@ func (r *restoreRuntimeReconciler) Reconcile(ctx context.Context, req reconcile.
 	// any provider code runs. The Restore is terminally Failed: retrying
 	// cannot succeed until the user picks a different class or drops the
 	// PITR options.
-	if pitrErr := controller.ValidateRestorePITR(restore, bc); pitrErr != nil {
+	if pitrErr := backupvalidation.ValidateRestorePITR(restore, bc); pitrErr != nil {
 		logger.Info("Rejecting restore", "reason", pitrErr.Error())
 		restore.Status.State = backupv1alpha1.RestoreStateFailed
 		restore.Status.Message = pitrErr.Error()

@@ -43,11 +43,6 @@ var ErrBackupClassLimitsExceeded = errors.New("backup class limits exceeded")
 // conform to the BackupClass's providerManaged.pitrParametersSchema.
 var ErrPITRConfigInvalid = errors.New("PITR config invalid")
 
-// ErrRestorePITRUnsupported is the sentinel returned by ValidateRestorePITR
-// when a Restore requests point-in-time recovery but the resolved
-// ProviderManaged BackupClass does not advertise supportsPITR.
-var ErrRestorePITRUnsupported = errors.New("point-in-time recovery is not supported")
-
 // ValidateInstanceBackupAgainstClass enforces the generic limits declared on
 // a ProviderManaged BackupClass against an Instance's backup configuration.
 // It is safe to call with any combination of nil inputs:
@@ -135,39 +130,6 @@ func ValidateInstanceBackupPITRParameters(in *corev1alpha1.Instance, bc *backupv
 		if err := schema.Validate(s.PITR.Parameters); err != nil {
 			return fmt.Errorf("%w: storage %q: %s", ErrPITRConfigInvalid, s.StorageRef.Name, err.Error())
 		}
-	}
-	return nil
-}
-
-// ValidateRestorePITR checks whether the point-in-time recovery options on a
-// Restore are acceptable for the given BackupClass:
-//   - When the resolved class is ProviderManaged, PITR may only be requested
-//     if the class advertises .spec.providerManaged.supportsPITR.
-//   - Job-mode classes have no PITR capability declaration; they are not
-//     gated here.
-//
-// A nil class or a Restore without PITR options passes. The CRD's CEL rule
-// already requires date when type is "date"; the check is repeated here for
-// defense in depth on paths that bypass admission.
-func ValidateRestorePITR(restore *backupv1alpha1.Restore, bc *backupv1alpha1.BackupClass) error {
-	if restore == nil || restore.Spec.DataSource.Backup == nil || restore.Spec.DataSource.Backup.PITR == nil {
-		return nil
-	}
-	pitr := restore.Spec.DataSource.Backup.PITR
-	if pitr.Type == backupv1alpha1.PITRTypeDate && pitr.Date == nil {
-		return fmt.Errorf(
-			"spec.dataSource.backup.pitr.date must be set when type is %q",
-			backupv1alpha1.PITRTypeDate,
-		)
-	}
-	if bc == nil || bc.Spec.ExecutionMode != backupv1alpha1.BackupExecutionModeProviderManaged {
-		return nil
-	}
-	if bc.Spec.ProviderManaged == nil || !bc.Spec.ProviderManaged.SupportsPITR {
-		return fmt.Errorf(
-			"%w: BackupClass %q does not declare providerManaged.supportsPITR",
-			ErrRestorePITRUnsupported, bc.Name,
-		)
 	}
 	return nil
 }

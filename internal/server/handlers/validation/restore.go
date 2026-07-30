@@ -17,13 +17,11 @@ package validation
 import (
 	"context"
 	"errors"
-	"fmt"
 
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
-	"github.com/openeverest/openeverest/v2/provider-runtime/controller"
+	backupvalidation "github.com/openeverest/openeverest/v2/provider-runtime/controller/backup"
 )
 
 // GetRestore returns a specific restore by namespace and name.
@@ -33,41 +31,43 @@ func (h *validateHandler) GetRestore(ctx context.Context, namespace, name string
 
 // CreateRestore creates a new restore.
 func (h *validateHandler) CreateRestore(ctx context.Context, restore *backupv1alpha1.Restore) (*backupv1alpha1.Restore, error) {
-	if err := h.validateRestorePITR(ctx, restore); err != nil {
+	if err := h.validateRestoreBackupRef(ctx, restore); err != nil {
 		return nil, errors.Join(ErrInvalidRequest, err)
 	}
 	return h.next.CreateRestore(ctx, restore)
 }
 
-// validateRestorePITR rejects restores that request point-in-time recovery
-// when the BackupClass resolved via the source Backup does not advertise
-// PITR support. Restores without PITR options pass through untouched.
-func (h *validateHandler) validateRestorePITR(ctx context.Context, restore *backupv1alpha1.Restore) error {
+// validateRestoreBackupRef rejects restores whose source Backup does not
+// exist or has not reached the Succeeded state. When the restore also
+// requests point-in-time recovery, it additionally rejects the request if
+// the Backup's BackupClass does not advertise PITR support.
+func (h *validateHandler) validateRestoreBackupRef(ctx context.Context, restore *backupv1alpha1.Restore) error {
 	ds := restore.Spec.DataSource
-	if ds.Backup == nil || ds.Backup.PITR == nil {
+	if ds.Backup == nil {
 		return nil
 	}
 
-	backup, err := h.kubeConnector.GetBackup(ctx, ctrlclient.ObjectKey{
-		Namespace: restore.GetNamespace(),
-		Name:      ds.Backup.BackupRef.Name,
-	})
+	backup, err := backupvalidation.ResolveSucceededBackup(ctx, ds.Backup.BackupRef.Name,
+		func(ctx context.Context, name string) (*backupv1alpha1.Backup, error) {
+			return h.kubeConnector.GetBackup(ctx, ctrlclient.ObjectKey{Namespace: restore.GetNamespace(), Name: name})
+		})
 	if err != nil {
-		if k8serrors.IsNotFound(err) {
-			return fmt.Errorf("backup '%s' does not exist", ds.Backup.BackupRef.Name)
-		}
-		return fmt.Errorf("failed to get backup '%s': %w", ds.Backup.BackupRef.Name, err)
+		return err
 	}
 
-	bc, err := h.kubeConnector.GetBackupClass(ctx, ctrlclient.ObjectKey{Name: backup.Spec.ClassRef.Name})
-	if err != nil {
-		if k8serrors.IsNotFound(err) {
-			return fmt.Errorf("backup class '%s' does not exist", backup.Spec.ClassRef.Name)
-		}
-		return fmt.Errorf("failed to get backup class '%s': %w", backup.Spec.ClassRef.Name, err)
+	if ds.Backup.PITR == nil {
+		return nil
 	}
 
-	return controller.ValidateRestorePITR(restore, bc)
+	bc, err := backupvalidation.ResolveBackupClass(ctx, backup.Spec.ClassRef.Name,
+		func(ctx context.Context, name string) (*backupv1alpha1.BackupClass, error) {
+			return h.kubeConnector.GetBackupClass(ctx, ctrlclient.ObjectKey{Name: name})
+		})
+	if err != nil {
+		return err
+	}
+
+	return backupvalidation.ValidateRestorePITR(restore, bc)
 }
 
 // DeleteRestore deletes a restore by namespace and name.
