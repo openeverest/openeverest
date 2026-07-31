@@ -13,7 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package backup
+package restore
 
 import (
 	"encoding/json"
@@ -27,41 +27,48 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 
+	"github.com/openeverest/openeverest/v2/client"
 	"github.com/openeverest/openeverest/v2/pkg/cli/config"
 )
 
-type testBackup struct {
+type testRestore struct {
 	Metadata map[string]any `json:"metadata"`
 	Spec     struct {
 		InstanceRef struct {
 			Name string `json:"name"`
 		} `json:"instanceRef"`
-		StorageRef struct {
-			Name string `json:"name"`
-		} `json:"storageRef"`
-		ScheduleName string `json:"scheduleName,omitempty"`
+		DataSource struct {
+			Backup *struct {
+				BackupRef struct {
+					Name string `json:"name"`
+				} `json:"backupRef"`
+			} `json:"backup,omitempty"`
+		} `json:"dataSource"`
 	} `json:"spec"`
 	Status *struct {
 		State string `json:"state,omitempty"`
-		Size  string `json:"size,omitempty"`
 	} `json:"status,omitempty"`
 }
 
-func newTestBackup(name, namespace, instance, storage string, age time.Duration) testBackup {
-	tb := testBackup{
+func newTestRestore(name, namespace, instance, backup string, age time.Duration) testRestore {
+	tr := testRestore{
 		Metadata: map[string]any{
 			"name":              name,
 			"namespace":         namespace,
 			"creationTimestamp": time.Now().Add(-age).UTC().Format(time.RFC3339),
 		},
 	}
-	tb.Spec.InstanceRef.Name = instance
-	tb.Spec.StorageRef.Name = storage
-	tb.Status = &struct {
+	tr.Spec.InstanceRef.Name = instance
+	tr.Spec.DataSource.Backup = &struct {
+		BackupRef struct {
+			Name string `json:"name"`
+		} `json:"backupRef"`
+	}{}
+	tr.Spec.DataSource.Backup.BackupRef.Name = backup
+	tr.Status = &struct {
 		State string `json:"state,omitempty"`
-		Size  string `json:"size,omitempty"`
-	}{State: "Succeeded", Size: "128Mi"}
-	return tb
+	}{State: "Succeeded"}
+	return tr
 }
 
 func newTestConfig(serverURL string) *config.Config {
@@ -88,12 +95,12 @@ func newTestConfig(serverURL string) *config.Config {
 	}
 }
 
-func TestBackupList_HappyPath(t *testing.T) {
+func TestRestoreList_HappyPath(t *testing.T) {
 	t.Parallel()
 
-	items := []testBackup{
-		newTestBackup("my-mongo-20260721", "everest", "my-mongo", "s3-primary", 25*time.Hour),
-		newTestBackup("my-mongo-20260722", "everest", "my-mongo", "s3-primary", time.Hour),
+	items := []testRestore{
+		newTestRestore("my-mongo-restore-1", "everest", "my-mongo", "my-mongo-20260721", 25*time.Hour),
+		newTestRestore("my-mongo-restore-2", "everest", "my-mongo", "my-mongo-20260722", time.Hour),
 	}
 
 	var requestPath string
@@ -112,16 +119,16 @@ func TestBackupList_HappyPath(t *testing.T) {
 	runner := NewListRunner(Config{Pretty: true}, zap.NewNop().Sugar())
 	err := runner.Run(t.Context(), ListOptions{Cluster: "main", Namespace: "everest", Instance: "my-mongo"}, cfgPath)
 	require.NoError(t, err)
-	assert.Contains(t, requestPath, "/namespaces/everest/instances/my-mongo/backups")
+	assert.Contains(t, requestPath, "/namespaces/everest/instances/my-mongo/restores")
 }
 
-func TestBackupList_EmptyResult(t *testing.T) {
+func TestRestoreList_EmptyResult(t *testing.T) {
 	t.Parallel()
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		_ = json.NewEncoder(w).Encode(map[string]any{"items": []testBackup{}})
+		_ = json.NewEncoder(w).Encode(map[string]any{"items": []testRestore{}})
 	}))
 	defer srv.Close()
 
@@ -134,7 +141,7 @@ func TestBackupList_EmptyResult(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestBackupList_ServerError(t *testing.T) {
+func TestRestoreList_ServerError(t *testing.T) {
 	t.Parallel()
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
@@ -152,7 +159,7 @@ func TestBackupList_ServerError(t *testing.T) {
 	assert.Contains(t, err.Error(), "unexpected response")
 }
 
-func TestBackupList_NoActiveContext(t *testing.T) {
+func TestRestoreList_NoActiveContext(t *testing.T) {
 	t.Parallel()
 
 	cfg := &config.Config{
@@ -168,10 +175,10 @@ func TestBackupList_NoActiveContext(t *testing.T) {
 	assert.Contains(t, err.Error(), "no active context")
 }
 
-func TestBackupList_JSONOutput(t *testing.T) {
+func TestRestoreList_JSONOutput(t *testing.T) {
 	t.Parallel()
 
-	items := []testBackup{newTestBackup("my-mongo-20260722", "everest", "my-mongo", "s3-primary", time.Hour)}
+	items := []testRestore{newTestRestore("my-mongo-restore-1", "everest", "my-mongo", "my-mongo-20260722", time.Hour)}
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -188,4 +195,11 @@ func TestBackupList_JSONOutput(t *testing.T) {
 	runner := NewListRunner(Config{Pretty: false}, zap.NewNop().Sugar())
 	err := runner.Run(t.Context(), ListOptions{Cluster: "main", Namespace: "everest", Instance: "my-mongo"}, cfgPath)
 	require.NoError(t, err)
+}
+
+func TestRestoreBackup_NilDataSource(t *testing.T) {
+	t.Parallel()
+
+	var r client.Restore
+	assert.Equal(t, "-", restoreBackup(&r))
 }

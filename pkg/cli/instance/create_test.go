@@ -29,6 +29,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/openeverest/openeverest/v2/client"
 	"github.com/openeverest/openeverest/v2/pkg/cli"
@@ -46,7 +47,7 @@ func buildProvider(name string, versions []struct {
 	isDefault bool
 }, topologies map[string][]string,
 ) *client.Provider {
-	meta := map[string]any{"name": name}
+	meta := metav1.ObjectMeta{Name: name}
 
 	var vers []struct {
 		Components *map[string]string `json:"components,omitempty"`

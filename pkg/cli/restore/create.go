@@ -13,8 +13,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package backup provides CLI business logic for backup management.
-package backup
+// Package restore provides CLI business logic for restore management.
+package restore
 
 import (
 	"context"
@@ -33,27 +33,19 @@ import (
 	"github.com/openeverest/openeverest/v2/pkg/output"
 )
 
-// terminal backup states.
-const (
-	backupStateSucceeded = "Succeeded"
-	backupStateFailed    = "Failed"
-)
-
 // CreateOptions holds the inputs for the create command.
 type CreateOptions struct {
-	Instance       string
-	Namespace      string
-	Class          string
-	Storage        string
-	Name           string
-	DeletionPolicy string
-	Cluster        string
-	Context        string
-	Wait           bool
-	Timeout        time.Duration
+	Instance  string
+	Namespace string
+	Backup    string
+	Name      string
+	Cluster   string
+	Context   string
+	Wait      bool
+	Timeout   time.Duration
 }
 
-// CreateRunner creates an on-demand Backup via the Everest API.
+// CreateRunner creates a Restore via the Everest API.
 type CreateRunner struct {
 	config Config
 	l      *zap.SugaredLogger
@@ -61,16 +53,15 @@ type CreateRunner struct {
 
 // NewCreateRunner creates a new CreateRunner.
 func NewCreateRunner(cfg Config, l *zap.SugaredLogger) *CreateRunner {
-	cr := &CreateRunner{config: cfg, l: l.With("component", "backup-create")}
+	cr := &CreateRunner{config: cfg, l: l.With("component", "restore-create")}
 	if cfg.Pretty {
 		cr.l = zap.NewNop().Sugar()
 	}
 	return cr
 }
 
-// Run creates a Backup and, with opts.Wait, blocks until it reaches a
-// terminal state, opts.Timeout elapses (wait.ErrTimeout), or ctx is
-// cancelled (context.Canceled).
+// Run creates a Restore and, with opts.Wait, blocks until it reaches a
+// terminal state.
 func (cr *CreateRunner) Run(ctx context.Context, opts CreateOptions, cfgPath string) error {
 	c, err := authcli.NewAPIClient(authcli.Config{Pretty: cr.config.Pretty}, cr.l.Desugar().Sugar(), cfgPath, opts.Context)
 	if err != nil {
@@ -83,80 +74,80 @@ func (cr *CreateRunner) Run(ctx context.Context, opts CreateOptions, cfgPath str
 	} else {
 		md.GenerateName = opts.Instance + "-"
 	}
-	backup := client.Backup{Metadata: &md}
-	backup.Spec.InstanceRef.Name = opts.Instance
-	backup.Spec.ClassRef.Name = opts.Class
-	backup.Spec.StorageRef.Name = opts.Storage
-	if opts.DeletionPolicy != "" {
-		backup.Spec.DeletionPolicy = opts.DeletionPolicy
-	}
+	restore := client.Restore{Metadata: &md}
+	restore.Spec.InstanceRef.Name = opts.Instance
+	restore.Spec.DataSource.Type = client.RestoreSpecDataSourceTypeBackup
+	restore.Spec.DataSource.Backup = &struct {
+		BackupRef struct {
+			Name string `json:"name"`
+		} `json:"backupRef"`
+		Pitr *struct {
+			Date *time.Time `json:"date,omitempty"`
+			Type any        `json:"type"`
+		} `json:"pitr,omitempty"`
+	}{}
+	restore.Spec.DataSource.Backup.BackupRef.Name = opts.Backup
 
-	resp, err := c.CreateBackupWithResponse(ctx, opts.Cluster, opts.Namespace, backup)
+	resp, err := c.CreateRestoreWithResponse(ctx, opts.Cluster, opts.Namespace, restore)
 	if err != nil {
-		return fmt.Errorf("create backup request failed: %w", err)
+		return fmt.Errorf("create restore request failed: %w", err)
 	}
 
 	if resp.StatusCode() != http.StatusCreated || resp.JSON201 == nil {
 		if resp.StatusCode() == http.StatusConflict {
-			return fmt.Errorf("backup %q already exists in namespace %q", opts.Name, opts.Namespace)
+			return fmt.Errorf("restore %q already exists in namespace %q", opts.Name, opts.Namespace)
 		}
 		if resp.JSONDefault != nil && resp.JSONDefault.Message != nil {
 			return fmt.Errorf("server error: %s", *resp.JSONDefault.Message)
 		}
-		return fmt.Errorf("unexpected response creating backup: %s", resp.Status())
+		return fmt.Errorf("unexpected response creating restore: %s", resp.Status())
 	}
 
-	name := backupName(resp.JSON201)
-	cr.l.Infof("created backup %q for instance %q in namespace %q", name, opts.Instance, opts.Namespace)
+	name := restoreName(resp.JSON201)
+	cr.l.Infof("created restore %q for instance %q in namespace %q", name, opts.Instance, opts.Namespace)
 
 	if !opts.Wait {
 		return cr.emitCreated(resp.JSON201, name)
 	}
-	return cr.waitForBackup(ctx, c, resp.JSON201, opts, name)
+	return cr.waitForRestore(ctx, c, resp.JSON201, opts, name)
 }
 
 // emitCreated reports a non-waiting create: a success line in pretty mode, or
-// the created backup in JSON mode (so `create --json` is parseable either way).
-func (cr *CreateRunner) emitCreated(created *client.Backup, name string) error {
+// the created restore in JSON mode (so `create --json` is parseable either way).
+func (cr *CreateRunner) emitCreated(created *client.Restore, name string) error {
 	if cr.config.Pretty {
-		_, _ = fmt.Fprint(os.Stdout, output.Success("Backup %q created", name))
+		_, _ = fmt.Fprint(os.Stdout, output.Success("Restore %q created", name))
 		return nil
 	}
 	// A 201 with an unparseable body would otherwise emit empty stdout.
 	if created == nil {
-		return fmt.Errorf("backup %q was created but the server returned an unreadable response body", name)
+		return fmt.Errorf("restore %q was created but the server returned an unreadable response body", name)
 	}
-	return writeBackupJSON(created)
+	return writeRestoreJSON(created)
 }
 
-// waitForBackup blocks until the backup reaches a terminal state, streaming
+// waitForRestore blocks until the restore reaches a terminal state, streaming
 // progress in pretty mode. JSON mode emits one final object on success.
-func (cr *CreateRunner) waitForBackup(
-	ctx context.Context,
-	c *client.ClientWithResponses,
-	created *client.Backup,
-	opts CreateOptions,
-	name string,
-) error {
-	var latest *client.Backup
-	basePoll := newBackupPoll(c, opts.Cluster, opts.Namespace, name)
-	poll := func(ctx context.Context) (*client.Backup, error) {
-		b, err := basePoll(ctx)
+func (cr *CreateRunner) waitForRestore(ctx context.Context, c *client.ClientWithResponses, created *client.Restore, opts CreateOptions, name string) error {
+	var latest *client.Restore
+	basePoll := newRestorePoll(c, opts.Cluster, opts.Namespace, name)
+	poll := func(ctx context.Context) (*client.Restore, error) {
+		r, err := basePoll(ctx)
 		if err == nil {
-			latest = b
+			latest = r
 		}
-		return b, err
+		return r, err
 	}
 
 	var onUpdate func(string)
 	if cr.config.Pretty {
-		_, _ = fmt.Fprint(os.Stdout, output.Info("Backup %q created; waiting for it to complete...", name))
+		_, _ = fmt.Fprint(os.Stdout, output.Info("Restore %q created; waiting for it to complete...", name))
 		onUpdate = func(msg string) {
 			_, _ = fmt.Fprintf(os.Stdout, "  %s\n", msg)
 		}
 	}
 
-	if err := wait.Until(ctx, poll, backupCondition, wait.Options{
+	if err := wait.Until(ctx, poll, restoreCondition, wait.Options{
 		Timeout:  opts.Timeout,
 		OnUpdate: onUpdate,
 		OnRetry:  func(err error) { cr.l.Warnf("%v — retrying", err) },
@@ -170,18 +161,18 @@ func (cr *CreateRunner) waitForBackup(
 	}
 
 	if cr.config.Pretty {
-		_, _ = fmt.Fprint(os.Stdout, output.Success("Backup %q completed", name))
+		_, _ = fmt.Fprint(os.Stdout, output.Success("Restore %q completed", name))
 		return nil
 	}
-	return writeBackupJSON(final)
+	return writeRestoreJSON(final)
 }
 
-func writeBackupJSON(b *client.Backup) error {
-	if b == nil {
+func writeRestoreJSON(r *client.Restore) error {
+	if r == nil {
 		return nil
 	}
-	if err := json.NewEncoder(os.Stdout).Encode(b); err != nil {
-		return fmt.Errorf("failed to encode backup: %w", err)
+	if err := json.NewEncoder(os.Stdout).Encode(r); err != nil {
+		return fmt.Errorf("failed to encode restore: %w", err)
 	}
 	return nil
 }

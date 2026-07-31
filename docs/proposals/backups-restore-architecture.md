@@ -272,13 +272,17 @@ kind: Restore
 metadata:
   name: restore-from-backup-001
 spec:
-  instanceName: my-db
+  instanceRef:
+    name: my-db
   dataSource:
-    backupName: my-db-backup-2026-05-11
-    pitr: # optional, only if PITR restore
-      type: date
-      date: "2026-05-11T01:30:00Z"
-  config: {} # from UIGenerator restore section
+    type: Backup
+    backup:
+      backupRef:
+        name: my-db-backup-2026-05-11
+      pitr: # optional, only if PITR restore
+        type: date
+        date: "2026-05-11T01:30:00Z"
+  parameters: {} # from UIGenerator restore section
 status:
   state: Succeeded
 ```
@@ -360,7 +364,7 @@ Currently PSMDB provider's `SyncBackup()` ignores `Backup.spec.config`. Required
 | Function            | Current                                             | Required                                                              |
 | ------------------- | --------------------------------------------------- | --------------------------------------------------------------------- |
 | `SyncBackup()`      | Sets only `ClusterName`, `StorageName`              | Read `backup.Spec.Config` → set `psmdbBackup.Spec.Type`, compression  |
-| `SyncRestore()`     | Reads only PITR from `restore.Spec.DataSource.PITR` | Read `restore.Spec.Config` (future: selective restore params)         |
+| `SyncRestore()`     | Reads only PITR from `restore.Spec.DataSource.Backup.PITR` | Read `restore.Spec.Parameters` (future: selective restore params)         |
 | `buildBackupSpec()` | PITR = simple bool from `storage.PITR.Enabled`      | Read `storage.PITR.Config` → set `oplogSpanMin`, compression for PITR |
 | `BackupCustomSpec`  | Empty `struct{}`                                    | Not needed — config comes from Backup CR, not provider definition     |
 

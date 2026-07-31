@@ -450,15 +450,10 @@ func validateComponents(setFlags []string, prov *client.Provider, topology strin
 }
 
 func providerName(prov *client.Provider) string {
-	if prov.Metadata == nil {
+	if prov.Metadata == nil || prov.Metadata.Name == "" {
 		return "<unknown>"
 	}
-	if name, ok := (*prov.Metadata)["name"]; ok {
-		if s, ok := name.(string); ok {
-			return s
-		}
-	}
-	return "<unknown>"
+	return prov.Metadata.Name
 }
 
 // buildSpecOverrides merges -f file values and --set overrides; --set wins.

@@ -153,6 +153,25 @@ const (
 	// FlagBackupTimeout bounds how long --wait blocks for.
 	FlagBackupTimeout = "timeout"
 
+	// `restore` flags.
+
+	// FlagRestoreNamespace is the name of the namespace flag.
+	FlagRestoreNamespace = "namespace"
+	// FlagRestoreInstance is the name of the instance flag.
+	FlagRestoreInstance = "instance"
+	// FlagRestoreCluster is the name of the cluster flag.
+	FlagRestoreCluster = "cluster"
+	// FlagRestoreContext overrides the active context for this command.
+	FlagRestoreContext = "context"
+	// FlagRestoreBackup is the name of the source Backup flag.
+	FlagRestoreBackup = "backup"
+	// FlagRestoreName is the name of the restore name flag.
+	FlagRestoreName = "name"
+	// FlagRestoreWait blocks until the restore reaches a terminal state.
+	FlagRestoreWait = "wait"
+	// FlagRestoreTimeout bounds how long --wait blocks for.
+	FlagRestoreTimeout = "timeout"
+
 	// `backup-storage` flags.
 
 	// FlagBackupStorageNamespace is the name of the namespace flag.

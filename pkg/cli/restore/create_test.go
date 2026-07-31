@@ -13,7 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package backup
+package restore
 
 import (
 	"context"
@@ -39,32 +39,32 @@ func newConfigPath(t *testing.T, serverURL string) string {
 	return cfgPath
 }
 
-// backupWithState builds a Backup fixture via JSON (see backupFromJSON in
-// wait_test.go), so it stays valid across Backup schema changes instead of
+// restoreWithState builds a Restore fixture via JSON (see restoreFromJSON in
+// wait_test.go), so it stays valid across Restore schema changes instead of
 // hand-spelling the generated anonymous Status struct.
-func backupWithState(t *testing.T, name, state string) *client.Backup {
+func restoreWithState(t *testing.T, name, state string) *client.Restore {
 	t.Helper()
 	statusField := ""
 	if state != "" {
 		statusField = fmt.Sprintf(`,"status":{"state":%q}`, state)
 	}
 	body := fmt.Sprintf(
-		`{"metadata":{"name":%q,"namespace":"everest"},"spec":{"instanceRef":{"name":"my-mongo"},"classRef":{"name":"psmdb-backup"},"storageRef":{"name":"my-s3"}}%s}`,
+		`{"metadata":{"name":%q,"namespace":"everest"},"spec":{"instanceRef":{"name":"my-mongo"},"dataSource":{"type":"Backup","backup":{"backupRef":{"name":"pre-upgrade"}}}}%s}`,
 		name, statusField,
 	)
-	return backupFromJSON(t, body)
+	return restoreFromJSON(t, body)
 }
 
 func TestRun_HappyPath_GeneratesName(t *testing.T) {
 	t.Parallel()
 
-	var gotBody client.Backup
+	var gotBody client.Restore
 	mux := http.NewServeMux()
-	mux.HandleFunc("/v1/clusters/main/namespaces/everest/backups", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/v1/clusters/main/namespaces/everest/restores", func(w http.ResponseWriter, r *http.Request) {
 		assert.NoError(t, json.NewDecoder(r.Body).Decode(&gotBody))
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusCreated)
-		_ = json.NewEncoder(w).Encode(backupWithState(t, "my-mongo-abcde", ""))
+		_ = json.NewEncoder(w).Encode(restoreWithState(t, "my-mongo-abcde", ""))
 	})
 	srv := httptest.NewServer(mux)
 	defer srv.Close()
@@ -73,8 +73,7 @@ func TestRun_HappyPath_GeneratesName(t *testing.T) {
 	err := cr.Run(context.Background(), CreateOptions{
 		Instance:  "my-mongo",
 		Namespace: "everest",
-		Class:     "psmdb-backup",
-		Storage:   "my-s3",
+		Backup:    "pre-upgrade",
 		Cluster:   "main",
 	}, newConfigPath(t, srv.URL))
 
@@ -82,46 +81,45 @@ func TestRun_HappyPath_GeneratesName(t *testing.T) {
 	require.NotNil(t, gotBody.Metadata)
 	assert.Equal(t, "my-mongo-", gotBody.Metadata.GenerateName)
 	assert.Empty(t, gotBody.Metadata.Name)
-	assert.Equal(t, "psmdb-backup", gotBody.Spec.ClassRef.Name)
-	assert.Equal(t, "my-s3", gotBody.Spec.StorageRef.Name)
+	assert.Equal(t, "my-mongo", gotBody.Spec.InstanceRef.Name)
+	assert.Equal(t, client.RestoreSpecDataSourceTypeBackup, gotBody.Spec.DataSource.Type)
+	require.NotNil(t, gotBody.Spec.DataSource.Backup)
+	assert.Equal(t, "pre-upgrade", gotBody.Spec.DataSource.Backup.BackupRef.Name)
 }
 
 func TestRun_ExplicitName(t *testing.T) {
 	t.Parallel()
 
-	var gotBody client.Backup
+	var gotBody client.Restore
 	mux := http.NewServeMux()
-	mux.HandleFunc("/v1/clusters/main/namespaces/everest/backups", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/v1/clusters/main/namespaces/everest/restores", func(w http.ResponseWriter, r *http.Request) {
 		assert.NoError(t, json.NewDecoder(r.Body).Decode(&gotBody))
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusCreated)
-		_ = json.NewEncoder(w).Encode(backupWithState(t, "pre-upgrade", ""))
+		_ = json.NewEncoder(w).Encode(restoreWithState(t, "restore-from-backup", ""))
 	})
 	srv := httptest.NewServer(mux)
 	defer srv.Close()
 
 	cr := NewCreateRunner(Config{Pretty: true}, zap.NewNop().Sugar())
 	err := cr.Run(context.Background(), CreateOptions{
-		Instance:       "my-mongo",
-		Namespace:      "everest",
-		Class:          "psmdb-backup",
-		Storage:        "my-s3",
-		Name:           "pre-upgrade",
-		DeletionPolicy: "Retain",
-		Cluster:        "main",
+		Instance:  "my-mongo",
+		Namespace: "everest",
+		Backup:    "pre-upgrade",
+		Name:      "restore-from-backup",
+		Cluster:   "main",
 	}, newConfigPath(t, srv.URL))
 
 	require.NoError(t, err)
 	require.NotNil(t, gotBody.Metadata)
-	assert.Equal(t, "pre-upgrade", gotBody.Metadata.Name)
-	assert.Equal(t, "Retain", gotBody.Spec.DeletionPolicy)
+	assert.Equal(t, "restore-from-backup", gotBody.Metadata.Name)
 }
 
 func TestRun_Conflict_ReturnsFriendlyError(t *testing.T) {
 	t.Parallel()
 
 	mux := http.NewServeMux()
-	mux.HandleFunc("/v1/clusters/main/namespaces/everest/backups", func(w http.ResponseWriter, _ *http.Request) {
+	mux.HandleFunc("/v1/clusters/main/namespaces/everest/restores", func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusConflict)
 	})
 	srv := httptest.NewServer(mux)
@@ -131,14 +129,13 @@ func TestRun_Conflict_ReturnsFriendlyError(t *testing.T) {
 	err := cr.Run(context.Background(), CreateOptions{
 		Instance:  "my-mongo",
 		Namespace: "everest",
-		Class:     "psmdb-backup",
-		Storage:   "my-s3",
-		Name:      "pre-upgrade",
+		Backup:    "pre-upgrade",
+		Name:      "restore-from-backup",
 		Cluster:   "main",
 	}, newConfigPath(t, srv.URL))
 
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), `backup "pre-upgrade" already exists in namespace "everest"`)
+	assert.Contains(t, err.Error(), `restore "restore-from-backup" already exists in namespace "everest"`)
 }
 
 func TestRun_Wait_SucceedsOnTerminalState(t *testing.T) {
@@ -146,19 +143,19 @@ func TestRun_Wait_SucceedsOnTerminalState(t *testing.T) {
 
 	var getCalls int
 	mux := http.NewServeMux()
-	mux.HandleFunc("/v1/clusters/main/namespaces/everest/backups", func(w http.ResponseWriter, _ *http.Request) {
+	mux.HandleFunc("/v1/clusters/main/namespaces/everest/restores", func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusCreated)
-		_ = json.NewEncoder(w).Encode(backupWithState(t, "my-mongo-abcde", ""))
+		_ = json.NewEncoder(w).Encode(restoreWithState(t, "my-mongo-abcde", ""))
 	})
-	mux.HandleFunc("/v1/clusters/main/namespaces/everest/backups/my-mongo-abcde", func(w http.ResponseWriter, _ *http.Request) {
+	mux.HandleFunc("/v1/clusters/main/namespaces/everest/restores/my-mongo-abcde", func(w http.ResponseWriter, _ *http.Request) {
 		getCalls++
 		state := "Running"
 		if getCalls >= 2 {
 			state = "Succeeded"
 		}
 		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(backupWithState(t, "my-mongo-abcde", state))
+		_ = json.NewEncoder(w).Encode(restoreWithState(t, "my-mongo-abcde", state))
 	})
 	srv := httptest.NewServer(mux)
 	defer srv.Close()
@@ -167,8 +164,7 @@ func TestRun_Wait_SucceedsOnTerminalState(t *testing.T) {
 	err := cr.Run(context.Background(), CreateOptions{
 		Instance:  "my-mongo",
 		Namespace: "everest",
-		Class:     "psmdb-backup",
-		Storage:   "my-s3",
+		Backup:    "pre-upgrade",
 		Cluster:   "main",
 		Wait:      true,
 		Timeout:   10 * time.Second,
@@ -182,16 +178,17 @@ func TestRun_Wait_FailsOnFailedState(t *testing.T) {
 	t.Parallel()
 
 	mux := http.NewServeMux()
-	mux.HandleFunc("/v1/clusters/main/namespaces/everest/backups", func(w http.ResponseWriter, _ *http.Request) {
+	mux.HandleFunc("/v1/clusters/main/namespaces/everest/restores", func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusCreated)
-		_ = json.NewEncoder(w).Encode(backupWithState(t, "my-mongo-abcde", ""))
+		_ = json.NewEncoder(w).Encode(restoreWithState(t, "my-mongo-abcde", ""))
 	})
-	mux.HandleFunc("/v1/clusters/main/namespaces/everest/backups/my-mongo-abcde", func(w http.ResponseWriter, _ *http.Request) {
+	mux.HandleFunc("/v1/clusters/main/namespaces/everest/restores/my-mongo-abcde", func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		b := backupWithState(t, "my-mongo-abcde", "Failed")
-		b.Status.Message = new("engine returned a non-zero exit code")
-		_ = json.NewEncoder(w).Encode(b)
+		r := restoreWithState(t, "my-mongo-abcde", "Failed")
+		msg := "target instance rejected the restore payload"
+		r.Status.Message = &msg
+		_ = json.NewEncoder(w).Encode(r)
 	})
 	srv := httptest.NewServer(mux)
 	defer srv.Close()
@@ -200,15 +197,14 @@ func TestRun_Wait_FailsOnFailedState(t *testing.T) {
 	err := cr.Run(context.Background(), CreateOptions{
 		Instance:  "my-mongo",
 		Namespace: "everest",
-		Class:     "psmdb-backup",
-		Storage:   "my-s3",
+		Backup:    "pre-upgrade",
 		Cluster:   "main",
 		Wait:      true,
 		Timeout:   10 * time.Second,
 	}, newConfigPath(t, srv.URL))
 
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "engine returned a non-zero exit code")
+	assert.Contains(t, err.Error(), "target instance rejected the restore payload")
 }
 
 func TestRun_Wait_RetriesTransientFetchError(t *testing.T) {
@@ -218,19 +214,19 @@ func TestRun_Wait_RetriesTransientFetchError(t *testing.T) {
 	// must retry rather than fail on the transient status.
 	var getCalls int
 	mux := http.NewServeMux()
-	mux.HandleFunc("/v1/clusters/main/namespaces/everest/backups", func(w http.ResponseWriter, _ *http.Request) {
+	mux.HandleFunc("/v1/clusters/main/namespaces/everest/restores", func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusCreated)
-		_ = json.NewEncoder(w).Encode(backupWithState(t, "my-mongo-abcde", ""))
+		_ = json.NewEncoder(w).Encode(restoreWithState(t, "my-mongo-abcde", ""))
 	})
-	mux.HandleFunc("/v1/clusters/main/namespaces/everest/backups/my-mongo-abcde", func(w http.ResponseWriter, _ *http.Request) {
+	mux.HandleFunc("/v1/clusters/main/namespaces/everest/restores/my-mongo-abcde", func(w http.ResponseWriter, _ *http.Request) {
 		getCalls++
 		if getCalls == 1 {
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(backupWithState(t, "my-mongo-abcde", "Succeeded"))
+		_ = json.NewEncoder(w).Encode(restoreWithState(t, "my-mongo-abcde", "Succeeded"))
 	})
 	srv := httptest.NewServer(mux)
 	defer srv.Close()
@@ -239,8 +235,7 @@ func TestRun_Wait_RetriesTransientFetchError(t *testing.T) {
 	err := cr.Run(context.Background(), CreateOptions{
 		Instance:  "my-mongo",
 		Namespace: "everest",
-		Class:     "psmdb-backup",
-		Storage:   "my-s3",
+		Backup:    "pre-upgrade",
 		Cluster:   "main",
 		Wait:      true,
 		Timeout:   10 * time.Second,
@@ -255,7 +250,7 @@ func TestRun_JSONErrorsOnEmptyCreateBody(t *testing.T) {
 
 	// 201 with no parseable body must error rather than emit empty stdout.
 	mux := http.NewServeMux()
-	mux.HandleFunc("/v1/clusters/main/namespaces/everest/backups", func(w http.ResponseWriter, _ *http.Request) {
+	mux.HandleFunc("/v1/clusters/main/namespaces/everest/restores", func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusCreated)
 	})
 	srv := httptest.NewServer(mux)
@@ -265,27 +260,26 @@ func TestRun_JSONErrorsOnEmptyCreateBody(t *testing.T) {
 	err := cr.Run(context.Background(), CreateOptions{
 		Instance:  "my-mongo",
 		Namespace: "everest",
-		Class:     "psmdb-backup",
-		Storage:   "my-s3",
+		Backup:    "pre-upgrade",
 		Cluster:   "main",
 	}, newConfigPath(t, srv.URL))
 
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "unexpected response creating backup")
+	assert.Contains(t, err.Error(), "unexpected response creating restore")
 }
 
 func TestRun_Wait_TimesOut(t *testing.T) {
 	t.Parallel()
 
 	mux := http.NewServeMux()
-	mux.HandleFunc("/v1/clusters/main/namespaces/everest/backups", func(w http.ResponseWriter, _ *http.Request) {
+	mux.HandleFunc("/v1/clusters/main/namespaces/everest/restores", func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusCreated)
-		_ = json.NewEncoder(w).Encode(backupWithState(t, "my-mongo-abcde", ""))
+		_ = json.NewEncoder(w).Encode(restoreWithState(t, "my-mongo-abcde", ""))
 	})
-	mux.HandleFunc("/v1/clusters/main/namespaces/everest/backups/my-mongo-abcde", func(w http.ResponseWriter, _ *http.Request) {
+	mux.HandleFunc("/v1/clusters/main/namespaces/everest/restores/my-mongo-abcde", func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(backupWithState(t, "my-mongo-abcde", "Running"))
+		_ = json.NewEncoder(w).Encode(restoreWithState(t, "my-mongo-abcde", "Running"))
 	})
 	srv := httptest.NewServer(mux)
 	defer srv.Close()
@@ -294,8 +288,7 @@ func TestRun_Wait_TimesOut(t *testing.T) {
 	err := cr.Run(context.Background(), CreateOptions{
 		Instance:  "my-mongo",
 		Namespace: "everest",
-		Class:     "psmdb-backup",
-		Storage:   "my-s3",
+		Backup:    "pre-upgrade",
 		Cluster:   "main",
 		Wait:      true,
 		Timeout:   3 * time.Second,
