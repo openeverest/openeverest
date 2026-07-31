@@ -1,4 +1,14 @@
 ---
+# Minor and patch bumps are grouped into a single PR per ecosystem/directory so
+# that merging one update does not invalidate a dozen sibling PRs: branch
+# protection dismisses approvals on push, and Dependabot rebases whenever the
+# base branch moves, so ungrouped PRs repeatedly dismiss each other's reviews.
+# Major bumps are deliberately left ungrouped so they can be reviewed and
+# accepted or rejected individually.
+#
+# Group names are suffixed per target branch because they appear in the branch
+# name Dependabot creates, and the v1 and v2 configs otherwise differ only by
+# target-branch.
 version: 2
 updates:
   # ============================================================================
@@ -13,6 +23,16 @@ updates:
       - "dependencies"
       - "go"
     target-branch: "main"
+    groups:
+      go:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
+    cooldown:
+      default-days: 3
+      semver-major-days: 14
   - package-ecosystem: "gomod"
     directory: "/tools"
     schedule:
@@ -21,6 +41,16 @@ updates:
       - "dependencies"
       - "go"
     target-branch: "main"
+    groups:
+      go-tools:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
+    cooldown:
+      default-days: 3
+      semver-major-days: 14
   - package-ecosystem: "docker"
     directory: "/"
     schedule:
@@ -29,6 +59,13 @@ updates:
       - "dependencies"
       - "docker"
     target-branch: "main"
+    groups:
+      docker:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
   - package-ecosystem: "docker"
     directory: "/dev"
     schedule:
@@ -37,6 +74,17 @@ updates:
       - "dependencies"
       - "docker"
     target-branch: "main"
+    groups:
+      docker-dev:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
+  # GitHub Actions bumps warrant closer review than the rest: CI does not
+  # exercise the release workflows, so a breaking change there is only caught by
+  # reading release notes. Grouped so a single review covers the weekly batch,
+  # with a longer cooldown so freshly-yanked releases never reach us.
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
@@ -45,6 +93,16 @@ updates:
       - "dependencies"
       - "github_actions"
     target-branch: "main"
+    groups:
+      github-actions:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
+    cooldown:
+      default-days: 7
+      semver-major-days: 14
   - package-ecosystem: "npm"
     directory: "/api-tests"
     schedule:
@@ -53,6 +111,16 @@ updates:
       - "dependencies"
       - "javascript"
     target-branch: "main"
+    groups:
+      api-tests:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
+    cooldown:
+      default-days: 3
+      semver-major-days: 14
   - package-ecosystem: "npm"
     directory: "/ui"
     schedule:
@@ -61,6 +129,16 @@ updates:
       - "dependencies"
       - "javascript"
     target-branch: "main"
+    groups:
+      ui:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
+    cooldown:
+      default-days: 3
+      semver-major-days: 14
   - package-ecosystem: "npm"
     directory: "/cli-tests"
     schedule:
@@ -69,6 +147,17 @@ updates:
       - "dependencies"
       - "javascript"
     target-branch: "main"
+    groups:
+      cli-tests:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
+    cooldown:
+      default-days: 3
+      semver-major-days: 14
+
   # ============================================================================
   # v2: release-2.0 branch (next major version)
   # ============================================================================
@@ -81,6 +170,16 @@ updates:
       - "dependencies"
       - "go"
     target-branch: "release-2.0"
+    groups:
+      go-v2:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
+    cooldown:
+      default-days: 3
+      semver-major-days: 14
   - package-ecosystem: "gomod"
     directory: "/tools"
     schedule:
@@ -89,6 +188,16 @@ updates:
       - "dependencies"
       - "go"
     target-branch: "release-2.0"
+    groups:
+      go-tools-v2:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
+    cooldown:
+      default-days: 3
+      semver-major-days: 14
   - package-ecosystem: "docker"
     directory: "/"
     schedule:
@@ -97,6 +206,13 @@ updates:
       - "dependencies"
       - "docker"
     target-branch: "release-2.0"
+    groups:
+      docker-v2:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
   - package-ecosystem: "docker"
     directory: "/dev"
     schedule:
@@ -105,6 +221,13 @@ updates:
       - "dependencies"
       - "docker"
     target-branch: "release-2.0"
+    groups:
+      docker-dev-v2:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
@@ -113,6 +236,16 @@ updates:
       - "dependencies"
       - "github_actions"
     target-branch: "release-2.0"
+    groups:
+      github-actions-v2:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
+    cooldown:
+      default-days: 7
+      semver-major-days: 14
   - package-ecosystem: "npm"
     directory: "/api-tests"
     schedule:
@@ -121,6 +254,16 @@ updates:
       - "dependencies"
       - "javascript"
     target-branch: "release-2.0"
+    groups:
+      api-tests-v2:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
+    cooldown:
+      default-days: 3
+      semver-major-days: 14
   - package-ecosystem: "npm"
     directory: "/ui"
     schedule:
@@ -129,6 +272,16 @@ updates:
       - "dependencies"
       - "javascript"
     target-branch: "release-2.0"
+    groups:
+      ui-v2:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
+    cooldown:
+      default-days: 3
+      semver-major-days: 14
   - package-ecosystem: "npm"
     directory: "/cli-tests"
     schedule:
@@ -137,3 +290,13 @@ updates:
       - "dependencies"
       - "javascript"
     target-branch: "release-2.0"
+    groups:
+      cli-tests-v2:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
+    cooldown:
+      default-days: 3
+      semver-major-days: 14
