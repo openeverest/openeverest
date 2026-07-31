@@ -16,6 +16,7 @@ package validation
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"github.com/stretchr/testify/mock"
@@ -25,9 +26,11 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 
 	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
 	common "github.com/openeverest/openeverest/v2/api/common/v1alpha1"
+	corev1alpha1 "github.com/openeverest/openeverest/v2/api/core/v1alpha1"
 	"github.com/openeverest/openeverest/v2/internal/server/handlers"
 	"github.com/openeverest/openeverest/v2/pkg/kubernetes"
 )
@@ -38,10 +41,15 @@ func TestCreateRestore_Validation(t *testing.T) {
 	ctx := context.Background()
 	namespace := "test-namespace"
 
+	instance := &corev1alpha1.Instance{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-instance", Namespace: namespace},
+		Spec:       corev1alpha1.InstanceSpec{ProviderRef: common.ObjectRef{Name: "test-provider"}},
+	}
 	pitrClass := &backupv1alpha1.BackupClass{
 		ObjectMeta: metav1.ObjectMeta{Name: "pitr-class"},
 		Spec: backupv1alpha1.BackupClassSpec{
-			ExecutionMode: backupv1alpha1.BackupExecutionModeProviderManaged,
+			ExecutionMode:      backupv1alpha1.BackupExecutionModeProviderManaged,
+			SupportedProviders: backupv1alpha1.ProviderNameList{"test-provider"},
 			ProviderManaged: &backupv1alpha1.ProviderManagedSpec{
 				SupportsPITR: true,
 			},
@@ -50,9 +58,20 @@ func TestCreateRestore_Validation(t *testing.T) {
 	noPitrClass := &backupv1alpha1.BackupClass{
 		ObjectMeta: metav1.ObjectMeta{Name: "no-pitr-class"},
 		Spec: backupv1alpha1.BackupClassSpec{
-			ExecutionMode: backupv1alpha1.BackupExecutionModeProviderManaged,
+			ExecutionMode:      backupv1alpha1.BackupExecutionModeProviderManaged,
+			SupportedProviders: backupv1alpha1.ProviderNameList{"test-provider"},
 			ProviderManaged: &backupv1alpha1.ProviderManagedSpec{
 				SupportsPITR: false,
+			},
+		},
+	}
+	unsupportedProviderClass := &backupv1alpha1.BackupClass{
+		ObjectMeta: metav1.ObjectMeta{Name: "unsupported-provider-class"},
+		Spec: backupv1alpha1.BackupClassSpec{
+			ExecutionMode:      backupv1alpha1.BackupExecutionModeProviderManaged,
+			SupportedProviders: backupv1alpha1.ProviderNameList{"other-provider"},
+			ProviderManaged: &backupv1alpha1.ProviderManagedSpec{
+				SupportsPITR: true,
 			},
 		},
 	}
@@ -66,6 +85,11 @@ func TestCreateRestore_Validation(t *testing.T) {
 		Spec:       backupv1alpha1.BackupSpec{ClassRef: common.ObjectRef{Name: "no-pitr-class"}},
 		Status:     backupv1alpha1.BackupStatus{State: backupv1alpha1.BackupStateSucceeded},
 	}
+	succeededBackupUnsupportedProvider := &backupv1alpha1.Backup{
+		ObjectMeta: metav1.ObjectMeta{Name: "succeeded-backup-unsupported-provider", Namespace: namespace},
+		Spec:       backupv1alpha1.BackupSpec{ClassRef: common.ObjectRef{Name: "unsupported-provider-class"}},
+		Status:     backupv1alpha1.BackupStatus{State: backupv1alpha1.BackupStateSucceeded},
+	}
 	runningBackup := &backupv1alpha1.Backup{
 		ObjectMeta: metav1.ObjectMeta{Name: "running-backup", Namespace: namespace},
 		Spec:       backupv1alpha1.BackupSpec{ClassRef: common.ObjectRef{Name: "pitr-class"}},
@@ -74,11 +98,13 @@ func TestCreateRestore_Validation(t *testing.T) {
 
 	scheme := runtime.NewScheme()
 	require.NoError(t, backupv1alpha1.AddToScheme(scheme))
+	require.NoError(t, corev1alpha1.AddToScheme(scheme))
 
 	newRestore := func(backupName string, pitr *backupv1alpha1.DataSourcePITR) *backupv1alpha1.Restore {
 		return &backupv1alpha1.Restore{
 			ObjectMeta: metav1.ObjectMeta{Name: "test-restore", Namespace: namespace},
 			Spec: backupv1alpha1.RestoreSpec{
+				InstanceRef: common.ObjectRef{Name: "test-instance"},
 				DataSource: backupv1alpha1.DataSource{
 					Type: backupv1alpha1.DataSourceTypeBackup,
 					Backup: &backupv1alpha1.DataSourceBackup{
@@ -90,40 +116,64 @@ func TestCreateRestore_Validation(t *testing.T) {
 		}
 	}
 
+	errServerUnavailable := errors.New("server unavailable")
+
 	tests := []struct {
-		name    string
-		restore *backupv1alpha1.Restore
-		objects []ctrlclient.Object
-		err     string
+		name       string
+		restore    *backupv1alpha1.Restore
+		objects    []ctrlclient.Object
+		err        string
+		getErrName string // if set, a Get for an object with this name fails with getErr instead of hitting the fake client
+		getErr     error
 	}{
 		{
 			name:    "missing backup fails",
 			restore: newRestore("missing-backup", nil),
 			objects: nil,
-			err:     "backup 'missing-backup' does not exist",
+			err:     "backup not found: 'missing-backup' in namespace 'test-namespace'",
 		},
 		{
 			name:    "backup not succeeded fails",
 			restore: newRestore("running-backup", nil),
 			objects: []ctrlclient.Object{runningBackup},
-			err:     "backup 'running-backup' is in state 'Running', must be 'Succeeded' to restore from it",
+			err:     "backup not succeeded: 'running-backup' is in state 'Running'",
+		},
+		{
+			name:       "backup lookup server error fails",
+			restore:    newRestore("server-error-backup", nil),
+			objects:    nil,
+			err:        "failed to get backup 'server-error-backup'",
+			getErrName: "server-error-backup",
+			getErr:     errServerUnavailable,
 		},
 		{
 			name:    "succeeded backup, no PITR, passes",
 			restore: newRestore("succeeded-backup-no-pitr", nil),
-			objects: []ctrlclient.Object{succeededBackupNoPitr},
+			objects: []ctrlclient.Object{succeededBackupNoPitr, noPitrClass, instance},
 			err:     "",
+		},
+		{
+			name:    "missing instance fails",
+			restore: newRestore("succeeded-backup-no-pitr", nil),
+			objects: []ctrlclient.Object{succeededBackupNoPitr, noPitrClass},
+			err:     "instance 'test-instance' does not exist",
+		},
+		{
+			name:    "class does not support instance's provider fails",
+			restore: newRestore("succeeded-backup-unsupported-provider", nil),
+			objects: []ctrlclient.Object{succeededBackupUnsupportedProvider, unsupportedProviderClass, instance},
+			err:     "provider not supported by backup class: class 'unsupported-provider-class', provider 'test-provider'",
 		},
 		{
 			name:    "succeeded backup, PITR requested, class does not support PITR fails",
 			restore: newRestore("succeeded-backup-no-pitr", &backupv1alpha1.DataSourcePITR{Type: backupv1alpha1.PITRTypeLatest}),
-			objects: []ctrlclient.Object{succeededBackupNoPitr, noPitrClass},
+			objects: []ctrlclient.Object{succeededBackupNoPitr, noPitrClass, instance},
 			err:     "point-in-time recovery is not supported",
 		},
 		{
 			name:    "succeeded backup, PITR requested, class supports PITR passes",
 			restore: newRestore("succeeded-backup", &backupv1alpha1.DataSourcePITR{Type: backupv1alpha1.PITRTypeLatest}),
-			objects: []ctrlclient.Object{succeededBackup, pitrClass},
+			objects: []ctrlclient.Object{succeededBackup, pitrClass, instance},
 			err:     "",
 		},
 	}
@@ -138,7 +188,18 @@ func TestCreateRestore_Validation(t *testing.T) {
 			for i, obj := range tt.objects {
 				objs[i] = obj.DeepCopyObject().(ctrlclient.Object) //nolint:forcetypeassert
 			}
-			fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(objs...).Build()
+			builder := fake.NewClientBuilder().WithScheme(scheme).WithObjects(objs...)
+			if tt.getErr != nil {
+				builder = builder.WithInterceptorFuncs(interceptor.Funcs{
+					Get: func(ctx context.Context, c ctrlclient.WithWatch, key ctrlclient.ObjectKey, obj ctrlclient.Object, opts ...ctrlclient.GetOption) error {
+						if key.Name == tt.getErrName {
+							return tt.getErr
+						}
+						return c.Get(ctx, key, obj, opts...)
+					},
+				})
+			}
+			fakeClient := builder.Build()
 			kubeConnector := kubernetes.NewEmpty(zap.NewNop().Sugar(), namespace).WithKubernetesClient(fakeClient)
 
 			mockNext := &handlers.MockHandler{}
@@ -156,6 +217,11 @@ func TestCreateRestore_Validation(t *testing.T) {
 				return
 			}
 			require.ErrorContains(t, err, tt.err)
+			require.ErrorIs(t, err, ErrInvalidRequest)
+			if tt.getErr != nil {
+				require.ErrorIs(t, err, tt.getErr)
+			}
+			mockNext.AssertNotCalled(t, "CreateRestore", mock.Anything, mock.Anything)
 		})
 	}
 }

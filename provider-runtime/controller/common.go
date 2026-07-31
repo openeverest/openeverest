@@ -32,7 +32,6 @@ import (
 	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
 	apicommon "github.com/openeverest/openeverest/v2/api/common/v1alpha1"
 	"github.com/openeverest/openeverest/v2/api/core/v1alpha1"
-	backupvalidation "github.com/openeverest/openeverest/v2/provider-runtime/controller/backup"
 )
 
 // =============================================================================
@@ -862,15 +861,9 @@ func (c *Context) ReconcileDataSource() (DataSourceStatus, error) {
 
 	// 1. Source Backup must exist and be Succeeded.
 	backupName := ds.Backup.BackupRef.Name
-	src, err := backupvalidation.ResolveSucceededBackup(c.ctx, backupName,
-		func(_ context.Context, name string) (*backupv1alpha1.Backup, error) {
-			b := &backupv1alpha1.Backup{}
-			err := c.Get(b, name)
-			return b, err
-		})
-	if err != nil {
-		switch {
-		case errors.Is(err, backupvalidation.ErrBackupNotFound):
+	src := &backupv1alpha1.Backup{}
+	if err := c.Get(src, backupName); err != nil {
+		if apierrors.IsNotFound(err) {
 			s := DataSourceStatus{
 				Done:    false,
 				State:   DataSourceStateWaiting,
@@ -879,30 +872,25 @@ func (c *Context) ReconcileDataSource() (DataSourceStatus, error) {
 			}
 			c.SetDataSourceStatus(s)
 			return s, nil
-		case errors.Is(err, backupvalidation.ErrBackupNotSucceeded):
-			s := DataSourceStatus{
-				Done:    false,
-				State:   DataSourceStateWaiting,
-				Reason:  v1alpha1.ReasonDataSourceSourceBackupNotSucceeded,
-				Message: fmt.Sprintf("source Backup %q is in state %q, waiting for Succeeded", backupName, src.Status.State),
-			}
-			c.SetDataSourceStatus(s)
-			return s, nil
-		default:
-			return DataSourceStatus{}, fmt.Errorf("get source Backup %q: %w", backupName, err)
 		}
+		return DataSourceStatus{}, fmt.Errorf("get source Backup %q: %w", backupName, err)
+	}
+	if err := ValidateBackupSucceeded(src); err != nil {
+		s := DataSourceStatus{
+			Done:    false,
+			State:   DataSourceStateWaiting,
+			Reason:  v1alpha1.ReasonDataSourceSourceBackupNotSucceeded,
+			Message: fmt.Sprintf("source Backup %q is in state %q, waiting for Succeeded", backupName, src.Status.State),
+		}
+		c.SetDataSourceStatus(s)
+		return s, nil
 	}
 
 	// 2. The source Backup's BackupClass must be ProviderManaged and support
 	// this Instance's provider.
-	bc, err := backupvalidation.ResolveBackupClass(c.ctx, src.Spec.ClassRef.Name,
-		func(_ context.Context, name string) (*backupv1alpha1.BackupClass, error) {
-			cls := &backupv1alpha1.BackupClass{}
-			err := c.client.Get(c.ctx, client.ObjectKey{Name: name}, cls)
-			return cls, err
-		})
+	bc, err := c.BackupClass(src.Spec.ClassRef.Name)
 	if err != nil {
-		if errors.Is(err, backupvalidation.ErrBackupClassNotFound) {
+		if apierrors.IsNotFound(err) {
 			s := DataSourceStatus{
 				Done:    false,
 				State:   DataSourceStateWaiting,
@@ -924,7 +912,7 @@ func (c *Context) ReconcileDataSource() (DataSourceStatus, error) {
 		c.SetDataSourceStatus(s)
 		return s, nil
 	}
-	if err := backupvalidation.ValidateClassSupportsProvider(bc, c.providerName); err != nil {
+	if err := ValidateClassSupportsProvider(bc, c.providerName); err != nil {
 		s := DataSourceStatus{
 			Done:    true,
 			State:   DataSourceStateFailed,

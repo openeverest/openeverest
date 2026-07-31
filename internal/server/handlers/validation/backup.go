@@ -25,7 +25,7 @@ import (
 
 	"github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
 	api "github.com/openeverest/openeverest/v2/internal/server/api"
-	backupvalidation "github.com/openeverest/openeverest/v2/provider-runtime/controller/backup"
+	"github.com/openeverest/openeverest/v2/provider-runtime/controller"
 )
 
 // GetBackup proxies the request to the next handler.
@@ -66,15 +66,15 @@ func (h *validateHandler) validateBackupRefs(ctx context.Context, backup *v1alph
 		return fmt.Errorf("failed to get backup storage '%s': %w", backup.Spec.StorageRef.Name, err)
 	}
 
-	bc, err := backupvalidation.ResolveBackupClass(ctx, backup.Spec.ClassRef.Name,
-		func(ctx context.Context, name string) (*v1alpha1.BackupClass, error) {
-			return h.kubeConnector.GetBackupClass(ctx, ctrlclient.ObjectKey{Name: name})
-		})
+	bc, err := h.kubeConnector.GetBackupClass(ctx, ctrlclient.ObjectKey{Name: backup.Spec.ClassRef.Name})
 	if err != nil {
-		return err
+		if k8serrors.IsNotFound(err) {
+			return fmt.Errorf("%w: '%s'", controller.ErrBackupClassNotFound, backup.Spec.ClassRef.Name)
+		}
+		return fmt.Errorf("failed to get backup class '%s': %w", backup.Spec.ClassRef.Name, err)
 	}
 
-	return backupvalidation.ValidateClassSupportsProvider(bc, instance.Spec.ProviderRef.Name)
+	return controller.ValidateClassSupportsProvider(bc, instance.Spec.ProviderRef.Name)
 }
 
 // DeleteBackup proxies the request to the next handler.

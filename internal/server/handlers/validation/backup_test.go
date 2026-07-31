@@ -16,6 +16,7 @@ package validation
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"github.com/stretchr/testify/mock"
@@ -25,6 +26,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 
 	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
 	common "github.com/openeverest/openeverest/v2/api/common/v1alpha1"
@@ -66,11 +68,15 @@ func TestCreateBackup_Validation(t *testing.T) {
 	require.NoError(t, backupv1alpha1.AddToScheme(scheme))
 	require.NoError(t, corev1alpha1.AddToScheme(scheme))
 
+	errServerUnavailable := errors.New("server unavailable")
+
 	tests := []struct {
-		name    string
-		backup  *backupv1alpha1.Backup
-		objects []ctrlclient.Object
-		err     string
+		name       string
+		backup     *backupv1alpha1.Backup
+		objects    []ctrlclient.Object
+		err        string
+		getErrName string // if set, a Get for an object with this name fails with getErr instead of hitting the fake client
+		getErr     error
 	}{
 		{
 			name: "instance not found fails",
@@ -109,7 +115,7 @@ func TestCreateBackup_Validation(t *testing.T) {
 				},
 			},
 			objects: []ctrlclient.Object{instance, storage},
-			err:     "backup class 'missing-class' does not exist",
+			err:     "backup class not found: 'missing-class'",
 		},
 		{
 			name: "class not supporting provider fails",
@@ -122,7 +128,22 @@ func TestCreateBackup_Validation(t *testing.T) {
 				},
 			},
 			objects: []ctrlclient.Object{instance, storage, unsupportedClass},
-			err:     "backup class 'unsupported-class' does not support provider 'test-provider'",
+			err:     "provider not supported by backup class: class 'unsupported-class', provider 'test-provider'",
+		},
+		{
+			name: "instance lookup server error fails",
+			backup: &backupv1alpha1.Backup{
+				ObjectMeta: metav1.ObjectMeta{Name: "b6", Namespace: namespace},
+				Spec: backupv1alpha1.BackupSpec{
+					InstanceRef: common.ObjectRef{Name: "server-error-instance"},
+					StorageRef:  common.ObjectRef{Name: "test-storage"},
+					ClassRef:    common.ObjectRef{Name: "supported-class"},
+				},
+			},
+			objects:    []ctrlclient.Object{storage, supportedClass},
+			err:        "failed to get instance 'server-error-instance'",
+			getErrName: "server-error-instance",
+			getErr:     errServerUnavailable,
 		},
 		{
 			name: "valid refs pass",
@@ -149,7 +170,18 @@ func TestCreateBackup_Validation(t *testing.T) {
 			for i, obj := range tt.objects {
 				objs[i] = obj.DeepCopyObject().(ctrlclient.Object) //nolint:forcetypeassert
 			}
-			fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(objs...).Build()
+			builder := fake.NewClientBuilder().WithScheme(scheme).WithObjects(objs...)
+			if tt.getErr != nil {
+				builder = builder.WithInterceptorFuncs(interceptor.Funcs{
+					Get: func(ctx context.Context, c ctrlclient.WithWatch, key ctrlclient.ObjectKey, obj ctrlclient.Object, opts ...ctrlclient.GetOption) error {
+						if key.Name == tt.getErrName {
+							return tt.getErr
+						}
+						return c.Get(ctx, key, obj, opts...)
+					},
+				})
+			}
+			fakeClient := builder.Build()
 			kubeConnector := kubernetes.NewEmpty(zap.NewNop().Sugar(), namespace).WithKubernetesClient(fakeClient)
 
 			mockNext := &handlers.MockHandler{}
@@ -167,6 +199,11 @@ func TestCreateBackup_Validation(t *testing.T) {
 				return
 			}
 			require.ErrorContains(t, err, tt.err)
+			require.ErrorIs(t, err, ErrInvalidRequest)
+			if tt.getErr != nil {
+				require.ErrorIs(t, err, tt.getErr)
+			}
+			mockNext.AssertNotCalled(t, "CreateBackup", mock.Anything, mock.Anything, mock.Anything)
 		})
 	}
 }

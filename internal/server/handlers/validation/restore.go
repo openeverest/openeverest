@@ -17,11 +17,13 @@ package validation
 import (
 	"context"
 	"errors"
+	"fmt"
 
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
-	backupvalidation "github.com/openeverest/openeverest/v2/provider-runtime/controller/backup"
+	"github.com/openeverest/openeverest/v2/provider-runtime/controller"
 )
 
 // GetRestore returns a specific restore by namespace and name.
@@ -38,20 +40,50 @@ func (h *validateHandler) CreateRestore(ctx context.Context, restore *backupv1al
 }
 
 // validateRestoreBackupRef rejects restores whose source Backup does not
-// exist or has not reached the Succeeded state. When the restore also
-// requests point-in-time recovery, it additionally rejects the request if
-// the Backup's BackupClass does not advertise PITR support.
+// exist or has not reached the Succeeded state, whose target Instance does
+// not exist, or whose Backup's BackupClass does not support the target
+// Instance's provider. When the restore also requests point-in-time
+// recovery, it additionally rejects the request if the BackupClass does not
+// advertise PITR support.
 func (h *validateHandler) validateRestoreBackupRef(ctx context.Context, restore *backupv1alpha1.Restore) error {
 	ds := restore.Spec.DataSource
 	if ds.Backup == nil {
 		return nil
 	}
 
-	backup, err := backupvalidation.ResolveSucceededBackup(ctx, ds.Backup.BackupRef.Name,
-		func(ctx context.Context, name string) (*backupv1alpha1.Backup, error) {
-			return h.kubeConnector.GetBackup(ctx, ctrlclient.ObjectKey{Namespace: restore.GetNamespace(), Name: name})
-		})
+	backup, err := h.kubeConnector.GetBackup(ctx, ctrlclient.ObjectKey{
+		Namespace: restore.GetNamespace(),
+		Name:      ds.Backup.BackupRef.Name,
+	})
 	if err != nil {
+		if k8serrors.IsNotFound(err) {
+			return fmt.Errorf("%w: '%s' in namespace '%s'", controller.ErrBackupNotFound, ds.Backup.BackupRef.Name, restore.GetNamespace())
+		}
+		return fmt.Errorf("failed to get backup '%s': %w", ds.Backup.BackupRef.Name, err)
+	}
+	if err := controller.ValidateBackupSucceeded(backup); err != nil {
+		return err
+	}
+
+	instance, err := h.kubeConnector.GetInstance(ctx, ctrlclient.ObjectKey{
+		Namespace: restore.GetNamespace(),
+		Name:      restore.Spec.InstanceRef.Name,
+	})
+	if err != nil {
+		if k8serrors.IsNotFound(err) {
+			return fmt.Errorf("instance '%s' does not exist", restore.Spec.InstanceRef.Name)
+		}
+		return fmt.Errorf("failed to get instance '%s': %w", restore.Spec.InstanceRef.Name, err)
+	}
+
+	bc, err := h.kubeConnector.GetBackupClass(ctx, ctrlclient.ObjectKey{Name: backup.Spec.ClassRef.Name})
+	if err != nil {
+		if k8serrors.IsNotFound(err) {
+			return fmt.Errorf("%w: '%s'", controller.ErrBackupClassNotFound, backup.Spec.ClassRef.Name)
+		}
+		return fmt.Errorf("failed to get backup class '%s': %w", backup.Spec.ClassRef.Name, err)
+	}
+	if err := controller.ValidateClassSupportsProvider(bc, instance.Spec.ProviderRef.Name); err != nil {
 		return err
 	}
 
@@ -59,15 +91,7 @@ func (h *validateHandler) validateRestoreBackupRef(ctx context.Context, restore 
 		return nil
 	}
 
-	bc, err := backupvalidation.ResolveBackupClass(ctx, backup.Spec.ClassRef.Name,
-		func(ctx context.Context, name string) (*backupv1alpha1.BackupClass, error) {
-			return h.kubeConnector.GetBackupClass(ctx, ctrlclient.ObjectKey{Name: name})
-		})
-	if err != nil {
-		return err
-	}
-
-	return backupvalidation.ValidateRestorePITR(restore, bc)
+	return controller.ValidateRestorePITR(restore, bc)
 }
 
 // DeleteRestore deletes a restore by namespace and name.
