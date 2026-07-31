@@ -120,7 +120,7 @@ func (k *Kubernetes) getEKSVolumeCount(node corev1.Node) (uint64, error) {
 	}
 	// ... however, if the node type is one of M5, C5, R5, T3, Z1D it's 25.
 	limitedVolumesSet := map[string]struct{}{
-		"m5": {}, "c5": {}, "r5": {}, "t3": {}, "t1d": {},
+		"m5": {}, "c5": {}, "r5": {}, "t3": {}, "z1d": {},
 	}
 	if _, ok := limitedVolumesSet[typeAndSize[0]]; ok {
 		volumeLimitPerNode = 25
