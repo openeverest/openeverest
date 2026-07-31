@@ -65,8 +65,8 @@ func TestGetEKSVolumeCount(t *testing.T) {
 			wantErrMsg: "beta.kubernetes.io/instance-type",
 		},
 		{
-			name: "invalid instance type format",
-			node: eksNode("invalid", corev1.ConditionFalse),
+			name:       "invalid instance type format",
+			node:       eksNode("invalid", corev1.ConditionFalse),
 			wantErrMsg: "failed to parse EKS node type",
 		},
 	}
