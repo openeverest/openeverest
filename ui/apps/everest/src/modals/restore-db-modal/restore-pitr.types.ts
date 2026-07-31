@@ -12,30 +12,20 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { PitrWindow } from './restore-pitr.types';
+import { Instance } from 'shared-types/api.types';
 
-export interface RestoreDbModalProps {
-  isOpen: boolean;
-  closeModal: () => void;
-  instanceName: string;
-  namespace: string;
-  isNewClusterMode?: boolean;
-  preselectedBackupName?: string;
-}
+// Per-storage PITR status reported on the Instance; the recovery window and its
+// trustworthiness live here.
+export type PitrStorageStatus = NonNullable<
+  NonNullable<
+    NonNullable<NonNullable<Instance['status']>['backup']>['storages']
+  >[number]['pitr']
+>;
 
-export interface RestorableBackupOption {
-  name: string;
-  startedAt?: string;
-}
-
-export interface RestorePitrStorageOption {
-  name: string;
-  window: PitrWindow;
-}
-
-export interface ModalContentProps {
-  isLoading: boolean;
-  header: string;
-  succeededBackups: RestorableBackupOption[];
-  pitrStorages: RestorePitrStorageOption[];
+// FE-friendly recovery window resolved from PitrStorageStatus for the picker.
+export interface PitrWindow {
+  available: boolean;
+  earliest?: Date;
+  latest?: Date;
+  message?: string;
 }

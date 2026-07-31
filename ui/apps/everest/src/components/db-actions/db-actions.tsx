@@ -41,6 +41,7 @@ import { usePlugins } from 'contexts/plugins';
 import type { ClusterActionExtension } from '@openeverest/plugin-sdk';
 import PluginErrorBoundary from 'components/plugin-host/PluginErrorBoundary';
 import { useBackupsList } from 'hooks/api/backups/useBackups';
+import { useCanRestore } from 'hooks/api/restores/useCanRestore';
 import { useClusterName } from 'hooks/api/useClusterName';
 import { BackupStatus } from 'shared-types/backups.types';
 
@@ -110,19 +111,11 @@ export const DbActions = ({
     `${dbInstance.metadata?.namespace}/${dbInstance.metadata?.name}`
   );
 
+  const canRestore = useCanRestore(namespace, dbInstanceName ?? '');
+
   // const { canCreate: canCreateClusters } = useRBACPermissions(
   //   'database-clusters',
   //   `${dbInstance.metadata?.namespace}/*`
-  // );
-
-  // const { canCreate: canCreateRestore } = useRBACPermissions(
-  //   'database-cluster-restores',
-  //   `${namespace}/*`
-  // );
-
-  // const { canRead: canReadCredentials } = useRBACPermissions(
-  //   'database-cluster-credentials',
-  //   `${namespace}/${dbInstanceName}`
   // );
 
   // const { canCreate: canCreateBackups } = useRBACPermissions(
@@ -255,7 +248,7 @@ export const DbActions = ({
             <AddIcon /> {Messages.menuItems.createNewDbFromBackup}
           </MenuItem> */}
           {/*TODO RBAC */}
-          {hasBackups && (
+          {hasBackups && canRestore && (
             <MenuItem
               data-testid={`${dbInstanceName}-restore`}
               disabled={actionsBlocked || !hasReadyBackup}

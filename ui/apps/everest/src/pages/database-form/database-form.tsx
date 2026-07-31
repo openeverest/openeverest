@@ -27,7 +27,7 @@ import {
 } from 'react-hook-form';
 import { useCreateDbInstance } from 'hooks/api/db-instances/useCreateDbInstance';
 import { DB_INSTANCES_QUERY_KEY } from 'hooks/api/db-instances/useDbInstanceList';
-import { useCreateRestoreFromBackup } from 'hooks/api/restores/useDbClusterRestore';
+import { useCreateInstanceRestore } from 'hooks/api/restores/useInstanceRestores';
 import { useActiveBreakpoint } from 'hooks/utils/useActiveBreakpoint';
 import { DbWizardType } from './database-form-schema';
 import DatabaseFormCancelDialog from './database-form-cancel-dialog/index';
@@ -106,7 +106,7 @@ export const DatabasePage = () => {
   const hasBackupStep = backupClasses.length > 0;
 
   // ── Restore mutation (needs clusterName + namespace from navigation state)
-  const { mutate: createRestore } = useCreateRestoreFromBackup(
+  const { mutate: createRestore } = useCreateInstanceRestore(
     clusterName,
     location.state?.namespace ?? ''
   );
@@ -387,7 +387,11 @@ export const DatabasePage = () => {
           onSuccess: () => {
             const newInstanceName = postProcessedData.dbName as string;
             createRestore(
-              { instanceName: newInstanceName, backupName },
+              {
+                instanceName: newInstanceName,
+                type: 'Backup',
+                backupName,
+              },
               {
                 onSuccess: () => {
                   setFormSubmitted(true);
