@@ -248,7 +248,7 @@ jobs:
             type=raw,value=${{ env.VERSION }}-${{ matrix.arch }}
 
       - name: Operator - push openeverest-operator image
-        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
         with:
           context: openeverest-operator
           push: true
@@ -259,7 +259,7 @@ jobs:
             FLAGS= -X 'github.com/percona/everest-operator/internal/consts.Version=${{ env.VERSION }}'
 
       - name: Operator - push openeverest-operator-bundle image
-        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
         with:
           context: openeverest-operator
           push: true
@@ -330,7 +330,7 @@ jobs:
 
       - name: Build and Push VS dev image
         if: matrix.arch == 'amd64'
-        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
         with:
           context: percona-version-service
           push: true
@@ -357,7 +357,7 @@ jobs:
             type=raw,value=${{ env.VERSION }}-${{ matrix.arch }}
 
       - name: Catalog - push openeverest-catalog image
-        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
         with:
           context: openeverest-catalog
           push: true
@@ -421,7 +421,7 @@ jobs:
           cp dev/fb/vs.sh /tmp/${VERSION}/vs.sh
 
       - name: Everest - push Everest image
-        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
         with:
           context: .
           push: true
@@ -430,7 +430,7 @@ jobs:
           tags: ${{ env.IMAGE_PREFIX }}/${{ env.EVEREST_SERVER_DEV_IMAGE_NAME }}:${{ env.VERSION }}-${{ matrix.arch }}
 
       - name: CLI - build and push everestctl dev image
-        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
         with:
           context: .
           file: Dockerfile.everestctl
