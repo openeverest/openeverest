@@ -21,8 +21,8 @@ importers:
         specifier: ^10.1.8
         version: 10.1.8(eslint@10.3.0(supports-color@10.2.2))
       eslint-plugin-playwright:
-        specifier: ^2.10.2
-        version: 2.10.2(eslint@10.3.0(supports-color@10.2.2))
+        specifier: ^2.11.0
+        version: 2.11.0(eslint@10.3.0(supports-color@10.2.2))
       shelljs:
         specifier: ^0.10.0
         version: 0.10.0
@@ -303,8 +303,8 @@ packages:
     peerDependencies:
       eslint: '>=7.0.0'
 
-  eslint-plugin-playwright@2.10.2:
-    resolution: {integrity: sha512-0N+2OWc3NZbOZ0gK8mp2TK6Qu3UWcJTQ9rqU0UM2yRJXgT758pvpY0lsOLIySfbyFrLqn3TcXjixbmcK90VnuQ==}
+  eslint-plugin-playwright@2.11.0:
+    resolution: {integrity: sha512-zOIEYyv1TSn2izXkyg/yj0LXc4YBQI6pl3xIFWwMCcXt/dgQCz8dBqXiXFMoM3xc/GqZThAtaGYo8aPu/vBd+Q==}
     engines: {node: '>=16.9.0'}
     peerDependencies:
       eslint: '>=8.40.0'
@@ -1008,7 +1008,7 @@ snapshots:
     dependencies:
       eslint: 10.3.0(supports-color@10.2.2)
 
-  eslint-plugin-playwright@2.10.2(eslint@10.3.0(supports-color@10.2.2)):
+  eslint-plugin-playwright@2.11.0(eslint@10.3.0(supports-color@10.2.2)):
     dependencies:
       eslint: 10.3.0(supports-color@10.2.2)
       globals: 17.8.0
