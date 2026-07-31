@@ -1,6 +1,10 @@
 ---
 version: 2
 updates:
+  # ============================================================================
+  # v1: main branch (stable)
+  # ============================================================================
+
   - package-ecosystem: "gomod"
     directory: "/"
     schedule:
@@ -8,6 +12,7 @@ updates:
     labels:
       - "dependencies"
       - "go"
+    target-branch: "main"
   - package-ecosystem: "gomod"
     directory: "/tools"
     schedule:
@@ -15,6 +20,7 @@ updates:
     labels:
       - "dependencies"
       - "go"
+    target-branch: "main"
   - package-ecosystem: "docker"
     directory: "/"
     schedule:
@@ -22,6 +28,7 @@ updates:
     labels:
       - "dependencies"
       - "docker"
+    target-branch: "main"
   - package-ecosystem: "docker"
     directory: "/dev"
     schedule:
@@ -29,6 +36,7 @@ updates:
     labels:
       - "dependencies"
       - "docker"
+    target-branch: "main"
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
@@ -36,6 +44,7 @@ updates:
     labels:
       - "dependencies"
       - "github_actions"
+    target-branch: "main"
   - package-ecosystem: "npm"
     directory: "/api-tests"
     schedule:
@@ -43,6 +52,7 @@ updates:
     labels:
       - "dependencies"
       - "javascript"
+    target-branch: "main"
   - package-ecosystem: "npm"
     directory: "/ui"
     schedule:
@@ -50,6 +60,7 @@ updates:
     labels:
       - "dependencies"
       - "javascript"
+    target-branch: "main"
   - package-ecosystem: "npm"
     directory: "/cli-tests"
     schedule:
@@ -57,3 +68,72 @@ updates:
     labels:
       - "dependencies"
       - "javascript"
+    target-branch: "main"
+  # ============================================================================
+  # v2: release-2.0 branch (next major version)
+  # ============================================================================
+
+  - package-ecosystem: "gomod"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    labels:
+      - "dependencies"
+      - "go"
+    target-branch: "release-2.0"
+  - package-ecosystem: "gomod"
+    directory: "/tools"
+    schedule:
+      interval: "weekly"
+    labels:
+      - "dependencies"
+      - "go"
+    target-branch: "release-2.0"
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    labels:
+      - "dependencies"
+      - "docker"
+    target-branch: "release-2.0"
+  - package-ecosystem: "docker"
+    directory: "/dev"
+    schedule:
+      interval: "weekly"
+    labels:
+      - "dependencies"
+      - "docker"
+    target-branch: "release-2.0"
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    labels:
+      - "dependencies"
+      - "github_actions"
+    target-branch: "release-2.0"
+  - package-ecosystem: "npm"
+    directory: "/api-tests"
+    schedule:
+      interval: "weekly"
+    labels:
+      - "dependencies"
+      - "javascript"
+    target-branch: "release-2.0"
+  - package-ecosystem: "npm"
+    directory: "/ui"
+    schedule:
+      interval: "weekly"
+    labels:
+      - "dependencies"
+      - "javascript"
+    target-branch: "release-2.0"
+  - package-ecosystem: "npm"
+    directory: "/cli-tests"
+    schedule:
+      interval: "weekly"
+    labels:
+      - "dependencies"
+      - "javascript"
+    target-branch: "release-2.0"
