@@ -12,7 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
+import {
+  render,
+  screen,
+  fireEvent,
+  waitFor,
+  within,
+} from '@testing-library/react';
 import { FormProvider, useForm, useWatch } from 'react-hook-form';
 import { PitrBlock } from './pitr-block';
 import { Messages } from './pitr-block.messages';

@@ -56,9 +56,7 @@ export const buildBackupSpecFromWizard = (
           ...(schedule.retentionCopies != null
             ? { retentionCopies: schedule.retentionCopies }
             : {}),
-          ...(schedule.parameters
-            ? { parameters: schedule.parameters }
-            : {}),
+          ...(schedule.parameters ? { parameters: schedule.parameters } : {}),
         })),
         ...(pitr?.enabled
           ? {

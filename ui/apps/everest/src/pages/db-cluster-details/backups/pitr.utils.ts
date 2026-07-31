@@ -32,7 +32,7 @@ export const setStoragePitr = (
 ): InstanceBackupStorage[] =>
   storages.map((storage) =>
     storage.storageRef.name === storageName ? { ...storage, pitr } : storage
-);
+  );
 
 export const countPitrEnabledStorages = (
   storages: InstanceBackupStorage[]

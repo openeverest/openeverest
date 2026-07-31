@@ -28,13 +28,19 @@ const pxcClass = {
           timeBetweenUploads: {
             uiType: 'number',
             path: 'parameters.timeBetweenUploads',
-            fieldParams: { label: 'Upload interval (seconds)', defaultValue: 60 },
+            fieldParams: {
+              label: 'Upload interval (seconds)',
+              defaultValue: 60,
+            },
             validation: { min: 1 },
           },
           timeoutSeconds: {
             uiType: 'number',
             path: 'parameters.timeoutSeconds',
-            fieldParams: { label: 'Upload timeout (seconds)', defaultValue: 3600 },
+            fieldParams: {
+              label: 'Upload timeout (seconds)',
+              defaultValue: 3600,
+            },
             validation: { min: 1 },
           },
         },

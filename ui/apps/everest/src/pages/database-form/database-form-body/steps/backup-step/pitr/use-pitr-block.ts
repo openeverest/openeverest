@@ -68,8 +68,9 @@ export const usePitrBlock = (): WizardPitrBlock => {
 
   const namespace: string = watch(DbWizardFormFields.k8sNamespace);
   const selectedClassName: string | undefined = watch(BACKUP_CLASS_REF_FIELD);
-  const formSchedules: FlattenedSchedule[] | undefined =
-    watch(BACKUP_SCHEDULES_FIELD);
+  const formSchedules: FlattenedSchedule[] | undefined = watch(
+    BACKUP_SCHEDULES_FIELD
+  );
   const rawPitrMap: WizardPitrMap | undefined = watch(BACKUP_PITR_FIELD);
   const pitrMap: WizardPitrMap = rawPitrMap ?? {};
 
