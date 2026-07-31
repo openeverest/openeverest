@@ -20,7 +20,7 @@ We welcome many types of contributions including:
 - Answering questions on [Slack or other community channels](https://openeverest.io/#community) and GitHub Discussions
 - Blog posts, social media, and other community advocacy
 - [Website and blog posts](https://github.com/openeverest/openeverest.github.io)
-- Let us know when your talk about OpenEverest is accepted at a conference!
+- Let us know when your talk on OpenEverest is accepted at a conference!
 - Release management
 - Problems found while setting up the development environment
 
@@ -32,7 +32,7 @@ The best way to reach us with a question when contributing is to join our commun
 
 ## Raising Issues
 
-When raising [Issues](https://github.com/openeverest/openeverest/issues), please follow the template and fill the correponding fields. Details matter.
+When raising [Issues](https://github.com/openeverest/openeverest/issues), please follow the template and fill the corresponding fields. Details matter.
 
 If you are trying to report a vulnerability, please refer to our [Security Policy](https://github.com/openeverest/openeverest/blob/main/SECURITY.md).
 
