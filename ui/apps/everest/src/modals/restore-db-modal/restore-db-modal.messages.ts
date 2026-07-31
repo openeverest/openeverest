@@ -20,10 +20,21 @@ export const Messages = {
   headerMessage: 'Restore database',
   headerMessageCreate: 'Create database',
   restore: 'Restore',
+  restoreStarted: 'Database restore has started',
   fromBackup: 'From a backup',
   fromPitr: 'From a Point-in-time (PITR)',
   selectBackup: 'Select backup (Backup name - Started time)',
   create: 'Create',
+  selectStorage: 'Select backup storage',
+  recoveryLatest: 'Latest possible moment',
+  recoveryDate: 'Specific date and time',
+  selectPointInTime: 'Select point in time',
+  pitrUnavailable:
+    'Point-in-time recovery is not available for this storage yet.',
+  pitrNoStorage: 'Select a backup storage to restore from.',
+  pitrDateRequired: 'Select a point in time within the available window.',
+  pitrDateOutOfRange:
+    'The selected time is outside the available recovery window.',
   pitrDisclaimer: (
     earliestDate: string,
     latestDate: string,

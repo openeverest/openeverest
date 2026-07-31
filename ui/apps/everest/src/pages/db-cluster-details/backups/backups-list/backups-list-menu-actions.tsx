@@ -35,6 +35,7 @@ export const getBackupActionButtons = (
   // handleRestoreToNewDbBackup: (backupName: string) => void, // TODO: re-enable when create-new-db is restored
   _handleRestoreToNewDbBackup: (backupName: string) => void,
   canDelete: boolean,
+  canRestore: boolean,
   isDeleting = false
 ) => {
   const backupName = row.original.metadata?.name ?? '';
@@ -60,14 +61,18 @@ export const getBackupActionButtons = (
   // const canCreateClusterFromBackup = canRestore && canCreateClusters;
 
   return [
-    <MenuItem
-      key="restore"
-      disabled={backupState !== BackupStatus.SUCCEEDED}
-      onClick={() => handleRestoreBackup(backupName)}
-      sx={{ m: 0, gap: 1, px: 2, py: '10px' }}
-    >
-      <KeyboardReturnIcon /> {Messages.restore}
-    </MenuItem>,
+    ...(canRestore
+      ? [
+          <MenuItem
+            key="restore"
+            disabled={backupState !== BackupStatus.SUCCEEDED}
+            onClick={() => handleRestoreBackup(backupName)}
+            sx={{ m: 0, gap: 1, px: 2, py: '10px' }}
+          >
+            <KeyboardReturnIcon /> {Messages.restore}
+          </MenuItem>,
+        ]
+      : []),
     // TODO: Temporarily hidden — create new DB from backup deferred by team
     // <MenuItem
     //   key="restore-to-new"

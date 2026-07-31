@@ -12,30 +12,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { PitrWindow } from './restore-pitr.types';
+import { useRBACPermissions } from 'hooks/rbac';
 
-export interface RestoreDbModalProps {
-  isOpen: boolean;
-  closeModal: () => void;
-  instanceName: string;
-  namespace: string;
-  isNewClusterMode?: boolean;
-  preselectedBackupName?: string;
-}
+// A user may restore an instance only if they can create restores and read the
+// target's credentials (the restored database must be usable afterwards).
+export const useCanRestore = (namespace: string, instanceName: string) => {
+  const { canCreate } = useRBACPermissions(
+    'database-cluster-restores',
+    `${namespace}/${instanceName}`
+  );
+  const { canRead: canReadCredentials } = useRBACPermissions(
+    'database-cluster-credentials',
+    `${namespace}/${instanceName}`
+  );
 
-export interface RestorableBackupOption {
-  name: string;
-  startedAt?: string;
-}
-
-export interface RestorePitrStorageOption {
-  name: string;
-  window: PitrWindow;
-}
-
-export interface ModalContentProps {
-  isLoading: boolean;
-  header: string;
-  succeededBackups: RestorableBackupOption[];
-  pitrStorages: RestorePitrStorageOption[];
-}
+  return canCreate && canReadCredentials;
+};
