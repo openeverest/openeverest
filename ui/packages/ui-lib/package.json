@@ -35,7 +35,7 @@
     "@percona/utils": "workspace:*",
     "@types/react": "^18.2.15",
     "material-react-table": "^3.2.1",
-    "notistack": "^3.0.1",
+    "notistack": "^3.0.2",
     "react-hook-form": "^7.47.0"
   },
   "devDependencies": {
