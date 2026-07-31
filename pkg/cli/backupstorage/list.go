@@ -33,6 +33,7 @@ import (
 
 	"github.com/openeverest/openeverest/v2/client"
 	authcli "github.com/openeverest/openeverest/v2/pkg/cli/auth"
+	"github.com/openeverest/openeverest/v2/pkg/cli/clienterr"
 )
 
 // Config holds the shared configuration for backup storage CLI runners.
@@ -121,6 +122,9 @@ func (sl *ListRunner) listBackupStorages(
 		return nil, fmt.Errorf("failed to list backup storages in namespace %q: %w", namespace, err)
 	}
 	if resp.StatusCode() != http.StatusOK || resp.JSON200 == nil {
+		if msg, ok := clienterr.Message(resp.JSON400, resp.JSON500, resp.JSONDefault); ok {
+			return nil, fmt.Errorf("server error: %s", msg)
+		}
 		return nil, fmt.Errorf("unexpected response listing backup storages in namespace %q: %s", namespace, resp.Status())
 	}
 	if resp.JSON200.Items == nil {
