@@ -27,7 +27,7 @@
   "prettier": "@percona/prettier-config",
   "dependencies": {
     "@fontsource/poppins": "^5.0.8",
-    "@fontsource/roboto": "^5.0.8",
+    "@fontsource/roboto": "^5.3.0",
     "@fontsource/roboto-mono": "^5.1.0",
     "@mui/utils": "^5.14.15"
   },
