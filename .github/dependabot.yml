@@ -102,7 +102,6 @@ updates:
           - "patch"
     cooldown:
       default-days: 7
-      semver-major-days: 14
   - package-ecosystem: "npm"
     directory: "/api-tests"
     schedule:
@@ -245,7 +244,6 @@ updates:
           - "patch"
     cooldown:
       default-days: 7
-      semver-major-days: 14
   - package-ecosystem: "npm"
     directory: "/api-tests"
     schedule:
