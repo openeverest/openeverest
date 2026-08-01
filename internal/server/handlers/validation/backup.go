@@ -36,7 +36,10 @@ func (h *validateHandler) GetBackup(ctx context.Context, cluster, namespace, nam
 // CreateBackup validates the Backup's referenced resources before creating it.
 func (h *validateHandler) CreateBackup(ctx context.Context, cluster string, backup *v1alpha1.Backup) (*v1alpha1.Backup, error) {
 	if err := h.validateBackupRefs(ctx, backup); err != nil {
-		return nil, errors.Join(ErrInvalidRequest, err)
+		if isValidationError(err) {
+			return nil, errors.Join(ErrInvalidRequest, err)
+		}
+		return nil, err
 	}
 	return h.next.CreateBackup(ctx, cluster, backup)
 }
@@ -51,7 +54,7 @@ func (h *validateHandler) validateBackupRefs(ctx context.Context, backup *v1alph
 	})
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
-			return fmt.Errorf("instance '%s' does not exist", backup.Spec.InstanceRef.Name)
+			return fmt.Errorf("%w: instance '%s' does not exist", controller.ErrInstanceNotFound, backup.Spec.InstanceRef.Name)
 		}
 		return fmt.Errorf("failed to get instance '%s': %w", backup.Spec.InstanceRef.Name, err)
 	}
@@ -61,7 +64,7 @@ func (h *validateHandler) validateBackupRefs(ctx context.Context, backup *v1alph
 		Name:      backup.Spec.StorageRef.Name,
 	}); err != nil {
 		if k8serrors.IsNotFound(err) {
-			return fmt.Errorf("backup storage '%s' does not exist", backup.Spec.StorageRef.Name)
+			return fmt.Errorf("%w: backup storage '%s' does not exist", controller.ErrBackupStorageNotFound, backup.Spec.StorageRef.Name)
 		}
 		return fmt.Errorf("failed to get backup storage '%s': %w", backup.Spec.StorageRef.Name, err)
 	}

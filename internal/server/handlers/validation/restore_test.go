@@ -33,6 +33,7 @@ import (
 	corev1alpha1 "github.com/openeverest/openeverest/v2/api/core/v1alpha1"
 	"github.com/openeverest/openeverest/v2/internal/server/handlers"
 	"github.com/openeverest/openeverest/v2/pkg/kubernetes"
+	"github.com/openeverest/openeverest/v2/provider-runtime/controller"
 )
 
 func TestCreateRestore_Validation(t *testing.T) {
@@ -119,32 +120,39 @@ func TestCreateRestore_Validation(t *testing.T) {
 	errServerUnavailable := errors.New("server unavailable")
 
 	tests := []struct {
-		name       string
-		restore    *backupv1alpha1.Restore
-		objects    []ctrlclient.Object
-		err        string
-		getErrName string // if set, a Get for an object with this name fails with getErr instead of hitting the fake client
-		getErr     error
+		name               string
+		restore            *backupv1alpha1.Restore
+		objects            []ctrlclient.Object
+		err                string
+		wantSentinel       error  // if set, err must also satisfy errors.Is(err, wantSentinel)
+		wantInvalidRequest bool   // true for validation failures (ErrInvalidRequest); false for infrastructure/runtime errors
+		getErrName         string // if set, a Get for an object with this name fails with getErr instead of hitting the fake client
+		getErr             error
 	}{
 		{
-			name:    "missing backup fails",
-			restore: newRestore("missing-backup", nil),
-			objects: nil,
-			err:     "backup not found: 'missing-backup' in namespace 'test-namespace'",
+			name:               "missing backup fails",
+			restore:            newRestore("missing-backup", nil),
+			objects:            nil,
+			err:                "backup not found: 'missing-backup' in namespace 'test-namespace'",
+			wantSentinel:       controller.ErrBackupNotFound,
+			wantInvalidRequest: true,
 		},
 		{
-			name:    "backup not succeeded fails",
-			restore: newRestore("running-backup", nil),
-			objects: []ctrlclient.Object{runningBackup},
-			err:     "backup not succeeded: 'running-backup' is in state 'Running'",
+			name:               "backup not succeeded fails",
+			restore:            newRestore("running-backup", nil),
+			objects:            []ctrlclient.Object{runningBackup},
+			err:                "backup not succeeded: 'running-backup' is in state 'Running'",
+			wantSentinel:       controller.ErrBackupNotSucceeded,
+			wantInvalidRequest: true,
 		},
 		{
-			name:       "backup lookup server error fails",
-			restore:    newRestore("server-error-backup", nil),
-			objects:    nil,
-			err:        "failed to get backup 'server-error-backup'",
-			getErrName: "server-error-backup",
-			getErr:     errServerUnavailable,
+			name:               "backup lookup server error fails",
+			restore:            newRestore("server-error-backup", nil),
+			objects:            nil,
+			err:                "failed to get backup 'server-error-backup'",
+			wantInvalidRequest: false,
+			getErrName:         "server-error-backup",
+			getErr:             errServerUnavailable,
 		},
 		{
 			name:    "succeeded backup, no PITR, passes",
@@ -153,22 +161,36 @@ func TestCreateRestore_Validation(t *testing.T) {
 			err:     "",
 		},
 		{
-			name:    "missing instance fails",
-			restore: newRestore("succeeded-backup-no-pitr", nil),
-			objects: []ctrlclient.Object{succeededBackupNoPitr, noPitrClass},
-			err:     "instance 'test-instance' does not exist",
+			name:               "missing instance fails",
+			restore:            newRestore("succeeded-backup-no-pitr", nil),
+			objects:            []ctrlclient.Object{succeededBackupNoPitr, noPitrClass},
+			err:                "instance 'test-instance' does not exist",
+			wantSentinel:       controller.ErrInstanceNotFound,
+			wantInvalidRequest: true,
 		},
 		{
-			name:    "class does not support instance's provider fails",
-			restore: newRestore("succeeded-backup-unsupported-provider", nil),
-			objects: []ctrlclient.Object{succeededBackupUnsupportedProvider, unsupportedProviderClass, instance},
-			err:     "provider not supported by backup class: class 'unsupported-provider-class', provider 'test-provider'",
+			name:               "class does not support instance's provider fails",
+			restore:            newRestore("succeeded-backup-unsupported-provider", nil),
+			objects:            []ctrlclient.Object{succeededBackupUnsupportedProvider, unsupportedProviderClass, instance},
+			err:                "provider not supported by backup class: class 'unsupported-provider-class', provider 'test-provider'",
+			wantSentinel:       controller.ErrProviderUnsupported,
+			wantInvalidRequest: true,
 		},
 		{
-			name:    "succeeded backup, PITR requested, class does not support PITR fails",
-			restore: newRestore("succeeded-backup-no-pitr", &backupv1alpha1.DataSourcePITR{Type: backupv1alpha1.PITRTypeLatest}),
-			objects: []ctrlclient.Object{succeededBackupNoPitr, noPitrClass, instance},
-			err:     "point-in-time recovery is not supported",
+			name:               "succeeded backup, PITR requested, class does not support PITR fails",
+			restore:            newRestore("succeeded-backup-no-pitr", &backupv1alpha1.DataSourcePITR{Type: backupv1alpha1.PITRTypeLatest}),
+			objects:            []ctrlclient.Object{succeededBackupNoPitr, noPitrClass, instance},
+			err:                "point-in-time recovery is not supported",
+			wantSentinel:       controller.ErrRestorePITRUnsupported,
+			wantInvalidRequest: true,
+		},
+		{
+			name:               "succeeded backup, PITR date type without date fails",
+			restore:            newRestore("succeeded-backup-no-pitr", &backupv1alpha1.DataSourcePITR{Type: backupv1alpha1.PITRTypeDate}),
+			objects:            []ctrlclient.Object{succeededBackupNoPitr, noPitrClass, instance},
+			err:                "point-in-time recovery date is required",
+			wantSentinel:       controller.ErrRestorePITRDateRequired,
+			wantInvalidRequest: true,
 		},
 		{
 			name:    "succeeded backup, PITR requested, class supports PITR passes",
@@ -217,7 +239,14 @@ func TestCreateRestore_Validation(t *testing.T) {
 				return
 			}
 			require.ErrorContains(t, err, tt.err)
-			require.ErrorIs(t, err, ErrInvalidRequest)
+			if tt.wantInvalidRequest {
+				require.ErrorIs(t, err, ErrInvalidRequest)
+			} else {
+				require.NotErrorIs(t, err, ErrInvalidRequest)
+			}
+			if tt.wantSentinel != nil {
+				require.ErrorIs(t, err, tt.wantSentinel)
+			}
 			if tt.getErr != nil {
 				require.ErrorIs(t, err, tt.getErr)
 			}

@@ -43,30 +43,70 @@ var ErrBackupClassLimitsExceeded = errors.New("backup class limits exceeded")
 // conform to the BackupClass's providerManaged.pitrParametersSchema.
 var ErrPITRConfigInvalid = errors.New("PITR config invalid")
 
-// ErrBackupNotFound is a sentinel callers may wrap when their own lookup for
-// a referenced Backup returns not-found, so the failure can be classified
-// via errors.Is without duplicating the message across call sites. This
-// package performs no lookups itself; callers own fetching and NotFound
-// classification.
-var ErrBackupNotFound = errors.New("backup not found")
+// ErrInvalidReference is the umbrella sentinel every reference-validation
+// error below satisfies via errors.Is. Callers (e.g. the API server's
+// CreateBackup/CreateRestore validation handlers) check errors.Is(err,
+// ErrInvalidReference) once to classify a failure as a client-facing
+// validation error, instead of enumerating every individual sentinel — so
+// any reference-validation error added in the future is automatically
+// classified correctly without touching that call site.
+var ErrInvalidReference = errors.New("invalid reference")
 
-// ErrBackupClassNotFound is a sentinel callers may wrap when their own
-// lookup for a referenced BackupClass returns not-found.
-var ErrBackupClassNotFound = errors.New("backup class not found")
+// referenceError is a reference-validation sentinel. It implements Is so
+// that every referenceError value satisfies errors.Is(err, ErrInvalidReference),
+// in addition to satisfying errors.Is against itself.
+type referenceError string
 
-// ErrBackupNotSucceeded is the sentinel returned by ValidateBackupSucceeded
-// when a Backup exists but has not reached the Succeeded state.
-var ErrBackupNotSucceeded = errors.New("backup not succeeded")
+// Error implements the error interface.
+func (e referenceError) Error() string {
+	return string(e)
+}
 
-// ErrProviderUnsupported is the sentinel returned by
-// ValidateClassSupportsProvider when a BackupClass does not list a provider
-// in its SupportedProviders.
-var ErrProviderUnsupported = errors.New("provider not supported by backup class")
+// Is reports whether target is ErrInvalidReference, making every
+// referenceError a member of that umbrella sentinel.
+func (e referenceError) Is(target error) bool {
+	return target == ErrInvalidReference
+}
 
-// ErrRestorePITRUnsupported is the sentinel returned by ValidateRestorePITR
-// when a Restore requests point-in-time recovery but the resolved
-// ProviderManaged BackupClass does not advertise supportsPITR.
-var ErrRestorePITRUnsupported = errors.New("point-in-time recovery is not supported")
+const (
+	// ErrBackupNotFound is a sentinel callers may wrap when their own lookup for
+	// a referenced Backup returns not-found, so the failure can be classified
+	// via errors.Is without duplicating the message across call sites. This
+	// package performs no lookups itself; callers own fetching and NotFound
+	// classification.
+	ErrBackupNotFound referenceError = "backup not found"
+
+	// ErrBackupClassNotFound is a sentinel callers may wrap when their own
+	// lookup for a referenced BackupClass returns not-found.
+	ErrBackupClassNotFound referenceError = "backup class not found"
+
+	// ErrInstanceNotFound is a sentinel callers may wrap when their own lookup
+	// for a referenced Instance returns not-found.
+	ErrInstanceNotFound referenceError = "instance not found"
+
+	// ErrBackupStorageNotFound is a sentinel callers may wrap when their own
+	// lookup for a referenced BackupStorage returns not-found.
+	ErrBackupStorageNotFound referenceError = "backup storage not found"
+
+	// ErrBackupNotSucceeded is the sentinel returned by ValidateBackupSucceeded
+	// when a Backup exists but has not reached the Succeeded state.
+	ErrBackupNotSucceeded referenceError = "backup not succeeded"
+
+	// ErrProviderUnsupported is the sentinel returned by
+	// ValidateClassSupportsProvider when a BackupClass does not list a provider
+	// in its SupportedProviders.
+	ErrProviderUnsupported referenceError = "provider not supported by backup class"
+
+	// ErrRestorePITRUnsupported is the sentinel returned by ValidateRestorePITR
+	// when a Restore requests point-in-time recovery but the resolved
+	// ProviderManaged BackupClass does not advertise supportsPITR.
+	ErrRestorePITRUnsupported referenceError = "point-in-time recovery is not supported"
+
+	// ErrRestorePITRDateRequired is the sentinel returned by ValidateRestorePITR
+	// when a Restore requests date-based point-in-time recovery without
+	// specifying spec.dataSource.backup.pitr.date.
+	ErrRestorePITRDateRequired referenceError = "point-in-time recovery date is required"
+)
 
 // ValidateInstanceBackupAgainstClass enforces the generic limits declared on
 // a ProviderManaged BackupClass against an Instance's backup configuration.
@@ -203,8 +243,8 @@ func ValidateRestorePITR(restore *backupv1alpha1.Restore, bc *backupv1alpha1.Bac
 	pitr := restore.Spec.DataSource.Backup.PITR
 	if pitr.Type == backupv1alpha1.PITRTypeDate && pitr.Date == nil {
 		return fmt.Errorf(
-			"spec.dataSource.backup.pitr.date must be set when type is %q",
-			backupv1alpha1.PITRTypeDate,
+			"%w: spec.dataSource.backup.pitr.date must be set when type is %q",
+			ErrRestorePITRDateRequired, backupv1alpha1.PITRTypeDate,
 		)
 	}
 	if bc == nil || bc.Spec.ExecutionMode != backupv1alpha1.BackupExecutionModeProviderManaged {

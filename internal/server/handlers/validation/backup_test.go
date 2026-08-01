@@ -33,6 +33,7 @@ import (
 	corev1alpha1 "github.com/openeverest/openeverest/v2/api/core/v1alpha1"
 	"github.com/openeverest/openeverest/v2/internal/server/handlers"
 	"github.com/openeverest/openeverest/v2/pkg/kubernetes"
+	"github.com/openeverest/openeverest/v2/provider-runtime/controller"
 )
 
 func TestCreateBackup_Validation(t *testing.T) {
@@ -71,12 +72,14 @@ func TestCreateBackup_Validation(t *testing.T) {
 	errServerUnavailable := errors.New("server unavailable")
 
 	tests := []struct {
-		name       string
-		backup     *backupv1alpha1.Backup
-		objects    []ctrlclient.Object
-		err        string
-		getErrName string // if set, a Get for an object with this name fails with getErr instead of hitting the fake client
-		getErr     error
+		name               string
+		backup             *backupv1alpha1.Backup
+		objects            []ctrlclient.Object
+		err                string
+		wantSentinel       error  // if set, err must also satisfy errors.Is(err, wantSentinel)
+		wantInvalidRequest bool   // true for validation failures (ErrInvalidRequest); false for infrastructure/runtime errors
+		getErrName         string // if set, a Get for an object with this name fails with getErr instead of hitting the fake client
+		getErr             error
 	}{
 		{
 			name: "instance not found fails",
@@ -88,8 +91,10 @@ func TestCreateBackup_Validation(t *testing.T) {
 					ClassRef:    common.ObjectRef{Name: "supported-class"},
 				},
 			},
-			objects: []ctrlclient.Object{storage, supportedClass},
-			err:     "instance 'missing-instance' does not exist",
+			objects:            []ctrlclient.Object{storage, supportedClass},
+			err:                "instance 'missing-instance' does not exist",
+			wantSentinel:       controller.ErrInstanceNotFound,
+			wantInvalidRequest: true,
 		},
 		{
 			name: "storage not found fails",
@@ -101,8 +106,10 @@ func TestCreateBackup_Validation(t *testing.T) {
 					ClassRef:    common.ObjectRef{Name: "supported-class"},
 				},
 			},
-			objects: []ctrlclient.Object{instance, supportedClass},
-			err:     "backup storage 'missing-storage' does not exist",
+			objects:            []ctrlclient.Object{instance, supportedClass},
+			err:                "backup storage 'missing-storage' does not exist",
+			wantSentinel:       controller.ErrBackupStorageNotFound,
+			wantInvalidRequest: true,
 		},
 		{
 			name: "class not found fails",
@@ -114,8 +121,10 @@ func TestCreateBackup_Validation(t *testing.T) {
 					ClassRef:    common.ObjectRef{Name: "missing-class"},
 				},
 			},
-			objects: []ctrlclient.Object{instance, storage},
-			err:     "backup class not found: 'missing-class'",
+			objects:            []ctrlclient.Object{instance, storage},
+			err:                "backup class not found: 'missing-class'",
+			wantSentinel:       controller.ErrBackupClassNotFound,
+			wantInvalidRequest: true,
 		},
 		{
 			name: "class not supporting provider fails",
@@ -127,8 +136,10 @@ func TestCreateBackup_Validation(t *testing.T) {
 					ClassRef:    common.ObjectRef{Name: "unsupported-class"},
 				},
 			},
-			objects: []ctrlclient.Object{instance, storage, unsupportedClass},
-			err:     "provider not supported by backup class: class 'unsupported-class', provider 'test-provider'",
+			objects:            []ctrlclient.Object{instance, storage, unsupportedClass},
+			err:                "provider not supported by backup class: class 'unsupported-class', provider 'test-provider'",
+			wantSentinel:       controller.ErrProviderUnsupported,
+			wantInvalidRequest: true,
 		},
 		{
 			name: "instance lookup server error fails",
@@ -140,10 +151,11 @@ func TestCreateBackup_Validation(t *testing.T) {
 					ClassRef:    common.ObjectRef{Name: "supported-class"},
 				},
 			},
-			objects:    []ctrlclient.Object{storage, supportedClass},
-			err:        "failed to get instance 'server-error-instance'",
-			getErrName: "server-error-instance",
-			getErr:     errServerUnavailable,
+			objects:            []ctrlclient.Object{storage, supportedClass},
+			err:                "failed to get instance 'server-error-instance'",
+			wantInvalidRequest: false,
+			getErrName:         "server-error-instance",
+			getErr:             errServerUnavailable,
 		},
 		{
 			name: "valid refs pass",
@@ -199,7 +211,14 @@ func TestCreateBackup_Validation(t *testing.T) {
 				return
 			}
 			require.ErrorContains(t, err, tt.err)
-			require.ErrorIs(t, err, ErrInvalidRequest)
+			if tt.wantInvalidRequest {
+				require.ErrorIs(t, err, ErrInvalidRequest)
+			} else {
+				require.NotErrorIs(t, err, ErrInvalidRequest)
+			}
+			if tt.wantSentinel != nil {
+				require.ErrorIs(t, err, tt.wantSentinel)
+			}
 			if tt.getErr != nil {
 				require.ErrorIs(t, err, tt.getErr)
 			}
