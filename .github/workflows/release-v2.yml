@@ -227,7 +227,7 @@ jobs:
           tags: ${{ steps.everest_meta.outputs.tags }}
 
       - name: Everest - attest Everest image
-        uses: actions/attest@59d89421af93a897026c735860bf21b6eb4f7b26 # v4.1.0
+        uses: actions/attest@508db95dd578ae2727ebd6217d5ba78e4fbda05d # v4.2.1
         with:
           subject-name: ${{ env.IMAGE_PREFIX }}/${{ env.EVEREST_SERVER_DEV_IMAGE_NAME }}
           subject-digest: ${{ steps.everest_push.outputs.digest }}
@@ -235,7 +235,7 @@ jobs:
 
       - name: Everest - attest Everest prod image
         if: env.IS_RC == 0
-        uses: actions/attest@59d89421af93a897026c735860bf21b6eb4f7b26 # v4.1.0
+        uses: actions/attest@508db95dd578ae2727ebd6217d5ba78e4fbda05d # v4.2.1
         with:
           subject-name: ${{ env.IMAGE_PREFIX }}/${{ env.EVEREST_SERVER_IMAGE_NAME }}
           subject-digest: ${{ steps.everest_push.outputs.digest }}
@@ -249,7 +249,7 @@ jobs:
           output-file: everest-sbom-${{ matrix.arch }}.spdx.json
 
       - name: Everest - attest SBOM
-        uses: actions/attest@59d89421af93a897026c735860bf21b6eb4f7b26 # v4.1.0
+        uses: actions/attest@508db95dd578ae2727ebd6217d5ba78e4fbda05d # v4.2.1
         with:
           subject-name: ${{ env.IMAGE_PREFIX }}/${{ env.EVEREST_SERVER_DEV_IMAGE_NAME }}
           subject-digest: ${{ steps.everest_push.outputs.digest }}
@@ -258,7 +258,7 @@ jobs:
 
       - name: Everest - attest prod SBOM
         if: env.IS_RC == 0
-        uses: actions/attest@59d89421af93a897026c735860bf21b6eb4f7b26 # v4.1.0
+        uses: actions/attest@508db95dd578ae2727ebd6217d5ba78e4fbda05d # v4.2.1
         with:
           subject-name: ${{ env.IMAGE_PREFIX }}/${{ env.EVEREST_SERVER_IMAGE_NAME }}
           subject-digest: ${{ steps.everest_push.outputs.digest }}
@@ -274,7 +274,7 @@ jobs:
 
       - name: Everest - attest source SBOM
         if: matrix.arch == 'amd64'
-        uses: actions/attest@59d89421af93a897026c735860bf21b6eb4f7b26 # v4.1.0
+        uses: actions/attest@508db95dd578ae2727ebd6217d5ba78e4fbda05d # v4.2.1
         with:
           subject-name: ${{ env.IMAGE_PREFIX }}/${{ env.EVEREST_SERVER_DEV_IMAGE_NAME }}
           subject-digest: ${{ steps.everest_push.outputs.digest }}
@@ -283,7 +283,7 @@ jobs:
 
       - name: Everest - attest prod source SBOM
         if: matrix.arch == 'amd64' && env.IS_RC == 0
-        uses: actions/attest@59d89421af93a897026c735860bf21b6eb4f7b26 # v4.1.0
+        uses: actions/attest@508db95dd578ae2727ebd6217d5ba78e4fbda05d # v4.2.1
         with:
           subject-name: ${{ env.IMAGE_PREFIX }}/${{ env.EVEREST_SERVER_IMAGE_NAME }}
           subject-digest: ${{ steps.everest_push.outputs.digest }}
@@ -358,7 +358,7 @@ jobs:
           echo "everest_digest=$(docker buildx imagetools inspect $IMAGE_PREFIX/$EVEREST_IMAGE:$VERSION --format '{{.Manifest.Digest}}')" >> $GITHUB_OUTPUT
 
       - name: Everest - attest multi-arch manifest
-        uses: actions/attest@59d89421af93a897026c735860bf21b6eb4f7b26 # v4.1.0
+        uses: actions/attest@508db95dd578ae2727ebd6217d5ba78e4fbda05d # v4.2.1
         with:
           subject-name: ${{ env.IMAGE_PREFIX }}/${{ steps.manifest_digest.outputs.everest_image }}
           subject-digest: ${{ steps.manifest_digest.outputs.everest_digest }}
