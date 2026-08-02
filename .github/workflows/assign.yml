@@ -86,6 +86,13 @@ jobs:
 
             // Maintainers bypass the gates below.
             if (!commenterIsMaintainer) {
+              // Filing an issue does not reserve it: it has not been triaged,
+              // and we may not agree it is a bug or want it fixed this way.
+              if (issue.user.login === commenter && !labels.includes('help wanted')) {
+                await reply(`@${commenter} opening an issue doesn't reserve it — it still needs to be triaged first, and we may not agree it's a bug or may want it fixed differently. A maintainer will review it and assign you if it's a good fit. See [CONTRIBUTING.md](https://github.com/${owner}/${repo}/blob/main/CONTRIBUTING.md#working-on-issues).`);
+                return;
+              }
+
               if (!labels.includes('help wanted')) {
                 await reply(`@${commenter} this issue isn't open for self-assignment yet — it needs the \`help wanted\` label, which a maintainer adds once the issue has been triaged and we'd welcome help with it.\n\nComment to say you'd like to take it and a maintainer will get back to you. See [CONTRIBUTING.md](https://github.com/${owner}/${repo}/blob/main/CONTRIBUTING.md#working-on-issues).`);
                 return;

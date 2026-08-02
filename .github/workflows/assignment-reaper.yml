@@ -50,6 +50,9 @@ jobs:
               if (!assignee) continue;
               if (await isMaintainer(assignee)) continue;
 
+              // Opt-out for work we know will take a while.
+              if ((issue.labels || []).some((l) => l.name === 'lifecycle/frozen')) continue;
+
               // An open pull request anywhere in the repo is good enough
               // evidence that somebody is still working.
               const prs = await github.rest.search.issuesAndPullRequests({
