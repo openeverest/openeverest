@@ -42,7 +42,9 @@ To avoid duplicated effort and keep collaboration smooth, please follow these st
 
 **Check for an existing assignee.** If an issue is already assigned, someone is already working on it. Please do not start work on it or open a PR for it — pull requests that duplicate assigned work will be closed. If the issue looks abandoned (no visible progress for two weeks or more), leave a comment asking about its status rather than opening a competing PR.
 
-**Claim unassigned issues before you start.** If an issue is unassigned and you want to tackle it, leave a comment expressing your intent — for example, *"I'd like to work on this"*. Wait for a maintainer to assign it to you before opening a PR. This prevents two people from solving the same problem in parallel.
+**Claim unassigned issues before you start.** If an issue is unassigned and you want to tackle it, leave a comment expressing your intent — for example, *"I'd like to work on this"*. Wait for a maintainer to confirm the issue and assign it to you before opening a PR. Waiting does two things: it stops two people from solving the same problem in parallel, and it stops you spending time on a report that turns out not to be a bug, or that we have decided not to fix.
+
+**This applies to issues you open yourself.** Filing an issue does not reserve it, and a new issue has not been reviewed yet — we may not agree that it is a bug, or may not want it fixed the way you propose. Please wait for a maintainer to confirm and assign it before starting work.
 
 **We aim to respond to a claim within 5 business days.** If nobody has replied after 5 business days, go ahead and start — leave a second comment saying so, so that others know. You should not be blocked by our silence. If someone else has already said they started, coordinate with them in the thread rather than opening a competing PR.
 
