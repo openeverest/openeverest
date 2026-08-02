@@ -81,7 +81,6 @@ func deletePreRun(cmd *cobra.Command, _ []string) {
 	deleteCfg.Pretty = !cmd.Flag(cli.FlagVerbose).Changed && !cmd.Flag(cli.FlagJSON).Changed
 }
 
-//nolint:dupl
 func deleteRun(cmd *cobra.Command, _ []string) {
 	cfgPath, err := config.DefaultPath()
 	if err != nil {
@@ -109,7 +108,7 @@ func deleteRun(cmd *cobra.Command, _ []string) {
 	stop()
 	os.Exit(waitcmd.ExitCode(runErr, logger.GetLogger(), deleteCfg.Pretty,
 		fmt.Sprintf("wait cancelled; backup storage %q deletion continues in the background", deleteOpts.Name),
-		fmt.Sprintf("timed out after %s waiting for backup storage %q to be deleted", deleteOpts.Timeout, deleteOpts.Name),
+		fmt.Sprintf("timed out after %s waiting for backup storage %q to be deleted — it may still be referenced by an Instance or Backup", deleteOpts.Timeout, deleteOpts.Name),
 	))
 }
 

@@ -224,6 +224,6 @@ func TestDelete_WaitTimesOut(t *testing.T) {
 	d := NewDeleter(Config{}, zap.NewNop().Sugar())
 	err := d.Run(context.Background(), opts, cfgPath)
 	require.Error(t, err)
-	assert.ErrorIs(t, err, wait.ErrTimeout)
+	require.ErrorIs(t, err, wait.ErrTimeout)
 	assert.Contains(t, err.Error(), "may still be referenced")
 }
