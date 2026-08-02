@@ -95,7 +95,7 @@ func TestRun_HappyPath_AccessKeyID(t *testing.T) {
 	assert.Equal(t, "AKIA123", *gotBody.Spec.S3.AccessKeyId)
 	require.NotNil(t, gotBody.Spec.S3.SecretAccessKey)
 	assert.Equal(t, "shh", *gotBody.Spec.S3.SecretAccessKey)
-	assert.Empty(t, gotBody.Spec.S3.CredentialsSecretRef.Name)
+	assert.Equal(t, "backup-storage-my-s3-credentials", gotBody.Spec.S3.CredentialsSecretRef.Name)
 }
 
 func TestRun_HappyPath_CredentialsSecret(t *testing.T) {
@@ -210,14 +210,9 @@ func TestRun_JSONErrorsOnEmptyCreateBody(t *testing.T) {
 	assert.Contains(t, err.Error(), "unexpected response creating backup storage")
 }
 
-func TestRun_UnmappedStatus_FallsBackToStatusLine(t *testing.T) {
+func TestRun_UndeclaredStatus_SurfacesDefaultMessage(t *testing.T) {
 	t.Parallel()
 
-	// A status the generated ParseCreateBackupStorageResponse switch doesn't map
-	// (only 201/400/500 are declared in the OpenAPI spec) leaves JSON400/JSON500
-	// nil and falls back to the status line — deliberately not a raw-body
-	// unmarshal, which proved to be a footgun not worth spreading to every
-	// other command (see the #2659 review discussion).
 	mux := http.NewServeMux()
 	mux.HandleFunc("/v1/clusters/main/namespaces/everest/backup-storages", func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -234,8 +229,28 @@ func TestRun_UnmappedStatus_FallsBackToStatusLine(t *testing.T) {
 	err := cr.Run(context.Background(), opts, newConfigPath(t, srv.URL))
 
 	require.Error(t, err)
+	assert.Contains(t, err.Error(), "namespace not found")
+}
+
+func TestRun_UndeclaredStatus_NonJSONBody_FallsBackToStatusLine(t *testing.T) {
+	t.Parallel()
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("/v1/clusters/main/namespaces/everest/backup-storages", func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+		_, _ = w.Write([]byte("not found"))
+	})
+	srv := httptest.NewServer(mux)
+	defer srv.Close()
+
+	opts := baseCreateOptions()
+	opts.CredentialsSecret = "my-s3-creds"
+
+	cr := NewCreateRunner(Config{Pretty: true}, zap.NewNop().Sugar())
+	err := cr.Run(context.Background(), opts, newConfigPath(t, srv.URL))
+
+	require.Error(t, err)
 	assert.Contains(t, err.Error(), "unexpected response creating backup storage")
-	assert.NotContains(t, err.Error(), "namespace not found")
 }
 
 func TestRun_UnsupportedType(t *testing.T) {

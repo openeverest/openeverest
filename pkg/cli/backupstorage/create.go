@@ -28,6 +28,7 @@ import (
 
 	"github.com/openeverest/openeverest/v2/client"
 	authcli "github.com/openeverest/openeverest/v2/pkg/cli/auth"
+	"github.com/openeverest/openeverest/v2/pkg/cli/clienterr"
 	"github.com/openeverest/openeverest/v2/pkg/output"
 )
 
@@ -91,6 +92,16 @@ func (cr *CreateRunner) Run(ctx context.Context, opts CreateOptions, cfgPath str
 	return cr.emitCreated(resp.JSON201, opts.Name)
 }
 
+// ValidateType returns an error if t is not a supported storage type. Callers
+// should check this before doing any work that shouldn't happen for a request
+// that's already doomed, e.g. prompting for a credential.
+func ValidateType(t string) error {
+	if t != "s3" {
+		return fmt.Errorf("unsupported storage type %q (only \"s3\" is supported today)", t)
+	}
+	return nil
+}
+
 // newBackupStorage builds the request body for a create call.
 func newBackupStorage(opts CreateOptions) (*client.BackupStorage, error) {
 	bs := client.BackupStorage{
@@ -125,11 +136,10 @@ func newBackupStorage(opts CreateOptions) (*client.BackupStorage, error) {
 		case opts.AccessKeyID != "":
 			bs.Spec.S3.AccessKeyId = &opts.AccessKeyID
 			bs.Spec.S3.SecretAccessKey = &opts.SecretAccessKey
-			// CredentialsSecretRef.Name is left empty; the server defaults it
-			// to "<name>-credentials" (internal/server/handlers/k8s/backup_storage.go).
+			bs.Spec.S3.CredentialsSecretRef.Name = "backup-storage-" + opts.Name + "-credentials"
 		}
 	default:
-		return nil, fmt.Errorf("unsupported storage type %q (only \"s3\" is supported today)", opts.Type)
+		return nil, ValidateType(opts.Type)
 	}
 
 	return &bs, nil
@@ -137,11 +147,8 @@ func newBackupStorage(opts CreateOptions) (*client.BackupStorage, error) {
 
 // createStorageError maps a non-201 response to an error.
 func createStorageError(resp *client.CreateBackupStorageResponse) error {
-	if resp.JSON400 != nil && resp.JSON400.Message != nil {
-		return fmt.Errorf("server error: %s", *resp.JSON400.Message)
-	}
-	if resp.JSON500 != nil && resp.JSON500.Message != nil {
-		return fmt.Errorf("server error: %s", *resp.JSON500.Message)
+	if msg, ok := clienterr.Message(resp.JSON400, resp.JSON500, resp.JSONDefault); ok {
+		return fmt.Errorf("server error: %s", msg)
 	}
 	return fmt.Errorf("unexpected response creating backup storage: %s", resp.Status())
 }
@@ -153,17 +160,10 @@ func (cr *CreateRunner) emitCreated(created *client.BackupStorage, name string) 
 		_, _ = fmt.Fprint(os.Stdout, output.Success("Backup storage %q created", name))
 		return nil
 	}
-	// A 201 with an unparseable body would otherwise emit empty stdout.
-	if created == nil {
-		return fmt.Errorf("backup storage %q was created but the server returned an unreadable response body", name)
-	}
 	return writeBackupStorageJSON(created)
 }
 
 func writeBackupStorageJSON(bs *client.BackupStorage) error {
-	if bs == nil {
-		return nil
-	}
 	if err := json.NewEncoder(os.Stdout).Encode(bs); err != nil {
 		return fmt.Errorf("failed to encode backup storage: %w", err)
 	}

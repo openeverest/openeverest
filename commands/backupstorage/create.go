@@ -16,6 +16,7 @@
 package backupstorage
 
 import (
+	"errors"
 	"fmt"
 	"os"
 
@@ -49,9 +50,10 @@ Only "s3" is supported as --type today. Provide credentials one of two ways:
     EVEREST_BACKUP_STORAGE_SECRET_ACCESS_KEY environment variable, or an
     interactive prompt if the env var is unset and stdin is a terminal
     (skipped for --json, or when stdin is piped/redirected, e.g. in CI).
-    The secret access key is never accepted as a plain flag. The server
-    stores it in a Secret named "<name>-credentials" and never persists
-    it on the BackupStorage object.
+    The secret access key is never accepted as a plain flag. The CLI
+    points credentialsSecretRef at "backup-storage-<name>-credentials"
+    (the same name the UI uses); the server writes the credentials into
+    that Secret and never persists them on the BackupStorage object.
 
 These two modes are mutually exclusive; exactly one is required.`,
 		Example: `  # Reference an existing credentials Secret
@@ -117,9 +119,15 @@ func createPreRun(cmd *cobra.Command, _ []string) {
 	createCfg.Pretty = !cmd.Flag(cli.FlagVerbose).Changed && !cmd.Flag(cli.FlagJSON).Changed
 }
 
-// createRun resolves the secret access key (env var, else interactive prompt) before
-// building the request.
+// createRun validates --type before resolving any credential, so an unsupported type
+// fails. It then resolves the secret access key (env var, else interactive
+// prompt) before building the request.
 func createRun(cmd *cobra.Command, _ []string) {
+	if err := backupstoragecli.ValidateType(createOpts.Type); err != nil {
+		output.PrintError(err, logger.GetLogger(), createCfg.Pretty)
+		os.Exit(1)
+	}
+
 	if createOpts.AccessKeyID != "" {
 		secret, err := resolveSecretAccessKey(cmd)
 		if err != nil {
@@ -151,7 +159,14 @@ func resolveSecretAccessKey(cmd *cobra.Command) (string, error) {
 	if cmd.Flag(cli.FlagJSON).Changed || !term.IsTerminal(int(os.Stdin.Fd())) {
 		return "", fmt.Errorf("%s must be set: not running interactively", envSecretAccessKey)
 	}
-	return tui.NewInputPassword(cmd.Context(), "Secret access key").Run()
+	return tui.NewInputPassword(cmd.Context(), "Secret access key",
+		tui.WithPasswordValidation(func(s string) error {
+			if s == "" {
+				return errors.New("secret access key cannot be empty")
+			}
+			return nil
+		}),
+	).Run()
 }
 
 // GetCreateCmd returns the create command.

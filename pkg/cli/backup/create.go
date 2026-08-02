@@ -122,10 +122,6 @@ func (cr *CreateRunner) emitCreated(created *client.Backup, name string) error {
 		_, _ = fmt.Fprint(os.Stdout, output.Success("Backup %q created", name))
 		return nil
 	}
-	// A 201 with an unparseable body would otherwise emit empty stdout.
-	if created == nil {
-		return fmt.Errorf("backup %q was created but the server returned an unreadable response body", name)
-	}
 	return writeBackupJSON(created)
 }
 
@@ -177,9 +173,6 @@ func (cr *CreateRunner) waitForBackup(
 }
 
 func writeBackupJSON(b *client.Backup) error {
-	if b == nil {
-		return nil
-	}
 	if err := json.NewEncoder(os.Stdout).Encode(b); err != nil {
 		return fmt.Errorf("failed to encode backup: %w", err)
 	}
