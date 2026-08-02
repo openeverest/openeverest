@@ -130,3 +130,40 @@ func componentSummary(inst *client.Instance) string {
 	}
 	return strings.Join(parts, ", ")
 }
+
+// newInstanceDeletePoll checks if the instance still exists. A 404 means
+// it's gone, which is success here (unlike the create-side poll).
+func newInstanceDeletePoll(
+	c *client.ClientWithResponses,
+	cluster, namespace, name string,
+) wait.PollFunc[*client.Instance] {
+	return func(ctx context.Context) (*client.Instance, error) {
+		resp, err := c.GetInstanceWithResponse(ctx, cluster, namespace, name)
+		if err != nil {
+			if errors.Is(err, authcli.ErrTokenRefresh) {
+				return nil, fmt.Errorf("failed to fetch instance %q: %w", name, err)
+			}
+			return nil, &wait.RetryableError{Err: fmt.Errorf("failed to fetch instance %q: %w", name, err)}
+		}
+		switch resp.StatusCode() {
+		case http.StatusOK:
+			if resp.JSON200 == nil {
+				return nil, &wait.RetryableError{Err: fmt.Errorf("empty response body fetching instance %q", name)}
+			}
+			return resp.JSON200, nil
+		case http.StatusNotFound:
+			return nil, nil // gone
+		case http.StatusUnauthorized:
+			return nil, fmt.Errorf("server rejected credentials — run 'everestctl auth login' again")
+		default:
+			return nil, &wait.RetryableError{Err: fmt.Errorf("unexpected response fetching instance %q: %s", name, resp.Status())}
+		}
+	}
+}
+
+func deleteCondition(inst *client.Instance) (wait.Outcome, string) {
+	if inst == nil {
+		return wait.Succeeded, "instance deleted"
+	}
+	return wait.Pending, progressMessage(inst, instancePhase(inst))
+}

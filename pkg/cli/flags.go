@@ -122,6 +122,15 @@ const (
 	FlagInstanceWait = "wait"
 	// FlagInstanceTimeout bounds --wait; only valid together with --wait.
 	FlagInstanceTimeout = "timeout"
+	// FlagInstanceDeletionPolicy overrides the instance's deletion policy for this delete.
+	FlagInstanceDeletionPolicy = "deletion-policy"
+	// FlagInstanceIgnoreNotFound treats an already-deleted instance as success.
+	FlagInstanceIgnoreNotFound = "ignore-not-found"
+
+	// shared flags.
+
+	// FlagYes skips the confirmation prompt. Used by instance delete and uninstall.
+	FlagYes = "yes"
 
 	// `provider` flags.
 
