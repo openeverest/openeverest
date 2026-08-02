@@ -40,11 +40,15 @@ If you are trying to report a vulnerability, please refer to our [Security Polic
 
 To avoid duplicated effort and keep collaboration smooth, please follow these steps before starting work on an issue.
 
-**Check for an existing assignee.** If an issue is already assigned to someone, it means they are actively working on it. Please do not start work on or open a PR for an assigned issue. If the issue appears stale (no activity for two weeks or more), you are welcome to leave a comment asking about its status.
+**Check for an existing assignee.** If an issue is already assigned, someone is already working on it. Please do not start work on it or open a PR for it — pull requests that duplicate assigned work will be closed. If the issue looks abandoned (no visible progress for two weeks or more), leave a comment asking about its status rather than opening a competing PR.
 
 **Claim unassigned issues before you start.** If an issue is unassigned and you want to tackle it, leave a comment expressing your intent — for example, *"I'd like to work on this"*. Wait for a maintainer to assign it to you before opening a PR. This prevents two people from solving the same problem in parallel.
 
-**Exception: `good first issue`.** Issues labeled [`good first issue`](https://github.com/openeverest/openeverest/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22) are explicitly reserved for new contributors and can be picked up without prior assignment. Feel free to start working and open a PR when ready.
+**We aim to respond to a claim within 5 business days.** If nobody has replied after 5 business days, go ahead and start — leave a second comment saying so, so that others know. You should not be blocked by our silence. If someone else has already said they started, coordinate with them in the thread rather than opening a competing PR.
+
+**One thing at a time.** Please hold at most two open assigned issues, and only one `good first issue`. Claiming several at once blocks work that others could be doing. If a claimed issue shows no visible progress for two weeks, we may unassign it and return it to the pool — no hard feelings, just comment if you would like it back.
+
+**`good first issue` is reserved for first-time contributors.** Issues labeled [`good first issue`](https://github.com/openeverest/openeverest/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22) are set aside for people making their first contribution to OpenEverest, and maintainers commit to giving them extra review support. If you already have a merged pull request here, please leave these for newcomers and pick up a [`help wanted`](https://github.com/openeverest/openeverest/issues?q=is%3Aissue+is%3Aopen+label%3A%22help+wanted%22) issue instead. They follow the same claim process as every other issue.
 
 **Discuss your approach with the community.** Before investing significant time in an implementation, consider sharing your design ideas in the issue thread or in our [community channels](https://openeverest.io/#community) (Slack and more). Early feedback from maintainers and other contributors can save effort, surface existing work, and help your PR land faster.
 
