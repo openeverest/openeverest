@@ -38,21 +38,49 @@ If you are trying to report a vulnerability, please refer to our [Security Polic
 
 ## Working on Issues
 
-To avoid duplicated effort and keep collaboration smooth, please follow these steps before starting work on an issue.
+### Finding something to work on
 
-**Check for an existing assignee.** If an issue is already assigned, someone is already working on it. Please do not start work on it or open a PR for it — pull requests that duplicate assigned work will be closed. If the issue looks abandoned (no visible progress for two weeks or more), leave a comment asking about its status rather than opening a competing PR.
+Every new issue starts untriaged. A maintainer reads it and either accepts it, asks for more information, or closes it with an explanation. We aim to do this within 5 business days.
 
-**Claim unassigned issues before you start.** If an issue is unassigned and you want to tackle it, leave a comment expressing your intent — for example, *"I'd like to work on this"*. Wait for a maintainer to confirm the issue and assign it to you before opening a PR. Waiting does two things: it stops two people from solving the same problem in parallel, and it stops you spending time on a report that turns out not to be a bug, or that we have decided not to fix.
+Labels tell you where an issue stands:
 
-**This applies to issues you open yourself.** Filing an issue does not reserve it, and a new issue has not been reviewed yet — we may not agree that it is a bug, or may not want it fixed the way you propose. Please wait for a maintainer to confirm and assign it before starting work.
+| Label | What it means for you |
+| --- | --- |
+| `needs-triage` | Not reviewed yet. Please don't start work on it. |
+| `triage/needs-information` | We're waiting on the reporter before deciding. |
+| `triage/accepted` | We agree this should be done. |
+| [`help wanted`](https://github.com/openeverest/openeverest/issues?q=is%3Aissue+is%3Aopen+label%3A%22help+wanted%22+no%3Aassignee) | Accepted, and we'd welcome community help. **Claim these yourself with `/assign`.** |
+| [`good first issue`](https://github.com/openeverest/openeverest/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22+no%3Aassignee) | A `help wanted` issue that needs no deep background. Reserved for first-time contributors. |
 
-**We aim to respond to a claim within 5 business days.** If nobody has replied after 5 business days, go ahead and start — leave a second comment saying so, so that others know. You should not be blocked by our silence. If someone else has already said they started, coordinate with them in the thread rather than opening a competing PR.
+**This applies to issues you open yourself.** Filing an issue does not reserve it, and a new issue has not been reviewed yet — we may not agree that it is a bug, or may not want it fixed the way you propose.
 
-**One thing at a time.** Please hold at most two open assigned issues, and only one `good first issue`. Claiming several at once blocks work that others could be doing. If a claimed issue shows no visible progress for two weeks, we may unassign it and return it to the pool — no hard feelings, just comment if you would like it back.
+### Claiming an issue
 
-**`good first issue` is reserved for first-time contributors.** Issues labeled [`good first issue`](https://github.com/openeverest/openeverest/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22) are set aside for people making their first contribution to OpenEverest, and maintainers commit to giving them extra review support. If you already have a merged pull request here, please leave these for newcomers and pick up a [`help wanted`](https://github.com/openeverest/openeverest/issues?q=is%3Aissue+is%3Aopen+label%3A%22help+wanted%22) issue instead. They follow the same claim process as every other issue.
+**If it is labelled `help wanted`, comment `/assign`.** A bot assigns it to you straight away; no maintainer needs to be involved. Comment `/unassign` at any time to release it.
 
-**Discuss your approach with the community.** Before investing significant time in an implementation, consider sharing your design ideas in the issue thread or in our [community channels](https://openeverest.io/#community) (Slack and more). Early feedback from maintainers and other contributors can save effort, surface existing work, and help your PR land faster.
+The bot will decline if the issue is already assigned, if it isn't labelled `help wanted` yet, or if you are at your limit: **at most two open assigned issues at a time**. `good first issue` items are reserved for people who have not had a pull request merged here before.
+
+**For anything else, comment to say you'd like to take it** — for example, *"I'd like to work on this"* — and wait for a maintainer to accept the issue and assign it. Waiting stops two people solving the same problem in parallel, and stops you spending time on a report that turns out not to be a bug or that we have decided not to fix.
+
+**If nobody has replied within 5 business days, go ahead and start**, and leave a second comment saying so. You should not be blocked by our silence. If someone else has already said they started, coordinate with them in the thread rather than opening a competing pull request.
+
+### While you are working
+
+Please do not open a pull request for an issue assigned to someone else — it will be closed. Reference the issue with `Fixes #123` in your pull request description.
+
+If an assigned issue shows no visible progress for two weeks, a bot will ask whether you are still on it, and will unassign it about a week later if there is no reply. No hard feelings — comment `/assign` and it is yours again.
+
+Before investing significant time in an implementation, consider sharing your design ideas in the issue thread or in our [community channels](https://openeverest.io/#community) (Slack and more). Early feedback from maintainers and other contributors can save effort, surface existing work, and help your PR land faster.
+
+## AI-assisted contributions
+
+Use whatever tools help you. We care about the result, not how you produced it. Two rules make that workable.
+
+**You must understand what you submit.** If you cannot explain why a change is correct, or defend it in review, it is not ready. The same applies to issues: if you cannot explain why something is a bug, it is not ready to file.
+
+**Never present output you did not produce.** Logs, stack traces, race detector output, benchmark numbers and error messages must be things you actually observed. Reasoning from reading the code is completely legitimate — say that is what you did. *"I haven't run this, here is the reasoning"* is a good report. Invented output presented as observed is not, and it is worse than no evidence at all: it manufactures confidence that a problem was reproduced, and it forces a reviewer to audit the report before they can start on the claim itself.
+
+Please say when a contribution is substantially AI-generated. Reports and pull requests containing unverified claims presented as fact will be closed without detailed review, and repeated submissions of that kind may lead to a temporary interaction limit.
 
 ## Contributing to the source code
 
