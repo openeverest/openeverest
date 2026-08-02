@@ -94,6 +94,15 @@ updates:
       - "github_actions"
     target-branch: "main"
     groups:
+      # github/codeql-action/init, /autobuild and /analyze are separate
+      # dependencies to Dependabot, so it opens a PR per sub-action. Merging
+      # them independently desynchronises the versions, and CodeQL then fails
+      # every analysis with "Loaded a configuration file for version X, but
+      # running version Y". Grouping keeps them atomic. No update-types filter,
+      # so majors group too — that is when a mismatch is guaranteed to break.
+      codeql-action:
+        patterns:
+          - "github/codeql-action*"
       github-actions:
         patterns:
           - "*"
@@ -236,6 +245,15 @@ updates:
       - "github_actions"
     target-branch: "release-2.0"
     groups:
+      # github/codeql-action/init, /autobuild and /analyze are separate
+      # dependencies to Dependabot, so it opens a PR per sub-action. Merging
+      # them independently desynchronises the versions, and CodeQL then fails
+      # every analysis with "Loaded a configuration file for version X, but
+      # running version Y". Grouping keeps them atomic. No update-types filter,
+      # so majors group too — that is when a mismatch is guaranteed to break.
+      codeql-action:
+        patterns:
+          - "github/codeql-action*"
       github-actions-v2:
         patterns:
           - "*"
