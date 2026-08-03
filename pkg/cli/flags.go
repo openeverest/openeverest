@@ -213,6 +213,8 @@ const (
 	FlagBackupStorageWait = "wait"
 	// FlagBackupStorageTimeout bounds --wait; only valid together with --wait.
 	FlagBackupStorageTimeout = "timeout"
+	// FlagBackupStorageIgnoreNotFound treats an already-deleted backup storage as success.
+	FlagBackupStorageIgnoreNotFound = "ignore-not-found"
 
 	// `backup-class` flags.
 

@@ -36,13 +36,14 @@ import (
 
 // DeleteOptions configures `backup-storage delete`.
 type DeleteOptions struct {
-	Name      string
-	Namespace string
-	Cluster   string
-	Context   string        // overrides the active context when set
-	Yes       bool          // skip the confirmation prompt
-	Wait      bool          // block until the backup storage is fully deleted
-	Timeout   time.Duration // bounds --wait; must be positive
+	Name           string
+	Namespace      string
+	Cluster        string
+	Context        string        // overrides the active context when set
+	Yes            bool          // skip the confirmation prompt
+	IgnoreNotFound bool          // treat "backup storage already gone" (404) as a successful delete
+	Wait           bool          // block until the backup storage is fully deleted
+	Timeout        time.Duration // bounds --wait; must be positive
 
 	// IsTerminal overrides the TTY check for the prompt. Set in tests.
 	IsTerminal func() bool
@@ -73,6 +74,10 @@ func (bd *Deleter) Run(ctx context.Context, opts DeleteOptions, cfgPath string) 
 		return err
 	}
 
+	if opts.IgnoreNotFound && bd.backupStorageAlreadyGone(ctx, c, opts) {
+		return bd.emitDeleted(opts)
+	}
+
 	confirmOpts := confirm.Options{Yes: opts.Yes, JSON: !bd.config.Pretty, IsTerminal: opts.IsTerminal}
 	msg := fmt.Sprintf("Delete backup storage %q in namespace %q?", opts.Name, opts.Namespace)
 	if err := confirm.YesNo(ctx, confirmOpts, msg); err != nil {
@@ -83,29 +88,50 @@ func (bd *Deleter) Run(ctx context.Context, opts DeleteOptions, cfgPath string) 
 	if err != nil {
 		return fmt.Errorf("delete backup storage request failed: %w", err)
 	}
-	if err := checkDeleteResponse(resp, opts); err != nil {
+
+	alreadyGone, err := checkDeleteResponse(resp, opts)
+	if err != nil {
 		return err
 	}
-	bd.l.Infof("deleted backup storage %q in namespace %q", opts.Name, opts.Namespace)
 
-	if !opts.Wait {
+	if !alreadyGone {
+		bd.l.Infof("deleted backup storage %q in namespace %q", opts.Name, opts.Namespace)
+	}
+
+	if !opts.Wait || alreadyGone {
 		return bd.emitDeleted(opts)
 	}
 	return bd.waitForDeletion(ctx, c, opts)
 }
 
-// checkDeleteResponse maps a DeleteBackupStorage response to an error, or nil on success.
-func checkDeleteResponse(resp *client.DeleteBackupStorageResponse, opts DeleteOptions) error {
+// backupStorageAlreadyGone checks, for --ignore-not-found, whether the backup
+// storage is already gone so Run can skip confirmation and --wait entirely
+// instead of asking the user to confirm deleting something that doesn't
+// exist. Any ambiguous result (fetch error, non-404 status) returns false so
+// the normal confirm+delete flow runs and surfaces the real error itself.
+func (bd *Deleter) backupStorageAlreadyGone(ctx context.Context, c *client.ClientWithResponses, opts DeleteOptions) bool {
+	resp, err := c.GetBackupStorageWithResponse(ctx, opts.Cluster, opts.Namespace, opts.Name)
+	if err != nil {
+		return false
+	}
+	return resp.StatusCode() == http.StatusNotFound
+}
+
+// checkDeleteResponse maps a DeleteBackupStorage response to (alreadyGone, error).
+func checkDeleteResponse(resp *client.DeleteBackupStorageResponse, opts DeleteOptions) (bool, error) {
 	switch {
 	case resp.StatusCode() == http.StatusNotFound:
-		return fmt.Errorf("backup storage %q not found in namespace %q", opts.Name, opts.Namespace)
+		if !opts.IgnoreNotFound {
+			return false, fmt.Errorf("backup storage %q not found in namespace %q", opts.Name, opts.Namespace)
+		}
+		return true, nil
 	case resp.StatusCode() != http.StatusOK && resp.StatusCode() != http.StatusNoContent:
 		if msg, ok := clienterr.Message(resp.JSON400, resp.JSONDefault); ok {
-			return fmt.Errorf("server error: %s", msg)
+			return false, fmt.Errorf("server error: %s", msg)
 		}
-		return fmt.Errorf("unexpected response deleting backup storage: %s", resp.Status())
+		return false, fmt.Errorf("unexpected response deleting backup storage: %s", resp.Status())
 	default:
-		return nil
+		return false, nil
 	}
 }
 
@@ -130,15 +156,11 @@ func (bd *Deleter) waitForDeletion(ctx context.Context, c *client.ClientWithResp
 		}
 	}
 
-	err := wait.Until(ctx, poll, deleteCondition, wait.Options{
+	if err := wait.Until(ctx, poll, deleteCondition, wait.Options{
 		Timeout:  opts.Timeout,
 		OnUpdate: onUpdate,
 		OnRetry:  func(err error) { bd.l.Warnf("%v — retrying", err) },
-	})
-	if errors.Is(err, wait.ErrTimeout) {
-		return fmt.Errorf("timed out waiting for backup storage %q to be deleted — it may still be referenced by an Instance or Backup: %w", opts.Name, err)
-	}
-	if err != nil {
+	}); err != nil {
 		return err
 	}
 

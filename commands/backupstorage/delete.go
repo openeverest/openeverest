@@ -48,7 +48,14 @@ unless it was externally referenced before being adopted.
 Interactively (a terminal, no --yes), you'll be asked to confirm with y/N.
 Pass --yes/-y to skip the prompt; in a non-interactive context (no terminal,
 or --json) omitting --yes fails immediately instead of hanging on a prompt
-nobody can answer.`,
+nobody can answer.
+
+--ignore-not-found treats an already-absent backup storage as success and
+skips both the confirmation prompt and --wait entirely, since there's
+nothing to confirm or wait for. If --wait times out, the deletion is still
+running server-side, and a stuck delete is almost always an Instance or
+Backup that still references the storage, so point at 'everestctl instance
+list'/'everestctl backup list' for the namespace.`,
 		Example: `  # Delete a backup storage (prompts y/N)
   everestctl backup-storage delete --name my-s3 --namespace everest
 
@@ -56,7 +63,10 @@ nobody can answer.`,
   everestctl backup-storage delete --name my-s3 --namespace everest -y
 
   # Scripted teardown, wait until fully removed
-  everestctl backup-storage delete --name my-s3 --namespace everest --yes --wait --timeout 5m`,
+  everestctl backup-storage delete --name my-s3 --namespace everest --yes --wait --timeout 5m
+
+  # Idempotent teardown: treat "already gone" as success
+  everestctl backup-storage delete --name my-s3 --namespace everest --yes --ignore-not-found`,
 		PreRun: deletePreRun,
 		Run:    deleteRun,
 	}
@@ -70,6 +80,7 @@ func init() {
 	deleteCmd.Flags().StringVar(&deleteOpts.Cluster, cli.FlagBackupStorageCluster, "main", "Cluster name")
 	deleteCmd.Flags().StringVar(&deleteOpts.Context, cli.FlagBackupStorageContext, "", "Context to use (default: current context)")
 	deleteCmd.Flags().BoolVarP(&deleteOpts.Yes, cli.FlagYes, "y", false, "Skip the confirmation prompt")
+	deleteCmd.Flags().BoolVar(&deleteOpts.IgnoreNotFound, cli.FlagBackupStorageIgnoreNotFound, false, "Treat \"backup storage already gone\" as a successful delete instead of an error")
 	deleteCmd.Flags().BoolVar(&deleteOpts.Wait, cli.FlagBackupStorageWait, false, "Block until the backup storage is fully deleted (Ctrl-C cancels only the wait, not the deletion)")
 	deleteCmd.Flags().DurationVar(&deleteOpts.Timeout, cli.FlagBackupStorageTimeout, 5*time.Minute, "Maximum time to wait (only valid with --wait); must be positive")
 
@@ -108,7 +119,8 @@ func deleteRun(cmd *cobra.Command, _ []string) {
 	stop()
 	os.Exit(waitcmd.ExitCode(runErr, logger.GetLogger(), deleteCfg.Pretty,
 		fmt.Sprintf("wait cancelled; backup storage %q deletion continues in the background", deleteOpts.Name),
-		fmt.Sprintf("timed out after %s waiting for backup storage %q to be deleted — it may still be referenced by an Instance or Backup", deleteOpts.Timeout, deleteOpts.Name),
+		fmt.Sprintf("timed out after %s waiting for backup storage %q to be deleted; deletion is still running server-side — a stuck delete is almost always an Instance or Backup that still references the storage, check 'everestctl instance list --namespace %s' / 'everestctl backup list --namespace %s'",
+			deleteOpts.Timeout, deleteOpts.Name, deleteOpts.Namespace, deleteOpts.Namespace),
 	))
 }
 

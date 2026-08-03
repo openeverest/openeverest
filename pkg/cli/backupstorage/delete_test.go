@@ -98,6 +98,63 @@ func TestDelete_NotFound_Errors(t *testing.T) {
 	assert.Contains(t, err.Error(), `backup storage "my-s3" not found in namespace "everest"`)
 }
 
+func TestDelete_NotFound_WithIgnoreNotFound_Succeeds(t *testing.T) {
+	t.Parallel()
+
+	srv := newDeleteServer(t, func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+	}, nil)
+	defer srv.Close()
+
+	cfgPath := filepath.Join(t.TempDir(), "config.yaml")
+	require.NoError(t, newTestConfig(srv.URL).Save(cfgPath))
+
+	opts := yesOpts()
+	opts.IgnoreNotFound = true
+
+	d := NewDeleter(Config{}, zap.NewNop().Sugar())
+	err := d.Run(context.Background(), opts, cfgPath)
+	assert.NoError(t, err)
+}
+
+// TestDelete_IgnoreNotFound_AlreadyGone_SkipsConfirmationAndWait proves the
+// --ignore-not-found short-circuit: when the backup storage is already gone,
+// both the confirmation prompt and --wait are skipped entirely (no --yes, no
+// TTY, and --wait: true all set here — none of it should matter), and the
+// DELETE endpoint itself is never called.
+func TestDelete_IgnoreNotFound_AlreadyGone_SkipsConfirmationAndWait(t *testing.T) {
+	t.Parallel()
+
+	deleteCalled := false
+	srv := newDeleteServer(t,
+		func(w http.ResponseWriter, _ *http.Request) {
+			deleteCalled = true
+			w.WriteHeader(http.StatusNoContent)
+		},
+		func(w http.ResponseWriter, _ *http.Request) {
+			w.WriteHeader(http.StatusNotFound)
+		},
+	)
+	defer srv.Close()
+
+	cfgPath := filepath.Join(t.TempDir(), "config.yaml")
+	require.NoError(t, newTestConfig(srv.URL).Save(cfgPath))
+
+	opts := DeleteOptions{
+		Name:           "my-s3",
+		Namespace:      "everest",
+		Cluster:        "main",
+		IgnoreNotFound: true,
+		Wait:           true,
+		IsTerminal:     isTerminalFalse,
+	}
+
+	d := NewDeleter(Config{}, zap.NewNop().Sugar())
+	err := d.Run(context.Background(), opts, cfgPath)
+	require.NoError(t, err)
+	assert.False(t, deleteCalled, "delete must not be issued when the backup storage is already gone")
+}
+
 func TestDelete_ServerError_ReturnsMessage(t *testing.T) {
 	t.Parallel()
 
@@ -225,5 +282,4 @@ func TestDelete_WaitTimesOut(t *testing.T) {
 	err := d.Run(context.Background(), opts, cfgPath)
 	require.Error(t, err)
 	require.ErrorIs(t, err, wait.ErrTimeout)
-	assert.Contains(t, err.Error(), "may still be referenced")
 }
