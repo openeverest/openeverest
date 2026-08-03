@@ -388,3 +388,108 @@ func TestValidate_DeleteBackupStorage(t *testing.T) {
 		})
 	}
 }
+
+func TestBasicStorageParamsAreChanged(t *testing.T) {
+	t.Parallel()
+
+	storage := func() *everestv1alpha1.BackupStorage {
+		return &everestv1alpha1.BackupStorage{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "storageA",
+				Namespace: bsNamespace,
+			},
+			Spec: everestv1alpha1.BackupStorageSpec{
+				Bucket:      "bucket1",
+				Region:      "region1",
+				EndpointURL: "https://s3.example.com",
+			},
+		}
+	}
+
+	cases := []struct {
+		name       string
+		params     everestapi.UpdateBackupStorageParams
+		areChanged bool
+	}{
+		{
+			name:       "no params set",
+			params:     everestapi.UpdateBackupStorageParams{},
+			areChanged: false,
+		},
+		{
+			name:       "bucket changed",
+			params:     everestapi.UpdateBackupStorageParams{BucketName: new("bucket2")},
+			areChanged: true,
+		},
+		{
+			name:       "region changed",
+			params:     everestapi.UpdateBackupStorageParams{Region: new("region2")},
+			areChanged: true,
+		},
+		{
+			// Repointing an in-use storage at a different endpoint orphans every backup
+			// already written through it, so it must be treated like a bucket/region change.
+			name:       "url changed",
+			params:     everestapi.UpdateBackupStorageParams{Url: new("https://s3.other.example.com")},
+			areChanged: true,
+		},
+		{
+			name:       "bucket set to the same value",
+			params:     everestapi.UpdateBackupStorageParams{BucketName: new("bucket1")},
+			areChanged: false,
+		},
+		{
+			name:       "region set to the same value",
+			params:     everestapi.UpdateBackupStorageParams{Region: new("region1")},
+			areChanged: false,
+		},
+		{
+			name:       "url set to the same value",
+			params:     everestapi.UpdateBackupStorageParams{Url: new("https://s3.example.com")},
+			areChanged: false,
+		},
+		{
+			name: "all three set to the same values",
+			params: everestapi.UpdateBackupStorageParams{
+				BucketName: new("bucket1"),
+				Region:     new("region1"),
+				Url:        new("https://s3.example.com"),
+			},
+			areChanged: false,
+		},
+		{
+			name: "all three changed",
+			params: everestapi.UpdateBackupStorageParams{
+				BucketName: new("bucket2"),
+				Region:     new("region2"),
+				Url:        new("https://s3.other.example.com"),
+			},
+			areChanged: true,
+		},
+		{
+			// Non-identity params must never trip the in-use guard on their own,
+			// otherwise credentials could not be rotated on a storage that is in use.
+			name: "only non-identity params changed",
+			params: everestapi.UpdateBackupStorageParams{
+				AccessKey:      new("new-access-key"),
+				SecretKey:      new("new-secret-key"),
+				VerifyTLS:      new(false),
+				ForcePathStyle: new(true),
+				Description:    new("new description"),
+			},
+			areChanged: false,
+		},
+		{
+			name:       "url cleared to empty",
+			params:     everestapi.UpdateBackupStorageParams{Url: new("")},
+			areChanged: true,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			assert.Equal(t, tc.areChanged, basicStorageParamsAreChanged(storage(), &tc.params))
+		})
+	}
+}

@@ -334,14 +334,18 @@ func azureAccess(ctx context.Context, l *zap.SugaredLogger, accountName, account
 	return nil
 }
 
+// basicStorageParamsAreChanged reports whether an update changes any of the parameters that
+// identify the storage location itself: bucket, region and endpoint URL.
+//
+// These are the same three fields that validateDuplicateStorageByUpdate uses to decide whether
+// two storages point at the same location (see errDuplicatedBackupStorage), and the two functions
+// must stay in sync: repointing a storage that is still in use would orphan every backup already
+// written through it. Both are expressed via the shared *OrDefault helpers so that adding a field
+// to the storage identity only has to be done once.
 func basicStorageParamsAreChanged(bs *everestv1alpha1.BackupStorage, params *api.UpdateBackupStorageParams) bool {
-	if params.BucketName != nil && bs.Spec.Bucket != pointer.GetString(params.BucketName) {
-		return true
-	}
-	if params.Region != nil && bs.Spec.Region != pointer.GetString(params.Region) {
-		return true
-	}
-	return false
+	return bucketNameOrDefault(params, bs.Spec.Bucket) != bs.Spec.Bucket ||
+		regionOrDefault(params, bs.Spec.Region) != bs.Spec.Region ||
+		urlOrDefault(params, bs.Spec.EndpointURL) != bs.Spec.EndpointURL
 }
 
 func (h *validateHandler) validateUpdateBackupStorageRequest(
