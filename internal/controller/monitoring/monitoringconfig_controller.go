@@ -317,6 +317,8 @@ func (r *MonitoringConfigReconciler) fetchPMMServerVersion(
 }
 
 // reconcileVMAgent ensures a VMAgent exists with remote-write entries for all PMM-type MonitoringConfigs, and is removed when no longer needed.
+//
+//nolint:funlen // Keep reconciliation logic in one function for clarity.
 func (r *MonitoringConfigReconciler) reconcileVMAgent(ctx context.Context) (bool, error) {
 	list := &monitoringv1alpha1.MonitoringConfigList{}
 	if err := r.List(ctx, list, &client.ListOptions{}); err != nil {
@@ -566,7 +568,7 @@ func (r *MonitoringConfigReconciler) handleFinalizers(ctx context.Context, mc *m
 
 	removedCleanup := controllerutil.RemoveFinalizer(mc, cleanupSecretsFinalizer)
 	removedVMAgent := controllerutil.RemoveFinalizer(mc, vmagentFinalizer)
-	
+
 	if removedCleanup || removedVMAgent {
 		if err := r.Update(ctx, mc); err != nil {
 			return false, fmt.Errorf("could not remove finalizers: %w", err)
