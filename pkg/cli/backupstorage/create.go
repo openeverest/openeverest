@@ -104,6 +104,10 @@ func ValidateType(t string) error {
 
 // newBackupStorage builds the request body for a create call.
 func newBackupStorage(opts CreateOptions) (*client.BackupStorage, error) {
+	if err := ValidateType(opts.Type); err != nil {
+		return nil, err
+	}
+
 	bs := client.BackupStorage{
 		Metadata: &metav1.ObjectMeta{Name: opts.Name, Namespace: opts.Namespace},
 	}
