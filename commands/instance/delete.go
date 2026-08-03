@@ -52,13 +52,10 @@ fails immediately instead of hanging on a prompt nobody can answer.
 
 --ignore-not-found treats an already-absent instance as success and skips
 both the confirmation prompt and --wait entirely, since there's nothing to
-confirm or wait for. --wait only distinguishes "gone" (exit 0) from "timed
-out" (exit 124); a stuck cascade delete looks identical to a slow one from
-the API's perspective (it stays Terminating either way), so there is no
-separate "failed" outcome. If --wait times out, check
-'everestctl backup list'/'everestctl restore list' for the namespace — a
-stuck cascade is almost always a child Backup or Restore that won't
-finalize.`,
+confirm or wait for. If --wait times out, the deletion is still running
+server-side, and a stuck cascade is almost always a Backup/Restore that
+won't finalize, so point at 'everestctl backup list'/'everestctl restore
+list' for the namespace.`,
 		Example: `  # Delete an instance (states blast radius, asks to type the name)
   everestctl instance delete --name my-mongo --namespace everest
 
