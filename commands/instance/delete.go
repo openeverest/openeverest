@@ -16,11 +16,8 @@
 package instance
 
 import (
-	"context"
 	"fmt"
 	"os"
-	"os/signal"
-	"syscall"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -92,6 +89,7 @@ func init() {
 
 func deletePreRun(cmd *cobra.Command, _ []string) {
 	deleteCfg.Pretty = !cmd.Flag(cli.FlagVerbose).Changed && !cmd.Flag(cli.FlagJSON).Changed
+	deleteOpts.JSON = cmd.Flag(cli.FlagJSON).Changed
 }
 
 func deleteRun(cmd *cobra.Command, _ []string) {
@@ -106,19 +104,10 @@ func deleteRun(cmd *cobra.Command, _ []string) {
 		os.Exit(waitcmd.ExitFailed)
 	}
 
-	ctx := cmd.Context()
-	stop := func() {}
-	if deleteOpts.Wait {
-		// Ctrl-C cancels only the wait; deletion continues server-side.
-		var cancel context.CancelFunc
-		ctx, cancel = signal.NotifyContext(ctx, os.Interrupt, syscall.SIGTERM)
-		stop = cancel
-	}
-
+	// Ctrl-C only cancels --wait; the cancellable context is set up inside
+	// Deleter.waitForDeletion, not here.
 	id := instancecli.NewDeleter(*deleteCfg, logger.GetLogger())
-	runErr := id.Run(ctx, *deleteOpts, cfgPath)
-	// Release the signal handler before os.Exit (which skips defers).
-	stop()
+	runErr := id.Run(cmd.Context(), *deleteOpts, cfgPath)
 	os.Exit(waitcmd.ExitCode(runErr, logger.GetLogger(), deleteCfg.Pretty,
 		fmt.Sprintf("wait cancelled; instance %q deletion continues in the background — check with 'everestctl instance status'", deleteOpts.Name),
 		fmt.Sprintf("timed out after %s waiting for instance %q to be deleted; deletion is still running server-side — a stuck cascade is almost always a Backup or Restore that won't finalize, check 'everestctl backup list --namespace %s' / 'everestctl restore list --namespace %s'",

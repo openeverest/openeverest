@@ -21,6 +21,8 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"go.uber.org/zap"
@@ -40,6 +42,7 @@ type DeleteOptions struct {
 	Context        string        // overrides the active context when set
 	DeletionPolicy string        // "", "Cascade", or "Orphan"; "" leaves the Instance's own spec.deletionPolicy in effect
 	Yes            bool          // skip the confirmation prompt
+	JSON           bool          // --json was passed; forces non-interactive regardless of --verbose
 	IgnoreNotFound bool          // treat "instance already gone" (404) as a successful delete
 	Wait           bool          // block until the instance is fully deleted
 	Timeout        time.Duration // bounds --wait; must be positive
@@ -63,7 +66,9 @@ func NewDeleter(cfg Config, l *zap.SugaredLogger) *Deleter {
 	return id
 }
 
-// Run deletes the instance: confirms, deletes, then waits if asked.
+// Run deletes the instance: confirms, deletes, then waits if asked. ctx
+// stays plain here so Ctrl-C during confirm is a decline, not a cancelled
+// wait, see waitForDeletion.
 func (id *Deleter) Run(ctx context.Context, opts DeleteOptions, cfgPath string) error {
 	if opts.DeletionPolicy != "" &&
 		opts.DeletionPolicy != string(client.DeleteInstanceParamsDeletionPolicyCascade) &&
@@ -76,12 +81,17 @@ func (id *Deleter) Run(ctx context.Context, opts DeleteOptions, cfgPath string) 
 		return err
 	}
 
-	if opts.IgnoreNotFound && id.instanceAlreadyGone(ctx, c, opts) {
-		return id.emitDeleted(opts)
+	var preFetched *client.Instance
+	if opts.IgnoreNotFound {
+		inst, gone := id.checkInstanceExists(ctx, c, opts)
+		if gone {
+			return id.emitAlreadyGone(opts)
+		}
+		preFetched = inst
 	}
 
-	confirmOpts := confirm.Options{Yes: opts.Yes, JSON: !id.config.Pretty, IsTerminal: opts.IsTerminal}
-	if err := id.confirmDeletion(ctx, c, confirmOpts, opts); err != nil {
+	confirmOpts := confirm.Options{Yes: opts.Yes, JSON: opts.JSON, IsTerminal: opts.IsTerminal}
+	if err := id.confirmDeletion(ctx, c, confirmOpts, opts, preFetched); err != nil {
 		return err
 	}
 
@@ -111,17 +121,23 @@ func (id *Deleter) Run(ctx context.Context, opts DeleteOptions, cfgPath string) 
 	return id.waitForDeletion(ctx, c, opts)
 }
 
-// instanceAlreadyGone checks, for --ignore-not-found, whether the instance is
-// already gone so Run can skip confirmation and --wait entirely instead of
-// asking the user to confirm deleting something that doesn't exist. Any
-// ambiguous result (fetch error, non-404 status) returns false so the normal
-// confirm+delete flow runs and surfaces the real error itself.
-func (id *Deleter) instanceAlreadyGone(ctx context.Context, c *client.ClientWithResponses, opts DeleteOptions) bool {
+// checkInstanceExists is for --ignore-not-found: (nil, true) means the
+// instance is gone. Otherwise it also returns the fetched instance, so
+// confirmDeletion can reuse it instead of fetching again. Any unclear
+// result returns (nil, false) and lets the normal delete flow handle it.
+func (id *Deleter) checkInstanceExists(ctx context.Context, c *client.ClientWithResponses, opts DeleteOptions) (*client.Instance, bool) {
 	resp, err := c.GetInstanceWithResponse(ctx, opts.Cluster, opts.Namespace, opts.Name)
 	if err != nil {
-		return false
+		return nil, false
 	}
-	return resp.StatusCode() == http.StatusNotFound
+	switch resp.StatusCode() {
+	case http.StatusNotFound:
+		return nil, true
+	case http.StatusOK:
+		return resp.JSON200, false
+	default:
+		return nil, false
+	}
 }
 
 // checkDeleteResponse maps a DeleteInstance response to (alreadyGone, error).
@@ -142,30 +158,45 @@ func checkDeleteResponse(resp *client.DeleteInstanceResponse, opts DeleteOptions
 	}
 }
 
-// confirmDeletion shows the blast radius and asks the user to type the name back.
-func (id *Deleter) confirmDeletion(ctx context.Context, c *client.ClientWithResponses, confirmOpts confirm.Options, opts DeleteOptions) error {
+// confirmDeletion shows the blast radius and asks the user to type the
+// name back. Reuses preFetched if given, instead of fetching again.
+func (id *Deleter) confirmDeletion(ctx context.Context, c *client.ClientWithResponses, confirmOpts confirm.Options, opts DeleteOptions, preFetched *client.Instance) error {
 	policy := opts.DeletionPolicy
+	verified := policy != ""
 	if policy == "" && confirm.WillPrompt(confirmOpts) {
-		policy = id.fetchEffectivePolicyForPrompt(ctx, c, opts)
+		inst := preFetched
+		if inst == nil {
+			inst = id.fetchInstanceForPrompt(ctx, c, opts)
+		}
+		if p := policyFromInstance(inst); p != "" {
+			policy = p
+			verified = true
+		}
 	}
 	if policy == "" {
 		policy = string(client.DeleteInstanceParamsDeletionPolicyCascade)
 	}
 
-	msg := blastRadiusMessage(opts.Name, opts.Namespace, policy)
+	msg := blastRadiusMessage(opts.Name, opts.Namespace, policy, verified)
 	return confirm.Name(ctx, confirmOpts, msg, opts.Name)
 }
 
-// fetchEffectivePolicyForPrompt looks up the instance's policy just to show
-// it in the prompt. On failure it falls back to Cascade — the delete call
-// below is what actually checks the instance exists.
-func (id *Deleter) fetchEffectivePolicyForPrompt(ctx context.Context, c *client.ClientWithResponses, opts DeleteOptions) string {
+// fetchInstanceForPrompt looks up the instance just for the confirmation
+// message. Returns nil on failure, the delete call below is the real check.
+func (id *Deleter) fetchInstanceForPrompt(ctx context.Context, c *client.ClientWithResponses, opts DeleteOptions) *client.Instance {
 	resp, err := c.GetInstanceWithResponse(ctx, opts.Cluster, opts.Namespace, opts.Name)
-	if err != nil || resp.StatusCode() != http.StatusOK || resp.JSON200 == nil {
+	if err != nil || resp.StatusCode() != http.StatusOK {
+		return nil
+	}
+	return resp.JSON200
+}
+
+// policyFromInstance reads Spec.DeletionPolicy as a string, or "" if unset.
+// It's generated as interface{}, not a typed field.
+func policyFromInstance(inst *client.Instance) string {
+	if inst == nil {
 		return ""
 	}
-	inst := resp.JSON200
-	// DeletionPolicy is generated as interface{}, so read it as a plain string.
 	policy, ok := inst.Spec.DeletionPolicy.(string)
 	if !ok {
 		return ""
@@ -173,7 +204,16 @@ func (id *Deleter) fetchEffectivePolicyForPrompt(ctx context.Context, c *client.
 	return policy
 }
 
-func blastRadiusMessage(name, namespace, policy string) string {
+// blastRadiusMessage is what the user reads before confirming. If verified
+// is false, the policy was never actually checked (lookup failed, or RBAC
+// allows delete but not read), so it must not be named as fact.
+func blastRadiusMessage(name, namespace, policy string, verified bool) string {
+	if !verified {
+		return fmt.Sprintf(
+			"This permanently deletes instance %q in namespace %q and, per the instance's own deletion policy, may delete all its Backup and Restore objects. Type the instance name to confirm.",
+			name, namespace,
+		)
+	}
 	action := "deletes all its Backup and Restore objects"
 	if policy == string(client.DeleteInstanceParamsDeletionPolicyOrphan) {
 		action = "leaves its Backup and Restore objects in place"
@@ -190,11 +230,27 @@ func (id *Deleter) emitDeleted(opts DeleteOptions) error {
 		_, _ = fmt.Fprint(os.Stdout, output.Success("Instance %q deleted", opts.Name))
 		return nil
 	}
-	return writeDeleteResultJSON(opts.Name, opts.Namespace)
+	return writeDeleteResultJSON(opts.Name, opts.Namespace, true)
 }
 
-// waitForDeletion blocks until the instance is gone, like instance create --wait.
+// emitAlreadyGone reports the --ignore-not-found short-circuit: nothing was
+// deleted, so "deleted" must stay false, it should only mean this run
+// actually deleted something.
+func (id *Deleter) emitAlreadyGone(opts DeleteOptions) error {
+	if id.config.Pretty {
+		_, _ = fmt.Fprint(os.Stdout, output.Info("Instance %q not found in namespace %q; nothing to delete", opts.Name, opts.Namespace))
+		return nil
+	}
+	return writeDeleteResultJSON(opts.Name, opts.Namespace, false)
+}
+
+// waitForDeletion blocks until the instance is gone, like instance create
+// --wait. The cancellable context is set up here, not in Run, so Ctrl-C
+// during confirm (which runs first) is a decline, not a cancelled wait.
 func (id *Deleter) waitForDeletion(ctx context.Context, c *client.ClientWithResponses, opts DeleteOptions) error {
+	ctx, cancel := signal.NotifyContext(ctx, os.Interrupt, syscall.SIGTERM)
+	defer cancel()
+
 	poll := newInstanceDeletePoll(c, opts.Cluster, opts.Namespace, opts.Name)
 
 	var onUpdate func(string)
@@ -217,15 +273,15 @@ func (id *Deleter) waitForDeletion(ctx context.Context, c *client.ClientWithResp
 		_, _ = fmt.Fprint(os.Stdout, output.Success("Instance %q is deleted", opts.Name))
 		return nil
 	}
-	return writeDeleteResultJSON(opts.Name, opts.Namespace)
+	return writeDeleteResultJSON(opts.Name, opts.Namespace, true)
 }
 
-func writeDeleteResultJSON(name, namespace string) error {
+func writeDeleteResultJSON(name, namespace string, deleted bool) error {
 	result := struct {
 		Name      string `json:"name"`
 		Namespace string `json:"namespace"`
 		Deleted   bool   `json:"deleted"`
-	}{Name: name, Namespace: namespace, Deleted: true}
+	}{Name: name, Namespace: namespace, Deleted: deleted}
 	if err := json.NewEncoder(os.Stdout).Encode(result); err != nil {
 		return fmt.Errorf("failed to encode delete result: %w", err)
 	}
