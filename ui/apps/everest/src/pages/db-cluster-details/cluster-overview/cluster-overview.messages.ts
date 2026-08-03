@@ -27,6 +27,8 @@ export const Messages = {
     edit: 'Edit',
     upgrade: 'Upgrade',
     details: 'Details',
+    seeOtherBackups: (count: number) =>
+      `See other ${count} backup${count === 1 ? '' : 's'}`,
   },
   fields: {
     type: 'Type',
@@ -50,6 +52,7 @@ export const Messages = {
     disk: 'Disk',
     memory: 'Memory',
     backupStorages: 'Backup\u00A0storage',
+    backupStoragesPlural: 'Backup\u00A0storages',
     storageClass: 'Storage class',
     podSchedulingPolicy: 'Pod scheduling policy',
     exposureMethod: 'Exposure Method',

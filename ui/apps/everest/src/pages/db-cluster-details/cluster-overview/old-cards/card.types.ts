@@ -15,6 +15,7 @@
 
 import { DbType } from '@percona/types';
 import { DbCluster, ProxyExposeType } from 'shared-types/dbCluster.types';
+import { Instance } from 'shared-types/api.types';
 
 export type OverviewCardProps = {
   loading?: boolean;
@@ -74,14 +75,6 @@ export type ResourcesDetailsOverviewProps = {
 } & OverviewCardProps;
 
 export type BackupsDetailsOverviewCardProps = {
-  schedules: NonNullable<DbCluster['spec']['backup']>['schedules'];
-  pitrEnabled: NonNullable<
-    NonNullable<DbCluster['spec']['backup']>['pitr']
-  >['enabled'];
-  pitrStorageName: NonNullable<
-    NonNullable<DbCluster['spec']['backup']>['pitr']
-  >['backupStorageName'];
-  showStorage: boolean;
-  dbClusterName: string;
+  instance: Instance;
   namespace: string;
 } & OverviewCardProps;
