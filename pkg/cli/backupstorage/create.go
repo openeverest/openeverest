@@ -139,7 +139,7 @@ func newBackupStorage(opts CreateOptions) (*client.BackupStorage, error) {
 			bs.Spec.S3.CredentialsSecretRef.Name = "backup-storage-" + opts.Name + "-credentials"
 		}
 	default:
-		return nil, ValidateType(opts.Type)
+		return nil, fmt.Errorf("no request builder for storage type %q", opts.Type)
 	}
 
 	return &bs, nil
