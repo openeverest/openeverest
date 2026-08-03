@@ -94,10 +94,12 @@ func (cr *CreateRunner) Run(ctx context.Context, opts CreateOptions, cfgPath str
 
 // ValidateType returns an error if t is not a supported storage type. Callers
 // should check this before doing any work that shouldn't happen for a request
-// that's already doomed, e.g. prompting for a credential.
+// that's already doomed, e.g. prompting for a credential. Delegates to the
+// generated enum's Valid() so this self-updates with `make gen` instead of
+// needing a hand-written value list kept in sync by hand.
 func ValidateType(t string) error {
-	if t != "s3" {
-		return fmt.Errorf("unsupported storage type %q (only \"s3\" is supported today)", t)
+	if !client.BackupStorageSpecType(t).Valid() {
+		return fmt.Errorf("unsupported storage type %q", t)
 	}
 	return nil
 }
