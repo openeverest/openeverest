@@ -1,0 +1,148 @@
+name: Issue assignment
+
+on:
+  issue_comment:
+    types: [created]
+
+permissions:
+  issues: write
+
+env:
+  MAX_OPEN_ISSUES: 2
+
+jobs:
+  assign:
+    # Issues only; PR comments arrive on the same event.
+    if: >-
+      github.event.issue.pull_request == null &&
+      (contains(github.event.comment.body, '/assign') ||
+       contains(github.event.comment.body, '/unassign') ||
+       contains(github.event.comment.body, '/take'))
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const issue = context.payload.issue;
+            const issue_number = issue.number;
+            const commenter = context.payload.comment.user.login;
+
+            // Commands must start a line, matching the Prow convention.
+            const line = context.payload.comment.body
+              .split(/\r?\n/)
+              .map((l) => l.trim())
+              .find((l) => /^\/(assign|unassign|take)\b/.test(l));
+            if (!line) return;
+
+            const parsed = line.match(/^\/(assign|unassign|take)(?:\s+@([A-Za-z0-9-]+))?/);
+            const verb = parsed[1] === 'take' ? 'assign' : parsed[1];
+            const target = parsed[2] || commenter;
+
+            const reply = (body) =>
+              github.rest.issues.createComment({ owner, repo, issue_number, body });
+
+            const isMaintainer = async (login) => {
+              try {
+                const { data } = await github.rest.repos.getCollaboratorPermissionLevel({
+                  owner, repo, username: login,
+                });
+                return ['admin', 'write', 'maintain'].includes(data.permission);
+              } catch {
+                return false;
+              }
+            };
+
+            const commenterIsMaintainer = await isMaintainer(commenter);
+
+            // Assigning somebody else is a maintainer action; otherwise anyone
+            // could hand their work to a stranger.
+            if (target !== commenter && !commenterIsMaintainer) {
+              await reply(`@${commenter} only maintainers can assign an issue to someone else. Comment \`/${verb}\` on its own to ${verb === 'assign' ? 'take' : 'release'} it yourself.`);
+              return;
+            }
+
+            if (verb === 'unassign') {
+              await github.rest.issues.removeAssignees({
+                owner, repo, issue_number, assignees: [target],
+              });
+              await reply(`Unassigned @${target}. This issue is open for anyone to pick up again.`);
+              return;
+            }
+
+            if (issue.state !== 'open') {
+              await reply(`@${commenter} this issue is closed.`);
+              return;
+            }
+
+            const assignees = (issue.assignees || []).map((a) => a.login);
+            if (assignees.length > 0) {
+              if (assignees.includes(target)) return; // already theirs, nothing to do
+              await reply(`@${commenter} this issue is already assigned to @${assignees[0]}. Please don't open a competing pull request — if it looks abandoned, ask about its status in this thread.`);
+              return;
+            }
+
+            const labels = (issue.labels || []).map((l) => l.name);
+            let newcomerNote = '';
+
+            // Maintainers bypass the gates below.
+            if (!commenterIsMaintainer) {
+              // Filing an issue does not reserve it: it has not been triaged,
+              // and we may not agree it is a bug or want it fixed this way.
+              if (issue.user.login === commenter && !labels.includes('help wanted')) {
+                await reply(`@${commenter} opening an issue doesn't reserve it — it still needs to be triaged first, and we may not agree it's a bug or may want it fixed differently. A maintainer will review it and assign you if it's a good fit. See [CONTRIBUTING.md](https://github.com/${owner}/${repo}/blob/main/CONTRIBUTING.md#working-on-issues).`);
+                return;
+              }
+
+              if (!labels.includes('help wanted')) {
+                await reply(`@${commenter} this issue isn't open for self-assignment yet — it needs the \`help wanted\` label, which a maintainer adds once the issue has been triaged and we'd welcome help with it.\n\nComment to say you'd like to take it and a maintainer will get back to you. See [CONTRIBUTING.md](https://github.com/${owner}/${repo}/blob/main/CONTRIBUTING.md#working-on-issues).`);
+                return;
+              }
+
+              const open = await github.rest.search.issuesAndPullRequests({
+                q: `repo:${owner}/${repo} is:issue is:open assignee:${commenter}`,
+                advanced_search: 'true',
+                per_page: 1,
+              });
+              const cap = Number(process.env.MAX_OPEN_ISSUES);
+              if (open.data.total_count >= cap) {
+                await reply(`@${commenter} you already have ${open.data.total_count} open assigned issue(s), and the limit is ${cap}. Please finish or \`/unassign\` one first — holding several at once blocks work others could be doing.`);
+                return;
+              }
+
+              if (labels.includes('good first issue')) {
+                const merged = await github.rest.search.issuesAndPullRequests({
+                  q: `repo:${owner}/${repo} is:pr is:merged author:${commenter}`,
+                  advanced_search: 'true',
+                  per_page: 1,
+                });
+                // Leaving these for newcomers is a courtesy, not a rule, so
+                // assign anyway and just mention it.
+                if (merged.data.total_count > 0) {
+                  newcomerNote = '- `good first issue` items are the easiest way in for someone brand new. Nothing stops you taking them, but if you spot another one, consider leaving it for a first-time contributor.';
+                }
+              }
+            }
+
+            await github.rest.issues.addAssignees({
+              owner, repo, issue_number, assignees: [target],
+            });
+
+            // GitHub silently drops assignees it considers ineligible, so
+            // confirm rather than trusting the call to have taken effect.
+            const { data: after } = await github.rest.issues.get({ owner, repo, issue_number });
+            if (!(after.assignees || []).some((a) => a.login === target)) {
+              await reply(`@${commenter} I couldn't assign this to you — GitHub rejected the assignment. A maintainer will pick this up shortly.`);
+              return;
+            }
+
+            await reply([
+              `Assigned to @${target}. Thanks for picking this up!`,
+              '',
+              'A few things worth knowing:',
+              '',
+              '- Open your pull request with `Fixes #' + issue_number + '` in the description.',
+              '- If you get stuck or change your mind, comment `/unassign` — no hard feelings.',
+              '- If there is no visible progress for two weeks we will check in, and unassign a week after that so somebody else can pick it up.',
+              newcomerNote,
+            ].filter(Boolean).join('\n'));
