@@ -48,7 +48,7 @@ Helm is the recommended installation method for OpenEverest as it simplifies dep
 
 ### Steps to Install
 
-1. **Add the Percona Helm repository:**
+1. **Add the OpenEverest Helm repository:**
 
 ```bash
 helm repo add openeverest https://openeverest.github.io/helm-charts/

@@ -55,7 +55,6 @@ func EverestVersionFromDeployment(ctx context.Context, dg deploymentGetter, name
 	var container *corev1.Container
 	for _, c := range dep.Spec.Template.Spec.Containers {
 		if c.Name == common.EverestContainerNameInDeployment {
-			//nolint:exportloopref
 			container = &c
 			break
 		}

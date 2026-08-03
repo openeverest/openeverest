@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -40,6 +41,16 @@ func PrintError(err error, l *zap.SugaredLogger, prettyPrint bool) {
 	}
 }
 
+// PrintWarn formats and prints a warning, respecting pretty/JSON mode: the
+// emoji-styled line in pretty mode, the structured logger otherwise.
+func PrintWarn(msg string, l *zap.SugaredLogger, prettyPrint bool) {
+	if prettyPrint {
+		_, _ = fmt.Fprint(os.Stderr, Warn("%s", msg))
+	} else {
+		l.Warn(msg)
+	}
+}
+
 //nolint:gochecknoglobals
 var (
 	// Style is applied to the successful result.
@@ -65,7 +76,8 @@ func Success(msg string, args ...any) string {
 // Failure prints a message with a fail emoji.
 func Failure(msg string, args ...any) string {
 	// return fmt.Sprintf("%s %s\n", failStatus, fmt.Sprintf(msg, args...))
-	return fmt.Sprintf("%s %s\n",
+	return fmt.Sprintf(
+		"%s %s\n",
 		failStatus,
 		failureStyle.Render(fmt.Sprintf(msg, args...)),
 	)

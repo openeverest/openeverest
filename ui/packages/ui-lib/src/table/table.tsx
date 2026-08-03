@@ -1,3 +1,17 @@
+// Copyright (C) 2026 The OpenEverest Contributors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 import FilterListIcon from '@mui/icons-material/FilterList';
 import KeyboardDoubleArrowDownIcon from '@mui/icons-material/KeyboardDoubleArrowDown';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
@@ -24,14 +38,16 @@ const NoDataAlertMessage = ({
   return (
     <Alert
       severity="info"
-      sx={{
-        width: '100%',
-        alignItems: 'center',
-        marginTop: 1,
-        marginBottom: 1,
-        height: '60px',
-        ...sx,
-      }}
+      sx={[
+        {
+          width: '100%',
+          alignItems: 'center',
+          marginTop: 1,
+          marginBottom: 1,
+          height: '60px',
+        },
+        ...(Array.isArray(sx) ? sx : [sx]),
+      ]}
       {...alertProps}
     >
       {message}
@@ -58,6 +74,7 @@ function Table<T extends Record<string, any>>(props: TableProps<T>) {
     enableRowHoverAction = false,
     rowHoverAction = () => {},
     muiTableBodyRowProps,
+    getRowId,
     ...rest
   } = props;
   const [columnVisibility, setColumnVisibility] =
@@ -75,6 +92,21 @@ function Table<T extends Record<string, any>>(props: TableProps<T>) {
   const stopPropagation = (e: Event) => {
     e.stopPropagation();
   };
+
+  // While loading with no data, MRT renders fake skeleton rows whose columns
+  // are all `null`. A consumer `getRowId` that reads those columns then returns
+  // the same id for every skeleton row (e.g. "null/null"), producing duplicate
+  // React keys. React can no longer reconcile those rows away once real data
+  // arrives, leaving phantom skeleton rows stuck forever. Give skeleton rows a
+  // unique index-based id instead, matching MRT's own skeleton condition.
+  const showingSkeletonRows =
+    !!(state?.isLoading || state?.showSkeletons) && !data.length;
+  const safeGetRowId: typeof getRowId = getRowId
+    ? (originalRow, index, parentRow) =>
+        showingSkeletonRows
+          ? `mrt-skeleton-row-${index}`
+          : getRowId(originalRow, index, parentRow)
+    : undefined;
 
   // @ts-expect-error
   const { sx: muiTopToolbarPropsSx = {}, ...muiTopToolbarRestProps } =
@@ -286,7 +318,7 @@ function Table<T extends Record<string, any>>(props: TableProps<T>) {
           },
         },
       }}
-      muiTableDetailPanelProps={{
+      muiDetailPanelProps={{
         sx: {
           width: '100%',
         },
@@ -294,6 +326,7 @@ function Table<T extends Record<string, any>>(props: TableProps<T>) {
       {...rest}
       columns={customColumns}
       data={data}
+      getRowId={safeGetRowId}
       state={{
         columnVisibility: { ...columnVisibility, ...columnVisibilityState },
         ...restOfState,
@@ -320,13 +353,13 @@ function Table<T extends Record<string, any>>(props: TableProps<T>) {
               onClick?.(e);
             }
           },
-          sx: {
-            ...(!isDetailPanel &&
+          sx: [
+            !isDetailPanel &&
               enableRowHoverAction && {
                 cursor: 'pointer', // you might want to change the cursor too when adding an onClick
-              }),
-            ...sx,
-          },
+              },
+            ...(Array.isArray(sx) ? sx : [sx]),
+          ],
           ...restOfProps,
         };
       }}

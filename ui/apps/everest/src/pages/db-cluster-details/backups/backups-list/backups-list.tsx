@@ -192,12 +192,12 @@ export const BackupsList = () => {
         header: 'Name',
       },
       {
-        accessorFn: (row) => row.spec?.storageName ?? '',
+        accessorFn: (row) => row.spec?.storageRef?.name ?? '',
         id: 'storageName',
         header: 'Storage',
       },
       {
-        accessorFn: (row) => row.spec?.backupClassName ?? '',
+        accessorFn: (row) => row.spec?.classRef?.name ?? '',
         id: 'backupClassName',
         header: 'Backup class',
       },

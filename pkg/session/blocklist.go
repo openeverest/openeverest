@@ -21,6 +21,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
 	"strconv"
 	"time"
 
@@ -43,14 +44,15 @@ const (
 )
 
 var (
-	errExtractTokenID   = errors.New("token doesn't contains jti or uti claim")
-	errExtractExp       = errors.New("could not extract exp")
-	errEmptyToken       = errors.New("token is empty")
-	errUnsupportedClaim = func(claims any) error {
-		return errors.New(fmt.Sprintf("unsupported claims type: %T", claims))
-	}
-	errShortenToken = errors.New("failed to shorten token")
+	errExtractTokenID = errors.New("token doesn't contains jti or uti claim")
+	errExtractExp     = errors.New("could not extract exp")
+	errEmptyToken     = errors.New("token is empty")
+	errShortenToken   = errors.New("failed to shorten token")
 )
+
+func errUnsupportedClaim(claims any) error {
+	return fmt.Errorf("unsupported claims type: %T", claims)
+}
 
 // Blocklist represents interface to block JWT tokens and check if a token is blocked.
 type Blocklist interface {
@@ -73,18 +75,18 @@ type TokenStore interface {
 	Exists(ctx context.Context, shortenedToken string) (bool, error)
 }
 
-// NewBlocklist creates a new block list
+// NewBlocklist creates a new block list.
 func NewBlocklist(ctx context.Context, logger *zap.SugaredLogger, namespace string) (Blocklist, error) {
 	options := &cache.Options{
 		ByObject: map[client.Object]cache.ByObject{
 			&corev1.Secret{}: {
-				Field: fields.SelectorFromSet(fields.Set{"metadata.name": common.EverestBlocklistSecretName}),
+				Field: fields.SelectorFromSet(fields.Set{metadataNameField: common.EverestBlocklistSecretName}),
 			},
 		},
 	}
 	// A separate client is needed to apply the controller-runtime cache only to the related objects.
 	// Using the controller-runtime client is also beneficial because it supports HA mode.
-	tokenStoreClient, err := kubernetes.NewInCluster(logger, ctx, options, namespace)
+	tokenStoreClient, err := kubernetes.NewInCluster(ctx, logger, options, namespace)
 	if err != nil {
 		return nil, errors.Join(err, errors.New("failed creating Kubernetes client for blockList"))
 	}
@@ -136,11 +138,11 @@ func shortenToken(token *jwt.Token) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	tId := cmp.Or(
+	tID := cmp.Or(
 		content.getStringClaim("jti"),
 		content.getStringClaim("uti"), // "uti" is used by Microsoft Entra ID instead of "jti" claim
 	)
-	if tId == "" {
+	if tID == "" {
 		return "", errExtractTokenID
 	}
 
@@ -148,12 +150,12 @@ func shortenToken(token *jwt.Token) (string, error) {
 	if !ok {
 		return "", errExtractExp
 	}
-	return tId + strconv.FormatFloat(exp, 'f', 0, 64), nil
+	return tID + strconv.FormatFloat(exp, 'f', 0, 64), nil
 }
 
 // JWTContent represents the JWT token structure that is used by blocklist.
 type JWTContent struct {
-	Payload map[string]interface{} `json:"payload"`
+	Payload map[string]any `json:"payload"`
 }
 
 func (j JWTContent) getStringClaim(key string) string {
@@ -161,20 +163,22 @@ func (j JWTContent) getStringClaim(key string) string {
 	if !ok {
 		return ""
 	}
-	return value.(string)
+	str, ok := value.(string)
+	if !ok {
+		return ""
+	}
+	return str
 }
 
 func extractContent(token *jwt.Token) (*JWTContent, error) {
 	if token == nil {
 		return nil, errEmptyToken
 	}
-	claimsMap := make(map[string]interface{})
+	claimsMap := make(map[string]any)
 
 	switch claims := token.Claims.(type) {
 	case jwt.MapClaims:
-		for key, val := range claims {
-			claimsMap[key] = val
-		}
+		maps.Copy(claimsMap, claims)
 	default:
 		return nil, errUnsupportedClaim(claims)
 	}

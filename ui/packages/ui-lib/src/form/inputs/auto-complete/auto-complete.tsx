@@ -1,3 +1,17 @@
+// Copyright (C) 2026 The OpenEverest Contributors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 import {
   Autocomplete,
   CircularProgress,
@@ -34,7 +48,7 @@ function AutoCompleteInput<T>({
         <Tooltip title={tooltipText} placement="top" arrow>
           <Autocomplete
             {...field}
-            sx={{ mt: 3, ...sx }}
+            sx={[{ mt: 3 }, ...(Array.isArray(sx) ? sx : [sx])]}
             options={options}
             forcePopupIcon
             disabled={disabled}
@@ -52,25 +66,28 @@ function AutoCompleteInput<T>({
                 error={!!error}
                 label={label}
                 helperText={error ? error.message : helperText}
-                inputProps={{
-                  'data-testid': `text-input-${kebabize(name)}`,
-                  ...params.inputProps,
-                  ...textFieldProps?.inputProps,
-                }}
-                InputProps={{
-                  ...params.InputProps,
-                  endAdornment: (
-                    <>
-                      {loading ? (
-                        <CircularProgress color="inherit" size={20} />
-                      ) : null}
-                      {params.InputProps.endAdornment}
-                    </>
-                  ),
-                }}
                 size="small"
                 required={isRequired}
                 {...restTextFieldProps}
+                slotProps={{
+                  input: {
+                    ...params.InputProps,
+                    endAdornment: (
+                      <>
+                        {loading ? (
+                          <CircularProgress color="inherit" size={20} />
+                        ) : null}
+                        {params.InputProps.endAdornment}
+                      </>
+                    ),
+                  },
+
+                  htmlInput: {
+                    'data-testid': `text-input-${kebabize(name)}`,
+                    ...params.inputProps,
+                    ...textFieldProps?.inputProps,
+                  },
+                }}
               />
             )}
             {...restAutocompleteProps}

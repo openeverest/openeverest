@@ -16,6 +16,8 @@ package v1alpha1
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	common "github.com/openeverest/openeverest/v2/api/common/v1alpha1"
 )
 
 // PluginSpec defines the desired state of Plugin
@@ -63,37 +65,10 @@ type PluginSpec struct {
 	// +optional
 	Permissions []PluginPermission `json:"permissions,omitempty"`
 
-	// KubePermissions declares additional Kubernetes API permissions the plugin's
-	// ServiceAccount needs beyond the OpenEverest API. Used by infrastructure
-	// plugins that create per-cluster resources (e.g., ProxySQL deployments).
-	// The host auto-generates a Role from these rules and binds it to the
-	// plugin's ServiceAccount in each namespace listed in the matching
-	// InstalledExtension's spec.plugin.namespaces[]. Rules are validated
-	// against a hard-coded denylist at reconcile time.
-	// +optional
-	KubePermissions []KubePermissionRule `json:"kubePermissions,omitempty"`
-
 	// CLI defines an optional CLI contribution. When set, `everestctl extension run`
 	// can exec a container from the specified image.
 	// +optional
 	CLI *PluginCLI `json:"cli,omitempty"`
-}
-
-// KubePermissionRule declares a single Kubernetes RBAC rule that an
-// infrastructure plugin requires. Mirrors the structure of
-// rbacv1.PolicyRule but with explicit JSON tags and kubebuilder markers.
-type KubePermissionRule struct {
-	// APIGroups is the list of API groups (e.g. "", "apps"). Use "" for core.
-	// +required
-	APIGroups []string `json:"apiGroups"`
-
-	// Resources is the list of resources (e.g. "deployments", "services").
-	// +required
-	Resources []string `json:"resources"`
-
-	// Verbs is the list of verbs (e.g. "get", "list", "create", "delete").
-	// +required
-	Verbs []string `json:"verbs"`
 }
 
 // PluginFrontend defines the frontend contribution of a plugin.
@@ -159,12 +134,12 @@ type PluginBackend struct {
 	// +optional
 	ExternalURL string `json:"externalUrl,omitempty"`
 
-	// CredentialsSecretRef is the name of a Secret in the same namespace as
+	// CredentialsSecretRef references a Secret in the same namespace as
 	// the InstalledExtension entry whose "token" key is forwarded as the
 	// Authorization header to the external backend. Only meaningful when
 	// ExternalURL is set.
 	// +optional
-	CredentialsSecretRef string `json:"credentialsSecretRef,omitempty"`
+	CredentialsSecretRef *common.SecretRef `json:"credentialsSecretRef,omitempty"`
 }
 
 // PluginBackendServiceRef points to an in-cluster Kubernetes Service.
@@ -219,8 +194,7 @@ type PluginStatus struct {
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
-// +kubebuilder:resource:shortName=plg;plugin
-// +kubebuilder:resource:scope=Cluster
+// +kubebuilder:resource:scope=Cluster,shortName=plg;plugin
 // +kubebuilder:printcolumn:name="Display Name",type="string",JSONPath=".spec.displayName"
 // +kubebuilder:printcolumn:name="Version",type="string",JSONPath=".spec.version"
 // +kubebuilder:printcolumn:name="Backend URL",type="string",JSONPath=".spec.backend.url"

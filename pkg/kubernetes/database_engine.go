@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -60,23 +61,24 @@ func (k *Kubernetes) SetDatabaseEngineLock(ctx context.Context, key ctrlclient.O
 	b = backoff.NewConstantBackOff(backoffInterval)
 	b = backoff.WithMaxRetries(b, backoffMaxRetries)
 	b = backoff.WithContext(b, ctx)
-	return backoff.Retry(func() error {
-		engine, err := k.GetDatabaseEngine(ctx, key)
-		if err != nil {
+	return backoff.Retry(
+		func() error {
+			engine, err := k.GetDatabaseEngine(ctx, key)
+			if err != nil {
+				return err
+			}
+			annotations := engine.GetAnnotations()
+			if annotations == nil {
+				annotations = make(map[string]string)
+			}
+			annotations[everestv1alpha1.DatabaseOperatorUpgradeLockAnnotation] = time.Now().Format(time.RFC3339)
+			if !locked {
+				delete(annotations, everestv1alpha1.DatabaseOperatorUpgradeLockAnnotation)
+			}
+			engine.SetAnnotations(annotations)
+			_, err = k.UpdateDatabaseEngine(ctx, engine)
 			return err
-		}
-		annotations := engine.GetAnnotations()
-		if annotations == nil {
-			annotations = make(map[string]string)
-		}
-		annotations[everestv1alpha1.DatabaseOperatorUpgradeLockAnnotation] = time.Now().Format(time.RFC3339)
-		if !locked {
-			delete(annotations, everestv1alpha1.DatabaseOperatorUpgradeLockAnnotation)
-		}
-		engine.SetAnnotations(annotations)
-		_, err = k.UpdateDatabaseEngine(ctx, engine)
-		return err
-	},
+		},
 		b,
 	)
 }

@@ -28,7 +28,7 @@ const makeInstance = (
   kind: 'Instance',
   metadata: {},
   spec: {
-    provider,
+    providerRef: { name: provider },
     topology: { type: topologyType },
   },
   status: {
@@ -98,7 +98,7 @@ describe('convertDbInstancesPayloadToTableFormat', () => {
       apiVersion: 'core.openeverest.io/v1alpha1',
       kind: 'Instance',
       metadata: {},
-      spec: { provider: 'aws' },
+      spec: { providerRef: { name: 'aws' } },
     };
     const data = [makeResult('ns-1', [instance])];
 
@@ -111,7 +111,7 @@ describe('convertDbInstancesPayloadToTableFormat', () => {
       apiVersion: 'core.openeverest.io/v1alpha1',
       kind: 'Instance',
       metadata: {},
-      spec: {},
+      spec: { providerRef: { name: '' } },
     };
     const data = [makeResult('ns-1', [instance])];
 

@@ -18,6 +18,7 @@ import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { useLocation, useBlocker, useNavigate } from 'react-router-dom';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Stack } from '@mui/material';
+import { useQueryClient } from '@tanstack/react-query';
 import {
   FormProvider,
   SubmitHandler,
@@ -25,6 +26,7 @@ import {
   useWatch,
 } from 'react-hook-form';
 import { useCreateDbInstance } from 'hooks/api/db-instances/useCreateDbInstance';
+import { DB_INSTANCES_QUERY_KEY } from 'hooks/api/db-instances/useDbInstanceList';
 import { useCreateRestoreFromBackup } from 'hooks/api/restores/useDbClusterRestore';
 import { useActiveBreakpoint } from 'hooks/utils/useActiveBreakpoint';
 import { DbWizardType } from './database-form-schema';
@@ -84,6 +86,7 @@ export const DatabasePage = () => {
   );
   const location = useLocation();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
 
   const { isDesktop } = useActiveBreakpoint();
   const mode = useDatabasePageMode();
@@ -363,6 +366,12 @@ export const DatabasePage = () => {
                 });
               }
             }
+            // mark the instances list stale so the databases page
+            // (which mounts right after we navigate) renders the
+            // freshly created row instead of the stale, pre-create cache.
+            queryClient.invalidateQueries({
+              queryKey: [DB_INSTANCES_QUERY_KEY],
+            });
             setFormSubmitted(true);
           },
         }

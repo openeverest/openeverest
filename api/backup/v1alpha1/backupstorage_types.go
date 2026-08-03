@@ -16,6 +16,8 @@ package v1alpha1
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	common "github.com/openeverest/openeverest/v2/api/common/v1alpha1"
 )
 
 // BackupStorageType is the type of object storage backing a BackupStorage.
@@ -35,7 +37,7 @@ const (
 // It is referenced by name from:
 //
 //   - Instance.spec.backup.storages[].storageRef
-//   - Backup.spec.storageName
+//   - Backup.spec.storageRef
 //
 // Decoupling storage from individual Backup CRs makes provider-managed
 // backups (e.g. PBM, pgBackRest) practical: the provider can register a
@@ -81,13 +83,13 @@ type BackupStorageS3Spec struct {
 	// +optional
 	ForcePathStyle *bool `json:"forcePathStyle,omitempty"`
 
-	// CredentialsSecretName is the name of the Secret in the same namespace
+	// CredentialsSecretRef references the Secret in the same namespace
 	// that holds the AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY keys.
 	// +kubebuilder:validation:Required
-	CredentialsSecretName string `json:"credentialsSecretName"`
+	CredentialsSecretRef common.SecretRef `json:"credentialsSecretRef"`
 
 	// AccessKeyID is a write-only convenience input. When set, a webhook
-	// stores it in the Secret named by CredentialsSecretName and clears
+	// stores it in the Secret named by CredentialsSecretRef and clears
 	// this field. It is never persisted on the BackupStorage object.
 	// +optional
 	AccessKeyID string `json:"accessKeyId,omitempty"`

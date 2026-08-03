@@ -117,25 +117,28 @@ describe('getSchedulesPayload', () => {
       expect(result[0].cron).toBe('15 15 * * *');
     });
 
-    it('includes dynamic config fields when present', () => {
+    it('includes dynamic parameters fields when present', () => {
       const result = getSchedulesPayload({
         formData: {
           ...makeFormData(),
-          config: { compressionType: 'gzip', level: '5' },
+          parameters: { compressionType: 'gzip', level: '5' },
         } as ScheduleFormData,
         mode: WizardMode.New,
         schedules: [],
       });
-      expect(result[0].config).toEqual({ compressionType: 'gzip', level: '5' });
+      expect(result[0].parameters).toEqual({
+        compressionType: 'gzip',
+        level: '5',
+      });
     });
 
-    it('omits config when no dynamic fields present', () => {
+    it('omits parameters when no dynamic fields present', () => {
       const result = getSchedulesPayload({
         formData: makeFormData(),
         mode: WizardMode.New,
         schedules: [],
       });
-      expect(result[0]).not.toHaveProperty('config');
+      expect(result[0]).not.toHaveProperty('parameters');
     });
   });
 

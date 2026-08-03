@@ -24,7 +24,7 @@ export const mockDbInstance: Instance = {
     namespace: 'default',
   } as unknown as Record<string, never>,
   spec: {
-    provider: 'aws-provider',
+    providerRef: { name: 'aws-provider' },
     topology: { type: 'ha' },
   },
   status: { phase: 'Ready' },

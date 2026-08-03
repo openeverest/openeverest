@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2025 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -48,9 +49,9 @@ func init() {
 	namespacesListCmd.Flags().BoolVarP(&namespacesListCfg.ListAllNamespaces, cli.FlagNamespaceAll, "a", false, "If set, returns all namespaces in kubernetes cluster (excludes system and Everest core namespaces)")
 }
 
-func namespacesListPreRun(cmd *cobra.Command, _ []string) { //nolint:revive
+func namespacesListPreRun(cmd *cobra.Command, _ []string) {
 	// Copy global flags to config
-	namespacesListCfg.Pretty = !(cmd.Flag(cli.FlagVerbose).Changed || cmd.Flag(cli.FlagJSON).Changed)
+	namespacesListCfg.Pretty = !cmd.Flag(cli.FlagVerbose).Changed && !cmd.Flag(cli.FlagJSON).Changed
 	namespacesListCfg.KubeconfigPath = cmd.Flag(cli.FlagKubeconfig).Value.String()
 }
 
@@ -61,15 +62,12 @@ func namespacesListRun(cmd *cobra.Command, _ []string) {
 		os.Exit(1)
 	}
 
-	if nsList, err := op.Run(cmd.Context()); err != nil {
+	nsList, err := op.Run(cmd.Context())
+	if err != nil {
 		output.PrintError(err, logger.GetLogger(), namespacesListCfg.Pretty)
 		os.Exit(1)
-	} else {
-		if err := printNamespacesTable(nsList); err != nil {
-			output.PrintError(err, logger.GetLogger(), namespacesListCfg.Pretty)
-			os.Exit(1)
-		}
 	}
+	printNamespacesTable(nsList)
 }
 
 // GetNamespacesListCmd returns the command to list a namespaces.
@@ -87,12 +85,12 @@ const (
 )
 
 // Print namespaces to console.
-func printNamespacesTable(nsList []namespaces.NamespaceInfo) error {
+func printNamespacesTable(nsList []namespaces.NamespaceInfo) {
 	// Prepare table headings.
-	headings := []interface{}{columnName, columnManagedByEverest, columnOperators}
+	headings := []any{columnName, columnManagedByEverest, columnOperators}
 	// Prepare table header.
 	tbl := table.New(headings...)
-	tbl.WithHeaderFormatter(func(format string, vals ...interface{}) string {
+	tbl.WithHeaderFormatter(func(format string, vals ...any) string {
 		// Print all in caps.
 		return strings.ToUpper(fmt.Sprintf(format, vals...))
 	})
@@ -118,5 +116,4 @@ func printNamespacesTable(nsList []namespaces.NamespaceInfo) error {
 	}
 
 	tbl.Print()
-	return nil
 }

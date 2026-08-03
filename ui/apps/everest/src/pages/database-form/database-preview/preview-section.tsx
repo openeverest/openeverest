@@ -1,3 +1,17 @@
+// Copyright (C) 2026 The OpenEverest Contributors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 import { IconButton, Stack, Typography, useTheme } from '@mui/material';
@@ -28,23 +42,25 @@ export const PreviewSection = ({
   return (
     <Stack
       data-testid={`section-${kebabize(title).replaceAll(' ', '')}`}
-      sx={{
-        pl: 3,
-        pt: 1,
-        pb: 1,
-        pr: 1,
-        ...(!hasBeenReached &&
+      sx={[
+        {
+          pl: 3,
+          pt: 1,
+          pb: 1,
+          pr: 1,
+        },
+        ...(sx ? (Array.isArray(sx) ? sx : [sx]) : []),
+        !hasBeenReached &&
           !active && {
             pt: 0,
             pb: 0,
-          }),
-        ...(active &&
+          },
+        active &&
           isDesktop && {
             backgroundColor: 'action.hover',
             mb: 1.5,
-          }),
-        ...sx,
-      }}
+          },
+      ]}
       {...stackProps}
     >
       <Stack direction="row">

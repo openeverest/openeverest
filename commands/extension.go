@@ -35,6 +35,5 @@ func init() {
 	extensionCmd.AddCommand(extension.GetListCmd())
 	extensionCmd.AddCommand(extension.GetInstallCmd())
 	extensionCmd.AddCommand(extension.GetUninstallCmd())
-	extensionCmd.AddCommand(extension.GetNamespaceCmd())
 	extensionCmd.AddCommand(extension.GetRunCmd())
 }

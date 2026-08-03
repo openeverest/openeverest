@@ -50,7 +50,7 @@ const mockedMonitoringProvider = {
             components: {
               monitoringConfig: {
                 uiType: 'select',
-                path: 'spec.components.monitoring.customSpec.monitoringConfigName',
+                path: 'spec.components.monitoring.parameters.monitoringConfigName',
                 dataSource: {
                   provider: 'monitoringConfigs',
                 },

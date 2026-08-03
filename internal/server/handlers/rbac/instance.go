@@ -20,6 +20,8 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/google/go-cmp/cmp"
+
 	corev1alpha1 "github.com/openeverest/openeverest/v2/api/core/v1alpha1"
 	api "github.com/openeverest/openeverest/v2/internal/server/api"
 	"github.com/openeverest/openeverest/v2/pkg/rbac"
@@ -57,9 +59,47 @@ func (h *rbacHandler) GetInstance(ctx context.Context, cluster, namespace, name 
 // CreateInstance creates an instance, gated by RBAC.
 func (h *rbacHandler) CreateInstance(ctx context.Context, cluster string, instance *corev1alpha1.Instance) (*corev1alpha1.Instance, error) {
 	object := rbac.ClusterNamespacedObjectName(cluster, instance.GetNamespace(), instance.GetName())
-	if err := h.enforce(ctx, rbac.ResourceInstances, rbac.ActionCreate, object); err != nil {
+
+	var presetName string
+	if instance.GetAnnotations() != nil {
+		presetName = instance.GetAnnotations()["openeverest.io/instance-preset"]
+	}
+
+	// If no preset is specified, require standard create permission
+	if presetName == "" {
+		if err := h.enforce(ctx, rbac.ResourceInstances, rbac.ActionCreate, object); err != nil {
+			return nil, err
+		}
+		return h.next.CreateInstance(ctx, cluster, instance)
+	}
+
+	// User must have read permission on the InstancePreset
+	presetObject := rbac.ClusterObjectName(cluster, presetName)
+	if err := h.enforce(ctx, rbac.ResourceInstancePresets, rbac.ActionRead, presetObject); err != nil {
 		return nil, err
 	}
+
+	var err error
+
+	// If user has create permission on Instance, allow any customization
+	if err = h.enforce(ctx, rbac.ResourceInstances, rbac.ActionCreate, object); err == nil {
+		return h.next.CreateInstance(ctx, cluster, instance)
+	}
+
+	if !errors.Is(err, ErrInsufficientPermissions) {
+		return nil, fmt.Errorf("enforce create permission failed: %w", err)
+	}
+
+	// If user does not have deploy permission, reject
+	if err = h.enforce(ctx, rbac.ResourceInstances, rbac.ActionDeploy, object); err != nil {
+		return nil, err
+	}
+
+	// User has deploy but not create, check instance matches preset exactly
+	if err := h.ensureInstanceMatchesPreset(ctx, cluster, instance, presetName); err != nil {
+		return nil, err
+	}
+
 	return h.next.CreateInstance(ctx, cluster, instance)
 }
 
@@ -88,4 +128,22 @@ func (h *rbacHandler) GetInstanceConnection(ctx context.Context, cluster, namesp
 		return nil, err
 	}
 	return h.next.GetInstanceConnection(ctx, cluster, namespace, name)
+}
+
+// ensureInstanceMatchesPreset checks if an instance spec matches its referenced preset.
+// Returns an error if the instance has been customized beyond the preset values.
+func (h *rbacHandler) ensureInstanceMatchesPreset(ctx context.Context, cluster string, instance *corev1alpha1.Instance, presetName string) error {
+	// Fetch the preset with namespace defaults resolved
+	preset, err := h.next.ResolveInstancePreset(ctx, cluster, presetName, instance.GetNamespace())
+	if err != nil {
+		return fmt.Errorf("failed to resolve preset %s for namespace %s: %w", presetName, instance.GetNamespace(), err)
+	}
+
+	// Compare the instance spec with the preset's resolved instance spec
+	if diff := cmp.Diff(preset.Spec.InstanceSpec, instance.Spec); diff != "" {
+		h.log.Warnf("Instance spec customization detected for preset %s: %s", presetName, diff)
+		return ErrInsufficientPermissions
+	}
+
+	return nil
 }

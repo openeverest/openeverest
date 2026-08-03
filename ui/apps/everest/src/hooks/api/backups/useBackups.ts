@@ -71,7 +71,7 @@ export const useBackupsList = (
     select: canRead
       ? ({ items = [] }) =>
           items
-            .filter((backup) => backup.spec.instanceName === instanceName)
+            .filter((backup) => backup.spec.instanceRef.name === instanceName)
             .map((backup) => ({
               ...backup,
               status: {

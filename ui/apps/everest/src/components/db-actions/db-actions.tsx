@@ -211,8 +211,10 @@ export const DbActions = ({
           open={open}
           onClose={closeMenu}
           onClick={closeMenu}
-          MenuListProps={{
-            'aria-labelledby': 'row-actions-button',
+          slotProps={{
+            list: {
+              'aria-labelledby': 'row-actions-button',
+            },
           }}
         >
           {/*showDetailsAction && (

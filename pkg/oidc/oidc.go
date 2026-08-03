@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -33,7 +34,7 @@ import (
 //
 //nolint:tagliatelle
 type ProviderConfig struct {
-	OriginalIssuer string
+	OriginalIssuer string   `json:"OriginalIssuer"`
 	Issuer         string   `json:"issuer"`
 	AuthURL        string   `json:"authorization_endpoint"`
 	TokenURL       string   `json:"token_endpoint"`
@@ -51,6 +52,8 @@ const (
 // ErrUnexpectedSatusCode is returned when HTTP 200 is not returned.
 var ErrUnexpectedSatusCode = fmt.Errorf("unexpected status code")
 
+// NewProviderConfig fetches the OIDC provider configuration from the issuer's
+// well-known endpoint and returns it as a ProviderConfig.
 func NewProviderConfig(ctx context.Context, issuer string) (ProviderConfig, error) {
 	wellKnown, err := url.JoinPath(issuer, WellKnownPath)
 	if err != nil {
@@ -99,7 +102,7 @@ func (c *ProviderConfig) NewKeyFunc(ctx context.Context) (jwt.Keyfunc, error) {
 		return nil, errors.Join(err, errors.New("failed to register jwk cache"))
 	}
 
-	return func(token *jwt.Token) (interface{}, error) {
+	return func(token *jwt.Token) (any, error) {
 		keySet, err := keyCache.Get(ctx, c.JWKSURL)
 		if err != nil {
 			return nil, err
@@ -115,7 +118,7 @@ func (c *ProviderConfig) NewKeyFunc(ctx context.Context) (jwt.Keyfunc, error) {
 			return nil, fmt.Errorf("unable to find key %q", keyID)
 		}
 
-		var pubkey interface{}
+		var pubkey any
 		if err := key.Raw(&pubkey); err != nil {
 			return nil, errors.Join(err, errors.New("failed to get the public key"))
 		}

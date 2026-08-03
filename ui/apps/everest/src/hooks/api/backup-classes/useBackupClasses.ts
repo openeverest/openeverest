@@ -87,7 +87,7 @@ export const useBackupClassUiSchema = (
     if (!uiSchema?.backup) return { sections: undefined, uiSchema };
 
     const sections: Record<string, Section> = {
-      config: uiSchema.backup,
+      parameters: uiSchema.backup,
     };
 
     return { sections, uiSchema };

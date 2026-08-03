@@ -60,22 +60,27 @@ const (
 	ResourceDataImportJobs             = "data-import-jobs"
 	ResourcePlugins                    = "plugins"
 
-	// Engine Features resources
+	// Engine Features resources.
 
-	ResourceEngineFeatures_SplitHorizonDNSConfigs = "enginefeatures/split-horizon-dns-configs"
+	ResourceEngineFeaturesSplitHorizonDNSConfigs = "enginefeatures/split-horizon-dns-configs"
 
 	// v2 multi-cluster resource names.
 
 	ResourceClusters          = "clusters"
 	ResourceProviders         = "providers"
 	ResourceInstances         = "instances"
+	ResourceInstancePresets   = "instance-presets"
 	ResourceBackupClasses     = "backup-classes"
 	ResourceBackups           = "backups"
 	ResourceRestores          = "restores"
 	ResourceMonitoringConfigs = "monitoring-configs"
+	ResourceConfigMaps        = "config-maps"
+	ResourceSecrets           = "secrets"
 )
 
 // GlobalResources is a list of all Everest API resources that are considered global.
+//
+//nolint:gochecknoglobals // immutable lookup table
 var GlobalResources = []string{
 	ResourcePodSchedulingPolicies,
 	ResourceLoadBalancerConfigs,
@@ -98,16 +103,14 @@ var ClusterNamespacedResources = []string{
 	ResourceRestores,
 	ResourceBackupStorages,
 	ResourceMonitoringConfigs,
+	ResourceConfigMaps,
+	ResourceSecrets,
 	ResourcePlugins,
 }
 
+// IsGlobalResource returns true if the given resource is a global (non-namespaced) Everest API resource.
 func IsGlobalResource(resource string) bool {
-	for _, globalResource := range GlobalResources {
-		if resource == globalResource {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(GlobalResources, resource)
 }
 
 // IsClusterScopedResource returns true if the resource is scoped to a cluster
@@ -143,15 +146,23 @@ const (
 	// install plugins (create) without automatically granting broad read
 	// access to every user.
 	ActionUse = "use"
-	ActionAll = "*"
+	// ActionDeploy allows creating instances with custom values that deviate
+	// from preset specifications. Users without this permission can only create
+	// instances that exactly match their referenced presets.
+	ActionDeploy = "deploy"
+	ActionAll    = "*"
 )
 
 const (
 	rbacEnabledValueTrue = "true"
 )
 
-var SupportedActions = []string{ActionCreate, ActionRead, ActionUpdate, ActionDelete, ActionUse, ActionAll}
+// SupportedActions is the list of all RBAC actions supported by Everest.
+//
+//nolint:gochecknoglobals // immutable lookup table
+var SupportedActions = []string{ActionCreate, ActionRead, ActionUpdate, ActionDelete, ActionUse, ActionDeploy, ActionAll}
 
+// User represents an authenticated subject and its groups for RBAC checks.
 type User struct {
 	Subject string
 	Groups  []string
@@ -170,7 +181,7 @@ func refreshEnforcerInBackground(
 		informer.WithLogger(l),
 		informer.Watches(&corev1.ConfigMap{}, kubeConnector.Namespace()),
 	)
-	inf.OnUpdate(func(_, newObj interface{}) {
+	inf.OnUpdate(func(_, newObj any) {
 		cm, ok := newObj.(*corev1.ConfigMap)
 		if !ok || cm.GetName() != common.EverestRBACConfigMapName {
 			return
@@ -305,7 +316,7 @@ func getScopeValues(claims jwt.MapClaims, scopes []string) []string {
 		}
 
 		switch val := scopeIf.(type) {
-		case []interface{}:
+		case []any:
 			for _, groupIf := range val {
 				group, ok := groupIf.(string)
 				if ok {

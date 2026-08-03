@@ -20,6 +20,8 @@ tags:
     description: Everything related to providers
   - name: Instance
     description: Everything related to instances
+  - name: Preset
+    description: Everything related to presets
   - name: Backup
     description: Everything related to backups
   - name: Restore
@@ -98,11 +100,16 @@ paths:
     post:
       tags:
         - Authentication & Authorization
+      security: []
       summary: Revoke API tokens (logout)
       description: |
         Revokes the supplied refresh token (or the one carried by the refresh token cookie)
-        and adds the caller's current access JWT to the blocklist until it expires.
-        Inspired by RFC 7009.
+        and, if a valid access JWT is present in the Authorization header, adds it to the
+        blocklist until it expires. Inspired by RFC 7009.
+
+        This endpoint is intentionally unauthenticated: the refresh token itself is the
+        proof of session ownership. Callers with an expired (or absent) access token can
+        still log out cleanly by presenting only their refresh token.
       operationId: revokeAuthToken
       responses:
         '204':
@@ -432,6 +439,133 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/NamespaceList'
+  '/clusters/{cluster}/instance-presets':
+    x-everest-resource-name: instance-presets
+    get:
+      tags:
+        - Preset
+      summary: List instance presets
+      description: |
+        This API lists all instance presets in the specified cluster.
+        Optionally filter by provider.
+      operationId: listInstancePresets
+      parameters:
+        - name: cluster
+          in: path
+          required: true
+          description: The name of the cluster
+          schema:
+            type: string
+        - name: provider
+          in: query
+          required: false
+          description: Filter presets by provider name
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of instance presets
+          content:
+            application/json:
+              schema:
+                $ref: 'crds.gen.yaml#/components/schemas/InstancePresetList'
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  '/clusters/{cluster}/instance-presets/{name}':
+    x-everest-resource-name: instance-presets
+    get:
+      tags:
+        - Preset
+      summary: Get instance preset
+      description: |
+        This API gets the instance preset specified by the `name` in the specified `cluster`.
+      operationId: getInstancePreset
+      parameters:
+        - name: cluster
+          in: path
+          required: true
+          description: The name of the cluster
+          schema:
+            type: string
+        - name: name
+          in: path
+          required: true
+          description: The name of the instance preset
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Instance preset details
+          content:
+            application/json:
+              schema:
+                $ref: 'crds.gen.yaml#/components/schemas/InstancePreset'
+        '404':
+          description: Instance preset not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  '/clusters/{cluster}/instance-presets/{name}/resolve':
+    x-everest-resource-name: instance-presets
+    get:
+      tags:
+        - Preset
+      summary: Resolve instance preset with namespace defaults and default StorageClass of the cluster
+      description: |
+        This API resolves the instance preset specified by the `name` in the specified `cluster`.
+        This endpoint is useful when creating instances from presets, as it provides a
+        fully-populated preset with all namespace defaults, and default StorageClass of the cluster
+        if it has empty StorageClass.
+      operationId: resolveInstancePreset
+      parameters:
+        - name: cluster
+          in: path
+          required: true
+          description: The name of the cluster
+          schema:
+            type: string
+        - name: name
+          in: path
+          required: true
+          description: The name of the instance preset
+          schema:
+            type: string
+        - name: namespace
+          in: query
+          required: true
+          description: The namespace for which to resolve default values
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Resolved instance preset with namespace defaults
+          content:
+            application/json:
+              schema:
+                $ref: 'crds.gen.yaml#/components/schemas/InstancePreset'
+        '404':
+          description: Instance preset not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
   '/clusters/{cluster}/providers':
     x-everest-resource-name: providers
     get:
@@ -1284,6 +1418,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
       requestBody:
         description: The backup storage object to be created
         required: true
@@ -1326,6 +1466,12 @@ paths:
                 $ref: '#/components/schemas/Error'
         '500':
           description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        default:
+          description: Error
           content:
             application/json:
               schema:
@@ -1779,6 +1925,386 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+  '/clusters/{cluster}/namespaces/{namespace}/config-maps':
+    x-everest-resource-name: config-maps
+    post:
+      tags:
+        - ConfigMap
+      summary: Create configmap
+      description: |
+        This API creates a new ConfigMap in the specified namespace and cluster.
+        The ConfigMap is labeled as managed by OpenEverest.
+      operationId: createConfigMap
+      parameters:
+        - name: cluster
+          in: path
+          required: true
+          description: The name of the cluster
+          schema:
+            type: string
+        - name: namespace
+          in: path
+          required: true
+          description: The namespace where the configmap will be created
+          schema:
+            type: string
+      requestBody:
+        description: The configmap object to be created
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConfigMap'
+      responses:
+        '201':
+          description: ConfigMap created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfigMap'
+        '400':
+          description: Unsuccessful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    get:
+      tags:
+        - ConfigMap
+      summary: List configmaps
+      description: |
+        This API lists all OpenEverest-managed ConfigMaps in the specified namespace and cluster.
+        Optionally filter by provider and definition.
+      operationId: listConfigMaps
+      parameters:
+        - name: cluster
+          in: path
+          required: true
+          description: The name of the cluster
+          schema:
+            type: string
+        - name: namespace
+          in: path
+          required: true
+          description: The namespace of the configmaps
+          schema:
+            type: string
+        - name: provider
+          in: query
+          required: false
+          description: Filter configmaps by provider name
+          schema:
+            type: string
+        - name: definition
+          in: query
+          required: false
+          description: Filter configmaps by definition
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of configmaps
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfigMapList'
+        '400':
+          description: Unsuccessful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  '/clusters/{cluster}/namespaces/{namespace}/config-maps/{name}':
+    x-everest-resource-name: config-maps
+    get:
+      tags:
+        - ConfigMap
+      summary: Get configmap
+      description: |
+        This API gets OpenEverest-managed ConfigMap specified by the `name` in the specified `namespace` and `cluster`.
+      operationId: getConfigMap
+      parameters:
+        - name: cluster
+          in: path
+          required: true
+          description: The name of the cluster
+          schema:
+            type: string
+        - name: namespace
+          in: path
+          required: true
+          description: The namespace of the configmap
+          schema:
+            type: string
+        - name: name
+          in: path
+          required: true
+          description: The name of the configmap
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ConfigMap details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfigMap'
+        '404':
+          description: ConfigMap not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    delete:
+      tags:
+        - ConfigMap
+      summary: Delete configmap
+      description: |
+        This API deletes the OpenEverest-managed ConfigMap specified by the `name` in the specified `namespace` and `cluster`.
+      operationId: deleteConfigMap
+      parameters:
+        - name: cluster
+          in: path
+          required: true
+          description: The name of the cluster
+          schema:
+            type: string
+        - name: namespace
+          in: path
+          required: true
+          description: The namespace of the configmap
+          schema:
+            type: string
+        - name: name
+          in: path
+          required: true
+          description: The name of the configmap
+          schema:
+            type: string
+      responses:
+        '204':
+          description: ConfigMap deleted successfully
+        '404':
+          description: ConfigMap not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  '/clusters/{cluster}/namespaces/{namespace}/secrets':
+    x-everest-resource-name: secrets
+    post:
+      tags:
+        - Secret
+      summary: Create secret
+      description: |
+        This API creates a new Secret in the specified namespace and cluster.
+        The Secret is labeled as managed by OpenEverest.
+      operationId: createSecret
+      parameters:
+        - name: cluster
+          in: path
+          required: true
+          description: The name of the cluster
+          schema:
+            type: string
+        - name: namespace
+          in: path
+          required: true
+          description: The namespace where the secret will be created
+          schema:
+            type: string
+      requestBody:
+        description: The secret object to be created
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Secret'
+      responses:
+        '201':
+          description: Secret created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Secret'
+        '400':
+          description: Unsuccessful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    get:
+      tags:
+        - Secret
+      summary: List secrets
+      description: |
+        This API lists OpenEverest-managed Secrets in the specified namespace and cluster.
+        Only metadata is returned; secret data is never included.
+        Optionally filter by provider and definition.
+      operationId: listSecrets
+      parameters:
+        - name: cluster
+          in: path
+          required: true
+          description: The name of the cluster
+          schema:
+            type: string
+        - name: namespace
+          in: path
+          required: true
+          description: The namespace of the secrets
+          schema:
+            type: string
+        - name: provider
+          in: query
+          required: false
+          description: Filter secrets by provider name
+          schema:
+            type: string
+        - name: definition
+          in: query
+          required: false
+          description: Filter secrets by definition
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of secrets (metadata only)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SecretList'
+        '400':
+          description: Unsuccessful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  '/clusters/{cluster}/namespaces/{namespace}/secrets/{name}':
+    x-everest-resource-name: secrets
+    get:
+      tags:
+        - Secret
+      summary: Get secret
+      description: |
+        This API gets OpenEverest-managed Secret specified by the `name` in the specified `namespace` and `cluster`.
+        Note: Secret data is NOT included in the response for security reasons. Only metadata is returned.
+      operationId: getSecret
+      parameters:
+        - name: cluster
+          in: path
+          required: true
+          description: The name of the cluster
+          schema:
+            type: string
+        - name: namespace
+          in: path
+          required: true
+          description: The namespace of the secret
+          schema:
+            type: string
+        - name: name
+          in: path
+          required: true
+          description: The name of the secret
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Secret details (metadata only)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Secret'
+        '404':
+          description: Secret not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    delete:
+      tags:
+        - Secret
+      summary: Delete secret
+      description: |
+        This API deletes the OpenEverest-managed Secret specified by the `name` in the specified `namespace` and `cluster`.
+      operationId: deleteSecret
+      parameters:
+        - name: cluster
+          in: path
+          required: true
+          description: The name of the cluster
+          schema:
+            type: string
+        - name: namespace
+          in: path
+          required: true
+          description: The namespace of the secret
+          schema:
+            type: string
+        - name: name
+          in: path
+          required: true
+          description: The name of the secret
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Secret deleted successfully
+        '404':
+          description: Secret not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
 components:
   securitySchemes:
     BearerAuth:
@@ -1791,6 +2317,22 @@ components:
       properties:
         message:
           type: string
+    SecretList:
+      type: object
+      description: A list of OpenEverest-managed Secrets (metadata only).
+      properties:
+        apiVersion:
+          type: string
+          example: v1
+        kind:
+          type: string
+          example: SecretList
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Secret'
+      required:
+        - items
     NamespaceList:
       type: array
       items:
@@ -2523,6 +3065,51 @@ components:
         type:
           description: 'Used to facilitate programmatic handling of secret data. More info: https://kubernetes.io/docs/concepts/configuration/secret/#secret-types'
           type: string
+
+    ConfigMap:
+      description: ConfigMap holds configuration data for pods to consume.
+      type: object
+      properties:
+        apiVersion:
+          description: 'APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+          type: string
+        data:
+          description: Data contains the configuration data. Each key must consist of alphanumeric characters, '-', '_' or '.'. Values with non-UTF-8 byte sequences must use the BinaryData field. The keys stored in Data must not overlap with the keys in the BinaryData field.
+          type: object
+          additionalProperties:
+            type: string
+        binaryData:
+          description: BinaryData contains the binary data. Each key must consist of alphanumeric characters, '-', '_' or '.'. BinaryData can contain byte sequences that are not in the UTF-8 range. The keys stored in BinaryData must not overlap with the ones in the Data field.
+          type: object
+          additionalProperties:
+            type: string
+            format: byte
+        immutable:
+          description: Immutable, if set to true, ensures that data stored in the ConfigMap cannot be updated (only object metadata can be modified). If not set to true, the field can be modified at any time. Defaulted to nil.
+          type: boolean
+        kind:
+          description: 'Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+          type: string
+        metadata:
+          description: 'Standard object''s metadata. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata'
+          type: object
+
+    ConfigMapList:
+      type: object
+      description: A list of OpenEverest-managed ConfigMaps.
+      properties:
+        apiVersion:
+          type: string
+          example: v1
+        kind:
+          type: string
+          example: ConfigMapList
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ConfigMap'
+      required:
+        - items
 
     # -------------------------
     # io.k8s.apimachinery.pkg.apis.meta.v1.ListMeta spec is imported from k8s API,

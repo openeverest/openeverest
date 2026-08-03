@@ -42,8 +42,7 @@ export const OverviewSection = ({
   editText = Messages.actions.edit,
 }: OverviewSectionProps) => (
   <Grid
-    item
-    xs={6}
+    size={6}
     data-testid={
       dataTestId ? `${dataTestId}-overview-section` : 'overview-section'
     }
