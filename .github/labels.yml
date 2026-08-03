@@ -22,3 +22,7 @@
 - name: lifecycle/frozen
   color: d3d3d3
   description: Exempt from automatic unassignment; work expected to take a while
+
+- name: status/blocked
+  color: b60205
+  description: Waiting on something we owe — a design review, a decision, an upstream fix

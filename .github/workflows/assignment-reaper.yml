@@ -50,8 +50,10 @@ jobs:
               if (!assignee) continue;
               if (await isMaintainer(assignee)) continue;
 
-              // Opt-out for work we know will take a while.
-              if ((issue.labels || []).some((l) => l.name === 'lifecycle/frozen')) continue;
+              // Opt-out for work we know will take a while, and for work that
+              // is waiting on us rather than on the assignee.
+              const exempt = ['lifecycle/frozen', 'status/blocked'];
+              if ((issue.labels || []).some((l) => exempt.includes(l.name))) continue;
 
               // An open pull request anywhere in the repo is good enough
               // evidence that somebody is still working.
@@ -101,7 +103,7 @@ jobs:
               if (idleDays >= warnAfter && !alreadyWarned) {
                 await github.rest.issues.createComment({
                   owner, repo, issue_number: issue.number,
-                  body: `${WARNING_MARKER}@${assignee} are you still working on this? There's been no visible activity for ${Math.floor(idleDays)} days.\n\nNo rush — just let us know either way. If we don't hear back we'll unassign it in about a week so somebody else can pick it up, and you're welcome to take it again later.`,
+                  body: `${WARNING_MARKER}@${assignee} are you still working on this? There's been no visible activity for ${Math.floor(idleDays)} days.\n\nNo rush — just let us know either way. If we don't hear back we'll unassign it in about a week so somebody else can pick it up, and you're welcome to take it again later.\n\nIf you're waiting on **us** — a design review, a decision, an upstream fix — say so and we'll add \`status/blocked\`, which stops these reminders until it's resolved. If the work is simply a long one, ask for \`lifecycle/frozen\` instead.`,
                 });
               }
             }

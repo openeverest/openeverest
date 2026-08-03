@@ -70,7 +70,12 @@ If you have already had a pull request merged here, please consider leaving `goo
 
 Please do not open a pull request for an issue assigned to someone else — it will be closed. Reference the issue with `Fixes #123` in your pull request description.
 
-If an assigned issue shows no visible progress for two weeks, a bot will ask whether you are still on it, and will unassign it about a week later if there is no reply. No hard feelings — comment `/assign` and it is yours again. If you know a change will take longer than that, say so in the thread and we will add `lifecycle/frozen`, which exempts it.
+If an assigned issue shows no visible progress for two weeks, a bot will ask whether you are still on it, and will unassign it about a week later if there is no reply. No hard feelings — comment `/assign` and it is yours again.
+
+Two things stop that clock, and you can ask for either in the issue thread:
+
+- **`status/blocked`** — you are waiting on us rather than the other way round: a design review, an architectural decision, an upstream fix. Reminders stop until it is resolved.
+- **`lifecycle/frozen`** — the work is simply a long one and will legitimately take more than a few weeks.
 
 Before investing significant time in an implementation, consider sharing your design ideas in the issue thread or in our [community channels](https://openeverest.io/#community) (Slack and more). Early feedback from maintainers and other contributors can save effort, surface existing work, and help your PR land faster.
 
