@@ -29,10 +29,7 @@ export const getPitrEnabledStorageNames = (instance: Instance): string[] =>
     .filter(Boolean);
 
 /** Most recent backups first (by started, then completed time), capped at `limit`. */
-export const getRecentBackups = (
-  backups: Backup[],
-  limit: number
-): Backup[] =>
+export const getRecentBackups = (backups: Backup[], limit: number): Backup[] =>
   [...backups]
     .sort((a, b) => {
       const aDate = a.status?.startedAt ?? a.status?.completedAt ?? '';

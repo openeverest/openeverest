@@ -118,11 +118,7 @@ export const BackupsDetails = ({
         title: Messages.titles.backups,
         avatar: <NetworkNodeIcon />,
         action: (
-          <Button
-            component={Link}
-            size="small"
-            to={backupsPath}
-          >
+          <Button component={Link} size="small" to={backupsPath}>
             {Messages.actions.details}
           </Button>
         ),
