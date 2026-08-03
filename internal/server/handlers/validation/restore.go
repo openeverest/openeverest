@@ -33,18 +33,24 @@ func (h *validateHandler) GetRestore(ctx context.Context, namespace, name string
 
 // CreateRestore creates a new restore.
 func (h *validateHandler) CreateRestore(ctx context.Context, restore *backupv1alpha1.Restore) (*backupv1alpha1.Restore, error) {
-	if err := h.validateRestorePITR(ctx, restore); err != nil {
-		return nil, errors.Join(ErrInvalidRequest, err)
+	if err := h.validateRestoreRefs(ctx, restore); err != nil {
+		if isValidationError(err) {
+			return nil, errors.Join(ErrInvalidRequest, err)
+		}
+		return nil, err
 	}
 	return h.next.CreateRestore(ctx, restore)
 }
 
-// validateRestorePITR rejects restores that request point-in-time recovery
-// when the BackupClass resolved via the source Backup does not advertise
-// PITR support. Restores without PITR options pass through untouched.
-func (h *validateHandler) validateRestorePITR(ctx context.Context, restore *backupv1alpha1.Restore) error {
+// validateRestoreRefs rejects restores whose source Backup does not exist or
+// has not reached the Succeeded state, whose target Instance does not exist,
+// or whose Backup's BackupClass does not support the target Instance's
+// provider. When the restore also requests point-in-time recovery, it
+// additionally rejects the request if the BackupClass does not advertise
+// PITR support.
+func (h *validateHandler) validateRestoreRefs(ctx context.Context, restore *backupv1alpha1.Restore) error {
 	ds := restore.Spec.DataSource
-	if ds.Backup == nil || ds.Backup.PITR == nil {
+	if ds.Backup == nil {
 		return nil
 	}
 
@@ -54,17 +60,34 @@ func (h *validateHandler) validateRestorePITR(ctx context.Context, restore *back
 	})
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
-			return fmt.Errorf("backup '%s' does not exist", ds.Backup.BackupRef.Name)
+			return fmt.Errorf("%w: '%s' in namespace '%s'", controller.ErrBackupNotFound, ds.Backup.BackupRef.Name, restore.GetNamespace())
 		}
 		return fmt.Errorf("failed to get backup '%s': %w", ds.Backup.BackupRef.Name, err)
+	}
+	if err := controller.ValidateBackupSucceeded(backup); err != nil {
+		return err
+	}
+
+	instance, err := h.kubeConnector.GetInstance(ctx, ctrlclient.ObjectKey{
+		Namespace: restore.GetNamespace(),
+		Name:      restore.Spec.InstanceRef.Name,
+	})
+	if err != nil {
+		if k8serrors.IsNotFound(err) {
+			return fmt.Errorf("%w: instance '%s' does not exist", controller.ErrInstanceNotFound, restore.Spec.InstanceRef.Name)
+		}
+		return fmt.Errorf("failed to get instance '%s': %w", restore.Spec.InstanceRef.Name, err)
 	}
 
 	bc, err := h.kubeConnector.GetBackupClass(ctx, ctrlclient.ObjectKey{Name: backup.Spec.ClassRef.Name})
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
-			return fmt.Errorf("backup class '%s' does not exist", backup.Spec.ClassRef.Name)
+			return fmt.Errorf("%w: '%s'", controller.ErrBackupClassNotFound, backup.Spec.ClassRef.Name)
 		}
 		return fmt.Errorf("failed to get backup class '%s': %w", backup.Spec.ClassRef.Name, err)
+	}
+	if err := controller.ValidateClassSupportsProvider(bc, instance.Spec.ProviderRef.Name); err != nil {
+		return err
 	}
 
 	return controller.ValidateRestorePITR(restore, bc)

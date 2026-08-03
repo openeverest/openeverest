@@ -875,7 +875,7 @@ func (c *Context) ReconcileDataSource() (DataSourceStatus, error) {
 		}
 		return DataSourceStatus{}, fmt.Errorf("get source Backup %q: %w", backupName, err)
 	}
-	if src.Status.State != backupv1alpha1.BackupStateSucceeded {
+	if err := ValidateBackupSucceeded(src); err != nil {
 		s := DataSourceStatus{
 			Done:    false,
 			State:   DataSourceStateWaiting,
@@ -912,7 +912,7 @@ func (c *Context) ReconcileDataSource() (DataSourceStatus, error) {
 		c.SetDataSourceStatus(s)
 		return s, nil
 	}
-	if !bc.Spec.SupportedProviders.Has(c.providerName) {
+	if err := ValidateClassSupportsProvider(bc, c.providerName); err != nil {
 		s := DataSourceStatus{
 			Done:    true,
 			State:   DataSourceStateFailed,

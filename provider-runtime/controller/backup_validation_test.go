@@ -281,6 +281,63 @@ func TestValidateInstanceBackupPITRParameters(t *testing.T) {
 	}
 }
 
+func TestValidateBackupSucceeded(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		backup   *backupv1alpha1.Backup
+		wantErr  bool
+		wantText string
+	}{
+		{
+			name:   "succeeded passes",
+			backup: &backupv1alpha1.Backup{ObjectMeta: metav1.ObjectMeta{Name: "b"}, Status: backupv1alpha1.BackupStatus{State: backupv1alpha1.BackupStateSucceeded}},
+		},
+		{
+			name:    "running is rejected",
+			backup:  &backupv1alpha1.Backup{ObjectMeta: metav1.ObjectMeta{Name: "b"}, Status: backupv1alpha1.BackupStatus{State: backupv1alpha1.BackupStateRunning}},
+			wantErr: true,
+		},
+		{
+			name:     "empty state is reported as pending",
+			backup:   &backupv1alpha1.Backup{ObjectMeta: metav1.ObjectMeta{Name: "b"}, Status: backupv1alpha1.BackupStatus{State: ""}},
+			wantErr:  true,
+			wantText: "'b' is in state 'Pending'",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			err := ValidateBackupSucceeded(tc.backup)
+			if tc.wantErr {
+				require.ErrorIs(t, err, ErrBackupNotSucceeded)
+				if tc.wantText != "" {
+					require.ErrorContains(t, err, tc.wantText)
+				}
+			} else {
+				require.NoError(t, err)
+			}
+		})
+	}
+}
+
+func TestValidateClassSupportsProvider(t *testing.T) {
+	t.Parallel()
+
+	bc := &backupv1alpha1.BackupClass{
+		ObjectMeta: metav1.ObjectMeta{Name: "bc"},
+		Spec:       backupv1alpha1.BackupClassSpec{SupportedProviders: backupv1alpha1.ProviderNameList{"postgresql"}},
+	}
+
+	require.NoError(t, ValidateClassSupportsProvider(bc, "postgresql"))
+
+	err := ValidateClassSupportsProvider(bc, "mongodb")
+	require.ErrorIs(t, err, ErrProviderUnsupported)
+}
+
 func mkPITRRestore(pitr *backupv1alpha1.DataSourcePITR) *backupv1alpha1.Restore {
 	return &backupv1alpha1.Restore{
 		Spec: backupv1alpha1.RestoreSpec{
