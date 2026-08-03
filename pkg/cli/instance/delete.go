@@ -76,6 +76,10 @@ func (id *Deleter) Run(ctx context.Context, opts DeleteOptions, cfgPath string) 
 		return err
 	}
 
+	if opts.IgnoreNotFound && id.instanceAlreadyGone(ctx, c, opts) {
+		return id.emitDeleted(opts)
+	}
+
 	confirmOpts := confirm.Options{Yes: opts.Yes, JSON: !id.config.Pretty, IsTerminal: opts.IsTerminal}
 	if err := id.confirmDeletion(ctx, c, confirmOpts, opts); err != nil {
 		return err
@@ -105,6 +109,19 @@ func (id *Deleter) Run(ctx context.Context, opts DeleteOptions, cfgPath string) 
 		return id.emitDeleted(opts)
 	}
 	return id.waitForDeletion(ctx, c, opts)
+}
+
+// instanceAlreadyGone checks, for --ignore-not-found, whether the instance is
+// already gone so Run can skip confirmation and --wait entirely instead of
+// asking the user to confirm deleting something that doesn't exist. Any
+// ambiguous result (fetch error, non-404 status) returns false so the normal
+// confirm+delete flow runs and surfaces the real error itself.
+func (id *Deleter) instanceAlreadyGone(ctx context.Context, c *client.ClientWithResponses, opts DeleteOptions) bool {
+	resp, err := c.GetInstanceWithResponse(ctx, opts.Cluster, opts.Namespace, opts.Name)
+	if err != nil {
+		return false
+	}
+	return resp.StatusCode() == http.StatusNotFound
 }
 
 // checkDeleteResponse maps a DeleteInstance response to (alreadyGone, error).

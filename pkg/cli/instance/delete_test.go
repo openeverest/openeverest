@@ -117,6 +117,44 @@ func TestDelete_NotFound_WithIgnoreNotFound_Succeeds(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+// TestDelete_IgnoreNotFound_AlreadyGone_SkipsConfirmationAndWait proves the
+// --ignore-not-found short-circuit: when the instance is already gone, both
+// the confirmation prompt and --wait are skipped entirely (no --yes, no TTY,
+// and --wait: true all set here — none of it should matter), and the DELETE
+// endpoint itself is never called.
+func TestDelete_IgnoreNotFound_AlreadyGone_SkipsConfirmationAndWait(t *testing.T) {
+	t.Parallel()
+
+	deleteCalled := false
+	srv := newDeleteServer(t,
+		func(w http.ResponseWriter, _ *http.Request) {
+			deleteCalled = true
+			w.WriteHeader(http.StatusNoContent)
+		},
+		func(w http.ResponseWriter, _ *http.Request) {
+			w.WriteHeader(http.StatusNotFound)
+		},
+	)
+	defer srv.Close()
+
+	cfgPath := filepath.Join(t.TempDir(), "config.yaml")
+	require.NoError(t, newTestConfig(srv.URL).Save(cfgPath))
+
+	opts := DeleteOptions{
+		Name:           "my-db",
+		Namespace:      "everest",
+		Cluster:        "main",
+		IgnoreNotFound: true,
+		Wait:           true,
+		IsTerminal:     isTerminalFalse,
+	}
+
+	id := NewDeleter(Config{}, zap.NewNop().Sugar())
+	err := id.Run(context.Background(), opts, cfgPath)
+	require.NoError(t, err)
+	assert.False(t, deleteCalled, "delete must not be issued when the instance is already gone")
+}
+
 func TestDelete_ServerError_ReturnsMessage(t *testing.T) {
 	t.Parallel()
 

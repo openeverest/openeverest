@@ -48,7 +48,17 @@ delete with --deletion-policy.
 Interactively (a terminal, no --yes), you'll be asked to type the instance
 name back to confirm — this is irreversible. Pass --yes/-y to skip the
 prompt; in a non-interactive context (no terminal, or --json) omitting --yes
-fails immediately instead of hanging on a prompt nobody can answer.`,
+fails immediately instead of hanging on a prompt nobody can answer.
+
+--ignore-not-found treats an already-absent instance as success and skips
+both the confirmation prompt and --wait entirely, since there's nothing to
+confirm or wait for. --wait only distinguishes "gone" (exit 0) from "timed
+out" (exit 124); a stuck cascade delete looks identical to a slow one from
+the API's perspective (it stays Terminating either way), so there is no
+separate "failed" outcome. If --wait times out, check
+'everestctl backup list'/'everestctl restore list' for the namespace — a
+stuck cascade is almost always a child Backup or Restore that won't
+finalize.`,
 		Example: `  # Delete an instance (states blast radius, asks to type the name)
   everestctl instance delete --name my-mongo --namespace everest
 
@@ -87,7 +97,6 @@ func deletePreRun(cmd *cobra.Command, _ []string) {
 	deleteCfg.Pretty = !cmd.Flag(cli.FlagVerbose).Changed && !cmd.Flag(cli.FlagJSON).Changed
 }
 
-//nolint:dupl
 func deleteRun(cmd *cobra.Command, _ []string) {
 	cfgPath, err := config.DefaultPath()
 	if err != nil {
@@ -115,7 +124,8 @@ func deleteRun(cmd *cobra.Command, _ []string) {
 	stop()
 	os.Exit(waitcmd.ExitCode(runErr, logger.GetLogger(), deleteCfg.Pretty,
 		fmt.Sprintf("wait cancelled; instance %q deletion continues in the background — check with 'everestctl instance status'", deleteOpts.Name),
-		fmt.Sprintf("timed out after %s waiting for instance %q to be deleted", deleteOpts.Timeout, deleteOpts.Name),
+		fmt.Sprintf("timed out after %s waiting for instance %q to be deleted; deletion is still running server-side — a stuck cascade is almost always a Backup or Restore that won't finalize, check 'everestctl backup list --namespace %s' / 'everestctl restore list --namespace %s'",
+			deleteOpts.Timeout, deleteOpts.Name, deleteOpts.Namespace, deleteOpts.Namespace),
 	))
 }
 
