@@ -83,6 +83,7 @@ jobs:
             }
 
             const labels = (issue.labels || []).map((l) => l.name);
+            let newcomerNote = '';
 
             // Maintainers bypass the gates below.
             if (!commenterIsMaintainer) {
@@ -115,9 +116,10 @@ jobs:
                   advanced_search: 'true',
                   per_page: 1,
                 });
+                // Leaving these for newcomers is a courtesy, not a rule, so
+                // assign anyway and just mention it.
                 if (merged.data.total_count > 0) {
-                  await reply(`@${commenter} \`good first issue\` items are reserved for people who haven't had a pull request merged here yet, and you already have ${merged.data.total_count}. Please leave this one for a newcomer and pick up a [\`help wanted\`](https://github.com/${owner}/${repo}/issues?q=is%3Aissue+is%3Aopen+label%3A%22help+wanted%22+no%3Aassignee) issue instead — thanks for understanding.`);
-                  return;
+                  newcomerNote = '- `good first issue` items are the easiest way in for someone brand new. Nothing stops you taking them, but if you spot another one, consider leaving it for a first-time contributor.';
                 }
               }
             }
@@ -142,4 +144,5 @@ jobs:
               '- Open your pull request with `Fixes #' + issue_number + '` in the description.',
               '- If you get stuck or change your mind, comment `/unassign` — no hard feelings.',
               '- If there is no visible progress for two weeks we will check in, and unassign a week after that so somebody else can pick it up.',
-            ].join('\n'));
+              newcomerNote,
+            ].filter(Boolean).join('\n'));

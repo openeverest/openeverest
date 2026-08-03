@@ -50,7 +50,7 @@ Labels tell you where an issue stands:
 | `triage/needs-information` | We're waiting on the reporter before deciding. |
 | `triage/accepted` | We agree this should be done. |
 | [`help wanted`](https://github.com/openeverest/openeverest/issues?q=is%3Aissue+is%3Aopen+label%3A%22help+wanted%22+no%3Aassignee) | Accepted, and we'd welcome community help. **Claim these yourself with `/assign`.** |
-| [`good first issue`](https://github.com/openeverest/openeverest/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22+no%3Aassignee) | A `help wanted` issue that needs no deep background. Reserved for first-time contributors. |
+| [`good first issue`](https://github.com/openeverest/openeverest/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22+no%3Aassignee) | A `help wanted` issue that needs no deep background. Ideal if this is your first contribution here. |
 
 **This applies to issues you open yourself.** Filing an issue does not reserve it, and a new issue has not been reviewed yet — we may not agree that it is a bug, or may not want it fixed the way you propose.
 
@@ -58,7 +58,9 @@ Labels tell you where an issue stands:
 
 **If it is labelled `help wanted`, comment `/assign`.** A bot assigns it to you straight away; no maintainer needs to be involved. Comment `/unassign` at any time to release it.
 
-The bot will decline if the issue is already assigned, if it isn't labelled `help wanted` yet, or if you are at your limit: **at most two open assigned issues at a time**. `good first issue` items are reserved for people who have not had a pull request merged here before.
+The bot will decline if the issue is already assigned, if it isn't labelled `help wanted` yet, or if you are at your limit: **at most two open assigned issues at a time**.
+
+If you have already had a pull request merged here, please consider leaving `good first issue` items for people who haven't — there are rarely many of them, and they are the easiest way into the project for someone new. That is a courtesy rather than a rule, and the bot will not stop you.
 
 **For anything else, comment to say you'd like to take it** — for example, *"I'd like to work on this"* — and wait for a maintainer to accept the issue and assign it. Waiting stops two people solving the same problem in parallel, and stops you spending time on a report that turns out not to be a bug or that we have decided not to fix.
 
