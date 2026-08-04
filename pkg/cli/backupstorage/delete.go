@@ -22,6 +22,8 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"go.uber.org/zap"
@@ -41,6 +43,7 @@ type DeleteOptions struct {
 	Cluster        string
 	Context        string        // overrides the active context when set
 	Yes            bool          // skip the confirmation prompt
+	JSON           bool          // --json was passed; forces non-interactive regardless of --verbose
 	IgnoreNotFound bool          // treat "backup storage already gone" (404) as a successful delete
 	Wait           bool          // block until the backup storage is fully deleted
 	Timeout        time.Duration // bounds --wait; must be positive
@@ -65,9 +68,11 @@ func NewDeleter(cfg Config, l *zap.SugaredLogger) *Deleter {
 }
 
 // Run deletes the backup storage: confirms, deletes, then waits if asked.
-// The credentials Secret is not handled here — the BackupStorage controller
-// adopts it via an owner reference, so Kubernetes garbage-collects it once
-// the BackupStorage is actually gone.
+// ctx stays plain here so Ctrl-C during confirm is a decline, not a
+// cancelled wait, see waitForDeletion. The credentials Secret is not
+// handled here — the BackupStorage controller adopts it via an owner
+// reference, so Kubernetes garbage-collects it once the BackupStorage is
+// actually gone.
 func (bd *Deleter) Run(ctx context.Context, opts DeleteOptions, cfgPath string) error {
 	c, err := authcli.NewAPIClient(authcli.Config{Pretty: bd.config.Pretty}, bd.l.Desugar().Sugar(), cfgPath, opts.Context)
 	if err != nil {
@@ -75,10 +80,10 @@ func (bd *Deleter) Run(ctx context.Context, opts DeleteOptions, cfgPath string) 
 	}
 
 	if opts.IgnoreNotFound && bd.backupStorageAlreadyGone(ctx, c, opts) {
-		return bd.emitDeleted(opts)
+		return bd.emitAlreadyGone(opts)
 	}
 
-	confirmOpts := confirm.Options{Yes: opts.Yes, JSON: !bd.config.Pretty, IsTerminal: opts.IsTerminal}
+	confirmOpts := confirm.Options{Yes: opts.Yes, JSON: opts.JSON, IsTerminal: opts.IsTerminal}
 	msg := fmt.Sprintf("Delete backup storage %q in namespace %q?", opts.Name, opts.Namespace)
 	if err := confirm.YesNo(ctx, confirmOpts, msg); err != nil {
 		return err
@@ -141,11 +146,28 @@ func (bd *Deleter) emitDeleted(opts DeleteOptions) error {
 		_, _ = fmt.Fprint(os.Stdout, output.Success("Backup storage %q deleted", opts.Name))
 		return nil
 	}
-	return writeDeleteResultJSON(opts.Name, opts.Namespace)
+	return writeDeleteResultJSON(opts.Name, opts.Namespace, true)
 }
 
-// waitForDeletion blocks until the backup storage is gone, like instance delete --wait.
+// emitAlreadyGone reports the --ignore-not-found short-circuit: nothing was
+// deleted, so "deleted" must stay false, it should only mean this run
+// actually deleted something.
+func (bd *Deleter) emitAlreadyGone(opts DeleteOptions) error {
+	if bd.config.Pretty {
+		_, _ = fmt.Fprint(os.Stdout, output.Info("Backup storage %q not found in namespace %q; nothing to delete", opts.Name, opts.Namespace))
+		return nil
+	}
+	return writeDeleteResultJSON(opts.Name, opts.Namespace, false)
+}
+
+// waitForDeletion blocks until the backup storage is gone, like instance
+// delete --wait. The cancellable context is set up here, not in Run, so
+// Ctrl-C during confirm (which runs first) is a decline, not a cancelled
+// wait.
 func (bd *Deleter) waitForDeletion(ctx context.Context, c *client.ClientWithResponses, opts DeleteOptions) error {
+	ctx, cancel := signal.NotifyContext(ctx, os.Interrupt, syscall.SIGTERM)
+	defer cancel()
+
 	poll := newBackupStorageDeletePoll(c, opts.Cluster, opts.Namespace, opts.Name)
 
 	var onUpdate func(string)
@@ -168,7 +190,7 @@ func (bd *Deleter) waitForDeletion(ctx context.Context, c *client.ClientWithResp
 		_, _ = fmt.Fprint(os.Stdout, output.Success("Backup storage %q is deleted", opts.Name))
 		return nil
 	}
-	return writeDeleteResultJSON(opts.Name, opts.Namespace)
+	return writeDeleteResultJSON(opts.Name, opts.Namespace, true)
 }
 
 // newBackupStorageDeletePoll checks if the backup storage still exists. A 404
@@ -208,12 +230,12 @@ func deleteCondition(bs *client.BackupStorage) (wait.Outcome, string) {
 	return wait.Pending, "backup storage still exists — likely referenced by an Instance or Backup"
 }
 
-func writeDeleteResultJSON(name, namespace string) error {
+func writeDeleteResultJSON(name, namespace string, deleted bool) error {
 	result := struct {
 		Name      string `json:"name"`
 		Namespace string `json:"namespace"`
 		Deleted   bool   `json:"deleted"`
-	}{Name: name, Namespace: namespace, Deleted: true}
+	}{Name: name, Namespace: namespace, Deleted: deleted}
 	if err := json.NewEncoder(os.Stdout).Encode(result); err != nil {
 		return fmt.Errorf("failed to encode delete result: %w", err)
 	}

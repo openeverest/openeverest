@@ -18,8 +18,10 @@ package backupstorage
 import (
 	"context"
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"path/filepath"
 	"testing"
 	"time"
@@ -28,8 +30,26 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 
+	"github.com/openeverest/openeverest/v2/pkg/cli/confirm"
 	"github.com/openeverest/openeverest/v2/pkg/cli/wait"
 )
+
+// captureStdout returns what fn writes to os.Stdout. Not parallel-safe
+// (os.Stdout is global), so callers must not use t.Parallel.
+func captureStdout(t *testing.T, fn func()) string {
+	t.Helper()
+	orig := os.Stdout
+	r, w, err := os.Pipe()
+	require.NoError(t, err)
+	os.Stdout = w
+	defer func() { os.Stdout = orig }()
+
+	fn()
+	require.NoError(t, w.Close())
+	out, err := io.ReadAll(r)
+	require.NoError(t, err)
+	return string(out)
+}
 
 func isTerminalFalse() bool { return false }
 
@@ -217,7 +237,9 @@ func TestDelete_JSONMode_NonInteractiveWithoutYes_FailsFast(t *testing.T) {
 		Name:      "my-s3",
 		Namespace: "everest",
 		Cluster:   "main",
-		// IsTerminal is true here to prove --json alone forces non-interactive.
+		JSON:      true,
+		// IsTerminal is true here to prove --json alone forces non-interactive,
+		// independent of whether stdin is actually a real terminal.
 		IsTerminal: func() bool { return true },
 	}
 
@@ -225,6 +247,30 @@ func TestDelete_JSONMode_NonInteractiveWithoutYes_FailsFast(t *testing.T) {
 	err := d.Run(context.Background(), opts, cfgPath)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "confirmation required in non-interactive mode")
+}
+
+func TestDelete_VerboseAloneDoesNotForceNonInteractive(t *testing.T) {
+	t.Parallel()
+
+	srv := newDeleteServer(t, func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusNoContent)
+	}, nil)
+	defer srv.Close()
+
+	cfgPath := filepath.Join(t.TempDir(), "config.yaml")
+	require.NoError(t, newTestConfig(srv.URL).Save(cfgPath))
+
+	opts := DeleteOptions{
+		Name:       "my-s3",
+		Namespace:  "everest",
+		Cluster:    "main",
+		JSON:       false,
+		IsTerminal: func() bool { return true },
+	}
+
+	d := NewDeleter(Config{Pretty: false}, zap.NewNop().Sugar())
+	err := d.Run(context.Background(), opts, cfgPath)
+	assert.NotErrorIs(t, err, confirm.ErrNonInteractive, "verbose alone must not be treated as non-interactive")
 }
 
 func TestDelete_WaitUntilGone_Succeeds(t *testing.T) {
@@ -282,4 +328,43 @@ func TestDelete_WaitTimesOut(t *testing.T) {
 	err := d.Run(context.Background(), opts, cfgPath)
 	require.Error(t, err)
 	require.ErrorIs(t, err, wait.ErrTimeout)
+}
+
+// TestDelete_IgnoreNotFound_AlreadyGone_JSONOutput proves the short-circuit
+// output is honest: "deleted" is false, since this run never deleted
+// anything — the backup storage was already gone.
+//
+//nolint:paralleltest // mutates global os.Stdout; must run serially
+func TestDelete_IgnoreNotFound_AlreadyGone_JSONOutput(t *testing.T) {
+	deleteCalled := false
+	srv := newDeleteServer(t,
+		func(w http.ResponseWriter, _ *http.Request) {
+			deleteCalled = true
+			w.WriteHeader(http.StatusNoContent)
+		},
+		func(w http.ResponseWriter, _ *http.Request) {
+			w.WriteHeader(http.StatusNotFound)
+		},
+	)
+	defer srv.Close()
+
+	cfgPath := filepath.Join(t.TempDir(), "config.yaml")
+	require.NoError(t, newTestConfig(srv.URL).Save(cfgPath))
+
+	opts := DeleteOptions{
+		Name:           "my-s3",
+		Namespace:      "everest",
+		Cluster:        "main",
+		IgnoreNotFound: true,
+		IsTerminal:     isTerminalFalse,
+	}
+
+	d := NewDeleter(Config{Pretty: false}, zap.NewNop().Sugar())
+	var runErr error
+	out := captureStdout(t, func() {
+		runErr = d.Run(context.Background(), opts, cfgPath)
+	})
+	require.NoError(t, runErr)
+	assert.False(t, deleteCalled)
+	assert.JSONEq(t, `{"name":"my-s3","namespace":"everest","deleted":false}`, out)
 }
