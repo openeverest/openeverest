@@ -21,7 +21,9 @@ help: ## Display this help.
 
 ## Location to install binaries to
 LOCALBIN := $(shell pwd)/bin
-$(LOCALBIN):
+
+.PHONY: ensure-localbin
+ensure-localbin:
 	mkdir -p "$(LOCALBIN)"
 
 ##@ Development
@@ -115,7 +117,7 @@ SERVER_GC_FLAGS =
 # arch) so release builds can produce a binary per target architecture.
 .PHONY: build-server
 build-server-helper: GOOS = linux
-build-server-helper: $(LOCALBIN)
+build-server-helper: ensure-localbin
 # We need to ensure that /public/dist/index.html exists before building Everest
 # API server because it's embedded into the binary and missing file will cause
 # build failure. We avoid touching the file if it already exists to prevent
@@ -150,7 +152,7 @@ CLI_GC_FLAGS =
 
 # Helper target to build Everest CLI binary.
 .PHONY: build-cli-helper
-build-cli-helper: $(LOCALBIN) charts
+build-cli-helper: ensure-localbin charts
 	$(info Building Everest CLI for $(GOOS)/$(GOARCH) with CGO_ENABLED=$(CGO_ENABLED))
 	go build -v $(CLI_BUILD_TAGS) $(CLI_GC_FLAGS) -ldflags "$(CLI_LD_FLAGS)" -o "$(LOCALBIN)/everestctl" ./cmd/cli
 
