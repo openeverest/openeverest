@@ -179,6 +179,10 @@ func TestValidateTerms(t *testing.T) {
 			valid: true,
 		},
 		{
+			terms: []string{"role:team-dev", "database-clusters", "read", "ns/*"},
+			valid: true,
+		},
+		{
 			terms: []string{"role:", "database-clusters", "create", "*"},
 			valid: false,
 		},

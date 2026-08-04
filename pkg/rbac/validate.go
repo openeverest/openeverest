@@ -41,8 +41,8 @@ func validatePolicy(enforcer *casbin.Enforcer) error {
 	if err != nil {
 		return err
 	}
-	for _, policy := range policy {
-		if err := validateTerms(policy); err != nil {
+	for _, rule := range policy {
+		if err := validatePolicyRule(rule); err != nil {
 			return errors.Join(errPolicySyntax, err)
 		}
 	}
@@ -114,7 +114,7 @@ func checkRoles(roles []string, policies [][]string) error {
 	return nil
 }
 
-func validateTerms(terms []string) error {
+func validatePolicyRule(terms []string) error {
 	if len(terms) != 4 {
 		return fmt.Errorf("expected 4 policy terms [sub, res, act, obj], got %d", len(terms))
 	}
@@ -140,12 +140,15 @@ func validateTerms(terms []string) error {
 	return nil
 }
 
+func validateTerms(terms []string) error {
+	return validatePolicyRule(terms)
+}
+
 func validateSubject(subject string) error {
 	if subject == "" {
 		return errors.New("empty subject")
 	}
-	if strings.HasPrefix(subject, common.EverestRBACRolePrefix) {
-		roleName := strings.TrimPrefix(subject, common.EverestRBACRolePrefix)
+	if roleName, ok := strings.CutPrefix(subject, common.EverestRBACRolePrefix); ok {
 		if strings.TrimSpace(roleName) == "" {
 			return errors.New("empty role name after prefix")
 		}
