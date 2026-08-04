@@ -111,11 +111,12 @@ func (id *Deleter) Run(ctx context.Context, opts DeleteOptions, cfgPath string) 
 		return err
 	}
 
-	if !alreadyGone {
-		id.l.Infof("deleted instance %q in namespace %q", opts.Name, opts.Namespace)
+	if alreadyGone {
+		return id.emitAlreadyGone(opts)
 	}
+	id.l.Infof("deleted instance %q in namespace %q", opts.Name, opts.Namespace)
 
-	if !opts.Wait || alreadyGone {
+	if !opts.Wait {
 		return id.emitDeleted(opts)
 	}
 	return id.waitForDeletion(ctx, c, opts)

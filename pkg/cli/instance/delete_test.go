@@ -263,13 +263,34 @@ func TestDelete_JSONMode_NonInteractiveWithoutYes_FailsFast(t *testing.T) {
 }
 
 // TestDelete_VerboseAloneDoesNotForceNonInteractive proves --verbose alone
-// does not force non-interactive mode, only opts.JSON should.
+// (Config.Pretty false, JSON false) does not force non-interactive mode on a
+// real TTY, only --json should. It runs Run itself rather than restating the
+// gating rule against a hand-built confirm.Options, since that would pass
+// even if Run went back to deriving JSON from Pretty. Without a real
+// terminal, the prompt itself fails, so this only asserts we got past the
+// gate, not that the prompt succeeded.
 func TestDelete_VerboseAloneDoesNotForceNonInteractive(t *testing.T) {
 	t.Parallel()
 
-	opts := DeleteOptions{JSON: false, IsTerminal: func() bool { return true }}
-	confirmOpts := confirm.Options{Yes: opts.Yes, JSON: opts.JSON, IsTerminal: opts.IsTerminal}
-	assert.True(t, confirm.WillPrompt(confirmOpts), "verbose alone (JSON: false) with a real TTY should still prompt, not be forced non-interactive")
+	srv := newDeleteServer(t, func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusNoContent)
+	}, nil)
+	defer srv.Close()
+
+	cfgPath := filepath.Join(t.TempDir(), "config.yaml")
+	require.NoError(t, newTestConfig(srv.URL).Save(cfgPath))
+
+	opts := DeleteOptions{
+		Name:       "my-db",
+		Namespace:  "everest",
+		Cluster:    "main",
+		JSON:       false,
+		IsTerminal: func() bool { return true },
+	}
+
+	id := NewDeleter(Config{Pretty: false}, zap.NewNop().Sugar())
+	err := id.Run(context.Background(), opts, cfgPath)
+	assert.NotErrorIs(t, err, confirm.ErrNonInteractive, "verbose alone must not be treated as non-interactive")
 }
 
 func TestDelete_WaitUntilGone_Succeeds(t *testing.T) {
