@@ -12,8 +12,44 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+import { Instance } from 'shared-types/api.types';
 import { InstanceBackupStorage } from './backups.types';
 import { PitrParameters } from 'components/pitr-config-modal/pitr-config-modal.types';
+
+export interface StoragePitrWindow {
+  available: boolean;
+  earliest?: Date;
+  latest?: Date;
+  message?: string;
+}
+
+// Read the provider-reported PITR window for a storage from instance status.
+// spec carries the on/off flag; status carries the restorable range and state,
+// matched to the storage by name.
+export const getStoragePitrWindow = (
+  instance: Instance,
+  storageName: string
+): StoragePitrWindow | undefined => {
+  const status = instance.status?.backup?.storages?.find(
+    (storage) => storage.name === storageName
+  )?.pitr;
+  if (!status) {
+    return undefined;
+  }
+  if (
+    status.state === 'Available' &&
+    status.earliestRestorableTime &&
+    status.latestRestorableTime
+  ) {
+    return {
+      available: true,
+      earliest: new Date(status.earliestRestorableTime),
+      latest: new Date(status.latestRestorableTime),
+      message: status.message,
+    };
+  }
+  return { available: false, message: status.message };
+};
 
 // Merge a PITR patch onto the existing storage pitr. Generated CRD types model
 // pitr.parameters as Record<string, never>; the payload is provider-defined, so

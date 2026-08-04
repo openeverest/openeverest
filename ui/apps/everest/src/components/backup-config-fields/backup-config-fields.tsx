@@ -12,10 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+import { Typography } from '@mui/material';
 import { useBackupClassUiSchema } from 'hooks/api/backup-classes/useBackupClasses';
 import { UIGenerator } from 'components/ui-generator/ui-generator';
 import { useApplySchemaDefaults } from 'components/ui-generator/hooks/use-apply-schema-defaults';
 import { BackupConfigFieldsProps } from './backup-config-fields.types';
+import { Messages } from './backup-config-fields.messages';
 
 export const BackupConfigFields = ({
   backupClass,
@@ -24,6 +26,7 @@ export const BackupConfigFields = ({
 }: BackupConfigFieldsProps) => {
   const { sections: backupSections } = useBackupClassUiSchema(backupClass);
   const className = backupClass?.metadata?.name ?? '';
+  const classLabel = backupClass?.spec?.displayName || className;
 
   useApplySchemaDefaults(backupSections?.parameters?.components, className);
 
@@ -37,6 +40,11 @@ export const BackupConfigFields = ({
       sections={backupSections}
       formMode={formMode}
       namespace={namespace}
+      emptySectionMessage={
+        <Typography color="text.secondary" sx={{ mt: 2 }}>
+          {Messages.invalidSchema(classLabel)}
+        </Typography>
+      }
     />
   );
 };

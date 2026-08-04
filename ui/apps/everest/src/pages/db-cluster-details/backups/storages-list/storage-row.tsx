@@ -13,11 +13,32 @@
 // limitations under the License.
 
 import { Box, Paper, Typography } from '@mui/material';
+import { useContext } from 'react';
+import { format } from 'date-fns';
+import { DATE_FORMAT } from 'consts';
+import { ScheduleModalContext } from '../backups.context';
+import { getStoragePitrWindow } from '../pitr.utils';
 import { StorageRowProps } from './storage-row.types';
 import { StoragePitrToggle } from './storage-pitr-toggle';
+import { Messages } from './storage-row.messages';
 
 export const StorageRow = ({ storage }: StorageRowProps) => {
+  const { instance } = useContext(ScheduleModalContext);
   const storageName = storage.storageRef.name;
+  const enabled = storage.pitr?.enabled ?? false;
+  const window = enabled
+    ? getStoragePitrWindow(instance, storageName)
+    : undefined;
+
+  // Show the restorable range only once the provider reports a window; no
+  // placeholder while it's absent.
+  const caption =
+    window?.available && window.earliest && window.latest
+      ? Messages.recoveryWindow(
+          format(window.earliest, DATE_FORMAT),
+          format(window.latest, DATE_FORMAT)
+        )
+      : undefined;
 
   return (
     <Paper
@@ -36,7 +57,18 @@ export const StorageRow = ({ storage }: StorageRowProps) => {
           alignItems: 'center',
         }}
       >
-        <Typography variant="body1">{storageName}</Typography>
+        <Box>
+          <Typography variant="body1">Storage: {storageName}</Typography>
+          {caption && (
+            <Typography
+              variant="caption"
+              color="text.secondary"
+              sx={{ display: 'block' }}
+            >
+              {caption}
+            </Typography>
+          )}
+        </Box>
         <Box sx={{ ml: 'auto' }}>
           <StoragePitrToggle storage={storage} />
         </Box>

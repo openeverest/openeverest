@@ -13,9 +13,7 @@
 // limitations under the License.
 
 import { useContext, useState } from 'react';
-// import { useMemo } from 'react';
 import { Box, MenuItem } from '@mui/material';
-// import { Tooltip } from '@mui/material';
 import { MenuButton } from '@percona/ui-lib';
 import { ScheduleModalContext } from '../../backups.context';
 import { DbInstancePhaseStatus } from 'shared-types/instance.types';
@@ -25,6 +23,7 @@ import { ExpandableSectionToggle } from 'components/expandable-section-toggle';
 import { BackupListTableHeaderProps } from './backups-list-table-header.types';
 import { Messages } from './backups-list-table-header.messages';
 import { useRBACPermissions } from 'hooks/rbac';
+import { useActiveBackupClass } from 'hooks/api/backup-classes/useBackupClasses';
 // TODO: v2 — uncomment when schedule limit checking is implemented
 // import { useBackupClassesList } from 'hooks/api/backup-classes/useBackupClasses';
 // import { useClusterName } from 'hooks/api/useClusterName';
@@ -43,6 +42,13 @@ const BackupListTableHeader = ({
     instance.spec.backup?.storages?.flatMap((s) => s.schedules ?? []) ?? [];
   const schedulesNumber = allSchedules.length;
   const storagesNumber = instance.spec.backup?.storages?.length ?? 0;
+
+  // PITR lives on backup storages; the panel is only relevant when the provider
+  // supports it and at least one storage exists.
+  const activeClass = useActiveBackupClass(instance);
+  const showPitrPanel =
+    (activeClass?.spec?.providerManaged?.supportsPITR ?? false) &&
+    storagesNumber > 0;
 
   const restoring = instance.status?.phase === DbInstancePhaseStatus.Restoring;
 
@@ -100,7 +106,7 @@ const BackupListTableHeader = ({
         })}
       >
         {/* Toggles are right-aligned as a group (inline-flex so the row is not broken); filters stay left (order=0). */}
-        {(schedulesNumber > 0 || storagesNumber > 0) && (
+        {(schedulesNumber > 0 || showPitrPanel) && (
           <Box sx={{ display: 'inline-flex', ml: 'auto' }}>
             {schedulesNumber > 0 && (
               <ExpandableSectionToggle
@@ -110,9 +116,9 @@ const BackupListTableHeader = ({
                 dataTestId="scheduled-backups"
               />
             )}
-            {storagesNumber > 0 && (
+            {showPitrPanel && (
               <ExpandableSectionToggle
-                label={Messages.storages(storagesNumber)}
+                label={Messages.pitr}
                 open={expandedSection === 'storages'}
                 onToggle={handleShowStorages}
                 dataTestId="storages-toggle"
@@ -151,7 +157,7 @@ const BackupListTableHeader = ({
       {schedulesNumber > 0 && expandedSection === 'schedules' && (
         <ScheduledBackupsList />
       )}
-      {storagesNumber > 0 && expandedSection === 'storages' && <StoragesList />}
+      {showPitrPanel && expandedSection === 'storages' && <StoragesList />}
     </>
   );
 };
