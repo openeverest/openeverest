@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { PitrWindow } from 'pages/db-cluster-details/backups/pitr.utils';
+import { PitrWindow } from 'shared-types/pitr.types';
 
 export interface RestoreDbModalProps {
   isOpen: boolean;

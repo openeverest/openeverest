@@ -40,7 +40,7 @@ import {
   getMetadataCreationTimestamp,
   getSafeTimeValue,
 } from './restore-db-modal.utils';
-import { resolvePitrWindow } from 'pages/db-cluster-details/backups/pitr.utils';
+import { resolvePitrWindow } from 'utils/pitr';
 import { resolveRestoreAction } from './resolve-restore-action';
 
 interface UseRestoreDbModalParams {
