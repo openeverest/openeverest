@@ -122,19 +122,22 @@ func refreshEnforcerInBackground(
 		if !ok || cm.GetName() != common.EverestRBACConfigMapName {
 			return
 		}
-		if err := enforcer.LoadPolicy(); err != nil {
-			panic("invalid policy detected - " + err.Error())
+			if err := enforcer.LoadPolicy(); err != nil {
+			l.Errorf("Failed to load RBAC policy: %s", err)
+			return
 		}
 		if err := validatePolicy(enforcer); err != nil {
-			panic("invalid policy detected - " + err.Error())
+			l.Errorf("Invalid RBAC policy detected: %s", err)
+			return
 		}
 		// Calling LoadPolicy() re-writes the entire model, so we need to add back the admin role.
 		if err := loadAdminPolicy(enforcer); err != nil {
-			panic("failed to load admin policy - " + err.Error())
+			l.Errorf("Failed to load admin policy: %s", err)
+			return
 		}
 		enforcer.EnableEnforce(IsEnabled(cm))
 	})
-	if inf.Start(ctx, &corev1.ConfigMap{}) != nil {
+	if err := inf.Start(ctx, &corev1.ConfigMap{}); err != nil {
 		return errors.Join(err, errors.New("failed to watch RBAC ConfigMap"))
 	}
 	return nil
