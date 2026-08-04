@@ -38,9 +38,12 @@ var (
 		Long: `Delete a BackupStorage through the Everest API.
 
 The name and namespace flags are required. The credentials Secret is not
-deleted by this command directly — it's owned by the BackupStorage and is
-garbage-collected by Kubernetes once the BackupStorage is actually gone,
-unless it was externally referenced before being adopted.
+deleted by this command directly. The BackupStorage controller adopts any
+credentials Secret with no existing owner, whether it was CLI-generated or
+supplied via --credentials-secret, and Kubernetes garbage-collects it once
+the BackupStorage is actually gone. A Secret shared across multiple backup
+storages via --credentials-secret is not protected from this: deleting
+whichever storage adopted it first takes the Secret down too.
 
 Interactively (a terminal, no --yes), you'll be asked to confirm with y/N.
 Pass --yes/-y to skip the prompt; in a non-interactive context (no terminal,
