@@ -15,6 +15,7 @@
 import { z } from 'zod';
 import { Messages } from './restore-db-modal.messages';
 import { RestorePitrStorageOption } from './restore-db-modal.types';
+import { resolveActiveStorage } from './restore-pitr.utils';
 
 export enum RestoreDbFields {
   backupType = 'backupType',
@@ -59,9 +60,7 @@ export const schema = (pitrStorages: RestorePitrStorageOption[] = []) =>
         return;
       }
 
-      const storage =
-        pitrStorages.find((option) => option.name === data.pitrStorage) ??
-        pitrStorages[0];
+      const storage = resolveActiveStorage(pitrStorages, data.pitrStorage);
 
       if (!storage) {
         ctx.addIssue({

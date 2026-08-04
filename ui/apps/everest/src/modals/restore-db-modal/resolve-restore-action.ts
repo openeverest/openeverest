@@ -19,7 +19,7 @@ import {
   RestoreDbFormData,
 } from './restore-db-modal-schema';
 import { RestorePitrStorageOption } from './restore-db-modal.types';
-import { toRestoreDateISO } from './restore-pitr.utils';
+import { resolveActiveStorage, toRestoreDateISO } from './restore-pitr.utils';
 
 // The decision a restore submission resolves to, independent of side effects:
 // navigating to the create-new-DB flow, firing the restore mutation, or nothing
@@ -55,9 +55,7 @@ export const resolveRestoreAction = (
     };
   }
 
-  const storage =
-    pitrStorages.find((option) => option.name === data.pitrStorage) ??
-    pitrStorages[0];
+  const storage = resolveActiveStorage(pitrStorages, data.pitrStorage);
   if (!storage) {
     return { kind: 'none' };
   }

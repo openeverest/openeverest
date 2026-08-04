@@ -18,6 +18,8 @@ import {
   countPitrEnabledStorages,
   getPitrBlockReason,
   hasActiveSchedules,
+  PitrStorageStatus,
+  resolvePitrWindow,
   setStoragePitr,
 } from './pitr.utils';
 
@@ -158,5 +160,48 @@ describe('buildPitrPayload', () => {
     expect(buildPitrPayload(undefined, { enabled: true })).toEqual({
       enabled: true,
     });
+  });
+});
+
+describe('resolvePitrWindow', () => {
+  it('returns a usable window when Available with both bounds', () => {
+    const status: PitrStorageStatus = {
+      state: 'Available',
+      earliestRestorableTime: '2026-07-29T00:00:00Z',
+      latestRestorableTime: '2026-07-29T12:00:00Z',
+      message: 'ok',
+    };
+
+    expect(resolvePitrWindow(status)).toEqual({
+      available: true,
+      earliest: new Date('2026-07-29T00:00:00Z'),
+      latest: new Date('2026-07-29T12:00:00Z'),
+      message: 'ok',
+    });
+  });
+
+  it('is unavailable (with the message) when the state is Unavailable', () => {
+    const status: PitrStorageStatus = {
+      state: 'Unavailable',
+      message: 'no successful backup yet',
+    };
+
+    expect(resolvePitrWindow(status)).toEqual({
+      available: false,
+      message: 'no successful backup yet',
+    });
+  });
+
+  it('is unavailable when Available but a bound is missing', () => {
+    const status: PitrStorageStatus = {
+      state: 'Available',
+      latestRestorableTime: '2026-07-29T12:00:00Z',
+    };
+
+    expect(resolvePitrWindow(status)).toEqual({ available: false });
+  });
+
+  it('is unavailable when no status is reported', () => {
+    expect(resolvePitrWindow(undefined)).toEqual({ available: false });
   });
 });

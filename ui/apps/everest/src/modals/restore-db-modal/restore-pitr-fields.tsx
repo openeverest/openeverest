@@ -24,6 +24,7 @@ import {
   RestoreDbFields,
 } from './restore-db-modal-schema';
 import { RestorePitrStorageOption } from './restore-db-modal.types';
+import { resolveActiveStorage } from './restore-pitr.utils';
 
 interface RestorePitrFieldsProps {
   pitrStorages: RestorePitrStorageOption[];
@@ -41,9 +42,7 @@ export const RestorePitrFields = ({
     name: RestoreDbFields.pointInTimeDate,
   });
 
-  const activeStorage =
-    pitrStorages.find((storage) => storage.name === selectedStorage) ??
-    pitrStorages[0];
+  const activeStorage = resolveActiveStorage(pitrStorages, selectedStorage);
 
   // Keep the form's storage selection in sync with the resolved active storage
   // so the submit payload always names a storage even when the selector is

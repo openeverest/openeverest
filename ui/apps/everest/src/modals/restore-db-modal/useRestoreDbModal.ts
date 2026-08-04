@@ -40,7 +40,7 @@ import {
   getMetadataCreationTimestamp,
   getSafeTimeValue,
 } from './restore-db-modal.utils';
-import { getPitrWindow } from './restore-pitr.utils';
+import { resolvePitrWindow } from 'pages/db-cluster-details/backups/pitr.utils';
 import { resolveRestoreAction } from './resolve-restore-action';
 
 interface UseRestoreDbModalParams {
@@ -83,7 +83,7 @@ export const useRestoreDbModal = ({
       .filter((storage) => storage.pitr)
       .map((storage) => ({
         name: storage.name,
-        window: getPitrWindow(storage.pitr),
+        window: resolvePitrWindow(storage.pitr),
       }));
   }, [instance, isNewClusterMode]);
 

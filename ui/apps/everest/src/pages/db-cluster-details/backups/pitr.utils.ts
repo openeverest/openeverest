@@ -16,39 +16,55 @@ import { Instance } from 'shared-types/api.types';
 import { InstanceBackupStorage } from './backups.types';
 import { PitrParameters } from 'components/pitr-config-modal/pitr-config-modal.types';
 
-export interface StoragePitrWindow {
+// Per-storage PITR status reported on the Instance; the recovery window and its
+// trustworthiness live here.
+export type PitrStorageStatus = NonNullable<
+  NonNullable<
+    NonNullable<NonNullable<Instance['status']>['backup']>['storages']
+  >[number]['pitr']
+>;
+
+// FE-friendly recovery window resolved from the provider-reported status. The
+// window is usable only when reported Available with both bounds set; otherwise
+// the storage can't be restored to a point in time and the message explains why.
+export interface PitrWindow {
   available: boolean;
   earliest?: Date;
   latest?: Date;
   message?: string;
 }
 
-// Read the provider-reported PITR window for a storage from instance status.
-// spec carries the on/off flag; status carries the restorable range and state,
-// matched to the storage by name.
+// Canonical resolver shared by the restore modal (per-storage option) and the
+// cluster-details storages panel (row caption), so both surfaces agree on when
+// a window is usable and how its bounds are parsed.
+export const resolvePitrWindow = (
+  status: PitrStorageStatus | undefined
+): PitrWindow => {
+  if (
+    status?.state !== 'Available' ||
+    !status.earliestRestorableTime ||
+    !status.latestRestorableTime
+  ) {
+    return { available: false, message: status?.message };
+  }
+  return {
+    available: true,
+    earliest: new Date(status.earliestRestorableTime),
+    latest: new Date(status.latestRestorableTime),
+    message: status.message,
+  };
+};
+
+// Look up a storage's PITR status on the instance and resolve its window;
+// undefined when the storage reports no PITR status at all.
 export const getStoragePitrWindow = (
   instance: Instance,
   storageName: string
-): StoragePitrWindow | undefined => {
+): PitrWindow | undefined => {
   const status = instance.status?.backup?.storages?.find(
     (storage) => storage.name === storageName
   )?.pitr;
-  if (!status) {
-    return undefined;
-  }
-  if (
-    status.state === 'Available' &&
-    status.earliestRestorableTime &&
-    status.latestRestorableTime
-  ) {
-    return {
-      available: true,
-      earliest: new Date(status.earliestRestorableTime),
-      latest: new Date(status.latestRestorableTime),
-      message: status.message,
-    };
-  }
-  return { available: false, message: status.message };
+  return status ? resolvePitrWindow(status) : undefined;
 };
 
 // Merge a PITR patch onto the existing storage pitr. Generated CRD types model

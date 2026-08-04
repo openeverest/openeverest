@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { PitrStorageStatus, PitrWindow } from './restore-pitr.types';
+import { RestorePitrStorageOption } from './restore-db-modal.types';
 
 // Serialize a picked moment to RFC 3339 with an explicit UTC offset. The BE
 // rejects timezone-less timestamps (several engines read them as node-local),
@@ -20,25 +20,12 @@ import { PitrStorageStatus, PitrWindow } from './restore-pitr.types';
 export const toRestoreDateISO = (date: Date): string =>
   `${date.toISOString().split('.')[0]}Z`;
 
-// Resolve the per-storage PITR status into a picker-ready window. The window is
-// only usable when the provider reports it as Available with both bounds set;
-// otherwise the storage cannot be restored to a point in time and the human
-// message explains why.
-export const getPitrWindow = (
-  status: PitrStorageStatus | undefined
-): PitrWindow => {
-  if (
-    status?.state !== 'Available' ||
-    !status.earliestRestorableTime ||
-    !status.latestRestorableTime
-  ) {
-    return { available: false, message: status?.message };
-  }
-
-  return {
-    available: true,
-    earliest: new Date(status.earliestRestorableTime),
-    latest: new Date(status.latestRestorableTime),
-    message: status.message,
-  };
-};
+// Resolve the "active" storage option: the explicitly selected one, or the first
+// as a fallback for the single-storage case. Shared by the schema, the submit
+// mapper, and the fields component so validation, rendering, and submission all
+// agree on which storage the payload names.
+export const resolveActiveStorage = (
+  storages: RestorePitrStorageOption[],
+  selectedName: string | undefined
+): RestorePitrStorageOption | undefined =>
+  storages.find((option) => option.name === selectedName) ?? storages[0];
