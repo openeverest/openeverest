@@ -17,7 +17,9 @@ package validation
 import (
 	"context"
 	"errors"
+	"net/http"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -288,6 +290,23 @@ func TestValidateBucketName(t *testing.T) {
 			assert.ErrorIs(t, err, tc.err)
 		})
 	}
+}
+
+func TestS3Access_DoesNotMutateDefaultClient(t *testing.T) {
+	// Sanity check- http.DefaultClient should start in its zero-value state.
+	require.Equal(t, time.Duration(0), http.DefaultClient.Timeout)
+	require.Nil(t, http.DefaultClient.Transport)
+
+	l := zap.NewNop().Sugar()
+	endpoint := "http://127.0.0.1:1" // unreachable; connection refused immediately
+
+	// The result of s3Access is irrelevant here we only care that  http.DefaultClient is left untouched.
+	_ = s3Access(l, &endpoint, "access-key", "secret-key", "test-bucket", "us-east-1", false, false)
+
+	assert.Equal(t, time.Duration(0), http.DefaultClient.Timeout,
+		"s3Access must not mutate http.DefaultClient.Timeout")
+	assert.Nil(t, http.DefaultClient.Transport,
+		"s3Access must not mutate http.DefaultClient.Transport")
 }
 
 func TestValidate_DeleteBackupStorage(t *testing.T) {
