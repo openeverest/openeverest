@@ -199,6 +199,26 @@ func ValidateInstanceBackupPITRParameters(in *corev1alpha1.Instance, bc *backupv
 	return nil
 }
 
+// RestoreStreamInstanceName returns the name of the Instance that owns the
+// backup stream a point-in-time Restore reads from: the Instance named by
+// .source.instanceRef, or the Restore's target Instance when none is named.
+//
+// A stream has no Backup CR of its own, so this Instance is also where its
+// *read* class comes from -- the class describing how the data was written and
+// therefore how it must be read, which may differ from the target Instance's
+// own backup class.
+//
+// The defaulting is shared because every path that handles a Restore needs it
+// and it is easy to get subtly wrong; the surrounding dispatch on
+// .spec.dataSource.type stays at each call site, where the error handling and
+// the object type to fetch differ.
+func RestoreStreamInstanceName(restore *backupv1alpha1.Restore) string {
+	if pitr := restore.Spec.DataSource.PointInTime; pitr != nil && pitr.Source.InstanceRef != nil {
+		return pitr.Source.InstanceRef.Name
+	}
+	return restore.Spec.InstanceRef.Name
+}
+
 // ValidateBackupSucceeded returns ErrBackupNotSucceeded unless the Backup has
 // reached the Succeeded state. Callers are responsible for fetching the
 // Backup themselves and handling a not-found lookup error with their own
