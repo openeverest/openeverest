@@ -21,6 +21,10 @@ import (
 	"testing"
 	"time"
 
+	everestv1alpha1 "github.com/percona/everest-operator/api/everest/v1alpha1"
+	everestapi "github.com/percona/everest/api"
+	"github.com/percona/everest/internal/server/handlers/k8s"
+	"github.com/percona/everest/pkg/kubernetes"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
@@ -29,11 +33,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
-
-	everestv1alpha1 "github.com/percona/everest-operator/api/everest/v1alpha1"
-	everestapi "github.com/percona/everest/api"
-	"github.com/percona/everest/internal/server/handlers/k8s"
-	"github.com/percona/everest/pkg/kubernetes"
 )
 
 const (
@@ -292,9 +291,10 @@ func TestValidateBucketName(t *testing.T) {
 	}
 }
 
-//nolint:paralleltest // intentionally not parallel: asserts on the process-global
 // http.DefaultClient, which would produce flaky results if run concurrently
 // with other tests mutating that same global.
+//
+//nolint:paralleltest // intentionally not parallel: asserts on the process-global
 func TestS3Access_DoesNotMutateDefaultClient(t *testing.T) {
 	// Sanity check: http.DefaultClient should start in its zero-value state.
 	require.Equal(t, time.Duration(0), http.DefaultClient.Timeout)
