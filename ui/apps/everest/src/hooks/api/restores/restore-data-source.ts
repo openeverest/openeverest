@@ -19,7 +19,9 @@ import {
 
 // Build the Restore CRD dataSource from an FE input. storageRef is always sent
 // (the BE never infers it); date is included only for a date target and omitted
-// for 'latest' (the schema forbids it there).
+// for 'latest' (the schema forbids it there). instanceRef is set only when
+// cloning (sourceInstanceName present); an in-place restore omits it so the BE
+// defaults to the target instance's own stream.
 export const buildRestoreDataSource = (
   input: RestoreDataSourceInput
 ): RestoreDataSource => {
@@ -34,8 +36,40 @@ export const buildRestoreDataSource = (
     type: 'PointInTime',
     pointInTime: {
       recoveryTarget: input.recoveryTarget,
-      source: { storageRef: { name: input.storageName } },
+      source: {
+        storageRef: { name: input.storageName },
+        ...(input.sourceInstanceName
+          ? { instanceRef: { name: input.sourceInstanceName } }
+          : {}),
+      },
       ...(input.recoveryTarget === 'date' ? { date: input.date } : {}),
     },
   };
+};
+
+// Runtime shape check for the restore intent carried through untyped router
+// state. Validates the discriminant and its required fields before the value is
+// trusted as a restore payload.
+export const isRestoreDataSourceInput = (
+  value: unknown
+): value is RestoreDataSourceInput => {
+  if (typeof value !== 'object' || value === null) {
+    return false;
+  }
+  const candidate = value as Partial<RestoreDataSourceInput>;
+  if (candidate.type === 'Backup') {
+    return typeof candidate.backupName === 'string';
+  }
+  if (candidate.type === 'PointInTime') {
+    if (typeof candidate.storageName !== 'string') {
+      return false;
+    }
+    if (candidate.recoveryTarget === 'latest') {
+      return true;
+    }
+    return (
+      candidate.recoveryTarget === 'date' && typeof candidate.date === 'string'
+    );
+  }
+  return false;
 };

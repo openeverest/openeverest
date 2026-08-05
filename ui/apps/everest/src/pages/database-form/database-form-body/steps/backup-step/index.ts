@@ -14,5 +14,8 @@
 
 export { BackupStep } from './backup-step';
 export { BACKUP_SCHEDULES_FIELD } from './schedules';
-export { buildBackupSpecFromWizard } from './backup-step.utils';
+export {
+  buildBackupSpecFromWizard,
+  extractWizardBackup,
+} from './backup-step.utils';
 export type { WizardPitrMap } from './backup-step.types';

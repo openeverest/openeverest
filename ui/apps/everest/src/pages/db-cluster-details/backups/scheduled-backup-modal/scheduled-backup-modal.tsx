@@ -24,11 +24,8 @@ import { useClusterName } from 'hooks/api/useClusterName';
 import { ScheduleFormData } from 'components/schedule-form-dialog/schedule-form/schedule-form-schema';
 import { getSchedulesPayload } from 'components/schedule-form-dialog/schedule-form/schedule-form.utils';
 import { Instance } from 'shared-types/api.types';
-import {
-  flattenSchedules,
-  applySchedulesToStorages,
-  removeUnusedStorages,
-} from '../backups.utils';
+import { flattenSchedules } from 'utils/backup-schedules';
+import { applySchedulesToStorages, removeUnusedStorages } from '../backups.utils';
 
 export const ScheduledBackupModal = () => {
   const {

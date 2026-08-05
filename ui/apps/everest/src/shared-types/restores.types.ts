@@ -24,16 +24,23 @@ export type CreateRestorePayload =
 
 export type RestoreDataSource = CreateRestorePayload['spec']['dataSource'];
 
-// Discriminated FE input describing a restore intent. In-place restore leaves
-// the source instance implicit, so no instanceRef is carried here.
+// Discriminated FE input describing a restore intent. An in-place restore leaves
+// the source instance implicit; a clone into a new DB names it explicitly via
+// sourceInstanceName, since the new instance has no PITR stream of its own.
 export type RestoreDataSourceInput =
   | { type: 'Backup'; backupName: string }
-  | { type: 'PointInTime'; storageName: string; recoveryTarget: 'latest' }
+  | {
+      type: 'PointInTime';
+      storageName: string;
+      recoveryTarget: 'latest';
+      sourceInstanceName?: string;
+    }
   | {
       type: 'PointInTime';
       storageName: string;
       recoveryTarget: 'date';
       date: string;
+      sourceInstanceName?: string;
     };
 
 export type RestoreCreateVariables = {

@@ -12,7 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { RestoreCreateVariables } from 'shared-types/restores.types';
+import {
+  RestoreCreateVariables,
+  RestoreDataSourceInput,
+} from 'shared-types/restores.types';
 import {
   BackupTypeValues,
   RecoveryTargetValues,
@@ -22,10 +25,11 @@ import { RestorePitrStorageOption } from './restore-db-modal.types';
 import { resolveActiveStorage, toRestoreDateISO } from './restore-pitr.utils';
 
 // The decision a restore submission resolves to, independent of side effects:
-// navigating to the create-new-DB flow, firing the restore mutation, or nothing
-// (a state the schema already guards against).
+// navigating to the create-new-DB flow (carrying the restore intent so the
+// wizard can replay it against the freshly created instance), firing the
+// restore mutation, or nothing (a state the schema already guards against).
 export type RestoreAction =
-  | { kind: 'navigate-new'; backupName: string }
+  | { kind: 'navigate-new'; dataSource: RestoreDataSourceInput }
   | { kind: 'restore'; variables: RestoreCreateVariables }
   | { kind: 'none' };
 
@@ -35,54 +39,66 @@ interface RestoreActionContext {
   pitrStorages: RestorePitrStorageOption[];
 }
 
-// Pure mapping from validated form values to the restore action. Kept free of
-// hooks and side effects so every branch (backup, seed-new, PITR latest/date)
-// is unit-testable in isolation.
-export const resolveRestoreAction = (
+// Map validated form values to the restore data source, or undefined when the
+// selection is incomplete (a state the schema already guards against). When
+// cloning into a new DB the new instance has no stream of its own, so the
+// source instance is named explicitly; an in-place restore leaves it implicit.
+const resolveRestoreDataSourceInput = (
   data: RestoreDbFormData,
   { instanceName, isNewClusterMode, pitrStorages }: RestoreActionContext
-): RestoreAction => {
+): RestoreDataSourceInput | undefined => {
   if (data.backupType === BackupTypeValues.fromBackup) {
-    if (!data.backupName) {
-      return { kind: 'none' };
-    }
-    if (isNewClusterMode) {
-      return { kind: 'navigate-new', backupName: data.backupName };
-    }
-    return {
-      kind: 'restore',
-      variables: { instanceName, type: 'Backup', backupName: data.backupName },
-    };
+    return data.backupName
+      ? { type: 'Backup', backupName: data.backupName }
+      : undefined;
   }
 
   const storage = resolveActiveStorage(pitrStorages, data.pitrStorage);
   if (!storage) {
-    return { kind: 'none' };
+    return undefined;
   }
+
+  const sourceInstanceName = isNewClusterMode ? instanceName : undefined;
 
   if (data.recoveryTarget === RecoveryTargetValues.date) {
     if (!data.pointInTimeDate) {
-      return { kind: 'none' };
+      return undefined;
     }
     return {
-      kind: 'restore',
-      variables: {
-        instanceName,
-        type: 'PointInTime',
-        storageName: storage.name,
-        recoveryTarget: 'date',
-        date: toRestoreDateISO(data.pointInTimeDate),
-      },
+      type: 'PointInTime',
+      storageName: storage.name,
+      recoveryTarget: 'date',
+      date: toRestoreDateISO(data.pointInTimeDate),
+      ...(sourceInstanceName ? { sourceInstanceName } : {}),
     };
   }
 
   return {
+    type: 'PointInTime',
+    storageName: storage.name,
+    recoveryTarget: 'latest',
+    ...(sourceInstanceName ? { sourceInstanceName } : {}),
+  };
+};
+
+// Pure mapping from validated form values to the restore action. Kept free of
+// hooks and side effects so every branch (backup, PITR latest/date, in-place
+// vs. clone-to-new-DB) is unit-testable in isolation.
+export const resolveRestoreAction = (
+  data: RestoreDbFormData,
+  context: RestoreActionContext
+): RestoreAction => {
+  const dataSource = resolveRestoreDataSourceInput(data, context);
+  if (!dataSource) {
+    return { kind: 'none' };
+  }
+
+  if (context.isNewClusterMode) {
+    return { kind: 'navigate-new', dataSource };
+  }
+
+  return {
     kind: 'restore',
-    variables: {
-      instanceName,
-      type: 'PointInTime',
-      storageName: storage.name,
-      recoveryTarget: 'latest',
-    },
+    variables: { instanceName: context.instanceName, ...dataSource },
   };
 };

@@ -27,7 +27,7 @@ import {
 } from 'react-hook-form';
 import { useCreateDbInstance } from 'hooks/api/db-instances/useCreateDbInstance';
 import { DB_INSTANCES_QUERY_KEY } from 'hooks/api/db-instances/useDbInstanceList';
-import { useCreateInstanceRestore } from 'hooks/api/restores/useInstanceRestores';
+import { buildRestoreDataSource } from 'hooks/api/restores/restore-data-source';
 import { useActiveBreakpoint } from 'hooks/utils/useActiveBreakpoint';
 import { DbWizardType } from './database-form-schema';
 import DatabaseFormCancelDialog from './database-form-cancel-dialog/index';
@@ -38,6 +38,7 @@ import { FormMode } from 'components/ui-generator/ui-generator.types';
 import { ZodType } from 'zod';
 import { useDatabasePageDefaultValues } from './hooks/use-database-form-default-values';
 import { useDatabasePageMode } from './hooks/use-database-page-mode';
+import { useRestoreNavigationState } from './hooks/use-restore-navigation-state';
 import { DatabaseFormProvider } from './database-form-context';
 import { useSchema } from './hooks/use-schema';
 import { useDbValidationSchema } from './hooks/use-db-validation-schema';
@@ -92,6 +93,7 @@ export const DatabasePage = () => {
 
   const { isDesktop } = useActiveBreakpoint();
   const mode = useDatabasePageMode();
+  const { restoreDataSource } = useRestoreNavigationState();
 
   // ── Schema & topology
   const { uiSchema, topologies, hasMultipleTopologies, resolvedProvider } =
@@ -104,12 +106,6 @@ export const DatabasePage = () => {
   const clusterName = useClusterName();
   const { data: backupClasses = [] } = useBackupClassesList(clusterName);
   const hasBackupStep = backupClasses.length > 0;
-
-  // ── Restore mutation (needs clusterName + namespace from navigation state)
-  const { mutate: createRestore } = useCreateInstanceRestore(
-    clusterName,
-    location.state?.namespace ?? ''
-  );
 
   // ── Page-level defaults (merges schema defaults + wizard-specific ones)
   const { defaultValues, dbClusterRequestStatus } =
@@ -206,7 +202,7 @@ export const DatabasePage = () => {
         fields: Object.values(ImportFields) as string[],
       });
     }
-    if (hasBackupStep && mode !== FormMode.Restore) {
+    if (hasBackupStep) {
       steps.push({
         id: BACKUP_STEP_ID,
         label: 'Backups',
@@ -215,7 +211,7 @@ export const DatabasePage = () => {
       });
     }
     return steps;
-  }, [hasImportStep, hasBackupStep, mode]);
+  }, [hasImportStep, hasBackupStep]);
 
   const engine = useFormEngine({
     uiSchema,
@@ -380,24 +376,16 @@ export const DatabasePage = () => {
         }
       );
     } else if (mode === FormMode.Restore) {
-      const backupName = location.state?.backupName as string;
+      if (!restoreDataSource) return;
+      // Seed the new instance from the source in a single atomic create: the
+      // operator runs the restore from spec.dataSource (it creates the seeding
+      // Restore CR itself), so there is no second request to orchestrate here.
+      formData.dataSource = buildRestoreDataSource(restoreDataSource);
       createInstance(
         { formValue: postProcessedData },
         {
           onSuccess: () => {
-            const newInstanceName = postProcessedData.dbName as string;
-            createRestore(
-              {
-                instanceName: newInstanceName,
-                type: 'Backup',
-                backupName,
-              },
-              {
-                onSuccess: () => {
-                  setFormSubmitted(true);
-                },
-              }
-            );
+            setFormSubmitted(true);
           },
         }
       );
@@ -419,7 +407,7 @@ export const DatabasePage = () => {
         sections: engine.sections,
         sectionsOrder: engine.sectionsOrder,
         providerObject,
-        hasBackupStep: hasBackupStep && mode !== FormMode.Restore,
+        hasBackupStep,
       }}
     >
       <Stack direction={isDesktop ? 'row' : 'column'}>

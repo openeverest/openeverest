@@ -25,9 +25,9 @@ import {
   MenuItem,
 } from '@mui/material';
 import {
+  Add as AddIcon,
   DeleteOutline as DeleteOutlineIcon,
   KeyboardReturn as KeyboardReturnIcon,
-  // Add as AddIcon, // TODO: re-enable when create-new-db-from-backup is restored
 } from '@mui/icons-material';
 import ExtensionIcon from '@mui/icons-material/Extension';
 import MoreHorizIcon from '@mui/icons-material/MoreHoriz';
@@ -42,6 +42,7 @@ import type { ClusterActionExtension } from '@openeverest/plugin-sdk';
 import PluginErrorBoundary from 'components/plugin-host/PluginErrorBoundary';
 import { useBackupsList } from 'hooks/api/backups/useBackups';
 import { useCanRestore } from 'hooks/api/restores/useCanRestore';
+import { useCanCreateClusterFromBackup } from 'hooks/api/restores/useCanCreateClusterFromBackup';
 import { useClusterName } from 'hooks/api/useClusterName';
 import { BackupStatus } from 'shared-types/backups.types';
 
@@ -112,11 +113,10 @@ export const DbActions = ({
   );
 
   const canRestore = useCanRestore(namespace, dbInstanceName ?? '');
-
-  // const { canCreate: canCreateClusters } = useRBACPermissions(
-  //   'database-clusters',
-  //   `${dbInstance.metadata?.namespace}/*`
-  // );
+  const canCreateClusterFromBackup = useCanCreateClusterFromBackup(
+    namespace,
+    dbInstanceName ?? ''
+  );
 
   // const { canCreate: canCreateBackups } = useRBACPermissions(
   //   'database-cluster-backups',
@@ -234,19 +234,20 @@ export const DbActions = ({
               <RestartAltIcon /> {Messages.menuItems.restart}
             </MenuItem>
           )*/}
-          {/* TODO: Temporarily hidden — create new DB from backup deferred by team */}
-          {/* <MenuItem
-            data-testid={`${dbInstanceName}-create-new-db-from-backup`}
-            disabled={actionsBlocked}
-            key={1}
-            onClick={() => {
-              setIsNewClusterMode(true);
-              handleRestoreDbCluster();
-            }}
-            sx={sx}
-          >
-            <AddIcon /> {Messages.menuItems.createNewDbFromBackup}
-          </MenuItem> */}
+          {hasBackups && canCreateClusterFromBackup && (
+            <MenuItem
+              data-testid={`${dbInstanceName}-create-new-db-from-backup`}
+              disabled={actionsBlocked || !hasReadyBackup}
+              key={1}
+              onClick={() => {
+                setIsNewClusterMode(true);
+                handleRestoreDbCluster();
+              }}
+              sx={sx}
+            >
+              <AddIcon /> {Messages.menuItems.createNewDbFromBackup}
+            </MenuItem>
+          )}
           {/*TODO RBAC */}
           {hasBackups && canRestore && (
             <MenuItem

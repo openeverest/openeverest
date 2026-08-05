@@ -13,6 +13,8 @@
 // limitations under the License.
 
 import { FlattenedSchedule } from 'components/schedule-form-dialog/schedule-form-dialog-context/schedule-form-dialog-context.types';
+import { flattenSchedules } from 'utils/backup-schedules';
+import { Instance } from 'shared-types/api.types';
 import { WizardBackupSpec, WizardPitrMap } from './backup-step.types';
 
 /**
@@ -74,5 +76,38 @@ export const buildBackupSpecFromWizard = (
     classRef: { name: classRefName },
     enabled: true,
     storages,
+  };
+};
+
+/**
+ * Inverse of buildBackupSpecFromWizard: project an existing Instance's nested
+ * spec.backup onto the wizard's flat form state so a clone (restore-to-new-DB)
+ * inherits the source's schedules, backup class, and per-storage PITR — matching
+ * the create wizard's restore prefill.
+ */
+export const extractWizardBackup = (
+  instance: Instance
+): {
+  schedules: FlattenedSchedule[];
+  classRef: { name: string };
+  pitr: WizardPitrMap;
+} => {
+  const storages = instance.spec?.backup?.storages ?? [];
+  const pitr: WizardPitrMap = {};
+  for (const storage of storages) {
+    if (storage.pitr?.enabled) {
+      pitr[storage.storageRef.name ?? ''] = {
+        enabled: true,
+        ...(storage.pitr.parameters
+          ? { parameters: storage.pitr.parameters as Record<string, unknown> }
+          : {}),
+      };
+    }
+  }
+
+  return {
+    schedules: flattenSchedules(instance),
+    classRef: { name: instance.spec?.backup?.classRef?.name ?? '' },
+    pitr,
   };
 };

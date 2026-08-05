@@ -47,6 +47,7 @@ import { Instance } from 'shared-types/api.types';
 import { removeUnusedStorages } from '../backups.utils';
 import { useRBACPermissions } from 'hooks/rbac';
 import { useCanRestore } from 'hooks/api/restores/useCanRestore';
+import { useCanCreateClusterFromBackup } from 'hooks/api/restores/useCanCreateClusterFromBackup';
 
 export const BackupsList = () => {
   const { instanceName = '', namespace = '' } = useParams();
@@ -67,6 +68,10 @@ export const BackupsList = () => {
   );
 
   const canRestore = useCanRestore(namespace, instanceName);
+  const canCreateClusterFromBackup = useCanCreateClusterFromBackup(
+    namespace,
+    instanceName
+  );
 
   const { data: backups = [] } = useBackupsList(
     clusterName,
@@ -274,16 +279,22 @@ export const BackupsList = () => {
         enableRowActions
         renderRowActions={({ row }) => (
           <TableActionsMenu
-            menuItems={getBackupActionButtons(
+            menuItems={getBackupActionButtons({
               row,
-              handleDeleteBackup,
-              handleRestoreBackup,
-              handleRestoreToNewDbBackup,
-              canDelete,
-              canRestore,
-              deletingBackup &&
-                selectedBackup === (row.original.metadata?.name ?? '')
-            )}
+              handlers: {
+                onRestore: handleRestoreBackup,
+                onRestoreToNewDb: handleRestoreToNewDbBackup,
+                onDelete: handleDeleteBackup,
+              },
+              permissions: {
+                canRestore,
+                canCreateNewDb: canCreateClusterFromBackup,
+                canDelete,
+              },
+              isDeleting:
+                deletingBackup &&
+                selectedBackup === (row.original.metadata?.name ?? ''),
+            })}
           />
         )}
       />

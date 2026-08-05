@@ -70,22 +70,22 @@ export const useRestoreDbModal = ({
   );
 
   const { data: instance } = useDbInstance(namespace, instanceName, {
-    enabled: !!instanceName && !isNewClusterMode,
+    enabled: !!instanceName,
   });
 
-  // PITR is offered for in-place restore only, and only once the provider has
-  // reported a restorable window in status; otherwise the option stays disabled.
-  const pitrStorages = useMemo<RestorePitrStorageOption[]>(() => {
-    if (isNewClusterMode) {
-      return [];
-    }
-    return (instance?.status?.backup?.storages ?? [])
-      .filter((storage) => storage.pitr)
-      .map((storage) => ({
-        name: storage.name,
-        window: resolvePitrWindow(storage.pitr),
-      }));
-  }, [instance, isNewClusterMode]);
+  // PITR is offered — for both in-place restore and clone-to-new-DB — only once
+  // the source instance's provider has reported a restorable window in status;
+  // otherwise the option stays disabled.
+  const pitrStorages = useMemo<RestorePitrStorageOption[]>(
+    () =>
+      (instance?.status?.backup?.storages ?? [])
+        .filter((storage) => storage.pitr)
+        .map((storage) => ({
+          name: storage.name,
+          window: resolvePitrWindow(storage.pitr),
+        })),
+    [instance]
+  );
 
   const succeededBackups = useMemo<RestorableBackupOption[]>(
     () =>
@@ -130,8 +130,8 @@ export const useRestoreDbModal = ({
       navigate('/databases/new', {
         state: {
           selectedDbCluster: instanceName,
-          backupName: action.backupName,
           namespace,
+          restoreDataSource: action.dataSource,
         },
       });
       return;
