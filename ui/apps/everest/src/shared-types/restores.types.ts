@@ -27,8 +27,11 @@ export type RestoreDataSource = CreateRestorePayload['spec']['dataSource'];
 // Discriminated FE input describing a restore intent. An in-place restore leaves
 // the source instance implicit; a clone into a new DB names it explicitly via
 // sourceInstanceName, since the new instance has no PITR stream of its own.
+// storageName on the Backup arm is an FE-only hint (the seeding storage of the
+// backup) used to register that storage on a clone — it is NOT part of the
+// payload, since the BE resolves the storage from the referenced Backup.
 export type RestoreDataSourceInput =
-  | { type: 'Backup'; backupName: string }
+  | { type: 'Backup'; backupName: string; storageName?: string }
   | {
       type: 'PointInTime';
       storageName: string;

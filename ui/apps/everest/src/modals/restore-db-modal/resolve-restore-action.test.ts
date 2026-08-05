@@ -63,6 +63,26 @@ describe('resolveRestoreAction', () => {
     });
   });
 
+  it('carries the backup storage for a clone when known', () => {
+    const action = resolveRestoreAction(
+      { backupType: BackupTypeValues.fromBackup, backupName: 'daily-1' },
+      {
+        ...ctx,
+        isNewClusterMode: true,
+        succeededBackups: [{ name: 'daily-1', storageName: 's3-main' }],
+      }
+    );
+
+    expect(action).toEqual({
+      kind: 'navigate-new',
+      dataSource: {
+        type: 'Backup',
+        backupName: 'daily-1',
+        storageName: 's3-main',
+      },
+    });
+  });
+
   it('carries a latest PITR clone through navigation with the source instance', () => {
     const action = resolveRestoreAction(
       {

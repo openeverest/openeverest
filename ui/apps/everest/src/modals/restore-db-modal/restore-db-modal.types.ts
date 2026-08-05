@@ -26,6 +26,7 @@ export interface RestoreDbModalProps {
 export interface RestorableBackupOption {
   name: string;
   startedAt?: string;
+  storageName?: string;
 }
 
 export interface RestorePitrStorageOption {

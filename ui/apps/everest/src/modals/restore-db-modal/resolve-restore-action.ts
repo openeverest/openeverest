@@ -21,7 +21,7 @@ import {
   RecoveryTargetValues,
   RestoreDbFormData,
 } from './restore-db-modal-schema';
-import { RestorePitrStorageOption } from './restore-db-modal.types';
+import { RestorePitrStorageOption, RestorableBackupOption } from './restore-db-modal.types';
 import { resolveActiveStorage, toRestoreDateISO } from './restore-pitr.utils';
 
 // The decision a restore submission resolves to, independent of side effects:
@@ -37,6 +37,7 @@ interface RestoreActionContext {
   instanceName: string;
   isNewClusterMode: boolean;
   pitrStorages: RestorePitrStorageOption[];
+  succeededBackups?: RestorableBackupOption[];
 }
 
 // Map validated form values to the restore data source, or undefined when the
@@ -45,12 +46,27 @@ interface RestoreActionContext {
 // source instance is named explicitly; an in-place restore leaves it implicit.
 const resolveRestoreDataSourceInput = (
   data: RestoreDbFormData,
-  { instanceName, isNewClusterMode, pitrStorages }: RestoreActionContext
+  {
+    instanceName,
+    isNewClusterMode,
+    pitrStorages,
+    succeededBackups,
+  }: RestoreActionContext
 ): RestoreDataSourceInput | undefined => {
   if (data.backupType === BackupTypeValues.fromBackup) {
-    return data.backupName
-      ? { type: 'Backup', backupName: data.backupName }
-      : undefined;
+    if (!data.backupName) {
+      return undefined;
+    }
+    // Carry the backup's storage so a clone can register it (the seeding
+    // storage the operator reads from); ignored for an in-place restore.
+    const storageName = succeededBackups?.find(
+      (backup) => backup.name === data.backupName
+    )?.storageName;
+    return {
+      type: 'Backup',
+      backupName: data.backupName,
+      ...(storageName ? { storageName } : {}),
+    };
   }
 
   const storage = resolveActiveStorage(pitrStorages, data.pitrStorage);

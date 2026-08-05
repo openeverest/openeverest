@@ -63,6 +63,8 @@ import {
   BackupStep,
   BACKUP_SCHEDULES_FIELD,
   buildBackupSpecFromWizard,
+  ensureStorageRegistered,
+  WizardBackupSpec,
   WizardPitrMap,
 } from './database-form-body/steps/backup-step';
 import { FlattenedSchedule } from 'components/schedule-form-dialog/schedule-form-dialog-context/schedule-form-dialog-context.types';
@@ -381,6 +383,14 @@ export const DatabasePage = () => {
       // operator runs the restore from spec.dataSource (it creates the seeding
       // Restore CR itself), so there is no second request to orchestrate here.
       formData.dataSource = buildRestoreDataSource(restoreDataSource);
+      // The seeding storage (where the operator reads the source) must be
+      // registered on the new instance regardless of the user's schedule
+      // choices, or the restore stalls waiting for it.
+      formData.backup = ensureStorageRegistered(
+        formData.backup as WizardBackupSpec | undefined,
+        restoreDataSource.storageName,
+        (backupData?.classRef as { name?: string })?.name
+      );
       createInstance(
         { formValue: postProcessedData },
         {

@@ -95,6 +95,7 @@ export const useRestoreDbModal = ({
           name: getBackupName(backup),
           startedAt:
             backup.status?.startedAt ?? getMetadataCreationTimestamp(backup),
+          storageName: backup.spec?.storageRef?.name,
         }))
         .filter((backup) => !!backup.name)
         .sort(
@@ -123,6 +124,7 @@ export const useRestoreDbModal = ({
       instanceName,
       isNewClusterMode,
       pitrStorages,
+      succeededBackups,
     });
 
     if (action.kind === 'navigate-new') {

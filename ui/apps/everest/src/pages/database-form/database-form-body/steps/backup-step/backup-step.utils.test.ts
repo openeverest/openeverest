@@ -18,6 +18,7 @@ import { WizardBackupSpec } from './backup-step.types';
 import {
   buildBackupSpecFromWizard,
   extractWizardBackup,
+  ensureStorageRegistered,
 } from './backup-step.utils';
 
 const schedule = (
@@ -131,5 +132,46 @@ describe('extractWizardBackup', () => {
       schedules: [],
       pitr: {},
     });
+  });
+});
+
+describe('ensureStorageRegistered', () => {
+  const spec: WizardBackupSpec = {
+    classRef: { name: 'pxc' },
+    enabled: true,
+    storages: [{ name: 's3-a', storageRef: { name: 's3-a' }, schedules: [] }],
+  };
+
+  it('returns the spec unchanged when there is no storage to register', () => {
+    expect(ensureStorageRegistered(spec, undefined, 'pxc')).toBe(spec);
+    expect(
+      ensureStorageRegistered(undefined, undefined, 'pxc')
+    ).toBeUndefined();
+  });
+
+  it('leaves the spec untouched when the storage is already registered', () => {
+    expect(ensureStorageRegistered(spec, 's3-a', 'pxc')).toBe(spec);
+  });
+
+  it('appends the seeding storage when missing', () => {
+    const result = ensureStorageRegistered(spec, 's3-b', 'pxc');
+    expect(result?.storages.map((s) => s.storageRef.name)).toEqual([
+      's3-a',
+      's3-b',
+    ]);
+  });
+
+  it('builds a minimal spec when none exists', () => {
+    expect(ensureStorageRegistered(undefined, 's3-b', 'pxc')).toEqual({
+      classRef: { name: 'pxc' },
+      enabled: true,
+      storages: [{ name: 's3-b', storageRef: { name: 's3-b' }, schedules: [] }],
+    });
+  });
+
+  it('cannot build a spec without a class', () => {
+    expect(
+      ensureStorageRegistered(undefined, 's3-b', undefined)
+    ).toBeUndefined();
   });
 });

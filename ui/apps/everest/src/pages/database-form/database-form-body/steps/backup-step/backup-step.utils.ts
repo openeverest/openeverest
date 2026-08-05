@@ -111,3 +111,48 @@ export const extractWizardBackup = (
     pitr,
   };
 };
+
+/**
+ * Guarantee the seeding storage (where a clone reads its source data) is present
+ * in the instance's backup spec with backup enabled, independent of the user's
+ * schedule choices. Without it the operator stalls waiting for the storage.
+ * Returns the spec unchanged when there is no storage to register.
+ */
+export const ensureStorageRegistered = (
+  spec: WizardBackupSpec | undefined,
+  storageName: string | undefined,
+  classRefName: string | undefined
+): WizardBackupSpec | undefined => {
+  if (!storageName) {
+    return spec;
+  }
+
+  if (spec) {
+    if (
+      spec.storages.some((storage) => storage.storageRef.name === storageName)
+    ) {
+      return spec;
+    }
+    return {
+      ...spec,
+      storages: [
+        ...spec.storages,
+        { name: storageName, storageRef: { name: storageName }, schedules: [] },
+      ],
+    };
+  }
+
+  // No wizard backup spec (e.g. the user cleared every schedule): build a
+  // minimal one that just registers the seeding storage. Without a class we
+  // cannot form a valid spec, so leave it to the BE to reject.
+  if (!classRefName) {
+    return spec;
+  }
+  return {
+    classRef: { name: classRefName },
+    enabled: true,
+    storages: [
+      { name: storageName, storageRef: { name: storageName }, schedules: [] },
+    ],
+  };
+};
