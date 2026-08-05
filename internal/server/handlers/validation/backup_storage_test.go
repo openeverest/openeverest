@@ -292,16 +292,22 @@ func TestValidateBucketName(t *testing.T) {
 	}
 }
 
+//nolint:paralleltest // intentionally not parallel: asserts on the process-global
+// http.DefaultClient, which would produce flaky results if run concurrently
+// with other tests mutating that same global.
 func TestS3Access_DoesNotMutateDefaultClient(t *testing.T) {
-	// Sanity check- http.DefaultClient should start in its zero-value state.
+	// Sanity check: http.DefaultClient should start in its zero-value state.
 	require.Equal(t, time.Duration(0), http.DefaultClient.Timeout)
 	require.Nil(t, http.DefaultClient.Transport)
 
 	l := zap.NewNop().Sugar()
 	endpoint := "http://127.0.0.1:1" // unreachable; connection refused immediately
 
-	// The result of s3Access is irrelevant here we only care that  http.DefaultClient is left untouched.
-	_ = s3Access(l, &endpoint, "access-key", "secret-key", "test-bucket", "us-east-1", false, false)
+	// s3Access is expected to fail against this unreachable endpoint  we assert
+	// on that failure to confirm the call was actually attempted, then check
+	// that http.DefaultClient itself was left untouched regardless of outcome.
+	err := s3Access(l, &endpoint, "access-key", "secret-key", "test-bucket", "us-east-1", false, false)
+	require.Error(t, err)
 
 	assert.Equal(t, time.Duration(0), http.DefaultClient.Timeout,
 		"s3Access must not mutate http.DefaultClient.Timeout")

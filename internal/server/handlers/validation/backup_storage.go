@@ -225,7 +225,7 @@ func s3Access(
 	c := &http.Client{
 		Timeout: timeoutS3AccessSec * time.Second,
 		Transport: &http.Transport{
-			TLSClientConfig: &tls.Config{InsecureSkipVerify: !verifyTLS}, //nolint:gosec
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: !verifyTLS}, //nolint:gosec // user-controlled opt-out for self-signed S3 endpoints
 		},
 	}
 	// Create a new session with the provided credentials
