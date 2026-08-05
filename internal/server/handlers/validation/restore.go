@@ -127,12 +127,8 @@ func (h *validateHandler) resolveClassFromStream(
 		return nil, fmt.Errorf("%w: spec.dataSource.pointInTime is required when type is 'PointInTime'",
 			controller.ErrInvalidReference)
 	}
+	instanceName := controller.RestoreStreamInstanceName(restore)
 
-	// The stream belongs to the target Instance unless another one is named.
-	instanceName := restore.Spec.InstanceRef.Name
-	if pitr.Source.InstanceRef != nil {
-		instanceName = pitr.Source.InstanceRef.Name
-	}
 	instance, err := h.getInstanceRef(ctx, restore.GetNamespace(), instanceName)
 	if err != nil {
 		return nil, err
