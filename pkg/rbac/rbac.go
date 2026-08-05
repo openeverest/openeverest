@@ -122,7 +122,7 @@ func refreshEnforcerInBackground(
 		if !ok || cm.GetName() != common.EverestRBACConfigMapName {
 			return
 		}
-			if err := enforcer.LoadPolicy(); err != nil {
+		if err := enforcer.LoadPolicy(); err != nil {
 			l.Errorf("Failed to load RBAC policy: %s", err)
 			return
 		}
