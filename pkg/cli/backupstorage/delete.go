@@ -17,8 +17,6 @@ package backupstorage
 
 import (
 	"context"
-	"encoding/json"
-	"errors"
 	"fmt"
 	"net/http"
 	"os"
@@ -32,6 +30,7 @@ import (
 	authcli "github.com/openeverest/openeverest/v2/pkg/cli/auth"
 	"github.com/openeverest/openeverest/v2/pkg/cli/clienterr"
 	"github.com/openeverest/openeverest/v2/pkg/cli/confirm"
+	"github.com/openeverest/openeverest/v2/pkg/cli/deletion"
 	"github.com/openeverest/openeverest/v2/pkg/cli/wait"
 	"github.com/openeverest/openeverest/v2/pkg/output"
 )
@@ -70,7 +69,7 @@ func NewDeleter(cfg Config, l *zap.SugaredLogger) *Deleter {
 // Run deletes the backup storage: confirms, deletes, then waits if asked.
 // ctx stays plain here so Ctrl-C during confirm is a decline, not a
 // cancelled wait, see waitForDeletion. The credentials Secret is not
-// handled here — the BackupStorage controller adopts it via an owner
+// handled here, the BackupStorage controller adopts it via an owner
 // reference, so Kubernetes garbage-collects it once the BackupStorage is
 // actually gone.
 func (bd *Deleter) Run(ctx context.Context, opts DeleteOptions, cfgPath string) error {
@@ -99,11 +98,12 @@ func (bd *Deleter) Run(ctx context.Context, opts DeleteOptions, cfgPath string) 
 		return err
 	}
 
-	if !alreadyGone {
-		bd.l.Infof("deleted backup storage %q in namespace %q", opts.Name, opts.Namespace)
+	if alreadyGone {
+		return bd.emitAlreadyGone(opts)
 	}
+	bd.l.Infof("deleted backup storage %q in namespace %q", opts.Name, opts.Namespace)
 
-	if !opts.Wait || alreadyGone {
+	if !opts.Wait {
 		return bd.emitDeleted(opts)
 	}
 	return bd.waitForDeletion(ctx, c, opts)
@@ -142,22 +142,14 @@ func checkDeleteResponse(resp *client.DeleteBackupStorageResponse, opts DeleteOp
 
 // emitDeleted prints success: a line in pretty mode, JSON otherwise.
 func (bd *Deleter) emitDeleted(opts DeleteOptions) error {
-	if bd.config.Pretty {
-		_, _ = fmt.Fprint(os.Stdout, output.Success("Backup storage %q deleted", opts.Name))
-		return nil
-	}
-	return writeDeleteResultJSON(opts.Name, opts.Namespace, true)
+	return deletion.EmitDeleted(bd.config.Pretty, "backup storage", opts.Name, opts.Namespace)
 }
 
 // emitAlreadyGone reports the --ignore-not-found short-circuit: nothing was
 // deleted, so "deleted" must stay false, it should only mean this run
 // actually deleted something.
 func (bd *Deleter) emitAlreadyGone(opts DeleteOptions) error {
-	if bd.config.Pretty {
-		_, _ = fmt.Fprint(os.Stdout, output.Info("Backup storage %q not found in namespace %q; nothing to delete", opts.Name, opts.Namespace))
-		return nil
-	}
-	return writeDeleteResultJSON(opts.Name, opts.Namespace, false)
+	return deletion.EmitAlreadyGone(bd.config.Pretty, "backup storage", opts.Name, opts.Namespace)
 }
 
 // waitForDeletion blocks until the backup storage is gone, like instance
@@ -186,11 +178,7 @@ func (bd *Deleter) waitForDeletion(ctx context.Context, c *client.ClientWithResp
 		return err
 	}
 
-	if bd.config.Pretty {
-		_, _ = fmt.Fprint(os.Stdout, output.Success("Backup storage %q is deleted", opts.Name))
-		return nil
-	}
-	return writeDeleteResultJSON(opts.Name, opts.Namespace, true)
+	return deletion.EmitWaitSucceeded(bd.config.Pretty, "backup storage", opts.Name, opts.Namespace)
 }
 
 // newBackupStorageDeletePoll checks if the backup storage still exists. A 404
@@ -199,45 +187,17 @@ func newBackupStorageDeletePoll(
 	c *client.ClientWithResponses,
 	cluster, namespace, name string,
 ) wait.PollFunc[*client.BackupStorage] {
-	return func(ctx context.Context) (*client.BackupStorage, error) {
+	return deletion.GonePoll("backup storage", name, func(ctx context.Context) (int, string, *client.BackupStorage, error) {
 		resp, err := c.GetBackupStorageWithResponse(ctx, cluster, namespace, name)
 		if err != nil {
-			if errors.Is(err, authcli.ErrTokenRefresh) {
-				return nil, fmt.Errorf("failed to fetch backup storage %q: %w", name, err)
-			}
-			return nil, &wait.RetryableError{Err: fmt.Errorf("failed to fetch backup storage %q: %w", name, err)}
+			return 0, "", nil, err
 		}
-		switch resp.StatusCode() {
-		case http.StatusOK:
-			if resp.JSON200 == nil {
-				return nil, &wait.RetryableError{Err: fmt.Errorf("empty response body fetching backup storage %q", name)}
-			}
-			return resp.JSON200, nil
-		case http.StatusNotFound:
-			return nil, nil // gone
-		case http.StatusUnauthorized:
-			return nil, fmt.Errorf("server rejected credentials — run 'everestctl auth login' again")
-		default:
-			return nil, &wait.RetryableError{Err: fmt.Errorf("unexpected response fetching backup storage %q: %s", name, resp.Status())}
-		}
-	}
+		return resp.StatusCode(), resp.Status(), resp.JSON200, nil
+	})
 }
 
 func deleteCondition(bs *client.BackupStorage) (wait.Outcome, string) {
-	if bs == nil {
-		return wait.Succeeded, "backup storage deleted"
-	}
-	return wait.Pending, "backup storage still exists — likely referenced by an Instance or Backup"
-}
-
-func writeDeleteResultJSON(name, namespace string, deleted bool) error {
-	result := struct {
-		Name      string `json:"name"`
-		Namespace string `json:"namespace"`
-		Deleted   bool   `json:"deleted"`
-	}{Name: name, Namespace: namespace, Deleted: deleted}
-	if err := json.NewEncoder(os.Stdout).Encode(result); err != nil {
-		return fmt.Errorf("failed to encode delete result: %w", err)
-	}
-	return nil
+	return deletion.GoneCondition("backup storage deleted", func(*client.BackupStorage) string {
+		return "backup storage still exists — likely referenced by an Instance or Backup"
+	})(bs)
 }

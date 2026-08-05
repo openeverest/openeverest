@@ -76,7 +76,7 @@ list'/'everestctl backup list' for the namespace.`,
 
 func init() {
 	deleteCmd.Flags().StringVar(&deleteOpts.Name, cli.FlagBackupStorageName, "", "Backup storage name (required)")
-	deleteCmd.Flags().StringVar(&deleteOpts.Namespace, cli.FlagBackupStorageNamespace, "", "Namespace the backup storage is in (required)")
+	deleteCmd.Flags().StringVarP(&deleteOpts.Namespace, cli.FlagBackupStorageNamespace, "n", "", "Namespace the backup storage is in (required)")
 	deleteCmd.Flags().StringVar(&deleteOpts.Cluster, cli.FlagBackupStorageCluster, "main", "Cluster name")
 	deleteCmd.Flags().StringVar(&deleteOpts.Context, cli.FlagBackupStorageContext, "", "Context to use (default: current context)")
 	deleteCmd.Flags().BoolVarP(&deleteOpts.Yes, cli.FlagYes, "y", false, "Skip the confirmation prompt")
@@ -110,7 +110,7 @@ func deleteRun(cmd *cobra.Command, _ []string) {
 	d := backupstoragecli.NewDeleter(*deleteCfg, logger.GetLogger())
 	runErr := d.Run(cmd.Context(), *deleteOpts, cfgPath)
 	os.Exit(waitcmd.ExitCode(runErr, logger.GetLogger(), deleteCfg.Pretty,
-		fmt.Sprintf("wait cancelled; backup storage %q deletion continues in the background", deleteOpts.Name),
+		fmt.Sprintf("wait cancelled; backup storage %q deletion continues in the background — check with 'everestctl backup-storage list --namespace %s'", deleteOpts.Name, deleteOpts.Namespace),
 		fmt.Sprintf("timed out after %s waiting for backup storage %q to be deleted; deletion is still running server-side — a stuck delete is almost always an Instance or Backup that still references the storage, check 'everestctl instance list --namespace %s' / 'everestctl backup list --namespace %s'",
 			deleteOpts.Timeout, deleteOpts.Name, deleteOpts.Namespace, deleteOpts.Namespace),
 	))

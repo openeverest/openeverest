@@ -24,6 +24,7 @@ import (
 
 	"github.com/openeverest/openeverest/v2/client"
 	authcli "github.com/openeverest/openeverest/v2/pkg/cli/auth"
+	"github.com/openeverest/openeverest/v2/pkg/cli/deletion"
 	"github.com/openeverest/openeverest/v2/pkg/cli/wait"
 )
 
@@ -137,33 +138,17 @@ func newInstanceDeletePoll(
 	c *client.ClientWithResponses,
 	cluster, namespace, name string,
 ) wait.PollFunc[*client.Instance] {
-	return func(ctx context.Context) (*client.Instance, error) {
+	return deletion.GonePoll("instance", name, func(ctx context.Context) (int, string, *client.Instance, error) {
 		resp, err := c.GetInstanceWithResponse(ctx, cluster, namespace, name)
 		if err != nil {
-			if errors.Is(err, authcli.ErrTokenRefresh) {
-				return nil, fmt.Errorf("failed to fetch instance %q: %w", name, err)
-			}
-			return nil, &wait.RetryableError{Err: fmt.Errorf("failed to fetch instance %q: %w", name, err)}
+			return 0, "", nil, err
 		}
-		switch resp.StatusCode() {
-		case http.StatusOK:
-			if resp.JSON200 == nil {
-				return nil, &wait.RetryableError{Err: fmt.Errorf("empty response body fetching instance %q", name)}
-			}
-			return resp.JSON200, nil
-		case http.StatusNotFound:
-			return nil, nil // gone
-		case http.StatusUnauthorized:
-			return nil, fmt.Errorf("server rejected credentials — run 'everestctl auth login' again")
-		default:
-			return nil, &wait.RetryableError{Err: fmt.Errorf("unexpected response fetching instance %q: %s", name, resp.Status())}
-		}
-	}
+		return resp.StatusCode(), resp.Status(), resp.JSON200, nil
+	})
 }
 
 func deleteCondition(inst *client.Instance) (wait.Outcome, string) {
-	if inst == nil {
-		return wait.Succeeded, "instance deleted"
-	}
-	return wait.Pending, progressMessage(inst, instancePhase(inst))
+	return deletion.GoneCondition("instance deleted", func(v *client.Instance) string {
+		return progressMessage(v, instancePhase(v))
+	})(inst)
 }

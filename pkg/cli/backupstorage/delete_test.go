@@ -137,10 +137,39 @@ func TestDelete_NotFound_WithIgnoreNotFound_Succeeds(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+//nolint:paralleltest // captureStdout mutates global os.Stdout; must run serially
+func TestDelete_IgnoreNotFound_DeleteRaces404_ReportsNotDeleted(t *testing.T) {
+	srv := newDeleteServer(t,
+		func(w http.ResponseWriter, _ *http.Request) {
+			w.WriteHeader(http.StatusNotFound)
+		},
+		func(w http.ResponseWriter, _ *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"metadata":{"name":"my-s3","namespace":"everest"},"spec":{"type":"s3"}}`))
+		},
+	)
+	defer srv.Close()
+
+	cfgPath := filepath.Join(t.TempDir(), "config.yaml")
+	require.NoError(t, newTestConfig(srv.URL).Save(cfgPath))
+
+	opts := yesOpts()
+	opts.IgnoreNotFound = true
+
+	d := NewDeleter(Config{Pretty: false}, zap.NewNop().Sugar())
+	var runErr error
+	out := captureStdout(t, func() {
+		runErr = d.Run(context.Background(), opts, cfgPath)
+	})
+	require.NoError(t, runErr)
+	assert.JSONEq(t, `{"name":"my-s3","namespace":"everest","deleted":false}`, out)
+}
+
 // TestDelete_IgnoreNotFound_AlreadyGone_SkipsConfirmationAndWait proves the
 // --ignore-not-found short-circuit: when the backup storage is already gone,
 // both the confirmation prompt and --wait are skipped entirely (no --yes, no
-// TTY, and --wait: true all set here — none of it should matter), and the
+// TTY, and --wait: true all set here, none of it should matter), and the
 // DELETE endpoint itself is never called.
 func TestDelete_IgnoreNotFound_AlreadyGone_SkipsConfirmationAndWait(t *testing.T) {
 	t.Parallel()

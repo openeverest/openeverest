@@ -17,7 +17,6 @@ package instance
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"os"
@@ -29,7 +28,9 @@ import (
 
 	"github.com/openeverest/openeverest/v2/client"
 	authcli "github.com/openeverest/openeverest/v2/pkg/cli/auth"
+	"github.com/openeverest/openeverest/v2/pkg/cli/clienterr"
 	"github.com/openeverest/openeverest/v2/pkg/cli/confirm"
+	"github.com/openeverest/openeverest/v2/pkg/cli/deletion"
 	"github.com/openeverest/openeverest/v2/pkg/cli/wait"
 	"github.com/openeverest/openeverest/v2/pkg/output"
 )
@@ -150,8 +151,8 @@ func checkDeleteResponse(resp *client.DeleteInstanceResponse, opts DeleteOptions
 		}
 		return true, nil
 	case resp.StatusCode() != http.StatusOK && resp.StatusCode() != http.StatusNoContent:
-		if resp.JSONDefault != nil && resp.JSONDefault.Message != nil {
-			return false, fmt.Errorf("server error: %s", *resp.JSONDefault.Message)
+		if msg, ok := clienterr.Message(resp.JSONDefault); ok {
+			return false, fmt.Errorf("server error: %s", msg)
 		}
 		return false, fmt.Errorf("unexpected response deleting instance: %s", resp.Status())
 	default:
@@ -227,22 +228,12 @@ func blastRadiusMessage(name, namespace, policy string, verified bool) string {
 
 // emitDeleted prints success: a line in pretty mode, JSON otherwise.
 func (id *Deleter) emitDeleted(opts DeleteOptions) error {
-	if id.config.Pretty {
-		_, _ = fmt.Fprint(os.Stdout, output.Success("Instance %q deleted", opts.Name))
-		return nil
-	}
-	return writeDeleteResultJSON(opts.Name, opts.Namespace, true)
+	return deletion.EmitDeleted(id.config.Pretty, "instance", opts.Name, opts.Namespace)
 }
 
-// emitAlreadyGone reports the --ignore-not-found short-circuit: nothing was
-// deleted, so "deleted" must stay false, it should only mean this run
-// actually deleted something.
+// emitAlreadyGone reports the --ignore-not-found short-circuit.
 func (id *Deleter) emitAlreadyGone(opts DeleteOptions) error {
-	if id.config.Pretty {
-		_, _ = fmt.Fprint(os.Stdout, output.Info("Instance %q not found in namespace %q; nothing to delete", opts.Name, opts.Namespace))
-		return nil
-	}
-	return writeDeleteResultJSON(opts.Name, opts.Namespace, false)
+	return deletion.EmitAlreadyGone(id.config.Pretty, "instance", opts.Name, opts.Namespace)
 }
 
 // waitForDeletion blocks until the instance is gone, like instance create
@@ -270,21 +261,5 @@ func (id *Deleter) waitForDeletion(ctx context.Context, c *client.ClientWithResp
 		return err
 	}
 
-	if id.config.Pretty {
-		_, _ = fmt.Fprint(os.Stdout, output.Success("Instance %q is deleted", opts.Name))
-		return nil
-	}
-	return writeDeleteResultJSON(opts.Name, opts.Namespace, true)
-}
-
-func writeDeleteResultJSON(name, namespace string, deleted bool) error {
-	result := struct {
-		Name      string `json:"name"`
-		Namespace string `json:"namespace"`
-		Deleted   bool   `json:"deleted"`
-	}{Name: name, Namespace: namespace, Deleted: deleted}
-	if err := json.NewEncoder(os.Stdout).Encode(result); err != nil {
-		return fmt.Errorf("failed to encode delete result: %w", err)
-	}
-	return nil
+	return deletion.EmitWaitSucceeded(id.config.Pretty, "instance", opts.Name, opts.Namespace)
 }

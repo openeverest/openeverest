@@ -29,6 +29,7 @@ import (
 
 	"github.com/openeverest/openeverest/v2/client"
 	authcli "github.com/openeverest/openeverest/v2/pkg/cli/auth"
+	"github.com/openeverest/openeverest/v2/pkg/cli/clienterr"
 	"github.com/openeverest/openeverest/v2/pkg/cli/wait"
 	"github.com/openeverest/openeverest/v2/pkg/output"
 )
@@ -97,8 +98,8 @@ func (cr *CreateRunner) Run(ctx context.Context, opts CreateOptions, cfgPath str
 		if resp.StatusCode() == http.StatusConflict {
 			return fmt.Errorf("restore %q already exists in namespace %q", opts.Name, opts.Namespace)
 		}
-		if resp.JSONDefault != nil && resp.JSONDefault.Message != nil {
-			return fmt.Errorf("server error: %s", *resp.JSONDefault.Message)
+		if msg, ok := clienterr.Message(resp.JSONDefault); ok {
+			return fmt.Errorf("server error: %s", msg)
 		}
 		return fmt.Errorf("unexpected response creating restore: %s", resp.Status())
 	}
