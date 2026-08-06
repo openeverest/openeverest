@@ -42,13 +42,56 @@ type Subscriber struct {
 	ch         chan Event
 	types      map[Type]struct{}
 	namespaces map[string]struct{}
+
+	// done signals subscriber termination — either the caller cancelled, or
+	// broadcast dropped it for being too slow. It's closed exactly once via
+	// closeOnce.
+	//
+	// ch itself is never closed. broadcast takes a point-in-time snapshot
+	// of subscribers, releases h.mu, then sends — so by the time a send is
+	// attempted, this subscriber may already be mid-teardown on another
+	// goroutine (Cancel, or a *different* broadcast call dropping it for a
+	// full buffer). Closing ch directly from that teardown could race with
+	// a send already in flight and panic ("send on closed channel"). done
+	// sidesteps that: closing it is always safe from any goroutine, any
+	// number of times guarded by closeOnce, and a send that loses the race
+	// to a close either succeeds harmlessly into an abandoned channel or is
+	// skipped via the <-done case below.
+	done      chan struct{}
+	closeOnce sync.Once
+}
+
+func (s *Subscriber) close() {
+	s.closeOnce.Do(func() { close(s.done) })
+}
+
+// Subscription is the result of a successful Hub.Subscribe call.
+type Subscription struct {
+	// Replay holds buffered events with Seq greater than the requested
+	// cursor, oldest first. Empty when no cursor was given.
+	Replay []Event
+	// Ch streams events published after Subscribe returned. The boundary
+	// with Replay is exact — see Subscribe's comment — so the caller can
+	// simply deliver Replay first, then drain Ch, with no gap or overlap.
+	// Never closed - select on Dropped (or your own context) to know when
+	// to stop reading.
+	Ch <-chan Event
+	// Dropped is closed when the subscriber is torn down - either Cancel
+	// was called, or broadcast dropped it for falling too far behind. Once
+	// closed, no further events will arrive on Ch.
+	Dropped <-chan struct{}
+	// Cancel unregisters the subscriber and closes Dropped. Always call it,
+	// typically via defer.
+	Cancel func()
 }
 
 // Hub fans-out normalised lifecycle events to connected subscribers.
 // It watches Kubernetes resources through the provided KubernetesConnector.
 type Hub struct {
-	mu          sync.RWMutex
+	mu          sync.Mutex
 	subscribers map[*Subscriber]struct{}
+	seq         uint64
+	buffer      Buffer
 	l           *zap.SugaredLogger
 	kc          kubernetes.KubernetesConnector
 
@@ -60,10 +103,12 @@ type Hub struct {
 	cacheMu       sync.RWMutex
 }
 
-// NewHub creates a new event hub.
-func NewHub(l *zap.SugaredLogger, kc kubernetes.KubernetesConnector) *Hub {
+// NewHub creates a new event hub backed by buf for replay (openeverest#2582).
+// Pass NewRingBuffer(...) for the in-memory default.
+func NewHub(l *zap.SugaredLogger, kc kubernetes.KubernetesConnector, buf Buffer) *Hub {
 	return &Hub{
 		subscribers:   make(map[*Subscriber]struct{}),
+		buffer:        buf,
 		l:             l.With("component", "event-hub"),
 		kc:            kc,
 		instanceCache: make(map[string]*corev1alpha1.Instance),
@@ -73,11 +118,45 @@ func NewHub(l *zap.SugaredLogger, kc kubernetes.KubernetesConnector) *Hub {
 	}
 }
 
-// Subscribe creates a subscriber with optional type and namespace filters.
-// Returns the subscriber's event channel and a cancel function.
-func (h *Hub) Subscribe(types []Type, namespaces []string) (<-chan Event, func()) {
+// Epoch identifies this Hub's buffer instance — see Buffer.Epoch.
+func (h *Hub) Epoch() string { return h.buffer.Epoch() }
+
+// Subscribe registers a subscriber with optional type/namespace filters and
+// an optional replay cursor.
+//
+// If cursor is nil, behaviour matches the pre-replay Hub exactly: only
+// events published after this call are delivered, via Subscription.Ch.
+//
+// If cursor is non-nil, ok is false when the request can't be safely
+// resumed — its Epoch doesn't match this Hub's (the process restarted), or
+// its Seq has aged out of (or is ahead of) the buffer. The caller must
+// treat that as "resync required": relist current state and reconnect
+// without a cursor (spec 003 §10.6), same as any other 410.
+//
+// Race safety: the buffer snapshot (Subscription.Replay) and the
+// subscriber's registration happen under one acquisition of h.mu, which is
+// the same lock broadcast holds while it appends to the buffer and decides
+// who receives an event live. That makes the two mutually exclusive with
+// broadcast, not just individually atomic:
+//   - Any event broadcast strictly before this call's critical section was
+//     already appended to the buffer when Replay is read, so it's in Replay
+//     — and this subscriber wasn't registered yet when that broadcast chose
+//     its recipients, so it won't also arrive on Ch. In Replay, not on Ch.
+//   - Any event broadcast strictly after this call's critical section finds
+//     the subscriber already registered (broadcast can't run concurrently
+//     with this method — same lock), so it's delivered on Ch — and it
+//     wasn't in the buffer yet when Replay was taken, so it's not
+//     duplicated there. On Ch, not in Replay.
+//
+// No interleaving is possible between those two cases, because broadcast's
+// append+recipient-selection and this method's snapshot+registration both
+// hold h.mu for their entire critical section. The boundary is exact by
+// construction, not by chance — there is no seq for which both, or
+// neither, path could deliver it.
+func (h *Hub) Subscribe(types []Type, namespaces []string, cursor *Cursor) (Subscription, bool) {
 	sub := &Subscriber{
 		ch:         make(chan Event, defaultBufferSize),
+		done:       make(chan struct{}),
 		types:      make(map[Type]struct{}, len(types)),
 		namespaces: make(map[string]struct{}, len(namespaces)),
 	}
@@ -89,6 +168,25 @@ func (h *Hub) Subscribe(types []Type, namespaces []string) (<-chan Event, func()
 	}
 
 	h.mu.Lock()
+
+	var replay []Event
+	if cursor != nil {
+		if cursor.Epoch != h.buffer.Epoch() {
+			h.mu.Unlock()
+			return Subscription{}, false
+		}
+		evs, ok := h.buffer.Since(cursor.Seq)
+		if !ok {
+			h.mu.Unlock()
+			return Subscription{}, false
+		}
+		for _, evt := range evs {
+			if sub.matches(evt) {
+				replay = append(replay, evt)
+			}
+		}
+	}
+
 	h.subscribers[sub] = struct{}{}
 	h.mu.Unlock()
 
@@ -96,32 +194,58 @@ func (h *Hub) Subscribe(types []Type, namespaces []string) (<-chan Event, func()
 		h.mu.Lock()
 		delete(h.subscribers, sub)
 		h.mu.Unlock()
-		close(sub.ch)
+		sub.close()
 	}
-	return sub.ch, cancel
+	return Subscription{Replay: replay, Ch: sub.ch, Dropped: sub.done, Cancel: cancel}, true
 }
 
-// broadcast sends an event to all matching subscribers.
-// Slow subscribers whose buffers are full are dropped.
+// broadcast assigns evt its Seq/Epoch, appends it to the buffer, and
+// fans it out to matching subscribers. Slow subscribers whose channel is
+// full are dropped — safe now that a dropped subscriber can reconnect with
+// a cursor and replay the gap instead of losing it permanently.
 func (h *Hub) broadcast(evt Event) {
-	h.mu.RLock()
-	defer h.mu.RUnlock()
+	h.mu.Lock()
+	h.seq++
+	evt.Seq = h.seq
+	evt.Epoch = h.buffer.Epoch()
+	h.buffer.Append(&evt)
 
+	// Snapshot the current subscriber set under the same critical section
+	// that just appended evt — this is the other half of the race-safety
+	// argument in Subscribe's comment. Then release before sending: a send
+	// can block a goroutine on a full channel's non-blocking select for a
+	// moment, but must never hold h.mu while doing it, or a slow subscriber
+	// would stall seq assignment and registration for everyone else.
+	subs := make([]*Subscriber, 0, len(h.subscribers))
 	for sub := range h.subscribers {
+		subs = append(subs, sub)
+	}
+	h.mu.Unlock()
+
+	var toDrop []*Subscriber
+	for _, sub := range subs {
 		if !sub.matches(evt) {
 			continue
 		}
 		select {
 		case sub.ch <- evt:
+		case <-sub.done:
+			// Already torn down by Cancel or a concurrent drop - nothing to
+			// deliver to.
 		default:
-			// Buffer full — drop this subscriber (design doc §8.5).
-			h.l.Warnf("Dropping slow subscriber (buffer full), event %s", evt.Type)
-			go func(s *Subscriber) {
-				h.mu.Lock()
-				delete(h.subscribers, s)
-				h.mu.Unlock()
-				close(s.ch)
-			}(sub)
+			h.l.Warnf("dropping slow subscriber (buffer full), event %s", evt.Type)
+			toDrop = append(toDrop, sub)
+		}
+	}
+
+	if len(toDrop) > 0 {
+		h.mu.Lock()
+		for _, sub := range toDrop {
+			delete(h.subscribers, sub)
+		}
+		h.mu.Unlock()
+		for _, sub := range toDrop {
+			sub.close()
 		}
 	}
 }
