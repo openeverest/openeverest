@@ -73,7 +73,7 @@ list' for the namespace.`,
 
 func init() {
 	deleteCmd.Flags().StringVar(&deleteOpts.Name, cli.FlagInstanceName, "", "Instance name (required)")
-	deleteCmd.Flags().StringVar(&deleteOpts.Namespace, cli.FlagInstanceNamespace, "", "Namespace the instance is in (required)")
+	deleteCmd.Flags().StringVarP(&deleteOpts.Namespace, cli.FlagInstanceNamespace, "n", "", "Namespace the instance is in (required)")
 	deleteCmd.Flags().StringVar(&deleteOpts.Cluster, cli.FlagInstanceCluster, "main", "Cluster name")
 	deleteCmd.Flags().StringVar(&deleteOpts.Context, cli.FlagInstanceContext, "", "Context to use (default: current context)")
 	deleteCmd.Flags().StringVar(&deleteOpts.DeletionPolicy, cli.FlagInstanceDeletionPolicy, "",

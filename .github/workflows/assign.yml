@@ -85,20 +85,13 @@ jobs:
             const labels = (issue.labels || []).map((l) => l.name);
             let newcomerNote = '';
 
+            // Taking an issue is not the same as us having agreed to the fix.
+            const triageNote = labels.includes('needs-triage')
+              ? "- Nobody has triaged this yet, so we haven't agreed it should be fixed, or fixed this way. If it's more than a small, obvious fix, it's worth waiting for that decision before writing much code."
+              : '';
+
             // Maintainers bypass the gates below.
             if (!commenterIsMaintainer) {
-              // Filing an issue does not reserve it: it has not been triaged,
-              // and we may not agree it is a bug or want it fixed this way.
-              if (issue.user.login === commenter && !labels.includes('help wanted')) {
-                await reply(`@${commenter} opening an issue doesn't reserve it — it still needs to be triaged first, and we may not agree it's a bug or may want it fixed differently. A maintainer will review it and assign you if it's a good fit. See [CONTRIBUTING.md](https://github.com/${owner}/${repo}/blob/main/CONTRIBUTING.md#working-on-issues).`);
-                return;
-              }
-
-              if (!labels.includes('help wanted')) {
-                await reply(`@${commenter} this issue isn't open for self-assignment yet — it needs the \`help wanted\` label, which a maintainer adds once the issue has been triaged and we'd welcome help with it.\n\nComment to say you'd like to take it and a maintainer will get back to you. See [CONTRIBUTING.md](https://github.com/${owner}/${repo}/blob/main/CONTRIBUTING.md#working-on-issues).`);
-                return;
-              }
-
               const open = await github.rest.search.issuesAndPullRequests({
                 q: `repo:${owner}/${repo} is:issue is:open assignee:${commenter}`,
                 advanced_search: 'true',
@@ -144,5 +137,6 @@ jobs:
               '- Open your pull request with `Fixes #' + issue_number + '` in the description.',
               '- If you get stuck or change your mind, comment `/unassign` — no hard feelings.',
               '- If there is no visible progress for two weeks we will check in, and unassign a week after that so somebody else can pick it up.',
+              triageNote,
               newcomerNote,
             ].filter(Boolean).join('\n'));

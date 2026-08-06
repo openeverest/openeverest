@@ -63,11 +63,15 @@ export const useCreateRestoreFromBackup = (
           name: `restore-${generateShortUID()}`,
         },
         spec: {
-          instanceName,
+          instanceRef: {
+            name: instanceName,
+          },
           dataSource: {
             type: 'Backup',
             backup: {
-              backupName,
+              backupRef: {
+                name: backupName,
+              },
             },
           },
         },
@@ -136,7 +140,7 @@ export const useInstanceRestores = (
         endTime: item.status?.completedAt,
         state: item.status?.state || 'unknown',
         type: item.spec.dataSource.backup?.pitr ? 'pitr' : 'full',
-        backupSource: item.spec.dataSource.backup?.backupName || '',
+        backupSource: item.spec.dataSource.backup?.backupRef?.name || '',
       })),
     ...options,
   });
