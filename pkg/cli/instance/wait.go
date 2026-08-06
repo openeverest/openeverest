@@ -48,10 +48,8 @@ func instanceCondition(inst *client.Instance) (wait.Outcome, string) {
 	}
 }
 
-// newInstancePoll returns a PollFunc for the instance, mirroring the error
-// handling of `instance status --watch`: transient fetch failures and
-// unexpected statuses are retried (wait.RetryableError), while a 404 (deleted), a
-// 401 (credentials rejected), and a failed token refresh are terminal.
+// newInstancePoll returns a PollFunc for the instance; a 404 is terminal
+// here, unlike the delete-side poll.
 func newInstancePoll(
 	c *client.ClientWithResponses,
 	cluster, namespace, name string,

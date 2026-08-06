@@ -15,7 +15,9 @@
 
 // Package wait is a resource-agnostic polling waiter shared by CLI commands
 // that block until a resource reaches a terminal state (e.g. instance create
-// --wait). Callers supply a PollFunc and a Condition.
+// --wait). Callers supply a PollFunc and a Condition. It also provides
+// FetchPoll, which builds a PollFunc from a generated-client call,
+// classifying HTTP statuses and auth failures uniformly.
 package wait
 
 import (

@@ -38,11 +38,7 @@ func backupCondition(b *client.Backup) (wait.Outcome, string) {
 	}
 }
 
-// newBackupPoll returns a PollFunc for the backup, mirroring the error
-// handling of `instance create --wait`/`status --watch`: transient fetch
-// failures and unexpected statuses are retried (wait.RetryableError), while a
-// 404 (deleted), a 401 (credentials rejected), and a failed token refresh are
-// terminal.
+// newBackupPoll returns a PollFunc for the backup.
 func newBackupPoll(
 	c *client.ClientWithResponses,
 	cluster, namespace, name string,
