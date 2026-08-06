@@ -22,13 +22,10 @@ package deletion
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
-	"net/http"
 	"os"
 	"strings"
 
-	authcli "github.com/openeverest/openeverest/v2/pkg/cli/auth"
 	"github.com/openeverest/openeverest/v2/pkg/cli/wait"
 	"github.com/openeverest/openeverest/v2/pkg/output"
 )
@@ -46,36 +43,14 @@ func GoneCondition[T any](goneMsg string, pendingMsg func(*T) string) wait.Condi
 	}
 }
 
-// GonePoll builds a wait.PollFunc for a delete-poll around fetch,
-// classifying responses the same way every `<resource> delete --wait`
-// already does: a 404 means gone (nil, nil); a failed token refresh and a
-// 401 are terminal; everything else unexpected is retryable.
+// GonePoll builds a wait.PollFunc for a delete-poll around fetch: a 404 means
+// the resource is gone (nil, nil). Everything else is classified the same way
+// every polling command is, via wait.FetchPoll.
 func GonePoll[T any](
 	kind, name string,
 	fetch func(ctx context.Context) (statusCode int, statusText string, body *T, err error),
 ) wait.PollFunc[*T] {
-	return func(ctx context.Context) (*T, error) {
-		status, statusText, body, err := fetch(ctx)
-		if err != nil {
-			if errors.Is(err, authcli.ErrTokenRefresh) {
-				return nil, fmt.Errorf("failed to fetch %s %q: %w", kind, name, err)
-			}
-			return nil, &wait.RetryableError{Err: fmt.Errorf("failed to fetch %s %q: %w", kind, name, err)}
-		}
-		switch status {
-		case http.StatusOK:
-			if body == nil {
-				return nil, &wait.RetryableError{Err: fmt.Errorf("empty response body fetching %s %q", kind, name)}
-			}
-			return body, nil
-		case http.StatusNotFound:
-			return nil, nil // gone
-		case http.StatusUnauthorized:
-			return nil, fmt.Errorf("server rejected credentials — run 'everestctl auth login' again")
-		default:
-			return nil, &wait.RetryableError{Err: fmt.Errorf("unexpected response fetching %s %q: %s", kind, name, statusText)}
-		}
-	}
+	return wait.FetchPoll(kind, name, wait.NotFoundIsSuccess, fetch)
 }
 
 // EmitDeleted prints success: a line in pretty mode, JSON otherwise.

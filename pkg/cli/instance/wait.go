@@ -17,13 +17,11 @@ package instance
 
 import (
 	"context"
-	"errors"
 	"fmt"
-	"net/http"
 	"strings"
 
 	"github.com/openeverest/openeverest/v2/client"
-	authcli "github.com/openeverest/openeverest/v2/pkg/cli/auth"
+	"github.com/openeverest/openeverest/v2/pkg/cli/clienterr"
 	"github.com/openeverest/openeverest/v2/pkg/cli/deletion"
 	"github.com/openeverest/openeverest/v2/pkg/cli/wait"
 )
@@ -58,28 +56,22 @@ func newInstancePoll(
 	c *client.ClientWithResponses,
 	cluster, namespace, name string,
 ) wait.PollFunc[*client.Instance] {
-	return func(ctx context.Context) (*client.Instance, error) {
+	return wait.FetchPoll("instance", name, wait.NotFoundTerminal, fetchInstance(c, cluster, namespace, name))
+}
+
+// fetchInstance adapts GetInstanceWithResponse to wait.FetchPoll's fetch
+// shape.
+func fetchInstance(c *client.ClientWithResponses, cluster, namespace, name string) func(context.Context) (int, string, *client.Instance, error) {
+	return func(ctx context.Context) (int, string, *client.Instance, error) {
 		resp, err := c.GetInstanceWithResponse(ctx, cluster, namespace, name)
 		if err != nil {
-			// A failed token refresh is terminal; other fetch errors are transient.
-			if errors.Is(err, authcli.ErrTokenRefresh) {
-				return nil, fmt.Errorf("failed to fetch instance %q: %w", name, err)
-			}
-			return nil, &wait.RetryableError{Err: fmt.Errorf("failed to fetch instance %q: %w", name, err)}
+			return 0, "", nil, err
 		}
-		switch resp.StatusCode() {
-		case http.StatusOK:
-			if resp.JSON200 == nil {
-				return nil, &wait.RetryableError{Err: fmt.Errorf("empty response body fetching instance %q", name)}
-			}
-			return resp.JSON200, nil
-		case http.StatusNotFound:
-			return nil, fmt.Errorf("instance %q was deleted while waiting", name)
-		case http.StatusUnauthorized:
-			return nil, fmt.Errorf("server rejected credentials — run 'everestctl auth login' again")
-		default:
-			return nil, &wait.RetryableError{Err: fmt.Errorf("unexpected response fetching instance %q: %s", name, resp.Status())}
+		statusText := resp.Status()
+		if msg, ok := clienterr.Message(resp.JSONDefault); ok {
+			statusText = msg
 		}
+		return resp.StatusCode(), statusText, resp.JSON200, nil
 	}
 }
 
@@ -138,13 +130,7 @@ func newInstanceDeletePoll(
 	c *client.ClientWithResponses,
 	cluster, namespace, name string,
 ) wait.PollFunc[*client.Instance] {
-	return deletion.GonePoll("instance", name, func(ctx context.Context) (int, string, *client.Instance, error) {
-		resp, err := c.GetInstanceWithResponse(ctx, cluster, namespace, name)
-		if err != nil {
-			return 0, "", nil, err
-		}
-		return resp.StatusCode(), resp.Status(), resp.JSON200, nil
-	})
+	return deletion.GonePoll("instance", name, fetchInstance(c, cluster, namespace, name))
 }
 
 func deleteCondition(inst *client.Instance) (wait.Outcome, string) {
