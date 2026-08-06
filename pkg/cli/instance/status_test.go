@@ -28,6 +28,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/openeverest/openeverest/v2/client"
 	"github.com/openeverest/openeverest/v2/pkg/cli/config"
@@ -45,7 +46,7 @@ func TestInstanceStatus_HappyPath(t *testing.T) {
 	condStatus := client.InstanceStatusConditionsStatusTrue
 
 	inst := &client.Instance{
-		Metadata: &map[string]interface{}{"name": "my-mongo"},
+		Metadata: &metav1.ObjectMeta{Name: "my-mongo"},
 		Status: &struct {
 			Backup *struct {
 				Storages *[]struct {
@@ -191,7 +192,7 @@ func TestInstanceStatus_JSONOutput(t *testing.T) {
 
 	phase := client.InstanceStatusPhaseReady
 	inst := &client.Instance{
-		Metadata: &map[string]interface{}{"name": "my-mongo"},
+		Metadata: &metav1.ObjectMeta{Name: "my-mongo"},
 		Status: &struct {
 			Backup *struct {
 				Storages *[]struct {
@@ -250,7 +251,7 @@ func TestInstanceStatus_JSONOutput(t *testing.T) {
 func minimalInst() *client.Instance {
 	phase := client.InstanceStatusPhaseReady
 	return &client.Instance{
-		Metadata: &map[string]any{"name": "my-mongo"},
+		Metadata: &metav1.ObjectMeta{Name: "my-mongo"},
 		Status: &struct {
 			Backup *struct {
 				Storages *[]struct {

@@ -118,6 +118,19 @@ const (
 	FlagInstanceInterval = "interval"
 	// FlagInstanceAllNamespaces lists instances across all namespaces.
 	FlagInstanceAllNamespaces = "all-namespaces"
+	// FlagInstanceWait blocks create until the instance reaches the Ready phase.
+	FlagInstanceWait = "wait"
+	// FlagInstanceTimeout bounds --wait; only valid together with --wait.
+	FlagInstanceTimeout = "timeout"
+	// FlagInstanceDeletionPolicy overrides the instance's deletion policy for this delete.
+	FlagInstanceDeletionPolicy = "deletion-policy"
+	// FlagInstanceIgnoreNotFound treats an already-deleted instance as success.
+	FlagInstanceIgnoreNotFound = "ignore-not-found"
+
+	// shared flags.
+
+	// FlagYes skips the confirmation prompt. Used by instance delete and uninstall.
+	FlagYes = "yes"
 
 	// `provider` flags.
 
@@ -136,6 +149,37 @@ const (
 	FlagBackupCluster = "cluster"
 	// FlagBackupContext overrides the active context for this command.
 	FlagBackupContext = "context"
+	// FlagBackupClass is the name of the BackupClass flag.
+	FlagBackupClass = "class"
+	// FlagBackupStorage is the name of the BackupStorage flag.
+	FlagBackupStorage = "storage"
+	// FlagBackupName is the name of the backup name flag.
+	FlagBackupName = "name"
+	// FlagBackupDeletionPolicy is the name of the deletion-policy flag.
+	FlagBackupDeletionPolicy = "deletion-policy"
+	// FlagBackupWait blocks until the backup reaches a terminal state.
+	FlagBackupWait = "wait"
+	// FlagBackupTimeout bounds how long --wait blocks for.
+	FlagBackupTimeout = "timeout"
+
+	// `restore` flags.
+
+	// FlagRestoreNamespace is the name of the namespace flag.
+	FlagRestoreNamespace = "namespace"
+	// FlagRestoreInstance is the name of the instance flag.
+	FlagRestoreInstance = "instance"
+	// FlagRestoreCluster is the name of the cluster flag.
+	FlagRestoreCluster = "cluster"
+	// FlagRestoreContext overrides the active context for this command.
+	FlagRestoreContext = "context"
+	// FlagRestoreBackup is the name of the source Backup flag.
+	FlagRestoreBackup = "backup"
+	// FlagRestoreName is the name of the restore name flag.
+	FlagRestoreName = "name"
+	// FlagRestoreWait blocks until the restore reaches a terminal state.
+	FlagRestoreWait = "wait"
+	// FlagRestoreTimeout bounds how long --wait blocks for.
+	FlagRestoreTimeout = "timeout"
 
 	// `backup-storage` flags.
 
@@ -147,6 +191,30 @@ const (
 	FlagBackupStorageContext = "context"
 	// FlagBackupStorageAllNamespaces lists backup storages across all namespaces.
 	FlagBackupStorageAllNamespaces = "all-namespaces"
+	// FlagBackupStorageName is the name of the backup storage name flag.
+	FlagBackupStorageName = "name"
+	// FlagBackupStorageType is the name of the storage type flag.
+	FlagBackupStorageType = "type"
+	// FlagBackupStorageBucket is the name of the bucket flag.
+	FlagBackupStorageBucket = "bucket"
+	// FlagBackupStorageRegion is the name of the region flag.
+	FlagBackupStorageRegion = "region"
+	// FlagBackupStorageEndpointURL is the name of the endpoint-url flag.
+	FlagBackupStorageEndpointURL = "endpoint-url"
+	// FlagBackupStorageVerifyTLS toggles TLS certificate verification.
+	FlagBackupStorageVerifyTLS = "verify-tls"
+	// FlagBackupStorageForcePathStyle forces path-style storage URLs.
+	FlagBackupStorageForcePathStyle = "force-path-style"
+	// FlagBackupStorageCredentialsSecret is the name of an existing credentials Secret.
+	FlagBackupStorageCredentialsSecret = "credentials-secret"
+	// FlagBackupStorageAccessKeyID is the access key ID (plain flag; the secret access key is never a flag).
+	FlagBackupStorageAccessKeyID = "access-key-id"
+	// FlagBackupStorageWait blocks delete until the backup storage is fully removed.
+	FlagBackupStorageWait = "wait"
+	// FlagBackupStorageTimeout bounds --wait; only valid together with --wait.
+	FlagBackupStorageTimeout = "timeout"
+	// FlagBackupStorageIgnoreNotFound treats an already-deleted backup storage as success.
+	FlagBackupStorageIgnoreNotFound = "ignore-not-found"
 
 	// `backup-class` flags.
 

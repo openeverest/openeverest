@@ -21,7 +21,7 @@ components:
             More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
           type: string
         metadata:
-          type: object
+          $ref: '#/components/schemas/ObjectMeta'
         spec:
           description: BackupSpec defines the desired state of Backup.
           properties:
@@ -275,7 +275,7 @@ components:
             More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
           type: string
         metadata:
-          type: object
+          $ref: '#/components/schemas/ObjectMeta'
         spec:
           description: BackupClassSpec defines the desired state of BackupClass.
           properties:
@@ -855,7 +855,7 @@ components:
             More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
           type: string
         metadata:
-          type: object
+          $ref: '#/components/schemas/ObjectMeta'
         spec:
           description: |-
             BackupStorageSpec defines the desired state of a BackupStorage.
@@ -1003,7 +1003,7 @@ components:
             More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
           type: string
         metadata:
-          type: object
+          $ref: '#/components/schemas/ObjectMeta'
         spec:
           description: InstalledExtensionSpec defines the desired state of an InstalledExtension.
           properties:
@@ -1238,7 +1238,7 @@ components:
             More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
           type: string
         metadata:
-          type: object
+          $ref: '#/components/schemas/ObjectMeta'
         spec:
           description: InstanceSpec defines the desired state of Instance
           properties:
@@ -2899,7 +2899,7 @@ components:
             More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
           type: string
         metadata:
-          type: object
+          $ref: '#/components/schemas/ObjectMeta'
         spec:
           description: spec defines the desired state of InstancePreset
           properties:
@@ -4398,7 +4398,7 @@ components:
             More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
           type: string
         metadata:
-          type: object
+          $ref: '#/components/schemas/ObjectMeta'
         spec:
           description: spec defines the desired state of MonitoringConfig
           properties:
@@ -4509,6 +4509,62 @@ components:
               type: string
           type: object
       type: object
+    ObjectMeta:
+      description: ObjectMeta is the standard Kubernetes object metadata. Only the
+        fields relevant to the Everest API are described; unknown fields are accepted
+        but may be ignored by the server.
+      properties:
+        annotations:
+          additionalProperties:
+            type: string
+          description: 'Annotations is an unstructured key value map stored with a
+            resource that may be set by external tools to store and retrieve arbitrary
+            metadata. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations'
+          type: object
+        creationTimestamp:
+          description: CreationTimestamp is a timestamp representing the server time
+            when this object was created. Populated by the system. Read-only.
+          format: date-time
+          type: string
+        deletionTimestamp:
+          description: DeletionTimestamp is the RFC 3339 date and time at which this
+            resource will be deleted. Populated by the system when a graceful deletion
+            is requested. Read-only.
+          format: date-time
+          type: string
+        generateName:
+          description: GenerateName is an optional prefix, used by the server, to
+            generate a unique name ONLY IF the Name field has not been provided.
+          type: string
+        labels:
+          additionalProperties:
+            type: string
+          description: 'Map of string keys and values that can be used to organize
+            and categorize (scope and select) objects. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/labels'
+          type: object
+        name:
+          description: 'Name must be unique within a namespace. Is required when creating
+            resources, although some resources may allow a client to request the generation
+            of an appropriate name automatically. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names#names'
+          type: string
+        namespace:
+          description: 'Namespace defines the space within which each name must be
+            unique. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces'
+          type: string
+        resourceVersion:
+          description: An opaque value that represents the internal version of this
+            object that can be used by clients to determine when objects have changed.
+            Populated by the system. Read-only.
+          type: string
+        uid:
+          description: UID is the unique in time and space value for this object.
+            Populated by the system. Read-only.
+          type: string
+      type: object
+      x-go-type: metav1.ObjectMeta
+      x-go-type-import:
+        name: metav1
+        path: k8s.io/apimachinery/pkg/apis/meta/v1
     Plugin:
       description: |-
         Plugin is the Schema for the plugins API. It registers an external plugin
@@ -4531,7 +4587,7 @@ components:
             More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
           type: string
         metadata:
-          type: object
+          $ref: '#/components/schemas/ObjectMeta'
         spec:
           description: PluginSpec defines the desired state of Plugin
           properties:
@@ -4825,7 +4881,7 @@ components:
             More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
           type: string
         metadata:
-          type: object
+          $ref: '#/components/schemas/ObjectMeta'
         spec:
           description: ProviderSpec defines the desired state of Provider
           properties:
@@ -4837,7 +4893,19 @@ components:
                       properties:
                         default:
                           type: boolean
+                        deprecated:
+                          description: |-
+                            Deprecated marks a version as still supported but scheduled for
+                            removal. Instances running on it get a proactive warning with a
+                            remediation runway instead of a blocked upgrade.
+                          type: boolean
                         image:
+                          type: string
+                        removedInVersion:
+                          description: |-
+                            RemovedInVersion is the provider version (P) in which this engine
+                            version is dropped. Upgrading the provider to >= this version while
+                            an Instance still uses this engine version is a blocking error.
                           type: string
                         version:
                           type: string
@@ -4863,6 +4931,29 @@ components:
                     type: string
                 type: object
               type: object
+            configMaps:
+              additionalProperties:
+                description: ConfigMapDefinition describes a ConfigMap type that a
+                  provider supports.
+                properties:
+                  parametersSchema:
+                    description: ParametersSchema declares the OpenAPI v3 schema for
+                      validating configmap data/binaryData.
+                    properties:
+                      openAPIV3Schema:
+                        description: |-
+                          OpenAPIV3Schema is the OpenAPI v3 schema describing the accepted
+                          parameters payload.
+                        x-kubernetes-preserve-unknown-fields: true
+                    type: object
+                  uiSchema:
+                    description: UISchema holds UI rendering hints for the configmap
+                      creation form.
+                    type: object
+                    x-kubernetes-preserve-unknown-fields: true
+                type: object
+              description: ConfigMaps defines ConfigMap types this provider supports.
+              type: object
             parametersSchema:
               description: |-
                 ParametersSchema declares the OpenAPI v3 schema for the instance-wide
@@ -4873,6 +4964,26 @@ components:
                     OpenAPIV3Schema is the OpenAPI v3 schema describing the accepted
                     parameters payload.
                   x-kubernetes-preserve-unknown-fields: true
+              type: object
+            release:
+              description: |-
+                Release identifies this provider release — the shipped unit of
+                controller, bundled operator, and version catalog — and its
+                upgrade-path constraints. It is read by the pre-upgrade preflight.
+              properties:
+                minUpgradableFrom:
+                  description: |-
+                    MinUpgradableFrom is the lowest provider release version from which a
+                    single-step upgrade to this release is permitted; a lower installed
+                    version is blocked and must step through intermediate releases.
+                    Empty means no floor.
+                  type: string
+                version:
+                  description: |-
+                    Version is the provider release version (P), populated from the chart
+                    appVersion (e.g. "0.3"). Named distinctly from ProviderSpec.Versions
+                    (the engine bundle catalog).
+                  type: string
               type: object
             secrets:
               additionalProperties:
@@ -5065,7 +5176,7 @@ components:
             More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
           type: string
         metadata:
-          type: object
+          $ref: '#/components/schemas/ObjectMeta'
         spec:
           description: RestoreSpec defines the desired state of Restore.
           properties:

@@ -754,6 +754,56 @@ export interface paths {
         patch: operations["updateMonitoringConfig"];
         trace?: never;
     };
+    "/clusters/{cluster}/namespaces/{namespace}/config-maps": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List configmaps
+         * @description This API lists all OpenEverest-managed ConfigMaps in the specified namespace and cluster.
+         *     Optionally filter by provider and definition.
+         */
+        get: operations["listConfigMaps"];
+        put?: never;
+        /**
+         * Create configmap
+         * @description This API creates a new ConfigMap in the specified namespace and cluster.
+         *     The ConfigMap is labeled as managed by OpenEverest.
+         */
+        post: operations["createConfigMap"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/clusters/{cluster}/namespaces/{namespace}/config-maps/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get configmap
+         * @description This API gets OpenEverest-managed ConfigMap specified by the `name` in the specified `namespace` and `cluster`.
+         */
+        get: operations["getConfigMap"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete configmap
+         * @description This API deletes the OpenEverest-managed ConfigMap specified by the `name` in the specified `namespace` and `cluster`.
+         */
+        delete: operations["deleteConfigMap"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/clusters/{cluster}/namespaces/{namespace}/secrets": {
         parameters: {
             query?: never;
@@ -1215,6 +1265,33 @@ export interface components {
             /** @description Used to facilitate programmatic handling of secret data. More info: https://kubernetes.io/docs/concepts/configuration/secret/#secret-types */
             type?: string;
         };
+        /** @description ConfigMap holds configuration data for pods to consume. */
+        ConfigMap: {
+            /** @description APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources */
+            apiVersion?: string;
+            /** @description Data contains the configuration data. Each key must consist of alphanumeric characters, '-', '_' or '.'. Values with non-UTF-8 byte sequences must use the BinaryData field. The keys stored in Data must not overlap with the keys in the BinaryData field. */
+            data?: {
+                [key: string]: string;
+            };
+            /** @description BinaryData contains the binary data. Each key must consist of alphanumeric characters, '-', '_' or '.'. BinaryData can contain byte sequences that are not in the UTF-8 range. The keys stored in BinaryData must not overlap with the ones in the Data field. */
+            binaryData?: {
+                [key: string]: string;
+            };
+            /** @description Immutable, if set to true, ensures that data stored in the ConfigMap cannot be updated (only object metadata can be modified). If not set to true, the field can be modified at any time. Defaulted to nil. */
+            immutable?: boolean;
+            /** @description Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds */
+            kind?: string;
+            /** @description Standard object's metadata. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata */
+            metadata?: Record<string, never>;
+        };
+        /** @description A list of OpenEverest-managed ConfigMaps. */
+        ConfigMapList: {
+            /** @example v1 */
+            apiVersion?: string;
+            /** @example ConfigMapList */
+            kind?: string;
+            items: components["schemas"]["ConfigMap"][];
+        };
         /** @description ListMeta describes metadata that synthetic resources must have, including lists and various status objects. A resource may have only one of {ObjectMeta, ListMeta}. */
         "io.k8s.apimachinery.pkg.apis.meta.v1.ListMeta": {
             /** @description continue may be set if the user set a limit on the number of items returned, and indicates that the server has more data available. The value is opaque and may be used to issue another request to the endpoint that served this list to retrieve the next set of available objects. Continuing a consistent list may not be possible if the server configuration has changed or more than a few minutes have passed. The resourceVersion field returned when using this continue value will be identical to the value in the first response, unless you have received this token from an error message. */
@@ -1273,6 +1350,37 @@ export interface components {
         ClusterList: {
             items: components["schemas"]["Cluster"][];
         };
+        /** @description ObjectMeta is the standard Kubernetes object metadata. Only the fields relevant to the Everest API are described; unknown fields are accepted but may be ignored by the server. */
+        ObjectMeta: {
+            /** @description Annotations is an unstructured key value map stored with a resource that may be set by external tools to store and retrieve arbitrary metadata. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations */
+            annotations?: {
+                [key: string]: string;
+            };
+            /**
+             * Format: date-time
+             * @description CreationTimestamp is a timestamp representing the server time when this object was created. Populated by the system. Read-only.
+             */
+            creationTimestamp?: string;
+            /**
+             * Format: date-time
+             * @description DeletionTimestamp is the RFC 3339 date and time at which this resource will be deleted. Populated by the system when a graceful deletion is requested. Read-only.
+             */
+            deletionTimestamp?: string;
+            /** @description GenerateName is an optional prefix, used by the server, to generate a unique name ONLY IF the Name field has not been provided. */
+            generateName?: string;
+            /** @description Map of string keys and values that can be used to organize and categorize (scope and select) objects. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/labels */
+            labels?: {
+                [key: string]: string;
+            };
+            /** @description Name must be unique within a namespace. Is required when creating resources, although some resources may allow a client to request the generation of an appropriate name automatically. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names#names */
+            name?: string;
+            /** @description Namespace defines the space within which each name must be unique. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces */
+            namespace?: string;
+            /** @description An opaque value that represents the internal version of this object that can be used by clients to determine when objects have changed. Populated by the system. Read-only. */
+            resourceVersion?: string;
+            /** @description UID is the unique in time and space value for this object. Populated by the system. Read-only. */
+            uid?: string;
+        };
         /** @description InstancePreset is the Schema for the instancepresets API */
         InstancePreset: {
             /**
@@ -1290,7 +1398,7 @@ export interface components {
              *     More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
              */
             kind?: string;
-            metadata?: Record<string, never>;
+            metadata?: components["schemas"]["ObjectMeta"];
             /** @description spec defines the desired state of InstancePreset */
             spec: {
                 /**
@@ -2272,14 +2380,26 @@ export interface components {
              *     More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
              */
             kind?: string;
-            metadata?: Record<string, never>;
+            metadata?: components["schemas"]["ObjectMeta"];
             /** @description ProviderSpec defines the desired state of Provider */
             spec: {
                 componentTypes?: {
                     [key: string]: {
                         versions?: {
                             default?: boolean;
+                            /**
+                             * @description Deprecated marks a version as still supported but scheduled for
+                             *     removal. Instances running on it get a proactive warning with a
+                             *     remediation runway instead of a blocked upgrade.
+                             */
+                            deprecated?: boolean;
                             image?: string;
+                            /**
+                             * @description RemovedInVersion is the provider version (P) in which this engine
+                             *     version is dropped. Upgrading the provider to >= this version while
+                             *     an Instance still uses this engine version is a blocking error.
+                             */
+                            removedInVersion?: string;
                             version?: string;
                         }[];
                     };
@@ -2300,6 +2420,21 @@ export interface components {
                         type?: string;
                     };
                 };
+                /** @description ConfigMaps defines ConfigMap types this provider supports. */
+                configMaps?: {
+                    [key: string]: {
+                        /** @description ParametersSchema declares the OpenAPI v3 schema for validating configmap data/binaryData. */
+                        parametersSchema?: {
+                            /**
+                             * @description OpenAPIV3Schema is the OpenAPI v3 schema describing the accepted
+                             *     parameters payload.
+                             */
+                            openAPIV3Schema?: unknown;
+                        };
+                        /** @description UISchema holds UI rendering hints for the configmap creation form. */
+                        uiSchema?: Record<string, never>;
+                    };
+                };
                 /**
                  * @description ParametersSchema declares the OpenAPI v3 schema for the instance-wide
                  *     parameters payload (Instance.spec.parameters).
@@ -2310,6 +2445,26 @@ export interface components {
                      *     parameters payload.
                      */
                     openAPIV3Schema?: unknown;
+                };
+                /**
+                 * @description Release identifies this provider release — the shipped unit of
+                 *     controller, bundled operator, and version catalog — and its
+                 *     upgrade-path constraints. It is read by the pre-upgrade preflight.
+                 */
+                release?: {
+                    /**
+                     * @description MinUpgradableFrom is the lowest provider release version from which a
+                     *     single-step upgrade to this release is permitted; a lower installed
+                     *     version is blocked and must step through intermediate releases.
+                     *     Empty means no floor.
+                     */
+                    minUpgradableFrom?: string;
+                    /**
+                     * @description Version is the provider release version (P), populated from the chart
+                     *     appVersion (e.g. "0.3"). Named distinctly from ProviderSpec.Versions
+                     *     (the engine bundle catalog).
+                     */
+                    version?: string;
                 };
                 /** @description Secrets defines Secret types this provider supports. */
                 secrets?: {
@@ -2436,7 +2591,7 @@ export interface components {
              *     More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
              */
             kind?: string;
-            metadata?: Record<string, never>;
+            metadata?: components["schemas"]["ObjectMeta"];
             /** @description InstanceSpec defines the desired state of Instance */
             spec: {
                 /**
@@ -3514,7 +3669,7 @@ export interface components {
              *     More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
              */
             kind?: string;
-            metadata?: Record<string, never>;
+            metadata?: components["schemas"]["ObjectMeta"];
             /** @description BackupSpec defines the desired state of Backup. */
             spec: {
                 /**
@@ -3697,7 +3852,7 @@ export interface components {
              *     More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
              */
             kind?: string;
-            metadata?: Record<string, never>;
+            metadata?: components["schemas"]["ObjectMeta"];
             /** @description RestoreSpec defines the desired state of Restore. */
             spec: {
                 /** @description DataSource defines where the backup data to restore from is located. */
@@ -3867,7 +4022,7 @@ export interface components {
              *     More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
              */
             kind?: string;
-            metadata?: Record<string, never>;
+            metadata?: components["schemas"]["ObjectMeta"];
             /** @description BackupClassSpec defines the desired state of BackupClass. */
             spec: {
                 /** @description Description is the description of the backup class. */
@@ -4198,7 +4353,7 @@ export interface components {
              *     More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
              */
             kind?: string;
-            metadata?: Record<string, never>;
+            metadata?: components["schemas"]["ObjectMeta"];
             /**
              * @description BackupStorageSpec defines the desired state of a BackupStorage.
              *
@@ -4295,7 +4450,7 @@ export interface components {
              *     More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
              */
             kind?: string;
-            metadata?: Record<string, never>;
+            metadata?: components["schemas"]["ObjectMeta"];
             /** @description spec defines the desired state of MonitoringConfig */
             spec: {
                 /**
@@ -5789,6 +5944,15 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
         };
     };
     createBackupStorage: {
@@ -5830,6 +5994,15 @@ export interface operations {
             };
             /** @description Internal server error */
             500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error */
+            default: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -6282,6 +6455,190 @@ export interface operations {
                 };
             };
             /** @description Monitoring config not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    listConfigMaps: {
+        parameters: {
+            query?: {
+                /** @description Filter configmaps by provider name */
+                provider?: string;
+                /** @description Filter configmaps by definition */
+                definition?: string;
+            };
+            header?: never;
+            path: {
+                /** @description The name of the cluster */
+                cluster: string;
+                /** @description The namespace of the configmaps */
+                namespace: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description List of configmaps */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConfigMapList"];
+                };
+            };
+            /** @description Unsuccessful operation */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    createConfigMap: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The name of the cluster */
+                cluster: string;
+                /** @description The namespace where the configmap will be created */
+                namespace: string;
+            };
+            cookie?: never;
+        };
+        /** @description The configmap object to be created */
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConfigMap"];
+            };
+        };
+        responses: {
+            /** @description ConfigMap created successfully */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConfigMap"];
+                };
+            };
+            /** @description Unsuccessful operation */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getConfigMap: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The name of the cluster */
+                cluster: string;
+                /** @description The namespace of the configmap */
+                namespace: string;
+                /** @description The name of the configmap */
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description ConfigMap details */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConfigMap"];
+                };
+            };
+            /** @description ConfigMap not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    deleteConfigMap: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The name of the cluster */
+                cluster: string;
+                /** @description The namespace of the configmap */
+                namespace: string;
+                /** @description The name of the configmap */
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description ConfigMap deleted successfully */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description ConfigMap not found */
             404: {
                 headers: {
                     [name: string]: unknown;

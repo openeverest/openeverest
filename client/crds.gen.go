@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/oapi-codegen/runtime"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // Defines values for BackupStatusConditionsStatus.
@@ -411,8 +412,10 @@ type Backup struct {
 	// Cannot be updated.
 	// In CamelCase.
 	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
-	Kind     *string                 `json:"kind,omitempty"`
-	Metadata *map[string]interface{} `json:"metadata,omitempty"`
+	Kind *string `json:"kind,omitempty"`
+
+	// Metadata ObjectMeta is the standard Kubernetes object metadata. Only the fields relevant to the Everest API are described; unknown fields are accepted but may be ignored by the server.
+	Metadata *ObjectMeta `json:"metadata,omitempty"`
 
 	// Spec BackupSpec defines the desired state of Backup.
 	Spec struct {
@@ -563,8 +566,10 @@ type BackupClass struct {
 	// Cannot be updated.
 	// In CamelCase.
 	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
-	Kind     *string                 `json:"kind,omitempty"`
-	Metadata *map[string]interface{} `json:"metadata,omitempty"`
+	Kind *string `json:"kind,omitempty"`
+
+	// Metadata ObjectMeta is the standard Kubernetes object metadata. Only the fields relevant to the Everest API are described; unknown fields are accepted but may be ignored by the server.
+	Metadata *ObjectMeta `json:"metadata,omitempty"`
 
 	// Spec BackupClassSpec defines the desired state of BackupClass.
 	Spec struct {
@@ -881,8 +886,10 @@ type BackupStorage struct {
 	// Cannot be updated.
 	// In CamelCase.
 	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
-	Kind     *string                 `json:"kind,omitempty"`
-	Metadata *map[string]interface{} `json:"metadata,omitempty"`
+	Kind *string `json:"kind,omitempty"`
+
+	// Metadata ObjectMeta is the standard Kubernetes object metadata. Only the fields relevant to the Everest API are described; unknown fields are accepted but may be ignored by the server.
+	Metadata *ObjectMeta `json:"metadata,omitempty"`
 
 	// Spec BackupStorageSpec defines the desired state of a BackupStorage.
 	//
@@ -977,8 +984,10 @@ type InstalledExtension struct {
 	// Cannot be updated.
 	// In CamelCase.
 	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
-	Kind     *string                 `json:"kind,omitempty"`
-	Metadata *map[string]interface{} `json:"metadata,omitempty"`
+	Kind *string `json:"kind,omitempty"`
+
+	// Metadata ObjectMeta is the standard Kubernetes object metadata. Only the fields relevant to the Everest API are described; unknown fields are accepted but may be ignored by the server.
+	Metadata *ObjectMeta `json:"metadata,omitempty"`
 
 	// Spec InstalledExtensionSpec defines the desired state of an InstalledExtension.
 	Spec struct {
@@ -1118,8 +1127,10 @@ type Instance struct {
 	// Cannot be updated.
 	// In CamelCase.
 	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
-	Kind     *string                 `json:"kind,omitempty"`
-	Metadata *map[string]interface{} `json:"metadata,omitempty"`
+	Kind *string `json:"kind,omitempty"`
+
+	// Metadata ObjectMeta is the standard Kubernetes object metadata. Only the fields relevant to the Everest API are described; unknown fields are accepted but may be ignored by the server.
+	Metadata *ObjectMeta `json:"metadata,omitempty"`
 
 	// Spec InstanceSpec defines the desired state of Instance
 	Spec struct {
@@ -2082,8 +2093,10 @@ type InstancePreset struct {
 	// Cannot be updated.
 	// In CamelCase.
 	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
-	Kind     *string                 `json:"kind,omitempty"`
-	Metadata *map[string]interface{} `json:"metadata,omitempty"`
+	Kind *string `json:"kind,omitempty"`
+
+	// Metadata ObjectMeta is the standard Kubernetes object metadata. Only the fields relevant to the Everest API are described; unknown fields are accepted but may be ignored by the server.
+	Metadata *ObjectMeta `json:"metadata,omitempty"`
 
 	// Spec spec defines the desired state of InstancePreset
 	Spec struct {
@@ -2952,8 +2965,10 @@ type MonitoringConfig struct {
 	// Cannot be updated.
 	// In CamelCase.
 	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
-	Kind     *string                 `json:"kind,omitempty"`
-	Metadata *map[string]interface{} `json:"metadata,omitempty"`
+	Kind *string `json:"kind,omitempty"`
+
+	// Metadata ObjectMeta is the standard Kubernetes object metadata. Only the fields relevant to the Everest API are described; unknown fields are accepted but may be ignored by the server.
+	Metadata *ObjectMeta `json:"metadata,omitempty"`
 
 	// Spec spec defines the desired state of MonitoringConfig
 	Spec struct {
@@ -3016,6 +3031,9 @@ type MonitoringConfigList struct {
 	} `json:"metadata,omitempty"`
 }
 
+// ObjectMeta ObjectMeta is the standard Kubernetes object metadata. Only the fields relevant to the Everest API are described; unknown fields are accepted but may be ignored by the server.
+type ObjectMeta = metav1.ObjectMeta
+
 // Plugin Plugin is the Schema for the plugins API. It registers an external plugin
 // with the Everest platform, enabling its UI bundle to be loaded dynamically
 // and its backend to be reverse-proxied through the Everest server.
@@ -3031,8 +3049,10 @@ type Plugin struct {
 	// Cannot be updated.
 	// In CamelCase.
 	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
-	Kind     *string                 `json:"kind,omitempty"`
-	Metadata *map[string]interface{} `json:"metadata,omitempty"`
+	Kind *string `json:"kind,omitempty"`
+
+	// Metadata ObjectMeta is the standard Kubernetes object metadata. Only the fields relevant to the Everest API are described; unknown fields are accepted but may be ignored by the server.
+	Metadata *ObjectMeta `json:"metadata,omitempty"`
 
 	// Spec PluginSpec defines the desired state of Plugin
 	Spec struct {
@@ -3212,16 +3232,28 @@ type Provider struct {
 	// Cannot be updated.
 	// In CamelCase.
 	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
-	Kind     *string                 `json:"kind,omitempty"`
-	Metadata *map[string]interface{} `json:"metadata,omitempty"`
+	Kind *string `json:"kind,omitempty"`
+
+	// Metadata ObjectMeta is the standard Kubernetes object metadata. Only the fields relevant to the Everest API are described; unknown fields are accepted but may be ignored by the server.
+	Metadata *ObjectMeta `json:"metadata,omitempty"`
 
 	// Spec ProviderSpec defines the desired state of Provider
 	Spec struct {
 		ComponentTypes *map[string]struct {
 			Versions *[]struct {
-				Default *bool   `json:"default,omitempty"`
-				Image   *string `json:"image,omitempty"`
-				Version *string `json:"version,omitempty"`
+				Default *bool `json:"default,omitempty"`
+
+				// Deprecated Deprecated marks a version as still supported but scheduled for
+				// removal. Instances running on it get a proactive warning with a
+				// remediation runway instead of a blocked upgrade.
+				Deprecated *bool   `json:"deprecated,omitempty"`
+				Image      *string `json:"image,omitempty"`
+
+				// RemovedInVersion RemovedInVersion is the provider version (P) in which this engine
+				// version is dropped. Upgrading the provider to >= this version while
+				// an Instance still uses this engine version is a blocking error.
+				RemovedInVersion *string `json:"removedInVersion,omitempty"`
+				Version          *string `json:"version,omitempty"`
 			} `json:"versions,omitempty"`
 		} `json:"componentTypes,omitempty"`
 		Components *map[string]struct {
@@ -3235,6 +3267,19 @@ type Provider struct {
 			Type *string `json:"type,omitempty"`
 		} `json:"components,omitempty"`
 
+		// ConfigMaps ConfigMaps defines ConfigMap types this provider supports.
+		ConfigMaps *map[string]struct {
+			// ParametersSchema ParametersSchema declares the OpenAPI v3 schema for validating configmap data/binaryData.
+			ParametersSchema *struct {
+				// OpenAPIV3Schema OpenAPIV3Schema is the OpenAPI v3 schema describing the accepted
+				// parameters payload.
+				OpenAPIV3Schema interface{} `json:"openAPIV3Schema,omitempty"`
+			} `json:"parametersSchema,omitempty"`
+
+			// UiSchema UISchema holds UI rendering hints for the configmap creation form.
+			UiSchema *map[string]interface{} `json:"uiSchema,omitempty"`
+		} `json:"configMaps,omitempty"`
+
 		// ParametersSchema ParametersSchema declares the OpenAPI v3 schema for the instance-wide
 		// parameters payload (Instance.spec.parameters).
 		ParametersSchema *struct {
@@ -3242,6 +3287,22 @@ type Provider struct {
 			// parameters payload.
 			OpenAPIV3Schema interface{} `json:"openAPIV3Schema,omitempty"`
 		} `json:"parametersSchema,omitempty"`
+
+		// Release Release identifies this provider release — the shipped unit of
+		// controller, bundled operator, and version catalog — and its
+		// upgrade-path constraints. It is read by the pre-upgrade preflight.
+		Release *struct {
+			// MinUpgradableFrom MinUpgradableFrom is the lowest provider release version from which a
+			// single-step upgrade to this release is permitted; a lower installed
+			// version is blocked and must step through intermediate releases.
+			// Empty means no floor.
+			MinUpgradableFrom *string `json:"minUpgradableFrom,omitempty"`
+
+			// Version Version is the provider release version (P), populated from the chart
+			// appVersion (e.g. "0.3"). Named distinctly from ProviderSpec.Versions
+			// (the engine bundle catalog).
+			Version *string `json:"version,omitempty"`
+		} `json:"release,omitempty"`
 
 		// Secrets Secrets defines Secret types this provider supports.
 		Secrets *map[string]struct {
@@ -3349,8 +3410,10 @@ type Restore struct {
 	// Cannot be updated.
 	// In CamelCase.
 	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
-	Kind     *string                 `json:"kind,omitempty"`
-	Metadata *map[string]interface{} `json:"metadata,omitempty"`
+	Kind *string `json:"kind,omitempty"`
+
+	// Metadata ObjectMeta is the standard Kubernetes object metadata. Only the fields relevant to the Everest API are described; unknown fields are accepted but may be ignored by the server.
+	Metadata *ObjectMeta `json:"metadata,omitempty"`
 
 	// Spec RestoreSpec defines the desired state of Restore.
 	Spec struct {

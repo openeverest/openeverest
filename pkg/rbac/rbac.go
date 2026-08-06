@@ -74,6 +74,7 @@ const (
 	ResourceBackups           = "backups"
 	ResourceRestores          = "restores"
 	ResourceMonitoringConfigs = "monitoring-configs"
+	ResourceConfigMaps        = "config-maps"
 	ResourceSecrets           = "secrets"
 )
 
@@ -102,6 +103,7 @@ var ClusterNamespacedResources = []string{
 	ResourceRestores,
 	ResourceBackupStorages,
 	ResourceMonitoringConfigs,
+	ResourceConfigMaps,
 	ResourceSecrets,
 	ResourcePlugins,
 }

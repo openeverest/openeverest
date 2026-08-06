@@ -33,6 +33,7 @@ import (
 
 	"github.com/openeverest/openeverest/v2/client"
 	authcli "github.com/openeverest/openeverest/v2/pkg/cli/auth"
+	"github.com/openeverest/openeverest/v2/pkg/cli/clienterr"
 )
 
 // Config holds the shared configuration for backup storage CLI runners.
@@ -121,6 +122,9 @@ func (sl *ListRunner) listBackupStorages(
 		return nil, fmt.Errorf("failed to list backup storages in namespace %q: %w", namespace, err)
 	}
 	if resp.StatusCode() != http.StatusOK || resp.JSON200 == nil {
+		if msg, ok := clienterr.Message(resp.JSON400, resp.JSON500, resp.JSONDefault); ok {
+			return nil, fmt.Errorf("server error: %s", msg)
+		}
 		return nil, fmt.Errorf("unexpected response listing backup storages in namespace %q: %s", namespace, resp.Status())
 	}
 	if resp.JSON200.Items == nil {
@@ -152,11 +156,17 @@ func printBackupStorageTable(w io.Writer, backupStorages []client.BackupStorage)
 }
 
 func backupStorageName(bs *client.BackupStorage) string {
-	return metadataStringField(bs, "name")
+	if bs.Metadata == nil || bs.Metadata.Name == "" {
+		return "-"
+	}
+	return bs.Metadata.Name
 }
 
 func backupStorageNamespace(bs *client.BackupStorage) string {
-	return metadataStringField(bs, "namespace")
+	if bs.Metadata == nil || bs.Metadata.Namespace == "" {
+		return "-"
+	}
+	return bs.Metadata.Namespace
 }
 
 func backupStorageType(bs *client.BackupStorage) string {
@@ -167,28 +177,8 @@ func backupStorageType(bs *client.BackupStorage) string {
 }
 
 func backupStorageAge(bs *client.BackupStorage) string {
-	ts := metadataStringField(bs, "creationTimestamp")
-	if ts == "-" {
+	if bs.Metadata == nil || bs.Metadata.CreationTimestamp.IsZero() {
 		return "-"
 	}
-	created, err := time.Parse(time.RFC3339, ts)
-	if err != nil {
-		return "-"
-	}
-	return duration.ShortHumanDuration(time.Since(created))
-}
-
-func metadataStringField(bs *client.BackupStorage, key string) string {
-	if bs.Metadata == nil {
-		return "-"
-	}
-	v, ok := (*bs.Metadata)[key]
-	if !ok {
-		return "-"
-	}
-	s, ok := v.(string)
-	if !ok || s == "" {
-		return "-"
-	}
-	return s
+	return duration.ShortHumanDuration(time.Since(bs.Metadata.CreationTimestamp.Time))
 }

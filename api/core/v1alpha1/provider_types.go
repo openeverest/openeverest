@@ -53,6 +53,32 @@ type ProviderSpec struct {
 	// Secrets defines Secret types this provider supports.
 	// +optional
 	Secrets map[string]SecretDefinition `json:"secrets,omitempty"`
+
+	// ConfigMaps defines ConfigMap types this provider supports.
+	// +optional
+	ConfigMaps map[string]ConfigMapDefinition `json:"configMaps,omitempty"`
+
+	// Release identifies this provider release — the shipped unit of
+	// controller, bundled operator, and version catalog — and its
+	// upgrade-path constraints. It is read by the pre-upgrade preflight.
+	// +optional
+	Release *Release `json:"release,omitempty"`
+}
+
+// Release identifies a provider release and its upgrade-path constraints.
+type Release struct {
+	// Version is the provider release version (P), populated from the chart
+	// appVersion (e.g. "0.3"). Named distinctly from ProviderSpec.Versions
+	// (the engine bundle catalog).
+	// +optional
+	Version string `json:"version,omitempty"`
+
+	// MinUpgradableFrom is the lowest provider release version from which a
+	// single-step upgrade to this release is permitted; a lower installed
+	// version is blocked and must step through intermediate releases.
+	// Empty means no floor.
+	// +optional
+	MinUpgradableFrom string `json:"minUpgradableFrom,omitempty"`
 }
 
 // VersionBundle is a curated set of component versions known to be mutually
@@ -79,6 +105,18 @@ type ComponentVersion struct {
 	Version string `json:"version,omitempty"`
 	Image   string `json:"image,omitempty"`
 	Default bool   `json:"default,omitempty"`
+
+	// Deprecated marks a version as still supported but scheduled for
+	// removal. Instances running on it get a proactive warning with a
+	// remediation runway instead of a blocked upgrade.
+	// +optional
+	Deprecated bool `json:"deprecated,omitempty"`
+
+	// RemovedInVersion is the provider version (P) in which this engine
+	// version is dropped. Upgrading the provider to >= this version while
+	// an Instance still uses this engine version is a blocking error.
+	// +optional
+	RemovedInVersion string `json:"removedInVersion,omitempty"`
 }
 
 type Component struct {
@@ -122,6 +160,18 @@ type SecretDefinition struct {
 // ErrSecretSchemaValidation is returned when data does not conform to
 // the OpenAPI v3 schema defined in the provider's secret definition.
 var ErrSecretSchemaValidation = errors.New("secret schema validation failed")
+
+// ConfigMapDefinition describes a ConfigMap type that a provider supports.
+type ConfigMapDefinition struct {
+	// UISchema holds UI rendering hints for the configmap creation form.
+	// +optional
+	// +kubebuilder:pruning:PreserveUnknownFields
+	UISchema *runtime.RawExtension `json:"uiSchema,omitempty"`
+
+	// ParametersSchema declares the OpenAPI v3 schema for validating configmap data/binaryData.
+	// +optional
+	ParametersSchema *common.ParametersSchema `json:"parametersSchema,omitempty"`
+}
 
 // Validate validates data against the OpenAPI v3 schema in the SecretDefinition.
 // The data parameter should be a map of key-value pairs representing the secret's
