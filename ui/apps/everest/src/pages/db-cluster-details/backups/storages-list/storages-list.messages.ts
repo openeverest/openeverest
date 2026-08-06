@@ -14,5 +14,5 @@
 
 export const Messages = {
   needsBackup:
-    'PITR can only be used after you’ve taken a full backup. Take one now or set a schedule.',
+    'PITR becomes available once a full backup completes. Take one now or set a schedule.',
 };

@@ -15,7 +15,7 @@
 import { Alert, Stack } from '@mui/material';
 import { useContext } from 'react';
 import { ScheduleModalContext } from '../backups.context';
-import { StorageRow } from './storage-row';
+import { StoragePitrToggle } from './storage-pitr-toggle';
 import { useShowPitrBackupWarning } from './use-show-pitr-backup-warning';
 import { Messages } from './storages-list.messages';
 
@@ -47,7 +47,7 @@ export const StoragesList = () => {
         </Alert>
       )}
       {storages.map((storage) => (
-        <StorageRow key={storage.storageRef.name} storage={storage} />
+        <StoragePitrToggle key={storage.storageRef.name} storage={storage} />
       ))}
     </Stack>
   );

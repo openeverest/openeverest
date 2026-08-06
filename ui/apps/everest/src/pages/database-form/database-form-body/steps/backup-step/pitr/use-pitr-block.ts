@@ -37,7 +37,6 @@ export interface WizardPitrStorage {
   reason?: string;
   showConfig: boolean;
   configDisabled: boolean;
-  scheduleCount: number;
   currentParameters?: Record<string, unknown>;
 }
 
@@ -95,19 +94,6 @@ export const usePitrBlock = (): WizardPitrBlock => {
       ),
     [formSchedules]
   );
-
-  const scheduleCountByStorage = useMemo(() => {
-    const counts = new Map<string, number>();
-    (formSchedules ?? [])
-      .filter((schedule) => schedule.enabled)
-      .forEach((schedule) =>
-        counts.set(
-          schedule.storageName,
-          (counts.get(schedule.storageName) ?? 0) + 1
-        )
-      );
-    return counts;
-  }, [formSchedules]);
 
   const enabledCount = scheduledStorageNames.filter(
     (name) => pitrMap[name]?.enabled
@@ -169,7 +155,6 @@ export const usePitrBlock = (): WizardPitrBlock => {
             : undefined,
         showConfig: hasSchema,
         configDisabled: !enabled,
-        scheduleCount: scheduleCountByStorage.get(storageName) ?? 0,
         currentParameters: pitrMap[storageName]?.parameters,
       };
     }

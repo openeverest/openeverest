@@ -16,7 +16,7 @@ import { Box, Stack, Tooltip, Typography } from '@mui/material';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import { LabeledContent } from '@percona/ui-lib';
 import { usePitrBlock } from './use-pitr-block';
-import { PitrStorageRow } from './pitr-storage-row';
+import { WizardPitrStorageRow } from './pitr-storage-row';
 import { Messages } from './pitr-block.messages';
 
 export const PitrBlock = () => {
@@ -63,7 +63,7 @@ export const PitrBlock = () => {
           }}
         >
           {storages.map((storage) => (
-            <PitrStorageRow
+            <WizardPitrStorageRow
               key={storage.name}
               storage={storage}
               backupClass={backupClass}

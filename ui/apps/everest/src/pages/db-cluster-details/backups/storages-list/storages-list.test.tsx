@@ -29,7 +29,11 @@ import { Messages } from './storages-list.messages';
 // The PITR toggle is data-driven (own hooks); it's covered by its own tests.
 // Stub it here so the list rendering is tested in isolation.
 vi.mock('./storage-pitr-toggle', () => ({
-  StoragePitrToggle: () => null,
+  StoragePitrToggle: ({
+    storage,
+  }: {
+    storage: { storageRef: { name: string } };
+  }) => <div data-testid={`storage-row-${storage.storageRef.name}`} />,
 }));
 
 const mockUseActiveBackupClass = vi.fn();
@@ -95,7 +99,7 @@ describe('StoragesList', () => {
     expect(container).toBeEmptyDOMElement();
   });
 
-  it('warns when PITR is supported but there is no schedule or backup', () => {
+  it('warns when PITR is supported but there is no successful backup', () => {
     mockUseActiveBackupClass.mockReturnValue(buildProviderClass());
 
     renderWithContext(
@@ -152,13 +156,11 @@ describe('StoragesList', () => {
     ).not.toBeInTheDocument();
   });
 
-  it('does not warn once an active schedule exists', () => {
+  it('still warns with a schedule but no successful backup', () => {
     mockUseActiveBackupClass.mockReturnValue(buildProviderClass());
 
     renderWithContext(buildBackupInstance([scheduledStorage('s3-prod')]));
 
-    expect(
-      screen.queryByTestId('pitr-needs-backup-warning')
-    ).not.toBeInTheDocument();
+    expect(screen.getByTestId('pitr-needs-backup-warning')).toBeInTheDocument();
   });
 });

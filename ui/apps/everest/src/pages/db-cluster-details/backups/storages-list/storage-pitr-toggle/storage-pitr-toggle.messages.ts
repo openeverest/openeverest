@@ -16,6 +16,8 @@ export const Messages = {
   limitReached: (max: number) =>
     `Maximum ${max} PITR-enabled storage${max > 1 ? 's' : ''} for this provider.`,
   noPermission: 'You do not have permission to change PITR for this instance.',
+  recoveryWindow: (from: string, to: string) =>
+    `Restorable range: ${from} – ${to}`,
   disable: {
     title: 'Disable PITR?',
     body: (storageName: string) =>

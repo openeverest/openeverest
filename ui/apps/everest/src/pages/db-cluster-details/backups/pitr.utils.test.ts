@@ -17,7 +17,6 @@ import {
   buildPitrPayload,
   countPitrEnabledStorages,
   getPitrBlockReason,
-  hasActiveSchedules,
   setStoragePitr,
 } from './pitr.utils';
 
@@ -58,17 +57,6 @@ describe('setStoragePitr', () => {
 describe('countPitrEnabledStorages', () => {
   it('counts only storages with PITR enabled', () => {
     expect(countPitrEnabledStorages(storages)).toBe(1);
-  });
-});
-
-describe('hasActiveSchedules', () => {
-  it('is true when any storage has an enabled schedule', () => {
-    expect(hasActiveSchedules(storages)).toBe(true);
-  });
-
-  it('is false when every schedule is disabled or absent', () => {
-    expect(hasActiveSchedules([storages[1]])).toBe(false);
-    expect(hasActiveSchedules([{ storageRef: { name: 'empty' } }])).toBe(false);
   });
 });
 

@@ -14,8 +14,6 @@
 
 export const Messages = {
   title: 'Point-in-time Recovery',
-  scheduleCount: (count: number) =>
-    `${count} backup schedule${count === 1 ? '' : 's'}`,
   description:
     'Point-in-time recovery keeps continuous backups of your database so you can recover from accidental writes or deletes.',
   listLeadIn: (maxEnabled?: number) => {

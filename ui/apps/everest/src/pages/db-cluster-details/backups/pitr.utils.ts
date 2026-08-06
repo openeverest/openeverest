@@ -53,13 +53,6 @@ export const countPitrEnabledStorages = (
   storages: InstanceBackupStorage[]
 ): number => storages.filter((storage) => storage.pitr?.enabled).length;
 
-export const hasActiveSchedules = (
-  storages: InstanceBackupStorage[]
-): boolean =>
-  storages.some((storage) =>
-    (storage.schedules ?? []).some((schedule) => schedule.enabled)
-  );
-
 export type PitrBlockReason = 'limit-reached';
 
 // Shared gating for turning PITR on, used by both the cluster-details storages

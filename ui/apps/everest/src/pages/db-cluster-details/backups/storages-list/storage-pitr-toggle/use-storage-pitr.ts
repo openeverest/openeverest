@@ -96,7 +96,6 @@ export const useStoragePitr = (storage: InstanceBackupStorage) => {
     reason,
     showConfig: hasSchema,
     configDisabled: !enabled || !canUpdate,
-    configReason: !canUpdate ? Messages.noPermission : undefined,
     activeClass,
     currentParameters: storage.pitr?.parameters,
     namespace: instance.metadata?.namespace,

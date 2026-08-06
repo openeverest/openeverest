@@ -12,8 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { InstanceBackupStorage } from '../backups.types';
-
-export interface StorageRowProps {
-  storage: InstanceBackupStorage;
-}
+export const Messages = {
+  storageLabel: (storageName: string) => `Storage: ${storageName}`,
+};

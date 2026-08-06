@@ -17,21 +17,17 @@ import { useBackupsList } from 'hooks/api/backups/useBackups';
 import { useClusterName } from 'hooks/api/useClusterName';
 import { Instance } from 'shared-types/api.types';
 import { BackupStatus } from 'shared-types/backups.types';
-import { hasActiveSchedules } from '../pitr.utils';
 
 // PITR streams transaction logs forward from a full backup, so it only becomes
-// usable once a successful backup exists. Enabling is allowed at any time; this
-// decides whether to show the "needs a backup" warning — true only when the
-// provider supports PITR and the instance has neither an active schedule nor a
-// successful backup to stream from. Backups are only queried when there is no
-// schedule, since a schedule already clears the warning.
+// usable once a successful backup completes. Enabling is allowed at any time;
+// this decides whether to show the "needs a backup" warning — true whenever the
+// provider supports PITR and the instance has no successful backup yet. A
+// schedule does not clear it, since a schedule that hasn't produced a completed
+// backup still leaves PITR unusable.
 export const useShowPitrBackupWarning = (instance: Instance): boolean => {
   const activeClass = useActiveBackupClass(instance);
   const supportsPITR =
     activeClass?.spec?.providerManaged?.supportsPITR ?? false;
-
-  const storages = instance.spec?.backup?.storages ?? [];
-  const scheduled = hasActiveSchedules(storages);
 
   const clusterName = useClusterName();
   const namespace = instance.metadata?.namespace ?? '';
@@ -40,12 +36,12 @@ export const useShowPitrBackupWarning = (instance: Instance): boolean => {
     clusterName,
     namespace,
     instanceName,
-    { enabled: !!instanceName && !scheduled }
+    { enabled: !!instanceName }
   );
 
   const hasSucceededBackup = backups.some(
     (backup) => backup.status?.state === BackupStatus.SUCCEEDED
   );
 
-  return supportsPITR && !scheduled && !hasSucceededBackup;
+  return supportsPITR && !hasSucceededBackup;
 };
