@@ -156,7 +156,6 @@ export const usePitrBlock = (): WizardPitrBlock => {
       // Rows only exist for storages with an active schedule, so the only
       // block that can apply here is the per-provider enabled-storages limit.
       const blockReason = getPitrBlockReason({
-        hasSchedules: true,
         enabledCount,
         maxEnabled,
         storageEnabled: enabled,

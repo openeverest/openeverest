@@ -76,7 +76,6 @@ describe('getPitrBlockReason', () => {
   it('never blocks a storage that is already enabled', () => {
     expect(
       getPitrBlockReason({
-        hasSchedules: false,
         enabledCount: 5,
         maxEnabled: 1,
         storageEnabled: true,
@@ -84,21 +83,9 @@ describe('getPitrBlockReason', () => {
     ).toBeUndefined();
   });
 
-  it('blocks with no-schedule when there are no active schedules', () => {
-    expect(
-      getPitrBlockReason({
-        hasSchedules: false,
-        enabledCount: 0,
-        maxEnabled: 5,
-        storageEnabled: false,
-      })
-    ).toBe('no-schedule');
-  });
-
   it('blocks with limit-reached when the enabled count meets the limit', () => {
     expect(
       getPitrBlockReason({
-        hasSchedules: true,
         enabledCount: 1,
         maxEnabled: 1,
         storageEnabled: false,
@@ -106,10 +93,9 @@ describe('getPitrBlockReason', () => {
     ).toBe('limit-reached');
   });
 
-  it('allows enabling when under the limit with an active schedule', () => {
+  it('allows enabling when under the limit', () => {
     expect(
       getPitrBlockReason({
-        hasSchedules: true,
         enabledCount: 1,
         maxEnabled: 2,
         storageEnabled: false,
@@ -120,9 +106,18 @@ describe('getPitrBlockReason', () => {
   it('allows enabling when the limit is undefined', () => {
     expect(
       getPitrBlockReason({
-        hasSchedules: true,
         enabledCount: 99,
         maxEnabled: undefined,
+        storageEnabled: false,
+      })
+    ).toBeUndefined();
+  });
+
+  it('does not block when there is no active schedule', () => {
+    expect(
+      getPitrBlockReason({
+        enabledCount: 0,
+        maxEnabled: 5,
         storageEnabled: false,
       })
     ).toBeUndefined();

@@ -14,17 +14,41 @@
 
 import { render, screen } from '@testing-library/react';
 import { Instance } from 'shared-types/api.types';
+import { BackupStatus } from 'shared-types/backups.types';
 import { WizardMode } from 'shared-types/wizard.types';
-import { buildBackupInstance } from 'pages/db-cluster-details/backups/__mocks__/backups-mocks';
+import {
+  BACKUP_CLASS_NAME,
+  buildBackupInstance,
+  buildProviderClass,
+} from 'pages/db-cluster-details/backups/__mocks__/backups-mocks';
 import { StoragesList } from './storages-list';
 import { ScheduleModalContext } from '../backups.context';
 import { ScheduleModalContextType } from '../backups.types';
+import { Messages } from './storages-list.messages';
 
 // The PITR toggle is data-driven (own hooks); it's covered by its own tests.
 // Stub it here so the list rendering is tested in isolation.
 vi.mock('./storage-pitr-toggle', () => ({
   StoragePitrToggle: () => null,
 }));
+
+const mockUseActiveBackupClass = vi.fn();
+const mockUseBackupsList = vi.fn();
+
+vi.mock('hooks/api/backup-classes/useBackupClasses', () => ({
+  useActiveBackupClass: () => mockUseActiveBackupClass(),
+}));
+vi.mock('hooks/api/backups/useBackups', () => ({
+  useBackupsList: () => mockUseBackupsList(),
+}));
+vi.mock('hooks/api/useClusterName', () => ({
+  useClusterName: () => 'main',
+}));
+
+const scheduledStorage = (name: string) => ({
+  storageRef: { name },
+  schedules: [{ name: 'daily', cron: '0 2 * * *', enabled: true }],
+});
 
 const renderWithContext = (instance: Instance) => {
   const contextValue: ScheduleModalContextType = {
@@ -46,6 +70,12 @@ const renderWithContext = (instance: Instance) => {
   );
 };
 
+beforeEach(() => {
+  // Default: provider without PITR support and no backups — no warning.
+  mockUseActiveBackupClass.mockReturnValue(undefined);
+  mockUseBackupsList.mockReturnValue({ data: [] });
+});
+
 describe('StoragesList', () => {
   it('renders a row per instance storage', () => {
     renderWithContext(
@@ -55,13 +85,80 @@ describe('StoragesList', () => {
       ])
     );
 
-    expect(screen.getByText('s3-prod')).toBeInTheDocument();
-    expect(screen.getByText('s3-archive')).toBeInTheDocument();
+    expect(screen.getByTestId('storage-row-s3-prod')).toBeInTheDocument();
+    expect(screen.getByTestId('storage-row-s3-archive')).toBeInTheDocument();
   });
 
   it('renders nothing when the instance has no storages', () => {
     const { container } = renderWithContext(buildBackupInstance([]));
 
     expect(container).toBeEmptyDOMElement();
+  });
+
+  it('warns when PITR is supported but there is no schedule or backup', () => {
+    mockUseActiveBackupClass.mockReturnValue(buildProviderClass());
+
+    renderWithContext(
+      buildBackupInstance([{ storageRef: { name: 's3-prod' } }])
+    );
+
+    expect(screen.getByTestId('pitr-needs-backup-warning')).toHaveTextContent(
+      Messages.needsBackup
+    );
+  });
+
+  it('does not warn once a successful backup exists', () => {
+    mockUseActiveBackupClass.mockReturnValue(buildProviderClass());
+    mockUseBackupsList.mockReturnValue({
+      data: [{ status: { state: BackupStatus.SUCCEEDED } }],
+    });
+
+    renderWithContext(
+      buildBackupInstance([{ storageRef: { name: 's3-prod' } }])
+    );
+
+    expect(
+      screen.queryByTestId('pitr-needs-backup-warning')
+    ).not.toBeInTheDocument();
+  });
+
+  it('still warns when the only backup failed', () => {
+    mockUseActiveBackupClass.mockReturnValue(buildProviderClass());
+    mockUseBackupsList.mockReturnValue({
+      data: [{ status: { state: BackupStatus.FAILED } }],
+    });
+
+    renderWithContext(
+      buildBackupInstance([{ storageRef: { name: 's3-prod' } }])
+    );
+
+    expect(screen.getByTestId('pitr-needs-backup-warning')).toBeInTheDocument();
+  });
+
+  it('does not warn when the provider does not support PITR', () => {
+    mockUseActiveBackupClass.mockReturnValue(
+      buildProviderClass(BACKUP_CLASS_NAME, {
+        supportsPITR: false,
+        limits: { maxPITREnabledStorages: 1 },
+      })
+    );
+
+    renderWithContext(
+      buildBackupInstance([{ storageRef: { name: 's3-prod' } }])
+    );
+
+    expect(
+      screen.queryByTestId('pitr-needs-backup-warning')
+    ).not.toBeInTheDocument();
+  });
+
+  it('does not warn once an active schedule exists', () => {
+    mockUseActiveBackupClass.mockReturnValue(buildProviderClass());
+
+    renderWithContext(buildBackupInstance([scheduledStorage('s3-prod')]));
+
+    expect(
+      screen.queryByTestId('pitr-needs-backup-warning')
+    ).not.toBeInTheDocument();
   });
 });

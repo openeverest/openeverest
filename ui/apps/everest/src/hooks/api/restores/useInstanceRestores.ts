@@ -47,7 +47,12 @@ export const getRestoresListQueryKey = (
 export const useCreateInstanceRestore = (
   clusterName: string,
   namespace: string,
-  options?: UseMutationOptions<unknown, unknown, RestoreCreateVariables, unknown>
+  options?: UseMutationOptions<
+    unknown,
+    unknown,
+    RestoreCreateVariables,
+    unknown
+  >
 ) =>
   useMutation({
     mutationFn: (variables: RestoreCreateVariables) => {
@@ -84,9 +89,7 @@ export const useInstanceRestores = (
     // transform below always win — they are not meant to be overridable.
     ...options,
     enabled: (options?.enabled ?? true) && canRead,
-    select: canRead
-      ? (data) => (data.items ?? []).map(mapRestore)
-      : () => [],
+    select: canRead ? (data) => (data.items ?? []).map(mapRestore) : () => [],
   });
 };
 

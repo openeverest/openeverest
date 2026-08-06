@@ -12,14 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { Stack } from '@mui/material';
+import { Alert, Stack } from '@mui/material';
 import { useContext } from 'react';
 import { ScheduleModalContext } from '../backups.context';
 import { StorageRow } from './storage-row';
+import { useShowPitrBackupWarning } from './use-show-pitr-backup-warning';
+import { Messages } from './storages-list.messages';
 
 export const StoragesList = () => {
   const { instance } = useContext(ScheduleModalContext);
   const storages = instance.spec?.backup?.storages ?? [];
+  const showNeedsBackupWarning = useShowPitrBackupWarning(instance);
 
   if (storages.length === 0) {
     return null;
@@ -38,6 +41,11 @@ export const StoragesList = () => {
         mt: 1,
       }}
     >
+      {showNeedsBackupWarning && (
+        <Alert severity="info" data-testid="pitr-needs-backup-warning">
+          {Messages.needsBackup}
+        </Alert>
+      )}
       {storages.map((storage) => (
         <StorageRow key={storage.storageRef.name} storage={storage} />
       ))}

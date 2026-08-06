@@ -18,7 +18,10 @@ describe('mapRestore', () => {
   it('maps a backup restore, surfacing the backup name and full type', () => {
     expect(
       mapRestore({
-        metadata: { name: 'restore-1', creationTimestamp: '2026-07-29T00:00:00Z' },
+        metadata: {
+          name: 'restore-1',
+          creationTimestamp: '2026-07-29T00:00:00Z',
+        },
         spec: {
           instanceRef: { name: 'inst-1' },
           dataSource: {
@@ -45,7 +48,10 @@ describe('mapRestore', () => {
   it('maps a PITR restore, surfacing the source storage and pitr type', () => {
     expect(
       mapRestore({
-        metadata: { name: 'restore-2', creationTimestamp: '2026-07-29T00:00:00Z' },
+        metadata: {
+          name: 'restore-2',
+          creationTimestamp: '2026-07-29T00:00:00Z',
+        },
         spec: {
           instanceRef: { name: 'inst-1' },
           dataSource: {
@@ -66,7 +72,10 @@ describe('mapRestore', () => {
 
   it('falls back to creation time and unknown state when status is absent', () => {
     const restore = mapRestore({
-      metadata: { name: 'restore-3', creationTimestamp: '2026-07-29T00:00:00Z' },
+      metadata: {
+        name: 'restore-3',
+        creationTimestamp: '2026-07-29T00:00:00Z',
+      },
       spec: {
         instanceRef: { name: 'inst-1' },
         dataSource: {

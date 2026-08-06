@@ -60,30 +60,26 @@ export const hasActiveSchedules = (
     (storage.schedules ?? []).some((schedule) => schedule.enabled)
   );
 
-export type PitrBlockReason = 'no-schedule' | 'limit-reached';
+export type PitrBlockReason = 'limit-reached';
 
 // Shared gating for turning PITR on, used by both the cluster-details storages
 // panel and the creation wizard. Works on primitives (not a storage type) so
 // each surface computes the inputs from its own shape. Returns a reason code
 // (not a message) so callers own their copy; undefined means enabling is
-// allowed. Blocking applies only to turning PITR on — an already-enabled
-// storage is never blocked.
+// allowed. The only hard block is the per-provider enabled-storages limit — a
+// missing backup/schedule is a non-blocking warning (see
+// shouldWarnPitrNeedsBackup), and an already-enabled storage is never blocked.
 export const getPitrBlockReason = ({
-  hasSchedules,
   enabledCount,
   maxEnabled,
   storageEnabled,
 }: {
-  hasSchedules: boolean;
   enabledCount: number;
   maxEnabled: number | undefined;
   storageEnabled: boolean;
 }): PitrBlockReason | undefined => {
   if (storageEnabled) {
     return undefined;
-  }
-  if (!hasSchedules) {
-    return 'no-schedule';
   }
   if (maxEnabled != null && enabledCount >= maxEnabled) {
     return 'limit-reached';

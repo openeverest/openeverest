@@ -132,14 +132,19 @@ describe('StoragePitrToggle', () => {
     expect(backup?.enabled).toBe(true);
   });
 
-  it('is disabled and explains the missing backup schedule', async () => {
+  it('allows enabling PITR without an active backup schedule', () => {
     renderToggle({
       storageRef: { name: 's1' },
       schedules: withSchedule(false),
     });
 
-    expect(screen.getByRole('switch')).toBeDisabled();
-    await expectTooltip(Messages.needsSchedule);
+    const toggle = screen.getByRole('switch');
+    expect(toggle).not.toBeDisabled();
+
+    fireEvent.click(toggle);
+    expect(mockUpdateInstance).toHaveBeenCalledTimes(1);
+    const patched = mockUpdateInstance.mock.calls[0][0] as Instance;
+    expect(patched.spec?.backup?.storages?.[0].pitr?.enabled).toBe(true);
   });
 
   it('is disabled and explains the reached PITR limit', async () => {
@@ -156,21 +161,6 @@ describe('StoragePitrToggle', () => {
 
     expect(screen.getByRole('switch')).toBeDisabled();
     await expectTooltip(Messages.limitReached(1));
-  });
-
-  it('prefers the schedule message when both blocks apply', async () => {
-    const instance = buildBackupInstance([
-      { storageRef: { name: 's1' }, schedules: withSchedule(false) },
-      {
-        storageRef: { name: 's2' },
-        schedules: withSchedule(false),
-        pitr: { enabled: true },
-      },
-    ]);
-
-    renderToggle(instance.spec!.backup!.storages![0], instance);
-
-    await expectTooltip(Messages.needsSchedule);
   });
 
   it('confirms before disabling, then patches enabled: false', () => {
