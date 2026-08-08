@@ -95,7 +95,7 @@ const (
 )
 
 // FetchPoll builds a PollFunc[*T] around fetch, classifying HTTP responses the
-// same way every `<resource> create/delete/status --wait` command already
+// same way every `<resource> create/delete --wait` and `status --watch` command
 // does: a failed token refresh and a 401 are terminal; an unexpected status or
 // an empty 200 body is retried (RetryableError); a 404 is decided by
 // notFound. fetch adapts a generated client call to (status, statusText,
