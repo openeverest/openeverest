@@ -31,8 +31,8 @@ var (
 		Use:     "list [flags]",
 		Args:    cobra.NoArgs,
 		Example: "everestctl extension list",
-		Long:    "List all installed plugins",
-		Short:   "List all installed plugins",
+		Long:    "List all installed extensions",
+		Short:   "List all installed extensions",
 		PreRun:  pluginListPreRun,
 		Run:     pluginListRun,
 	}
@@ -57,7 +57,7 @@ func pluginListRun(cmd *cobra.Command, _ []string) { //nolint:revive
 	}
 }
 
-// GetListCmd returns the command to list plugins.
+// GetListCmd returns the command to list extensions.
 func GetListCmd() *cobra.Command {
 	return pluginListCmd
 }

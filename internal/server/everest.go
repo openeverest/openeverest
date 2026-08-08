@@ -152,7 +152,7 @@ func NewEverestServer(ctx context.Context, c *config.EverestConfig, l *zap.Sugar
 		tokenRegistry: tokenRegistry,
 		attemptsStore: store,
 		oidcProvider:  oidcProvider,
-		eventHub:      events.NewHub(l, kubeConnector),
+		eventHub:      events.NewHub(l, kubeConnector, events.NewRingBuffer(c.EventBufferMaxEvents, c.EventBufferMaxAge)),
 	}
 	e.echo.HTTPErrorHandler = e.errorHandlerChain()
 

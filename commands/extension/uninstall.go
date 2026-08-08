@@ -30,8 +30,8 @@ var (
 		Use:     "uninstall [flags]",
 		Args:    cobra.NoArgs,
 		Example: "everestctl extension uninstall --name hello",
-		Long:    "Uninstall a plugin by deleting its Plugin custom resource",
-		Short:   "Uninstall a plugin",
+		Long:    "Uninstall an extension by deleting its Plugin custom resource",
+		Short:   "Uninstall an extension",
 		PreRun:  pluginUninstallPreRun,
 		Run:     pluginUninstallRun,
 	}
@@ -39,7 +39,7 @@ var (
 )
 
 func init() {
-	pluginUninstallCmd.Flags().StringVar(&pluginUninstallCfg.Name, "name", "", "Plugin name (required)")
+	pluginUninstallCmd.Flags().StringVar(&pluginUninstallCfg.Name, "name", "", "Extension name (required)")
 	_ = pluginUninstallCmd.MarkFlagRequired("name")
 }
 
@@ -61,7 +61,7 @@ func pluginUninstallRun(cmd *cobra.Command, _ []string) { //nolint:revive
 	}
 }
 
-// GetUninstallCmd returns the command to uninstall a plugin.
+// GetUninstallCmd returns the command to uninstall an extension.
 func GetUninstallCmd() *cobra.Command {
 	return pluginUninstallCmd
 }
