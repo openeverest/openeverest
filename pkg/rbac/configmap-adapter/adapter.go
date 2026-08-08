@@ -20,7 +20,9 @@ package configmapadapter
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
+	"time"
 
 	"github.com/casbin/casbin/v2/model"
 	"go.uber.org/zap"
@@ -30,6 +32,8 @@ import (
 
 	rbacutils "github.com/percona/everest/pkg/rbac/utils"
 )
+
+const defaultKubeAPITimeout = 10 * time.Second
 
 type k8s interface {
 	GetConfigMap(ctx context.Context, key ctrlclient.ObjectKey) (*corev1.ConfigMap, error)
@@ -41,6 +45,18 @@ type Adapter struct {
 	kubeClient     k8s
 	namespacedName types.NamespacedName
 	l              *zap.SugaredLogger
+	timeout        time.Duration
+}
+
+// Option is a functional option for the Adapter.
+type Option func(*Adapter)
+
+// WithTimeout sets the timeout for Kubernetes API calls made by the adapter.
+// If not set, defaultKubeAPITimeout (10s) is used.
+func WithTimeout(d time.Duration) Option {
+	return func(a *Adapter) {
+		a.timeout = d
+	}
 }
 
 // New constructs a new adapter that manages a policy inside a ConfigMap.
@@ -48,12 +64,18 @@ func New(
 	l *zap.SugaredLogger,
 	kubeClient k8s,
 	namespacedName types.NamespacedName,
+	opts ...Option,
 ) *Adapter {
-	return &Adapter{
+	a := &Adapter{
 		kubeClient:     kubeClient,
 		namespacedName: namespacedName,
 		l:              l,
+		timeout:        defaultKubeAPITimeout,
 	}
+	for _, opt := range opts {
+		opt(a)
+	}
+	return a
 }
 
 // ConfigMap returns the configmap used for RBAC.
@@ -63,9 +85,12 @@ func (a *Adapter) ConfigMap(ctx context.Context) (*corev1.ConfigMap, error) {
 
 // LoadPolicy loads all policy rules from the storage.
 func (a *Adapter) LoadPolicy(model model.Model) error {
-	cm, err := a.kubeClient.GetConfigMap(context.Background(), a.namespacedName)
+	ctx, cancel := context.WithTimeout(context.Background(), a.timeout)
+	defer cancel()
+
+	cm, err := a.kubeClient.GetConfigMap(ctx, a.namespacedName)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to load RBAC policy configmap %q: %w", a.namespacedName, err)
 	}
 
 	data, ok := cm.Data["policy.csv"]
