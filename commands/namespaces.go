@@ -25,10 +25,10 @@ import (
 
 var namespacesCmd = &cobra.Command{
 	Use:   "namespaces <command> [flags]",
-	Args:  cobra.ExactArgs(1),
+	Args:  cobra.NoArgs,
 	Long:  "Manage Everest database namespaces",
 	Short: "Manage Everest database namespaces",
-	Run:   func(_ *cobra.Command, _ []string) {},
+	RunE:  func(cmd *cobra.Command, _ []string) error { return cmd.Help() },
 }
 
 func init() {
