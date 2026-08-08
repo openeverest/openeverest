@@ -24,6 +24,7 @@ import (
 
 	"github.com/openeverest/openeverest/v2/client"
 	authcli "github.com/openeverest/openeverest/v2/pkg/cli/auth"
+	"github.com/openeverest/openeverest/v2/pkg/cli/deletion"
 	"github.com/openeverest/openeverest/v2/pkg/cli/wait"
 )
 
@@ -129,4 +130,25 @@ func componentSummary(inst *client.Instance) string {
 		parts = append(parts, fmt.Sprintf("%s %d/%d ready", state, ready, total))
 	}
 	return strings.Join(parts, ", ")
+}
+
+// newInstanceDeletePoll checks if the instance still exists. A 404 means
+// it's gone, which is success here (unlike the create-side poll).
+func newInstanceDeletePoll(
+	c *client.ClientWithResponses,
+	cluster, namespace, name string,
+) wait.PollFunc[*client.Instance] {
+	return deletion.GonePoll("instance", name, func(ctx context.Context) (int, string, *client.Instance, error) {
+		resp, err := c.GetInstanceWithResponse(ctx, cluster, namespace, name)
+		if err != nil {
+			return 0, "", nil, err
+		}
+		return resp.StatusCode(), resp.Status(), resp.JSON200, nil
+	})
+}
+
+func deleteCondition(inst *client.Instance) (wait.Outcome, string) {
+	return deletion.GoneCondition("instance deleted", func(v *client.Instance) string {
+		return progressMessage(v, instancePhase(v))
+	})(inst)
 }

@@ -351,3 +351,20 @@ func TestRun_JSONEmitsCreatedInstanceWithoutWait(t *testing.T) {
 	require.NotNil(t, got.Metadata)
 	assert.Equal(t, "my-db", got.Metadata.Name)
 }
+
+// ---- deleteCondition --------------------------------------------------------
+
+func TestDeleteCondition_NilInstance_Succeeds(t *testing.T) {
+	t.Parallel()
+	outcome, msg := deleteCondition(nil)
+	assert.Equal(t, wait.Succeeded, outcome)
+	assert.Equal(t, "instance deleted", msg)
+}
+
+func TestDeleteCondition_StillPresent_IsPending(t *testing.T) {
+	t.Parallel()
+	inst := instFromJSON(t, `{"status":{"phase":"Terminating"}}`)
+	outcome, msg := deleteCondition(inst)
+	assert.Equal(t, wait.Pending, outcome)
+	assert.Contains(t, msg, "Terminating")
+}
