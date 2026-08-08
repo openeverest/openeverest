@@ -21,6 +21,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/go-logr/zapr"
@@ -83,8 +84,7 @@ func main() {
 	}
 
 	quit := make(chan os.Signal, 1)
-	signal.Notify(quit, os.Interrupt)
-	<-quit
+	waitForShutdownSignal(quit)
 
 	tCancel()
 	ctx, cancel := context.WithTimeout(context.Background(), contextTimeout)
@@ -96,4 +96,9 @@ func main() {
 	}
 
 	l.Info("Exiting")
+}
+
+func waitForShutdownSignal(quit chan os.Signal) {
+	signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
+	<-quit
 }
