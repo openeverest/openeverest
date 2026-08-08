@@ -123,7 +123,7 @@ func FetchPoll[T any](
 			if notFound == NotFoundIsSuccess {
 				return nil, nil
 			}
-			return nil, fmt.Errorf("%s %q was deleted while waiting", kind, name)
+			return nil, fmt.Errorf("%s %q no longer exists", kind, name)
 		case http.StatusUnauthorized:
 			return nil, fmt.Errorf("server rejected credentials — run 'everestctl auth login' again")
 		default:
