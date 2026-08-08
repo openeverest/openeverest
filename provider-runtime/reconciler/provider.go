@@ -18,11 +18,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	toolscache "k8s.io/client-go/tools/cache"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -30,6 +32,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -278,37 +281,18 @@ func (r *ProviderReconciler) setupServer(p providerAdapter) error {
 
 // Start starts the reconciler and server (blocking).
 func (r *ProviderReconciler) Start(ctx context.Context) error {
-	// Start server if configured
-	if r.server != nil {
-		r.server.SetClient(r.Client)
-		go func() {
-			if err := r.server.Start(ctx); err != nil {
-				log.FromContext(ctx).Error(err, "Server error")
-			}
-		}()
-		// Mark server as ready once manager is ready
-		r.server.SetReady(true)
+	if err := r.startServer(ctx); err != nil {
+		return err
 	}
-
 	return r.manager.Start(ctx)
 }
 
 // StartWithSignalHandler starts the reconciler and server with OS signal handling.
 func (r *ProviderReconciler) StartWithSignalHandler() error {
 	ctx := ctrl.SetupSignalHandler()
-
-	// Start server if configured
-	if r.server != nil {
-		r.server.SetClient(r.Client)
-		go func() {
-			if err := r.server.Start(ctx); err != nil {
-				log.FromContext(ctx).Error(err, "Server error")
-			}
-		}()
-		// Mark server as ready once manager is ready
-		r.server.SetReady(true)
+	if err := r.startServer(ctx); err != nil {
+		return err
 	}
-
 	return r.manager.Start(ctx)
 }
 
@@ -540,6 +524,73 @@ func (r *ProviderReconciler) Reconcile(ctx context.Context, req reconcile.Reques
 
 	logger.Info("Reconciliation complete", "phase", in.Status.Phase)
 	return reconcile.Result{}, nil
+}
+
+// leaderElectionFree marks a Runnable as one that must run on every replica,
+// not only the elected leader: readiness is a per-pod property.
+type leaderElectionFree struct{ manager.Runnable }
+
+func (leaderElectionFree) NeedLeaderElection() bool { return false }
+
+// startServer wires the validation server into the manager lifecycle. It is a
+// no-op when no server is configured.
+//
+// Readiness is gated on the manager's caches: the server is marked ready from a
+// manager Runnable only after the informers the validation path reads (Instance
+// and Provider) have synced, so /readyz reports ready only once the cache-backed
+// client is usable. This keeps probes from routing validation traffic to the
+// server before it can serve it. Readiness is cleared again on shutdown.
+//
+// The Runnable is wrapped in leaderElectionFree so it runs on every replica, not
+// only the elected leader. Must be called before manager.Start.
+func (r *ProviderReconciler) startServer(ctx context.Context) error {
+	if r.server == nil {
+		return nil
+	}
+
+	r.server.SetClient(r.Client)
+	go func() {
+		if err := r.server.Start(ctx); err != nil {
+			log.FromContext(ctx).Error(err, "Server error")
+		}
+	}()
+
+	return r.manager.Add(leaderElectionFree{manager.RunnableFunc(func(runnableCtx context.Context) error {
+		// Report ready only once the informers the validation path reads have
+		// synced, so the cache-backed client is usable before /readyz turns
+		// green. Stay not-ready if the context is cancelled first (shutdown).
+		for _, obj := range []client.Object{&v1alpha1.Instance{}, &v1alpha1.Provider{}} {
+			if !r.waitForCacheSync(runnableCtx, obj) {
+				return nil
+			}
+		}
+		r.server.SetReady(true)
+		<-runnableCtx.Done()
+		r.server.SetReady(false)
+		return nil
+	})})
+}
+
+// waitForCacheSync blocks until the informer for obj has been built and synced,
+// returning true on success or false if ctx is cancelled first. GetInformer
+// returns an error while the API server is unreachable, so it is retried with a
+// short backoff to tolerate a transient blip at startup rather than latching
+// not-ready until the process restarts.
+func (r *ProviderReconciler) waitForCacheSync(ctx context.Context, obj client.Object) bool {
+	for {
+		informer, err := r.manager.GetCache().GetInformer(ctx, obj)
+		if err == nil {
+			return toolscache.WaitForCacheSync(ctx.Done(), informer.HasSynced)
+		}
+		// The API server can be briefly unreachable at startup; retry until it
+		// is reachable (controller-runtime logs the underlying failure) or the
+		// context is cancelled.
+		select {
+		case <-ctx.Done():
+			return false
+		case <-time.After(time.Second):
+		}
+	}
 }
 
 func (r *ProviderReconciler) handleDeletion(
