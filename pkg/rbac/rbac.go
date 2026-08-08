@@ -117,6 +117,9 @@ func refreshEnforcerInBackground(
 		informer.WithLogger(l),
 		informer.Watches(&corev1.ConfigMap{}, common.SystemNamespace),
 	)
+	if err != nil {
+		return errors.Join(err, errors.New("failed to create informer"))
+	}
 	inf.OnUpdate(func(_, newObj any) {
 		cm, ok := newObj.(*corev1.ConfigMap)
 		if !ok || cm.GetName() != common.EverestRBACConfigMapName {
