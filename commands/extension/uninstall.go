@@ -29,7 +29,7 @@ var (
 	pluginUninstallCmd = &cobra.Command{
 		Use:     "uninstall [flags]",
 		Args:    cobra.NoArgs,
-		Example: "everestctl plugin uninstall --name hello",
+		Example: "everestctl extension uninstall --name hello",
 		Long:    "Uninstall a plugin by deleting its Plugin custom resource",
 		Short:   "Uninstall a plugin",
 		PreRun:  pluginUninstallPreRun,

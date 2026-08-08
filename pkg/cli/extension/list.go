@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package plugins provides CLI operations for managing generic plugins.
+// Package extension provides CLI operations for managing generic plugins.
 package extension
 
 import (

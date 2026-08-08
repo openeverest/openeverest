@@ -32,10 +32,10 @@ var (
 		Long:  "Run a plugin's CLI container, passing extra arguments after '--'",
 		Short: "Run a plugin CLI",
 		Example: `  # Run the sql-explorer plugin CLI:
-  everestctl plugin run sql-explorer -- query --db my-db "SELECT 1"
+  everestctl extension run sql-explorer -- query --db my-db "SELECT 1"
 
   # Run with a custom container runtime:
-  everestctl plugin run sql-explorer --runtime podman -- --help`,
+  everestctl extension run sql-explorer --runtime podman -- --help`,
 		PreRun: pluginRunPreRun,
 		Run:    pluginRunRun,
 	}

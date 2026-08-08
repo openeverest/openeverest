@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package plugins holds commands for the plugin command.
+// Package extension holds commands for the extension command.
 package extension
 
 import (
@@ -30,7 +30,7 @@ var (
 	pluginListCmd = &cobra.Command{
 		Use:     "list [flags]",
 		Args:    cobra.NoArgs,
-		Example: "everestctl plugin list",
+		Example: "everestctl extension list",
 		Long:    "List all installed plugins",
 		Short:   "List all installed plugins",
 		PreRun:  pluginListPreRun,
