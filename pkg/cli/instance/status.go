@@ -112,8 +112,7 @@ func (is *InstanceStatusRunner) watch(
 		case <-ticker.C:
 			inst, err := poll(ctx)
 			if err != nil {
-				var re *wait.RetryableError
-				if errors.As(err, &re) {
+				if _, ok := errors.AsType[*wait.RetryableError](err); ok {
 					is.l.Warnf("%v — retrying in %s", err, interval)
 					continue
 				}

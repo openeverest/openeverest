@@ -264,7 +264,7 @@ func TestFetchPoll_NotFound_TerminalPolicy_ReturnsError(t *testing.T) {
 	require.Error(t, err)
 	var re *wait.RetryableError
 	assert.NotErrorAs(t, err, &re, "a 404 under NotFoundTerminal must be terminal, not retryable")
-	assert.Contains(t, err.Error(), `widget "my-widget" was deleted while waiting`)
+	assert.Contains(t, err.Error(), `widget "my-widget" no longer exists`)
 }
 
 func TestFetchPoll_StillPresent_ReturnsBody(t *testing.T) {
