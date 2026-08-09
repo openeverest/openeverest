@@ -16,9 +16,11 @@ package k8s
 
 import (
 	"context"
+	"sync"
 	"testing"
 	"time"
 
+	"github.com/cenkalti/backoff"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
@@ -29,6 +31,41 @@ import (
 	"github.com/percona/everest/pkg/common"
 	"github.com/percona/everest/pkg/kubernetes"
 )
+
+func TestNewEverestAPIBackoffHasIndependentRetryBudget(t *testing.T) {
+	t.Parallel()
+
+	first := newEverestAPIBackoff(t.Context())
+	second := newEverestAPIBackoff(t.Context())
+
+	for range everestAPIBackoffMaxRetries {
+		require.Equal(t, everestAPIBackoffInterval, first.NextBackOff())
+	}
+	require.Equal(t, backoff.Stop, first.NextBackOff())
+	require.Equal(t, everestAPIBackoffInterval, second.NextBackOff())
+}
+
+func TestNewEverestAPIBackoffSupportsConcurrentOperations(t *testing.T) {
+	t.Parallel()
+
+	policies := []backoff.BackOff{
+		newEverestAPIBackoff(t.Context()),
+		newEverestAPIBackoff(t.Context()),
+	}
+	start := make(chan struct{})
+	var wg sync.WaitGroup
+	for _, policy := range policies {
+		wg.Go(func() {
+			<-start
+			for range 1_000 {
+				policy.Reset()
+				policy.NextBackOff()
+			}
+		})
+	}
+	close(start)
+	wg.Wait()
+}
 
 func TestLatestRestorableDate(t *testing.T) {
 	t.Parallel()
