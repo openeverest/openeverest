@@ -25,6 +25,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"time"
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/lestrrat-go/jwx/v2/jwk"
@@ -47,6 +48,9 @@ type ProviderConfig struct {
 const (
 	// WellKnownPath is the path to the well-known OIDC configuration.
 	WellKnownPath = "/.well-known/openid-configuration"
+
+	// defaultHTTPClientTimeout bounds OIDC well-known config fetches.
+	defaultHTTPClientTimeout = 30 * time.Second
 )
 
 // ErrUnexpectedSatusCode is returned when HTTP 200 is not returned.
@@ -63,7 +67,8 @@ func NewProviderConfig(ctx context.Context, issuer string) (ProviderConfig, erro
 	if err != nil {
 		return ProviderConfig{}, err
 	}
-	resp, err := http.DefaultClient.Do(req)
+	client := &http.Client{Timeout: defaultHTTPClientTimeout}
+	resp, err := client.Do(req)
 	if err != nil {
 		return ProviderConfig{}, err
 	}
@@ -85,7 +90,7 @@ func NewProviderConfig(ctx context.Context, issuer string) (ProviderConfig, erro
 
 	// It appears that issuerUrl provided by user is not always
 	// the same as the one fetched from the OIDC provider's .well-known/openid-configuration (Microsoft Entra case).
-	// Need to store the original issuer URL too.
+	// Need to store the original issuerUrl too.
 	result.OriginalIssuer = issuer
 	return result, nil
 }
