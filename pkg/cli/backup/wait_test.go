@@ -123,7 +123,7 @@ func TestNewBackupPoll_DeletedMidWait(t *testing.T) {
 	poll := newBackupPoll(c, "main", "everest", "gone")
 	_, err = poll(context.Background())
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "was deleted while waiting")
+	assert.Contains(t, err.Error(), "no longer exists")
 }
 
 func TestNewBackupPoll_UnauthorizedIsTerminal(t *testing.T) {

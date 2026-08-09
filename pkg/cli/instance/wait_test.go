@@ -207,7 +207,7 @@ func TestRunWait(t *testing.T) {
 			wantErr: func(t *testing.T, err error) {
 				t.Helper()
 				require.Error(t, err)
-				assert.Contains(t, err.Error(), "was deleted")
+				assert.Contains(t, err.Error(), "no longer exists")
 			},
 		},
 		{

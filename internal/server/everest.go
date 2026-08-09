@@ -518,7 +518,7 @@ func (e *EverestServer) pruneExpiredTokens(ctx context.Context) {
 }
 
 func (e *EverestServer) getBodyFromContext(ctx echo.Context, into any) error {
-	// GetBody creates a copy of the body to avoid "spoiling" the request before proxing
+	// GetBody creates a copy of the body to avoid "spoiling" the request before proxying
 	reader, err := ctx.Request().GetBody()
 	if err != nil {
 		return err

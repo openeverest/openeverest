@@ -18,8 +18,6 @@ package deletion
 import (
 	"context"
 	"encoding/json"
-	"errors"
-	"fmt"
 	"io"
 	"net/http"
 	"os"
@@ -28,7 +26,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	authcli "github.com/openeverest/openeverest/v2/pkg/cli/auth"
 	"github.com/openeverest/openeverest/v2/pkg/cli/wait"
 )
 
@@ -69,6 +66,9 @@ func TestGoneCondition(t *testing.T) {
 	assert.Equal(t, "still there: foo", msg)
 }
 
+// GonePoll's fetch/status/token-refresh classification is wait.FetchPoll's
+// contract, exercised directly by pkg/cli/wait's TestFetchPoll_* suite. The
+// only thing this binding decides is the NotFoundPolicy it passes through.
 func TestGonePoll_Gone(t *testing.T) {
 	t.Parallel()
 
@@ -79,88 +79,6 @@ func TestGonePoll_Gone(t *testing.T) {
 	v, err := poll(context.Background())
 	require.NoError(t, err)
 	assert.Nil(t, v)
-}
-
-func TestGonePoll_StillPresent(t *testing.T) {
-	t.Parallel()
-
-	want := &widget{Name: "my-widget"}
-	poll := GonePoll[widget]("widget", "my-widget", func(context.Context) (int, string, *widget, error) {
-		return http.StatusOK, "200 OK", want, nil
-	})
-
-	v, err := poll(context.Background())
-	require.NoError(t, err)
-	assert.Same(t, want, v)
-}
-
-func TestGonePoll_EmptyBody_Retryable(t *testing.T) {
-	t.Parallel()
-
-	poll := GonePoll[widget]("widget", "my-widget", func(context.Context) (int, string, *widget, error) {
-		return http.StatusOK, "200 OK", nil, nil
-	})
-
-	_, err := poll(context.Background())
-	require.Error(t, err)
-	var re *wait.RetryableError
-	require.ErrorAs(t, err, &re)
-	assert.Contains(t, err.Error(), "empty response body fetching widget \"my-widget\"")
-}
-
-func TestGonePoll_Unauthorized_Terminal(t *testing.T) {
-	t.Parallel()
-
-	poll := GonePoll[widget]("widget", "my-widget", func(context.Context) (int, string, *widget, error) {
-		return http.StatusUnauthorized, "401 Unauthorized", nil, nil
-	})
-
-	_, err := poll(context.Background())
-	require.Error(t, err)
-	var re *wait.RetryableError
-	assert.NotErrorAs(t, err, &re, "401 must be terminal, not retryable")
-	assert.Contains(t, err.Error(), "run 'everestctl auth login' again")
-}
-
-func TestGonePoll_UnexpectedStatus_Retryable(t *testing.T) {
-	t.Parallel()
-
-	poll := GonePoll[widget]("widget", "my-widget", func(context.Context) (int, string, *widget, error) {
-		return http.StatusInternalServerError, "500 Internal Server Error", nil, nil
-	})
-
-	_, err := poll(context.Background())
-	require.Error(t, err)
-	var re *wait.RetryableError
-	require.ErrorAs(t, err, &re)
-	assert.Contains(t, err.Error(), "500 Internal Server Error")
-}
-
-func TestGonePoll_FetchError_Retryable(t *testing.T) {
-	t.Parallel()
-
-	poll := GonePoll[widget]("widget", "my-widget", func(context.Context) (int, string, *widget, error) {
-		return 0, "", nil, errors.New("connection reset")
-	})
-
-	_, err := poll(context.Background())
-	require.Error(t, err)
-	var re *wait.RetryableError
-	require.ErrorAs(t, err, &re)
-}
-
-func TestGonePoll_TokenRefreshFailure_Terminal(t *testing.T) {
-	t.Parallel()
-
-	poll := GonePoll[widget]("widget", "my-widget", func(context.Context) (int, string, *widget, error) {
-		return 0, "", nil, fmt.Errorf("refresh: %w", authcli.ErrTokenRefresh)
-	})
-
-	_, err := poll(context.Background())
-	require.Error(t, err)
-	var re *wait.RetryableError
-	assert.NotErrorAs(t, err, &re, "a failed token refresh must be terminal, not retryable")
-	assert.ErrorIs(t, err, authcli.ErrTokenRefresh)
 }
 
 //nolint:paralleltest // captureStdout mutates global os.Stdout; must run serially
