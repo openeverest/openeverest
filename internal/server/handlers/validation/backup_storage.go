@@ -29,7 +29,6 @@ import (
 	"github.com/AlekSi/pointer"
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob"
 	"github.com/aws/aws-sdk-go-v2/aws"
-	awsconfig "github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"go.uber.org/zap"
@@ -229,26 +228,23 @@ func s3Access(
 			TLSClientConfig: &tls.Config{InsecureSkipVerify: !verifyTLS}, //nolint:gosec
 		},
 	}
-	cfg, err := awsconfig.LoadDefaultConfig(ctx,
-		awsconfig.WithRegion(region),
-		awsconfig.WithCredentialsProvider(credentials.NewStaticCredentialsProvider(accessKey, secretKey, "")),
-		awsconfig.WithHTTPClient(c),
-	)
-	if err != nil {
-		l.Error(err)
-		return errors.New("could not initialize S3 config")
+	cfg := aws.Config{
+		Region:                     region,
+		Credentials:                credentials.NewStaticCredentialsProvider(accessKey, secretKey, ""),
+		HTTPClient:                 c,
+		RequestChecksumCalculation: aws.RequestChecksumCalculationWhenRequired,
+		ResponseChecksumValidation: aws.ResponseChecksumValidationWhenRequired,
 	}
 
+	var err error
 	// Create a new S3 client with the config
 	svc := s3.NewFromConfig(cfg, func(o *s3.Options) {
 		o.UsePathStyle = forcePathStyle
-		if endpoint != nil && *endpoint != "" {
-			o.BaseEndpoint = aws.String(*endpoint)
-		}
+		o.BaseEndpoint = endpoint
 	})
 
 	_, err = svc.HeadBucket(ctx, &s3.HeadBucketInput{
-		Bucket: aws.String(bucketName),
+		Bucket: new(bucketName),
 	})
 	if err != nil {
 		l.Error(err)
@@ -257,9 +253,9 @@ func s3Access(
 
 	testKey := "everest-write-test"
 	_, err = svc.PutObject(ctx, &s3.PutObjectInput{
-		Bucket: aws.String(bucketName),
+		Bucket: new(bucketName),
 		Body:   bytes.NewReader([]byte{}),
-		Key:    aws.String(testKey),
+		Key:    new(testKey),
 	})
 	if err != nil {
 		l.Error(err)
@@ -267,8 +263,8 @@ func s3Access(
 	}
 
 	_, err = svc.GetObject(ctx, &s3.GetObjectInput{
-		Bucket: aws.String(bucketName),
-		Key:    aws.String(testKey),
+		Bucket: new(bucketName),
+		Key:    new(testKey),
 	})
 	if err != nil {
 		l.Error(err)
@@ -276,15 +272,16 @@ func s3Access(
 	}
 
 	_, err = svc.ListObjectsV2(ctx, &s3.ListObjectsV2Input{
-		Bucket: aws.String(bucketName),
+		Bucket: new(bucketName),
 	})
 	if err != nil {
+		l.Error(err)
 		return errors.New("could not list objects in S3 bucket")
 	}
 
 	_, err = svc.DeleteObject(ctx, &s3.DeleteObjectInput{
-		Bucket: aws.String(bucketName),
-		Key:    aws.String(testKey),
+		Bucket: new(bucketName),
+		Key:    new(testKey),
 	})
 	if err != nil {
 		l.Error(err)
