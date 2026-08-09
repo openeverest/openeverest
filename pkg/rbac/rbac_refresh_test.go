@@ -39,6 +39,6 @@ func TestStartRBACInformerPreservesStartError(t *testing.T) {
 	startErr := errors.New("informer start failed")
 	err := startRBACInformer(context.Background(), fakeInformerStarter{err: startErr})
 	require.Error(t, err)
-	assert.ErrorIs(t, err, startErr)
+	require.ErrorIs(t, err, startErr)
 	assert.ErrorContains(t, err, "failed to watch RBAC ConfigMap")
 }

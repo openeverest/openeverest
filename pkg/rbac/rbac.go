@@ -106,7 +106,7 @@ type User struct {
 }
 
 type informerStarter interface {
-	Start(context.Context, client.Object) error
+	Start(ctx context.Context, obj client.Object) error
 }
 
 func startRBACInformer(ctx context.Context, inf informerStarter) error {
