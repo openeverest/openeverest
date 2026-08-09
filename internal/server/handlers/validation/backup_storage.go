@@ -222,10 +222,11 @@ func s3Access(
 		endpoint = nil
 	}
 
-	c := http.DefaultClient
-	c.Timeout = timeoutS3AccessSec * time.Second
-	c.Transport = &http.Transport{
-		TLSClientConfig: &tls.Config{InsecureSkipVerify: !verifyTLS}, //nolint:gosec
+	c := &http.Client{
+		Timeout: timeoutS3AccessSec * time.Second,
+		Transport: &http.Transport{
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: !verifyTLS}, //nolint:gosec
+		},
 	}
 	// Create a new session with the provided credentials
 	sess, err := session.NewSession(&aws.Config{
