@@ -118,19 +118,22 @@ func refreshEnforcerInBackground(
 		informer.Watches(&corev1.ConfigMap{}, common.SystemNamespace),
 	)
 	if err != nil {
-		return errors.Join(err, errors.New("failed to create informer"))
+		return err
 	}
 	inf.OnUpdate(func(_, newObj any) {
 		cm, ok := newObj.(*corev1.ConfigMap)
 		if !ok || cm.GetName() != common.EverestRBACConfigMapName {
 			return
 		}
-		if err := enforcer.LoadPolicy(); err != nil {
-			l.Errorf("Failed to load RBAC policy: %s", err)
+		// Validate the incoming policy on a throwaway enforcer, so that an invalid
+		// update never reaches the live one.
+		if _, err := newEnforcer(enforcer.GetAdapter(), false); err != nil {
+			l.Errorf("Invalid RBAC policy detected, keeping the previous policy: %s", err)
 			return
 		}
-		if err := validatePolicy(enforcer); err != nil {
-			l.Errorf("Invalid RBAC policy detected: %s", err)
+
+		if err := enforcer.LoadPolicy(); err != nil {
+			l.Errorf("Failed to load RBAC policy: %s", err)
 			return
 		}
 		// Calling LoadPolicy() re-writes the entire model, so we need to add back the admin role.
