@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,21 +20,26 @@ package main
 
 import (
 	"os"
+	"os/signal"
 	"syscall"
 	"testing"
 	"time"
 )
 
+//nolint:paralleltest // sending OS signals affects the entire process, unsafe to run in parallel
 func TestWaitForShutdownSignal(t *testing.T) {
 	quit := make(chan os.Signal, 1)
+
+	// Pre-register the signal to avoid a race condition where the SIGTERM
+	// kills the test process before waitForShutdownSignal can register it.
+	signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
+	defer signal.Stop(quit)
 
 	done := make(chan struct{})
 	go func() {
 		waitForShutdownSignal(quit)
 		close(done)
 	}()
-
-	time.Sleep(100 * time.Millisecond)
 
 	p, err := os.FindProcess(os.Getpid())
 	if err != nil {
