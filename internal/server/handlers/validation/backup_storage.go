@@ -229,9 +229,11 @@ func s3Access(
 		},
 	}
 	cfg := aws.Config{
-		Region:                     region,
-		Credentials:                credentials.NewStaticCredentialsProvider(accessKey, secretKey, ""),
-		HTTPClient:                 c,
+		Region:      region,
+		Credentials: credentials.NewStaticCredentialsProvider(accessKey, secretKey, ""),
+		HTTPClient:  c,
+		// SDK v1 sent no integrity checksums; keep that wire format for
+		// S3-compatible endpoints that don't implement them.
 		RequestChecksumCalculation: aws.RequestChecksumCalculationWhenRequired,
 		ResponseChecksumValidation: aws.ResponseChecksumValidationWhenRequired,
 	}
