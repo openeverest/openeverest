@@ -34,6 +34,7 @@ import (
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	everestclient "github.com/percona/everest/client"
 	"github.com/percona/everest/data"
@@ -104,6 +105,17 @@ type User struct {
 	Groups  []string
 }
 
+type informerStarter interface {
+	Start(context.Context, client.Object) error
+}
+
+func startRBACInformer(ctx context.Context, inf informerStarter) error {
+	if err := inf.Start(ctx, &corev1.ConfigMap{}); err != nil {
+		return errors.Join(err, errors.New("failed to watch RBAC ConfigMap"))
+	}
+	return nil
+}
+
 // Setup a new informer that watches our RBAC ConfigMap.
 // This informer reloads the policy whenever the ConfigMap is updated.
 func refreshEnforcerInBackground(
@@ -117,6 +129,9 @@ func refreshEnforcerInBackground(
 		informer.WithLogger(l),
 		informer.Watches(&corev1.ConfigMap{}, common.SystemNamespace),
 	)
+	if err != nil {
+		return errors.Join(err, errors.New("failed to create RBAC ConfigMap informer"))
+	}
 	inf.OnUpdate(func(_, newObj any) {
 		cm, ok := newObj.(*corev1.ConfigMap)
 		if !ok || cm.GetName() != common.EverestRBACConfigMapName {
@@ -134,10 +149,7 @@ func refreshEnforcerInBackground(
 		}
 		enforcer.EnableEnforce(IsEnabled(cm))
 	})
-	if inf.Start(ctx, &corev1.ConfigMap{}) != nil {
-		return errors.Join(err, errors.New("failed to watch RBAC ConfigMap"))
-	}
-	return nil
+	return startRBACInformer(ctx, inf)
 }
 
 func getModel() (model.Model, error) {
