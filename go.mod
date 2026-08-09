@@ -9,6 +9,7 @@ require (
 	github.com/aws/aws-sdk-go-v2 v1.43.3
 	github.com/aws/aws-sdk-go-v2/credentials v1.19.33
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.106.3
+	github.com/blang/semver/v4 v4.0.0
 	github.com/casbin/casbin/v2 v2.135.0
 	github.com/casbin/govaluate v1.10.0
 	github.com/cenkalti/backoff v2.2.1+incompatible
@@ -112,7 +113,6 @@ require (
 	github.com/aymanbagabas/go-osc52/v2 v2.0.1 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/bkielbasa/cyclop v1.2.3 // indirect
-	github.com/blang/semver/v4 v4.0.0 // indirect
 	github.com/blizzy78/varnamelen v0.8.0 // indirect
 	github.com/bmatcuk/doublestar/v4 v4.10.0 // indirect
 	github.com/bombsimon/wsl/v4 v4.7.0 // indirect
