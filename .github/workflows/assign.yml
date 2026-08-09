@@ -125,7 +125,11 @@ jobs:
             // confirm rather than trusting the call to have taken effect.
             const { data: after } = await github.rest.issues.get({ owner, repo, issue_number });
             if (!(after.assignees || []).some((a) => a.login === target)) {
-              await reply(`@${target} GitHub couldn't assign this issue to you. You may need to comment on this issue first or be a repository collaborator.`);
+              if (target === commenter) {
+                await reply(`@${commenter} I couldn't assign this to you — GitHub rejected the assignment. A maintainer will pick this up shortly.`);
+              } else {
+                await reply(`@${target} GitHub couldn't assign this issue to you. You may need to comment on this issue first or be a repository collaborator.`);
+              }
               return;
             }
 
