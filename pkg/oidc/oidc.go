@@ -85,7 +85,7 @@ func NewProviderConfig(ctx context.Context, issuer string) (ProviderConfig, erro
 
 	// It appears that issuerUrl provided by user is not always
 	// the same as the one fetched from the OIDC provider's .well-known/openid-configuration (Microsoft Entra case).
-	// Need to store the original issuer URL too.
+	// Need to store the original issuerUrl too.
 	result.OriginalIssuer = issuer
 	return result, nil
 }
