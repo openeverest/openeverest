@@ -1,11 +1,30 @@
+// everest
+// Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package namespaces
 
 import (
 	"testing"
 
+	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	operatorUtils "github.com/percona/everest-operator/utils"
+	"github.com/percona/everest/pkg/cli"
 )
 
 func TestParseNamespaceNames(t *testing.T) {
@@ -168,6 +187,54 @@ func TestValidateNamespaces(t *testing.T) {
 			err := validateNamespaceNames(tc.input)
 			assert.Equal(t, tc.error, err)
 			// assert.ElementsMatch(t, tc.output, output)
+		})
+	}
+}
+
+func TestShouldAskOperators(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name       string
+		args       []string
+		skipWizard bool
+		expected   bool
+	}{
+		{
+			name:       "no operator flags passed, skipWizard false",
+			args:       []string{},
+			skipWizard: false,
+			expected:   true,
+		},
+		{
+			name:       "operator flag passed, skipWizard false",
+			args:       []string{"--" + cli.FlagOperatorMongoDB + "=true"},
+			skipWizard: false,
+			expected:   false,
+		},
+		{
+			name:       "no operator flags passed, skipWizard true",
+			args:       []string{},
+			skipWizard: true,
+			expected:   false,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			cmd := &cobra.Command{}
+			cmd.Flags().Bool(cli.FlagOperatorMongoDB, true, "")
+			cmd.Flags().Bool(cli.FlagOperatorPostgresql, true, "")
+			cmd.Flags().Bool(cli.FlagOperatorXtraDBCluster, true, "")
+			cmd.Flags().Bool(cli.FlagOperatorMySQL, true, "")
+
+			err := cmd.ParseFlags(tc.args)
+			require.NoError(t, err)
+
+			res := ShouldAskOperators(cmd, tc.skipWizard)
+			assert.Equal(t, tc.expected, res)
 		})
 	}
 }
