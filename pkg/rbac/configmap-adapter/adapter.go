@@ -90,7 +90,7 @@ func (a *Adapter) LoadPolicy(model model.Model) error {
 
 	cm, err := a.kubeClient.GetConfigMap(ctx, a.namespacedName)
 	if err != nil {
-		return fmt.Errorf("failed to load RBAC policy configmap %q: %w", a.namespacedName, err)
+		return fmt.Errorf("failed to load RBAC policy configmap %s: %w", a.namespacedName, err)
 	}
 
 	data, ok := cm.Data["policy.csv"]

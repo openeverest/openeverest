@@ -85,7 +85,7 @@ func TestLoadPolicy(t *testing.T) {
 	nn := types.NamespacedName{Namespace: "test-ns", Name: "test-cm"}
 	l := zap.NewNop().Sugar()
 
-	testcases := []struct {
+	testCases := []struct {
 		desc      string
 		mock      *mockK8s
 		timeout   time.Duration
@@ -119,7 +119,8 @@ func TestLoadPolicy(t *testing.T) {
 		},
 	}
 
-	for _, tc := range testcases {
+	for _, tc := range testCases {
+		tc := tc
 		t.Run(tc.desc, func(t *testing.T) {
 			t.Parallel()
 
@@ -140,12 +141,13 @@ func TestLoadPolicy(t *testing.T) {
 			select {
 			case err := <-done:
 				if tc.wantErr {
-					assert.Error(t, err)
 					if tc.errSubstr != "" {
-						assert.ErrorContains(t, err, tc.errSubstr)
+						require.ErrorContains(t, err, tc.errSubstr)
+					} else {
+						require.Error(t, err)
 					}
 				} else {
-					assert.NoError(t, err)
+					require.NoError(t, err)
 				}
 			case <-time.After(2 * time.Second):
 				t.Fatal("LoadPolicy did not return within bounded time — possible hang")
