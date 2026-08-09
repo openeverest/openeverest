@@ -85,7 +85,8 @@ func main() {
 	}
 
 	quit := make(chan os.Signal, 1)
-	waitForShutdownSignal(quit)
+	signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
+	<-quit
 
 	tCancel()
 	ctx, cancel := context.WithTimeout(context.Background(), contextTimeout)
@@ -97,9 +98,4 @@ func main() {
 	}
 
 	l.Info("Exiting")
-}
-
-func waitForShutdownSignal(quit chan os.Signal) {
-	signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
-	<-quit
 }
