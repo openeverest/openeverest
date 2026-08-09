@@ -48,6 +48,9 @@ const (
 	// PG default upload interval
 	// https://github.com/percona/percona-postgresql-operator/blob/82673d4d80aa329b5bd985889121280caad064fb/internal/pgbackrest/postgres.go#L58
 	pgDefaultUploadInterval = 60
+
+	everestAPIBackoffInterval   = time.Second
+	everestAPIBackoffMaxRetries = 10
 )
 
 func (h *k8sHandler) CreateDatabaseCluster(ctx context.Context, db *everestv1alpha1.DatabaseCluster) (*everestv1alpha1.DatabaseCluster, error) {
@@ -260,8 +263,15 @@ func (h *k8sHandler) GetDatabaseClusterPitr(ctx context.Context, namespace, name
 	return response, nil
 }
 
-//nolint:gochecknoglobals
-var everestAPIConstantBackoff = backoff.WithMaxRetries(backoff.NewConstantBackOff(time.Second), 10) //nolint:mnd
+func newEverestAPIBackoff(ctx context.Context) backoff.BackOff { //nolint:ireturn // The backoff package exposes policies through this interface.
+	return backoff.WithContext(
+		backoff.WithMaxRetries(
+			backoff.NewConstantBackOff(everestAPIBackoffInterval),
+			everestAPIBackoffMaxRetries,
+		),
+		ctx,
+	)
+}
 
 func (h *k8sHandler) ensureBackupStorageProtection(ctx context.Context, backup *everestv1alpha1.DatabaseClusterBackup) error {
 	// We wrap this logic in a retry loop to reduce the chances of resource conflicts.
@@ -276,7 +286,7 @@ func (h *k8sHandler) ensureBackupStorageProtection(ctx context.Context, backup *
 			_, err = h.kubeConnector.UpdateDatabaseClusterBackup(ctx, backup)
 			return err
 		},
-		backoff.WithContext(everestAPIConstantBackoff, ctx),
+		newEverestAPIBackoff(ctx),
 	)
 }
 
@@ -292,7 +302,7 @@ func (h *k8sHandler) ensureBackupForegroundDeletion(ctx context.Context, backup 
 			_, err = h.kubeConnector.UpdateDatabaseClusterBackup(ctx, backup)
 			return err
 		},
-		backoff.WithContext(everestAPIConstantBackoff, ctx),
+		newEverestAPIBackoff(ctx),
 	)
 }
 
