@@ -48,34 +48,18 @@ type Adapter struct {
 	timeout        time.Duration
 }
 
-// Option is a functional option for the Adapter.
-type Option func(*Adapter)
-
-// WithTimeout sets the timeout for Kubernetes API calls made by the adapter.
-// If not set, defaultKubeAPITimeout (10s) is used.
-func WithTimeout(d time.Duration) Option {
-	return func(a *Adapter) {
-		a.timeout = d
-	}
-}
-
 // New constructs a new adapter that manages a policy inside a ConfigMap.
 func New(
 	l *zap.SugaredLogger,
 	kubeClient k8s,
 	namespacedName types.NamespacedName,
-	opts ...Option,
 ) *Adapter {
-	a := &Adapter{
+	return &Adapter{
 		kubeClient:     kubeClient,
 		namespacedName: namespacedName,
 		l:              l,
 		timeout:        defaultKubeAPITimeout,
 	}
-	for _, opt := range opts {
-		opt(a)
-	}
-	return a
 }
 
 // ConfigMap returns the configmap used for RBAC.

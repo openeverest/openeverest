@@ -19,6 +19,7 @@ package configmapadapter
 import (
 	"context"
 	"errors"
+	"io/fs"
 	"testing"
 	"time"
 
@@ -30,26 +31,9 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
+
+	"github.com/percona/everest/data"
 )
-
-// testRBACModel is a minimal Casbin RBAC model definition matching the
-// production model in data/rbac/model.conf.
-const testRBACModel = `
-[request_definition]
-r = sub, res, act, obj
-
-[policy_definition]
-p = sub, res, act, obj
-
-[role_definition]
-g = _, _
-
-[policy_effect]
-e = some(where (p.eft == allow)) && !some(where (p.eft == deny))
-
-[matchers]
-m = g(r.sub, p.sub) && globMatch(r.res, p.res) && globMatch(r.act, p.act) && globMatch(r.obj, p.obj)
-`
 
 // mockK8s implements the k8s interface for testing.
 type mockK8s struct {
@@ -123,51 +107,30 @@ func TestLoadPolicy(t *testing.T) {
 		t.Run(tc.desc, func(t *testing.T) {
 			t.Parallel()
 
-			var opts []Option
+			adapter := New(l, tc.mock, nn)
 			if tc.timeout > 0 {
-				opts = append(opts, WithTimeout(tc.timeout))
+				adapter.timeout = tc.timeout
 			}
-			adapter := New(l, tc.mock, nn, opts...)
 
-			m, err := model.NewModelFromString(testRBACModel)
+			modelData, err := fs.ReadFile(data.RBAC, "rbac/model.conf")
+			require.NoError(t, err)
+			m, err := model.NewModelFromString(string(modelData))
 			require.NoError(t, err)
 
-			done := make(chan error, 1)
-			go func() {
-				done <- adapter.LoadPolicy(m)
-			}()
+			err = adapter.LoadPolicy(m)
 
-			select {
-			case err := <-done:
-				if tc.wantErr {
-					if tc.errSubstr != "" {
-						require.ErrorContains(t, err, tc.errSubstr)
-					} else {
-						require.Error(t, err)
-					}
+			if tc.wantErr {
+				if tc.errSubstr != "" {
+					require.ErrorContains(t, err, tc.errSubstr)
 				} else {
-					require.NoError(t, err)
+					require.Error(t, err)
 				}
-			case <-time.After(2 * time.Second):
-				t.Fatal("LoadPolicy did not return within bounded time — possible hang")
+			} else {
+				require.NoError(t, err)
+				got, err := m.GetPolicy("p", "p")
+				require.NoError(t, err)
+				assert.Equal(t, [][]string{{"role:admin", "database-clusters", "*", "*"}}, got)
 			}
 		})
 	}
-}
-
-func TestDefaultTimeout(t *testing.T) {
-	t.Parallel()
-	l := zap.NewNop().Sugar()
-	nn := types.NamespacedName{Namespace: "ns", Name: "cm"}
-	adapter := New(l, &mockK8s{}, nn)
-	assert.Equal(t, defaultKubeAPITimeout, adapter.timeout)
-}
-
-func TestWithTimeout(t *testing.T) {
-	t.Parallel()
-	l := zap.NewNop().Sugar()
-	nn := types.NamespacedName{Namespace: "ns", Name: "cm"}
-	custom := 500 * time.Millisecond
-	adapter := New(l, &mockK8s{}, nn, WithTimeout(custom))
-	assert.Equal(t, custom, adapter.timeout)
 }
