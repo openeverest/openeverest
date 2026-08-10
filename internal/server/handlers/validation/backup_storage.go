@@ -337,14 +337,28 @@ func azureAccess(ctx context.Context, l *zap.SugaredLogger, accountName, account
 	return nil
 }
 
+// basicStorageParamsAreChanged reports whether an in-use backup storage update changes
+// bucket or region — parameters that definitively point at a different set of objects.
+//
+// EndpointURL is intentionally excluded. An endpoint change is usually not a change of
+// location: object storage may move behind a new ingress hostname, a domain may be
+// retired, in-cluster DNS may change after a namespace move, or a bucket may start being
+// reached through a private endpoint while the objects stay put. Freezing the URL would
+// leave existing DatabaseClusterBackup objects (which reference storage by name) with no
+// supported way back to that history once the old hostname is gone.
+//
+// The safety check for a URL change is reachability, not immutability:
+// validateUpdateBackupStorageRequest runs the full access check against the new endpoint
+// with bucket and region unchanged, so the update only succeeds if that bucket is readable
+// and writable there.
+//
+// This is a different question from validateDuplicateStorageByUpdate, which compares
+// region + bucket + url to decide whether two storages address the same place
+// (see errDuplicatedBackupStorage). The two functions are not meant to stay in sync.
+// See https://github.com/openeverest/openeverest/issues/2665 for the full reasoning.
 func basicStorageParamsAreChanged(bs *everestv1alpha1.BackupStorage, params *api.UpdateBackupStorageParams) bool {
-	if params.BucketName != nil && bs.Spec.Bucket != pointer.GetString(params.BucketName) {
-		return true
-	}
-	if params.Region != nil && bs.Spec.Region != pointer.GetString(params.Region) {
-		return true
-	}
-	return false
+	return bucketNameOrDefault(params, bs.Spec.Bucket) != bs.Spec.Bucket ||
+		regionOrDefault(params, bs.Spec.Region) != bs.Spec.Region
 }
 
 func (h *validateHandler) validateUpdateBackupStorageRequest(
