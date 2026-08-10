@@ -67,10 +67,17 @@ export const BackupsList = () => {
     `${namespace}/${instanceName}`
   );
 
+  const hasSchedules = !!instance.spec?.backup?.storages?.some(
+    (storage) => !!storage.schedules?.length
+  );
+  const monitoringEnabled =
+    !!instance.spec?.monitoring?.monitoringConfigName;
+
   const canRestore = useCanRestore(namespace, instanceName);
   const canCreateClusterFromBackup = useCanCreateClusterFromBackup(
     namespace,
-    instanceName
+    instanceName,
+    { hasSchedules, monitoringEnabled }
   );
 
   const { data: backups = [] } = useBackupsList(

@@ -27,14 +27,37 @@ vi.mock('hooks/rbac', () => ({
 }));
 
 describe('useCanCreateClusterFromBackup', () => {
+  const setPermissions = (permissions: {
+    canCreateClusters?: boolean;
+    canCreateBackups?: boolean;
+    canReadMonitoring?: boolean;
+  }) => {
+    mockUseRBACPermissions.mockImplementation((resource: string) => {
+      if (resource === 'database-clusters') {
+        return { canCreate: permissions.canCreateClusters ?? false };
+      }
+      if (resource === 'database-cluster-backups') {
+        return { canCreate: permissions.canCreateBackups ?? false };
+      }
+      if (resource === 'monitoring-instances') {
+        return { canRead: permissions.canReadMonitoring ?? false };
+      }
+      return { canCreate: false, canRead: false };
+    });
+  };
+
   beforeEach(() => {
     vi.clearAllMocks();
-    mockUseRBACPermissions.mockReturnValue({ canCreate: false });
+    setPermissions({
+      canCreateClusters: false,
+      canCreateBackups: false,
+      canReadMonitoring: false,
+    });
   });
 
   it('returns true only when restore and create permissions are both granted', () => {
     mockUseCanRestore.mockReturnValue(true);
-    mockUseRBACPermissions.mockReturnValue({ canCreate: true });
+    setPermissions({ canCreateClusters: true });
 
     const { result } = renderHook(() =>
       useCanCreateClusterFromBackup('ns-a', 'inst-a')
@@ -45,7 +68,7 @@ describe('useCanCreateClusterFromBackup', () => {
 
   it('returns false when restore permission is missing', () => {
     mockUseCanRestore.mockReturnValue(false);
-    mockUseRBACPermissions.mockReturnValue({ canCreate: true });
+    setPermissions({ canCreateClusters: true });
 
     const { result } = renderHook(() =>
       useCanCreateClusterFromBackup('ns-a', 'inst-a')
@@ -56,7 +79,7 @@ describe('useCanCreateClusterFromBackup', () => {
 
   it('returns false when cluster create permission is missing', () => {
     mockUseCanRestore.mockReturnValue(true);
-    mockUseRBACPermissions.mockReturnValue({ canCreate: false });
+    setPermissions({ canCreateClusters: false });
 
     const { result } = renderHook(() =>
       useCanCreateClusterFromBackup('ns-a', 'inst-a')
@@ -67,7 +90,7 @@ describe('useCanCreateClusterFromBackup', () => {
 
   it('checks cluster creation permission in the source namespace wildcard scope', () => {
     mockUseCanRestore.mockReturnValue(true);
-    mockUseRBACPermissions.mockReturnValue({ canCreate: true });
+    setPermissions({ canCreateClusters: true });
 
     renderHook(() => useCanCreateClusterFromBackup('team-ns', 'inst-a'));
 
@@ -75,5 +98,53 @@ describe('useCanCreateClusterFromBackup', () => {
       'database-clusters',
       'team-ns/*'
     );
+  });
+
+  it('requires backup create permission when schedules exist', () => {
+    mockUseCanRestore.mockReturnValue(true);
+    setPermissions({
+      canCreateClusters: true,
+      canCreateBackups: false,
+    });
+
+    const { result } = renderHook(() =>
+      useCanCreateClusterFromBackup('ns-a', 'inst-a', { hasSchedules: true })
+    );
+
+    expect(result.current).toBe(false);
+  });
+
+  it('requires monitoring read permission when monitoring is enabled', () => {
+    mockUseCanRestore.mockReturnValue(true);
+    setPermissions({
+      canCreateClusters: true,
+      canReadMonitoring: false,
+    });
+
+    const { result } = renderHook(() =>
+      useCanCreateClusterFromBackup('ns-a', 'inst-a', {
+        monitoringEnabled: true,
+      })
+    );
+
+    expect(result.current).toBe(false);
+  });
+
+  it('passes when all required permissions for schedules and monitoring are present', () => {
+    mockUseCanRestore.mockReturnValue(true);
+    setPermissions({
+      canCreateClusters: true,
+      canCreateBackups: true,
+      canReadMonitoring: true,
+    });
+
+    const { result } = renderHook(() =>
+      useCanCreateClusterFromBackup('ns-a', 'inst-a', {
+        hasSchedules: true,
+        monitoringEnabled: true,
+      })
+    );
+
+    expect(result.current).toBe(true);
   });
 });

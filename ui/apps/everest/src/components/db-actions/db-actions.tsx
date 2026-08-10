@@ -46,6 +46,28 @@ import { useCanCreateClusterFromBackup } from 'hooks/api/restores/useCanCreateCl
 import { useClusterName } from 'hooks/api/useClusterName';
 import { BackupStatus } from 'shared-types/backups.types';
 
+const hasMonitoringConfigName = (instance: unknown): boolean => {
+  if (typeof instance !== 'object' || instance === null) {
+    return false;
+  }
+
+  const spec = Reflect.get(instance, 'spec');
+  if (typeof spec !== 'object' || spec === null) {
+    return false;
+  }
+
+  const monitoring = Reflect.get(spec, 'monitoring');
+  if (typeof monitoring !== 'object' || monitoring === null) {
+    return false;
+  }
+
+  const monitoringConfigName = Reflect.get(monitoring, 'monitoringConfigName');
+  return (
+    typeof monitoringConfigName === 'string' &&
+    monitoringConfigName.trim().length > 0
+  );
+};
+
 export const DbActions = ({
   // showDetailsAction = false,
   showStatusActions = false,
@@ -93,12 +115,10 @@ export const DbActions = ({
   // TODO needs a final enum
   // const actionsBlocked = shouldDbActionsBeBlocked(dbInstance.status?.phase as DbInstanceStatus || '');
   const actionsBlocked = dbInstance?.status?.phase === 'Terminating';
-  // const hasSchedules = !!(
-  //   dbInstance.spec.backup && (dbInstance.spec.backup.schedules || []).length > 0
-  // );
-  // const monitoringEnabled = !!(
-  //   dbInstance.spec.monitoring && dbInstance.spec.monitoring?.monitoringConfigName
-  // );
+  const hasSchedules = !!dbInstance.spec?.backup?.storages?.some(
+    (storage) => !!storage.schedules?.length
+  );
+  const monitoringEnabled = hasMonitoringConfigName(dbInstance);
   const handleClick = (event: React.MouseEvent<HTMLButtonElement>) => {
     event.stopPropagation();
     setAnchorEl(event.currentTarget);
@@ -115,18 +135,9 @@ export const DbActions = ({
   const canRestore = useCanRestore(namespace, dbInstanceName ?? '');
   const canCreateClusterFromBackup = useCanCreateClusterFromBackup(
     namespace,
-    dbInstanceName ?? ''
+    dbInstanceName ?? '',
+    { hasSchedules, monitoringEnabled }
   );
-
-  // const { canCreate: canCreateBackups } = useRBACPermissions(
-  //   'database-cluster-backups',
-  //   `${namespace}/${dbInstanceName}`
-  // );
-
-  // const { canRead: canReadMonitoring } = useRBACPermissions(
-  //   'monitoring-instances',
-  //   `${namespace}/${dbInstanceName}`
-  // );
 
   // const canRestore = canCreateRestore && canReadCredentials;
   // TODO RBAC
@@ -146,17 +157,6 @@ export const DbActions = ({
       ),
     [plugins]
   );
-  // let canCreateClusterFromBackup = canRestore && canCreateClusters;
-
-  // if (hasSchedules) {
-  //   canCreateClusterFromBackup = canCreateClusterFromBackup && canCreateBackups;
-  // }
-
-  // if (monitoringEnabled) {
-  //   canCreateClusterFromBackup =
-  //     canCreateClusterFromBackup && canReadMonitoring;
-  // }
-
   const sx = {
     display: 'flex',
     gap: 1,

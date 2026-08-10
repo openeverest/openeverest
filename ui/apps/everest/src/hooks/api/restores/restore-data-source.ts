@@ -17,6 +17,9 @@ import {
   RestoreDataSourceInput,
 } from 'shared-types/restores.types';
 
+const isStringOrUndefined = (value: unknown): value is string | undefined =>
+  value === undefined || typeof value === 'string';
+
 // Build the Restore CRD dataSource from an FE input. storageRef is always sent
 // (the BE never infers it); date is included only for a date target and omitted
 // for 'latest' (the schema forbids it there). instanceRef is set only when
@@ -56,20 +59,33 @@ export const isRestoreDataSourceInput = (
   if (typeof value !== 'object' || value === null) {
     return false;
   }
-  const candidate = value as Partial<RestoreDataSourceInput>;
-  if (candidate.type === 'Backup') {
-    return typeof candidate.backupName === 'string';
-  }
-  if (candidate.type === 'PointInTime') {
-    if (typeof candidate.storageName !== 'string') {
-      return false;
-    }
-    if (candidate.recoveryTarget === 'latest') {
-      return true;
-    }
+
+  const type = Reflect.get(value, 'type');
+
+  if (type === 'Backup') {
     return (
-      candidate.recoveryTarget === 'date' && typeof candidate.date === 'string'
+      typeof Reflect.get(value, 'backupName') === 'string' &&
+      isStringOrUndefined(Reflect.get(value, 'storageName'))
     );
   }
+
+  if (type === 'PointInTime') {
+    const storageName = Reflect.get(value, 'storageName');
+    if (typeof storageName !== 'string') {
+      return false;
+    }
+
+    if (!isStringOrUndefined(Reflect.get(value, 'sourceInstanceName'))) {
+      return false;
+    }
+
+    const recoveryTarget = Reflect.get(value, 'recoveryTarget');
+    if (recoveryTarget === 'latest') {
+      return true;
+    }
+
+    return recoveryTarget === 'date' && typeof Reflect.get(value, 'date') === 'string';
+  }
+
   return false;
 };
