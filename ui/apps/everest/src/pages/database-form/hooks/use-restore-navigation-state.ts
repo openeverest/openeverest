@@ -13,15 +13,10 @@
 // limitations under the License.
 
 import { useLocation } from 'react-router-dom';
-import { RestoreDataSourceInput } from 'shared-types/restores.types';
-import { isRestoreDataSourceInput } from 'hooks/api/restores/restore-data-source';
-
-export interface RestoreNavigationState {
-  sourceInstanceName?: string;
-  sourceNamespace?: string;
-  restoreDataSource?: RestoreDataSourceInput;
-  isRestore: boolean;
-}
+import {
+  parseRestoreNavigationRouteState,
+  ParsedRestoreNavigationState,
+} from '../restore-navigation-state';
 
 // Single reader + validator for the restore-to-new-DB payload the modal passes
 // to the wizard via router state. Centralizes the (previously triplicated) shape
@@ -29,16 +24,7 @@ export interface RestoreNavigationState {
 // and validates the untyped router state before it reaches the restore payload.
 export const useRestoreNavigationState = (): RestoreNavigationState => {
   const { state } = useLocation();
-  const sourceInstanceName: string | undefined = state?.selectedDbCluster;
-  const sourceNamespace: string | undefined = state?.namespace;
-  const restoreDataSource = isRestoreDataSourceInput(state?.restoreDataSource)
-    ? state.restoreDataSource
-    : undefined;
-
-  return {
-    sourceInstanceName,
-    sourceNamespace,
-    restoreDataSource,
-    isRestore: !!sourceInstanceName && !!sourceNamespace && !!restoreDataSource,
-  };
+  return parseRestoreNavigationRouteState(state);
 };
+
+export type RestoreNavigationState = ParsedRestoreNavigationState;

@@ -42,6 +42,7 @@ import {
 } from './restore-db-modal.utils';
 import { resolvePitrWindow } from 'utils/pitr';
 import { resolveRestoreAction } from './resolve-restore-action';
+import { buildRestoreNavigationRouteState } from 'pages/database-form/restore-navigation-state';
 
 interface UseRestoreDbModalParams {
   instanceName: string;
@@ -130,11 +131,11 @@ export const useRestoreDbModal = ({
     if (action.kind === 'navigate-new') {
       closeModal();
       navigate('/databases/new', {
-        state: {
-          selectedDbCluster: instanceName,
+        state: buildRestoreNavigationRouteState(
+          instanceName,
           namespace,
-          restoreDataSource: action.dataSource,
-        },
+          action.dataSource
+        ),
       });
       return;
     }

@@ -84,7 +84,10 @@ export const isRestoreDataSourceInput = (
       return true;
     }
 
-    return recoveryTarget === 'date' && typeof Reflect.get(value, 'date') === 'string';
+    return (
+      recoveryTarget === 'date' &&
+      typeof Reflect.get(value, 'date') === 'string'
+    );
   }
 
   return false;

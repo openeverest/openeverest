@@ -40,7 +40,7 @@ export const useCanCreateClusterFromBackup = (
     `${namespace}/${instanceName}`
   );
   const { canRead: canReadMonitoring } = useRBACPermissions(
-    'monitoring-instances',
+    'monitoring-configs',
     `${namespace}/${instanceName}`
   );
 

@@ -49,6 +49,28 @@ import { useRBACPermissions } from 'hooks/rbac';
 import { useCanRestore } from 'hooks/api/restores/useCanRestore';
 import { useCanCreateClusterFromBackup } from 'hooks/api/restores/useCanCreateClusterFromBackup';
 
+const hasMonitoringConfigName = (instance: unknown): boolean => {
+  if (typeof instance !== 'object' || instance === null) {
+    return false;
+  }
+
+  const spec = Reflect.get(instance, 'spec');
+  if (typeof spec !== 'object' || spec === null) {
+    return false;
+  }
+
+  const monitoring = Reflect.get(spec, 'monitoring');
+  if (typeof monitoring !== 'object' || monitoring === null) {
+    return false;
+  }
+
+  const monitoringConfigName = Reflect.get(monitoring, 'monitoringConfigName');
+  return (
+    typeof monitoringConfigName === 'string' &&
+    monitoringConfigName.trim().length > 0
+  );
+};
+
 export const BackupsList = () => {
   const { instanceName = '', namespace = '' } = useParams();
   const clusterName = useClusterName();
@@ -70,8 +92,7 @@ export const BackupsList = () => {
   const hasSchedules = !!instance.spec?.backup?.storages?.some(
     (storage) => !!storage.schedules?.length
   );
-  const monitoringEnabled =
-    !!instance.spec?.monitoring?.monitoringConfigName;
+  const monitoringEnabled = hasMonitoringConfigName(instance);
 
   const canRestore = useCanRestore(namespace, instanceName);
   const canCreateClusterFromBackup = useCanCreateClusterFromBackup(

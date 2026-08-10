@@ -39,7 +39,7 @@ describe('useCanCreateClusterFromBackup', () => {
       if (resource === 'database-cluster-backups') {
         return { canCreate: permissions.canCreateBackups ?? false };
       }
-      if (resource === 'monitoring-instances') {
+      if (resource === 'monitoring-configs') {
         return { canRead: permissions.canReadMonitoring ?? false };
       }
       return { canCreate: false, canRead: false };
