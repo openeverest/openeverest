@@ -28,10 +28,9 @@ import (
 
 	"github.com/AlekSi/pointer"
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob"
-	"github.com/aws/aws-sdk-go/aws"             //nolint:staticcheck // TODO: migrate to aws-sdk-go-v2
-	"github.com/aws/aws-sdk-go/aws/credentials" //nolint:staticcheck // TODO: migrate to aws-sdk-go-v2
-	"github.com/aws/aws-sdk-go/aws/session"     //nolint:staticcheck // TODO: migrate to aws-sdk-go-v2
-	"github.com/aws/aws-sdk-go/service/s3"      //nolint:staticcheck // TODO: migrate to aws-sdk-go-v2
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/credentials"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -170,7 +169,7 @@ func validateBucketName(s string) error {
 func validateStorageAccessByCreate(ctx context.Context, params *api.CreateBackupStorageParams, l *zap.SugaredLogger) error {
 	switch params.Type {
 	case api.CreateBackupStorageParamsTypeS3:
-		return s3Access(l, params.Url, params.AccessKey, params.SecretKey, params.BucketName, params.Region, pointer.Get(params.VerifyTLS), pointer.Get(params.ForcePathStyle))
+		return s3Access(ctx, l, params.Url, params.AccessKey, params.SecretKey, params.BucketName, params.Region, pointer.Get(params.VerifyTLS), pointer.Get(params.ForcePathStyle))
 	case api.CreateBackupStorageParamsTypeAzure:
 		return azureAccess(ctx, l, params.AccessKey, params.SecretKey, params.BucketName)
 	default:
@@ -192,7 +191,7 @@ func validateBackupStorageAccess(
 		if region == "" {
 			return errors.New("region is required when using S3 storage type")
 		}
-		if err := s3Access(l, url, accessKey, secretKey, bucketName, region, verifyTLS, forcePathStyle); err != nil {
+		if err := s3Access(ctx, l, url, accessKey, secretKey, bucketName, region, verifyTLS, forcePathStyle); err != nil {
 			return err
 		}
 	case string(api.BackupStorageTypeAzure):
@@ -208,6 +207,7 @@ func validateBackupStorageAccess(
 
 //nolint:funlen
 func s3Access(
+	ctx context.Context,
 	l *zap.SugaredLogger,
 	endpoint *string,
 	accessKey, secretKey, bucketName, region string,
@@ -228,23 +228,24 @@ func s3Access(
 			TLSClientConfig: &tls.Config{InsecureSkipVerify: !verifyTLS}, //nolint:gosec
 		},
 	}
-	// Create a new session with the provided credentials
-	sess, err := session.NewSession(&aws.Config{
-		Endpoint:         endpoint,
-		Region:           new(region),
-		Credentials:      credentials.NewStaticCredentials(accessKey, secretKey, ""),
-		HTTPClient:       c,
-		S3ForcePathStyle: new(forcePathStyle),
-	})
-	if err != nil {
-		l.Error(err)
-		return errors.New("could not initialize S3 session")
+	cfg := aws.Config{
+		Region:      region,
+		Credentials: credentials.NewStaticCredentialsProvider(accessKey, secretKey, ""),
+		HTTPClient:  c,
+		// SDK v1 sent no integrity checksums; keep that wire format for
+		// S3-compatible endpoints that don't implement them.
+		RequestChecksumCalculation: aws.RequestChecksumCalculationWhenRequired,
+		ResponseChecksumValidation: aws.ResponseChecksumValidationWhenRequired,
 	}
 
-	// Create a new S3 client with the session
-	svc := s3.New(sess)
+	var err error
+	// Create a new S3 client with the config
+	svc := s3.NewFromConfig(cfg, func(o *s3.Options) {
+		o.UsePathStyle = forcePathStyle
+		o.BaseEndpoint = endpoint
+	})
 
-	_, err = svc.HeadBucket(&s3.HeadBucketInput{
+	_, err = svc.HeadBucket(ctx, &s3.HeadBucketInput{
 		Bucket: new(bucketName),
 	})
 	if err != nil {
@@ -253,7 +254,7 @@ func s3Access(
 	}
 
 	testKey := "everest-write-test"
-	_, err = svc.PutObject(&s3.PutObjectInput{
+	_, err = svc.PutObject(ctx, &s3.PutObjectInput{
 		Bucket: new(bucketName),
 		Body:   bytes.NewReader([]byte{}),
 		Key:    new(testKey),
@@ -263,7 +264,7 @@ func s3Access(
 		return errors.New("could not write to S3 bucket")
 	}
 
-	_, err = svc.GetObject(&s3.GetObjectInput{
+	_, err = svc.GetObject(ctx, &s3.GetObjectInput{
 		Bucket: new(bucketName),
 		Key:    new(testKey),
 	})
@@ -272,14 +273,15 @@ func s3Access(
 		return errors.New("could not read from S3 bucket")
 	}
 
-	_, err = svc.ListObjectsV2(&s3.ListObjectsV2Input{
+	_, err = svc.ListObjectsV2(ctx, &s3.ListObjectsV2Input{
 		Bucket: new(bucketName),
 	})
 	if err != nil {
+		l.Error(err)
 		return errors.New("could not list objects in S3 bucket")
 	}
 
-	_, err = svc.DeleteObject(&s3.DeleteObjectInput{
+	_, err = svc.DeleteObject(ctx, &s3.DeleteObjectInput{
 		Bucket: new(bucketName),
 		Key:    new(testKey),
 	})

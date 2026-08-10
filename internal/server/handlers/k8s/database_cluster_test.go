@@ -79,6 +79,8 @@ func TestLatestRestorableDate(t *testing.T) {
 
 	now := time.Date(2024, 3, 12, 12, 0, 0, 0, time.UTC)
 	restorable := now.Add(-600 * time.Second)
+	nowWithNanos := time.Date(2024, 3, 12, 12, 0, 0, 999999999, time.UTC)
+	restorableFromNanos := time.Date(2024, 3, 12, 11, 50, 0, 0, time.UTC)
 	cases := []tCase{
 		{
 			name:             "backup 5 min ago, upload interval 10 min",
@@ -93,6 +95,13 @@ func TestLatestRestorableDate(t *testing.T) {
 			latestBackupTime: now.Add(-900 * time.Second),
 			now:              now,
 			expected:         &restorable,
+		},
+		{
+			name:             "now has nanosecond precision — must be stripped",
+			uploadInterval:   600,
+			latestBackupTime: time.Date(2024, 3, 12, 11, 44, 59, 0, time.UTC),
+			now:              nowWithNanos,
+			expected:         &restorableFromNanos,
 		},
 	}
 

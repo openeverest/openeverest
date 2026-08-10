@@ -396,7 +396,7 @@ func latestRestorableDate(now, latestBackupTime time.Time, heuristicsInterval in
 		return nil
 	}
 	// delete nanoseconds since they're not accepted by restoration
-	now = now.Truncate(time.Duration(now.Nanosecond()) * time.Nanosecond)
+	now = now.Truncate(time.Second)
 	// heuristic: latest restorable date is now minus uploadInterval
 	date := now.Add(-time.Duration(heuristicsInterval) * time.Second).UTC()
 	// not able to restore if after the latest backup passed less than uploadInterval time,
