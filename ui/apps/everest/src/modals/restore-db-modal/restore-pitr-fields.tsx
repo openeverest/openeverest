@@ -99,8 +99,7 @@ export const RestorePitrFields = ({ pitrStorages }: RestorePitrFieldsProps) => {
         {pitrWindow.available && pitrWindow.earliest && pitrWindow.latest
           ? Messages.pitrDisclaimer(
               format(pitrWindow.earliest, PITR_DATE_FORMAT),
-              format(pitrWindow.latest, PITR_DATE_FORMAT),
-              activeStorage.name
+              format(pitrWindow.latest, PITR_DATE_FORMAT)
             )
           : (pitrWindow.message ?? Messages.pitrUnavailable)}
       </Alert>

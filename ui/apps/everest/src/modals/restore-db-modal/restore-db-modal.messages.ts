@@ -35,10 +35,7 @@ export const Messages = {
   pitrDateRequired: 'Select a point in time within the available window.',
   pitrDateOutOfRange:
     'The selected time is outside the available recovery window.',
-  pitrDisclaimer: (
-    earliestDate: string,
-    latestDate: string,
-  ) =>
+  pitrDisclaimer: (earliestDate: string, latestDate: string) =>
     `Available recovery window: ${earliestDate} – ${latestDate}.`,
   gapDisclaimer: `Oops, your PITR data contains binlog gaps, which makes PITR currently unavailable for this database.
     To ensure complete PITR points for future restores, start a full backup now.`,
