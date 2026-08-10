@@ -30,11 +30,11 @@ interface RestorePitrFieldsProps {
   pitrStorages: RestorePitrStorageOption[];
 }
 
-export const RestorePitrFields = ({
-  pitrStorages,
-}: RestorePitrFieldsProps) => {
+export const RestorePitrFields = ({ pitrStorages }: RestorePitrFieldsProps) => {
   const { setValue } = useFormContext();
-  const selectedStorage: string = useWatch({ name: RestoreDbFields.pitrStorage });
+  const selectedStorage: string = useWatch({
+    name: RestoreDbFields.pitrStorage,
+  });
   const recoveryTarget: RecoveryTargetValues = useWatch({
     name: RestoreDbFields.recoveryTarget,
   });
@@ -99,8 +99,7 @@ export const RestorePitrFields = ({
         {pitrWindow.available && pitrWindow.earliest && pitrWindow.latest
           ? Messages.pitrDisclaimer(
               format(pitrWindow.earliest, PITR_DATE_FORMAT),
-              format(pitrWindow.latest, PITR_DATE_FORMAT),
-              activeStorage.name
+              format(pitrWindow.latest, PITR_DATE_FORMAT)
             )
           : (pitrWindow.message ?? Messages.pitrUnavailable)}
       </Alert>
@@ -125,9 +124,8 @@ export const RestorePitrFields = ({
               ampm={false}
               views={['year', 'month', 'day', 'hours', 'minutes', 'seconds']}
               timeSteps={{ hours: 1, minutes: 1, seconds: 1 }}
-              disableFuture
-              minDate={pitrWindow.earliest}
-              maxDate={pitrWindow.latest}
+              minDateTime={pitrWindow.earliest}
+              maxDateTime={pitrWindow.latest}
               format={PITR_DATE_FORMAT}
               name={RestoreDbFields.pointInTimeDate}
               label={Messages.selectPointInTime}

@@ -26,7 +26,6 @@ import {
   buildPitrPayload,
   countPitrEnabledStorages,
   getPitrBlockReason,
-  hasActiveSchedules,
   setStoragePitr,
 } from '../../pitr.utils';
 import { Messages } from './storage-pitr-toggle.messages';
@@ -49,20 +48,18 @@ export const useStoragePitr = (storage: InstanceBackupStorage) => {
 
   const maxPitrStorages = providerManaged?.limits?.maxPITREnabledStorages;
 
-  // Business rules only block turning PITR on; a missing update permission
-  // blocks both directions. The reason is what drives the disabled state.
+  // The only hard block on enabling is the per-provider storage limit; a
+  // missing update permission blocks both directions. A missing backup is a
+  // non-blocking warning surfaced by StoragesList, not a disabled state here.
   const blockReason = getPitrBlockReason({
-    hasSchedules: hasActiveSchedules(storages),
     enabledCount: countPitrEnabledStorages(storages),
     maxEnabled: maxPitrStorages,
     storageEnabled: enabled,
   });
   const blockedReason =
-    blockReason === 'no-schedule'
-      ? Messages.needsSchedule
-      : blockReason === 'limit-reached' && maxPitrStorages != null
-        ? Messages.limitReached(maxPitrStorages)
-        : undefined;
+    blockReason === 'limit-reached' && maxPitrStorages != null
+      ? Messages.limitReached(maxPitrStorages)
+      : undefined;
   const reason = canUpdate ? blockedReason : Messages.noPermission;
 
   const { mutate: updateInstance, isPending } =
@@ -99,7 +96,6 @@ export const useStoragePitr = (storage: InstanceBackupStorage) => {
     reason,
     showConfig: hasSchema,
     configDisabled: !enabled || !canUpdate,
-    configReason: !canUpdate ? Messages.noPermission : undefined,
     activeClass,
     currentParameters: storage.pitr?.parameters,
     namespace: instance.metadata?.namespace,

@@ -13,15 +13,12 @@
 // limitations under the License.
 
 import { useState } from 'react';
-import { Switch, Typography } from '@mui/material';
-import EditableItem from 'components/editable-item/editable-item';
-import { BlockedTooltip } from 'components/blocked-tooltip';
 import { BackupClass } from 'shared-types/backups.types';
 import { PitrConfigModal } from 'components/pitr-config-modal';
+import { PitrStorageRow } from 'components/pitr-storage-row';
 import { WizardPitrStorage } from './use-pitr-block';
-import { Messages } from './pitr-block.messages';
 
-interface PitrStorageRowProps {
+interface WizardPitrStorageRowProps {
   storage: WizardPitrStorage;
   backupClass: BackupClass | undefined;
   namespace: string;
@@ -29,13 +26,13 @@ interface PitrStorageRowProps {
   onSetParameters: (parameters: Record<string, unknown> | undefined) => void;
 }
 
-export const PitrStorageRow = ({
+export const WizardPitrStorageRow = ({
   storage,
   backupClass,
   namespace,
   onToggle,
   onSetParameters,
-}: PitrStorageRowProps) => {
+}: WizardPitrStorageRowProps) => {
   const [configuring, setConfiguring] = useState(false);
   const {
     name,
@@ -43,34 +40,21 @@ export const PitrStorageRow = ({
     reason,
     showConfig,
     configDisabled,
-    scheduleCount,
     currentParameters,
   } = storage;
 
   return (
     <>
-      <EditableItem
-        dataTestId={name}
-        endText={Messages.scheduleCount(scheduleCount)}
-        editButtonProps={
-          showConfig
-            ? { onClick: () => setConfiguring(true), disabled: configDisabled }
-            : undefined
-        }
-        controls={
-          <BlockedTooltip reason={reason}>
-            <Switch
-              size="small"
-              checked={enabled}
-              disabled={reason !== undefined}
-              onChange={(_, next) => onToggle(next)}
-              data-testid={`pitr-toggle-${name}`}
-            />
-          </BlockedTooltip>
-        }
-      >
-        <Typography variant="body1">{name}</Typography>
-      </EditableItem>
+      <PitrStorageRow
+        storageName={name}
+        checked={enabled}
+        onToggle={onToggle}
+        toggleDisabled={reason !== undefined}
+        toggleReason={reason}
+        showConfig={showConfig}
+        configDisabled={configDisabled}
+        onConfigClick={() => setConfiguring(true)}
+      />
 
       {configuring && (
         <PitrConfigModal

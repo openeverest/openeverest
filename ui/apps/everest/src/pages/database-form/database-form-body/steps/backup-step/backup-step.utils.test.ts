@@ -91,7 +91,12 @@ describe('extractWizardBackup', () => {
           {
             storageRef: { name: 's3-a' },
             schedules: [
-              { name: 'daily', cron: '0 2 * * *', enabled: true, retentionCopies: 2 },
+              {
+                name: 'daily',
+                cron: '0 2 * * *',
+                enabled: true,
+                retentionCopies: 2,
+              },
             ],
             pitr: { enabled: true },
           },

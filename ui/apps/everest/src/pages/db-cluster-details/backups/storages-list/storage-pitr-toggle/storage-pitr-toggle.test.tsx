@@ -26,7 +26,6 @@ import {
   ScheduleModalContextType,
 } from '../../backups.types';
 import { Messages } from './storage-pitr-toggle.messages';
-import { Messages as ToggleSwitchMessages } from 'components/pitr-toggle-switch/pitr-toggle-switch.messages';
 
 const mockUpdateInstance = vi.fn();
 const mockUseActiveBackupClass = vi.fn();
@@ -66,10 +65,10 @@ const renderToggle = (
   );
 };
 
-// The disabled switch lives inside a hover span; hovering the label surfaces
-// the tooltip that explains why PITR is unavailable.
+// A disabled toggle is wrapped in a hover span; hovering it surfaces the
+// tooltip that explains why PITR is unavailable.
 const expectTooltip = async (message: string) => {
-  fireEvent.mouseOver(screen.getByText(ToggleSwitchMessages.pitr));
+  fireEvent.mouseOver(screen.getByTestId('pitr-toggle-s1').parentElement!);
   expect(await screen.findByRole('tooltip')).toHaveTextContent(message);
 };
 
@@ -132,14 +131,19 @@ describe('StoragePitrToggle', () => {
     expect(backup?.enabled).toBe(true);
   });
 
-  it('is disabled and explains the missing backup schedule', async () => {
+  it('allows enabling PITR without an active backup schedule', () => {
     renderToggle({
       storageRef: { name: 's1' },
       schedules: withSchedule(false),
     });
 
-    expect(screen.getByRole('switch')).toBeDisabled();
-    await expectTooltip(Messages.needsSchedule);
+    const toggle = screen.getByRole('switch');
+    expect(toggle).not.toBeDisabled();
+
+    fireEvent.click(toggle);
+    expect(mockUpdateInstance).toHaveBeenCalledTimes(1);
+    const patched = mockUpdateInstance.mock.calls[0][0] as Instance;
+    expect(patched.spec?.backup?.storages?.[0].pitr?.enabled).toBe(true);
   });
 
   it('is disabled and explains the reached PITR limit', async () => {
@@ -156,21 +160,6 @@ describe('StoragePitrToggle', () => {
 
     expect(screen.getByRole('switch')).toBeDisabled();
     await expectTooltip(Messages.limitReached(1));
-  });
-
-  it('prefers the schedule message when both blocks apply', async () => {
-    const instance = buildBackupInstance([
-      { storageRef: { name: 's1' }, schedules: withSchedule(false) },
-      {
-        storageRef: { name: 's2' },
-        schedules: withSchedule(false),
-        pitr: { enabled: true },
-      },
-    ]);
-
-    renderToggle(instance.spec!.backup!.storages![0], instance);
-
-    await expectTooltip(Messages.needsSchedule);
   });
 
   it('confirms before disabling, then patches enabled: false', () => {
@@ -202,7 +191,7 @@ describe('StoragePitrToggle', () => {
       pitr: { enabled: true },
     });
 
-    fireEvent.click(screen.getByTestId('pitr-configure-s1'));
+    fireEvent.click(screen.getByTestId('edit-editable-item-button-s1'));
 
     expect(screen.getByText(/Configure PITR/)).toBeInTheDocument();
   });
@@ -217,10 +206,10 @@ describe('StoragePitrToggle', () => {
       schedules: withSchedule(true),
     });
 
-    expect(screen.getByTestId('pitr-configure-s1')).toBeDisabled();
+    expect(screen.getByTestId('edit-editable-item-button-s1')).toBeDisabled();
   });
 
-  it('keeps the config button disabled with a tooltip when the user cannot update', async () => {
+  it('keeps the config button disabled when the user cannot update', () => {
     mockUseRBACPermissions.mockReturnValue({ canUpdate: false });
     mockUseBackupClassUiSchema.mockReturnValue({
       sections: { pitr: { label: 'PITR', components: {} } },
@@ -232,12 +221,6 @@ describe('StoragePitrToggle', () => {
       pitr: { enabled: true },
     });
 
-    const configButton = screen.getByTestId('pitr-configure-s1');
-    expect(configButton).toBeDisabled();
-
-    fireEvent.mouseOver(configButton.parentElement!);
-    expect(await screen.findByRole('tooltip')).toHaveTextContent(
-      Messages.noPermission
-    );
+    expect(screen.getByTestId('edit-editable-item-button-s1')).toBeDisabled();
   });
 });

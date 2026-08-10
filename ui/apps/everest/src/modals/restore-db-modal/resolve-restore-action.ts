@@ -21,7 +21,10 @@ import {
   RecoveryTargetValues,
   RestoreDbFormData,
 } from './restore-db-modal-schema';
-import { RestorePitrStorageOption, RestorableBackupOption } from './restore-db-modal.types';
+import {
+  RestorePitrStorageOption,
+  RestorableBackupOption,
+} from './restore-db-modal.types';
 import { resolveActiveStorage, toRestoreDateISO } from './restore-pitr.utils';
 
 // The decision a restore submission resolves to, independent of side effects:

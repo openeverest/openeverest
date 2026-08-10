@@ -34,6 +34,11 @@ export interface RestorePitrStorageOption {
   window: PitrWindow;
 }
 
+export interface RestorePitrStorageOption {
+  name: string;
+  window: PitrWindow;
+}
+
 export interface ModalContentProps {
   isLoading: boolean;
   header: string;

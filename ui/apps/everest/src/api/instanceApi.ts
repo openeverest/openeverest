@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+import { AxiosRequestConfig } from 'axios';
 import {
   CreateDbInstancePayload,
   GetDbInstancePayload,
@@ -83,11 +84,13 @@ export const updateDbInstanceFn = async (
   clusterName: string,
   namespace: string,
   instanceName: string,
-  data: Instance
+  data: Instance,
+  config?: AxiosRequestConfig
 ) => {
   const response = await api.put<Instance>(
     `clusters/${clusterName}/namespaces/${namespace}/instances/${instanceName}`,
-    data
+    data,
+    config
   );
   return response.data;
 };

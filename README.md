@@ -19,7 +19,7 @@ OpenEverest - Run Data Workloads on Kubernetes
 
 Why you should try OpenEverest:
 
-- Launch database instance with just a few clicks
+- Launch a database instance with just a few clicks
 - Enable your team to develop faster and reduce time to market
 - Scale seamlessly
 - Simplify maintenance
@@ -105,7 +105,7 @@ For more information about our Helm charts, visit the official [OpenEverest Helm
   export KUBECONFIG=~/.kube/config
   ```
 
-## Steps to Install
+### Steps to Install
 
 Starting from version **1.4.0**, `everestctl` uses the Helm chart to install OpenEverest. You can configure chart parameters using:
 
@@ -203,7 +203,7 @@ See the [Contribution Guide](CONTRIBUTING.md) for more information on how you ca
 
 ## Communication
 
-We value your thoughts and opinions and we would be thrilled to hear from you! [Get in touch with us](https://openeverest.io/#community) to ask questions, share your feedback, and spark creative ideas with our community.
+We value your thoughts and opinions, and we would be thrilled to hear from you! [Get in touch with us](https://openeverest.io/#community) to ask questions, share your feedback, and spark creative ideas with our community.
 
 ## Community Meeting
 
@@ -213,4 +213,4 @@ Join our [OpenEverest Community Meetings](https://github.com/openeverest/#openev
 
 If you find a bug in OpenEverest, [create a GitHub issue](https://docs.github.com/en/issues/tracking-your-work-with-issues/creating-an-issue#creating-an-issue-from-a-repository) in this repository.
 
-Learn more about submitting bugs, new features ideas and improvements in the [documentation](https://openeverest.io/documentation/current/contribute.html).
+Learn more about submitting bugs, new feature ideas, and improvements in the [documentation](https://openeverest.io/documentation/current/contribute.html).

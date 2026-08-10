@@ -12,13 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { useState } from 'react';
-import { Box } from '@mui/material';
+import { useContext, useState } from 'react';
+import { format } from 'date-fns';
+import { DATE_FORMAT } from 'consts';
 import { ConfirmDialog } from 'components/confirm-dialog/confirm-dialog';
-import { PitrToggleSwitch } from 'components/pitr-toggle-switch';
-import { PitrConfigButton } from 'components/pitr-config-button';
+import { PitrStorageRow } from 'components/pitr-storage-row';
 import { PitrConfigModal } from 'components/pitr-config-modal';
+import { ScheduleModalContext } from '../../backups.context';
 import { InstanceBackupStorage } from '../../backups.types';
+import { getStoragePitrWindow } from '../../pitr.utils';
 import { useStoragePitr } from './use-storage-pitr';
 import { Messages } from './storage-pitr-toggle.messages';
 
@@ -27,6 +29,7 @@ interface StoragePitrToggleProps {
 }
 
 export const StoragePitrToggle = ({ storage }: StoragePitrToggleProps) => {
+  const { instance } = useContext(ScheduleModalContext);
   const {
     visible,
     enabled,
@@ -34,7 +37,6 @@ export const StoragePitrToggle = ({ storage }: StoragePitrToggleProps) => {
     reason,
     showConfig,
     configDisabled,
-    configReason,
     activeClass,
     currentParameters,
     namespace,
@@ -51,6 +53,19 @@ export const StoragePitrToggle = ({ storage }: StoragePitrToggleProps) => {
 
   const storageName = storage.storageRef.name;
 
+  // Show the restorable range only once the provider reports a window; no
+  // placeholder while it's absent.
+  const window = enabled
+    ? getStoragePitrWindow(instance, storageName)
+    : undefined;
+  const caption =
+    window?.available && window.earliest && window.latest
+      ? Messages.recoveryWindow(
+          format(window.earliest, DATE_FORMAT),
+          format(window.latest, DATE_FORMAT)
+        )
+      : undefined;
+
   // Enabling is a direct action; disabling always asks for confirmation.
   const handleToggle = (checked: boolean) => {
     if (checked) {
@@ -61,23 +76,18 @@ export const StoragePitrToggle = ({ storage }: StoragePitrToggleProps) => {
   };
 
   return (
-    <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 1.5 }}>
-      <PitrToggleSwitch
+    <>
+      <PitrStorageRow
         storageName={storageName}
         checked={enabled}
-        disabled={disabled}
-        reason={reason}
         onToggle={handleToggle}
+        toggleDisabled={disabled}
+        toggleReason={reason}
+        showConfig={showConfig}
+        configDisabled={configDisabled}
+        onConfigClick={() => setConfiguring(true)}
+        caption={caption}
       />
-
-      {showConfig && (
-        <PitrConfigButton
-          storageName={storageName}
-          disabled={configDisabled}
-          reason={configReason}
-          onClick={() => setConfiguring(true)}
-        />
-      )}
 
       <ConfirmDialog
         open={confirmingDisable}
@@ -109,6 +119,6 @@ export const StoragePitrToggle = ({ storage }: StoragePitrToggleProps) => {
           }}
         />
       )}
-    </Box>
+    </>
   );
 };

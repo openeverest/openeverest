@@ -136,7 +136,7 @@ describe('PitrBlock', () => {
 
     expect(screen.getByTestId('pitr-toggle-s1')).toBeInTheDocument();
     expect(screen.getByTestId('pitr-toggle-s2')).toBeInTheDocument();
-    expect(screen.getByText('s1')).toBeInTheDocument();
+    expect(screen.getByText('Storage: s1')).toBeInTheDocument();
   });
 
   it('hides the config gear when the class ships no PITR schema', () => {
