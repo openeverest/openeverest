@@ -1,5 +1,25 @@
+// Copyright (C) 2026 The OpenEverest Contributors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 import React from 'react';
-import { screen, render, fireEvent, waitFor } from '@testing-library/react';
+import {
+  screen,
+  render,
+  fireEvent,
+  waitFor,
+  within,
+} from '@testing-library/react';
 import { FormProvider, useForm, useFormContext } from 'react-hook-form';
 import { DbType } from '@percona/types';
 import { TestWrapper } from 'utils/test';
@@ -96,10 +116,16 @@ describe('DatabasePreview', () => {
     expect(screen.getByText('Type: MySQL')).toBeInTheDocument();
     expect(screen.getByText('Version: 1.0.0')).toBeInTheDocument();
 
+    const nodesTable = screen.getByTestId('nodes-resources-table');
+    // Requests are synced with limits by default; a single combined line shows
+    // the values with a sync icon between the Limits and Requests labels.
+    expect(within(nodesTable).getByText('3 nodes:')).toBeInTheDocument();
     expect(
-      screen.getByText(
-        '3 nodes - CPU - 3.00 CPU; Memory - 6.00 GB; Disk - 90.00 Gi'
-      )
+      within(nodesTable).getByTestId('nodes-resources-table-limits-line')
+    ).toHaveTextContent('Limits & Requests: CPU: 3.00 CPU; Memory: 6.00 GB');
+    expect(within(nodesTable).getByText('Disk: 90.00 Gi')).toBeInTheDocument();
+    expect(
+      within(nodesTable).getByTestId('nodes-resources-table-sync-icon')
     ).toBeInTheDocument();
   });
 

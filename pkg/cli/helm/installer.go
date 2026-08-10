@@ -83,7 +83,7 @@ type (
 		// ReleaseNamespace is the namespace where the Helm release will be installed.
 		ReleaseNamespace string
 		// Values are the Helm values to be used during installation.
-		Values map[string]interface{}
+		Values map[string]any
 		// CreateReleaseNamespace indicates whether to create the release namespace.
 		CreateReleaseNamespace bool
 		// internal fields, set only after Init() is called.
@@ -180,7 +180,7 @@ func installDryRun(
 	cfg *action.Configuration,
 	chart *chart.Chart,
 	releaseName, releaseNamespace string,
-	values map[string]interface{},
+	values map[string]any,
 ) (*release.Release, error) {
 	install := action.NewInstall(cfg)
 	install.ReleaseName = releaseName
@@ -217,7 +217,8 @@ func (i *Installer) Install(ctx context.Context) error {
 	// This is how Helm expects us to re-apply manifests.
 	// To prevent accidental version upgrades, we will explicitly check that the resolved chart version matches the installed chart version.
 	if i.chart.Metadata.Version != rel.Chart.Metadata.Version {
-		return fmt.Errorf("cannot overwrite existing release with a different chart version. Expected %s, got %s",
+		return fmt.Errorf(
+			"cannot overwrite existing release with a different chart version. Expected %s, got %s",
 			rel.Chart.Metadata.Version, i.chart.Metadata.Version,
 		)
 	}
@@ -230,21 +231,6 @@ func (i *Installer) GetRelease() (*release.Release, error) {
 		return nil, errors.New("chart not installed")
 	}
 	return i.release, nil
-}
-
-func (i *Installer) install(ctx context.Context) error {
-	install := action.NewInstall(i.cfg)
-	install.ReleaseName = i.ReleaseName
-	install.Namespace = i.ReleaseNamespace
-	install.CreateNamespace = i.CreateReleaseNamespace
-	install.TakeOwnership = true
-
-	rel, err := install.RunWithContext(ctx, i.chart, i.Values)
-	if err != nil {
-		return err
-	}
-	i.release = rel
-	return nil
 }
 
 // UpgradeOptions provide options for upgrading a Helm chart.
@@ -275,6 +261,21 @@ func (i *Installer) Upgrade(ctx context.Context, opts UpgradeOptions) error {
 	return nil
 }
 
+func (i *Installer) install(ctx context.Context) error {
+	install := action.NewInstall(i.cfg)
+	install.ReleaseName = i.ReleaseName
+	install.Namespace = i.ReleaseNamespace
+	install.CreateNamespace = i.CreateReleaseNamespace
+	install.TakeOwnership = true
+
+	rel, err := install.RunWithContext(ctx, i.chart, i.Values)
+	if err != nil {
+		return err
+	}
+	i.release = rel
+	return nil
+}
+
 func resolveHelmChart(version, chartName, repoURL, dir string) (*chart.Chart, error) {
 	if dir != "" {
 		return resolveDir(version, dir)
@@ -293,8 +294,9 @@ func resolveDir(version, dir string) (*chart.Chart, error) {
 	// When loading from a directory, ensure that the loaded chart version
 	// matches the specified version.
 	if chart.Metadata.Version != version {
-		return nil, fmt.Errorf("chart version does not match specified version."+
-			"Expected chart version %s, got %s", version, chart.Metadata.Version,
+		return nil, fmt.Errorf(
+			"chart version does not match specified version."+
+				"Expected chart version %s, got %s", version, chart.Metadata.Version,
 		)
 	}
 	return chart, nil
@@ -369,7 +371,7 @@ func buildChartDeps(chartDir string) error {
 }
 
 func newActionsCfg(namespace, kubeconfig string) (*action.Configuration, error) {
-	logger := func(_ string, _ ...interface{}) {}
+	logger := func(_ string, _ ...any) {}
 	cfg := action.Configuration{}
 	restClientGetter := genericclioptions.ConfigFlags{
 		Namespace: &namespace,

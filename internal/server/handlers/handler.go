@@ -1,3 +1,17 @@
+// Copyright (C) 2026 The OpenEverest Contributors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 // Package handlers contains the interface and types for the Everest API handlers.
 package handlers
 
@@ -42,6 +56,7 @@ type Handler interface {
 	GetSettings(ctx context.Context) (*api.Settings, error)
 }
 
+// StreamFunc streams the logs of a database cluster component to the client.
 type StreamFunc func(ctx context.Context, namespace, clusterName, componentName string, params api.GetDatabaseClusterComponentLogsParams) error
 
 // DatabaseClusterHandler provides methods for handling operations on database clusters.
@@ -138,6 +153,8 @@ type DataImportJobHandler interface {
 //  ------ Engine Features interfaces ------
 
 // EngineFeaturesHandler provides methods for handling operations on engine features.
+//
+//nolint:iface // aggregates engine-feature handlers and will diverge as more features are added
 type EngineFeaturesHandler interface {
 	// PMDB engine features.
 
@@ -145,6 +162,8 @@ type EngineFeaturesHandler interface {
 }
 
 // SplitHorizonDNSConfigHandler provides methods for handling operations on Split-Horizon DNS Config.
+//
+//nolint:iface // separate domain concept from EngineFeaturesHandler, expected to diverge
 type SplitHorizonDNSConfigHandler interface {
 	CreateSplitHorizonDNSConfig(ctx context.Context, shdc *enginefeaturesv1alpha1.SplitHorizonDNSConfig) (*enginefeaturesv1alpha1.SplitHorizonDNSConfig, error)
 	UpdateSplitHorizonDNSConfig(ctx context.Context, namespace, name string, req *api.SplitHorizonDNSConfigUpdateParams) (*enginefeaturesv1alpha1.SplitHorizonDNSConfig, error)

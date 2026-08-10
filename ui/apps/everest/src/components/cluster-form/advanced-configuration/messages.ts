@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,6 +19,9 @@ import {
   INVALID_SOURCE_RANGE_ERROR,
   SOURCE_RANGE_PLACEHOLDER,
 } from 'consts';
+import { capitalize } from '@mui/material';
+import { DbType } from '@percona/types';
+import { getProxyUnitNamesFromDbType } from 'utils/db';
 
 export const Messages = {
   enable: 'Enable',
@@ -57,6 +61,11 @@ export const Messages = {
       description:
         'Set your database engine configuration to adjust your database system to your workload and performance needs. For configuration format and specific parameters, check your database type documentation.',
     },
+    proxyConfig: {
+      description:
+        'Set your proxy configuration to adjust your database proxy to your workload and performance needs. For configuration format and specific parameters, check your database type documentation.',
+      placeholder: 'Enter configuration',
+    },
     splitHorizonDNS: {
       title: 'Split-Horizon DNS',
       description:
@@ -85,3 +94,6 @@ export const Messages = {
       `OpenEverest will create domains using ${domain} as suffix`,
   },
 };
+
+export const getProxyConfigLabel = (dbType: DbType): string =>
+  `${capitalize(getProxyUnitNamesFromDbType(dbType).singular)} Configuration`;

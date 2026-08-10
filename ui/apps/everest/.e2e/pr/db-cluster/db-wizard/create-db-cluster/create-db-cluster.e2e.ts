@@ -128,7 +128,7 @@ test.describe('DB Cluster creation', () => {
     const dbName = await page.getByTestId('text-input-db-name').inputValue();
 
     await moveForward(page);
-    await expect(page.getByText('3 nodes - CPU')).toBeVisible();
+    await expect(page.getByText('3 nodes:')).toBeVisible();
 
     await resourcesStepCheck(page);
 
@@ -218,8 +218,12 @@ test.describe('DB Cluster creation', () => {
     expect(addedCluster).not.toBeUndefined();
     expect(addedCluster?.spec.engine.type).toBe('psmdb');
     expect(addedCluster?.spec.engine.replicas).toBe(3);
-    expect(addedCluster?.spec.engine.resources?.cpu.toString()).toBe('600m');
-    expect(addedCluster?.spec.engine.resources?.memory.toString()).toBe('1G');
+    expect(addedCluster?.spec.engine.resources?.limits.cpu.toString()).toBe(
+      '600m'
+    );
+    expect(addedCluster?.spec.engine.resources?.limits.memory.toString()).toBe(
+      '1G'
+    );
     expect(addedCluster?.spec.engine.storage.size.toString()).toBe('1Gi');
     expect(addedCluster?.spec.proxy.expose.type).toBe('ClusterIP');
     // TODO commented, because we use only psmdb in this test

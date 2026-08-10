@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -59,9 +60,19 @@ export interface Backup {
   schedules?: Array<Schedule>;
 }
 
+export interface ResourceRequirements {
+  cpu?: number | string;
+  memory?: number | string;
+}
+
 export interface Resources {
-  cpu: number | string;
-  memory: number | string;
+  limits?: ResourceRequirements;
+  requests?: ResourceRequirements;
+  // Legacy flat fields: older clusters stored cpu/memory directly on
+  // `resources` (no limits/requests split). Kept for backward compatibility so
+  // existing payloads keep parsing; new code reads/writes `limits`/`requests`.
+  cpu?: number | string;
+  memory?: number | string;
 }
 
 interface Storage {
@@ -90,6 +101,7 @@ export interface Proxy {
   expose: ProxyExposeConfig;
   resources?: Resources;
   type: ProxyType;
+  config?: string;
 }
 
 export interface DataImporter {

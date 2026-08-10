@@ -54,7 +54,7 @@ jobs:
       IS_RC: 0
       ARCH: ""
       OS: ""
-      IMAGE_PREFIX: 'ghcr.io/openeverest'
+      IMAGE_PREFIX: 'ghcr.io/${{ github.repository_owner }}'
       EVEREST_SERVER_IMAGE_NAME: 'openeverest'
       EVEREST_SERVER_DEV_IMAGE_NAME: 'openeverest-dev'
       EVEREST_OPERATOR_IMAGE_NAME: 'openeverest-operator'
@@ -91,7 +91,7 @@ jobs:
           echo "OS=$(uname | awk '{print tolower($0)}')" >> $GITHUB_ENV
 
       - name: Operator - check out
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: openeverest/openeverest-operator
           path: openeverest-operator
@@ -162,7 +162,7 @@ jobs:
 
       - name: Operator - setup Docker meta for openeverest-operator
         id: operator_meta
-        uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051 # v5.10.0
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
         # docker/metadata-action action looks more elegant when being triggered by a GH tag,
         # however this workflow can't be triggered by a GH tag since there are some changes need to be done
         # in the codebase prior putting the tag, so the action uses the raw tags
@@ -177,7 +177,7 @@ jobs:
 
       - name: Operator - setup Docker meta for openeverest-operator-bundle
         id: bundle_meta
-        uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051 # v5.10.0
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
         with:
           images: |
             ${{ env.IMAGE_PREFIX }}/${{ env.EVEREST_OPERATOR_BUNDLE_IMAGE_NAME }},enable=${{ env.IS_RC == 0 }}
@@ -187,17 +187,17 @@ jobs:
             type=raw,value=${{ env.FLOATING_TAG }}-${{ matrix.arch }},enable=${{ env.IS_RC == 0 }}
 
       - name: Login to GitHub Container Registry
-        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
+        uses: docker/login-action@650006c6eb7dba73a995cc03b0b2d7f5ca915bee # v4.2.0
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@4d04d5d9486b7bd6fa91e7baf45bbb4f8b9deedd # v4.0.0
+        uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0
 
       - name: Operator - build openeverest-operator image
-        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
         with:
           context: openeverest-operator
           push: false
@@ -208,7 +208,7 @@ jobs:
 
       - name: Operator - push openeverest-operator image
         id: operator_push
-        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
         with:
           context: openeverest-operator
           push: true
@@ -219,7 +219,7 @@ jobs:
             FLAGS= -X 'github.com/percona/everest-operator/internal/consts.Version=${{ env.VERSION }}'
 
       - name: Operator - attest openeverest-operator image
-        uses: actions/attest-build-provenance@a2bbfa25375fe432b6a289bc6b6cd05ecd0c4c32 # v4.1.0
+        uses: actions/attest@508db95dd578ae2727ebd6217d5ba78e4fbda05d # v4.2.1
         with:
           subject-name: ${{ env.IMAGE_PREFIX }}/${{ env.EVEREST_OPERATOR_DEV_IMAGE_NAME }}
           subject-digest: ${{ steps.operator_push.outputs.digest }}
@@ -227,14 +227,38 @@ jobs:
 
       - name: Operator - attest openeverest-operator prod image
         if: env.IS_RC == 0
-        uses: actions/attest-build-provenance@a2bbfa25375fe432b6a289bc6b6cd05ecd0c4c32 # v4.1.0
+        uses: actions/attest@508db95dd578ae2727ebd6217d5ba78e4fbda05d # v4.2.1
         with:
           subject-name: ${{ env.IMAGE_PREFIX }}/${{ env.EVEREST_OPERATOR_IMAGE_NAME }}
           subject-digest: ${{ steps.operator_push.outputs.digest }}
           push-to-registry: true
 
+      - name: Operator - generate SBOM
+        uses: anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610 # v0.24.0
+        with:
+          image: ${{ env.IMAGE_PREFIX }}/${{ env.EVEREST_OPERATOR_DEV_IMAGE_NAME }}@${{ steps.operator_push.outputs.digest }}
+          format: spdx-json
+          output-file: operator-sbom-${{ matrix.arch }}.spdx.json
+
+      - name: Operator - attest SBOM
+        uses: actions/attest@508db95dd578ae2727ebd6217d5ba78e4fbda05d # v4.2.1
+        with:
+          subject-name: ${{ env.IMAGE_PREFIX }}/${{ env.EVEREST_OPERATOR_DEV_IMAGE_NAME }}
+          subject-digest: ${{ steps.operator_push.outputs.digest }}
+          sbom-path: operator-sbom-${{ matrix.arch }}.spdx.json
+          push-to-registry: true
+
+      - name: Operator - attest prod SBOM
+        if: env.IS_RC == 0
+        uses: actions/attest@508db95dd578ae2727ebd6217d5ba78e4fbda05d # v4.2.1
+        with:
+          subject-name: ${{ env.IMAGE_PREFIX }}/${{ env.EVEREST_OPERATOR_IMAGE_NAME }}
+          subject-digest: ${{ steps.operator_push.outputs.digest }}
+          sbom-path: operator-sbom-${{ matrix.arch }}.spdx.json
+          push-to-registry: true
+
       - name: Operator - build openeverest-operator-bundle image
-        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
         with:
           context: openeverest-operator
           push: false
@@ -246,7 +270,7 @@ jobs:
 
       - name: Operator - push openeverest-operator-bundle image
         id: bundle_push
-        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
         with:
           context: openeverest-operator
           push: true
@@ -256,7 +280,7 @@ jobs:
           file: openeverest-operator/bundle.Dockerfile
 
       - name: Operator - attest openeverest-operator-bundle image
-        uses: actions/attest-build-provenance@a2bbfa25375fe432b6a289bc6b6cd05ecd0c4c32 # v4.1.0
+        uses: actions/attest@508db95dd578ae2727ebd6217d5ba78e4fbda05d # v4.2.1
         with:
           subject-name: ${{ env.IMAGE_PREFIX }}/${{ env.EVEREST_OPERATOR_BUNDLE_DEV_IMAGE_NAME }}
           subject-digest: ${{ steps.bundle_push.outputs.digest }}
@@ -264,14 +288,38 @@ jobs:
 
       - name: Operator - attest openeverest-operator-bundle prod image
         if: env.IS_RC == 0
-        uses: actions/attest-build-provenance@a2bbfa25375fe432b6a289bc6b6cd05ecd0c4c32 # v4.1.0
+        uses: actions/attest@508db95dd578ae2727ebd6217d5ba78e4fbda05d # v4.2.1
         with:
           subject-name: ${{ env.IMAGE_PREFIX }}/${{ env.EVEREST_OPERATOR_BUNDLE_IMAGE_NAME }}
           subject-digest: ${{ steps.bundle_push.outputs.digest }}
           push-to-registry: true
 
+      - name: Operator Bundle - generate SBOM
+        uses: anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610 # v0.24.0
+        with:
+          image: ${{ env.IMAGE_PREFIX }}/${{ env.EVEREST_OPERATOR_BUNDLE_DEV_IMAGE_NAME }}@${{ steps.bundle_push.outputs.digest }}
+          format: spdx-json
+          output-file: bundle-sbom-${{ matrix.arch }}.spdx.json
+
+      - name: Operator Bundle - attest SBOM
+        uses: actions/attest@508db95dd578ae2727ebd6217d5ba78e4fbda05d # v4.2.1
+        with:
+          subject-name: ${{ env.IMAGE_PREFIX }}/${{ env.EVEREST_OPERATOR_BUNDLE_DEV_IMAGE_NAME }}
+          subject-digest: ${{ steps.bundle_push.outputs.digest }}
+          sbom-path: bundle-sbom-${{ matrix.arch }}.spdx.json
+          push-to-registry: true
+
+      - name: Operator Bundle - attest prod SBOM
+        if: env.IS_RC == 0
+        uses: actions/attest@508db95dd578ae2727ebd6217d5ba78e4fbda05d # v4.2.1
+        with:
+          subject-name: ${{ env.IMAGE_PREFIX }}/${{ env.EVEREST_OPERATOR_BUNDLE_IMAGE_NAME }}
+          subject-digest: ${{ steps.bundle_push.outputs.digest }}
+          sbom-path: bundle-sbom-${{ matrix.arch }}.spdx.json
+          push-to-registry: true
+
       - name: Catalog - checkout
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: openeverest/openeverest-catalog
           path: openeverest-catalog
@@ -306,7 +354,7 @@ jobs:
 
       - name: Catalog - docker meta
         id: catalog_meta
-        uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051 # v5.10.0
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
         with:
           images: |
             ${{ env.IMAGE_PREFIX }}/${{ env.EVEREST_CATALOG_IMAGE_NAME }},enable=${{ env.IS_RC == 0 }}
@@ -316,7 +364,7 @@ jobs:
             type=raw,value=${{ env.FLOATING_TAG }}-${{ matrix.arch }},enable=${{ env.IS_RC == 0 }}
 
       - name: Catalog - build image
-        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
         with:
           context: openeverest-catalog
           push: false
@@ -328,7 +376,7 @@ jobs:
 
       - name: Catalog - push image
         id: catalog_push
-        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
         with:
           context: openeverest-catalog
           push: true
@@ -338,7 +386,7 @@ jobs:
           file: openeverest-catalog/everest-catalog.Dockerfile
 
       - name: Catalog - attest image
-        uses: actions/attest-build-provenance@a2bbfa25375fe432b6a289bc6b6cd05ecd0c4c32 # v4.1.0
+        uses: actions/attest@508db95dd578ae2727ebd6217d5ba78e4fbda05d # v4.2.1
         with:
           subject-name: ${{ env.IMAGE_PREFIX }}/${{ env.EVEREST_CATALOG_DEV_IMAGE_NAME }}
           subject-digest: ${{ steps.catalog_push.outputs.digest }}
@@ -346,21 +394,45 @@ jobs:
 
       - name: Catalog - attest prod image
         if: env.IS_RC == 0
-        uses: actions/attest-build-provenance@a2bbfa25375fe432b6a289bc6b6cd05ecd0c4c32 # v4.1.0
+        uses: actions/attest@508db95dd578ae2727ebd6217d5ba78e4fbda05d # v4.2.1
         with:
           subject-name: ${{ env.IMAGE_PREFIX }}/${{ env.EVEREST_CATALOG_IMAGE_NAME }}
           subject-digest: ${{ steps.catalog_push.outputs.digest }}
           push-to-registry: true
 
+      - name: Catalog - generate SBOM
+        uses: anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610 # v0.24.0
+        with:
+          image: ${{ env.IMAGE_PREFIX }}/${{ env.EVEREST_CATALOG_DEV_IMAGE_NAME }}@${{ steps.catalog_push.outputs.digest }}
+          format: spdx-json
+          output-file: catalog-sbom-${{ matrix.arch }}.spdx.json
+
+      - name: Catalog - attest SBOM
+        uses: actions/attest@508db95dd578ae2727ebd6217d5ba78e4fbda05d # v4.2.1
+        with:
+          subject-name: ${{ env.IMAGE_PREFIX }}/${{ env.EVEREST_CATALOG_DEV_IMAGE_NAME }}
+          subject-digest: ${{ steps.catalog_push.outputs.digest }}
+          sbom-path: catalog-sbom-${{ matrix.arch }}.spdx.json
+          push-to-registry: true
+
+      - name: Catalog - attest prod SBOM
+        if: env.IS_RC == 0
+        uses: actions/attest@508db95dd578ae2727ebd6217d5ba78e4fbda05d # v4.2.1
+        with:
+          subject-name: ${{ env.IMAGE_PREFIX }}/${{ env.EVEREST_CATALOG_IMAGE_NAME }}
+          subject-digest: ${{ steps.catalog_push.outputs.digest }}
+          sbom-path: catalog-sbom-${{ matrix.arch }}.spdx.json
+          push-to-registry: true
+
       - name: Everest - check out
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           token: ${{ secrets.ROBOT_TOKEN }}
 
       - name: Set up Go release
-        uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6.4.0
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
-          go-version-file: "./go.mod"
+          go-version-file: "go.mod"
           cache: true
 
       - name: Everest - create and update release branch
@@ -402,12 +474,12 @@ jobs:
           fi
 
       - name: Everest UI - setup pnpm
-        uses: pnpm/action-setup@8912a9102ac27614460f54aedde9e1e7f9aec20d # v6.0.5
+        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
         with:
           version: 9.4.0
 
       - name: Everest UI - run with Node 20
-        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 20.x
           cache: "pnpm"
@@ -427,8 +499,16 @@ jobs:
             CGO_ENABLED=0 GOOS=linux GOARCH=${{ matrix.arch }} make release
           fi
 
+      - name: Everest - verify binary architecture
+        run: |
+          got_arch=$(go version -m ./bin/everest | grep -o 'GOARCH=[a-z0-9]*' | head -1 | cut -d= -f2)
+          if [[ "$got_arch" != "${{ matrix.arch }}" ]]; then
+            echo "::error::bin/everest was built for '$got_arch', expected '${{ matrix.arch }}'"
+            exit 1
+          fi
+
       - name: Everest - setup docker build metadata
-        uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051 # v5.10.0
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
         id: everest_meta
         with:
           images: |
@@ -440,7 +520,7 @@ jobs:
             type=raw,value=${{ env.FLOATING_TAG }}-${{ matrix.arch }},enable=${{ env.IS_RC == 0 }}
 
       - name: Everest - build Everest image
-        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
         with:
           context: .
           push: false
@@ -451,7 +531,7 @@ jobs:
 
       - name: Everest - push Everest image
         id: everest_push
-        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
         with:
           context: .
           push: true
@@ -460,7 +540,7 @@ jobs:
           tags: ${{ steps.everest_meta.outputs.tags }}
 
       - name: Everest - attest Everest image
-        uses: actions/attest-build-provenance@a2bbfa25375fe432b6a289bc6b6cd05ecd0c4c32 # v4.1.0
+        uses: actions/attest@508db95dd578ae2727ebd6217d5ba78e4fbda05d # v4.2.1
         with:
           subject-name: ${{ env.IMAGE_PREFIX }}/${{ env.EVEREST_SERVER_DEV_IMAGE_NAME }}
           subject-digest: ${{ steps.everest_push.outputs.digest }}
@@ -468,10 +548,59 @@ jobs:
 
       - name: Everest - attest Everest prod image
         if: env.IS_RC == 0
-        uses: actions/attest-build-provenance@a2bbfa25375fe432b6a289bc6b6cd05ecd0c4c32 # v4.1.0
+        uses: actions/attest@508db95dd578ae2727ebd6217d5ba78e4fbda05d # v4.2.1
         with:
           subject-name: ${{ env.IMAGE_PREFIX }}/${{ env.EVEREST_SERVER_IMAGE_NAME }}
           subject-digest: ${{ steps.everest_push.outputs.digest }}
+          push-to-registry: true
+
+      - name: Everest - generate SBOM
+        uses: anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610 # v0.24.0
+        with:
+          image: ${{ env.IMAGE_PREFIX }}/${{ env.EVEREST_SERVER_DEV_IMAGE_NAME }}@${{ steps.everest_push.outputs.digest }}
+          format: spdx-json
+          output-file: everest-sbom-${{ matrix.arch }}.spdx.json
+
+      - name: Everest - attest SBOM
+        uses: actions/attest@508db95dd578ae2727ebd6217d5ba78e4fbda05d # v4.2.1
+        with:
+          subject-name: ${{ env.IMAGE_PREFIX }}/${{ env.EVEREST_SERVER_DEV_IMAGE_NAME }}
+          subject-digest: ${{ steps.everest_push.outputs.digest }}
+          sbom-path: everest-sbom-${{ matrix.arch }}.spdx.json
+          push-to-registry: true
+
+      - name: Everest - attest prod SBOM
+        if: env.IS_RC == 0
+        uses: actions/attest@508db95dd578ae2727ebd6217d5ba78e4fbda05d # v4.2.1
+        with:
+          subject-name: ${{ env.IMAGE_PREFIX }}/${{ env.EVEREST_SERVER_IMAGE_NAME }}
+          subject-digest: ${{ steps.everest_push.outputs.digest }}
+          sbom-path: everest-sbom-${{ matrix.arch }}.spdx.json
+          push-to-registry: true
+
+      - name: Everest - generate source SBOM
+        if: matrix.arch == 'amd64'
+        uses: anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610 # v0.24.0
+        with:
+          format: spdx-json
+          output-file: everest-source-sbom.spdx.json
+
+      - name: Everest - attest source SBOM
+        if: matrix.arch == 'amd64'
+        uses: actions/attest@508db95dd578ae2727ebd6217d5ba78e4fbda05d # v4.2.1
+        with:
+          subject-name: ${{ env.IMAGE_PREFIX }}/${{ env.EVEREST_SERVER_DEV_IMAGE_NAME }}
+          subject-digest: ${{ steps.everest_push.outputs.digest }}
+          sbom-path: everest-source-sbom.spdx.json
+          push-to-registry: true
+
+      - name: Everest - attest prod source SBOM
+        if: matrix.arch == 'amd64' && env.IS_RC == 0
+        uses: actions/attest@508db95dd578ae2727ebd6217d5ba78e4fbda05d # v4.2.1
+        with:
+          subject-name: ${{ env.IMAGE_PREFIX }}/${{ env.EVEREST_SERVER_IMAGE_NAME }}
+          subject-digest: ${{ steps.everest_push.outputs.digest }}
+          sbom-path: everest-source-sbom.spdx.json
           push-to-registry: true
 
       - name: CLI - build binaries
@@ -481,22 +610,30 @@ jobs:
 
       - name: CLI - create release with binaries
         if: matrix.arch == 'amd64'
-        uses: softprops/action-gh-release@b4309332981a82ec1c5618f44dd2e27cc8bfbfda # v3.0.0
+        uses: softprops/action-gh-release@3d0d9888cb7fd7b750713d6e236d1fcb99157228 # v3.0.2
         with:
           draft: true
           prerelease: ${{ env.IS_RC == '1' }}
           files: |
             dist/*
+            everest-source-sbom.spdx.json
 
       - name: CLI - attest build provenance
         if: matrix.arch == 'amd64'
-        uses: actions/attest-build-provenance@a2bbfa25375fe432b6a289bc6b6cd05ecd0c4c32 # v4.1.0
+        uses: actions/attest@508db95dd578ae2727ebd6217d5ba78e4fbda05d # v4.2.1
         with:
           subject-path: 'dist/*'
 
+      - name: CLI - attest SBOM
+        if: matrix.arch == 'amd64'
+        uses: actions/attest@508db95dd578ae2727ebd6217d5ba78e4fbda05d # v4.2.1
+        with:
+          subject-path: 'dist/*'
+          sbom-path: everest-source-sbom.spdx.json
+
       - name: CLI - setup Docker meta for everestctl
         id: everestctl_meta
-        uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051 # v5.10.0
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
         with:
           images: |
             ${{ env.IMAGE_PREFIX }}/${{ env.EVEREST_CTL_IMAGE_NAME }},enable=${{ env.IS_RC == 0 }}
@@ -508,7 +645,7 @@ jobs:
 
       - name: CLI - build and push everestctl image
         id: everestctl_push
-        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
         with:
           context: .
           file: Dockerfile.everestctl
@@ -521,7 +658,7 @@ jobs:
             RELEASE_FULLCOMMIT=${{ github.sha }}
 
       - name: CLI - attest everestctl image
-        uses: actions/attest-build-provenance@a2bbfa25375fe432b6a289bc6b6cd05ecd0c4c32 # v4.1.0
+        uses: actions/attest@508db95dd578ae2727ebd6217d5ba78e4fbda05d # v4.2.1
         with:
           subject-name: ${{ env.IMAGE_PREFIX }}/${{ env.EVEREST_CTL_DEV_IMAGE_NAME }}
           subject-digest: ${{ steps.everestctl_push.outputs.digest }}
@@ -529,10 +666,34 @@ jobs:
 
       - name: CLI - attest everestctl prod image
         if: env.IS_RC == 0
-        uses: actions/attest-build-provenance@a2bbfa25375fe432b6a289bc6b6cd05ecd0c4c32 # v4.1.0
+        uses: actions/attest@508db95dd578ae2727ebd6217d5ba78e4fbda05d # v4.2.1
         with:
           subject-name: ${{ env.IMAGE_PREFIX }}/${{ env.EVEREST_CTL_IMAGE_NAME }}
           subject-digest: ${{ steps.everestctl_push.outputs.digest }}
+          push-to-registry: true
+
+      - name: CLI - generate everestctl SBOM
+        uses: anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610 # v0.24.0
+        with:
+          image: ${{ env.IMAGE_PREFIX }}/${{ env.EVEREST_CTL_DEV_IMAGE_NAME }}@${{ steps.everestctl_push.outputs.digest }}
+          format: spdx-json
+          output-file: everestctl-sbom-${{ matrix.arch }}.spdx.json
+
+      - name: CLI - attest everestctl SBOM
+        uses: actions/attest@508db95dd578ae2727ebd6217d5ba78e4fbda05d # v4.2.1
+        with:
+          subject-name: ${{ env.IMAGE_PREFIX }}/${{ env.EVEREST_CTL_DEV_IMAGE_NAME }}
+          subject-digest: ${{ steps.everestctl_push.outputs.digest }}
+          sbom-path: everestctl-sbom-${{ matrix.arch }}.spdx.json
+          push-to-registry: true
+
+      - name: CLI - attest everestctl prod SBOM
+        if: env.IS_RC == 0
+        uses: actions/attest@508db95dd578ae2727ebd6217d5ba78e4fbda05d # v4.2.1
+        with:
+          subject-name: ${{ env.IMAGE_PREFIX }}/${{ env.EVEREST_CTL_IMAGE_NAME }}
+          subject-digest: ${{ steps.everestctl_push.outputs.digest }}
+          sbom-path: everestctl-sbom-${{ matrix.arch }}.spdx.json
           push-to-registry: true
 
   create-manifests:
@@ -542,10 +703,12 @@ jobs:
     permissions:
       contents: read
       packages: write
+      id-token: write
+      attestations: write
     
     env:
       REGISTRY: ghcr.io
-      IMAGE_PREFIX: 'ghcr.io/openeverest'
+      IMAGE_PREFIX: 'ghcr.io/${{ github.repository_owner }}'
       VERSION: ${{ github.event.inputs.version }}
       IS_RC: ${{ contains(github.event.inputs.version, '-rc') }}
 
@@ -556,7 +719,7 @@ jobs:
           echo "FLOATING_TAG=$floating_tag" >> $GITHUB_ENV
 
       - name: Login to GitHub Container Registry
-        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
+        uses: docker/login-action@650006c6eb7dba73a995cc03b0b2d7f5ca915bee # v4.2.0
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
@@ -653,3 +816,65 @@ jobs:
               $IMAGE_PREFIX/$EVERESTCTL_IMAGE:$FLOATING_TAG-amd64 \
               $IMAGE_PREFIX/$EVERESTCTL_IMAGE:$FLOATING_TAG-arm64
           fi
+
+      - name: Get multi-arch manifest digests
+        id: manifest_digests
+        run: |
+          if [[ "$IS_RC" == "true" ]]; then
+            OPERATOR_IMAGE="openeverest-operator-dev"
+            BUNDLE_IMAGE="openeverest-operator-bundle-dev"
+            CATALOG_IMAGE="openeverest-catalog-dev"
+            EVEREST_IMAGE="openeverest-dev"
+            EVERESTCTL_IMAGE="everestctl-dev"
+          else
+            OPERATOR_IMAGE="openeverest-operator"
+            BUNDLE_IMAGE="openeverest-operator-bundle"
+            CATALOG_IMAGE="openeverest-catalog"
+            EVEREST_IMAGE="openeverest"
+            EVERESTCTL_IMAGE="everestctl"
+          fi
+          echo "operator_image=$OPERATOR_IMAGE" >> $GITHUB_OUTPUT
+          echo "operator_digest=$(docker buildx imagetools inspect $IMAGE_PREFIX/$OPERATOR_IMAGE:$VERSION --format '{{.Manifest.Digest}}')" >> $GITHUB_OUTPUT
+          echo "bundle_image=$BUNDLE_IMAGE" >> $GITHUB_OUTPUT
+          echo "bundle_digest=$(docker buildx imagetools inspect $IMAGE_PREFIX/$BUNDLE_IMAGE:$VERSION --format '{{.Manifest.Digest}}')" >> $GITHUB_OUTPUT
+          echo "catalog_image=$CATALOG_IMAGE" >> $GITHUB_OUTPUT
+          echo "catalog_digest=$(docker buildx imagetools inspect $IMAGE_PREFIX/$CATALOG_IMAGE:$VERSION --format '{{.Manifest.Digest}}')" >> $GITHUB_OUTPUT
+          echo "everest_image=$EVEREST_IMAGE" >> $GITHUB_OUTPUT
+          echo "everest_digest=$(docker buildx imagetools inspect $IMAGE_PREFIX/$EVEREST_IMAGE:$VERSION --format '{{.Manifest.Digest}}')" >> $GITHUB_OUTPUT
+          echo "everestctl_image=$EVERESTCTL_IMAGE" >> $GITHUB_OUTPUT
+          echo "everestctl_digest=$(docker buildx imagetools inspect $IMAGE_PREFIX/$EVERESTCTL_IMAGE:$VERSION --format '{{.Manifest.Digest}}')" >> $GITHUB_OUTPUT
+
+      - name: Operator - attest multi-arch manifest
+        uses: actions/attest@508db95dd578ae2727ebd6217d5ba78e4fbda05d # v4.2.1
+        with:
+          subject-name: ${{ env.IMAGE_PREFIX }}/${{ steps.manifest_digests.outputs.operator_image }}
+          subject-digest: ${{ steps.manifest_digests.outputs.operator_digest }}
+          push-to-registry: true
+
+      - name: Bundle - attest multi-arch manifest
+        uses: actions/attest@508db95dd578ae2727ebd6217d5ba78e4fbda05d # v4.2.1
+        with:
+          subject-name: ${{ env.IMAGE_PREFIX }}/${{ steps.manifest_digests.outputs.bundle_image }}
+          subject-digest: ${{ steps.manifest_digests.outputs.bundle_digest }}
+          push-to-registry: true
+
+      - name: Catalog - attest multi-arch manifest
+        uses: actions/attest@508db95dd578ae2727ebd6217d5ba78e4fbda05d # v4.2.1
+        with:
+          subject-name: ${{ env.IMAGE_PREFIX }}/${{ steps.manifest_digests.outputs.catalog_image }}
+          subject-digest: ${{ steps.manifest_digests.outputs.catalog_digest }}
+          push-to-registry: true
+
+      - name: Everest - attest multi-arch manifest
+        uses: actions/attest@508db95dd578ae2727ebd6217d5ba78e4fbda05d # v4.2.1
+        with:
+          subject-name: ${{ env.IMAGE_PREFIX }}/${{ steps.manifest_digests.outputs.everest_image }}
+          subject-digest: ${{ steps.manifest_digests.outputs.everest_digest }}
+          push-to-registry: true
+
+      - name: Everestctl - attest multi-arch manifest
+        uses: actions/attest@508db95dd578ae2727ebd6217d5ba78e4fbda05d # v4.2.1
+        with:
+          subject-name: ${{ env.IMAGE_PREFIX }}/${{ steps.manifest_digests.outputs.everestctl_image }}
+          subject-digest: ${{ steps.manifest_digests.outputs.everestctl_digest }}
+          push-to-registry: true

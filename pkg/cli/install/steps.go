@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -97,7 +98,7 @@ func (o *Installer) newStepEnsureCatalogSource() steps.Step {
 		F: func(ctx context.Context) error {
 			manifests, err := o.helmInstaller.RenderTemplates(ctx)
 			if err != nil {
-				return fmt.Errorf("could not get Everest CatalogSource namespace: %w", err)
+				return fmt.Errorf("could not render Helm templates: %w", err)
 			}
 			catalogNs, err := manifests.GetEverestCatalogNamespace()
 			if err != nil {

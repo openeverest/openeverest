@@ -1,4 +1,4 @@
-REPO_ROOT=$(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))
+REPO_ROOT=$(shell dirname "$(realpath $(firstword $(MAKEFILE_LIST)))")
 RELEASE_VERSION ?= v0.0.0-$(shell git rev-parse --short HEAD)
 RELEASE_FULLCOMMIT ?= $(shell git rev-parse HEAD)
 IMAGE_PREFIX ?= ghcr.io/openeverest
@@ -39,6 +39,9 @@ format:                 ## Format source code.
 
 .PHONY: check
 check:                  ## Run checks/linters for the whole project.
+# We need to ensure that /public/dist/index.html exists before linting because
+# it's embedded into the binary and a missing file breaks typechecking.
+	mkdir -p ./public/dist && [ -f ./public/dist/index.html ] || touch ./public/dist/index.html
 	go tool go-consistent -pedantic ./...
 	LOG_LEVEL=error go tool golangci-lint run
 
@@ -92,9 +95,11 @@ charts:        ## Install Helm dependency charts for Everest CLI.
 
 ##@ Build
 export GOPRIVATE = github.com/percona,github.com/percona-platform,github.com/Percona-Lab
-export GOOS = $(shell go env GOHOSTOS)
+# GOOS and GOARCH default to the host but may be overridden from the
+# environment (e.g. GOARCH=arm64 make release) for cross-compilation.
+export GOOS ?= $(shell go env GOHOSTOS)
 export CGO_ENABLED = 0
-export GOARCH = $(shell go env GOHOSTARCH)
+export GOARCH ?= $(shell go env GOHOSTARCH)
 
 # Everest API server
 SERVER_LD_FLAGS = -X 'github.com/percona/everest/pkg/version.Version=$(RELEASE_VERSION)' \
@@ -105,10 +110,11 @@ SERVER_BUILD_TAGS =
 SERVER_GC_FLAGS =
 
 # Helper target to build Everest API server binary.
-# CGO_ENABLED, GOOS and GOARCH are set explicitly because Everest API server is running inside a container only.
+# GOOS is forced to linux because the Everest API server only runs inside a
+# container. GOARCH is taken from the environment (defaulting to the host
+# arch) so release builds can produce a binary per target architecture.
 .PHONY: build-server
 build-server-helper: GOOS = linux
-build-server-helper: GOARCH = amd64
 build-server-helper: $(LOCALBIN)
 # We need to ensure that /public/dist/index.html exists before building Everest
 # API server because it's embedded into the binary and missing file will cause
@@ -170,8 +176,8 @@ release-cli: ## Build Everest CLI release versions for different OS and ARCH. (U
 .PHONY: build-ui
 build-ui:
 	$(info Building Everest UI)
-	$(MAKE) -C ${TEST_ROOT}/ui init
-	$(MAKE) -C ${TEST_ROOT}/ui build EVEREST_OUT_DIR=${TEST_ROOT}/public/dist
+	$(MAKE) -C "$(REPO_ROOT)/ui" init
+	$(MAKE) -C "$(REPO_ROOT)/ui" build EVEREST_OUT_DIR="$(REPO_ROOT)/public/dist"
 
 .PHONY: docker-build
 docker-build: ## Build docker image with Everest API server.
@@ -274,8 +280,8 @@ k3d-cluster-up: ## Create a K8S cluster for testing.
 	$(info Creating K3D cluster for testing)
 	k3d cluster create --config ./dev/k3d_config.yaml
 
-.PHONY: k3d-cluster-up
-k3d-cluster-down: ## Create a K8S cluster for testing.
+.PHONY: k3d-cluster-down
+k3d-cluster-down: ## Destroy the K8S cluster for testing.
 	$(info Destroying K3D test cluster)
 	k3d cluster delete --config ./dev/k3d_config.yaml
 
@@ -333,13 +339,13 @@ dev-destroy: dev-down k3d-cluster-down-dev ## Stop Tilt and destroy the k3d clus
 CHART_BRANCH ?= main
 .PHONY: update-dev-chart
 update-dev-chart: ## Update dependency to Everest Helm chart to the latest version from the specified branch (default main).
-	GOPROXY=direct go get -u -v github.com/openeverest/helm-charts/charts/everest@${CHART_BRANCH}
+	go get -u github.com/openeverest/helm-charts/charts/everest@${CHART_BRANCH}
 	go mod tidy
 
 EVEREST_OPERATOR_BRANCH ?= main
 .PHONY: update-dev-everest-operator
 update-dev-everest-operator: ## Update dependency to Everest operator to the latest version from the specified branch (default main).
-	GOPROXY=direct go get -u -v github.com/percona/everest-operator@${EVEREST_OPERATOR_BRANCH}
+	go get -u github.com/percona/everest-operator@${EVEREST_OPERATOR_BRANCH}
 	go mod tidy
 
 .PHONY: prepare-pr

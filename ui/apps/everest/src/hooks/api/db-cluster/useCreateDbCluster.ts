@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -99,8 +100,14 @@ const formValuesToPayloadMapping = (
         version: dbPayload.dbVersion,
         replicas: numberOfNodes,
         resources: {
-          cpu: `${dbPayload.cpu}`,
-          memory: `${dbPayload.memory}G`,
+          limits: {
+            cpu: `${dbPayload.cpu}`,
+            memory: `${dbPayload.memory}G`,
+          },
+          requests: {
+            cpu: `${dbPayload.cpuRequests ?? dbPayload.cpu}`,
+            memory: `${dbPayload.memoryRequests ?? dbPayload.memory}G`,
+          },
         },
         storage: {
           class: dbPayload.storageClass!,
@@ -130,11 +137,15 @@ const formValuesToPayloadMapping = (
         dbPayload.proxyCpu,
         dbPayload.proxyMemory,
         dbPayload.sharding,
+        dbPayload.proxyCpuRequests,
+        dbPayload.proxyMemoryRequests,
         dbPayload.sourceRanges || [],
         dbPayload.exposureMethod === ProxyExposeType.LoadBalancer ||
           dbPayload.loadBalancerConfigName === EMPTY_LOAD_BALANCER_CONFIGURATION
           ? dbPayload.loadBalancerConfigName
-          : undefined
+          : undefined,
+        dbPayload.proxyConfigEnabled,
+        dbPayload.proxyConfig
       ),
       ...(dbPayload.dbType === DbType.Mongo && {
         sharding: {
@@ -211,7 +222,7 @@ export const useDbClusterCredentials = (
   );
 
   return useQuery<GetDbClusterCredentialsPayload, unknown, ClusterCredentials>({
-    queryKey: ['cluster-credentials', dbClusterName],
+    queryKey: ['cluster-credentials', namespace, dbClusterName],
     queryFn: () => getDbClusterCredentialsFn(dbClusterName, namespace),
     select: canReadCredentials
       ? (creds) => creds

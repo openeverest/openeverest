@@ -1,9 +1,24 @@
+// Copyright (C) 2026 The OpenEverest Contributors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package validation
 
 import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -239,12 +254,7 @@ func containsVersion(version string, versions []string) bool {
 	if version == "" {
 		return true
 	}
-	for _, allowedVersion := range versions {
-		if version == allowedVersion {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(versions, version)
 }
 
 func validateProxy(databaseCluster *everestv1alpha1.DatabaseCluster) error {
@@ -363,7 +373,8 @@ func (h *validateHandler) validateBackupStoragesFor(
 		if databaseCluster.Spec.Backup.PITR.BackupStorageName == nil || *databaseCluster.Spec.Backup.PITR.BackupStorageName == "" {
 			return errPitrNoBackupStorageName
 		}
-		storage, err := h.kubeConnector.GetBackupStorage(ctx,
+		storage, err := h.kubeConnector.GetBackupStorage(
+			ctx,
 			types.NamespacedName{
 				Namespace: namespace,
 				Name:      *databaseCluster.Spec.Backup.PITR.BackupStorageName,
@@ -522,24 +533,28 @@ func validateResourceLimits(cluster *everestv1alpha1.DatabaseCluster) error {
 	if err := validateMemory(cluster); err != nil {
 		return err
 	}
+	if err := validateRequestsNotAboveLimits(cluster); err != nil {
+		return err
+	}
 	return validateStorageSize(cluster)
 }
 
 func ensureNonEmptyResources(cluster *everestv1alpha1.DatabaseCluster) error {
-	if cluster.Spec.Engine.Resources.CPU.IsZero() && cluster.Spec.Engine.Resources.Memory.IsZero() {
+	limits := cluster.Spec.Engine.Resources.EffectiveLimits()
+	if limits.CPU.IsZero() && limits.Memory.IsZero() {
 		return errNoResourceDefined
 	}
-	if cluster.Spec.Engine.Resources.CPU.IsZero() {
+	if limits.CPU.IsZero() {
 		return errNotEnoughCPU
 	}
-	if cluster.Spec.Engine.Resources.Memory.IsZero() {
+	if limits.Memory.IsZero() {
 		return errNotEnoughMemory
 	}
 	return nil
 }
 
 func validateCPU(cluster *everestv1alpha1.DatabaseCluster) error {
-	cpu := cluster.Spec.Engine.Resources.CPU
+	cpu := cluster.Spec.Engine.Resources.EffectiveLimits().CPU
 	if cpu.Cmp(minCPUQuantity) == -1 {
 		return errNotEnoughCPU
 	}
@@ -547,9 +562,34 @@ func validateCPU(cluster *everestv1alpha1.DatabaseCluster) error {
 }
 
 func validateMemory(cluster *everestv1alpha1.DatabaseCluster) error {
-	mem := cluster.Spec.Engine.Resources.Memory
+	mem := cluster.Spec.Engine.Resources.EffectiveLimits().Memory
 	if mem.Cmp(minMemQuantity) == -1 {
 		return errNotEnoughMemory
+	}
+	return nil
+}
+
+// validateRequestsNotAboveLimits ensures that, when both requests and limits are
+// specified for the engine or proxy, the requested CPU and memory do not exceed
+// the corresponding limits.
+func validateRequestsNotAboveLimits(cluster *everestv1alpha1.DatabaseCluster) error {
+	if err := requestsNotAboveLimits(&cluster.Spec.Engine.Resources); err != nil {
+		return err
+	}
+	return requestsNotAboveLimits(&cluster.Spec.Proxy.Resources)
+}
+
+func requestsNotAboveLimits(resources *everestv1alpha1.Resources) error {
+	requests := resources.EffectiveRequests()
+	if requests == nil {
+		return nil
+	}
+	limits := resources.EffectiveLimits()
+	if !requests.CPU.IsZero() && !limits.CPU.IsZero() && requests.CPU.Cmp(limits.CPU) == 1 {
+		return errCPURequestAboveLimit
+	}
+	if !requests.Memory.IsZero() && !limits.Memory.IsZero() && requests.Memory.Cmp(limits.Memory) == 1 {
+		return errMemoryRequestAboveLimit
 	}
 	return nil
 }
@@ -638,7 +678,6 @@ func validateDBEngineVersionUpgrade(engineType everestv1alpha1.EngineType, newVe
 	oldMajorInt, _ := strconv.Atoi(semver.Major(oldVersion)[1:])
 	// We will not allow major upgrades if the versions are not sequential.
 	if newMajorInt-oldMajorInt > 1 {
-		fmt.Println("errDBEngineMajorUpgradeNotSeq")
 		return errDBEngineMajorUpgradeNotSeq
 	}
 	return nil
@@ -662,54 +701,64 @@ func validateShardingOnUpdate(dbc, oldDB *everestv1alpha1.DatabaseCluster) error
 // - restoring
 // - deleting
 // - upgrading
-// - resizingVolumes
+// - resizingVolumes.
 func isDatabaseClusterUpdateAllowed(currentDB *everestv1alpha1.DatabaseCluster) bool {
 	if currentDB == nil {
 		return false
 	}
 
+	//nolint:exhaustive // any state other than the blocklisted ones allows updates
 	switch currentDB.Status.Status {
 	case everestv1alpha1.AppStateRestoring,
 		everestv1alpha1.AppStateDeleting,
 		everestv1alpha1.AppStateUpgrading,
 		everestv1alpha1.AppStateResizingVolumes:
 		return false
+	default:
+		return true
 	}
-
-	return true
 }
 
-var (
-	// Engine type mismatch error
-	errDBClusterPSPEngineTypeMismatch = func(pspName string, engineType everestv1alpha1.EngineType) error {
-		return fmt.Errorf("requested pod scheduling policy='%s' is not applicable with engineType='%s'", pspName, engineType)
-	}
-	// Affinity config errors
-	errDBClusterInvalidPSPAffinityConfig = func(pspName string) error {
-		return fmt.Errorf("pod scheduling policy='%s' is not applicable: affinityConfig is absent or empty", pspName)
-	}
-	// PXC affinity config errors
-	errDBClusterInvalidPSPAffinityPXCEmpty = func(pspName string) error {
-		return fmt.Errorf("pod scheduling policy='%s' is not applicable: .spec.affinityConfig.pxc is required", pspName)
-	}
-	errDBClusterInvalidPSPAffinityPXCComponentsEmpty = func(pspName string) error {
-		return fmt.Errorf("pod scheduling policy='%s' is not applicable: .spec.affinityConfig.pxc.engine or .spec.affinityConfig.pxc.proxy is required", pspName)
-	}
-	// PSMDB affinity config errors
-	errDBClusterInvalidPSPAffinityPSMDBEmpty = func(pspName string) error {
-		return fmt.Errorf("pod scheduling policy='%s' is not applicable: .spec.affinityConfig.psmdb is required", pspName)
-	}
-	errDBClusterInvalidPSPAffinityPSMDBComponentsEmpty = func(pspName string) error {
-		return fmt.Errorf("pod scheduling policy='%s' is not applicable: .spec.affinityConfig.psmdb.engine or .spec.affinityConfig.psmdb.proxy or .spec.affinityConfig.psmdb.configServer is required", pspName)
-	}
-	// Postgresql affinity config errors
-	errDBClusterInvalidPSPAffinityPostgresqlEmpty = func(pspName string) error {
-		return fmt.Errorf("pod scheduling policy='%s' is not applicable: .spec.affinityConfig.postgresql is required", pspName)
-	}
-	errDBClusterInvalidPSPAffinityPostgresqlComponentsEmpty = func(pspName string) error {
-		return fmt.Errorf("pod scheduling policy='%s' is not applicable: .spec.affinityConfig.postgresql.engine or .spec.affinityConfig.postgresql.proxy is required", pspName)
-	}
-)
+// Engine type mismatch error.
+func errDBClusterPSPEngineTypeMismatch(pspName string, engineType everestv1alpha1.EngineType) error {
+	return fmt.Errorf("requested pod scheduling policy='%s' is not applicable with engineType='%s'", pspName, engineType)
+}
+
+// Affinity config errors.
+
+func errDBClusterInvalidPSPAffinityConfig(pspName string) error {
+	return fmt.Errorf("pod scheduling policy='%s' is not applicable: affinityConfig is absent or empty", pspName)
+}
+
+// PXC affinity config errors.
+
+func errDBClusterInvalidPSPAffinityPXCEmpty(pspName string) error {
+	return fmt.Errorf("pod scheduling policy='%s' is not applicable: .spec.affinityConfig.pxc is required", pspName)
+}
+
+func errDBClusterInvalidPSPAffinityPXCComponentsEmpty(pspName string) error {
+	return fmt.Errorf("pod scheduling policy='%s' is not applicable: .spec.affinityConfig.pxc.engine or .spec.affinityConfig.pxc.proxy is required", pspName)
+}
+
+// PSMDB affinity config errors.
+
+func errDBClusterInvalidPSPAffinityPSMDBEmpty(pspName string) error {
+	return fmt.Errorf("pod scheduling policy='%s' is not applicable: .spec.affinityConfig.psmdb is required", pspName)
+}
+
+func errDBClusterInvalidPSPAffinityPSMDBComponentsEmpty(pspName string) error {
+	return fmt.Errorf("pod scheduling policy='%s' is not applicable: .spec.affinityConfig.psmdb.engine or .spec.affinityConfig.psmdb.proxy or .spec.affinityConfig.psmdb.configServer is required", pspName)
+}
+
+// Postgresql affinity config errors.
+
+func errDBClusterInvalidPSPAffinityPostgresqlEmpty(pspName string) error {
+	return fmt.Errorf("pod scheduling policy='%s' is not applicable: .spec.affinityConfig.postgresql is required", pspName)
+}
+
+func errDBClusterInvalidPSPAffinityPostgresqlComponentsEmpty(pspName string) error {
+	return fmt.Errorf("pod scheduling policy='%s' is not applicable: .spec.affinityConfig.postgresql.engine or .spec.affinityConfig.postgresql.proxy is required", pspName)
+}
 
 func (h *validateHandler) validatePodSchedulingPolicy(ctx context.Context, db *everestv1alpha1.DatabaseCluster) error {
 	var psp *everestv1alpha1.PodSchedulingPolicy
@@ -724,7 +773,7 @@ func (h *validateHandler) validatePodSchedulingPolicy(ctx context.Context, db *e
 		if k8serrors.IsNotFound(err) {
 			return err
 		}
-		return fmt.Errorf("failed to check if requested pod scheduling policy with name='%s' exists: %v", pspName, err)
+		return fmt.Errorf("failed to check if requested pod scheduling policy with name='%s' exists: %w", pspName, err)
 	}
 
 	if psp.Spec.EngineType != db.Spec.Engine.Type {
@@ -737,6 +786,11 @@ func (h *validateHandler) validatePodSchedulingPolicy(ctx context.Context, db *e
 	}
 
 	// Policy has affinityConfig - need to validate it.
+	return validateDBClusterPSPAffinityConfig(psp, pspName)
+}
+
+func validateDBClusterPSPAffinityConfig(psp *everestv1alpha1.PodSchedulingPolicy, pspName string) error {
+	affinityConfig := psp.Spec.AffinityConfig
 	switch psp.Spec.EngineType {
 	case everestv1alpha1.DatabaseEnginePXC:
 		if affinityConfig.PXC == nil {

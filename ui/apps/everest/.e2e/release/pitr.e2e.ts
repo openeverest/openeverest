@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -288,11 +289,11 @@ function getBackupStorage(): string {
           expect(addedCluster?.spec.engine.type).toBe(db);
           expect(addedCluster?.spec.engine.replicas).toBe(size);
           expect(['600m', '0.6']).toContain(
-            addedCluster?.spec.engine.resources?.cpu.toString()
+            addedCluster?.spec.engine.resources?.limits.cpu.toString()
           );
-          expect(addedCluster?.spec.engine.resources?.memory.toString()).toBe(
-            '1G'
-          );
+          expect(
+            addedCluster?.spec.engine.resources?.limits.memory.toString()
+          ).toBe('1G');
           expect(addedCluster?.spec.engine.storage.size.toString()).toBe('1Gi');
           expect(addedCluster?.spec.proxy.expose.type).toBe('ClusterIP');
           if (db != 'psmdb') {
