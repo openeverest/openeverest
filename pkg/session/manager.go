@@ -171,8 +171,19 @@ func getPrivateKey() (*rsa.PrivateKey, error) {
 	if err != nil {
 		return nil, errors.Join(err, errors.New("failed to read JWT private key"))
 	}
+	return parsePrivateKeyPEM(pemString)
+}
+
+func parsePrivateKeyPEM(pemString []byte) (*rsa.PrivateKey, error) {
 	block, _ := pem.Decode(pemString)
-	return x509.ParsePKCS1PrivateKey(block.Bytes)
+	if block == nil {
+		return nil, errors.New("failed to parse JWT private key: no valid PEM block found")
+	}
+	key, err := x509.ParsePKCS1PrivateKey(block.Bytes)
+	if err != nil {
+		return nil, errors.Join(err, errors.New("failed to parse PKCS1 private key"))
+	}
+	return key, nil
 }
 
 // KeyFunc retruns a function for getting the public RSA keys used

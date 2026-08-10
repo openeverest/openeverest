@@ -268,3 +268,29 @@ func userSecret(file string) *corev1.Secret {
 		},
 	}
 }
+
+func TestParsePrivateKeyPEM(t *testing.T) {
+	t.Parallel()
+	t.Run("invalid non-PEM input", func(t *testing.T) {
+		t.Parallel()
+		key, err := parsePrivateKeyPEM([]byte("this is not a PEM encoded private key"))
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "no valid PEM block found")
+		assert.Nil(t, key)
+	})
+
+	t.Run("valid PEM block but not a private key", func(t *testing.T) {
+		t.Parallel()
+		// A valid ECDSA private key. It will pass pem.Decode,
+		// but fail x509.ParsePKCS1PrivateKey.
+		fakePEM := `-----BEGIN EC PRIVATE KEY-----
+MHcCAQEEIMd5RMrNFpJxgzplGEMjW9RZsSayx3pSIU3DCDJN+/fHoAoGCCqGSM49
+AwEHoUQDQgAEEjcF2+v4SMQLMAtwJYH6Hfk7hHi9Q3DRcCQuum/OgLYGAFBIgLQM
+E5Jhl+78Fpuymz9OK0ZpYYfeDH6wAPfC6g==
+-----END EC PRIVATE KEY-----`
+		key, err := parsePrivateKeyPEM([]byte(fakePEM))
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to parse PKCS1 private key")
+		assert.Nil(t, key)
+	})
+}
