@@ -50,7 +50,7 @@ spec:
     kind: Storage
     listKind: StorageList
     plural: storages
-    singular: storages
+    singular: storage
   scope: Namespaced
   versions:
     - name: v1
