@@ -21,11 +21,15 @@ export type GetRestorePayload = {
       name: string;
     };
     spec: {
-      instanceName: string;
+      instanceRef: {
+        name: string;
+      };
       dataSource: {
         type: string;
         backup?: {
-          backupName: string;
+          backupRef: {
+            name: string;
+          };
           pitr?: {
             type: string;
             date?: string;
@@ -65,11 +69,19 @@ export type CreateRestorePayload = {
     name: string;
   };
   spec: {
-    instanceName: string;
+    instanceRef: {
+      name: string;
+    };
     dataSource: {
       type: 'Backup';
       backup: {
-        backupName: string;
+        backupRef: {
+          name: string;
+        };
+        pitr?: {
+          type: 'date' | 'latest';
+          date?: string;
+        };
       };
     };
   };

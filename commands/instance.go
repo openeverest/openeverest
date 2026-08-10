@@ -34,4 +34,5 @@ func init() {
 	instanceCmd.AddCommand(instance.GetCreateCmd())
 	instanceCmd.AddCommand(instance.GetStatusCmd())
 	instanceCmd.AddCommand(instance.GetListCmd())
+	instanceCmd.AddCommand(instance.GetDeleteCmd())
 }
