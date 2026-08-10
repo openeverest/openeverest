@@ -110,8 +110,8 @@ func deleteRun(cmd *cobra.Command, _ []string) {
 	rd := restorecli.NewDeleter(*deleteCfg, logger.GetLogger())
 	runErr := rd.Run(cmd.Context(), *deleteOpts, cfgPath)
 	os.Exit(waitcmd.ExitCode(runErr, logger.GetLogger(), deleteCfg.Pretty,
-		fmt.Sprintf("wait cancelled; restore %q deletion continues in the background — check with 'everestctl restore list'", deleteOpts.Name),
-		fmt.Sprintf("timed out after %s waiting for restore %q to be deleted; deletion is still running server-side, check with 'everestctl restore list --namespace %s'",
+		fmt.Sprintf("wait cancelled; restore %q deletion continues in the background — check with 'everestctl restore list --namespace %s --instance <instance>'", deleteOpts.Name, deleteOpts.Namespace),
+		fmt.Sprintf("timed out after %s waiting for restore %q to be deleted; deletion is still running server-side, check with 'everestctl restore list --namespace %s --instance <instance>'",
 			deleteOpts.Timeout, deleteOpts.Name, deleteOpts.Namespace),
 	))
 }
