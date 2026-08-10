@@ -427,11 +427,16 @@ func TestBasicStorageParamsAreChanged(t *testing.T) {
 			areChanged: true,
 		},
 		{
-			// Repointing an in-use storage at a different endpoint orphans every backup
-			// already written through it, so it must be treated like a bucket/region change.
+			// EndpointURL is intentionally excluded from the in-use guard so infrastructure
+			// hostname / DNS moves remain possible; reachability is checked separately.
 			name:       "url changed",
 			params:     everestapi.UpdateBackupStorageParams{Url: new("https://s3.other.example.com")},
-			areChanged: true,
+			areChanged: false,
+		},
+		{
+			name:       "url cleared to empty",
+			params:     everestapi.UpdateBackupStorageParams{Url: new("")},
+			areChanged: false,
 		},
 		{
 			name:       "bucket set to the same value",
@@ -449,7 +454,7 @@ func TestBasicStorageParamsAreChanged(t *testing.T) {
 			areChanged: false,
 		},
 		{
-			name: "all three set to the same values",
+			name: "bucket region and url set to the same values",
 			params: everestapi.UpdateBackupStorageParams{
 				BucketName: new("bucket1"),
 				Region:     new("region1"),
@@ -458,7 +463,8 @@ func TestBasicStorageParamsAreChanged(t *testing.T) {
 			areChanged: false,
 		},
 		{
-			name: "all three changed",
+			// Bucket/region changes still trip the guard even when URL also changes.
+			name: "bucket and region changed with url",
 			params: everestapi.UpdateBackupStorageParams{
 				BucketName: new("bucket2"),
 				Region:     new("region2"),
@@ -467,7 +473,7 @@ func TestBasicStorageParamsAreChanged(t *testing.T) {
 			areChanged: true,
 		},
 		{
-			// Non-identity params must never trip the in-use guard on their own,
+			// Non-location params must never trip the in-use guard on their own,
 			// otherwise credentials could not be rotated on a storage that is in use.
 			name: "only non-identity params changed",
 			params: everestapi.UpdateBackupStorageParams{
@@ -478,11 +484,6 @@ func TestBasicStorageParamsAreChanged(t *testing.T) {
 				Description:    new("new description"),
 			},
 			areChanged: false,
-		},
-		{
-			name:       "url cleared to empty",
-			params:     everestapi.UpdateBackupStorageParams{Url: new("")},
-			areChanged: true,
 		},
 	}
 

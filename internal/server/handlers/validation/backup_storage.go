@@ -335,18 +335,28 @@ func azureAccess(ctx context.Context, l *zap.SugaredLogger, accountName, account
 	return nil
 }
 
-// basicStorageParamsAreChanged reports whether an update changes any of the parameters that
-// identify the storage location itself: bucket, region and endpoint URL.
+// basicStorageParamsAreChanged reports whether an in-use backup storage update changes
+// bucket or region — parameters that definitively point at a different set of objects.
 //
-// These are the same three fields that validateDuplicateStorageByUpdate uses to decide whether
-// two storages point at the same location (see errDuplicatedBackupStorage), and the two functions
-// must stay in sync: repointing a storage that is still in use would orphan every backup already
-// written through it. Both are expressed via the shared *OrDefault helpers so that adding a field
-// to the storage identity only has to be done once.
+// EndpointURL is intentionally excluded. An endpoint change is usually not a change of
+// location: object storage may move behind a new ingress hostname, a domain may be
+// retired, in-cluster DNS may change after a namespace move, or a bucket may start being
+// reached through a private endpoint while the objects stay put. Freezing the URL would
+// leave existing DatabaseClusterBackup objects (which reference storage by name) with no
+// supported way back to that history once the old hostname is gone. A careless repoint is
+// recoverable by repointing back; an immutable field after an infrastructure move is not.
+//
+// The safety check for a URL change is reachability, not immutability:
+// validateUpdateBackupStorageRequest runs the full access check against the new endpoint
+// with bucket and region unchanged, so the update only succeeds if that bucket is readable
+// and writable there.
+//
+// This is a different question from validateDuplicateStorageByUpdate, which compares
+// region + bucket + url to decide whether two storages address the same place
+// (see errDuplicatedBackupStorage). The two functions are not meant to stay in sync.
 func basicStorageParamsAreChanged(bs *everestv1alpha1.BackupStorage, params *api.UpdateBackupStorageParams) bool {
 	return bucketNameOrDefault(params, bs.Spec.Bucket) != bs.Spec.Bucket ||
-		regionOrDefault(params, bs.Spec.Region) != bs.Spec.Region ||
-		urlOrDefault(params, bs.Spec.EndpointURL) != bs.Spec.EndpointURL
+		regionOrDefault(params, bs.Spec.Region) != bs.Spec.Region
 }
 
 func (h *validateHandler) validateUpdateBackupStorageRequest(
