@@ -87,5 +87,7 @@ func newRestoreDeletePoll(
 }
 
 func deleteCondition(r *client.Restore) (wait.Outcome, string) {
-	return deletion.GoneCondition("restore deleted", restoreState)(r)
+	return deletion.GoneCondition("restore deleted", func(v *client.Restore) string {
+		return "restore still exists (state: " + restoreState(v) + ")"
+	})(r)
 }

@@ -189,3 +189,19 @@ func TestNewRestorePoll_UnexpectedStatusIsRetryable(t *testing.T) {
 type roundTripFunc func(*http.Request) (*http.Response, error)
 
 func (f roundTripFunc) RoundTrip(r *http.Request) (*http.Response, error) { return f(r) }
+
+// TestDeleteCondition_PendingMessageIsUnambiguous pins the --wait progress
+// text: it must say the restore still exists, never just echo the raw
+// state word, since "Succeeded" alone reads as "the deletion succeeded".
+func TestDeleteCondition_PendingMessageIsUnambiguous(t *testing.T) {
+	t.Parallel()
+
+	outcome, msg := deleteCondition(nil)
+	assert.Equal(t, wait.Succeeded, outcome)
+	assert.Equal(t, "restore deleted", msg)
+
+	r := restoreFromJSON(t, `{"status":{"state":"Succeeded"}}`)
+	outcome, msg = deleteCondition(r)
+	assert.Equal(t, wait.Pending, outcome)
+	assert.Equal(t, "restore still exists (state: Succeeded)", msg)
+}

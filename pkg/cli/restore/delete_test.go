@@ -112,7 +112,9 @@ func TestDelete_HappyPath_NoWait(t *testing.T) {
 func TestDelete_NotFound_WithoutIgnoreNotFound_Errors(t *testing.T) {
 	t.Parallel()
 
+	deleteCalled := false
 	srv := newDeleteServer(t, func(w http.ResponseWriter, _ *http.Request) {
+		deleteCalled = true
 		w.WriteHeader(http.StatusNotFound)
 	}, nil)
 	defer srv.Close()
@@ -121,6 +123,35 @@ func TestDelete_NotFound_WithoutIgnoreNotFound_Errors(t *testing.T) {
 	err := rd.Run(context.Background(), yesOpts(), newConfigPath(t, srv.URL))
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), `restore "my-mongo-restore-x7k2q" not found in namespace "everest"`)
+	assert.False(t, deleteCalled, "a restore we already know is gone must not reach the DELETE call")
+}
+
+// TestDelete_NotFound_WithoutIgnoreNotFound_SkipsConfirmation proves the
+// review fix: knowing the restore is already gone means we don't need to
+// prompt to find that out, even without --yes or a TTY.
+func TestDelete_NotFound_WithoutIgnoreNotFound_SkipsConfirmation(t *testing.T) {
+	t.Parallel()
+
+	deleteCalled := false
+	srv := newDeleteServer(t, func(w http.ResponseWriter, _ *http.Request) {
+		deleteCalled = true
+		w.WriteHeader(http.StatusNoContent)
+	}, func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusNotFound) })
+	defer srv.Close()
+
+	opts := DeleteOptions{
+		Name:       "my-mongo-restore-x7k2q",
+		Namespace:  "everest",
+		Cluster:    "main",
+		IsTerminal: isTerminalFalse,
+	}
+
+	rd := NewDeleter(Config{}, zap.NewNop().Sugar())
+	err := rd.Run(context.Background(), opts, newConfigPath(t, srv.URL))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), `restore "my-mongo-restore-x7k2q" not found in namespace "everest"`)
+	assert.NotContains(t, err.Error(), "confirmation required", "already knowing it's gone must skip the prompt entirely")
+	assert.False(t, deleteCalled, "delete must not be issued for a restore we already know is gone")
 }
 
 func TestDelete_NotFound_WithIgnoreNotFound_Succeeds(t *testing.T) {
@@ -360,6 +391,36 @@ func TestDelete_IgnoreNotFound_AlreadyGone_JSONOutput(t *testing.T) {
 	assert.JSONEq(t, `{"name":"my-mongo-restore-x7k2q","namespace":"everest","deleted":false}`, out)
 }
 
+// TestDelete_InFlight_ForceWithoutYes_StillRequiresConfirmation pins the
+// #2658 rule that --force is never a --yes synonym: overriding the guard
+// must still go through the confirmation gate.
+func TestDelete_InFlight_ForceWithoutYes_StillRequiresConfirmation(t *testing.T) {
+	t.Parallel()
+
+	called := false
+	srv := newDeleteServer(t,
+		func(w http.ResponseWriter, _ *http.Request) {
+			called = true
+			w.WriteHeader(http.StatusNoContent)
+		},
+		getHandlerWithState(t, restoreStateRunning),
+	)
+	defer srv.Close()
+
+	opts := DeleteOptions{
+		Name:       "my-mongo-restore-x7k2q",
+		Namespace:  "everest",
+		Cluster:    "main",
+		Force:      true,
+		IsTerminal: isTerminalFalse,
+	}
+
+	rd := NewDeleter(Config{}, zap.NewNop().Sugar())
+	err := rd.Run(context.Background(), opts, newConfigPath(t, srv.URL))
+	require.ErrorIs(t, err, confirm.ErrNonInteractive)
+	assert.False(t, called, "--force must not imply --yes")
+}
+
 func TestDelete_InFlight_Pending_RefusesWithoutForce(t *testing.T) {
 	t.Parallel()
 
@@ -378,6 +439,28 @@ func TestDelete_InFlight_Pending_RefusesWithoutForce(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), `restore "my-mongo-restore-x7k2q" is still running; wait for it to finish or re-run with --force`)
 	assert.False(t, called, "delete must not be issued while the restore is in flight")
+}
+
+// TestDelete_InFlight_NoStatusYet_RefusesWithoutForce covers the window
+// right after create, before any controller has observed the restore.
+func TestDelete_InFlight_NoStatusYet_RefusesWithoutForce(t *testing.T) {
+	t.Parallel()
+
+	called := false
+	srv := newDeleteServer(t,
+		func(w http.ResponseWriter, _ *http.Request) {
+			called = true
+			w.WriteHeader(http.StatusNoContent)
+		},
+		getHandlerWithState(t, ""),
+	)
+	defer srv.Close()
+
+	rd := NewDeleter(Config{}, zap.NewNop().Sugar())
+	err := rd.Run(context.Background(), yesOpts(), newConfigPath(t, srv.URL))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), `restore "my-mongo-restore-x7k2q" hasn't reported its status yet`)
+	assert.False(t, called, "delete must not be issued before the restore has any status")
 }
 
 func TestDelete_InFlight_Running_RefusesWithoutForce(t *testing.T) {
@@ -406,6 +489,23 @@ func TestDelete_InFlight_WithForce_Succeeds(t *testing.T) {
 	srv := newDeleteServer(t,
 		func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusNoContent) },
 		getHandlerWithState(t, restoreStateRunning),
+	)
+	defer srv.Close()
+
+	opts := yesOpts()
+	opts.Force = true
+
+	rd := NewDeleter(Config{}, zap.NewNop().Sugar())
+	err := rd.Run(context.Background(), opts, newConfigPath(t, srv.URL))
+	assert.NoError(t, err)
+}
+
+func TestDelete_InFlight_NoStatusYet_WithForce_Succeeds(t *testing.T) {
+	t.Parallel()
+
+	srv := newDeleteServer(t,
+		func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusNoContent) },
+		getHandlerWithState(t, ""),
 	)
 	defer srv.Close()
 
@@ -456,24 +556,33 @@ func TestDeleteConfirmMessage(t *testing.T) {
 
 	tests := []struct {
 		name            string
+		state           string
 		forcingInFlight bool
 		want            string
 	}{
 		{
 			name:            "normal delete",
+			state:           restoreStateSucceeded,
 			forcingInFlight: false,
 			want:            `Delete restore "my-mongo-restore-x7k2q" in namespace "everest"?`,
 		},
 		{
-			name:            "forcing an in-flight restore",
+			name:            "forcing a Running restore",
+			state:           restoreStateRunning,
 			forcingInFlight: true,
-			want:            `Restore "my-mongo-restore-x7k2q" in namespace "everest" is still running. Interrupting it triggers the provider's cleanup of the engine restore and can leave the target instance in an inconsistent state. Delete anyway?`,
+			want:            `Restore "my-mongo-restore-x7k2q" in namespace "everest" may still be in progress (state: Running). Interrupting it triggers the provider's cleanup of the engine restore and can leave the target instance in an inconsistent state. Delete anyway?`,
+		},
+		{
+			name:            "forcing a restore with no status yet",
+			state:           "",
+			forcingInFlight: true,
+			want:            `Restore "my-mongo-restore-x7k2q" in namespace "everest" may still be in progress (state: not yet reported). Interrupting it triggers the provider's cleanup of the engine restore and can leave the target instance in an inconsistent state. Delete anyway?`,
 		},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			got := deleteConfirmMessage("my-mongo-restore-x7k2q", "everest", tc.forcingInFlight)
+			got := deleteConfirmMessage("my-mongo-restore-x7k2q", "everest", tc.state, tc.forcingInFlight)
 			assert.Equal(t, tc.want, got)
 		})
 	}
@@ -482,16 +591,27 @@ func TestDeleteConfirmMessage(t *testing.T) {
 func TestInFlight(t *testing.T) {
 	t.Parallel()
 
-	assert.True(t, inFlight(restoreStatePending))
-	assert.True(t, inFlight(restoreStateRunning))
-	assert.False(t, inFlight(restoreStateSucceeded))
-	assert.False(t, inFlight(restoreStateFailed))
-	assert.False(t, inFlight("Error"))
-	assert.False(t, inFlight(""))
+	assert.True(t, inFlight(restoreStatePending, true))
+	assert.True(t, inFlight(restoreStateRunning, true))
+	assert.True(t, inFlight("", true), "read successfully but no status yet is the riskiest window, right after create")
+	assert.False(t, inFlight(restoreStateSucceeded, true))
+	assert.False(t, inFlight(restoreStateFailed, true))
+	assert.False(t, inFlight("Error", true))
+	assert.False(t, inFlight("", false), "a failed/ambiguous fetch must never block — best-effort guard, not an invariant")
 }
 
-func TestRestoreStateForGuard_NilSafe(t *testing.T) {
+func TestRestoreStateForGuard(t *testing.T) {
 	t.Parallel()
 
-	assert.Empty(t, restoreStateForGuard(nil))
+	state, ok := restoreStateForGuard(nil)
+	assert.Empty(t, state)
+	assert.False(t, ok, "nil restore means the fetch found nothing or failed")
+
+	state, ok = restoreStateForGuard(restoreWithState(t, "my-mongo-restore-x7k2q", ""))
+	assert.Empty(t, state)
+	assert.True(t, ok, "fetched successfully, just no status yet")
+
+	state, ok = restoreStateForGuard(restoreWithState(t, "my-mongo-restore-x7k2q", restoreStateRunning))
+	assert.Equal(t, restoreStateRunning, state)
+	assert.True(t, ok)
 }

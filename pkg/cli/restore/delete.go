@@ -76,20 +76,26 @@ func (rd *Deleter) Run(ctx context.Context, opts DeleteOptions, cfgPath string) 
 	}
 
 	restore, gone := rd.checkRestoreExists(ctx, c, opts)
-	if gone && opts.IgnoreNotFound {
+	if gone {
+		if !opts.IgnoreNotFound {
+			return fmt.Errorf("restore %q not found in namespace %q", opts.Name, opts.Namespace)
+		}
 		return rd.emitAlreadyGone(opts)
 	}
 
-	// A nil restore (gone, or fetch failed) means nothing to guard: this is a
+	// A nil restore (fetch failed/ambiguous) means nothing to guard: this is a
 	// client-side accident guard, not an invariant, so it must not block delete.
-	state := restoreStateForGuard(restore)
-	forcingInFlight := inFlight(state) && opts.Force
-	if inFlight(state) && !opts.Force {
+	state, ok := restoreStateForGuard(restore)
+	forcingInFlight := inFlight(state, ok) && opts.Force
+	if inFlight(state, ok) && !opts.Force {
+		if state == "" {
+			return fmt.Errorf("restore %q hasn't reported its status yet; wait a moment and try again, or re-run with --force", opts.Name)
+		}
 		return fmt.Errorf("restore %q is still running; wait for it to finish or re-run with --force", opts.Name)
 	}
 
 	confirmOpts := confirm.Options{Yes: opts.Yes, JSON: opts.JSON, IsTerminal: opts.IsTerminal}
-	msg := deleteConfirmMessage(opts.Name, opts.Namespace, forcingInFlight)
+	msg := deleteConfirmMessage(opts.Name, opts.Namespace, state, forcingInFlight)
 	if err := confirm.YesNo(ctx, confirmOpts, msg); err != nil {
 		return err
 	}
@@ -139,28 +145,38 @@ func (rd *Deleter) checkRestoreExists(ctx context.Context, c *client.ClientWithR
 	}
 }
 
-// restoreStateForGuard is restoreState, but nil-safe: nil means the
-// pre-delete fetch found nothing, so there's no live restore to guard.
-func restoreStateForGuard(r *client.Restore) string {
+// restoreStateForGuard reads state for the guard: ok is false only when the
+// fetch found nothing or failed; ok true + state "" means read but no status yet.
+func restoreStateForGuard(r *client.Restore) (string, bool) {
 	if r == nil {
-		return ""
+		return "", false
 	}
-	return restoreState(r)
+	if r.Status != nil && r.Status.State != nil {
+		return *r.Status.State, true
+	}
+	return "", true
 }
 
-// inFlight reports if the restore is actively running. Pending/Running
-// block delete; Error doesn't, deleting a stuck restore is normal remediation.
-func inFlight(state string) bool {
-	return state == restoreStatePending || state == restoreStateRunning
+// inFlight reports if the restore should block a delete: Pending/Running,
+// or read successfully with no status yet; a failed/ambiguous fetch never is.
+func inFlight(state string, ok bool) bool {
+	if !ok {
+		return false
+	}
+	return state == "" || state == restoreStatePending || state == restoreStateRunning
 }
 
 // deleteConfirmMessage is what the user reads before confirming.
 // forcingInFlight adds a warning about interrupting an in-flight restore.
-func deleteConfirmMessage(name, namespace string, forcingInFlight bool) string {
+func deleteConfirmMessage(name, namespace, state string, forcingInFlight bool) string {
 	if forcingInFlight {
+		display := state
+		if display == "" {
+			display = "not yet reported"
+		}
 		return fmt.Sprintf(
-			"Restore %q in namespace %q is still running. Interrupting it triggers the provider's cleanup of the engine restore and can leave the target instance in an inconsistent state. Delete anyway?",
-			name, namespace,
+			"Restore %q in namespace %q may still be in progress (state: %s). Interrupting it triggers the provider's cleanup of the engine restore and can leave the target instance in an inconsistent state. Delete anyway?",
+			name, namespace, display,
 		)
 	}
 	return fmt.Sprintf("Delete restore %q in namespace %q?", name, namespace)
