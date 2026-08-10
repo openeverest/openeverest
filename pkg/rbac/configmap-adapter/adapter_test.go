@@ -32,7 +32,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/percona/everest/data"
+	"github.com/openeverest/openeverest/v2/data"
 )
 
 // mockK8s implements the k8s interface for testing.

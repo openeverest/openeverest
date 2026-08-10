@@ -137,7 +137,7 @@ func TestGetConsumedCPUAndMemoryCountsRunningInitContainers(t *testing.T) {
 		WithScheme(CreateScheme()).
 		WithObjects(pod).
 		Build()
-	k := NewEmpty(zap.NewNop().Sugar()).WithKubernetesClient(mockClient)
+	k := NewEmpty(zap.NewNop().Sugar(), "test-ns").WithKubernetesClient(mockClient)
 
 	cpuMillis, memoryBytes, err := k.GetConsumedCPUAndMemory(context.Background(), "everest")
 	require.NoError(t, err)
