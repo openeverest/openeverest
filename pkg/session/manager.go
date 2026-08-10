@@ -171,7 +171,11 @@ func getPrivateKey() (*rsa.PrivateKey, error) {
 	if err != nil {
 		return nil, errors.Join(err, errors.New("failed to read JWT private key"))
 	}
-	return parsePrivateKeyPEM(pemString)
+	key, err := parsePrivateKeyPEM(pemString)
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", common.EverestJWTPrivateKeyFile, err)
+	}
+	return key, nil
 }
 
 // parsePrivateKeyPEM decodes a PEM-encoded PKCS1 RSA private key.

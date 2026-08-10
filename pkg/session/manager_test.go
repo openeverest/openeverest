@@ -93,7 +93,7 @@ func TestParsePrivateKeyPEM(t *testing.T) {
 			}
 			require.NoError(t, err)
 			require.NotNil(t, key)
-			assert.Equal(t, validKey.N, key.N)
+			assert.True(t, key.Equal(validKey))
 		})
 	}
 }
