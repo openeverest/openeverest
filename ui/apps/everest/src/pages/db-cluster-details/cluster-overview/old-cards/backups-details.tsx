@@ -33,7 +33,7 @@ import {
 import StatusField from 'components/status-field';
 import { getFormValuesFromCronExpression } from 'components/time-selection/time-selection.utils';
 import { DBClusterDetailsTabs } from 'pages/db-cluster-details/db-cluster-details.types';
-import { flattenSchedules } from 'pages/db-cluster-details/backups/backups.utils';
+import { flattenSchedules } from 'utils/backup-schedules';
 import { BACKUP_STATUS_TO_BASE_STATUS } from 'pages/db-cluster-details/backups/backups-list/backups-list.constants';
 import { getTimeSelectionPreviewMessage } from 'pages/database-form/database-preview/database.preview.messages';
 import { useBackupsList } from 'hooks/api/backups/useBackups';

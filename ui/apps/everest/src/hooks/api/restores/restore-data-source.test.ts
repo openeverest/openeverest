@@ -12,7 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { buildRestoreDataSource } from './restore-data-source';
+import {
+  buildRestoreDataSource,
+  isRestoreDataSourceInput,
+} from './restore-data-source';
 
 describe('buildRestoreDataSource', () => {
   it('builds a backup data source with a backupRef', () => {
@@ -54,5 +57,71 @@ describe('buildRestoreDataSource', () => {
       },
     });
     expect('date' in dataSource.pointInTime!).toBe(false);
+  });
+
+  it('names the source instance for a clone via source.instanceRef', () => {
+    expect(
+      buildRestoreDataSource({
+        type: 'PointInTime',
+        storageName: 's3-main',
+        recoveryTarget: 'latest',
+        sourceInstanceName: 'inst-1',
+      })
+    ).toEqual({
+      type: 'PointInTime',
+      pointInTime: {
+        recoveryTarget: 'latest',
+        source: {
+          storageRef: { name: 's3-main' },
+          instanceRef: { name: 'inst-1' },
+        },
+      },
+    });
+  });
+});
+
+describe('isRestoreDataSourceInput', () => {
+  it('accepts a valid backup intent', () => {
+    expect(
+      isRestoreDataSourceInput({ type: 'Backup', backupName: 'daily-1' })
+    ).toBe(true);
+  });
+
+  it('accepts valid latest and date PITR intents', () => {
+    expect(
+      isRestoreDataSourceInput({
+        type: 'PointInTime',
+        storageName: 's3',
+        recoveryTarget: 'latest',
+      })
+    ).toBe(true);
+    expect(
+      isRestoreDataSourceInput({
+        type: 'PointInTime',
+        storageName: 's3',
+        recoveryTarget: 'date',
+        date: '2026-07-29T06:30:00Z',
+      })
+    ).toBe(true);
+  });
+
+  it('rejects malformed or missing intents', () => {
+    expect(isRestoreDataSourceInput({ type: 'Backup' })).toBe(false);
+    expect(
+      isRestoreDataSourceInput({
+        type: 'PointInTime',
+        recoveryTarget: 'latest',
+      })
+    ).toBe(false);
+    expect(
+      isRestoreDataSourceInput({
+        type: 'PointInTime',
+        storageName: 's3',
+        recoveryTarget: 'date',
+      })
+    ).toBe(false);
+    expect(isRestoreDataSourceInput({ type: 'Nope' })).toBe(false);
+    expect(isRestoreDataSourceInput(undefined)).toBe(false);
+    expect(isRestoreDataSourceInput('backup')).toBe(false);
   });
 });

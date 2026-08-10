@@ -57,7 +57,74 @@ describe('resolveRestoreAction', () => {
       { ...ctx, isNewClusterMode: true }
     );
 
-    expect(action).toEqual({ kind: 'navigate-new', backupName: 'daily-1' });
+    expect(action).toEqual({
+      kind: 'navigate-new',
+      dataSource: { type: 'Backup', backupName: 'daily-1' },
+    });
+  });
+
+  it('carries the backup storage for a clone when known', () => {
+    const action = resolveRestoreAction(
+      { backupType: BackupTypeValues.fromBackup, backupName: 'daily-1' },
+      {
+        ...ctx,
+        isNewClusterMode: true,
+        succeededBackups: [{ name: 'daily-1', storageName: 's3-main' }],
+      }
+    );
+
+    expect(action).toEqual({
+      kind: 'navigate-new',
+      dataSource: {
+        type: 'Backup',
+        backupName: 'daily-1',
+        storageName: 's3-main',
+      },
+    });
+  });
+
+  it('carries a latest PITR clone through navigation with the source instance', () => {
+    const action = resolveRestoreAction(
+      {
+        backupType: BackupTypeValues.fromPitr,
+        pitrStorage: 's3-main',
+        recoveryTarget: RecoveryTargetValues.latest,
+      },
+      { ...ctx, isNewClusterMode: true }
+    );
+
+    expect(action).toEqual({
+      kind: 'navigate-new',
+      dataSource: {
+        type: 'PointInTime',
+        storageName: 's3-main',
+        recoveryTarget: 'latest',
+        sourceInstanceName: 'inst-1',
+      },
+    });
+  });
+
+  it('carries a date PITR clone through navigation with the source instance', () => {
+    const action = resolveRestoreAction(
+      {
+        backupType: BackupTypeValues.fromPitr,
+        pitrStorage: 's3-main',
+        recoveryTarget: RecoveryTargetValues.date,
+        pointInTimeDate: new Date('2026-07-29T06:30:00.500Z'),
+      },
+      { ...ctx, isNewClusterMode: true }
+    );
+
+    expect(action).toEqual({
+      kind: 'navigate-new',
+      dataSource: {
+        type: 'PointInTime',
+        storageName: 's3-main',
+        recoveryTarget: 'date',
+        date: '2026-07-29T06:30:00Z',
+        sourceInstanceName: 'inst-1',
+      },
+    });
   });
 
   it('builds a latest PITR restore without a date', () => {
