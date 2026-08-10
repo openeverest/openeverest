@@ -28,6 +28,9 @@ jobs:
     runs-on: ubuntu-latest
     env:
       PMM_HELM_VER: "1.3.21"
+      # Store Playwright browsers on the roomier /mnt partition to avoid
+      # ENOSPC failures when installing Chromium on the smaller root volume.
+      PLAYWRIGHT_BROWSERS_PATH: /mnt/ms-playwright
     steps:
       - name: Check out code into the Go module directory
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -169,6 +172,8 @@ jobs:
       - name: Install Chromium for Playwright
         shell: bash
         run: |
+          sudo mkdir -p "$PLAYWRIGHT_BROWSERS_PATH"
+          sudo chown -R "$(id -u):$(id -g)" "$PLAYWRIGHT_BROWSERS_PATH"
           cd ui/apps/everest
           npx playwright install chromium
 
