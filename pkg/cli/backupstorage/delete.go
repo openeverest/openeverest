@@ -117,27 +117,26 @@ func (bd *Deleter) Run(ctx context.Context, opts DeleteOptions, cfgPath string) 
 func (bd *Deleter) backupStorageAlreadyGone(ctx context.Context, c *client.ClientWithResponses, opts DeleteOptions) bool {
 	resp, err := c.GetBackupStorageWithResponse(ctx, opts.Cluster, opts.Namespace, opts.Name)
 	if err != nil {
+		bd.l.Warnf("pre-delete check for backup storage %q failed: %v", opts.Name, err)
 		return false
 	}
-	return resp.StatusCode() == http.StatusNotFound
+	if resp.StatusCode() == http.StatusNotFound {
+		return true
+	}
+	if resp.StatusCode() != http.StatusOK {
+		statusText := resp.Status()
+		if msg, ok := clienterr.Message(resp.JSONDefault); ok {
+			statusText = msg
+		}
+		bd.l.Warnf("pre-delete check for backup storage %q returned unexpected status %s, proceeding without it", opts.Name, statusText)
+	}
+	return false
 }
 
 // checkDeleteResponse maps a DeleteBackupStorage response to (alreadyGone, error).
 func checkDeleteResponse(resp *client.DeleteBackupStorageResponse, opts DeleteOptions) (bool, error) {
-	switch {
-	case resp.StatusCode() == http.StatusNotFound:
-		if !opts.IgnoreNotFound {
-			return false, fmt.Errorf("backup storage %q not found in namespace %q", opts.Name, opts.Namespace)
-		}
-		return true, nil
-	case resp.StatusCode() != http.StatusOK && resp.StatusCode() != http.StatusNoContent:
-		if msg, ok := clienterr.Message(resp.JSON400, resp.JSONDefault); ok {
-			return false, fmt.Errorf("server error: %s", msg)
-		}
-		return false, fmt.Errorf("unexpected response deleting backup storage: %s", resp.Status())
-	default:
-		return false, nil
-	}
+	return deletion.CheckDeleteResponse(resp.StatusCode(), resp.Status(), "backup storage", opts.Name, opts.Namespace, opts.IgnoreNotFound,
+		func() (string, bool) { return clienterr.Message(resp.JSON400, resp.JSONDefault) })
 }
 
 // emitDeleted prints success: a line in pretty mode, JSON otherwise.

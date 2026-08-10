@@ -23,6 +23,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"os"
 	"strings"
 
@@ -51,6 +52,25 @@ func GonePoll[T any](
 	fetch func(ctx context.Context) (statusCode int, statusText string, body *T, err error),
 ) wait.PollFunc[*T] {
 	return wait.FetchPoll(kind, name, wait.NotFoundIsSuccess, fetch)
+}
+
+// CheckDeleteResponse maps a DELETE response's status to (alreadyGone, error):
+// 404 is --ignore-not-found success or "not found"; other non-2xx uses errBody.
+func CheckDeleteResponse(status int, statusText, kind, name, namespace string, ignoreNotFound bool, errBody func() (string, bool)) (bool, error) {
+	switch {
+	case status == http.StatusNotFound:
+		if !ignoreNotFound {
+			return false, fmt.Errorf("%s %q not found in namespace %q", kind, name, namespace)
+		}
+		return true, nil
+	case status != http.StatusOK && status != http.StatusNoContent:
+		if msg, ok := errBody(); ok {
+			return false, fmt.Errorf("server error: %s", msg)
+		}
+		return false, fmt.Errorf("unexpected response deleting %s: %s", kind, statusText)
+	default:
+		return false, nil
+	}
 }
 
 // EmitDeleted prints success: a line in pretty mode, JSON otherwise.
