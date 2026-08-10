@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -50,9 +51,9 @@ func init() {
 	accountsCreateCmd.Flags().StringVarP(&accountsCreateOpts.Password, cli.FlagAccountsCreatePassword, "p", "", "Password of the account")
 }
 
-func accountsCreatePreRun(cmd *cobra.Command, _ []string) { //nolint:revive
+func accountsCreatePreRun(cmd *cobra.Command, _ []string) {
 	// Copy global flags to config
-	accountsCreateCfg.Pretty = !(cmd.Flag(cli.FlagVerbose).Changed || cmd.Flag(cli.FlagJSON).Changed)
+	accountsCreateCfg.Pretty = !cmd.Flag(cli.FlagVerbose).Changed && !cmd.Flag(cli.FlagJSON).Changed
 	accountsCreateCfg.KubeconfigPath = cmd.Flag(cli.FlagKubeconfig).Value.String()
 
 	// Check username
@@ -64,12 +65,12 @@ func accountsCreatePreRun(cmd *cobra.Command, _ []string) { //nolint:revive
 		}
 	} else {
 		// Ask user in interactive mode to provide username for new account.
-		if username, err := accountscli.PopulateUsername(cmd.Context()); err != nil {
+		username, err := accountscli.PopulateUsername(cmd.Context())
+		if err != nil {
 			output.PrintError(err, logger.GetLogger(), accountsCreateCfg.Pretty)
 			os.Exit(1)
-		} else {
-			accountsCreateOpts.Username = username
 		}
+		accountsCreateOpts.Username = username
 	}
 
 	// Check password
@@ -81,16 +82,16 @@ func accountsCreatePreRun(cmd *cobra.Command, _ []string) { //nolint:revive
 		}
 	} else {
 		// Ask user in interactive mode to provide password for new account.
-		if password, err := accountscli.PopulatePassword(cmd.Context()); err != nil {
+		password, err := accountscli.PopulatePassword(cmd.Context())
+		if err != nil {
 			output.PrintError(err, logger.GetLogger(), accountsCreateCfg.Pretty)
 			os.Exit(1)
-		} else {
-			accountsCreateOpts.Password = password
 		}
+		accountsCreateOpts.Password = password
 	}
 }
 
-func accountsCreateRun(cmd *cobra.Command, _ []string) { //nolint:revive
+func accountsCreateRun(cmd *cobra.Command, _ []string) {
 	cliA, err := accountscli.NewAccounts(*accountsCreateCfg, logger.GetLogger())
 	if err != nil {
 		output.PrintError(err, logger.GetLogger(), accountsCreateCfg.Pretty)

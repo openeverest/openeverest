@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -53,7 +54,6 @@ func EverestVersionFromDeployment(ctx context.Context, dg deploymentGetter) (*go
 	var container *corev1.Container
 	for _, c := range dep.Spec.Template.Spec.Containers {
 		if c.Name == common.EverestContainerNameInDeployment {
-			//nolint:exportloopref
 			container = &c
 			break
 		}

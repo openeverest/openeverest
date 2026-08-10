@@ -1,11 +1,23 @@
+// Copyright (C) 2026 The OpenEverest Contributors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package rbac
 
 import (
-	"context"
 	"slices"
 	"testing"
 
-	"github.com/AlekSi/pointer"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -16,7 +28,6 @@ import (
 	everestv1alpha1 "github.com/percona/everest-operator/api/everest/v1alpha1"
 	"github.com/percona/everest/api"
 	"github.com/percona/everest/internal/server/handlers"
-	"github.com/percona/everest/pkg/common"
 	"github.com/percona/everest/pkg/rbac"
 )
 
@@ -25,6 +36,7 @@ func TestRBAC_DatabaseCluster(t *testing.T) {
 	t.Parallel()
 
 	t.Run("CreateDatabaseCluster - PXC", func(t *testing.T) {
+		t.Parallel()
 		testCases := []struct {
 			desc    string
 			wantErr error
@@ -199,8 +211,8 @@ func TestRBAC_DatabaseCluster(t *testing.T) {
 			},
 		}
 
-		ctx := context.WithValue(context.Background(), common.UserCtxKey, rbac.User{Subject: "bob"})
-		for _, tc := range testCases { //nolint:dupl
+		ctx := testUserContext(rbac.User{Subject: "bob"})
+		for _, tc := range testCases {
 			t.Run(tc.desc, func(t *testing.T) {
 				t.Parallel()
 				k8sMock := newConfigMapMock(tc.policy)
@@ -251,6 +263,7 @@ func TestRBAC_DatabaseCluster(t *testing.T) {
 	})
 
 	t.Run("CreateDatabaseCluster - PSMDB", func(t *testing.T) {
+		t.Parallel()
 		testCases := []struct {
 			desc    string
 			wantErr error
@@ -450,8 +463,8 @@ func TestRBAC_DatabaseCluster(t *testing.T) {
 			},
 		}
 
-		ctx := context.WithValue(context.Background(), common.UserCtxKey, rbac.User{Subject: "bob"})
-		for _, tc := range testCases { //nolint:dupl
+		ctx := testUserContext(rbac.User{Subject: "bob"})
+		for _, tc := range testCases {
 			t.Run(tc.desc, func(t *testing.T) {
 				t.Parallel()
 				k8sMock := newConfigMapMock(tc.policy)
@@ -507,6 +520,7 @@ func TestRBAC_DatabaseCluster(t *testing.T) {
 	})
 
 	t.Run("UpdateDatabaseCluster - PXC", func(t *testing.T) {
+		t.Parallel()
 		testCases := []struct {
 			desc    string
 			wantErr error
@@ -565,7 +579,7 @@ func TestRBAC_DatabaseCluster(t *testing.T) {
 			},
 		}
 
-		ctx := context.WithValue(context.Background(), common.UserCtxKey, rbac.User{Subject: "bob"})
+		ctx := testUserContext(rbac.User{Subject: "bob"})
 		for _, tc := range testCases {
 			t.Run(tc.desc, func(t *testing.T) {
 				t.Parallel()
@@ -575,12 +589,13 @@ func TestRBAC_DatabaseCluster(t *testing.T) {
 
 				next := &handlers.MockHandler{}
 				next.On("GetDatabaseCluster", mock.Anything, mock.Anything, mock.Anything).
-					Return(&everestv1alpha1.DatabaseCluster{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:      "test-cluster",
-							Namespace: "default",
-						},
-					}, nil,
+					Return(
+						&everestv1alpha1.DatabaseCluster{
+							ObjectMeta: metav1.ObjectMeta{
+								Name:      "test-cluster",
+								Namespace: "default",
+							},
+						}, nil,
 					)
 				next.On("UpdateDatabaseCluster", mock.Anything, mock.Anything).
 					Return(&everestv1alpha1.DatabaseCluster{}, nil)
@@ -615,6 +630,7 @@ func TestRBAC_DatabaseCluster(t *testing.T) {
 	})
 
 	t.Run("UpdateDatabaseCluster - PSMDB", func(t *testing.T) {
+		t.Parallel()
 		testCases := []struct {
 			desc    string
 			wantErr error
@@ -687,7 +703,7 @@ func TestRBAC_DatabaseCluster(t *testing.T) {
 			},
 		}
 
-		ctx := context.WithValue(context.Background(), common.UserCtxKey, rbac.User{Subject: "bob"})
+		ctx := testUserContext(rbac.User{Subject: "bob"})
 		for _, tc := range testCases {
 			t.Run(tc.desc, func(t *testing.T) {
 				t.Parallel()
@@ -697,12 +713,13 @@ func TestRBAC_DatabaseCluster(t *testing.T) {
 
 				next := &handlers.MockHandler{}
 				next.On("GetDatabaseCluster", mock.Anything, mock.Anything, mock.Anything).
-					Return(&everestv1alpha1.DatabaseCluster{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:      "test-cluster",
-							Namespace: "default",
-						},
-					}, nil,
+					Return(
+						&everestv1alpha1.DatabaseCluster{
+							ObjectMeta: metav1.ObjectMeta{
+								Name:      "test-cluster",
+								Namespace: "default",
+							},
+						}, nil,
 					)
 				next.On("UpdateDatabaseCluster", mock.Anything, mock.Anything).
 					Return(&everestv1alpha1.DatabaseCluster{}, nil)
@@ -741,7 +758,8 @@ func TestRBAC_DatabaseCluster(t *testing.T) {
 		}
 	})
 
-	t.Run("GetDatabaseCluster - PXC", func(t *testing.T) { //nolint:dupl
+	t.Run("GetDatabaseCluster - PXC", func(t *testing.T) {
+		t.Parallel()
 		testCases := []struct {
 			desc    string
 			wantErr error
@@ -834,7 +852,7 @@ func TestRBAC_DatabaseCluster(t *testing.T) {
 			},
 		}
 
-		ctx := context.WithValue(context.Background(), common.UserCtxKey, rbac.User{Subject: "bob"})
+		ctx := testUserContext(rbac.User{Subject: "bob"})
 		for _, tc := range testCases {
 			t.Run(tc.desc, func(t *testing.T) {
 				t.Parallel()
@@ -844,35 +862,36 @@ func TestRBAC_DatabaseCluster(t *testing.T) {
 
 				next := &handlers.MockHandler{}
 				next.On("GetDatabaseCluster", mock.Anything, mock.Anything, mock.Anything).
-					Return(&everestv1alpha1.DatabaseCluster{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:      "test-cluster",
-							Namespace: "default",
-						},
-						Spec: everestv1alpha1.DatabaseClusterSpec{
-							Engine: everestv1alpha1.Engine{
-								Type: everestv1alpha1.DatabaseEnginePXC,
+					Return(
+						&everestv1alpha1.DatabaseCluster{
+							ObjectMeta: metav1.ObjectMeta{
+								Name:      "test-cluster",
+								Namespace: "default",
 							},
-							Backup: everestv1alpha1.Backup{
-								Schedules: []everestv1alpha1.BackupSchedule{
-									{
-										BackupStorageName: "test-backup-storage",
+							Spec: everestv1alpha1.DatabaseClusterSpec{
+								Engine: everestv1alpha1.Engine{
+									Type: everestv1alpha1.DatabaseEnginePXC,
+								},
+								Backup: everestv1alpha1.Backup{
+									Schedules: []everestv1alpha1.BackupSchedule{
+										{
+											BackupStorageName: "test-backup-storage",
+										},
+									},
+									PITR: everestv1alpha1.PITRSpec{
+										BackupStorageName: new("test-backup-storage-pitr"),
 									},
 								},
-								PITR: everestv1alpha1.PITRSpec{
-									BackupStorageName: pointer.To("test-backup-storage-pitr"),
+								Monitoring: &everestv1alpha1.Monitoring{
+									MonitoringConfigName: "test-monitoring-instance",
+								},
+								EngineFeatures: &everestv1alpha1.EngineFeatures{
+									PSMDB: &everestv1alpha1.PSMDBEngineFeatures{
+										SplitHorizonDNSConfigName: "split-horizon-dns-config-1",
+									},
 								},
 							},
-							Monitoring: &everestv1alpha1.Monitoring{
-								MonitoringConfigName: "test-monitoring-instance",
-							},
-							EngineFeatures: &everestv1alpha1.EngineFeatures{
-								PSMDB: &everestv1alpha1.PSMDBEngineFeatures{
-									SplitHorizonDNSConfigName: "split-horizon-dns-config-1",
-								},
-							},
-						},
-					}, nil,
+						}, nil,
 					)
 
 				h := &rbacHandler{
@@ -887,7 +906,8 @@ func TestRBAC_DatabaseCluster(t *testing.T) {
 		}
 	})
 
-	t.Run("GetDatabaseCluster - PSMDB", func(t *testing.T) { //nolint:dupl
+	t.Run("GetDatabaseCluster - PSMDB", func(t *testing.T) {
+		t.Parallel()
 		testCases := []struct {
 			desc    string
 			wantErr error
@@ -980,7 +1000,7 @@ func TestRBAC_DatabaseCluster(t *testing.T) {
 			},
 		}
 
-		ctx := context.WithValue(context.Background(), common.UserCtxKey, rbac.User{Subject: "bob"})
+		ctx := testUserContext(rbac.User{Subject: "bob"})
 		for _, tc := range testCases {
 			t.Run(tc.desc, func(t *testing.T) {
 				t.Parallel()
@@ -990,35 +1010,36 @@ func TestRBAC_DatabaseCluster(t *testing.T) {
 
 				next := &handlers.MockHandler{}
 				next.On("GetDatabaseCluster", mock.Anything, mock.Anything, mock.Anything).
-					Return(&everestv1alpha1.DatabaseCluster{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:      "test-cluster",
-							Namespace: "default",
-						},
-						Spec: everestv1alpha1.DatabaseClusterSpec{
-							Engine: everestv1alpha1.Engine{
-								Type: everestv1alpha1.DatabaseEnginePSMDB,
+					Return(
+						&everestv1alpha1.DatabaseCluster{
+							ObjectMeta: metav1.ObjectMeta{
+								Name:      "test-cluster",
+								Namespace: "default",
 							},
-							Backup: everestv1alpha1.Backup{
-								Schedules: []everestv1alpha1.BackupSchedule{
-									{
-										BackupStorageName: "test-backup-storage",
+							Spec: everestv1alpha1.DatabaseClusterSpec{
+								Engine: everestv1alpha1.Engine{
+									Type: everestv1alpha1.DatabaseEnginePSMDB,
+								},
+								Backup: everestv1alpha1.Backup{
+									Schedules: []everestv1alpha1.BackupSchedule{
+										{
+											BackupStorageName: "test-backup-storage",
+										},
+									},
+									PITR: everestv1alpha1.PITRSpec{
+										BackupStorageName: new("test-backup-storage-pitr"),
 									},
 								},
-								PITR: everestv1alpha1.PITRSpec{
-									BackupStorageName: pointer.To("test-backup-storage-pitr"),
+								Monitoring: &everestv1alpha1.Monitoring{
+									MonitoringConfigName: "test-monitoring-instance",
+								},
+								EngineFeatures: &everestv1alpha1.EngineFeatures{
+									PSMDB: &everestv1alpha1.PSMDBEngineFeatures{
+										SplitHorizonDNSConfigName: "split-horizon-dns-config-1",
+									},
 								},
 							},
-							Monitoring: &everestv1alpha1.Monitoring{
-								MonitoringConfigName: "test-monitoring-instance",
-							},
-							EngineFeatures: &everestv1alpha1.EngineFeatures{
-								PSMDB: &everestv1alpha1.PSMDBEngineFeatures{
-									SplitHorizonDNSConfigName: "split-horizon-dns-config-1",
-								},
-							},
-						},
-					}, nil,
+						}, nil,
 					)
 
 				h := &rbacHandler{
@@ -1034,6 +1055,7 @@ func TestRBAC_DatabaseCluster(t *testing.T) {
 	})
 
 	t.Run("ListDatabaseClusters", func(t *testing.T) {
+		t.Parallel()
 		// setup mocks.
 		next := func() *handlers.MockHandler {
 			h := &handlers.MockHandler{}
@@ -1056,7 +1078,7 @@ func TestRBAC_DatabaseCluster(t *testing.T) {
 										},
 									},
 									PITR: everestv1alpha1.PITRSpec{
-										BackupStorageName: pointer.To("test-backup-storage-pitr-1"),
+										BackupStorageName: new("test-backup-storage-pitr-1"),
 									},
 								},
 								Monitoring: &everestv1alpha1.Monitoring{
@@ -1080,7 +1102,7 @@ func TestRBAC_DatabaseCluster(t *testing.T) {
 										},
 									},
 									PITR: everestv1alpha1.PITRSpec{
-										BackupStorageName: pointer.To("test-backup-storage-pitr-2"),
+										BackupStorageName: new("test-backup-storage-pitr-2"),
 									},
 								},
 								Monitoring: &everestv1alpha1.Monitoring{
@@ -1104,7 +1126,7 @@ func TestRBAC_DatabaseCluster(t *testing.T) {
 										},
 									},
 									PITR: everestv1alpha1.PITRSpec{
-										BackupStorageName: pointer.To("test-backup-storage-pitr-3"),
+										BackupStorageName: new("test-backup-storage-pitr-3"),
 									},
 								},
 								Monitoring: &everestv1alpha1.Monitoring{
@@ -1428,7 +1450,7 @@ func TestRBAC_DatabaseCluster(t *testing.T) {
 			},
 		}
 
-		ctx := context.WithValue(context.Background(), common.UserCtxKey, rbac.User{Subject: "bob"})
+		ctx := testUserContext(rbac.User{Subject: "bob"})
 		for _, tc := range testCases {
 			t.Run(tc.desc, func(t *testing.T) {
 				t.Parallel()
@@ -1443,7 +1465,7 @@ func TestRBAC_DatabaseCluster(t *testing.T) {
 					userGetter: testUserGetter,
 				}
 				res, err := h.ListDatabaseClusters(ctx, "default")
-				assert.NoError(t, err)
+				require.NoError(t, err)
 				assert.Condition(t, func() bool {
 					return tc.assert(res)
 				})
@@ -1452,6 +1474,7 @@ func TestRBAC_DatabaseCluster(t *testing.T) {
 	})
 
 	t.Run("DeleteDatabaseCluster", func(t *testing.T) {
+		t.Parallel()
 		testCases := []struct {
 			desc    string
 			wantErr error
@@ -1508,7 +1531,7 @@ func TestRBAC_DatabaseCluster(t *testing.T) {
 			)
 			return h
 		}
-		ctx := context.WithValue(context.Background(), common.UserCtxKey, rbac.User{Subject: "bob"})
+		ctx := testUserContext(rbac.User{Subject: "bob"})
 		for _, tc := range testCases {
 			t.Run(tc.desc, func(t *testing.T) {
 				t.Parallel()
@@ -1529,6 +1552,7 @@ func TestRBAC_DatabaseCluster(t *testing.T) {
 	})
 
 	t.Run("GetDatabaseClusterCredentials", func(t *testing.T) {
+		t.Parallel()
 		testCases := []struct {
 			desc    string
 			wantErr error
@@ -1569,10 +1593,11 @@ func TestRBAC_DatabaseCluster(t *testing.T) {
 		next := func() *handlers.MockHandler {
 			h := &handlers.MockHandler{}
 			h.On("GetDatabaseClusterCredentials", mock.Anything, mock.Anything, mock.Anything).Return(
-				&api.DatabaseClusterCredential{}, nil)
+				&api.DatabaseClusterCredential{}, nil,
+			)
 			return h
 		}
-		ctx := context.WithValue(context.Background(), common.UserCtxKey, rbac.User{Subject: "bob"})
+		ctx := testUserContext(rbac.User{Subject: "bob"})
 		for _, tc := range testCases {
 			t.Run(tc.desc, func(t *testing.T) {
 				t.Parallel()
@@ -1593,6 +1618,7 @@ func TestRBAC_DatabaseCluster(t *testing.T) {
 	})
 
 	t.Run("GetDatabaseClusterComponents", func(t *testing.T) {
+		t.Parallel()
 		testCases := []struct {
 			desc    string
 			wantErr error
@@ -1624,10 +1650,11 @@ func TestRBAC_DatabaseCluster(t *testing.T) {
 		next := func() *handlers.MockHandler {
 			h := &handlers.MockHandler{}
 			h.On("GetDatabaseClusterComponents", mock.Anything, mock.Anything, mock.Anything).Return(
-				[]api.DatabaseClusterComponent{}, nil)
+				[]api.DatabaseClusterComponent{}, nil,
+			)
 			return h
 		}
-		ctx := context.WithValue(context.Background(), common.UserCtxKey, rbac.User{Subject: "bob"})
+		ctx := testUserContext(rbac.User{Subject: "bob"})
 		for _, tc := range testCases {
 			t.Run(tc.desc, func(t *testing.T) {
 				t.Parallel()
@@ -1648,6 +1675,7 @@ func TestRBAC_DatabaseCluster(t *testing.T) {
 	})
 
 	t.Run("GetDatabaseClusterPitr", func(t *testing.T) {
+		t.Parallel()
 		testCases := []struct {
 			desc    string
 			wantErr error
@@ -1679,10 +1707,11 @@ func TestRBAC_DatabaseCluster(t *testing.T) {
 		next := func() *handlers.MockHandler {
 			h := &handlers.MockHandler{}
 			h.On("GetDatabaseClusterPitr", mock.Anything, mock.Anything, mock.Anything).Return(
-				&api.DatabaseClusterPitr{}, nil)
+				&api.DatabaseClusterPitr{}, nil,
+			)
 			return h
 		}
-		ctx := context.WithValue(context.Background(), common.UserCtxKey, rbac.User{Subject: "bob"})
+		ctx := testUserContext(rbac.User{Subject: "bob"})
 		for _, tc := range testCases {
 			t.Run(tc.desc, func(t *testing.T) {
 				t.Parallel()
@@ -1703,6 +1732,7 @@ func TestRBAC_DatabaseCluster(t *testing.T) {
 	})
 
 	t.Run("CreateDatabaseClusterSecret", func(t *testing.T) {
+		t.Parallel()
 		testCases := []struct {
 			desc    string
 			wantErr error
@@ -1751,7 +1781,7 @@ func TestRBAC_DatabaseCluster(t *testing.T) {
 			},
 		}
 
-		ctx := context.WithValue(context.Background(), common.UserCtxKey, rbac.User{Subject: "bob"})
+		ctx := testUserContext(rbac.User{Subject: "bob"})
 		for _, tc := range testCases {
 			t.Run(tc.desc, func(t *testing.T) {
 				t.Parallel()
@@ -1760,7 +1790,8 @@ func TestRBAC_DatabaseCluster(t *testing.T) {
 				require.NoError(t, err)
 
 				next := &handlers.MockHandler{}
-				next.On("CreateDatabaseClusterSecret",
+				next.On(
+					"CreateDatabaseClusterSecret",
 					mock.Anything, "default", "test", &corev1.Secret{},
 				).
 					Return(&corev1.Secret{}, nil)

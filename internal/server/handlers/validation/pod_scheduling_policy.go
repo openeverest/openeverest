@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2025 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -31,38 +32,43 @@ import (
 )
 
 var (
-	// Invalid engine type error
-	errInvalidPSPEngineType = func(engineType everestv1alpha1.EngineType) error {
-		return fmt.Errorf("unsupported .spec.engineType='%s'", engineType)
-	}
 	errUpdatePSPEngineType = errors.New("changing .spec.engineType is forbidden")
-	// PXC affinity config errors
+	// PXC affinity config errors.
 	errInvalidPSPAffinityPXCWithPSMDB       = newPspValidationAffinityError(fmt.Sprintf(".spec.affinityConfig.psmdb is not applicable with engineType='%s'", everestv1alpha1.DatabaseEnginePXC))
 	errInvalidPSPAffinityPXCWithPostgresql  = newPspValidationAffinityError(fmt.Sprintf(".spec.affinityConfig.postgresql is not applicable with engineType='%s'", everestv1alpha1.DatabaseEnginePXC))
 	errInvalidPSPAffinityPXCEmpty           = newPspValidationAffinityError(".spec.affinityConfig.pxc is required")
 	errInvalidPSPAffinityPXCComponentsEmpty = newPspValidationAffinityError(".spec.affinityConfig.pxc.engine or .spec.affinityConfig.pxc.proxy is required")
-	// PSMDB affinity config errors
+	// PSMDB affinity config errors.
 	errInvalidPSPAffinityPSMDBWithPXC         = newPspValidationAffinityError(fmt.Sprintf(".spec.affinityConfig.pxc is not applicable with engineType='%s'", everestv1alpha1.DatabaseEnginePSMDB))
 	errInvalidPSPAffinityPSMDBWithPostgresql  = newPspValidationAffinityError(fmt.Sprintf(".spec.affinityConfig.postgresql is not applicable with engineType='%s'", everestv1alpha1.DatabaseEnginePSMDB))
 	errInvalidPSPAffinityPSMDBEmpty           = newPspValidationAffinityError(".spec.affinityConfig.psmdb is required")
 	errInvalidPSPAffinityPSMDBComponentsEmpty = newPspValidationAffinityError(".spec.affinityConfig.psmdb.engine or .spec.affinityConfig.psmdb.proxy or .spec.affinityConfig.psmdb.configServer is required")
-	// Postgresql affinity config errors
+	// Postgresql affinity config errors.
 	errInvalidPSPAffinityPostgresqlWithPXC         = newPspValidationAffinityError(fmt.Sprintf(".spec.affinityConfig.pxc is not applicable with engineType='%s'", everestv1alpha1.DatabaseEnginePostgresql))
 	errInvalidPSPAffinityPostgresqlWithPSMDB       = newPspValidationAffinityError(fmt.Sprintf(".spec.affinityConfig.psmdb is not applicable with engineType='%s'", everestv1alpha1.DatabaseEnginePostgresql))
 	errInvalidPSPAffinityPostgresqlEmpty           = newPspValidationAffinityError(".spec.affinityConfig.postgresql is required")
 	errInvalidPSPAffinityPostgresqlComponentsEmpty = newPspValidationAffinityError(".spec.affinityConfig.postgresql.engine or .spec.affinityConfig.postgresql.proxy is required")
-	// Default policies errors
-	errUpdateDefaultPSP = func(name string) error {
-		return fmt.Errorf("pod scheduling policy with name='%s' is default and cannot be updated", name)
-	}
-	errDeleteDefaultPSP = func(name string) error {
-		return fmt.Errorf("pod scheduling policy with name='%s' is default and cannot be deleted", name)
-	}
-	// Used policy error
-	errDeleteInUsePSP = func(name string) error {
-		return fmt.Errorf("pod scheduling policy with name='%s' is used by some DB cluster and cannot be deleted", name)
-	}
 )
+
+// Invalid engine type error.
+func errInvalidPSPEngineType(engineType everestv1alpha1.EngineType) error {
+	return fmt.Errorf("unsupported .spec.engineType='%s'", engineType)
+}
+
+// Default policies errors.
+
+func errUpdateDefaultPSP(name string) error {
+	return fmt.Errorf("pod scheduling policy with name='%s' is default and cannot be updated", name)
+}
+
+func errDeleteDefaultPSP(name string) error {
+	return fmt.Errorf("pod scheduling policy with name='%s' is default and cannot be deleted", name)
+}
+
+// Used policy error.
+func errDeleteInUsePSP(name string) error {
+	return fmt.Errorf("pod scheduling policy with name='%s' is used by some DB cluster and cannot be deleted", name)
+}
 
 type pspValidationAffinityError struct {
 	err error
@@ -145,50 +151,65 @@ func (h *validateHandler) validatePSPCR(psp *everestv1alpha1.PodSchedulingPolicy
 	// affinityConfig is passed - need to validate it.
 	switch psp.Spec.EngineType {
 	case everestv1alpha1.DatabaseEnginePXC:
-		if affinityConfig.PSMDB != nil {
-			// .spec.affinityConfig.psmdb shall not be set with engineType=pxc
-			return errInvalidPSPAffinityPXCWithPSMDB
-		}
-		if affinityConfig.PostgreSQL != nil {
-			// .spec.affinityConfig.postgresql shall not be set with engineType=pxc
-			return errInvalidPSPAffinityPXCWithPostgresql
-		}
-		if affinityConfig.PXC == nil {
-			return errInvalidPSPAffinityPXCEmpty
-		}
-		if affinityConfig.PXC.Engine == nil && affinityConfig.PXC.Proxy == nil {
-			return errInvalidPSPAffinityPXCComponentsEmpty
-		}
+		return validatePSPAffinityConfigPXC(affinityConfig)
 	case everestv1alpha1.DatabaseEnginePSMDB:
-		if affinityConfig.PXC != nil {
-			// .spec.affinityConfig.pxc shall not be set with engineType=psmdb
-			return errInvalidPSPAffinityPSMDBWithPXC
-		}
-		if affinityConfig.PostgreSQL != nil {
-			// .spec.affinityConfig.postgresql shall not be set with engineType=psmdb
-			return errInvalidPSPAffinityPSMDBWithPostgresql
-		}
-		if affinityConfig.PSMDB == nil {
-			return errInvalidPSPAffinityPSMDBEmpty
-		}
-		if affinityConfig.PSMDB.Engine == nil && affinityConfig.PSMDB.Proxy == nil && affinityConfig.PSMDB.ConfigServer == nil {
-			return errInvalidPSPAffinityPSMDBComponentsEmpty
-		}
+		return validatePSPAffinityConfigPSMDB(affinityConfig)
 	case everestv1alpha1.DatabaseEnginePostgresql:
-		if affinityConfig.PXC != nil {
-			// .spec.affinityConfig.pxc shall not be set with engineType=postgresql
-			return errInvalidPSPAffinityPostgresqlWithPXC
-		}
-		if affinityConfig.PSMDB != nil {
-			// .spec.affinityConfig.psmdb shall not be set with engineType=postgresql
-			return errInvalidPSPAffinityPostgresqlWithPSMDB
-		}
-		if affinityConfig.PostgreSQL == nil {
-			return errInvalidPSPAffinityPostgresqlEmpty
-		}
-		if affinityConfig.PostgreSQL.Engine == nil && affinityConfig.PostgreSQL.Proxy == nil {
-			return errInvalidPSPAffinityPostgresqlComponentsEmpty
-		}
+		return validatePSPAffinityConfigPostgresql(affinityConfig)
+	}
+	return nil
+}
+
+func validatePSPAffinityConfigPXC(affinityConfig *everestv1alpha1.AffinityConfig) error {
+	if affinityConfig.PSMDB != nil {
+		// .spec.affinityConfig.psmdb shall not be set with engineType=pxc
+		return errInvalidPSPAffinityPXCWithPSMDB
+	}
+	if affinityConfig.PostgreSQL != nil {
+		// .spec.affinityConfig.postgresql shall not be set with engineType=pxc
+		return errInvalidPSPAffinityPXCWithPostgresql
+	}
+	if affinityConfig.PXC == nil {
+		return errInvalidPSPAffinityPXCEmpty
+	}
+	if affinityConfig.PXC.Engine == nil && affinityConfig.PXC.Proxy == nil {
+		return errInvalidPSPAffinityPXCComponentsEmpty
+	}
+	return nil
+}
+
+func validatePSPAffinityConfigPSMDB(affinityConfig *everestv1alpha1.AffinityConfig) error {
+	if affinityConfig.PXC != nil {
+		// .spec.affinityConfig.pxc shall not be set with engineType=psmdb
+		return errInvalidPSPAffinityPSMDBWithPXC
+	}
+	if affinityConfig.PostgreSQL != nil {
+		// .spec.affinityConfig.postgresql shall not be set with engineType=psmdb
+		return errInvalidPSPAffinityPSMDBWithPostgresql
+	}
+	if affinityConfig.PSMDB == nil {
+		return errInvalidPSPAffinityPSMDBEmpty
+	}
+	if affinityConfig.PSMDB.Engine == nil && affinityConfig.PSMDB.Proxy == nil && affinityConfig.PSMDB.ConfigServer == nil {
+		return errInvalidPSPAffinityPSMDBComponentsEmpty
+	}
+	return nil
+}
+
+func validatePSPAffinityConfigPostgresql(affinityConfig *everestv1alpha1.AffinityConfig) error {
+	if affinityConfig.PXC != nil {
+		// .spec.affinityConfig.pxc shall not be set with engineType=postgresql
+		return errInvalidPSPAffinityPostgresqlWithPXC
+	}
+	if affinityConfig.PSMDB != nil {
+		// .spec.affinityConfig.psmdb shall not be set with engineType=postgresql
+		return errInvalidPSPAffinityPostgresqlWithPSMDB
+	}
+	if affinityConfig.PostgreSQL == nil {
+		return errInvalidPSPAffinityPostgresqlEmpty
+	}
+	if affinityConfig.PostgreSQL.Engine == nil && affinityConfig.PostgreSQL.Proxy == nil {
+		return errInvalidPSPAffinityPostgresqlComponentsEmpty
 	}
 	return nil
 }

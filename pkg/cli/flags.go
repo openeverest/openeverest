@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,7 +18,7 @@
 package cli
 
 const (
-	// global flags
+	// global flags.
 
 	// FlagKubeconfig is the name of the kubeconfig flag.
 	FlagKubeconfig = "kubeconfig"
@@ -26,7 +27,7 @@ const (
 	// FlagJSON is the name of the json flag.
 	FlagJSON = "json"
 
-	// `install` flags
+	// `install` flags.
 
 	// FlagOperatorPostgresql represents the pg operator flag.
 	FlagOperatorPostgresql = "operator.postgresql"
@@ -51,7 +52,7 @@ const (
 	// FlagInstallSkipDBNamespace is the name of the skip-db-namespace flag.
 	FlagInstallSkipDBNamespace = "skip-db-namespace"
 
-	// `namespaces` flags
+	// `namespaces` flags.
 
 	// FlagTakeNamespaceOwnership is the name of the take-ownership flag.
 	FlagTakeNamespaceOwnership = "take-ownership"
@@ -62,7 +63,7 @@ const (
 	// FlagNamespaceAll is the name of the all flag.
 	FlagNamespaceAll = "all"
 
-	// `upgrade` flags
+	// `upgrade` flags.
 
 	// FlagUpgradeDryRun is the name of the dry-run flag.
 	FlagUpgradeDryRun = "dry-run"
@@ -71,7 +72,7 @@ const (
 	// FlagUpgradeVersionToUpgrade is the name of the version flag.
 	FlagUpgradeVersionToUpgrade = "version"
 
-	// `accounts` flags
+	// `accounts` flags.
 
 	// FlagAccountsUsername is the name of the username flag.
 	FlagAccountsUsername = "username"
@@ -80,7 +81,7 @@ const (
 	// FlagAccountsNewPassword is the name of the new-password flag.
 	FlagAccountsNewPassword = "new-password"
 
-	// settings flags
+	// settings flags.
 
 	// FlagOIDCIssuerURL is the name of the issuer-url flag.
 	FlagOIDCIssuerURL = "issuer-url"

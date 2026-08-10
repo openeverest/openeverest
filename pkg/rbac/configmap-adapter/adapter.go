@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -76,8 +77,8 @@ func (a *Adapter) LoadPolicy(model model.Model) error {
 		return nil
 	}
 
-	strs := strings.Split(data, "\n")
-	for _, str := range strs {
+	strs := strings.SplitSeq(data, "\n")
+	for str := range strs {
 		if str == "" {
 			continue
 		}

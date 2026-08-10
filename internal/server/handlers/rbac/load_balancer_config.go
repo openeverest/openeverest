@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2025 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -51,8 +52,6 @@ func (h *rbacHandler) ListLoadBalancerConfigs(ctx context.Context) (*everestv1al
 		return h.enforce(ctx, rbac.ResourceLoadBalancerConfigs, rbac.ActionRead, rbac.ObjectName(lbc.GetName())) != nil
 	})
 	return lbcList, nil
-
-	return h.next.ListLoadBalancerConfigs(ctx)
 }
 
 // DeleteLoadBalancerConfig deletes a load balancer config.

@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -41,7 +42,7 @@ var (
 // EverestConfig stores the configuration for the application.
 type EverestConfig struct {
 	DSN string `default:"postgres://admin:pwd@127.0.0.1:5432/postgres?sslmode=disable" envconfig:"DSN"`
-	// DEPRECATED: Use ListenPort instead.
+	// Deprecated: Use ListenPort instead.
 	HTTPPort   int  `envconfig:"HTTP_PORT"`
 	ListenPort int  `default:"8080" envconfig:"PORT"`
 	Verbose    bool `default:"false" envconfig:"VERBOSE"`

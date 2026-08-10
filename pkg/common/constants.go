@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -84,7 +85,7 @@ const (
 	EverestAdminUser = "admin"
 	// EverestAdminRole is the name of the admin role.
 	EverestAdminRole = EverestRBACRolePrefix + "admin"
-	// EverestAccountsFileName is the key used in everest-accounts secret
+	// EverestAccountsFileName is the key used in everest-accounts secret.
 	EverestAccountsFileName = "users.yaml"
 
 	// EverestSettingsConfigMapName is the name of the Everest settings ConfigMap.

@@ -1,3 +1,17 @@
+// Copyright (C) 2026 The OpenEverest Contributors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package session
 
 import (
@@ -6,9 +20,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/AlekSi/pointer"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -20,6 +34,7 @@ import (
 )
 
 func TestExtractUsername(t *testing.T) {
+	t.Parallel()
 	type tcase struct {
 		name          string
 		token         *jwt.Token
@@ -70,12 +85,14 @@ func TestExtractUsername(t *testing.T) {
 }
 
 func TestExtractIssueTime(t *testing.T) {
+	t.Parallel()
 	type tcase struct {
 		name  string
 		token *jwt.Token
 		error error
 		time  *time.Time
 	}
+	issuedAt := time.Date(2025, 5, 12, 14, 32, 5, 0, time.UTC)
 	tcases := []tcase{
 		{
 			name:  "no iat field",
@@ -93,7 +110,7 @@ func TestExtractIssueTime(t *testing.T) {
 			name:  "valid iat field",
 			token: jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{"iat": float64(1747060325)}),
 			error: nil,
-			time:  pointer.To[time.Time](time.Date(2025, 5, 12, 14, 32, 5, 0, time.UTC)),
+			time:  &issuedAt,
 		},
 	}
 
@@ -108,6 +125,7 @@ func TestExtractIssueTime(t *testing.T) {
 }
 
 func TestIsBlocked(t *testing.T) {
+	t.Parallel()
 	type tcase struct {
 		name      string
 		token     *jwt.Token
@@ -197,12 +215,13 @@ func TestIsBlocked(t *testing.T) {
 	}
 	for _, tc := range tcases {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			ctx := context.Background()
 			manager, err := mockManager(ctx, tc.usersFile, "")
-			assert.NoError(t, err)
+			require.NoError(t, err)
 			isBlocked, err := manager.IsBlocked(ctx, tc.token)
 			if tc.error != nil {
-				assert.EqualError(t, err, tc.error.Error())
+				require.EqualError(t, err, tc.error.Error())
 			}
 			assert.Equal(t, tc.isBlocked, isBlocked)
 		})

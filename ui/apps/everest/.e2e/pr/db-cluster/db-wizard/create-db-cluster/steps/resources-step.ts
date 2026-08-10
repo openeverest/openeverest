@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -28,4 +29,24 @@ export const resourcesStepCheck = async (page: Page) => {
   await expect(page.getByTestId('cpu-resource-sum')).toHaveText('= 1.80 CPU');
   await expect(page.getByTestId('memory-resource-sum')).toHaveText('= 3.00 GB');
   await expect(page.getByTestId('disk-resource-sum')).toHaveText(' = 3.00 Gi');
+
+  // When requests are unsynced from limits, leaving a request field empty must
+  // block submission instead of silently falling back to the limit value.
+  const syncSwitch = page
+    .getByTestId('switch-input-node-requests-synced-label')
+    .getByRole('checkbox');
+  await syncSwitch.uncheck();
+
+  const cpuRequest = page.getByTestId('text-input-cpu-requests');
+  await expect(cpuRequest).toBeVisible();
+
+  await cpuRequest.fill('');
+  await expect(page.getByText('This field is required')).toBeVisible();
+
+  // A valid request below the limit clears the error.
+  await cpuRequest.fill('0.6');
+  await expect(page.getByText('This field is required')).not.toBeVisible();
+
+  // Restore the synced state so the rest of the flow uses the defaults.
+  await syncSwitch.check();
 };

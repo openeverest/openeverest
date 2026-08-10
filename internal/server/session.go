@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -22,7 +23,6 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/AlekSi/pointer"
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 
@@ -67,7 +67,7 @@ func (e *EverestServer) CreateSession(ctx echo.Context) error {
 	return ctx.JSON(http.StatusOK, map[string]string{"token": jwtToken})
 }
 
-// DeleteSession invalidates the user token by adding it to the blocklist
+// DeleteSession invalidates the user token by adding it to the blocklist.
 func (e *EverestServer) DeleteSession(ctx echo.Context) error {
 	e.attemptsStore.IncreaseTimeout(ctx.RealIP())
 	c := ctx.Request().Context()
@@ -79,7 +79,7 @@ func (e *EverestServer) DeleteSession(ctx echo.Context) error {
 	if err != nil {
 		e.l.Errorf("blocklist error: %v", err)
 		return ctx.JSON(http.StatusInternalServerError, api.Error{
-			Message: pointer.To("Failed to logout user"),
+			Message: new("Failed to logout user"),
 		})
 	}
 
@@ -90,19 +90,19 @@ func sessionErrToHTTPRes(ctx echo.Context, err error) error {
 	if errors.Is(err, accounts.ErrAccountNotFound) ||
 		errors.Is(err, accounts.ErrIncorrectPassword) {
 		return ctx.JSON(http.StatusUnauthorized, api.Error{
-			Message: pointer.To("Incorrect username or password provided"),
+			Message: new("Incorrect username or password provided"),
 		})
 	}
 
 	if errors.Is(err, accounts.ErrAccountDisabled) {
 		return ctx.JSON(http.StatusForbidden, api.Error{
-			Message: pointer.To("User account is disabled"),
+			Message: new("User account is disabled"),
 		})
 	}
 
 	if errors.Is(err, accounts.ErrInsufficientCapabilities) {
 		return ctx.JSON(http.StatusForbidden, api.Error{
-			Message: pointer.To("User account lacks required capabilities"),
+			Message: new("User account lacks required capabilities"),
 		})
 	}
 	return err

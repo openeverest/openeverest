@@ -1,8 +1,27 @@
+// Copyright (C) 2026 The OpenEverest Contributors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 import { DbType } from '@percona/types';
 import { z } from 'zod';
 import { Resources } from 'shared-types/dbCluster.types';
 import { DbWizardFormFields } from 'consts';
-import { cpuParser, memoryParser } from 'utils/k8ResourceParser';
+import {
+  cpuParser,
+  memoryParser,
+  extractResourceCpuValue,
+  extractResourceMemoryValue,
+} from 'utils/k8ResourceParser';
 import { Messages } from './messages';
 import { isVersion84x } from './utils';
 
@@ -15,6 +34,18 @@ const resourceToNumber = (minimum = 0) =>
       .min(minimum)
   );
 
+const optionalResourceToNumber = (minimum = 0) =>
+  z.preprocess(
+    (value) =>
+      value === '' || value === null || value === undefined ? undefined : value,
+    z.coerce
+      .number({
+        invalid_type_error: 'Please enter a valid number',
+      })
+      .min(minimum)
+      .optional()
+  );
+
 export const matchFieldsValueToResourceSize = (
   sizes: Record<
     Exclude<ResourceSize, ResourceSize.custom>,
@@ -25,11 +56,19 @@ export const matchFieldsValueToResourceSize = (
   if (!resources) {
     return ResourceSize.custom;
   }
-  const memory = memoryParser(resources.memory.toString(), 'G');
+
+  const extractedCpu = extractResourceCpuValue(resources);
+  const extractedMemory = extractResourceMemoryValue(resources);
+
+  if (!extractedCpu || !extractedMemory) {
+    return ResourceSize.custom;
+  }
+
+  const memory = memoryParser(extractedMemory.toString(), 'G');
   const res = Object.values(sizes).findIndex((item) => {
     const sizeParsedMemory = memoryParser(item.memory.toString(), 'G');
     return (
-      cpuParser(item.cpu.toString()) === cpuParser(resources.cpu.toString()) &&
+      cpuParser(item.cpu.toString()) === cpuParser(extractedCpu.toString()) &&
       sizeParsedMemory.value === memory.value
     );
   });
@@ -205,7 +244,9 @@ export const resourcesFormSchema = (
     [DbWizardFormFields.shardNr]: z.string().optional(),
     [DbWizardFormFields.shardConfigServers]: z.number().optional(),
     [DbWizardFormFields.cpu]: resourceToNumber(0.6),
+    [DbWizardFormFields.cpuRequests]: optionalResourceToNumber(0),
     [DbWizardFormFields.memory]: resourceToNumber(0.512),
+    [DbWizardFormFields.memoryRequests]: optionalResourceToNumber(0),
     [DbWizardFormFields.disk]: resourceToNumber(1),
     // we will never input this, but we need it and zod will let it pass
     [DbWizardFormFields.diskUnit]: z.string(),
@@ -213,7 +254,11 @@ export const resourcesFormSchema = (
     [DbWizardFormFields.numberOfNodes]: z.string(),
     [DbWizardFormFields.customNrOfNodes]: z.string().optional(),
     [DbWizardFormFields.proxyCpu]: resourceToNumber(0),
+    [DbWizardFormFields.proxyCpuRequests]: optionalResourceToNumber(0),
     [DbWizardFormFields.proxyMemory]: resourceToNumber(0),
+    [DbWizardFormFields.proxyMemoryRequests]: optionalResourceToNumber(0),
+    [DbWizardFormFields.nodeRequestsSynced]: z.boolean().optional(),
+    [DbWizardFormFields.proxyRequestsSynced]: z.boolean().optional(),
     [DbWizardFormFields.resourceSizePerProxy]: z.nativeEnum(ResourceSize),
     [DbWizardFormFields.numberOfProxies]: z.string(),
     [DbWizardFormFields.customNrOfProxies]: z.string().optional(),
@@ -233,6 +278,16 @@ export const resourcesFormSchema = (
         customNrOfProxies = '',
         dbType,
         disk,
+        cpu,
+        memory,
+        proxyCpu,
+        proxyMemory,
+        cpuRequests,
+        memoryRequests,
+        proxyCpuRequests,
+        proxyMemoryRequests,
+        nodeRequestsSynced,
+        proxyRequestsSynced,
       },
       ctx
     ) => {
@@ -392,6 +447,78 @@ export const resourcesFormSchema = (
           message: Messages.integerNumber,
 
           path: [DbWizardFormFields.disk],
+        });
+      }
+
+      if (!nodeRequestsSynced && cpuRequests === undefined) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: Messages.requestRequired,
+          path: [DbWizardFormFields.cpuRequests],
+        });
+      } else if (
+        !nodeRequestsSynced &&
+        cpuRequests !== undefined &&
+        cpuRequests > cpu
+      ) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'CPU request cannot exceed CPU limit',
+          path: [DbWizardFormFields.cpuRequests],
+        });
+      }
+
+      if (!nodeRequestsSynced && memoryRequests === undefined) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: Messages.requestRequired,
+          path: [DbWizardFormFields.memoryRequests],
+        });
+      } else if (
+        !nodeRequestsSynced &&
+        memoryRequests !== undefined &&
+        memoryRequests > memory
+      ) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'Memory request cannot exceed Memory limit',
+          path: [DbWizardFormFields.memoryRequests],
+        });
+      }
+
+      if (!proxyRequestsSynced && proxyCpuRequests === undefined) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: Messages.requestRequired,
+          path: [DbWizardFormFields.proxyCpuRequests],
+        });
+      } else if (
+        !proxyRequestsSynced &&
+        proxyCpuRequests !== undefined &&
+        proxyCpuRequests > proxyCpu
+      ) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'Proxy CPU request cannot exceed CPU limit',
+          path: [DbWizardFormFields.proxyCpuRequests],
+        });
+      }
+
+      if (!proxyRequestsSynced && proxyMemoryRequests === undefined) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: Messages.requestRequired,
+          path: [DbWizardFormFields.proxyMemoryRequests],
+        });
+      } else if (
+        !proxyRequestsSynced &&
+        proxyMemoryRequests !== undefined &&
+        proxyMemoryRequests > proxyMemory
+      ) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'Proxy Memory request cannot exceed Memory limit',
+          path: [DbWizardFormFields.proxyMemoryRequests],
         });
       }
     }
