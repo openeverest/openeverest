@@ -26,6 +26,7 @@ import (
 	"net/url"
 	"slices"
 	"strings"
+	"time"
 
 	perconavs "github.com/Percona-Lab/percona-version-service/versionpb"
 	goversion "github.com/hashicorp/go-version"
@@ -59,12 +60,18 @@ type Interface interface {
 }
 
 type versionServiceClient struct {
-	url string
+	url    string
+	client *http.Client
 }
 
 // New returns a new version service client.
 func New(url string) Interface { //nolint:ireturn
-	return &versionServiceClient{url: url}
+	return &versionServiceClient{
+		url: url,
+		client: &http.Client{
+			Timeout: 10 * time.Second,
+		},
+	}
 }
 
 //nolint:gochecknoglobals
@@ -86,7 +93,7 @@ func (c *versionServiceClient) GetSupportedEngineVersions(ctx context.Context, o
 	if err != nil {
 		return nil, errors.Join(err, errors.New("could not create version service request"))
 	}
-	res, err := http.DefaultClient.Do(req)
+	res, err := c.client.Do(req)
 	if err != nil {
 		return nil, errors.Join(err, errors.New("could not retrieve version response"))
 	}
@@ -96,7 +103,8 @@ func (c *versionServiceClient) GetSupportedEngineVersions(ctx context.Context, o
 		return nil, fmt.Errorf("invalid response from version service endpoint http %d", res.StatusCode)
 	}
 	response := &perconavs.VersionResponse{}
-	b, err := io.ReadAll(res.Body)
+	const maxResponseSize = 10 * 1024 * 1024 // 10 MB
+	b, err := io.ReadAll(io.LimitReader(res.Body, maxResponseSize))
 	if err != nil {
 		return nil, errors.Join(err, errors.New("could not read version response"))
 	}
@@ -147,7 +155,7 @@ func (c *versionServiceClient) GetEverestMetadata(ctx context.Context) (*percona
 	if err != nil {
 		return nil, errors.Join(err, errors.New("could not create Everest metadata request"))
 	}
-	res, err := http.DefaultClient.Do(req)
+	res, err := c.client.Do(req)
 	if err != nil {
 		return nil, errors.Join(err, errors.New("could not retrieve Everest metadata"))
 	}
@@ -157,7 +165,8 @@ func (c *versionServiceClient) GetEverestMetadata(ctx context.Context) (*percona
 		return nil, fmt.Errorf("invalid response from Everest metadata endpoint http %d", res.StatusCode)
 	}
 	requirements := &perconavs.MetadataResponse{}
-	if err = json.NewDecoder(res.Body).Decode(requirements); err != nil {
+	const maxResponseSize = 10 * 1024 * 1024 // 10 MB
+	if err = json.NewDecoder(io.LimitReader(res.Body, maxResponseSize)).Decode(requirements); err != nil {
 		return nil, errors.Join(err, errors.New("could not decode requirements from Everest metadata"))
 	}
 	return requirements, nil
