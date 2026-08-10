@@ -157,10 +157,16 @@ const (
 	FlagBackupName = "name"
 	// FlagBackupDeletionPolicy is the name of the deletion-policy flag.
 	FlagBackupDeletionPolicy = "deletion-policy"
-	// FlagBackupWait blocks until the backup reaches a terminal state.
+	// FlagBackupWait blocks until the backup reaches a terminal state (create)
+	// or is fully removed (delete).
 	FlagBackupWait = "wait"
 	// FlagBackupTimeout bounds how long --wait blocks for.
 	FlagBackupTimeout = "timeout"
+	// FlagBackupIgnoreNotFound treats an already-deleted backup as success.
+	FlagBackupIgnoreNotFound = "ignore-not-found"
+	// FlagBackupForce overrides the in-flight (Pending/Running) delete guard;
+	// orthogonal to --yes, never a synonym for it.
+	FlagBackupForce = "force"
 
 	// `restore` flags.
 

@@ -34,8 +34,10 @@ import (
 	"github.com/openeverest/openeverest/v2/pkg/output"
 )
 
-// terminal backup states.
+// backup state values (client.Backup.Status.State).
 const (
+	backupStatePending   = "Pending"
+	backupStateRunning   = "Running"
 	backupStateSucceeded = "Succeeded"
 	backupStateFailed    = "Failed"
 )
