@@ -17,12 +17,9 @@ package restore
 
 import (
 	"context"
-	"errors"
-	"fmt"
-	"net/http"
 
 	"github.com/openeverest/openeverest/v2/client"
-	authcli "github.com/openeverest/openeverest/v2/pkg/cli/auth"
+	"github.com/openeverest/openeverest/v2/pkg/cli/clienterr"
 	"github.com/openeverest/openeverest/v2/pkg/cli/wait"
 )
 
@@ -51,29 +48,17 @@ func newRestorePoll(
 	c *client.ClientWithResponses,
 	cluster, namespace, name string,
 ) wait.PollFunc[*client.Restore] {
-	return func(ctx context.Context) (*client.Restore, error) {
+	return wait.FetchPoll("restore", name, wait.NotFoundTerminal, func(ctx context.Context) (int, string, *client.Restore, error) {
 		resp, err := c.GetRestoreWithResponse(ctx, cluster, namespace, name)
 		if err != nil {
-			// A failed token refresh is terminal; other fetch errors are transient.
-			if errors.Is(err, authcli.ErrTokenRefresh) {
-				return nil, fmt.Errorf("failed to fetch restore %q: %w", name, err)
-			}
-			return nil, &wait.RetryableError{Err: fmt.Errorf("failed to fetch restore %q: %w", name, err)}
+			return 0, "", nil, err
 		}
-		switch resp.StatusCode() {
-		case http.StatusOK:
-			if resp.JSON200 == nil {
-				return nil, &wait.RetryableError{Err: fmt.Errorf("empty response body fetching restore %q", name)}
-			}
-			return resp.JSON200, nil
-		case http.StatusNotFound:
-			return nil, fmt.Errorf("restore %q was deleted while waiting", name)
-		case http.StatusUnauthorized:
-			return nil, fmt.Errorf("server rejected credentials — run 'everestctl auth login' again")
-		default:
-			return nil, &wait.RetryableError{Err: fmt.Errorf("unexpected response fetching restore %q: %s", name, resp.Status())}
+		statusText := resp.Status()
+		if msg, ok := clienterr.Message(resp.JSONDefault); ok {
+			statusText = msg
 		}
-	}
+		return resp.StatusCode(), statusText, resp.JSON200, nil
+	})
 }
 
 func restoreFailureMessage(r *client.Restore) string {

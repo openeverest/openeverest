@@ -1,0 +1,50 @@
+name: Triage labels
+
+# Keeps exactly one triage label on every open issue, so "has anybody looked at
+# this?" is always answerable from the label list. `needs-triage` goes on at
+# creation and comes off only when a maintainer records a decision by applying
+# `triage/accepted` or `triage/needs-information` — and goes back on if the
+# decision label is later removed.
+#
+# Label events raised by this workflow use GITHUB_TOKEN, which does not start
+# another workflow run, so this cannot loop.
+
+on:
+  issues:
+    types: [opened, reopened, labeled, unlabeled]
+
+permissions:
+  issues: write
+
+jobs:
+  reconcile:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const issue = context.payload.issue;
+            if (issue.state !== 'open') return;
+
+            const NEEDS_TRIAGE = 'needs-triage';
+            const DECISIONS = ['triage/accepted', 'triage/needs-information'];
+
+            const labels = (issue.labels || []).map((l) => l.name);
+            const decided = DECISIONS.some((d) => labels.includes(d));
+            const marked = labels.includes(NEEDS_TRIAGE);
+
+            if (decided && marked) {
+              try {
+                await github.rest.issues.removeLabel({
+                  owner, repo, issue_number: issue.number, name: NEEDS_TRIAGE,
+                });
+              } catch { /* removed by somebody else in the meantime */ }
+              return;
+            }
+
+            if (!decided && !marked) {
+              await github.rest.issues.addLabels({
+                owner, repo, issue_number: issue.number, labels: [NEEDS_TRIAGE],
+              });
+            }

@@ -190,7 +190,7 @@ func (k *Kubernetes) GetConsumedCPUAndMemory(ctx context.Context, namespace stri
 		nonTerminatedInitContainers := make([]corev1.Container, 0, len(ppod.Spec.InitContainers))
 		for _, container := range ppod.Spec.InitContainers {
 			if !IsContainerInState(
-				ppod.Status.InitContainerStatuses, ContainerStateTerminated,
+				ppod.Status.InitContainerStatuses, container.Name, ContainerStateTerminated,
 			) {
 				nonTerminatedInitContainers = append(nonTerminatedInitContainers, container)
 			}

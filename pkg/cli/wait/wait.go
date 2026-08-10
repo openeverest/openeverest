@@ -15,13 +15,19 @@
 
 // Package wait is a resource-agnostic polling waiter shared by CLI commands
 // that block until a resource reaches a terminal state (e.g. instance create
-// --wait). Callers supply a PollFunc and a Condition.
+// --wait). Callers supply a PollFunc and a Condition. It also provides
+// FetchPoll, which builds a PollFunc from a generated-client call,
+// classifying HTTP statuses and auth failures uniformly.
 package wait
 
 import (
 	"context"
 	"errors"
+	"fmt"
+	"net/http"
 	"time"
+
+	authcli "github.com/openeverest/openeverest/v2/pkg/cli/auth"
 )
 
 // Outcome is the classification a Condition assigns to one observation.
@@ -72,6 +78,59 @@ type Condition[T any] func(T) (Outcome, string)
 // PollFunc fetches the current resource state. A non-nil error is terminal and
 // returned unchanged, so callers can stop early instead of waiting out the timeout.
 type PollFunc[T any] func(ctx context.Context) (T, error)
+
+// NotFoundPolicy tells FetchPoll what a 404 means for this poll: a delete-poll
+// is watching for the resource to disappear, so 404 is the goal; a watch-poll
+// is watching a resource that's expected to still exist, so 404 means it was
+// unexpectedly removed out from under the wait.
+type NotFoundPolicy int
+
+const (
+	// NotFoundIsSuccess means a 404 is the awaited outcome, e.g. `<resource>
+	// delete --wait` polling until the resource is gone.
+	NotFoundIsSuccess NotFoundPolicy = iota
+	// NotFoundTerminal means a 404 is an error, e.g. `<resource> create --wait`
+	// or `status --watch` polling a resource that's expected to still exist.
+	NotFoundTerminal
+)
+
+// FetchPoll builds a PollFunc[*T] around fetch, classifying HTTP responses the
+// same way every `<resource> create/delete --wait` and `status --watch` command
+// does: a failed token refresh and a 401 are terminal; an unexpected status or
+// an empty 200 body is retried (RetryableError); a 404 is decided by
+// notFound. fetch adapts a generated client call to (status, statusText,
+// body, err) so this stays independent of any one client's response type.
+func FetchPoll[T any](
+	kind, name string,
+	notFound NotFoundPolicy,
+	fetch func(ctx context.Context) (statusCode int, statusText string, body *T, err error),
+) PollFunc[*T] {
+	return func(ctx context.Context) (*T, error) {
+		status, statusText, body, err := fetch(ctx)
+		if err != nil {
+			if errors.Is(err, authcli.ErrTokenRefresh) {
+				return nil, fmt.Errorf("failed to fetch %s %q: %w", kind, name, err)
+			}
+			return nil, &RetryableError{Err: fmt.Errorf("failed to fetch %s %q: %w", kind, name, err)}
+		}
+		switch status {
+		case http.StatusOK:
+			if body == nil {
+				return nil, &RetryableError{Err: fmt.Errorf("empty response body fetching %s %q", kind, name)}
+			}
+			return body, nil
+		case http.StatusNotFound:
+			if notFound == NotFoundIsSuccess {
+				return nil, nil
+			}
+			return nil, fmt.Errorf("%s %q no longer exists", kind, name)
+		case http.StatusUnauthorized:
+			return nil, fmt.Errorf("server rejected credentials — run 'everestctl auth login' again")
+		default:
+			return nil, &RetryableError{Err: fmt.Errorf("unexpected response fetching %s %q: %s", kind, name, statusText)}
+		}
+	}
+}
 
 // Options tunes the waiter.
 type Options struct {
