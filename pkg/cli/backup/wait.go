@@ -80,5 +80,7 @@ func newBackupDeletePoll(
 }
 
 func deleteCondition(b *client.Backup) (wait.Outcome, string) {
-	return deletion.GoneCondition("backup deleted", backupState)(b)
+	return deletion.GoneCondition("backup deleted", func(v *client.Backup) string {
+		return "backup still exists (state: " + backupState(v) + ")"
+	})(b)
 }

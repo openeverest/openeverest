@@ -82,14 +82,20 @@ func (bd *Deleter) Run(ctx context.Context, opts DeleteOptions, cfgPath string) 
 	}
 
 	backup, gone := bd.checkBackupExists(ctx, c, opts)
-	if gone && opts.IgnoreNotFound {
+	if gone {
+		if !opts.IgnoreNotFound {
+			return fmt.Errorf("backup %q not found in namespace %q", opts.Name, opts.Namespace)
+		}
 		return bd.emitAlreadyGone(opts)
 	}
 
-	// A nil backup (gone, or fetch failed) means nothing to guard: this is a
+	// A nil backup (fetch failed/ambiguous) means nothing to guard: this is a
 	// client-side accident guard, not an invariant, so it must not block delete.
-	state := backupStateForGuard(backup)
-	if inFlight(state) && !opts.Force {
+	state, ok := backupStateForGuard(backup)
+	if inFlight(state, ok) && !opts.Force {
+		if state == "" {
+			return fmt.Errorf("backup %q hasn't reported its status yet; wait a moment and try again, or re-run with --force", opts.Name)
+		}
 		return fmt.Errorf("backup %q is still running; wait for it to finish or re-run with --force", opts.Name)
 	}
 
@@ -143,19 +149,25 @@ func (bd *Deleter) checkBackupExists(ctx context.Context, c *client.ClientWithRe
 	}
 }
 
-// backupStateForGuard is backupState, but nil-safe: nil means the
-// pre-delete fetch found nothing, so there's no live backup to guard.
-func backupStateForGuard(b *client.Backup) string {
+// backupStateForGuard reads state for the guard: ok is false only when the
+// fetch found nothing or failed; ok true + state "" means read but no status yet.
+func backupStateForGuard(b *client.Backup) (string, bool) {
 	if b == nil {
-		return ""
+		return "", false
 	}
-	return backupState(b)
+	if b.Status != nil && b.Status.State != nil {
+		return *b.Status.State, true
+	}
+	return "", true
 }
 
-// inFlight reports if the backup is actively running. Pending/Running
-// block delete; Error doesn't, deleting a stuck backup is normal remediation.
-func inFlight(state string) bool {
-	return state == backupStatePending || state == backupStateRunning
+// inFlight reports if the backup should block a delete: Pending/Running,
+// or read successfully with no status yet; a failed/ambiguous fetch never is.
+func inFlight(state string, ok bool) bool {
+	if !ok {
+		return false
+	}
+	return state == "" || state == backupStatePending || state == backupStateRunning
 }
 
 // isRetainTier is the only case that gets the y/N tier; Delete, or

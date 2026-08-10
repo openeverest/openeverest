@@ -133,7 +133,9 @@ func TestDelete_HappyPath_NoWait(t *testing.T) {
 func TestDelete_NotFound_WithoutIgnoreNotFound_Errors(t *testing.T) {
 	t.Parallel()
 
+	deleteCalled := false
 	srv := newDeleteServer(t, func(w http.ResponseWriter, _ *http.Request) {
+		deleteCalled = true
 		w.WriteHeader(http.StatusNotFound)
 	}, nil)
 	defer srv.Close()
@@ -142,6 +144,35 @@ func TestDelete_NotFound_WithoutIgnoreNotFound_Errors(t *testing.T) {
 	err := bd.Run(context.Background(), yesOpts(), newConfigPath(t, srv.URL))
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), `backup "pre-upgrade" not found in namespace "everest"`)
+	assert.False(t, deleteCalled, "a backup we already know is gone must not reach the DELETE call")
+}
+
+// TestDelete_NotFound_WithoutIgnoreNotFound_SkipsConfirmation proves knowing
+// the backup is already gone skips the prompt entirely, even without --yes
+// or a TTY — no point confirming something we already know the answer to.
+func TestDelete_NotFound_WithoutIgnoreNotFound_SkipsConfirmation(t *testing.T) {
+	t.Parallel()
+
+	deleteCalled := false
+	srv := newDeleteServer(t, func(w http.ResponseWriter, _ *http.Request) {
+		deleteCalled = true
+		w.WriteHeader(http.StatusNoContent)
+	}, func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusNotFound) })
+	defer srv.Close()
+
+	opts := DeleteOptions{
+		Name:       "pre-upgrade",
+		Namespace:  "everest",
+		Cluster:    "main",
+		IsTerminal: isTerminalFalse,
+	}
+
+	bd := NewDeleter(Config{}, zap.NewNop().Sugar())
+	err := bd.Run(context.Background(), opts, newConfigPath(t, srv.URL))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), `backup "pre-upgrade" not found in namespace "everest"`)
+	assert.NotContains(t, err.Error(), "confirmation required", "already knowing it's gone must skip the prompt entirely")
+	assert.False(t, deleteCalled, "delete must not be issued for a backup we already know is gone")
 }
 
 func TestDelete_NotFound_WithIgnoreNotFound_Succeeds(t *testing.T) {
@@ -405,6 +436,36 @@ func TestDelete_IgnoreNotFound_AlreadyGone_JSONOutput(t *testing.T) {
 	assert.JSONEq(t, `{"name":"pre-upgrade","namespace":"everest","deleted":false}`, out)
 }
 
+// TestDelete_InFlight_ForceWithoutYes_StillRequiresConfirmation pins the
+// #2658 rule that --force is never a --yes synonym: overriding the guard
+// must still go through the confirmation gate.
+func TestDelete_InFlight_ForceWithoutYes_StillRequiresConfirmation(t *testing.T) {
+	t.Parallel()
+
+	called := false
+	srv := newDeleteServer(t,
+		func(w http.ResponseWriter, _ *http.Request) {
+			called = true
+			w.WriteHeader(http.StatusNoContent)
+		},
+		getHandlerWithStateAndPolicy(t, backupStateRunning, backupDeletionPolicyDelete),
+	)
+	defer srv.Close()
+
+	opts := DeleteOptions{
+		Name:       "pre-upgrade",
+		Namespace:  "everest",
+		Cluster:    "main",
+		Force:      true,
+		IsTerminal: isTerminalFalse,
+	}
+
+	bd := NewDeleter(Config{}, zap.NewNop().Sugar())
+	err := bd.Run(context.Background(), opts, newConfigPath(t, srv.URL))
+	require.ErrorIs(t, err, confirm.ErrNonInteractive)
+	assert.False(t, called, "--force must not imply --yes")
+}
+
 func TestDelete_InFlight_Pending_RefusesWithoutForce(t *testing.T) {
 	t.Parallel()
 
@@ -451,6 +512,45 @@ func TestDelete_InFlight_WithForce_Succeeds(t *testing.T) {
 	srv := newDeleteServer(t,
 		func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusNoContent) },
 		getHandlerWithStateAndPolicy(t, backupStateRunning, backupDeletionPolicyDelete),
+	)
+	defer srv.Close()
+
+	opts := yesOpts()
+	opts.Force = true
+
+	bd := NewDeleter(Config{}, zap.NewNop().Sugar())
+	err := bd.Run(context.Background(), opts, newConfigPath(t, srv.URL))
+	assert.NoError(t, err)
+}
+
+// TestDelete_InFlight_NoStatusYet_RefusesWithoutForce covers the window
+// right after create, before any controller has observed the backup.
+func TestDelete_InFlight_NoStatusYet_RefusesWithoutForce(t *testing.T) {
+	t.Parallel()
+
+	called := false
+	srv := newDeleteServer(t,
+		func(w http.ResponseWriter, _ *http.Request) {
+			called = true
+			w.WriteHeader(http.StatusNoContent)
+		},
+		getHandlerWithStateAndPolicy(t, "", backupDeletionPolicyDelete),
+	)
+	defer srv.Close()
+
+	bd := NewDeleter(Config{}, zap.NewNop().Sugar())
+	err := bd.Run(context.Background(), yesOpts(), newConfigPath(t, srv.URL))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), `backup "pre-upgrade" hasn't reported its status yet`)
+	assert.False(t, called, "delete must not be issued before the backup has any status")
+}
+
+func TestDelete_InFlight_NoStatusYet_WithForce_Succeeds(t *testing.T) {
+	t.Parallel()
+
+	srv := newDeleteServer(t,
+		func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusNoContent) },
+		getHandlerWithStateAndPolicy(t, "", backupDeletionPolicyDelete),
 	)
 	defer srv.Close()
 
@@ -515,19 +615,30 @@ func TestPolicyFromBackup(t *testing.T) {
 func TestInFlight(t *testing.T) {
 	t.Parallel()
 
-	assert.True(t, inFlight(backupStatePending))
-	assert.True(t, inFlight(backupStateRunning))
-	assert.False(t, inFlight(backupStateSucceeded))
-	assert.False(t, inFlight(backupStateFailed))
-	assert.False(t, inFlight("Error"))
-	assert.False(t, inFlight("Deleting"))
-	assert.False(t, inFlight(""))
+	assert.True(t, inFlight(backupStatePending, true))
+	assert.True(t, inFlight(backupStateRunning, true))
+	assert.True(t, inFlight("", true), "read successfully but no status yet is the riskiest window, right after create")
+	assert.False(t, inFlight(backupStateSucceeded, true))
+	assert.False(t, inFlight(backupStateFailed, true))
+	assert.False(t, inFlight("Error", true))
+	assert.False(t, inFlight("Deleting", true))
+	assert.False(t, inFlight("", false), "a failed/ambiguous fetch must never block — best-effort guard, not an invariant")
 }
 
-func TestBackupStateForGuard_NilSafe(t *testing.T) {
+func TestBackupStateForGuard(t *testing.T) {
 	t.Parallel()
 
-	assert.Empty(t, backupStateForGuard(nil))
+	state, ok := backupStateForGuard(nil)
+	assert.Empty(t, state)
+	assert.False(t, ok, "nil backup means the fetch found nothing or failed")
+
+	state, ok = backupStateForGuard(backupFixture(t, "pre-upgrade", "", ""))
+	assert.Empty(t, state)
+	assert.True(t, ok, "fetched successfully, just no status yet")
+
+	state, ok = backupStateForGuard(backupFixture(t, "pre-upgrade", backupStateRunning, ""))
+	assert.Equal(t, backupStateRunning, state)
+	assert.True(t, ok)
 }
 
 // TestRetainConfirmMessage and TestDeleteConfirmMessage cover the exact
