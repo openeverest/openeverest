@@ -31,7 +31,7 @@ interface PluginFormSectionsProps {
   formValues: Record<string, unknown>;
   /** Target namespace. */
   namespace: string;
-  /** Database engine type (provider), e.g. "psmdb", "pxc", "postgresql". */
+  /** Provider name, from `spec.providerRef.name`, e.g. "percona-server-mongodb". */
   engineType?: string;
   /** Existing instance (only for edit mode). */
   instance?: unknown;
