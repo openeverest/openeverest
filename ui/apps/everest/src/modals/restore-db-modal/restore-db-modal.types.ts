@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+import { PitrWindow } from 'shared-types/pitr.types';
+
 export interface RestoreDbModalProps {
   isOpen: boolean;
   closeModal: () => void;
@@ -26,11 +28,14 @@ export interface RestorableBackupOption {
   startedAt?: string;
 }
 
+export interface RestorePitrStorageOption {
+  name: string;
+  window: PitrWindow;
+}
+
 export interface ModalContentProps {
   isLoading: boolean;
   header: string;
   succeededBackups: RestorableBackupOption[];
-  // TODO: Re-enable PITR props when PITR restore flow is implemented.
-  // pitrData?: DatabaseClusterPitr;
-  // backupName?: string;
+  pitrStorages: RestorePitrStorageOption[];
 }

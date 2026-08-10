@@ -27,7 +27,7 @@ import {
 } from 'react-hook-form';
 import { useCreateDbInstance } from 'hooks/api/db-instances/useCreateDbInstance';
 import { DB_INSTANCES_QUERY_KEY } from 'hooks/api/db-instances/useDbInstanceList';
-import { useCreateRestoreFromBackup } from 'hooks/api/restores/useDbClusterRestore';
+import { useCreateInstanceRestore } from 'hooks/api/restores/useInstanceRestores';
 import { useActiveBreakpoint } from 'hooks/utils/useActiveBreakpoint';
 import { DbWizardType } from './database-form-schema';
 import DatabaseFormCancelDialog from './database-form-cancel-dialog/index';
@@ -62,7 +62,9 @@ import {
   BackupStep,
   BACKUP_SCHEDULES_FIELD,
   buildBackupSpecFromWizard,
+  WizardPitrMap,
 } from './database-form-body/steps/backup-step';
+import { FlattenedSchedule } from 'components/schedule-form-dialog/schedule-form-dialog-context/schedule-form-dialog-context.types';
 import { useBackupClassesList } from 'hooks/api/backup-classes/useBackupClasses';
 import { useClusterName } from 'hooks/api/useClusterName';
 import { mergeTopologyDefaults } from 'components/ui-generator/utils/default-values/merge-topology-defaults';
@@ -104,7 +106,7 @@ export const DatabasePage = () => {
   const hasBackupStep = backupClasses.length > 0;
 
   // ── Restore mutation (needs clusterName + namespace from navigation state)
-  const { mutate: createRestore } = useCreateRestoreFromBackup(
+  const { mutate: createRestore } = useCreateInstanceRestore(
     clusterName,
     location.state?.namespace ?? ''
   );
@@ -334,8 +336,9 @@ export const DatabasePage = () => {
     const backupData = formData.backup as Record<string, unknown> | undefined;
     if (backupData?.schedules) {
       const backupSpec = buildBackupSpecFromWizard(
-        backupData.schedules as Parameters<typeof buildBackupSpecFromWizard>[0],
-        (backupData.classRef as { name?: string })?.name
+        backupData.schedules as FlattenedSchedule[],
+        (backupData.classRef as { name?: string })?.name,
+        backupData.pitr as WizardPitrMap | undefined
       );
       if (backupSpec) {
         formData.backup = backupSpec;
@@ -384,7 +387,11 @@ export const DatabasePage = () => {
           onSuccess: () => {
             const newInstanceName = postProcessedData.dbName as string;
             createRestore(
-              { instanceName: newInstanceName, backupName },
+              {
+                instanceName: newInstanceName,
+                type: 'Backup',
+                backupName,
+              },
               {
                 onSuccess: () => {
                   setFormSubmitted(true);

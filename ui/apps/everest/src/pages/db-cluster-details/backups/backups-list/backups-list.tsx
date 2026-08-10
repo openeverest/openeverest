@@ -46,6 +46,7 @@ import { useUpdateDbInstanceWithConflictRetry } from 'hooks/api/db-instances/use
 import { Instance } from 'shared-types/api.types';
 import { removeUnusedStorages } from '../backups.utils';
 import { useRBACPermissions } from 'hooks/rbac';
+import { useCanRestore } from 'hooks/api/restores/useCanRestore';
 
 export const BackupsList = () => {
   const { instanceName = '', namespace = '' } = useParams();
@@ -64,6 +65,8 @@ export const BackupsList = () => {
     'backups',
     `${namespace}/${instanceName}`
   );
+
+  const canRestore = useCanRestore(namespace, instanceName);
 
   const { data: backups = [] } = useBackupsList(
     clusterName,
@@ -277,6 +280,7 @@ export const BackupsList = () => {
               handleRestoreBackup,
               handleRestoreToNewDbBackup,
               canDelete,
+              canRestore,
               deletingBackup &&
                 selectedBackup === (row.original.metadata?.name ?? '')
             )}

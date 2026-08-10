@@ -14,83 +14,31 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-export type GetRestorePayload = {
-  items: Array<{
-    metadata: {
-      creationTimestamp: string;
-      name: string;
-    };
-    spec: {
-      instanceName: string;
-      dataSource: {
-        type: string;
-        backup?: {
-          backupName: string;
-          pitr?: {
-            type: string;
-            date?: string;
-          };
-        };
-      };
-    };
-    status?: {
-      state: string;
-      startedAt?: string;
-      completedAt?: string;
-    };
-  }>;
-};
-// TODO: Re-enable when v1 restore payload shape is needed.
-// export type GetRestorePayload = {
-//   items: Array<{
-//     metadata: {
-//       creationTimestamp: string;
-//       name: string;
-//     };
-//     spec: {
-//       dataSource: {
-//         pitr?: object;
-//         dbClusterBackupName?: string;
-//       };
-//     };
-//     status: {
-//       state: string;
-//       completed?: string;
-//     };
-//   }>;
-// };
+import { HttpApi } from '@generated/api-types';
 
-export type CreateRestorePayload = {
-  metadata: {
-    name: string;
-  };
-  spec: {
-    instanceName: string;
-    dataSource: {
-      type: 'Backup';
-      backup: {
-        backupName: string;
-      };
+export type GetRestorePayload =
+  HttpApi.paths['/clusters/{cluster}/namespaces/{namespace}/instances/{instance}/restores']['get']['responses']['200']['content']['application/json'];
+
+export type CreateRestorePayload =
+  HttpApi.paths['/clusters/{cluster}/namespaces/{namespace}/restores']['post']['requestBody']['content']['application/json'];
+
+export type RestoreDataSource = CreateRestorePayload['spec']['dataSource'];
+
+// Discriminated FE input describing a restore intent. In-place restore leaves
+// the source instance implicit, so no instanceRef is carried here.
+export type RestoreDataSourceInput =
+  | { type: 'Backup'; backupName: string }
+  | { type: 'PointInTime'; storageName: string; recoveryTarget: 'latest' }
+  | {
+      type: 'PointInTime';
+      storageName: string;
+      recoveryTarget: 'date';
+      date: string;
     };
-  };
-};
-// TODO: Re-enable when v1 restore payload shape is needed.
-// export type CreateRestorePayload = {
-//   apiVersion: 'everest.percona.com/v1alpha1';
-//   kind: 'DatabaseClusterRestore';
-//   metadata: {
-//     name: string;
-//   };
-//   spec: {
-//     dbClusterName: string;
-//     dataSource: {
-//       dbClusterBackupName?: string;
-//       pitr?: {
-//         date: string;
-//       };
-//     };
-//   };
-// };
+
+export type RestoreCreateVariables = {
+  instanceName: string;
+} & RestoreDataSourceInput;
 
 export type Restore = {
   name: string;

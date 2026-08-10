@@ -13,6 +13,7 @@
 // limitations under the License.
 
 import { FlattenedSchedule } from 'components/schedule-form-dialog/schedule-form-dialog-context/schedule-form-dialog-context.types';
+import { WizardBackupSpec, WizardPitrMap } from './backup-step.types';
 
 /**
  * Transform the wizard's flat backup form state into the nested
@@ -21,17 +22,18 @@ import { FlattenedSchedule } from 'components/schedule-form-dialog/schedule-form
  * Form state:
  *   backup.schedules: FlattenedSchedule[]
  *   backup.classRef.name: string
+ *   backup.pitr: WizardPitrMap (per-storage, keyed by storage name)
  *
  * API shape:
- *   spec.backup: { classRef: { name }, enabled, storages: [{ name, storageRef, schedules }] }
+ *   spec.backup: { classRef: { name }, enabled, storages: [{ name, storageRef, schedules, pitr? }] }
  */
 export const buildBackupSpecFromWizard = (
   flatSchedules: FlattenedSchedule[],
-  classRefName: string | undefined
-): Record<string, unknown> | undefined => {
+  classRefName: string | undefined,
+  pitrMap: WizardPitrMap = {}
+): WizardBackupSpec | undefined => {
   if (!flatSchedules.length || !classRefName) return undefined;
 
-  // Group schedules by storage name
   const storageMap = new Map<string, FlattenedSchedule[]>();
   for (const schedule of flatSchedules) {
     const existing = storageMap.get(schedule.storageName) ?? [];
@@ -40,21 +42,32 @@ export const buildBackupSpecFromWizard = (
   }
 
   const storages = Array.from(storageMap.entries()).map(
-    ([storageName, schedules]) => ({
-      name: storageName,
-      storageRef: { name: storageName },
-      schedules: schedules.map((schedule) => ({
-        name: schedule.name,
-        cron: schedule.cron,
-        enabled: schedule.enabled,
-        ...(schedule.retentionCopies != null
-          ? { retentionCopies: schedule.retentionCopies }
+    ([storageName, schedules]) => {
+      // PITR is attached only for storages the user enabled it on; entries for
+      // storages without schedules never reach this map (derived from schedules).
+      const pitr = pitrMap[storageName];
+      return {
+        name: storageName,
+        storageRef: { name: storageName },
+        schedules: schedules.map((schedule) => ({
+          name: schedule.name,
+          cron: schedule.cron,
+          enabled: schedule.enabled,
+          ...(schedule.retentionCopies != null
+            ? { retentionCopies: schedule.retentionCopies }
+            : {}),
+          ...(schedule.parameters ? { parameters: schedule.parameters } : {}),
+        })),
+        ...(pitr?.enabled
+          ? {
+              pitr: {
+                enabled: true,
+                ...(pitr.parameters ? { parameters: pitr.parameters } : {}),
+              },
+            }
           : {}),
-        ...(schedule.parameters
-          ? { parameters: schedule.parameters as Record<string, never> }
-          : {}),
-      })),
-    })
+      };
+    }
   );
 
   return {
