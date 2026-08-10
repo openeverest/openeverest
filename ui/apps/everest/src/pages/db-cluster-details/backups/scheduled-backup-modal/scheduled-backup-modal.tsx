@@ -25,7 +25,10 @@ import { ScheduleFormData } from 'components/schedule-form-dialog/schedule-form/
 import { getSchedulesPayload } from 'components/schedule-form-dialog/schedule-form/schedule-form.utils';
 import { Instance } from 'shared-types/api.types';
 import { flattenSchedules } from 'utils/backup-schedules';
-import { applySchedulesToStorages, removeUnusedStorages } from '../backups.utils';
+import {
+  applySchedulesToStorages,
+  removeUnusedStorages,
+} from '../backups.utils';
 
 export const ScheduledBackupModal = () => {
   const {
