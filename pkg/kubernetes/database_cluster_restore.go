@@ -39,8 +39,12 @@ func (k *Kubernetes) GetDatabaseClusterRestore(ctx context.Context, key ctrlclie
 func (k *Kubernetes) ListDatabaseClusterRestores(ctx context.Context, opts ...ctrlclient.ListOption) (*everestv1alpha1.DatabaseClusterRestoreList, error) {
 	result := &everestv1alpha1.DatabaseClusterRestoreList{}
 	err := listPaginated(ctx, k.k8sClient, result,
-		func() *everestv1alpha1.DatabaseClusterRestoreList { return &everestv1alpha1.DatabaseClusterRestoreList{} },
-		func(res, page *everestv1alpha1.DatabaseClusterRestoreList) { res.Items = append(res.Items, page.Items...) },
+		func() *everestv1alpha1.DatabaseClusterRestoreList {
+			return &everestv1alpha1.DatabaseClusterRestoreList{}
+		},
+		func(res, page *everestv1alpha1.DatabaseClusterRestoreList) {
+			res.Items = append(res.Items, page.Items...)
+		},
 		opts...,
 	)
 	if err != nil {

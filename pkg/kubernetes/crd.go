@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2025 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -25,9 +26,14 @@ import (
 // ListCRDs lists all CRDs that match the criteria.
 func (k *Kubernetes) ListCRDs(ctx context.Context, opts ...ctrlclient.ListOption) (*apiextv1.CustomResourceDefinitionList, error) {
 	result := &apiextv1.CustomResourceDefinitionList{}
+	//nolint:gofumpt
 	err := listPaginated(ctx, k.k8sClient, result,
-		func() *apiextv1.CustomResourceDefinitionList { return &apiextv1.CustomResourceDefinitionList{} },
-		func(res, page *apiextv1.CustomResourceDefinitionList) { res.Items = append(res.Items, page.Items...) },
+		func() *apiextv1.CustomResourceDefinitionList {
+			return &apiextv1.CustomResourceDefinitionList{}
+		},
+		func(res, page *apiextv1.CustomResourceDefinitionList) {
+			res.Items = append(res.Items, page.Items...)
+		},
 		opts...,
 	)
 	if err != nil {

@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -43,8 +44,12 @@ func (k *Kubernetes) UpdateSplitHorizonDNSConfig(ctx context.Context, shdc *engi
 func (k *Kubernetes) ListSplitHorizonDNSConfigs(ctx context.Context, opts ...ctrlclient.ListOption) (*enginefeaturesv1alpha1.SplitHorizonDNSConfigList, error) {
 	result := &enginefeaturesv1alpha1.SplitHorizonDNSConfigList{}
 	err := listPaginated(ctx, k.k8sClient, result,
-		func() *enginefeaturesv1alpha1.SplitHorizonDNSConfigList { return &enginefeaturesv1alpha1.SplitHorizonDNSConfigList{} },
-		func(res, page *enginefeaturesv1alpha1.SplitHorizonDNSConfigList) { res.Items = append(res.Items, page.Items...) },
+		func() *enginefeaturesv1alpha1.SplitHorizonDNSConfigList {
+			return &enginefeaturesv1alpha1.SplitHorizonDNSConfigList{}
+		},
+		func(res, page *enginefeaturesv1alpha1.SplitHorizonDNSConfigList) {
+			res.Items = append(res.Items, page.Items...)
+		},
 		opts...,
 	)
 	if err != nil {

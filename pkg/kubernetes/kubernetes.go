@@ -332,7 +332,10 @@ func listPaginated[L ctrlclient.ObjectList](
 
 	for {
 		page := listFactory()
-		pageOpts := append(opts,
+		page.GetObjectKind().SetGroupVersionKind(result.GetObjectKind().GroupVersionKind())
+		pageOpts := make([]ctrlclient.ListOption, len(opts), len(opts)+2)
+		copy(pageOpts, opts)
+		pageOpts = append(pageOpts,
 			ctrlclient.Limit(pageSize),
 			ctrlclient.Continue(continueToken),
 		)
@@ -340,8 +343,12 @@ func listPaginated[L ctrlclient.ObjectList](
 			return err
 		}
 		appendItems(result, page)
-		
-		continueToken = page.GetListMeta().GetContinue()
+		if result.GetResourceVersion() == "" {
+			result.SetResourceVersion(page.GetResourceVersion())
+			result.GetObjectKind().SetGroupVersionKind(page.GetObjectKind().GroupVersionKind())
+		}
+
+		continueToken = page.GetContinue()
 		if continueToken == "" {
 			break
 		}

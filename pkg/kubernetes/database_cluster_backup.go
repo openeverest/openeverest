@@ -41,7 +41,9 @@ func (k *Kubernetes) ListDatabaseClusterBackups(ctx context.Context, opts ...ctr
 	result := &everestv1alpha1.DatabaseClusterBackupList{}
 	err := listPaginated(ctx, k.k8sClient, result,
 		func() *everestv1alpha1.DatabaseClusterBackupList { return &everestv1alpha1.DatabaseClusterBackupList{} },
-		func(res, page *everestv1alpha1.DatabaseClusterBackupList) { res.Items = append(res.Items, page.Items...) },
+		func(res, page *everestv1alpha1.DatabaseClusterBackupList) {
+			res.Items = append(res.Items, page.Items...)
+		},
 		opts...,
 	)
 	if err != nil {

@@ -33,9 +33,14 @@ import (
 // This method returns a list of full objects (meta and spec).
 func (k *Kubernetes) ListBackupStorages(ctx context.Context, opts ...ctrlclient.ListOption) (*everestv1alpha1.BackupStorageList, error) {
 	result := &everestv1alpha1.BackupStorageList{}
+	//nolint:gofumpt
 	err := listPaginated(ctx, k.k8sClient, result,
-		func() *everestv1alpha1.BackupStorageList { return &everestv1alpha1.BackupStorageList{} },
-		func(res, page *everestv1alpha1.BackupStorageList) { res.Items = append(res.Items, page.Items...) },
+		func() *everestv1alpha1.BackupStorageList {
+			return &everestv1alpha1.BackupStorageList{}
+		},
+		func(res, page *everestv1alpha1.BackupStorageList) {
+			res.Items = append(res.Items, page.Items...)
+		},
 		opts...,
 	)
 	if err != nil {
@@ -49,9 +54,14 @@ func (k *Kubernetes) ListBackupStorages(ctx context.Context, opts ...ctrlclient.
 func (k *Kubernetes) listBackupStoragesMeta(ctx context.Context, opts ...ctrlclient.ListOption) (*metav1.PartialObjectMetadataList, error) {
 	bsListMeta := &metav1.PartialObjectMetadataList{}
 	bsListMeta.SetGroupVersionKind(everestv1alpha1.GroupVersion.WithKind("BackupStorageList"))
+	//nolint:gofumpt
 	err := listPaginated(ctx, k.k8sClient, bsListMeta,
-		func() *metav1.PartialObjectMetadataList { return &metav1.PartialObjectMetadataList{} },
-		func(res, page *metav1.PartialObjectMetadataList) { res.Items = append(res.Items, page.Items...) },
+		func() *metav1.PartialObjectMetadataList {
+			return &metav1.PartialObjectMetadataList{}
+		},
+		func(res, page *metav1.PartialObjectMetadataList) {
+			res.Items = append(res.Items, page.Items...)
+		},
 		opts...,
 	)
 	if err != nil {
