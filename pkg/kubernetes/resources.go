@@ -80,8 +80,17 @@ func (k *Kubernetes) getResourcesFromNodes(ctx context.Context, clusterType Clus
 		case ClusterTypeUnknown:
 			return 0, 0, 0, 0, errors.New("unknown cluster type")
 		case ClusterTypeGeneric, ClusterTypeOpenShift, ClusterTypeGKE:
-			// TODO support other cluster types
-			continue
+			storage, ok := node.Status.Allocatable[corev1.ResourceEphemeralStorage]
+			if !ok {
+				continue
+			}
+			bytes, err := convertors.StrToBytes(storage.String())
+			if err != nil {
+				return 0, 0, 0, 0, errors.Join(err,
+					fmt.Errorf("could not convert storage size '%s' to bytes",
+						storage.String()))
+			}
+			diskSizeBytes += bytes
 		case ClusterTypeMinikube:
 			bytes, err := k.getMinikubeDiskSizeBytes(node)
 			if err != nil {
@@ -216,7 +225,6 @@ func (k *Kubernetes) GetConsumedDiskBytes(
 	case ClusterTypeUnknown:
 		return 0, errors.New("unknown cluster type")
 	case ClusterTypeGeneric, ClusterTypeOpenShift, ClusterTypeGKE:
-		// TODO support other cluster types.
 		return 0, nil
 	case ClusterTypeMinikube:
 		// Minikube does not seem to have support for this.

@@ -27,6 +27,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
+	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
@@ -172,5 +173,78 @@ func containerWithCPURequest(name, cpu string) corev1.Container {
 				corev1.ResourceCPU: resource.MustParse(cpu),
 			},
 		},
+	}
+}
+
+func TestGetResourcesFromNodesDiskSize(t *testing.T) {
+	t.Parallel()
+
+	nodeWithStorage := corev1.Node{
+		ObjectMeta: metav1.ObjectMeta{Name: "node-with-storage"},
+		Status: corev1.NodeStatus{
+			Allocatable: corev1.ResourceList{
+				corev1.ResourceEphemeralStorage: resource.MustParse("100Gi"),
+			},
+		},
+	}
+
+	nodeWithoutStorage := corev1.Node{
+		ObjectMeta: metav1.ObjectMeta{Name: "node-without-storage"},
+		Status: corev1.NodeStatus{
+			Allocatable: corev1.ResourceList{},
+		},
+	}
+
+	tests := []struct {
+		name        string
+		clusterType ClusterType
+		nodes       []corev1.Node
+		wantDisk    uint64
+	}{
+		{
+			name:        "GKE cluster with storage",
+			clusterType: ClusterTypeGKE,
+			nodes:       []corev1.Node{nodeWithStorage},
+			wantDisk:    107374182400, // 100Gi in bytes
+		},
+		{
+			name:        "OpenShift cluster with storage",
+			clusterType: ClusterTypeOpenShift,
+			nodes:       []corev1.Node{nodeWithStorage},
+			wantDisk:    107374182400,
+		},
+		{
+			name:        "Generic cluster with storage",
+			clusterType: ClusterTypeGeneric,
+			nodes:       []corev1.Node{nodeWithStorage},
+			wantDisk:    107374182400,
+		},
+		{
+			name:        "missing ephemeral-storage",
+			clusterType: ClusterTypeGKE,
+			nodes:       []corev1.Node{nodeWithoutStorage},
+			wantDisk:    0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			objs := make([]ctrlclient.Object, len(tt.nodes))
+			for i := range tt.nodes {
+				objs[i] = &tt.nodes[i]
+			}
+			mockClient := fakeclient.NewClientBuilder().
+				WithScheme(CreateScheme()).
+				WithObjects(objs...).
+				Build()
+
+			k := NewEmpty(zap.NewNop().Sugar()).WithKubernetesClient(mockClient)
+
+			_, _, disk, _, err := k.getResourcesFromNodes(context.Background(), tt.clusterType)
+			require.NoError(t, err)
+			assert.Equal(t, tt.wantDisk, disk)
+		})
 	}
 }
