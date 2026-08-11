@@ -80,7 +80,7 @@ func init() {
 	deleteCmd.Flags().StringVar(&deleteOpts.Cluster, cli.FlagRestoreCluster, "main", "Cluster name")
 	deleteCmd.Flags().StringVar(&deleteOpts.Context, cli.FlagRestoreContext, "", "Context to use (default: current context)")
 	deleteCmd.Flags().BoolVarP(&deleteOpts.Yes, cli.FlagYes, "y", false, "Skip the confirmation prompt")
-	deleteCmd.Flags().BoolVar(&deleteOpts.Force, cli.FlagRestoreForce, false, "Override the in-flight (Pending/Running) delete guard; does not skip the confirmation prompt")
+	deleteCmd.Flags().BoolVar(&deleteOpts.Force, cli.FlagRestoreForce, false, "Override the in-flight (Pending/Running/no status yet) delete guard; does not skip the confirmation prompt")
 	deleteCmd.Flags().BoolVar(&deleteOpts.IgnoreNotFound, cli.FlagRestoreIgnoreNotFound, false, "Treat \"restore already gone\" as a successful delete instead of an error")
 	deleteCmd.Flags().BoolVar(&deleteOpts.Wait, cli.FlagRestoreWait, false, "Block until the restore is fully deleted (Ctrl-C cancels only the wait, not the deletion)")
 	deleteCmd.Flags().DurationVar(&deleteOpts.Timeout, cli.FlagRestoreTimeout, 5*time.Minute, "Maximum time to wait (only valid with --wait); must be positive")

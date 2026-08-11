@@ -43,7 +43,7 @@ type DeleteOptions struct {
 	Context        string        // overrides the active context when set
 	Yes            bool          // skip the confirmation prompt
 	JSON           bool          // --json was passed; forces non-interactive regardless of --verbose
-	Force          bool          // override the in-flight (Pending/Running) guard; orthogonal to Yes
+	Force          bool          // override the in-flight (Pending/Running/no status yet) guard; orthogonal to Yes
 	IgnoreNotFound bool          // treat "restore already gone" (404) as a successful delete
 	Wait           bool          // block until the restore is fully deleted
 	Timeout        time.Duration // bounds --wait; must be positive
