@@ -123,7 +123,7 @@ func (h *k8sHandler) setLockDBEnginesForUpgrade(
 				}
 			}
 			return nil
-		}, backoff.WithContext(everestAPIConstantBackoff, ctx),
+		}, newEverestAPIBackoff(ctx),
 	)
 }
 
@@ -382,7 +382,7 @@ func (h *k8sHandler) startOperatorUpgradeWithRetry(ctx context.Context, namespac
 		func() error {
 			return h.startOperatorUpgrade(ctx, namespace)
 		},
-		backoff.WithContext(everestAPIConstantBackoff, ctx),
+		newEverestAPIBackoff(ctx),
 	)
 }
 
@@ -416,7 +416,7 @@ func (h *k8sHandler) startOperatorUpgrade(ctx context.Context, namespace string)
 			func() error {
 				_, err := h.kubeConnector.ApproveInstallPlan(ctx, types.NamespacedName{Namespace: namespace, Name: plan})
 				return err
-			}, backoff.WithContext(everestAPIConstantBackoff, ctx),
+			}, newEverestAPIBackoff(ctx),
 		); err != nil {
 			return err
 		}

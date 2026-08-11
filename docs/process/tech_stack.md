@@ -1,6 +1,6 @@
 # Tech stack
 
-Currently, our development team has fewer people than components/repositories. It is essential for us to use shared libraries and tools to make our lives easier. It's also OK to bring in new ones if there is a reason, but that reason should be more appealing than just "let's try this new cool package" or "that's an overengineering". Also, if we decide to make a change in this list, it's better to change it in all components within a reasonable timeframe.
+Currently, our development team has fewer people than components/repositories. It is essential for us to use shared libraries and tools to make our lives easier. It's also OK to bring in new ones if there is a reason, but that reason should be more appealing than just "let's try this new cool package" or "that's overengineering". Also, if we decide to make a change in this list, it's better to change it in all components within a reasonable timeframe.
 
 - Read more
   - [Best practices](./go_best_practices.md)
