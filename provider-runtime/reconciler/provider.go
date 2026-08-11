@@ -388,21 +388,22 @@ func (r *ProviderReconciler) Reconcile(ctx context.Context, req reconcile.Reques
 		}
 		return reconcile.Result{}, err
 	}
-	if err := validateInstanceBackupConfig(ctx, r.Client, in); err != nil {
-		logger.Error(err, "Backup configuration validation failed")
-		// Surface the violation on the BackupConfigured condition without
-		// marking the Instance Failed: the engine itself is healthy and the
-		// user can fix the configuration without a full redeploy.
+	// Surface a backup configuration violation on the BackupConfigured
+	// condition without marking the Instance Failed and, critically,
+	// without skipping the rest of reconciliation: the engine itself is
+	// healthy and unrelated spec changes (scaling, upgrades, config, etc.)
+	// must keep converging even while backup config is invalid. Providers
+	// are expected to guard against acting on the violating config
+	// themselves inside Sync(), via Context.BackupClassLimits().
+	backupConfigErr := validateInstanceBackupConfig(ctx, r.Client, in)
+	if backupConfigErr != nil {
+		logger.Error(backupConfigErr, "Backup configuration validation failed")
 		reason := controller.LimitsExceededReason
-		if errors.Is(err, controller.ErrPITRConfigInvalid) {
+		if errors.Is(backupConfigErr, controller.ErrPITRConfigInvalid) {
 			reason = controller.PITRConfigInvalidReason
 		}
 		setCondition(in, v1alpha1.ConditionBackupConfigured, metav1.ConditionFalse,
-			reason, err.Error(), metav1.Now())
-		if updateErr := r.Client.Status().Update(ctx, in); updateErr != nil {
-			logger.Error(updateErr, "Failed to update status after backup config violation")
-		}
-		return reconcile.Result{}, nil
+			reason, backupConfigErr.Error(), metav1.Now())
 	}
 	if err := r.provider.Validate(inCtx); err != nil {
 		logger.Error(err, "Validation failed")
@@ -454,8 +455,10 @@ func (r *ProviderReconciler) Reconcile(ctx context.Context, req reconcile.Reques
 		logger.Error(err, "Sync failed")
 		return reconcile.Result{}, err
 	}
-	// Clear any stale BackupConfigured=False condition left from a previous failed Sync.
-	if _, ok := r.provider.(controller.BackupProvider); ok {
+	// Clear any stale BackupConfigured=False condition left from a previous
+	// failed Sync — but not when this reconcile's own limits check above
+	// found a live violation, or we would immediately mask it.
+	if _, ok := r.provider.(controller.BackupProvider); ok && backupConfigErr == nil {
 		setCondition(in, v1alpha1.ConditionBackupConfigured, metav1.ConditionTrue,
 			"Configured", "Backup configuration applied to engine", metav1.Now())
 	}
