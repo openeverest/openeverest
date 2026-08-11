@@ -71,13 +71,6 @@ spec:
                 type: object
                 x-kubernetes-map-type: atomic
               deletionPolicy:
-                allOf:
-                - enum:
-                  - Retain
-                  - Delete
-                - enum:
-                  - Retain
-                  - Delete
                 default: Delete
                 description: |-
                   DeletionPolicy controls what happens to the underlying backup data
@@ -92,6 +85,9 @@ spec:
                   has started: switching policies after .metadata.deletionTimestamp
                   has been set is rejected so the cleanup path cannot race with
                   itself.
+                enum:
+                - Retain
+                - Delete
                 type: string
               instanceRef:
                 description: |-

@@ -1308,14 +1308,10 @@ spec:
                             format: date-time
                             type: string
                           type:
-                            allOf:
-                            - enum:
-                              - date
-                              - latest
-                            - enum:
-                              - date
-                              - latest
                             description: Type selects date-based or latest recovery.
+                            enum:
+                            - date
+                            - latest
                             type: string
                         required:
                         - type
@@ -1338,13 +1334,6 @@ spec:
                 - message: backup must be set when type is Backup
                   rule: 'self.type == ''Backup'' ? has(self.backup) : true'
               deletionPolicy:
-                allOf:
-                - enum:
-                  - Cascade
-                  - Orphan
-                - enum:
-                  - Cascade
-                  - Orphan
                 default: Cascade
                 description: |-
                   DeletionPolicy controls what happens to Backup and Restore CRs that
@@ -1366,6 +1355,9 @@ spec:
                   has started: switching policies after .metadata.deletionTimestamp
                   has been set is rejected so the cascade path cannot race with
                   itself.
+                enum:
+                - Cascade
+                - Orphan
                 type: string
               parameters:
                 description: |-

@@ -84,14 +84,10 @@ spec:
                             format: date-time
                             type: string
                           type:
-                            allOf:
-                            - enum:
-                              - date
-                              - latest
-                            - enum:
-                              - date
-                              - latest
                             description: Type selects date-based or latest recovery.
+                            enum:
+                            - date
+                            - latest
                             type: string
                         required:
                         - type

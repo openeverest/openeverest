@@ -12,6 +12,24 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+// Defines values for BackupSpecDeletionPolicy.
+const (
+	BackupSpecDeletionPolicyDelete BackupSpecDeletionPolicy = "Delete"
+	BackupSpecDeletionPolicyRetain BackupSpecDeletionPolicy = "Retain"
+)
+
+// Valid indicates whether the value is a known member of the BackupSpecDeletionPolicy enum.
+func (e BackupSpecDeletionPolicy) Valid() bool {
+	switch e {
+	case BackupSpecDeletionPolicyDelete:
+		return true
+	case BackupSpecDeletionPolicyRetain:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for BackupStatusConditionsStatus.
 const (
 	BackupStatusConditionsStatusFalse   BackupStatusConditionsStatus = "False"
@@ -171,6 +189,24 @@ func (e InstalledExtensionStatusPhase) Valid() bool {
 	}
 }
 
+// Defines values for InstanceSpecDataSourceBackupPitrType.
+const (
+	InstanceSpecDataSourceBackupPitrTypeDate   InstanceSpecDataSourceBackupPitrType = "date"
+	InstanceSpecDataSourceBackupPitrTypeLatest InstanceSpecDataSourceBackupPitrType = "latest"
+)
+
+// Valid indicates whether the value is a known member of the InstanceSpecDataSourceBackupPitrType enum.
+func (e InstanceSpecDataSourceBackupPitrType) Valid() bool {
+	switch e {
+	case InstanceSpecDataSourceBackupPitrTypeDate:
+		return true
+	case InstanceSpecDataSourceBackupPitrTypeLatest:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for InstanceSpecDataSourceType.
 const (
 	InstanceSpecDataSourceTypeBackup InstanceSpecDataSourceType = "Backup"
@@ -180,6 +216,24 @@ const (
 func (e InstanceSpecDataSourceType) Valid() bool {
 	switch e {
 	case InstanceSpecDataSourceTypeBackup:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for InstanceSpecDeletionPolicy.
+const (
+	InstanceSpecDeletionPolicyCascade InstanceSpecDeletionPolicy = "Cascade"
+	InstanceSpecDeletionPolicyOrphan  InstanceSpecDeletionPolicy = "Orphan"
+)
+
+// Valid indicates whether the value is a known member of the InstanceSpecDeletionPolicy enum.
+func (e InstanceSpecDeletionPolicy) Valid() bool {
+	switch e {
+	case InstanceSpecDeletionPolicyCascade:
+		return true
+	case InstanceSpecDeletionPolicyOrphan:
 		return true
 	default:
 		return false
@@ -252,6 +306,24 @@ func (e InstanceStatusPhase) Valid() bool {
 	}
 }
 
+// Defines values for InstancePresetSpecDataSourceBackupPitrType.
+const (
+	InstancePresetSpecDataSourceBackupPitrTypeDate   InstancePresetSpecDataSourceBackupPitrType = "date"
+	InstancePresetSpecDataSourceBackupPitrTypeLatest InstancePresetSpecDataSourceBackupPitrType = "latest"
+)
+
+// Valid indicates whether the value is a known member of the InstancePresetSpecDataSourceBackupPitrType enum.
+func (e InstancePresetSpecDataSourceBackupPitrType) Valid() bool {
+	switch e {
+	case InstancePresetSpecDataSourceBackupPitrTypeDate:
+		return true
+	case InstancePresetSpecDataSourceBackupPitrTypeLatest:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for InstancePresetSpecDataSourceType.
 const (
 	InstancePresetSpecDataSourceTypeBackup InstancePresetSpecDataSourceType = "Backup"
@@ -261,6 +333,24 @@ const (
 func (e InstancePresetSpecDataSourceType) Valid() bool {
 	switch e {
 	case InstancePresetSpecDataSourceTypeBackup:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for InstancePresetSpecDeletionPolicy.
+const (
+	InstancePresetSpecDeletionPolicyCascade InstancePresetSpecDeletionPolicy = "Cascade"
+	InstancePresetSpecDeletionPolicyOrphan  InstancePresetSpecDeletionPolicy = "Orphan"
+)
+
+// Valid indicates whether the value is a known member of the InstancePresetSpecDeletionPolicy enum.
+func (e InstancePresetSpecDeletionPolicy) Valid() bool {
+	switch e {
+	case InstancePresetSpecDeletionPolicyCascade:
+		return true
+	case InstancePresetSpecDeletionPolicyOrphan:
 		return true
 	default:
 		return false
@@ -339,6 +429,24 @@ func (e ProviderStatusConditionsStatus) Valid() bool {
 	case ProviderStatusConditionsStatusTrue:
 		return true
 	case ProviderStatusConditionsStatusUnknown:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for RestoreSpecDataSourceBackupPitrType.
+const (
+	RestoreSpecDataSourceBackupPitrTypeDate   RestoreSpecDataSourceBackupPitrType = "date"
+	RestoreSpecDataSourceBackupPitrTypeLatest RestoreSpecDataSourceBackupPitrType = "latest"
+)
+
+// Valid indicates whether the value is a known member of the RestoreSpecDataSourceBackupPitrType enum.
+func (e RestoreSpecDataSourceBackupPitrType) Valid() bool {
+	switch e {
+	case RestoreSpecDataSourceBackupPitrTypeDate:
+		return true
+	case RestoreSpecDataSourceBackupPitrTypeLatest:
 		return true
 	default:
 		return false
@@ -441,7 +549,7 @@ type Backup struct {
 		// has started: switching policies after .metadata.deletionTimestamp
 		// has been set is rejected so the cleanup path cannot race with
 		// itself.
-		DeletionPolicy interface{} `json:"deletionPolicy,omitempty"`
+		DeletionPolicy *BackupSpecDeletionPolicy `json:"deletionPolicy,omitempty"`
 
 		// InstanceRef InstanceRef references the Instance to back up. The Instance must
 		// live in the same namespace as this Backup.
@@ -545,6 +653,20 @@ type Backup struct {
 		State *string `json:"state,omitempty"`
 	} `json:"status,omitempty"`
 }
+
+// BackupSpecDeletionPolicy DeletionPolicy controls what happens to the underlying backup data
+// (e.g., the object stored in S3) when this Backup CR is deleted.
+// Delete (default) instructs the provider to remove both the
+// engine-native backup resource and the data in the configured
+// BackupStorage. Retain instructs the provider to remove the
+// engine-native backup resource but to leave the underlying data in
+// place, so it can be recovered later out-of-band.
+//
+// The field is mutable on a live Backup but is frozen once deletion
+// has started: switching policies after .metadata.deletionTimestamp
+// has been set is rejected so the cleanup path cannot race with
+// itself.
+type BackupSpecDeletionPolicy string
 
 // BackupStatusConditionsStatus status of the condition, one of True, False, Unknown.
 type BackupStatusConditionsStatus string
@@ -1839,7 +1961,7 @@ type Instance struct {
 					Date *time.Time `json:"date,omitempty"`
 
 					// Type Type selects date-based or latest recovery.
-					Type interface{} `json:"type"`
+					Type InstanceSpecDataSourceBackupPitrType `json:"type"`
 				} `json:"pitr,omitempty"`
 			} `json:"backup,omitempty"`
 
@@ -1866,7 +1988,7 @@ type Instance struct {
 		// has started: switching policies after .metadata.deletionTimestamp
 		// has been set is rejected so the cascade path cannot race with
 		// itself.
-		DeletionPolicy interface{} `json:"deletionPolicy,omitempty"`
+		DeletionPolicy *InstanceSpecDeletionPolicy `json:"deletionPolicy,omitempty"`
 
 		// Parameters Parameters contains structured parameters that apply to the Instance
 		// as a whole, complementing the topology- and component-scoped
@@ -2029,8 +2151,32 @@ type Instance_Spec_Components_Storage_Size struct {
 	union json.RawMessage
 }
 
+// InstanceSpecDataSourceBackupPitrType Type selects date-based or latest recovery.
+type InstanceSpecDataSourceBackupPitrType string
+
 // InstanceSpecDataSourceType Type selects the data source kind.
 type InstanceSpecDataSourceType string
+
+// InstanceSpecDeletionPolicy DeletionPolicy controls what happens to Backup and Restore CRs that
+// reference this Instance when the Instance is deleted.
+// Cascade (default) instructs the runtime to delete every Backup and
+// Restore in the Instance's namespace whose .spec.instanceRef matches
+// this Instance before tearing down the engine. Each Backup's own
+// .spec.deletionPolicy then independently controls whether its
+// underlying data in the BackupStorage is purged or retained.
+// Orphan instructs the runtime to leave Backup and Restore CRs in
+// place; they survive the Instance deletion and can later be used to
+// restore into a newly-created Instance.
+//
+// The Instance is held in the Terminating phase until all referenced
+// Backups/Restores have been deleted (Cascade) or until the engine
+// resources have been torn down (both policies).
+//
+// The field is mutable on a live Instance but is frozen once deletion
+// has started: switching policies after .metadata.deletionTimestamp
+// has been set is rejected so the cascade path cannot race with
+// itself.
+type InstanceSpecDeletionPolicy string
 
 // InstanceStatusConditionsStatus status of the condition, one of True, False, Unknown.
 type InstanceStatusConditionsStatus string
@@ -2805,7 +2951,7 @@ type InstancePreset struct {
 					Date *time.Time `json:"date,omitempty"`
 
 					// Type Type selects date-based or latest recovery.
-					Type interface{} `json:"type"`
+					Type InstancePresetSpecDataSourceBackupPitrType `json:"type"`
 				} `json:"pitr,omitempty"`
 			} `json:"backup,omitempty"`
 
@@ -2832,7 +2978,7 @@ type InstancePreset struct {
 		// has started: switching policies after .metadata.deletionTimestamp
 		// has been set is rejected so the cascade path cannot race with
 		// itself.
-		DeletionPolicy interface{} `json:"deletionPolicy,omitempty"`
+		DeletionPolicy *InstancePresetSpecDeletionPolicy `json:"deletionPolicy,omitempty"`
 
 		// Parameters Parameters contains structured parameters that apply to the Instance
 		// as a whole, complementing the topology- and component-scoped
@@ -2932,8 +3078,32 @@ type InstancePreset_Spec_Components_Storage_Size struct {
 	union json.RawMessage
 }
 
+// InstancePresetSpecDataSourceBackupPitrType Type selects date-based or latest recovery.
+type InstancePresetSpecDataSourceBackupPitrType string
+
 // InstancePresetSpecDataSourceType Type selects the data source kind.
 type InstancePresetSpecDataSourceType string
+
+// InstancePresetSpecDeletionPolicy DeletionPolicy controls what happens to Backup and Restore CRs that
+// reference this Instance when the Instance is deleted.
+// Cascade (default) instructs the runtime to delete every Backup and
+// Restore in the Instance's namespace whose .spec.instanceRef matches
+// this Instance before tearing down the engine. Each Backup's own
+// .spec.deletionPolicy then independently controls whether its
+// underlying data in the BackupStorage is purged or retained.
+// Orphan instructs the runtime to leave Backup and Restore CRs in
+// place; they survive the Instance deletion and can later be used to
+// restore into a newly-created Instance.
+//
+// The Instance is held in the Terminating phase until all referenced
+// Backups/Restores have been deleted (Cascade) or until the engine
+// resources have been torn down (both policies).
+//
+// The field is mutable on a live Instance but is frozen once deletion
+// has started: switching policies after .metadata.deletionTimestamp
+// has been set is rejected so the cascade path cannot race with
+// itself.
+type InstancePresetSpecDeletionPolicy string
 
 // InstancePresetStatusConditionsStatus status of the condition, one of True, False, Unknown.
 type InstancePresetStatusConditionsStatus string
@@ -3438,7 +3608,7 @@ type Restore struct {
 					Date *time.Time `json:"date,omitempty"`
 
 					// Type Type selects date-based or latest recovery.
-					Type interface{} `json:"type"`
+					Type RestoreSpecDataSourceBackupPitrType `json:"type"`
 				} `json:"pitr,omitempty"`
 			} `json:"backup,omitempty"`
 
@@ -3530,6 +3700,9 @@ type Restore struct {
 		State *string `json:"state,omitempty"`
 	} `json:"status,omitempty"`
 }
+
+// RestoreSpecDataSourceBackupPitrType Type selects date-based or latest recovery.
+type RestoreSpecDataSourceBackupPitrType string
 
 // RestoreSpecDataSourceType Type selects the data source kind.
 type RestoreSpecDataSourceType string

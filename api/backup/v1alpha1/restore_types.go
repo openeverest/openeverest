@@ -70,7 +70,6 @@ type DataSourceBackup struct {
 type DataSourcePITR struct {
 	// Type selects date-based or latest recovery.
 	// +kubebuilder:validation:Required
-	// +kubebuilder:validation:Enum=date;latest
 	Type PITRType `json:"type"`
 	// Date is the target recovery point. Required when Type is "date".
 	// +optional
