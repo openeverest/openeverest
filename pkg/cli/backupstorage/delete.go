@@ -192,7 +192,11 @@ func newBackupStorageDeletePoll(
 		if err != nil {
 			return 0, "", nil, err
 		}
-		return resp.StatusCode(), resp.Status(), resp.JSON200, nil
+		statusText := resp.Status()
+		if msg, ok := clienterr.Message(resp.JSONDefault); ok {
+			statusText = msg
+		}
+		return resp.StatusCode(), statusText, resp.JSON200, nil
 	})
 }
 

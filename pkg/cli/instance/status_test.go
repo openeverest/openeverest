@@ -386,7 +386,7 @@ func TestWatch_StopsOnInstanceDeleted(t *testing.T) {
 		Interval:  30 * time.Millisecond,
 	}, cfgPath)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "deleted")
+	assert.Contains(t, err.Error(), "no longer exists")
 }
 
 func TestWatch_TransientErrorKeepsPolling(t *testing.T) {

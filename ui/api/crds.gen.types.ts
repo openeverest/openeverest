@@ -3060,10 +3060,12 @@ export interface components {
                         /** @description Path is an optional sub-path (used by "route" and tab-type extension points). */
                         path?: string;
                         /**
-                         * @description Providers is an optional list of database engine types this extension point
-                         *     applies to. Values match spec.engine.type on the DatabaseCluster CR:
-                         *     "postgresql", "psmdb", "pxc".
-                         *     When omitted or empty, the extension point is shown for all engine types.
+                         * @description Providers is an optional list of Provider names this extension point
+                         *     applies to. Values match spec.providerRef.name on the Instance CR, e.g.
+                         *     "provider-percona-postgresql", "percona-server-mongodb",
+                         *     "percona-xtradb-cluster". Provider names are not prefix-consistent
+                         *     across providers; check the target provider's own definition.
+                         *     When omitted or empty, the extension point is shown for all providers.
                          */
                         providers?: string[];
                         /**

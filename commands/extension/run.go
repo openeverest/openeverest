@@ -27,15 +27,15 @@ import (
 
 var (
 	pluginRunCmd = &cobra.Command{
-		Use:   "run <plugin-name> [-- <args>...]",
+		Use:   "run <extension-name> [-- <args>...]",
 		Args:  cobra.MinimumNArgs(1),
-		Long:  "Run a plugin's CLI container, passing extra arguments after '--'",
-		Short: "Run a plugin CLI",
-		Example: `  # Run the sql-explorer plugin CLI:
-  everestctl plugin run sql-explorer -- query --db my-db "SELECT 1"
+		Long:  "Run an extension's CLI container, passing extra arguments after '--'",
+		Short: "Run an extension CLI",
+		Example: `  # Run the sql-explorer extension CLI:
+  everestctl extension run sql-explorer -- query --db my-db "SELECT 1"
 
   # Run with a custom container runtime:
-  everestctl plugin run sql-explorer --runtime podman -- --help`,
+  everestctl extension run sql-explorer --runtime podman -- --help`,
 		PreRun: pluginRunPreRun,
 		Run:    pluginRunRun,
 	}
