@@ -125,15 +125,32 @@ func refreshEnforcerInBackground(
 		if !ok || cm.GetName() != common.EverestRBACConfigMapName {
 			return
 		}
+
+		// Validate the incoming policy with a temporary enforcer before modifying the live
+		// enforcer state. This ensures a bad or partial ConfigMap update (syntax error,
+		// unknown resource, interrupted rollout) is rejected without disrupting the
+		// currently-serving policy.
+		tmpAdapter := configmapadapter.New(l, kubeConnector, types.NamespacedName{
+			Namespace: common.SystemNamespace,
+			Name:      common.EverestRBACConfigMapName,
+		})
+		if _, err := newEnforcer(tmpAdapter, false); err != nil {
+			l.Errorw("RBAC ConfigMap update rejected: invalid policy detected; keeping current enforcement state",
+				zap.Error(err))
+			return
+		}
+
+		// Policy is valid. Reload the live enforcer.
 		if err := enforcer.LoadPolicy(); err != nil {
-			panic("invalid policy detected - " + err.Error())
+			l.Errorw("Failed to reload RBAC policy from ConfigMap update",
+				zap.Error(err))
+			return
 		}
-		if err := validatePolicy(enforcer); err != nil {
-			panic("invalid policy detected - " + err.Error())
-		}
-		// Calling LoadPolicy() re-writes the entire model, so we need to add back the admin role.
+		// LoadPolicy() re-writes the entire model, so we need to add back the admin role.
 		if err := loadAdminPolicy(enforcer); err != nil {
-			panic("failed to load admin policy - " + err.Error())
+			l.Errorw("Failed to restore admin policy after RBAC reload; enforcement state may be degraded",
+				zap.Error(err))
+			return
 		}
 		enforcer.EnableEnforce(IsEnabled(cm))
 	})
