@@ -42,7 +42,12 @@ func (k *Kubernetes) UpdateSplitHorizonDNSConfig(ctx context.Context, shdc *engi
 // ListSplitHorizonDNSConfigs lists all SplitHorizonDNSConfig resources in Kubernetes that match the provided options.
 func (k *Kubernetes) ListSplitHorizonDNSConfigs(ctx context.Context, opts ...ctrlclient.ListOption) (*enginefeaturesv1alpha1.SplitHorizonDNSConfigList, error) {
 	result := &enginefeaturesv1alpha1.SplitHorizonDNSConfigList{}
-	if err := k.k8sClient.List(ctx, result, opts...); err != nil {
+	err := listPaginated(ctx, k.k8sClient, result,
+		func() *enginefeaturesv1alpha1.SplitHorizonDNSConfigList { return &enginefeaturesv1alpha1.SplitHorizonDNSConfigList{} },
+		func(res, page *enginefeaturesv1alpha1.SplitHorizonDNSConfigList) { res.Items = append(res.Items, page.Items...) },
+		opts...,
+	)
+	if err != nil {
 		return nil, err
 	}
 	return result, nil

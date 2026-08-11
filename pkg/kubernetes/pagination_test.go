@@ -1,0 +1,99 @@
+package kubernetes
+
+import (
+	"context"
+	"errors"
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
+)
+
+type mockClient struct {
+	ctrlclient.Client
+	listFunc func(ctx context.Context, list ctrlclient.ObjectList, opts ...ctrlclient.ListOption) error
+}
+
+func (m *mockClient) List(ctx context.Context, list ctrlclient.ObjectList, opts ...ctrlclient.ListOption) error {
+	return m.listFunc(ctx, list, opts...)
+}
+
+func TestListPaginated(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name        string
+		mockList    func(ctx context.Context, list ctrlclient.ObjectList, opts ...ctrlclient.ListOption) error
+		wantItems   int
+		wantErr     string
+	}{
+		{
+			name: "successful multi-page pagination",
+			mockList: func(ctx context.Context, list ctrlclient.ObjectList, opts ...ctrlclient.ListOption) error {
+				listOpts := &ctrlclient.ListOptions{}
+				for _, opt := range opts {
+					opt.ApplyToList(listOpts)
+				}
+
+				secretList := list.(*corev1.SecretList)
+				
+				if listOpts.Continue == "" {
+					secretList.Items = []corev1.Secret{{ObjectMeta: metav1.ObjectMeta{Name: "secret-1"}}}
+					secretList.SetContinue("page2")
+				} else if listOpts.Continue == "page2" {
+					secretList.Items = []corev1.Secret{{ObjectMeta: metav1.ObjectMeta{Name: "secret-2"}}}
+					secretList.SetContinue("")
+				} else {
+					return errors.New("unexpected continue token")
+				}
+				
+				return nil
+			},
+			wantItems: 2,
+		},
+		{
+			name: "mid-pagination error",
+			mockList: func(ctx context.Context, list ctrlclient.ObjectList, opts ...ctrlclient.ListOption) error {
+				listOpts := &ctrlclient.ListOptions{}
+				for _, opt := range opts {
+					opt.ApplyToList(listOpts)
+				}
+
+				if listOpts.Continue == "" {
+					secretList := list.(*corev1.SecretList)
+					secretList.Items = []corev1.Secret{{ObjectMeta: metav1.ObjectMeta{Name: "secret-1"}}}
+					secretList.SetContinue("page2")
+					return nil
+				}
+				
+				return errors.New("api server timeout")
+			},
+			wantErr: "api server timeout",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			
+			mClient := &mockClient{listFunc: tt.mockList}
+			
+			result := &corev1.SecretList{}
+			err := listPaginated(context.Background(), mClient, result,
+				func() *corev1.SecretList { return &corev1.SecretList{} },
+				func(res, page *corev1.SecretList) { res.Items = append(res.Items, page.Items...) },
+			)
+			
+			if tt.wantErr != "" {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tt.wantErr)
+			} else {
+				require.NoError(t, err)
+				assert.Len(t, result.Items, tt.wantItems)
+			}
+		})
+	}
+}

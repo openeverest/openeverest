@@ -33,7 +33,12 @@ import (
 // This method returns a list of full objects (meta and spec).
 func (k *Kubernetes) ListMonitoringConfigs(ctx context.Context, opts ...ctrlclient.ListOption) (*everestv1alpha1.MonitoringConfigList, error) {
 	result := &everestv1alpha1.MonitoringConfigList{}
-	if err := k.k8sClient.List(ctx, result, opts...); err != nil {
+	err := listPaginated(ctx, k.k8sClient, result,
+		func() *everestv1alpha1.MonitoringConfigList { return &everestv1alpha1.MonitoringConfigList{} },
+		func(res, page *everestv1alpha1.MonitoringConfigList) { res.Items = append(res.Items, page.Items...) },
+		opts...,
+	)
+	if err != nil {
 		return nil, err
 	}
 	return result, nil
@@ -44,7 +49,12 @@ func (k *Kubernetes) ListMonitoringConfigs(ctx context.Context, opts ...ctrlclie
 func (k *Kubernetes) listMonitoringConfigsMeta(ctx context.Context, opts ...ctrlclient.ListOption) (*metav1.PartialObjectMetadataList, error) {
 	result := &metav1.PartialObjectMetadataList{}
 	result.SetGroupVersionKind(everestv1alpha1.GroupVersion.WithKind("MonitoringConfigList"))
-	if err := k.k8sClient.List(ctx, result, opts...); err != nil {
+	err := listPaginated(ctx, k.k8sClient, result,
+		func() *metav1.PartialObjectMetadataList { return &metav1.PartialObjectMetadataList{} },
+		func(res, page *metav1.PartialObjectMetadataList) { res.Items = append(res.Items, page.Items...) },
+		opts...,
+	)
+	if err != nil {
 		return nil, err
 	}
 	return result, nil

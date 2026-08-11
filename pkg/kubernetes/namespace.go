@@ -68,7 +68,12 @@ func (k *Kubernetes) DeleteNamespace(ctx context.Context, obj *corev1.Namespace)
 // This method returns a list of full objects (meta and spec).
 func (k *Kubernetes) ListNamespaces(ctx context.Context, opts ...ctrlclient.ListOption) (*corev1.NamespaceList, error) {
 	result := &corev1.NamespaceList{}
-	if err := k.k8sClient.List(ctx, result, opts...); err != nil {
+	err := listPaginated(ctx, k.k8sClient, result,
+		func() *corev1.NamespaceList { return &corev1.NamespaceList{} },
+		func(res, page *corev1.NamespaceList) { res.Items = append(res.Items, page.Items...) },
+		opts...,
+	)
+	if err != nil {
 		return nil, err
 	}
 	return result, nil

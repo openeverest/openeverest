@@ -58,7 +58,12 @@ func (k *Kubernetes) GetInstalledOperatorVersion(ctx context.Context, key ctrlcl
 // ListInstalledOperators returns the list of installed operators that match the criteria.
 func (k *Kubernetes) ListInstalledOperators(ctx context.Context, opts ...ctrlclient.ListOption) (*olmv1alpha1.SubscriptionList, error) {
 	result := &olmv1alpha1.SubscriptionList{}
-	if err := k.k8sClient.List(ctx, result, opts...); err != nil {
+	err := listPaginated(ctx, k.k8sClient, result,
+		func() *olmv1alpha1.SubscriptionList { return &olmv1alpha1.SubscriptionList{} },
+		func(res, page *olmv1alpha1.SubscriptionList) { res.Items = append(res.Items, page.Items...) },
+		opts...,
+	)
+	if err != nil {
 		return nil, err
 	}
 	return result, nil

@@ -26,7 +26,12 @@ import (
 // ListDataImporters lists all DataImporters in the cluster.
 func (k *Kubernetes) ListDataImporters(ctx context.Context, opts ...ctrlclient.ListOption) (*everestv1alpha1.DataImporterList, error) {
 	result := &everestv1alpha1.DataImporterList{}
-	if err := k.k8sClient.List(ctx, result, opts...); err != nil {
+	err := listPaginated(ctx, k.k8sClient, result,
+		func() *everestv1alpha1.DataImporterList { return &everestv1alpha1.DataImporterList{} },
+		func(res, page *everestv1alpha1.DataImporterList) { res.Items = append(res.Items, page.Items...) },
+		opts...,
+	)
+	if err != nil {
 		return nil, err
 	}
 	return result, nil

@@ -25,7 +25,12 @@ import (
 // ListCRDs lists all CRDs that match the criteria.
 func (k *Kubernetes) ListCRDs(ctx context.Context, opts ...ctrlclient.ListOption) (*apiextv1.CustomResourceDefinitionList, error) {
 	result := &apiextv1.CustomResourceDefinitionList{}
-	if err := k.k8sClient.List(ctx, result, opts...); err != nil {
+	err := listPaginated(ctx, k.k8sClient, result,
+		func() *apiextv1.CustomResourceDefinitionList { return &apiextv1.CustomResourceDefinitionList{} },
+		func(res, page *apiextv1.CustomResourceDefinitionList) { res.Items = append(res.Items, page.Items...) },
+		opts...,
+	)
+	if err != nil {
 		return nil, err
 	}
 	return result, nil

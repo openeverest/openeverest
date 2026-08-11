@@ -34,7 +34,12 @@ func (k *Kubernetes) ListDataImportJobs(ctx context.Context, namespace, dbName s
 			common.DatabaseClusterNameLabel: dbName,
 		},
 	}
-	if err := k.k8sClient.List(ctx, result, listOpts...); err != nil {
+	err := listPaginated(ctx, k.k8sClient, result,
+		func() *everestv1alpha1.DataImportJobList { return &everestv1alpha1.DataImportJobList{} },
+		func(res, page *everestv1alpha1.DataImportJobList) { res.Items = append(res.Items, page.Items...) },
+		listOpts...,
+	)
+	if err != nil {
 		return nil, err
 	}
 	return result, nil

@@ -38,7 +38,12 @@ func (k *Kubernetes) GetDatabaseClusterRestore(ctx context.Context, key ctrlclie
 // This method returns a list of full objects (meta and spec).
 func (k *Kubernetes) ListDatabaseClusterRestores(ctx context.Context, opts ...ctrlclient.ListOption) (*everestv1alpha1.DatabaseClusterRestoreList, error) {
 	result := &everestv1alpha1.DatabaseClusterRestoreList{}
-	if err := k.k8sClient.List(ctx, result, opts...); err != nil {
+	err := listPaginated(ctx, k.k8sClient, result,
+		func() *everestv1alpha1.DatabaseClusterRestoreList { return &everestv1alpha1.DatabaseClusterRestoreList{} },
+		func(res, page *everestv1alpha1.DatabaseClusterRestoreList) { res.Items = append(res.Items, page.Items...) },
+		opts...,
+	)
+	if err != nil {
 		return nil, err
 	}
 	return result, nil

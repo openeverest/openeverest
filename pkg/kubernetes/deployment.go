@@ -49,7 +49,12 @@ func (k *Kubernetes) UpdateDeployment(ctx context.Context, deployment *appsv1.De
 // This method returns a list of full objects (meta and spec).
 func (k *Kubernetes) ListDeployments(ctx context.Context, opts ...ctrlclient.ListOption) (*appsv1.DeploymentList, error) {
 	result := &appsv1.DeploymentList{}
-	if err := k.k8sClient.List(ctx, result, opts...); err != nil {
+	err := listPaginated(ctx, k.k8sClient, result,
+		func() *appsv1.DeploymentList { return &appsv1.DeploymentList{} },
+		func(res, page *appsv1.DeploymentList) { res.Items = append(res.Items, page.Items...) },
+		opts...,
+	)
+	if err != nil {
 		return nil, err
 	}
 	return result, nil

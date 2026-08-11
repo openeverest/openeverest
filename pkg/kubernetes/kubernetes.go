@@ -315,3 +315,36 @@ func mergeNamespacesEnvVar(str1, str2 string) string {
 
 	return strings.Join(namespaces, ",")
 }
+
+// listPaginated is a helper to list objects with pagination.
+// listFactory must return a new empty list object.
+// appendItems must append items from page to result.
+func listPaginated[L ctrlclient.ObjectList](
+	ctx context.Context,
+	k8sClient ctrlclient.Client,
+	result L,
+	listFactory func() L,
+	appendItems func(result, page L),
+	opts ...ctrlclient.ListOption,
+) error {
+	const pageSize = 100
+	continueToken := ""
+
+	for {
+		page := listFactory()
+		pageOpts := append(opts,
+			ctrlclient.Limit(pageSize),
+			ctrlclient.Continue(continueToken),
+		)
+		if err := k8sClient.List(ctx, page, pageOpts...); err != nil {
+			return err
+		}
+		appendItems(result, page)
+		
+		continueToken = page.GetListMeta().GetContinue()
+		if continueToken == "" {
+			break
+		}
+	}
+	return nil
+}

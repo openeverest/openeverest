@@ -28,7 +28,12 @@ import (
 // This method returns a list of full objects (meta and spec).
 func (k *Kubernetes) ListPodSchedulingPolicies(ctx context.Context, opts ...ctrlclient.ListOption) (*everestv1alpha1.PodSchedulingPolicyList, error) {
 	result := &everestv1alpha1.PodSchedulingPolicyList{}
-	if err := k.k8sClient.List(ctx, result, opts...); err != nil {
+	err := listPaginated(ctx, k.k8sClient, result,
+		func() *everestv1alpha1.PodSchedulingPolicyList { return &everestv1alpha1.PodSchedulingPolicyList{} },
+		func(res, page *everestv1alpha1.PodSchedulingPolicyList) { res.Items = append(res.Items, page.Items...) },
+		opts...,
+	)
+	if err != nil {
 		return nil, err
 	}
 	return result, nil

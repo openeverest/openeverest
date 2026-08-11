@@ -11,7 +11,12 @@ import (
 // This method returns a list of full objects (meta and spec).
 func (k *Kubernetes) ListSecrets(ctx context.Context, opts ...ctrlclient.ListOption) (*corev1.SecretList, error) {
 	result := &corev1.SecretList{}
-	if err := k.k8sClient.List(ctx, result, opts...); err != nil {
+	err := listPaginated(ctx, k.k8sClient, result,
+		func() *corev1.SecretList { return &corev1.SecretList{} },
+		func(res, page *corev1.SecretList) { res.Items = append(res.Items, page.Items...) },
+		opts...,
+	)
+	if err != nil {
 		return nil, err
 	}
 	return result, nil

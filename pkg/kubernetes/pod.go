@@ -11,7 +11,12 @@ import (
 // This method returns a list of full objects (meta and spec).
 func (k *Kubernetes) ListPods(ctx context.Context, opts ...ctrlclient.ListOption) (*corev1.PodList, error) {
 	result := &corev1.PodList{}
-	if err := k.k8sClient.List(ctx, result, opts...); err != nil {
+	err := listPaginated(ctx, k.k8sClient, result,
+		func() *corev1.PodList { return &corev1.PodList{} },
+		func(res, page *corev1.PodList) { res.Items = append(res.Items, page.Items...) },
+		opts...,
+	)
+	if err != nil {
 		return nil, err
 	}
 	return result, nil

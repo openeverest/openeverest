@@ -31,7 +31,12 @@ import (
 // - node-role.kubernetes.io/control-plane=NoSchedule.
 func (k *Kubernetes) ListWorkerNodes(ctx context.Context, opts ...ctrlclient.ListOption) (*corev1.NodeList, error) {
 	result := &corev1.NodeList{}
-	if err := k.k8sClient.List(ctx, result, opts...); err != nil {
+	err := listPaginated(ctx, k.k8sClient, result,
+		func() *corev1.NodeList { return &corev1.NodeList{} },
+		func(res, page *corev1.NodeList) { res.Items = append(res.Items, page.Items...) },
+		opts...,
+	)
+	if err != nil {
 		return nil, err
 	}
 

@@ -27,7 +27,12 @@ import (
 // This method returns a list of full objects (meta and spec).
 func (k *Kubernetes) ListLoadBalancerConfigs(ctx context.Context, opts ...ctrlclient.ListOption) (*everestv1alpha1.LoadBalancerConfigList, error) {
 	result := &everestv1alpha1.LoadBalancerConfigList{}
-	if err := k.k8sClient.List(ctx, result, opts...); err != nil {
+	err := listPaginated(ctx, k.k8sClient, result,
+		func() *everestv1alpha1.LoadBalancerConfigList { return &everestv1alpha1.LoadBalancerConfigList{} },
+		func(res, page *everestv1alpha1.LoadBalancerConfigList) { res.Items = append(res.Items, page.Items...) },
+		opts...,
+	)
+	if err != nil {
 		return nil, err
 	}
 	return result, nil

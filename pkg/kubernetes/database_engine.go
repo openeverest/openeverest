@@ -31,7 +31,12 @@ import (
 // This method returns a list of full objects (meta and spec).
 func (k *Kubernetes) ListDatabaseEngines(ctx context.Context, opts ...ctrlclient.ListOption) (*everestv1alpha1.DatabaseEngineList, error) {
 	result := &everestv1alpha1.DatabaseEngineList{}
-	if err := k.k8sClient.List(ctx, result, opts...); err != nil {
+	err := listPaginated(ctx, k.k8sClient, result,
+		func() *everestv1alpha1.DatabaseEngineList { return &everestv1alpha1.DatabaseEngineList{} },
+		func(res, page *everestv1alpha1.DatabaseEngineList) { res.Items = append(res.Items, page.Items...) },
+		opts...,
+	)
+	if err != nil {
 		return nil, err
 	}
 	return result, nil

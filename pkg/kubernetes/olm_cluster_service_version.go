@@ -38,7 +38,12 @@ func (k *Kubernetes) GetClusterServiceVersion(ctx context.Context, key ctrlclien
 // This method returns a list of full objects (meta and spec).
 func (k *Kubernetes) ListClusterServiceVersion(ctx context.Context, opts ...ctrlclient.ListOption) (*olmv1alpha1.ClusterServiceVersionList, error) {
 	result := &olmv1alpha1.ClusterServiceVersionList{}
-	if err := k.k8sClient.List(ctx, result, opts...); err != nil {
+	err := listPaginated(ctx, k.k8sClient, result,
+		func() *olmv1alpha1.ClusterServiceVersionList { return &olmv1alpha1.ClusterServiceVersionList{} },
+		func(res, page *olmv1alpha1.ClusterServiceVersionList) { res.Items = append(res.Items, page.Items...) },
+		opts...,
+	)
+	if err != nil {
 		return nil, err
 	}
 	return result, nil
@@ -49,7 +54,12 @@ func (k *Kubernetes) ListClusterServiceVersion(ctx context.Context, opts ...ctrl
 func (k *Kubernetes) listClusterServiceVersionMeta(ctx context.Context, opts ...ctrlclient.ListOption) (*metav1.PartialObjectMetadataList, error) {
 	result := &metav1.PartialObjectMetadataList{}
 	result.SetGroupVersionKind(olmv1alpha1.SchemeGroupVersion.WithKind("ClusterServiceVersionList"))
-	if err := k.k8sClient.List(ctx, result, opts...); err != nil {
+	err := listPaginated(ctx, k.k8sClient, result,
+		func() *metav1.PartialObjectMetadataList { return &metav1.PartialObjectMetadataList{} },
+		func(res, page *metav1.PartialObjectMetadataList) { res.Items = append(res.Items, page.Items...) },
+		opts...,
+	)
+	if err != nil {
 		return nil, err
 	}
 	return result, nil
