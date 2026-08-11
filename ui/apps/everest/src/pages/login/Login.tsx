@@ -36,7 +36,7 @@ const LoginLinkButton = ({
   href: string;
 }) => {
   return (
-    <Link target="_blank" rel="noopener" href={href}>
+    <Link target="_blank" rel="noopener noreferrer" href={href}>
       <Button startIcon={icon}>{text}</Button>
     </Link>
   );
