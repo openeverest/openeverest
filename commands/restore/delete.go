@@ -45,12 +45,13 @@ Pass --yes/-y to skip the prompt; in a non-interactive context (no terminal,
 or --json) omitting --yes fails immediately instead of hanging on a prompt
 nobody can answer.
 
-If the restore is still Pending or Running, the command refuses by default,
-since deleting an in-flight restore interrupts the provider mid-operation.
-Pass --force to override the guard; forcing still shows the confirmation
-prompt (with an added warning), it does not skip it — --force is orthogonal
-to --yes, scripted force-deletes need both. A restore in the Error state is
-never guarded: deleting a stuck restore is the normal way to clear it.
+If the restore is still Pending or Running, or hasn't reported a status
+yet, the command refuses by default, since deleting an in-flight restore
+interrupts the provider mid-operation. Pass --force to override the guard;
+forcing still shows the confirmation prompt (with an added warning), it
+does not skip it — --force is orthogonal to --yes, scripted force-deletes
+need both. A restore in the Error state is never guarded: deleting a stuck
+restore is the normal way to clear it.
 
 --ignore-not-found treats an already-absent restore as success and skips
 both the confirmation prompt and --wait entirely, since there's nothing to
