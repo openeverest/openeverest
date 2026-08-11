@@ -22,7 +22,7 @@
     "@types/node": "^26.1.2",
     "@types/shelljs": "^0.10.0",
     "eslint": "^10.8.0",
-    "globals": "^17.7.0",
+    "globals": "^17.8.0",
     "openapi-typescript": "^7.13.0"
   },
   "dependencies": {
@@ -30,7 +30,7 @@
     "@typescript-eslint/eslint-plugin": "^8.65.0",
     "@typescript-eslint/parser": "^8.65.0",
     "eslint-config-prettier": "^10.1.8",
-    "eslint-plugin-playwright": "^2.10.4",
+    "eslint-plugin-playwright": "^2.11.0",
     "shelljs": "^0.10.0"
   },
   "engines": {
