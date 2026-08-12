@@ -49,10 +49,12 @@ Labels tell you where an issue stands:
 | `needs-triage` | Nobody has looked at it yet. Added automatically when the issue is opened. |
 | `triage/needs-information` | We're waiting on the reporter before deciding. |
 | `triage/accepted` | We agree this should be done. |
+| `triage/duplicate` | Already reported — the earliest report is canonical, follow that one. |
+| `triage/not-reproducible` | We couldn't reproduce it as reported. A working reproduction reopens the conversation. |
 | [`help wanted`](https://github.com/openeverest/openeverest/issues?q=is%3Aissue+is%3Aopen+label%3A%22help+wanted%22+no%3Aassignee) | Accepted, and we'd welcome community help. **Claim these yourself with `/assign`.** |
 | [`good first issue`](https://github.com/openeverest/openeverest/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22+no%3Aassignee) | A `help wanted` issue that needs no deep background. Ideal if this is your first contribution here. |
 
-**The triage labels are maintained by a bot, so they are always current.** `needs-triage` is applied to every issue as it is opened, and is removed only when a maintainer records a decision by applying `triage/accepted` or `triage/needs-information`. If a decision label is later taken off, `needs-triage` comes back. Exactly one of the three is on every open issue, so "has anybody looked at this yet?" is answerable at a glance.
+**The triage labels are maintained by a bot, so they are always current.** `needs-triage` is applied to every issue as it is opened, and is removed only when a maintainer records a decision by applying one of the `triage/*` labels. If a decision label is later taken off, `needs-triage` comes back. Exactly one triage label is on every open issue, so "has anybody looked at this yet?" is answerable at a glance.
 
 They describe where our thinking has got to, not what you are allowed to do. An issue sitting at `needs-triage` means we might decide it isn't a bug, or that we don't want it fixed the way it proposes — which is worth knowing before you spend a weekend on it, and is the only reason to wait.
 
