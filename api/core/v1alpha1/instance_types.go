@@ -88,7 +88,6 @@ type InstanceSpec struct {
 	// has started: switching policies after .metadata.deletionTimestamp
 	// has been set is rejected so the cascade path cannot race with
 	// itself.
-	// +kubebuilder:validation:Enum=Cascade;Orphan
 	// +kubebuilder:default=Cascade
 	// +optional
 	DeletionPolicy InstanceDeletionPolicy `json:"deletionPolicy,omitempty"`
