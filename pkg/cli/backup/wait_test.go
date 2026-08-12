@@ -205,3 +205,15 @@ func TestDeleteCondition_PendingMessageIsUnambiguous(t *testing.T) {
 	assert.Equal(t, wait.Pending, outcome)
 	assert.Equal(t, "backup still exists (state: Succeeded)", msg)
 }
+
+// TestDeleteCondition_NoStatusYet_DropsTheDash covers a backup deleted with
+// --force --wait right after create, before anything synced back: the
+// message must not leak backupState's table-cell placeholder ("-").
+func TestDeleteCondition_NoStatusYet_DropsTheDash(t *testing.T) {
+	t.Parallel()
+
+	b := backupFromJSON(t, `{}`)
+	outcome, msg := deleteCondition(b)
+	assert.Equal(t, wait.Pending, outcome)
+	assert.Equal(t, "backup still exists", msg)
+}

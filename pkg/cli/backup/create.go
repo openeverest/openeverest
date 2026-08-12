@@ -40,6 +40,7 @@ const (
 	backupStateRunning   = "Running"
 	backupStateSucceeded = "Succeeded"
 	backupStateFailed    = "Failed"
+	backupStateError     = "Error"
 )
 
 // CreateOptions holds the inputs for the create command.

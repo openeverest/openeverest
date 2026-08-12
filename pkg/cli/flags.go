@@ -164,8 +164,8 @@ const (
 	FlagBackupTimeout = "timeout"
 	// FlagBackupIgnoreNotFound treats an already-deleted backup as success.
 	FlagBackupIgnoreNotFound = "ignore-not-found"
-	// FlagBackupForce overrides the in-flight (Pending/Running) delete guard;
-	// orthogonal to --yes, never a synonym for it.
+	// FlagBackupForce overrides the in-flight (Pending/Running/Error/no
+	// status yet) delete guard; orthogonal to --yes, never a synonym for it.
 	FlagBackupForce = "force"
 
 	// `restore` flags.

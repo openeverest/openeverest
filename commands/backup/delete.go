@@ -50,12 +50,12 @@ survives). Pass --yes/-y to skip the prompt; in a non-interactive context (no
 terminal, or --json) omitting --yes fails immediately instead of hanging on a
 prompt nobody can answer.
 
-If the backup is still Pending or Running, the command refuses by default,
-since deleting an in-flight backup interrupts it mid-operation. Pass --force
-to override the guard; forcing still shows the confirmation prompt, it does
-not skip it — --force is orthogonal to --yes, scripted force-deletes need
-both. A backup in the Error state is never guarded: deleting a stuck backup
-is the normal way to clear it.
+If the backup is still Pending or Running, has no status yet, or is in the
+Error state (the controller may still be retrying it), the command refuses
+by default, since deleting an in-flight backup interrupts it mid-operation.
+Pass --force to override the guard; forcing still shows the confirmation
+prompt, it does not skip it, --force is orthogonal to --yes, scripted
+force-deletes need both.
 
 --ignore-not-found treats an already-absent backup as success and skips both
 the confirmation prompt and --wait entirely, since there's nothing to confirm
@@ -86,7 +86,7 @@ func init() {
 	deleteCmd.Flags().StringVar(&deleteOpts.Cluster, cli.FlagBackupCluster, "main", "Cluster name")
 	deleteCmd.Flags().StringVar(&deleteOpts.Context, cli.FlagBackupContext, "", "Context to use (default: current context)")
 	deleteCmd.Flags().BoolVarP(&deleteOpts.Yes, cli.FlagYes, "y", false, "Skip the confirmation prompt")
-	deleteCmd.Flags().BoolVar(&deleteOpts.Force, cli.FlagBackupForce, false, "Override the in-flight (Pending/Running) delete guard; does not skip the confirmation prompt")
+	deleteCmd.Flags().BoolVar(&deleteOpts.Force, cli.FlagBackupForce, false, "Override the in-flight (Pending/Running/Error/no status yet) delete guard; does not skip the confirmation prompt")
 	deleteCmd.Flags().BoolVar(&deleteOpts.IgnoreNotFound, cli.FlagBackupIgnoreNotFound, false, "Treat \"backup already gone\" as a successful delete instead of an error")
 	deleteCmd.Flags().BoolVar(&deleteOpts.Wait, cli.FlagBackupWait, false, "Block until the backup is fully deleted (Ctrl-C cancels only the wait, not the deletion)")
 	deleteCmd.Flags().DurationVar(&deleteOpts.Timeout, cli.FlagBackupTimeout, 5*time.Minute, "Maximum time to wait (only valid with --wait); must be positive")

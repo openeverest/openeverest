@@ -49,7 +49,7 @@ type DeleteOptions struct {
 	Context        string        // overrides the active context when set
 	Yes            bool          // skip the confirmation prompt
 	JSON           bool          // --json was passed; forces non-interactive regardless of --verbose
-	Force          bool          // override the in-flight (Pending/Running) guard; orthogonal to Yes
+	Force          bool          // override the in-flight (Pending/Running/Error/no status yet) guard; orthogonal to Yes
 	IgnoreNotFound bool          // treat "backup already gone" (404) as a successful delete
 	Wait           bool          // block until the backup is fully deleted
 	Timeout        time.Duration // bounds --wait; must be positive
@@ -93,10 +93,14 @@ func (bd *Deleter) Run(ctx context.Context, opts DeleteOptions, cfgPath string) 
 	// client-side accident guard, not an invariant, so it must not block delete.
 	state, ok := backupStateForGuard(backup)
 	if inFlight(state, ok) && !opts.Force {
-		if state == "" {
+		switch state {
+		case "":
 			return fmt.Errorf("backup %q hasn't reported its status yet; wait a moment and try again, or re-run with --force", opts.Name)
+		case backupStateError:
+			return fmt.Errorf("backup %q is in the Error state and may still be retried by the controller; wait for it to settle or re-run with --force", opts.Name)
+		default:
+			return fmt.Errorf("backup %q is still running; wait for it to finish or re-run with --force", opts.Name)
 		}
-		return fmt.Errorf("backup %q is still running; wait for it to finish or re-run with --force", opts.Name)
 	}
 
 	confirmOpts := confirm.Options{Yes: opts.Yes, JSON: opts.JSON, IsTerminal: opts.IsTerminal}
@@ -162,12 +166,14 @@ func backupStateForGuard(b *client.Backup) (string, bool) {
 }
 
 // inFlight reports if the backup should block a delete: Pending/Running,
-// or read successfully with no status yet; a failed/ambiguous fetch never is.
+// Error (the controller may still retry it, per BackupStateError's own doc
+// comment), or read successfully with no status yet; a failed/ambiguous
+// fetch never is. Failed is excluded, that one really is terminal.
 func inFlight(state string, ok bool) bool {
 	if !ok {
 		return false
 	}
-	return state == "" || state == backupStatePending || state == backupStateRunning
+	return state == "" || state == backupStatePending || state == backupStateRunning || state == backupStateError
 }
 
 // isRetainTier is the only case that gets the y/N tier; Delete, or

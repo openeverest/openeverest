@@ -13,10 +13,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package deletion holds the plumbing shared by every `<resource> delete
-// --wait` implementation: the "gone" wait.Condition, the GET-until-404 poll
-// shape, and the three output lines (deleted / already-gone /
-// wait-succeeded).
+// Package deletion holds the plumbing shared by every `<resource> delete`
+// command.
 package deletion
 
 import (

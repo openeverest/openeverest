@@ -562,19 +562,43 @@ func TestDelete_InFlight_NoStatusYet_WithForce_Succeeds(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-// TestDelete_ErrorState_NotGuarded proves Error is never blocked by the
-// in-flight guard — deleting a stuck backup is the normal remediation.
-func TestDelete_ErrorState_NotGuarded(t *testing.T) {
+// TestDelete_ErrorState_RefusesWithoutForce proves Error is guarded, same as
+// Pending/Running: BackupStateError's own doc comment says the controller
+// may still retry it, so it is not safe to treat as a stable, done state.
+func TestDelete_ErrorState_RefusesWithoutForce(t *testing.T) {
 	t.Parallel()
 
+	called := false
 	srv := newDeleteServer(t,
-		func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusNoContent) },
-		getHandlerWithStateAndPolicy(t, "Error", backupDeletionPolicyDelete),
+		func(w http.ResponseWriter, _ *http.Request) {
+			called = true
+			w.WriteHeader(http.StatusNoContent)
+		},
+		getHandlerWithStateAndPolicy(t, backupStateError, backupDeletionPolicyDelete),
 	)
 	defer srv.Close()
 
 	bd := NewDeleter(Config{}, zap.NewNop().Sugar())
 	err := bd.Run(context.Background(), yesOpts(), newConfigPath(t, srv.URL))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), `backup "pre-upgrade" is in the Error state and may still be retried`)
+	assert.False(t, called, "delete must not be issued while the backup may still be retried")
+}
+
+func TestDelete_ErrorState_WithForce_Succeeds(t *testing.T) {
+	t.Parallel()
+
+	srv := newDeleteServer(t,
+		func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusNoContent) },
+		getHandlerWithStateAndPolicy(t, backupStateError, backupDeletionPolicyDelete),
+	)
+	defer srv.Close()
+
+	opts := yesOpts()
+	opts.Force = true
+
+	bd := NewDeleter(Config{}, zap.NewNop().Sugar())
+	err := bd.Run(context.Background(), opts, newConfigPath(t, srv.URL))
 	assert.NoError(t, err)
 }
 
@@ -617,10 +641,10 @@ func TestInFlight(t *testing.T) {
 
 	assert.True(t, inFlight(backupStatePending, true))
 	assert.True(t, inFlight(backupStateRunning, true))
+	assert.True(t, inFlight(backupStateError, true), "BackupStateError's own doc comment says the controller may still retry it")
 	assert.True(t, inFlight("", true), "read successfully but no status yet is the riskiest window, right after create")
 	assert.False(t, inFlight(backupStateSucceeded, true))
-	assert.False(t, inFlight(backupStateFailed, true))
-	assert.False(t, inFlight("Error", true))
+	assert.False(t, inFlight(backupStateFailed, true), "Failed is genuinely terminal, unlike Error")
 	assert.False(t, inFlight("Deleting", true))
 	assert.False(t, inFlight("", false), "a failed/ambiguous fetch must never block — best-effort guard, not an invariant")
 }
