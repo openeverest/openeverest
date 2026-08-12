@@ -20,11 +20,14 @@ import (
 
 	"github.com/openeverest/openeverest/v2/client"
 	"github.com/openeverest/openeverest/v2/pkg/cli/clienterr"
+	"github.com/openeverest/openeverest/v2/pkg/cli/deletion"
 	"github.com/openeverest/openeverest/v2/pkg/cli/wait"
 )
 
-// terminal restore states.
+// restore state values (client.Restore.Status.State).
 const (
+	restoreStatePending   = "Pending"
+	restoreStateRunning   = "Running"
 	restoreStateSucceeded = "Succeeded"
 	restoreStateFailed    = "Failed"
 )
@@ -43,12 +46,18 @@ func restoreCondition(r *client.Restore) (wait.Outcome, string) {
 	}
 }
 
-// newRestorePoll returns a PollFunc for the restore.
+// newRestorePoll returns a PollFunc for the restore; a 404 is terminal here,
+// unlike the delete-side poll.
 func newRestorePoll(
 	c *client.ClientWithResponses,
 	cluster, namespace, name string,
 ) wait.PollFunc[*client.Restore] {
-	return wait.FetchPoll("restore", name, wait.NotFoundTerminal, func(ctx context.Context) (int, string, *client.Restore, error) {
+	return wait.FetchPoll("restore", name, wait.NotFoundTerminal, fetchRestore(c, cluster, namespace, name))
+}
+
+// fetchRestore adapts GetRestoreWithResponse to wait.FetchPoll's fetch shape.
+func fetchRestore(c *client.ClientWithResponses, cluster, namespace, name string) func(context.Context) (int, string, *client.Restore, error) {
+	return func(ctx context.Context) (int, string, *client.Restore, error) {
 		resp, err := c.GetRestoreWithResponse(ctx, cluster, namespace, name)
 		if err != nil {
 			return 0, "", nil, err
@@ -58,7 +67,7 @@ func newRestorePoll(
 			statusText = msg
 		}
 		return resp.StatusCode(), statusText, resp.JSON200, nil
-	})
+	}
 }
 
 func restoreFailureMessage(r *client.Restore) string {
@@ -66,4 +75,19 @@ func restoreFailureMessage(r *client.Restore) string {
 		return "restore entered the Failed state"
 	}
 	return "restore entered the Failed state: " + *r.Status.Message
+}
+
+// newRestoreDeletePoll checks if the restore still exists. A 404 means it's
+// gone, which is success here (unlike the create-side poll).
+func newRestoreDeletePoll(
+	c *client.ClientWithResponses,
+	cluster, namespace, name string,
+) wait.PollFunc[*client.Restore] {
+	return deletion.GonePoll("restore", name, fetchRestore(c, cluster, namespace, name))
+}
+
+func deleteCondition(r *client.Restore) (wait.Outcome, string) {
+	return deletion.GoneCondition("restore deleted", func(v *client.Restore) string {
+		return "restore still exists (state: " + restoreState(v) + ")"
+	})(r)
 }

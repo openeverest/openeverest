@@ -182,10 +182,16 @@ const (
 	FlagRestoreBackup = "backup"
 	// FlagRestoreName is the name of the restore name flag.
 	FlagRestoreName = "name"
-	// FlagRestoreWait blocks until the restore reaches a terminal state.
+	// FlagRestoreWait blocks until the restore reaches a terminal state (create)
+	// or is fully removed (delete).
 	FlagRestoreWait = "wait"
 	// FlagRestoreTimeout bounds how long --wait blocks for.
 	FlagRestoreTimeout = "timeout"
+	// FlagRestoreIgnoreNotFound treats an already-deleted restore as success.
+	FlagRestoreIgnoreNotFound = "ignore-not-found"
+	// FlagRestoreForce overrides the in-flight (Pending/Running/no status yet)
+	// delete guard; orthogonal to --yes, never a synonym for it.
+	FlagRestoreForce = "force"
 
 	// `backup-storage` flags.
 
