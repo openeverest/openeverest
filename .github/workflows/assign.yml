@@ -128,7 +128,7 @@ jobs:
               if (target === commenter) {
                 await reply(`@${commenter} I couldn't assign this to you — GitHub rejected the assignment. A maintainer will pick this up shortly.`);
               } else {
-                await reply(`@${target} GitHub couldn't assign this issue to you. You may need to comment on this issue first or be a repository collaborator.`);
+                await reply(`@${target} — @${commenter} tried to assign this issue to you and GitHub turned it down; it usually does that when the person has not commented on the issue yet. Post \`/assign\` on its own line and I will try again as a self-assignment.`);
               }
               return;
             }
