@@ -289,6 +289,8 @@ plugin authors get compile-time safety.
 | `clusterCard` | Widget card on the cluster overview | `{ cluster, namespace }` | ✓ |
 | `instanceCreateFormSection` | Collapsible section in the create-instance wizard | `{ formValues, onChange, namespace }` | ✓ |
 | `instanceEditFormSection` | Collapsible section in the edit-instance page | `{ instance, formValues, onChange, namespace }` | ✓ |
+| `instanceCreateStep` | Full wizard step appended after the provider-defined steps in the create-instance flow | `{ formValues, onChange, namespace, onValidityChange }` | ✓ |
+| `instanceEditStep` | Full wizard step appended after the provider-defined steps in the edit-instance flow | `{ instance, formValues, onChange, namespace, onValidityChange }` | ✓ |
 | `globalDashboardWidget` | Card on the home / dashboard page | `{ namespaces }` | — |
 | `settingsPanel` | Tab inside the Settings page | `{ currentUser }` | — |
 | `themeOverride` | MUI theme override (logos, palette) | `{ defaultTheme }` — Phase 4 | — |
@@ -350,9 +352,125 @@ config) as part of the normal instance lifecycle.
 | `namespace` | `string` | Target namespace for the instance. |
 | `instance` | `Instance \| undefined` | The existing instance (edit mode only; `undefined` during create). |
 
----
+#### Instance creation / edit wizard steps
 
-## 7. Frontend SDK & Loading Model
+The `instanceCreateStep` and `instanceEditStep` extension points let a plugin
+contribute a **full wizard step** that is appended after the provider-defined
+steps in the create-instance and edit-instance flows respectively. They are
+the step-level counterpart to `instanceCreateFormSection` /
+`instanceEditFormSection`: rather than embedding inside an existing step as a
+collapsible section, they own a dedicated page in the wizard with their own
+title, layout, and Next/Submit gating.
+
+**When to use which:**
+
+| Use a form section | Use a step |
+|---|---|
+| Small, optional add-on (a checkbox + a few fields) that fits inside an existing step. | Configuration that needs its own context, multi-field layout, or significant explanation. |
+| Plugin contribution should be discoverable but unobtrusive. | Plugin participation is a meaningful step the user must explicitly walk through. |
+| No bespoke validation / Next-button gating needed. | The plugin needs to block Next/Submit until its own validation passes. |
+| Intended to render alongside core wizard fields. | Intended to extend the provider-encoded flow without modifying it. |
+
+**Positioning relative to the provider flow.**
+
+Steps in the create wizard come from three sources, evaluated in this order:
+
+1. The host's static steps (e.g., Basic Info).
+2. The provider's YAML manifest (provider-encoded steps — topology, sizing,
+   backups, etc.).
+3. Plugin-contributed `instanceCreateStep` extensions.
+
+Plugin steps are **always appended at the end**, immediately before the
+review/submit terminal step. The host does not let plugin authors choose an
+absolute index; this keeps the provider flow the source of truth and avoids
+plugins inserting themselves between provider steps in ways that confuse
+users or break provider validation. When multiple plugins each register an
+`instanceCreateStep`, the order is deterministic across renders. v1 sorts
+alphabetically by plugin name; once the host's `GET /v1/plugins` response
+carries `installedAt`, the order will switch to install-order with
+alphabetical tiebreak. Plugin authors must not rely on absolute index —
+only on stability across renders within a session.
+
+`instanceEditStep` is appended at the end of the edit wizard with the same
+rules.
+
+**Step metadata.**
+
+A plugin step extension is registered with the same shape as a form section
+plus a few step-specific fields:
+
+```ts
+api.registerExtension({
+  type: 'instanceCreateStep',
+  pluginName: 'proxysql',
+  label: 'ProxySQL',                 // shown in the stepper
+  description: 'Optional SQL proxy', // shown as the step header subtitle
+  icon: ProxyIcon,                   // optional MUI icon component
+  providers: ['pxc'],                // optional engine-type filter
+  optional: true,                    // if true, Next is enabled even with empty state
+  component: ProxySQLStep,
+});
+```
+
+**Data flow.**
+
+The data-flow contract is identical to form sections — the plugin owns its
+state, the host is a messenger:
+
+1. The plugin's step component receives `formValues` (full current wizard
+   state, read-only) and an `onChange(pluginConfig)` callback. It also
+   receives `onValidityChange(valid: boolean)` so it can drive the wizard's
+   Next button.
+2. While the user is on the plugin step, the wizard's Next/Submit button is
+   gated by the most recent value passed to `onValidityChange`. A step that
+   never calls it is treated as valid.
+3. On wizard submission the host POSTs the collected per-plugin configs to
+   `POST /v1/plugins/{name}/instance-config` with `{ instance, namespace,
+   config }`, exactly as for form sections. With multiple plugins the host
+   fans out one POST per plugin **best-effort, in parallel**: the database
+   cluster has already been created at that point, so true atomicity is
+   not possible. A failed plugin POST surfaces as a per-plugin toast; the
+   instance creation itself is not rolled back.
+4. The plugin backend reacts via the normal lifecycle channels — typically
+   the `database-cluster.created` / `database-cluster.ready` event stream
+   (§8.5) — using the stored config to provision its resources.
+
+**State preservation across step navigation.**
+
+When the user clicks Back from a plugin step, the step component unmounts.
+Local `useState` inside the plugin component is therefore lost on return.
+To prevent input loss the host passes `initialConfig` — the most recent
+blob the plugin pushed via `onChange` — on every (re)mount. Plugin
+components must seed their internal state from `initialConfig` if it is
+defined; the alternative (the host re-mounting plugin steps in a hidden
+tree) is rejected because it forces every plugin to re-render on every
+wizard re-render.
+
+**Props:**
+
+| Prop | Type | Description |
+|---|---|---|
+| `formValues` | `Record<string, unknown>` | Current form state across all preceding steps (read-only snapshot). |
+| `initialConfig` | `Record<string, unknown> \| undefined` | Last config blob the plugin pushed via `onChange`, or `undefined` if none. Use to seed state on mount. |
+| `onChange` | `(config: Record<string, unknown>) => void` | Callback to update the plugin's config blob. |
+| `onValidityChange` | `(valid: boolean) => void` | Callback to gate the wizard's Next/Submit button while the user is on this step. |
+| `namespace` | `string` | Target namespace for the instance. |
+| `instance` | `Instance \| undefined` | The existing instance (edit mode only; `undefined` during create). |
+
+**RBAC and visibility.**
+
+A plugin step is rendered only when all of the following hold:
+
+- The user has `use` on `plugin/{name}` in the target namespace (§9.2) — the
+  same Everest RBAC grant that governs every other plugin entry point.
+- The provider filter matches the engine type selected on the Basic Info
+  step, if `providers` is declared.
+
+If none of the registered plugin steps are visible for the current
+selection, no extra step is added and the wizard behaves exactly as it does
+without any plugins installed.
+
+
 
 ### 7.1 Loading strategy
 
@@ -1240,6 +1358,9 @@ Unlocks the metering / billing / audit / external-sync class of plugins.
 - Plugin hub integration hooks: chart digest pinning, signature checks at
   install time (the full trust model is a separate spec).
 - `instanceCreateFormSection` and `instanceEditFormSection` extension points.
+- `instanceCreateStep` and `instanceEditStep` extension points — full wizard
+  steps appended after the provider-defined steps, with `onValidityChange`
+  Next/Submit gating and the same `instance-config` handoff as form sections.
 - `POST /v1/plugins/{name}/instance-config` endpoint for plugin config handoff.
 - ProxySQL reference plugin as the canonical infrastructure plugin example.
 

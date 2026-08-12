@@ -28,6 +28,20 @@ export type StepProps = {
 export type StepDefinition = {
   /** Unique step identifier (e.g. 'base', 'import', 'section:resources'). */
   id: string;
+  /**
+   * Origin of the step. Defaults to 'static' for hand-coded steps and
+   * 'generated' for steps produced from the topology's UI schema. Plugin-
+   * contributed steps set 'plugin' so the wizard can route validity
+   * gating to the per-plugin validity map.
+   */
+  kind?: 'static' | 'generated' | 'plugin';
+  /** For plugin steps — the plugin name (matches the Plugin CR name). */
+  pluginName?: string;
+  /**
+   * For plugin steps — if true the wizard's Next/Submit button is enabled
+   * even when the plugin has not called `onValidityChange`.
+   */
+  optional?: boolean;
   /** Human-readable title shown in the wizard header / sidebar. */
   label: string;
   /** Optional longer description. */
@@ -45,6 +59,11 @@ export type FormEngineConfig = {
   uiSchema: TopologyUISchemas;
   selectedTopology: string;
   staticSteps?: StepDefinition[];
+  /**
+   * Steps appended after the schema-generated steps. Used by the host to
+   * inject plugin-contributed wizard steps at the end of the flow.
+   */
+  appendSteps?: StepDefinition[];
   providerObject?: Provider;
   namespace?: string;
   formMode?: FormMode;

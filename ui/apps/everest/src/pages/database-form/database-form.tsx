@@ -67,6 +67,7 @@ import { useBackupClassesList } from 'hooks/api/backup-classes/useBackupClasses'
 import { useClusterName } from 'hooks/api/useClusterName';
 import { mergeTopologyDefaults } from 'components/ui-generator/utils/default-values/merge-topology-defaults';
 import { PluginFormSections } from './plugin-form-sections';
+import { usePluginFormSteps } from './plugin-form-steps';
 import { useSubmitPluginInstanceConfig } from 'hooks/api/plugins/useSubmitPluginInstanceConfig';
 
 export const DatabasePage = () => {
@@ -77,11 +78,31 @@ export const DatabasePage = () => {
     useCreateDbInstance();
   const { mutate: submitPluginConfig } = useSubmitPluginInstanceConfig();
   const pluginConfigsRef = useRef<Record<string, Record<string, unknown>>>({});
+  // Per-plugin validity for `instanceCreateStep` extensions. Plugins that
+  // never call `onValidityChange` are treated as valid (or as gated by
+  // `optional: true` on their extension registration).
+  const pluginStepValidityRef = useRef<Record<string, boolean>>({});
+  // Bumped whenever a plugin reports validity OR pushes a config update, so
+  // the wizard re-renders and the right-sidebar summary picks up live changes.
+  const [, setPluginStateTick] = useState(0);
 
   const handlePluginConfigChange = useCallback(
     (pluginName: string, config: Record<string, unknown>) => {
       pluginConfigsRef.current[pluginName] = config;
+      setPluginStateTick((t) => t + 1);
     },
+    []
+  );
+  const handlePluginValidityChange = useCallback(
+    (pluginName: string, valid: boolean) => {
+      if (pluginStepValidityRef.current[pluginName] === valid) return;
+      pluginStepValidityRef.current[pluginName] = valid;
+      setPluginStateTick((t) => t + 1);
+    },
+    []
+  );
+  const getPluginConfig = useCallback(
+    (pluginName: string) => pluginConfigsRef.current[pluginName],
     []
   );
   const location = useLocation();
@@ -215,10 +236,24 @@ export const DatabasePage = () => {
     return steps;
   }, [hasImportStep, hasBackupStep, mode]);
 
+  // Plugin-contributed wizard steps appended after the provider-defined ones,
+  // plus the matching descriptors for the right-sidebar "Database summary".
+  const { steps: pluginSteps, summaries: pluginSummaries } = usePluginFormSteps(
+    {
+      isCreate: true,
+      namespace: selectedNamespace || namespaces[0] || '',
+      engineType: providerObject?.name,
+      initialConfigsRef: pluginConfigsRef,
+      onConfigChange: handlePluginConfigChange,
+      onValidityChange: handlePluginValidityChange,
+    }
+  );
+
   const engine = useFormEngine({
     uiSchema,
     selectedTopology,
     staticSteps,
+    appendSteps: pluginSteps,
     providerObject,
     namespace: selectedNamespace || namespaces[0],
     formMode: mode,
@@ -226,6 +261,16 @@ export const DatabasePage = () => {
 
   // Navigation
   const nav = useStepNavigation(engine.steps, BASE_STEP_ID);
+
+  // If the active step is plugin-contributed, gate Next/Submit on the
+  // validity the plugin reported via onValidityChange. Optional plugin
+  // steps default to valid, and a plugin that never reports validity is
+  // treated as valid (consistent with sections).
+  const activeStep = engine.steps[nav.activeStepIndex];
+  const isCurrentPluginStepInvalid =
+    activeStep?.kind === 'plugin' &&
+    !activeStep.optional &&
+    pluginStepValidityRef.current[activeStep.pluginName ?? ''] === false;
 
   const handleNext = () => nav.next();
   const handleBack = () => {
@@ -413,6 +458,8 @@ export const DatabasePage = () => {
         sectionsOrder: engine.sectionsOrder,
         providerObject,
         hasBackupStep: hasBackupStep && mode !== FormMode.Restore,
+        pluginSummaries,
+        getPluginConfig,
       }}
     >
       <Stack direction={isDesktop ? 'row' : 'column'}>
@@ -427,10 +474,12 @@ export const DatabasePage = () => {
             isSubmitting={isCreating}
             hasErrors={stepsWithErrors.length > 0}
             disableNext={
-              hasImportStep &&
-              nav.activeStepId === IMPORT_STEP_ID &&
-              stepsWithErrors.includes(IMPORT_STEP_ID)
+              (hasImportStep &&
+                nav.activeStepId === IMPORT_STEP_ID &&
+                stepsWithErrors.includes(IMPORT_STEP_ID)) ||
+              isCurrentPluginStepInvalid
             }
+            disableSubmit={isCurrentPluginStepInvalid}
             onSubmit={handleSubmit(onSubmit)}
             onCancel={() => navigate('/databases')}
             handleNextStep={handleNext}

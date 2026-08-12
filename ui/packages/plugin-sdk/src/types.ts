@@ -145,6 +145,62 @@ export interface InstanceEditFormSectionExtension {
   providers?: string[];
 }
 
+/**
+ * A full wizard step appended after the provider-defined steps in the
+ * create-instance flow. Use this when a plugin needs its own dedicated page
+ * (its own context, multi-field layout, or Next-button gating). For small,
+ * unobtrusive add-ons prefer `instanceCreateFormSection`.
+ *
+ * Plugin steps are always appended at the end of the wizard, after the
+ * provider-encoded steps. The host orders them deterministically by
+ * `(installedAt, pluginName)`.
+ */
+export interface InstanceCreateStepExtension {
+  type: "instanceCreateStep";
+  /** Step label shown in the stepper. */
+  label: string;
+  /** Optional longer description shown as the step header subtitle. */
+  description?: string;
+  /** Optional MUI icon component shown next to the label. */
+  icon?: ComponentType;
+  /**
+   * Optional engine-type filter. When set, the step is only shown for
+   * instances whose provider matches one of the listed values.
+   * Omit to show for all engine types.
+   */
+  providers?: string[];
+  /**
+   * If true, the wizard's Next/Submit button is enabled even when the plugin
+   * never calls `onValidityChange`. Set to true for steps the user may skip.
+   */
+  optional?: boolean;
+  /** The component rendered when this step is active. */
+  component: ComponentType<InstanceCreateStepProps>;
+  /**
+   * Optional read-only summary rendered in the wizard's right-side
+   * "Database summary" preview drawer. Receives the same `formValues` and
+   * the most recent `config` blob the plugin pushed via `onChange`.
+   * When omitted the host shows a default "Configured" / "Not configured"
+   * placeholder so the step is still listed in the summary.
+   */
+  summaryComponent?: ComponentType<InstanceCreateStepSummaryProps>;
+}
+
+/**
+ * A full wizard step appended after the provider-defined steps in the
+ * edit-instance flow. See `InstanceCreateStepExtension` for the full contract.
+ */
+export interface InstanceEditStepExtension {
+  type: "instanceEditStep";
+  label: string;
+  description?: string;
+  icon?: ComponentType;
+  providers?: string[];
+  optional?: boolean;
+  component: ComponentType<InstanceEditStepProps>;
+  summaryComponent?: ComponentType<InstanceEditStepSummaryProps>;
+}
+
 /** Union of all supported extension types. */
 export type Extension =
   | RouteExtension
@@ -155,7 +211,9 @@ export type Extension =
   | GlobalDashboardWidgetExtension
   | SettingsPanelExtension
   | InstanceCreateFormSectionExtension
-  | InstanceEditFormSectionExtension;
+  | InstanceEditFormSectionExtension
+  | InstanceCreateStepExtension
+  | InstanceEditStepExtension;
 
 // ---------------------------------------------------------------------------
 // Props passed to plugin-provided components
@@ -227,6 +285,84 @@ export interface InstanceEditFormSectionProps {
   formValues: Record<string, unknown>;
   /** Callback to update the plugin's config section. */
   onChange: (config: Record<string, unknown>) => void;
+  /** Namespace the instance lives in. */
+  namespace: string;
+}
+
+/**
+ * Props injected into an `instanceCreateStep` component.
+ *
+ * Note on remount semantics: when the user navigates back to this step,
+ * the component is remounted. To preserve user input across navigation,
+ * seed local state from `initialConfig` on mount — it carries the last
+ * value the plugin pushed to `onChange`.
+ */
+export interface InstanceCreateStepProps {
+  /** Current form state across all preceding steps (read-only snapshot). */
+  formValues: Record<string, unknown>;
+  /**
+   * The last config blob the plugin pushed via `onChange`, or `undefined`
+   * if the plugin has not configured anything yet. Use to seed state on
+   * mount so input is not lost when the user navigates back to this step.
+   */
+  initialConfig?: Record<string, unknown>;
+  /** Callback to update the plugin's config blob. */
+  onChange: (config: Record<string, unknown>) => void;
+  /**
+   * Callback to gate the wizard's Next/Submit button while the user is on
+   * this step. Pass `true` when the step's input is valid, `false` to block.
+   * A step that never calls this is treated as valid (or controlled by
+   * `optional: true` on the extension registration).
+   */
+  onValidityChange: (valid: boolean) => void;
+  /** Target namespace for the instance. */
+  namespace: string;
+}
+
+/** Props injected into an `instanceEditStep` component. */
+export interface InstanceEditStepProps {
+  /** The existing instance resource. */
+  instance: unknown;
+  /** Current form state across all preceding steps (read-only snapshot). */
+  formValues: Record<string, unknown>;
+  /**
+   * The last config blob the plugin pushed via `onChange`, or `undefined`
+   * if the plugin has not configured anything yet during this edit session.
+   */
+  initialConfig?: Record<string, unknown>;
+  /** Callback to update the plugin's config blob. */
+  onChange: (config: Record<string, unknown>) => void;
+  /** Callback to gate the wizard's Next/Submit button. */
+  onValidityChange: (valid: boolean) => void;
+  /** Namespace the instance lives in. */
+  namespace: string;
+}
+
+/**
+ * Props injected into an `instanceCreateStep` summary component. Rendered
+ * in the wizard's right-side "Database summary" drawer as a read-only
+ * preview of the plugin's contribution.
+ */
+export interface InstanceCreateStepSummaryProps {
+  /** Current form state across all preceding steps (read-only snapshot). */
+  formValues: Record<string, unknown>;
+  /**
+   * The most recent config blob the plugin pushed via `onChange`. Undefined
+   * when the user has not visited the plugin step yet.
+   */
+  config?: Record<string, unknown>;
+  /** Target namespace for the instance. */
+  namespace: string;
+}
+
+/** Props injected into an `instanceEditStep` summary component. */
+export interface InstanceEditStepSummaryProps {
+  /** The existing instance resource. */
+  instance: unknown;
+  /** Current form state across all preceding steps (read-only snapshot). */
+  formValues: Record<string, unknown>;
+  /** The most recent config blob the plugin pushed via `onChange`. */
+  config?: Record<string, unknown>;
   /** Namespace the instance lives in. */
   namespace: string;
 }

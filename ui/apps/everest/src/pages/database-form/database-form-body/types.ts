@@ -18,6 +18,12 @@ export type DatabaseFormBodyProps = {
   steps: StepDefinition[];
   activeStep: number;
   disableNext?: boolean;
+  /**
+   * Additional reason to disable the Submit button beyond the form's
+   * built-in `isValid` check. Used to gate submission on plugin-step
+   * validity reported via the `onValidityChange` callback.
+   */
+  disableSubmit?: boolean;
   isSubmitting: boolean;
   hasErrors: boolean;
   onCancel: () => void;

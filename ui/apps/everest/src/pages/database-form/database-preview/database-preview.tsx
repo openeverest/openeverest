@@ -42,7 +42,13 @@ export const DatabasePreview = ({
   const { getValues } = useFormContext<DbWizardType>();
   const location = useLocation();
   const showImportStep = location.state?.showImport;
-  const { sections, sectionsOrder, hasBackupStep } = useDatabaseFormContext();
+  const {
+    sections,
+    sectionsOrder,
+    hasBackupStep,
+    pluginSummaries,
+    getPluginConfig,
+  } = useDatabaseFormContext();
 
   // Trigger a re-render when any form value changes so the preview stays in sync
   useWatch();
@@ -85,6 +91,31 @@ export const DatabasePreview = ({
       content: (
         <DynamicSectionPreview section={sections[key]} formValues={values} />
       ),
+    })),
+    // Plugin-contributed wizard steps appear after the generated sections,
+    // matching their position in the wizard step list. Each plugin may
+    // optionally provide a `summaryComponent`; otherwise we render a default
+    // "Configured" / "Not configured" placeholder so the step is still listed.
+    ...(pluginSummaries ?? []).map((p) => ({
+      stepId: p.stepId,
+      title: p.label,
+      component: (v: DbWizardType) => {
+        const config = getPluginConfig?.(p.pluginName);
+        if (p.summaryComponent) {
+          const Summary = p.summaryComponent;
+          return (
+            <Summary
+              instance={undefined}
+              formValues={v as unknown as Record<string, unknown>}
+              config={config}
+              namespace={(v as { k8sNamespace?: string }).k8sNamespace ?? ''}
+            />
+          );
+        }
+        return (
+          <PreviewContentText text={config ? 'Configured' : 'Not configured'} />
+        );
+      },
     })),
   ];
 

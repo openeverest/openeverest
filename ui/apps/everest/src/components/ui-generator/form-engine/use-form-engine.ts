@@ -37,6 +37,7 @@ export const useFormEngine = (config: FormEngineConfig): FormEngineResult => {
     uiSchema,
     selectedTopology,
     staticSteps = [],
+    appendSteps = [],
     providerObject,
     namespace,
     formMode,
@@ -90,6 +91,7 @@ export const useFormEngine = (config: FormEngineConfig): FormEngineResult => {
 
         return {
           id: getSectionStepId(sectionKey),
+          kind: 'generated',
           label: section?.label || sectionKey,
           description: section?.description,
           sectionKey,
@@ -100,10 +102,10 @@ export const useFormEngine = (config: FormEngineConfig): FormEngineResult => {
     [sectionKeys, effectiveSections, sectionFieldMap, providerObject, namespace]
   );
 
-  // 3. Merge static + generated steps
+  // 3. Merge static + generated + appended steps
   const steps = useMemo(
-    () => [...staticSteps, ...generatedSteps],
-    [staticSteps, generatedSteps]
+    () => [...staticSteps, ...generatedSteps, ...appendSteps],
+    [staticSteps, generatedSteps, appendSteps]
   );
 
   // 4. Build complete field → step-ID map

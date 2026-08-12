@@ -18,6 +18,7 @@ import {
   TopologyUISchemas,
 } from 'components/ui-generator/ui-generator.types';
 import { Provider } from 'shared-types/api.types';
+import type { PluginStepSummary } from './plugin-form-steps';
 
 type DatabaseFormContextType = {
   uiSchema: TopologyUISchemas;
@@ -28,6 +29,18 @@ type DatabaseFormContextType = {
   sectionsOrder?: string[];
   providerObject?: Provider;
   hasBackupStep: boolean;
+  /**
+   * Per-plugin descriptors for the right-sidebar summary preview, in
+   * wizard-step order. Empty when no plugin step extensions are active for
+   * the current namespace + engine type.
+   */
+  pluginSummaries?: PluginStepSummary[];
+  /**
+   * Returns the latest config blob the named plugin step pushed via
+   * `onChange`, or `undefined` if the user hasn't visited that step yet.
+   * Returns `undefined` outside of contexts that wire plugin steps.
+   */
+  getPluginConfig?: (pluginName: string) => Record<string, unknown> | undefined;
 };
 
 const DatabaseFormContext = createContext<DatabaseFormContextType | null>(null);
