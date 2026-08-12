@@ -22,8 +22,8 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
-	minio "github.com/openeverest/openeverest/v2/providers/minio"
 	"github.com/openeverest/openeverest/v2/provider-runtime/reconciler"
+	minio "github.com/openeverest/openeverest/v2/providers/minio"
 )
 
 func main() {

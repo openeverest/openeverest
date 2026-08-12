@@ -57,7 +57,7 @@ const defaultMinIOImage = "minio/minio:RELEASE.2020-12-23T02-24-12Z"
 // defaultVolumeSize is used when the Instance's "server" component doesn't
 // specify storage. Matches the size hand-verified against a real kind
 // cluster in Phase 0.
-var defaultVolumeSize = resource.MustParse("1Gi")
+var defaultVolumeSize = resource.MustParse("1Gi") //nolint:gochecknoglobals // resource.Quantity has no const form; same pattern as internal/server/handlers/validation/errors.go's minStorageQuantity
 
 // rootUser is the MinIO root user name written into the generated
 // credentials Secret. MinIO accepts any value here; the operator itself has
@@ -71,7 +71,7 @@ const rootUser = "minio"
 // status.currentState == "empty tenant credentials" indefinitely if this
 // Secret (and the spec.configuration.name reference to it) is missing —
 // confirmed against a real Tenant applied without it, see design-notes.md.
-const configSecretSuffix = "-env-configuration"
+const configSecretSuffix = "-env-configuration" //nolint:gosec // this is a Secret *name* suffix, not a credential value
 
 // backupBucketSuffix names the bucket auto-provisioned on the Tenant for the
 // Phase 3 backup bridge: on Ready, this Instance's own Tenant is registered
@@ -84,7 +84,7 @@ const backupBucketSuffix = "-backups"
 // (config.env shell-export lines vs. AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY,
 // the keys BackupStorageS3Spec.CredentialsSecretRef documents and
 // controller.Context.BackupStorageCredentials reads).
-const backupCredsSecretSuffix = "-backup-credentials"
+const backupCredsSecretSuffix = "-backup-credentials" //nolint:gosec // this is a Secret *name* suffix, not a credential value
 
 // backupStorageRegion is a fixed placeholder: MinIO doesn't have regions,
 // but BackupStorageS3Spec.Region is required (S3-compatible SDKs need
@@ -95,16 +95,52 @@ const backupStorageRegion = "us-east-1"
 // Provider implements controller.ProviderInterface for MinIO.
 type Provider struct{}
 
-func (p *Provider) Name() string { return "minio" }
+// Name returns this provider's registered name, matching manifest/provider.yaml.
+func (p *Provider) Name() string { return "minio" } //nolint:goconst // the provider name and the MinIO root username (rootUser) are unrelated even though the literal value happens to coincide
 
 // Types registers this package's Tenant/TenantList scheme additions, needed
 // so the runtime's client can Get/Apply/own Tenant objects.
 func (p *Provider) Types() func(*runtime.Scheme) error { return AddToScheme }
 
-func (p *Provider) Validate(c *controller.Context) error {
+// Validate is a no-op for this PoC: there is no provider-specific admission
+// validation yet beyond what the Instance/Provider CRDs' own schemas enforce.
+func (p *Provider) Validate(c *controller.Context) error { //nolint:unparam // signature is fixed by controller.ProviderInterface
 	log.FromContext(c.Context()).Info("minio provider: Validate called",
 		"instance", c.Name(), "namespace", c.Namespace())
 	return nil
+}
+
+// serverComponent is the resolved shape of the Instance's "server"
+// component, defaulted where the Instance leaves fields unset.
+type serverComponent struct {
+	replicas     int32
+	size         resource.Quantity
+	storageClass *string
+	version      string
+}
+
+// resolveServerComponent reads the Instance's "server" component (if any),
+// applying this PoC's defaults (1 replica, defaultVolumeSize) where unset.
+func resolveServerComponent(c *controller.Context) serverComponent {
+	sc := serverComponent{replicas: 1, size: defaultVolumeSize}
+
+	servers := c.ComponentsOfType(serverComponentType)
+	if len(servers) == 0 {
+		return sc
+	}
+
+	server := servers[0]
+	sc.version = server.Version
+	if server.Replicas != nil {
+		sc.replicas = *server.Replicas
+	}
+	if server.Storage != nil {
+		if !server.Storage.Size.IsZero() {
+			sc.size = server.Storage.Size
+		}
+		sc.storageClass = server.Storage.StorageClass
+	}
+	return sc
 }
 
 // Sync renders a MinIO Operator Tenant CR from the Instance spec and applies
@@ -121,26 +157,8 @@ func (p *Provider) Sync(c *controller.Context) error {
 		return fmt.Errorf("minio provider: fetching provider spec: %w", err)
 	}
 
-	replicas := int32(1)
-	size := defaultVolumeSize
-	var storageClass *string
-	version := ""
-
-	if servers := c.ComponentsOfType(serverComponentType); len(servers) > 0 {
-		server := servers[0]
-		version = server.Version
-		if server.Replicas != nil {
-			replicas = *server.Replicas
-		}
-		if server.Storage != nil {
-			if !server.Storage.Size.IsZero() {
-				size = server.Storage.Size
-			}
-			storageClass = server.Storage.StorageClass
-		}
-	}
-
-	image := resolveServerImage(providerSpec, version)
+	server := resolveServerComponent(c)
+	image := resolveServerImage(providerSpec, server.version)
 
 	creds, err := ensureCredentialsSecret(c)
 	if err != nil {
@@ -161,16 +179,16 @@ func (p *Provider) Sync(c *controller.Context) error {
 			Pools: []Pool{
 				{
 					Name:             "pool-0",
-					Servers:          replicas,
+					Servers:          server.replicas,
 					VolumesPerServer: 1,
 					VolumeClaimTemplate: &corev1.PersistentVolumeClaim{
 						ObjectMeta: metav1.ObjectMeta{Name: "data"},
 						Spec: corev1.PersistentVolumeClaimSpec{
 							AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
 							Resources: corev1.VolumeResourceRequirements{
-								Requests: corev1.ResourceList{corev1.ResourceStorage: size},
+								Requests: corev1.ResourceList{corev1.ResourceStorage: server.size},
 							},
-							StorageClassName: storageClass,
+							StorageClassName: server.storageClass,
 						},
 					},
 				},
@@ -339,15 +357,10 @@ func (p *Provider) Status(c *controller.Context) (controller.Status, error) {
 		return controller.Status{}, fmt.Errorf("minio provider: getting Tenant %q: %w", c.Name(), err)
 	}
 
-	desired := int32(1)
-	if servers := c.ComponentsOfType(serverComponentType); len(servers) > 0 && servers[0].Replicas != nil {
-		desired = *servers[0].Replicas
-	}
-
 	componentStatus := controller.ComponentStatus{
 		Name:  serverComponentType,
 		Ready: tenant.Status.AvailableReplicas,
-		Total: desired,
+		Total: resolveServerComponent(c).replicas,
 		State: tenant.Status.CurrentState,
 	}
 
@@ -366,7 +379,11 @@ func (p *Provider) Status(c *controller.Context) (controller.Status, error) {
 	return status, nil
 }
 
-func (p *Provider) Cleanup(c *controller.Context) error {
+// Cleanup is a no-op for this PoC: the Tenant, both credentials Secrets, and
+// the BackupStorage are all owned by the Instance (set via c.Apply), so
+// Kubernetes garbage collection removes them without any provider-side
+// action needed.
+func (p *Provider) Cleanup(c *controller.Context) error { //nolint:unparam // signature is fixed by controller.ProviderInterface
 	log.FromContext(c.Context()).Info("minio provider: Cleanup called",
 		"instance", c.Name(), "namespace", c.Namespace())
 	return nil

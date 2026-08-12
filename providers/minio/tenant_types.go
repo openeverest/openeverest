@@ -37,7 +37,7 @@ import (
 // v2, not v1: verified directly against the operator installed in Phase 0
 // (`kubectl get crd tenants.minio.min.io` only serves v2 — v1 existed in
 // older operator releases but isn't what's deployed here).
-var tenantGroupVersion = schema.GroupVersion{Group: "minio.min.io", Version: "v2"}
+var tenantGroupVersion = schema.GroupVersion{Group: "minio.min.io", Version: "v2"} //nolint:gochecknoglobals // schema.GroupVersion is a value type used as a constant; same pattern as resource.MustParse elsewhere in this repo
 
 // AddToScheme registers the Tenant/TenantList types with a scheme, mirroring
 // github.com/minio/operator/pkg/apis/minio.min.io/v1.AddToScheme.
@@ -91,17 +91,18 @@ type TenantStatus struct {
 type TenantList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitzero"`
-	Items           []Tenant `json:"items"`
+
+	Items []Tenant `json:"items"`
 }
 
 // DeepCopyObject implements runtime.Object.
-func (t *Tenant) DeepCopyObject() runtime.Object {
+func (t *Tenant) DeepCopyObject() runtime.Object { //nolint:ireturn // mandated by the runtime.Object interface
 	if t == nil {
 		return nil
 	}
 	out := new(Tenant)
 	out.TypeMeta = t.TypeMeta
-	t.ObjectMeta.DeepCopyInto(&out.ObjectMeta)
+	t.DeepCopyInto(&out.ObjectMeta)
 	out.Status = t.Status
 	out.Spec.Image = t.Spec.Image
 	if t.Spec.RequestAutoCert != nil {
@@ -133,17 +134,19 @@ func (t *Tenant) DeepCopyObject() runtime.Object {
 }
 
 // DeepCopyObject implements runtime.Object.
-func (l *TenantList) DeepCopyObject() runtime.Object {
+func (l *TenantList) DeepCopyObject() runtime.Object { //nolint:ireturn // mandated by the runtime.Object interface
 	if l == nil {
 		return nil
 	}
 	out := new(TenantList)
 	out.TypeMeta = l.TypeMeta
-	l.ListMeta.DeepCopyInto(&out.ListMeta)
+	l.DeepCopyInto(&out.ListMeta)
 	if l.Items != nil {
 		out.Items = make([]Tenant, len(l.Items))
 		for i, t := range l.Items {
-			out.Items[i] = *t.DeepCopyObject().(*Tenant)
+			if copied, ok := t.DeepCopyObject().(*Tenant); ok {
+				out.Items[i] = *copied
+			}
 		}
 	}
 	return out
