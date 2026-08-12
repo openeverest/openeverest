@@ -3,8 +3,8 @@ name: Triage labels
 # Keeps exactly one triage label on every open issue, so "has anybody looked at
 # this?" is always answerable from the label list. `needs-triage` goes on at
 # creation and comes off only when a maintainer records a decision by applying
-# `triage/accepted` or `triage/needs-information` — and goes back on if the
-# decision label is later removed.
+# one of the `triage/*` decision labels — and goes back on if the decision
+# label is later removed.
 #
 # Label events raised by this workflow use GITHUB_TOKEN, which does not start
 # another workflow run, so this cannot loop.
@@ -28,7 +28,12 @@ jobs:
             if (issue.state !== 'open') return;
 
             const NEEDS_TRIAGE = 'needs-triage';
-            const DECISIONS = ['triage/accepted', 'triage/needs-information'];
+            const DECISIONS = [
+              'triage/accepted',
+              'triage/needs-information',
+              'triage/duplicate',
+              'triage/not-reproducible',
+            ];
 
             const labels = (issue.labels || []).map((l) => l.name);
             const decided = DECISIONS.some((d) => labels.includes(d));
