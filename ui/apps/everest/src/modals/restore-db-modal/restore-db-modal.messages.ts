@@ -20,17 +20,23 @@ export const Messages = {
   headerMessage: 'Restore database',
   headerMessageCreate: 'Create database',
   restore: 'Restore',
+  restoreStarted: 'Database restore has started',
   fromBackup: 'From a backup',
   fromPitr: 'From a Point-in-time (PITR)',
   selectBackup: 'Select backup (Backup name - Started time)',
   create: 'Create',
-  pitrDisclaimer: (
-    earliestDate: string,
-    latestDate: string,
-    backupStorageName: string
-  ) =>
-    `Restore your database by rolling it back to any date and time between the latest full backup (${earliestDate})
-     in the ${backupStorageName} storage and the most recent upload of transaction logs (${latestDate})`,
+  selectStorage: 'Select backup storage',
+  recoveryLatest: 'Latest possible moment',
+  recoveryDate: 'Specific date and time',
+  selectPointInTime: 'Select point in time',
+  pitrUnavailable:
+    'Point-in-time recovery is not available for this storage yet.',
+  pitrNoStorage: 'Select a backup storage to restore from.',
+  pitrDateRequired: 'Select a point in time within the available window.',
+  pitrDateOutOfRange:
+    'The selected time is outside the available recovery window.',
+  pitrDisclaimer: (earliestDate: string, latestDate: string) =>
+    `Available recovery window: ${earliestDate} – ${latestDate}.`,
   gapDisclaimer: `Oops, your PITR data contains binlog gaps, which makes PITR currently unavailable for this database.
     To ensure complete PITR points for future restores, start a full backup now.`,
   seeDocs: 'See Documentation',

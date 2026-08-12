@@ -15,6 +15,12 @@
 import { Instance } from 'shared-types/api.types';
 import { ScheduleWizardMode } from 'shared-types/wizard.types';
 
+// A single registered backup storage on an Instance
+// (Instance.spec.backup.storages[]). Shared across the backups feature.
+export type InstanceBackupStorage = NonNullable<
+  NonNullable<NonNullable<Instance['spec']>['backup']>['storages']
+>[number];
+
 export type ScheduleModalContextType = {
   instance: Instance;
   mode: ScheduleWizardMode;

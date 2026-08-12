@@ -17,6 +17,8 @@ import { useParams } from 'react-router-dom';
 import { DbInstanceContext } from '../../dbCluster.context';
 import { useDbInstanceCredentials } from 'hooks/api/db-instances/useCreateDbInstance';
 import { useProviders } from 'hooks/api/providers';
+import { useBackupClassesList } from 'hooks/api/backup-classes/useBackupClasses';
+import { useClusterName } from 'hooks/api/useClusterName';
 import { preprocessSchema } from 'components/ui-generator/utils/preprocess/preprocess-schema';
 import type {
   Section,
@@ -59,6 +61,12 @@ export const useClusterOverviewData = () => {
   );
 
   const { data: providers } = useProviders();
+
+  // Backups & PITR are only available once the provider exposes backup classes,
+  // mirroring the wizard's backup step gate.
+  const clusterName = useClusterName();
+  const { data: backupClasses = [] } = useBackupClassesList(clusterName);
+  const backupsSupported = backupClasses.length > 0;
 
   const provider: Provider | undefined = useMemo(
     () =>
@@ -146,6 +154,7 @@ export const useClusterOverviewData = () => {
     otherFields,
     provider,
     sections,
+    backupsSupported,
     selectedTopology: instance?.spec?.topology?.type,
   };
 };

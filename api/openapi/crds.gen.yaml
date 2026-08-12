@@ -2477,9 +2477,8 @@ components:
                 storage used by the source Backup so the provider can access the data.
               properties:
                 backup:
-                  description: |-
-                    Backup references an existing Backup CR in the same namespace.
-                    Required when type=Backup.
+                  description: Backup identifies the backup to restore. Required when
+                    type=Backup.
                   properties:
                     backupRef:
                       description: BackupRef references the Backup CR in the same
@@ -2495,47 +2494,93 @@ components:
                       - name
                       type: object
                       x-kubernetes-map-type: atomic
-                    pitr:
-                      description: |-
-                        PITR configures point-in-time recovery on top of this backup.
-                        The resolved BackupClass must advertise PITR support via
-                        .spec.providerManaged for this to be honoured.
-                      properties:
-                        date:
-                          description: Date is the target recovery point. Required
-                            when Type is "date".
-                          format: date-time
-                          type: string
-                        type:
-                          allOf:
-                          - enum:
-                            - date
-                            - latest
-                          - enum:
-                            - date
-                            - latest
-                          description: Type selects date-based or latest recovery.
-                          type: string
-                      required:
-                      - type
-                      type: object
-                      x-kubernetes-validations:
-                      - message: date must be set when type is date
-                        rule: 'self.type == ''date'' ? has(self.date) : true'
                   required:
                   - backupRef
                   type: object
+                pointInTime:
+                  description: |-
+                    PointInTime identifies the stream and the point to recover to.
+                    Required when type=PointInTime.
+                  properties:
+                    date:
+                      description: |-
+                        Date is the recovery point, RFC 3339 with an explicit UTC offset.
+                        Required when RecoveryTarget is "date", forbidden otherwise. Providers
+                        convert it to the engine's expected representation; several engines
+                        interpret timezone-less timestamps as node-local, so the offset is not
+                        optional.
+                      format: date-time
+                      type: string
+                    recoveryTarget:
+                      description: |-
+                        RecoveryTarget selects date-based or latest recovery. This enum is
+                        deliberately closed: date and latest are the only recovery targets that
+                        are meaningful without knowing which engine is running. Engine-specific
+                        targets (GTID, LSN, XID, named restore points) are out of scope.
+                      enum:
+                      - date
+                      - latest
+                      type: string
+                    source:
+                      description: Source identifies the backup stream to recover
+                        from.
+                      properties:
+                        instanceRef:
+                          description: |-
+                            InstanceRef names the Instance whose stream to recover. Defaults to the
+                            Restore's target Instance when omitted; required when seeding a new
+                            Instance via Instance.spec.dataSource, which has no stream of its own.
+                          properties:
+                            name:
+                              description: Name of the referenced object.
+                              maxLength: 253
+                              minLength: 1
+                              pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                              type: string
+                          required:
+                          - name
+                          type: object
+                          x-kubernetes-map-type: atomic
+                        storageRef:
+                          description: |-
+                            StorageRef selects which of the source Instance's registered
+                            BackupStorages to read the stream from. It must name a storage with
+                            .pitr.enabled=true on that Instance.
+                          properties:
+                            name:
+                              description: Name of the referenced object.
+                              maxLength: 253
+                              minLength: 1
+                              pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                              type: string
+                          required:
+                          - name
+                          type: object
+                          x-kubernetes-map-type: atomic
+                      required:
+                      - storageRef
+                      type: object
+                  required:
+                  - recoveryTarget
+                  - source
+                  type: object
+                  x-kubernetes-validations:
+                  - message: date must be set if and only if recoveryTarget is date
+                    rule: 'self.recoveryTarget == ''date'' ? has(self.date) : !has(self.date)'
                 type:
-                  description: Type selects the data source kind.
+                  description: Type selects the restore intent.
                   enum:
                   - Backup
+                  - PointInTime
                   type: string
               required:
               - type
               type: object
               x-kubernetes-validations:
-              - message: backup must be set when type is Backup
-                rule: 'self.type == ''Backup'' ? has(self.backup) : true'
+              - message: backup must be set if and only if type is Backup
+                rule: 'self.type == ''Backup'' ? has(self.backup) : !has(self.backup)'
+              - message: pointInTime must be set if and only if type is PointInTime
+                rule: 'self.type == ''PointInTime'' ? has(self.pointInTime) : !has(self.pointInTime)'
             deletionPolicy:
               allOf:
               - enum:
@@ -2623,6 +2668,11 @@ components:
           - message: spec.dataSource is immutable once set
             rule: '!has(oldSelf.dataSource) || (has(self.dataSource) && self.dataSource
               == oldSelf.dataSource)'
+          - message: 'spec.dataSource.pointInTime.source.instanceRef is required when
+              seeding an Instance: a new Instance has no stream of its own, so there
+              is no target Instance to default to'
+            rule: '!has(self.dataSource) || self.dataSource.type != ''PointInTime''
+              || has(self.dataSource.pointInTime.source.instanceRef)'
         status:
           description: InstanceStatus defines the observed state of Instance.
           properties:
@@ -2640,19 +2690,45 @@ components:
                       InstanceBackupStorageStatus reports the observed backup state of a single
                       entry in spec.backup.storages.
                     properties:
-                      latestRestorableTime:
-                        description: |-
-                          LatestRestorableTime is the most recent point in time to which the
-                          instance can be restored using point-in-time recovery from this
-                          storage. Only populated when PITR is enabled for the storage and the
-                          engine reports a recovery window.
-                        format: date-time
-                        type: string
                       name:
                         description: |-
                           Name is the BackupStorage name (matches
                           spec.backup.storages[].storageRef.name).
                         type: string
+                      pitr:
+                        description: |-
+                          PITR reports the point-in-time recovery window observed on this storage.
+                          Only populated when PITR is enabled for the storage.
+                        properties:
+                          earliestRestorableTime:
+                            description: |-
+                              EarliestRestorableTime is the start of the contiguous recovery window.
+                              Providers only ever move this forward relative to the oldest successful
+                              backup, so the advertised window never spans a known discontinuity.
+                              Unset means no restorable window is known.
+                            format: date-time
+                            type: string
+                          latestRestorableTime:
+                            description: LatestRestorableTime is the end of the contiguous
+                              recovery window.
+                            format: date-time
+                            type: string
+                          message:
+                            description: Message is a human-readable explanation of
+                              State.
+                            type: string
+                          reason:
+                            description: Reason is a CamelCase, machine-readable explanation
+                              of State.
+                            type: string
+                          state:
+                            description: State summarises whether a trustworthy window
+                              exists.
+                            enum:
+                            - Available
+                            - Unavailable
+                            type: string
+                        type: object
                     required:
                     - name
                     type: object
@@ -4138,9 +4214,8 @@ components:
                 storage used by the source Backup so the provider can access the data.
               properties:
                 backup:
-                  description: |-
-                    Backup references an existing Backup CR in the same namespace.
-                    Required when type=Backup.
+                  description: Backup identifies the backup to restore. Required when
+                    type=Backup.
                   properties:
                     backupRef:
                       description: BackupRef references the Backup CR in the same
@@ -4156,47 +4231,93 @@ components:
                       - name
                       type: object
                       x-kubernetes-map-type: atomic
-                    pitr:
-                      description: |-
-                        PITR configures point-in-time recovery on top of this backup.
-                        The resolved BackupClass must advertise PITR support via
-                        .spec.providerManaged for this to be honoured.
-                      properties:
-                        date:
-                          description: Date is the target recovery point. Required
-                            when Type is "date".
-                          format: date-time
-                          type: string
-                        type:
-                          allOf:
-                          - enum:
-                            - date
-                            - latest
-                          - enum:
-                            - date
-                            - latest
-                          description: Type selects date-based or latest recovery.
-                          type: string
-                      required:
-                      - type
-                      type: object
-                      x-kubernetes-validations:
-                      - message: date must be set when type is date
-                        rule: 'self.type == ''date'' ? has(self.date) : true'
                   required:
                   - backupRef
                   type: object
+                pointInTime:
+                  description: |-
+                    PointInTime identifies the stream and the point to recover to.
+                    Required when type=PointInTime.
+                  properties:
+                    date:
+                      description: |-
+                        Date is the recovery point, RFC 3339 with an explicit UTC offset.
+                        Required when RecoveryTarget is "date", forbidden otherwise. Providers
+                        convert it to the engine's expected representation; several engines
+                        interpret timezone-less timestamps as node-local, so the offset is not
+                        optional.
+                      format: date-time
+                      type: string
+                    recoveryTarget:
+                      description: |-
+                        RecoveryTarget selects date-based or latest recovery. This enum is
+                        deliberately closed: date and latest are the only recovery targets that
+                        are meaningful without knowing which engine is running. Engine-specific
+                        targets (GTID, LSN, XID, named restore points) are out of scope.
+                      enum:
+                      - date
+                      - latest
+                      type: string
+                    source:
+                      description: Source identifies the backup stream to recover
+                        from.
+                      properties:
+                        instanceRef:
+                          description: |-
+                            InstanceRef names the Instance whose stream to recover. Defaults to the
+                            Restore's target Instance when omitted; required when seeding a new
+                            Instance via Instance.spec.dataSource, which has no stream of its own.
+                          properties:
+                            name:
+                              description: Name of the referenced object.
+                              maxLength: 253
+                              minLength: 1
+                              pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                              type: string
+                          required:
+                          - name
+                          type: object
+                          x-kubernetes-map-type: atomic
+                        storageRef:
+                          description: |-
+                            StorageRef selects which of the source Instance's registered
+                            BackupStorages to read the stream from. It must name a storage with
+                            .pitr.enabled=true on that Instance.
+                          properties:
+                            name:
+                              description: Name of the referenced object.
+                              maxLength: 253
+                              minLength: 1
+                              pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                              type: string
+                          required:
+                          - name
+                          type: object
+                          x-kubernetes-map-type: atomic
+                      required:
+                      - storageRef
+                      type: object
+                  required:
+                  - recoveryTarget
+                  - source
+                  type: object
+                  x-kubernetes-validations:
+                  - message: date must be set if and only if recoveryTarget is date
+                    rule: 'self.recoveryTarget == ''date'' ? has(self.date) : !has(self.date)'
                 type:
-                  description: Type selects the data source kind.
+                  description: Type selects the restore intent.
                   enum:
                   - Backup
+                  - PointInTime
                   type: string
               required:
               - type
               type: object
               x-kubernetes-validations:
-              - message: backup must be set when type is Backup
-                rule: 'self.type == ''Backup'' ? has(self.backup) : true'
+              - message: backup must be set if and only if type is Backup
+                rule: 'self.type == ''Backup'' ? has(self.backup) : !has(self.backup)'
+              - message: pointInTime must be set if and only if type is PointInTime
+                rule: 'self.type == ''PointInTime'' ? has(self.pointInTime) : !has(self.pointInTime)'
             deletionPolicy:
               allOf:
               - enum:
@@ -4284,6 +4405,11 @@ components:
           - message: spec.dataSource is immutable once set
             rule: '!has(oldSelf.dataSource) || (has(self.dataSource) && self.dataSource
               == oldSelf.dataSource)'
+          - message: 'spec.dataSource.pointInTime.source.instanceRef is required when
+              seeding an Instance: a new Instance has no stream of its own, so there
+              is no target Instance to default to'
+            rule: '!has(self.dataSource) || self.dataSource.type != ''PointInTime''
+              || has(self.dataSource.pointInTime.source.instanceRef)'
         status:
           description: status defines the observed state of InstancePreset
           properties:
@@ -5183,13 +5309,14 @@ components:
           description: RestoreSpec defines the desired state of Restore.
           properties:
             dataSource:
-              description: DataSource defines where the backup data to restore from
-                is located.
+              description: |-
+                DataSource identifies the data to restore from. The same type is used
+                by Instance.spec.dataSource when seeding a new Instance, so both paths
+                identify a source identically.
               properties:
                 backup:
-                  description: |-
-                    Backup references an existing Backup CR in the same namespace.
-                    Required when type=Backup.
+                  description: Backup identifies the backup to restore. Required when
+                    type=Backup.
                   properties:
                     backupRef:
                       description: BackupRef references the Backup CR in the same
@@ -5205,47 +5332,93 @@ components:
                       - name
                       type: object
                       x-kubernetes-map-type: atomic
-                    pitr:
-                      description: |-
-                        PITR configures point-in-time recovery on top of this backup.
-                        The resolved BackupClass must advertise PITR support via
-                        .spec.providerManaged for this to be honoured.
-                      properties:
-                        date:
-                          description: Date is the target recovery point. Required
-                            when Type is "date".
-                          format: date-time
-                          type: string
-                        type:
-                          allOf:
-                          - enum:
-                            - date
-                            - latest
-                          - enum:
-                            - date
-                            - latest
-                          description: Type selects date-based or latest recovery.
-                          type: string
-                      required:
-                      - type
-                      type: object
-                      x-kubernetes-validations:
-                      - message: date must be set when type is date
-                        rule: 'self.type == ''date'' ? has(self.date) : true'
                   required:
                   - backupRef
                   type: object
+                pointInTime:
+                  description: |-
+                    PointInTime identifies the stream and the point to recover to.
+                    Required when type=PointInTime.
+                  properties:
+                    date:
+                      description: |-
+                        Date is the recovery point, RFC 3339 with an explicit UTC offset.
+                        Required when RecoveryTarget is "date", forbidden otherwise. Providers
+                        convert it to the engine's expected representation; several engines
+                        interpret timezone-less timestamps as node-local, so the offset is not
+                        optional.
+                      format: date-time
+                      type: string
+                    recoveryTarget:
+                      description: |-
+                        RecoveryTarget selects date-based or latest recovery. This enum is
+                        deliberately closed: date and latest are the only recovery targets that
+                        are meaningful without knowing which engine is running. Engine-specific
+                        targets (GTID, LSN, XID, named restore points) are out of scope.
+                      enum:
+                      - date
+                      - latest
+                      type: string
+                    source:
+                      description: Source identifies the backup stream to recover
+                        from.
+                      properties:
+                        instanceRef:
+                          description: |-
+                            InstanceRef names the Instance whose stream to recover. Defaults to the
+                            Restore's target Instance when omitted; required when seeding a new
+                            Instance via Instance.spec.dataSource, which has no stream of its own.
+                          properties:
+                            name:
+                              description: Name of the referenced object.
+                              maxLength: 253
+                              minLength: 1
+                              pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                              type: string
+                          required:
+                          - name
+                          type: object
+                          x-kubernetes-map-type: atomic
+                        storageRef:
+                          description: |-
+                            StorageRef selects which of the source Instance's registered
+                            BackupStorages to read the stream from. It must name a storage with
+                            .pitr.enabled=true on that Instance.
+                          properties:
+                            name:
+                              description: Name of the referenced object.
+                              maxLength: 253
+                              minLength: 1
+                              pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                              type: string
+                          required:
+                          - name
+                          type: object
+                          x-kubernetes-map-type: atomic
+                      required:
+                      - storageRef
+                      type: object
+                  required:
+                  - recoveryTarget
+                  - source
+                  type: object
+                  x-kubernetes-validations:
+                  - message: date must be set if and only if recoveryTarget is date
+                    rule: 'self.recoveryTarget == ''date'' ? has(self.date) : !has(self.date)'
                 type:
-                  description: Type selects the data source kind.
+                  description: Type selects the restore intent.
                   enum:
                   - Backup
+                  - PointInTime
                   type: string
               required:
               - type
               type: object
               x-kubernetes-validations:
-              - message: backup must be set when type is Backup
-                rule: 'self.type == ''Backup'' ? has(self.backup) : true'
+              - message: backup must be set if and only if type is Backup
+                rule: 'self.type == ''Backup'' ? has(self.backup) : !has(self.backup)'
+              - message: pointInTime must be set if and only if type is PointInTime
+                rule: 'self.type == ''PointInTime'' ? has(self.pointInTime) : !has(self.pointInTime)'
             instanceRef:
               description: |-
                 InstanceRef references the Instance to restore into. The Instance
@@ -5265,7 +5438,9 @@ components:
             parameters:
               description: |-
                 Parameters is the restore-time structured configuration validated
-                against the BackupClass's .spec.restoreParametersSchema.
+                against the resolved BackupClass's .spec.restoreParametersSchema. It
+                carries restore *operation* modifiers -- how the data is applied --
+                and applies to both data source types.
               type: object
               x-kubernetes-preserve-unknown-fields: true
           required:

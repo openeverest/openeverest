@@ -20,9 +20,15 @@ import { FlattenedSchedule } from 'components/schedule-form-dialog/schedule-form
 
 export const PreviewBackupSection = (props: SectionProps) => {
   const backup = (props as Record<string, unknown>).backup as
-    | { schedules?: FlattenedSchedule[] }
+    | {
+        schedules?: FlattenedSchedule[];
+        pitr?: Record<string, { enabled?: boolean } | undefined>;
+      }
     | undefined;
   const schedules = backup?.schedules ?? [];
+  const pitrStorages = Object.entries(backup?.pitr ?? {})
+    .filter(([, config]) => config?.enabled)
+    .map(([storageName]) => storageName);
 
   if (schedules.length === 0) {
     return <PreviewContentText text="No backup schedules" />;
@@ -36,6 +42,13 @@ export const PreviewBackupSection = (props: SectionProps) => {
           text={`${getTimeSelectionPreviewMessage(getFormValuesFromCronExpression(schedule.cron))} → ${schedule.storageName}`}
         />
       ))}
+      <PreviewContentText
+        text={
+          pitrStorages.length > 0
+            ? `PITR: enabled on ${pitrStorages.join(', ')}`
+            : 'PITR: disabled'
+        }
+      />
     </>
   );
 };

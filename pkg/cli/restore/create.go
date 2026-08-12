@@ -82,10 +82,6 @@ func (cr *CreateRunner) Run(ctx context.Context, opts CreateOptions, cfgPath str
 		BackupRef struct {
 			Name string `json:"name"`
 		} `json:"backupRef"`
-		Pitr *struct {
-			Date *time.Time `json:"date,omitempty"`
-			Type any        `json:"type"`
-		} `json:"pitr,omitempty"`
 	}{}
 	restore.Spec.DataSource.Backup.BackupRef.Name = opts.Backup
 

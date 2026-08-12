@@ -22,6 +22,7 @@ import BackupsActionableAlert from 'components/actionable-alert/backups-actionab
 import { StepHeader } from '../../steps-old/step-header/step-header.tsx';
 import { Messages } from './backup-step.messages.ts';
 import { Schedules } from './schedules.tsx';
+import { PitrBlock } from './pitr';
 import { StepProps } from '../../../database-form.types';
 
 export const BackupStep = (
@@ -50,6 +51,7 @@ export const BackupStep = (
       ) : backupStorages.length > 0 ? (
         <FormGroup sx={{ mt: 3 }}>
           <Schedules backupStorages={backupStorages} />
+          <PitrBlock />
         </FormGroup>
       ) : (
         <BackupsActionableAlert namespace={selectedNamespace} />
