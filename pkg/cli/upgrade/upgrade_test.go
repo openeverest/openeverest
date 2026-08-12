@@ -303,7 +303,7 @@ func TestUpgrade_checkOperatorRequirements(t *testing.T) {
 	supVer := &common.SupportedVersion{
 		PXCOperator:   pxcConstraint,
 		PGOperator:    pgConstraint,
-		PSMBDOperator: psmdbConstraint,
+		PSMDBOperator: psmdbConstraint,
 	}
 
 	tests := []struct {
