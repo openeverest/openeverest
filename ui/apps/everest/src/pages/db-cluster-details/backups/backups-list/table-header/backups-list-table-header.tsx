@@ -13,18 +13,17 @@
 // limitations under the License.
 
 import { useContext, useState } from 'react';
-// import { useMemo } from 'react';
-import { Box, Button, MenuItem } from '@mui/material';
-// import { Tooltip } from '@mui/material';
-import KeyboardArrowDownOutlinedIcon from '@mui/icons-material/KeyboardArrowDownOutlined';
-import KeyboardArrowUpOutlined from '@mui/icons-material/KeyboardArrowUpOutlined';
+import { Box, MenuItem } from '@mui/material';
 import { MenuButton } from '@percona/ui-lib';
 import { ScheduleModalContext } from '../../backups.context';
 import { DbInstancePhaseStatus } from 'shared-types/instance.types';
 import ScheduledBackupsList from './scheduled-backups-list';
+import { StoragesList } from '../../storages-list';
+import { ExpandableSectionToggle } from 'components/expandable-section-toggle';
 import { BackupListTableHeaderProps } from './backups-list-table-header.types';
 import { Messages } from './backups-list-table-header.messages';
 import { useRBACPermissions } from 'hooks/rbac';
+import { useActiveBackupClass } from 'hooks/api/backup-classes/useBackupClasses';
 // TODO: v2 — uncomment when schedule limit checking is implemented
 // import { useBackupClassesList } from 'hooks/api/backup-classes/useBackupClasses';
 // import { useClusterName } from 'hooks/api/useClusterName';
@@ -33,13 +32,23 @@ const BackupListTableHeader = ({
   onNowClick,
   onScheduleClick,
 }: BackupListTableHeaderProps) => {
-  const [showSchedules, setShowSchedules] = useState(false);
+  const [expandedSection, setExpandedSection] = useState<
+    'schedules' | 'storages' | null
+  >(null);
   const { instance } = useContext(ScheduleModalContext);
   // const clusterName = useClusterName();
 
   const allSchedules =
     instance.spec.backup?.storages?.flatMap((s) => s.schedules ?? []) ?? [];
   const schedulesNumber = allSchedules.length;
+  const storagesNumber = instance.spec.backup?.storages?.length ?? 0;
+
+  // PITR lives on backup storages; the panel is only relevant when the provider
+  // supports it and at least one storage exists.
+  const activeClass = useActiveBackupClass(instance);
+  const showPitrPanel =
+    (activeClass?.spec?.providerManaged?.supportsPITR ?? false) &&
+    storagesNumber > 0;
 
   const restoring = instance.status?.phase === DbInstancePhaseStatus.Restoring;
 
@@ -67,7 +76,11 @@ const BackupListTableHeader = ({
   };
 
   const handleShowSchedules = () => {
-    setShowSchedules((prev) => !prev);
+    setExpandedSection((prev) => (prev === 'schedules' ? null : 'schedules'));
+  };
+
+  const handleShowStorages = () => {
+    setExpandedSection((prev) => (prev === 'storages' ? null : 'storages'));
   };
 
   // TODO: RBAC resource names for v2 are not finalized yet.
@@ -92,43 +105,26 @@ const BackupListTableHeader = ({
           },
         })}
       >
-        {/* Order is necessary to keep filters on the left side (i.e. filters have order=0) */}
-        {schedulesNumber > 0 && (
-          <Button
-            size="small"
-            data-testid="scheduled-backups"
-            sx={[
-              {
-                ml: 'auto',
-                mr: 2,
-                position: 'relative',
-              },
-              showSchedules &&
-                ((theme) => ({
-                  '&::after': {
-                    content: '""',
-                    position: 'absolute',
-                    bottom: '-29px',
-                    width: '0px',
-                    height: '0px',
-                    borderStyle: 'solid',
-                    borderWidth: '0 14.5px 29px 14.5px',
-                    borderColor: `transparent transparent ${theme.palette.surfaces?.elevation0} transparent`,
-                    transform: 'rotate(0deg)',
-                  },
-                })),
-            ]}
-            onClick={handleShowSchedules}
-            endIcon={
-              showSchedules ? (
-                <KeyboardArrowUpOutlined />
-              ) : (
-                <KeyboardArrowDownOutlinedIcon />
-              )
-            }
-          >
-            {Messages.activeSchedules(schedulesNumber)}
-          </Button>
+        {/* Toggles are right-aligned as a group (inline-flex so the row is not broken); filters stay left (order=0). */}
+        {(schedulesNumber > 0 || showPitrPanel) && (
+          <Box sx={{ display: 'inline-flex', ml: 'auto' }}>
+            {schedulesNumber > 0 && (
+              <ExpandableSectionToggle
+                label={Messages.activeSchedules(schedulesNumber)}
+                open={expandedSection === 'schedules'}
+                onToggle={handleShowSchedules}
+                dataTestId="scheduled-backups"
+              />
+            )}
+            {showPitrPanel && (
+              <ExpandableSectionToggle
+                label={Messages.pitr}
+                open={expandedSection === 'storages'}
+                onToggle={handleShowStorages}
+                dataTestId="storages-toggle"
+              />
+            )}
+          </Box>
         )}
         {canCreate && (
           <MenuButton
@@ -158,7 +154,10 @@ const BackupListTableHeader = ({
           />
         )}
       </Box>
-      {schedulesNumber > 0 && showSchedules && <ScheduledBackupsList />}
+      {schedulesNumber > 0 && expandedSection === 'schedules' && (
+        <ScheduledBackupsList />
+      )}
+      {showPitrPanel && expandedSection === 'storages' && <StoragesList />}
     </>
   );
 };

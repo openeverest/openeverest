@@ -147,6 +147,8 @@ func restoreInstance(r *client.Restore) string {
 }
 
 func restoreBackup(r *client.Restore) string {
+	// Point-in-time restores name a stream rather than a backup, so an empty
+	// column here is expected rather than missing data.
 	if r.Spec.DataSource.Backup == nil || r.Spec.DataSource.Backup.BackupRef.Name == "" {
 		return "-"
 	}

@@ -28,80 +28,123 @@ type RestoreSpec struct {
 	// the BackupClass's SupportedProviders.
 	// +kubebuilder:validation:Required
 	InstanceRef common.ObjectRef `json:"instanceRef"`
-	// DataSource defines where the backup data to restore from is located.
+	// DataSource identifies the data to restore from. The same type is used
+	// by Instance.spec.dataSource when seeding a new Instance, so both paths
+	// identify a source identically.
 	// +kubebuilder:validation:Required
 	DataSource DataSource `json:"dataSource"`
 	// Parameters is the restore-time structured configuration validated
-	// against the BackupClass's .spec.restoreParametersSchema.
+	// against the resolved BackupClass's .spec.restoreParametersSchema. It
+	// carries restore *operation* modifiers -- how the data is applied --
+	// and applies to both data source types.
 	// +kubebuilder:pruning:PreserveUnknownFields
 	// +optional
 	Parameters *runtime.RawExtension `json:"parameters,omitempty"`
 }
 
-// DataSourceType selects the kind of data source for initial seeding or
-// restore operations.
+// DataSourceType selects the restore intent: recover the state captured by a
+// specific Backup, or roll a backup stream forward to a point in time.
 //
-// +kubebuilder:validation:Enum=Backup
+// Note this discriminates the kind of *source*, not the kind of restore
+// operation: the operation is identical in both cases, and no engine models
+// point-in-time recovery as a separate operation.
+//
+// +kubebuilder:validation:Enum=Backup;PointInTime
 type DataSourceType string
 
 const (
-	// DataSourceTypeBackup seeds from an existing Backup CR in the same
-	// namespace.
+	// DataSourceTypeBackup restores the state captured by an existing Backup
+	// CR in the same namespace, whatever its engine-level type (full,
+	// differential or incremental -- engines resolve the chain themselves).
 	DataSourceTypeBackup DataSourceType = "Backup"
+	// DataSourceTypePointInTime rolls a backup stream forward to a target
+	// point. The provider selects whatever base backup the engine requires.
+	DataSourceTypePointInTime DataSourceType = "PointInTime"
 )
 
-// DataSourceBackup references an existing Backup CR as the data source.
+// DataSourceBackup identifies the backup to restore.
 type DataSourceBackup struct {
 	// BackupRef references the Backup CR in the same namespace.
 	// +kubebuilder:validation:Required
 	BackupRef common.ObjectRef `json:"backupRef"`
-	// PITR configures point-in-time recovery on top of this backup.
-	// The resolved BackupClass must advertise PITR support via
-	// .spec.providerManaged for this to be honoured.
-	// +optional
-	PITR *DataSourcePITR `json:"pitr,omitempty"`
 }
 
-// DataSourcePITR specifies point-in-time recovery options that can be applied
-// on top of a data source. Not all source types support PITR; the provider
-// validates compatibility and rejects unsupported combinations.
+// StreamSource identifies the backup stream to recover from: InstanceRef says
+// whose data it is, StorageRef says where the stream lives.
 //
-// +kubebuilder:validation:XValidation:rule="self.type == 'date' ? has(self.date) : true",message="date must be set when type is date"
-type DataSourcePITR struct {
-	// Type selects date-based or latest recovery.
+// StorageRef is always required. One BackupStorage commonly holds the streams
+// of many Instances, and an Instance may archive to several storages with
+// different retention -- so naming it is the only way a manifest can be read
+// and validated on its own, without consulting the Instance it points at.
+type StreamSource struct {
+	// InstanceRef names the Instance whose stream to recover. Defaults to the
+	// Restore's target Instance when omitted; required when seeding a new
+	// Instance via Instance.spec.dataSource, which has no stream of its own.
+	// +optional
+	InstanceRef *common.ObjectRef `json:"instanceRef,omitempty"`
+	// StorageRef selects which of the source Instance's registered
+	// BackupStorages to read the stream from. It must name a storage with
+	// .pitr.enabled=true on that Instance.
 	// +kubebuilder:validation:Required
-	// +kubebuilder:validation:Enum=date;latest
-	Type PITRType `json:"type"`
-	// Date is the target recovery point. Required when Type is "date".
+	StorageRef common.ObjectRef `json:"storageRef"`
+}
+
+// DataSourcePointInTime rolls a backup stream forward to a target point.
+//
+// +kubebuilder:validation:XValidation:rule="self.recoveryTarget == 'date' ? has(self.date) : !has(self.date)",message="date must be set if and only if recoveryTarget is date"
+type DataSourcePointInTime struct {
+	// Source identifies the backup stream to recover from.
+	// +kubebuilder:validation:Required
+	Source StreamSource `json:"source"`
+	// RecoveryTarget selects date-based or latest recovery. This enum is
+	// deliberately closed: date and latest are the only recovery targets that
+	// are meaningful without knowing which engine is running. Engine-specific
+	// targets (GTID, LSN, XID, named restore points) are out of scope.
+	// +kubebuilder:validation:Required
+	RecoveryTarget RecoveryTarget `json:"recoveryTarget"`
+	// Date is the recovery point, RFC 3339 with an explicit UTC offset.
+	// Required when RecoveryTarget is "date", forbidden otherwise. Providers
+	// convert it to the engine's expected representation; several engines
+	// interpret timezone-less timestamps as node-local, so the offset is not
+	// optional.
 	// +optional
 	Date *metav1.Time `json:"date,omitempty"`
 }
 
-// DataSource defines the source from which data is obtained for a restore
-// or initial Instance seeding operation. The Type field selects which
-// source-specific block is populated.
+// DataSource describes the data a restore or an initial Instance seeding
+// operation should read from. The Type field selects which intent-specific
+// block is populated.
 //
-// +kubebuilder:validation:XValidation:rule="self.type == 'Backup' ? has(self.backup) : true",message="backup must be set when type is Backup"
+// +kubebuilder:validation:XValidation:rule="self.type == 'Backup' ? has(self.backup) : !has(self.backup)",message="backup must be set if and only if type is Backup"
+// +kubebuilder:validation:XValidation:rule="self.type == 'PointInTime' ? has(self.pointInTime) : !has(self.pointInTime)",message="pointInTime must be set if and only if type is PointInTime"
 type DataSource struct {
-	// Type selects the data source kind.
+	// Type selects the restore intent.
 	// +kubebuilder:validation:Required
 	Type DataSourceType `json:"type"`
-	// Backup references an existing Backup CR in the same namespace.
-	// Required when type=Backup.
+	// Backup identifies the backup to restore. Required when type=Backup.
 	// +optional
 	Backup *DataSourceBackup `json:"backup,omitempty"`
+	// PointInTime identifies the stream and the point to recover to.
+	// Required when type=PointInTime.
+	// +optional
+	PointInTime *DataSourcePointInTime `json:"pointInTime,omitempty"`
 }
 
-// PITRType defines the type of point-in-time recovery.
+// RecoveryTarget selects which point in a backup stream to recover to.
+//
+// The name follows the established "recovery target" terminology (PostgreSQL's
+// recovery_target_*, CloudNativePG's recoveryTarget). The qualifier matters: an
+// unqualified "target" would read as the Instance being restored into, which is
+// .spec.instanceRef.
 //
 // +kubebuilder:validation:Enum=date;latest
-type PITRType string
+type RecoveryTarget string
 
 const (
-	// PITRTypeDate indicates recovery to a specific date and time.
-	PITRTypeDate PITRType = "date"
-	// PITRTypeLatest indicates recovery to the latest available point in time.
-	PITRTypeLatest PITRType = "latest"
+	// RecoveryTargetDate recovers to a specific date and time.
+	RecoveryTargetDate RecoveryTarget = "date"
+	// RecoveryTargetLatest recovers as far forward as the stream allows.
+	RecoveryTargetLatest RecoveryTarget = "latest"
 )
 
 // RestoreState is a type representing the state of a restore.

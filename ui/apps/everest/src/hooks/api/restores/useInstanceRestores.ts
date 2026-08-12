@@ -25,12 +25,16 @@ import {
   getInstanceRestoresFn,
 } from 'api/restores';
 import { generateShortUID } from 'utils/generateShortUID';
+import { useRBACPermissions } from 'hooks/rbac';
 import { PerconaQueryOptions } from 'shared-types/query.types';
 import {
   CreateRestorePayload,
   GetRestorePayload,
   Restore,
+  RestoreCreateVariables,
 } from 'shared-types/restores.types';
+import { buildRestoreDataSource } from './restore-data-source';
+import { mapRestore } from './map-restore';
 
 export const RESTORES_QUERY_KEY = 'restores';
 
@@ -40,40 +44,25 @@ export const getRestoresListQueryKey = (
   instanceName: string
 ) => [RESTORES_QUERY_KEY, clusterName, namespace, instanceName] as const;
 
-export const useCreateRestoreFromBackup = (
+export const useCreateInstanceRestore = (
   clusterName: string,
   namespace: string,
   options?: UseMutationOptions<
     unknown,
     unknown,
-    { instanceName: string; backupName: string },
+    RestoreCreateVariables,
     unknown
   >
 ) =>
   useMutation({
-    mutationFn: ({
-      instanceName,
-      backupName,
-    }: {
-      instanceName: string;
-      backupName: string;
-    }) => {
+    mutationFn: (variables: RestoreCreateVariables) => {
       const payload: CreateRestorePayload = {
         metadata: {
           name: `restore-${generateShortUID()}`,
         },
         spec: {
-          instanceRef: {
-            name: instanceName,
-          },
-          dataSource: {
-            type: 'Backup',
-            backup: {
-              backupRef: {
-                name: backupName,
-              },
-            },
-          },
+          instanceRef: { name: variables.instanceName },
+          dataSource: buildRestoreDataSource(variables),
         },
       };
       return createInstanceRestoreFn(clusterName, namespace, payload);
@@ -81,68 +70,26 @@ export const useCreateRestoreFromBackup = (
     ...options,
   });
 
-// TODO: Re-enable when PITR restore flow is implemented.
-// export const useCreateRestoreFromPointInTime = (
-//   clusterName: string,
-//   namespace: string,
-//   options?: UseMutationOptions<
-//     unknown,
-//     unknown,
-//     { instanceName: string; backupName: string; pointInTimeDate: string },
-//     unknown
-//   >
-// ) =>
-//   useMutation({
-//     mutationFn: ({
-//       instanceName,
-//       backupName,
-//       pointInTimeDate,
-//     }: {
-//       instanceName: string;
-//       backupName: string;
-//       pointInTimeDate: string;
-//     }) => {
-//       const payload: CreateRestorePayload = {
-//         metadata: { name: `restore-${generateShortUID()}` },
-//         spec: {
-//           instanceName,
-//           dataSource: {
-//             backupName,
-//             pitr: { type: 'date', date: pointInTimeDate },
-//           },
-//         },
-//       };
-//       return createInstanceRestoreFn(clusterName, namespace, payload);
-//     },
-//     ...options,
-//   });
-
 export const useInstanceRestores = (
   clusterName: string,
   namespace: string,
   instanceName: string,
   options?: PerconaQueryOptions<GetRestorePayload, unknown, Restore[]>
 ) => {
-  // TODO: Re-enable RBAC check when RBAC is implemented for v2 restores
-  // const { canRead } = useRBACPermissions('restores', `${namespace}/${instanceName}`);
+  const { canRead } = useRBACPermissions(
+    'database-cluster-restores',
+    `${namespace}/${instanceName}`
+  );
 
   return useQuery<GetRestorePayload, unknown, Restore[]>({
     queryKey: getRestoresListQueryKey(clusterName, namespace, instanceName),
     queryFn: () => getInstanceRestoresFn(clusterName, namespace, instanceName),
     refetchInterval: 5 * 1000,
-    enabled: options?.enabled ?? true,
-    // TODO: Re-enable RBAC-gated select when RBAC is implemented.
-    // select: canRead ? (data) => data.items.map(...) : () => [],
-    select: (data) =>
-      data.items.map((item) => ({
-        name: item.metadata.name,
-        startTime: item.status?.startedAt || item.metadata.creationTimestamp,
-        endTime: item.status?.completedAt,
-        state: item.status?.state || 'unknown',
-        type: item.spec.dataSource.backup?.pitr ? 'pitr' : 'full',
-        backupSource: item.spec.dataSource.backup?.backupRef?.name || '',
-      })),
+    // Spread caller options first so the hook's own RBAC gate and view-model
+    // transform below always win — they are not meant to be overridable.
     ...options,
+    enabled: (options?.enabled ?? true) && canRead,
+    select: canRead ? (data) => (data.items ?? []).map(mapRestore) : () => [],
   });
 };
 

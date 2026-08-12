@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+import { ReactNode } from 'react';
 import { Provider } from 'shared-types/api.types';
 
 export enum FormMode {
@@ -230,4 +231,5 @@ export type UIGeneratorProps = {
   loadingDefaultsForEdition?: boolean;
   formMode?: FormMode;
   namespace?: string;
+  emptySectionMessage?: ReactNode;
 };

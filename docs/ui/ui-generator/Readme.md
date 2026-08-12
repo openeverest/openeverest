@@ -36,6 +36,7 @@
   - [CEL Condition Rendering](#cel-condition-rendering)
   - [API Providers](api-providers.md)
 - [Complete Example](#complete-example)
+- [Known Limitations](known-limitations.md)
 
 ## What is UI Generator?
 
@@ -228,7 +229,23 @@ Each component must have either a `path` or an `id` property (but not both):
 
 - **`path`**: Dot-notation string representing where the value should be stored in the form data
   - Example: `"spec.replica.nodes"` → `{ spec: { replica: { nodes: value } } }`
+  - **Use relative field names — never absolute paths, and never array segments (`[]`).**
+    See [Path scoping](#path-scoping).
 - **`id`**: Custom identifier used when you don’t want to include field data in the final API request, but need it for validation or conditional rendering.
+
+### Path scoping
+
+A component's `path` is its form-field name and write target verbatim. Declare it
+**relative to the section's root** — the object the consumer merges the section into
+(e.g. a single storage's `pitr`) — and spell the real sub-structure, so the schema alone
+says where the value lands. The consumer only supplies the root; it never injects keys.
+
+- ✅ `path: parameters.timeBetweenUploads` → `<root>.parameters.timeBetweenUploads`
+- ❌ `path: spec.backup.storages[].pitr.parameters.timeBetweenUploads`
+
+No absolute paths and no array segments (`[]`): an empty `[]` has no index to bind to, and
+an absolute path hard-codes the resource shape so the section can't be reused elsewhere.
+Array binding is not supported yet — see [Known Limitations](known-limitations.md).
 
 ### Components Order
 
