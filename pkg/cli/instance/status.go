@@ -31,6 +31,7 @@ import (
 
 	"github.com/openeverest/openeverest/v2/client"
 	authcli "github.com/openeverest/openeverest/v2/pkg/cli/auth"
+	"github.com/openeverest/openeverest/v2/pkg/cli/wait"
 )
 
 // StatusOptions holds the inputs for the status command.
@@ -99,6 +100,8 @@ func (is *InstanceStatusRunner) watch(
 		interval = 2 * time.Second
 	}
 
+	poll := newInstancePoll(c, opts.Cluster, opts.Namespace, opts.Name)
+
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 
@@ -107,38 +110,25 @@ func (is *InstanceStatusRunner) watch(
 		case <-ctx.Done():
 			return nil
 		case <-ticker.C:
-			resp, err := c.GetInstanceWithResponse(ctx, opts.Cluster, opts.Namespace, opts.Name)
+			inst, err := poll(ctx)
 			if err != nil {
-				if errors.Is(err, authcli.ErrTokenRefresh) {
-					return err
+				if _, ok := errors.AsType[*wait.RetryableError](err); ok {
+					is.l.Warnf("%v — retrying in %s", err, interval)
+					continue
 				}
-				is.l.Warnf("fetch failed: %v — retrying in %s", err, interval)
-				continue
+				return err
 			}
 
-			switch resp.StatusCode() {
-			case http.StatusOK:
-				if resp.JSON200 == nil {
-					is.l.Warnf("empty response body — retrying in %s", interval)
-					continue
-				}
-				var buf bytes.Buffer
-				is.render(&buf, resp.JSON200, opts.Namespace)
-				if buf.String() == lastOutput {
-					continue
-				}
-				lastOutput = buf.String()
-				if is.config.Pretty {
-					fmt.Fprintln(os.Stdout, "---")
-				}
-				fmt.Fprint(os.Stdout, lastOutput)
-			case http.StatusNotFound:
-				return fmt.Errorf("instance %q has been deleted", opts.Name)
-			case http.StatusUnauthorized:
-				return fmt.Errorf("server rejected credentials — run 'everestctl auth login' again")
-			default:
-				is.l.Warnf("unexpected response %s — retrying in %s", resp.Status(), interval)
+			var buf bytes.Buffer
+			is.render(&buf, inst, opts.Namespace)
+			if buf.String() == lastOutput {
+				continue
 			}
+			lastOutput = buf.String()
+			if is.config.Pretty {
+				fmt.Fprintln(os.Stdout, "---")
+			}
+			fmt.Fprint(os.Stdout, lastOutput)
 		}
 	}
 }

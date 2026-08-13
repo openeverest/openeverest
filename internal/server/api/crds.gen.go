@@ -171,10 +171,28 @@ func (e InstalledExtensionStatusPhase) Valid() bool {
 	}
 }
 
+// Defines values for InstanceSpecDataSourcePointInTimeRecoveryTarget.
+const (
+	InstanceSpecDataSourcePointInTimeRecoveryTargetDate   InstanceSpecDataSourcePointInTimeRecoveryTarget = "date"
+	InstanceSpecDataSourcePointInTimeRecoveryTargetLatest InstanceSpecDataSourcePointInTimeRecoveryTarget = "latest"
+)
+
+// Valid indicates whether the value is a known member of the InstanceSpecDataSourcePointInTimeRecoveryTarget enum.
+func (e InstanceSpecDataSourcePointInTimeRecoveryTarget) Valid() bool {
+	switch e {
+	case InstanceSpecDataSourcePointInTimeRecoveryTargetDate:
+		return true
+	case InstanceSpecDataSourcePointInTimeRecoveryTargetLatest:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for InstanceSpecDataSourceType.
 const (
-	InstanceSpecDataSourceTypeBackup InstanceSpecDataSourceType = "Backup"
-	InstanceSpecDataSourceTypeImport InstanceSpecDataSourceType = "Import"
+	InstanceSpecDataSourceTypeBackup      InstanceSpecDataSourceType = "Backup"
+	InstanceSpecDataSourceTypePointInTime InstanceSpecDataSourceType = "PointInTime"
 )
 
 // Valid indicates whether the value is a known member of the InstanceSpecDataSourceType enum.
@@ -182,7 +200,25 @@ func (e InstanceSpecDataSourceType) Valid() bool {
 	switch e {
 	case InstanceSpecDataSourceTypeBackup:
 		return true
-	case InstanceSpecDataSourceTypeImport:
+	case InstanceSpecDataSourceTypePointInTime:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for InstanceStatusBackupStoragesPitrState.
+const (
+	InstanceStatusBackupStoragesPitrStateAvailable   InstanceStatusBackupStoragesPitrState = "Available"
+	InstanceStatusBackupStoragesPitrStateUnavailable InstanceStatusBackupStoragesPitrState = "Unavailable"
+)
+
+// Valid indicates whether the value is a known member of the InstanceStatusBackupStoragesPitrState enum.
+func (e InstanceStatusBackupStoragesPitrState) Valid() bool {
+	switch e {
+	case InstanceStatusBackupStoragesPitrStateAvailable:
+		return true
+	case InstanceStatusBackupStoragesPitrStateUnavailable:
 		return true
 	default:
 		return false
@@ -255,10 +291,28 @@ func (e InstanceStatusPhase) Valid() bool {
 	}
 }
 
+// Defines values for InstancePresetSpecDataSourcePointInTimeRecoveryTarget.
+const (
+	InstancePresetSpecDataSourcePointInTimeRecoveryTargetDate   InstancePresetSpecDataSourcePointInTimeRecoveryTarget = "date"
+	InstancePresetSpecDataSourcePointInTimeRecoveryTargetLatest InstancePresetSpecDataSourcePointInTimeRecoveryTarget = "latest"
+)
+
+// Valid indicates whether the value is a known member of the InstancePresetSpecDataSourcePointInTimeRecoveryTarget enum.
+func (e InstancePresetSpecDataSourcePointInTimeRecoveryTarget) Valid() bool {
+	switch e {
+	case InstancePresetSpecDataSourcePointInTimeRecoveryTargetDate:
+		return true
+	case InstancePresetSpecDataSourcePointInTimeRecoveryTargetLatest:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for InstancePresetSpecDataSourceType.
 const (
-	InstancePresetSpecDataSourceTypeBackup InstancePresetSpecDataSourceType = "Backup"
-	InstancePresetSpecDataSourceTypeImport InstancePresetSpecDataSourceType = "Import"
+	InstancePresetSpecDataSourceTypeBackup      InstancePresetSpecDataSourceType = "Backup"
+	InstancePresetSpecDataSourceTypePointInTime InstancePresetSpecDataSourceType = "PointInTime"
 )
 
 // Valid indicates whether the value is a known member of the InstancePresetSpecDataSourceType enum.
@@ -266,7 +320,7 @@ func (e InstancePresetSpecDataSourceType) Valid() bool {
 	switch e {
 	case InstancePresetSpecDataSourceTypeBackup:
 		return true
-	case InstancePresetSpecDataSourceTypeImport:
+	case InstancePresetSpecDataSourceTypePointInTime:
 		return true
 	default:
 		return false
@@ -351,10 +405,28 @@ func (e ProviderStatusConditionsStatus) Valid() bool {
 	}
 }
 
+// Defines values for RestoreSpecDataSourcePointInTimeRecoveryTarget.
+const (
+	RestoreSpecDataSourcePointInTimeRecoveryTargetDate   RestoreSpecDataSourcePointInTimeRecoveryTarget = "date"
+	RestoreSpecDataSourcePointInTimeRecoveryTargetLatest RestoreSpecDataSourcePointInTimeRecoveryTarget = "latest"
+)
+
+// Valid indicates whether the value is a known member of the RestoreSpecDataSourcePointInTimeRecoveryTarget enum.
+func (e RestoreSpecDataSourcePointInTimeRecoveryTarget) Valid() bool {
+	switch e {
+	case RestoreSpecDataSourcePointInTimeRecoveryTargetDate:
+		return true
+	case RestoreSpecDataSourcePointInTimeRecoveryTargetLatest:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for RestoreSpecDataSourceType.
 const (
-	RestoreSpecDataSourceTypeBackup RestoreSpecDataSourceType = "Backup"
-	RestoreSpecDataSourceTypeImport RestoreSpecDataSourceType = "Import"
+	RestoreSpecDataSourceTypeBackup      RestoreSpecDataSourceType = "Backup"
+	RestoreSpecDataSourceTypePointInTime RestoreSpecDataSourceType = "PointInTime"
 )
 
 // Valid indicates whether the value is a known member of the RestoreSpecDataSourceType enum.
@@ -362,7 +434,7 @@ func (e RestoreSpecDataSourceType) Valid() bool {
 	switch e {
 	case RestoreSpecDataSourceTypeBackup:
 		return true
-	case RestoreSpecDataSourceTypeImport:
+	case RestoreSpecDataSourceTypePointInTime:
 		return true
 	default:
 		return false
@@ -591,15 +663,6 @@ type BackupClass struct {
 		// ExecutionMode ExecutionMode selects between job-based and provider-managed execution.
 		ExecutionMode BackupClassSpecExecutionMode `json:"executionMode"`
 
-		// ImportParametersSchema ImportParametersSchema declares the OpenAPI v3 schema describing the import-time
-		// parameters accepted by this class. Validated against:
-		// - Instance.spec.dataSource.import.parameters
-		ImportParametersSchema *struct {
-			// OpenAPIV3Schema OpenAPIV3Schema is the OpenAPI v3 schema describing the accepted
-			// parameters payload.
-			OpenAPIV3Schema interface{} `json:"openAPIV3Schema,omitempty"`
-		} `json:"importParametersSchema,omitempty"`
-
 		// InstanceConstraints InstanceConstraints defines compatibility requirements that must be
 		// satisfied by an Instance before this backup class can be used with it.
 		InstanceConstraints *struct {
@@ -614,7 +677,7 @@ type BackupClass struct {
 		// "ProviderManaged".
 		Job *struct {
 			// Backup Backup describes the job spawned per Backup CR.
-			Backup *struct {
+			Backup struct {
 				// CleanupJobSpec CleanupJobSpec is the optional specification of a cleanup job that runs
 				// when the parent Backup or Restore CR is deleted.
 				CleanupJobSpec *struct {
@@ -677,76 +740,10 @@ type BackupClass struct {
 					// Verbs Verbs is a list of Verbs that apply to ALL the ResourceKinds contained in this rule. '*' represents all verbs.
 					Verbs []string `json:"verbs"`
 				} `json:"permissions,omitempty"`
-			} `json:"backup,omitempty"`
-
-			// Import Import describes the job spawned for Import data sources when using Job mode.
-			Import *struct {
-				// CleanupJobSpec CleanupJobSpec is the optional specification of a cleanup job that runs
-				// when the parent Backup or Restore CR is deleted.
-				CleanupJobSpec *struct {
-					// Command Command is the command to run the backup class.
-					Command *[]string `json:"command,omitempty"`
-
-					// Image Image is the image of the backup class.
-					Image *string `json:"image,omitempty"`
-				} `json:"cleanupJobSpec,omitempty"`
-
-				// ClusterPermissions ClusterPermissions are cluster-scoped PolicyRules granted via a
-				// generated ClusterRole and ClusterRoleBinding.
-				ClusterPermissions *[]struct {
-					// ApiGroups APIGroups is the name of the APIGroup that contains the resources.  If multiple API groups are specified, any action requested against one of
-					// the enumerated resources in any API group will be allowed. "" represents the core API group and "*" represents all API groups.
-					ApiGroups *[]string `json:"apiGroups,omitempty"`
-
-					// NonResourceURLs NonResourceURLs is a set of partial urls that a user should have access to.  *s are allowed, but only as the full, final step in the path
-					// Since non-resource URLs are not namespaced, this field is only applicable for ClusterRoles referenced from a ClusterRoleBinding.
-					// Rules can either apply to API resources (such as "pods" or "secrets") or non-resource URL paths (such as "/api"),  but not both.
-					NonResourceURLs *[]string `json:"nonResourceURLs,omitempty"`
-
-					// ResourceNames ResourceNames is an optional white list of names that the rule applies to.  An empty set means that everything is allowed.
-					ResourceNames *[]string `json:"resourceNames,omitempty"`
-
-					// Resources Resources is a list of resources this rule applies to. '*' represents all resources.
-					Resources *[]string `json:"resources,omitempty"`
-
-					// Verbs Verbs is a list of Verbs that apply to ALL the ResourceKinds contained in this rule. '*' represents all verbs.
-					Verbs []string `json:"verbs"`
-				} `json:"clusterPermissions,omitempty"`
-
-				// JobSpec JobSpec is the specification of the backup or restore job.
-				JobSpec struct {
-					// Command Command is the command to run the backup class.
-					Command *[]string `json:"command,omitempty"`
-
-					// Image Image is the image of the backup class.
-					Image *string `json:"image,omitempty"`
-				} `json:"jobSpec"`
-
-				// Permissions Permissions are namespace-scoped PolicyRules granted to the job pod via
-				// a generated Role and RoleBinding.
-				Permissions *[]struct {
-					// ApiGroups APIGroups is the name of the APIGroup that contains the resources.  If multiple API groups are specified, any action requested against one of
-					// the enumerated resources in any API group will be allowed. "" represents the core API group and "*" represents all API groups.
-					ApiGroups *[]string `json:"apiGroups,omitempty"`
-
-					// NonResourceURLs NonResourceURLs is a set of partial urls that a user should have access to.  *s are allowed, but only as the full, final step in the path
-					// Since non-resource URLs are not namespaced, this field is only applicable for ClusterRoles referenced from a ClusterRoleBinding.
-					// Rules can either apply to API resources (such as "pods" or "secrets") or non-resource URL paths (such as "/api"),  but not both.
-					NonResourceURLs *[]string `json:"nonResourceURLs,omitempty"`
-
-					// ResourceNames ResourceNames is an optional white list of names that the rule applies to.  An empty set means that everything is allowed.
-					ResourceNames *[]string `json:"resourceNames,omitempty"`
-
-					// Resources Resources is a list of resources this rule applies to. '*' represents all resources.
-					Resources *[]string `json:"resources,omitempty"`
-
-					// Verbs Verbs is a list of Verbs that apply to ALL the ResourceKinds contained in this rule. '*' represents all verbs.
-					Verbs []string `json:"verbs"`
-				} `json:"permissions,omitempty"`
-			} `json:"import,omitempty"`
+			} `json:"backup"`
 
 			// Restore Restore describes the job spawned per Restore CR. When unset, restores
-			// are not supported by this class. Requires Backup to be set.
+			// are not supported by this class.
 			Restore *struct {
 				// CleanupJobSpec CleanupJobSpec is the optional specification of a cleanup job that runs
 				// when the parent Backup or Restore CR is deleted.
@@ -860,14 +857,6 @@ type BackupClass struct {
 				// parameters payload.
 				OpenAPIV3Schema interface{} `json:"openAPIV3Schema,omitempty"`
 			} `json:"pitrParametersSchema,omitempty"`
-
-			// SupportsImport SupportsImport indicates whether this ProviderManaged class supports
-			// importing from external data sources (Instance.spec.dataSource.type=Import).
-			// When true, the provider handles imports by creating operator-native
-			// restore resources (e.g., PerconaServerMongoDBRestore) directly, without
-			// spawning a wrapper Job. The import configuration is validated against
-			// BackupClassSpec.ImportParametersSchema.
-			SupportsImport *bool `json:"supportsImport,omitempty"`
 
 			// SupportsPITR SupportsPITR indicates whether this class supports point-in-time recovery.
 			// Used by Restore validation when Restore.spec.dataSource.pitr is set.
@@ -1905,66 +1894,61 @@ type Instance struct {
 			Version *string `json:"version,omitempty"`
 		} `json:"components,omitempty"`
 
-		// DataSource DataSource allows populating a new Instance with data from an existing
-		// Backup CR (type=Backup) or by importing from external storage (type=Import).
+		// DataSource DataSource allows creating a new Instance from an existing
+		// Backup CR of another Instance.
 		//
-		// For type=Backup: The referenced Backup must be in the same namespace, in
-		// Succeeded state, and its BackupClass must list the Instance's provider in
-		// SupportedProviders. Only ProviderManaged BackupClasses are supported.
-		// Instance must have backup enabled and include a storage that matches the
+		// Only ProviderManaged BackupClasses are supported. The referenced Backup
+		// must be in the same namespace, in Succeeded state, and its BackupClass
+		// must list the Instance's provider in SupportedProviders. Instance must
+		// also have backup enabled and include a storage entry that matches the
 		// storage used by the source Backup so the provider can access the data.
-		//
-		// For type=Import: The Instance imports data from external storage.
-		// If classRef is not specified, the Instance's ProviderManaged BackupClass
-		// (spec.backup.classRef) is used and backup must be enabled and include
-		// a storage used by spec.dataSource.import.storageRef.
-		// If classRef is specified, that BackupClass is used directly using Job
-		// execution mode.
 		DataSource *struct {
-			// Backup Backup references an existing Backup CR in the same namespace.
-			// Required when type=Backup.
+			// Backup Backup identifies the backup to restore. Required when type=Backup.
 			Backup *struct {
 				// BackupRef BackupRef references the Backup CR in the same namespace.
 				BackupRef struct {
 					// Name Name of the referenced object.
 					Name string `json:"name"`
 				} `json:"backupRef"`
-
-				// Pitr PITR configures point-in-time recovery on top of this backup.
-				// The resolved BackupClass must advertise PITR support via
-				// .spec.providerManaged for this to be honoured.
-				Pitr *struct {
-					// Date Date is the target recovery point. Required when Type is "date".
-					Date *time.Time `json:"date,omitempty"`
-
-					// Type Type selects date-based or latest recovery.
-					Type interface{} `json:"type"`
-				} `json:"pitr,omitempty"`
 			} `json:"backup,omitempty"`
 
-			// Import Import imports from external storage.
-			// Required when type=Import.
-			Import *struct {
-				// ClassRef ClassRef references a BackupClass. Required for Job mode.
-				// ProviderManaged mode uses the Instance's backup class (spec.backup.classRef)
-				// and backup must be enabled.
-				ClassRef *struct {
-					// Name Name of the referenced object.
-					Name string `json:"name"`
-				} `json:"classRef,omitempty"`
+			// PointInTime PointInTime identifies the stream and the point to recover to.
+			// Required when type=PointInTime.
+			PointInTime *struct {
+				// Date Date is the recovery point, RFC 3339 with an explicit UTC offset.
+				// Required when RecoveryTarget is "date", forbidden otherwise. Providers
+				// convert it to the engine's expected representation; several engines
+				// interpret timezone-less timestamps as node-local, so the offset is not
+				// optional.
+				Date *time.Time `json:"date,omitempty"`
 
-				// Parameters Parameters contains all import configuration.
-				// Validated against BackupClass.spec.importParameterSchema.
-				Parameters map[string]interface{} `json:"parameters"`
+				// RecoveryTarget RecoveryTarget selects date-based or latest recovery. This enum is
+				// deliberately closed: date and latest are the only recovery targets that
+				// are meaningful without knowing which engine is running. Engine-specific
+				// targets (GTID, LSN, XID, named restore points) are out of scope.
+				RecoveryTarget InstanceSpecDataSourcePointInTimeRecoveryTarget `json:"recoveryTarget"`
 
-				// StorageRef StorageRef references a BackupStorage by name.
-				StorageRef struct {
-					// Name Name of the referenced object.
-					Name string `json:"name"`
-				} `json:"storageRef"`
-			} `json:"import,omitempty"`
+				// Source Source identifies the backup stream to recover from.
+				Source struct {
+					// InstanceRef InstanceRef names the Instance whose stream to recover. Defaults to the
+					// Restore's target Instance when omitted; required when seeding a new
+					// Instance via Instance.spec.dataSource, which has no stream of its own.
+					InstanceRef *struct {
+						// Name Name of the referenced object.
+						Name string `json:"name"`
+					} `json:"instanceRef,omitempty"`
 
-			// Type Type selects the data source kind.
+					// StorageRef StorageRef selects which of the source Instance's registered
+					// BackupStorages to read the stream from. It must name a storage with
+					// .pitr.enabled=true on that Instance.
+					StorageRef struct {
+						// Name Name of the referenced object.
+						Name string `json:"name"`
+					} `json:"storageRef"`
+				} `json:"source"`
+			} `json:"pointInTime,omitempty"`
+
+			// Type Type selects the restore intent.
 			Type InstanceSpecDataSourceType `json:"type"`
 		} `json:"dataSource,omitempty"`
 
@@ -2030,15 +2014,31 @@ type Instance struct {
 			// Storages Storages is the per-storage backup status, keyed by the logical storage
 			// name declared in spec.backup.storages.
 			Storages *[]struct {
-				// LatestRestorableTime LatestRestorableTime is the most recent point in time to which the
-				// instance can be restored using point-in-time recovery from this
-				// storage. Only populated when PITR is enabled for the storage and the
-				// engine reports a recovery window.
-				LatestRestorableTime *time.Time `json:"latestRestorableTime,omitempty"`
-
 				// Name Name is the BackupStorage name (matches
 				// spec.backup.storages[].storageRef.name).
 				Name string `json:"name"`
+
+				// Pitr PITR reports the point-in-time recovery window observed on this storage.
+				// Only populated when PITR is enabled for the storage.
+				Pitr *struct {
+					// EarliestRestorableTime EarliestRestorableTime is the start of the contiguous recovery window.
+					// Providers only ever move this forward relative to the oldest successful
+					// backup, so the advertised window never spans a known discontinuity.
+					// Unset means no restorable window is known.
+					EarliestRestorableTime *time.Time `json:"earliestRestorableTime,omitempty"`
+
+					// LatestRestorableTime LatestRestorableTime is the end of the contiguous recovery window.
+					LatestRestorableTime *time.Time `json:"latestRestorableTime,omitempty"`
+
+					// Message Message is a human-readable explanation of State.
+					Message *string `json:"message,omitempty"`
+
+					// Reason Reason is a CamelCase, machine-readable explanation of State.
+					Reason *string `json:"reason,omitempty"`
+
+					// State State summarises whether a trustworthy window exists.
+					State *InstanceStatusBackupStoragesPitrState `json:"state,omitempty"`
+				} `json:"pitr,omitempty"`
 			} `json:"storages,omitempty"`
 		} `json:"backup,omitempty"`
 
@@ -2150,8 +2150,17 @@ type Instance_Spec_Components_Storage_Size struct {
 	union json.RawMessage
 }
 
-// InstanceSpecDataSourceType Type selects the data source kind.
+// InstanceSpecDataSourcePointInTimeRecoveryTarget RecoveryTarget selects date-based or latest recovery. This enum is
+// deliberately closed: date and latest are the only recovery targets that
+// are meaningful without knowing which engine is running. Engine-specific
+// targets (GTID, LSN, XID, named restore points) are out of scope.
+type InstanceSpecDataSourcePointInTimeRecoveryTarget string
+
+// InstanceSpecDataSourceType Type selects the restore intent.
 type InstanceSpecDataSourceType string
+
+// InstanceStatusBackupStoragesPitrState State summarises whether a trustworthy window exists.
+type InstanceStatusBackupStoragesPitrState string
 
 // InstanceStatusConditionsStatus status of the condition, one of True, False, Unknown.
 type InstanceStatusConditionsStatus string
@@ -2900,66 +2909,61 @@ type InstancePreset struct {
 			Version *string `json:"version,omitempty"`
 		} `json:"components,omitempty"`
 
-		// DataSource DataSource allows populating a new Instance with data from an existing
-		// Backup CR (type=Backup) or by importing from external storage (type=Import).
+		// DataSource DataSource allows creating a new Instance from an existing
+		// Backup CR of another Instance.
 		//
-		// For type=Backup: The referenced Backup must be in the same namespace, in
-		// Succeeded state, and its BackupClass must list the Instance's provider in
-		// SupportedProviders. Only ProviderManaged BackupClasses are supported.
-		// Instance must have backup enabled and include a storage that matches the
+		// Only ProviderManaged BackupClasses are supported. The referenced Backup
+		// must be in the same namespace, in Succeeded state, and its BackupClass
+		// must list the Instance's provider in SupportedProviders. Instance must
+		// also have backup enabled and include a storage entry that matches the
 		// storage used by the source Backup so the provider can access the data.
-		//
-		// For type=Import: The Instance imports data from external storage.
-		// If classRef is not specified, the Instance's ProviderManaged BackupClass
-		// (spec.backup.classRef) is used and backup must be enabled and include
-		// a storage used by spec.dataSource.import.storageRef.
-		// If classRef is specified, that BackupClass is used directly using Job
-		// execution mode.
 		DataSource *struct {
-			// Backup Backup references an existing Backup CR in the same namespace.
-			// Required when type=Backup.
+			// Backup Backup identifies the backup to restore. Required when type=Backup.
 			Backup *struct {
 				// BackupRef BackupRef references the Backup CR in the same namespace.
 				BackupRef struct {
 					// Name Name of the referenced object.
 					Name string `json:"name"`
 				} `json:"backupRef"`
-
-				// Pitr PITR configures point-in-time recovery on top of this backup.
-				// The resolved BackupClass must advertise PITR support via
-				// .spec.providerManaged for this to be honoured.
-				Pitr *struct {
-					// Date Date is the target recovery point. Required when Type is "date".
-					Date *time.Time `json:"date,omitempty"`
-
-					// Type Type selects date-based or latest recovery.
-					Type interface{} `json:"type"`
-				} `json:"pitr,omitempty"`
 			} `json:"backup,omitempty"`
 
-			// Import Import imports from external storage.
-			// Required when type=Import.
-			Import *struct {
-				// ClassRef ClassRef references a BackupClass. Required for Job mode.
-				// ProviderManaged mode uses the Instance's backup class (spec.backup.classRef)
-				// and backup must be enabled.
-				ClassRef *struct {
-					// Name Name of the referenced object.
-					Name string `json:"name"`
-				} `json:"classRef,omitempty"`
+			// PointInTime PointInTime identifies the stream and the point to recover to.
+			// Required when type=PointInTime.
+			PointInTime *struct {
+				// Date Date is the recovery point, RFC 3339 with an explicit UTC offset.
+				// Required when RecoveryTarget is "date", forbidden otherwise. Providers
+				// convert it to the engine's expected representation; several engines
+				// interpret timezone-less timestamps as node-local, so the offset is not
+				// optional.
+				Date *time.Time `json:"date,omitempty"`
 
-				// Parameters Parameters contains all import configuration.
-				// Validated against BackupClass.spec.importParameterSchema.
-				Parameters map[string]interface{} `json:"parameters"`
+				// RecoveryTarget RecoveryTarget selects date-based or latest recovery. This enum is
+				// deliberately closed: date and latest are the only recovery targets that
+				// are meaningful without knowing which engine is running. Engine-specific
+				// targets (GTID, LSN, XID, named restore points) are out of scope.
+				RecoveryTarget InstancePresetSpecDataSourcePointInTimeRecoveryTarget `json:"recoveryTarget"`
 
-				// StorageRef StorageRef references a BackupStorage by name.
-				StorageRef struct {
-					// Name Name of the referenced object.
-					Name string `json:"name"`
-				} `json:"storageRef"`
-			} `json:"import,omitempty"`
+				// Source Source identifies the backup stream to recover from.
+				Source struct {
+					// InstanceRef InstanceRef names the Instance whose stream to recover. Defaults to the
+					// Restore's target Instance when omitted; required when seeding a new
+					// Instance via Instance.spec.dataSource, which has no stream of its own.
+					InstanceRef *struct {
+						// Name Name of the referenced object.
+						Name string `json:"name"`
+					} `json:"instanceRef,omitempty"`
 
-			// Type Type selects the data source kind.
+					// StorageRef StorageRef selects which of the source Instance's registered
+					// BackupStorages to read the stream from. It must name a storage with
+					// .pitr.enabled=true on that Instance.
+					StorageRef struct {
+						// Name Name of the referenced object.
+						Name string `json:"name"`
+					} `json:"storageRef"`
+				} `json:"source"`
+			} `json:"pointInTime,omitempty"`
+
+			// Type Type selects the restore intent.
 			Type InstancePresetSpecDataSourceType `json:"type"`
 		} `json:"dataSource,omitempty"`
 
@@ -3082,7 +3086,13 @@ type InstancePreset_Spec_Components_Storage_Size struct {
 	union json.RawMessage
 }
 
-// InstancePresetSpecDataSourceType Type selects the data source kind.
+// InstancePresetSpecDataSourcePointInTimeRecoveryTarget RecoveryTarget selects date-based or latest recovery. This enum is
+// deliberately closed: date and latest are the only recovery targets that
+// are meaningful without knowing which engine is running. Engine-specific
+// targets (GTID, LSN, XID, named restore points) are out of scope.
+type InstancePresetSpecDataSourcePointInTimeRecoveryTarget string
+
+// InstancePresetSpecDataSourceType Type selects the restore intent.
 type InstancePresetSpecDataSourceType string
 
 // InstancePresetStatusConditionsStatus status of the condition, one of True, False, Unknown.
@@ -3287,10 +3297,12 @@ type Plugin struct {
 				// Path Path is an optional sub-path (used by "route" and tab-type extension points).
 				Path *string `json:"path,omitempty"`
 
-				// Providers Providers is an optional list of database engine types this extension point
-				// applies to. Values match spec.engine.type on the DatabaseCluster CR:
-				// "postgresql", "psmdb", "pxc".
-				// When omitted or empty, the extension point is shown for all engine types.
+				// Providers Providers is an optional list of Provider names this extension point
+				// applies to. Values match spec.providerRef.name on the Instance CR, e.g.
+				// "provider-percona-postgresql", "percona-server-mongodb",
+				// "percona-xtradb-cluster". Provider names are not prefix-consistent
+				// across providers; check the target provider's own definition.
+				// When omitted or empty, the extension point is shown for all providers.
 				Providers *[]string `json:"providers,omitempty"`
 
 				// Type Type is the kind of extension point (e.g. "route", "sidebarItem",
@@ -3567,52 +3579,56 @@ type Restore struct {
 
 	// Spec RestoreSpec defines the desired state of Restore.
 	Spec struct {
-		// DataSource DataSource defines where the backup data to restore from is located.
+		// DataSource DataSource identifies the data to restore from. The same type is used
+		// by Instance.spec.dataSource when seeding a new Instance, so both paths
+		// identify a source identically.
 		DataSource struct {
-			// Backup Backup references an existing Backup CR in the same namespace.
-			// Required when type=Backup.
+			// Backup Backup identifies the backup to restore. Required when type=Backup.
 			Backup *struct {
 				// BackupRef BackupRef references the Backup CR in the same namespace.
 				BackupRef struct {
 					// Name Name of the referenced object.
 					Name string `json:"name"`
 				} `json:"backupRef"`
-
-				// Pitr PITR configures point-in-time recovery on top of this backup.
-				// The resolved BackupClass must advertise PITR support via
-				// .spec.providerManaged for this to be honoured.
-				Pitr *struct {
-					// Date Date is the target recovery point. Required when Type is "date".
-					Date *time.Time `json:"date,omitempty"`
-
-					// Type Type selects date-based or latest recovery.
-					Type interface{} `json:"type"`
-				} `json:"pitr,omitempty"`
 			} `json:"backup,omitempty"`
 
-			// Import Import imports from external storage.
-			// Required when type=Import.
-			Import *struct {
-				// ClassRef ClassRef references a BackupClass. Required for Job mode.
-				// ProviderManaged mode uses the Instance's backup class (spec.backup.classRef)
-				// and backup must be enabled.
-				ClassRef *struct {
-					// Name Name of the referenced object.
-					Name string `json:"name"`
-				} `json:"classRef,omitempty"`
+			// PointInTime PointInTime identifies the stream and the point to recover to.
+			// Required when type=PointInTime.
+			PointInTime *struct {
+				// Date Date is the recovery point, RFC 3339 with an explicit UTC offset.
+				// Required when RecoveryTarget is "date", forbidden otherwise. Providers
+				// convert it to the engine's expected representation; several engines
+				// interpret timezone-less timestamps as node-local, so the offset is not
+				// optional.
+				Date *time.Time `json:"date,omitempty"`
 
-				// Parameters Parameters contains all import configuration.
-				// Validated against BackupClass.spec.importParameterSchema.
-				Parameters map[string]interface{} `json:"parameters"`
+				// RecoveryTarget RecoveryTarget selects date-based or latest recovery. This enum is
+				// deliberately closed: date and latest are the only recovery targets that
+				// are meaningful without knowing which engine is running. Engine-specific
+				// targets (GTID, LSN, XID, named restore points) are out of scope.
+				RecoveryTarget RestoreSpecDataSourcePointInTimeRecoveryTarget `json:"recoveryTarget"`
 
-				// StorageRef StorageRef references a BackupStorage by name.
-				StorageRef struct {
-					// Name Name of the referenced object.
-					Name string `json:"name"`
-				} `json:"storageRef"`
-			} `json:"import,omitempty"`
+				// Source Source identifies the backup stream to recover from.
+				Source struct {
+					// InstanceRef InstanceRef names the Instance whose stream to recover. Defaults to the
+					// Restore's target Instance when omitted; required when seeding a new
+					// Instance via Instance.spec.dataSource, which has no stream of its own.
+					InstanceRef *struct {
+						// Name Name of the referenced object.
+						Name string `json:"name"`
+					} `json:"instanceRef,omitempty"`
 
-			// Type Type selects the data source kind.
+					// StorageRef StorageRef selects which of the source Instance's registered
+					// BackupStorages to read the stream from. It must name a storage with
+					// .pitr.enabled=true on that Instance.
+					StorageRef struct {
+						// Name Name of the referenced object.
+						Name string `json:"name"`
+					} `json:"storageRef"`
+				} `json:"source"`
+			} `json:"pointInTime,omitempty"`
+
+			// Type Type selects the restore intent.
 			Type RestoreSpecDataSourceType `json:"type"`
 		} `json:"dataSource"`
 
@@ -3625,7 +3641,9 @@ type Restore struct {
 		} `json:"instanceRef"`
 
 		// Parameters Parameters is the restore-time structured configuration validated
-		// against the BackupClass's .spec.restoreParametersSchema.
+		// against the resolved BackupClass's .spec.restoreParametersSchema. It
+		// carries restore *operation* modifiers -- how the data is applied --
+		// and applies to both data source types.
 		Parameters *map[string]interface{} `json:"parameters,omitempty"`
 	} `json:"spec"`
 
@@ -3701,7 +3719,13 @@ type Restore struct {
 	} `json:"status,omitempty"`
 }
 
-// RestoreSpecDataSourceType Type selects the data source kind.
+// RestoreSpecDataSourcePointInTimeRecoveryTarget RecoveryTarget selects date-based or latest recovery. This enum is
+// deliberately closed: date and latest are the only recovery targets that
+// are meaningful without knowing which engine is running. Engine-specific
+// targets (GTID, LSN, XID, named restore points) are out of scope.
+type RestoreSpecDataSourcePointInTimeRecoveryTarget string
+
+// RestoreSpecDataSourceType Type selects the restore intent.
 type RestoreSpecDataSourceType string
 
 // RestoreStatusConditionsStatus status of the condition, one of True, False, Unknown.

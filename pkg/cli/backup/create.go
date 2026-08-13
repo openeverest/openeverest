@@ -29,14 +29,18 @@ import (
 
 	"github.com/openeverest/openeverest/v2/client"
 	authcli "github.com/openeverest/openeverest/v2/pkg/cli/auth"
+	"github.com/openeverest/openeverest/v2/pkg/cli/clienterr"
 	"github.com/openeverest/openeverest/v2/pkg/cli/wait"
 	"github.com/openeverest/openeverest/v2/pkg/output"
 )
 
-// terminal backup states.
+// backup state values (client.Backup.Status.State).
 const (
+	backupStatePending   = "Pending"
+	backupStateRunning   = "Running"
 	backupStateSucceeded = "Succeeded"
 	backupStateFailed    = "Failed"
+	backupStateError     = "Error"
 )
 
 // CreateOptions holds the inputs for the create command.
@@ -100,8 +104,8 @@ func (cr *CreateRunner) Run(ctx context.Context, opts CreateOptions, cfgPath str
 		if resp.StatusCode() == http.StatusConflict {
 			return fmt.Errorf("backup %q already exists in namespace %q", opts.Name, opts.Namespace)
 		}
-		if resp.JSONDefault != nil && resp.JSONDefault.Message != nil {
-			return fmt.Errorf("server error: %s", *resp.JSONDefault.Message)
+		if msg, ok := clienterr.Message(resp.JSONDefault); ok {
+			return fmt.Errorf("server error: %s", msg)
 		}
 		return fmt.Errorf("unexpected response creating backup: %s", resp.Status())
 	}
@@ -121,10 +125,6 @@ func (cr *CreateRunner) emitCreated(created *client.Backup, name string) error {
 	if cr.config.Pretty {
 		_, _ = fmt.Fprint(os.Stdout, output.Success("Backup %q created", name))
 		return nil
-	}
-	// A 201 with an unparseable body would otherwise emit empty stdout.
-	if created == nil {
-		return fmt.Errorf("backup %q was created but the server returned an unreadable response body", name)
 	}
 	return writeBackupJSON(created)
 }
@@ -177,9 +177,6 @@ func (cr *CreateRunner) waitForBackup(
 }
 
 func writeBackupJSON(b *client.Backup) error {
-	if b == nil {
-		return nil
-	}
 	if err := json.NewEncoder(os.Stdout).Encode(b); err != nil {
 		return fmt.Errorf("failed to encode backup: %w", err)
 	}

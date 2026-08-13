@@ -2210,78 +2210,73 @@ export interface components {
                     };
                 };
                 /**
-                 * @description DataSource allows populating a new Instance with data from an existing
-                 *     Backup CR (type=Backup) or by importing from external storage (type=Import).
+                 * @description DataSource allows creating a new Instance from an existing
+                 *     Backup CR of another Instance.
                  *
-                 *     For type=Backup: The referenced Backup must be in the same namespace, in
-                 *     Succeeded state, and its BackupClass must list the Instance's provider in
-                 *     SupportedProviders. Only ProviderManaged BackupClasses are supported.
-                 *     Instance must have backup enabled and include a storage that matches the
+                 *     Only ProviderManaged BackupClasses are supported. The referenced Backup
+                 *     must be in the same namespace, in Succeeded state, and its BackupClass
+                 *     must list the Instance's provider in SupportedProviders. Instance must
+                 *     also have backup enabled and include a storage entry that matches the
                  *     storage used by the source Backup so the provider can access the data.
-                 *
-                 *     For type=Import: The Instance imports data from external storage.
-                 *     If classRef is not specified, the Instance's ProviderManaged BackupClass
-                 *     (spec.backup.classRef) is used and backup must be enabled and include
-                 *     a storage used by spec.dataSource.import.storageRef.
-                 *     If classRef is specified, that BackupClass is used directly using Job
-                 *     execution mode.
                  */
                 dataSource?: {
-                    /**
-                     * @description Backup references an existing Backup CR in the same namespace.
-                     *     Required when type=Backup.
-                     */
+                    /** @description Backup identifies the backup to restore. Required when type=Backup. */
                     backup?: {
                         /** @description BackupRef references the Backup CR in the same namespace. */
                         backupRef: {
                             /** @description Name of the referenced object. */
                             name: string;
                         };
-                        /**
-                         * @description PITR configures point-in-time recovery on top of this backup.
-                         *     The resolved BackupClass must advertise PITR support via
-                         *     .spec.providerManaged for this to be honoured.
-                         */
-                        pitr?: {
-                            /**
-                             * Format: date-time
-                             * @description Date is the target recovery point. Required when Type is "date".
-                             */
-                            date?: string;
-                            /** @description Type selects date-based or latest recovery. */
-                            type: string & (("date" | "latest") & ("date" | "latest"));
-                        };
                     };
                     /**
-                     * @description Import imports from external storage.
-                     *     Required when type=Import.
+                     * @description PointInTime identifies the stream and the point to recover to.
+                     *     Required when type=PointInTime.
                      */
-                    import?: {
+                    pointInTime?: {
                         /**
-                         * @description ClassRef references a BackupClass. Required for Job mode.
-                         *     ProviderManaged mode uses the Instance's backup class (spec.backup.classRef)
-                         *     and backup must be enabled.
+                         * Format: date-time
+                         * @description Date is the recovery point, RFC 3339 with an explicit UTC offset.
+                         *     Required when RecoveryTarget is "date", forbidden otherwise. Providers
+                         *     convert it to the engine's expected representation; several engines
+                         *     interpret timezone-less timestamps as node-local, so the offset is not
+                         *     optional.
                          */
-                        classRef?: {
-                            /** @description Name of the referenced object. */
-                            name: string;
-                        };
+                        date?: string;
                         /**
-                         * @description Parameters contains all import configuration.
-                         *     Validated against BackupClass.spec.importParameterSchema.
+                         * @description RecoveryTarget selects date-based or latest recovery. This enum is
+                         *     deliberately closed: date and latest are the only recovery targets that
+                         *     are meaningful without knowing which engine is running. Engine-specific
+                         *     targets (GTID, LSN, XID, named restore points) are out of scope.
+                         * @enum {string}
                          */
-                        parameters: Record<string, never>;
-                        /** @description StorageRef references a BackupStorage by name. */
-                        storageRef: {
-                            /** @description Name of the referenced object. */
-                            name: string;
+                        recoveryTarget: "date" | "latest";
+                        /** @description Source identifies the backup stream to recover from. */
+                        source: {
+                            /**
+                             * @description InstanceRef names the Instance whose stream to recover. Defaults to the
+                             *     Restore's target Instance when omitted; required when seeding a new
+                             *     Instance via Instance.spec.dataSource, which has no stream of its own.
+                             */
+                            instanceRef?: {
+                                /** @description Name of the referenced object. */
+                                name: string;
+                            };
+                            /**
+                             * @description StorageRef selects which of the source Instance's registered
+                             *     BackupStorages to read the stream from. It must name a storage with
+                             *     .pitr.enabled=true on that Instance.
+                             */
+                            storageRef: {
+                                /** @description Name of the referenced object. */
+                                name: string;
+                            };
                         };
                     };
                     /**
-                     * @description Type selects the data source kind.
+                     * @description Type selects the restore intent.
                      * @enum {string}
                      */
-                    type: "Backup" | "Import";
+                    type: "Backup" | "PointInTime";
                 };
                 /**
                  * @description DeletionPolicy controls what happens to Backup and Restore CRs that
@@ -3435,78 +3430,73 @@ export interface components {
                     };
                 };
                 /**
-                 * @description DataSource allows populating a new Instance with data from an existing
-                 *     Backup CR (type=Backup) or by importing from external storage (type=Import).
+                 * @description DataSource allows creating a new Instance from an existing
+                 *     Backup CR of another Instance.
                  *
-                 *     For type=Backup: The referenced Backup must be in the same namespace, in
-                 *     Succeeded state, and its BackupClass must list the Instance's provider in
-                 *     SupportedProviders. Only ProviderManaged BackupClasses are supported.
-                 *     Instance must have backup enabled and include a storage that matches the
+                 *     Only ProviderManaged BackupClasses are supported. The referenced Backup
+                 *     must be in the same namespace, in Succeeded state, and its BackupClass
+                 *     must list the Instance's provider in SupportedProviders. Instance must
+                 *     also have backup enabled and include a storage entry that matches the
                  *     storage used by the source Backup so the provider can access the data.
-                 *
-                 *     For type=Import: The Instance imports data from external storage.
-                 *     If classRef is not specified, the Instance's ProviderManaged BackupClass
-                 *     (spec.backup.classRef) is used and backup must be enabled and include
-                 *     a storage used by spec.dataSource.import.storageRef.
-                 *     If classRef is specified, that BackupClass is used directly using Job
-                 *     execution mode.
                  */
                 dataSource?: {
-                    /**
-                     * @description Backup references an existing Backup CR in the same namespace.
-                     *     Required when type=Backup.
-                     */
+                    /** @description Backup identifies the backup to restore. Required when type=Backup. */
                     backup?: {
                         /** @description BackupRef references the Backup CR in the same namespace. */
                         backupRef: {
                             /** @description Name of the referenced object. */
                             name: string;
                         };
-                        /**
-                         * @description PITR configures point-in-time recovery on top of this backup.
-                         *     The resolved BackupClass must advertise PITR support via
-                         *     .spec.providerManaged for this to be honoured.
-                         */
-                        pitr?: {
-                            /**
-                             * Format: date-time
-                             * @description Date is the target recovery point. Required when Type is "date".
-                             */
-                            date?: string;
-                            /** @description Type selects date-based or latest recovery. */
-                            type: string & (("date" | "latest") & ("date" | "latest"));
-                        };
                     };
                     /**
-                     * @description Import imports from external storage.
-                     *     Required when type=Import.
+                     * @description PointInTime identifies the stream and the point to recover to.
+                     *     Required when type=PointInTime.
                      */
-                    import?: {
+                    pointInTime?: {
                         /**
-                         * @description ClassRef references a BackupClass. Required for Job mode.
-                         *     ProviderManaged mode uses the Instance's backup class (spec.backup.classRef)
-                         *     and backup must be enabled.
+                         * Format: date-time
+                         * @description Date is the recovery point, RFC 3339 with an explicit UTC offset.
+                         *     Required when RecoveryTarget is "date", forbidden otherwise. Providers
+                         *     convert it to the engine's expected representation; several engines
+                         *     interpret timezone-less timestamps as node-local, so the offset is not
+                         *     optional.
                          */
-                        classRef?: {
-                            /** @description Name of the referenced object. */
-                            name: string;
-                        };
+                        date?: string;
                         /**
-                         * @description Parameters contains all import configuration.
-                         *     Validated against BackupClass.spec.importParameterSchema.
+                         * @description RecoveryTarget selects date-based or latest recovery. This enum is
+                         *     deliberately closed: date and latest are the only recovery targets that
+                         *     are meaningful without knowing which engine is running. Engine-specific
+                         *     targets (GTID, LSN, XID, named restore points) are out of scope.
+                         * @enum {string}
                          */
-                        parameters: Record<string, never>;
-                        /** @description StorageRef references a BackupStorage by name. */
-                        storageRef: {
-                            /** @description Name of the referenced object. */
-                            name: string;
+                        recoveryTarget: "date" | "latest";
+                        /** @description Source identifies the backup stream to recover from. */
+                        source: {
+                            /**
+                             * @description InstanceRef names the Instance whose stream to recover. Defaults to the
+                             *     Restore's target Instance when omitted; required when seeding a new
+                             *     Instance via Instance.spec.dataSource, which has no stream of its own.
+                             */
+                            instanceRef?: {
+                                /** @description Name of the referenced object. */
+                                name: string;
+                            };
+                            /**
+                             * @description StorageRef selects which of the source Instance's registered
+                             *     BackupStorages to read the stream from. It must name a storage with
+                             *     .pitr.enabled=true on that Instance.
+                             */
+                            storageRef: {
+                                /** @description Name of the referenced object. */
+                                name: string;
+                            };
                         };
                     };
                     /**
-                     * @description Type selects the data source kind.
+                     * @description Type selects the restore intent.
                      * @enum {string}
                      */
-                    type: "Backup" | "Import";
+                    type: "Backup" | "PointInTime";
                 };
                 /**
                  * @description DeletionPolicy controls what happens to Backup and Restore CRs that
@@ -3582,18 +3572,38 @@ export interface components {
                      */
                     storages?: {
                         /**
-                         * Format: date-time
-                         * @description LatestRestorableTime is the most recent point in time to which the
-                         *     instance can be restored using point-in-time recovery from this
-                         *     storage. Only populated when PITR is enabled for the storage and the
-                         *     engine reports a recovery window.
-                         */
-                        latestRestorableTime?: string;
-                        /**
                          * @description Name is the BackupStorage name (matches
                          *     spec.backup.storages[].storageRef.name).
                          */
                         name: string;
+                        /**
+                         * @description PITR reports the point-in-time recovery window observed on this storage.
+                         *     Only populated when PITR is enabled for the storage.
+                         */
+                        pitr?: {
+                            /**
+                             * Format: date-time
+                             * @description EarliestRestorableTime is the start of the contiguous recovery window.
+                             *     Providers only ever move this forward relative to the oldest successful
+                             *     backup, so the advertised window never spans a known discontinuity.
+                             *     Unset means no restorable window is known.
+                             */
+                            earliestRestorableTime?: string;
+                            /**
+                             * Format: date-time
+                             * @description LatestRestorableTime is the end of the contiguous recovery window.
+                             */
+                            latestRestorableTime?: string;
+                            /** @description Message is a human-readable explanation of State. */
+                            message?: string;
+                            /** @description Reason is a CamelCase, machine-readable explanation of State. */
+                            reason?: string;
+                            /**
+                             * @description State summarises whether a trustworthy window exists.
+                             * @enum {string}
+                             */
+                            state?: "Available" | "Unavailable";
+                        };
                     }[];
                 };
                 /** @description Components is the status of the components in the database cluster. */
@@ -3919,63 +3929,69 @@ export interface components {
             metadata?: components["schemas"]["ObjectMeta"];
             /** @description RestoreSpec defines the desired state of Restore. */
             spec: {
-                /** @description DataSource defines where the backup data to restore from is located. */
+                /**
+                 * @description DataSource identifies the data to restore from. The same type is used
+                 *     by Instance.spec.dataSource when seeding a new Instance, so both paths
+                 *     identify a source identically.
+                 */
                 dataSource: {
-                    /**
-                     * @description Backup references an existing Backup CR in the same namespace.
-                     *     Required when type=Backup.
-                     */
+                    /** @description Backup identifies the backup to restore. Required when type=Backup. */
                     backup?: {
                         /** @description BackupRef references the Backup CR in the same namespace. */
                         backupRef: {
                             /** @description Name of the referenced object. */
                             name: string;
                         };
-                        /**
-                         * @description PITR configures point-in-time recovery on top of this backup.
-                         *     The resolved BackupClass must advertise PITR support via
-                         *     .spec.providerManaged for this to be honoured.
-                         */
-                        pitr?: {
-                            /**
-                             * Format: date-time
-                             * @description Date is the target recovery point. Required when Type is "date".
-                             */
-                            date?: string;
-                            /** @description Type selects date-based or latest recovery. */
-                            type: string & (("date" | "latest") & ("date" | "latest"));
-                        };
                     };
                     /**
-                     * @description Import imports from external storage.
-                     *     Required when type=Import.
+                     * @description PointInTime identifies the stream and the point to recover to.
+                     *     Required when type=PointInTime.
                      */
-                    import?: {
+                    pointInTime?: {
                         /**
-                         * @description ClassRef references a BackupClass. Required for Job mode.
-                         *     ProviderManaged mode uses the Instance's backup class (spec.backup.classRef)
-                         *     and backup must be enabled.
+                         * Format: date-time
+                         * @description Date is the recovery point, RFC 3339 with an explicit UTC offset.
+                         *     Required when RecoveryTarget is "date", forbidden otherwise. Providers
+                         *     convert it to the engine's expected representation; several engines
+                         *     interpret timezone-less timestamps as node-local, so the offset is not
+                         *     optional.
                          */
-                        classRef?: {
-                            /** @description Name of the referenced object. */
-                            name: string;
-                        };
+                        date?: string;
                         /**
-                         * @description Parameters contains all import configuration.
-                         *     Validated against BackupClass.spec.importParameterSchema.
+                         * @description RecoveryTarget selects date-based or latest recovery. This enum is
+                         *     deliberately closed: date and latest are the only recovery targets that
+                         *     are meaningful without knowing which engine is running. Engine-specific
+                         *     targets (GTID, LSN, XID, named restore points) are out of scope.
+                         * @enum {string}
                          */
-                        parameters: Record<string, never>;
-                        /** @description StorageRef references a BackupStorage by name. */
-                        storageRef: {
-                            /** @description Name of the referenced object. */
-                            name: string;
+                        recoveryTarget: "date" | "latest";
+                        /** @description Source identifies the backup stream to recover from. */
+                        source: {
+                            /**
+                             * @description InstanceRef names the Instance whose stream to recover. Defaults to the
+                             *     Restore's target Instance when omitted; required when seeding a new
+                             *     Instance via Instance.spec.dataSource, which has no stream of its own.
+                             */
+                            instanceRef?: {
+                                /** @description Name of the referenced object. */
+                                name: string;
+                            };
+                            /**
+                             * @description StorageRef selects which of the source Instance's registered
+                             *     BackupStorages to read the stream from. It must name a storage with
+                             *     .pitr.enabled=true on that Instance.
+                             */
+                            storageRef: {
+                                /** @description Name of the referenced object. */
+                                name: string;
+                            };
                         };
                     };
                     /**
-                     * @description Type selects the data source kind.
+                     * @description Type selects the restore intent.
                      * @enum {string}
                      */
-                    type: "Backup" | "Import";
+                    type: "Backup" | "PointInTime";
                 };
                 /**
                  * @description InstanceRef references the Instance to restore into. The Instance
@@ -3988,7 +4004,9 @@ export interface components {
                 };
                 /**
                  * @description Parameters is the restore-time structured configuration validated
-                 *     against the BackupClass's .spec.restoreParametersSchema.
+                 *     against the resolved BackupClass's .spec.restoreParametersSchema. It
+                 *     carries restore *operation* modifiers -- how the data is applied --
+                 *     and applies to both data source types.
                  */
                 parameters?: Record<string, never>;
             };
@@ -4124,18 +4142,6 @@ export interface components {
                  */
                 executionMode: "ProviderManaged" | "Job";
                 /**
-                 * @description ImportParametersSchema declares the OpenAPI v3 schema describing the import-time
-                 *     parameters accepted by this class. Validated against:
-                 *     - Instance.spec.dataSource.import.parameters
-                 */
-                importParametersSchema?: {
-                    /**
-                     * @description OpenAPIV3Schema is the OpenAPI v3 schema describing the accepted
-                     *     parameters payload.
-                     */
-                    openAPIV3Schema?: unknown;
-                };
-                /**
                  * @description InstanceConstraints defines compatibility requirements that must be
                  *     satisfied by an Instance before this backup class can be used with it.
                  */
@@ -4154,73 +4160,7 @@ export interface components {
                  */
                 job?: {
                     /** @description Backup describes the job spawned per Backup CR. */
-                    backup?: {
-                        /**
-                         * @description CleanupJobSpec is the optional specification of a cleanup job that runs
-                         *     when the parent Backup or Restore CR is deleted.
-                         */
-                        cleanupJobSpec?: {
-                            /** @description Command is the command to run the backup class. */
-                            command?: string[];
-                            /** @description Image is the image of the backup class. */
-                            image?: string;
-                        };
-                        /**
-                         * @description ClusterPermissions are cluster-scoped PolicyRules granted via a
-                         *     generated ClusterRole and ClusterRoleBinding.
-                         */
-                        clusterPermissions?: {
-                            /**
-                             * @description APIGroups is the name of the APIGroup that contains the resources.  If multiple API groups are specified, any action requested against one of
-                             *     the enumerated resources in any API group will be allowed. "" represents the core API group and "*" represents all API groups.
-                             */
-                            apiGroups?: string[];
-                            /**
-                             * @description NonResourceURLs is a set of partial urls that a user should have access to.  *s are allowed, but only as the full, final step in the path
-                             *     Since non-resource URLs are not namespaced, this field is only applicable for ClusterRoles referenced from a ClusterRoleBinding.
-                             *     Rules can either apply to API resources (such as "pods" or "secrets") or non-resource URL paths (such as "/api"),  but not both.
-                             */
-                            nonResourceURLs?: string[];
-                            /** @description ResourceNames is an optional white list of names that the rule applies to.  An empty set means that everything is allowed. */
-                            resourceNames?: string[];
-                            /** @description Resources is a list of resources this rule applies to. '*' represents all resources. */
-                            resources?: string[];
-                            /** @description Verbs is a list of Verbs that apply to ALL the ResourceKinds contained in this rule. '*' represents all verbs. */
-                            verbs: string[];
-                        }[];
-                        /** @description JobSpec is the specification of the backup or restore job. */
-                        jobSpec: {
-                            /** @description Command is the command to run the backup class. */
-                            command?: string[];
-                            /** @description Image is the image of the backup class. */
-                            image?: string;
-                        };
-                        /**
-                         * @description Permissions are namespace-scoped PolicyRules granted to the job pod via
-                         *     a generated Role and RoleBinding.
-                         */
-                        permissions?: {
-                            /**
-                             * @description APIGroups is the name of the APIGroup that contains the resources.  If multiple API groups are specified, any action requested against one of
-                             *     the enumerated resources in any API group will be allowed. "" represents the core API group and "*" represents all API groups.
-                             */
-                            apiGroups?: string[];
-                            /**
-                             * @description NonResourceURLs is a set of partial urls that a user should have access to.  *s are allowed, but only as the full, final step in the path
-                             *     Since non-resource URLs are not namespaced, this field is only applicable for ClusterRoles referenced from a ClusterRoleBinding.
-                             *     Rules can either apply to API resources (such as "pods" or "secrets") or non-resource URL paths (such as "/api"),  but not both.
-                             */
-                            nonResourceURLs?: string[];
-                            /** @description ResourceNames is an optional white list of names that the rule applies to.  An empty set means that everything is allowed. */
-                            resourceNames?: string[];
-                            /** @description Resources is a list of resources this rule applies to. '*' represents all resources. */
-                            resources?: string[];
-                            /** @description Verbs is a list of Verbs that apply to ALL the ResourceKinds contained in this rule. '*' represents all verbs. */
-                            verbs: string[];
-                        }[];
-                    };
-                    /** @description Import describes the job spawned for Import data sources when using Job mode. */
-                    import?: {
+                    backup: {
                         /**
                          * @description CleanupJobSpec is the optional specification of a cleanup job that runs
                          *     when the parent Backup or Restore CR is deleted.
@@ -4287,7 +4227,7 @@ export interface components {
                     };
                     /**
                      * @description Restore describes the job spawned per Restore CR. When unset, restores
-                     *     are not supported by this class. Requires Backup to be set.
+                     *     are not supported by this class.
                      */
                     restore?: {
                         /**
@@ -4419,15 +4359,6 @@ export interface components {
                          */
                         openAPIV3Schema?: unknown;
                     };
-                    /**
-                     * @description SupportsImport indicates whether this ProviderManaged class supports
-                     *     importing from external data sources (Instance.spec.dataSource.type=Import).
-                     *     When true, the provider handles imports by creating operator-native
-                     *     restore resources (e.g., PerconaServerMongoDBRestore) directly, without
-                     *     spawning a wrapper Job. The import configuration is validated against
-                     *     BackupClassSpec.ImportParametersSchema.
-                     */
-                    supportsImport?: boolean;
                     /**
                      * @description SupportsPITR indicates whether this class supports point-in-time recovery.
                      *     Used by Restore validation when Restore.spec.dataSource.pitr is set.
@@ -6120,6 +6051,15 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
         };
     };
     createBackupStorage: {
@@ -6161,6 +6101,15 @@ export interface operations {
             };
             /** @description Internal server error */
             500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error */
+            default: {
                 headers: {
                     [name: string]: unknown;
                 };

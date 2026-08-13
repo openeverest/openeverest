@@ -50,8 +50,14 @@ func TestInstanceStatus_HappyPath(t *testing.T) {
 		Status: &struct {
 			Backup *struct {
 				Storages *[]struct {
-					LatestRestorableTime *time.Time `json:"latestRestorableTime,omitempty"`
-					Name                 string     `json:"name"`
+					Name string `json:"name"`
+					Pitr *struct {
+						EarliestRestorableTime *time.Time                                    `json:"earliestRestorableTime,omitempty"`
+						LatestRestorableTime   *time.Time                                    `json:"latestRestorableTime,omitempty"`
+						Message                *string                                       `json:"message,omitempty"`
+						Reason                 *string                                       `json:"reason,omitempty"`
+						State                  *client.InstanceStatusBackupStoragesPitrState `json:"state,omitempty"`
+					} `json:"pitr,omitempty"`
 				} `json:"storages,omitempty"`
 			} `json:"backup,omitempty"`
 			Components *[]struct {
@@ -196,8 +202,14 @@ func TestInstanceStatus_JSONOutput(t *testing.T) {
 		Status: &struct {
 			Backup *struct {
 				Storages *[]struct {
-					LatestRestorableTime *time.Time `json:"latestRestorableTime,omitempty"`
-					Name                 string     `json:"name"`
+					Name string `json:"name"`
+					Pitr *struct {
+						EarliestRestorableTime *time.Time                                    `json:"earliestRestorableTime,omitempty"`
+						LatestRestorableTime   *time.Time                                    `json:"latestRestorableTime,omitempty"`
+						Message                *string                                       `json:"message,omitempty"`
+						Reason                 *string                                       `json:"reason,omitempty"`
+						State                  *client.InstanceStatusBackupStoragesPitrState `json:"state,omitempty"`
+					} `json:"pitr,omitempty"`
 				} `json:"storages,omitempty"`
 			} `json:"backup,omitempty"`
 			Components *[]struct {
@@ -255,8 +267,14 @@ func minimalInst() *client.Instance {
 		Status: &struct {
 			Backup *struct {
 				Storages *[]struct {
-					LatestRestorableTime *time.Time `json:"latestRestorableTime,omitempty"`
-					Name                 string     `json:"name"`
+					Name string `json:"name"`
+					Pitr *struct {
+						EarliestRestorableTime *time.Time                                    `json:"earliestRestorableTime,omitempty"`
+						LatestRestorableTime   *time.Time                                    `json:"latestRestorableTime,omitempty"`
+						Message                *string                                       `json:"message,omitempty"`
+						Reason                 *string                                       `json:"reason,omitempty"`
+						State                  *client.InstanceStatusBackupStoragesPitrState `json:"state,omitempty"`
+					} `json:"pitr,omitempty"`
 				} `json:"storages,omitempty"`
 			} `json:"backup,omitempty"`
 			Components *[]struct {
@@ -386,7 +404,7 @@ func TestWatch_StopsOnInstanceDeleted(t *testing.T) {
 		Interval:  30 * time.Millisecond,
 	}, cfgPath)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "deleted")
+	assert.Contains(t, err.Error(), "no longer exists")
 }
 
 func TestWatch_TransientErrorKeepsPolling(t *testing.T) {

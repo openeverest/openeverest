@@ -13,7 +13,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package commands ...
 package commands
 
 import (
@@ -33,4 +32,6 @@ var backupStorageCmd = &cobra.Command{
 func init() {
 	rootCmd.AddCommand(backupStorageCmd)
 	backupStorageCmd.AddCommand(backupstorage.GetListCmd())
+	backupStorageCmd.AddCommand(backupstorage.GetCreateCmd())
+	backupStorageCmd.AddCommand(backupstorage.GetDeleteCmd())
 }

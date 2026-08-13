@@ -41,6 +41,7 @@ import (
 	apicommon "github.com/openeverest/openeverest/v2/api/common/v1alpha1"
 	corev1alpha1 "github.com/openeverest/openeverest/v2/api/core/v1alpha1"
 	"github.com/openeverest/openeverest/v2/pkg/common"
+	"github.com/openeverest/openeverest/v2/provider-runtime/controller"
 )
 
 const (
@@ -268,20 +269,29 @@ func (r *RestoreReconciler) ensureInstanceNameLabel(ctx context.Context, restore
 	return nil
 }
 
-// resolveBackupClass determines the BackupClass to use based on the Restore's DataSource.
+// resolveBackupClass determines the BackupClass to use for a Restore.
+//
+// This is the *read* class: it describes how the data was written and therefore
+// how it must be read, and it selects the reconciler via ExecutionMode. It may
+// legitimately differ from the target Instance's .spec.backup.classRef, which
+// governs how that Instance writes new backups -- an Instance that changed
+// classes must still be able to restore its older backups.
+//
+//   - type=Backup      -> the source Backup's classRef.
+//   - type=PointInTime -> the classRef of the Instance owning the stream, since
+//     a stream has no Backup CR of its own.
 func (r *RestoreReconciler) resolveBackupClass(
 	ctx context.Context,
 	restore *backupv1alpha1.Restore,
 ) (*backupv1alpha1.BackupClass, error) {
-	var backupClassName string
-
 	ds := restore.Spec.DataSource
+
+	var backupClassName string
 	switch ds.Type {
 	case backupv1alpha1.DataSourceTypeBackup:
-		if ds.Backup == nil || ds.Backup.BackupRef.Name == "" {
-			return nil, fmt.Errorf("dataSource type is Backup but backup ref is not set")
+		if ds.Backup == nil {
+			return nil, fmt.Errorf("dataSource.backup is required when type is %q", ds.Type)
 		}
-		// Resolve from the referenced Backup CR.
 		backup := &backupv1alpha1.Backup{}
 		if err := r.Client.Get(ctx, client.ObjectKey{
 			Name:      ds.Backup.BackupRef.Name,
@@ -290,6 +300,23 @@ func (r *RestoreReconciler) resolveBackupClass(
 			return nil, fmt.Errorf("failed to get backup %q: %w", ds.Backup.BackupRef.Name, err)
 		}
 		backupClassName = backup.Spec.ClassRef.Name
+
+	case backupv1alpha1.DataSourceTypePointInTime:
+		name := controller.RestoreStreamInstanceName(restore)
+		instance := &corev1alpha1.Instance{}
+		if err := r.Client.Get(ctx, client.ObjectKey{
+			Name:      name,
+			Namespace: restore.GetNamespace(),
+		}, instance); err != nil {
+			return nil, fmt.Errorf("failed to get instance %q: %w", name, err)
+		}
+		if instance.Spec.Backup == nil || instance.Spec.Backup.ClassRef.Name == "" {
+			return nil, fmt.Errorf(
+				"instance %q has no backup class configured; cannot resolve how to read its point-in-time stream",
+				name,
+			)
+		}
+		backupClassName = instance.Spec.Backup.ClassRef.Name
 
 	case backupv1alpha1.DataSourceTypeImport:
 		// For Import, use classRef if set, otherwise get from Instance's backup config.
@@ -470,6 +497,9 @@ func (r *RestoreReconciler) ensurePayloadSecret(
 			return fmt.Errorf("failed to get backup %q: %w", ds.Backup.BackupRef.Name, err)
 		}
 		storageName = backup.Spec.StorageRef.Name
+	case ds.PointInTime != nil:
+		// Point-in-time recovery names the stream's storage directly.
+		storageName = ds.PointInTime.Source.StorageRef.Name
 	}
 
 	if storageName != "" {
@@ -509,12 +539,12 @@ func (r *RestoreReconciler) ensurePayloadSecret(
 	}
 
 	// Populate PITR details.
-	if ds.Backup != nil && ds.Backup.PITR != nil {
+	if ds.PointInTime != nil {
 		spec.PITR = &jobspec.PITRDetails{
-			Type: string(ds.Backup.PITR.Type),
+			Type: string(ds.PointInTime.RecoveryTarget),
 		}
-		if ds.Backup.PITR.Date != nil {
-			spec.PITR.Date = ds.Backup.PITR.Date.Format("2006-01-02T15:04:05Z")
+		if ds.PointInTime.Date != nil {
+			spec.PITR.Date = ds.PointInTime.Date.Format("2006-01-02T15:04:05Z")
 		}
 	}
 
