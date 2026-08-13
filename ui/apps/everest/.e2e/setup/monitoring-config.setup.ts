@@ -17,7 +17,11 @@
 import { expect, test as setup } from '@playwright/test';
 import 'dotenv/config';
 import { getCITokenFromLocalStorage } from '../utils/localStorage';
-import { EVEREST_CI_CLUSTER, EVEREST_CI_NAMESPACES, getBucketNamespacesMap } from '../constants';
+import {
+  EVEREST_CI_CLUSTER,
+  EVEREST_CI_NAMESPACES,
+  getBucketNamespacesMap,
+} from '../constants';
 
 const { MONITORING_URL, MONITORING_USER, MONITORING_PASSWORD } = process.env;
 
@@ -60,7 +64,12 @@ setup.describe.serial('Monitoring Instance setup', () => {
       promises.push(
         (async () => {
           const name = `e2e-endpoint-${idx}`;
-          let response = await postMonitoringConfig(request, token, namespace, name);
+          let response = await postMonitoringConfig(
+            request,
+            token,
+            namespace,
+            name
+          );
 
           if (response.status() === 404) {
             const body = await response.json();

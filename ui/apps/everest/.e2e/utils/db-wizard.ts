@@ -42,11 +42,21 @@ export const resolveCreateEntryPoint = async (
       return { mode: 'toolbar', toolbarBtn };
     }
 
-    if (await tiles.first().isVisible().catch(() => false)) {
+    if (
+      await tiles
+        .first()
+        .isVisible()
+        .catch(() => false)
+    ) {
       return { mode: 'tiles', tiles };
     }
 
-    if (await fallbackTiles.first().isVisible().catch(() => false)) {
+    if (
+      await fallbackTiles
+        .first()
+        .isVisible()
+        .catch(() => false)
+    ) {
       return { mode: 'tiles', tiles: fallbackTiles };
     }
 
@@ -146,9 +156,10 @@ const waitForStepHeaderToChange = async (
 
     if (
       directionalButtonTestId === 'db-wizard-continue-button' &&
-      (await page.getByTestId('db-wizard-submit-button').isVisible().catch(
-        () => false
-      ))
+      (await page
+        .getByTestId('db-wizard-submit-button')
+        .isVisible()
+        .catch(() => false))
     ) {
       break;
     }
@@ -493,11 +504,13 @@ export const populateAdvancedConfig = async (
     );
     if (await legacyEngineSwitch.isVisible().catch(() => false)) {
       await legacyEngineSwitch.getByRole('checkbox').check();
-      await page.getByTestId('text-input-engine-parameters').fill(inputParameters);
+      await page
+        .getByTestId('text-input-engine-parameters')
+        .fill(inputParameters);
     } else {
-      await page.getByRole('textbox', { name: /engine configuration/i }).fill(
-        inputParameters
-      );
+      await page
+        .getByRole('textbox', { name: /engine configuration/i })
+        .fill(inputParameters);
     }
   }
 };

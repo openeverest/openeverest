@@ -15,7 +15,11 @@
 // limitations under the License.
 
 import { expect, Locator, Page } from '@playwright/test';
-import { getBucketNamespacesMap, technologyMap, TIMEOUTS } from '@e2e/constants';
+import {
+  getBucketNamespacesMap,
+  technologyMap,
+  TIMEOUTS,
+} from '@e2e/constants';
 import { DbType } from '@percona/types';
 import {
   openProviderDrawer,
@@ -294,7 +298,9 @@ export const openCreateScheduleDialogFromDBWizard = async (page: Page) => {
       .isVisible({ timeout: TIMEOUTS.TenSeconds })
       .catch(() => false))
   ) {
-    throw new Error('create-schedule button not available after navigating to Backups step');
+    throw new Error(
+      'create-schedule button not available after navigating to Backups step'
+    );
   }
 
   if (await scheduleDialog.isVisible().catch(() => false)) {
@@ -367,7 +373,10 @@ export const selectDbEngine = async (
     ).toBe('PostgreSQL');
     await page.getByTestId(`add-db-cluster-button-${dbType}`).click();
   } else {
-    await entry.tiles.filter({ hasText: technologyMap[dbType] }).first().click();
+    await entry.tiles
+      .filter({ hasText: technologyMap[dbType] })
+      .first()
+      .click();
   }
 
   await page.waitForURL('/databases/new');

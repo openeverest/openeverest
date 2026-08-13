@@ -19,24 +19,24 @@ name: Release e2e
 on:
   schedule:
     # 02:00 UTC every day.
-    - cron: '0 2 * * *'
+    - cron: "0 2 * * *"
   workflow_dispatch:
     inputs:
       ref:
-        description: 'Branch / tag / SHA of openeverest to test'
+        description: "Branch / tag / SHA of openeverest to test"
         type: string
         required: false
-        default: ''
+        default: ""
       provider_ref:
-        description: 'Branch / tag / SHA of the PXC provider repo'
+        description: "Branch / tag / SHA of the PXC provider repo"
         type: string
         required: false
-        default: 'main'
+        default: "main"
       project:
-        description: 'Playwright release project to run'
+        description: "Playwright release project to run"
         type: string
         required: false
-        default: 'release'
+        default: "release"
   pull_request:
     types: [labeled, synchronize, reopened]
 
@@ -50,7 +50,7 @@ on:
   push:
     branches:
       - pitr-tests
-      - 'release-e2e-debug/**'
+      - "release-e2e-debug/**"
   # -------------------------------------------------------------------------
 
 permissions:
@@ -63,9 +63,9 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  GONOPROXY: 'github.com/percona'
-  GONOSUMDB: 'github.com/percona'
-  GOPRIVATE: 'github.com/percona'
+  GONOPROXY: "github.com/percona"
+  GONOSUMDB: "github.com/percona"
+  GOPRIVATE: "github.com/percona"
   # PXC provider repository checked out alongside openeverest. Adjust the owner
   # if the provider lives elsewhere; set PROVIDER_REPO_TOKEN if it is private.
   PROVIDER_REPO: openeverest/provider-percona-xtradb-cluster
@@ -111,7 +111,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
-          go-version-file: 'go.mod'
+          go-version-file: "go.mod"
           cache: true
 
       - name: Install Kubernetes tools (kubectl, k3d)
