@@ -499,11 +499,12 @@ func TestBasicStorageParamsAreChanged(t *testing.T) {
 }
 
 func TestS3Access_TransportLifecycle(t *testing.T) {
+	t.Parallel()
 	if config.Debug {
 		t.Skip("Skipping test in debug mode")
 	}
 
-	srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusForbidden)
 	}))
 	defer srv.Close()
