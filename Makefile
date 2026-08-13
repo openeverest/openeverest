@@ -389,8 +389,8 @@ k3d-cluster-up: ## Create a K8S cluster for testing.
 	$(info Creating K3D cluster for testing)
 	k3d cluster create --config ./dev/k3d_config.yaml
 
-.PHONY: k3d-cluster-up
-k3d-cluster-down: ## Create a K8S cluster for testing.
+.PHONY: k3d-cluster-down
+k3d-cluster-down: ## Destroy the K8S cluster for testing.
 	$(info Destroying K3D test cluster)
 	k3d cluster delete --config ./dev/k3d_config.yaml
 

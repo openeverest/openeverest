@@ -13,6 +13,8 @@ jobs:
   add-to-project:
     name: Add issue to project
     runs-on: ubuntu-latest
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
     steps:
       - uses: actions/add-to-project@5afcf98fcd03f1c2f92c3c83f58ae24323cc57fd # v2.0.0
         with:
@@ -20,7 +22,7 @@ jobs:
           project-url: https://github.com/orgs/openeverest/projects/2
           
           # The secret name you will create in Step 2
-          github-token: ${{ secrets.ADD_TO_PROJECT_PAT }}
+          github-token: ${{ secrets.PROJECT_TOKEN }}
           
           # Filter for your specific label
           labeled: good first issue

@@ -181,6 +181,9 @@ func refreshEnforcerInBackground(
 		informer.WithLogger(l),
 		informer.Watches(&corev1.ConfigMap{}, kubeConnector.Namespace()),
 	)
+	if err != nil {
+		return errors.Join(err, errors.New("failed to create RBAC ConfigMap informer"))
+	}
 	inf.OnUpdate(func(_, newObj any) {
 		cm, ok := newObj.(*corev1.ConfigMap)
 		if !ok || cm.GetName() != common.EverestRBACConfigMapName {
@@ -198,7 +201,7 @@ func refreshEnforcerInBackground(
 		}
 		enforcer.EnableEnforce(IsEnabled(cm))
 	})
-	if inf.Start(ctx, &corev1.ConfigMap{}) != nil {
+	if err := inf.Start(ctx, &corev1.ConfigMap{}); err != nil {
 		return errors.Join(err, errors.New("failed to watch RBAC ConfigMap"))
 	}
 	return nil

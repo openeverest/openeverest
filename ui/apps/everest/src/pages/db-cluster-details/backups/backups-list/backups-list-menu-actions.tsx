@@ -15,74 +15,72 @@
 import { MenuItem } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
 import KeyboardReturnIcon from '@mui/icons-material/KeyboardReturn';
-// import AddIcon from '@mui/icons-material/Add'; // TODO: re-enable when create-new-db is restored
+import AddIcon from '@mui/icons-material/Add';
 import { MRT_Row } from 'material-react-table';
 import {
   Backup,
   BackupStatus,
   getBackupState,
 } from 'shared-types/backups.types';
-// TODO: Re-enable when RBAC-based restore actions are restored.
-// import { DbCluster } from 'shared-types/dbCluster.types';
 import { Messages } from './backups-list.messages';
 
-// TODO: check main — original had restore/restoreToNewDb actions with RBAC checks.
-// Restore these when restore feature is implemented in v2.
-export const getBackupActionButtons = (
-  row: MRT_Row<Backup>,
-  handleDeleteBackup: (backupName: string) => void,
-  handleRestoreBackup: (backupName: string) => void,
-  // handleRestoreToNewDbBackup: (backupName: string) => void, // TODO: re-enable when create-new-db is restored
-  _handleRestoreToNewDbBackup: (backupName: string) => void,
-  canDelete: boolean,
-  isDeleting = false
-) => {
+interface BackupActionButtonsParams {
+  row: MRT_Row<Backup>;
+  handlers: {
+    onRestore: (backupName: string) => void;
+    onRestoreToNewDb: (backupName: string) => void;
+    onDelete: (backupName: string) => void;
+  };
+  permissions: {
+    canRestore: boolean;
+    canCreateNewDb: boolean;
+    canDelete: boolean;
+  };
+  isDeleting?: boolean;
+}
+
+// Row-level backup actions: restore in place, clone into a new DB, and delete.
+// Each item is gated by the RBAC flags the caller resolves.
+export const getBackupActionButtons = ({
+  row,
+  handlers,
+  permissions,
+  isDeleting = false,
+}: BackupActionButtonsParams) => {
   const backupName = row.original.metadata?.name ?? '';
   const backupState = getBackupState(row.original);
-  // TODO: Re-enable when RBAC-based restore actions are restored.
-  // const { canDelete } = useRBACPermissions(
-  //   'database-cluster-backups',
-  //   `${dbCluster.metadata.namespace}/${row.original.dbClusterName}`
-  // );
-  // const { canCreate: canCreateRestore } = useRBACPermissions(
-  //   'database-cluster-restores',
-  //   `${dbCluster.metadata.namespace}/${row.original.dbClusterName}`
-  // );
-  // const { canCreate: canCreateClusters } = useRBACPermissions(
-  //   'database-clusters',
-  //   `${dbCluster.metadata.namespace}/*`
-  // );
-  // const { canRead: canReadCredentials } = useRBACPermissions(
-  //   'database-cluster-credentials',
-  //   `${dbCluster.metadata.namespace}/${row.original.dbClusterName}`
-  // );
-  // const canRestore = canCreateRestore && canReadCredentials;
-  // const canCreateClusterFromBackup = canRestore && canCreateClusters;
 
   return [
-    <MenuItem
-      key="restore"
-      disabled={backupState !== BackupStatus.SUCCEEDED}
-      onClick={() => handleRestoreBackup(backupName)}
-      sx={{ m: 0, gap: 1, px: 2, py: '10px' }}
-    >
-      <KeyboardReturnIcon /> {Messages.restore}
-    </MenuItem>,
-    // TODO: Temporarily hidden — create new DB from backup deferred by team
-    // <MenuItem
-    //   key="restore-to-new"
-    //   disabled={backupState !== BackupStatus.SUCCEEDED}
-    //   onClick={() => handleRestoreToNewDbBackup(backupName)}
-    //   sx={{ m: 0, gap: 1, px: 2, py: '10px' }}
-    // >
-    //   <AddIcon /> {Messages.restoreToNewDb}
-    // </MenuItem>,
-    ...(canDelete
+    ...(permissions.canRestore
+      ? [
+          <MenuItem
+            key="restore"
+            disabled={backupState !== BackupStatus.SUCCEEDED}
+            onClick={() => handlers.onRestore(backupName)}
+            sx={{ m: 0, gap: 1, px: 2, py: '10px' }}
+          >
+            <KeyboardReturnIcon /> {Messages.restore}
+          </MenuItem>,
+        ]
+      : []),
+    ...(permissions.canCreateNewDb
+      ? [
+          <MenuItem
+            key="restore-to-new"
+            disabled={backupState !== BackupStatus.SUCCEEDED}
+            onClick={() => handlers.onRestoreToNewDb(backupName)}
+            sx={{ m: 0, gap: 1, px: 2, py: '10px' }}
+          >
+            <AddIcon /> {Messages.restoreToNewDb}
+          </MenuItem>,
+        ]
+      : []),
+    ...(permissions.canDelete
       ? [
           <MenuItem
             key="delete"
             disabled={backupState === BackupStatus.DELETING || isDeleting}
-            onClick={() => handleDeleteBackup(backupName)}
+            onClick={() => handlers.onDelete(backupName)}
             sx={{ m: 0, gap: 1, px: 2, py: '10px' }}
           >
             <DeleteIcon />

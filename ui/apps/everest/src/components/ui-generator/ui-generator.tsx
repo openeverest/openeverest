@@ -25,11 +25,24 @@ export const UIGenerator = ({
   loadingDefaultsForEdition,
   formMode,
   namespace,
+  emptySectionMessage,
 }: UIGeneratorProps) => {
   const section = sections[sectionKey];
-  const components = section?.components;
 
+  // No schema section for this step at all: the provider defines no UI here, so
+  // render nothing — this is an expected, silent case.
+  if (!section) {
+    return null;
+  }
+
+  // The section exists but carries no components: the schema arrived empty, which
+  // is worth surfacing so it doesn't look like a silent failure. Callers may pass
+  // a clearer, context-aware message; otherwise fall back to a generic note.
+  const components = section.components;
   if (!components || Object.keys(components).length === 0) {
+    if (emptySectionMessage) {
+      return <>{emptySectionMessage}</>;
+    }
     return <Typography>No components available for this step</Typography>;
   }
 

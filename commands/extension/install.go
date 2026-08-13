@@ -49,7 +49,7 @@ var (
 
 func init() {
 	pluginInstallCmd.Flags().StringVarP(&pluginInstallCfg.File, "file", "f", "", "Path or URL to a Plugin CR YAML manifest")
-	pluginInstallCmd.Flags().StringVar(&pluginInstallCfg.Name, "name", "", "Plugin name (required without -f)")
+	pluginInstallCmd.Flags().StringVar(&pluginInstallCfg.Name, "name", "", "Extension name (required without -f)")
 	pluginInstallCmd.Flags().StringVar(&pluginInstallCfg.DisplayName, "display-name", "", "Human-readable display name (defaults to name)")
 	pluginInstallCmd.Flags().StringVar(&pluginInstallCfg.BackendURL, "backend-url", "", "URL of the plugin backend service (required without -f)")
 	pluginInstallCmd.Flags().StringVar(&pluginInstallCfg.BundlePath, "bundle-path", "/main.js", "Path to the frontend bundle on the backend")

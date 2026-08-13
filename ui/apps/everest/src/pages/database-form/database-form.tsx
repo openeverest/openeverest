@@ -27,17 +27,19 @@ import {
 } from 'react-hook-form';
 import { useCreateDbInstance } from 'hooks/api/db-instances/useCreateDbInstance';
 import { DB_INSTANCES_QUERY_KEY } from 'hooks/api/db-instances/useDbInstanceList';
-import { useCreateRestoreFromBackup } from 'hooks/api/restores/useDbClusterRestore';
+import { buildRestoreDataSource } from 'hooks/api/restores/restore-data-source';
 import { useActiveBreakpoint } from 'hooks/utils/useActiveBreakpoint';
 import { DbWizardType } from './database-form-schema';
 import DatabaseFormCancelDialog from './database-form-cancel-dialog/index';
 import DatabaseFormBody from './database-form-body';
 import DatabaseFormSideDrawer from './database-form-side-drawer';
 import { useInstancesForNamespaces, useNamespaces } from 'hooks';
+
 import { FormMode } from 'components/ui-generator/ui-generator.types';
 import { ZodType } from 'zod';
 import { useDatabasePageDefaultValues } from './hooks/use-database-form-default-values';
 import { useDatabasePageMode } from './hooks/use-database-page-mode';
+import { useRestoreNavigationState } from './hooks/use-restore-navigation-state';
 import { DatabaseFormProvider } from './database-form-context';
 import { useSchema } from './hooks/use-schema';
 import { useDbValidationSchema } from './hooks/use-db-validation-schema';
@@ -62,15 +64,111 @@ import {
   BackupStep,
   BACKUP_SCHEDULES_FIELD,
   buildBackupSpecFromWizard,
+  ensureStorageRegistered,
+  WizardBackupSpec,
+  WizardPitrMap,
 } from './database-form-body/steps/backup-step';
+import { FlattenedSchedule } from 'components/schedule-form-dialog/schedule-form-dialog-context/schedule-form-dialog-context.types';
 import { useBackupClassesList } from 'hooks/api/backup-classes/useBackupClasses';
 import { useClusterName } from 'hooks/api/useClusterName';
 import { mergeTopologyDefaults } from 'components/ui-generator/utils/default-values/merge-topology-defaults';
 import { PluginFormSections } from './plugin-form-sections';
 import { useSubmitPluginInstanceConfig } from 'hooks/api/plugins/useSubmitPluginInstanceConfig';
 
+type UnknownRecord = Record<string, unknown>;
+
+type ParsedBackupFormData = {
+  schedules: FlattenedSchedule[];
+  classRefName?: string;
+  pitr?: WizardPitrMap;
+};
+
+const isRecord = (value: unknown): value is UnknownRecord =>
+  typeof value === 'object' && value !== null;
+
+const isFlattenedSchedule = (value: unknown): value is FlattenedSchedule => {
+  if (!isRecord(value)) {
+    return false;
+  }
+
+  const name = Reflect.get(value, 'name');
+  const cron = Reflect.get(value, 'cron');
+  const enabled = Reflect.get(value, 'enabled');
+  const storageName = Reflect.get(value, 'storageName');
+  const retentionCopies = Reflect.get(value, 'retentionCopies');
+  const parameters = Reflect.get(value, 'parameters');
+
+  const hasCoreFields =
+    typeof name === 'string' &&
+    typeof cron === 'string' &&
+    typeof enabled === 'boolean' &&
+    typeof storageName === 'string';
+
+  const hasOptionalFields =
+    (retentionCopies === undefined || typeof retentionCopies === 'number') &&
+    (parameters === undefined || isRecord(parameters));
+
+  return hasCoreFields && hasOptionalFields;
+};
+
+const parseWizardPitrMap = (value: unknown): WizardPitrMap | undefined => {
+  if (!isRecord(value)) {
+    return undefined;
+  }
+
+  const pitrMap: WizardPitrMap = {};
+
+  for (const [storageName, config] of Object.entries(value)) {
+    if (!isRecord(config)) {
+      continue;
+    }
+
+    const enabled = Reflect.get(config, 'enabled');
+    const parameters = Reflect.get(config, 'parameters');
+
+    if (typeof enabled !== 'boolean') {
+      continue;
+    }
+
+    pitrMap[storageName] = {
+      enabled,
+      ...(isRecord(parameters) ? { parameters } : {}),
+    };
+  }
+
+  return pitrMap;
+};
+
+const parseBackupFormData = (
+  value: unknown
+): ParsedBackupFormData | undefined => {
+  if (!isRecord(value)) {
+    return undefined;
+  }
+
+  const schedulesRaw = Reflect.get(value, 'schedules');
+  const schedules = Array.isArray(schedulesRaw)
+    ? schedulesRaw.filter(isFlattenedSchedule)
+    : undefined;
+
+  if (!schedules) {
+    return undefined;
+  }
+
+  const classRef = Reflect.get(value, 'classRef');
+  const classRefName = isRecord(classRef)
+    ? Reflect.get(classRef, 'name')
+    : undefined;
+
+  return {
+    schedules,
+    classRefName: typeof classRefName === 'string' ? classRefName : undefined,
+    pitr: parseWizardPitrMap(Reflect.get(value, 'pitr')),
+  };
+};
+
 export const DatabasePage = () => {
-  const latestDataRef = useRef<DbWizardType | null>(null);
+  const latestDataRef = useRef<UnknownRecord | null>(null);
   const [formSubmitted, setFormSubmitted] = useState(false);
 
   const { mutate: createInstance, isPending: isCreating } =
@@ -90,6 +188,7 @@ export const DatabasePage = () => {
 
   const { isDesktop } = useActiveBreakpoint();
   const mode = useDatabasePageMode();
+  const { restoreDataSource } = useRestoreNavigationState();
 
   // ── Schema & topology
   const { uiSchema, topologies, hasMultipleTopologies, resolvedProvider } =
@@ -102,12 +201,6 @@ export const DatabasePage = () => {
   const clusterName = useClusterName();
   const { data: backupClasses = [] } = useBackupClassesList(clusterName);
   const hasBackupStep = backupClasses.length > 0;
-
-  // ── Restore mutation (needs clusterName + namespace from navigation state)
-  const { mutate: createRestore } = useCreateRestoreFromBackup(
-    clusterName,
-    location.state?.namespace ?? ''
-  );
 
   // ── Page-level defaults (merges schema defaults + wizard-specific ones)
   const { defaultValues, dbClusterRequestStatus } =
@@ -157,7 +250,6 @@ export const DatabasePage = () => {
         mode: 'sync',
       })(data, context, options);
     },
-    // @ts-ignore
     defaultValues,
   });
 
@@ -204,7 +296,7 @@ export const DatabasePage = () => {
         fields: Object.values(ImportFields) as string[],
       });
     }
-    if (hasBackupStep && mode !== FormMode.Restore) {
+    if (hasBackupStep) {
       steps.push({
         id: BACKUP_STEP_ID,
         label: 'Backups',
@@ -213,7 +305,7 @@ export const DatabasePage = () => {
       });
     }
     return steps;
-  }, [hasImportStep, hasBackupStep, mode]);
+  }, [hasImportStep, hasBackupStep]);
 
   const engine = useFormEngine({
     uiSchema,
@@ -325,22 +417,23 @@ export const DatabasePage = () => {
   );
 
   const onSubmit: SubmitHandler<DbWizardType> = (data) => {
-    const postProcessedData = engine.postprocess(
-      data as Record<string, unknown>
-    ) as DbWizardType;
+    const postProcessedData = engine.postprocess(data);
 
     // Transform flat backup schedules into nested storages structure
-    const formData = postProcessedData as Record<string, unknown>;
-    const backupData = formData.backup as Record<string, unknown> | undefined;
-    if (backupData?.schedules) {
+    const formData = postProcessedData;
+    const backupFormData = parseBackupFormData(Reflect.get(formData, 'backup'));
+    let backupSpecForSubmit: WizardBackupSpec | undefined;
+    if (backupFormData) {
       const backupSpec = buildBackupSpecFromWizard(
-        backupData.schedules as Parameters<typeof buildBackupSpecFromWizard>[0],
-        (backupData.classRef as { name?: string })?.name
+        backupFormData.schedules,
+        backupFormData.classRefName,
+        backupFormData.pitr
       );
+      backupSpecForSubmit = backupSpec;
       if (backupSpec) {
-        formData.backup = backupSpec;
+        Reflect.set(formData, 'backup', backupSpec);
       } else {
-        delete formData.backup;
+        Reflect.deleteProperty(formData, 'backup');
       }
     }
 
@@ -352,8 +445,8 @@ export const DatabasePage = () => {
         {
           onSuccess: () => {
             // Submit plugin configs for each plugin that provided config.
-            const instanceName = postProcessedData.dbName || '';
-            const ns = postProcessedData.k8sNamespace || '';
+            const instanceName = data.dbName || '';
+            const ns = data.k8sNamespace || '';
             for (const [pluginName, config] of Object.entries(
               pluginConfigsRef.current
             )) {
@@ -377,20 +470,32 @@ export const DatabasePage = () => {
         }
       );
     } else if (mode === FormMode.Restore) {
-      const backupName = location.state?.backupName as string;
+      if (!restoreDataSource) return;
+      // Seed the new instance from the source in a single atomic create: the
+      // operator runs the restore from spec.dataSource (it creates the seeding
+      // Restore CR itself), so there is no second request to orchestrate here.
+      Reflect.set(
+        formData,
+        'dataSource',
+        buildRestoreDataSource(restoreDataSource)
+      );
+      // The seeding storage (where the operator reads the source) must be
+      // registered on the new instance regardless of the user's schedule
+      // choices, or the restore stalls waiting for it.
+      Reflect.set(
+        formData,
+        'backup',
+        ensureStorageRegistered(
+          backupSpecForSubmit,
+          restoreDataSource.storageName,
+          backupFormData?.classRefName
+        )
+      );
       createInstance(
         { formValue: postProcessedData },
         {
           onSuccess: () => {
-            const newInstanceName = postProcessedData.dbName as string;
-            createRestore(
-              { instanceName: newInstanceName, backupName },
-              {
-                onSuccess: () => {
-                  setFormSubmitted(true);
-                },
-              }
-            );
+            setFormSubmitted(true);
           },
         }
       );
@@ -412,7 +517,7 @@ export const DatabasePage = () => {
         sections: engine.sections,
         sectionsOrder: engine.sectionsOrder,
         providerObject,
-        hasBackupStep: hasBackupStep && mode !== FormMode.Restore,
+        hasBackupStep,
       }}
     >
       <Stack direction={isDesktop ? 'row' : 'column'}>

@@ -16,18 +16,6 @@ import { FlattenedSchedule } from 'components/schedule-form-dialog/schedule-form
 import { Instance } from 'shared-types/api.types';
 import { Backup } from 'shared-types/backups.types';
 
-export const flattenSchedules = (instance: Instance): FlattenedSchedule[] =>
-  (instance.spec?.backup?.storages ?? []).flatMap((storage) =>
-    (storage.schedules ?? []).map((schedule) => ({
-      name: schedule.name,
-      cron: schedule.cron,
-      enabled: schedule.enabled,
-      retentionCopies: schedule.retentionCopies,
-      parameters: schedule.parameters as Record<string, unknown> | undefined,
-      storageName: storage.storageRef.name ?? '',
-    }))
-  );
-
 export const applySchedulesToStorages = (
   instance: Instance,
   schedules: FlattenedSchedule[]

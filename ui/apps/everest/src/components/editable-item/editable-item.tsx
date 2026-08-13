@@ -26,6 +26,7 @@ const EditableItem = ({
   deleteButtonProps,
   editButtonProps,
   endText,
+  controls,
 }: EditableItemProps) => {
   return (
     <Paper
@@ -44,7 +45,10 @@ const EditableItem = ({
     >
       {children}
       {!!endText && (
-        <Typography variant="body2" sx={{ color: 'grey', width: '100px' }}>
+        <Typography
+          variant="body2"
+          sx={{ color: 'grey', whiteSpace: 'nowrap' }}
+        >
           {endText}
         </Typography>
       )}
@@ -52,6 +56,7 @@ const EditableItem = ({
         sx={{
           flexWrap: 'nowrap',
           display: 'flex',
+          alignItems: 'center',
         }}
       >
         {editButtonProps && (
@@ -86,6 +91,7 @@ const EditableItem = ({
             </span>
           </Tooltip>
         )}
+        {controls}
       </Box>
     </Paper>
   );

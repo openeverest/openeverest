@@ -119,32 +119,15 @@ func printProviderTable(w io.Writer, providers []client.Provider) {
 }
 
 func providerName(prov *client.Provider) string {
-	return metadataStringField(prov, "name")
+	if prov.Metadata == nil || prov.Metadata.Name == "" {
+		return "-"
+	}
+	return prov.Metadata.Name
 }
 
 func providerAge(prov *client.Provider) string {
-	ts := metadataStringField(prov, "creationTimestamp")
-	if ts == "-" {
+	if prov.Metadata == nil || prov.Metadata.CreationTimestamp.IsZero() {
 		return "-"
 	}
-	created, err := time.Parse(time.RFC3339, ts)
-	if err != nil {
-		return "-"
-	}
-	return duration.ShortHumanDuration(time.Since(created))
-}
-
-func metadataStringField(prov *client.Provider, key string) string {
-	if prov.Metadata == nil {
-		return "-"
-	}
-	v, ok := (*prov.Metadata)[key]
-	if !ok {
-		return "-"
-	}
-	s, ok := v.(string)
-	if !ok || s == "" {
-		return "-"
-	}
-	return s
+	return duration.ShortHumanDuration(time.Since(prov.Metadata.CreationTimestamp.Time))
 }
