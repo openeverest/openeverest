@@ -17,6 +17,8 @@ package validation
 import (
 	"context"
 	"errors"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -30,6 +32,7 @@ import (
 
 	everestv1alpha1 "github.com/percona/everest-operator/api/everest/v1alpha1"
 	everestapi "github.com/percona/everest/api"
+	"github.com/percona/everest/cmd/config"
 	"github.com/percona/everest/internal/server/handlers/k8s"
 	"github.com/percona/everest/pkg/kubernetes"
 )
@@ -493,4 +496,22 @@ func TestBasicStorageParamsAreChanged(t *testing.T) {
 			assert.Equal(t, tc.areChanged, basicStorageParamsAreChanged(storage(), &tc.params))
 		})
 	}
+}
+
+func TestS3Access_TransportLifecycle(t *testing.T) {
+	if config.Debug {
+		t.Skip("Skipping test in debug mode")
+	}
+
+	srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusForbidden)
+	}))
+	defer srv.Close()
+
+	endpoint := srv.URL
+	l := zap.NewNop().Sugar()
+
+	err := s3Access(context.Background(), l, &endpoint, "key", "secret", "bucket", "us-east-1", false, true)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "Check your credentials")
 }

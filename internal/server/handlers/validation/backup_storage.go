@@ -222,11 +222,14 @@ func s3Access(
 		endpoint = nil
 	}
 
+	tr := &http.Transport{
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: !verifyTLS}, //nolint:gosec
+	}
+	defer tr.CloseIdleConnections()
+
 	c := &http.Client{
-		Timeout: timeoutS3AccessSec * time.Second,
-		Transport: &http.Transport{
-			TLSClientConfig: &tls.Config{InsecureSkipVerify: !verifyTLS}, //nolint:gosec
-		},
+		Timeout:   timeoutS3AccessSec * time.Second,
+		Transport: tr,
 	}
 	cfg := aws.Config{
 		Region:      region,
