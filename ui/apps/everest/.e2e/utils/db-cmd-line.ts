@@ -156,7 +156,9 @@ export const getDBClientPod = async (dbType: string, namespace: string) => {
     .find((candidate) => existsSync(candidate));
 
   if (!manifestPath) {
-    throw new Error(`Could not find .github/${manifestName} from ${process.cwd()}`);
+    throw new Error(
+      `Could not find .github/${manifestName} from ${process.cwd()}`
+    );
   }
 
   execSync(`kubectl apply -f '${manifestPath}'`, { stdio: 'pipe' });

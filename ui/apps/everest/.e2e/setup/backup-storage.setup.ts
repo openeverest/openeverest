@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,7 +17,11 @@
 import { expect, test as setup } from '@playwright/test';
 import 'dotenv/config';
 import { getCITokenFromLocalStorage } from '../utils/localStorage';
-import { EVEREST_CI_CLUSTER, EVEREST_CI_NAMESPACES, getBucketNamespacesMap } from '../constants';
+import {
+  EVEREST_CI_CLUSTER,
+  EVEREST_CI_NAMESPACES,
+  getBucketNamespacesMap,
+} from '../constants';
 
 const {
   EVEREST_LOCATION_ACCESS_KEY,
@@ -104,7 +109,12 @@ setup.describe.serial('Backup Storage setup', () => {
 
       promises.push(
         (async () => {
-          let response = await postBackupStorage(request, token, namespace, data);
+          let response = await postBackupStorage(
+            request,
+            token,
+            namespace,
+            data
+          );
 
           if (response.status() === 404) {
             const body = await response.json();
