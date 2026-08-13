@@ -126,10 +126,11 @@ func (id *Deleter) Run(ctx context.Context, opts DeleteOptions, cfgPath string) 
 // checkInstanceExists is for --ignore-not-found: (nil, true) means the
 // instance is gone. Otherwise it also returns the fetched instance, so
 // confirmDeletion can reuse it instead of fetching again. Any unclear
-// result returns (nil, false) and lets the normal delete flow handle it.
+// result (fetch error, non-404 status) returns false and lets the normal delete flow handle it.
 func (id *Deleter) checkInstanceExists(ctx context.Context, c *client.ClientWithResponses, opts DeleteOptions) (*client.Instance, bool) {
 	resp, err := c.GetInstanceWithResponse(ctx, opts.Cluster, opts.Namespace, opts.Name)
 	if err != nil {
+		id.l.Warnf("pre-delete check for instance %q failed: %v", opts.Name, err)
 		return nil, false
 	}
 	switch resp.StatusCode() {
@@ -138,26 +139,19 @@ func (id *Deleter) checkInstanceExists(ctx context.Context, c *client.ClientWith
 	case http.StatusOK:
 		return resp.JSON200, false
 	default:
+		statusText := resp.Status()
+		if msg, ok := clienterr.Message(resp.JSONDefault); ok {
+			statusText = msg
+		}
+		id.l.Warnf("pre-delete check for instance %q returned unexpected status %s, proceeding without it", opts.Name, statusText)
 		return nil, false
 	}
 }
 
 // checkDeleteResponse maps a DeleteInstance response to (alreadyGone, error).
 func checkDeleteResponse(resp *client.DeleteInstanceResponse, opts DeleteOptions) (bool, error) {
-	switch {
-	case resp.StatusCode() == http.StatusNotFound:
-		if !opts.IgnoreNotFound {
-			return false, fmt.Errorf("instance %q not found in namespace %q", opts.Name, opts.Namespace)
-		}
-		return true, nil
-	case resp.StatusCode() != http.StatusOK && resp.StatusCode() != http.StatusNoContent:
-		if msg, ok := clienterr.Message(resp.JSONDefault); ok {
-			return false, fmt.Errorf("server error: %s", msg)
-		}
-		return false, fmt.Errorf("unexpected response deleting instance: %s", resp.Status())
-	default:
-		return false, nil
-	}
+	return deletion.CheckDeleteResponse(resp.StatusCode(), resp.Status(), "instance", opts.Name, opts.Namespace, opts.IgnoreNotFound,
+		func() (string, bool) { return clienterr.Message(resp.JSONDefault) })
 }
 
 // confirmDeletion shows the blast radius and asks the user to type the

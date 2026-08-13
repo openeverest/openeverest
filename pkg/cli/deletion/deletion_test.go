@@ -18,8 +18,6 @@ package deletion
 import (
 	"context"
 	"encoding/json"
-	"errors"
-	"fmt"
 	"io"
 	"net/http"
 	"os"
@@ -28,7 +26,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	authcli "github.com/openeverest/openeverest/v2/pkg/cli/auth"
 	"github.com/openeverest/openeverest/v2/pkg/cli/wait"
 )
 
@@ -69,6 +66,9 @@ func TestGoneCondition(t *testing.T) {
 	assert.Equal(t, "still there: foo", msg)
 }
 
+// GonePoll's fetch/status/token-refresh classification is wait.FetchPoll's
+// contract, exercised directly by pkg/cli/wait's TestFetchPoll_* suite. The
+// only thing this binding decides is the NotFoundPolicy it passes through.
 func TestGonePoll_Gone(t *testing.T) {
 	t.Parallel()
 
@@ -81,86 +81,74 @@ func TestGonePoll_Gone(t *testing.T) {
 	assert.Nil(t, v)
 }
 
-func TestGonePoll_StillPresent(t *testing.T) {
+func TestCheckDeleteResponse(t *testing.T) {
 	t.Parallel()
 
-	want := &widget{Name: "my-widget"}
-	poll := GonePoll[widget]("widget", "my-widget", func(context.Context) (int, string, *widget, error) {
-		return http.StatusOK, "200 OK", want, nil
-	})
+	noMsg := func() (string, bool) { return "", false }
+	withMsg := func(msg string) func() (string, bool) {
+		return func() (string, bool) { return msg, true }
+	}
 
-	v, err := poll(context.Background())
-	require.NoError(t, err)
-	assert.Same(t, want, v)
-}
-
-func TestGonePoll_EmptyBody_Retryable(t *testing.T) {
-	t.Parallel()
-
-	poll := GonePoll[widget]("widget", "my-widget", func(context.Context) (int, string, *widget, error) {
-		return http.StatusOK, "200 OK", nil, nil
-	})
-
-	_, err := poll(context.Background())
-	require.Error(t, err)
-	var re *wait.RetryableError
-	require.ErrorAs(t, err, &re)
-	assert.Contains(t, err.Error(), "empty response body fetching widget \"my-widget\"")
-}
-
-func TestGonePoll_Unauthorized_Terminal(t *testing.T) {
-	t.Parallel()
-
-	poll := GonePoll[widget]("widget", "my-widget", func(context.Context) (int, string, *widget, error) {
-		return http.StatusUnauthorized, "401 Unauthorized", nil, nil
-	})
-
-	_, err := poll(context.Background())
-	require.Error(t, err)
-	var re *wait.RetryableError
-	assert.NotErrorAs(t, err, &re, "401 must be terminal, not retryable")
-	assert.Contains(t, err.Error(), "run 'everestctl auth login' again")
-}
-
-func TestGonePoll_UnexpectedStatus_Retryable(t *testing.T) {
-	t.Parallel()
-
-	poll := GonePoll[widget]("widget", "my-widget", func(context.Context) (int, string, *widget, error) {
-		return http.StatusInternalServerError, "500 Internal Server Error", nil, nil
-	})
-
-	_, err := poll(context.Background())
-	require.Error(t, err)
-	var re *wait.RetryableError
-	require.ErrorAs(t, err, &re)
-	assert.Contains(t, err.Error(), "500 Internal Server Error")
-}
-
-func TestGonePoll_FetchError_Retryable(t *testing.T) {
-	t.Parallel()
-
-	poll := GonePoll[widget]("widget", "my-widget", func(context.Context) (int, string, *widget, error) {
-		return 0, "", nil, errors.New("connection reset")
-	})
-
-	_, err := poll(context.Background())
-	require.Error(t, err)
-	var re *wait.RetryableError
-	require.ErrorAs(t, err, &re)
-}
-
-func TestGonePoll_TokenRefreshFailure_Terminal(t *testing.T) {
-	t.Parallel()
-
-	poll := GonePoll[widget]("widget", "my-widget", func(context.Context) (int, string, *widget, error) {
-		return 0, "", nil, fmt.Errorf("refresh: %w", authcli.ErrTokenRefresh)
-	})
-
-	_, err := poll(context.Background())
-	require.Error(t, err)
-	var re *wait.RetryableError
-	assert.NotErrorAs(t, err, &re, "a failed token refresh must be terminal, not retryable")
-	assert.ErrorIs(t, err, authcli.ErrTokenRefresh)
+	tests := []struct {
+		name           string
+		status         int
+		statusText     string
+		ignoreNotFound bool
+		errBody        func() (string, bool)
+		wantGone       bool
+		wantErr        string
+	}{
+		{
+			name:     "200 is a clean delete",
+			status:   http.StatusOK,
+			errBody:  noMsg,
+			wantGone: false,
+		},
+		{
+			name:     "204 is a clean delete",
+			status:   http.StatusNoContent,
+			errBody:  noMsg,
+			wantGone: false,
+		},
+		{
+			name:    "404 without ignore-not-found errors",
+			status:  http.StatusNotFound,
+			errBody: noMsg,
+			wantErr: `widget "my-widget" not found in namespace "everest"`,
+		},
+		{
+			name:           "404 with ignore-not-found reports gone",
+			status:         http.StatusNotFound,
+			ignoreNotFound: true,
+			errBody:        noMsg,
+			wantGone:       true,
+		},
+		{
+			name:    "server error message surfaced",
+			status:  http.StatusBadRequest,
+			errBody: withMsg("still referenced by an Instance"),
+			wantErr: "server error: still referenced by an Instance",
+		},
+		{
+			name:       "unexpected status without a server message falls back to the raw status",
+			status:     http.StatusInternalServerError,
+			statusText: "500 Internal Server Error",
+			errBody:    noMsg,
+			wantErr:    "unexpected response deleting widget: 500 Internal Server Error",
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			gone, err := CheckDeleteResponse(tc.status, tc.statusText, "widget", "my-widget", "everest", tc.ignoreNotFound, tc.errBody)
+			assert.Equal(t, tc.wantGone, gone)
+			if tc.wantErr == "" {
+				require.NoError(t, err)
+				return
+			}
+			require.ErrorContains(t, err, tc.wantErr)
+		})
+	}
 }
 
 //nolint:paralleltest // captureStdout mutates global os.Stdout; must run serially

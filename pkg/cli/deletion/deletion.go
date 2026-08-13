@@ -13,22 +13,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package deletion holds the plumbing shared by every `<resource> delete
-// --wait` implementation: the "gone" wait.Condition, the GET-until-404 poll
-// shape, and the three output lines (deleted / already-gone /
-// wait-succeeded).
+// Package deletion holds the plumbing shared by every `<resource> delete`
+// command.
 package deletion
 
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net/http"
 	"os"
 	"strings"
 
-	authcli "github.com/openeverest/openeverest/v2/pkg/cli/auth"
 	"github.com/openeverest/openeverest/v2/pkg/cli/wait"
 	"github.com/openeverest/openeverest/v2/pkg/output"
 )
@@ -46,35 +42,32 @@ func GoneCondition[T any](goneMsg string, pendingMsg func(*T) string) wait.Condi
 	}
 }
 
-// GonePoll builds a wait.PollFunc for a delete-poll around fetch,
-// classifying responses the same way every `<resource> delete --wait`
-// already does: a 404 means gone (nil, nil); a failed token refresh and a
-// 401 are terminal; everything else unexpected is retryable.
+// GonePoll builds a wait.PollFunc for a delete-poll around fetch: a 404 means
+// the resource is gone (nil, nil). Everything else is classified the same way
+// every polling command is, via wait.FetchPoll.
 func GonePoll[T any](
 	kind, name string,
 	fetch func(ctx context.Context) (statusCode int, statusText string, body *T, err error),
 ) wait.PollFunc[*T] {
-	return func(ctx context.Context) (*T, error) {
-		status, statusText, body, err := fetch(ctx)
-		if err != nil {
-			if errors.Is(err, authcli.ErrTokenRefresh) {
-				return nil, fmt.Errorf("failed to fetch %s %q: %w", kind, name, err)
-			}
-			return nil, &wait.RetryableError{Err: fmt.Errorf("failed to fetch %s %q: %w", kind, name, err)}
+	return wait.FetchPoll(kind, name, wait.NotFoundIsSuccess, fetch)
+}
+
+// CheckDeleteResponse maps a DELETE response's status to (alreadyGone, error):
+// 404 is --ignore-not-found success or "not found"; other non-2xx uses errBody.
+func CheckDeleteResponse(status int, statusText, kind, name, namespace string, ignoreNotFound bool, errBody func() (string, bool)) (bool, error) {
+	switch {
+	case status == http.StatusNotFound:
+		if !ignoreNotFound {
+			return false, fmt.Errorf("%s %q not found in namespace %q", kind, name, namespace)
 		}
-		switch status {
-		case http.StatusOK:
-			if body == nil {
-				return nil, &wait.RetryableError{Err: fmt.Errorf("empty response body fetching %s %q", kind, name)}
-			}
-			return body, nil
-		case http.StatusNotFound:
-			return nil, nil // gone
-		case http.StatusUnauthorized:
-			return nil, fmt.Errorf("server rejected credentials — run 'everestctl auth login' again")
-		default:
-			return nil, &wait.RetryableError{Err: fmt.Errorf("unexpected response fetching %s %q: %s", kind, name, statusText)}
+		return true, nil
+	case status != http.StatusOK && status != http.StatusNoContent:
+		if msg, ok := errBody(); ok {
+			return false, fmt.Errorf("server error: %s", msg)
 		}
+		return false, fmt.Errorf("unexpected response deleting %s: %s", kind, statusText)
+	default:
+		return false, nil
 	}
 }
 
