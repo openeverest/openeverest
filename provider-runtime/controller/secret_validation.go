@@ -60,6 +60,11 @@ func ValidateSecretSchema(secret *corev1.Secret, providerSpec *corev1alpha1.Prov
 		return fmt.Errorf("secret definition %q does not exist: %w", secretDefinition, ErrSecretSchemaValidation)
 	}
 
+	// ParametersSchema is optional; if not defined, no validation is performed.
+	if secretDef.ParametersSchema == nil {
+		return nil
+	}
+
 	// Extract and merge data from the secret.
 	// stringData takes precedence (same as Kubernetes behavior).
 	data := extractSecretData(secret)
