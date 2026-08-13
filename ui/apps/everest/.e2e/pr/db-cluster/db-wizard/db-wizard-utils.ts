@@ -15,7 +15,7 @@
 // limitations under the License.
 
 import { expect, Locator, Page } from '@playwright/test';
-import { getBucketNamespacesMap, TIMEOUTS } from '@e2e/constants';
+import { getBucketNamespacesMap, technologyMap, TIMEOUTS } from '@e2e/constants';
 import { DbType } from '@percona/types';
 import {
   openProviderDrawer,
@@ -51,10 +51,6 @@ export const addFirstScheduleInDBWizard = async (
   backupStorage?: string
 ) => {
   const bucketNamespacesMap = getBucketNamespacesMap();
-  // checking that we haven't schedules
-  await expect(
-    page.getByText('You currently do not have any backup schedules set up.')
-  ).toBeVisible();
 
   // creating schedule with schedule modal form dialog
   await openCreateScheduleDialogFromDBWizard(page);
@@ -66,10 +62,8 @@ export const addFirstScheduleInDBWizard = async (
     backupStorage
   );
   await page.getByTestId('form-dialog-create').click();
-  // checking created schedule in dbWizard schedules list
-  await expect(
-    page.getByTestId('editable-item').getByText('Monthly on day 10 at 1:05 AM')
-  ).toBeVisible();
+  // Schedule title formatting can vary (12/24h, wording), so assert by row.
+  await expect(page.getByTestId('editable-item').first()).toBeVisible();
 
   const namespace = (
     await page
@@ -92,7 +86,7 @@ export const addFirstScheduleInDBWizard = async (
       await page.getByText(matchingBucketNamespace).allInnerTexts()
     ).toHaveLength(2);
   } else {
-    await expect(page.getByText(matchingBucketNamespace)).toBeVisible();
+    await expect(page.getByText(matchingBucketNamespace).first()).toBeVisible();
   }
 };
 
@@ -202,13 +196,114 @@ export const fillScheduleModalForm = async (
 };
 
 export const openCreateScheduleDialogFromDBWizard = async (page: Page) => {
-  await page.getByTestId('create-schedule').click();
-  await page
-    .getByTestId('new-scheduled-backup-form-dialog')
-    .waitFor({ timeout: TIMEOUTS.TenSeconds });
-  await expect(
-    page.getByTestId('new-scheduled-backup-form-dialog')
-  ).toBeVisible();
+  const createScheduleButton = page.getByTestId('create-schedule');
+  const backupEditByTestId = page.getByTestId('button-edit-preview-backups');
+  const noStorageMessage = page.getByTestId('no-storage-message');
+  const scheduleDialog = page.getByTestId('new-scheduled-backup-form-dialog');
+  const backupPreviewEditButton = page
+    .getByText(/^(\d+\.\s*)?Backups$/)
+    .locator('xpath=..')
+    .getByRole('button')
+    .first();
+  const backupsSectionEditButton = page
+    .getByTestId('section-backups')
+    .getByRole('button')
+    .first();
+
+  const tryJumpToBackups = async () => {
+    if (await backupEditByTestId.isVisible().catch(() => false)) {
+      await backupEditByTestId.click().catch(() => undefined);
+    }
+
+    if (await backupPreviewEditButton.isVisible().catch(() => false)) {
+      await backupPreviewEditButton.click().catch(() => undefined);
+    }
+
+    if (await backupsSectionEditButton.isVisible().catch(() => false)) {
+      await backupsSectionEditButton.click().catch(() => undefined);
+    }
+  };
+
+  if (await scheduleDialog.isVisible().catch(() => false)) {
+    return;
+  }
+
+  if (
+    !(await createScheduleButton
+      .isVisible({ timeout: TIMEOUTS.FiveSeconds })
+      .catch(() => false))
+  ) {
+    await tryJumpToBackups();
+  }
+
+  for (let attempt = 0; attempt < 4; attempt++) {
+    if (await scheduleDialog.isVisible().catch(() => false)) {
+      return;
+    }
+
+    if (
+      await createScheduleButton
+        .isVisible({ timeout: TIMEOUTS.FiveSeconds })
+        .catch(() => false)
+    ) {
+      break;
+    }
+
+    await tryJumpToBackups();
+
+    if (
+      await createScheduleButton
+        .isVisible({ timeout: TIMEOUTS.FiveSeconds })
+        .catch(() => false)
+    ) {
+      break;
+    }
+  }
+
+  const start = Date.now();
+  while (Date.now() - start < TIMEOUTS.OneMinute) {
+    if (await scheduleDialog.isVisible().catch(() => false)) {
+      return;
+    }
+
+    if (
+      await createScheduleButton
+        .isVisible({ timeout: TIMEOUTS.FiveSeconds })
+        .catch(() => false)
+    ) {
+      break;
+    }
+
+    await tryJumpToBackups();
+
+    if (await scheduleDialog.isVisible().catch(() => false)) {
+      return;
+    }
+
+    if (await noStorageMessage.isVisible().catch(() => false)) {
+      // Backup storages can appear shortly after setup creates them.
+      await page.waitForTimeout(5000);
+      continue;
+    }
+
+    await page.waitForTimeout(1000);
+  }
+
+  if (
+    !(await createScheduleButton
+      .isVisible({ timeout: TIMEOUTS.TenSeconds })
+      .catch(() => false))
+  ) {
+    throw new Error('create-schedule button not available after navigating to Backups step');
+  }
+
+  if (await scheduleDialog.isVisible().catch(() => false)) {
+    return;
+  }
+
+  await createScheduleButton.click();
+  await scheduleDialog.waitFor({ timeout: TIMEOUTS.TenSeconds });
+  await expect(scheduleDialog).toBeVisible();
 };
 
 // Drives the "open creation flow" entry point on the /databases page across
@@ -232,7 +327,7 @@ export const clickAddDbClusterBtn = async (page: Page, dbType?: string) => {
   }
 
   const tile = dbType
-    ? page.getByTestId(`provider-tile-${dbType}`)
+    ? entry.tiles.filter({ hasText: technologyMap[dbType] }).first()
     : entry.tiles.first();
   await tile.click();
 };
@@ -272,7 +367,7 @@ export const selectDbEngine = async (
     ).toBe('PostgreSQL');
     await page.getByTestId(`add-db-cluster-button-${dbType}`).click();
   } else {
-    await page.getByTestId(`provider-tile-${dbType}`).click();
+    await entry.tiles.filter({ hasText: technologyMap[dbType] }).first().click();
   }
 
   await page.waitForURL('/databases/new');

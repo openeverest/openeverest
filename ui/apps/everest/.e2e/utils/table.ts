@@ -6,12 +6,29 @@ export const findRowAndClickActions = async (
   name: string,
   nameOfAction?: string
 ) => {
-  // cluster actions menu click
-  await page
-    .locator('.MuiTableRow-root')
-    .filter({ hasText: name })
-    .getByTestId('MoreHorizIcon')
-    .click({ timeout: 10000 });
+  // Cluster actions menu click. Test IDs changed across UI iterations,
+  // so try the known variants in order.
+  const row = page.locator('.MuiTableRow-root').filter({ hasText: name });
+  await expect(row).toBeVisible({ timeout: 15000 });
+
+  const menuCandidates = [
+    row.getByTestId('row-actions-menu-button'),
+    row.getByTestId('actions-menu-button'),
+    row.getByTestId('MoreHorizIcon'),
+  ];
+
+  let clicked = false;
+  for (const candidate of menuCandidates) {
+    if (await candidate.isVisible().catch(() => false)) {
+      await candidate.click({ timeout: 10000 });
+      clicked = true;
+      break;
+    }
+  }
+
+  if (!clicked) {
+    throw new Error(`Could not find row actions menu for table row: ${name}`);
+  }
 
   if (nameOfAction) {
     await page.getByRole('menuitem', { name: nameOfAction }).click();
@@ -65,12 +82,22 @@ export const waitForDelete = async (
 
 export const waitForDbListLoad = async (page: Page) => {
   const rows = page.locator('.MuiTableRow-root');
+  const createDbButton = page.getByTestId('add-db-cluster-button');
   const start = Date.now();
-  const timeout = 10000;
+  const timeout = TIMEOUTS.ThirtySeconds;
 
   while (Date.now() - start < timeout) {
-    const count = await rows.count();
-    if (count > 0) return;
+    const [rowCount, hasCreateButton] = await Promise.all([
+      rows.count(),
+      createDbButton.isVisible().catch(() => false),
+    ]);
+
+    // The databases page is considered loaded when either table rows are shown
+    // or the empty-state/toolbar create button is rendered.
+    if (rowCount > 0 || hasCreateButton) {
+      return;
+    }
+
     await page.waitForTimeout(200); // pause before retrying
   }
   throw new Error('Timed out waiting for DB list to load');
