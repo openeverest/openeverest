@@ -53,6 +53,13 @@ func NormalizeBackup(we watch.Event, old *backupv1alpha1.Backup) []Event {
 
 	switch we.Type {
 	case watch.Added:
+		// Kubernetes re-sends Added for every existing object when a watch
+		// starts or reconnects. Skip those so Running/Succeeded backups do
+		// not get a second backup.started (same reason NormalizeEverestSettings
+		// ignores Added).
+		if isExistingWatchRelist(old != nil, newState, string(backupv1alpha1.BackupStatePending)) {
+			break
+		}
 		out = append(out, Event{
 			ResourceVersion: rv,
 			Type:            BackupStarted,
@@ -120,6 +127,9 @@ func NormalizeRestore(we watch.Event, old *backupv1alpha1.Restore) []Event {
 
 	switch we.Type {
 	case watch.Added:
+		if isExistingWatchRelist(old != nil, newState, string(backupv1alpha1.RestoreStatePending)) {
+			break
+		}
 		out = append(out, Event{
 			ResourceVersion: rv,
 			Type:            RestoreStarted,
@@ -220,6 +230,16 @@ func isRestoreComplete(state string) bool {
 
 func isRestoreFailed(state string) bool {
 	return state == "Failed" || state == "Error"
+}
+
+// isExistingWatchRelist is true for an Added that is not a newly created
+// object: either we already cached it (watch reconnect) or it already left
+// Pending (Everest restart listing Running/Succeeded/Failed objects).
+func isExistingWatchRelist(cached bool, state, pending string) bool {
+	if cached {
+		return true
+	}
+	return state != "" && state != pending
 }
 
 // NormalizeNamespace converts a kube watch event on a managed Namespace
