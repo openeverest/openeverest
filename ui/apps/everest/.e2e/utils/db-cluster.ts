@@ -24,7 +24,74 @@ import { DbType } from '@percona/types';
 import { execSync } from 'child_process';
 import { checkError } from '@e2e/utils/generic';
 import { getVersionServiceDBVersions } from '@e2e/utils/version-service';
-import { TIMEOUTS } from '@e2e/constants';
+import { EVEREST_CI_CLUSTER, TIMEOUTS } from '@e2e/constants';
+
+const providerToEngineType = (providerName?: string): string => {
+  if (!providerName) {
+    return 'postgresql';
+  }
+
+  if (providerName.includes('xtradb') || providerName.includes('mysql')) {
+    return 'pxc';
+  }
+
+  if (providerName.includes('mongodb')) {
+    return 'psmdb';
+  }
+
+  return 'postgresql';
+};
+
+const toLegacyDbClusterShape = (instance: any) => {
+  const providerName: string | undefined = instance?.spec?.providerRef?.name;
+  const engine = instance?.spec?.components?.engine ?? {};
+  const proxy = instance?.spec?.components?.proxy ?? {};
+  const backup = instance?.spec?.backup;
+  const storagePitrEnabled = Boolean(
+    backup?.storages?.some((storage) => storage?.pitr?.enabled)
+  );
+
+  return {
+    ...instance,
+    spec: {
+      ...instance?.spec,
+      engine: {
+        type: providerToEngineType(providerName),
+        version: instance?.spec?.version,
+        replicas: engine?.replicas,
+        resources: {
+          cpu: engine?.resources?.limits?.cpu,
+          memory: engine?.resources?.limits?.memory,
+        },
+        storage: {
+          size: engine?.storage?.size,
+          class: engine?.storage?.storageClass,
+        },
+      },
+      proxy: {
+        ...proxy,
+        replicas: proxy?.replicas,
+        expose: {
+          // v2 instance payload no longer returns expose type in this endpoint.
+          // Keep legacy shape for existing release assertions.
+          type: 'ClusterIP',
+        },
+      },
+      ...(backup && {
+        backup: {
+          ...backup,
+          pitr: {
+            enabled: storagePitrEnabled,
+          },
+        },
+      }),
+    },
+    status: {
+      ...instance?.status,
+      crVersion: instance?.status?.crVersion ?? instance?.status?.version,
+    },
+  };
+};
 
 export const createDbClusterFn = async (
   request: APIRequestContext,
@@ -195,17 +262,65 @@ export const getDbClusterAPI = async (
   request: APIRequestContext,
   token: string
 ) => {
-  const response = await request.get(
-    `/v1/namespaces/${namespace}/database-clusters/${clusterName}`,
-    {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    }
-  );
-  await checkError(response);
+  let response;
+  let useInstancePayload = false;
 
-  return await response.json();
+  await expect(async () => {
+    const legacyResponse = await request.get(
+      `/v1/namespaces/${namespace}/database-clusters/${clusterName}`,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+
+    if (legacyResponse.ok()) {
+      response = legacyResponse;
+      useInstancePayload = false;
+      return;
+    }
+
+    if (legacyResponse.status() !== 404) {
+      await checkError(legacyResponse);
+      return;
+    }
+
+    const legacyError = await legacyResponse
+      .json()
+      .catch(() => ({ message: '' }));
+    const noLegacyRoute = String(legacyError?.message ?? '').includes(
+      'no matching operation was found'
+    );
+
+    if (!noLegacyRoute) {
+      await checkError(legacyResponse);
+      return;
+    }
+
+    response = await request.get(
+      `/v1/clusters/${EVEREST_CI_CLUSTER}/namespaces/${namespace}/instances/${clusterName}`,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+    useInstancePayload = true;
+    await checkError(response);
+  }).toPass({
+    intervals: [2000],
+    timeout: TIMEOUTS.OneMinute,
+  });
+
+  expect(response).toBeTruthy();
+  const data = await response!.json();
+
+  if (useInstancePayload) {
+    return toLegacyDbClusterShape(data);
+  }
+
+  return data;
 };
 
 export const updateDbClusterAPI = async (

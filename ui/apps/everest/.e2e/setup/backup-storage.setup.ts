@@ -13,11 +13,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { test as setup } from '@playwright/test';
+import { expect, test as setup } from '@playwright/test';
 import 'dotenv/config';
 import { getCITokenFromLocalStorage } from '../utils/localStorage';
-import { doBackupCall } from '../utils/request';
-import { getBucketNamespacesMap } from '../constants';
+import { EVEREST_CI_CLUSTER, EVEREST_CI_NAMESPACES, getBucketNamespacesMap } from '../constants';
 
 const {
   EVEREST_LOCATION_ACCESS_KEY,
@@ -30,10 +29,26 @@ const {
   EVEREST_S3_URL,
 } = process.env;
 
+const postBackupStorage = async (
+  request: any,
+  token: string,
+  namespace: string,
+  data: any
+) =>
+  request.post(
+    `/v1/clusters/${EVEREST_CI_CLUSTER}/namespaces/${namespace}/backup-storages/`,
+    {
+      data,
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    }
+  );
+
 setup.describe.serial('Backup Storage setup', () => {
   setup('Create Backup Storages', async ({ request }) => {
     const token = await getCITokenFromLocalStorage();
-    const promises: Promise<any>[] = [];
+    const promises: Promise<unknown>[] = [];
     // This has a nested array structure, in the form of
     // [
     //   ['bucket1', 'namespace1'],
@@ -45,43 +60,75 @@ setup.describe.serial('Backup Storage setup', () => {
       const isEverestTesting = bucket === 'everest-testing';
       const data = isEverestTesting
         ? {
-            name: bucket,
-            description: 'CI test S3 bucket',
-            type: 's3',
-            bucketName: bucket,
-            secretKey: EVEREST_S3_SECRET_KEY,
-            accessKey: EVEREST_S3_ACCESS_KEY,
-            allowedNamespaces: [],
-            url: EVEREST_S3_URL,
-            region: EVEREST_S3_REGION,
-            verifyTLS: true,
-            forcePathStyle: false,
+            metadata: {
+              name: bucket,
+              namespace,
+            },
+            spec: {
+              type: 's3',
+              s3: {
+                bucket,
+                endpointURL: EVEREST_S3_URL,
+                region: EVEREST_S3_REGION,
+                credentialsSecretRef: {
+                  name: `backup-storage-${bucket}-credentials`,
+                },
+                accessKeyId: EVEREST_S3_ACCESS_KEY,
+                secretAccessKey: EVEREST_S3_SECRET_KEY,
+                verifyTLS: true,
+                forcePathStyle: false,
+              },
+            },
           }
         : {
-            name: bucket,
-            description: 'CI test bucket',
-            type: 's3',
-            bucketName: bucket,
-            secretKey: EVEREST_LOCATION_SECRET_KEY,
-            accessKey: EVEREST_LOCATION_ACCESS_KEY,
-            allowedNamespaces: [],
-            url: EVEREST_LOCATION_URL,
-            region: EVEREST_LOCATION_REGION,
-            verifyTLS: false,
-            forcePathStyle: true,
+            metadata: {
+              name: bucket,
+              namespace,
+            },
+            spec: {
+              type: 's3',
+              s3: {
+                bucket,
+                endpointURL: EVEREST_LOCATION_URL,
+                region: EVEREST_LOCATION_REGION,
+                credentialsSecretRef: {
+                  name: `backup-storage-${bucket}-credentials`,
+                },
+                accessKeyId: EVEREST_LOCATION_ACCESS_KEY,
+                secretAccessKey: EVEREST_LOCATION_SECRET_KEY,
+                verifyTLS: false,
+                forcePathStyle: true,
+              },
+            },
           };
 
       promises.push(
-        doBackupCall(
-          () =>
-            request.post(`/v1/namespaces/${namespace}/backup-storages/`, {
-              data,
-              headers: {
-                Authorization: `Bearer ${token}`,
-              },
-            }),
-          1
-        )
+        (async () => {
+          let response = await postBackupStorage(request, token, namespace, data);
+
+          if (response.status() === 404) {
+            const body = await response.json();
+            const isMissingNamespace =
+              body?.message && body.message.includes('not found');
+
+            if (isMissingNamespace) {
+              response = await postBackupStorage(
+                request,
+                token,
+                EVEREST_CI_NAMESPACES.EVEREST_UI,
+                {
+                  ...data,
+                  metadata: {
+                    ...data.metadata,
+                    namespace: EVEREST_CI_NAMESPACES.EVEREST_UI,
+                  },
+                }
+              );
+            }
+          }
+
+          expect([200, 201, 409]).toContain(response.status());
+        })()
       );
     });
     await Promise.all(promises);

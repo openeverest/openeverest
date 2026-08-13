@@ -99,7 +99,7 @@ export const extractWizardBackup = (
       pitr[storage.storageRef.name ?? ''] = {
         enabled: true,
         ...(storage.pitr.parameters
-          ? { parameters: storage.pitr.parameters as Record<string, unknown> }
+          ? { parameters: storage.pitr.parameters }
           : {}),
       };
     }

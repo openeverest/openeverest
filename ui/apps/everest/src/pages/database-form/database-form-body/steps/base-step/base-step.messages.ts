@@ -13,19 +13,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { ImportForm } from 'components/cluster-form/import/import';
-import { StepHeader } from '../../steps/step-header/step-header';
-import { Messages } from './import-step.messages';
-
-export const ImportStep = () => {
-  return (
-    <>
-      <StepHeader
-        pageTitle={Messages.pageTitle}
-        pageDescription={Messages.pageDescription}
-        techPreview
-      />
-      <ImportForm />
-    </>
-  );
+export const Messages = {
+  pageTitle: 'Basic information',
+  pageDescription: 'Provide the basic information for your new instance.',
+  labels: {
+    dbName: 'Display name',
+    k8sNamespace: 'Namespace',
+  },
+  placeholders: {
+    dbName: 'E.g. postgresql-123',
+  }
 };
