@@ -22,5 +22,5 @@ export const Messages = {
   },
   placeholders: {
     dbName: 'E.g. postgresql-123',
-  }
+  },
 };

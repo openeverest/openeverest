@@ -14,7 +14,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { request as apiRequest, APIRequestContext, Page } from '@playwright/test';
+import {
+  request as apiRequest,
+  APIRequestContext,
+  Page,
+} from '@playwright/test';
 import { expect, test } from '@e2e/fixtures/auth';
 import {
   gotoDbClusterBackups,
@@ -71,7 +75,7 @@ let pitrRestoreTime: PitrTime = {
   second: '',
 };
 
-function getCurrentPITRTime (): PitrTime {
+function getCurrentPITRTime(): PitrTime {
   const now: Date = new Date();
   return {
     day: now.getDate().toString(),
@@ -83,11 +87,11 @@ function getCurrentPITRTime (): PitrTime {
   };
 }
 
-function getFormattedPITRTime (time: PitrTime): string {
+function getFormattedPITRTime(time: PitrTime): string {
   return `${time.day.padStart(2, '0')}/${time.month.padStart(2, '0')}/${time.year} at ${time.hour.padStart(2, '0')}:${time.minute.padStart(2, '0')}:${time.second.padStart(2, '0')}`;
 }
 
-function getBackupStorage (): string {
+function getBackupStorage(): string {
   const bucketNamespacesMap = getBucketNamespacesMap();
   const hasEverestTesting = bucketNamespacesMap.some(
     ([bucket, ns]) => bucket === 'everest-testing' && ns === 'everest'
@@ -639,9 +643,9 @@ test.describe.serial(
 
       // v2: choose the date target; the picker appears only for 'date'.
       await page.getByTestId('radio-option-date').click({ timeout: 5000 });
-      await expect(
-        page.getByPlaceholder('DD/MM/YYYY at hh:mm:ss')
-      ).toBeVisible({ timeout: 5000 });
+      await expect(page.getByPlaceholder('DD/MM/YYYY at hh:mm:ss')).toBeVisible(
+        { timeout: 5000 }
+      );
 
       // v2 (MUI x-date-pickers v7): the open-picker button is exposed by its
       // accessible name ("Choose date…"), not a `CalendarIcon` test id.
@@ -657,9 +661,9 @@ test.describe.serial(
       await page
         .getByLabel(pitrRestoreTime.second + ' seconds', { exact: true })
         .click({ timeout: 5000 });
-      await expect(
-        page.getByPlaceholder('DD/MM/YYYY at hh:mm:ss')
-      ).toHaveValue(getFormattedPITRTime(pitrRestoreTime));
+      await expect(page.getByPlaceholder('DD/MM/YYYY at hh:mm:ss')).toHaveValue(
+        getFormattedPITRTime(pitrRestoreTime)
+      );
 
       await page.getByTestId('form-dialog-restore').click({ timeout: 5000 });
 

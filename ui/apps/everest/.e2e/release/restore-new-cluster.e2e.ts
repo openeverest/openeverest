@@ -187,12 +187,7 @@ function getNextScheduleMinute(incrementMinutes: number): string {
         await test.step('Check db list and status', async () => {
           await page.goto('/databases');
           if (db !== 'postgresql' && db !== 'pxc') {
-            await waitForStatus(
-              page,
-              clusterName,
-              'Initializing',
-              15000
-            );
+            await waitForStatus(page, clusterName, 'Initializing', 15000);
           }
 
           if (db === 'pxc') {
@@ -227,7 +222,9 @@ function getNextScheduleMinute(incrementMinutes: number): string {
             expect(addedCluster?.spec.engine.resources?.memory.toString()).toBe(
               '1G'
             );
-            expect(addedCluster?.spec.engine.storage.size.toString()).toBe('1Gi');
+            expect(addedCluster?.spec.engine.storage.size.toString()).toBe(
+              '1Gi'
+            );
           } else {
             expect(addedCluster?.spec.engine.resources?.cpu).toBeTruthy();
             expect(addedCluster?.spec.engine.resources?.memory).toBeTruthy();
