@@ -19,7 +19,7 @@ import { SelectInput, Stepper } from '@percona/ui-lib';
 import { TopologyUISchemas } from 'components/ui-generator/ui-generator.types';
 import { MenuItem, Stack, Step, StepLabel } from '@mui/material';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { StepHeader } from 'pages/database-form/database-form-body/steps-old/step-header/step-header';
+import { StepHeader } from 'pages/database-form/database-form-body/steps/step-header/step-header';
 import DatabaseFormStepControllers from 'pages/database-form/database-form-body/database-form-step-controllers/database-form-step-controllers';
 import { useCelValidation } from 'components/ui-generator/hooks/use-cel-validation';
 import { useUiGenerator } from 'components/ui-generator/hooks/ui-generator';

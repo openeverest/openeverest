@@ -33,7 +33,7 @@ export const applySchedulesToStorages = (
         enabled: schedule.enabled,
         retentionCopies: schedule.retentionCopies,
         ...(schedule.parameters
-          ? { parameters: schedule.parameters as Record<string, never> }
+          ? { parameters: schedule.parameters }
           : {}),
       })),
   }));

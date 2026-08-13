@@ -15,9 +15,75 @@
 // limitations under the License.
 
 import { execSync } from 'child_process';
+import { existsSync } from 'fs';
+import path from 'path';
 import { expect } from '@playwright/test';
+import { getCITokenFromLocalStorage } from './localStorage';
+import { EVEREST_CI_CLUSTER } from '../constants';
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+const CONN_BASE_URL = process.env.EVEREST_URL || 'http://localhost:8080';
+
+type InstanceConnection = {
+  host: string;
+  port: string;
+  username: string;
+  password: string;
+  type: string;
+  provider?: string;
+  uri?: string;
+};
+
+// The v2 connection endpoint reports the database family (mysql/mongodb/
+// postgresql); the helpers below switch on the engine key (pxc/psmdb/
+// postgresql), so translate between the two.
+const connectionTypeToEngine: Record<string, string> = {
+  mysql: 'pxc',
+  mongodb: 'psmdb',
+  postgresql: 'postgresql',
+};
+
+// v2 replacement for the old `kubectl get DatabaseClusters` reads. In v2 a
+// database is an Instance (core.openeverest.io) and its connection details
+// (host, port, username, password) are served by a dedicated API endpoint once
+// the provider marks the Instance ready.
+export const getInstanceConnection = async (
+  cluster: string,
+  namespace: string
+): Promise<InstanceConnection> => {
+  let token = await getCITokenFromLocalStorage();
+  const start = Date.now();
+  let lastStatus = 0;
+  const timeoutMs = 10 * 60 * 1000;
+  const pollIntervalMs = 5000;
+
+  while (Date.now() - start < timeoutMs) {
+    const resp = await fetch(
+      `${CONN_BASE_URL}/v1/clusters/${EVEREST_CI_CLUSTER}/namespaces/${namespace}/instances/${cluster}/connection`,
+      {
+        headers: { Authorization: `Bearer ${token}` },
+      }
+    );
+
+    lastStatus = resp.status;
+
+    if (lastStatus === 401) {
+      token = await getCITokenFromLocalStorage();
+      continue;
+    }
+
+    if (resp.ok) {
+      return (await resp.json()) as InstanceConnection;
+    }
+
+    await delay(pollIntervalMs);
+  }
+
+  throw new Error(
+    `connection endpoint returned ${lastStatus} for instance ${cluster} in ${namespace}`
+  );
+};
 
 export const getPGStsName = async (cluster: string, namespace: string) => {
   try {
@@ -32,75 +98,105 @@ export const getPGStsName = async (cluster: string, namespace: string) => {
 };
 
 export const getDBHost = async (cluster: string, namespace: string) => {
-  try {
-    const command = `kubectl get --namespace ${namespace} DatabaseClusters ${cluster} -ojsonpath='{.status.hostname}'`;
-    const output = execSync(command).toString();
-    return output;
-  } catch (error) {
-    console.error(`Error executing command: ${error}`);
-    throw error;
-  }
+  const { host } = await getInstanceConnection(cluster, namespace);
+  return host;
 };
 
 export const getDBType = async (cluster: string, namespace: string) => {
-  try {
-    const command = `kubectl get --namespace ${namespace} DatabaseClusters ${cluster} -ojsonpath='{.spec.engine.type}'`;
-    const output = execSync(command).toString();
-    return output;
-  } catch (error) {
-    console.error(`Error executing command: ${error}`);
-    throw error;
-  }
+  const { type } = await getInstanceConnection(cluster, namespace);
+  return connectionTypeToEngine[type] ?? type;
 };
 
 export const getDBClientPod = async (dbType: string, namespace: string) => {
-  try {
-    if (dbType === 'pxc') {
-      dbType = 'mysql';
-    }
-
-    const command = `kubectl get pods --namespace ${namespace} --selector=name=${dbType}-client -o 'jsonpath={.items[].metadata.name}'`;
-    const output = execSync(command).toString();
-    return output;
-  } catch (error) {
-    console.error(`Error executing command: ${error}`);
-    throw error;
+  if (dbType === 'pxc') {
+    dbType = 'mysql';
   }
+
+  const selector = `name=${dbType}-client`;
+  const getPodName = () => {
+    const command = `kubectl get pods --namespace ${namespace} --selector=${selector} -o 'jsonpath={.items[*].metadata.name}' --ignore-not-found`;
+    const output = execSync(command).toString().trim();
+    if (!output) {
+      return '';
+    }
+    return output.split(/\s+/)[0] || '';
+  };
+
+  let podName = '';
+  try {
+    podName = getPodName();
+  } catch (error) {
+    console.error(`Error getting DB client pod: ${error}`);
+  }
+
+  if (podName) {
+    return podName;
+  }
+
+  const manifestByDbType: Record<string, string> = {
+    mysql: 'mysql-client.yaml',
+    psmdb: 'psmdb-client.yaml',
+    postgresql: 'postgresql-client.yaml',
+  };
+  const manifestName = manifestByDbType[dbType];
+
+  if (!manifestName) {
+    throw new Error(`Unsupported DB client type: ${dbType}`);
+  }
+
+  const candidateRoots = [
+    process.cwd(),
+    path.resolve(process.cwd(), '..'),
+    path.resolve(process.cwd(), '../..'),
+    path.resolve(process.cwd(), '../../..'),
+    path.resolve(process.cwd(), '../../../..'),
+  ];
+  const manifestPath = candidateRoots
+    .map((root) => path.join(root, '.github', manifestName))
+    .find((candidate) => existsSync(candidate));
+
+  if (!manifestPath) {
+    throw new Error(`Could not find .github/${manifestName} from ${process.cwd()}`);
+  }
+
+  execSync(`kubectl apply -f '${manifestPath}'`, { stdio: 'pipe' });
+  execSync(
+    `kubectl wait --namespace ${namespace} --for=condition=Available deployment/${dbType}-client --timeout=180s`,
+    { stdio: 'pipe' }
+  );
+  execSync(
+    `kubectl wait --namespace ${namespace} --for=condition=Ready pod --selector=${selector} --timeout=180s`,
+    { stdio: 'pipe' }
+  );
+
+  podName = getPodName();
+  if (!podName) {
+    throw new Error(
+      `DB client pod for ${dbType} is still not available in namespace ${namespace}`
+    );
+  }
+
+  return podName;
 };
 
 export const getPXCPassword = async (cluster: string, namespace: string) => {
-  try {
-    const command = `kubectl get secret --namespace ${namespace} everest-secrets-${cluster} -o template='{{ .data.root | base64decode }}'`;
-    const output = execSync(command).toString();
-    return output;
-  } catch (error) {
-    console.error(`Error executing command: ${error}`);
-    throw error;
-  }
+  const { password } = await getInstanceConnection(cluster, namespace);
+  return password;
 };
 
 export const getPSMDBPassword = async (cluster: string, namespace: string) => {
-  try {
-    const command = `kubectl get secret --namespace ${namespace} everest-secrets-${cluster} -o template='{{ .data.MONGODB_BACKUP_PASSWORD | base64decode }}'`;
-    const output = execSync(command).toString();
-    return output;
-  } catch (error) {
-    console.error(`Error executing command: ${error}`);
-    throw error;
-  }
+  const { password } = await getInstanceConnection(cluster, namespace);
+  return password;
 };
 
 export const getPGPassword = async (cluster: string, namespace: string) => {
-  try {
-    const command = `kubectl get secret --namespace ${namespace} everest-secrets-${cluster} -o template='{{ .data.password | base64decode }}'`;
-    const output = execSync(command).toString();
-    return output;
-  } catch (error) {
-    console.error(`Error executing command: ${error}`);
-    throw error;
-  }
+  const { password } = await getInstanceConnection(cluster, namespace);
+  return password;
 };
 
+// TODO(v2): sharding status is not exposed by the connection endpoint. This
+// still reads the (v1) DatabaseCluster CR and is only exercised by PSMDB tests,
+// which are migrated separately; the PXC golden does not use it.
 export const getPSMDBShardingStatus = async (
   cluster: string,
   namespace: string

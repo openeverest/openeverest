@@ -1,5 +1,4 @@
-// everest
-// Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,19 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { ImportForm } from 'components/cluster-form/import/import';
-import { StepHeader } from '../../steps/step-header/step-header';
-import { Messages } from './import-step.messages';
+import { test as setup } from '@playwright/test';
+import { loginCIUser } from '@e2e/utils/user';
 
-export const ImportStep = () => {
-  return (
-    <>
-      <StepHeader
-        pageTitle={Messages.pageTitle}
-        pageDescription={Messages.pageDescription}
-        techPreview
-      />
-      <ImportForm />
-    </>
-  );
-};
+setup('Authenticate CI user', async ({ page }) => {
+  await loginCIUser(page);
+});

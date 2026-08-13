@@ -16,6 +16,8 @@ export const clickOnDemandBackup = async (page: Page) => {
   const onDemandMenuItem = page.getByTestId('now-menu-item');
   await onDemandMenuItem.click();
   await expect(
-    page.getByRole('heading').filter({ hasText: 'Create Backup' })
+    page
+      .getByRole('heading')
+      .filter({ hasText: /Create (on-demand )?backup/i })
   ).toBeVisible();
 };

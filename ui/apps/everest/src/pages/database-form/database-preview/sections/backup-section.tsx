@@ -18,13 +18,20 @@ import { getTimeSelectionPreviewMessage } from '../database.preview.messages';
 import { getFormValuesFromCronExpression } from 'components/time-selection/time-selection.utils';
 import { FlattenedSchedule } from 'components/schedule-form-dialog/schedule-form-dialog-context/schedule-form-dialog-context.types';
 
+interface PreviewBackupFormState {
+  schedules?: FlattenedSchedule[];
+  pitr?: Record<string, { enabled?: boolean } | undefined>;
+}
+
+// The wizard keeps backup schedules/PITR under a flat `backup` form field that
+// is not part of the static DbWizardType (SectionProps), so narrow to read it.
+const hasBackupFormState = (
+  value: unknown
+): value is { backup?: PreviewBackupFormState } =>
+  typeof value === 'object' && value !== null && 'backup' in value;
+
 export const PreviewBackupSection = (props: SectionProps) => {
-  const backup = (props as Record<string, unknown>).backup as
-    | {
-        schedules?: FlattenedSchedule[];
-        pitr?: Record<string, { enabled?: boolean } | undefined>;
-      }
-    | undefined;
+  const backup = hasBackupFormState(props) ? props.backup : undefined;
   const schedules = backup?.schedules ?? [];
   const pitrStorages = Object.entries(backup?.pitr ?? {})
     .filter(([, config]) => config?.enabled)

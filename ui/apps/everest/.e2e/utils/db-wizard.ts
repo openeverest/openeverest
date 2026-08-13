@@ -13,7 +13,7 @@
 // limitations under the License.
 
 import { expect, Locator, Page } from '@playwright/test';
-import { TIMEOUTS } from '@e2e/constants';
+import { technologyMap, TIMEOUTS } from '@e2e/constants';
 
 // Discriminated result of `resolveCreateEntryPoint`. The /databases page
 // exposes exactly one of two entry points for starting DB creation:
@@ -32,15 +32,28 @@ export const resolveCreateEntryPoint = async (
 ): Promise<CreateEntryPoint> => {
   const toolbarBtn = page.getByTestId('add-db-cluster-button');
   const tiles = page.locator('[data-testid^="provider-tile-"]');
-
-  await expect(toolbarBtn.or(tiles.first()).first()).toBeVisible({
-    timeout: TIMEOUTS.ThirtySeconds,
+  const fallbackTiles = page.locator('main').getByRole('link', {
+    name: new RegExp(Object.values(technologyMap).join('|'), 'i'),
   });
 
-  if (await toolbarBtn.isVisible().catch(() => false)) {
-    return { mode: 'toolbar', toolbarBtn };
+  const start = Date.now();
+  while (Date.now() - start < TIMEOUTS.ThirtySeconds) {
+    if (await toolbarBtn.isVisible().catch(() => false)) {
+      return { mode: 'toolbar', toolbarBtn };
+    }
+
+    if (await tiles.first().isVisible().catch(() => false)) {
+      return { mode: 'tiles', tiles };
+    }
+
+    if (await fallbackTiles.first().isVisible().catch(() => false)) {
+      return { mode: 'tiles', tiles: fallbackTiles };
+    }
+
+    await page.waitForTimeout(200);
   }
-  return { mode: 'tiles', tiles };
+
+  throw new Error('Timed out waiting for DB creation entry point');
 };
 
 // Opens the provider drawer (only present when multiple providers are
@@ -79,7 +92,7 @@ export const openDbCreationForm = async (page: Page, providerName?: string) => {
     }
   } else {
     const tile = providerName
-      ? page.getByTestId(`provider-tile-${providerName}`)
+      ? entry.tiles.filter({ hasText: technologyMap[providerName] }).first()
       : entry.tiles.first();
     await tile.click();
   }
@@ -102,21 +115,65 @@ export const storageLocationAutocompleteEmptyValidationCheck = async (
   ).toBeVisible();
 };
 
+const getWizardStepTitle = async (page: Page) => {
+  const stepHeader = page.getByTestId('step-header');
+  if (await stepHeader.isVisible().catch(() => false)) {
+    return stepHeader.textContent();
+  }
+
+  const heading = page.locator('main h5').first();
+  if (await heading.isVisible().catch(() => false)) {
+    return heading.textContent();
+  }
+
+  return null;
+};
+
 const waitForStepHeaderToChange = async (
   page: Page,
   directionalButtonTestId: string
 ) => {
-  const currHeader = await page.getByTestId('step-header').textContent();
+  const currHeader = await getWizardStepTitle(page);
   await page.getByTestId(directionalButtonTestId).click();
-  do {
-    if ((await page.getByTestId('step-header').textContent()) !== currHeader) {
+  const start = Date.now();
+
+  while (Date.now() - start < TIMEOUTS.ThirtySeconds) {
+    const nextHeader = await getWizardStepTitle(page);
+
+    if (nextHeader !== currHeader) {
       break;
     }
+
+    if (
+      directionalButtonTestId === 'db-wizard-continue-button' &&
+      (await page.getByTestId('db-wizard-submit-button').isVisible().catch(
+        () => false
+      ))
+    ) {
+      break;
+    }
+
     await page.waitForTimeout(200);
-  } while (1);
+  }
 };
 
 export const moveForward = async (page: Page) => {
+  const continueButton = page.getByTestId('db-wizard-continue-button');
+
+  if (!(await continueButton.isVisible().catch(() => false))) {
+    const configureMoreButton = page.getByRole('button', {
+      name: /configure more options/i,
+    });
+
+    if (await configureMoreButton.isVisible().catch(() => false)) {
+      await configureMoreButton.click();
+      await continueButton.waitFor({
+        state: 'visible',
+        timeout: TIMEOUTS.ThirtySeconds,
+      });
+    }
+  }
+
   await waitForStepHeaderToChange(page, 'db-wizard-continue-button');
   await page.waitForLoadState('load', { timeout: TIMEOUTS.ThirtySeconds });
 };
@@ -154,7 +211,37 @@ export const setPitrEnabledStatus = async (page: Page, checked: boolean) => {
 };
 
 export const submitWizard = async (page: Page) => {
-  await page.getByTestId('db-wizard-submit-button').click();
+  const submitButton = page.getByTestId('db-wizard-submit-button');
+
+  // Some providers can have a variable number/order of wizard steps.
+  // If we are not yet on the final step, advance until submit is available.
+  for (let i = 0; i < 8; i += 1) {
+    if (await submitButton.isVisible().catch(() => false)) {
+      await submitButton.click();
+      return;
+    }
+
+    const createButton = page.getByRole('button', {
+      name: /create database/i,
+    });
+    if (await createButton.isVisible().catch(() => false)) {
+      await createButton.click();
+      return;
+    }
+
+    const continueButton = page.getByTestId('db-wizard-continue-button');
+    if (await continueButton.isVisible().catch(() => false)) {
+      await waitForStepHeaderToChange(page, 'db-wizard-continue-button');
+      await page.waitForLoadState('load', { timeout: TIMEOUTS.ThirtySeconds });
+      continue;
+    }
+
+    break;
+  }
+
+  // If flow is unexpectedly not on a submit step, fail with a clear message
+  // instead of hanging on a click wait.
+  throw new Error('Submit button is not available in DB wizard');
 };
 
 export const cancelWizard = async (page: Page) => {
@@ -341,46 +428,49 @@ export const populateAdvancedConfig = async (
   engineParameters: string,
   enablePodSchedulingPolicy: boolean = true
 ) => {
-  const combobox = page.getByTestId('text-input-storage-class');
-  await combobox.waitFor({ state: 'visible', timeout: 5000 });
-  await expect(combobox).toHaveValue(/.+/, { timeout: 5000 });
+  const legacyStorageInput = page.getByTestId('text-input-storage-class');
+  const usesLegacyLayout = await legacyStorageInput
+    .isVisible({ timeout: 1000 })
+    .catch(() => false);
 
-  const policyInput = page.getByTestId('select-input-pod-scheduling-policy');
-  await policyInput.waitFor({ state: 'visible', timeout: 5000 });
-  await expect(policyInput).toHaveValue(/.+/, { timeout: 5000 });
+  if (usesLegacyLayout) {
+    await legacyStorageInput.waitFor({ state: 'visible', timeout: 5000 });
+    await expect(legacyStorageInput).toHaveValue(/.+/, { timeout: 5000 });
 
-  // policy is already enabled by default
-  if (!enablePodSchedulingPolicy) {
-    await page
-      .getByTestId('switch-input-pod-scheduling-policy-enabled')
-      .getByRole('checkbox')
-      // https://github.com/microsoft/playwright/issues/20893
-      .dispatchEvent('click');
-  }
+    const policyInput = page.getByTestId('select-input-pod-scheduling-policy');
+    await policyInput.waitFor({ state: 'visible', timeout: 5000 });
+    await expect(policyInput).toHaveValue(/.+/, { timeout: 5000 });
 
-  if (externalAccess) {
-    await page.getByTestId('select-input-exposure-method').waitFor();
-    await page.getByTestId('select-exposure-method-button').click();
-    await page.getByRole('option', { name: 'LoadBalancer' }).click();
-
-    if (externalAccessSourceRange != '') {
+    // policy is already enabled by default
+    if (!enablePodSchedulingPolicy) {
       await page
-        .getByTestId('text-input-source-ranges.0.source-range')
-        .fill(externalAccessSourceRange);
+        .getByTestId('switch-input-pod-scheduling-policy-enabled')
+        .getByRole('checkbox')
+        // https://github.com/microsoft/playwright/issues/20893
+        .dispatchEvent('click');
     }
-  }
-  if (engineParameters != '' || addDefaultEngineParameters) {
-    await page
-      .getByTestId('switch-input-engine-parameters-enabled-label')
-      .getByRole('checkbox')
-      .check();
-    if (engineParameters != '') {
-      await page
-        .getByTestId('text-input-engine-parameters')
-        .fill(engineParameters);
-    } else {
-      let inputParameters = '';
 
+    if (externalAccess) {
+      await page.getByTestId('select-input-exposure-method').waitFor();
+      await page.getByTestId('select-exposure-method-button').click();
+      await page.getByRole('option', { name: 'LoadBalancer' }).click();
+
+      if (externalAccessSourceRange != '') {
+        await page
+          .getByTestId('text-input-source-ranges.0.source-range')
+          .fill(externalAccessSourceRange);
+      }
+    }
+  } else {
+    await expect(
+      page.getByRole('combobox', { name: /storage class/i })
+    ).toBeVisible({ timeout: TIMEOUTS.ThirtySeconds });
+  }
+
+  if (engineParameters != '' || addDefaultEngineParameters) {
+    let inputParameters = engineParameters;
+
+    if (inputParameters === '') {
       switch (dbType) {
         case 'psmdb':
           // we set operationProfiling for PMM QAN test
@@ -396,10 +486,18 @@ export const populateAdvancedConfig = async (
             '[mysqld]\n key_buffer_size=16M\n max_allowed_packet=128M\n max_connections=250';
           break;
       }
+    }
 
-      await page
-        .getByTestId('text-input-engine-parameters')
-        .fill(inputParameters);
+    const legacyEngineSwitch = page.getByTestId(
+      'switch-input-engine-parameters-enabled-label'
+    );
+    if (await legacyEngineSwitch.isVisible().catch(() => false)) {
+      await legacyEngineSwitch.getByRole('checkbox').check();
+      await page.getByTestId('text-input-engine-parameters').fill(inputParameters);
+    } else {
+      await page.getByRole('textbox', { name: /engine configuration/i }).fill(
+        inputParameters
+      );
     }
   }
 };
