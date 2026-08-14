@@ -51,6 +51,11 @@ export const AdvancedConfigurationEditModal = ({
     splitHorizonDNS,
     proxyConfigEnabled,
     proxyConfig,
+    customImageEnabled,
+    customImage,
+    imagePullSecrets,
+    pgExtensionsEnabled,
+    pgExtensions,
   }) => {
     handleSubmitModal({
       engineParametersEnabled,
@@ -68,6 +73,11 @@ export const AdvancedConfigurationEditModal = ({
       splitHorizonDNS,
       proxyConfigEnabled,
       proxyConfig,
+      customImageEnabled,
+      customImage,
+      imagePullSecrets,
+      pgExtensionsEnabled,
+      pgExtensions,
     });
   };
 

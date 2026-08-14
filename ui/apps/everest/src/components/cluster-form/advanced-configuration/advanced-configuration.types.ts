@@ -29,6 +29,11 @@ export enum AdvancedConfigurationFields {
   loadBalancerConfigName = 'loadBalancerConfigName',
   splitHorizonDNS = 'splitHorizonDNS',
   splitHorizonDNSEnabled = 'splitHorizonDNSEnabled',
+  customImageEnabled = 'customImageEnabled',
+  customImage = 'customImage',
+  imagePullSecrets = 'imagePullSecrets',
+  pgExtensionsEnabled = 'pgExtensionsEnabled',
+  pgExtensions = 'pgExtensions',
 }
 
 export const PROXY_EXPOSE_TYPE_TO_LABEL: Record<ProxyExposeType, string> = {

@@ -32,6 +32,7 @@ import { useFormContext } from 'react-hook-form';
 import { DbEngineType, DbType } from '@percona/types';
 import { getParamsPlaceholderFromDbType } from './advanced-configuration.utils';
 import {
+  Alert,
   Box,
   FormGroup,
   IconButton,
@@ -103,12 +104,16 @@ export const AdvancedConfigurationForm = ({
     exposureMethod,
     splitHorizonDNSEnabled,
     proxyConfigEnabled,
+    customImageEnabled,
+    pgExtensionsEnabled,
   ] = watch([
     AdvancedConfigurationFields.engineParametersEnabled,
     AdvancedConfigurationFields.podSchedulingPolicyEnabled,
     AdvancedConfigurationFields.exposureMethod,
     AdvancedConfigurationFields.splitHorizonDNSEnabled,
     AdvancedConfigurationFields.proxyConfigEnabled,
+    AdvancedConfigurationFields.customImageEnabled,
+    AdvancedConfigurationFields.pgExtensionsEnabled,
   ]);
   const { data: clusterInfo, isLoading: clusterInfoLoading } =
     useKubernetesClusterInfo(['wizard-k8-info']);
@@ -596,6 +601,68 @@ export const AdvancedConfigurationForm = ({
           />
         }
       />
+      <FormCard
+        title={Messages.cards.customImage.title}
+        description={Messages.cards.customImage.description}
+        cardContent={
+          <Stack spacing={2}>
+            {customImageEnabled && (
+              <>
+                <TextInput
+                  name={AdvancedConfigurationFields.customImage}
+                  label="Container Image URL"
+                  textFieldProps={{
+                    placeholder: Messages.cards.customImage.placeholder,
+                  }}
+                />
+                <TextInput
+                  name={AdvancedConfigurationFields.imagePullSecrets}
+                  label="Image Pull Secrets"
+                  textFieldProps={{
+                    placeholder: Messages.cards.customImage.secretsPlaceholder,
+                  }}
+                />
+              </>
+            )}
+          </Stack>
+        }
+        controlComponent={
+          <SwitchInput
+            label={Messages.enable}
+            name={AdvancedConfigurationFields.customImageEnabled}
+          />
+        }
+      />
+      {dbType === DbType.Postresql && (
+        <FormCard
+          title={Messages.cards.pgExtensions.title}
+          description={Messages.cards.pgExtensions.description}
+          cardContent={
+            <Stack spacing={2}>
+              {pgExtensionsEnabled && (
+                <>
+                  <TextInput
+                    name={AdvancedConfigurationFields.pgExtensions}
+                    label="PostgreSQL Extensions"
+                    textFieldProps={{
+                      placeholder: 'Comma-separated extension names (e.g. age, timescaledb, pgvector)',
+                    }}
+                  />
+                  <Alert severity="info">
+                    {Messages.cards.pgExtensions.preloadNotice}
+                  </Alert>
+                </>
+              )}
+            </Stack>
+          }
+          controlComponent={
+            <SwitchInput
+              label={Messages.enable}
+              name={AdvancedConfigurationFields.pgExtensionsEnabled}
+            />
+          }
+        />
+      )}
       {showProxyConfig && (
         <FormCard
           title={getProxyConfigLabel(dbType)}

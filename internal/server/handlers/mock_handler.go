@@ -7,9 +7,8 @@ import (
 
 	api "github.com/percona/everest/api"
 
-	mock "github.com/stretchr/testify/mock"
-
 	enginefeatures_everestv1alpha1 "github.com/percona/everest-operator/api/enginefeatures.everest/v1alpha1"
+	mock "github.com/stretchr/testify/mock"
 
 	v1 "k8s.io/api/core/v1"
 

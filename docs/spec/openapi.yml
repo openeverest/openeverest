@@ -3634,6 +3634,17 @@ components:
 
                     NOTE: Updating this property post installation may lead to a restart of the cluster.
                   type: string
+                image:
+                  description: Image is the custom database container image
+                  type: string
+                imagePullSecrets:
+                  description: ImagePullSecrets is a list of secret references for pulling custom images
+                  items:
+                    properties:
+                      name:
+                        type: string
+                    type: object
+                  type: array
                 replicas:
                   description: Replicas is the number of engine replicas
                   format: int32
@@ -3754,6 +3765,31 @@ components:
                         SplitHorizonDNSConfigName is the name of a SplitHorizonDNSConfig CR.
                         The SplitHorizonDNSConfig must be created in the same namespace as the DatabaseCluster.
                       type: string
+                  type: object
+              type: object
+            postgresql:
+              description: PostgreSQL represents PostgreSQL engine specific configurations (custom image, image pull secrets, parameters, extensions).
+              properties:
+                extensions:
+                  description: Extensions is a list of PostgreSQL extensions to enable
+                  items:
+                    type: string
+                  type: array
+                image:
+                  description: Image is the custom PostgreSQL container image
+                  type: string
+                imagePullSecrets:
+                  description: ImagePullSecrets is a list of secret names for pulling custom images
+                  items:
+                    properties:
+                      name:
+                        type: string
+                    type: object
+                  type: array
+                parameters:
+                  additionalProperties:
+                    type: string
+                  description: Parameters is a map of key-value PostgreSQL configuration parameters (GUCs)
                   type: object
               type: object
             monitoring:

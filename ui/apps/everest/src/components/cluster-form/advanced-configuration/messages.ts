@@ -71,6 +71,21 @@ export const Messages = {
       description:
         'Choose a domain name for your cluster. Everest will auto-generate replica hostnames for each network horizon.',
     },
+    customImage: {
+      title: 'Custom Container Image & Registry Credentials',
+      description:
+        'Specify a custom container runtime image from a public or private container registry for specialized database builds or extension workloads.',
+      placeholder: 'e.g. harbor.example.local/database/pg-age-timescale:pg16-age-1.7.0-ts2.x',
+      secretsPlaceholder: 'Image pull secrets (comma-separated secret names, e.g. harbor-credentials)',
+    },
+    pgExtensions: {
+      title: 'PostgreSQL Extensions',
+      description:
+        'Select or specify PostgreSQL extensions to initialize after database cluster creation.',
+      preloadNotice:
+        'Note: Extensions such as TimescaleDB or Apache AGE require configuring shared_preload_libraries under Database Engine Parameters.',
+      customPlaceholder: 'Add custom extension name (e.g. pg_stat_statements)',
+    },
   },
   errors: {
     sourceRange: {

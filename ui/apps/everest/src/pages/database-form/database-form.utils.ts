@@ -106,6 +106,11 @@ export const getDbWizardDefaultValues = (dbType: DbType): DbWizardType => ({
   [DbWizardFormFields.credentials]: {},
   [DbWizardFormFields.splitHorizonDNS]: '',
   [DbWizardFormFields.splitHorizonDNSEnabled]: false,
+  [DbWizardFormFields.customImageEnabled]: false,
+  [DbWizardFormFields.customImage]: '',
+  [DbWizardFormFields.imagePullSecrets]: '',
+  [DbWizardFormFields.pgExtensionsEnabled]: false,
+  [DbWizardFormFields.pgExtensions]: '',
 });
 
 const replicasToNodes = (replicas: string, dbType: DbType): string => {

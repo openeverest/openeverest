@@ -50,6 +50,11 @@ export const advancedConfigurationsSchema = () =>
         z.nativeEnum(ProxyExposeType),
       [AdvancedConfigurationFields.splitHorizonDNSEnabled]: z.boolean(),
       [AdvancedConfigurationFields.splitHorizonDNS]: z.string().optional(),
+      [AdvancedConfigurationFields.customImageEnabled]: z.boolean(),
+      [AdvancedConfigurationFields.customImage]: z.string().optional(),
+      [AdvancedConfigurationFields.imagePullSecrets]: z.string().optional(),
+      [AdvancedConfigurationFields.pgExtensionsEnabled]: z.boolean(),
+      [AdvancedConfigurationFields.pgExtensions]: z.string().optional(),
     })
     .passthrough()
     .superRefine(({ sourceRanges, exposureMethod }, ctx) => {

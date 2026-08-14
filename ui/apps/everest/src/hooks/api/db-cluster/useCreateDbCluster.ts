@@ -116,6 +116,15 @@ const formValuesToPayloadMapping = (
         config: dbPayload.engineParametersEnabled
           ? dbPayload.engineParameters
           : '',
+        image: dbPayload.customImageEnabled ? dbPayload.customImage : undefined,
+        imagePullSecrets:
+          dbPayload.customImageEnabled && dbPayload.imagePullSecrets
+            ? dbPayload.imagePullSecrets
+                .split(',')
+                .map((s) => s.trim())
+                .filter(Boolean)
+                .map((name) => ({ name }))
+            : undefined,
         ...(dbPayload.dataImporter &&
         dbPayload.credentials &&
         Object.keys(dbPayload.credentials).length > 0
@@ -124,6 +133,30 @@ const formValuesToPayloadMapping = (
             }
           : {}),
       },
+      ...(dbPayload.dbType === DbType.Postresql
+        ? {
+            postgresql: {
+              image: dbPayload.customImageEnabled
+                ? dbPayload.customImage
+                : undefined,
+              imagePullSecrets:
+                dbPayload.customImageEnabled && dbPayload.imagePullSecrets
+                  ? dbPayload.imagePullSecrets
+                      .split(',')
+                      .map((s) => s.trim())
+                      .filter(Boolean)
+                      .map((name) => ({ name }))
+                  : undefined,
+              extensions:
+                dbPayload.pgExtensionsEnabled && dbPayload.pgExtensions
+                  ? dbPayload.pgExtensions
+                      .split(',')
+                      .map((s) => s.trim())
+                      .filter(Boolean)
+                  : undefined,
+            },
+          }
+        : {}),
       monitoring: {
         ...(!!dbPayload.monitoring && {
           monitoringConfigName: dbPayload?.monitoringInstance!,

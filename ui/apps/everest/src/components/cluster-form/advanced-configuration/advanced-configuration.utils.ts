@@ -94,5 +94,17 @@ export const advancedConfigurationModalDefaultValues = (
       !!dbCluster?.spec.engineFeatures?.psmdb?.splitHorizonDnsConfigName,
     [AdvancedConfigurationFields.splitHorizonDNS]:
       dbCluster?.spec.engineFeatures?.psmdb?.splitHorizonDnsConfigName || '',
+    [AdvancedConfigurationFields.customImageEnabled]:
+      !!dbCluster?.spec?.engine?.image,
+    [AdvancedConfigurationFields.customImage]:
+      dbCluster?.spec?.engine?.image || '',
+    [AdvancedConfigurationFields.imagePullSecrets]:
+      dbCluster?.spec?.engine?.imagePullSecrets
+        ?.map((s) => s.name)
+        .join(', ') || '',
+    [AdvancedConfigurationFields.pgExtensionsEnabled]:
+      !!dbCluster?.spec?.postgresql?.extensions?.length,
+    [AdvancedConfigurationFields.pgExtensions]:
+      dbCluster?.spec?.postgresql?.extensions?.join(', ') || '',
   };
 };

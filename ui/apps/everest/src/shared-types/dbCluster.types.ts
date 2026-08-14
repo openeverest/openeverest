@@ -88,6 +88,8 @@ interface Engine {
   type: DbEngineType;
   version?: string;
   config?: string;
+  image?: string;
+  imagePullSecrets?: Array<{ name: string }>;
 }
 
 export interface ProxyExposeConfig {
@@ -173,6 +175,12 @@ export interface Spec {
   sharding?: Sharding;
   podSchedulingPolicyName?: string;
   engineFeatures?: EngineFeatures;
+  postgresql?: {
+    image?: string;
+    imagePullSecrets?: Array<{ name: string }>;
+    parameters?: Record<string, string>;
+    extensions?: string[];
+  };
 }
 export interface StatusCondition {
   type: DbErrorType;

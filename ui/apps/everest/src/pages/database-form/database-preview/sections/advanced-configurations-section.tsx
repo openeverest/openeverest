@@ -36,9 +36,18 @@ export const AdvancedConfigurationsPreviewSection = ({
   splitHorizonDNS,
   proxyConfigEnabled,
   proxyConfig,
+  customImageEnabled,
+  customImage,
+  pgExtensionsEnabled,
+  pgExtensions,
   dbType,
   sharding,
-}: AdvancedConfigurationsPreviewProps) => {
+}: AdvancedConfigurationsPreviewProps & {
+  customImageEnabled?: boolean;
+  customImage?: string;
+  pgExtensionsEnabled?: boolean;
+  pgExtensions?: string;
+}) => {
   const isExternalAccessEnabled =
     exposureMethod === ProxyExposeType.LoadBalancer;
   const showProxyConfig = dbType !== DbType.Mongo || !!sharding;
@@ -54,8 +63,16 @@ export const AdvancedConfigurationsPreviewSection = ({
           text={`Config name: ${loadBalancerConfigName ?? EMPTY_LOAD_BALANCER_CONFIGURATION}`}
         />
       )}
+      {customImageEnabled && customImage && (
+        <PreviewContentText text={`Custom Image: ${customImage}`} />
+      )}
       {engineParametersEnabled && engineParameters && (
         <PreviewContentText text="Database engine parameters set" />
+      )}
+      {pgExtensionsEnabled && pgExtensions && (
+        <PreviewContentText
+          text={`PostgreSQL Extensions: ${pgExtensions}`}
+        />
       )}
       {showProxyConfig && proxyConfigEnabled && proxyConfig && dbType && (
         <PreviewContentText text={`${getProxyConfigLabel(dbType)} set`} />
