@@ -35,6 +35,16 @@ import (
 	"github.com/openeverest/openeverest/v2/pkg/output"
 )
 
+// Backup state values used by the delete guard and its tests, sourced from the
+// generated client enum.
+const (
+	backupStatePending   = string(client.BackupStatusStatePending)
+	backupStateRunning   = string(client.BackupStatusStateRunning)
+	backupStateSucceeded = string(client.BackupStatusStateSucceeded)
+	backupStateFailed    = string(client.BackupStatusStateFailed)
+	backupStateError     = string(client.BackupStatusStateError)
+)
+
 // backup deletion policy values (client.Backup.Spec.DeletionPolicy).
 const (
 	backupDeletionPolicyDelete = "Delete"
@@ -160,7 +170,7 @@ func backupStateForGuard(b *client.Backup) (string, bool) {
 		return "", false
 	}
 	if b.Status != nil && b.Status.State != nil {
-		return *b.Status.State, true
+		return string(*b.Status.State), true
 	}
 	return "", true
 }

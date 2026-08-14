@@ -35,6 +35,14 @@ import (
 	"github.com/openeverest/openeverest/v2/pkg/output"
 )
 
+// restore state values used by the delete guard, sourced from the generated client enum.
+const (
+	restoreStatePending   = string(client.RestoreStatusStatePending)
+	restoreStateRunning   = string(client.RestoreStatusStateRunning)
+	restoreStateSucceeded = string(client.RestoreStatusStateSucceeded)
+	restoreStateFailed    = string(client.RestoreStatusStateFailed)
+)
+
 // DeleteOptions configures `restore delete`.
 type DeleteOptions struct {
 	Name           string
@@ -152,7 +160,7 @@ func restoreStateForGuard(r *client.Restore) (string, bool) {
 		return "", false
 	}
 	if r.Status != nil && r.Status.State != nil {
-		return *r.Status.State, true
+		return string(*r.Status.State), true
 	}
 	return "", true
 }

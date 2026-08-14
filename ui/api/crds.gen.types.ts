@@ -173,8 +173,11 @@ export interface components {
                  * @description StartedAt is the time when the backup started.
                  */
                 startedAt?: string;
-                /** @description State is the current state of the backup. */
-                state?: string;
+                /**
+                 * @description State is the current state of the backup.
+                 * @enum {string}
+                 */
+                state?: "Pending" | "Running" | "Succeeded" | "Failed" | "Error" | "Deleting";
             };
         };
         /** @description BackupClass is the Schema for the backupclasses API */
@@ -3621,8 +3624,11 @@ export interface components {
                  * @description StartedAt is the time when the restore started.
                  */
                 startedAt?: string;
-                /** @description State is the current state of the restore. */
-                state?: string;
+                /**
+                 * @description State is the current state of the restore.
+                 * @enum {string}
+                 */
+                state?: "Pending" | "Running" | "Succeeded" | "Failed" | "Error";
             };
         };
         /** @description RestoreList is an object that contains the list of the existing restores. */

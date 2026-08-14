@@ -29,10 +29,10 @@ import (
 // still retry it.
 func backupCondition(b *client.Backup) (wait.Outcome, string) {
 	state := backupState(b)
-	switch state {
-	case backupStateSucceeded:
+	switch client.BackupStatusState(state) {
+	case client.BackupStatusStateSucceeded:
 		return wait.Succeeded, state
-	case backupStateFailed:
+	case client.BackupStatusStateFailed:
 		return wait.Failed, backupFailureMessage(b)
 	default:
 		return wait.Pending, state

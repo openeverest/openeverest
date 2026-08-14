@@ -159,7 +159,7 @@ func restoreState(r *client.Restore) string {
 	if r.Status == nil || r.Status.State == nil || *r.Status.State == "" {
 		return "-"
 	}
-	return *r.Status.State
+	return string(*r.Status.State)
 }
 
 func restoreAge(r *client.Restore) string {

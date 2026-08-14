@@ -69,6 +69,36 @@ func (e BackupStatusExecutionMode) Valid() bool {
 	}
 }
 
+// Defines values for BackupStatusState.
+const (
+	BackupStatusStateDeleting  BackupStatusState = "Deleting"
+	BackupStatusStateError     BackupStatusState = "Error"
+	BackupStatusStateFailed    BackupStatusState = "Failed"
+	BackupStatusStatePending   BackupStatusState = "Pending"
+	BackupStatusStateRunning   BackupStatusState = "Running"
+	BackupStatusStateSucceeded BackupStatusState = "Succeeded"
+)
+
+// Valid indicates whether the value is a known member of the BackupStatusState enum.
+func (e BackupStatusState) Valid() bool {
+	switch e {
+	case BackupStatusStateDeleting:
+		return true
+	case BackupStatusStateError:
+		return true
+	case BackupStatusStateFailed:
+		return true
+	case BackupStatusStatePending:
+		return true
+	case BackupStatusStateRunning:
+		return true
+	case BackupStatusStateSucceeded:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for BackupClassSpecExecutionMode.
 const (
 	BackupClassSpecExecutionModeJob             BackupClassSpecExecutionMode = "Job"
@@ -534,6 +564,33 @@ func (e RestoreStatusExecutionMode) Valid() bool {
 	}
 }
 
+// Defines values for RestoreStatusState.
+const (
+	RestoreStatusStateError     RestoreStatusState = "Error"
+	RestoreStatusStateFailed    RestoreStatusState = "Failed"
+	RestoreStatusStatePending   RestoreStatusState = "Pending"
+	RestoreStatusStateRunning   RestoreStatusState = "Running"
+	RestoreStatusStateSucceeded RestoreStatusState = "Succeeded"
+)
+
+// Valid indicates whether the value is a known member of the RestoreStatusState enum.
+func (e RestoreStatusState) Valid() bool {
+	switch e {
+	case RestoreStatusStateError:
+		return true
+	case RestoreStatusStateFailed:
+		return true
+	case RestoreStatusStatePending:
+		return true
+	case RestoreStatusStateRunning:
+		return true
+	case RestoreStatusStateSucceeded:
+		return true
+	default:
+		return false
+	}
+}
+
 // Backup Backup is the Schema for the backups API.
 type Backup struct {
 	// ApiVersion APIVersion defines the versioned schema of this representation of an object.
@@ -677,7 +734,7 @@ type Backup struct {
 		StartedAt *time.Time `json:"startedAt,omitempty"`
 
 		// State State is the current state of the backup.
-		State *string `json:"state,omitempty"`
+		State *BackupStatusState `json:"state,omitempty"`
 	} `json:"status,omitempty"`
 }
 
@@ -701,6 +758,9 @@ type BackupStatusConditionsStatus string
 // BackupStatusExecutionMode ExecutionMode is the resolved execution mode at the time the Backup
 // started. Recorded for observability.
 type BackupStatusExecutionMode string
+
+// BackupStatusState State is the current state of the backup.
+type BackupStatusState string
 
 // BackupClass BackupClass is the Schema for the backupclasses API
 type BackupClass struct {
@@ -3829,7 +3889,7 @@ type Restore struct {
 		StartedAt *time.Time `json:"startedAt,omitempty"`
 
 		// State State is the current state of the restore.
-		State *string `json:"state,omitempty"`
+		State *RestoreStatusState `json:"state,omitempty"`
 	} `json:"status,omitempty"`
 }
 
@@ -3848,6 +3908,9 @@ type RestoreStatusConditionsStatus string
 // RestoreStatusExecutionMode ExecutionMode is the resolved execution mode at the time the Restore
 // started. Recorded for observability.
 type RestoreStatusExecutionMode string
+
+// RestoreStatusState State is the current state of the restore.
+type RestoreStatusState string
 
 // RestoreList RestoreList is an object that contains the list of the existing restores.
 type RestoreList struct {

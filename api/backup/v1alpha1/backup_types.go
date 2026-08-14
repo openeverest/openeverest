@@ -130,6 +130,8 @@ type BackupStatus struct {
 }
 
 // BackupState is a type representing the state of a backup.
+//
+// +kubebuilder:validation:Enum=Pending;Running;Succeeded;Failed;Error;Deleting
 type BackupState string
 
 const (

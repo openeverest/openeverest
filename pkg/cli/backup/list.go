@@ -158,7 +158,7 @@ func backupState(b *client.Backup) string {
 	if b.Status == nil || b.Status.State == nil || *b.Status.State == "" {
 		return "-"
 	}
-	return *b.Status.State
+	return string(*b.Status.State)
 }
 
 func backupSize(b *client.Backup) string {

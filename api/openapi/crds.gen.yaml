@@ -247,6 +247,13 @@ components:
               type: string
             state:
               description: State is the current state of the backup.
+              enum:
+              - Pending
+              - Running
+              - Succeeded
+              - Failed
+              - Error
+              - Deleting
               type: string
           type: object
       required:
@@ -5571,6 +5578,12 @@ components:
               type: string
             state:
               description: State is the current state of the restore.
+              enum:
+              - Pending
+              - Running
+              - Succeeded
+              - Failed
+              - Error
               type: string
           type: object
       required:

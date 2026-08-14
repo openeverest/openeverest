@@ -24,22 +24,14 @@ import (
 	"github.com/openeverest/openeverest/v2/pkg/cli/wait"
 )
 
-// restore state values (client.Restore.Status.State).
-const (
-	restoreStatePending   = "Pending"
-	restoreStateRunning   = "Running"
-	restoreStateSucceeded = "Succeeded"
-	restoreStateFailed    = "Failed"
-)
-
 // restoreCondition maps Succeeded/Failed to terminal outcomes and everything
 // else to Pending.
 func restoreCondition(r *client.Restore) (wait.Outcome, string) {
 	state := restoreState(r)
-	switch state {
-	case restoreStateSucceeded:
+	switch client.RestoreStatusState(state) {
+	case client.RestoreStatusStateSucceeded:
 		return wait.Succeeded, state
-	case restoreStateFailed:
+	case client.RestoreStatusStateFailed:
 		return wait.Failed, restoreFailureMessage(r)
 	default:
 		return wait.Pending, state
