@@ -885,11 +885,7 @@ func (c *Context) ReconcileDataSource() (DataSourceStatus, error) {
 		}
 		return DataSourceStatus{}, fmt.Errorf("get BackupClass %q: %w", origin.classRefName, err)
 	}
-	// type=Import supports both ProviderManaged and Job classes (validated in
-	// resolveImportOrigin via ValidateRestoreImport). Backup/PointInTime seeding
-	// only supports ProviderManaged classes.
-	if ds.Type != backupv1alpha1.DataSourceTypeImport &&
-		bc.Spec.ExecutionMode != backupv1alpha1.BackupExecutionModeProviderManaged {
+	if bc.Spec.ExecutionMode != backupv1alpha1.BackupExecutionModeProviderManaged {
 		s := DataSourceStatus{
 			Done:    true,
 			State:   DataSourceStateFailed,
@@ -960,7 +956,6 @@ func (c *Context) ReconcileDataSource() (DataSourceStatus, error) {
 	// 5. Translate Restore status into DataSourceStatus.
 	var s DataSourceStatus
 	s.RestoreName = restoreName
-
 	switch restore.Status.State {
 	case backupv1alpha1.RestoreStateSucceeded:
 		s.Done = true
@@ -982,7 +977,6 @@ func (c *Context) ReconcileDataSource() (DataSourceStatus, error) {
 			s.Message = fmt.Sprintf("Restore %q in progress (state=%q)", restoreName, restore.Status.State)
 		}
 	}
-
 	c.SetDataSourceStatus(s)
 	return s, nil
 }

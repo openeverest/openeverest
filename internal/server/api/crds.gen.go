@@ -672,7 +672,7 @@ type BackupClass struct {
 		// ExecutionMode ExecutionMode selects between job-based and provider-managed execution.
 		ExecutionMode BackupClassSpecExecutionMode `json:"executionMode"`
 
-		// ImportParametersSchema ImportParametersSchema declares the OpenAPI v3 schema describing the import-time
+		// ImportParametersSchema ImportParametersSchema declares the OpenAPI v3 schema describing the import
 		// parameters accepted by this class. Validated against:
 		// - Instance.spec.dataSource.import.parameters
 		ImportParametersSchema *struct {
@@ -1986,21 +1986,20 @@ type Instance struct {
 			Version *string `json:"version,omitempty"`
 		} `json:"components,omitempty"`
 
-		// DataSource DataSource allows populating a new Instance with data from an existing
-		// Backup CR (type=Backup) or by importing from external storage (type=Import).
+		// DataSource DataSource allows creating a new Instance from an existing
+		// Backup CR or by importing from external storage with no Backup CR.
 		//
-		// For type=Backup: The referenced Backup must be in the same namespace, in
+		// For using Backup CR, the referenced Backup must be in the same namespace, in
 		// Succeeded state, and its BackupClass must list the Instance's provider in
 		// SupportedProviders. Only ProviderManaged BackupClasses are supported.
 		// Instance must have backup enabled and include a storage that matches the
 		// storage used by the source Backup so the provider can access the data.
 		//
-		// For type=Import: The Instance imports data from external storage.
-		// If classRef is not specified, the Instance's ProviderManaged BackupClass
-		// (spec.backup.classRef) is used and backup must be enabled and include
-		// a storage used by spec.dataSource.import.storageRef.
-		// If classRef is specified, that BackupClass is used directly using Job
-		// execution mode.
+		// For importing without a Backup CR, if classRef is not specified the
+		// Instance's ProviderManaged BackupClass (spec.backup.classRef) is used
+		// and backup must be enabled and include a storage used by
+		// spec.dataSource.import.storageRef. If classRef is specified, that
+		// BackupClass is used directly using Job execution mode.
 		DataSource *struct {
 			// Backup Backup identifies the backup to restore. Required when type=Backup.
 			Backup *struct {
@@ -3030,21 +3029,20 @@ type InstancePreset struct {
 			Version *string `json:"version,omitempty"`
 		} `json:"components,omitempty"`
 
-		// DataSource DataSource allows populating a new Instance with data from an existing
-		// Backup CR (type=Backup) or by importing from external storage (type=Import).
+		// DataSource DataSource allows creating a new Instance from an existing
+		// Backup CR or by importing from external storage with no Backup CR.
 		//
-		// For type=Backup: The referenced Backup must be in the same namespace, in
+		// For using Backup CR, the referenced Backup must be in the same namespace, in
 		// Succeeded state, and its BackupClass must list the Instance's provider in
 		// SupportedProviders. Only ProviderManaged BackupClasses are supported.
 		// Instance must have backup enabled and include a storage that matches the
 		// storage used by the source Backup so the provider can access the data.
 		//
-		// For type=Import: The Instance imports data from external storage.
-		// If classRef is not specified, the Instance's ProviderManaged BackupClass
-		// (spec.backup.classRef) is used and backup must be enabled and include
-		// a storage used by spec.dataSource.import.storageRef.
-		// If classRef is specified, that BackupClass is used directly using Job
-		// execution mode.
+		// For importing without a Backup CR, if classRef is not specified the
+		// Instance's ProviderManaged BackupClass (spec.backup.classRef) is used
+		// and backup must be enabled and include a storage used by
+		// spec.dataSource.import.storageRef. If classRef is specified, that
+		// BackupClass is used directly using Job execution mode.
 		DataSource *struct {
 			// Backup Backup identifies the backup to restore. Required when type=Backup.
 			Backup *struct {

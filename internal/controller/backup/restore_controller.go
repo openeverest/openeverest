@@ -324,11 +324,17 @@ func (r *RestoreReconciler) resolveBackupClass(
 			Name:      restore.Spec.InstanceRef.Name,
 			Namespace: restore.GetNamespace(),
 		}, instance); err != nil {
-			return nil, fmt.Errorf("failed to get instance %q: %w", restore.Spec.InstanceRef.Name, err)
+			return nil, fmt.Errorf(
+				"failed to get instance %q: %w",
+				restore.Spec.InstanceRef.Name, err,
+			)
 		}
+
 		backupClassName = controller.ImportBackupClassName(ds.Import, instance)
 		if backupClassName == "" {
-			return nil, fmt.Errorf("instance %q does not have backup configuration", instance.Name)
+			return nil, fmt.Errorf(
+				"instance %q does not have backup configuration", instance.Name,
+			)
 		}
 
 	default:

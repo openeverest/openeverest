@@ -137,7 +137,7 @@ type DataSource struct {
 	Import *DataSourceImport `json:"import,omitempty"`
 }
 
-// DataSourceImport imports data from external storage.
+// DataSourceImport imports data from external storage with no originating Backup CR.
 type DataSourceImport struct {
 	// ClassRef references a BackupClass. Required for Job mode.
 	// ProviderManaged mode uses the Instance's backup class (spec.backup.classRef)

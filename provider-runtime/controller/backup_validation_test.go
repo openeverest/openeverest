@@ -454,3 +454,157 @@ func TestValidateRestorePITR(t *testing.T) {
 		})
 	}
 }
+
+func mkImportProviderClass(supportsImport bool, schema common.ParametersSchema) *backupv1alpha1.BackupClass {
+	return &backupv1alpha1.BackupClass{
+		ObjectMeta: metav1.ObjectMeta{Name: "bc"},
+		Spec: backupv1alpha1.BackupClassSpec{
+			ExecutionMode:          backupv1alpha1.BackupExecutionModeProviderManaged,
+			SupportedProviders:     backupv1alpha1.ProviderNameList{"psmdb"},
+			ImportParametersSchema: schema,
+			ProviderManaged:        &backupv1alpha1.ProviderManagedSpec{SupportsImport: supportsImport},
+		},
+	}
+}
+
+func mkImportJobClass(withImport bool, schema common.ParametersSchema) *backupv1alpha1.BackupClass {
+	spec := backupv1alpha1.BackupClassSpec{
+		ExecutionMode:          backupv1alpha1.BackupExecutionModeJob,
+		SupportedProviders:     backupv1alpha1.ProviderNameList{"psmdb"},
+		ImportParametersSchema: schema,
+		Job:                    &backupv1alpha1.JobModeSpec{},
+	}
+	if withImport {
+		spec.Job.Import = &backupv1alpha1.JobExecution{}
+	}
+	return &backupv1alpha1.BackupClass{
+		ObjectMeta: metav1.ObjectMeta{Name: "bc"},
+		Spec:       spec,
+	}
+}
+
+func TestValidateRestoreImport(t *testing.T) {
+	t.Parallel()
+
+	var props apiextensionsv1.JSONSchemaProps
+	require.NoError(t, json.Unmarshal([]byte(`{
+		"type": "object",
+		"properties": {
+			"path": {"type": "string"}
+		}
+	}`), &props))
+	schema := common.ParametersSchema{OpenAPIV3Schema: &props}
+
+	instance := &corev1alpha1.Instance{
+		Spec: corev1alpha1.InstanceSpec{
+			ProviderRef: common.ObjectRef{Name: "psmdb"},
+		},
+	}
+
+	validImport := &backupv1alpha1.DataSourceImport{
+		StorageRef: common.ObjectRef{Name: "storage"},
+		Parameters: &runtime.RawExtension{Raw: []byte(`{"path": "dumps/backup"}`)},
+	}
+
+	tests := []struct {
+		name     string
+		ds       *backupv1alpha1.DataSourceImport
+		instance *corev1alpha1.Instance
+		bc       *backupv1alpha1.BackupClass
+		err      error
+	}{
+		{
+			name:     "nil data source is a no-op",
+			ds:       nil,
+			instance: nil,
+			bc:       nil,
+		},
+		{
+			name:     "nil instance is rejected",
+			ds:       validImport,
+			instance: nil,
+			bc:       mkImportProviderClass(true, schema),
+			err:      ErrRestoreImportUnsupported,
+		},
+		{
+			name:     "nil class is rejected",
+			ds:       validImport,
+			instance: instance,
+			bc:       nil,
+			err:      ErrRestoreImportUnsupported,
+		},
+		{
+			name:     "provider-managed import-supported passes",
+			ds:       validImport,
+			instance: instance,
+			bc:       mkImportProviderClass(true, schema),
+		},
+		{
+			name:     "provider-managed import-not-supported is rejected",
+			ds:       validImport,
+			instance: instance,
+			bc:       mkImportProviderClass(false, schema),
+			err:      ErrRestoreImportUnsupported,
+		},
+		{
+			name:     "provider not listed by class is rejected",
+			ds:       validImport,
+			instance: instance,
+			bc: func() *backupv1alpha1.BackupClass {
+				bc := mkImportProviderClass(true, schema)
+				bc.Spec.SupportedProviders = backupv1alpha1.ProviderNameList{"postgresql"}
+				return bc
+			}(),
+			err: ErrProviderUnsupported,
+		},
+		{
+			name:     "job import supported passes",
+			ds:       validImport,
+			instance: instance,
+			bc:       mkImportJobClass(true, schema),
+		},
+		{
+			name:     "job class without import is rejected",
+			ds:       validImport,
+			instance: instance,
+			bc:       mkImportJobClass(false, schema),
+			err:      ErrRestoreImportUnsupported,
+		},
+		{
+			name:     "unknown execution mode is rejected",
+			ds:       validImport,
+			instance: instance,
+			bc: func() *backupv1alpha1.BackupClass {
+				bc := mkImportProviderClass(true, schema)
+				bc.Spec.ExecutionMode = "Bogus"
+				return bc
+			}(),
+			err: ErrRestoreImportUnsupported,
+		},
+		{
+			name: "parameters violating schema are rejected",
+			ds: &backupv1alpha1.DataSourceImport{
+				StorageRef: common.ObjectRef{Name: "storage"},
+				Parameters: &runtime.RawExtension{Raw: []byte(`{"unknownField": true}`)},
+			},
+			instance: instance,
+			bc:       mkImportProviderClass(true, schema),
+			err:      ErrRestoreImportUnsupported,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			err := ValidateRestoreImport(tc.ds, tc.instance, tc.bc)
+			if tc.err != nil {
+				require.ErrorIs(t, err, tc.err)
+
+				return
+			}
+
+			require.NoError(t, err)
+		})
+	}
+}

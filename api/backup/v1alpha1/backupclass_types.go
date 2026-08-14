@@ -78,7 +78,7 @@ type BackupClassSpec struct {
 	// is validated against it.
 	// +optional
 	RestoreParametersSchema common.ParametersSchema `json:"restoreParametersSchema,omitempty"`
-	// ImportParametersSchema declares the OpenAPI v3 schema describing the import-time
+	// ImportParametersSchema declares the OpenAPI v3 schema describing the import
 	// parameters accepted by this class. Validated against:
 	// - Instance.spec.dataSource.import.parameters
 	// +optional
