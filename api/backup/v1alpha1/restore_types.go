@@ -144,7 +144,7 @@ type DataSourceImport struct {
 	// and backup must be enabled.
 	// +optional
 	ClassRef *common.ObjectRef `json:"classRef,omitempty"`
-	// StorageRef references a BackupStorage by name.
+	// StorageRef references a BackupStorage.
 	// +kubebuilder:validation:Required
 	StorageRef common.ObjectRef `json:"storageRef"`
 	// Parameters contains all import configuration.

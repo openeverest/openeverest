@@ -224,6 +224,22 @@ func RestoreStreamInstanceName(restore *backupv1alpha1.Restore) string {
 	return restore.Spec.InstanceRef.Name
 }
 
+// ImportBackupClassName resolves the BackupClass for a DataSourceImport,
+// handling Job mode and ProviderManaged mode. See DataSourceImport.ClassRef.
+//
+// It returns "" when neither is available.
+func ImportBackupClassName(imp *backupv1alpha1.DataSourceImport, instance *corev1alpha1.Instance) string {
+	if imp != nil && imp.ClassRef != nil && imp.ClassRef.Name != "" {
+		return imp.ClassRef.Name
+	}
+
+	if instance != nil && instance.Spec.Backup != nil {
+		return instance.Spec.Backup.ClassRef.Name
+	}
+
+	return ""
+}
+
 // ValidateBackupSucceeded returns ErrBackupNotSucceeded unless the Backup has
 // reached the Succeeded state. Callers are responsible for fetching the
 // Backup themselves and handling a not-found lookup error with their own
@@ -332,9 +348,17 @@ func ValidatePITRStorage(
 // acceptable for the given BackupClass. It is safe to call with any combination
 // of nil inputs: a nil Restore or a Restore that is not requesting import passes,
 // and a nil class fails with ErrRestoreImportUnsupported.
-func ValidateRestoreImport(ds *backupv1alpha1.DataSourceImport, instance *corev1alpha1.Instance, bc *backupv1alpha1.BackupClass) error {
+func ValidateRestoreImport(
+	ds *backupv1alpha1.DataSourceImport,
+	instance *corev1alpha1.Instance,
+	bc *backupv1alpha1.BackupClass,
+) error {
 	if ds == nil {
 		return nil
+	}
+
+	if instance == nil {
+		return fmt.Errorf("%w: instance is nil", ErrRestoreImportUnsupported)
 	}
 
 	if bc == nil {
@@ -368,7 +392,10 @@ func ValidateRestoreImport(ds *backupv1alpha1.DataSourceImport, instance *corev1
 	}
 
 	if err := bc.Spec.ImportParametersSchema.Validate(ds.Parameters); err != nil {
-		return fmt.Errorf("%w: import parameters validation failed: %s", ErrRestoreImportUnsupported, err.Error())
+		return fmt.Errorf(
+			"%w: import parameters validation failed: %s",
+			ErrRestoreImportUnsupported, err.Error(),
+		)
 	}
 
 	return nil

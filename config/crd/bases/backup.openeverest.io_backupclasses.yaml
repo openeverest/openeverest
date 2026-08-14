@@ -54,6 +54,18 @@ spec:
                 - ProviderManaged
                 - Job
                 type: string
+              importParametersSchema:
+                description: |-
+                  ImportParametersSchema declares the OpenAPI v3 schema describing the import-time
+                  parameters accepted by this class. Validated against:
+                  - Instance.spec.dataSource.import.parameters
+                properties:
+                  openAPIV3Schema:
+                    description: |-
+                      OpenAPIV3Schema is the OpenAPI v3 schema describing the accepted
+                      parameters payload.
+                    x-kubernetes-preserve-unknown-fields: true
+                type: object
               instanceConstraints:
                 description: |-
                   InstanceConstraints defines compatibility requirements that must be
@@ -215,10 +227,9 @@ spec:
                     required:
                     - jobSpec
                     type: object
-                  restore:
-                    description: |-
-                      Restore describes the job spawned per Restore CR. When unset, restores
-                      are not supported by this class.
+                  import:
+                    description: Import describes the job spawned for Import data
+                      sources when using Job mode.
                     properties:
                       cleanupJobSpec:
                         description: |-
@@ -358,9 +369,155 @@ spec:
                     required:
                     - jobSpec
                     type: object
-                required:
-                - backup
+                  restore:
+                    description: |-
+                      Restore describes the job spawned per Restore CR. When unset, restores
+                      are not supported by this class. Requires Backup to be set.
+                    properties:
+                      cleanupJobSpec:
+                        description: |-
+                          CleanupJobSpec is the optional specification of a cleanup job that runs
+                          when the parent Backup or Restore CR is deleted.
+                        properties:
+                          command:
+                            description: Command is the command to run the backup
+                              class.
+                            items:
+                              type: string
+                            type: array
+                          image:
+                            description: Image is the image of the backup class.
+                            type: string
+                        type: object
+                      clusterPermissions:
+                        description: |-
+                          ClusterPermissions are cluster-scoped PolicyRules granted via a
+                          generated ClusterRole and ClusterRoleBinding.
+                        items:
+                          description: |-
+                            PolicyRule holds information that describes a policy rule, but does not contain information
+                            about who the rule applies to or which namespace the rule applies to.
+                          properties:
+                            apiGroups:
+                              description: |-
+                                APIGroups is the name of the APIGroup that contains the resources.  If multiple API groups are specified, any action requested against one of
+                                the enumerated resources in any API group will be allowed. "" represents the core API group and "*" represents all API groups.
+                              items:
+                                type: string
+                              type: array
+                              x-kubernetes-list-type: atomic
+                            nonResourceURLs:
+                              description: |-
+                                NonResourceURLs is a set of partial urls that a user should have access to.  *s are allowed, but only as the full, final step in the path
+                                Since non-resource URLs are not namespaced, this field is only applicable for ClusterRoles referenced from a ClusterRoleBinding.
+                                Rules can either apply to API resources (such as "pods" or "secrets") or non-resource URL paths (such as "/api"),  but not both.
+                              items:
+                                type: string
+                              type: array
+                              x-kubernetes-list-type: atomic
+                            resourceNames:
+                              description: ResourceNames is an optional white list
+                                of names that the rule applies to.  An empty set means
+                                that everything is allowed.
+                              items:
+                                type: string
+                              type: array
+                              x-kubernetes-list-type: atomic
+                            resources:
+                              description: Resources is a list of resources this rule
+                                applies to. '*' represents all resources.
+                              items:
+                                type: string
+                              type: array
+                              x-kubernetes-list-type: atomic
+                            verbs:
+                              description: Verbs is a list of Verbs that apply to
+                                ALL the ResourceKinds contained in this rule. '*'
+                                represents all verbs.
+                              items:
+                                type: string
+                              type: array
+                              x-kubernetes-list-type: atomic
+                          required:
+                          - verbs
+                          type: object
+                        type: array
+                      jobSpec:
+                        description: JobSpec is the specification of the backup or
+                          restore job.
+                        properties:
+                          command:
+                            description: Command is the command to run the backup
+                              class.
+                            items:
+                              type: string
+                            type: array
+                          image:
+                            description: Image is the image of the backup class.
+                            type: string
+                        type: object
+                      permissions:
+                        description: |-
+                          Permissions are namespace-scoped PolicyRules granted to the job pod via
+                          a generated Role and RoleBinding.
+                        items:
+                          description: |-
+                            PolicyRule holds information that describes a policy rule, but does not contain information
+                            about who the rule applies to or which namespace the rule applies to.
+                          properties:
+                            apiGroups:
+                              description: |-
+                                APIGroups is the name of the APIGroup that contains the resources.  If multiple API groups are specified, any action requested against one of
+                                the enumerated resources in any API group will be allowed. "" represents the core API group and "*" represents all API groups.
+                              items:
+                                type: string
+                              type: array
+                              x-kubernetes-list-type: atomic
+                            nonResourceURLs:
+                              description: |-
+                                NonResourceURLs is a set of partial urls that a user should have access to.  *s are allowed, but only as the full, final step in the path
+                                Since non-resource URLs are not namespaced, this field is only applicable for ClusterRoles referenced from a ClusterRoleBinding.
+                                Rules can either apply to API resources (such as "pods" or "secrets") or non-resource URL paths (such as "/api"),  but not both.
+                              items:
+                                type: string
+                              type: array
+                              x-kubernetes-list-type: atomic
+                            resourceNames:
+                              description: ResourceNames is an optional white list
+                                of names that the rule applies to.  An empty set means
+                                that everything is allowed.
+                              items:
+                                type: string
+                              type: array
+                              x-kubernetes-list-type: atomic
+                            resources:
+                              description: Resources is a list of resources this rule
+                                applies to. '*' represents all resources.
+                              items:
+                                type: string
+                              type: array
+                              x-kubernetes-list-type: atomic
+                            verbs:
+                              description: Verbs is a list of Verbs that apply to
+                                ALL the ResourceKinds contained in this rule. '*'
+                                represents all verbs.
+                              items:
+                                type: string
+                              type: array
+                              x-kubernetes-list-type: atomic
+                          required:
+                          - verbs
+                          type: object
+                        type: array
+                    required:
+                    - jobSpec
+                    type: object
                 type: object
+                x-kubernetes-validations:
+                - message: at least one of backup or import must be set
+                  rule: has(self.backup) || has(self.import)
+                - message: restore requires backup to be set
+                  rule: '!has(self.restore) || has(self.backup)'
               parametersSchema:
                 description: |-
                   ParametersSchema declares the OpenAPI v3 schema describing the
@@ -428,6 +585,15 @@ spec:
                           parameters payload.
                         x-kubernetes-preserve-unknown-fields: true
                     type: object
+                  supportsImport:
+                    description: |-
+                      SupportsImport indicates whether this ProviderManaged class supports
+                      importing from external data sources (Instance.spec.dataSource.type=Import).
+                      When true, the provider handles imports by creating operator-native
+                      restore resources (e.g., PerconaServerMongoDBRestore) directly, without
+                      spawning a wrapper Job. The import configuration is validated against
+                      BackupClassSpec.ImportParametersSchema.
+                    type: boolean
                   supportsPITR:
                     description: |-
                       SupportsPITR indicates whether this class supports point-in-time recovery.

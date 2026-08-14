@@ -319,22 +319,16 @@ func (r *RestoreReconciler) resolveBackupClass(
 		backupClassName = instance.Spec.Backup.ClassRef.Name
 
 	case backupv1alpha1.DataSourceTypeImport:
-		// For Import, use classRef if set, otherwise get from Instance's backup config.
-		if ds.Import != nil && ds.Import.ClassRef != nil && ds.Import.ClassRef.Name != "" {
-			backupClassName = ds.Import.ClassRef.Name
-		} else {
-			// Fall back to Instance's backup.classRef
-			instance := &corev1alpha1.Instance{}
-			if err := r.Client.Get(ctx, client.ObjectKey{
-				Name:      restore.Spec.InstanceRef.Name,
-				Namespace: restore.GetNamespace(),
-			}, instance); err != nil {
-				return nil, fmt.Errorf("failed to get instance %q: %w", restore.Spec.InstanceRef.Name, err)
-			}
-			if instance.Spec.Backup == nil || instance.Spec.Backup.ClassRef.Name == "" {
-				return nil, fmt.Errorf("instance %q does not have backup configuration", instance.Name)
-			}
-			backupClassName = instance.Spec.Backup.ClassRef.Name
+		instance := &corev1alpha1.Instance{}
+		if err := r.Client.Get(ctx, client.ObjectKey{
+			Name:      restore.Spec.InstanceRef.Name,
+			Namespace: restore.GetNamespace(),
+		}, instance); err != nil {
+			return nil, fmt.Errorf("failed to get instance %q: %w", restore.Spec.InstanceRef.Name, err)
+		}
+		backupClassName = controller.ImportBackupClassName(ds.Import, instance)
+		if backupClassName == "" {
+			return nil, fmt.Errorf("instance %q does not have backup configuration", instance.Name)
 		}
 
 	default:

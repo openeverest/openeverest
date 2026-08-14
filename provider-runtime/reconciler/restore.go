@@ -114,6 +114,20 @@ func (r *restoreRuntimeReconciler) Reconcile(ctx context.Context, req reconcile.
 		return reconcile.Result{}, nil
 	}
 
+	// Reject Import requests the resolved BackupClass does not support before
+	// any provider code runs. Mirrors the PITR gate above: a Restore created
+	// directly with type=Import is terminally Failed when the class or its
+	// import parameters are unacceptable.
+	if importErr := controller.ValidateRestoreImport(restore.Spec.DataSource.Import, instance, bc); importErr != nil {
+		logger.Info("Rejecting restore", "reason", importErr.Error())
+		restore.Status.State = backupv1alpha1.RestoreStateFailed
+		restore.Status.Message = importErr.Error()
+		if err := r.updateStatus(ctx, restore, bc); err != nil {
+			return reconcile.Result{}, err
+		}
+		return reconcile.Result{}, nil
+	}
+
 	inCtx := controller.NewContext(ctx, r.client, instance, r.providerName)
 
 	if controllerutil.AddFinalizer(restore, restoreRuntimeFinalizer) {
@@ -204,7 +218,7 @@ func backupClassNameForRestore(ctx context.Context, c client.Client, restore *ba
 	ds := restore.Spec.DataSource
 	switch ds.Type {
 	case backupv1alpha1.DataSourceTypeBackup:
-		if ds.Backup == nil || ds.Backup.BackupRef.Name == "" {
+		if ds.Backup == nil {
 			return "", nil
 		}
 		backup := &backupv1alpha1.Backup{}
@@ -237,11 +251,6 @@ func backupClassNameForRestore(ctx context.Context, c client.Client, restore *ba
 		return instance.Spec.Backup.ClassRef.Name, nil
 
 	case backupv1alpha1.DataSourceTypeImport:
-		// For Import, use classRef if set, otherwise get from Instance's backup config.
-		if ds.Import != nil && ds.Import.ClassRef != nil && ds.Import.ClassRef.Name != "" {
-			return ds.Import.ClassRef.Name, nil
-		}
-		// Fall back to Instance's backup.classRef
 		instance := &corev1alpha1.Instance{}
 		if err := c.Get(ctx, client.ObjectKey{
 			Namespace: restore.Namespace,
@@ -252,10 +261,7 @@ func backupClassNameForRestore(ctx context.Context, c client.Client, restore *ba
 			}
 			return "", fmt.Errorf("failed to get Instance: %w", err)
 		}
-		if instance.Spec.Backup == nil || instance.Spec.Backup.ClassRef.Name == "" {
-			return "", nil
-		}
-		return instance.Spec.Backup.ClassRef.Name, nil
+		return controller.ImportBackupClassName(ds.Import, instance), nil
 
 	default:
 		// A data source type this build does not know is not ours to claim.

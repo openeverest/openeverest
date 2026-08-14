@@ -835,17 +835,17 @@ func (c *Context) GetDataSourceStatus() *DataSourceStatus {
 // Instance has no DataSource, the helper returns Done=true immediately
 // without creating any resources.
 //
-// Supported dataSource types:
-//   - Backup: Restore from an existing Backup CR in the same namespace
-//   - Import: Import from external storage using classRef if set,
-//     otherwise Instance's backup class
-//
-// The method validates conditions for each dataSource, creates a Restore CR
-// named "{instance}-datasource" owned by instance, with .spec.instanceRef
-// pointing at the target Instance and .spec.dataSource pointing at
-// Instance's .spec.dataSource.
-// It reads .status.state on Restore and translate it into a DataSourceStatus.
-// The returnedDataSourceStatus is staged on the Context for the reconciler to flush.
+// Behaviour when DataSource is set:
+//  1. Validate the source Backup (exists, Succeeded, BackupClass is
+//     ProviderManaged and supports the target provider, and the target
+//     Instance has a backup storage entry that matches the source Backup's
+//     storage).
+//  2. Create or update a Restore CR named "{instance}-datasource", owned by
+//     the Instance, with .spec.instanceRef pointing at the target Instance
+//     and .spec.dataSource.backup.backupRef pointing at the source Backup.
+//  3. Read back .status.state on the Restore and translate it into a
+//     DataSourceStatus. The returned status is also staged on the Context so
+//     the runtime reconciler can flush ConditionDataSourceReady.
 //
 // Done=true means the Instance no longer needs to be held in the Restoring
 // phase — either no DataSource is configured, or the restore reached a
@@ -885,7 +885,11 @@ func (c *Context) ReconcileDataSource() (DataSourceStatus, error) {
 		}
 		return DataSourceStatus{}, fmt.Errorf("get BackupClass %q: %w", origin.classRefName, err)
 	}
-	if bc.Spec.ExecutionMode != backupv1alpha1.BackupExecutionModeProviderManaged {
+	// type=Import supports both ProviderManaged and Job classes (validated in
+	// resolveImportOrigin via ValidateRestoreImport). Backup/PointInTime seeding
+	// only supports ProviderManaged classes.
+	if ds.Type != backupv1alpha1.DataSourceTypeImport &&
+		bc.Spec.ExecutionMode != backupv1alpha1.BackupExecutionModeProviderManaged {
 		s := DataSourceStatus{
 			Done:    true,
 			State:   DataSourceStateFailed,
@@ -953,14 +957,9 @@ func (c *Context) ReconcileDataSource() (DataSourceStatus, error) {
 		return DataSourceStatus{}, fmt.Errorf("create or update seeding Restore %q: %w", restoreName, err)
 	}
 
-	// Re-fetch to get current status after CreateOrUpdate
-	if err := c.client.Get(c.ctx, client.ObjectKeyFromObject(restore), restore); err != nil {
-		return DataSourceStatus{}, fmt.Errorf("re-fetch Restore %q: %w", restoreName, err)
-	}
-
-	// Translate Restore status into DataSourceStatus
+	// 5. Translate Restore status into DataSourceStatus.
 	var s DataSourceStatus
-	s.RestoreName = restore.Name
+	s.RestoreName = restoreName
 
 	switch restore.Status.State {
 	case backupv1alpha1.RestoreStateSucceeded:
@@ -972,9 +971,7 @@ func (c *Context) ReconcileDataSource() (DataSourceStatus, error) {
 		s.Done = true
 		s.State = DataSourceStateFailed
 		s.Reason = v1alpha1.ReasonDataSourceFailed
-		s.Message = fmt.Sprintf("Restore %q failed: %s", restore.Name, restore.Status.Message)
-	case backupv1alpha1.RestoreStatePending, backupv1alpha1.RestoreStateRunning, backupv1alpha1.RestoreStateError:
-		fallthrough
+		s.Message = fmt.Sprintf("Restore %q failed: %s", restoreName, restore.Status.Message)
 	default:
 		s.Done = false
 		s.State = DataSourceStateRestoring
@@ -982,7 +979,7 @@ func (c *Context) ReconcileDataSource() (DataSourceStatus, error) {
 		if restore.Status.Message != "" {
 			s.Message = restore.Status.Message
 		} else {
-			s.Message = fmt.Sprintf("Restore %q in progress (state=%q)", restore.Name, restore.Status.State)
+			s.Message = fmt.Sprintf("Restore %q in progress (state=%q)", restoreName, restore.Status.State)
 		}
 	}
 
@@ -1167,9 +1164,14 @@ func (c *Context) resolveImportOrigin(
 		}, nil
 	}
 
-	classRefName := c.in.Spec.Backup.ClassRef.Name
-	if ds.Import.ClassRef != nil && ds.Import.ClassRef.Name != "" {
-		classRefName = ds.Import.ClassRef.Name
+	classRefName := ImportBackupClassName(ds.Import, c.in)
+	if classRefName == "" {
+		return nil, &DataSourceStatus{
+			Done:    true,
+			State:   DataSourceStateFailed,
+			Reason:  v1alpha1.ReasonDataSourceClassUnsupported,
+			Message: "cannot resolve BackupClass for import",
+		}, nil
 	}
 
 	bc, err := c.BackupClass(classRefName)
