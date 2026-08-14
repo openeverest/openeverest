@@ -3471,8 +3471,14 @@ export interface components {
                 /** @description Secrets defines Secret types this provider supports. */
                 secrets?: {
                     [key: string]: {
-                        /** @description OpenAPIV3Schema is the OpenAPI v3 schema for validating secret data/stringData. */
-                        openAPIV3Schema?: unknown;
+                        /** @description ParametersSchema declares the OpenAPI v3 schema for validating secret data/stringData. */
+                        parametersSchema?: {
+                            /**
+                             * @description OpenAPIV3Schema is the OpenAPI v3 schema describing the accepted
+                             *     parameters payload.
+                             */
+                            openAPIV3Schema?: unknown;
+                        };
                         /** @description UISchema holds UI rendering hints for the secret creation form. */
                         uiSchema?: Record<string, never>;
                     };

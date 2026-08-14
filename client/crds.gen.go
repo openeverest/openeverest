@@ -3616,8 +3616,12 @@ type Provider struct {
 
 		// Secrets Secrets defines Secret types this provider supports.
 		Secrets *map[string]struct {
-			// OpenAPIV3Schema OpenAPIV3Schema is the OpenAPI v3 schema for validating secret data/stringData.
-			OpenAPIV3Schema interface{} `json:"openAPIV3Schema,omitempty"`
+			// ParametersSchema ParametersSchema declares the OpenAPI v3 schema for validating secret data/stringData.
+			ParametersSchema *struct {
+				// OpenAPIV3Schema OpenAPIV3Schema is the OpenAPI v3 schema describing the accepted
+				// parameters payload.
+				OpenAPIV3Schema interface{} `json:"openAPIV3Schema,omitempty"`
+			} `json:"parametersSchema,omitempty"`
 
 			// UiSchema UISchema holds UI rendering hints for the secret creation form.
 			UiSchema *map[string]interface{} `json:"uiSchema,omitempty"`
