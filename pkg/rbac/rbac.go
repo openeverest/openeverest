@@ -20,6 +20,7 @@ package rbac
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"io/fs"
 	"os"
@@ -118,7 +119,7 @@ func refreshEnforcerInBackground(
 		informer.Watches(&corev1.ConfigMap{}, common.SystemNamespace),
 	)
 	if err != nil {
-		return errors.Join(err, errors.New("failed to create RBAC ConfigMap informer"))
+		return fmt.Errorf("failed to initialize ConfigMap informer: %w", err)
 	}
 
 	inf.OnUpdate(func(_, newObj any) {
@@ -149,7 +150,7 @@ func refreshEnforcerInBackground(
 	})
 
 	if err := inf.Start(ctx, &corev1.ConfigMap{}); err != nil {
-		return errors.Join(err, errors.New("failed to watch RBAC ConfigMap"))
+		return fmt.Errorf("failed to watch RBAC ConfigMap: %w", err)
 	}
 
 	return nil
