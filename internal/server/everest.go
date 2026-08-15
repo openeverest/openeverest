@@ -308,7 +308,7 @@ func (e *EverestServer) setupHandlers(
 	if err != nil {
 		return errors.Join(err, errors.New("could not create rbac handler"))
 	}
-	e.setHandlers(valH, rbacH, k8sH)
+	e.setHandlers(rbacH, valH, k8sH) // rbac first, closes the SSRF hole
 	return nil
 }
 
