@@ -22,21 +22,18 @@ import (
 )
 
 // This file hand-declares the subset of the MinIO Operator's Tenant CRD
-// (group minio.min.io, version v1) that this provider needs to read and
+// (group minio.min.io, version v2) that this provider needs to read and
 // write. It intentionally does not import github.com/minio/operator: that
-// module predates Go's module graph pruning (go 1.13), so importing even
-// its pkg/apis subpackage drags in its full, unpruned dependency graph —
-// the minio server itself, docker/cli, gopsutil, and more — none of which
-// this provider needs. Field names, JSON tags, and the group/version/kind
-// below are taken verbatim from the real CRD so the objects this provider
+// module predates Go's module graph pruning, so importing even its
+// pkg/apis subpackage drags in its full dependency graph — the minio
+// server itself, docker/cli, gopsutil, and more — none of which this
+// provider needs. Field names, JSON tags, and the group/version/kind below
+// are taken verbatim from the real CRD so the objects this provider
 // creates are indistinguishable, on the wire, from ones built with the
 // upstream types; fields this provider doesn't set or read are simply
 // omitted, which is safe because they're all optional on the real CRD.
 
-// tenantGroupVersion is the real MinIO Operator Tenant CRD's group/version.
-// v2, not v1: verified directly against the operator installed in Phase 0
-// (`kubectl get crd tenants.minio.min.io` only serves v2 — v1 existed in
-// older operator releases but isn't what's deployed here).
+// tenantGroupVersion is the MinIO Operator Tenant CRD's group/version.
 var tenantGroupVersion = schema.GroupVersion{Group: "minio.min.io", Version: "v2"} //nolint:gochecknoglobals // schema.GroupVersion is a value type used as a constant; same pattern as resource.MustParse elsewhere in this repo
 
 // AddToScheme registers the Tenant/TenantList types with a scheme, mirroring
@@ -68,7 +65,7 @@ type TenantSpec struct {
 
 // Bucket is the subset of the real Bucket (Tenant.spec.buckets[]) this
 // provider sets: just a name, auto-created by the operator at reconcile
-// time. Used for the Phase 3 backup-bridge bucket.
+// time. Used for the backup-bridge bucket.
 type Bucket struct {
 	Name string `json:"name,omitempty"`
 }

@@ -12,8 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Command main is the entrypoint for the minio provider (Phase 1 skeleton).
-// It follows spec 001's documented Provider Go SDK entry-point pattern.
+// Command main is the entrypoint for the minio provider.
 package main
 
 import (

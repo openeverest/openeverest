@@ -12,17 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-# Phase 2 Provider CR for the minio provider (LFX Term 3 PoC, upstream
-# issue openeverest#2255). Deliberately minimal: one "server"
+# Provider CR for the minio provider. Deliberately minimal: one "server"
 # component/componentType, one "standalone" topology, one default version
 # bundle. No parametersSchema yet — bucket/user/volumesPerServer modeling is
-# an open design question (see design-notes.md), correctly deferred past
-# Phase 1.
-#
-# Image tag corrected in Phase 2 (2026-08-12): the Phase 1 skeleton used a
-# placeholder tag, "RELEASE.2026-01-01T00-00-00Z", that doesn't exist on
-# quay.io — real deploys hit ErrImagePull. This tag is the one hand-verified
-# against a real MinIO Operator install in Phase 0 (see design-notes.md).
+# an open design question, deferred for now.
 apiVersion: core.openeverest.io/v1alpha1
 kind: Provider
 metadata:

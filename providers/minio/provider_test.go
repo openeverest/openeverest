@@ -185,11 +185,10 @@ func TestSync_HonorsExplicitReplicasAndStorage(t *testing.T) {
 	assert.Equal(t, "fast-ssd", *tenant.Spec.Pools[0].VolumeClaimTemplate.Spec.StorageClassName)
 }
 
-// TestSync_CredentialsSecretIsStableAcrossReconciles is a regression test
-// for the Phase 2 bug (see design-notes.md): ensureCredentialsSecret must
-// only generate the root password once. Calling Sync again (as the
-// reconciler routinely does) must not desync the stored password from
-// whatever the MinIO server already booted with.
+// TestSync_CredentialsSecretIsStableAcrossReconciles is a regression test:
+// ensureCredentialsSecret must only generate the root password once.
+// Calling Sync again (as the reconciler routinely does) must not desync the
+// stored password from whatever the MinIO server already booted with.
 func TestSync_CredentialsSecretIsStableAcrossReconciles(t *testing.T) {
 	t.Parallel()
 
@@ -247,9 +246,9 @@ func TestStatus_TenantNotInitialized_ReturnsProvisioning(t *testing.T) {
 }
 
 // TestStatus_TenantInitialized_ReturnsReadyAndRegistersBackupStorage is a
-// regression test for the Phase 3 backup bridge: once the Tenant is
-// Initialized, Status must both report Ready and register a BackupStorage
-// pointing at this Instance's own Tenant, reusing its root credentials.
+// regression test for the backup bridge: once the Tenant is Initialized,
+// Status must both report Ready and register a BackupStorage pointing at
+// this Instance's own Tenant, reusing its root credentials.
 func TestStatus_TenantInitialized_ReturnsReadyAndRegistersBackupStorage(t *testing.T) {
 	t.Parallel()
 

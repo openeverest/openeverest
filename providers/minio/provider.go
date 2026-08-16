@@ -13,13 +13,11 @@
 // limitations under the License.
 
 // Package minio implements a provider-runtime ProviderInterface for MinIO
-// object storage. This is a Phase 0-3 PoC (LFX Term 3, upstream issue
-// openeverest#2255): Sync renders and applies a real MinIO Operator Tenant
-// CR (minio.min.io/v1) from the Instance spec, and Status reads it back and,
+// object storage. Sync renders and applies a MinIO Operator Tenant CR
+// (minio.min.io/v2) from the Instance spec, and Status reads it back and,
 // once Ready, registers the Tenant as a BackupStorage other
-// OpenEverest-managed databases can use as a backup target. Dedicated
-// bucket/user/policy management (the open design question in
-// design-notes.md) is deliberately out of scope here.
+// OpenEverest-managed databases can use as a backup target. Bucket/user/
+// policy management is out of scope.
 package minio
 
 import (
@@ -40,42 +38,37 @@ import (
 	"github.com/openeverest/openeverest/v2/provider-runtime/controller"
 )
 
-// serverComponentType is the only componentType this Phase 2 PoC knows
-// about, matching manifest/provider.yaml.
+// serverComponentType is the only componentType this provider knows about,
+// matching manifest/provider.yaml.
 const serverComponentType = "server"
 
 // tenantStatusInitialized is the MinIO Operator's Tenant.status.currentState
-// value once the Tenant is fully up. Verified directly against a running
-// operator during Phase 0/1 (see design-notes.md).
+// value once the Tenant is fully up.
 const tenantStatusInitialized = "Initialized"
 
-// defaultMinIOImage is the operator's own fallback image, used only if the
-// Provider CR somehow declares no default version for the "server"
-// componentType. Matches github.com/minio/operator/pkg/apis/minio.min.io/v1.DefaultMinIOImage.
+// defaultMinIOImage is used only if the Provider CR declares no default
+// version for the "server" componentType.
 const defaultMinIOImage = "minio/minio:RELEASE.2020-12-23T02-24-12Z"
 
 // defaultVolumeSize is used when the Instance's "server" component doesn't
-// specify storage. Matches the size hand-verified against a real kind
-// cluster in Phase 0.
+// specify storage.
 var defaultVolumeSize = resource.MustParse("1Gi") //nolint:gochecknoglobals // resource.Quantity has no const form; same pattern as internal/server/handlers/validation/errors.go's minStorageQuantity
 
 // rootUser is the MinIO root user name written into the generated
 // credentials Secret. MinIO accepts any value here; the operator itself has
-// no default, so a fixed name is used for this PoC (bucket/user management
-// is a deferred design question, see design-notes.md).
+// no default.
 const rootUser = "minio"
 
 // configSecretSuffix names the Secret holding the Tenant's root credentials,
-// referenced via Tenant.Spec.Configuration.Name. Discovered the hard way in
-// Phase 2: the MinIO Operator leaves a Tenant stuck at
-// status.currentState == "empty tenant credentials" indefinitely if this
-// Secret (and the spec.configuration.name reference to it) is missing —
-// confirmed against a real Tenant applied without it, see design-notes.md.
+// referenced via Tenant.Spec.Configuration.Name. The MinIO Operator leaves a
+// Tenant stuck at status.currentState == "empty tenant credentials"
+// indefinitely if this Secret (and the spec.configuration.name reference to
+// it) is missing.
 const configSecretSuffix = "-env-configuration" //nolint:gosec // this is a Secret *name* suffix, not a credential value
 
-// backupBucketSuffix names the bucket auto-provisioned on the Tenant for the
-// Phase 3 backup bridge: on Ready, this Instance's own Tenant is registered
-// as a BackupStorage other OpenEverest-managed databases can back up into.
+// backupBucketSuffix names the bucket auto-provisioned on the Tenant so it
+// can be registered as a BackupStorage other OpenEverest-managed databases
+// can back up into.
 const backupBucketSuffix = "-backups"
 
 // backupCredsSecretSuffix names the Secret backing the BackupStorage's
@@ -87,9 +80,9 @@ const backupBucketSuffix = "-backups"
 const backupCredsSecretSuffix = "-backup-credentials" //nolint:gosec // this is a Secret *name* suffix, not a credential value
 
 // backupStorageRegion is a fixed placeholder: MinIO doesn't have regions,
-// but BackupStorageS3Spec.Region is required (S3-compatible SDKs need
-// something in the field). Matches the convention already used for MinIO in
-// this repo's own dev/resources/backupstorage.yaml fixture.
+// but BackupStorageS3Spec.Region is required. Matches the convention already
+// used for MinIO in this repo's own dev/resources/backupstorage.yaml
+// fixture.
 const backupStorageRegion = "us-east-1"
 
 // Provider implements controller.ProviderInterface for MinIO.
@@ -102,8 +95,8 @@ func (p *Provider) Name() string { return "minio" } //nolint:goconst // the prov
 // so the runtime's client can Get/Apply/own Tenant objects.
 func (p *Provider) Types() func(*runtime.Scheme) error { return AddToScheme }
 
-// Validate is a no-op for this PoC: there is no provider-specific admission
-// validation yet beyond what the Instance/Provider CRDs' own schemas enforce.
+// Validate is a no-op: there is no provider-specific admission validation
+// yet beyond what the Instance/Provider CRDs' own schemas enforce.
 func (p *Provider) Validate(c *controller.Context) error { //nolint:unparam // signature is fixed by controller.ProviderInterface
 	log.FromContext(c.Context()).Info("minio provider: Validate called",
 		"instance", c.Name(), "namespace", c.Namespace())
@@ -120,7 +113,7 @@ type serverComponent struct {
 }
 
 // resolveServerComponent reads the Instance's "server" component (if any),
-// applying this PoC's defaults (1 replica, defaultVolumeSize) where unset.
+// applying defaults (1 replica, defaultVolumeSize) where unset.
 func resolveServerComponent(c *controller.Context) serverComponent {
 	sc := serverComponent{replicas: 1, size: defaultVolumeSize}
 
@@ -146,8 +139,7 @@ func resolveServerComponent(c *controller.Context) serverComponent {
 // Sync renders a MinIO Operator Tenant CR from the Instance spec and applies
 // it. The "server" component (if present) maps onto the Tenant's single
 // Pool: Replicas -> Pool.Servers, Storage -> Pool.VolumeClaimTemplate.
-// VolumesPerServer is hardcoded to 1 for this PoC (see design-notes.md's
-// open question on modeling it distinctly from replica count).
+// VolumesPerServer is hardcoded to 1.
 func (p *Provider) Sync(c *controller.Context) error {
 	logger := log.FromContext(c.Context())
 	logger.Info("minio provider: Sync called", "instance", c.Name(), "namespace", c.Namespace())
@@ -169,10 +161,9 @@ func (p *Provider) Sync(c *controller.Context) error {
 		ObjectMeta: c.ObjectMeta(c.Name()),
 		Spec: TenantSpec{
 			Image: image,
-			// false, not nil/true: the CRD declares no default for this
-			// field, and Phase 0's hand-verified working Tenant set it to
-			// false explicitly (avoids depending on cert-manager or the
-			// operator's own CSR-based autocert flow for this PoC).
+			// false, not nil: the CRD declares no default for this field;
+			// explicit false avoids depending on cert-manager or the
+			// operator's own CSR-based autocert flow.
 			RequestAutoCert: new(bool),
 			Configuration:   &corev1.LocalObjectReference{Name: creds.secretName},
 			Buckets:         []Bucket{{Name: c.Name() + backupBucketSuffix}},
@@ -217,10 +208,9 @@ type credentials struct {
 // which would overwrite the password on every reconcile and desync it from
 // whatever the MinIO server actually booted with (the operator only reads
 // this Secret once, at Tenant bootstrap). The plain "rootUser"/"rootPassword"
-// keys (alongside the config.env the Tenant itself needs) exist so callers
-// don't have to re-parse the shell-export format to recover the password —
-// used by ensureBackupStorage to mint S3-style credentials for the same
-// account.
+// keys, alongside the config.env the Tenant itself needs, let
+// ensureBackupStorage recover the password without re-parsing the
+// shell-export format.
 func ensureCredentialsSecret(c *controller.Context) (credentials, error) {
 	name := c.Name() + configSecretSuffix
 
@@ -257,11 +247,9 @@ func ensureCredentialsSecret(c *controller.Context) (credentials, error) {
 }
 
 // ensureBackupStorage registers this Instance's own Tenant as a
-// BackupStorage other OpenEverest-managed databases can back up into — the
-// Phase 3 "backup bridge" (see ROADMAP.md §4 Phase 3, design-notes.md). It
+// BackupStorage other OpenEverest-managed databases can back up into. It
 // reuses the Tenant's root credentials rather than minting a dedicated MinIO
-// user/policy: bucket/user/policy management is the open design question in
-// design-notes.md, deliberately deferred past this PoC.
+// user/policy; bucket/user/policy management is out of scope here.
 func ensureBackupStorage(c *controller.Context) error {
 	creds, err := ensureCredentialsSecret(c)
 	if err != nil {
@@ -290,9 +278,7 @@ func ensureBackupStorage(c *controller.Context) error {
 				Bucket: c.Name() + backupBucketSuffix,
 				Region: backupStorageRegion,
 				// In-cluster headless Service the MinIO Operator creates
-				// for every Tenant, named "<tenant>-hl", port 9000 — the
-				// same endpoint hand-verified with a real mc round-trip in
-				// Phase 2 (see design-notes.md).
+				// for every Tenant, named "<tenant>-hl", port 9000.
 				EndpointURL:          fmt.Sprintf("http://%s-hl.%s.svc.cluster.local:9000", c.Name(), c.Namespace()),
 				VerifyTLS:            &verifyTLS,
 				ForcePathStyle:       &forcePathStyle,
@@ -379,8 +365,8 @@ func (p *Provider) Status(c *controller.Context) (controller.Status, error) {
 	return status, nil
 }
 
-// Cleanup is a no-op for this PoC: the Tenant, both credentials Secrets, and
-// the BackupStorage are all owned by the Instance (set via c.Apply), so
+// Cleanup is a no-op: the Tenant, both credentials Secrets, and the
+// BackupStorage are all owned by the Instance (set via c.Apply), so
 // Kubernetes garbage collection removes them without any provider-side
 // action needed.
 func (p *Provider) Cleanup(c *controller.Context) error { //nolint:unparam // signature is fixed by controller.ProviderInterface

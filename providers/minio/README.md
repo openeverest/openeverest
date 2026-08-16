@@ -62,7 +62,7 @@ Against a real `kind` cluster with the MinIO Operator installed via Helm:
   distributed-pool topology, multiple component types, or per-pool
   configuration.
 - **Root credentials reused for the backup bridge**, instead of a dedicated
-  per-Instance IAM user/policy. Simpler for a PoC, not appropriate long
+  per-Instance IAM user/policy. Simpler for now, not appropriate long
   term — see "Future enhancements" below.
 - **No bucket/user/policy management surface.** `Instance` has no
   first-class concept of buckets or IAM beyond the one backup bucket this
