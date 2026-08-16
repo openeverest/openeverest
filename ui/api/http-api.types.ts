@@ -2299,8 +2299,9 @@ export interface components {
                  *     has been set is rejected so the cascade path cannot race with
                  *     itself.
                  * @default Cascade
+                 * @enum {string}
                  */
-                deletionPolicy?: string & (("Cascade" | "Orphan") & ("Cascade" | "Orphan"));
+                deletionPolicy?: "Cascade" | "Orphan";
                 /**
                  * @description Parameters contains structured parameters that apply to the Instance
                  *     as a whole, complementing the topology- and component-scoped
@@ -3525,8 +3526,9 @@ export interface components {
                  *     has been set is rejected so the cascade path cannot race with
                  *     itself.
                  * @default Cascade
+                 * @enum {string}
                  */
-                deletionPolicy?: string & (("Cascade" | "Orphan") & ("Cascade" | "Orphan"));
+                deletionPolicy?: "Cascade" | "Orphan";
                 /**
                  * @description Parameters contains structured parameters that apply to the Instance
                  *     as a whole, complementing the topology- and component-scoped
@@ -3777,8 +3779,9 @@ export interface components {
                  *     has been set is rejected so the cleanup path cannot race with
                  *     itself.
                  * @default Delete
+                 * @enum {string}
                  */
-                deletionPolicy?: string & (("Retain" | "Delete") & ("Retain" | "Delete"));
+                deletionPolicy?: "Retain" | "Delete";
                 /**
                  * @description InstanceRef references the Instance to back up. The Instance must
                  *     live in the same namespace as this Backup.
