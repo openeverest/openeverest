@@ -1,0 +1,49 @@
+# Copyright (C) 2026 The OpenEverest Contributors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# Phase 2 Provider CR for the minio provider (LFX Term 3 PoC, upstream
+# issue openeverest#2255). Deliberately minimal: one "server"
+# component/componentType, one "standalone" topology, one default version
+# bundle. No parametersSchema yet — bucket/user/volumesPerServer modeling is
+# an open design question (see design-notes.md), correctly deferred past
+# Phase 1.
+#
+# Image tag corrected in Phase 2 (2026-08-12): the Phase 1 skeleton used a
+# placeholder tag, "RELEASE.2026-01-01T00-00-00Z", that doesn't exist on
+# quay.io — real deploys hit ErrImagePull. This tag is the one hand-verified
+# against a real MinIO Operator install in Phase 0 (see design-notes.md).
+apiVersion: core.openeverest.io/v1alpha1
+kind: Provider
+metadata:
+  name: minio
+spec:
+  componentTypes:
+    server:
+      versions:
+        - version: "RELEASE.2025-04-08T15-41-24Z"
+          image: "quay.io/minio/minio:RELEASE.2025-04-08T15-41-24Z"
+          default: true
+  components:
+    server:
+      type: server
+  topologies:
+    standalone:
+      components:
+        server:
+          optional: false
+  versions:
+    - name: "RELEASE.2025-04-08T15-41-24Z"
+      default: true
+      components:
+        server: "RELEASE.2025-04-08T15-41-24Z"
