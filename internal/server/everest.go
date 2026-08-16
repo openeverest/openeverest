@@ -60,6 +60,12 @@ import (
 	"github.com/percona/everest/public"
 )
 
+const (
+	httpReadHeaderTimeout = 5 * time.Second
+	httpReadTimeout       = 60 * time.Second
+	httpIdleTimeout       = 120 * time.Second
+)
+
 // EverestServer represents the server struct.
 type EverestServer struct {
 	config        *config.EverestConfig
@@ -187,6 +193,10 @@ func (t *Template) Render(w io.Writer, name string, data any, _ echo.Context) er
 
 // initHTTPServer configures http server for the current EverestServer instance.
 func (e *EverestServer) initHTTPServer(ctx context.Context) error {
+	e.echo.Server.ReadHeaderTimeout = httpReadHeaderTimeout
+	e.echo.Server.ReadTimeout = httpReadTimeout
+	e.echo.Server.IdleTimeout = httpIdleTimeout
+
 	// Serve the index.html file.
 	indexFS := echo.MustSubFS(public.Index, "dist")
 	e.echo.Renderer = &Template{
@@ -436,15 +446,21 @@ func (e *EverestServer) startHTTPS(ctx context.Context, addr string) error {
 		}
 	}()
 
-	e.echo.TLSServer = &http.Server{
+	e.echo.TLSServer = e.newTLSServer(addr, watcher)
+	return e.echo.StartServer(e.echo.TLSServer)
+}
+
+func (e *EverestServer) newTLSServer(addr string, watcher *certwatcher.CertWatcher) *http.Server {
+	return &http.Server{
 		Addr:              addr,
-		ReadHeaderTimeout: 5 * time.Second,
+		ReadHeaderTimeout: httpReadHeaderTimeout,
+		ReadTimeout:       httpReadTimeout,
+		IdleTimeout:       httpIdleTimeout,
 		TLSConfig: &tls.Config{
 			// server periodically calls GetCertificate and reloads the certificate.
 			GetCertificate: watcher.GetCertificate,
 		},
 	}
-	return e.echo.StartServer(e.echo.TLSServer)
 }
 
 func (e *EverestServer) getBodyFromContext(ctx echo.Context, into any) error {
