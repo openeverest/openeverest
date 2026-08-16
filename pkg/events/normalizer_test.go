@@ -17,6 +17,8 @@ package events
 import (
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/watch"
@@ -93,7 +95,7 @@ func TestNormalizeBackup(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			got := NormalizeBackup(watch.Event{Type: tt.eventType, Object: tt.obj}, tt.old)
-			assertNormalizeEnvelope(t, got, tt.wantEmpty, tt.wantType, kind)
+			assertNormalizeEnvelope(t, got, tt.wantEmpty, tt.wantType, kind, name, ns, uid)
 		})
 	}
 }
@@ -167,26 +169,21 @@ func TestNormalizeRestore(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			got := NormalizeRestore(watch.Event{Type: tt.eventType, Object: tt.obj}, tt.old)
-			assertNormalizeEnvelope(t, got, tt.wantEmpty, tt.wantType, kind)
+			assertNormalizeEnvelope(t, got, tt.wantEmpty, tt.wantType, kind, name, ns, uid)
 		})
 	}
 }
 
-func assertNormalizeEnvelope(t *testing.T, got []Event, wantEmpty bool, wantType Type, wantKind string) {
+func assertNormalizeEnvelope(t *testing.T, got []Event, wantEmpty bool, wantType Type, wantKind, wantName, wantNS, wantUID string) {
 	t.Helper()
 	if wantEmpty {
-		if len(got) != 0 {
-			t.Fatalf("expected no events, got %d (%s)", len(got), got[0].Type)
-		}
+		assert.Empty(t, got)
 		return
 	}
-	if len(got) != 1 {
-		t.Fatalf("expected 1 event, got %d", len(got))
-	}
-	if got[0].Type != wantType {
-		t.Fatalf("Type: got %s, want %s", got[0].Type, wantType)
-	}
-	if got[0].Resource.Kind != wantKind {
-		t.Fatalf("Resource.Kind: got %q, want %q", got[0].Resource.Kind, wantKind)
-	}
+	require.Len(t, got, 1)
+	assert.Equal(t, wantType, got[0].Type)
+	assert.Equal(t, wantKind, got[0].Resource.Kind)
+	assert.Equal(t, wantName, got[0].Resource.Name)
+	assert.Equal(t, wantUID, got[0].Resource.UID)
+	assert.Equal(t, wantNS, got[0].Namespace)
 }

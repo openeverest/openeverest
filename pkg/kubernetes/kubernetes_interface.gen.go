@@ -6,6 +6,12 @@ import (
 	"context"
 
 	goversion "github.com/hashicorp/go-version"
+	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
+	"github.com/openeverest/openeverest/v2/api/core/v1alpha1"
+	extensionsv1alpha1 "github.com/openeverest/openeverest/v2/api/extensions/v1alpha1"
+	monitoringv1alpha1 "github.com/openeverest/openeverest/v2/api/monitoring/v1alpha1"
+	"github.com/openeverest/openeverest/v2/pkg/accounts"
+	"github.com/openeverest/openeverest/v2/pkg/common"
 	olmv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	enginefeaturesv1alpha1 "github.com/percona/everest-operator/api/enginefeatures.everest/v1alpha1"
 	everestv1alpha1 "github.com/percona/everest-operator/api/everest/v1alpha1"
@@ -18,13 +24,6 @@ import (
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/rest"
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
-
-	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
-	"github.com/openeverest/openeverest/v2/api/core/v1alpha1"
-	extensionsv1alpha1 "github.com/openeverest/openeverest/v2/api/extensions/v1alpha1"
-	monitoringv1alpha1 "github.com/openeverest/openeverest/v2/api/monitoring/v1alpha1"
-	"github.com/openeverest/openeverest/v2/pkg/accounts"
-	"github.com/openeverest/openeverest/v2/pkg/common"
 )
 
 // KubernetesConnector ...
@@ -374,10 +373,10 @@ type KubernetesConnector interface {
 	// GetInstancePreset returns instance preset that matches the criteria.
 	GetInstancePreset(ctx context.Context, key ctrlclient.ObjectKey) (*v1alpha1.InstancePreset, error)
 	// WatchBackups returns a watch.Interface that streams
-	// DatabaseClusterBackup events across all namespaces.
+	// Backup events across all namespaces.
 	WatchBackups(ctx context.Context) (watch.Interface, error)
 	// WatchRestores returns a watch.Interface that streams
-	// DatabaseClusterRestore events across all namespaces.
+	// Restore events across all namespaces.
 	WatchRestores(ctx context.Context) (watch.Interface, error)
 	// WatchInstances returns a watch.Interface that streams
 	// Instance events across all namespaces.
