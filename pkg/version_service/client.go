@@ -1,5 +1,4 @@
-// everest
-// Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -96,7 +95,8 @@ func (c *versionServiceClient) GetSupportedEngineVersions(ctx context.Context, o
 		return nil, fmt.Errorf("invalid response from version service endpoint http %d", res.StatusCode)
 	}
 	response := &perconavs.VersionResponse{}
-	b, err := io.ReadAll(res.Body)
+	const maxResponseSize = 10 * 1024 * 1024 // 10 MB
+	b, err := io.ReadAll(io.LimitReader(res.Body, maxResponseSize))
 	if err != nil {
 		return nil, errors.Join(err, errors.New("could not read version response"))
 	}
@@ -157,7 +157,8 @@ func (c *versionServiceClient) GetEverestMetadata(ctx context.Context) (*percona
 		return nil, fmt.Errorf("invalid response from Everest metadata endpoint http %d", res.StatusCode)
 	}
 	requirements := &perconavs.MetadataResponse{}
-	if err = json.NewDecoder(res.Body).Decode(requirements); err != nil {
+	const maxResponseSize = 10 * 1024 * 1024 // 10 MB
+	if err = json.NewDecoder(io.LimitReader(res.Body, maxResponseSize)).Decode(requirements); err != nil {
 		return nil, errors.Join(err, errors.New("could not decode requirements from Everest metadata"))
 	}
 	return requirements, nil

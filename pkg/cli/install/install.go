@@ -386,7 +386,7 @@ func (o *Installer) namespaceExists(ctx context.Context, namespace string) (bool
 		if k8serrors.IsNotFound(err) {
 			return false, nil
 		}
-		return false, fmt.Errorf("cannot check if namesapce exists: %w", err)
+		return false, fmt.Errorf("cannot check if namespace exists: %w", err)
 	}
 	return true, nil
 }
