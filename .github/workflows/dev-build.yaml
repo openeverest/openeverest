@@ -18,6 +18,7 @@ permissions:
 
 jobs:
   build:
+    if: github.repository == 'openeverest/openeverest'
     runs-on: ubuntu-latest
     permissions:
       contents: read
