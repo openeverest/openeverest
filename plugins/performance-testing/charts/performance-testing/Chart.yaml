@@ -1,0 +1,6 @@
+apiVersion: v2
+name: performance-testing
+description: Performance testing plugin for OpenEverest — run sysbench benchmarks against Everest-managed databases from the dashboard or CLI.
+type: application
+version: 0.1.0
+appVersion: "0.1.0"

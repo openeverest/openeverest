@@ -16,3 +16,7 @@
 !model
 !public
 !pkg
+# Needed for plugins/performance-testing/Dockerfile, which builds from the
+# repo root (single go.mod) like the other Dockerfiles here — without this,
+# `COPY . .` silently drops the entire plugins/ tree from the build context.
+!plugins

@@ -1,0 +1,21 @@
+apiVersion: extensions.openeverest.io/v1alpha1
+kind: Plugin
+metadata:
+  name: {{ .Release.Name }}
+spec:
+  displayName: {{ .Values.plugin.displayName | quote }}
+  description: {{ .Values.plugin.description | quote }}
+  version: {{ .Chart.AppVersion | quote }}
+  vendor: {{ .Values.plugin.vendor | quote }}
+  enabled: {{ .Values.plugin.enabled }}
+  backend:
+    serviceRef:
+      namespace: {{ .Release.Namespace }}
+      name: {{ include "performance-testing.fullname" . }}
+      port: {{ .Values.service.port }}
+  frontend:
+    extensionPoints:
+      {{- toYaml .Values.plugin.extensionPoints | nindent 6 }}
+  permissions:
+    - verb: read
+      resource: database-clusters

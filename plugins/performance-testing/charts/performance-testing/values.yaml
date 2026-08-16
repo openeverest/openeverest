@@ -1,0 +1,29 @@
+image:
+  repository: performance-testing-backend
+  tag: "0.1.0"
+  pullPolicy: IfNotPresent
+
+service:
+  port: 8080
+
+plugin:
+  displayName: "Performance Testing"
+  description: "Run sysbench benchmarks against Everest-managed databases and compare results over time."
+  vendor: "OpenEverest"
+  enabled: true
+  # PluginExtensionPoint (api/extensions/v1alpha1/plugin_types.go) only has
+  # type/label/path/icon/providers — no "name" or "routeName" fields, unlike
+  # the design doc's aspirational CRD sketch in docs/process/generic-plugins-design.md.
+  extensionPoints:
+    - type: route
+      label: "Performance Testing"
+    - type: sidebarItem
+      label: "Performance Testing"
+
+# RBAC the plugin's own ServiceAccount needs against the Kubernetes API
+# (batch/jobs to run benchmarks, pods/log to read results, and a scoped
+# get on credentials Secrets named "everest-secrets-<instance>"). This is
+# Kubernetes RBAC shipped by the chart, per docs/process/generic-plugins-design.md
+# §8.7 — the host does not generate or validate it.
+rbac:
+  create: true

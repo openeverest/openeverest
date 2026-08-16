@@ -1,0 +1,36 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "performance-testing.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "performance-testing.labels" . | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "performance-testing.labels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "performance-testing.labels" . | nindent 8 }}
+    spec:
+      serviceAccountName: {{ include "performance-testing.fullname" . }}
+      containers:
+        - name: backend
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 8080
+          env:
+            - name: PORT
+              value: "8080"
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http

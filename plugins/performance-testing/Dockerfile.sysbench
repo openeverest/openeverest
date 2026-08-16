@@ -1,0 +1,14 @@
+# The benchmark Job's own image — separate from ./Dockerfile, which builds
+# this plugin's backend. Deliberately not severalnines/sysbench:latest,
+# whose bundled libpq predates PostgreSQL's SCRAM-SHA-256 default (PG10+):
+# a real prepare run against the target pg-poc failed with "SCRAM
+# authentication requires libpq version 10 or above" the first time this
+# was actually run against a live cluster, the same way the MinIO
+# provider's placeholder image tag only broke once actually deployed.
+# debian:trixie-slim's packaged sysbench (1.0.20, linked against a current
+# libpq) was hand-verified against the same cluster: prepare/cleanup both
+# succeeded with real SCRAM auth.
+FROM debian:trixie-slim
+RUN apt-get update && \
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends sysbench ca-certificates && \
+    rm -rf /var/lib/apt/lists/*

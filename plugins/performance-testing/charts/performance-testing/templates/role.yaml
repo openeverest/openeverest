@@ -1,0 +1,32 @@
+{{- if .Values.rbac.create }}
+# Namespaced Role, not ClusterRole: this PoC only benchmarks databases in
+# the same namespace the plugin itself is installed into. Multi-namespace
+# support (matching how everestctl extension install namespaces other
+# plugins) is real follow-up work, not built here.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ include "performance-testing.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "performance-testing.labels" . | nindent 4 }}
+rules:
+  - apiGroups: ["batch"]
+    resources: ["jobs"]
+    verbs: ["create", "get", "list", "watch", "delete"]
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list"]
+  - apiGroups: [""]
+    resources: ["pods/log"]
+    verbs: ["get"]
+  # Scoped to reading only: this plugin never creates, updates, or deletes
+  # a Secret, and the "get" verb still lets any DatabaseCluster's
+  # credentials Secret be read within this namespace (Kubernetes RBAC has
+  # no resourceName wildcard-by-prefix — "everest-secrets-*" cannot be
+  # expressed here; a validatingadmission/OPA policy would be needed to
+  # narrow this further, out of scope for this PoC).
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["get"]
+{{- end }}

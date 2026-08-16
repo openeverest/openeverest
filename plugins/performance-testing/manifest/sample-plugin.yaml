@@ -1,0 +1,34 @@
+# Minimal Plugin CR for testing the performance-testing backend directly
+# with `kubectl apply`, without going through `helm install` — mirrors
+# providers/minio/manifest/sample-instance.yaml's role for the object-storage
+# PoC. Assumes the backend Deployment/Service/RBAC (see ../charts/performance-testing)
+# are already applied in the same namespace.
+#
+# Deployed into "everest", not "everest-system": the plugin's own RBAC
+# (see ../charts/performance-testing/templates/role.yaml) is a namespaced
+# Role scoped to wherever the plugin's Deployment runs, and this PoC only
+# benchmarks databases in that same namespace — pg-poc, the real target,
+# lives in "everest".
+apiVersion: extensions.openeverest.io/v1alpha1
+kind: Plugin
+metadata:
+  name: performance-testing
+spec:
+  displayName: "Performance Testing"
+  description: "Run sysbench benchmarks against Everest-managed databases and compare results over time."
+  vendor: "OpenEverest"
+  enabled: true
+  backend:
+    serviceRef:
+      namespace: everest
+      name: performance-testing
+      port: 8080
+  frontend:
+    extensionPoints:
+      - type: route
+        label: "Performance Testing"
+      - type: sidebarItem
+        label: "Performance Testing"
+  permissions:
+    - verb: read
+      resource: database-clusters
