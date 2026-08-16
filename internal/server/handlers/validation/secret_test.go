@@ -27,6 +27,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
+	commonv1alpha1 "github.com/openeverest/openeverest/v2/api/common/v1alpha1"
 	corev1alpha1 "github.com/openeverest/openeverest/v2/api/core/v1alpha1"
 	"github.com/openeverest/openeverest/v2/internal/server/handlers"
 	"github.com/openeverest/openeverest/v2/pkg/common"
@@ -48,13 +49,15 @@ func TestCreateSecret_Validation(t *testing.T) {
 		Spec: corev1alpha1.ProviderSpec{
 			Secrets: map[string]corev1alpha1.SecretDefinition{
 				"database-credentials": {
-					OpenAPIV3Schema: &apiextensionsv1.JSONSchemaProps{
-						Type: "object",
-						Properties: map[string]apiextensionsv1.JSONSchemaProps{
-							"username": {Type: "string"},
-							"password": {Type: "string"},
+					ParametersSchema: &commonv1alpha1.ParametersSchema{
+						OpenAPIV3Schema: &apiextensionsv1.JSONSchemaProps{
+							Type: "object",
+							Properties: map[string]apiextensionsv1.JSONSchemaProps{
+								"username": {Type: "string"},
+								"password": {Type: "string"},
+							},
+							Required: []string{"username", "password"},
 						},
-						Required: []string{"username", "password"},
 					},
 				},
 			},

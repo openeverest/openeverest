@@ -114,7 +114,8 @@ func TestRun_ExplicitName(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, gotBody.Metadata)
 	assert.Equal(t, "pre-upgrade", gotBody.Metadata.Name)
-	assert.Equal(t, "Retain", gotBody.Spec.DeletionPolicy)
+	require.NotNil(t, gotBody.Spec.DeletionPolicy)
+	assert.Equal(t, client.BackupSpecDeletionPolicy("Retain"), *gotBody.Spec.DeletionPolicy)
 }
 
 func TestRun_Conflict_ReturnsFriendlyError(t *testing.T) {

@@ -772,9 +772,10 @@ func (in *SecretDefinition) DeepCopyInto(out *SecretDefinition) {
 		*out = new(runtime.RawExtension)
 		(*in).DeepCopyInto(*out)
 	}
-	if in.OpenAPIV3Schema != nil {
-		in, out := &in.OpenAPIV3Schema, &out.OpenAPIV3Schema
-		*out = (*in).DeepCopy()
+	if in.ParametersSchema != nil {
+		in, out := &in.ParametersSchema, &out.ParametersSchema
+		*out = new(commonv1alpha1.ParametersSchema)
+		(*in).DeepCopyInto(*out)
 	}
 }
 

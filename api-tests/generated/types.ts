@@ -2299,8 +2299,9 @@ export interface components {
                  *     has been set is rejected so the cascade path cannot race with
                  *     itself.
                  * @default Cascade
+                 * @enum {string}
                  */
-                deletionPolicy: string & (("Cascade" | "Orphan") & ("Cascade" | "Orphan"));
+                deletionPolicy: "Cascade" | "Orphan";
                 /**
                  * @description Parameters contains structured parameters that apply to the Instance
                  *     as a whole, complementing the topology- and component-scoped
@@ -2496,8 +2497,14 @@ export interface components {
                 /** @description Secrets defines Secret types this provider supports. */
                 secrets?: {
                     [key: string]: {
-                        /** @description OpenAPIV3Schema is the OpenAPI v3 schema for validating secret data/stringData. */
-                        openAPIV3Schema?: unknown;
+                        /** @description ParametersSchema declares the OpenAPI v3 schema for validating secret data/stringData. */
+                        parametersSchema?: {
+                            /**
+                             * @description OpenAPIV3Schema is the OpenAPI v3 schema describing the accepted
+                             *     parameters payload.
+                             */
+                            openAPIV3Schema?: unknown;
+                        };
                         /** @description UISchema holds UI rendering hints for the secret creation form. */
                         uiSchema?: Record<string, never>;
                     };
@@ -3519,8 +3526,9 @@ export interface components {
                  *     has been set is rejected so the cascade path cannot race with
                  *     itself.
                  * @default Cascade
+                 * @enum {string}
                  */
-                deletionPolicy: string & (("Cascade" | "Orphan") & ("Cascade" | "Orphan"));
+                deletionPolicy: "Cascade" | "Orphan";
                 /**
                  * @description Parameters contains structured parameters that apply to the Instance
                  *     as a whole, complementing the topology- and component-scoped
@@ -3771,8 +3779,9 @@ export interface components {
                  *     has been set is rejected so the cleanup path cannot race with
                  *     itself.
                  * @default Delete
+                 * @enum {string}
                  */
-                deletionPolicy: string & (("Retain" | "Delete") & ("Retain" | "Delete"));
+                deletionPolicy: "Retain" | "Delete";
                 /**
                  * @description InstanceRef references the Instance to back up. The Instance must
                  *     live in the same namespace as this Backup.
