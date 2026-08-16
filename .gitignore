@@ -2,7 +2,6 @@
 /.idea/
 
 /bin/
-everest.exe
 
 *.pem
 *.out
