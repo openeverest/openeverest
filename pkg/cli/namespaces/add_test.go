@@ -18,7 +18,11 @@ import (
 	"testing"
 
 	operatorUtils "github.com/percona/everest-operator/utils"
+	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
+	"github.com/openeverest/openeverest/v2/pkg/cli"
 )
 
 func TestParseNamespaceNames(t *testing.T) {
@@ -181,6 +185,54 @@ func TestValidateNamespaces(t *testing.T) {
 			err := validateNamespaceNames(tc.input, "test-ns")
 			assert.Equal(t, tc.error, err)
 			// assert.ElementsMatch(t, tc.output, output)
+		})
+	}
+}
+
+func TestShouldAskOperators(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name       string
+		args       []string
+		skipWizard bool
+		expected   bool
+	}{
+		{
+			name:       "no operator flags passed, skipWizard false",
+			args:       []string{},
+			skipWizard: false,
+			expected:   true,
+		},
+		{
+			name:       "operator flag passed, skipWizard false",
+			args:       []string{"--" + cli.FlagOperatorMongoDB + "=true"},
+			skipWizard: false,
+			expected:   false,
+		},
+		{
+			name:       "no operator flags passed, skipWizard true",
+			args:       []string{},
+			skipWizard: true,
+			expected:   false,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			cmd := &cobra.Command{}
+			cmd.Flags().Bool(cli.FlagOperatorMongoDB, true, "")
+			cmd.Flags().Bool(cli.FlagOperatorPostgresql, true, "")
+			cmd.Flags().Bool(cli.FlagOperatorXtraDBCluster, true, "")
+			cmd.Flags().Bool(cli.FlagOperatorMySQL, true, "")
+
+			err := cmd.ParseFlags(tc.args)
+			require.NoError(t, err)
+
+			res := ShouldAskOperators(cmd, tc.skipWizard)
+			assert.Equal(t, tc.expected, res)
 		})
 	}
 }

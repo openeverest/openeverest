@@ -63,6 +63,7 @@ Read the whole file; apply Frontend rules only when touching files under `ui/`.
 
 - `*.test.tsx` next to the code; `@testing-library/react`; `vi.mock` / `vi.fn`.
 - Test behavior, not implementation. Co-locate shared API mocks in `__mocks__/`.
+- **No trivial or redundant tests.** Don't add tests that merely assert a component renders a passed-in prop/label with no logic, or that duplicate coverage already provided elsewhere — they add CI time without catching real regressions. Cover meaningful behavior, edge cases, and branching logic.
 - **Mocks must return stable references** — define the object once in the `vi.mock` closure; a fresh literal per call makes `useMemo`/effect deps loop and hangs tests.
 
 ### Context

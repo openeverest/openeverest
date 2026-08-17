@@ -63,6 +63,7 @@ export const ConnectionDetails = ({
             <Link
               href="https://openeverest.io/documentation/current/networking/nodeport_support.html"
               target="_blank"
+              rel="noopener noreferrer"
             >
               instructions
             </Link>

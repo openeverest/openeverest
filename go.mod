@@ -6,6 +6,7 @@ require (
 	github.com/AlekSi/pointer v1.2.0
 	github.com/Percona-Lab/percona-version-service v0.0.0-20240311164804-ffbc02387a1b
 	github.com/VictoriaMetrics/operator/api v0.66.1
+	github.com/blang/semver/v4 v4.0.0
 	github.com/casbin/casbin/v2 v2.135.0
 	github.com/casbin/govaluate v1.10.0
 	github.com/cenkalti/backoff/v4 v4.3.0
@@ -25,7 +26,7 @@ require (
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/oapi-codegen/echo-middleware v1.1.0
 	github.com/oapi-codegen/runtime v1.6.0
-	github.com/openeverest/helm-charts/charts/everest v0.0.0-20260802124859-30258bdcf192
+	github.com/openeverest/helm-charts/charts/everest v0.0.0-20260814140616-eceba292c94a
 	github.com/operator-framework/api v0.45.0
 	github.com/percona/everest-operator v0.6.0-dev1.0.20260429065444-70caa52c384a
 	github.com/rodaine/table v1.3.1
@@ -109,7 +110,6 @@ require (
 	github.com/aymanbagabas/go-osc52/v2 v2.0.1 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/bkielbasa/cyclop v1.2.3 // indirect
-	github.com/blang/semver/v4 v4.0.0 // indirect
 	github.com/blizzy78/varnamelen v0.8.0 // indirect
 	github.com/bmatcuk/doublestar/v4 v4.10.0 // indirect
 	github.com/bombsimon/wsl/v4 v4.7.0 // indirect

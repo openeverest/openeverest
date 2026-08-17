@@ -199,6 +199,26 @@ func ValidateInstanceBackupPITRParameters(in *corev1alpha1.Instance, bc *backupv
 	return nil
 }
 
+// RestoreStreamInstanceName returns the name of the Instance that owns the
+// backup stream a point-in-time Restore reads from: the Instance named by
+// .source.instanceRef, or the Restore's target Instance when none is named.
+//
+// A stream has no Backup CR of its own, so this Instance is also where its
+// *read* class comes from -- the class describing how the data was written and
+// therefore how it must be read, which may differ from the target Instance's
+// own backup class.
+//
+// The defaulting is shared because every path that handles a Restore needs it
+// and it is easy to get subtly wrong; the surrounding dispatch on
+// .spec.dataSource.type stays at each call site, where the error handling and
+// the object type to fetch differ.
+func RestoreStreamInstanceName(restore *backupv1alpha1.Restore) string {
+	if pitr := restore.Spec.DataSource.PointInTime; pitr != nil && pitr.Source.InstanceRef != nil {
+		return pitr.Source.InstanceRef.Name
+	}
+	return restore.Spec.InstanceRef.Name
+}
+
 // ValidateBackupSucceeded returns ErrBackupNotSucceeded unless the Backup has
 // reached the Succeeded state. Callers are responsible for fetching the
 // Backup themselves and handling a not-found lookup error with their own
@@ -233,18 +253,19 @@ func ValidateClassSupportsProvider(bc *backupv1alpha1.BackupClass, provider stri
 //   - Job-mode classes have no PITR capability declaration; they are not
 //     gated here.
 //
-// A nil class or a Restore without PITR options passes. The CRD's CEL rule
-// already requires date when type is "date"; the check is repeated here for
-// defense in depth on paths that bypass admission.
+// A nil class or a Restore that is not requesting point-in-time recovery
+// passes. The CRD's CEL rule already requires date when recoveryTarget is
+// "date"; the check is repeated here for defense in depth on paths that bypass
+// admission.
 func ValidateRestorePITR(restore *backupv1alpha1.Restore, bc *backupv1alpha1.BackupClass) error {
-	if restore == nil || restore.Spec.DataSource.Backup == nil || restore.Spec.DataSource.Backup.PITR == nil {
+	if restore == nil || restore.Spec.DataSource.PointInTime == nil {
 		return nil
 	}
-	pitr := restore.Spec.DataSource.Backup.PITR
-	if pitr.Type == backupv1alpha1.PITRTypeDate && pitr.Date == nil {
+	pitr := restore.Spec.DataSource.PointInTime
+	if pitr.RecoveryTarget == backupv1alpha1.RecoveryTargetDate && pitr.Date == nil {
 		return fmt.Errorf(
-			"%w: spec.dataSource.backup.pitr.date must be set when type is %q",
-			ErrRestorePITRDateRequired, backupv1alpha1.PITRTypeDate,
+			"%w: spec.dataSource.pointInTime.date must be set when recoveryTarget is %q",
+			ErrRestorePITRDateRequired, backupv1alpha1.RecoveryTargetDate,
 		)
 	}
 	if bc == nil || bc.Spec.ExecutionMode != backupv1alpha1.BackupExecutionModeProviderManaged {
@@ -254,4 +275,50 @@ func ValidateRestorePITR(restore *backupv1alpha1.Restore, bc *backupv1alpha1.Bac
 		return fmt.Errorf("%w: BackupClass %q", ErrRestorePITRUnsupported, bc.Name)
 	}
 	return nil
+}
+
+// ValidatePITRStorage checks that the storage a point-in-time Restore names is
+// actually carrying a stream on the Instance that owns it.
+//
+// The schema already guarantees pointInTime.source.storageRef is set, so there
+// is nothing to infer here -- deliberately. Inferring a storage when an
+// Instance has only one would make the field conditionally required, and a
+// manifest's validity would then depend on an object it does not name. What
+// remains is the cross-object check CEL cannot express: the named storage must
+// exist on the Instance and have PITR enabled.
+//
+// The supplied Instance is the one that *owns the stream*, which for a Restore
+// without an explicit source.instanceRef is the restore target.
+func ValidatePITRStorage(
+	pitr *backupv1alpha1.DataSourcePointInTime,
+	instance *corev1alpha1.Instance,
+) error {
+	if pitr == nil {
+		return nil
+	}
+	if instance == nil || instance.Spec.Backup == nil {
+		return fmt.Errorf("%w: instance has no backup configuration", ErrRestorePITRUnsupported)
+	}
+
+	want := pitr.Source.StorageRef.Name
+	enabled := make([]string, 0, len(instance.Spec.Backup.Storages))
+	for _, s := range instance.Spec.Backup.Storages {
+		if s.PITR != nil && s.PITR.Enabled {
+			enabled = append(enabled, s.StorageRef.Name)
+			if s.StorageRef.Name == want {
+				return nil
+			}
+		}
+	}
+
+	if len(enabled) == 0 {
+		return fmt.Errorf(
+			"%w: instance %q has no storage with backup.storages[].pitr.enabled=true",
+			ErrRestorePITRUnsupported, instance.Name,
+		)
+	}
+	return fmt.Errorf(
+		"%w: storage %q is not a PITR-enabled storage of instance %q (PITR-enabled: %v)",
+		ErrRestorePITRUnsupported, want, instance.Name, enabled,
+	)
 }

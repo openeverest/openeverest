@@ -14,95 +14,41 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-export type GetRestorePayload = {
-  items: Array<{
-    metadata: {
-      creationTimestamp: string;
-      name: string;
-    };
-    spec: {
-      instanceRef: {
-        name: string;
-      };
-      dataSource: {
-        type: string;
-        backup?: {
-          backupRef: {
-            name: string;
-          };
-          pitr?: {
-            type: string;
-            date?: string;
-          };
-        };
-      };
-    };
-    status?: {
-      state: string;
-      startedAt?: string;
-      completedAt?: string;
-    };
-  }>;
-};
-// TODO: Re-enable when v1 restore payload shape is needed.
-// export type GetRestorePayload = {
-//   items: Array<{
-//     metadata: {
-//       creationTimestamp: string;
-//       name: string;
-//     };
-//     spec: {
-//       dataSource: {
-//         pitr?: object;
-//         dbClusterBackupName?: string;
-//       };
-//     };
-//     status: {
-//       state: string;
-//       completed?: string;
-//     };
-//   }>;
-// };
+import { HttpApi } from '@generated/api-types';
 
-export type CreateRestorePayload = {
-  metadata: {
-    name: string;
-  };
-  spec: {
-    instanceRef: {
-      name: string;
+export type GetRestorePayload =
+  HttpApi.paths['/clusters/{cluster}/namespaces/{namespace}/instances/{instance}/restores']['get']['responses']['200']['content']['application/json'];
+
+export type CreateRestorePayload =
+  HttpApi.paths['/clusters/{cluster}/namespaces/{namespace}/restores']['post']['requestBody']['content']['application/json'];
+
+export type RestoreDataSource = CreateRestorePayload['spec']['dataSource'];
+
+// Discriminated FE input describing a restore intent. An in-place restore leaves
+// the source instance implicit; a clone into a new DB names it explicitly via
+// sourceInstanceName, since the new instance has no PITR stream of its own.
+// storageName on the Backup arm is an FE-only hint (the seeding storage of the
+// backup) used to register that storage on a clone — it is NOT part of the
+// payload, since the BE resolves the storage from the referenced Backup.
+export type RestoreDataSourceInput =
+  | { type: 'Backup'; backupName: string; storageName?: string }
+  | {
+      type: 'PointInTime';
+      storageName: string;
+      recoveryTarget: 'latest';
+      sourceInstanceName?: string;
+    }
+  | {
+      type: 'PointInTime';
+      storageName: string;
+      recoveryTarget: 'date';
+      date: string;
+      sourceInstanceName?: string;
     };
-    dataSource: {
-      type: 'Backup';
-      backup: {
-        backupRef: {
-          name: string;
-        };
-        pitr?: {
-          type: 'date' | 'latest';
-          date?: string;
-        };
-      };
-    };
-  };
-};
-// TODO: Re-enable when v1 restore payload shape is needed.
-// export type CreateRestorePayload = {
-//   apiVersion: 'everest.percona.com/v1alpha1';
-//   kind: 'DatabaseClusterRestore';
-//   metadata: {
-//     name: string;
-//   };
-//   spec: {
-//     dbClusterName: string;
-//     dataSource: {
-//       dbClusterBackupName?: string;
-//       pitr?: {
-//         date: string;
-//       };
-//     };
-//   };
-// };
+
+export type RestoreCreateVariables = {
+  instanceName: string;
+} & RestoreDataSourceInput;
 
 export type Restore = {
   name: string;
