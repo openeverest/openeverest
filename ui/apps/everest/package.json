@@ -101,7 +101,7 @@
     "tsc-alias": "^1.8.8",
     "typescript": "^5.2.2",
     "vite": "^6.4.1",
-    "vite-tsconfig-paths": "^5.1.2",
+    "vite-tsconfig-paths": "^6.1.1",
     "vitest": "^4.0.18",
     "yaml": "^2.5.1"
   },
