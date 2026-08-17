@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2025 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -53,10 +54,11 @@ func TestValidate_DeleteMonitoringInstance(t *testing.T) {
 		{
 			name:            "no monitoring instances",
 			objNameToDelete: "test-monitoring-instance",
-			wantErr: k8sError.NewNotFound(schema.GroupResource{
-				Group:    everestv1alpha1.GroupVersion.Group,
-				Resource: "monitoringconfigs",
-			},
+			wantErr: k8sError.NewNotFound(
+				schema.GroupResource{
+					Group:    everestv1alpha1.GroupVersion.Group,
+					Resource: "monitoringconfigs",
+				},
 				"test-monitoring-instance",
 			),
 		},
@@ -73,10 +75,11 @@ func TestValidate_DeleteMonitoringInstance(t *testing.T) {
 				},
 			},
 			objNameToDelete: "non-existing-monitoring-instance",
-			wantErr: k8sError.NewNotFound(schema.GroupResource{
-				Group:    everestv1alpha1.GroupVersion.Group,
-				Resource: "monitoringconfigs",
-			},
+			wantErr: k8sError.NewNotFound(
+				schema.GroupResource{
+					Group:    everestv1alpha1.GroupVersion.Group,
+					Resource: "monitoringconfigs",
+				},
 				"non-existing-monitoring-instance",
 			),
 		},

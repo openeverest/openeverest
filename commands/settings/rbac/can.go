@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,7 +18,6 @@
 package rbac
 
 import (
-	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -73,16 +73,17 @@ func init() {
 	settingsRBACCanCmd.Flags().StringVar(&rbacCanPolicyFilePath, cli.FlagRBACPolicyFile, "", "Path to the policy file to use, otherwise use policy from Everest deployment.")
 }
 
-func settingsRBACCanPreRunE(cmd *cobra.Command, args []string) error { //nolint:revive
+func settingsRBACCanPreRunE(cmd *cobra.Command, args []string) error {
 	// validate action
 	if !rbac.ValidateAction(args[1]) {
-		return errors.New(fmt.Sprintf("invalid action '%s'. Supported actions: %s",
+		return fmt.Errorf(
+			"invalid action '%s'. Supported actions: %s",
 			args[1], strings.Join(rbac.SupportedActions, `,`),
-		))
+		)
 	}
 
 	// Copy global flags to config
-	rbacCanPretty = !(cmd.Flag(cli.FlagVerbose).Changed || cmd.Flag(cli.FlagJSON).Changed)
+	rbacCanPretty = !cmd.Flag(cli.FlagVerbose).Changed && !cmd.Flag(cli.FlagJSON).Changed
 	rbacCanKubeconfigPath = cmd.Flag(cli.FlagKubeconfig).Value.String()
 	return nil
 }

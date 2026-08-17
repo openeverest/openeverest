@@ -1,3 +1,17 @@
+// Copyright (C) 2026 The OpenEverest Contributors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFnsV3';
 import createCache from '@emotion/cache';
@@ -10,6 +24,7 @@ import { AxiosError } from 'axios';
 import { RouterProvider } from 'react-router-dom';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { AuthProvider } from 'contexts/auth';
+import { logAuthError, SSO_LOGIN_ERROR_KEY } from 'contexts/auth/auth.utils';
 import { DrawerContextProvider } from 'contexts/drawer/drawer.context';
 import router from 'router';
 import { useEffect, useState } from 'react';
@@ -94,6 +109,21 @@ const App = () => {
                   autoSignIn: false,
                   automaticSilentRenew: false,
                   loadUserInfo: false,
+                  // oidc-react's AuthProvider processes the authorization-code
+                  // response itself (it calls userManager.signinCallback() when
+                  // it sees `code` in the URL). Handling the callback here keeps
+                  // that as the single owner of the OIDC state
+                  onSignIn: (user) => {
+                    if (user?.access_token) {
+                      localStorage.setItem('everestToken', user.access_token);
+                    }
+                    window.location.href = '/';
+                  },
+                  onSignInError: (error) => {
+                    logAuthError('SSO login callback failed', error);
+                    sessionStorage.setItem(SSO_LOGIN_ERROR_KEY, '1');
+                    window.location.href = '/login';
+                  },
                 }}
               >
                 <DrawerContextProvider>

@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -35,10 +36,7 @@ import (
 	"github.com/percona/everest/api"
 )
 
-var (
-	errFailedToGetUser         = errors.New("failed to get user from context")
-	errFailedToReadRequestBody = errors.New("failed to read request body")
-)
+var errFailedToReadRequestBody = errors.New("failed to read request body")
 
 // CreateDatabaseCluster creates a new db cluster inside the given k8s cluster.
 func (e *EverestServer) CreateDatabaseCluster(c echo.Context, namespace string) error {
@@ -109,11 +107,12 @@ func (e *EverestServer) GetDatabaseClusterComponents(c echo.Context, namespace, 
 	return c.JSON(http.StatusOK, result)
 }
 
+// GetDatabaseClusterComponentLogs streams the logs of the specified database cluster component.
 func (e *EverestServer) GetDatabaseClusterComponentLogs(c echo.Context, ns, cName, componentName string, params api.GetDatabaseClusterComponentLogsParams) error {
 	ctx := c.Request().Context()
 
 	// function to stream logs. it uses closures for the echo-related dependencies to keep the handlers (validation, rbac, k8s) independent from http-framework
-	stream := func(ctx context.Context, namespace, clusterName, componentName string, params api.GetDatabaseClusterComponentLogsParams) error {
+	stream := func(ctx context.Context, namespace, _, componentName string, params api.GetDatabaseClusterComponentLogsParams) error {
 		opts, err := e.buildPodLogOptions(ctx, namespace, componentName, params)
 		if err != nil {
 			return err
@@ -124,7 +123,11 @@ func (e *EverestServer) GetDatabaseClusterComponentLogs(c echo.Context, ns, cNam
 		if err != nil {
 			return echo.NewHTTPError(http.StatusBadGateway, "failed to open log stream: "+err.Error())
 		}
-		defer stream.Close()
+		defer func() {
+			if err := stream.Close(); err != nil {
+				e.l.Errorf("failed to close log stream: %v", err)
+			}
+		}()
 
 		return streamToResponse(ctx, c.Response(), stream)
 	}
@@ -218,7 +221,7 @@ func streamToResponse(
 			n, err := stream.Read(buf)
 			if n > 0 {
 				if _, werr := res.Write(buf[:n]); werr != nil {
-					return nil // client disconnected
+					return nil //nolint:nilerr // client disconnected; stop streaming without surfacing an error
 				}
 				flusher.Flush()
 			}
@@ -263,8 +266,6 @@ func intPtrToInt64Ptr(v *int) *int64 {
 }
 
 // UpdateDatabaseCluster replaces the specified database cluster on the specified kubernetes cluster.
-//
-//nolint:dupl
 func (e *EverestServer) UpdateDatabaseCluster(ctx echo.Context, namespace, name string) error {
 	dbc := &everestv1alpha1.DatabaseCluster{}
 	if err := e.getBodyFromContext(ctx, dbc); err != nil {
@@ -306,7 +307,7 @@ func (e *EverestServer) CreateDatabaseClusterSecret(
 	c echo.Context,
 	namespace,
 	dbName string,
-	params api.CreateDatabaseClusterSecretParams,
+	_ api.CreateDatabaseClusterSecretParams,
 ) error {
 	secret := &corev1.Secret{}
 	if err := e.getBodyFromContext(c, secret); err != nil {

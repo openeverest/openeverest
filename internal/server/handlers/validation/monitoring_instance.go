@@ -1,3 +1,17 @@
+// Copyright (C) 2026 The OpenEverest Contributors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package validation
 
 import (
@@ -9,13 +23,12 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	everestv1alpha1 "github.com/percona/everest-operator/api/everest/v1alpha1"
-	"github.com/percona/everest-operator/utils"
 	operatorUtils "github.com/percona/everest-operator/utils"
 	"github.com/percona/everest/api"
 )
 
-// Used monitoring config error
-var errDeleteInUseMonitoringConfig = func(namespace, name string) error {
+// Used monitoring config error.
+func errDeleteInUseMonitoringConfig(namespace, name string) error {
 	return fmt.Errorf("monitoring instance='%s' in namespace='%s' is used by some DB cluster and cannot be deleted", name, namespace)
 }
 
@@ -24,10 +37,10 @@ func (h *validateHandler) ListMonitoringInstances(ctx context.Context, namespace
 }
 
 func (h *validateHandler) CreateMonitoringInstance(ctx context.Context, namespace string, req *api.CreateMonitoringInstanceJSONRequestBody) (*everestv1alpha1.MonitoringConfig, error) {
-	if err := utils.ValidateEverestResourceName(req.Name, "name"); err != nil {
+	if err := operatorUtils.ValidateEverestResourceName(req.Name, "name"); err != nil {
 		return nil, errors.Join(ErrInvalidRequest, err)
 	}
-	if ok := utils.ValidateURL(req.Url); !ok {
+	if ok := operatorUtils.ValidateURL(req.Url); !ok {
 		return nil, errors.Join(ErrInvalidRequest, ErrInvalidURL("url"))
 	}
 	switch req.Type {

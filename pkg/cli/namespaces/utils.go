@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2025 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,18 +19,31 @@ package namespaces
 import (
 	"context"
 	"fmt"
+	"slices"
 	"strings"
 
 	olmv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
+	"github.com/spf13/cobra"
 	v1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/utils/strings/slices"
 
 	operatorUtils "github.com/percona/everest-operator/utils"
+	"github.com/percona/everest/pkg/cli"
 	"github.com/percona/everest/pkg/common"
 	"github.com/percona/everest/pkg/kubernetes"
 )
+
+// ShouldAskOperators reports whether the user should be prompted to choose
+// database operators: true only if none of the --operator.* flags were
+// explicitly set and the wizard isn't skipped.
+func ShouldAskOperators(cmd *cobra.Command, skipWizard bool) bool {
+	return !cmd.Flags().Lookup(cli.FlagOperatorMongoDB).Changed &&
+		!cmd.Flags().Lookup(cli.FlagOperatorPostgresql).Changed &&
+		!cmd.Flags().Lookup(cli.FlagOperatorXtraDBCluster).Changed &&
+		!cmd.Flags().Lookup(cli.FlagOperatorMySQL).Changed &&
+		!skipWizard
+}
 
 // ParseNamespaceNames parses a comma-separated namespaces string.
 // It returns a list of namespaces.
@@ -37,7 +51,7 @@ import (
 // Use validateNamespaceNames to validate them.
 func ParseNamespaceNames(namespaces string) []string {
 	result := []string{}
-	for _, ns := range strings.Split(namespaces, ",") {
+	for ns := range strings.SplitSeq(namespaces, ",") {
 		ns = strings.TrimSpace(ns)
 		if ns == "" {
 			continue
@@ -54,7 +68,7 @@ func ParseNamespaceNames(namespaces string) []string {
 // validateNamespaceNames validates a list of namespaces parsed by ParseNamespaceNames.
 // It validates the names to be:
 // - RFC-1035 compatible
-// - not reserved by Everest core
+// - not reserved by Everest core.
 func validateNamespaceNames(nsList []string) error {
 	if len(nsList) == 0 {
 		return ErrNamespaceListEmpty
@@ -91,7 +105,7 @@ func namespaceExists(
 		if k8serrors.IsNotFound(err) {
 			return false, false, nil
 		}
-		return false, false, fmt.Errorf("cannot check if namesapce exists: %w", err)
+		return false, false, fmt.Errorf("cannot check if namespace exists: %w", err)
 	}
 	return true, isManagedByEverest(ns), nil
 }

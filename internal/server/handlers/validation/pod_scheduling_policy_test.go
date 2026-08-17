@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2025 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -152,10 +153,11 @@ func TestValidate_CreatePodSchedulingPolicy(t *testing.T) {
 					},
 				},
 			},
-			wantErr: k8sError.NewAlreadyExists(schema.GroupResource{
-				Group:    everestv1alpha1.GroupVersion.Group,
-				Resource: "podschedulingpolicies",
-			},
+			wantErr: k8sError.NewAlreadyExists(
+				schema.GroupResource{
+					Group:    everestv1alpha1.GroupVersion.Group,
+					Resource: "podschedulingpolicies",
+				},
 				"everest-existing-name",
 			),
 		},
@@ -578,10 +580,9 @@ func TestValidate_ListPodSchedulingPolicy(t *testing.T) {
 	t.Parallel()
 
 	type testCase struct {
-		name    string
-		objs    []ctrlclient.Object
-		assert  func(*everestv1alpha1.PodSchedulingPolicyList) bool
-		wantErr error
+		name   string
+		objs   []ctrlclient.Object
+		assert func(*everestv1alpha1.PodSchedulingPolicyList) bool
 	}
 
 	testCases := []testCase{
@@ -653,10 +654,11 @@ func TestValidate_GetPodSchedulingPolicy(t *testing.T) {
 		{
 			name:       "no policies",
 			policyName: "everest-default-mysql",
-			wantErr: k8sError.NewNotFound(schema.GroupResource{
-				Group:    everestv1alpha1.GroupVersion.Group,
-				Resource: "podschedulingpolicies",
-			},
+			wantErr: k8sError.NewNotFound(
+				schema.GroupResource{
+					Group:    everestv1alpha1.GroupVersion.Group,
+					Resource: "podschedulingpolicies",
+				},
 				"everest-default-mysql",
 			),
 		},
@@ -680,10 +682,11 @@ func TestValidate_GetPodSchedulingPolicy(t *testing.T) {
 				getDefaultPSMDBPolicy(),
 			},
 			policyName: "non-existing-policy",
-			wantErr: k8sError.NewNotFound(schema.GroupResource{
-				Group:    everestv1alpha1.GroupVersion.Group,
-				Resource: "podschedulingpolicies",
-			},
+			wantErr: k8sError.NewNotFound(
+				schema.GroupResource{
+					Group:    everestv1alpha1.GroupVersion.Group,
+					Resource: "podschedulingpolicies",
+				},
 				"non-existing-policy",
 			),
 		},
@@ -736,10 +739,11 @@ func TestValidate_UpdatePodSchedulingPolicy(t *testing.T) {
 					EngineType: everestv1alpha1.DatabaseEnginePXC,
 				},
 			},
-			wantErr: k8sError.NewNotFound(schema.GroupResource{
-				Group:    everestv1alpha1.GroupVersion.Group,
-				Resource: "podschedulingpolicies",
-			},
+			wantErr: k8sError.NewNotFound(
+				schema.GroupResource{
+					Group:    everestv1alpha1.GroupVersion.Group,
+					Resource: "podschedulingpolicies",
+				},
 				"test-policy",
 			),
 		},
@@ -764,10 +768,11 @@ func TestValidate_UpdatePodSchedulingPolicy(t *testing.T) {
 					},
 				},
 			},
-			wantErr: k8sError.NewNotFound(schema.GroupResource{
-				Group:    everestv1alpha1.GroupVersion.Group,
-				Resource: "podschedulingpolicies",
-			},
+			wantErr: k8sError.NewNotFound(
+				schema.GroupResource{
+					Group:    everestv1alpha1.GroupVersion.Group,
+					Resource: "podschedulingpolicies",
+				},
 				"non-existing-policy",
 			),
 		},
@@ -1961,10 +1966,11 @@ func TestValidate_DeletePodSchedulingPolicy(t *testing.T) {
 		{
 			name:            "no policies",
 			pspNameToDelete: "test-policy",
-			wantErr: k8sError.NewNotFound(schema.GroupResource{
-				Group:    everestv1alpha1.GroupVersion.Group,
-				Resource: "podschedulingpolicies",
-			},
+			wantErr: k8sError.NewNotFound(
+				schema.GroupResource{
+					Group:    everestv1alpha1.GroupVersion.Group,
+					Resource: "podschedulingpolicies",
+				},
 				"test-policy",
 			),
 		},
@@ -1977,10 +1983,11 @@ func TestValidate_DeletePodSchedulingPolicy(t *testing.T) {
 				getDefaultPSMDBPolicy(),
 			},
 			pspNameToDelete: "non-existing-policy",
-			wantErr: k8sError.NewNotFound(schema.GroupResource{
-				Group:    everestv1alpha1.GroupVersion.Group,
-				Resource: "podschedulingpolicies",
-			},
+			wantErr: k8sError.NewNotFound(
+				schema.GroupResource{
+					Group:    everestv1alpha1.GroupVersion.Group,
+					Resource: "podschedulingpolicies",
+				},
 				"non-existing-policy",
 			),
 		},

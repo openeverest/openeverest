@@ -1,3 +1,17 @@
+// Copyright (C) 2026 The OpenEverest Contributors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package validation
 
 import (
@@ -546,7 +560,7 @@ func TestValidateBackupStoragesFor(t *testing.T) {
 					Backup: everestv1alpha1.Backup{
 						PITR: everestv1alpha1.PITRSpec{
 							Enabled:           true,
-							BackupStorageName: pointer.To("storage"),
+							BackupStorageName: new("storage"),
 						},
 						Schedules: []everestv1alpha1.BackupSchedule{
 							{
@@ -625,7 +639,7 @@ func TestValidateBackupStoragesFor(t *testing.T) {
 					Backup: everestv1alpha1.Backup{
 						PITR: everestv1alpha1.PITRSpec{
 							Enabled:           true,
-							BackupStorageName: pointer.To("storage"),
+							BackupStorageName: new("storage"),
 						},
 						Schedules: []everestv1alpha1.BackupSchedule{
 							{
@@ -691,7 +705,7 @@ func TestValidatePitrSpec(t *testing.T) {
 					Backup: everestv1alpha1.Backup{
 						PITR: everestv1alpha1.PITRSpec{
 							Enabled:           true,
-							BackupStorageName: pointer.To("name"),
+							BackupStorageName: new("name"),
 						},
 					},
 				},
@@ -775,8 +789,8 @@ func TestValidatePitrSpec(t *testing.T) {
 					Backup: everestv1alpha1.Backup{
 						PITR: everestv1alpha1.PITRSpec{
 							Enabled:           true,
-							BackupStorageName: pointer.To("name"),
-							UploadIntervalSec: pointer.ToInt(0),
+							BackupStorageName: new("name"),
+							UploadIntervalSec: new(0),
 						},
 					},
 				},
@@ -790,8 +804,8 @@ func TestValidatePitrSpec(t *testing.T) {
 					Backup: everestv1alpha1.Backup{
 						PITR: everestv1alpha1.PITRSpec{
 							Enabled:           true,
-							BackupStorageName: pointer.To("name"),
-							UploadIntervalSec: pointer.ToInt(-100),
+							BackupStorageName: new("name"),
+							UploadIntervalSec: new(-100),
 						},
 					},
 				},
@@ -926,6 +940,121 @@ func TestValidateResourceLimits(t *testing.T) {
 				},
 			},
 			err: errNotEnoughMemory,
+		},
+		{
+			name: "explicit limits satisfy minimums",
+			cluster: everestv1alpha1.DatabaseCluster{
+				Spec: everestv1alpha1.DatabaseClusterSpec{
+					Engine: everestv1alpha1.Engine{
+						Resources: everestv1alpha1.Resources{
+							Limits: &everestv1alpha1.ResourceSpec{
+								CPU:    resource.MustParse("600m"),
+								Memory: resource.MustParse("1G"),
+							},
+							Requests: &everestv1alpha1.ResourceSpec{
+								CPU:    resource.MustParse("300m"),
+								Memory: resource.MustParse("512M"),
+							},
+						},
+						Storage: everestv1alpha1.Storage{
+							Size: resource.MustParse("2G"),
+						},
+					},
+				},
+			},
+			err: nil,
+		},
+		{
+			name: "explicit limits below minimum CPU",
+			cluster: everestv1alpha1.DatabaseCluster{
+				Spec: everestv1alpha1.DatabaseClusterSpec{
+					Engine: everestv1alpha1.Engine{
+						Resources: everestv1alpha1.Resources{
+							Limits: &everestv1alpha1.ResourceSpec{
+								CPU:    resource.MustParse("200m"),
+								Memory: resource.MustParse("1G"),
+							},
+						},
+						Storage: everestv1alpha1.Storage{
+							Size: resource.MustParse("2G"),
+						},
+					},
+				},
+			},
+			err: errNotEnoughCPU,
+		},
+		{
+			name: "engine CPU request above limit",
+			cluster: everestv1alpha1.DatabaseCluster{
+				Spec: everestv1alpha1.DatabaseClusterSpec{
+					Engine: everestv1alpha1.Engine{
+						Resources: everestv1alpha1.Resources{
+							Limits: &everestv1alpha1.ResourceSpec{
+								CPU:    resource.MustParse("600m"),
+								Memory: resource.MustParse("1G"),
+							},
+							Requests: &everestv1alpha1.ResourceSpec{
+								CPU:    resource.MustParse("800m"),
+								Memory: resource.MustParse("512M"),
+							},
+						},
+						Storage: everestv1alpha1.Storage{
+							Size: resource.MustParse("2G"),
+						},
+					},
+				},
+			},
+			err: errCPURequestAboveLimit,
+		},
+		{
+			name: "engine memory request above limit",
+			cluster: everestv1alpha1.DatabaseCluster{
+				Spec: everestv1alpha1.DatabaseClusterSpec{
+					Engine: everestv1alpha1.Engine{
+						Resources: everestv1alpha1.Resources{
+							Limits: &everestv1alpha1.ResourceSpec{
+								CPU:    resource.MustParse("600m"),
+								Memory: resource.MustParse("1G"),
+							},
+							Requests: &everestv1alpha1.ResourceSpec{
+								CPU:    resource.MustParse("300m"),
+								Memory: resource.MustParse("2G"),
+							},
+						},
+						Storage: everestv1alpha1.Storage{
+							Size: resource.MustParse("2G"),
+						},
+					},
+				},
+			},
+			err: errMemoryRequestAboveLimit,
+		},
+		{
+			name: "proxy request above limit",
+			cluster: everestv1alpha1.DatabaseCluster{
+				Spec: everestv1alpha1.DatabaseClusterSpec{
+					Engine: everestv1alpha1.Engine{
+						Resources: everestv1alpha1.Resources{
+							CPU:    resource.MustParse("600m"),
+							Memory: resource.MustParse("1G"),
+						},
+						Storage: everestv1alpha1.Storage{
+							Size: resource.MustParse("2G"),
+						},
+					},
+					Proxy: everestv1alpha1.Proxy{
+						Resources: everestv1alpha1.Resources{
+							Limits: &everestv1alpha1.ResourceSpec{
+								CPU: resource.MustParse("600m"),
+							},
+							Requests: &everestv1alpha1.ResourceSpec{
+								CPU: resource.MustParse("800m"),
+							},
+						},
+					},
+				},
+			},
+			err: errCPURequestAboveLimit,
 		},
 	}
 	for _, tc := range cases {
@@ -1990,10 +2119,11 @@ func TestValidatePodSchedulingPolicy(t *testing.T) {
 					PodSchedulingPolicyName: "absent-policy",
 				},
 			},
-			wantErr: k8sError.NewNotFound(schema.GroupResource{
-				Group:    everestv1alpha1.GroupVersion.Group,
-				Resource: "podschedulingpolicies",
-			},
+			wantErr: k8sError.NewNotFound(
+				schema.GroupResource{
+					Group:    everestv1alpha1.GroupVersion.Group,
+					Resource: "podschedulingpolicies",
+				},
 				"absent-policy",
 			),
 		},

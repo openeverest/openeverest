@@ -1,3 +1,17 @@
+// Copyright (C) 2026 The OpenEverest Contributors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package k8s
 
 import (
@@ -31,10 +45,11 @@ func (h *k8sHandler) CreateBackupStorage(ctx context.Context, namespace string, 
 		return nil, fmt.Errorf("failed to get backup storage: %w", err)
 	}
 	if bs != nil && bs.GetName() != "" {
-		return nil, k8serrors.NewAlreadyExists(schema.GroupResource{
-			Group:    everestv1alpha1.GroupVersion.Group,
-			Resource: "backupstorages",
-		}, req.Name,
+		return nil, k8serrors.NewAlreadyExists(
+			schema.GroupResource{
+				Group:    everestv1alpha1.GroupVersion.Group,
+				Resource: "backupstorages",
+			}, req.Name,
 		)
 	}
 
@@ -54,7 +69,28 @@ func (h *k8sHandler) CreateBackupStorage(ctx context.Context, namespace string, 
 	} else if err != nil {
 		return nil, fmt.Errorf("failed to create secret: %w", err)
 	}
-	bs = &everestv1alpha1.BackupStorage{
+	bs = backupStorageFromParams(namespace, req)
+	created, err := h.kubeConnector.CreateBackupStorage(ctx, bs)
+	if err != nil {
+		// TODO: Move this logic to the operator
+		delObj := &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      req.Name,
+				Namespace: namespace,
+			},
+		}
+		dErr := h.kubeConnector.DeleteSecret(ctx, delObj)
+		if dErr != nil {
+			return nil, errors.Join(err, dErr)
+		}
+		return nil, fmt.Errorf("failed to create backup storage: %w", err)
+	}
+
+	return created, nil
+}
+
+func backupStorageFromParams(namespace string, req *api.CreateBackupStorageParams) *everestv1alpha1.BackupStorage {
+	bs := &everestv1alpha1.BackupStorage{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      req.Name,
 			Namespace: namespace,
@@ -75,23 +111,7 @@ func (h *k8sHandler) CreateBackupStorage(ctx context.Context, namespace string, 
 	if req.Description != nil {
 		bs.Spec.Description = *req.Description
 	}
-	created, err := h.kubeConnector.CreateBackupStorage(ctx, bs)
-	if err != nil {
-		// TODO: Move this logic to the operator
-		delObj := &corev1.Secret{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      req.Name,
-				Namespace: namespace,
-			},
-		}
-		dErr := h.kubeConnector.DeleteSecret(ctx, delObj)
-		if dErr != nil {
-			return nil, errors.Join(err, dErr)
-		}
-		return nil, fmt.Errorf("failed to create backup storage: %w", err)
-	}
-
-	return created, nil
+	return bs
 }
 
 func (h *k8sHandler) UpdateBackupStorage(ctx context.Context, namespace, name string, req *api.UpdateBackupStorageParams) (*everestv1alpha1.BackupStorage, error) {

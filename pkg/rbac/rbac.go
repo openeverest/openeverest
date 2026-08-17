@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -59,12 +60,14 @@ const (
 	ResourceDataImporters              = "data-importers"
 	ResourceDataImportJobs             = "data-import-jobs"
 
-	// Engine Features resources
+	// Engine Features resources.
 
-	ResourceEngineFeatures_SplitHorizonDNSConfigs = "enginefeatures/split-horizon-dns-configs"
+	ResourceEngineFeaturesSplitHorizonDNSConfigs = "enginefeatures/split-horizon-dns-configs"
 )
 
 // GlobalResources is a list of all Everest API resources that are considered global.
+//
+//nolint:gochecknoglobals // immutable lookup table
 var GlobalResources = []string{
 	ResourceNamespaces,
 	ResourcePodSchedulingPolicies,
@@ -72,13 +75,9 @@ var GlobalResources = []string{
 	ResourceDataImporters,
 }
 
+// IsGlobalResource returns true if the given resource is a global (non-namespaced) Everest API resource.
 func IsGlobalResource(resource string) bool {
-	for _, globalResource := range GlobalResources {
-		if resource == globalResource {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(GlobalResources, resource)
 }
 
 // RBAC actions.
@@ -94,8 +93,12 @@ const (
 	rbacEnabledValueTrue = "true"
 )
 
+// SupportedActions is the list of all RBAC actions supported by Everest.
+//
+//nolint:gochecknoglobals // immutable lookup table
 var SupportedActions = []string{ActionCreate, ActionRead, ActionUpdate, ActionDelete, ActionAll}
 
+// User represents an authenticated subject and its groups for RBAC checks.
 type User struct {
 	Subject string
 	Groups  []string
@@ -114,26 +117,41 @@ func refreshEnforcerInBackground(
 		informer.WithLogger(l),
 		informer.Watches(&corev1.ConfigMap{}, common.SystemNamespace),
 	)
-	inf.OnUpdate(func(_, newObj interface{}) {
+	if err != nil {
+		return errors.Join(err, errors.New("failed to create RBAC ConfigMap informer"))
+	}
+
+	inf.OnUpdate(func(_, newObj any) {
 		cm, ok := newObj.(*corev1.ConfigMap)
 		if !ok || cm.GetName() != common.EverestRBACConfigMapName {
 			return
 		}
+
+		// Validate the incoming policy on a throwaway enforcer, so that an invalid
+		// update never reaches the live one.
+		if _, err := newEnforcer(enforcer.GetAdapter(), false); err != nil {
+			l.Errorf("Invalid RBAC policy detected, keeping the previous policy: %s", err)
+			return
+		}
+
 		if err := enforcer.LoadPolicy(); err != nil {
-			panic("invalid policy detected - " + err.Error())
+			l.Errorf("Failed to load RBAC policy: %s", err)
+			return
 		}
-		if err := validatePolicy(enforcer); err != nil {
-			panic("invalid policy detected - " + err.Error())
-		}
+
 		// Calling LoadPolicy() re-writes the entire model, so we need to add back the admin role.
 		if err := loadAdminPolicy(enforcer); err != nil {
-			panic("failed to load admin policy - " + err.Error())
+			l.Errorf("Failed to load admin policy: %s", err)
+			return
 		}
+
 		enforcer.EnableEnforce(IsEnabled(cm))
 	})
-	if inf.Start(ctx, &corev1.ConfigMap{}) != nil {
+
+	if err := inf.Start(ctx, &corev1.ConfigMap{}); err != nil {
 		return errors.Join(err, errors.New("failed to watch RBAC ConfigMap"))
 	}
+
 	return nil
 }
 
@@ -249,7 +267,7 @@ func getScopeValues(claims jwt.MapClaims, scopes []string) []string {
 		}
 
 		switch val := scopeIf.(type) {
-		case []interface{}:
+		case []any:
 			for _, groupIf := range val {
 				group, ok := groupIf.(string)
 				if ok {
@@ -293,7 +311,7 @@ func loadAdminPolicy(enf casbin.IEnforcer) error {
 // buildPathResourceMap builds a map of paths to resources and a list of resources.
 // Returns: (resourceMap, skipPaths, error) .
 func buildPathResourceMap(basePath string) (map[string]string, []string, error) {
-	swg, err := everestclient.GetSwagger()
+	swg, err := everestclient.GetSpec()
 	if err != nil {
 		return nil, nil, errors.Join(err, errors.New("failed to get swagger"))
 	}

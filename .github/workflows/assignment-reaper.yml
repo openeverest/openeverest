@@ -1,0 +1,109 @@
+name: Reclaim stale assignments
+
+on:
+  schedule:
+    - cron: '17 6 * * *'
+  workflow_dispatch:
+
+permissions:
+  issues: write
+
+env:
+  WARN_AFTER_DAYS: 14
+  UNASSIGN_AFTER_DAYS: 21
+
+jobs:
+  reap:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const warnAfter = Number(process.env.WARN_AFTER_DAYS);
+            const unassignAfter = Number(process.env.UNASSIGN_AFTER_DAYS);
+            const WARNING_MARKER = '<!-- stale-assignment-warning -->';
+            const day = 24 * 60 * 60 * 1000;
+
+            const maintainerCache = new Map();
+            const isMaintainer = async (login) => {
+              if (maintainerCache.has(login)) return maintainerCache.get(login);
+              let result = false;
+              try {
+                const { data } = await github.rest.repos.getCollaboratorPermissionLevel({
+                  owner, repo, username: login,
+                });
+                result = ['admin', 'write', 'maintain'].includes(data.permission);
+              } catch { /* not a collaborator */ }
+              maintainerCache.set(login, result);
+              return result;
+            };
+
+            const issues = await github.paginate(github.rest.issues.listForRepo, {
+              owner, repo, state: 'open', assignee: '*', per_page: 100,
+            });
+
+            for (const issue of issues) {
+              if (issue.pull_request) continue;
+
+              const assignee = issue.assignees?.[0]?.login;
+              if (!assignee) continue;
+              if (await isMaintainer(assignee)) continue;
+
+              // Opt-out for work we know will take a while, and for work that
+              // is waiting on us rather than on the assignee.
+              const exempt = ['lifecycle/frozen', 'status/blocked'];
+              if ((issue.labels || []).some((l) => exempt.includes(l.name))) continue;
+
+              // An open pull request anywhere in the repo is good enough
+              // evidence that somebody is still working.
+              const prs = await github.rest.search.issuesAndPullRequests({
+                q: `repo:${owner}/${repo} is:pr is:open author:${assignee}`,
+                advanced_search: 'true',
+                per_page: 1,
+              });
+              if (prs.data.total_count > 0) continue;
+
+              const comments = await github.paginate(github.rest.issues.listComments, {
+                owner, repo, issue_number: issue.number, per_page: 100,
+              });
+
+              const alreadyWarned = comments.some((c) => c.body.includes(WARNING_MARKER));
+              const lastFromAssignee = comments
+                .filter((c) => c.user.login === assignee)
+                .map((c) => new Date(c.created_at).getTime())
+                .sort()
+                .pop();
+
+              const events = await github.paginate(github.rest.issues.listEvents, {
+                owner, repo, issue_number: issue.number, per_page: 100,
+              });
+              const assignedAt = events
+                .filter((e) => e.event === 'assigned' && e.assignee?.login === assignee)
+                .map((e) => new Date(e.created_at).getTime())
+                .sort()
+                .pop();
+
+              const lastActivity = Math.max(lastFromAssignee || 0, assignedAt || 0);
+              if (!lastActivity) continue;
+
+              const idleDays = (Date.now() - lastActivity) / day;
+
+              if (idleDays >= unassignAfter && alreadyWarned) {
+                await github.rest.issues.removeAssignees({
+                  owner, repo, issue_number: issue.number, assignees: [assignee],
+                });
+                await github.rest.issues.createComment({
+                  owner, repo, issue_number: issue.number,
+                  body: `Unassigning @${assignee} after ${Math.floor(idleDays)} days without activity, so this is available again.\n\n@${assignee} this isn't a judgement — life happens. If you're still on it, comment \`/assign\` and it's yours again.`,
+                });
+                continue;
+              }
+
+              if (idleDays >= warnAfter && !alreadyWarned) {
+                await github.rest.issues.createComment({
+                  owner, repo, issue_number: issue.number,
+                  body: `${WARNING_MARKER}@${assignee} are you still working on this? There's been no visible activity for ${Math.floor(idleDays)} days.\n\nNo rush — just let us know either way. If we don't hear back we'll unassign it in about a week so somebody else can pick it up, and you're welcome to take it again later.\n\nIf you're waiting on **us** — a design review, a decision, an upstream fix — say so and we'll add \`status/blocked\`, which stops these reminders until it's resolved. If the work is simply a long one, ask for \`lifecycle/frozen\` instead.`,
+                });
+              }
+            }

@@ -1,7 +1,22 @@
+// Copyright (C) 2026 The OpenEverest Contributors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package k8s
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/AlekSi/pointer"
@@ -27,10 +42,11 @@ func (h *k8sHandler) CreateMonitoringInstance(ctx context.Context, namespace str
 		return nil, err
 	}
 	if m != nil && m.GetName() != "" {
-		return nil, k8serrors.NewAlreadyExists(schema.GroupResource{
-			Group:    everestv1alpha1.GroupVersion.Group,
-			Resource: "monitoringconfigs",
-		}, req.Name,
+		return nil, k8serrors.NewAlreadyExists(
+			schema.GroupResource{
+				Group:    everestv1alpha1.GroupVersion.Group,
+				Resource: "monitoringconfigs",
+			}, req.Name,
 		)
 	}
 	apiKey, err := h.getPMMApiKey(ctx, req)
@@ -94,7 +110,7 @@ func (h *k8sHandler) UpdateMonitoringInstance(ctx context.Context, namespace, na
 			StringData: h.monitoringConfigSecretData(apiKey),
 		})
 		if err != nil {
-			return nil, fmt.Errorf("could not update k8s secret %s", name)
+			return nil, fmt.Errorf("could not update k8s secret %s: %w", name, err)
 		}
 	}
 	if req.Url != "" {
@@ -139,10 +155,10 @@ func (h *k8sHandler) createMonitoringK8sResources(
 		if k8serrors.IsAlreadyExists(err) {
 			_, err = h.kubeConnector.UpdateSecret(c, secret)
 			if err != nil {
-				return nil, fmt.Errorf("could not update k8s secret %s", params.Name)
+				return nil, fmt.Errorf("could not update k8s secret %s: %w", params.Name, err)
 			}
 		} else {
-			return nil, fmt.Errorf("failed creating secret in the Kubernetes cluster")
+			return nil, fmt.Errorf("failed creating secret in the Kubernetes cluster: %w", err)
 		}
 	}
 	created, err := h.kubeConnector.CreateMonitoringConfig(c, &everestv1alpha1.MonitoringConfig{
@@ -167,7 +183,7 @@ func (h *k8sHandler) createMonitoringK8sResources(
 			},
 		}
 		if dErr := h.kubeConnector.DeleteSecret(c, delObj); dErr != nil {
-			return nil, fmt.Errorf("failed cleaning up the secret because failed creating monitoring instance")
+			return nil, fmt.Errorf("failed cleaning up secret after failed monitoring instance creation: %w", errors.Join(err, dErr))
 		}
 		return nil, err
 	}

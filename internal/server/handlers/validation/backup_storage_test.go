@@ -1,3 +1,17 @@
+// Copyright (C) 2026 The OpenEverest Contributors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package validation
 
 import (
@@ -5,7 +19,6 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/AlekSi/pointer"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
@@ -64,7 +77,7 @@ func TestValidateDuplicateStorageByUpdate(t *testing.T) {
 				},
 			},
 			currentStorageName: "storageA",
-			params:             everestapi.UpdateBackupStorageParams{Url: pointer.ToString("url1"), BucketName: pointer.ToString("bucket1"), Region: pointer.ToString("region1")},
+			params:             everestapi.UpdateBackupStorageParams{Url: new("url1"), BucketName: new("bucket1"), Region: new("region1")},
 			isDuplicate:        true,
 		},
 		{
@@ -96,7 +109,7 @@ func TestValidateDuplicateStorageByUpdate(t *testing.T) {
 				},
 			},
 			currentStorageName: "storageA",
-			params:             everestapi.UpdateBackupStorageParams{Url: pointer.ToString("url1")},
+			params:             everestapi.UpdateBackupStorageParams{Url: new("url1")},
 			isDuplicate:        true,
 		},
 		{
@@ -128,7 +141,7 @@ func TestValidateDuplicateStorageByUpdate(t *testing.T) {
 				},
 			},
 			currentStorageName: "storageA",
-			params:             everestapi.UpdateBackupStorageParams{BucketName: pointer.ToString("bucket1")},
+			params:             everestapi.UpdateBackupStorageParams{BucketName: new("bucket1")},
 			isDuplicate:        true,
 		},
 		{
@@ -160,7 +173,7 @@ func TestValidateDuplicateStorageByUpdate(t *testing.T) {
 				},
 			},
 			currentStorageName: "storageA",
-			params:             everestapi.UpdateBackupStorageParams{Region: pointer.ToString("region1")},
+			params:             everestapi.UpdateBackupStorageParams{Region: new("region1")},
 			isDuplicate:        true,
 		},
 		{
@@ -192,7 +205,7 @@ func TestValidateDuplicateStorageByUpdate(t *testing.T) {
 				},
 			},
 			currentStorageName: "storageA",
-			params:             everestapi.UpdateBackupStorageParams{Region: pointer.ToString("region1"), BucketName: pointer.ToString("bucket1")},
+			params:             everestapi.UpdateBackupStorageParams{Region: new("region1"), BucketName: new("bucket1")},
 			isDuplicate:        true,
 		},
 		{
@@ -224,7 +237,7 @@ func TestValidateDuplicateStorageByUpdate(t *testing.T) {
 				},
 			},
 			currentStorageName: "storageA",
-			params:             everestapi.UpdateBackupStorageParams{Url: pointer.ToString("url1"), BucketName: pointer.ToString("bucket1"), Region: pointer.ToString("region1")},
+			params:             everestapi.UpdateBackupStorageParams{Url: new("url1"), BucketName: new("bucket1"), Region: new("region1")},
 			isDuplicate:        false,
 		},
 	}
@@ -291,10 +304,11 @@ func TestValidate_DeleteBackupStorage(t *testing.T) {
 		{
 			name:            "no backup storages",
 			objNameToDelete: "test-backup-storage",
-			wantErr: k8sError.NewNotFound(schema.GroupResource{
-				Group:    everestv1alpha1.GroupVersion.Group,
-				Resource: "backupstorages",
-			},
+			wantErr: k8sError.NewNotFound(
+				schema.GroupResource{
+					Group:    everestv1alpha1.GroupVersion.Group,
+					Resource: "backupstorages",
+				},
 				"test-backup-storage",
 			),
 		},
@@ -311,10 +325,11 @@ func TestValidate_DeleteBackupStorage(t *testing.T) {
 				},
 			},
 			objNameToDelete: "non-existing-backup-storage",
-			wantErr: k8sError.NewNotFound(schema.GroupResource{
-				Group:    everestv1alpha1.GroupVersion.Group,
-				Resource: "backupstorages",
-			},
+			wantErr: k8sError.NewNotFound(
+				schema.GroupResource{
+					Group:    everestv1alpha1.GroupVersion.Group,
+					Resource: "backupstorages",
+				},
 				"non-existing-backup-storage",
 			),
 		},
@@ -370,6 +385,112 @@ func TestValidate_DeleteBackupStorage(t *testing.T) {
 				return
 			}
 			require.NoError(t, err)
+		})
+	}
+}
+
+func TestBasicStorageParamsAreChanged(t *testing.T) {
+	t.Parallel()
+
+	storage := func() *everestv1alpha1.BackupStorage {
+		return &everestv1alpha1.BackupStorage{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "storageA",
+				Namespace: bsNamespace,
+			},
+			Spec: everestv1alpha1.BackupStorageSpec{
+				Bucket:      "bucket1",
+				Region:      "region1",
+				EndpointURL: "https://s3.example.com",
+			},
+		}
+	}
+
+	cases := []struct {
+		name       string
+		params     everestapi.UpdateBackupStorageParams
+		areChanged bool
+	}{
+		{
+			name:       "no params set",
+			params:     everestapi.UpdateBackupStorageParams{},
+			areChanged: false,
+		},
+		{
+			name:       "bucket changed",
+			params:     everestapi.UpdateBackupStorageParams{BucketName: new("bucket2")},
+			areChanged: true,
+		},
+		{
+			name:       "region changed",
+			params:     everestapi.UpdateBackupStorageParams{Region: new("region2")},
+			areChanged: true,
+		},
+		{
+			// EndpointURL is intentionally excluded from the in-use guard so infrastructure
+			// hostname / DNS moves remain possible; reachability is checked separately.
+			name:       "url changed",
+			params:     everestapi.UpdateBackupStorageParams{Url: new("https://s3.other.example.com")},
+			areChanged: false,
+		},
+		{
+			name:       "url cleared to empty",
+			params:     everestapi.UpdateBackupStorageParams{Url: new("")},
+			areChanged: false,
+		},
+		{
+			name:       "bucket set to the same value",
+			params:     everestapi.UpdateBackupStorageParams{BucketName: new("bucket1")},
+			areChanged: false,
+		},
+		{
+			name:       "region set to the same value",
+			params:     everestapi.UpdateBackupStorageParams{Region: new("region1")},
+			areChanged: false,
+		},
+		{
+			name:       "url set to the same value",
+			params:     everestapi.UpdateBackupStorageParams{Url: new("https://s3.example.com")},
+			areChanged: false,
+		},
+		{
+			name: "bucket region and url set to the same values",
+			params: everestapi.UpdateBackupStorageParams{
+				BucketName: new("bucket1"),
+				Region:     new("region1"),
+				Url:        new("https://s3.example.com"),
+			},
+			areChanged: false,
+		},
+		{
+			// Bucket/region changes still trip the guard even when URL also changes.
+			name: "bucket and region changed with url",
+			params: everestapi.UpdateBackupStorageParams{
+				BucketName: new("bucket2"),
+				Region:     new("region2"),
+				Url:        new("https://s3.other.example.com"),
+			},
+			areChanged: true,
+		},
+		{
+			// Non-location params must never trip the in-use guard on their own,
+			// otherwise credentials could not be rotated on a storage that is in use.
+			name: "only non-identity params changed",
+			params: everestapi.UpdateBackupStorageParams{
+				AccessKey:      new("new-access-key"),
+				SecretKey:      new("new-secret-key"),
+				VerifyTLS:      new(false),
+				ForcePathStyle: new(true),
+				Description:    new("new description"),
+			},
+			areChanged: false,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			assert.Equal(t, tc.areChanged, basicStorageParamsAreChanged(storage(), &tc.params))
 		})
 	}
 }

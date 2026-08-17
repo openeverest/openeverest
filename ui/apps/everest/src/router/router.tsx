@@ -28,7 +28,7 @@ import {
   LoadBalancerConfigDetails,
   LoadBalancerConfiguration,
   Login,
-  LoginCallback,
+  LoginCallbackLoader,
   Logout,
   Logs,
   MonitoringEndpoints,
@@ -53,7 +53,7 @@ const router = createBrowserRouter([
   },
   {
     path: '/login-callback',
-    element: withSuspense(<LoginCallback />),
+    element: withSuspense(<LoginCallbackLoader />),
   },
   {
     path: '/logout',

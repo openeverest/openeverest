@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -82,8 +83,6 @@ const (
 	defaultBurstLimit = 150
 )
 
-var once sync.Once
-
 // Kubernetes is a client for Kubernetes.
 type Kubernetes struct {
 	k8sClient  ctrlclient.Client
@@ -94,6 +93,16 @@ type Kubernetes struct {
 	// WARNING: do not access this field directly, use getDiscoveryClient() instead.
 	// This field is lazy initialized because it is not always needed.
 	discoveryClient discovery.DiscoveryInterface
+	// discoveryOnce guards the lazy initialization of discoveryClient.
+	discoveryOnce sync.Once
+}
+
+// NewEmpty returns new empty Kubernetes object.
+// useful for testing.
+func NewEmpty(l *zap.SugaredLogger) *Kubernetes {
+	return &Kubernetes{
+		l: l.With("component", "kubernetes"),
+	}
 }
 
 // Kubeconfig returns the path to the kubeconfig.
@@ -133,7 +142,7 @@ func New(kubeconfigPath string, l *zap.SugaredLogger) (KubernetesConnector, erro
 }
 
 // NewInCluster creates a new kubernetes client using incluster authentication.
-func NewInCluster(l *zap.SugaredLogger, ctx context.Context, cacheOptions *cache.Options) (KubernetesConnector, error) {
+func NewInCluster(ctx context.Context, l *zap.SugaredLogger, cacheOptions *cache.Options) (KubernetesConnector, error) {
 	restConfig := ctrl.GetConfigOrDie()
 	restConfig.QPS = defaultQPSLimit
 	restConfig.Burst = defaultBurstLimit
@@ -171,7 +180,7 @@ func NewInCluster(l *zap.SugaredLogger, ctx context.Context, cacheOptions *cache
 // - standard client-go types
 // - Everest CRDs
 // - OLM CRDs
-// - API extensions
+// - API extensions.
 func CreateScheme() *runtime.Scheme {
 	scheme := runtime.NewScheme()
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
@@ -196,32 +205,9 @@ func getKubernetesClientOptions(cache cache.Cache) ctrlclient.Options {
 	}
 }
 
-func (k *Kubernetes) getDiscoveryClient() discovery.DiscoveryInterface {
-	once.Do(func() {
-		httpClient, err := rest.HTTPClientFor(k.restConfig)
-		if err != nil {
-			panic(err)
-		}
-
-		k.discoveryClient, err = discovery.NewDiscoveryClientForConfigAndClient(k.restConfig, httpClient)
-		if err != nil {
-			panic(err)
-		}
-	})
-	return k.discoveryClient
-}
-
 // Config returns *rest.Config.
 func (k *Kubernetes) Config() *rest.Config {
 	return k.restConfig
-}
-
-// NewEmpty returns new empty Kubernetes object.
-// useful for testing.
-func NewEmpty(l *zap.SugaredLogger) *Kubernetes {
-	return &Kubernetes{
-		l: l.With("component", "kubernetes"),
-	}
 }
 
 // WithKubernetesClient sets the k8s client.
@@ -246,14 +232,6 @@ func (k *Kubernetes) GetEverestID(ctx context.Context) (string, error) {
 		return "", fmt.Errorf("can't get namespace='%s'", k.Namespace())
 	}
 	return string(namespace.UID), nil
-}
-
-func (k *Kubernetes) isOpenshift(ctx context.Context) (bool, error) {
-	ns, err := k.GetNamespace(ctx, types.NamespacedName{Name: openShiftCatalogNamespace})
-	if err != nil {
-		return false, ctrlclient.IgnoreNotFound(err)
-	}
-	return ns != nil, nil
 }
 
 // GetClusterType tries to guess the underlying kubernetes cluster based on storage class.
@@ -285,6 +263,30 @@ func (k *Kubernetes) GetClusterType(ctx context.Context) (ClusterType, error) {
 	return ClusterTypeGeneric, nil
 }
 
+//nolint:ireturn // lazily initializes and returns the discovery client interface
+func (k *Kubernetes) getDiscoveryClient() discovery.DiscoveryInterface {
+	k.discoveryOnce.Do(func() {
+		httpClient, err := rest.HTTPClientFor(k.restConfig)
+		if err != nil {
+			panic(err)
+		}
+
+		k.discoveryClient, err = discovery.NewDiscoveryClientForConfigAndClient(k.restConfig, httpClient)
+		if err != nil {
+			panic(err)
+		}
+	})
+	return k.discoveryClient
+}
+
+func (k *Kubernetes) isOpenshift(ctx context.Context) (bool, error) {
+	ns, err := k.GetNamespace(ctx, types.NamespacedName{Name: openShiftCatalogNamespace})
+	if err != nil {
+		return false, ctrlclient.IgnoreNotFound(err)
+	}
+	return ns != nil, nil
+}
+
 func mergeNamespacesEnvVar(str1, str2 string) string {
 	ns1 := strings.Split(str1, ",")
 	ns2 := strings.Split(str2, ",")
@@ -304,7 +306,7 @@ func mergeNamespacesEnvVar(str1, str2 string) string {
 		nsMap[ns] = struct{}{}
 	}
 
-	namespaces := []string{}
+	namespaces := make([]string, 0, len(nsMap))
 	for ns := range nsMap {
 		namespaces = append(namespaces, ns)
 	}
