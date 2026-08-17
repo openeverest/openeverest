@@ -19,6 +19,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -50,6 +51,12 @@ type Context struct {
 	// flush the corresponding condition onto the Instance after Sync. It is
 	// nil when the provider has not invoked the helper this reconcile pass.
 	dataSourceStatus *DataSourceStatus
+
+	// pendingRestore is the oldest active user-initiated Restore for this
+	// Instance. Set by the reconciler before Sync is called so providers can
+	// detect a queued restore and skip or pause the initial cluster bootstrap.
+	// Nil when no such restore exists.
+	pendingRestore *backupv1alpha1.Restore
 }
 
 // NewContext creates a new Context handle (used internally by the reconciler).
@@ -695,6 +702,54 @@ func (c *Context) RestoresForInstance() ([]backupv1alpha1.Restore, error) {
 		return nil, fmt.Errorf("failed to list restores for instance: %w", err)
 	}
 	return list.Items, nil
+}
+
+// PendingRestoresForInstance returns all active user-initiated Restore CRs for
+// this Instance. "Active" means state is Pending, Running, or not yet set
+// (newly created). Terminal states (Succeeded, Failed, Error) and the
+// auto-managed DataSource restore (name suffix "-datasource") are excluded.
+//
+// Providers call this from Sync to detect a queued restore and avoid
+// bootstrapping the cluster from scratch when data will be overwritten
+// immediately. For example, a PXC provider can set pause=true on the
+// PerconaXtraDBCluster spec when a restore is pending, preventing the
+// unnecessary full MySQL bootstrap cycle described in issue #2019.
+//
+// Requires the Restore field index registered automatically by the runtime
+// when the provider implements BackupProvider.
+func (c *Context) PendingRestoresForInstance() ([]backupv1alpha1.Restore, error) {
+	all, err := c.RestoresForInstance()
+	if err != nil {
+		return nil, err
+	}
+	pending := all[:0]
+	for _, r := range all {
+		if strings.HasSuffix(r.Name, DataSourceRestoreNameSuffix) {
+			continue
+		}
+		switch r.Status.State {
+		case backupv1alpha1.RestoreStateSucceeded,
+			backupv1alpha1.RestoreStateFailed,
+			backupv1alpha1.RestoreStateError:
+			continue
+		}
+		pending = append(pending, r)
+	}
+	return pending, nil
+}
+
+// GetPendingRestore returns the oldest active user-initiated Restore for this
+// Instance as detected at the start of the current reconcile pass, or nil when
+// none exists. The value is set by the runtime reconciler before Sync is called;
+// providers do not call SetPendingRestore directly.
+func (c *Context) GetPendingRestore() *backupv1alpha1.Restore {
+	return c.pendingRestore
+}
+
+// SetPendingRestore records the pending restore on the Context. Called by the
+// runtime reconciler — providers should use GetPendingRestore instead.
+func (c *Context) SetPendingRestore(r *backupv1alpha1.Restore) {
+	c.pendingRestore = r
 }
 
 // IndexBackupInstanceName is the field index path used for Backup.spec.instanceRef.name.
