@@ -204,11 +204,10 @@ func policyFromBackup(b *client.Backup) string {
 	if b == nil {
 		return ""
 	}
-	policy, ok := b.Spec.DeletionPolicy.(string)
-	if !ok || policy == "" {
+	if b.Spec.DeletionPolicy == nil || string(*b.Spec.DeletionPolicy) == "" {
 		return backupDeletionPolicyDelete
 	}
-	return policy
+	return string(*b.Spec.DeletionPolicy)
 }
 
 // retainConfirmMessage is the y/N text for policy Retain: the underlying

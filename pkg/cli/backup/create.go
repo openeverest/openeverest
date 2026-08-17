@@ -92,7 +92,8 @@ func (cr *CreateRunner) Run(ctx context.Context, opts CreateOptions, cfgPath str
 	backup.Spec.ClassRef.Name = opts.Class
 	backup.Spec.StorageRef.Name = opts.Storage
 	if opts.DeletionPolicy != "" {
-		backup.Spec.DeletionPolicy = opts.DeletionPolicy
+		policy := client.BackupSpecDeletionPolicy(opts.DeletionPolicy)
+		backup.Spec.DeletionPolicy = &policy
 	}
 
 	resp, err := c.CreateBackupWithResponse(ctx, opts.Cluster, opts.Namespace, backup)

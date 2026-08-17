@@ -44,13 +44,6 @@ components:
               type: object
               x-kubernetes-map-type: atomic
             deletionPolicy:
-              allOf:
-              - enum:
-                - Retain
-                - Delete
-              - enum:
-                - Retain
-                - Delete
               default: Delete
               description: |-
                 DeletionPolicy controls what happens to the underlying backup data
@@ -65,6 +58,9 @@ components:
                 has started: switching policies after .metadata.deletionTimestamp
                 has been set is rejected so the cleanup path cannot race with
                 itself.
+              enum:
+              - Retain
+              - Delete
               type: string
             instanceRef:
               description: |-
@@ -2799,13 +2795,6 @@ components:
               - message: import must be set if and only if type is Import
                 rule: 'self.type == ''Import'' ? has(self.import) : !has(self.import)'
             deletionPolicy:
-              allOf:
-              - enum:
-                - Cascade
-                - Orphan
-              - enum:
-                - Cascade
-                - Orphan
               default: Cascade
               description: |-
                 DeletionPolicy controls what happens to Backup and Restore CRs that
@@ -2827,6 +2816,9 @@ components:
                 has started: switching policies after .metadata.deletionTimestamp
                 has been set is rejected so the cascade path cannot race with
                 itself.
+              enum:
+              - Cascade
+              - Orphan
               type: string
             parameters:
               description: |-
@@ -4599,13 +4591,6 @@ components:
               - message: import must be set if and only if type is Import
                 rule: 'self.type == ''Import'' ? has(self.import) : !has(self.import)'
             deletionPolicy:
-              allOf:
-              - enum:
-                - Cascade
-                - Orphan
-              - enum:
-                - Cascade
-                - Orphan
               default: Cascade
               description: |-
                 DeletionPolicy controls what happens to Backup and Restore CRs that
@@ -4627,6 +4612,9 @@ components:
                 has started: switching policies after .metadata.deletionTimestamp
                 has been set is rejected so the cascade path cannot race with
                 itself.
+              enum:
+              - Cascade
+              - Orphan
               type: string
             parameters:
               description: |-

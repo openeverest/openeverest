@@ -64,7 +64,6 @@ type BackupSpec struct {
 	// has started: switching policies after .metadata.deletionTimestamp
 	// has been set is rejected so the cleanup path cannot race with
 	// itself.
-	// +kubebuilder:validation:Enum=Retain;Delete
 	// +kubebuilder:default=Delete
 	// +optional
 	DeletionPolicy BackupDeletionPolicy `json:"deletionPolicy,omitempty"`

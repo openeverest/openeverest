@@ -12,6 +12,24 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+// Defines values for BackupSpecDeletionPolicy.
+const (
+	BackupSpecDeletionPolicyDelete BackupSpecDeletionPolicy = "Delete"
+	BackupSpecDeletionPolicyRetain BackupSpecDeletionPolicy = "Retain"
+)
+
+// Valid indicates whether the value is a known member of the BackupSpecDeletionPolicy enum.
+func (e BackupSpecDeletionPolicy) Valid() bool {
+	switch e {
+	case BackupSpecDeletionPolicyDelete:
+		return true
+	case BackupSpecDeletionPolicyRetain:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for BackupStatusConditionsStatus.
 const (
 	BackupStatusConditionsStatusFalse   BackupStatusConditionsStatus = "False"
@@ -210,6 +228,24 @@ func (e InstanceSpecDataSourceType) Valid() bool {
 	}
 }
 
+// Defines values for InstanceSpecDeletionPolicy.
+const (
+	InstanceSpecDeletionPolicyCascade InstanceSpecDeletionPolicy = "Cascade"
+	InstanceSpecDeletionPolicyOrphan  InstanceSpecDeletionPolicy = "Orphan"
+)
+
+// Valid indicates whether the value is a known member of the InstanceSpecDeletionPolicy enum.
+func (e InstanceSpecDeletionPolicy) Valid() bool {
+	switch e {
+	case InstanceSpecDeletionPolicyCascade:
+		return true
+	case InstanceSpecDeletionPolicyOrphan:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for InstanceStatusBackupStoragesPitrState.
 const (
 	InstanceStatusBackupStoragesPitrStateAvailable   InstanceStatusBackupStoragesPitrState = "Available"
@@ -327,6 +363,24 @@ func (e InstancePresetSpecDataSourceType) Valid() bool {
 	case InstancePresetSpecDataSourceTypeImport:
 		return true
 	case InstancePresetSpecDataSourceTypePointInTime:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for InstancePresetSpecDeletionPolicy.
+const (
+	InstancePresetSpecDeletionPolicyCascade InstancePresetSpecDeletionPolicy = "Cascade"
+	InstancePresetSpecDeletionPolicyOrphan  InstancePresetSpecDeletionPolicy = "Orphan"
+)
+
+// Valid indicates whether the value is a known member of the InstancePresetSpecDeletionPolicy enum.
+func (e InstancePresetSpecDeletionPolicy) Valid() bool {
+	switch e {
+	case InstancePresetSpecDeletionPolicyCascade:
+		return true
+	case InstancePresetSpecDeletionPolicyOrphan:
 		return true
 	default:
 		return false
@@ -531,7 +585,7 @@ type Backup struct {
 		// has started: switching policies after .metadata.deletionTimestamp
 		// has been set is rejected so the cleanup path cannot race with
 		// itself.
-		DeletionPolicy interface{} `json:"deletionPolicy,omitempty"`
+		DeletionPolicy *BackupSpecDeletionPolicy `json:"deletionPolicy,omitempty"`
 
 		// InstanceRef InstanceRef references the Instance to back up. The Instance must
 		// live in the same namespace as this Backup.
@@ -635,6 +689,20 @@ type Backup struct {
 		State *string `json:"state,omitempty"`
 	} `json:"status,omitempty"`
 }
+
+// BackupSpecDeletionPolicy DeletionPolicy controls what happens to the underlying backup data
+// (e.g., the object stored in S3) when this Backup CR is deleted.
+// Delete (default) instructs the provider to remove both the
+// engine-native backup resource and the data in the configured
+// BackupStorage. Retain instructs the provider to remove the
+// engine-native backup resource but to leave the underlying data in
+// place, so it can be recovered later out-of-band.
+//
+// The field is mutable on a live Backup but is frozen once deletion
+// has started: switching policies after .metadata.deletionTimestamp
+// has been set is rejected so the cleanup path cannot race with
+// itself.
+type BackupSpecDeletionPolicy string
 
 // BackupStatusConditionsStatus status of the condition, one of True, False, Unknown.
 type BackupStatusConditionsStatus string
@@ -2091,7 +2159,7 @@ type Instance struct {
 		// has started: switching policies after .metadata.deletionTimestamp
 		// has been set is rejected so the cascade path cannot race with
 		// itself.
-		DeletionPolicy interface{} `json:"deletionPolicy,omitempty"`
+		DeletionPolicy *InstanceSpecDeletionPolicy `json:"deletionPolicy,omitempty"`
 
 		// Parameters Parameters contains structured parameters that apply to the Instance
 		// as a whole, complementing the topology- and component-scoped
@@ -2278,6 +2346,27 @@ type InstanceSpecDataSourcePointInTimeRecoveryTarget string
 
 // InstanceSpecDataSourceType Type selects the restore intent.
 type InstanceSpecDataSourceType string
+
+// InstanceSpecDeletionPolicy DeletionPolicy controls what happens to Backup and Restore CRs that
+// reference this Instance when the Instance is deleted.
+// Cascade (default) instructs the runtime to delete every Backup and
+// Restore in the Instance's namespace whose .spec.instanceRef matches
+// this Instance before tearing down the engine. Each Backup's own
+// .spec.deletionPolicy then independently controls whether its
+// underlying data in the BackupStorage is purged or retained.
+// Orphan instructs the runtime to leave Backup and Restore CRs in
+// place; they survive the Instance deletion and can later be used to
+// restore into a newly-created Instance.
+//
+// The Instance is held in the Terminating phase until all referenced
+// Backups/Restores have been deleted (Cascade) or until the engine
+// resources have been torn down (both policies).
+//
+// The field is mutable on a live Instance but is frozen once deletion
+// has started: switching policies after .metadata.deletionTimestamp
+// has been set is rejected so the cascade path cannot race with
+// itself.
+type InstanceSpecDeletionPolicy string
 
 // InstanceStatusBackupStoragesPitrState State summarises whether a trustworthy window exists.
 type InstanceStatusBackupStoragesPitrState string
@@ -3134,7 +3223,7 @@ type InstancePreset struct {
 		// has started: switching policies after .metadata.deletionTimestamp
 		// has been set is rejected so the cascade path cannot race with
 		// itself.
-		DeletionPolicy interface{} `json:"deletionPolicy,omitempty"`
+		DeletionPolicy *InstancePresetSpecDeletionPolicy `json:"deletionPolicy,omitempty"`
 
 		// Parameters Parameters contains structured parameters that apply to the Instance
 		// as a whole, complementing the topology- and component-scoped
@@ -3242,6 +3331,27 @@ type InstancePresetSpecDataSourcePointInTimeRecoveryTarget string
 
 // InstancePresetSpecDataSourceType Type selects the restore intent.
 type InstancePresetSpecDataSourceType string
+
+// InstancePresetSpecDeletionPolicy DeletionPolicy controls what happens to Backup and Restore CRs that
+// reference this Instance when the Instance is deleted.
+// Cascade (default) instructs the runtime to delete every Backup and
+// Restore in the Instance's namespace whose .spec.instanceRef matches
+// this Instance before tearing down the engine. Each Backup's own
+// .spec.deletionPolicy then independently controls whether its
+// underlying data in the BackupStorage is purged or retained.
+// Orphan instructs the runtime to leave Backup and Restore CRs in
+// place; they survive the Instance deletion and can later be used to
+// restore into a newly-created Instance.
+//
+// The Instance is held in the Terminating phase until all referenced
+// Backups/Restores have been deleted (Cascade) or until the engine
+// resources have been torn down (both policies).
+//
+// The field is mutable on a live Instance but is frozen once deletion
+// has started: switching policies after .metadata.deletionTimestamp
+// has been set is rejected so the cascade path cannot race with
+// itself.
+type InstancePresetSpecDeletionPolicy string
 
 // InstancePresetStatusConditionsStatus status of the condition, one of True, False, Unknown.
 type InstancePresetStatusConditionsStatus string
