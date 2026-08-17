@@ -19,6 +19,14 @@
   color: fbca04
   description: Blocked waiting for more information from the reporter
 
+- name: triage/duplicate
+  color: cfd3d7
+  description: Duplicate of an earlier report — the earliest report is canonical
+
+- name: triage/not-reproducible
+  color: d455d0
+  description: Could not be reproduced as reported
+
 - name: lifecycle/frozen
   color: d3d3d3
   description: Exempt from automatic unassignment; work expected to take a while
