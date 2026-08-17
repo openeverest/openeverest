@@ -9,7 +9,7 @@ const { EVEREST_BUCKETS_NAMESPACES_MAP } = process.env;
 
 test.describe('On-demand backup lifecycle - PXC', () => {
   const clusterName = 'pxc-on-demand-lc';
-  const backupName = 'pxc-lc-bkp-1';
+  const backupName = `pxc-lc-bkp-${Date.now().toString().slice(-6)}`;
   let storageName: string;
 
   // TC1: Instance setup — create PXC cluster with backup storage enabled.
