@@ -494,3 +494,45 @@ func TestBasicStorageParamsAreChanged(t *testing.T) {
 		})
 	}
 }
+
+func TestValidateCreateBackupStorageRequestDuplicateCheck(t *testing.T) {
+	t.Parallel()
+
+	existingStorages := &everestv1alpha1.BackupStorageList{
+		Items: []everestv1alpha1.BackupStorage{
+			{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "storage-in-ns-a",
+					Namespace: "ns-a",
+				},
+				Spec: everestv1alpha1.BackupStorageSpec{
+					Bucket:      "bucket1",
+					Region:      "region1",
+					EndpointURL: "url1",
+				},
+			},
+			{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "storage-in-ns-b",
+					Namespace: "ns-b",
+				},
+				Spec: everestv1alpha1.BackupStorageSpec{
+					Bucket:      "bucket2",
+					Region:      "region2",
+					EndpointURL: "url2",
+				},
+			},
+		},
+	}
+
+	url2 := "url2"
+	params := &everestapi.CreateBackupStorageParams{
+		BucketName: "bucket2",
+		Region:     "region2",
+		Url:        &url2,
+	}
+
+	err := validateCreateBackupStorageRequest(context.Background(), zap.NewNop().Sugar(), params, existingStorages)
+	require.Error(t, err)
+	assert.Equal(t, errDuplicatedBackupStorage("ns-b").Error(), err.Error())
+}
