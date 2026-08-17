@@ -374,7 +374,7 @@ undeploy: build-cli-debug ## Undeploy Everest from K8S cluster using Everest CLI
 .PHONY: add-shared-everest-namespace
 add-shared-everest-namespace: ## Add shared Everest namespace with all operators (usage: DB_NAMESPACES=everest make add-shared-everest-namespace).
 	$(info Adding shared namespaces=${DB_NAMESPACES} to Everest using everestctl)
-	$(LOCALBIN)/everestctl namespaces add $(DB_NAMESPACES) -v \
+	"$(LOCALBIN)/everestctl" namespaces add $(DB_NAMESPACES) -v \
 	--operator.mongodb=true \
 	--operator.postgresql=true \
 	--operator.mysql=true \
@@ -514,7 +514,7 @@ deploy-test-controller: gen-crds-manifests kustomize deploy-cert-manager
 	kubectl apply -f https://raw.githubusercontent.com/VictoriaMetrics/operator/v$(VICTORIAMETRICS_OPERATOR_VERSION)/config/crd/overlay/crd.yaml
 	kubectl wait --for condition=established --timeout=10s crd vmagents.operator.victoriametrics.com
 	cd config/test && "$(KUSTOMIZE)" edit set image controller=${EVEREST_CONTROLLER_IMG}
-	$(KUSTOMIZE) build config/test | kubectl apply -f -
+	"$(KUSTOMIZE)" build config/test | kubectl apply -f -
 	kubectl delete pod -n openeverest-system -l control-plane=controller-manager
 	$(MAKE) wait-test-controller
 
