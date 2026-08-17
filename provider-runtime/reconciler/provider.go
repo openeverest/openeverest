@@ -425,6 +425,21 @@ func (r *ProviderReconciler) Reconcile(ctx context.Context, req reconcile.Reques
 	}
 	syncCtx := controller.NewContext(ctx, r.Client, resolvedIn, r.provider.Name())
 
+	// For BackupProvider: surface the oldest pending user-initiated Restore on
+	// the Context so Sync can create the cluster in a paused/stopped state
+	// instead of letting it bootstrap with empty data only to be torn down
+	// seconds later when the restore kicks in (issue #2019).
+	if _, isBackupProvider := r.provider.(controller.BackupProvider); isBackupProvider {
+		pending, err := syncCtx.PendingRestoresForInstance()
+		if err != nil {
+			logger.Error(err, "Failed to list pending restores")
+			return reconcile.Result{}, err
+		}
+		if len(pending) > 0 {
+			syncCtx.SetPendingRestore(&pending[0])
+		}
+	}
+
 	// Run sync
 	logger.Info("Running sync")
 	if err := r.provider.Sync(syncCtx); err != nil {
