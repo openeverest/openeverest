@@ -12,53 +12,25 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { useEffect, useRef } from 'react';
-import { useFormContext } from 'react-hook-form';
+import { Typography } from '@mui/material';
 import { useBackupClassUiSchema } from 'hooks/api/backup-classes/useBackupClasses';
 import { UIGenerator } from 'components/ui-generator/ui-generator';
-import { buildDefaultsFromComponents } from 'components/ui-generator/utils/default-values/build-defaults-from-components';
+import { useApplySchemaDefaults } from 'components/ui-generator/hooks/use-apply-schema-defaults';
 import { BackupConfigFieldsProps } from './backup-config-fields.types';
+import { Messages } from './backup-config-fields.messages';
 
 export const BackupConfigFields = ({
   backupClass,
   formMode,
   namespace,
 }: BackupConfigFieldsProps) => {
-  const { setValue, trigger } = useFormContext();
-  const appliedDefaultsClassRef = useRef<string>('');
-
   const { sections: backupSections } = useBackupClassUiSchema(backupClass);
-
   const className = backupClass?.metadata?.name ?? '';
+  const classLabel = backupClass?.spec?.displayName || className;
 
-  useEffect(() => {
-    if (!className || appliedDefaultsClassRef.current === className) {
-      return;
-    }
+  useApplySchemaDefaults(backupSections?.parameters?.components, className);
 
-    if (!backupSections) return;
-
-    const explicitDefaults = backupSections.parameters?.components
-      ? buildDefaultsFromComponents(
-          backupSections.parameters.components,
-          '',
-          true
-        )
-      : {};
-
-    Object.entries(explicitDefaults).forEach(([fieldName, defaultValue]) => {
-      setValue(fieldName, defaultValue, {
-        shouldDirty: false,
-        shouldTouch: false,
-        shouldValidate: false,
-      });
-    });
-
-    appliedDefaultsClassRef.current = className;
-    trigger();
-  }, [backupSections, className, setValue, trigger]);
-
-  if (!backupSections) {
+  if (!backupSections?.parameters) {
     return null;
   }
 
@@ -68,6 +40,11 @@ export const BackupConfigFields = ({
       sections={backupSections}
       formMode={formMode}
       namespace={namespace}
+      emptySectionMessage={
+        <Typography color="text.secondary" sx={{ mt: 2 }}>
+          {Messages.invalidSchema(classLabel)}
+        </Typography>
+      }
     />
   );
 };

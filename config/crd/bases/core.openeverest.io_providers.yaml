@@ -148,10 +148,16 @@ spec:
                   description: SecretDefinition describes a Secret type that a provider
                     supports.
                   properties:
-                    openAPIV3Schema:
-                      description: OpenAPIV3Schema is the OpenAPI v3 schema for validating
-                        secret data/stringData.
-                      x-kubernetes-preserve-unknown-fields: true
+                    parametersSchema:
+                      description: ParametersSchema declares the OpenAPI v3 schema
+                        for validating secret data/stringData.
+                      properties:
+                        openAPIV3Schema:
+                          description: |-
+                            OpenAPIV3Schema is the OpenAPI v3 schema describing the accepted
+                            parameters payload.
+                          x-kubernetes-preserve-unknown-fields: true
+                      type: object
                     uiSchema:
                       description: UISchema holds UI rendering hints for the secret
                         creation form.

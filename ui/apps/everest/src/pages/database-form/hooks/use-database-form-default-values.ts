@@ -23,6 +23,9 @@ import { useMemo } from 'react';
 import { useLocation } from 'react-router-dom';
 import { getDbWizardDefaultValues } from '../utils/get-default-values';
 import { generateShortUID } from 'utils/generateShortUID';
+import { MAX_DB_CLUSTER_NAME_LENGTH } from 'consts';
+import { extractWizardBackup } from 'pages/database-form/database-form-body/steps/backup-step';
+import { useRestoreNavigationState } from './use-restore-navigation-state';
 
 export const useDatabasePageDefaultValues = (
   mode: FormMode,
@@ -46,8 +49,7 @@ export const useDatabasePageDefaultValues = (
 
   // ── Restore mode: fetch source instance ──────────────────────────────────
   const isRestore = mode === FormMode.Restore;
-  const sourceInstanceName = state?.selectedDbCluster as string | undefined;
-  const sourceNamespace = state?.namespace as string | undefined;
+  const { sourceInstanceName, sourceNamespace } = useRestoreNavigationState();
 
   const {
     data: sourceInstance,
@@ -67,7 +69,7 @@ export const useDatabasePageDefaultValues = (
         ...defaultSchemaValues,
         ...dbWizardDefaultValues,
         topology: { type: defaultSelectedTopology },
-        backup: { schedules: [], classRef: { name: '' } },
+        backup: { schedules: [], classRef: { name: '' }, pitr: {} },
       };
     }
 
@@ -77,7 +79,7 @@ export const useDatabasePageDefaultValues = (
         return {
           ...defaultSchemaValues,
           topology: { type: defaultSelectedTopology },
-          backup: { schedules: [], classRef: { name: '' } },
+          backup: { schedules: [], classRef: { name: '' }, pitr: {} },
         };
       }
 
@@ -96,14 +98,19 @@ export const useDatabasePageDefaultValues = (
         ...defaultSchemaValues,
         ...extractedValues,
         topology: { type: topologyType },
-        // Generate a new name for the restored instance
-        dbName: `inst-${generateShortUID()}`,
+        // Derive the new instance name from the source (v1 parity), reserving
+        // room for the "-<uid>" suffix within the max name length.
+        dbName: `${(sourceInstance.metadata?.name ?? '').slice(
+          0,
+          MAX_DB_CLUSTER_NAME_LENGTH - 4
+        )}-${generateShortUID()}`,
         // Provider name from source instance
         provider: sourceInstance.spec?.providerRef?.name ?? '',
         // Keep namespace from source
         k8sNamespace: sourceNamespace ?? '',
-        // No backup schedules on new-from-restore
-        backup: { schedules: [], classRef: { name: '' } },
+        // Inherit the source instance's backups (schedules, class, PITR) so the
+        // clone mirrors it, matching v1's restore prefill.
+        backup: extractWizardBackup(sourceInstance),
       };
     }
 
@@ -111,7 +118,7 @@ export const useDatabasePageDefaultValues = (
     return {
       ...defaultSchemaValues,
       topology: { type: defaultSelectedTopology },
-      backup: { schedules: [], classRef: { name: '' } },
+      backup: { schedules: [], classRef: { name: '' }, pitr: {} },
     };
   }, [
     defaultSchemaValues,

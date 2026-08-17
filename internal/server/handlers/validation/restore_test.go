@@ -46,6 +46,26 @@ func TestCreateRestore_Validation(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{Name: "test-instance", Namespace: namespace},
 		Spec:       corev1alpha1.InstanceSpec{ProviderRef: common.ObjectRef{Name: "test-provider"}},
 	}
+	// Point-in-time recovery resolves its read class from the Instance owning
+	// the stream, so these carry backup config the plain fixture does not.
+	newStreamInstance := func(className string) *corev1alpha1.Instance {
+		return &corev1alpha1.Instance{
+			ObjectMeta: metav1.ObjectMeta{Name: "test-instance", Namespace: namespace},
+			Spec: corev1alpha1.InstanceSpec{
+				ProviderRef: common.ObjectRef{Name: "test-provider"},
+				Backup: &corev1alpha1.InstanceBackupSpec{
+					Enabled:  true,
+					ClassRef: common.ObjectRef{Name: className},
+					Storages: []corev1alpha1.InstanceBackupStorage{{
+						StorageRef: common.ObjectRef{Name: "s1"},
+						PITR:       &corev1alpha1.InstanceBackupStoragePITR{Enabled: true},
+					}},
+				},
+			},
+		}
+	}
+	streamInstancePITR := newStreamInstance("pitr-class")
+	streamInstanceNoPITR := newStreamInstance("no-pitr-class")
 	pitrClass := &backupv1alpha1.BackupClass{
 		ObjectMeta: metav1.ObjectMeta{Name: "pitr-class"},
 		Spec: backupv1alpha1.BackupClassSpec{
@@ -101,7 +121,7 @@ func TestCreateRestore_Validation(t *testing.T) {
 	require.NoError(t, backupv1alpha1.AddToScheme(scheme))
 	require.NoError(t, corev1alpha1.AddToScheme(scheme))
 
-	newRestore := func(backupName string, pitr *backupv1alpha1.DataSourcePITR) *backupv1alpha1.Restore {
+	newRestore := func(backupName string) *backupv1alpha1.Restore {
 		return &backupv1alpha1.Restore{
 			ObjectMeta: metav1.ObjectMeta{Name: "test-restore", Namespace: namespace},
 			Spec: backupv1alpha1.RestoreSpec{
@@ -110,7 +130,22 @@ func TestCreateRestore_Validation(t *testing.T) {
 					Type: backupv1alpha1.DataSourceTypeBackup,
 					Backup: &backupv1alpha1.DataSourceBackup{
 						BackupRef: common.ObjectRef{Name: backupName},
-						PITR:      pitr,
+					},
+				},
+			},
+		}
+	}
+
+	newPITRRestore := func(target backupv1alpha1.RecoveryTarget, storage string) *backupv1alpha1.Restore {
+		return &backupv1alpha1.Restore{
+			ObjectMeta: metav1.ObjectMeta{Name: "test-restore", Namespace: namespace},
+			Spec: backupv1alpha1.RestoreSpec{
+				InstanceRef: common.ObjectRef{Name: "test-instance"},
+				DataSource: backupv1alpha1.DataSource{
+					Type: backupv1alpha1.DataSourceTypePointInTime,
+					PointInTime: &backupv1alpha1.DataSourcePointInTime{
+						Source:         backupv1alpha1.StreamSource{StorageRef: common.ObjectRef{Name: storage}},
+						RecoveryTarget: target,
 					},
 				},
 			},
@@ -131,7 +166,7 @@ func TestCreateRestore_Validation(t *testing.T) {
 	}{
 		{
 			name:               "missing backup fails",
-			restore:            newRestore("missing-backup", nil),
+			restore:            newRestore("missing-backup"),
 			objects:            nil,
 			err:                "backup not found: 'missing-backup' in namespace 'test-namespace'",
 			wantSentinel:       controller.ErrBackupNotFound,
@@ -139,7 +174,7 @@ func TestCreateRestore_Validation(t *testing.T) {
 		},
 		{
 			name:               "backup not succeeded fails",
-			restore:            newRestore("running-backup", nil),
+			restore:            newRestore("running-backup"),
 			objects:            []ctrlclient.Object{runningBackup},
 			err:                "backup not succeeded: 'running-backup' is in state 'Running'",
 			wantSentinel:       controller.ErrBackupNotSucceeded,
@@ -147,7 +182,7 @@ func TestCreateRestore_Validation(t *testing.T) {
 		},
 		{
 			name:               "backup lookup server error fails",
-			restore:            newRestore("server-error-backup", nil),
+			restore:            newRestore("server-error-backup"),
 			objects:            nil,
 			err:                "failed to get backup 'server-error-backup'",
 			wantInvalidRequest: false,
@@ -156,13 +191,13 @@ func TestCreateRestore_Validation(t *testing.T) {
 		},
 		{
 			name:    "succeeded backup, no PITR, passes",
-			restore: newRestore("succeeded-backup-no-pitr", nil),
+			restore: newRestore("succeeded-backup-no-pitr"),
 			objects: []ctrlclient.Object{succeededBackupNoPitr, noPitrClass, instance},
 			err:     "",
 		},
 		{
 			name:               "missing instance fails",
-			restore:            newRestore("succeeded-backup-no-pitr", nil),
+			restore:            newRestore("succeeded-backup-no-pitr"),
 			objects:            []ctrlclient.Object{succeededBackupNoPitr, noPitrClass},
 			err:                "instance 'test-instance' does not exist",
 			wantSentinel:       controller.ErrInstanceNotFound,
@@ -170,33 +205,47 @@ func TestCreateRestore_Validation(t *testing.T) {
 		},
 		{
 			name:               "class does not support instance's provider fails",
-			restore:            newRestore("succeeded-backup-unsupported-provider", nil),
+			restore:            newRestore("succeeded-backup-unsupported-provider"),
 			objects:            []ctrlclient.Object{succeededBackupUnsupportedProvider, unsupportedProviderClass, instance},
 			err:                "provider not supported by backup class: class 'unsupported-provider-class', provider 'test-provider'",
 			wantSentinel:       controller.ErrProviderUnsupported,
 			wantInvalidRequest: true,
 		},
 		{
-			name:               "succeeded backup, PITR requested, class does not support PITR fails",
-			restore:            newRestore("succeeded-backup-no-pitr", &backupv1alpha1.DataSourcePITR{Type: backupv1alpha1.PITRTypeLatest}),
-			objects:            []ctrlclient.Object{succeededBackupNoPitr, noPitrClass, instance},
+			name:    "succeeded backup passes regardless of the class's PITR support",
+			restore: newRestore("succeeded-backup"),
+			objects: []ctrlclient.Object{succeededBackup, pitrClass, instance},
+			err:     "",
+		},
+		{
+			name:               "point-in-time requested, class does not support PITR fails",
+			restore:            newPITRRestore(backupv1alpha1.RecoveryTargetLatest, "s1"),
+			objects:            []ctrlclient.Object{noPitrClass, streamInstanceNoPITR},
 			err:                "point-in-time recovery is not supported",
 			wantSentinel:       controller.ErrRestorePITRUnsupported,
 			wantInvalidRequest: true,
 		},
 		{
-			name:               "succeeded backup, PITR date type without date fails",
-			restore:            newRestore("succeeded-backup-no-pitr", &backupv1alpha1.DataSourcePITR{Type: backupv1alpha1.PITRTypeDate}),
-			objects:            []ctrlclient.Object{succeededBackupNoPitr, noPitrClass, instance},
+			name:               "point-in-time date target without date fails",
+			restore:            newPITRRestore(backupv1alpha1.RecoveryTargetDate, "s1"),
+			objects:            []ctrlclient.Object{pitrClass, streamInstancePITR},
 			err:                "point-in-time recovery date is required",
 			wantSentinel:       controller.ErrRestorePITRDateRequired,
 			wantInvalidRequest: true,
 		},
 		{
-			name:    "succeeded backup, PITR requested, class supports PITR passes",
-			restore: newRestore("succeeded-backup", &backupv1alpha1.DataSourcePITR{Type: backupv1alpha1.PITRTypeLatest}),
-			objects: []ctrlclient.Object{succeededBackup, pitrClass, instance},
+			name:    "point-in-time requested, class supports PITR passes",
+			restore: newPITRRestore(backupv1alpha1.RecoveryTargetLatest, "s1"),
+			objects: []ctrlclient.Object{pitrClass, streamInstancePITR},
 			err:     "",
+		},
+		{
+			name:               "point-in-time on a storage without PITR enabled fails",
+			restore:            newPITRRestore(backupv1alpha1.RecoveryTargetLatest, "not-archiving"),
+			objects:            []ctrlclient.Object{pitrClass, streamInstancePITR},
+			err:                "point-in-time recovery is not supported",
+			wantSentinel:       controller.ErrRestorePITRUnsupported,
+			wantInvalidRequest: true,
 		},
 	}
 

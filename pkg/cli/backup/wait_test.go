@@ -189,3 +189,31 @@ func TestNewBackupPoll_UnexpectedStatusIsRetryable(t *testing.T) {
 type roundTripFunc func(*http.Request) (*http.Response, error)
 
 func (f roundTripFunc) RoundTrip(r *http.Request) (*http.Response, error) { return f(r) }
+
+// TestDeleteCondition_PendingMessageIsUnambiguous pins the --wait progress
+// text: it must say the backup still exists, never just echo the raw state
+// word, since "Succeeded" alone reads as "the deletion succeeded".
+func TestDeleteCondition_PendingMessageIsUnambiguous(t *testing.T) {
+	t.Parallel()
+
+	outcome, msg := deleteCondition(nil)
+	assert.Equal(t, wait.Succeeded, outcome)
+	assert.Equal(t, "backup deleted", msg)
+
+	b := backupFromJSON(t, `{"status":{"state":"Succeeded"}}`)
+	outcome, msg = deleteCondition(b)
+	assert.Equal(t, wait.Pending, outcome)
+	assert.Equal(t, "backup still exists (state: Succeeded)", msg)
+}
+
+// TestDeleteCondition_NoStatusYet_DropsTheDash covers a backup deleted with
+// --force --wait right after create, before anything synced back: the
+// message must not leak backupState's table-cell placeholder ("-").
+func TestDeleteCondition_NoStatusYet_DropsTheDash(t *testing.T) {
+	t.Parallel()
+
+	b := backupFromJSON(t, `{}`)
+	outcome, msg := deleteCondition(b)
+	assert.Equal(t, wait.Pending, outcome)
+	assert.Equal(t, "backup still exists", msg)
+}
