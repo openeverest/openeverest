@@ -19,7 +19,7 @@ OpenEverest - Run Data Workloads on Kubernetes
 > [!IMPORTANT]
 > **This branch carries OpenEverest v2, which is a [Developer Preview](https://openeverest.io/blog/v2-developer-preview-release/) — not feature-complete and not for production.**
 >
-> OpenEverest **v1 is the current released version** and is unchanged by this. It lives on [`v1.x`](https://github.com/openeverest/openeverest/tree/v1.x) and continues to receive releases. `main` moved to v2 on 18 August 2026 because that is where day-to-day development happens; it is not a statement about what to run. The [v1 lifecycle](https://openeverest.io/blog/v2-developer-preview-release/#timeline) is unchanged.
+> OpenEverest **v1 is the current released version** and is unchanged by this. It lives on [`v1.x`](https://github.com/openeverest/openeverest/tree/v1.x) and continues to receive releases. On 18 August 2026 the two lines swapped branches: v2 moved from `release-2.0` to `main`, and v1 moved to `v1.x`. **Both lines are still developed** — only the branch names changed, and this is not a statement about what to run. The [v1 lifecycle](https://openeverest.io/blog/v2-developer-preview-release/#timeline) is unchanged.
 >
 > Cloned or forked before that date? Your `main` still holds v1 code — see [Which branch to target](CONTRIBUTING.md#which-branch-to-target) before you branch.
 

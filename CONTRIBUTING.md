@@ -139,8 +139,9 @@ Please say when a contribution is substantially AI-generated. Reports and pull r
 
 Unless an issue says otherwise, open your pull request against `main`.
 
-`main` carried v1 until 18 August 2026. The swap reflects where development
-happens and changes nothing about the
+`main` carried v1 until 18 August 2026, when the two lines swapped branches: v2
+moved from `release-2.0` to `main`, and v1 moved to `v1.x`. Both lines are
+still developed. This changes nothing about the
 [v1 lifecycle](https://openeverest.io/blog/v2-developer-preview-release/#timeline):
 v1 remains the released version, is still maintained, and only enters
 maintenance mode three months after v2 reaches GA.
