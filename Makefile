@@ -338,9 +338,9 @@ dev-destroy: dev-down k3d-cluster-down-dev ## Stop Tilt and destroy the k3d clus
 
 ##@ GitHub PR
 
-CHART_BRANCH ?= main
+CHART_BRANCH ?= v1.x
 .PHONY: update-dev-chart
-update-dev-chart: ## Update dependency to Everest Helm chart to the latest version from the specified branch (default main).
+update-dev-chart: ## Update dependency to Everest Helm chart to the latest version from the specified branch (default v1.x).
 	@COMMIT=$$(git ls-remote --exit-code https://github.com/openeverest/helm-charts refs/heads/$(CHART_BRANCH) | cut -f1) || \
 		{ echo "helm-charts branch '$(CHART_BRANCH)' not found. Set CHART_BRANCH to an existing branch."; exit 1; }; \
 	go get -u github.com/openeverest/helm-charts/charts/everest@$$COMMIT
