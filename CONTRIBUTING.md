@@ -130,6 +130,26 @@ Please say when a contribution is substantially AI-generated. Reports and pull r
 
 ## Contributing to the source code
 
+### Which branch to target
+
+Two branches are actively developed:
+
+| Branch | Contents | Target it for |
+| --- | --- | --- |
+| `main` | OpenEverest v2 | New features and fixes |
+| `v1.x` | OpenEverest v1 | Fixes for the 1.x line |
+
+Unless an issue says otherwise, open your pull request against `main`. If you
+forked before v2 became the default, your fork's `main` still holds v1 code —
+reset it before branching:
+
+```sh
+git branch -m main v1.x
+git fetch origin
+git branch -u origin/v1.x v1.x
+git remote set-head origin -a
+```
+
 ### Backend
 
 The backend is written in Go. To set up a full local development environment — including a local Kubernetes cluster, the Everest operator, and all dependent services — follow the [Backend Development Guide](https://github.com/openeverest/openeverest/blob/main/dev/README.md).
