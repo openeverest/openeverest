@@ -21,7 +21,7 @@ on:
         description: "Version Service branch with the feature to checkout"
       helm_branch:
         required: false
-        default: main
+        default: v1.x
         description: "Helm charts branch with the feature to checkout"
       artifacts_retention_days:
         required: false
@@ -52,7 +52,7 @@ on:
       helm_branch:
         required: false
         type: string
-        default: main
+        default: v1.x
         description: "Helm charts branch with the feature to checkout"
       artifacts_retention_days:
         required: false
@@ -164,7 +164,7 @@ jobs:
 
           # Fall back to default branch if the specified branch does not exist
           git ls-remote --heads --exit-code --quiet https://github.com/Percona-Lab/percona-version-service.git $VS_BRANCH > /dev/null || echo "VS_BRANCH=production" | tee -a $GITHUB_ENV
-          git ls-remote --heads --exit-code --quiet https://github.com/openeverest/helm-charts.git $HELM_BRANCH > /dev/null || echo "HELM_BRANCH=main" | tee -a $GITHUB_ENV
+          git ls-remote --heads --exit-code --quiet https://github.com/openeverest/helm-charts.git $HELM_BRANCH > /dev/null || echo "HELM_BRANCH=v1.x" | tee -a $GITHUB_ENV
           git ls-remote --heads --exit-code --quiet https://github.com/openeverest/openeverest.git $EVEREST_BRANCH > /dev/null || echo "EVEREST_BRANCH=v1.x" | tee -a $GITHUB_ENV
           git ls-remote --heads --exit-code --quiet https://github.com/openeverest/openeverest-operator.git $EVEREST_OPERATOR_BRANCH > /dev/null || echo "EVEREST_OPERATOR_BRANCH=main" | tee -a $GITHUB_ENV
           git ls-remote --heads --exit-code --quiet https://github.com/openeverest/openeverest-catalog.git $EVEREST_CATALOG_BRANCH > /dev/null || echo "EVEREST_CATALOG_BRANCH=main" | tee -a $GITHUB_ENV
