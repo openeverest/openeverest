@@ -1,3 +1,17 @@
+// Copyright (C) 2026 The OpenEverest Contributors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 import '@fontsource/roboto/300.css';
 import '@fontsource/roboto/400.css';
 import '@fontsource/roboto/500.css';
@@ -24,6 +38,7 @@ declare module '@mui/material/styles' {
       backdrop?: string;
       elevation0?: string;
       elevation1?: string;
+      elevation2?: string;
     };
     dividers?: {
       divider?: string;
@@ -97,6 +112,12 @@ declare module '@mui/material/Typography' {
   }
 }
 
+declare module '@mui/material/Chip' {
+  interface ChipPropsSizeOverrides {
+    xs: true;
+  }
+}
+
 declare module '@mui/material/Paper' {
   interface PaperPropsVariantOverrides {
     grey: true;
@@ -166,6 +187,7 @@ const baseThemeOptions = (mode: PaletteMode): ThemeOptions => ({
             backdrop: 'rgba(44, 50, 62, 0.72)',
             elevation0: 'rgba(240, 241, 244, 1)',
             elevation1: 'rgba(255, 255, 255, 1)',
+            elevation2: 'rgba(230, 232, 238, 1)',
           },
           dividers: {
             divider: 'rgba(44, 50, 62, 0.25)',
@@ -235,6 +257,7 @@ const baseThemeOptions = (mode: PaletteMode): ThemeOptions => ({
             backdrop: 'rgba(44, 50, 62, 0.72)',
             elevation0: 'rgba(44, 50, 62, 1)',
             elevation1: 'rgba(58, 65, 81, 1)',
+            elevation2: 'rgba(72, 80, 100, 1)',
           },
           dividers: {
             divider: 'rgba(209, 213, 222, 0.25)',
@@ -629,6 +652,19 @@ const baseThemeOptions = (mode: PaletteMode): ThemeOptions => ({
         },
       },
     },
+    MuiDialog: {
+      styleOverrides: {
+        // When a dialog is taller than the viewport (scroll="body"), MUI
+        // auto-focuses the Paper and the browser scrolls it into view, which
+        // otherwise clips the 32px top margin. Reserving scroll padding keeps
+        // the top (and bottom) margin visible. Has no effect on dialogs that
+        // fit within the viewport (no scroll needed).
+        container: {
+          scrollPaddingTop: BaseTheme.spacing(4),
+          scrollPaddingBottom: BaseTheme.spacing(4),
+        },
+      },
+    },
     MuiDialogTitle: {
       defaultProps: {
         component: 'h5',
@@ -796,6 +832,23 @@ const baseThemeOptions = (mode: PaletteMode): ThemeOptions => ({
           backgroundColor: theme.palette[color]?.surface,
         }),
       },
+      variants: [
+        {
+          // Extra-small chip, denser than `small` — for compact metadata tags.
+          props: { size: 'xs' },
+          style: ({ theme }) => ({
+            height: 20,
+            fontSize: '10px',
+            '.MuiChip-label': {
+              paddingLeft: theme.spacing(0.75),
+              paddingRight: theme.spacing(0.75),
+            },
+            '.MuiChip-icon, .MuiChip-deleteIcon': {
+              fontSize: '14px',
+            },
+          }),
+        },
+      ],
     },
     MuiTableHead: {
       styleOverrides: {

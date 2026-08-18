@@ -52,9 +52,10 @@ func TestShouldAllowRequestDuringEngineUpgrade(t *testing.T) {
 		{
 			description: "allow all GET requests",
 			ctxFn: func() echo.Context {
-				return echo.New().NewContext(&http.Request{
-					Method: http.MethodGet,
-				}, nil,
+				return echo.New().NewContext(
+					&http.Request{
+						Method: http.MethodGet,
+					}, nil,
 				)
 			},
 			allow: true,
@@ -62,12 +63,13 @@ func TestShouldAllowRequestDuringEngineUpgrade(t *testing.T) {
 		{
 			description: "allow non-target paths",
 			ctxFn: func() echo.Context {
-				return echo.New().NewContext(&http.Request{
-					Method: http.MethodPost,
-					URL: &url.URL{
-						Path: "/api/v1/namespaces/default/monitoring-instances",
-					},
-				}, nil,
+				return echo.New().NewContext(
+					&http.Request{
+						Method: http.MethodPost,
+						URL: &url.URL{
+							Path: "/api/v1/namespaces/default/monitoring-instances",
+						},
+					}, nil,
 				)
 			},
 			allow: true,
@@ -75,12 +77,13 @@ func TestShouldAllowRequestDuringEngineUpgrade(t *testing.T) {
 		{
 			description: "allow target paths with no namespace",
 			ctxFn: func() echo.Context {
-				return echo.New().NewContext(&http.Request{
-					Method: http.MethodPost,
-					URL: &url.URL{
-						Path: "/api/v1/database-clusters",
-					},
-				}, nil,
+				return echo.New().NewContext(
+					&http.Request{
+						Method: http.MethodPost,
+						URL: &url.URL{
+							Path: "/api/v1/database-clusters",
+						},
+					}, nil,
 				)
 			},
 			allow: true,
@@ -88,12 +91,13 @@ func TestShouldAllowRequestDuringEngineUpgrade(t *testing.T) {
 		{
 			description: "allow target path with no lock annotation",
 			ctxFn: func() echo.Context {
-				ctx := echo.New().NewContext(&http.Request{
-					Method: http.MethodDelete,
-					URL: &url.URL{
-						Path: "/api/v1/namespaces/default/database-clusters/1234",
-					},
-				}, nil,
+				ctx := echo.New().NewContext(
+					&http.Request{
+						Method: http.MethodDelete,
+						URL: &url.URL{
+							Path: "/api/v1/namespaces/default/database-clusters/1234",
+						},
+					}, nil,
 				)
 				ctx.SetParamNames("namespace")
 				ctx.SetParamValues("default")
@@ -112,12 +116,13 @@ func TestShouldAllowRequestDuringEngineUpgrade(t *testing.T) {
 		{
 			description: "deny request on target path with lock annotation",
 			ctxFn: func() echo.Context {
-				ctx := echo.New().NewContext(&http.Request{
-					Method: http.MethodDelete,
-					URL: &url.URL{
-						Path: "/api/v1/namespaces/default/database-clusters/1234",
-					},
-				}, nil,
+				ctx := echo.New().NewContext(
+					&http.Request{
+						Method: http.MethodDelete,
+						URL: &url.URL{
+							Path: "/api/v1/namespaces/default/database-clusters/1234",
+						},
+					}, nil,
 				)
 				ctx.SetParamNames("namespace")
 				ctx.SetParamValues("default")

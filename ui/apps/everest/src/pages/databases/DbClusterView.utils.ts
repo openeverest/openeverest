@@ -63,7 +63,7 @@ export const convertDbInstancesPayloadToTableFormat = (
       ? item.queryResult?.data.map((instance) => ({
           namespace: item.namespace,
           phase: instance.status?.phase ?? DB_INSTANCE_UNKNOWN_PHASE,
-          provider: instance.spec?.provider ?? '',
+          provider: instance.spec?.providerRef?.name ?? '',
           // dbVersion: cluster.spec.engine.version || '',
           // backupsEnabled: (cluster.spec.backup?.schedules || []).length > 0,
           instanceName: instance.metadata?.name ?? '',

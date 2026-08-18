@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2025 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -58,7 +59,7 @@ type (
 )
 
 // Key bindings.
-var inputKeys = inputKeyMap{
+var inputKeys = inputKeyMap{ //nolint:gochecknoglobals // immutable TUI style/keybinding definitions
 	Confirm: confirmKeyBinding,
 	Quit:    quitKeyBinding,
 }
@@ -142,16 +143,21 @@ func (m Input) Run() (string, error) {
 		return "", err
 	}
 
-	if model.(Input).interrupt {
+	input, ok := model.(Input)
+	if !ok {
+		return "", fmt.Errorf("unexpected model type: %T", model)
+	}
+
+	if input.interrupt {
 		return "", ErrUserInterrupted
 	}
 
-	if model.(Input).validateFunc != nil {
-		if err := model.(Input).validateFunc(model.(Input).textInput.Value()); err != nil {
+	if input.validateFunc != nil {
+		if err := input.validateFunc(input.textInput.Value()); err != nil {
 			return "", err
 		}
 	}
-	return model.(Input).textInput.Value(), nil
+	return input.textInput.Value(), nil
 }
 
 // Init initializes the text input element.
@@ -165,17 +171,16 @@ func (m Input) Init() tea.Cmd {
 func (m Input) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 
-	switch msg := msg.(type) {
-	case tea.KeyMsg:
+	if keyMsg, ok := msg.(tea.KeyMsg); ok {
 		switch {
-		case key.Matches(msg, m.keys.Confirm):
+		case key.Matches(keyMsg, m.keys.Confirm):
 			m.done = true
 			m.textInput.Blur()
 			if m.textInput.Value() == "" {
 				m.textInput.SetValue(m.defaultValue)
 			}
 			cmd = tea.Quit
-		case key.Matches(msg, m.keys.Quit):
+		case key.Matches(keyMsg, m.keys.Quit):
 			m.done = true
 			m.interrupt = true
 			m.textInput.Blur()
@@ -193,13 +198,13 @@ func (m Input) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 // Implements bubbletea.Model interface.
 func (m Input) View() string {
 	s := strings.Builder{}
-	s.WriteString(fmt.Sprintf("%s\n", m.textInput.View()))
+	fmt.Fprintf(&s, "%s\n", m.textInput.View())
 
 	if !m.done {
 		if m.hint != "" {
-			s.WriteString(fmt.Sprintf("\n%s\n", helperTextStyle.Render(m.hint)))
+			fmt.Fprintf(&s, "\n%s\n", helperTextStyle.Render(m.hint))
 		}
-		s.WriteString(fmt.Sprintf("\n%s\n", m.help.View(m.keys)))
+		fmt.Fprintf(&s, "\n%s\n", m.help.View(m.keys))
 	}
 
 	return s.String()

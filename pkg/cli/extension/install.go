@@ -27,6 +27,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/yaml"
 
+	common "github.com/openeverest/openeverest/v2/api/common/v1alpha1"
 	corev1alpha1 "github.com/openeverest/openeverest/v2/api/extensions/v1alpha1"
 	cliutils "github.com/openeverest/openeverest/v2/pkg/cli/utils"
 	"github.com/openeverest/openeverest/v2/pkg/kubernetes"
@@ -44,10 +45,6 @@ type InstallConfig struct {
 	BackendURL  string
 	BundlePath  string
 	Enabled     bool
-	// AllowClusterScope opts into cluster-wide RBAC. When true, the
-	// resulting InstalledExtension is created with spec.plugin.scope=Cluster
-	// and spec.plugin.allowClusterScope=true.
-	AllowClusterScope bool
 }
 
 // PluginInstaller installs an extension by creating a Plugin CR (when needed)
@@ -123,18 +120,12 @@ func (pi *PluginInstaller) Run(ctx context.Context) error {
 		}
 	}
 
-	scope := corev1alpha1.PluginInstallScopeNamespaces
-	if pi.cfg.AllowClusterScope {
-		scope = corev1alpha1.PluginInstallScopeCluster
-	}
 	ie := &corev1alpha1.InstalledExtension{
 		ObjectMeta: metav1.ObjectMeta{Name: plugin.Name},
 		Spec: corev1alpha1.InstalledExtensionSpec{
 			Type: corev1alpha1.InstalledExtensionTypePlugin,
 			Plugin: &corev1alpha1.PluginInstall{
-				PluginCRName:      plugin.Name,
-				Scope:             scope,
-				AllowClusterScope: pi.cfg.AllowClusterScope,
+				PluginRef: common.ObjectRef{Name: plugin.Name},
 			},
 		},
 	}

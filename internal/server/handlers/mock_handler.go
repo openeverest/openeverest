@@ -13,6 +13,8 @@ import (
 
 	monitoringv1alpha1 "github.com/openeverest/openeverest/v2/api/monitoring/v1alpha1"
 
+	v1 "k8s.io/api/core/v1"
+
 	v1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
 )
 
@@ -74,6 +76,36 @@ func (_m *MockHandler) CreateBackupStorage(ctx context.Context, cluster string, 
 
 	if rf, ok := ret.Get(1).(func(context.Context, string, *v1alpha1.BackupStorage) error); ok {
 		r1 = rf(ctx, cluster, bs)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// CreateConfigMap provides a mock function with given fields: ctx, cluster, namespace, configMap
+func (_m *MockHandler) CreateConfigMap(ctx context.Context, cluster string, namespace string, configMap *v1.ConfigMap) (*v1.ConfigMap, error) {
+	ret := _m.Called(ctx, cluster, namespace, configMap)
+
+	if len(ret) == 0 {
+		panic("no return value specified for CreateConfigMap")
+	}
+
+	var r0 *v1.ConfigMap
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, *v1.ConfigMap) (*v1.ConfigMap, error)); ok {
+		return rf(ctx, cluster, namespace, configMap)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, *v1.ConfigMap) *v1.ConfigMap); ok {
+		r0 = rf(ctx, cluster, namespace, configMap)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*v1.ConfigMap)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, string, *v1.ConfigMap) error); ok {
+		r1 = rf(ctx, cluster, namespace, configMap)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -171,6 +203,36 @@ func (_m *MockHandler) CreateRestore(ctx context.Context, restore *v1alpha1.Rest
 	return r0, r1
 }
 
+// CreateSecret provides a mock function with given fields: ctx, cluster, namespace, secret
+func (_m *MockHandler) CreateSecret(ctx context.Context, cluster string, namespace string, secret *v1.Secret) (*v1.Secret, error) {
+	ret := _m.Called(ctx, cluster, namespace, secret)
+
+	if len(ret) == 0 {
+		panic("no return value specified for CreateSecret")
+	}
+
+	var r0 *v1.Secret
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, *v1.Secret) (*v1.Secret, error)); ok {
+		return rf(ctx, cluster, namespace, secret)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, *v1.Secret) *v1.Secret); ok {
+		r0 = rf(ctx, cluster, namespace, secret)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*v1.Secret)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, string, *v1.Secret) error); ok {
+		r1 = rf(ctx, cluster, namespace, secret)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // DeleteBackup provides a mock function with given fields: ctx, cluster, namespace, name, params
 func (_m *MockHandler) DeleteBackup(ctx context.Context, cluster string, namespace string, name string, params *api.DeleteBackupParams) error {
 	ret := _m.Called(ctx, cluster, namespace, name, params)
@@ -195,6 +257,24 @@ func (_m *MockHandler) DeleteBackupStorage(ctx context.Context, cluster string, 
 
 	if len(ret) == 0 {
 		panic("no return value specified for DeleteBackupStorage")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, string) error); ok {
+		r0 = rf(ctx, cluster, namespace, name)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// DeleteConfigMap provides a mock function with given fields: ctx, cluster, namespace, name
+func (_m *MockHandler) DeleteConfigMap(ctx context.Context, cluster string, namespace string, name string) error {
+	ret := _m.Called(ctx, cluster, namespace, name)
+
+	if len(ret) == 0 {
+		panic("no return value specified for DeleteConfigMap")
 	}
 
 	var r0 error
@@ -254,6 +334,24 @@ func (_m *MockHandler) DeleteRestore(ctx context.Context, namespace string, name
 	var r0 error
 	if rf, ok := ret.Get(0).(func(context.Context, string, string) error); ok {
 		r0 = rf(ctx, namespace, name)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// DeleteSecret provides a mock function with given fields: ctx, cluster, namespace, name
+func (_m *MockHandler) DeleteSecret(ctx context.Context, cluster string, namespace string, name string) error {
+	ret := _m.Called(ctx, cluster, namespace, name)
+
+	if len(ret) == 0 {
+		panic("no return value specified for DeleteSecret")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, string) error); ok {
+		r0 = rf(ctx, cluster, namespace, name)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -374,6 +472,36 @@ func (_m *MockHandler) GetCluster(ctx context.Context, name string) (*api.Cluste
 
 	if rf, ok := ret.Get(1).(func(context.Context, string) error); ok {
 		r1 = rf(ctx, name)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// GetConfigMap provides a mock function with given fields: ctx, cluster, namespace, name
+func (_m *MockHandler) GetConfigMap(ctx context.Context, cluster string, namespace string, name string) (*v1.ConfigMap, error) {
+	ret := _m.Called(ctx, cluster, namespace, name)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetConfigMap")
+	}
+
+	var r0 *v1.ConfigMap
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, string) (*v1.ConfigMap, error)); ok {
+		return rf(ctx, cluster, namespace, name)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, string) *v1.ConfigMap); ok {
+		r0 = rf(ctx, cluster, namespace, name)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*v1.ConfigMap)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, string, string) error); ok {
+		r1 = rf(ctx, cluster, namespace, name)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -621,6 +749,36 @@ func (_m *MockHandler) GetRestore(ctx context.Context, namespace string, name st
 	return r0, r1
 }
 
+// GetSecret provides a mock function with given fields: ctx, cluster, namespace, name
+func (_m *MockHandler) GetSecret(ctx context.Context, cluster string, namespace string, name string) (*v1.Secret, error) {
+	ret := _m.Called(ctx, cluster, namespace, name)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetSecret")
+	}
+
+	var r0 *v1.Secret
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, string) (*v1.Secret, error)); ok {
+		return rf(ctx, cluster, namespace, name)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, string) *v1.Secret); ok {
+		r0 = rf(ctx, cluster, namespace, name)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*v1.Secret)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, string, string) error); ok {
+		r1 = rf(ctx, cluster, namespace, name)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // GetSettings provides a mock function with given fields: ctx
 func (_m *MockHandler) GetSettings(ctx context.Context) (*api.Settings, error) {
 	ret := _m.Called(ctx)
@@ -764,6 +922,36 @@ func (_m *MockHandler) ListClusters(ctx context.Context) (*api.ClusterList, erro
 
 	if rf, ok := ret.Get(1).(func(context.Context) error); ok {
 		r1 = rf(ctx)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// ListConfigMaps provides a mock function with given fields: ctx, cluster, namespace, provider, definition
+func (_m *MockHandler) ListConfigMaps(ctx context.Context, cluster string, namespace string, provider string, definition string) (*v1.ConfigMapList, error) {
+	ret := _m.Called(ctx, cluster, namespace, provider, definition)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ListConfigMaps")
+	}
+
+	var r0 *v1.ConfigMapList
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, string, string) (*v1.ConfigMapList, error)); ok {
+		return rf(ctx, cluster, namespace, provider, definition)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, string, string) *v1.ConfigMapList); ok {
+		r0 = rf(ctx, cluster, namespace, provider, definition)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*v1.ConfigMapList)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, string, string, string) error); ok {
+		r1 = rf(ctx, cluster, namespace, provider, definition)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -974,6 +1162,36 @@ func (_m *MockHandler) ListProviders(ctx context.Context, cluster string) (*core
 
 	if rf, ok := ret.Get(1).(func(context.Context, string) error); ok {
 		r1 = rf(ctx, cluster)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// ListSecrets provides a mock function with given fields: ctx, cluster, namespace, provider, definition
+func (_m *MockHandler) ListSecrets(ctx context.Context, cluster string, namespace string, provider string, definition string) (*v1.SecretList, error) {
+	ret := _m.Called(ctx, cluster, namespace, provider, definition)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ListSecrets")
+	}
+
+	var r0 *v1.SecretList
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, string, string) (*v1.SecretList, error)); ok {
+		return rf(ctx, cluster, namespace, provider, definition)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, string, string) *v1.SecretList); ok {
+		r0 = rf(ctx, cluster, namespace, provider, definition)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*v1.SecretList)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, string, string, string) error); ok {
+		r1 = rf(ctx, cluster, namespace, provider, definition)
 	} else {
 		r1 = ret.Error(1)
 	}

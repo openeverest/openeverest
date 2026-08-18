@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -49,9 +50,9 @@ func init() {
 	accountsSetPasswordCmd.Flags().StringVarP(&accountsSetPasswordOpts.NewPassword, cli.FlagAccountsNewPassword, "p", "", "New password for the account")
 }
 
-func accountsSetPasswordPreRun(cmd *cobra.Command, _ []string) { //nolint:revive
+func accountsSetPasswordPreRun(cmd *cobra.Command, _ []string) {
 	// Copy global flags to config
-	accountsSetPasswordCfg.Pretty = !(cmd.Flag(cli.FlagVerbose).Changed || cmd.Flag(cli.FlagJSON).Changed)
+	accountsSetPasswordCfg.Pretty = !cmd.Flag(cli.FlagVerbose).Changed && !cmd.Flag(cli.FlagJSON).Changed
 	accountsSetPasswordCfg.KubeconfigPath = cmd.Flag(cli.FlagKubeconfig).Value.String()
 
 	// Check username
@@ -63,12 +64,12 @@ func accountsSetPasswordPreRun(cmd *cobra.Command, _ []string) { //nolint:revive
 		}
 	} else {
 		// Ask user in interactive mode to provide username for whom password shall be changed.
-		if username, err := accountscli.PopulateUsername(cmd.Context()); err != nil {
+		username, err := accountscli.PopulateUsername(cmd.Context())
+		if err != nil {
 			output.PrintError(err, logger.GetLogger(), accountsSetPasswordCfg.Pretty)
 			os.Exit(1)
-		} else {
-			accountsSetPasswordOpts.Username = username
 		}
+		accountsSetPasswordOpts.Username = username
 	}
 
 	// Check password
@@ -80,16 +81,16 @@ func accountsSetPasswordPreRun(cmd *cobra.Command, _ []string) { //nolint:revive
 		}
 	} else {
 		// Ask user in interactive mode to provide a new password.
-		if password, err := accountscli.PopulateNewPassword(cmd.Context()); err != nil {
+		password, err := accountscli.PopulateNewPassword(cmd.Context())
+		if err != nil {
 			output.PrintError(err, logger.GetLogger(), accountsSetPasswordCfg.Pretty)
 			os.Exit(1)
-		} else {
-			accountsSetPasswordOpts.NewPassword = password
 		}
+		accountsSetPasswordOpts.NewPassword = password
 	}
 }
 
-func accountsSetPasswordRun(cmd *cobra.Command, _ []string) { //nolint:revive
+func accountsSetPasswordRun(cmd *cobra.Command, _ []string) {
 	cliA, err := accountscli.NewAccounts(*accountsSetPasswordCfg, logger.GetLogger())
 	if err != nil {
 		output.PrintError(err, logger.GetLogger(), accountsSetPasswordCfg.Pretty)

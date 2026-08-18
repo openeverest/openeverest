@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -41,13 +42,13 @@ var (
 	accountsInitAdminPasswdCfg = &accountscli.Config{}
 )
 
-func accountsInitAdminPasswdPreRun(cmd *cobra.Command, _ []string) { //nolint:revive
+func accountsInitAdminPasswdPreRun(cmd *cobra.Command, _ []string) {
 	// Copy global flags to config
-	accountsInitAdminPasswdCfg.Pretty = !(cmd.Flag(cli.FlagVerbose).Changed || cmd.Flag(cli.FlagJSON).Changed)
+	accountsInitAdminPasswdCfg.Pretty = !cmd.Flag(cli.FlagVerbose).Changed && !cmd.Flag(cli.FlagJSON).Changed
 	accountsInitAdminPasswdCfg.KubeconfigPath = cmd.Flag(cli.FlagKubeconfig).Value.String()
 }
 
-func accountsInitAdminPasswdRun(cmd *cobra.Command, _ []string) { //nolint:revive
+func accountsInitAdminPasswdRun(cmd *cobra.Command, _ []string) {
 	cliA, err := accountscli.NewAccounts(*accountsInitAdminPasswdCfg, logger.GetLogger())
 	if err != nil {
 		output.PrintError(err, logger.GetLogger(), accountsInitAdminPasswdCfg.Pretty)

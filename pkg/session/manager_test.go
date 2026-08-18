@@ -16,13 +16,17 @@ package session
 
 import (
 	"context"
+	"crypto/rand"
+	"crypto/rsa"
+	"crypto/x509"
+	"encoding/pem"
 	"errors"
 	"testing"
 	"time"
 
-	"github.com/AlekSi/pointer"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -33,7 +37,69 @@ import (
 	"github.com/openeverest/openeverest/v2/pkg/kubernetes"
 )
 
+// testRSAKeyBits is deliberately small since these keys are only used to
+// exercise the PEM decoding path in tests, not for any real cryptographic use.
+const testRSAKeyBits = 2048
+
+func TestParsePrivateKeyPEM(t *testing.T) {
+	t.Parallel()
+
+	validKey, err := rsa.GenerateKey(rand.Reader, testRSAKeyBits)
+	require.NoError(t, err)
+	validPEM := pem.EncodeToMemory(&pem.Block{
+		Type:  "RSA PRIVATE KEY",
+		Bytes: x509.MarshalPKCS1PrivateKey(validKey),
+	})
+
+	tcases := []struct {
+		name        string
+		in          []byte
+		expectError bool
+	}{
+		{
+			name:        "valid PKCS1 PEM key",
+			in:          validPEM,
+			expectError: false,
+		},
+		{
+			name:        "empty input",
+			in:          []byte(""),
+			expectError: true,
+		},
+		{
+			name:        "not PEM-encoded data",
+			in:          []byte("this is not a PEM encoded private key"),
+			expectError: true,
+		},
+		{
+			name: "PEM block that is not a valid PKCS1 key",
+			in: pem.EncodeToMemory(&pem.Block{
+				Type:  "RSA PRIVATE KEY",
+				Bytes: []byte("not actually a key"),
+			}),
+			expectError: true,
+		},
+	}
+
+	for _, tc := range tcases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			key, err := parsePrivateKeyPEM(tc.in)
+			if tc.expectError {
+				require.Error(t, err)
+				assert.Nil(t, key)
+				return
+			}
+			require.NoError(t, err)
+			require.NotNil(t, key)
+			assert.True(t, key.Equal(validKey))
+		})
+	}
+}
+
 func TestExtractUsername(t *testing.T) {
+	t.Parallel()
 	type tcase struct {
 		name          string
 		token         *jwt.Token
@@ -84,12 +150,14 @@ func TestExtractUsername(t *testing.T) {
 }
 
 func TestExtractIssueTime(t *testing.T) {
+	t.Parallel()
 	type tcase struct {
 		name  string
 		token *jwt.Token
 		error error
 		time  *time.Time
 	}
+	issuedAt := time.Date(2025, 5, 12, 14, 32, 5, 0, time.UTC)
 	tcases := []tcase{
 		{
 			name:  "no iat field",
@@ -107,7 +175,7 @@ func TestExtractIssueTime(t *testing.T) {
 			name:  "valid iat field",
 			token: jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{"iat": float64(1747060325)}),
 			error: nil,
-			time:  pointer.To[time.Time](time.Date(2025, 5, 12, 14, 32, 5, 0, time.UTC)),
+			time:  &issuedAt,
 		},
 	}
 
@@ -122,6 +190,7 @@ func TestExtractIssueTime(t *testing.T) {
 }
 
 func TestIsBlocked(t *testing.T) {
+	t.Parallel()
 	type tcase struct {
 		name      string
 		token     *jwt.Token
@@ -211,12 +280,13 @@ func TestIsBlocked(t *testing.T) {
 	}
 	for _, tc := range tcases {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			ctx := context.Background()
 			manager, err := mockManager(ctx, tc.usersFile, "")
-			assert.NoError(t, err)
+			require.NoError(t, err)
 			isBlocked, err := manager.IsBlocked(ctx, tc.token)
 			if tc.error != nil {
-				assert.EqualError(t, err, tc.error.Error())
+				require.EqualError(t, err, tc.error.Error())
 			}
 			assert.Equal(t, tc.isBlocked, isBlocked)
 		})

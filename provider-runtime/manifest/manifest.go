@@ -40,10 +40,12 @@ import (
 	"fmt"
 	"os"
 
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/yaml"
 
+	common "github.com/openeverest/openeverest/v2/api/common/v1alpha1"
 	"github.com/openeverest/openeverest/v2/api/core/v1alpha1"
 	"github.com/openeverest/openeverest/v2/provider-runtime/server"
 )
@@ -61,8 +63,8 @@ type Config struct {
 	// These are used to generate OpenAPI schemas via reflection.
 	// This is the programmatic API — prefer using the generate-manifest CLI tool
 	// with RawSchemas instead (which uses static analysis via go/packages).
-	// Example: map[string]interface{}{"MongodCustomSpec": types.MongodCustomSpec{}}
-	Types map[string]interface{}
+	// Example: map[string]any{"MongodParameters": types.MongodParameters{}}
+	Types map[string]any
 
 	// RawSchemas maps type names to pre-generated OpenAPI JSON schemas.
 	// Used by the generate-manifest CLI tool (static analysis via go/packages).
@@ -72,23 +74,23 @@ type Config struct {
 
 // providerConfig is the internal representation of provider-config.yaml.
 type providerConfig struct {
-	Name               string                            `json:"name"`
-	Namespace          string                            `json:"namespace,omitempty"`
-	ComponentTypes     map[string]v1alpha1.ComponentType `json:"componentTypes"`
-	Components         map[string]componentConfig        `json:"components"`
-	Topologies         map[string]topologyConfig         `json:"topologies"`
-	GlobalConfigSchema string                            `json:"globalConfigSchema,omitempty"`
-	UISchema           map[string]interface{}            `json:"uiSchema,omitempty"`
+	Name             string                            `json:"name"`
+	Namespace        string                            `json:"namespace,omitempty"`
+	ComponentTypes   map[string]v1alpha1.ComponentType `json:"componentTypes"`
+	Components       map[string]componentConfig        `json:"components"`
+	Topologies       map[string]topologyConfig         `json:"topologies"`
+	ParametersSchema string                            `json:"parametersSchema,omitempty"`
+	UISchema         map[string]any                    `json:"uiSchema,omitempty"`
 }
 
 type componentConfig struct {
 	Type             string `json:"type"`
-	CustomSpecSchema string `json:"customSpecSchema,omitempty"` // Go type name reference, e.g. "MongodCustomSpec"
+	ParametersSchema string `json:"parametersSchema,omitempty"` // Go type name reference, e.g. "MongodParameters"
 }
 
 type topologyConfig struct {
-	ConfigSchema string                             `json:"configSchema,omitempty"` // Go type name reference
-	Components   map[string]topologyComponentConfig `json:"components"`
+	ParametersSchema string                             `json:"parametersSchema,omitempty"` // Go type name reference
+	Components       map[string]topologyComponentConfig `json:"components"`
 }
 
 type topologyComponentConfig struct {
@@ -161,7 +163,7 @@ func MustGenerate(cfg Config) {
 }
 
 // buildProviderSpec constructs a v1alpha1.ProviderSpec from the parsed config and type registry.
-func buildProviderSpec(pc *providerConfig, types map[string]interface{}, rawSchemas map[string]json.RawMessage) (*v1alpha1.ProviderSpec, error) {
+func buildProviderSpec(pc *providerConfig, types map[string]any, rawSchemas map[string]json.RawMessage) (*v1alpha1.ProviderSpec, error) {
 	spec := &v1alpha1.ProviderSpec{
 		ComponentTypes: pc.ComponentTypes,
 		Components:     make(map[string]v1alpha1.Component),
@@ -171,12 +173,12 @@ func buildProviderSpec(pc *providerConfig, types map[string]interface{}, rawSche
 	// Build components with optional schemas
 	for name, cc := range pc.Components {
 		comp := v1alpha1.Component{Type: cc.Type}
-		if cc.CustomSpecSchema != "" {
-			schema, err := generateSchemaRaw(cc.CustomSpecSchema, types, rawSchemas)
+		if cc.ParametersSchema != "" {
+			schema, err := generateParametersSchema(cc.ParametersSchema, types, rawSchemas)
 			if err != nil {
-				return nil, fmt.Errorf("component %q customSpecSchema: %w", name, err)
+				return nil, fmt.Errorf("component %q parametersSchema: %w", name, err)
 			}
-			comp.CustomSpecSchema = schema
+			comp.ParametersSchema = schema
 		}
 		spec.Components[name] = comp
 	}
@@ -186,12 +188,12 @@ func buildProviderSpec(pc *providerConfig, types map[string]interface{}, rawSche
 		topo := v1alpha1.Topology{
 			Components: make(map[string]v1alpha1.TopologyComponent),
 		}
-		if tc.ConfigSchema != "" {
-			schema, err := generateSchemaRaw(tc.ConfigSchema, types, rawSchemas)
+		if tc.ParametersSchema != "" {
+			schema, err := generateParametersSchema(tc.ParametersSchema, types, rawSchemas)
 			if err != nil {
-				return nil, fmt.Errorf("topology %q configSchema: %w", name, err)
+				return nil, fmt.Errorf("topology %q parametersSchema: %w", name, err)
 			}
-			topo.ConfigSchema = schema
+			topo.ParametersSchema = schema
 		}
 		for compName, compCfg := range tc.Components {
 			topoComp := v1alpha1.TopologyComponent{
@@ -202,13 +204,13 @@ func buildProviderSpec(pc *providerConfig, types map[string]interface{}, rawSche
 		spec.Topologies[name] = topo
 	}
 
-	// Build global schema
-	if pc.GlobalConfigSchema != "" {
-		schema, err := generateSchemaRaw(pc.GlobalConfigSchema, types, rawSchemas)
+	// Build provider-level parameters schema
+	if pc.ParametersSchema != "" {
+		schema, err := generateParametersSchema(pc.ParametersSchema, types, rawSchemas)
 		if err != nil {
-			return nil, fmt.Errorf("globalConfigSchema: %w", err)
+			return nil, fmt.Errorf("parametersSchema: %w", err)
 		}
-		spec.GlobalConfigSchema = schema
+		spec.ParametersSchema = schema
 	}
 
 	// Build UI schema
@@ -223,10 +225,25 @@ func buildProviderSpec(pc *providerConfig, types map[string]interface{}, rawSche
 	return spec, nil
 }
 
+// generateParametersSchema resolves a Go type reference to an OpenAPI schema
+// and wraps it in the typed ParametersSchema declaration used by the
+// Provider CRD.
+func generateParametersSchema(typeName string, types map[string]any, rawSchemas map[string]json.RawMessage) (*common.ParametersSchema, error) {
+	raw, err := generateSchemaRaw(typeName, types, rawSchemas)
+	if err != nil {
+		return nil, err
+	}
+	schema := &apiextensionsv1.JSONSchemaProps{}
+	if err := json.Unmarshal(raw.Raw, schema); err != nil {
+		return nil, fmt.Errorf("failed to parse generated schema for type %q: %w", typeName, err)
+	}
+	return &common.ParametersSchema{OpenAPIV3Schema: schema}, nil
+}
+
 // generateSchemaRaw resolves a type name to an OpenAPI schema as RawExtension.
 // It checks RawSchemas first (pre-generated by CLI tool), then falls back to
 // reflection-based generation via Types.
-func generateSchemaRaw(typeName string, types map[string]interface{}, rawSchemas map[string]json.RawMessage) (*runtime.RawExtension, error) {
+func generateSchemaRaw(typeName string, types map[string]any, rawSchemas map[string]json.RawMessage) (*runtime.RawExtension, error) {
 	// Try pre-generated raw schemas first (from CLI tool / go/packages).
 	if rawSchemas != nil {
 		if raw, ok := rawSchemas[typeName]; ok {

@@ -1,11 +1,23 @@
+// Copyright (C) 2026 The OpenEverest Contributors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 // Package rbac provides the RBAC handler.
 package rbac
 
 import (
 	"context"
 	"fmt"
-
-	"github.com/AlekSi/pointer"
 
 	api "github.com/openeverest/openeverest/v2/internal/server/api"
 )
@@ -57,7 +69,7 @@ func (h *rbacHandler) GetUserPermissions(ctx context.Context) (*api.UserPermissi
 	result := make([][]string, len(permsMap))
 	i := 0
 	for k := range permsMap {
-		result[i] = []string(k[:])
+		result[i] = k[:]
 		i++
 	}
 
@@ -72,7 +84,7 @@ func (h *rbacHandler) GetUserPermissions(ctx context.Context) (*api.UserPermissi
 	}
 
 	res := &api.UserPermissions{
-		Permissions: pointer.To(result),
+		Permissions: &result,
 		Enabled:     enabled,
 	}
 	return res, nil

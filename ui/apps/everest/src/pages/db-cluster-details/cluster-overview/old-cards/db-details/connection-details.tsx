@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -53,13 +54,16 @@ export const ConnectionDetails = ({
         <>
           <Typography
             variant="body2"
-            color="text.secondary"
-            sx={{ marginBottom: '5px' }}
+            sx={{
+              color: 'text.secondary',
+              marginBottom: '5px',
+            }}
           >
             To access the cluster via NodePort see the{' '}
             <Link
               href="https://openeverest.io/documentation/current/networking/nodeport_support.html"
               target="_blank"
+              rel="noopener noreferrer"
             >
               instructions
             </Link>
@@ -103,27 +107,30 @@ export const ConnectionDetails = ({
           size="small"
           sx={{ maxHeight: '50px', marginTop: '20px', width: '100%' }}
           type={showUrl ? 'text' : 'password'}
-          InputProps={{
-            endAdornment: (
-              <>
-                <IconButton onClick={() => setShowUrl(!showUrl)}>
-                  {showUrl ? (
-                    <VisibilityOutlinedIcon />
-                  ) : (
-                    <VisibilityOffOutlinedIcon />
-                  )}
-                </IconButton>
-                <CopyToClipboardButton
-                  buttonProps={{
-                    sx: { mt: -0.5 },
-                    size: 'small',
-                  }}
-                  textToCopy={connectionUrl}
-                />
-              </>
-            ),
+          slotProps={{
+            input: {
+              endAdornment: (
+                <>
+                  <IconButton onClick={() => setShowUrl(!showUrl)}>
+                    {showUrl ? (
+                      <VisibilityOutlinedIcon />
+                    ) : (
+                      <VisibilityOffOutlinedIcon />
+                    )}
+                  </IconButton>
+                  <CopyToClipboardButton
+                    buttonProps={{
+                      sx: { mt: -0.5 },
+                      size: 'small',
+                    }}
+                    textToCopy={connectionUrl}
+                  />
+                </>
+              ),
+            },
+
+            inputLabel: { shrink: true },
           }}
-          InputLabelProps={{ shrink: true }}
         />
       )}
       {splitHorizonUrl && (
@@ -133,27 +140,30 @@ export const ConnectionDetails = ({
           size="small"
           sx={{ maxHeight: '50px', marginTop: '20px', width: '100%' }}
           type={showSplitHorizonUrl ? 'text' : 'password'}
-          InputProps={{
-            endAdornment: (
-              <>
-                <IconButton onClick={() => setShowSplitHorizonUrl((s) => !s)}>
-                  {showSplitHorizonUrl ? (
-                    <VisibilityOutlinedIcon />
-                  ) : (
-                    <VisibilityOffOutlinedIcon />
-                  )}
-                </IconButton>
-                <CopyToClipboardButton
-                  buttonProps={{
-                    sx: { mt: -0.5 },
-                    size: 'small',
-                  }}
-                  textToCopy={splitHorizonUrl}
-                />
-              </>
-            ),
+          slotProps={{
+            input: {
+              endAdornment: (
+                <>
+                  <IconButton onClick={() => setShowSplitHorizonUrl((s) => !s)}>
+                    {showSplitHorizonUrl ? (
+                      <VisibilityOutlinedIcon />
+                    ) : (
+                      <VisibilityOffOutlinedIcon />
+                    )}
+                  </IconButton>
+                  <CopyToClipboardButton
+                    buttonProps={{
+                      sx: { mt: -0.5 },
+                      size: 'small',
+                    }}
+                    textToCopy={splitHorizonUrl}
+                  />
+                </>
+              ),
+            },
+
+            inputLabel: { shrink: true },
           }}
-          InputLabelProps={{ shrink: true }}
         />
       )}
     </OverviewSection>

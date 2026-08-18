@@ -1,8 +1,20 @@
+// Copyright (C) 2026 The OpenEverest Contributors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package kubernetes
 
 import (
-	"encoding/json"
-
 	corev1 "k8s.io/api/core/v1"
 )
 
@@ -18,21 +30,20 @@ const (
 	ContainerStateTerminated ContainerState = "terminated"
 )
 
-// IsContainerInState returns true if container is in give state, otherwise false.
-func IsContainerInState(containerStatuses []corev1.ContainerStatus, state ContainerState) bool {
-	containerState := make(map[string]interface{})
+// IsContainerInState returns true if the named container is in the given state.
+func IsContainerInState(containerStatuses []corev1.ContainerStatus, name string, state ContainerState) bool {
 	for _, status := range containerStatuses {
-		data, err := json.Marshal(status.State)
-		if err != nil {
-			return false
+		if status.Name != name {
+			continue
 		}
 
-		if err := json.Unmarshal(data, &containerState); err != nil {
+		switch state {
+		case ContainerStateWaiting:
+			return status.State.Waiting != nil
+		case ContainerStateTerminated:
+			return status.State.Terminated != nil
+		default:
 			return false
-		}
-
-		if _, ok := containerState[string(state)]; ok {
-			return true
 		}
 	}
 

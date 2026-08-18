@@ -20,7 +20,7 @@ We welcome many types of contributions including:
 - Answering questions on [Slack or other community channels](https://openeverest.io/#community) and GitHub Discussions
 - Blog posts, social media, and other community advocacy
 - [Website and blog posts](https://github.com/openeverest/openeverest.github.io)
-- Let us know when your talk about OpenEverest is accepted at a conference!
+- Let us know when your talk on OpenEverest is accepted at a conference!
 - Release management
 - Problems found while setting up the development environment
 
@@ -32,9 +32,101 @@ The best way to reach us with a question when contributing is to join our commun
 
 ## Raising Issues
 
-When raising [Issues](https://github.com/openeverest/openeverest/issues), please follow the template and fill the correponding fields. Details matter.
+When raising [Issues](https://github.com/openeverest/openeverest/issues), please follow the template and fill the corresponding fields. Details matter.
 
 If you are trying to report a vulnerability, please refer to our [Security Policy](https://github.com/openeverest/openeverest/blob/main/SECURITY.md).
+
+## Working on Issues
+
+### Finding something to work on
+
+Every new issue starts untriaged. A maintainer reads it and either accepts it, asks for more information, or closes it with an explanation. We aim to do this within 5 business days.
+
+Labels tell you where an issue stands:
+
+| Label | What it means for you |
+| --- | --- |
+| `needs-triage` | Nobody has looked at it yet. Added automatically when the issue is opened. |
+| `triage/needs-information` | We're waiting on the reporter before deciding. |
+| `triage/accepted` | We agree this should be done. |
+| `triage/duplicate` | Already reported — the earliest report is canonical, follow that one. |
+| `triage/not-reproducible` | We couldn't reproduce it as reported. A working reproduction reopens the conversation. |
+| [`help wanted`](https://github.com/openeverest/openeverest/issues?q=is%3Aissue+is%3Aopen+label%3A%22help+wanted%22+no%3Aassignee) | Accepted, and we'd welcome community help. **Claim these yourself with `/assign`.** |
+| [`good first issue`](https://github.com/openeverest/openeverest/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22+no%3Aassignee) | A `help wanted` issue that needs no deep background. Ideal if this is your first contribution here. |
+
+**The triage labels are maintained by a bot, so they are always current.** `needs-triage` is applied to every issue as it is opened, and is removed only when a maintainer records a decision by applying one of the `triage/*` labels. If a decision label is later taken off, `needs-triage` comes back. Exactly one triage label is on every open issue, so "has anybody looked at this yet?" is answerable at a glance.
+
+They describe where our thinking has got to, not what you are allowed to do. An issue sitting at `needs-triage` means we might decide it isn't a bug, or that we don't want it fixed the way it proposes — which is worth knowing before you spend a weekend on it, and is the only reason to wait.
+
+**This applies to issues you open yourself.** Filing an issue does not assign it to you — comment `/assign` if you want it.
+
+**Small, obvious fixes don't need to wait for any of this.** A wrong error message, a missing nil check, a typo in a log line — open the pull request and reference the issue. Triage exists to stop you sinking days into something we may not want, not to make you queue for permission to fix something that is plainly broken.
+
+**What a `good first issue` should give you.** Before we apply that label, the issue should describe both the problem and the shape of the fix, link the code and the tests you will need to touch, need no unusual setup or deep background, and have somebody willing to answer questions while you work on it. If one of those is missing, say so in the thread — that is a shortcoming in the issue, not in you.
+
+### Claiming an issue
+
+**Comment `/assign` on any open issue.** A bot assigns it to you straight away — no maintainer needs to be involved, and you do not need to wait for the issue to be triaged. Comment `/unassign` at any time to release it. The bot will decline only if somebody else already has it, or if you are at your limit: **at most two open assigned issues at a time**.
+
+**Being assigned is not the same as us agreeing to the fix.** If the issue still says `needs-triage`, we might yet decide it isn't a bug, or that we want it solved differently. For a small, obvious fix — a wrong error message, a missing nil check — go straight ahead. For anything larger, waiting for the triage decision costs you a few days and can save you a weekend. That is a judgement call about your own time, not a rule.
+
+If you have already had a pull request merged here, please consider leaving `good first issue` items for people who haven't — there are rarely many of them, and they are the easiest way into the project for someone new. That is a courtesy rather than a rule, and the bot will not stop you.
+
+**If the same thing gets reported twice, the earliest report wins.** We keep the first one and close later ones against it, whether or not a pull request happens to be attached to the later one. Whoever fixes it references the original issue.
+
+### While you are working
+
+Please do not open a pull request for an issue that is assigned to somebody else. If you have already written the fix, say so in the issue thread rather than opening it: if the assignee has gone quiet, or is happy to hand it over, a maintainer will sort it out there.
+
+Reference the issue with `Fixes #123` in your pull request description.
+
+If an assigned issue shows no visible progress for two weeks, a bot will ask whether you are still on it, and will unassign it about a week later if there is no reply. No hard feelings — comment `/assign` and it is yours again.
+
+Two things stop that clock, and you can ask for either in the issue thread:
+
+- **`status/blocked`** — you are waiting on us rather than the other way round: a design review, an architectural decision, an upstream fix. Reminders stop until it is resolved.
+- **`lifecycle/frozen`** — the work is simply a long one and will legitimately take more than a few weeks.
+
+Before investing significant time in an implementation, consider sharing your design ideas in the issue thread or in our [community channels](https://openeverest.io/#community) (Slack and more). Early feedback from maintainers and other contributors can save effort, surface existing work, and help your PR land faster.
+
+## Pull requests
+
+### Keep them small
+
+Small pull requests get reviewed faster and are more likely to be correct. Reviewer attention is the scarce resource here: someone with twenty minutes will pick up a hundred-line change and postpone a thousand-line one, possibly several times over.
+
+- **One concern per pull request.** While implementing something you will find bad names, missing tests, weak types. Please do fix them — in a separate pull request. Unrelated changes in the same diff bury the change that actually matters.
+- **Land preparatory work first.** If your change needs a refactor to fit, send the refactor on its own. It is easier to review, and it stops you rebasing it forever.
+- **Don't sweep the whole repository.** A one-line change repeated across forty files needs sign-off from everyone who owns those files, and the review cost rarely justifies the benefit. If you want to do one of these, split it by area and open the first one to find out whether we agree before doing the rest.
+- **Style-only and linter-only changes need agreement first.** Ask in the issue or in our [community channels](https://openeverest.io/#community) before opening them. A linter we have not enabled is usually a decision rather than an oversight, and reformatting churn makes every open pull request conflict.
+- **Trivial edits cost a review too.** A single typo fix is rarely worth one on its own — if you are fixing one, read the rest of the file and fix everything you find there.
+
+Open it as a **draft** while you are still working, and mark it ready for review when you want eyes on it. Explain the *why* in the description; the *what* is already in the diff.
+
+### Getting it reviewed
+
+Give it time before chasing it: a pull request opened this morning has not gone quiet, it has just been opened. Once a week or so has passed with no response at all:
+
+1. Check CI is green and there are no merge conflicts — nobody starts a review on a red pull request.
+2. Check the description says why the change is needed, not just what it does.
+3. Comment on the pull request asking for a review. This is welcome, not nagging.
+4. Bring it to our [community channels](https://openeverest.io/#community), or to a [community meeting](https://github.com/openeverest#openeverest-community-meetings).
+
+We would much rather be nudged than have your work sit there while you assume we have quietly said no.
+
+### It's fine to push back
+
+Reviewers get things wrong. If you have a good reason for doing something a particular way, say so — you might be overruled, but you might also be right, and we would rather have the argument than have you silently apply a change you think is worse.
+
+## AI-assisted contributions
+
+Use whatever tools help you. We care about the result, not how you produced it. Two rules make that workable.
+
+**You must understand what you submit.** If you cannot explain why a change is correct, or defend it in review, it is not ready. The same applies to issues: if you cannot explain why something is a bug, it is not ready to file.
+
+**Never present output you did not produce.** Logs, stack traces, race detector output, benchmark numbers and error messages must be things you actually observed. Reasoning from reading the code is completely legitimate — say that is what you did. *"I haven't run this, here is the reasoning"* is a good report. Invented output presented as observed is not, and it is worse than no evidence at all: it manufactures confidence that a problem was reproduced, and it forces a reviewer to audit the report before they can start on the claim itself.
+
+Please say when a contribution is substantially AI-generated. Reports and pull requests containing unverified claims presented as fact will be closed without detailed review, and repeated submissions of that kind may lead to a temporary interaction limit.
 
 ## Contributing to the source code
 
@@ -157,10 +249,10 @@ make test
 
 # API integration tests (requires local Kubernetes cluster)
 make k3d-cluster-up
-make test-api
+make -C api-tests test
 
 # CLI integration tests (requires local Kubernetes cluster)
-make test-cli
+make -C cli-tests test-cli
 ```
 
 ### CI Requirements

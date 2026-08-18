@@ -28,6 +28,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 
+	common "github.com/openeverest/openeverest/v2/api/common/v1alpha1"
 	monitoringv1alpha1 "github.com/openeverest/openeverest/v2/api/monitoring/v1alpha1"
 	api "github.com/openeverest/openeverest/v2/internal/server/api"
 	"github.com/openeverest/openeverest/v2/pkg/pmm"
@@ -80,9 +81,9 @@ func (h *k8sHandler) CreateMonitoringConfig(ctx context.Context, cluster, namesp
 		Spec: monitoringv1alpha1.MonitoringConfigSpec{
 			Type: monitoringv1alpha1.MonitoringType(req.Type),
 			PMM: &monitoringv1alpha1.PMMMonitoringSpec{
-				URL:                   req.Url,
-				CredentialsSecretName: req.Name,
-				VerifyTLS:             req.VerifyTLS,
+				URL:                  req.Url,
+				CredentialsSecretRef: common.SecretRef{Name: req.Name},
+				VerifyTLS:            req.VerifyTLS,
 			},
 		},
 	}
@@ -188,7 +189,7 @@ func (h *k8sHandler) UpdateMonitoringConfig(ctx context.Context, cluster, namesp
 			secret := newMonitoringConfigSecret(name, namespace, apiKey)
 
 			if _, err = h.kubeConnector.UpdateSecret(ctx, secret); err != nil {
-				return nil, fmt.Errorf("could not update k8s secret %s", name)
+				return nil, fmt.Errorf("could not update k8s secret %s: %w", name, err)
 			}
 		}
 	}

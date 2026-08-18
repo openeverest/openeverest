@@ -53,6 +53,14 @@ func newPolicy(lines ...string) string {
 	return strings.Join(lines, "\n")
 }
 
+// testUserContext returns a context carrying the given RBAC user, as the JWT
+// middleware would set it.
+//
+//nolint:staticcheck // common.UserCtxKey is a string key kept for echo-jwt compatibility
+func testUserContext(user rbac.User) context.Context {
+	return context.WithValue(context.Background(), common.UserCtxKey, user)
+}
+
 func testUserGetter(ctx context.Context) (rbac.User, error) {
 	user, ok := ctx.Value(common.UserCtxKey).(rbac.User)
 	if !ok {

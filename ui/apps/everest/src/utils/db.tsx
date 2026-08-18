@@ -43,7 +43,6 @@ import {
 import { generateShortUID } from './generateShortUID';
 import { capitalize } from '@mui/material';
 import { getProxySpec } from 'hooks/api/db-cluster/utils';
-import { dbEngineToDbType } from '@percona/utils';
 import { Path, UseFormGetFieldState } from 'react-hook-form';
 import cronConverter from './cron-converter';
 import { EMPTY_LOAD_BALANCER_CONFIGURATION } from 'consts';
@@ -851,9 +850,10 @@ export const changeDbClusterResources = (
     proxy: (() => {
       const exposeType = dbCluster.spec.proxy?.expose?.type;
       const mappedExposeType = mapDeprecatedExposeType(exposeType);
+      const dbType = dbCluster.spec.engine.type as unknown as DbType;
 
       return getProxySpec(
-        dbEngineToDbType(dbCluster.spec.engine.type),
+        dbType,
         newResources.numberOfProxies.toString(),
         '',
         mappedExposeType,
@@ -980,14 +980,6 @@ export const setDbClusterRestart = (dbCluster: DbCluster) => ({
     },
   },
 });
-
-const humanizedDbMap: Record<DbType, string> = {
-  [DbType.Postresql]: 'PostgreSQL',
-  [DbType.Mongo]: 'MongoDB',
-  [DbType.Mysql]: 'MySQL',
-};
-
-export const humanizeDbType = (type: DbType): string => humanizedDbMap[type];
 
 // This does not apply to the delete action, which is only blocked when the db is being deleted itself
 export const shouldDbActionsBeBlocked = (status?: PhaseType): boolean => {

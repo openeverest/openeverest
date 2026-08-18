@@ -17,7 +17,11 @@
 // +groupName=monitoring.openeverest.io
 package v1alpha1
 
-import metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+import (
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	common "github.com/openeverest/openeverest/v2/api/common/v1alpha1"
+)
 
 const (
 	// PMMMonitoringType represents monitoring via PMM.
@@ -46,9 +50,11 @@ type MonitoringConfigSpec struct {
 
 // PMMMonitoringSpec contains configuration specific to PMM monitoring.
 type PMMMonitoringSpec struct {
-	// CredentialsSecretName is the reference to the secret containing the API key.
-	// It contains `apiKey` key with the API key value.
-	CredentialsSecretName string `json:"credentialsSecretName"`
+	// CredentialsSecretRef references the Secret in the same namespace
+	// containing the API key. It contains an `apiKey` key with the API key
+	// value.
+	// +kubebuilder:validation:Required
+	CredentialsSecretRef common.SecretRef `json:"credentialsSecretRef"`
 	// URL is the URL of the PMM server.
 	URL string `json:"url"`
 	// VerifyTLS is set to ensure TLS/SSL verification.

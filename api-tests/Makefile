@@ -16,6 +16,11 @@ init:     ## Install tests dependencies.
 	#npm ci
 	PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 npx playwright install
 
+.PHONY: gen-types
+gen-types: ## Generate TypeScript types from the OpenAPI spec (api/openapi/http-api.yaml).
+	pnpm install
+	pnpm generate-types
+
 # NOTE: API tests do not wait for DB clusters to be ready.
 # The only exception is pg-data-importer test, so that only PG images are pre-uploaded to K3D cluster.
 CI_INIT_DEPS := init deploy-monitoring create-test-users k3d-upload-images

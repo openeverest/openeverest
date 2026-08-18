@@ -12,7 +12,8 @@ metadata:
 spec:
   type: pmm
   pmm:
-    credentialsSecretName: mc-1-secret
+    credentialsSecretRef:
+      name: mc-1-secret
     verifyTLS: false
     url: http://localhost-mc-1
     # image: percona/pmm-client:latest
@@ -31,6 +32,7 @@ metadata:
 spec:
   type: pmm
   pmm:
-    credentialsSecretName: mc-2-secret
+    credentialsSecretRef:
+      name: mc-2-secret
     url: http://localhost-mc-2
     # image: percona/pmm-client:latest

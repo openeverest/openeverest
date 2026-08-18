@@ -74,12 +74,16 @@ type KubernetesConnector interface {
 	GetCatalogSource(ctx context.Context, key ctrlclient.ObjectKey) (*olmv1alpha1.CatalogSource, error)
 	// DeleteCatalogSource deletes catalog source that matches the criteria.
 	DeleteCatalogSource(ctx context.Context, obj *olmv1alpha1.CatalogSource) error
+	// ListConfigMaps returns list of configmaps that match the criteria.
+	ListConfigMaps(ctx context.Context, opts ...ctrlclient.ListOption) (*corev1.ConfigMapList, error)
 	// GetConfigMap returns k8s configmap that matches the criteria.
 	GetConfigMap(ctx context.Context, key ctrlclient.ObjectKey) (*corev1.ConfigMap, error)
 	// CreateConfigMap creates k8s configmap.
 	CreateConfigMap(ctx context.Context, config *corev1.ConfigMap) (*corev1.ConfigMap, error)
 	// UpdateConfigMap updates k8s configmap.
 	UpdateConfigMap(ctx context.Context, config *corev1.ConfigMap) (*corev1.ConfigMap, error)
+	// DeleteConfigMap deletes a configmap.
+	DeleteConfigMap(ctx context.Context, obj *corev1.ConfigMap) error
 	// GetClusterServiceVersion retrieves a ClusterServiceVersion that matches the criteria.
 	GetClusterServiceVersion(ctx context.Context, key ctrlclient.ObjectKey) (*olmv1alpha1.ClusterServiceVersion, error)
 	// ListClusterServiceVersion list all CSVs that match the criteria.
@@ -89,6 +93,8 @@ type KubernetesConnector interface {
 	DeleteClusterServiceVersion(ctx context.Context, obj *olmv1alpha1.ClusterServiceVersion) error
 	// DeleteClusterServiceVersions deletes all ClusterServiceVersion that match the criteria.
 	// This function will wait until all ClusterServiceVersion are deleted.
+	//
+	//nolint:dupl // per-resource client wrappers are intentionally similar
 	DeleteClusterServiceVersions(ctx context.Context, opts ...ctrlclient.ListOption) error
 	// ListCRDs lists all CRDs that match the criteria.
 	ListCRDs(ctx context.Context, opts ...ctrlclient.ListOption) (*apiextv1.CustomResourceDefinitionList, error)
@@ -146,7 +152,7 @@ type KubernetesConnector interface {
 	// ListDataImporters lists all DataImporters in the cluster.
 	ListDataImporters(ctx context.Context, opts ...ctrlclient.ListOption) (*everestv1alpha1.DataImporterList, error)
 	// ListDataImportJobs lists all DataImportJobs for the specified database cluster.
-	ListDataImportJobs(ctx context.Context, namespace, dbName string, opts ...ctrlclient.ListOption) (*everestv1alpha1.DataImportJobList, error)
+	ListDataImportJobs(ctx context.Context, namespace, dbName string, _ ...ctrlclient.ListOption) (*everestv1alpha1.DataImportJobList, error)
 	// GetDeployment returns k8s deployment that matches the criteria.
 	GetDeployment(ctx context.Context, key ctrlclient.ObjectKey) (*appsv1.Deployment, error)
 	// UpdateDeployment updates a deployment and returns the updated object.
@@ -305,7 +311,7 @@ type KubernetesConnector interface {
 	GetAllClusterResources(ctx context.Context, clusterType ClusterType, volumes *corev1.PersistentVolumeList) (uint64, uint64, uint64, error)
 	// GetConsumedCPUAndMemory returns consumed CPU and Memory in given namespace. If namespace
 	// is empty, it tries to get them from all namespaces.
-	GetConsumedCPUAndMemory(ctx context.Context, namespace string) (cpuMillis uint64, memoryBytes uint64, err error)
+	GetConsumedCPUAndMemory(ctx context.Context, namespace string) (uint64, uint64, error)
 	// GetConsumedDiskBytes returns consumed bytes. The strategy differs based on k8s cluster type.
 	GetConsumedDiskBytes(_ context.Context, clusterType ClusterType, volumes *corev1.PersistentVolumeList) (uint64, error)
 	// ListSecrets returns list of secrets that match the criteria.
@@ -368,12 +374,27 @@ type KubernetesConnector interface {
 	// GetInstancePreset returns instance preset that matches the criteria.
 	GetInstancePreset(ctx context.Context, key ctrlclient.ObjectKey) (*v1alpha1.InstancePreset, error)
 	// WatchBackups returns a watch.Interface that streams
-	// DatabaseClusterBackup events across all namespaces.
+	// Backup events across all namespaces.
 	WatchBackups(ctx context.Context) (watch.Interface, error)
 	// WatchRestores returns a watch.Interface that streams
-	// DatabaseClusterRestore events across all namespaces.
+	// Restore events across all namespaces.
 	WatchRestores(ctx context.Context) (watch.Interface, error)
 	// WatchInstances returns a watch.Interface that streams
 	// Instance events across all namespaces.
 	WatchInstances(ctx context.Context) (watch.Interface, error)
+	// WatchPlugins returns a watch.Interface that streams Plugin CR events.
+	// Plugin is cluster-scoped.
+	WatchPlugins(ctx context.Context) (watch.Interface, error)
+	// WatchInstalledExtensions returns a watch.Interface that streams
+	// InstalledExtension events across all namespaces.
+	WatchInstalledExtensions(ctx context.Context) (watch.Interface, error)
+	// WatchEverestManagedNamespaces returns a watch.Interface that streams
+	// events for Namespaces carrying the Everest managed-by label.
+	WatchEverestManagedNamespaces(ctx context.Context) (watch.Interface, error)
+	// WatchEverestSettings returns a watch.Interface that streams ConfigMap
+	// events for the Everest settings ConfigMap in the system namespace.
+	// Callers must filter results by name (the watch returns all ConfigMaps in
+	// the namespace; field-selector watches are not portable across the
+	// controller-runtime client).
+	WatchEverestSettings(ctx context.Context) (watch.Interface, error)
 }

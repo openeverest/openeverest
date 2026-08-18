@@ -82,6 +82,11 @@ export const useNamespacePermissionsForResource = (
     create: [],
     delete: [],
   });
+  // Whether the async permission check for the current namespaces has resolved
+  // at least once. Consumers gate UI on this to avoid flashing a pre-resolution
+  // state (e.g. a "no permissions" empty state on remount when namespaces are
+  // already cached and the check hasn't run yet).
+  const [isPermissionsLoading, setIsPermissionsLoading] = useState(true);
 
   const queryResult = useNamespaces();
   const { data: namespaces } = queryResult;
@@ -117,9 +122,18 @@ export const useNamespacePermissionsForResource = (
   }, [namespaces, resource, specificResource]);
 
   useEffect(() => {
+    let active = true;
+    setIsPermissionsLoading(true);
     AuthorizerObservable.subscribe(checkPermissions);
-    checkPermissions();
-    return () => AuthorizerObservable.unsubscribe(checkPermissions);
+    checkPermissions().finally(() => {
+      if (active) {
+        setIsPermissionsLoading(false);
+      }
+    });
+    return () => {
+      active = false;
+      AuthorizerObservable.unsubscribe(checkPermissions);
+    };
   }, [checkPermissions]);
 
   return {
@@ -128,6 +142,7 @@ export const useNamespacePermissionsForResource = (
     canCreate: permissions.create,
     canDelete: permissions.delete,
     ...queryResult,
+    isPermissionsLoading,
   };
 };
 

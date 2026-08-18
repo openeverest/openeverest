@@ -49,12 +49,12 @@ const SwitchInput = ({
             onChange?.(e, e.target.checked);
             field.onChange(e);
           }}
-          sx={{
-            ...(labelCaption && {
+          sx={[
+            !!labelCaption && {
               alignSelf: 'flex-start',
               mt: -1,
-            }),
-          }}
+            },
+          ]}
           checked={field.value}
           data-testid={`switch-input-${kebabize(name)}`}
           {...restSwitchFieldProps}

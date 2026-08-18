@@ -28,7 +28,7 @@ export const scheduleModalDefaultValues = (
   initialBackupClassName?: string
 ): ScheduleFormData => {
   if (mode === WizardMode.Edit && selectedSchedule) {
-    const { name, storageName, cron, retentionCopies, config } =
+    const { name, storageName, cron, retentionCopies, parameters } =
       selectedSchedule;
     const formValues = getFormValuesFromCronExpression(cron);
     return {
@@ -37,9 +37,10 @@ export const scheduleModalDefaultValues = (
       [ScheduleFormFields.retentionCopies]: retentionCopies?.toString() || '0',
       [ScheduleFormFields.backupClassName]: initialBackupClassName ?? '',
       ...formValues,
-      // UIGenerator fields are registered under sectionKey "config" (e.g. config.compressionType).
-      // Wrap the flat config so react-hook-form maps values to the correct field paths.
-      ...(config ? { config } : {}),
+      // UIGenerator fields are registered under sectionKey "parameters"
+      // (e.g. parameters.compressionType). Wrap the flat parameters so
+      // react-hook-form maps values to the correct field paths.
+      ...(parameters ? { parameters } : {}),
     };
   }
   return {

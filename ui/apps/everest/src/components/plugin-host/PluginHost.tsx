@@ -31,29 +31,34 @@ const PluginHost = () => {
     return (
       <Box>
         <Typography variant="h5">Plugin not found</Typography>
-        <Typography color="text.secondary">
+        <Typography
+          sx={{
+            color: 'text.secondary',
+          }}
+        >
           No plugin registered with name &quot;{pluginName}&quot;.
         </Typography>
       </Box>
     );
   }
-
   // Find the first route extension with a component
   const routeExtension = plugin.extensions.find(
     (ext): ext is RouteExtension => ext.type === 'route'
   );
-
   if (!routeExtension?.component) {
     return (
       <Box>
         <Typography variant="h5">{plugin.name}</Typography>
-        <Typography color="text.secondary">
+        <Typography
+          sx={{
+            color: 'text.secondary',
+          }}
+        >
           This plugin does not provide a UI component for this route.
         </Typography>
       </Box>
     );
   }
-
   const PluginComponent = routeExtension.component;
   return (
     <PluginErrorBoundary pluginName={pluginName ?? ''}>
@@ -61,5 +66,4 @@ const PluginHost = () => {
     </PluginErrorBoundary>
   );
 };
-
 export default PluginHost;

@@ -13,6 +13,7 @@
 // limitations under the License.
 
 import { FormControlLabelProps, SwitchProps } from '@mui/material';
+import { ReactNode } from 'react';
 import { Provider } from 'shared-types/api.types';
 
 export enum FormMode {
@@ -248,4 +249,5 @@ export type UIGeneratorProps = {
   loadingDefaultsForEdition?: boolean;
   formMode?: FormMode;
   namespace?: string;
+  emptySectionMessage?: ReactNode;
 };

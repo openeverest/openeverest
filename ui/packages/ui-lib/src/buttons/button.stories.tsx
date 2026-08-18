@@ -1,3 +1,17 @@
+// Copyright (C) 2026 The OpenEverest Contributors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 import { type Meta, type StoryObj } from '@storybook/react';
 import { Box, Button, ButtonProps } from '@mui/material';
 import * as DocBlock from '@storybook/blocks';
@@ -41,7 +55,13 @@ const meta = {
   },
   render: function Render({ variant, size, ...args }) {
     return (
-      <Box display="flex" alignItems="center" gap="10px">
+      <Box
+        sx={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '10px',
+        }}
+      >
         <Button variant={variant} size={size} {...args}>
           Large
         </Button>
@@ -49,38 +69,38 @@ const meta = {
     );
   },
 } satisfies Meta<ButtonProps>;
-
 export default meta;
 type Story = StoryObj<ButtonProps>;
-
 export const Contained: Story = {
   args: {
     variant: 'contained',
   },
 };
-
 export const Outlined: Story = {
   args: {
     variant: 'outlined',
   },
 };
-
 export const Text: Story = {
   args: {
     variant: 'text',
   },
 };
-
 export const Hovered: Story = {
   parameters: {
     pseudo: {
       hover: true,
     },
   },
-
   render: function Render({ size }) {
     return (
-      <Box display="flex" alignItems="center" gap="10px">
+      <Box
+        sx={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '10px',
+        }}
+      >
         <Button variant="contained" size={size}>
           Large
         </Button>
@@ -94,11 +114,16 @@ export const Hovered: Story = {
     );
   },
 };
-
 export const Disabled: Story = {
   render: function Render({ size }) {
     return (
-      <Box display="flex" alignItems="center" gap="10px">
+      <Box
+        sx={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '10px',
+        }}
+      >
         <Button variant="contained" size={size} disabled={true}>
           Large
         </Button>
@@ -112,7 +137,6 @@ export const Disabled: Story = {
     );
   },
 };
-
 export const WithIcon: Story = {
   args: {
     variant: 'contained',
@@ -121,7 +145,13 @@ export const WithIcon: Story = {
   },
   render: function Render({ variant, size, startIcon, endIcon }) {
     return (
-      <Box display="flex" alignItems="center" gap="10px">
+      <Box
+        sx={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '10px',
+        }}
+      >
         <Button startIcon={startIcon} variant={variant} size={size}>
           Large
         </Button>

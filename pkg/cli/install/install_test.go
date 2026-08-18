@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -99,7 +100,7 @@ func TestInstall_latestVersion(t *testing.T) {
 			t.Parallel()
 
 			i := &Installer{
-				cfg: InstallConfig{
+				cfg: Config{
 					Version: tc.providedVersion,
 				},
 			}

@@ -71,7 +71,10 @@ vi.mock('hooks/api/backups/useBackups', () => ({
     data: [
       {
         metadata: { name: 'backup-1' },
-        spec: { storageName: 'storage-a', instanceName: 'test-instance' },
+        spec: {
+          storageRef: { name: 'storage-a' },
+          instanceRef: { name: 'test-instance' },
+        },
         status: { state: 'Completed' },
       },
     ],
@@ -87,13 +90,12 @@ const mockInstance: Instance = {
   kind: 'Instance',
   metadata: { name: 'test-instance' } as never,
   spec: {
-    provider: 'test-provider',
+    providerRef: { name: 'test-provider' },
     backup: {
       enabled: true,
       classRef: { name: 'class-limited' },
       storages: [
         {
-          name: 'storage-a',
           storageRef: { name: 'storage-a' },
           main: true,
           schedules: [],

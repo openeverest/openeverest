@@ -77,27 +77,30 @@ const ConnectionSection = ({
               size="small"
               sx={{ maxHeight: '50px', marginTop: '20px', width: '100%' }}
               type={showUrl ? 'text' : 'password'}
-              InputProps={{
-                endAdornment: (
-                  <>
-                    <IconButton onClick={() => setShowUrl((s) => !s)}>
-                      {showUrl ? (
-                        <VisibilityOutlinedIcon />
-                      ) : (
-                        <VisibilityOffOutlinedIcon />
-                      )}
-                    </IconButton>
-                    <CopyToClipboardButton
-                      buttonProps={{
-                        sx: { mt: -0.5 },
-                        size: 'small',
-                      }}
-                      textToCopy={credentials.uri || ''}
-                    />
-                  </>
-                ),
+              slotProps={{
+                input: {
+                  endAdornment: (
+                    <>
+                      <IconButton onClick={() => setShowUrl((s) => !s)}>
+                        {showUrl ? (
+                          <VisibilityOutlinedIcon />
+                        ) : (
+                          <VisibilityOffOutlinedIcon />
+                        )}
+                      </IconButton>
+                      <CopyToClipboardButton
+                        buttonProps={{
+                          sx: { mt: -0.5 },
+                          size: 'small',
+                        }}
+                        textToCopy={credentials.uri || ''}
+                      />
+                    </>
+                  ),
+                },
+
+                inputLabel: { shrink: true },
               }}
-              InputLabelProps={{ shrink: true }}
             />
           )}
         </>

@@ -17,7 +17,6 @@ import { AutoCompleteAutoFill } from 'components/auto-complete-auto-fill/auto-co
 import { useBackupStoragesByNamespace } from 'hooks/api/backup-storages/useBackupStorages';
 import { useFormContext } from 'react-hook-form';
 import { DbCluster } from 'shared-types/dbCluster.types';
-import { dbEngineToDbType } from '@percona/utils';
 import { PitrEditFields } from './edit-pitr.types';
 import { Messages } from './edit-pitr.messages';
 
@@ -28,7 +27,7 @@ const PitrStorage = ({ dbCluster }: { dbCluster: DbCluster }) => {
   const { data: backupStorages = [], isFetching: loadingBackupStorages } =
     useBackupStoragesByNamespace(dbCluster.metadata.namespace);
 
-  const dbType = dbEngineToDbType(dbCluster.spec.engine.type);
+  const dbType = dbCluster.spec.engine.type as unknown as DbType;
 
   if (!pitrEnabled) {
     return null;

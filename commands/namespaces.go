@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -25,8 +26,8 @@ import (
 var namespacesCmd = &cobra.Command{
 	Use:   "namespaces <command> [flags]",
 	Args:  cobra.ExactArgs(1),
-	Long:  "Managed Everest database namespaces",
-	Short: "Managed Everest database namespaces",
+	Long:  "Manage Everest database namespaces",
+	Short: "Manage Everest database namespaces",
 	Run:   func(_ *cobra.Command, _ []string) {},
 }
 
