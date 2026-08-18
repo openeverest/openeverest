@@ -7,21 +7,9 @@ on:
         required: false
         default: main
         description: "Everest branch with the feature to checkout"
-      everest_operator_branch:
-        required: false
-        default: main
-        description: "Everest operator branch with the feature to checkout"
-      everest_catalog_branch:
-        required: false
-        default: main
-        description: "Everest catalog branch with the feature to checkout"
-      vs_branch:
-        required: false
-        default: production
-        description: "Version Service branch with the feature to checkout"
       helm_branch:
         required: false
-        default: main
+        default: v2
         description: "Helm charts branch with the feature to checkout"
       artifacts_retention_days:
         required: false
@@ -34,25 +22,10 @@ on:
         type: string
         default: main
         description: "Everest branch with the feature to checkout"
-      everest_operator_branch:
-        required: false
-        type: string
-        default: main
-        description: "Everest operator branch with the feature to checkout"
-      everest_catalog_branch:
-        required: false
-        type: string
-        default: main
-        description: "Everest catalog branch with the feature to checkout"
-      vs_branch:
-        required: false
-        type: string
-        default: production
-        description: "Version Service branch with the feature to checkout"
       helm_branch:
         required: false
         type: string
-        default: main
+        default: v2
         description: "Helm charts branch with the feature to checkout"
       artifacts_retention_days:
         required: false
@@ -80,16 +53,14 @@ jobs:
     outputs:
       version: ${{ steps.set_version.outputs.version }}
       version_tag: ${{ steps.set_version.outputs.version_tag }}
-      vs_tag: ${{ steps.set_version.outputs.vs_tag }}
     steps:
       - name: Generate version
         id: set_version
         run: |
           TIMESTAMP=$(date +'%Y%m%d%H%M%S')
-          V="1.10000.0-rc$TIMESTAMP"
+          V="2.10000.0-rc$TIMESTAMP"
           echo "version=$V" >> $GITHUB_OUTPUT
           echo "version_tag=v$V" >> $GITHUB_OUTPUT
-          echo "vs_tag=everest-test$TIMESTAMP" >> $GITHUB_OUTPUT
 
   build:
     name: Build (${{ matrix.arch }})
@@ -115,27 +86,16 @@ jobs:
     env:
       TOOLS_PATH: "/opt/tools/bin"
       ARTIFACTS_RETENTION_DAYS: ${{ inputs.artifacts_retention_days }}
-      VS_BRANCH: ${{ inputs.vs_branch }}
       HELM_BRANCH: ${{ inputs.helm_branch }}
       EVEREST_BRANCH: ${{ inputs.everest_branch }}
-      EVEREST_OPERATOR_BRANCH: ${{ inputs.everest_operator_branch }}
-      EVEREST_CATALOG_BRANCH: ${{ inputs.everest_catalog_branch }}
 
       IMAGE_PREFIX: 'ghcr.io/openeverest'
       EVEREST_SERVER_DEV_IMAGE_NAME: 'openeverest-dev'
-      EVEREST_CTL_DEV_IMAGE_NAME: 'everestctl-dev'
-      EVEREST_OPERATOR_DEV_IMAGE_NAME: 'openeverest-operator-dev'
-      EVEREST_OPERATOR_BUNDLE_DEV_IMAGE_NAME: 'openeverest-operator-bundle-dev'
-      EVEREST_CATALOG_DEV_IMAGE_NAME: 'openeverest-catalog-dev'
-      EVEREST_VERSION_SERVICE_DEV_IMAGE_NAME: 'version-service-dev'
 
-      VS_PORT: 8081
       ARCH: ""
       OS: ""
       VERSION: ""
       VERSION_TAG: ""
-      VS_URL: ""
-      VS_TAG: ""
 
     steps:
 
@@ -155,19 +115,14 @@ jobs:
         run: |
           echo "ARCH=$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/')" | tee -a $GITHUB_ENV
           echo "OS=$(uname | awk '{print tolower($0)}')" | tee -a $GITHUB_ENV
-          echo "VS_URL=http://localhost:$VS_PORT" | tee -a $GITHUB_ENV
           
           # Use version from prepare job
           echo "VERSION=${{ needs.prepare.outputs.version }}" | tee -a $GITHUB_ENV
           echo "VERSION_TAG=${{ needs.prepare.outputs.version_tag }}" | tee -a $GITHUB_ENV
-          echo "VS_TAG=${{ needs.prepare.outputs.vs_tag }}" | tee -a $GITHUB_ENV
 
           # Fall back to default branch if the specified branch does not exist
-          git ls-remote --heads --exit-code --quiet https://github.com/Percona-Lab/percona-version-service.git $VS_BRANCH > /dev/null || echo "VS_BRANCH=production" | tee -a $GITHUB_ENV
-          git ls-remote --heads --exit-code --quiet https://github.com/openeverest/helm-charts.git $HELM_BRANCH > /dev/null || echo "HELM_BRANCH=main" | tee -a $GITHUB_ENV
+          git ls-remote --heads --exit-code --quiet https://github.com/openeverest/helm-charts.git $HELM_BRANCH > /dev/null || echo "HELM_BRANCH=v2" | tee -a $GITHUB_ENV
           git ls-remote --heads --exit-code --quiet https://github.com/openeverest/openeverest.git $EVEREST_BRANCH > /dev/null || echo "EVEREST_BRANCH=main" | tee -a $GITHUB_ENV
-          git ls-remote --heads --exit-code --quiet https://github.com/openeverest/openeverest-operator.git $EVEREST_OPERATOR_BRANCH > /dev/null || echo "EVEREST_OPERATOR_BRANCH=main" | tee -a $GITHUB_ENV
-          git ls-remote --heads --exit-code --quiet https://github.com/openeverest/openeverest-catalog.git $EVEREST_CATALOG_BRANCH > /dev/null || echo "EVEREST_CATALOG_BRANCH=main" | tee -a $GITHUB_ENV
 
       - name: Create temporary directory for storing artifacts
         run: |
@@ -182,91 +137,6 @@ jobs:
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@4d04d5d9486b7bd6fa91e7baf45bbb4f8b9deedd # v4.0.0
-
-      - name: Operator - check out
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-        with:
-          repository: openeverest/openeverest-operator
-          ref: ${{ env.EVEREST_OPERATOR_BRANCH }}
-          path: openeverest-operator
-          token: ${{ secrets.ROBOT_TOKEN }}
-
-      - name: Operator - install operator-sdk
-        run: |
-          mkdir -p $TOOLS_PATH
-          echo $TOOLS_PATH >> $GITHUB_PATH
-
-          export OPERATOR_SDK_DL_URL=https://github.com/operator-framework/operator-sdk/releases/download/v1.38.0
-          curl -LO ${OPERATOR_SDK_DL_URL}/operator-sdk_${OS}_${ARCH}
-
-          gpg --keyserver keyserver.ubuntu.com --recv-keys 052996E2A20B5C7E
-
-          curl -LO ${OPERATOR_SDK_DL_URL}/checksums.txt
-          curl -LO ${OPERATOR_SDK_DL_URL}/checksums.txt.asc
-          gpg -u "Operator SDK (release) <cncf-operator-sdk@cncf.io>" --verify checksums.txt.asc
-
-          grep operator-sdk_${OS}_${ARCH} checksums.txt | sha256sum -c -
-
-          chmod +x operator-sdk_${OS}_${ARCH}
-          mv operator-sdk_${OS}_${ARCH} $TOOLS_PATH/operator-sdk
-
-      - name: Operator - build and bundle
-        if: matrix.arch == 'amd64'
-        run: |
-          cd openeverest-operator
-          git checkout -b $VERSION_TAG
-          sed -i "s/^VERSION ?=.*/VERSION ?= $VERSION/g" Makefile
-
-          make init
-          make release
-
-          # configure userdata for commits
-          git config --global user.email "everest-ci@percona.com"
-          git config --global user.name "Everest RC CI triggered by ${{ github.actor }}"
-
-          # commit and push the updated files
-          git commit -a -m "operator manifests"
-          # to build crds in helm, the remote ref with the version name should exist
-          git push origin $VERSION_TAG
-
-      - name: Operator - setup Docker meta for openeverest-operator
-        id: operator_meta
-        uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051 # v5.10.0
-        with:
-          images: |
-            ${{ env.IMAGE_PREFIX }}/${{ env.EVEREST_OPERATOR_DEV_IMAGE_NAME }}
-          tags: |
-            type=raw,value=${{ env.VERSION }}-${{ matrix.arch }}
-
-      - name: Operator - setup Docker meta for openeverest-operator-bundle
-        id: bundle_meta
-        uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051 # v5.10.0
-        with:
-          images: |
-            ${{ env.IMAGE_PREFIX }}/${{ env.EVEREST_OPERATOR_BUNDLE_DEV_IMAGE_NAME }}
-          tags: |
-            type=raw,value=${{ env.VERSION }}-${{ matrix.arch }}
-
-      - name: Operator - push openeverest-operator image
-        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
-        with:
-          context: openeverest-operator
-          push: true
-          provenance: false
-          platforms: ${{ matrix.platform }}
-          tags: ${{ steps.operator_meta.outputs.tags }}
-          build-args: |
-            FLAGS= -X 'github.com/percona/everest-operator/internal/consts.Version=${{ env.VERSION }}'
-
-      - name: Operator - push openeverest-operator-bundle image
-        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
-        with:
-          context: openeverest-operator
-          push: true
-          provenance: false
-          platforms: ${{ matrix.platform }}
-          tags: ${{ steps.bundle_meta.outputs.tags }}
-          file: openeverest-operator/bundle.Dockerfile
 
       - name: Helm - checkout
         if: matrix.arch == 'amd64'
@@ -288,83 +158,6 @@ jobs:
         if: matrix.arch == 'amd64'
         run: |
           cp -r helm-charts/charts/everest /tmp/${{ env.VERSION }}/helm-chart
-
-      - name: Operator - check out again
-        if: matrix.arch == 'amd64'
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-        with:
-          repository: openeverest/openeverest-operator
-          ref: ${{ env.EVEREST_OPERATOR_BRANCH }}
-          path: openeverest-operator
-          token: ${{ secrets.ROBOT_TOKEN }}
-
-      - name: Operator - delete the feature build branch
-        if: matrix.arch == 'amd64'
-        run: |
-          cd openeverest-operator
-          git push -d origin $VERSION_TAG
-
-      - name: VS - checkout
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-        with:
-          repository: Percona-Lab/percona-version-service
-          ref: ${{ env.VS_BRANCH }}
-          path: percona-version-service
-          token: ${{ secrets.ROBOT_TOKEN }}
-
-
-      - name: VS - update
-        if: matrix.arch == 'amd64'
-        run: |
-          cd percona-version-service
-          make init
-          
-          cd sources/metadata/everest 
-          # read the file for the last version of everest
-          file_content=$(cat $(ls -1 | sort | tail -n 1))
-          # create an entry for the new Everest version from this file by replacing the version
-          echo "$file_content" | sed "s/^version: .*/version: $VERSION/g" > "$VERSION.yaml"
-          
-          git status
-          cat "$VERSION.yaml"
-
-      - name: Build and Push VS dev image
-        if: matrix.arch == 'amd64'
-        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
-        with:
-          context: percona-version-service
-          push: true
-          provenance: false
-          platforms: ${{ matrix.platform }}
-          tags: ${{ env.IMAGE_PREFIX }}/${{ env.EVEREST_VERSION_SERVICE_DEV_IMAGE_NAME }}:${{ env.VS_TAG }}-${{ matrix.arch }}
-
-
-      - name: Catalog - checkout
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-        with:
-          repository: openeverest/openeverest-catalog
-          ref: ${{ env.EVEREST_CATALOG_BRANCH }}
-          path: openeverest-catalog
-          token: ${{ secrets.ROBOT_TOKEN }}
-
-      - name: Catalog - setup Docker meta for openeverest-catalog
-        id: catalog_meta
-        uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051 # v5.10.0
-        with:
-          images: |
-            ${{ env.IMAGE_PREFIX }}/${{ env.EVEREST_CATALOG_DEV_IMAGE_NAME }}
-          tags: |
-            type=raw,value=${{ env.VERSION }}-${{ matrix.arch }}
-
-      - name: Catalog - push openeverest-catalog image
-        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
-        with:
-          context: openeverest-catalog
-          push: true
-          provenance: false
-          platforms: ${{ matrix.platform }}
-          tags: ${{ steps.catalog_meta.outputs.tags }}
-          file: openeverest-catalog/everest-catalog.Dockerfile
 
 
       - name: Everest - check out
@@ -400,57 +193,17 @@ jobs:
       - name: Everest - build binary
         run: |
           RELEASE_VERSION=${VERSION_TAG} CGO_ENABLED=0 GOOS=linux GOARCH=${{ matrix.arch }} make rc
-          RELEASE_VERSION=${VERSION_TAG} make release-cli
-
-      - name: Everest - copy CLI builds
-        if: matrix.arch == 'amd64'
-        run: |
-          cp dist/everestctl.exe /tmp/${VERSION}/everestctl.exe
-          cp dist/everestctl-darwin-amd64 /tmp/${VERSION}/everestctl-darwin-amd64
-          cp dist/everestctl-darwin-arm64 /tmp/${VERSION}/everestctl-darwin-arm64
-          cp dist/everestctl-linux-amd64 /tmp/${VERSION}/everestctl-linux-amd64
-          cp dist/everestctl-linux-arm64 /tmp/${VERSION}/everestctl-linux-arm64
-
-      - name: Everest - copy feature build helper scripts
-        if: matrix.arch == 'amd64'
-        run: |
-          cp dev/fb/install-cli.sh /tmp/${VERSION}/install-cli.sh
-          cp dev/fb/upgrade-cli.sh /tmp/${VERSION}/upgrade-cli.sh
-          cp dev/fb/install-helm.sh /tmp/${VERSION}/install-helm.sh
-          cp dev/fb/upgrade-helm.sh /tmp/${VERSION}/upgrade-helm.sh
-          cp dev/fb/vs.sh /tmp/${VERSION}/vs.sh
 
       - name: Everest - push Everest image
         uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
         with:
           context: .
+          file: build/package/server/Dockerfile
+          target: openeverest
           push: true
           provenance: false
           platforms: ${{ matrix.platform }}
           tags: ${{ env.IMAGE_PREFIX }}/${{ env.EVEREST_SERVER_DEV_IMAGE_NAME }}:${{ env.VERSION }}-${{ matrix.arch }}
-
-      - name: CLI - build and push everestctl dev image
-        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
-        with:
-          context: .
-          file: build/package/cli/Dockerfile
-          push: true
-          provenance: false
-          platforms: ${{ matrix.platform }}
-          tags: ${{ env.IMAGE_PREFIX }}/${{ env.EVEREST_CTL_DEV_IMAGE_NAME }}:${{ env.VERSION }}-${{ matrix.arch }}
-
-      - name: Create vs_tag file
-        if: matrix.arch == 'amd64'
-        run: |
-          echo "$VS_TAG" > /tmp/${VERSION}/vs_tag.txt
-          echo "$VERSION" > /tmp/${VERSION}/version.txt
-
-      - name: Version Service - create deployment manifest
-        if: matrix.arch == 'amd64'
-        run: |
-          curl -fsSL https://raw.githubusercontent.com/Percona-Lab/percona-version-service/main/deploy.yaml  > /tmp/${VERSION}/vs_deploy.yaml
-          sed -i "s|perconalab/version-service:.*|$IMAGE_PREFIX/$EVEREST_VERSION_SERVICE_DEV_IMAGE_NAME:$VS_TAG|g" /tmp/${VERSION}/vs_deploy.yaml
-          sed -i "s/replicas: [0-9]/replicas: 1/g" /tmp/${VERSION}/vs_deploy.yaml
 
       - name: Upload artifacts
         if: matrix.arch == 'amd64'
@@ -460,24 +213,6 @@ jobs:
           path: /tmp/${{ env.VERSION }}
           retention-days: ${{ env.ARTIFACTS_RETENTION_DAYS }}
 
-      - name: Info
-        if: matrix.arch == 'amd64'
-        run: |
-          printf "To install FB using helm:\n\
-          1. Download and unzip the \`$VERSION\` artifact below.\n\
-          2. Run the command:\n\`\`\`./install-helm.sh\`\`\`\n" >> "$GITHUB_STEP_SUMMARY"
-          
-          printf "____________________\n" >> "$GITHUB_STEP_SUMMARY"
-          
-          printf "To install FB using CLI:\n\
-          1. Download and unzip the \`$VERSION\` artifact below.\n\
-          2. Run the command:\n\`\`\`./install-cli.sh\`\`\`\n" >> "$GITHUB_STEP_SUMMARY"
-
-          printf "____________________\n" >> "$GITHUB_STEP_SUMMARY"
-          
-          printf "To clean up the environment after a FB:\n\
-          1. Delete VS: \`kubectl delete deployment percona-version-service && kubectl delete svc percona-version-service\`\n\
-          2. Uninstall Everest using the FB everestctl build: \`./<everestctl-OS-ARCH> uninstall --assume-yes --force\` \n" >> "$GITHUB_STEP_SUMMARY"
 
   create-manifests:
     name: Create multi-arch manifests
@@ -491,7 +226,6 @@ jobs:
       REGISTRY: ghcr.io
       IMAGE_PREFIX: 'ghcr.io/openeverest'
       VERSION: ${{ needs.prepare.outputs.version }}
-      VS_TAG: ${{ needs.prepare.outputs.vs_tag }}
 
     steps:
       - name: Login to GitHub Container Registry
@@ -503,34 +237,10 @@ jobs:
 
       - name: Create and push multi-arch manifests
         run: |
-          # Operator
-          docker buildx imagetools create -t $IMAGE_PREFIX/openeverest-operator-dev:$VERSION \
-            $IMAGE_PREFIX/openeverest-operator-dev:$VERSION-amd64 \
-            $IMAGE_PREFIX/openeverest-operator-dev:$VERSION-arm64
-          
-          # Operator Bundle
-          docker buildx imagetools create -t $IMAGE_PREFIX/openeverest-operator-bundle-dev:$VERSION \
-            $IMAGE_PREFIX/openeverest-operator-bundle-dev:$VERSION-amd64 \
-            $IMAGE_PREFIX/openeverest-operator-bundle-dev:$VERSION-arm64
-          
-          # Version Service (AMD64 only)
-          docker buildx imagetools create -t $IMAGE_PREFIX/version-service-dev:$VS_TAG \
-            $IMAGE_PREFIX/version-service-dev:$VS_TAG-amd64
-          
-          # Catalog
-          docker buildx imagetools create -t $IMAGE_PREFIX/openeverest-catalog-dev:$VERSION \
-            $IMAGE_PREFIX/openeverest-catalog-dev:$VERSION-amd64 \
-            $IMAGE_PREFIX/openeverest-catalog-dev:$VERSION-arm64
-          
           # Everest
           docker buildx imagetools create -t $IMAGE_PREFIX/openeverest-dev:$VERSION \
             $IMAGE_PREFIX/openeverest-dev:$VERSION-amd64 \
             $IMAGE_PREFIX/openeverest-dev:$VERSION-arm64
-          
-          # Everestctl
-          docker buildx imagetools create -t $IMAGE_PREFIX/everestctl-dev:$VERSION \
-            $IMAGE_PREFIX/everestctl-dev:$VERSION-amd64 \
-            $IMAGE_PREFIX/everestctl-dev:$VERSION-arm64
 
 # Enable to debug workflow execution
 #      - name: "Setup tmate session"

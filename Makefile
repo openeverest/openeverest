@@ -118,7 +118,7 @@ copyright-run:
 			printf '%s\0' "$$file"; \
 		done > "$$TMP_FILES_LIST"; \
 	else \
-		BASE_BRANCH_LOCAL=$${BASE_BRANCH:-v2}; \
+		BASE_BRANCH_LOCAL=$${BASE_BRANCH:-main}; \
 		if ! BASE=$$(git merge-base HEAD "$$BASE_BRANCH_LOCAL" 2>/dev/null); then \
 			echo "Failed to determine merge base with '$$BASE_BRANCH_LOCAL'. Ensure the branch exists and is fetched, or set BASE_BRANCH explicitly."; \
 			exit 1; \
@@ -455,7 +455,8 @@ dev-destroy: k3d-cluster-down-dev ## Destroy the k3d cluster.
 CHART_BRANCH ?= v2
 .PHONY: update-dev-chart
 update-dev-chart: ## Update dependency to Everest Helm chart to the latest version from the specified branch (default v2).
-	COMMIT=$$(git ls-remote https://github.com/openeverest/helm-charts refs/heads/$(CHART_BRANCH) | cut -f1) && \
+	@COMMIT=$$(git ls-remote --exit-code https://github.com/openeverest/helm-charts refs/heads/$(CHART_BRANCH) | cut -f1) || \
+		{ echo "helm-charts branch '$(CHART_BRANCH)' not found. Set CHART_BRANCH to an existing branch."; exit 1; }; \
 	go get -u github.com/openeverest/helm-charts/charts/everest@$$COMMIT
 	go mod tidy
 
