@@ -2418,7 +2418,7 @@ func TestValidatePodSchedulingPolicy(t *testing.T) {
 				WithObjects(tc.objs...).
 				Build()
 			k := kubernetes.NewEmpty(zap.NewNop().Sugar()).WithKubernetesClient(mockClient)
-			k8sHandler := k8s.New(zap.NewNop().Sugar(), k, "")
+			k8sHandler := k8s.New(zap.NewNop().Sugar(), k, "", nil)
 
 			valHandler := &validateHandler{
 				log:           zap.NewNop().Sugar(),

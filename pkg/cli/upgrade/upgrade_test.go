@@ -205,7 +205,7 @@ func TestUpgrade_canUpgrade(t *testing.T) {
 					VersionMetadataURL: ts.URL,
 				},
 				kubeConnector:  k,
-				versionService: versionservice.New(ts.URL),
+				versionService: versionservice.New(ts.URL, nil),
 			}
 			everestVersion, err := goversion.NewVersion(tt.everestVersion)
 			require.NoError(t, err)

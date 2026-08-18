@@ -25,9 +25,11 @@ import (
 	"net/url"
 	"slices"
 	"strings"
+	"time"
 
 	perconavs "github.com/Percona-Lab/percona-version-service/versionpb"
 	goversion "github.com/hashicorp/go-version"
+	"github.com/percona/everest/pkg/httputil"
 	"google.golang.org/protobuf/encoding/protojson"
 
 	everestv1alpha1 "github.com/percona/everest-operator/api/everest/v1alpha1"
@@ -58,12 +60,16 @@ type Interface interface {
 }
 
 type versionServiceClient struct {
-	url string
+	url    string
+	client *http.Client
 }
 
 // New returns a new version service client.
-func New(url string) Interface { //nolint:ireturn
-	return &versionServiceClient{url: url}
+func New(url string, client *http.Client) Interface { //nolint:ireturn
+	if client == nil {
+		client = httputil.NewClient(httputil.WithTimeout(30*time.Second), httputil.WithTransient())
+	}
+	return &versionServiceClient{url: url, client: client}
 }
 
 //nolint:gochecknoglobals
@@ -85,7 +91,7 @@ func (c *versionServiceClient) GetSupportedEngineVersions(ctx context.Context, o
 	if err != nil {
 		return nil, errors.Join(err, errors.New("could not create version service request"))
 	}
-	res, err := http.DefaultClient.Do(req)
+	res, err := c.client.Do(req)
 	if err != nil {
 		return nil, errors.Join(err, errors.New("could not retrieve version response"))
 	}
@@ -147,7 +153,7 @@ func (c *versionServiceClient) GetEverestMetadata(ctx context.Context) (*percona
 	if err != nil {
 		return nil, errors.Join(err, errors.New("could not create Everest metadata request"))
 	}
-	res, err := http.DefaultClient.Do(req)
+	res, err := c.client.Do(req)
 	if err != nil {
 		return nil, errors.Join(err, errors.New("could not retrieve Everest metadata"))
 	}

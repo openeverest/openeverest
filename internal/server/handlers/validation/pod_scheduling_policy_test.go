@@ -562,7 +562,7 @@ func TestValidate_CreatePodSchedulingPolicy(t *testing.T) {
 				WithObjects(tc.objs...).
 				Build()
 			k := kubernetes.NewEmpty(zap.NewNop().Sugar()).WithKubernetesClient(mockClient)
-			k8sHandler := k8s.New(zap.NewNop().Sugar(), k, "")
+			k8sHandler := k8s.New(zap.NewNop().Sugar(), k, "", nil)
 
 			valHandler := New(zap.NewNop().Sugar(), k)
 			valHandler.SetNext(k8sHandler)
@@ -625,7 +625,7 @@ func TestValidate_ListPodSchedulingPolicy(t *testing.T) {
 				WithObjects(tc.objs...).
 				Build()
 			k := kubernetes.NewEmpty(zap.NewNop().Sugar()).WithKubernetesClient(mockClient)
-			k8sHandler := k8s.New(zap.NewNop().Sugar(), k, "")
+			k8sHandler := k8s.New(zap.NewNop().Sugar(), k, "", nil)
 
 			valHandler := New(zap.NewNop().Sugar(), k)
 			valHandler.SetNext(k8sHandler)
@@ -701,7 +701,7 @@ func TestValidate_GetPodSchedulingPolicy(t *testing.T) {
 				WithObjects(tc.objs...).
 				Build()
 			k := kubernetes.NewEmpty(zap.NewNop().Sugar()).WithKubernetesClient(mockClient)
-			k8sHandler := k8s.New(zap.NewNop().Sugar(), k, "")
+			k8sHandler := k8s.New(zap.NewNop().Sugar(), k, "", nil)
 
 			valHandler := New(zap.NewNop().Sugar(), k)
 			valHandler.SetNext(k8sHandler)
@@ -1936,7 +1936,7 @@ func TestValidate_UpdatePodSchedulingPolicy(t *testing.T) {
 				WithObjects(tc.objs...).
 				Build()
 			k := kubernetes.NewEmpty(zap.NewNop().Sugar()).WithKubernetesClient(mockClient)
-			k8sHandler := k8s.New(zap.NewNop().Sugar(), k, "")
+			k8sHandler := k8s.New(zap.NewNop().Sugar(), k, "", nil)
 
 			valHandler := New(zap.NewNop().Sugar(), k)
 			valHandler.SetNext(k8sHandler)
@@ -2069,7 +2069,7 @@ func TestValidate_DeletePodSchedulingPolicy(t *testing.T) {
 				WithObjects(tc.objs...).
 				Build()
 			k := kubernetes.NewEmpty(zap.NewNop().Sugar()).WithKubernetesClient(mockClient)
-			k8sHandler := k8s.New(zap.NewNop().Sugar(), k, "")
+			k8sHandler := k8s.New(zap.NewNop().Sugar(), k, "", nil)
 
 			valHandler := New(zap.NewNop().Sugar(), k)
 			valHandler.SetNext(k8sHandler)

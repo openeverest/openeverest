@@ -19,8 +19,11 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"runtime"
 	"testing"
+	"time"
 
+	"github.com/AlekSi/pointer"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
@@ -377,7 +380,7 @@ func TestValidate_DeleteBackupStorage(t *testing.T) {
 				WithObjects(tc.objs...).
 				Build()
 			k := kubernetes.NewEmpty(zap.NewNop().Sugar()).WithKubernetesClient(mockClient)
-			k8sHandler := k8s.New(zap.NewNop().Sugar(), k, "")
+			k8sHandler := k8s.New(zap.NewNop().Sugar(), k, "", nil)
 
 			valHandler := New(zap.NewNop().Sugar(), k)
 			valHandler.SetNext(k8sHandler)
@@ -515,4 +518,29 @@ func TestS3Access_TransportLifecycle(t *testing.T) {
 	err := s3Access(context.Background(), l, &endpoint, "key", "secret", "bucket", "us-east-1", false, true)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "Check your credentials")
+}
+func TestS3Access_TransportLeak(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer ts.Close()
+
+	ctx := context.Background()
+
+	// Initial goroutine count before tests.
+	time.Sleep(100 * time.Millisecond) // Allow test setup goroutines to settle
+	initialCount := runtime.NumGoroutine()
+
+	// Call s3Access multiple times. If the transport leaks, each call will leave behind goroutines.
+	for i := 0; i < 10; i++ {
+		_ = s3Access(ctx, zap.NewNop().Sugar(), pointer.ToString(ts.URL), "ak", "sk", "bucket", "region", false, false)
+	}
+
+	// Give any lingering goroutines a moment to terminate if they were going to
+	time.Sleep(100 * time.Millisecond)
+	finalCount := runtime.NumGoroutine()
+
+	// 10 leaked connections would spawn ~20 goroutines. We check if the growth is suspiciously large.
+	// We allow a small delta (e.g. 5) to account for noise in the Go runtime.
+	assert.Less(t, finalCount-initialCount, 5, "transport leaked goroutines")
 }

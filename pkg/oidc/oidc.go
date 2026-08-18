@@ -27,6 +27,8 @@ import (
 	"net/url"
 	"time"
 
+	"github.com/percona/everest/pkg/httputil"
+
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/lestrrat-go/jwx/v2/jwk"
 )
@@ -67,7 +69,7 @@ func NewProviderConfig(ctx context.Context, issuer string) (ProviderConfig, erro
 	if err != nil {
 		return ProviderConfig{}, err
 	}
-	client := &http.Client{Timeout: defaultHTTPClientTimeout}
+	client := httputil.NewClient(httputil.WithTimeout(defaultHTTPClientTimeout), httputil.WithTransient())
 	resp, err := client.Do(req)
 	if err != nil {
 		return ProviderConfig{}, err
