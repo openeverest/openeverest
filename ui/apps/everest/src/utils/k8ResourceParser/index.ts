@@ -1,4 +1,19 @@
-type kubernetesUnit =
+// Copyright (C) 2026 The OpenEverest Contributors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+export type kubernetesUnit =
+  | 'm'
   | 'k'
   | 'M'
   | 'G'
@@ -13,6 +28,7 @@ type kubernetesUnit =
   | 'Ei';
 
 const memoryMultipliers: Record<kubernetesUnit, number> = {
+  m: 10 ** -3,
   k: 10 ** 3,
   M: 10 ** 6,
   G: 10 ** 9,
@@ -26,6 +42,9 @@ const memoryMultipliers: Record<kubernetesUnit, number> = {
   Pi: 1024 ** 5,
   Ei: 1024 ** 6,
 };
+
+export const isKubernetesUnit = (unit: string): unit is kubernetesUnit =>
+  Object.prototype.hasOwnProperty.call(memoryMultipliers, unit);
 
 export const cpuParser = (input: string) => {
   const milliMatch = input.match(/^([0-9]+)m$/);

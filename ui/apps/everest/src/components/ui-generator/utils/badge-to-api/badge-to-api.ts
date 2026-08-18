@@ -16,6 +16,7 @@ import type { Section, TopologyUISchemas } from '../../ui-generator.types';
 import { walkLeafComponents, walkTopologyComponents } from '../schema-walker';
 import { getComponentTargetPaths } from '../preprocess/normalized-component';
 import { getByPath, setByPath, deepClone } from '../object-path';
+import { isKubernetesUnit, memoryParser } from 'utils/k8ResourceParser';
 
 export type BadgeMapping = {
   path: string;
@@ -72,11 +73,18 @@ export const stripBadgeFromValue = (
   }
 
   const trimmedValue = value.trim();
-  if (!trimmedValue.endsWith(badge)) {
-    return value;
+  if (trimmedValue.endsWith(badge)) {
+    return trimmedValue.slice(0, -badge.length).trimEnd();
   }
 
-  return trimmedValue.slice(0, -badge.length).trimEnd();
+  if (isKubernetesUnit(badge)) {
+    const parsed = memoryParser(trimmedValue, badge);
+    if (parsed.originalUnit === 'm' && !Number.isNaN(parsed.value)) {
+      return parsed.value;
+    }
+  }
+
+  return value;
 };
 
 export const extractBadgeMappingsFromSections = (
