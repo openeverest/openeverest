@@ -130,13 +130,19 @@ Please say when a contribution is substantially AI-generated. Reports and pull r
 
 ## Contributing to the source code
 
+### Which branch to target
+
+You are reading the `v1.x` branch, which carries OpenEverest v1. Current
+development happens on `main`, which carries v2. Target `v1.x` only for fixes
+to the 1.x line; everything else belongs on `main`.
+
 ### Backend
 
-The backend is written in Go. To set up a full local development environment — including a local Kubernetes cluster, the Everest operator, and all dependent services — follow the [Backend Development Guide](https://github.com/openeverest/openeverest/blob/main/dev/README.md).
+The backend is written in Go. To set up a full local development environment — including a local Kubernetes cluster, the Everest operator, and all dependent services — follow the [Backend Development Guide](https://github.com/openeverest/openeverest/blob/v1.x/dev/README.md).
 
 ### Frontend
 
-The frontend is a TypeScript/React monorepo managed with PNPM and Turborepo. For details on the UI stack, local development setup, and available scripts, see the [Frontend Development Guide](https://github.com/openeverest/openeverest/blob/main/ui/README.md).
+The frontend is a TypeScript/React monorepo managed with PNPM and Turborepo. For details on the UI stack, local development setup, and available scripts, see the [Frontend Development Guide](https://github.com/openeverest/openeverest/blob/v1.x/ui/README.md).
 
 ### Signing Your Work (Developer Certificate of Origin)
 
