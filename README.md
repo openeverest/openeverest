@@ -16,6 +16,13 @@ OpenEverest - Run Data Workloads on Kubernetes
 [![Documentation](https://img.shields.io/badge/Documentation-blue?logo=readthedocs&logoColor=white)](https://openeverest.io/documentation/current/)
 [![Join Slack](https://img.shields.io/badge/Join_Slack-blue)](https://cloud-native.slack.com/archives/C09RRGZL2UX)
 
+> [!IMPORTANT]
+> **This branch carries OpenEverest v2, which is a [Developer Preview](https://openeverest.io/blog/v2-developer-preview-release/) — not feature-complete and not for production.**
+>
+> OpenEverest **v1 is the current released version** and is unchanged by this. It lives on [`v1.x`](https://github.com/openeverest/openeverest/tree/v1.x) and continues to receive releases. `main` moved to v2 on 18 August 2026 because that is where day-to-day development happens; it is not a statement about what to run. The [v1 lifecycle](https://openeverest.io/blog/v2-developer-preview-release/#timeline) is unchanged.
+>
+> Cloned or forked before that date? Your `main` still holds v1 code — see [Which branch to target](CONTRIBUTING.md#which-branch-to-target) before you branch.
+
 [OpenEverest](https://openeverest.io/) is an open source cloud-native database platform that helps developers deploy code faster, scale deployments rapidly, and reduce database administration overhead while regaining control over their data, database configuration, and DBaaS costs.
 
 Why you should try OpenEverest:

@@ -132,23 +132,65 @@ Please say when a contribution is substantially AI-generated. Reports and pull r
 
 ### Which branch to target
 
-Two branches are actively developed:
-
 | Branch | Contents | Target it for |
 | --- | --- | --- |
-| `main` | OpenEverest v2 | New features and fixes |
-| `v1.x` | OpenEverest v1 | Fixes for the 1.x line |
+| `main` | OpenEverest v2 (Developer Preview) | New features and fixes |
+| `v1.x` | OpenEverest v1 (current release) | Fixes for the 1.x line |
 
-Unless an issue says otherwise, open your pull request against `main`. If you
-forked before v2 became the default, your fork's `main` still holds v1 code —
-reset it before branching:
+Unless an issue says otherwise, open your pull request against `main`.
+
+`main` carried v1 until 18 August 2026. The swap reflects where development
+happens and changes nothing about the
+[v1 lifecycle](https://openeverest.io/blog/v2-developer-preview-release/#timeline):
+v1 remains the released version, is still maintained, and only enters
+maintenance mode three months after v2 reaches GA.
+
+#### If you cloned or forked before 18 August 2026
+
+Your `main` still holds v1 code, so a branch cut from it targets the wrong
+codebase. Check with:
 
 ```sh
+git branch -vv | grep -E '\[origin/(main|release-2\.0)'
+```
+
+A local `main` reporting a large `ahead N, behind M` is v1 code tracking v2.
+Do not `git pull` it — that merges v2 into v1.
+
+**Working from a fork.** Your fork was not renamed. If you only work on v2 and
+have nothing unpushed on `main`, re-fork, or press **Sync fork** on your fork's
+`main` and choose *Discard commits*. To keep working on v1 as well, rename in
+your fork first — that is what makes the push below a plain create rather than
+a force-push:
+
+1. Fork on GitHub: Settings → Branches → rename `main` to `v1.x`.
+2. Then locally:
+
+```sh
+git remote add upstream https://github.com/openeverest/openeverest.git  # if missing
+git fetch --all --prune
 git branch -m main v1.x
-git fetch origin
 git branch -u origin/v1.x v1.x
+git checkout -b main upstream/main
+git push -u origin main
 git remote set-head origin -a
 ```
+
+3. Fork on GitHub: Settings → General → set the default branch back to `main`.
+
+**Pushing directly to this repository.** Rename `main` first to free the name:
+
+```sh
+git fetch origin --prune
+git branch -m main v1.x
+git branch -u origin/v1.x v1.x
+git branch -m release-2.0 main   # skip if you never had it
+git branch -u origin/main main
+git remote set-head origin -a
+```
+
+[openeverest/helm-charts](https://github.com/openeverest/helm-charts) moved the
+same way, with `v2` in place of `release-2.0`.
 
 ### Backend
 
