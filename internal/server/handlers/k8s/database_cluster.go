@@ -235,7 +235,7 @@ func (h *k8sHandler) GetDatabaseClusterPitr(ctx context.Context, namespace, name
 	}
 
 	latestBackup := latestSuccessfulBackup(backups.Items)
-	if latestBackup == nil || latestBackup.Status.CreatedAt == nil {
+	if latestBackup == nil || latestBackup.Status.CreatedAt == nil || latestBackup.Status.CompletedAt == nil {
 		return response, nil
 	}
 
