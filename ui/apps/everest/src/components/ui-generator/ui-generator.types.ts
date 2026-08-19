@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { FormControlLabelProps, SwitchProps } from '@mui/material';
 import { ReactNode } from 'react';
 import { Provider } from 'shared-types/api.types';
 
@@ -106,14 +105,7 @@ export type SelectFieldParams =
       options?: never;
     });
 
-export interface ToggleFieldParams extends CommonFieldParams {
-  labelCaption?: string;
-  switchFieldProps?: SwitchProps;
-  formControlLabelProps?: Omit<
-    FormControlLabelProps,
-    'control' | 'label'
-  >;
-}
+export type ToggleFieldParams = CommonFieldParams;
 
 export interface TextFieldParams extends CommonFieldParams {
   placeholder?: string;

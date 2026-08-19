@@ -17,14 +17,11 @@ A boolean on/off switch for enabling features (backups, PITR, monitoring, and si
 - `path` OR `id`: Data path or unique identifier (**Required**)
 - `fieldParams`: Configuration object:
   - `label`: Display label for the field (**Recommended**)
-  - `labelCaption`: Secondary text shown under the label (optional)
-  - `helperText`: Static hint; mapped to `labelCaption` when `labelCaption` is not set
+  - `helperText`: Secondary text shown under the label (optional). Validation errors render separately below the switch.
   - `defaultValue`: Default boolean value (default: `false` when omitted)
   - `disabled`: Whether the switch is disabled (default: `false`)
   - `autoFocus`: Automatically focus this field on render
   - `tooltip`: Tooltip on hover (see field wrappers)
-  - `switchFieldProps`: Additional MUI `Switch` props
-  - `formControlLabelProps`: Additional MUI `FormControlLabel` props
 - `validation` (optional):
   - `celExpressions`: Cross-field CEL validation (see [CEL Expression Validation](../validation.md#cel-expression-validation))
   - `regex`: Not supported for toggle fields
@@ -33,8 +30,8 @@ A boolean on/off switch for enabling features (backups, PITR, monitoring, and si
 ## Behavior
 
 - **Default value:** When `fieldParams.defaultValue` is omitted, the form initializes the field to `false`.
-- **Helper text:** `fieldParams.helperText` is shown as `labelCaption` under the main label. Explicit `labelCaption` takes precedence over `helperText`.
-- **Validation errors:** Shown in a red `FormHelperText` below the switch via `SwitchInput` `error` and `helperText` props.
+- **Helper text:** `fieldParams.helperText` renders as a caption under the main label — `helperText` is the same universal param used by every other field, so provider authors don't need a toggle-specific key. Validation errors (e.g. from CEL expressions) appear separately in a red `FormHelperText` below the switch, so a toggle can show its description and an error at the same time.
+- **Validation errors:** Field-level validation errors (e.g. from CEL expressions) are shown in a red `FormHelperText` below the switch.
 - **Postprocess:** `false` is preserved in the API payload (not treated as an empty value).
 - **Layout:** Same horizontal spacing as text fields (`minWidth: 450px`).
 

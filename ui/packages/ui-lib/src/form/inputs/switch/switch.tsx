@@ -20,7 +20,7 @@ import {
   Typography,
 } from '@mui/material';
 import { kebabize } from '@percona/utils';
-import { Controller, useFormContext } from 'react-hook-form';
+import { useController, useFormContext } from 'react-hook-form';
 import { SwitchInputProps } from './switch.types';
 
 const SwitchInput = ({
@@ -37,30 +37,31 @@ const SwitchInput = ({
 }: SwitchInputProps) => {
   const { control: contextControl } = useFormContext();
   const { onChange, ...restSwitchFieldProps } = switchFieldProps;
+  const { field, fieldState } = useController({
+    name,
+    control: control ?? contextControl,
+    ...controllerProps,
+  });
+
+  const hasError = !!fieldState.error || !!error;
+  const helperMessage = fieldState.error?.message ?? helperText;
 
   const switchControl = (
-    <Controller
-      name={name}
-      control={control ?? contextControl}
-      render={({ field }) => (
-        <Switch
-          {...field}
-          onChange={(e) => {
-            onChange?.(e, e.target.checked);
-            field.onChange(e);
-          }}
-          sx={[
-            !!labelCaption && {
-              alignSelf: 'flex-start',
-              mt: -1,
-            },
-          ]}
-          checked={field.value}
-          data-testid={`switch-input-${kebabize(name)}`}
-          {...restSwitchFieldProps}
-        />
-      )}
-      {...controllerProps}
+    <Switch
+      {...field}
+      onChange={(e) => {
+        onChange?.(e, e.target.checked);
+        field.onChange(e);
+      }}
+      sx={[
+        !!labelCaption && {
+          alignSelf: 'flex-start',
+          mt: -1,
+        },
+      ]}
+      checked={field.value}
+      data-testid={`switch-input-${kebabize(name)}`}
+      {...restSwitchFieldProps}
     />
   );
 
@@ -68,7 +69,9 @@ const SwitchInput = ({
     <FormControlLabel
       label={
         <>
-          <Typography variant="body1">{label}</Typography>
+          <Typography variant="body1" component="span">
+            {label}
+          </Typography>
           {labelCaption && (
             <Typography variant="caption">{labelCaption}</Typography>
           )}
@@ -81,9 +84,9 @@ const SwitchInput = ({
   );
 
   const helperTextElement =
-    error || helperText ? (
-      <FormHelperText error={!!error} sx={{ mx: 0 }}>
-        {helperText}
+    hasError || helperMessage ? (
+      <FormHelperText error={hasError} sx={{ mx: 0 }}>
+        {helperMessage}
       </FormHelperText>
     ) : null;
 
@@ -91,7 +94,7 @@ const SwitchInput = ({
     const { sx: formControlSx, ...restFormControlProps } = formControlProps ?? {};
 
     return (
-      <FormControl sx={formControlSx} {...restFormControlProps}>
+      <FormControl error={hasError} sx={formControlSx} {...restFormControlProps}>
         {labelElement}
         {helperTextElement}
       </FormControl>
