@@ -46,9 +46,9 @@ vi.mock('../utils/schema-builder/cel-validation', () => ({
   validateCelExpression: vi.fn(() => true),
 }));
 
-/** MUI Switch exposes the native input as role="checkbox" with the field label as name. */
+/** MUI Switch exposes the native input as role="switch" with the field label as name. */
 const getTestToggleSwitch = () =>
-  screen.getByRole('checkbox', { name: /Test Toggle Field/i });
+  screen.getByRole('switch', { name: /Test Toggle Field/i });
 
 const createTestSchema = (
   fieldParams: Partial<ToggleFieldParams> = {},
