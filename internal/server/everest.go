@@ -60,6 +60,9 @@ import (
 	"github.com/percona/everest/public"
 )
 
+// Timeouts for the plain-HTTP and TLS listeners. WriteTimeout is deliberately left unset:
+// GetDatabaseClusterComponentLogs streams a long-lived response that a server-wide write
+// deadline would cut off.
 const (
 	httpReadHeaderTimeout = 5 * time.Second
 	httpReadTimeout       = 60 * time.Second
