@@ -30,7 +30,7 @@ import (
 type OpenAPISchemaDefinition struct {
 	// Schema is the OpenAPI v3 schema
 	Schema *spec.Schema
-	// TypeName is the Go type name (e.g., "MongodCustomSpec")
+	// TypeName is the Go type name (e.g., "MongodParameters")
 	TypeName string
 	// PackagePath is the full Go package path
 	PackagePath string

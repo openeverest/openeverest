@@ -15,17 +15,13 @@
 package v1alpha1
 
 import (
-	"encoding/json"
-	"errors"
-	"fmt"
 	"slices"
-	"strings"
 
-	"github.com/xeipuuv/gojsonschema"
 	rbacv1 "k8s.io/api/rbac/v1"
-	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+
+	common "github.com/openeverest/openeverest/v2/api/common/v1alpha1"
 )
 
 // BackupExecutionMode selects how a BackupClass implements backup and restore
@@ -44,11 +40,15 @@ const (
 
 	// BackupExecutionModeJob runs backup and restore operations as Kubernetes
 	// Jobs that talk to the database from outside (e.g., pg_dump, mysqldump).
-	// All execution detail lives under .spec.job and .spec.restoreJob.
+	// All execution detail lives under .spec.job.
 	BackupExecutionModeJob BackupExecutionMode = "Job"
 )
 
 // BackupClassSpec defines the desired state of BackupClass.
+//
+// +kubebuilder:validation:XValidation:rule="self.executionMode != 'Job' || has(self.job)",message="spec.job is required when executionMode is Job"
+// +kubebuilder:validation:XValidation:rule="!has(self.job) || self.executionMode == 'Job'",message="spec.job is only allowed when executionMode is Job"
+// +kubebuilder:validation:XValidation:rule="!has(self.providerManaged) || self.executionMode == 'ProviderManaged'",message="spec.providerManaged is only allowed when executionMode is ProviderManaged"
 type BackupClassSpec struct {
 	// DisplayName is a human-readable name for the backup class.
 	DisplayName string `json:"displayName,omitempty"`
@@ -68,15 +68,16 @@ type BackupClassSpec struct {
 	// ExecutionMode is "Job".
 	// +optional
 	ProviderManaged *ProviderManagedSpec `json:"providerManaged,omitempty"`
-	// Config contains the OpenAPI v3 schema describing the backup-time
-	// configuration accepted by this class. Backup.spec.config and
-	// InstanceBackupSchedule.config are both validated against this schema.
-	Config BackupClassConfig `json:"config,omitempty"`
-	// RestoreConfig contains the OpenAPI v3 schema describing the restore-time
-	// configuration accepted by this class. Restore.spec.config is validated
-	// against this schema.
+	// ParametersSchema declares the OpenAPI v3 schema describing the
+	// backup-time parameters accepted by this class. Backup.spec.parameters
+	// and InstanceBackupSchedule.parameters are both validated against it.
 	// +optional
-	RestoreConfig BackupClassConfig `json:"restoreConfig,omitempty"`
+	ParametersSchema common.ParametersSchema `json:"parametersSchema,omitempty"`
+	// RestoreParametersSchema declares the OpenAPI v3 schema describing the
+	// restore-time parameters accepted by this class. Restore.spec.parameters
+	// is validated against it.
+	// +optional
+	RestoreParametersSchema common.ParametersSchema `json:"restoreParametersSchema,omitempty"`
 	// InstanceConstraints defines compatibility requirements that must be
 	// satisfied by an Instance before this backup class can be used with it.
 	// +optional
@@ -91,15 +92,23 @@ type BackupClassSpec struct {
 	// +kubebuilder:pruning:PreserveUnknownFields
 	UISchema *runtime.RawExtension `json:"uiSchema,omitempty"`
 
-	// Job contains execution detail for ExecutionMode="Job". Must be unset
-	// when ExecutionMode is "ProviderManaged".
-	// +optional
-	Job *JobExecution `json:"job,omitempty"`
-	// RestoreJob contains execution detail for the restore job in
-	// ExecutionMode="Job". Must be unset when ExecutionMode is
+	// Job contains all execution detail for ExecutionMode="Job". Required
+	// when ExecutionMode is "Job"; must be unset when ExecutionMode is
 	// "ProviderManaged".
 	// +optional
-	RestoreJob *JobExecution `json:"restoreJob,omitempty"`
+	Job *JobModeSpec `json:"job,omitempty"`
+}
+
+// JobModeSpec bundles everything the in-tree controller needs to run backup
+// and restore operations as Kubernetes Jobs in ExecutionMode="Job".
+type JobModeSpec struct {
+	// Backup describes the job spawned per Backup CR.
+	// +kubebuilder:validation:Required
+	Backup JobExecution `json:"backup"`
+	// Restore describes the job spawned per Restore CR. When unset, restores
+	// are not supported by this class.
+	// +optional
+	Restore *JobExecution `json:"restore,omitempty"`
 }
 
 // JobExecution bundles the Kubernetes resources the controller needs to spawn
@@ -141,15 +150,12 @@ type ProviderManagedSpec struct {
 	// +optional
 	Limits *BackupClassLimits `json:"limits,omitempty"`
 
-	// PITRConfigSchema describes the shape of per-storage PITR custom config
-	// (InstanceBackupStoragePITR.Config). The field is free-form and opaque
-	// to the runtime; the provider validates Instance.spec.backup PITR
-	// payloads against it inside Validate(). The recommended payload is an
-	// OpenAPI v3 schema fragment so the UI can render a matching form, but
-	// any provider-specific dialect is permitted.
+	// PITRParametersSchema declares the OpenAPI v3 schema for per-storage
+	// PITR parameters (InstanceBackupStoragePITR.Parameters). The provider
+	// validates Instance.spec.backup PITR payloads against it inside
+	// Validate(); the UI renders a matching form from it.
 	// +optional
-	// +kubebuilder:pruning:PreserveUnknownFields
-	PITRConfigSchema *runtime.RawExtension `json:"pitrConfigSchema,omitempty"`
+	PITRParametersSchema *common.ParametersSchema `json:"pitrParametersSchema,omitempty"`
 }
 
 // BackupClassLimits expresses the caps a ProviderManaged BackupClass places
@@ -186,64 +192,6 @@ func (e ProviderNameList) Has(provider string) bool {
 	return slices.Contains(e, provider)
 }
 
-// BackupClassConfig contains additional configuration defined for the backup class.
-type BackupClassConfig struct {
-	// OpenAPIV3Schema is the OpenAPI v3 schema of the backup class.
-	// +kubebuilder:pruning:PreserveUnknownFields
-	// +kubebuilder:validation:Schemaless
-	// +optional
-	OpenAPIV3Schema *apiextensionsv1.JSONSchemaProps `json:"openAPIV3Schema,omitempty"`
-}
-
-// ErrSchemaValidationFailure is returned when the parameters do not conform to the BackupClass schema defined in .spec.config.
-var ErrSchemaValidationFailure = errors.New("schema validation failed")
-
-// Validate the config for the backup class.
-func (cfg *BackupClassConfig) Validate(params *runtime.RawExtension) error {
-	schema := cfg.OpenAPIV3Schema
-	if schema == nil && params != nil {
-		return ErrSchemaValidationFailure
-	}
-	if schema == nil && params == nil {
-		return nil
-	}
-
-	// Additional properties are implicitly disallowed
-	schema.AdditionalProperties = &apiextensionsv1.JSONSchemaPropsOrBool{
-		Allows: false,
-	}
-
-	// Unmarshal the parameters into a generic map
-	var paramsMap map[string]interface{}
-	if err := json.Unmarshal(params.Raw, &paramsMap); err != nil {
-		return fmt.Errorf("failed to unmarshal parameters: %w", err)
-	}
-
-	// Convert the OpenAPI v3 schema to a JSON schema validator
-	schemaJSON, err := json.Marshal(schema)
-	if err != nil {
-		return fmt.Errorf("failed to marshal OpenAPI v3 schema: %w", err)
-	}
-
-	schemaLoader := gojsonschema.NewStringLoader(string(schemaJSON))
-	paramsLoader := gojsonschema.NewGoLoader(paramsMap)
-
-	// Validate the parameters against the schema
-	result, err := gojsonschema.Validate(schemaLoader, paramsLoader)
-	if err != nil {
-		return fmt.Errorf("failed to validate parameters: %w", err)
-	}
-
-	if !result.Valid() {
-		var validationErrors []string
-		for _, err := range result.Errors() {
-			validationErrors = append(validationErrors, err.String())
-		}
-		return errors.Join(ErrSchemaValidationFailure, fmt.Errorf("validation errors: %s", strings.Join(validationErrors, "; ")))
-	}
-	return nil
-}
-
 // BackupJobSpec defines the specification for the Kubernetes job.
 type BackupJobSpec struct {
 	// Image is the image of the backup class.
@@ -251,32 +199,6 @@ type BackupJobSpec struct {
 	// Command is the command to run the backup class.
 	// +optional
 	Command []string `json:"command,omitempty"`
-}
-
-// ErrInvalidExecutionMode is returned when the BackupClassSpec mixes fields
-// from multiple execution modes or omits the required block for the chosen
-// mode.
-var ErrInvalidExecutionMode = errors.New("invalid execution mode configuration")
-
-// ValidateExecutionMode enforces the invariants between ExecutionMode and the
-// mode-specific blocks (Job/RestoreJob vs ProviderManaged).
-func (s *BackupClassSpec) ValidateExecutionMode() error {
-	switch s.ExecutionMode {
-	case BackupExecutionModeProviderManaged:
-		if s.Job != nil || s.RestoreJob != nil {
-			return fmt.Errorf("%w: executionMode=ProviderManaged must not set .spec.job or .spec.restoreJob", ErrInvalidExecutionMode)
-		}
-	case BackupExecutionModeJob:
-		if s.Job == nil {
-			return fmt.Errorf("%w: executionMode=Job requires .spec.job", ErrInvalidExecutionMode)
-		}
-		if s.ProviderManaged != nil {
-			return fmt.Errorf("%w: executionMode=Job must not set .spec.providerManaged", ErrInvalidExecutionMode)
-		}
-	default:
-		return fmt.Errorf("%w: unknown executionMode %q", ErrInvalidExecutionMode, s.ExecutionMode)
-	}
-	return nil
 }
 
 // BackupClassInstanceConstraints defines compatibility requirements and prerequisites

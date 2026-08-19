@@ -94,8 +94,10 @@ export const renderComponent = (
       >
         <Typography
           variant="caption"
-          color="text.secondary"
           data-testid="preview-truncated-field-label"
+          sx={{
+            color: 'text.secondary',
+          }}
         >
           {label}:
         </Typography>

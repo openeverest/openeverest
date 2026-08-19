@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2025 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -35,6 +36,7 @@ const (
 	spinnerInterval = 150 * time.Millisecond
 )
 
+//nolint:gochecknoglobals // immutable TUI style/keybinding definitions
 var (
 	currentStepTitleStyle = helperTextStyle.Bold(false)
 	successStepTitleStyle = successStyle
@@ -70,7 +72,7 @@ type (
 		interrupt bool               // set in case user wants to quit (Esc or Ctrl+c)
 		done      bool               // all steps have been completed
 		stepError error              // error occurred during step execution
-		ctx       context.Context    // upper lavel context
+		ctx       context.Context    //nolint:containedctx // bubbletea models receive no context in Init/Update; the element's run context must be carried on the model
 		l         *zap.SugaredLogger // logger
 	}
 
@@ -153,13 +155,20 @@ func (m Spinner) Run() error {
 		return err
 	}
 
-	if model.(Spinner).interrupt {
+	result, ok := model.(Spinner)
+	if !ok {
+		return fmt.Errorf("unexpected model type: %T", model)
+	}
+
+	if result.interrupt {
 		os.Exit(1)
 	}
 
-	return model.(Spinner).stepError
+	return result.stepError
 }
 
+// Init initializes the spinner element.
+// Implements bubbletea.Model interface.
 func (m Spinner) Init() tea.Cmd {
 	// Run spinner and first step
 	return tea.Batch(m.spinner.Tick, runStep(m.ctx, m.l, m.steps[m.index]))
@@ -170,8 +179,7 @@ func (m Spinner) Init() tea.Cmd {
 func (m Spinner) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
-		switch {
-		case key.Matches(msg, m.keys.Quit):
+		if key.Matches(msg, m.keys.Quit) {
 			m.interrupt = true
 			m.done = true
 			return m, tea.Quit
@@ -224,11 +232,11 @@ func (m Spinner) View() string {
 	// Print intermediate state.
 	s := strings.Builder{}
 	// spin
-	s.WriteString(fmt.Sprintf("%s ", m.spinner.View()))
+	fmt.Fprintf(&s, "%s ", m.spinner.View())
 	// step title info
 	s.WriteString(currentStepTitleStyle.Render(m.steps[m.index].Desc))
 	// help info
-	s.WriteString(fmt.Sprintf("\n\n%s\n", m.help.View(m.keys)))
+	fmt.Fprintf(&s, "\n\n%s\n", m.help.View(m.keys))
 
 	return s.String()
 }
@@ -243,7 +251,7 @@ type (
 
 // Wrapper function to run step in a separate goroutine.
 func runStep(ctx context.Context, l *zap.SugaredLogger, step Step) tea.Cmd {
-	return tea.Tick(spinnerInterval, func(t time.Time) tea.Msg {
+	return tea.Tick(spinnerInterval, func(_ time.Time) tea.Msg {
 		l.Debug("Running step: ", step.Desc)
 		if err := step.F(ctx); err != nil {
 			l.Errorw("Error occurred during step execution", "step", step.Desc, "error", err)

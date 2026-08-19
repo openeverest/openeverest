@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2025 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -28,6 +29,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
+//nolint:gochecknoglobals // immutable TUI style/keybinding definitions
 var (
 	// ------
 	// Style applied to option label in case its checkbox is selected.
@@ -132,10 +134,14 @@ func NewMultiSelect(ctx context.Context, message string, choices []MultiSelectOp
 // It returns the selected options and error.
 func (m MultiSelect) Run() ([]MultiSelectOption, error) {
 	model, err := m.p.Run()
-	if model.(MultiSelect).interrupt {
+	result, ok := model.(MultiSelect)
+	if !ok {
+		return nil, fmt.Errorf("unexpected model type: %T", model)
+	}
+	if result.interrupt {
 		os.Exit(1)
 	}
-	return model.(MultiSelect).Choices, err
+	return result.Choices, err
 }
 
 // Init initializes the multi-select list.
@@ -148,32 +154,31 @@ func (m MultiSelect) Init() tea.Cmd {
 // Update updates the multi-select list.
 // Implements bubbletea.Model interface.
 func (m MultiSelect) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	switch msg := msg.(type) {
-	case tea.KeyMsg:
+	if keyMsg, ok := msg.(tea.KeyMsg); ok {
 		switch {
-		case key.Matches(msg, m.keys.Confirm):
+		case key.Matches(keyMsg, m.keys.Confirm):
 			m.done = true
 			return m, tea.Quit
-		case key.Matches(msg, m.keys.Quit):
+		case key.Matches(keyMsg, m.keys.Quit):
 			m.interrupt = true
 			m.done = true
 			return m, tea.Quit
 
 		// The "up" key move the cursor up
-		case key.Matches(msg, m.keys.Up):
+		case key.Matches(keyMsg, m.keys.Up):
 			if m.cursor > 0 {
 				m.cursor--
 			}
 
 		// The "down" key move the cursor down
-		case key.Matches(msg, m.keys.Down):
+		case key.Matches(keyMsg, m.keys.Down):
 			if m.cursor < len(m.Choices)-1 {
 				m.cursor++
 			}
 
 		// The spacebar (a literal space) toggle
 		// the selected state for the item that the cursor is pointing at.
-		case key.Matches(msg, m.keys.Space):
+		case key.Matches(keyMsg, m.keys.Space):
 			m.Choices[m.cursor].Selected = !m.Choices[m.cursor].Selected
 		}
 	}
@@ -189,7 +194,7 @@ func (m MultiSelect) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m MultiSelect) View() string {
 	// The header
 	s := strings.Builder{}
-	s.WriteString(fmt.Sprintf("%s %s\n", failureStyle.Render("❓"), textStyle.Render(m.Message)))
+	fmt.Fprintf(&s, "%s %s\n", failureStyle.Render("❓"), textStyle.Render(m.Message))
 
 	// Iterate over our choices
 	for i, choice := range m.Choices {
@@ -198,7 +203,7 @@ func (m MultiSelect) View() string {
 	}
 
 	if !m.done {
-		s.WriteString(fmt.Sprintf("\n%s\n", m.help.View(m.keys)))
+		fmt.Fprintf(&s, "\n%s\n", m.help.View(m.keys))
 	}
 
 	// Send the UI for rendering
@@ -218,7 +223,6 @@ func drawLine(hover, checked bool, label string) string {
 
 	if hover {
 		return fmt.Sprintf("%s\n", hoverOptionStyle.Render(fmt.Sprintf(tmpl, cursorSymbol, mark, label)))
-	} else {
-		return fmt.Sprintf("%s\n", optionStyle.Render(fmt.Sprintf(tmpl, " ", mark, label)))
 	}
+	return fmt.Sprintf("%s\n", optionStyle.Render(fmt.Sprintf(tmpl, " ", mark, label)))
 }

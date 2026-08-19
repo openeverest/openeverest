@@ -17,6 +17,8 @@ package v1alpha1
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+
+	common "github.com/openeverest/openeverest/v2/api/common/v1alpha1"
 )
 
 // ProviderSpec defines the desired state of Provider
@@ -31,15 +33,45 @@ type ProviderSpec struct {
 	// the bundle whose Default field is true is used automatically.
 	Versions []VersionBundle `json:"versions,omitempty"`
 
-	// GlobalConfigSchema holds the OpenAPI v3 schema for the global configuration.
+	// ParametersSchema declares the OpenAPI v3 schema for the instance-wide
+	// parameters payload (Instance.spec.parameters).
 	// +optional
-	// +kubebuilder:pruning:PreserveUnknownFields
-	GlobalConfigSchema *runtime.RawExtension `json:"globalConfigSchema,omitempty"`
+	ParametersSchema *common.ParametersSchema `json:"parametersSchema,omitempty"`
 
 	// UISchema holds the UI rendering hints for each topology.
 	// +optional
 	// +kubebuilder:pruning:PreserveUnknownFields
 	UISchema *runtime.RawExtension `json:"uiSchema,omitempty"`
+
+	// Secrets defines Secret types this provider supports.
+	// +optional
+	Secrets map[string]SecretDefinition `json:"secrets,omitempty"`
+
+	// ConfigMaps defines ConfigMap types this provider supports.
+	// +optional
+	ConfigMaps map[string]ConfigMapDefinition `json:"configMaps,omitempty"`
+
+	// Release identifies this provider release — the shipped unit of
+	// controller, bundled operator, and version catalog — and its
+	// upgrade-path constraints. It is read by the pre-upgrade preflight.
+	// +optional
+	Release *Release `json:"release,omitempty"`
+}
+
+// Release identifies a provider release and its upgrade-path constraints.
+type Release struct {
+	// Version is the provider release version (P), populated from the chart
+	// appVersion (e.g. "0.3"). Named distinctly from ProviderSpec.Versions
+	// (the engine bundle catalog).
+	// +optional
+	Version string `json:"version,omitempty"`
+
+	// MinUpgradableFrom is the lowest provider release version from which a
+	// single-step upgrade to this release is permitted; a lower installed
+	// version is blocked and must step through intermediate releases.
+	// Empty means no floor.
+	// +optional
+	MinUpgradableFrom string `json:"minUpgradableFrom,omitempty"`
 }
 
 // VersionBundle is a curated set of component versions known to be mutually
@@ -66,30 +98,66 @@ type ComponentVersion struct {
 	Version string `json:"version,omitempty"`
 	Image   string `json:"image,omitempty"`
 	Default bool   `json:"default,omitempty"`
+
+	// Deprecated marks a version as still supported but scheduled for
+	// removal. Instances running on it get a proactive warning with a
+	// remediation runway instead of a blocked upgrade.
+	// +optional
+	Deprecated bool `json:"deprecated,omitempty"`
+
+	// RemovedInVersion is the provider version (P) in which this engine
+	// version is dropped. Upgrading the provider to >= this version while
+	// an Instance still uses this engine version is a blocking error.
+	// +optional
+	RemovedInVersion string `json:"removedInVersion,omitempty"`
 }
 
 type Component struct {
 	Type string `json:"type,omitempty"`
 
-	// CustomSpecSchema holds the OpenAPI v3 schema for this component's CustomSpec.
+	// ParametersSchema declares the OpenAPI v3 schema for this component's
+	// parameters payload (Instance.spec.components[].parameters).
 	// +optional
-	// +kubebuilder:pruning:PreserveUnknownFields
-	CustomSpecSchema *runtime.RawExtension `json:"customSpecSchema,omitempty"`
+	ParametersSchema *common.ParametersSchema `json:"parametersSchema,omitempty"`
 }
 
 type Topology struct {
 	Components map[string]TopologyComponent `json:"components,omitempty"`
 
-	// ConfigSchema holds the OpenAPI v3 schema for topology-specific configuration.
+	// ParametersSchema declares the OpenAPI v3 schema for topology-specific
+	// parameters (Instance.spec.topology.parameters).
 	// +optional
-	// +kubebuilder:pruning:PreserveUnknownFields
-	ConfigSchema *runtime.RawExtension `json:"configSchema,omitempty"`
+	ParametersSchema *common.ParametersSchema `json:"parametersSchema,omitempty"`
 }
 
 type TopologyComponent struct {
 	Optional bool `json:"optional,omitempty"`
 	// TODO: Do we need defaults?
 	// Defaults map[string]interface{} `json:"defaults,omitempty"`
+}
+
+// SecretDefinition describes a Secret type that a provider supports.
+type SecretDefinition struct {
+	// UISchema holds UI rendering hints for the secret creation form.
+	// +optional
+	// +kubebuilder:pruning:PreserveUnknownFields
+	UISchema *runtime.RawExtension `json:"uiSchema,omitempty"`
+
+	// ParametersSchema declares the OpenAPI v3 schema for validating secret data/stringData.
+	// +optional
+	ParametersSchema *common.ParametersSchema `json:"parametersSchema,omitempty"`
+}
+
+// ConfigMapDefinition describes a ConfigMap type that a provider supports.
+type ConfigMapDefinition struct {
+	// UISchema holds UI rendering hints for the configmap creation form.
+	// +optional
+	// +kubebuilder:pruning:PreserveUnknownFields
+	UISchema *runtime.RawExtension `json:"uiSchema,omitempty"`
+
+	// ParametersSchema declares the OpenAPI v3 schema for validating configmap data/binaryData.
+	// +optional
+	ParametersSchema *common.ParametersSchema `json:"parametersSchema,omitempty"`
 }
 
 // ProviderStatus defines the observed state of Provider.

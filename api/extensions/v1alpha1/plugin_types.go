@@ -16,6 +16,8 @@ package v1alpha1
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	common "github.com/openeverest/openeverest/v2/api/common/v1alpha1"
 )
 
 // PluginSpec defines the desired state of Plugin
@@ -110,10 +112,12 @@ type PluginExtensionPoint struct {
 	// +optional
 	Icon string `json:"icon,omitempty"`
 
-	// Providers is an optional list of database engine types this extension point
-	// applies to. Values match spec.engine.type on the DatabaseCluster CR:
-	// "postgresql", "psmdb", "pxc".
-	// When omitted or empty, the extension point is shown for all engine types.
+	// Providers is an optional list of Provider names this extension point
+	// applies to. Values match spec.providerRef.name on the Instance CR, e.g.
+	// "provider-percona-postgresql", "percona-server-mongodb",
+	// "percona-xtradb-cluster". Provider names are not prefix-consistent
+	// across providers; check the target provider's own definition.
+	// When omitted or empty, the extension point is shown for all providers.
 	// +optional
 	Providers []string `json:"providers,omitempty"`
 }
@@ -132,12 +136,12 @@ type PluginBackend struct {
 	// +optional
 	ExternalURL string `json:"externalUrl,omitempty"`
 
-	// CredentialsSecretRef is the name of a Secret in the same namespace as
+	// CredentialsSecretRef references a Secret in the same namespace as
 	// the InstalledExtension entry whose "token" key is forwarded as the
 	// Authorization header to the external backend. Only meaningful when
 	// ExternalURL is set.
 	// +optional
-	CredentialsSecretRef string `json:"credentialsSecretRef,omitempty"`
+	CredentialsSecretRef *common.SecretRef `json:"credentialsSecretRef,omitempty"`
 }
 
 // PluginBackendServiceRef points to an in-cluster Kubernetes Service.

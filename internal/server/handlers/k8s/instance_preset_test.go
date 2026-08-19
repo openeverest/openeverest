@@ -22,8 +22,10 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
+	storagev1 "k8s.io/api/storage/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	corev1alpha1 "github.com/openeverest/openeverest/v2/api/core/v1alpha1"
@@ -48,6 +50,7 @@ func TestApplyNamespaceDefaults_New(t *testing.T) {
 
 	scheme := runtime.NewScheme()
 	require.NoError(t, corev1.AddToScheme(scheme))
+	require.NoError(t, storagev1.AddToScheme(scheme))
 	require.NoError(t, monitoringv1alpha1.AddToScheme(scheme))
 
 	fakeClient := fake.NewClientBuilder().
@@ -68,6 +71,18 @@ func TestApplyNamespaceDefaults_New(t *testing.T) {
 				},
 				Spec: monitoringv1alpha1.MonitoringConfigSpec{Type: "pmm"},
 			},
+			&storagev1.StorageClass{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:        "default-storage",
+					Annotations: map[string]string{"storageclass.kubernetes.io/is-default-class": "true"},
+				},
+			},
+			&storagev1.StorageClass{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:        "non-default-storage",
+					Annotations: map[string]string{"storageclass.kubernetes.io/is-default-class": "false"},
+				},
+			},
 		).
 		Build()
 
@@ -75,9 +90,6 @@ func TestApplyNamespaceDefaults_New(t *testing.T) {
 		kubeConnector: kubernetes.NewEmpty(zap.NewNop().Sugar(), namespace).WithKubernetesClient(fakeClient),
 		log:           zap.NewNop().Sugar(),
 	}
-
-	emptySecretRef := &corev1alpha1.Config{SecretRef: corev1.LocalObjectReference{Name: ""}}
-	resolvedSecretRef := &corev1alpha1.Config{SecretRef: corev1.LocalObjectReference{Name: "default-secret"}}
 
 	tests := []struct {
 		name     string
@@ -95,31 +107,34 @@ func TestApplyNamespaceDefaults_New(t *testing.T) {
 			expected: newTestPreset(map[string]corev1alpha1.ComponentSpec{}),
 		},
 		{
-			name:     "resolves secretRef",
-			input:    newTestPreset(map[string]corev1alpha1.ComponentSpec{"pmm": {Config: emptySecretRef}}),
-			expected: newTestPreset(map[string]corev1alpha1.ComponentSpec{"pmm": {Config: resolvedSecretRef}}),
-		},
-		{
-			name: "other component does not resolve secretRef",
+			name: "inline configuration parameter passes through unchanged",
 			input: newTestPreset(map[string]corev1alpha1.ComponentSpec{
-				"other": {Config: emptySecretRef},
+				"pmm": {
+					Parameters: &runtime.RawExtension{
+						Raw: mustMarshal(t, map[string]any{"configuration": "key = value"}),
+					},
+				},
 			}),
 			expected: newTestPreset(map[string]corev1alpha1.ComponentSpec{
-				"other": {Config: emptySecretRef},
+				"pmm": {
+					Parameters: &runtime.RawExtension{
+						Raw: mustMarshal(t, map[string]any{"configuration": "key = value"}),
+					},
+				},
 			}),
 		},
 		{
 			name: "resolve monitoringConfigName",
 			input: newTestPreset(map[string]corev1alpha1.ComponentSpec{
 				"pmm": {
-					CustomSpec: &runtime.RawExtension{
+					Parameters: &runtime.RawExtension{
 						Raw: mustMarshal(t, map[string]any{"monitoringConfigName": ""}),
 					},
 				},
 			}),
 			expected: newTestPreset(map[string]corev1alpha1.ComponentSpec{
 				"pmm": {
-					CustomSpec: &runtime.RawExtension{
+					Parameters: &runtime.RawExtension{
 						Raw: mustMarshal(t, map[string]any{"monitoringConfigName": "default-monitoring"}),
 					},
 				},
@@ -129,14 +144,14 @@ func TestApplyNamespaceDefaults_New(t *testing.T) {
 			name: "resolve monitoringConfig",
 			input: newTestPreset(map[string]corev1alpha1.ComponentSpec{
 				"pmm": {
-					CustomSpec: &runtime.RawExtension{
+					Parameters: &runtime.RawExtension{
 						Raw: mustMarshal(t, map[string]any{"monitoringConfig": ""}),
 					},
 				},
 			}),
 			expected: newTestPreset(map[string]corev1alpha1.ComponentSpec{
 				"pmm": {
-					CustomSpec: &runtime.RawExtension{
+					Parameters: &runtime.RawExtension{
 						Raw: mustMarshal(t, map[string]any{"monitoringConfig": "default-monitoring"}),
 					},
 				},
@@ -146,14 +161,14 @@ func TestApplyNamespaceDefaults_New(t *testing.T) {
 			name: "resolve monitoringConfigRef",
 			input: newTestPreset(map[string]corev1alpha1.ComponentSpec{
 				"pmm": {
-					CustomSpec: &runtime.RawExtension{
+					Parameters: &runtime.RawExtension{
 						Raw: mustMarshal(t, map[string]any{"monitoringConfigRef": corev1.LocalObjectReference{Name: ""}}),
 					},
 				},
 			}),
 			expected: newTestPreset(map[string]corev1alpha1.ComponentSpec{
 				"pmm": {
-					CustomSpec: &runtime.RawExtension{
+					Parameters: &runtime.RawExtension{
 						Raw: mustMarshal(t, map[string]any{"monitoringConfigRef": corev1.LocalObjectReference{Name: "default-monitoring"}}),
 					},
 				},
@@ -163,14 +178,14 @@ func TestApplyNamespaceDefaults_New(t *testing.T) {
 			name: "other component does not resolve monitoringConfig",
 			input: newTestPreset(map[string]corev1alpha1.ComponentSpec{
 				"other": {
-					CustomSpec: &runtime.RawExtension{
+					Parameters: &runtime.RawExtension{
 						Raw: mustMarshal(t, map[string]any{"monitoringConfigName": ""}),
 					},
 				},
 			}),
 			expected: newTestPreset(map[string]corev1alpha1.ComponentSpec{
 				"other": {
-					CustomSpec: &runtime.RawExtension{
+					Parameters: &runtime.RawExtension{
 						Raw: mustMarshal(t, map[string]any{"monitoringConfigName": ""}),
 					},
 				},
@@ -180,14 +195,14 @@ func TestApplyNamespaceDefaults_New(t *testing.T) {
 			name: "resolve nested monitoringConfig",
 			input: newTestPreset(map[string]corev1alpha1.ComponentSpec{
 				"pmm": {
-					CustomSpec: &runtime.RawExtension{
+					Parameters: &runtime.RawExtension{
 						Raw: mustMarshal(t, map[string]any{"nested": map[string]any{"monitoringConfigName": ""}}),
 					},
 				},
 			}),
 			expected: newTestPreset(map[string]corev1alpha1.ComponentSpec{
 				"pmm": {
-					CustomSpec: &runtime.RawExtension{
+					Parameters: &runtime.RawExtension{
 						Raw: mustMarshal(t, map[string]any{"nested": map[string]any{"monitoringConfigName": "default-monitoring"}}),
 					},
 				},
@@ -197,16 +212,55 @@ func TestApplyNamespaceDefaults_New(t *testing.T) {
 			name: "other not supported fields do not resolve",
 			input: newTestPreset(map[string]corev1alpha1.ComponentSpec{
 				"pmm": {
-					CustomSpec: &runtime.RawExtension{
+					Parameters: &runtime.RawExtension{
 						Raw: mustMarshal(t, map[string]any{"randomField": ""}),
 					},
 				},
 			}),
 			expected: newTestPreset(map[string]corev1alpha1.ComponentSpec{
 				"pmm": {
-					CustomSpec: &runtime.RawExtension{
+					Parameters: &runtime.RawExtension{
 						Raw: mustMarshal(t, map[string]any{"randomField": ""}),
 					},
+				},
+			}),
+		},
+		{
+			name: "resolve storageClass",
+			input: newTestPreset(map[string]corev1alpha1.ComponentSpec{
+				"engine": {
+					Storage: &corev1alpha1.Storage{StorageClass: nil},
+				},
+			}),
+			expected: newTestPreset(map[string]corev1alpha1.ComponentSpec{
+				"engine": {
+					Storage: &corev1alpha1.Storage{StorageClass: ptr.To("default-storage")},
+				},
+			}),
+		},
+		{
+			name: "resolve empty storageClass pointer",
+			input: newTestPreset(map[string]corev1alpha1.ComponentSpec{
+				"engine": {
+					Storage: &corev1alpha1.Storage{StorageClass: ptr.To("")},
+				},
+			}),
+			expected: newTestPreset(map[string]corev1alpha1.ComponentSpec{
+				"engine": {
+					Storage: &corev1alpha1.Storage{StorageClass: ptr.To("default-storage")},
+				},
+			}),
+		},
+		{
+			name: "does not override existing storageClass",
+			input: newTestPreset(map[string]corev1alpha1.ComponentSpec{
+				"engine": {
+					Storage: &corev1alpha1.Storage{StorageClass: ptr.To("custom-storage")},
+				},
+			}),
+			expected: newTestPreset(map[string]corev1alpha1.ComponentSpec{
+				"engine": {
+					Storage: &corev1alpha1.Storage{StorageClass: ptr.To("custom-storage")},
 				},
 			}),
 		},

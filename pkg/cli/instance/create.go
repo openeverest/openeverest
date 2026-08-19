@@ -32,8 +32,9 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"github.com/openeverest/openeverest/v2/client"
-	"github.com/openeverest/openeverest/v2/pkg/cli"
 	authcli "github.com/openeverest/openeverest/v2/pkg/cli/auth"
+	"github.com/openeverest/openeverest/v2/pkg/cli/clienterr"
+	"github.com/openeverest/openeverest/v2/pkg/cli/wait"
 	"github.com/openeverest/openeverest/v2/pkg/output"
 )
 
@@ -45,12 +46,15 @@ type CreateOptions struct {
 	Name       string
 	Namespace  string
 	Provider   string
+	Preset     string // InstancePreset name; provider must match --provider
 	Cluster    string
 	Version    string
 	Topology   string
-	Context    string   // overrides the active context when set
-	ValuesFile string   // path to a YAML file with spec-level overrides (optional)
-	Set        []string // each entry: "specField.subfield=value" e.g. "components.engine.replicas=3" — takes precedence over ValuesFile
+	Context    string        // overrides the active context when set
+	ValuesFile string        // path to a YAML values file with spec-level overrides (optional)
+	Set        []string      // dot-notation overrides e.g. "components.engine.replicas=3"; takes precedence over ValuesFile
+	Wait       bool          // block until the instance reaches the Ready phase
+	Timeout    time.Duration // bounds --wait; must be positive
 }
 
 type InstanceCreator struct {
@@ -67,31 +71,35 @@ func NewInstanceCreator(cfg Config, l *zap.SugaredLogger) *InstanceCreator {
 }
 
 func (ic *InstanceCreator) Run(ctx context.Context, opts CreateOptions, cfgPath string) error {
-	sess, err := cli.LoadSession(cfgPath, opts.Context)
+	if opts.Provider == "" && opts.Preset == "" {
+		return fmt.Errorf("--provider is required when --preset is not given")
+	}
+	if opts.Preset != "" && opts.Topology != "" {
+		return fmt.Errorf("--topology cannot be combined with --preset")
+	}
+
+	c, err := authcli.NewAPIClient(authcli.Config{Pretty: ic.config.Pretty}, ic.l.Desugar().Sugar(), cfgPath, opts.Context)
 	if err != nil {
 		return err
 	}
 
-	// Refresh proactively within 30s of expiry to avoid a mid-flight 401.
-	if time.Now().After(sess.User.ExpiresAt.Add(-30 * time.Second)) {
-		lo := authcli.NewLogin(authcli.Config{Pretty: ic.config.Pretty}, ic.l.Desugar().Sugar())
-		if err := lo.Refresh(ctx, cfgPath); err != nil {
-			return fmt.Errorf("access token expired and refresh failed: %w", err)
-		}
-		sess, err = cli.LoadSession(cfgPath, opts.Context)
+	var (
+		presetSpecBase map[string]any
+		annotations    map[string]string
+	)
+	if opts.Preset != "" {
+		pr, err := ic.resolvePreset(ctx, c, opts.Preset, opts.Cluster, opts.Namespace)
 		if err != nil {
 			return err
 		}
+		if err := applyPresetDefaults(opts.Preset, &opts, pr); err != nil {
+			return err
+		}
+		presetSpecBase = pr.specMap
+		annotations = map[string]string{"openeverest.io/instance-preset": opts.Preset}
 	}
 
-	c, err := client.NewClientWithResponses(cli.NormalizeServerURL(sess.Server.URL))
-	if err != nil {
-		return fmt.Errorf("failed to create API client: %w", err)
-	}
-
-	token := cli.BearerToken(sess.User.AccessToken)
-
-	provResp, err := c.GetProviderWithResponse(ctx, opts.Cluster, opts.Provider, token)
+	provResp, err := c.GetProviderWithResponse(ctx, opts.Cluster, opts.Provider)
 	if err != nil {
 		return fmt.Errorf("failed to fetch provider %q: %w", opts.Provider, err)
 	}
@@ -124,12 +132,19 @@ func (ic *InstanceCreator) Run(ctx context.Context, opts CreateOptions, cfgPath 
 		}
 	}
 
+	// Merge order: preset < -f file < --set flags.
 	specOverrides, err := buildSpecOverrides(opts.ValuesFile, opts.Set)
 	if err != nil {
 		return err
 	}
+	if presetSpecBase != nil {
+		if specOverrides != nil {
+			deepMerge(presetSpecBase, specOverrides)
+		}
+		specOverrides = presetSpecBase
+	}
 
-	payload := buildPayload(opts.Name, opts.Provider, resolvedVersion, resolvedTopology, specOverrides)
+	payload := buildPayload(opts.Name, opts.Provider, resolvedVersion, resolvedTopology, specOverrides, annotations)
 
 	body, err := json.Marshal(payload)
 	if err != nil {
@@ -142,7 +157,6 @@ func (ic *InstanceCreator) Run(ctx context.Context, opts CreateOptions, cfgPath 
 		opts.Namespace,
 		"application/json",
 		bytes.NewReader(body),
-		token,
 	)
 	if err != nil {
 		return fmt.Errorf("create instance request failed: %w", err)
@@ -152,18 +166,172 @@ func (ic *InstanceCreator) Run(ctx context.Context, opts CreateOptions, cfgPath 
 		if resp.StatusCode() == http.StatusConflict {
 			return fmt.Errorf("instance %q already exists in namespace %q", opts.Name, opts.Namespace)
 		}
-		if resp.JSONDefault != nil && resp.JSONDefault.Message != nil {
-			return fmt.Errorf("server error: %s", *resp.JSONDefault.Message)
+		if msg, ok := clienterr.Message(resp.JSONDefault); ok {
+			return fmt.Errorf("server error: %s", msg)
 		}
 		return fmt.Errorf("unexpected response creating instance: %s", resp.Status())
 	}
 
 	ic.l.Infof("created instance %q in namespace %q", opts.Name, opts.Namespace)
-	if ic.config.Pretty {
-		_, _ = fmt.Fprint(os.Stdout, output.Success("Instance %q created in namespace %q", opts.Name, opts.Namespace))
+
+	// The API returns the accepted Instance as JSON201 (or JSON200).
+	created := resp.JSON201
+	if created == nil {
+		created = resp.JSON200
 	}
 
+	if !opts.Wait {
+		return ic.emitCreated(created, opts)
+	}
+	return ic.waitForInstance(ctx, c, created, opts)
+}
+
+// emitCreated reports a non-waiting create: a success line in pretty mode, or
+// the created instance in JSON mode (so `create --json` is parseable either way).
+func (ic *InstanceCreator) emitCreated(created *client.Instance, opts CreateOptions) error {
+	if ic.config.Pretty {
+		_, _ = fmt.Fprint(os.Stdout, output.Success("Instance %q created in namespace %q", opts.Name, opts.Namespace))
+		return nil
+	}
+	// A 200/201 with an unparseable body would otherwise emit empty stdout.
+	if created == nil {
+		return fmt.Errorf("instance %q was created but the server returned an unreadable response body", opts.Name)
+	}
+	return writeInstanceJSON(created)
+}
+
+// waitForInstance blocks until the instance reaches a terminal phase. Pretty
+// mode streams progress then the final status; JSON mode emits one final object.
+func (ic *InstanceCreator) waitForInstance(
+	ctx context.Context,
+	c *client.ClientWithResponses,
+	created *client.Instance,
+	opts CreateOptions,
+) error {
+	// Keep the latest instance seen, for the final output.
+	var latest *client.Instance
+	basePoll := newInstancePoll(c, opts.Cluster, opts.Namespace, opts.Name)
+	poll := func(ctx context.Context) (*client.Instance, error) {
+		inst, err := basePoll(ctx)
+		if err == nil {
+			latest = inst
+		}
+		return inst, err
+	}
+
+	var onUpdate func(string)
+	if ic.config.Pretty {
+		_, _ = fmt.Fprint(os.Stdout, output.Info("Instance %q created; waiting for it to become ready...", opts.Name))
+		onUpdate = func(msg string) {
+			_, _ = fmt.Fprintf(os.Stdout, "  %s\n", msg)
+		}
+	}
+
+	if err := wait.Until(ctx, poll, instanceCondition, wait.Options{
+		Timeout:  opts.Timeout,
+		OnUpdate: onUpdate,
+		OnRetry:  func(err error) { ic.l.Warnf("%v — retrying", err) },
+	}); err != nil {
+		return err
+	}
+
+	final := latest
+	if final == nil {
+		final = created
+	}
+
+	if ic.config.Pretty {
+		var buf bytes.Buffer
+		printInstanceStatus(&buf, final, opts.Namespace)
+		_, _ = fmt.Fprint(os.Stdout, buf.String())
+		_, _ = fmt.Fprint(os.Stdout, output.Success("Instance %q is ready", opts.Name))
+		return nil
+	}
+	return writeInstanceJSON(final)
+}
+
+func writeInstanceJSON(inst *client.Instance) error {
+	if inst == nil {
+		return nil
+	}
+	if err := json.NewEncoder(os.Stdout).Encode(inst); err != nil {
+		return fmt.Errorf("failed to encode instance: %w", err)
+	}
 	return nil
+}
+
+// applyPresetDefaults copies provider/version/topology from the preset into opts,
+// validating that an explicit --provider matches the preset's provider.
+func applyPresetDefaults(preset string, opts *CreateOptions, pr *presetResult) error {
+	if pr.provider != "" && opts.Provider != "" && pr.provider != opts.Provider {
+		return fmt.Errorf("--provider %q does not match preset %q provider %q", opts.Provider, preset, pr.provider)
+	}
+	if opts.Provider == "" {
+		if pr.provider == "" {
+			return fmt.Errorf("preset %q does not specify a provider; use --provider to set one", preset)
+		}
+		opts.Provider = pr.provider
+	}
+	if opts.Version == "" {
+		opts.Version = pr.version
+	}
+	if pr.topology != "" {
+		opts.Topology = pr.topology
+	}
+	return nil
+}
+
+type presetResult struct {
+	specMap  map[string]any
+	provider string
+	version  string
+	topology string
+}
+
+func (ic *InstanceCreator) resolvePreset(ctx context.Context, c *client.ClientWithResponses, preset, cluster, namespace string) (*presetResult, error) {
+	resp, err := c.ResolveInstancePresetWithResponse(
+		ctx,
+		cluster,
+		preset,
+		&client.ResolveInstancePresetParams{Namespace: namespace},
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to resolve preset %q: %w", preset, err)
+	}
+	if resp.StatusCode() == http.StatusNotFound {
+		return nil, fmt.Errorf("preset %q not found in cluster %q", preset, cluster)
+	}
+	if resp.StatusCode() != http.StatusOK || resp.JSON200 == nil {
+		return nil, fmt.Errorf("unexpected response resolving preset %q: %s", preset, resp.Status())
+	}
+
+	p := resp.JSON200
+	pr := &presetResult{}
+	pr.provider = p.Spec.ProviderRef.Name
+	if p.Spec.Version != nil {
+		pr.version = *p.Spec.Version
+	}
+	if p.Spec.Topology != nil && p.Spec.Topology.Type != nil {
+		pr.topology = *p.Spec.Topology.Type
+	}
+	specMap, err := presetSpecToMap(p)
+	if err != nil {
+		return nil, err
+	}
+	pr.specMap = specMap
+	return pr, nil
+}
+
+func presetSpecToMap(p *client.InstancePreset) (map[string]any, error) {
+	b, err := json.Marshal(p.Spec)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal preset spec: %w", err)
+	}
+	var m map[string]any
+	if err := json.Unmarshal(b, &m); err != nil {
+		return nil, fmt.Errorf("failed to parse preset spec: %w", err)
+	}
+	return m, nil
 }
 
 func defaultVersion(prov *client.Provider) string {
@@ -283,15 +451,10 @@ func validateComponents(setFlags []string, prov *client.Provider, topology strin
 }
 
 func providerName(prov *client.Provider) string {
-	if prov.Metadata == nil {
+	if prov.Metadata == nil || prov.Metadata.Name == "" {
 		return "<unknown>"
 	}
-	if name, ok := (*prov.Metadata)["name"]; ok {
-		if s, ok := name.(string); ok {
-			return s
-		}
-	}
-	return "<unknown>"
+	return prov.Metadata.Name
 }
 
 // buildSpecOverrides merges -f file values and --set overrides; --set wins.
@@ -416,22 +579,31 @@ func deepSet(m map[string]any, path []string, value any) error {
 }
 
 // buildPayload builds the Instance JSON payload; explicit flags win over --set/-f.
-func buildPayload(name, provider, version, topology string, specOverrides map[string]any) map[string]any {
+func buildPayload(name, provider, version, topology string, specOverrides map[string]any, annotations map[string]string) map[string]any {
 	if specOverrides == nil {
 		specOverrides = map[string]any{}
 	}
 
-	specOverrides["provider"] = provider
+	specOverrides["providerRef"] = map[string]any{"name": provider}
 	if version != "" {
 		specOverrides["version"] = version
 	}
 	if topology != "" {
-		specOverrides["topology"] = map[string]any{"type": topology}
+		// Merge type into existing topology object to preserve topology.config from preset.
+		if existing, ok := specOverrides["topology"].(map[string]any); ok {
+			existing["type"] = topology
+		} else {
+			specOverrides["topology"] = map[string]any{"type": topology}
+		}
+	}
+
+	metadata := map[string]any{"name": name}
+	if len(annotations) > 0 {
+		metadata["annotations"] = annotations
 	}
 
 	return map[string]any{
-		"metadata": map[string]any{"name": name},
+		"metadata": metadata,
 		"spec":     specOverrides,
 	}
 }
-

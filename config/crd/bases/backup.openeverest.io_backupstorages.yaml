@@ -54,7 +54,7 @@ spec:
               It is referenced by name from:
 
                 - Instance.spec.backup.storages[].storageRef
-                - Backup.spec.storageName
+                - Backup.spec.storageRef
 
               Decoupling storage from individual Backup CRs makes provider-managed
               backups (e.g. PBM, pgBackRest) practical: the provider can register a
@@ -69,17 +69,27 @@ spec:
                   accessKeyId:
                     description: |-
                       AccessKeyID is a write-only convenience input. When set, a webhook
-                      stores it in the Secret named by CredentialsSecretName and clears
+                      stores it in the Secret named by CredentialsSecretRef and clears
                       this field. It is never persisted on the BackupStorage object.
                     type: string
                   bucket:
                     description: Bucket is the name of the S3 bucket.
                     type: string
-                  credentialsSecretName:
+                  credentialsSecretRef:
                     description: |-
-                      CredentialsSecretName is the name of the Secret in the same namespace
+                      CredentialsSecretRef references the Secret in the same namespace
                       that holds the AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY keys.
-                    type: string
+                    properties:
+                      name:
+                        description: Name of the referenced Secret.
+                        maxLength: 253
+                        minLength: 1
+                        pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                        type: string
+                    required:
+                    - name
+                    type: object
+                    x-kubernetes-map-type: atomic
                   endpointURL:
                     description: EndpointURL is the endpoint URL of the S3-compatible
                       service.
@@ -108,7 +118,7 @@ spec:
                     type: boolean
                 required:
                 - bucket
-                - credentialsSecretName
+                - credentialsSecretRef
                 - endpointURL
                 - region
                 type: object

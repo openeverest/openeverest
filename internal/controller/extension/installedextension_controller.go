@@ -125,19 +125,19 @@ func (r *InstalledExtensionReconciler) reconcilePlugin(ctx context.Context, ie *
 	}
 
 	plugin := &corev1alpha1.Plugin{}
-	pluginErr := r.Client.Get(ctx, types.NamespacedName{Name: ie.Spec.Plugin.PluginCRName}, plugin)
+	pluginErr := r.Get(ctx, types.NamespacedName{Name: ie.Spec.Plugin.PluginRef.Name}, plugin)
 
 	switch {
 	case apierrors.IsNotFound(pluginErr):
 		setCondition(ie, corev1alpha1.ConditionReady, metav1.ConditionFalse,
 			corev1alpha1.ReasonPluginNotFound,
-			fmt.Sprintf("Plugin %q not found", ie.Spec.Plugin.PluginCRName))
+			fmt.Sprintf("Plugin %q not found", ie.Spec.Plugin.PluginRef.Name))
 		ie.Status.Phase = corev1alpha1.InstalledExtensionPhaseFailed
 		return nil
 	case pluginErr != nil:
 		setCondition(ie, corev1alpha1.ConditionReady, metav1.ConditionFalse,
 			corev1alpha1.ReasonPluginNotFound,
-			fmt.Sprintf("Failed to look up Plugin %q: %v", ie.Spec.Plugin.PluginCRName, pluginErr))
+			fmt.Sprintf("Failed to look up Plugin %q: %v", ie.Spec.Plugin.PluginRef.Name, pluginErr))
 		return pluginErr
 	case !plugin.Spec.Enabled:
 		setCondition(ie, corev1alpha1.ConditionReady, metav1.ConditionFalse,
@@ -163,12 +163,12 @@ func (r *InstalledExtensionReconciler) reconcileProvider(ctx context.Context, ie
 		return
 	}
 	provider := &coreapi.Provider{}
-	err := r.Client.Get(ctx, types.NamespacedName{Name: ie.Spec.Provider.ProviderName}, provider)
+	err := r.Get(ctx, types.NamespacedName{Name: ie.Spec.Provider.ProviderRef.Name}, provider)
 	switch {
 	case apierrors.IsNotFound(err):
 		setCondition(ie, corev1alpha1.ConditionProviderRegistered, metav1.ConditionFalse,
 			corev1alpha1.ReasonProviderNotFound,
-			fmt.Sprintf("Provider %q not found", ie.Spec.Provider.ProviderName))
+			fmt.Sprintf("Provider %q not found", ie.Spec.Provider.ProviderRef.Name))
 		setCondition(ie, corev1alpha1.ConditionReady, metav1.ConditionFalse,
 			corev1alpha1.ReasonProviderNotFound, "provider missing")
 		ie.Status.Phase = corev1alpha1.InstalledExtensionPhaseFailed
@@ -247,7 +247,7 @@ func (r *InstalledExtensionReconciler) pluginToInstalls(ctx context.Context, obj
 		if ie.Spec.Type != corev1alpha1.InstalledExtensionTypePlugin {
 			continue
 		}
-		if ie.Spec.Plugin == nil || ie.Spec.Plugin.PluginCRName != pluginName {
+		if ie.Spec.Plugin == nil || ie.Spec.Plugin.PluginRef.Name != pluginName {
 			continue
 		}
 		requests = append(requests, reconcile.Request{

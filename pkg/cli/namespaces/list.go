@@ -27,7 +27,6 @@ import (
 	everestOperator "github.com/percona/everest-operator/api/everest/v1alpha1"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
-	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -130,7 +129,7 @@ func (nsL *NamespaceLister) Run(ctx context.Context) ([]NamespaceInfo, error) {
 
 // getNamespaceOperators returns a list of installed operators in the namespace.
 // It returns an empty list if the namespace is not managed by Everest.
-func (nsL *NamespaceLister) getNamespaceOperators(ctx context.Context, ns *v1.Namespace) ([]string, error) {
+func (nsL *NamespaceLister) getNamespaceOperators(ctx context.Context, ns *corev1.Namespace) ([]string, error) {
 	var toReturn []string
 	if isManagedByEverest(ns) {
 		// no need to look for installed operators from namespaces not managed by Everest.
@@ -149,7 +148,8 @@ func (nsL *NamespaceLister) getNamespaceOperators(ctx context.Context, ns *v1.Na
 			}
 			v, err := goversion.NewVersion(csv.Spec.Version.FinalizeVersion())
 			if err != nil {
-				return []string{}, fmt.Errorf("cannot parse operator='%s' version in namespace='%s': %w",
+				return []string{}, fmt.Errorf(
+					"cannot parse operator='%s' version in namespace='%s': %w",
 					sub.Spec.CatalogSourceNamespace,
 					ns.GetName(),
 					err,

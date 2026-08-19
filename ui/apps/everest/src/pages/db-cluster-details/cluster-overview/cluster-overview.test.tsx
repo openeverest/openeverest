@@ -40,7 +40,7 @@ const mockInstance: Instance = {
   kind: 'Instance',
   metadata: { name: 'my-test-db' } as unknown as Record<string, never>,
   spec: {
-    provider: 'test-provider',
+    providerRef: { name: 'test-provider' },
     topology: { type: 'ha' },
   },
   status: { phase: 'Ready' },

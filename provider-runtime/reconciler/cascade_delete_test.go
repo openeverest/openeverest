@@ -26,6 +26,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
+	common "github.com/openeverest/openeverest/v2/api/common/v1alpha1"
 	corev1alpha1 "github.com/openeverest/openeverest/v2/api/core/v1alpha1"
 	"github.com/openeverest/openeverest/v2/provider-runtime/controller"
 )
@@ -43,17 +44,17 @@ func newFakeClient(scheme *runtime.Scheme, objs ...client.Object) client.Client 
 		WithObjects(objs...).
 		WithIndex(&backupv1alpha1.Backup{}, controller.IndexBackupInstanceName, func(obj client.Object) []string {
 			b, ok := obj.(*backupv1alpha1.Backup)
-			if !ok || b.Spec.InstanceName == "" {
+			if !ok || b.Spec.InstanceRef.Name == "" {
 				return nil
 			}
-			return []string{b.Spec.InstanceName}
+			return []string{b.Spec.InstanceRef.Name}
 		}).
 		WithIndex(&backupv1alpha1.Restore{}, controller.IndexRestoreInstanceName, func(obj client.Object) []string {
 			rs, ok := obj.(*backupv1alpha1.Restore)
-			if !ok || rs.Spec.InstanceName == "" {
+			if !ok || rs.Spec.InstanceRef.Name == "" {
 				return nil
 			}
-			return []string{rs.Spec.InstanceName}
+			return []string{rs.Spec.InstanceRef.Name}
 		}).
 		Build()
 }
@@ -72,38 +73,38 @@ func TestCascadeDeleteChildren_DeletesBackupsAndRestores(t *testing.T) {
 	instance := &corev1alpha1.Instance{
 		ObjectMeta: metav1.ObjectMeta{Name: "my-db", Namespace: "default"},
 		Spec: corev1alpha1.InstanceSpec{
-			Provider:       "test-provider",
+			ProviderRef:    common.ObjectRef{Name: "test-provider"},
 			DeletionPolicy: corev1alpha1.InstanceDeletionPolicyCascade,
 		},
 	}
 	backup1 := &backupv1alpha1.Backup{
 		ObjectMeta: metav1.ObjectMeta{Name: "backup-1", Namespace: "default"},
 		Spec: backupv1alpha1.BackupSpec{
-			InstanceName:    "my-db",
-			BackupClassName: "bc",
-			StorageName:     "s3",
+			InstanceRef: common.ObjectRef{Name: "my-db"},
+			ClassRef:    common.ObjectRef{Name: "bc"},
+			StorageRef:  common.ObjectRef{Name: "s3"},
 		},
 	}
 	backup2 := &backupv1alpha1.Backup{
 		ObjectMeta: metav1.ObjectMeta{Name: "backup-2", Namespace: "default"},
 		Spec: backupv1alpha1.BackupSpec{
-			InstanceName:    "my-db",
-			BackupClassName: "bc",
-			StorageName:     "s3",
+			InstanceRef: common.ObjectRef{Name: "my-db"},
+			ClassRef:    common.ObjectRef{Name: "bc"},
+			StorageRef:  common.ObjectRef{Name: "s3"},
 		},
 	}
 	backupOther := &backupv1alpha1.Backup{
 		ObjectMeta: metav1.ObjectMeta{Name: "backup-other", Namespace: "default"},
 		Spec: backupv1alpha1.BackupSpec{
-			InstanceName:    "other-db",
-			BackupClassName: "bc",
-			StorageName:     "s3",
+			InstanceRef: common.ObjectRef{Name: "other-db"},
+			ClassRef:    common.ObjectRef{Name: "bc"},
+			StorageRef:  common.ObjectRef{Name: "s3"},
 		},
 	}
 	restore1 := &backupv1alpha1.Restore{
 		ObjectMeta: metav1.ObjectMeta{Name: "restore-1", Namespace: "default"},
 		Spec: backupv1alpha1.RestoreSpec{
-			InstanceName: "my-db",
+			InstanceRef: common.ObjectRef{Name: "my-db"},
 		},
 	}
 
@@ -144,7 +145,7 @@ func TestCascadeDeleteChildren_NoChildren(t *testing.T) {
 	instance := &corev1alpha1.Instance{
 		ObjectMeta: metav1.ObjectMeta{Name: "empty-db", Namespace: "default"},
 		Spec: corev1alpha1.InstanceSpec{
-			Provider:       "test-provider",
+			ProviderRef:    common.ObjectRef{Name: "test-provider"},
 			DeletionPolicy: corev1alpha1.InstanceDeletionPolicyCascade,
 		},
 	}

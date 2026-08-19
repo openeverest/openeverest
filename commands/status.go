@@ -33,7 +33,7 @@ var (
 		Long:  "Show health status of all Everest components including core services, OLM, monitoring, and database operators",
 		Run:   statusRun,
 	}
-	statusCfg = status.StatusConfig{
+	statusCfg = status.Config{
 		Pretty: true,
 	}
 )
@@ -42,7 +42,7 @@ func init() {
 	rootCmd.AddCommand(statusCmd)
 }
 
-func statusRun(cmd *cobra.Command, _ []string) { //nolint:revive
+func statusRun(cmd *cobra.Command, _ []string) {
 	statusCfg.Pretty = rootCmdFlags.Pretty
 	statusCfg.JSON = rootCmdFlags.JSON
 	statusCfg.KubeconfigPath = rootCmdFlags.KubeconfigPath

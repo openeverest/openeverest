@@ -44,7 +44,7 @@ export const OnDemandBackupFieldsWrapper = () => {
   );
 
   // Filter classes that support this instance's provider.
-  const providerType = instance.spec?.provider;
+  const providerType = instance.spec?.providerRef?.name;
   const instanceClassRef = instance.spec?.backup?.classRef?.name;
   const instanceClass = backupClasses.find(
     (bc) => bc.metadata?.name === instanceClassRef

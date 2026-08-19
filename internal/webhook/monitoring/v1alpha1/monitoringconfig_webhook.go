@@ -91,7 +91,7 @@ func (v *MonitoringConfigCustomValidator) validateMonitoringConfig(ctx context.C
 		return errors.New("missing pmm config")
 	}
 
-	secretName := mc.Spec.PMM.CredentialsSecretName
+	secretName := mc.Spec.PMM.CredentialsSecretRef.Name
 	if secretName == "" {
 		return errors.New("missing secret name")
 	}

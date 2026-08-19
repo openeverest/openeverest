@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"net/url"
 	"slices"
+	"time"
 
 	"github.com/AlekSi/pointer"
 	vmv1beta1 "github.com/VictoriaMetrics/operator/api/operator/v1beta1"
@@ -69,7 +70,7 @@ const (
 
 	// instanceMonitoringConfigField is the field path used for indexing Instances
 	// by their monitoring config name.
-	instanceMonitoringConfigField = ".spec.components.monitoring.customSpec.monitoringConfigName"
+	instanceMonitoringConfigField = ".spec.components.monitoring.parameters.monitoringConfigName"
 )
 
 // MonitoringConfigReconciler reconciles a MonitoringConfig object.
@@ -176,8 +177,12 @@ func (r *MonitoringConfigReconciler) Reconcile( //nolint:nonamedreturns
 		logger.Info("Reconciled VMAgent")
 	}()
 
-	if err := r.reconcileVMAgent(ctx); err != nil {
+	requeue, err := r.reconcileVMAgent(ctx)
+	if err != nil {
 		return ctrl.Result{}, err
+	}
+	if requeue {
+		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
 	}
 
 	return ctrl.Result{}, nil
@@ -231,10 +236,10 @@ func (r *MonitoringConfigReconciler) ensureSecretOwnership(
 
 	secret := &corev1.Secret{}
 	if err := r.Get(ctx, types.NamespacedName{
-		Name:      mc.Spec.PMM.CredentialsSecretName,
+		Name:      mc.Spec.PMM.CredentialsSecretRef.Name,
 		Namespace: mc.GetNamespace(),
 	}, secret); err != nil {
-		return fmt.Errorf("failed to get credentials secret %q: %w", mc.Spec.PMM.CredentialsSecretName, err)
+		return fmt.Errorf("failed to get credentials secret %q: %w", mc.Spec.PMM.CredentialsSecretRef.Name, err)
 	}
 
 	// Skip if the Secret already has a controller owner.
@@ -287,15 +292,15 @@ func (r *MonitoringConfigReconciler) fetchPMMServerVersion(
 ) (monitoringv1alpha1.PMMServerVersion, error) {
 	secret := &corev1.Secret{}
 	if err := r.Get(ctx, types.NamespacedName{
-		Name:      mc.Spec.PMM.CredentialsSecretName,
+		Name:      mc.Spec.PMM.CredentialsSecretRef.Name,
 		Namespace: mc.GetNamespace(),
 	}, secret); err != nil {
-		return "", fmt.Errorf("failed to get credentials secret %q: %w", mc.Spec.PMM.CredentialsSecretName, err)
+		return "", fmt.Errorf("failed to get credentials secret %q: %w", mc.Spec.PMM.CredentialsSecretRef.Name, err)
 	}
 
 	apiKey, ok := secret.Data["apiKey"]
 	if !ok {
-		return "", fmt.Errorf("apiKey not found in secret %q", mc.Spec.PMM.CredentialsSecretName)
+		return "", fmt.Errorf("apiKey not found in secret %q", mc.Spec.PMM.CredentialsSecretRef.Name)
 	}
 
 	var skipVerifyTLS bool
@@ -312,28 +317,47 @@ func (r *MonitoringConfigReconciler) fetchPMMServerVersion(
 }
 
 // reconcileVMAgent ensures a VMAgent exists with remote-write entries for all PMM-type MonitoringConfigs, and is removed when no longer needed.
-func (r *MonitoringConfigReconciler) reconcileVMAgent(ctx context.Context) error {
+//
+//nolint:funlen // Keep reconciliation logic in one function for clarity.
+func (r *MonitoringConfigReconciler) reconcileVMAgent(ctx context.Context) (bool, error) {
 	list := &monitoringv1alpha1.MonitoringConfigList{}
 	if err := r.List(ctx, list, &client.ListOptions{}); err != nil {
-		return fmt.Errorf("could not list monitoringconfigs: %w", err)
+		return false, fmt.Errorf("could not list monitoringconfigs: %w", err)
 	}
+
+	requeueNeeded := false
 
 	// Ensure each MonitoringConfig has the vmagent finalizer and its mirrored secret
 	// in the monitoring namespace before building the VMAgent spec.
 	for _, mc := range list.Items {
-		if err := r.ensureVMAgentResources(ctx, &mc); err != nil {
-			return fmt.Errorf("could not ensure vmagent resources: %w", err)
+		if !mc.GetDeletionTimestamp().IsZero() {
+			done, err := r.handleFinalizers(ctx, &mc)
+			if err != nil {
+				return false, fmt.Errorf("could not handle finalizers: %w", err)
+			}
+			if !done {
+				requeueNeeded = true
+			}
+			continue
 		}
+
+		if err := r.ensureVMAgentResources(ctx, &mc); err != nil {
+			return false, fmt.Errorf("could not ensure vmagent resources: %w", err)
+		}
+	}
+
+	if requeueNeeded {
+		return true, nil
 	}
 
 	kubeSystemNamespace := &corev1.Namespace{}
 	if err := r.Get(ctx, types.NamespacedName{Name: "kube-system"}, kubeSystemNamespace); err != nil {
-		return fmt.Errorf("could not get kube-system namespace: %w", err)
+		return false, fmt.Errorf("could not get kube-system namespace: %w", err)
 	}
 
 	spec, err := r.genVMAgentSpec(list, string(kubeSystemNamespace.UID))
 	if err != nil {
-		return fmt.Errorf("could not generate VMAgent spec: %w", err)
+		return false, fmt.Errorf("could not generate VMAgent spec: %w", err)
 	}
 
 	vmAgent := &vmv1beta1.VMAgent{
@@ -346,10 +370,10 @@ func (r *MonitoringConfigReconciler) reconcileVMAgent(ctx context.Context) error
 	// No remote writes, delete the VMAgent.
 	if len(spec.RemoteWrite) == 0 {
 		if err := r.Delete(ctx, vmAgent); client.IgnoreNotFound(err) != nil {
-			return fmt.Errorf("could not delete vmagent: %w", err)
+			return false, fmt.Errorf("could not delete vmagent: %w", err)
 		}
 
-		return nil
+		return false, nil
 	}
 
 	_, err = controllerutil.CreateOrUpdate(ctx, r.Client, vmAgent, func() error {
@@ -361,29 +385,13 @@ func (r *MonitoringConfigReconciler) reconcileVMAgent(ctx context.Context) error
 		return nil
 	})
 
-	return err
+	return false, err
 }
 
 // ensureVMAgentResources ensures the vmagent finalizer, and copied secret
 // is in the monitoring namespace.
-// - on deletion: removes the copied secret and the vmagent finalizer.
-// - otherwise: adds the vmagent finalizer and copies the credentials secret.
 func (r *MonitoringConfigReconciler) ensureVMAgentResources(ctx context.Context, mc *monitoringv1alpha1.MonitoringConfig) error {
 	if mc.Spec.Type != monitoringv1alpha1.PMMMonitoringType {
-		return nil
-	}
-
-	if !mc.GetDeletionTimestamp().IsZero() {
-		if err := r.cleanupSecrets(ctx, mc); err != nil {
-			return fmt.Errorf("could not clean up secrets: %w", err)
-		}
-
-		if removed := controllerutil.RemoveFinalizer(mc, vmagentFinalizer); removed {
-			if err := r.Update(ctx, mc); err != nil {
-				return fmt.Errorf("could not remove vmagent finalizer: %w", err)
-			}
-		}
-
 		return nil
 	}
 
@@ -492,10 +500,10 @@ func (r *MonitoringConfigReconciler) reconcileSecret(ctx context.Context, mc *mo
 	// Get the secret in the MonitoringConfig namespace.
 	src := &corev1.Secret{}
 	if err := r.Get(ctx, types.NamespacedName{
-		Name:      mc.Spec.PMM.CredentialsSecretName,
+		Name:      mc.Spec.PMM.CredentialsSecretRef.Name,
 		Namespace: mc.GetNamespace(),
 	}, src); err != nil {
-		return "", fmt.Errorf("failed to get credentials secret %q: %w", mc.Spec.PMM.CredentialsSecretName, err)
+		return "", fmt.Errorf("failed to get credentials secret %q: %w", mc.Spec.PMM.CredentialsSecretRef.Name, err)
 	}
 
 	// Create a copy in the monitoring namespace.
@@ -534,14 +542,45 @@ func (r *MonitoringConfigReconciler) reconcileSecret(ctx context.Context, mc *mo
 // on whether the MonitoringConfig is in the monitoring namespace or not.
 func (r *MonitoringConfigReconciler) monitoringSecretName(mc *monitoringv1alpha1.MonitoringConfig) string {
 	if mc.GetNamespace() == r.MonitoringNamespace {
-		return mc.Spec.PMM.CredentialsSecretName
+		return mc.Spec.PMM.CredentialsSecretRef.Name
 	}
 
-	return mc.Spec.PMM.CredentialsSecretName + "-" + mc.GetNamespace()
+	return mc.Spec.PMM.CredentialsSecretRef.Name + "-" + mc.GetNamespace()
+}
+
+// handleFinalizers manages the removal of finalizers and secret cleanup.
+// Returns true if finalizers have been successfully processed and removed, false otherwise.
+func (r *MonitoringConfigReconciler) handleFinalizers(ctx context.Context, mc *monitoringv1alpha1.MonitoringConfig) (bool, error) {
+	if mc.Spec.Type != monitoringv1alpha1.PMMMonitoringType {
+		return true, nil
+	}
+
+	if controllerutil.ContainsFinalizer(mc, cleanupSecretsFinalizer) {
+		secretsCleaned, err := r.cleanupSecrets(ctx, mc)
+		if err != nil {
+			return false, err
+		}
+
+		if !secretsCleaned {
+			return false, nil
+		}
+	}
+
+	removedCleanup := controllerutil.RemoveFinalizer(mc, cleanupSecretsFinalizer)
+	removedVMAgent := controllerutil.RemoveFinalizer(mc, vmagentFinalizer)
+
+	if removedCleanup || removedVMAgent {
+		if err := r.Update(ctx, mc); err != nil {
+			return false, fmt.Errorf("could not remove finalizers: %w", err)
+		}
+	}
+
+	return true, nil
 }
 
 // cleanupSecrets deletes all secrets in the monitoring namespace that belong to the given MonitoringConfig.
-func (r *MonitoringConfigReconciler) cleanupSecrets(ctx context.Context, mc *monitoringv1alpha1.MonitoringConfig) error {
+// Returns true if all secrets have been fully deleted, false if deletion is still in progress.
+func (r *MonitoringConfigReconciler) cleanupSecrets(ctx context.Context, mc *monitoringv1alpha1.MonitoringConfig) (bool, error) {
 	// List secrets in the monitoring namespace that belong to this MonitoringConfig.
 	secrets := &corev1.SecretList{}
 	err := r.List(ctx, secrets, &client.ListOptions{
@@ -552,21 +591,20 @@ func (r *MonitoringConfigReconciler) cleanupSecrets(ctx context.Context, mc *mon
 		}),
 	})
 	if err != nil {
-		return err
+		return false, err
+	}
+
+	if len(secrets.Items) == 0 {
+		return true, nil
 	}
 
 	for _, secret := range secrets.Items {
-		if err := r.Delete(ctx, &secret); err != nil {
-			return err
+		if err := r.Delete(ctx, &secret); client.IgnoreNotFound(err) != nil {
+			return false, err
 		}
 	}
 
-	// Remove the finalizer from the MonitoringConfig.
-	if controllerutil.RemoveFinalizer(mc, cleanupSecretsFinalizer) {
-		return r.Update(ctx, mc)
-	}
-
-	return nil
+	return false, nil
 }
 
 // initIndexers registers the field indexers required by this controller.
@@ -574,7 +612,7 @@ func (r *MonitoringConfigReconciler) initIndexers(ctx context.Context, mgr ctrl.
 	if err := mgr.GetFieldIndexer().IndexField(
 		ctx,
 		&monitoringv1alpha1.MonitoringConfig{},
-		".spec.pmm.credentialsSecretName",
+		".spec.pmm.credentialsSecretRef.name",
 		func(obj client.Object) []string {
 			mc, ok := obj.(*monitoringv1alpha1.MonitoringConfig)
 			if !ok {
@@ -583,10 +621,10 @@ func (r *MonitoringConfigReconciler) initIndexers(ctx context.Context, mgr ctrl.
 			if mc.Spec.PMM == nil {
 				return nil
 			}
-			return []string{mc.Spec.PMM.CredentialsSecretName}
+			return []string{mc.Spec.PMM.CredentialsSecretRef.Name}
 		},
 	); err != nil {
-		return fmt.Errorf("indexing monitoringconfig by credentialsSecretName: %w", err)
+		return fmt.Errorf("indexing monitoringconfig by credentialsSecretRef.name: %w", err)
 	}
 
 	if err := mgr.GetFieldIndexer().IndexField(
@@ -609,7 +647,7 @@ func (r *MonitoringConfigReconciler) initIndexers(ctx context.Context, mgr ctrl.
 }
 
 // instanceMonitoringConfigName extracts the monitoringConfigName value from an Instance's
-// .spec.components.monitoring.customSpec.monitoringConfigName.
+// .spec.components.monitoring.parameters.monitoringConfigName.
 // Returns "" if not set.
 func instanceMonitoringConfigName(obj client.Object) string {
 	instance, ok := obj.(*corev1alpha1.Instance)
@@ -622,12 +660,12 @@ func instanceMonitoringConfigName(obj client.Object) string {
 		return ""
 	}
 
-	if monitoringSpec.CustomSpec == nil || monitoringSpec.CustomSpec.Raw == nil {
+	if monitoringSpec.Parameters == nil || monitoringSpec.Parameters.Raw == nil {
 		return ""
 	}
 
 	m := map[string]any{}
-	if err := json.Unmarshal(monitoringSpec.CustomSpec.Raw, &m); err != nil {
+	if err := json.Unmarshal(monitoringSpec.Parameters.Raw, &m); err != nil {
 		return ""
 	}
 
@@ -636,7 +674,7 @@ func instanceMonitoringConfigName(obj client.Object) string {
 }
 
 // enqueueInstances maps an Instance to a reconcile.Request for the MonitoringConfig
-// referenced in .spec.components.monitoring.customSpec.monitoringConfigName.
+// referenced in .spec.components.monitoring.parameters.monitoringConfigName.
 func (r *MonitoringConfigReconciler) enqueueInstances(_ context.Context, obj client.Object) []reconcile.Request {
 	name := instanceMonitoringConfigName(obj)
 	if name == "" {
@@ -649,7 +687,7 @@ func (r *MonitoringConfigReconciler) enqueueInstances(_ context.Context, obj cli
 }
 
 // instancePredicate returns a Predicate that passes only when the Instance's
-// .spec.components.monitoring.customSpec.monitoringConfigName field is relevant:
+// .spec.components.monitoring.parameters.monitoringConfigName field is relevant:
 //   - Create: the field is set on the new Instance.
 //   - Update: the field is set on either the old or the new Instance, covering
 //     the cases where the value is added, changed, or removed.

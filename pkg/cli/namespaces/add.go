@@ -117,7 +117,8 @@ func (cfg *NamespaceAddConfig) PopulateNamespaces(ctx context.Context) error {
 	var err error
 	var ns string
 	// Ask user to provide namespaces in interactive mode.
-	if ns, err = tui.NewInput(ctx,
+	if ns, err = tui.NewInput(
+		ctx,
 		"Provide database namespaces to be managed by Everest",
 		tui.WithInputDefaultValue(common.DefaultDBNamespaceName),
 		tui.WithInputHint("Namespaces can be provided in comma-separated form: ns-1,ns-2"),
@@ -173,7 +174,7 @@ func (cfg *NamespaceAddConfig) PopulateOperators(ctx context.Context) error {
 		}
 	}
 
-	if !(cfg.Operators.PXC || cfg.Operators.PG || cfg.Operators.PSMDB) {
+	if !cfg.Operators.PXC && !cfg.Operators.PG && !cfg.Operators.PSMDB {
 		// need to select at least one operator to install
 		return ErrOperatorsNotSelected
 	}
@@ -184,7 +185,7 @@ func (cfg *NamespaceAddConfig) PopulateOperators(ctx context.Context) error {
 // ValidateNamespaces validates the provided list of namespaces.
 // It validates:
 // - namespace names
-// - namespace ownership
+// - namespace ownership.
 func (cfg *NamespaceAddConfig) ValidateNamespaces(ctx context.Context, nsList []string) error {
 	var k kubernetes.KubernetesConnector
 	var err error
@@ -281,7 +282,7 @@ func NewNamespaceAdd(c NamespaceAddConfig, l *zap.SugaredLogger) (*NamespaceAdde
 			return nil, ErrNamespaceListEmpty
 		}
 
-		if !(c.Operators.PXC || c.Operators.PG || c.Operators.PSMDB) {
+		if !c.Operators.PXC && !c.Operators.PG && !c.Operators.PSMDB {
 			// need to select at least one operator to install
 			return nil, ErrOperatorsNotSelected
 		}
@@ -323,7 +324,7 @@ func (n *NamespaceAdder) Run(ctx context.Context) error {
 
 	if version.IsDev(dbNSChartVersion) && n.cfg.HelmConfig.ChartDir == "" {
 		// Note: new value will be set to n.cfg.ChartDir inside SetupEverestDevChart
-		cleanup, err := helmutils.SetupEverestDevChart(n.l, &n.cfg.HelmConfig.ChartDir)
+		cleanup, err := helmutils.SetupEverestDevChart(ctx, n.l, &n.cfg.HelmConfig.ChartDir)
 		if err != nil {
 			return err
 		}
@@ -364,7 +365,8 @@ func (n *NamespaceAdder) GetNamespaceInstallSteps(ctx context.Context, dbNSChart
 
 	var installSteps []steps.Step
 	for _, namespace := range n.cfg.NamespaceList {
-		installSteps = append(installSteps,
+		installSteps = append(
+			installSteps,
 			n.newStepInstallNamespace(dbNSChartVersion, namespace),
 		)
 	}
@@ -427,7 +429,8 @@ func (n *NamespaceAdder) validateNamespaceUpdate(ctx context.Context, namespace 
 	if err != nil {
 		return fmt.Errorf("cannot list subscriptions: %w", err)
 	}
-	if !ensureNoOperatorsRemoved(subscriptions.Items,
+	if !ensureNoOperatorsRemoved(
+		subscriptions.Items,
 		n.cfg.Operators.PG, n.cfg.Operators.PXC, n.cfg.Operators.PSMDB,
 	) {
 		return ErrCannotRemoveOperators

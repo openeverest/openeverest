@@ -16,6 +16,8 @@ package v1alpha1
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	common "github.com/openeverest/openeverest/v2/api/common/v1alpha1"
 )
 
 // InstalledExtensionType discriminates between a generic plugin install
@@ -68,10 +70,10 @@ type InstalledExtensionSpec struct {
 
 // PluginInstall captures plugin-specific install state.
 type PluginInstall struct {
-	// PluginCRName is the name of the cluster-scoped Plugin CR that this
-	// install record points at.
+	// PluginRef references the cluster-scoped Plugin CR that this install
+	// record points at.
 	// +required
-	PluginCRName string `json:"pluginCRName"`
+	PluginRef common.ObjectRef `json:"pluginRef"`
 
 	// FrontendDigest pins the OCI digest of the frontend bundle artifact.
 	// +optional
@@ -84,10 +86,10 @@ type PluginInstall struct {
 
 // ProviderInstall captures provider-specific install state.
 type ProviderInstall struct {
-	// ProviderName is the name of the cluster-scoped Provider CR that this
+	// ProviderRef references the cluster-scoped Provider CR that this
 	// install record points at.
 	// +required
-	ProviderName string `json:"providerName"`
+	ProviderRef common.ObjectRef `json:"providerRef"`
 }
 
 // InstalledExtensionPhase rolls up the conditions into a single status word.

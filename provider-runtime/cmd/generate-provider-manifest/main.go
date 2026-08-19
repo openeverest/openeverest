@@ -103,17 +103,17 @@ func run(configFile, outputFile string, typesPkgs []string) error {
 // configForTypeDiscovery is a minimal parse of provider-config.yaml to extract
 // all type name references without needing full CRD types.
 type configForTypeDiscovery struct {
-	Components         map[string]componentSchemaRef `json:"components"`
-	Topologies         map[string]topologySchemaRef  `json:"topologies"`
-	GlobalConfigSchema string                        `json:"globalConfigSchema"`
+	Components       map[string]componentSchemaRef `json:"components"`
+	Topologies       map[string]topologySchemaRef  `json:"topologies"`
+	ParametersSchema string                        `json:"parametersSchema"`
 }
 
 type componentSchemaRef struct {
-	CustomSpecSchema string `json:"customSpecSchema"`
+	ParametersSchema string `json:"parametersSchema"`
 }
 
 type topologySchemaRef struct {
-	ConfigSchema string `json:"configSchema"`
+	ParametersSchema string `json:"parametersSchema"`
 }
 
 // collectTypeNames extracts all unique type name references from the parsed config.
@@ -121,17 +121,17 @@ func collectTypeNames(cfg *configForTypeDiscovery) []string {
 	seen := make(map[string]bool)
 
 	for _, comp := range cfg.Components {
-		if comp.CustomSpecSchema != "" {
-			seen[comp.CustomSpecSchema] = true
+		if comp.ParametersSchema != "" {
+			seen[comp.ParametersSchema] = true
 		}
 	}
 	for _, topo := range cfg.Topologies {
-		if topo.ConfigSchema != "" {
-			seen[topo.ConfigSchema] = true
+		if topo.ParametersSchema != "" {
+			seen[topo.ParametersSchema] = true
 		}
 	}
-	if cfg.GlobalConfigSchema != "" {
-		seen[cfg.GlobalConfigSchema] = true
+	if cfg.ParametersSchema != "" {
+		seen[cfg.ParametersSchema] = true
 	}
 
 	names := make([]string, 0, len(seen))

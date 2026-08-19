@@ -88,26 +88,46 @@ spec:
                     description: FrontendDigest pins the OCI digest of the frontend
                       bundle artifact.
                     type: string
-                  pluginCRName:
+                  pluginRef:
                     description: |-
-                      PluginCRName is the name of the cluster-scoped Plugin CR that this
-                      install record points at.
-                    type: string
+                      PluginRef references the cluster-scoped Plugin CR that this install
+                      record points at.
+                    properties:
+                      name:
+                        description: Name of the referenced object.
+                        maxLength: 253
+                        minLength: 1
+                        pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                        type: string
+                    required:
+                    - name
+                    type: object
+                    x-kubernetes-map-type: atomic
                 required:
-                - pluginCRName
+                - pluginRef
                 type: object
               provider:
                 description: |-
                   Provider holds provider-specific install state. Required when
                   type=provider; must be nil when type=plugin.
                 properties:
-                  providerName:
+                  providerRef:
                     description: |-
-                      ProviderName is the name of the cluster-scoped Provider CR that this
+                      ProviderRef references the cluster-scoped Provider CR that this
                       install record points at.
-                    type: string
+                    properties:
+                      name:
+                        description: Name of the referenced object.
+                        maxLength: 253
+                        minLength: 1
+                        pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                        type: string
+                    required:
+                    - name
+                    type: object
+                    x-kubernetes-map-type: atomic
                 required:
-                - providerName
+                - providerRef
                 type: object
               type:
                 description: |-

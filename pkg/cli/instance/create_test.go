@@ -18,6 +18,7 @@ package instance
 import (
 	"context"
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -28,6 +29,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/openeverest/openeverest/v2/client"
 	"github.com/openeverest/openeverest/v2/pkg/cli"
@@ -36,15 +38,16 @@ import (
 
 // ---- helpers ----------------------------------------------------------------
 
-func boolPtr(b bool) *bool   { return &b }
+func boolPtr(b bool) *bool    { return &b }
 func strPtr(s string) *string { return &s }
 
 // buildProvider builds a minimal Provider fixture for tests.
 func buildProvider(name string, versions []struct {
-	name     string
+	name      string
 	isDefault bool
-}, topologies map[string][]string) *client.Provider {
-	meta := map[string]any{"name": name}
+}, topologies map[string][]string,
+) *client.Provider {
+	meta := metav1.ObjectMeta{Name: name}
 
 	var vers []struct {
 		Components *map[string]string `json:"components,omitempty"`
@@ -67,33 +70,43 @@ func buildProvider(name string, versions []struct {
 		Components *map[string]struct {
 			Optional *bool `json:"optional,omitempty"`
 		} `json:"components,omitempty"`
-		ConfigSchema *map[string]any `json:"configSchema,omitempty"`
+		ParametersSchema *struct {
+			OpenAPIV3Schema any `json:"openAPIV3Schema,omitempty"` //nolint:tagliatelle
+		} `json:"parametersSchema,omitempty"`
 	}{}
 	for topo, comps := range topologies {
 		compMap := map[string]struct {
 			Optional *bool `json:"optional,omitempty"`
 		}{}
 		for _, c := range comps {
-			compMap[c] = struct{ Optional *bool `json:"optional,omitempty"` }{}
+			compMap[c] = struct {
+				Optional *bool `json:"optional,omitempty"`
+			}{}
 		}
 		topos[topo] = struct {
 			Components *map[string]struct {
 				Optional *bool `json:"optional,omitempty"`
 			} `json:"components,omitempty"`
-			ConfigSchema *map[string]any `json:"configSchema,omitempty"`
+			ParametersSchema *struct {
+				OpenAPIV3Schema any `json:"openAPIV3Schema,omitempty"` //nolint:tagliatelle
+			} `json:"parametersSchema,omitempty"`
 		}{Components: &compMap}
 	}
 
 	globalComps := map[string]struct {
-		CustomSpecSchema *map[string]any `json:"customSpecSchema,omitempty"`
-		Type             *string         `json:"type,omitempty"`
+		ParametersSchema *struct {
+			OpenAPIV3Schema any `json:"openAPIV3Schema,omitempty"` //nolint:tagliatelle
+		} `json:"parametersSchema,omitempty"`
+		Type *string `json:"type,omitempty"`
 	}{}
 	for _, comps := range topologies {
 		for _, c := range comps {
 			globalComps[c] = struct {
-				CustomSpecSchema *map[string]any `json:"customSpecSchema,omitempty"`
-				Type             *string         `json:"type,omitempty"`
-			}{Type: strPtr(c + "-type")}
+				ParametersSchema *struct {
+					OpenAPIV3Schema any `json:"openAPIV3Schema,omitempty"` //nolint:tagliatelle
+				} `json:"parametersSchema,omitempty"`
+				Type *string `json:"type,omitempty"`
+			}{Type: new(c + "-type")}
 		}
 	}
 
@@ -168,8 +181,8 @@ func TestDefaultVersion_NoVersions(t *testing.T) {
 func TestFirstTopology_AlphabeticalOrder(t *testing.T) {
 	t.Parallel()
 	prov := buildProvider("psmdb", nil, map[string][]string{
-		"standalone":  {"engine"},
-		"replicaset":  {"engine", "proxy"},
+		"standalone": {"engine"},
+		"replicaset": {"engine", "proxy"},
 	})
 	assert.Equal(t, "replicaset", firstTopology(prov))
 }
@@ -238,7 +251,9 @@ func TestValidateComponents_EmptyTopologyFallsBackToGlobal(t *testing.T) {
 		Components *map[string]struct {
 			Optional *bool `json:"optional,omitempty"`
 		} `json:"components,omitempty"`
-		ConfigSchema *map[string]any `json:"configSchema,omitempty"`
+		ParametersSchema *struct {
+			OpenAPIV3Schema any `json:"openAPIV3Schema,omitempty"` //nolint:tagliatelle
+		} `json:"parametersSchema,omitempty"`
 	}{
 		"replicaset": {Components: nil},
 	}
@@ -338,9 +353,9 @@ func TestDeepMerge_NewKey(t *testing.T) {
 
 func TestBuildPayload_BasicFields(t *testing.T) {
 	t.Parallel()
-	p := buildPayload("my-db", "psmdb", "8.0", "replicaset", nil)
+	p := buildPayload("my-db", "psmdb", "8.0", "replicaset", nil, nil)
 	spec := p["spec"].(map[string]any)
-	assert.Equal(t, "psmdb", spec["provider"])
+	assert.Equal(t, map[string]any{"name": "psmdb"}, spec["providerRef"])
 	assert.Equal(t, "8.0", spec["version"])
 	topo := spec["topology"].(map[string]any)
 	assert.Equal(t, "replicaset", topo["type"])
@@ -350,16 +365,16 @@ func TestBuildPayload_BasicFields(t *testing.T) {
 
 func TestBuildPayload_ExplicitFlagsWinOverOverrides(t *testing.T) {
 	t.Parallel()
-	overrides := map[string]any{"provider": "wrong", "version": "wrong"}
-	p := buildPayload("db", "psmdb", "8.0", "standalone", overrides)
+	overrides := map[string]any{"providerRef": map[string]any{"name": "wrong"}, "version": "wrong"}
+	p := buildPayload("db", "psmdb", "8.0", "standalone", overrides, nil)
 	spec := p["spec"].(map[string]any)
-	assert.Equal(t, "psmdb", spec["provider"])
+	assert.Equal(t, map[string]any{"name": "psmdb"}, spec["providerRef"])
 	assert.Equal(t, "8.0", spec["version"])
 }
 
 func TestBuildPayload_EmptyVersionAndTopologyOmitted(t *testing.T) {
 	t.Parallel()
-	p := buildPayload("db", "psmdb", "", "", nil)
+	p := buildPayload("db", "psmdb", "", "", nil, nil)
 	spec := p["spec"].(map[string]any)
 	_, hasVersion := spec["version"]
 	_, hasTopology := spec["topology"]
@@ -372,7 +387,7 @@ func TestBuildPayload_EmptyVersionAndTopologyOmitted(t *testing.T) {
 func TestLoadValuesFile_Valid(t *testing.T) {
 	t.Parallel()
 	f := filepath.Join(t.TempDir(), "values.yaml")
-	require.NoError(t, os.WriteFile(f, []byte("components:\n  engine:\n    replicas: 3\n"), 0600))
+	require.NoError(t, os.WriteFile(f, []byte("components:\n  engine:\n    replicas: 3\n"), 0o600))
 	m, err := loadValuesFile(f)
 	require.NoError(t, err)
 	comps := m["components"].(map[string]any)
@@ -390,7 +405,7 @@ func TestLoadValuesFile_MissingFile(t *testing.T) {
 func TestLoadValuesFile_InvalidYAML(t *testing.T) {
 	t.Parallel()
 	f := filepath.Join(t.TempDir(), "bad.yaml")
-	require.NoError(t, os.WriteFile(f, []byte(":\t:bad"), 0600))
+	require.NoError(t, os.WriteFile(f, []byte(":\t:bad"), 0o600))
 	_, err := loadValuesFile(f)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "cannot parse")
@@ -401,7 +416,7 @@ func TestLoadValuesFile_InvalidYAML(t *testing.T) {
 func TestBuildSpecOverrides_SetWinsOverFile(t *testing.T) {
 	t.Parallel()
 	f := filepath.Join(t.TempDir(), "values.yaml")
-	require.NoError(t, os.WriteFile(f, []byte("components:\n  engine:\n    replicas: 1\n"), 0600))
+	require.NoError(t, os.WriteFile(f, []byte("components:\n  engine:\n    replicas: 1\n"), 0o600))
 	m, err := buildSpecOverrides(f, []string{"components.engine.replicas=5"})
 	require.NoError(t, err)
 	comps := m["components"].(map[string]any)
@@ -412,7 +427,7 @@ func TestBuildSpecOverrides_SetWinsOverFile(t *testing.T) {
 func TestBuildSpecOverrides_FileOnly(t *testing.T) {
 	t.Parallel()
 	f := filepath.Join(t.TempDir(), "values.yaml")
-	require.NoError(t, os.WriteFile(f, []byte("backup:\n  enabled: true\n"), 0600))
+	require.NoError(t, os.WriteFile(f, []byte("backup:\n  enabled: true\n"), 0o600))
 	m, err := buildSpecOverrides(f, nil)
 	require.NoError(t, err)
 	backup := m["backup"].(map[string]any)
@@ -457,6 +472,14 @@ func newRunServer(t *testing.T, providerHandler, createHandler http.HandlerFunc)
 	return httptest.NewServer(mux)
 }
 
+// respondCreated writes a minimal 201 instance body, as the real API does; the
+// non-wait JSON path needs a parseable body to emit.
+func respondCreated(w http.ResponseWriter) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	_, _ = w.Write([]byte(`{"metadata":{"name":"my-db"}}`))
+}
+
 func psmdbProvider() *client.Provider {
 	return buildProvider("psmdb", []struct {
 		name      string
@@ -475,7 +498,7 @@ func TestRun_HappyPath(t *testing.T) {
 		_ = json.NewEncoder(w).Encode(psmdbProvider())
 	}
 	createHandler := func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusCreated)
+		respondCreated(w)
 	}
 
 	srv := newRunServer(t, provHandler, createHandler)
@@ -628,7 +651,7 @@ func TestRun_ContextFlag(t *testing.T) {
 		_ = json.NewEncoder(w).Encode(psmdbProvider())
 	}
 	createHandler := func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusCreated)
+		respondCreated(w)
 	}
 
 	srv := newRunServer(t, provHandler, createHandler)
@@ -684,4 +707,315 @@ func TestRun_UnknownContext(t *testing.T) {
 	}, cfgPath)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "nonexistent")
+}
+
+// ---- preset Run tests -------------------------------------------------------
+
+// newRunServerWithPreset extends newRunServer to also serve the preset resolve
+// endpoint at /v1/clusters/main/instance-presets/{name}/resolve.
+func newRunServerWithPreset(t *testing.T, providerHandler, createHandler, presetHandler http.HandlerFunc) *httptest.Server {
+	t.Helper()
+	mux := http.NewServeMux()
+	mux.HandleFunc("/v1/clusters/main/providers/psmdb", providerHandler)
+	mux.HandleFunc("/v1/clusters/main/namespaces/", createHandler)
+	mux.HandleFunc("/v1/clusters/main/instance-presets/", presetHandler)
+	return httptest.NewServer(mux)
+}
+
+// presetJSON returns a minimal InstancePreset JSON fixture for provider "psmdb"
+// with version "8.0" and topology "replicaset" (matching psmdbProvider).
+func presetJSON() []byte {
+	return []byte(`{
+		"spec": {
+			"providerRef": {"name": "psmdb"},
+			"version": "8.0",
+			"topology": {"type": "replicaset"},
+			"components": {"engine": {"replicas": 3}}
+		}
+	}`)
+}
+
+func okPresetHandler(w http.ResponseWriter, _ *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	_, _ = w.Write(presetJSON())
+}
+
+func okProviderHandler(w http.ResponseWriter, _ *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(psmdbProvider()); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
+}
+
+// TestRun_WithPreset_Payloads checks the full JSON payload submitted to the
+// create endpoint for various preset + override combinations.
+func TestRun_WithPreset_Payloads(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		desc        string
+		opts        CreateOptions
+		wantPayload string
+	}{
+		{
+			desc: "happy path: annotation stamped, version and topology from preset",
+			opts: CreateOptions{
+				Name:      "my-db",
+				Namespace: "everest",
+				Provider:  "psmdb",
+				Cluster:   "main",
+				Preset:    "my-preset",
+			},
+			wantPayload: `{
+   "metadata":{
+      "name":"my-db",
+      "annotations":{
+         "openeverest.io/instance-preset":"my-preset"
+      }
+   },
+   "spec":{
+      "providerRef":{"name":"psmdb"},
+      "version":"8.0",
+      "topology":{
+         "type":"replicaset"
+      },
+      "components":{
+         "engine":{
+            "replicas":3
+         }
+      }
+   }
+}`,
+		},
+		{
+			desc: "set overrides preset; annotation still stamped",
+			opts: CreateOptions{
+				Name:      "my-db",
+				Namespace: "everest",
+				Provider:  "psmdb",
+				Cluster:   "main",
+				Preset:    "my-preset",
+				Set:       []string{"components.engine.replicas=5"},
+			},
+			wantPayload: `{
+   "metadata": {
+      "name": "my-db",
+      "annotations": {
+         "openeverest.io/instance-preset": "my-preset"
+      }
+   },
+   "spec": {
+      "providerRef": {"name": "psmdb"},
+      "version": "8.0",
+      "topology": {
+         "type": "replicaset"
+      },
+      "components": {
+         "engine": {
+            "replicas": 5
+         }
+      }
+   }
+}`,
+		},
+		{
+			desc: "explicit version overrides preset version",
+			opts: CreateOptions{
+				Name:      "my-db",
+				Namespace: "everest",
+				Provider:  "psmdb",
+				Cluster:   "main",
+				Preset:    "my-preset",
+				Version:   "7.0",
+			},
+			wantPayload: `{
+   "metadata": {
+      "name": "my-db",
+      "annotations": {
+         "openeverest.io/instance-preset": "my-preset"
+      }
+   },
+   "spec": {
+      "providerRef": {"name": "psmdb"},
+      "version": "7.0",
+      "topology": {
+         "type": "replicaset"
+      },
+      "components": {
+         "engine": {
+            "replicas": 3
+         }
+      }
+   }
+}`,
+		},
+		{
+			desc: "provider derived from preset when omitted",
+			opts: CreateOptions{
+				Name:      "my-db",
+				Namespace: "everest",
+				Cluster:   "main",
+				Preset:    "my-preset",
+			},
+			wantPayload: `{
+   "metadata": {
+      "name": "my-db",
+      "annotations": {
+         "openeverest.io/instance-preset": "my-preset"
+      }
+   },
+   "spec": {
+      "providerRef": {"name": "psmdb"},
+      "version": "8.0",
+      "topology": {
+         "type": "replicaset"
+      },
+      "components": {
+         "engine": {
+            "replicas": 3
+         }
+      }
+   }
+}`,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.desc, func(t *testing.T) {
+			t.Parallel()
+
+			var (
+				got     []byte
+				readErr error
+			)
+			srv := newRunServerWithPreset(t, okProviderHandler,
+				func(w http.ResponseWriter, r *http.Request) {
+					got, readErr = io.ReadAll(r.Body)
+					assert.NoError(t, readErr)
+					respondCreated(w)
+				},
+				okPresetHandler,
+			)
+			defer srv.Close()
+
+			cfgPath := filepath.Join(t.TempDir(), "config.yaml")
+			require.NoError(t, newTestConfig(srv.URL).Save(cfgPath))
+
+			ic := NewInstanceCreator(Config{}, zap.NewNop().Sugar())
+			require.NoError(t, ic.Run(context.Background(), tc.opts, cfgPath))
+			assert.JSONEq(t, tc.wantPayload, string(got))
+		})
+	}
+}
+
+// TestRun_WithPreset_Errors checks that invalid preset usage returns the right errors.
+func TestRun_WithPreset_Errors(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		desc         string
+		opts         CreateOptions
+		presetStatus int
+		wantErr      string
+	}{
+		{
+			desc: "provider mismatch",
+			opts: CreateOptions{
+				Name:      "my-db",
+				Namespace: "everest",
+				Provider:  "postgresql",
+				Cluster:   "main",
+				Preset:    "my-preset",
+			},
+			presetStatus: http.StatusOK,
+			wantErr:      `does not match preset`,
+		},
+		{
+			desc: "preset not found",
+			opts: CreateOptions{
+				Name:      "my-db",
+				Namespace: "everest",
+				Provider:  "psmdb",
+				Cluster:   "main",
+				Preset:    "missing-preset",
+			},
+			presetStatus: http.StatusNotFound,
+			wantErr:      "missing-preset",
+		},
+		{
+			desc: "topology flag rejected with preset",
+			opts: CreateOptions{
+				Name:      "my-db",
+				Namespace: "everest",
+				Provider:  "psmdb",
+				Cluster:   "main",
+				Preset:    "my-preset",
+				Topology:  "replicaset",
+			},
+			presetStatus: 0,
+			wantErr:      "--topology cannot be combined with --preset",
+		},
+		{
+			desc: "no provider and no preset",
+			opts: CreateOptions{
+				Name:      "my-db",
+				Namespace: "everest",
+				Cluster:   "main",
+			},
+			presetStatus: 0,
+			wantErr:      "--provider is required",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.desc, func(t *testing.T) {
+			t.Parallel()
+
+			srv := newRunServerWithPreset(t, okProviderHandler,
+				func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusCreated) },
+				func(w http.ResponseWriter, _ *http.Request) {
+					if tc.presetStatus != 0 && tc.presetStatus != http.StatusOK {
+						w.WriteHeader(tc.presetStatus)
+						return
+					}
+					okPresetHandler(w, nil)
+				},
+			)
+			defer srv.Close()
+
+			cfgPath := filepath.Join(t.TempDir(), "config.yaml")
+			require.NoError(t, newTestConfig(srv.URL).Save(cfgPath))
+
+			ic := NewInstanceCreator(Config{}, zap.NewNop().Sugar())
+			require.ErrorContains(t, ic.Run(context.Background(), tc.opts, cfgPath), tc.wantErr)
+		})
+	}
+}
+
+func TestRun_WithPreset_ResolvePassesNamespace(t *testing.T) {
+	t.Parallel()
+
+	var capturedURL string
+	srv := newRunServerWithPreset(t, okProviderHandler,
+		func(w http.ResponseWriter, _ *http.Request) { respondCreated(w) },
+		func(w http.ResponseWriter, r *http.Request) {
+			capturedURL = r.URL.String()
+			okPresetHandler(w, r)
+		},
+	)
+	defer srv.Close()
+
+	cfgPath := filepath.Join(t.TempDir(), "config.yaml")
+	require.NoError(t, newTestConfig(srv.URL).Save(cfgPath))
+
+	ic := NewInstanceCreator(Config{}, zap.NewNop().Sugar())
+	require.NoError(t, ic.Run(context.Background(), CreateOptions{
+		Name:      "my-db",
+		Namespace: "prod",
+		Provider:  "psmdb",
+		Cluster:   "main",
+		Preset:    "my-preset",
+	}, cfgPath))
+
+	assert.Contains(t, capturedURL, "/v1/clusters/main/instance-presets/my-preset/resolve?namespace=prod")
 }

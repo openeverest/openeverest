@@ -22,7 +22,6 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/AlekSi/pointer"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
@@ -78,9 +77,8 @@ func (e *EverestServer) CreateSession(ctx echo.Context) error {
 	return ctx.JSON(http.StatusOK, map[string]string{"token": jwtToken})
 }
 
-// DeleteSession invalidates the user token by adding it to the blocklist
+// DeleteSession invalidates the user token by adding it to the blocklist.
 func (e *EverestServer) DeleteSession(ctx echo.Context) error {
-	e.attemptsStore.IncreaseTimeout(ctx.RealIP())
 	c := ctx.Request().Context()
 	token, err := common.ExtractToken(c)
 	if err != nil {
@@ -90,7 +88,7 @@ func (e *EverestServer) DeleteSession(ctx echo.Context) error {
 	if err != nil {
 		e.l.Errorf("blocklist error: %v", err)
 		return ctx.JSON(http.StatusInternalServerError, api.Error{
-			Message: pointer.To("Failed to logout user"),
+			Message: new("Failed to logout user"),
 		})
 	}
 

@@ -64,11 +64,21 @@ spec:
                 properties:
                   credentialsSecretRef:
                     description: |-
-                      CredentialsSecretRef is the name of a Secret in the same namespace as
+                      CredentialsSecretRef references a Secret in the same namespace as
                       the InstalledExtension entry whose "token" key is forwarded as the
                       Authorization header to the external backend. Only meaningful when
                       ExternalURL is set.
-                    type: string
+                    properties:
+                      name:
+                        description: Name of the referenced Secret.
+                        maxLength: 253
+                        minLength: 1
+                        pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                        type: string
+                    required:
+                    - name
+                    type: object
+                    x-kubernetes-map-type: atomic
                   externalUrl:
                     description: |-
                       ExternalURL is the HTTPS base URL of an externally hosted backend
@@ -174,10 +184,12 @@ spec:
                           type: string
                         providers:
                           description: |-
-                            Providers is an optional list of database engine types this extension point
-                            applies to. Values match spec.engine.type on the DatabaseCluster CR:
-                            "postgresql", "psmdb", "pxc".
-                            When omitted or empty, the extension point is shown for all engine types.
+                            Providers is an optional list of Provider names this extension point
+                            applies to. Values match spec.providerRef.name on the Instance CR, e.g.
+                            "provider-percona-postgresql", "percona-server-mongodb",
+                            "percona-xtradb-cluster". Provider names are not prefix-consistent
+                            across providers; check the target provider's own definition.
+                            When omitted or empty, the extension point is shown for all providers.
                           items:
                             type: string
                           type: array

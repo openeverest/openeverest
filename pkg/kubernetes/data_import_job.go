@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2025 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -25,7 +26,7 @@ import (
 )
 
 // ListDataImportJobs lists all DataImportJobs for the specified database cluster.
-func (k *Kubernetes) ListDataImportJobs(ctx context.Context, namespace, dbName string, opts ...ctrlclient.ListOption) (*everestv1alpha1.DataImportJobList, error) {
+func (k *Kubernetes) ListDataImportJobs(ctx context.Context, namespace, dbName string, _ ...ctrlclient.ListOption) (*everestv1alpha1.DataImportJobList, error) {
 	result := &everestv1alpha1.DataImportJobList{}
 	listOpts := []ctrlclient.ListOption{
 		ctrlclient.InNamespace(namespace),

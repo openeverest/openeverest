@@ -22,3 +22,25 @@ spec:
       components:
         enginex: "1.0.0"
       default: true
+  secrets:
+    test-credentials:
+      parametersSchema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            accessKey:
+              type: string
+            secretKey:
+              type: string
+  configMaps:
+    test-config:
+      parametersSchema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            endpoint:
+              type: string
+            timeout:
+              type: string
+          required:
+            - endpoint
