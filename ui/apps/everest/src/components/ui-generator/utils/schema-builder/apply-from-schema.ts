@@ -108,8 +108,7 @@ export const applyValidationFromSchema = (
       break;
   }
 
-  const effectiveRequired =
-    component.uiType === 'toggle' ? false : isRequired;
+  const effectiveRequired = component.uiType === 'toggle' ? false : isRequired;
 
   // Apply common validations (regex, required/optional) for all field types
   fieldSchema = applyCommonValidations(

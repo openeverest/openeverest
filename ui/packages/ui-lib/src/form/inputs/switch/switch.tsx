@@ -91,10 +91,15 @@ const SwitchInput = ({
     ) : null;
 
   if (formControlProps || helperTextElement) {
-    const { sx: formControlSx, ...restFormControlProps } = formControlProps ?? {};
+    const { sx: formControlSx, ...restFormControlProps } =
+      formControlProps ?? {};
 
     return (
-      <FormControl error={hasError} sx={formControlSx} {...restFormControlProps}>
+      <FormControl
+        error={hasError}
+        sx={formControlSx}
+        {...restFormControlProps}
+      >
         {labelElement}
         {helperTextElement}
       </FormControl>
