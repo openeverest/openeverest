@@ -1,0 +1,162 @@
+---
+# Release e2e (live PITR golden and the rest of the release lane).
+#
+# These tests stand up a full k3d cluster (core Everest + the PXC provider +
+# MinIO + PMM) and drive the UI against real databases, so they are slow and
+# heavy — hence they run on a schedule and on demand, NOT on every push.
+#
+# Triggers:
+#   * schedule            — nightly regression run.
+#   * workflow_dispatch   — run manually (optionally against a chosen branch).
+#   * pull_request        — opt-in per PR by adding the `run-release-e2e` label
+#                           (GitHub's equivalent of a "tag" on a PR). While the
+#                           label is present, new pushes re-run the suite.
+#
+# NOTE: for `schedule` / `workflow_dispatch` to be offered and for the label
+# trigger to fire, this file must exist on the repository's DEFAULT branch.
+name: Release e2e
+
+on:
+  schedule:
+    # 02:00 UTC every day.
+    - cron: "0 2 * * *"
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Branch / tag / SHA of openeverest to test"
+        type: string
+        required: false
+        default: ""
+      provider_ref:
+        description: "Branch / tag / SHA of the PXC provider repo"
+        type: string
+        required: false
+        default: "main"
+      project:
+        description: "Playwright release project to run"
+        type: string
+        required: false
+        default: "release"
+  pull_request:
+    types: [labeled, synchronize, reopened]
+
+  # -------------------------------------------------------------------------
+  # TEMPORARY (debugging only). While this workflow lives on a feature branch,
+  # neither `schedule` nor `workflow_dispatch` fire — they only run from the
+  # repository's DEFAULT branch. `push` and `pull_request`, however, use the
+  # workflow file from the branch itself, so a push trigger lets us iterate on
+  # the branch. REMOVE this block once the workflow is on the default branch and
+  # the nightly schedule takes over.
+  push:
+    branches:
+      - pitr-tests
+      - "release-e2e-debug/**"
+  # -------------------------------------------------------------------------
+
+permissions:
+  contents: read
+  packages: read
+
+concurrency:
+  # One release-e2e run per ref at a time; cancel superseded runs.
+  group: release-e2e-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  GONOPROXY: "github.com/percona"
+  GONOSUMDB: "github.com/percona"
+  GOPRIVATE: "github.com/percona"
+  # PXC provider repository checked out alongside openeverest. Adjust the owner
+  # if the provider lives elsewhere; set PROVIDER_REPO_TOKEN if it is private.
+  PROVIDER_REPO: openeverest/provider-percona-xtradb-cluster
+
+jobs:
+  release-e2e:
+    name: Release e2e (${{ github.event.inputs.project || 'release' }})
+    # Run on schedule, on manual dispatch, on the temporary debug push trigger,
+    # or on PRs that carry the opt-in label.
+    if: >-
+      github.event_name == 'schedule' ||
+      github.event_name == 'workflow_dispatch' ||
+      github.event_name == 'push' ||
+      (github.event_name == 'pull_request' &&
+        contains(github.event.pull_request.labels.*.name, 'run-release-e2e'))
+    runs-on: ubuntu-latest
+    # The live 3-node PXC PITR restores alone take ~20 min; give the whole lane
+    # generous headroom.
+    timeout-minutes: 120
+    env:
+      PROJECT: ${{ github.event.inputs.project || 'release' }}
+      # deploy-pxc-provider defaults PXC_PROVIDER_DIR to ../provider-…; on CI we
+      # check the provider out under the workspace and point at it explicitly.
+      PXC_PROVIDER_DIR: ${{ github.workspace }}/provider-percona-xtradb-cluster
+    steps:
+      - name: Check out openeverest
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          lfs: true
+          # PR label runs test the PR head; dispatch can target any ref; schedule
+          # uses the default branch.
+          ref: ${{ github.event.inputs.ref || github.event.pull_request.head.sha || github.ref }}
+
+      - name: Check out PXC provider
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          repository: ${{ env.PROVIDER_REPO }}
+          ref: ${{ github.event.inputs.provider_ref || 'main' }}
+          path: provider-percona-xtradb-cluster
+          # Uncomment if the provider repo is private:
+          # token: ${{ secrets.PROVIDER_REPO_TOKEN }}
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: "go.mod"
+          cache: true
+
+      - name: Install Kubernetes tools (kubectl, k3d)
+        uses: ./.github/actions/install-kubernetes-tools
+        with:
+          install-kubectl: true
+          install-k3d: true
+
+      - name: Adjust GitHub worker node for k3d
+        uses: ./.github/actions/adjust-github-node
+        with:
+          adjust-host-for-k3d: true
+          mount-docker-data: true
+
+      - name: Create k3d test cluster
+        run: make k3d-cluster-up
+
+      - name: Build and deploy core Everest
+        run: make deploy-all
+
+      - name: Deploy the PXC provider
+        run: make deploy-pxc-provider
+
+      - name: Prepare test environment (MinIO, PMM, DB namespace)
+        working-directory: ui/apps/everest/.e2e
+        run: make ci-init
+
+      - name: Run release e2e (${{ env.PROJECT }})
+        id: e2e
+        working-directory: ui/apps/everest/.e2e
+        run: make test PROJECT=${{ env.PROJECT }}
+
+      - name: Dump cluster diagnostics on failure
+        if: ${{ always() && steps.e2e.outcome != 'success' }}
+        run: |
+          kubectl get instances,pods -A || true
+          kubectl get restores.backup.openeverest.io -A || true
+
+      - name: Upload Playwright report
+        if: ${{ always() && steps.e2e.outcome != 'skipped' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: release-e2e-report
+          path: |
+            ui/apps/everest/.e2e/playwright-report
+            ui/apps/everest/.e2e/test-results
+          retention-days: 14
+          overwrite: true

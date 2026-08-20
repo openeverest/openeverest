@@ -13,13 +13,51 @@
 // limitations under the License.
 
 import { PlaywrightTestProject } from '@playwright/test';
-import { sessionProject } from './session/project.config';
+import { CI_USER_STORAGE_STATE_FILE } from '@e2e/constants';
+// Temporarily disabled while the release lane runs the PITR golden only.
+// Restore incrementally together with the other release suites.
+// import { sessionProject } from './session/project.config';
 
 export const releaseProject: PlaywrightTestProject[] = [
   {
     name: 'release',
     testMatch: /.^/,
-    dependencies: ['pr', 'release:session:rate-limiting'],
+    // Release lane runs the PITR golden plus restore-to-new-cluster for now.
+    // Restore the rest incrementally: 'pr', 'release:session:rate-limiting',
+    // ...sessionProject.
+    dependencies: ['release:pitr', 'release:restore-new-cluster'],
   },
-  ...sessionProject,
+  {
+    // Live PITR / restore-from-PITR golden (PXC). Auth is provided by the shared
+    // fixture (@e2e/fixtures/auth); backup storage + monitoring come from the
+    // global setup projects. The PXC provider must already be installed in the
+    // cluster (Helm: `make deploy-pxc-provider`) before this runs.
+    name: 'release:pitr',
+    testDir: './release',
+    testMatch: /pitr\.e2e\.ts/,
+    dependencies: [
+      'global:auth:ci:setup',
+      'global:backup-storage:setup',
+      'global:monitoring-config:setup',
+    ],
+    use: {
+      storageState: CI_USER_STORAGE_STATE_FILE,
+    },
+  },
+  {
+    // Restore-to-new-cluster (create new DB from a backup) golden. Shares the
+    // same global backup storage + monitoring setup as the PITR lane.
+    name: 'release:restore-new-cluster',
+    testDir: './release',
+    testMatch: /restore-new-cluster\.e2e\.ts/,
+    dependencies: [
+      'global:auth:ci:setup',
+      'global:backup-storage:setup',
+      'global:monitoring-config:setup',
+    ],
+    use: {
+      storageState: CI_USER_STORAGE_STATE_FILE,
+    },
+  },
+  // ...sessionProject,
 ];

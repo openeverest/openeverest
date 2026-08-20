@@ -74,6 +74,11 @@ export default defineConfig({
   /* Configure projects for major browsers */
   projects: [
     {
+      name: 'global:auth:ci:setup',
+      testDir: './setup',
+      testMatch: /auth\.setup\.ts/,
+    },
+    {
       name: 'global:backup-storage:setup',
       testDir: './setup',
       testMatch: /backup-storage.setup\.ts/,

@@ -381,6 +381,21 @@ add-shared-everest-namespace: ## Add shared Everest namespace with all operators
 	--take-ownership \
 	--skip-wizard
 
+PXC_PROVIDER_DIR ?= ../provider-percona-xtradb-cluster
+PXC_PROVIDER_K3D_CLUSTER ?= everest-server-test
+# Matches the pxc-operator Helm dependency pinned in the provider chart.
+PXC_OPERATOR_VERSION ?= 1.20.0
+PXC_PROVIDER_NAMESPACE ?= provider-system
+PXC_OPERATOR_DEPLOYMENT ?= provider-percona-xtradb-cluster-operator
+.PHONY: deploy-pxc-provider
+deploy-pxc-provider: ## Build + Helm-install the PXC provider into the test cluster (needs the provider repo checked out at PXC_PROVIDER_DIR).
+	$(info Building and Helm-installing the PXC provider from $(PXC_PROVIDER_DIR))
+	$(MAKE) -C "$(PXC_PROVIDER_DIR)" docker-build load-image install-crds deploy-provider-ci K3D_CLUSTER_NAME=$(PXC_PROVIDER_K3D_CLUSTER) PXC_OPERATOR_VERSION=$(PXC_OPERATOR_VERSION)
+	# deploy-provider-ci installs the native PXC operator scaled to zero; scale it
+	# up so PerconaXtraDBCluster CRs actually reconcile into running databases.
+	kubectl -n $(PXC_PROVIDER_NAMESPACE) scale deploy $(PXC_OPERATOR_DEPLOYMENT) --replicas=1
+	kubectl -n $(PXC_PROVIDER_NAMESPACE) rollout status deploy/$(PXC_OPERATOR_DEPLOYMENT) --timeout=180s
+
 .PHONY: expose
 expose:
 	kubectl patch svc -n everest-system everest --type=merge \

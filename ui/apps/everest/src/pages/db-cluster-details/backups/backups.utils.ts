@@ -32,9 +32,7 @@ export const applySchedulesToStorages = (
         cron: schedule.cron,
         enabled: schedule.enabled,
         retentionCopies: schedule.retentionCopies,
-        ...(schedule.parameters
-          ? { parameters: schedule.parameters as Record<string, never> }
-          : {}),
+        ...(schedule.parameters ? { parameters: schedule.parameters } : {}),
       })),
   }));
 };

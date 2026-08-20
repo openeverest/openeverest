@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,7 +15,7 @@
 // limitations under the License.
 
 import { ImportForm } from 'components/cluster-form/import/import';
-import { StepHeader } from '../step-header/step-header';
+import { StepHeader } from '../../steps/step-header/step-header';
 import { Messages } from './import-step.messages';
 
 export const ImportStep = () => {
