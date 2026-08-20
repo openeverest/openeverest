@@ -73,7 +73,10 @@ func (h *k8sHandler) DeleteMonitoringInstance(ctx context.Context, namespace, na
 			Namespace: namespace,
 		},
 	}
-	return h.kubeConnector.DeleteSecret(ctx, delSecObj)
+	if err := h.kubeConnector.DeleteSecret(ctx, delSecObj); ctrlclient.IgnoreNotFound(err) != nil {
+		return fmt.Errorf("failed to delete secret for monitoring instance %q: %w", name, err)
+	}
+	return nil
 }
 
 func (h *k8sHandler) GetMonitoringInstance(ctx context.Context, namespace, name string) (*everestv1alpha1.MonitoringConfig, error) {
