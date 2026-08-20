@@ -23,13 +23,13 @@
   "devDependencies": {
     "@percona/tsconfig": "workspace:*",
     "@rollup/plugin-commonjs": "^25.0.7",
-    "@rollup/plugin-node-resolve": "^16.0.1",
+    "@rollup/plugin-node-resolve": "^16.0.3",
     "@rollup/plugin-terser": "^0.4.4",
     "@rollup/plugin-typescript": "^11.0.0",
     "@types/react": "^18.2.0",
     "react": "^18.2.0",
-    "rollup": "^4.22.4",
-    "rollup-plugin-dts": "^6.1.0",
+    "rollup": "^4.62.4",
+    "rollup-plugin-dts": "^6.5.1",
     "rollup-plugin-peer-deps-external": "^2.2.4",
     "typescript": "^5.2.2"
   }
