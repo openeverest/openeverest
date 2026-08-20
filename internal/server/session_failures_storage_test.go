@@ -18,6 +18,8 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"golang.org/x/time/rate"
 )
 
@@ -31,10 +33,15 @@ func TestRateLimiterMemoryStore_ConcurrentAllowAndIncreaseTimeout(t *testing.T) 
 	})
 
 	const identifier = "1.2.3.4"
-	const iterations = 200
+	const iterations = 20
 
 	var wg sync.WaitGroup
 	wg.Add(2)
+
+	// Register the visitor first: IncreaseTimeout silently returns when the
+	// identifier has no visitor yet, so without this the writer goroutine can
+	// drain every iteration without ever touching Visitor.timeout.
+	_, _ = store.Allow(identifier)
 
 	go func() {
 		defer wg.Done()
@@ -51,4 +58,13 @@ func TestRateLimiterMemoryStore_ConcurrentAllowAndIncreaseTimeout(t *testing.T) 
 	}()
 
 	wg.Wait()
+
+	expectedTimeout := initialTimeout << iterations
+
+	store.mutex.Lock()
+	v, ok := store.visitors[identifier]
+	store.mutex.Unlock()
+
+	require.True(t, ok, "Visitor was removed during the run")
+	assert.Equal(t, expectedTimeout, v.timeout)
 }
