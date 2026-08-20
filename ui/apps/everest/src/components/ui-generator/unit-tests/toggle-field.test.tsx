@@ -220,6 +220,23 @@ describe('UIGenerator - Toggle Field Basic Rendering', () => {
     expect(getTestToggleSwitch()).toBeDisabled();
   });
 
+  it('should autofocus the switch when autoFocus is set', () => {
+    const schema = createTestSchema({ autoFocus: true });
+
+    render(
+      <TestWrapper>
+        <FormWrapper schema={schema}>
+          <UIGenerator
+            sections={schema.testTopology!.sections}
+            sectionKey="basicInfo"
+          />
+        </FormWrapper>
+      </TestWrapper>
+    );
+
+    expect(getTestToggleSwitch()).toHaveFocus();
+  });
+
   it('should toggle its value on click and submit the new boolean', async () => {
     const mockSubmit = vi.fn();
     const schema = createTestSchema();

@@ -146,7 +146,8 @@ const mapSelectFieldParams = (fieldParams: SelectFieldParams) => {
 };
 
 const mapToggleFieldParams = (fieldParams: ToggleFieldParams) => {
-  const { label, defaultValue, helperText, badge, ...rest } = fieldParams;
+  const { label, defaultValue, helperText, autoFocus, badge, ...rest } =
+    fieldParams;
 
   return {
     ...rest,
@@ -155,6 +156,7 @@ const mapToggleFieldParams = (fieldParams: ToggleFieldParams) => {
     // FormHelperText slot below the switch is reserved for validation errors.
     labelCaption: helperText,
     badge,
+    switchFieldProps: filterDefined({ autoFocus }),
     controllerProps: { defaultValue: defaultValue ?? false },
   };
 };

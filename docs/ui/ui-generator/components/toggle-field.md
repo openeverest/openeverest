@@ -21,7 +21,6 @@ A boolean on/off switch for enabling features (backups, PITR, monitoring, and si
   - `defaultValue`: Default boolean value (default: `false` when omitted)
   - `disabled`: Whether the switch is disabled (default: `false`)
   - `autoFocus`: Automatically focus this field on render
-  - `tooltip`: Tooltip on hover (see field wrappers)
 - `validation` (optional):
   - `celExpressions`: Cross-field CEL validation (see [CEL Expression Validation](../validation.md#cel-expression-validation))
   - `regex`: Not supported for toggle fields
