@@ -20,6 +20,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"go.uber.org/zap"
 )
 
 func TestMergeNamesspacesEnvVar(t *testing.T) {
@@ -100,4 +101,19 @@ func TestMergeNamesspacesEnvVar(t *testing.T) {
 			assert.Equal(t, tt.want, mergedNS)
 		})
 	}
+}
+
+// TestNew_KubeconfigIsDirectory verifies that passing a directory path as the
+// kubeconfig returns a descriptive error instead of panicking or producing a
+// platform-specific "Access is denied." / "is a directory" message.
+func TestNew_KubeconfigIsDirectory(t *testing.T) {
+	t.Parallel()
+
+	l := zap.NewNop().Sugar()
+	dir := t.TempDir() // guaranteed to be a real directory; cleaned up automatically
+
+	_, err := New(dir, l)
+
+	assert.Error(t, err)
+	assert.ErrorContains(t, err, "is a directory, not a file")
 }

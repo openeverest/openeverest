@@ -116,6 +116,15 @@ func New(kubeconfigPath string, l *zap.SugaredLogger) (KubernetesConnector, erro
 	home := os.Getenv("HOME")
 	path := strings.ReplaceAll(kubeconfigPath, "~", home)
 	path = filepath.Clean(path)
+
+	// Guard against a path that resolves to a directory.
+	// os.ReadFile on a directory returns a platform-specific message
+	// ("is a directory" on Linux, "Access is denied." on Windows) that
+	// gives the user no actionable signal about what went wrong.
+	if fi, err := os.Stat(path); err == nil && fi.IsDir() {
+		return nil, fmt.Errorf("kubeconfig path %q is a directory, not a file", path)
+	}
+
 	fileData, err := os.ReadFile(path)
 	if err != nil {
 		return nil, errors.Join(err, errors.New("could not read kubeconfig file"))
