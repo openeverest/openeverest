@@ -123,7 +123,13 @@ export interface TextFieldParams extends CommonFieldParams {
   margin?: 'none' | 'dense' | 'normal';
 }
 
-export type ToggleValidation = CommonValidation;
+// Toggles are always optional booleans, so `required` is unsupported. Typing it
+// as `never` forbids setting it (a compile error), while keeping the property
+// present so the generic validation pipeline can still read
+// `validation.required` uniformly across field types.
+export type ToggleValidation = Omit<CommonValidation, 'required'> & {
+  required?: never;
+};
 
 export type FieldParamsMap = {
   [FieldType.Number]: NumberFieldParams;

@@ -12,12 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import {
-  render,
-  screen,
-  waitFor,
-  fireEvent,
-} from '@testing-library/react';
+import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { useEffect } from 'react';
 import { SwitchInput } from '@percona/ui-lib';
 import { FormProvider, useForm } from 'react-hook-form';
@@ -344,7 +339,18 @@ describe('UIGenerator - Toggle Field submit and postprocess', () => {
 describe('UIGenerator - Toggle Field validation', () => {
   it('should ignore validation.required for toggle fields', async () => {
     const mockSubmit = vi.fn();
-    const schema = createTestSchema({}, { validation: { required: true } });
+    const schema = createTestSchema(
+      {},
+      {
+        validation: {
+          // `required` is excluded from ToggleValidation at the type level;
+          // simulate an untyped YAML schema that still sets it to prove the
+          // runtime ignores it for toggles.
+          // @ts-expect-error required is not part of ToggleValidation
+          required: true,
+        },
+      }
+    );
 
     render(
       <TestWrapper>
