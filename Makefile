@@ -118,7 +118,7 @@ copyright-run:
 			printf '%s\0' "$$file"; \
 		done > "$$TMP_FILES_LIST"; \
 	else \
-		BASE_BRANCH_LOCAL=$${BASE_BRANCH:-v2}; \
+		BASE_BRANCH_LOCAL=$${BASE_BRANCH:-main}; \
 		if ! BASE=$$(git merge-base HEAD "$$BASE_BRANCH_LOCAL" 2>/dev/null); then \
 			echo "Failed to determine merge base with '$$BASE_BRANCH_LOCAL'. Ensure the branch exists and is fetched, or set BASE_BRANCH explicitly."; \
 			exit 1; \
@@ -452,12 +452,31 @@ dev-destroy: k3d-cluster-down-dev ## Destroy the k3d cluster.
 
 ##@ GitHub PR
 
-CHART_BRANCH ?= v2
+CHART_BRANCH ?= main
 .PHONY: update-dev-chart
-update-dev-chart: ## Update dependency to Everest Helm chart to the latest version from the specified branch (default v2).
-	COMMIT=$$(git ls-remote https://github.com/openeverest/helm-charts refs/heads/$(CHART_BRANCH) | cut -f1) && \
+update-dev-chart: ## Update dependency to Everest Helm chart to the latest version from the specified branch (default main).
+	@COMMIT=$$(git ls-remote --exit-code https://github.com/openeverest/helm-charts refs/heads/$(CHART_BRANCH) | cut -f1) || \
+		{ echo "helm-charts branch '$(CHART_BRANCH)' not found. Set CHART_BRANCH to an existing branch."; exit 1; }; \
 	go get -u github.com/openeverest/helm-charts/charts/everest@$$COMMIT
 	go mod tidy
+
+.PHONY: check-dev-chart
+check-dev-chart: ## Verify the pinned Everest Helm chart commit is on CHART_BRANCH.
+	@PINNED=$$(go list -m -f '{{.Version}}' github.com/openeverest/helm-charts/charts/everest) && \
+	SHA=$${PINNED##*-} && \
+	TMP=$$(mktemp -d) && trap 'rm -rf "$$TMP"' EXIT && \
+	git clone --quiet --filter=blob:none --no-checkout --single-branch \
+		--branch $(CHART_BRANCH) https://github.com/openeverest/helm-charts "$$TMP" && \
+	if ! git -C "$$TMP" cat-file -e "$$SHA^{commit}" 2>/dev/null; then \
+		echo "Pinned chart commit $$SHA is not on helm-charts/$(CHART_BRANCH)."; \
+		echo "Run 'make update-dev-chart' to move the pin to the branch tip."; \
+		exit 1; \
+	fi; \
+	if ! git -C "$$TMP" merge-base --is-ancestor "$$SHA" HEAD; then \
+		echo "Pinned chart commit $$SHA is not an ancestor of helm-charts/$(CHART_BRANCH)."; \
+		exit 1; \
+	fi; \
+	echo "Pinned chart commit $$SHA is on helm-charts/$(CHART_BRANCH) ($$(git -C "$$TMP" rev-list --count "$$SHA"..HEAD) commit(s) behind tip)."
 
 EVEREST_OPERATOR_BRANCH ?= main
 .PHONY: update-dev-everest-operator
