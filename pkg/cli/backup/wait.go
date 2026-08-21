@@ -29,13 +29,17 @@ import (
 // still retry it.
 func backupCondition(b *client.Backup) (wait.Outcome, string) {
 	state := backupState(b)
-	switch client.BackupStatusState(state) {
+	switch state {
 	case client.BackupStatusStateSucceeded:
-		return wait.Succeeded, state
+		return wait.Succeeded, string(state)
 	case client.BackupStatusStateFailed:
 		return wait.Failed, backupFailureMessage(b)
 	default:
-		return wait.Pending, state
+		display := string(state)
+		if display == "" {
+			display = "-"
+		}
+		return wait.Pending, display
 	}
 }
 
@@ -82,7 +86,7 @@ func newBackupDeletePoll(
 func deleteCondition(b *client.Backup) (wait.Outcome, string) {
 	return deletion.GoneCondition("backup deleted", func(v *client.Backup) string {
 		if state, _ := backupStateForGuard(v); state != "" {
-			return "backup still exists (state: " + state + ")"
+			return "backup still exists (state: " + string(state) + ")"
 		}
 		return "backup still exists"
 	})(b)
