@@ -8,7 +8,7 @@
   "devDependencies": {
     "openapi-typescript": "^7.8.0",
     "turbo": "^1.10.16",
-    "typescript": "^5.2.2"
+    "typescript": "^5.9.3"
   },
   "scripts": {
     "test": "turbo run test",
