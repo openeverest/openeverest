@@ -62,8 +62,8 @@ func (h *k8sHandler) DeleteMonitoringInstance(ctx context.Context, namespace, na
 			Namespace: namespace,
 		},
 	}
-	if err := h.kubeConnector.DeleteMonitoringConfig(ctx, delMCObj); err != nil {
-		return err
+	if err := h.kubeConnector.DeleteMonitoringConfig(ctx, delMCObj); ctrlclient.IgnoreNotFound(err) != nil {
+		return fmt.Errorf("failed to delete monitoring config: %w", err)
 	}
 
 	delSecObj := &corev1.Secret{
@@ -72,7 +72,12 @@ func (h *k8sHandler) DeleteMonitoringInstance(ctx context.Context, namespace, na
 			Namespace: namespace,
 		},
 	}
-	return h.kubeConnector.DeleteSecret(ctx, delSecObj)
+	// The Secret may already be gone, e.g. deleted out of band. Deleting the
+	// monitoring instance has still succeeded, so do not fail the request.
+	if err := h.kubeConnector.DeleteSecret(ctx, delSecObj); ctrlclient.IgnoreNotFound(err) != nil {
+		return fmt.Errorf("failed to delete secret: %w", err)
+	}
+	return nil
 }
 
 func (h *k8sHandler) GetMonitoringInstance(ctx context.Context, namespace, name string) (*everestv1alpha1.MonitoringConfig, error) {
