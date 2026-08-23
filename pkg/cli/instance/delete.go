@@ -188,16 +188,11 @@ func (id *Deleter) fetchInstanceForPrompt(ctx context.Context, c *client.ClientW
 }
 
 // policyFromInstance reads Spec.DeletionPolicy as a string, or "" if unset.
-// It's generated as interface{}, not a typed field.
 func policyFromInstance(inst *client.Instance) string {
-	if inst == nil {
+	if inst == nil || inst.Spec.DeletionPolicy == nil {
 		return ""
 	}
-	policy, ok := inst.Spec.DeletionPolicy.(string)
-	if !ok {
-		return ""
-	}
-	return policy
+	return string(*inst.Spec.DeletionPolicy)
 }
 
 // blastRadiusMessage is what the user reads before confirming. If verified
