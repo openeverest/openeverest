@@ -108,7 +108,7 @@ func (e *EverestServer) securityHeaders() echo.MiddlewareFunc {
 		if oidcProvider.OriginalIssuer != oidcProvider.Issuer {
 			// It appears that original issuerUrl provided by user for OIDC configuration is not always
 			// the same as the one fetched from the OIDC provider's .well-known/openid-configuration (Microsoft Entra case).
-			// Need to add original issuer URL provided by user, otherwise there will be issues with browser login using SSO.
+			// Need to add original issuerUrl provided by user, otherwise there will be issues with browser login using SSO.
 			origIssuer, _ := url.JoinPath(oidcProvider.OriginalIssuer, oidc.WellKnownPath)
 			connectSrc = append(connectSrc, origIssuer)
 		}
@@ -118,6 +118,9 @@ func (e *EverestServer) securityHeaders() echo.MiddlewareFunc {
 		Directives: map[string][]string{
 			cspbuilder.DefaultSrc: {CSPSelf},
 			cspbuilder.FontSrc:    {CSPSelf, "data:"},
+			// The YAML editor draws its inline lint underlines as data: SVG
+			// background-images (@codemirror/lint), so allow data: images.
+			cspbuilder.ImgSrc: {CSPSelf, "data:"},
 			cspbuilder.StyleSrc: {
 				CSPSelf,
 				// $NONCE will be replaced by the real nonce value

@@ -25,14 +25,14 @@ import (
 	"github.com/openeverest/openeverest/v2/pkg/kubernetes"
 )
 
-// UninstallConfig holds configuration for the plugin uninstall operation.
+// UninstallConfig holds configuration for the extension uninstall operation.
 type UninstallConfig struct {
 	KubeconfigPath string
 	Pretty         bool
 	Name           string
 }
 
-// PluginUninstaller uninstalls a plugin by deleting its Plugin CR.
+// PluginUninstaller uninstalls an extension by deleting its Plugin CR.
 type PluginUninstaller struct {
 	cfg        UninstallConfig
 	kubeClient kubernetes.KubernetesConnector

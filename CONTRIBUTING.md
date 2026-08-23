@@ -49,10 +49,12 @@ Labels tell you where an issue stands:
 | `needs-triage` | Nobody has looked at it yet. Added automatically when the issue is opened. |
 | `triage/needs-information` | We're waiting on the reporter before deciding. |
 | `triage/accepted` | We agree this should be done. |
+| `triage/duplicate` | Already reported — the earliest report is canonical, follow that one. |
+| `triage/not-reproducible` | We couldn't reproduce it as reported. A working reproduction reopens the conversation. |
 | [`help wanted`](https://github.com/openeverest/openeverest/issues?q=is%3Aissue+is%3Aopen+label%3A%22help+wanted%22+no%3Aassignee) | Accepted, and we'd welcome community help. **Claim these yourself with `/assign`.** |
 | [`good first issue`](https://github.com/openeverest/openeverest/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22+no%3Aassignee) | A `help wanted` issue that needs no deep background. Ideal if this is your first contribution here. |
 
-**The triage labels are maintained by a bot, so they are always current.** `needs-triage` is applied to every issue as it is opened, and is removed only when a maintainer records a decision by applying `triage/accepted` or `triage/needs-information`. If a decision label is later taken off, `needs-triage` comes back. Exactly one of the three is on every open issue, so "has anybody looked at this yet?" is answerable at a glance.
+**The triage labels are maintained by a bot, so they are always current.** `needs-triage` is applied to every issue as it is opened, and is removed only when a maintainer records a decision by applying one of the `triage/*` labels. If a decision label is later taken off, `needs-triage` comes back. Exactly one triage label is on every open issue, so "has anybody looked at this yet?" is answerable at a glance.
 
 They describe where our thinking has got to, not what you are allowed to do. An issue sitting at `needs-triage` means we might decide it isn't a bug, or that we don't want it fixed the way it proposes — which is worth knowing before you spend a weekend on it, and is the only reason to wait.
 
@@ -127,6 +129,69 @@ Use whatever tools help you. We care about the result, not how you produced it. 
 Please say when a contribution is substantially AI-generated. Reports and pull requests containing unverified claims presented as fact will be closed without detailed review, and repeated submissions of that kind may lead to a temporary interaction limit.
 
 ## Contributing to the source code
+
+### Which branch to target
+
+| Branch | Contents | Target it for |
+| --- | --- | --- |
+| `main` | OpenEverest v2 (Developer Preview) | New features and fixes |
+| `v1.x` | OpenEverest v1 (current release) | Fixes for the 1.x line |
+
+Unless an issue says otherwise, open your pull request against `main`.
+
+`main` carried v1 until 18 August 2026, when the two lines swapped branches: v2
+moved from `release-2.0` to `main`, and v1 moved to `v1.x`. Both lines are
+still developed. This changes nothing about the
+[v1 lifecycle](https://openeverest.io/blog/v2-developer-preview-release/#timeline):
+v1 remains the released version, is still maintained, and only enters
+maintenance mode three months after v2 reaches GA.
+
+#### If you cloned or forked before 18 August 2026
+
+Your `main` still holds v1 code, so a branch cut from it targets the wrong
+codebase. Check with:
+
+```sh
+git branch -vv | grep -E '\[origin/(main|release-2\.0)'
+```
+
+A local `main` reporting a large `ahead N, behind M` is v1 code tracking v2.
+Do not `git pull` it — that merges v2 into v1.
+
+**Working from a fork.** Your fork was not renamed. If you only work on v2 and
+have nothing unpushed on `main`, re-fork, or press **Sync fork** on your fork's
+`main` and choose *Discard commits*. To keep working on v1 as well, rename in
+your fork first — that is what makes the push below a plain create rather than
+a force-push:
+
+1. Fork on GitHub: Settings → Branches → rename `main` to `v1.x`.
+2. Then locally:
+
+```sh
+git remote add upstream https://github.com/openeverest/openeverest.git  # if missing
+git fetch --all --prune
+git branch -m main v1.x
+git branch -u origin/v1.x v1.x
+git checkout -b main upstream/main
+git push -u origin main
+git remote set-head origin -a
+```
+
+3. Fork on GitHub: Settings → General → set the default branch back to `main`.
+
+**Pushing directly to this repository.** Rename `main` first to free the name:
+
+```sh
+git fetch origin --prune
+git branch -m main v1.x
+git branch -u origin/v1.x v1.x
+git branch -m release-2.0 main   # skip if you never had it
+git branch -u origin/main main
+git remote set-head origin -a
+```
+
+[openeverest/helm-charts](https://github.com/openeverest/helm-charts) moved the
+same way, with `v2` in place of `release-2.0`.
 
 ### Backend
 
@@ -247,10 +312,10 @@ make test
 
 # API integration tests (requires local Kubernetes cluster)
 make k3d-cluster-up
-make test-api
+make -C api-tests test
 
 # CLI integration tests (requires local Kubernetes cluster)
-make test-cli
+make -C cli-tests test-cli
 ```
 
 ### CI Requirements

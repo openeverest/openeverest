@@ -18,18 +18,23 @@ package commands
 import (
 	"github.com/spf13/cobra"
 
+	"github.com/openeverest/openeverest/v2/commands/common"
 	"github.com/openeverest/openeverest/v2/commands/restore"
 )
 
 var restoreCmd = &cobra.Command{
 	Use:   "restore <command> [flags]",
+	Args:  common.NoSubcommandArgs,
 	Short: "Manage Everest restores",
 	Long:  "Manage Everest restores",
-	RunE:  func(cmd *cobra.Command, _ []string) error { return cmd.Help() },
+	RunE: func(cmd *cobra.Command, _ []string) error {
+		return cmd.Help()
+	},
 }
 
 func init() {
 	rootCmd.AddCommand(restoreCmd)
 	restoreCmd.AddCommand(restore.GetListCmd())
 	restoreCmd.AddCommand(restore.GetCreateCmd())
+	restoreCmd.AddCommand(restore.GetDeleteCmd())
 }

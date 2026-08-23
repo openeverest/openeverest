@@ -24,13 +24,26 @@ import (
 
 	olmv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	operatorUtils "github.com/percona/everest-operator/utils"
+	"github.com/spf13/cobra"
 	v1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 
+	"github.com/openeverest/openeverest/v2/pkg/cli"
 	"github.com/openeverest/openeverest/v2/pkg/common"
 	"github.com/openeverest/openeverest/v2/pkg/kubernetes"
 )
+
+// ShouldAskOperators reports whether the user should be prompted to choose
+// database operators: true only if none of the --operator.* flags were
+// explicitly set and the wizard isn't skipped.
+func ShouldAskOperators(cmd *cobra.Command, skipWizard bool) bool {
+	return !cmd.Flags().Lookup(cli.FlagOperatorMongoDB).Changed &&
+		!cmd.Flags().Lookup(cli.FlagOperatorPostgresql).Changed &&
+		!cmd.Flags().Lookup(cli.FlagOperatorXtraDBCluster).Changed &&
+		!cmd.Flags().Lookup(cli.FlagOperatorMySQL).Changed &&
+		!skipWizard
+}
 
 // ParseNamespaceNames parses a comma-separated namespaces string.
 // It returns a list of namespaces.
@@ -92,7 +105,7 @@ func namespaceExists(
 		if k8serrors.IsNotFound(err) {
 			return false, false, nil
 		}
-		return false, false, fmt.Errorf("cannot check if namesapce exists: %w", err)
+		return false, false, fmt.Errorf("cannot check if namespace exists: %w", err)
 	}
 	return true, isManagedByEverest(ns), nil
 }

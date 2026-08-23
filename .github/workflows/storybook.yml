@@ -22,6 +22,7 @@ concurrency:
 
 jobs:
   deploy:
+    if: github.repository == 'openeverest/openeverest'
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
