@@ -118,6 +118,9 @@ func (e *EverestServer) securityHeaders() echo.MiddlewareFunc {
 		Directives: map[string][]string{
 			cspbuilder.DefaultSrc: {CSPSelf},
 			cspbuilder.FontSrc:    {CSPSelf, "data:"},
+			// The YAML editor draws its inline lint underlines as data: SVG
+			// background-images (@codemirror/lint), so allow data: images.
+			cspbuilder.ImgSrc: {CSPSelf, "data:"},
 			cspbuilder.StyleSrc: {
 				CSPSelf,
 				// $NONCE will be replaced by the real nonce value

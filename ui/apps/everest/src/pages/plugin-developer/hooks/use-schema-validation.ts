@@ -1,4 +1,3 @@
-// everest
 // Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -13,28 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package commands ...
-package commands
+import { useMemo } from 'react';
+import { TopologyUISchemas } from 'components/ui-generator/ui-generator.types';
+import { validateSchema } from '../utils/validate-schema';
+import { Diagnostic } from '../editor/types';
 
-import (
-	"github.com/spf13/cobra"
+type SchemaValidation = {
+  diagnostics: Diagnostic[];
+  parsed: TopologyUISchemas | null;
+};
 
-	"github.com/openeverest/openeverest/v2/commands/auth"
-	"github.com/openeverest/openeverest/v2/commands/common"
-)
-
-var authCmd = &cobra.Command{
-	Use:   "auth <command> [flags]",
-	Args:  common.NoSubcommandArgs,
-	Short: "Manage Everest authentication",
-	Long:  "Manage Everest authentication",
-	RunE: func(cmd *cobra.Command, _ []string) error {
-		return cmd.Help()
-	},
-}
-
-func init() {
-	rootCmd.AddCommand(authCmd)
-	authCmd.AddCommand(auth.GetLoginCmd())
-	authCmd.AddCommand(auth.GetLogoutCmd())
-}
+// Derived, not state, so every path that changes the text stays in sync.
+export const useSchemaValidation = (yamlText: string): SchemaValidation =>
+  useMemo(() => validateSchema(yamlText), [yamlText]);

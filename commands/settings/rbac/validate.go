@@ -36,6 +36,7 @@ import (
 var (
 	settingsRBACValidateCmd = &cobra.Command{
 		Use:     "validate [flags]",
+		Args:    cobra.NoArgs,
 		Long:    "Validate RBAC settings",
 		Short:   "Validate RBAC settings",
 		Example: "everestctl settings rbac validate --policy-file <file_path>",
