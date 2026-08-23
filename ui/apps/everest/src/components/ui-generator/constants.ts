@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { SelectInput, TextInput } from '@percona/ui-lib';
+import { SelectInput, SwitchInput, TextInput } from '@percona/ui-lib';
 import { FieldType, GroupType } from './ui-generator.types';
 import AccordionWrapper from './ui-group-wrappers/accordion-wrapper';
 import StackWrapper from './ui-group-wrappers/stack-wrapper';
@@ -21,6 +21,7 @@ import { z } from 'zod';
 export const UI_TYPE_DEFAULT_VALUE: Partial<Record<FieldType, unknown>> = {
   [FieldType.Select]: '',
   [FieldType.Text]: '',
+  [FieldType.Toggle]: false,
   [FieldType.Hidden]: undefined,
 };
 
@@ -32,6 +33,7 @@ export const muiComponentMap: Record<FieldType, React.ElementType> = {
   [FieldType.Number]: TextInput,
   [FieldType.Text]: TextInput,
   [FieldType.Select]: SelectInput,
+  [FieldType.Toggle]: SwitchInput,
   [FieldType.Hidden]: () => null,
 };
 
@@ -63,6 +65,7 @@ export const zodRuleMapByType: Record<FieldType, Record<string, string>> = {
     // Select fields typically don't have Zod-level validations beyond type checking
     // Custom validations could be added here in the future
   },
+  [FieldType.Toggle]: {},
   [FieldType.Hidden]: {
     // Hidden fields don't need validation
   },
@@ -105,5 +108,6 @@ export const ZOD_SCHEMA_MAP: Record<FieldType, z.ZodTypeAny> = {
     }),
   [FieldType.Text]: z.string(),
   [FieldType.Select]: z.string(),
+  [FieldType.Toggle]: z.boolean(),
   [FieldType.Hidden]: z.any(),
 };

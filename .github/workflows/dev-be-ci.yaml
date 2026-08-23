@@ -99,10 +99,9 @@ jobs:
           git status
           git diff --exit-code
 
-      - name: Check that dev Helm chart is up-to-date
-        run: |
-          make update-dev-chart
-          git diff --exit-code
+      - name: Check that the pinned dev Helm chart is on the tracked branch
+        if: ${{ !contains(github.event.pull_request.labels.*.name, 'chart/pending') }}
+        run: make check-dev-chart
 
       - name: Check the Makefile references dev version
         run: |

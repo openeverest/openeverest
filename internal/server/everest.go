@@ -361,7 +361,8 @@ func (e *EverestServer) setupHandlers(
 	if err != nil {
 		return errors.Join(err, errors.New("could not create rbac handler"))
 	}
-	e.setHandlers(valH, rbacH, k8sH)
+	// RBAC runs first: the validation handler dials request-supplied endpoints with request-supplied credentials.
+	e.setHandlers(rbacH, valH, k8sH)
 	return nil
 }
 

@@ -14,23 +14,26 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { Typography, Paper, Button, Stack } from '@mui/material';
-import Editor from '@monaco-editor/react';
+import { Typography, Paper, Button, Stack, Box, useTheme } from '@mui/material';
+import { CodeMirrorEditor } from '../editor/CodeMirrorEditor';
+import { Diagnostic } from '../editor/types';
 
-interface JsonEditorPanelProps {
+interface YamlEditorPanelProps {
   yamlText: string;
-  error: string;
+  diagnostics: Diagnostic[];
   onChange: (value: string) => void;
   onFormat: () => void;
 }
 
-export const JsonEditorPanel = ({
+export const YamlEditorPanel = ({
   yamlText,
-  error,
+  diagnostics,
   onChange,
   onFormat,
-}: JsonEditorPanelProps) => {
-  //TODO change theme by user preference
+}: YamlEditorPanelProps) => {
+  const theme = useTheme();
+  const errorCount = diagnostics.filter((d) => d.severity === 'error').length;
+
   return (
     <Paper
       elevation={0}
@@ -43,36 +46,22 @@ export const JsonEditorPanel = ({
         height: '100%',
         display: 'flex',
         flexDirection: 'column',
-        backgroundColor: '#f6f8fa',
       }}
     >
       <Typography variant="h6" sx={{ mb: 2 }}>
         YAML Editor
       </Typography>
-      <Editor
-        height="100%"
-        defaultLanguage="yaml"
-        value={yamlText}
-        onChange={(value) => onChange(value || '')}
-        theme="light"
-        options={{
-          minimap: { enabled: false },
-          fontSize: 13,
-          wordWrap: 'off',
-          scrollBeyondLastLine: false,
-          formatOnPaste: true,
-          formatOnType: true,
-          folding: true,
-          foldingHighlight: true,
-        }}
-      />
-      {error && (
-        <Typography
-          variant="caption"
-          color="error"
-          sx={{ mt: 1, whiteSpace: 'pre-wrap' }}
-        >
-          {error}
+      <Box sx={{ flex: 1, minHeight: 0 }}>
+        <CodeMirrorEditor
+          value={yamlText}
+          onChange={onChange}
+          diagnostics={diagnostics}
+          theme={theme.palette.mode === 'dark' ? 'dark' : 'light'}
+        />
+      </Box>
+      {errorCount > 0 && (
+        <Typography variant="caption" color="error" sx={{ mt: 1 }}>
+          {errorCount} {errorCount === 1 ? 'error' : 'errors'} — fix to preview
         </Typography>
       )}
       <Stack direction="row" spacing={1} sx={{ mt: 1 }}>

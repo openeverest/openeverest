@@ -24,7 +24,7 @@ if os.path.exists(local_env_file):
     dotenv(fn=local_env_file)
 
 cache_dir='{0}/.cache'.format(config.main_dir)
-local('mkdir -p {0}'.format(cache_dir), quiet=True)
+local('mkdir -p "{0}"'.format(cache_dir), quiet=True)
 
 # ===========================
 # VARIABLES
@@ -109,7 +109,7 @@ watch_settings(
 )
 
 # Ensure operator's kustomize is installed
-local('[ -x %s/bin/kustomize ] || make -C %s kustomize' % (operator_dir, operator_dir), quiet=True)
+local('[ -x "{0}/bin/kustomize" ] || make -C "{0}" kustomize'.format(operator_dir), quiet=True)
 
 # Create namespace
 load('ext://namespace', 'namespace_create')
@@ -186,7 +186,7 @@ def helm_remote_deps_present(chart_dir):
 # synchronously during Tiltfile evaluation — before any local_resource() has run.
 if not helm_remote_deps_present(everest_chart_dir):
     local(
-        'HELM="go tool -modfile={0}/go.mod helm" make -C {1} deps'.format(
+        'HELM=\'go tool -modfile="{0}/go.mod" helm\' make -C "{1}" deps'.format(
             backend_dir, everest_chart_dir,
         ),
     )
@@ -197,10 +197,9 @@ if not helm_remote_deps_present(everest_chart_dir):
 # This correctly handles checking out older versions that may remove .tgz files.
 local_resource(
     'helm-deps',
-    '''HELM_BIN="go tool -modfile={go_mod} helm"
-if $HELM_BIN dependency list "{chart_dir}" | grep -q missing || \
-   $HELM_BIN dependency list "{chart_dir}/charts/pmm3" | grep -q missing; then
-    HELM="$HELM_BIN" make -C "{chart_dir}" deps-build
+    '''if go tool -modfile="{go_mod}" helm dependency list "{chart_dir}" | grep -q missing || \
+   go tool -modfile="{go_mod}" helm dependency list "{chart_dir}/charts/pmm3" | grep -q missing; then
+    HELM='go tool -modfile="{go_mod}" helm' make -C "{chart_dir}" deps-build
 else
     echo "Helm deps already up to date, skipping"
 fi'''.format(
@@ -524,7 +523,7 @@ if enable_frontend:
   # Build frontend
   local_resource(
       'frontend-init',
-      'CI=1 make -C {0} init'.format(frontend_dir),
+      'CI=1 make -C "{0}" init'.format(frontend_dir),
       deps=[
           '{0}/package.json'.format(frontend_dir),
       ],
@@ -533,7 +532,7 @@ if enable_frontend:
 
   local_resource(
     'frontend-build',
-    'make -C {0} build EVEREST_OUT_DIR={1}/public/dist'.format(frontend_dir, backend_dir),
+    'make -C "{0}" build EVEREST_OUT_DIR="{1}/public/dist"'.format(frontend_dir, backend_dir),
     deps=[
         '{0}/apps'.format(frontend_dir),
     ],
@@ -576,7 +575,7 @@ if everest_debug:
 
 local_resource(
     'backend-generate',
-    'make -C {0} gen'.format(backend_dir),
+    'make -C "{0}" gen'.format(backend_dir),
     deps=[
         '{0}/api'.format(backend_dir),
         '{0}/internal/server/handlers'.format(backend_dir),
@@ -604,7 +603,7 @@ if enable_frontend:
 
 local_resource(
     'backend-build',
-    '{0} make -C {1} {2} && {0} make -C {1} build-controller'.format(everest_backend_build_env, backend_dir, everest_build_target),
+    '{0} make -C "{1}" {2} && {0} make -C "{1}" build-controller'.format(everest_backend_build_env, backend_dir, everest_build_target),
     deps=[
         '{0}/go.mod'.format(backend_dir),
         '{0}/go.sum'.format(backend_dir),

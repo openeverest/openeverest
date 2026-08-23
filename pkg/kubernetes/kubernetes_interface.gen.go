@@ -374,10 +374,10 @@ type KubernetesConnector interface {
 	// GetInstancePreset returns instance preset that matches the criteria.
 	GetInstancePreset(ctx context.Context, key ctrlclient.ObjectKey) (*v1alpha1.InstancePreset, error)
 	// WatchBackups returns a watch.Interface that streams
-	// DatabaseClusterBackup events across all namespaces.
+	// Backup events across all namespaces.
 	WatchBackups(ctx context.Context) (watch.Interface, error)
 	// WatchRestores returns a watch.Interface that streams
-	// DatabaseClusterRestore events across all namespaces.
+	// Restore events across all namespaces.
 	WatchRestores(ctx context.Context) (watch.Interface, error)
 	// WatchInstances returns a watch.Interface that streams
 	// Instance events across all namespaces.
