@@ -185,7 +185,7 @@ func TestRun_Wait_FailsOnFailedState(t *testing.T) {
 	})
 	mux.HandleFunc("/v1/clusters/main/namespaces/everest/restores/my-mongo-abcde", func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		r := restoreWithState(t, "my-mongo-abcde", "Failed")
+		r := restoreWithState(t, "my-mongo-abcde", client.RestoreStatusStateFailed)
 		msg := "target instance rejected the restore payload"
 		r.Status.Message = &msg
 		_ = json.NewEncoder(w).Encode(r)

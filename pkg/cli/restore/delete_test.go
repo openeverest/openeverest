@@ -525,7 +525,7 @@ func TestDelete_ErrorState_NotGuarded(t *testing.T) {
 
 	srv := newDeleteServer(t,
 		func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusNoContent) },
-		getHandlerWithState(t, "Error"),
+		getHandlerWithState(t, client.RestoreStatusStateError),
 	)
 	defer srv.Close()
 
@@ -597,7 +597,7 @@ func TestInFlight(t *testing.T) {
 	assert.True(t, inFlight("", true), "read successfully but no status yet is the riskiest window, right after create")
 	assert.False(t, inFlight(client.RestoreStatusStateSucceeded, true))
 	assert.False(t, inFlight(client.RestoreStatusStateFailed, true))
-	assert.False(t, inFlight("Error", true))
+	assert.False(t, inFlight(client.RestoreStatusStateError, true))
 	assert.False(t, inFlight("", false), "a failed/ambiguous fetch must never block — best-effort guard, not an invariant")
 }
 
