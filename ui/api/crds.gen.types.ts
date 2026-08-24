@@ -903,601 +903,6 @@ export interface components {
                 components?: {
                     [key: string]: {
                         /**
-                         * @description Affinity controls pod scheduling rules for this component, including node
-                         *     selection (where pods run), pod co-location (scheduling pods together), and
-                         *     pod anti-affinity (spreading pods across nodes/zones for high availability).
-                         */
-                        affinity?: {
-                            /** @description Describes node affinity scheduling rules for the pod. */
-                            nodeAffinity?: {
-                                /**
-                                 * @description The scheduler will prefer to schedule pods to nodes that satisfy
-                                 *     the affinity expressions specified by this field, but it may choose
-                                 *     a node that violates one or more of the expressions. The node that is
-                                 *     most preferred is the one with the greatest sum of weights, i.e.
-                                 *     for each node that meets all of the scheduling requirements (resource
-                                 *     request, requiredDuringScheduling affinity expressions, etc.),
-                                 *     compute a sum by iterating through the elements of this field and adding
-                                 *     "weight" to the sum if the node matches the corresponding matchExpressions; the
-                                 *     node(s) with the highest sum are the most preferred.
-                                 */
-                                preferredDuringSchedulingIgnoredDuringExecution?: {
-                                    /** @description A node selector term, associated with the corresponding weight. */
-                                    preference: {
-                                        /** @description A list of node selector requirements by node's labels. */
-                                        matchExpressions?: {
-                                            /** @description The label key that the selector applies to. */
-                                            key: string;
-                                            /**
-                                             * @description Represents a key's relationship to a set of values.
-                                             *     Valid operators are In, NotIn, Exists, DoesNotExist. Gt, and Lt.
-                                             */
-                                            operator: string;
-                                            /**
-                                             * @description An array of string values. If the operator is In or NotIn,
-                                             *     the values array must be non-empty. If the operator is Exists or DoesNotExist,
-                                             *     the values array must be empty. If the operator is Gt or Lt, the values
-                                             *     array must have a single element, which will be interpreted as an integer.
-                                             *     This array is replaced during a strategic merge patch.
-                                             */
-                                            values?: string[];
-                                        }[];
-                                        /** @description A list of node selector requirements by node's fields. */
-                                        matchFields?: {
-                                            /** @description The label key that the selector applies to. */
-                                            key: string;
-                                            /**
-                                             * @description Represents a key's relationship to a set of values.
-                                             *     Valid operators are In, NotIn, Exists, DoesNotExist. Gt, and Lt.
-                                             */
-                                            operator: string;
-                                            /**
-                                             * @description An array of string values. If the operator is In or NotIn,
-                                             *     the values array must be non-empty. If the operator is Exists or DoesNotExist,
-                                             *     the values array must be empty. If the operator is Gt or Lt, the values
-                                             *     array must have a single element, which will be interpreted as an integer.
-                                             *     This array is replaced during a strategic merge patch.
-                                             */
-                                            values?: string[];
-                                        }[];
-                                    };
-                                    /**
-                                     * Format: int32
-                                     * @description Weight associated with matching the corresponding nodeSelectorTerm, in the range 1-100.
-                                     */
-                                    weight: number;
-                                }[];
-                                /**
-                                 * @description If the affinity requirements specified by this field are not met at
-                                 *     scheduling time, the pod will not be scheduled onto the node.
-                                 *     If the affinity requirements specified by this field cease to be met
-                                 *     at some point during pod execution (e.g. due to an update), the system
-                                 *     may or may not try to eventually evict the pod from its node.
-                                 */
-                                requiredDuringSchedulingIgnoredDuringExecution?: {
-                                    /** @description Required. A list of node selector terms. The terms are ORed. */
-                                    nodeSelectorTerms: {
-                                        /** @description A list of node selector requirements by node's labels. */
-                                        matchExpressions?: {
-                                            /** @description The label key that the selector applies to. */
-                                            key: string;
-                                            /**
-                                             * @description Represents a key's relationship to a set of values.
-                                             *     Valid operators are In, NotIn, Exists, DoesNotExist. Gt, and Lt.
-                                             */
-                                            operator: string;
-                                            /**
-                                             * @description An array of string values. If the operator is In or NotIn,
-                                             *     the values array must be non-empty. If the operator is Exists or DoesNotExist,
-                                             *     the values array must be empty. If the operator is Gt or Lt, the values
-                                             *     array must have a single element, which will be interpreted as an integer.
-                                             *     This array is replaced during a strategic merge patch.
-                                             */
-                                            values?: string[];
-                                        }[];
-                                        /** @description A list of node selector requirements by node's fields. */
-                                        matchFields?: {
-                                            /** @description The label key that the selector applies to. */
-                                            key: string;
-                                            /**
-                                             * @description Represents a key's relationship to a set of values.
-                                             *     Valid operators are In, NotIn, Exists, DoesNotExist. Gt, and Lt.
-                                             */
-                                            operator: string;
-                                            /**
-                                             * @description An array of string values. If the operator is In or NotIn,
-                                             *     the values array must be non-empty. If the operator is Exists or DoesNotExist,
-                                             *     the values array must be empty. If the operator is Gt or Lt, the values
-                                             *     array must have a single element, which will be interpreted as an integer.
-                                             *     This array is replaced during a strategic merge patch.
-                                             */
-                                            values?: string[];
-                                        }[];
-                                    }[];
-                                };
-                            };
-                            /** @description Describes pod affinity scheduling rules (e.g. co-locate this pod in the same node, zone, etc. as some other pod(s)). */
-                            podAffinity?: {
-                                /**
-                                 * @description The scheduler will prefer to schedule pods to nodes that satisfy
-                                 *     the affinity expressions specified by this field, but it may choose
-                                 *     a node that violates one or more of the expressions. The node that is
-                                 *     most preferred is the one with the greatest sum of weights, i.e.
-                                 *     for each node that meets all of the scheduling requirements (resource
-                                 *     request, requiredDuringScheduling affinity expressions, etc.),
-                                 *     compute a sum by iterating through the elements of this field and adding
-                                 *     "weight" to the sum if the node has pods which matches the corresponding podAffinityTerm; the
-                                 *     node(s) with the highest sum are the most preferred.
-                                 */
-                                preferredDuringSchedulingIgnoredDuringExecution?: {
-                                    /** @description Required. A pod affinity term, associated with the corresponding weight. */
-                                    podAffinityTerm: {
-                                        /**
-                                         * @description A label query over a set of resources, in this case pods.
-                                         *     If it's null, this PodAffinityTerm matches with no Pods.
-                                         */
-                                        labelSelector?: {
-                                            /** @description matchExpressions is a list of label selector requirements. The requirements are ANDed. */
-                                            matchExpressions?: {
-                                                /** @description key is the label key that the selector applies to. */
-                                                key: string;
-                                                /**
-                                                 * @description operator represents a key's relationship to a set of values.
-                                                 *     Valid operators are In, NotIn, Exists and DoesNotExist.
-                                                 */
-                                                operator: string;
-                                                /**
-                                                 * @description values is an array of string values. If the operator is In or NotIn,
-                                                 *     the values array must be non-empty. If the operator is Exists or DoesNotExist,
-                                                 *     the values array must be empty. This array is replaced during a strategic
-                                                 *     merge patch.
-                                                 */
-                                                values?: string[];
-                                            }[];
-                                            /**
-                                             * @description matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
-                                             *     map is equivalent to an element of matchExpressions, whose key field is "key", the
-                                             *     operator is "In", and the values array contains only "value". The requirements are ANDed.
-                                             */
-                                            matchLabels?: {
-                                                [key: string]: string;
-                                            };
-                                        };
-                                        /**
-                                         * @description MatchLabelKeys is a set of pod label keys to select which pods will
-                                         *     be taken into consideration. The keys are used to lookup values from the
-                                         *     incoming pod labels, those key-value labels are merged with `labelSelector` as `key in (value)`
-                                         *     to select the group of existing pods which pods will be taken into consideration
-                                         *     for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming
-                                         *     pod labels will be ignored. The default value is empty.
-                                         *     The same key is forbidden to exist in both matchLabelKeys and labelSelector.
-                                         *     Also, matchLabelKeys cannot be set when labelSelector isn't set.
-                                         */
-                                        matchLabelKeys?: string[];
-                                        /**
-                                         * @description MismatchLabelKeys is a set of pod label keys to select which pods will
-                                         *     be taken into consideration. The keys are used to lookup values from the
-                                         *     incoming pod labels, those key-value labels are merged with `labelSelector` as `key notin (value)`
-                                         *     to select the group of existing pods which pods will be taken into consideration
-                                         *     for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming
-                                         *     pod labels will be ignored. The default value is empty.
-                                         *     The same key is forbidden to exist in both mismatchLabelKeys and labelSelector.
-                                         *     Also, mismatchLabelKeys cannot be set when labelSelector isn't set.
-                                         */
-                                        mismatchLabelKeys?: string[];
-                                        /**
-                                         * @description A label query over the set of namespaces that the term applies to.
-                                         *     The term is applied to the union of the namespaces selected by this field
-                                         *     and the ones listed in the namespaces field.
-                                         *     null selector and null or empty namespaces list means "this pod's namespace".
-                                         *     An empty selector ({}) matches all namespaces.
-                                         */
-                                        namespaceSelector?: {
-                                            /** @description matchExpressions is a list of label selector requirements. The requirements are ANDed. */
-                                            matchExpressions?: {
-                                                /** @description key is the label key that the selector applies to. */
-                                                key: string;
-                                                /**
-                                                 * @description operator represents a key's relationship to a set of values.
-                                                 *     Valid operators are In, NotIn, Exists and DoesNotExist.
-                                                 */
-                                                operator: string;
-                                                /**
-                                                 * @description values is an array of string values. If the operator is In or NotIn,
-                                                 *     the values array must be non-empty. If the operator is Exists or DoesNotExist,
-                                                 *     the values array must be empty. This array is replaced during a strategic
-                                                 *     merge patch.
-                                                 */
-                                                values?: string[];
-                                            }[];
-                                            /**
-                                             * @description matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
-                                             *     map is equivalent to an element of matchExpressions, whose key field is "key", the
-                                             *     operator is "In", and the values array contains only "value". The requirements are ANDed.
-                                             */
-                                            matchLabels?: {
-                                                [key: string]: string;
-                                            };
-                                        };
-                                        /**
-                                         * @description namespaces specifies a static list of namespace names that the term applies to.
-                                         *     The term is applied to the union of the namespaces listed in this field
-                                         *     and the ones selected by namespaceSelector.
-                                         *     null or empty namespaces list and null namespaceSelector means "this pod's namespace".
-                                         */
-                                        namespaces?: string[];
-                                        /**
-                                         * @description This pod should be co-located (affinity) or not co-located (anti-affinity) with the pods matching
-                                         *     the labelSelector in the specified namespaces, where co-located is defined as running on a node
-                                         *     whose value of the label with key topologyKey matches that of any node on which any of the
-                                         *     selected pods is running.
-                                         *     Empty topologyKey is not allowed.
-                                         */
-                                        topologyKey: string;
-                                    };
-                                    /**
-                                     * Format: int32
-                                     * @description weight associated with matching the corresponding podAffinityTerm,
-                                     *     in the range 1-100.
-                                     */
-                                    weight: number;
-                                }[];
-                                /**
-                                 * @description If the affinity requirements specified by this field are not met at
-                                 *     scheduling time, the pod will not be scheduled onto the node.
-                                 *     If the affinity requirements specified by this field cease to be met
-                                 *     at some point during pod execution (e.g. due to a pod label update), the
-                                 *     system may or may not try to eventually evict the pod from its node.
-                                 *     When there are multiple elements, the lists of nodes corresponding to each
-                                 *     podAffinityTerm are intersected, i.e. all terms must be satisfied.
-                                 */
-                                requiredDuringSchedulingIgnoredDuringExecution?: {
-                                    /**
-                                     * @description A label query over a set of resources, in this case pods.
-                                     *     If it's null, this PodAffinityTerm matches with no Pods.
-                                     */
-                                    labelSelector?: {
-                                        /** @description matchExpressions is a list of label selector requirements. The requirements are ANDed. */
-                                        matchExpressions?: {
-                                            /** @description key is the label key that the selector applies to. */
-                                            key: string;
-                                            /**
-                                             * @description operator represents a key's relationship to a set of values.
-                                             *     Valid operators are In, NotIn, Exists and DoesNotExist.
-                                             */
-                                            operator: string;
-                                            /**
-                                             * @description values is an array of string values. If the operator is In or NotIn,
-                                             *     the values array must be non-empty. If the operator is Exists or DoesNotExist,
-                                             *     the values array must be empty. This array is replaced during a strategic
-                                             *     merge patch.
-                                             */
-                                            values?: string[];
-                                        }[];
-                                        /**
-                                         * @description matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
-                                         *     map is equivalent to an element of matchExpressions, whose key field is "key", the
-                                         *     operator is "In", and the values array contains only "value". The requirements are ANDed.
-                                         */
-                                        matchLabels?: {
-                                            [key: string]: string;
-                                        };
-                                    };
-                                    /**
-                                     * @description MatchLabelKeys is a set of pod label keys to select which pods will
-                                     *     be taken into consideration. The keys are used to lookup values from the
-                                     *     incoming pod labels, those key-value labels are merged with `labelSelector` as `key in (value)`
-                                     *     to select the group of existing pods which pods will be taken into consideration
-                                     *     for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming
-                                     *     pod labels will be ignored. The default value is empty.
-                                     *     The same key is forbidden to exist in both matchLabelKeys and labelSelector.
-                                     *     Also, matchLabelKeys cannot be set when labelSelector isn't set.
-                                     */
-                                    matchLabelKeys?: string[];
-                                    /**
-                                     * @description MismatchLabelKeys is a set of pod label keys to select which pods will
-                                     *     be taken into consideration. The keys are used to lookup values from the
-                                     *     incoming pod labels, those key-value labels are merged with `labelSelector` as `key notin (value)`
-                                     *     to select the group of existing pods which pods will be taken into consideration
-                                     *     for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming
-                                     *     pod labels will be ignored. The default value is empty.
-                                     *     The same key is forbidden to exist in both mismatchLabelKeys and labelSelector.
-                                     *     Also, mismatchLabelKeys cannot be set when labelSelector isn't set.
-                                     */
-                                    mismatchLabelKeys?: string[];
-                                    /**
-                                     * @description A label query over the set of namespaces that the term applies to.
-                                     *     The term is applied to the union of the namespaces selected by this field
-                                     *     and the ones listed in the namespaces field.
-                                     *     null selector and null or empty namespaces list means "this pod's namespace".
-                                     *     An empty selector ({}) matches all namespaces.
-                                     */
-                                    namespaceSelector?: {
-                                        /** @description matchExpressions is a list of label selector requirements. The requirements are ANDed. */
-                                        matchExpressions?: {
-                                            /** @description key is the label key that the selector applies to. */
-                                            key: string;
-                                            /**
-                                             * @description operator represents a key's relationship to a set of values.
-                                             *     Valid operators are In, NotIn, Exists and DoesNotExist.
-                                             */
-                                            operator: string;
-                                            /**
-                                             * @description values is an array of string values. If the operator is In or NotIn,
-                                             *     the values array must be non-empty. If the operator is Exists or DoesNotExist,
-                                             *     the values array must be empty. This array is replaced during a strategic
-                                             *     merge patch.
-                                             */
-                                            values?: string[];
-                                        }[];
-                                        /**
-                                         * @description matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
-                                         *     map is equivalent to an element of matchExpressions, whose key field is "key", the
-                                         *     operator is "In", and the values array contains only "value". The requirements are ANDed.
-                                         */
-                                        matchLabels?: {
-                                            [key: string]: string;
-                                        };
-                                    };
-                                    /**
-                                     * @description namespaces specifies a static list of namespace names that the term applies to.
-                                     *     The term is applied to the union of the namespaces listed in this field
-                                     *     and the ones selected by namespaceSelector.
-                                     *     null or empty namespaces list and null namespaceSelector means "this pod's namespace".
-                                     */
-                                    namespaces?: string[];
-                                    /**
-                                     * @description This pod should be co-located (affinity) or not co-located (anti-affinity) with the pods matching
-                                     *     the labelSelector in the specified namespaces, where co-located is defined as running on a node
-                                     *     whose value of the label with key topologyKey matches that of any node on which any of the
-                                     *     selected pods is running.
-                                     *     Empty topologyKey is not allowed.
-                                     */
-                                    topologyKey: string;
-                                }[];
-                            };
-                            /** @description Describes pod anti-affinity scheduling rules (e.g. avoid putting this pod in the same node, zone, etc. as some other pod(s)). */
-                            podAntiAffinity?: {
-                                /**
-                                 * @description The scheduler will prefer to schedule pods to nodes that satisfy
-                                 *     the anti-affinity expressions specified by this field, but it may choose
-                                 *     a node that violates one or more of the expressions. The node that is
-                                 *     most preferred is the one with the greatest sum of weights, i.e.
-                                 *     for each node that meets all of the scheduling requirements (resource
-                                 *     request, requiredDuringScheduling anti-affinity expressions, etc.),
-                                 *     compute a sum by iterating through the elements of this field and subtracting
-                                 *     "weight" from the sum if the node has pods which matches the corresponding podAffinityTerm; the
-                                 *     node(s) with the highest sum are the most preferred.
-                                 */
-                                preferredDuringSchedulingIgnoredDuringExecution?: {
-                                    /** @description Required. A pod affinity term, associated with the corresponding weight. */
-                                    podAffinityTerm: {
-                                        /**
-                                         * @description A label query over a set of resources, in this case pods.
-                                         *     If it's null, this PodAffinityTerm matches with no Pods.
-                                         */
-                                        labelSelector?: {
-                                            /** @description matchExpressions is a list of label selector requirements. The requirements are ANDed. */
-                                            matchExpressions?: {
-                                                /** @description key is the label key that the selector applies to. */
-                                                key: string;
-                                                /**
-                                                 * @description operator represents a key's relationship to a set of values.
-                                                 *     Valid operators are In, NotIn, Exists and DoesNotExist.
-                                                 */
-                                                operator: string;
-                                                /**
-                                                 * @description values is an array of string values. If the operator is In or NotIn,
-                                                 *     the values array must be non-empty. If the operator is Exists or DoesNotExist,
-                                                 *     the values array must be empty. This array is replaced during a strategic
-                                                 *     merge patch.
-                                                 */
-                                                values?: string[];
-                                            }[];
-                                            /**
-                                             * @description matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
-                                             *     map is equivalent to an element of matchExpressions, whose key field is "key", the
-                                             *     operator is "In", and the values array contains only "value". The requirements are ANDed.
-                                             */
-                                            matchLabels?: {
-                                                [key: string]: string;
-                                            };
-                                        };
-                                        /**
-                                         * @description MatchLabelKeys is a set of pod label keys to select which pods will
-                                         *     be taken into consideration. The keys are used to lookup values from the
-                                         *     incoming pod labels, those key-value labels are merged with `labelSelector` as `key in (value)`
-                                         *     to select the group of existing pods which pods will be taken into consideration
-                                         *     for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming
-                                         *     pod labels will be ignored. The default value is empty.
-                                         *     The same key is forbidden to exist in both matchLabelKeys and labelSelector.
-                                         *     Also, matchLabelKeys cannot be set when labelSelector isn't set.
-                                         */
-                                        matchLabelKeys?: string[];
-                                        /**
-                                         * @description MismatchLabelKeys is a set of pod label keys to select which pods will
-                                         *     be taken into consideration. The keys are used to lookup values from the
-                                         *     incoming pod labels, those key-value labels are merged with `labelSelector` as `key notin (value)`
-                                         *     to select the group of existing pods which pods will be taken into consideration
-                                         *     for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming
-                                         *     pod labels will be ignored. The default value is empty.
-                                         *     The same key is forbidden to exist in both mismatchLabelKeys and labelSelector.
-                                         *     Also, mismatchLabelKeys cannot be set when labelSelector isn't set.
-                                         */
-                                        mismatchLabelKeys?: string[];
-                                        /**
-                                         * @description A label query over the set of namespaces that the term applies to.
-                                         *     The term is applied to the union of the namespaces selected by this field
-                                         *     and the ones listed in the namespaces field.
-                                         *     null selector and null or empty namespaces list means "this pod's namespace".
-                                         *     An empty selector ({}) matches all namespaces.
-                                         */
-                                        namespaceSelector?: {
-                                            /** @description matchExpressions is a list of label selector requirements. The requirements are ANDed. */
-                                            matchExpressions?: {
-                                                /** @description key is the label key that the selector applies to. */
-                                                key: string;
-                                                /**
-                                                 * @description operator represents a key's relationship to a set of values.
-                                                 *     Valid operators are In, NotIn, Exists and DoesNotExist.
-                                                 */
-                                                operator: string;
-                                                /**
-                                                 * @description values is an array of string values. If the operator is In or NotIn,
-                                                 *     the values array must be non-empty. If the operator is Exists or DoesNotExist,
-                                                 *     the values array must be empty. This array is replaced during a strategic
-                                                 *     merge patch.
-                                                 */
-                                                values?: string[];
-                                            }[];
-                                            /**
-                                             * @description matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
-                                             *     map is equivalent to an element of matchExpressions, whose key field is "key", the
-                                             *     operator is "In", and the values array contains only "value". The requirements are ANDed.
-                                             */
-                                            matchLabels?: {
-                                                [key: string]: string;
-                                            };
-                                        };
-                                        /**
-                                         * @description namespaces specifies a static list of namespace names that the term applies to.
-                                         *     The term is applied to the union of the namespaces listed in this field
-                                         *     and the ones selected by namespaceSelector.
-                                         *     null or empty namespaces list and null namespaceSelector means "this pod's namespace".
-                                         */
-                                        namespaces?: string[];
-                                        /**
-                                         * @description This pod should be co-located (affinity) or not co-located (anti-affinity) with the pods matching
-                                         *     the labelSelector in the specified namespaces, where co-located is defined as running on a node
-                                         *     whose value of the label with key topologyKey matches that of any node on which any of the
-                                         *     selected pods is running.
-                                         *     Empty topologyKey is not allowed.
-                                         */
-                                        topologyKey: string;
-                                    };
-                                    /**
-                                     * Format: int32
-                                     * @description weight associated with matching the corresponding podAffinityTerm,
-                                     *     in the range 1-100.
-                                     */
-                                    weight: number;
-                                }[];
-                                /**
-                                 * @description If the anti-affinity requirements specified by this field are not met at
-                                 *     scheduling time, the pod will not be scheduled onto the node.
-                                 *     If the anti-affinity requirements specified by this field cease to be met
-                                 *     at some point during pod execution (e.g. due to a pod label update), the
-                                 *     system may or may not try to eventually evict the pod from its node.
-                                 *     When there are multiple elements, the lists of nodes corresponding to each
-                                 *     podAffinityTerm are intersected, i.e. all terms must be satisfied.
-                                 */
-                                requiredDuringSchedulingIgnoredDuringExecution?: {
-                                    /**
-                                     * @description A label query over a set of resources, in this case pods.
-                                     *     If it's null, this PodAffinityTerm matches with no Pods.
-                                     */
-                                    labelSelector?: {
-                                        /** @description matchExpressions is a list of label selector requirements. The requirements are ANDed. */
-                                        matchExpressions?: {
-                                            /** @description key is the label key that the selector applies to. */
-                                            key: string;
-                                            /**
-                                             * @description operator represents a key's relationship to a set of values.
-                                             *     Valid operators are In, NotIn, Exists and DoesNotExist.
-                                             */
-                                            operator: string;
-                                            /**
-                                             * @description values is an array of string values. If the operator is In or NotIn,
-                                             *     the values array must be non-empty. If the operator is Exists or DoesNotExist,
-                                             *     the values array must be empty. This array is replaced during a strategic
-                                             *     merge patch.
-                                             */
-                                            values?: string[];
-                                        }[];
-                                        /**
-                                         * @description matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
-                                         *     map is equivalent to an element of matchExpressions, whose key field is "key", the
-                                         *     operator is "In", and the values array contains only "value". The requirements are ANDed.
-                                         */
-                                        matchLabels?: {
-                                            [key: string]: string;
-                                        };
-                                    };
-                                    /**
-                                     * @description MatchLabelKeys is a set of pod label keys to select which pods will
-                                     *     be taken into consideration. The keys are used to lookup values from the
-                                     *     incoming pod labels, those key-value labels are merged with `labelSelector` as `key in (value)`
-                                     *     to select the group of existing pods which pods will be taken into consideration
-                                     *     for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming
-                                     *     pod labels will be ignored. The default value is empty.
-                                     *     The same key is forbidden to exist in both matchLabelKeys and labelSelector.
-                                     *     Also, matchLabelKeys cannot be set when labelSelector isn't set.
-                                     */
-                                    matchLabelKeys?: string[];
-                                    /**
-                                     * @description MismatchLabelKeys is a set of pod label keys to select which pods will
-                                     *     be taken into consideration. The keys are used to lookup values from the
-                                     *     incoming pod labels, those key-value labels are merged with `labelSelector` as `key notin (value)`
-                                     *     to select the group of existing pods which pods will be taken into consideration
-                                     *     for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming
-                                     *     pod labels will be ignored. The default value is empty.
-                                     *     The same key is forbidden to exist in both mismatchLabelKeys and labelSelector.
-                                     *     Also, mismatchLabelKeys cannot be set when labelSelector isn't set.
-                                     */
-                                    mismatchLabelKeys?: string[];
-                                    /**
-                                     * @description A label query over the set of namespaces that the term applies to.
-                                     *     The term is applied to the union of the namespaces selected by this field
-                                     *     and the ones listed in the namespaces field.
-                                     *     null selector and null or empty namespaces list means "this pod's namespace".
-                                     *     An empty selector ({}) matches all namespaces.
-                                     */
-                                    namespaceSelector?: {
-                                        /** @description matchExpressions is a list of label selector requirements. The requirements are ANDed. */
-                                        matchExpressions?: {
-                                            /** @description key is the label key that the selector applies to. */
-                                            key: string;
-                                            /**
-                                             * @description operator represents a key's relationship to a set of values.
-                                             *     Valid operators are In, NotIn, Exists and DoesNotExist.
-                                             */
-                                            operator: string;
-                                            /**
-                                             * @description values is an array of string values. If the operator is In or NotIn,
-                                             *     the values array must be non-empty. If the operator is Exists or DoesNotExist,
-                                             *     the values array must be empty. This array is replaced during a strategic
-                                             *     merge patch.
-                                             */
-                                            values?: string[];
-                                        }[];
-                                        /**
-                                         * @description matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
-                                         *     map is equivalent to an element of matchExpressions, whose key field is "key", the
-                                         *     operator is "In", and the values array contains only "value". The requirements are ANDed.
-                                         */
-                                        matchLabels?: {
-                                            [key: string]: string;
-                                        };
-                                    };
-                                    /**
-                                     * @description namespaces specifies a static list of namespace names that the term applies to.
-                                     *     The term is applied to the union of the namespaces listed in this field
-                                     *     and the ones selected by namespaceSelector.
-                                     *     null or empty namespaces list and null namespaceSelector means "this pod's namespace".
-                                     */
-                                    namespaces?: string[];
-                                    /**
-                                     * @description This pod should be co-located (affinity) or not co-located (anti-affinity) with the pods matching
-                                     *     the labelSelector in the specified namespaces, where co-located is defined as running on a node
-                                     *     whose value of the label with key topologyKey matches that of any node on which any of the
-                                     *     selected pods is running.
-                                     *     Empty topologyKey is not allowed.
-                                     */
-                                    topologyKey: string;
-                                }[];
-                            };
-                        };
-                        /**
                          * @description Image specifies an override for the image to use.
                          *     When unspecified, it is autmatically set from the ComponentVersions
                          *     based on the Version specified.
@@ -1558,6 +963,805 @@ export interface components {
                             requests?: {
                                 [key: string]: number | string;
                             };
+                        };
+                        /**
+                         * @description SchedulingPolicy controls where this component's pods run: node
+                         *     selection, pod co-location, anti-affinity, tolerations and topology
+                         *     spread.
+                         */
+                        schedulingPolicy?: {
+                            /**
+                             * @description Affinity constrains node selection, pod co-location and pod
+                             *     anti-affinity (spreading pods across nodes, zones or other topology
+                             *     domains for high availability).
+                             */
+                            affinity?: {
+                                /** @description Describes node affinity scheduling rules for the pod. */
+                                nodeAffinity?: {
+                                    /**
+                                     * @description The scheduler will prefer to schedule pods to nodes that satisfy
+                                     *     the affinity expressions specified by this field, but it may choose
+                                     *     a node that violates one or more of the expressions. The node that is
+                                     *     most preferred is the one with the greatest sum of weights, i.e.
+                                     *     for each node that meets all of the scheduling requirements (resource
+                                     *     request, requiredDuringScheduling affinity expressions, etc.),
+                                     *     compute a sum by iterating through the elements of this field and adding
+                                     *     "weight" to the sum if the node matches the corresponding matchExpressions; the
+                                     *     node(s) with the highest sum are the most preferred.
+                                     */
+                                    preferredDuringSchedulingIgnoredDuringExecution?: {
+                                        /** @description A node selector term, associated with the corresponding weight. */
+                                        preference: {
+                                            /** @description A list of node selector requirements by node's labels. */
+                                            matchExpressions?: {
+                                                /** @description The label key that the selector applies to. */
+                                                key: string;
+                                                /**
+                                                 * @description Represents a key's relationship to a set of values.
+                                                 *     Valid operators are In, NotIn, Exists, DoesNotExist. Gt, and Lt.
+                                                 */
+                                                operator: string;
+                                                /**
+                                                 * @description An array of string values. If the operator is In or NotIn,
+                                                 *     the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                                                 *     the values array must be empty. If the operator is Gt or Lt, the values
+                                                 *     array must have a single element, which will be interpreted as an integer.
+                                                 *     This array is replaced during a strategic merge patch.
+                                                 */
+                                                values?: string[];
+                                            }[];
+                                            /** @description A list of node selector requirements by node's fields. */
+                                            matchFields?: {
+                                                /** @description The label key that the selector applies to. */
+                                                key: string;
+                                                /**
+                                                 * @description Represents a key's relationship to a set of values.
+                                                 *     Valid operators are In, NotIn, Exists, DoesNotExist. Gt, and Lt.
+                                                 */
+                                                operator: string;
+                                                /**
+                                                 * @description An array of string values. If the operator is In or NotIn,
+                                                 *     the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                                                 *     the values array must be empty. If the operator is Gt or Lt, the values
+                                                 *     array must have a single element, which will be interpreted as an integer.
+                                                 *     This array is replaced during a strategic merge patch.
+                                                 */
+                                                values?: string[];
+                                            }[];
+                                        };
+                                        /**
+                                         * Format: int32
+                                         * @description Weight associated with matching the corresponding nodeSelectorTerm, in the range 1-100.
+                                         */
+                                        weight: number;
+                                    }[];
+                                    /**
+                                     * @description If the affinity requirements specified by this field are not met at
+                                     *     scheduling time, the pod will not be scheduled onto the node.
+                                     *     If the affinity requirements specified by this field cease to be met
+                                     *     at some point during pod execution (e.g. due to an update), the system
+                                     *     may or may not try to eventually evict the pod from its node.
+                                     */
+                                    requiredDuringSchedulingIgnoredDuringExecution?: {
+                                        /** @description Required. A list of node selector terms. The terms are ORed. */
+                                        nodeSelectorTerms: {
+                                            /** @description A list of node selector requirements by node's labels. */
+                                            matchExpressions?: {
+                                                /** @description The label key that the selector applies to. */
+                                                key: string;
+                                                /**
+                                                 * @description Represents a key's relationship to a set of values.
+                                                 *     Valid operators are In, NotIn, Exists, DoesNotExist. Gt, and Lt.
+                                                 */
+                                                operator: string;
+                                                /**
+                                                 * @description An array of string values. If the operator is In or NotIn,
+                                                 *     the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                                                 *     the values array must be empty. If the operator is Gt or Lt, the values
+                                                 *     array must have a single element, which will be interpreted as an integer.
+                                                 *     This array is replaced during a strategic merge patch.
+                                                 */
+                                                values?: string[];
+                                            }[];
+                                            /** @description A list of node selector requirements by node's fields. */
+                                            matchFields?: {
+                                                /** @description The label key that the selector applies to. */
+                                                key: string;
+                                                /**
+                                                 * @description Represents a key's relationship to a set of values.
+                                                 *     Valid operators are In, NotIn, Exists, DoesNotExist. Gt, and Lt.
+                                                 */
+                                                operator: string;
+                                                /**
+                                                 * @description An array of string values. If the operator is In or NotIn,
+                                                 *     the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                                                 *     the values array must be empty. If the operator is Gt or Lt, the values
+                                                 *     array must have a single element, which will be interpreted as an integer.
+                                                 *     This array is replaced during a strategic merge patch.
+                                                 */
+                                                values?: string[];
+                                            }[];
+                                        }[];
+                                    };
+                                };
+                                /** @description Describes pod affinity scheduling rules (e.g. co-locate this pod in the same node, zone, etc. as some other pod(s)). */
+                                podAffinity?: {
+                                    /**
+                                     * @description The scheduler will prefer to schedule pods to nodes that satisfy
+                                     *     the affinity expressions specified by this field, but it may choose
+                                     *     a node that violates one or more of the expressions. The node that is
+                                     *     most preferred is the one with the greatest sum of weights, i.e.
+                                     *     for each node that meets all of the scheduling requirements (resource
+                                     *     request, requiredDuringScheduling affinity expressions, etc.),
+                                     *     compute a sum by iterating through the elements of this field and adding
+                                     *     "weight" to the sum if the node has pods which matches the corresponding podAffinityTerm; the
+                                     *     node(s) with the highest sum are the most preferred.
+                                     */
+                                    preferredDuringSchedulingIgnoredDuringExecution?: {
+                                        /** @description Required. A pod affinity term, associated with the corresponding weight. */
+                                        podAffinityTerm: {
+                                            /**
+                                             * @description A label query over a set of resources, in this case pods.
+                                             *     If it's null, this PodAffinityTerm matches with no Pods.
+                                             */
+                                            labelSelector?: {
+                                                /** @description matchExpressions is a list of label selector requirements. The requirements are ANDed. */
+                                                matchExpressions?: {
+                                                    /** @description key is the label key that the selector applies to. */
+                                                    key: string;
+                                                    /**
+                                                     * @description operator represents a key's relationship to a set of values.
+                                                     *     Valid operators are In, NotIn, Exists and DoesNotExist.
+                                                     */
+                                                    operator: string;
+                                                    /**
+                                                     * @description values is an array of string values. If the operator is In or NotIn,
+                                                     *     the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                                                     *     the values array must be empty. This array is replaced during a strategic
+                                                     *     merge patch.
+                                                     */
+                                                    values?: string[];
+                                                }[];
+                                                /**
+                                                 * @description matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
+                                                 *     map is equivalent to an element of matchExpressions, whose key field is "key", the
+                                                 *     operator is "In", and the values array contains only "value". The requirements are ANDed.
+                                                 */
+                                                matchLabels?: {
+                                                    [key: string]: string;
+                                                };
+                                            };
+                                            /**
+                                             * @description MatchLabelKeys is a set of pod label keys to select which pods will
+                                             *     be taken into consideration. The keys are used to lookup values from the
+                                             *     incoming pod labels, those key-value labels are merged with `labelSelector` as `key in (value)`
+                                             *     to select the group of existing pods which pods will be taken into consideration
+                                             *     for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming
+                                             *     pod labels will be ignored. The default value is empty.
+                                             *     The same key is forbidden to exist in both matchLabelKeys and labelSelector.
+                                             *     Also, matchLabelKeys cannot be set when labelSelector isn't set.
+                                             */
+                                            matchLabelKeys?: string[];
+                                            /**
+                                             * @description MismatchLabelKeys is a set of pod label keys to select which pods will
+                                             *     be taken into consideration. The keys are used to lookup values from the
+                                             *     incoming pod labels, those key-value labels are merged with `labelSelector` as `key notin (value)`
+                                             *     to select the group of existing pods which pods will be taken into consideration
+                                             *     for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming
+                                             *     pod labels will be ignored. The default value is empty.
+                                             *     The same key is forbidden to exist in both mismatchLabelKeys and labelSelector.
+                                             *     Also, mismatchLabelKeys cannot be set when labelSelector isn't set.
+                                             */
+                                            mismatchLabelKeys?: string[];
+                                            /**
+                                             * @description A label query over the set of namespaces that the term applies to.
+                                             *     The term is applied to the union of the namespaces selected by this field
+                                             *     and the ones listed in the namespaces field.
+                                             *     null selector and null or empty namespaces list means "this pod's namespace".
+                                             *     An empty selector ({}) matches all namespaces.
+                                             */
+                                            namespaceSelector?: {
+                                                /** @description matchExpressions is a list of label selector requirements. The requirements are ANDed. */
+                                                matchExpressions?: {
+                                                    /** @description key is the label key that the selector applies to. */
+                                                    key: string;
+                                                    /**
+                                                     * @description operator represents a key's relationship to a set of values.
+                                                     *     Valid operators are In, NotIn, Exists and DoesNotExist.
+                                                     */
+                                                    operator: string;
+                                                    /**
+                                                     * @description values is an array of string values. If the operator is In or NotIn,
+                                                     *     the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                                                     *     the values array must be empty. This array is replaced during a strategic
+                                                     *     merge patch.
+                                                     */
+                                                    values?: string[];
+                                                }[];
+                                                /**
+                                                 * @description matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
+                                                 *     map is equivalent to an element of matchExpressions, whose key field is "key", the
+                                                 *     operator is "In", and the values array contains only "value". The requirements are ANDed.
+                                                 */
+                                                matchLabels?: {
+                                                    [key: string]: string;
+                                                };
+                                            };
+                                            /**
+                                             * @description namespaces specifies a static list of namespace names that the term applies to.
+                                             *     The term is applied to the union of the namespaces listed in this field
+                                             *     and the ones selected by namespaceSelector.
+                                             *     null or empty namespaces list and null namespaceSelector means "this pod's namespace".
+                                             */
+                                            namespaces?: string[];
+                                            /**
+                                             * @description This pod should be co-located (affinity) or not co-located (anti-affinity) with the pods matching
+                                             *     the labelSelector in the specified namespaces, where co-located is defined as running on a node
+                                             *     whose value of the label with key topologyKey matches that of any node on which any of the
+                                             *     selected pods is running.
+                                             *     Empty topologyKey is not allowed.
+                                             */
+                                            topologyKey: string;
+                                        };
+                                        /**
+                                         * Format: int32
+                                         * @description weight associated with matching the corresponding podAffinityTerm,
+                                         *     in the range 1-100.
+                                         */
+                                        weight: number;
+                                    }[];
+                                    /**
+                                     * @description If the affinity requirements specified by this field are not met at
+                                     *     scheduling time, the pod will not be scheduled onto the node.
+                                     *     If the affinity requirements specified by this field cease to be met
+                                     *     at some point during pod execution (e.g. due to a pod label update), the
+                                     *     system may or may not try to eventually evict the pod from its node.
+                                     *     When there are multiple elements, the lists of nodes corresponding to each
+                                     *     podAffinityTerm are intersected, i.e. all terms must be satisfied.
+                                     */
+                                    requiredDuringSchedulingIgnoredDuringExecution?: {
+                                        /**
+                                         * @description A label query over a set of resources, in this case pods.
+                                         *     If it's null, this PodAffinityTerm matches with no Pods.
+                                         */
+                                        labelSelector?: {
+                                            /** @description matchExpressions is a list of label selector requirements. The requirements are ANDed. */
+                                            matchExpressions?: {
+                                                /** @description key is the label key that the selector applies to. */
+                                                key: string;
+                                                /**
+                                                 * @description operator represents a key's relationship to a set of values.
+                                                 *     Valid operators are In, NotIn, Exists and DoesNotExist.
+                                                 */
+                                                operator: string;
+                                                /**
+                                                 * @description values is an array of string values. If the operator is In or NotIn,
+                                                 *     the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                                                 *     the values array must be empty. This array is replaced during a strategic
+                                                 *     merge patch.
+                                                 */
+                                                values?: string[];
+                                            }[];
+                                            /**
+                                             * @description matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
+                                             *     map is equivalent to an element of matchExpressions, whose key field is "key", the
+                                             *     operator is "In", and the values array contains only "value". The requirements are ANDed.
+                                             */
+                                            matchLabels?: {
+                                                [key: string]: string;
+                                            };
+                                        };
+                                        /**
+                                         * @description MatchLabelKeys is a set of pod label keys to select which pods will
+                                         *     be taken into consideration. The keys are used to lookup values from the
+                                         *     incoming pod labels, those key-value labels are merged with `labelSelector` as `key in (value)`
+                                         *     to select the group of existing pods which pods will be taken into consideration
+                                         *     for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming
+                                         *     pod labels will be ignored. The default value is empty.
+                                         *     The same key is forbidden to exist in both matchLabelKeys and labelSelector.
+                                         *     Also, matchLabelKeys cannot be set when labelSelector isn't set.
+                                         */
+                                        matchLabelKeys?: string[];
+                                        /**
+                                         * @description MismatchLabelKeys is a set of pod label keys to select which pods will
+                                         *     be taken into consideration. The keys are used to lookup values from the
+                                         *     incoming pod labels, those key-value labels are merged with `labelSelector` as `key notin (value)`
+                                         *     to select the group of existing pods which pods will be taken into consideration
+                                         *     for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming
+                                         *     pod labels will be ignored. The default value is empty.
+                                         *     The same key is forbidden to exist in both mismatchLabelKeys and labelSelector.
+                                         *     Also, mismatchLabelKeys cannot be set when labelSelector isn't set.
+                                         */
+                                        mismatchLabelKeys?: string[];
+                                        /**
+                                         * @description A label query over the set of namespaces that the term applies to.
+                                         *     The term is applied to the union of the namespaces selected by this field
+                                         *     and the ones listed in the namespaces field.
+                                         *     null selector and null or empty namespaces list means "this pod's namespace".
+                                         *     An empty selector ({}) matches all namespaces.
+                                         */
+                                        namespaceSelector?: {
+                                            /** @description matchExpressions is a list of label selector requirements. The requirements are ANDed. */
+                                            matchExpressions?: {
+                                                /** @description key is the label key that the selector applies to. */
+                                                key: string;
+                                                /**
+                                                 * @description operator represents a key's relationship to a set of values.
+                                                 *     Valid operators are In, NotIn, Exists and DoesNotExist.
+                                                 */
+                                                operator: string;
+                                                /**
+                                                 * @description values is an array of string values. If the operator is In or NotIn,
+                                                 *     the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                                                 *     the values array must be empty. This array is replaced during a strategic
+                                                 *     merge patch.
+                                                 */
+                                                values?: string[];
+                                            }[];
+                                            /**
+                                             * @description matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
+                                             *     map is equivalent to an element of matchExpressions, whose key field is "key", the
+                                             *     operator is "In", and the values array contains only "value". The requirements are ANDed.
+                                             */
+                                            matchLabels?: {
+                                                [key: string]: string;
+                                            };
+                                        };
+                                        /**
+                                         * @description namespaces specifies a static list of namespace names that the term applies to.
+                                         *     The term is applied to the union of the namespaces listed in this field
+                                         *     and the ones selected by namespaceSelector.
+                                         *     null or empty namespaces list and null namespaceSelector means "this pod's namespace".
+                                         */
+                                        namespaces?: string[];
+                                        /**
+                                         * @description This pod should be co-located (affinity) or not co-located (anti-affinity) with the pods matching
+                                         *     the labelSelector in the specified namespaces, where co-located is defined as running on a node
+                                         *     whose value of the label with key topologyKey matches that of any node on which any of the
+                                         *     selected pods is running.
+                                         *     Empty topologyKey is not allowed.
+                                         */
+                                        topologyKey: string;
+                                    }[];
+                                };
+                                /** @description Describes pod anti-affinity scheduling rules (e.g. avoid putting this pod in the same node, zone, etc. as some other pod(s)). */
+                                podAntiAffinity?: {
+                                    /**
+                                     * @description The scheduler will prefer to schedule pods to nodes that satisfy
+                                     *     the anti-affinity expressions specified by this field, but it may choose
+                                     *     a node that violates one or more of the expressions. The node that is
+                                     *     most preferred is the one with the greatest sum of weights, i.e.
+                                     *     for each node that meets all of the scheduling requirements (resource
+                                     *     request, requiredDuringScheduling anti-affinity expressions, etc.),
+                                     *     compute a sum by iterating through the elements of this field and subtracting
+                                     *     "weight" from the sum if the node has pods which matches the corresponding podAffinityTerm; the
+                                     *     node(s) with the highest sum are the most preferred.
+                                     */
+                                    preferredDuringSchedulingIgnoredDuringExecution?: {
+                                        /** @description Required. A pod affinity term, associated with the corresponding weight. */
+                                        podAffinityTerm: {
+                                            /**
+                                             * @description A label query over a set of resources, in this case pods.
+                                             *     If it's null, this PodAffinityTerm matches with no Pods.
+                                             */
+                                            labelSelector?: {
+                                                /** @description matchExpressions is a list of label selector requirements. The requirements are ANDed. */
+                                                matchExpressions?: {
+                                                    /** @description key is the label key that the selector applies to. */
+                                                    key: string;
+                                                    /**
+                                                     * @description operator represents a key's relationship to a set of values.
+                                                     *     Valid operators are In, NotIn, Exists and DoesNotExist.
+                                                     */
+                                                    operator: string;
+                                                    /**
+                                                     * @description values is an array of string values. If the operator is In or NotIn,
+                                                     *     the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                                                     *     the values array must be empty. This array is replaced during a strategic
+                                                     *     merge patch.
+                                                     */
+                                                    values?: string[];
+                                                }[];
+                                                /**
+                                                 * @description matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
+                                                 *     map is equivalent to an element of matchExpressions, whose key field is "key", the
+                                                 *     operator is "In", and the values array contains only "value". The requirements are ANDed.
+                                                 */
+                                                matchLabels?: {
+                                                    [key: string]: string;
+                                                };
+                                            };
+                                            /**
+                                             * @description MatchLabelKeys is a set of pod label keys to select which pods will
+                                             *     be taken into consideration. The keys are used to lookup values from the
+                                             *     incoming pod labels, those key-value labels are merged with `labelSelector` as `key in (value)`
+                                             *     to select the group of existing pods which pods will be taken into consideration
+                                             *     for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming
+                                             *     pod labels will be ignored. The default value is empty.
+                                             *     The same key is forbidden to exist in both matchLabelKeys and labelSelector.
+                                             *     Also, matchLabelKeys cannot be set when labelSelector isn't set.
+                                             */
+                                            matchLabelKeys?: string[];
+                                            /**
+                                             * @description MismatchLabelKeys is a set of pod label keys to select which pods will
+                                             *     be taken into consideration. The keys are used to lookup values from the
+                                             *     incoming pod labels, those key-value labels are merged with `labelSelector` as `key notin (value)`
+                                             *     to select the group of existing pods which pods will be taken into consideration
+                                             *     for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming
+                                             *     pod labels will be ignored. The default value is empty.
+                                             *     The same key is forbidden to exist in both mismatchLabelKeys and labelSelector.
+                                             *     Also, mismatchLabelKeys cannot be set when labelSelector isn't set.
+                                             */
+                                            mismatchLabelKeys?: string[];
+                                            /**
+                                             * @description A label query over the set of namespaces that the term applies to.
+                                             *     The term is applied to the union of the namespaces selected by this field
+                                             *     and the ones listed in the namespaces field.
+                                             *     null selector and null or empty namespaces list means "this pod's namespace".
+                                             *     An empty selector ({}) matches all namespaces.
+                                             */
+                                            namespaceSelector?: {
+                                                /** @description matchExpressions is a list of label selector requirements. The requirements are ANDed. */
+                                                matchExpressions?: {
+                                                    /** @description key is the label key that the selector applies to. */
+                                                    key: string;
+                                                    /**
+                                                     * @description operator represents a key's relationship to a set of values.
+                                                     *     Valid operators are In, NotIn, Exists and DoesNotExist.
+                                                     */
+                                                    operator: string;
+                                                    /**
+                                                     * @description values is an array of string values. If the operator is In or NotIn,
+                                                     *     the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                                                     *     the values array must be empty. This array is replaced during a strategic
+                                                     *     merge patch.
+                                                     */
+                                                    values?: string[];
+                                                }[];
+                                                /**
+                                                 * @description matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
+                                                 *     map is equivalent to an element of matchExpressions, whose key field is "key", the
+                                                 *     operator is "In", and the values array contains only "value". The requirements are ANDed.
+                                                 */
+                                                matchLabels?: {
+                                                    [key: string]: string;
+                                                };
+                                            };
+                                            /**
+                                             * @description namespaces specifies a static list of namespace names that the term applies to.
+                                             *     The term is applied to the union of the namespaces listed in this field
+                                             *     and the ones selected by namespaceSelector.
+                                             *     null or empty namespaces list and null namespaceSelector means "this pod's namespace".
+                                             */
+                                            namespaces?: string[];
+                                            /**
+                                             * @description This pod should be co-located (affinity) or not co-located (anti-affinity) with the pods matching
+                                             *     the labelSelector in the specified namespaces, where co-located is defined as running on a node
+                                             *     whose value of the label with key topologyKey matches that of any node on which any of the
+                                             *     selected pods is running.
+                                             *     Empty topologyKey is not allowed.
+                                             */
+                                            topologyKey: string;
+                                        };
+                                        /**
+                                         * Format: int32
+                                         * @description weight associated with matching the corresponding podAffinityTerm,
+                                         *     in the range 1-100.
+                                         */
+                                        weight: number;
+                                    }[];
+                                    /**
+                                     * @description If the anti-affinity requirements specified by this field are not met at
+                                     *     scheduling time, the pod will not be scheduled onto the node.
+                                     *     If the anti-affinity requirements specified by this field cease to be met
+                                     *     at some point during pod execution (e.g. due to a pod label update), the
+                                     *     system may or may not try to eventually evict the pod from its node.
+                                     *     When there are multiple elements, the lists of nodes corresponding to each
+                                     *     podAffinityTerm are intersected, i.e. all terms must be satisfied.
+                                     */
+                                    requiredDuringSchedulingIgnoredDuringExecution?: {
+                                        /**
+                                         * @description A label query over a set of resources, in this case pods.
+                                         *     If it's null, this PodAffinityTerm matches with no Pods.
+                                         */
+                                        labelSelector?: {
+                                            /** @description matchExpressions is a list of label selector requirements. The requirements are ANDed. */
+                                            matchExpressions?: {
+                                                /** @description key is the label key that the selector applies to. */
+                                                key: string;
+                                                /**
+                                                 * @description operator represents a key's relationship to a set of values.
+                                                 *     Valid operators are In, NotIn, Exists and DoesNotExist.
+                                                 */
+                                                operator: string;
+                                                /**
+                                                 * @description values is an array of string values. If the operator is In or NotIn,
+                                                 *     the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                                                 *     the values array must be empty. This array is replaced during a strategic
+                                                 *     merge patch.
+                                                 */
+                                                values?: string[];
+                                            }[];
+                                            /**
+                                             * @description matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
+                                             *     map is equivalent to an element of matchExpressions, whose key field is "key", the
+                                             *     operator is "In", and the values array contains only "value". The requirements are ANDed.
+                                             */
+                                            matchLabels?: {
+                                                [key: string]: string;
+                                            };
+                                        };
+                                        /**
+                                         * @description MatchLabelKeys is a set of pod label keys to select which pods will
+                                         *     be taken into consideration. The keys are used to lookup values from the
+                                         *     incoming pod labels, those key-value labels are merged with `labelSelector` as `key in (value)`
+                                         *     to select the group of existing pods which pods will be taken into consideration
+                                         *     for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming
+                                         *     pod labels will be ignored. The default value is empty.
+                                         *     The same key is forbidden to exist in both matchLabelKeys and labelSelector.
+                                         *     Also, matchLabelKeys cannot be set when labelSelector isn't set.
+                                         */
+                                        matchLabelKeys?: string[];
+                                        /**
+                                         * @description MismatchLabelKeys is a set of pod label keys to select which pods will
+                                         *     be taken into consideration. The keys are used to lookup values from the
+                                         *     incoming pod labels, those key-value labels are merged with `labelSelector` as `key notin (value)`
+                                         *     to select the group of existing pods which pods will be taken into consideration
+                                         *     for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming
+                                         *     pod labels will be ignored. The default value is empty.
+                                         *     The same key is forbidden to exist in both mismatchLabelKeys and labelSelector.
+                                         *     Also, mismatchLabelKeys cannot be set when labelSelector isn't set.
+                                         */
+                                        mismatchLabelKeys?: string[];
+                                        /**
+                                         * @description A label query over the set of namespaces that the term applies to.
+                                         *     The term is applied to the union of the namespaces selected by this field
+                                         *     and the ones listed in the namespaces field.
+                                         *     null selector and null or empty namespaces list means "this pod's namespace".
+                                         *     An empty selector ({}) matches all namespaces.
+                                         */
+                                        namespaceSelector?: {
+                                            /** @description matchExpressions is a list of label selector requirements. The requirements are ANDed. */
+                                            matchExpressions?: {
+                                                /** @description key is the label key that the selector applies to. */
+                                                key: string;
+                                                /**
+                                                 * @description operator represents a key's relationship to a set of values.
+                                                 *     Valid operators are In, NotIn, Exists and DoesNotExist.
+                                                 */
+                                                operator: string;
+                                                /**
+                                                 * @description values is an array of string values. If the operator is In or NotIn,
+                                                 *     the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                                                 *     the values array must be empty. This array is replaced during a strategic
+                                                 *     merge patch.
+                                                 */
+                                                values?: string[];
+                                            }[];
+                                            /**
+                                             * @description matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
+                                             *     map is equivalent to an element of matchExpressions, whose key field is "key", the
+                                             *     operator is "In", and the values array contains only "value". The requirements are ANDed.
+                                             */
+                                            matchLabels?: {
+                                                [key: string]: string;
+                                            };
+                                        };
+                                        /**
+                                         * @description namespaces specifies a static list of namespace names that the term applies to.
+                                         *     The term is applied to the union of the namespaces listed in this field
+                                         *     and the ones selected by namespaceSelector.
+                                         *     null or empty namespaces list and null namespaceSelector means "this pod's namespace".
+                                         */
+                                        namespaces?: string[];
+                                        /**
+                                         * @description This pod should be co-located (affinity) or not co-located (anti-affinity) with the pods matching
+                                         *     the labelSelector in the specified namespaces, where co-located is defined as running on a node
+                                         *     whose value of the label with key topologyKey matches that of any node on which any of the
+                                         *     selected pods is running.
+                                         *     Empty topologyKey is not allowed.
+                                         */
+                                        topologyKey: string;
+                                    }[];
+                                };
+                            };
+                            /**
+                             * @description NodeSelector must match a node's labels for the pods to be schedulable
+                             *     onto that node.
+                             */
+                            nodeSelector?: {
+                                [key: string]: string;
+                            };
+                            /**
+                             * @description SchedulerName selects the scheduler that dispatches the pods.
+                             *     When omitted the cluster's default scheduler is used.
+                             */
+                            schedulerName?: string;
+                            /**
+                             * @description Tolerations allow the pods to schedule onto nodes carrying matching
+                             *     taints, typically nodes reserved for database workloads.
+                             */
+                            tolerations?: {
+                                /**
+                                 * @description Effect indicates the taint effect to match. Empty means match all taint effects.
+                                 *     When specified, allowed values are NoSchedule, PreferNoSchedule and NoExecute.
+                                 */
+                                effect?: string;
+                                /**
+                                 * @description Key is the taint key that the toleration applies to. Empty means match all taint keys.
+                                 *     If the key is empty, operator must be Exists; this combination means to match all values and all keys.
+                                 */
+                                key?: string;
+                                /**
+                                 * @description Operator represents a key's relationship to the value.
+                                 *     Valid operators are Exists, Equal, Lt, and Gt. Defaults to Equal.
+                                 *     Exists is equivalent to wildcard for value, so that a pod can
+                                 *     tolerate all taints of a particular category.
+                                 *     Lt and Gt perform numeric comparisons (requires feature gate TaintTolerationComparisonOperators).
+                                 */
+                                operator?: string;
+                                /**
+                                 * Format: int64
+                                 * @description TolerationSeconds represents the period of time the toleration (which must be
+                                 *     of effect NoExecute, otherwise this field is ignored) tolerates the taint. By default,
+                                 *     it is not set, which means tolerate the taint forever (do not evict). Zero and
+                                 *     negative values will be treated as 0 (evict immediately) by the system.
+                                 */
+                                tolerationSeconds?: number;
+                                /**
+                                 * @description Value is the taint value the toleration matches to.
+                                 *     If the operator is Exists, the value should be empty, otherwise just a regular string.
+                                 */
+                                value?: string;
+                            }[];
+                            /**
+                             * @description TopologySpreadConstraints describe how the pods spread across topology
+                             *     domains. All constraints are ANDed.
+                             */
+                            topologySpreadConstraints?: {
+                                /**
+                                 * @description LabelSelector is used to find matching pods.
+                                 *     Pods that match this label selector are counted to determine the number of pods
+                                 *     in their corresponding topology domain.
+                                 */
+                                labelSelector?: {
+                                    /** @description matchExpressions is a list of label selector requirements. The requirements are ANDed. */
+                                    matchExpressions?: {
+                                        /** @description key is the label key that the selector applies to. */
+                                        key: string;
+                                        /**
+                                         * @description operator represents a key's relationship to a set of values.
+                                         *     Valid operators are In, NotIn, Exists and DoesNotExist.
+                                         */
+                                        operator: string;
+                                        /**
+                                         * @description values is an array of string values. If the operator is In or NotIn,
+                                         *     the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                                         *     the values array must be empty. This array is replaced during a strategic
+                                         *     merge patch.
+                                         */
+                                        values?: string[];
+                                    }[];
+                                    /**
+                                     * @description matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
+                                     *     map is equivalent to an element of matchExpressions, whose key field is "key", the
+                                     *     operator is "In", and the values array contains only "value". The requirements are ANDed.
+                                     */
+                                    matchLabels?: {
+                                        [key: string]: string;
+                                    };
+                                };
+                                /**
+                                 * @description MatchLabelKeys is a set of pod label keys to select the pods over which
+                                 *     spreading will be calculated. The keys are used to lookup values from the
+                                 *     incoming pod labels, those key-value labels are ANDed with labelSelector
+                                 *     to select the group of existing pods over which spreading will be calculated
+                                 *     for the incoming pod. The same key is forbidden to exist in both MatchLabelKeys and LabelSelector.
+                                 *     MatchLabelKeys cannot be set when LabelSelector isn't set.
+                                 *     Keys that don't exist in the incoming pod labels will
+                                 *     be ignored. A null or empty list means only match against labelSelector.
+                                 *
+                                 *     This is a beta field and requires the MatchLabelKeysInPodTopologySpread feature gate to be enabled (enabled by default).
+                                 */
+                                matchLabelKeys?: string[];
+                                /**
+                                 * Format: int32
+                                 * @description MaxSkew describes the degree to which pods may be unevenly distributed.
+                                 *     When `whenUnsatisfiable=DoNotSchedule`, it is the maximum permitted difference
+                                 *     between the number of matching pods in the target topology and the global minimum.
+                                 *     The global minimum is the minimum number of matching pods in an eligible domain
+                                 *     or zero if the number of eligible domains is less than MinDomains.
+                                 *     For example, in a 3-zone cluster, MaxSkew is set to 1, and pods with the same
+                                 *     labelSelector spread as 2/2/1:
+                                 *     In this case, the global minimum is 1.
+                                 *     | zone1 | zone2 | zone3 |
+                                 *     |  P P  |  P P  |   P   |
+                                 *     - if MaxSkew is 1, incoming pod can only be scheduled to zone3 to become 2/2/2;
+                                 *     scheduling it onto zone1(zone2) would make the ActualSkew(3-1) on zone1(zone2)
+                                 *     violate MaxSkew(1).
+                                 *     - if MaxSkew is 2, incoming pod can be scheduled onto any zone.
+                                 *     When `whenUnsatisfiable=ScheduleAnyway`, it is used to give higher precedence
+                                 *     to topologies that satisfy it.
+                                 *     It's a required field. Default value is 1 and 0 is not allowed.
+                                 */
+                                maxSkew: number;
+                                /**
+                                 * Format: int32
+                                 * @description MinDomains indicates a minimum number of eligible domains.
+                                 *     When the number of eligible domains with matching topology keys is less than minDomains,
+                                 *     Pod Topology Spread treats "global minimum" as 0, and then the calculation of Skew is performed.
+                                 *     And when the number of eligible domains with matching topology keys equals or greater than minDomains,
+                                 *     this value has no effect on scheduling.
+                                 *     As a result, when the number of eligible domains is less than minDomains,
+                                 *     scheduler won't schedule more than maxSkew Pods to those domains.
+                                 *     If value is nil, the constraint behaves as if MinDomains is equal to 1.
+                                 *     Valid values are integers greater than 0.
+                                 *     When value is not nil, WhenUnsatisfiable must be DoNotSchedule.
+                                 *
+                                 *     For example, in a 3-zone cluster, MaxSkew is set to 2, MinDomains is set to 5 and pods with the same
+                                 *     labelSelector spread as 2/2/2:
+                                 *     | zone1 | zone2 | zone3 |
+                                 *     |  P P  |  P P  |  P P  |
+                                 *     The number of domains is less than 5(MinDomains), so "global minimum" is treated as 0.
+                                 *     In this situation, new pod with the same labelSelector cannot be scheduled,
+                                 *     because computed skew will be 3(3 - 0) if new Pod is scheduled to any of the three zones,
+                                 *     it will violate MaxSkew.
+                                 */
+                                minDomains?: number;
+                                /**
+                                 * @description NodeAffinityPolicy indicates how we will treat Pod's nodeAffinity/nodeSelector
+                                 *     when calculating pod topology spread skew. Options are:
+                                 *     - Honor: only nodes matching nodeAffinity/nodeSelector are included in the calculations.
+                                 *     - Ignore: nodeAffinity/nodeSelector are ignored. All nodes are included in the calculations.
+                                 *
+                                 *     If this value is nil, the behavior is equivalent to the Honor policy.
+                                 */
+                                nodeAffinityPolicy?: string;
+                                /**
+                                 * @description NodeTaintsPolicy indicates how we will treat node taints when calculating
+                                 *     pod topology spread skew. Options are:
+                                 *     - Honor: nodes without taints, along with tainted nodes for which the incoming pod
+                                 *     has a toleration, are included.
+                                 *     - Ignore: node taints are ignored. All nodes are included.
+                                 *
+                                 *     If this value is nil, the behavior is equivalent to the Ignore policy.
+                                 */
+                                nodeTaintsPolicy?: string;
+                                /**
+                                 * @description TopologyKey is the key of node labels. Nodes that have a label with this key
+                                 *     and identical values are considered to be in the same topology.
+                                 *     We consider each <key, value> as a "bucket", and try to put balanced number
+                                 *     of pods into each bucket.
+                                 *     We define a domain as a particular instance of a topology.
+                                 *     Also, we define an eligible domain as a domain whose nodes meet the requirements of
+                                 *     nodeAffinityPolicy and nodeTaintsPolicy.
+                                 *     e.g. If TopologyKey is "kubernetes.io/hostname", each Node is a domain of that topology.
+                                 *     And, if TopologyKey is "topology.kubernetes.io/zone", each zone is a domain of that topology.
+                                 *     It's a required field.
+                                 */
+                                topologyKey: string;
+                                /**
+                                 * @description WhenUnsatisfiable indicates how to deal with a pod if it doesn't satisfy
+                                 *     the spread constraint.
+                                 *     - DoNotSchedule (default) tells the scheduler not to schedule it.
+                                 *     - ScheduleAnyway tells the scheduler to schedule the pod in any location,
+                                 *       but giving higher precedence to topologies that would help reduce the
+                                 *       skew.
+                                 *     A constraint is considered "Unsatisfiable" for an incoming pod
+                                 *     if and only if every possible node assignment for that pod would violate
+                                 *     "MaxSkew" on some topology.
+                                 *     For example, in a 3-zone cluster, MaxSkew is set to 1, and pods with the same
+                                 *     labelSelector spread as 3/1/1:
+                                 *     | zone1 | zone2 | zone3 |
+                                 *     | P P P |   P   |   P   |
+                                 *     If WhenUnsatisfiable is set to DoNotSchedule, incoming pod can only be scheduled
+                                 *     to zone2(zone3) to become 3/2/1(3/1/2) as ActualSkew(2-1) on zone2(zone3) satisfies
+                                 *     MaxSkew(1). In other words, the cluster can still be imbalanced, but scheduler
+                                 *     won't make it *more* imbalanced.
+                                 *     It's a required field.
+                                 */
+                                whenUnsatisfiable: string;
+                            }[];
                         };
                         /** @description Service defines how this component is exposed. */
                         service?: {
@@ -2029,601 +2233,6 @@ export interface components {
                 components?: {
                     [key: string]: {
                         /**
-                         * @description Affinity controls pod scheduling rules for this component, including node
-                         *     selection (where pods run), pod co-location (scheduling pods together), and
-                         *     pod anti-affinity (spreading pods across nodes/zones for high availability).
-                         */
-                        affinity?: {
-                            /** @description Describes node affinity scheduling rules for the pod. */
-                            nodeAffinity?: {
-                                /**
-                                 * @description The scheduler will prefer to schedule pods to nodes that satisfy
-                                 *     the affinity expressions specified by this field, but it may choose
-                                 *     a node that violates one or more of the expressions. The node that is
-                                 *     most preferred is the one with the greatest sum of weights, i.e.
-                                 *     for each node that meets all of the scheduling requirements (resource
-                                 *     request, requiredDuringScheduling affinity expressions, etc.),
-                                 *     compute a sum by iterating through the elements of this field and adding
-                                 *     "weight" to the sum if the node matches the corresponding matchExpressions; the
-                                 *     node(s) with the highest sum are the most preferred.
-                                 */
-                                preferredDuringSchedulingIgnoredDuringExecution?: {
-                                    /** @description A node selector term, associated with the corresponding weight. */
-                                    preference: {
-                                        /** @description A list of node selector requirements by node's labels. */
-                                        matchExpressions?: {
-                                            /** @description The label key that the selector applies to. */
-                                            key: string;
-                                            /**
-                                             * @description Represents a key's relationship to a set of values.
-                                             *     Valid operators are In, NotIn, Exists, DoesNotExist. Gt, and Lt.
-                                             */
-                                            operator: string;
-                                            /**
-                                             * @description An array of string values. If the operator is In or NotIn,
-                                             *     the values array must be non-empty. If the operator is Exists or DoesNotExist,
-                                             *     the values array must be empty. If the operator is Gt or Lt, the values
-                                             *     array must have a single element, which will be interpreted as an integer.
-                                             *     This array is replaced during a strategic merge patch.
-                                             */
-                                            values?: string[];
-                                        }[];
-                                        /** @description A list of node selector requirements by node's fields. */
-                                        matchFields?: {
-                                            /** @description The label key that the selector applies to. */
-                                            key: string;
-                                            /**
-                                             * @description Represents a key's relationship to a set of values.
-                                             *     Valid operators are In, NotIn, Exists, DoesNotExist. Gt, and Lt.
-                                             */
-                                            operator: string;
-                                            /**
-                                             * @description An array of string values. If the operator is In or NotIn,
-                                             *     the values array must be non-empty. If the operator is Exists or DoesNotExist,
-                                             *     the values array must be empty. If the operator is Gt or Lt, the values
-                                             *     array must have a single element, which will be interpreted as an integer.
-                                             *     This array is replaced during a strategic merge patch.
-                                             */
-                                            values?: string[];
-                                        }[];
-                                    };
-                                    /**
-                                     * Format: int32
-                                     * @description Weight associated with matching the corresponding nodeSelectorTerm, in the range 1-100.
-                                     */
-                                    weight: number;
-                                }[];
-                                /**
-                                 * @description If the affinity requirements specified by this field are not met at
-                                 *     scheduling time, the pod will not be scheduled onto the node.
-                                 *     If the affinity requirements specified by this field cease to be met
-                                 *     at some point during pod execution (e.g. due to an update), the system
-                                 *     may or may not try to eventually evict the pod from its node.
-                                 */
-                                requiredDuringSchedulingIgnoredDuringExecution?: {
-                                    /** @description Required. A list of node selector terms. The terms are ORed. */
-                                    nodeSelectorTerms: {
-                                        /** @description A list of node selector requirements by node's labels. */
-                                        matchExpressions?: {
-                                            /** @description The label key that the selector applies to. */
-                                            key: string;
-                                            /**
-                                             * @description Represents a key's relationship to a set of values.
-                                             *     Valid operators are In, NotIn, Exists, DoesNotExist. Gt, and Lt.
-                                             */
-                                            operator: string;
-                                            /**
-                                             * @description An array of string values. If the operator is In or NotIn,
-                                             *     the values array must be non-empty. If the operator is Exists or DoesNotExist,
-                                             *     the values array must be empty. If the operator is Gt or Lt, the values
-                                             *     array must have a single element, which will be interpreted as an integer.
-                                             *     This array is replaced during a strategic merge patch.
-                                             */
-                                            values?: string[];
-                                        }[];
-                                        /** @description A list of node selector requirements by node's fields. */
-                                        matchFields?: {
-                                            /** @description The label key that the selector applies to. */
-                                            key: string;
-                                            /**
-                                             * @description Represents a key's relationship to a set of values.
-                                             *     Valid operators are In, NotIn, Exists, DoesNotExist. Gt, and Lt.
-                                             */
-                                            operator: string;
-                                            /**
-                                             * @description An array of string values. If the operator is In or NotIn,
-                                             *     the values array must be non-empty. If the operator is Exists or DoesNotExist,
-                                             *     the values array must be empty. If the operator is Gt or Lt, the values
-                                             *     array must have a single element, which will be interpreted as an integer.
-                                             *     This array is replaced during a strategic merge patch.
-                                             */
-                                            values?: string[];
-                                        }[];
-                                    }[];
-                                };
-                            };
-                            /** @description Describes pod affinity scheduling rules (e.g. co-locate this pod in the same node, zone, etc. as some other pod(s)). */
-                            podAffinity?: {
-                                /**
-                                 * @description The scheduler will prefer to schedule pods to nodes that satisfy
-                                 *     the affinity expressions specified by this field, but it may choose
-                                 *     a node that violates one or more of the expressions. The node that is
-                                 *     most preferred is the one with the greatest sum of weights, i.e.
-                                 *     for each node that meets all of the scheduling requirements (resource
-                                 *     request, requiredDuringScheduling affinity expressions, etc.),
-                                 *     compute a sum by iterating through the elements of this field and adding
-                                 *     "weight" to the sum if the node has pods which matches the corresponding podAffinityTerm; the
-                                 *     node(s) with the highest sum are the most preferred.
-                                 */
-                                preferredDuringSchedulingIgnoredDuringExecution?: {
-                                    /** @description Required. A pod affinity term, associated with the corresponding weight. */
-                                    podAffinityTerm: {
-                                        /**
-                                         * @description A label query over a set of resources, in this case pods.
-                                         *     If it's null, this PodAffinityTerm matches with no Pods.
-                                         */
-                                        labelSelector?: {
-                                            /** @description matchExpressions is a list of label selector requirements. The requirements are ANDed. */
-                                            matchExpressions?: {
-                                                /** @description key is the label key that the selector applies to. */
-                                                key: string;
-                                                /**
-                                                 * @description operator represents a key's relationship to a set of values.
-                                                 *     Valid operators are In, NotIn, Exists and DoesNotExist.
-                                                 */
-                                                operator: string;
-                                                /**
-                                                 * @description values is an array of string values. If the operator is In or NotIn,
-                                                 *     the values array must be non-empty. If the operator is Exists or DoesNotExist,
-                                                 *     the values array must be empty. This array is replaced during a strategic
-                                                 *     merge patch.
-                                                 */
-                                                values?: string[];
-                                            }[];
-                                            /**
-                                             * @description matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
-                                             *     map is equivalent to an element of matchExpressions, whose key field is "key", the
-                                             *     operator is "In", and the values array contains only "value". The requirements are ANDed.
-                                             */
-                                            matchLabels?: {
-                                                [key: string]: string;
-                                            };
-                                        };
-                                        /**
-                                         * @description MatchLabelKeys is a set of pod label keys to select which pods will
-                                         *     be taken into consideration. The keys are used to lookup values from the
-                                         *     incoming pod labels, those key-value labels are merged with `labelSelector` as `key in (value)`
-                                         *     to select the group of existing pods which pods will be taken into consideration
-                                         *     for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming
-                                         *     pod labels will be ignored. The default value is empty.
-                                         *     The same key is forbidden to exist in both matchLabelKeys and labelSelector.
-                                         *     Also, matchLabelKeys cannot be set when labelSelector isn't set.
-                                         */
-                                        matchLabelKeys?: string[];
-                                        /**
-                                         * @description MismatchLabelKeys is a set of pod label keys to select which pods will
-                                         *     be taken into consideration. The keys are used to lookup values from the
-                                         *     incoming pod labels, those key-value labels are merged with `labelSelector` as `key notin (value)`
-                                         *     to select the group of existing pods which pods will be taken into consideration
-                                         *     for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming
-                                         *     pod labels will be ignored. The default value is empty.
-                                         *     The same key is forbidden to exist in both mismatchLabelKeys and labelSelector.
-                                         *     Also, mismatchLabelKeys cannot be set when labelSelector isn't set.
-                                         */
-                                        mismatchLabelKeys?: string[];
-                                        /**
-                                         * @description A label query over the set of namespaces that the term applies to.
-                                         *     The term is applied to the union of the namespaces selected by this field
-                                         *     and the ones listed in the namespaces field.
-                                         *     null selector and null or empty namespaces list means "this pod's namespace".
-                                         *     An empty selector ({}) matches all namespaces.
-                                         */
-                                        namespaceSelector?: {
-                                            /** @description matchExpressions is a list of label selector requirements. The requirements are ANDed. */
-                                            matchExpressions?: {
-                                                /** @description key is the label key that the selector applies to. */
-                                                key: string;
-                                                /**
-                                                 * @description operator represents a key's relationship to a set of values.
-                                                 *     Valid operators are In, NotIn, Exists and DoesNotExist.
-                                                 */
-                                                operator: string;
-                                                /**
-                                                 * @description values is an array of string values. If the operator is In or NotIn,
-                                                 *     the values array must be non-empty. If the operator is Exists or DoesNotExist,
-                                                 *     the values array must be empty. This array is replaced during a strategic
-                                                 *     merge patch.
-                                                 */
-                                                values?: string[];
-                                            }[];
-                                            /**
-                                             * @description matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
-                                             *     map is equivalent to an element of matchExpressions, whose key field is "key", the
-                                             *     operator is "In", and the values array contains only "value". The requirements are ANDed.
-                                             */
-                                            matchLabels?: {
-                                                [key: string]: string;
-                                            };
-                                        };
-                                        /**
-                                         * @description namespaces specifies a static list of namespace names that the term applies to.
-                                         *     The term is applied to the union of the namespaces listed in this field
-                                         *     and the ones selected by namespaceSelector.
-                                         *     null or empty namespaces list and null namespaceSelector means "this pod's namespace".
-                                         */
-                                        namespaces?: string[];
-                                        /**
-                                         * @description This pod should be co-located (affinity) or not co-located (anti-affinity) with the pods matching
-                                         *     the labelSelector in the specified namespaces, where co-located is defined as running on a node
-                                         *     whose value of the label with key topologyKey matches that of any node on which any of the
-                                         *     selected pods is running.
-                                         *     Empty topologyKey is not allowed.
-                                         */
-                                        topologyKey: string;
-                                    };
-                                    /**
-                                     * Format: int32
-                                     * @description weight associated with matching the corresponding podAffinityTerm,
-                                     *     in the range 1-100.
-                                     */
-                                    weight: number;
-                                }[];
-                                /**
-                                 * @description If the affinity requirements specified by this field are not met at
-                                 *     scheduling time, the pod will not be scheduled onto the node.
-                                 *     If the affinity requirements specified by this field cease to be met
-                                 *     at some point during pod execution (e.g. due to a pod label update), the
-                                 *     system may or may not try to eventually evict the pod from its node.
-                                 *     When there are multiple elements, the lists of nodes corresponding to each
-                                 *     podAffinityTerm are intersected, i.e. all terms must be satisfied.
-                                 */
-                                requiredDuringSchedulingIgnoredDuringExecution?: {
-                                    /**
-                                     * @description A label query over a set of resources, in this case pods.
-                                     *     If it's null, this PodAffinityTerm matches with no Pods.
-                                     */
-                                    labelSelector?: {
-                                        /** @description matchExpressions is a list of label selector requirements. The requirements are ANDed. */
-                                        matchExpressions?: {
-                                            /** @description key is the label key that the selector applies to. */
-                                            key: string;
-                                            /**
-                                             * @description operator represents a key's relationship to a set of values.
-                                             *     Valid operators are In, NotIn, Exists and DoesNotExist.
-                                             */
-                                            operator: string;
-                                            /**
-                                             * @description values is an array of string values. If the operator is In or NotIn,
-                                             *     the values array must be non-empty. If the operator is Exists or DoesNotExist,
-                                             *     the values array must be empty. This array is replaced during a strategic
-                                             *     merge patch.
-                                             */
-                                            values?: string[];
-                                        }[];
-                                        /**
-                                         * @description matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
-                                         *     map is equivalent to an element of matchExpressions, whose key field is "key", the
-                                         *     operator is "In", and the values array contains only "value". The requirements are ANDed.
-                                         */
-                                        matchLabels?: {
-                                            [key: string]: string;
-                                        };
-                                    };
-                                    /**
-                                     * @description MatchLabelKeys is a set of pod label keys to select which pods will
-                                     *     be taken into consideration. The keys are used to lookup values from the
-                                     *     incoming pod labels, those key-value labels are merged with `labelSelector` as `key in (value)`
-                                     *     to select the group of existing pods which pods will be taken into consideration
-                                     *     for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming
-                                     *     pod labels will be ignored. The default value is empty.
-                                     *     The same key is forbidden to exist in both matchLabelKeys and labelSelector.
-                                     *     Also, matchLabelKeys cannot be set when labelSelector isn't set.
-                                     */
-                                    matchLabelKeys?: string[];
-                                    /**
-                                     * @description MismatchLabelKeys is a set of pod label keys to select which pods will
-                                     *     be taken into consideration. The keys are used to lookup values from the
-                                     *     incoming pod labels, those key-value labels are merged with `labelSelector` as `key notin (value)`
-                                     *     to select the group of existing pods which pods will be taken into consideration
-                                     *     for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming
-                                     *     pod labels will be ignored. The default value is empty.
-                                     *     The same key is forbidden to exist in both mismatchLabelKeys and labelSelector.
-                                     *     Also, mismatchLabelKeys cannot be set when labelSelector isn't set.
-                                     */
-                                    mismatchLabelKeys?: string[];
-                                    /**
-                                     * @description A label query over the set of namespaces that the term applies to.
-                                     *     The term is applied to the union of the namespaces selected by this field
-                                     *     and the ones listed in the namespaces field.
-                                     *     null selector and null or empty namespaces list means "this pod's namespace".
-                                     *     An empty selector ({}) matches all namespaces.
-                                     */
-                                    namespaceSelector?: {
-                                        /** @description matchExpressions is a list of label selector requirements. The requirements are ANDed. */
-                                        matchExpressions?: {
-                                            /** @description key is the label key that the selector applies to. */
-                                            key: string;
-                                            /**
-                                             * @description operator represents a key's relationship to a set of values.
-                                             *     Valid operators are In, NotIn, Exists and DoesNotExist.
-                                             */
-                                            operator: string;
-                                            /**
-                                             * @description values is an array of string values. If the operator is In or NotIn,
-                                             *     the values array must be non-empty. If the operator is Exists or DoesNotExist,
-                                             *     the values array must be empty. This array is replaced during a strategic
-                                             *     merge patch.
-                                             */
-                                            values?: string[];
-                                        }[];
-                                        /**
-                                         * @description matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
-                                         *     map is equivalent to an element of matchExpressions, whose key field is "key", the
-                                         *     operator is "In", and the values array contains only "value". The requirements are ANDed.
-                                         */
-                                        matchLabels?: {
-                                            [key: string]: string;
-                                        };
-                                    };
-                                    /**
-                                     * @description namespaces specifies a static list of namespace names that the term applies to.
-                                     *     The term is applied to the union of the namespaces listed in this field
-                                     *     and the ones selected by namespaceSelector.
-                                     *     null or empty namespaces list and null namespaceSelector means "this pod's namespace".
-                                     */
-                                    namespaces?: string[];
-                                    /**
-                                     * @description This pod should be co-located (affinity) or not co-located (anti-affinity) with the pods matching
-                                     *     the labelSelector in the specified namespaces, where co-located is defined as running on a node
-                                     *     whose value of the label with key topologyKey matches that of any node on which any of the
-                                     *     selected pods is running.
-                                     *     Empty topologyKey is not allowed.
-                                     */
-                                    topologyKey: string;
-                                }[];
-                            };
-                            /** @description Describes pod anti-affinity scheduling rules (e.g. avoid putting this pod in the same node, zone, etc. as some other pod(s)). */
-                            podAntiAffinity?: {
-                                /**
-                                 * @description The scheduler will prefer to schedule pods to nodes that satisfy
-                                 *     the anti-affinity expressions specified by this field, but it may choose
-                                 *     a node that violates one or more of the expressions. The node that is
-                                 *     most preferred is the one with the greatest sum of weights, i.e.
-                                 *     for each node that meets all of the scheduling requirements (resource
-                                 *     request, requiredDuringScheduling anti-affinity expressions, etc.),
-                                 *     compute a sum by iterating through the elements of this field and subtracting
-                                 *     "weight" from the sum if the node has pods which matches the corresponding podAffinityTerm; the
-                                 *     node(s) with the highest sum are the most preferred.
-                                 */
-                                preferredDuringSchedulingIgnoredDuringExecution?: {
-                                    /** @description Required. A pod affinity term, associated with the corresponding weight. */
-                                    podAffinityTerm: {
-                                        /**
-                                         * @description A label query over a set of resources, in this case pods.
-                                         *     If it's null, this PodAffinityTerm matches with no Pods.
-                                         */
-                                        labelSelector?: {
-                                            /** @description matchExpressions is a list of label selector requirements. The requirements are ANDed. */
-                                            matchExpressions?: {
-                                                /** @description key is the label key that the selector applies to. */
-                                                key: string;
-                                                /**
-                                                 * @description operator represents a key's relationship to a set of values.
-                                                 *     Valid operators are In, NotIn, Exists and DoesNotExist.
-                                                 */
-                                                operator: string;
-                                                /**
-                                                 * @description values is an array of string values. If the operator is In or NotIn,
-                                                 *     the values array must be non-empty. If the operator is Exists or DoesNotExist,
-                                                 *     the values array must be empty. This array is replaced during a strategic
-                                                 *     merge patch.
-                                                 */
-                                                values?: string[];
-                                            }[];
-                                            /**
-                                             * @description matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
-                                             *     map is equivalent to an element of matchExpressions, whose key field is "key", the
-                                             *     operator is "In", and the values array contains only "value". The requirements are ANDed.
-                                             */
-                                            matchLabels?: {
-                                                [key: string]: string;
-                                            };
-                                        };
-                                        /**
-                                         * @description MatchLabelKeys is a set of pod label keys to select which pods will
-                                         *     be taken into consideration. The keys are used to lookup values from the
-                                         *     incoming pod labels, those key-value labels are merged with `labelSelector` as `key in (value)`
-                                         *     to select the group of existing pods which pods will be taken into consideration
-                                         *     for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming
-                                         *     pod labels will be ignored. The default value is empty.
-                                         *     The same key is forbidden to exist in both matchLabelKeys and labelSelector.
-                                         *     Also, matchLabelKeys cannot be set when labelSelector isn't set.
-                                         */
-                                        matchLabelKeys?: string[];
-                                        /**
-                                         * @description MismatchLabelKeys is a set of pod label keys to select which pods will
-                                         *     be taken into consideration. The keys are used to lookup values from the
-                                         *     incoming pod labels, those key-value labels are merged with `labelSelector` as `key notin (value)`
-                                         *     to select the group of existing pods which pods will be taken into consideration
-                                         *     for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming
-                                         *     pod labels will be ignored. The default value is empty.
-                                         *     The same key is forbidden to exist in both mismatchLabelKeys and labelSelector.
-                                         *     Also, mismatchLabelKeys cannot be set when labelSelector isn't set.
-                                         */
-                                        mismatchLabelKeys?: string[];
-                                        /**
-                                         * @description A label query over the set of namespaces that the term applies to.
-                                         *     The term is applied to the union of the namespaces selected by this field
-                                         *     and the ones listed in the namespaces field.
-                                         *     null selector and null or empty namespaces list means "this pod's namespace".
-                                         *     An empty selector ({}) matches all namespaces.
-                                         */
-                                        namespaceSelector?: {
-                                            /** @description matchExpressions is a list of label selector requirements. The requirements are ANDed. */
-                                            matchExpressions?: {
-                                                /** @description key is the label key that the selector applies to. */
-                                                key: string;
-                                                /**
-                                                 * @description operator represents a key's relationship to a set of values.
-                                                 *     Valid operators are In, NotIn, Exists and DoesNotExist.
-                                                 */
-                                                operator: string;
-                                                /**
-                                                 * @description values is an array of string values. If the operator is In or NotIn,
-                                                 *     the values array must be non-empty. If the operator is Exists or DoesNotExist,
-                                                 *     the values array must be empty. This array is replaced during a strategic
-                                                 *     merge patch.
-                                                 */
-                                                values?: string[];
-                                            }[];
-                                            /**
-                                             * @description matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
-                                             *     map is equivalent to an element of matchExpressions, whose key field is "key", the
-                                             *     operator is "In", and the values array contains only "value". The requirements are ANDed.
-                                             */
-                                            matchLabels?: {
-                                                [key: string]: string;
-                                            };
-                                        };
-                                        /**
-                                         * @description namespaces specifies a static list of namespace names that the term applies to.
-                                         *     The term is applied to the union of the namespaces listed in this field
-                                         *     and the ones selected by namespaceSelector.
-                                         *     null or empty namespaces list and null namespaceSelector means "this pod's namespace".
-                                         */
-                                        namespaces?: string[];
-                                        /**
-                                         * @description This pod should be co-located (affinity) or not co-located (anti-affinity) with the pods matching
-                                         *     the labelSelector in the specified namespaces, where co-located is defined as running on a node
-                                         *     whose value of the label with key topologyKey matches that of any node on which any of the
-                                         *     selected pods is running.
-                                         *     Empty topologyKey is not allowed.
-                                         */
-                                        topologyKey: string;
-                                    };
-                                    /**
-                                     * Format: int32
-                                     * @description weight associated with matching the corresponding podAffinityTerm,
-                                     *     in the range 1-100.
-                                     */
-                                    weight: number;
-                                }[];
-                                /**
-                                 * @description If the anti-affinity requirements specified by this field are not met at
-                                 *     scheduling time, the pod will not be scheduled onto the node.
-                                 *     If the anti-affinity requirements specified by this field cease to be met
-                                 *     at some point during pod execution (e.g. due to a pod label update), the
-                                 *     system may or may not try to eventually evict the pod from its node.
-                                 *     When there are multiple elements, the lists of nodes corresponding to each
-                                 *     podAffinityTerm are intersected, i.e. all terms must be satisfied.
-                                 */
-                                requiredDuringSchedulingIgnoredDuringExecution?: {
-                                    /**
-                                     * @description A label query over a set of resources, in this case pods.
-                                     *     If it's null, this PodAffinityTerm matches with no Pods.
-                                     */
-                                    labelSelector?: {
-                                        /** @description matchExpressions is a list of label selector requirements. The requirements are ANDed. */
-                                        matchExpressions?: {
-                                            /** @description key is the label key that the selector applies to. */
-                                            key: string;
-                                            /**
-                                             * @description operator represents a key's relationship to a set of values.
-                                             *     Valid operators are In, NotIn, Exists and DoesNotExist.
-                                             */
-                                            operator: string;
-                                            /**
-                                             * @description values is an array of string values. If the operator is In or NotIn,
-                                             *     the values array must be non-empty. If the operator is Exists or DoesNotExist,
-                                             *     the values array must be empty. This array is replaced during a strategic
-                                             *     merge patch.
-                                             */
-                                            values?: string[];
-                                        }[];
-                                        /**
-                                         * @description matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
-                                         *     map is equivalent to an element of matchExpressions, whose key field is "key", the
-                                         *     operator is "In", and the values array contains only "value". The requirements are ANDed.
-                                         */
-                                        matchLabels?: {
-                                            [key: string]: string;
-                                        };
-                                    };
-                                    /**
-                                     * @description MatchLabelKeys is a set of pod label keys to select which pods will
-                                     *     be taken into consideration. The keys are used to lookup values from the
-                                     *     incoming pod labels, those key-value labels are merged with `labelSelector` as `key in (value)`
-                                     *     to select the group of existing pods which pods will be taken into consideration
-                                     *     for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming
-                                     *     pod labels will be ignored. The default value is empty.
-                                     *     The same key is forbidden to exist in both matchLabelKeys and labelSelector.
-                                     *     Also, matchLabelKeys cannot be set when labelSelector isn't set.
-                                     */
-                                    matchLabelKeys?: string[];
-                                    /**
-                                     * @description MismatchLabelKeys is a set of pod label keys to select which pods will
-                                     *     be taken into consideration. The keys are used to lookup values from the
-                                     *     incoming pod labels, those key-value labels are merged with `labelSelector` as `key notin (value)`
-                                     *     to select the group of existing pods which pods will be taken into consideration
-                                     *     for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming
-                                     *     pod labels will be ignored. The default value is empty.
-                                     *     The same key is forbidden to exist in both mismatchLabelKeys and labelSelector.
-                                     *     Also, mismatchLabelKeys cannot be set when labelSelector isn't set.
-                                     */
-                                    mismatchLabelKeys?: string[];
-                                    /**
-                                     * @description A label query over the set of namespaces that the term applies to.
-                                     *     The term is applied to the union of the namespaces selected by this field
-                                     *     and the ones listed in the namespaces field.
-                                     *     null selector and null or empty namespaces list means "this pod's namespace".
-                                     *     An empty selector ({}) matches all namespaces.
-                                     */
-                                    namespaceSelector?: {
-                                        /** @description matchExpressions is a list of label selector requirements. The requirements are ANDed. */
-                                        matchExpressions?: {
-                                            /** @description key is the label key that the selector applies to. */
-                                            key: string;
-                                            /**
-                                             * @description operator represents a key's relationship to a set of values.
-                                             *     Valid operators are In, NotIn, Exists and DoesNotExist.
-                                             */
-                                            operator: string;
-                                            /**
-                                             * @description values is an array of string values. If the operator is In or NotIn,
-                                             *     the values array must be non-empty. If the operator is Exists or DoesNotExist,
-                                             *     the values array must be empty. This array is replaced during a strategic
-                                             *     merge patch.
-                                             */
-                                            values?: string[];
-                                        }[];
-                                        /**
-                                         * @description matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
-                                         *     map is equivalent to an element of matchExpressions, whose key field is "key", the
-                                         *     operator is "In", and the values array contains only "value". The requirements are ANDed.
-                                         */
-                                        matchLabels?: {
-                                            [key: string]: string;
-                                        };
-                                    };
-                                    /**
-                                     * @description namespaces specifies a static list of namespace names that the term applies to.
-                                     *     The term is applied to the union of the namespaces listed in this field
-                                     *     and the ones selected by namespaceSelector.
-                                     *     null or empty namespaces list and null namespaceSelector means "this pod's namespace".
-                                     */
-                                    namespaces?: string[];
-                                    /**
-                                     * @description This pod should be co-located (affinity) or not co-located (anti-affinity) with the pods matching
-                                     *     the labelSelector in the specified namespaces, where co-located is defined as running on a node
-                                     *     whose value of the label with key topologyKey matches that of any node on which any of the
-                                     *     selected pods is running.
-                                     *     Empty topologyKey is not allowed.
-                                     */
-                                    topologyKey: string;
-                                }[];
-                            };
-                        };
-                        /**
                          * @description Image specifies an override for the image to use.
                          *     When unspecified, it is autmatically set from the ComponentVersions
                          *     based on the Version specified.
@@ -2684,6 +2293,805 @@ export interface components {
                             requests?: {
                                 [key: string]: number | string;
                             };
+                        };
+                        /**
+                         * @description SchedulingPolicy controls where this component's pods run: node
+                         *     selection, pod co-location, anti-affinity, tolerations and topology
+                         *     spread.
+                         */
+                        schedulingPolicy?: {
+                            /**
+                             * @description Affinity constrains node selection, pod co-location and pod
+                             *     anti-affinity (spreading pods across nodes, zones or other topology
+                             *     domains for high availability).
+                             */
+                            affinity?: {
+                                /** @description Describes node affinity scheduling rules for the pod. */
+                                nodeAffinity?: {
+                                    /**
+                                     * @description The scheduler will prefer to schedule pods to nodes that satisfy
+                                     *     the affinity expressions specified by this field, but it may choose
+                                     *     a node that violates one or more of the expressions. The node that is
+                                     *     most preferred is the one with the greatest sum of weights, i.e.
+                                     *     for each node that meets all of the scheduling requirements (resource
+                                     *     request, requiredDuringScheduling affinity expressions, etc.),
+                                     *     compute a sum by iterating through the elements of this field and adding
+                                     *     "weight" to the sum if the node matches the corresponding matchExpressions; the
+                                     *     node(s) with the highest sum are the most preferred.
+                                     */
+                                    preferredDuringSchedulingIgnoredDuringExecution?: {
+                                        /** @description A node selector term, associated with the corresponding weight. */
+                                        preference: {
+                                            /** @description A list of node selector requirements by node's labels. */
+                                            matchExpressions?: {
+                                                /** @description The label key that the selector applies to. */
+                                                key: string;
+                                                /**
+                                                 * @description Represents a key's relationship to a set of values.
+                                                 *     Valid operators are In, NotIn, Exists, DoesNotExist. Gt, and Lt.
+                                                 */
+                                                operator: string;
+                                                /**
+                                                 * @description An array of string values. If the operator is In or NotIn,
+                                                 *     the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                                                 *     the values array must be empty. If the operator is Gt or Lt, the values
+                                                 *     array must have a single element, which will be interpreted as an integer.
+                                                 *     This array is replaced during a strategic merge patch.
+                                                 */
+                                                values?: string[];
+                                            }[];
+                                            /** @description A list of node selector requirements by node's fields. */
+                                            matchFields?: {
+                                                /** @description The label key that the selector applies to. */
+                                                key: string;
+                                                /**
+                                                 * @description Represents a key's relationship to a set of values.
+                                                 *     Valid operators are In, NotIn, Exists, DoesNotExist. Gt, and Lt.
+                                                 */
+                                                operator: string;
+                                                /**
+                                                 * @description An array of string values. If the operator is In or NotIn,
+                                                 *     the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                                                 *     the values array must be empty. If the operator is Gt or Lt, the values
+                                                 *     array must have a single element, which will be interpreted as an integer.
+                                                 *     This array is replaced during a strategic merge patch.
+                                                 */
+                                                values?: string[];
+                                            }[];
+                                        };
+                                        /**
+                                         * Format: int32
+                                         * @description Weight associated with matching the corresponding nodeSelectorTerm, in the range 1-100.
+                                         */
+                                        weight: number;
+                                    }[];
+                                    /**
+                                     * @description If the affinity requirements specified by this field are not met at
+                                     *     scheduling time, the pod will not be scheduled onto the node.
+                                     *     If the affinity requirements specified by this field cease to be met
+                                     *     at some point during pod execution (e.g. due to an update), the system
+                                     *     may or may not try to eventually evict the pod from its node.
+                                     */
+                                    requiredDuringSchedulingIgnoredDuringExecution?: {
+                                        /** @description Required. A list of node selector terms. The terms are ORed. */
+                                        nodeSelectorTerms: {
+                                            /** @description A list of node selector requirements by node's labels. */
+                                            matchExpressions?: {
+                                                /** @description The label key that the selector applies to. */
+                                                key: string;
+                                                /**
+                                                 * @description Represents a key's relationship to a set of values.
+                                                 *     Valid operators are In, NotIn, Exists, DoesNotExist. Gt, and Lt.
+                                                 */
+                                                operator: string;
+                                                /**
+                                                 * @description An array of string values. If the operator is In or NotIn,
+                                                 *     the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                                                 *     the values array must be empty. If the operator is Gt or Lt, the values
+                                                 *     array must have a single element, which will be interpreted as an integer.
+                                                 *     This array is replaced during a strategic merge patch.
+                                                 */
+                                                values?: string[];
+                                            }[];
+                                            /** @description A list of node selector requirements by node's fields. */
+                                            matchFields?: {
+                                                /** @description The label key that the selector applies to. */
+                                                key: string;
+                                                /**
+                                                 * @description Represents a key's relationship to a set of values.
+                                                 *     Valid operators are In, NotIn, Exists, DoesNotExist. Gt, and Lt.
+                                                 */
+                                                operator: string;
+                                                /**
+                                                 * @description An array of string values. If the operator is In or NotIn,
+                                                 *     the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                                                 *     the values array must be empty. If the operator is Gt or Lt, the values
+                                                 *     array must have a single element, which will be interpreted as an integer.
+                                                 *     This array is replaced during a strategic merge patch.
+                                                 */
+                                                values?: string[];
+                                            }[];
+                                        }[];
+                                    };
+                                };
+                                /** @description Describes pod affinity scheduling rules (e.g. co-locate this pod in the same node, zone, etc. as some other pod(s)). */
+                                podAffinity?: {
+                                    /**
+                                     * @description The scheduler will prefer to schedule pods to nodes that satisfy
+                                     *     the affinity expressions specified by this field, but it may choose
+                                     *     a node that violates one or more of the expressions. The node that is
+                                     *     most preferred is the one with the greatest sum of weights, i.e.
+                                     *     for each node that meets all of the scheduling requirements (resource
+                                     *     request, requiredDuringScheduling affinity expressions, etc.),
+                                     *     compute a sum by iterating through the elements of this field and adding
+                                     *     "weight" to the sum if the node has pods which matches the corresponding podAffinityTerm; the
+                                     *     node(s) with the highest sum are the most preferred.
+                                     */
+                                    preferredDuringSchedulingIgnoredDuringExecution?: {
+                                        /** @description Required. A pod affinity term, associated with the corresponding weight. */
+                                        podAffinityTerm: {
+                                            /**
+                                             * @description A label query over a set of resources, in this case pods.
+                                             *     If it's null, this PodAffinityTerm matches with no Pods.
+                                             */
+                                            labelSelector?: {
+                                                /** @description matchExpressions is a list of label selector requirements. The requirements are ANDed. */
+                                                matchExpressions?: {
+                                                    /** @description key is the label key that the selector applies to. */
+                                                    key: string;
+                                                    /**
+                                                     * @description operator represents a key's relationship to a set of values.
+                                                     *     Valid operators are In, NotIn, Exists and DoesNotExist.
+                                                     */
+                                                    operator: string;
+                                                    /**
+                                                     * @description values is an array of string values. If the operator is In or NotIn,
+                                                     *     the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                                                     *     the values array must be empty. This array is replaced during a strategic
+                                                     *     merge patch.
+                                                     */
+                                                    values?: string[];
+                                                }[];
+                                                /**
+                                                 * @description matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
+                                                 *     map is equivalent to an element of matchExpressions, whose key field is "key", the
+                                                 *     operator is "In", and the values array contains only "value". The requirements are ANDed.
+                                                 */
+                                                matchLabels?: {
+                                                    [key: string]: string;
+                                                };
+                                            };
+                                            /**
+                                             * @description MatchLabelKeys is a set of pod label keys to select which pods will
+                                             *     be taken into consideration. The keys are used to lookup values from the
+                                             *     incoming pod labels, those key-value labels are merged with `labelSelector` as `key in (value)`
+                                             *     to select the group of existing pods which pods will be taken into consideration
+                                             *     for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming
+                                             *     pod labels will be ignored. The default value is empty.
+                                             *     The same key is forbidden to exist in both matchLabelKeys and labelSelector.
+                                             *     Also, matchLabelKeys cannot be set when labelSelector isn't set.
+                                             */
+                                            matchLabelKeys?: string[];
+                                            /**
+                                             * @description MismatchLabelKeys is a set of pod label keys to select which pods will
+                                             *     be taken into consideration. The keys are used to lookup values from the
+                                             *     incoming pod labels, those key-value labels are merged with `labelSelector` as `key notin (value)`
+                                             *     to select the group of existing pods which pods will be taken into consideration
+                                             *     for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming
+                                             *     pod labels will be ignored. The default value is empty.
+                                             *     The same key is forbidden to exist in both mismatchLabelKeys and labelSelector.
+                                             *     Also, mismatchLabelKeys cannot be set when labelSelector isn't set.
+                                             */
+                                            mismatchLabelKeys?: string[];
+                                            /**
+                                             * @description A label query over the set of namespaces that the term applies to.
+                                             *     The term is applied to the union of the namespaces selected by this field
+                                             *     and the ones listed in the namespaces field.
+                                             *     null selector and null or empty namespaces list means "this pod's namespace".
+                                             *     An empty selector ({}) matches all namespaces.
+                                             */
+                                            namespaceSelector?: {
+                                                /** @description matchExpressions is a list of label selector requirements. The requirements are ANDed. */
+                                                matchExpressions?: {
+                                                    /** @description key is the label key that the selector applies to. */
+                                                    key: string;
+                                                    /**
+                                                     * @description operator represents a key's relationship to a set of values.
+                                                     *     Valid operators are In, NotIn, Exists and DoesNotExist.
+                                                     */
+                                                    operator: string;
+                                                    /**
+                                                     * @description values is an array of string values. If the operator is In or NotIn,
+                                                     *     the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                                                     *     the values array must be empty. This array is replaced during a strategic
+                                                     *     merge patch.
+                                                     */
+                                                    values?: string[];
+                                                }[];
+                                                /**
+                                                 * @description matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
+                                                 *     map is equivalent to an element of matchExpressions, whose key field is "key", the
+                                                 *     operator is "In", and the values array contains only "value". The requirements are ANDed.
+                                                 */
+                                                matchLabels?: {
+                                                    [key: string]: string;
+                                                };
+                                            };
+                                            /**
+                                             * @description namespaces specifies a static list of namespace names that the term applies to.
+                                             *     The term is applied to the union of the namespaces listed in this field
+                                             *     and the ones selected by namespaceSelector.
+                                             *     null or empty namespaces list and null namespaceSelector means "this pod's namespace".
+                                             */
+                                            namespaces?: string[];
+                                            /**
+                                             * @description This pod should be co-located (affinity) or not co-located (anti-affinity) with the pods matching
+                                             *     the labelSelector in the specified namespaces, where co-located is defined as running on a node
+                                             *     whose value of the label with key topologyKey matches that of any node on which any of the
+                                             *     selected pods is running.
+                                             *     Empty topologyKey is not allowed.
+                                             */
+                                            topologyKey: string;
+                                        };
+                                        /**
+                                         * Format: int32
+                                         * @description weight associated with matching the corresponding podAffinityTerm,
+                                         *     in the range 1-100.
+                                         */
+                                        weight: number;
+                                    }[];
+                                    /**
+                                     * @description If the affinity requirements specified by this field are not met at
+                                     *     scheduling time, the pod will not be scheduled onto the node.
+                                     *     If the affinity requirements specified by this field cease to be met
+                                     *     at some point during pod execution (e.g. due to a pod label update), the
+                                     *     system may or may not try to eventually evict the pod from its node.
+                                     *     When there are multiple elements, the lists of nodes corresponding to each
+                                     *     podAffinityTerm are intersected, i.e. all terms must be satisfied.
+                                     */
+                                    requiredDuringSchedulingIgnoredDuringExecution?: {
+                                        /**
+                                         * @description A label query over a set of resources, in this case pods.
+                                         *     If it's null, this PodAffinityTerm matches with no Pods.
+                                         */
+                                        labelSelector?: {
+                                            /** @description matchExpressions is a list of label selector requirements. The requirements are ANDed. */
+                                            matchExpressions?: {
+                                                /** @description key is the label key that the selector applies to. */
+                                                key: string;
+                                                /**
+                                                 * @description operator represents a key's relationship to a set of values.
+                                                 *     Valid operators are In, NotIn, Exists and DoesNotExist.
+                                                 */
+                                                operator: string;
+                                                /**
+                                                 * @description values is an array of string values. If the operator is In or NotIn,
+                                                 *     the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                                                 *     the values array must be empty. This array is replaced during a strategic
+                                                 *     merge patch.
+                                                 */
+                                                values?: string[];
+                                            }[];
+                                            /**
+                                             * @description matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
+                                             *     map is equivalent to an element of matchExpressions, whose key field is "key", the
+                                             *     operator is "In", and the values array contains only "value". The requirements are ANDed.
+                                             */
+                                            matchLabels?: {
+                                                [key: string]: string;
+                                            };
+                                        };
+                                        /**
+                                         * @description MatchLabelKeys is a set of pod label keys to select which pods will
+                                         *     be taken into consideration. The keys are used to lookup values from the
+                                         *     incoming pod labels, those key-value labels are merged with `labelSelector` as `key in (value)`
+                                         *     to select the group of existing pods which pods will be taken into consideration
+                                         *     for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming
+                                         *     pod labels will be ignored. The default value is empty.
+                                         *     The same key is forbidden to exist in both matchLabelKeys and labelSelector.
+                                         *     Also, matchLabelKeys cannot be set when labelSelector isn't set.
+                                         */
+                                        matchLabelKeys?: string[];
+                                        /**
+                                         * @description MismatchLabelKeys is a set of pod label keys to select which pods will
+                                         *     be taken into consideration. The keys are used to lookup values from the
+                                         *     incoming pod labels, those key-value labels are merged with `labelSelector` as `key notin (value)`
+                                         *     to select the group of existing pods which pods will be taken into consideration
+                                         *     for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming
+                                         *     pod labels will be ignored. The default value is empty.
+                                         *     The same key is forbidden to exist in both mismatchLabelKeys and labelSelector.
+                                         *     Also, mismatchLabelKeys cannot be set when labelSelector isn't set.
+                                         */
+                                        mismatchLabelKeys?: string[];
+                                        /**
+                                         * @description A label query over the set of namespaces that the term applies to.
+                                         *     The term is applied to the union of the namespaces selected by this field
+                                         *     and the ones listed in the namespaces field.
+                                         *     null selector and null or empty namespaces list means "this pod's namespace".
+                                         *     An empty selector ({}) matches all namespaces.
+                                         */
+                                        namespaceSelector?: {
+                                            /** @description matchExpressions is a list of label selector requirements. The requirements are ANDed. */
+                                            matchExpressions?: {
+                                                /** @description key is the label key that the selector applies to. */
+                                                key: string;
+                                                /**
+                                                 * @description operator represents a key's relationship to a set of values.
+                                                 *     Valid operators are In, NotIn, Exists and DoesNotExist.
+                                                 */
+                                                operator: string;
+                                                /**
+                                                 * @description values is an array of string values. If the operator is In or NotIn,
+                                                 *     the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                                                 *     the values array must be empty. This array is replaced during a strategic
+                                                 *     merge patch.
+                                                 */
+                                                values?: string[];
+                                            }[];
+                                            /**
+                                             * @description matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
+                                             *     map is equivalent to an element of matchExpressions, whose key field is "key", the
+                                             *     operator is "In", and the values array contains only "value". The requirements are ANDed.
+                                             */
+                                            matchLabels?: {
+                                                [key: string]: string;
+                                            };
+                                        };
+                                        /**
+                                         * @description namespaces specifies a static list of namespace names that the term applies to.
+                                         *     The term is applied to the union of the namespaces listed in this field
+                                         *     and the ones selected by namespaceSelector.
+                                         *     null or empty namespaces list and null namespaceSelector means "this pod's namespace".
+                                         */
+                                        namespaces?: string[];
+                                        /**
+                                         * @description This pod should be co-located (affinity) or not co-located (anti-affinity) with the pods matching
+                                         *     the labelSelector in the specified namespaces, where co-located is defined as running on a node
+                                         *     whose value of the label with key topologyKey matches that of any node on which any of the
+                                         *     selected pods is running.
+                                         *     Empty topologyKey is not allowed.
+                                         */
+                                        topologyKey: string;
+                                    }[];
+                                };
+                                /** @description Describes pod anti-affinity scheduling rules (e.g. avoid putting this pod in the same node, zone, etc. as some other pod(s)). */
+                                podAntiAffinity?: {
+                                    /**
+                                     * @description The scheduler will prefer to schedule pods to nodes that satisfy
+                                     *     the anti-affinity expressions specified by this field, but it may choose
+                                     *     a node that violates one or more of the expressions. The node that is
+                                     *     most preferred is the one with the greatest sum of weights, i.e.
+                                     *     for each node that meets all of the scheduling requirements (resource
+                                     *     request, requiredDuringScheduling anti-affinity expressions, etc.),
+                                     *     compute a sum by iterating through the elements of this field and subtracting
+                                     *     "weight" from the sum if the node has pods which matches the corresponding podAffinityTerm; the
+                                     *     node(s) with the highest sum are the most preferred.
+                                     */
+                                    preferredDuringSchedulingIgnoredDuringExecution?: {
+                                        /** @description Required. A pod affinity term, associated with the corresponding weight. */
+                                        podAffinityTerm: {
+                                            /**
+                                             * @description A label query over a set of resources, in this case pods.
+                                             *     If it's null, this PodAffinityTerm matches with no Pods.
+                                             */
+                                            labelSelector?: {
+                                                /** @description matchExpressions is a list of label selector requirements. The requirements are ANDed. */
+                                                matchExpressions?: {
+                                                    /** @description key is the label key that the selector applies to. */
+                                                    key: string;
+                                                    /**
+                                                     * @description operator represents a key's relationship to a set of values.
+                                                     *     Valid operators are In, NotIn, Exists and DoesNotExist.
+                                                     */
+                                                    operator: string;
+                                                    /**
+                                                     * @description values is an array of string values. If the operator is In or NotIn,
+                                                     *     the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                                                     *     the values array must be empty. This array is replaced during a strategic
+                                                     *     merge patch.
+                                                     */
+                                                    values?: string[];
+                                                }[];
+                                                /**
+                                                 * @description matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
+                                                 *     map is equivalent to an element of matchExpressions, whose key field is "key", the
+                                                 *     operator is "In", and the values array contains only "value". The requirements are ANDed.
+                                                 */
+                                                matchLabels?: {
+                                                    [key: string]: string;
+                                                };
+                                            };
+                                            /**
+                                             * @description MatchLabelKeys is a set of pod label keys to select which pods will
+                                             *     be taken into consideration. The keys are used to lookup values from the
+                                             *     incoming pod labels, those key-value labels are merged with `labelSelector` as `key in (value)`
+                                             *     to select the group of existing pods which pods will be taken into consideration
+                                             *     for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming
+                                             *     pod labels will be ignored. The default value is empty.
+                                             *     The same key is forbidden to exist in both matchLabelKeys and labelSelector.
+                                             *     Also, matchLabelKeys cannot be set when labelSelector isn't set.
+                                             */
+                                            matchLabelKeys?: string[];
+                                            /**
+                                             * @description MismatchLabelKeys is a set of pod label keys to select which pods will
+                                             *     be taken into consideration. The keys are used to lookup values from the
+                                             *     incoming pod labels, those key-value labels are merged with `labelSelector` as `key notin (value)`
+                                             *     to select the group of existing pods which pods will be taken into consideration
+                                             *     for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming
+                                             *     pod labels will be ignored. The default value is empty.
+                                             *     The same key is forbidden to exist in both mismatchLabelKeys and labelSelector.
+                                             *     Also, mismatchLabelKeys cannot be set when labelSelector isn't set.
+                                             */
+                                            mismatchLabelKeys?: string[];
+                                            /**
+                                             * @description A label query over the set of namespaces that the term applies to.
+                                             *     The term is applied to the union of the namespaces selected by this field
+                                             *     and the ones listed in the namespaces field.
+                                             *     null selector and null or empty namespaces list means "this pod's namespace".
+                                             *     An empty selector ({}) matches all namespaces.
+                                             */
+                                            namespaceSelector?: {
+                                                /** @description matchExpressions is a list of label selector requirements. The requirements are ANDed. */
+                                                matchExpressions?: {
+                                                    /** @description key is the label key that the selector applies to. */
+                                                    key: string;
+                                                    /**
+                                                     * @description operator represents a key's relationship to a set of values.
+                                                     *     Valid operators are In, NotIn, Exists and DoesNotExist.
+                                                     */
+                                                    operator: string;
+                                                    /**
+                                                     * @description values is an array of string values. If the operator is In or NotIn,
+                                                     *     the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                                                     *     the values array must be empty. This array is replaced during a strategic
+                                                     *     merge patch.
+                                                     */
+                                                    values?: string[];
+                                                }[];
+                                                /**
+                                                 * @description matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
+                                                 *     map is equivalent to an element of matchExpressions, whose key field is "key", the
+                                                 *     operator is "In", and the values array contains only "value". The requirements are ANDed.
+                                                 */
+                                                matchLabels?: {
+                                                    [key: string]: string;
+                                                };
+                                            };
+                                            /**
+                                             * @description namespaces specifies a static list of namespace names that the term applies to.
+                                             *     The term is applied to the union of the namespaces listed in this field
+                                             *     and the ones selected by namespaceSelector.
+                                             *     null or empty namespaces list and null namespaceSelector means "this pod's namespace".
+                                             */
+                                            namespaces?: string[];
+                                            /**
+                                             * @description This pod should be co-located (affinity) or not co-located (anti-affinity) with the pods matching
+                                             *     the labelSelector in the specified namespaces, where co-located is defined as running on a node
+                                             *     whose value of the label with key topologyKey matches that of any node on which any of the
+                                             *     selected pods is running.
+                                             *     Empty topologyKey is not allowed.
+                                             */
+                                            topologyKey: string;
+                                        };
+                                        /**
+                                         * Format: int32
+                                         * @description weight associated with matching the corresponding podAffinityTerm,
+                                         *     in the range 1-100.
+                                         */
+                                        weight: number;
+                                    }[];
+                                    /**
+                                     * @description If the anti-affinity requirements specified by this field are not met at
+                                     *     scheduling time, the pod will not be scheduled onto the node.
+                                     *     If the anti-affinity requirements specified by this field cease to be met
+                                     *     at some point during pod execution (e.g. due to a pod label update), the
+                                     *     system may or may not try to eventually evict the pod from its node.
+                                     *     When there are multiple elements, the lists of nodes corresponding to each
+                                     *     podAffinityTerm are intersected, i.e. all terms must be satisfied.
+                                     */
+                                    requiredDuringSchedulingIgnoredDuringExecution?: {
+                                        /**
+                                         * @description A label query over a set of resources, in this case pods.
+                                         *     If it's null, this PodAffinityTerm matches with no Pods.
+                                         */
+                                        labelSelector?: {
+                                            /** @description matchExpressions is a list of label selector requirements. The requirements are ANDed. */
+                                            matchExpressions?: {
+                                                /** @description key is the label key that the selector applies to. */
+                                                key: string;
+                                                /**
+                                                 * @description operator represents a key's relationship to a set of values.
+                                                 *     Valid operators are In, NotIn, Exists and DoesNotExist.
+                                                 */
+                                                operator: string;
+                                                /**
+                                                 * @description values is an array of string values. If the operator is In or NotIn,
+                                                 *     the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                                                 *     the values array must be empty. This array is replaced during a strategic
+                                                 *     merge patch.
+                                                 */
+                                                values?: string[];
+                                            }[];
+                                            /**
+                                             * @description matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
+                                             *     map is equivalent to an element of matchExpressions, whose key field is "key", the
+                                             *     operator is "In", and the values array contains only "value". The requirements are ANDed.
+                                             */
+                                            matchLabels?: {
+                                                [key: string]: string;
+                                            };
+                                        };
+                                        /**
+                                         * @description MatchLabelKeys is a set of pod label keys to select which pods will
+                                         *     be taken into consideration. The keys are used to lookup values from the
+                                         *     incoming pod labels, those key-value labels are merged with `labelSelector` as `key in (value)`
+                                         *     to select the group of existing pods which pods will be taken into consideration
+                                         *     for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming
+                                         *     pod labels will be ignored. The default value is empty.
+                                         *     The same key is forbidden to exist in both matchLabelKeys and labelSelector.
+                                         *     Also, matchLabelKeys cannot be set when labelSelector isn't set.
+                                         */
+                                        matchLabelKeys?: string[];
+                                        /**
+                                         * @description MismatchLabelKeys is a set of pod label keys to select which pods will
+                                         *     be taken into consideration. The keys are used to lookup values from the
+                                         *     incoming pod labels, those key-value labels are merged with `labelSelector` as `key notin (value)`
+                                         *     to select the group of existing pods which pods will be taken into consideration
+                                         *     for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming
+                                         *     pod labels will be ignored. The default value is empty.
+                                         *     The same key is forbidden to exist in both mismatchLabelKeys and labelSelector.
+                                         *     Also, mismatchLabelKeys cannot be set when labelSelector isn't set.
+                                         */
+                                        mismatchLabelKeys?: string[];
+                                        /**
+                                         * @description A label query over the set of namespaces that the term applies to.
+                                         *     The term is applied to the union of the namespaces selected by this field
+                                         *     and the ones listed in the namespaces field.
+                                         *     null selector and null or empty namespaces list means "this pod's namespace".
+                                         *     An empty selector ({}) matches all namespaces.
+                                         */
+                                        namespaceSelector?: {
+                                            /** @description matchExpressions is a list of label selector requirements. The requirements are ANDed. */
+                                            matchExpressions?: {
+                                                /** @description key is the label key that the selector applies to. */
+                                                key: string;
+                                                /**
+                                                 * @description operator represents a key's relationship to a set of values.
+                                                 *     Valid operators are In, NotIn, Exists and DoesNotExist.
+                                                 */
+                                                operator: string;
+                                                /**
+                                                 * @description values is an array of string values. If the operator is In or NotIn,
+                                                 *     the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                                                 *     the values array must be empty. This array is replaced during a strategic
+                                                 *     merge patch.
+                                                 */
+                                                values?: string[];
+                                            }[];
+                                            /**
+                                             * @description matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
+                                             *     map is equivalent to an element of matchExpressions, whose key field is "key", the
+                                             *     operator is "In", and the values array contains only "value". The requirements are ANDed.
+                                             */
+                                            matchLabels?: {
+                                                [key: string]: string;
+                                            };
+                                        };
+                                        /**
+                                         * @description namespaces specifies a static list of namespace names that the term applies to.
+                                         *     The term is applied to the union of the namespaces listed in this field
+                                         *     and the ones selected by namespaceSelector.
+                                         *     null or empty namespaces list and null namespaceSelector means "this pod's namespace".
+                                         */
+                                        namespaces?: string[];
+                                        /**
+                                         * @description This pod should be co-located (affinity) or not co-located (anti-affinity) with the pods matching
+                                         *     the labelSelector in the specified namespaces, where co-located is defined as running on a node
+                                         *     whose value of the label with key topologyKey matches that of any node on which any of the
+                                         *     selected pods is running.
+                                         *     Empty topologyKey is not allowed.
+                                         */
+                                        topologyKey: string;
+                                    }[];
+                                };
+                            };
+                            /**
+                             * @description NodeSelector must match a node's labels for the pods to be schedulable
+                             *     onto that node.
+                             */
+                            nodeSelector?: {
+                                [key: string]: string;
+                            };
+                            /**
+                             * @description SchedulerName selects the scheduler that dispatches the pods.
+                             *     When omitted the cluster's default scheduler is used.
+                             */
+                            schedulerName?: string;
+                            /**
+                             * @description Tolerations allow the pods to schedule onto nodes carrying matching
+                             *     taints, typically nodes reserved for database workloads.
+                             */
+                            tolerations?: {
+                                /**
+                                 * @description Effect indicates the taint effect to match. Empty means match all taint effects.
+                                 *     When specified, allowed values are NoSchedule, PreferNoSchedule and NoExecute.
+                                 */
+                                effect?: string;
+                                /**
+                                 * @description Key is the taint key that the toleration applies to. Empty means match all taint keys.
+                                 *     If the key is empty, operator must be Exists; this combination means to match all values and all keys.
+                                 */
+                                key?: string;
+                                /**
+                                 * @description Operator represents a key's relationship to the value.
+                                 *     Valid operators are Exists, Equal, Lt, and Gt. Defaults to Equal.
+                                 *     Exists is equivalent to wildcard for value, so that a pod can
+                                 *     tolerate all taints of a particular category.
+                                 *     Lt and Gt perform numeric comparisons (requires feature gate TaintTolerationComparisonOperators).
+                                 */
+                                operator?: string;
+                                /**
+                                 * Format: int64
+                                 * @description TolerationSeconds represents the period of time the toleration (which must be
+                                 *     of effect NoExecute, otherwise this field is ignored) tolerates the taint. By default,
+                                 *     it is not set, which means tolerate the taint forever (do not evict). Zero and
+                                 *     negative values will be treated as 0 (evict immediately) by the system.
+                                 */
+                                tolerationSeconds?: number;
+                                /**
+                                 * @description Value is the taint value the toleration matches to.
+                                 *     If the operator is Exists, the value should be empty, otherwise just a regular string.
+                                 */
+                                value?: string;
+                            }[];
+                            /**
+                             * @description TopologySpreadConstraints describe how the pods spread across topology
+                             *     domains. All constraints are ANDed.
+                             */
+                            topologySpreadConstraints?: {
+                                /**
+                                 * @description LabelSelector is used to find matching pods.
+                                 *     Pods that match this label selector are counted to determine the number of pods
+                                 *     in their corresponding topology domain.
+                                 */
+                                labelSelector?: {
+                                    /** @description matchExpressions is a list of label selector requirements. The requirements are ANDed. */
+                                    matchExpressions?: {
+                                        /** @description key is the label key that the selector applies to. */
+                                        key: string;
+                                        /**
+                                         * @description operator represents a key's relationship to a set of values.
+                                         *     Valid operators are In, NotIn, Exists and DoesNotExist.
+                                         */
+                                        operator: string;
+                                        /**
+                                         * @description values is an array of string values. If the operator is In or NotIn,
+                                         *     the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                                         *     the values array must be empty. This array is replaced during a strategic
+                                         *     merge patch.
+                                         */
+                                        values?: string[];
+                                    }[];
+                                    /**
+                                     * @description matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
+                                     *     map is equivalent to an element of matchExpressions, whose key field is "key", the
+                                     *     operator is "In", and the values array contains only "value". The requirements are ANDed.
+                                     */
+                                    matchLabels?: {
+                                        [key: string]: string;
+                                    };
+                                };
+                                /**
+                                 * @description MatchLabelKeys is a set of pod label keys to select the pods over which
+                                 *     spreading will be calculated. The keys are used to lookup values from the
+                                 *     incoming pod labels, those key-value labels are ANDed with labelSelector
+                                 *     to select the group of existing pods over which spreading will be calculated
+                                 *     for the incoming pod. The same key is forbidden to exist in both MatchLabelKeys and LabelSelector.
+                                 *     MatchLabelKeys cannot be set when LabelSelector isn't set.
+                                 *     Keys that don't exist in the incoming pod labels will
+                                 *     be ignored. A null or empty list means only match against labelSelector.
+                                 *
+                                 *     This is a beta field and requires the MatchLabelKeysInPodTopologySpread feature gate to be enabled (enabled by default).
+                                 */
+                                matchLabelKeys?: string[];
+                                /**
+                                 * Format: int32
+                                 * @description MaxSkew describes the degree to which pods may be unevenly distributed.
+                                 *     When `whenUnsatisfiable=DoNotSchedule`, it is the maximum permitted difference
+                                 *     between the number of matching pods in the target topology and the global minimum.
+                                 *     The global minimum is the minimum number of matching pods in an eligible domain
+                                 *     or zero if the number of eligible domains is less than MinDomains.
+                                 *     For example, in a 3-zone cluster, MaxSkew is set to 1, and pods with the same
+                                 *     labelSelector spread as 2/2/1:
+                                 *     In this case, the global minimum is 1.
+                                 *     | zone1 | zone2 | zone3 |
+                                 *     |  P P  |  P P  |   P   |
+                                 *     - if MaxSkew is 1, incoming pod can only be scheduled to zone3 to become 2/2/2;
+                                 *     scheduling it onto zone1(zone2) would make the ActualSkew(3-1) on zone1(zone2)
+                                 *     violate MaxSkew(1).
+                                 *     - if MaxSkew is 2, incoming pod can be scheduled onto any zone.
+                                 *     When `whenUnsatisfiable=ScheduleAnyway`, it is used to give higher precedence
+                                 *     to topologies that satisfy it.
+                                 *     It's a required field. Default value is 1 and 0 is not allowed.
+                                 */
+                                maxSkew: number;
+                                /**
+                                 * Format: int32
+                                 * @description MinDomains indicates a minimum number of eligible domains.
+                                 *     When the number of eligible domains with matching topology keys is less than minDomains,
+                                 *     Pod Topology Spread treats "global minimum" as 0, and then the calculation of Skew is performed.
+                                 *     And when the number of eligible domains with matching topology keys equals or greater than minDomains,
+                                 *     this value has no effect on scheduling.
+                                 *     As a result, when the number of eligible domains is less than minDomains,
+                                 *     scheduler won't schedule more than maxSkew Pods to those domains.
+                                 *     If value is nil, the constraint behaves as if MinDomains is equal to 1.
+                                 *     Valid values are integers greater than 0.
+                                 *     When value is not nil, WhenUnsatisfiable must be DoNotSchedule.
+                                 *
+                                 *     For example, in a 3-zone cluster, MaxSkew is set to 2, MinDomains is set to 5 and pods with the same
+                                 *     labelSelector spread as 2/2/2:
+                                 *     | zone1 | zone2 | zone3 |
+                                 *     |  P P  |  P P  |  P P  |
+                                 *     The number of domains is less than 5(MinDomains), so "global minimum" is treated as 0.
+                                 *     In this situation, new pod with the same labelSelector cannot be scheduled,
+                                 *     because computed skew will be 3(3 - 0) if new Pod is scheduled to any of the three zones,
+                                 *     it will violate MaxSkew.
+                                 */
+                                minDomains?: number;
+                                /**
+                                 * @description NodeAffinityPolicy indicates how we will treat Pod's nodeAffinity/nodeSelector
+                                 *     when calculating pod topology spread skew. Options are:
+                                 *     - Honor: only nodes matching nodeAffinity/nodeSelector are included in the calculations.
+                                 *     - Ignore: nodeAffinity/nodeSelector are ignored. All nodes are included in the calculations.
+                                 *
+                                 *     If this value is nil, the behavior is equivalent to the Honor policy.
+                                 */
+                                nodeAffinityPolicy?: string;
+                                /**
+                                 * @description NodeTaintsPolicy indicates how we will treat node taints when calculating
+                                 *     pod topology spread skew. Options are:
+                                 *     - Honor: nodes without taints, along with tainted nodes for which the incoming pod
+                                 *     has a toleration, are included.
+                                 *     - Ignore: node taints are ignored. All nodes are included.
+                                 *
+                                 *     If this value is nil, the behavior is equivalent to the Ignore policy.
+                                 */
+                                nodeTaintsPolicy?: string;
+                                /**
+                                 * @description TopologyKey is the key of node labels. Nodes that have a label with this key
+                                 *     and identical values are considered to be in the same topology.
+                                 *     We consider each <key, value> as a "bucket", and try to put balanced number
+                                 *     of pods into each bucket.
+                                 *     We define a domain as a particular instance of a topology.
+                                 *     Also, we define an eligible domain as a domain whose nodes meet the requirements of
+                                 *     nodeAffinityPolicy and nodeTaintsPolicy.
+                                 *     e.g. If TopologyKey is "kubernetes.io/hostname", each Node is a domain of that topology.
+                                 *     And, if TopologyKey is "topology.kubernetes.io/zone", each zone is a domain of that topology.
+                                 *     It's a required field.
+                                 */
+                                topologyKey: string;
+                                /**
+                                 * @description WhenUnsatisfiable indicates how to deal with a pod if it doesn't satisfy
+                                 *     the spread constraint.
+                                 *     - DoNotSchedule (default) tells the scheduler not to schedule it.
+                                 *     - ScheduleAnyway tells the scheduler to schedule the pod in any location,
+                                 *       but giving higher precedence to topologies that would help reduce the
+                                 *       skew.
+                                 *     A constraint is considered "Unsatisfiable" for an incoming pod
+                                 *     if and only if every possible node assignment for that pod would violate
+                                 *     "MaxSkew" on some topology.
+                                 *     For example, in a 3-zone cluster, MaxSkew is set to 1, and pods with the same
+                                 *     labelSelector spread as 3/1/1:
+                                 *     | zone1 | zone2 | zone3 |
+                                 *     | P P P |   P   |   P   |
+                                 *     If WhenUnsatisfiable is set to DoNotSchedule, incoming pod can only be scheduled
+                                 *     to zone2(zone3) to become 3/2/1(3/1/2) as ActualSkew(2-1) on zone2(zone3) satisfies
+                                 *     MaxSkew(1). In other words, the cluster can still be imbalanced, but scheduler
+                                 *     won't make it *more* imbalanced.
+                                 *     It's a required field.
+                                 */
+                                whenUnsatisfiable: string;
+                            }[];
                         };
                         /** @description Service defines how this component is exposed. */
                         service?: {
