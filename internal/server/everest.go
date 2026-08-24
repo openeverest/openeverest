@@ -568,8 +568,14 @@ func everestErrorHandler(next echo.HTTPErrorHandler) echo.HTTPErrorHandler {
 			}
 		case k8serrors.IsAlreadyExists(err),
 			k8serrors.IsConflict(err):
+			msg := "resource already exists or conflicts with existing state"
+			statusError := &k8serrors.StatusError{}
+			if errors.As(err, &statusError) && statusError.Status().Message != "" {
+				msg = statusError.Status().Message
+			}
 			err = &echo.HTTPError{
-				Code: http.StatusConflict,
+				Code:    http.StatusConflict,
+				Message: msg,
 			}
 		case errors.Is(err, rbachandler.ErrInsufficientPermissions):
 			err = &echo.HTTPError{
