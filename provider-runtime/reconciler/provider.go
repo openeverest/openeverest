@@ -41,6 +41,7 @@ import (
 	commonv1alpha1 "github.com/openeverest/openeverest/v2/api/common/v1alpha1"
 	"github.com/openeverest/openeverest/v2/api/core/v1alpha1"
 	"github.com/openeverest/openeverest/v2/provider-runtime/controller"
+	"github.com/openeverest/openeverest/v2/provider-runtime/internal/instanceprep"
 	"github.com/openeverest/openeverest/v2/provider-runtime/server"
 )
 
@@ -414,13 +415,10 @@ func (r *ProviderReconciler) Reconcile(ctx context.Context, req reconcile.Reques
 		return reconcile.Result{}, err
 	}
 
-	// Resolve version bundle into a deep-copied instance so the stored spec is
-	// never mutated. The resolved copy is used for Sync() and Status() only.
-	// effectiveBundleName is the bundle that was applied (may differ from
-	// spec.version when the default was resolved on first reconcile).
-	effectiveBundleName, resolvedIn, err := r.resolveVersionBundle(ctx, in)
+	// The provider is handed a prepared copy, never the stored object.
+	resolvedIn, effectiveBundleName, err := r.prepareInstance(ctx, in)
 	if err != nil {
-		logger.Error(err, "Version bundle resolution failed")
+		logger.Error(err, "Preparing the instance for sync failed")
 		return reconcile.Result{}, err
 	}
 	syncCtx := controller.NewContext(ctx, r.Client, resolvedIn, r.provider.Name())
@@ -769,45 +767,21 @@ func setCondition(in *v1alpha1.Instance, condType string, status metav1.Conditio
 	})
 }
 
-// resolveVersionBundle determines the effective version bundle, applies it to
-// a deep copy of in, and returns both the effective bundle name and the
-// resolved Instance. The original Instance stored in etcd is never mutated.
+// prepareInstance fetches the Provider and returns the Instance the provider
+// should be handed, together with the version bundle that was applied. The
+// stored Instance is never mutated: the copy is used for Sync and Status only.
 //
-// The bundle is chosen by controller.EffectiveVersionBundleName. With no
-// bundle in force it returns ("", in, nil) and Sync() falls back to the
-// per-type defaults in the componentTypes catalog.
-//
-// For each component the bundle version is applied only when the component's
-// Version field is not already explicitly set by the user.
-func (r *ProviderReconciler) resolveVersionBundle(ctx context.Context, in *v1alpha1.Instance) (effectiveBundleName string, resolved *v1alpha1.Instance, err error) {
+// The applied bundle name is written to status.version by the caller, so that
+// later reconciles keep the bundle an Instance started on.
+func (r *ProviderReconciler) prepareInstance(
+	ctx context.Context,
+	in *v1alpha1.Instance,
+) (*v1alpha1.Instance, string, error) {
 	providerObj := &v1alpha1.Provider{}
-	if err = r.Get(ctx, client.ObjectKey{Name: in.Spec.ProviderRef.Name}, providerObj); err != nil {
-		return "", nil, fmt.Errorf("fetching provider for version resolution: %w", err)
+	if err := r.Get(ctx, client.ObjectKey{Name: in.Spec.ProviderRef.Name}, providerObj); err != nil {
+		return nil, "", fmt.Errorf("fetching provider for version resolution: %w", err)
 	}
-	spec := &providerObj.Spec
-
-	effectiveBundleName = controller.EffectiveVersionBundleName(spec, in)
-	if effectiveBundleName == "" {
-		return "", in, nil
-	}
-
-	bundle, err := controller.ResolveVersionBundle(spec, effectiveBundleName)
-	if err != nil {
-		return "", nil, err
-	}
-
-	resolved = in.DeepCopy()
-	for compName, bundleVersion := range bundle.Components {
-		compSpec, exists := resolved.Spec.Components[compName]
-		if !exists {
-			continue
-		}
-		if compSpec.Version == "" {
-			compSpec.Version = bundleVersion
-			resolved.Spec.Components[compName] = compSpec
-		}
-	}
-	return effectiveBundleName, resolved, nil
+	return instanceprep.PrepareForSync(&providerObj.Spec, in)
 }
 
 // validateVersionBundle checks that spec.version (if set) exists in the
