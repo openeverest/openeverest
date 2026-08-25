@@ -133,7 +133,11 @@ func (c *versionServiceClient) GetSupportedEngineVersions(ctx context.Context, o
 			return semver.Segments()[0] == 5 //nolint:mnd
 		})
 	}
-	slices.Sort(result)
+	slices.SortFunc(result, func(a, b string) int {
+		va, _ := goversion.NewVersion(a) //nolint:errcheck // already validated above
+		vb, _ := goversion.NewVersion(b) //nolint:errcheck // already validated above
+		return va.Compare(vb)
+	})
 	return result, nil
 }
 
