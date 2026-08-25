@@ -773,15 +773,9 @@ func setCondition(in *v1alpha1.Instance, condType string, status metav1.Conditio
 // a deep copy of in, and returns both the effective bundle name and the
 // resolved Instance. The original Instance stored in etcd is never mutated.
 //
-// Resolution order:
-//  1. spec.version — explicitly set by the user (always honoured).
-//  2. status.version — the bundle name frozen on the first reconciliation;
-//     prevents a Provider upgrade from silently upgrading existing Instances.
-//  3. Provider's default bundle — resolved once on the very first reconcile
-//     of a new Instance; the name is then written to status.version so
-//     subsequent reconciles use step 2 instead.
-//  4. No bundle — returns ("" , in, nil); Sync() falls back to per-type
-//     defaults from the componentTypes catalog.
+// The bundle is chosen by controller.EffectiveVersionBundleName. With no
+// bundle in force it returns ("", in, nil) and Sync() falls back to the
+// per-type defaults in the componentTypes catalog.
 //
 // For each component the bundle version is applied only when the component's
 // Version field is not already explicitly set by the user.
@@ -792,20 +786,7 @@ func (r *ProviderReconciler) resolveVersionBundle(ctx context.Context, in *v1alp
 	}
 	spec := &providerObj.Spec
 
-	switch {
-	case in.Spec.Version != "":
-		// User explicitly chose a bundle.
-		effectiveBundleName = in.Spec.Version
-	case in.Status.Version != "":
-		// Default was frozen on a previous reconcile; honour it regardless of
-		// what the Provider's current default is.
-		effectiveBundleName = in.Status.Version
-	default:
-		// First reconcile of a new Instance with no explicit version: resolve
-		// the Provider's current default and freeze it in status.
-		effectiveBundleName = controller.GetDefaultVersionBundleName(spec)
-	}
-
+	effectiveBundleName = controller.EffectiveVersionBundleName(spec, in)
 	if effectiveBundleName == "" {
 		return "", in, nil
 	}
