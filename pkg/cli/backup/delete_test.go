@@ -645,7 +645,7 @@ func TestInFlight(t *testing.T) {
 	assert.True(t, inFlight("", true), "read successfully but no status yet is the riskiest window, right after create")
 	assert.False(t, inFlight(client.BackupStatusStateSucceeded, true))
 	assert.False(t, inFlight(client.BackupStatusStateFailed, true), "Failed is genuinely terminal, unlike Error")
-	assert.False(t, inFlight("Deleting", true))
+	assert.False(t, inFlight(client.BackupStatusStateDeleting, true))
 	assert.False(t, inFlight("", false), "a failed/ambiguous fetch must never block — best-effort guard, not an invariant")
 }
 
