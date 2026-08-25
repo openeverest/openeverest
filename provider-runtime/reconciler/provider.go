@@ -404,6 +404,15 @@ func (r *ProviderReconciler) Reconcile(ctx context.Context, req reconcile.Reques
 		}
 		setCondition(in, v1alpha1.ConditionBackupConfigured, metav1.ConditionFalse,
 			reason, backupConfigErr.Error(), metav1.Now())
+		// Persist the condition now rather than relying on the final
+		// Status().Update() at the end of Reconcile: several return paths
+		// below (e.g. a WaitError from Sync) exit before reaching it, which
+		// would silently drop the condition. Update() also refreshes
+		// resourceVersion on in, so the later update in the happy path does
+		// not conflict.
+		if updateErr := r.Client.Status().Update(ctx, in); updateErr != nil {
+			logger.Error(updateErr, "Failed to update status after backup config violation")
+		}
 	}
 	if err := r.provider.Validate(inCtx); err != nil {
 		logger.Error(err, "Validation failed")

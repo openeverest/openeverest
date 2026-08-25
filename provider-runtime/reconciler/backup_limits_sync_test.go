@@ -54,6 +54,26 @@ func (p *syncTrackingProvider) Status(*controller.Context) (controller.Status, e
 	return controller.Ready(), nil
 }
 
+// The four methods below satisfy controller.BackupProvider so that the
+// reconciler's "skip clearing BackupConfigured on a live violation" guard —
+// which only applies to BackupProvider implementations — is actually
+// exercised by this test instead of being a no-op type assertion.
+func (p *syncTrackingProvider) SyncBackup(*controller.Context, *backupv1alpha1.Backup) (controller.BackupExecutionStatus, error) {
+	return controller.BackupExecutionStatus{}, nil
+}
+
+func (p *syncTrackingProvider) SyncRestore(*controller.Context, *backupv1alpha1.Restore) (controller.RestoreExecutionStatus, error) {
+	return controller.RestoreExecutionStatus{}, nil
+}
+
+func (p *syncTrackingProvider) CleanupBackup(*controller.Context, *backupv1alpha1.Backup) (bool, error) {
+	return true, nil
+}
+
+func (p *syncTrackingProvider) CleanupRestore(*controller.Context, *backupv1alpha1.Restore) (bool, error) {
+	return true, nil
+}
+
 func TestReconcile_BackupLimitsViolation_StillRunsSync(t *testing.T) {
 	t.Parallel()
 	scheme := newTestScheme()
