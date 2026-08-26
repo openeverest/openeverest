@@ -16,9 +16,11 @@ package k8s
 
 import (
 	"context"
+	"sync"
 	"testing"
 	"time"
 
+	"github.com/cenkalti/backoff"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
@@ -29,6 +31,41 @@ import (
 	"github.com/percona/everest/pkg/common"
 	"github.com/percona/everest/pkg/kubernetes"
 )
+
+func TestNewEverestAPIBackoffHasIndependentRetryBudget(t *testing.T) {
+	t.Parallel()
+
+	first := newEverestAPIBackoff(t.Context())
+	second := newEverestAPIBackoff(t.Context())
+
+	for range everestAPIBackoffMaxRetries {
+		require.Equal(t, everestAPIBackoffInterval, first.NextBackOff())
+	}
+	require.Equal(t, backoff.Stop, first.NextBackOff())
+	require.Equal(t, everestAPIBackoffInterval, second.NextBackOff())
+}
+
+func TestNewEverestAPIBackoffSupportsConcurrentOperations(t *testing.T) {
+	t.Parallel()
+
+	policies := []backoff.BackOff{
+		newEverestAPIBackoff(t.Context()),
+		newEverestAPIBackoff(t.Context()),
+	}
+	start := make(chan struct{})
+	var wg sync.WaitGroup
+	for _, policy := range policies {
+		wg.Go(func() {
+			<-start
+			for range 1_000 {
+				policy.Reset()
+				policy.NextBackOff()
+			}
+		})
+	}
+	close(start)
+	wg.Wait()
+}
 
 func TestLatestRestorableDate(t *testing.T) {
 	t.Parallel()
@@ -42,6 +79,8 @@ func TestLatestRestorableDate(t *testing.T) {
 
 	now := time.Date(2024, 3, 12, 12, 0, 0, 0, time.UTC)
 	restorable := now.Add(-600 * time.Second)
+	nowWithNanos := time.Date(2024, 3, 12, 12, 0, 0, 999999999, time.UTC)
+	restorableFromNanos := time.Date(2024, 3, 12, 11, 50, 0, 0, time.UTC)
 	cases := []tCase{
 		{
 			name:             "backup 5 min ago, upload interval 10 min",
@@ -56,6 +95,13 @@ func TestLatestRestorableDate(t *testing.T) {
 			latestBackupTime: now.Add(-900 * time.Second),
 			now:              now,
 			expected:         &restorable,
+		},
+		{
+			name:             "now has nanosecond precision — must be stripped",
+			uploadInterval:   600,
+			latestBackupTime: time.Date(2024, 3, 12, 11, 44, 59, 0, time.UTC),
+			now:              nowWithNanos,
+			expected:         &restorableFromNanos,
 		},
 	}
 

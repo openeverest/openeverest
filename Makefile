@@ -21,7 +21,9 @@ help: ## Display this help.
 
 ## Location to install binaries to
 LOCALBIN := $(shell pwd)/bin
-$(LOCALBIN):
+
+.PHONY: ensure-localbin
+ensure-localbin:
 	mkdir -p "$(LOCALBIN)"
 
 ##@ Development
@@ -70,7 +72,7 @@ copyright-run:
 			printf '%s\0' "$$file"; \
 		done > "$$TMP_FILES_LIST"; \
 	else \
-		BASE_BRANCH_LOCAL=$${BASE_BRANCH:-main}; \
+		BASE_BRANCH_LOCAL=$${BASE_BRANCH:-v1.x}; \
 		if ! BASE=$$(git merge-base HEAD "$$BASE_BRANCH_LOCAL" 2>/dev/null); then \
 			echo "Failed to determine merge base with '$$BASE_BRANCH_LOCAL'. Ensure the branch exists and is fetched, or set BASE_BRANCH explicitly."; \
 			exit 1; \
@@ -115,7 +117,7 @@ SERVER_GC_FLAGS =
 # arch) so release builds can produce a binary per target architecture.
 .PHONY: build-server
 build-server-helper: GOOS = linux
-build-server-helper: $(LOCALBIN)
+build-server-helper: ensure-localbin
 # We need to ensure that /public/dist/index.html exists before building Everest
 # API server because it's embedded into the binary and missing file will cause
 # build failure. We avoid touching the file if it already exists to prevent
@@ -150,7 +152,7 @@ CLI_GC_FLAGS =
 
 # Helper target to build Everest CLI binary.
 .PHONY: build-cli-helper
-build-cli-helper: $(LOCALBIN) charts
+build-cli-helper: ensure-localbin charts
 	$(info Building Everest CLI for $(GOOS)/$(GOARCH) with CGO_ENABLED=$(CGO_ENABLED))
 	go build -v $(CLI_BUILD_TAGS) $(CLI_GC_FLAGS) -ldflags "$(CLI_LD_FLAGS)" -o "$(LOCALBIN)/everestctl" ./cmd/cli
 
@@ -280,8 +282,8 @@ k3d-cluster-up: ## Create a K8S cluster for testing.
 	$(info Creating K3D cluster for testing)
 	k3d cluster create --config ./dev/k3d_config.yaml
 
-.PHONY: k3d-cluster-up
-k3d-cluster-down: ## Create a K8S cluster for testing.
+.PHONY: k3d-cluster-down
+k3d-cluster-down: ## Destroy the K8S cluster for testing.
 	$(info Destroying K3D test cluster)
 	k3d cluster delete --config ./dev/k3d_config.yaml
 
@@ -336,11 +338,31 @@ dev-destroy: dev-down k3d-cluster-down-dev ## Stop Tilt and destroy the k3d clus
 
 ##@ GitHub PR
 
-CHART_BRANCH ?= main
+CHART_BRANCH ?= v1.x
 .PHONY: update-dev-chart
-update-dev-chart: ## Update dependency to Everest Helm chart to the latest version from the specified branch (default main).
-	go get -u github.com/openeverest/helm-charts/charts/everest@${CHART_BRANCH}
+update-dev-chart: ## Update dependency to Everest Helm chart to the latest version from the specified branch (default v1.x).
+	@COMMIT=$$(git ls-remote --exit-code https://github.com/openeverest/helm-charts refs/heads/$(CHART_BRANCH) | cut -f1) || \
+		{ echo "helm-charts branch '$(CHART_BRANCH)' not found. Set CHART_BRANCH to an existing branch."; exit 1; }; \
+	go get -u github.com/openeverest/helm-charts/charts/everest@$$COMMIT
 	go mod tidy
+
+.PHONY: check-dev-chart
+check-dev-chart: ## Verify the pinned Everest Helm chart commit is on CHART_BRANCH.
+	@PINNED=$$(go list -m -f '{{.Version}}' github.com/openeverest/helm-charts/charts/everest) && \
+	SHA=$${PINNED##*-} && \
+	TMP=$$(mktemp -d) && trap 'rm -rf "$$TMP"' EXIT && \
+	git clone --quiet --filter=blob:none --no-checkout --single-branch \
+		--branch $(CHART_BRANCH) https://github.com/openeverest/helm-charts "$$TMP" && \
+	if ! git -C "$$TMP" cat-file -e "$$SHA^{commit}" 2>/dev/null; then \
+		echo "Pinned chart commit $$SHA is not on helm-charts/$(CHART_BRANCH)."; \
+		echo "Run 'make update-dev-chart' to move the pin to the branch tip."; \
+		exit 1; \
+	fi; \
+	if ! git -C "$$TMP" merge-base --is-ancestor "$$SHA" HEAD; then \
+		echo "Pinned chart commit $$SHA is not an ancestor of helm-charts/$(CHART_BRANCH)."; \
+		exit 1; \
+	fi; \
+	echo "Pinned chart commit $$SHA is on helm-charts/$(CHART_BRANCH) ($$(git -C "$$TMP" rev-list --count "$$SHA"..HEAD) commit(s) behind tip)."
 
 EVEREST_OPERATOR_BRANCH ?= main
 .PHONY: update-dev-everest-operator

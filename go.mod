@@ -6,7 +6,10 @@ require (
 	github.com/AlekSi/pointer v1.2.0
 	github.com/Azure/azure-sdk-for-go/sdk/storage/azblob v1.8.0
 	github.com/Percona-Lab/percona-version-service v0.0.0-20240311164804-ffbc02387a1b
-	github.com/aws/aws-sdk-go v1.55.8
+	github.com/aws/aws-sdk-go-v2 v1.43.3
+	github.com/aws/aws-sdk-go-v2/credentials v1.19.33
+	github.com/aws/aws-sdk-go-v2/service/s3 v1.106.3
+	github.com/blang/semver/v4 v4.0.0
 	github.com/casbin/casbin/v2 v2.135.0
 	github.com/casbin/govaluate v1.10.0
 	github.com/cenkalti/backoff v2.2.1+incompatible
@@ -26,9 +29,9 @@ require (
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/oapi-codegen/echo-middleware v1.1.0
 	github.com/oapi-codegen/runtime v1.6.0
-	github.com/openeverest/helm-charts/charts/everest v0.0.0-20260706135153-83a0cdff4b7d
+	github.com/openeverest/helm-charts/charts/everest v0.0.0-20260819095412-3a42084dd10a
 	github.com/operator-framework/api v0.45.0
-	github.com/percona/everest-operator v0.6.0-dev1.0.20260713100559-df3fbdf1ee9a
+	github.com/percona/everest-operator v0.6.0-dev1.0.20260802124914-e2aa472c7107
 	github.com/rodaine/table v1.3.1
 	github.com/spf13/cobra v1.10.2
 	github.com/stretchr/testify v1.11.1
@@ -43,7 +46,7 @@ require (
 	gopkg.in/yaml.v3 v3.0.1
 	helm.sh/helm/v3 v3.21.3
 	k8s.io/api v0.36.3
-	k8s.io/apiextensions-apiserver v0.36.2
+	k8s.io/apiextensions-apiserver v0.36.3
 	k8s.io/apimachinery v0.36.3
 	k8s.io/cli-runtime v0.36.3
 	k8s.io/client-go v0.36.3
@@ -98,12 +101,18 @@ require (
 	github.com/ashanbrown/forbidigo/v2 v2.3.1 // indirect
 	github.com/ashanbrown/makezero/v2 v2.2.1 // indirect
 	github.com/atotto/clipboard v0.1.4 // indirect
-	github.com/aws/aws-sdk-go-v2 v1.42.1 // indirect
-	github.com/aws/smithy-go v1.27.3 // indirect
+	github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream v1.7.16 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/configsources v1.4.34 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.7.34 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/v4a v1.4.35 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.13.15 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/checksum v1.9.27 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.13.34 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/s3shared v1.19.35 // indirect
+	github.com/aws/smithy-go v1.27.6 // indirect
 	github.com/aymanbagabas/go-osc52/v2 v2.0.1 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/bkielbasa/cyclop v1.2.3 // indirect
-	github.com/blang/semver/v4 v4.0.0 // indirect
 	github.com/blizzy78/varnamelen v0.8.0 // indirect
 	github.com/bmatcuk/doublestar/v4 v4.10.0 // indirect
 	github.com/bombsimon/wsl/v4 v4.7.0 // indirect
@@ -243,7 +252,6 @@ require (
 	github.com/jgautheron/goconst v1.10.2 // indirect
 	github.com/jinzhu/copier v0.4.0 // indirect
 	github.com/jjti/go-spancheck v0.6.5 // indirect
-	github.com/jmespath/go-jmespath v0.4.1-0.20220621161143-b0104c826a24 // indirect
 	github.com/jmoiron/sqlx v1.4.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/julz/importas v0.2.0 // indirect
@@ -424,7 +432,7 @@ require (
 	gopkg.in/evanphx/json-patch.v4 v4.13.0 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	honnef.co/go/tools v0.7.0 // indirect
-	k8s.io/apiserver v0.36.2 // indirect
+	k8s.io/apiserver v0.36.3 // indirect
 	k8s.io/component-base v0.36.3 // indirect
 	k8s.io/klog/v2 v2.140.0 // indirect
 	k8s.io/kube-openapi v0.0.0-20260706235625-cdb1db5517a0 // indirect

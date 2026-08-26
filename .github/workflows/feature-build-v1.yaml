@@ -1,11 +1,11 @@
 ---
-name: Feature build
+name: Feature build v1
 on:
   workflow_dispatch:
     inputs:
       everest_branch:
         required: false
-        default: main
+        default: v1.x
         description: "Everest branch with the feature to checkout"
       everest_operator_branch:
         required: false
@@ -21,7 +21,7 @@ on:
         description: "Version Service branch with the feature to checkout"
       helm_branch:
         required: false
-        default: main
+        default: v1.x
         description: "Helm charts branch with the feature to checkout"
       artifacts_retention_days:
         required: false
@@ -32,7 +32,7 @@ on:
       everest_branch:
         required: false
         type: string
-        default: main
+        default: v1.x
         description: "Everest branch with the feature to checkout"
       everest_operator_branch:
         required: false
@@ -52,7 +52,7 @@ on:
       helm_branch:
         required: false
         type: string
-        default: main
+        default: v1.x
         description: "Helm charts branch with the feature to checkout"
       artifacts_retention_days:
         required: false
@@ -164,8 +164,8 @@ jobs:
 
           # Fall back to default branch if the specified branch does not exist
           git ls-remote --heads --exit-code --quiet https://github.com/Percona-Lab/percona-version-service.git $VS_BRANCH > /dev/null || echo "VS_BRANCH=production" | tee -a $GITHUB_ENV
-          git ls-remote --heads --exit-code --quiet https://github.com/openeverest/helm-charts.git $HELM_BRANCH > /dev/null || echo "HELM_BRANCH=main" | tee -a $GITHUB_ENV
-          git ls-remote --heads --exit-code --quiet https://github.com/openeverest/openeverest.git $EVEREST_BRANCH > /dev/null || echo "EVEREST_BRANCH=main" | tee -a $GITHUB_ENV
+          git ls-remote --heads --exit-code --quiet https://github.com/openeverest/helm-charts.git $HELM_BRANCH > /dev/null || echo "HELM_BRANCH=v1.x" | tee -a $GITHUB_ENV
+          git ls-remote --heads --exit-code --quiet https://github.com/openeverest/openeverest.git $EVEREST_BRANCH > /dev/null || echo "EVEREST_BRANCH=v1.x" | tee -a $GITHUB_ENV
           git ls-remote --heads --exit-code --quiet https://github.com/openeverest/openeverest-operator.git $EVEREST_OPERATOR_BRANCH > /dev/null || echo "EVEREST_OPERATOR_BRANCH=main" | tee -a $GITHUB_ENV
           git ls-remote --heads --exit-code --quiet https://github.com/openeverest/openeverest-catalog.git $EVEREST_CATALOG_BRANCH > /dev/null || echo "EVEREST_CATALOG_BRANCH=main" | tee -a $GITHUB_ENV
 
@@ -248,7 +248,7 @@ jobs:
             type=raw,value=${{ env.VERSION }}-${{ matrix.arch }}
 
       - name: Operator - push openeverest-operator image
-        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
         with:
           context: openeverest-operator
           push: true
@@ -259,7 +259,7 @@ jobs:
             FLAGS= -X 'github.com/percona/everest-operator/internal/consts.Version=${{ env.VERSION }}'
 
       - name: Operator - push openeverest-operator-bundle image
-        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
         with:
           context: openeverest-operator
           push: true
@@ -330,7 +330,7 @@ jobs:
 
       - name: Build and Push VS dev image
         if: matrix.arch == 'amd64'
-        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
         with:
           context: percona-version-service
           push: true
@@ -357,7 +357,7 @@ jobs:
             type=raw,value=${{ env.VERSION }}-${{ matrix.arch }}
 
       - name: Catalog - push openeverest-catalog image
-        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
         with:
           context: openeverest-catalog
           push: true
@@ -374,18 +374,18 @@ jobs:
           ref: ${{ env.EVEREST_BRANCH }}
 
       - name: Set up Go release
-        uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6.4.0
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: "go.mod"
           cache: true
 
       - name: Everest UI - setup pnpm
-        uses: pnpm/action-setup@8912a9102ac27614460f54aedde9e1e7f9aec20d # v6.0.5
+        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
         with:
           version: 9.4.0
 
       - name: Everest UI - run with Node 20
-        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 20.x
           cache: "pnpm"
@@ -421,7 +421,7 @@ jobs:
           cp dev/fb/vs.sh /tmp/${VERSION}/vs.sh
 
       - name: Everest - push Everest image
-        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
         with:
           context: .
           push: true
@@ -430,7 +430,7 @@ jobs:
           tags: ${{ env.IMAGE_PREFIX }}/${{ env.EVEREST_SERVER_DEV_IMAGE_NAME }}:${{ env.VERSION }}-${{ matrix.arch }}
 
       - name: CLI - build and push everestctl dev image
-        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
         with:
           context: .
           file: Dockerfile.everestctl
