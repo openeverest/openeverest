@@ -174,9 +174,9 @@ func sentinel(spec *corev1alpha1.ProviderSpec, path string, kind leafKind) (any,
 		return int64(7919), "7919", nil
 	case leafNumber:
 		return 79.19, "79.19", nil
-	case leafBool:
-		return true, "true", nil
-	case leafUnknown:
+	// Bools have no usable token: "true" matches any boolean in the output, so
+	// probeBool compares renders instead.
+	case leafBool, leafUnknown:
 	}
 	return nil, "", fmt.Errorf("cannot generate a probe value for %q", path)
 }

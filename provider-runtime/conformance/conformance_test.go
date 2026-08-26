@@ -19,10 +19,13 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	corev1 "k8s.io/api/core/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 
 	commonv1alpha1 "github.com/openeverest/openeverest/v2/api/common/v1alpha1"
 	corev1alpha1 "github.com/openeverest/openeverest/v2/api/core/v1alpha1"
+	"github.com/openeverest/openeverest/v2/provider-runtime/controller"
 )
 
 func testSpec() *corev1alpha1.ProviderSpec {
@@ -181,4 +184,51 @@ func TestBuildInstanceSetsTheProbeValue(t *testing.T) {
 	engine := instance.Spec.Components["engine"]
 	require.NotNil(t, engine.Replicas)
 	assert.Equal(t, int32(7919), *engine.Replicas)
+}
+
+// boolProbeProvider always writes an unrelated true, which is what a value
+// token cannot tell apart from a provider that reads the probed field.
+type boolProbeProvider struct {
+	readsBackupEnabled bool
+}
+
+func (p *boolProbeProvider) Name() string                       { return "bool-probe" }
+func (p *boolProbeProvider) Types() func(*runtime.Scheme) error { return nil }
+func (p *boolProbeProvider) Validate(*controller.Context) error { return nil }
+func (p *boolProbeProvider) Cleanup(*controller.Context) error  { return nil }
+
+func (p *boolProbeProvider) Status(*controller.Context) (controller.Status, error) {
+	return controller.Status{}, nil
+}
+
+func (p *boolProbeProvider) Sync(c *controller.Context) error {
+	data := map[string]string{"unrelatedFlag": "true"}
+	if p.readsBackupEnabled && c.Instance().Spec.Backup != nil && c.Instance().Spec.Backup.Enabled {
+		data["backup"] = "on"
+	}
+	return c.Apply(&corev1.ConfigMap{ObjectMeta: c.ObjectMeta("probe"), Data: data})
+}
+
+func TestProbeBoolComparesRendersRatherThanSearchingForTrue(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]struct {
+		reads bool
+		want  outcome
+	}{
+		"reading the field changes what is applied": {true, reconciled},
+		"an unrelated true is not evidence":         {false, ignored},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			got := probeBool(
+				Config{Provider: &boolProbeProvider{readsBackupEnabled: tt.reads}},
+				testSpec(), "simple", "spec.backup.enabled",
+			)
+			assert.Equal(t, tt.want, got.outcome, got.detail)
+		})
+	}
 }

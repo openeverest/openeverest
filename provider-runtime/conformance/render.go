@@ -59,11 +59,45 @@ func (o observation) contains(token string) (outcome, bool) {
 	return ignored, false
 }
 
-// differsFrom reports whether the provider applied anything differently. Some
+// changedFrom reports whether the provider behaved differently, and how. Some
 // fields never surface as a literal — a shard count changes how many objects
-// exist rather than appearing in one — so a change is evidence in itself.
-func (o observation) differsFrom(baseline observation) bool {
-	return strings.Join(o.applied, "\n") != strings.Join(baseline.applied, "\n")
+// exist rather than appearing in one, and a toggle may only change what the
+// provider reads — so a change is evidence in itself.
+func (o observation) changedFrom(baseline observation) (outcome, bool) {
+	if strings.Join(o.applied, "\n") != strings.Join(baseline.applied, "\n") {
+		return reconciled, true
+	}
+	if strings.Join(o.requests, "\n") != strings.Join(baseline.requests, "\n") {
+		return read, true
+	}
+	return ignored, false
+}
+
+// probeBool decides a boolean by rendering it both ways rather than searching
+// for its value: "true" is a substring of every boolean the provider sets for
+// its own reasons, so a token would match objects that have nothing to do with
+// this field. Two values exhaust a bool, so if neither render moves the
+// provider off its baseline, nothing consumes the field.
+func probeBool(cfg Config, spec *corev1alpha1.ProviderSpec, topology, path string) result {
+	unverifiable := func(detail string, requests []string) result {
+		return result{topology: topology, path: path, outcome: unverified, detail: detail, requests: requests}
+	}
+
+	baseline, err := render(cfg, spec, topology, "", nil)
+	if err != nil {
+		return unverifiable(fmt.Sprintf("baseline render failed: %v", err), baseline.requests)
+	}
+
+	for _, value := range []bool{true, false} {
+		probed, err := render(cfg, spec, topology, path, value)
+		if err != nil {
+			return unverifiable(err.Error(), probed.requests)
+		}
+		if got, changed := probed.changedFrom(baseline); changed {
+			return result{topology: topology, path: path, outcome: got, requests: probed.requests}
+		}
+	}
+	return result{topology: topology, path: path, outcome: ignored}
 }
 
 func probeTopology(
@@ -91,6 +125,9 @@ func probePath(cfg Config, spec *corev1alpha1.ProviderSpec, topology, path strin
 	if err != nil {
 		return failed(err.Error(), nil)
 	}
+	if kind == leafBool {
+		return probeBool(cfg, spec, topology, path)
+	}
 	value, token, err := sentinel(spec, path, kind)
 	if err != nil {
 		return failed(err.Error(), nil)
@@ -114,10 +151,7 @@ func probePath(cfg Config, spec *corev1alpha1.ProviderSpec, topology, path strin
 		return failed(err.Error(), probed.requests)
 	}
 
-	got := ignored
-	if probed.differsFrom(baseline) {
-		got = reconciled
-	}
+	got, _ := probed.changedFrom(baseline)
 	return result{topology: topology, path: path, outcome: got, requests: probed.requests}
 }
 
