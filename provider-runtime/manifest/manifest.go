@@ -95,6 +95,9 @@ type topologyConfig struct {
 
 type topologyComponentConfig struct {
 	Optional bool `json:"optional,omitempty"`
+	// SupportedFields is authored inline rather than as a Go type reference:
+	// it selects from ComponentSpec instead of describing a new type.
+	SupportedFields *apiextensionsv1.JSONSchemaProps `json:"supportedFields,omitempty"`
 }
 
 // Generate reads a provider-config.yaml, resolves Go type references to OpenAPI schemas,
@@ -198,6 +201,11 @@ func buildProviderSpec(pc *providerConfig, types map[string]any, rawSchemas map[
 		for compName, compCfg := range tc.Components {
 			topoComp := v1alpha1.TopologyComponent{
 				Optional: compCfg.Optional,
+			}
+			if compCfg.SupportedFields != nil {
+				topoComp.SupportedFields = &common.ParametersSchema{
+					OpenAPIV3Schema: compCfg.SupportedFields,
+				}
 			}
 			topo.Components[compName] = topoComp
 		}
