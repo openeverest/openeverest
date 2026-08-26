@@ -134,6 +134,21 @@ type TopologyComponent struct {
 	Optional bool `json:"optional,omitempty"`
 	// TODO: Do we need defaults?
 	// Defaults map[string]interface{} `json:"defaults,omitempty"`
+
+	// SupportedFields declares which ComponentSpec fields this component
+	// honours in this topology, as an OpenAPI v3 schema over ComponentSpec's
+	// own properties. A property is declared if and only if the provider
+	// reads it, at any depth, so a component may honour part of a grouped
+	// field such as schedulingPolicy. Constraints the provider enforces
+	// (required, bounds) are expressed with the same schema vocabulary.
+	//
+	// Applicability is declared per topology because core fields configure
+	// the deployment, and the deployment shape is what a topology chooses.
+	//
+	// When unset, no constraint is placed on the component and every field
+	// is accepted, which is the behaviour of providers that do not declare.
+	// +optional
+	SupportedFields *common.ParametersSchema `json:"supportedFields,omitempty"`
 }
 
 // SecretDefinition describes a Secret type that a provider supports.
