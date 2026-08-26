@@ -63,6 +63,7 @@ m = g(r.sub, p.sub) && globMatch(r.res, p.res) && globMatch(r.act, p.act) && glo
 // for a focused unit test.
 type fakePluginConnector struct {
 	kubernetes.KubernetesConnector
+
 	plugins []pluginv1alpha1.Plugin
 	listErr error
 }
@@ -85,7 +86,7 @@ func (f *fakePluginConnector) GetPlugin(_ context.Context, key ctrlclient.Object
 
 // newTestEnforcer builds a Casbin enforcer from the RBAC model and the given
 // policy rules. Each rule is a {subject, resource, action, object} tuple.
-func newTestEnforcer(t *testing.T, rules ...[]string) casbin.IEnforcer {
+func newTestEnforcer(t *testing.T, rules ...[]string) *casbin.Enforcer {
 	t.Helper()
 	m, err := casbinmodel.NewModelFromString(rbacModel)
 	require.NoError(t, err)
@@ -111,11 +112,8 @@ func ctxWithUser(sub string, groups ...string) context.Context {
 }
 
 // newEchoContext builds an echo.Context whose request carries reqCtx.
-func newEchoContext(method, target string, reqCtx context.Context) (echo.Context, *httptest.ResponseRecorder) {
-	req := httptest.NewRequest(method, target, nil)
-	if reqCtx != nil {
-		req = req.WithContext(reqCtx)
-	}
+func newEchoContext(reqCtx context.Context, target string) (echo.Context, *httptest.ResponseRecorder) { //nolint:ireturn // echo.NewContext only returns the interface
+	req := httptest.NewRequestWithContext(reqCtx, http.MethodGet, target, nil)
 	rec := httptest.NewRecorder()
 	c := echo.New().NewContext(req, rec)
 	return c, rec
@@ -223,7 +221,7 @@ func TestCanUsePlugin(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			c, _ := newEchoContext(http.MethodGet, "/v1/plugins", ctxWithUser(tc.subject, tc.groups...))
+			c, _ := newEchoContext(ctxWithUser(tc.subject, tc.groups...), "/v1/plugins")
 			allowed, err := pp.canUsePlugin(c, tc.plugin)
 			require.NoError(t, err)
 			assert.Equal(t, tc.want, allowed)
@@ -232,7 +230,7 @@ func TestCanUsePlugin(t *testing.T) {
 
 	t.Run("missing user errors", func(t *testing.T) {
 		t.Parallel()
-		c, _ := newEchoContext(http.MethodGet, "/v1/plugins", context.Background())
+		c, _ := newEchoContext(context.Background(), "/v1/plugins")
 		_, err := pp.canUsePlugin(c, "plugin-hub")
 		require.Error(t, err)
 	})
@@ -244,13 +242,13 @@ func TestCheckPluginsReadAccess(t *testing.T) {
 
 	t.Run("allowed with read grant", func(t *testing.T) {
 		t.Parallel()
-		c, _ := newEchoContext(http.MethodGet, "/v1/plugins", ctxWithUser("reader"))
+		c, _ := newEchoContext(ctxWithUser("reader"), "/v1/plugins")
 		require.NoError(t, pp.checkPluginsReadAccess(c))
 	})
 
 	t.Run("forbidden without grant", func(t *testing.T) {
 		t.Parallel()
-		c, _ := newEchoContext(http.MethodGet, "/v1/plugins", ctxWithUser("stranger"))
+		c, _ := newEchoContext(ctxWithUser("stranger"), "/v1/plugins")
 		err := pp.checkPluginsReadAccess(c)
 		var httpErr *echo.HTTPError
 		require.ErrorAs(t, err, &httpErr)
@@ -259,7 +257,7 @@ func TestCheckPluginsReadAccess(t *testing.T) {
 
 	t.Run("unauthorized without user", func(t *testing.T) {
 		t.Parallel()
-		c, _ := newEchoContext(http.MethodGet, "/v1/plugins", context.Background())
+		c, _ := newEchoContext(context.Background(), "/v1/plugins")
 		err := pp.checkPluginsReadAccess(c)
 		var httpErr *echo.HTTPError
 		require.ErrorAs(t, err, &httpErr)
@@ -308,7 +306,7 @@ func TestListPluginsHandler(t *testing.T) {
 
 	t.Run("returns only enabled and usable plugins", func(t *testing.T) {
 		t.Parallel()
-		c, rec := newEchoContext(http.MethodGet, "/v1/plugins", ctxWithUser("bob"))
+		c, rec := newEchoContext(ctxWithUser("bob"), "/v1/plugins")
 		require.NoError(t, pp.listPluginsHandler(c))
 		assert.Equal(t, http.StatusOK, rec.Code)
 
@@ -324,7 +322,7 @@ func TestListPluginsHandler(t *testing.T) {
 
 	t.Run("forbidden without read access", func(t *testing.T) {
 		t.Parallel()
-		c, _ := newEchoContext(http.MethodGet, "/v1/plugins", ctxWithUser("stranger"))
+		c, _ := newEchoContext(ctxWithUser("stranger"), "/v1/plugins")
 		err := pp.listPluginsHandler(c)
 		var httpErr *echo.HTTPError
 		require.ErrorAs(t, err, &httpErr)
@@ -353,7 +351,7 @@ func TestDoProxy(t *testing.T) {
 			},
 		}}}}
 
-		c, rec := newEchoContext(http.MethodGet, "/v1/plugins/myplugin/api/summary", nil)
+		c, rec := newEchoContext(context.Background(), "/v1/plugins/myplugin/api/summary")
 		c.SetParamNames("name")
 		c.SetParamValues("myplugin")
 
@@ -366,7 +364,7 @@ func TestDoProxy(t *testing.T) {
 	t.Run("unknown plugin returns 404", func(t *testing.T) {
 		t.Parallel()
 		pp := &pluginProxy{kubeConnector: &fakePluginConnector{}}
-		c, rec := newEchoContext(http.MethodGet, "/v1/plugins/missing/", nil)
+		c, rec := newEchoContext(context.Background(), "/v1/plugins/missing/")
 		c.SetParamNames("name")
 		c.SetParamValues("missing")
 		require.NoError(t, pp.doProxy(c))
@@ -382,7 +380,7 @@ func TestDoProxy(t *testing.T) {
 				Backend: &pluginv1alpha1.PluginBackend{ExternalURL: "http://example"},
 			},
 		}}}}
-		c, rec := newEchoContext(http.MethodGet, "/v1/plugins/myplugin/", nil)
+		c, rec := newEchoContext(context.Background(), "/v1/plugins/myplugin/")
 		c.SetParamNames("name")
 		c.SetParamValues("myplugin")
 		require.NoError(t, pp.doProxy(c))
@@ -395,7 +393,7 @@ func TestDoProxy(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{Name: "myplugin"},
 			Spec:       pluginv1alpha1.PluginSpec{Enabled: true},
 		}}}}
-		c, rec := newEchoContext(http.MethodGet, "/v1/plugins/myplugin/", nil)
+		c, rec := newEchoContext(context.Background(), "/v1/plugins/myplugin/")
 		c.SetParamNames("name")
 		c.SetParamValues("myplugin")
 		require.NoError(t, pp.doProxy(c))
@@ -410,9 +408,10 @@ func TestAuthedProxyHandler(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte("ok"))
 	}))
-	defer backend.Close()
+	t.Cleanup(backend.Close)
 
-	newProxy := func(rules ...[]string) *pluginProxy {
+	newProxy := func(t *testing.T, rules ...[]string) *pluginProxy {
+		t.Helper()
 		return &pluginProxy{
 			kubeConnector: &fakePluginConnector{plugins: []pluginv1alpha1.Plugin{{
 				ObjectMeta: metav1.ObjectMeta{Name: "plugin-hub"},
@@ -426,8 +425,9 @@ func TestAuthedProxyHandler(t *testing.T) {
 	}
 
 	t.Run("forbidden without use grant", func(t *testing.T) {
-		pp := newProxy([]string{"bob", "plugins", "read", "*"})
-		c, _ := newEchoContext(http.MethodGet, "/v1/plugins/plugin-hub/api/summary", ctxWithUser("bob"))
+		t.Parallel()
+		pp := newProxy(t, []string{"bob", "plugins", "read", "*"})
+		c, _ := newEchoContext(ctxWithUser("bob"), "/v1/plugins/plugin-hub/api/summary")
 		c.SetParamNames("name")
 		c.SetParamValues("plugin-hub")
 		err := pp.authedProxyHandler(c)
@@ -437,8 +437,9 @@ func TestAuthedProxyHandler(t *testing.T) {
 	})
 
 	t.Run("proxied with use grant", func(t *testing.T) {
-		pp := newProxy([]string{"bob", "plugin/plugin-hub", "use", "*"})
-		c, rec := newEchoContext(http.MethodGet, "/v1/plugins/plugin-hub/api/summary", ctxWithUser("bob"))
+		t.Parallel()
+		pp := newProxy(t, []string{"bob", "plugin/plugin-hub", "use", "*"})
+		c, rec := newEchoContext(ctxWithUser("bob"), "/v1/plugins/plugin-hub/api/summary")
 		c.SetParamNames("name")
 		c.SetParamValues("plugin-hub")
 		require.NoError(t, pp.authedProxyHandler(c))
