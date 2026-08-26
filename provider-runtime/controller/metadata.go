@@ -167,6 +167,28 @@ func GetDefaultVersionBundleName(spec *v1alpha1.ProviderSpec) string {
 	return ""
 }
 
+// EffectiveVersionBundleName returns the bundle in force for an Instance:
+//
+//  1. spec.version, when the user chose one.
+//  2. status.version, frozen on the first reconcile so that upgrading a
+//     Provider does not silently move existing Instances to a new bundle.
+//  3. the Provider's default bundle.
+//
+// Returns empty string when the spec declares no bundles at all. This is the
+// same order the runtime applies before calling Sync, so a provider that needs
+// the bundle itself — to read component versions the runtime does not resolve
+// on its behalf — agrees with the runtime by construction.
+func EffectiveVersionBundleName(spec *v1alpha1.ProviderSpec, in *v1alpha1.Instance) string {
+	switch {
+	case in.Spec.Version != "":
+		return in.Spec.Version
+	case in.Status.Version != "":
+		return in.Status.Version
+	default:
+		return GetDefaultVersionBundleName(spec)
+	}
+}
+
 // =============================================================================
 // VALIDATION HELPERS
 // =============================================================================
