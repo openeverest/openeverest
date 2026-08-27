@@ -1,11 +1,8 @@
 name: Deploy storybook to GH pages
 
 on:
-  # Runs on pushes targeting the default branch
-  push:
-    branches: ["main"]
-
-  # Allows you to run this workflow manually from the Actions tab
+  # Storybook is published from main only: GitHub Pages has a single
+  # deployment, and main carries the current major version.
   workflow_dispatch:
 
 # Sets permissions of the GITHUB_TOKEN to allow deployment to GitHub Pages
