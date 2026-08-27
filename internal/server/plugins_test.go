@@ -211,7 +211,12 @@ func TestCanUsePlugin(t *testing.T) {
 		plugin  string
 		want    bool
 	}{
-		{name: "direct use grant", subject: "bob", plugin: "plugin-hub", want: true},
+		{
+			name: "direct use grant",
+			subject: "bob",
+			plugin: "plugin-hub",
+			want: true,
+		},
 		{name: "direct grant does not leak to other plugin", subject: "bob", plugin: "other", want: false},
 		{name: "wildcard plugin grant", subject: "carol", plugin: "anything", want: true},
 		{name: "admin star on plugins", subject: "dave", plugin: "plugin-hub", want: true},
