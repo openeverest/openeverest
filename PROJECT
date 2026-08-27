@@ -75,7 +75,6 @@ resources:
   version: v1alpha1
 - api:
     crdVersion: v1
-    namespaced: false
   controller: true
   domain: openeverest.io
   group: extensions
@@ -84,7 +83,6 @@ resources:
   version: v1alpha1
 - api:
     crdVersion: v1
-    namespaced: false
   controller: true
   domain: openeverest.io
   group: extensions
@@ -98,5 +96,13 @@ resources:
   group: core
   kind: InstancePreset
   path: github.com/openeverest/openeverest/v2/api/core/v1alpha1
+  version: v1alpha1
+- api:
+    crdVersion: v1
+    namespaced: true
+  domain: openeverest.io
+  group: backup
+  kind: Import
+  path: github.com/openeverest/openeverest/v2/api/backup/v1alpha1
   version: v1alpha1
 version: "3"

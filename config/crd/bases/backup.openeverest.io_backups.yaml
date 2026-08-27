@@ -18,7 +18,7 @@ spec:
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
-    - jsonPath: .spec.instanceRef.name
+    - jsonPath: .spec.origin.instanceRef.name
       name: Instance
       type: string
     - jsonPath: .spec.storageRef.name
@@ -89,21 +89,54 @@ spec:
                 - Retain
                 - Delete
                 type: string
-              instanceRef:
+              origin:
                 description: |-
-                  InstanceRef references the Instance to back up. The Instance must
-                  live in the same namespace as this Backup.
+                  Origin identifies where this Backup's data comes from: produced by a
+                  live Instance, or imported from data already present in a BackupStorage.
                 properties:
-                  name:
-                    description: Name of the referenced object.
-                    maxLength: 253
-                    minLength: 1
-                    pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                  imported:
+                    description: |-
+                      Imported identifies data already present in the referenced BackupStorage
+                      rather than produced by a live Instance. Required when Type is Imported.
+                      When set, the restoring provider builds the engine restore directly from
+                      storageRef + imported.path with no live operator object.
+                    properties:
+                      path:
+                        description: |-
+                          Path is the backup's path within the BackupStorage. The bucket is
+                          already determined by storageRef, so it is not repeated here. The path
+                          is unique within its storage and is the qualifier the provider uses to
+                          build the engine restore.
+                        minLength: 1
+                        type: string
+                    required:
+                    - path
+                    type: object
+                  instanceRef:
+                    description: |-
+                      InstanceRef references the Instance that produced this Backup. The
+                      Instance must live in the same namespace as this Backup. Required when
+                      Type is Instance.
+                    properties:
+                      name:
+                        description: Name of the referenced object.
+                        maxLength: 253
+                        minLength: 1
+                        pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                        type: string
+                    required:
+                    - name
+                    type: object
+                    x-kubernetes-map-type: atomic
+                  type:
+                    description: Type selects the origin variant.
+                    enum:
+                    - Instance
+                    - Imported
                     type: string
                 required:
-                - name
+                - type
                 type: object
-                x-kubernetes-map-type: atomic
               parameters:
                 description: |-
                   Parameters is the backup-time structured configuration validated
@@ -137,9 +170,17 @@ spec:
                 x-kubernetes-map-type: atomic
             required:
             - classRef
-            - instanceRef
+            - origin
             - storageRef
             type: object
+            x-kubernetes-validations:
+            - message: origin.instanceRef must be set if and only if origin.type is
+                Instance
+              rule: 'self.origin.type == ''Instance'' ? has(self.origin.instanceRef)
+                : !has(self.origin.instanceRef)'
+            - message: origin.imported must be set if and only if origin.type is Imported
+              rule: 'self.origin.type == ''Imported'' ? has(self.origin.imported)
+                : !has(self.origin.imported)'
           status:
             description: BackupStatus defines the observed state of Backup.
             properties:
@@ -209,7 +250,7 @@ spec:
               executionMode:
                 description: |-
                   ExecutionMode is the resolved execution mode at the time the Backup
-                  started. Recorded for observability.
+                  started. Recorded for observability. Empty for imported backups.
                 enum:
                 - ProviderManaged
                 - Job
@@ -217,7 +258,8 @@ spec:
               jobRef:
                 description: |-
                   JobRef references the Job that is running the backup.
-                  Populated only for Job classes.
+                  Populated only for Job classes. Empty for imported backups, which run
+                  no Job.
                 properties:
                   name:
                     description: Name of the referenced object.
@@ -242,7 +284,8 @@ spec:
                 description: |-
                   OperatorBackupRef points at the operator-native backup resource the
                   provider created (e.g., PerconaServerMongoDBBackup). Populated only
-                  for ProviderManaged classes.
+                  for ProviderManaged classes. Empty for imported backups, which have no
+                  operator-native backup object.
                 properties:
                   group:
                     description: |-
@@ -266,8 +309,9 @@ spec:
                 type: object
                 x-kubernetes-map-type: atomic
               size:
-                description: Size is the size of the backup data as reported by the
-                  engine.
+                description: |-
+                  Size is the size of the backup data as reported by the engine. May be
+                  empty for imported backups when the size is not known.
                 type: string
               startedAt:
                 description: StartedAt is the time when the backup started.

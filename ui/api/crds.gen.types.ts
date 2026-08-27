@@ -56,12 +56,39 @@ export interface components {
                  */
                 deletionPolicy?: "Retain" | "Delete";
                 /**
-                 * @description InstanceRef references the Instance to back up. The Instance must
-                 *     live in the same namespace as this Backup.
+                 * @description Origin identifies where this Backup's data comes from: produced by a
+                 *     live Instance, or imported from data already present in a BackupStorage.
                  */
-                instanceRef: {
-                    /** @description Name of the referenced object. */
-                    name: string;
+                origin: {
+                    /**
+                     * @description Imported identifies data already present in the referenced BackupStorage
+                     *     rather than produced by a live Instance. Required when Type is Imported.
+                     *     When set, the restoring provider builds the engine restore directly from
+                     *     storageRef + imported.path with no live operator object.
+                     */
+                    imported?: {
+                        /**
+                         * @description Path is the backup's path within the BackupStorage. The bucket is
+                         *     already determined by storageRef, so it is not repeated here. The path
+                         *     is unique within its storage and is the qualifier the provider uses to
+                         *     build the engine restore.
+                         */
+                        path: string;
+                    };
+                    /**
+                     * @description InstanceRef references the Instance that produced this Backup. The
+                     *     Instance must live in the same namespace as this Backup. Required when
+                     *     Type is Instance.
+                     */
+                    instanceRef?: {
+                        /** @description Name of the referenced object. */
+                        name: string;
+                    };
+                    /**
+                     * @description Type selects the origin variant.
+                     * @enum {string}
+                     */
+                    type: "Instance" | "Imported";
                 };
                 /**
                  * @description Parameters is the backup-time structured configuration validated
@@ -131,13 +158,14 @@ export interface components {
                 }[];
                 /**
                  * @description ExecutionMode is the resolved execution mode at the time the Backup
-                 *     started. Recorded for observability.
+                 *     started. Recorded for observability. Empty for imported backups.
                  * @enum {string}
                  */
                 executionMode?: "ProviderManaged" | "Job";
                 /**
                  * @description JobRef references the Job that is running the backup.
-                 *     Populated only for Job classes.
+                 *     Populated only for Job classes. Empty for imported backups, which run
+                 *     no Job.
                  */
                 jobRef?: {
                     /** @description Name of the referenced object. */
@@ -153,7 +181,8 @@ export interface components {
                 /**
                  * @description OperatorBackupRef points at the operator-native backup resource the
                  *     provider created (e.g., PerconaServerMongoDBBackup). Populated only
-                 *     for ProviderManaged classes.
+                 *     for ProviderManaged classes. Empty for imported backups, which have no
+                 *     operator-native backup object.
                  */
                 operatorBackupRef?: {
                     /**
@@ -166,7 +195,10 @@ export interface components {
                     /** @description Name of the referenced object. */
                     name: string;
                 };
-                /** @description Size is the size of the backup data as reported by the engine. */
+                /**
+                 * @description Size is the size of the backup data as reported by the engine. May be
+                 *     empty for imported backups when the size is not known.
+                 */
                 size?: string;
                 /**
                  * Format: date-time
@@ -613,6 +645,129 @@ export interface components {
             /** @description APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources */
             apiVersion?: string;
             items?: components["schemas"]["BackupStorage"][];
+            /** @description Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds */
+            kind?: string;
+            metadata?: {
+                /** @description Name must be unique within a namespace. Is required when creating resources, although some resources may allow a client to request the generation of an appropriate name automatically. Name is primarily intended for creation idempotence and configuration definition. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names#names */
+                name?: string;
+                /** @description Namespace defines the space within which each name must be unique. An empty namespace is equivalent to the "default" namespace, but "default" is the canonical representation. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces */
+                namespace?: string;
+            };
+        };
+        /**
+         * @description Import is the Schema for the imports API. It discovers
+         *     the restorable backups already present in a BackupStorage and creates a
+         *     Backup CR (spec.imported) for each so they can be restored.
+         */
+        Import: {
+            /**
+             * @description APIVersion defines the versioned schema of this representation of an object.
+             *     Servers should convert recognized schemas to the latest internal value, and
+             *     may reject unrecognized values.
+             *     More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+             */
+            apiVersion?: string;
+            /**
+             * @description Kind is a string value representing the REST resource this object represents.
+             *     Servers may infer this from the endpoint the client submits requests to.
+             *     Cannot be updated.
+             *     In CamelCase.
+             *     More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+             */
+            kind?: string;
+            metadata?: components["schemas"]["ObjectMeta"];
+            /** @description spec defines the desired state of Import */
+            spec: {
+                /**
+                 * @description ClassRef references the cluster-scoped BackupClass that determines how
+                 *     backups in the storage are parsed. The class's executionMode controls
+                 *     how the import is executed. The ProviderManaged classes are reconciled
+                 *     by the provider.
+                 */
+                classRef: {
+                    /** @description Name of the referenced object. */
+                    name: string;
+                };
+                /**
+                 * @description StorageRef references a BackupStorage in the same namespace whose
+                 *     contents are listed and parsed. The reconciler reads the storage and
+                 *     its credentials secret read-only.
+                 */
+                storageRef: {
+                    /** @description Name of the referenced object. */
+                    name: string;
+                };
+            };
+            /** @description status defines the observed state of Import */
+            status?: {
+                conditions?: {
+                    /**
+                     * Format: date-time
+                     * @description lastTransitionTime is the last time the condition transitioned from one status to another.
+                     *     This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                     */
+                    lastTransitionTime: string;
+                    /**
+                     * @description message is a human readable message indicating details about the transition.
+                     *     This may be an empty string.
+                     */
+                    message: string;
+                    /**
+                     * Format: int64
+                     * @description observedGeneration represents the .metadata.generation that the condition was set based upon.
+                     *     For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                     *     with respect to the current state of the instance.
+                     */
+                    observedGeneration?: number;
+                    /**
+                     * @description reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                     *     Producers of specific condition types may define expected values and meanings for this field,
+                     *     and whether the values are considered a guaranteed API.
+                     *     The value should be a CamelCase string.
+                     *     This field may not be empty.
+                     */
+                    reason: string;
+                    /**
+                     * @description status of the condition, one of True, False, Unknown.
+                     * @enum {string}
+                     */
+                    status: "True" | "False" | "Unknown";
+                    /** @description type of condition in CamelCase or in foo.example.com/CamelCase. */
+                    type: string;
+                }[];
+                /**
+                 * Format: int32
+                 * @description CreatedCount is the number of Backup CRs created (or already present)
+                 *     for the discovered backups. Backups are deduped on
+                 *     (storageRef, path), so re-running import does not
+                 *     create duplicates.
+                 */
+                createdCount?: number;
+                /**
+                 * Format: int32
+                 * @description DiscoveredCount is the number of restorable backups found in the
+                 *     storage during the last reconcile.
+                 */
+                discoveredCount?: number;
+                /**
+                 * Format: int64
+                 * @description LastObservedGeneration is the last reconciled generation of the spec.
+                 */
+                lastObservedGeneration?: number;
+                /** @description Message is a human-readable message about the current state. */
+                message?: string;
+                /**
+                 * @description Phase is the coarse lifecycle state of the import request.
+                 * @enum {string}
+                 */
+                phase?: "Pending" | "Importing" | "Succeeded" | "Failed";
+            };
+        };
+        /** @description ImportList is an object that contains the list of the existing imports. */
+        ImportList: {
+            /** @description APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources */
+            apiVersion?: string;
+            items?: components["schemas"]["Import"][];
             /** @description Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds */
             kind?: string;
             metadata?: {
@@ -1928,6 +2083,21 @@ export interface components {
                      *     If omitted, the provider's default topology is used.
                      */
                     type?: string;
+                };
+                /**
+                 * @description UserSecretRef optionally seeds the engine's initial (bootstrap)
+                 *     credentials from a Secret in the same namespace, for providers whose
+                 *     engine supports setting initial credentials at creation time.
+                 *
+                 *     When omitted, the provider generates credentials automatically. The
+                 *     referenced Secret's required keys are provider-specific and validated
+                 *     by the referenced Provider. The field is immutable once set: initial
+                 *     credentials only apply at engine creation time, so changing it later
+                 *     would have no effect.
+                 */
+                userSecretRef?: {
+                    /** @description Name of the referenced Secret. */
+                    name: string;
                 };
                 /**
                  * @description Version selects a provider-defined version bundle, resolving compatible
@@ -3258,6 +3428,21 @@ export interface components {
                      *     If omitted, the provider's default topology is used.
                      */
                     type?: string;
+                };
+                /**
+                 * @description UserSecretRef optionally seeds the engine's initial (bootstrap)
+                 *     credentials from a Secret in the same namespace, for providers whose
+                 *     engine supports setting initial credentials at creation time.
+                 *
+                 *     When omitted, the provider generates credentials automatically. The
+                 *     referenced Secret's required keys are provider-specific and validated
+                 *     by the referenced Provider. The field is immutable once set: initial
+                 *     credentials only apply at engine creation time, so changing it later
+                 *     would have no effect.
+                 */
+                userSecretRef?: {
+                    /** @description Name of the referenced Secret. */
+                    name: string;
                 };
                 /**
                  * @description Version selects a provider-defined version bundle, resolving compatible

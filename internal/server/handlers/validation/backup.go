@@ -24,6 +24,7 @@ import (
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
+	corev1alpha1 "github.com/openeverest/openeverest/v2/api/core/v1alpha1"
 	api "github.com/openeverest/openeverest/v2/internal/server/api"
 	"github.com/openeverest/openeverest/v2/provider-runtime/controller"
 )
@@ -48,15 +49,22 @@ func (h *validateHandler) CreateBackup(ctx context.Context, cluster string, back
 // classRef do not point to existing resources, or whose BackupClass does
 // not support the target Instance's provider.
 func (h *validateHandler) validateBackupRefs(ctx context.Context, backup *v1alpha1.Backup) error {
-	instance, err := h.kubeConnector.GetInstance(ctx, ctrlclient.ObjectKey{
-		Namespace: backup.GetNamespace(),
-		Name:      backup.Spec.InstanceRef.Name,
-	})
-	if err != nil {
-		if k8serrors.IsNotFound(err) {
-			return fmt.Errorf("%w: instance '%s' does not exist", controller.ErrInstanceNotFound, backup.Spec.InstanceRef.Name)
+	// Imported backups (origin.type=Imported) have no Instance to validate;
+	// their data already lives in the referenced BackupStorage.
+	var instance *corev1alpha1.Instance
+	if backup.Spec.Origin.InstanceRef != nil {
+		var err error
+		instance, err = h.kubeConnector.GetInstance(ctx, ctrlclient.ObjectKey{
+			Namespace: backup.GetNamespace(),
+			Name:      backup.Spec.Origin.InstanceRef.Name,
+		})
+		if err != nil {
+			if k8serrors.IsNotFound(err) {
+				return fmt.Errorf("%w: instance '%s' does not exist", controller.ErrInstanceNotFound, backup.Spec.Origin.InstanceRef.Name)
+			}
+			return fmt.Errorf("failed to get instance '%s': %w", backup.Spec.Origin.InstanceRef.Name, err)
 		}
-		return fmt.Errorf("failed to get instance '%s': %w", backup.Spec.InstanceRef.Name, err)
+
 	}
 
 	if _, err := h.kubeConnector.GetBackupStorage(ctx, ctrlclient.ObjectKey{
@@ -75,6 +83,10 @@ func (h *validateHandler) validateBackupRefs(ctx context.Context, backup *v1alph
 			return fmt.Errorf("%w: '%s'", controller.ErrBackupClassNotFound, backup.Spec.ClassRef.Name)
 		}
 		return fmt.Errorf("failed to get backup class '%s': %w", backup.Spec.ClassRef.Name, err)
+	}
+
+	if backup.Spec.Origin.InstanceRef == nil {
+		return nil
 	}
 
 	return controller.ValidateClassSupportsProvider(bc, instance.Spec.ProviderRef.Name)

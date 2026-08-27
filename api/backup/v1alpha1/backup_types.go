@@ -22,11 +22,14 @@ import (
 )
 
 // BackupSpec defines the desired state of Backup.
+//
+// +kubebuilder:validation:XValidation:rule="self.origin.type == 'Instance' ? has(self.origin.instanceRef) : !has(self.origin.instanceRef)",message="origin.instanceRef must be set if and only if origin.type is Instance"
+// +kubebuilder:validation:XValidation:rule="self.origin.type == 'Imported' ? has(self.origin.imported) : !has(self.origin.imported)",message="origin.imported must be set if and only if origin.type is Imported"
 type BackupSpec struct {
-	// InstanceRef references the Instance to back up. The Instance must
-	// live in the same namespace as this Backup.
+	// Origin identifies where this Backup's data comes from: produced by a
+	// live Instance, or imported from data already present in a BackupStorage.
 	// +kubebuilder:validation:Required
-	InstanceRef common.ObjectRef `json:"instanceRef"`
+	Origin BackupOrigin `json:"origin"`
 	// ClassRef references the cluster-scoped BackupClass that defines how
 	// this Backup is executed. The class's executionMode controls the runtime
 	// path: Job classes are reconciled by the in-cluster Backup job
@@ -90,22 +93,73 @@ const (
 	BackupDeletionPolicyRetain BackupDeletionPolicy = "Retain"
 )
 
+// BackupOriginType selects how a Backup came to exist: produced by a live
+// Instance, or imported from data already present in a BackupStorage.
+//
+// +kubebuilder:validation:Enum=Instance;Imported
+type BackupOriginType string
+
+const (
+	// BackupOriginTypeInstance marks a Backup produced by a live Instance in
+	// the same namespace, identified by origin.instanceRef.
+	BackupOriginTypeInstance BackupOriginType = "Instance"
+	// BackupOriginTypeImported marks a Backup imported from data already
+	// present in a BackupStorage, identified by origin.imported.
+	BackupOriginTypeImported BackupOriginType = "Imported"
+)
+
+// BackupOrigin describes where a Backup's data comes from. Type selects which
+// variant-specific field is populated.
+type BackupOrigin struct {
+	// Type selects the origin variant.
+	// +kubebuilder:validation:Required
+	Type BackupOriginType `json:"type"`
+	// InstanceRef references the Instance that produced this Backup. The
+	// Instance must live in the same namespace as this Backup. Required when
+	// Type is Instance.
+	// +optional
+	InstanceRef *common.ObjectRef `json:"instanceRef,omitempty"`
+	// Imported identifies data already present in the referenced BackupStorage
+	// rather than produced by a live Instance. Required when Type is Imported.
+	// When set, the restoring provider builds the engine restore directly from
+	// storageRef + imported.path with no live operator object.
+	// +optional
+	Imported *Imported `json:"imported,omitempty"`
+}
+
+// Imported marks a Backup as imported and identifies where its data already
+// lives within the BackupStorage referenced by Backup.spec.storageRef, so it
+// can be restored without a live source Instance or operator-native backup
+// object.
+type Imported struct {
+	// Path is the backup's path within the BackupStorage. The bucket is
+	// already determined by storageRef, so it is not repeated here. The path
+	// is unique within its storage and is the qualifier the provider uses to
+	// build the engine restore.
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
+	Path string `json:"path"`
+}
+
 // BackupStatus defines the observed state of Backup.
 type BackupStatus struct {
 	// ExecutionMode is the resolved execution mode at the time the Backup
-	// started. Recorded for observability.
+	// started. Recorded for observability. Empty for imported backups.
 	// +optional
 	ExecutionMode BackupExecutionMode `json:"executionMode,omitempty"`
-	// Size is the size of the backup data as reported by the engine.
+	// Size is the size of the backup data as reported by the engine. May be
+	// empty for imported backups when the size is not known.
 	// +optional
 	Size *string `json:"size,omitempty"`
 	// OperatorBackupRef points at the operator-native backup resource the
 	// provider created (e.g., PerconaServerMongoDBBackup). Populated only
-	// for ProviderManaged classes.
+	// for ProviderManaged classes. Empty for imported backups, which have no
+	// operator-native backup object.
 	// +optional
 	OperatorBackupRef *common.TypedObjectRef `json:"operatorBackupRef,omitempty"`
 	// JobRef references the Job that is running the backup.
-	// Populated only for Job classes.
+	// Populated only for Job classes. Empty for imported backups, which run
+	// no Job.
 	// +optional
 	JobRef *common.ObjectRef `json:"jobRef,omitempty"`
 	// StartedAt is the time when the backup started.
@@ -153,7 +207,7 @@ const (
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:shortName=bk;bak
-// +kubebuilder:printcolumn:name="Instance",type="string",JSONPath=".spec.instanceRef.name"
+// +kubebuilder:printcolumn:name="Instance",type="string",JSONPath=".spec.origin.instanceRef.name"
 // +kubebuilder:printcolumn:name="Storage",type="string",JSONPath=".spec.storageRef.name"
 // +kubebuilder:printcolumn:name="State",type="string",JSONPath=".status.state"
 

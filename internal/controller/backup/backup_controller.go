@@ -163,6 +163,11 @@ func (r *BackupReconciler) Reconcile( //nolint:nonamedreturns
 		return result, nil
 	}
 
+	// Imported backups have no Instance and nothing to handle here.
+	if backup.Spec.Origin.InstanceRef == nil {
+		return ctrl.Result{}, nil
+	}
+
 	// Ensure the instance name label is set on the Backup resource.
 	if err := r.ensureInstanceNameLabel(ctx, backup); err != nil {
 		return ctrl.Result{}, err
@@ -213,10 +218,9 @@ func (r *BackupReconciler) Reconcile( //nolint:nonamedreturns
 		return ctrl.Result{}, nil
 	}
 
-	// Get the source database instance.
 	instance := &corev1alpha1.Instance{}
 	if err := r.Client.Get(ctx, client.ObjectKey{
-		Name:      backup.Spec.InstanceRef.Name,
+		Name:      backup.Spec.Origin.InstanceRef.Name,
 		Namespace: backup.GetNamespace(),
 	}, instance); err != nil {
 		backup.Status.State = backupv1alpha1.BackupStateError
@@ -268,18 +272,23 @@ func (r *BackupReconciler) Reconcile( //nolint:nonamedreturns
 }
 
 // ensureInstanceNameLabel ensures that the Backup resource has the instance name
-// label, used for filtering backups by instance using label selectors.
+// label, used for filtering backups by instance using label selectors. Imported
+// backups have no Instance, so there is nothing to label.
 func (r *BackupReconciler) ensureInstanceNameLabel(ctx context.Context, backup *backupv1alpha1.Backup) error {
+	if backup.Spec.Origin.InstanceRef == nil {
+		return nil
+	}
+
 	labels := backup.GetLabels()
 	if labels == nil {
 		labels = make(map[string]string)
 	}
 
-	if labels[common.InstanceNameLabel] == backup.Spec.InstanceRef.Name {
+	if labels[common.InstanceNameLabel] == backup.Spec.Origin.InstanceRef.Name {
 		return nil
 	}
 
-	labels[common.InstanceNameLabel] = backup.Spec.InstanceRef.Name
+	labels[common.InstanceNameLabel] = backup.Spec.Origin.InstanceRef.Name
 	backup.SetLabels(labels)
 	if err := r.Client.Update(ctx, backup); err != nil {
 		return fmt.Errorf("failed to update instance name label: %w", err)

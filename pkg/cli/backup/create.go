@@ -79,7 +79,10 @@ func (cr *CreateRunner) Run(ctx context.Context, opts CreateOptions, cfgPath str
 		md.GenerateName = opts.Instance + "-"
 	}
 	backup := client.Backup{Metadata: &md}
-	backup.Spec.InstanceRef.Name = opts.Instance
+	backup.Spec.Origin.Type = client.BackupSpecOriginTypeInstance
+	backup.Spec.Origin.InstanceRef = &struct {
+		Name string `json:"name"`
+	}{Name: opts.Instance}
 	backup.Spec.ClassRef.Name = opts.Class
 	backup.Spec.StorageRef.Name = opts.Storage
 	if opts.DeletionPolicy != "" {

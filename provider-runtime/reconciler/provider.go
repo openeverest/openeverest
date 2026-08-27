@@ -200,10 +200,10 @@ func newReconciler(ctx context.Context, p providerAdapter, opts ...ReconcilerOpt
 	if _, isBackupProvider := p.(controller.BackupProvider); isBackupProvider {
 		if err := mgr.GetFieldIndexer().IndexField(ctx, &backupv1alpha1.Backup{}, controller.IndexBackupInstanceName, func(obj client.Object) []string {
 			b, ok := obj.(*backupv1alpha1.Backup)
-			if !ok || b.Spec.InstanceRef.Name == "" {
+			if !ok || b.Spec.Origin.Type != backupv1alpha1.BackupOriginTypeInstance || b.Spec.Origin.InstanceRef == nil {
 				return nil
 			}
-			return []string{b.Spec.InstanceRef.Name}
+			return []string{b.Spec.Origin.InstanceRef.Name}
 		}); err != nil {
 			return nil, fmt.Errorf("failed to register backup instanceName index: %w", err)
 		}
