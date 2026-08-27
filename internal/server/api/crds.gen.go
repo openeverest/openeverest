@@ -3997,6 +3997,24 @@ type Provider struct {
 		Topologies *map[string]struct {
 			Components *map[string]struct {
 				Optional *bool `json:"optional,omitempty"`
+
+				// SupportedFields SupportedFields declares which ComponentSpec fields this component
+				// honours in this topology, as an OpenAPI v3 schema over ComponentSpec's
+				// own properties. A property is declared if and only if the provider
+				// reads it, at any depth, so a component may honour part of a grouped
+				// field such as schedulingPolicy. Constraints the provider enforces
+				// (required, bounds) are expressed with the same schema vocabulary.
+				//
+				// Applicability is declared per topology because core fields configure
+				// the deployment, and the deployment shape is what a topology chooses.
+				//
+				// When unset, no constraint is placed on the component and every field
+				// is accepted, which is the behaviour of providers that do not declare.
+				SupportedFields *struct {
+					// OpenAPIV3Schema OpenAPIV3Schema is the OpenAPI v3 schema describing the accepted
+					// parameters payload.
+					OpenAPIV3Schema interface{} `json:"openAPIV3Schema,omitempty"`
+				} `json:"supportedFields,omitempty"`
 			} `json:"components,omitempty"`
 
 			// ParametersSchema ParametersSchema declares the OpenAPI v3 schema for topology-specific
