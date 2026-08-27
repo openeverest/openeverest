@@ -24,7 +24,7 @@ import (
 // BackupSpec defines the desired state of Backup.
 //
 // +kubebuilder:validation:XValidation:rule="self.origin.type == 'Instance' ? has(self.origin.instanceRef) : !has(self.origin.instanceRef)",message="origin.instanceRef must be set if and only if origin.type is Instance"
-// +kubebuilder:validation:XValidation:rule="self.origin.type == 'Imported' ? has(self.origin.imported) : !has(self.origin.imported)",message="origin.imported must be set if and only if origin.type is Imported"
+// +kubebuilder:validation:XValidation:rule="self.origin.type == 'Import' ? has(self.origin.import) : !has(self.origin.import)",message="origin.import must be set if and only if origin.type is Import"
 type BackupSpec struct {
 	// Origin identifies where this Backup's data comes from: produced by a
 	// live Instance, or imported from data already present in a BackupStorage.
@@ -96,16 +96,16 @@ const (
 // BackupOriginType selects how a Backup came to exist: produced by a live
 // Instance, or imported from data already present in a BackupStorage.
 //
-// +kubebuilder:validation:Enum=Instance;Imported
+// +kubebuilder:validation:Enum=Instance;Import
 type BackupOriginType string
 
 const (
 	// BackupOriginTypeInstance marks a Backup produced by a live Instance in
 	// the same namespace, identified by origin.instanceRef.
 	BackupOriginTypeInstance BackupOriginType = "Instance"
-	// BackupOriginTypeImported marks a Backup imported from data already
-	// present in a BackupStorage, identified by origin.imported.
-	BackupOriginTypeImported BackupOriginType = "Imported"
+	// BackupOriginTypeImport marks a Backup imported from data already
+	// present in a BackupStorage, identified by origin.import.
+	BackupOriginTypeImport BackupOriginType = "Import"
 )
 
 // BackupOrigin describes where a Backup's data comes from. Type selects which
@@ -119,19 +119,19 @@ type BackupOrigin struct {
 	// Type is Instance.
 	// +optional
 	InstanceRef *common.ObjectRef `json:"instanceRef,omitempty"`
-	// Imported identifies data already present in the referenced BackupStorage
-	// rather than produced by a live Instance. Required when Type is Imported.
+	// Import identifies data already present in the referenced BackupStorage
+	// rather than produced by a live Instance. Required when Type is Import.
 	// When set, the restoring provider builds the engine restore directly from
-	// storageRef + imported.path with no live operator object.
+	// storageRef + import.path with no live operator object.
 	// +optional
-	Imported *Imported `json:"imported,omitempty"`
+	Import *BackupOriginImport `json:"import,omitempty"`
 }
 
-// Imported marks a Backup as imported and identifies where its data already
+// BackupOriginImport marks a Backup as imported and identifies where its data already
 // lives within the BackupStorage referenced by Backup.spec.storageRef, so it
 // can be restored without a live source Instance or operator-native backup
 // object.
-type Imported struct {
+type BackupOriginImport struct {
 	// Path is the backup's path within the BackupStorage. The bucket is
 	// already determined by storageRef, so it is not repeated here. The path
 	// is unique within its storage and is the qualifier the provider uses to

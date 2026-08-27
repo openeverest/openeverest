@@ -61,12 +61,12 @@ export interface components {
                  */
                 origin: {
                     /**
-                     * @description Imported identifies data already present in the referenced BackupStorage
-                     *     rather than produced by a live Instance. Required when Type is Imported.
+                     * @description Import identifies data already present in the referenced BackupStorage
+                     *     rather than produced by a live Instance. Required when Type is Import.
                      *     When set, the restoring provider builds the engine restore directly from
-                     *     storageRef + imported.path with no live operator object.
+                     *     storageRef + import.path with no live operator object.
                      */
-                    imported?: {
+                    import?: {
                         /**
                          * @description Path is the backup's path within the BackupStorage. The bucket is
                          *     already determined by storageRef, so it is not repeated here. The path
@@ -88,7 +88,7 @@ export interface components {
                      * @description Type selects the origin variant.
                      * @enum {string}
                      */
-                    type: "Instance" | "Imported";
+                    type: "Instance" | "Import";
                 };
                 /**
                  * @description Parameters is the backup-time structured configuration validated

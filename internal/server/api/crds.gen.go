@@ -32,14 +32,14 @@ func (e BackupSpecDeletionPolicy) Valid() bool {
 
 // Defines values for BackupSpecOriginType.
 const (
-	BackupSpecOriginTypeImported BackupSpecOriginType = "Imported"
+	BackupSpecOriginTypeImport   BackupSpecOriginType = "Import"
 	BackupSpecOriginTypeInstance BackupSpecOriginType = "Instance"
 )
 
 // Valid indicates whether the value is a known member of the BackupSpecOriginType enum.
 func (e BackupSpecOriginType) Valid() bool {
 	switch e {
-	case BackupSpecOriginTypeImported:
+	case BackupSpecOriginTypeImport:
 		return true
 	case BackupSpecOriginTypeInstance:
 		return true
@@ -701,17 +701,17 @@ type Backup struct {
 		// Origin Origin identifies where this Backup's data comes from: produced by a
 		// live Instance, or imported from data already present in a BackupStorage.
 		Origin struct {
-			// Imported Imported identifies data already present in the referenced BackupStorage
-			// rather than produced by a live Instance. Required when Type is Imported.
+			// Import Import identifies data already present in the referenced BackupStorage
+			// rather than produced by a live Instance. Required when Type is Import.
 			// When set, the restoring provider builds the engine restore directly from
-			// storageRef + imported.path with no live operator object.
-			Imported *struct {
+			// storageRef + import.path with no live operator object.
+			Import *struct {
 				// Path Path is the backup's path within the BackupStorage. The bucket is
 				// already determined by storageRef, so it is not repeated here. The path
 				// is unique within its storage and is the qualifier the provider uses to
 				// build the engine restore.
 				Path string `json:"path"`
-			} `json:"imported,omitempty"`
+			} `json:"import,omitempty"`
 
 			// InstanceRef InstanceRef references the Instance that produced this Backup. The
 			// Instance must live in the same namespace as this Backup. Required when

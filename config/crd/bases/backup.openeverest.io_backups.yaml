@@ -94,12 +94,12 @@ spec:
                   Origin identifies where this Backup's data comes from: produced by a
                   live Instance, or imported from data already present in a BackupStorage.
                 properties:
-                  imported:
+                  import:
                     description: |-
-                      Imported identifies data already present in the referenced BackupStorage
-                      rather than produced by a live Instance. Required when Type is Imported.
+                      Import identifies data already present in the referenced BackupStorage
+                      rather than produced by a live Instance. Required when Type is Import.
                       When set, the restoring provider builds the engine restore directly from
-                      storageRef + imported.path with no live operator object.
+                      storageRef + import.path with no live operator object.
                     properties:
                       path:
                         description: |-
@@ -132,7 +132,7 @@ spec:
                     description: Type selects the origin variant.
                     enum:
                     - Instance
-                    - Imported
+                    - Import
                     type: string
                 required:
                 - type
@@ -178,9 +178,8 @@ spec:
                 Instance
               rule: 'self.origin.type == ''Instance'' ? has(self.origin.instanceRef)
                 : !has(self.origin.instanceRef)'
-            - message: origin.imported must be set if and only if origin.type is Imported
-              rule: 'self.origin.type == ''Imported'' ? has(self.origin.imported)
-                : !has(self.origin.imported)'
+            - message: origin.import must be set if and only if origin.type is Import
+              rule: 'self.origin.type == ''Import'' ? has(self.origin.import) : !has(self.origin.import)'
           status:
             description: BackupStatus defines the observed state of Backup.
             properties:

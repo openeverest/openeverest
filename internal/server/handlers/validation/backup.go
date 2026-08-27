@@ -49,8 +49,8 @@ func (h *validateHandler) CreateBackup(ctx context.Context, cluster string, back
 // classRef do not point to existing resources, or whose BackupClass does
 // not support the target Instance's provider.
 func (h *validateHandler) validateBackupRefs(ctx context.Context, backup *v1alpha1.Backup) error {
-	// Imported backups (origin.type=Imported) have no Instance to validate;
-	// their data already lives in the referenced BackupStorage.
+	// Imported backups have no Instance to validate; their data
+	// already lives in the referenced BackupStorage.
 	var instance *corev1alpha1.Instance
 	if backup.Spec.Origin.InstanceRef != nil {
 		var err error
@@ -60,11 +60,16 @@ func (h *validateHandler) validateBackupRefs(ctx context.Context, backup *v1alph
 		})
 		if err != nil {
 			if k8serrors.IsNotFound(err) {
-				return fmt.Errorf("%w: instance '%s' does not exist", controller.ErrInstanceNotFound, backup.Spec.Origin.InstanceRef.Name)
+				return fmt.Errorf(
+					"%w: instance '%s' does not exist",
+					controller.ErrInstanceNotFound, backup.Spec.Origin.InstanceRef.Name,
+				)
 			}
-			return fmt.Errorf("failed to get instance '%s': %w", backup.Spec.Origin.InstanceRef.Name, err)
+			return fmt.Errorf(
+				"failed to get instance '%s': %w",
+				backup.Spec.Origin.InstanceRef.Name, err,
+			)
 		}
-
 	}
 
 	if _, err := h.kubeConnector.GetBackupStorage(ctx, ctrlclient.ObjectKey{

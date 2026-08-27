@@ -62,7 +62,7 @@ type ImportStatus struct {
 	Phase ImportPhase `json:"phase,omitempty"`
 	// DiscoveredCount is the number of restorable backups found in the
 	// storage during the last reconcile.
-	// +optionalß
+	// +optional
 	DiscoveredCount int32 `json:"discoveredCount,omitempty"`
 	// CreatedCount is the number of Backup CRs created (or already present)
 	// for the discovered backups. Backups are deduped on
