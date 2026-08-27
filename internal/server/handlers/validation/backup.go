@@ -23,7 +23,6 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
 	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
 	corev1alpha1 "github.com/openeverest/openeverest/v2/api/core/v1alpha1"
 	api "github.com/openeverest/openeverest/v2/internal/server/api"
@@ -31,12 +30,12 @@ import (
 )
 
 // GetBackup proxies the request to the next handler.
-func (h *validateHandler) GetBackup(ctx context.Context, cluster, namespace, name string) (*v1alpha1.Backup, error) {
+func (h *validateHandler) GetBackup(ctx context.Context, cluster, namespace, name string) (*backupv1alpha1.Backup, error) {
 	return h.next.GetBackup(ctx, cluster, namespace, name)
 }
 
 // CreateBackup validates the Backup's referenced resources before creating it.
-func (h *validateHandler) CreateBackup(ctx context.Context, cluster string, backup *v1alpha1.Backup) (*v1alpha1.Backup, error) {
+func (h *validateHandler) CreateBackup(ctx context.Context, cluster string, backup *backupv1alpha1.Backup) (*backupv1alpha1.Backup, error) {
 	if err := h.validateBackupRefs(ctx, backup); err != nil {
 		if isValidationError(err) {
 			return nil, errors.Join(ErrInvalidRequest, err)
@@ -49,7 +48,7 @@ func (h *validateHandler) CreateBackup(ctx context.Context, cluster string, back
 // validateBackupRefs rejects backups whose instanceRef, storageRef, or
 // classRef do not point to existing resources, or whose BackupClass does
 // not support the target Instance's provider.
-func (h *validateHandler) validateBackupRefs(ctx context.Context, backup *v1alpha1.Backup) error {
+func (h *validateHandler) validateBackupRefs(ctx context.Context, backup *backupv1alpha1.Backup) error {
 	// Imported backups have no Instance to validate; their data
 	// already lives in the referenced BackupStorage.
 	var instance *corev1alpha1.Instance
