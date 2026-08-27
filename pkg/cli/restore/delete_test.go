@@ -29,6 +29,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 
+	"github.com/openeverest/openeverest/v2/client"
 	"github.com/openeverest/openeverest/v2/pkg/cli/confirm"
 	"github.com/openeverest/openeverest/v2/pkg/cli/wait"
 )
@@ -76,7 +77,7 @@ func newDeleteServer(t *testing.T, deleteHandler, getHandler http.HandlerFunc) *
 
 // getHandlerWithState replies 200 with a restore fixture in the given state.
 // An empty state omits the status block entirely (unknown/never-observed).
-func getHandlerWithState(t *testing.T, state string) http.HandlerFunc {
+func getHandlerWithState(t *testing.T, state client.RestoreStatusState) http.HandlerFunc {
 	t.Helper()
 	return func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -100,7 +101,7 @@ func TestDelete_HappyPath_NoWait(t *testing.T) {
 
 	srv := newDeleteServer(t,
 		func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusNoContent) },
-		getHandlerWithState(t, restoreStateSucceeded),
+		getHandlerWithState(t, client.RestoreStatusStateSucceeded),
 	)
 	defer srv.Close()
 
@@ -207,7 +208,7 @@ func TestDelete_IgnoreNotFound_AlreadyGone_SkipsConfirmationAndWait(t *testing.T
 func TestDelete_IgnoreNotFound_DeleteRaces404_ReportsNotDeleted(t *testing.T) {
 	srv := newDeleteServer(t,
 		func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusNotFound) },
-		getHandlerWithState(t, restoreStateSucceeded),
+		getHandlerWithState(t, client.RestoreStatusStateSucceeded),
 	)
 	defer srv.Close()
 
@@ -230,7 +231,7 @@ func TestDelete_ServerError_ReturnsMessage(t *testing.T) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusInternalServerError)
 		_ = json.NewEncoder(w).Encode(map[string]any{"message": "boom"})
-	}, getHandlerWithState(t, restoreStateSucceeded))
+	}, getHandlerWithState(t, client.RestoreStatusStateSucceeded))
 	defer srv.Close()
 
 	rd := NewDeleter(Config{}, zap.NewNop().Sugar())
@@ -246,7 +247,7 @@ func TestDelete_NonInteractiveWithoutYes_FailsFast(t *testing.T) {
 	srv := newDeleteServer(t, func(w http.ResponseWriter, _ *http.Request) {
 		called = true
 		w.WriteHeader(http.StatusNoContent)
-	}, getHandlerWithState(t, restoreStateSucceeded))
+	}, getHandlerWithState(t, client.RestoreStatusStateSucceeded))
 	defer srv.Close()
 
 	opts := DeleteOptions{
@@ -268,7 +269,7 @@ func TestDelete_JSONMode_NonInteractiveWithoutYes_FailsFast(t *testing.T) {
 
 	srv := newDeleteServer(t, func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusNoContent)
-	}, getHandlerWithState(t, restoreStateSucceeded))
+	}, getHandlerWithState(t, client.RestoreStatusStateSucceeded))
 	defer srv.Close()
 
 	opts := DeleteOptions{
@@ -294,7 +295,7 @@ func TestDelete_VerboseAloneDoesNotForceNonInteractive(t *testing.T) {
 
 	srv := newDeleteServer(t, func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusNoContent)
-	}, getHandlerWithState(t, restoreStateSucceeded))
+	}, getHandlerWithState(t, client.RestoreStatusStateSucceeded))
 	defer srv.Close()
 
 	opts := DeleteOptions{
@@ -320,7 +321,7 @@ func TestDelete_WaitUntilGone_Succeeds(t *testing.T) {
 			getCalls++
 			if getCalls == 1 {
 				// The pre-delete guard fetch: present and Succeeded, not in-flight.
-				getHandlerWithState(t, restoreStateSucceeded)(w, r)
+				getHandlerWithState(t, client.RestoreStatusStateSucceeded)(w, r)
 				return
 			}
 			// Every fetch after the delete: gone.
@@ -345,7 +346,7 @@ func TestDelete_WaitTimesOut(t *testing.T) {
 	srv := newDeleteServer(t,
 		func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusNoContent) },
 		// Restore stays present (still finalizing), so --wait times out.
-		getHandlerWithState(t, restoreStateSucceeded),
+		getHandlerWithState(t, client.RestoreStatusStateSucceeded),
 	)
 	defer srv.Close()
 
@@ -403,7 +404,7 @@ func TestDelete_InFlight_ForceWithoutYes_StillRequiresConfirmation(t *testing.T)
 			called = true
 			w.WriteHeader(http.StatusNoContent)
 		},
-		getHandlerWithState(t, restoreStateRunning),
+		getHandlerWithState(t, client.RestoreStatusStateRunning),
 	)
 	defer srv.Close()
 
@@ -430,7 +431,7 @@ func TestDelete_InFlight_Pending_RefusesWithoutForce(t *testing.T) {
 			called = true
 			w.WriteHeader(http.StatusNoContent)
 		},
-		getHandlerWithState(t, restoreStatePending),
+		getHandlerWithState(t, client.RestoreStatusStatePending),
 	)
 	defer srv.Close()
 
@@ -472,7 +473,7 @@ func TestDelete_InFlight_Running_RefusesWithoutForce(t *testing.T) {
 			called = true
 			w.WriteHeader(http.StatusNoContent)
 		},
-		getHandlerWithState(t, restoreStateRunning),
+		getHandlerWithState(t, client.RestoreStatusStateRunning),
 	)
 	defer srv.Close()
 
@@ -488,7 +489,7 @@ func TestDelete_InFlight_WithForce_Succeeds(t *testing.T) {
 
 	srv := newDeleteServer(t,
 		func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusNoContent) },
-		getHandlerWithState(t, restoreStateRunning),
+		getHandlerWithState(t, client.RestoreStatusStateRunning),
 	)
 	defer srv.Close()
 
@@ -524,7 +525,7 @@ func TestDelete_ErrorState_NotGuarded(t *testing.T) {
 
 	srv := newDeleteServer(t,
 		func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusNoContent) },
-		getHandlerWithState(t, "Error"),
+		getHandlerWithState(t, client.RestoreStatusStateError),
 	)
 	defer srv.Close()
 
@@ -556,19 +557,19 @@ func TestDeleteConfirmMessage(t *testing.T) {
 
 	tests := []struct {
 		name            string
-		state           string
+		state           client.RestoreStatusState
 		forcingInFlight bool
 		want            string
 	}{
 		{
 			name:            "normal delete",
-			state:           restoreStateSucceeded,
+			state:           client.RestoreStatusStateSucceeded,
 			forcingInFlight: false,
 			want:            `Delete restore "my-mongo-restore-x7k2q" in namespace "everest"?`,
 		},
 		{
 			name:            "forcing a Running restore",
-			state:           restoreStateRunning,
+			state:           client.RestoreStatusStateRunning,
 			forcingInFlight: true,
 			want:            `Restore "my-mongo-restore-x7k2q" in namespace "everest" may still be in progress (state: Running). Interrupting it triggers the provider's cleanup of the engine restore and can leave the target instance in an inconsistent state. Delete anyway?`,
 		},
@@ -591,12 +592,12 @@ func TestDeleteConfirmMessage(t *testing.T) {
 func TestInFlight(t *testing.T) {
 	t.Parallel()
 
-	assert.True(t, inFlight(restoreStatePending, true))
-	assert.True(t, inFlight(restoreStateRunning, true))
+	assert.True(t, inFlight(client.RestoreStatusStatePending, true))
+	assert.True(t, inFlight(client.RestoreStatusStateRunning, true))
 	assert.True(t, inFlight("", true), "read successfully but no status yet is the riskiest window, right after create")
-	assert.False(t, inFlight(restoreStateSucceeded, true))
-	assert.False(t, inFlight(restoreStateFailed, true))
-	assert.False(t, inFlight("Error", true))
+	assert.False(t, inFlight(client.RestoreStatusStateSucceeded, true))
+	assert.False(t, inFlight(client.RestoreStatusStateFailed, true))
+	assert.False(t, inFlight(client.RestoreStatusStateError, true))
 	assert.False(t, inFlight("", false), "a failed/ambiguous fetch must never block — best-effort guard, not an invariant")
 }
 
@@ -611,7 +612,7 @@ func TestRestoreStateForGuard(t *testing.T) {
 	assert.Empty(t, state)
 	assert.True(t, ok, "fetched successfully, just no status yet")
 
-	state, ok = restoreStateForGuard(restoreWithState(t, "my-mongo-restore-x7k2q", restoreStateRunning))
-	assert.Equal(t, restoreStateRunning, state)
+	state, ok = restoreStateForGuard(restoreWithState(t, "my-mongo-restore-x7k2q", client.RestoreStatusStateRunning))
+	assert.Equal(t, client.RestoreStatusStateRunning, state)
 	assert.True(t, ok)
 }

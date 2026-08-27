@@ -65,9 +65,9 @@ func (in *ComponentSpec) DeepCopyInto(out *ComponentSpec) {
 		*out = new(int32)
 		**out = **in
 	}
-	if in.Affinity != nil {
-		in, out := &in.Affinity, &out.Affinity
-		*out = new(v1.Affinity)
+	if in.SchedulingPolicy != nil {
+		in, out := &in.SchedulingPolicy, &out.SchedulingPolicy
+		*out = new(commonv1alpha1.SchedulingPolicy)
 		(*in).DeepCopyInto(*out)
 	}
 	if in.Service != nil {
