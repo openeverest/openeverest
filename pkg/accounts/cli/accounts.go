@@ -30,9 +30,16 @@ import (
 	"github.com/percona/everest/pkg/accounts"
 	cliutils "github.com/percona/everest/pkg/cli/utils"
 	"github.com/percona/everest/pkg/common"
-	"github.com/percona/everest/pkg/kubernetes"
 	"github.com/percona/everest/pkg/output"
 )
+
+// osExit is a variable so it can be replaced in tests to avoid calling os.Exit.
+var osExit = os.Exit
+
+// rsaKeyCreator is the minimal interface needed by Accounts for RSA key pair operations.
+type rsaKeyCreator interface {
+	CreateRSAKeyPair(ctx context.Context) error
+}
 
 type (
 	// Config holds the configuration for the accounts subcommands.
@@ -48,7 +55,7 @@ type (
 		accountManager accounts.Interface
 		l              *zap.SugaredLogger
 		config         Config
-		kubeClient     kubernetes.KubernetesConnector
+		kubeClient     rsaKeyCreator
 	}
 )
 
@@ -241,7 +248,7 @@ func (c *Accounts) CreateRSAKeyPair(ctx context.Context) {
 	c.l.Info("Creating/Updating JWT keys and restarting Everest.")
 	if err := c.kubeClient.CreateRSAKeyPair(ctx); err != nil {
 		c.l.Error(err)
-		os.Exit(1)
+		osExit(1)
 	}
 
 	c.l.Info("JWT keys have been created/updated successfully")
