@@ -64,6 +64,7 @@ export enum FieldType {
 export enum GroupType {
   Accordion = 'accordion',
   Line = 'line',
+  Switch = 'switch',
 }
 
 interface CommonFieldParams {

@@ -16,6 +16,7 @@ import { SelectInput, SwitchInput, TextInput } from '@percona/ui-lib';
 import { FieldType, GroupType } from './ui-generator.types';
 import AccordionWrapper from './ui-group-wrappers/accordion-wrapper';
 import StackWrapper from './ui-group-wrappers/stack-wrapper';
+import SwitchGroupWrapper from './ui-group-wrappers/switch-group-wrapper';
 import { z } from 'zod';
 
 export const UI_TYPE_DEFAULT_VALUE: Partial<Record<FieldType, unknown>> = {
@@ -28,6 +29,7 @@ export const UI_TYPE_DEFAULT_VALUE: Partial<Record<FieldType, unknown>> = {
 export const componentGroupMap: Record<string, React.ElementType> = {
   [GroupType.Accordion]: AccordionWrapper,
   [GroupType.Line]: StackWrapper,
+  [GroupType.Switch]: SwitchGroupWrapper,
 };
 export const muiComponentMap: Record<FieldType, React.ElementType> = {
   [FieldType.Number]: TextInput,
