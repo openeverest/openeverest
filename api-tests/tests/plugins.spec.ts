@@ -16,15 +16,16 @@
 // Smoke test for the plugin subsystem. OpenEverest now ships plugin-hub as a
 // plugin by default, so we guard the end-to-end server wiring that every
 // plugin depends on: discovery (`GET /v1/plugins`), the reverse proxy
-// (`GET /v1/plugins/:name/*`), and the enabled/unknown gating. The test is
-// self-contained — it creates its own Plugin CR and does not depend on
-// plugin-hub being deployed in the test cluster.
+// (`GET /v1/plugins/:name/*`), and the enabled/unknown gating. The Plugin CRs
+// this test relies on are applied by the `create-test-manifests` Makefile
+// target (manifests/test-plugin.yaml) — one enabled and one disabled — so the
+// test itself performs no cluster state changes.
 
 import {expect, test} from '@fixtures'
 import {checkError} from '@tests/utils/api';
 
 const PLUGIN_NAME = 'test-api-plugin'
-const PLUGIN_MANIFEST = 'manifests/test-plugin.yaml'
+const DISABLED_PLUGIN_NAME = 'test-api-plugin-disabled'
 
 interface PluginDescriptor {
   name: string
@@ -37,14 +38,6 @@ const findPlugin = (plugins: PluginDescriptor[], name: string): PluginDescriptor
   Array.isArray(plugins) ? plugins.find((p) => p?.name === name) : undefined
 
 test.describe.serial('Plugin subsystem', () => {
-  test.beforeAll(async ({cli}) => {
-    await (await cli.exec(`kubectl apply -f ${PLUGIN_MANIFEST}`)).assertSuccess()
-  })
-
-  test.afterAll(async ({cli}) => {
-    await cli.exec(`kubectl delete -f ${PLUGIN_MANIFEST} --ignore-not-found=true`)
-  })
-
   test('discovery lists the plugin with a resolved descriptor', async ({request}) => {
     const r = await request.get('/v1/plugins')
 
@@ -81,28 +74,16 @@ test.describe.serial('Plugin subsystem', () => {
     expect(r.status()).toBe(404)
   })
 
-  test('disabled plugin is hidden from discovery and the proxy', async ({request, cli}) => {
-    await (await cli.exec(
-      `kubectl patch plugin ${PLUGIN_NAME} --type merge -p '{"spec":{"enabled":false}}'`
-    )).assertSuccess()
+  test('disabled plugin is hidden from discovery and the proxy', async ({request}) => {
+    const list = await request.get('/v1/plugins')
 
-    try {
-      await expect(async () => {
-        const list = await request.get('/v1/plugins')
+    await checkError(list)
 
-        await checkError(list)
+    const plugins: PluginDescriptor[] = await list.json()
+    expect(findPlugin(plugins, DISABLED_PLUGIN_NAME)).toBeUndefined()
 
-        const plugins: PluginDescriptor[] = await list.json()
-        expect(findPlugin(plugins, PLUGIN_NAME)).toBeUndefined()
+    const proxied = await request.get(`/v1/plugins/${DISABLED_PLUGIN_NAME}/main.js`)
 
-        const proxied = await request.get(`/v1/plugins/${PLUGIN_NAME}/main.js`)
-
-        expect(proxied.status()).toBe(404)
-      }).toPass({timeout: 15_000})
-    } finally {
-      await (await cli.exec(
-        `kubectl patch plugin ${PLUGIN_NAME} --type merge -p '{"spec":{"enabled":true}}'`
-      )).assertSuccess()
-    }
+    expect(proxied.status()).toBe(404)
   })
 })

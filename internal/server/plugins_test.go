@@ -212,16 +212,42 @@ func TestCanUsePlugin(t *testing.T) {
 		want    bool
 	}{
 		{
-			name: "direct use grant",
+			name:    "direct use grant",
 			subject: "bob",
-			plugin: "plugin-hub",
-			want: true,
+			plugin:  "plugin-hub",
+			want:    true,
 		},
-		{name: "direct grant does not leak to other plugin", subject: "bob", plugin: "other", want: false},
-		{name: "wildcard plugin grant", subject: "carol", plugin: "anything", want: true},
-		{name: "admin star on plugins", subject: "dave", plugin: "plugin-hub", want: true},
-		{name: "group-based grant", subject: "eve", groups: []string{"team-a"}, plugin: "plugin-hub", want: true},
-		{name: "no grant denied", subject: "nobody", plugin: "plugin-hub", want: false},
+		{
+			name:    "direct grant does not leak to other plugin",
+			subject: "bob",
+			plugin:  "other",
+			want:    false,
+		},
+		{
+			name:    "wildcard plugin grant",
+			subject: "carol",
+			plugin:  "anything",
+			want:    true,
+		},
+		{
+			name:    "admin star on plugins",
+			subject: "dave",
+			plugin:  "plugin-hub",
+			want:    true,
+		},
+		{
+			name:    "group-based grant",
+			subject: "eve",
+			groups:  []string{"team-a"},
+			plugin:  "plugin-hub",
+			want:    true,
+		},
+		{
+			name:    "no grant denied",
+			subject: "nobody",
+			plugin:  "plugin-hub",
+			want:    false,
+		},
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {

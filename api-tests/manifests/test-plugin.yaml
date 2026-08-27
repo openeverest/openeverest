@@ -23,3 +23,27 @@ spec:
       - type: route
         label: Test API Plugin
         path: /test-api-plugin
+---
+# A second plugin that ships disabled. Tests use it to verify that a disabled
+# plugin is hidden from discovery and returns 404 from the reverse proxy,
+# without mutating any plugin state at runtime.
+apiVersion: extensions.openeverest.io/v1alpha1
+kind: Plugin
+metadata:
+  name: test-api-plugin-disabled
+spec:
+  displayName: Test API Plugin (disabled)
+  description: Disabled plugin used by api-tests to verify enabled gating.
+  version: 0.0.0
+  vendor: OpenEverest
+  enabled: false
+  backend:
+    externalUrl: http://127.0.0.1:1
+  frontend:
+    bundlePath: /main.js
+    extensionPoints:
+      - type: sidebarItem
+        label: Test API Plugin (disabled)
+      - type: route
+        label: Test API Plugin (disabled)
+        path: /test-api-plugin-disabled
