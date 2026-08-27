@@ -24,6 +24,7 @@ import (
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
+	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
 	corev1alpha1 "github.com/openeverest/openeverest/v2/api/core/v1alpha1"
 	api "github.com/openeverest/openeverest/v2/internal/server/api"
 	"github.com/openeverest/openeverest/v2/provider-runtime/controller"
@@ -52,7 +53,7 @@ func (h *validateHandler) validateBackupRefs(ctx context.Context, backup *v1alph
 	// Imported backups have no Instance to validate; their data
 	// already lives in the referenced BackupStorage.
 	var instance *corev1alpha1.Instance
-	if backup.Spec.Origin.InstanceRef != nil {
+	if backup.Spec.Origin.Type == backupv1alpha1.BackupOriginTypeInstance {
 		var err error
 		instance, err = h.kubeConnector.GetInstance(ctx, ctrlclient.ObjectKey{
 			Namespace: backup.GetNamespace(),
@@ -90,7 +91,7 @@ func (h *validateHandler) validateBackupRefs(ctx context.Context, backup *v1alph
 		return fmt.Errorf("failed to get backup class '%s': %w", backup.Spec.ClassRef.Name, err)
 	}
 
-	if backup.Spec.Origin.InstanceRef == nil {
+	if backup.Spec.Origin.Type != backupv1alpha1.BackupOriginTypeInstance {
 		return nil
 	}
 

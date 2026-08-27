@@ -1269,7 +1269,7 @@ type BackupStorageList struct {
 
 // Import Import is the Schema for the imports API. It discovers
 // the restorable backups already present in a BackupStorage and creates a
-// Backup CR (spec.imported) for each so they can be restored.
+// Backup CR for each so they can be restored.
 type Import struct {
 	// ApiVersion APIVersion defines the versioned schema of this representation of an object.
 	// Servers should convert recognized schemas to the latest internal value, and

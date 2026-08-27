@@ -657,7 +657,7 @@ export interface components {
         /**
          * @description Import is the Schema for the imports API. It discovers
          *     the restorable backups already present in a BackupStorage and creates a
-         *     Backup CR (spec.imported) for each so they can be restored.
+         *     Backup CR for each so they can be restored.
          */
         Import: {
             /**

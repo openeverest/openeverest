@@ -44,7 +44,7 @@ func newFakeClient(scheme *runtime.Scheme, objs ...client.Object) client.Client 
 		WithObjects(objs...).
 		WithIndex(&backupv1alpha1.Backup{}, controller.IndexBackupInstanceName, func(obj client.Object) []string {
 			b, ok := obj.(*backupv1alpha1.Backup)
-			if !ok || b.Spec.Origin.Type != backupv1alpha1.BackupOriginTypeInstance || b.Spec.Origin.InstanceRef == nil {
+			if !ok || b.Spec.Origin.InstanceRef == nil {
 				return nil
 			}
 			return []string{b.Spec.Origin.InstanceRef.Name}
