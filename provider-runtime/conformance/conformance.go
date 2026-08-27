@@ -95,10 +95,24 @@ func UISchemaIsReconciled(t *testing.T, cfg Config) {
 		results = append(results, probeTopology(t, cfg, spec, topology, paths)...)
 	}
 
-	report(t, cfg, results)
+	report(t, cfg, results, uiSchemaSource())
 }
 
-func report(t *testing.T, cfg Config, results []result) {
+// source describes where a probed path came from, so a failure names the
+// declaration the author has to fix.
+type source struct {
+	subject string
+	ignored string
+}
+
+func uiSchemaSource() source {
+	return source{
+		subject: "UI schema references",
+		ignored: "offered by the UI, but setting it changes nothing the provider applies or requests",
+	}
+}
+
+func report(t *testing.T, cfg Config, results []result, src source) {
 	t.Helper()
 
 	var failures, notes []string
@@ -112,8 +126,8 @@ func report(t *testing.T, cfg Config, results []result) {
 			continue
 		case ignored:
 			failures = append(failures, fmt.Sprintf(
-				"  topology %s\n    %s\n      offered by the UI, but setting it changes nothing the provider applies or requests",
-				r.topology, r.path))
+				"  topology %s\n    %s\n      %s",
+				r.topology, r.path, src.ignored))
 		case unverified:
 			failures = append(failures, fmt.Sprintf(
 				"  topology %s\n    %s\n      could not be verified: %s%s",
@@ -125,8 +139,8 @@ func report(t *testing.T, cfg Config, results []result) {
 		t.Log(note)
 	}
 	if len(failures) > 0 {
-		t.Errorf("UI schema references %d field(s) this provider does not reconcile:\n%s",
-			len(failures), strings.Join(failures, "\n"))
+		t.Errorf("%s %d field(s) this provider does not reconcile:\n%s",
+			src.subject, len(failures), strings.Join(failures, "\n"))
 	}
 }
 
