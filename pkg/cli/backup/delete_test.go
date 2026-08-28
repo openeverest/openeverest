@@ -348,6 +348,7 @@ func TestDelete_VerboseAloneDoesNotForceNonInteractive(t *testing.T) {
 		Cluster:    "main",
 		JSON:       false,
 		IsTerminal: func() bool { return true },
+		Yes:        true,
 	}
 
 	bd := NewDeleter(Config{Pretty: false}, zap.NewNop().Sugar())

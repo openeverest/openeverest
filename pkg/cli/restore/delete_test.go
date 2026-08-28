@@ -303,6 +303,7 @@ func TestDelete_VerboseAloneDoesNotForceNonInteractive(t *testing.T) {
 		Namespace:  "everest",
 		Cluster:    "main",
 		JSON:       false,
+		Yes:        true,
 		IsTerminal: func() bool { return true },
 	}
 
