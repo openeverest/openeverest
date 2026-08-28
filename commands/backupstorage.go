@@ -13,24 +13,29 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package commands ...
 package commands
 
 import (
 	"github.com/spf13/cobra"
 
 	"github.com/openeverest/openeverest/v2/commands/backupstorage"
+	"github.com/openeverest/openeverest/v2/commands/common"
 )
 
 var backupStorageCmd = &cobra.Command{
 	Use:     "backup-storage <command> [flags]",
 	Aliases: []string{"backupstorage", "bs"},
+	Args:    common.NoSubcommandArgs,
 	Short:   "Manage Everest backup storages",
 	Long:    "Manage Everest backup storages",
-	RunE:    func(cmd *cobra.Command, _ []string) error { return cmd.Help() },
+	RunE: func(cmd *cobra.Command, _ []string) error {
+		return cmd.Help()
+	},
 }
 
 func init() {
 	rootCmd.AddCommand(backupStorageCmd)
 	backupStorageCmd.AddCommand(backupstorage.GetListCmd())
+	backupStorageCmd.AddCommand(backupstorage.GetCreateCmd())
+	backupStorageCmd.AddCommand(backupstorage.GetDeleteCmd())
 }

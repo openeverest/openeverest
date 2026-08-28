@@ -25,7 +25,11 @@ import { EmptyStateIcon } from '@percona/ui-lib';
 
 const ContactSupportLink = ({ msg }: { msg: string }) => {
   return (
-    <Link target="_blank" rel="noopener" href="https://openeverest.io/support/">
+    <Link
+      target="_blank"
+      rel="noopener noreferrer"
+      href="https://openeverest.io/support/"
+    >
       <Button
         startIcon={
           <HelpIcon

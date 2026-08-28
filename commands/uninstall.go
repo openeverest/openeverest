@@ -44,7 +44,9 @@ func init() {
 	rootCmd.AddCommand(uninstallCmd)
 
 	// local command flags
-	uninstallCmd.Flags().BoolVarP(&uninstallCfg.AssumeYes, "assume-yes", "y", false, "Assume yes to all questions")
+	uninstallCmd.Flags().BoolVarP(&uninstallCfg.AssumeYes, cli.FlagYes, "y", false, "Assume yes to all questions")
+	uninstallCmd.Flags().BoolVar(&uninstallCfg.AssumeYes, "assume-yes", false, "Deprecated: use --yes instead")
+	_ = uninstallCmd.Flags().MarkDeprecated("assume-yes", "use --yes instead")
 	uninstallCmd.Flags().BoolVarP(&uninstallCfg.Force, "force", "f", false, "Force removal in case there are database clusters running")
 	uninstallCmd.Flags().BoolVar(&uninstallCfg.SkipEnvDetection, cli.FlagSkipEnvDetection, false, "Skip detecting Kubernetes environment where Everest is installed")
 }

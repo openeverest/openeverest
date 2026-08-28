@@ -33,6 +33,7 @@ import (
 
 	"github.com/openeverest/openeverest/v2/client"
 	authcli "github.com/openeverest/openeverest/v2/pkg/cli/auth"
+	"github.com/openeverest/openeverest/v2/pkg/cli/clienterr"
 	"github.com/openeverest/openeverest/v2/pkg/cli/wait"
 	"github.com/openeverest/openeverest/v2/pkg/output"
 )
@@ -165,8 +166,8 @@ func (ic *InstanceCreator) Run(ctx context.Context, opts CreateOptions, cfgPath 
 		if resp.StatusCode() == http.StatusConflict {
 			return fmt.Errorf("instance %q already exists in namespace %q", opts.Name, opts.Namespace)
 		}
-		if resp.JSONDefault != nil && resp.JSONDefault.Message != nil {
-			return fmt.Errorf("server error: %s", *resp.JSONDefault.Message)
+		if msg, ok := clienterr.Message(resp.JSONDefault); ok {
+			return fmt.Errorf("server error: %s", msg)
 		}
 		return fmt.Errorf("unexpected response creating instance: %s", resp.Status())
 	}
@@ -450,15 +451,10 @@ func validateComponents(setFlags []string, prov *client.Provider, topology strin
 }
 
 func providerName(prov *client.Provider) string {
-	if prov.Metadata == nil {
+	if prov.Metadata == nil || prov.Metadata.Name == "" {
 		return "<unknown>"
 	}
-	if name, ok := (*prov.Metadata)["name"]; ok {
-		if s, ok := name.(string); ok {
-			return s
-		}
-	}
-	return "<unknown>"
+	return prov.Metadata.Name
 }
 
 // buildSpecOverrides merges -f file values and --set overrides; --set wins.

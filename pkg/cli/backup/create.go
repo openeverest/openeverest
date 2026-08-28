@@ -25,17 +25,13 @@ import (
 	"time"
 
 	"go.uber.org/zap"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/openeverest/openeverest/v2/client"
 	authcli "github.com/openeverest/openeverest/v2/pkg/cli/auth"
+	"github.com/openeverest/openeverest/v2/pkg/cli/clienterr"
 	"github.com/openeverest/openeverest/v2/pkg/cli/wait"
 	"github.com/openeverest/openeverest/v2/pkg/output"
-)
-
-// terminal backup states.
-const (
-	backupStateSucceeded = "Succeeded"
-	backupStateFailed    = "Failed"
 )
 
 // CreateOptions holds the inputs for the create command.
@@ -76,21 +72,19 @@ func (cr *CreateRunner) Run(ctx context.Context, opts CreateOptions, cfgPath str
 		return err
 	}
 
-	backup := client.Backup{
-		Metadata: &map[string]any{
-			"namespace": opts.Namespace,
-		},
-	}
+	md := metav1.ObjectMeta{Namespace: opts.Namespace}
 	if opts.Name != "" {
-		(*backup.Metadata)["name"] = opts.Name
+		md.Name = opts.Name
 	} else {
-		(*backup.Metadata)["generateName"] = opts.Instance + "-"
+		md.GenerateName = opts.Instance + "-"
 	}
+	backup := client.Backup{Metadata: &md}
 	backup.Spec.InstanceRef.Name = opts.Instance
 	backup.Spec.ClassRef.Name = opts.Class
 	backup.Spec.StorageRef.Name = opts.Storage
 	if opts.DeletionPolicy != "" {
-		backup.Spec.DeletionPolicy = opts.DeletionPolicy
+		policy := client.BackupSpecDeletionPolicy(opts.DeletionPolicy)
+		backup.Spec.DeletionPolicy = &policy
 	}
 
 	resp, err := c.CreateBackupWithResponse(ctx, opts.Cluster, opts.Namespace, backup)
@@ -102,13 +96,13 @@ func (cr *CreateRunner) Run(ctx context.Context, opts CreateOptions, cfgPath str
 		if resp.StatusCode() == http.StatusConflict {
 			return fmt.Errorf("backup %q already exists in namespace %q", opts.Name, opts.Namespace)
 		}
-		if resp.JSONDefault != nil && resp.JSONDefault.Message != nil {
-			return fmt.Errorf("server error: %s", *resp.JSONDefault.Message)
+		if msg, ok := clienterr.Message(resp.JSONDefault); ok {
+			return fmt.Errorf("server error: %s", msg)
 		}
 		return fmt.Errorf("unexpected response creating backup: %s", resp.Status())
 	}
 
-	name := metadataStringField(resp.JSON201, "name")
+	name := backupName(resp.JSON201)
 	cr.l.Infof("created backup %q for instance %q in namespace %q", name, opts.Instance, opts.Namespace)
 
 	if !opts.Wait {
@@ -123,10 +117,6 @@ func (cr *CreateRunner) emitCreated(created *client.Backup, name string) error {
 	if cr.config.Pretty {
 		_, _ = fmt.Fprint(os.Stdout, output.Success("Backup %q created", name))
 		return nil
-	}
-	// A 201 with an unparseable body would otherwise emit empty stdout.
-	if created == nil {
-		return fmt.Errorf("backup %q was created but the server returned an unreadable response body", name)
 	}
 	return writeBackupJSON(created)
 }
@@ -179,9 +169,6 @@ func (cr *CreateRunner) waitForBackup(
 }
 
 func writeBackupJSON(b *client.Backup) error {
-	if b == nil {
-		return nil
-	}
 	if err := json.NewEncoder(os.Stdout).Encode(b); err != nil {
 		return fmt.Errorf("failed to encode backup: %w", err)
 	}

@@ -152,7 +152,7 @@ func NewEverestServer(ctx context.Context, c *config.EverestConfig, l *zap.Sugar
 		tokenRegistry: tokenRegistry,
 		attemptsStore: store,
 		oidcProvider:  oidcProvider,
-		eventHub:      events.NewHub(l, kubeConnector),
+		eventHub:      events.NewHub(l, kubeConnector, events.NewRingBuffer(c.EventBufferMaxEvents, c.EventBufferMaxAge)),
 	}
 	e.echo.HTTPErrorHandler = e.errorHandlerChain()
 
@@ -361,7 +361,8 @@ func (e *EverestServer) setupHandlers(
 	if err != nil {
 		return errors.Join(err, errors.New("could not create rbac handler"))
 	}
-	e.setHandlers(valH, rbacH, k8sH)
+	// RBAC runs first: the validation handler dials request-supplied endpoints with request-supplied credentials.
+	e.setHandlers(rbacH, valH, k8sH)
 	return nil
 }
 
@@ -518,7 +519,7 @@ func (e *EverestServer) pruneExpiredTokens(ctx context.Context) {
 }
 
 func (e *EverestServer) getBodyFromContext(ctx echo.Context, into any) error {
-	// GetBody creates a copy of the body to avoid "spoiling" the request before proxing
+	// GetBody creates a copy of the body to avoid "spoiling" the request before proxying
 	reader, err := ctx.Request().GetBody()
 	if err != nil {
 		return err

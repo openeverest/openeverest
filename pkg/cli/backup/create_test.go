@@ -79,8 +79,9 @@ func TestRun_HappyPath_GeneratesName(t *testing.T) {
 	}, newConfigPath(t, srv.URL))
 
 	require.NoError(t, err)
-	assert.Equal(t, "my-mongo-", (*gotBody.Metadata)["generateName"])
-	assert.Nil(t, (*gotBody.Metadata)["name"])
+	require.NotNil(t, gotBody.Metadata)
+	assert.Equal(t, "my-mongo-", gotBody.Metadata.GenerateName)
+	assert.Empty(t, gotBody.Metadata.Name)
 	assert.Equal(t, "psmdb-backup", gotBody.Spec.ClassRef.Name)
 	assert.Equal(t, "my-s3", gotBody.Spec.StorageRef.Name)
 }
@@ -111,8 +112,10 @@ func TestRun_ExplicitName(t *testing.T) {
 	}, newConfigPath(t, srv.URL))
 
 	require.NoError(t, err)
-	assert.Equal(t, "pre-upgrade", (*gotBody.Metadata)["name"])
-	assert.Equal(t, "Retain", gotBody.Spec.DeletionPolicy)
+	require.NotNil(t, gotBody.Metadata)
+	assert.Equal(t, "pre-upgrade", gotBody.Metadata.Name)
+	require.NotNil(t, gotBody.Spec.DeletionPolicy)
+	assert.Equal(t, client.BackupSpecDeletionPolicy("Retain"), *gotBody.Spec.DeletionPolicy)
 }
 
 func TestRun_Conflict_ReturnsFriendlyError(t *testing.T) {

@@ -29,6 +29,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/openeverest/openeverest/v2/client"
 	"github.com/openeverest/openeverest/v2/pkg/cli"
@@ -36,6 +37,22 @@ import (
 )
 
 // ---- helpers ----------------------------------------------------------------
+
+// Aliases for the anonymous structs oapi-codegen emits for the Provider CR, so
+// a new field on the spec is one edit here rather than five.
+type (
+	schemaEnvelope = struct {
+		OpenAPIV3Schema any `json:"openAPIV3Schema,omitempty"` //nolint:tagliatelle
+	}
+	topologyComponent = struct {
+		Optional        *bool           `json:"optional,omitempty"`
+		SupportedFields *schemaEnvelope `json:"supportedFields,omitempty"`
+	}
+	topologySpec = struct {
+		Components       *map[string]topologyComponent `json:"components,omitempty"`
+		ParametersSchema *schemaEnvelope               `json:"parametersSchema,omitempty"`
+	}
+)
 
 func boolPtr(b bool) *bool    { return &b }
 func strPtr(s string) *string { return &s }
@@ -46,7 +63,7 @@ func buildProvider(name string, versions []struct {
 	isDefault bool
 }, topologies map[string][]string,
 ) *client.Provider {
-	meta := map[string]any{"name": name}
+	meta := metav1.ObjectMeta{Name: name}
 
 	var vers []struct {
 		Components *map[string]string `json:"components,omitempty"`
@@ -65,31 +82,13 @@ func buildProvider(name string, versions []struct {
 		})
 	}
 
-	topos := map[string]struct {
-		Components *map[string]struct {
-			Optional *bool `json:"optional,omitempty"`
-		} `json:"components,omitempty"`
-		ParametersSchema *struct {
-			OpenAPIV3Schema any `json:"openAPIV3Schema,omitempty"` //nolint:tagliatelle
-		} `json:"parametersSchema,omitempty"`
-	}{}
+	topos := map[string]topologySpec{}
 	for topo, comps := range topologies {
-		compMap := map[string]struct {
-			Optional *bool `json:"optional,omitempty"`
-		}{}
+		compMap := map[string]topologyComponent{}
 		for _, c := range comps {
-			compMap[c] = struct {
-				Optional *bool `json:"optional,omitempty"`
-			}{}
+			compMap[c] = topologyComponent{}
 		}
-		topos[topo] = struct {
-			Components *map[string]struct {
-				Optional *bool `json:"optional,omitempty"`
-			} `json:"components,omitempty"`
-			ParametersSchema *struct {
-				OpenAPIV3Schema any `json:"openAPIV3Schema,omitempty"` //nolint:tagliatelle
-			} `json:"parametersSchema,omitempty"`
-		}{Components: &compMap}
+		topos[topo] = topologySpec{Components: &compMap}
 	}
 
 	globalComps := map[string]struct {
@@ -246,14 +245,7 @@ func TestValidateComponents_EmptyTopologyFallsBackToGlobal(t *testing.T) {
 	// Validation should fall back to spec.components.
 	prov := buildProvider("psmdb", nil, map[string][]string{"replicaset": {"engine"}})
 	// Override: topology map exists but components map is nil inside it.
-	empty := map[string]struct {
-		Components *map[string]struct {
-			Optional *bool `json:"optional,omitempty"`
-		} `json:"components,omitempty"`
-		ParametersSchema *struct {
-			OpenAPIV3Schema any `json:"openAPIV3Schema,omitempty"` //nolint:tagliatelle
-		} `json:"parametersSchema,omitempty"`
-	}{
+	empty := map[string]topologySpec{
 		"replicaset": {Components: nil},
 	}
 	prov.Spec.Topologies = &empty

@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,6 +16,7 @@
 
 import { DbType } from '@percona/types';
 import { DbCluster, ProxyExposeType } from 'shared-types/dbCluster.types';
+import { Instance } from 'shared-types/api.types';
 
 export type OverviewCardProps = {
   loading?: boolean;
@@ -74,14 +76,6 @@ export type ResourcesDetailsOverviewProps = {
 } & OverviewCardProps;
 
 export type BackupsDetailsOverviewCardProps = {
-  schedules: NonNullable<DbCluster['spec']['backup']>['schedules'];
-  pitrEnabled: NonNullable<
-    NonNullable<DbCluster['spec']['backup']>['pitr']
-  >['enabled'];
-  pitrStorageName: NonNullable<
-    NonNullable<DbCluster['spec']['backup']>['pitr']
-  >['backupStorageName'];
-  showStorage: boolean;
-  dbClusterName: string;
+  instance: Instance;
   namespace: string;
 } & OverviewCardProps;
