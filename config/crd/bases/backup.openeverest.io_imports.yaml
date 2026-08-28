@@ -78,7 +78,7 @@ spec:
                 description: |-
                   StorageRef references a BackupStorage in the same namespace whose
                   contents are listed and parsed. The reconciler reads the storage and
-                  its credentials secret read-only.
+                  its credentials secret.
                 properties:
                   name:
                     description: Name of the referenced object.

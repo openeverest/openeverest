@@ -272,9 +272,9 @@ func (r *BackupReconciler) Reconcile( //nolint:nonamedreturns
 }
 
 // ensureInstanceNameLabel ensures that the Backup resource has the instance name
-// label, used for filtering backups by instance using label selectors. Imported
-// backups have no Instance, so there is nothing to label.
+// label, used for filtering backups by instance using label selectors.
 func (r *BackupReconciler) ensureInstanceNameLabel(ctx context.Context, backup *backupv1alpha1.Backup) error {
+	// Imported backups have no Instance, so there is nothing to label.
 	if backup.Spec.Origin.InstanceRef == nil {
 		return nil
 	}

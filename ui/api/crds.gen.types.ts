@@ -63,15 +63,14 @@ export interface components {
                     /**
                      * @description Import identifies data already present in the referenced BackupStorage
                      *     rather than produced by a live Instance. Required when Type is Import.
-                     *     When set, the restoring provider builds the engine restore directly from
+                     *     When set, the restoring builds the engine restore directly from
                      *     storageRef + import.path with no live operator object.
                      */
                     import?: {
                         /**
                          * @description Path is the backup's path within the BackupStorage. The bucket is
                          *     already determined by storageRef, so it is not repeated here. The path
-                         *     is unique within its storage and is the qualifier the provider uses to
-                         *     build the engine restore.
+                         *     is unique within its storage and is used for restore.
                          */
                         path: string;
                     };
@@ -691,7 +690,7 @@ export interface components {
                 /**
                  * @description StorageRef references a BackupStorage in the same namespace whose
                  *     contents are listed and parsed. The reconciler reads the storage and
-                 *     its credentials secret read-only.
+                 *     its credentials secret.
                  */
                 storageRef: {
                     /** @description Name of the referenced object. */

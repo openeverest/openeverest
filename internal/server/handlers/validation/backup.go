@@ -52,7 +52,7 @@ func (h *validateHandler) validateBackupRefs(ctx context.Context, backup *backup
 	// Imported backups have no Instance to validate; their data
 	// already lives in the referenced BackupStorage.
 	var instance *corev1alpha1.Instance
-	if backup.Spec.Origin.Type == backupv1alpha1.BackupOriginTypeInstance {
+	if backup.Spec.Origin.InstanceRef != nil {
 		var err error
 		instance, err = h.kubeConnector.GetInstance(ctx, ctrlclient.ObjectKey{
 			Namespace: backup.GetNamespace(),
@@ -90,11 +90,12 @@ func (h *validateHandler) validateBackupRefs(ctx context.Context, backup *backup
 		return fmt.Errorf("failed to get backup class '%s': %w", backup.Spec.ClassRef.Name, err)
 	}
 
-	if backup.Spec.Origin.Type != backupv1alpha1.BackupOriginTypeInstance {
-		return nil
+	// Imported backups have no Instance to validate its Provider.
+	if backup.Spec.Origin.InstanceRef != nil {
+		return controller.ValidateClassSupportsProvider(bc, instance.Spec.ProviderRef.Name)
 	}
 
-	return controller.ValidateClassSupportsProvider(bc, instance.Spec.ProviderRef.Name)
+	return nil
 }
 
 // DeleteBackup proxies the request to the next handler.

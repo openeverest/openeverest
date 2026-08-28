@@ -189,7 +189,7 @@ func resolveBackupOwnership(
 	// backups already present in a BackupStorage, not produced by a live
 	// Instance. There is nothing for the backup runtime reconciler to drive,
 	// skip them.
-	if backup.Spec.Origin.Type != backupv1alpha1.BackupOriginTypeInstance {
+	if backup.Spec.Origin.InstanceRef == nil {
 		return nil, bc, false, nil
 	}
 	instance := &corev1alpha1.Instance{}

@@ -703,13 +703,12 @@ type Backup struct {
 		Origin struct {
 			// Import Import identifies data already present in the referenced BackupStorage
 			// rather than produced by a live Instance. Required when Type is Import.
-			// When set, the restoring provider builds the engine restore directly from
+			// When set, the restoring builds the engine restore directly from
 			// storageRef + import.path with no live operator object.
 			Import *struct {
 				// Path Path is the backup's path within the BackupStorage. The bucket is
 				// already determined by storageRef, so it is not repeated here. The path
-				// is unique within its storage and is the qualifier the provider uses to
-				// build the engine restore.
+				// is unique within its storage and is used for restore.
 				Path string `json:"path"`
 			} `json:"import,omitempty"`
 
@@ -1300,7 +1299,7 @@ type Import struct {
 
 		// StorageRef StorageRef references a BackupStorage in the same namespace whose
 		// contents are listed and parsed. The reconciler reads the storage and
-		// its credentials secret read-only.
+		// its credentials secret.
 		StorageRef struct {
 			// Name Name of the referenced object.
 			Name string `json:"name"`

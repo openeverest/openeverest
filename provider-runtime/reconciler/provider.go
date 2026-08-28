@@ -200,7 +200,7 @@ func newReconciler(ctx context.Context, p providerAdapter, opts ...ReconcilerOpt
 	if _, isBackupProvider := p.(controller.BackupProvider); isBackupProvider {
 		if err := mgr.GetFieldIndexer().IndexField(ctx, &backupv1alpha1.Backup{}, controller.IndexBackupInstanceName, func(obj client.Object) []string {
 			b, ok := obj.(*backupv1alpha1.Backup)
-			if !ok || b.Spec.Origin.Type != backupv1alpha1.BackupOriginTypeInstance {
+			if !ok || b.Spec.Origin.InstanceRef == nil {
 				return nil
 			}
 			return []string{b.Spec.Origin.InstanceRef.Name}
@@ -648,7 +648,8 @@ func (r *ProviderReconciler) handleDeletion(
 }
 
 // cascadeDeleteChildren issues Delete on every Backup and Restore CR in the
-// Instance's namespace whose .spec.instanceName matches this Instance, then
+// Instance's namespace where Backup.spec.origin.instanceRef.name or
+// Restore.spec.instanceRef.name matches this Instance, then
 // returns the number of CRs still present (counting both freshly-deleted ones
 // that have not yet been reaped by their own controllers and any older ones
 // still finalizing). The caller should requeue while remaining > 0.

@@ -30,7 +30,7 @@ type ImportSpec struct {
 	ClassRef common.ObjectRef `json:"classRef"`
 	// StorageRef references a BackupStorage in the same namespace whose
 	// contents are listed and parsed. The reconciler reads the storage and
-	// its credentials secret read-only.
+	// its credentials secret.
 	// +kubebuilder:validation:Required
 	StorageRef common.ObjectRef `json:"storageRef"`
 }
