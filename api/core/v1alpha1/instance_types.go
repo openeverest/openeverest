@@ -606,6 +606,14 @@ const (
 	// The condition is sticky: once True it remains True for the lifetime of
 	// the Instance.
 	ConditionDataSourceReady = "DataSourceReady"
+
+	// ConditionEngineVersionDeprecated is a read-only, informational condition
+	// that is True while any of the Instance's effective component versions is
+	// flagged as deprecated in the installed Provider catalog. The message
+	// names the affected versions and, when scheduled, the provider release
+	// that removes them, so owners can remediate before that provider upgrade
+	// is attempted. It never blocks or mutates anything.
+	ConditionEngineVersionDeprecated = "EngineVersionDeprecated"
 )
 
 // Reasons for the DataSourceReady condition.
@@ -653,6 +661,18 @@ const (
 	// BackupClass either does not exist, is not ProviderManaged, or does not
 	// list the target Instance's provider in SupportedProviders.
 	ReasonDataSourceClassUnsupported = "BackupClassUnsupported"
+)
+
+// Reasons for the EngineVersionDeprecated condition.
+const (
+	// ReasonScheduledForRemoval indicates at least one effective component
+	// version is deprecated in the installed Provider catalog and is dropped
+	// in a future provider release named in the condition message.
+	ReasonScheduledForRemoval = "ScheduledForRemoval"
+
+	// ReasonVersionsSupported indicates every effective component version is
+	// fully supported by the installed Provider catalog.
+	ReasonVersionsSupported = "VersionsSupported"
 )
 
 // Reasons for the StorageResizing condition.

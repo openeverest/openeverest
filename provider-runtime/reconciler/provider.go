@@ -18,6 +18,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -423,6 +424,10 @@ func (r *ProviderReconciler) Reconcile(ctx context.Context, req reconcile.Reques
 	}
 	syncCtx := controller.NewContext(ctx, r.Client, resolvedIn, r.provider.Name())
 
+	// Passive warning for owners: flag effective component versions the
+	// installed catalog marks as deprecated, before any upgrade is attempted.
+	r.setDeprecationCondition(ctx, in)
+
 	// Run sync
 	logger.Info("Running sync")
 	if err := r.provider.Sync(syncCtx); err != nil {
@@ -765,6 +770,41 @@ func setCondition(in *v1alpha1.Instance, condType string, status metav1.Conditio
 		Message:            message,
 		ObservedGeneration: in.Generation,
 	})
+}
+
+// setDeprecationCondition maintains the read-only EngineVersionDeprecated
+// condition: True while any of the Instance's effective component versions is
+// flagged as deprecated in the installed Provider catalog. It reuses the
+// upgrade preflight's catalog check, so this passive warning and the
+// pre-upgrade hook's verdict never disagree. The condition is informational:
+// lookup failures are skipped and never fail the reconcile, and it is only
+// flipped to False (never removed) once a deprecation it reported clears.
+func (r *ProviderReconciler) setDeprecationCondition(ctx context.Context, in *v1alpha1.Instance) {
+	installed := &v1alpha1.Provider{}
+	if err := r.Get(ctx, client.ObjectKey{Name: in.Spec.ProviderRef.Name}, installed); err != nil {
+		return
+	}
+
+	var deprecations []string
+	for _, issue := range controller.PreflightUpgrade(&installed.Spec, []v1alpha1.Instance{*in}) {
+		if issue.Reason == controller.UpgradeReasonVersionDeprecated {
+			deprecations = append(deprecations, issue.Message)
+		}
+	}
+
+	if len(deprecations) > 0 {
+		setCondition(in, v1alpha1.ConditionEngineVersionDeprecated, metav1.ConditionTrue,
+			v1alpha1.ReasonScheduledForRemoval, strings.Join(deprecations, "; "), metav1.Now())
+		return
+	}
+	for _, c := range in.Status.Conditions {
+		if c.Type == v1alpha1.ConditionEngineVersionDeprecated {
+			setCondition(in, v1alpha1.ConditionEngineVersionDeprecated, metav1.ConditionFalse,
+				v1alpha1.ReasonVersionsSupported,
+				"All component versions are supported by the installed provider", metav1.Now())
+			return
+		}
+	}
 }
 
 // prepareInstance fetches the Provider and returns the Instance the provider
