@@ -51,7 +51,11 @@ describe('applyDescriptorMetadata', () => {
       providers: ['provider-percona-postgresql'],
     };
     const descriptors: ExtensionPointDescriptor[] = [
-      { type: 'clusterDetailTab', path: 'tab', providers: ['percona-server-mongodb'] },
+      {
+        type: 'clusterDetailTab',
+        path: 'tab',
+        providers: ['percona-server-mongodb'],
+      },
     ];
 
     applyDescriptorMetadata(ext, descriptors);
