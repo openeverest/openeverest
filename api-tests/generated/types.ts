@@ -1484,10 +1484,47 @@ export interface components {
                              */
                             parameters?: Record<string, never>;
                             /**
+                             * @description Retention selects how long backups produced by this schedule are
+                             *     kept, either by copy count or by age. It supersedes
+                             *     .retentionCopies: if both are set, .retention takes precedence and
+                             *     .retentionCopies is ignored. If .retention is unset, .retentionCopies
+                             *     keeps its existing meaning, so pre-existing Instances are unaffected.
+                             */
+                            retention?: {
+                                /**
+                                 * Format: int32
+                                 * @description Count is the number of recent backups to keep. Required when
+                                 *     .type is "count" and must not be set otherwise. Must be greater than
+                                 *     zero: "keep all" is expressed by omitting .retention entirely rather
+                                 *     than by a zero count.
+                                 */
+                                count?: number;
+                                /**
+                                 * @description Duration is the retention window as a positive integer followed by a
+                                 *     unit: "d" (days), "w" (weeks) or "m" (months), e.g. "7d", "2w",
+                                 *     "6m". Required when .type is "time" and must not be set otherwise.
+                                 *     The leading digit must be non-zero: a zero window such as "0d" would
+                                 *     mean "retain nothing" and is rejected.
+                                 */
+                                duration?: string;
+                                /**
+                                 * @description Type selects the retention strategy. "count" keeps the .count most
+                                 *     recent backups; "time" keeps every backup younger than .duration.
+                                 *     Defaults to "count".
+                                 * @default count
+                                 * @enum {string}
+                                 */
+                                type: "count" | "time";
+                            };
+                            /**
                              * Format: int32
                              * @description RetentionCopies is the number of recent backups to keep for this
                              *     schedule. Zero (or unset) means "keep all". Negative values are
                              *     rejected.
+                             *
+                             *     When .retention is set it takes precedence and this field is ignored;
+                             *     when .retention is unset this field remains authoritative. Use
+                             *     EffectiveRetention() rather than reading either field directly.
                              */
                             retentionCopies?: number;
                         }[];
@@ -2936,10 +2973,47 @@ export interface components {
                              */
                             parameters?: Record<string, never>;
                             /**
+                             * @description Retention selects how long backups produced by this schedule are
+                             *     kept, either by copy count or by age. It supersedes
+                             *     .retentionCopies: if both are set, .retention takes precedence and
+                             *     .retentionCopies is ignored. If .retention is unset, .retentionCopies
+                             *     keeps its existing meaning, so pre-existing Instances are unaffected.
+                             */
+                            retention?: {
+                                /**
+                                 * Format: int32
+                                 * @description Count is the number of recent backups to keep. Required when
+                                 *     .type is "count" and must not be set otherwise. Must be greater than
+                                 *     zero: "keep all" is expressed by omitting .retention entirely rather
+                                 *     than by a zero count.
+                                 */
+                                count?: number;
+                                /**
+                                 * @description Duration is the retention window as a positive integer followed by a
+                                 *     unit: "d" (days), "w" (weeks) or "m" (months), e.g. "7d", "2w",
+                                 *     "6m". Required when .type is "time" and must not be set otherwise.
+                                 *     The leading digit must be non-zero: a zero window such as "0d" would
+                                 *     mean "retain nothing" and is rejected.
+                                 */
+                                duration?: string;
+                                /**
+                                 * @description Type selects the retention strategy. "count" keeps the .count most
+                                 *     recent backups; "time" keeps every backup younger than .duration.
+                                 *     Defaults to "count".
+                                 * @default count
+                                 * @enum {string}
+                                 */
+                                type: "count" | "time";
+                            };
+                            /**
                              * Format: int32
                              * @description RetentionCopies is the number of recent backups to keep for this
                              *     schedule. Zero (or unset) means "keep all". Negative values are
                              *     rejected.
+                             *
+                             *     When .retention is set it takes precedence and this field is ignored;
+                             *     when .retention is unset this field remains authoritative. Use
+                             *     EffectiveRetention() rather than reading either field directly.
                              */
                             retentionCopies?: number;
                         }[];

@@ -219,6 +219,24 @@ func (e InstalledExtensionStatusPhase) Valid() bool {
 	}
 }
 
+// Defines values for InstanceSpecBackupStoragesSchedulesRetentionType.
+const (
+	InstanceSpecBackupStoragesSchedulesRetentionTypeCount InstanceSpecBackupStoragesSchedulesRetentionType = "count"
+	InstanceSpecBackupStoragesSchedulesRetentionTypeTime  InstanceSpecBackupStoragesSchedulesRetentionType = "time"
+)
+
+// Valid indicates whether the value is a known member of the InstanceSpecBackupStoragesSchedulesRetentionType enum.
+func (e InstanceSpecBackupStoragesSchedulesRetentionType) Valid() bool {
+	switch e {
+	case InstanceSpecBackupStoragesSchedulesRetentionTypeCount:
+		return true
+	case InstanceSpecBackupStoragesSchedulesRetentionTypeTime:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for InstanceSpecDataSourcePointInTimeRecoveryTarget.
 const (
 	InstanceSpecDataSourcePointInTimeRecoveryTargetDate   InstanceSpecDataSourcePointInTimeRecoveryTarget = "date"
@@ -351,6 +369,24 @@ func (e InstanceStatusPhase) Valid() bool {
 	case InstanceStatusPhaseTerminating:
 		return true
 	case InstanceStatusPhaseUpdating:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for InstancePresetSpecBackupStoragesSchedulesRetentionType.
+const (
+	InstancePresetSpecBackupStoragesSchedulesRetentionTypeCount InstancePresetSpecBackupStoragesSchedulesRetentionType = "count"
+	InstancePresetSpecBackupStoragesSchedulesRetentionTypeTime  InstancePresetSpecBackupStoragesSchedulesRetentionType = "time"
+)
+
+// Valid indicates whether the value is a known member of the InstancePresetSpecBackupStoragesSchedulesRetentionType enum.
+func (e InstancePresetSpecBackupStoragesSchedulesRetentionType) Valid() bool {
+	switch e {
+	case InstancePresetSpecBackupStoragesSchedulesRetentionTypeCount:
+		return true
+	case InstancePresetSpecBackupStoragesSchedulesRetentionTypeTime:
 		return true
 	default:
 		return false
@@ -1411,9 +1447,38 @@ type Instance struct {
 					// per-backup-run.
 					Parameters *map[string]interface{} `json:"parameters,omitempty"`
 
+					// Retention Retention selects how long backups produced by this schedule are
+					// kept, either by copy count or by age. It supersedes
+					// .retentionCopies: if both are set, .retention takes precedence and
+					// .retentionCopies is ignored. If .retention is unset, .retentionCopies
+					// keeps its existing meaning, so pre-existing Instances are unaffected.
+					Retention *struct {
+						// Count Count is the number of recent backups to keep. Required when
+						// .type is "count" and must not be set otherwise. Must be greater than
+						// zero: "keep all" is expressed by omitting .retention entirely rather
+						// than by a zero count.
+						Count *int32 `json:"count,omitempty"`
+
+						// Duration Duration is the retention window as a positive integer followed by a
+						// unit: "d" (days), "w" (weeks) or "m" (months), e.g. "7d", "2w",
+						// "6m". Required when .type is "time" and must not be set otherwise.
+						// The leading digit must be non-zero: a zero window such as "0d" would
+						// mean "retain nothing" and is rejected.
+						Duration *string `json:"duration,omitempty"`
+
+						// Type Type selects the retention strategy. "count" keeps the .count most
+						// recent backups; "time" keeps every backup younger than .duration.
+						// Defaults to "count".
+						Type *InstanceSpecBackupStoragesSchedulesRetentionType `json:"type,omitempty"`
+					} `json:"retention,omitempty"`
+
 					// RetentionCopies RetentionCopies is the number of recent backups to keep for this
 					// schedule. Zero (or unset) means "keep all". Negative values are
 					// rejected.
+					//
+					// When .retention is set it takes precedence and this field is ignored;
+					// when .retention is unset this field remains authoritative. Use
+					// EffectiveRetention() rather than reading either field directly.
 					RetentionCopies *int32 `json:"retentionCopies,omitempty"`
 				} `json:"schedules,omitempty"`
 
@@ -2418,6 +2483,11 @@ type Instance struct {
 	} `json:"status,omitempty"`
 }
 
+// InstanceSpecBackupStoragesSchedulesRetentionType Type selects the retention strategy. "count" keeps the .count most
+// recent backups; "time" keeps every backup younger than .duration.
+// Defaults to "count".
+type InstanceSpecBackupStoragesSchedulesRetentionType string
+
 // InstanceSpecComponentsResourcesLimits0 defines model for .
 type InstanceSpecComponentsResourcesLimits0 = int
 
@@ -2620,9 +2690,38 @@ type InstancePreset struct {
 					// per-backup-run.
 					Parameters *map[string]interface{} `json:"parameters,omitempty"`
 
+					// Retention Retention selects how long backups produced by this schedule are
+					// kept, either by copy count or by age. It supersedes
+					// .retentionCopies: if both are set, .retention takes precedence and
+					// .retentionCopies is ignored. If .retention is unset, .retentionCopies
+					// keeps its existing meaning, so pre-existing Instances are unaffected.
+					Retention *struct {
+						// Count Count is the number of recent backups to keep. Required when
+						// .type is "count" and must not be set otherwise. Must be greater than
+						// zero: "keep all" is expressed by omitting .retention entirely rather
+						// than by a zero count.
+						Count *int32 `json:"count,omitempty"`
+
+						// Duration Duration is the retention window as a positive integer followed by a
+						// unit: "d" (days), "w" (weeks) or "m" (months), e.g. "7d", "2w",
+						// "6m". Required when .type is "time" and must not be set otherwise.
+						// The leading digit must be non-zero: a zero window such as "0d" would
+						// mean "retain nothing" and is rejected.
+						Duration *string `json:"duration,omitempty"`
+
+						// Type Type selects the retention strategy. "count" keeps the .count most
+						// recent backups; "time" keeps every backup younger than .duration.
+						// Defaults to "count".
+						Type *InstancePresetSpecBackupStoragesSchedulesRetentionType `json:"type,omitempty"`
+					} `json:"retention,omitempty"`
+
 					// RetentionCopies RetentionCopies is the number of recent backups to keep for this
 					// schedule. Zero (or unset) means "keep all". Negative values are
 					// rejected.
+					//
+					// When .retention is set it takes precedence and this field is ignored;
+					// when .retention is unset this field remains authoritative. Use
+					// EffectiveRetention() rather than reading either field directly.
 					RetentionCopies *int32 `json:"retentionCopies,omitempty"`
 				} `json:"schedules,omitempty"`
 
@@ -3547,6 +3646,11 @@ type InstancePreset struct {
 		} `json:"conditions,omitempty"`
 	} `json:"status,omitempty"`
 }
+
+// InstancePresetSpecBackupStoragesSchedulesRetentionType Type selects the retention strategy. "count" keeps the .count most
+// recent backups; "time" keeps every backup younger than .duration.
+// Defaults to "count".
+type InstancePresetSpecBackupStoragesSchedulesRetentionType string
 
 // InstancePresetSpecComponentsResourcesLimits0 defines model for .
 type InstancePresetSpecComponentsResourcesLimits0 = int
