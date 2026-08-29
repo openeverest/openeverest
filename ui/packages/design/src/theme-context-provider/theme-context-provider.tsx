@@ -1,6 +1,7 @@
-import { useState, useMemo, useCallback } from 'react';
-import { ThemeProvider } from '@emotion/react';
-import { PaletteMode, createTheme } from '@mui/material';
+import { useState, useMemo, useCallback, useEffect } from 'react';
+// MUI's ThemeProvider (not emotion's) is required so cssVariables injects the
+// `--mui-*` custom properties; it also provides the emotion theme context.
+import { PaletteMode, createTheme, ThemeProvider } from '@mui/material';
 import CssBaseline from '@mui/material/CssBaseline';
 import { ThemeContextProviderProps } from './theme-context-provider.types';
 import { ColorModeContext } from './theme-contexts';
@@ -36,9 +37,20 @@ const ThemeContextProvider = ({
   }, [saveColorModeOnLocalStorage]);
 
   const theme = useMemo(
-    () => createTheme(themeOptions(colorMode)),
+    // cssVariables emits the palette/spacing/typography as `--mui-*` custom
+    // properties on :root so plugins with their own MUI can inherit host tokens.
+    () => createTheme({ ...themeOptions(colorMode), cssVariables: true }),
     [colorMode, themeOptions]
   );
+
+  // Published so plugins (which bundle their own MUI) can observe the active
+  // color scheme and re-render, since they can't read the host's React context.
+  useEffect(() => {
+    document.documentElement.setAttribute(
+      'data-everest-color-scheme',
+      colorMode
+    );
+  }, [colorMode]);
 
   return (
     <ColorModeContext.Provider value={{ colorMode, toggleColorMode }}>

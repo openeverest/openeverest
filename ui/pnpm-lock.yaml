@@ -379,6 +379,58 @@ importers:
         specifier: ^5.2.2
         version: 5.6.3
 
+  packages/plugin-ui-lib:
+    dependencies:
+      '@emotion/cache':
+        specifier: ^11.11.0
+        version: 11.14.0
+      '@emotion/react':
+        specifier: ^11.11.0
+        version: 11.13.3(@types/react@18.3.12)(react@18.3.1)
+      '@emotion/styled':
+        specifier: ^11.11.0
+        version: 11.13.0(@emotion/react@11.13.3(@types/react@18.3.12)(react@18.3.1))(@types/react@18.3.12)(react@18.3.1)
+      '@mui/icons-material':
+        specifier: ^7.3.0
+        version: 7.3.11(@mui/material@7.3.11(@emotion/react@11.13.3(@types/react@18.3.12)(react@18.3.1))(@emotion/styled@11.13.0(@emotion/react@11.13.3(@types/react@18.3.12)(react@18.3.1))(@types/react@18.3.12)(react@18.3.1))(@types/react@18.3.12)(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(@types/react@18.3.12)(react@18.3.1)
+      '@mui/material':
+        specifier: ^7.3.0
+        version: 7.3.11(@emotion/react@11.13.3(@types/react@18.3.12)(react@18.3.1))(@emotion/styled@11.13.0(@emotion/react@11.13.3(@types/react@18.3.12)(react@18.3.1))(@types/react@18.3.12)(react@18.3.1))(@types/react@18.3.12)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      react-dom:
+        specifier: ^18.0.0
+        version: 18.3.1(react@18.3.1)
+    devDependencies:
+      '@percona/tsconfig':
+        specifier: workspace:*
+        version: link:../tsconfig
+      '@rollup/plugin-commonjs':
+        specifier: ^25.0.7
+        version: 25.0.8(rollup@4.40.1)
+      '@rollup/plugin-node-resolve':
+        specifier: ^16.0.1
+        version: 16.0.1(rollup@4.40.1)
+      '@rollup/plugin-terser':
+        specifier: ^0.4.4
+        version: 0.4.4(rollup@4.40.1)
+      '@rollup/plugin-typescript':
+        specifier: ^11.0.0
+        version: 11.1.6(rollup@4.40.1)(tslib@2.8.1)(typescript@5.6.3)
+      '@types/react':
+        specifier: ^18.2.0
+        version: 18.3.12
+      react:
+        specifier: ^18.2.0
+        version: 18.3.1
+      rollup:
+        specifier: ^4.22.4
+        version: 4.40.1
+      rollup-plugin-dts:
+        specifier: ^6.1.0
+        version: 6.1.1(rollup@4.40.1)(typescript@5.6.3)
+      typescript:
+        specifier: ^5.2.2
+        version: 5.6.3
+
   packages/prettier-config:
     dependencies:
       prettier:

@@ -6,6 +6,16 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="csp-nonce" content="{{.CSPNonce}}" />
     <title>OpenEverest</title>
+    <script type="importmap" nonce="{{.CSPNonce}}">
+      {
+        "imports": {
+          "react": "/static/plugin-runtime/react.js",
+          "react-dom": "/static/plugin-runtime/react-dom.js",
+          "react/jsx-runtime": "/static/plugin-runtime/react-jsx-runtime.js",
+          "@mui/material/colors": "/static/plugin-runtime/mui-colors.js"
+        }
+      }
+    </script>
     <style id="_goober" nonce="{{.CSPNonce}}">
       /* do not remove */
     </style>

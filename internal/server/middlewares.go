@@ -121,6 +121,10 @@ func (e *EverestServer) securityHeaders() echo.MiddlewareFunc {
 			// The YAML editor draws its inline lint underlines as data: SVG
 			// background-images (@codemirror/lint), so allow data: images.
 			cspbuilder.ImgSrc: {CSPSelf, "data:"},
+			// Same-origin scripts ('self') cover the app and plugin bundles;
+			// $NONCE allows the inline <script type="importmap"> that maps
+			// plugins' shared React/MUI specifiers to host modules.
+			cspbuilder.ScriptSrc: {CSPSelf, "$NONCE"},
 			cspbuilder.StyleSrc: {
 				CSPSelf,
 				// $NONCE will be replaced by the real nonce value

@@ -252,6 +252,21 @@ export interface PluginApi {
    * The host automatically attaches the auth token.
    */
   fetch(path: string, init?: RequestInit): Promise<Response>;
+
+  /**
+   * CSP nonce for <style> tags the plugin injects (e.g. its Emotion cache).
+   * Pass this to PluginThemeProvider from @openeverest/ui-lib.
+   */
+  cssNonce: string;
+
+  /** Host application version (semver), or "dev" when unknown. */
+  hostVersion: string;
+
+  /**
+   * Coarse UI-contract version, tied to the shared React major. Plugins built
+   * against a different contract may be rejected by the host at load time.
+   */
+  uiContractVersion: string;
 }
 
 // ---------------------------------------------------------------------------

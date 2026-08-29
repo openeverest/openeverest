@@ -1,4 +1,6 @@
 /* eslint-disable no-console */
+// Must run before any plugin bundle is dynamically imported.
+import './plugin-runtime-host';
 import ReactDOM from 'react-dom/client';
 import App from 'App';
 
