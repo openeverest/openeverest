@@ -74,9 +74,8 @@ function getHostVersion(): string {
 
 function getCSPNonce(): string {
   return (
-    document
-      .querySelector("meta[name='csp-nonce']")
-      ?.getAttribute('content') || ''
+    document.querySelector("meta[name='csp-nonce']")?.getAttribute('content') ||
+    ''
   );
 }
 
@@ -128,9 +127,7 @@ function satisfiesHostVersion(version: string, range?: string): boolean {
     });
   };
 
-  return range
-    .split('||')
-    .some((clause) => evalClause(clause));
+  return range.split('||').some((clause) => evalClause(clause));
 }
 
 // Build the PluginApi object that the host passes to each plugin's register().
