@@ -47,8 +47,7 @@ jobs:
           # `go mod tidy` could remove old checksums from that file, and that's okay on CI,
           # and actually expected for PRs made by @dependabot.
           # Checksums of actually used modules are checked by previous `go` subcommands.
-          pushd tools && go mod tidy -v && git checkout go.sum
-          popd        && go mod tidy -v && git checkout go.sum
+          go mod tidy -v && git checkout go.sum
           git diff --exit-code
 
       - name: Run debug commands on failure
@@ -90,16 +89,14 @@ jobs:
           # Stub the embedded UI build output so `//go:embed dist/*` typechecks (see `make build`/`make test`).
           mkdir -p ./public/dist && [ -f ./public/dist/index.html ] || touch ./public/dist/index.html
           go tool golangci-lint run --new-from-rev=$(git merge-base origin/${{ github.base_ref }} HEAD) --show-stats=false | env REVIEWDOG_GITHUB_API_TOKEN=${{ secrets.GITHUB_TOKEN }} go tool reviewdog -f=golangci-lint -reporter=github-pr-review -filter-mode=nofilter -fail-level=any
-      - name: Check that dev Helm chart is up-to-date
-        run: |
-          make update-dev-chart
-          git diff --exit-code
+      - name: Check that the pinned dev Helm chart is on the tracked branch
+        if: ${{ !contains(github.event.pull_request.labels.*.name, 'chart/pending') }}
+        run: make check-dev-chart
 
       - name: Check that there are no source code changes
         run: |
           make format
-          pushd tools && go mod tidy -v
-          popd        && go mod tidy -v
+          go mod tidy -v && git checkout go.sum
           git status
           git diff --exit-code
 
@@ -135,7 +132,7 @@ jobs:
           go-version-file: 'go.mod'
           cache: true
 
-      - uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
         with:
           version: 9.4.0
 

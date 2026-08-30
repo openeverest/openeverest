@@ -1,11 +1,11 @@
 ---
-name: Feature build
+name: Feature build v1
 on:
   workflow_dispatch:
     inputs:
       everest_branch:
         required: false
-        default: main
+        default: v1.x
         description: "Everest branch with the feature to checkout"
       everest_operator_branch:
         required: false
@@ -21,7 +21,7 @@ on:
         description: "Version Service branch with the feature to checkout"
       helm_branch:
         required: false
-        default: main
+        default: v1.x
         description: "Helm charts branch with the feature to checkout"
       artifacts_retention_days:
         required: false
@@ -32,7 +32,7 @@ on:
       everest_branch:
         required: false
         type: string
-        default: main
+        default: v1.x
         description: "Everest branch with the feature to checkout"
       everest_operator_branch:
         required: false
@@ -52,7 +52,7 @@ on:
       helm_branch:
         required: false
         type: string
-        default: main
+        default: v1.x
         description: "Helm charts branch with the feature to checkout"
       artifacts_retention_days:
         required: false
@@ -164,8 +164,8 @@ jobs:
 
           # Fall back to default branch if the specified branch does not exist
           git ls-remote --heads --exit-code --quiet https://github.com/Percona-Lab/percona-version-service.git $VS_BRANCH > /dev/null || echo "VS_BRANCH=production" | tee -a $GITHUB_ENV
-          git ls-remote --heads --exit-code --quiet https://github.com/openeverest/helm-charts.git $HELM_BRANCH > /dev/null || echo "HELM_BRANCH=main" | tee -a $GITHUB_ENV
-          git ls-remote --heads --exit-code --quiet https://github.com/openeverest/openeverest.git $EVEREST_BRANCH > /dev/null || echo "EVEREST_BRANCH=main" | tee -a $GITHUB_ENV
+          git ls-remote --heads --exit-code --quiet https://github.com/openeverest/helm-charts.git $HELM_BRANCH > /dev/null || echo "HELM_BRANCH=v1.x" | tee -a $GITHUB_ENV
+          git ls-remote --heads --exit-code --quiet https://github.com/openeverest/openeverest.git $EVEREST_BRANCH > /dev/null || echo "EVEREST_BRANCH=v1.x" | tee -a $GITHUB_ENV
           git ls-remote --heads --exit-code --quiet https://github.com/openeverest/openeverest-operator.git $EVEREST_OPERATOR_BRANCH > /dev/null || echo "EVEREST_OPERATOR_BRANCH=main" | tee -a $GITHUB_ENV
           git ls-remote --heads --exit-code --quiet https://github.com/openeverest/openeverest-catalog.git $EVEREST_CATALOG_BRANCH > /dev/null || echo "EVEREST_CATALOG_BRANCH=main" | tee -a $GITHUB_ENV
 
@@ -174,14 +174,14 @@ jobs:
           mkdir -p /tmp/${VERSION}
 
       - name: Login to GitHub Container Registry
-        uses: docker/login-action@650006c6eb7dba73a995cc03b0b2d7f5ca915bee # v4.2.0
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0
+        uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4.3.0
 
       - name: Operator - check out
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -380,7 +380,7 @@ jobs:
           cache: true
 
       - name: Everest UI - setup pnpm
-        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
+        uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
         with:
           version: 9.4.0
 
@@ -495,7 +495,7 @@ jobs:
 
     steps:
       - name: Login to GitHub Container Registry
-        uses: docker/login-action@650006c6eb7dba73a995cc03b0b2d7f5ca915bee # v4.2.0
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}

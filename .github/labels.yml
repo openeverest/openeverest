@@ -34,3 +34,7 @@
 - name: status/blocked
   color: b60205
   description: Waiting on something we owe — a design review, a decision, an upstream fix
+
+- name: chart/pending
+  color: fbca04
+  description: Pins an unmerged helm-charts commit; that PR must land before this one
