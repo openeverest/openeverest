@@ -60,7 +60,7 @@ func deprecationTestInstance(engineVersion string) *corev1alpha1.Instance {
 
 func findDeprecationCondition(in *corev1alpha1.Instance) *metav1.Condition {
 	for i := range in.Status.Conditions {
-		if in.Status.Conditions[i].Type == corev1alpha1.ConditionEngineVersionDeprecated {
+		if in.Status.Conditions[i].Type == corev1alpha1.ConditionComponentVersionDeprecated {
 			return &in.Status.Conditions[i]
 		}
 	}
@@ -102,7 +102,7 @@ func TestSetDeprecationCondition(t *testing.T) {
 
 		in := deprecationTestInstance("8.0.12-4")
 		in.Status.Conditions = []metav1.Condition{{
-			Type:   corev1alpha1.ConditionEngineVersionDeprecated,
+			Type:   corev1alpha1.ConditionComponentVersionDeprecated,
 			Status: metav1.ConditionTrue,
 			Reason: corev1alpha1.ReasonScheduledForRemoval,
 		}}

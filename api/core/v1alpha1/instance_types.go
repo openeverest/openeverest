@@ -607,13 +607,13 @@ const (
 	// the Instance.
 	ConditionDataSourceReady = "DataSourceReady"
 
-	// ConditionEngineVersionDeprecated is a read-only, informational condition
+	// ConditionComponentVersionDeprecated is a read-only, informational condition
 	// that is True while any of the Instance's effective component versions is
 	// flagged as deprecated in the installed Provider catalog. The message
 	// names the affected versions and, when scheduled, the provider release
 	// that removes them, so owners can remediate before that provider upgrade
 	// is attempted. It never blocks or mutates anything.
-	ConditionEngineVersionDeprecated = "EngineVersionDeprecated"
+	ConditionComponentVersionDeprecated = "ComponentVersionDeprecated"
 )
 
 // Reasons for the DataSourceReady condition.
@@ -663,7 +663,7 @@ const (
 	ReasonDataSourceClassUnsupported = "BackupClassUnsupported"
 )
 
-// Reasons for the EngineVersionDeprecated condition.
+// Reasons for the ComponentVersionDeprecated condition.
 const (
 	// ReasonScheduledForRemoval indicates at least one effective component
 	// version is deprecated in the installed Provider catalog and is dropped

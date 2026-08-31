@@ -772,7 +772,7 @@ func setCondition(in *v1alpha1.Instance, condType string, status metav1.Conditio
 	})
 }
 
-// setDeprecationCondition maintains the read-only EngineVersionDeprecated
+// setDeprecationCondition maintains the read-only ComponentVersionDeprecated
 // condition: True while any of the Instance's effective component versions is
 // flagged as deprecated in the installed Provider catalog. It reuses the
 // upgrade preflight's catalog check, so this passive warning and the
@@ -793,13 +793,13 @@ func (r *ProviderReconciler) setDeprecationCondition(ctx context.Context, in *v1
 	}
 
 	if len(deprecations) > 0 {
-		setCondition(in, v1alpha1.ConditionEngineVersionDeprecated, metav1.ConditionTrue,
+		setCondition(in, v1alpha1.ConditionComponentVersionDeprecated, metav1.ConditionTrue,
 			v1alpha1.ReasonScheduledForRemoval, strings.Join(deprecations, "; "), metav1.Now())
 		return
 	}
 	for _, c := range in.Status.Conditions {
-		if c.Type == v1alpha1.ConditionEngineVersionDeprecated {
-			setCondition(in, v1alpha1.ConditionEngineVersionDeprecated, metav1.ConditionFalse,
+		if c.Type == v1alpha1.ConditionComponentVersionDeprecated {
+			setCondition(in, v1alpha1.ConditionComponentVersionDeprecated, metav1.ConditionFalse,
 				v1alpha1.ReasonVersionsSupported,
 				"All component versions are supported by the installed provider", metav1.Now())
 			return
