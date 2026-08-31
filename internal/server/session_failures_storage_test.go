@@ -17,7 +17,9 @@ package server
 import (
 	"sync"
 	"testing"
+	"time"
 
+	"github.com/stretchr/testify/assert"
 	"golang.org/x/time/rate"
 )
 
@@ -31,7 +33,8 @@ func TestRateLimiterMemoryStore_ConcurrentAllowAndIncreaseTimeout(t *testing.T) 
 	})
 
 	const identifier = "1.2.3.4"
-	const iterations = 200
+	const iterations = 20
+	_, _ = store.Allow(identifier)
 
 	var wg sync.WaitGroup
 	wg.Add(2)
@@ -51,4 +54,9 @@ func TestRateLimiterMemoryStore_ConcurrentAllowAndIncreaseTimeout(t *testing.T) 
 	}()
 
 	wg.Wait()
+
+	store.mutex.Lock()
+	actualTimeout := store.visitors[identifier].timeout
+	store.mutex.Unlock()
+	assert.Equal(t, initialTimeout*time.Duration(1<<iterations), actualTimeout)
 }
