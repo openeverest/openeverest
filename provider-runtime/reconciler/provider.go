@@ -476,6 +476,11 @@ func (r *ProviderReconciler) Reconcile(ctx context.Context, req reconcile.Reques
 			ds.Reason, ds.Message, metav1.Now())
 	}
 
+	// Flush the actions Context.RequestMaintenance held during Sync. The
+	// pending list is rebuilt from scratch every pass so it can never go
+	// stale, while the approval stays durable in spec.
+	flushPendingMaintenance(syncCtx, in)
+
 	// Compute and update status
 	logger.Info("Computing status")
 	status, err := r.provider.Status(syncCtx)
@@ -802,6 +807,30 @@ func (r *ProviderReconciler) setDeprecationCondition(ctx context.Context, in *v1
 			setCondition(in, v1alpha1.ConditionComponentVersionDeprecated, metav1.ConditionFalse,
 				v1alpha1.ReasonVersionsSupported,
 				"All component versions are supported by the installed provider", metav1.Now())
+			return
+		}
+	}
+}
+
+// flushPendingMaintenance writes the actions held by RequestMaintenance to
+// status.pendingMaintenance and maintains the MaintenancePending condition:
+// True while anything is held, flipped to False (never removed) once the
+// last held action clears.
+func flushPendingMaintenance(syncCtx *controller.Context, in *v1alpha1.Instance) {
+	pending := syncCtx.GetPendingMaintenance()
+	in.Status.PendingMaintenance = pending
+
+	if len(pending) > 0 {
+		setCondition(in, v1alpha1.ConditionMaintenancePending, metav1.ConditionTrue,
+			v1alpha1.ReasonAwaitingApproval,
+			fmt.Sprintf("%d action(s) require approval to proceed", len(pending)), metav1.Now())
+		return
+	}
+	for _, c := range in.Status.Conditions {
+		if c.Type == v1alpha1.ConditionMaintenancePending {
+			setCondition(in, v1alpha1.ConditionMaintenancePending, metav1.ConditionFalse,
+				v1alpha1.ReasonNoActionsPending,
+				"No disruptive actions are held", metav1.Now())
 			return
 		}
 	}

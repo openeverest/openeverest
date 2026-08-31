@@ -50,6 +50,11 @@ type Context struct {
 	// flush the corresponding condition onto the Instance after Sync. It is
 	// nil when the provider has not invoked the helper this reconcile pass.
 	dataSourceStatus *DataSourceStatus
+
+	// pendingMaintenance collects the actions RequestMaintenance held this
+	// reconcile pass; the reconciler flushes them to
+	// status.pendingMaintenance after Sync.
+	pendingMaintenance []v1alpha1.PendingMaintenanceAction
 }
 
 // NewContext creates a new Context handle (used internally by the reconciler).
