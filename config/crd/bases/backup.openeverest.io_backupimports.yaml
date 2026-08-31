@@ -4,16 +4,16 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.18.0
-  name: imports.backup.openeverest.io
+  name: backupimports.backup.openeverest.io
 spec:
   group: backup.openeverest.io
   names:
-    kind: Import
-    listKind: ImportList
-    plural: imports
+    kind: BackupImport
+    listKind: BackupImportList
+    plural: backupimports
     shortNames:
     - imp
-    singular: import
+    singular: backupimport
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
@@ -23,8 +23,8 @@ spec:
     - jsonPath: .spec.storageRef.name
       name: Storage
       type: string
-    - jsonPath: .status.phase
-      name: Phase
+    - jsonPath: .status.state
+      name: State
       type: string
     - jsonPath: .status.createdCount
       name: Created
@@ -32,10 +32,7 @@ spec:
     name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: |-
-          Import is the Schema for the imports API. It discovers
-          the restorable backups already present in a BackupStorage and creates a
-          Backup CR for each so they can be restored.
+        description: BackupImport is the Schema for the backupimports API
         properties:
           apiVersion:
             description: |-
@@ -55,7 +52,7 @@ spec:
           metadata:
             type: object
           spec:
-            description: spec defines the desired state of Import
+            description: spec defines the desired state of BackupImport
             properties:
               classRef:
                 description: |-
@@ -94,8 +91,11 @@ spec:
             - classRef
             - storageRef
             type: object
+            x-kubernetes-validations:
+            - message: spec is immutable
+              rule: self == oldSelf
           status:
-            description: status defines the observed state of Import
+            description: status defines the observed state of BackupImport
             properties:
               conditions:
                 items:
@@ -158,34 +158,33 @@ spec:
                 x-kubernetes-list-type: map
               createdCount:
                 description: |-
-                  CreatedCount is the number of Backup CRs created (or already present)
-                  for the discovered backups. Backups are deduped on
-                  (storageRef, path), so re-running import does not
-                  create duplicates.
+                  CreatedCount is the number of Backup CRs created. Backups are deduped on
+                  (storageRef, path), so the import does not create duplicates.
                 format: int32
                 type: integer
               discoveredCount:
                 description: |-
                   DiscoveredCount is the number of restorable backups found in the
-                  storage during the last reconcile.
+                  storage.
                 format: int32
                 type: integer
               lastObservedGeneration:
-                description: LastObservedGeneration is the last reconciled generation
-                  of the spec.
+                description: LastObservedGeneration is the last observed generation
+                  of the Backup CR.
                 format: int64
                 type: integer
               message:
                 description: Message is a human-readable message about the current
                   state.
                 type: string
-              phase:
-                description: Phase is the coarse lifecycle state of the import request.
+              state:
+                description: State is the current state of the backup import.
                 enum:
                 - Pending
-                - Importing
+                - Running
                 - Succeeded
                 - Failed
+                - Error
                 type: string
             type: object
         required:

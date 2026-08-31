@@ -18,7 +18,7 @@ spec:
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
-    - jsonPath: .spec.instanceRef.name
+    - jsonPath: .spec.origin.instanceRef.name
       name: Instance
       type: string
     - jsonPath: .status.state

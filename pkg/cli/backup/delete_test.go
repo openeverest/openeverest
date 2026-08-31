@@ -18,7 +18,6 @@ package backup
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -80,18 +79,33 @@ func newDeleteServer(t *testing.T, deleteHandler, getHandler http.HandlerFunc) *
 // the generated anonymous Status struct. Empty state/policy omits the field.
 func backupFixture(t *testing.T, name string, state client.BackupStatusState, policy string) *client.Backup {
 	t.Helper()
-	statusField := ""
+
+	obj := map[string]any{
+		"metadata": map[string]any{
+			"name":      name,
+			"namespace": "everest",
+		},
+		"spec": map[string]any{
+			"origin": map[string]any{
+				"type":        "Instance",
+				"instanceRef": map[string]any{"name": "my-mongo"},
+			},
+			"classRef":   map[string]any{"name": "psmdb-backup"},
+			"storageRef": map[string]any{"name": "my-s3"},
+		},
+	}
+
 	if state != "" {
-		statusField = fmt.Sprintf(`,"status":{"state":%q}`, string(state))
+		obj["status"] = map[string]any{"state": state}
 	}
-	policyField := ""
+
 	if policy != "" {
-		policyField = fmt.Sprintf(`,"deletionPolicy":%q`, policy)
+		obj["spec"].(map[string]any)["deletionPolicy"] = policy
 	}
-	body := fmt.Sprintf(
-		`{"metadata":{"name":%q,"namespace":"everest"},"spec":{"instanceRef":{"name":"my-mongo"},"classRef":{"name":"psmdb-backup"},"storageRef":{"name":"my-s3"}%s}%s}`,
-		name, policyField, statusField,
-	)
+
+	body, err := json.Marshal(obj)
+	require.NoError(t, err)
+
 	var b client.Backup
 	require.NoError(t, json.Unmarshal([]byte(body), &b))
 	return &b

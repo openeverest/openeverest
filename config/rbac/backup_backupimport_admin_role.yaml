@@ -11,17 +11,17 @@ metadata:
   labels:
     app.kubernetes.io/name: openeverest
     app.kubernetes.io/managed-by: kustomize
-  name: backup-import-admin-role
+  name: backup-backupimport-admin-role
 rules:
 - apiGroups:
   - backup.openeverest.io
   resources:
-  - imports
+  - backupimports
   verbs:
   - '*'
 - apiGroups:
   - backup.openeverest.io
   resources:
-  - imports/status
+  - backupimports/status
   verbs:
   - get

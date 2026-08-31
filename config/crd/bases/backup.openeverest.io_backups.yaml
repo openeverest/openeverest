@@ -50,7 +50,15 @@ spec:
           metadata:
             type: object
           spec:
-            description: BackupSpec defines the desired state of Backup.
+            description: |-
+              BackupSpec defines the desired state of Backup.
+
+              spec.instanceRef is removed; the instance link now lives at
+              spec.origin.instanceRef, required when origin.type == Instance.
+              After the CRD upgrade the API server prunes the unknown spec.instanceRef
+              and existing Backups have no spec.origin, so the origin validation rejects
+              any write and the Instance link is lost. The restore from existing backups
+              will not work and the CRs must be recreated.
             properties:
               classRef:
                 description: |-
@@ -94,12 +102,12 @@ spec:
                   Origin identifies where this Backup's data comes from: produced by a
                   live Instance, or imported from data already present in a BackupStorage.
                 properties:
-                  import:
+                  external:
                     description: |-
-                      Import identifies data already present in the referenced BackupStorage
-                      rather than produced by a live Instance. Required when Type is Import.
+                      External identifies data already present in the referenced BackupStorage
+                      rather than produced by a live Instance. Required when Type is External.
                       When set, the restoring builds the engine restore directly from
-                      storageRef + import.path with no live operator object.
+                      storageRef + external.path with no live operator object.
                     properties:
                       path:
                         description: |-
@@ -136,6 +144,11 @@ spec:
                 required:
                 - type
                 type: object
+                x-kubernetes-validations:
+                - message: instanceRef must be set if and only if type is Instance
+                  rule: 'self.type == ''Instance'' ? has(self.instanceRef) : !has(self.instanceRef)'
+                - message: external must be set if and only if type is External
+                  rule: 'self.type == ''External'' ? has(self.external) : !has(self.external)'
               parameters:
                 description: |-
                   Parameters is the backup-time structured configuration validated
@@ -172,18 +185,14 @@ spec:
             - origin
             - storageRef
             type: object
-            x-kubernetes-validations:
-            - message: origin.instanceRef must be set if and only if origin.type is
-                Instance
-              rule: 'self.origin.type == ''Instance'' ? has(self.origin.instanceRef)
-                : !has(self.origin.instanceRef)'
-            - message: origin.import must be set if and only if origin.type is Import
-              rule: 'self.origin.type == ''Import'' ? has(self.origin.import) : !has(self.origin.import)'
           status:
             description: BackupStatus defines the observed state of Backup.
             properties:
               completedAt:
-                description: CompletedAt is the time when the backup completed successfully.
+                description: |-
+                  CompletedAt is the time when the backup completed successfully.
+                  External backup reports the time when the backup was completed, inferred
+                  from the backup data in storage, not when the Backup CR was created.
                 format: date-time
                 type: string
               conditions:
@@ -248,7 +257,7 @@ spec:
               executionMode:
                 description: |-
                   ExecutionMode is the resolved execution mode at the time the Backup
-                  started. Recorded for observability. Empty for imported backups.
+                  started. Recorded for observability.
                 enum:
                 - ProviderManaged
                 - Job
@@ -256,7 +265,7 @@ spec:
               jobRef:
                 description: |-
                   JobRef references the Job that is running the backup.
-                  Populated only for Job classes. Empty for imported backups, which run
+                  Populated only for Job classes. Empty for external backups, which run
                   no Job.
                 properties:
                   name:
@@ -282,7 +291,7 @@ spec:
                 description: |-
                   OperatorBackupRef points at the operator-native backup resource the
                   provider created (e.g., PerconaServerMongoDBBackup). Populated only
-                  for ProviderManaged classes. Empty for imported backups, which have no
+                  for ProviderManaged classes. Empty for external backups, which have no
                   operator-native backup object.
                 properties:
                   group:
@@ -308,15 +317,22 @@ spec:
                 x-kubernetes-map-type: atomic
               size:
                 description: |-
-                  Size is the size of the backup data as reported by the engine. May be
-                  empty for imported backups when the size is not known.
+                  Size is the size of the backup data as reported by the engine.
+                  For external backups, the size is inferred from the backup data
+                  in storage, if available.
                 type: string
               startedAt:
-                description: StartedAt is the time when the backup started.
+                description: |-
+                  StartedAt is the time when the backup started.
+                  External backup reports the time when the backup was started, inferred
+                  from the backup data in storage, not when the Backup CR was created.
                 format: date-time
                 type: string
               state:
-                description: State is the current state of the backup.
+                description: |-
+                  State is the current state of the backup.
+                  For external backups, the state is Succeeded if the backup data is
+                  present in storage, and has StartedAt and CompletedAt set.
                 enum:
                 - Pending
                 - Running

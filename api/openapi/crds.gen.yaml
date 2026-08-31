@@ -23,7 +23,15 @@ components:
         metadata:
           $ref: '#/components/schemas/ObjectMeta'
         spec:
-          description: BackupSpec defines the desired state of Backup.
+          description: |-
+            BackupSpec defines the desired state of Backup.
+
+            spec.instanceRef is removed; the instance link now lives at
+            spec.origin.instanceRef, required when origin.type == Instance.
+            After the CRD upgrade the API server prunes the unknown spec.instanceRef
+            and existing Backups have no spec.origin, so the origin validation rejects
+            any write and the Instance link is lost. The restore from existing backups
+            will not work and the CRs must be recreated.
           properties:
             classRef:
               description: |-
@@ -67,12 +75,12 @@ components:
                 Origin identifies where this Backup's data comes from: produced by a
                 live Instance, or imported from data already present in a BackupStorage.
               properties:
-                import:
+                external:
                   description: |-
-                    Import identifies data already present in the referenced BackupStorage
-                    rather than produced by a live Instance. Required when Type is Import.
+                    External identifies data already present in the referenced BackupStorage
+                    rather than produced by a live Instance. Required when Type is External.
                     When set, the restoring builds the engine restore directly from
-                    storageRef + import.path with no live operator object.
+                    storageRef + external.path with no live operator object.
                   properties:
                     path:
                       description: |-
@@ -109,6 +117,11 @@ components:
               required:
               - type
               type: object
+              x-kubernetes-validations:
+              - message: instanceRef must be set if and only if type is Instance
+                rule: 'self.type == ''Instance'' ? has(self.instanceRef) : !has(self.instanceRef)'
+              - message: external must be set if and only if type is External
+                rule: 'self.type == ''External'' ? has(self.external) : !has(self.external)'
             parameters:
               description: |-
                 Parameters is the backup-time structured configuration validated
@@ -145,18 +158,14 @@ components:
           - origin
           - storageRef
           type: object
-          x-kubernetes-validations:
-          - message: origin.instanceRef must be set if and only if origin.type is
-              Instance
-            rule: 'self.origin.type == ''Instance'' ? has(self.origin.instanceRef)
-              : !has(self.origin.instanceRef)'
-          - message: origin.import must be set if and only if origin.type is Import
-            rule: 'self.origin.type == ''Import'' ? has(self.origin.import) : !has(self.origin.import)'
         status:
           description: BackupStatus defines the observed state of Backup.
           properties:
             completedAt:
-              description: CompletedAt is the time when the backup completed successfully.
+              description: |-
+                CompletedAt is the time when the backup completed successfully.
+                External backup reports the time when the backup was completed, inferred
+                from the backup data in storage, not when the Backup CR was created.
               format: date-time
               type: string
             conditions:
@@ -221,7 +230,7 @@ components:
             executionMode:
               description: |-
                 ExecutionMode is the resolved execution mode at the time the Backup
-                started. Recorded for observability. Empty for imported backups.
+                started. Recorded for observability.
               enum:
               - ProviderManaged
               - Job
@@ -229,7 +238,7 @@ components:
             jobRef:
               description: |-
                 JobRef references the Job that is running the backup.
-                Populated only for Job classes. Empty for imported backups, which run
+                Populated only for Job classes. Empty for external backups, which run
                 no Job.
               properties:
                 name:
@@ -254,7 +263,7 @@ components:
               description: |-
                 OperatorBackupRef points at the operator-native backup resource the
                 provider created (e.g., PerconaServerMongoDBBackup). Populated only
-                for ProviderManaged classes. Empty for imported backups, which have no
+                for ProviderManaged classes. Empty for external backups, which have no
                 operator-native backup object.
               properties:
                 group:
@@ -280,15 +289,22 @@ components:
               x-kubernetes-map-type: atomic
             size:
               description: |-
-                Size is the size of the backup data as reported by the engine. May be
-                empty for imported backups when the size is not known.
+                Size is the size of the backup data as reported by the engine.
+                For external backups, the size is inferred from the backup data
+                in storage, if available.
               type: string
             startedAt:
-              description: StartedAt is the time when the backup started.
+              description: |-
+                StartedAt is the time when the backup started.
+                External backup reports the time when the backup was started, inferred
+                from the backup data in storage, not when the Backup CR was created.
               format: date-time
               type: string
             state:
-              description: State is the current state of the backup.
+              description: |-
+                State is the current state of the backup.
+                For external backups, the state is Succeeded if the backup data is
+                present in storage, and has StartedAt and CompletedAt set.
               enum:
               - Pending
               - Running
@@ -847,6 +863,198 @@ components:
               type: string
           type: object
       type: object
+    BackupImport:
+      description: BackupImport is the Schema for the backupimports API
+      properties:
+        apiVersion:
+          description: |-
+            APIVersion defines the versioned schema of this representation of an object.
+            Servers should convert recognized schemas to the latest internal value, and
+            may reject unrecognized values.
+            More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+          type: string
+        kind:
+          description: |-
+            Kind is a string value representing the REST resource this object represents.
+            Servers may infer this from the endpoint the client submits requests to.
+            Cannot be updated.
+            In CamelCase.
+            More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+          type: string
+        metadata:
+          $ref: '#/components/schemas/ObjectMeta'
+        spec:
+          description: spec defines the desired state of BackupImport
+          properties:
+            classRef:
+              description: |-
+                ClassRef references the cluster-scoped BackupClass that determines how
+                backups in the storage are parsed. The class's executionMode controls
+                how the import is executed. The ProviderManaged classes are reconciled
+                by the provider.
+              properties:
+                name:
+                  description: Name of the referenced object.
+                  maxLength: 253
+                  minLength: 1
+                  pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                  type: string
+              required:
+              - name
+              type: object
+              x-kubernetes-map-type: atomic
+            storageRef:
+              description: |-
+                StorageRef references a BackupStorage in the same namespace whose
+                contents are listed and parsed. The reconciler reads the storage and
+                its credentials secret.
+              properties:
+                name:
+                  description: Name of the referenced object.
+                  maxLength: 253
+                  minLength: 1
+                  pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                  type: string
+              required:
+              - name
+              type: object
+              x-kubernetes-map-type: atomic
+          required:
+          - classRef
+          - storageRef
+          type: object
+          x-kubernetes-validations:
+          - message: spec is immutable
+            rule: self == oldSelf
+        status:
+          description: status defines the observed state of BackupImport
+          properties:
+            conditions:
+              items:
+                description: Condition contains details for one aspect of the current
+                  state of this API Resource.
+                properties:
+                  lastTransitionTime:
+                    description: |-
+                      lastTransitionTime is the last time the condition transitioned from one status to another.
+                      This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                    format: date-time
+                    type: string
+                  message:
+                    description: |-
+                      message is a human readable message indicating details about the transition.
+                      This may be an empty string.
+                    maxLength: 32768
+                    type: string
+                  observedGeneration:
+                    description: |-
+                      observedGeneration represents the .metadata.generation that the condition was set based upon.
+                      For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                      with respect to the current state of the instance.
+                    format: int64
+                    minimum: 0
+                    type: integer
+                  reason:
+                    description: |-
+                      reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                      Producers of specific condition types may define expected values and meanings for this field,
+                      and whether the values are considered a guaranteed API.
+                      The value should be a CamelCase string.
+                      This field may not be empty.
+                    maxLength: 1024
+                    minLength: 1
+                    pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                    type: string
+                  status:
+                    description: status of the condition, one of True, False, Unknown.
+                    enum:
+                    - "True"
+                    - "False"
+                    - Unknown
+                    type: string
+                  type:
+                    description: type of condition in CamelCase or in foo.example.com/CamelCase.
+                    maxLength: 316
+                    pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                    type: string
+                required:
+                - lastTransitionTime
+                - message
+                - reason
+                - status
+                - type
+                type: object
+              type: array
+              x-kubernetes-list-map-keys:
+              - type
+              x-kubernetes-list-type: map
+            createdCount:
+              description: |-
+                CreatedCount is the number of Backup CRs created. Backups are deduped on
+                (storageRef, path), so the import does not create duplicates.
+              format: int32
+              type: integer
+            discoveredCount:
+              description: |-
+                DiscoveredCount is the number of restorable backups found in the
+                storage.
+              format: int32
+              type: integer
+            lastObservedGeneration:
+              description: LastObservedGeneration is the last observed generation
+                of the Backup CR.
+              format: int64
+              type: integer
+            message:
+              description: Message is a human-readable message about the current state.
+              type: string
+            state:
+              description: State is the current state of the backup import.
+              enum:
+              - Pending
+              - Running
+              - Succeeded
+              - Failed
+              - Error
+              type: string
+          type: object
+      required:
+      - spec
+      type: object
+    BackupImportList:
+      description: BackupImportList is an object that contains the list of the existing
+        backupimports.
+      properties:
+        apiVersion:
+          description: 'APIVersion defines the versioned schema of this representation
+            of an object. Servers should convert recognized schemas to the latest
+            internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+          type: string
+        items:
+          items:
+            $ref: '#/components/schemas/BackupImport'
+          type: array
+        kind:
+          description: 'Kind is a string value representing the REST resource this
+            object represents. Servers may infer this from the endpoint the client
+            submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+          type: string
+        metadata:
+          properties:
+            name:
+              description: 'Name must be unique within a namespace. Is required when
+                creating resources, although some resources may allow a client to
+                request the generation of an appropriate name automatically. Name
+                is primarily intended for creation idempotence and configuration definition.
+                More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names#names'
+              type: string
+            namespace:
+              description: 'Namespace defines the space within which each name must
+                be unique. An empty namespace is equivalent to the "default" namespace,
+                but "default" is the canonical representation. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces'
+              type: string
+          type: object
+      type: object
     BackupList:
       description: BackupList is an object that contains the list of the existing
         backups.
@@ -1004,199 +1212,6 @@ components:
         items:
           items:
             $ref: '#/components/schemas/BackupStorage'
-          type: array
-        kind:
-          description: 'Kind is a string value representing the REST resource this
-            object represents. Servers may infer this from the endpoint the client
-            submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
-          type: string
-        metadata:
-          properties:
-            name:
-              description: 'Name must be unique within a namespace. Is required when
-                creating resources, although some resources may allow a client to
-                request the generation of an appropriate name automatically. Name
-                is primarily intended for creation idempotence and configuration definition.
-                More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names#names'
-              type: string
-            namespace:
-              description: 'Namespace defines the space within which each name must
-                be unique. An empty namespace is equivalent to the "default" namespace,
-                but "default" is the canonical representation. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces'
-              type: string
-          type: object
-      type: object
-    Import:
-      description: |-
-        Import is the Schema for the imports API. It discovers
-        the restorable backups already present in a BackupStorage and creates a
-        Backup CR for each so they can be restored.
-      properties:
-        apiVersion:
-          description: |-
-            APIVersion defines the versioned schema of this representation of an object.
-            Servers should convert recognized schemas to the latest internal value, and
-            may reject unrecognized values.
-            More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
-          type: string
-        kind:
-          description: |-
-            Kind is a string value representing the REST resource this object represents.
-            Servers may infer this from the endpoint the client submits requests to.
-            Cannot be updated.
-            In CamelCase.
-            More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
-          type: string
-        metadata:
-          $ref: '#/components/schemas/ObjectMeta'
-        spec:
-          description: spec defines the desired state of Import
-          properties:
-            classRef:
-              description: |-
-                ClassRef references the cluster-scoped BackupClass that determines how
-                backups in the storage are parsed. The class's executionMode controls
-                how the import is executed. The ProviderManaged classes are reconciled
-                by the provider.
-              properties:
-                name:
-                  description: Name of the referenced object.
-                  maxLength: 253
-                  minLength: 1
-                  pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
-                  type: string
-              required:
-              - name
-              type: object
-              x-kubernetes-map-type: atomic
-            storageRef:
-              description: |-
-                StorageRef references a BackupStorage in the same namespace whose
-                contents are listed and parsed. The reconciler reads the storage and
-                its credentials secret.
-              properties:
-                name:
-                  description: Name of the referenced object.
-                  maxLength: 253
-                  minLength: 1
-                  pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
-                  type: string
-              required:
-              - name
-              type: object
-              x-kubernetes-map-type: atomic
-          required:
-          - classRef
-          - storageRef
-          type: object
-        status:
-          description: status defines the observed state of Import
-          properties:
-            conditions:
-              items:
-                description: Condition contains details for one aspect of the current
-                  state of this API Resource.
-                properties:
-                  lastTransitionTime:
-                    description: |-
-                      lastTransitionTime is the last time the condition transitioned from one status to another.
-                      This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
-                    format: date-time
-                    type: string
-                  message:
-                    description: |-
-                      message is a human readable message indicating details about the transition.
-                      This may be an empty string.
-                    maxLength: 32768
-                    type: string
-                  observedGeneration:
-                    description: |-
-                      observedGeneration represents the .metadata.generation that the condition was set based upon.
-                      For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
-                      with respect to the current state of the instance.
-                    format: int64
-                    minimum: 0
-                    type: integer
-                  reason:
-                    description: |-
-                      reason contains a programmatic identifier indicating the reason for the condition's last transition.
-                      Producers of specific condition types may define expected values and meanings for this field,
-                      and whether the values are considered a guaranteed API.
-                      The value should be a CamelCase string.
-                      This field may not be empty.
-                    maxLength: 1024
-                    minLength: 1
-                    pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
-                    type: string
-                  status:
-                    description: status of the condition, one of True, False, Unknown.
-                    enum:
-                    - "True"
-                    - "False"
-                    - Unknown
-                    type: string
-                  type:
-                    description: type of condition in CamelCase or in foo.example.com/CamelCase.
-                    maxLength: 316
-                    pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
-                    type: string
-                required:
-                - lastTransitionTime
-                - message
-                - reason
-                - status
-                - type
-                type: object
-              type: array
-              x-kubernetes-list-map-keys:
-              - type
-              x-kubernetes-list-type: map
-            createdCount:
-              description: |-
-                CreatedCount is the number of Backup CRs created (or already present)
-                for the discovered backups. Backups are deduped on
-                (storageRef, path), so re-running import does not
-                create duplicates.
-              format: int32
-              type: integer
-            discoveredCount:
-              description: |-
-                DiscoveredCount is the number of restorable backups found in the
-                storage during the last reconcile.
-              format: int32
-              type: integer
-            lastObservedGeneration:
-              description: LastObservedGeneration is the last reconciled generation
-                of the spec.
-              format: int64
-              type: integer
-            message:
-              description: Message is a human-readable message about the current state.
-              type: string
-            phase:
-              description: Phase is the coarse lifecycle state of the import request.
-              enum:
-              - Pending
-              - Importing
-              - Succeeded
-              - Failed
-              type: string
-          type: object
-      required:
-      - spec
-      type: object
-    ImportList:
-      description: ImportList is an object that contains the list of the existing
-        imports.
-      properties:
-        apiVersion:
-          description: 'APIVersion defines the versioned schema of this representation
-            of an object. Servers should convert recognized schemas to the latest
-            internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
-          type: string
-        items:
-          items:
-            $ref: '#/components/schemas/Import'
           type: array
         kind:
           description: 'Kind is a string value representing the REST resource this

@@ -4211,7 +4211,16 @@ export interface components {
              */
             kind?: string;
             metadata?: components["schemas"]["ObjectMeta"];
-            /** @description BackupSpec defines the desired state of Backup. */
+            /**
+             * @description BackupSpec defines the desired state of Backup.
+             *
+             *     spec.instanceRef is removed; the instance link now lives at
+             *     spec.origin.instanceRef, required when origin.type == Instance.
+             *     After the CRD upgrade the API server prunes the unknown spec.instanceRef
+             *     and existing Backups have no spec.origin, so the origin validation rejects
+             *     any write and the Instance link is lost. The restore from existing backups
+             *     will not work and the CRs must be recreated.
+             */
             spec: {
                 /**
                  * @description ClassRef references the cluster-scoped BackupClass that defines how
@@ -4247,12 +4256,12 @@ export interface components {
                  */
                 origin: {
                     /**
-                     * @description Import identifies data already present in the referenced BackupStorage
-                     *     rather than produced by a live Instance. Required when Type is Import.
+                     * @description External identifies data already present in the referenced BackupStorage
+                     *     rather than produced by a live Instance. Required when Type is External.
                      *     When set, the restoring builds the engine restore directly from
-                     *     storageRef + import.path with no live operator object.
+                     *     storageRef + external.path with no live operator object.
                      */
-                    import?: {
+                    external?: {
                         /**
                          * @description Path is the backup's path within the BackupStorage. The bucket is
                          *     already determined by storageRef, so it is not repeated here. The path
@@ -4304,6 +4313,8 @@ export interface components {
                 /**
                  * Format: date-time
                  * @description CompletedAt is the time when the backup completed successfully.
+                 *     External backup reports the time when the backup was completed, inferred
+                 *     from the backup data in storage, not when the Backup CR was created.
                  */
                 completedAt?: string;
                 conditions?: {
@@ -4343,13 +4354,13 @@ export interface components {
                 }[];
                 /**
                  * @description ExecutionMode is the resolved execution mode at the time the Backup
-                 *     started. Recorded for observability. Empty for imported backups.
+                 *     started. Recorded for observability.
                  * @enum {string}
                  */
                 executionMode?: "ProviderManaged" | "Job";
                 /**
                  * @description JobRef references the Job that is running the backup.
-                 *     Populated only for Job classes. Empty for imported backups, which run
+                 *     Populated only for Job classes. Empty for external backups, which run
                  *     no Job.
                  */
                 jobRef?: {
@@ -4366,7 +4377,7 @@ export interface components {
                 /**
                  * @description OperatorBackupRef points at the operator-native backup resource the
                  *     provider created (e.g., PerconaServerMongoDBBackup). Populated only
-                 *     for ProviderManaged classes. Empty for imported backups, which have no
+                 *     for ProviderManaged classes. Empty for external backups, which have no
                  *     operator-native backup object.
                  */
                 operatorBackupRef?: {
@@ -4381,17 +4392,22 @@ export interface components {
                     name: string;
                 };
                 /**
-                 * @description Size is the size of the backup data as reported by the engine. May be
-                 *     empty for imported backups when the size is not known.
+                 * @description Size is the size of the backup data as reported by the engine.
+                 *     For external backups, the size is inferred from the backup data
+                 *     in storage, if available.
                  */
                 size?: string;
                 /**
                  * Format: date-time
                  * @description StartedAt is the time when the backup started.
+                 *     External backup reports the time when the backup was started, inferred
+                 *     from the backup data in storage, not when the Backup CR was created.
                  */
                 startedAt?: string;
                 /**
                  * @description State is the current state of the backup.
+                 *     For external backups, the state is Succeeded if the backup data is
+                 *     present in storage, and has StartedAt and CompletedAt set.
                  * @enum {string}
                  */
                 state?: "Pending" | "Running" | "Succeeded" | "Failed" | "Error" | "Deleting";

@@ -185,11 +185,8 @@ func resolveBackupOwnership(
 	if bc.Spec.ExecutionMode != backupv1alpha1.BackupExecutionModeProviderManaged {
 		return nil, bc, false, nil
 	}
-	// Imported backups have no InstanceRef: they are standalone records of
-	// backups already present in a BackupStorage, not produced by a live
-	// Instance. There is nothing for the backup runtime reconciler to drive,
-	// skip them.
-	if backup.Spec.Origin.InstanceRef == nil {
+	// External backups have no Instance to fetch.
+	if backup.Spec.Origin.Type == backupv1alpha1.BackupOriginTypeExternal {
 		return nil, bc, false, nil
 	}
 	instance := &corev1alpha1.Instance{}

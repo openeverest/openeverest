@@ -23,8 +23,12 @@ import (
 
 // BackupSpec defines the desired state of Backup.
 //
-// +kubebuilder:validation:XValidation:rule="self.origin.type == 'Instance' ? has(self.origin.instanceRef) : !has(self.origin.instanceRef)",message="origin.instanceRef must be set if and only if origin.type is Instance"
-// +kubebuilder:validation:XValidation:rule="self.origin.type == 'Import' ? has(self.origin.import) : !has(self.origin.import)",message="origin.import must be set if and only if origin.type is Import"
+// spec.instanceRef is removed; the instance link now lives at
+// spec.origin.instanceRef, required when origin.type == Instance.
+// After the CRD upgrade the API server prunes the unknown spec.instanceRef
+// and existing Backups have no spec.origin, so the origin validation rejects
+// any write and the Instance link is lost. The restore from existing backups
+// will not work and the CRs must be recreated.
 type BackupSpec struct {
 	// Origin identifies where this Backup's data comes from: produced by a
 	// live Instance, or imported from data already present in a BackupStorage.
@@ -103,13 +107,16 @@ const (
 	// BackupOriginTypeInstance marks a Backup produced by a live Instance in
 	// the same namespace, identified by origin.instanceRef.
 	BackupOriginTypeInstance BackupOriginType = "Instance"
-	// BackupOriginTypeImport marks a Backup imported from data already
-	// present in a BackupStorage, identified by origin.import.
-	BackupOriginTypeImport BackupOriginType = "Import"
+	// BackupOriginTypeExternal marks a Backup imported from data already
+	// present in a BackupStorage, identified by origin.external.
+	BackupOriginTypeExternal BackupOriginType = "External"
 )
 
 // BackupOrigin describes where a Backup's data comes from. Type selects which
 // variant-specific field is populated.
+//
+// +kubebuilder:validation:XValidation:rule="self.type == 'Instance' ? has(self.instanceRef) : !has(self.instanceRef)",message="instanceRef must be set if and only if type is Instance"
+// +kubebuilder:validation:XValidation:rule="self.type == 'External' ? has(self.external) : !has(self.external)",message="external must be set if and only if type is External"
 type BackupOrigin struct {
 	// Type selects the origin variant.
 	// +kubebuilder:validation:Required
@@ -119,19 +126,19 @@ type BackupOrigin struct {
 	// Type is Instance.
 	// +optional
 	InstanceRef *common.ObjectRef `json:"instanceRef,omitempty"`
-	// Import identifies data already present in the referenced BackupStorage
-	// rather than produced by a live Instance. Required when Type is Import.
+	// External identifies data already present in the referenced BackupStorage
+	// rather than produced by a live Instance. Required when Type is External.
 	// When set, the restoring builds the engine restore directly from
-	// storageRef + import.path with no live operator object.
+	// storageRef + external.path with no live operator object.
 	// +optional
-	Import *BackupOriginImport `json:"import,omitempty"`
+	External *BackupOriginExternal `json:"external,omitempty"`
 }
 
-// BackupOriginImport marks a Backup as imported and identifies where its data already
+// BackupOriginExternal marks a Backup as imported and identifies where its data already
 // lives within the BackupStorage referenced by Backup.spec.storageRef, so it
 // can be restored without a live source Instance or operator-native backup
 // object.
-type BackupOriginImport struct {
+type BackupOriginExternal struct {
 	// Path is the backup's path within the BackupStorage. The bucket is
 	// already determined by storageRef, so it is not repeated here. The path
 	// is unique within its storage and is used for restore.
@@ -143,34 +150,40 @@ type BackupOriginImport struct {
 // BackupStatus defines the observed state of Backup.
 type BackupStatus struct {
 	// ExecutionMode is the resolved execution mode at the time the Backup
-	// started. Recorded for observability. Empty for imported backups.
-	// +optional
+	// started. Recorded for observability.
 	ExecutionMode BackupExecutionMode `json:"executionMode,omitempty"`
-	// Size is the size of the backup data as reported by the engine. May be
-	// empty for imported backups when the size is not known.
+	// Size is the size of the backup data as reported by the engine.
+	// For external backups, the size is inferred from the backup data
+	// in storage, if available.
 	// +optional
 	Size *string `json:"size,omitempty"`
 	// OperatorBackupRef points at the operator-native backup resource the
 	// provider created (e.g., PerconaServerMongoDBBackup). Populated only
-	// for ProviderManaged classes. Empty for imported backups, which have no
+	// for ProviderManaged classes. Empty for external backups, which have no
 	// operator-native backup object.
 	// +optional
 	OperatorBackupRef *common.TypedObjectRef `json:"operatorBackupRef,omitempty"`
 	// JobRef references the Job that is running the backup.
-	// Populated only for Job classes. Empty for imported backups, which run
+	// Populated only for Job classes. Empty for external backups, which run
 	// no Job.
 	// +optional
 	JobRef *common.ObjectRef `json:"jobRef,omitempty"`
 	// StartedAt is the time when the backup started.
+	// External backup reports the time when the backup was started, inferred
+	// from the backup data in storage, not when the Backup CR was created.
 	// +optional
 	StartedAt *metav1.Time `json:"startedAt,omitempty"`
 	// CompletedAt is the time when the backup completed successfully.
+	// External backup reports the time when the backup was completed, inferred
+	// from the backup data in storage, not when the Backup CR was created.
 	// +optional
 	CompletedAt *metav1.Time `json:"completedAt,omitempty"`
 	// LastObservedGeneration is the last observed generation of the Backup CR.
 	// +optional
 	LastObservedGeneration int64 `json:"lastObservedGeneration,omitempty"`
 	// State is the current state of the backup.
+	// For external backups, the state is Succeeded if the backup data is
+	// present in storage, and has StartedAt and CompletedAt set.
 	// +optional
 	State BackupState `json:"state,omitempty"`
 	// Message is a human-readable message about the current state.

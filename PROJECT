@@ -104,7 +104,7 @@ resources:
     namespaced: true
   domain: openeverest.io
   group: backup
-  kind: Import
+  kind: BackupImport
   path: github.com/openeverest/openeverest/v2/api/backup/v1alpha1
   version: v1alpha1
 version: "3"
