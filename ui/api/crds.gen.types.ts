@@ -1900,6 +1900,32 @@ export interface components {
                  */
                 deletionPolicy?: "Cascade" | "Orphan";
                 /**
+                 * @description Maintenance governs how disruptive actions raised against this
+                 *     Instance (e.g. the convergence step after a provider upgrade) are
+                 *     authorized. It does NOT govern the deliberate engine-version upgrade
+                 *     flow (spec.version / spec.components[].version).
+                 */
+                maintenance?: {
+                    /**
+                     * @description Approved is a one-time authorization for an action above the standing
+                     *     tolerance: set it to the exact approvalToken of the held action from
+                     *     status.pendingMaintenance. It is matched literally, authorizes only
+                     *     that occurrence, and re-arms naturally — a later action carries a
+                     *     different token, so a stale value never authorizes it. It is NOT a
+                     *     provider version.
+                     */
+                    approved?: string;
+                    /**
+                     * @description AutoApproveUpTo is the standing disruption tolerance: any action at or
+                     *     below this impact applies automatically, anything above it is held on
+                     *     status.pendingMaintenance. It is cause-agnostic — the tolerance applies
+                     *     whether the action was raised by a provider upgrade or anything else.
+                     * @default NonDisruptive
+                     * @enum {string}
+                     */
+                    autoApproveUpTo?: "NonDisruptive" | "RollingRestart" | "Downtime";
+                };
+                /**
                  * @description Parameters contains structured parameters that apply to the Instance
                  *     as a whole, complementing the topology- and component-scoped
                  *     parameters. The payload is validated against the referenced Provider's
@@ -2052,6 +2078,30 @@ export interface components {
                 };
                 /** @description Message is a custom user-facing message describing the current state of the instance. */
                 message?: string;
+                /**
+                 * @description PendingMaintenance lists the disruptive actions currently held awaiting
+                 *     approval. It is recomputed on every reconcile from the actions the
+                 *     provider currently requests above the Instance's tolerance, so it can
+                 *     never go stale: an action the provider stops requesting disappears.
+                 */
+                pendingMaintenance?: {
+                    /**
+                     * @description ApprovalToken is the occurrence-unique, human-readable token the
+                     *     provider assigned to this held action. Copy it verbatim into
+                     *     spec.maintenance.approved to authorize this specific action.
+                     */
+                    approvalToken?: string;
+                    /**
+                     * @description Description is a human-readable summary of the action and its
+                     *     observable impact. It never exposes operator internals.
+                     */
+                    description: string;
+                    /**
+                     * @description Severity is the action's observable database impact.
+                     * @enum {string}
+                     */
+                    severity: "NonDisruptive" | "RollingRestart" | "Downtime";
+                }[];
                 /**
                  * @description Phase of the database cluster.
                  * @enum {string}
@@ -3229,6 +3279,32 @@ export interface components {
                  * @enum {string}
                  */
                 deletionPolicy?: "Cascade" | "Orphan";
+                /**
+                 * @description Maintenance governs how disruptive actions raised against this
+                 *     Instance (e.g. the convergence step after a provider upgrade) are
+                 *     authorized. It does NOT govern the deliberate engine-version upgrade
+                 *     flow (spec.version / spec.components[].version).
+                 */
+                maintenance?: {
+                    /**
+                     * @description Approved is a one-time authorization for an action above the standing
+                     *     tolerance: set it to the exact approvalToken of the held action from
+                     *     status.pendingMaintenance. It is matched literally, authorizes only
+                     *     that occurrence, and re-arms naturally — a later action carries a
+                     *     different token, so a stale value never authorizes it. It is NOT a
+                     *     provider version.
+                     */
+                    approved?: string;
+                    /**
+                     * @description AutoApproveUpTo is the standing disruption tolerance: any action at or
+                     *     below this impact applies automatically, anything above it is held on
+                     *     status.pendingMaintenance. It is cause-agnostic — the tolerance applies
+                     *     whether the action was raised by a provider upgrade or anything else.
+                     * @default NonDisruptive
+                     * @enum {string}
+                     */
+                    autoApproveUpTo?: "NonDisruptive" | "RollingRestart" | "Downtime";
+                };
                 /**
                  * @description Parameters contains structured parameters that apply to the Instance
                  *     as a whole, complementing the topology- and component-scoped
