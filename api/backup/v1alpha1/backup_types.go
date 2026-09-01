@@ -100,7 +100,7 @@ const (
 // BackupOriginType selects how a Backup came to exist: produced by a live
 // Instance, or imported from data already present in a BackupStorage.
 //
-// +kubebuilder:validation:Enum=Instance;Import
+// +kubebuilder:validation:Enum=Instance;External
 type BackupOriginType string
 
 const (

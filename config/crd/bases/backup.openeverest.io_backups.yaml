@@ -139,7 +139,7 @@ spec:
                     description: Type selects the origin variant.
                     enum:
                     - Instance
-                    - Import
+                    - External
                     type: string
                 required:
                 - type

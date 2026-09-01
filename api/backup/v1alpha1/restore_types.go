@@ -205,7 +205,7 @@ type RestoreStatus struct {
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:shortName=rs;rst
-// +kubebuilder:printcolumn:name="Instance",type="string",JSONPath=".spec.origin.instanceRef.name"
+// +kubebuilder:printcolumn:name="Instance",type="string",JSONPath=".spec.instanceRef.name"
 // +kubebuilder:printcolumn:name="State",type="string",JSONPath=".status.state"
 
 // Restore is the Schema for the restores API.

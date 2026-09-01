@@ -4282,7 +4282,7 @@ export interface components {
                      * @description Type selects the origin variant.
                      * @enum {string}
                      */
-                    type: "Instance" | "Import";
+                    type: "Instance" | "External";
                 };
                 /**
                  * @description Parameters is the backup-time structured configuration validated

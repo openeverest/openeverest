@@ -80,27 +80,28 @@ func newDeleteServer(t *testing.T, deleteHandler, getHandler http.HandlerFunc) *
 func backupFixture(t *testing.T, name string, state client.BackupStatusState, policy string) *client.Backup {
 	t.Helper()
 
+	spec := map[string]any{
+		"origin": map[string]any{
+			"type":        "Instance",
+			"instanceRef": map[string]any{"name": "my-mongo"},
+		},
+		"classRef":   map[string]any{"name": "psmdb-backup"},
+		"storageRef": map[string]any{"name": "my-s3"},
+	}
+	if policy != "" {
+		spec["deletionPolicy"] = policy
+	}
+
 	obj := map[string]any{
 		"metadata": map[string]any{
 			"name":      name,
 			"namespace": "everest",
 		},
-		"spec": map[string]any{
-			"origin": map[string]any{
-				"type":        "Instance",
-				"instanceRef": map[string]any{"name": "my-mongo"},
-			},
-			"classRef":   map[string]any{"name": "psmdb-backup"},
-			"storageRef": map[string]any{"name": "my-s3"},
-		},
+		"spec": spec,
 	}
 
 	if state != "" {
 		obj["status"] = map[string]any{"state": state}
-	}
-
-	if policy != "" {
-		obj["spec"].(map[string]any)["deletionPolicy"] = policy
 	}
 
 	body, err := json.Marshal(obj)

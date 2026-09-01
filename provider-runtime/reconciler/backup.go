@@ -109,6 +109,13 @@ func (r *backupRuntimeReconciler) Reconcile(ctx context.Context, req reconcile.R
 		return reconcile.Result{}, nil
 	}
 
+	// External backups are imported references to data already sitting in
+	// a storage; there is no source Instance and no job to run. The reconciler
+	// verifies the backup in the storage then marks the Backup Succeeded.
+	if backup.Spec.Origin.Type == backupv1alpha1.BackupOriginTypeExternal {
+		return r.reconcileExternalBackup(ctx, backup, bc)
+	}
+
 	inCtx := controller.NewContext(ctx, r.client, instance, r.providerName)
 
 	if !backup.DeletionTimestamp.IsZero() {
@@ -185,10 +192,14 @@ func resolveBackupOwnership(
 	if bc.Spec.ExecutionMode != backupv1alpha1.BackupExecutionModeProviderManaged {
 		return nil, bc, false, nil
 	}
-	// External backups have no Instance to fetch.
+
+	// External backups have no Instance to fetch: their data already lives in a
+	// BackupStorage. Ownership is derived from the class's SupportedProviders
+	// instead of an Instance's ProviderRef.
 	if backup.Spec.Origin.Type == backupv1alpha1.BackupOriginTypeExternal {
-		return nil, bc, false, nil
+		return nil, bc, bc.Spec.SupportedProviders.Has(providerName), nil
 	}
+
 	instance := &corev1alpha1.Instance{}
 	if err := c.Get(ctx, client.ObjectKey{
 		Namespace: backup.Namespace,
@@ -203,6 +214,31 @@ func resolveBackupOwnership(
 		return instance, bc, false, nil
 	}
 	return instance, bc, true, nil
+}
+
+// reconcileExternalBackup verifies that the data an external Backup points at
+// is present in its BackupStorage and that it carries valid startedAt and
+// completedAt timestamps, then marks the Backup Succeeded.
+func (r *backupRuntimeReconciler) reconcileExternalBackup(
+	ctx context.Context,
+	backup *backupv1alpha1.Backup,
+	bc *backupv1alpha1.BackupClass,
+) (reconcile.Result, error) {
+	if !backup.DeletionTimestamp.IsZero() {
+		return reconcile.Result{}, nil
+	}
+
+	if backup.Status.State == backupv1alpha1.BackupStateSucceeded ||
+		backup.Status.State == backupv1alpha1.BackupStateFailed {
+		return reconcile.Result{}, nil
+	}
+
+	verifyErr := controller.ReconcileExternalBackupStatus(ctx, r.client, backup)
+	if err := r.updateStatus(ctx, backup, bc); err != nil {
+		return reconcile.Result{}, err
+	}
+
+	return reconcile.Result{}, verifyErr
 }
 
 func (r *backupRuntimeReconciler) updateStatus(

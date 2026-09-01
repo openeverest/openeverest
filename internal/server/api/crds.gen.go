@@ -32,14 +32,14 @@ func (e BackupSpecDeletionPolicy) Valid() bool {
 
 // Defines values for BackupSpecOriginType.
 const (
-	BackupSpecOriginTypeImport   BackupSpecOriginType = "Import"
+	BackupSpecOriginTypeExternal BackupSpecOriginType = "External"
 	BackupSpecOriginTypeInstance BackupSpecOriginType = "Instance"
 )
 
 // Valid indicates whether the value is a known member of the BackupSpecOriginType enum.
 func (e BackupSpecOriginType) Valid() bool {
 	switch e {
-	case BackupSpecOriginTypeImport:
+	case BackupSpecOriginTypeExternal:
 		return true
 	case BackupSpecOriginTypeInstance:
 		return true
@@ -1172,7 +1172,7 @@ type BackupClassList struct {
 	} `json:"metadata,omitempty"`
 }
 
-// BackupImport BackupImport is the Schema for the backupimports API
+// BackupImport BackupImport is the Schema for the backupimports API.
 type BackupImport struct {
 	// ApiVersion APIVersion defines the versioned schema of this representation of an object.
 	// Servers should convert recognized schemas to the latest internal value, and

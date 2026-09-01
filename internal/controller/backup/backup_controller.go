@@ -18,19 +18,13 @@ package backup
 import (
 	"context"
 	"crypto/md5"
-	"crypto/tls"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"net/http"
 	"time"
 
 	"github.com/AlekSi/pointer"
-	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/config"
-	"github.com/aws/aws-sdk-go-v2/credentials"
-	"github.com/aws/aws-sdk-go-v2/service/s3"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -48,6 +42,7 @@ import (
 	apicommon "github.com/openeverest/openeverest/v2/api/common/v1alpha1"
 	corev1alpha1 "github.com/openeverest/openeverest/v2/api/core/v1alpha1"
 	"github.com/openeverest/openeverest/v2/pkg/common"
+	"github.com/openeverest/openeverest/v2/provider-runtime/controller"
 )
 
 const (
@@ -217,9 +212,13 @@ func (r *BackupReconciler) Reconcile( //nolint:nonamedreturns
 
 	// External backups are imported references to data already sitting in
 	// a storage; there is no source Instance and no job to run. The reconciler
-	// verifies the backup then marks the Backup Succeeded.
+	// verifies the backup in the storage then marks the Backup Succeeded.
 	if backup.Spec.Origin.Type == backupv1alpha1.BackupOriginTypeExternal {
-		return r.reconcileExternalBackup(ctx, backup, startedAt, completedAt, size)
+		backup.Status.StartedAt = startedAt
+		backup.Status.CompletedAt = completedAt
+		backup.Status.Size = size
+		backup.Status.ExecutionMode = backupv1alpha1.BackupExecutionModeJob
+		return ctrl.Result{}, controller.ReconcileExternalBackupStatus(ctx, r.Client, backup)
 	}
 
 	if bc.Spec.Job == nil || bc.Spec.Job.Backup.JobSpec == nil {
@@ -304,104 +303,6 @@ func (r *BackupReconciler) ensureInstanceNameLabel(ctx context.Context, backup *
 		return fmt.Errorf("failed to update instance name label: %w", err)
 	}
 
-	return nil
-}
-
-// reconcileExternalBackup handles a Backup whose data was imported from a
-// BackupStorage rather than produced by a live Instance. It verifies
-// backup has valid startedAt and completedAt timestamps, the storage
-// object is actually present and then marks the Backup Succeeded.
-func (r *BackupReconciler) reconcileExternalBackup(
-	ctx context.Context,
-	backup *backupv1alpha1.Backup,
-	startedAt,
-	completedAt *metav1.Time,
-	size *string,
-) (ctrl.Result, error) {
-	if startedAt == nil || startedAt.IsZero() {
-		backup.Status.State = backupv1alpha1.BackupStateError
-		backup.Status.Message = "external backup must have a startedAt timestamp"
-	}
-	backup.Status.StartedAt = startedAt
-
-	if completedAt == nil || completedAt.IsZero() {
-		backup.Status.State = backupv1alpha1.BackupStateError
-		backup.Status.Message = "external backup must have a completedAt timestamp"
-	}
-	backup.Status.CompletedAt = completedAt
-
-	if size != nil && *size != "" {
-		backup.Status.Size = size
-	}
-
-	if err := r.verifyExternalObjectPresent(ctx, backup); err != nil {
-		backup.Status.State = backupv1alpha1.BackupStateError
-		backup.Status.Message = fmt.Errorf("failed to verify imported backup object: %w", err).Error()
-		return ctrl.Result{}, err
-	}
-
-	backup.Status.ExecutionMode = backupv1alpha1.BackupExecutionModeJob
-	backup.Status.State = backupv1alpha1.BackupStateSucceeded
-	return ctrl.Result{}, nil
-}
-
-// verifyExternalObjectPresent confirms that the object referenced by
-// backup.spec.origin.external.path really exists in the BackupStorage named by
-// backup.spec.storageRef, using a HeadObject against the S3-compatible store.
-func (r *BackupReconciler) verifyExternalObjectPresent(
-	ctx context.Context,
-	backup *backupv1alpha1.Backup,
-) error {
-	storage := &backupv1alpha1.BackupStorage{}
-	if err := r.Client.Get(ctx, client.ObjectKey{
-		Name:      backup.Spec.StorageRef.Name,
-		Namespace: backup.GetNamespace(),
-	}, storage); err != nil {
-		return fmt.Errorf("failed to get BackupStorage %q: %w", backup.Spec.StorageRef.Name, err)
-	}
-	if storage.Spec.S3 == nil {
-		return fmt.Errorf("BackupStorage %q has no S3 configuration", backup.Spec.StorageRef.Name)
-	}
-
-	details, err := r.buildS3StorageDetails(ctx, backup.GetNamespace(), storage.Spec.S3)
-	if err != nil {
-		return err
-	}
-	s3d := details.S3
-
-	cfgOpts := []func(*config.LoadOptions) error{
-		config.WithRegion(s3d.Region),
-		config.WithCredentialsProvider(
-			credentials.NewStaticCredentialsProvider(s3d.AccessKeyID, s3d.SecretAccessKey, ""),
-		),
-	}
-
-	if !s3d.VerifyTLS {
-		cfgOpts = append(cfgOpts, config.WithHTTPClient(&http.Client{
-			Transport: &http.Transport{
-				DisableKeepAlives: true,
-				TLSClientConfig:   &tls.Config{InsecureSkipVerify: true}, //nolint:gosec // honors BackupStorage.spec.s3.verifyTLS
-			},
-		}))
-	}
-
-	cfg, err := config.LoadDefaultConfig(ctx, cfgOpts...)
-	if err != nil {
-		return fmt.Errorf("failed to load S3 config: %w", err)
-	}
-
-	s3Client := s3.NewFromConfig(cfg, func(o *s3.Options) {
-		o.BaseEndpoint = aws.String(s3d.EndpointURL)
-		o.UsePathStyle = s3d.ForcePathStyle
-	})
-
-	if _, err := s3Client.HeadObject(ctx, &s3.HeadObjectInput{
-		Bucket: aws.String(s3d.Bucket),
-		Key:    aws.String(backup.Spec.Origin.External.Path),
-	}); err != nil {
-		return fmt.Errorf("backup object %q not found in storage %q: %w",
-			backup.Spec.Origin.External.Path, backup.Spec.StorageRef.Name, err)
-	}
 	return nil
 }
 

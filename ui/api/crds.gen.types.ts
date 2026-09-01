@@ -96,7 +96,7 @@ export interface components {
                      * @description Type selects the origin variant.
                      * @enum {string}
                      */
-                    type: "Instance" | "Import";
+                    type: "Instance" | "External";
                 };
                 /**
                  * @description Parameters is the backup-time structured configuration validated
@@ -558,7 +558,7 @@ export interface components {
                 name?: string;
             };
         };
-        /** @description BackupImport is the Schema for the backupimports API */
+        /** @description BackupImport is the Schema for the backupimports API. */
         BackupImport: {
             /**
              * @description APIVersion defines the versioned schema of this representation of an object.

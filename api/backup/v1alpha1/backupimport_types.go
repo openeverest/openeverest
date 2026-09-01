@@ -76,7 +76,7 @@ const (
 	// BackupImportStatetateSucceeded indicates the import completed and the
 	// corresponding Backup CRs have been created.
 	BackupImportStatetateSucceeded BackupImportState = "Succeeded"
-	// ImportPhaseFailed indicates the import failed terminally; see
+	// BackupImportStateStateFailed indicates the import failed terminally; see
 	// Status.Message and Status.Conditions.
 	BackupImportStateStateFailed BackupImportState = "Failed"
 	// BackupImportStateStateError indicates a transient error; the controller may retry.
@@ -91,7 +91,7 @@ const (
 // +kubebuilder:printcolumn:name="State",type="string",JSONPath=".status.state"
 // +kubebuilder:printcolumn:name="Created",type="integer",JSONPath=".status.createdCount"
 
-// BackupImport is the Schema for the backupimports API
+// BackupImport is the Schema for the backupimports API.
 type BackupImport struct {
 	metav1.TypeMeta `json:",inline"`
 
@@ -110,11 +110,13 @@ type BackupImport struct {
 
 // +kubebuilder:object:root=true
 
-// BackupImportList contains a list of BackupImport
+// BackupImportList contains a list of BackupImport.
 type BackupImportList struct {
 	metav1.TypeMeta `json:",inline"`
+
 	metav1.ListMeta `json:"metadata,omitzero"`
-	Items           []BackupImport `json:"items"`
+
+	Items []BackupImport `json:"items"`
 }
 
 func init() { //nolint:gochecknoinits // kubebuilder scheme registration convention
