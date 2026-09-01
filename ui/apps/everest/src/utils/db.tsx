@@ -202,19 +202,31 @@ export const dbPayloadToAffinityRules = (
           }
         );
 
+        // Each nodeSelectorTerm represents an OR group; within a term,
+        // matchExpressions are ANDed together. We flatten all matchExpressions
+        // from all terms into individual rules so the UI can display them.
         requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms.forEach(
           ({ matchExpressions = [] }) => {
-            rules.push({
-              component,
-              type: AffinityType.NodeAffinity,
-              priority: AffinityPriority.Required,
-              uid: generateShortUID(),
-              ...(matchExpressions.length > 0 && {
-                key: matchExpressions[0].key,
-                operator: matchExpressions[0].operator,
-                values: matchExpressions[0].values?.join(','),
-              }),
-            });
+            if (matchExpressions.length === 0) {
+              rules.push({
+                component,
+                type: AffinityType.NodeAffinity,
+                priority: AffinityPriority.Required,
+                uid: generateShortUID(),
+              });
+            } else {
+              matchExpressions.forEach((expr) => {
+                rules.push({
+                  component,
+                  type: AffinityType.NodeAffinity,
+                  priority: AffinityPriority.Required,
+                  uid: generateShortUID(),
+                  key: expr.key,
+                  operator: expr.operator,
+                  values: expr.values?.join(','),
+                });
+              });
+            }
           }
         );
       }
@@ -350,25 +362,29 @@ export const affinityRulesToDbPayload = (
 
     switch (type) {
       case AffinityType.NodeAffinity: {
-        const matchExpressions: AffinityMatchExpression[] = [
-          {
-            key: key!,
-            operator: operator!,
-            ...(doesAffinityOperatorRequireValues(operator!) && {
-              values: valuesList,
-            }),
-          },
-        ];
+        const matchExpression: AffinityMatchExpression = {
+          key: key!,
+          operator: operator!,
+          ...(doesAffinityOperatorRequireValues(operator!) && {
+            values: valuesList,
+          }),
+        };
 
         if (required) {
-          map[AffinityType.NodeAffinity].required.nodeSelectorTerms.push({
-            matchExpressions,
-          });
+          // All required node affinity rules are grouped into a single
+          // nodeSelectorTerm so they are ANDed together in Kubernetes.
+          const terms =
+            map[AffinityType.NodeAffinity].required.nodeSelectorTerms;
+          if (terms.length === 0) {
+            terms.push({ matchExpressions: [matchExpression] });
+          } else {
+            terms[0].matchExpressions.push(matchExpression);
+          }
         } else {
           map[AffinityType.NodeAffinity].preferred.push({
             weight: weight!,
             preference: {
-              matchExpressions,
+              matchExpressions: [matchExpression],
             },
           });
         }
@@ -482,16 +498,24 @@ export const insertAffinityRuleToExistingPolicy = (
     }
 
     if (rule.priority === AffinityPriority.Required) {
-      policy.spec.affinityConfig[dbType][
-        rule.component
-      ]!.nodeAffinity!.requiredDuringSchedulingIgnoredDuringExecution!.nodeSelectorTerms =
-        [
-          ...policy.spec.affinityConfig[dbType][rule.component]!.nodeAffinity!
-            .requiredDuringSchedulingIgnoredDuringExecution!.nodeSelectorTerms,
-          ...(formattedRule.nodeAffinity
-            ?.requiredDuringSchedulingIgnoredDuringExecution
-            ?.nodeSelectorTerms || []),
+      const existingTerms =
+        policy.spec.affinityConfig[dbType][rule.component]!.nodeAffinity!
+          .requiredDuringSchedulingIgnoredDuringExecution!.nodeSelectorTerms;
+      const newMatchExpressions =
+        formattedRule.nodeAffinity
+          ?.requiredDuringSchedulingIgnoredDuringExecution
+          ?.nodeSelectorTerms[0]?.matchExpressions || [];
+
+      if (existingTerms.length === 0) {
+        // No existing term yet — create the first one
+        existingTerms.push({ matchExpressions: newMatchExpressions });
+      } else {
+        // Append to the existing single term so rules are ANDed together
+        existingTerms[0].matchExpressions = [
+          ...existingTerms[0].matchExpressions,
+          ...newMatchExpressions,
         ];
+      }
     } else {
       policy.spec.affinityConfig[dbType][
         rule.component
@@ -565,30 +589,42 @@ export const removeRuleInExistingPolicy = (
 
     if (priority === AffinityPriority.Required) {
       if (rule.type === AffinityType.NodeAffinity) {
-        const matchingRuleIdx = (
+        const terms = (
           (
             (obj?.requiredDuringSchedulingIgnoredDuringExecution as RequiredNodeSchedulingTerm) ||
             {}
           ).nodeSelectorTerms || []
-        ).findIndex(
-          ({ matchExpressions }) =>
-            matchExpressions.length &&
-            matchExpressions[0].key === rule.key &&
-            matchExpressions[0].operator === rule.operator &&
-            matchExpressions[0].values?.join(',') === rule.values
         );
 
-        if (matchingRuleIdx !== -1) {
-          (
-            obj?.requiredDuringSchedulingIgnoredDuringExecution as RequiredNodeSchedulingTerm
-          ).nodeSelectorTerms.splice(matchingRuleIdx, 1);
+        // All required node affinity rules are stored as matchExpressions
+        // within a single nodeSelectorTerm (AND logic). Find and remove the
+        // matching expression from that term.
+        let removed = false;
+        for (const term of terms) {
+          const exprIdx = (term.matchExpressions || []).findIndex(
+            (expr) =>
+              expr.key === rule.key &&
+              expr.operator === rule.operator &&
+              expr.values?.join(',') === rule.values
+          );
+          if (exprIdx !== -1) {
+            term.matchExpressions.splice(exprIdx, 1);
+            removed = true;
+            break;
+          }
+        }
 
-          if (
+        if (removed) {
+          // Remove any terms that are now empty
+          const filteredTerms = terms.filter(
+            (t) => t.matchExpressions && t.matchExpressions.length > 0
+          );
+          if (filteredTerms.length === 0) {
+            delete obj?.requiredDuringSchedulingIgnoredDuringExecution;
+          } else {
             (
               obj?.requiredDuringSchedulingIgnoredDuringExecution as RequiredNodeSchedulingTerm
-            ).nodeSelectorTerms.length === 0
-          ) {
-            delete obj?.requiredDuringSchedulingIgnoredDuringExecution;
+            ).nodeSelectorTerms = filteredTerms;
           }
         }
       } else {
