@@ -58,6 +58,7 @@ type ProviderReconciler struct {
 	manager      ctrl.Manager
 	serverConfig *server.ServerConfig
 	server       *server.Server
+	breaker      maintenanceBreaker
 	client.Client
 }
 
@@ -423,6 +424,7 @@ func (r *ProviderReconciler) Reconcile(ctx context.Context, req reconcile.Reques
 		return reconcile.Result{}, err
 	}
 	syncCtx := controller.NewContext(ctx, r.Client, resolvedIn, r.provider.Name())
+	syncCtx.BlockMaintenance(r.breaker.blockedTokens(req.NamespacedName, approvedMaintenanceValue(in))...)
 
 	// Passive warning for owners: flag effective component versions the
 	// installed catalog marks as deprecated, before any upgrade is attempted.
@@ -455,8 +457,10 @@ func (r *ProviderReconciler) Reconcile(ctx context.Context, req reconcile.Reques
 			return reconcile.Result{}, nil
 		}
 		logger.Error(err, "Sync failed")
+		r.breaker.recordFailure(req.NamespacedName, approvedMaintenanceValue(in), syncCtx.GetApprovedMaintenance())
 		return reconcile.Result{}, err
 	}
+	r.breaker.reset(req.NamespacedName)
 	// Clear any stale BackupConfigured=False condition left from a previous failed Sync.
 	if _, ok := r.provider.(controller.BackupProvider); ok {
 		setCondition(in, v1alpha1.ConditionBackupConfigured, metav1.ConditionTrue,
@@ -815,15 +819,21 @@ func (r *ProviderReconciler) setDeprecationCondition(ctx context.Context, in *v1
 // flushPendingMaintenance writes the actions held by RequestMaintenance to
 // status.pendingMaintenance and maintains the MaintenancePending condition:
 // True while anything is held, flipped to False (never removed) once the
-// last held action clears.
+// last held action clears. When a hold is due to exhausted retries the
+// reason says so, surfacing the breaker state.
 func flushPendingMaintenance(syncCtx *controller.Context, in *v1alpha1.Instance) {
 	pending := syncCtx.GetPendingMaintenance()
 	in.Status.PendingMaintenance = pending
 
 	if len(pending) > 0 {
+		reason := v1alpha1.ReasonAwaitingApproval
+		message := fmt.Sprintf("%d action(s) require approval to proceed", len(pending))
+		if syncCtx.MaintenanceBreakerHeld() {
+			reason = v1alpha1.ReasonRetriesExhausted
+			message = "an approved action kept failing and is no longer retried; clear and re-set spec.maintenance.approved to retry"
+		}
 		setCondition(in, v1alpha1.ConditionMaintenancePending, metav1.ConditionTrue,
-			v1alpha1.ReasonAwaitingApproval,
-			fmt.Sprintf("%d action(s) require approval to proceed", len(pending)), metav1.Now())
+			reason, message, metav1.Now())
 		return
 	}
 	for _, c := range in.Status.Conditions {
@@ -834,6 +844,15 @@ func flushPendingMaintenance(syncCtx *controller.Context, in *v1alpha1.Instance)
 			return
 		}
 	}
+}
+
+// approvedMaintenanceValue returns spec.maintenance.approved, tolerating an
+// unset maintenance block.
+func approvedMaintenanceValue(in *v1alpha1.Instance) string {
+	if in.Spec.Maintenance == nil {
+		return ""
+	}
+	return in.Spec.Maintenance.Approved
 }
 
 // prepareInstance fetches the Provider and returns the Instance the provider

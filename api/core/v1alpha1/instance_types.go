@@ -715,6 +715,12 @@ const (
 	// held; everything the provider requested was within the Instance's
 	// standing tolerance or has been applied.
 	ReasonNoActionsPending = "NoActionsPending"
+
+	// ReasonRetriesExhausted indicates an approved disruptive action kept
+	// failing and the runtime stopped retrying it so a crash-looping
+	// provider cannot repeatedly disrupt the database. Clear and re-set
+	// spec.maintenance.approved to retry.
+	ReasonRetriesExhausted = "RetriesExhausted"
 )
 
 // Reasons for the DataSourceReady condition.
