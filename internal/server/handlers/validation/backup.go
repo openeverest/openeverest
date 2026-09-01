@@ -49,7 +49,7 @@ func (h *validateHandler) CreateBackup(ctx context.Context, cluster string, back
 // classRef do not point to existing resources, or whose BackupClass does
 // not support the target Instance's provider.
 func (h *validateHandler) validateBackupRefs(ctx context.Context, backup *backupv1alpha1.Backup) error {
-	// Imported backups have no Instance to validate; their data
+	// External backups have no Instance to validate; their data
 	// already lives in the referenced BackupStorage.
 	var instance *corev1alpha1.Instance
 	if backup.Spec.Origin.InstanceRef != nil {

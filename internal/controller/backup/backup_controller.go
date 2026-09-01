@@ -227,6 +227,7 @@ func (r *BackupReconciler) Reconcile( //nolint:nonamedreturns
 		return ctrl.Result{}, nil
 	}
 
+	// Get the source database instance.
 	instance := &corev1alpha1.Instance{}
 	if err := r.Client.Get(ctx, client.ObjectKey{
 		Name:      backup.Spec.Origin.InstanceRef.Name,

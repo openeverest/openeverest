@@ -110,8 +110,8 @@ func (r *backupRuntimeReconciler) Reconcile(ctx context.Context, req reconcile.R
 	}
 
 	// External backups are imported references to data already sitting in
-	// a storage; there is no source Instance and no job to run. The reconciler
-	// verifies the backup in the storage then marks the Backup Succeeded.
+	// a storage; there is no source Instance. The reconciler verifies the
+	// backup in the storage then marks the Backup Succeeded.
 	if backup.Spec.Origin.Type == backupv1alpha1.BackupOriginTypeExternal {
 		return r.reconcileExternalBackup(ctx, backup, bc)
 	}
@@ -193,9 +193,8 @@ func resolveBackupOwnership(
 		return nil, bc, false, nil
 	}
 
-	// External backups have no Instance to fetch: their data already lives in a
-	// BackupStorage. Ownership is derived from the class's SupportedProviders
-	// instead of an Instance's ProviderRef.
+	// External backups have no Instance to fetch. Ownership is derived
+	// from the class's SupportedProviders.
 	if backup.Spec.Origin.Type == backupv1alpha1.BackupOriginTypeExternal {
 		return nil, bc, bc.Spec.SupportedProviders.Has(providerName), nil
 	}
@@ -233,6 +232,7 @@ func (r *backupRuntimeReconciler) reconcileExternalBackup(
 		return reconcile.Result{}, nil
 	}
 
+	backup.Status.ExecutionMode = backupv1alpha1.BackupExecutionModeProviderManaged
 	verifyErr := controller.ReconcileExternalBackupStatus(ctx, r.client, backup)
 	if err := r.updateStatus(ctx, backup, bc); err != nil {
 		return reconcile.Result{}, err

@@ -151,6 +151,7 @@ type BackupOriginExternal struct {
 type BackupStatus struct {
 	// ExecutionMode is the resolved execution mode at the time the Backup
 	// started. Recorded for observability.
+	// +optional
 	ExecutionMode BackupExecutionMode `json:"executionMode,omitempty"`
 	// Size is the size of the backup data as reported by the engine.
 	// For external backups, the size is inferred from the backup data
