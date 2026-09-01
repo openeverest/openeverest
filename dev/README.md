@@ -3,190 +3,229 @@
 This directory holds the configuration files for creating a development
 environment for everest.
 
-[tilt.dev](https://docs.tilt.dev/install.html) builds and deploys all
-components to a local kubernetes cluster and also watches for changes in each
-of the components' repo in order to trigger a rebuild/redeploy of the affected
-components.
+[tilt.dev](https://docs.tilt.dev/install.html) builds and deploys components to
+a local Kubernetes cluster and watches for changes to trigger rebuilds. Logs are
+available in the Tilt web UI.
 
-Build and runtime logs can be easily accessed using tilt's web UI.
+On the `release-2.0` branch, this Tiltfile deploys the OpenEverest **core** only
+(API server, controller, core CRDs, and UI). Database providers live in separate
+repositories and are installed separately.
 
 ## Prerequisites
 
-1. Install [Go](https://go.dev/dl/) (version 1.26 or later)
+Install [Go](https://go.dev/dl/) (1.26.3+), [Docker](https://docs.docker.com/engine/install/),
+[kubectl](https://kubernetes.io/docs/tasks/tools/), [Helm](https://helm.sh/docs/intro/install/),
+[k3d](https://k3d.io), [Tilt](https://docs.tilt.dev/install.html), and
+[pnpm](https://pnpm.io/installation) (for the frontend build).
 
-2. Install [Docker](https://docs.docker.com/engine/install/)
+## Quick start
 
-3. Install [kubectl](https://kubernetes.io/docs/tasks/tools/)
+### 1. Get repos and set proper v2 branches
 
-4. Install [Helm](https://helm.sh/docs/intro/install/)
+Check out this repository on **`release-2.0`**.
 
-   ```sh
-   curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
-   ```
+Clone [helm-charts](https://github.com/openeverest/helm-charts) on **`v2`**:
 
-5. Install [k3d](https://k3d.io)
+```sh
+git clone -b v2 https://github.com/openeverest/helm-charts.git
+```
 
-6. Install [tilt.dev](https://docs.tilt.dev/install.html)
-NOTE: for MacOS tilt needs to have installed and running `docker-desktop` tool. This is not required and can be skipped since we use `k3d` instead.
+| Repository | Branch |
+|------------|--------|
+| [openeverest/openeverest](https://github.com/openeverest/openeverest) | `release-2.0` |
+| [openeverest/helm-charts](https://github.com/openeverest/helm-charts) | `v2` |
 
-7. Install [pnpm](https://pnpm.io/installation) (required for the frontend build)
+Copy and configure the core dev files:
 
-   ```sh
-   npm install -g pnpm
-   ```
+```sh
+cp dev/.env.example dev/.env
+cp dev/config.yaml.example dev/config.yaml
+```
 
-8. Clone [everest-operator](https://github.com/percona/everest-operator).
+Set in `dev/.env`:
 
-9. Clone [helm-charts](https://github.com/openeverest/helm-charts).
+```sh
+EVEREST_CHART_DIR=<path to helm-charts>/charts/everest
+```
 
-> **NOTE**: This Tiltfile is focused on OpenEverest **core** development (the
-> API server, controller, CRDs and UI). Database providers (PSMDB, PXC, ...) are
-> developed in their own repositories, each with its own `dev/Tiltfile`. See
-> [Developing providers](#developing-providers) below.
+Set DB namespaces in `dev/config.yaml` as needed.
 
-## Set up the environment
+### 2. Create k3d with `make dev-up`
 
-### 1. Set up k8s & registry   
-#### Option A: Local (Tilt development)
 ```sh
 make dev-up
 ```
-This creates a k3d cluster and starts Tilt. The Everest UI will be available at http://localhost:8080.
 
-> **NOTE**: The default k3d registry uses port `5000`, which may already be occupied on some systems (e.g., macOS Control Center). Update the `hostPort` in `k3d_config.dev.yaml`.
+The Makefile runs `k3d-cluster-up-dev` first, which creates a k3d cluster named
+`everest-dev`. Tilt does not create the cluster itself.
 
-#### Option B: Local (CI-style testing)
+### 3. Deploy core with Tilt
+
+The same `make dev-up` command then starts Tilt for the core. The UI/API is at
+http://localhost:8080. Keep Tilt running.
+
+### 4. Deploy provider with Tilt
+
+After the core is up (steps 2–3), in a provider repository (see
+[Appendix: Provider repositories](#provider-repositories)):
+
+```sh
+INSTALL_OPENEVEREST=false tilt up -f dev/Tiltfile --port 10351
+```
+
+Use another port (e.g. `10352`, `10353`) for each additional provider.
+
+### 5. Done
+
+```sh
+kubectl get providers
+```
+
+Refresh the UI. Installed engines should appear and you can create database
+instances.
+
+If you only completed steps 2–3, the UI shows **"No providers installed"** until
+step 4.
+
+## Tear down
+
+```sh
+make dev-down       # Stop Tilt (cluster remains running)
+make dev-destroy    # Destroy the k3d cluster (run dev-down first if Tilt is still up)
+```
+
+## Troubleshooting
+
+| Symptom | What to do |
+|---------|------------|
+| **No providers installed** | Complete [Quick start](#quick-start) step 4 |
+| **localhost:8080 unreachable** | Keep Tilt running |
+| **Provider Helm / CRD errors** | Run `make dev-destroy` and start fresh on `release-2.0` |
+
+---
+
+## Appendix
+
+### Branches and `config.yaml`
+
+On `main`, `dev/config.yaml.example` includes an `operators:` block and the
+Tiltfile installs database operators. On `release-2.0`, `config.yaml` defines
+namespaces only. Do not copy `config.yaml` from `main`.
+
+### Provider repositories
+
+| Engine | Provider repository |
+|--------|----------------------|
+| PostgreSQL | [provider-percona-postgresql](https://github.com/openeverest/provider-percona-postgresql) |
+| MongoDB | [provider-percona-server-mongodb](https://github.com/openeverest/provider-percona-server-mongodb) |
+| MySQL (PXC) | [provider-percona-xtradb-cluster](https://github.com/openeverest/provider-percona-xtradb-cluster) |
+
+Each provider chart installs the provider controller (registers a `Provider` CR)
+and the database operator subchart.
+
+Build chart dependencies once per provider before starting Tilt:
+
+```sh
+helm repo add percona https://percona.github.io/percona-helm-charts/
+helm repo update
+helm dependency build charts/<provider-chart-name>
+```
+
+For day-to-day provider-only work, use the provider repo's `make dev-up` (see its
+`dev/README.md`). To run a provider against a locally built core, follow
+[Quick start](#quick-start) step 4 after steps 2–3.
+
+More detail:
+[Developing the core and the provider together](https://github.com/openeverest/provider-percona-server-mongodb/blob/main/dev/README.md#developing-the-core-and-the-provider-together).
+
+### CI-style local testing
+
 ```sh
 make k3d-cluster-up
 make deploy-all
 ```
-This creates a k3d cluster and deploys Everest using the `deploy` target, which exposes the service via NodePort.
 
-#### Option C: Remote (GKE)  
-1. Setup your default gcloud project, e.g.  
+Creates k3d cluster `everest-server-test` and deploys via NodePort (UI at
+http://localhost:8080).
+
+Tear down:
+
 ```sh
-export CLOUDSDK_CORE_PROJECT=percona-everest
-```  
-2. Create GKE cluster  
-```sh
-gcloud container clusters create <NAME> --cluster-version 1.27 --preemptible --machine-type n1-standard-4  --num-nodes=3 --zone=europe-west1-c --labels delete-cluster-after-hours=12 --no-enable-autoupgrade
-```  
-3. Create Artifacts registry according to [instructions](https://cloud.google.com/artifact-registry/docs/docker/store-docker-container-images#create)  
-4. Configure access  
-```sh
-gcloud auth configure-docker <REGISTRY_REGION>-docker.pkg.dev
-```
-5. Uncomment and edit `allow_k8s_contexts` and `default_registry` in the Tiltfile
-
-⚠️ To avoid extra costs do not forget to:
-- Destroy external cluster when not used
-- Cleanup the registry periodically since tilt pushes a new image each time something is changed in the project. 
-
-
-### 2. Configure and start Tilt
-1. Set environment variables:
-
-Copy file dev/.env.example to dev/.env and set the following environment variables:
-```sh
-EVEREST_OPERATOR_DIR=<path to github.com/percona/everest-operator repository directory>
-EVEREST_CHART_DIR=<path to github.com/openeverest/helm-charts>/charts/everest
+make undeploy
+make k3d-cluster-down
 ```
 
-or set environment variables manually in the terminal:
+### Remote development on GKE
 
-```sh
-export EVEREST_OPERATOR_DIR=<path to github.com/percona/everest-operator repository directory>
-export EVEREST_CHART_DIR=<path to github.com/openeverest/helm-charts>/charts/everest
-```
-
-For OpenEverest v2 development use `v2` branch of `EVEREST_CHART_DIR`.
-If your Tilt environment starts with errors, ensure you have the latest `v2` branch for `EVEREST_CHART_DIR`.
-
-2. Set namespaces for the Everest components:
-
-Copy file dev/config.yaml.example to dev/config.yaml and:
-
-- Set the needed DB namespaces that will be created automatically.
-- (Mostly for FE devs) If you want to disable the Tilt frontend build, save time and avoid FE rebuilds (and, therefore, BE rebuilds), keeping the dev flow of using Vite, set `enableFrontend: false`
-
-3. (Optional) If you want to install a generic plugin (e.g. the [template plugin](https://github.com/openeverest/generic-plugin-template)), set the OCI chart reference:
-```sh
-export HELLO_PLUGIN_CHART=oci://ghcr.io/openeverest/generic-plugin-template
-export HELLO_PLUGIN_VERSION=0.1.0  # optional, omit to use latest
-```
-If the registry requires authentication, log in first:
-```sh
-helm registry login ghcr.io -u <github-user> -p <token>
-```
-If `HELLO_PLUGIN_CHART` is not set, Tilt skips the plugin step entirely.
-
-4. (Optional) If you want to debug Everest Server and/or Everest operator remotely, you can set the following environment variables in .env file or in the terminal: 
-```sh
-export EVEREST_DEBUG=true
-export EVEREST_OPERATOR_DEBUG=true
-```
-In such a case you can setup your IDE to connect to port on your `localhost` and use debugging tools in your IDE.
-
-Debugging port for Everest Server: `40000`.
-
-Debugging port for Everest Operator: `40001`.
-
-Refer to instructions in your IDE on how to setup remote debugging. 
-
-For GoLand, you can refer to [this](https://www.jetbrains.com/help/go/attach-to-running-go-processes-with-debugger.html#step-2-create-the-go-remote-run-debug-configuration) link.
-
-5. Start Tilt:
-```sh
-make dev-up
-```
-
-The everest UI/API will be available at http://localhost:8080.
-
-## Tear down the environment
-
-### For Tilt development:
-```sh
-make dev-down       # Stop Tilt (cluster remains running)
-make dev-destroy    # Stop Tilt and destroy the cluster
-```
-
-### For CI-style testing:
-```sh
-make undeploy       # Undeploy Everest
-make k3d-cluster-down  # Destroy the cluster
-```
-
-## Notes for frontend development
-
-Rebuilding the frontend takes ~30s which makes this strategy not very efficient
-for frontend development. Therefore, we recommend frontend developers to run
-tilt as described in [Set up the environment](#set-up-the-environment) section
-but then run a local dev instance of the frontend by running `make dev` from
-the frontend repo. This dev instance will be available at http://localhost:3000
-while still connecting to the everest API server running inside k8s.
-
-## Developing providers
-
-This Tiltfile builds and deploys the OpenEverest core only. Each provider
-repository ships its own `dev/Tiltfile` that installs a released OpenEverest
-core and then builds and deploys just that provider. For day-to-day provider
-development, use the provider repo's `make dev-up` (see its `dev/README.md`).
-
-### Testing a provider against a locally built core
-
-When you need a provider to run against the core you are building from source,
-run two Tilt instances against the same cluster:
-
-1. Start this core dev environment as usual (`make dev-up`). It manages
-   `everest-system` and the core CRDs.
-2. In the provider repo, start its Tilt instance on a different port with the
-   core installation disabled:
+1. Set your default gcloud project:
 
    ```sh
-   INSTALL_OPENEVEREST=false tilt up -f dev/Tiltfile --port 10351
+   export CLOUDSDK_CORE_PROJECT=percona-everest
    ```
 
-The two instances manage disjoint Kubernetes objects (core owns
-`everest-system` + the core CRDs; the provider owns its own namespace + the
-database operator), so they run side by side without conflicting.
+2. Create a GKE cluster:
 
+   ```sh
+   gcloud container clusters create <NAME> --cluster-version 1.27 --preemptible --machine-type n1-standard-4 --num-nodes=3 --zone=europe-west1-c --labels delete-cluster-after-hours=12 --no-enable-autoupgrade
+   ```
+
+3. Create an Artifact Registry repo according to [Google's instructions](https://cloud.google.com/artifact-registry/docs/docker/store-docker-container-images#create)
+
+4. Configure Docker access:
+
+   ```sh
+   gcloud auth configure-docker <REGISTRY_REGION>-docker.pkg.dev
+   ```
+
+5. In `dev/.env`, set `K8S_CONTEXT` to your GKE context and `DOCKER_REGISTRY_URL`
+   to your registry (see `dev/.env.example`).
+
+6. Complete [Quick start](#quick-start) step 1, then run `make dev-up`.
+
+Destroy the cluster when not in use. Clean up the registry periodically; Tilt
+pushes a new image on each rebuild.
+
+### Frontend development with Vite
+
+Rebuilding the frontend in Tilt takes ~30s. For UI work, complete
+[Quick start](#quick-start) steps 2–3, then:
+
+```sh
+cd ui
+make dev
+```
+
+Dev UI: http://localhost:3000 (proxies API calls to http://localhost:8080).
+
+Set `enableFrontendBuild: false` in `config.yaml` to skip Tilt frontend rebuilds.
+
+### Remote debugging
+
+Set in `dev/.env`:
+
+```sh
+export EVEREST_DEBUG=true
+```
+
+Connect your IDE to localhost port `40000` (Everest Server). See your IDE docs;
+GoLand users can follow
+[this guide](https://www.jetbrains.com/help/go/attach-to-running-go-processes-with-debugger.html#step-2-create-the-go-remote-run-debug-configuration).
+
+### k3d registry port
+
+The default k3d registry uses port `5000`, which may be occupied on some systems
+(e.g. macOS Control Center). Update `hostPort` in `k3d_config.dev.yaml`.
+
+### Extended troubleshooting
+
+| Symptom | Likely cause | What to do |
+|---------|--------------|------------|
+| UI shows **"No providers installed"** | Core running, no `Provider` CRs yet | Install providers (see [Provider repositories](#provider-repositories)). `kubectl get crd providers.core.openeverest.io` should exist; `kubectl get providers` is empty until providers are installed |
+| http://localhost:8080 unreachable | Tilt stopped | Keep Tilt running, or `kubectl port-forward -n everest-system svc/everest 8080:8080` |
+| Provider Helm fails: **CRDs already exist** | Stale cluster or mixed `main` / `release-2.0` | `make dev-destroy`, use `release-2.0` `config.yaml` (no `operators:`), start fresh |
+| Core Tilt fails on startup | Wrong branch for `helm-charts` | Check out **`v2`** on `helm-charts` |
+| `operators:` in `config.yaml` | Copied config from `main` | Use [config.yaml.example](config.yaml.example) from `release-2.0` |
+| Legacy DatabaseEngine present | v1 resources in cluster | `make dev-destroy`, recreate, install v2 providers |
+
+If you switch between `main` and `release-2.0`, or change provider setup, run
+`make dev-destroy` before starting again.
