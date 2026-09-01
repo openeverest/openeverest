@@ -12,7 +12,7 @@ spec:
     listKind: BackupImportList
     plural: backupimports
     shortNames:
-    - imp
+    - bimp
     singular: backupimport
   scope: Namespaced
   versions:
@@ -170,7 +170,7 @@ spec:
                 type: integer
               lastObservedGeneration:
                 description: LastObservedGeneration is the last observed generation
-                  of the Backup CR.
+                  of the BackupImport CR.
                 format: int64
                 type: integer
               message:

@@ -215,8 +215,7 @@ func resolveBackupOwnership(
 	return instance, bc, true, nil
 }
 
-// reconcileExternalBackup verifies that the data an external Backup points at
-// is present in its BackupStorage and that it carries valid startedAt and
+// reconcileExternalBackup verifies it carries valid startedAt and
 // completedAt timestamps, then marks the Backup Succeeded.
 func (r *backupRuntimeReconciler) reconcileExternalBackup(
 	ctx context.Context,
@@ -232,13 +231,12 @@ func (r *backupRuntimeReconciler) reconcileExternalBackup(
 		return reconcile.Result{}, nil
 	}
 
-	backup.Status.ExecutionMode = backupv1alpha1.BackupExecutionModeProviderManaged
-	verifyErr := controller.ReconcileExternalBackupStatus(ctx, r.client, backup)
+	controller.ReconcileExternalBackupStatus(backup)
 	if err := r.updateStatus(ctx, backup, bc); err != nil {
 		return reconcile.Result{}, err
 	}
 
-	return reconcile.Result{}, verifyErr
+	return reconcile.Result{}, nil
 }
 
 func (r *backupRuntimeReconciler) updateStatus(

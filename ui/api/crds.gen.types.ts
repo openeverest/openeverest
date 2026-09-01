@@ -25,16 +25,7 @@ export interface components {
              */
             kind?: string;
             metadata?: components["schemas"]["ObjectMeta"];
-            /**
-             * @description BackupSpec defines the desired state of Backup.
-             *
-             *     spec.instanceRef is removed; the instance link now lives at
-             *     spec.origin.instanceRef, required when origin.type == Instance.
-             *     After the CRD upgrade the API server prunes the unknown spec.instanceRef
-             *     and existing Backups have no spec.origin, so the origin validation rejects
-             *     any write and the Instance link is lost. The restore from existing backups
-             *     will not work and the CRs must be recreated.
-             */
+            /** @description BackupSpec defines the desired state of Backup. */
             spec: {
                 /**
                  * @description ClassRef references the cluster-scoped BackupClass that defines how
@@ -72,8 +63,8 @@ export interface components {
                     /**
                      * @description External identifies data already present in the referenced BackupStorage
                      *     rather than produced by a live Instance. Required when Type is External.
-                     *     When set, the restoring builds the engine restore directly from
-                     *     storageRef + external.path with no live operator object.
+                     *     When set, the restore is built directly from storageRef + external.path
+                     *     with no live operator object.
                      */
                     external?: {
                         /**
@@ -81,6 +72,11 @@ export interface components {
                          * @description CompletedAt is the time when the backup completed.
                          */
                         completedAt: string;
+                        /** @description ImportRef references the BackupImport that created this Backup. */
+                        importRef: {
+                            /** @description Name of the referenced object. */
+                            name: string;
+                        };
                         /**
                          * @description Path is the backup's path within the BackupStorage. The bucket is
                          *     already determined by storageRef, so it is not repeated here. The path
@@ -656,7 +652,7 @@ export interface components {
                 discoveredCount?: number;
                 /**
                  * Format: int64
-                 * @description LastObservedGeneration is the last observed generation of the Backup CR.
+                 * @description LastObservedGeneration is the last observed generation of the BackupImport CR.
                  */
                 lastObservedGeneration?: number;
                 /** @description Message is a human-readable message about the current state. */

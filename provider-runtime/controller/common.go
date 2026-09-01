@@ -16,18 +16,11 @@ package controller
 
 import (
 	"context"
-	"crypto/tls"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"net/http"
 	"time"
 
-	"github.com/AlekSi/pointer"
-	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/config"
-	"github.com/aws/aws-sdk-go-v2/credentials"
-	"github.com/aws/aws-sdk-go-v2/service/s3"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -1197,134 +1190,32 @@ func RequestsForInstancesMatching(ctx context.Context, c client.Client, provider
 // Instance and runs no job: it is a reference to backup data already sitting
 // in a BackupStorage. The startedAt and completedAt timestamps are supplied by
 // the creator on spec.origin.external and mirrored to status here. The state is
-// set to Succeeded when those timestamps are present and the object is actually
-// present in the referenced BackupStorage.
+// set to Succeeded when those timestamps are present.
 //
 // Both Job-mode and ProviderManaged backups share this reconciliation of backup
 // status; there is no engine specific logic to validate an external backup to
 // set the state.
-func ReconcileExternalBackupStatus(ctx context.Context, c client.Client, backup *backupv1alpha1.Backup) error {
+func ReconcileExternalBackupStatus(backup *backupv1alpha1.Backup) {
 	external := backup.Spec.Origin.External
 	if external == nil {
 		backup.Status.State = backupv1alpha1.BackupStateFailed
 		backup.Status.Message = "external backup must have spec.origin.external set"
-		return nil
+		return
 	}
 
 	if external.StartedAt.IsZero() {
 		backup.Status.State = backupv1alpha1.BackupStateFailed
 		backup.Status.Message = "external backup must have a startedAt timestamp"
-		return nil
+		return
 	}
 
 	if external.CompletedAt.IsZero() {
 		backup.Status.State = backupv1alpha1.BackupStateFailed
 		backup.Status.Message = "external backup must have a completedAt timestamp"
-		return nil
+		return
 	}
 
 	backup.Status.StartedAt = external.StartedAt.DeepCopy()
 	backup.Status.CompletedAt = external.CompletedAt.DeepCopy()
-
-	storage := &backupv1alpha1.BackupStorage{}
-	if err := c.Get(ctx, client.ObjectKey{
-		Name:      backup.Spec.StorageRef.Name,
-		Namespace: backup.GetNamespace(),
-	}, storage); err != nil {
-		backup.Status.State = backupv1alpha1.BackupStateError
-		backup.Status.Message = fmt.Sprintf("failed to get BackupStorage %q: %v", backup.Spec.StorageRef.Name, err)
-		return err
-	}
-	if err := verifyBackupStorageObjectExists(
-		ctx, c, backup.GetNamespace(), storage, backup.Spec.Origin.External.Path,
-	); err != nil {
-		backup.Status.State = backupv1alpha1.BackupStateError
-		backup.Status.Message = fmt.Sprintf("failed to verify imported backup object: %v", err)
-		return err
-	}
-
 	backup.Status.State = backupv1alpha1.BackupStateSucceeded
-	return nil
-}
-
-// verifyBackupStorageObjectExists confirms that key is present in the
-// S3-compatible object store described by storage, reading the access
-// credentials from the Secret named by storage.spec.s3.credentialsSecretRef in
-// namespace.
-func verifyBackupStorageObjectExists(
-	ctx context.Context,
-	c client.Client,
-	namespace string,
-	storage *backupv1alpha1.BackupStorage,
-	key string,
-) error {
-	if storage.Spec.S3 == nil {
-		return fmt.Errorf("BackupStorage %q has no S3 configuration", storage.GetName())
-	}
-	s3Spec := storage.Spec.S3
-
-	accessKeyID, secretAccessKey, err := readBackupStorageS3Credentials(ctx, c, namespace, s3Spec)
-	if err != nil {
-		return err
-	}
-
-	cfgOpts := []func(*config.LoadOptions) error{
-		config.WithRegion(s3Spec.Region),
-		config.WithCredentialsProvider(
-			credentials.NewStaticCredentialsProvider(accessKeyID, secretAccessKey, ""),
-		),
-	}
-	if !pointer.Get(s3Spec.VerifyTLS) {
-		cfgOpts = append(cfgOpts, config.WithHTTPClient(&http.Client{
-			Transport: &http.Transport{
-				DisableKeepAlives: true,
-				TLSClientConfig:   &tls.Config{InsecureSkipVerify: true}, //nolint:gosec // honors BackupStorage.spec.s3.verifyTLS
-			},
-		}))
-	}
-
-	cfg, err := config.LoadDefaultConfig(ctx, cfgOpts...)
-	if err != nil {
-		return fmt.Errorf("failed to load S3 config: %w", err)
-	}
-
-	s3Client := s3.NewFromConfig(cfg, func(o *s3.Options) {
-		o.BaseEndpoint = aws.String(s3Spec.EndpointURL)
-		o.UsePathStyle = pointer.Get(s3Spec.ForcePathStyle)
-	})
-
-	out, err := s3Client.ListObjectsV2(ctx, &s3.ListObjectsV2Input{
-		Bucket:  aws.String(s3Spec.Bucket),
-		Prefix:  aws.String(key),
-		MaxKeys: aws.Int32(1),
-	})
-	if err != nil {
-		return fmt.Errorf("failed to check backup path %q in storage %q: %w", key, storage.GetName(), err)
-	}
-	if aws.ToInt32(out.KeyCount) == 0 {
-		return fmt.Errorf("backup path %q not found in storage %q", key, storage.GetName())
-	}
-
-	return nil
-}
-
-// readBackupStorageS3Credentials reads the AWS_ACCESS_KEY_ID and
-// AWS_SECRET_ACCESS_KEY keys from the Secret referenced by the S3 spec.
-func readBackupStorageS3Credentials(
-	ctx context.Context,
-	c client.Client,
-	namespace string,
-	s3Spec *backupv1alpha1.BackupStorageS3Spec,
-) (string, string, error) {
-	if s3Spec.CredentialsSecretRef.Name == "" {
-		return "", "", nil
-	}
-	credSecret := &corev1.Secret{}
-	if err := c.Get(ctx, client.ObjectKey{
-		Name:      s3Spec.CredentialsSecretRef.Name,
-		Namespace: namespace,
-	}, credSecret); err != nil {
-		return "", "", fmt.Errorf("failed to get S3 credentials secret: %w", err)
-	}
-	return string(credSecret.Data["AWS_ACCESS_KEY_ID"]), string(credSecret.Data["AWS_SECRET_ACCESS_KEY"]), nil
 }

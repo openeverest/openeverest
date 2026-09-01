@@ -23,12 +23,7 @@ import (
 
 // BackupSpec defines the desired state of Backup.
 //
-// spec.instanceRef is removed; the instance link now lives at
-// spec.origin.instanceRef, required when origin.type == Instance.
-// After the CRD upgrade the API server prunes the unknown spec.instanceRef
-// and existing Backups have no spec.origin, so the origin validation rejects
-// any write and the Instance link is lost. The restore from existing backups
-// will not work and the CRs must be recreated.
+// +kubebuilder:validation:XValidation:rule="self.origin.type != 'External' || self.deletionPolicy != 'Delete'",message="deletionPolicy Delete is not allowed when origin.type is External; use Retain"
 type BackupSpec struct {
 	// Origin identifies where this Backup's data comes from: produced by a
 	// live Instance, or imported from data already present in a BackupStorage.
@@ -128,8 +123,8 @@ type BackupOrigin struct {
 	InstanceRef *common.ObjectRef `json:"instanceRef,omitempty"`
 	// External identifies data already present in the referenced BackupStorage
 	// rather than produced by a live Instance. Required when Type is External.
-	// When set, the restoring builds the engine restore directly from
-	// storageRef + external.path with no live operator object.
+	// When set, the restore is built directly from storageRef + external.path
+	// with no live operator object.
 	// +optional
 	External *BackupOriginExternal `json:"external,omitempty"`
 }
@@ -138,6 +133,8 @@ type BackupOrigin struct {
 // lives within the BackupStorage referenced by Backup.spec.storageRef, so it
 // can be restored without a live source Instance or operator-native backup
 // object.
+//
+// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="spec.origin.external is immutable"
 type BackupOriginExternal struct {
 	// Path is the backup's path within the BackupStorage. The bucket is
 	// already determined by storageRef, so it is not repeated here. The path
@@ -151,6 +148,9 @@ type BackupOriginExternal struct {
 	// CompletedAt is the time when the backup completed.
 	// +kubebuilder:validation:Required
 	CompletedAt metav1.Time `json:"completedAt"`
+	// ImportRef references the BackupImport that created this Backup.
+	// +kubebuilder:validation:Required
+	ImportRef common.ObjectRef `json:"importRef,omitempty"`
 }
 
 // BackupStatus defines the observed state of Backup.

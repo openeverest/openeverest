@@ -47,7 +47,7 @@ type BackupImportStatus struct {
 	// (storageRef, path), so the import does not create duplicates.
 	// +optional
 	CreatedCount int32 `json:"createdCount"`
-	// LastObservedGeneration is the last observed generation of the Backup CR.
+	// LastObservedGeneration is the last observed generation of the BackupImport CR.
 	// +optional
 	LastObservedGeneration int64 `json:"lastObservedGeneration,omitempty"`
 	// State is the current state of the backup import.
@@ -71,21 +71,21 @@ const (
 	// BackupImportStatePending indicates that the request has been accepted but
 	// has not yet started.
 	BackupImportStatePending BackupImportState = "Pending"
-	// BackupImportStateStateRunning indicates that the import is currently running.
-	BackupImportStateStateRunning BackupImportState = "Running"
-	// BackupImportStatetateSucceeded indicates the import completed and the
+	// BackupImportStateRunning indicates that the import is currently running.
+	BackupImportStateRunning BackupImportState = "Running"
+	// BackupImportStateSucceeded indicates the import completed and the
 	// corresponding Backup CRs have been created.
-	BackupImportStatetateSucceeded BackupImportState = "Succeeded"
-	// BackupImportStateStateFailed indicates the import failed terminally; see
+	BackupImportStateSucceeded BackupImportState = "Succeeded"
+	// BackupImportStateFailed indicates the import failed terminally; see
 	// Status.Message and Status.Conditions.
-	BackupImportStateStateFailed BackupImportState = "Failed"
-	// BackupImportStateStateError indicates a transient error; the controller may retry.
-	BackupImportStateStateError BackupImportState = "Error"
+	BackupImportStateFailed BackupImportState = "Failed"
+	// BackupImportStateError indicates a transient error; the controller may retry.
+	BackupImportStateError BackupImportState = "Error"
 )
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
-// +kubebuilder:resource:shortName=imp
+// +kubebuilder:resource:shortName=bimp
 // +kubebuilder:printcolumn:name="Class",type="string",JSONPath=".spec.classRef.name"
 // +kubebuilder:printcolumn:name="Storage",type="string",JSONPath=".spec.storageRef.name"
 // +kubebuilder:printcolumn:name="State",type="string",JSONPath=".status.state"

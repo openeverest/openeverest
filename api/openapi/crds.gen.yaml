@@ -23,15 +23,7 @@ components:
         metadata:
           $ref: '#/components/schemas/ObjectMeta'
         spec:
-          description: |-
-            BackupSpec defines the desired state of Backup.
-
-            spec.instanceRef is removed; the instance link now lives at
-            spec.origin.instanceRef, required when origin.type == Instance.
-            After the CRD upgrade the API server prunes the unknown spec.instanceRef
-            and existing Backups have no spec.origin, so the origin validation rejects
-            any write and the Instance link is lost. The restore from existing backups
-            will not work and the CRs must be recreated.
+          description: BackupSpec defines the desired state of Backup.
           properties:
             classRef:
               description: |-
@@ -79,13 +71,27 @@ components:
                   description: |-
                     External identifies data already present in the referenced BackupStorage
                     rather than produced by a live Instance. Required when Type is External.
-                    When set, the restoring builds the engine restore directly from
-                    storageRef + external.path with no live operator object.
+                    When set, the restore is built directly from storageRef + external.path
+                    with no live operator object.
                   properties:
                     completedAt:
                       description: CompletedAt is the time when the backup completed.
                       format: date-time
                       type: string
+                    importRef:
+                      description: ImportRef references the BackupImport that created
+                        this Backup.
+                      properties:
+                        name:
+                          description: Name of the referenced object.
+                          maxLength: 253
+                          minLength: 1
+                          pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                          type: string
+                      required:
+                      - name
+                      type: object
+                      x-kubernetes-map-type: atomic
                     path:
                       description: |-
                         Path is the backup's path within the BackupStorage. The bucket is
@@ -99,9 +105,13 @@ components:
                       type: string
                   required:
                   - completedAt
+                  - importRef
                   - path
                   - startedAt
                   type: object
+                  x-kubernetes-validations:
+                  - message: spec.origin.external is immutable
+                    rule: self == oldSelf
                 instanceRef:
                   description: |-
                     InstanceRef references the Instance that produced this Backup. The
@@ -168,6 +178,10 @@ components:
           - origin
           - storageRef
           type: object
+          x-kubernetes-validations:
+          - message: deletionPolicy Delete is not allowed when origin.type is External;
+              use Retain
+            rule: self.origin.type != 'External' || self.deletionPolicy != 'Delete'
         status:
           description: BackupStatus defines the observed state of Backup.
           properties:
@@ -775,6 +789,9 @@ components:
             rule: '!has(self.job) || self.executionMode == ''Job'''
           - message: spec.providerManaged is only allowed when executionMode is ProviderManaged
             rule: '!has(self.providerManaged) || self.executionMode == ''ProviderManaged'''
+          - message: a ProviderManaged BackupClass must support exactly one provider
+            rule: self.executionMode != 'ProviderManaged' || (has(self.supportedProviders)
+              && size(self.supportedProviders) == 1)
         status:
           description: BackupClassStatus defines the observed state of BackupClass.
           properties:
@@ -1009,7 +1026,7 @@ components:
               type: integer
             lastObservedGeneration:
               description: LastObservedGeneration is the last observed generation
-                of the Backup CR.
+                of the BackupImport CR.
               format: int64
               type: integer
             message:

@@ -209,11 +209,11 @@ func (r *BackupReconciler) Reconcile( //nolint:nonamedreturns
 	}()
 
 	// External backups are imported references to data already sitting in
-	// a storage; there is no source Instance and no job to run. The reconciler
-	// verifies the backup in the storage then marks the Backup Succeeded.
+	// a storage; there is no source Instance and no job to run.
 	if backup.Spec.Origin.Type == backupv1alpha1.BackupOriginTypeExternal {
 		backup.Status.ExecutionMode = backupv1alpha1.BackupExecutionModeJob
-		return ctrl.Result{}, controller.ReconcileExternalBackupStatus(ctx, r.Client, backup)
+		controller.ReconcileExternalBackupStatus(backup)
+		return ctrl.Result{}, nil
 	}
 
 	if bc.Spec.Job == nil || bc.Spec.Job.Backup.JobSpec == nil {
