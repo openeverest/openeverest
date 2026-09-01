@@ -299,14 +299,15 @@ func (e *EverestServer) initHTTPServer(ctx context.Context) error {
 	// Plugin bundle serving — no JWT required.
 	// Bundles are static JS assets, same as the main app's JS files.
 	// Only GET requests on the wildcard path are served without auth.
-	e.echo.GET("/v1/plugins/:name/*", pp.proxyHandler)
+	e.echo.GET("/v1/clusters/:cluster/plugins/:name/*", pp.proxyHandler)
 
-	// Plugin discovery & API — JWT protected.
-	pluginGroup := e.echo.Group("/v1/plugins")
+	// Plugin backend proxy — JWT protected, hand-registered because the
+	// wildcard sub-path spans multiple segments (the generators would collapse
+	// {path} into echo's single-segment :path). Discovery endpoints
+	// (list + context) go through the generated OpenAPI + RBAC chain instead.
+	pluginGroup := e.echo.Group("/v1/clusters/:cluster/plugins")
 	pluginGroup.Use(jwtMW)
 	pluginGroup.Use(blocklistMW)
-	pluginGroup.GET("", pp.listPluginsHandler)
-	pluginGroup.GET("/context", e.pluginContextHandler)
 	pluginGroup.Any("/:name", pp.authedProxyHandler)
 	// Register non-GET methods on the wildcard subpath. GET is handled by
 	// the unauthenticated route above (for bundle serving via dynamic import).

@@ -18,6 +18,8 @@ tags:
     description: Everything related to authentication and authorization
   - name: Provider
     description: Everything related to providers
+  - name: Plugin
+    description: Everything related to generic plugins
   - name: Instance
     description: Everything related to instances
   - name: Preset
@@ -630,6 +632,68 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  '/clusters/{cluster}/plugins':
+    x-everest-resource-name: plugins
+    get:
+      tags:
+        - Plugin
+      summary: List plugins
+      description: |
+        This API lists the enabled generic plugins available in the specified cluster
+        that the caller is permitted to see. The response drives the frontend plugin
+        loader and the CLI plugin discovery.
+      operationId: listPlugins
+      parameters:
+        - name: cluster
+          in: path
+          required: true
+          description: The name of the cluster
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of plugins
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PluginDescriptorList'
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  '/clusters/{cluster}/plugins/context':
+    x-everest-resource-name: plugins
+    get:
+      tags:
+        - Plugin
+      summary: Get plugin context
+      description: |
+        This API returns the calling user's identity and the namespaces they can
+        access in the specified cluster. Plugins use it to scope their queries per
+        tenant.
+      operationId: getPluginContext
+      parameters:
+        - name: cluster
+          in: path
+          required: true
+          description: The name of the cluster
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Plugin context
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PluginContext'
         default:
           description: Error
           content:
@@ -3308,4 +3372,80 @@ components:
             $ref: '#/components/schemas/Cluster'
       required:
         - items
+    PluginExtensionPoint:
+      type: object
+      description: A single UI/CLI extension point contributed by a plugin.
+      properties:
+        type:
+          type: string
+        label:
+          type: string
+          x-go-type-skip-optional-pointer: true
+        path:
+          type: string
+          x-go-type-skip-optional-pointer: true
+        icon:
+          type: string
+          x-go-type-skip-optional-pointer: true
+        providers:
+          type: array
+          items:
+            type: string
+          x-go-type-skip-optional-pointer: true
+      required:
+        - type
+    PluginDescriptor:
+      type: object
+      description: A single enabled plugin as advertised to the frontend loader.
+      properties:
+        name:
+          type: string
+        displayName:
+          type: string
+        description:
+          type: string
+          x-go-type-skip-optional-pointer: true
+        version:
+          type: string
+          x-go-type-skip-optional-pointer: true
+        vendor:
+          type: string
+          x-go-type-skip-optional-pointer: true
+        icon:
+          type: string
+          x-go-type-skip-optional-pointer: true
+        bundleUrl:
+          type: string
+        extensionPoints:
+          type: array
+          items:
+            $ref: '#/components/schemas/PluginExtensionPoint'
+          x-go-type-skip-optional-pointer: true
+      required:
+        - name
+        - displayName
+        - bundleUrl
+    PluginDescriptorList:
+      type: array
+      description: A list of enabled plugins the caller is permitted to see.
+      items:
+        $ref: '#/components/schemas/PluginDescriptor'
+    PluginContext:
+      type: object
+      description: The calling user's identity and accessible namespaces in a cluster.
+      properties:
+        user:
+          type: string
+        groups:
+          type: array
+          items:
+            type: string
+          x-go-type-skip-optional-pointer: true
+        namespaces:
+          type: array
+          items:
+            type: string
+      required:
+        - user
+        - namespaces
 
