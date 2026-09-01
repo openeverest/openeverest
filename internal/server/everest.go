@@ -62,6 +62,15 @@ import (
 	"github.com/openeverest/openeverest/v2/public"
 )
 
+// Timeouts for the plain-HTTP and TLS listeners. WriteTimeout is deliberately left unset:
+// GetDatabaseClusterComponentLogs streams a long-lived response that a server-wide write
+// deadline would cut off.
+const (
+	httpReadHeaderTimeout = 5 * time.Second
+	httpReadTimeout       = 60 * time.Second
+	httpIdleTimeout       = 120 * time.Second
+)
+
 // EverestServer represents the server struct.
 type EverestServer struct {
 	config        *config.EverestConfig
@@ -209,6 +218,10 @@ func (t *Template) Render(w io.Writer, name string, data any, _ echo.Context) er
 
 // initHTTPServer configures http server for the current EverestServer instance.
 func (e *EverestServer) initHTTPServer(ctx context.Context) error {
+	e.echo.Server.ReadHeaderTimeout = httpReadHeaderTimeout
+	e.echo.Server.ReadTimeout = httpReadTimeout
+	e.echo.Server.IdleTimeout = httpIdleTimeout
+
 	// Serve the index.html file.
 	indexFS := echo.MustSubFS(public.Index, "dist")
 	e.echo.Renderer = &Template{
@@ -253,6 +266,7 @@ func (e *EverestServer) initHTTPServer(ctx context.Context) error {
 	// Use our validation middleware to check all requests against the OpenAPI schema.
 	apiGroup.Use(middleware.OapiRequestValidatorWithOptions(swagger, &middleware.Options{
 		SilenceServersWarning: true,
+		ErrorHandler:          validationErrorHandler,
 		// This field is required if a security scheme is specified.
 		// However, the actual authentication is handled by the JWT middleware, so we can use a noop function here.
 		Options: openapi3filter.Options{
@@ -490,15 +504,21 @@ func (e *EverestServer) startHTTPS(ctx context.Context, addr string) error {
 		}
 	}()
 
-	e.echo.TLSServer = &http.Server{
+	e.echo.TLSServer = e.newTLSServer(addr, watcher)
+	return e.echo.StartServer(e.echo.TLSServer)
+}
+
+func (e *EverestServer) newTLSServer(addr string, watcher *certwatcher.CertWatcher) *http.Server {
+	return &http.Server{
 		Addr:              addr,
-		ReadHeaderTimeout: 5 * time.Second,
+		ReadHeaderTimeout: httpReadHeaderTimeout,
+		ReadTimeout:       httpReadTimeout,
+		IdleTimeout:       httpIdleTimeout,
 		TLSConfig: &tls.Config{
 			// server periodically calls GetCertificate and reloads the certificate.
 			GetCertificate: watcher.GetCertificate,
 		},
 	}
-	return e.echo.StartServer(e.echo.TLSServer)
 }
 
 // pruneExpiredTokens periodically removes expired records from the API token registry.
@@ -563,14 +583,19 @@ func everestErrorHandler(next echo.HTTPErrorHandler) echo.HTTPErrorHandler {
 			if errors.As(err, &statusError) {
 				err = &echo.HTTPError{
 					Code:    int(statusError.Status().Code),
-					Message: trimWebhookErrorText(statusError.Status().Message),
+					Message: trimStrictDecodingError(trimWebhookErrorText(statusError.Status().Message)),
 				}
 			}
 		case k8serrors.IsAlreadyExists(err),
 			k8serrors.IsConflict(err):
-			err = &echo.HTTPError{
-				Code: http.StatusConflict,
+			// A bare 409 renders as a null body, leaving a client with nothing
+			// to show for a failed resourceVersion precondition.
+			httpErr := &echo.HTTPError{Code: http.StatusConflict}
+			statusError := &k8serrors.StatusError{}
+			if errors.As(err, &statusError) {
+				httpErr.Message = trimWebhookErrorText(statusError.Status().Message)
 			}
+			err = httpErr
 		case errors.Is(err, rbachandler.ErrInsufficientPermissions):
 			err = &echo.HTTPError{
 				Code:    http.StatusForbidden,
@@ -595,6 +620,16 @@ func everestErrorHandler(next echo.HTTPErrorHandler) echo.HTTPErrorHandler {
 		}
 		next(err, c)
 	}
+}
+
+// trimStrictDecodingError drops the API server's dump of the whole submitted
+// object, managedFields included, which buries the fields it is rejecting.
+func trimStrictDecodingError(fullText string) string {
+	const marker = "strict decoding error: "
+	if _, named, found := strings.Cut(fullText, marker); found {
+		return marker + named
+	}
+	return fullText
 }
 
 func trimWebhookErrorText(fullText string) string {

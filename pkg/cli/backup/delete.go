@@ -96,7 +96,7 @@ func (bd *Deleter) Run(ctx context.Context, opts DeleteOptions, cfgPath string) 
 		switch state {
 		case "":
 			return fmt.Errorf("backup %q hasn't reported its status yet; wait a moment and try again, or re-run with --force", opts.Name)
-		case backupStateError:
+		case client.BackupStatusStateError:
 			return fmt.Errorf("backup %q is in the Error state and may still be retried by the controller; wait for it to settle or re-run with --force", opts.Name)
 		default:
 			return fmt.Errorf("backup %q is still running; wait for it to finish or re-run with --force", opts.Name)
@@ -155,7 +155,7 @@ func (bd *Deleter) checkBackupExists(ctx context.Context, c *client.ClientWithRe
 
 // backupStateForGuard reads state for the guard: ok is false only when the
 // fetch found nothing or failed; ok true + state "" means read but no status yet.
-func backupStateForGuard(b *client.Backup) (string, bool) {
+func backupStateForGuard(b *client.Backup) (client.BackupStatusState, bool) {
 	if b == nil {
 		return "", false
 	}
@@ -169,11 +169,11 @@ func backupStateForGuard(b *client.Backup) (string, bool) {
 // Error (the controller may still retry it, per BackupStateError's own doc
 // comment), or read successfully with no status yet; a failed/ambiguous
 // fetch never is. Failed is excluded, that one really is terminal.
-func inFlight(state string, ok bool) bool {
+func inFlight(state client.BackupStatusState, ok bool) bool {
 	if !ok {
 		return false
 	}
-	return state == "" || state == backupStatePending || state == backupStateRunning || state == backupStateError
+	return state == "" || state == client.BackupStatusStatePending || state == client.BackupStatusStateRunning || state == client.BackupStatusStateError
 }
 
 // isRetainTier is the only case that gets the y/N tier; Delete, or

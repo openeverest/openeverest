@@ -1,5 +1,7 @@
 # Copy this file to config.yaml in dev/ directory and set the values as needed.
 enableFrontendBuild: true
+# Set to false to skip deploying the OpenEverest Plugin Hub (plugin-hub sub-chart).
+enablePluginHub: false
 namespaces:
   # List of DB namespaces that will be created automatically
   - name: my-special-place

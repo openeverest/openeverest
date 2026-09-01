@@ -12,87 +12,36 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { Box, Paper } from '@mui/material';
-import { useState, useEffect, useRef } from 'react';
-import { JsonEditorPanel } from './json-editor-panel/json-editor-panel';
+import { Box, MenuItem, Paper, TextField } from '@mui/material';
+import { useState } from 'react';
+import { YamlEditorPanel } from './yaml-editor-panel/yaml-editor-panel';
 import schemaYaml from 'components/ui-generator/ui-generator.mock.yaml?raw';
-import { TopologyUISchemas } from '../../components/ui-generator/ui-generator.types';
+import { TopologyUISchemas } from 'components/ui-generator/ui-generator.types';
 import { ErrorBoundary } from 'utils/ErrorBoundary';
 import { GenericError } from 'pages/generic-error/GenericError';
 import { ErrorContextProvider } from 'utils/ErrorBoundaryProvider';
 import { DynamicForm } from './dynamic-form-preview/dynamic-form-preview';
-import { formatYamlText, yamlToJson } from './utils/yaml-json-converter';
+import { formatYamlText } from './utils/yaml-json-converter';
+import { useSchemaValidation } from './hooks/use-schema-validation';
+import { useSplitPane } from './hooks/use-split-pane';
+import { usePreviewNamespace } from './hooks/use-preview-namespace';
 
 export const UIGeneratorBuilder = () => {
-  const defaultYamlText = schemaYaml;
-  const [yamlText, setYamlText] = useState(defaultYamlText);
-  const [parsedSchema, setParsedSchema] = useState<TopologyUISchemas | null>(
-    null
-  );
-  const [error, setError] = useState<string>('');
-  const [leftWidth, setLeftWidth] = useState(25); // percentage
-  const [isDragging, setIsDragging] = useState(false);
-  const containerRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    validateYaml(defaultYamlText);
-  }, []);
-
-  useEffect(() => {
-    if (!isDragging) return;
-
-    const handleMouseMove = (e: MouseEvent) => {
-      if (!containerRef.current) return;
-
-      const container = containerRef.current;
-      const rect = container.getBoundingClientRect();
-      const newLeftWidth = ((e.clientX - rect.left) / rect.width) * 100;
-
-      if (newLeftWidth >= 20 && newLeftWidth <= 80) {
-        setLeftWidth(newLeftWidth);
-      }
-    };
-
-    const handleMouseUp = () => {
-      setIsDragging(false);
-    };
-
-    document.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('mouseup', handleMouseUp);
-
-    return () => {
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
-    };
-  }, [isDragging]);
-
-  const handleYamlChange = (text: string) => {
-    setYamlText(text);
-    validateYaml(text);
-  };
-
-  const validateYaml = (text: string) => {
-    try {
-      const parsed = yamlToJson(text);
-      setParsedSchema(parsed);
-      setError('');
-    } catch (err) {
-      setError(
-        err instanceof Error ? `YAML Error: ${err.message}` : 'Invalid YAML'
-      );
-      setParsedSchema(null);
-    }
-  };
+  const [yamlText, setYamlText] = useState(schemaYaml);
+  const { diagnostics, parsed: parsedSchema } = useSchemaValidation(yamlText);
+  const { containerRef, leftWidth, isDragging, startDragging } = useSplitPane();
+  const {
+    namespaces,
+    selectedNamespace,
+    setSelectedNamespace,
+    isLoading: namespacesLoading,
+  } = usePreviewNamespace();
 
   const formatYaml = () => {
     try {
-      const parsed = yamlToJson(yamlText);
-      const formatted = formatYamlText(yamlText);
-      setYamlText(formatted);
-      setParsedSchema(parsed);
-      setError('');
+      setYamlText(formatYamlText(yamlText));
     } catch {
-      setError('Invalid YAML format');
+      // Unparseable YAML can't be formatted; the syntax error is already shown.
     }
   };
 
@@ -123,15 +72,15 @@ export const UIGeneratorBuilder = () => {
               },
         ]}
       >
-        <JsonEditorPanel
+        <YamlEditorPanel
           yamlText={yamlText}
-          error={error}
-          onChange={handleYamlChange}
+          diagnostics={diagnostics}
+          onChange={setYamlText}
           onFormat={formatYaml}
         />
       </Box>
       <Box
-        onMouseDown={() => setIsDragging(true)}
+        onMouseDown={startDragging}
         sx={[
           {
             width: '8px',
@@ -186,11 +135,30 @@ export const UIGeneratorBuilder = () => {
             flexDirection: 'column',
           }}
         >
+          <TextField
+            select
+            size="small"
+            label="Preview namespace"
+            value={selectedNamespace}
+            onChange={(e) => setSelectedNamespace(e.target.value)}
+            disabled={namespacesLoading || namespaces.length === 0}
+            helperText="Namespace used to load data-source providers (e.g. storage classes, monitoring configs)"
+            sx={{ mb: 2, maxWidth: 360 }}
+          >
+            {namespaces.map((ns) => (
+              <MenuItem key={ns} value={ns}>
+                {ns}
+              </MenuItem>
+            ))}
+          </TextField>
           {/*TODO add custom error boundary for FormBuilder*/}
           {parsedSchema && (
             <ErrorContextProvider>
               <ErrorBoundary fallback={<GenericError />}>
-                <DynamicForm schema={parsedSchema as TopologyUISchemas} />
+                <DynamicForm
+                  schema={parsedSchema as TopologyUISchemas}
+                  namespace={selectedNamespace}
+                />
               </ErrorBoundary>
             </ErrorContextProvider>
           )}
