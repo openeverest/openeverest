@@ -15,7 +15,6 @@
 package rbac
 
 import (
-	"context"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -25,7 +24,6 @@ import (
 
 	api "github.com/openeverest/openeverest/v2/internal/server/api"
 	"github.com/openeverest/openeverest/v2/internal/server/handlers"
-	"github.com/openeverest/openeverest/v2/pkg/common"
 	"github.com/openeverest/openeverest/v2/pkg/rbac"
 )
 
@@ -123,7 +121,7 @@ func TestRBAC_Plugin(t *testing.T) {
 			},
 		}
 
-		ctx := context.WithValue(context.Background(), common.UserCtxKey, rbac.User{Subject: "bob"})
+		ctx := testUserContext(rbac.User{Subject: "bob"})
 		for _, tc := range testCases {
 			t.Run(tc.desc, func(t *testing.T) {
 				t.Parallel()
@@ -148,26 +146,49 @@ func TestRBAC_Plugin(t *testing.T) {
 		}
 	})
 
-	// GetPluginContext carries only the caller's own identity and namespaces, so
-	// it is intentionally not gated on a per-plugin object: any authenticated
-	// user gets it, even one with no plugin grants at all.
+	// GetPluginContext is not gated on a per-plugin object — any authenticated
+	// user may fetch it — but the namespace list is filtered to those the caller
+	// can read. mockPlugins returns a single namespace "prod-ns".
 	t.Run("GetPluginContext", func(t *testing.T) {
 		t.Parallel()
 
-		ctx := context.WithValue(context.Background(), common.UserCtxKey, rbac.User{Subject: "bob"})
-		k8sMock := newConfigMapMock(newPolicy("g, bob, role:test"))
-		enf, err := rbac.NewEnforcer(ctx, k8sMock, zap.NewNop().Sugar())
-		require.NoError(t, err)
-
-		h := &rbacHandler{
-			next:       mockPlugins(),
-			log:        zap.NewNop().Sugar(),
-			enforcer:   enf,
-			userGetter: testUserGetter,
+		testCases := []struct {
+			desc       string
+			policy     string
+			namespaces []string
+		}{
+			{
+				desc:       "admin sees the namespace",
+				policy:     newPolicy("g, bob, role:admin"),
+				namespaces: []string{"prod-ns"},
+			},
+			{
+				desc:       "user without namespace access sees none",
+				policy:     newPolicy("g, bob, role:test"),
+				namespaces: []string{},
+			},
 		}
 
-		result, err := h.GetPluginContext(ctx, "prod")
-		require.NoError(t, err)
-		assert.Equal(t, "bob", result.User)
+		ctx := testUserContext(rbac.User{Subject: "bob"})
+		for _, tc := range testCases {
+			t.Run(tc.desc, func(t *testing.T) {
+				t.Parallel()
+				k8sMock := newConfigMapMock(tc.policy)
+				enf, err := rbac.NewEnforcer(ctx, k8sMock, zap.NewNop().Sugar())
+				require.NoError(t, err)
+
+				h := &rbacHandler{
+					next:       mockPlugins(),
+					log:        zap.NewNop().Sugar(),
+					enforcer:   enf,
+					userGetter: testUserGetter,
+				}
+
+				result, err := h.GetPluginContext(ctx, "prod")
+				require.NoError(t, err)
+				assert.Equal(t, "bob", result.User)
+				assert.Equal(t, tc.namespaces, result.Namespaces)
+			})
+		}
 	})
 }

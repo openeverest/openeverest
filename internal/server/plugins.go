@@ -81,16 +81,16 @@ func (pp *pluginProxy) canUsePlugin(c echo.Context, name string) (bool, error) {
 	return false, nil
 }
 
-// proxyHandler reverse-proxies requests to a plugin's backend (no RBAC).
-// Used for unauthenticated bundle serving.
-// Route: /v1/clusters/:cluster/plugins/:name/*
+// proxyHandler reverse-proxies unauthenticated bundle-asset requests to a
+// plugin's backend (no RBAC) on the /v1/clusters/:cluster/plugins/:name/*
+// route.
 func (pp *pluginProxy) proxyHandler(c echo.Context) error {
 	return pp.doProxy(c)
 }
 
-// authedProxyHandler reverse-proxies requests to a plugin's backend with RBAC.
-// The caller must have the "use" verb on "plugin/<name>" (§9.2).
-// Route: /v1/clusters/:cluster/plugins/:name (JWT-protected group)
+// authedProxyHandler reverse-proxies requests to a plugin's backend with RBAC:
+// the caller must have the "use" verb on "plugin/<name>" (§9.2). Served on the
+// JWT-protected /v1/clusters/:cluster/plugins/:name group.
 func (pp *pluginProxy) authedProxyHandler(c echo.Context) error {
 	name := c.Param("name")
 	allowed, err := pp.canUsePlugin(c, name)
