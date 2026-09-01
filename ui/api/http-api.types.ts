@@ -435,7 +435,8 @@ export interface paths {
         get: operations["getInstance"];
         /**
          * Update instance
-         * @description This API updates the database instance specified by the `instance` name in the specified `namespace` and `cluster`.
+         * @description This API updates the database instance specified by the `instance` name in the specified `namespace` and `cluster`, replacing the entire resource with the new one.
+         *     To change only specific fields, use PATCH instead.
          */
         put: operations["updateInstance"];
         post?: never;
@@ -446,7 +447,13 @@ export interface paths {
         delete: operations["deleteInstance"];
         options?: never;
         head?: never;
-        patch?: never;
+        /**
+         * Patch instance
+         * @description This API applies Merge Patch to the database instance specified by the `instance` name in the specified `namespace` and `cluster`.
+         *     Members absent from the patch keep their current value, and a member set to `null` is removed. A path that does not exist on the Instance is
+         *     rejected rather than ignored. Include `metadata.resourceVersion` to make the patch conditional, which fails with 409 if the instance has changed.
+         */
+        patch: operations["patchInstance"];
         trace?: never;
     };
     "/clusters/{cluster}/namespaces/{namespace}/instances/{instance}/connection": {
@@ -6023,6 +6030,67 @@ export interface operations {
             };
             /** @description Instance not found */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    patchInstance: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The name of the cluster */
+                cluster: string;
+                /** @description The namespace where the instance is located */
+                namespace: string;
+                /** @description The name of the instance */
+                instance: string;
+            };
+            cookie?: never;
+        };
+        /** @description A partial Instance document. `status` and the `ownerReferences`, `finalizers`, `name` and `namespace` members of `metadata` are rejected. */
+        requestBody: {
+            content: {
+                "application/merge-patch+json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Instance patched successfully */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Instance"];
+                };
+            };
+            /** @description Instance not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description The Content-Type is not application/merge-patch+json */
+            415: {
                 headers: {
                     [name: string]: unknown;
                 };

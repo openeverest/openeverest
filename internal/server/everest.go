@@ -266,6 +266,7 @@ func (e *EverestServer) initHTTPServer(ctx context.Context) error {
 	// Use our validation middleware to check all requests against the OpenAPI schema.
 	apiGroup.Use(middleware.OapiRequestValidatorWithOptions(swagger, &middleware.Options{
 		SilenceServersWarning: true,
+		ErrorHandler:          validationErrorHandler,
 		// This field is required if a security scheme is specified.
 		// However, the actual authentication is handled by the JWT middleware, so we can use a noop function here.
 		Options: openapi3filter.Options{
@@ -582,14 +583,19 @@ func everestErrorHandler(next echo.HTTPErrorHandler) echo.HTTPErrorHandler {
 			if errors.As(err, &statusError) {
 				err = &echo.HTTPError{
 					Code:    int(statusError.Status().Code),
-					Message: trimWebhookErrorText(statusError.Status().Message),
+					Message: trimStrictDecodingError(trimWebhookErrorText(statusError.Status().Message)),
 				}
 			}
 		case k8serrors.IsAlreadyExists(err),
 			k8serrors.IsConflict(err):
-			err = &echo.HTTPError{
-				Code: http.StatusConflict,
+			// A bare 409 renders as a null body, leaving a client with nothing
+			// to show for a failed resourceVersion precondition.
+			httpErr := &echo.HTTPError{Code: http.StatusConflict}
+			statusError := &k8serrors.StatusError{}
+			if errors.As(err, &statusError) {
+				httpErr.Message = trimWebhookErrorText(statusError.Status().Message)
 			}
+			err = httpErr
 		case errors.Is(err, rbachandler.ErrInsufficientPermissions):
 			err = &echo.HTTPError{
 				Code:    http.StatusForbidden,
@@ -614,6 +620,16 @@ func everestErrorHandler(next echo.HTTPErrorHandler) echo.HTTPErrorHandler {
 		}
 		next(err, c)
 	}
+}
+
+// trimStrictDecodingError drops the API server's dump of the whole submitted
+// object, managedFields included, which buries the fields it is rejecting.
+func trimStrictDecodingError(fullText string) string {
+	const marker = "strict decoding error: "
+	if _, named, found := strings.Cut(fullText, marker); found {
+		return marker + named
+	}
+	return fullText
 }
 
 func trimWebhookErrorText(fullText string) string {

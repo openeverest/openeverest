@@ -136,10 +136,10 @@ export default defineConfig({
         'auth',
         'backup-storage',
         'config-map',
+        'instance',
         'instance-preset',
         'kubernetes',
         'monitoring-config-v2',
-        'plugins',
         'secrets',
         'settings',
         'version',
@@ -233,6 +233,18 @@ export default defineConfig({
         }
       },
     },
+    // instance patch tests
+    {
+      name: 'instance',
+      testDir: 'tests',
+      testMatch: /instance\.spec\.ts/,
+      dependencies: ['global:auth:ci:setup'],
+      use: {
+        extraHTTPHeaders: {
+          'Authorization': `Bearer ${process.env[API_CI_TOKEN]}`,
+        }
+      },
+    },
     // config-map tests
     {
       name: 'config-map',
@@ -250,18 +262,6 @@ export default defineConfig({
       name: 'secrets',
       testDir: 'tests',
       testMatch: /secrets\.spec\.ts/,
-      dependencies: ['global:auth:ci:setup'],
-      use: {
-        extraHTTPHeaders: {
-          'Authorization': `Bearer ${process.env[API_CI_TOKEN]}`,
-        }
-      },
-    },
-    // plugins tests
-    {
-      name: 'plugins',
-      testDir: 'tests',
-      testMatch: /plugins\.spec\.ts/,
       dependencies: ['global:auth:ci:setup'],
       use: {
         extraHTTPHeaders: {
