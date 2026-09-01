@@ -62,6 +62,8 @@ make deploy-all
 ```
 This creates a k3d cluster and deploys Everest using the `deploy` target, which exposes the service via NodePort.
 
+> **LoadBalancer Testing**: To test LoadBalancer services, use `k3d_config.loadbalancer.yaml`. This maps specific database ports (27017, 5432, 3306) to the host. Note: Only one LoadBalancer service can be active per port, limiting you to one instance per type.
+
 #### Option C: Remote (GKE)  
 1. Setup your default gcloud project, e.g.  
 ```sh
