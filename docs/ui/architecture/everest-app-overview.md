@@ -112,7 +112,7 @@ sequenceDiagram
    a dedicated hook file with query keys, fetch functions, and mutations.
 
 8. **Shared types + utils** —
-   Workspace packages `@openeverest/types` and `@openeverest/utils`.
+   Workspace packages `@percona/types` and `@percona/utils`.
    Shared TypeScript interfaces (API response shapes, enums) and pure utility
    functions consumed by both the app and library packages.
 

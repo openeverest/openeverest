@@ -11,14 +11,12 @@ dependence on tribal knowledge.
 1. [UI Monorepo Overview](./ui-monorepo-overview.md)
 2. [Everest App Overview](./everest-app-overview.md)
 3. [Plugins Architecture](./plugins-architecture.md)
-4. [Architecture Audit Baseline](./architecture-audit-baseline.md)
 
 ## How to Use This Section
 
 1. Start with [UI Monorepo Overview](./ui-monorepo-overview.md) to understand apps/packages/tooling boundaries.
 2. Continue with [Everest App Overview](./everest-app-overview.md) to see composition root, routing, and major subsystems.
 3. Open [Plugins Architecture](./plugins-architecture.md) as a standalone integration contract document.
-4. Use [Architecture Audit Baseline](./architecture-audit-baseline.md) to track what is already documented and what remains for future audit phases.
 
 ## Maintenance Principles
 
