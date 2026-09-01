@@ -1293,12 +1293,18 @@ func verifyBackupStorageObjectExists(
 		o.UsePathStyle = pointer.Get(s3Spec.ForcePathStyle)
 	})
 
-	if _, err := s3Client.HeadObject(ctx, &s3.HeadObjectInput{
-		Bucket: aws.String(s3Spec.Bucket),
-		Key:    aws.String(key),
-	}); err != nil {
-		return fmt.Errorf("backup object %q not found in storage %q: %w", key, storage.GetName(), err)
+	out, err := s3Client.ListObjectsV2(ctx, &s3.ListObjectsV2Input{
+		Bucket:  aws.String(s3Spec.Bucket),
+		Prefix:  aws.String(key),
+		MaxKeys: aws.Int32(1),
+	})
+	if err != nil {
+		return fmt.Errorf("failed to check backup path %q in storage %q: %w", key, storage.GetName(), err)
 	}
+	if aws.ToInt32(out.KeyCount) == 0 {
+		return fmt.Errorf("backup path %q not found in storage %q", key, storage.GetName())
+	}
+
 	return nil
 }
 
