@@ -66,6 +66,22 @@ deploy-minio:
 		exit 1; \
     fi
 
+KEYCLOAK_RESOURCE=$(TEST_ROOT)/manifests/keycloak.yaml
+.PHONY: deploy-keycloak
+deploy-keycloak: ## Deploy Keycloak to K3D test cluster for SSO tests.
+	$(info Deploying Keycloak to K3D cluster)
+	kubectl apply -f $(KEYCLOAK_RESOURCE)
+	if ! kubectl wait deploy/keycloak --for=condition=Available -n everest-system --timeout=120s; then \
+		echo "❌ Keycloak deployment did not become ready in time"; \
+		echo "🔎 Pods:"; \
+		kubectl get pods -n everest-system -l app=keycloak -o wide || true; \
+		echo "🔎 Events:"; \
+		kubectl get events -n everest-system --sort-by=.lastTimestamp || true; \
+		exit 1; \
+	fi
+	$(info Port-forwarding Keycloak to localhost:8180)
+	kubectl port-forward -n everest-system svc/keycloak 8180:8080 &
+
 .PHONY: k3d-upload-pg-images
 k3d-upload-pg-images: ## Pre-upload Postgresql images to K3D test  cluster to speedup tests execution.
 	$(info Uploading PG images to K3D test cluster)
@@ -151,4 +167,16 @@ test:               ## Run all tests.
 	  cmd_proj="$${cmd_proj} --project=$${project}" ;\
 	done ;\
 	npx playwright test --config=./playwright.config.ts $${cmd_proj} $${FLAGS};\
+	}
+
+.PHONY: test-sso
+test-sso:           ## Run SSO tests with Keycloak (requires deploy-keycloak first).
+	@{ \
+	set -xe ;\
+	export KEYCLOAK_ENABLED="true" ;\
+	export KEYCLOAK_URL="http://localhost:8180" ;\
+	export CI_USER="everest_ci" ;\
+	export CI_PASSWORD="password" ;\
+	npx playwright test --config=./playwright.config.ts --project=sso $${FLAGS};\
+	$(EVERESTCTL) settings oidc configure --issuer-url="" --client-id="" ;\
 	}
