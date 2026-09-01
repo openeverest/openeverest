@@ -769,7 +769,8 @@ paths:
         - Instance
       summary: Update instance
       description: |
-        This API updates the database instance specified by the `instance` name in the specified `namespace` and `cluster`.
+        This API updates the database instance specified by the `instance` name in the specified `namespace` and `cluster`, replacing the entire resource with the new one.
+        To change only specific fields, use PATCH instead.
       operationId: updateInstance
       parameters:
         - name: cluster
@@ -806,6 +807,68 @@ paths:
                 $ref: 'crds.gen.yaml#/components/schemas/Instance'
         '404':
           description: Instance not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    patch:
+      tags:
+        - Instance
+      summary: Patch instance
+      description: |
+        This API applies Merge Patch to the database instance specified by the `instance` name in the specified `namespace` and `cluster`.
+        Members absent from the patch keep their current value, and a member set to `null` is removed. A path that does not exist on the Instance is
+        rejected rather than ignored. Include `metadata.resourceVersion` to make the patch conditional, which fails with 409 if the instance has changed.
+      operationId: patchInstance
+      parameters:
+        - name: cluster
+          in: path
+          required: true
+          description: The name of the cluster
+          schema:
+            type: string
+        - name: namespace
+          in: path
+          required: true
+          description: The namespace where the instance is located
+          schema:
+            type: string
+        - name: instance
+          in: path
+          required: true
+          description: The name of the instance
+          schema:
+            type: string
+      requestBody:
+        description: |
+          A partial Instance document. `status` and the `ownerReferences`, `finalizers`, `name` and `namespace` members of `metadata` are rejected.
+        required: true
+        content:
+          application/merge-patch+json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          description: Instance patched successfully
+          content:
+            application/json:
+              schema:
+                $ref: 'crds.gen.yaml#/components/schemas/Instance'
+        '404':
+          description: Instance not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '415':
+          description: The Content-Type is not application/merge-patch+json
           content:
             application/json:
               schema:

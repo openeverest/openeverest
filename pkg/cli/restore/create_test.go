@@ -42,11 +42,11 @@ func newConfigPath(t *testing.T, serverURL string) string {
 // restoreWithState builds a Restore fixture via JSON (see restoreFromJSON in
 // wait_test.go), so it stays valid across Restore schema changes instead of
 // hand-spelling the generated anonymous Status struct.
-func restoreWithState(t *testing.T, name, state string) *client.Restore {
+func restoreWithState(t *testing.T, name string, state client.RestoreStatusState) *client.Restore {
 	t.Helper()
 	statusField := ""
 	if state != "" {
-		statusField = fmt.Sprintf(`,"status":{"state":%q}`, state)
+		statusField = fmt.Sprintf(`,"status":{"state":%q}`, string(state))
 	}
 	body := fmt.Sprintf(
 		`{"metadata":{"name":%q,"namespace":"everest"},"spec":{"instanceRef":{"name":"my-mongo"},"dataSource":{"type":"Backup","backup":{"backupRef":{"name":"pre-upgrade"}}}}%s}`,
@@ -150,9 +150,9 @@ func TestRun_Wait_SucceedsOnTerminalState(t *testing.T) {
 	})
 	mux.HandleFunc("/v1/clusters/main/namespaces/everest/restores/my-mongo-abcde", func(w http.ResponseWriter, _ *http.Request) {
 		getCalls++
-		state := "Running"
+		state := client.RestoreStatusStateRunning
 		if getCalls >= 2 {
-			state = "Succeeded"
+			state = client.RestoreStatusStateSucceeded
 		}
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(restoreWithState(t, "my-mongo-abcde", state))
@@ -185,7 +185,7 @@ func TestRun_Wait_FailsOnFailedState(t *testing.T) {
 	})
 	mux.HandleFunc("/v1/clusters/main/namespaces/everest/restores/my-mongo-abcde", func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		r := restoreWithState(t, "my-mongo-abcde", "Failed")
+		r := restoreWithState(t, "my-mongo-abcde", client.RestoreStatusStateFailed)
 		msg := "target instance rejected the restore payload"
 		r.Status.Message = &msg
 		_ = json.NewEncoder(w).Encode(r)

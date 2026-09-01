@@ -194,7 +194,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@4d04d5d9486b7bd6fa91e7baf45bbb4f8b9deedd # v4.0.0
+        uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4.3.0
 
       - name: Operator - build openeverest-operator image
         uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
@@ -219,7 +219,7 @@ jobs:
             FLAGS= -X 'github.com/percona/everest-operator/internal/consts.Version=${{ env.VERSION }}'
 
       - name: Operator - attest openeverest-operator image
-        uses: actions/attest-build-provenance@a2bbfa25375fe432b6a289bc6b6cd05ecd0c4c32 # v4.1.0
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
           subject-name: ${{ env.IMAGE_PREFIX }}/${{ env.EVEREST_OPERATOR_DEV_IMAGE_NAME }}
           subject-digest: ${{ steps.operator_push.outputs.digest }}
@@ -227,7 +227,7 @@ jobs:
 
       - name: Operator - attest openeverest-operator prod image
         if: env.IS_RC == 0
-        uses: actions/attest-build-provenance@a2bbfa25375fe432b6a289bc6b6cd05ecd0c4c32 # v4.1.0
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
           subject-name: ${{ env.IMAGE_PREFIX }}/${{ env.EVEREST_OPERATOR_IMAGE_NAME }}
           subject-digest: ${{ steps.operator_push.outputs.digest }}
@@ -256,7 +256,7 @@ jobs:
           file: openeverest-operator/bundle.Dockerfile
 
       - name: Operator - attest openeverest-operator-bundle image
-        uses: actions/attest-build-provenance@a2bbfa25375fe432b6a289bc6b6cd05ecd0c4c32 # v4.1.0
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
           subject-name: ${{ env.IMAGE_PREFIX }}/${{ env.EVEREST_OPERATOR_BUNDLE_DEV_IMAGE_NAME }}
           subject-digest: ${{ steps.bundle_push.outputs.digest }}
@@ -264,7 +264,7 @@ jobs:
 
       - name: Operator - attest openeverest-operator-bundle prod image
         if: env.IS_RC == 0
-        uses: actions/attest-build-provenance@a2bbfa25375fe432b6a289bc6b6cd05ecd0c4c32 # v4.1.0
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
           subject-name: ${{ env.IMAGE_PREFIX }}/${{ env.EVEREST_OPERATOR_BUNDLE_IMAGE_NAME }}
           subject-digest: ${{ steps.bundle_push.outputs.digest }}
@@ -338,7 +338,7 @@ jobs:
           file: openeverest-catalog/everest-catalog.Dockerfile
 
       - name: Catalog - attest image
-        uses: actions/attest-build-provenance@a2bbfa25375fe432b6a289bc6b6cd05ecd0c4c32 # v4.1.0
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
           subject-name: ${{ env.IMAGE_PREFIX }}/${{ env.EVEREST_CATALOG_DEV_IMAGE_NAME }}
           subject-digest: ${{ steps.catalog_push.outputs.digest }}
@@ -346,7 +346,7 @@ jobs:
 
       - name: Catalog - attest prod image
         if: env.IS_RC == 0
-        uses: actions/attest-build-provenance@a2bbfa25375fe432b6a289bc6b6cd05ecd0c4c32 # v4.1.0
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
           subject-name: ${{ env.IMAGE_PREFIX }}/${{ env.EVEREST_CATALOG_IMAGE_NAME }}
           subject-digest: ${{ steps.catalog_push.outputs.digest }}
@@ -470,7 +470,7 @@ jobs:
           tags: ${{ steps.everest_meta.outputs.tags }}
 
       - name: Everest - attest Everest image
-        uses: actions/attest-build-provenance@a2bbfa25375fe432b6a289bc6b6cd05ecd0c4c32 # v4.1.0
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
           subject-name: ${{ env.IMAGE_PREFIX }}/${{ env.EVEREST_SERVER_DEV_IMAGE_NAME }}
           subject-digest: ${{ steps.everest_push.outputs.digest }}
@@ -478,7 +478,7 @@ jobs:
 
       - name: Everest - attest Everest prod image
         if: env.IS_RC == 0
-        uses: actions/attest-build-provenance@a2bbfa25375fe432b6a289bc6b6cd05ecd0c4c32 # v4.1.0
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
           subject-name: ${{ env.IMAGE_PREFIX }}/${{ env.EVEREST_SERVER_IMAGE_NAME }}
           subject-digest: ${{ steps.everest_push.outputs.digest }}
@@ -491,7 +491,7 @@ jobs:
 
       - name: CLI - create release with binaries
         if: matrix.arch == 'amd64'
-        uses: softprops/action-gh-release@b4309332981a82ec1c5618f44dd2e27cc8bfbfda # v3.0.0
+        uses: softprops/action-gh-release@3d0d9888cb7fd7b750713d6e236d1fcb99157228 # v3.0.2
         with:
           draft: true
           prerelease: ${{ env.IS_RC == '1' }}
@@ -500,7 +500,7 @@ jobs:
 
       - name: CLI - attest build provenance
         if: matrix.arch == 'amd64'
-        uses: actions/attest-build-provenance@a2bbfa25375fe432b6a289bc6b6cd05ecd0c4c32 # v4.1.0
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
           subject-path: 'dist/*'
 
@@ -531,7 +531,7 @@ jobs:
             RELEASE_FULLCOMMIT=${{ github.sha }}
 
       - name: CLI - attest everestctl image
-        uses: actions/attest-build-provenance@a2bbfa25375fe432b6a289bc6b6cd05ecd0c4c32 # v4.1.0
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
           subject-name: ${{ env.IMAGE_PREFIX }}/${{ env.EVEREST_CTL_DEV_IMAGE_NAME }}
           subject-digest: ${{ steps.everestctl_push.outputs.digest }}
@@ -539,7 +539,7 @@ jobs:
 
       - name: CLI - attest everestctl prod image
         if: env.IS_RC == 0
-        uses: actions/attest-build-provenance@a2bbfa25375fe432b6a289bc6b6cd05ecd0c4c32 # v4.1.0
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
           subject-name: ${{ env.IMAGE_PREFIX }}/${{ env.EVEREST_CTL_IMAGE_NAME }}
           subject-digest: ${{ steps.everestctl_push.outputs.digest }}

@@ -275,11 +275,11 @@ type ComponentSpec struct {
 	// Replicas specifies the number of replicas for this component.
 	// +optional
 	Replicas *int32 `json:"replicas,omitempty"`
-	// Affinity controls pod scheduling rules for this component, including node
-	// selection (where pods run), pod co-location (scheduling pods together), and
-	// pod anti-affinity (spreading pods across nodes/zones for high availability).
+	// SchedulingPolicy controls where this component's pods run: node
+	// selection, pod co-location, anti-affinity, tolerations and topology
+	// spread.
 	// +optional
-	Affinity *corev1.Affinity `json:"affinity,omitempty"`
+	SchedulingPolicy *common.SchedulingPolicy `json:"schedulingPolicy,omitempty"`
 	// Service defines how this component is exposed.
 	// +optional
 	Service *Service `json:"service,omitempty"`

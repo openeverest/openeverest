@@ -86,6 +86,7 @@ type InstanceHandler interface {
 	GetInstance(ctx context.Context, cluster, namespace, name string) (*corev1alpha1.Instance, error)
 	CreateInstance(ctx context.Context, cluster string, instance *corev1alpha1.Instance) (*corev1alpha1.Instance, error)
 	UpdateInstance(ctx context.Context, cluster string, instance *corev1alpha1.Instance) (*corev1alpha1.Instance, error)
+	PatchInstance(ctx context.Context, cluster, namespace, name string, patch []byte) (*corev1alpha1.Instance, error)
 	DeleteInstance(ctx context.Context, cluster, namespace, name string, params *api.DeleteInstanceParams) error
 	GetInstanceConnection(ctx context.Context, cluster, namespace, name string) (*api.InstanceConnectionDetails, error)
 }
