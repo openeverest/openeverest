@@ -77,11 +77,21 @@ export interface components {
                      */
                     external?: {
                         /**
+                         * Format: date-time
+                         * @description CompletedAt is the time when the backup completed.
+                         */
+                        completedAt: string;
+                        /**
                          * @description Path is the backup's path within the BackupStorage. The bucket is
                          *     already determined by storageRef, so it is not repeated here. The path
                          *     is unique within its storage and is used for restore.
                          */
                         path: string;
+                        /**
+                         * Format: date-time
+                         * @description StartedAt is the time when the backup started.
+                         */
+                        startedAt: string;
                     };
                     /**
                      * @description InstanceRef references the Instance that produced this Backup. The
@@ -127,8 +137,7 @@ export interface components {
                 /**
                  * Format: date-time
                  * @description CompletedAt is the time when the backup completed successfully.
-                 *     External backup reports the time when the backup was completed, inferred
-                 *     from the backup data in storage, not when the Backup CR was created.
+                 *     For external backups this mirrors spec.origin.external.completedAt.
                  */
                 completedAt?: string;
                 conditions?: {
@@ -207,15 +216,13 @@ export interface components {
                 };
                 /**
                  * @description Size is the size of the backup data as reported by the engine.
-                 *     For external backups, the size is inferred from the backup data
-                 *     in storage, if available.
+                 *     Empty for external backups.
                  */
                 size?: string;
                 /**
                  * Format: date-time
                  * @description StartedAt is the time when the backup started.
-                 *     External backup reports the time when the backup was started, inferred
-                 *     from the backup data in storage, not when the Backup CR was created.
+                 *     For external backups this mirrors spec.origin.external.startedAt.
                  */
                 startedAt?: string;
                 /**

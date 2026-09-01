@@ -1195,25 +1195,36 @@ func RequestsForInstancesMatching(ctx context.Context, c client.Client, provider
 // ReconcileExternalBackupStatus validates an external Backup and
 // records its state on backup.Status. An external Backup carries no live
 // Instance and runs no job: it is a reference to backup data already sitting
-// in a BackupStorage. The state is set to Succeeded when it has startedAt and
-// completedAt timestamps and its object is actually present in the referenced
-// BackupStorage.
+// in a BackupStorage. The startedAt and completedAt timestamps are supplied by
+// the creator on spec.origin.external and mirrored to status here. The state is
+// set to Succeeded when those timestamps are present and the object is actually
+// present in the referenced BackupStorage.
 //
 // Both Job-mode and ProviderManaged backups share this reconciliation of backup
 // status; there is no engine specific logic to validate an external backup to
 // set the state.
 func ReconcileExternalBackupStatus(ctx context.Context, c client.Client, backup *backupv1alpha1.Backup) error {
-	if backup.Status.StartedAt == nil || backup.Status.StartedAt.IsZero() {
+	external := backup.Spec.Origin.External
+	if external == nil {
+		backup.Status.State = backupv1alpha1.BackupStateFailed
+		backup.Status.Message = "external backup must have spec.origin.external set"
+		return nil
+	}
+
+	if external.StartedAt.IsZero() {
 		backup.Status.State = backupv1alpha1.BackupStateFailed
 		backup.Status.Message = "external backup must have a startedAt timestamp"
 		return nil
 	}
 
-	if backup.Status.CompletedAt == nil || backup.Status.CompletedAt.IsZero() {
+	if external.CompletedAt.IsZero() {
 		backup.Status.State = backupv1alpha1.BackupStateFailed
 		backup.Status.Message = "external backup must have a completedAt timestamp"
 		return nil
 	}
+
+	backup.Status.StartedAt = external.StartedAt.DeepCopy()
+	backup.Status.CompletedAt = external.CompletedAt.DeepCopy()
 
 	storage := &backupv1alpha1.BackupStorage{}
 	if err := c.Get(ctx, client.ObjectKey{

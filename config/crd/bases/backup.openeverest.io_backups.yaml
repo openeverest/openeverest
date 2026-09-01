@@ -109,6 +109,10 @@ spec:
                       When set, the restoring builds the engine restore directly from
                       storageRef + external.path with no live operator object.
                     properties:
+                      completedAt:
+                        description: CompletedAt is the time when the backup completed.
+                        format: date-time
+                        type: string
                       path:
                         description: |-
                           Path is the backup's path within the BackupStorage. The bucket is
@@ -116,8 +120,14 @@ spec:
                           is unique within its storage and is used for restore.
                         minLength: 1
                         type: string
+                      startedAt:
+                        description: StartedAt is the time when the backup started.
+                        format: date-time
+                        type: string
                     required:
+                    - completedAt
                     - path
+                    - startedAt
                     type: object
                   instanceRef:
                     description: |-
@@ -191,8 +201,7 @@ spec:
               completedAt:
                 description: |-
                   CompletedAt is the time when the backup completed successfully.
-                  External backup reports the time when the backup was completed, inferred
-                  from the backup data in storage, not when the Backup CR was created.
+                  For external backups this mirrors spec.origin.external.completedAt.
                 format: date-time
                 type: string
               conditions:
@@ -318,14 +327,12 @@ spec:
               size:
                 description: |-
                   Size is the size of the backup data as reported by the engine.
-                  For external backups, the size is inferred from the backup data
-                  in storage, if available.
+                  Empty for external backups.
                 type: string
               startedAt:
                 description: |-
                   StartedAt is the time when the backup started.
-                  External backup reports the time when the backup was started, inferred
-                  from the backup data in storage, not when the Backup CR was created.
+                  For external backups this mirrors spec.origin.external.startedAt.
                 format: date-time
                 type: string
               state:

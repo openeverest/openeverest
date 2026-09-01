@@ -716,10 +716,16 @@ type Backup struct {
 			// When set, the restoring builds the engine restore directly from
 			// storageRef + external.path with no live operator object.
 			External *struct {
+				// CompletedAt CompletedAt is the time when the backup completed.
+				CompletedAt time.Time `json:"completedAt"`
+
 				// Path Path is the backup's path within the BackupStorage. The bucket is
 				// already determined by storageRef, so it is not repeated here. The path
 				// is unique within its storage and is used for restore.
 				Path string `json:"path"`
+
+				// StartedAt StartedAt is the time when the backup started.
+				StartedAt time.Time `json:"startedAt"`
 			} `json:"external,omitempty"`
 
 			// InstanceRef InstanceRef references the Instance that produced this Backup. The
@@ -758,8 +764,7 @@ type Backup struct {
 	// Status BackupStatus defines the observed state of Backup.
 	Status *struct {
 		// CompletedAt CompletedAt is the time when the backup completed successfully.
-		// External backup reports the time when the backup was completed, inferred
-		// from the backup data in storage, not when the Backup CR was created.
+		// For external backups this mirrors spec.origin.external.completedAt.
 		CompletedAt *time.Time `json:"completedAt,omitempty"`
 		Conditions  *[]struct {
 			// LastTransitionTime lastTransitionTime is the last time the condition transitioned from one status to another.
@@ -824,13 +829,11 @@ type Backup struct {
 		} `json:"operatorBackupRef,omitempty"`
 
 		// Size Size is the size of the backup data as reported by the engine.
-		// For external backups, the size is inferred from the backup data
-		// in storage, if available.
+		// Empty for external backups.
 		Size *string `json:"size,omitempty"`
 
 		// StartedAt StartedAt is the time when the backup started.
-		// External backup reports the time when the backup was started, inferred
-		// from the backup data in storage, not when the Backup CR was created.
+		// For external backups this mirrors spec.origin.external.startedAt.
 		StartedAt *time.Time `json:"startedAt,omitempty"`
 
 		// State State is the current state of the backup.

@@ -194,8 +194,6 @@ func (r *BackupReconciler) Reconcile( //nolint:nonamedreturns
 
 	// Reset the status, we will build a new one by observing the current state on each reconcile.
 	startedAt := backup.Status.StartedAt
-	completedAt := backup.Status.CompletedAt
-	size := backup.Status.Size
 	backup.Status = backupv1alpha1.BackupStatus{}
 	backup.Status.LastObservedGeneration = backup.GetGeneration()
 	if startedAt != nil && !startedAt.Time.IsZero() {
@@ -214,9 +212,6 @@ func (r *BackupReconciler) Reconcile( //nolint:nonamedreturns
 	// a storage; there is no source Instance and no job to run. The reconciler
 	// verifies the backup in the storage then marks the Backup Succeeded.
 	if backup.Spec.Origin.Type == backupv1alpha1.BackupOriginTypeExternal {
-		backup.Status.StartedAt = startedAt
-		backup.Status.CompletedAt = completedAt
-		backup.Status.Size = size
 		backup.Status.ExecutionMode = backupv1alpha1.BackupExecutionModeJob
 		return ctrl.Result{}, controller.ReconcileExternalBackupStatus(ctx, r.Client, backup)
 	}

@@ -145,6 +145,12 @@ type BackupOriginExternal struct {
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinLength=1
 	Path string `json:"path"`
+	// StartedAt is the time when the backup started.
+	// +kubebuilder:validation:Required
+	StartedAt metav1.Time `json:"startedAt"`
+	// CompletedAt is the time when the backup completed.
+	// +kubebuilder:validation:Required
+	CompletedAt metav1.Time `json:"completedAt"`
 }
 
 // BackupStatus defines the observed state of Backup.
@@ -154,8 +160,7 @@ type BackupStatus struct {
 	// +optional
 	ExecutionMode BackupExecutionMode `json:"executionMode,omitempty"`
 	// Size is the size of the backup data as reported by the engine.
-	// For external backups, the size is inferred from the backup data
-	// in storage, if available.
+	// Empty for external backups.
 	// +optional
 	Size *string `json:"size,omitempty"`
 	// OperatorBackupRef points at the operator-native backup resource the
@@ -170,13 +175,11 @@ type BackupStatus struct {
 	// +optional
 	JobRef *common.ObjectRef `json:"jobRef,omitempty"`
 	// StartedAt is the time when the backup started.
-	// External backup reports the time when the backup was started, inferred
-	// from the backup data in storage, not when the Backup CR was created.
+	// For external backups this mirrors spec.origin.external.startedAt.
 	// +optional
 	StartedAt *metav1.Time `json:"startedAt,omitempty"`
 	// CompletedAt is the time when the backup completed successfully.
-	// External backup reports the time when the backup was completed, inferred
-	// from the backup data in storage, not when the Backup CR was created.
+	// For external backups this mirrors spec.origin.external.completedAt.
 	// +optional
 	CompletedAt *metav1.Time `json:"completedAt,omitempty"`
 	// LastObservedGeneration is the last observed generation of the Backup CR.
