@@ -79,3 +79,34 @@ func TestValidateWaitFlags(t *testing.T) {
 		})
 	}
 }
+
+func TestValidateWatchFlags(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name            string
+		watchSet        bool
+		interval        time.Duration
+		intervalChanged bool // whether --interval was explicitly passed
+		wantErr         string
+	}{
+		{"interval without watch", false, 5 * time.Second, true, "only valid together with --watch"},
+		{"watch with zero interval", true, 0, true, "positive duration"},
+		{"watch with negative interval", true, -time.Second, true, "positive duration"},
+		{"watch with default interval", true, 2 * time.Second, false, ""},
+		{"watch with custom interval", true, 5 * time.Second, true, ""},
+		{"neither flag", false, 2 * time.Second, false, ""},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			err := ValidateWatchFlags(tc.watchSet, tc.intervalChanged, tc.interval)
+			if tc.wantErr == "" {
+				assert.NoError(t, err)
+				return
+			}
+			assert.ErrorContains(t, err, tc.wantErr)
+		})
+	}
+}

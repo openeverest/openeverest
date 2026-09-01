@@ -95,14 +95,9 @@ func (is *InstanceStatusRunner) watch(
 	opts StatusOptions,
 	lastOutput string,
 ) error {
-	interval := opts.Interval
-	if interval <= 0 {
-		interval = 2 * time.Second
-	}
-
 	poll := newInstancePoll(c, opts.Cluster, opts.Namespace, opts.Name)
 
-	ticker := time.NewTicker(interval)
+	ticker := time.NewTicker(opts.Interval)
 	defer ticker.Stop()
 
 	for {
@@ -113,7 +108,7 @@ func (is *InstanceStatusRunner) watch(
 			inst, err := poll(ctx)
 			if err != nil {
 				if _, ok := errors.AsType[*wait.RetryableError](err); ok {
-					is.l.Warnf("%v — retrying in %s", err, interval)
+					is.l.Warnf("%v — retrying in %s", err, opts.Interval)
 					continue
 				}
 				return err

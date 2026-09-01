@@ -24,6 +24,7 @@ import (
 	"github.com/openeverest/openeverest/v2/pkg/cli"
 	"github.com/openeverest/openeverest/v2/pkg/cli/config"
 	instancecli "github.com/openeverest/openeverest/v2/pkg/cli/instance"
+	"github.com/openeverest/openeverest/v2/pkg/cli/waitcmd"
 	"github.com/openeverest/openeverest/v2/pkg/logger"
 	"github.com/openeverest/openeverest/v2/pkg/output"
 )
@@ -83,6 +84,11 @@ func statusPreRun(cmd *cobra.Command, _ []string) { //nolint:revive
 func statusRun(cmd *cobra.Command, _ []string) { //nolint:revive
 	cfgPath, err := config.DefaultPath()
 	if err != nil {
+		output.PrintError(err, logger.GetLogger(), statusCfg.Pretty)
+		os.Exit(1)
+	}
+
+	if err := waitcmd.ValidateWatchFlags(statusOpts.Watch, cmd.Flags().Changed(cli.FlagInstanceInterval), statusOpts.Interval); err != nil {
 		output.PrintError(err, logger.GetLogger(), statusCfg.Pretty)
 		os.Exit(1)
 	}

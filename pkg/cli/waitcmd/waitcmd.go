@@ -14,7 +14,8 @@
 // limitations under the License.
 
 // Package waitcmd holds the command-layer plumbing shared by every
-// `<resource> create --wait` command (flag validation and exit-code mapping),
+// `<resource> create --wait` command and `instance status --watch` (flag
+// validation and exit-code mapping),
 // so it lives in one place instead of drifting between per-resource copies.
 package waitcmd
 
@@ -49,6 +50,17 @@ func ValidateWaitFlags(waitSet, timeoutChanged bool, timeout time.Duration) erro
 	}
 	if waitSet && timeout <= 0 {
 		return errors.New("--timeout must be a positive duration (use e.g. --timeout 10m)")
+	}
+	return nil
+}
+
+// ValidateWatchFlags rejects --interval without --watch and non-positive intervals.
+func ValidateWatchFlags(watchSet, intervalChanged bool, interval time.Duration) error {
+	if intervalChanged && !watchSet {
+		return errors.New("--interval is only valid together with --watch")
+	}
+	if watchSet && interval <= 0 {
+		return errors.New("--interval must be a positive duration (use e.g. --interval 5s)")
 	}
 	return nil
 }
