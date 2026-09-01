@@ -35,7 +35,7 @@ describe('buildCreateInstanceSpec', () => {
     const result = buildCreateInstanceSpec(formValue);
 
     expect(result).toMatchObject({
-      provider: 'percona-server-mongodb',
+      providerRef: { name: 'percona-server-mongodb' },
       topology: {
         type: 'sharded',
         config: {

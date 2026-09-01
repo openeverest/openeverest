@@ -24,11 +24,13 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
+	apicommon "github.com/openeverest/openeverest/v2/api/common/v1alpha1"
 	"github.com/openeverest/openeverest/v2/api/core/v1alpha1"
 )
 
@@ -182,141 +184,93 @@ func (c *Context) ObjectMeta(name string) metav1.ObjectMeta {
 		Labels: map[string]string{
 			"app.kubernetes.io/managed-by": "everest",
 			"app.kubernetes.io/instance":   c.Name(),
+			ProviderLabel:                  c.providerName,
 		},
 	}
 }
 
-// DecodeTopologyConfig unmarshals the topology configuration into the provided struct.
-// The target should be a pointer to the expected config type.
-// Returns an error if the config is nil, empty, or unmarshaling fails.
+// DecodeTopologyParameters unmarshals the topology parameters into the
+// provided struct. The target should be a pointer to the expected type.
+// Returns an error if the parameters are nil, empty, or unmarshaling fails.
 //
 // Example:
 //
-//	var config psmdbspec.ShardedTopologyConfig
-//	if err := c.DecodeTopologyConfig(&config); err != nil {
+//	var params psmdbspec.ShardedTopologyParameters
+//	if err := c.DecodeTopologyParameters(&params); err != nil {
 //	    // handle error or use defaults
 //	}
-func (c *Context) DecodeTopologyConfig(target interface{}) error {
-	topologyConfig := c.in.GetTopologyConfig()
-	if topologyConfig == nil || topologyConfig.Raw == nil {
-		return fmt.Errorf("topology config not set")
+func (c *Context) DecodeTopologyParameters(target any) error {
+	topologyParams := c.in.GetTopologyParameters()
+	if topologyParams == nil || topologyParams.Raw == nil {
+		return fmt.Errorf("topology parameters not set")
 	}
-	return json.Unmarshal(topologyConfig.Raw, target)
+	return json.Unmarshal(topologyParams.Raw, target)
 }
 
-// DecodeGlobalConfig unmarshals the global configuration into the provided struct.
-// The target should be a pointer to the expected config type.
-// Returns an error if the config is nil, empty, or unmarshaling fails.
+// DecodeParameters unmarshals the provider-level parameters
+// (Instance.spec.parameters) into the provided struct. The target should be
+// a pointer to the expected type. Returns an error if the parameters are
+// nil, empty, or unmarshaling fails.
 //
 // Example:
 //
-//	var config psmdbspec.GlobalConfig
-//	if err := c.DecodeGlobalConfig(&config); err != nil {
+//	var params psmdbspec.Parameters
+//	if err := c.DecodeParameters(&params); err != nil {
 //	    // handle error or use defaults
 //	}
-func (c *Context) DecodeGlobalConfig(target interface{}) error {
-	globalConfig := c.in.Spec.Global
-	if globalConfig == nil || globalConfig.Raw == nil {
-		return fmt.Errorf("global config not set")
+func (c *Context) DecodeParameters(target any) error {
+	params := c.in.Spec.Parameters
+	if params == nil || params.Raw == nil {
+		return fmt.Errorf("parameters not set")
 	}
-	return json.Unmarshal(globalConfig.Raw, target)
+	return json.Unmarshal(params.Raw, target)
 }
 
-// DecodeComponentCustomSpec unmarshals a component's custom spec into the provided struct.
-// The target should be a pointer to the expected custom spec type.
-// Returns an error if the custom spec is nil, empty, or unmarshaling fails.
+// DecodeComponentParameters unmarshals a component's parameters into the
+// provided struct. The target should be a pointer to the expected type.
+// Returns an error if the parameters are nil, empty, or unmarshaling fails.
 //
 // Example:
 //
 //	engine := c.wl.Spec.Components["engine"]
-//	var customSpec psmdbspec.MongodCustomSpec
-//	if err := c.DecodeComponentCustomSpec(engine, &customSpec); err != nil {
+//	var params psmdbspec.MongodParameters
+//	if err := c.DecodeComponentParameters(engine, &params); err != nil {
 //	    // handle error or use defaults
 //	}
-func (c *Context) DecodeComponentCustomSpec(component v1alpha1.ComponentSpec, target interface{}) error {
-	if component.CustomSpec == nil || component.CustomSpec.Raw == nil {
-		return fmt.Errorf("component custom spec not set")
+func (c *Context) DecodeComponentParameters(component v1alpha1.ComponentSpec, target any) error {
+	if component.Parameters == nil || component.Parameters.Raw == nil {
+		return fmt.Errorf("component parameters not set")
 	}
-	return json.Unmarshal(component.CustomSpec.Raw, target)
+	return json.Unmarshal(component.Parameters.Raw, target)
 }
 
-// TryDecodeTopologyConfig attempts to decode topology config, returning false if not set.
-// This is a convenience method that doesn't return an error for missing configs.
+// TryDecodeTopologyParameters attempts to decode topology parameters,
+// returning false if not set. This is a convenience method that doesn't
+// return an error for missing parameters.
 //
 // Example:
 //
-//	var config psmdbspec.ShardedTopologyConfig
-//	if c.TryDecodeTopologyConfig(&config) {
-//	    numShards = config.NumShards
+//	var params psmdbspec.ShardedTopologyParameters
+//	if c.TryDecodeTopologyParameters(&params) {
+//	    numShards = params.NumShards
 //	} else {
 //	    numShards = 2 // default
 //	}
-func (c *Context) TryDecodeTopologyConfig(target interface{}) bool {
-	err := c.DecodeTopologyConfig(target)
+func (c *Context) TryDecodeTopologyParameters(target any) bool {
+	err := c.DecodeTopologyParameters(target)
 	return err == nil
 }
 
-// TryDecodeGlobalConfig attempts to decode global config, returning false if not set.
-func (c *Context) TryDecodeGlobalConfig(target interface{}) bool {
-	err := c.DecodeGlobalConfig(target)
+// TryDecodeParameters attempts to decode provider-level parameters, returning false if not set.
+func (c *Context) TryDecodeParameters(target any) bool {
+	err := c.DecodeParameters(target)
 	return err == nil
 }
 
-// TryDecodeComponentCustomSpec attempts to decode component custom spec, returning false if not set.
-func (c *Context) TryDecodeComponentCustomSpec(component v1alpha1.ComponentSpec, target interface{}) bool {
-	err := c.DecodeComponentCustomSpec(component, target)
+// TryDecodeComponentParameters attempts to decode component parameters, returning false if not set.
+func (c *Context) TryDecodeComponentParameters(component v1alpha1.ComponentSpec, target any) bool {
+	err := c.DecodeComponentParameters(component, target)
 	return err == nil
-}
-
-// ComponentConfig fetches the configuration string for a component from its
-// referenced Secret or ConfigMap (via component.Config).
-// Returns ("", nil) when Config is nil or neither ref is set.
-// The Config.Key field must be non-empty whenever a ref is provided.
-//
-// Example:
-//
-//	engine := c.Instance().Spec.Components["engine"]
-//	config, err := c.ComponentConfig(engine)
-//	if err != nil {
-//	    return err
-//	}
-func (c *Context) ComponentConfig(component v1alpha1.ComponentSpec) (string, error) {
-	cfg := component.Config
-	if cfg == nil {
-		return "", nil
-	}
-
-	if cfg.ConfigMapRef.Name != "" {
-		cm := &corev1.ConfigMap{}
-		if err := c.Get(cm, cfg.ConfigMapRef.Name); err != nil {
-			return "", fmt.Errorf("get config ConfigMap %q: %w", cfg.ConfigMapRef.Name, err)
-		}
-		if cfg.Key == "" {
-			return "", fmt.Errorf("config.key must be set when configMapRef is used")
-		}
-		value, ok := cm.Data[cfg.Key]
-		if !ok {
-			return "", fmt.Errorf("key %q not found in ConfigMap %q", cfg.Key, cfg.ConfigMapRef.Name)
-		}
-		return value, nil
-	}
-
-	if cfg.SecretRef.Name != "" {
-		secret := &corev1.Secret{}
-		if err := c.Get(secret, cfg.SecretRef.Name); err != nil {
-			return "", fmt.Errorf("get config Secret %q: %w", cfg.SecretRef.Name, err)
-		}
-		if cfg.Key == "" {
-			return "", fmt.Errorf("config.key must be set when secretRef is used")
-		}
-		data, ok := secret.Data[cfg.Key]
-		if !ok {
-			return "", fmt.Errorf("key %q not found in Secret %q", cfg.Key, cfg.SecretRef.Name)
-		}
-		return string(data), nil
-	}
-
-	return "", nil
 }
 
 // =============================================================================
@@ -421,7 +375,8 @@ type ComponentStatus struct {
 // ToV2Alpha1 converts Status to the API type.
 func (s Status) ToV2Alpha1() v1alpha1.InstanceStatus {
 	return v1alpha1.InstanceStatus{
-		Phase: s.Phase,
+		Phase:   s.Phase,
+		Message: s.Message,
 	}
 }
 
@@ -674,10 +629,9 @@ func (c *Context) BackupClassLimits() (*backupv1alpha1.BackupClassLimits, error)
 	return bc.Spec.ProviderManaged.Limits, nil
 }
 
-// PITRConfigSchema returns the free-form PITR config schema declared by the
-// BackupClass referenced by the Instance, or nil when no schema is set.
-// The runtime treats this payload as opaque; providers interpret it.
-func (c *Context) PITRConfigSchema() (*runtime.RawExtension, error) {
+// PITRParametersSchema returns the typed PITR parameters schema declared by
+// the BackupClass referenced by the Instance, or nil when no schema is set.
+func (c *Context) PITRParametersSchema() (*apicommon.ParametersSchema, error) {
 	bc, err := c.BackupClassForInstance()
 	if err != nil || bc == nil {
 		return nil, err
@@ -685,7 +639,7 @@ func (c *Context) PITRConfigSchema() (*runtime.RawExtension, error) {
 	if bc.Spec.ProviderManaged == nil {
 		return nil, nil
 	}
-	return bc.Spec.ProviderManaged.PITRConfigSchema, nil
+	return bc.Spec.ProviderManaged.PITRParametersSchema, nil
 }
 
 // BackupStorage fetches a BackupStorage by name from the instance namespace.
@@ -702,22 +656,22 @@ func (c *Context) BackupStorage(name string) (*backupv1alpha1.BackupStorage, err
 // empty strings if the storage does not reference a Secret (caller can decide
 // whether that is an error).
 func (c *Context) BackupStorageCredentials(bs *backupv1alpha1.BackupStorage) (accessKeyID, secretAccessKey string, err error) {
-	if bs == nil || bs.Spec.S3 == nil || bs.Spec.S3.CredentialsSecretName == "" {
+	if bs == nil || bs.Spec.S3 == nil || bs.Spec.S3.CredentialsSecretRef.Name == "" {
 		return "", "", nil
 	}
 	secret := &corev1.Secret{}
 	if err := c.client.Get(c.ctx, client.ObjectKey{
 		Namespace: bs.GetNamespace(),
-		Name:      bs.Spec.S3.CredentialsSecretName,
+		Name:      bs.Spec.S3.CredentialsSecretRef.Name,
 	}, secret); err != nil {
-		return "", "", fmt.Errorf("failed to get credentials secret %q: %w", bs.Spec.S3.CredentialsSecretName, err)
+		return "", "", fmt.Errorf("failed to get credentials secret %q: %w", bs.Spec.S3.CredentialsSecretRef.Name, err)
 	}
 	return string(secret.Data["AWS_ACCESS_KEY_ID"]), string(secret.Data["AWS_SECRET_ACCESS_KEY"]), nil
 }
 
 // BackupsForInstance lists all Backup CRs in the instance namespace whose
-// .spec.instanceName matches this Instance. Requires the field index
-// ".spec.instanceName" on backupv1alpha1.Backup, which the runtime registers
+// .spec.instanceRef.name matches this Instance. Requires the field index
+// ".spec.instanceRef.name" on backupv1alpha1.Backup, which the runtime registers
 // automatically when the provider implements BackupProvider.
 func (c *Context) BackupsForInstance() ([]backupv1alpha1.Backup, error) {
 	list := &backupv1alpha1.BackupList{}
@@ -731,7 +685,7 @@ func (c *Context) BackupsForInstance() ([]backupv1alpha1.Backup, error) {
 }
 
 // RestoresForInstance lists all Restore CRs in the instance namespace whose
-// .spec.instanceName matches this Instance.
+// .spec.instanceRef.name matches this Instance.
 func (c *Context) RestoresForInstance() ([]backupv1alpha1.Restore, error) {
 	list := &backupv1alpha1.RestoreList{}
 	if err := c.client.List(c.ctx, list,
@@ -743,11 +697,15 @@ func (c *Context) RestoresForInstance() ([]backupv1alpha1.Restore, error) {
 	return list.Items, nil
 }
 
-// IndexBackupInstanceName is the field index path used for Backup.spec.instanceName.
-const IndexBackupInstanceName = "spec.instanceName"
+// IndexBackupInstanceName is the field index path used for Backup.spec.instanceRef.name.
+const IndexBackupInstanceName = "spec.instanceRef.name"
 
-// IndexRestoreInstanceName is the field index path used for Restore.spec.instanceName.
-const IndexRestoreInstanceName = "spec.instanceName"
+// IndexRestoreInstanceName is the field index path used for Restore.spec.instanceRef.name.
+const IndexRestoreInstanceName = "spec.instanceRef.name"
+
+// ProviderLabel is the label key used to identify which provider
+// manages an Instance. Set automatically by the provider reconciler.
+const ProviderLabel = "core.openeverest.io/provider"
 
 // ShouldRetainBackupData returns true when the underlying backup data in the
 // configured BackupStorage (e.g., the S3 object) must be preserved on
@@ -778,7 +736,7 @@ type BackupExecutionStatus struct {
 	Message string
 	// OperatorBackupRef points at the operator-native backup resource that was
 	// created (e.g., PerconaServerMongoDBBackup). Optional but recommended.
-	OperatorBackupRef *corev1.TypedLocalObjectReference
+	OperatorBackupRef *apicommon.TypedObjectRef
 	// StartedAt is when the backup started running. Optional.
 	StartedAt *metav1.Time
 	// CompletedAt is when the backup completed. Optional.
@@ -792,7 +750,7 @@ type BackupExecutionStatus struct {
 type RestoreExecutionStatus struct {
 	State              backupv1alpha1.RestoreState
 	Message            string
-	OperatorRestoreRef *corev1.TypedLocalObjectReference
+	OperatorRestoreRef *apicommon.TypedObjectRef
 	StartedAt          *metav1.Time
 	CompletedAt        *metav1.Time
 }
@@ -883,8 +841,8 @@ func (c *Context) GetDataSourceStatus() *DataSourceStatus {
 //     Instance has a backup storage entry that matches the source Backup's
 //     storage).
 //  2. Create or update a Restore CR named "{instance}-datasource", owned by
-//     the Instance, with .spec.instanceName pointing at the target Instance
-//     and .spec.dataSource.backup.backupName pointing at the source Backup.
+//     the Instance, with .spec.instanceRef pointing at the target Instance
+//     and .spec.dataSource.backup.backupRef pointing at the source Backup.
 //  3. Read back .status.state on the Restore and translate it into a
 //     DataSourceStatus. The returned status is also staged on the Context so
 //     the runtime reconciler can flush ConditionDataSourceReady.
@@ -901,48 +859,31 @@ func (c *Context) ReconcileDataSource() (DataSourceStatus, error) {
 		return s, nil
 	}
 
-	// 1. Source Backup must exist and be Succeeded.
-	backupName := ds.Backup.BackupName
-	src := &backupv1alpha1.Backup{}
-	if err := c.Get(src, backupName); err != nil {
-		if apierrors.IsNotFound(err) {
-			s := DataSourceStatus{
-				Done:    false,
-				State:   DataSourceStateWaiting,
-				Reason:  v1alpha1.ReasonDataSourceSourceBackupNotFound,
-				Message: fmt.Sprintf("source Backup %q not found in namespace %q", backupName, c.in.Namespace),
-			}
-			c.SetDataSourceStatus(s)
-			return s, nil
-		}
-		return DataSourceStatus{}, fmt.Errorf("get source Backup %q: %w", backupName, err)
+	// 1. Resolve the source and the read BackupClass that describes it.
+	origin, waiting, err := c.resolveDataSourceOrigin(ds)
+	if err != nil {
+		return DataSourceStatus{}, err
 	}
-	if src.Status.State != backupv1alpha1.BackupStateSucceeded {
-		s := DataSourceStatus{
-			Done:    false,
-			State:   DataSourceStateWaiting,
-			Reason:  v1alpha1.ReasonDataSourceSourceBackupNotSucceeded,
-			Message: fmt.Sprintf("source Backup %q is in state %q, waiting for Succeeded", backupName, src.Status.State),
-		}
-		c.SetDataSourceStatus(s)
-		return s, nil
+	if waiting != nil {
+		c.SetDataSourceStatus(*waiting)
+		return *waiting, nil
 	}
 
-	// 2. The source Backup's BackupClass must be ProviderManaged and support
-	// this Instance's provider.
-	bc, err := c.BackupClass(src.Spec.BackupClassName)
+	// 2. The resolved BackupClass must be ProviderManaged and support this
+	// Instance's provider.
+	bc, err := c.BackupClass(origin.classRefName)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			s := DataSourceStatus{
 				Done:    false,
 				State:   DataSourceStateWaiting,
 				Reason:  v1alpha1.ReasonDataSourceClassUnsupported,
-				Message: fmt.Sprintf("BackupClass %q referenced by source Backup not found", src.Spec.BackupClassName),
+				Message: fmt.Sprintf("BackupClass %q resolved from %s not found", origin.classRefName, origin.description),
 			}
 			c.SetDataSourceStatus(s)
 			return s, nil
 		}
-		return DataSourceStatus{}, fmt.Errorf("get BackupClass %q: %w", src.Spec.BackupClassName, err)
+		return DataSourceStatus{}, fmt.Errorf("get BackupClass %q: %w", origin.classRefName, err)
 	}
 	if bc.Spec.ExecutionMode != backupv1alpha1.BackupExecutionModeProviderManaged {
 		s := DataSourceStatus{
@@ -954,7 +895,7 @@ func (c *Context) ReconcileDataSource() (DataSourceStatus, error) {
 		c.SetDataSourceStatus(s)
 		return s, nil
 	}
-	if !bc.Spec.SupportedProviders.Has(c.providerName) {
+	if err := ValidateClassSupportsProvider(bc, c.providerName); err != nil {
 		s := DataSourceStatus{
 			Done:    true,
 			State:   DataSourceStateFailed,
@@ -964,15 +905,28 @@ func (c *Context) ReconcileDataSource() (DataSourceStatus, error) {
 		c.SetDataSourceStatus(s)
 		return s, nil
 	}
+	if ds.Type == backupv1alpha1.DataSourceTypePointInTime &&
+		(bc.Spec.ProviderManaged == nil || !bc.Spec.ProviderManaged.SupportsPITR) {
+		s := DataSourceStatus{
+			Done:    true,
+			State:   DataSourceStateFailed,
+			Reason:  v1alpha1.ReasonDataSourcePITRUnsupported,
+			Message: fmt.Sprintf("BackupClass %q does not support point-in-time recovery", bc.Name),
+		}
+		c.SetDataSourceStatus(s)
+		return s, nil
+	}
 
-	// 3. Target Instance must declare a backup storage with the same logical
-	// name as the source Backup so the provider can read the data.
-	if c.in.Spec.Backup == nil || !hasInstanceStorage(c.in.Spec.Backup, src.Spec.StorageName) {
+	// 3. Target Instance must register the same BackupStorage as the source so
+	// the provider can read the data. Only enforceable when the source pins a
+	// single storage; a point-in-time source named by Instance alone does not.
+	if origin.storageName != "" &&
+		(c.in.Spec.Backup == nil || !hasInstanceStorage(c.in.Spec.Backup, origin.storageName)) {
 		s := DataSourceStatus{
 			Done:    false,
 			State:   DataSourceStateWaiting,
 			Reason:  v1alpha1.ReasonDataSourceStorageMismatch,
-			Message: fmt.Sprintf("Instance.spec.backup.storages does not include storage %q used by source Backup %q", src.Spec.StorageName, src.Name),
+			Message: fmt.Sprintf("Instance.spec.backup.storages does not include storage %q used by %s", origin.storageName, origin.description),
 		}
 		c.SetDataSourceStatus(s)
 		return s, nil
@@ -992,7 +946,7 @@ func (c *Context) ReconcileDataSource() (DataSourceStatus, error) {
 		}
 		restore.Labels["app.kubernetes.io/managed-by"] = "everest"
 		restore.Labels["app.kubernetes.io/instance"] = c.in.Name
-		restore.Spec.InstanceName = c.in.Name
+		restore.Spec.InstanceRef = apicommon.ObjectRef{Name: c.in.Name}
 		restore.Spec.DataSource = *ds
 		return controllerutil.SetControllerReference(c.in, restore, c.client.Scheme())
 	}); err != nil {
@@ -1007,7 +961,7 @@ func (c *Context) ReconcileDataSource() (DataSourceStatus, error) {
 		s.Done = true
 		s.State = DataSourceStateSucceeded
 		s.Reason = v1alpha1.ReasonDataSourceSucceeded
-		s.Message = fmt.Sprintf("Instance seeded from Backup %q via Restore %q", backupName, restoreName)
+		s.Message = fmt.Sprintf("Instance seeded from %s via Restore %q", origin.description, restoreName)
 	case backupv1alpha1.RestoreStateFailed:
 		s.Done = true
 		s.State = DataSourceStateFailed
@@ -1027,16 +981,206 @@ func (c *Context) ReconcileDataSource() (DataSourceStatus, error) {
 	return s, nil
 }
 
+// dataSourceOrigin describes where a DataSource reads from: the BackupClass
+// that says how the data was written (and therefore how it must be read), the
+// BackupStorage it must be read from, and a human-readable description used in
+// status messages.
+type dataSourceOrigin struct {
+	classRefName string
+	storageName  string
+	description  string
+}
+
+// resolveDataSourceOrigin inspects the DataSource and resolves where it reads
+// from.
+//
+// A non-nil DataSourceStatus means the source is not usable yet and the caller
+// should surface that status verbatim without progressing.
+func (c *Context) resolveDataSourceOrigin(
+	ds *backupv1alpha1.DataSource,
+) (*dataSourceOrigin, *DataSourceStatus, error) {
+	switch ds.Type {
+	case backupv1alpha1.DataSourceTypeBackup:
+		return c.resolveBackupOrigin(ds)
+	case backupv1alpha1.DataSourceTypePointInTime:
+		return c.resolvePointInTimeOrigin(ds)
+	default:
+		return nil, &DataSourceStatus{
+			Done:    true,
+			State:   DataSourceStateFailed,
+			Reason:  v1alpha1.ReasonDataSourceFailed,
+			Message: fmt.Sprintf("unsupported dataSource type %q", ds.Type),
+		}, nil
+	}
+}
+
+// resolveBackupOrigin resolves a type=Backup data source: the class and storage
+// come from the referenced Backup, which must exist and have Succeeded.
+func (c *Context) resolveBackupOrigin(
+	ds *backupv1alpha1.DataSource,
+) (*dataSourceOrigin, *DataSourceStatus, error) {
+	backupName := ds.Backup.BackupRef.Name
+	src := &backupv1alpha1.Backup{}
+	if err := c.Get(src, backupName); err != nil {
+		if apierrors.IsNotFound(err) {
+			return nil, &DataSourceStatus{
+				Done:    false,
+				State:   DataSourceStateWaiting,
+				Reason:  v1alpha1.ReasonDataSourceSourceBackupNotFound,
+				Message: fmt.Sprintf("source Backup %q not found in namespace %q", backupName, c.in.Namespace),
+			}, nil
+		}
+		return nil, nil, fmt.Errorf("get source Backup %q: %w", backupName, err)
+	}
+
+	if vErr := ValidateBackupSucceeded(src); vErr != nil {
+		// A backup that has not Succeeded is a state to wait in, not a
+		// reconcile failure, so the validation error becomes status.
+		waiting := &DataSourceStatus{
+			Done:    false,
+			State:   DataSourceStateWaiting,
+			Reason:  v1alpha1.ReasonDataSourceSourceBackupNotSucceeded,
+			Message: fmt.Sprintf("source Backup %q is in state %q, waiting for Succeeded", backupName, src.Status.State),
+		}
+		return nil, waiting, nil //nolint:nilerr // reported as status, see above
+	}
+
+	return &dataSourceOrigin{
+		classRefName: src.Spec.ClassRef.Name,
+		storageName:  src.Spec.StorageRef.Name,
+		description:  fmt.Sprintf("Backup %q", backupName),
+	}, nil, nil
+}
+
+// resolvePointInTimeOrigin resolves a type=PointInTime data source: the class
+// comes from the Instance that owns the stream.
+//
+// A storage may hold the streams of many Instances, so seeding requires an
+// explicit instanceRef -- unlike a Restore, where it defaults to the target
+// Instance. A schema rule enforces this; the check is repeated for defense in
+// depth on paths that bypass admission.
+func (c *Context) resolvePointInTimeOrigin(
+	ds *backupv1alpha1.DataSource,
+) (*dataSourceOrigin, *DataSourceStatus, error) {
+	src := ds.PointInTime.Source
+	if src.InstanceRef == nil {
+		return nil, &DataSourceStatus{
+			Done:    true,
+			State:   DataSourceStateFailed,
+			Reason:  v1alpha1.ReasonDataSourceSourceInstanceNotFound,
+			Message: "spec.dataSource.pointInTime.source.instanceRef is required when seeding an Instance from a point in time",
+		}, nil
+	}
+	instanceName := src.InstanceRef.Name
+
+	srcInstance, waiting, err := c.sourceInstance(instanceName)
+	if err != nil || waiting != nil {
+		return nil, waiting, err
+	}
+
+	if srcInstance.Spec.Backup == nil || srcInstance.Spec.Backup.ClassRef.Name == "" {
+		return nil, &DataSourceStatus{
+			Done:    false,
+			State:   DataSourceStateWaiting,
+			Reason:  v1alpha1.ReasonDataSourceClassUnsupported,
+			Message: fmt.Sprintf("Instance %q has no backup class configured; cannot resolve how to read its point-in-time stream", instanceName),
+		}, nil
+	}
+
+	if vErr := ValidatePITRStorage(ds.PointInTime, srcInstance); vErr != nil {
+		// Terminal rather than a wait: requeueing cannot turn a storage that
+		// is not archiving into one that is, so this is reported as status.
+		failed := &DataSourceStatus{
+			Done:    true,
+			State:   DataSourceStateFailed,
+			Reason:  v1alpha1.ReasonDataSourcePITRUnsupported,
+			Message: vErr.Error(),
+		}
+		return nil, failed, nil //nolint:nilerr // reported as status, see above
+	}
+
+	return &dataSourceOrigin{
+		classRefName: srcInstance.Spec.Backup.ClassRef.Name,
+		storageName:  src.StorageRef.Name,
+		description:  fmt.Sprintf("point-in-time stream of Instance %q", instanceName),
+	}, nil, nil
+}
+
+// sourceInstance returns the Instance owning a backup stream. The Instance
+// being reconciled is returned directly when it is its own source.
+func (c *Context) sourceInstance(name string) (*v1alpha1.Instance, *DataSourceStatus, error) {
+	if name == c.in.Name {
+		return c.in, nil, nil
+	}
+	out := &v1alpha1.Instance{}
+	if err := c.Get(out, name); err != nil {
+		if apierrors.IsNotFound(err) {
+			return nil, &DataSourceStatus{
+				Done:    false,
+				State:   DataSourceStateWaiting,
+				Reason:  v1alpha1.ReasonDataSourceSourceInstanceNotFound,
+				Message: fmt.Sprintf("source Instance %q not found in namespace %q", name, c.in.Namespace),
+			}, nil
+		}
+		return nil, nil, fmt.Errorf("get source Instance %q: %w", name, err)
+	}
+	return out, nil, nil
+}
+
 // hasInstanceStorage reports whether the InstanceBackupSpec declares a storage
-// entry whose logical name matches the supplied name.
+// entry referencing the BackupStorage with the supplied name.
 func hasInstanceStorage(b *v1alpha1.InstanceBackupSpec, name string) bool {
 	if b == nil {
 		return false
 	}
 	for _, s := range b.Storages {
-		if s.Name == name {
+		if s.StorageRef.Name == name {
 			return true
 		}
 	}
 	return false
+}
+
+// =============================================================================
+// WATCH HANDLER HELPERS
+// =============================================================================
+
+// RequestsForInstancesMatching lists Instances belonging to the specified provider
+// that match the given ListOptions, and returns them as reconcile.Request objects.
+//
+// Example usage in a watch handler:
+//
+//	func enqueueMonitoringConfig(providerName string) func(ctx context.Context, obj client.Object) []reconcile.Request {
+//	    return func(ctx context.Context, obj client.Object) []reconcile.Request {
+//	        mc := obj.(*monitoringv1alpha1.MonitoringConfig)
+//	        requests, err := controller.RequestsForInstancesMatching(ctx, client, providerName,
+//	            client.InNamespace(mc.GetNamespace()),
+//	            client.MatchingFields{monitoringConfigPath: mc.GetName()},
+//	        )
+//	        if err != nil {
+//	            return []reconcile.Request{}
+//	        }
+//	        return requests
+//	    }
+//	}
+func RequestsForInstancesMatching(ctx context.Context, c client.Client, providerName string, opts ...client.ListOption) ([]reconcile.Request, error) {
+	// Add label selector to opts for efficient server-side filtering
+	opts = append(opts, client.MatchingLabels{ProviderLabel: providerName})
+
+	list := &v1alpha1.InstanceList{}
+	if err := c.List(ctx, list, opts...); err != nil {
+		return nil, err
+	}
+
+	// Convert to reconcile requests
+	requests := make([]reconcile.Request, 0, len(list.Items))
+	for _, item := range list.Items {
+		requests = append(requests, reconcile.Request{
+			NamespacedName: types.NamespacedName{
+				Name:      item.GetName(),
+				Namespace: item.GetNamespace(),
+			},
+		})
+	}
+	return requests, nil
 }

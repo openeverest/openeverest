@@ -61,18 +61,18 @@ func init() {
 	upgradeCmd.Flags().StringVar(&upgradeCfg.RepoURL, helm.FlagRepository, helm.DefaultHelmRepoURL, "Helm chart repository to download the Everest charts from")
 	upgradeCmd.Flags().StringSliceVar(&upgradeCfg.Values.Values, helm.FlagHelmSet, []string{}, "Set helm values on the command line (can specify multiple values with commas: key1=val1,key2=val2)")
 	upgradeCmd.Flags().StringSliceVarP(&upgradeCfg.Values.ValueFiles, helm.FlagHelmValues, "f", []string{}, "Specify values in a YAML file or a URL (can specify multiple)")
-	upgradeCmd.Flags().BoolVar(&upgradeCfg.ResetThenReuseValues, helm.FlagHelmReuseValues, false, "Reuse the last release's values and merge in any overrides from the command line via --helm.set and -f")
+	upgradeCmd.Flags().BoolVar(&upgradeCfg.ReuseValues, helm.FlagHelmReuseValues, false, "Reuse the last release's values and merge in any overrides from the command line via --helm.set and -f")
 	upgradeCmd.Flags().BoolVar(&upgradeCfg.ResetValues, helm.FlagHelmResetValues, false, "Reset the values to the ones built into the chart")
-	upgradeCmd.Flags().BoolVar(&upgradeCfg.ResetThenReuseValues, helm.FlagHelmResetThenReuseValues, false, "Reset the values to the ones built into the chart, apply the last release's values and merge in any overrides from the command line via --set and -f.")
+	upgradeCmd.Flags().BoolVar(&upgradeCfg.ResetThenReuseValues, helm.FlagHelmResetThenReuseValues, false, "Reset the values to the ones built into the chart, apply the last release's values and merge in any overrides from the command line via --helm.set and -f.")
 }
 
-func upgradePreRun(_ *cobra.Command, _ []string) { //nolint:revive
+func upgradePreRun(_ *cobra.Command, _ []string) {
 	// Copy global flags to config
 	upgradeCfg.Pretty = rootCmdFlags.Pretty
 	upgradeCfg.KubeconfigPath = rootCmdFlags.KubeconfigPath
 }
 
-func upgradeRun(cmd *cobra.Command, _ []string) { //nolint:revive
+func upgradeRun(cmd *cobra.Command, _ []string) {
 	op, err := upgrade.NewUpgrade(upgradeCfg, logger.GetLogger())
 	if err != nil {
 		output.PrintError(err, logger.GetLogger(), upgradeCfg.Pretty)

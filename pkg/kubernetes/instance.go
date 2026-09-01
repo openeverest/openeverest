@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -55,9 +56,18 @@ func (k *Kubernetes) CreateInstance(ctx context.Context, instance *v1alpha1.Inst
 	return instance, nil
 }
 
-// UpdateInstance updates instance.
+// UpdateInstance updates instance.This is for PUT operation, which replaces the entire resource with the new one.
+// If you want to update only specific fields, use PatchInstance instead.
 func (k *Kubernetes) UpdateInstance(ctx context.Context, instance *v1alpha1.Instance) (*v1alpha1.Instance, error) {
 	if err := k.k8sClient.Update(ctx, instance); err != nil {
+		return nil, err
+	}
+	return instance, nil
+}
+
+// PatchInstance patches instance using the provided patch.
+func (k *Kubernetes) PatchInstance(ctx context.Context, instance *v1alpha1.Instance, patch ctrlclient.Patch, opts ...ctrlclient.PatchOption) (*v1alpha1.Instance, error) {
+	if err := k.k8sClient.Patch(ctx, instance, patch, opts...); err != nil {
 		return nil, err
 	}
 	return instance, nil

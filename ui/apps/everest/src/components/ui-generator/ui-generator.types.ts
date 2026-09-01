@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+import { ReactNode } from 'react';
 import { Provider } from 'shared-types/api.types';
 
 export enum FormMode {
@@ -56,6 +57,7 @@ export enum FieldType {
   Number = 'number',
   Select = 'select',
   Text = 'text',
+  Toggle = 'toggle',
   Hidden = 'hidden',
 }
 
@@ -103,6 +105,8 @@ export type SelectFieldParams =
       options?: never;
     });
 
+export type ToggleFieldParams = CommonFieldParams;
+
 export interface TextFieldParams extends CommonFieldParams {
   placeholder?: string;
   multiline?: boolean;
@@ -119,10 +123,19 @@ export interface TextFieldParams extends CommonFieldParams {
   margin?: 'none' | 'dense' | 'normal';
 }
 
+// Toggles are always optional booleans, so `required` is unsupported. Typing it
+// as `never` forbids setting it (a compile error), while keeping the property
+// present so the generic validation pipeline can still read
+// `validation.required` uniformly across field types.
+export type ToggleValidation = Omit<CommonValidation, 'required'> & {
+  required?: never;
+};
+
 export type FieldParamsMap = {
   [FieldType.Number]: NumberFieldParams;
   [FieldType.Select]: SelectFieldParams;
   [FieldType.Text]: TextFieldParams;
+  [FieldType.Toggle]: ToggleFieldParams;
   [FieldType.Hidden]: CommonFieldParams;
 };
 
@@ -172,7 +185,15 @@ export type ValidationMap = {
   [FieldType.Number]: NumberValidation;
   [FieldType.Text]: TextValidation;
   [FieldType.Select]: CommonValidation;
+  [FieldType.Toggle]: ToggleValidation;
   [FieldType.Hidden]: CommonValidation;
+};
+
+type ComponentCommonFields = {
+  techPreview?: boolean;
+  modes?: ComponentModeOverrides;
+  _normalized?: NormalizedPathMeta;
+  dataSource?: DataSource;
 };
 
 export type ModeAwareValidation<T extends CommonValidation> = T & {
@@ -180,14 +201,10 @@ export type ModeAwareValidation<T extends CommonValidation> = T & {
 };
 
 export type Component = {
-  [K in keyof FieldParamsMap]: {
+  [K in keyof FieldParamsMap]: ComponentCommonFields & {
     uiType: K;
-    techPreview?: boolean;
     validation?: ModeAwareValidation<ValidationMap[K]>;
     fieldParams: FieldParamsMap[K];
-    modes?: ComponentModeOverrides;
-    _normalized?: NormalizedPathMeta;
-    dataSource?: DataSource;
   } & PathOrId;
 }[keyof FieldParamsMap];
 
@@ -230,4 +247,5 @@ export type UIGeneratorProps = {
   loadingDefaultsForEdition?: boolean;
   formMode?: FormMode;
   namespace?: string;
+  emptySectionMessage?: ReactNode;
 };

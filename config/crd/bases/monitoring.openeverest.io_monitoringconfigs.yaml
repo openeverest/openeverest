@@ -53,11 +53,22 @@ spec:
                   PMM contains PMM-specific monitoring configuration.
                   Required when type is "pmm".
                 properties:
-                  credentialsSecretName:
+                  credentialsSecretRef:
                     description: |-
-                      CredentialsSecretName is the reference to the secret containing the API key.
-                      It contains `apiKey` key with the API key value.
-                    type: string
+                      CredentialsSecretRef references the Secret in the same namespace
+                      containing the API key. It contains an `apiKey` key with the API key
+                      value.
+                    properties:
+                      name:
+                        description: Name of the referenced Secret.
+                        maxLength: 253
+                        minLength: 1
+                        pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                        type: string
+                    required:
+                    - name
+                    type: object
+                    x-kubernetes-map-type: atomic
                   url:
                     description: URL is the URL of the PMM server.
                     type: string
@@ -68,7 +79,7 @@ spec:
                       If unspecified, the default value is true.
                     type: boolean
                 required:
-                - credentialsSecretName
+                - credentialsSecretRef
                 - url
                 type: object
               type:

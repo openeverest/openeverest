@@ -13,6 +13,7 @@
 // limitations under the License.
 
 import { useMutation } from '@tanstack/react-query';
+import { getAuthToken } from 'api/session-token';
 
 export interface PluginInstanceConfig {
   pluginName: string;
@@ -24,7 +25,7 @@ export interface PluginInstanceConfig {
 async function submitPluginInstanceConfig(
   payload: PluginInstanceConfig
 ): Promise<void> {
-  const token = localStorage.getItem('everestToken');
+  const token = getAuthToken();
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
   };

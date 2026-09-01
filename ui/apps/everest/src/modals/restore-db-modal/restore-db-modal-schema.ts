@@ -13,11 +13,16 @@
 // limitations under the License.
 
 import { z } from 'zod';
+import { Messages } from './restore-db-modal.messages';
+import { RestorePitrStorageOption } from './restore-db-modal.types';
+import { resolveActiveStorage } from './restore-pitr.utils';
 
 export enum RestoreDbFields {
   backupType = 'backupType',
   backupName = 'backupName',
-  // pitrBackup = 'pitrBackup',
+  pitrStorage = 'pitrStorage',
+  recoveryTarget = 'recoveryTarget',
+  pointInTimeDate = 'pointInTimeDate',
 }
 
 export enum BackupTypeValues {
@@ -25,64 +30,88 @@ export enum BackupTypeValues {
   fromPitr = 'fromPITR',
 }
 
-// TODO: Re-enable PITR params (gaps: boolean, minDate?: Date, maxDate?: Date)
-// when PITR restore flow is implemented.
-export const schema = () =>
+export enum RecoveryTargetValues {
+  latest = 'latest',
+  date = 'date',
+}
+
+export const schema = (pitrStorages: RestorePitrStorageOption[] = []) =>
   z
     .object({
       [RestoreDbFields.backupType]: z.nativeEnum(BackupTypeValues),
       [RestoreDbFields.backupName]: z.string().optional(),
-      // [RestoreDbFields.pitrBackup]: z.string().or(z.date()).optional(),
+      [RestoreDbFields.pitrStorage]: z.string().optional(),
+      [RestoreDbFields.recoveryTarget]: z
+        .nativeEnum(RecoveryTargetValues)
+        .optional(),
+      [RestoreDbFields.pointInTimeDate]: z.date().nullable().optional(),
     })
-    .superRefine(({ backupType, backupName /*, pitrBackup */ }, ctx) => {
-      if (backupType === BackupTypeValues.fromBackup) {
-        if (!backupName) {
+    .superRefine((data, ctx) => {
+      if (data.backupType === BackupTypeValues.fromBackup) {
+        if (!data.backupName) {
           ctx.addIssue({
             type: 'string',
             inclusive: true,
             code: z.ZodIssueCode.too_small,
             minimum: 1,
+            path: [RestoreDbFields.backupName],
           });
         }
+        return;
       }
-      /* else {
-        if (isDate(minDate) && isDate(maxDate) && !!pitrBackup) {
-          const pitrBackupDate = isDate(pitrBackup)
-            ? pitrBackup
-            : new Date(pitrBackup);
-          if (
-            isAfter(pitrBackupDate, maxDate) ||
-            isBefore(pitrBackupDate, minDate)
-          ) {
-            ctx.addIssue({
-              code: z.ZodIssueCode.invalid_date,
-            });
-          }
-        } else {
-          ctx.addIssue({
-            code: z.ZodIssueCode.custom,
-          });
-        }
 
-        if (gaps) {
-          ctx.addIssue({
-            code: z.ZodIssueCode.custom,
-          });
-        }
+      const storage = resolveActiveStorage(pitrStorages, data.pitrStorage);
 
-        if (!pitrBackup) {
-          ctx.addIssue({
-            code: z.ZodIssueCode.invalid_date,
-          });
-        }
+      if (!storage) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: [RestoreDbFields.pitrStorage],
+          message: Messages.pitrNoStorage,
+        });
+        return;
       }
-      */
+
+      if (!storage.window.available) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: [RestoreDbFields.pitrStorage],
+          message: storage.window.message ?? Messages.pitrUnavailable,
+        });
+        return;
+      }
+
+      if (data.recoveryTarget !== RecoveryTargetValues.date) {
+        return;
+      }
+
+      if (!data.pointInTimeDate) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: [RestoreDbFields.pointInTimeDate],
+          message: Messages.pitrDateRequired,
+        });
+        return;
+      }
+
+      const { earliest, latest } = storage.window;
+      const outOfRange =
+        (earliest && data.pointInTimeDate < earliest) ||
+        (latest && data.pointInTimeDate > latest);
+      if (outOfRange) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: [RestoreDbFields.pointInTimeDate],
+          message: Messages.pitrDateOutOfRange,
+        });
+      }
     });
 
 export const defaultValues = {
   [RestoreDbFields.backupType]: BackupTypeValues.fromBackup,
   [RestoreDbFields.backupName]: '',
-  // [RestoreDbFields.pitrBackup]: '',
+  [RestoreDbFields.pitrStorage]: '',
+  [RestoreDbFields.recoveryTarget]: RecoveryTargetValues.latest,
+  [RestoreDbFields.pointInTimeDate]: null,
 };
 
 export type RestoreDbFormData = z.infer<ReturnType<typeof schema>>;

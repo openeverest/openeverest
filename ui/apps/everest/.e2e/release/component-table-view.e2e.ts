@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -39,6 +40,7 @@ import {
   populateResources,
   populateAdvancedConfig,
 } from '@e2e/utils/db-wizard';
+import { clickAddDbClusterBtn } from '@e2e/pr/db-cluster/db-wizard/db-wizard-utils';
 import { EVEREST_CI_NAMESPACES } from '@e2e/constants';
 import { waitForStatus, waitForDelete } from '@e2e/utils/table';
 import { getCITokenFromLocalStorage } from '@e2e/utils/localStorage';
@@ -259,9 +261,7 @@ async function verifyComponentsForDb(
       expect(storageClasses.length).toBeGreaterThan(0);
 
       await page.goto('/databases');
-      await page.getByTestId('add-db-cluster-button').waitFor();
-      await page.getByTestId('add-db-cluster-button').click();
-      await page.getByTestId(`add-db-cluster-button-${db}`).click();
+      await clickAddDbClusterBtn(page, db);
 
       await test.step('Populate basic information', async () => {
         await populateBasicInformation(

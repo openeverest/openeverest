@@ -47,11 +47,16 @@ const PluginSettingsHost = () => {
   if (!match) {
     return (
       <Box sx={{ p: 2 }}>
-        <Typography color="text.secondary">Unknown settings tab.</Typography>
+        <Typography
+          sx={{
+            color: 'text.secondary',
+          }}
+        >
+          Unknown settings tab.
+        </Typography>
       </Box>
     );
   }
-
   const Component = match.ext.component;
   // TODO: pass actual currentUser from auth context when available.
   return (
@@ -60,5 +65,4 @@ const PluginSettingsHost = () => {
     </PluginErrorBoundary>
   );
 };
-
 export default PluginSettingsHost;

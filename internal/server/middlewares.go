@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,12 +17,13 @@
 package server
 
 import (
+	"errors"
 	"net/http"
 	"net/url"
 	"slices"
 	"strings"
 
-	"github.com/AlekSi/pointer"
+	"github.com/getkin/kin-openapi/openapi3filter"
 	"github.com/labstack/echo/v4"
 	everestv1alpha1 "github.com/percona/everest-operator/api/everest/v1alpha1"
 	"github.com/unrolled/secure"
@@ -32,11 +34,28 @@ import (
 	"github.com/openeverest/openeverest/v2/pkg/oidc"
 )
 
+// Security header values used by the securityHeaders middleware.
 const (
 	CSPSelf           = "'self'"
 	CSPNone           = "'none'"
 	PermissionsPolicy = "accelerometer=(), autoplay=(), camera=(), cross-origin-isolated=(), display-capture=(), encrypted-media=(), fullscreen=(), geolocation=(), gyroscope=(), keyboard-map=(), magnetometer=(), microphone=(), midi=(), payment=(), picture-in-picture=(), publickey-credentials-get=(), screen-wake-lock=(), sync-xhr=(self), usb=(), web-share=(), xr-spatial-tracking=(), clipboard-read=(self), clipboard-write=(self), gamepad=(), hid=(), idle-detection=(), interest-cohort=(), serial=(), unload=()"
 )
+
+// invalidContentTypeReason is what kin-openapi reports for an undeclared Content-Type.
+const invalidContentTypeReason = "header Content-Type has unexpected value"
+
+// validationErrorHandler re-codes an unsupported media type from 400 to 415.
+// The OpenAPI validator reports every request body problem as 400, which leaves an undeclared Content-Type indistinguishable from a malformed body.
+func validationErrorHandler(_ echo.Context, err *echo.HTTPError) error {
+	var reqErr *openapi3filter.RequestError
+	if errors.As(err.Internal, &reqErr) && strings.HasPrefix(reqErr.Reason, invalidContentTypeReason) {
+		return &echo.HTTPError{
+			Code:    http.StatusUnsupportedMediaType,
+			Message: reqErr.Reason,
+		}
+	}
+	return err
+}
 
 func (e *EverestServer) shouldAllowRequestDuringEngineUpgrade(c echo.Context) (bool, error) {
 	// We allow read-only requests.
@@ -89,7 +108,7 @@ func (e *EverestServer) checkOperatorUpgradeState(next echo.HandlerFunc) echo.Ha
 			return err
 		} else if !allow {
 			return c.JSON(http.StatusPreconditionFailed, api.Error{
-				Message: pointer.ToString("Cannot perform this operation while the operator is upgrading"),
+				Message: new("Cannot perform this operation while the operator is upgrading"),
 			})
 		}
 		return next(c)
@@ -107,7 +126,7 @@ func (e *EverestServer) securityHeaders() echo.MiddlewareFunc {
 		if oidcProvider.OriginalIssuer != oidcProvider.Issuer {
 			// It appears that original issuerUrl provided by user for OIDC configuration is not always
 			// the same as the one fetched from the OIDC provider's .well-known/openid-configuration (Microsoft Entra case).
-			// Need to add original issuer URL provided by user, otherwise there will be issues with browser login using SSO.
+			// Need to add original issuerUrl provided by user, otherwise there will be issues with browser login using SSO.
 			origIssuer, _ := url.JoinPath(oidcProvider.OriginalIssuer, oidc.WellKnownPath)
 			connectSrc = append(connectSrc, origIssuer)
 		}
@@ -117,6 +136,9 @@ func (e *EverestServer) securityHeaders() echo.MiddlewareFunc {
 		Directives: map[string][]string{
 			cspbuilder.DefaultSrc: {CSPSelf},
 			cspbuilder.FontSrc:    {CSPSelf, "data:"},
+			// The YAML editor draws its inline lint underlines as data: SVG
+			// background-images (@codemirror/lint), so allow data: images.
+			cspbuilder.ImgSrc: {CSPSelf, "data:"},
 			cspbuilder.StyleSrc: {
 				CSPSelf,
 				// $NONCE will be replaced by the real nonce value
@@ -125,7 +147,7 @@ func (e *EverestServer) securityHeaders() echo.MiddlewareFunc {
 				// the index.html template.
 				"$NONCE",
 				// @emotion adds an extra inline style with the SHA256 hash of
-				// an empty string, so we need to explicity allow it, see:
+				// an empty string, so we need to explicitly allow it, see:
 				// https://github.com/emotion-js/emotion/issues/2996
 				"'sha256-47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU='",
 			},

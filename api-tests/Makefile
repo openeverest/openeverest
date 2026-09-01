@@ -16,10 +16,15 @@ init:     ## Install tests dependencies.
 	#npm ci
 	PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 npx playwright install
 
+.PHONY: gen-types
+gen-types: ## Generate TypeScript types from the OpenAPI spec (api/openapi/http-api.yaml).
+	pnpm install
+	pnpm generate-types
+
 # NOTE: API tests do not wait for DB clusters to be ready.
 # The only exception is pg-data-importer test, so that only PG images are pre-uploaded to K3D cluster.
 CI_INIT_DEPS := init deploy-monitoring create-test-users k3d-upload-images
-CI_INIT_DEPS += deploy-minio
+CI_INIT_DEPS += deploy-minio create-test-manifests
 .PHONY: ci-init
 ci-init: $(CI_INIT_DEPS) 	## Prepare environment for running tests.
 
@@ -59,6 +64,23 @@ deploy-minio:
 		kubectl get events -n minio --sort-by=.lastTimestamp || true; \
 		exit 1; \
     fi
+
+TEST_PROVIDER_RESOURCE=$(TEST_ROOT)/manifests/test-provider.yaml
+TEST_PRESET_RESOURCE=$(TEST_ROOT)/manifests/test-preset.yaml
+TEST_SECRET_RESOURCE=$(TEST_ROOT)/manifests/test-secret.yaml
+.PHONY: create-test-manifests
+create-test-manifests:
+	$(info Deploying test provider and preset)
+	kubectl apply -f $(TEST_PROVIDER_RESOURCE)
+	kubectl apply -f $(TEST_PRESET_RESOURCE)
+	kubectl apply -f $(TEST_SECRET_RESOURCE)
+
+.PHONY: cleanup-test-manifests
+cleanup-test-manifests:
+	$(info Cleaning up test provider and preset)
+	kubectl delete -f $(TEST_PRESET_RESOURCE) --ignore-not-found=true
+	kubectl delete -f $(TEST_PROVIDER_RESOURCE) --ignore-not-found=true
+	kubectl delete -f $(TEST_SECRET_RESOURCE) --ignore-not-found=true
 
 .PHONY: k3d-upload-pg-images
 k3d-upload-pg-images: ## Pre-upload Postgresql images to K3D test  cluster to speedup tests execution.

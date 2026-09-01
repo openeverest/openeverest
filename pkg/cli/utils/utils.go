@@ -84,8 +84,7 @@ func NewKubeConnector(l *zap.SugaredLogger, kubeconfigPath string) (kubernetes.K
 	}
 	k, err := kubernetes.New(kubeconfigPath, l, namespace)
 	if err != nil {
-		var u *url.Error
-		if errors.As(err, &u) {
+		if _, ok := errors.AsType[*url.Error](err); ok {
 			l.Error("Could not connect to Kubernetes. " +
 				"Make sure Kubernetes is running and is accessible from this computer/server.")
 		}

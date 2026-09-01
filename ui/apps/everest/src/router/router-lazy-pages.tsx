@@ -31,7 +31,7 @@ export const DatabasePage = lazy(() =>
 );
 
 export const UIGeneratorBuilder = lazy(() =>
-  import('pages/ui-generator-builder/ui-generator-builder').then((module) => ({
+  import('pages/plugin-developer/ui-generator-builder').then((module) => ({
     default: module.UIGeneratorBuilder,
   }))
 );
@@ -104,8 +104,8 @@ export const Logs = lazy(
   () => import('pages/db-cluster-details/component-logs/component-logs')
 );
 
-export const LoginCallback = lazy(
-  () => import('components/login-callback/LoginCallback')
+export const LoginCallbackLoader = lazy(
+  () => import('components/login-callback/LoginCallbackLoader')
 );
 
 export const Logout = lazy(() => import('pages/logout'));
@@ -137,10 +137,4 @@ export const SettingsPoliciesRouter = lazy(
 
 export const SplitHorizon = lazy(
   () => import('pages/settings/policies/split-horizon')
-);
-
-export const PluginsPage = lazy(() =>
-  import('pages/plugins/plugins').then((module) => ({
-    default: module.PluginsPage,
-  }))
 );

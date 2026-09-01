@@ -50,7 +50,7 @@ test.describe.parallel('Backup Storage V2 tests', () => {
         expect(backupStorage.spec.s3.bucket).toBe(payload.spec.s3.bucket)
         expect(backupStorage.spec.s3.region).toBe(payload.spec.s3.region)
         expect(backupStorage.spec.s3.endpointURL).toBe(payload.spec.s3.endpointURL)
-        expect(backupStorage.spec.s3.credentialsSecretName).toBe(payload.spec.s3.credentialsSecretName)
+        expect(backupStorage.spec.s3.credentialsSecretRef.name).toBe(payload.spec.s3.credentialsSecretRef.name)
         expect(backupStorage.spec.s3.accessKeyId).toBeUndefined()
         expect(backupStorage.spec.s3.secretAccessKey).toBeUndefined()
         expect(backupStorage.spec.s3.forcePathStyle).toBe(payload.spec.s3.forcePathStyle)

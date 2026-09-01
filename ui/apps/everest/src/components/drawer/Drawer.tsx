@@ -23,11 +23,16 @@ import {
 import KeyboardDoubleArrowRightIcon from '@mui/icons-material/KeyboardDoubleArrowRight';
 import KeyboardDoubleArrowLeftIcon from '@mui/icons-material/KeyboardDoubleArrowLeft';
 import ExtensionIcon from '@mui/icons-material/Extension';
-import { DRAWER_WIDTH, ROUTES } from './Drawer.constants';
+import {
+  DRAWER_WIDTH,
+  PLUGIN_DEVELOPER_ROUTE,
+  ROUTES,
+} from './Drawer.constants';
 import { closedMixin, openedMixin } from './Drawer.utils';
 import { NavItem } from '../nav-item/NavItem';
 import { DrawerContext } from 'contexts/drawer/drawer.context';
 import { usePlugins } from 'contexts/plugins';
+import { useDevMode } from 'hooks/utils/useDevMode';
 import { EverestRoute } from './Drawer.types';
 
 const DrawerHeader = styled('div')(({ theme }) => ({
@@ -41,24 +46,33 @@ const DrawerHeader = styled('div')(({ theme }) => ({
 
 const StyledDrawer = styled(MuiDrawer, {
   shouldForwardProp: (prop) => prop !== 'open',
-})(({ theme, open }) => ({
+})(({ theme }) => ({
   width: DRAWER_WIDTH,
   flexShrink: 0,
   whiteSpace: 'nowrap',
   boxSizing: 'border-box',
-  ...(open && {
-    ...openedMixin(theme),
-    '& .MuiDrawer-paper': openedMixin(theme),
-  }),
-  ...(!open && {
-    ...closedMixin(theme),
-    '& .MuiDrawer-paper': closedMixin(theme),
-  }),
+  variants: [
+    {
+      props: ({ open }) => open,
+      style: {
+        ...openedMixin(theme),
+        '& .MuiDrawer-paper': openedMixin(theme),
+      },
+    },
+    {
+      props: ({ open }) => !open,
+      style: {
+        ...closedMixin(theme),
+        '& .MuiDrawer-paper': closedMixin(theme),
+      },
+    },
+  ],
 }));
 
 const DrawerContent = ({ open }: { open: boolean }) => {
   const { toggleOpen, setOpen, activeBreakpoint } = useContext(DrawerContext);
   const { plugins } = usePlugins();
+  const devMode = useDevMode();
 
   const allRoutes: EverestRoute[] = useMemo(() => {
     const pluginRoutes: EverestRoute[] = plugins.flatMap((plugin) =>
@@ -70,8 +84,12 @@ const DrawerContent = ({ open }: { open: boolean }) => {
           icon: ext.icon || ExtensionIcon,
         }))
     );
-    return [...ROUTES, ...pluginRoutes];
-  }, [plugins]);
+    return [
+      ...ROUTES,
+      ...(devMode ? [PLUGIN_DEVELOPER_ROUTE] : []),
+      ...pluginRoutes,
+    ];
+  }, [plugins, devMode]);
 
   return (
     <>
@@ -126,10 +144,8 @@ const TabletDrawer = () => {
     </>
   );
 };
-
 const DesktopDrawer = () => {
   const { open } = useContext(DrawerContext);
-
   return (
     <StyledDrawer variant="permanent" open={open}>
       <Toolbar />
@@ -137,10 +153,8 @@ const DesktopDrawer = () => {
     </StyledDrawer>
   );
 };
-
 const MobileDrawer = () => {
   const { open } = useContext(DrawerContext);
-
   return (
     <MuiDrawer
       anchor="left"
@@ -155,17 +169,13 @@ const MobileDrawer = () => {
     </MuiDrawer>
   );
 };
-
 export const Drawer = () => {
   const { activeBreakpoint } = useContext(DrawerContext);
-
   if (activeBreakpoint === 'mobile') {
     return <MobileDrawer />;
   }
-
   if (activeBreakpoint === 'desktop') {
     return <DesktopDrawer />;
   }
-
   return <TabletDrawer />;
 };

@@ -135,8 +135,12 @@ export default defineConfig({
       dependencies: [
         'auth',
         'backup-storage',
+        'config-map',
+        'instance',
+        'instance-preset',
         'kubernetes',
         'monitoring-config-v2',
+        'secrets',
         'settings',
         'version',
       ],
@@ -210,6 +214,54 @@ export default defineConfig({
       name: 'version',
       testDir: 'tests',
       testMatch: /version\.spec\.ts/,
+      dependencies: ['global:auth:ci:setup'],
+      use: {
+        extraHTTPHeaders: {
+          'Authorization': `Bearer ${process.env[API_CI_TOKEN]}`,
+        }
+      },
+    },
+    // instance-preset tests
+    {
+      name: 'instance-preset',
+      testDir: 'tests',
+      testMatch: /instance-preset\.spec\.ts/,
+      dependencies: ['global:auth:ci:setup'],
+      use: {
+        extraHTTPHeaders: {
+          'Authorization': `Bearer ${process.env[API_CI_TOKEN]}`,
+        }
+      },
+    },
+    // instance patch tests
+    {
+      name: 'instance',
+      testDir: 'tests',
+      testMatch: /instance\.spec\.ts/,
+      dependencies: ['global:auth:ci:setup'],
+      use: {
+        extraHTTPHeaders: {
+          'Authorization': `Bearer ${process.env[API_CI_TOKEN]}`,
+        }
+      },
+    },
+    // config-map tests
+    {
+      name: 'config-map',
+      testDir: 'tests',
+      testMatch: /config-map\.spec\.ts/,
+      dependencies: ['global:auth:ci:setup'],
+      use: {
+        extraHTTPHeaders: {
+          'Authorization': `Bearer ${process.env[API_CI_TOKEN]}`,
+        }
+      },
+    },
+    // secrets tests
+    {
+      name: 'secrets',
+      testDir: 'tests',
+      testMatch: /secrets\.spec\.ts/,
       dependencies: ['global:auth:ci:setup'],
       use: {
         extraHTTPHeaders: {

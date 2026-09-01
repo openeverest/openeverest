@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,15 +20,18 @@ package commands
 import (
 	"github.com/spf13/cobra"
 
+	"github.com/openeverest/openeverest/v2/commands/common"
 	"github.com/openeverest/openeverest/v2/commands/namespaces"
 )
 
 var namespacesCmd = &cobra.Command{
 	Use:   "namespaces <command> [flags]",
-	Args:  cobra.ExactArgs(1),
-	Long:  "Managed Everest database namespaces",
-	Short: "Managed Everest database namespaces",
-	Run:   func(_ *cobra.Command, _ []string) {},
+	Args:  common.NoSubcommandArgs,
+	Long:  "Manage Everest database namespaces",
+	Short: "Manage Everest database namespaces",
+	RunE: func(cmd *cobra.Command, _ []string) error {
+		return cmd.Help()
+	},
 }
 
 func init() {

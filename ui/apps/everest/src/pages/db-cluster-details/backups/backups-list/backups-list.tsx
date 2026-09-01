@@ -33,6 +33,7 @@ import {
   Backup,
   BackupList,
   BackupStatus,
+  getBackupState,
 } from 'shared-types/backups.types.ts';
 import { FormMode } from 'components/ui-generator/ui-generator.types';
 import { ScheduleModalContext } from '../backups.context.ts';
@@ -46,6 +47,30 @@ import { useUpdateDbInstanceWithConflictRetry } from 'hooks/api/db-instances/use
 import { Instance } from 'shared-types/api.types';
 import { removeUnusedStorages } from '../backups.utils';
 import { useRBACPermissions } from 'hooks/rbac';
+import { useCanRestore } from 'hooks/api/restores/useCanRestore';
+import { useCanCreateClusterFromBackup } from 'hooks/api/restores/useCanCreateClusterFromBackup';
+
+const hasMonitoringConfigName = (instance: unknown): boolean => {
+  if (typeof instance !== 'object' || instance === null) {
+    return false;
+  }
+
+  const spec = Reflect.get(instance, 'spec');
+  if (typeof spec !== 'object' || spec === null) {
+    return false;
+  }
+
+  const monitoring = Reflect.get(spec, 'monitoring');
+  if (typeof monitoring !== 'object' || monitoring === null) {
+    return false;
+  }
+
+  const monitoringConfigName = Reflect.get(monitoring, 'monitoringConfigName');
+  return (
+    typeof monitoringConfigName === 'string' &&
+    monitoringConfigName.trim().length > 0
+  );
+};
 
 export const BackupsList = () => {
   const { instanceName = '', namespace = '' } = useParams();
@@ -63,6 +88,18 @@ export const BackupsList = () => {
   const { canDelete } = useRBACPermissions(
     'backups',
     `${namespace}/${instanceName}`
+  );
+
+  const hasSchedules = !!instance.spec?.backup?.storages?.some(
+    (storage) => !!storage.schedules?.length
+  );
+  const monitoringEnabled = hasMonitoringConfigName(instance);
+
+  const canRestore = useCanRestore(namespace, instanceName);
+  const canCreateClusterFromBackup = useCanCreateClusterFromBackup(
+    namespace,
+    instanceName,
+    { hasSchedules, monitoringEnabled }
   );
 
   const { data: backups = [] } = useBackupsList(
@@ -173,7 +210,7 @@ export const BackupsList = () => {
   const columns = useMemo<MRT_ColumnDef<Backup>[]>(
     () => [
       {
-        accessorFn: (row) => row.status?.state ?? '',
+        accessorFn: getBackupState,
         id: 'state',
         header: 'Status',
         filterVariant: 'multi-select',
@@ -192,12 +229,12 @@ export const BackupsList = () => {
         header: 'Name',
       },
       {
-        accessorFn: (row) => row.spec?.storageName ?? '',
+        accessorFn: (row) => row.spec?.storageRef?.name ?? '',
         id: 'storageName',
         header: 'Storage',
       },
       {
-        accessorFn: (row) => row.spec?.backupClassName ?? '',
+        accessorFn: (row) => row.spec?.classRef?.name ?? '',
         id: 'backupClassName',
         header: 'Backup class',
       },
@@ -271,15 +308,22 @@ export const BackupsList = () => {
         enableRowActions
         renderRowActions={({ row }) => (
           <TableActionsMenu
-            menuItems={getBackupActionButtons(
+            menuItems={getBackupActionButtons({
               row,
-              handleDeleteBackup,
-              handleRestoreBackup,
-              handleRestoreToNewDbBackup,
-              canDelete,
-              deletingBackup &&
-                selectedBackup === (row.original.metadata?.name ?? '')
-            )}
+              handlers: {
+                onRestore: handleRestoreBackup,
+                onRestoreToNewDb: handleRestoreToNewDbBackup,
+                onDelete: handleDeleteBackup,
+              },
+              permissions: {
+                canRestore,
+                canCreateNewDb: canCreateClusterFromBackup,
+                canDelete,
+              },
+              isDeleting:
+                deletingBackup &&
+                selectedBackup === (row.original.metadata?.name ?? ''),
+            })}
           />
         )}
       />

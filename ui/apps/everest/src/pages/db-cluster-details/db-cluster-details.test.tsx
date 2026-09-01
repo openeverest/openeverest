@@ -27,16 +27,12 @@ vi.mock('contexts/plugins', () => ({
   usePlugins: () => ({ plugins: [] }),
 }));
 
-vi.mock('hooks/api/plugins/usePluginsForNamespace', () => ({
-  usePluginsForNamespace: () => ({ data: [] }),
-}));
-
 const mockInstance: Instance = {
   apiVersion: 'core.openeverest.io/v1alpha1',
   kind: 'Instance',
   metadata: { name: 'my-test-db' } as unknown as Record<string, never>,
   spec: {
-    provider: 'test-provider',
+    providerRef: { name: 'test-provider' },
     topology: { type: 'ha' },
   },
   status: { phase: 'Ready' },

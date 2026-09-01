@@ -20,6 +20,8 @@ package handlers
 import (
 	"context"
 
+	corev1 "k8s.io/api/core/v1"
+
 	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
 	corev1alpha1 "github.com/openeverest/openeverest/v2/api/core/v1alpha1"
 	monitoringv1alpha1 "github.com/openeverest/openeverest/v2/api/monitoring/v1alpha1"
@@ -40,6 +42,7 @@ type Handler interface {
 	BackupStorageHandler
 	ProviderHandler
 	InstanceHandler
+	InstancePresetHandler
 	ClusterHandler
 	BackupClassHandler
 	BackupHandler
@@ -47,6 +50,8 @@ type Handler interface {
 	InstanceBackupHandler
 	MonitoringConfigHandler
 	InstanceRestoreHandler
+	ConfigMapHandler
+	SecretHandler
 
 	GetKubernetesClusterResources(ctx context.Context) (*api.KubernetesClusterResources, error)
 	GetKubernetesClusterInfo(ctx context.Context) (*api.KubernetesClusterInfo, error)
@@ -81,8 +86,16 @@ type InstanceHandler interface {
 	GetInstance(ctx context.Context, cluster, namespace, name string) (*corev1alpha1.Instance, error)
 	CreateInstance(ctx context.Context, cluster string, instance *corev1alpha1.Instance) (*corev1alpha1.Instance, error)
 	UpdateInstance(ctx context.Context, cluster string, instance *corev1alpha1.Instance) (*corev1alpha1.Instance, error)
+	PatchInstance(ctx context.Context, cluster, namespace, name string, patch []byte) (*corev1alpha1.Instance, error)
 	DeleteInstance(ctx context.Context, cluster, namespace, name string, params *api.DeleteInstanceParams) error
 	GetInstanceConnection(ctx context.Context, cluster, namespace, name string) (*api.InstanceConnectionDetails, error)
+}
+
+// InstancePresetHandler provides methods for handling operations on instance presets.
+type InstancePresetHandler interface {
+	ListInstancePresets(ctx context.Context, cluster string, provider string) (*corev1alpha1.InstancePresetList, error)
+	GetInstancePreset(ctx context.Context, cluster, name string) (*corev1alpha1.InstancePreset, error)
+	ResolveInstancePreset(ctx context.Context, cluster, name, namespace string) (*corev1alpha1.InstancePreset, error)
 }
 
 // ClusterHandler provides methods for handling operations on clusters.
@@ -128,4 +141,20 @@ type MonitoringConfigHandler interface {
 // InstanceRestoreHandler provides methods for handling operations on instance restores.
 type InstanceRestoreHandler interface {
 	ListInstanceRestores(ctx context.Context, cluster, namespace, instanceName string) (*backupv1alpha1.RestoreList, error)
+}
+
+// ConfigMapHandler provides methods for handling operations on configmaps.
+type ConfigMapHandler interface {
+	CreateConfigMap(ctx context.Context, cluster, namespace string, configMap *corev1.ConfigMap) (*corev1.ConfigMap, error)
+	ListConfigMaps(ctx context.Context, cluster, namespace, provider, definition string) (*corev1.ConfigMapList, error)
+	GetConfigMap(ctx context.Context, cluster, namespace, name string) (*corev1.ConfigMap, error)
+	DeleteConfigMap(ctx context.Context, cluster, namespace, name string) error
+}
+
+// SecretHandler provides methods for handling operations on secrets.
+type SecretHandler interface {
+	CreateSecret(ctx context.Context, cluster, namespace string, secret *corev1.Secret) (*corev1.Secret, error)
+	ListSecrets(ctx context.Context, cluster, namespace, provider, definition string) (*corev1.SecretList, error)
+	GetSecret(ctx context.Context, cluster, namespace, name string) (*corev1.Secret, error)
+	DeleteSecret(ctx context.Context, cluster, namespace, name string) error
 }

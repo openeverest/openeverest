@@ -43,7 +43,7 @@ var (
 // EverestConfig stores the configuration for the application.
 type EverestConfig struct {
 	DSN string `default:"postgres://admin:pwd@127.0.0.1:5432/postgres?sslmode=disable" envconfig:"DSN"`
-	// DEPRECATED: Use ListenPort instead.
+	// Deprecated: Use ListenPort instead.
 	HTTPPort   int  `envconfig:"HTTP_PORT"`
 	ListenPort int  `default:"8080" envconfig:"PORT"`
 	Verbose    bool `default:"false" envconfig:"VERBOSE"`
@@ -55,8 +55,8 @@ type EverestConfig struct {
 	DisableTelemetry bool `default:"false" envconfig:"DISABLE_TELEMETRY"`
 	// APIRequestsRateLimit allowed amount of API requests per second
 	APIRequestsRateLimit int `default:"100" envconfig:"API_REQUESTS_RATE_LIMIT"`
-	// CreateAuthTokenRateLimit allowed amount of API requests per second to the /auth/token method
-	CreateAuthTokenRateLimit int `default:"1" envconfig:"CREATE_AUTH_TOKEN_RATE_LIMIT"`
+	// LoginRateLimit is the maximum number of login (password grant) requests per second per IP.
+	LoginRateLimit int `default:"5" envconfig:"LOGIN_RATE_LIMIT"`
 	// AccessTokenTTL is the lifetime of access JWTs.
 	AccessTokenTTL time.Duration `default:"15m" envconfig:"ACCESS_TOKEN_TTL"`
 	// RefreshTokenTTL is the lifetime of refresh tokens.
@@ -70,6 +70,12 @@ type EverestConfig struct {
 	// Namespace is the namespace where OpenEverest is installed.
 	// Must be provided via the NAMESPACE env var (set by the Helm chart).
 	Namespace string `envconfig:"NAMESPACE" required:"true"`
+	// EventBufferMaxEvents bounds the /v1/events replay buffer by entry
+	// count. Whichever of this and EventBufferMaxAge is hit first evicts
+	// the oldest event. See openeverest#2582.
+	EventBufferMaxEvents int `default:"4096" envconfig:"EVENT_BUFFER_MAX_EVENTS"`
+	// EventBufferMaxAge bounds the /v1/events replay buffer by age.
+	EventBufferMaxAge time.Duration `default:"5m" envconfig:"EVENT_BUFFER_MAX_AGE"`
 }
 
 // ParseConfig parses env vars and fills EverestConfig.

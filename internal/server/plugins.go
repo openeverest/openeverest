@@ -28,7 +28,7 @@ import (
 	"go.uber.org/zap"
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 
-	pluginv1alpha1 "github.com/openeverest/openeverest/v2/api/plugin/v1alpha1"
+	pluginv1alpha1 "github.com/openeverest/openeverest/v2/api/extensions/v1alpha1"
 	"github.com/openeverest/openeverest/v2/pkg/kubernetes"
 	"github.com/openeverest/openeverest/v2/pkg/rbac"
 )
@@ -101,9 +101,9 @@ func (pp *pluginProxy) canUsePlugin(c echo.Context, name string) (bool, error) {
 }
 
 // listPluginsHandler returns the list of enabled plugins the caller can use.
-// Query params:
-//   - namespace (optional) — when provided, only plugins with an active
-//     PluginInstallation in that namespace are returned.
+// Per-namespace plugin visibility is governed entirely by Everest RBAC
+// (`plugins/use` grants); this endpoint returns every enabled plugin the
+// caller is permitted to use.
 func (pp *pluginProxy) listPluginsHandler(c echo.Context) error {
 	if err := pp.checkPluginsReadAccess(c); err != nil {
 		return err
@@ -135,36 +135,10 @@ func (pp *pluginProxy) listPluginsHandler(c echo.Context) error {
 		})
 	}
 
-	// Build an enabled-plugin set when a namespace filter is requested.
-	namespace := c.QueryParam("namespace")
-	enabledInNamespace := map[string]struct{}{}
-	if namespace != "" {
-		installs, err := pp.kubeConnector.ListPluginInstallations(
-			c.Request().Context(),
-			ctrlclient.InNamespace(namespace),
-		)
-		if err != nil {
-			return c.JSON(http.StatusInternalServerError, map[string]string{
-				"error": "failed to list plugin installations: " + err.Error(),
-			})
-		}
-		for _, pi := range installs.Items {
-			if pi.Spec.Enabled {
-				enabledInNamespace[pi.Spec.PluginName] = struct{}{}
-			}
-		}
-	}
-
 	descriptors := make([]pluginDescriptor, 0, len(plugins.Items))
 	for _, p := range plugins.Items {
 		if !p.Spec.Enabled {
 			continue
-		}
-		// Namespace filter: skip plugins without a matching PluginInstallation.
-		if namespace != "" {
-			if _, ok := enabledInNamespace[p.Name]; !ok {
-				continue
-			}
 		}
 		// Only return plugins the caller is allowed to use.
 		if allowed, err := pp.canUsePlugin(c, p.Name); err != nil {

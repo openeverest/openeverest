@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -23,6 +24,7 @@ import {
 } from '@e2e/utils/rbac-cmd-line';
 import { deleteDbClusterFn } from '@e2e/utils/db-cluster';
 import { createDbWithParameters } from '@e2e/utils/rbac';
+import { clickAddDbClusterBtn } from '@e2e/pr/db-cluster/db-wizard/db-wizard-utils';
 
 let token: string;
 
@@ -75,11 +77,7 @@ test.describe(
           ['database-clusters', 'create', `*/*`],
         ]);
         expect(storageClasses.length).toBeGreaterThan(0);
-        await page.getByTestId('add-db-cluster-button').waitFor();
-        await page.getByTestId('add-db-cluster-button').click();
-        const createBtn = page.getByTestId(`add-db-cluster-button-${db}`);
-        expect(createBtn).toBeVisible();
-        await createBtn.click();
+        await clickAddDbClusterBtn(page, db);
         await page.getByTestId('text-input-k8s-namespace').click();
 
         const namespaceOptions = page.getByRole('option');
@@ -126,11 +124,7 @@ test.describe(
       await expect(page.getByText(pxcDb)).not.toBeVisible();
       await expect(page.getByText(psmdbDb)).toBeVisible();
 
-      await page.getByTestId('add-db-cluster-button').waitFor();
-      await page.getByTestId('add-db-cluster-button').click();
-      const createBtn = page.getByTestId(`add-db-cluster-button-pxc`);
-      expect(createBtn).toBeVisible();
-      await createBtn.click();
+      await clickAddDbClusterBtn(page, 'pxc');
       await page.getByTestId('text-input-k8s-namespace').click();
 
       const namespaceOptions = page.getByRole('option');
@@ -223,11 +217,7 @@ test.describe(
           ['monitoring-instances', 'read', `*/*`],
         ]);
         expect(storageClasses.length).toBeGreaterThan(0);
-        await page.getByTestId('add-db-cluster-button').waitFor();
-        await page.getByTestId('add-db-cluster-button').click();
-        const createBtn = page.getByTestId(`add-db-cluster-button-${db}`);
-        expect(createBtn).toBeVisible();
-        await createBtn.click();
+        await clickAddDbClusterBtn(page, db);
         await page.getByTestId('text-input-k8s-namespace').click();
 
         const namespaceOptions = page.getByRole('option');

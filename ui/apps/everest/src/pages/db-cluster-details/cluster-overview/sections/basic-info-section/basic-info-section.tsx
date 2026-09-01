@@ -32,7 +32,10 @@ const BasicInfoSection = ({
       content={instance.metadata?.name}
     />
     <OverviewSectionRow label={Messages.fields.namespace} content={namespace} />
-    <OverviewSectionRow label="Provider" content={instance.spec?.provider} />
+    <OverviewSectionRow
+      label="Provider"
+      content={instance.spec?.providerRef?.name}
+    />
     <OverviewSectionRow
       label="Topology"
       content={instance.spec?.topology?.type ?? 'default'}

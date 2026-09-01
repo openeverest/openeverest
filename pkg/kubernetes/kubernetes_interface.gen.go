@@ -21,8 +21,8 @@ import (
 
 	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
 	"github.com/openeverest/openeverest/v2/api/core/v1alpha1"
+	extensionsv1alpha1 "github.com/openeverest/openeverest/v2/api/extensions/v1alpha1"
 	monitoringv1alpha1 "github.com/openeverest/openeverest/v2/api/monitoring/v1alpha1"
-	pluginv1alpha1 "github.com/openeverest/openeverest/v2/api/plugin/v1alpha1"
 	"github.com/openeverest/openeverest/v2/pkg/accounts"
 	"github.com/openeverest/openeverest/v2/pkg/common"
 )
@@ -74,12 +74,16 @@ type KubernetesConnector interface {
 	GetCatalogSource(ctx context.Context, key ctrlclient.ObjectKey) (*olmv1alpha1.CatalogSource, error)
 	// DeleteCatalogSource deletes catalog source that matches the criteria.
 	DeleteCatalogSource(ctx context.Context, obj *olmv1alpha1.CatalogSource) error
+	// ListConfigMaps returns list of configmaps that match the criteria.
+	ListConfigMaps(ctx context.Context, opts ...ctrlclient.ListOption) (*corev1.ConfigMapList, error)
 	// GetConfigMap returns k8s configmap that matches the criteria.
 	GetConfigMap(ctx context.Context, key ctrlclient.ObjectKey) (*corev1.ConfigMap, error)
 	// CreateConfigMap creates k8s configmap.
 	CreateConfigMap(ctx context.Context, config *corev1.ConfigMap) (*corev1.ConfigMap, error)
 	// UpdateConfigMap updates k8s configmap.
 	UpdateConfigMap(ctx context.Context, config *corev1.ConfigMap) (*corev1.ConfigMap, error)
+	// DeleteConfigMap deletes a configmap.
+	DeleteConfigMap(ctx context.Context, obj *corev1.ConfigMap) error
 	// GetClusterServiceVersion retrieves a ClusterServiceVersion that matches the criteria.
 	GetClusterServiceVersion(ctx context.Context, key ctrlclient.ObjectKey) (*olmv1alpha1.ClusterServiceVersion, error)
 	// ListClusterServiceVersion list all CSVs that match the criteria.
@@ -89,6 +93,8 @@ type KubernetesConnector interface {
 	DeleteClusterServiceVersion(ctx context.Context, obj *olmv1alpha1.ClusterServiceVersion) error
 	// DeleteClusterServiceVersions deletes all ClusterServiceVersion that match the criteria.
 	// This function will wait until all ClusterServiceVersion are deleted.
+	//
+	//nolint:dupl // per-resource client wrappers are intentionally similar
 	DeleteClusterServiceVersions(ctx context.Context, opts ...ctrlclient.ListOption) error
 	// ListCRDs lists all CRDs that match the criteria.
 	ListCRDs(ctx context.Context, opts ...ctrlclient.ListOption) (*apiextv1.CustomResourceDefinitionList, error)
@@ -146,7 +152,7 @@ type KubernetesConnector interface {
 	// ListDataImporters lists all DataImporters in the cluster.
 	ListDataImporters(ctx context.Context, opts ...ctrlclient.ListOption) (*everestv1alpha1.DataImporterList, error)
 	// ListDataImportJobs lists all DataImportJobs for the specified database cluster.
-	ListDataImportJobs(ctx context.Context, namespace, dbName string, opts ...ctrlclient.ListOption) (*everestv1alpha1.DataImportJobList, error)
+	ListDataImportJobs(ctx context.Context, namespace, dbName string, _ ...ctrlclient.ListOption) (*everestv1alpha1.DataImportJobList, error)
 	// GetDeployment returns k8s deployment that matches the criteria.
 	GetDeployment(ctx context.Context, key ctrlclient.ObjectKey) (*appsv1.Deployment, error)
 	// UpdateDeployment updates a deployment and returns the updated object.
@@ -260,21 +266,23 @@ type KubernetesConnector interface {
 	// GetEverestSettings returns Everest settings.
 	GetEverestSettings(ctx context.Context) (common.EverestSettings, error)
 	// ListPlugins returns list of plugins that match the criteria.
-	ListPlugins(ctx context.Context, opts ...ctrlclient.ListOption) (*pluginv1alpha1.PluginList, error)
+	ListPlugins(ctx context.Context, opts ...ctrlclient.ListOption) (*extensionsv1alpha1.PluginList, error)
 	// GetPlugin returns plugin that matches the criteria.
-	GetPlugin(ctx context.Context, key ctrlclient.ObjectKey) (*pluginv1alpha1.Plugin, error)
+	GetPlugin(ctx context.Context, key ctrlclient.ObjectKey) (*extensionsv1alpha1.Plugin, error)
 	// CreatePlugin creates a new plugin.
-	CreatePlugin(ctx context.Context, plugin *pluginv1alpha1.Plugin) (*pluginv1alpha1.Plugin, error)
+	CreatePlugin(ctx context.Context, plugin *extensionsv1alpha1.Plugin) (*extensionsv1alpha1.Plugin, error)
 	// DeletePlugin deletes a plugin.
-	DeletePlugin(ctx context.Context, obj *pluginv1alpha1.Plugin) error
-	// ListPluginInstallations returns plugin installations that match the criteria.
-	ListPluginInstallations(ctx context.Context, opts ...ctrlclient.ListOption) (*pluginv1alpha1.PluginInstallationList, error)
-	// GetPluginInstallation returns a plugin installation that matches the criteria.
-	GetPluginInstallation(ctx context.Context, key ctrlclient.ObjectKey) (*pluginv1alpha1.PluginInstallation, error)
-	// CreatePluginInstallation creates a new plugin installation.
-	CreatePluginInstallation(ctx context.Context, pi *pluginv1alpha1.PluginInstallation) (*pluginv1alpha1.PluginInstallation, error)
-	// DeletePluginInstallation deletes a plugin installation.
-	DeletePluginInstallation(ctx context.Context, obj *pluginv1alpha1.PluginInstallation) error
+	DeletePlugin(ctx context.Context, obj *extensionsv1alpha1.Plugin) error
+	// ListInstalledExtensions returns InstalledExtension records that match the criteria.
+	ListInstalledExtensions(ctx context.Context, opts ...ctrlclient.ListOption) (*extensionsv1alpha1.InstalledExtensionList, error)
+	// GetInstalledExtension returns the InstalledExtension that matches the criteria.
+	GetInstalledExtension(ctx context.Context, key ctrlclient.ObjectKey) (*extensionsv1alpha1.InstalledExtension, error)
+	// CreateInstalledExtension creates a new InstalledExtension.
+	CreateInstalledExtension(ctx context.Context, ie *extensionsv1alpha1.InstalledExtension) (*extensionsv1alpha1.InstalledExtension, error)
+	// UpdateInstalledExtension updates an existing InstalledExtension.
+	UpdateInstalledExtension(ctx context.Context, ie *extensionsv1alpha1.InstalledExtension) (*extensionsv1alpha1.InstalledExtension, error)
+	// DeleteInstalledExtension deletes an InstalledExtension.
+	DeleteInstalledExtension(ctx context.Context, obj *extensionsv1alpha1.InstalledExtension) error
 	// ListPodSchedulingPolicies returns a list of pod scheduling policy that matches the criteria.
 	// This method returns a list of full objects (meta and spec).
 	ListPodSchedulingPolicies(ctx context.Context, opts ...ctrlclient.ListOption) (*everestv1alpha1.PodSchedulingPolicyList, error)
@@ -303,7 +311,7 @@ type KubernetesConnector interface {
 	GetAllClusterResources(ctx context.Context, clusterType ClusterType, volumes *corev1.PersistentVolumeList) (uint64, uint64, uint64, error)
 	// GetConsumedCPUAndMemory returns consumed CPU and Memory in given namespace. If namespace
 	// is empty, it tries to get them from all namespaces.
-	GetConsumedCPUAndMemory(ctx context.Context, namespace string) (cpuMillis uint64, memoryBytes uint64, err error)
+	GetConsumedCPUAndMemory(ctx context.Context, namespace string) (uint64, uint64, error)
 	// GetConsumedDiskBytes returns consumed bytes. The strategy differs based on k8s cluster type.
 	GetConsumedDiskBytes(_ context.Context, clusterType ClusterType, volumes *corev1.PersistentVolumeList) (uint64, error)
 	// ListSecrets returns list of secrets that match the criteria.
@@ -359,15 +367,37 @@ type KubernetesConnector interface {
 	DeleteInstance(ctx context.Context, obj *v1alpha1.Instance) error
 	// CreateInstance creates instance.
 	CreateInstance(ctx context.Context, instance *v1alpha1.Instance) (*v1alpha1.Instance, error)
-	// UpdateInstance updates instance.
+	// UpdateInstance updates instance.This is for PUT operation, which replaces the entire resource with the new one.
+	// If you want to update only specific fields, use PatchInstance instead.
 	UpdateInstance(ctx context.Context, instance *v1alpha1.Instance) (*v1alpha1.Instance, error)
+	// PatchInstance patches instance using the provided patch.
+	PatchInstance(ctx context.Context, instance *v1alpha1.Instance, patch ctrlclient.Patch, opts ...ctrlclient.PatchOption) (*v1alpha1.Instance, error)
+	// ListInstancePresets returns list of instance presets that match the criteria.
+	ListInstancePresets(ctx context.Context, opts ...ctrlclient.ListOption) (*v1alpha1.InstancePresetList, error)
+	// GetInstancePreset returns instance preset that matches the criteria.
+	GetInstancePreset(ctx context.Context, key ctrlclient.ObjectKey) (*v1alpha1.InstancePreset, error)
 	// WatchBackups returns a watch.Interface that streams
-	// DatabaseClusterBackup events across all namespaces.
+	// Backup events across all namespaces.
 	WatchBackups(ctx context.Context) (watch.Interface, error)
 	// WatchRestores returns a watch.Interface that streams
-	// DatabaseClusterRestore events across all namespaces.
+	// Restore events across all namespaces.
 	WatchRestores(ctx context.Context) (watch.Interface, error)
 	// WatchInstances returns a watch.Interface that streams
 	// Instance events across all namespaces.
 	WatchInstances(ctx context.Context) (watch.Interface, error)
+	// WatchPlugins returns a watch.Interface that streams Plugin CR events.
+	// Plugin is cluster-scoped.
+	WatchPlugins(ctx context.Context) (watch.Interface, error)
+	// WatchInstalledExtensions returns a watch.Interface that streams
+	// InstalledExtension events across all namespaces.
+	WatchInstalledExtensions(ctx context.Context) (watch.Interface, error)
+	// WatchEverestManagedNamespaces returns a watch.Interface that streams
+	// events for Namespaces carrying the Everest managed-by label.
+	WatchEverestManagedNamespaces(ctx context.Context) (watch.Interface, error)
+	// WatchEverestSettings returns a watch.Interface that streams ConfigMap
+	// events for the Everest settings ConfigMap in the system namespace.
+	// Callers must filter results by name (the watch returns all ConfigMaps in
+	// the namespace; field-selector watches are not portable across the
+	// controller-runtime client).
+	WatchEverestSettings(ctx context.Context) (watch.Interface, error)
 }

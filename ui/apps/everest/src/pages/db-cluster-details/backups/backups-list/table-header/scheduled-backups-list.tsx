@@ -27,7 +27,8 @@ import { useBackupsList } from 'hooks/api/backups/useBackups';
 import { useClusterName } from 'hooks/api/useClusterName';
 import { FormMode } from 'components/ui-generator/ui-generator.types';
 import { Instance } from 'shared-types/api.types';
-import { flattenSchedules, removeUnusedStorages } from '../../backups.utils';
+import { flattenSchedules } from 'utils/backup-schedules';
+import { removeUnusedStorages } from '../../backups.utils';
 
 const ScheduledBackupsList = () => {
   const [openDeleteDialog, setOpenDeleteDialog] = useState(false);
@@ -115,11 +116,13 @@ const ScheduledBackupsList = () => {
     <Stack
       useFlexGap
       spacing={1}
-      width="100%"
-      order={3}
-      bgcolor={(theme) => theme.palette.surfaces?.elevation0}
-      p={2}
-      mt={2}
+      sx={{
+        width: '100%',
+        order: 3,
+        bgcolor: (theme) => theme.palette.surfaces?.elevation0,
+        p: 2,
+        mt: 1,
+      }}
     >
       {schedules.map((item) => (
         <Paper
@@ -162,7 +165,12 @@ const ScheduledBackupsList = () => {
                 {`Storage: ${item.storageName}`}
               </Typography>
             </Box>
-            <Box display="flex" ml="auto">
+            <Box
+              sx={{
+                display: 'flex',
+                ml: 'auto',
+              }}
+            >
               {canUpdateInstance && (
                 <>
                   <IconButton

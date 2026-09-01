@@ -9,7 +9,26 @@ import (
 	"time"
 
 	"github.com/oapi-codegen/runtime"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
+
+// Defines values for BackupSpecDeletionPolicy.
+const (
+	BackupSpecDeletionPolicyDelete BackupSpecDeletionPolicy = "Delete"
+	BackupSpecDeletionPolicyRetain BackupSpecDeletionPolicy = "Retain"
+)
+
+// Valid indicates whether the value is a known member of the BackupSpecDeletionPolicy enum.
+func (e BackupSpecDeletionPolicy) Valid() bool {
+	switch e {
+	case BackupSpecDeletionPolicyDelete:
+		return true
+	case BackupSpecDeletionPolicyRetain:
+		return true
+	default:
+		return false
+	}
+}
 
 // Defines values for BackupStatusConditionsStatus.
 const (
@@ -44,6 +63,36 @@ func (e BackupStatusExecutionMode) Valid() bool {
 	case BackupStatusExecutionModeJob:
 		return true
 	case BackupStatusExecutionModeProviderManaged:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for BackupStatusState.
+const (
+	BackupStatusStateDeleting  BackupStatusState = "Deleting"
+	BackupStatusStateError     BackupStatusState = "Error"
+	BackupStatusStateFailed    BackupStatusState = "Failed"
+	BackupStatusStatePending   BackupStatusState = "Pending"
+	BackupStatusStateRunning   BackupStatusState = "Running"
+	BackupStatusStateSucceeded BackupStatusState = "Succeeded"
+)
+
+// Valid indicates whether the value is a known member of the BackupStatusState enum.
+func (e BackupStatusState) Valid() bool {
+	switch e {
+	case BackupStatusStateDeleting:
+		return true
+	case BackupStatusStateError:
+		return true
+	case BackupStatusStateFailed:
+		return true
+	case BackupStatusStatePending:
+		return true
+	case BackupStatusStateRunning:
+		return true
+	case BackupStatusStateSucceeded:
 		return true
 	default:
 		return false
@@ -104,15 +153,138 @@ func (e BackupStorageSpecType) Valid() bool {
 	}
 }
 
+// Defines values for InstalledExtensionSpecType.
+const (
+	InstalledExtensionSpecTypePlugin   InstalledExtensionSpecType = "plugin"
+	InstalledExtensionSpecTypeProvider InstalledExtensionSpecType = "provider"
+)
+
+// Valid indicates whether the value is a known member of the InstalledExtensionSpecType enum.
+func (e InstalledExtensionSpecType) Valid() bool {
+	switch e {
+	case InstalledExtensionSpecTypePlugin:
+		return true
+	case InstalledExtensionSpecTypeProvider:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for InstalledExtensionStatusConditionsStatus.
+const (
+	InstalledExtensionStatusConditionsStatusFalse   InstalledExtensionStatusConditionsStatus = "False"
+	InstalledExtensionStatusConditionsStatusTrue    InstalledExtensionStatusConditionsStatus = "True"
+	InstalledExtensionStatusConditionsStatusUnknown InstalledExtensionStatusConditionsStatus = "Unknown"
+)
+
+// Valid indicates whether the value is a known member of the InstalledExtensionStatusConditionsStatus enum.
+func (e InstalledExtensionStatusConditionsStatus) Valid() bool {
+	switch e {
+	case InstalledExtensionStatusConditionsStatusFalse:
+		return true
+	case InstalledExtensionStatusConditionsStatusTrue:
+		return true
+	case InstalledExtensionStatusConditionsStatusUnknown:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for InstalledExtensionStatusPhase.
+const (
+	InstalledExtensionStatusPhaseFailed       InstalledExtensionStatusPhase = "Failed"
+	InstalledExtensionStatusPhaseInstalled    InstalledExtensionStatusPhase = "Installed"
+	InstalledExtensionStatusPhasePending      InstalledExtensionStatusPhase = "Pending"
+	InstalledExtensionStatusPhaseUninstalling InstalledExtensionStatusPhase = "Uninstalling"
+	InstalledExtensionStatusPhaseUpgrading    InstalledExtensionStatusPhase = "Upgrading"
+)
+
+// Valid indicates whether the value is a known member of the InstalledExtensionStatusPhase enum.
+func (e InstalledExtensionStatusPhase) Valid() bool {
+	switch e {
+	case InstalledExtensionStatusPhaseFailed:
+		return true
+	case InstalledExtensionStatusPhaseInstalled:
+		return true
+	case InstalledExtensionStatusPhasePending:
+		return true
+	case InstalledExtensionStatusPhaseUninstalling:
+		return true
+	case InstalledExtensionStatusPhaseUpgrading:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for InstanceSpecDataSourcePointInTimeRecoveryTarget.
+const (
+	InstanceSpecDataSourcePointInTimeRecoveryTargetDate   InstanceSpecDataSourcePointInTimeRecoveryTarget = "date"
+	InstanceSpecDataSourcePointInTimeRecoveryTargetLatest InstanceSpecDataSourcePointInTimeRecoveryTarget = "latest"
+)
+
+// Valid indicates whether the value is a known member of the InstanceSpecDataSourcePointInTimeRecoveryTarget enum.
+func (e InstanceSpecDataSourcePointInTimeRecoveryTarget) Valid() bool {
+	switch e {
+	case InstanceSpecDataSourcePointInTimeRecoveryTargetDate:
+		return true
+	case InstanceSpecDataSourcePointInTimeRecoveryTargetLatest:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for InstanceSpecDataSourceType.
 const (
-	InstanceSpecDataSourceTypeBackup InstanceSpecDataSourceType = "Backup"
+	InstanceSpecDataSourceTypeBackup      InstanceSpecDataSourceType = "Backup"
+	InstanceSpecDataSourceTypePointInTime InstanceSpecDataSourceType = "PointInTime"
 )
 
 // Valid indicates whether the value is a known member of the InstanceSpecDataSourceType enum.
 func (e InstanceSpecDataSourceType) Valid() bool {
 	switch e {
 	case InstanceSpecDataSourceTypeBackup:
+		return true
+	case InstanceSpecDataSourceTypePointInTime:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for InstanceSpecDeletionPolicy.
+const (
+	InstanceSpecDeletionPolicyCascade InstanceSpecDeletionPolicy = "Cascade"
+	InstanceSpecDeletionPolicyOrphan  InstanceSpecDeletionPolicy = "Orphan"
+)
+
+// Valid indicates whether the value is a known member of the InstanceSpecDeletionPolicy enum.
+func (e InstanceSpecDeletionPolicy) Valid() bool {
+	switch e {
+	case InstanceSpecDeletionPolicyCascade:
+		return true
+	case InstanceSpecDeletionPolicyOrphan:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for InstanceStatusBackupStoragesPitrState.
+const (
+	InstanceStatusBackupStoragesPitrStateAvailable   InstanceStatusBackupStoragesPitrState = "Available"
+	InstanceStatusBackupStoragesPitrStateUnavailable InstanceStatusBackupStoragesPitrState = "Unavailable"
+)
+
+// Valid indicates whether the value is a known member of the InstanceStatusBackupStoragesPitrState enum.
+func (e InstanceStatusBackupStoragesPitrState) Valid() bool {
+	switch e {
+	case InstanceStatusBackupStoragesPitrStateAvailable:
+		return true
+	case InstanceStatusBackupStoragesPitrStateUnavailable:
 		return true
 	default:
 		return false
@@ -185,6 +357,81 @@ func (e InstanceStatusPhase) Valid() bool {
 	}
 }
 
+// Defines values for InstancePresetSpecDataSourcePointInTimeRecoveryTarget.
+const (
+	InstancePresetSpecDataSourcePointInTimeRecoveryTargetDate   InstancePresetSpecDataSourcePointInTimeRecoveryTarget = "date"
+	InstancePresetSpecDataSourcePointInTimeRecoveryTargetLatest InstancePresetSpecDataSourcePointInTimeRecoveryTarget = "latest"
+)
+
+// Valid indicates whether the value is a known member of the InstancePresetSpecDataSourcePointInTimeRecoveryTarget enum.
+func (e InstancePresetSpecDataSourcePointInTimeRecoveryTarget) Valid() bool {
+	switch e {
+	case InstancePresetSpecDataSourcePointInTimeRecoveryTargetDate:
+		return true
+	case InstancePresetSpecDataSourcePointInTimeRecoveryTargetLatest:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for InstancePresetSpecDataSourceType.
+const (
+	InstancePresetSpecDataSourceTypeBackup      InstancePresetSpecDataSourceType = "Backup"
+	InstancePresetSpecDataSourceTypePointInTime InstancePresetSpecDataSourceType = "PointInTime"
+)
+
+// Valid indicates whether the value is a known member of the InstancePresetSpecDataSourceType enum.
+func (e InstancePresetSpecDataSourceType) Valid() bool {
+	switch e {
+	case InstancePresetSpecDataSourceTypeBackup:
+		return true
+	case InstancePresetSpecDataSourceTypePointInTime:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for InstancePresetSpecDeletionPolicy.
+const (
+	InstancePresetSpecDeletionPolicyCascade InstancePresetSpecDeletionPolicy = "Cascade"
+	InstancePresetSpecDeletionPolicyOrphan  InstancePresetSpecDeletionPolicy = "Orphan"
+)
+
+// Valid indicates whether the value is a known member of the InstancePresetSpecDeletionPolicy enum.
+func (e InstancePresetSpecDeletionPolicy) Valid() bool {
+	switch e {
+	case InstancePresetSpecDeletionPolicyCascade:
+		return true
+	case InstancePresetSpecDeletionPolicyOrphan:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for InstancePresetStatusConditionsStatus.
+const (
+	InstancePresetStatusConditionsStatusFalse   InstancePresetStatusConditionsStatus = "False"
+	InstancePresetStatusConditionsStatusTrue    InstancePresetStatusConditionsStatus = "True"
+	InstancePresetStatusConditionsStatusUnknown InstancePresetStatusConditionsStatus = "Unknown"
+)
+
+// Valid indicates whether the value is a known member of the InstancePresetStatusConditionsStatus enum.
+func (e InstancePresetStatusConditionsStatus) Valid() bool {
+	switch e {
+	case InstancePresetStatusConditionsStatusFalse:
+		return true
+	case InstancePresetStatusConditionsStatusTrue:
+		return true
+	case InstancePresetStatusConditionsStatusUnknown:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for MonitoringConfigSpecType.
 const (
 	MonitoringConfigSpecTypePmm MonitoringConfigSpecType = "pmm"
@@ -221,27 +468,6 @@ func (e PluginStatusConditionsStatus) Valid() bool {
 	}
 }
 
-// Defines values for PluginInstallationStatusConditionsStatus.
-const (
-	PluginInstallationStatusConditionsStatusFalse   PluginInstallationStatusConditionsStatus = "False"
-	PluginInstallationStatusConditionsStatusTrue    PluginInstallationStatusConditionsStatus = "True"
-	PluginInstallationStatusConditionsStatusUnknown PluginInstallationStatusConditionsStatus = "Unknown"
-)
-
-// Valid indicates whether the value is a known member of the PluginInstallationStatusConditionsStatus enum.
-func (e PluginInstallationStatusConditionsStatus) Valid() bool {
-	switch e {
-	case PluginInstallationStatusConditionsStatusFalse:
-		return true
-	case PluginInstallationStatusConditionsStatusTrue:
-		return true
-	case PluginInstallationStatusConditionsStatusUnknown:
-		return true
-	default:
-		return false
-	}
-}
-
 // Defines values for ProviderStatusConditionsStatus.
 const (
 	ProviderStatusConditionsStatusFalse   ProviderStatusConditionsStatus = "False"
@@ -263,15 +489,36 @@ func (e ProviderStatusConditionsStatus) Valid() bool {
 	}
 }
 
+// Defines values for RestoreSpecDataSourcePointInTimeRecoveryTarget.
+const (
+	RestoreSpecDataSourcePointInTimeRecoveryTargetDate   RestoreSpecDataSourcePointInTimeRecoveryTarget = "date"
+	RestoreSpecDataSourcePointInTimeRecoveryTargetLatest RestoreSpecDataSourcePointInTimeRecoveryTarget = "latest"
+)
+
+// Valid indicates whether the value is a known member of the RestoreSpecDataSourcePointInTimeRecoveryTarget enum.
+func (e RestoreSpecDataSourcePointInTimeRecoveryTarget) Valid() bool {
+	switch e {
+	case RestoreSpecDataSourcePointInTimeRecoveryTargetDate:
+		return true
+	case RestoreSpecDataSourcePointInTimeRecoveryTargetLatest:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for RestoreSpecDataSourceType.
 const (
-	RestoreSpecDataSourceTypeBackup RestoreSpecDataSourceType = "Backup"
+	RestoreSpecDataSourceTypeBackup      RestoreSpecDataSourceType = "Backup"
+	RestoreSpecDataSourceTypePointInTime RestoreSpecDataSourceType = "PointInTime"
 )
 
 // Valid indicates whether the value is a known member of the RestoreSpecDataSourceType enum.
 func (e RestoreSpecDataSourceType) Valid() bool {
 	switch e {
 	case RestoreSpecDataSourceTypeBackup:
+		return true
+	case RestoreSpecDataSourceTypePointInTime:
 		return true
 	default:
 		return false
@@ -317,6 +564,33 @@ func (e RestoreStatusExecutionMode) Valid() bool {
 	}
 }
 
+// Defines values for RestoreStatusState.
+const (
+	RestoreStatusStateError     RestoreStatusState = "Error"
+	RestoreStatusStateFailed    RestoreStatusState = "Failed"
+	RestoreStatusStatePending   RestoreStatusState = "Pending"
+	RestoreStatusStateRunning   RestoreStatusState = "Running"
+	RestoreStatusStateSucceeded RestoreStatusState = "Succeeded"
+)
+
+// Valid indicates whether the value is a known member of the RestoreStatusState enum.
+func (e RestoreStatusState) Valid() bool {
+	switch e {
+	case RestoreStatusStateError:
+		return true
+	case RestoreStatusStateFailed:
+		return true
+	case RestoreStatusStatePending:
+		return true
+	case RestoreStatusStateRunning:
+		return true
+	case RestoreStatusStateSucceeded:
+		return true
+	default:
+		return false
+	}
+}
+
 // Backup Backup is the Schema for the backups API.
 type Backup struct {
 	// ApiVersion APIVersion defines the versioned schema of this representation of an object.
@@ -330,20 +604,22 @@ type Backup struct {
 	// Cannot be updated.
 	// In CamelCase.
 	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
-	Kind     *string                 `json:"kind,omitempty"`
-	Metadata *map[string]interface{} `json:"metadata,omitempty"`
+	Kind *string `json:"kind,omitempty"`
+
+	// Metadata ObjectMeta is the standard Kubernetes object metadata. Only the fields relevant to the Everest API are described; unknown fields are accepted but may be ignored by the server.
+	Metadata *ObjectMeta `json:"metadata,omitempty"`
 
 	// Spec BackupSpec defines the desired state of Backup.
 	Spec struct {
-		// BackupClassName BackupClassName is the BackupClass that defines how this Backup is
-		// executed. The class's executionMode controls the runtime path: Job
-		// classes are reconciled by the in-cluster Backup job controller;
-		// ProviderManaged classes are reconciled by the provider's runtime.
-		BackupClassName string `json:"backupClassName"`
-
-		// Config Config is the backup-time configuration validated against the
-		// BackupClass's .spec.config.openAPIV3Schema.
-		Config *map[string]interface{} `json:"config,omitempty"`
+		// ClassRef ClassRef references the cluster-scoped BackupClass that defines how
+		// this Backup is executed. The class's executionMode controls the runtime
+		// path: Job classes are reconciled by the in-cluster Backup job
+		// controller; ProviderManaged classes are reconciled by the provider's
+		// runtime.
+		ClassRef struct {
+			// Name Name of the referenced object.
+			Name string `json:"name"`
+		} `json:"classRef"`
 
 		// DeletionPolicy DeletionPolicy controls what happens to the underlying backup data
 		// (e.g., the object stored in S3) when this Backup CR is deleted.
@@ -357,11 +633,18 @@ type Backup struct {
 		// has started: switching policies after .metadata.deletionTimestamp
 		// has been set is rejected so the cleanup path cannot race with
 		// itself.
-		DeletionPolicy interface{} `json:"deletionPolicy,omitempty"`
+		DeletionPolicy *BackupSpecDeletionPolicy `json:"deletionPolicy,omitempty"`
 
-		// InstanceName InstanceName is the name of the Instance to back up. The Instance must
+		// InstanceRef InstanceRef references the Instance to back up. The Instance must
 		// live in the same namespace as this Backup.
-		InstanceName string `json:"instanceName"`
+		InstanceRef struct {
+			// Name Name of the referenced object.
+			Name string `json:"name"`
+		} `json:"instanceRef"`
+
+		// Parameters Parameters is the backup-time structured configuration validated
+		// against the BackupClass's .spec.parametersSchema.
+		Parameters *map[string]interface{} `json:"parameters,omitempty"`
 
 		// ScheduleName ScheduleName, when set, identifies the InstanceBackupSchedule that
 		// produced this Backup. Backups created via the API or `kubectl apply`
@@ -370,11 +653,14 @@ type Backup struct {
 		// CRs.
 		ScheduleName *string `json:"scheduleName,omitempty"`
 
-		// StorageName StorageName references a BackupStorage in the same namespace that
+		// StorageRef StorageRef references a BackupStorage in the same namespace that
 		// defines where the backup data is written. For ProviderManaged classes
 		// the referenced storage must already be registered on the Instance via
 		// .spec.backup.storages so the engine can write to it.
-		StorageName string `json:"storageName"`
+		StorageRef struct {
+			// Name Name of the referenced object.
+			Name string `json:"name"`
+		} `json:"storageRef"`
 	} `json:"spec"`
 
 	// Status BackupStatus defines the observed state of Backup.
@@ -413,9 +699,12 @@ type Backup struct {
 		// started. Recorded for observability.
 		ExecutionMode *BackupStatusExecutionMode `json:"executionMode,omitempty"`
 
-		// JobName JobName is the reference to the Job that is running the backup.
+		// JobRef JobRef references the Job that is running the backup.
 		// Populated only for Job classes.
-		JobName *string `json:"jobName,omitempty"`
+		JobRef *struct {
+			// Name Name of the referenced object.
+			Name string `json:"name"`
+		} `json:"jobRef,omitempty"`
 
 		// LastObservedGeneration LastObservedGeneration is the last observed generation of the Backup CR.
 		LastObservedGeneration *int64 `json:"lastObservedGeneration,omitempty"`
@@ -427,15 +716,14 @@ type Backup struct {
 		// provider created (e.g., PerconaServerMongoDBBackup). Populated only
 		// for ProviderManaged classes.
 		OperatorBackupRef *struct {
-			// ApiGroup APIGroup is the group for the resource being referenced.
-			// If APIGroup is not specified, the specified Kind must be in the core API group.
-			// For any other third-party types, APIGroup is required.
-			ApiGroup *string `json:"apiGroup,omitempty"`
+			// Group Group is the API group of the referenced object. Empty for objects in
+			// the core API group.
+			Group *string `json:"group,omitempty"`
 
-			// Kind Kind is the type of resource being referenced
+			// Kind Kind of the referenced object.
 			Kind string `json:"kind"`
 
-			// Name Name is the name of resource being referenced
+			// Name Name of the referenced object.
 			Name string `json:"name"`
 		} `json:"operatorBackupRef,omitempty"`
 
@@ -446,9 +734,23 @@ type Backup struct {
 		StartedAt *time.Time `json:"startedAt,omitempty"`
 
 		// State State is the current state of the backup.
-		State *string `json:"state,omitempty"`
+		State *BackupStatusState `json:"state,omitempty"`
 	} `json:"status,omitempty"`
 }
+
+// BackupSpecDeletionPolicy DeletionPolicy controls what happens to the underlying backup data
+// (e.g., the object stored in S3) when this Backup CR is deleted.
+// Delete (default) instructs the provider to remove both the
+// engine-native backup resource and the data in the configured
+// BackupStorage. Retain instructs the provider to remove the
+// engine-native backup resource but to leave the underlying data in
+// place, so it can be recovered later out-of-band.
+//
+// The field is mutable on a live Backup but is frozen once deletion
+// has started: switching policies after .metadata.deletionTimestamp
+// has been set is rejected so the cleanup path cannot race with
+// itself.
+type BackupSpecDeletionPolicy string
 
 // BackupStatusConditionsStatus status of the condition, one of True, False, Unknown.
 type BackupStatusConditionsStatus string
@@ -456,6 +758,9 @@ type BackupStatusConditionsStatus string
 // BackupStatusExecutionMode ExecutionMode is the resolved execution mode at the time the Backup
 // started. Recorded for observability.
 type BackupStatusExecutionMode string
+
+// BackupStatusState State is the current state of the backup.
+type BackupStatusState string
 
 // BackupClass BackupClass is the Schema for the backupclasses API
 type BackupClass struct {
@@ -470,19 +775,13 @@ type BackupClass struct {
 	// Cannot be updated.
 	// In CamelCase.
 	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
-	Kind     *string                 `json:"kind,omitempty"`
-	Metadata *map[string]interface{} `json:"metadata,omitempty"`
+	Kind *string `json:"kind,omitempty"`
+
+	// Metadata ObjectMeta is the standard Kubernetes object metadata. Only the fields relevant to the Everest API are described; unknown fields are accepted but may be ignored by the server.
+	Metadata *ObjectMeta `json:"metadata,omitempty"`
 
 	// Spec BackupClassSpec defines the desired state of BackupClass.
 	Spec struct {
-		// Config Config contains the OpenAPI v3 schema describing the backup-time
-		// configuration accepted by this class. Backup.spec.config and
-		// InstanceBackupSchedule.config are both validated against this schema.
-		Config *struct {
-			// OpenAPIV3Schema OpenAPIV3Schema is the OpenAPI v3 schema of the backup class.
-			OpenAPIV3Schema interface{} `json:"openAPIV3Schema,omitempty"`
-		} `json:"config,omitempty"`
-
 		// Description Description is the description of the backup class.
 		Description *string `json:"description,omitempty"`
 
@@ -501,72 +800,152 @@ type BackupClass struct {
 			RequiredFields *[]string `json:"requiredFields,omitempty"`
 		} `json:"instanceConstraints,omitempty"`
 
-		// Job Job contains execution detail for ExecutionMode="Job". Must be unset
-		// when ExecutionMode is "ProviderManaged".
+		// Job Job contains all execution detail for ExecutionMode="Job". Required
+		// when ExecutionMode is "Job"; must be unset when ExecutionMode is
+		// "ProviderManaged".
 		Job *struct {
-			// CleanupJobSpec CleanupJobSpec is the optional specification of a cleanup job that runs
-			// when the parent Backup or Restore CR is deleted.
-			CleanupJobSpec *struct {
-				// Command Command is the command to run the backup class.
-				Command *[]string `json:"command,omitempty"`
+			// Backup Backup describes the job spawned per Backup CR.
+			Backup struct {
+				// CleanupJobSpec CleanupJobSpec is the optional specification of a cleanup job that runs
+				// when the parent Backup or Restore CR is deleted.
+				CleanupJobSpec *struct {
+					// Command Command is the command to run the backup class.
+					Command *[]string `json:"command,omitempty"`
 
-				// Image Image is the image of the backup class.
-				Image *string `json:"image,omitempty"`
-			} `json:"cleanupJobSpec,omitempty"`
+					// Image Image is the image of the backup class.
+					Image *string `json:"image,omitempty"`
+				} `json:"cleanupJobSpec,omitempty"`
 
-			// ClusterPermissions ClusterPermissions are cluster-scoped PolicyRules granted via a
-			// generated ClusterRole and ClusterRoleBinding.
-			ClusterPermissions *[]struct {
-				// ApiGroups APIGroups is the name of the APIGroup that contains the resources.  If multiple API groups are specified, any action requested against one of
-				// the enumerated resources in any API group will be allowed. "" represents the core API group and "*" represents all API groups.
-				ApiGroups *[]string `json:"apiGroups,omitempty"`
+				// ClusterPermissions ClusterPermissions are cluster-scoped PolicyRules granted via a
+				// generated ClusterRole and ClusterRoleBinding.
+				ClusterPermissions *[]struct {
+					// ApiGroups APIGroups is the name of the APIGroup that contains the resources.  If multiple API groups are specified, any action requested against one of
+					// the enumerated resources in any API group will be allowed. "" represents the core API group and "*" represents all API groups.
+					ApiGroups *[]string `json:"apiGroups,omitempty"`
 
-				// NonResourceURLs NonResourceURLs is a set of partial urls that a user should have access to.  *s are allowed, but only as the full, final step in the path
-				// Since non-resource URLs are not namespaced, this field is only applicable for ClusterRoles referenced from a ClusterRoleBinding.
-				// Rules can either apply to API resources (such as "pods" or "secrets") or non-resource URL paths (such as "/api"),  but not both.
-				NonResourceURLs *[]string `json:"nonResourceURLs,omitempty"`
+					// NonResourceURLs NonResourceURLs is a set of partial urls that a user should have access to.  *s are allowed, but only as the full, final step in the path
+					// Since non-resource URLs are not namespaced, this field is only applicable for ClusterRoles referenced from a ClusterRoleBinding.
+					// Rules can either apply to API resources (such as "pods" or "secrets") or non-resource URL paths (such as "/api"),  but not both.
+					NonResourceURLs *[]string `json:"nonResourceURLs,omitempty"`
 
-				// ResourceNames ResourceNames is an optional white list of names that the rule applies to.  An empty set means that everything is allowed.
-				ResourceNames *[]string `json:"resourceNames,omitempty"`
+					// ResourceNames ResourceNames is an optional white list of names that the rule applies to.  An empty set means that everything is allowed.
+					ResourceNames *[]string `json:"resourceNames,omitempty"`
 
-				// Resources Resources is a list of resources this rule applies to. '*' represents all resources.
-				Resources *[]string `json:"resources,omitempty"`
+					// Resources Resources is a list of resources this rule applies to. '*' represents all resources.
+					Resources *[]string `json:"resources,omitempty"`
 
-				// Verbs Verbs is a list of Verbs that apply to ALL the ResourceKinds contained in this rule. '*' represents all verbs.
-				Verbs []string `json:"verbs"`
-			} `json:"clusterPermissions,omitempty"`
+					// Verbs Verbs is a list of Verbs that apply to ALL the ResourceKinds contained in this rule. '*' represents all verbs.
+					Verbs []string `json:"verbs"`
+				} `json:"clusterPermissions,omitempty"`
 
-			// JobSpec JobSpec is the specification of the backup or restore job.
-			JobSpec struct {
-				// Command Command is the command to run the backup class.
-				Command *[]string `json:"command,omitempty"`
+				// JobSpec JobSpec is the specification of the backup or restore job.
+				JobSpec struct {
+					// Command Command is the command to run the backup class.
+					Command *[]string `json:"command,omitempty"`
 
-				// Image Image is the image of the backup class.
-				Image *string `json:"image,omitempty"`
-			} `json:"jobSpec"`
+					// Image Image is the image of the backup class.
+					Image *string `json:"image,omitempty"`
+				} `json:"jobSpec"`
 
-			// Permissions Permissions are namespace-scoped PolicyRules granted to the job pod via
-			// a generated Role and RoleBinding.
-			Permissions *[]struct {
-				// ApiGroups APIGroups is the name of the APIGroup that contains the resources.  If multiple API groups are specified, any action requested against one of
-				// the enumerated resources in any API group will be allowed. "" represents the core API group and "*" represents all API groups.
-				ApiGroups *[]string `json:"apiGroups,omitempty"`
+				// Permissions Permissions are namespace-scoped PolicyRules granted to the job pod via
+				// a generated Role and RoleBinding.
+				Permissions *[]struct {
+					// ApiGroups APIGroups is the name of the APIGroup that contains the resources.  If multiple API groups are specified, any action requested against one of
+					// the enumerated resources in any API group will be allowed. "" represents the core API group and "*" represents all API groups.
+					ApiGroups *[]string `json:"apiGroups,omitempty"`
 
-				// NonResourceURLs NonResourceURLs is a set of partial urls that a user should have access to.  *s are allowed, but only as the full, final step in the path
-				// Since non-resource URLs are not namespaced, this field is only applicable for ClusterRoles referenced from a ClusterRoleBinding.
-				// Rules can either apply to API resources (such as "pods" or "secrets") or non-resource URL paths (such as "/api"),  but not both.
-				NonResourceURLs *[]string `json:"nonResourceURLs,omitempty"`
+					// NonResourceURLs NonResourceURLs is a set of partial urls that a user should have access to.  *s are allowed, but only as the full, final step in the path
+					// Since non-resource URLs are not namespaced, this field is only applicable for ClusterRoles referenced from a ClusterRoleBinding.
+					// Rules can either apply to API resources (such as "pods" or "secrets") or non-resource URL paths (such as "/api"),  but not both.
+					NonResourceURLs *[]string `json:"nonResourceURLs,omitempty"`
 
-				// ResourceNames ResourceNames is an optional white list of names that the rule applies to.  An empty set means that everything is allowed.
-				ResourceNames *[]string `json:"resourceNames,omitempty"`
+					// ResourceNames ResourceNames is an optional white list of names that the rule applies to.  An empty set means that everything is allowed.
+					ResourceNames *[]string `json:"resourceNames,omitempty"`
 
-				// Resources Resources is a list of resources this rule applies to. '*' represents all resources.
-				Resources *[]string `json:"resources,omitempty"`
+					// Resources Resources is a list of resources this rule applies to. '*' represents all resources.
+					Resources *[]string `json:"resources,omitempty"`
 
-				// Verbs Verbs is a list of Verbs that apply to ALL the ResourceKinds contained in this rule. '*' represents all verbs.
-				Verbs []string `json:"verbs"`
-			} `json:"permissions,omitempty"`
+					// Verbs Verbs is a list of Verbs that apply to ALL the ResourceKinds contained in this rule. '*' represents all verbs.
+					Verbs []string `json:"verbs"`
+				} `json:"permissions,omitempty"`
+			} `json:"backup"`
+
+			// Restore Restore describes the job spawned per Restore CR. When unset, restores
+			// are not supported by this class.
+			Restore *struct {
+				// CleanupJobSpec CleanupJobSpec is the optional specification of a cleanup job that runs
+				// when the parent Backup or Restore CR is deleted.
+				CleanupJobSpec *struct {
+					// Command Command is the command to run the backup class.
+					Command *[]string `json:"command,omitempty"`
+
+					// Image Image is the image of the backup class.
+					Image *string `json:"image,omitempty"`
+				} `json:"cleanupJobSpec,omitempty"`
+
+				// ClusterPermissions ClusterPermissions are cluster-scoped PolicyRules granted via a
+				// generated ClusterRole and ClusterRoleBinding.
+				ClusterPermissions *[]struct {
+					// ApiGroups APIGroups is the name of the APIGroup that contains the resources.  If multiple API groups are specified, any action requested against one of
+					// the enumerated resources in any API group will be allowed. "" represents the core API group and "*" represents all API groups.
+					ApiGroups *[]string `json:"apiGroups,omitempty"`
+
+					// NonResourceURLs NonResourceURLs is a set of partial urls that a user should have access to.  *s are allowed, but only as the full, final step in the path
+					// Since non-resource URLs are not namespaced, this field is only applicable for ClusterRoles referenced from a ClusterRoleBinding.
+					// Rules can either apply to API resources (such as "pods" or "secrets") or non-resource URL paths (such as "/api"),  but not both.
+					NonResourceURLs *[]string `json:"nonResourceURLs,omitempty"`
+
+					// ResourceNames ResourceNames is an optional white list of names that the rule applies to.  An empty set means that everything is allowed.
+					ResourceNames *[]string `json:"resourceNames,omitempty"`
+
+					// Resources Resources is a list of resources this rule applies to. '*' represents all resources.
+					Resources *[]string `json:"resources,omitempty"`
+
+					// Verbs Verbs is a list of Verbs that apply to ALL the ResourceKinds contained in this rule. '*' represents all verbs.
+					Verbs []string `json:"verbs"`
+				} `json:"clusterPermissions,omitempty"`
+
+				// JobSpec JobSpec is the specification of the backup or restore job.
+				JobSpec struct {
+					// Command Command is the command to run the backup class.
+					Command *[]string `json:"command,omitempty"`
+
+					// Image Image is the image of the backup class.
+					Image *string `json:"image,omitempty"`
+				} `json:"jobSpec"`
+
+				// Permissions Permissions are namespace-scoped PolicyRules granted to the job pod via
+				// a generated Role and RoleBinding.
+				Permissions *[]struct {
+					// ApiGroups APIGroups is the name of the APIGroup that contains the resources.  If multiple API groups are specified, any action requested against one of
+					// the enumerated resources in any API group will be allowed. "" represents the core API group and "*" represents all API groups.
+					ApiGroups *[]string `json:"apiGroups,omitempty"`
+
+					// NonResourceURLs NonResourceURLs is a set of partial urls that a user should have access to.  *s are allowed, but only as the full, final step in the path
+					// Since non-resource URLs are not namespaced, this field is only applicable for ClusterRoles referenced from a ClusterRoleBinding.
+					// Rules can either apply to API resources (such as "pods" or "secrets") or non-resource URL paths (such as "/api"),  but not both.
+					NonResourceURLs *[]string `json:"nonResourceURLs,omitempty"`
+
+					// ResourceNames ResourceNames is an optional white list of names that the rule applies to.  An empty set means that everything is allowed.
+					ResourceNames *[]string `json:"resourceNames,omitempty"`
+
+					// Resources Resources is a list of resources this rule applies to. '*' represents all resources.
+					Resources *[]string `json:"resources,omitempty"`
+
+					// Verbs Verbs is a list of Verbs that apply to ALL the ResourceKinds contained in this rule. '*' represents all verbs.
+					Verbs []string `json:"verbs"`
+				} `json:"permissions,omitempty"`
+			} `json:"restore,omitempty"`
 		} `json:"job,omitempty"`
+
+		// ParametersSchema ParametersSchema declares the OpenAPI v3 schema describing the
+		// backup-time parameters accepted by this class. Backup.spec.parameters
+		// and InstanceBackupSchedule.parameters are both validated against it.
+		ParametersSchema *struct {
+			// OpenAPIV3Schema OpenAPIV3Schema is the OpenAPI v3 schema describing the accepted
+			// parameters payload.
+			OpenAPIV3Schema interface{} `json:"openAPIV3Schema,omitempty"`
+		} `json:"parametersSchema,omitempty"`
 
 		// ProviderManaged ProviderManaged contains hints for ExecutionMode="ProviderManaged". The
 		// schema is intentionally open: providers may surface capability
@@ -597,94 +976,29 @@ type BackupClass struct {
 				MaxStorages *int32 `json:"maxStorages,omitempty"`
 			} `json:"limits,omitempty"`
 
-			// PitrConfigSchema PITRConfigSchema describes the shape of per-storage PITR custom config
-			// (InstanceBackupStoragePITR.Config). The field is free-form and opaque
-			// to the runtime; the provider validates Instance.spec.backup PITR
-			// payloads against it inside Validate(). The recommended payload is an
-			// OpenAPI v3 schema fragment so the UI can render a matching form, but
-			// any provider-specific dialect is permitted.
-			PitrConfigSchema *map[string]interface{} `json:"pitrConfigSchema,omitempty"`
+			// PitrParametersSchema PITRParametersSchema declares the OpenAPI v3 schema for per-storage
+			// PITR parameters (InstanceBackupStoragePITR.Parameters). The provider
+			// validates Instance.spec.backup PITR payloads against it inside
+			// Validate(); the UI renders a matching form from it.
+			PitrParametersSchema *struct {
+				// OpenAPIV3Schema OpenAPIV3Schema is the OpenAPI v3 schema describing the accepted
+				// parameters payload.
+				OpenAPIV3Schema interface{} `json:"openAPIV3Schema,omitempty"`
+			} `json:"pitrParametersSchema,omitempty"`
 
 			// SupportsPITR SupportsPITR indicates whether this class supports point-in-time recovery.
 			// Used by Restore validation when Restore.spec.dataSource.pitr is set.
 			SupportsPITR *bool `json:"supportsPITR,omitempty"`
 		} `json:"providerManaged,omitempty"`
 
-		// RestoreConfig RestoreConfig contains the OpenAPI v3 schema describing the restore-time
-		// configuration accepted by this class. Restore.spec.config is validated
-		// against this schema.
-		RestoreConfig *struct {
-			// OpenAPIV3Schema OpenAPIV3Schema is the OpenAPI v3 schema of the backup class.
+		// RestoreParametersSchema RestoreParametersSchema declares the OpenAPI v3 schema describing the
+		// restore-time parameters accepted by this class. Restore.spec.parameters
+		// is validated against it.
+		RestoreParametersSchema *struct {
+			// OpenAPIV3Schema OpenAPIV3Schema is the OpenAPI v3 schema describing the accepted
+			// parameters payload.
 			OpenAPIV3Schema interface{} `json:"openAPIV3Schema,omitempty"`
-		} `json:"restoreConfig,omitempty"`
-
-		// RestoreJob RestoreJob contains execution detail for the restore job in
-		// ExecutionMode="Job". Must be unset when ExecutionMode is
-		// "ProviderManaged".
-		RestoreJob *struct {
-			// CleanupJobSpec CleanupJobSpec is the optional specification of a cleanup job that runs
-			// when the parent Backup or Restore CR is deleted.
-			CleanupJobSpec *struct {
-				// Command Command is the command to run the backup class.
-				Command *[]string `json:"command,omitempty"`
-
-				// Image Image is the image of the backup class.
-				Image *string `json:"image,omitempty"`
-			} `json:"cleanupJobSpec,omitempty"`
-
-			// ClusterPermissions ClusterPermissions are cluster-scoped PolicyRules granted via a
-			// generated ClusterRole and ClusterRoleBinding.
-			ClusterPermissions *[]struct {
-				// ApiGroups APIGroups is the name of the APIGroup that contains the resources.  If multiple API groups are specified, any action requested against one of
-				// the enumerated resources in any API group will be allowed. "" represents the core API group and "*" represents all API groups.
-				ApiGroups *[]string `json:"apiGroups,omitempty"`
-
-				// NonResourceURLs NonResourceURLs is a set of partial urls that a user should have access to.  *s are allowed, but only as the full, final step in the path
-				// Since non-resource URLs are not namespaced, this field is only applicable for ClusterRoles referenced from a ClusterRoleBinding.
-				// Rules can either apply to API resources (such as "pods" or "secrets") or non-resource URL paths (such as "/api"),  but not both.
-				NonResourceURLs *[]string `json:"nonResourceURLs,omitempty"`
-
-				// ResourceNames ResourceNames is an optional white list of names that the rule applies to.  An empty set means that everything is allowed.
-				ResourceNames *[]string `json:"resourceNames,omitempty"`
-
-				// Resources Resources is a list of resources this rule applies to. '*' represents all resources.
-				Resources *[]string `json:"resources,omitempty"`
-
-				// Verbs Verbs is a list of Verbs that apply to ALL the ResourceKinds contained in this rule. '*' represents all verbs.
-				Verbs []string `json:"verbs"`
-			} `json:"clusterPermissions,omitempty"`
-
-			// JobSpec JobSpec is the specification of the backup or restore job.
-			JobSpec struct {
-				// Command Command is the command to run the backup class.
-				Command *[]string `json:"command,omitempty"`
-
-				// Image Image is the image of the backup class.
-				Image *string `json:"image,omitempty"`
-			} `json:"jobSpec"`
-
-			// Permissions Permissions are namespace-scoped PolicyRules granted to the job pod via
-			// a generated Role and RoleBinding.
-			Permissions *[]struct {
-				// ApiGroups APIGroups is the name of the APIGroup that contains the resources.  If multiple API groups are specified, any action requested against one of
-				// the enumerated resources in any API group will be allowed. "" represents the core API group and "*" represents all API groups.
-				ApiGroups *[]string `json:"apiGroups,omitempty"`
-
-				// NonResourceURLs NonResourceURLs is a set of partial urls that a user should have access to.  *s are allowed, but only as the full, final step in the path
-				// Since non-resource URLs are not namespaced, this field is only applicable for ClusterRoles referenced from a ClusterRoleBinding.
-				// Rules can either apply to API resources (such as "pods" or "secrets") or non-resource URL paths (such as "/api"),  but not both.
-				NonResourceURLs *[]string `json:"nonResourceURLs,omitempty"`
-
-				// ResourceNames ResourceNames is an optional white list of names that the rule applies to.  An empty set means that everything is allowed.
-				ResourceNames *[]string `json:"resourceNames,omitempty"`
-
-				// Resources Resources is a list of resources this rule applies to. '*' represents all resources.
-				Resources *[]string `json:"resources,omitempty"`
-
-				// Verbs Verbs is a list of Verbs that apply to ALL the ResourceKinds contained in this rule. '*' represents all verbs.
-				Verbs []string `json:"verbs"`
-			} `json:"permissions,omitempty"`
-		} `json:"restoreJob,omitempty"`
+		} `json:"restoreParametersSchema,omitempty"`
 
 		// SupportedProviders SupportedProviders is the list of provider names that this backup class
 		// supports. The Instance.spec.provider must appear in this list for the
@@ -781,8 +1095,10 @@ type BackupStorage struct {
 	// Cannot be updated.
 	// In CamelCase.
 	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
-	Kind     *string                 `json:"kind,omitempty"`
-	Metadata *map[string]interface{} `json:"metadata,omitempty"`
+	Kind *string `json:"kind,omitempty"`
+
+	// Metadata ObjectMeta is the standard Kubernetes object metadata. Only the fields relevant to the Everest API are described; unknown fields are accepted but may be ignored by the server.
+	Metadata *ObjectMeta `json:"metadata,omitempty"`
 
 	// Spec BackupStorageSpec defines the desired state of a BackupStorage.
 	//
@@ -791,7 +1107,7 @@ type BackupStorage struct {
 	// It is referenced by name from:
 	//
 	//   - Instance.spec.backup.storages[].storageRef
-	//   - Backup.spec.storageName
+	//   - Backup.spec.storageRef
 	//
 	// Decoupling storage from individual Backup CRs makes provider-managed
 	// backups (e.g. PBM, pgBackRest) practical: the provider can register a
@@ -802,16 +1118,19 @@ type BackupStorage struct {
 		// Required when Type is "s3".
 		S3 *struct {
 			// AccessKeyId AccessKeyID is a write-only convenience input. When set, a webhook
-			// stores it in the Secret named by CredentialsSecretName and clears
+			// stores it in the Secret named by CredentialsSecretRef and clears
 			// this field. It is never persisted on the BackupStorage object.
 			AccessKeyId *string `json:"accessKeyId,omitempty"`
 
 			// Bucket Bucket is the name of the S3 bucket.
 			Bucket string `json:"bucket"`
 
-			// CredentialsSecretName CredentialsSecretName is the name of the Secret in the same namespace
+			// CredentialsSecretRef CredentialsSecretRef references the Secret in the same namespace
 			// that holds the AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY keys.
-			CredentialsSecretName string `json:"credentialsSecretName"`
+			CredentialsSecretRef struct {
+				// Name Name of the referenced Secret.
+				Name string `json:"name"`
+			} `json:"credentialsSecretRef"`
 
 			// EndpointURL EndpointURL is the endpoint URL of the S3-compatible service.
 			EndpointURL string `json:"endpointURL"`
@@ -859,6 +1178,151 @@ type BackupStorageList struct {
 	} `json:"metadata,omitempty"`
 }
 
+// InstalledExtension InstalledExtension is the cluster-scoped record of an installed extension
+// (a generic plugin or a spec 001 provider). It is created by
+// `everestctl extension install` and owned by cluster-admin.
+type InstalledExtension struct {
+	// ApiVersion APIVersion defines the versioned schema of this representation of an object.
+	// Servers should convert recognized schemas to the latest internal value, and
+	// may reject unrecognized values.
+	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+	ApiVersion *string `json:"apiVersion,omitempty"`
+
+	// Kind Kind is a string value representing the REST resource this object represents.
+	// Servers may infer this from the endpoint the client submits requests to.
+	// Cannot be updated.
+	// In CamelCase.
+	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+	Kind *string `json:"kind,omitempty"`
+
+	// Metadata ObjectMeta is the standard Kubernetes object metadata. Only the fields relevant to the Everest API are described; unknown fields are accepted but may be ignored by the server.
+	Metadata *ObjectMeta `json:"metadata,omitempty"`
+
+	// Spec InstalledExtensionSpec defines the desired state of an InstalledExtension.
+	Spec struct {
+		// CatalogId CatalogID identifies the catalog this install was sourced from.
+		// Empty for manual installs.
+		CatalogId *string `json:"catalogId,omitempty"`
+
+		// Channel Channel is the catalog channel selected at install time (e.g. "stable").
+		Channel *string `json:"channel,omitempty"`
+
+		// ChartDigest ChartDigest is the OCI digest of the Helm chart installed for this
+		// extension. Optional in early phases; required once hub install lands.
+		ChartDigest *string `json:"chartDigest,omitempty"`
+
+		// Plugin Plugin holds plugin-specific install state. Required when type=plugin;
+		// must be nil when type=provider.
+		Plugin *struct {
+			// BackendImageDigest BackendImageDigest pins the OCI digest of the backend image.
+			BackendImageDigest *string `json:"backendImageDigest,omitempty"`
+
+			// FrontendDigest FrontendDigest pins the OCI digest of the frontend bundle artifact.
+			FrontendDigest *string `json:"frontendDigest,omitempty"`
+
+			// PluginRef PluginRef references the cluster-scoped Plugin CR that this install
+			// record points at.
+			PluginRef struct {
+				// Name Name of the referenced object.
+				Name string `json:"name"`
+			} `json:"pluginRef"`
+		} `json:"plugin,omitempty"`
+
+		// Provider Provider holds provider-specific install state. Required when
+		// type=provider; must be nil when type=plugin.
+		Provider *struct {
+			// ProviderRef ProviderRef references the cluster-scoped Provider CR that this
+			// install record points at.
+			ProviderRef struct {
+				// Name Name of the referenced object.
+				Name string `json:"name"`
+			} `json:"providerRef"`
+		} `json:"provider,omitempty"`
+
+		// Type Type discriminates between plugin and provider installs. Exactly one of
+		// Plugin or Provider must be set, matching Type.
+		Type InstalledExtensionSpecType `json:"type"`
+
+		// Version Version is the SemVer version of the extension that was installed.
+		Version *string `json:"version,omitempty"`
+	} `json:"spec"`
+
+	// Status InstalledExtensionStatus defines the observed state of an InstalledExtension.
+	Status *struct {
+		// AvailableUpgrade AvailableUpgrade, when set, advertises a newer version available.
+		AvailableUpgrade *struct {
+			// ChartDigest ChartDigest is the OCI digest of the upgrade's Helm chart.
+			ChartDigest *string `json:"chartDigest,omitempty"`
+
+			// Version Version is the SemVer version of the upgrade candidate.
+			Version string `json:"version"`
+		} `json:"availableUpgrade,omitempty"`
+
+		// Conditions Conditions describes the current state of the install.
+		Conditions *[]struct {
+			// LastTransitionTime lastTransitionTime is the last time the condition transitioned from one status to another.
+			// This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+			LastTransitionTime time.Time `json:"lastTransitionTime"`
+
+			// Message message is a human readable message indicating details about the transition.
+			// This may be an empty string.
+			Message string `json:"message"`
+
+			// ObservedGeneration observedGeneration represents the .metadata.generation that the condition was set based upon.
+			// For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+			// with respect to the current state of the instance.
+			ObservedGeneration *int64 `json:"observedGeneration,omitempty"`
+
+			// Reason reason contains a programmatic identifier indicating the reason for the condition's last transition.
+			// Producers of specific condition types may define expected values and meanings for this field,
+			// and whether the values are considered a guaranteed API.
+			// The value should be a CamelCase string.
+			// This field may not be empty.
+			Reason string `json:"reason"`
+
+			// Status status of the condition, one of True, False, Unknown.
+			Status InstalledExtensionStatusConditionsStatus `json:"status"`
+
+			// Type type of condition in CamelCase or in foo.example.com/CamelCase.
+			Type string `json:"type"`
+		} `json:"conditions,omitempty"`
+
+		// InstalledAt InstalledAt is the time the extension first reached Phase=Installed.
+		InstalledAt *time.Time `json:"installedAt,omitempty"`
+
+		// LastCheckedAt LastCheckedAt is the last time the reconciler polled the catalog for
+		// available upgrades.
+		LastCheckedAt *time.Time `json:"lastCheckedAt,omitempty"`
+
+		// Phase Phase is the rollup of Conditions.
+		Phase *InstalledExtensionStatusPhase `json:"phase,omitempty"`
+	} `json:"status,omitempty"`
+}
+
+// InstalledExtensionSpecType Type discriminates between plugin and provider installs. Exactly one of
+// Plugin or Provider must be set, matching Type.
+type InstalledExtensionSpecType string
+
+// InstalledExtensionStatusConditionsStatus status of the condition, one of True, False, Unknown.
+type InstalledExtensionStatusConditionsStatus string
+
+// InstalledExtensionStatusPhase Phase is the rollup of Conditions.
+type InstalledExtensionStatusPhase string
+
+// InstalledExtensionList InstalledExtensionList is an object that contains the list of the existing installedextensions.
+type InstalledExtensionList struct {
+	// ApiVersion APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+	ApiVersion *string               `json:"apiVersion,omitempty"`
+	Items      *[]InstalledExtension `json:"items,omitempty"`
+
+	// Kind Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+	Kind     *string `json:"kind,omitempty"`
+	Metadata *struct {
+		// Name Name must be unique within a namespace. Is required when creating resources, although some resources may allow a client to request the generation of an appropriate name automatically. Name is primarily intended for creation idempotence and configuration definition. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names#names
+		Name *string `json:"name,omitempty"`
+	} `json:"metadata,omitempty"`
+}
+
 // Instance Instance is the Schema for the instances API
 type Instance struct {
 	// ApiVersion APIVersion defines the versioned schema of this representation of an object.
@@ -872,8 +1336,10 @@ type Instance struct {
 	// Cannot be updated.
 	// In CamelCase.
 	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
-	Kind     *string                 `json:"kind,omitempty"`
-	Metadata *map[string]interface{} `json:"metadata,omitempty"`
+	Kind *string `json:"kind,omitempty"`
+
+	// Metadata ObjectMeta is the standard Kubernetes object metadata. Only the fields relevant to the Everest API are described; unknown fields are accepted but may be ignored by the server.
+	Metadata *ObjectMeta `json:"metadata,omitempty"`
 
 	// Spec InstanceSpec defines the desired state of Instance
 	Spec struct {
@@ -884,11 +1350,12 @@ type Instance struct {
 		// classes do not need an entry here because they read directly from
 		// individual Backup CRs.
 		Backup *struct {
-			// ClassRef ClassRef references the BackupClass that the provider should use to
-			// configure the engine. The class must have ExecutionMode=ProviderManaged
-			// and list the Instance's provider in its SupportedProviders.
+			// ClassRef ClassRef references the cluster-scoped BackupClass that the provider
+			// should use to configure the engine. The class must have
+			// ExecutionMode=ProviderManaged and list the Instance's provider in its
+			// SupportedProviders.
 			ClassRef struct {
-				// Name Name is the BackupClass name. BackupClasses are cluster-scoped.
+				// Name Name of the referenced object.
 				Name string `json:"name"`
 			} `json:"classRef"`
 
@@ -896,15 +1363,12 @@ type Instance struct {
 			// runtime skips ConfigureBackup() and the rest of this struct is ignored.
 			Enabled bool `json:"enabled"`
 
-			// Storages Storages registers BackupStorages on the engine. Each entry maps a
-			// logical name (visible to the engine and reused by Backup CRs via
-			// .spec.storageName) to a BackupStorage resource. Schedules and PITR are
-			// configured per storage via the nested .schedules and .pitr fields.
+			// Storages Storages registers BackupStorages on the engine. Each entry references
+			// a BackupStorage resource in the same namespace; the BackupStorage name
+			// is also the storage key the engine uses and the value that Backup CRs
+			// target via .spec.storageRef. Schedules and PITR are configured per
+			// storage via the nested .schedules and .pitr fields.
 			Storages *[]struct {
-				// Name Name is the logical name the engine uses for this storage. It is also
-				// the value that Backup CRs target via .spec.storageName.
-				Name string `json:"name"`
-
 				// Pitr PITR enables and configures point-in-time recovery writing to this
 				// storage. Requires the BackupClass to advertise PITR support via
 				// .spec.providerManaged. Engines that support only a single PITR stream
@@ -912,12 +1376,12 @@ type Instance struct {
 				// .pitr.enabled=true; this is enforced by the provider, not by the
 				// core schema (PG legitimately archives WAL to every configured repo).
 				Pitr *struct {
-					// Config Config holds provider-specific PITR options. The schema is defined by
-					// the BackupClass via .spec.providerManaged.
-					Config *map[string]interface{} `json:"config,omitempty"`
-
 					// Enabled Enabled toggles PITR for this storage.
 					Enabled bool `json:"enabled"`
+
+					// Parameters Parameters holds provider-specific PITR options, validated against the
+					// BackupClass's .spec.providerManaged.pitrParametersSchema.
+					Parameters *map[string]interface{} `json:"parameters,omitempty"`
 				} `json:"pitr,omitempty"`
 
 				// Schedules Schedules registers recurring backup tasks that write to this storage.
@@ -926,12 +1390,6 @@ type Instance struct {
 				// ProviderManaged BackupClasses. Schedule names must be unique across
 				// all storages on the Instance.
 				Schedules *[]struct {
-					// Config Config is schedule-specific configuration validated against the
-					// BackupClass's .spec.scheduleConfig.openAPIV3Schema. When unset the
-					// provider falls back to engine defaults. The schema is the same as for
-					// Backup.spec.config but applied per-schedule rather than per-backup-run.
-					Config *map[string]interface{} `json:"config,omitempty"`
-
 					// Cron Cron is a standard 5-field cron expression. The provider may reject
 					// expressions the engine does not support.
 					Cron string `json:"cron"`
@@ -946,20 +1404,25 @@ type Instance struct {
 					// the Instance.
 					Name string `json:"name"`
 
+					// Parameters Parameters is schedule-specific structured configuration validated
+					// against the BackupClass's .spec.parametersSchema. When unset the
+					// provider falls back to engine defaults. The schema is the same as for
+					// Backup.spec.parameters but applied per-schedule rather than
+					// per-backup-run.
+					Parameters *map[string]interface{} `json:"parameters,omitempty"`
+
 					// RetentionCopies RetentionCopies is the number of recent backups to keep for this
 					// schedule. Zero (or unset) means "keep all". Negative values are
 					// rejected.
 					RetentionCopies *int32 `json:"retentionCopies,omitempty"`
 				} `json:"schedules,omitempty"`
 
-				// StorageRef StorageRef references a BackupStorage in the same namespace.
+				// StorageRef StorageRef references a BackupStorage in the same namespace. The
+				// BackupStorage name doubles as the storage key on the engine, so it
+				// must be unique across all entries.
 				StorageRef struct {
-					// Name Name of the referent.
-					// This field is effectively required, but due to backwards compatibility is
-					// allowed to be empty. Instances of this type with an empty value here are
-					// almost certainly wrong.
-					// More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-					Name *string `json:"name,omitempty"`
+					// Name Name of the referenced object.
+					Name string `json:"name"`
 				} `json:"storageRef"`
 			} `json:"storages,omitempty"`
 		} `json:"backup,omitempty"`
@@ -968,543 +1431,6 @@ type Instance struct {
 		// The keys are component names (e.g., "engine", "proxy", "backupAgent").
 		// Which components are valid depends on the selected topology.
 		Components *map[string]struct {
-			// Affinity Affinity controls pod scheduling rules for this component, including node
-			// selection (where pods run), pod co-location (scheduling pods together), and
-			// pod anti-affinity (spreading pods across nodes/zones for high availability).
-			Affinity *struct {
-				// NodeAffinity Describes node affinity scheduling rules for the pod.
-				NodeAffinity *struct {
-					// PreferredDuringSchedulingIgnoredDuringExecution The scheduler will prefer to schedule pods to nodes that satisfy
-					// the affinity expressions specified by this field, but it may choose
-					// a node that violates one or more of the expressions. The node that is
-					// most preferred is the one with the greatest sum of weights, i.e.
-					// for each node that meets all of the scheduling requirements (resource
-					// request, requiredDuringScheduling affinity expressions, etc.),
-					// compute a sum by iterating through the elements of this field and adding
-					// "weight" to the sum if the node matches the corresponding matchExpressions; the
-					// node(s) with the highest sum are the most preferred.
-					PreferredDuringSchedulingIgnoredDuringExecution *[]struct {
-						// Preference A node selector term, associated with the corresponding weight.
-						Preference struct {
-							// MatchExpressions A list of node selector requirements by node's labels.
-							MatchExpressions *[]struct {
-								// Key The label key that the selector applies to.
-								Key string `json:"key"`
-
-								// Operator Represents a key's relationship to a set of values.
-								// Valid operators are In, NotIn, Exists, DoesNotExist. Gt, and Lt.
-								Operator string `json:"operator"`
-
-								// Values An array of string values. If the operator is In or NotIn,
-								// the values array must be non-empty. If the operator is Exists or DoesNotExist,
-								// the values array must be empty. If the operator is Gt or Lt, the values
-								// array must have a single element, which will be interpreted as an integer.
-								// This array is replaced during a strategic merge patch.
-								Values *[]string `json:"values,omitempty"`
-							} `json:"matchExpressions,omitempty"`
-
-							// MatchFields A list of node selector requirements by node's fields.
-							MatchFields *[]struct {
-								// Key The label key that the selector applies to.
-								Key string `json:"key"`
-
-								// Operator Represents a key's relationship to a set of values.
-								// Valid operators are In, NotIn, Exists, DoesNotExist. Gt, and Lt.
-								Operator string `json:"operator"`
-
-								// Values An array of string values. If the operator is In or NotIn,
-								// the values array must be non-empty. If the operator is Exists or DoesNotExist,
-								// the values array must be empty. If the operator is Gt or Lt, the values
-								// array must have a single element, which will be interpreted as an integer.
-								// This array is replaced during a strategic merge patch.
-								Values *[]string `json:"values,omitempty"`
-							} `json:"matchFields,omitempty"`
-						} `json:"preference"`
-
-						// Weight Weight associated with matching the corresponding nodeSelectorTerm, in the range 1-100.
-						Weight int32 `json:"weight"`
-					} `json:"preferredDuringSchedulingIgnoredDuringExecution,omitempty"`
-
-					// RequiredDuringSchedulingIgnoredDuringExecution If the affinity requirements specified by this field are not met at
-					// scheduling time, the pod will not be scheduled onto the node.
-					// If the affinity requirements specified by this field cease to be met
-					// at some point during pod execution (e.g. due to an update), the system
-					// may or may not try to eventually evict the pod from its node.
-					RequiredDuringSchedulingIgnoredDuringExecution *struct {
-						// NodeSelectorTerms Required. A list of node selector terms. The terms are ORed.
-						NodeSelectorTerms []struct {
-							// MatchExpressions A list of node selector requirements by node's labels.
-							MatchExpressions *[]struct {
-								// Key The label key that the selector applies to.
-								Key string `json:"key"`
-
-								// Operator Represents a key's relationship to a set of values.
-								// Valid operators are In, NotIn, Exists, DoesNotExist. Gt, and Lt.
-								Operator string `json:"operator"`
-
-								// Values An array of string values. If the operator is In or NotIn,
-								// the values array must be non-empty. If the operator is Exists or DoesNotExist,
-								// the values array must be empty. If the operator is Gt or Lt, the values
-								// array must have a single element, which will be interpreted as an integer.
-								// This array is replaced during a strategic merge patch.
-								Values *[]string `json:"values,omitempty"`
-							} `json:"matchExpressions,omitempty"`
-
-							// MatchFields A list of node selector requirements by node's fields.
-							MatchFields *[]struct {
-								// Key The label key that the selector applies to.
-								Key string `json:"key"`
-
-								// Operator Represents a key's relationship to a set of values.
-								// Valid operators are In, NotIn, Exists, DoesNotExist. Gt, and Lt.
-								Operator string `json:"operator"`
-
-								// Values An array of string values. If the operator is In or NotIn,
-								// the values array must be non-empty. If the operator is Exists or DoesNotExist,
-								// the values array must be empty. If the operator is Gt or Lt, the values
-								// array must have a single element, which will be interpreted as an integer.
-								// This array is replaced during a strategic merge patch.
-								Values *[]string `json:"values,omitempty"`
-							} `json:"matchFields,omitempty"`
-						} `json:"nodeSelectorTerms"`
-					} `json:"requiredDuringSchedulingIgnoredDuringExecution,omitempty"`
-				} `json:"nodeAffinity,omitempty"`
-
-				// PodAffinity Describes pod affinity scheduling rules (e.g. co-locate this pod in the same node, zone, etc. as some other pod(s)).
-				PodAffinity *struct {
-					// PreferredDuringSchedulingIgnoredDuringExecution The scheduler will prefer to schedule pods to nodes that satisfy
-					// the affinity expressions specified by this field, but it may choose
-					// a node that violates one or more of the expressions. The node that is
-					// most preferred is the one with the greatest sum of weights, i.e.
-					// for each node that meets all of the scheduling requirements (resource
-					// request, requiredDuringScheduling affinity expressions, etc.),
-					// compute a sum by iterating through the elements of this field and adding
-					// "weight" to the sum if the node has pods which matches the corresponding podAffinityTerm; the
-					// node(s) with the highest sum are the most preferred.
-					PreferredDuringSchedulingIgnoredDuringExecution *[]struct {
-						// PodAffinityTerm Required. A pod affinity term, associated with the corresponding weight.
-						PodAffinityTerm struct {
-							// LabelSelector A label query over a set of resources, in this case pods.
-							// If it's null, this PodAffinityTerm matches with no Pods.
-							LabelSelector *struct {
-								// MatchExpressions matchExpressions is a list of label selector requirements. The requirements are ANDed.
-								MatchExpressions *[]struct {
-									// Key key is the label key that the selector applies to.
-									Key string `json:"key"`
-
-									// Operator operator represents a key's relationship to a set of values.
-									// Valid operators are In, NotIn, Exists and DoesNotExist.
-									Operator string `json:"operator"`
-
-									// Values values is an array of string values. If the operator is In or NotIn,
-									// the values array must be non-empty. If the operator is Exists or DoesNotExist,
-									// the values array must be empty. This array is replaced during a strategic
-									// merge patch.
-									Values *[]string `json:"values,omitempty"`
-								} `json:"matchExpressions,omitempty"`
-
-								// MatchLabels matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
-								// map is equivalent to an element of matchExpressions, whose key field is "key", the
-								// operator is "In", and the values array contains only "value". The requirements are ANDed.
-								MatchLabels *map[string]string `json:"matchLabels,omitempty"`
-							} `json:"labelSelector,omitempty"`
-
-							// MatchLabelKeys MatchLabelKeys is a set of pod label keys to select which pods will
-							// be taken into consideration. The keys are used to lookup values from the
-							// incoming pod labels, those key-value labels are merged with `labelSelector` as `key in (value)`
-							// to select the group of existing pods which pods will be taken into consideration
-							// for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming
-							// pod labels will be ignored. The default value is empty.
-							// The same key is forbidden to exist in both matchLabelKeys and labelSelector.
-							// Also, matchLabelKeys cannot be set when labelSelector isn't set.
-							MatchLabelKeys *[]string `json:"matchLabelKeys,omitempty"`
-
-							// MismatchLabelKeys MismatchLabelKeys is a set of pod label keys to select which pods will
-							// be taken into consideration. The keys are used to lookup values from the
-							// incoming pod labels, those key-value labels are merged with `labelSelector` as `key notin (value)`
-							// to select the group of existing pods which pods will be taken into consideration
-							// for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming
-							// pod labels will be ignored. The default value is empty.
-							// The same key is forbidden to exist in both mismatchLabelKeys and labelSelector.
-							// Also, mismatchLabelKeys cannot be set when labelSelector isn't set.
-							MismatchLabelKeys *[]string `json:"mismatchLabelKeys,omitempty"`
-
-							// NamespaceSelector A label query over the set of namespaces that the term applies to.
-							// The term is applied to the union of the namespaces selected by this field
-							// and the ones listed in the namespaces field.
-							// null selector and null or empty namespaces list means "this pod's namespace".
-							// An empty selector ({}) matches all namespaces.
-							NamespaceSelector *struct {
-								// MatchExpressions matchExpressions is a list of label selector requirements. The requirements are ANDed.
-								MatchExpressions *[]struct {
-									// Key key is the label key that the selector applies to.
-									Key string `json:"key"`
-
-									// Operator operator represents a key's relationship to a set of values.
-									// Valid operators are In, NotIn, Exists and DoesNotExist.
-									Operator string `json:"operator"`
-
-									// Values values is an array of string values. If the operator is In or NotIn,
-									// the values array must be non-empty. If the operator is Exists or DoesNotExist,
-									// the values array must be empty. This array is replaced during a strategic
-									// merge patch.
-									Values *[]string `json:"values,omitempty"`
-								} `json:"matchExpressions,omitempty"`
-
-								// MatchLabels matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
-								// map is equivalent to an element of matchExpressions, whose key field is "key", the
-								// operator is "In", and the values array contains only "value". The requirements are ANDed.
-								MatchLabels *map[string]string `json:"matchLabels,omitempty"`
-							} `json:"namespaceSelector,omitempty"`
-
-							// Namespaces namespaces specifies a static list of namespace names that the term applies to.
-							// The term is applied to the union of the namespaces listed in this field
-							// and the ones selected by namespaceSelector.
-							// null or empty namespaces list and null namespaceSelector means "this pod's namespace".
-							Namespaces *[]string `json:"namespaces,omitempty"`
-
-							// TopologyKey This pod should be co-located (affinity) or not co-located (anti-affinity) with the pods matching
-							// the labelSelector in the specified namespaces, where co-located is defined as running on a node
-							// whose value of the label with key topologyKey matches that of any node on which any of the
-							// selected pods is running.
-							// Empty topologyKey is not allowed.
-							TopologyKey string `json:"topologyKey"`
-						} `json:"podAffinityTerm"`
-
-						// Weight weight associated with matching the corresponding podAffinityTerm,
-						// in the range 1-100.
-						Weight int32 `json:"weight"`
-					} `json:"preferredDuringSchedulingIgnoredDuringExecution,omitempty"`
-
-					// RequiredDuringSchedulingIgnoredDuringExecution If the affinity requirements specified by this field are not met at
-					// scheduling time, the pod will not be scheduled onto the node.
-					// If the affinity requirements specified by this field cease to be met
-					// at some point during pod execution (e.g. due to a pod label update), the
-					// system may or may not try to eventually evict the pod from its node.
-					// When there are multiple elements, the lists of nodes corresponding to each
-					// podAffinityTerm are intersected, i.e. all terms must be satisfied.
-					RequiredDuringSchedulingIgnoredDuringExecution *[]struct {
-						// LabelSelector A label query over a set of resources, in this case pods.
-						// If it's null, this PodAffinityTerm matches with no Pods.
-						LabelSelector *struct {
-							// MatchExpressions matchExpressions is a list of label selector requirements. The requirements are ANDed.
-							MatchExpressions *[]struct {
-								// Key key is the label key that the selector applies to.
-								Key string `json:"key"`
-
-								// Operator operator represents a key's relationship to a set of values.
-								// Valid operators are In, NotIn, Exists and DoesNotExist.
-								Operator string `json:"operator"`
-
-								// Values values is an array of string values. If the operator is In or NotIn,
-								// the values array must be non-empty. If the operator is Exists or DoesNotExist,
-								// the values array must be empty. This array is replaced during a strategic
-								// merge patch.
-								Values *[]string `json:"values,omitempty"`
-							} `json:"matchExpressions,omitempty"`
-
-							// MatchLabels matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
-							// map is equivalent to an element of matchExpressions, whose key field is "key", the
-							// operator is "In", and the values array contains only "value". The requirements are ANDed.
-							MatchLabels *map[string]string `json:"matchLabels,omitempty"`
-						} `json:"labelSelector,omitempty"`
-
-						// MatchLabelKeys MatchLabelKeys is a set of pod label keys to select which pods will
-						// be taken into consideration. The keys are used to lookup values from the
-						// incoming pod labels, those key-value labels are merged with `labelSelector` as `key in (value)`
-						// to select the group of existing pods which pods will be taken into consideration
-						// for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming
-						// pod labels will be ignored. The default value is empty.
-						// The same key is forbidden to exist in both matchLabelKeys and labelSelector.
-						// Also, matchLabelKeys cannot be set when labelSelector isn't set.
-						MatchLabelKeys *[]string `json:"matchLabelKeys,omitempty"`
-
-						// MismatchLabelKeys MismatchLabelKeys is a set of pod label keys to select which pods will
-						// be taken into consideration. The keys are used to lookup values from the
-						// incoming pod labels, those key-value labels are merged with `labelSelector` as `key notin (value)`
-						// to select the group of existing pods which pods will be taken into consideration
-						// for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming
-						// pod labels will be ignored. The default value is empty.
-						// The same key is forbidden to exist in both mismatchLabelKeys and labelSelector.
-						// Also, mismatchLabelKeys cannot be set when labelSelector isn't set.
-						MismatchLabelKeys *[]string `json:"mismatchLabelKeys,omitempty"`
-
-						// NamespaceSelector A label query over the set of namespaces that the term applies to.
-						// The term is applied to the union of the namespaces selected by this field
-						// and the ones listed in the namespaces field.
-						// null selector and null or empty namespaces list means "this pod's namespace".
-						// An empty selector ({}) matches all namespaces.
-						NamespaceSelector *struct {
-							// MatchExpressions matchExpressions is a list of label selector requirements. The requirements are ANDed.
-							MatchExpressions *[]struct {
-								// Key key is the label key that the selector applies to.
-								Key string `json:"key"`
-
-								// Operator operator represents a key's relationship to a set of values.
-								// Valid operators are In, NotIn, Exists and DoesNotExist.
-								Operator string `json:"operator"`
-
-								// Values values is an array of string values. If the operator is In or NotIn,
-								// the values array must be non-empty. If the operator is Exists or DoesNotExist,
-								// the values array must be empty. This array is replaced during a strategic
-								// merge patch.
-								Values *[]string `json:"values,omitempty"`
-							} `json:"matchExpressions,omitempty"`
-
-							// MatchLabels matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
-							// map is equivalent to an element of matchExpressions, whose key field is "key", the
-							// operator is "In", and the values array contains only "value". The requirements are ANDed.
-							MatchLabels *map[string]string `json:"matchLabels,omitempty"`
-						} `json:"namespaceSelector,omitempty"`
-
-						// Namespaces namespaces specifies a static list of namespace names that the term applies to.
-						// The term is applied to the union of the namespaces listed in this field
-						// and the ones selected by namespaceSelector.
-						// null or empty namespaces list and null namespaceSelector means "this pod's namespace".
-						Namespaces *[]string `json:"namespaces,omitempty"`
-
-						// TopologyKey This pod should be co-located (affinity) or not co-located (anti-affinity) with the pods matching
-						// the labelSelector in the specified namespaces, where co-located is defined as running on a node
-						// whose value of the label with key topologyKey matches that of any node on which any of the
-						// selected pods is running.
-						// Empty topologyKey is not allowed.
-						TopologyKey string `json:"topologyKey"`
-					} `json:"requiredDuringSchedulingIgnoredDuringExecution,omitempty"`
-				} `json:"podAffinity,omitempty"`
-
-				// PodAntiAffinity Describes pod anti-affinity scheduling rules (e.g. avoid putting this pod in the same node, zone, etc. as some other pod(s)).
-				PodAntiAffinity *struct {
-					// PreferredDuringSchedulingIgnoredDuringExecution The scheduler will prefer to schedule pods to nodes that satisfy
-					// the anti-affinity expressions specified by this field, but it may choose
-					// a node that violates one or more of the expressions. The node that is
-					// most preferred is the one with the greatest sum of weights, i.e.
-					// for each node that meets all of the scheduling requirements (resource
-					// request, requiredDuringScheduling anti-affinity expressions, etc.),
-					// compute a sum by iterating through the elements of this field and subtracting
-					// "weight" from the sum if the node has pods which matches the corresponding podAffinityTerm; the
-					// node(s) with the highest sum are the most preferred.
-					PreferredDuringSchedulingIgnoredDuringExecution *[]struct {
-						// PodAffinityTerm Required. A pod affinity term, associated with the corresponding weight.
-						PodAffinityTerm struct {
-							// LabelSelector A label query over a set of resources, in this case pods.
-							// If it's null, this PodAffinityTerm matches with no Pods.
-							LabelSelector *struct {
-								// MatchExpressions matchExpressions is a list of label selector requirements. The requirements are ANDed.
-								MatchExpressions *[]struct {
-									// Key key is the label key that the selector applies to.
-									Key string `json:"key"`
-
-									// Operator operator represents a key's relationship to a set of values.
-									// Valid operators are In, NotIn, Exists and DoesNotExist.
-									Operator string `json:"operator"`
-
-									// Values values is an array of string values. If the operator is In or NotIn,
-									// the values array must be non-empty. If the operator is Exists or DoesNotExist,
-									// the values array must be empty. This array is replaced during a strategic
-									// merge patch.
-									Values *[]string `json:"values,omitempty"`
-								} `json:"matchExpressions,omitempty"`
-
-								// MatchLabels matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
-								// map is equivalent to an element of matchExpressions, whose key field is "key", the
-								// operator is "In", and the values array contains only "value". The requirements are ANDed.
-								MatchLabels *map[string]string `json:"matchLabels,omitempty"`
-							} `json:"labelSelector,omitempty"`
-
-							// MatchLabelKeys MatchLabelKeys is a set of pod label keys to select which pods will
-							// be taken into consideration. The keys are used to lookup values from the
-							// incoming pod labels, those key-value labels are merged with `labelSelector` as `key in (value)`
-							// to select the group of existing pods which pods will be taken into consideration
-							// for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming
-							// pod labels will be ignored. The default value is empty.
-							// The same key is forbidden to exist in both matchLabelKeys and labelSelector.
-							// Also, matchLabelKeys cannot be set when labelSelector isn't set.
-							MatchLabelKeys *[]string `json:"matchLabelKeys,omitempty"`
-
-							// MismatchLabelKeys MismatchLabelKeys is a set of pod label keys to select which pods will
-							// be taken into consideration. The keys are used to lookup values from the
-							// incoming pod labels, those key-value labels are merged with `labelSelector` as `key notin (value)`
-							// to select the group of existing pods which pods will be taken into consideration
-							// for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming
-							// pod labels will be ignored. The default value is empty.
-							// The same key is forbidden to exist in both mismatchLabelKeys and labelSelector.
-							// Also, mismatchLabelKeys cannot be set when labelSelector isn't set.
-							MismatchLabelKeys *[]string `json:"mismatchLabelKeys,omitempty"`
-
-							// NamespaceSelector A label query over the set of namespaces that the term applies to.
-							// The term is applied to the union of the namespaces selected by this field
-							// and the ones listed in the namespaces field.
-							// null selector and null or empty namespaces list means "this pod's namespace".
-							// An empty selector ({}) matches all namespaces.
-							NamespaceSelector *struct {
-								// MatchExpressions matchExpressions is a list of label selector requirements. The requirements are ANDed.
-								MatchExpressions *[]struct {
-									// Key key is the label key that the selector applies to.
-									Key string `json:"key"`
-
-									// Operator operator represents a key's relationship to a set of values.
-									// Valid operators are In, NotIn, Exists and DoesNotExist.
-									Operator string `json:"operator"`
-
-									// Values values is an array of string values. If the operator is In or NotIn,
-									// the values array must be non-empty. If the operator is Exists or DoesNotExist,
-									// the values array must be empty. This array is replaced during a strategic
-									// merge patch.
-									Values *[]string `json:"values,omitempty"`
-								} `json:"matchExpressions,omitempty"`
-
-								// MatchLabels matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
-								// map is equivalent to an element of matchExpressions, whose key field is "key", the
-								// operator is "In", and the values array contains only "value". The requirements are ANDed.
-								MatchLabels *map[string]string `json:"matchLabels,omitempty"`
-							} `json:"namespaceSelector,omitempty"`
-
-							// Namespaces namespaces specifies a static list of namespace names that the term applies to.
-							// The term is applied to the union of the namespaces listed in this field
-							// and the ones selected by namespaceSelector.
-							// null or empty namespaces list and null namespaceSelector means "this pod's namespace".
-							Namespaces *[]string `json:"namespaces,omitempty"`
-
-							// TopologyKey This pod should be co-located (affinity) or not co-located (anti-affinity) with the pods matching
-							// the labelSelector in the specified namespaces, where co-located is defined as running on a node
-							// whose value of the label with key topologyKey matches that of any node on which any of the
-							// selected pods is running.
-							// Empty topologyKey is not allowed.
-							TopologyKey string `json:"topologyKey"`
-						} `json:"podAffinityTerm"`
-
-						// Weight weight associated with matching the corresponding podAffinityTerm,
-						// in the range 1-100.
-						Weight int32 `json:"weight"`
-					} `json:"preferredDuringSchedulingIgnoredDuringExecution,omitempty"`
-
-					// RequiredDuringSchedulingIgnoredDuringExecution If the anti-affinity requirements specified by this field are not met at
-					// scheduling time, the pod will not be scheduled onto the node.
-					// If the anti-affinity requirements specified by this field cease to be met
-					// at some point during pod execution (e.g. due to a pod label update), the
-					// system may or may not try to eventually evict the pod from its node.
-					// When there are multiple elements, the lists of nodes corresponding to each
-					// podAffinityTerm are intersected, i.e. all terms must be satisfied.
-					RequiredDuringSchedulingIgnoredDuringExecution *[]struct {
-						// LabelSelector A label query over a set of resources, in this case pods.
-						// If it's null, this PodAffinityTerm matches with no Pods.
-						LabelSelector *struct {
-							// MatchExpressions matchExpressions is a list of label selector requirements. The requirements are ANDed.
-							MatchExpressions *[]struct {
-								// Key key is the label key that the selector applies to.
-								Key string `json:"key"`
-
-								// Operator operator represents a key's relationship to a set of values.
-								// Valid operators are In, NotIn, Exists and DoesNotExist.
-								Operator string `json:"operator"`
-
-								// Values values is an array of string values. If the operator is In or NotIn,
-								// the values array must be non-empty. If the operator is Exists or DoesNotExist,
-								// the values array must be empty. This array is replaced during a strategic
-								// merge patch.
-								Values *[]string `json:"values,omitempty"`
-							} `json:"matchExpressions,omitempty"`
-
-							// MatchLabels matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
-							// map is equivalent to an element of matchExpressions, whose key field is "key", the
-							// operator is "In", and the values array contains only "value". The requirements are ANDed.
-							MatchLabels *map[string]string `json:"matchLabels,omitempty"`
-						} `json:"labelSelector,omitempty"`
-
-						// MatchLabelKeys MatchLabelKeys is a set of pod label keys to select which pods will
-						// be taken into consideration. The keys are used to lookup values from the
-						// incoming pod labels, those key-value labels are merged with `labelSelector` as `key in (value)`
-						// to select the group of existing pods which pods will be taken into consideration
-						// for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming
-						// pod labels will be ignored. The default value is empty.
-						// The same key is forbidden to exist in both matchLabelKeys and labelSelector.
-						// Also, matchLabelKeys cannot be set when labelSelector isn't set.
-						MatchLabelKeys *[]string `json:"matchLabelKeys,omitempty"`
-
-						// MismatchLabelKeys MismatchLabelKeys is a set of pod label keys to select which pods will
-						// be taken into consideration. The keys are used to lookup values from the
-						// incoming pod labels, those key-value labels are merged with `labelSelector` as `key notin (value)`
-						// to select the group of existing pods which pods will be taken into consideration
-						// for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming
-						// pod labels will be ignored. The default value is empty.
-						// The same key is forbidden to exist in both mismatchLabelKeys and labelSelector.
-						// Also, mismatchLabelKeys cannot be set when labelSelector isn't set.
-						MismatchLabelKeys *[]string `json:"mismatchLabelKeys,omitempty"`
-
-						// NamespaceSelector A label query over the set of namespaces that the term applies to.
-						// The term is applied to the union of the namespaces selected by this field
-						// and the ones listed in the namespaces field.
-						// null selector and null or empty namespaces list means "this pod's namespace".
-						// An empty selector ({}) matches all namespaces.
-						NamespaceSelector *struct {
-							// MatchExpressions matchExpressions is a list of label selector requirements. The requirements are ANDed.
-							MatchExpressions *[]struct {
-								// Key key is the label key that the selector applies to.
-								Key string `json:"key"`
-
-								// Operator operator represents a key's relationship to a set of values.
-								// Valid operators are In, NotIn, Exists and DoesNotExist.
-								Operator string `json:"operator"`
-
-								// Values values is an array of string values. If the operator is In or NotIn,
-								// the values array must be non-empty. If the operator is Exists or DoesNotExist,
-								// the values array must be empty. This array is replaced during a strategic
-								// merge patch.
-								Values *[]string `json:"values,omitempty"`
-							} `json:"matchExpressions,omitempty"`
-
-							// MatchLabels matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
-							// map is equivalent to an element of matchExpressions, whose key field is "key", the
-							// operator is "In", and the values array contains only "value". The requirements are ANDed.
-							MatchLabels *map[string]string `json:"matchLabels,omitempty"`
-						} `json:"namespaceSelector,omitempty"`
-
-						// Namespaces namespaces specifies a static list of namespace names that the term applies to.
-						// The term is applied to the union of the namespaces listed in this field
-						// and the ones selected by namespaceSelector.
-						// null or empty namespaces list and null namespaceSelector means "this pod's namespace".
-						Namespaces *[]string `json:"namespaces,omitempty"`
-
-						// TopologyKey This pod should be co-located (affinity) or not co-located (anti-affinity) with the pods matching
-						// the labelSelector in the specified namespaces, where co-located is defined as running on a node
-						// whose value of the label with key topologyKey matches that of any node on which any of the
-						// selected pods is running.
-						// Empty topologyKey is not allowed.
-						TopologyKey string `json:"topologyKey"`
-					} `json:"requiredDuringSchedulingIgnoredDuringExecution,omitempty"`
-				} `json:"podAntiAffinity,omitempty"`
-			} `json:"affinity,omitempty"`
-
-			// Config Config specifies the component specific configuration.
-			Config *struct {
-				// ConfigMapRef LocalObjectReference contains enough information to let you locate the
-				// referenced object inside the same namespace.
-				ConfigMapRef *struct {
-					// Name Name of the referent.
-					// This field is effectively required, but due to backwards compatibility is
-					// allowed to be empty. Instances of this type with an empty value here are
-					// almost certainly wrong.
-					// More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-					Name *string `json:"name,omitempty"`
-				} `json:"configMapRef,omitempty"`
-				Key *string `json:"key,omitempty"`
-
-				// SecretRef LocalObjectReference contains enough information to let you locate the
-				// referenced object inside the same namespace.
-				SecretRef *struct {
-					// Name Name of the referent.
-					// This field is effectively required, but due to backwards compatibility is
-					// allowed to be empty. Instances of this type with an empty value here are
-					// almost certainly wrong.
-					// More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-					Name *string `json:"name,omitempty"`
-				} `json:"secretRef,omitempty"`
-			} `json:"config,omitempty"`
-
-			// CustomSpec CustomSpec provides an API for customising this component.
-			// The API schema is defined by the provider's ComponentSchemas.
-			CustomSpec *map[string]interface{} `json:"customSpec,omitempty"`
-
 			// Image Image specifies an override for the image to use.
 			// When unspecified, it is autmatically set from the ComponentVersions
 			// based on the Version specified.
@@ -1512,6 +1438,12 @@ type Instance struct {
 
 			// Name Name of the component.
 			Name *string `json:"name,omitempty"`
+
+			// Parameters Parameters contains component-specific structured parameters, validated
+			// against the provider's components[].parametersSchema. Engine
+			// configuration file content is carried here as well, under the
+			// provider-declared "configuration" property.
+			Parameters *map[string]interface{} `json:"parameters,omitempty"`
 
 			// Replicas Replicas specifies the number of replicas for this component.
 			Replicas *int32 `json:"replicas,omitempty"`
@@ -1548,6 +1480,707 @@ type Instance struct {
 				Requests *map[string]Instance_Spec_Components_Resources_Requests_AdditionalProperties `json:"requests,omitempty"`
 			} `json:"resources,omitempty"`
 
+			// SchedulingPolicy SchedulingPolicy controls where this component's pods run: node
+			// selection, pod co-location, anti-affinity, tolerations and topology
+			// spread.
+			SchedulingPolicy *struct {
+				// Affinity Affinity constrains node selection, pod co-location and pod
+				// anti-affinity (spreading pods across nodes, zones or other topology
+				// domains for high availability).
+				Affinity *struct {
+					// NodeAffinity Describes node affinity scheduling rules for the pod.
+					NodeAffinity *struct {
+						// PreferredDuringSchedulingIgnoredDuringExecution The scheduler will prefer to schedule pods to nodes that satisfy
+						// the affinity expressions specified by this field, but it may choose
+						// a node that violates one or more of the expressions. The node that is
+						// most preferred is the one with the greatest sum of weights, i.e.
+						// for each node that meets all of the scheduling requirements (resource
+						// request, requiredDuringScheduling affinity expressions, etc.),
+						// compute a sum by iterating through the elements of this field and adding
+						// "weight" to the sum if the node matches the corresponding matchExpressions; the
+						// node(s) with the highest sum are the most preferred.
+						PreferredDuringSchedulingIgnoredDuringExecution *[]struct {
+							// Preference A node selector term, associated with the corresponding weight.
+							Preference struct {
+								// MatchExpressions A list of node selector requirements by node's labels.
+								MatchExpressions *[]struct {
+									// Key The label key that the selector applies to.
+									Key string `json:"key"`
+
+									// Operator Represents a key's relationship to a set of values.
+									// Valid operators are In, NotIn, Exists, DoesNotExist. Gt, and Lt.
+									Operator string `json:"operator"`
+
+									// Values An array of string values. If the operator is In or NotIn,
+									// the values array must be non-empty. If the operator is Exists or DoesNotExist,
+									// the values array must be empty. If the operator is Gt or Lt, the values
+									// array must have a single element, which will be interpreted as an integer.
+									// This array is replaced during a strategic merge patch.
+									Values *[]string `json:"values,omitempty"`
+								} `json:"matchExpressions,omitempty"`
+
+								// MatchFields A list of node selector requirements by node's fields.
+								MatchFields *[]struct {
+									// Key The label key that the selector applies to.
+									Key string `json:"key"`
+
+									// Operator Represents a key's relationship to a set of values.
+									// Valid operators are In, NotIn, Exists, DoesNotExist. Gt, and Lt.
+									Operator string `json:"operator"`
+
+									// Values An array of string values. If the operator is In or NotIn,
+									// the values array must be non-empty. If the operator is Exists or DoesNotExist,
+									// the values array must be empty. If the operator is Gt or Lt, the values
+									// array must have a single element, which will be interpreted as an integer.
+									// This array is replaced during a strategic merge patch.
+									Values *[]string `json:"values,omitempty"`
+								} `json:"matchFields,omitempty"`
+							} `json:"preference"`
+
+							// Weight Weight associated with matching the corresponding nodeSelectorTerm, in the range 1-100.
+							Weight int32 `json:"weight"`
+						} `json:"preferredDuringSchedulingIgnoredDuringExecution,omitempty"`
+
+						// RequiredDuringSchedulingIgnoredDuringExecution If the affinity requirements specified by this field are not met at
+						// scheduling time, the pod will not be scheduled onto the node.
+						// If the affinity requirements specified by this field cease to be met
+						// at some point during pod execution (e.g. due to an update), the system
+						// may or may not try to eventually evict the pod from its node.
+						RequiredDuringSchedulingIgnoredDuringExecution *struct {
+							// NodeSelectorTerms Required. A list of node selector terms. The terms are ORed.
+							NodeSelectorTerms []struct {
+								// MatchExpressions A list of node selector requirements by node's labels.
+								MatchExpressions *[]struct {
+									// Key The label key that the selector applies to.
+									Key string `json:"key"`
+
+									// Operator Represents a key's relationship to a set of values.
+									// Valid operators are In, NotIn, Exists, DoesNotExist. Gt, and Lt.
+									Operator string `json:"operator"`
+
+									// Values An array of string values. If the operator is In or NotIn,
+									// the values array must be non-empty. If the operator is Exists or DoesNotExist,
+									// the values array must be empty. If the operator is Gt or Lt, the values
+									// array must have a single element, which will be interpreted as an integer.
+									// This array is replaced during a strategic merge patch.
+									Values *[]string `json:"values,omitempty"`
+								} `json:"matchExpressions,omitempty"`
+
+								// MatchFields A list of node selector requirements by node's fields.
+								MatchFields *[]struct {
+									// Key The label key that the selector applies to.
+									Key string `json:"key"`
+
+									// Operator Represents a key's relationship to a set of values.
+									// Valid operators are In, NotIn, Exists, DoesNotExist. Gt, and Lt.
+									Operator string `json:"operator"`
+
+									// Values An array of string values. If the operator is In or NotIn,
+									// the values array must be non-empty. If the operator is Exists or DoesNotExist,
+									// the values array must be empty. If the operator is Gt or Lt, the values
+									// array must have a single element, which will be interpreted as an integer.
+									// This array is replaced during a strategic merge patch.
+									Values *[]string `json:"values,omitempty"`
+								} `json:"matchFields,omitempty"`
+							} `json:"nodeSelectorTerms"`
+						} `json:"requiredDuringSchedulingIgnoredDuringExecution,omitempty"`
+					} `json:"nodeAffinity,omitempty"`
+
+					// PodAffinity Describes pod affinity scheduling rules (e.g. co-locate this pod in the same node, zone, etc. as some other pod(s)).
+					PodAffinity *struct {
+						// PreferredDuringSchedulingIgnoredDuringExecution The scheduler will prefer to schedule pods to nodes that satisfy
+						// the affinity expressions specified by this field, but it may choose
+						// a node that violates one or more of the expressions. The node that is
+						// most preferred is the one with the greatest sum of weights, i.e.
+						// for each node that meets all of the scheduling requirements (resource
+						// request, requiredDuringScheduling affinity expressions, etc.),
+						// compute a sum by iterating through the elements of this field and adding
+						// "weight" to the sum if the node has pods which matches the corresponding podAffinityTerm; the
+						// node(s) with the highest sum are the most preferred.
+						PreferredDuringSchedulingIgnoredDuringExecution *[]struct {
+							// PodAffinityTerm Required. A pod affinity term, associated with the corresponding weight.
+							PodAffinityTerm struct {
+								// LabelSelector A label query over a set of resources, in this case pods.
+								// If it's null, this PodAffinityTerm matches with no Pods.
+								LabelSelector *struct {
+									// MatchExpressions matchExpressions is a list of label selector requirements. The requirements are ANDed.
+									MatchExpressions *[]struct {
+										// Key key is the label key that the selector applies to.
+										Key string `json:"key"`
+
+										// Operator operator represents a key's relationship to a set of values.
+										// Valid operators are In, NotIn, Exists and DoesNotExist.
+										Operator string `json:"operator"`
+
+										// Values values is an array of string values. If the operator is In or NotIn,
+										// the values array must be non-empty. If the operator is Exists or DoesNotExist,
+										// the values array must be empty. This array is replaced during a strategic
+										// merge patch.
+										Values *[]string `json:"values,omitempty"`
+									} `json:"matchExpressions,omitempty"`
+
+									// MatchLabels matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
+									// map is equivalent to an element of matchExpressions, whose key field is "key", the
+									// operator is "In", and the values array contains only "value". The requirements are ANDed.
+									MatchLabels *map[string]string `json:"matchLabels,omitempty"`
+								} `json:"labelSelector,omitempty"`
+
+								// MatchLabelKeys MatchLabelKeys is a set of pod label keys to select which pods will
+								// be taken into consideration. The keys are used to lookup values from the
+								// incoming pod labels, those key-value labels are merged with `labelSelector` as `key in (value)`
+								// to select the group of existing pods which pods will be taken into consideration
+								// for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming
+								// pod labels will be ignored. The default value is empty.
+								// The same key is forbidden to exist in both matchLabelKeys and labelSelector.
+								// Also, matchLabelKeys cannot be set when labelSelector isn't set.
+								MatchLabelKeys *[]string `json:"matchLabelKeys,omitempty"`
+
+								// MismatchLabelKeys MismatchLabelKeys is a set of pod label keys to select which pods will
+								// be taken into consideration. The keys are used to lookup values from the
+								// incoming pod labels, those key-value labels are merged with `labelSelector` as `key notin (value)`
+								// to select the group of existing pods which pods will be taken into consideration
+								// for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming
+								// pod labels will be ignored. The default value is empty.
+								// The same key is forbidden to exist in both mismatchLabelKeys and labelSelector.
+								// Also, mismatchLabelKeys cannot be set when labelSelector isn't set.
+								MismatchLabelKeys *[]string `json:"mismatchLabelKeys,omitempty"`
+
+								// NamespaceSelector A label query over the set of namespaces that the term applies to.
+								// The term is applied to the union of the namespaces selected by this field
+								// and the ones listed in the namespaces field.
+								// null selector and null or empty namespaces list means "this pod's namespace".
+								// An empty selector ({}) matches all namespaces.
+								NamespaceSelector *struct {
+									// MatchExpressions matchExpressions is a list of label selector requirements. The requirements are ANDed.
+									MatchExpressions *[]struct {
+										// Key key is the label key that the selector applies to.
+										Key string `json:"key"`
+
+										// Operator operator represents a key's relationship to a set of values.
+										// Valid operators are In, NotIn, Exists and DoesNotExist.
+										Operator string `json:"operator"`
+
+										// Values values is an array of string values. If the operator is In or NotIn,
+										// the values array must be non-empty. If the operator is Exists or DoesNotExist,
+										// the values array must be empty. This array is replaced during a strategic
+										// merge patch.
+										Values *[]string `json:"values,omitempty"`
+									} `json:"matchExpressions,omitempty"`
+
+									// MatchLabels matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
+									// map is equivalent to an element of matchExpressions, whose key field is "key", the
+									// operator is "In", and the values array contains only "value". The requirements are ANDed.
+									MatchLabels *map[string]string `json:"matchLabels,omitempty"`
+								} `json:"namespaceSelector,omitempty"`
+
+								// Namespaces namespaces specifies a static list of namespace names that the term applies to.
+								// The term is applied to the union of the namespaces listed in this field
+								// and the ones selected by namespaceSelector.
+								// null or empty namespaces list and null namespaceSelector means "this pod's namespace".
+								Namespaces *[]string `json:"namespaces,omitempty"`
+
+								// TopologyKey This pod should be co-located (affinity) or not co-located (anti-affinity) with the pods matching
+								// the labelSelector in the specified namespaces, where co-located is defined as running on a node
+								// whose value of the label with key topologyKey matches that of any node on which any of the
+								// selected pods is running.
+								// Empty topologyKey is not allowed.
+								TopologyKey string `json:"topologyKey"`
+							} `json:"podAffinityTerm"`
+
+							// Weight weight associated with matching the corresponding podAffinityTerm,
+							// in the range 1-100.
+							Weight int32 `json:"weight"`
+						} `json:"preferredDuringSchedulingIgnoredDuringExecution,omitempty"`
+
+						// RequiredDuringSchedulingIgnoredDuringExecution If the affinity requirements specified by this field are not met at
+						// scheduling time, the pod will not be scheduled onto the node.
+						// If the affinity requirements specified by this field cease to be met
+						// at some point during pod execution (e.g. due to a pod label update), the
+						// system may or may not try to eventually evict the pod from its node.
+						// When there are multiple elements, the lists of nodes corresponding to each
+						// podAffinityTerm are intersected, i.e. all terms must be satisfied.
+						RequiredDuringSchedulingIgnoredDuringExecution *[]struct {
+							// LabelSelector A label query over a set of resources, in this case pods.
+							// If it's null, this PodAffinityTerm matches with no Pods.
+							LabelSelector *struct {
+								// MatchExpressions matchExpressions is a list of label selector requirements. The requirements are ANDed.
+								MatchExpressions *[]struct {
+									// Key key is the label key that the selector applies to.
+									Key string `json:"key"`
+
+									// Operator operator represents a key's relationship to a set of values.
+									// Valid operators are In, NotIn, Exists and DoesNotExist.
+									Operator string `json:"operator"`
+
+									// Values values is an array of string values. If the operator is In or NotIn,
+									// the values array must be non-empty. If the operator is Exists or DoesNotExist,
+									// the values array must be empty. This array is replaced during a strategic
+									// merge patch.
+									Values *[]string `json:"values,omitempty"`
+								} `json:"matchExpressions,omitempty"`
+
+								// MatchLabels matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
+								// map is equivalent to an element of matchExpressions, whose key field is "key", the
+								// operator is "In", and the values array contains only "value". The requirements are ANDed.
+								MatchLabels *map[string]string `json:"matchLabels,omitempty"`
+							} `json:"labelSelector,omitempty"`
+
+							// MatchLabelKeys MatchLabelKeys is a set of pod label keys to select which pods will
+							// be taken into consideration. The keys are used to lookup values from the
+							// incoming pod labels, those key-value labels are merged with `labelSelector` as `key in (value)`
+							// to select the group of existing pods which pods will be taken into consideration
+							// for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming
+							// pod labels will be ignored. The default value is empty.
+							// The same key is forbidden to exist in both matchLabelKeys and labelSelector.
+							// Also, matchLabelKeys cannot be set when labelSelector isn't set.
+							MatchLabelKeys *[]string `json:"matchLabelKeys,omitempty"`
+
+							// MismatchLabelKeys MismatchLabelKeys is a set of pod label keys to select which pods will
+							// be taken into consideration. The keys are used to lookup values from the
+							// incoming pod labels, those key-value labels are merged with `labelSelector` as `key notin (value)`
+							// to select the group of existing pods which pods will be taken into consideration
+							// for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming
+							// pod labels will be ignored. The default value is empty.
+							// The same key is forbidden to exist in both mismatchLabelKeys and labelSelector.
+							// Also, mismatchLabelKeys cannot be set when labelSelector isn't set.
+							MismatchLabelKeys *[]string `json:"mismatchLabelKeys,omitempty"`
+
+							// NamespaceSelector A label query over the set of namespaces that the term applies to.
+							// The term is applied to the union of the namespaces selected by this field
+							// and the ones listed in the namespaces field.
+							// null selector and null or empty namespaces list means "this pod's namespace".
+							// An empty selector ({}) matches all namespaces.
+							NamespaceSelector *struct {
+								// MatchExpressions matchExpressions is a list of label selector requirements. The requirements are ANDed.
+								MatchExpressions *[]struct {
+									// Key key is the label key that the selector applies to.
+									Key string `json:"key"`
+
+									// Operator operator represents a key's relationship to a set of values.
+									// Valid operators are In, NotIn, Exists and DoesNotExist.
+									Operator string `json:"operator"`
+
+									// Values values is an array of string values. If the operator is In or NotIn,
+									// the values array must be non-empty. If the operator is Exists or DoesNotExist,
+									// the values array must be empty. This array is replaced during a strategic
+									// merge patch.
+									Values *[]string `json:"values,omitempty"`
+								} `json:"matchExpressions,omitempty"`
+
+								// MatchLabels matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
+								// map is equivalent to an element of matchExpressions, whose key field is "key", the
+								// operator is "In", and the values array contains only "value". The requirements are ANDed.
+								MatchLabels *map[string]string `json:"matchLabels,omitempty"`
+							} `json:"namespaceSelector,omitempty"`
+
+							// Namespaces namespaces specifies a static list of namespace names that the term applies to.
+							// The term is applied to the union of the namespaces listed in this field
+							// and the ones selected by namespaceSelector.
+							// null or empty namespaces list and null namespaceSelector means "this pod's namespace".
+							Namespaces *[]string `json:"namespaces,omitempty"`
+
+							// TopologyKey This pod should be co-located (affinity) or not co-located (anti-affinity) with the pods matching
+							// the labelSelector in the specified namespaces, where co-located is defined as running on a node
+							// whose value of the label with key topologyKey matches that of any node on which any of the
+							// selected pods is running.
+							// Empty topologyKey is not allowed.
+							TopologyKey string `json:"topologyKey"`
+						} `json:"requiredDuringSchedulingIgnoredDuringExecution,omitempty"`
+					} `json:"podAffinity,omitempty"`
+
+					// PodAntiAffinity Describes pod anti-affinity scheduling rules (e.g. avoid putting this pod in the same node, zone, etc. as some other pod(s)).
+					PodAntiAffinity *struct {
+						// PreferredDuringSchedulingIgnoredDuringExecution The scheduler will prefer to schedule pods to nodes that satisfy
+						// the anti-affinity expressions specified by this field, but it may choose
+						// a node that violates one or more of the expressions. The node that is
+						// most preferred is the one with the greatest sum of weights, i.e.
+						// for each node that meets all of the scheduling requirements (resource
+						// request, requiredDuringScheduling anti-affinity expressions, etc.),
+						// compute a sum by iterating through the elements of this field and subtracting
+						// "weight" from the sum if the node has pods which matches the corresponding podAffinityTerm; the
+						// node(s) with the highest sum are the most preferred.
+						PreferredDuringSchedulingIgnoredDuringExecution *[]struct {
+							// PodAffinityTerm Required. A pod affinity term, associated with the corresponding weight.
+							PodAffinityTerm struct {
+								// LabelSelector A label query over a set of resources, in this case pods.
+								// If it's null, this PodAffinityTerm matches with no Pods.
+								LabelSelector *struct {
+									// MatchExpressions matchExpressions is a list of label selector requirements. The requirements are ANDed.
+									MatchExpressions *[]struct {
+										// Key key is the label key that the selector applies to.
+										Key string `json:"key"`
+
+										// Operator operator represents a key's relationship to a set of values.
+										// Valid operators are In, NotIn, Exists and DoesNotExist.
+										Operator string `json:"operator"`
+
+										// Values values is an array of string values. If the operator is In or NotIn,
+										// the values array must be non-empty. If the operator is Exists or DoesNotExist,
+										// the values array must be empty. This array is replaced during a strategic
+										// merge patch.
+										Values *[]string `json:"values,omitempty"`
+									} `json:"matchExpressions,omitempty"`
+
+									// MatchLabels matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
+									// map is equivalent to an element of matchExpressions, whose key field is "key", the
+									// operator is "In", and the values array contains only "value". The requirements are ANDed.
+									MatchLabels *map[string]string `json:"matchLabels,omitempty"`
+								} `json:"labelSelector,omitempty"`
+
+								// MatchLabelKeys MatchLabelKeys is a set of pod label keys to select which pods will
+								// be taken into consideration. The keys are used to lookup values from the
+								// incoming pod labels, those key-value labels are merged with `labelSelector` as `key in (value)`
+								// to select the group of existing pods which pods will be taken into consideration
+								// for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming
+								// pod labels will be ignored. The default value is empty.
+								// The same key is forbidden to exist in both matchLabelKeys and labelSelector.
+								// Also, matchLabelKeys cannot be set when labelSelector isn't set.
+								MatchLabelKeys *[]string `json:"matchLabelKeys,omitempty"`
+
+								// MismatchLabelKeys MismatchLabelKeys is a set of pod label keys to select which pods will
+								// be taken into consideration. The keys are used to lookup values from the
+								// incoming pod labels, those key-value labels are merged with `labelSelector` as `key notin (value)`
+								// to select the group of existing pods which pods will be taken into consideration
+								// for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming
+								// pod labels will be ignored. The default value is empty.
+								// The same key is forbidden to exist in both mismatchLabelKeys and labelSelector.
+								// Also, mismatchLabelKeys cannot be set when labelSelector isn't set.
+								MismatchLabelKeys *[]string `json:"mismatchLabelKeys,omitempty"`
+
+								// NamespaceSelector A label query over the set of namespaces that the term applies to.
+								// The term is applied to the union of the namespaces selected by this field
+								// and the ones listed in the namespaces field.
+								// null selector and null or empty namespaces list means "this pod's namespace".
+								// An empty selector ({}) matches all namespaces.
+								NamespaceSelector *struct {
+									// MatchExpressions matchExpressions is a list of label selector requirements. The requirements are ANDed.
+									MatchExpressions *[]struct {
+										// Key key is the label key that the selector applies to.
+										Key string `json:"key"`
+
+										// Operator operator represents a key's relationship to a set of values.
+										// Valid operators are In, NotIn, Exists and DoesNotExist.
+										Operator string `json:"operator"`
+
+										// Values values is an array of string values. If the operator is In or NotIn,
+										// the values array must be non-empty. If the operator is Exists or DoesNotExist,
+										// the values array must be empty. This array is replaced during a strategic
+										// merge patch.
+										Values *[]string `json:"values,omitempty"`
+									} `json:"matchExpressions,omitempty"`
+
+									// MatchLabels matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
+									// map is equivalent to an element of matchExpressions, whose key field is "key", the
+									// operator is "In", and the values array contains only "value". The requirements are ANDed.
+									MatchLabels *map[string]string `json:"matchLabels,omitempty"`
+								} `json:"namespaceSelector,omitempty"`
+
+								// Namespaces namespaces specifies a static list of namespace names that the term applies to.
+								// The term is applied to the union of the namespaces listed in this field
+								// and the ones selected by namespaceSelector.
+								// null or empty namespaces list and null namespaceSelector means "this pod's namespace".
+								Namespaces *[]string `json:"namespaces,omitempty"`
+
+								// TopologyKey This pod should be co-located (affinity) or not co-located (anti-affinity) with the pods matching
+								// the labelSelector in the specified namespaces, where co-located is defined as running on a node
+								// whose value of the label with key topologyKey matches that of any node on which any of the
+								// selected pods is running.
+								// Empty topologyKey is not allowed.
+								TopologyKey string `json:"topologyKey"`
+							} `json:"podAffinityTerm"`
+
+							// Weight weight associated with matching the corresponding podAffinityTerm,
+							// in the range 1-100.
+							Weight int32 `json:"weight"`
+						} `json:"preferredDuringSchedulingIgnoredDuringExecution,omitempty"`
+
+						// RequiredDuringSchedulingIgnoredDuringExecution If the anti-affinity requirements specified by this field are not met at
+						// scheduling time, the pod will not be scheduled onto the node.
+						// If the anti-affinity requirements specified by this field cease to be met
+						// at some point during pod execution (e.g. due to a pod label update), the
+						// system may or may not try to eventually evict the pod from its node.
+						// When there are multiple elements, the lists of nodes corresponding to each
+						// podAffinityTerm are intersected, i.e. all terms must be satisfied.
+						RequiredDuringSchedulingIgnoredDuringExecution *[]struct {
+							// LabelSelector A label query over a set of resources, in this case pods.
+							// If it's null, this PodAffinityTerm matches with no Pods.
+							LabelSelector *struct {
+								// MatchExpressions matchExpressions is a list of label selector requirements. The requirements are ANDed.
+								MatchExpressions *[]struct {
+									// Key key is the label key that the selector applies to.
+									Key string `json:"key"`
+
+									// Operator operator represents a key's relationship to a set of values.
+									// Valid operators are In, NotIn, Exists and DoesNotExist.
+									Operator string `json:"operator"`
+
+									// Values values is an array of string values. If the operator is In or NotIn,
+									// the values array must be non-empty. If the operator is Exists or DoesNotExist,
+									// the values array must be empty. This array is replaced during a strategic
+									// merge patch.
+									Values *[]string `json:"values,omitempty"`
+								} `json:"matchExpressions,omitempty"`
+
+								// MatchLabels matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
+								// map is equivalent to an element of matchExpressions, whose key field is "key", the
+								// operator is "In", and the values array contains only "value". The requirements are ANDed.
+								MatchLabels *map[string]string `json:"matchLabels,omitempty"`
+							} `json:"labelSelector,omitempty"`
+
+							// MatchLabelKeys MatchLabelKeys is a set of pod label keys to select which pods will
+							// be taken into consideration. The keys are used to lookup values from the
+							// incoming pod labels, those key-value labels are merged with `labelSelector` as `key in (value)`
+							// to select the group of existing pods which pods will be taken into consideration
+							// for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming
+							// pod labels will be ignored. The default value is empty.
+							// The same key is forbidden to exist in both matchLabelKeys and labelSelector.
+							// Also, matchLabelKeys cannot be set when labelSelector isn't set.
+							MatchLabelKeys *[]string `json:"matchLabelKeys,omitempty"`
+
+							// MismatchLabelKeys MismatchLabelKeys is a set of pod label keys to select which pods will
+							// be taken into consideration. The keys are used to lookup values from the
+							// incoming pod labels, those key-value labels are merged with `labelSelector` as `key notin (value)`
+							// to select the group of existing pods which pods will be taken into consideration
+							// for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming
+							// pod labels will be ignored. The default value is empty.
+							// The same key is forbidden to exist in both mismatchLabelKeys and labelSelector.
+							// Also, mismatchLabelKeys cannot be set when labelSelector isn't set.
+							MismatchLabelKeys *[]string `json:"mismatchLabelKeys,omitempty"`
+
+							// NamespaceSelector A label query over the set of namespaces that the term applies to.
+							// The term is applied to the union of the namespaces selected by this field
+							// and the ones listed in the namespaces field.
+							// null selector and null or empty namespaces list means "this pod's namespace".
+							// An empty selector ({}) matches all namespaces.
+							NamespaceSelector *struct {
+								// MatchExpressions matchExpressions is a list of label selector requirements. The requirements are ANDed.
+								MatchExpressions *[]struct {
+									// Key key is the label key that the selector applies to.
+									Key string `json:"key"`
+
+									// Operator operator represents a key's relationship to a set of values.
+									// Valid operators are In, NotIn, Exists and DoesNotExist.
+									Operator string `json:"operator"`
+
+									// Values values is an array of string values. If the operator is In or NotIn,
+									// the values array must be non-empty. If the operator is Exists or DoesNotExist,
+									// the values array must be empty. This array is replaced during a strategic
+									// merge patch.
+									Values *[]string `json:"values,omitempty"`
+								} `json:"matchExpressions,omitempty"`
+
+								// MatchLabels matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
+								// map is equivalent to an element of matchExpressions, whose key field is "key", the
+								// operator is "In", and the values array contains only "value". The requirements are ANDed.
+								MatchLabels *map[string]string `json:"matchLabels,omitempty"`
+							} `json:"namespaceSelector,omitempty"`
+
+							// Namespaces namespaces specifies a static list of namespace names that the term applies to.
+							// The term is applied to the union of the namespaces listed in this field
+							// and the ones selected by namespaceSelector.
+							// null or empty namespaces list and null namespaceSelector means "this pod's namespace".
+							Namespaces *[]string `json:"namespaces,omitempty"`
+
+							// TopologyKey This pod should be co-located (affinity) or not co-located (anti-affinity) with the pods matching
+							// the labelSelector in the specified namespaces, where co-located is defined as running on a node
+							// whose value of the label with key topologyKey matches that of any node on which any of the
+							// selected pods is running.
+							// Empty topologyKey is not allowed.
+							TopologyKey string `json:"topologyKey"`
+						} `json:"requiredDuringSchedulingIgnoredDuringExecution,omitempty"`
+					} `json:"podAntiAffinity,omitempty"`
+				} `json:"affinity,omitempty"`
+
+				// NodeSelector NodeSelector must match a node's labels for the pods to be schedulable
+				// onto that node.
+				NodeSelector *map[string]string `json:"nodeSelector,omitempty"`
+
+				// SchedulerName SchedulerName selects the scheduler that dispatches the pods.
+				// When omitted the cluster's default scheduler is used.
+				SchedulerName *string `json:"schedulerName,omitempty"`
+
+				// Tolerations Tolerations allow the pods to schedule onto nodes carrying matching
+				// taints, typically nodes reserved for database workloads.
+				Tolerations *[]struct {
+					// Effect Effect indicates the taint effect to match. Empty means match all taint effects.
+					// When specified, allowed values are NoSchedule, PreferNoSchedule and NoExecute.
+					Effect *string `json:"effect,omitempty"`
+
+					// Key Key is the taint key that the toleration applies to. Empty means match all taint keys.
+					// If the key is empty, operator must be Exists; this combination means to match all values and all keys.
+					Key *string `json:"key,omitempty"`
+
+					// Operator Operator represents a key's relationship to the value.
+					// Valid operators are Exists, Equal, Lt, and Gt. Defaults to Equal.
+					// Exists is equivalent to wildcard for value, so that a pod can
+					// tolerate all taints of a particular category.
+					// Lt and Gt perform numeric comparisons (requires feature gate TaintTolerationComparisonOperators).
+					Operator *string `json:"operator,omitempty"`
+
+					// TolerationSeconds TolerationSeconds represents the period of time the toleration (which must be
+					// of effect NoExecute, otherwise this field is ignored) tolerates the taint. By default,
+					// it is not set, which means tolerate the taint forever (do not evict). Zero and
+					// negative values will be treated as 0 (evict immediately) by the system.
+					TolerationSeconds *int64 `json:"tolerationSeconds,omitempty"`
+
+					// Value Value is the taint value the toleration matches to.
+					// If the operator is Exists, the value should be empty, otherwise just a regular string.
+					Value *string `json:"value,omitempty"`
+				} `json:"tolerations,omitempty"`
+
+				// TopologySpreadConstraints TopologySpreadConstraints describe how the pods spread across topology
+				// domains. All constraints are ANDed.
+				TopologySpreadConstraints *[]struct {
+					// LabelSelector LabelSelector is used to find matching pods.
+					// Pods that match this label selector are counted to determine the number of pods
+					// in their corresponding topology domain.
+					LabelSelector *struct {
+						// MatchExpressions matchExpressions is a list of label selector requirements. The requirements are ANDed.
+						MatchExpressions *[]struct {
+							// Key key is the label key that the selector applies to.
+							Key string `json:"key"`
+
+							// Operator operator represents a key's relationship to a set of values.
+							// Valid operators are In, NotIn, Exists and DoesNotExist.
+							Operator string `json:"operator"`
+
+							// Values values is an array of string values. If the operator is In or NotIn,
+							// the values array must be non-empty. If the operator is Exists or DoesNotExist,
+							// the values array must be empty. This array is replaced during a strategic
+							// merge patch.
+							Values *[]string `json:"values,omitempty"`
+						} `json:"matchExpressions,omitempty"`
+
+						// MatchLabels matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
+						// map is equivalent to an element of matchExpressions, whose key field is "key", the
+						// operator is "In", and the values array contains only "value". The requirements are ANDed.
+						MatchLabels *map[string]string `json:"matchLabels,omitempty"`
+					} `json:"labelSelector,omitempty"`
+
+					// MatchLabelKeys MatchLabelKeys is a set of pod label keys to select the pods over which
+					// spreading will be calculated. The keys are used to lookup values from the
+					// incoming pod labels, those key-value labels are ANDed with labelSelector
+					// to select the group of existing pods over which spreading will be calculated
+					// for the incoming pod. The same key is forbidden to exist in both MatchLabelKeys and LabelSelector.
+					// MatchLabelKeys cannot be set when LabelSelector isn't set.
+					// Keys that don't exist in the incoming pod labels will
+					// be ignored. A null or empty list means only match against labelSelector.
+					//
+					// This is a beta field and requires the MatchLabelKeysInPodTopologySpread feature gate to be enabled (enabled by default).
+					MatchLabelKeys *[]string `json:"matchLabelKeys,omitempty"`
+
+					// MaxSkew MaxSkew describes the degree to which pods may be unevenly distributed.
+					// When `whenUnsatisfiable=DoNotSchedule`, it is the maximum permitted difference
+					// between the number of matching pods in the target topology and the global minimum.
+					// The global minimum is the minimum number of matching pods in an eligible domain
+					// or zero if the number of eligible domains is less than MinDomains.
+					// For example, in a 3-zone cluster, MaxSkew is set to 1, and pods with the same
+					// labelSelector spread as 2/2/1:
+					// In this case, the global minimum is 1.
+					// | zone1 | zone2 | zone3 |
+					// |  P P  |  P P  |   P   |
+					// - if MaxSkew is 1, incoming pod can only be scheduled to zone3 to become 2/2/2;
+					// scheduling it onto zone1(zone2) would make the ActualSkew(3-1) on zone1(zone2)
+					// violate MaxSkew(1).
+					// - if MaxSkew is 2, incoming pod can be scheduled onto any zone.
+					// When `whenUnsatisfiable=ScheduleAnyway`, it is used to give higher precedence
+					// to topologies that satisfy it.
+					// It's a required field. Default value is 1 and 0 is not allowed.
+					MaxSkew int32 `json:"maxSkew"`
+
+					// MinDomains MinDomains indicates a minimum number of eligible domains.
+					// When the number of eligible domains with matching topology keys is less than minDomains,
+					// Pod Topology Spread treats "global minimum" as 0, and then the calculation of Skew is performed.
+					// And when the number of eligible domains with matching topology keys equals or greater than minDomains,
+					// this value has no effect on scheduling.
+					// As a result, when the number of eligible domains is less than minDomains,
+					// scheduler won't schedule more than maxSkew Pods to those domains.
+					// If value is nil, the constraint behaves as if MinDomains is equal to 1.
+					// Valid values are integers greater than 0.
+					// When value is not nil, WhenUnsatisfiable must be DoNotSchedule.
+					//
+					// For example, in a 3-zone cluster, MaxSkew is set to 2, MinDomains is set to 5 and pods with the same
+					// labelSelector spread as 2/2/2:
+					// | zone1 | zone2 | zone3 |
+					// |  P P  |  P P  |  P P  |
+					// The number of domains is less than 5(MinDomains), so "global minimum" is treated as 0.
+					// In this situation, new pod with the same labelSelector cannot be scheduled,
+					// because computed skew will be 3(3 - 0) if new Pod is scheduled to any of the three zones,
+					// it will violate MaxSkew.
+					MinDomains *int32 `json:"minDomains,omitempty"`
+
+					// NodeAffinityPolicy NodeAffinityPolicy indicates how we will treat Pod's nodeAffinity/nodeSelector
+					// when calculating pod topology spread skew. Options are:
+					// - Honor: only nodes matching nodeAffinity/nodeSelector are included in the calculations.
+					// - Ignore: nodeAffinity/nodeSelector are ignored. All nodes are included in the calculations.
+					//
+					// If this value is nil, the behavior is equivalent to the Honor policy.
+					NodeAffinityPolicy *string `json:"nodeAffinityPolicy,omitempty"`
+
+					// NodeTaintsPolicy NodeTaintsPolicy indicates how we will treat node taints when calculating
+					// pod topology spread skew. Options are:
+					// - Honor: nodes without taints, along with tainted nodes for which the incoming pod
+					// has a toleration, are included.
+					// - Ignore: node taints are ignored. All nodes are included.
+					//
+					// If this value is nil, the behavior is equivalent to the Ignore policy.
+					NodeTaintsPolicy *string `json:"nodeTaintsPolicy,omitempty"`
+
+					// TopologyKey TopologyKey is the key of node labels. Nodes that have a label with this key
+					// and identical values are considered to be in the same topology.
+					// We consider each <key, value> as a "bucket", and try to put balanced number
+					// of pods into each bucket.
+					// We define a domain as a particular instance of a topology.
+					// Also, we define an eligible domain as a domain whose nodes meet the requirements of
+					// nodeAffinityPolicy and nodeTaintsPolicy.
+					// e.g. If TopologyKey is "kubernetes.io/hostname", each Node is a domain of that topology.
+					// And, if TopologyKey is "topology.kubernetes.io/zone", each zone is a domain of that topology.
+					// It's a required field.
+					TopologyKey string `json:"topologyKey"`
+
+					// WhenUnsatisfiable WhenUnsatisfiable indicates how to deal with a pod if it doesn't satisfy
+					// the spread constraint.
+					// - DoNotSchedule (default) tells the scheduler not to schedule it.
+					// - ScheduleAnyway tells the scheduler to schedule the pod in any location,
+					//   but giving higher precedence to topologies that would help reduce the
+					//   skew.
+					// A constraint is considered "Unsatisfiable" for an incoming pod
+					// if and only if every possible node assignment for that pod would violate
+					// "MaxSkew" on some topology.
+					// For example, in a 3-zone cluster, MaxSkew is set to 1, and pods with the same
+					// labelSelector spread as 3/1/1:
+					// | zone1 | zone2 | zone3 |
+					// | P P P |   P   |   P   |
+					// If WhenUnsatisfiable is set to DoNotSchedule, incoming pod can only be scheduled
+					// to zone2(zone3) to become 3/2/1(3/1/2) as ActualSkew(2-1) on zone2(zone3) satisfies
+					// MaxSkew(1). In other words, the cluster can still be imbalanced, but scheduler
+					// won't make it *more* imbalanced.
+					// It's a required field.
+					WhenUnsatisfiable string `json:"whenUnsatisfiable"`
+				} `json:"topologySpreadConstraints,omitempty"`
+			} `json:"schedulingPolicy,omitempty"`
+
+			// Service Service defines how this component is exposed.
+			Service *struct {
+				// Annotations Annotations is a map of key-value pairs for annotating the Service.
+				// Commonly used to configure cloud provider settings
+				// (e.g., AWS ELB annotations, GCP load balancer settings).
+				Annotations *map[string]string `json:"annotations,omitempty"`
+
+				// LoadBalancerService LoadBalancerService contains LoadBalancer-specific configuration.
+				// Only applicable for "LoadBalancer" ServiceType.
+				LoadBalancerService *struct {
+					// SourceRanges SourceRanges lists IP source ranges (CIDR notation) that are
+					// allowed to access the load balancer.
+					// If unset, there is no limitations.
+					SourceRanges *[]string `json:"sourceRanges,omitempty"`
+				} `json:"loadBalancerService,omitempty"`
+
+				// ServiceType ServiceType defines how the component is exposed.
+				// The provider ultimately decides and validates supported service types.
+				ServiceType *string `json:"serviceType,omitempty"`
+			} `json:"service,omitempty"`
+
 			// Storage Storage requirements for this component.
 			// For stateless components, this is an optional field.
 			Storage *struct {
@@ -1571,32 +2204,59 @@ type Instance struct {
 		// also have backup enabled and include a storage entry that matches the
 		// storage used by the source Backup so the provider can access the data.
 		DataSource *struct {
-			// Backup Backup references an existing Backup CR in the same namespace.
-			// Required when type=Backup.
+			// Backup Backup identifies the backup to restore. Required when type=Backup.
 			Backup *struct {
-				// BackupName BackupName is the name of the Backup CR in the same namespace.
-				BackupName string `json:"backupName"`
-
-				// Pitr PITR configures point-in-time recovery on top of this backup.
-				// The resolved BackupClass must advertise PITR support via
-				// .spec.providerManaged for this to be honoured.
-				Pitr *struct {
-					// Date Date is the target recovery point. Required when Type is "date".
-					Date *time.Time `json:"date,omitempty"`
-
-					// Type Type selects date-based or latest recovery.
-					Type interface{} `json:"type"`
-				} `json:"pitr,omitempty"`
+				// BackupRef BackupRef references the Backup CR in the same namespace.
+				BackupRef struct {
+					// Name Name of the referenced object.
+					Name string `json:"name"`
+				} `json:"backupRef"`
 			} `json:"backup,omitempty"`
 
-			// Type Type selects the data source kind.
+			// PointInTime PointInTime identifies the stream and the point to recover to.
+			// Required when type=PointInTime.
+			PointInTime *struct {
+				// Date Date is the recovery point, RFC 3339 with an explicit UTC offset.
+				// Required when RecoveryTarget is "date", forbidden otherwise. Providers
+				// convert it to the engine's expected representation; several engines
+				// interpret timezone-less timestamps as node-local, so the offset is not
+				// optional.
+				Date *time.Time `json:"date,omitempty"`
+
+				// RecoveryTarget RecoveryTarget selects date-based or latest recovery. This enum is
+				// deliberately closed: date and latest are the only recovery targets that
+				// are meaningful without knowing which engine is running. Engine-specific
+				// targets (GTID, LSN, XID, named restore points) are out of scope.
+				RecoveryTarget InstanceSpecDataSourcePointInTimeRecoveryTarget `json:"recoveryTarget"`
+
+				// Source Source identifies the backup stream to recover from.
+				Source struct {
+					// InstanceRef InstanceRef names the Instance whose stream to recover. Defaults to the
+					// Restore's target Instance when omitted; required when seeding a new
+					// Instance via Instance.spec.dataSource, which has no stream of its own.
+					InstanceRef *struct {
+						// Name Name of the referenced object.
+						Name string `json:"name"`
+					} `json:"instanceRef,omitempty"`
+
+					// StorageRef StorageRef selects which of the source Instance's registered
+					// BackupStorages to read the stream from. It must name a storage with
+					// .pitr.enabled=true on that Instance.
+					StorageRef struct {
+						// Name Name of the referenced object.
+						Name string `json:"name"`
+					} `json:"storageRef"`
+				} `json:"source"`
+			} `json:"pointInTime,omitempty"`
+
+			// Type Type selects the restore intent.
 			Type InstanceSpecDataSourceType `json:"type"`
 		} `json:"dataSource,omitempty"`
 
 		// DeletionPolicy DeletionPolicy controls what happens to Backup and Restore CRs that
 		// reference this Instance when the Instance is deleted.
 		// Cascade (default) instructs the runtime to delete every Backup and
-		// Restore in the Instance's namespace whose .spec.instanceName matches
+		// Restore in the Instance's namespace whose .spec.instanceRef matches
 		// this Instance before tearing down the engine. Each Backup's own
 		// .spec.deletionPolicy then independently controls whether its
 		// underlying data in the BackupStorage is purged or retained.
@@ -1612,21 +2272,27 @@ type Instance struct {
 		// has started: switching policies after .metadata.deletionTimestamp
 		// has been set is rejected so the cascade path cannot race with
 		// itself.
-		DeletionPolicy interface{} `json:"deletionPolicy,omitempty"`
+		DeletionPolicy *InstanceSpecDeletionPolicy `json:"deletionPolicy,omitempty"`
 
-		// Global Global contains provider-level configuration that applies to the entire cluster.
-		// The schema for this field is defined by the provider's GlobalConfigSchema.
-		Global *map[string]interface{} `json:"global,omitempty"`
+		// Parameters Parameters contains structured parameters that apply to the Instance
+		// as a whole, complementing the topology- and component-scoped
+		// parameters. The payload is validated against the referenced Provider's
+		// .spec.parametersSchema.
+		Parameters *map[string]interface{} `json:"parameters,omitempty"`
 
-		// Provider Provider is the name of the database provider (e.g., "psmdb", "postgresql").
-		Provider *string `json:"provider,omitempty"`
+		// ProviderRef ProviderRef references the cluster-scoped Provider that manages this
+		// Instance (e.g., "percona-server-mongodb", "postgresql").
+		ProviderRef struct {
+			// Name Name of the referenced object.
+			Name string `json:"name"`
+		} `json:"providerRef"`
 
 		// Topology Topology defines the deployment topology and its configuration.
 		Topology *struct {
-			// Config Config contains topology-specific configuration.
-			// The schema for this field is defined by the provider's TopologyDefinition.
+			// Parameters Parameters contains topology-specific structured parameters, validated
+			// against the provider's topologies[].parametersSchema.
 			// Examples: shard count for sharded topology, replication factor, etc.
-			Config *map[string]interface{} `json:"config,omitempty"`
+			Parameters *map[string]interface{} `json:"parameters,omitempty"`
 
 			// Type Type is the topology name (e.g., "sharded", "replicaset").
 			// The available topologies are defined by the provider.
@@ -1643,16 +2309,47 @@ type Instance struct {
 
 	// Status InstanceStatus defines the observed state of Instance.
 	Status *struct {
+		// Backup Backup surfaces backup-related observability data reported by the
+		// provider, such as the latest restorable time for PITR-enabled storages.
+		Backup *struct {
+			// Storages Storages is the per-storage backup status, keyed by the logical storage
+			// name declared in spec.backup.storages.
+			Storages *[]struct {
+				// Name Name is the BackupStorage name (matches
+				// spec.backup.storages[].storageRef.name).
+				Name string `json:"name"`
+
+				// Pitr PITR reports the point-in-time recovery window observed on this storage.
+				// Only populated when PITR is enabled for the storage.
+				Pitr *struct {
+					// EarliestRestorableTime EarliestRestorableTime is the start of the contiguous recovery window.
+					// Providers only ever move this forward relative to the oldest successful
+					// backup, so the advertised window never spans a known discontinuity.
+					// Unset means no restorable window is known.
+					EarliestRestorableTime *time.Time `json:"earliestRestorableTime,omitempty"`
+
+					// LatestRestorableTime LatestRestorableTime is the end of the contiguous recovery window.
+					LatestRestorableTime *time.Time `json:"latestRestorableTime,omitempty"`
+
+					// Message Message is a human-readable explanation of State.
+					Message *string `json:"message,omitempty"`
+
+					// Reason Reason is a CamelCase, machine-readable explanation of State.
+					Reason *string `json:"reason,omitempty"`
+
+					// State State summarises whether a trustworthy window exists.
+					State *InstanceStatusBackupStoragesPitrState `json:"state,omitempty"`
+				} `json:"pitr,omitempty"`
+			} `json:"storages,omitempty"`
+		} `json:"backup,omitempty"`
+
 		// Components Components is the status of the components in the database cluster.
 		Components *[]struct {
-			Pods *[]struct {
-				// Name Name of the referent.
-				// This field is effectively required, but due to backwards compatibility is
-				// allowed to be empty. Instances of this type with an empty value here are
-				// almost certainly wrong.
-				// More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-				Name *string `json:"name,omitempty"`
-			} `json:"pods,omitempty"`
+			// PodRefs PodRefs references the Pods backing this component.
+			PodRefs *[]struct {
+				// Name Name of the referenced object.
+				Name string `json:"name"`
+			} `json:"podRefs,omitempty"`
 			Ready *int32  `json:"ready,omitempty"`
 			State *string `json:"state,omitempty"`
 			Total *int32  `json:"total,omitempty"`
@@ -1698,13 +2395,12 @@ type Instance struct {
 		//   - "password" - Database password
 		//   - "uri"      - Full connection URI including credentials
 		ConnectionSecretRef *struct {
-			// Name Name of the referent.
-			// This field is effectively required, but due to backwards compatibility is
-			// allowed to be empty. Instances of this type with an empty value here are
-			// almost certainly wrong.
-			// More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-			Name *string `json:"name,omitempty"`
+			// Name Name of the referenced Secret.
+			Name string `json:"name"`
 		} `json:"connectionSecretRef,omitempty"`
+
+		// Message Message is a custom user-facing message describing the current state of the instance.
+		Message *string `json:"message,omitempty"`
 
 		// Phase Phase of the database cluster.
 		Phase *InstanceStatusPhase `json:"phase,omitempty"`
@@ -1755,8 +2451,38 @@ type Instance_Spec_Components_Storage_Size struct {
 	union json.RawMessage
 }
 
-// InstanceSpecDataSourceType Type selects the data source kind.
+// InstanceSpecDataSourcePointInTimeRecoveryTarget RecoveryTarget selects date-based or latest recovery. This enum is
+// deliberately closed: date and latest are the only recovery targets that
+// are meaningful without knowing which engine is running. Engine-specific
+// targets (GTID, LSN, XID, named restore points) are out of scope.
+type InstanceSpecDataSourcePointInTimeRecoveryTarget string
+
+// InstanceSpecDataSourceType Type selects the restore intent.
 type InstanceSpecDataSourceType string
+
+// InstanceSpecDeletionPolicy DeletionPolicy controls what happens to Backup and Restore CRs that
+// reference this Instance when the Instance is deleted.
+// Cascade (default) instructs the runtime to delete every Backup and
+// Restore in the Instance's namespace whose .spec.instanceRef matches
+// this Instance before tearing down the engine. Each Backup's own
+// .spec.deletionPolicy then independently controls whether its
+// underlying data in the BackupStorage is purged or retained.
+// Orphan instructs the runtime to leave Backup and Restore CRs in
+// place; they survive the Instance deletion and can later be used to
+// restore into a newly-created Instance.
+//
+// The Instance is held in the Terminating phase until all referenced
+// Backups/Restores have been deleted (Cascade) or until the engine
+// resources have been torn down (both policies).
+//
+// The field is mutable on a live Instance but is frozen once deletion
+// has started: switching policies after .metadata.deletionTimestamp
+// has been set is rejected so the cascade path cannot race with
+// itself.
+type InstanceSpecDeletionPolicy string
+
+// InstanceStatusBackupStoragesPitrState State summarises whether a trustworthy window exists.
+type InstanceStatusBackupStoragesPitrState string
 
 // InstanceStatusConditionsStatus status of the condition, one of True, False, Unknown.
 type InstanceStatusConditionsStatus string
@@ -1806,6 +2532,1102 @@ type InstanceList struct {
 	} `json:"metadata,omitempty"`
 }
 
+// InstancePreset InstancePreset is the Schema for the instancepresets API
+type InstancePreset struct {
+	// ApiVersion APIVersion defines the versioned schema of this representation of an object.
+	// Servers should convert recognized schemas to the latest internal value, and
+	// may reject unrecognized values.
+	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+	ApiVersion *string `json:"apiVersion,omitempty"`
+
+	// Kind Kind is a string value representing the REST resource this object represents.
+	// Servers may infer this from the endpoint the client submits requests to.
+	// Cannot be updated.
+	// In CamelCase.
+	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+	Kind *string `json:"kind,omitempty"`
+
+	// Metadata ObjectMeta is the standard Kubernetes object metadata. Only the fields relevant to the Everest API are described; unknown fields are accepted but may be ignored by the server.
+	Metadata *ObjectMeta `json:"metadata,omitempty"`
+
+	// Spec spec defines the desired state of InstancePreset
+	Spec struct {
+		// Backup Backup configures the backup feature for this Instance. When enabled,
+		// the provider's reconciler is given the resolved BackupClass and storage
+		// list so it can configure the engine accordingly (sidecars, agent
+		// configuration, etc.). Required for ProviderManaged BackupClasses; Job
+		// classes do not need an entry here because they read directly from
+		// individual Backup CRs.
+		Backup *struct {
+			// ClassRef ClassRef references the cluster-scoped BackupClass that the provider
+			// should use to configure the engine. The class must have
+			// ExecutionMode=ProviderManaged and list the Instance's provider in its
+			// SupportedProviders.
+			ClassRef struct {
+				// Name Name of the referenced object.
+				Name string `json:"name"`
+			} `json:"classRef"`
+
+			// Enabled Enabled toggles the backup feature for this Instance. When false the
+			// runtime skips ConfigureBackup() and the rest of this struct is ignored.
+			Enabled bool `json:"enabled"`
+
+			// Storages Storages registers BackupStorages on the engine. Each entry references
+			// a BackupStorage resource in the same namespace; the BackupStorage name
+			// is also the storage key the engine uses and the value that Backup CRs
+			// target via .spec.storageRef. Schedules and PITR are configured per
+			// storage via the nested .schedules and .pitr fields.
+			Storages *[]struct {
+				// Pitr PITR enables and configures point-in-time recovery writing to this
+				// storage. Requires the BackupClass to advertise PITR support via
+				// .spec.providerManaged. Engines that support only a single PITR stream
+				// (e.g. PSMDB, PXC) require at most one storage on the Instance to set
+				// .pitr.enabled=true; this is enforced by the provider, not by the
+				// core schema (PG legitimately archives WAL to every configured repo).
+				Pitr *struct {
+					// Enabled Enabled toggles PITR for this storage.
+					Enabled bool `json:"enabled"`
+
+					// Parameters Parameters holds provider-specific PITR options, validated against the
+					// BackupClass's .spec.providerManaged.pitrParametersSchema.
+					Parameters *map[string]interface{} `json:"parameters,omitempty"`
+				} `json:"pitr,omitempty"`
+
+				// Schedules Schedules registers recurring backup tasks that write to this storage.
+				// Schedules produce Backup CRs (via the provider's mirroring loop) using
+				// the operator-native scheduler — the runtime never spawns CronJobs for
+				// ProviderManaged BackupClasses. Schedule names must be unique across
+				// all storages on the Instance.
+				Schedules *[]struct {
+					// Cron Cron is a standard 5-field cron expression. The provider may reject
+					// expressions the engine does not support.
+					Cron string `json:"cron"`
+
+					// Enabled Enabled toggles the schedule. A disabled schedule is removed from
+					// the engine without losing its definition on the Instance.
+					Enabled bool `json:"enabled"`
+
+					// Name Name uniquely identifies the schedule. The provider uses it as the
+					// schedule key on the engine and as the value of Backup.spec.scheduleName
+					// on mirrored Backup CRs. Names must be unique across all storages on
+					// the Instance.
+					Name string `json:"name"`
+
+					// Parameters Parameters is schedule-specific structured configuration validated
+					// against the BackupClass's .spec.parametersSchema. When unset the
+					// provider falls back to engine defaults. The schema is the same as for
+					// Backup.spec.parameters but applied per-schedule rather than
+					// per-backup-run.
+					Parameters *map[string]interface{} `json:"parameters,omitempty"`
+
+					// RetentionCopies RetentionCopies is the number of recent backups to keep for this
+					// schedule. Zero (or unset) means "keep all". Negative values are
+					// rejected.
+					RetentionCopies *int32 `json:"retentionCopies,omitempty"`
+				} `json:"schedules,omitempty"`
+
+				// StorageRef StorageRef references a BackupStorage in the same namespace. The
+				// BackupStorage name doubles as the storage key on the engine, so it
+				// must be unique across all entries.
+				StorageRef struct {
+					// Name Name of the referenced object.
+					Name string `json:"name"`
+				} `json:"storageRef"`
+			} `json:"storages,omitempty"`
+		} `json:"backup,omitempty"`
+
+		// Components Components defines the component instances for this cluster.
+		// The keys are component names (e.g., "engine", "proxy", "backupAgent").
+		// Which components are valid depends on the selected topology.
+		Components *map[string]struct {
+			// Image Image specifies an override for the image to use.
+			// When unspecified, it is autmatically set from the ComponentVersions
+			// based on the Version specified.
+			Image *string `json:"image,omitempty"`
+
+			// Name Name of the component.
+			Name *string `json:"name,omitempty"`
+
+			// Parameters Parameters contains component-specific structured parameters, validated
+			// against the provider's components[].parametersSchema. Engine
+			// configuration file content is carried here as well, under the
+			// provider-declared "configuration" property.
+			Parameters *map[string]interface{} `json:"parameters,omitempty"`
+
+			// Replicas Replicas specifies the number of replicas for this component.
+			Replicas *int32 `json:"replicas,omitempty"`
+
+			// Resources Resources requirements for this component.
+			Resources *struct {
+				// Claims Claims lists the names of resources, defined in spec.resourceClaims,
+				// that are used by this container.
+				//
+				// This field depends on the
+				// DynamicResourceAllocation feature gate.
+				//
+				// This field is immutable. It can only be set for containers.
+				Claims *[]struct {
+					// Name Name must match the name of one entry in pod.spec.resourceClaims of
+					// the Pod where this field is used. It makes that resource available
+					// inside a container.
+					Name string `json:"name"`
+
+					// Request Request is the name chosen for a request in the referenced claim.
+					// If empty, everything from the claim is made available, otherwise
+					// only the result of this request.
+					Request *string `json:"request,omitempty"`
+				} `json:"claims,omitempty"`
+
+				// Limits Limits describes the maximum amount of compute resources allowed.
+				// More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
+				Limits *map[string]InstancePreset_Spec_Components_Resources_Limits_AdditionalProperties `json:"limits,omitempty"`
+
+				// Requests Requests describes the minimum amount of compute resources required.
+				// If Requests is omitted for a container, it defaults to Limits if that is explicitly specified,
+				// otherwise to an implementation-defined value. Requests cannot exceed Limits.
+				// More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
+				Requests *map[string]InstancePreset_Spec_Components_Resources_Requests_AdditionalProperties `json:"requests,omitempty"`
+			} `json:"resources,omitempty"`
+
+			// SchedulingPolicy SchedulingPolicy controls where this component's pods run: node
+			// selection, pod co-location, anti-affinity, tolerations and topology
+			// spread.
+			SchedulingPolicy *struct {
+				// Affinity Affinity constrains node selection, pod co-location and pod
+				// anti-affinity (spreading pods across nodes, zones or other topology
+				// domains for high availability).
+				Affinity *struct {
+					// NodeAffinity Describes node affinity scheduling rules for the pod.
+					NodeAffinity *struct {
+						// PreferredDuringSchedulingIgnoredDuringExecution The scheduler will prefer to schedule pods to nodes that satisfy
+						// the affinity expressions specified by this field, but it may choose
+						// a node that violates one or more of the expressions. The node that is
+						// most preferred is the one with the greatest sum of weights, i.e.
+						// for each node that meets all of the scheduling requirements (resource
+						// request, requiredDuringScheduling affinity expressions, etc.),
+						// compute a sum by iterating through the elements of this field and adding
+						// "weight" to the sum if the node matches the corresponding matchExpressions; the
+						// node(s) with the highest sum are the most preferred.
+						PreferredDuringSchedulingIgnoredDuringExecution *[]struct {
+							// Preference A node selector term, associated with the corresponding weight.
+							Preference struct {
+								// MatchExpressions A list of node selector requirements by node's labels.
+								MatchExpressions *[]struct {
+									// Key The label key that the selector applies to.
+									Key string `json:"key"`
+
+									// Operator Represents a key's relationship to a set of values.
+									// Valid operators are In, NotIn, Exists, DoesNotExist. Gt, and Lt.
+									Operator string `json:"operator"`
+
+									// Values An array of string values. If the operator is In or NotIn,
+									// the values array must be non-empty. If the operator is Exists or DoesNotExist,
+									// the values array must be empty. If the operator is Gt or Lt, the values
+									// array must have a single element, which will be interpreted as an integer.
+									// This array is replaced during a strategic merge patch.
+									Values *[]string `json:"values,omitempty"`
+								} `json:"matchExpressions,omitempty"`
+
+								// MatchFields A list of node selector requirements by node's fields.
+								MatchFields *[]struct {
+									// Key The label key that the selector applies to.
+									Key string `json:"key"`
+
+									// Operator Represents a key's relationship to a set of values.
+									// Valid operators are In, NotIn, Exists, DoesNotExist. Gt, and Lt.
+									Operator string `json:"operator"`
+
+									// Values An array of string values. If the operator is In or NotIn,
+									// the values array must be non-empty. If the operator is Exists or DoesNotExist,
+									// the values array must be empty. If the operator is Gt or Lt, the values
+									// array must have a single element, which will be interpreted as an integer.
+									// This array is replaced during a strategic merge patch.
+									Values *[]string `json:"values,omitempty"`
+								} `json:"matchFields,omitempty"`
+							} `json:"preference"`
+
+							// Weight Weight associated with matching the corresponding nodeSelectorTerm, in the range 1-100.
+							Weight int32 `json:"weight"`
+						} `json:"preferredDuringSchedulingIgnoredDuringExecution,omitempty"`
+
+						// RequiredDuringSchedulingIgnoredDuringExecution If the affinity requirements specified by this field are not met at
+						// scheduling time, the pod will not be scheduled onto the node.
+						// If the affinity requirements specified by this field cease to be met
+						// at some point during pod execution (e.g. due to an update), the system
+						// may or may not try to eventually evict the pod from its node.
+						RequiredDuringSchedulingIgnoredDuringExecution *struct {
+							// NodeSelectorTerms Required. A list of node selector terms. The terms are ORed.
+							NodeSelectorTerms []struct {
+								// MatchExpressions A list of node selector requirements by node's labels.
+								MatchExpressions *[]struct {
+									// Key The label key that the selector applies to.
+									Key string `json:"key"`
+
+									// Operator Represents a key's relationship to a set of values.
+									// Valid operators are In, NotIn, Exists, DoesNotExist. Gt, and Lt.
+									Operator string `json:"operator"`
+
+									// Values An array of string values. If the operator is In or NotIn,
+									// the values array must be non-empty. If the operator is Exists or DoesNotExist,
+									// the values array must be empty. If the operator is Gt or Lt, the values
+									// array must have a single element, which will be interpreted as an integer.
+									// This array is replaced during a strategic merge patch.
+									Values *[]string `json:"values,omitempty"`
+								} `json:"matchExpressions,omitempty"`
+
+								// MatchFields A list of node selector requirements by node's fields.
+								MatchFields *[]struct {
+									// Key The label key that the selector applies to.
+									Key string `json:"key"`
+
+									// Operator Represents a key's relationship to a set of values.
+									// Valid operators are In, NotIn, Exists, DoesNotExist. Gt, and Lt.
+									Operator string `json:"operator"`
+
+									// Values An array of string values. If the operator is In or NotIn,
+									// the values array must be non-empty. If the operator is Exists or DoesNotExist,
+									// the values array must be empty. If the operator is Gt or Lt, the values
+									// array must have a single element, which will be interpreted as an integer.
+									// This array is replaced during a strategic merge patch.
+									Values *[]string `json:"values,omitempty"`
+								} `json:"matchFields,omitempty"`
+							} `json:"nodeSelectorTerms"`
+						} `json:"requiredDuringSchedulingIgnoredDuringExecution,omitempty"`
+					} `json:"nodeAffinity,omitempty"`
+
+					// PodAffinity Describes pod affinity scheduling rules (e.g. co-locate this pod in the same node, zone, etc. as some other pod(s)).
+					PodAffinity *struct {
+						// PreferredDuringSchedulingIgnoredDuringExecution The scheduler will prefer to schedule pods to nodes that satisfy
+						// the affinity expressions specified by this field, but it may choose
+						// a node that violates one or more of the expressions. The node that is
+						// most preferred is the one with the greatest sum of weights, i.e.
+						// for each node that meets all of the scheduling requirements (resource
+						// request, requiredDuringScheduling affinity expressions, etc.),
+						// compute a sum by iterating through the elements of this field and adding
+						// "weight" to the sum if the node has pods which matches the corresponding podAffinityTerm; the
+						// node(s) with the highest sum are the most preferred.
+						PreferredDuringSchedulingIgnoredDuringExecution *[]struct {
+							// PodAffinityTerm Required. A pod affinity term, associated with the corresponding weight.
+							PodAffinityTerm struct {
+								// LabelSelector A label query over a set of resources, in this case pods.
+								// If it's null, this PodAffinityTerm matches with no Pods.
+								LabelSelector *struct {
+									// MatchExpressions matchExpressions is a list of label selector requirements. The requirements are ANDed.
+									MatchExpressions *[]struct {
+										// Key key is the label key that the selector applies to.
+										Key string `json:"key"`
+
+										// Operator operator represents a key's relationship to a set of values.
+										// Valid operators are In, NotIn, Exists and DoesNotExist.
+										Operator string `json:"operator"`
+
+										// Values values is an array of string values. If the operator is In or NotIn,
+										// the values array must be non-empty. If the operator is Exists or DoesNotExist,
+										// the values array must be empty. This array is replaced during a strategic
+										// merge patch.
+										Values *[]string `json:"values,omitempty"`
+									} `json:"matchExpressions,omitempty"`
+
+									// MatchLabels matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
+									// map is equivalent to an element of matchExpressions, whose key field is "key", the
+									// operator is "In", and the values array contains only "value". The requirements are ANDed.
+									MatchLabels *map[string]string `json:"matchLabels,omitempty"`
+								} `json:"labelSelector,omitempty"`
+
+								// MatchLabelKeys MatchLabelKeys is a set of pod label keys to select which pods will
+								// be taken into consideration. The keys are used to lookup values from the
+								// incoming pod labels, those key-value labels are merged with `labelSelector` as `key in (value)`
+								// to select the group of existing pods which pods will be taken into consideration
+								// for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming
+								// pod labels will be ignored. The default value is empty.
+								// The same key is forbidden to exist in both matchLabelKeys and labelSelector.
+								// Also, matchLabelKeys cannot be set when labelSelector isn't set.
+								MatchLabelKeys *[]string `json:"matchLabelKeys,omitempty"`
+
+								// MismatchLabelKeys MismatchLabelKeys is a set of pod label keys to select which pods will
+								// be taken into consideration. The keys are used to lookup values from the
+								// incoming pod labels, those key-value labels are merged with `labelSelector` as `key notin (value)`
+								// to select the group of existing pods which pods will be taken into consideration
+								// for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming
+								// pod labels will be ignored. The default value is empty.
+								// The same key is forbidden to exist in both mismatchLabelKeys and labelSelector.
+								// Also, mismatchLabelKeys cannot be set when labelSelector isn't set.
+								MismatchLabelKeys *[]string `json:"mismatchLabelKeys,omitempty"`
+
+								// NamespaceSelector A label query over the set of namespaces that the term applies to.
+								// The term is applied to the union of the namespaces selected by this field
+								// and the ones listed in the namespaces field.
+								// null selector and null or empty namespaces list means "this pod's namespace".
+								// An empty selector ({}) matches all namespaces.
+								NamespaceSelector *struct {
+									// MatchExpressions matchExpressions is a list of label selector requirements. The requirements are ANDed.
+									MatchExpressions *[]struct {
+										// Key key is the label key that the selector applies to.
+										Key string `json:"key"`
+
+										// Operator operator represents a key's relationship to a set of values.
+										// Valid operators are In, NotIn, Exists and DoesNotExist.
+										Operator string `json:"operator"`
+
+										// Values values is an array of string values. If the operator is In or NotIn,
+										// the values array must be non-empty. If the operator is Exists or DoesNotExist,
+										// the values array must be empty. This array is replaced during a strategic
+										// merge patch.
+										Values *[]string `json:"values,omitempty"`
+									} `json:"matchExpressions,omitempty"`
+
+									// MatchLabels matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
+									// map is equivalent to an element of matchExpressions, whose key field is "key", the
+									// operator is "In", and the values array contains only "value". The requirements are ANDed.
+									MatchLabels *map[string]string `json:"matchLabels,omitempty"`
+								} `json:"namespaceSelector,omitempty"`
+
+								// Namespaces namespaces specifies a static list of namespace names that the term applies to.
+								// The term is applied to the union of the namespaces listed in this field
+								// and the ones selected by namespaceSelector.
+								// null or empty namespaces list and null namespaceSelector means "this pod's namespace".
+								Namespaces *[]string `json:"namespaces,omitempty"`
+
+								// TopologyKey This pod should be co-located (affinity) or not co-located (anti-affinity) with the pods matching
+								// the labelSelector in the specified namespaces, where co-located is defined as running on a node
+								// whose value of the label with key topologyKey matches that of any node on which any of the
+								// selected pods is running.
+								// Empty topologyKey is not allowed.
+								TopologyKey string `json:"topologyKey"`
+							} `json:"podAffinityTerm"`
+
+							// Weight weight associated with matching the corresponding podAffinityTerm,
+							// in the range 1-100.
+							Weight int32 `json:"weight"`
+						} `json:"preferredDuringSchedulingIgnoredDuringExecution,omitempty"`
+
+						// RequiredDuringSchedulingIgnoredDuringExecution If the affinity requirements specified by this field are not met at
+						// scheduling time, the pod will not be scheduled onto the node.
+						// If the affinity requirements specified by this field cease to be met
+						// at some point during pod execution (e.g. due to a pod label update), the
+						// system may or may not try to eventually evict the pod from its node.
+						// When there are multiple elements, the lists of nodes corresponding to each
+						// podAffinityTerm are intersected, i.e. all terms must be satisfied.
+						RequiredDuringSchedulingIgnoredDuringExecution *[]struct {
+							// LabelSelector A label query over a set of resources, in this case pods.
+							// If it's null, this PodAffinityTerm matches with no Pods.
+							LabelSelector *struct {
+								// MatchExpressions matchExpressions is a list of label selector requirements. The requirements are ANDed.
+								MatchExpressions *[]struct {
+									// Key key is the label key that the selector applies to.
+									Key string `json:"key"`
+
+									// Operator operator represents a key's relationship to a set of values.
+									// Valid operators are In, NotIn, Exists and DoesNotExist.
+									Operator string `json:"operator"`
+
+									// Values values is an array of string values. If the operator is In or NotIn,
+									// the values array must be non-empty. If the operator is Exists or DoesNotExist,
+									// the values array must be empty. This array is replaced during a strategic
+									// merge patch.
+									Values *[]string `json:"values,omitempty"`
+								} `json:"matchExpressions,omitempty"`
+
+								// MatchLabels matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
+								// map is equivalent to an element of matchExpressions, whose key field is "key", the
+								// operator is "In", and the values array contains only "value". The requirements are ANDed.
+								MatchLabels *map[string]string `json:"matchLabels,omitempty"`
+							} `json:"labelSelector,omitempty"`
+
+							// MatchLabelKeys MatchLabelKeys is a set of pod label keys to select which pods will
+							// be taken into consideration. The keys are used to lookup values from the
+							// incoming pod labels, those key-value labels are merged with `labelSelector` as `key in (value)`
+							// to select the group of existing pods which pods will be taken into consideration
+							// for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming
+							// pod labels will be ignored. The default value is empty.
+							// The same key is forbidden to exist in both matchLabelKeys and labelSelector.
+							// Also, matchLabelKeys cannot be set when labelSelector isn't set.
+							MatchLabelKeys *[]string `json:"matchLabelKeys,omitempty"`
+
+							// MismatchLabelKeys MismatchLabelKeys is a set of pod label keys to select which pods will
+							// be taken into consideration. The keys are used to lookup values from the
+							// incoming pod labels, those key-value labels are merged with `labelSelector` as `key notin (value)`
+							// to select the group of existing pods which pods will be taken into consideration
+							// for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming
+							// pod labels will be ignored. The default value is empty.
+							// The same key is forbidden to exist in both mismatchLabelKeys and labelSelector.
+							// Also, mismatchLabelKeys cannot be set when labelSelector isn't set.
+							MismatchLabelKeys *[]string `json:"mismatchLabelKeys,omitempty"`
+
+							// NamespaceSelector A label query over the set of namespaces that the term applies to.
+							// The term is applied to the union of the namespaces selected by this field
+							// and the ones listed in the namespaces field.
+							// null selector and null or empty namespaces list means "this pod's namespace".
+							// An empty selector ({}) matches all namespaces.
+							NamespaceSelector *struct {
+								// MatchExpressions matchExpressions is a list of label selector requirements. The requirements are ANDed.
+								MatchExpressions *[]struct {
+									// Key key is the label key that the selector applies to.
+									Key string `json:"key"`
+
+									// Operator operator represents a key's relationship to a set of values.
+									// Valid operators are In, NotIn, Exists and DoesNotExist.
+									Operator string `json:"operator"`
+
+									// Values values is an array of string values. If the operator is In or NotIn,
+									// the values array must be non-empty. If the operator is Exists or DoesNotExist,
+									// the values array must be empty. This array is replaced during a strategic
+									// merge patch.
+									Values *[]string `json:"values,omitempty"`
+								} `json:"matchExpressions,omitempty"`
+
+								// MatchLabels matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
+								// map is equivalent to an element of matchExpressions, whose key field is "key", the
+								// operator is "In", and the values array contains only "value". The requirements are ANDed.
+								MatchLabels *map[string]string `json:"matchLabels,omitempty"`
+							} `json:"namespaceSelector,omitempty"`
+
+							// Namespaces namespaces specifies a static list of namespace names that the term applies to.
+							// The term is applied to the union of the namespaces listed in this field
+							// and the ones selected by namespaceSelector.
+							// null or empty namespaces list and null namespaceSelector means "this pod's namespace".
+							Namespaces *[]string `json:"namespaces,omitempty"`
+
+							// TopologyKey This pod should be co-located (affinity) or not co-located (anti-affinity) with the pods matching
+							// the labelSelector in the specified namespaces, where co-located is defined as running on a node
+							// whose value of the label with key topologyKey matches that of any node on which any of the
+							// selected pods is running.
+							// Empty topologyKey is not allowed.
+							TopologyKey string `json:"topologyKey"`
+						} `json:"requiredDuringSchedulingIgnoredDuringExecution,omitempty"`
+					} `json:"podAffinity,omitempty"`
+
+					// PodAntiAffinity Describes pod anti-affinity scheduling rules (e.g. avoid putting this pod in the same node, zone, etc. as some other pod(s)).
+					PodAntiAffinity *struct {
+						// PreferredDuringSchedulingIgnoredDuringExecution The scheduler will prefer to schedule pods to nodes that satisfy
+						// the anti-affinity expressions specified by this field, but it may choose
+						// a node that violates one or more of the expressions. The node that is
+						// most preferred is the one with the greatest sum of weights, i.e.
+						// for each node that meets all of the scheduling requirements (resource
+						// request, requiredDuringScheduling anti-affinity expressions, etc.),
+						// compute a sum by iterating through the elements of this field and subtracting
+						// "weight" from the sum if the node has pods which matches the corresponding podAffinityTerm; the
+						// node(s) with the highest sum are the most preferred.
+						PreferredDuringSchedulingIgnoredDuringExecution *[]struct {
+							// PodAffinityTerm Required. A pod affinity term, associated with the corresponding weight.
+							PodAffinityTerm struct {
+								// LabelSelector A label query over a set of resources, in this case pods.
+								// If it's null, this PodAffinityTerm matches with no Pods.
+								LabelSelector *struct {
+									// MatchExpressions matchExpressions is a list of label selector requirements. The requirements are ANDed.
+									MatchExpressions *[]struct {
+										// Key key is the label key that the selector applies to.
+										Key string `json:"key"`
+
+										// Operator operator represents a key's relationship to a set of values.
+										// Valid operators are In, NotIn, Exists and DoesNotExist.
+										Operator string `json:"operator"`
+
+										// Values values is an array of string values. If the operator is In or NotIn,
+										// the values array must be non-empty. If the operator is Exists or DoesNotExist,
+										// the values array must be empty. This array is replaced during a strategic
+										// merge patch.
+										Values *[]string `json:"values,omitempty"`
+									} `json:"matchExpressions,omitempty"`
+
+									// MatchLabels matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
+									// map is equivalent to an element of matchExpressions, whose key field is "key", the
+									// operator is "In", and the values array contains only "value". The requirements are ANDed.
+									MatchLabels *map[string]string `json:"matchLabels,omitempty"`
+								} `json:"labelSelector,omitempty"`
+
+								// MatchLabelKeys MatchLabelKeys is a set of pod label keys to select which pods will
+								// be taken into consideration. The keys are used to lookup values from the
+								// incoming pod labels, those key-value labels are merged with `labelSelector` as `key in (value)`
+								// to select the group of existing pods which pods will be taken into consideration
+								// for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming
+								// pod labels will be ignored. The default value is empty.
+								// The same key is forbidden to exist in both matchLabelKeys and labelSelector.
+								// Also, matchLabelKeys cannot be set when labelSelector isn't set.
+								MatchLabelKeys *[]string `json:"matchLabelKeys,omitempty"`
+
+								// MismatchLabelKeys MismatchLabelKeys is a set of pod label keys to select which pods will
+								// be taken into consideration. The keys are used to lookup values from the
+								// incoming pod labels, those key-value labels are merged with `labelSelector` as `key notin (value)`
+								// to select the group of existing pods which pods will be taken into consideration
+								// for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming
+								// pod labels will be ignored. The default value is empty.
+								// The same key is forbidden to exist in both mismatchLabelKeys and labelSelector.
+								// Also, mismatchLabelKeys cannot be set when labelSelector isn't set.
+								MismatchLabelKeys *[]string `json:"mismatchLabelKeys,omitempty"`
+
+								// NamespaceSelector A label query over the set of namespaces that the term applies to.
+								// The term is applied to the union of the namespaces selected by this field
+								// and the ones listed in the namespaces field.
+								// null selector and null or empty namespaces list means "this pod's namespace".
+								// An empty selector ({}) matches all namespaces.
+								NamespaceSelector *struct {
+									// MatchExpressions matchExpressions is a list of label selector requirements. The requirements are ANDed.
+									MatchExpressions *[]struct {
+										// Key key is the label key that the selector applies to.
+										Key string `json:"key"`
+
+										// Operator operator represents a key's relationship to a set of values.
+										// Valid operators are In, NotIn, Exists and DoesNotExist.
+										Operator string `json:"operator"`
+
+										// Values values is an array of string values. If the operator is In or NotIn,
+										// the values array must be non-empty. If the operator is Exists or DoesNotExist,
+										// the values array must be empty. This array is replaced during a strategic
+										// merge patch.
+										Values *[]string `json:"values,omitempty"`
+									} `json:"matchExpressions,omitempty"`
+
+									// MatchLabels matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
+									// map is equivalent to an element of matchExpressions, whose key field is "key", the
+									// operator is "In", and the values array contains only "value". The requirements are ANDed.
+									MatchLabels *map[string]string `json:"matchLabels,omitempty"`
+								} `json:"namespaceSelector,omitempty"`
+
+								// Namespaces namespaces specifies a static list of namespace names that the term applies to.
+								// The term is applied to the union of the namespaces listed in this field
+								// and the ones selected by namespaceSelector.
+								// null or empty namespaces list and null namespaceSelector means "this pod's namespace".
+								Namespaces *[]string `json:"namespaces,omitempty"`
+
+								// TopologyKey This pod should be co-located (affinity) or not co-located (anti-affinity) with the pods matching
+								// the labelSelector in the specified namespaces, where co-located is defined as running on a node
+								// whose value of the label with key topologyKey matches that of any node on which any of the
+								// selected pods is running.
+								// Empty topologyKey is not allowed.
+								TopologyKey string `json:"topologyKey"`
+							} `json:"podAffinityTerm"`
+
+							// Weight weight associated with matching the corresponding podAffinityTerm,
+							// in the range 1-100.
+							Weight int32 `json:"weight"`
+						} `json:"preferredDuringSchedulingIgnoredDuringExecution,omitempty"`
+
+						// RequiredDuringSchedulingIgnoredDuringExecution If the anti-affinity requirements specified by this field are not met at
+						// scheduling time, the pod will not be scheduled onto the node.
+						// If the anti-affinity requirements specified by this field cease to be met
+						// at some point during pod execution (e.g. due to a pod label update), the
+						// system may or may not try to eventually evict the pod from its node.
+						// When there are multiple elements, the lists of nodes corresponding to each
+						// podAffinityTerm are intersected, i.e. all terms must be satisfied.
+						RequiredDuringSchedulingIgnoredDuringExecution *[]struct {
+							// LabelSelector A label query over a set of resources, in this case pods.
+							// If it's null, this PodAffinityTerm matches with no Pods.
+							LabelSelector *struct {
+								// MatchExpressions matchExpressions is a list of label selector requirements. The requirements are ANDed.
+								MatchExpressions *[]struct {
+									// Key key is the label key that the selector applies to.
+									Key string `json:"key"`
+
+									// Operator operator represents a key's relationship to a set of values.
+									// Valid operators are In, NotIn, Exists and DoesNotExist.
+									Operator string `json:"operator"`
+
+									// Values values is an array of string values. If the operator is In or NotIn,
+									// the values array must be non-empty. If the operator is Exists or DoesNotExist,
+									// the values array must be empty. This array is replaced during a strategic
+									// merge patch.
+									Values *[]string `json:"values,omitempty"`
+								} `json:"matchExpressions,omitempty"`
+
+								// MatchLabels matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
+								// map is equivalent to an element of matchExpressions, whose key field is "key", the
+								// operator is "In", and the values array contains only "value". The requirements are ANDed.
+								MatchLabels *map[string]string `json:"matchLabels,omitempty"`
+							} `json:"labelSelector,omitempty"`
+
+							// MatchLabelKeys MatchLabelKeys is a set of pod label keys to select which pods will
+							// be taken into consideration. The keys are used to lookup values from the
+							// incoming pod labels, those key-value labels are merged with `labelSelector` as `key in (value)`
+							// to select the group of existing pods which pods will be taken into consideration
+							// for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming
+							// pod labels will be ignored. The default value is empty.
+							// The same key is forbidden to exist in both matchLabelKeys and labelSelector.
+							// Also, matchLabelKeys cannot be set when labelSelector isn't set.
+							MatchLabelKeys *[]string `json:"matchLabelKeys,omitempty"`
+
+							// MismatchLabelKeys MismatchLabelKeys is a set of pod label keys to select which pods will
+							// be taken into consideration. The keys are used to lookup values from the
+							// incoming pod labels, those key-value labels are merged with `labelSelector` as `key notin (value)`
+							// to select the group of existing pods which pods will be taken into consideration
+							// for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming
+							// pod labels will be ignored. The default value is empty.
+							// The same key is forbidden to exist in both mismatchLabelKeys and labelSelector.
+							// Also, mismatchLabelKeys cannot be set when labelSelector isn't set.
+							MismatchLabelKeys *[]string `json:"mismatchLabelKeys,omitempty"`
+
+							// NamespaceSelector A label query over the set of namespaces that the term applies to.
+							// The term is applied to the union of the namespaces selected by this field
+							// and the ones listed in the namespaces field.
+							// null selector and null or empty namespaces list means "this pod's namespace".
+							// An empty selector ({}) matches all namespaces.
+							NamespaceSelector *struct {
+								// MatchExpressions matchExpressions is a list of label selector requirements. The requirements are ANDed.
+								MatchExpressions *[]struct {
+									// Key key is the label key that the selector applies to.
+									Key string `json:"key"`
+
+									// Operator operator represents a key's relationship to a set of values.
+									// Valid operators are In, NotIn, Exists and DoesNotExist.
+									Operator string `json:"operator"`
+
+									// Values values is an array of string values. If the operator is In or NotIn,
+									// the values array must be non-empty. If the operator is Exists or DoesNotExist,
+									// the values array must be empty. This array is replaced during a strategic
+									// merge patch.
+									Values *[]string `json:"values,omitempty"`
+								} `json:"matchExpressions,omitempty"`
+
+								// MatchLabels matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
+								// map is equivalent to an element of matchExpressions, whose key field is "key", the
+								// operator is "In", and the values array contains only "value". The requirements are ANDed.
+								MatchLabels *map[string]string `json:"matchLabels,omitempty"`
+							} `json:"namespaceSelector,omitempty"`
+
+							// Namespaces namespaces specifies a static list of namespace names that the term applies to.
+							// The term is applied to the union of the namespaces listed in this field
+							// and the ones selected by namespaceSelector.
+							// null or empty namespaces list and null namespaceSelector means "this pod's namespace".
+							Namespaces *[]string `json:"namespaces,omitempty"`
+
+							// TopologyKey This pod should be co-located (affinity) or not co-located (anti-affinity) with the pods matching
+							// the labelSelector in the specified namespaces, where co-located is defined as running on a node
+							// whose value of the label with key topologyKey matches that of any node on which any of the
+							// selected pods is running.
+							// Empty topologyKey is not allowed.
+							TopologyKey string `json:"topologyKey"`
+						} `json:"requiredDuringSchedulingIgnoredDuringExecution,omitempty"`
+					} `json:"podAntiAffinity,omitempty"`
+				} `json:"affinity,omitempty"`
+
+				// NodeSelector NodeSelector must match a node's labels for the pods to be schedulable
+				// onto that node.
+				NodeSelector *map[string]string `json:"nodeSelector,omitempty"`
+
+				// SchedulerName SchedulerName selects the scheduler that dispatches the pods.
+				// When omitted the cluster's default scheduler is used.
+				SchedulerName *string `json:"schedulerName,omitempty"`
+
+				// Tolerations Tolerations allow the pods to schedule onto nodes carrying matching
+				// taints, typically nodes reserved for database workloads.
+				Tolerations *[]struct {
+					// Effect Effect indicates the taint effect to match. Empty means match all taint effects.
+					// When specified, allowed values are NoSchedule, PreferNoSchedule and NoExecute.
+					Effect *string `json:"effect,omitempty"`
+
+					// Key Key is the taint key that the toleration applies to. Empty means match all taint keys.
+					// If the key is empty, operator must be Exists; this combination means to match all values and all keys.
+					Key *string `json:"key,omitempty"`
+
+					// Operator Operator represents a key's relationship to the value.
+					// Valid operators are Exists, Equal, Lt, and Gt. Defaults to Equal.
+					// Exists is equivalent to wildcard for value, so that a pod can
+					// tolerate all taints of a particular category.
+					// Lt and Gt perform numeric comparisons (requires feature gate TaintTolerationComparisonOperators).
+					Operator *string `json:"operator,omitempty"`
+
+					// TolerationSeconds TolerationSeconds represents the period of time the toleration (which must be
+					// of effect NoExecute, otherwise this field is ignored) tolerates the taint. By default,
+					// it is not set, which means tolerate the taint forever (do not evict). Zero and
+					// negative values will be treated as 0 (evict immediately) by the system.
+					TolerationSeconds *int64 `json:"tolerationSeconds,omitempty"`
+
+					// Value Value is the taint value the toleration matches to.
+					// If the operator is Exists, the value should be empty, otherwise just a regular string.
+					Value *string `json:"value,omitempty"`
+				} `json:"tolerations,omitempty"`
+
+				// TopologySpreadConstraints TopologySpreadConstraints describe how the pods spread across topology
+				// domains. All constraints are ANDed.
+				TopologySpreadConstraints *[]struct {
+					// LabelSelector LabelSelector is used to find matching pods.
+					// Pods that match this label selector are counted to determine the number of pods
+					// in their corresponding topology domain.
+					LabelSelector *struct {
+						// MatchExpressions matchExpressions is a list of label selector requirements. The requirements are ANDed.
+						MatchExpressions *[]struct {
+							// Key key is the label key that the selector applies to.
+							Key string `json:"key"`
+
+							// Operator operator represents a key's relationship to a set of values.
+							// Valid operators are In, NotIn, Exists and DoesNotExist.
+							Operator string `json:"operator"`
+
+							// Values values is an array of string values. If the operator is In or NotIn,
+							// the values array must be non-empty. If the operator is Exists or DoesNotExist,
+							// the values array must be empty. This array is replaced during a strategic
+							// merge patch.
+							Values *[]string `json:"values,omitempty"`
+						} `json:"matchExpressions,omitempty"`
+
+						// MatchLabels matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
+						// map is equivalent to an element of matchExpressions, whose key field is "key", the
+						// operator is "In", and the values array contains only "value". The requirements are ANDed.
+						MatchLabels *map[string]string `json:"matchLabels,omitempty"`
+					} `json:"labelSelector,omitempty"`
+
+					// MatchLabelKeys MatchLabelKeys is a set of pod label keys to select the pods over which
+					// spreading will be calculated. The keys are used to lookup values from the
+					// incoming pod labels, those key-value labels are ANDed with labelSelector
+					// to select the group of existing pods over which spreading will be calculated
+					// for the incoming pod. The same key is forbidden to exist in both MatchLabelKeys and LabelSelector.
+					// MatchLabelKeys cannot be set when LabelSelector isn't set.
+					// Keys that don't exist in the incoming pod labels will
+					// be ignored. A null or empty list means only match against labelSelector.
+					//
+					// This is a beta field and requires the MatchLabelKeysInPodTopologySpread feature gate to be enabled (enabled by default).
+					MatchLabelKeys *[]string `json:"matchLabelKeys,omitempty"`
+
+					// MaxSkew MaxSkew describes the degree to which pods may be unevenly distributed.
+					// When `whenUnsatisfiable=DoNotSchedule`, it is the maximum permitted difference
+					// between the number of matching pods in the target topology and the global minimum.
+					// The global minimum is the minimum number of matching pods in an eligible domain
+					// or zero if the number of eligible domains is less than MinDomains.
+					// For example, in a 3-zone cluster, MaxSkew is set to 1, and pods with the same
+					// labelSelector spread as 2/2/1:
+					// In this case, the global minimum is 1.
+					// | zone1 | zone2 | zone3 |
+					// |  P P  |  P P  |   P   |
+					// - if MaxSkew is 1, incoming pod can only be scheduled to zone3 to become 2/2/2;
+					// scheduling it onto zone1(zone2) would make the ActualSkew(3-1) on zone1(zone2)
+					// violate MaxSkew(1).
+					// - if MaxSkew is 2, incoming pod can be scheduled onto any zone.
+					// When `whenUnsatisfiable=ScheduleAnyway`, it is used to give higher precedence
+					// to topologies that satisfy it.
+					// It's a required field. Default value is 1 and 0 is not allowed.
+					MaxSkew int32 `json:"maxSkew"`
+
+					// MinDomains MinDomains indicates a minimum number of eligible domains.
+					// When the number of eligible domains with matching topology keys is less than minDomains,
+					// Pod Topology Spread treats "global minimum" as 0, and then the calculation of Skew is performed.
+					// And when the number of eligible domains with matching topology keys equals or greater than minDomains,
+					// this value has no effect on scheduling.
+					// As a result, when the number of eligible domains is less than minDomains,
+					// scheduler won't schedule more than maxSkew Pods to those domains.
+					// If value is nil, the constraint behaves as if MinDomains is equal to 1.
+					// Valid values are integers greater than 0.
+					// When value is not nil, WhenUnsatisfiable must be DoNotSchedule.
+					//
+					// For example, in a 3-zone cluster, MaxSkew is set to 2, MinDomains is set to 5 and pods with the same
+					// labelSelector spread as 2/2/2:
+					// | zone1 | zone2 | zone3 |
+					// |  P P  |  P P  |  P P  |
+					// The number of domains is less than 5(MinDomains), so "global minimum" is treated as 0.
+					// In this situation, new pod with the same labelSelector cannot be scheduled,
+					// because computed skew will be 3(3 - 0) if new Pod is scheduled to any of the three zones,
+					// it will violate MaxSkew.
+					MinDomains *int32 `json:"minDomains,omitempty"`
+
+					// NodeAffinityPolicy NodeAffinityPolicy indicates how we will treat Pod's nodeAffinity/nodeSelector
+					// when calculating pod topology spread skew. Options are:
+					// - Honor: only nodes matching nodeAffinity/nodeSelector are included in the calculations.
+					// - Ignore: nodeAffinity/nodeSelector are ignored. All nodes are included in the calculations.
+					//
+					// If this value is nil, the behavior is equivalent to the Honor policy.
+					NodeAffinityPolicy *string `json:"nodeAffinityPolicy,omitempty"`
+
+					// NodeTaintsPolicy NodeTaintsPolicy indicates how we will treat node taints when calculating
+					// pod topology spread skew. Options are:
+					// - Honor: nodes without taints, along with tainted nodes for which the incoming pod
+					// has a toleration, are included.
+					// - Ignore: node taints are ignored. All nodes are included.
+					//
+					// If this value is nil, the behavior is equivalent to the Ignore policy.
+					NodeTaintsPolicy *string `json:"nodeTaintsPolicy,omitempty"`
+
+					// TopologyKey TopologyKey is the key of node labels. Nodes that have a label with this key
+					// and identical values are considered to be in the same topology.
+					// We consider each <key, value> as a "bucket", and try to put balanced number
+					// of pods into each bucket.
+					// We define a domain as a particular instance of a topology.
+					// Also, we define an eligible domain as a domain whose nodes meet the requirements of
+					// nodeAffinityPolicy and nodeTaintsPolicy.
+					// e.g. If TopologyKey is "kubernetes.io/hostname", each Node is a domain of that topology.
+					// And, if TopologyKey is "topology.kubernetes.io/zone", each zone is a domain of that topology.
+					// It's a required field.
+					TopologyKey string `json:"topologyKey"`
+
+					// WhenUnsatisfiable WhenUnsatisfiable indicates how to deal with a pod if it doesn't satisfy
+					// the spread constraint.
+					// - DoNotSchedule (default) tells the scheduler not to schedule it.
+					// - ScheduleAnyway tells the scheduler to schedule the pod in any location,
+					//   but giving higher precedence to topologies that would help reduce the
+					//   skew.
+					// A constraint is considered "Unsatisfiable" for an incoming pod
+					// if and only if every possible node assignment for that pod would violate
+					// "MaxSkew" on some topology.
+					// For example, in a 3-zone cluster, MaxSkew is set to 1, and pods with the same
+					// labelSelector spread as 3/1/1:
+					// | zone1 | zone2 | zone3 |
+					// | P P P |   P   |   P   |
+					// If WhenUnsatisfiable is set to DoNotSchedule, incoming pod can only be scheduled
+					// to zone2(zone3) to become 3/2/1(3/1/2) as ActualSkew(2-1) on zone2(zone3) satisfies
+					// MaxSkew(1). In other words, the cluster can still be imbalanced, but scheduler
+					// won't make it *more* imbalanced.
+					// It's a required field.
+					WhenUnsatisfiable string `json:"whenUnsatisfiable"`
+				} `json:"topologySpreadConstraints,omitempty"`
+			} `json:"schedulingPolicy,omitempty"`
+
+			// Service Service defines how this component is exposed.
+			Service *struct {
+				// Annotations Annotations is a map of key-value pairs for annotating the Service.
+				// Commonly used to configure cloud provider settings
+				// (e.g., AWS ELB annotations, GCP load balancer settings).
+				Annotations *map[string]string `json:"annotations,omitempty"`
+
+				// LoadBalancerService LoadBalancerService contains LoadBalancer-specific configuration.
+				// Only applicable for "LoadBalancer" ServiceType.
+				LoadBalancerService *struct {
+					// SourceRanges SourceRanges lists IP source ranges (CIDR notation) that are
+					// allowed to access the load balancer.
+					// If unset, there is no limitations.
+					SourceRanges *[]string `json:"sourceRanges,omitempty"`
+				} `json:"loadBalancerService,omitempty"`
+
+				// ServiceType ServiceType defines how the component is exposed.
+				// The provider ultimately decides and validates supported service types.
+				ServiceType *string `json:"serviceType,omitempty"`
+			} `json:"service,omitempty"`
+
+			// Storage Storage requirements for this component.
+			// For stateless components, this is an optional field.
+			Storage *struct {
+				Size         *InstancePreset_Spec_Components_Storage_Size `json:"size,omitempty"`
+				StorageClass *string                                      `json:"storageClass,omitempty"`
+			} `json:"storage,omitempty"`
+
+			// Type Type of the component from the Provider.
+			Type *string `json:"type,omitempty"`
+
+			// Version Version of the component from ComponentVersions.
+			Version *string `json:"version,omitempty"`
+		} `json:"components,omitempty"`
+
+		// DataSource DataSource allows creating a new Instance from an existing
+		// Backup CR of another Instance.
+		//
+		// Only ProviderManaged BackupClasses are supported. The referenced Backup
+		// must be in the same namespace, in Succeeded state, and its BackupClass
+		// must list the Instance's provider in SupportedProviders. Instance must
+		// also have backup enabled and include a storage entry that matches the
+		// storage used by the source Backup so the provider can access the data.
+		DataSource *struct {
+			// Backup Backup identifies the backup to restore. Required when type=Backup.
+			Backup *struct {
+				// BackupRef BackupRef references the Backup CR in the same namespace.
+				BackupRef struct {
+					// Name Name of the referenced object.
+					Name string `json:"name"`
+				} `json:"backupRef"`
+			} `json:"backup,omitempty"`
+
+			// PointInTime PointInTime identifies the stream and the point to recover to.
+			// Required when type=PointInTime.
+			PointInTime *struct {
+				// Date Date is the recovery point, RFC 3339 with an explicit UTC offset.
+				// Required when RecoveryTarget is "date", forbidden otherwise. Providers
+				// convert it to the engine's expected representation; several engines
+				// interpret timezone-less timestamps as node-local, so the offset is not
+				// optional.
+				Date *time.Time `json:"date,omitempty"`
+
+				// RecoveryTarget RecoveryTarget selects date-based or latest recovery. This enum is
+				// deliberately closed: date and latest are the only recovery targets that
+				// are meaningful without knowing which engine is running. Engine-specific
+				// targets (GTID, LSN, XID, named restore points) are out of scope.
+				RecoveryTarget InstancePresetSpecDataSourcePointInTimeRecoveryTarget `json:"recoveryTarget"`
+
+				// Source Source identifies the backup stream to recover from.
+				Source struct {
+					// InstanceRef InstanceRef names the Instance whose stream to recover. Defaults to the
+					// Restore's target Instance when omitted; required when seeding a new
+					// Instance via Instance.spec.dataSource, which has no stream of its own.
+					InstanceRef *struct {
+						// Name Name of the referenced object.
+						Name string `json:"name"`
+					} `json:"instanceRef,omitempty"`
+
+					// StorageRef StorageRef selects which of the source Instance's registered
+					// BackupStorages to read the stream from. It must name a storage with
+					// .pitr.enabled=true on that Instance.
+					StorageRef struct {
+						// Name Name of the referenced object.
+						Name string `json:"name"`
+					} `json:"storageRef"`
+				} `json:"source"`
+			} `json:"pointInTime,omitempty"`
+
+			// Type Type selects the restore intent.
+			Type InstancePresetSpecDataSourceType `json:"type"`
+		} `json:"dataSource,omitempty"`
+
+		// DeletionPolicy DeletionPolicy controls what happens to Backup and Restore CRs that
+		// reference this Instance when the Instance is deleted.
+		// Cascade (default) instructs the runtime to delete every Backup and
+		// Restore in the Instance's namespace whose .spec.instanceRef matches
+		// this Instance before tearing down the engine. Each Backup's own
+		// .spec.deletionPolicy then independently controls whether its
+		// underlying data in the BackupStorage is purged or retained.
+		// Orphan instructs the runtime to leave Backup and Restore CRs in
+		// place; they survive the Instance deletion and can later be used to
+		// restore into a newly-created Instance.
+		//
+		// The Instance is held in the Terminating phase until all referenced
+		// Backups/Restores have been deleted (Cascade) or until the engine
+		// resources have been torn down (both policies).
+		//
+		// The field is mutable on a live Instance but is frozen once deletion
+		// has started: switching policies after .metadata.deletionTimestamp
+		// has been set is rejected so the cascade path cannot race with
+		// itself.
+		DeletionPolicy *InstancePresetSpecDeletionPolicy `json:"deletionPolicy,omitempty"`
+
+		// Parameters Parameters contains structured parameters that apply to the Instance
+		// as a whole, complementing the topology- and component-scoped
+		// parameters. The payload is validated against the referenced Provider's
+		// .spec.parametersSchema.
+		Parameters *map[string]interface{} `json:"parameters,omitempty"`
+
+		// ProviderRef ProviderRef references the cluster-scoped Provider that manages this
+		// Instance (e.g., "percona-server-mongodb", "postgresql").
+		ProviderRef struct {
+			// Name Name of the referenced object.
+			Name string `json:"name"`
+		} `json:"providerRef"`
+
+		// Topology Topology defines the deployment topology and its configuration.
+		Topology *struct {
+			// Parameters Parameters contains topology-specific structured parameters, validated
+			// against the provider's topologies[].parametersSchema.
+			// Examples: shard count for sharded topology, replication factor, etc.
+			Parameters *map[string]interface{} `json:"parameters,omitempty"`
+
+			// Type Type is the topology name (e.g., "sharded", "replicaset").
+			// The available topologies are defined by the provider.
+			// If omitted, the provider's default topology is used.
+			Type *string `json:"type,omitempty"`
+		} `json:"topology,omitempty"`
+
+		// Version Version selects a provider-defined version bundle, resolving compatible
+		// versions for all components automatically. Per-component versions set
+		// in Components take precedence over the bundle.
+		// If omitted and the provider defines a default bundle, that bundle is used.
+		Version *string `json:"version,omitempty"`
+	} `json:"spec"`
+
+	// Status status defines the observed state of InstancePreset
+	Status *struct {
+		Conditions *[]struct {
+			// LastTransitionTime lastTransitionTime is the last time the condition transitioned from one status to another.
+			// This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+			LastTransitionTime time.Time `json:"lastTransitionTime"`
+
+			// Message message is a human readable message indicating details about the transition.
+			// This may be an empty string.
+			Message string `json:"message"`
+
+			// ObservedGeneration observedGeneration represents the .metadata.generation that the condition was set based upon.
+			// For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+			// with respect to the current state of the instance.
+			ObservedGeneration *int64 `json:"observedGeneration,omitempty"`
+
+			// Reason reason contains a programmatic identifier indicating the reason for the condition's last transition.
+			// Producers of specific condition types may define expected values and meanings for this field,
+			// and whether the values are considered a guaranteed API.
+			// The value should be a CamelCase string.
+			// This field may not be empty.
+			Reason string `json:"reason"`
+
+			// Status status of the condition, one of True, False, Unknown.
+			Status InstancePresetStatusConditionsStatus `json:"status"`
+
+			// Type type of condition in CamelCase or in foo.example.com/CamelCase.
+			Type string `json:"type"`
+		} `json:"conditions,omitempty"`
+	} `json:"status,omitempty"`
+}
+
+// InstancePresetSpecComponentsResourcesLimits0 defines model for .
+type InstancePresetSpecComponentsResourcesLimits0 = int
+
+// InstancePresetSpecComponentsResourcesLimits1 defines model for .
+type InstancePresetSpecComponentsResourcesLimits1 = string
+
+// InstancePreset_Spec_Components_Resources_Limits_AdditionalProperties defines model for InstancePreset.Spec.Components.Resources.Limits.AdditionalProperties.
+type InstancePreset_Spec_Components_Resources_Limits_AdditionalProperties struct {
+	union json.RawMessage
+}
+
+// InstancePresetSpecComponentsResourcesRequests0 defines model for .
+type InstancePresetSpecComponentsResourcesRequests0 = int
+
+// InstancePresetSpecComponentsResourcesRequests1 defines model for .
+type InstancePresetSpecComponentsResourcesRequests1 = string
+
+// InstancePreset_Spec_Components_Resources_Requests_AdditionalProperties defines model for InstancePreset.Spec.Components.Resources.Requests.AdditionalProperties.
+type InstancePreset_Spec_Components_Resources_Requests_AdditionalProperties struct {
+	union json.RawMessage
+}
+
+// InstancePresetSpecComponentsStorageSize0 defines model for .
+type InstancePresetSpecComponentsStorageSize0 = int
+
+// InstancePresetSpecComponentsStorageSize1 defines model for .
+type InstancePresetSpecComponentsStorageSize1 = string
+
+// InstancePreset_Spec_Components_Storage_Size defines model for InstancePreset.Spec.Components.Storage.Size.
+type InstancePreset_Spec_Components_Storage_Size struct {
+	union json.RawMessage
+}
+
+// InstancePresetSpecDataSourcePointInTimeRecoveryTarget RecoveryTarget selects date-based or latest recovery. This enum is
+// deliberately closed: date and latest are the only recovery targets that
+// are meaningful without knowing which engine is running. Engine-specific
+// targets (GTID, LSN, XID, named restore points) are out of scope.
+type InstancePresetSpecDataSourcePointInTimeRecoveryTarget string
+
+// InstancePresetSpecDataSourceType Type selects the restore intent.
+type InstancePresetSpecDataSourceType string
+
+// InstancePresetSpecDeletionPolicy DeletionPolicy controls what happens to Backup and Restore CRs that
+// reference this Instance when the Instance is deleted.
+// Cascade (default) instructs the runtime to delete every Backup and
+// Restore in the Instance's namespace whose .spec.instanceRef matches
+// this Instance before tearing down the engine. Each Backup's own
+// .spec.deletionPolicy then independently controls whether its
+// underlying data in the BackupStorage is purged or retained.
+// Orphan instructs the runtime to leave Backup and Restore CRs in
+// place; they survive the Instance deletion and can later be used to
+// restore into a newly-created Instance.
+//
+// The Instance is held in the Terminating phase until all referenced
+// Backups/Restores have been deleted (Cascade) or until the engine
+// resources have been torn down (both policies).
+//
+// The field is mutable on a live Instance but is frozen once deletion
+// has started: switching policies after .metadata.deletionTimestamp
+// has been set is rejected so the cascade path cannot race with
+// itself.
+type InstancePresetSpecDeletionPolicy string
+
+// InstancePresetStatusConditionsStatus status of the condition, one of True, False, Unknown.
+type InstancePresetStatusConditionsStatus string
+
+// InstancePresetList InstancePresetList is an object that contains the list of the existing instancepresets.
+type InstancePresetList struct {
+	// ApiVersion APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+	ApiVersion *string           `json:"apiVersion,omitempty"`
+	Items      *[]InstancePreset `json:"items,omitempty"`
+
+	// Kind Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+	Kind     *string `json:"kind,omitempty"`
+	Metadata *struct {
+		// Name Name must be unique within a namespace. Is required when creating resources, although some resources may allow a client to request the generation of an appropriate name automatically. Name is primarily intended for creation idempotence and configuration definition. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names#names
+		Name *string `json:"name,omitempty"`
+	} `json:"metadata,omitempty"`
+}
+
 // MonitoringConfig MonitoringConfig is the Schema for the monitoringconfigs API.
 type MonitoringConfig struct {
 	// ApiVersion APIVersion defines the versioned schema of this representation of an object.
@@ -1819,17 +3641,23 @@ type MonitoringConfig struct {
 	// Cannot be updated.
 	// In CamelCase.
 	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
-	Kind     *string                 `json:"kind,omitempty"`
-	Metadata *map[string]interface{} `json:"metadata,omitempty"`
+	Kind *string `json:"kind,omitempty"`
+
+	// Metadata ObjectMeta is the standard Kubernetes object metadata. Only the fields relevant to the Everest API are described; unknown fields are accepted but may be ignored by the server.
+	Metadata *ObjectMeta `json:"metadata,omitempty"`
 
 	// Spec spec defines the desired state of MonitoringConfig
 	Spec struct {
 		// Pmm PMM contains PMM-specific monitoring configuration.
 		// Required when type is "pmm".
 		Pmm *struct {
-			// CredentialsSecretName CredentialsSecretName is the reference to the secret containing the API key.
-			// It contains `apiKey` key with the API key value.
-			CredentialsSecretName string `json:"credentialsSecretName"`
+			// CredentialsSecretRef CredentialsSecretRef references the Secret in the same namespace
+			// containing the API key. It contains an `apiKey` key with the API key
+			// value.
+			CredentialsSecretRef struct {
+				// Name Name of the referenced Secret.
+				Name string `json:"name"`
+			} `json:"credentialsSecretRef"`
 
 			// Url URL is the URL of the PMM server.
 			Url string `json:"url"`
@@ -1879,6 +3707,9 @@ type MonitoringConfigList struct {
 	} `json:"metadata,omitempty"`
 }
 
+// ObjectMeta ObjectMeta is the standard Kubernetes object metadata. Only the fields relevant to the Everest API are described; unknown fields are accepted but may be ignored by the server.
+type ObjectMeta = metav1.ObjectMeta
+
 // Plugin Plugin is the Schema for the plugins API. It registers an external plugin
 // with the Everest platform, enabling its UI bundle to be loaded dynamically
 // and its backend to be reverse-proxied through the Everest server.
@@ -1894,18 +3725,23 @@ type Plugin struct {
 	// Cannot be updated.
 	// In CamelCase.
 	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
-	Kind     *string                 `json:"kind,omitempty"`
-	Metadata *map[string]interface{} `json:"metadata,omitempty"`
+	Kind *string `json:"kind,omitempty"`
+
+	// Metadata ObjectMeta is the standard Kubernetes object metadata. Only the fields relevant to the Everest API are described; unknown fields are accepted but may be ignored by the server.
+	Metadata *ObjectMeta `json:"metadata,omitempty"`
 
 	// Spec PluginSpec defines the desired state of Plugin
 	Spec struct {
 		// Backend Backend defines the optional backend contribution of the plugin.
 		Backend *struct {
-			// CredentialsSecretRef CredentialsSecretRef is the name of a Secret in the same namespace as
-			// the PluginInstallation (or in everest-system for cluster-wide installs)
-			// whose "token" key is forwarded as the Authorization header to the external backend.
-			// Only meaningful when ExternalURL is set.
-			CredentialsSecretRef *string `json:"credentialsSecretRef,omitempty"`
+			// CredentialsSecretRef CredentialsSecretRef references a Secret in the same namespace as
+			// the InstalledExtension entry whose "token" key is forwarded as the
+			// Authorization header to the external backend. Only meaningful when
+			// ExternalURL is set.
+			CredentialsSecretRef *struct {
+				// Name Name of the referenced Secret.
+				Name string `json:"name"`
+			} `json:"credentialsSecretRef,omitempty"`
 
 			// ExternalUrl ExternalURL is the HTTPS base URL of an externally hosted backend
 			// (e.g. "https://sql-explorer.example.com"). Mutually exclusive with ServiceRef.
@@ -1926,7 +3762,7 @@ type Plugin struct {
 			} `json:"serviceRef,omitempty"`
 		} `json:"backend,omitempty"`
 
-		// Cli CLI defines an optional CLI contribution. When set, `everestctl plugin run`
+		// Cli CLI defines an optional CLI contribution. When set, `everestctl extension run`
 		// can exec a container from the specified image.
 		Cli *struct {
 			// Description Description is a short human-readable description for the CLI help text.
@@ -1935,7 +3771,7 @@ type Plugin struct {
 			// Image Image is the OCI image reference for the CLI container.
 			Image string `json:"image"`
 
-			// Subcommand Subcommand is the name used under `everestctl plugin run <subcommand>`.
+			// Subcommand Subcommand is the name used under `everestctl extension run <subcommand>`.
 			// Defaults to the plugin name if not set.
 			Subcommand *string `json:"subcommand,omitempty"`
 		} `json:"cli,omitempty"`
@@ -1977,10 +3813,12 @@ type Plugin struct {
 				// Path Path is an optional sub-path (used by "route" and tab-type extension points).
 				Path *string `json:"path,omitempty"`
 
-				// Providers Providers is an optional list of database engine types this extension point
-				// applies to. Values match spec.engine.type on the DatabaseCluster CR:
-				// "postgresql", "psmdb", "pxc".
-				// When omitted or empty, the extension point is shown for all engine types.
+				// Providers Providers is an optional list of Provider names this extension point
+				// applies to. Values match spec.providerRef.name on the Instance CR, e.g.
+				// "provider-percona-postgresql", "percona-server-mongodb",
+				// "percona-xtradb-cluster". Provider names are not prefix-consistent
+				// across providers; check the target provider's own definition.
+				// When omitted or empty, the extension point is shown for all providers.
 				Providers *[]string `json:"providers,omitempty"`
 
 				// Type Type is the kind of extension point (e.g. "route", "sidebarItem",
@@ -1993,23 +3831,6 @@ type Plugin struct {
 
 		// Icon Icon is a URL to the plugin's icon image.
 		Icon *string `json:"icon,omitempty"`
-
-		// KubePermissions KubePermissions declares additional Kubernetes API permissions the plugin's
-		// ServiceAccount needs beyond the OpenEverest API. Used by infrastructure
-		// plugins that create per-cluster resources (e.g., ProxySQL deployments).
-		// The host auto-generates a Role from these rules and binds it to the
-		// plugin's ServiceAccount in each namespace where a PluginInstallation exists.
-		// Rules are validated against a hard-coded denylist at reconcile time.
-		KubePermissions *[]struct {
-			// ApiGroups APIGroups is the list of API groups (e.g. "", "apps"). Use "" for core.
-			ApiGroups []string `json:"apiGroups"`
-
-			// Resources Resources is the list of resources (e.g. "deployments", "services").
-			Resources []string `json:"resources"`
-
-			// Verbs Verbs is the list of verbs (e.g. "get", "list", "create", "delete").
-			Verbs []string `json:"verbs"`
-		} `json:"kubePermissions,omitempty"`
 
 		// Permissions Permissions declares what OpenEverest API resources this plugin needs access to.
 		Permissions *[]struct {
@@ -2062,87 +3883,6 @@ type Plugin struct {
 // PluginStatusConditionsStatus status of the condition, one of True, False, Unknown.
 type PluginStatusConditionsStatus string
 
-// PluginInstallation PluginInstallation is the Schema for the plugininstallations API
-type PluginInstallation struct {
-	// ApiVersion APIVersion defines the versioned schema of this representation of an object.
-	// Servers should convert recognized schemas to the latest internal value, and
-	// may reject unrecognized values.
-	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
-	ApiVersion *string `json:"apiVersion,omitempty"`
-
-	// Kind Kind is a string value representing the REST resource this object represents.
-	// Servers may infer this from the endpoint the client submits requests to.
-	// Cannot be updated.
-	// In CamelCase.
-	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
-	Kind     *string                 `json:"kind,omitempty"`
-	Metadata *map[string]interface{} `json:"metadata,omitempty"`
-
-	// Spec PluginInstallationSpec defines the desired state of PluginInstallation
-	Spec struct {
-		// ConfigSecretRef ConfigSecretRef is an optional reference to a Secret in the same namespace
-		// that holds plugin-specific configuration (mounted as env vars in the backend).
-		ConfigSecretRef *string `json:"configSecretRef,omitempty"`
-
-		// Enabled Enabled controls whether the plugin is active in this namespace.
-		Enabled *bool `json:"enabled,omitempty"`
-
-		// PluginName PluginName references the cluster-scoped Plugin CR by name.
-		PluginName string `json:"pluginName"`
-	} `json:"spec"`
-
-	// Status PluginInstallationStatus defines the observed state of PluginInstallation.
-	Status *struct {
-		Conditions *[]struct {
-			// LastTransitionTime lastTransitionTime is the last time the condition transitioned from one status to another.
-			// This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
-			LastTransitionTime time.Time `json:"lastTransitionTime"`
-
-			// Message message is a human readable message indicating details about the transition.
-			// This may be an empty string.
-			Message string `json:"message"`
-
-			// ObservedGeneration observedGeneration represents the .metadata.generation that the condition was set based upon.
-			// For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
-			// with respect to the current state of the instance.
-			ObservedGeneration *int64 `json:"observedGeneration,omitempty"`
-
-			// Reason reason contains a programmatic identifier indicating the reason for the condition's last transition.
-			// Producers of specific condition types may define expected values and meanings for this field,
-			// and whether the values are considered a guaranteed API.
-			// The value should be a CamelCase string.
-			// This field may not be empty.
-			Reason string `json:"reason"`
-
-			// Status status of the condition, one of True, False, Unknown.
-			Status PluginInstallationStatusConditionsStatus `json:"status"`
-
-			// Type type of condition in CamelCase or in foo.example.com/CamelCase.
-			Type string `json:"type"`
-		} `json:"conditions,omitempty"`
-	} `json:"status,omitempty"`
-}
-
-// PluginInstallationStatusConditionsStatus status of the condition, one of True, False, Unknown.
-type PluginInstallationStatusConditionsStatus string
-
-// PluginInstallationList PluginInstallationList is an object that contains the list of the existing plugininstallations.
-type PluginInstallationList struct {
-	// ApiVersion APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
-	ApiVersion *string               `json:"apiVersion,omitempty"`
-	Items      *[]PluginInstallation `json:"items,omitempty"`
-
-	// Kind Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
-	Kind     *string `json:"kind,omitempty"`
-	Metadata *struct {
-		// Name Name must be unique within a namespace. Is required when creating resources, although some resources may allow a client to request the generation of an appropriate name automatically. Name is primarily intended for creation idempotence and configuration definition. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names#names
-		Name *string `json:"name,omitempty"`
-
-		// Namespace Namespace defines the space within which each name must be unique. An empty namespace is equivalent to the "default" namespace, but "default" is the canonical representation. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces
-		Namespace *string `json:"namespace,omitempty"`
-	} `json:"metadata,omitempty"`
-}
-
 // PluginList PluginList is an object that contains the list of the existing plugins.
 type PluginList struct {
 	// ApiVersion APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
@@ -2170,33 +3910,120 @@ type Provider struct {
 	// Cannot be updated.
 	// In CamelCase.
 	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
-	Kind     *string                 `json:"kind,omitempty"`
-	Metadata *map[string]interface{} `json:"metadata,omitempty"`
+	Kind *string `json:"kind,omitempty"`
+
+	// Metadata ObjectMeta is the standard Kubernetes object metadata. Only the fields relevant to the Everest API are described; unknown fields are accepted but may be ignored by the server.
+	Metadata *ObjectMeta `json:"metadata,omitempty"`
 
 	// Spec ProviderSpec defines the desired state of Provider
 	Spec struct {
 		ComponentTypes *map[string]struct {
 			Versions *[]struct {
-				Default *bool   `json:"default,omitempty"`
-				Image   *string `json:"image,omitempty"`
-				Version *string `json:"version,omitempty"`
+				Default *bool `json:"default,omitempty"`
+
+				// Deprecated Deprecated marks a version as still supported but scheduled for
+				// removal. Instances running on it get a proactive warning with a
+				// remediation runway instead of a blocked upgrade.
+				Deprecated *bool   `json:"deprecated,omitempty"`
+				Image      *string `json:"image,omitempty"`
+
+				// RemovedInVersion RemovedInVersion is the provider version (P) in which this engine
+				// version is dropped. Upgrading the provider to >= this version while
+				// an Instance still uses this engine version is a blocking error.
+				RemovedInVersion *string `json:"removedInVersion,omitempty"`
+				Version          *string `json:"version,omitempty"`
 			} `json:"versions,omitempty"`
 		} `json:"componentTypes,omitempty"`
 		Components *map[string]struct {
-			// CustomSpecSchema CustomSpecSchema holds the OpenAPI v3 schema for this component's CustomSpec.
-			CustomSpecSchema *map[string]interface{} `json:"customSpecSchema,omitempty"`
-			Type             *string                 `json:"type,omitempty"`
+			// ParametersSchema ParametersSchema declares the OpenAPI v3 schema for this component's
+			// parameters payload (Instance.spec.components[].parameters).
+			ParametersSchema *struct {
+				// OpenAPIV3Schema OpenAPIV3Schema is the OpenAPI v3 schema describing the accepted
+				// parameters payload.
+				OpenAPIV3Schema interface{} `json:"openAPIV3Schema,omitempty"`
+			} `json:"parametersSchema,omitempty"`
+			Type *string `json:"type,omitempty"`
 		} `json:"components,omitempty"`
 
-		// GlobalConfigSchema GlobalConfigSchema holds the OpenAPI v3 schema for the global configuration.
-		GlobalConfigSchema *map[string]interface{} `json:"globalConfigSchema,omitempty"`
-		Topologies         *map[string]struct {
+		// ConfigMaps ConfigMaps defines ConfigMap types this provider supports.
+		ConfigMaps *map[string]struct {
+			// ParametersSchema ParametersSchema declares the OpenAPI v3 schema for validating configmap data/binaryData.
+			ParametersSchema *struct {
+				// OpenAPIV3Schema OpenAPIV3Schema is the OpenAPI v3 schema describing the accepted
+				// parameters payload.
+				OpenAPIV3Schema interface{} `json:"openAPIV3Schema,omitempty"`
+			} `json:"parametersSchema,omitempty"`
+
+			// UiSchema UISchema holds UI rendering hints for the configmap creation form.
+			UiSchema *map[string]interface{} `json:"uiSchema,omitempty"`
+		} `json:"configMaps,omitempty"`
+
+		// ParametersSchema ParametersSchema declares the OpenAPI v3 schema for the instance-wide
+		// parameters payload (Instance.spec.parameters).
+		ParametersSchema *struct {
+			// OpenAPIV3Schema OpenAPIV3Schema is the OpenAPI v3 schema describing the accepted
+			// parameters payload.
+			OpenAPIV3Schema interface{} `json:"openAPIV3Schema,omitempty"`
+		} `json:"parametersSchema,omitempty"`
+
+		// Release Release identifies this provider release — the shipped unit of
+		// controller, bundled operator, and version catalog — and its
+		// upgrade-path constraints. It is read by the pre-upgrade preflight.
+		Release *struct {
+			// MinUpgradableFrom MinUpgradableFrom is the lowest provider release version from which a
+			// single-step upgrade to this release is permitted; a lower installed
+			// version is blocked and must step through intermediate releases.
+			// Empty means no floor.
+			MinUpgradableFrom *string `json:"minUpgradableFrom,omitempty"`
+
+			// Version Version is the provider release version (P), populated from the chart
+			// appVersion (e.g. "0.3"). Named distinctly from ProviderSpec.Versions
+			// (the engine bundle catalog).
+			Version *string `json:"version,omitempty"`
+		} `json:"release,omitempty"`
+
+		// Secrets Secrets defines Secret types this provider supports.
+		Secrets *map[string]struct {
+			// ParametersSchema ParametersSchema declares the OpenAPI v3 schema for validating secret data/stringData.
+			ParametersSchema *struct {
+				// OpenAPIV3Schema OpenAPIV3Schema is the OpenAPI v3 schema describing the accepted
+				// parameters payload.
+				OpenAPIV3Schema interface{} `json:"openAPIV3Schema,omitempty"`
+			} `json:"parametersSchema,omitempty"`
+
+			// UiSchema UISchema holds UI rendering hints for the secret creation form.
+			UiSchema *map[string]interface{} `json:"uiSchema,omitempty"`
+		} `json:"secrets,omitempty"`
+		Topologies *map[string]struct {
 			Components *map[string]struct {
 				Optional *bool `json:"optional,omitempty"`
+
+				// SupportedFields SupportedFields declares which ComponentSpec fields this component
+				// honours in this topology, as an OpenAPI v3 schema over ComponentSpec's
+				// own properties. A property is declared if and only if the provider
+				// reads it, at any depth, so a component may honour part of a grouped
+				// field such as schedulingPolicy. Constraints the provider enforces
+				// (required, bounds) are expressed with the same schema vocabulary.
+				//
+				// Applicability is declared per topology because core fields configure
+				// the deployment, and the deployment shape is what a topology chooses.
+				//
+				// When unset, no constraint is placed on the component and every field
+				// is accepted, which is the behaviour of providers that do not declare.
+				SupportedFields *struct {
+					// OpenAPIV3Schema OpenAPIV3Schema is the OpenAPI v3 schema describing the accepted
+					// parameters payload.
+					OpenAPIV3Schema interface{} `json:"openAPIV3Schema,omitempty"`
+				} `json:"supportedFields,omitempty"`
 			} `json:"components,omitempty"`
 
-			// ConfigSchema ConfigSchema holds the OpenAPI v3 schema for topology-specific configuration.
-			ConfigSchema *map[string]interface{} `json:"configSchema,omitempty"`
+			// ParametersSchema ParametersSchema declares the OpenAPI v3 schema for topology-specific
+			// parameters (Instance.spec.topology.parameters).
+			ParametersSchema *struct {
+				// OpenAPIV3Schema OpenAPIV3Schema is the OpenAPI v3 schema describing the accepted
+				// parameters payload.
+				OpenAPIV3Schema interface{} `json:"openAPIV3Schema,omitempty"`
+			} `json:"parametersSchema,omitempty"`
 		} `json:"topologies,omitempty"`
 
 		// UiSchema UISchema holds the UI rendering hints for each topology.
@@ -2283,43 +4110,79 @@ type Restore struct {
 	// Cannot be updated.
 	// In CamelCase.
 	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
-	Kind     *string                 `json:"kind,omitempty"`
-	Metadata *map[string]interface{} `json:"metadata,omitempty"`
+	Kind *string `json:"kind,omitempty"`
+
+	// Metadata ObjectMeta is the standard Kubernetes object metadata. Only the fields relevant to the Everest API are described; unknown fields are accepted but may be ignored by the server.
+	Metadata *ObjectMeta `json:"metadata,omitempty"`
 
 	// Spec RestoreSpec defines the desired state of Restore.
 	Spec struct {
-		// Config Config is the restore-time configuration validated against the
-		// BackupClass's .spec.restoreConfig.openAPIV3Schema.
-		Config *map[string]interface{} `json:"config,omitempty"`
-
-		// DataSource DataSource defines where the backup data to restore from is located.
+		// DataSource DataSource identifies the data to restore from. The same type is used
+		// by Instance.spec.dataSource when seeding a new Instance, so both paths
+		// identify a source identically.
 		DataSource struct {
-			// Backup Backup references an existing Backup CR in the same namespace.
-			// Required when type=Backup.
+			// Backup Backup identifies the backup to restore. Required when type=Backup.
 			Backup *struct {
-				// BackupName BackupName is the name of the Backup CR in the same namespace.
-				BackupName string `json:"backupName"`
-
-				// Pitr PITR configures point-in-time recovery on top of this backup.
-				// The resolved BackupClass must advertise PITR support via
-				// .spec.providerManaged for this to be honoured.
-				Pitr *struct {
-					// Date Date is the target recovery point. Required when Type is "date".
-					Date *time.Time `json:"date,omitempty"`
-
-					// Type Type selects date-based or latest recovery.
-					Type interface{} `json:"type"`
-				} `json:"pitr,omitempty"`
+				// BackupRef BackupRef references the Backup CR in the same namespace.
+				BackupRef struct {
+					// Name Name of the referenced object.
+					Name string `json:"name"`
+				} `json:"backupRef"`
 			} `json:"backup,omitempty"`
 
-			// Type Type selects the data source kind.
+			// PointInTime PointInTime identifies the stream and the point to recover to.
+			// Required when type=PointInTime.
+			PointInTime *struct {
+				// Date Date is the recovery point, RFC 3339 with an explicit UTC offset.
+				// Required when RecoveryTarget is "date", forbidden otherwise. Providers
+				// convert it to the engine's expected representation; several engines
+				// interpret timezone-less timestamps as node-local, so the offset is not
+				// optional.
+				Date *time.Time `json:"date,omitempty"`
+
+				// RecoveryTarget RecoveryTarget selects date-based or latest recovery. This enum is
+				// deliberately closed: date and latest are the only recovery targets that
+				// are meaningful without knowing which engine is running. Engine-specific
+				// targets (GTID, LSN, XID, named restore points) are out of scope.
+				RecoveryTarget RestoreSpecDataSourcePointInTimeRecoveryTarget `json:"recoveryTarget"`
+
+				// Source Source identifies the backup stream to recover from.
+				Source struct {
+					// InstanceRef InstanceRef names the Instance whose stream to recover. Defaults to the
+					// Restore's target Instance when omitted; required when seeding a new
+					// Instance via Instance.spec.dataSource, which has no stream of its own.
+					InstanceRef *struct {
+						// Name Name of the referenced object.
+						Name string `json:"name"`
+					} `json:"instanceRef,omitempty"`
+
+					// StorageRef StorageRef selects which of the source Instance's registered
+					// BackupStorages to read the stream from. It must name a storage with
+					// .pitr.enabled=true on that Instance.
+					StorageRef struct {
+						// Name Name of the referenced object.
+						Name string `json:"name"`
+					} `json:"storageRef"`
+				} `json:"source"`
+			} `json:"pointInTime,omitempty"`
+
+			// Type Type selects the restore intent.
 			Type RestoreSpecDataSourceType `json:"type"`
 		} `json:"dataSource"`
 
-		// InstanceName InstanceName is the name of the Instance to restore into. The Instance
+		// InstanceRef InstanceRef references the Instance to restore into. The Instance
 		// must already exist in the same namespace and use a provider listed in
 		// the BackupClass's SupportedProviders.
-		InstanceName string `json:"instanceName"`
+		InstanceRef struct {
+			// Name Name of the referenced object.
+			Name string `json:"name"`
+		} `json:"instanceRef"`
+
+		// Parameters Parameters is the restore-time structured configuration validated
+		// against the resolved BackupClass's .spec.restoreParametersSchema. It
+		// carries restore *operation* modifiers -- how the data is applied --
+		// and applies to both data source types.
+		Parameters *map[string]interface{} `json:"parameters,omitempty"`
 	} `json:"spec"`
 
 	// Status RestoreStatus defines the observed state of Restore.
@@ -2358,9 +4221,12 @@ type Restore struct {
 		// started. Recorded for observability.
 		ExecutionMode *RestoreStatusExecutionMode `json:"executionMode,omitempty"`
 
-		// JobName JobName is the reference to the Job that is running the restore.
+		// JobRef JobRef references the Job that is running the restore.
 		// Populated only for Job classes.
-		JobName *string `json:"jobName,omitempty"`
+		JobRef *struct {
+			// Name Name of the referenced object.
+			Name string `json:"name"`
+		} `json:"jobRef,omitempty"`
 
 		// LastObservedGeneration LastObservedGeneration is the last observed generation of the Restore CR.
 		LastObservedGeneration *int64 `json:"lastObservedGeneration,omitempty"`
@@ -2372,15 +4238,14 @@ type Restore struct {
 		// provider created (e.g., PerconaServerMongoDBRestore). Populated only
 		// for ProviderManaged classes.
 		OperatorRestoreRef *struct {
-			// ApiGroup APIGroup is the group for the resource being referenced.
-			// If APIGroup is not specified, the specified Kind must be in the core API group.
-			// For any other third-party types, APIGroup is required.
-			ApiGroup *string `json:"apiGroup,omitempty"`
+			// Group Group is the API group of the referenced object. Empty for objects in
+			// the core API group.
+			Group *string `json:"group,omitempty"`
 
-			// Kind Kind is the type of resource being referenced
+			// Kind Kind of the referenced object.
 			Kind string `json:"kind"`
 
-			// Name Name is the name of resource being referenced
+			// Name Name of the referenced object.
 			Name string `json:"name"`
 		} `json:"operatorRestoreRef,omitempty"`
 
@@ -2388,11 +4253,17 @@ type Restore struct {
 		StartedAt *time.Time `json:"startedAt,omitempty"`
 
 		// State State is the current state of the restore.
-		State *string `json:"state,omitempty"`
+		State *RestoreStatusState `json:"state,omitempty"`
 	} `json:"status,omitempty"`
 }
 
-// RestoreSpecDataSourceType Type selects the data source kind.
+// RestoreSpecDataSourcePointInTimeRecoveryTarget RecoveryTarget selects date-based or latest recovery. This enum is
+// deliberately closed: date and latest are the only recovery targets that
+// are meaningful without knowing which engine is running. Engine-specific
+// targets (GTID, LSN, XID, named restore points) are out of scope.
+type RestoreSpecDataSourcePointInTimeRecoveryTarget string
+
+// RestoreSpecDataSourceType Type selects the restore intent.
 type RestoreSpecDataSourceType string
 
 // RestoreStatusConditionsStatus status of the condition, one of True, False, Unknown.
@@ -2401,6 +4272,9 @@ type RestoreStatusConditionsStatus string
 // RestoreStatusExecutionMode ExecutionMode is the resolved execution mode at the time the Restore
 // started. Recorded for observability.
 type RestoreStatusExecutionMode string
+
+// RestoreStatusState State is the current state of the restore.
+type RestoreStatusState string
 
 // RestoreList RestoreList is an object that contains the list of the existing restores.
 type RestoreList struct {
@@ -2759,6 +4633,192 @@ func (t Instance_Spec_Components_Storage_Size) MarshalJSON() ([]byte, error) {
 }
 
 func (t *Instance_Spec_Components_Storage_Size) UnmarshalJSON(b []byte) error {
+	err := t.union.UnmarshalJSON(b)
+	return err
+}
+
+// AsInstancePresetSpecComponentsResourcesLimits0 returns the union data inside the InstancePreset_Spec_Components_Resources_Limits_AdditionalProperties as a InstancePresetSpecComponentsResourcesLimits0
+func (t InstancePreset_Spec_Components_Resources_Limits_AdditionalProperties) AsInstancePresetSpecComponentsResourcesLimits0() (InstancePresetSpecComponentsResourcesLimits0, error) {
+	var body InstancePresetSpecComponentsResourcesLimits0
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromInstancePresetSpecComponentsResourcesLimits0 overwrites any union data inside the InstancePreset_Spec_Components_Resources_Limits_AdditionalProperties as the provided InstancePresetSpecComponentsResourcesLimits0
+func (t *InstancePreset_Spec_Components_Resources_Limits_AdditionalProperties) FromInstancePresetSpecComponentsResourcesLimits0(v InstancePresetSpecComponentsResourcesLimits0) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeInstancePresetSpecComponentsResourcesLimits0 performs a merge with any union data inside the InstancePreset_Spec_Components_Resources_Limits_AdditionalProperties, using the provided InstancePresetSpecComponentsResourcesLimits0
+func (t *InstancePreset_Spec_Components_Resources_Limits_AdditionalProperties) MergeInstancePresetSpecComponentsResourcesLimits0(v InstancePresetSpecComponentsResourcesLimits0) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsInstancePresetSpecComponentsResourcesLimits1 returns the union data inside the InstancePreset_Spec_Components_Resources_Limits_AdditionalProperties as a InstancePresetSpecComponentsResourcesLimits1
+func (t InstancePreset_Spec_Components_Resources_Limits_AdditionalProperties) AsInstancePresetSpecComponentsResourcesLimits1() (InstancePresetSpecComponentsResourcesLimits1, error) {
+	var body InstancePresetSpecComponentsResourcesLimits1
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromInstancePresetSpecComponentsResourcesLimits1 overwrites any union data inside the InstancePreset_Spec_Components_Resources_Limits_AdditionalProperties as the provided InstancePresetSpecComponentsResourcesLimits1
+func (t *InstancePreset_Spec_Components_Resources_Limits_AdditionalProperties) FromInstancePresetSpecComponentsResourcesLimits1(v InstancePresetSpecComponentsResourcesLimits1) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeInstancePresetSpecComponentsResourcesLimits1 performs a merge with any union data inside the InstancePreset_Spec_Components_Resources_Limits_AdditionalProperties, using the provided InstancePresetSpecComponentsResourcesLimits1
+func (t *InstancePreset_Spec_Components_Resources_Limits_AdditionalProperties) MergeInstancePresetSpecComponentsResourcesLimits1(v InstancePresetSpecComponentsResourcesLimits1) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+func (t InstancePreset_Spec_Components_Resources_Limits_AdditionalProperties) MarshalJSON() ([]byte, error) {
+	b, err := t.union.MarshalJSON()
+	return b, err
+}
+
+func (t *InstancePreset_Spec_Components_Resources_Limits_AdditionalProperties) UnmarshalJSON(b []byte) error {
+	err := t.union.UnmarshalJSON(b)
+	return err
+}
+
+// AsInstancePresetSpecComponentsResourcesRequests0 returns the union data inside the InstancePreset_Spec_Components_Resources_Requests_AdditionalProperties as a InstancePresetSpecComponentsResourcesRequests0
+func (t InstancePreset_Spec_Components_Resources_Requests_AdditionalProperties) AsInstancePresetSpecComponentsResourcesRequests0() (InstancePresetSpecComponentsResourcesRequests0, error) {
+	var body InstancePresetSpecComponentsResourcesRequests0
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromInstancePresetSpecComponentsResourcesRequests0 overwrites any union data inside the InstancePreset_Spec_Components_Resources_Requests_AdditionalProperties as the provided InstancePresetSpecComponentsResourcesRequests0
+func (t *InstancePreset_Spec_Components_Resources_Requests_AdditionalProperties) FromInstancePresetSpecComponentsResourcesRequests0(v InstancePresetSpecComponentsResourcesRequests0) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeInstancePresetSpecComponentsResourcesRequests0 performs a merge with any union data inside the InstancePreset_Spec_Components_Resources_Requests_AdditionalProperties, using the provided InstancePresetSpecComponentsResourcesRequests0
+func (t *InstancePreset_Spec_Components_Resources_Requests_AdditionalProperties) MergeInstancePresetSpecComponentsResourcesRequests0(v InstancePresetSpecComponentsResourcesRequests0) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsInstancePresetSpecComponentsResourcesRequests1 returns the union data inside the InstancePreset_Spec_Components_Resources_Requests_AdditionalProperties as a InstancePresetSpecComponentsResourcesRequests1
+func (t InstancePreset_Spec_Components_Resources_Requests_AdditionalProperties) AsInstancePresetSpecComponentsResourcesRequests1() (InstancePresetSpecComponentsResourcesRequests1, error) {
+	var body InstancePresetSpecComponentsResourcesRequests1
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromInstancePresetSpecComponentsResourcesRequests1 overwrites any union data inside the InstancePreset_Spec_Components_Resources_Requests_AdditionalProperties as the provided InstancePresetSpecComponentsResourcesRequests1
+func (t *InstancePreset_Spec_Components_Resources_Requests_AdditionalProperties) FromInstancePresetSpecComponentsResourcesRequests1(v InstancePresetSpecComponentsResourcesRequests1) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeInstancePresetSpecComponentsResourcesRequests1 performs a merge with any union data inside the InstancePreset_Spec_Components_Resources_Requests_AdditionalProperties, using the provided InstancePresetSpecComponentsResourcesRequests1
+func (t *InstancePreset_Spec_Components_Resources_Requests_AdditionalProperties) MergeInstancePresetSpecComponentsResourcesRequests1(v InstancePresetSpecComponentsResourcesRequests1) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+func (t InstancePreset_Spec_Components_Resources_Requests_AdditionalProperties) MarshalJSON() ([]byte, error) {
+	b, err := t.union.MarshalJSON()
+	return b, err
+}
+
+func (t *InstancePreset_Spec_Components_Resources_Requests_AdditionalProperties) UnmarshalJSON(b []byte) error {
+	err := t.union.UnmarshalJSON(b)
+	return err
+}
+
+// AsInstancePresetSpecComponentsStorageSize0 returns the union data inside the InstancePreset_Spec_Components_Storage_Size as a InstancePresetSpecComponentsStorageSize0
+func (t InstancePreset_Spec_Components_Storage_Size) AsInstancePresetSpecComponentsStorageSize0() (InstancePresetSpecComponentsStorageSize0, error) {
+	var body InstancePresetSpecComponentsStorageSize0
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromInstancePresetSpecComponentsStorageSize0 overwrites any union data inside the InstancePreset_Spec_Components_Storage_Size as the provided InstancePresetSpecComponentsStorageSize0
+func (t *InstancePreset_Spec_Components_Storage_Size) FromInstancePresetSpecComponentsStorageSize0(v InstancePresetSpecComponentsStorageSize0) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeInstancePresetSpecComponentsStorageSize0 performs a merge with any union data inside the InstancePreset_Spec_Components_Storage_Size, using the provided InstancePresetSpecComponentsStorageSize0
+func (t *InstancePreset_Spec_Components_Storage_Size) MergeInstancePresetSpecComponentsStorageSize0(v InstancePresetSpecComponentsStorageSize0) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsInstancePresetSpecComponentsStorageSize1 returns the union data inside the InstancePreset_Spec_Components_Storage_Size as a InstancePresetSpecComponentsStorageSize1
+func (t InstancePreset_Spec_Components_Storage_Size) AsInstancePresetSpecComponentsStorageSize1() (InstancePresetSpecComponentsStorageSize1, error) {
+	var body InstancePresetSpecComponentsStorageSize1
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromInstancePresetSpecComponentsStorageSize1 overwrites any union data inside the InstancePreset_Spec_Components_Storage_Size as the provided InstancePresetSpecComponentsStorageSize1
+func (t *InstancePreset_Spec_Components_Storage_Size) FromInstancePresetSpecComponentsStorageSize1(v InstancePresetSpecComponentsStorageSize1) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeInstancePresetSpecComponentsStorageSize1 performs a merge with any union data inside the InstancePreset_Spec_Components_Storage_Size, using the provided InstancePresetSpecComponentsStorageSize1
+func (t *InstancePreset_Spec_Components_Storage_Size) MergeInstancePresetSpecComponentsStorageSize1(v InstancePresetSpecComponentsStorageSize1) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+func (t InstancePreset_Spec_Components_Storage_Size) MarshalJSON() ([]byte, error) {
+	b, err := t.union.MarshalJSON()
+	return b, err
+}
+
+func (t *InstancePreset_Spec_Components_Storage_Size) UnmarshalJSON(b []byte) error {
 	err := t.union.UnmarshalJSON(b)
 	return err
 }

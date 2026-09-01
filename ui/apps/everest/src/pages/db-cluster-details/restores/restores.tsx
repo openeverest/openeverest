@@ -37,7 +37,7 @@ import {
   getRestoresListQueryKey,
   useInstanceRestores,
   useDeleteRestore,
-} from 'hooks/api/restores/useDbClusterRestore';
+} from 'hooks/api/restores/useInstanceRestores';
 import { useMemo, useState } from 'react';
 import { RESTORE_STATUS_TO_BASE_STATUS } from './restores.constants';
 import { useQueryClient } from '@tanstack/react-query';

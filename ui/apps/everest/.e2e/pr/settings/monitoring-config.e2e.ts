@@ -14,7 +14,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { expect, test } from '@playwright/test';
+import { expect, test } from '@e2e/fixtures/auth';
 import { findRowAndClickActions, waitForDelete } from '@e2e/utils/table';
 import {
   EVEREST_CI_CLUSTER,
@@ -50,7 +50,7 @@ const mockedMonitoringProvider = {
             components: {
               monitoringConfig: {
                 uiType: 'select',
-                path: 'spec.components.monitoring.customSpec.monitoringConfigName',
+                path: 'spec.components.monitoring.parameters.monitoringConfigName',
                 dataSource: {
                   provider: 'monitoringConfigs',
                 },

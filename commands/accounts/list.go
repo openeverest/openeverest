@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -45,20 +46,22 @@ var (
 func init() {
 	// local command flags
 	accountsListCmd.Flags().BoolVar(&accountsListOpts.NoHeaders, "no-headers", false, "If set, hide table headers")
-	accountsListCmd.Flags().StringSliceVar(&accountsListOpts.Columns, "columns", nil,
-		fmt.Sprintf("Comma-separated list of column names to display. Supported columns: %s, %s, %s.",
+	accountsListCmd.Flags().StringSliceVar(
+		&accountsListOpts.Columns, "columns", nil,
+		fmt.Sprintf(
+			"Comma-separated list of column names to display. Supported columns: %s, %s, %s.",
 			accountscli.ColumnUser, accountscli.ColumnCapabilities, accountscli.ColumnEnabled,
 		),
 	)
 }
 
-func accountsListPreRun(cmd *cobra.Command, _ []string) { //nolint:revive
+func accountsListPreRun(cmd *cobra.Command, _ []string) {
 	// Copy global flags to config
-	accountsListCfg.Pretty = !(cmd.Flag(cli.FlagVerbose).Changed || cmd.Flag(cli.FlagJSON).Changed)
+	accountsListCfg.Pretty = !cmd.Flag(cli.FlagVerbose).Changed && !cmd.Flag(cli.FlagJSON).Changed
 	accountsListCfg.KubeconfigPath = cmd.Flag(cli.FlagKubeconfig).Value.String()
 }
 
-func accountsListRun(cmd *cobra.Command, _ []string) { //nolint:revive
+func accountsListRun(cmd *cobra.Command, _ []string) {
 	cliA, err := accountscli.NewAccounts(*accountsListCfg, logger.GetLogger())
 	if err != nil {
 		output.PrintError(err, logger.GetLogger(), accountsListCfg.Pretty)

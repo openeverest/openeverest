@@ -31,9 +31,8 @@ import {
   // LoadBalancerConfigDetails,
   // LoadBalancerConfiguration,
   Login,
-  LoginCallback,
+  LoginCallbackLoader,
   Logout,
-  PluginsPage,
   // Logs,
   MonitoringEndpoints,
   NamespaceDetails,
@@ -59,7 +58,7 @@ const router = createBrowserRouter([
   },
   {
     path: '/login-callback',
-    element: withSuspense(<LoginCallback />),
+    element: withSuspense(<LoginCallbackLoader />),
   },
   {
     path: '/logout',
@@ -152,11 +151,7 @@ const router = createBrowserRouter([
         ],
       },
       {
-        path: 'plugins',
-        element: withSuspense(<PluginsPage />),
-      },
-      {
-        path: 'ui-generator-builder',
+        path: 'plugin-developer',
         element: withSuspense(<UIGeneratorBuilder />),
       },
       // {

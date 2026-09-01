@@ -19,6 +19,7 @@ import { useLocation } from 'react-router-dom';
 import { useDbInstance } from 'hooks/api/db-instances/useDbInstance';
 import { useProviders } from 'hooks/api/providers/useProviders';
 import { Provider } from 'shared-types/api.types';
+import { useRestoreNavigationState } from './use-restore-navigation-state';
 
 export const useSchema = (): {
   uiSchema: TopologyUISchemas;
@@ -30,10 +31,8 @@ export const useSchema = (): {
   const selectedDbProvider = state?.selectedDbProvider as Provider | undefined;
 
   // Restore mode: resolve provider from the source instance
-  const sourceInstanceName = state?.selectedDbCluster as string | undefined;
-  const sourceNamespace = state?.namespace as string | undefined;
-  const isRestore =
-    !!sourceInstanceName && !!sourceNamespace && !!state?.backupName;
+  const { sourceInstanceName, sourceNamespace, isRestore } =
+    useRestoreNavigationState();
 
   const { data: sourceInstance } = useDbInstance(
     sourceNamespace ?? '',
@@ -43,16 +42,19 @@ export const useSchema = (): {
 
   const { data: providers } = useProviders({
     enabled:
-      isRestore && !selectedDbProvider && !!sourceInstance?.spec?.provider,
+      isRestore &&
+      !selectedDbProvider &&
+      !!sourceInstance?.spec?.providerRef?.name,
   });
 
   const resolvedProvider = useMemo(() => {
     if (selectedDbProvider) return selectedDbProvider;
-    if (!sourceInstance?.spec?.provider || !providers) return undefined;
+    if (!sourceInstance?.spec?.providerRef?.name || !providers)
+      return undefined;
     return providers.find(
-      (p) => p.metadata?.name === sourceInstance.spec.provider
+      (p) => p.metadata?.name === sourceInstance.spec.providerRef.name
     );
-  }, [selectedDbProvider, sourceInstance?.spec?.provider, providers]);
+  }, [selectedDbProvider, sourceInstance?.spec?.providerRef?.name, providers]);
 
   const uiSchema = useMemo(
     () =>

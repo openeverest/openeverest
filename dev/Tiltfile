@@ -19,12 +19,15 @@ local_env_file='{0}/.env'.format(config.main_dir)
 enable_frontend = config_yaml.get('enableFrontendBuild', True)
 print('Frontend Build enabled: {0}'.format(enable_frontend))
 
+enable_plugin_hub = config_yaml.get('enablePluginHub', True)
+print('Plugin Hub enabled: {0}'.format(enable_plugin_hub))
+
 if os.path.exists(local_env_file):
     print ('Loading local .env file={0}'.format(local_env_file))
     dotenv(fn=local_env_file)
 
 cache_dir='{0}/.cache'.format(config.main_dir)
-local('mkdir -p {0}'.format(cache_dir), quiet=True)
+local('mkdir -p "{0}"'.format(cache_dir), quiet=True)
 
 # ===========================
 # VARIABLES
@@ -56,35 +59,11 @@ if not os.path.exists(everest_chart_dir):
     fail('Chart dir does not exist: {0}'.format(everest_chart_dir))
 print('Using chart dir: {0}'.format(everest_chart_dir))
 
-psmdb_provider_chart_dir = os.getenv('PSMDB_PROVIDER_CHART_DIR')
-if not psmdb_provider_chart_dir:
-    fail('PSMDB_PROVIDER_CHART_DIR must be set')
-psmdb_provider_chart_dir = os.path.realpath(psmdb_provider_chart_dir)
-if not os.path.exists(psmdb_provider_chart_dir):
-    fail('PSMDB Provider chart dir does not exist: {0}'.format(psmdb_provider_chart_dir))
-print('Using PSMDB Provider chart dir: {0}'.format(psmdb_provider_chart_dir))
-psmdb_provider_dir = os.path.dirname(os.path.dirname(psmdb_provider_chart_dir))
-print('Using PSMDB Provider dir: {0}'.format(psmdb_provider_dir))
-
-# Optional: Hello Plugin (installed from OCI Helm chart)
-# Set HELLO_PLUGIN_CHART to the OCI chart reference, e.g.:
-#   export HELLO_PLUGIN_CHART=oci://ghcr.io/openeverest/generic-plugin-template
-# Optionally set HELLO_PLUGIN_VERSION to pin a version (defaults to latest).
-hello_plugin_chart = os.getenv('HELLO_PLUGIN_CHART', '')
-hello_plugin_version = os.getenv('HELLO_PLUGIN_VERSION', '')
-if hello_plugin_chart:
-    print('Using Hello Plugin chart: {0} (version: {1})'.format(
-        hello_plugin_chart, hello_plugin_version or 'latest'))
-else:
-    print('HELLO_PLUGIN_CHART not set — skipping hello plugin')
-
-# Optional env vars
-pxc_operator_version = os.getenv('PXC_OPERATOR_VERSION', '1.19.0')
-print('Using PXC operator version: {0}'.format(pxc_operator_version))
-psmdb_operator_version = os.getenv('PSMDB_OPERATOR_VERSION', '1.22.0')
-print('Using PSMDB operator version: {0}'.format(psmdb_operator_version))
-pg_operator_version = os.getenv('PG_OPERATOR_VERSION', '2.8.2')
-print('Using PG operator version: {0}'.format(pg_operator_version))
+# NOTE: This Tiltfile is focused on OpenEverest CORE development only. Database
+# providers (PSMDB, PXC, ...) are developed in their own repositories, each with
+# its own dev/Tiltfile. To exercise a provider against this locally built core,
+# run the provider's Tiltfile in a separate Tilt instance with
+# INSTALL_OPENEVEREST=false (see the provider repo's dev/README.md).
 
 # Check for Everest operator Go build options
 go_default_build_env = 'CGO_ENABLED=0 GOOS=linux'
@@ -94,10 +73,6 @@ print('Using Everest operator build ENV vars: {0}'.format(everest_operator_build
 # Check for Everest server backend Go build options
 everest_backend_build_env = os.getenv('EVEREST_BACKEND_BUILD_ENV', go_default_build_env)
 print('Using Everest server backend build ENV vars: {0}'.format(everest_backend_build_env))
-
-# Check for PSMDB provider Go build options
-psmdb_provider_build_env = os.getenv('PSMDB_PROVIDER_BUILD_ENV', go_default_build_env)
-print('Using PSMDB provider build ENV vars: {0}'.format(psmdb_provider_build_env))
 
 # External resources set up
 k8s_context = os.getenv('K8S_CONTEXT', '')
@@ -137,10 +112,10 @@ watch_settings(
 )
 
 # Ensure operator's kustomize is installed
-local('[ -x %s/bin/kustomize ] || make -C %s kustomize' % (operator_dir, operator_dir), quiet=True)
+local('[ -x "{0}/bin/kustomize" ] || make -C "{0}" kustomize'.format(operator_dir), quiet=True)
 
 # Create namespace
-load('ext://namespace', 'namespace_create', 'namespace_inject')
+load('ext://namespace', 'namespace_create')
 namespace_create(EVEREST_NAMESPACE)
 k8s_resource(
   objects=[
@@ -150,7 +125,7 @@ k8s_resource(
 )
 
 #################################
-## Install DB engine operators ##
+########## Namespaces ###########
 #################################
 
 # Create namespaces
@@ -170,216 +145,6 @@ for namespace in namespaces:
   resource_deps = [
     'namespaces',
   ])
-
-##################################
-## Percona XtraDB Cluster (PXC) ##
-##################################
-
-# Helper function: check if all operator manifest files exist (used as sync guard before k8s_yaml)
-def db_operator_manifests_present(cache_dir, operator_name, version):
-    for manifest_type in ['crd', 'rbac', 'operator']:
-        filename = '{0}/{1}-operator-v{2}-{3}.yaml'.format(cache_dir, operator_name, version, manifest_type)
-        if not os.path.exists(filename):
-            print('Missing db operator manifest, will download: {0}'.format(filename))
-            return False
-    return True
-
-# Synchronous guard: download PXC manifests if missing, ensuring files exist before k8s_yaml() is called
-pxc_base_url = 'https://raw.githubusercontent.com/percona/percona-xtradb-cluster-operator/v{0}/deploy'.format(pxc_operator_version)
-if not db_operator_manifests_present(cache_dir, 'pxc', pxc_operator_version):
-    local(
-        'for manifest in crd rbac operator; do curl -s {0}/$manifest.yaml -o {1}/pxc-operator-v{2}-$manifest.yaml; done'.format(pxc_base_url, cache_dir, pxc_operator_version),
-    )
-
-# Async local resource: redundant if sync guard ran, but provides cleanup and serves as task dependency
-local_resource(
-  'pxc-download-manifests',
-  'for manifest in crd rbac operator; do test -f {0}/pxc-operator-v{1}-$manifest.yaml || curl -s {2}/$manifest.yaml -o {0}/pxc-operator-v{1}-$manifest.yaml; done'.format(cache_dir, pxc_operator_version, pxc_base_url),
-  resource_deps=['namespaces'],
-  labels=["db-operators"]
-)
-
-# Identify namespaces that use PXC operator
-pxc_namespaces = [ns['name'] for ns in config_yaml['namespaces'] if 'pxc' in ns['operators']]
-
-# Deploy PXC CRDs (separately to avoid conflicts with multiple operator deployments)
-if pxc_namespaces:
-  pxc_crd_file = '{0}/pxc-operator-v{1}-crd.yaml'.format(cache_dir, pxc_operator_version)
-  pxc_crd_objects = [
-    'perconaxtradbclusterbackups.pxc.percona.com:customresourcedefinition',
-    'perconaxtradbclusterrestores.pxc.percona.com:customresourcedefinition',
-    'perconaxtradbclusters.pxc.percona.com:customresourcedefinition',
-  ]
-  
-  k8s_yaml(pxc_crd_file)
-  k8s_resource(
-    objects=pxc_crd_objects,
-    new_name='pxc-crds',
-    resource_deps=[
-      'pxc-download-manifests',
-    ],
-    labels=["db-operators"]
-  )
-
-# Deploy PXC operator to each namespace
-for namespace in pxc_namespaces:
-  rbac_file = '{0}/pxc-operator-v{1}-rbac.yaml'.format(cache_dir, pxc_operator_version)
-  operator_file = '{0}/pxc-operator-v{1}-operator.yaml'.format(cache_dir, pxc_operator_version)
-  
-  k8s_yaml(namespace_inject(rbac_file, namespace))
-  k8s_yaml(namespace_inject(operator_file, namespace))
-  
-  # Determine deployment name (include namespace suffix if multiple namespaces)
-  deployment_suffix = ':deployment:' + namespace if len(pxc_namespaces) > 1 else ''
-  
-  k8s_resource(
-    workload='percona-xtradb-cluster-operator{0}'.format(deployment_suffix),
-    objects=[
-      'percona-xtradb-cluster-operator:serviceaccount:{0}'.format(namespace),
-      'percona-xtradb-cluster-operator:role:{0}'.format(namespace),
-      'service-account-percona-xtradb-cluster-operator:rolebinding:{0}'.format(namespace),
-    ],
-    resource_deps=[
-      'namespaces',
-      'pxc-crds',
-    ],
-    new_name='pxc:{0}'.format(namespace),
-    labels=["db-operators"]
-  )
-
-#####################################
-### Percona Server MongoDB (PSMDB) ##
-#####################################
-#
-## Download PSMDB operator manifests
-#psmdb_base_url = 'https://raw.githubusercontent.com/percona/percona-server-mongodb-operator/v{0}/deploy'.format(psmdb_operator_version)
-#
-#local_resource(
-#  'psmdb-download-manifests',
-#  'for manifest in crd rbac operator; do test -f {0}/psmdb-operator-v{1}-$manifest.yaml || curl -s {2}/$manifest.yaml -o {0}/psmdb-operator-v{1}-$manifest.yaml; done'.format(cache_dir, psmdb_operator_version, psmdb_base_url),
-#  resource_deps=['namespaces'],
-#  labels=["db-operators"]
-#)
-#
-## Identify namespaces that use PSMDB operator
-#psmdb_namespaces = [ns['name'] for ns in config_yaml['namespaces'] if 'psmdb' in ns['operators']]
-#
-## Deploy PSMDB CRDs (separately to avoid conflicts with multiple operator deployments)
-#if psmdb_namespaces:
-#  psmdb_crd_file = '{0}/psmdb-operator-v{1}-crd.yaml'.format(cache_dir, psmdb_operator_version)
-#  psmdb_crd_objects = [
-#    'perconaservermongodbbackups.psmdb.percona.com:customresourcedefinition',
-#    'perconaservermongodbrestores.psmdb.percona.com:customresourcedefinition',
-#    'perconaservermongodbs.psmdb.percona.com:customresourcedefinition',
-#  ]
-#  
-#  k8s_yaml(psmdb_crd_file)
-#  k8s_resource(
-#    objects=psmdb_crd_objects,
-#    new_name='psmdb-crds',
-#    resource_deps=[
-#      'psmdb-download-manifests',
-#    ],
-#    labels=["db-operators"]
-#  )
-#
-## Deploy PSMDB operator to each namespace
-#for namespace in psmdb_namespaces:
-#  rbac_file = '{0}/psmdb-operator-v{1}-rbac.yaml'.format(cache_dir, psmdb_operator_version)
-#  operator_file = '{0}/psmdb-operator-v{1}-operator.yaml'.format(cache_dir, psmdb_operator_version)
-#  
-#  k8s_yaml(namespace_inject(rbac_file, namespace))
-#  k8s_yaml(namespace_inject(operator_file, namespace))
-#  
-#  # Determine deployment name (include namespace suffix if multiple namespaces)
-#  deployment_suffix = ':deployment:' + namespace if len(psmdb_namespaces) > 1 else ''
-#  
-#  k8s_resource(
-#    workload='percona-server-mongodb-operator{0}'.format(deployment_suffix),
-#    objects=[
-#      'percona-server-mongodb-operator:serviceaccount:{0}'.format(namespace),
-#      'percona-server-mongodb-operator:role:{0}'.format(namespace),
-#      'service-account-percona-server-mongodb-operator:rolebinding:{0}'.format(namespace),
-#    ],
-#    resource_deps=[
-#      'namespaces',
-#      'psmdb-crds',
-#    ],
-#    new_name='psmdb:{0}'.format(namespace),
-#    labels=["db-operators"]
-#  )
-
-#############################
-## Percona PostgreSQL (PG) ##
-#############################
-
-# Synchronous guard: download PG manifests if missing, ensuring files exist before k8s_yaml() is called
-pg_base_url = 'https://raw.githubusercontent.com/percona/percona-postgresql-operator/v{0}/deploy'.format(pg_operator_version)
-if not db_operator_manifests_present(cache_dir, 'pg', pg_operator_version):
-    local(
-        'for manifest in crd rbac operator; do curl -s {0}/$manifest.yaml -o {1}/pg-operator-v{2}-$manifest.yaml; done'.format(pg_base_url, cache_dir, pg_operator_version),
-    )
-
-# Async local resource: redundant if sync guard ran, but provides cleanup and serves as task dependency
-local_resource(
-  'pg-download-manifests',
-  'for manifest in crd rbac operator; do test -f {0}/pg-operator-v{1}-$manifest.yaml || curl -s {2}/$manifest.yaml -o {0}/pg-operator-v{1}-$manifest.yaml; done'.format(cache_dir, pg_operator_version, pg_base_url),
-  resource_deps=['namespaces'],
-  labels=["db-operators"]
-)
-
-# Identify namespaces that use PG operator
-pg_namespaces = [ns['name'] for ns in config_yaml['namespaces'] if 'pg' in ns['operators']]
-
-# Deploy PG CRDs (separately to avoid conflicts with multiple operator deployments)
-if pg_namespaces:
-  pg_crd_file = '{0}/pg-operator-v{1}-crd.yaml'.format(cache_dir, pg_operator_version)
-  pg_crd_objects = [
-    'perconapgbackups.pgv2.percona.com:customresourcedefinition',
-    'perconapgclusters.pgv2.percona.com:customresourcedefinition',
-    'perconapgrestores.pgv2.percona.com:customresourcedefinition',
-    'postgresclusters.postgres-operator.crunchydata.com:customresourcedefinition',
-    'crunchybridgeclusters.postgres-operator.crunchydata.com:customresourcedefinition',
-    'perconapgupgrades.pgv2.percona.com:customresourcedefinition',
-    'pgadmins.postgres-operator.crunchydata.com:customresourcedefinition',
-    'pgupgrades.postgres-operator.crunchydata.com:customresourcedefinition',
-  ]
-  
-  k8s_yaml(pg_crd_file)
-  k8s_resource(
-    objects=pg_crd_objects,
-    new_name='pg-crds',
-    resource_deps=[
-      'pg-download-manifests',
-    ],
-    labels=["db-operators"]
-  )
-
-# Deploy PG operator to each namespace
-for namespace in pg_namespaces:
-  rbac_file = '{0}/pg-operator-v{1}-rbac.yaml'.format(cache_dir, pg_operator_version)
-  operator_file = '{0}/pg-operator-v{1}-operator.yaml'.format(cache_dir, pg_operator_version)
-  
-  k8s_yaml(namespace_inject(rbac_file, namespace))
-  k8s_yaml(namespace_inject(operator_file, namespace))
-  
-  # Determine deployment name (include namespace suffix if multiple namespaces)
-  deployment_suffix = ':deployment:' + namespace if len(pg_namespaces) > 1 else ''
-  
-  k8s_resource(
-    workload='percona-postgresql-operator{0}'.format(deployment_suffix),
-    objects=[
-      'percona-postgresql-operator:serviceaccount:{0}'.format(namespace),
-      'percona-postgresql-operator:role:{0}'.format(namespace),
-      'percona-postgresql-operator:rolebinding:{0}'.format(namespace),
-    ],
-    resource_deps=[
-      'namespaces',
-      'pg-crds',
-    ],
-    new_name='pg:{0}'.format(namespace),
-    labels=["db-operators"]
-  )
 
 ################################
 ### Deploy Everest Helm chart ##
@@ -424,7 +189,7 @@ def helm_remote_deps_present(chart_dir):
 # synchronously during Tiltfile evaluation — before any local_resource() has run.
 if not helm_remote_deps_present(everest_chart_dir):
     local(
-        'HELM="go tool -modfile={0}/go.mod helm" make -C {1} deps'.format(
+        'HELM=\'go tool -modfile="{0}/go.mod" helm\' make -C "{1}" deps'.format(
             backend_dir, everest_chart_dir,
         ),
     )
@@ -435,10 +200,9 @@ if not helm_remote_deps_present(everest_chart_dir):
 # This correctly handles checking out older versions that may remove .tgz files.
 local_resource(
     'helm-deps',
-    '''HELM_BIN="go tool -modfile={go_mod} helm"
-if $HELM_BIN dependency list "{chart_dir}" | grep -q missing || \
-   $HELM_BIN dependency list "{chart_dir}/charts/pmm3" | grep -q missing; then
-    HELM="$HELM_BIN" make -C "{chart_dir}" deps-build
+    '''if go tool -modfile="{go_mod}" helm dependency list "{chart_dir}" | grep -q missing || \
+   go tool -modfile="{go_mod}" helm dependency list "{chart_dir}/charts/pmm3" | grep -q missing; then
+    HELM='go tool -modfile="{go_mod}" helm' make -C "{chart_dir}" deps-build
 else
     echo "Helm deps already up to date, skipping"
 fi'''.format(
@@ -458,23 +222,27 @@ fi'''.format(
 everest_crds = kustomize('%s/config/crd' % operator_dir)
 k8s_yaml(everest_crds)
 
+everest_helm_set = [
+    'dbNamespace.enabled=false',
+    'operator.init=false',
+    'upgrade.preflightChecks=false',
+    'olm.install=false',
+    'createMonitoringResources=false',
+    'monitoring.crds.enabled=true',
+    'monitoring.crds.plain=false',
+    'monitoring.namespaceOverride={0}'.format(EVEREST_MONITORING_NAMESPACE),
+    'server.initialAdminPassword={0}'.format(UI_ADMIN_PASSWORD),
+]
+if not enable_plugin_hub:
+    everest_helm_set.append('plugins.hub.enabled=false')
+
 everest_yaml = helm(
     everest_chart_dir,
     name='everest',
     namespace=EVEREST_NAMESPACE,
     skip_crds=True,
     values=['./helm-values/webhook-tls-cert-values.yaml'],
-    set=[
-        'dbNamespace.enabled=false',
-        'operator.init=false',
-        'upgrade.preflightChecks=false',
-        'olm.install=false',
-        'createMonitoringResources=false',
-        'monitoring.crds.enabled=true',
-        'monitoring.crds.plain=false',
-        'monitoring.namespaceOverride={0}'.format(EVEREST_MONITORING_NAMESPACE),
-        'server.initialAdminPassword={0}'.format(UI_ADMIN_PASSWORD),
-    ],
+    set=everest_helm_set,
 )
 # we don't need the catalog source
 everest_catalog_source_yaml, everest_yaml = filter_yaml(everest_yaml, kind='CatalogSource', name='everest-catalog')
@@ -762,7 +530,7 @@ if enable_frontend:
   # Build frontend
   local_resource(
       'frontend-init',
-      'CI=1 make -C {0} init'.format(frontend_dir),
+      'CI=1 make -C "{0}" init'.format(frontend_dir),
       deps=[
           '{0}/package.json'.format(frontend_dir),
       ],
@@ -771,7 +539,7 @@ if enable_frontend:
 
   local_resource(
     'frontend-build',
-    'make -C {0} build EVEREST_OUT_DIR={1}/public/dist'.format(frontend_dir, backend_dir),
+    'make -C "{0}" build EVEREST_OUT_DIR="{1}/public/dist"'.format(frontend_dir, backend_dir),
     deps=[
         '{0}/apps'.format(frontend_dir),
     ],
@@ -814,7 +582,7 @@ if everest_debug:
 
 local_resource(
     'backend-generate',
-    'make -C {0} gen'.format(backend_dir),
+    'make -C "{0}" gen'.format(backend_dir),
     deps=[
         '{0}/api'.format(backend_dir),
         '{0}/internal/server/handlers'.format(backend_dir),
@@ -842,7 +610,7 @@ if enable_frontend:
 
 local_resource(
     'backend-build',
-    '{0} make -C {1} {2} && {0} make -C {1} build-controller'.format(everest_backend_build_env, backend_dir, everest_build_target),
+    '{0} make -C "{1}" {2} && {0} make -C "{1}" build-controller'.format(everest_backend_build_env, backend_dir, everest_build_target),
     deps=[
         '{0}/go.mod'.format(backend_dir),
         '{0}/go.sum'.format(backend_dir),
@@ -933,33 +701,6 @@ k8s_resource(
     labels=["everest"]
 )
 
-#################################
-######## Hello Plugin PoC #######
-#################################
-
-if hello_plugin_chart:
-    # Install the hello plugin from an OCI Helm chart registry.
-    # Usage:
-    #   export HELLO_PLUGIN_CHART=oci://ghcr.io/openeverest/generic-plugin-template
-    #   export HELLO_PLUGIN_VERSION=0.1.0  # optional, omit for latest
-    #
-    # If your registry requires authentication, log in first:
-    #   helm registry login ghcr.io -u <user> -p <token>
-    version_flag = '--version {0}'.format(hello_plugin_version) if hello_plugin_version else ''
-    local_resource(
-      'hello-plugin-install',
-      'helm upgrade --install my-plugin {chart} {version} -n {ns} --wait'.format(
-        chart=hello_plugin_chart,
-        version=version_flag,
-        ns=EVEREST_NAMESPACE,
-      ),
-      resource_deps=[
-        'everest-namespace',
-        'crds',
-      ],
-      labels=["plugins"],
-    )
-
 #######################################
 ############ Backup Storages ##########
 #######################################
@@ -1018,8 +759,9 @@ if need_backup_storage:
                     })
                     obj['spec']['s3'].update({
                             'bucket': '{0}'.format(storage_name),
-                            'description': storage_name,
-                            'credentialsSecretName': storage_name,
+                            'credentialsSecretRef': {
+                                'name': storage_name,
+                            },
                     })
             k8s_yaml(encode_yaml_stream(bs_objs))
             k8s_resource(
@@ -1047,118 +789,38 @@ k8s_resource(
     'backupstorages.backup.openeverest.io:customresourcedefinition',
     'instances.core.openeverest.io:customresourcedefinition',
     'monitoringconfigs.monitoring.openeverest.io:customresourcedefinition',
-    'plugins.plugin.openeverest.io:customresourcedefinition',
-    'plugininstallations.plugin.openeverest.io:customresourcedefinition',
+    'plugins.extensions.openeverest.io:customresourcedefinition',
+    'installedextensions.extensions.openeverest.io:customresourcedefinition',
     'providers.core.openeverest.io:customresourcedefinition',
-    'restores.backup.openeverest.io:customresourcedefinition'
+    'restores.backup.openeverest.io:customresourcedefinition',
+    'instancepresets.core.openeverest.io:customresourcedefinition'
   ],
   new_name='crds',
   labels=["everest"]
 )
 
-#######################################
-### Deploy PSMDB Provider Helm chart ##
-#######################################
+#################################
+########## Plugin Hub ###########
+#################################
 
-# Synchronous guard: download PSMDB provider chart dependencies if missing
-if not helm_remote_deps_present(psmdb_provider_chart_dir):
-    local(
-        'cd {0} && helm dependency build'.format(psmdb_provider_chart_dir),
-    )
-
-# Named resource: ensures PSMDB provider dependencies are built before templating
-local_resource(
-    'provider-percona-server-mongodb-deps',
-    'cd {chart_dir} && helm dependency build'.format(
-        chart_dir=psmdb_provider_chart_dir,
-    ),
-    deps=[
-        '{0}/Chart.yaml'.format(psmdb_provider_chart_dir),
+# The plugin-hub subchart (helm dep of the everest chart) ships a Plugin CR.
+# Its CRD is applied by the 'crds' resource above; without this explicit
+# dependency Tilt may try to apply the CR before the CRD is established
+# ("no matches for kind Plugin in version extensions.openeverest.io/v1alpha1").
+# The Deployment/Service use `plugin-hub.fullname` → `everest-plugin-hub`,
+# but the Plugin CR uses `{{ .Chart.Name }}` → `plugin-hub`.
+# Skipped entirely when disabled via `enablePluginHub: false`, since the helm
+# render above (plugins.hub.enabled=false) then produces no plugin-hub objects.
+if enable_plugin_hub:
+  k8s_resource(
+    workload='everest-plugin-hub',
+    objects=[
+      'plugin-hub:plugin',
     ],
-    labels=['providers'],
-)
-
-# Re-run make generate when the definition folder changes (updates provider-spec.yaml in the Helm chart)
-local_resource(
-  'provider-percona-server-mongodb-generate',
-  'make -C {0} generate'.format(psmdb_provider_dir),
-  deps=[
-    '{0}/definition'.format(psmdb_provider_dir),
-  ],
-  labels=['providers'],
-)
-
-# Build the PSMDB provider binary locally to take advantage of the go cache
-local_resource(
-  'provider-percona-server-mongodb-build',
-  'cd {provider_dir} && {build_env} go build -o bin/provider ./cmd/provider/'.format(
-    provider_dir=psmdb_provider_dir,
-    build_env=psmdb_provider_build_env,
-  ),
-  deps=[
-    '{0}/go.mod'.format(psmdb_provider_dir),
-    '{0}/go.sum'.format(psmdb_provider_dir),
-    '{0}/internal'.format(psmdb_provider_dir),
-    '{0}/cmd/provider'.format(psmdb_provider_dir),
-  ],
-  ignore=[
-    '{0}/**/*_test.go'.format(psmdb_provider_dir),
-  ],
-  resource_deps=['provider-percona-server-mongodb-generate'],
-  labels=['providers'],
-)
-
-# Live update the PSMDB provider without generating a new pod
-docker_build_with_restart('ghcr.io/openeverest/provider-percona-server-mongodb-dev',
-  context=psmdb_provider_dir,
-  dockerfile='./psmdb-provider.Dockerfile',
-  target='dev',
-  entrypoint=['/home/provider/provider'],
-  only=['{0}/bin/provider'.format(psmdb_provider_dir)],
-  live_update=[
-    sync('{0}/bin/provider'.format(psmdb_provider_dir), '/home/provider/provider'),
-  ]
-)
-
-psmdb_provider_yaml = helm(
-    psmdb_provider_chart_dir,
-    name='provider-percona-server-mongodb',
-    namespace='default',
-    set=['securityContext.readOnlyRootFilesystem=false'],
-)
-k8s_yaml(psmdb_provider_yaml)
-k8s_resource(
-  workload='provider-percona-server-mongodb',
-  objects=[
-    'provider-percona-server-mongodb:serviceaccount',
-    'provider-percona-server-mongodb:clusterrole',
-    'provider-percona-server-mongodb:clusterrolebinding',
-    'percona-server-mongodb:provider',
-    'percona-backup-mongodb:backupclass',
-  ],
-  resource_deps = [
-    'crds',
-    'provider-percona-server-mongodb-deps',
-    'provider-percona-server-mongodb-generate',
-    'provider-percona-server-mongodb-build',
-  ],
-  new_name='provider-percona-server-mongodb',
-  labels=["providers"]
-)
-k8s_resource(
-  workload='provider-percona-server-mongodb-operator',
-  objects=[
-    'perconaservermongodbbackups.psmdb.percona.com:customresourcedefinition:default',
-    'perconaservermongodbrestores.psmdb.percona.com:customresourcedefinition:default',
-    'perconaservermongodbs.psmdb.percona.com:customresourcedefinition:default',
-    'provider-percona-server-mongodb-operator:serviceaccount:default',
-    'provider-percona-server-mongodb-operator:clusterrole:default',
-    'service-account-provider-percona-server-mongodb-operator:clusterrolebinding:default'
-  ],
-  resource_deps = [
-    'crds',
-    'provider-percona-server-mongodb-deps',
-  ],
-  new_name='provider-percona-server-mongodb-operator',
-  labels=["providers"]
-)
+    resource_deps=[
+      'everest-namespace',
+      'crds',
+    ],
+    new_name='everest-plugin-hub-deploy',
+    labels=["everest"]
+  )

@@ -27,6 +27,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
+	corev1alpha1 "github.com/openeverest/openeverest/v2/api/core/v1alpha1"
 )
 
 // ProviderInterface defines the interface for a database provider.
@@ -297,6 +298,24 @@ type RestoreWatcher interface {
 	RestoreWatches() []WatchConfig
 }
 
+// InstanceBackupStatusReporter is an optional interface a BackupProvider may
+// implement to report per-storage backup observability data that the runtime
+// writes to instance.status.backup after every successful Sync.
+//
+// The canonical use case is surfacing the latest restorable time for
+// PITR-enabled storages: the provider aggregates the engine's recovery-window
+// information (e.g. PerconaServerMongoDBBackup.status.latestRestorableTime)
+// per logical storage name declared in instance.spec.backup.storages.
+//
+// Returning an empty slice (or nil) clears instance.status.backup. Errors are
+// logged by the runtime but never fail the reconcile: this is observability
+// data and the engine itself is healthy.
+type InstanceBackupStatusReporter interface {
+	// BackupStorageStatuses returns the per-storage backup status entries to
+	// publish on instance.status.backup.storages.
+	BackupStorageStatuses(c *Context) ([]corev1alpha1.InstanceBackupStorageStatus, error)
+}
+
 // BackupMirror is an optional interface that providers implement to mirror
 // operator-emitted backup CRs (typically produced by the wrapped operator's own
 // scheduler, e.g. PSMDB BackupTask, pgBackRest cron, Barman scheduler) into
@@ -324,6 +343,24 @@ type BackupMirror interface {
 	// "this operator object should not be mirrored" must be expressed by
 	// returning (nil, nil).
 	Mirror(ctx context.Context, c client.Client, operatorBackup client.Object) (*backupv1alpha1.Backup, error)
+}
+
+// =============================================================================
+// UPGRADE PREFLIGHT (Optional interface for provider-specific upgrade checks)
+// =============================================================================
+
+// UpgradeProvider is an optional interface for provider-specific upgrade
+// preflight checks beyond the generic catalog-membership and upgrade-path
+// checks (see RunUpgradePreflight). Typical use is the bounded-deferral
+// check: blocking an upgrade that would push an Instance with a deferred
+// convergence outside the bundled operator's compatibility window.
+//
+// CheckUpgrade runs inside the chart's Helm pre-upgrade hook, not during
+// reconciliation: c carries the Kubernetes client and context but no
+// Instance, so Instance-scoped Context methods must not be used. Issues with
+// severity UpgradeError abort the upgrade.
+type UpgradeProvider interface {
+	CheckUpgrade(c *Context, target *corev1alpha1.ProviderSpec, instances []corev1alpha1.Instance) []UpgradeIssue
 }
 
 // =============================================================================
