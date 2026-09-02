@@ -17,6 +17,7 @@ package v1alpha1
 import (
 	"slices"
 
+	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -199,6 +200,10 @@ type BackupJobSpec struct {
 	// Command is the command to run the backup class.
 	// +optional
 	Command []string `json:"command,omitempty"`
+	// Resources sets default CPU and memory requests/limits for the job
+	// container. Individual Backup or Restore CRs may override this.
+	// +optional
+	Resources *corev1.ResourceRequirements `json:"resources,omitempty"`
 }
 
 // BackupClassInstanceConstraints defines compatibility requirements and prerequisites
