@@ -819,22 +819,22 @@ type BackupClass struct {
 				// ClusterPermissions ClusterPermissions are cluster-scoped PolicyRules granted via a
 				// generated ClusterRole and ClusterRoleBinding.
 				ClusterPermissions *[]struct {
-					// ApiGroups APIGroups is the name of the APIGroup that contains the resources.  If multiple API groups are specified, any action requested against one of
+					// ApiGroups apiGroups is the name of the APIGroup that contains the resources.  If multiple API groups are specified, any action requested against one of
 					// the enumerated resources in any API group will be allowed. "" represents the core API group and "*" represents all API groups.
 					ApiGroups *[]string `json:"apiGroups,omitempty"`
 
-					// NonResourceURLs NonResourceURLs is a set of partial urls that a user should have access to.  *s are allowed, but only as the full, final step in the path
+					// NonResourceURLs nonResourceURLs is a set of partial urls that a user should have access to.  *s are allowed, but only as the full, final step in the path
 					// Since non-resource URLs are not namespaced, this field is only applicable for ClusterRoles referenced from a ClusterRoleBinding.
 					// Rules can either apply to API resources (such as "pods" or "secrets") or non-resource URL paths (such as "/api"),  but not both.
 					NonResourceURLs *[]string `json:"nonResourceURLs,omitempty"`
 
-					// ResourceNames ResourceNames is an optional white list of names that the rule applies to.  An empty set means that everything is allowed.
+					// ResourceNames resourceNames is an optional white list of names that the rule applies to.  An empty set means that everything is allowed.
 					ResourceNames *[]string `json:"resourceNames,omitempty"`
 
-					// Resources Resources is a list of resources this rule applies to. '*' represents all resources.
+					// Resources resources is a list of resources this rule applies to. '*' represents all resources.
 					Resources *[]string `json:"resources,omitempty"`
 
-					// Verbs Verbs is a list of Verbs that apply to ALL the ResourceKinds contained in this rule. '*' represents all verbs.
+					// Verbs verbs is a list of Verbs that apply to ALL the ResourceKinds contained in this rule. '*' represents all verbs.
 					Verbs []string `json:"verbs"`
 				} `json:"clusterPermissions,omitempty"`
 
@@ -850,22 +850,22 @@ type BackupClass struct {
 				// Permissions Permissions are namespace-scoped PolicyRules granted to the job pod via
 				// a generated Role and RoleBinding.
 				Permissions *[]struct {
-					// ApiGroups APIGroups is the name of the APIGroup that contains the resources.  If multiple API groups are specified, any action requested against one of
+					// ApiGroups apiGroups is the name of the APIGroup that contains the resources.  If multiple API groups are specified, any action requested against one of
 					// the enumerated resources in any API group will be allowed. "" represents the core API group and "*" represents all API groups.
 					ApiGroups *[]string `json:"apiGroups,omitempty"`
 
-					// NonResourceURLs NonResourceURLs is a set of partial urls that a user should have access to.  *s are allowed, but only as the full, final step in the path
+					// NonResourceURLs nonResourceURLs is a set of partial urls that a user should have access to.  *s are allowed, but only as the full, final step in the path
 					// Since non-resource URLs are not namespaced, this field is only applicable for ClusterRoles referenced from a ClusterRoleBinding.
 					// Rules can either apply to API resources (such as "pods" or "secrets") or non-resource URL paths (such as "/api"),  but not both.
 					NonResourceURLs *[]string `json:"nonResourceURLs,omitempty"`
 
-					// ResourceNames ResourceNames is an optional white list of names that the rule applies to.  An empty set means that everything is allowed.
+					// ResourceNames resourceNames is an optional white list of names that the rule applies to.  An empty set means that everything is allowed.
 					ResourceNames *[]string `json:"resourceNames,omitempty"`
 
-					// Resources Resources is a list of resources this rule applies to. '*' represents all resources.
+					// Resources resources is a list of resources this rule applies to. '*' represents all resources.
 					Resources *[]string `json:"resources,omitempty"`
 
-					// Verbs Verbs is a list of Verbs that apply to ALL the ResourceKinds contained in this rule. '*' represents all verbs.
+					// Verbs verbs is a list of Verbs that apply to ALL the ResourceKinds contained in this rule. '*' represents all verbs.
 					Verbs []string `json:"verbs"`
 				} `json:"permissions,omitempty"`
 			} `json:"backup"`
@@ -886,22 +886,22 @@ type BackupClass struct {
 				// ClusterPermissions ClusterPermissions are cluster-scoped PolicyRules granted via a
 				// generated ClusterRole and ClusterRoleBinding.
 				ClusterPermissions *[]struct {
-					// ApiGroups APIGroups is the name of the APIGroup that contains the resources.  If multiple API groups are specified, any action requested against one of
+					// ApiGroups apiGroups is the name of the APIGroup that contains the resources.  If multiple API groups are specified, any action requested against one of
 					// the enumerated resources in any API group will be allowed. "" represents the core API group and "*" represents all API groups.
 					ApiGroups *[]string `json:"apiGroups,omitempty"`
 
-					// NonResourceURLs NonResourceURLs is a set of partial urls that a user should have access to.  *s are allowed, but only as the full, final step in the path
+					// NonResourceURLs nonResourceURLs is a set of partial urls that a user should have access to.  *s are allowed, but only as the full, final step in the path
 					// Since non-resource URLs are not namespaced, this field is only applicable for ClusterRoles referenced from a ClusterRoleBinding.
 					// Rules can either apply to API resources (such as "pods" or "secrets") or non-resource URL paths (such as "/api"),  but not both.
 					NonResourceURLs *[]string `json:"nonResourceURLs,omitempty"`
 
-					// ResourceNames ResourceNames is an optional white list of names that the rule applies to.  An empty set means that everything is allowed.
+					// ResourceNames resourceNames is an optional white list of names that the rule applies to.  An empty set means that everything is allowed.
 					ResourceNames *[]string `json:"resourceNames,omitempty"`
 
-					// Resources Resources is a list of resources this rule applies to. '*' represents all resources.
+					// Resources resources is a list of resources this rule applies to. '*' represents all resources.
 					Resources *[]string `json:"resources,omitempty"`
 
-					// Verbs Verbs is a list of Verbs that apply to ALL the ResourceKinds contained in this rule. '*' represents all verbs.
+					// Verbs verbs is a list of Verbs that apply to ALL the ResourceKinds contained in this rule. '*' represents all verbs.
 					Verbs []string `json:"verbs"`
 				} `json:"clusterPermissions,omitempty"`
 
@@ -917,22 +917,22 @@ type BackupClass struct {
 				// Permissions Permissions are namespace-scoped PolicyRules granted to the job pod via
 				// a generated Role and RoleBinding.
 				Permissions *[]struct {
-					// ApiGroups APIGroups is the name of the APIGroup that contains the resources.  If multiple API groups are specified, any action requested against one of
+					// ApiGroups apiGroups is the name of the APIGroup that contains the resources.  If multiple API groups are specified, any action requested against one of
 					// the enumerated resources in any API group will be allowed. "" represents the core API group and "*" represents all API groups.
 					ApiGroups *[]string `json:"apiGroups,omitempty"`
 
-					// NonResourceURLs NonResourceURLs is a set of partial urls that a user should have access to.  *s are allowed, but only as the full, final step in the path
+					// NonResourceURLs nonResourceURLs is a set of partial urls that a user should have access to.  *s are allowed, but only as the full, final step in the path
 					// Since non-resource URLs are not namespaced, this field is only applicable for ClusterRoles referenced from a ClusterRoleBinding.
 					// Rules can either apply to API resources (such as "pods" or "secrets") or non-resource URL paths (such as "/api"),  but not both.
 					NonResourceURLs *[]string `json:"nonResourceURLs,omitempty"`
 
-					// ResourceNames ResourceNames is an optional white list of names that the rule applies to.  An empty set means that everything is allowed.
+					// ResourceNames resourceNames is an optional white list of names that the rule applies to.  An empty set means that everything is allowed.
 					ResourceNames *[]string `json:"resourceNames,omitempty"`
 
-					// Resources Resources is a list of resources this rule applies to. '*' represents all resources.
+					// Resources resources is a list of resources this rule applies to. '*' represents all resources.
 					Resources *[]string `json:"resources,omitempty"`
 
-					// Verbs Verbs is a list of Verbs that apply to ALL the ResourceKinds contained in this rule. '*' represents all verbs.
+					// Verbs verbs is a list of Verbs that apply to ALL the ResourceKinds contained in this rule. '*' represents all verbs.
 					Verbs []string `json:"verbs"`
 				} `json:"permissions,omitempty"`
 			} `json:"restore,omitempty"`
