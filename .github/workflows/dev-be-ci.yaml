@@ -93,7 +93,7 @@ jobs:
 
       - name: Check that there are no source code changes
         run: |
-          make gen
+          make format
           pushd tools && go mod tidy -v
           popd        && go mod tidy -v
           git status
