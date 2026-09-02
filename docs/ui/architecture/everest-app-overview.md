@@ -70,12 +70,12 @@ sequenceDiagram
 
 2. **Provider stack** —
    Nested context providers that supply global state and services to the entire app:
-   - *Theme + Localization + Snackbar*: MUI theme, i18n, toast notifications.
-   - *React Query*: server-state cache, background refetching, optimistic updates.
-   - *Auth Context*: JWT session, login/logout flow, token refresh.
-   - *Drawer Context*: sidebar open/closed state.
-   - *Plugin Provider*: loads plugin bundles, collects registered extensions, exposes them via `usePlugins()`.
-   - *Upgrade Context*: detects available Everest upgrades and shows a banner.
+   - _Theme + Localization + Snackbar_: MUI theme, i18n, toast notifications.
+   - _React Query_: server-state cache, background refetching, optimistic updates.
+   - _Auth Context_: JWT session, login/logout flow, token refresh.
+   - _Drawer Context_: sidebar open/closed state.
+   - _Plugin Provider_: loads plugin bundles, collects registered extensions, exposes them via `usePlugins()`.
+   - _Upgrade Context_: detects available Everest upgrades and shows a banner.
 
 3. **Routing** —
    [router.tsx](../../../ui/apps/everest/src/router/router.tsx).
@@ -91,7 +91,7 @@ sequenceDiagram
 
 5. **UI Generator subsystem** —
    [components/ui-generator/](../../../ui/apps/everest/src/components/ui-generator)
-   ([ARCHITECTURE.md](../../../ui/apps/everest/src/components/ui-generator/ARCHITECTURE.md)).
+   ([architecture docs](./ui-generator/)).
    Schema-driven engine that renders forms, wizards, detail views, and dialogs
    from JSON schema + UI schema. Schemas are authored by provider developers
    in their provider repos (`definition/topologies/<name>/topology.yaml`,

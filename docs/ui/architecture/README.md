@@ -11,12 +11,14 @@ dependence on tribal knowledge.
 1. [UI Monorepo Overview](./ui-monorepo-overview.md)
 2. [Everest App Overview](./everest-app-overview.md)
 3. [Plugins Architecture](./plugins-architecture.md)
+4. [UI Generator](./ui-generator/README.md)
 
 ## How to Use This Section
 
 1. Start with [UI Monorepo Overview](./ui-monorepo-overview.md) to understand apps/packages/tooling boundaries.
 2. Continue with [Everest App Overview](./everest-app-overview.md) to see composition root, routing, and major subsystems.
 3. Open [Plugins Architecture](./plugins-architecture.md) as a standalone integration contract document.
+4. Dive into [UI Generator](./ui-generator/README.md) for the schema-driven form engine (pipeline stages and the full schema reference).
 
 ## Maintenance Principles
 
@@ -27,4 +29,4 @@ dependence on tribal knowledge.
 ## Metadata
 
 - Owner: UI
-- Last updated: 2026-06-11
+- Last updated: 2026-09-02
