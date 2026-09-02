@@ -367,17 +367,20 @@ type KubernetesConnector interface {
 	DeleteInstance(ctx context.Context, obj *v1alpha1.Instance) error
 	// CreateInstance creates instance.
 	CreateInstance(ctx context.Context, instance *v1alpha1.Instance) (*v1alpha1.Instance, error)
-	// UpdateInstance updates instance.
+	// UpdateInstance updates instance.This is for PUT operation, which replaces the entire resource with the new one.
+	// If you want to update only specific fields, use PatchInstance instead.
 	UpdateInstance(ctx context.Context, instance *v1alpha1.Instance) (*v1alpha1.Instance, error)
+	// PatchInstance patches instance using the provided patch.
+	PatchInstance(ctx context.Context, instance *v1alpha1.Instance, patch ctrlclient.Patch, opts ...ctrlclient.PatchOption) (*v1alpha1.Instance, error)
 	// ListInstancePresets returns list of instance presets that match the criteria.
 	ListInstancePresets(ctx context.Context, opts ...ctrlclient.ListOption) (*v1alpha1.InstancePresetList, error)
 	// GetInstancePreset returns instance preset that matches the criteria.
 	GetInstancePreset(ctx context.Context, key ctrlclient.ObjectKey) (*v1alpha1.InstancePreset, error)
 	// WatchBackups returns a watch.Interface that streams
-	// DatabaseClusterBackup events across all namespaces.
+	// Backup events across all namespaces.
 	WatchBackups(ctx context.Context) (watch.Interface, error)
 	// WatchRestores returns a watch.Interface that streams
-	// DatabaseClusterRestore events across all namespaces.
+	// Restore events across all namespaces.
 	WatchRestores(ctx context.Context) (watch.Interface, error)
 	// WatchInstances returns a watch.Interface that streams
 	// Instance events across all namespaces.

@@ -13,10 +13,10 @@ name: "CodeQL"
 
 on:
   push:
-    branches: ["main", "release-2.0"]
+    branches: ["main", "v1.x"]
   pull_request:
     # The branches below must be a subset of the branches above
-    branches: ["main", "release-2.0"]
+    branches: ["main", "v1.x"]
   schedule:
     - cron: "0 0 * * 1"
 
@@ -41,7 +41,7 @@ jobs:
 
     steps:
       - name: Harden the runner (Audit all outbound calls)
-        uses: step-security/harden-runner@bf7454d06d71f1098171f2acdf0cd4708d7b5920 # v2.20.0
+        uses: step-security/harden-runner@05e31511f85b41b11d1cf0ef85d0992719546e2c # v2.21.0
         with:
           egress-policy: audit
 

@@ -59,6 +59,10 @@ func TestRBAC_Instance(t *testing.T) {
 			&corev1alpha1.Instance{ObjectMeta: metav1.ObjectMeta{Name: "db1", Namespace: "ns1"}},
 			nil,
 		)
+		h.On("PatchInstance", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(
+			&corev1alpha1.Instance{ObjectMeta: metav1.ObjectMeta{Name: "db1", Namespace: "ns1"}},
+			nil,
+		)
 		h.On("DeleteInstance", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 		host := "db1.ns1.svc"
 		h.On("GetInstanceConnection", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(
@@ -667,6 +671,59 @@ func TestRBAC_Instance(t *testing.T) {
 					require.NoError(t, err)
 					assert.Equal(t, "db1", result.Name)
 				}
+			})
+		}
+	})
+
+	// A patch is authorised as an update, not as a permission of its own, so
+	// read alone must not be enough to patch.
+	t.Run("PatchInstance", func(t *testing.T) {
+		t.Parallel()
+
+		testCases := []struct {
+			desc    string
+			policy  string
+			wantErr error
+		}{
+			{
+				desc: "has update permission",
+				policy: newPolicy(
+					"p, role:test, instances, update, prod/ns1/db1",
+					"g, bob, role:test",
+				),
+			},
+			{
+				desc: "has read but not update",
+				policy: newPolicy(
+					"p, role:test, instances, read, prod/ns1/db1",
+					"g, bob, role:test",
+				),
+				wantErr: ErrInsufficientPermissions,
+			},
+		}
+
+		ctx := testUserContext(rbac.User{Subject: "bob"})
+		for _, tc := range testCases {
+			t.Run(tc.desc, func(t *testing.T) {
+				t.Parallel()
+				k8sMock := newConfigMapMock(tc.policy)
+				enf, err := rbac.NewEnforcer(ctx, k8sMock, zap.NewNop().Sugar())
+				require.NoError(t, err)
+
+				h := &rbacHandler{
+					next:       mockInstances(),
+					log:        zap.NewNop().Sugar(),
+					enforcer:   enf,
+					userGetter: testUserGetter,
+				}
+
+				result, err := h.PatchInstance(ctx, "prod", "ns1", "db1", []byte(`{"spec":{"version":"8.1"}}`))
+				if tc.wantErr != nil {
+					require.ErrorIs(t, err, tc.wantErr)
+					return
+				}
+				require.NoError(t, err)
+				assert.Equal(t, "db1", result.Name)
 			})
 		}
 	})

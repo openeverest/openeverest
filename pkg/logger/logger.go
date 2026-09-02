@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -26,7 +27,7 @@ import (
 	"github.com/openeverest/openeverest/v2/cmd/config"
 )
 
-// MustInitLogger initializes logger and panics in case of an error. // FIXME Test this.
+// MustInitLogger initializes logger and panics in case of an error.
 func MustInitLogger(json bool, logName string) *zap.Logger {
 	var loggerCfg zap.Config
 	if config.Debug {

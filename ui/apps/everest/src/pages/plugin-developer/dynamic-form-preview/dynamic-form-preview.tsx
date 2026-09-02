@@ -23,14 +23,18 @@ import { StepHeader } from 'pages/database-form/database-form-body/steps-old/ste
 import DatabaseFormStepControllers from 'pages/database-form/database-form-body/database-form-step-controllers/database-form-step-controllers';
 import { useCelValidation } from 'components/ui-generator/hooks/use-cel-validation';
 import { useUiGenerator } from 'components/ui-generator/hooks/ui-generator';
-import { useTopology } from '../../../components/ui-generator/hooks/use-topology';
+import { useTopology } from 'components/ui-generator/hooks/use-topology';
 import { useDefaultValues } from 'components/ui-generator/hooks/use-default-values';
 
 export type DynamicFormProps = {
   schema: TopologyUISchemas;
+  // Namespace used to resolve data-source providers (e.g. storage classes,
+  // monitoring configs). Without it, provider-backed fields stay disabled and
+  // render no options. See the namespace selector in UIGeneratorBuilder.
+  namespace?: string;
 };
 
-export const DynamicForm = ({ schema }: DynamicFormProps) => {
+export const DynamicForm = ({ schema, namespace }: DynamicFormProps) => {
   const [activeStep, setActiveStep] = useState(0);
   const {
     selectedTopology,
@@ -109,6 +113,7 @@ export const DynamicForm = ({ schema }: DynamicFormProps) => {
           <UIGenerator
             sectionKey={stepLabels[activeStep]}
             sections={sections}
+            namespace={namespace}
           />
         )}
       </Stack>

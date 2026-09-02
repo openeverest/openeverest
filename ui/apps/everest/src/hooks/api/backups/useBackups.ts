@@ -26,7 +26,6 @@ import {
 import {
   Backup,
   BackupList,
-  BackupStatus,
   CreateBackupPayload,
   CreateBackupResponse,
   DeleteBackupPayload,
@@ -70,15 +69,9 @@ export const useBackupsList = (
     queryFn: () => getBackupsListFn(clusterName, namespace, instanceName),
     select: canRead
       ? ({ items = [] }) =>
-          items
-            .filter((backup) => backup.spec.instanceRef.name === instanceName)
-            .map((backup) => ({
-              ...backup,
-              status: {
-                ...backup.status,
-                state: backup.status?.state ?? BackupStatus.UNKNOWN,
-              },
-            }))
+          items.filter(
+            (backup) => backup.spec.instanceRef.name === instanceName
+          )
       : () => [],
     enabled: (options?.enabled ?? true) && canRead,
     ...options,
