@@ -17,11 +17,13 @@
 package server
 
 import (
+	"errors"
 	"net/http"
 	"net/url"
 	"slices"
 	"strings"
 
+	"github.com/getkin/kin-openapi/openapi3filter"
 	"github.com/labstack/echo/v4"
 	everestv1alpha1 "github.com/percona/everest-operator/api/everest/v1alpha1"
 	"github.com/unrolled/secure"
@@ -38,6 +40,22 @@ const (
 	CSPNone           = "'none'"
 	PermissionsPolicy = "accelerometer=(), autoplay=(), camera=(), cross-origin-isolated=(), display-capture=(), encrypted-media=(), fullscreen=(), geolocation=(), gyroscope=(), keyboard-map=(), magnetometer=(), microphone=(), midi=(), payment=(), picture-in-picture=(), publickey-credentials-get=(), screen-wake-lock=(), sync-xhr=(self), usb=(), web-share=(), xr-spatial-tracking=(), clipboard-read=(self), clipboard-write=(self), gamepad=(), hid=(), idle-detection=(), interest-cohort=(), serial=(), unload=()"
 )
+
+// invalidContentTypeReason is what kin-openapi reports for an undeclared Content-Type.
+const invalidContentTypeReason = "header Content-Type has unexpected value"
+
+// validationErrorHandler re-codes an unsupported media type from 400 to 415.
+// The OpenAPI validator reports every request body problem as 400, which leaves an undeclared Content-Type indistinguishable from a malformed body.
+func validationErrorHandler(_ echo.Context, err *echo.HTTPError) error {
+	var reqErr *openapi3filter.RequestError
+	if errors.As(err.Internal, &reqErr) && strings.HasPrefix(reqErr.Reason, invalidContentTypeReason) {
+		return &echo.HTTPError{
+			Code:    http.StatusUnsupportedMediaType,
+			Message: reqErr.Reason,
+		}
+	}
+	return err
+}
 
 func (e *EverestServer) shouldAllowRequestDuringEngineUpgrade(c echo.Context) (bool, error) {
 	// We allow read-only requests.
