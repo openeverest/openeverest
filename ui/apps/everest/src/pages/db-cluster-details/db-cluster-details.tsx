@@ -67,7 +67,7 @@ const WithPermissionDetails = ({
 
   // Collect clusterDetailTab extensions, filtered by engine type
   // (providers field). Per-namespace plugin visibility is governed by
-  // Everest RBAC on the `/v1/plugins` endpoint.
+  // Everest RBAC on the `/v1/clusters/{cluster}/plugins` endpoint.
   const { plugins } = usePlugins();
   const engineType = instance?.spec?.providerRef?.name;
 

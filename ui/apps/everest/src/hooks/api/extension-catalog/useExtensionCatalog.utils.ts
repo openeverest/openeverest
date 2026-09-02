@@ -38,18 +38,21 @@ const resolveVersion = (
 // never see http(s):// values here — reject them defensively so a
 // misconfigured or malicious catalog can't inject external image loads that
 // CSP would block anyway.
-const resolveIconSrc = (rawIcon?: string): string | undefined => {
+const resolveIconSrc = (
+  clusterName: string,
+  rawIcon?: string
+): string | undefined => {
   if (!rawIcon) {
     return undefined;
   }
   if (rawIcon.startsWith('http://') || rawIcon.startsWith('https://')) {
     return undefined;
   }
-  if (rawIcon.startsWith('data:') || rawIcon.startsWith('/v1/plugins/')) {
+  if (rawIcon.startsWith('data:') || rawIcon.startsWith('/v1/')) {
     return rawIcon;
   }
   const stripped = rawIcon.startsWith('/') ? rawIcon.slice(1) : rawIcon;
-  return `/v1/plugins/${PLUGIN_HUB_NAME}/${stripped}`;
+  return `/v1/clusters/${clusterName}/plugins/${PLUGIN_HUB_NAME}/${stripped}`;
 };
 
 // Single narrowing point for catalog entries. Rejects anything that is not a
@@ -57,7 +60,8 @@ const resolveIconSrc = (rawIcon?: string): string | undefined => {
 // hub might introduce) are tolerated by returning null rather than crashing.
 // Downstream consumers work with `ResolvedExtensionMeta`, which is strict.
 const normalizeEntry = (
-  raw: RawExtensionCatalogEntry
+  raw: RawExtensionCatalogEntry,
+  clusterName: string
 ): {
   meta: ResolvedExtensionMeta;
   providerName?: string;
@@ -69,7 +73,7 @@ const normalizeEntry = (
     name: raw.name,
     displayName: raw.displayName || raw.name,
     description: raw.description,
-    icon: resolveIconSrc(raw.icon),
+    icon: resolveIconSrc(clusterName, raw.icon),
     version: resolveVersion(raw),
     categories: raw.categories,
     maturity: raw.maturity,
@@ -81,7 +85,8 @@ const normalizeEntry = (
 // (provider CR name and the catalog entry name). Used as the react-query
 // `select` for the extension catalog so components consume resolved metadata.
 export const buildProviderMetaMap = (
-  index: RawExtensionIndex | null
+  index: RawExtensionIndex | null,
+  clusterName: string
 ): Map<string, ResolvedExtensionMeta> => {
   const map = new Map<string, ResolvedExtensionMeta>();
   const entries = index?.extensions;
@@ -89,7 +94,7 @@ export const buildProviderMetaMap = (
     return map;
   }
   for (const raw of entries) {
-    const normalized = normalizeEntry(raw);
+    const normalized = normalizeEntry(raw, clusterName);
     if (!normalized) {
       continue;
     }

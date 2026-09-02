@@ -49,25 +49,6 @@ func newPluginProxy(ctx context.Context, log *zap.SugaredLogger, kc kubernetes.K
 	return &pluginProxy{kubeConnector: kc, enforcer: enf}, nil
 }
 
-// checkPluginsReadAccess verifies the caller has "read" permission on the
-// "plugins" resource. This gates the plugin list endpoint.
-func (pp *pluginProxy) checkPluginsReadAccess(c echo.Context) error {
-	user, err := rbac.GetUser(c.Request().Context())
-	if err != nil {
-		return echo.NewHTTPError(http.StatusUnauthorized, "unauthorized")
-	}
-	for _, sub := range append([]string{user.Subject}, user.Groups...) {
-		ok, err := pp.enforcer.Enforce(sub, rbac.ResourcePlugins, rbac.ActionRead, "*")
-		if err != nil {
-			return echo.NewHTTPError(http.StatusInternalServerError, "rbac error")
-		}
-		if ok {
-			return nil
-		}
-	}
-	return echo.NewHTTPError(http.StatusForbidden, "insufficient permissions")
-}
-
 // canUsePlugin returns true when the caller has the "use" verb on
 // "plugin/<name>". Admins that have "*" on "plugins" are also permitted.
 func (pp *pluginProxy) canUsePlugin(c echo.Context, name string) (bool, error) {
@@ -100,113 +81,16 @@ func (pp *pluginProxy) canUsePlugin(c echo.Context, name string) (bool, error) {
 	return false, nil
 }
 
-// listPluginsHandler returns the list of enabled plugins the caller can use.
-// Per-namespace plugin visibility is governed entirely by Everest RBAC
-// (`plugins/use` grants); this endpoint returns every enabled plugin the
-// caller is permitted to use.
-func (pp *pluginProxy) listPluginsHandler(c echo.Context) error {
-	if err := pp.checkPluginsReadAccess(c); err != nil {
-		return err
-	}
-
-	type extensionPointDescriptor struct {
-		Type      string   `json:"type"`
-		Label     string   `json:"label,omitempty"`
-		Path      string   `json:"path,omitempty"`
-		Icon      string   `json:"icon,omitempty"`
-		Providers []string `json:"providers,omitempty"`
-	}
-
-	type pluginDescriptor struct {
-		Name            string                     `json:"name"`
-		DisplayName     string                     `json:"displayName"`
-		Description     string                     `json:"description,omitempty"`
-		Version         string                     `json:"version,omitempty"`
-		Vendor          string                     `json:"vendor,omitempty"`
-		Icon            string                     `json:"icon,omitempty"`
-		BundleURL       string                     `json:"bundleUrl"`
-		ExtensionPoints []extensionPointDescriptor `json:"extensionPoints,omitempty"`
-	}
-
-	plugins, err := pp.kubeConnector.ListPlugins(c.Request().Context())
-	if err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{
-			"error": "failed to list plugins: " + err.Error(),
-		})
-	}
-
-	descriptors := make([]pluginDescriptor, 0, len(plugins.Items))
-	for _, p := range plugins.Items {
-		if !p.Spec.Enabled {
-			continue
-		}
-		// Only return plugins the caller is allowed to use.
-		if allowed, err := pp.canUsePlugin(c, p.Name); err != nil {
-			return c.JSON(http.StatusInternalServerError, map[string]string{
-				"error": "rbac error",
-			})
-		} else if !allowed {
-			continue
-		}
-		bundlePath := "/main.js"
-		var extPoints []extensionPointDescriptor
-		if p.Spec.Frontend != nil {
-			if p.Spec.Frontend.BundlePath != "" {
-				bundlePath = p.Spec.Frontend.BundlePath
-			}
-			for _, ep := range p.Spec.Frontend.ExtensionPoints {
-				extPoints = append(extPoints, extensionPointDescriptor{
-					Type:      ep.Type,
-					Label:     ep.Label,
-					Path:      ep.Path,
-					Icon:      resolvePluginAssetPath(p.Name, ep.Icon),
-					Providers: ep.Providers,
-				})
-			}
-		}
-		descriptors = append(descriptors, pluginDescriptor{
-			Name:            p.Name,
-			DisplayName:     p.Spec.DisplayName,
-			Description:     p.Spec.Description,
-			Version:         p.Spec.Version,
-			Vendor:          p.Spec.Vendor,
-			Icon:            resolvePluginAssetPath(p.Name, p.Spec.Icon),
-			BundleURL:       path.Join("/v1/plugins", p.Name, bundlePath),
-			ExtensionPoints: extPoints,
-		})
-	}
-	return c.JSON(http.StatusOK, descriptors)
-}
-
-// resolvePluginAssetPath resolves a relative asset path (e.g. "/icon.png") to
-// the full plugin proxy URL (e.g. "/v1/plugins/my-plugin/icon.png").
-// Absolute URLs (http://, https://) and data URIs are returned unchanged.
-// Empty strings are returned as-is.
-func resolvePluginAssetPath(pluginName, assetPath string) string {
-	if assetPath == "" {
-		return ""
-	}
-	// Already absolute URL or data URI — return unchanged.
-	if strings.HasPrefix(assetPath, "http://") ||
-		strings.HasPrefix(assetPath, "https://") ||
-		strings.HasPrefix(assetPath, "data:") ||
-		strings.HasPrefix(assetPath, "/v1/plugins/") {
-		return assetPath
-	}
-	// Relative path — prefix with plugin proxy base.
-	return path.Join("/v1/plugins", pluginName, assetPath)
-}
-
-// proxyHandler reverse-proxies requests to a plugin's backend (no RBAC).
-// Used for unauthenticated bundle serving.
-// Route: /v1/plugins/:name/*
+// proxyHandler reverse-proxies unauthenticated bundle-asset requests to a
+// plugin's backend (no RBAC) on the /v1/clusters/:cluster/plugins/:name/*
+// route.
 func (pp *pluginProxy) proxyHandler(c echo.Context) error {
 	return pp.doProxy(c)
 }
 
-// authedProxyHandler reverse-proxies requests to a plugin's backend with RBAC.
-// The caller must have the "use" verb on "plugin/<name>" (§9.2).
-// Route: /v1/plugins/:name (JWT-protected group)
+// authedProxyHandler reverse-proxies requests to a plugin's backend with RBAC:
+// the caller must have the "use" verb on "plugin/<name>" (§9.2). Served on the
+// JWT-protected /v1/clusters/:cluster/plugins/:name group.
 func (pp *pluginProxy) authedProxyHandler(c echo.Context) error {
 	name := c.Param("name")
 	allowed, err := pp.canUsePlugin(c, name)
@@ -256,8 +140,9 @@ func (pp *pluginProxy) doProxy(c echo.Context) error {
 		})
 	}
 
-	// Strip the prefix /v1/plugins/:name from the request path before proxying.
-	prefix := "/v1/plugins/" + name
+	// Strip the prefix /v1/clusters/:cluster/plugins/:name from the request
+	// path before proxying.
+	prefix := path.Join("/v1/clusters", c.Param("cluster"), "plugins", name)
 	proxy := &httputil.ReverseProxy{
 		Director: func(req *http.Request) {
 			req.URL.Scheme = target.Scheme
