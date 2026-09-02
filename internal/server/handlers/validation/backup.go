@@ -90,7 +90,7 @@ func (h *validateHandler) validateBackupRefs(ctx context.Context, backup *backup
 		return fmt.Errorf("failed to get backup class '%s': %w", backup.Spec.ClassRef.Name, err)
 	}
 
-	// Imported backups have no Instance to validate its Provider.
+	// External backups have no Instance to validate its Provider.
 	if backup.Spec.Origin.InstanceRef != nil {
 		return controller.ValidateClassSupportsProvider(bc, instance.Spec.ProviderRef.Name)
 	}

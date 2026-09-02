@@ -712,12 +712,6 @@ type Backup struct {
 				// CompletedAt CompletedAt is the time when the backup completed.
 				CompletedAt time.Time `json:"completedAt"`
 
-				// ImportRef ImportRef references the BackupImport that created this Backup.
-				ImportRef struct {
-					// Name Name of the referenced object.
-					Name string `json:"name"`
-				} `json:"importRef"`
-
 				// Path Path is the backup's path within the BackupStorage. The bucket is
 				// already determined by storageRef, so it is not repeated here. The path
 				// is unique within its storage and is used for restore.
@@ -836,8 +830,8 @@ type Backup struct {
 		StartedAt *time.Time `json:"startedAt,omitempty"`
 
 		// State State is the current state of the backup.
-		// For external backups, the state is Succeeded if the backup data is
-		// present in storage, and has StartedAt and CompletedAt set.
+		// For external backups, the state is Succeeded if the backup has valid
+		// StartedAt and CompletedAt set.
 		State *BackupStatusState `json:"state,omitempty"`
 	} `json:"status,omitempty"`
 }
@@ -867,8 +861,8 @@ type BackupStatusConditionsStatus string
 type BackupStatusExecutionMode string
 
 // BackupStatusState State is the current state of the backup.
-// For external backups, the state is Succeeded if the backup data is
-// present in storage, and has StartedAt and CompletedAt set.
+// For external backups, the state is Succeeded if the backup has valid
+// StartedAt and CompletedAt set.
 type BackupStatusState string
 
 // BackupClass BackupClass is the Schema for the backupclasses API

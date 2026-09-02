@@ -148,9 +148,6 @@ type BackupOriginExternal struct {
 	// CompletedAt is the time when the backup completed.
 	// +kubebuilder:validation:Required
 	CompletedAt metav1.Time `json:"completedAt"`
-	// ImportRef references the BackupImport that created this Backup.
-	// +kubebuilder:validation:Required
-	ImportRef common.ObjectRef `json:"importRef,omitempty"`
 }
 
 // BackupStatus defines the observed state of Backup.
@@ -186,8 +183,8 @@ type BackupStatus struct {
 	// +optional
 	LastObservedGeneration int64 `json:"lastObservedGeneration,omitempty"`
 	// State is the current state of the backup.
-	// For external backups, the state is Succeeded if the backup data is
-	// present in storage, and has StartedAt and CompletedAt set.
+	// For external backups, the state is Succeeded if the backup has valid
+	// StartedAt and CompletedAt set.
 	// +optional
 	State BackupState `json:"state,omitempty"`
 	// Message is a human-readable message about the current state.

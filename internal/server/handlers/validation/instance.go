@@ -50,7 +50,9 @@ func (h *validateHandler) UpdateInstance(ctx context.Context, cluster string, in
 			return nil, err
 		}
 
-		if current.Spec.UserSecretRef.Name != instance.Spec.UserSecretRef.Name {
+		// A update could set userSecretRef when it was previously unset, which
+		// kubebuilder's immutable validation does not catch.
+		if current.Spec.UserSecretRef == nil {
 			return nil, errors.Join(
 				ErrInvalidRequest,
 				errors.New("spec.userSecretRef may not be modified"),
@@ -78,6 +80,8 @@ func (h *validateHandler) PatchInstance(ctx context.Context, cluster, namespace,
 		}
 	}
 	if spec, isObject := doc["spec"].(map[string]any); isObject {
+		// A patch could set userSecretRef when it was previously unset, which
+		// kubebuilder's immutable validation does not catch.
 		if _, ok := spec["userSecretRef"]; ok {
 			return nil, errors.Join(
 				ErrInvalidRequest,

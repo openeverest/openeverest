@@ -165,8 +165,8 @@ func TestValidate_UpdateInstance(t *testing.T) {
 		wantErr bool
 	}{
 		{
-			desc:    "no userSecretRef on update",
-			current: &commonv1alpha1.SecretRef{Name: "my-secret"},
+			desc:    "no userSecretRef",
+			current: nil,
 			update:  nil,
 		},
 		{
@@ -175,9 +175,9 @@ func TestValidate_UpdateInstance(t *testing.T) {
 			update:  &commonv1alpha1.SecretRef{Name: "my-secret"},
 		},
 		{
-			desc:    "changed userSecretRef",
-			current: &commonv1alpha1.SecretRef{Name: "my-secret"},
-			update:  &commonv1alpha1.SecretRef{Name: "other-secret"},
+			desc:    "userSecretRef on update",
+			current: nil,
+			update:  &commonv1alpha1.SecretRef{Name: "my-secret"},
 			wantErr: true,
 		},
 	}
@@ -196,7 +196,10 @@ func TestValidate_UpdateInstance(t *testing.T) {
 				nil,
 			)
 			next.On("UpdateInstance", mock.Anything, mock.Anything, mock.Anything).Return(
-				&corev1alpha1.Instance{ObjectMeta: metav1.ObjectMeta{Name: "db1", Namespace: "ns1"}},
+				&corev1alpha1.Instance{
+					ObjectMeta: metav1.ObjectMeta{Name: "db1", Namespace: "ns1"},
+					Spec:       corev1alpha1.InstanceSpec{UserSecretRef: tc.update},
+				},
 				nil,
 			)
 

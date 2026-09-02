@@ -4265,11 +4265,6 @@ export interface components {
                          * @description CompletedAt is the time when the backup completed.
                          */
                         completedAt: string;
-                        /** @description ImportRef references the BackupImport that created this Backup. */
-                        importRef: {
-                            /** @description Name of the referenced object. */
-                            name: string;
-                        };
                         /**
                          * @description Path is the backup's path within the BackupStorage. The bucket is
                          *     already determined by storageRef, so it is not repeated here. The path
@@ -4416,8 +4411,8 @@ export interface components {
                 startedAt?: string;
                 /**
                  * @description State is the current state of the backup.
-                 *     For external backups, the state is Succeeded if the backup data is
-                 *     present in storage, and has StartedAt and CompletedAt set.
+                 *     For external backups, the state is Succeeded if the backup has valid
+                 *     StartedAt and CompletedAt set.
                  * @enum {string}
                  */
                 state?: "Pending" | "Running" | "Succeeded" | "Failed" | "Error" | "Deleting";

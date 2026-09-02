@@ -111,7 +111,7 @@ func (r *backupRuntimeReconciler) Reconcile(ctx context.Context, req reconcile.R
 
 	// External backups are imported references to data already sitting in
 	// a storage; there is no source Instance. The reconciler verifies the
-	// backup in the storage then marks the Backup Succeeded.
+	// Backup CR then marks the Backup Succeeded.
 	if backup.Spec.Origin.Type == backupv1alpha1.BackupOriginTypeExternal {
 		return r.reconcileExternalBackup(ctx, backup, bc)
 	}
