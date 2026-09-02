@@ -139,15 +139,21 @@ const AuthProvider = ({ children, isSsoEnabled }: AuthProviderProps) => {
     initializeAuthorizerFetchLoop(username);
   };
 
-  const setLogoutStatus = useCallback(async () => {
+  const setLogoutStatus = useCallback(async (clearRedirect = false) => {
     setAuthStatus('loggedOut');
     localStorage.removeItem('everestToken');
+    sessionStorage.clear();
+    if (clearRedirect) {
+      setRedirect(null);
+    }
+    removeApiErrorInterceptor();
+    removeApiAuthInterceptor();
     if (isSsoEnabled) {
       await userManager.clearStaleState();
       await userManager.removeUser();
     }
     stopAuthorizerFetchLoop();
-  }, [userManager]);
+  }, [isSsoEnabled, userManager]);
 
   const silentlyRenewToken = useCallback(async () => {
     try {
