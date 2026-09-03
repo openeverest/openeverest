@@ -44,7 +44,7 @@ func NewS3Client(spec *backupv1alpha1.BackupStorageS3Spec, accessKeyID, secretAc
 	httpClient := awshttp.NewBuildableClient().WithTransportOptions(func(tr *http.Transport) {
 		if !verifyTLS {
 			if tr.TLSClientConfig == nil {
-				tr.TLSClientConfig = &tls.Config{} //nolint:gosec // VerifyTLS explicitly disabled by the user
+				tr.TLSClientConfig = &tls.Config{}
 			}
 			tr.TLSClientConfig.InsecureSkipVerify = true
 		}
