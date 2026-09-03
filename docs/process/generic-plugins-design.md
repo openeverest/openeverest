@@ -359,12 +359,14 @@ config) as part of the normal instance lifecycle.
 **Decision: dynamic ESM module loading (Headlamp model), not iframes.**
 
 Rationale:
-- Tight UX integration — shared MUI theme, React context, router state.
+- Tight UX integration — host-themed components, React context, router state.
 - Iframes break deep-link navigation, inject a separate auth session, and cannot
   contribute sidebar entries or theme overrides in a seamless way.
-- Import maps let the host provide singleton instances of `react`, `react-dom`,
-  `@mui/material`, and `react-router` so plugin bundles stay small and the host
-  retains control over versions.
+- A browser import map lets the host provide the **React** singleton (`react`,
+  `react-dom`, `react/jsx-runtime`) so hooks and context work across the
+  host/plugin boundary. MUI/Emotion are *not* shared — each plugin bundles its
+  own pinned copy via `@openeverest/ui-lib` (Model B, §7.4), keeping plugins
+  independent across host UI upgrades.
 
 At shell startup:
 
@@ -403,17 +405,25 @@ useCluster(id: string): DatabaseCluster | undefined
 useNamespaces(): string[]
 useRBAC(): { can: (verb: string, resource: string) => boolean }
 
-// Re-exported singletons (resolved from host import map)
-export { React, ReactDOM, MUI, ReactRouter }
+// React is resolved from the host import map (do not bundle it).
+// Host-themed UI comes from a separate package, bundled into the plugin:
+//   import { PluginThemeProvider, Box, Button, Table } from '@openeverest/ui-lib'
 ```
+
+The `PluginApi` passed to `register()` also carries `cssNonce` (for the plugin's
+Emotion cache under CSP), `hostVersion`, and `uiContractVersion` (the shared
+React major). The host checks `Plugin.spec.compatibleHostVersions` at load time
+and refuses an incompatible plugin rather than rendering it detached/unthemed.
 
 ### 7.3 Bundle requirements
 
 Plugin authors produce a single ESM file with:
 
 - Default export: `register(api: PluginApi): void`
-- No bundled copies of `react`, `@mui/material`, or `react-router` — import them
-  from the SDK re-exports so the import map resolves to the host's singleton.
+- **React external** (`react`, `react-dom`, `react/jsx-runtime`) — resolved to
+  the host singleton via the import map. Never bundle a second React.
+- **MUI + Emotion bundled** (pulled in via `@openeverest/ui-lib`) so the plugin
+  owns its design-system version.
 - Target: `esnext` modules, no dynamic `require()`.
 
 ### 7.4 UI/UX consistency requirements
@@ -422,19 +432,35 @@ Plugins **must** use the host's existing design system and styling infrastructur
 The goal is that a user cannot visually distinguish plugin-contributed UI from
 core UI — plugins feel native, not bolted on.
 
+**Design-system delivery (Model B — see issue #2661).** Plugins do *not* import
+`@mui/material` directly and do *not* share the host's MUI instance. Instead:
+
+- The plugin depends on **`@openeverest/ui-lib`**, an npm package that bundles
+  its *own pinned* MUI + Emotion and re-exports a curated set of host-themed
+  components plus a `PluginThemeProvider`. Because each plugin carries its own
+  MUI, the host can upgrade its MUI without breaking already-built plugins.
+- The host owns the **design tokens** as CSS variables (its theme enables MUI
+  `cssVariables`, emitting `--mui-*` on `:root`). `PluginThemeProvider` builds a
+  theme whose palette references those variables, so brand and light/dark
+  changes reach the plugin live through the CSS cascade — no rebuild. The host
+  publishes the active mode on `document.documentElement[data-everest-color-scheme]`.
+- **React is the only shared runtime**, provided through the host import map.
+  The compatibility contract therefore tracks the React major.
+
 **Required:**
 
-- **MUI components only.** Use `@mui/material` (provided by the host via import
-  map) for all UI elements — buttons, tables, dialogs, forms, typography, icons.
-  Do not import alternative component libraries (Ant Design, Chakra, etc.).
-- **Host theme.** Use the host's MUI `ThemeProvider` context (automatically
-  inherited). Do not override `createTheme()` or inject competing theme
-  providers. Access theme tokens via `useTheme()` or the `sx` prop.
+- **Use `@openeverest/ui-lib` components.** Import UI primitives from
+  `@openeverest/ui-lib` (not `@mui/material` directly). Do not import alternative
+  component libraries (Ant Design, Chakra, etc.).
+- **Host theme via tokens.** Wrap plugin UI in `PluginThemeProvider` and access
+  theme values via `useTheme()` / the `sx` prop. Do not hardcode a competing
+  palette; the theme is bound to host CSS variables so it inherits the host
+  palette and dark mode automatically.
 - **`sx` prop and `styled()` for styling.** Use MUI's `sx` prop or the `styled`
-  utility (Emotion-based, shared with the host) for custom styles. Do not
-  introduce separate CSS-in-JS runtimes (styled-components, Tailwind runtime,
-  Stitches, etc.) — multiple runtimes cause specificity conflicts and increase
-  bundle size.
+  utility (Emotion-based) for custom styles, scoped through the plugin's
+  namespaced Emotion cache (from `PluginThemeProvider`). Do not introduce
+  separate CSS-in-JS runtimes (styled-components, Tailwind runtime, Stitches,
+  etc.) — multiple runtimes cause specificity conflicts and increase bundle size.
 - **No global CSS.** Do not inject `<style>` tags, import `.css` files that
   produce global selectors, or manipulate `document.styleSheets`. Global styles
   can break the host or other plugins. Scoped styles via `sx`/`styled` are the
@@ -446,7 +472,7 @@ core UI — plugins feel native, not bolted on.
 - **Layout patterns.** Use MUI layout primitives (`Box`, `Stack`, `Grid`,
   `Container`) for page structure. Follow the host's existing spacing rhythm
   (typically `theme.spacing(2)` / `theme.spacing(3)` between sections).
-- **Icons.** Use `@mui/icons-material` (provided by the host). For custom icons
+- **Icons.** Use icons re-exported by `@openeverest/ui-lib`. For custom icons
   not in the MUI set, use inline SVG wrapped in `SvgIcon`.
 
 **Prohibited:**
