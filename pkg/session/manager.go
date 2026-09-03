@@ -143,8 +143,11 @@ func (mgr *Manager) Create(subject string, secondsBeforeExpiry int64, id string)
 
 // SSOClaims extends the standard registered claims with the original OIDC issuer.
 // extractUsername() uses the oidc_issuer claim to distinguish SSO sessions from built-in ones.
+//
+//nolint:tagliatelle // oidc_issuer/email are OIDC/JWT claim names, not Go-style identifiers.
 type SSOClaims struct {
 	jwt.RegisteredClaims
+
 	OIDCIssuer string `json:"oidc_issuer"`
 	Email      string `json:"email,omitempty"`
 }

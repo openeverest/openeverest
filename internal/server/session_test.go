@@ -17,6 +17,7 @@
 package server
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -31,10 +32,11 @@ import (
 	"github.com/percona/everest/pkg/oidc"
 )
 
+//nolint:ireturn // echo.Context is an interface by design; this is a test helper.
 func newSSOTestContext(t *testing.T, body string) (echo.Context, *httptest.ResponseRecorder) {
 	t.Helper()
 	e := echo.New()
-	req := httptest.NewRequest(http.MethodPost, "/v1/session/sso", strings.NewReader(body))
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/v1/session/sso", strings.NewReader(body))
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	rec := httptest.NewRecorder()
 	return e.NewContext(req, rec), rec
