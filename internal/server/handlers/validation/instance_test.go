@@ -23,9 +23,86 @@ import (
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	common "github.com/openeverest/openeverest/v2/api/common/v1alpha1"
 	corev1alpha1 "github.com/openeverest/openeverest/v2/api/core/v1alpha1"
 	"github.com/openeverest/openeverest/v2/internal/server/handlers"
 )
+
+func TestValidateBackupScheduleNames(t *testing.T) {
+	t.Parallel()
+
+	storages := func(s ...corev1alpha1.InstanceBackupStorage) *corev1alpha1.Instance {
+		return &corev1alpha1.Instance{
+			Spec: corev1alpha1.InstanceSpec{
+				Backup: &corev1alpha1.InstanceBackupSpec{
+					Storages: s,
+				},
+			},
+		}
+	}
+	storage := func(name string, scheduleNames ...string) corev1alpha1.InstanceBackupStorage {
+		schedules := make([]corev1alpha1.InstanceBackupSchedule, 0, len(scheduleNames))
+		for _, n := range scheduleNames {
+			schedules = append(schedules, corev1alpha1.InstanceBackupSchedule{
+				Name: n,
+				Cron: "0 0 * * *",
+			})
+		}
+		return corev1alpha1.InstanceBackupStorage{
+			StorageRef: common.ObjectRef{Name: name},
+			Schedules:  schedules,
+		}
+	}
+
+	testCases := []struct {
+		name     string
+		instance *corev1alpha1.Instance
+		wantErr  error
+	}{
+		{
+			name:     "nil instance",
+			instance: nil,
+		},
+		{
+			name:     "nil backup spec",
+			instance: &corev1alpha1.Instance{},
+		},
+		{
+			name:     "no storages",
+			instance: storages(),
+		},
+		{
+			name:     "unique names in one storage",
+			instance: storages(storage("s1", "daily", "weekly")),
+		},
+		{
+			name:     "unique names across storages",
+			instance: storages(storage("s1", "daily"), storage("s2", "weekly")),
+		},
+		{
+			name:     "duplicate names in one storage",
+			instance: storages(storage("s1", "daily", "daily")),
+			wantErr:  errDuplicatedSchedules,
+		},
+		{
+			name:     "duplicate names across storages",
+			instance: storages(storage("s1", "daily"), storage("s2", "daily")),
+			wantErr:  errDuplicatedSchedules,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			err := validateBackupScheduleNames(tc.instance)
+			if tc.wantErr != nil {
+				require.ErrorIs(t, err, tc.wantErr)
+				return
+			}
+			require.NoError(t, err)
+		})
+	}
+}
 
 func TestValidate_PatchInstance(t *testing.T) {
 	t.Parallel()

@@ -38,14 +38,38 @@ func (h *validateHandler) GetInstance(ctx context.Context, cluster, namespace, n
 
 // CreateInstance proxies the request to the next handler.
 func (h *validateHandler) CreateInstance(ctx context.Context, cluster string, instance *corev1alpha1.Instance) (*corev1alpha1.Instance, error) {
-	// Add validation here if needed in the future
+	if err := validateBackupScheduleNames(instance); err != nil {
+		return nil, errors.Join(ErrInvalidRequest, err)
+	}
 	return h.next.CreateInstance(ctx, cluster, instance)
 }
 
 // UpdateInstance proxies the request to the next handler.
 func (h *validateHandler) UpdateInstance(ctx context.Context, cluster string, instance *corev1alpha1.Instance) (*corev1alpha1.Instance, error) {
-	// Add validation here if needed in the future
+	if err := validateBackupScheduleNames(instance); err != nil {
+		return nil, errors.Join(ErrInvalidRequest, err)
+	}
 	return h.next.UpdateInstance(ctx, cluster, instance)
+}
+
+// validateBackupScheduleNames rejects Instances whose backup schedule names
+// are not unique across all storages. Schedule names double as the schedule
+// key on the engine, so a duplicate silently overwrites (drops) one of the
+// schedules on reconcile.
+func validateBackupScheduleNames(instance *corev1alpha1.Instance) error {
+	if instance == nil || instance.Spec.Backup == nil {
+		return nil
+	}
+	seen := make(map[string]struct{})
+	for _, storage := range instance.Spec.Backup.Storages {
+		for _, schedule := range storage.Schedules {
+			if _, ok := seen[schedule.Name]; ok {
+				return fmt.Errorf("%w: schedule name '%s' is used more than once", errDuplicatedSchedules, schedule.Name)
+			}
+			seen[schedule.Name] = struct{}{}
+		}
+	}
+	return nil
 }
 
 // PatchInstance rejects a patch naming a member the caller may not write, then proxies to the next handler.
