@@ -108,7 +108,7 @@
     "typescript": "^5.2.2",
     "vite": "^6.4.1",
     "vite-tsconfig-paths": "^5.1.2",
-    "vitest": "^4.0.18",
+    "vitest": "^4.1.0",
     "yaml": "^2.9.0"
   },
   "engines": {
