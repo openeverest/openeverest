@@ -777,6 +777,12 @@ const (
 	// in a future provider release named in the condition message.
 	ReasonScheduledForRemoval = "ScheduledForRemoval"
 
+	// ReasonVersionsUnsupported indicates at least one effective component
+	// version is no longer supported by the installed Provider catalog at
+	// all — past its removal release or absent entirely. Upgrade the
+	// database to a supported version.
+	ReasonVersionsUnsupported = "VersionsUnsupported"
+
 	// ReasonVersionsSupported indicates every effective component version is
 	// fully supported by the installed Provider catalog.
 	ReasonVersionsSupported = "VersionsSupported"

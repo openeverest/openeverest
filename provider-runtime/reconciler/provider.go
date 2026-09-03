@@ -443,6 +443,12 @@ func (r *ProviderReconciler) Reconcile(ctx context.Context, req reconcile.Reques
 			logger.Error(err, "Backup configuration failed")
 			setCondition(in, v1alpha1.ConditionBackupConfigured, metav1.ConditionFalse,
 				bce.Reason, bce.Message, metav1.Now())
+			// The provider got as far as declaring maintenance before failing,
+			// so the staged set is authoritative; without this the pending
+			// list and condition go stale until a fully successful pass.
+			if syncCtx.MaintenanceRequested() {
+				flushPendingMaintenance(syncCtx, in)
+			}
 			_ = r.Client.Status().Update(ctx, in)
 			return reconcile.Result{}, nil
 		}
@@ -453,6 +459,9 @@ func (r *ProviderReconciler) Reconcile(ctx context.Context, req reconcile.Reques
 			logger.Error(err, "DataSource configuration failed")
 			setCondition(in, v1alpha1.ConditionDataSourceReady, metav1.ConditionFalse,
 				dse.Reason, dse.Message, metav1.Now())
+			if syncCtx.MaintenanceRequested() {
+				flushPendingMaintenance(syncCtx, in)
+			}
 			_ = r.Client.Status().Update(ctx, in)
 			return reconcile.Result{}, nil
 		}
@@ -783,24 +792,42 @@ func setCondition(in *v1alpha1.Instance, condType string, status metav1.Conditio
 
 // setDeprecationCondition maintains the read-only ComponentVersionDeprecated
 // condition: True while any of the Instance's effective component versions is
-// flagged as deprecated in the installed Provider catalog. It reuses the
-// upgrade preflight's catalog check, so this passive warning and the
-// pre-upgrade hook's verdict never disagree. The condition is informational:
-// lookup failures are skipped and never fail the reconcile, and it is only
-// flipped to False (never removed) once a deprecation it reported clears.
+// flagged as deprecated — or no longer supported at all — in the installed
+// Provider catalog. It reuses the upgrade preflight's catalog check, so this
+// passive warning and the pre-upgrade hook's verdict never disagree. The
+// condition is informational: lookup failures are skipped and never fail the
+// reconcile, and it is only flipped to False (never removed) once every issue
+// it reported clears.
 func (r *ProviderReconciler) setDeprecationCondition(ctx context.Context, in *v1alpha1.Instance) {
 	installed := &v1alpha1.Provider{}
 	if err := r.Get(ctx, client.ObjectKey{Name: in.Spec.ProviderRef.Name}, installed); err != nil {
+		log.FromContext(ctx).V(1).Info("skipping deprecation condition: fetching installed Provider failed", "error", err)
 		return
 	}
 
-	var deprecations []string
+	var deprecations, unsupported []string
 	for _, issue := range controller.PreflightUpgrade(&installed.Spec, []v1alpha1.Instance{*in}) {
-		if issue.Reason == controller.UpgradeReasonVersionDeprecated {
-			deprecations = append(deprecations, issue.Message)
+		msg := issue.Message
+		if issue.Component != "" {
+			msg = issue.Component + ": " + msg
+		}
+		switch issue.Severity {
+		case controller.UpgradeError:
+			unsupported = append(unsupported, msg)
+		case controller.UpgradeWarning:
+			if issue.Reason == controller.UpgradeReasonVersionDeprecated {
+				deprecations = append(deprecations, msg)
+			}
 		}
 	}
 
+	// A version the installed catalog no longer supports at all is strictly
+	// worse than a deprecation; it must never read as "all supported".
+	if len(unsupported) > 0 {
+		setCondition(in, v1alpha1.ConditionComponentVersionDeprecated, metav1.ConditionTrue,
+			v1alpha1.ReasonVersionsUnsupported, strings.Join(unsupported, "; "), metav1.Now())
+		return
+	}
 	if len(deprecations) > 0 {
 		setCondition(in, v1alpha1.ConditionComponentVersionDeprecated, metav1.ConditionTrue,
 			v1alpha1.ReasonScheduledForRemoval, strings.Join(deprecations, "; "), metav1.Now())
