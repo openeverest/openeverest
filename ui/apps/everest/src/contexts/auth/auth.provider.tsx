@@ -41,7 +41,11 @@ import {
   initializeAuthorizerFetchLoop,
   stopAuthorizerFetchLoop,
 } from 'utils/rbac';
-import { logAuthError, isRunningInIframe, exchangeSsoToken } from './auth.utils';
+import {
+  logAuthError,
+  isRunningInIframe,
+  exchangeSsoToken,
+} from './auth.utils';
 
 const Provider = ({
   oidcConfig,
@@ -153,9 +157,7 @@ const AuthProvider = ({ children, isSsoEnabled }: AuthProviderProps) => {
     try {
       const newLoggedUser = await userManager.signinSilent();
       if (newLoggedUser && newLoggedUser.access_token) {
-        const everestToken = await exchangeSsoToken(
-          newLoggedUser.access_token
-        );
+        const everestToken = await exchangeSsoToken(newLoggedUser.access_token);
         localStorage.setItem('everestToken', everestToken);
       } else {
         setLogoutStatus();

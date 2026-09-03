@@ -38,7 +38,9 @@ export const SSO_LOGIN_ERROR_KEY = 'ssoLoginError';
 // Exchanges an OIDC access token (JWT or opaque) for an Everest-signed JWT. The IdP validates
 // the token via its UserInfo endpoint, so this works even when the access token is opaque and
 // cannot be decoded/verified locally (e.g. Authentik).
-export const exchangeSsoToken = async (accessToken: string): Promise<string> => {
+export const exchangeSsoToken = async (
+  accessToken: string
+): Promise<string> => {
   const response = await api.post('/session/sso', { token: accessToken });
   return response.data.token;
 };
