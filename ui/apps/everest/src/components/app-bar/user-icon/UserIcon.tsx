@@ -34,7 +34,12 @@ const AppBarUserIcon = () => {
     setAnchorEl(null);
   };
   const token = localStorage.getItem('everestToken');
-  const decoded = jwtDecode(token!) as UserToken;
+  let decoded: UserToken;
+  try {
+    decoded = jwtDecode(token!) as UserToken;
+  } catch {
+    decoded = { sub: '' };
+  }
 
   const preferredUsername = decoded.preferred_username;
   const name = decoded.name;

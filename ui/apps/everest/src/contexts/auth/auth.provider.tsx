@@ -41,7 +41,7 @@ import {
   initializeAuthorizerFetchLoop,
   stopAuthorizerFetchLoop,
 } from 'utils/rbac';
-import { logAuthError, isRunningInIframe } from './auth.utils';
+import { logAuthError, isRunningInIframe, exchangeSsoToken } from './auth.utils';
 
 const Provider = ({
   oidcConfig,
@@ -153,7 +153,10 @@ const AuthProvider = ({ children, isSsoEnabled }: AuthProviderProps) => {
     try {
       const newLoggedUser = await userManager.signinSilent();
       if (newLoggedUser && newLoggedUser.access_token) {
-        localStorage.setItem('everestToken', newLoggedUser.access_token);
+        const everestToken = await exchangeSsoToken(
+          newLoggedUser.access_token
+        );
+        localStorage.setItem('everestToken', everestToken);
       } else {
         setLogoutStatus();
       }
@@ -165,10 +168,16 @@ const AuthProvider = ({ children, isSsoEnabled }: AuthProviderProps) => {
 
   useEffect(() => {
     if (isSsoEnabled) {
-      userManager.events.addUserLoaded((user) => {
-        localStorage.setItem('everestToken', user.access_token || '');
-        const decoded = jwtDecode(user.access_token || '');
-        setLoggedInStatus(decoded.sub || '');
+      userManager.events.addUserLoaded(async (user) => {
+        try {
+          const everestToken = await exchangeSsoToken(user.access_token || '');
+          localStorage.setItem('everestToken', everestToken);
+          const decoded = jwtDecode(everestToken);
+          setLoggedInStatus(decoded.sub || '');
+        } catch (error) {
+          logAuthError('SSO token exchange failed', error);
+          setLogoutStatus();
+        }
       });
 
       userManager.events.addAccessTokenExpiring(() => {
@@ -206,8 +215,10 @@ const AuthProvider = ({ children, isSsoEnabled }: AuthProviderProps) => {
         const exp = decoded.exp;
         if (iss === EVEREST_JWT_ISSUER) {
           const isTokenValid = await checkAuth(token);
-          const username =
-            decoded.sub?.substring(0, decoded.sub.indexOf(':')) || '';
+          // Built-in tokens carry sub="<user>:<capability>"; SSO tokens carry the raw OIDC subject.
+          const sub = decoded.sub || '';
+          const colonIdx = sub.indexOf(':');
+          const username = colonIdx >= 0 ? sub.substring(0, colonIdx) : sub;
           if (isTokenValid) {
             setLoggedInStatus(username);
           } else {

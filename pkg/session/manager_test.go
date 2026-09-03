@@ -123,6 +123,13 @@ func TestExtractUsername(t *testing.T) {
 			isBuiltInUser: true,
 		},
 		{
+			name:          "everest-signed sso session",
+			token:         jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{"sub": "oidc-subject-uuid", "iss": "everest", "oidc_issuer": "https://idp.example.com"}),
+			error:         nil,
+			username:      "oidc-subject-uuid",
+			isBuiltInUser: false,
+		},
+		{
 			name:          "no sub in token",
 			token:         jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{}),
 			error:         errExtractSub,
@@ -147,6 +154,45 @@ func TestExtractUsername(t *testing.T) {
 			assert.Equal(t, tc.error, err)
 		})
 	}
+}
+
+func TestCreateSSO(t *testing.T) {
+	t.Parallel()
+
+	key, err := rsa.GenerateKey(rand.Reader, testRSAKeyBits)
+	require.NoError(t, err)
+	mgr := &Manager{signingKey: key}
+
+	const (
+		subject = "oidc-subject-uuid"
+		id      = "9d1c1f98-a479-41e3-8939-c7cb3e049a"
+		issuer  = "https://idp.example.com/application/o/everest/"
+		email   = "user@example.com"
+	)
+
+	tokenStr, err := mgr.CreateSSO(subject, int64((time.Hour).Seconds()), id, issuer, email)
+	require.NoError(t, err)
+
+	parsed, err := jwt.Parse(tokenStr, func(_ *jwt.Token) (any, error) {
+		return key.Public(), nil
+	}, jwt.WithValidMethods([]string{"RS256"}))
+	require.NoError(t, err)
+	require.True(t, parsed.Valid)
+
+	claims, ok := parsed.Claims.(jwt.MapClaims)
+	require.True(t, ok)
+	assert.Equal(t, subject, claims["sub"])
+	assert.Equal(t, SessionManagerClaimsIssuer, claims["iss"])
+	assert.Equal(t, id, claims["jti"])
+	assert.Equal(t, issuer, claims["oidc_issuer"])
+	assert.Equal(t, email, claims["email"])
+	assert.Contains(t, claims, "exp")
+
+	// An SSO session token must be treated as an external (non-built-in) user keyed on the OIDC subject.
+	username, isBuiltInUser, err := extractUsername(parsed)
+	require.NoError(t, err)
+	assert.Equal(t, subject, username)
+	assert.False(t, isBuiltInUser)
 }
 
 func TestExtractIssueTime(t *testing.T) {
