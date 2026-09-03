@@ -104,6 +104,13 @@ type InstanceSpec struct {
 	// +optional
 	DataSource *backupv1alpha1.DataSource `json:"dataSource,omitempty"`
 
+	// Maintenance governs how disruptive actions raised against this
+	// Instance (e.g. the convergence step after a provider upgrade) are
+	// authorized. It does NOT govern the deliberate engine-version upgrade
+	// flow (spec.version / spec.components[].version).
+	// +optional
+	Maintenance *MaintenanceSpec `json:"maintenance,omitempty"`
+
 	// UserSecretRef optionally seeds the engine's initial (bootstrap)
 	// credentials from a Secret in the same namespace, for providers whose
 	// engine supports setting initial credentials at creation time.
@@ -140,6 +147,74 @@ const (
 	// Instance.
 	InstanceDeletionPolicyOrphan InstanceDeletionPolicy = "Orphan"
 )
+
+// MaintenanceSeverity classifies a disruptive action by its observable
+// database impact — what the application experiences, never the internal
+// mechanism that produces it. The levels are ordered: NonDisruptive <
+// RollingRestart < Downtime.
+//
+// +kubebuilder:validation:Enum=NonDisruptive;RollingRestart;Downtime
+type MaintenanceSeverity string
+
+const (
+	// MaintenanceNonDisruptive means the application observes nothing: no
+	// restart, no dropped connections.
+	MaintenanceNonDisruptive MaintenanceSeverity = "NonDisruptive"
+
+	// MaintenanceRollingRestart means connections blip and reconnect while
+	// nodes restart one at a time; high availability is preserved and there
+	// is no outage.
+	MaintenanceRollingRestart MaintenanceSeverity = "RollingRestart"
+
+	// MaintenanceDowntime means the service is unavailable for a window;
+	// writes pause until the action completes.
+	MaintenanceDowntime MaintenanceSeverity = "Downtime"
+)
+
+// MaintenanceSpec governs how disruptive actions raised against an Instance
+// are authorized. The default (NonDisruptive tolerance, no approval) holds
+// every restart-or-worse action until the owner approves it, so a provider
+// upgrade can never cause surprise downtime.
+type MaintenanceSpec struct {
+	// AutoApproveUpTo is the standing disruption tolerance: any action at or
+	// below this impact applies automatically, anything above it is held on
+	// status.pendingMaintenance. It is cause-agnostic — the tolerance applies
+	// whether the action was raised by a provider upgrade or anything else.
+	// +kubebuilder:default=NonDisruptive
+	// +optional
+	AutoApproveUpTo MaintenanceSeverity `json:"autoApproveUpTo,omitempty"`
+
+	// Approved is a one-time authorization for an action above the standing
+	// tolerance: set it to the exact approvalToken of the held action from
+	// status.pendingMaintenance. It is matched literally, authorizes only
+	// that occurrence, and re-arms naturally — a later action carries a
+	// different token, so a stale value never authorizes it. It is NOT a
+	// provider version.
+	// +kubebuilder:validation:MaxLength=253
+	// +optional
+	Approved string `json:"approved,omitempty"`
+}
+
+// PendingMaintenanceAction is one disruptive action currently held awaiting
+// approval.
+type PendingMaintenanceAction struct {
+	// Description is a human-readable summary of the action and its
+	// observable impact. It never exposes operator internals.
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MaxLength=1024
+	Description string `json:"description"`
+
+	// Severity is the action's observable database impact.
+	// +kubebuilder:validation:Required
+	Severity MaintenanceSeverity `json:"severity"`
+
+	// ApprovalToken is the occurrence-unique, human-readable token the
+	// provider assigned to this held action. Copy it verbatim into
+	// spec.maintenance.approved to authorize this specific action.
+	// +kubebuilder:validation:MaxLength=253
+	// +optional
+	ApprovalToken string `json:"approvalToken,omitempty"`
+}
 
 // InstanceBackupSpec configures the backup feature on an Instance.
 //
@@ -437,6 +512,13 @@ type InstanceStatus struct {
 	// provider, such as the latest restorable time for PITR-enabled storages.
 	// +optional
 	Backup *InstanceBackupStatus `json:"backup,omitempty"`
+
+	// PendingMaintenance lists the disruptive actions currently held awaiting
+	// approval. It is recomputed on every reconcile from the actions the
+	// provider currently requests above the Instance's tolerance, so it can
+	// never go stale: an action the provider stops requesting disappears.
+	// +optional
+	PendingMaintenance []PendingMaintenanceAction `json:"pendingMaintenance,omitempty"`
 	// +listType=map
 	// +listMapKey=type
 	// +optional
@@ -619,6 +701,33 @@ const (
 	// The condition is sticky: once True it remains True for the lifetime of
 	// the Instance.
 	ConditionDataSourceReady = "DataSourceReady"
+
+	// ConditionComponentVersionDeprecated is a read-only, informational condition
+	// that is True while any of the Instance's effective component versions is
+	// flagged as deprecated in the installed Provider catalog. The message
+	// names the affected versions and, when scheduled, the provider release
+	// that removes them, so owners can remediate before that provider upgrade
+	// is attempted. It never blocks or mutates anything.
+	ConditionComponentVersionDeprecated = "ComponentVersionDeprecated"
+
+	// ConditionMaintenancePending is True while at least one disruptive
+	// action is held awaiting approval (listed in status.pendingMaintenance),
+	// and False once nothing is held. The database keeps running while the
+	// condition is True — a held action never affects availability.
+	ConditionMaintenancePending = "MaintenancePending"
+)
+
+// Reasons for the MaintenancePending condition.
+const (
+	// ReasonAwaitingApproval indicates at least one held action requires the
+	// owner to copy its approvalToken into spec.maintenance.approved before
+	// it can proceed.
+	ReasonAwaitingApproval = "AwaitingApproval"
+
+	// ReasonNoActionsPending indicates no disruptive action is currently
+	// held; everything the provider requested was within the Instance's
+	// standing tolerance or has been applied.
+	ReasonNoActionsPending = "NoActionsPending"
 )
 
 // Reasons for the DataSourceReady condition.
@@ -666,6 +775,18 @@ const (
 	// BackupClass either does not exist, is not ProviderManaged, or does not
 	// list the target Instance's provider in SupportedProviders.
 	ReasonDataSourceClassUnsupported = "BackupClassUnsupported"
+)
+
+// Reasons for the ComponentVersionDeprecated condition.
+const (
+	// ReasonScheduledForRemoval indicates at least one effective component
+	// version is deprecated in the installed Provider catalog and is dropped
+	// in a future provider release named in the condition message.
+	ReasonScheduledForRemoval = "ScheduledForRemoval"
+
+	// ReasonVersionsSupported indicates every effective component version is
+	// fully supported by the installed Provider catalog.
+	ReasonVersionsSupported = "VersionsSupported"
 )
 
 // Reasons for the StorageResizing condition.
