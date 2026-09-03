@@ -254,6 +254,12 @@ func newReconciler(ctx context.Context, p providerAdapter, opts ...ReconcilerOpt
 		}
 	}
 
+	if bi, ok := p.(controller.BackupImporter); ok {
+		if err := setupBackupImportReconciler(mgr, bi, p.Name()); err != nil {
+			return nil, fmt.Errorf("failed to setup backup import reconciler: %w", err)
+		}
+	}
+
 	return r, nil
 }
 

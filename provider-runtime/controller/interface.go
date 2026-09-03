@@ -20,6 +20,7 @@ package controller
 import (
 	"context"
 
+	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -343,6 +344,20 @@ type BackupMirror interface {
 	// "this operator object should not be mirrored" must be expressed by
 	// returning (nil, nil).
 	Mirror(ctx context.Context, c client.Client, operatorBackup client.Object) (*backupv1alpha1.Backup, error)
+}
+
+// =============================================================================
+// BACKUP IMPORTER (Optional interface for backup discovery / import)
+// =============================================================================
+
+// BackupImporter is an optional interface that providers implement to import
+// restorable backups already sitting in a BackupStorage and turn them into
+// Backup CRs.
+type BackupImporter interface {
+	// ImportBackups lists and parses the BackupStorage using the supplied S3
+	// client (its bucket is storage.Spec.S3.Bucket) and returns the Backup CRs
+	// to create.
+	ImportBackups(ctx context.Context, imp *backupv1alpha1.BackupImport, storage *backupv1alpha1.BackupStorage, s3c *s3.Client) ([]*backupv1alpha1.Backup, error)
 }
 
 // =============================================================================
