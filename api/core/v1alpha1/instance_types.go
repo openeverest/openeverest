@@ -27,7 +27,9 @@ import (
 )
 
 // InstanceSpec defines the desired state of Instance
-// +kubebuilder:validation:XValidation:rule="!has(self.dataSource) || (has(self.backup) && self.backup.enabled)",message="spec.dataSource requires spec.backup.enabled=true with at least one storage so the provider can read the source backup"
+// +kubebuilder:validation:XValidation:rule="!has(self.dataSource) || (self.dataSource.type == 'Import' && has(self.dataSource.import.classRef)) || (has(self.backup) && self.backup.enabled)",message="spec.dataSource requires spec.backup.enabled=true with at least one storage so the provider can read the source backup"
+// +kubebuilder:validation:XValidation:rule="!has(self.dataSource) || self.dataSource.type != 'Import' || has(self.dataSource.import.classRef) || (has(self.backup) && has(self.backup.classRef) && size(self.backup.classRef.name) > 0)",message="spec.dataSource.type=Import without classRef requires spec.backup.classRef.name"
+// +kubebuilder:validation:XValidation:rule="!has(self.dataSource) || self.dataSource.type != 'Import' || has(self.dataSource.import.classRef) || !has(self.backup.storages) || self.backup.storages.exists(s, s.storageRef.name == self.dataSource.import.storageRef.name)",message="spec.dataSource.import.storageRef.name must match an entry in spec.backup.storages when classRef is not set"
 // +kubebuilder:validation:XValidation:rule="!has(oldSelf.dataSource) || (has(self.dataSource) && self.dataSource == oldSelf.dataSource)",message="spec.dataSource is immutable once set"
 // +kubebuilder:validation:XValidation:rule="!has(self.dataSource) || self.dataSource.type != 'PointInTime' || has(self.dataSource.pointInTime.source.instanceRef)",message="spec.dataSource.pointInTime.source.instanceRef is required when seeding an Instance: a new Instance has no stream of its own, so there is no target Instance to default to"
 type InstanceSpec struct {
@@ -93,13 +95,19 @@ type InstanceSpec struct {
 	DeletionPolicy InstanceDeletionPolicy `json:"deletionPolicy,omitempty"`
 
 	// DataSource allows creating a new Instance from an existing
-	// Backup CR of another Instance.
+	// Backup CR or by importing from external storage with no Backup CR.
 	//
-	// Only ProviderManaged BackupClasses are supported. The referenced Backup
-	// must be in the same namespace, in Succeeded state, and its BackupClass
-	// must list the Instance's provider in SupportedProviders. Instance must
-	// also have backup enabled and include a storage entry that matches the
+	// For using Backup CR, the referenced Backup must be in the same namespace, in
+	// Succeeded state, and its BackupClass must list the Instance's provider in
+	// SupportedProviders. Only ProviderManaged BackupClasses are supported.
+	// Instance must have backup enabled and include a storage that matches the
 	// storage used by the source Backup so the provider can access the data.
+	//
+	// For importing without a Backup CR, if classRef is not specified the
+	// Instance's ProviderManaged BackupClass (spec.backup.classRef) is used
+	// and backup must be enabled and include a storage used by
+	// spec.dataSource.import.storageRef. If classRef is specified, that
+	// BackupClass is used directly using Job execution mode.
 	// +optional
 	DataSource *backupv1alpha1.DataSource `json:"dataSource,omitempty"`
 

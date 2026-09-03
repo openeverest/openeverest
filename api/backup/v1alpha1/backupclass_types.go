@@ -78,6 +78,11 @@ type BackupClassSpec struct {
 	// is validated against it.
 	// +optional
 	RestoreParametersSchema common.ParametersSchema `json:"restoreParametersSchema,omitempty"`
+	// ImportParametersSchema declares the OpenAPI v3 schema describing the import
+	// parameters accepted by this class. Validated against:
+	// - Instance.spec.dataSource.import.parameters
+	// +optional
+	ImportParametersSchema common.ParametersSchema `json:"importParametersSchema,omitempty"`
 	// InstanceConstraints defines compatibility requirements that must be
 	// satisfied by an Instance before this backup class can be used with it.
 	// +optional
@@ -99,16 +104,25 @@ type BackupClassSpec struct {
 	Job *JobModeSpec `json:"job,omitempty"`
 }
 
-// JobModeSpec bundles everything the in-tree controller needs to run backup
-// and restore operations as Kubernetes Jobs in ExecutionMode="Job".
+// JobModeSpec bundles everything the in-tree controller needs to run backup,
+// restore, and import operations as Kubernetes Jobs in ExecutionMode="Job".
+//
+// At least one of Backup or Import must be set. A class with only Import is
+// an import-only class (no backup/restore capability).
+//
+// +kubebuilder:validation:XValidation:rule="has(self.backup) || has(self.import)",message="at least one of backup or import must be set"
+// +kubebuilder:validation:XValidation:rule="!has(self.restore) || has(self.backup)",message="restore requires backup to be set"
 type JobModeSpec struct {
 	// Backup describes the job spawned per Backup CR.
-	// +kubebuilder:validation:Required
-	Backup JobExecution `json:"backup"`
+	// +optional
+	Backup *JobExecution `json:"backup,omitempty"`
 	// Restore describes the job spawned per Restore CR. When unset, restores
-	// are not supported by this class.
+	// are not supported by this class. Requires Backup to be set.
 	// +optional
 	Restore *JobExecution `json:"restore,omitempty"`
+	// Import describes the job spawned for Import data sources when using Job mode.
+	// +optional
+	Import *JobExecution `json:"import,omitempty"`
 }
 
 // JobExecution bundles the Kubernetes resources the controller needs to spawn
@@ -139,6 +153,15 @@ type ProviderManagedSpec struct {
 	// Used by Restore validation when Restore.spec.dataSource.pitr is set.
 	// +optional
 	SupportsPITR bool `json:"supportsPITR,omitempty"`
+
+	// SupportsImport indicates whether this ProviderManaged class supports
+	// importing from external data sources (Instance.spec.dataSource.type=Import).
+	// When true, the provider handles imports by creating operator-native
+	// restore resources (e.g., PerconaServerMongoDBRestore) directly, without
+	// spawning a wrapper Job. The import configuration is validated against
+	// BackupClassSpec.ImportParametersSchema.
+	// +optional
+	SupportsImport bool `json:"supportsImport,omitempty"`
 
 	// Limits caps how many storages, PITR-enabled storages, and schedules per
 	// storage an Instance may declare under .spec.backup when this class is

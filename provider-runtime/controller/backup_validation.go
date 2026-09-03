@@ -106,6 +106,11 @@ const (
 	// when a Restore requests date-based point-in-time recovery without
 	// specifying spec.dataSource.backup.pitr.date.
 	ErrRestorePITRDateRequired referenceError = "point-in-time recovery date is required"
+
+	// ErrRestoreImportUnsupported is the sentinel returned by ValidateRestoreImport
+	// when a Restore requests import but the resolved
+	// ProviderManaged BackupClass does not support import.
+	ErrRestoreImportUnsupported referenceError = "import is not supported"
 )
 
 // ValidateInstanceBackupAgainstClass enforces the generic limits declared on
@@ -219,6 +224,22 @@ func RestoreStreamInstanceName(restore *backupv1alpha1.Restore) string {
 	return restore.Spec.InstanceRef.Name
 }
 
+// ImportBackupClassName resolves the BackupClass for a DataSourceImport,
+// handling Job mode and ProviderManaged mode. See DataSourceImport.ClassRef.
+//
+// It returns "" when neither is available.
+func ImportBackupClassName(imp *backupv1alpha1.DataSourceImport, instance *corev1alpha1.Instance) string {
+	if imp != nil && imp.ClassRef != nil && imp.ClassRef.Name != "" {
+		return imp.ClassRef.Name
+	}
+
+	if instance != nil && instance.Spec.Backup != nil {
+		return instance.Spec.Backup.ClassRef.Name
+	}
+
+	return ""
+}
+
 // ValidateBackupSucceeded returns ErrBackupNotSucceeded unless the Backup has
 // reached the Succeeded state. Callers are responsible for fetching the
 // Backup themselves and handling a not-found lookup error with their own
@@ -321,4 +342,61 @@ func ValidatePITRStorage(
 		"%w: storage %q is not a PITR-enabled storage of instance %q (PITR-enabled: %v)",
 		ErrRestorePITRUnsupported, want, instance.Name, enabled,
 	)
+}
+
+// ValidateRestoreImport checks whether the import options on a Restore are
+// acceptable for the given BackupClass. It is safe to call with any combination
+// of nil inputs: a nil Restore or a Restore that is not requesting import passes,
+// and a nil class fails with ErrRestoreImportUnsupported.
+func ValidateRestoreImport(
+	ds *backupv1alpha1.DataSourceImport,
+	instance *corev1alpha1.Instance,
+	bc *backupv1alpha1.BackupClass,
+) error {
+	if ds == nil {
+		return nil
+	}
+
+	if instance == nil {
+		return fmt.Errorf("%w: instance is nil", ErrRestoreImportUnsupported)
+	}
+
+	if bc == nil {
+		return fmt.Errorf("%w: backup class is nil", ErrRestoreImportUnsupported)
+	}
+
+	if err := ValidateClassSupportsProvider(bc, instance.Spec.ProviderRef.Name); err != nil {
+		return err
+	}
+
+	switch bc.Spec.ExecutionMode {
+	case backupv1alpha1.BackupExecutionModeProviderManaged:
+		if bc.Spec.ProviderManaged == nil || !bc.Spec.ProviderManaged.SupportsImport {
+			return fmt.Errorf(
+				"%w: BackupClass %q does not support provider managed import",
+				ErrRestoreImportUnsupported, bc.Name,
+			)
+		}
+	case backupv1alpha1.BackupExecutionModeJob:
+		if bc.Spec.Job == nil || bc.Spec.Job.Import == nil {
+			return fmt.Errorf(
+				"%w: BackupClass %q does not support job import",
+				ErrRestoreImportUnsupported, bc.Name,
+			)
+		}
+	default:
+		return fmt.Errorf(
+			"%w: BackupClass %q has unknown execution mode %q",
+			ErrRestoreImportUnsupported, bc.Name, bc.Spec.ExecutionMode,
+		)
+	}
+
+	if err := bc.Spec.ImportParametersSchema.Validate(ds.Parameters); err != nil {
+		return fmt.Errorf(
+			"%w: import parameters validation failed: %s",
+			ErrRestoreImportUnsupported, err.Error(),
+		)
+	}
+
+	return nil
 }

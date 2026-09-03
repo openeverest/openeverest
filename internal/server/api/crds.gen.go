@@ -240,6 +240,7 @@ func (e InstanceSpecDataSourcePointInTimeRecoveryTarget) Valid() bool {
 // Defines values for InstanceSpecDataSourceType.
 const (
 	InstanceSpecDataSourceTypeBackup      InstanceSpecDataSourceType = "Backup"
+	InstanceSpecDataSourceTypeImport      InstanceSpecDataSourceType = "Import"
 	InstanceSpecDataSourceTypePointInTime InstanceSpecDataSourceType = "PointInTime"
 )
 
@@ -247,6 +248,8 @@ const (
 func (e InstanceSpecDataSourceType) Valid() bool {
 	switch e {
 	case InstanceSpecDataSourceTypeBackup:
+		return true
+	case InstanceSpecDataSourceTypeImport:
 		return true
 	case InstanceSpecDataSourceTypePointInTime:
 		return true
@@ -420,6 +423,7 @@ func (e InstancePresetSpecDataSourcePointInTimeRecoveryTarget) Valid() bool {
 // Defines values for InstancePresetSpecDataSourceType.
 const (
 	InstancePresetSpecDataSourceTypeBackup      InstancePresetSpecDataSourceType = "Backup"
+	InstancePresetSpecDataSourceTypeImport      InstancePresetSpecDataSourceType = "Import"
 	InstancePresetSpecDataSourceTypePointInTime InstancePresetSpecDataSourceType = "PointInTime"
 )
 
@@ -427,6 +431,8 @@ const (
 func (e InstancePresetSpecDataSourceType) Valid() bool {
 	switch e {
 	case InstancePresetSpecDataSourceTypeBackup:
+		return true
+	case InstancePresetSpecDataSourceTypeImport:
 		return true
 	case InstancePresetSpecDataSourceTypePointInTime:
 		return true
@@ -573,6 +579,7 @@ func (e RestoreSpecDataSourcePointInTimeRecoveryTarget) Valid() bool {
 // Defines values for RestoreSpecDataSourceType.
 const (
 	RestoreSpecDataSourceTypeBackup      RestoreSpecDataSourceType = "Backup"
+	RestoreSpecDataSourceTypeImport      RestoreSpecDataSourceType = "Import"
 	RestoreSpecDataSourceTypePointInTime RestoreSpecDataSourceType = "PointInTime"
 )
 
@@ -580,6 +587,8 @@ const (
 func (e RestoreSpecDataSourceType) Valid() bool {
 	switch e {
 	case RestoreSpecDataSourceTypeBackup:
+		return true
+	case RestoreSpecDataSourceTypeImport:
 		return true
 	case RestoreSpecDataSourceTypePointInTime:
 		return true
@@ -854,6 +863,15 @@ type BackupClass struct {
 		// ExecutionMode ExecutionMode selects between job-based and provider-managed execution.
 		ExecutionMode BackupClassSpecExecutionMode `json:"executionMode"`
 
+		// ImportParametersSchema ImportParametersSchema declares the OpenAPI v3 schema describing the import
+		// parameters accepted by this class. Validated against:
+		// - Instance.spec.dataSource.import.parameters
+		ImportParametersSchema *struct {
+			// OpenAPIV3Schema OpenAPIV3Schema is the OpenAPI v3 schema describing the accepted
+			// parameters payload.
+			OpenAPIV3Schema interface{} `json:"openAPIV3Schema,omitempty"`
+		} `json:"importParametersSchema,omitempty"`
+
 		// InstanceConstraints InstanceConstraints defines compatibility requirements that must be
 		// satisfied by an Instance before this backup class can be used with it.
 		InstanceConstraints *struct {
@@ -868,7 +886,7 @@ type BackupClass struct {
 		// "ProviderManaged".
 		Job *struct {
 			// Backup Backup describes the job spawned per Backup CR.
-			Backup struct {
+			Backup *struct {
 				// CleanupJobSpec CleanupJobSpec is the optional specification of a cleanup job that runs
 				// when the parent Backup or Restore CR is deleted.
 				CleanupJobSpec *struct {
@@ -931,10 +949,76 @@ type BackupClass struct {
 					// Verbs verbs is a list of Verbs that apply to ALL the ResourceKinds contained in this rule. '*' represents all verbs.
 					Verbs []string `json:"verbs"`
 				} `json:"permissions,omitempty"`
-			} `json:"backup"`
+			} `json:"backup,omitempty"`
+
+			// Import Import describes the job spawned for Import data sources when using Job mode.
+			Import *struct {
+				// CleanupJobSpec CleanupJobSpec is the optional specification of a cleanup job that runs
+				// when the parent Backup or Restore CR is deleted.
+				CleanupJobSpec *struct {
+					// Command Command is the command to run the backup class.
+					Command *[]string `json:"command,omitempty"`
+
+					// Image Image is the image of the backup class.
+					Image *string `json:"image,omitempty"`
+				} `json:"cleanupJobSpec,omitempty"`
+
+				// ClusterPermissions ClusterPermissions are cluster-scoped PolicyRules granted via a
+				// generated ClusterRole and ClusterRoleBinding.
+				ClusterPermissions *[]struct {
+					// ApiGroups APIGroups is the name of the APIGroup that contains the resources.  If multiple API groups are specified, any action requested against one of
+					// the enumerated resources in any API group will be allowed. "" represents the core API group and "*" represents all API groups.
+					ApiGroups *[]string `json:"apiGroups,omitempty"`
+
+					// NonResourceURLs NonResourceURLs is a set of partial urls that a user should have access to.  *s are allowed, but only as the full, final step in the path
+					// Since non-resource URLs are not namespaced, this field is only applicable for ClusterRoles referenced from a ClusterRoleBinding.
+					// Rules can either apply to API resources (such as "pods" or "secrets") or non-resource URL paths (such as "/api"),  but not both.
+					NonResourceURLs *[]string `json:"nonResourceURLs,omitempty"`
+
+					// ResourceNames ResourceNames is an optional white list of names that the rule applies to.  An empty set means that everything is allowed.
+					ResourceNames *[]string `json:"resourceNames,omitempty"`
+
+					// Resources Resources is a list of resources this rule applies to. '*' represents all resources.
+					Resources *[]string `json:"resources,omitempty"`
+
+					// Verbs Verbs is a list of Verbs that apply to ALL the ResourceKinds contained in this rule. '*' represents all verbs.
+					Verbs []string `json:"verbs"`
+				} `json:"clusterPermissions,omitempty"`
+
+				// JobSpec JobSpec is the specification of the backup or restore job.
+				JobSpec struct {
+					// Command Command is the command to run the backup class.
+					Command *[]string `json:"command,omitempty"`
+
+					// Image Image is the image of the backup class.
+					Image *string `json:"image,omitempty"`
+				} `json:"jobSpec"`
+
+				// Permissions Permissions are namespace-scoped PolicyRules granted to the job pod via
+				// a generated Role and RoleBinding.
+				Permissions *[]struct {
+					// ApiGroups APIGroups is the name of the APIGroup that contains the resources.  If multiple API groups are specified, any action requested against one of
+					// the enumerated resources in any API group will be allowed. "" represents the core API group and "*" represents all API groups.
+					ApiGroups *[]string `json:"apiGroups,omitempty"`
+
+					// NonResourceURLs NonResourceURLs is a set of partial urls that a user should have access to.  *s are allowed, but only as the full, final step in the path
+					// Since non-resource URLs are not namespaced, this field is only applicable for ClusterRoles referenced from a ClusterRoleBinding.
+					// Rules can either apply to API resources (such as "pods" or "secrets") or non-resource URL paths (such as "/api"),  but not both.
+					NonResourceURLs *[]string `json:"nonResourceURLs,omitempty"`
+
+					// ResourceNames ResourceNames is an optional white list of names that the rule applies to.  An empty set means that everything is allowed.
+					ResourceNames *[]string `json:"resourceNames,omitempty"`
+
+					// Resources Resources is a list of resources this rule applies to. '*' represents all resources.
+					Resources *[]string `json:"resources,omitempty"`
+
+					// Verbs Verbs is a list of Verbs that apply to ALL the ResourceKinds contained in this rule. '*' represents all verbs.
+					Verbs []string `json:"verbs"`
+				} `json:"permissions,omitempty"`
+			} `json:"import,omitempty"`
 
 			// Restore Restore describes the job spawned per Restore CR. When unset, restores
-			// are not supported by this class.
+			// are not supported by this class. Requires Backup to be set.
 			Restore *struct {
 				// CleanupJobSpec CleanupJobSpec is the optional specification of a cleanup job that runs
 				// when the parent Backup or Restore CR is deleted.
@@ -1048,6 +1132,14 @@ type BackupClass struct {
 				// parameters payload.
 				OpenAPIV3Schema interface{} `json:"openAPIV3Schema,omitempty"`
 			} `json:"pitrParametersSchema,omitempty"`
+
+			// SupportsImport SupportsImport indicates whether this ProviderManaged class supports
+			// importing from external data sources (Instance.spec.dataSource.type=Import).
+			// When true, the provider handles imports by creating operator-native
+			// restore resources (e.g., PerconaServerMongoDBRestore) directly, without
+			// spawning a wrapper Job. The import configuration is validated against
+			// BackupClassSpec.ImportParametersSchema.
+			SupportsImport *bool `json:"supportsImport,omitempty"`
 
 			// SupportsPITR SupportsPITR indicates whether this class supports point-in-time recovery.
 			// Used by Restore validation when Restore.spec.dataSource.pitr is set.
@@ -2259,13 +2351,19 @@ type Instance struct {
 		} `json:"components,omitempty"`
 
 		// DataSource DataSource allows creating a new Instance from an existing
-		// Backup CR of another Instance.
+		// Backup CR or by importing from external storage with no Backup CR.
 		//
-		// Only ProviderManaged BackupClasses are supported. The referenced Backup
-		// must be in the same namespace, in Succeeded state, and its BackupClass
-		// must list the Instance's provider in SupportedProviders. Instance must
-		// also have backup enabled and include a storage entry that matches the
+		// For using Backup CR, the referenced Backup must be in the same namespace, in
+		// Succeeded state, and its BackupClass must list the Instance's provider in
+		// SupportedProviders. Only ProviderManaged BackupClasses are supported.
+		// Instance must have backup enabled and include a storage that matches the
 		// storage used by the source Backup so the provider can access the data.
+		//
+		// For importing without a Backup CR, if classRef is not specified the
+		// Instance's ProviderManaged BackupClass (spec.backup.classRef) is used
+		// and backup must be enabled and include a storage used by
+		// spec.dataSource.import.storageRef. If classRef is specified, that
+		// BackupClass is used directly using Job execution mode.
 		DataSource *struct {
 			// Backup Backup identifies the backup to restore. Required when type=Backup.
 			Backup *struct {
@@ -2275,6 +2373,28 @@ type Instance struct {
 					Name string `json:"name"`
 				} `json:"backupRef"`
 			} `json:"backup,omitempty"`
+
+			// Import Import imports from external storage.
+			// Required when type=Import.
+			Import *struct {
+				// ClassRef ClassRef references a BackupClass. Required for Job mode.
+				// ProviderManaged mode uses the Instance's backup class (spec.backup.classRef)
+				// and backup must be enabled.
+				ClassRef *struct {
+					// Name Name of the referenced object.
+					Name string `json:"name"`
+				} `json:"classRef,omitempty"`
+
+				// Parameters Parameters contains all import configuration.
+				// Validated against BackupClass.spec.importParameterSchema.
+				Parameters map[string]interface{} `json:"parameters"`
+
+				// StorageRef StorageRef references a BackupStorage.
+				StorageRef struct {
+					// Name Name of the referenced object.
+					Name string `json:"name"`
+				} `json:"storageRef"`
+			} `json:"import,omitempty"`
 
 			// PointInTime PointInTime identifies the stream and the point to recover to.
 			// Required when type=PointInTime.
@@ -3515,13 +3635,19 @@ type InstancePreset struct {
 		} `json:"components,omitempty"`
 
 		// DataSource DataSource allows creating a new Instance from an existing
-		// Backup CR of another Instance.
+		// Backup CR or by importing from external storage with no Backup CR.
 		//
-		// Only ProviderManaged BackupClasses are supported. The referenced Backup
-		// must be in the same namespace, in Succeeded state, and its BackupClass
-		// must list the Instance's provider in SupportedProviders. Instance must
-		// also have backup enabled and include a storage entry that matches the
+		// For using Backup CR, the referenced Backup must be in the same namespace, in
+		// Succeeded state, and its BackupClass must list the Instance's provider in
+		// SupportedProviders. Only ProviderManaged BackupClasses are supported.
+		// Instance must have backup enabled and include a storage that matches the
 		// storage used by the source Backup so the provider can access the data.
+		//
+		// For importing without a Backup CR, if classRef is not specified the
+		// Instance's ProviderManaged BackupClass (spec.backup.classRef) is used
+		// and backup must be enabled and include a storage used by
+		// spec.dataSource.import.storageRef. If classRef is specified, that
+		// BackupClass is used directly using Job execution mode.
 		DataSource *struct {
 			// Backup Backup identifies the backup to restore. Required when type=Backup.
 			Backup *struct {
@@ -3531,6 +3657,28 @@ type InstancePreset struct {
 					Name string `json:"name"`
 				} `json:"backupRef"`
 			} `json:"backup,omitempty"`
+
+			// Import Import imports from external storage.
+			// Required when type=Import.
+			Import *struct {
+				// ClassRef ClassRef references a BackupClass. Required for Job mode.
+				// ProviderManaged mode uses the Instance's backup class (spec.backup.classRef)
+				// and backup must be enabled.
+				ClassRef *struct {
+					// Name Name of the referenced object.
+					Name string `json:"name"`
+				} `json:"classRef,omitempty"`
+
+				// Parameters Parameters contains all import configuration.
+				// Validated against BackupClass.spec.importParameterSchema.
+				Parameters map[string]interface{} `json:"parameters"`
+
+				// StorageRef StorageRef references a BackupStorage.
+				StorageRef struct {
+					// Name Name of the referenced object.
+					Name string `json:"name"`
+				} `json:"storageRef"`
+			} `json:"import,omitempty"`
 
 			// PointInTime PointInTime identifies the stream and the point to recover to.
 			// Required when type=PointInTime.
@@ -4265,6 +4413,28 @@ type Restore struct {
 					Name string `json:"name"`
 				} `json:"backupRef"`
 			} `json:"backup,omitempty"`
+
+			// Import Import imports from external storage.
+			// Required when type=Import.
+			Import *struct {
+				// ClassRef ClassRef references a BackupClass. Required for Job mode.
+				// ProviderManaged mode uses the Instance's backup class (spec.backup.classRef)
+				// and backup must be enabled.
+				ClassRef *struct {
+					// Name Name of the referenced object.
+					Name string `json:"name"`
+				} `json:"classRef,omitempty"`
+
+				// Parameters Parameters contains all import configuration.
+				// Validated against BackupClass.spec.importParameterSchema.
+				Parameters map[string]interface{} `json:"parameters"`
+
+				// StorageRef StorageRef references a BackupStorage.
+				StorageRef struct {
+					// Name Name of the referenced object.
+					Name string `json:"name"`
+				} `json:"storageRef"`
+			} `json:"import,omitempty"`
 
 			// PointInTime PointInTime identifies the stream and the point to recover to.
 			// Required when type=PointInTime.

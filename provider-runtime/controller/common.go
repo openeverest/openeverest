@@ -1023,6 +1023,8 @@ func (c *Context) resolveDataSourceOrigin(
 		return c.resolveBackupOrigin(ds)
 	case backupv1alpha1.DataSourceTypePointInTime:
 		return c.resolvePointInTimeOrigin(ds)
+	case backupv1alpha1.DataSourceTypeImport:
+		return c.resolveImportOrigin(ds)
 	default:
 		return nil, &DataSourceStatus{
 			Done:    true,
@@ -1158,6 +1160,54 @@ func hasInstanceStorage(b *v1alpha1.InstanceBackupSpec, name string) bool {
 		}
 	}
 	return false
+}
+
+// resolveImportOrigin resolves a type=Import data source: the class comes from
+// the DataSource itself (if set) or the Instance's backup class, and the storage
+// comes from the DataSource's storageRef. The storageRef is required.
+func (c *Context) resolveImportOrigin(
+	ds *backupv1alpha1.DataSource,
+) (*dataSourceOrigin, *DataSourceStatus, error) {
+	if ds.Import.StorageRef.Name == "" {
+		return nil, &DataSourceStatus{
+			Done:    true,
+			State:   DataSourceStateFailed,
+			Reason:  v1alpha1.ReasonDataSourceFailed,
+			Message: "spec.dataSource.import.storageRef.name is required when seeding an Instance from external storage",
+		}, nil
+	}
+
+	classRefName := ImportBackupClassName(ds.Import, c.in)
+	if classRefName == "" {
+		return nil, &DataSourceStatus{
+			Done:    true,
+			State:   DataSourceStateFailed,
+			Reason:  v1alpha1.ReasonDataSourceClassUnsupported,
+			Message: "cannot resolve BackupClass for import",
+		}, nil
+	}
+
+	bc, err := c.BackupClass(classRefName)
+	if err != nil {
+		return nil, nil, fmt.Errorf("get BackupClass %q: %w", classRefName, err)
+	}
+
+	if err := ValidateRestoreImport(ds.Import, c.Instance(), bc); err != nil {
+		fail := &DataSourceStatus{
+			Done:    true,
+			State:   DataSourceStateFailed,
+			Reason:  v1alpha1.ReasonDataSourceClassUnsupported,
+			Message: err.Error(),
+		}
+
+		return nil, fail, nil //nolint:nilerr // reported as status
+	}
+
+	return &dataSourceOrigin{
+		classRefName: classRefName,
+		storageName:  ds.Import.StorageRef.Name,
+		description:  fmt.Sprintf("import from storage %q", ds.Import.StorageRef.Name),
+	}, nil, nil
 }
 
 // =============================================================================
