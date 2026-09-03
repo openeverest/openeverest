@@ -170,7 +170,7 @@ func TestCreateSSO(t *testing.T) {
 		email   = "user@example.com"
 	)
 
-	tokenStr, err := mgr.CreateSSO(subject, int64((time.Hour).Seconds()), id, issuer, email)
+	tokenStr, err := mgr.CreateSSO(subject, int64(time.Hour.Seconds()), id, issuer, email)
 	require.NoError(t, err)
 
 	parsed, err := jwt.Parse(tokenStr, func(_ *jwt.Token) (any, error) {
