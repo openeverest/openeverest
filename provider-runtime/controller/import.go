@@ -15,6 +15,7 @@
 package controller
 
 import (
+	"context"
 	"crypto/tls"
 	"fmt"
 	"net/http"
@@ -23,6 +24,8 @@ import (
 	awshttp "github.com/aws/aws-sdk-go-v2/aws/transport/http"
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
+	corev1 "k8s.io/api/core/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
 )
@@ -31,16 +34,33 @@ import (
 // import, carrying the name of the originating BackupImport.
 const BackupImportNameLabel = "backupImportName"
 
-// NewS3Client builds an S3 client from an S3 BackupStorage spec.
-func NewS3Client(spec *backupv1alpha1.BackupStorageS3Spec, accessKeyID, secretAccessKey string) (*s3.Client, error) {
+// NewS3Client builds an S3 client for the given BackupStorage. It returns an
+// error if the storage is not backed by S3. It reads its credentials from the
+// referenced Secret.
+func NewS3Client(
+	ctx context.Context,
+	c client.Client,
+	storage *backupv1alpha1.BackupStorage,
+) (*s3.Client, error) {
+	if storage == nil {
+		return nil, fmt.Errorf("nil BackupStorage")
+	}
+
+	spec := storage.Spec.S3
 	if spec == nil {
-		return nil, fmt.Errorf("nil S3 storage spec")
+		return nil, fmt.Errorf("BackupStorage %q is not an S3 storage", storage.Name)
+	}
+
+	accessKeyID, secretAccessKey, err := s3Credentials(ctx, c, storage)
+	if err != nil {
+		return nil, err
 	}
 
 	verifyTLS := true
 	if spec.VerifyTLS != nil {
 		verifyTLS = *spec.VerifyTLS
 	}
+
 	httpClient := awshttp.NewBuildableClient().WithTransportOptions(func(tr *http.Transport) {
 		if !verifyTLS {
 			if tr.TLSClientConfig == nil {
@@ -63,4 +83,28 @@ func NewS3Client(spec *backupv1alpha1.BackupStorageS3Spec, accessKeyID, secretAc
 		}
 		o.UsePathStyle = forcePathStyle
 	}), nil
+}
+
+// s3Credentials reads the S3 access key and secret key from the Secret
+// referenced by the BackupStorage. It returns empty strings when no
+// credentials secret is referenced.
+func s3Credentials(
+	ctx context.Context,
+	c client.Client,
+	storage *backupv1alpha1.BackupStorage,
+) (string, string, error) {
+	ref := storage.Spec.S3.CredentialsSecretRef.Name
+	if ref == "" {
+		return "", "", nil
+	}
+
+	secret := &corev1.Secret{}
+	if err := c.Get(ctx, client.ObjectKey{
+		Namespace: storage.Namespace,
+		Name:      ref,
+	}, secret,
+	); err != nil {
+		return "", "", fmt.Errorf("get credentials secret %q: %w", ref, err)
+	}
+	return string(secret.Data["AWS_ACCESS_KEY_ID"]), string(secret.Data["AWS_SECRET_ACCESS_KEY"]), nil
 }

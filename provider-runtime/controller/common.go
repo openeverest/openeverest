@@ -767,6 +767,24 @@ func IsNotFound(err error) bool {
 }
 
 // =============================================================================
+// BACKUP IMPORT EXECUTION STATUS
+// =============================================================================
+
+// BackupImportExecutionStatus is returned by BackupImporter.ImportBackups. The
+// runtime creates the discovered Backups and reflects State/Message onto the
+// BackupImport CR.
+type BackupImportExecutionStatus struct {
+	// Backups are the discovered restorable backups the runtime should create
+	// as Backup CRs.
+	Backups []*backupv1alpha1.Backup
+	// State is the current state of the import. Failed and Succeeded are
+	// terminal states; the runtime will not re-attempt the import.
+	State backupv1alpha1.BackupImportState
+	// Message is a human-readable description of the current state.
+	Message string
+}
+
+// =============================================================================
 // DATASOURCE HELPER — initial seeding from .spec.dataSource
 // =============================================================================
 

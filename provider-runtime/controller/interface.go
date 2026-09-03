@@ -20,7 +20,6 @@ package controller
 import (
 	"context"
 
-	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -354,10 +353,11 @@ type BackupMirror interface {
 // restorable backups already sitting in a BackupStorage and turn them into
 // Backup CRs.
 type BackupImporter interface {
-	// ImportBackups lists and parses the BackupStorage using the supplied S3
-	// client (its bucket is storage.Spec.S3.Bucket) and returns the Backup CRs
-	// to create.
-	ImportBackups(ctx context.Context, imp *backupv1alpha1.BackupImport, storage *backupv1alpha1.BackupStorage, s3c *s3.Client) ([]*backupv1alpha1.Backup, error)
+	// ImportBackups lists and parses the BackupStorage and returns the
+	// discovered Backups to create along with the resulting import state. A
+	// returned error is treated as transient (the runtime retries); a Failed
+	// State in the result is treated as terminal.
+	ImportBackups(ctx context.Context, imp *backupv1alpha1.BackupImport, storage *backupv1alpha1.BackupStorage) (BackupImportExecutionStatus, error)
 }
 
 // =============================================================================
