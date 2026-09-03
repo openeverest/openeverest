@@ -460,7 +460,11 @@ func (r *ProviderReconciler) Reconcile(ctx context.Context, req reconcile.Reques
 		r.breaker.recordFailure(req.NamespacedName, approvedMaintenanceValue(in), syncCtx.GetApprovedMaintenance())
 		return reconcile.Result{}, err
 	}
-	r.breaker.reset(req.NamespacedName)
+	// A pass that merely held a tripped action succeeds trivially; resetting
+	// then would un-trip the breaker and restart the failure bursts.
+	if !syncCtx.MaintenanceBreakerHeld() {
+		r.breaker.reset(req.NamespacedName)
+	}
 	// Clear any stale BackupConfigured=False condition left from a previous failed Sync.
 	if _, ok := r.provider.(controller.BackupProvider); ok {
 		setCondition(in, v1alpha1.ConditionBackupConfigured, metav1.ConditionTrue,
@@ -656,6 +660,9 @@ func (r *ProviderReconciler) handleDeletion(
 	if err := r.Client.Update(ctx, in); err != nil {
 		return reconcile.Result{}, err
 	}
+	// Drop breaker state so a recreated Instance with the same name does not
+	// inherit this lifetime's failure counts.
+	r.breaker.reset(client.ObjectKeyFromObject(in))
 
 	logger.Info("Cleanup complete")
 	return reconcile.Result{}, nil
@@ -830,7 +837,9 @@ func flushPendingMaintenance(syncCtx *controller.Context, in *v1alpha1.Instance)
 		message := fmt.Sprintf("%d action(s) require approval to proceed", len(pending))
 		if syncCtx.MaintenanceBreakerHeld() {
 			reason = v1alpha1.ReasonRetriesExhausted
-			message = "an approved action kept failing and is no longer retried; clear and re-set spec.maintenance.approved to retry"
+			message = fmt.Sprintf(
+				"%d action(s) held; an approved action kept failing and is no longer retried — change spec.maintenance.approved (set it to the pending action's token, or clear and re-set it) to retry",
+				len(pending))
 		}
 		setCondition(in, v1alpha1.ConditionMaintenancePending, metav1.ConditionTrue,
 			reason, message, metav1.Now())

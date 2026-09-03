@@ -28,6 +28,8 @@ package controller
 // repository.
 
 import (
+	"slices"
+
 	"github.com/openeverest/openeverest/v2/api/core/v1alpha1"
 )
 
@@ -78,7 +80,7 @@ func severityRank(s MaintenanceSeverity) int {
 func (c *Context) RequestMaintenance(token, description string, severity MaintenanceSeverity) bool {
 	if c.maintenanceApproved(token, severity) {
 		if _, blocked := c.blockedMaintenance[token]; !blocked {
-			if severityRank(severity) > severityRank(MaintenanceNonDisruptive) {
+			if severityRank(severity) > severityRank(MaintenanceNonDisruptive) && !slices.Contains(c.approvedMaintenance, token) {
 				c.approvedMaintenance = append(c.approvedMaintenance, token)
 			}
 			return true

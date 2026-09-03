@@ -142,3 +142,16 @@ func TestRequestMaintenance_ReArmsPerOccurrence(t *testing.T) {
 	assert.True(t, c.RequestMaintenance("upgrade-to-0.3", "converge to 0.3", MaintenanceRollingRestart))
 	assert.False(t, c.RequestMaintenance("upgrade-to-0.5", "converge to 0.5", MaintenanceRollingRestart))
 }
+
+func TestRequestMaintenance_ApprovedTokensDeduplicated(t *testing.T) {
+	t.Parallel()
+
+	// Requesting the same approved action twice in one pass must count as
+	// one approval, or the breaker would double-count its failures.
+	c := maintenanceContext(t, &v1alpha1.MaintenanceSpec{Approved: "upgrade-to-0.3"})
+
+	assert.True(t, c.RequestMaintenance("upgrade-to-0.3", "converge", MaintenanceRollingRestart))
+	assert.True(t, c.RequestMaintenance("upgrade-to-0.3", "converge", MaintenanceRollingRestart))
+
+	assert.Equal(t, []string{"upgrade-to-0.3"}, c.GetApprovedMaintenance())
+}

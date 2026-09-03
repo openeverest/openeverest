@@ -718,8 +718,10 @@ const (
 
 	// ReasonRetriesExhausted indicates an approved disruptive action kept
 	// failing and the runtime stopped retrying it so a crash-looping
-	// provider cannot repeatedly disrupt the database. Clear and re-set
-	// spec.maintenance.approved to retry.
+	// provider cannot repeatedly disrupt the database. Changing
+	// spec.maintenance.approved re-arms the retries: set it to the pending
+	// action's token (for actions auto-approved by autoApproveUpTo), or
+	// clear and re-set it.
 	ReasonRetriesExhausted = "RetriesExhausted"
 )
 

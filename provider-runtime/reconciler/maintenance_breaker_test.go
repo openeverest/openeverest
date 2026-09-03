@@ -89,6 +89,32 @@ func TestMaintenanceBreaker(t *testing.T) {
 		}
 		assert.Empty(t, b.blockedTokens(other, "upgrade-to-0.3"))
 	})
+
+	t.Run("a held pass must not reset a tripped breaker", func(t *testing.T) {
+		t.Parallel()
+
+		// Mirror the Reconcile wiring across two passes: after the trip, the
+		// held pass succeeds trivially, and only a pass that actually
+		// performed work may reset.
+		var b maintenanceBreaker
+		for range maintenanceBreakerThreshold {
+			b.recordFailure(nn, "upgrade-to-0.3", []string{"upgrade-to-0.3"})
+		}
+
+		in := &corev1alpha1.Instance{}
+		in.Spec.Maintenance = &corev1alpha1.MaintenanceSpec{Approved: "upgrade-to-0.3"}
+		syncCtx := controller.NewContext(t.Context(), nil, in, "test-provider")
+		syncCtx.BlockMaintenance(b.blockedTokens(nn, "upgrade-to-0.3")...)
+		require.False(t, syncCtx.RequestMaintenance("upgrade-to-0.3", "restart", controller.MaintenanceRollingRestart))
+		require.True(t, syncCtx.MaintenanceBreakerHeld())
+
+		// Reconcile skips reset on held passes, so the next pass stays blocked.
+		if !syncCtx.MaintenanceBreakerHeld() {
+			b.reset(nn)
+		}
+		assert.Equal(t, []string{"upgrade-to-0.3"}, b.blockedTokens(nn, "upgrade-to-0.3"),
+			"the trip must survive a pass that only held the action")
+	})
 }
 
 func TestRequestMaintenance_BreakerHoldsApprovedAction(t *testing.T) {
