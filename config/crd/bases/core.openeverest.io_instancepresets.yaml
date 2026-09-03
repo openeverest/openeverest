@@ -1656,6 +1656,36 @@ spec:
                 - Cascade
                 - Orphan
                 type: string
+              maintenance:
+                description: |-
+                  Maintenance governs how disruptive actions raised against this
+                  Instance (e.g. the convergence step after a provider upgrade) are
+                  authorized. It does NOT govern the deliberate engine-version upgrade
+                  flow (spec.version / spec.components[].version).
+                properties:
+                  approved:
+                    description: |-
+                      Approved is a one-time authorization for an action above the standing
+                      tolerance: set it to the exact approvalToken of the held action from
+                      status.pendingMaintenance. It is matched literally, authorizes only
+                      that occurrence, and re-arms naturally — a later action carries a
+                      different token, so a stale value never authorizes it. It is NOT a
+                      provider version.
+                    maxLength: 253
+                    type: string
+                  autoApproveUpTo:
+                    default: NonDisruptive
+                    description: |-
+                      AutoApproveUpTo is the standing disruption tolerance: any action at or
+                      below this impact applies automatically, anything above it is held on
+                      status.pendingMaintenance. It is cause-agnostic — the tolerance applies
+                      whether the action was raised by a provider upgrade or anything else.
+                    enum:
+                    - NonDisruptive
+                    - RollingRestart
+                    - Downtime
+                    type: string
+                type: object
               parameters:
                 description: |-
                   Parameters contains structured parameters that apply to the Instance
