@@ -104,7 +104,7 @@ func HasBlockingIssues(issues []UpgradeIssue) bool {
 // outside reconciliation — in the chart's pre-upgrade hook Job — where no
 // Instance is in scope. Unlike Context, every method is safe to call.
 type HookContext struct {
-	ctx          context.Context
+	ctx          context.Context //nolint:containedctx // mirrors Context: the handle scopes one short-lived preflight pass
 	client       client.Client
 	providerName string
 }
@@ -118,7 +118,9 @@ func NewHookContext(ctx context.Context, c client.Client, providerName string) *
 func (h *HookContext) Context() context.Context { return h.ctx }
 
 // Client returns the underlying Kubernetes client.
-func (h *HookContext) Client() client.Client { return h.client }
+func (h *HookContext) Client() client.Client { //nolint:ireturn // client.Client is the SDK's accessor contract, as on Context.Client
+	return h.client
+}
 
 // ProviderName returns the name of the provider under preflight.
 func (h *HookContext) ProviderName() string { return h.providerName }
