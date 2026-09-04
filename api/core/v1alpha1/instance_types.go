@@ -30,6 +30,7 @@ import (
 // +kubebuilder:validation:XValidation:rule="!has(self.dataSource) || (has(self.backup) && self.backup.enabled)",message="spec.dataSource requires spec.backup.enabled=true with at least one storage so the provider can read the source backup"
 // +kubebuilder:validation:XValidation:rule="!has(oldSelf.dataSource) || (has(self.dataSource) && self.dataSource == oldSelf.dataSource)",message="spec.dataSource is immutable once set"
 // +kubebuilder:validation:XValidation:rule="!has(self.dataSource) || self.dataSource.type != 'PointInTime' || has(self.dataSource.pointInTime.source.instanceRef)",message="spec.dataSource.pointInTime.source.instanceRef is required when seeding an Instance: a new Instance has no stream of its own, so there is no target Instance to default to"
+// +kubebuilder:validation:XValidation:rule="!has(oldSelf.userSecretRef) || (has(self.userSecretRef) && self.userSecretRef == oldSelf.userSecretRef)",message="spec.userSecretRef is immutable once set"
 type InstanceSpec struct {
 	// ProviderRef references the cluster-scoped Provider that manages this
 	// Instance (e.g., "percona-server-mongodb", "postgresql").
@@ -109,6 +110,18 @@ type InstanceSpec struct {
 	// flow (spec.version / spec.components[].version).
 	// +optional
 	Maintenance *MaintenanceSpec `json:"maintenance,omitempty"`
+
+	// UserSecretRef optionally seeds the engine's initial (bootstrap)
+	// credentials from a Secret in the same namespace, for providers whose
+	// engine supports setting initial credentials at creation time.
+	//
+	// When omitted, the provider generates credentials automatically. The
+	// referenced Secret's required keys are provider-specific and validated
+	// by the referenced Provider. The field is immutable once set: initial
+	// credentials only apply at engine creation time, so changing it later
+	// would have no effect.
+	// +optional
+	UserSecretRef *common.SecretRef `json:"userSecretRef,omitempty"`
 }
 
 // InstanceDeletionPolicy controls what happens to Backup and Restore CRs

@@ -42,8 +42,23 @@ func (h *validateHandler) CreateInstance(ctx context.Context, cluster string, in
 	return h.next.CreateInstance(ctx, cluster, instance)
 }
 
-// UpdateInstance proxies the request to the next handler.
+// UpdateInstance rejects a change to the bootstrap credentials reference, then proxies to the next handler.
 func (h *validateHandler) UpdateInstance(ctx context.Context, cluster string, instance *corev1alpha1.Instance) (*corev1alpha1.Instance, error) {
+	if instance.Spec.UserSecretRef != nil {
+		current, err := h.next.GetInstance(ctx, cluster, instance.GetNamespace(), instance.GetName())
+		if err != nil {
+			return nil, err
+		}
+
+		// A update could set userSecretRef when it was previously unset, which
+		// kubebuilder's immutable validation does not catch.
+		if current.Spec.UserSecretRef == nil {
+			return nil, errors.Join(
+				ErrInvalidRequest,
+				errors.New("spec.userSecretRef may not be modified"),
+			)
+		}
+	}
 	// Add validation here if needed in the future
 	return h.next.UpdateInstance(ctx, cluster, instance)
 }
@@ -62,6 +77,16 @@ func (h *validateHandler) PatchInstance(ctx context.Context, cluster, namespace,
 	if metadata, isObject := doc["metadata"].(map[string]any); isObject {
 		if err := rejectProtectedMetadata(metadata); err != nil {
 			return nil, errors.Join(ErrInvalidRequest, err)
+		}
+	}
+	if spec, isObject := doc["spec"].(map[string]any); isObject {
+		// A patch could set userSecretRef when it was previously unset, which
+		// kubebuilder's immutable validation does not catch.
+		if _, ok := spec["userSecretRef"]; ok {
+			return nil, errors.Join(
+				ErrInvalidRequest,
+				errors.New("spec.userSecretRef may not be patched"),
+			)
 		}
 	}
 	return h.next.PatchInstance(ctx, cluster, namespace, name, patch)
