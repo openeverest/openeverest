@@ -62,21 +62,71 @@ components:
               - Retain
               - Delete
               type: string
-            instanceRef:
+            origin:
               description: |-
-                InstanceRef references the Instance to back up. The Instance must
-                live in the same namespace as this Backup.
+                Origin identifies where this Backup's data comes from: produced by a
+                live Instance, or imported from data already present in a BackupStorage.
               properties:
-                name:
-                  description: Name of the referenced object.
-                  maxLength: 253
-                  minLength: 1
-                  pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                external:
+                  description: |-
+                    External identifies data already present in the referenced BackupStorage
+                    rather than produced by a live Instance. Required when Type is External.
+                    When set, the restore is built directly from storageRef + external.path
+                    with no live operator object.
+                  properties:
+                    completedAt:
+                      description: CompletedAt is the time when the backup completed.
+                      format: date-time
+                      type: string
+                    path:
+                      description: |-
+                        Path is the backup's path within the BackupStorage. The bucket is
+                        already determined by storageRef, so it is not repeated here. The path
+                        is unique within its storage and is used for restore.
+                      minLength: 1
+                      type: string
+                    startedAt:
+                      description: StartedAt is the time when the backup started.
+                      format: date-time
+                      type: string
+                  required:
+                  - completedAt
+                  - path
+                  - startedAt
+                  type: object
+                  x-kubernetes-validations:
+                  - message: spec.origin.external is immutable
+                    rule: self == oldSelf
+                instanceRef:
+                  description: |-
+                    InstanceRef references the Instance that produced this Backup. The
+                    Instance must live in the same namespace as this Backup. Required when
+                    Type is Instance.
+                  properties:
+                    name:
+                      description: Name of the referenced object.
+                      maxLength: 253
+                      minLength: 1
+                      pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                      type: string
+                  required:
+                  - name
+                  type: object
+                  x-kubernetes-map-type: atomic
+                type:
+                  description: Type selects the origin variant.
+                  enum:
+                  - Instance
+                  - External
                   type: string
               required:
-              - name
+              - type
               type: object
-              x-kubernetes-map-type: atomic
+              x-kubernetes-validations:
+              - message: instanceRef must be set if and only if type is Instance
+                rule: 'self.type == ''Instance'' ? has(self.instanceRef) : !has(self.instanceRef)'
+              - message: external must be set if and only if type is External
+                rule: 'self.type == ''External'' ? has(self.external) : !has(self.external)'
             parameters:
               description: |-
                 Parameters is the backup-time structured configuration validated
@@ -110,14 +160,20 @@ components:
               x-kubernetes-map-type: atomic
           required:
           - classRef
-          - instanceRef
+          - origin
           - storageRef
           type: object
+          x-kubernetes-validations:
+          - message: deletionPolicy Delete is not allowed when origin.type is External;
+              use Retain
+            rule: self.origin.type != 'External' || self.deletionPolicy != 'Delete'
         status:
           description: BackupStatus defines the observed state of Backup.
           properties:
             completedAt:
-              description: CompletedAt is the time when the backup completed successfully.
+              description: |-
+                CompletedAt is the time when the backup completed successfully.
+                For external backups this mirrors spec.origin.external.completedAt.
               format: date-time
               type: string
             conditions:
@@ -190,7 +246,8 @@ components:
             jobRef:
               description: |-
                 JobRef references the Job that is running the backup.
-                Populated only for Job classes.
+                Populated only for Job classes. Empty for external backups, which run
+                no Job.
               properties:
                 name:
                   description: Name of the referenced object.
@@ -214,7 +271,8 @@ components:
               description: |-
                 OperatorBackupRef points at the operator-native backup resource the
                 provider created (e.g., PerconaServerMongoDBBackup). Populated only
-                for ProviderManaged classes.
+                for ProviderManaged classes. Empty for external backups, which have no
+                operator-native backup object.
               properties:
                 group:
                   description: |-
@@ -238,15 +296,21 @@ components:
               type: object
               x-kubernetes-map-type: atomic
             size:
-              description: Size is the size of the backup data as reported by the
-                engine.
+              description: |-
+                Size is the size of the backup data as reported by the engine.
+                Empty for external backups.
               type: string
             startedAt:
-              description: StartedAt is the time when the backup started.
+              description: |-
+                StartedAt is the time when the backup started.
+                For external backups this mirrors spec.origin.external.startedAt.
               format: date-time
               type: string
             state:
-              description: State is the current state of the backup.
+              description: |-
+                State is the current state of the backup.
+                For external backups, the state is Succeeded if the backup has valid
+                StartedAt and CompletedAt set.
               enum:
               - Pending
               - Running
@@ -710,6 +774,9 @@ components:
             rule: '!has(self.job) || self.executionMode == ''Job'''
           - message: spec.providerManaged is only allowed when executionMode is ProviderManaged
             rule: '!has(self.providerManaged) || self.executionMode == ''ProviderManaged'''
+          - message: a ProviderManaged BackupClass must support exactly one provider
+            rule: self.executionMode != 'ProviderManaged' || (has(self.supportedProviders)
+              && size(self.supportedProviders) == 1)
         status:
           description: BackupClassStatus defines the observed state of BackupClass.
           properties:
@@ -802,6 +869,196 @@ components:
                 request the generation of an appropriate name automatically. Name
                 is primarily intended for creation idempotence and configuration definition.
                 More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names#names'
+              type: string
+          type: object
+      type: object
+    BackupImport:
+      description: BackupImport is the Schema for the backupimports API.
+      properties:
+        apiVersion:
+          description: |-
+            APIVersion defines the versioned schema of this representation of an object.
+            Servers should convert recognized schemas to the latest internal value, and
+            may reject unrecognized values.
+            More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+          type: string
+        kind:
+          description: |-
+            Kind is a string value representing the REST resource this object represents.
+            Servers may infer this from the endpoint the client submits requests to.
+            Cannot be updated.
+            In CamelCase.
+            More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+          type: string
+        metadata:
+          $ref: '#/components/schemas/ObjectMeta'
+        spec:
+          description: spec defines the desired state of BackupImport
+          properties:
+            classRef:
+              description: |-
+                ClassRef references the cluster-scoped BackupClass that determines how
+                backups in the storage are parsed. The class's executionMode controls
+                how the import is executed. The ProviderManaged classes are reconciled
+                by the provider.
+              properties:
+                name:
+                  description: Name of the referenced object.
+                  maxLength: 253
+                  minLength: 1
+                  pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                  type: string
+              required:
+              - name
+              type: object
+              x-kubernetes-map-type: atomic
+            storageRef:
+              description: |-
+                StorageRef references a BackupStorage in the same namespace whose
+                contents are listed and parsed. The reconciler reads the storage and
+                its credentials secret.
+              properties:
+                name:
+                  description: Name of the referenced object.
+                  maxLength: 253
+                  minLength: 1
+                  pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                  type: string
+              required:
+              - name
+              type: object
+              x-kubernetes-map-type: atomic
+          required:
+          - classRef
+          - storageRef
+          type: object
+          x-kubernetes-validations:
+          - message: spec is immutable
+            rule: self == oldSelf
+        status:
+          description: status defines the observed state of BackupImport
+          properties:
+            conditions:
+              items:
+                description: Condition contains details for one aspect of the current
+                  state of this API Resource.
+                properties:
+                  lastTransitionTime:
+                    description: |-
+                      lastTransitionTime is the last time the condition transitioned from one status to another.
+                      This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                    format: date-time
+                    type: string
+                  message:
+                    description: |-
+                      message is a human readable message indicating details about the transition.
+                      This may be an empty string.
+                    maxLength: 32768
+                    type: string
+                  observedGeneration:
+                    description: |-
+                      observedGeneration represents the .metadata.generation that the condition was set based upon.
+                      For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                      with respect to the current state of the instance.
+                    format: int64
+                    minimum: 0
+                    type: integer
+                  reason:
+                    description: |-
+                      reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                      Producers of specific condition types may define expected values and meanings for this field,
+                      and whether the values are considered a guaranteed API.
+                      The value should be a CamelCase string.
+                      This field may not be empty.
+                    maxLength: 1024
+                    minLength: 1
+                    pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                    type: string
+                  status:
+                    description: status of the condition, one of True, False, Unknown.
+                    enum:
+                    - "True"
+                    - "False"
+                    - Unknown
+                    type: string
+                  type:
+                    description: type of condition in CamelCase or in foo.example.com/CamelCase.
+                    maxLength: 316
+                    pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                    type: string
+                required:
+                - lastTransitionTime
+                - message
+                - reason
+                - status
+                - type
+                type: object
+              type: array
+              x-kubernetes-list-map-keys:
+              - type
+              x-kubernetes-list-type: map
+            createdCount:
+              description: |-
+                CreatedCount is the number of Backup CRs created. Backups are deduped on
+                (storageRef, path), so the import does not create duplicates.
+              format: int32
+              type: integer
+            discoveredCount:
+              description: |-
+                DiscoveredCount is the number of restorable backups found in the
+                storage.
+              format: int32
+              type: integer
+            lastObservedGeneration:
+              description: LastObservedGeneration is the last observed generation
+                of the BackupImport CR.
+              format: int64
+              type: integer
+            message:
+              description: Message is a human-readable message about the current state.
+              type: string
+            state:
+              description: State is the current state of the backup import.
+              enum:
+              - Succeeded
+              - Failed
+              - Error
+              type: string
+          type: object
+      required:
+      - spec
+      type: object
+    BackupImportList:
+      description: BackupImportList is an object that contains the list of the existing
+        backupimports.
+      properties:
+        apiVersion:
+          description: 'APIVersion defines the versioned schema of this representation
+            of an object. Servers should convert recognized schemas to the latest
+            internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+          type: string
+        items:
+          items:
+            $ref: '#/components/schemas/BackupImport'
+          type: array
+        kind:
+          description: 'Kind is a string value representing the REST resource this
+            object represents. Servers may infer this from the endpoint the client
+            submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+          type: string
+        metadata:
+          properties:
+            name:
+              description: 'Name must be unique within a namespace. Is required when
+                creating resources, although some resources may allow a client to
+                request the generation of an appropriate name automatically. Name
+                is primarily intended for creation idempotence and configuration definition.
+                More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names#names'
+              type: string
+            namespace:
+              description: 'Namespace defines the space within which each name must
+                be unique. An empty namespace is equivalent to the "default" namespace,
+                but "default" is the canonical representation. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces'
               type: string
           type: object
       type: object
@@ -2928,6 +3185,28 @@ components:
                     If omitted, the provider's default topology is used.
                   type: string
               type: object
+            userSecretRef:
+              description: |-
+                UserSecretRef optionally seeds the engine's initial (bootstrap)
+                credentials from a Secret in the same namespace, for providers whose
+                engine supports setting initial credentials at creation time.
+
+                When omitted, the provider generates credentials automatically. The
+                referenced Secret's required keys are provider-specific and validated
+                by the referenced Provider. The field is immutable once set: initial
+                credentials only apply at engine creation time, so changing it later
+                would have no effect.
+              properties:
+                name:
+                  description: Name of the referenced Secret.
+                  maxLength: 253
+                  minLength: 1
+                  pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                  type: string
+              required:
+              - name
+              type: object
+              x-kubernetes-map-type: atomic
             version:
               description: |-
                 Version selects a provider-defined version bundle, resolving compatible
@@ -2950,6 +3229,9 @@ components:
               is no target Instance to default to'
             rule: '!has(self.dataSource) || self.dataSource.type != ''PointInTime''
               || has(self.dataSource.pointInTime.source.instanceRef)'
+          - message: spec.userSecretRef is immutable once set
+            rule: '!has(oldSelf.userSecretRef) || (has(self.userSecretRef) && self.userSecretRef
+              == oldSelf.userSecretRef)'
         status:
           description: InstanceStatus defines the observed state of Instance.
           properties:
@@ -4975,6 +5257,28 @@ components:
                     If omitted, the provider's default topology is used.
                   type: string
               type: object
+            userSecretRef:
+              description: |-
+                UserSecretRef optionally seeds the engine's initial (bootstrap)
+                credentials from a Secret in the same namespace, for providers whose
+                engine supports setting initial credentials at creation time.
+
+                When omitted, the provider generates credentials automatically. The
+                referenced Secret's required keys are provider-specific and validated
+                by the referenced Provider. The field is immutable once set: initial
+                credentials only apply at engine creation time, so changing it later
+                would have no effect.
+              properties:
+                name:
+                  description: Name of the referenced Secret.
+                  maxLength: 253
+                  minLength: 1
+                  pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                  type: string
+              required:
+              - name
+              type: object
+              x-kubernetes-map-type: atomic
             version:
               description: |-
                 Version selects a provider-defined version bundle, resolving compatible
@@ -4997,6 +5301,9 @@ components:
               is no target Instance to default to'
             rule: '!has(self.dataSource) || self.dataSource.type != ''PointInTime''
               || has(self.dataSource.pointInTime.source.instanceRef)'
+          - message: spec.userSecretRef is immutable once set
+            rule: '!has(oldSelf.userSecretRef) || (has(self.userSecretRef) && self.userSecretRef
+              == oldSelf.userSecretRef)'
         status:
           description: status defines the observed state of InstancePreset
           properties:

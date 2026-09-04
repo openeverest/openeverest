@@ -69,6 +69,11 @@ type Context struct {
 	// maintenanceBreakerHeld reports that at least one action was held this
 	// pass because its retries were exhausted.
 	maintenanceBreakerHeld bool
+
+	// maintenanceRequested reports that the provider invoked
+	// RequestMaintenance at least once this pass, so the staged pending set
+	// is authoritative even when Sync later fails.
+	maintenanceRequested bool
 }
 
 // NewContext creates a new Context handle (used internally by the reconciler).
@@ -689,8 +694,8 @@ func (c *Context) BackupStorageCredentials(bs *backupv1alpha1.BackupStorage) (ac
 }
 
 // BackupsForInstance lists all Backup CRs in the instance namespace whose
-// .spec.instanceRef.name matches this Instance. Requires the field index
-// ".spec.instanceRef.name" on backupv1alpha1.Backup, which the runtime registers
+// .spec.origin.instanceRef.name matches this Instance. Requires the field index
+// ".spec.origin.instanceRef.name" on backupv1alpha1.Backup, which the runtime registers
 // automatically when the provider implements BackupProvider.
 func (c *Context) BackupsForInstance() ([]backupv1alpha1.Backup, error) {
 	list := &backupv1alpha1.BackupList{}
@@ -716,8 +721,8 @@ func (c *Context) RestoresForInstance() ([]backupv1alpha1.Restore, error) {
 	return list.Items, nil
 }
 
-// IndexBackupInstanceName is the field index path used for Backup.spec.instanceRef.name.
-const IndexBackupInstanceName = "spec.instanceRef.name"
+// IndexBackupInstanceName is the field index path used for Backup.spec.origin.instanceRef.name.
+const IndexBackupInstanceName = "spec.origin.instanceRef.name"
 
 // IndexRestoreInstanceName is the field index path used for Restore.spec.instanceRef.name.
 const IndexRestoreInstanceName = "spec.instanceRef.name"
@@ -1202,4 +1207,39 @@ func RequestsForInstancesMatching(ctx context.Context, c client.Client, provider
 		})
 	}
 	return requests, nil
+}
+
+// ReconcileExternalBackupStatus validates an external Backup and
+// records its state on backup.Status. An external Backup carries no live
+// Instance and runs no job: it is a reference to backup data already sitting
+// in a BackupStorage. The startedAt and completedAt timestamps are supplied by
+// the creator on spec.origin.external and mirrored to status here. The state is
+// set to Succeeded when those timestamps are present.
+//
+// Both Job-mode and ProviderManaged backups share this reconciliation of backup
+// status; there is no engine specific logic to validate an external backup to
+// set the state.
+func ReconcileExternalBackupStatus(backup *backupv1alpha1.Backup) {
+	external := backup.Spec.Origin.External
+	if external == nil {
+		backup.Status.State = backupv1alpha1.BackupStateFailed
+		backup.Status.Message = "external backup must have spec.origin.external set"
+		return
+	}
+
+	if external.StartedAt.IsZero() {
+		backup.Status.State = backupv1alpha1.BackupStateFailed
+		backup.Status.Message = "external backup must have a startedAt timestamp"
+		return
+	}
+
+	if external.CompletedAt.IsZero() {
+		backup.Status.State = backupv1alpha1.BackupStateFailed
+		backup.Status.Message = "external backup must have a completedAt timestamp"
+		return
+	}
+
+	backup.Status.StartedAt = external.StartedAt.DeepCopy()
+	backup.Status.CompletedAt = external.CompletedAt.DeepCopy()
+	backup.Status.State = backupv1alpha1.BackupStateSucceeded
 }

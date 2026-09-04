@@ -30,6 +30,24 @@ func (e BackupSpecDeletionPolicy) Valid() bool {
 	}
 }
 
+// Defines values for BackupSpecOriginType.
+const (
+	BackupSpecOriginTypeExternal BackupSpecOriginType = "External"
+	BackupSpecOriginTypeInstance BackupSpecOriginType = "Instance"
+)
+
+// Valid indicates whether the value is a known member of the BackupSpecOriginType enum.
+func (e BackupSpecOriginType) Valid() bool {
+	switch e {
+	case BackupSpecOriginTypeExternal:
+		return true
+	case BackupSpecOriginTypeInstance:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for BackupStatusConditionsStatus.
 const (
 	BackupStatusConditionsStatusFalse   BackupStatusConditionsStatus = "False"
@@ -132,6 +150,48 @@ func (e BackupClassStatusConditionsStatus) Valid() bool {
 	case BackupClassStatusConditionsStatusTrue:
 		return true
 	case BackupClassStatusConditionsStatusUnknown:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for BackupImportStatusConditionsStatus.
+const (
+	BackupImportStatusConditionsStatusFalse   BackupImportStatusConditionsStatus = "False"
+	BackupImportStatusConditionsStatusTrue    BackupImportStatusConditionsStatus = "True"
+	BackupImportStatusConditionsStatusUnknown BackupImportStatusConditionsStatus = "Unknown"
+)
+
+// Valid indicates whether the value is a known member of the BackupImportStatusConditionsStatus enum.
+func (e BackupImportStatusConditionsStatus) Valid() bool {
+	switch e {
+	case BackupImportStatusConditionsStatusFalse:
+		return true
+	case BackupImportStatusConditionsStatusTrue:
+		return true
+	case BackupImportStatusConditionsStatusUnknown:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for BackupImportStatusState.
+const (
+	BackupImportStatusStateError     BackupImportStatusState = "Error"
+	BackupImportStatusStateFailed    BackupImportStatusState = "Failed"
+	BackupImportStatusStateSucceeded BackupImportStatusState = "Succeeded"
+)
+
+// Valid indicates whether the value is a known member of the BackupImportStatusState enum.
+func (e BackupImportStatusState) Valid() bool {
+	switch e {
+	case BackupImportStatusStateError:
+		return true
+	case BackupImportStatusStateFailed:
+		return true
+	case BackupImportStatusStateSucceeded:
 		return true
 	default:
 		return false
@@ -698,12 +758,37 @@ type Backup struct {
 		// itself.
 		DeletionPolicy *BackupSpecDeletionPolicy `json:"deletionPolicy,omitempty"`
 
-		// InstanceRef InstanceRef references the Instance to back up. The Instance must
-		// live in the same namespace as this Backup.
-		InstanceRef struct {
-			// Name Name of the referenced object.
-			Name string `json:"name"`
-		} `json:"instanceRef"`
+		// Origin Origin identifies where this Backup's data comes from: produced by a
+		// live Instance, or imported from data already present in a BackupStorage.
+		Origin struct {
+			// External External identifies data already present in the referenced BackupStorage
+			// rather than produced by a live Instance. Required when Type is External.
+			// When set, the restore is built directly from storageRef + external.path
+			// with no live operator object.
+			External *struct {
+				// CompletedAt CompletedAt is the time when the backup completed.
+				CompletedAt time.Time `json:"completedAt"`
+
+				// Path Path is the backup's path within the BackupStorage. The bucket is
+				// already determined by storageRef, so it is not repeated here. The path
+				// is unique within its storage and is used for restore.
+				Path string `json:"path"`
+
+				// StartedAt StartedAt is the time when the backup started.
+				StartedAt time.Time `json:"startedAt"`
+			} `json:"external,omitempty"`
+
+			// InstanceRef InstanceRef references the Instance that produced this Backup. The
+			// Instance must live in the same namespace as this Backup. Required when
+			// Type is Instance.
+			InstanceRef *struct {
+				// Name Name of the referenced object.
+				Name string `json:"name"`
+			} `json:"instanceRef,omitempty"`
+
+			// Type Type selects the origin variant.
+			Type BackupSpecOriginType `json:"type"`
+		} `json:"origin"`
 
 		// Parameters Parameters is the backup-time structured configuration validated
 		// against the BackupClass's .spec.parametersSchema.
@@ -729,6 +814,7 @@ type Backup struct {
 	// Status BackupStatus defines the observed state of Backup.
 	Status *struct {
 		// CompletedAt CompletedAt is the time when the backup completed successfully.
+		// For external backups this mirrors spec.origin.external.completedAt.
 		CompletedAt *time.Time `json:"completedAt,omitempty"`
 		Conditions  *[]struct {
 			// LastTransitionTime lastTransitionTime is the last time the condition transitioned from one status to another.
@@ -763,7 +849,8 @@ type Backup struct {
 		ExecutionMode *BackupStatusExecutionMode `json:"executionMode,omitempty"`
 
 		// JobRef JobRef references the Job that is running the backup.
-		// Populated only for Job classes.
+		// Populated only for Job classes. Empty for external backups, which run
+		// no Job.
 		JobRef *struct {
 			// Name Name of the referenced object.
 			Name string `json:"name"`
@@ -777,7 +864,8 @@ type Backup struct {
 
 		// OperatorBackupRef OperatorBackupRef points at the operator-native backup resource the
 		// provider created (e.g., PerconaServerMongoDBBackup). Populated only
-		// for ProviderManaged classes.
+		// for ProviderManaged classes. Empty for external backups, which have no
+		// operator-native backup object.
 		OperatorBackupRef *struct {
 			// Group Group is the API group of the referenced object. Empty for objects in
 			// the core API group.
@@ -791,12 +879,16 @@ type Backup struct {
 		} `json:"operatorBackupRef,omitempty"`
 
 		// Size Size is the size of the backup data as reported by the engine.
+		// Empty for external backups.
 		Size *string `json:"size,omitempty"`
 
 		// StartedAt StartedAt is the time when the backup started.
+		// For external backups this mirrors spec.origin.external.startedAt.
 		StartedAt *time.Time `json:"startedAt,omitempty"`
 
 		// State State is the current state of the backup.
+		// For external backups, the state is Succeeded if the backup has valid
+		// StartedAt and CompletedAt set.
 		State *BackupStatusState `json:"state,omitempty"`
 	} `json:"status,omitempty"`
 }
@@ -815,6 +907,9 @@ type Backup struct {
 // itself.
 type BackupSpecDeletionPolicy string
 
+// BackupSpecOriginType Type selects the origin variant.
+type BackupSpecOriginType string
+
 // BackupStatusConditionsStatus status of the condition, one of True, False, Unknown.
 type BackupStatusConditionsStatus string
 
@@ -823,6 +918,8 @@ type BackupStatusConditionsStatus string
 type BackupStatusExecutionMode string
 
 // BackupStatusState State is the current state of the backup.
+// For external backups, the state is Succeeded if the backup has valid
+// StartedAt and CompletedAt set.
 type BackupStatusState string
 
 // BackupClass BackupClass is the Schema for the backupclasses API
@@ -1125,6 +1222,116 @@ type BackupClassList struct {
 	Metadata *struct {
 		// Name Name must be unique within a namespace. Is required when creating resources, although some resources may allow a client to request the generation of an appropriate name automatically. Name is primarily intended for creation idempotence and configuration definition. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names#names
 		Name *string `json:"name,omitempty"`
+	} `json:"metadata,omitempty"`
+}
+
+// BackupImport BackupImport is the Schema for the backupimports API.
+type BackupImport struct {
+	// ApiVersion APIVersion defines the versioned schema of this representation of an object.
+	// Servers should convert recognized schemas to the latest internal value, and
+	// may reject unrecognized values.
+	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+	ApiVersion *string `json:"apiVersion,omitempty"`
+
+	// Kind Kind is a string value representing the REST resource this object represents.
+	// Servers may infer this from the endpoint the client submits requests to.
+	// Cannot be updated.
+	// In CamelCase.
+	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+	Kind *string `json:"kind,omitempty"`
+
+	// Metadata ObjectMeta is the standard Kubernetes object metadata. Only the fields relevant to the Everest API are described; unknown fields are accepted but may be ignored by the server.
+	Metadata *ObjectMeta `json:"metadata,omitempty"`
+
+	// Spec spec defines the desired state of BackupImport
+	Spec struct {
+		// ClassRef ClassRef references the cluster-scoped BackupClass that determines how
+		// backups in the storage are parsed. The class's executionMode controls
+		// how the import is executed. The ProviderManaged classes are reconciled
+		// by the provider.
+		ClassRef struct {
+			// Name Name of the referenced object.
+			Name string `json:"name"`
+		} `json:"classRef"`
+
+		// StorageRef StorageRef references a BackupStorage in the same namespace whose
+		// contents are listed and parsed. The reconciler reads the storage and
+		// its credentials secret.
+		StorageRef struct {
+			// Name Name of the referenced object.
+			Name string `json:"name"`
+		} `json:"storageRef"`
+	} `json:"spec"`
+
+	// Status status defines the observed state of BackupImport
+	Status *struct {
+		Conditions *[]struct {
+			// LastTransitionTime lastTransitionTime is the last time the condition transitioned from one status to another.
+			// This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+			LastTransitionTime time.Time `json:"lastTransitionTime"`
+
+			// Message message is a human readable message indicating details about the transition.
+			// This may be an empty string.
+			Message string `json:"message"`
+
+			// ObservedGeneration observedGeneration represents the .metadata.generation that the condition was set based upon.
+			// For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+			// with respect to the current state of the instance.
+			ObservedGeneration *int64 `json:"observedGeneration,omitempty"`
+
+			// Reason reason contains a programmatic identifier indicating the reason for the condition's last transition.
+			// Producers of specific condition types may define expected values and meanings for this field,
+			// and whether the values are considered a guaranteed API.
+			// The value should be a CamelCase string.
+			// This field may not be empty.
+			Reason string `json:"reason"`
+
+			// Status status of the condition, one of True, False, Unknown.
+			Status BackupImportStatusConditionsStatus `json:"status"`
+
+			// Type type of condition in CamelCase or in foo.example.com/CamelCase.
+			Type string `json:"type"`
+		} `json:"conditions,omitempty"`
+
+		// CreatedCount CreatedCount is the number of Backup CRs created. Backups are deduped on
+		// (storageRef, path), so the import does not create duplicates.
+		CreatedCount *int32 `json:"createdCount,omitempty"`
+
+		// DiscoveredCount DiscoveredCount is the number of restorable backups found in the
+		// storage.
+		DiscoveredCount *int32 `json:"discoveredCount,omitempty"`
+
+		// LastObservedGeneration LastObservedGeneration is the last observed generation of the BackupImport CR.
+		LastObservedGeneration *int64 `json:"lastObservedGeneration,omitempty"`
+
+		// Message Message is a human-readable message about the current state.
+		Message *string `json:"message,omitempty"`
+
+		// State State is the current state of the backup import.
+		State *BackupImportStatusState `json:"state,omitempty"`
+	} `json:"status,omitempty"`
+}
+
+// BackupImportStatusConditionsStatus status of the condition, one of True, False, Unknown.
+type BackupImportStatusConditionsStatus string
+
+// BackupImportStatusState State is the current state of the backup import.
+type BackupImportStatusState string
+
+// BackupImportList BackupImportList is an object that contains the list of the existing backupimports.
+type BackupImportList struct {
+	// ApiVersion APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+	ApiVersion *string         `json:"apiVersion,omitempty"`
+	Items      *[]BackupImport `json:"items,omitempty"`
+
+	// Kind Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+	Kind     *string `json:"kind,omitempty"`
+	Metadata *struct {
+		// Name Name must be unique within a namespace. Is required when creating resources, although some resources may allow a client to request the generation of an appropriate name automatically. Name is primarily intended for creation idempotence and configuration definition. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names#names
+		Name *string `json:"name,omitempty"`
+
+		// Namespace Namespace defines the space within which each name must be unique. An empty namespace is equivalent to the "default" namespace, but "default" is the canonical representation. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces
+		Namespace *string `json:"namespace,omitempty"`
 	} `json:"metadata,omitempty"`
 }
 
@@ -2383,6 +2590,20 @@ type Instance struct {
 			Type *string `json:"type,omitempty"`
 		} `json:"topology,omitempty"`
 
+		// UserSecretRef UserSecretRef optionally seeds the engine's initial (bootstrap)
+		// credentials from a Secret in the same namespace, for providers whose
+		// engine supports setting initial credentials at creation time.
+		//
+		// When omitted, the provider generates credentials automatically. The
+		// referenced Secret's required keys are provider-specific and validated
+		// by the referenced Provider. The field is immutable once set: initial
+		// credentials only apply at engine creation time, so changing it later
+		// would have no effect.
+		UserSecretRef *struct {
+			// Name Name of the referenced Secret.
+			Name string `json:"name"`
+		} `json:"userSecretRef,omitempty"`
+
 		// Version Version selects a provider-defined version bundle, resolving compatible
 		// versions for all components automatically. Per-component versions set
 		// in Components take precedence over the bundle.
@@ -3638,6 +3859,20 @@ type InstancePreset struct {
 			// If omitted, the provider's default topology is used.
 			Type *string `json:"type,omitempty"`
 		} `json:"topology,omitempty"`
+
+		// UserSecretRef UserSecretRef optionally seeds the engine's initial (bootstrap)
+		// credentials from a Secret in the same namespace, for providers whose
+		// engine supports setting initial credentials at creation time.
+		//
+		// When omitted, the provider generates credentials automatically. The
+		// referenced Secret's required keys are provider-specific and validated
+		// by the referenced Provider. The field is immutable once set: initial
+		// credentials only apply at engine creation time, so changing it later
+		// would have no effect.
+		UserSecretRef *struct {
+			// Name Name of the referenced Secret.
+			Name string `json:"name"`
+		} `json:"userSecretRef,omitempty"`
 
 		// Version Version selects a provider-defined version bundle, resolving compatible
 		// versions for all components automatically. Per-component versions set

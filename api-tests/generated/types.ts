@@ -2570,6 +2570,21 @@ export interface components {
                     type?: string;
                 };
                 /**
+                 * @description UserSecretRef optionally seeds the engine's initial (bootstrap)
+                 *     credentials from a Secret in the same namespace, for providers whose
+                 *     engine supports setting initial credentials at creation time.
+                 *
+                 *     When omitted, the provider generates credentials automatically. The
+                 *     referenced Secret's required keys are provider-specific and validated
+                 *     by the referenced Provider. The field is immutable once set: initial
+                 *     credentials only apply at engine creation time, so changing it later
+                 *     would have no effect.
+                 */
+                userSecretRef?: {
+                    /** @description Name of the referenced Secret. */
+                    name: string;
+                };
+                /**
                  * @description Version selects a provider-defined version bundle, resolving compatible
                  *     versions for all components automatically. Per-component versions set
                  *     in Components take precedence over the bundle.
@@ -4048,6 +4063,21 @@ export interface components {
                     type?: string;
                 };
                 /**
+                 * @description UserSecretRef optionally seeds the engine's initial (bootstrap)
+                 *     credentials from a Secret in the same namespace, for providers whose
+                 *     engine supports setting initial credentials at creation time.
+                 *
+                 *     When omitted, the provider generates credentials automatically. The
+                 *     referenced Secret's required keys are provider-specific and validated
+                 *     by the referenced Provider. The field is immutable once set: initial
+                 *     credentials only apply at engine creation time, so changing it later
+                 *     would have no effect.
+                 */
+                userSecretRef?: {
+                    /** @description Name of the referenced Secret. */
+                    name: string;
+                };
+                /**
                  * @description Version selects a provider-defined version bundle, resolving compatible
                  *     versions for all components automatically. Per-component versions set
                  *     in Components take precedence over the bundle.
@@ -4295,12 +4325,48 @@ export interface components {
                  */
                 deletionPolicy: "Retain" | "Delete";
                 /**
-                 * @description InstanceRef references the Instance to back up. The Instance must
-                 *     live in the same namespace as this Backup.
+                 * @description Origin identifies where this Backup's data comes from: produced by a
+                 *     live Instance, or imported from data already present in a BackupStorage.
                  */
-                instanceRef: {
-                    /** @description Name of the referenced object. */
-                    name: string;
+                origin: {
+                    /**
+                     * @description External identifies data already present in the referenced BackupStorage
+                     *     rather than produced by a live Instance. Required when Type is External.
+                     *     When set, the restore is built directly from storageRef + external.path
+                     *     with no live operator object.
+                     */
+                    external?: {
+                        /**
+                         * Format: date-time
+                         * @description CompletedAt is the time when the backup completed.
+                         */
+                        completedAt: string;
+                        /**
+                         * @description Path is the backup's path within the BackupStorage. The bucket is
+                         *     already determined by storageRef, so it is not repeated here. The path
+                         *     is unique within its storage and is used for restore.
+                         */
+                        path: string;
+                        /**
+                         * Format: date-time
+                         * @description StartedAt is the time when the backup started.
+                         */
+                        startedAt: string;
+                    };
+                    /**
+                     * @description InstanceRef references the Instance that produced this Backup. The
+                     *     Instance must live in the same namespace as this Backup. Required when
+                     *     Type is Instance.
+                     */
+                    instanceRef?: {
+                        /** @description Name of the referenced object. */
+                        name: string;
+                    };
+                    /**
+                     * @description Type selects the origin variant.
+                     * @enum {string}
+                     */
+                    type: "Instance" | "External";
                 };
                 /**
                  * @description Parameters is the backup-time structured configuration validated
@@ -4331,6 +4397,7 @@ export interface components {
                 /**
                  * Format: date-time
                  * @description CompletedAt is the time when the backup completed successfully.
+                 *     For external backups this mirrors spec.origin.external.completedAt.
                  */
                 completedAt?: string;
                 conditions?: {
@@ -4376,7 +4443,8 @@ export interface components {
                 executionMode?: "ProviderManaged" | "Job";
                 /**
                  * @description JobRef references the Job that is running the backup.
-                 *     Populated only for Job classes.
+                 *     Populated only for Job classes. Empty for external backups, which run
+                 *     no Job.
                  */
                 jobRef?: {
                     /** @description Name of the referenced object. */
@@ -4392,7 +4460,8 @@ export interface components {
                 /**
                  * @description OperatorBackupRef points at the operator-native backup resource the
                  *     provider created (e.g., PerconaServerMongoDBBackup). Populated only
-                 *     for ProviderManaged classes.
+                 *     for ProviderManaged classes. Empty for external backups, which have no
+                 *     operator-native backup object.
                  */
                 operatorBackupRef?: {
                     /**
@@ -4405,15 +4474,21 @@ export interface components {
                     /** @description Name of the referenced object. */
                     name: string;
                 };
-                /** @description Size is the size of the backup data as reported by the engine. */
+                /**
+                 * @description Size is the size of the backup data as reported by the engine.
+                 *     Empty for external backups.
+                 */
                 size?: string;
                 /**
                  * Format: date-time
                  * @description StartedAt is the time when the backup started.
+                 *     For external backups this mirrors spec.origin.external.startedAt.
                  */
                 startedAt?: string;
                 /**
                  * @description State is the current state of the backup.
+                 *     For external backups, the state is Succeeded if the backup has valid
+                 *     StartedAt and CompletedAt set.
                  * @enum {string}
                  */
                 state?: "Pending" | "Running" | "Succeeded" | "Failed" | "Error" | "Deleting";

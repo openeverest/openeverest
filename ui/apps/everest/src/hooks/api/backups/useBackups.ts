@@ -70,7 +70,9 @@ export const useBackupsList = (
     select: canRead
       ? ({ items = [] }) =>
           items.filter(
-            (backup) => backup.spec.instanceRef.name === instanceName
+            (backup) =>
+              backup.spec.origin.type === 'Instance' &&
+              backup.spec.origin.instanceRef?.name === instanceName
           )
       : () => [],
     enabled: (options?.enabled ?? true) && canRead,

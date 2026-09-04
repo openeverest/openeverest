@@ -30,6 +30,18 @@ func maintenanceContext(t *testing.T, m *v1alpha1.MaintenanceSpec) *Context {
 	return NewContext(t.Context(), nil, in, "test-provider")
 }
 
+func TestMaintenanceRequested(t *testing.T) {
+	t.Parallel()
+
+	// The reconciler only trusts the staged pending set on early-exit
+	// paths when the provider actually got to declare maintenance.
+	c := maintenanceContext(t, nil)
+	assert.False(t, c.MaintenanceRequested())
+
+	c.RequestMaintenance("upgrade-to-0.3", "converge", MaintenanceRollingRestart)
+	assert.True(t, c.MaintenanceRequested())
+}
+
 func TestRequestMaintenance_Gating(t *testing.T) {
 	t.Parallel()
 

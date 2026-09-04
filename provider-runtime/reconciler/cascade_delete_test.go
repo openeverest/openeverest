@@ -44,10 +44,10 @@ func newFakeClient(scheme *runtime.Scheme, objs ...client.Object) client.Client 
 		WithObjects(objs...).
 		WithIndex(&backupv1alpha1.Backup{}, controller.IndexBackupInstanceName, func(obj client.Object) []string {
 			b, ok := obj.(*backupv1alpha1.Backup)
-			if !ok || b.Spec.InstanceRef.Name == "" {
+			if !ok || b.Spec.Origin.InstanceRef == nil {
 				return nil
 			}
-			return []string{b.Spec.InstanceRef.Name}
+			return []string{b.Spec.Origin.InstanceRef.Name}
 		}).
 		WithIndex(&backupv1alpha1.Restore{}, controller.IndexRestoreInstanceName, func(obj client.Object) []string {
 			rs, ok := obj.(*backupv1alpha1.Restore)
@@ -80,25 +80,34 @@ func TestCascadeDeleteChildren_DeletesBackupsAndRestores(t *testing.T) {
 	backup1 := &backupv1alpha1.Backup{
 		ObjectMeta: metav1.ObjectMeta{Name: "backup-1", Namespace: "default"},
 		Spec: backupv1alpha1.BackupSpec{
-			InstanceRef: common.ObjectRef{Name: "my-db"},
-			ClassRef:    common.ObjectRef{Name: "bc"},
-			StorageRef:  common.ObjectRef{Name: "s3"},
+			Origin: backupv1alpha1.BackupOrigin{
+				Type:        backupv1alpha1.BackupOriginTypeInstance,
+				InstanceRef: &common.ObjectRef{Name: "my-db"},
+			},
+			ClassRef:   common.ObjectRef{Name: "bc"},
+			StorageRef: common.ObjectRef{Name: "s3"},
 		},
 	}
 	backup2 := &backupv1alpha1.Backup{
 		ObjectMeta: metav1.ObjectMeta{Name: "backup-2", Namespace: "default"},
 		Spec: backupv1alpha1.BackupSpec{
-			InstanceRef: common.ObjectRef{Name: "my-db"},
-			ClassRef:    common.ObjectRef{Name: "bc"},
-			StorageRef:  common.ObjectRef{Name: "s3"},
+			Origin: backupv1alpha1.BackupOrigin{
+				Type:        backupv1alpha1.BackupOriginTypeInstance,
+				InstanceRef: &common.ObjectRef{Name: "my-db"},
+			},
+			ClassRef:   common.ObjectRef{Name: "bc"},
+			StorageRef: common.ObjectRef{Name: "s3"},
 		},
 	}
 	backupOther := &backupv1alpha1.Backup{
 		ObjectMeta: metav1.ObjectMeta{Name: "backup-other", Namespace: "default"},
 		Spec: backupv1alpha1.BackupSpec{
-			InstanceRef: common.ObjectRef{Name: "other-db"},
-			ClassRef:    common.ObjectRef{Name: "bc"},
-			StorageRef:  common.ObjectRef{Name: "s3"},
+			Origin: backupv1alpha1.BackupOrigin{
+				Type:        backupv1alpha1.BackupOriginTypeInstance,
+				InstanceRef: &common.ObjectRef{Name: "other-db"},
+			},
+			ClassRef:   common.ObjectRef{Name: "bc"},
+			StorageRef: common.ObjectRef{Name: "s3"},
 		},
 	}
 	restore1 := &backupv1alpha1.Restore{

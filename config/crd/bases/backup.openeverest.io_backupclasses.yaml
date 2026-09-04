@@ -474,6 +474,9 @@ spec:
             - message: spec.providerManaged is only allowed when executionMode is
                 ProviderManaged
               rule: '!has(self.providerManaged) || self.executionMode == ''ProviderManaged'''
+            - message: a ProviderManaged BackupClass must support exactly one provider
+              rule: self.executionMode != 'ProviderManaged' || (has(self.supportedProviders)
+                && size(self.supportedProviders) == 1)
           status:
             description: BackupClassStatus defines the observed state of BackupClass.
             properties:

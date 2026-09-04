@@ -1726,6 +1726,28 @@ spec:
                       If omitted, the provider's default topology is used.
                     type: string
                 type: object
+              userSecretRef:
+                description: |-
+                  UserSecretRef optionally seeds the engine's initial (bootstrap)
+                  credentials from a Secret in the same namespace, for providers whose
+                  engine supports setting initial credentials at creation time.
+
+                  When omitted, the provider generates credentials automatically. The
+                  referenced Secret's required keys are provider-specific and validated
+                  by the referenced Provider. The field is immutable once set: initial
+                  credentials only apply at engine creation time, so changing it later
+                  would have no effect.
+                properties:
+                  name:
+                    description: Name of the referenced Secret.
+                    maxLength: 253
+                    minLength: 1
+                    pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                    type: string
+                required:
+                - name
+                type: object
+                x-kubernetes-map-type: atomic
               version:
                 description: |-
                   Version selects a provider-defined version bundle, resolving compatible
@@ -1748,6 +1770,9 @@ spec:
                 so there is no target Instance to default to'
               rule: '!has(self.dataSource) || self.dataSource.type != ''PointInTime''
                 || has(self.dataSource.pointInTime.source.instanceRef)'
+            - message: spec.userSecretRef is immutable once set
+              rule: '!has(oldSelf.userSecretRef) || (has(self.userSecretRef) && self.userSecretRef
+                == oldSelf.userSecretRef)'
           status:
             description: status defines the observed state of InstancePreset
             properties:

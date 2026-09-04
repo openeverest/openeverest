@@ -22,11 +22,13 @@ import (
 )
 
 // BackupSpec defines the desired state of Backup.
+//
+// +kubebuilder:validation:XValidation:rule="self.origin.type != 'External' || self.deletionPolicy != 'Delete'",message="deletionPolicy Delete is not allowed when origin.type is External; use Retain"
 type BackupSpec struct {
-	// InstanceRef references the Instance to back up. The Instance must
-	// live in the same namespace as this Backup.
+	// Origin identifies where this Backup's data comes from: produced by a
+	// live Instance, or imported from data already present in a BackupStorage.
 	// +kubebuilder:validation:Required
-	InstanceRef common.ObjectRef `json:"instanceRef"`
+	Origin BackupOrigin `json:"origin"`
 	// ClassRef references the cluster-scoped BackupClass that defines how
 	// this Backup is executed. The class's executionMode controls the runtime
 	// path: Job classes are reconciled by the in-cluster Backup job
@@ -90,6 +92,64 @@ const (
 	BackupDeletionPolicyRetain BackupDeletionPolicy = "Retain"
 )
 
+// BackupOriginType selects how a Backup came to exist: produced by a live
+// Instance, or imported from data already present in a BackupStorage.
+//
+// +kubebuilder:validation:Enum=Instance;External
+type BackupOriginType string
+
+const (
+	// BackupOriginTypeInstance marks a Backup produced by a live Instance in
+	// the same namespace, identified by origin.instanceRef.
+	BackupOriginTypeInstance BackupOriginType = "Instance"
+	// BackupOriginTypeExternal marks a Backup imported from data already
+	// present in a BackupStorage, identified by origin.external.
+	BackupOriginTypeExternal BackupOriginType = "External"
+)
+
+// BackupOrigin describes where a Backup's data comes from. Type selects which
+// variant-specific field is populated.
+//
+// +kubebuilder:validation:XValidation:rule="self.type == 'Instance' ? has(self.instanceRef) : !has(self.instanceRef)",message="instanceRef must be set if and only if type is Instance"
+// +kubebuilder:validation:XValidation:rule="self.type == 'External' ? has(self.external) : !has(self.external)",message="external must be set if and only if type is External"
+type BackupOrigin struct {
+	// Type selects the origin variant.
+	// +kubebuilder:validation:Required
+	Type BackupOriginType `json:"type"`
+	// InstanceRef references the Instance that produced this Backup. The
+	// Instance must live in the same namespace as this Backup. Required when
+	// Type is Instance.
+	// +optional
+	InstanceRef *common.ObjectRef `json:"instanceRef,omitempty"`
+	// External identifies data already present in the referenced BackupStorage
+	// rather than produced by a live Instance. Required when Type is External.
+	// When set, the restore is built directly from storageRef + external.path
+	// with no live operator object.
+	// +optional
+	External *BackupOriginExternal `json:"external,omitempty"`
+}
+
+// BackupOriginExternal marks a Backup as imported and identifies where its data already
+// lives within the BackupStorage referenced by Backup.spec.storageRef, so it
+// can be restored without a live source Instance or operator-native backup
+// object.
+//
+// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="spec.origin.external is immutable"
+type BackupOriginExternal struct {
+	// Path is the backup's path within the BackupStorage. The bucket is
+	// already determined by storageRef, so it is not repeated here. The path
+	// is unique within its storage and is used for restore.
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
+	Path string `json:"path"`
+	// StartedAt is the time when the backup started.
+	// +kubebuilder:validation:Required
+	StartedAt metav1.Time `json:"startedAt"`
+	// CompletedAt is the time when the backup completed.
+	// +kubebuilder:validation:Required
+	CompletedAt metav1.Time `json:"completedAt"`
+}
+
 // BackupStatus defines the observed state of Backup.
 type BackupStatus struct {
 	// ExecutionMode is the resolved execution mode at the time the Backup
@@ -97,27 +157,34 @@ type BackupStatus struct {
 	// +optional
 	ExecutionMode BackupExecutionMode `json:"executionMode,omitempty"`
 	// Size is the size of the backup data as reported by the engine.
+	// Empty for external backups.
 	// +optional
 	Size *string `json:"size,omitempty"`
 	// OperatorBackupRef points at the operator-native backup resource the
 	// provider created (e.g., PerconaServerMongoDBBackup). Populated only
-	// for ProviderManaged classes.
+	// for ProviderManaged classes. Empty for external backups, which have no
+	// operator-native backup object.
 	// +optional
 	OperatorBackupRef *common.TypedObjectRef `json:"operatorBackupRef,omitempty"`
 	// JobRef references the Job that is running the backup.
-	// Populated only for Job classes.
+	// Populated only for Job classes. Empty for external backups, which run
+	// no Job.
 	// +optional
 	JobRef *common.ObjectRef `json:"jobRef,omitempty"`
 	// StartedAt is the time when the backup started.
+	// For external backups this mirrors spec.origin.external.startedAt.
 	// +optional
 	StartedAt *metav1.Time `json:"startedAt,omitempty"`
 	// CompletedAt is the time when the backup completed successfully.
+	// For external backups this mirrors spec.origin.external.completedAt.
 	// +optional
 	CompletedAt *metav1.Time `json:"completedAt,omitempty"`
 	// LastObservedGeneration is the last observed generation of the Backup CR.
 	// +optional
 	LastObservedGeneration int64 `json:"lastObservedGeneration,omitempty"`
 	// State is the current state of the backup.
+	// For external backups, the state is Succeeded if the backup has valid
+	// StartedAt and CompletedAt set.
 	// +optional
 	State BackupState `json:"state,omitempty"`
 	// Message is a human-readable message about the current state.
@@ -153,7 +220,7 @@ const (
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:shortName=bk;bak
-// +kubebuilder:printcolumn:name="Instance",type="string",JSONPath=".spec.instanceRef.name"
+// +kubebuilder:printcolumn:name="Instance",type="string",JSONPath=".spec.origin.instanceRef.name"
 // +kubebuilder:printcolumn:name="Storage",type="string",JSONPath=".spec.storageRef.name"
 // +kubebuilder:printcolumn:name="State",type="string",JSONPath=".status.state"
 
