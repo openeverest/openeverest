@@ -24,11 +24,10 @@ const hasEditableComponent = (
   mode: FormMode
 ): boolean => {
   for (const item of Object.values(components)) {
-    if (
-      (item.uiType === 'group' || item.uiType === 'hidden') &&
-      'components' in item
-    ) {
-      if (hasEditableComponent((item as ComponentGroup).components, mode)) {
+    if (item.uiType === 'group' && 'components' in item) {
+      const group = item as ComponentGroup;
+      if (group._hidden) continue;
+      if (hasEditableComponent(group.components, mode)) {
         return true;
       }
       continue;

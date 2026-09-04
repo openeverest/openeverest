@@ -46,8 +46,9 @@ export const buildShapeFromComponents = (
     const generatedName = basePath ? `${basePath}.${key}` : key;
     const fieldId = generateFieldId(item, generatedName);
 
-    // Handle groups recursively
+    // Handle groups recursively; skip hidden groups (their children are not validated)
     if (item.uiType === 'group' && 'components' in item) {
+      if ((item as ComponentGroup)._hidden) return;
       const groupResult = buildShapeFromComponents(
         (item as ComponentGroup).components,
         generatedName,

@@ -66,7 +66,8 @@ describe('schema-walker utils', () => {
     it('walks hidden groups the same as regular groups', () => {
       const components: Record<string, Component | ComponentGroup> = {
         hidden: {
-          uiType: 'hidden' as const,
+          uiType: 'group' as const,
+          _hidden: true,
           components: {
             secret: {
               uiType: FieldType.Text,
