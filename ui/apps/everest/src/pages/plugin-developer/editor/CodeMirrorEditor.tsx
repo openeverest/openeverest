@@ -105,9 +105,7 @@ export const CodeMirrorEditor = ({
   onChangeRef.current = onChange;
   const changeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const themeCompartment = useRef(new Compartment());
-  // Last text emitted via onChange; lets the value-sync effect skip the stale
-  // round-trip of our own debounced edit.
-  const lastEmittedRef = useRef<string | null>(null);
+  const pendingEchoRef = useRef<string | null>(null);
 
   // Mount CodeMirror once. Initial value/theme come from the first render; later
   // prop changes are handled by the effects below.
@@ -135,7 +133,7 @@ export const CodeMirrorEditor = ({
           const text = u.state.doc.toString();
           if (changeTimer.current) clearTimeout(changeTimer.current);
           changeTimer.current = setTimeout(() => {
-            lastEmittedRef.current = text;
+            pendingEchoRef.current = text;
             onChangeRef.current(text);
           }, CHANGE_DEBOUNCE_MS);
         }),
@@ -154,15 +152,18 @@ export const CodeMirrorEditor = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Sync an external value change (e.g. Format YAML) into the doc. The guard
-  // skips our own edits round-tripping back through the parent; comparing
-  // against lastEmittedRef also covers the case where `value` lags the live
-  // doc by a keystroke while a debounced onChange is still in flight.
+  // Sync an external value change (e.g. Format YAML, loading a saved schema)
+  // into the doc, while ignoring `value` still catching up to a keystroke that
+  // landed after our debounced onChange fired.
   useEffect(() => {
     const view = viewRef.current;
     if (!view) return;
     const current = view.state.doc.toString();
-    if (value === current || value === lastEmittedRef.current) return;
+    const pendingEcho = pendingEchoRef.current;
+    // Accounted for either way: holding on to it would suppress a later reload
+    // of the same text.
+    pendingEchoRef.current = null;
+    if (value === current || value === pendingEcho) return;
     view.dispatch({
       changes: { from: 0, to: current.length, insert: value },
       annotations: ExternalSync.of(true),

@@ -15,7 +15,7 @@
 import { describe, it, expect } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { MutableRefObject } from 'react';
-import { useSplitPane } from './use-split-pane';
+import { useSplitPane, DEFAULT_LEFT_WIDTH } from './use-split-pane';
 
 // 1000px-wide container so clientX maps 1:1 to a percentage (500 -> 50%).
 const attachContainer = (ref: MutableRefObject<HTMLDivElement | null>) => {
@@ -44,7 +44,7 @@ describe('useSplitPane', () => {
     );
 
     mouseMoveTo(500);
-    expect(result.current.leftWidth).toBe(25); // default, unchanged
+    expect(result.current.leftWidth).toBe(DEFAULT_LEFT_WIDTH); // unchanged
   });
 
   it('resizes to the pointer position while dragging', () => {
@@ -70,10 +70,10 @@ describe('useSplitPane', () => {
     act(() => result.current.startDragging());
 
     mouseMoveTo(900); // 90% > max -> rejected
-    expect(result.current.leftWidth).toBe(25);
+    expect(result.current.leftWidth).toBe(DEFAULT_LEFT_WIDTH);
 
     mouseMoveTo(100); // 10% < min -> rejected
-    expect(result.current.leftWidth).toBe(25);
+    expect(result.current.leftWidth).toBe(DEFAULT_LEFT_WIDTH);
 
     mouseMoveTo(600); // 60% -> accepted
     expect(result.current.leftWidth).toBe(60);
@@ -93,6 +93,6 @@ describe('useSplitPane', () => {
 
     // Listeners are torn down, so further movement is ignored.
     mouseMoveTo(700);
-    expect(result.current.leftWidth).toBe(25);
+    expect(result.current.leftWidth).toBe(DEFAULT_LEFT_WIDTH);
   });
 });

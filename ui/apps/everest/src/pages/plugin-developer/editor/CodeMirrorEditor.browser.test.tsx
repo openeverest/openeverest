@@ -14,7 +14,7 @@
 
 import { useState } from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, waitFor, cleanup } from '@testing-library/react';
+import { render, waitFor, cleanup, act } from '@testing-library/react';
 import { userEvent } from 'vitest/browser';
 import { CodeMirrorEditor } from './CodeMirrorEditor';
 import type { Diagnostic } from './types';
@@ -116,6 +116,49 @@ describe('CodeMirrorEditor (in-tree CM6)', () => {
     expect(container.querySelector('.cm-content')!.textContent).not.toContain(
       'a: 1'
     );
+  });
+
+  it('reloads a value the user previously typed (save, switch away, load back)', async () => {
+    // Mirrors the real page: onChange feeds back into `value`, and the toolbar
+    // can also swap the whole document in (Reset, then load a saved schema).
+    let setExternal: (v: string) => void = () => {};
+    const seen: string[] = [];
+    const Harness = () => {
+      const [value, setValue] = useState('');
+      setExternal = setValue;
+      return (
+        <CodeMirrorEditor
+          value={value}
+          onChange={(next) => {
+            seen.push(next);
+            setValue(next);
+          }}
+          diagnostics={[]}
+          theme="light"
+        />
+      );
+    };
+
+    const { container } = render(<Harness />);
+    await waitFor(() =>
+      expect(container.querySelector('.cm-content')).not.toBeNull()
+    );
+    const content = container.querySelector('.cm-content') as HTMLElement;
+    const text = () => container.querySelector('.cm-content')!.textContent;
+
+    const TYPED = 'typed: schema';
+    await userEvent.click(content);
+    await userEvent.type(content, TYPED);
+    // Wait for the debounced emit, so the editor has recorded TYPED as its own.
+    await waitFor(() => expect(seen[seen.length - 1]).toBe(TYPED));
+
+    // Reset swaps in the default schema.
+    act(() => setExternal('default: schema'));
+    await waitFor(() => expect(text()).toBe('default: schema'));
+
+    // Loading the saved schema back must reach the editor, not just the parent.
+    act(() => setExternal(TYPED));
+    await waitFor(() => expect(text()).toBe(TYPED));
   });
 
   it('renders a lint marker for an error diagnostic', async () => {
