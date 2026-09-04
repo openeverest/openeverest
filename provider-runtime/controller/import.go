@@ -32,7 +32,8 @@ import (
 
 // BackupImportNameLabel is the label key stamped on Backup CRs created by an
 // import, carrying the name of the originating BackupImport.
-const BackupImportNameLabel = "backupImportName"
+// The label must be 63 characters or less.
+const BackupImportNameLabel = "backup.openeverest.io/backup-import"
 
 // NewS3Client builds an S3 client for the given BackupStorage. It returns an
 // error if the storage is not backed by S3. It reads its credentials from the
@@ -94,10 +95,6 @@ func s3Credentials(
 	storage *backupv1alpha1.BackupStorage,
 ) (string, string, error) {
 	ref := storage.Spec.S3.CredentialsSecretRef.Name
-	if ref == "" {
-		return "", "", nil
-	}
-
 	secret := &corev1.Secret{}
 	if err := c.Get(ctx, client.ObjectKey{
 		Namespace: storage.Namespace,

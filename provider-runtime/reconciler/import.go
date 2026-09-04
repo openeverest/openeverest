@@ -96,43 +96,48 @@ func (r *backupImportReconciler) applyImportResult(
 	imp *backupv1alpha1.BackupImport,
 	result controller.BackupImportExecutionStatus,
 ) (reconcile.Result, error) {
-	// The provider observed a terminal, non-retryable condition. Record it and
-	// stop; the import is not retried until the spec changes.
-	if result.State == backupv1alpha1.BackupImportStateFailed {
-		imp.Status.State = backupv1alpha1.BackupImportStateFailed
+	switch result.State {
+	case backupv1alpha1.BackupImportStateError:
+		return r.updateErrorStatus(ctx, imp, fmt.Errorf("importer returned transient error: %s", result.Message))
+	case backupv1alpha1.BackupImportStateFailed:
+		// The provider observed a terminal, non-retryable condition.
+		// Record it and stop; the spec is immutable, so the import
+		// re-runs only if the CR is recreated.
+		imp.Status.State = result.State
 		imp.Status.Message = result.Message
 		imp.Status.LastObservedGeneration = imp.Generation
 		if err := r.client.Status().Update(ctx, imp); err != nil {
 			return reconcile.Result{}, err
 		}
 		return reconcile.Result{}, nil
-	}
+	case backupv1alpha1.BackupImportStateSucceeded:
+		imp.Status.DiscoveredCount = int32(len(result.Backups)) //nolint:gosec // count is bounded by storage listing
 
-	imp.Status.DiscoveredCount = int32(len(result.Backups)) //nolint:gosec // count is bounded by storage listing
+		toCreate, err := r.dedupBackups(ctx, imp.Namespace, result.Backups)
+		if err != nil {
+			return r.updateErrorStatus(ctx, imp, fmt.Errorf("failed to dedup backups: %w", err))
+		}
 
-	toCreate, err := r.dedupBackups(ctx, imp.Namespace, result.Backups)
-	if err != nil {
-		return r.updateErrorStatus(ctx, imp, fmt.Errorf("failed to dedup backups: %w", err))
-	}
+		created, err := r.createBackups(ctx, imp, toCreate)
+		if err != nil {
+			imp.Status.CreatedCount = int32(created) //nolint:gosec // count is bounded by discovered
+			return r.updateErrorStatus(ctx, imp, fmt.Errorf("failed to create backups: %w", err))
+		}
 
-	created, err := r.createBackups(ctx, imp, toCreate)
-	if err != nil {
+		imp.Status.State = result.State
+		imp.Status.Message = result.Message
 		imp.Status.CreatedCount = int32(created) //nolint:gosec // count is bounded by discovered
-		return r.updateErrorStatus(ctx, imp, fmt.Errorf("failed to create backups: %w", err))
-	}
+		imp.Status.LastObservedGeneration = imp.Generation
+		if err := r.client.Status().Update(ctx, imp); err != nil {
+			return reconcile.Result{}, err
+		}
 
-	// Discovery is complete (State is empty or Succeeded). The runtime resolves
-	// an empty state to Succeeded once the imported Backups are created.
-	imp.Status.State = backupv1alpha1.BackupImportStateSucceeded
-	imp.Status.Message = result.Message
-	imp.Status.CreatedCount = int32(created) //nolint:gosec // count is bounded by discovered
-	imp.Status.LastObservedGeneration = imp.Generation
-	if err := r.client.Status().Update(ctx, imp); err != nil {
-		return reconcile.Result{}, err
+		log.FromContext(ctx).Info("backup import completed", "discovered", len(result.Backups), "created", created)
+		return reconcile.Result{}, nil
+	default:
+		// The unknown state is reported as an error.
+		return r.updateErrorStatus(ctx, imp, fmt.Errorf("importer returned unknown state %q", result.State))
 	}
-
-	log.FromContext(ctx).Info("backup import completed", "discovered", len(result.Backups), "created", created)
-	return reconcile.Result{}, nil
 }
 
 // updateErrorStatus records a transient error on the BackupImport status and returns
@@ -222,6 +227,9 @@ func (r *backupImportReconciler) createBackups(
 			backup.Labels = map[string]string{}
 		}
 
+		// Imported Backups always live alongside the BackupImport; override
+		// namespace the importer set so imports stay in-namespace.
+		backup.Namespace = imp.Namespace
 		backup.Labels[controller.BackupImportNameLabel] = imp.Name
 
 		if err := r.client.Create(ctx, backup); err != nil {
