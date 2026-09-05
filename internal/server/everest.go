@@ -27,6 +27,7 @@ import (
 	"io/fs"
 	"net/http"
 	"path"
+	"regexp"
 	"slices"
 	"strings"
 	"text/template"
@@ -622,6 +623,13 @@ func everestErrorHandler(next echo.HTTPErrorHandler) echo.HTTPErrorHandler {
 	}
 }
 
+// admissionWebhookPrefixRe matches the boilerplate Kubernetes prepends to a
+// validating/mutating admission webhook's denial message, regardless of the
+// webhook's name or domain (e.g. legacy "*.everest.percona.com" webhooks or
+// v2's "*.monitoring.openeverest.io" / "*.kb.io" webhooks), so it does not
+// need to be updated every time a webhook is renamed or added.
+var admissionWebhookPrefixRe = regexp.MustCompile(`^admission webhook "[^"]*" denied the request:\s*`)
+
 // trimStrictDecodingError drops the API server's dump of the whole submitted
 // object, managedFields included, which buries the fields it is rejecting.
 func trimStrictDecodingError(fullText string) string {
@@ -633,10 +641,7 @@ func trimStrictDecodingError(fullText string) string {
 }
 
 func trimWebhookErrorText(fullText string) string {
-	monitoringWebhookPrefix := `admission webhook "vmonitoringconfig-v1alpha1.everest.percona.com" denied the request: `
-	loadBalancerConfigWebhookPrefix := `admission webhook "vloadbalancerconfig-v1alpha1.everest.percona.com" denied the request: `
-	dbcWebhookPrefix := `admission webhook "vdatabasecluster-v1alpha1.everest.percona.com" denied the request: `
-	return strings.TrimPrefix(strings.TrimPrefix(strings.TrimPrefix(fullText, loadBalancerConfigWebhookPrefix), monitoringWebhookPrefix), dbcWebhookPrefix)
+	return admissionWebhookPrefixRe.ReplaceAllString(fullText, "")
 }
 
 // createSessionManagerClient creates a k8s client for a session manager.
