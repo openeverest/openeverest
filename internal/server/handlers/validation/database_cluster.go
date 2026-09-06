@@ -330,13 +330,20 @@ func validatePitrSpec(cluster *everestv1alpha1.DatabaseCluster) error {
 }
 
 func checkDuplicateSchedules(schedules []everestv1alpha1.BackupSchedule) error {
-	unique := make(map[string]struct{})
+	uniqueExpr := make(map[string]struct{})
+	uniqueName := make(map[string]struct{})
 	for _, schedule := range schedules {
-		key := schedule.Schedule
-		if _, ok := unique[key]; ok {
+		if _, ok := uniqueExpr[schedule.Schedule]; ok {
 			return errDuplicatedSchedules
 		}
-		unique[key] = struct{}{}
+		uniqueExpr[schedule.Schedule] = struct{}{}
+
+		// The operator keys schedules by name, so a duplicate would silently
+		// overwrite the earlier one on reconcile.
+		if _, ok := uniqueName[schedule.Name]; ok {
+			return errDuplicatedScheduleNames
+		}
+		uniqueName[schedule.Name] = struct{}{}
 	}
 	return nil
 }
