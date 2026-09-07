@@ -19,6 +19,8 @@ package config
 
 import (
 	"crypto/aes"
+	"errors"
+	"fmt"
 	"path/filepath"
 	"time"
 
@@ -91,6 +93,16 @@ func ParseConfig() (*EverestConfig, error) {
 	}
 	if c.TelemetryInterval == "" {
 		c.TelemetryInterval = TelemetryInterval
+	}
+
+	if c.TelemetryInterval != "" {
+		interval, err := time.ParseDuration(c.TelemetryInterval)
+		if err != nil {
+			return nil, fmt.Errorf("invalid TELEMETRY_INTERVAL: %w", err)
+		}
+		if interval <= 0 {
+			return nil, errors.New("TELEMETRY_INTERVAL must be a positive duration")
+		}
 	}
 
 	if c.TLSCertsPath != "" {
