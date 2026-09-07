@@ -125,7 +125,11 @@ jobs:
             // confirm rather than trusting the call to have taken effect.
             const { data: after } = await github.rest.issues.get({ owner, repo, issue_number });
             if (!(after.assignees || []).some((a) => a.login === target)) {
-              await reply(`@${commenter} I couldn't assign this to you — GitHub rejected the assignment. A maintainer will pick this up shortly.`);
+              if (target === commenter) {
+                await reply(`@${commenter} I couldn't assign this to you — GitHub rejected the assignment. A maintainer will pick this up shortly.`);
+              } else {
+                await reply(`@${commenter} I couldn't assign this to @${target} — GitHub rejected the assignment. This is usually because @${target} hasn't commented on this issue yet; GitHub only accepts assignees who are collaborators or have already participated in the thread. Ask them to comment here first, then try \`/assign @${target}\` again.`);
+              }
               return;
             }
 
