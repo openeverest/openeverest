@@ -46,6 +46,7 @@ type Handler interface {
 	ClusterHandler
 	BackupClassHandler
 	BackupHandler
+	BackupImportHandler
 	RestoreHandler
 	InstanceBackupHandler
 	MonitoringConfigHandler
@@ -115,6 +116,14 @@ type BackupHandler interface {
 	GetBackup(ctx context.Context, cluster, namespace, name string) (*backupv1alpha1.Backup, error)
 	CreateBackup(ctx context.Context, cluster string, backup *backupv1alpha1.Backup) (*backupv1alpha1.Backup, error)
 	DeleteBackup(ctx context.Context, cluster, namespace, name string, params *api.DeleteBackupParams) error
+}
+
+// BackupImportHandler provides methods for handling operations on backup imports.
+type BackupImportHandler interface {
+	ListBackupImports(ctx context.Context, cluster, namespace string) (*backupv1alpha1.BackupImportList, error)
+	GetBackupImport(ctx context.Context, cluster, namespace, name string) (*backupv1alpha1.BackupImport, error)
+	CreateBackupImport(ctx context.Context, cluster string, backupImport *backupv1alpha1.BackupImport) (*backupv1alpha1.BackupImport, error)
+	DeleteBackupImport(ctx context.Context, cluster, namespace, name string) error
 }
 
 // RestoreHandler provides methods for handling operations on restores.

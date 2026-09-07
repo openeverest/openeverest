@@ -53,6 +53,36 @@ func (_m *MockHandler) CreateBackup(ctx context.Context, cluster string, backup 
 	return r0, r1
 }
 
+// CreateBackupImport provides a mock function with given fields: ctx, cluster, backupImport
+func (_m *MockHandler) CreateBackupImport(ctx context.Context, cluster string, backupImport *v1alpha1.BackupImport) (*v1alpha1.BackupImport, error) {
+	ret := _m.Called(ctx, cluster, backupImport)
+
+	if len(ret) == 0 {
+		panic("no return value specified for CreateBackupImport")
+	}
+
+	var r0 *v1alpha1.BackupImport
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, *v1alpha1.BackupImport) (*v1alpha1.BackupImport, error)); ok {
+		return rf(ctx, cluster, backupImport)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, *v1alpha1.BackupImport) *v1alpha1.BackupImport); ok {
+		r0 = rf(ctx, cluster, backupImport)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*v1alpha1.BackupImport)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, *v1alpha1.BackupImport) error); ok {
+		r1 = rf(ctx, cluster, backupImport)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // CreateBackupStorage provides a mock function with given fields: ctx, cluster, bs
 func (_m *MockHandler) CreateBackupStorage(ctx context.Context, cluster string, bs *v1alpha1.BackupStorage) (*v1alpha1.BackupStorage, error) {
 	ret := _m.Called(ctx, cluster, bs)
@@ -251,6 +281,24 @@ func (_m *MockHandler) DeleteBackup(ctx context.Context, cluster string, namespa
 	return r0
 }
 
+// DeleteBackupImport provides a mock function with given fields: ctx, cluster, namespace, name
+func (_m *MockHandler) DeleteBackupImport(ctx context.Context, cluster string, namespace string, name string) error {
+	ret := _m.Called(ctx, cluster, namespace, name)
+
+	if len(ret) == 0 {
+		panic("no return value specified for DeleteBackupImport")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, string) error); ok {
+		r0 = rf(ctx, cluster, namespace, name)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
 // DeleteBackupStorage provides a mock function with given fields: ctx, cluster, namespace, name
 func (_m *MockHandler) DeleteBackupStorage(ctx context.Context, cluster string, namespace string, name string) error {
 	ret := _m.Called(ctx, cluster, namespace, name)
@@ -412,6 +460,36 @@ func (_m *MockHandler) GetBackupClass(ctx context.Context, cluster string, name 
 
 	if rf, ok := ret.Get(1).(func(context.Context, string, string) error); ok {
 		r1 = rf(ctx, cluster, name)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// GetBackupImport provides a mock function with given fields: ctx, cluster, namespace, name
+func (_m *MockHandler) GetBackupImport(ctx context.Context, cluster string, namespace string, name string) (*v1alpha1.BackupImport, error) {
+	ret := _m.Called(ctx, cluster, namespace, name)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetBackupImport")
+	}
+
+	var r0 *v1alpha1.BackupImport
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, string) (*v1alpha1.BackupImport, error)); ok {
+		return rf(ctx, cluster, namespace, name)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, string) *v1alpha1.BackupImport); ok {
+		r0 = rf(ctx, cluster, namespace, name)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*v1alpha1.BackupImport)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, string, string) error); ok {
+		r1 = rf(ctx, cluster, namespace, name)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -862,6 +940,36 @@ func (_m *MockHandler) ListBackupClasses(ctx context.Context, cluster string) (*
 
 	if rf, ok := ret.Get(1).(func(context.Context, string) error); ok {
 		r1 = rf(ctx, cluster)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// ListBackupImports provides a mock function with given fields: ctx, cluster, namespace
+func (_m *MockHandler) ListBackupImports(ctx context.Context, cluster string, namespace string) (*v1alpha1.BackupImportList, error) {
+	ret := _m.Called(ctx, cluster, namespace)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ListBackupImports")
+	}
+
+	var r0 *v1alpha1.BackupImportList
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string) (*v1alpha1.BackupImportList, error)); ok {
+		return rf(ctx, cluster, namespace)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, string) *v1alpha1.BackupImportList); ok {
+		r0 = rf(ctx, cluster, namespace)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*v1alpha1.BackupImportList)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, string) error); ok {
+		r1 = rf(ctx, cluster, namespace)
 	} else {
 		r1 = ret.Error(1)
 	}

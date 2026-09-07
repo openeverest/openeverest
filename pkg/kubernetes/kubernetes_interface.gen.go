@@ -72,6 +72,14 @@ type KubernetesConnector interface {
 	ListBackupClasses(ctx context.Context, opts ...ctrlclient.ListOption) (*backupv1alpha1.BackupClassList, error)
 	// GetBackupClass returns backup class that matches the criteria.
 	GetBackupClass(ctx context.Context, key ctrlclient.ObjectKey) (*backupv1alpha1.BackupClass, error)
+	// GetBackupImport returns backup import that matches the criteria.
+	GetBackupImport(ctx context.Context, key ctrlclient.ObjectKey) (*backupv1alpha1.BackupImport, error)
+	// ListBackupImports returns a list of backup imports in a given namespace.
+	ListBackupImports(ctx context.Context, opts ...ctrlclient.ListOption) (*backupv1alpha1.BackupImportList, error)
+	// CreateBackupImport creates backup import.
+	CreateBackupImport(ctx context.Context, backupImport *backupv1alpha1.BackupImport) (*backupv1alpha1.BackupImport, error)
+	// DeleteBackupImport deletes backup import that matches the criteria.
+	DeleteBackupImport(ctx context.Context, obj *backupv1alpha1.BackupImport) error
 	// GetCatalogSource returns catalog source that matches the criteria.
 	GetCatalogSource(ctx context.Context, key ctrlclient.ObjectKey) (*olmv1alpha1.CatalogSource, error)
 	// DeleteCatalogSource deletes catalog source that matches the criteria.

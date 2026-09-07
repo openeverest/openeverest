@@ -72,6 +72,7 @@ const (
 	ResourceInstancePresets   = "instance-presets"
 	ResourceBackupClasses     = "backup-classes"
 	ResourceBackups           = "backups"
+	ResourceBackupImports     = "backup-imports"
 	ResourceRestores          = "restores"
 	ResourceMonitoringConfigs = "monitoring-configs"
 	ResourceConfigMaps        = "config-maps"
@@ -100,6 +101,7 @@ var ClusterScopedResources = []string{
 var ClusterNamespacedResources = []string{
 	ResourceInstances,
 	ResourceBackups,
+	ResourceBackupImports,
 	ResourceRestores,
 	ResourceBackupStorages,
 	ResourceMonitoringConfigs,

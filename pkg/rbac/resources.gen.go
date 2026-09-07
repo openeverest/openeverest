@@ -5,6 +5,7 @@ package rbac
 // AllResources is a list of all resource names extracted from the API specification.
 var AllResources = []string{
 	"backup-classes",
+	"backup-imports",
 	"backup-storages",
 	"backups",
 	"clusters",
@@ -28,6 +29,8 @@ var resourcePathMap = map[string]string{
 	"/clusters/:cluster/instance-presets/:name":                               "instance-presets",
 	"/clusters/:cluster/instance-presets/:name/resolve":                       "instance-presets",
 	"/clusters/:cluster/namespaces":                                           "namespaces",
+	"/clusters/:cluster/namespaces/:namespace/backup-imports":                 "backup-imports",
+	"/clusters/:cluster/namespaces/:namespace/backup-imports/:name":           "backup-imports",
 	"/clusters/:cluster/namespaces/:namespace/backup-storages":                "backup-storages",
 	"/clusters/:cluster/namespaces/:namespace/backup-storages/:name":          "backup-storages",
 	"/clusters/:cluster/namespaces/:namespace/backups":                        "backups",
