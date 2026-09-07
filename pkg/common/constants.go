@@ -99,8 +99,6 @@ const (
 	// InstanceNameLabel is the label used to identify resources by instance name.
 	InstanceNameLabel = "instanceName"
 	// BackupImportNameLabel is the label used to identify Backups by BackupImport name.
-	BackupImportNameLabel = "backupImportName"
-	// ForegroundDeletionFinalizer is the finalizer used to delete resources in foreground.
 	ForegroundDeletionFinalizer = "foregroundDeletion"
 	// UserCtxKey is the key used to store the user in the context.
 	UserCtxKey = "user"
