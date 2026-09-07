@@ -159,7 +159,7 @@ func (pp *pluginProxy) listPluginsHandler(c echo.Context) error {
 					Type:      ep.Type,
 					Label:     ep.Label,
 					Path:      ep.Path,
-					Icon:      resolvePluginAssetPath(p.Name, ep.Icon),
+					Icon:      resolvePluginAssetPath(c, p.Name, ep.Icon),
 					Providers: ep.Providers,
 				})
 			}
@@ -170,8 +170,8 @@ func (pp *pluginProxy) listPluginsHandler(c echo.Context) error {
 			Description:     p.Spec.Description,
 			Version:         p.Spec.Version,
 			Vendor:          p.Spec.Vendor,
-			Icon:            resolvePluginAssetPath(p.Name, p.Spec.Icon),
-			BundleURL:       path.Join("/v1/plugins", p.Name, bundlePath),
+			Icon:            resolvePluginAssetPath(c, p.Name, p.Spec.Icon),
+			BundleURL:       path.Join("/v1", "clusters", c.Param("cluster"), "plugins", p.Name, bundlePath),
 			ExtensionPoints: extPoints,
 		})
 	}
@@ -179,34 +179,35 @@ func (pp *pluginProxy) listPluginsHandler(c echo.Context) error {
 }
 
 // resolvePluginAssetPath resolves a relative asset path (e.g. "/icon.png") to
-// the full plugin proxy URL (e.g. "/v1/plugins/my-plugin/icon.png").
+// the full plugin proxy URL (e.g. "/v1/clusters/{cluster}/plugins/my-plugin/icon.png").
 // Absolute URLs (http://, https://) and data URIs are returned unchanged.
 // Empty strings are returned as-is.
-func resolvePluginAssetPath(pluginName, assetPath string) string {
+func resolvePluginAssetPath(c echo.Context, pluginName, assetPath string) string {
 	if assetPath == "" {
 		return ""
 	}
+	pluginPrefix := path.Join("/v1", "clusters", c.Param("cluster"), "plugins") + "/"
 	// Already absolute URL or data URI — return unchanged.
 	if strings.HasPrefix(assetPath, "http://") ||
 		strings.HasPrefix(assetPath, "https://") ||
 		strings.HasPrefix(assetPath, "data:") ||
-		strings.HasPrefix(assetPath, "/v1/plugins/") {
+		strings.HasPrefix(assetPath, pluginPrefix) {
 		return assetPath
 	}
 	// Relative path — prefix with plugin proxy base.
-	return path.Join("/v1/plugins", pluginName, assetPath)
+	return path.Join("/v1", "clusters", c.Param("cluster"), "plugins", pluginName, assetPath)
 }
 
 // proxyHandler reverse-proxies requests to a plugin's backend (no RBAC).
 // Used for unauthenticated bundle serving.
-// Route: /v1/plugins/:name/*
+// Route: /v1/clusters/:cluster/plugins/:name/*.
 func (pp *pluginProxy) proxyHandler(c echo.Context) error {
 	return pp.doProxy(c)
 }
 
 // authedProxyHandler reverse-proxies requests to a plugin's backend with RBAC.
 // The caller must have the "use" verb on "plugin/<name>" (§9.2).
-// Route: /v1/plugins/:name (JWT-protected group)
+// Route: /v1/clusters/:cluster/plugins/:name (JWT-protected group).
 func (pp *pluginProxy) authedProxyHandler(c echo.Context) error {
 	name := c.Param("name")
 	allowed, err := pp.canUsePlugin(c, name)
@@ -256,8 +257,8 @@ func (pp *pluginProxy) doProxy(c echo.Context) error {
 		})
 	}
 
-	// Strip the prefix /v1/plugins/:name from the request path before proxying.
-	prefix := "/v1/plugins/" + name
+	// Strip the prefix /v1/clusters/:cluster/plugins/:name from the request path before proxying.
+	prefix := path.Join("/v1", "clusters", c.Param("cluster"), "plugins", name)
 	proxy := &httputil.ReverseProxy{
 		Director: func(req *http.Request) {
 			req.URL.Scheme = target.Scheme
