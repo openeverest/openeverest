@@ -443,6 +443,12 @@ func (r *ProviderReconciler) Reconcile(ctx context.Context, req reconcile.Reques
 			logger.Error(err, "Backup configuration failed")
 			setCondition(in, v1alpha1.ConditionBackupConfigured, metav1.ConditionFalse,
 				bce.Reason, bce.Message, metav1.Now())
+			// The provider got as far as declaring maintenance before failing,
+			// so the staged set is authoritative; without this the pending
+			// list and condition go stale until a fully successful pass.
+			if syncCtx.MaintenanceRequested() {
+				flushPendingMaintenance(syncCtx, in)
+			}
 			_ = r.Client.Status().Update(ctx, in)
 			return reconcile.Result{}, nil
 		}
@@ -453,6 +459,9 @@ func (r *ProviderReconciler) Reconcile(ctx context.Context, req reconcile.Reques
 			logger.Error(err, "DataSource configuration failed")
 			setCondition(in, v1alpha1.ConditionDataSourceReady, metav1.ConditionFalse,
 				dse.Reason, dse.Message, metav1.Now())
+			if syncCtx.MaintenanceRequested() {
+				flushPendingMaintenance(syncCtx, in)
+			}
 			_ = r.Client.Status().Update(ctx, in)
 			return reconcile.Result{}, nil
 		}
@@ -460,7 +469,11 @@ func (r *ProviderReconciler) Reconcile(ctx context.Context, req reconcile.Reques
 		r.breaker.recordFailure(req.NamespacedName, approvedMaintenanceValue(in), syncCtx.GetApprovedMaintenance())
 		return reconcile.Result{}, err
 	}
-	r.breaker.reset(req.NamespacedName)
+	// A pass that merely held a tripped action succeeds trivially; resetting
+	// then would un-trip the breaker and restart the failure bursts.
+	if !syncCtx.MaintenanceBreakerHeld() {
+		r.breaker.reset(req.NamespacedName)
+	}
 	// Clear any stale BackupConfigured=False condition left from a previous failed Sync.
 	if _, ok := r.provider.(controller.BackupProvider); ok {
 		setCondition(in, v1alpha1.ConditionBackupConfigured, metav1.ConditionTrue,
@@ -656,6 +669,9 @@ func (r *ProviderReconciler) handleDeletion(
 	if err := r.Client.Update(ctx, in); err != nil {
 		return reconcile.Result{}, err
 	}
+	// Drop breaker state so a recreated Instance with the same name does not
+	// inherit this lifetime's failure counts.
+	r.breaker.reset(client.ObjectKeyFromObject(in))
 
 	logger.Info("Cleanup complete")
 	return reconcile.Result{}, nil
@@ -784,24 +800,42 @@ func setCondition(in *v1alpha1.Instance, condType string, status metav1.Conditio
 
 // setDeprecationCondition maintains the read-only ComponentVersionDeprecated
 // condition: True while any of the Instance's effective component versions is
-// flagged as deprecated in the installed Provider catalog. It reuses the
-// upgrade preflight's catalog check, so this passive warning and the
-// pre-upgrade hook's verdict never disagree. The condition is informational:
-// lookup failures are skipped and never fail the reconcile, and it is only
-// flipped to False (never removed) once a deprecation it reported clears.
+// flagged as deprecated — or no longer supported at all — in the installed
+// Provider catalog. It reuses the upgrade preflight's catalog check, so this
+// passive warning and the pre-upgrade hook's verdict never disagree. The
+// condition is informational: lookup failures are skipped and never fail the
+// reconcile, and it is only flipped to False (never removed) once every issue
+// it reported clears.
 func (r *ProviderReconciler) setDeprecationCondition(ctx context.Context, in *v1alpha1.Instance) {
 	installed := &v1alpha1.Provider{}
 	if err := r.Get(ctx, client.ObjectKey{Name: in.Spec.ProviderRef.Name}, installed); err != nil {
+		log.FromContext(ctx).V(1).Info("skipping deprecation condition: fetching installed Provider failed", "error", err)
 		return
 	}
 
-	var deprecations []string
+	var deprecations, unsupported []string
 	for _, issue := range controller.PreflightUpgrade(&installed.Spec, []v1alpha1.Instance{*in}) {
-		if issue.Reason == controller.UpgradeReasonVersionDeprecated {
-			deprecations = append(deprecations, issue.Message)
+		msg := issue.Message
+		if issue.Component != "" {
+			msg = issue.Component + ": " + msg
+		}
+		switch issue.Severity {
+		case controller.UpgradeError:
+			unsupported = append(unsupported, msg)
+		case controller.UpgradeWarning:
+			if issue.Reason == controller.UpgradeReasonVersionDeprecated {
+				deprecations = append(deprecations, msg)
+			}
 		}
 	}
 
+	// A version the installed catalog no longer supports at all is strictly
+	// worse than a deprecation; it must never read as "all supported".
+	if len(unsupported) > 0 {
+		setCondition(in, v1alpha1.ConditionComponentVersionDeprecated, metav1.ConditionTrue,
+			v1alpha1.ReasonVersionsUnsupported, strings.Join(unsupported, "; "), metav1.Now())
+		return
+	}
 	if len(deprecations) > 0 {
 		setCondition(in, v1alpha1.ConditionComponentVersionDeprecated, metav1.ConditionTrue,
 			v1alpha1.ReasonScheduledForRemoval, strings.Join(deprecations, "; "), metav1.Now())
@@ -831,7 +865,9 @@ func flushPendingMaintenance(syncCtx *controller.Context, in *v1alpha1.Instance)
 		message := fmt.Sprintf("%d action(s) require approval to proceed", len(pending))
 		if syncCtx.MaintenanceBreakerHeld() {
 			reason = v1alpha1.ReasonRetriesExhausted
-			message = "an approved action kept failing and is no longer retried; clear and re-set spec.maintenance.approved to retry"
+			message = fmt.Sprintf(
+				"%d action(s) held; an approved action kept failing and is no longer retried — change spec.maintenance.approved (set it to the pending action's token, or clear and re-set it) to retry",
+				len(pending))
 		}
 		setCondition(in, v1alpha1.ConditionMaintenancePending, metav1.ConditionTrue,
 			reason, message, metav1.Now())

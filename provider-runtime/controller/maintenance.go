@@ -28,6 +28,8 @@ package controller
 // repository.
 
 import (
+	"slices"
+
 	"github.com/openeverest/openeverest/v2/api/core/v1alpha1"
 )
 
@@ -76,9 +78,10 @@ func severityRank(s MaintenanceSeverity) int {
 // crash-looping provider cannot repeatedly disrupt the database. Clearing
 // and re-setting spec.maintenance.approved re-arms the retries.
 func (c *Context) RequestMaintenance(token, description string, severity MaintenanceSeverity) bool {
+	c.maintenanceRequested = true
 	if c.maintenanceApproved(token, severity) {
 		if _, blocked := c.blockedMaintenance[token]; !blocked {
-			if severityRank(severity) > severityRank(MaintenanceNonDisruptive) {
+			if severityRank(severity) > severityRank(MaintenanceNonDisruptive) && !slices.Contains(c.approvedMaintenance, token) {
 				c.approvedMaintenance = append(c.approvedMaintenance, token)
 			}
 			return true
@@ -141,4 +144,11 @@ func (c *Context) BlockMaintenance(tokens ...string) {
 // to pick the MaintenancePending condition reason).
 func (c *Context) MaintenanceBreakerHeld() bool {
 	return c.maintenanceBreakerHeld
+}
+
+// MaintenanceRequested reports whether the provider invoked
+// RequestMaintenance this pass (used internally by the reconciler: only then
+// is the staged pending set authoritative on early-exit paths).
+func (c *Context) MaintenanceRequested() bool {
+	return c.maintenanceRequested
 }

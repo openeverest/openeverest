@@ -1591,7 +1591,10 @@ paths:
         - Backup Storage
       summary: Patch backup storage
       description: |
-        This API patches the backup storage specified by the `name` in the specified `namespace` and `cluster`.
+        This API applies Merge Patch to the backup storage specified by the `name` in the specified `namespace` and `cluster`.
+        Members absent from the patch keep their current value, and a member set to `null` is removed. A path that does not exist on the BackupStorage
+        is rejected rather than ignored. Include `metadata.resourceVersion` to make the patch conditional, which fails with 409 if the backup storage has changed.
+        `spec.s3.accessKeyId` and `spec.s3.secretAccessKey` are write-only: they are stored in the Secret named by `spec.s3.credentialsSecretRef` and never persisted on the object.
       operationId: patchBackupStorage
       parameters:
         - name: cluster
@@ -1631,6 +1634,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+        '415':
+          description: The Content-Type is not application/merge-patch+json
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         default:
           description: Error
           content:
@@ -1638,12 +1647,14 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
       requestBody:
-        description: The backup storage fields to be patched
+        description: |
+          A partial BackupStorage document. `status` and the `ownerReferences`, `finalizers`, `name` and `namespace` members of `metadata` are rejected.
         required: true
         content:
-          application/json:
+          application/merge-patch+json:
             schema:
-              $ref: 'crds.gen.yaml#/components/schemas/BackupStorage'
+              type: object
+              additionalProperties: true
     put:
       tags:
         - Backup Storage

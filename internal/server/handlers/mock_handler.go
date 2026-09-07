@@ -1199,9 +1199,9 @@ func (_m *MockHandler) ListSecrets(ctx context.Context, cluster string, namespac
 	return r0, r1
 }
 
-// PatchBackupStorage provides a mock function with given fields: ctx, cluster, bs
-func (_m *MockHandler) PatchBackupStorage(ctx context.Context, cluster string, bs *v1alpha1.BackupStorage) (*v1alpha1.BackupStorage, error) {
-	ret := _m.Called(ctx, cluster, bs)
+// PatchBackupStorage provides a mock function with given fields: ctx, cluster, namespace, name, patch
+func (_m *MockHandler) PatchBackupStorage(ctx context.Context, cluster string, namespace string, name string, patch []byte) (*v1alpha1.BackupStorage, error) {
+	ret := _m.Called(ctx, cluster, namespace, name, patch)
 
 	if len(ret) == 0 {
 		panic("no return value specified for PatchBackupStorage")
@@ -1209,19 +1209,19 @@ func (_m *MockHandler) PatchBackupStorage(ctx context.Context, cluster string, b
 
 	var r0 *v1alpha1.BackupStorage
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, string, *v1alpha1.BackupStorage) (*v1alpha1.BackupStorage, error)); ok {
-		return rf(ctx, cluster, bs)
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, string, []byte) (*v1alpha1.BackupStorage, error)); ok {
+		return rf(ctx, cluster, namespace, name, patch)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, string, *v1alpha1.BackupStorage) *v1alpha1.BackupStorage); ok {
-		r0 = rf(ctx, cluster, bs)
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, string, []byte) *v1alpha1.BackupStorage); ok {
+		r0 = rf(ctx, cluster, namespace, name, patch)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*v1alpha1.BackupStorage)
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(context.Context, string, *v1alpha1.BackupStorage) error); ok {
-		r1 = rf(ctx, cluster, bs)
+	if rf, ok := ret.Get(1).(func(context.Context, string, string, string, []byte) error); ok {
+		r1 = rf(ctx, cluster, namespace, name, patch)
 	} else {
 		r1 = ret.Error(1)
 	}

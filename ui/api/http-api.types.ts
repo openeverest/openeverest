@@ -700,7 +700,10 @@ export interface paths {
         head?: never;
         /**
          * Patch backup storage
-         * @description This API patches the backup storage specified by the `name` in the specified `namespace` and `cluster`.
+         * @description This API applies Merge Patch to the backup storage specified by the `name` in the specified `namespace` and `cluster`.
+         *     Members absent from the patch keep their current value, and a member set to `null` is removed. A path that does not exist on the BackupStorage
+         *     is rejected rather than ignored. Include `metadata.resourceVersion` to make the patch conditional, which fails with 409 if the backup storage has changed.
+         *     `spec.s3.accessKeyId` and `spec.s3.secretAccessKey` are write-only: they are stored in the Secret named by `spec.s3.credentialsSecretRef` and never persisted on the object.
          */
         patch: operations["patchBackupStorage"];
         trace?: never;
@@ -6943,10 +6946,12 @@ export interface operations {
             };
             cookie?: never;
         };
-        /** @description The backup storage fields to be patched */
+        /** @description A partial BackupStorage document. `status` and the `ownerReferences`, `finalizers`, `name` and `namespace` members of `metadata` are rejected. */
         requestBody: {
             content: {
-                "application/json": components["schemas"]["BackupStorage"];
+                "application/merge-patch+json": {
+                    [key: string]: unknown;
+                };
             };
         };
         responses: {
@@ -6970,6 +6975,15 @@ export interface operations {
             };
             /** @description Backup storage not found */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description The Content-Type is not application/merge-patch+json */
+            415: {
                 headers: {
                     [name: string]: unknown;
                 };

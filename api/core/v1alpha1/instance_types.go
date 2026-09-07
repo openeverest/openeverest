@@ -731,8 +731,10 @@ const (
 
 	// ReasonRetriesExhausted indicates an approved disruptive action kept
 	// failing and the runtime stopped retrying it so a crash-looping
-	// provider cannot repeatedly disrupt the database. Clear and re-set
-	// spec.maintenance.approved to retry.
+	// provider cannot repeatedly disrupt the database. Changing
+	// spec.maintenance.approved re-arms the retries: set it to the pending
+	// action's token (for actions auto-approved by autoApproveUpTo), or
+	// clear and re-set it.
 	ReasonRetriesExhausted = "RetriesExhausted"
 )
 
@@ -789,6 +791,12 @@ const (
 	// version is deprecated in the installed Provider catalog and is dropped
 	// in a future provider release named in the condition message.
 	ReasonScheduledForRemoval = "ScheduledForRemoval"
+
+	// ReasonVersionsUnsupported indicates at least one effective component
+	// version is no longer supported by the installed Provider catalog at
+	// all — past its removal release or absent entirely. Upgrade the
+	// database to a supported version.
+	ReasonVersionsUnsupported = "VersionsUnsupported"
 
 	// ReasonVersionsSupported indicates every effective component version is
 	// fully supported by the installed Provider catalog.
