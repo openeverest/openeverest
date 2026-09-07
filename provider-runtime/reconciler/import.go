@@ -25,6 +25,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
+	"github.com/openeverest/openeverest/v2/pkg/common"
 	"github.com/openeverest/openeverest/v2/provider-runtime/controller"
 )
 
@@ -230,7 +231,7 @@ func (r *backupImportReconciler) createBackups(
 		// Imported Backups always live alongside the BackupImport; override
 		// namespace the importer set so imports stay in-namespace.
 		backup.Namespace = imp.Namespace
-		backup.Labels[controller.BackupImportNameLabel] = imp.Name
+		backup.Labels[common.BackupImportNameLabel] = imp.Name
 
 		if err := r.client.Create(ctx, backup); err != nil {
 			if apierrors.IsAlreadyExists(err) {

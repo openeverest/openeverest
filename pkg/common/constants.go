@@ -99,6 +99,9 @@ const (
 	// InstanceNameLabel is the label used to identify resources by instance name.
 	InstanceNameLabel = "instanceName"
 	// BackupImportNameLabel is the label used to identify Backups by BackupImport name.
+	// The label value must be 63 characters or less.
+	BackupImportNameLabel = "backup.openeverest.io/backup-import"
+	// ForegroundDeletionFinalizer is the finalizer used to delete resources in foreground.
 	ForegroundDeletionFinalizer = "foregroundDeletion"
 	// UserCtxKey is the key used to store the user in the context.
 	UserCtxKey = "user"

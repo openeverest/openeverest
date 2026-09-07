@@ -30,11 +30,6 @@ import (
 	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
 )
 
-// BackupImportNameLabel is the label key stamped on Backup CRs created by an
-// import, carrying the name of the originating BackupImport.
-// The label value must be 63 characters or less.
-const BackupImportNameLabel = "backup.openeverest.io/backup-import"
-
 // NewS3Client builds an S3 client for the given BackupStorage. It returns an
 // error if the storage is not backed by S3. It reads its credentials from the
 // referenced Secret.
