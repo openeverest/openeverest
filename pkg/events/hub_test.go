@@ -286,3 +286,24 @@ func TestHub_ConcurrentPublishReconnectNoGapsNoDuplicates(t *testing.T) {
 		t.Fatalf("expected exactly %d distinct events seen, got %d - missing: %v", total, len(seen), missing)
 	}
 }
+
+func TestHubDoubleClose(t *testing.T) {
+	t.Parallel()
+	h := newTestHub(1000)
+
+	sub, ok := h.Subscribe(nil, nil, nil)
+	if !ok {
+		t.Fatal("expected Subscribe to succeed")
+	}
+
+	// Overflow the subscriber buffer so the slow-subscriber cleanup path is triggered.
+	for i := 0; i < defaultBufferSize+8; i++ {
+		h.Publish(Event{
+			Type:      InstanceCreated,
+			Namespace: "default",
+		})
+	}
+
+	time.Sleep(50 * time.Millisecond)
+	sub.Cancel()
+}
