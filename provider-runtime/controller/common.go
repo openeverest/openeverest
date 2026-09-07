@@ -69,6 +69,11 @@ type Context struct {
 	// maintenanceBreakerHeld reports that at least one action was held this
 	// pass because its retries were exhausted.
 	maintenanceBreakerHeld bool
+
+	// maintenanceRequested reports that the provider invoked
+	// RequestMaintenance at least once this pass, so the staged pending set
+	// is authoritative even when Sync later fails.
+	maintenanceRequested bool
 }
 
 // NewContext creates a new Context handle (used internally by the reconciler).

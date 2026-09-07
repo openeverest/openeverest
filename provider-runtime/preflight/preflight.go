@@ -105,8 +105,8 @@ func Run(ctx context.Context, provider controller.ProviderInterface, opts Option
 		return err
 	}
 
-	c := controller.NewContext(ctx, cl, nil, provider.Name())
-	issues := controller.RunUpgradePreflight(c, provider, current, target, instances)
+	h := controller.NewHookContext(ctx, cl, provider.Name())
+	issues := controller.RunUpgradePreflight(h, provider, current, target, instances)
 
 	writeReport(opts.Out, provider.Name(), current, target, len(instances), issues)
 

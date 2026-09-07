@@ -90,11 +90,8 @@ test.describe.parallel('Backup Storage V2 tests', () => {
 
       await test.step('patch backup storage', async () => {
         const patchPayload = {
-          ...backupStorage,
           spec: {
-            ...backupStorage.spec,
             s3: {
-              ...backupStorage.spec.s3,
               bucket: 'bucket-6',
               accessKeyId: 'patchAccessKeyId',
               secretAccessKey: 'patchSecretAccessKey',
@@ -104,6 +101,9 @@ test.describe.parallel('Backup Storage V2 tests', () => {
 
         await expect(async () => {
           backupStorage = await th.patchBackupStorage(request, bsName, patchPayload)
+          expect(backupStorage.spec.s3.bucket).toBe('bucket-6')
+          // Members the patch did not name keep their stored value.
+          expect(backupStorage.spec.s3.region).toBe(payload.spec.s3.region)
           expect(backupStorage.spec.s3.accessKeyId).toBeUndefined()
           expect(backupStorage.spec.s3.secretAccessKey).toBeUndefined()
         }).toPass({
@@ -122,6 +122,55 @@ test.describe.parallel('Backup Storage V2 tests', () => {
       });
     } finally {
       await th.deleteBackupStorage(request, bsName)
+    }
+  })
+
+  test('patch: merge patch semantics', async ({request}) => {
+    const name = th.limitedSuffixedName(testPrefix + '-patch'),
+      payload = th.getBackupStoragePayload(name)
+
+    try {
+      await th.generateBackupStorage(request, payload)
+
+      await test.step('null removes a member, so the CRD default is reapplied', async () => {
+        const patched = await th.patchBackupStorage(request, name, {spec: {s3: {verifyTLS: null}}})
+        expect(payload.spec.s3.verifyTLS).toBe(false)
+        expect(patched.spec.s3.verifyTLS).toBe(true)
+      });
+
+      await test.step('credentials rotate without repeating the secret reference', async () => {
+        const patched = await th.patchBackupStorage(request, name, {
+          spec: {s3: {accessKeyId: 'rotatedKeyId', secretAccessKey: 'rotatedSecret'}},
+        })
+        expect(patched.spec.s3.accessKeyId).toBeUndefined()
+        expect(patched.spec.s3.secretAccessKey).toBeUndefined()
+        expect(patched.spec.s3.credentialsSecretRef.name).toBe(payload.spec.s3.credentialsSecretRef.name)
+      });
+
+      await test.step('half a credential pair is a bad request', async () => {
+        const response = await th.patchBackupStorageRaw(request, name, {spec: {s3: {accessKeyId: 'lonely'}}})
+
+        expect(response.status()).toBe(400)
+        expect(await response.text()).toContain('secretAccessKey is not provided')
+      });
+
+      await test.step('a misspelt path is rejected rather than silently ignored', async () => {
+        const response = await th.patchBackupStorageRaw(request, name, {spec: {s3: {buckets: 'bucket-7'}}})
+
+        // Without fieldValidation=Strict the API server prunes the unknown member
+        // and answers 200 having changed nothing.
+        expect(response.status()).toBe(422)
+        expect(await response.text()).toContain('spec.s3.buckets')
+      });
+
+      await test.step('a member the caller may not set is rejected', async () => {
+        for (const patch of [{status: {}}, {metadata: {finalizers: []}}, {metadata: {name: 'renamed'}}]) {
+          const response = await th.patchBackupStorageRaw(request, name, patch)
+          expect(response.status(), `patch ${JSON.stringify(patch)}`).toBe(400)
+        }
+      });
+    } finally {
+      await th.deleteBackupStorage(request, name)
     }
   })
 

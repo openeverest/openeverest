@@ -16,6 +16,7 @@ package k8s
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 
@@ -54,49 +55,82 @@ func (h *k8sHandler) UpdateBackupStorage(ctx context.Context, cluster string, bs
 	return h.kubeConnector.UpdateBackupStorage(ctx, bs)
 }
 
-// PatchBackupStorage patches a backup storage by fetching the current state and
-// merging only the non-zero fields from bs onto it before updating.
-func (h *k8sHandler) PatchBackupStorage(ctx context.Context, cluster string, bs *backupv1alpha1.BackupStorage) (*backupv1alpha1.BackupStorage, error) {
-	current, err := h.kubeConnector.GetBackupStorage(ctx, types.NamespacedName{
-		Namespace: bs.GetNamespace(),
-		Name:      bs.GetName(),
-	})
+// PatchBackupStorage applies a merge patch to a backup storage, leaving the read-modify-write to the API server.
+// Strict validation is not optional: without it a misspelt path is pruned and returns 200 having changed nothing.
+// The Secret is written only once the patch itself is accepted, so a document the API server rejects cannot rotate live credentials.
+func (h *k8sHandler) PatchBackupStorage(ctx context.Context, _ string, namespace, name string, patch []byte) (*backupv1alpha1.BackupStorage, error) {
+	patch, accessKeyID, secretAccessKey, err := takeS3Credentials(patch)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get backup storage: %w", err)
+		return nil, err
 	}
 
-	if bs.Spec.S3 != nil {
-		if current.Spec.S3 == nil {
-			current.Spec.S3 = &backupv1alpha1.BackupStorageS3Spec{}
-		}
-		s3 := bs.Spec.S3
-		if s3.Bucket != "" {
-			current.Spec.S3.Bucket = s3.Bucket
-		}
-		if s3.Region != "" {
-			current.Spec.S3.Region = s3.Region
-		}
-		if s3.EndpointURL != "" {
-			current.Spec.S3.EndpointURL = s3.EndpointURL
-		}
-		if s3.CredentialsSecretRef.Name != "" {
-			current.Spec.S3.CredentialsSecretRef = s3.CredentialsSecretRef
-		}
-		if s3.VerifyTLS != nil {
-			current.Spec.S3.VerifyTLS = s3.VerifyTLS
-		}
-		if s3.ForcePathStyle != nil {
-			current.Spec.S3.ForcePathStyle = s3.ForcePathStyle
-		}
-		// Credential fields: merge into current so applyS3Credentials sees them.
-		current.Spec.S3.AccessKeyID = s3.AccessKeyID
-		current.Spec.S3.SecretAccessKey = s3.SecretAccessKey
+	bs := &backupv1alpha1.BackupStorage{
+		ObjectMeta: metav1.ObjectMeta{Namespace: namespace, Name: name},
+	}
+	patched, err := h.kubeConnector.PatchBackupStorage(ctx, bs,
+		ctrlclient.RawPatch(types.MergePatchType, patch),
+		ctrlclient.FieldValidation(metav1.FieldValidationStrict),
+	)
+	if err != nil {
+		return nil, err
+	}
+	if accessKeyID == "" && secretAccessKey == "" {
+		return patched, nil
 	}
 
-	if err := h.applyS3Credentials(ctx, current); err != nil {
+	// The patched object names the Secret the credentials belong in, so a patch that
+	// repoints credentialsSecretRef and rotates in one document writes the new Secret.
+	if patched.Spec.S3 == nil {
+		return nil, errors.Join(ErrInvalidRequest, errors.New("spec.s3 is not set"))
+	}
+	patched.Spec.S3.AccessKeyID = accessKeyID
+	patched.Spec.S3.SecretAccessKey = secretAccessKey
+	if err := h.applyS3Credentials(ctx, patched); err != nil {
 		return nil, fmt.Errorf("failed to apply S3 credentials: %w", err)
 	}
-	return h.kubeConnector.UpdateBackupStorage(ctx, current)
+	return patched, nil
+}
+
+// takeS3Credentials removes the write-only credentials from the patch document and
+// returns them. The document is relayed to the API server as sent, so leaving them in
+// would persist on the BackupStorage what belongs only in the Secret.
+func takeS3Credentials(patch []byte) ([]byte, string, string, error) {
+	var doc map[string]any
+	if err := json.Unmarshal(patch, &doc); err != nil {
+		return nil, "", "", fmt.Errorf("failed to decode patch: %w", err)
+	}
+	spec, _ := doc["spec"].(map[string]any)
+	s3, _ := spec["s3"].(map[string]any)
+
+	accessKeyID, isString := jsonString(s3["accessKeyId"])
+	secretAccessKey, isAlsoString := jsonString(s3["secretAccessKey"])
+	if !isString || !isAlsoString {
+		// Not credentials this handler can read. Forwarding them lets the API server
+		// reject the type, which it describes better than we can.
+		return patch, "", "", nil
+	}
+	if accessKeyID == "" && secretAccessKey == "" {
+		return patch, "", "", nil
+	}
+	// Checked before the patch is sent so half a pair changes nothing at all.
+	if err := validateS3CredentialPair(accessKeyID, secretAccessKey); err != nil {
+		return nil, "", "", err
+	}
+
+	delete(s3, "accessKeyId")
+	delete(s3, "secretAccessKey")
+	stripped, err := json.Marshal(doc)
+	return stripped, accessKeyID, secretAccessKey, err
+}
+
+// jsonString reads a JSON string member, reporting absence and null as an empty
+// string and any other type as not a string.
+func jsonString(value any) (string, bool) {
+	if value == nil {
+		return "", true
+	}
+	text, isString := value.(string)
+	return text, isString
 }
 
 // DeleteBackupStorage deletes a backup storage.
@@ -127,12 +161,10 @@ func (h *k8sHandler) applyS3Credentials(ctx context.Context, bs *backupv1alpha1.
 		return nil
 	}
 	s3 := bs.Spec.S3
-	switch {
-	case s3.AccessKeyID != "" && s3.SecretAccessKey == "":
-		return errors.New("secretAccessKey is not provided")
-	case s3.AccessKeyID == "" && s3.SecretAccessKey != "":
-		return errors.New("accessKeyID is not provided")
-	case s3.AccessKeyID == "" && s3.SecretAccessKey == "":
+	if err := validateS3CredentialPair(s3.AccessKeyID, s3.SecretAccessKey); err != nil {
+		return err
+	}
+	if s3.AccessKeyID == "" && s3.SecretAccessKey == "" {
 		return nil // no credentials to update
 	}
 
@@ -165,5 +197,17 @@ func (h *k8sHandler) applyS3Credentials(ctx context.Context, bs *backupv1alpha1.
 
 	s3.AccessKeyID = ""
 	s3.SecretAccessKey = ""
+	return nil
+}
+
+// validateS3CredentialPair rejects a credential pair with only one half supplied,
+// for every verb that accepts the write-only fields.
+func validateS3CredentialPair(accessKeyID, secretAccessKey string) error {
+	switch {
+	case accessKeyID != "" && secretAccessKey == "":
+		return errors.Join(ErrInvalidRequest, errors.New("secretAccessKey is not provided"))
+	case accessKeyID == "" && secretAccessKey != "":
+		return errors.Join(ErrInvalidRequest, errors.New("accessKeyID is not provided"))
+	}
 	return nil
 }
