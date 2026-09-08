@@ -164,9 +164,9 @@ func TestCreateSSO(t *testing.T) {
 	mgr := &Manager{signingKey: key}
 
 	subject := "oidc-subject-uuid"
-	id      := "9d1c1f98-a479-41e3-8939-c7cb3e049a"
-	issuer  := "https://idp.example.com/application/o/everest/"
-	email   := "user@example.com"
+	id := "9d1c1f98-a479-41e3-8939-c7cb3e049a"
+	issuer := "https://idp.example.com/application/o/everest/"
+	email := "user@example.com"
 
 	tokenStr, err := mgr.CreateSSO(subject, int64(time.Hour.Seconds()), id, issuer, email)
 	require.NoError(t, err)
