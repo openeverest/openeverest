@@ -127,13 +127,12 @@ func refreshEnforcerInBackground(
 			return
 		}
 
-		// Validate the incoming policy on a throwaway enforcer, so that an invalid
-		// update never reaches the live one.
-		if _, err := newEnforcer(enforcer.GetAdapter(), false); err != nil {
-			l.Errorf("Invalid RBAC policy detected, keeping the previous policy: %s", err)
-			return
-		}
-
+		// EXPERIMENT (revert of #2791 double-load): load the policy once into
+		// the live enforcer, then validate in-memory. #2791 validated on a
+		// throwaway enforcer BEFORE this load, which added a second ConfigMap
+		// GET per RBAC update and ~doubled reload latency. This variant does a
+		// single ConfigMap GET to test that latency as the cause of the flaky
+		// RBAC e2e tests. Not intended for merge.
 		if err := enforcer.LoadPolicy(); err != nil {
 			l.Errorf("Failed to load RBAC policy: %s", err)
 			return
@@ -142,6 +141,11 @@ func refreshEnforcerInBackground(
 		// Calling LoadPolicy() re-writes the entire model, so we need to add back the admin role.
 		if err := loadAdminPolicy(enforcer); err != nil {
 			l.Errorf("Failed to load admin policy: %s", err)
+			return
+		}
+
+		if err := validatePolicy(enforcer); err != nil {
+			l.Errorf("Invalid RBAC policy detected, keeping the previous policy: %s", err)
 			return
 		}
 
