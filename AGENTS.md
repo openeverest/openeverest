@@ -74,6 +74,7 @@ Read the whole file; apply Frontend rules only when touching files under `ui/`.
 
 Schema-driven form renderer. Layers: preprocess → schema-build (zod) → render → postprocess.
 Runtime field behavior goes through the `fieldOverrides` map on `UiGeneratorContext` (keyed by path), computed in the consumer — never hardcode path checks or add queries inside render internals.
+**Keep docs in sync (required):** any change to the UI Generator architecture or its schema props (adding/renaming/removing a prop, `uiType`, `groupType`, validation rule, mode behavior, etc.) must update the architecture docs in `docs/ui/architecture/ui-generator/` and the user-facing docs in `docs/ui/ui-generator/` in the same PR, and bump the `Last updated` date in the touched docs.
 
 ### Don'ts
 

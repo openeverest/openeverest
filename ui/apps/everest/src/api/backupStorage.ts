@@ -89,7 +89,8 @@ export const editBackupStorageFn = async (
   const { name, namespace } = formData;
   const response = await api.patch(
     `clusters/${cluster}/namespaces/${namespace}/backup-storages/${name}`,
-    formValuesToCrdEdit(formData)
+    formValuesToCrdEdit(formData),
+    { headers: { 'Content-Type': 'application/merge-patch+json' } }
   );
   return response.data;
 };

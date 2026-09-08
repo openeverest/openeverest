@@ -141,10 +141,10 @@ func backupNamespace(b *client.Backup) string {
 }
 
 func backupInstance(b *client.Backup) string {
-	if b.Spec.InstanceRef.Name == "" {
+	if b.Spec.Origin.InstanceRef == nil || b.Spec.Origin.InstanceRef.Name == "" {
 		return "-"
 	}
-	return b.Spec.InstanceRef.Name
+	return b.Spec.Origin.InstanceRef.Name
 }
 
 func backupStorage(b *client.Backup) string {

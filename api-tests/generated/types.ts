@@ -700,7 +700,10 @@ export interface paths {
         head?: never;
         /**
          * Patch backup storage
-         * @description This API patches the backup storage specified by the `name` in the specified `namespace` and `cluster`.
+         * @description This API applies Merge Patch to the backup storage specified by the `name` in the specified `namespace` and `cluster`.
+         *     Members absent from the patch keep their current value, and a member set to `null` is removed. A path that does not exist on the BackupStorage
+         *     is rejected rather than ignored. Include `metadata.resourceVersion` to make the patch conditional, which fails with 409 if the backup storage has changed.
+         *     `spec.s3.accessKeyId` and `spec.s3.secretAccessKey` are write-only: they are stored in the Secret named by `spec.s3.credentialsSecretRef` and never persisted on the object.
          */
         patch: operations["patchBackupStorage"];
         trace?: never;
@@ -2514,6 +2517,32 @@ export interface components {
                  */
                 deletionPolicy: "Cascade" | "Orphan";
                 /**
+                 * @description Maintenance governs how disruptive actions raised against this
+                 *     Instance (e.g. the convergence step after a provider upgrade) are
+                 *     authorized. It does NOT govern the deliberate engine-version upgrade
+                 *     flow (spec.version / spec.components[].version).
+                 */
+                maintenance?: {
+                    /**
+                     * @description Approved is a one-time authorization for an action above the standing
+                     *     tolerance: set it to the exact approvalToken of the held action from
+                     *     status.pendingMaintenance. It is matched literally, authorizes only
+                     *     that occurrence, and re-arms naturally — a later action carries a
+                     *     different token, so a stale value never authorizes it. It is NOT a
+                     *     provider version.
+                     */
+                    approved?: string;
+                    /**
+                     * @description AutoApproveUpTo is the standing disruption tolerance: any action at or
+                     *     below this impact applies automatically, anything above it is held on
+                     *     status.pendingMaintenance. It is cause-agnostic — the tolerance applies
+                     *     whether the action was raised by a provider upgrade or anything else.
+                     * @default NonDisruptive
+                     * @enum {string}
+                     */
+                    autoApproveUpTo: "NonDisruptive" | "RollingRestart" | "Downtime";
+                };
+                /**
                  * @description Parameters contains structured parameters that apply to the Instance
                  *     as a whole, complementing the topology- and component-scoped
                  *     parameters. The payload is validated against the referenced Provider's
@@ -2542,6 +2571,21 @@ export interface components {
                      *     If omitted, the provider's default topology is used.
                      */
                     type?: string;
+                };
+                /**
+                 * @description UserSecretRef optionally seeds the engine's initial (bootstrap)
+                 *     credentials from a Secret in the same namespace, for providers whose
+                 *     engine supports setting initial credentials at creation time.
+                 *
+                 *     When omitted, the provider generates credentials automatically. The
+                 *     referenced Secret's required keys are provider-specific and validated
+                 *     by the referenced Provider. The field is immutable once set: initial
+                 *     credentials only apply at engine creation time, so changing it later
+                 *     would have no effect.
+                 */
+                userSecretRef?: {
+                    /** @description Name of the referenced Secret. */
+                    name: string;
                 };
                 /**
                  * @description Version selects a provider-defined version bundle, resolving compatible
@@ -3966,6 +4010,32 @@ export interface components {
                  */
                 deletionPolicy: "Cascade" | "Orphan";
                 /**
+                 * @description Maintenance governs how disruptive actions raised against this
+                 *     Instance (e.g. the convergence step after a provider upgrade) are
+                 *     authorized. It does NOT govern the deliberate engine-version upgrade
+                 *     flow (spec.version / spec.components[].version).
+                 */
+                maintenance?: {
+                    /**
+                     * @description Approved is a one-time authorization for an action above the standing
+                     *     tolerance: set it to the exact approvalToken of the held action from
+                     *     status.pendingMaintenance. It is matched literally, authorizes only
+                     *     that occurrence, and re-arms naturally — a later action carries a
+                     *     different token, so a stale value never authorizes it. It is NOT a
+                     *     provider version.
+                     */
+                    approved?: string;
+                    /**
+                     * @description AutoApproveUpTo is the standing disruption tolerance: any action at or
+                     *     below this impact applies automatically, anything above it is held on
+                     *     status.pendingMaintenance. It is cause-agnostic — the tolerance applies
+                     *     whether the action was raised by a provider upgrade or anything else.
+                     * @default NonDisruptive
+                     * @enum {string}
+                     */
+                    autoApproveUpTo: "NonDisruptive" | "RollingRestart" | "Downtime";
+                };
+                /**
                  * @description Parameters contains structured parameters that apply to the Instance
                  *     as a whole, complementing the topology- and component-scoped
                  *     parameters. The payload is validated against the referenced Provider's
@@ -3994,6 +4064,21 @@ export interface components {
                      *     If omitted, the provider's default topology is used.
                      */
                     type?: string;
+                };
+                /**
+                 * @description UserSecretRef optionally seeds the engine's initial (bootstrap)
+                 *     credentials from a Secret in the same namespace, for providers whose
+                 *     engine supports setting initial credentials at creation time.
+                 *
+                 *     When omitted, the provider generates credentials automatically. The
+                 *     referenced Secret's required keys are provider-specific and validated
+                 *     by the referenced Provider. The field is immutable once set: initial
+                 *     credentials only apply at engine creation time, so changing it later
+                 *     would have no effect.
+                 */
+                userSecretRef?: {
+                    /** @description Name of the referenced Secret. */
+                    name: string;
                 };
                 /**
                  * @description Version selects a provider-defined version bundle, resolving compatible
@@ -4119,6 +4204,30 @@ export interface components {
                 /** @description Message is a custom user-facing message describing the current state of the instance. */
                 message?: string;
                 /**
+                 * @description PendingMaintenance lists the disruptive actions currently held awaiting
+                 *     approval. It is recomputed on every reconcile from the actions the
+                 *     provider currently requests above the Instance's tolerance, so it can
+                 *     never go stale: an action the provider stops requesting disappears.
+                 */
+                pendingMaintenance?: {
+                    /**
+                     * @description ApprovalToken is the occurrence-unique, human-readable token the
+                     *     provider assigned to this held action. Copy it verbatim into
+                     *     spec.maintenance.approved to authorize this specific action.
+                     */
+                    approvalToken?: string;
+                    /**
+                     * @description Description is a human-readable summary of the action and its
+                     *     observable impact. It never exposes operator internals.
+                     */
+                    description: string;
+                    /**
+                     * @description Severity is the action's observable database impact.
+                     * @enum {string}
+                     */
+                    severity: "NonDisruptive" | "RollingRestart" | "Downtime";
+                }[];
+                /**
                  * @description Phase of the database cluster.
                  * @enum {string}
                  */
@@ -4219,12 +4328,48 @@ export interface components {
                  */
                 deletionPolicy: "Retain" | "Delete";
                 /**
-                 * @description InstanceRef references the Instance to back up. The Instance must
-                 *     live in the same namespace as this Backup.
+                 * @description Origin identifies where this Backup's data comes from: produced by a
+                 *     live Instance, or imported from data already present in a BackupStorage.
                  */
-                instanceRef: {
-                    /** @description Name of the referenced object. */
-                    name: string;
+                origin: {
+                    /**
+                     * @description External identifies data already present in the referenced BackupStorage
+                     *     rather than produced by a live Instance. Required when Type is External.
+                     *     When set, the restore is built directly from storageRef + external.path
+                     *     with no live operator object.
+                     */
+                    external?: {
+                        /**
+                         * Format: date-time
+                         * @description CompletedAt is the time when the backup completed.
+                         */
+                        completedAt: string;
+                        /**
+                         * @description Path is the backup's path within the BackupStorage. The bucket is
+                         *     already determined by storageRef, so it is not repeated here. The path
+                         *     is unique within its storage and is used for restore.
+                         */
+                        path: string;
+                        /**
+                         * Format: date-time
+                         * @description StartedAt is the time when the backup started.
+                         */
+                        startedAt: string;
+                    };
+                    /**
+                     * @description InstanceRef references the Instance that produced this Backup. The
+                     *     Instance must live in the same namespace as this Backup. Required when
+                     *     Type is Instance.
+                     */
+                    instanceRef?: {
+                        /** @description Name of the referenced object. */
+                        name: string;
+                    };
+                    /**
+                     * @description Type selects the origin variant.
+                     * @enum {string}
+                     */
+                    type: "Instance" | "External";
                 };
                 /**
                  * @description Parameters is the backup-time structured configuration validated
@@ -4255,6 +4400,7 @@ export interface components {
                 /**
                  * Format: date-time
                  * @description CompletedAt is the time when the backup completed successfully.
+                 *     For external backups this mirrors spec.origin.external.completedAt.
                  */
                 completedAt?: string;
                 conditions?: {
@@ -4300,7 +4446,8 @@ export interface components {
                 executionMode?: "ProviderManaged" | "Job";
                 /**
                  * @description JobRef references the Job that is running the backup.
-                 *     Populated only for Job classes.
+                 *     Populated only for Job classes. Empty for external backups, which run
+                 *     no Job.
                  */
                 jobRef?: {
                     /** @description Name of the referenced object. */
@@ -4316,7 +4463,8 @@ export interface components {
                 /**
                  * @description OperatorBackupRef points at the operator-native backup resource the
                  *     provider created (e.g., PerconaServerMongoDBBackup). Populated only
-                 *     for ProviderManaged classes.
+                 *     for ProviderManaged classes. Empty for external backups, which have no
+                 *     operator-native backup object.
                  */
                 operatorBackupRef?: {
                     /**
@@ -4329,15 +4477,21 @@ export interface components {
                     /** @description Name of the referenced object. */
                     name: string;
                 };
-                /** @description Size is the size of the backup data as reported by the engine. */
+                /**
+                 * @description Size is the size of the backup data as reported by the engine.
+                 *     Empty for external backups.
+                 */
                 size?: string;
                 /**
                  * Format: date-time
                  * @description StartedAt is the time when the backup started.
+                 *     For external backups this mirrors spec.origin.external.startedAt.
                  */
                 startedAt?: string;
                 /**
                  * @description State is the current state of the backup.
+                 *     For external backups, the state is Succeeded if the backup has valid
+                 *     StartedAt and CompletedAt set.
                  * @enum {string}
                  */
                 state?: "Pending" | "Running" | "Succeeded" | "Failed" | "Error" | "Deleting";
@@ -4628,21 +4782,21 @@ export interface components {
                          */
                         clusterPermissions?: {
                             /**
-                             * @description APIGroups is the name of the APIGroup that contains the resources.  If multiple API groups are specified, any action requested against one of
+                             * @description apiGroups is the name of the APIGroup that contains the resources.  If multiple API groups are specified, any action requested against one of
                              *     the enumerated resources in any API group will be allowed. "" represents the core API group and "*" represents all API groups.
                              */
                             apiGroups?: string[];
                             /**
-                             * @description NonResourceURLs is a set of partial urls that a user should have access to.  *s are allowed, but only as the full, final step in the path
+                             * @description nonResourceURLs is a set of partial urls that a user should have access to.  *s are allowed, but only as the full, final step in the path
                              *     Since non-resource URLs are not namespaced, this field is only applicable for ClusterRoles referenced from a ClusterRoleBinding.
                              *     Rules can either apply to API resources (such as "pods" or "secrets") or non-resource URL paths (such as "/api"),  but not both.
                              */
                             nonResourceURLs?: string[];
-                            /** @description ResourceNames is an optional white list of names that the rule applies to.  An empty set means that everything is allowed. */
+                            /** @description resourceNames is an optional white list of names that the rule applies to.  An empty set means that everything is allowed. */
                             resourceNames?: string[];
-                            /** @description Resources is a list of resources this rule applies to. '*' represents all resources. */
+                            /** @description resources is a list of resources this rule applies to. '*' represents all resources. */
                             resources?: string[];
-                            /** @description Verbs is a list of Verbs that apply to ALL the ResourceKinds contained in this rule. '*' represents all verbs. */
+                            /** @description verbs is a list of Verbs that apply to ALL the ResourceKinds contained in this rule. '*' represents all verbs. */
                             verbs: string[];
                         }[];
                         /** @description JobSpec is the specification of the backup or restore job. */
@@ -4658,21 +4812,21 @@ export interface components {
                          */
                         permissions?: {
                             /**
-                             * @description APIGroups is the name of the APIGroup that contains the resources.  If multiple API groups are specified, any action requested against one of
+                             * @description apiGroups is the name of the APIGroup that contains the resources.  If multiple API groups are specified, any action requested against one of
                              *     the enumerated resources in any API group will be allowed. "" represents the core API group and "*" represents all API groups.
                              */
                             apiGroups?: string[];
                             /**
-                             * @description NonResourceURLs is a set of partial urls that a user should have access to.  *s are allowed, but only as the full, final step in the path
+                             * @description nonResourceURLs is a set of partial urls that a user should have access to.  *s are allowed, but only as the full, final step in the path
                              *     Since non-resource URLs are not namespaced, this field is only applicable for ClusterRoles referenced from a ClusterRoleBinding.
                              *     Rules can either apply to API resources (such as "pods" or "secrets") or non-resource URL paths (such as "/api"),  but not both.
                              */
                             nonResourceURLs?: string[];
-                            /** @description ResourceNames is an optional white list of names that the rule applies to.  An empty set means that everything is allowed. */
+                            /** @description resourceNames is an optional white list of names that the rule applies to.  An empty set means that everything is allowed. */
                             resourceNames?: string[];
-                            /** @description Resources is a list of resources this rule applies to. '*' represents all resources. */
+                            /** @description resources is a list of resources this rule applies to. '*' represents all resources. */
                             resources?: string[];
-                            /** @description Verbs is a list of Verbs that apply to ALL the ResourceKinds contained in this rule. '*' represents all verbs. */
+                            /** @description verbs is a list of Verbs that apply to ALL the ResourceKinds contained in this rule. '*' represents all verbs. */
                             verbs: string[];
                         }[];
                     };
@@ -4697,21 +4851,21 @@ export interface components {
                          */
                         clusterPermissions?: {
                             /**
-                             * @description APIGroups is the name of the APIGroup that contains the resources.  If multiple API groups are specified, any action requested against one of
+                             * @description apiGroups is the name of the APIGroup that contains the resources.  If multiple API groups are specified, any action requested against one of
                              *     the enumerated resources in any API group will be allowed. "" represents the core API group and "*" represents all API groups.
                              */
                             apiGroups?: string[];
                             /**
-                             * @description NonResourceURLs is a set of partial urls that a user should have access to.  *s are allowed, but only as the full, final step in the path
+                             * @description nonResourceURLs is a set of partial urls that a user should have access to.  *s are allowed, but only as the full, final step in the path
                              *     Since non-resource URLs are not namespaced, this field is only applicable for ClusterRoles referenced from a ClusterRoleBinding.
                              *     Rules can either apply to API resources (such as "pods" or "secrets") or non-resource URL paths (such as "/api"),  but not both.
                              */
                             nonResourceURLs?: string[];
-                            /** @description ResourceNames is an optional white list of names that the rule applies to.  An empty set means that everything is allowed. */
+                            /** @description resourceNames is an optional white list of names that the rule applies to.  An empty set means that everything is allowed. */
                             resourceNames?: string[];
-                            /** @description Resources is a list of resources this rule applies to. '*' represents all resources. */
+                            /** @description resources is a list of resources this rule applies to. '*' represents all resources. */
                             resources?: string[];
-                            /** @description Verbs is a list of Verbs that apply to ALL the ResourceKinds contained in this rule. '*' represents all verbs. */
+                            /** @description verbs is a list of Verbs that apply to ALL the ResourceKinds contained in this rule. '*' represents all verbs. */
                             verbs: string[];
                         }[];
                         /** @description JobSpec is the specification of the backup or restore job. */
@@ -4727,21 +4881,21 @@ export interface components {
                          */
                         permissions?: {
                             /**
-                             * @description APIGroups is the name of the APIGroup that contains the resources.  If multiple API groups are specified, any action requested against one of
+                             * @description apiGroups is the name of the APIGroup that contains the resources.  If multiple API groups are specified, any action requested against one of
                              *     the enumerated resources in any API group will be allowed. "" represents the core API group and "*" represents all API groups.
                              */
                             apiGroups?: string[];
                             /**
-                             * @description NonResourceURLs is a set of partial urls that a user should have access to.  *s are allowed, but only as the full, final step in the path
+                             * @description nonResourceURLs is a set of partial urls that a user should have access to.  *s are allowed, but only as the full, final step in the path
                              *     Since non-resource URLs are not namespaced, this field is only applicable for ClusterRoles referenced from a ClusterRoleBinding.
                              *     Rules can either apply to API resources (such as "pods" or "secrets") or non-resource URL paths (such as "/api"),  but not both.
                              */
                             nonResourceURLs?: string[];
-                            /** @description ResourceNames is an optional white list of names that the rule applies to.  An empty set means that everything is allowed. */
+                            /** @description resourceNames is an optional white list of names that the rule applies to.  An empty set means that everything is allowed. */
                             resourceNames?: string[];
-                            /** @description Resources is a list of resources this rule applies to. '*' represents all resources. */
+                            /** @description resources is a list of resources this rule applies to. '*' represents all resources. */
                             resources?: string[];
-                            /** @description Verbs is a list of Verbs that apply to ALL the ResourceKinds contained in this rule. '*' represents all verbs. */
+                            /** @description verbs is a list of Verbs that apply to ALL the ResourceKinds contained in this rule. '*' represents all verbs. */
                             verbs: string[];
                         }[];
                     };
@@ -6792,10 +6946,12 @@ export interface operations {
             };
             cookie?: never;
         };
-        /** @description The backup storage fields to be patched */
+        /** @description A partial BackupStorage document. `status` and the `ownerReferences`, `finalizers`, `name` and `namespace` members of `metadata` are rejected. */
         requestBody: {
             content: {
-                "application/json": components["schemas"]["BackupStorage"];
+                "application/merge-patch+json": {
+                    [key: string]: unknown;
+                };
             };
         };
         responses: {
@@ -6819,6 +6975,15 @@ export interface operations {
             };
             /** @description Backup storage not found */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description The Content-Type is not application/merge-patch+json */
+            415: {
                 headers: {
                     [name: string]: unknown;
                 };

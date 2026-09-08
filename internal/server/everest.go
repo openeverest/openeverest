@@ -602,6 +602,7 @@ func everestErrorHandler(next echo.HTTPErrorHandler) echo.HTTPErrorHandler {
 				Message: rbachandler.ErrInsufficientPermissions.Error(),
 			}
 		case errors.Is(err, valhandler.ErrInvalidRequest),
+			errors.Is(err, k8shandler.ErrInvalidRequest),
 			errors.Is(err, errFailedToReadRequestBody):
 			err = &echo.HTTPError{
 				Code:    http.StatusBadRequest,

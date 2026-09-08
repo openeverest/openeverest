@@ -18,7 +18,7 @@ spec:
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
-    - jsonPath: .spec.instanceRef.name
+    - jsonPath: .spec.origin.instanceRef.name
       name: Instance
       type: string
     - jsonPath: .spec.storageRef.name
@@ -89,21 +89,71 @@ spec:
                 - Retain
                 - Delete
                 type: string
-              instanceRef:
+              origin:
                 description: |-
-                  InstanceRef references the Instance to back up. The Instance must
-                  live in the same namespace as this Backup.
+                  Origin identifies where this Backup's data comes from: produced by a
+                  live Instance, or imported from data already present in a BackupStorage.
                 properties:
-                  name:
-                    description: Name of the referenced object.
-                    maxLength: 253
-                    minLength: 1
-                    pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                  external:
+                    description: |-
+                      External identifies data already present in the referenced BackupStorage
+                      rather than produced by a live Instance. Required when Type is External.
+                      When set, the restore is built directly from storageRef + external.path
+                      with no live operator object.
+                    properties:
+                      completedAt:
+                        description: CompletedAt is the time when the backup completed.
+                        format: date-time
+                        type: string
+                      path:
+                        description: |-
+                          Path is the backup's path within the BackupStorage. The bucket is
+                          already determined by storageRef, so it is not repeated here. The path
+                          is unique within its storage and is used for restore.
+                        minLength: 1
+                        type: string
+                      startedAt:
+                        description: StartedAt is the time when the backup started.
+                        format: date-time
+                        type: string
+                    required:
+                    - completedAt
+                    - path
+                    - startedAt
+                    type: object
+                    x-kubernetes-validations:
+                    - message: spec.origin.external is immutable
+                      rule: self == oldSelf
+                  instanceRef:
+                    description: |-
+                      InstanceRef references the Instance that produced this Backup. The
+                      Instance must live in the same namespace as this Backup. Required when
+                      Type is Instance.
+                    properties:
+                      name:
+                        description: Name of the referenced object.
+                        maxLength: 253
+                        minLength: 1
+                        pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                        type: string
+                    required:
+                    - name
+                    type: object
+                    x-kubernetes-map-type: atomic
+                  type:
+                    description: Type selects the origin variant.
+                    enum:
+                    - Instance
+                    - External
                     type: string
                 required:
-                - name
+                - type
                 type: object
-                x-kubernetes-map-type: atomic
+                x-kubernetes-validations:
+                - message: instanceRef must be set if and only if type is Instance
+                  rule: 'self.type == ''Instance'' ? has(self.instanceRef) : !has(self.instanceRef)'
+                - message: external must be set if and only if type is External
+                  rule: 'self.type == ''External'' ? has(self.external) : !has(self.external)'
               parameters:
                 description: |-
                   Parameters is the backup-time structured configuration validated
@@ -137,14 +187,20 @@ spec:
                 x-kubernetes-map-type: atomic
             required:
             - classRef
-            - instanceRef
+            - origin
             - storageRef
             type: object
+            x-kubernetes-validations:
+            - message: deletionPolicy Delete is not allowed when origin.type is External;
+                use Retain
+              rule: self.origin.type != 'External' || self.deletionPolicy != 'Delete'
           status:
             description: BackupStatus defines the observed state of Backup.
             properties:
               completedAt:
-                description: CompletedAt is the time when the backup completed successfully.
+                description: |-
+                  CompletedAt is the time when the backup completed successfully.
+                  For external backups this mirrors spec.origin.external.completedAt.
                 format: date-time
                 type: string
               conditions:
@@ -217,7 +273,8 @@ spec:
               jobRef:
                 description: |-
                   JobRef references the Job that is running the backup.
-                  Populated only for Job classes.
+                  Populated only for Job classes. Empty for external backups, which run
+                  no Job.
                 properties:
                   name:
                     description: Name of the referenced object.
@@ -242,7 +299,8 @@ spec:
                 description: |-
                   OperatorBackupRef points at the operator-native backup resource the
                   provider created (e.g., PerconaServerMongoDBBackup). Populated only
-                  for ProviderManaged classes.
+                  for ProviderManaged classes. Empty for external backups, which have no
+                  operator-native backup object.
                 properties:
                   group:
                     description: |-
@@ -266,15 +324,21 @@ spec:
                 type: object
                 x-kubernetes-map-type: atomic
               size:
-                description: Size is the size of the backup data as reported by the
-                  engine.
+                description: |-
+                  Size is the size of the backup data as reported by the engine.
+                  Empty for external backups.
                 type: string
               startedAt:
-                description: StartedAt is the time when the backup started.
+                description: |-
+                  StartedAt is the time when the backup started.
+                  For external backups this mirrors spec.origin.external.startedAt.
                 format: date-time
                 type: string
               state:
-                description: State is the current state of the backup.
+                description: |-
+                  State is the current state of the backup.
+                  For external backups, the state is Succeeded if the backup has valid
+                  StartedAt and CompletedAt set.
                 enum:
                 - Pending
                 - Running
