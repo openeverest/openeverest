@@ -12,6 +12,8 @@ env:
 
 jobs:
   assign:
+    # Keep command events independent. Issue-scoped concurrency can replace a
+    # pending /unassign when a newer command queues.
     # Issues only; PR comments arrive on the same event.
     if: >-
       github.event.issue.pull_request == null &&
@@ -24,8 +26,7 @@ jobs:
         with:
           script: |
             const { owner, repo } = context.repo;
-            const issue = context.payload.issue;
-            const issue_number = issue.number;
+            const issue_number = context.payload.issue.number;
             const commenter = context.payload.comment.user.login;
 
             // Commands must start a line, matching the Prow convention.
@@ -54,6 +55,9 @@ jobs:
             };
 
             const commenterIsMaintainer = await isMaintainer(commenter);
+            const { data: issue } = await github.rest.issues.get({
+              owner, repo, issue_number,
+            });
 
             // Assigning somebody else is a maintainer action; otherwise anyone
             // could hand their work to a stranger.
@@ -92,14 +96,15 @@ jobs:
 
             // Maintainers bypass the gates below.
             if (!commenterIsMaintainer) {
-              const open = await github.rest.search.issuesAndPullRequests({
-                q: `repo:${owner}/${repo} is:issue is:open assignee:${commenter}`,
-                advanced_search: 'true',
-                per_page: 1,
+              const openIssues = await github.paginate(github.rest.issues.listForRepo, {
+                owner, repo, state: 'open', assignee: commenter, per_page: 100,
               });
               const cap = Number(process.env.MAX_OPEN_ISSUES);
-              if (open.data.total_count >= cap) {
-                await reply(`@${commenter} you already have ${open.data.total_count} open assigned issue(s), and the limit is ${cap}. Please finish or \`/unassign\` one first — holding several at once blocks work others could be doing.`);
+              const openCount = openIssues.filter((candidate) =>
+                !candidate.pull_request && candidate.number !== issue_number
+              ).length;
+              if (openCount >= cap) {
+                await reply(`@${commenter} you already have ${openCount} other open assigned issue(s), and the limit is ${cap}. Please finish or \`/unassign\` one first — holding several at once blocks work others could be doing.`);
                 return;
               }
 
