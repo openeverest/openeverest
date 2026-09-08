@@ -16,8 +16,14 @@ import { request } from '@playwright/test';
 
 const BASE_URL = process.env.EVEREST_URL || 'http://localhost:8080';
 
-const { CI_USER, CI_PASSWORD, SESSION_USER, SESSION_PASS, RBAC_USER, RBAC_PASSWORD } =
-  process.env;
+const {
+  CI_USER,
+  CI_PASSWORD,
+  SESSION_USER,
+  SESSION_PASS,
+  RBAC_USER,
+  RBAC_PASSWORD,
+} = process.env;
 
 type CachedToken = {
   token: string;
