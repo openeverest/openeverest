@@ -24,6 +24,7 @@ import (
 	"github.com/openeverest/openeverest/v2/pkg/cli"
 	"github.com/openeverest/openeverest/v2/pkg/cli/config"
 	instancecli "github.com/openeverest/openeverest/v2/pkg/cli/instance"
+	"github.com/openeverest/openeverest/v2/pkg/cli/waitcmd"
 	"github.com/openeverest/openeverest/v2/pkg/logger"
 	"github.com/openeverest/openeverest/v2/pkg/output"
 )
@@ -70,7 +71,7 @@ func init() {
 	statusCmd.Flags().StringVar(&statusOpts.Cluster, cli.FlagInstanceCluster, "main", "Cluster name")
 	statusCmd.Flags().StringVar(&statusOpts.Context, cli.FlagInstanceContext, "", "Context to use (default: current context)")
 	statusCmd.Flags().BoolVarP(&statusOpts.Watch, cli.FlagInstanceWatch, "w", false, "Poll continuously until Ctrl-C or token expiry")
-	statusCmd.Flags().DurationVar(&statusOpts.Interval, cli.FlagInstanceInterval, 2*time.Second, "Poll interval (only valid with --watch)")
+	statusCmd.Flags().DurationVar(&statusOpts.Interval, cli.FlagInstanceInterval, 2*time.Second, "Poll interval (only valid with --watch); must be positive")
 
 	_ = statusCmd.MarkFlagRequired(cli.FlagInstanceName)
 	_ = statusCmd.MarkFlagRequired(cli.FlagInstanceNamespace)
@@ -83,6 +84,11 @@ func statusPreRun(cmd *cobra.Command, _ []string) { //nolint:revive
 func statusRun(cmd *cobra.Command, _ []string) { //nolint:revive
 	cfgPath, err := config.DefaultPath()
 	if err != nil {
+		output.PrintError(err, logger.GetLogger(), statusCfg.Pretty)
+		os.Exit(1)
+	}
+
+	if err := waitcmd.ValidatePollFlags(statusOpts.Watch, cmd.Flags().Changed(cli.FlagInstanceInterval), statusOpts.Interval); err != nil {
 		output.PrintError(err, logger.GetLogger(), statusCfg.Pretty)
 		os.Exit(1)
 	}
