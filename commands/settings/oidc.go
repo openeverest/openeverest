@@ -1,6 +1,5 @@
 // everest
 // Copyright (C) 2023 Percona LLC
-// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,18 +19,14 @@ package settings
 import (
 	"github.com/spf13/cobra"
 
-	"github.com/percona/everest/commands/common"
 	"github.com/percona/everest/commands/settings/oidc"
 )
 
 var settingsOIDCCmd = &cobra.Command{
 	Use:   "oidc <command> [flags]",
-	Args:  common.NoSubcommandArgs,
+	Args:  cobra.ExactArgs(1),
 	Long:  "Manage settings related to OIDC",
 	Short: "Manage settings related to OIDC",
-	RunE: func(cmd *cobra.Command, _ []string) error {
-		return cmd.Help()
-	},
 }
 
 func init() {

@@ -1,6 +1,5 @@
 // everest
 // Copyright (C) 2023 Percona LLC
-// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -21,17 +20,14 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/percona/everest/commands/accounts"
-	"github.com/percona/everest/commands/common"
 )
 
 var accountsCmd = &cobra.Command{
 	Use:   "accounts <command> [flags]",
-	Args:  common.NoSubcommandArgs,
+	Args:  cobra.ExactArgs(1),
 	Long:  "Manage Everest accounts",
 	Short: "Manage Everest accounts",
-	RunE: func(cmd *cobra.Command, _ []string) error {
-		return cmd.Help()
-	},
+	Run:   func(_ *cobra.Command, _ []string) {},
 }
 
 func init() {
