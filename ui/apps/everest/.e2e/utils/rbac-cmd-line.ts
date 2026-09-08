@@ -1,6 +1,12 @@
 import { execSync } from 'child_process';
+import { request } from '@playwright/test';
+import { getRBACTokenFromLocalStorage } from './localStorage';
 
 const OLD_RBAC_FILE = 'old_rbac_permissions';
+
+const BASE_URL = process.env.EVEREST_URL || 'http://localhost:8080';
+const RBAC_APPLY_TIMEOUT_MS = process.env.CI ? 15000 : 5000;
+const RBAC_APPLY_POLL_INTERVAL_MS = 200;
 
 export const saveOldRBACPermissions = async () => {
   const command = `kubectl get configmap everest-rbac --namespace everest-system -o jsonpath="{.data}" > ${OLD_RBAC_FILE}`;
@@ -19,21 +25,73 @@ export const restoreOldRBACPermissions = async () => {
   );
 };
 
+// A permission from GET /v1/permissions is [subject, resource, action, object].
+// Match on the trailing [resource, action, object] so the check is agnostic to
+// how the subject/role is rendered.
+const policyIsApplied = (
+  returned: string[][],
+  expected: [string, string, string][]
+): boolean =>
+  expected.every((exp) =>
+    returned.some((perm) => {
+      const [resource, action, object] = perm.slice(-3);
+      return resource === exp[0] && action === exp[1] && object === exp[2];
+    })
+  );
+
+// Poll GET /v1/permissions with the RBAC user's token until the freshly-patched
+// policy is reflected by the server, instead of sleeping a fixed amount. The
+// fixed sleep raced the server's ConfigMap reload and made RBAC tests flaky
+// (stale permissions -> 404 on deep-linked pages).
+const waitForRBACPolicyApplied = async (
+  permissions: [string, string, string][]
+) => {
+  if (permissions.length === 0) {
+    return;
+  }
+  const token = await getRBACTokenFromLocalStorage();
+  const ctx = await request.newContext({ baseURL: BASE_URL });
+  const deadline = Date.now() + RBAC_APPLY_TIMEOUT_MS;
+  try {
+    while (Date.now() < deadline) {
+      const resp = await ctx.get('/v1/permissions', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (resp.ok()) {
+        const body = await resp.json();
+        if (
+          body?.enabled &&
+          policyIsApplied(body.permissions ?? [], permissions)
+        ) {
+          return;
+        }
+      }
+      await new Promise((r) => setTimeout(r, RBAC_APPLY_POLL_INTERVAL_MS));
+    }
+    throw new Error(
+      `RBAC policy was not reflected in /v1/permissions within ${RBAC_APPLY_TIMEOUT_MS}ms`
+    );
+  } finally {
+    await ctx.dispose();
+  }
+};
+
 export const setRBACPermissionsK8S = async (
   permissions: [string, string, string][] = []
 ) => {
   const command = `kubectl patch configmap/everest-rbac --namespace everest-system --type merge -p '{"data":{"enabled": "${permissions !== undefined}", "policy.csv":"g,${process.env.RBAC_USER},role:e2e-rbac-user\\n${permissions.map((p) => `p,role:e2e-rbac-user,${p.join(',')}`).join('\\n')}"}}'`;
   execSync(command);
 
-  // We need this to give time for the RBAC to be applied, or headless tests might fail for being too fast
-  return new Promise<void>((resolve) =>
-    setTimeout(
-      () => {
-        resolve();
-      },
-      process.env.CI ? 3000 : 500
-    )
-  );
+  // Fall back to the previous fixed wait only when RBAC credentials are not
+  // available to poll with (keeps local runs without RBAC creds working).
+  if (!process.env.RBAC_USER || !process.env.RBAC_PASSWORD) {
+    await new Promise<void>((resolve) =>
+      setTimeout(resolve, process.env.CI ? 3000 : 500)
+    );
+    return;
+  }
+
+  await waitForRBACPolicyApplied(permissions);
 };
 
 export const giveUserAdminPermissions = async () => {
