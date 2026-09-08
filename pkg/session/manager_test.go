@@ -163,12 +163,10 @@ func TestCreateSSO(t *testing.T) {
 	require.NoError(t, err)
 	mgr := &Manager{signingKey: key}
 
-	const (
-		subject = "oidc-subject-uuid"
-		id      = "9d1c1f98-a479-41e3-8939-c7cb3e049a"
-		issuer  = "https://idp.example.com/application/o/everest/"
-		email   = "user@example.com"
-	)
+	subject := "oidc-subject-uuid"
+	id      := "9d1c1f98-a479-41e3-8939-c7cb3e049a"
+	issuer  := "https://idp.example.com/application/o/everest/"
+	email   := "user@example.com"
 
 	tokenStr, err := mgr.CreateSSO(subject, int64(time.Hour.Seconds()), id, issuer, email)
 	require.NoError(t, err)
