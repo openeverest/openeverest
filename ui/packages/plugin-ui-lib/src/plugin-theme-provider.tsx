@@ -21,6 +21,7 @@ import {
   type PaletteMode,
   type PaletteOptions,
   type SimplePaletteColorOptions,
+  type ThemeOptions,
 } from '@mui/material';
 
 // The host publishes its active color scheme here (see @percona/design
@@ -102,6 +103,80 @@ function hostPalette(mode: PaletteMode): PaletteOptions {
   return palette;
 }
 
+// The typography variants MUI emits as `--mui-font-*`.
+const TYPOGRAPHY_VARIANTS = [
+  'h1',
+  'h2',
+  'h3',
+  'h4',
+  'h5',
+  'h6',
+  'subtitle1',
+  'subtitle2',
+  'body1',
+  'body2',
+  'button',
+  'caption',
+  'overline',
+] as const;
+
+// MUI emits each variant as a CSS `font` shorthand:
+//   "<weight> <size>[/<lineHeight>] [<family>]"
+// e.g. "600 1.5rem/22.5px 'Poppins',sans-serif".
+//
+// Note the shorthand cannot express `textTransform` or `letterSpacing`, so those
+// host values do not cross this bridge — see the note in §7.4.
+function fontFromHost(variant: string): Record<string, unknown> | undefined {
+  const raw = readVar(`--mui-font-${variant}`);
+  if (!raw) {
+    return undefined;
+  }
+  // Requiring a numeric weight also rejects non-font values such as
+  // `--mui-font-inherit: inherit inherit/inherit inherit`.
+  const m = raw.match(/^(\d+)\s+([^\s/]+)(?:\/([^\s]+))?(?:\s+(.+))?$/);
+  if (!m) {
+    return undefined;
+  }
+  const [, weight, size, lineHeight, family] = m;
+  const style: Record<string, unknown> = {
+    fontWeight: Number(weight),
+    fontSize: size,
+  };
+  if (lineHeight) {
+    style.lineHeight = lineHeight;
+  }
+  if (family) {
+    style.fontFamily = family;
+  }
+  return style;
+}
+
+// Builds the typography scale from host tokens. Variants the host doesn't
+// publish simply fall back to the plugin's own MUI defaults.
+function hostTypography(): ThemeOptions['typography'] {
+  const typography: Record<string, unknown> = {};
+  for (const variant of TYPOGRAPHY_VARIANTS) {
+    const style = fontFromHost(variant);
+    if (style) {
+      typography[variant] = style;
+    }
+  }
+  // Give unlisted variants the host's body face rather than MUI's default.
+  const bodyFamily = (typography.body1 as Record<string, unknown> | undefined)
+    ?.fontFamily;
+  if (bodyFamily) {
+    typography.fontFamily = bodyFamily;
+  }
+  return Object.keys(typography).length
+    ? (typography as ThemeOptions['typography'])
+    : undefined;
+}
+
+function hostShape(): ThemeOptions['shape'] {
+  const radius = parseFloat(readVar('--mui-shape-borderRadius'));
+  return Number.isFinite(radius) ? { borderRadius: radius } : undefined;
+}
+
 function readHostColorScheme(): PaletteMode {
   if (typeof document === 'undefined') {
     return 'light';
@@ -148,7 +223,17 @@ export const PluginThemeProvider = ({
     () => createCache({ key: cacheKey, nonce, prepend: true }),
     [cacheKey, nonce]
   );
-  const theme = useMemo(() => createTheme({ palette: hostPalette(mode) }), [mode]);
+  // Rebuilt whenever the host colour scheme flips, since every token is read
+  // from the computed CSS variables at that moment.
+  const theme = useMemo(() => {
+    const typography = hostTypography();
+    const shape = hostShape();
+    return createTheme({
+      palette: hostPalette(mode),
+      ...(typography ? { typography } : {}),
+      ...(shape ? { shape } : {}),
+    });
+  }, [mode]);
 
   return (
     <CacheProvider value={cache}>

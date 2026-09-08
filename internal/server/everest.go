@@ -59,6 +59,7 @@ import (
 	"github.com/openeverest/openeverest/v2/pkg/kubernetes"
 	"github.com/openeverest/openeverest/v2/pkg/oidc"
 	"github.com/openeverest/openeverest/v2/pkg/session"
+	"github.com/openeverest/openeverest/v2/pkg/version"
 	"github.com/openeverest/openeverest/v2/public"
 )
 
@@ -221,7 +222,12 @@ func (e *EverestServer) initHTTPServer(ctx context.Context) error {
 			// See the securityHeaders middleware for more information.
 			return c.Render(
 				http.StatusOK, "index.html",
-				map[string]any{"CSPNonce": secure.CSPNonce(c.Request().Context())},
+				map[string]any{
+					"CSPNonce": secure.CSPNonce(c.Request().Context()),
+					// Published so the UI can enforce a plugin's
+					// spec.compatibleHostVersions at load time.
+					"EverestVersion": version.Version,
+				},
 			)
 		}, e.securityHeaders(),
 	)

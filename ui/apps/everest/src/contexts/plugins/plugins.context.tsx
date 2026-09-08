@@ -26,6 +26,7 @@ import type {
 } from '@openeverest/plugin-sdk';
 import AuthContext from 'contexts/auth/auth.context';
 import { getAuthToken } from 'api/session-token';
+import { satisfiesHostVersion } from './plugin-version';
 
 export interface PluginRegistration {
   name: string;
@@ -77,57 +78,6 @@ function getCSPNonce(): string {
     document.querySelector("meta[name='csp-nonce']")?.getAttribute('content') ||
     ''
   );
-}
-
-// Minimal semver-range satisfaction for the common comparators used in the
-// Plugin CR's compatibleHostVersions (">=2.0.0 <3.0.0", "^2.1.0", "~2.1.0").
-// Returns true when the range is empty/unparseable so an unknown range never
-// silently blocks a plugin (advisory contract, first-party ecosystem).
-function satisfiesHostVersion(version: string, range?: string): boolean {
-  if (!range || version === 'dev') {
-    return true;
-  }
-  const parse = (v: string): [number, number, number] | null => {
-    const m = v.match(/^(\d+)\.(\d+)\.(\d+)/);
-    return m ? [Number(m[1]), Number(m[2]), Number(m[3])] : null;
-  };
-  const host = parse(version);
-  if (!host) {
-    return true;
-  }
-  const cmp = (a: [number, number, number], b: [number, number, number]) =>
-    a[0] - b[0] || a[1] - b[1] || a[2] - b[2];
-
-  const evalClause = (clause: string): boolean => {
-    const comparators = clause.trim().split(/\s+/).filter(Boolean);
-    if (comparators.length === 0) {
-      return true;
-    }
-    return comparators.every((c) => {
-      const m = c.match(/^(>=|<=|>|<|=|\^|~)?(\d+\.\d+\.\d+)/);
-      if (!m) {
-        return true;
-      }
-      const op = m[1] || '=';
-      const target = parse(m[2])!;
-      if (op === '^') {
-        const upper: [number, number, number] = [target[0] + 1, 0, 0];
-        return cmp(host, target) >= 0 && cmp(host, upper) < 0;
-      }
-      if (op === '~') {
-        const upper: [number, number, number] = [target[0], target[1] + 1, 0];
-        return cmp(host, target) >= 0 && cmp(host, upper) < 0;
-      }
-      const c0 = cmp(host, target);
-      if (op === '>=') return c0 >= 0;
-      if (op === '<=') return c0 <= 0;
-      if (op === '>') return c0 > 0;
-      if (op === '<') return c0 < 0;
-      return c0 === 0;
-    });
-  };
-
-  return range.split('||').some((clause) => evalClause(clause));
 }
 
 // Build the PluginApi object that the host passes to each plugin's register().
