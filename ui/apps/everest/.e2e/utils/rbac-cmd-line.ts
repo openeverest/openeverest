@@ -41,11 +41,15 @@ export const restoreOldRBACPermissions = async () => {
 
 // A permission from GET /v1/permissions is [subject, resource, action, object].
 // Match on the trailing [resource, action, object] so the check is agnostic to
-// how the subject/role is rendered.
+// how the subject/role is rendered. The count must match too: the policy is
+// replaced wholesale, so a subset-only check would return early on the previous
+// (larger) policy while the server is still reloading — masking tests that
+// remove a permission.
 const policyIsApplied = (
   returned: string[][],
   expected: [string, string, string][]
 ): boolean =>
+  returned.length === expected.length &&
   expected.every((exp) =>
     returned.some((perm) => {
       const [resource, action, object] = perm.slice(-3);
