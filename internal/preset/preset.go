@@ -20,8 +20,8 @@
 // fields in a spec and act on them:
 //
 //   - validation ensures namespace-scoped references are empty in a preset,
-//   - create-from-instance clears namespace-scoped references when turning an
-//     Instance into a preset,
+//   - draft-from-instance clears namespace-scoped references when drafting a
+//     preset from an Instance,
 //   - resolve fills empty references with the namespace/cluster default.
 //
 // These references live in two representations: typed struct fields

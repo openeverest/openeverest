@@ -99,7 +99,7 @@ type InstancePresetHandler interface {
 	CreateInstancePreset(ctx context.Context, cluster string, preset *corev1alpha1.InstancePreset) (*corev1alpha1.InstancePreset, error)
 	UpdateInstancePreset(ctx context.Context, cluster string, preset *corev1alpha1.InstancePreset) (*corev1alpha1.InstancePreset, error)
 	DeleteInstancePreset(ctx context.Context, cluster, name string) error
-	CreateInstancePresetFromInstance(ctx context.Context, cluster, namespace, instanceName, presetName string) (*corev1alpha1.InstancePreset, error)
+	DraftInstancePreset(ctx context.Context, cluster, namespace, instanceName string) (*corev1alpha1.InstancePreset, error)
 }
 
 // ClusterHandler provides methods for handling operations on clusters.

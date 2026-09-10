@@ -94,17 +94,12 @@ func (h *rbacHandler) DeleteInstancePreset(ctx context.Context, cluster, name st
 	return h.next.DeleteInstancePreset(ctx, cluster, name)
 }
 
-// CreateInstancePresetFromInstance creates a preset from an instance, gated by RBAC.
-func (h *rbacHandler) CreateInstancePresetFromInstance(ctx context.Context, cluster, namespace, instanceName, presetName string) (*corev1alpha1.InstancePreset, error) {
+// DraftInstancePreset drafts a preset from an instance, gated by RBAC.
+func (h *rbacHandler) DraftInstancePreset(ctx context.Context, cluster, namespace, instanceName string) (*corev1alpha1.InstancePreset, error) {
 	// Check if user can read the source instance
 	instanceObject := rbac.ClusterNamespacedObjectName(cluster, namespace, instanceName)
 	if err := h.enforce(ctx, rbac.ResourceInstances, rbac.ActionRead, instanceObject); err != nil {
 		return nil, err
 	}
-	// Check if user can create the new preset
-	presetObject := rbac.ClusterObjectName(cluster, presetName)
-	if err := h.enforce(ctx, rbac.ResourceInstancePresets, rbac.ActionCreate, presetObject); err != nil {
-		return nil, err
-	}
-	return h.next.CreateInstancePresetFromInstance(ctx, cluster, namespace, instanceName, presetName)
+	return h.next.DraftInstancePreset(ctx, cluster, namespace, instanceName)
 }

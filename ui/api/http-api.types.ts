@@ -318,28 +318,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/clusters/{cluster}/instance-presets/from-instance": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Create instance preset from instance
-         * @description This API creates a new instance preset from an existing instance.
-         *     The preset will be populated with the instance's spec, with namespace-scoped
-         *     fields cleared (secrets, monitoring configs, etc.).
-         */
-        post: operations["createInstancePresetFromInstance"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/clusters/{cluster}/instance-presets/{name}": {
         parameters: {
             query?: never;
@@ -505,6 +483,30 @@ export interface paths {
          *     is running and ready.
          */
         get: operations["getInstanceConnection"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/clusters/{cluster}/namespaces/{namespace}/instances/{instance}/draft-preset": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Draft an instance preset from an instance
+         * @description This API returns a sanitized instance preset drafted from the instance specified by the
+         *     `instance` name in the specified `namespace` and `cluster`, without persisting anything.
+         *     The draft is populated with the instance's spec, with namespace-scoped fields cleared
+         *     (secret references, monitoring configs, etc.) — the inverse of the fields
+         *     that `/instance-presets/{name}/resolve` fills in.
+         */
+        get: operations["draftInstancePreset"];
         put?: never;
         post?: never;
         delete?: never;
@@ -965,15 +967,6 @@ export interface components {
         UserCredentials: {
             username?: string;
             password?: string;
-        };
-        /** @description Parameters for creating an instance preset from an existing instance */
-        CreateInstancePresetFromInstanceParams: {
-            /** @description The name for the new preset */
-            name: string;
-            /** @description The name of the source instance */
-            instanceName: string;
-            /** @description The namespace of the source instance */
-            instanceNamespace: string;
         };
         /** @description Backup storage parameters */
         CreateBackupStorageParams: {
@@ -5803,51 +5796,6 @@ export interface operations {
             };
         };
     };
-    createInstancePresetFromInstance: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description The name of the cluster */
-                cluster: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CreateInstancePresetFromInstanceParams"];
-            };
-        };
-        responses: {
-            /** @description Instance preset created from instance */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["InstancePreset"];
-                };
-            };
-            /** @description Instance not found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Error */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
     getInstancePreset: {
         parameters: {
             query?: never;
@@ -6415,6 +6363,51 @@ export interface operations {
                 };
             };
             /** @description Instance or connection details not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    draftInstancePreset: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The name of the cluster */
+                cluster: string;
+                /** @description The namespace where the instance is located */
+                namespace: string;
+                /** @description The name of the instance */
+                instance: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Drafted instance preset */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InstancePreset"];
+                };
+            };
+            /** @description Instance not found */
             404: {
                 headers: {
                     [name: string]: unknown;

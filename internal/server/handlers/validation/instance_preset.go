@@ -61,11 +61,7 @@ func (h *validateHandler) DeleteInstancePreset(ctx context.Context, cluster, nam
 	return h.next.DeleteInstancePreset(ctx, cluster, name)
 }
 
-// CreateInstancePresetFromInstance validates and creates an instance preset from an instance.
-func (h *validateHandler) CreateInstancePresetFromInstance(ctx context.Context, cluster, namespace, instanceName, presetName string) (*corev1alpha1.InstancePreset, error) {
-	if presetName == "" {
-		return nil, errors.Join(ErrInvalidRequest, errors.New("presetName cannot be empty"))
-	}
-
-	return h.next.CreateInstancePresetFromInstance(ctx, cluster, namespace, instanceName, presetName)
+// DraftInstancePreset proxies the request to the next handler.
+func (h *validateHandler) DraftInstancePreset(ctx context.Context, cluster, namespace, instanceName string) (*corev1alpha1.InstancePreset, error) {
+	return h.next.DraftInstancePreset(ctx, cluster, namespace, instanceName)
 }

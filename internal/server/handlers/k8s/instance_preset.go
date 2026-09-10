@@ -18,7 +18,6 @@ import (
 	"context"
 	"fmt"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -98,8 +97,11 @@ func (h *k8sHandler) DeleteInstancePreset(ctx context.Context, cluster, name str
 	return nil
 }
 
-// CreateInstancePresetFromInstance creates a new InstancePreset from an existing Instance.
-func (h *k8sHandler) CreateInstancePresetFromInstance(ctx context.Context, cluster, namespace, instanceName, presetName string) (*corev1alpha1.InstancePreset, error) {
+// DraftInstancePreset drafts a sanitized InstancePreset from an existing Instance
+// without persisting anything. The draft is populated with the instance's spec and
+// has its namespace-scoped references cleared (secrets, monitoring configs, etc.)
+// — the inverse of what ResolveInstancePreset fills in.
+func (h *k8sHandler) DraftInstancePreset(ctx context.Context, cluster, namespace, instanceName string) (*corev1alpha1.InstancePreset, error) {
 	// Get the instance
 	instance, err := h.kubeConnector.GetInstance(ctx, types.NamespacedName{
 		Namespace: namespace,
@@ -111,24 +113,17 @@ func (h *k8sHandler) CreateInstancePresetFromInstance(ctx context.Context, clust
 
 	// Build the preset from a copy of the instance spec so the fetched instance is
 	// not mutated, then strip namespace-scoped references.
-	newPreset := &corev1alpha1.InstancePreset{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: presetName,
-		},
+	draft := &corev1alpha1.InstancePreset{
 		Spec: corev1alpha1.InstancePresetSpec{
 			InstanceSpec: *instance.Spec.DeepCopy(),
 		},
 	}
 
-	if err := preset.ClearNamespaceRefs(&newPreset.Spec.InstanceSpec); err != nil {
+	if err := preset.ClearNamespaceRefs(&draft.Spec.InstanceSpec); err != nil {
 		return nil, fmt.Errorf("failed to clear namespace-scoped fields: %w", err)
 	}
 
-	if err := h.kubeConnector.CreateInstancePreset(ctx, newPreset); err != nil {
-		return nil, fmt.Errorf("failed to create instance preset: %w", err)
-	}
-
-	return h.kubeConnector.GetInstancePreset(ctx, types.NamespacedName{Name: presetName})
+	return draft, nil
 }
 
 // resolveNamespaceDefaults fills empty namespace-scoped references (and empty

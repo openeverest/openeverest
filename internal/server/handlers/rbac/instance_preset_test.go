@@ -61,7 +61,7 @@ func TestRBAC_InstancePreset(t *testing.T) {
 			nil,
 		)
 		h.On("DeleteInstancePreset", mock.Anything, mock.Anything, mock.Anything).Return(nil)
-		h.On("CreateInstancePresetFromInstance", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(
+		h.On("DraftInstancePreset", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(
 			&corev1alpha1.InstancePreset{ObjectMeta: metav1.ObjectMeta{Name: "small"}},
 			nil,
 		)
@@ -645,7 +645,7 @@ func TestRBAC_InstancePreset(t *testing.T) {
 		}
 	})
 
-	t.Run("CreateInstancePresetFromInstance", func(t *testing.T) {
+	t.Run("DraftInstancePreset", func(t *testing.T) {
 		t.Parallel()
 
 		testCases := []struct {
@@ -653,7 +653,6 @@ func TestRBAC_InstancePreset(t *testing.T) {
 			cluster      string
 			namespace    string
 			instanceName string
-			presetName   string
 			policy       string
 			wantErr      error
 		}{
@@ -662,81 +661,37 @@ func TestRBAC_InstancePreset(t *testing.T) {
 				cluster:      "prod",
 				namespace:    "ns1",
 				instanceName: "db1",
-				presetName:   "small",
 				policy: newPolicy(
 					"g, bob, role:admin",
 				),
 			},
 			{
-				desc:         "has instance read and preset create",
+				desc:         "has instance read",
 				cluster:      "prod",
 				namespace:    "ns1",
 				instanceName: "db1",
-				presetName:   "small",
 				policy: newPolicy(
 					"p, role:test, instances, read, prod/ns1/db1",
-					"p, role:test, instance-presets, create, prod/small",
 					"g, bob, role:test",
 				),
 			},
 			{
-				desc:         "wildcard instance and preset",
+				desc:         "wildcard instance",
 				cluster:      "prod",
 				namespace:    "ns1",
 				instanceName: "db1",
-				presetName:   "small",
 				policy: newPolicy(
 					"p, role:test, instances, read, prod/ns1/*",
-					"p, role:test, instance-presets, create, prod/*",
 					"g, bob, role:test",
 				),
-			},
-			{
-				desc:         "no instance read permission",
-				cluster:      "prod",
-				namespace:    "ns1",
-				instanceName: "db1",
-				presetName:   "small",
-				policy: newPolicy(
-					"p, role:test, instance-presets, create, prod/small",
-					"g, bob, role:test",
-				),
-				wantErr: ErrInsufficientPermissions,
-			},
-			{
-				desc:         "no preset create permission",
-				cluster:      "prod",
-				namespace:    "ns1",
-				instanceName: "db1",
-				presetName:   "small",
-				policy: newPolicy(
-					"p, role:test, instances, read, prod/ns1/db1",
-					"g, bob, role:test",
-				),
-				wantErr: ErrInsufficientPermissions,
 			},
 			{
 				desc:         "wrong cluster for instance",
 				cluster:      "prod",
 				namespace:    "ns1",
 				instanceName: "db1",
-				presetName:   "small",
 				policy: newPolicy(
 					"p, role:test, instances, read, staging/ns1/db1",
-					"p, role:test, instance-presets, create, prod/small",
-					"g, bob, role:test",
-				),
-				wantErr: ErrInsufficientPermissions,
-			},
-			{
-				desc:         "wrong cluster for preset",
-				cluster:      "prod",
-				namespace:    "ns1",
-				instanceName: "db1",
-				presetName:   "small",
-				policy: newPolicy(
-					"p, role:test, instances, read, prod/ns1/db1",
-					"p, role:test, instance-presets, create, staging/small",
 					"g, bob, role:test",
 				),
 				wantErr: ErrInsufficientPermissions,
@@ -746,7 +701,6 @@ func TestRBAC_InstancePreset(t *testing.T) {
 				cluster:      "prod",
 				namespace:    "ns1",
 				instanceName: "db1",
-				presetName:   "small",
 				policy: newPolicy(
 					"g, bob, role:test",
 				),
@@ -770,7 +724,7 @@ func TestRBAC_InstancePreset(t *testing.T) {
 					userGetter: testUserGetter,
 				}
 
-				result, err := h.CreateInstancePresetFromInstance(ctx, tc.cluster, tc.namespace, tc.instanceName, tc.presetName)
+				result, err := h.DraftInstancePreset(ctx, tc.cluster, tc.namespace, tc.instanceName)
 				if tc.wantErr != nil {
 					require.ErrorIs(t, err, tc.wantErr)
 				} else {

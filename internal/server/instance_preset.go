@@ -97,17 +97,12 @@ func (e *EverestServer) DeleteInstancePreset(c echo.Context, cluster string, nam
 	return c.NoContent(http.StatusNoContent)
 }
 
-// CreateInstancePresetFromInstance creates a new preset from an existing instance.
-func (e *EverestServer) CreateInstancePresetFromInstance(c echo.Context, cluster string) error {
-	var req api.CreateInstancePresetFromInstanceParams
-	if err := c.Bind(&req); err != nil {
-		return err
-	}
-
-	result, err := e.handler.CreateInstancePresetFromInstance(c.Request().Context(), cluster, req.InstanceNamespace, req.InstanceName, req.Name)
+// DraftInstancePreset drafts a sanitized preset from an existing instance without persisting it.
+func (e *EverestServer) DraftInstancePreset(c echo.Context, cluster string, namespace string, instance string) error {
+	result, err := e.handler.DraftInstancePreset(c.Request().Context(), cluster, namespace, instance)
 	if err != nil {
-		e.l.Errorf("CreateInstancePresetFromInstance failed: %v", err)
+		e.l.Errorf("DraftInstancePreset failed: %v", err)
 		return err
 	}
-	return c.JSON(http.StatusCreated, result)
+	return c.JSON(http.StatusOK, result)
 }

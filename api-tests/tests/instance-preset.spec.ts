@@ -295,7 +295,7 @@ test.describe('Instance Preset tests', () => {
     });
   });
 
-  test('create preset from instance', async ({request}) => {
+  test('draft preset from instance', async ({request}) => {
     await test.step('create source instance', async () => {
       // Create an instance with a full spec that will be used as source for preset creation
       const instancePayload = {
@@ -340,40 +340,26 @@ test.describe('Instance Preset tests', () => {
       expect(response.status()).toBe(201);
     });
 
-    await test.step('create preset from instance', async () => {
-      const response = await request.post(
-        `/v1/clusters/${CLUSTER_NAME}/instance-presets/from-instance`,
-        {
-          data: {
-            name: FROM_INSTANCE_PRESET_NAME,
-            instanceName: SOURCE_INSTANCE_NAME,
-            instanceNamespace: EVEREST_CI_NAMESPACE,
-          },
-        }
-      );
-
-      await checkError(response);
-      expect(response.status()).toBe(201);
-    });
-
-    await test.step('verify preset was created', async () => {
+    await test.step('draft preset from instance', async () => {
       const response = await request.get(
-        `/v1/clusters/${CLUSTER_NAME}/instance-presets/${FROM_INSTANCE_PRESET_NAME}`
+        `/v1/clusters/${CLUSTER_NAME}/namespaces/${EVEREST_CI_NAMESPACE}/instances/${SOURCE_INSTANCE_NAME}/draft-preset`
       );
 
       await checkError(response);
+      expect(response.status()).toBe(200);
+
       const preset = await response.json();
 
-      expect(preset.metadata.name).toBe(FROM_INSTANCE_PRESET_NAME);
+      // The draft mirrors the source instance spec...
       expect(preset.spec.provider).toBe(PROVIDER_NAME);
       expect(preset.spec.version).toBe('1.0.0');
       expect(preset.spec.components.engine.type).toBe('test');
       expect(preset.spec.components.engine.replicas).toBe(3);
       expect(preset.spec.components.engine.resources.limits.cpu).toBe('1');
       expect(preset.spec.components.engine.resources.limits.memory).toBe('2Gi');
-      expect(preset.spec.components.engine.storage.storageClass).toBe('local-path');
       expect(preset.spec.components.engine.storage.size).toBe('15Gi');
-      // Verify namespace-scoped fields are cleared
+      // ...with namespace-scoped fields cleared.
+      expect(preset.spec.components.engine.storage.storageClass).toBeUndefined();
       expect(preset.spec.components.engine.config.configMapRef.name).toBeUndefined();
     });
   });
