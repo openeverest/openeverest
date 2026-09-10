@@ -43,6 +43,11 @@ export const restoreOldRBACPermissions = async () => {
 // run) lives in the saved storage state — read it once.
 let rbacToken: string | undefined;
 
+type PermissionsResponse = {
+  enabled?: boolean;
+  permissions?: string[][];
+};
+
 // A permission from GET /v1/permissions is [subject, resource, action, object].
 // Match on the trailing [resource, action, object]; the count must match too,
 // so a shrinking policy isn't satisfied by the previous (larger) one while the
@@ -52,10 +57,14 @@ const policyIsApplied = (
   expected: [string, string, string][]
 ): boolean =>
   returned.length === expected.length &&
-  expected.every(([resource, action, object]) =>
+  expected.every(([wantResource, wantAction, wantObject]) =>
     returned.some((perm) => {
-      const [r, a, o] = perm.slice(-3);
-      return r === resource && a === action && o === object;
+      const [resource, action, object] = perm.slice(-3);
+      return (
+        resource === wantResource &&
+        action === wantAction &&
+        object === wantObject
+      );
     })
   );
 
@@ -78,9 +87,9 @@ const waitForRBACPolicyApplied = async (
         headers: { Authorization: `Bearer ${rbacToken}` },
       });
       if (resp.ok()) {
-        const body = await resp.json();
+        const body: PermissionsResponse = await resp.json();
         if (
-          body?.enabled &&
+          body.enabled &&
           policyIsApplied(body.permissions ?? [], permissions)
         ) {
           return;
@@ -99,7 +108,7 @@ const waitForRBACPolicyApplied = async (
 export const setRBACPermissionsK8S = async (
   permissions: [string, string, string][] = []
 ) => {
-  const command = `kubectl patch configmap/everest-rbac --namespace everest-system --type merge -p '{"data":{"enabled": "${permissions !== undefined}", "policy.csv":"g,${process.env.RBAC_USER},role:e2e-rbac-user\\n${permissions.map((p) => `p,role:e2e-rbac-user,${p.join(',')}`).join('\\n')}"}}'`;
+  const command = `kubectl patch configmap/everest-rbac --namespace everest-system --type merge -p '{"data":{"enabled": "true", "policy.csv":"g,${process.env.RBAC_USER},role:e2e-rbac-user\\n${permissions.map((p) => `p,role:e2e-rbac-user,${p.join(',')}`).join('\\n')}"}}'`;
   execSync(command);
 
   await waitForRBACPolicyApplied(permissions);
