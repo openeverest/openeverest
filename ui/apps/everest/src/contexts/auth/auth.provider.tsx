@@ -19,7 +19,7 @@ import {
   useAuth as useOidcAuth,
 } from 'oidc-react';
 import { AxiosError } from 'axios';
-import { jwtDecode } from 'jwt-decode';
+import { jwtDecode, JwtPayload } from 'jwt-decode';
 import {
   api,
   addApiErrorInterceptor,
@@ -203,7 +203,7 @@ const AuthProvider = ({ children, isSsoEnabled }: AuthProviderProps) => {
 
     const authRoutine = async (token: string) => {
       try {
-        const decoded = jwtDecode(token);
+        const decoded = jwtDecode<JwtPayload & { oidc_issuer?: string }>(token);
         const iss = decoded.iss;
         const exp = decoded.exp;
         if (iss === EVEREST_JWT_ISSUER) {
@@ -214,6 +214,10 @@ const AuthProvider = ({ children, isSsoEnabled }: AuthProviderProps) => {
           const username = colonIdx >= 0 ? sub.substring(0, colonIdx) : sub;
           if (isTokenValid) {
             setLoggedInStatus(username);
+          } else if (isSsoEnabled && decoded.oidc_issuer) {
+            // Everest SSO JWTs expire independently of the IdP session (see jwtSSOExpiry).
+            // Try a silent renew before giving up so a still-valid IdP session isn't logged out.
+            silentlyRenewToken();
           } else {
             setLogoutStatus();
           }
