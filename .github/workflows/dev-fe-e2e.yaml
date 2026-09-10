@@ -11,6 +11,8 @@ on:
         required: true
       RBAC_PASSWORD:
         required: true
+  # Allow manual runs from the Actions tab.
+  workflow_dispatch: {}
 
 permissions:
   contents: read
@@ -36,7 +38,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           lfs: true
-          ref: ${{ github.event.pull_request.head.sha }}
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 0
 
       - name: Set up Go release

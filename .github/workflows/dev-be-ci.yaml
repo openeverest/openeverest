@@ -5,6 +5,8 @@ on:
     paths-ignore:
       - 'ui/**'
       - '.github/workflows/dev-fe-ci.yaml'
+  # Allow manual runs from the Actions tab.
+  workflow_dispatch: {}
 
 permissions:
   contents: read
@@ -75,7 +77,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           lfs: true
-          ref: ${{ github.event.pull_request.head.sha }}
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 0
 
       - name: Set up Go release
@@ -85,6 +87,8 @@ jobs:
           cache: true
 
       - name: Run linters
+        # only run on PRs to run linters on the diff only.
+        if: github.event_name == 'pull_request'
         run: |
           # Stub the embedded UI build output so `//go:embed dist/*` typechecks (see `make build`/`make test`).
           mkdir -p ./public/dist && [ -f ./public/dist/index.html ] || touch ./public/dist/index.html
@@ -213,7 +217,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           lfs: true
-          ref: ${{ github.event.pull_request.head.sha }}
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
       - name: Set up Go release
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
@@ -264,7 +268,7 @@ jobs:
   merge-gatekeeper:
     needs: [ test, check, integration_tests_api, integration_tests_flows, integration_tests_cli]
     name: Merge Gatekeeper
-    if: ${{ always() }}
+    if: ${{ always() && github.event_name == 'pull_request' }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
