@@ -35,7 +35,9 @@ import (
 const (
 	jwtSubjectTml    = "%s:%s" // username:capability
 	jwtDefaultExpiry = time.Hour * 24
-	jwtSSOExpiry     = time.Hour
+	// jwtSSOExpiry bounds how long a disabled/revoked IdP user keeps API access, since the
+	// token is validated against the IdP only at issuance. The client silently renews it.
+	jwtSSOExpiry = time.Minute * 15
 )
 
 // CreateSession creates a new session.
