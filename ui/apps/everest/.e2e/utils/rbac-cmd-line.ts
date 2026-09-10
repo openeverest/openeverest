@@ -39,15 +39,9 @@ export const restoreOldRBACPermissions = async () => {
   );
 };
 
-// After rbac.setup switches to the RBAC user, its token lives in the saved
-// storage state, so GET /v1/permissions reflects that user's effective policy.
-let cachedRBACToken: string | undefined;
-const getRBACToken = async (forceRefresh = false): Promise<string> => {
-  if (!cachedRBACToken || forceRefresh) {
-    cachedRBACToken = await getTokenFromLocalStorage();
-  }
-  return cachedRBACToken;
-};
+// rbac.setup switches to the RBAC user, so its token (the same for the whole
+// run) lives in the saved storage state — read it once.
+let rbacToken: string | undefined;
 
 // A permission from GET /v1/permissions is [subject, resource, action, object].
 // Match on the trailing [resource, action, object]; the count must match too,
@@ -58,10 +52,10 @@ const policyIsApplied = (
   expected: [string, string, string][]
 ): boolean =>
   returned.length === expected.length &&
-  expected.every((exp) =>
+  expected.every(([resource, action, object]) =>
     returned.some((perm) => {
-      const [resource, action, object] = perm.slice(-3);
-      return resource === exp[0] && action === exp[1] && object === exp[2];
+      const [r, a, o] = perm.slice(-3);
+      return r === resource && a === action && o === object;
     })
   );
 
@@ -70,23 +64,20 @@ const policyIsApplied = (
 // server's ConfigMap reload and made RBAC tests flaky (stale permissions ->
 // 404 on deep-linked pages).
 const waitForRBACPolicyApplied = async (
-  permissions: [string, string, string][],
-  initialToken: string
+  permissions: [string, string, string][]
 ) => {
   if (permissions.length === 0) {
     return;
   }
-  let token = initialToken;
+  rbacToken ??= await getTokenFromLocalStorage();
   const ctx = await request.newContext({ baseURL: BASE_URL });
   const deadline = Date.now() + RBAC_APPLY_TIMEOUT_MS;
   try {
     while (Date.now() < deadline) {
       const resp = await ctx.get('/v1/permissions', {
-        headers: { Authorization: `Bearer ${token}` },
+        headers: { Authorization: `Bearer ${rbacToken}` },
       });
-      if (resp.status() === 401) {
-        token = await getRBACToken(true);
-      } else if (resp.ok()) {
+      if (resp.ok()) {
         const body = await resp.json();
         if (
           body?.enabled &&
@@ -111,19 +102,7 @@ export const setRBACPermissionsK8S = async (
   const command = `kubectl patch configmap/everest-rbac --namespace everest-system --type merge -p '{"data":{"enabled": "${permissions !== undefined}", "policy.csv":"g,${process.env.RBAC_USER},role:e2e-rbac-user\\n${permissions.map((p) => `p,role:e2e-rbac-user,${p.join(',')}`).join('\\n')}"}}'`;
   execSync(command);
 
-  let token: string;
-  try {
-    token = await getRBACToken();
-  } catch {
-    // No stored token to poll with — fall back to the previous fixed wait so
-    // behaviour never regresses.
-    await new Promise<void>((resolve) =>
-      setTimeout(resolve, process.env.CI ? 3000 : 500)
-    );
-    return;
-  }
-
-  await waitForRBACPolicyApplied(permissions, token);
+  await waitForRBACPolicyApplied(permissions);
 };
 
 export const giveUserAdminPermissions = async () => {
