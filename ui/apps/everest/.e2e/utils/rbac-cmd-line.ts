@@ -48,10 +48,9 @@ type PermissionsResponse = {
   permissions?: string[][];
 };
 
-// A permission from GET /v1/permissions is [subject, resource, action, object].
-// Match on the trailing [resource, action, object]; the count must match too,
-// so a shrinking policy isn't satisfied by the previous (larger) one while the
-// server is still reloading.
+// /v1/permissions returns [subject, resource, action, object]; compare the
+// trailing triple. The count must match too, so a shrinking policy isn't
+// satisfied by the previous (larger) one mid-reload.
 const policyIsApplied = (
   returned: string[][],
   expected: [string, string, string][]
@@ -68,10 +67,8 @@ const policyIsApplied = (
     })
   );
 
-// Poll GET /v1/permissions until the freshly-patched policy is reflected by the
-// server, instead of sleeping a fixed amount. The fixed sleep raced the
-// server's ConfigMap reload and made RBAC tests flaky (stale permissions ->
-// 404 on deep-linked pages).
+// Poll until the server reflects the patched policy instead of a fixed sleep,
+// which raced the ConfigMap reload and made RBAC tests flaky (stale perms -> 404).
 const waitForRBACPolicyApplied = async (
   permissions: [string, string, string][]
 ) => {
