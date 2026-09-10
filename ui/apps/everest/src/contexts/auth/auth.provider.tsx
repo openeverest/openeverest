@@ -26,6 +26,7 @@ import {
   removeApiErrorInterceptor,
   addApiAuthInterceptor,
   removeApiAuthInterceptor,
+  setTokenRefresher,
 } from 'api/api';
 import { enqueueSnackbar } from 'notistack';
 import AuthContext from './auth.context';
@@ -153,20 +154,29 @@ const AuthProvider = ({ children, isSsoEnabled }: AuthProviderProps) => {
     stopAuthorizerFetchLoop();
   }, [userManager]);
 
-  const silentlyRenewToken = useCallback(async () => {
+  // Renews the Everest JWT from a still-valid IdP session, returning the new token
+  // or null if renewal is no longer possible. Also used by the 401 handler (see api.ts).
+  const refreshEverestToken = useCallback(async (): Promise<string | null> => {
     try {
       const newLoggedUser = await userManager.signinSilent();
-      if (newLoggedUser && newLoggedUser.access_token) {
+      if (newLoggedUser?.access_token) {
         const everestToken = await exchangeSsoToken(newLoggedUser.access_token);
         localStorage.setItem('everestToken', everestToken);
-      } else {
-        setLogoutStatus();
+        return everestToken;
       }
+      return null;
     } catch (error) {
       logAuthError('silent token renewal failed', error);
-      setLogoutStatus();
+      return null;
     }
   }, [userManager]);
+
+  const silentlyRenewToken = useCallback(async () => {
+    const everestToken = await refreshEverestToken();
+    if (!everestToken) {
+      setLogoutStatus();
+    }
+  }, [refreshEverestToken, setLogoutStatus]);
 
   useEffect(() => {
     if (isSsoEnabled) {
@@ -190,6 +200,15 @@ const AuthProvider = ({ children, isSsoEnabled }: AuthProviderProps) => {
       }
     }
   }, [isSsoEnabled, silentlyRenewToken, userManager]);
+
+  useEffect(() => {
+    if (!isSsoEnabled) {
+      return;
+    }
+    // Let the 401 handler renew the short-lived Everest JWT instead of logging out.
+    setTokenRefresher(refreshEverestToken);
+    return () => setTokenRefresher(null);
+  }, [isSsoEnabled, refreshEverestToken]);
 
   useEffect(() => {
     if (isRunningInIframe()) {
