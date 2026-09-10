@@ -60,6 +60,11 @@ func ValidateConfigMapSchema(configMap *corev1.ConfigMap, providerSpec *corev1al
 		return fmt.Errorf("configmap definition %q does not exist: %w", configMapDefinition, ErrConfigMapSchemaValidation)
 	}
 
+	// ParametersSchema is optional; if not defined, no validation is performed.
+	if configMapDef.ParametersSchema == nil {
+		return nil
+	}
+
 	// Merge Data and BinaryData for validation.
 	// BinaryData is converted to string, which may corrupt non-UTF-8 bytes.
 	// This is acceptable for schema validation purposes since binary content

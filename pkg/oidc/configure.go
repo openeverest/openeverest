@@ -60,7 +60,7 @@ type Config struct {
 // PopulateIssuerURL function to fill the configuration with the required IssuerURL.
 // This function shall be called only in cases when there is no other way to obtain value for IssuerURL.
 // User will be asked to provide the IssuerURL in interactive mode.
-// Provided by user url will be parsed, validated and stored in the IssuerURL property.
+// The URL provided by the user will be parsed, validated and stored in the IssuerURL property.
 // Note: in case IssuerURL is not empty - it will be overwritten by user's input.
 func (cfg *Config) PopulateIssuerURL(ctx context.Context) error {
 	// ask user to provide issuer URL

@@ -19,17 +19,22 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/openeverest/openeverest/v2/commands/backup"
+	"github.com/openeverest/openeverest/v2/commands/common"
 )
 
 var backupCmd = &cobra.Command{
 	Use:   "backup <command> [flags]",
+	Args:  common.NoSubcommandArgs,
 	Short: "Manage Everest backups",
 	Long:  "Manage Everest backups",
-	RunE:  func(cmd *cobra.Command, _ []string) error { return cmd.Help() },
+	RunE: func(cmd *cobra.Command, _ []string) error {
+		return cmd.Help()
+	},
 }
 
 func init() {
 	rootCmd.AddCommand(backupCmd)
 	backupCmd.AddCommand(backup.GetListCmd())
 	backupCmd.AddCommand(backup.GetCreateCmd())
+	backupCmd.AddCommand(backup.GetDeleteCmd())
 }

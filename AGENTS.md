@@ -63,6 +63,7 @@ Read the whole file; apply Frontend rules only when touching files under `ui/`.
 
 - `*.test.tsx` next to the code; `@testing-library/react`; `vi.mock` / `vi.fn`.
 - Test behavior, not implementation. Co-locate shared API mocks in `__mocks__/`.
+- **No trivial or redundant tests.** Don't add tests that merely assert a component renders a passed-in prop/label with no logic, or that duplicate coverage already provided elsewhere — they add CI time without catching real regressions. Cover meaningful behavior, edge cases, and branching logic.
 - **Mocks must return stable references** — define the object once in the `vi.mock` closure; a fresh literal per call makes `useMemo`/effect deps loop and hangs tests.
 
 ### Context
@@ -73,6 +74,7 @@ Read the whole file; apply Frontend rules only when touching files under `ui/`.
 
 Schema-driven form renderer. Layers: preprocess → schema-build (zod) → render → postprocess.
 Runtime field behavior goes through the `fieldOverrides` map on `UiGeneratorContext` (keyed by path), computed in the consumer — never hardcode path checks or add queries inside render internals.
+**Keep docs in sync (required):** any change to the UI Generator architecture or its schema props (adding/renaming/removing a prop, `uiType`, `groupType`, validation rule, mode behavior, etc.) must update the architecture docs in `docs/ui/architecture/ui-generator/` and the user-facing docs in `docs/ui/ui-generator/` in the same PR, and bump the `Last updated` date in the touched docs.
 
 ### Don'ts
 

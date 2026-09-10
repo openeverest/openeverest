@@ -34,7 +34,13 @@ export const updateDbInstance = (
   namespace: string,
   instanceName: string,
   data: Instance
-) => updateDbInstanceFn(CLUSTER_NAME, namespace, instanceName, data);
+) =>
+  updateDbInstanceFn(CLUSTER_NAME, namespace, instanceName, data, {
+    // A 409 here is a resourceVersion conflict this hook retries with a fresh
+    // copy, so suppress the interceptor's generic error toast for the transient
+    // conflict and let the retry own the UX.
+    disableNotifications: (e) => e.status === 409,
+  });
 // TODO check cron converter during backups implementation
 
 export const useUpdateDbInstanceWithConflictRetry = (

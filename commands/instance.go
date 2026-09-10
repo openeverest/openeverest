@@ -19,14 +19,18 @@ package commands
 import (
 	"github.com/spf13/cobra"
 
+	"github.com/openeverest/openeverest/v2/commands/common"
 	"github.com/openeverest/openeverest/v2/commands/instance"
 )
 
 var instanceCmd = &cobra.Command{
 	Use:   "instance <command> [flags]",
+	Args:  common.NoSubcommandArgs,
 	Short: "Manage Everest instances",
 	Long:  "Manage Everest instances",
-	RunE:  func(cmd *cobra.Command, _ []string) error { return cmd.Help() },
+	RunE: func(cmd *cobra.Command, _ []string) error {
+		return cmd.Help()
+	},
 }
 
 func init() {
@@ -34,4 +38,5 @@ func init() {
 	instanceCmd.AddCommand(instance.GetCreateCmd())
 	instanceCmd.AddCommand(instance.GetStatusCmd())
 	instanceCmd.AddCommand(instance.GetListCmd())
+	instanceCmd.AddCommand(instance.GetDeleteCmd())
 }

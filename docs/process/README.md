@@ -6,7 +6,7 @@ Everest product has different dependencies and right now we have the following l
 - Versions of upstream and monitoring operators (PXC operator, PSMDB operator, PG operator, and Victoria Metrics Operator)
 - PMM version
 
-While working on a feature or improvement you should keep in mind the dependencies of external components
+While working on a feature or improvement you should keep in mind the dependencies of external components.
 
 ## Kubernetes versioning and limitations
 

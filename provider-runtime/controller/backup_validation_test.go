@@ -281,17 +281,80 @@ func TestValidateInstanceBackupPITRParameters(t *testing.T) {
 	}
 }
 
-func mkPITRRestore(pitr *backupv1alpha1.DataSourcePITR) *backupv1alpha1.Restore {
+func TestValidateBackupSucceeded(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		backup   *backupv1alpha1.Backup
+		wantErr  bool
+		wantText string
+	}{
+		{
+			name:   "succeeded passes",
+			backup: &backupv1alpha1.Backup{ObjectMeta: metav1.ObjectMeta{Name: "b"}, Status: backupv1alpha1.BackupStatus{State: backupv1alpha1.BackupStateSucceeded}},
+		},
+		{
+			name:    "running is rejected",
+			backup:  &backupv1alpha1.Backup{ObjectMeta: metav1.ObjectMeta{Name: "b"}, Status: backupv1alpha1.BackupStatus{State: backupv1alpha1.BackupStateRunning}},
+			wantErr: true,
+		},
+		{
+			name:     "empty state is reported as pending",
+			backup:   &backupv1alpha1.Backup{ObjectMeta: metav1.ObjectMeta{Name: "b"}, Status: backupv1alpha1.BackupStatus{State: ""}},
+			wantErr:  true,
+			wantText: "'b' is in state 'Pending'",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			err := ValidateBackupSucceeded(tc.backup)
+			if tc.wantErr {
+				require.ErrorIs(t, err, ErrBackupNotSucceeded)
+				if tc.wantText != "" {
+					require.ErrorContains(t, err, tc.wantText)
+				}
+			} else {
+				require.NoError(t, err)
+			}
+		})
+	}
+}
+
+func TestValidateClassSupportsProvider(t *testing.T) {
+	t.Parallel()
+
+	bc := &backupv1alpha1.BackupClass{
+		ObjectMeta: metav1.ObjectMeta{Name: "bc"},
+		Spec:       backupv1alpha1.BackupClassSpec{SupportedProviders: backupv1alpha1.ProviderNameList{"postgresql"}},
+	}
+
+	require.NoError(t, ValidateClassSupportsProvider(bc, "postgresql"))
+
+	err := ValidateClassSupportsProvider(bc, "mongodb")
+	require.ErrorIs(t, err, ErrProviderUnsupported)
+}
+
+func mkPITRRestore(pitr *backupv1alpha1.DataSourcePointInTime) *backupv1alpha1.Restore {
+	ds := backupv1alpha1.DataSource{
+		Type: backupv1alpha1.DataSourceTypeBackup,
+		Backup: &backupv1alpha1.DataSourceBackup{
+			BackupRef: common.ObjectRef{Name: "bkp"},
+		},
+	}
+	if pitr != nil {
+		ds = backupv1alpha1.DataSource{
+			Type:        backupv1alpha1.DataSourceTypePointInTime,
+			PointInTime: pitr,
+		}
+	}
 	return &backupv1alpha1.Restore{
 		Spec: backupv1alpha1.RestoreSpec{
 			InstanceRef: common.ObjectRef{Name: "db"},
-			DataSource: backupv1alpha1.DataSource{
-				Type: backupv1alpha1.DataSourceTypeBackup,
-				Backup: &backupv1alpha1.DataSourceBackup{
-					BackupRef: common.ObjectRef{Name: "bkp"},
-					PITR:      pitr,
-				},
-			},
+			DataSource:  ds,
 		},
 	}
 }
@@ -327,33 +390,33 @@ func TestValidateRestorePITR(t *testing.T) {
 		},
 		{
 			name:    "pitr latest with supporting class passes",
-			restore: mkPITRRestore(&backupv1alpha1.DataSourcePITR{Type: backupv1alpha1.PITRTypeLatest}),
+			restore: mkPITRRestore(&backupv1alpha1.DataSourcePointInTime{RecoveryTarget: backupv1alpha1.RecoveryTargetLatest}),
 			bc:      supported,
 			wantErr: false,
 		},
 		{
 			name:    "pitr date with date and supporting class passes",
-			restore: mkPITRRestore(&backupv1alpha1.DataSourcePITR{Type: backupv1alpha1.PITRTypeDate, Date: &now}),
+			restore: mkPITRRestore(&backupv1alpha1.DataSourcePointInTime{RecoveryTarget: backupv1alpha1.RecoveryTargetDate, Date: &now}),
 			bc:      supported,
 			wantErr: false,
 		},
 		{
 			name:    "pitr date without date is rejected",
-			restore: mkPITRRestore(&backupv1alpha1.DataSourcePITR{Type: backupv1alpha1.PITRTypeDate}),
+			restore: mkPITRRestore(&backupv1alpha1.DataSourcePointInTime{RecoveryTarget: backupv1alpha1.RecoveryTargetDate}),
 			bc:      supported,
 			wantErr: true,
 		},
 		{
 			name:         "unsupporting class is rejected",
-			restore:      mkPITRRestore(&backupv1alpha1.DataSourcePITR{Type: backupv1alpha1.PITRTypeLatest}),
+			restore:      mkPITRRestore(&backupv1alpha1.DataSourcePointInTime{RecoveryTarget: backupv1alpha1.RecoveryTargetLatest}),
 			bc:           unsupported,
 			wantErr:      true,
 			wantUnsupErr: true,
 		},
 		{
 			name: "class without providerManaged is rejected",
-			restore: mkPITRRestore(&backupv1alpha1.DataSourcePITR{
-				Type: backupv1alpha1.PITRTypeLatest,
+			restore: mkPITRRestore(&backupv1alpha1.DataSourcePointInTime{
+				RecoveryTarget: backupv1alpha1.RecoveryTargetLatest,
 			}),
 			bc: &backupv1alpha1.BackupClass{
 				Spec: backupv1alpha1.BackupClassSpec{ExecutionMode: backupv1alpha1.BackupExecutionModeProviderManaged},
@@ -363,13 +426,13 @@ func TestValidateRestorePITR(t *testing.T) {
 		},
 		{
 			name:    "job-mode class is not gated",
-			restore: mkPITRRestore(&backupv1alpha1.DataSourcePITR{Type: backupv1alpha1.PITRTypeLatest}),
+			restore: mkPITRRestore(&backupv1alpha1.DataSourcePointInTime{RecoveryTarget: backupv1alpha1.RecoveryTargetLatest}),
 			bc:      jobMode,
 			wantErr: false,
 		},
 		{
 			name:    "nil class passes",
-			restore: mkPITRRestore(&backupv1alpha1.DataSourcePITR{Type: backupv1alpha1.PITRTypeLatest}),
+			restore: mkPITRRestore(&backupv1alpha1.DataSourcePointInTime{RecoveryTarget: backupv1alpha1.RecoveryTargetLatest}),
 			bc:      nil,
 			wantErr: false,
 		},

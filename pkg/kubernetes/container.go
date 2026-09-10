@@ -15,8 +15,6 @@
 package kubernetes
 
 import (
-	"encoding/json"
-
 	corev1 "k8s.io/api/core/v1"
 )
 
@@ -32,21 +30,20 @@ const (
 	ContainerStateTerminated ContainerState = "terminated"
 )
 
-// IsContainerInState returns true if container is in give state, otherwise false.
-func IsContainerInState(containerStatuses []corev1.ContainerStatus, state ContainerState) bool {
-	containerState := make(map[string]any)
+// IsContainerInState returns true if the named container is in the given state.
+func IsContainerInState(containerStatuses []corev1.ContainerStatus, name string, state ContainerState) bool {
 	for _, status := range containerStatuses {
-		data, err := json.Marshal(status.State)
-		if err != nil {
-			return false
+		if status.Name != name {
+			continue
 		}
 
-		if err := json.Unmarshal(data, &containerState); err != nil {
+		switch state {
+		case ContainerStateWaiting:
+			return status.State.Waiting != nil
+		case ContainerStateTerminated:
+			return status.State.Terminated != nil
+		default:
 			return false
-		}
-
-		if _, ok := containerState[string(state)]; ok {
-			return true
 		}
 	}
 

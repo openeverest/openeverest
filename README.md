@@ -12,14 +12,22 @@ OpenEverest - Run Data Workloads on Kubernetes
 [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/openeverest/openeverest/badge)](https://scorecard.dev/viewer/?uri=github.com/openeverest/openeverest)
 [![CLOMonitor](https://img.shields.io/endpoint?url=https://clomonitor.io/api/projects/cncf/openeverest/badge)](https://clomonitor.io/projects/cncf/openeverest)
 [![Snyk](https://snyk.io/test/github/openeverest/openeverest/badge.svg)](https://snyk.io/test/github/openeverest/openeverest)
+[![Artifact Hub](https://img.shields.io/endpoint?url=https://artifacthub.io/badge/repository/openeverest)](https://artifacthub.io/packages/search?repo=openeverest)
 [![Documentation](https://img.shields.io/badge/Documentation-blue?logo=readthedocs&logoColor=white)](https://openeverest.io/documentation/current/)
 [![Join Slack](https://img.shields.io/badge/Join_Slack-blue)](https://cloud-native.slack.com/archives/C09RRGZL2UX)
+
+> [!IMPORTANT]
+> **This branch carries OpenEverest v2, which is a [Developer Preview](https://openeverest.io/blog/v2-developer-preview-release/) — not feature-complete and not for production.**
+>
+> OpenEverest **v1 is the current released version** and is unchanged by this. It lives on [`v1.x`](https://github.com/openeverest/openeverest/tree/v1.x) and continues to receive releases. On 18 August 2026 the two lines swapped branches: v2 moved from `release-2.0` to `main`, and v1 moved to `v1.x`. **Both lines are still developed** — only the branch names changed, and this is not a statement about what to run. The [v1 lifecycle](https://openeverest.io/blog/v2-developer-preview-release/#timeline) is unchanged.
+>
+> Cloned or forked before that date? Your `main` still holds v1 code — see [Which branch to target](CONTRIBUTING.md#which-branch-to-target) before you branch.
 
 [OpenEverest](https://openeverest.io/) is an open source cloud-native database platform that helps developers deploy code faster, scale deployments rapidly, and reduce database administration overhead while regaining control over their data, database configuration, and DBaaS costs.
 
 Why you should try OpenEverest:
 
-- Launch database instance with just a few clicks
+- Launch a database instance with just a few clicks
 - Enable your team to develop faster and reduce time to market
 - Scale seamlessly
 - Simplify maintenance
@@ -48,7 +56,7 @@ Helm is the recommended installation method for OpenEverest as it simplifies dep
 
 ### Steps to Install
 
-1. **Add the Percona Helm repository:**
+1. **Add the OpenEverest Helm repository:**
 
 ```bash
 helm repo add openeverest https://openeverest.github.io/helm-charts/
@@ -105,7 +113,7 @@ For more information about our Helm charts, visit the official [OpenEverest Helm
   export KUBECONFIG=~/.kube/config
   ```
 
-## Steps to Install
+### Steps to Install
 
 Starting from version **1.4.0**, `everestctl` uses the Helm chart to install OpenEverest. You can configure chart parameters using:
 
@@ -203,7 +211,7 @@ See the [Contribution Guide](CONTRIBUTING.md) for more information on how you ca
 
 ## Communication
 
-We value your thoughts and opinions and we would be thrilled to hear from you! [Get in touch with us](https://openeverest.io/#community) to ask questions, share your feedback, and spark creative ideas with our community.
+We value your thoughts and opinions, and we would be thrilled to hear from you! [Get in touch with us](https://openeverest.io/#community) to ask questions, share your feedback, and spark creative ideas with our community.
 
 ## Community Meeting
 
@@ -213,4 +221,4 @@ Join our [OpenEverest Community Meetings](https://github.com/openeverest/#openev
 
 If you find a bug in OpenEverest, [create a GitHub issue](https://docs.github.com/en/issues/tracking-your-work-with-issues/creating-an-issue#creating-an-issue-from-a-repository) in this repository.
 
-Learn more about submitting bugs, new features ideas and improvements in the [documentation](https://openeverest.io/documentation/current/contribute.html).
+Learn more about submitting bugs, new feature ideas, and improvements in the [documentation](https://openeverest.io/documentation/current/contribute.html).

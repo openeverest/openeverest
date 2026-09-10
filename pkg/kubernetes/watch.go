@@ -29,13 +29,13 @@ import (
 )
 
 // WatchBackups returns a watch.Interface that streams
-// DatabaseClusterBackup events across all namespaces.
+// Backup events across all namespaces.
 func (k *Kubernetes) WatchBackups(ctx context.Context) (watch.Interface, error) {
 	return k.watchList(ctx, &backupv1alpha1.BackupList{})
 }
 
 // WatchRestores returns a watch.Interface that streams
-// DatabaseClusterRestore events across all namespaces.
+// Restore events across all namespaces.
 func (k *Kubernetes) WatchRestores(ctx context.Context) (watch.Interface, error) {
 	return k.watchList(ctx, &backupv1alpha1.RestoreList{})
 }

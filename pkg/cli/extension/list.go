@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package plugins provides CLI operations for managing generic plugins.
+// Package extension provides CLI operations for managing generic plugins.
 package extension
 
 import (
@@ -27,13 +27,13 @@ import (
 	"github.com/openeverest/openeverest/v2/pkg/kubernetes"
 )
 
-// ListConfig holds configuration for the plugin list operation.
+// ListConfig holds configuration for the extension list operation.
 type ListConfig struct {
 	KubeconfigPath string
 	Pretty         bool
 }
 
-// PluginLister lists installed plugins.
+// PluginLister lists installed extensions.
 type PluginLister struct {
 	cfg        ListConfig
 	kubeClient kubernetes.KubernetesConnector
@@ -58,7 +58,7 @@ func NewPluginLister(cfg ListConfig, l *zap.SugaredLogger) (*PluginLister, error
 	return pl, nil
 }
 
-// Run lists all plugins and prints them as a table.
+// Run lists all extensions and prints them as a table.
 func (pl *PluginLister) Run(ctx context.Context) error {
 	plugins, err := pl.kubeClient.ListPlugins(ctx)
 	if err != nil {

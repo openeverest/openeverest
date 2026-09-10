@@ -22,13 +22,21 @@ import (
 
 	"github.com/labstack/echo/v4"
 
+	api "github.com/openeverest/openeverest/v2/internal/server/api"
 	"github.com/openeverest/openeverest/v2/pkg/events"
 )
 
 // eventsHandler streams lifecycle events to the client as SSE.
 //
-//	GET /v1/events?types=<csv>&namespaces=<csv>
+//	GET /v1/events?types=<csv>&namespaces=<csv>&since=<epoch>:<seq>
 //	Accept: text/event-stream
+//
+// since is optional. When present it must be a cursor previously read off
+// an event's seq/epoch fields (openeverest#2582); an unparseable cursor, an
+// epoch that doesn't match this process, or a seq that's aged out of (or is
+// ahead of) the replay buffer all get a 410 — the client must resync (list
+// current state, then reconnect without since) rather than treat it as a
+// retryable error.
 func (e *EverestServer) eventsHandler(c echo.Context) error {
 	// Parse optional filters.
 	var typeFilter []events.Type
@@ -51,8 +59,24 @@ func (e *EverestServer) eventsHandler(c echo.Context) error {
 		}
 	}
 
-	ch, cancel := e.eventHub.Subscribe(typeFilter, nsFilter)
-	defer cancel()
+	var cursor *events.Cursor
+	if raw := c.QueryParam("since"); raw != "" {
+		parsed, err := events.ParseCursor(raw)
+		if err != nil {
+			return c.JSON(http.StatusGone, api.Error{
+				Message: new(fmt.Sprintf("invalid cursor: %s", err)),
+			})
+		}
+		cursor = &parsed
+	}
+
+	sub, ok := e.eventHub.Subscribe(typeFilter, nsFilter, cursor)
+	if !ok {
+		return c.JSON(http.StatusGone, api.Error{
+			Message: new("cursor is no longer valid; relist current state and reconnect without since"),
+		})
+	}
+	defer sub.Cancel()
 
 	// Set SSE headers.
 	w := c.Response()
@@ -68,25 +92,44 @@ func (e *EverestServer) eventsHandler(c echo.Context) error {
 	}
 	w.Flush()
 
+	for _, evt := range sub.Replay {
+		if err := writeEventFrame(w, evt); err != nil {
+			return nil // client disconnected
+		}
+		w.Flush()
+	}
+
 	ctx := c.Request().Context()
 	for {
 		select {
 		case <-ctx.Done():
 			return nil
-		case evt, ok := <-ch:
-			if !ok {
-				// Subscriber was dropped (slow consumer).
-				return nil
-			}
-			data, err := json.Marshal(evt)
-			if err != nil {
-				continue
-			}
-			// Write SSE frame: id is resourceVersion, data is the JSON envelope.
-			if _, err := fmt.Fprintf(w, "id: %s\nevent: %s\ndata: %s\n\n", evt.ResourceVersion, evt.Type, data); err != nil {
+		case <-sub.Dropped:
+			// Slow consumer - broadcast gave up on us. Ch won't receive
+			// anything further.
+			return nil
+		case evt := <-sub.Ch:
+			if err := writeEventFrame(w, evt); err != nil {
 				return nil // client disconnected
 			}
 			w.Flush()
 		}
 	}
+}
+
+// writeEventFrame writes evt as a single SSE frame. id carries the
+// "<epoch>:<seq>" cursor rather than the legacy resourceVersion, since
+// seq/epoch is the cursor that's actually honored on reconnect and it's the
+// only one that's always populated (direct-publish events have no
+// resourceVersion). Native EventSource clients that use Last-Event-ID get a
+// usable value here; this server's own since handling still only reads the
+// since query param, not that header.
+func writeEventFrame(w http.ResponseWriter, evt events.Event) error {
+	data, err := json.Marshal(evt)
+	if err != nil {
+		return nil //nolint:nilerr // malformed envelope is skipped, not a disconnect
+	}
+	cursor := events.Cursor{Epoch: evt.Epoch, Seq: evt.Seq}
+	_, err = fmt.Fprintf(w, "id: %s\nevent: %s\ndata: %s\n\n", cursor.String(), evt.Type, data)
+	return err
 }

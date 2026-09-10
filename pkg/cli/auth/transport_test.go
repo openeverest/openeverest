@@ -60,6 +60,13 @@ func loadTokenSource(t *testing.T, cfgPath string, l *Login) *tokenSource {
 	}
 }
 
+func newTestAuthTransport(t *testing.T, source *tokenSource) *authTransport {
+	t.Helper()
+	base := newDefaultTransport()
+	t.Cleanup(base.CloseIdleConnections)
+	return &authTransport{source: source, base: base}
+}
+
 func TestTransport_InjectsBearerToken(t *testing.T) {
 	t.Parallel()
 
@@ -74,7 +81,7 @@ func TestTransport_InjectsBearerToken(t *testing.T) {
 	require.NoError(t, newTransportConfig(srv.URL).Save(cfgPath))
 
 	ts := loadTokenSource(t, cfgPath, NewLogin(Config{}, zap.NewNop().Sugar()))
-	tr := &authTransport{source: ts, base: http.DefaultTransport}
+	tr := newTestAuthTransport(t, ts)
 
 	req, _ := http.NewRequestWithContext(t.Context(), http.MethodGet, srv.URL, nil)
 	resp, err := tr.RoundTrip(req)
@@ -111,7 +118,7 @@ func TestTransport_ProactiveRefresh(t *testing.T) {
 	require.NoError(t, cfg.Save(cfgPath))
 
 	ts := loadTokenSource(t, cfgPath, NewLogin(Config{}, zap.NewNop().Sugar()))
-	tr := &authTransport{source: ts, base: http.DefaultTransport}
+	tr := newTestAuthTransport(t, ts)
 
 	req, _ := http.NewRequestWithContext(t.Context(), http.MethodGet, srv.URL, nil)
 	resp, err := tr.RoundTrip(req)
@@ -150,7 +157,7 @@ func TestTransport_On401_RefreshAndRetry(t *testing.T) {
 	require.NoError(t, newTransportConfig(srv.URL).Save(cfgPath))
 
 	ts := loadTokenSource(t, cfgPath, NewLogin(Config{}, zap.NewNop().Sugar()))
-	tr := &authTransport{source: ts, base: http.DefaultTransport}
+	tr := newTestAuthTransport(t, ts)
 
 	req, _ := http.NewRequestWithContext(t.Context(), http.MethodGet, srv.URL, nil)
 	resp, err := tr.RoundTrip(req)
@@ -176,7 +183,7 @@ func TestTransport_On401_RefreshFails_ReturnsErrTokenRefresh(t *testing.T) {
 	require.NoError(t, newTransportConfig(srv.URL).Save(cfgPath))
 
 	ts := loadTokenSource(t, cfgPath, NewLogin(Config{}, zap.NewNop().Sugar()))
-	tr := &authTransport{source: ts, base: http.DefaultTransport}
+	tr := newTestAuthTransport(t, ts)
 
 	req, _ := http.NewRequestWithContext(t.Context(), http.MethodGet, srv.URL, nil)
 	resp, err := tr.RoundTrip(req)
@@ -218,7 +225,7 @@ func TestTransport_On401_RetryReplaysBody(t *testing.T) {
 	require.NoError(t, newTransportConfig(srv.URL).Save(cfgPath))
 
 	ts := loadTokenSource(t, cfgPath, NewLogin(Config{}, zap.NewNop().Sugar()))
-	tr := &authTransport{source: ts, base: http.DefaultTransport}
+	tr := newTestAuthTransport(t, ts)
 
 	payload := `{"metadata":{"name":"my-mongo"}}`
 	req, _ := http.NewRequestWithContext(t.Context(), http.MethodPost, srv.URL+"/instances", bytes.NewReader([]byte(payload)))
@@ -244,4 +251,15 @@ func TestNewAPIClient_LoadsSession(t *testing.T) {
 	c, err := NewAPIClient(Config{}, zap.NewNop().Sugar(), cfgPath, "")
 	require.NoError(t, err)
 	require.NotNil(t, c)
+
+	generatedClient, ok := c.ClientInterface.(*client.Client)
+	require.True(t, ok)
+	httpClient, ok := generatedClient.Client.(*http.Client)
+	require.True(t, ok)
+	transport, ok := httpClient.Transport.(*authTransport)
+	require.True(t, ok)
+	base, ok := transport.base.(*http.Transport)
+	require.True(t, ok)
+	t.Cleanup(base.CloseIdleConnections)
+	require.NotSame(t, http.DefaultTransport, base)
 }

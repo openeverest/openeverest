@@ -161,27 +161,18 @@ export const categoriesRowSx: SxProps<Theme> = {
   mt: 0.5,
 };
 
-const footerBaseSx = {
+export const cardFooterEndSx: SxProps<Theme> = {
   display: 'flex',
   alignItems: 'center',
   gap: 1,
   py: 1.25,
   px: 2,
+  // Only the forward arrow lives here now; keep it right-aligned.
+  justifyContent: 'flex-end',
   borderTop: '1px solid',
   borderColor: (theme: Theme) => theme.palette.dividers?.divider,
   color: 'text.secondary',
   // Round bottom corners (card is overflow-visible).
   borderRadius: (theme: Theme) =>
     `0 0 ${theme.shape.borderRadius}px ${theme.shape.borderRadius}px`,
-} satisfies SxProps<Theme>;
-
-export const cardFooterSx: SxProps<Theme> = {
-  ...footerBaseSx,
-  justifyContent: 'space-between',
-};
-
-// Footer variant when there's no version: keep the forward arrow right-aligned.
-export const cardFooterEndSx: SxProps<Theme> = {
-  ...footerBaseSx,
-  justifyContent: 'flex-end',
 };

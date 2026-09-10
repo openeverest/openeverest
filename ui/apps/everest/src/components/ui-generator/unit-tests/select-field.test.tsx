@@ -161,6 +161,27 @@ describe('UIGenerator - Select Field Basic Rendering', () => {
     expect(screen.getByText('Option Two')).toBeInTheDocument();
     expect(screen.getByText('Option Three')).toBeInTheDocument();
   }, 10000);
+
+  it('should render helperText when provided', () => {
+    const schema = createTestSchema({
+      helperText: 'Select an option from the list',
+    });
+
+    render(
+      <TestWrapper>
+        <FormWrapper schema={schema} onSubmit={vi.fn()}>
+          <UIGenerator
+            sections={schema.testTopology!.sections}
+            sectionKey="basicInfo"
+          />
+        </FormWrapper>
+      </TestWrapper>
+    );
+
+    expect(
+      screen.getByText('Select an option from the list')
+    ).toBeInTheDocument();
+  });
 });
 
 describe('UIGenerator - Select Field Required Validation', () => {

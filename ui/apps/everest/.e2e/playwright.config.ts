@@ -63,7 +63,6 @@ export default defineConfig({
     baseURL: process.env.EVEREST_URL || 'http://localhost:8080',
     headless: true,
     extraHTTPHeaders: {
-      'Content-Type': 'application/json',
       Accept: 'application/json',
     },
 

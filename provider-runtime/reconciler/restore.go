@@ -148,8 +148,9 @@ func (r *restoreRuntimeReconciler) Reconcile(ctx context.Context, req reconcile.
 }
 
 // resolveRestoreOwnership resolves the BackupClass and Instance for a Restore
-// and reports whether this provider should handle it. The BackupClass is
-// resolved via the referenced Backup CR.
+// and reports whether this provider should handle it. The BackupClass is the
+// read class of the Restore's data source, which for point-in-time recovery
+// comes from the Instance owning the stream rather than from a Backup CR.
 func resolveRestoreOwnership(
 	ctx context.Context,
 	c client.Client,
@@ -189,12 +190,27 @@ func resolveRestoreOwnership(
 	return instance, bc, true, nil
 }
 
+// backupClassNameForRestore resolves the name of the class that describes how
+// the data being restored was written, which is what selects the reconciler via
+// its ExecutionMode:
+//
+//   - type=Backup      -> the source Backup's classRef.
+//   - type=PointInTime -> the classRef of the Instance owning the stream, since
+//     a stream has no Backup CR of its own.
+//
+// An empty name means no class could be resolved, and the Restore is left
+// alone: this reconciler must stay silent about Restores that are not its own.
 func backupClassNameForRestore(ctx context.Context, c client.Client, restore *backupv1alpha1.Restore) (string, error) {
-	if restore.Spec.DataSource.Backup != nil && restore.Spec.DataSource.Backup.BackupRef.Name != "" {
+	ds := restore.Spec.DataSource
+	switch ds.Type {
+	case backupv1alpha1.DataSourceTypeBackup:
+		if ds.Backup == nil {
+			return "", nil
+		}
 		backup := &backupv1alpha1.Backup{}
 		if err := c.Get(ctx, client.ObjectKey{
 			Namespace: restore.Namespace,
-			Name:      restore.Spec.DataSource.Backup.BackupRef.Name,
+			Name:      ds.Backup.BackupRef.Name,
 		}, backup); err != nil {
 			if apierrors.IsNotFound(err) {
 				return "", nil
@@ -202,8 +218,28 @@ func backupClassNameForRestore(ctx context.Context, c client.Client, restore *ba
 			return "", fmt.Errorf("failed to get referenced Backup: %w", err)
 		}
 		return backup.Spec.ClassRef.Name, nil
+
+	case backupv1alpha1.DataSourceTypePointInTime:
+		name := controller.RestoreStreamInstanceName(restore)
+		instance := &corev1alpha1.Instance{}
+		if err := c.Get(ctx, client.ObjectKey{
+			Namespace: restore.Namespace,
+			Name:      name,
+		}, instance); err != nil {
+			if apierrors.IsNotFound(err) {
+				return "", nil
+			}
+			return "", fmt.Errorf("failed to get Instance %q owning the stream: %w", name, err)
+		}
+		if instance.Spec.Backup == nil {
+			return "", nil
+		}
+		return instance.Spec.Backup.ClassRef.Name, nil
+
+	default:
+		// A data source type this build does not know is not ours to claim.
+		return "", nil
 	}
-	return "", nil
 }
 
 func (r *restoreRuntimeReconciler) updateStatus(

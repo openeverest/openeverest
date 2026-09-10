@@ -135,7 +135,7 @@ func checkDBNamespaceParameters(cmd *cobra.Command) error {
 	}
 
 	// If user doesn't pass any --operator.* flags - need to ask explicitly.
-	askOperators := !cmd.Flags().Lookup(cli.FlagOperatorMongoDB).Changed && !cmd.Flags().Lookup(cli.FlagOperatorPostgresql).Changed && !cmd.Flags().Lookup(cli.FlagOperatorXtraDBCluster).Changed && !cmd.Flags().Lookup(cli.FlagOperatorMySQL).Changed && !installCfg.NamespaceAddConfig.SkipWizard
+	askOperators := namespaces.ShouldAskOperators(cmd, installCfg.NamespaceAddConfig.SkipWizard)
 
 	if askOperators {
 		// need to ask user to provide operators to be installed in interactive mode.

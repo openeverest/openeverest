@@ -29,6 +29,8 @@ import (
 // InstanceSpec defines the desired state of Instance
 // +kubebuilder:validation:XValidation:rule="!has(self.dataSource) || (has(self.backup) && self.backup.enabled)",message="spec.dataSource requires spec.backup.enabled=true with at least one storage so the provider can read the source backup"
 // +kubebuilder:validation:XValidation:rule="!has(oldSelf.dataSource) || (has(self.dataSource) && self.dataSource == oldSelf.dataSource)",message="spec.dataSource is immutable once set"
+// +kubebuilder:validation:XValidation:rule="!has(self.dataSource) || self.dataSource.type != 'PointInTime' || has(self.dataSource.pointInTime.source.instanceRef)",message="spec.dataSource.pointInTime.source.instanceRef is required when seeding an Instance: a new Instance has no stream of its own, so there is no target Instance to default to"
+// +kubebuilder:validation:XValidation:rule="!has(oldSelf.userSecretRef) || (has(self.userSecretRef) && self.userSecretRef == oldSelf.userSecretRef)",message="spec.userSecretRef is immutable once set"
 type InstanceSpec struct {
 	// ProviderRef references the cluster-scoped Provider that manages this
 	// Instance (e.g., "percona-server-mongodb", "postgresql").
@@ -87,7 +89,6 @@ type InstanceSpec struct {
 	// has started: switching policies after .metadata.deletionTimestamp
 	// has been set is rejected so the cascade path cannot race with
 	// itself.
-	// +kubebuilder:validation:Enum=Cascade;Orphan
 	// +kubebuilder:default=Cascade
 	// +optional
 	DeletionPolicy InstanceDeletionPolicy `json:"deletionPolicy,omitempty"`
@@ -102,6 +103,25 @@ type InstanceSpec struct {
 	// storage used by the source Backup so the provider can access the data.
 	// +optional
 	DataSource *backupv1alpha1.DataSource `json:"dataSource,omitempty"`
+
+	// Maintenance governs how disruptive actions raised against this
+	// Instance (e.g. the convergence step after a provider upgrade) are
+	// authorized. It does NOT govern the deliberate engine-version upgrade
+	// flow (spec.version / spec.components[].version).
+	// +optional
+	Maintenance *MaintenanceSpec `json:"maintenance,omitempty"`
+
+	// UserSecretRef optionally seeds the engine's initial (bootstrap)
+	// credentials from a Secret in the same namespace, for providers whose
+	// engine supports setting initial credentials at creation time.
+	//
+	// When omitted, the provider generates credentials automatically. The
+	// referenced Secret's required keys are provider-specific and validated
+	// by the referenced Provider. The field is immutable once set: initial
+	// credentials only apply at engine creation time, so changing it later
+	// would have no effect.
+	// +optional
+	UserSecretRef *common.SecretRef `json:"userSecretRef,omitempty"`
 }
 
 // InstanceDeletionPolicy controls what happens to Backup and Restore CRs
@@ -127,6 +147,74 @@ const (
 	// Instance.
 	InstanceDeletionPolicyOrphan InstanceDeletionPolicy = "Orphan"
 )
+
+// MaintenanceSeverity classifies a disruptive action by its observable
+// database impact — what the application experiences, never the internal
+// mechanism that produces it. The levels are ordered: NonDisruptive <
+// RollingRestart < Downtime.
+//
+// +kubebuilder:validation:Enum=NonDisruptive;RollingRestart;Downtime
+type MaintenanceSeverity string
+
+const (
+	// MaintenanceNonDisruptive means the application observes nothing: no
+	// restart, no dropped connections.
+	MaintenanceNonDisruptive MaintenanceSeverity = "NonDisruptive"
+
+	// MaintenanceRollingRestart means connections blip and reconnect while
+	// nodes restart one at a time; high availability is preserved and there
+	// is no outage.
+	MaintenanceRollingRestart MaintenanceSeverity = "RollingRestart"
+
+	// MaintenanceDowntime means the service is unavailable for a window;
+	// writes pause until the action completes.
+	MaintenanceDowntime MaintenanceSeverity = "Downtime"
+)
+
+// MaintenanceSpec governs how disruptive actions raised against an Instance
+// are authorized. The default (NonDisruptive tolerance, no approval) holds
+// every restart-or-worse action until the owner approves it, so a provider
+// upgrade can never cause surprise downtime.
+type MaintenanceSpec struct {
+	// AutoApproveUpTo is the standing disruption tolerance: any action at or
+	// below this impact applies automatically, anything above it is held on
+	// status.pendingMaintenance. It is cause-agnostic — the tolerance applies
+	// whether the action was raised by a provider upgrade or anything else.
+	// +kubebuilder:default=NonDisruptive
+	// +optional
+	AutoApproveUpTo MaintenanceSeverity `json:"autoApproveUpTo,omitempty"`
+
+	// Approved is a one-time authorization for an action above the standing
+	// tolerance: set it to the exact approvalToken of the held action from
+	// status.pendingMaintenance. It is matched literally, authorizes only
+	// that occurrence, and re-arms naturally — a later action carries a
+	// different token, so a stale value never authorizes it. It is NOT a
+	// provider version.
+	// +kubebuilder:validation:MaxLength=253
+	// +optional
+	Approved string `json:"approved,omitempty"`
+}
+
+// PendingMaintenanceAction is one disruptive action currently held awaiting
+// approval.
+type PendingMaintenanceAction struct {
+	// Description is a human-readable summary of the action and its
+	// observable impact. It never exposes operator internals.
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MaxLength=1024
+	Description string `json:"description"`
+
+	// Severity is the action's observable database impact.
+	// +kubebuilder:validation:Required
+	Severity MaintenanceSeverity `json:"severity"`
+
+	// ApprovalToken is the occurrence-unique, human-readable token the
+	// provider assigned to this held action. Copy it verbatim into
+	// spec.maintenance.approved to authorize this specific action.
+	// +kubebuilder:validation:MaxLength=253
+	// +optional
+	ApprovalToken string `json:"approvalToken,omitempty"`
+}
 
 // InstanceBackupSpec configures the backup feature on an Instance.
 //
@@ -275,11 +363,11 @@ type ComponentSpec struct {
 	// Replicas specifies the number of replicas for this component.
 	// +optional
 	Replicas *int32 `json:"replicas,omitempty"`
-	// Affinity controls pod scheduling rules for this component, including node
-	// selection (where pods run), pod co-location (scheduling pods together), and
-	// pod anti-affinity (spreading pods across nodes/zones for high availability).
+	// SchedulingPolicy controls where this component's pods run: node
+	// selection, pod co-location, anti-affinity, tolerations and topology
+	// spread.
 	// +optional
-	Affinity *corev1.Affinity `json:"affinity,omitempty"`
+	SchedulingPolicy *common.SchedulingPolicy `json:"schedulingPolicy,omitempty"`
 	// Service defines how this component is exposed.
 	// +optional
 	Service *Service `json:"service,omitempty"`
@@ -424,6 +512,13 @@ type InstanceStatus struct {
 	// provider, such as the latest restorable time for PITR-enabled storages.
 	// +optional
 	Backup *InstanceBackupStatus `json:"backup,omitempty"`
+
+	// PendingMaintenance lists the disruptive actions currently held awaiting
+	// approval. It is recomputed on every reconcile from the actions the
+	// provider currently requests above the Instance's tolerance, so it can
+	// never go stale: an action the provider stops requesting disappears.
+	// +optional
+	PendingMaintenance []PendingMaintenanceAction `json:"pendingMaintenance,omitempty"`
 	// +listType=map
 	// +listMapKey=type
 	// +optional
@@ -448,13 +543,58 @@ type InstanceBackupStorageStatus struct {
 	// spec.backup.storages[].storageRef.name).
 	// +kubebuilder:validation:Required
 	Name string `json:"name"`
-	// LatestRestorableTime is the most recent point in time to which the
-	// instance can be restored using point-in-time recovery from this
-	// storage. Only populated when PITR is enabled for the storage and the
-	// engine reports a recovery window.
+	// PITR reports the point-in-time recovery window observed on this storage.
+	// Only populated when PITR is enabled for the storage.
+	// +optional
+	PITR *InstanceBackupStoragePITRStatus `json:"pitr,omitempty"`
+}
+
+// InstanceBackupStoragePITRStatus reports the point-in-time recovery window
+// observed on a single backup storage.
+//
+// The window is authoritative and conservative: every point between
+// EarliestRestorableTime and LatestRestorableTime is restorable. Providers
+// truncate forward and under-report rather than advertising a range that spans
+// a known discontinuity.
+type InstanceBackupStoragePITRStatus struct {
+	// EarliestRestorableTime is the start of the contiguous recovery window.
+	// Providers only ever move this forward relative to the oldest successful
+	// backup, so the advertised window never spans a known discontinuity.
+	// Unset means no restorable window is known.
+	// +optional
+	EarliestRestorableTime *metav1.Time `json:"earliestRestorableTime,omitempty"`
+	// LatestRestorableTime is the end of the contiguous recovery window.
 	// +optional
 	LatestRestorableTime *metav1.Time `json:"latestRestorableTime,omitempty"`
+	// State summarises whether a trustworthy window exists.
+	// +optional
+	State PITRState `json:"state,omitempty"`
+	// Reason is a CamelCase, machine-readable explanation of State.
+	// +optional
+	Reason string `json:"reason,omitempty"`
+	// Message is a human-readable explanation of State.
+	// +optional
+	Message string `json:"message,omitempty"`
 }
+
+// PITRState summarises whether a point-in-time recovery window can be trusted.
+//
+// The value is deliberately binary: because providers truncate the window at
+// any known discontinuity, a published window is always trustworthy, and there
+// is no case where one exists but cannot be relied upon.
+//
+// +kubebuilder:validation:Enum=Available;Unavailable
+type PITRState string
+
+const (
+	// PITRStateAvailable indicates a contiguous, trustworthy recovery window.
+	PITRStateAvailable PITRState = "Available"
+	// PITRStateUnavailable indicates no trustworthy window can be reported.
+	// Reason distinguishes the causes: no successful backup yet, the stream
+	// has not started, a discontinuity with no clean segment after it, or the
+	// storage being unreachable.
+	PITRStateUnavailable PITRState = "Unavailable"
+)
 
 // InstancePhase represents the high-level, mutually exclusive lifecycle state
 // of an Instance. These phases are designed for human readability, providing an
@@ -561,6 +701,41 @@ const (
 	// The condition is sticky: once True it remains True for the lifetime of
 	// the Instance.
 	ConditionDataSourceReady = "DataSourceReady"
+
+	// ConditionComponentVersionDeprecated is a read-only, informational condition
+	// that is True while any of the Instance's effective component versions is
+	// flagged as deprecated in the installed Provider catalog. The message
+	// names the affected versions and, when scheduled, the provider release
+	// that removes them, so owners can remediate before that provider upgrade
+	// is attempted. It never blocks or mutates anything.
+	ConditionComponentVersionDeprecated = "ComponentVersionDeprecated"
+
+	// ConditionMaintenancePending is True while at least one disruptive
+	// action is held awaiting approval (listed in status.pendingMaintenance),
+	// and False once nothing is held. The database keeps running while the
+	// condition is True — a held action never affects availability.
+	ConditionMaintenancePending = "MaintenancePending"
+)
+
+// Reasons for the MaintenancePending condition.
+const (
+	// ReasonAwaitingApproval indicates at least one held action requires the
+	// owner to copy its approvalToken into spec.maintenance.approved before
+	// it can proceed.
+	ReasonAwaitingApproval = "AwaitingApproval"
+
+	// ReasonNoActionsPending indicates no disruptive action is currently
+	// held; everything the provider requested was within the Instance's
+	// standing tolerance or has been applied.
+	ReasonNoActionsPending = "NoActionsPending"
+
+	// ReasonRetriesExhausted indicates an approved disruptive action kept
+	// failing and the runtime stopped retrying it so a crash-looping
+	// provider cannot repeatedly disrupt the database. Changing
+	// spec.maintenance.approved re-arms the retries: set it to the pending
+	// action's token (for actions auto-approved by autoApproveUpTo), or
+	// clear and re-set it.
+	ReasonRetriesExhausted = "RetriesExhausted"
 )
 
 // Reasons for the DataSourceReady condition.
@@ -583,12 +758,21 @@ const (
 	ReasonDataSourceFailed = "Failed"
 
 	// ReasonDataSourceSourceBackupNotFound indicates the Backup CR referenced
-	// by .spec.dataSource.backup.backupName does not exist in the Instance namespace.
+	// by .spec.dataSource.backup.backupRef does not exist in the Instance namespace.
 	ReasonDataSourceSourceBackupNotFound = "SourceBackupNotFound"
 
 	// ReasonDataSourceSourceBackupNotSucceeded indicates the source Backup
 	// exists but is not in the Succeeded state, so it cannot be restored.
 	ReasonDataSourceSourceBackupNotSucceeded = "SourceBackupNotSucceeded"
+
+	// ReasonDataSourceSourceInstanceNotFound indicates the Instance referenced
+	// by .spec.dataSource.pointInTime.source.instanceRef does not exist in the
+	// Instance namespace.
+	ReasonDataSourceSourceInstanceNotFound = "SourceInstanceNotFound"
+
+	// ReasonDataSourcePITRUnsupported indicates the resolved BackupClass does
+	// not advertise point-in-time recovery support.
+	ReasonDataSourcePITRUnsupported = "PITRUnsupported"
 
 	// ReasonDataSourceStorageMismatch indicates the Instance's
 	// .spec.backup.storages does not include an entry matching the storage
@@ -599,6 +783,24 @@ const (
 	// BackupClass either does not exist, is not ProviderManaged, or does not
 	// list the target Instance's provider in SupportedProviders.
 	ReasonDataSourceClassUnsupported = "BackupClassUnsupported"
+)
+
+// Reasons for the ComponentVersionDeprecated condition.
+const (
+	// ReasonScheduledForRemoval indicates at least one effective component
+	// version is deprecated in the installed Provider catalog and is dropped
+	// in a future provider release named in the condition message.
+	ReasonScheduledForRemoval = "ScheduledForRemoval"
+
+	// ReasonVersionsUnsupported indicates at least one effective component
+	// version is no longer supported by the installed Provider catalog at
+	// all — past its removal release or absent entirely. Upgrade the
+	// database to a supported version.
+	ReasonVersionsUnsupported = "VersionsUnsupported"
+
+	// ReasonVersionsSupported indicates every effective component version is
+	// fully supported by the installed Provider catalog.
+	ReasonVersionsSupported = "VersionsSupported"
 )
 
 // Reasons for the StorageResizing condition.

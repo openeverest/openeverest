@@ -22,6 +22,7 @@ import { useClusterOverviewData } from './hooks/use-cluster-overview-data';
 import BasicInfoSection from './sections/basic-info-section';
 import ConnectionSection from './sections/connection-section';
 import SchemaDrivenCard from './sections/schema-driven-card';
+import { BackupsDetails } from './old-cards/backups-details';
 // TODO: Re-enable OtherFieldsCard when uncovered fields are properly formatted
 // import OtherFieldsCard from './sections/other-fields-card';
 import { SectionEditModal } from './sections/section-edit-modal';
@@ -42,6 +43,7 @@ export const ClusterOverview = () => {
     // otherFields, // TODO: Re-enable when OtherFieldsCard is restored
     provider,
     sections,
+    backupsSupported,
   } = useClusterOverviewData();
 
   const [editingSectionKey, setEditingSectionKey] = useState<string | null>(
@@ -152,7 +154,15 @@ export const ClusterOverview = () => {
           onSuccess={handleCloseModal}
         />
       )}
-      {/* TODO: BackupsDetails card — re-enable once connected to new instance API */}
+      {backupsSupported && (
+        <Box>
+          <BackupsDetails
+            instance={instance}
+            namespace={namespace}
+            loading={isLoading}
+          />
+        </Box>
+      )}
     </Box>
   );
 };

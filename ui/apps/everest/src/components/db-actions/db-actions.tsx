@@ -25,9 +25,9 @@ import {
   MenuItem,
 } from '@mui/material';
 import {
+  Add as AddIcon,
   DeleteOutline as DeleteOutlineIcon,
   KeyboardReturn as KeyboardReturnIcon,
-  // Add as AddIcon, // TODO: re-enable when create-new-db-from-backup is restored
 } from '@mui/icons-material';
 import ExtensionIcon from '@mui/icons-material/Extension';
 import MoreHorizIcon from '@mui/icons-material/MoreHoriz';
@@ -41,8 +41,32 @@ import { usePlugins } from 'contexts/plugins';
 import type { ClusterActionExtension } from '@openeverest/plugin-sdk';
 import PluginErrorBoundary from 'components/plugin-host/PluginErrorBoundary';
 import { useBackupsList } from 'hooks/api/backups/useBackups';
+import { useCanRestore } from 'hooks/api/restores/useCanRestore';
+import { useCanCreateClusterFromBackup } from 'hooks/api/restores/useCanCreateClusterFromBackup';
 import { useClusterName } from 'hooks/api/useClusterName';
 import { BackupStatus } from 'shared-types/backups.types';
+
+const hasMonitoringConfigName = (instance: unknown): boolean => {
+  if (typeof instance !== 'object' || instance === null) {
+    return false;
+  }
+
+  const spec = Reflect.get(instance, 'spec');
+  if (typeof spec !== 'object' || spec === null) {
+    return false;
+  }
+
+  const monitoring = Reflect.get(spec, 'monitoring');
+  if (typeof monitoring !== 'object' || monitoring === null) {
+    return false;
+  }
+
+  const monitoringConfigName = Reflect.get(monitoring, 'monitoringConfigName');
+  return (
+    typeof monitoringConfigName === 'string' &&
+    monitoringConfigName.trim().length > 0
+  );
+};
 
 export const DbActions = ({
   // showDetailsAction = false,
@@ -91,12 +115,10 @@ export const DbActions = ({
   // TODO needs a final enum
   // const actionsBlocked = shouldDbActionsBeBlocked(dbInstance.status?.phase as DbInstanceStatus || '');
   const actionsBlocked = dbInstance?.status?.phase === 'Terminating';
-  // const hasSchedules = !!(
-  //   dbInstance.spec.backup && (dbInstance.spec.backup.schedules || []).length > 0
-  // );
-  // const monitoringEnabled = !!(
-  //   dbInstance.spec.monitoring && dbInstance.spec.monitoring?.monitoringConfigName
-  // );
+  const hasSchedules = !!dbInstance.spec?.backup?.storages?.some(
+    (storage) => !!storage.schedules?.length
+  );
+  const monitoringEnabled = hasMonitoringConfigName(dbInstance);
   const handleClick = (event: React.MouseEvent<HTMLButtonElement>) => {
     event.stopPropagation();
     setAnchorEl(event.currentTarget);
@@ -110,30 +132,12 @@ export const DbActions = ({
     `${dbInstance.metadata?.namespace}/${dbInstance.metadata?.name}`
   );
 
-  // const { canCreate: canCreateClusters } = useRBACPermissions(
-  //   'database-clusters',
-  //   `${dbInstance.metadata?.namespace}/*`
-  // );
-
-  // const { canCreate: canCreateRestore } = useRBACPermissions(
-  //   'database-cluster-restores',
-  //   `${namespace}/*`
-  // );
-
-  // const { canRead: canReadCredentials } = useRBACPermissions(
-  //   'database-cluster-credentials',
-  //   `${namespace}/${dbInstanceName}`
-  // );
-
-  // const { canCreate: canCreateBackups } = useRBACPermissions(
-  //   'database-cluster-backups',
-  //   `${namespace}/${dbInstanceName}`
-  // );
-
-  // const { canRead: canReadMonitoring } = useRBACPermissions(
-  //   'monitoring-instances',
-  //   `${namespace}/${dbInstanceName}`
-  // );
+  const canRestore = useCanRestore(namespace, dbInstanceName ?? '');
+  const canCreateClusterFromBackup = useCanCreateClusterFromBackup(
+    namespace,
+    dbInstanceName ?? '',
+    { hasSchedules, monitoringEnabled }
+  );
 
   // const canRestore = canCreateRestore && canReadCredentials;
   // TODO RBAC
@@ -153,17 +157,6 @@ export const DbActions = ({
       ),
     [plugins]
   );
-  // let canCreateClusterFromBackup = canRestore && canCreateClusters;
-
-  // if (hasSchedules) {
-  //   canCreateClusterFromBackup = canCreateClusterFromBackup && canCreateBackups;
-  // }
-
-  // if (monitoringEnabled) {
-  //   canCreateClusterFromBackup =
-  //     canCreateClusterFromBackup && canReadMonitoring;
-  // }
-
   const sx = {
     display: 'flex',
     gap: 1,
@@ -241,21 +234,22 @@ export const DbActions = ({
               <RestartAltIcon /> {Messages.menuItems.restart}
             </MenuItem>
           )*/}
-          {/* TODO: Temporarily hidden — create new DB from backup deferred by team */}
-          {/* <MenuItem
-            data-testid={`${dbInstanceName}-create-new-db-from-backup`}
-            disabled={actionsBlocked}
-            key={1}
-            onClick={() => {
-              setIsNewClusterMode(true);
-              handleRestoreDbCluster();
-            }}
-            sx={sx}
-          >
-            <AddIcon /> {Messages.menuItems.createNewDbFromBackup}
-          </MenuItem> */}
+          {hasBackups && canCreateClusterFromBackup && (
+            <MenuItem
+              data-testid={`${dbInstanceName}-create-new-db-from-backup`}
+              disabled={actionsBlocked || !hasReadyBackup}
+              key={1}
+              onClick={() => {
+                setIsNewClusterMode(true);
+                handleRestoreDbCluster();
+              }}
+              sx={sx}
+            >
+              <AddIcon /> {Messages.menuItems.createNewDbFromBackup}
+            </MenuItem>
+          )}
           {/*TODO RBAC */}
-          {hasBackups && (
+          {hasBackups && canRestore && (
             <MenuItem
               data-testid={`${dbInstanceName}-restore`}
               disabled={actionsBlocked || !hasReadyBackup}

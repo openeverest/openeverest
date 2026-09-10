@@ -38,7 +38,7 @@ const EmptyStateDatabases = ({
               Click{' '}
               <Link
                 target="_blank"
-                rel="noopener"
+                rel="noopener noreferrer"
                 href="https://openeverest.io/documentation/current/administer/rbac.html"
               >
                 here

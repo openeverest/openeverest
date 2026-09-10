@@ -12,13 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { useLocation } from 'react-router-dom';
 import { FormMode } from 'components/ui-generator/ui-generator.types';
+import { useRestoreNavigationState } from './use-restore-navigation-state';
 
 export const useDatabasePageMode = (): FormMode => {
-  const { state } = useLocation();
-  if (state?.selectedDbCluster && state?.namespace && state?.backupName) {
-    return FormMode.Restore;
-  }
-  return FormMode.New;
+  const { isRestore } = useRestoreNavigationState();
+  return isRestore ? FormMode.Restore : FormMode.New;
 };

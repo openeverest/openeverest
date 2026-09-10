@@ -1,0 +1,40 @@
+# Triage labels, synced to the repository by .github/workflows/label-sync.yml.
+#
+# This file is additive: labels not listed here are left alone. Naming follows
+# the Kubernetes convention so the taxonomy can grow (priority/*, area/*)
+# without renaming what already exists.
+#
+# Issue "kind" is expressed with GitHub Issue Types (Task / Bug / Feature),
+# not labels, so there is a single source of truth for it.
+
+- name: needs-triage
+  color: ededed
+  description: Not reviewed by a maintainer yet — not ready to be worked on
+
+- name: triage/accepted
+  color: 0e8a16
+  description: Reviewed and accepted; this should be done
+
+- name: triage/needs-information
+  color: fbca04
+  description: Blocked waiting for more information from the reporter
+
+- name: triage/duplicate
+  color: cfd3d7
+  description: Duplicate of an earlier report — the earliest report is canonical
+
+- name: triage/not-reproducible
+  color: d455d0
+  description: Could not be reproduced as reported
+
+- name: lifecycle/frozen
+  color: d3d3d3
+  description: Exempt from automatic unassignment; work expected to take a while
+
+- name: status/blocked
+  color: b60205
+  description: Waiting on something we owe — a design review, a decision, an upstream fix
+
+- name: chart/pending
+  color: fbca04
+  description: Pins an unmerged helm-charts commit; that PR must land before this one

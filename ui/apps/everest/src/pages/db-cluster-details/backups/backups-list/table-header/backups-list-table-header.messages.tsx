@@ -28,6 +28,7 @@ export const Messages = {
   },
   activeSchedules: (schedulesNumber: number) =>
     `${schedulesNumber} active schedule${schedulesNumber > 1 ? 's' : ''}`,
+  pitr: 'PITR',
   exceededScheduleBackupsNumber: (maxStorages: number) =>
     `Maximum number of storages (${maxStorages}) for this backup class has been reached.`,
   noStoragesAvailable:

@@ -1,6 +1,6 @@
 name: "🧹 Chore"
 description: Internal maintenance, refactoring, tests, or tooling
-labels: ["chore"]
+labels: ["chore", "needs-triage"]
 body:
   - type: markdown
     attributes:

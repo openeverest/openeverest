@@ -12,7 +12,7 @@ Use topic branches in the same repository instead of GitHub forks if you have su
 
 Name topic branches like this: `EVEREST-1234-short-description`. Always start with `EVEREST-XXXX`. Never omit a short description. Separate words with dashes, not underscore. Use only lowercase letters.
 
-If you are community contributor and there is no ticket exists, either create one or just use `short-description` style for your forked repo branch.
+If you are community contributor and no ticket exists, either create one or just use `short-description` style for your forked repo branch.
 
 ## Commit rules
 
@@ -25,7 +25,7 @@ Optional 72-character wrapped longer description.
 
 There should be a blank line between short summary and longer description. Final dot in the title is optional – if you hate it, drop it :)
 
-While addressing review comments push the requested changes as a new commit instead of amending the original commit and force pushing to Github.
+While addressing review comments push the requested changes as a new commit instead of amending the original commit and force pushing to GitHub.
 
 ## Pull Request rules
 
@@ -42,9 +42,9 @@ While addressing review comments push the requested changes as a new commit inst
     - [x] All required checks must pass.
     - [x] The reviewers (minimum 2) are set as makes sense for the code (DevOps, BE, FE, QA), and all need to approve the code after review.
     - [x] If change requests were made, all changes need to be resolved and re-approved by the original reviewers.
-    - [x] If all conditions for a successful merge are met (checks pass, code reviewed and approved, changes resolved and re-approved), ONLY then the PR can me merged:
+    - [x] If all conditions for a successful merge are met (checks pass, code reviewed and approved, changes resolved and re-approved), ONLY then the PR can be merged:
          * If an author has write permissions. An author should merge the PR.
-         * If an author doesn't have a write permissions, then author should ask someone with write permissions to merge.
+         * If an author doesn't have write permissions, then author should ask someone with write permissions to merge.
          * If required checks fail for a confusing reason or some non-required checks fail for a long time, ping the appropriate dev channel.
     - [x] A PR should be merged with the "Squash and Merge" button (the code owner should set this as the only option in the repository settings).
     - [x] Never leave PRs fully approved, unassigned, and not merged.

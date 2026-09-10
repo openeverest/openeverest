@@ -27,7 +27,7 @@ Build and runtime logs can be easily accessed using tilt's web UI.
 5. Install [k3d](https://k3d.io)
 
 6. Install [tilt.dev](https://docs.tilt.dev/install.html)
-NOTE: for MacOS tilt needs to have installed and runing `docker-desktop` tool. This is not required and can be skiped since we use `k3d` instead.
+NOTE: for MacOS tilt needs to have installed and running `docker-desktop` tool. This is not required and can be skipped since we use `k3d` instead.
 
 7. Install [pnpm](https://pnpm.io/installation) (required for the frontend build)
 
@@ -71,7 +71,7 @@ export CLOUDSDK_CORE_PROJECT=percona-everest
 ```sh
 gcloud container clusters create <NAME> --cluster-version 1.27 --preemptible --machine-type n1-standard-4  --num-nodes=3 --zone=europe-west1-c --labels delete-cluster-after-hours=12 --no-enable-autoupgrade
 ```  
-3. Create Artifacts registry accodring to [instructions](https://cloud.google.com/artifact-registry/docs/docker/store-docker-container-images#create)  
+3. Create Artifacts registry according to [instructions](https://cloud.google.com/artifact-registry/docs/docker/store-docker-container-images#create)  
 4. Configure access  
 ```sh
 gcloud auth configure-docker <REGISTRY_REGION>-docker.pkg.dev

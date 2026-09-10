@@ -227,6 +227,27 @@ func TestValidateConfigMapSchema(t *testing.T) {
 			providerSpec: providerSpec,
 			wantErr:      "Additional property extra is not allowed",
 		},
+		{
+			name: "empty schema passes validation",
+			configMap: &corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test-configmap",
+					Labels: map[string]string{
+						common.OpenEverestDefinitionLabel: "test-config",
+					},
+				},
+				Data: map[string]string{
+					"endpoint": "https://example.com",
+				},
+			},
+			providerSpec: &corev1alpha1.ProviderSpec{
+				ConfigMaps: map[string]corev1alpha1.ConfigMapDefinition{
+					"test-config": {
+						ParametersSchema: nil,
+					},
+				},
+			},
+		},
 	}
 
 	for _, tt := range tests {

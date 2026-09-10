@@ -34,7 +34,7 @@ import (
 
 var (
 	namespacesUpdateCmd = &cobra.Command{
-		Use:   "update <namespaces> [flags] ",
+		Use:   "update <namespaces> [flags]",
 		Args:  cobra.ExactArgs(1),
 		Long:  "Add database operator to existing namespace managed by Everest",
 		Short: "Add database operator to existing namespace managed by Everest",
@@ -89,7 +89,7 @@ func namespacesUpdatePreRun(cmd *cobra.Command, args []string) {
 	}
 
 	// If user doesn't pass any --operator.* flags - need to ask explicitly.
-	askOperators := !cmd.Flags().Lookup(cli.FlagOperatorMongoDB).Changed && !cmd.Flags().Lookup(cli.FlagOperatorPostgresql).Changed && !cmd.Flags().Lookup(cli.FlagOperatorXtraDBCluster).Changed && !cmd.Flags().Lookup(cli.FlagOperatorMySQL).Changed
+	askOperators := namespaces.ShouldAskOperators(cmd, namespacesUpdateCfg.SkipWizard)
 
 	if askOperators {
 		// need to ask user to provide operators to be installed in interactive mode.

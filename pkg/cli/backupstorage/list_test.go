@@ -28,6 +28,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 
+	"github.com/openeverest/openeverest/v2/client"
 	"github.com/openeverest/openeverest/v2/pkg/cli/config"
 )
 
@@ -171,22 +172,70 @@ func TestBackupStorageList_EmptyResult(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestBackupStorageList_ServerError(t *testing.T) {
+func TestBackupStorageList_ErrorResponses(t *testing.T) {
 	t.Parallel()
 
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusInternalServerError)
-	}))
-	defer srv.Close()
+	tests := []struct {
+		name       string
+		status     int
+		message    string
+		withBody   bool
+		wantSubstr string
+	}{
+		{
+			name:       "400",
+			status:     http.StatusBadRequest,
+			message:    "invalid namespace",
+			withBody:   true,
+			wantSubstr: "server error: invalid namespace",
+		},
+		{
+			name:       "500 with body",
+			status:     http.StatusInternalServerError,
+			message:    "database unavailable",
+			withBody:   true,
+			wantSubstr: "server error: database unavailable",
+		},
+		{
+			name:       "403 via default",
+			status:     http.StatusForbidden,
+			message:    "access denied",
+			withBody:   true,
+			wantSubstr: "server error: access denied",
+		},
+		{
+			name:       "500 without body",
+			status:     http.StatusInternalServerError,
+			withBody:   false,
+			wantSubstr: "unexpected response listing backup storages",
+		},
+	}
 
-	cfg := newTestConfig(srv.URL)
-	cfgPath := filepath.Join(t.TempDir(), "config.yaml")
-	require.NoError(t, cfg.Save(cfgPath))
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 
-	runner := NewListRunner(Config{Pretty: true}, zap.NewNop().Sugar())
-	err := runner.Run(t.Context(), ListOptions{Cluster: "main", Namespace: "everest"}, cfgPath)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "unexpected response")
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				if tt.withBody {
+					w.Header().Set("Content-Type", "application/json")
+					w.WriteHeader(tt.status)
+					_ = json.NewEncoder(w).Encode(map[string]string{"message": tt.message})
+					return
+				}
+				w.WriteHeader(tt.status)
+			}))
+			defer srv.Close()
+
+			c, err := client.NewClientWithResponses(srv.URL)
+			require.NoError(t, err)
+
+			_, err = NewListRunner(Config{}, zap.NewNop().Sugar()).listBackupStorages(
+				t.Context(), c, "main", "everest",
+			)
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), tt.wantSubstr)
+		})
+	}
 }
 
 func TestBackupStorageList_NoActiveContext(t *testing.T) {

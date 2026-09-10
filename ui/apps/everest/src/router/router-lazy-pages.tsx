@@ -31,7 +31,7 @@ export const DatabasePage = lazy(() =>
 );
 
 export const UIGeneratorBuilder = lazy(() =>
-  import('pages/ui-generator-builder/ui-generator-builder').then((module) => ({
+  import('pages/plugin-developer/ui-generator-builder').then((module) => ({
     default: module.UIGeneratorBuilder,
   }))
 );

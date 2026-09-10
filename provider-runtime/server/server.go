@@ -118,7 +118,9 @@ func NewServer(config ServerConfig, validator ValidatorFunc) *Server {
 	}
 }
 
-// SetClient sets the Kubernetes client (called by reconciler after manager is ready).
+// SetClient sets the Kubernetes client. The client is wired before the manager
+// starts; readiness (see SetReady) is what gates traffic until the manager's
+// caches have synced and the client is usable.
 func (s *Server) SetClient(c client.Client) {
 	s.mu.Lock()
 	defer s.mu.Unlock()

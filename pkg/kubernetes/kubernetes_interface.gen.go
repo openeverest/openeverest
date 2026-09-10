@@ -56,6 +56,8 @@ type KubernetesConnector interface {
 	CreateBackupStorage(ctx context.Context, storage *backupv1alpha1.BackupStorage) (*backupv1alpha1.BackupStorage, error)
 	// UpdateBackupStorage updates a backup storage.
 	UpdateBackupStorage(ctx context.Context, storage *backupv1alpha1.BackupStorage) (*backupv1alpha1.BackupStorage, error)
+	// PatchBackupStorage patches a backup storage using the provided patch.
+	PatchBackupStorage(ctx context.Context, storage *backupv1alpha1.BackupStorage, patch ctrlclient.Patch, opts ...ctrlclient.PatchOption) (*backupv1alpha1.BackupStorage, error)
 	// DeleteBackupStorage deletes a backup storage.
 	DeleteBackupStorage(ctx context.Context, obj *backupv1alpha1.BackupStorage) error
 	// GetBackup returns backup that matches the criteria.
@@ -367,8 +369,11 @@ type KubernetesConnector interface {
 	DeleteInstance(ctx context.Context, obj *v1alpha1.Instance) error
 	// CreateInstance creates instance.
 	CreateInstance(ctx context.Context, instance *v1alpha1.Instance) (*v1alpha1.Instance, error)
-	// UpdateInstance updates instance.
+	// UpdateInstance updates instance.This is for PUT operation, which replaces the entire resource with the new one.
+	// If you want to update only specific fields, use PatchInstance instead.
 	UpdateInstance(ctx context.Context, instance *v1alpha1.Instance) (*v1alpha1.Instance, error)
+	// PatchInstance patches instance using the provided patch.
+	PatchInstance(ctx context.Context, instance *v1alpha1.Instance, patch ctrlclient.Patch, opts ...ctrlclient.PatchOption) (*v1alpha1.Instance, error)
 	// ListInstancePresets returns list of instance presets that match the criteria.
 	ListInstancePresets(ctx context.Context, opts ...ctrlclient.ListOption) (*v1alpha1.InstancePresetList, error)
 	// GetInstancePreset returns instance preset that matches the criteria.
@@ -380,10 +385,10 @@ type KubernetesConnector interface {
 	// DeleteInstancePreset deletes an instance preset.
 	DeleteInstancePreset(ctx context.Context, key ctrlclient.ObjectKey) error
 	// WatchBackups returns a watch.Interface that streams
-	// DatabaseClusterBackup events across all namespaces.
+	// Backup events across all namespaces.
 	WatchBackups(ctx context.Context) (watch.Interface, error)
 	// WatchRestores returns a watch.Interface that streams
-	// DatabaseClusterRestore events across all namespaces.
+	// Restore events across all namespaces.
 	WatchRestores(ctx context.Context) (watch.Interface, error)
 	// WatchInstances returns a watch.Interface that streams
 	// Instance events across all namespaces.

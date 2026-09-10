@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package plugins holds commands for the plugin command.
+// Package extension holds commands for the extension command.
 package extension
 
 import (
@@ -30,9 +30,9 @@ var (
 	pluginListCmd = &cobra.Command{
 		Use:     "list [flags]",
 		Args:    cobra.NoArgs,
-		Example: "everestctl plugin list",
-		Long:    "List all installed plugins",
-		Short:   "List all installed plugins",
+		Example: "everestctl extension list",
+		Long:    "List all installed extensions",
+		Short:   "List all installed extensions",
 		PreRun:  pluginListPreRun,
 		Run:     pluginListRun,
 	}
@@ -57,7 +57,7 @@ func pluginListRun(cmd *cobra.Command, _ []string) { //nolint:revive
 	}
 }
 
-// GetListCmd returns the command to list plugins.
+// GetListCmd returns the command to list extensions.
 func GetListCmd() *cobra.Command {
 	return pluginListCmd
 }

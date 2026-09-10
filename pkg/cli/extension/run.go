@@ -27,7 +27,7 @@ import (
 	"github.com/openeverest/openeverest/v2/pkg/kubernetes"
 )
 
-// RunConfig holds configuration for the plugin run operation.
+// RunConfig holds configuration for the extension run operation.
 type RunConfig struct {
 	KubeconfigPath string
 	Pretty         bool
@@ -36,7 +36,7 @@ type RunConfig struct {
 	ExtraArgs      []string
 }
 
-// PluginRunner executes a plugin's CLI container.
+// PluginRunner executes an extension's CLI container.
 type PluginRunner struct {
 	cfg        RunConfig
 	kubeClient kubernetes.KubernetesConnector

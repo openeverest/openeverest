@@ -12,34 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useQueryClient } from '@tanstack/react-query';
 import { FormDialog } from 'components/form-dialog';
-import { useBackupsList } from 'hooks/api/backups/useBackups';
-import {
-  getRestoresListQueryKey,
-  useCreateRestoreFromBackup,
-} from 'hooks/api/restores/useDbClusterRestore';
-import { useClusterName } from 'hooks/api/useClusterName';
-import { BackupStatus } from 'shared-types/backups.types';
-import {
-  BackupTypeValues,
-  defaultValues,
-  RestoreDbFormData,
-  schema,
-} from './restore-db-modal-schema';
 import { Messages } from './restore-db-modal.messages';
 import { ModalContent } from './modal-content';
-import {
-  RestorableBackupOption,
-  RestoreDbModalProps,
-} from './restore-db-modal.types';
-import {
-  getBackupName,
-  getMetadataCreationTimestamp,
-  getSafeTimeValue,
-} from './restore-db-modal.utils';
+import { RestoreDbModalProps } from './restore-db-modal.types';
+import { useRestoreDbModal } from './useRestoreDbModal';
 
 const RestoreDbModal = ({
   isOpen,
@@ -47,96 +24,23 @@ const RestoreDbModal = ({
   instanceName,
   namespace,
   isNewClusterMode = false,
+  preselectedBackupName,
 }: RestoreDbModalProps) => {
-  const clusterName = useClusterName();
-  const queryClient = useQueryClient();
-  const navigate = useNavigate();
-
-  const { data: backups = [], isLoading } = useBackupsList(
-    clusterName,
-    namespace,
+  const {
+    isLoading,
+    succeededBackups,
+    pitrStorages,
+    submitting,
+    restoreSchema,
+    formDefaultValues,
+    onSubmit,
+  } = useRestoreDbModal({
     instanceName,
-    { enabled: !!instanceName }
-  );
-
-  // TODO: Re-enable PITR hooks when PITR restore flow is implemented.
-  // const { data: pitrData } = useDbClusterPitr(instanceName, namespace, {
-  //   queryKey: [instanceName, namespace, 'pitr', 'restore-modal'],
-  //   gcTime: 0,
-  // });
-
-  const succeededBackups = useMemo<RestorableBackupOption[]>(() => {
-    return backups
-      .filter((backup) => backup.status?.state === BackupStatus.SUCCEEDED)
-      .map((backup) => ({
-        name: getBackupName(backup),
-        startedAt:
-          backup.status?.startedAt ?? getMetadataCreationTimestamp(backup),
-      }))
-      .filter((backup) => !!backup.name)
-      .sort(
-        (a, b) => getSafeTimeValue(b.startedAt) - getSafeTimeValue(a.startedAt)
-      );
-  }, [backups]);
-
-  const { mutate: createRestore, isPending: restoringFromBackup } =
-    useCreateRestoreFromBackup(clusterName, namespace);
-
-  // TODO: Re-enable PITR mutation when PITR restore flow is implemented.
-  // const {
-  //   mutate: restoreBackupFromPointInTime,
-  //   isPending: restoringFromPointInTime,
-  // } = useDbClusterRestoreFromPointInTime(instanceName);
-
-  // TODO: Re-enable PITR schema when PITR restore flow is implemented.
-  // const pitrSchema = useMemo(
-  //   () => schema(!!pitrData?.gaps, pitrData?.earliestDate, pitrData?.latestDate),
-  //   [pitrData]
-  // );
-
-  const handleSubmit = ({ backupName, backupType }: RestoreDbFormData) => {
-    if (backupType === BackupTypeValues.fromBackup) {
-      if (!backupName) {
-        return;
-      }
-
-      if (isNewClusterMode) {
-        closeModal();
-        navigate('/databases/new', {
-          state: {
-            selectedDbCluster: instanceName,
-            backupName,
-            namespace,
-          },
-        });
-        return;
-      }
-
-      createRestore(
-        { instanceName, backupName },
-        {
-          onSuccess: () => {
-            queryClient.invalidateQueries({
-              queryKey: getRestoresListQueryKey(
-                clusterName,
-                namespace,
-                instanceName
-              ),
-            });
-            closeModal();
-          },
-        }
-      );
-      return;
-    }
-
-    // TODO: Re-enable PITR submit branch when PITR restore flow is implemented.
-    // restoreBackupFromPointInTime({
-    //   backupName: pitrBackupName,
-    //   namespace,
-    //   pointInTimeDate,
-    // });
-  };
+    namespace,
+    isNewClusterMode,
+    preselectedBackupName,
+    closeModal,
+  });
 
   return (
     <FormDialog
@@ -147,20 +51,17 @@ const RestoreDbModal = ({
       headerMessage={
         isNewClusterMode ? Messages.headerMessageCreate : Messages.headerMessage
       }
-      // TODO: Re-enable PITR schema when PITR restore flow is implemented.
-      // schema={pitrSchema}
-      schema={schema()}
-      // TODO: Re-enable PITR pending state when PITR restore flow is implemented.
-      // submitting={restoringFromBackup || restoringFromPointInTime}
-      submitting={restoringFromBackup}
-      defaultValues={defaultValues}
-      onSubmit={handleSubmit}
+      schema={restoreSchema}
+      submitting={submitting}
+      defaultValues={formDefaultValues}
+      onSubmit={onSubmit}
       submitMessage={isNewClusterMode ? Messages.create : Messages.restore}
     >
       <ModalContent
         isLoading={isLoading}
         header={isNewClusterMode ? Messages.subHeadCreate : Messages.subHead}
         succeededBackups={succeededBackups}
+        pitrStorages={pitrStorages}
       />
     </FormDialog>
   );

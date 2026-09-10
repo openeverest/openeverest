@@ -50,6 +50,30 @@ type Context struct {
 	// flush the corresponding condition onto the Instance after Sync. It is
 	// nil when the provider has not invoked the helper this reconcile pass.
 	dataSourceStatus *DataSourceStatus
+
+	// pendingMaintenance collects the actions RequestMaintenance held this
+	// reconcile pass; the reconciler flushes them to
+	// status.pendingMaintenance after Sync.
+	pendingMaintenance []v1alpha1.PendingMaintenanceAction
+
+	// approvedMaintenance collects the tokens of disruptive actions
+	// RequestMaintenance approved this pass, so the reconciler can count
+	// Sync failures against them.
+	approvedMaintenance []string
+
+	// blockedMaintenance holds tokens whose retries are exhausted; the
+	// reconciler sets it before Sync and RequestMaintenance holds them
+	// despite approval.
+	blockedMaintenance map[string]struct{}
+
+	// maintenanceBreakerHeld reports that at least one action was held this
+	// pass because its retries were exhausted.
+	maintenanceBreakerHeld bool
+
+	// maintenanceRequested reports that the provider invoked
+	// RequestMaintenance at least once this pass, so the staged pending set
+	// is authoritative even when Sync later fails.
+	maintenanceRequested bool
 }
 
 // NewContext creates a new Context handle (used internally by the reconciler).
@@ -670,8 +694,8 @@ func (c *Context) BackupStorageCredentials(bs *backupv1alpha1.BackupStorage) (ac
 }
 
 // BackupsForInstance lists all Backup CRs in the instance namespace whose
-// .spec.instanceRef.name matches this Instance. Requires the field index
-// ".spec.instanceRef.name" on backupv1alpha1.Backup, which the runtime registers
+// .spec.origin.instanceRef.name matches this Instance. Requires the field index
+// ".spec.origin.instanceRef.name" on backupv1alpha1.Backup, which the runtime registers
 // automatically when the provider implements BackupProvider.
 func (c *Context) BackupsForInstance() ([]backupv1alpha1.Backup, error) {
 	list := &backupv1alpha1.BackupList{}
@@ -697,8 +721,8 @@ func (c *Context) RestoresForInstance() ([]backupv1alpha1.Restore, error) {
 	return list.Items, nil
 }
 
-// IndexBackupInstanceName is the field index path used for Backup.spec.instanceRef.name.
-const IndexBackupInstanceName = "spec.instanceRef.name"
+// IndexBackupInstanceName is the field index path used for Backup.spec.origin.instanceRef.name.
+const IndexBackupInstanceName = "spec.origin.instanceRef.name"
 
 // IndexRestoreInstanceName is the field index path used for Restore.spec.instanceRef.name.
 const IndexRestoreInstanceName = "spec.instanceRef.name"
@@ -859,48 +883,31 @@ func (c *Context) ReconcileDataSource() (DataSourceStatus, error) {
 		return s, nil
 	}
 
-	// 1. Source Backup must exist and be Succeeded.
-	backupName := ds.Backup.BackupRef.Name
-	src := &backupv1alpha1.Backup{}
-	if err := c.Get(src, backupName); err != nil {
-		if apierrors.IsNotFound(err) {
-			s := DataSourceStatus{
-				Done:    false,
-				State:   DataSourceStateWaiting,
-				Reason:  v1alpha1.ReasonDataSourceSourceBackupNotFound,
-				Message: fmt.Sprintf("source Backup %q not found in namespace %q", backupName, c.in.Namespace),
-			}
-			c.SetDataSourceStatus(s)
-			return s, nil
-		}
-		return DataSourceStatus{}, fmt.Errorf("get source Backup %q: %w", backupName, err)
+	// 1. Resolve the source and the read BackupClass that describes it.
+	origin, waiting, err := c.resolveDataSourceOrigin(ds)
+	if err != nil {
+		return DataSourceStatus{}, err
 	}
-	if src.Status.State != backupv1alpha1.BackupStateSucceeded {
-		s := DataSourceStatus{
-			Done:    false,
-			State:   DataSourceStateWaiting,
-			Reason:  v1alpha1.ReasonDataSourceSourceBackupNotSucceeded,
-			Message: fmt.Sprintf("source Backup %q is in state %q, waiting for Succeeded", backupName, src.Status.State),
-		}
-		c.SetDataSourceStatus(s)
-		return s, nil
+	if waiting != nil {
+		c.SetDataSourceStatus(*waiting)
+		return *waiting, nil
 	}
 
-	// 2. The source Backup's BackupClass must be ProviderManaged and support
-	// this Instance's provider.
-	bc, err := c.BackupClass(src.Spec.ClassRef.Name)
+	// 2. The resolved BackupClass must be ProviderManaged and support this
+	// Instance's provider.
+	bc, err := c.BackupClass(origin.classRefName)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			s := DataSourceStatus{
 				Done:    false,
 				State:   DataSourceStateWaiting,
 				Reason:  v1alpha1.ReasonDataSourceClassUnsupported,
-				Message: fmt.Sprintf("BackupClass %q referenced by source Backup not found", src.Spec.ClassRef.Name),
+				Message: fmt.Sprintf("BackupClass %q resolved from %s not found", origin.classRefName, origin.description),
 			}
 			c.SetDataSourceStatus(s)
 			return s, nil
 		}
-		return DataSourceStatus{}, fmt.Errorf("get BackupClass %q: %w", src.Spec.ClassRef.Name, err)
+		return DataSourceStatus{}, fmt.Errorf("get BackupClass %q: %w", origin.classRefName, err)
 	}
 	if bc.Spec.ExecutionMode != backupv1alpha1.BackupExecutionModeProviderManaged {
 		s := DataSourceStatus{
@@ -912,7 +919,7 @@ func (c *Context) ReconcileDataSource() (DataSourceStatus, error) {
 		c.SetDataSourceStatus(s)
 		return s, nil
 	}
-	if !bc.Spec.SupportedProviders.Has(c.providerName) {
+	if err := ValidateClassSupportsProvider(bc, c.providerName); err != nil {
 		s := DataSourceStatus{
 			Done:    true,
 			State:   DataSourceStateFailed,
@@ -922,15 +929,28 @@ func (c *Context) ReconcileDataSource() (DataSourceStatus, error) {
 		c.SetDataSourceStatus(s)
 		return s, nil
 	}
+	if ds.Type == backupv1alpha1.DataSourceTypePointInTime &&
+		(bc.Spec.ProviderManaged == nil || !bc.Spec.ProviderManaged.SupportsPITR) {
+		s := DataSourceStatus{
+			Done:    true,
+			State:   DataSourceStateFailed,
+			Reason:  v1alpha1.ReasonDataSourcePITRUnsupported,
+			Message: fmt.Sprintf("BackupClass %q does not support point-in-time recovery", bc.Name),
+		}
+		c.SetDataSourceStatus(s)
+		return s, nil
+	}
 
-	// 3. Target Instance must register the same BackupStorage as the source
-	// Backup so the provider can read the data.
-	if c.in.Spec.Backup == nil || !hasInstanceStorage(c.in.Spec.Backup, src.Spec.StorageRef.Name) {
+	// 3. Target Instance must register the same BackupStorage as the source so
+	// the provider can read the data. Only enforceable when the source pins a
+	// single storage; a point-in-time source named by Instance alone does not.
+	if origin.storageName != "" &&
+		(c.in.Spec.Backup == nil || !hasInstanceStorage(c.in.Spec.Backup, origin.storageName)) {
 		s := DataSourceStatus{
 			Done:    false,
 			State:   DataSourceStateWaiting,
 			Reason:  v1alpha1.ReasonDataSourceStorageMismatch,
-			Message: fmt.Sprintf("Instance.spec.backup.storages does not include storage %q used by source Backup %q", src.Spec.StorageRef.Name, src.Name),
+			Message: fmt.Sprintf("Instance.spec.backup.storages does not include storage %q used by %s", origin.storageName, origin.description),
 		}
 		c.SetDataSourceStatus(s)
 		return s, nil
@@ -965,7 +985,7 @@ func (c *Context) ReconcileDataSource() (DataSourceStatus, error) {
 		s.Done = true
 		s.State = DataSourceStateSucceeded
 		s.Reason = v1alpha1.ReasonDataSourceSucceeded
-		s.Message = fmt.Sprintf("Instance seeded from Backup %q via Restore %q", backupName, restoreName)
+		s.Message = fmt.Sprintf("Instance seeded from %s via Restore %q", origin.description, restoreName)
 	case backupv1alpha1.RestoreStateFailed:
 		s.Done = true
 		s.State = DataSourceStateFailed
@@ -983,6 +1003,152 @@ func (c *Context) ReconcileDataSource() (DataSourceStatus, error) {
 	}
 	c.SetDataSourceStatus(s)
 	return s, nil
+}
+
+// dataSourceOrigin describes where a DataSource reads from: the BackupClass
+// that says how the data was written (and therefore how it must be read), the
+// BackupStorage it must be read from, and a human-readable description used in
+// status messages.
+type dataSourceOrigin struct {
+	classRefName string
+	storageName  string
+	description  string
+}
+
+// resolveDataSourceOrigin inspects the DataSource and resolves where it reads
+// from.
+//
+// A non-nil DataSourceStatus means the source is not usable yet and the caller
+// should surface that status verbatim without progressing.
+func (c *Context) resolveDataSourceOrigin(
+	ds *backupv1alpha1.DataSource,
+) (*dataSourceOrigin, *DataSourceStatus, error) {
+	switch ds.Type {
+	case backupv1alpha1.DataSourceTypeBackup:
+		return c.resolveBackupOrigin(ds)
+	case backupv1alpha1.DataSourceTypePointInTime:
+		return c.resolvePointInTimeOrigin(ds)
+	default:
+		return nil, &DataSourceStatus{
+			Done:    true,
+			State:   DataSourceStateFailed,
+			Reason:  v1alpha1.ReasonDataSourceFailed,
+			Message: fmt.Sprintf("unsupported dataSource type %q", ds.Type),
+		}, nil
+	}
+}
+
+// resolveBackupOrigin resolves a type=Backup data source: the class and storage
+// come from the referenced Backup, which must exist and have Succeeded.
+func (c *Context) resolveBackupOrigin(
+	ds *backupv1alpha1.DataSource,
+) (*dataSourceOrigin, *DataSourceStatus, error) {
+	backupName := ds.Backup.BackupRef.Name
+	src := &backupv1alpha1.Backup{}
+	if err := c.Get(src, backupName); err != nil {
+		if apierrors.IsNotFound(err) {
+			return nil, &DataSourceStatus{
+				Done:    false,
+				State:   DataSourceStateWaiting,
+				Reason:  v1alpha1.ReasonDataSourceSourceBackupNotFound,
+				Message: fmt.Sprintf("source Backup %q not found in namespace %q", backupName, c.in.Namespace),
+			}, nil
+		}
+		return nil, nil, fmt.Errorf("get source Backup %q: %w", backupName, err)
+	}
+
+	if vErr := ValidateBackupSucceeded(src); vErr != nil {
+		// A backup that has not Succeeded is a state to wait in, not a
+		// reconcile failure, so the validation error becomes status.
+		waiting := &DataSourceStatus{
+			Done:    false,
+			State:   DataSourceStateWaiting,
+			Reason:  v1alpha1.ReasonDataSourceSourceBackupNotSucceeded,
+			Message: fmt.Sprintf("source Backup %q is in state %q, waiting for Succeeded", backupName, src.Status.State),
+		}
+		return nil, waiting, nil //nolint:nilerr // reported as status, see above
+	}
+
+	return &dataSourceOrigin{
+		classRefName: src.Spec.ClassRef.Name,
+		storageName:  src.Spec.StorageRef.Name,
+		description:  fmt.Sprintf("Backup %q", backupName),
+	}, nil, nil
+}
+
+// resolvePointInTimeOrigin resolves a type=PointInTime data source: the class
+// comes from the Instance that owns the stream.
+//
+// A storage may hold the streams of many Instances, so seeding requires an
+// explicit instanceRef -- unlike a Restore, where it defaults to the target
+// Instance. A schema rule enforces this; the check is repeated for defense in
+// depth on paths that bypass admission.
+func (c *Context) resolvePointInTimeOrigin(
+	ds *backupv1alpha1.DataSource,
+) (*dataSourceOrigin, *DataSourceStatus, error) {
+	src := ds.PointInTime.Source
+	if src.InstanceRef == nil {
+		return nil, &DataSourceStatus{
+			Done:    true,
+			State:   DataSourceStateFailed,
+			Reason:  v1alpha1.ReasonDataSourceSourceInstanceNotFound,
+			Message: "spec.dataSource.pointInTime.source.instanceRef is required when seeding an Instance from a point in time",
+		}, nil
+	}
+	instanceName := src.InstanceRef.Name
+
+	srcInstance, waiting, err := c.sourceInstance(instanceName)
+	if err != nil || waiting != nil {
+		return nil, waiting, err
+	}
+
+	if srcInstance.Spec.Backup == nil || srcInstance.Spec.Backup.ClassRef.Name == "" {
+		return nil, &DataSourceStatus{
+			Done:    false,
+			State:   DataSourceStateWaiting,
+			Reason:  v1alpha1.ReasonDataSourceClassUnsupported,
+			Message: fmt.Sprintf("Instance %q has no backup class configured; cannot resolve how to read its point-in-time stream", instanceName),
+		}, nil
+	}
+
+	if vErr := ValidatePITRStorage(ds.PointInTime, srcInstance); vErr != nil {
+		// Terminal rather than a wait: requeueing cannot turn a storage that
+		// is not archiving into one that is, so this is reported as status.
+		failed := &DataSourceStatus{
+			Done:    true,
+			State:   DataSourceStateFailed,
+			Reason:  v1alpha1.ReasonDataSourcePITRUnsupported,
+			Message: vErr.Error(),
+		}
+		return nil, failed, nil //nolint:nilerr // reported as status, see above
+	}
+
+	return &dataSourceOrigin{
+		classRefName: srcInstance.Spec.Backup.ClassRef.Name,
+		storageName:  src.StorageRef.Name,
+		description:  fmt.Sprintf("point-in-time stream of Instance %q", instanceName),
+	}, nil, nil
+}
+
+// sourceInstance returns the Instance owning a backup stream. The Instance
+// being reconciled is returned directly when it is its own source.
+func (c *Context) sourceInstance(name string) (*v1alpha1.Instance, *DataSourceStatus, error) {
+	if name == c.in.Name {
+		return c.in, nil, nil
+	}
+	out := &v1alpha1.Instance{}
+	if err := c.Get(out, name); err != nil {
+		if apierrors.IsNotFound(err) {
+			return nil, &DataSourceStatus{
+				Done:    false,
+				State:   DataSourceStateWaiting,
+				Reason:  v1alpha1.ReasonDataSourceSourceInstanceNotFound,
+				Message: fmt.Sprintf("source Instance %q not found in namespace %q", name, c.in.Namespace),
+			}, nil
+		}
+		return nil, nil, fmt.Errorf("get source Instance %q: %w", name, err)
+	}
+	return out, nil, nil
 }
 
 // hasInstanceStorage reports whether the InstanceBackupSpec declares a storage
@@ -1041,4 +1207,39 @@ func RequestsForInstancesMatching(ctx context.Context, c client.Client, provider
 		})
 	}
 	return requests, nil
+}
+
+// ReconcileExternalBackupStatus validates an external Backup and
+// records its state on backup.Status. An external Backup carries no live
+// Instance and runs no job: it is a reference to backup data already sitting
+// in a BackupStorage. The startedAt and completedAt timestamps are supplied by
+// the creator on spec.origin.external and mirrored to status here. The state is
+// set to Succeeded when those timestamps are present.
+//
+// Both Job-mode and ProviderManaged backups share this reconciliation of backup
+// status; there is no engine specific logic to validate an external backup to
+// set the state.
+func ReconcileExternalBackupStatus(backup *backupv1alpha1.Backup) {
+	external := backup.Spec.Origin.External
+	if external == nil {
+		backup.Status.State = backupv1alpha1.BackupStateFailed
+		backup.Status.Message = "external backup must have spec.origin.external set"
+		return
+	}
+
+	if external.StartedAt.IsZero() {
+		backup.Status.State = backupv1alpha1.BackupStateFailed
+		backup.Status.Message = "external backup must have a startedAt timestamp"
+		return
+	}
+
+	if external.CompletedAt.IsZero() {
+		backup.Status.State = backupv1alpha1.BackupStateFailed
+		backup.Status.Message = "external backup must have a completedAt timestamp"
+		return
+	}
+
+	backup.Status.StartedAt = external.StartedAt.DeepCopy()
+	backup.Status.CompletedAt = external.CompletedAt.DeepCopy()
+	backup.Status.State = backupv1alpha1.BackupStateSucceeded
 }

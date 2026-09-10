@@ -89,13 +89,14 @@ func (store *RateLimiterMemoryStore) Allow(identifier string) (bool, error) {
 	}
 	now := store.timeNow()
 	sinceLastFailure := now.Sub(limiter.lastSeen)
+	timeout := limiter.timeout
 
 	limiter.lastSeen = now
 	if now.Sub(store.lastCleanup) > store.expiresIn {
 		store.cleanupStaleVisitors()
 	}
 	store.mutex.Unlock()
-	return limiter.AllowN(store.timeNow(), 1) && sinceLastFailure > limiter.timeout, nil
+	return limiter.AllowN(store.timeNow(), 1) && sinceLastFailure > timeout, nil
 }
 
 // CleanupVisitor removes the data about previous failures. To be used when a successful opetation was performed.

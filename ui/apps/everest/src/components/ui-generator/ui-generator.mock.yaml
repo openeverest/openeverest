@@ -64,6 +64,13 @@ replicaSet:
       label: 'Advanced configuration'
       description: 'Configure advanced settings for your database'
       components:
+        monitoringEnabled:
+          uiType: toggle
+          path: spec.monitoring.enabled
+          fieldParams:
+            label: Enable monitoring
+            helperText: Collect metrics for this database cluster
+            defaultValue: false
         storageClass:
           uiType: select
           path: spec.components.engine.storage.storageClass

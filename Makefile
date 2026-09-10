@@ -23,9 +23,11 @@ help: ## Display this help.
 	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage:\n  make \033[36m<target>\033[0m\n"} /^[a-zA-Z_0-9-]+:.*?##/ { printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2 } /^##@/ { printf "\n\033[1m%s\033[0m\n", substr($$0, 5) } ' $(MAKEFILE_LIST)
 
 ## Location to install binaries to
-CWD = $(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))
+CWD := $(CURDIR)
 LOCALBIN := $(CWD)/bin
-$(LOCALBIN):
+
+.PHONY: ensure-localbin
+ensure-localbin:
 	mkdir -p "$(LOCALBIN)"
 
 CONTROLLER_GEN ?= $(LOCALBIN)/controller-gen
@@ -116,7 +118,7 @@ copyright-run:
 			printf '%s\0' "$$file"; \
 		done > "$$TMP_FILES_LIST"; \
 	else \
-		BASE_BRANCH_LOCAL=$${BASE_BRANCH:-v2}; \
+		BASE_BRANCH_LOCAL=$${BASE_BRANCH:-main}; \
 		if ! BASE=$$(git merge-base HEAD "$$BASE_BRANCH_LOCAL" 2>/dev/null); then \
 			echo "Failed to determine merge base with '$$BASE_BRANCH_LOCAL'. Ensure the branch exists and is fetched, or set BASE_BRANCH explicitly."; \
 			exit 1; \
@@ -161,7 +163,7 @@ SERVER_GC_FLAGS =
 # arch) so release builds can produce a binary per target architecture.
 .PHONY: build-server
 build-server-helper: GOOS = linux
-build-server-helper: $(LOCALBIN)
+build-server-helper: ensure-localbin
 # We need to ensure that /public/dist/index.html exists before building Everest
 # API server because it's embedded into the binary and missing file will cause
 # build failure. We avoid touching the file if it already exists to prevent
@@ -198,7 +200,7 @@ CLI_GC_FLAGS =
 
 # Helper target to build Everest CLI binary.
 .PHONY: build-cli-helper
-build-cli-helper: $(LOCALBIN) charts
+build-cli-helper: ensure-localbin charts
 	$(info Building Everest CLI for $(GOOS)/$(GOARCH) with CGO_ENABLED=$(CGO_ENABLED))
 	go build -v $(CLI_BUILD_TAGS) $(CLI_GC_FLAGS) -ldflags "$(CLI_LD_FLAGS)" -o "$(LOCALBIN)/everestctl" ./cmd/cli
 
@@ -240,9 +242,9 @@ CONTROLLER_GC_FLAGS =
 # release builds can produce a binary per target architecture.
 .PHONY: build-controller-helper
 build-controller-helper: GOOS = linux
-build-controller-helper: $(LOCALBIN)
+build-controller-helper: ensure-localbin
 	$(info Building Everest controller manager for $(GOOS)/$(GOARCH) with CGO_ENABLED=$(CGO_ENABLED))
-	go build -v $(CONTROLLER_BUILD_TAGS) $(CONTROLLER_GC_FLAGS) -ldflags "$(CONTROLLER_LD_FLAGS)" -o $(LOCALBIN)/manager ./cmd/controller
+	go build -v $(CONTROLLER_BUILD_TAGS) $(CONTROLLER_GC_FLAGS) -ldflags "$(CONTROLLER_LD_FLAGS)" -o "$(LOCALBIN)/manager" ./cmd/controller
 
 .PHONY: build-controller
 build-controller: CONTROLLER_LD_FLAGS += -s -w
@@ -372,7 +374,7 @@ undeploy: build-cli-debug ## Undeploy Everest from K8S cluster using Everest CLI
 .PHONY: add-shared-everest-namespace
 add-shared-everest-namespace: ## Add shared Everest namespace with all operators (usage: DB_NAMESPACES=everest make add-shared-everest-namespace).
 	$(info Adding shared namespaces=${DB_NAMESPACES} to Everest using everestctl)
-	$(LOCALBIN)/everestctl namespaces add $(DB_NAMESPACES) -v \
+	"$(LOCALBIN)/everestctl" namespaces add $(DB_NAMESPACES) -v \
 	--operator.mongodb=true \
 	--operator.postgresql=true \
 	--operator.mysql=true \
@@ -389,8 +391,8 @@ k3d-cluster-up: ## Create a K8S cluster for testing.
 	$(info Creating K3D cluster for testing)
 	k3d cluster create --config ./dev/k3d_config.yaml
 
-.PHONY: k3d-cluster-up
-k3d-cluster-down: ## Create a K8S cluster for testing.
+.PHONY: k3d-cluster-down
+k3d-cluster-down: ## Destroy the K8S cluster for testing.
 	$(info Destroying K3D test cluster)
 	k3d cluster delete --config ./dev/k3d_config.yaml
 
@@ -450,12 +452,31 @@ dev-destroy: k3d-cluster-down-dev ## Destroy the k3d cluster.
 
 ##@ GitHub PR
 
-CHART_BRANCH ?= v2
+CHART_BRANCH ?= main
 .PHONY: update-dev-chart
-update-dev-chart: ## Update dependency to Everest Helm chart to the latest version from the specified branch (default v2).
-	COMMIT=$$(git ls-remote https://github.com/openeverest/helm-charts refs/heads/$(CHART_BRANCH) | cut -f1) && \
+update-dev-chart: ## Update dependency to Everest Helm chart to the latest version from the specified branch (default main).
+	@COMMIT=$$(git ls-remote --exit-code https://github.com/openeverest/helm-charts refs/heads/$(CHART_BRANCH) | cut -f1) || \
+		{ echo "helm-charts branch '$(CHART_BRANCH)' not found. Set CHART_BRANCH to an existing branch."; exit 1; }; \
 	go get -u github.com/openeverest/helm-charts/charts/everest@$$COMMIT
 	go mod tidy
+
+.PHONY: check-dev-chart
+check-dev-chart: ## Verify the pinned Everest Helm chart commit is on CHART_BRANCH.
+	@PINNED=$$(go list -m -f '{{.Version}}' github.com/openeverest/helm-charts/charts/everest) && \
+	SHA=$${PINNED##*-} && \
+	TMP=$$(mktemp -d) && trap 'rm -rf "$$TMP"' EXIT && \
+	git clone --quiet --filter=blob:none --no-checkout --single-branch \
+		--branch $(CHART_BRANCH) https://github.com/openeverest/helm-charts "$$TMP" && \
+	if ! git -C "$$TMP" cat-file -e "$$SHA^{commit}" 2>/dev/null; then \
+		echo "Pinned chart commit $$SHA is not on helm-charts/$(CHART_BRANCH)."; \
+		echo "Run 'make update-dev-chart' to move the pin to the branch tip."; \
+		exit 1; \
+	fi; \
+	if ! git -C "$$TMP" merge-base --is-ancestor "$$SHA" HEAD; then \
+		echo "Pinned chart commit $$SHA is not an ancestor of helm-charts/$(CHART_BRANCH)."; \
+		exit 1; \
+	fi; \
+	echo "Pinned chart commit $$SHA is on helm-charts/$(CHART_BRANCH) ($$(git -C "$$TMP" rev-list --count "$$SHA"..HEAD) commit(s) behind tip)."
 
 EVEREST_OPERATOR_BRANCH ?= main
 .PHONY: update-dev-everest-operator
@@ -470,11 +491,11 @@ prepare-pr: gen ## Prepare code for pushing to GitHub PR (includes 'update-dev-c
 
 .PHONY: gen-crds-deepcopy
 gen-crds-deepcopy: controller-gen ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
-	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./..."
+	"$(CONTROLLER_GEN)" object:headerFile="hack/boilerplate.go.txt" paths="./..."
 
 .PHONY: gen-crds-manifests
 gen-crds-manifests: controller-gen ## Generate WebhookConfiguration, ClusterRole and CustomResourceDefinition objects.
-	$(CONTROLLER_GEN) rbac:roleName=manager-role crd:allowDangerousTypes=true webhook paths="./..." output:crd:artifacts:config=config/crd/bases
+	"$(CONTROLLER_GEN)" rbac:roleName=manager-role crd:allowDangerousTypes=true webhook paths="./..." output:crd:artifacts:config=config/crd/bases
 
 ##@ Kustomize Deployment
 
@@ -512,7 +533,7 @@ deploy-test-controller: gen-crds-manifests kustomize deploy-cert-manager
 	kubectl apply -f https://raw.githubusercontent.com/VictoriaMetrics/operator/v$(VICTORIAMETRICS_OPERATOR_VERSION)/config/crd/overlay/crd.yaml
 	kubectl wait --for condition=established --timeout=10s crd vmagents.operator.victoriametrics.com
 	cd config/test && "$(KUSTOMIZE)" edit set image controller=${EVEREST_CONTROLLER_IMG}
-	$(KUSTOMIZE) build config/test | kubectl apply -f -
+	"$(KUSTOMIZE)" build config/test | kubectl apply -f -
 	kubectl delete pod -n openeverest-system -l control-plane=controller-manager
 	$(MAKE) wait-test-controller
 
@@ -523,14 +544,12 @@ wait-test-controller: # Wait for the test controller deployment to be available.
 ##@ Dependencies
 
 .PHONY: controller-gen
-controller-gen: $(CONTROLLER_GEN) ## Download controller-gen locally if necessary. If wrong version is installed, it will be overwritten.
-$(CONTROLLER_GEN): $(LOCALBIN)
-	test -s $(LOCALBIN)/controller-gen && $(LOCALBIN)/controller-gen --version | grep -q $(CONTROLLER_TOOLS_VERSION) || \
-	GOBIN=$(LOCALBIN) go install sigs.k8s.io/controller-tools/cmd/controller-gen@$(CONTROLLER_TOOLS_VERSION)
+controller-gen: ensure-localbin ## Download controller-gen locally if necessary. If wrong version is installed, it will be overwritten.
+	test -s "$(LOCALBIN)/controller-gen" && "$(LOCALBIN)/controller-gen" --version | grep -q $(CONTROLLER_TOOLS_VERSION) || \
+	GOBIN="$(LOCALBIN)" go install sigs.k8s.io/controller-tools/cmd/controller-gen@$(CONTROLLER_TOOLS_VERSION)
 
 .PHONY: kustomize
-kustomize: $(KUSTOMIZE) ## Download kustomize locally if necessary.
-$(KUSTOMIZE): $(LOCALBIN)
+kustomize: ensure-localbin ## Download kustomize locally if necessary.
 	$(call go-install-tool,$(KUSTOMIZE),sigs.k8s.io/kustomize/kustomize/v5,$(KUSTOMIZE_VERSION))
 
 .PHONY: setup-envtest
@@ -542,8 +561,7 @@ setup-envtest: envtest ## Download the binaries required for ENVTEST.
 	}
 
 .PHONY: envtest
-envtest: $(ENVTEST) ## Download setup-envtest locally if necessary.
-$(ENVTEST): $(LOCALBIN)
+envtest: ensure-localbin ## Download setup-envtest locally if necessary.
 	$(call go-install-tool,$(ENVTEST),sigs.k8s.io/controller-runtime/tools/setup-envtest,$(ENVTEST_VERSION))
 
 .PHONY: deploy-cert-manager

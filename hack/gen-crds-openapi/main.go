@@ -79,6 +79,8 @@ func run(crdDir, outputFile string, goSources []string) error {
 		}
 	}
 
+	schemas[objectMetaSchemaName] = objectMetaSchema()
+
 	spec := &openapi3.T{
 		OpenAPI: "3.0.2",
 		Info: &openapi3.Info{
@@ -109,6 +111,65 @@ func run(crdDir, outputFile string, goSources []string) error {
 
 	fmt.Printf("Successfully extracted %d schemas to %s\n", len(schemas), outputFile)
 	return nil
+}
+
+// objectMetaSchemaName is the name of the shared component schema describing
+// Kubernetes object metadata.
+const objectMetaSchemaName = "ObjectMeta"
+
+// objectMetaSchema returns the shared schema for Kubernetes object metadata:
+// a curated subset of metav1.ObjectMeta covering the fields the Everest API
+// serves and accepts. Write-only machinery fields (managedFields,
+// ownerReferences, finalizers) are deliberately omitted; additional properties
+// remain allowed so such fields still pass request validation. The x-go-type
+// extensions make the Go generators emit an alias to the canonical
+// metav1.ObjectMeta instead of a structural look-alike.
+func objectMetaSchema() *openapi3.SchemaRef {
+	str := func(desc string) *openapi3.SchemaRef {
+		return openapi3.NewSchemaRef("", &openapi3.Schema{
+			Type:        &openapi3.Types{openapi3.TypeString},
+			Description: desc,
+		})
+	}
+	dateTime := func(desc string) *openapi3.SchemaRef {
+		return openapi3.NewSchemaRef("", &openapi3.Schema{
+			Type:        &openapi3.Types{openapi3.TypeString},
+			Format:      "date-time",
+			Description: desc,
+		})
+	}
+	stringMap := func(desc string) *openapi3.SchemaRef {
+		return openapi3.NewSchemaRef("", &openapi3.Schema{
+			Type:        &openapi3.Types{openapi3.TypeObject},
+			Description: desc,
+			AdditionalProperties: openapi3.AdditionalProperties{
+				Schema: openapi3.NewSchemaRef("", &openapi3.Schema{Type: &openapi3.Types{openapi3.TypeString}}),
+			},
+		})
+	}
+
+	return openapi3.NewSchemaRef("", &openapi3.Schema{
+		Type:        &openapi3.Types{openapi3.TypeObject},
+		Description: "ObjectMeta is the standard Kubernetes object metadata. Only the fields relevant to the Everest API are described; unknown fields are accepted but may be ignored by the server.",
+		Properties: openapi3.Schemas{
+			"name":              str("Name must be unique within a namespace. Is required when creating resources, although some resources may allow a client to request the generation of an appropriate name automatically. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names#names"),
+			"generateName":      str("GenerateName is an optional prefix, used by the server, to generate a unique name ONLY IF the Name field has not been provided."),
+			"namespace":         str("Namespace defines the space within which each name must be unique. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces"),
+			"labels":            stringMap("Map of string keys and values that can be used to organize and categorize (scope and select) objects. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/labels"),
+			"annotations":       stringMap("Annotations is an unstructured key value map stored with a resource that may be set by external tools to store and retrieve arbitrary metadata. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations"),
+			"creationTimestamp": dateTime("CreationTimestamp is a timestamp representing the server time when this object was created. Populated by the system. Read-only."),
+			"deletionTimestamp": dateTime("DeletionTimestamp is the RFC 3339 date and time at which this resource will be deleted. Populated by the system when a graceful deletion is requested. Read-only."),
+			"resourceVersion":   str("An opaque value that represents the internal version of this object that can be used by clients to determine when objects have changed. Populated by the system. Read-only."),
+			"uid":               str("UID is the unique in time and space value for this object. Populated by the system. Read-only."),
+		},
+		Extensions: map[string]any{
+			"x-go-type": "metav1.ObjectMeta",
+			"x-go-type-import": map[string]any{
+				"path": "k8s.io/apimachinery/pkg/apis/meta/v1",
+				"name": "metav1",
+			},
+		},
+	})
 }
 
 // extractGoTypeSchemas parses a Go source file and adds OpenAPI schemas for any
@@ -208,7 +269,7 @@ func buildSchemaFromStruct(ts *ast.TypeSpec, schemaName string, genDeclDoc *ast.
 	}
 
 	schema := &openapi3.Schema{
-		Type:       &openapi3.Types{"object"},
+		Type:       &openapi3.Types{openapi3.TypeObject},
 		Properties: openapi3.Schemas{},
 	}
 
@@ -244,7 +305,7 @@ func buildSchemaFromStruct(ts *ast.TypeSpec, schemaName string, genDeclDoc *ast.
 			// map[string]string with json:"-" → additionalProperties: {type: string}
 			schema.AdditionalProperties = openapi3.AdditionalProperties{
 				Schema: openapi3.NewSchemaRef("", &openapi3.Schema{
-					Type:        &openapi3.Types{"string"},
+					Type:        &openapi3.Types{openapi3.TypeString},
 					Description: fieldDescription(field.Doc, field.Comment),
 				}),
 			}
@@ -386,6 +447,15 @@ func extractSchemas(crdFile string, schemas map[string]*openapi3.SchemaRef) erro
 			schema.Description = fmt.Sprintf("%s is the Schema for the %s API.", kind, crd.Spec.Names.Plural)
 		}
 
+		// Kubernetes structural schemas cannot describe ObjectMeta's fields, so
+		// CRD manifests declare metadata as a bare object. Point it at the shared
+		// ObjectMeta component schema instead, so every generated client gets
+		// typed metadata. The Go generators additionally map that schema onto the
+		// canonical metav1.ObjectMeta via x-go-type.
+		if _, ok := schema.Properties["metadata"]; ok {
+			schema.Properties["metadata"] = openapi3.NewSchemaRef("#/components/schemas/"+objectMetaSchemaName, nil)
+		}
+
 		schemas[kind] = openapi3.NewSchemaRef("", schema)
 
 		listKind := crd.Spec.Names.ListKind
@@ -395,35 +465,35 @@ func extractSchemas(crdFile string, schemas map[string]*openapi3.SchemaRef) erro
 
 		metadataProperties := openapi3.Schemas{
 			"name": openapi3.NewSchemaRef("", &openapi3.Schema{
-				Type:        &openapi3.Types{"string"},
+				Type:        &openapi3.Types{openapi3.TypeString},
 				Description: "Name must be unique within a namespace. Is required when creating resources, although some resources may allow a client to request the generation of an appropriate name automatically. Name is primarily intended for creation idempotence and configuration definition. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names#names",
 			}),
 		}
 		if crd.Spec.Scope == apiextensionsv1.NamespaceScoped {
 			metadataProperties["namespace"] = openapi3.NewSchemaRef("", &openapi3.Schema{
-				Type:        &openapi3.Types{"string"},
+				Type:        &openapi3.Types{openapi3.TypeString},
 				Description: "Namespace defines the space within which each name must be unique. An empty namespace is equivalent to the \"default\" namespace, but \"default\" is the canonical representation. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces",
 			})
 		}
 
 		listSchema := &openapi3.Schema{
-			Type:        &openapi3.Types{"object"},
+			Type:        &openapi3.Types{openapi3.TypeObject},
 			Description: fmt.Sprintf("%s is an object that contains the list of the existing %s.", listKind, strings.ToLower(kind)+"s"),
 			Properties: openapi3.Schemas{
 				"apiVersion": openapi3.NewSchemaRef("", &openapi3.Schema{
-					Type:        &openapi3.Types{"string"},
+					Type:        &openapi3.Types{openapi3.TypeString},
 					Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
 				}),
 				"kind": openapi3.NewSchemaRef("", &openapi3.Schema{
-					Type:        &openapi3.Types{"string"},
+					Type:        &openapi3.Types{openapi3.TypeString},
 					Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
 				}),
 				"items": openapi3.NewSchemaRef("", &openapi3.Schema{
-					Type:  &openapi3.Types{"array"},
+					Type:  &openapi3.Types{openapi3.TypeArray},
 					Items: openapi3.NewSchemaRef(fmt.Sprintf("#/components/schemas/%s", kind), nil),
 				}),
 				"metadata": openapi3.NewSchemaRef("", &openapi3.Schema{
-					Type:       &openapi3.Types{"object"},
+					Type:       &openapi3.Types{openapi3.TypeObject},
 					Properties: metadataProperties,
 				}),
 			},

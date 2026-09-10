@@ -29,7 +29,6 @@ import {
   bodyAnchorSx,
   cardActionAreaSx,
   cardContentSx,
-  cardFooterSx,
   cardFooterEndSx,
   cardHeaderSx,
   cardSx,
@@ -51,7 +50,9 @@ export const ProviderTile = ({
   const [active, setActive] = useState(false);
 
   // Render meta-derived fields only when the hub provides them — never fabricate.
-  const { description, maturity, version } = meta ?? {};
+  // The provider version is intentionally not shown here: it's not meaningful
+  // to users and only adds confusion (see issue #3051).
+  const { description, maturity } = meta ?? {};
   const categories = meta?.categories?.slice(0, 2) ?? [];
 
   const renderTail = (expanded: boolean) => (
@@ -76,8 +77,7 @@ export const ProviderTile = ({
           </Box>
         )}
       </CardContent>
-      <Box sx={version ? cardFooterSx : cardFooterEndSx}>
-        {version && <Typography variant="caption">{version}</Typography>}
+      <Box sx={cardFooterEndSx}>
         <ArrowForwardIcon fontSize="small" aria-hidden="true" />
       </Box>
     </>

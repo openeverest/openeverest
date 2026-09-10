@@ -20,7 +20,9 @@ package configmapadapter
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
+	"time"
 
 	"github.com/casbin/casbin/v2/model"
 	"go.uber.org/zap"
@@ -30,6 +32,8 @@ import (
 
 	rbacutils "github.com/openeverest/openeverest/v2/pkg/rbac/utils"
 )
+
+const defaultKubeAPITimeout = 10 * time.Second
 
 type k8s interface {
 	GetConfigMap(ctx context.Context, key ctrlclient.ObjectKey) (*corev1.ConfigMap, error)
@@ -41,6 +45,7 @@ type Adapter struct {
 	kubeClient     k8s
 	namespacedName types.NamespacedName
 	l              *zap.SugaredLogger
+	timeout        time.Duration
 }
 
 // New constructs a new adapter that manages a policy inside a ConfigMap.
@@ -53,6 +58,7 @@ func New(
 		kubeClient:     kubeClient,
 		namespacedName: namespacedName,
 		l:              l,
+		timeout:        defaultKubeAPITimeout,
 	}
 }
 
@@ -63,9 +69,12 @@ func (a *Adapter) ConfigMap(ctx context.Context) (*corev1.ConfigMap, error) {
 
 // LoadPolicy loads all policy rules from the storage.
 func (a *Adapter) LoadPolicy(model model.Model) error {
-	cm, err := a.kubeClient.GetConfigMap(context.Background(), a.namespacedName)
+	ctx, cancel := context.WithTimeout(context.Background(), a.timeout)
+	defer cancel()
+
+	cm, err := a.kubeClient.GetConfigMap(ctx, a.namespacedName)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to load RBAC policy configmap %s: %w", a.namespacedName, err)
 	}
 
 	data, ok := cm.Data["policy.csv"]

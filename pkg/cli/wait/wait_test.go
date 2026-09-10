@@ -18,6 +18,8 @@ package wait_test
 import (
 	"context"
 	"errors"
+	"fmt"
+	"net/http"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -25,6 +27,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	authcli "github.com/openeverest/openeverest/v2/pkg/cli/auth"
 	"github.com/openeverest/openeverest/v2/pkg/cli/wait"
 )
 
@@ -232,4 +235,116 @@ func TestUntil_ZeroTimeoutMeansNoTimeout(t *testing.T) {
 		Interval: time.Millisecond,
 	})
 	require.NoError(t, err)
+}
+
+type widget struct {
+	Name string
+}
+
+func TestFetchPoll_NotFound_IsSuccessPolicy_ReturnsNil(t *testing.T) {
+	t.Parallel()
+
+	poll := wait.FetchPoll[widget]("widget", "my-widget", wait.NotFoundIsSuccess, func(context.Context) (int, string, *widget, error) {
+		return http.StatusNotFound, "404 Not Found", nil, nil
+	})
+
+	v, err := poll(context.Background())
+	require.NoError(t, err)
+	assert.Nil(t, v)
+}
+
+func TestFetchPoll_NotFound_TerminalPolicy_ReturnsError(t *testing.T) {
+	t.Parallel()
+
+	poll := wait.FetchPoll[widget]("widget", "my-widget", wait.NotFoundTerminal, func(context.Context) (int, string, *widget, error) {
+		return http.StatusNotFound, "404 Not Found", nil, nil
+	})
+
+	_, err := poll(context.Background())
+	require.Error(t, err)
+	var re *wait.RetryableError
+	assert.NotErrorAs(t, err, &re, "a 404 under NotFoundTerminal must be terminal, not retryable")
+	assert.Contains(t, err.Error(), `widget "my-widget" no longer exists`)
+}
+
+func TestFetchPoll_StillPresent_ReturnsBody(t *testing.T) {
+	t.Parallel()
+
+	want := &widget{Name: "my-widget"}
+	poll := wait.FetchPoll[widget]("widget", "my-widget", wait.NotFoundIsSuccess, func(context.Context) (int, string, *widget, error) {
+		return http.StatusOK, "200 OK", want, nil
+	})
+
+	v, err := poll(context.Background())
+	require.NoError(t, err)
+	assert.Same(t, want, v)
+}
+
+func TestFetchPoll_EmptyBody_Retryable(t *testing.T) {
+	t.Parallel()
+
+	poll := wait.FetchPoll[widget]("widget", "my-widget", wait.NotFoundTerminal, func(context.Context) (int, string, *widget, error) {
+		return http.StatusOK, "200 OK", nil, nil
+	})
+
+	_, err := poll(context.Background())
+	require.Error(t, err)
+	var re *wait.RetryableError
+	require.ErrorAs(t, err, &re)
+	assert.Contains(t, err.Error(), `empty response body fetching widget "my-widget"`)
+}
+
+func TestFetchPoll_Unauthorized_Terminal(t *testing.T) {
+	t.Parallel()
+
+	poll := wait.FetchPoll[widget]("widget", "my-widget", wait.NotFoundTerminal, func(context.Context) (int, string, *widget, error) {
+		return http.StatusUnauthorized, "401 Unauthorized", nil, nil
+	})
+
+	_, err := poll(context.Background())
+	require.Error(t, err)
+	var re *wait.RetryableError
+	assert.NotErrorAs(t, err, &re, "401 must be terminal, not retryable")
+	assert.Contains(t, err.Error(), "run 'everestctl auth login' again")
+}
+
+func TestFetchPoll_UnexpectedStatus_Retryable(t *testing.T) {
+	t.Parallel()
+
+	poll := wait.FetchPoll[widget]("widget", "my-widget", wait.NotFoundTerminal, func(context.Context) (int, string, *widget, error) {
+		return http.StatusInternalServerError, "500 Internal Server Error", nil, nil
+	})
+
+	_, err := poll(context.Background())
+	require.Error(t, err)
+	var re *wait.RetryableError
+	require.ErrorAs(t, err, &re)
+	assert.Contains(t, err.Error(), "500 Internal Server Error")
+}
+
+func TestFetchPoll_FetchError_Retryable(t *testing.T) {
+	t.Parallel()
+
+	poll := wait.FetchPoll[widget]("widget", "my-widget", wait.NotFoundTerminal, func(context.Context) (int, string, *widget, error) {
+		return 0, "", nil, errors.New("connection reset")
+	})
+
+	_, err := poll(context.Background())
+	require.Error(t, err)
+	var re *wait.RetryableError
+	require.ErrorAs(t, err, &re)
+}
+
+func TestFetchPoll_TokenRefreshFailure_Terminal(t *testing.T) {
+	t.Parallel()
+
+	poll := wait.FetchPoll[widget]("widget", "my-widget", wait.NotFoundTerminal, func(context.Context) (int, string, *widget, error) {
+		return 0, "", nil, fmt.Errorf("refresh: %w", authcli.ErrTokenRefresh)
+	})
+
+	_, err := poll(context.Background())
+	require.Error(t, err)
+	var re *wait.RetryableError
+	assert.NotErrorAs(t, err, &re, "a failed token refresh must be terminal, not retryable")
+	assert.ErrorIs(t, err, authcli.ErrTokenRefresh)
 }

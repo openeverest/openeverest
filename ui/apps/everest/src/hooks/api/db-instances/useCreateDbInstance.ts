@@ -18,7 +18,6 @@ import {
   UseMutationOptions,
 } from '@tanstack/react-query';
 import { createDbInstanceFn, getDbInstanceConnectionFn } from 'api/instanceApi';
-import { DbWizardType } from 'pages/database-form/database-form-schema';
 import { PerconaQueryOptions } from 'shared-types/query.types';
 import {
   InstanceConnectionDetails,
@@ -34,30 +33,57 @@ export const getDbInstanceCredentialsQueryKey = (
 ) => ['instance-credentials', namespace, clusterName, dbInstanceName] as const;
 
 type CreateInstanceHookArgType = {
-  formValue: DbWizardType;
+  formValue: Record<string, unknown>;
 };
 
 type CreateInstanceSpec = NonNullable<CreateDbInstancePayload['spec']>;
 
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null;
+
+const parseDbWizardCore = (
+  formValue: Record<string, unknown>
+): { dbName: string; namespace: string } => {
+  const dbName = formValue.dbName;
+  const k8sNamespace = formValue.k8sNamespace;
+
+  if (typeof dbName !== 'string' || dbName.length === 0) {
+    throw new Error('Invalid create payload: dbName is required');
+  }
+
+  if (
+    k8sNamespace !== undefined &&
+    k8sNamespace !== null &&
+    typeof k8sNamespace !== 'string'
+  ) {
+    throw new Error('Invalid create payload: k8sNamespace has invalid type');
+  }
+
+  return { dbName, namespace: k8sNamespace ?? '' };
+};
+
 export const buildCreateInstanceSpec = (
-  formValue: DbWizardType
+  formValue: Record<string, unknown>
 ): CreateInstanceSpec => {
   const { provider, dbName, k8sNamespace, spec, ...rest } = formValue;
   void dbName;
   void k8sNamespace;
 
+  if (typeof provider !== 'string' || provider.length === 0) {
+    throw new Error('Invalid create payload: provider is required');
+  }
+
+  const specRecord = isRecord(spec) ? spec : {};
+
   return {
     providerRef: { name: provider },
-    ...(deepMerge(
-      rest as Record<string, unknown>,
-      spec as unknown as Record<string, unknown>
-    ) as Record<string, unknown>),
+    ...deepMerge(rest, specRecord),
   };
 };
 
 export const useCreateDbInstance = (
   options?: UseMutationOptions<
-    DbWizardType,
+    unknown,
     unknown,
     CreateInstanceHookArgType,
     unknown
@@ -65,12 +91,12 @@ export const useCreateDbInstance = (
 ) =>
   useMutation({
     mutationFn: ({ formValue }: CreateInstanceHookArgType) => {
-      const { dbName, k8sNamespace } = formValue;
+      const { dbName, namespace } = parseDbWizardCore(formValue);
 
       return createDbInstanceFn(
         'main',
         dbName,
-        k8sNamespace || '',
+        namespace,
         buildCreateInstanceSpec(formValue)
       );
     },

@@ -19,10 +19,14 @@ package main
 import (
 	"os"
 	"path/filepath"
+	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/yaml"
 )
 
@@ -51,6 +55,8 @@ spec:
             type: string
           kind:
             type: string
+          metadata:
+            type: object
           spec:
             type: object
             properties:
@@ -79,6 +85,10 @@ spec:
 
 	assert.NotNil(t, resource.Value.Properties)
 	assert.Contains(t, resource.Value.Properties, "spec")
+
+	// The bare metadata object must be replaced with a $ref to the shared
+	// ObjectMeta component schema.
+	assert.Equal(t, "#/components/schemas/ObjectMeta", resource.Value.Properties["metadata"].Ref)
 }
 
 func TestRun(t *testing.T) {
@@ -136,6 +146,57 @@ spec:
 
 	assert.Contains(t, spec.Components.Schemas, "Sample")
 	assert.Contains(t, spec.Components.Schemas, "SampleList")
+
+	// The shared ObjectMeta schema must be emitted with the Go type mapping.
+	assert.Contains(t, spec.Components.Schemas, "ObjectMeta")
+	om := spec.Components.Schemas["ObjectMeta"].Value
+	assert.Contains(t, om.Properties, "name")
+	assert.Contains(t, om.Properties, "creationTimestamp")
+	assert.Equal(t, "metav1.ObjectMeta", om.Extensions["x-go-type"])
+}
+
+// TestObjectMetaSchemaMatchesType guards the hand-curated ObjectMeta schema
+// against drift from the real type: every property it declares must exist on
+// metav1.ObjectMeta (by json tag) with a compatible Go type. Descriptions are
+// prose and not checked.
+func TestObjectMetaSchemaMatchesType(t *testing.T) {
+	t.Parallel()
+
+	// Index metav1.ObjectMeta's fields by their json tag name.
+	fields := map[string]reflect.Type{}
+	for f := range reflect.TypeFor[metav1.ObjectMeta]().Fields() {
+		tag, _, _ := strings.Cut(f.Tag.Get("json"), ",")
+		if tag == "" || tag == "-" {
+			continue
+		}
+		ft := f.Type
+		for ft.Kind() == reflect.Pointer {
+			ft = ft.Elem()
+		}
+		fields[tag] = ft
+	}
+
+	om := objectMetaSchema().Value
+	require.NotEmpty(t, om.Properties)
+
+	for propName, prop := range om.Properties {
+		goType, ok := fields[propName]
+		require.True(t, ok, "schema property %q does not exist on metav1.ObjectMeta", propName)
+
+		switch {
+		case prop.Value.Format == "date-time":
+			assert.Equal(t, reflect.TypeFor[metav1.Time](), goType,
+				"schema property %q is date-time but the Go field is %s", propName, goType)
+		case prop.Value.Type.Is(openapi3.TypeString):
+			assert.Equal(t, reflect.String, goType.Kind(),
+				"schema property %q is a string but the Go field is %s", propName, goType)
+		case prop.Value.Type.Is(openapi3.TypeObject):
+			assert.Equal(t, reflect.TypeFor[map[string]string](), goType,
+				"schema property %q is a string map but the Go field is %s", propName, goType)
+		default:
+			t.Errorf("schema property %q has an unexpected type %v; extend this test", propName, prop.Value.Type)
+		}
+	}
 }
 
 func TestExtractGoTypeSchemas(t *testing.T) {

@@ -15,10 +15,12 @@
 package controller
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 
 	corev1alpha1 "github.com/openeverest/openeverest/v2/api/core/v1alpha1"
 	"github.com/openeverest/openeverest/v2/pkg/common"
@@ -58,11 +60,21 @@ func ValidateSecretSchema(secret *corev1.Secret, providerSpec *corev1alpha1.Prov
 		return fmt.Errorf("secret definition %q does not exist: %w", secretDefinition, ErrSecretSchemaValidation)
 	}
 
+	// ParametersSchema is optional; if not defined, no validation is performed.
+	if secretDef.ParametersSchema == nil {
+		return nil
+	}
+
 	// Extract and merge data from the secret.
 	// stringData takes precedence (same as Kubernetes behavior).
 	data := extractSecretData(secret)
 
-	if err := secretDef.Validate(data); err != nil {
+	dataJSON, err := json.Marshal(data)
+	if err != nil {
+		return fmt.Errorf("failed to marshal secret data: %w", errors.Join(ErrSecretSchemaValidation, err))
+	}
+
+	if err := secretDef.ParametersSchema.Validate(&runtime.RawExtension{Raw: dataJSON}); err != nil {
 		return fmt.Errorf("%w: %w", ErrSecretSchemaValidation, err)
 	}
 

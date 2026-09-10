@@ -36,7 +36,7 @@ const LoginLinkButton = ({
   href: string;
 }) => {
   return (
-    <Link target="_blank" rel="noopener" href={href}>
+    <Link target="_blank" rel="noopener noreferrer" href={href}>
       <Button startIcon={icon}>{text}</Button>
     </Link>
   );
@@ -103,12 +103,7 @@ const Login = () => {
           {Messages.welcome}
         </Typography>
         <Typography>{Messages.intro}</Typography>
-        <Stack
-          sx={{
-            mt: 'auto',
-            alignItems: 'flex-start',
-          }}
-        >
+        <Stack sx={{ mt: 'auto', pt: 4, alignItems: 'flex-start' }}>
           <LoginLinkButton
             icon={<ArrowForwardIcon />}
             text="Join Community"

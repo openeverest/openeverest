@@ -16,6 +16,10 @@ package session
 
 import (
 	"context"
+	"crypto/rand"
+	"crypto/rsa"
+	"crypto/x509"
+	"encoding/pem"
 	"errors"
 	"testing"
 	"time"
@@ -32,6 +36,67 @@ import (
 	"github.com/openeverest/openeverest/v2/pkg/common"
 	"github.com/openeverest/openeverest/v2/pkg/kubernetes"
 )
+
+// testRSAKeyBits is deliberately small since these keys are only used to
+// exercise the PEM decoding path in tests, not for any real cryptographic use.
+const testRSAKeyBits = 2048
+
+func TestParsePrivateKeyPEM(t *testing.T) {
+	t.Parallel()
+
+	validKey, err := rsa.GenerateKey(rand.Reader, testRSAKeyBits)
+	require.NoError(t, err)
+	validPEM := pem.EncodeToMemory(&pem.Block{
+		Type:  "RSA PRIVATE KEY",
+		Bytes: x509.MarshalPKCS1PrivateKey(validKey),
+	})
+
+	tcases := []struct {
+		name        string
+		in          []byte
+		expectError bool
+	}{
+		{
+			name:        "valid PKCS1 PEM key",
+			in:          validPEM,
+			expectError: false,
+		},
+		{
+			name:        "empty input",
+			in:          []byte(""),
+			expectError: true,
+		},
+		{
+			name:        "not PEM-encoded data",
+			in:          []byte("this is not a PEM encoded private key"),
+			expectError: true,
+		},
+		{
+			name: "PEM block that is not a valid PKCS1 key",
+			in: pem.EncodeToMemory(&pem.Block{
+				Type:  "RSA PRIVATE KEY",
+				Bytes: []byte("not actually a key"),
+			}),
+			expectError: true,
+		},
+	}
+
+	for _, tc := range tcases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			key, err := parsePrivateKeyPEM(tc.in)
+			if tc.expectError {
+				require.Error(t, err)
+				assert.Nil(t, key)
+				return
+			}
+			require.NoError(t, err)
+			require.NotNil(t, key)
+			assert.True(t, key.Equal(validKey))
+		})
+	}
+}
 
 func TestExtractUsername(t *testing.T) {
 	t.Parallel()

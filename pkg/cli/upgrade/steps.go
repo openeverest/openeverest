@@ -217,7 +217,7 @@ func (u *Upgrade) migrateLegacyInstallationToHelm(ctx context.Context) error {
 	return nil
 }
 
-// Creates an installation of the `everest-db-namespace` Helm chart for the given DB namesapce
+// Creates an installation of the `everest-db-namespace` Helm chart for the given DB namespace
 // and adopts its resources.
 func (u *Upgrade) helmAdoptDBNamespaces(ctx context.Context, namespace, version string) error {
 	dbEngines, err := u.kubeConnector.ListDatabaseEngines(ctx, client.InNamespace(namespace))

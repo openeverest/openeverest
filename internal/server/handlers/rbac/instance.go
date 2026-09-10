@@ -58,6 +58,15 @@ func (h *rbacHandler) GetInstance(ctx context.Context, cluster, namespace, name 
 
 // CreateInstance creates an instance, gated by RBAC.
 func (h *rbacHandler) CreateInstance(ctx context.Context, cluster string, instance *corev1alpha1.Instance) (*corev1alpha1.Instance, error) {
+	// If the instance references a user secret, ensure the user has read
+	// permission on that secret to prevent privilege escalation.
+	if userSecret := instance.Spec.UserSecretRef; userSecret != nil {
+		object := rbac.ClusterNamespacedObjectName(cluster, instance.GetNamespace(), userSecret.Name)
+		if err := h.enforce(ctx, rbac.ResourceSecrets, rbac.ActionRead, object); err != nil {
+			return nil, err
+		}
+	}
+
 	object := rbac.ClusterNamespacedObjectName(cluster, instance.GetNamespace(), instance.GetName())
 
 	var presetName string
@@ -110,6 +119,16 @@ func (h *rbacHandler) UpdateInstance(ctx context.Context, cluster string, instan
 		return nil, err
 	}
 	return h.next.UpdateInstance(ctx, cluster, instance)
+}
+
+// PatchInstance patches an instance, gated by RBAC. A patch is authorised as an
+// update on the instance rather than as a permission of its own.
+func (h *rbacHandler) PatchInstance(ctx context.Context, cluster, namespace, name string, patch []byte) (*corev1alpha1.Instance, error) {
+	object := rbac.ClusterNamespacedObjectName(cluster, namespace, name)
+	if err := h.enforce(ctx, rbac.ResourceInstances, rbac.ActionUpdate, object); err != nil {
+		return nil, err
+	}
+	return h.next.PatchInstance(ctx, cluster, namespace, name, patch)
 }
 
 // DeleteInstance deletes an instance, gated by RBAC.

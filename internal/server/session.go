@@ -79,7 +79,6 @@ func (e *EverestServer) CreateSession(ctx echo.Context) error {
 
 // DeleteSession invalidates the user token by adding it to the blocklist.
 func (e *EverestServer) DeleteSession(ctx echo.Context) error {
-	e.attemptsStore.IncreaseTimeout(ctx.RealIP())
 	c := ctx.Request().Context()
 	token, err := common.ExtractToken(c)
 	if err != nil {

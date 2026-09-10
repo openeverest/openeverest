@@ -46,13 +46,15 @@ export interface ClusterDetailTabExtension {
   /** The component rendered when the tab is active. Receives ClusterDetailTabProps. */
   component: ComponentType<ClusterDetailTabProps>;
   /**
-   * Optional list of database engine types this tab applies to.
-   * Values match `spec.engine.type` on the DatabaseCluster CR:
-   * `"postgresql"`, `"psmdb"`, `"pxc"`.
-   * When omitted (or empty) the tab is shown for all engine types.
+   * Optional list of Provider names this tab applies to.
+   * Values match `spec.providerRef.name` on the Instance CR, e.g.
+   * `"provider-percona-postgresql"`, `"percona-server-mongodb"`,
+   * `"percona-xtradb-cluster"`. Provider names are not prefix-consistent
+   * across providers; check the target provider's own definition.
+   * When omitted (or empty) the tab is shown for all providers.
    *
-   * @example providers: ["postgresql"]        // PostgreSQL only
-   * @example providers: ["psmdb", "pxc"]      // MongoDB and MySQL only
+   * @example providers: ["provider-percona-postgresql"]  // PostgreSQL only
+   * @example providers: ["percona-server-mongodb", "percona-xtradb-cluster"]  // MongoDB and MySQL only
    */
   providers?: string[];
 }
@@ -65,9 +67,9 @@ export interface ClusterActionExtension {
   /** The component rendered when the action is triggered. Receives ClusterActionProps. */
   component: ComponentType<ClusterActionProps>;
   /**
-   * Optional engine type filter. When set, the action is only shown for clusters
-   * whose `spec.engine.type` matches one of the listed values.
-   * Omit to show for all engine types.
+   * Optional Provider filter. When set, the action is only shown for clusters
+   * whose `spec.providerRef.name` matches one of the listed values.
+   * Omit to show for all providers.
    */
   providers?: string[];
 }
@@ -80,9 +82,9 @@ export interface ClusterCardExtension {
   /** The component rendered inside the card. Receives ClusterCardProps. */
   component: ComponentType<ClusterCardProps>;
   /**
-   * Optional engine type filter. When set, the card is only shown for clusters
-   * whose `spec.engine.type` matches one of the listed values.
-   * Omit to show for all engine types.
+   * Optional Provider filter. When set, the card is only shown for clusters
+   * whose `spec.providerRef.name` matches one of the listed values.
+   * Omit to show for all providers.
    */
   providers?: string[];
 }
@@ -118,9 +120,9 @@ export interface InstanceCreateFormSectionExtension {
   /** The component rendered inside the collapsible section. */
   component: ComponentType<InstanceCreateFormSectionProps>;
   /**
-   * Optional engine type filter. When set, the section is only shown for
-   * instances whose provider matches one of the listed values.
-   * Omit to show for all engine types.
+   * Optional Provider filter. When set, the section is only shown for
+   * instances whose `spec.providerRef.name` matches one of the listed values.
+   * Omit to show for all providers.
    */
   providers?: string[];
 }
@@ -136,9 +138,9 @@ export interface InstanceEditFormSectionExtension {
   /** The component rendered inside the collapsible section. */
   component: ComponentType<InstanceEditFormSectionProps>;
   /**
-   * Optional engine type filter. When set, the section is only shown for
-   * instances whose provider matches one of the listed values.
-   * Omit to show for all engine types.
+   * Optional Provider filter. When set, the section is only shown for
+   * instances whose `spec.providerRef.name` matches one of the listed values.
+   * Omit to show for all providers.
    */
   providers?: string[];
 }

@@ -1,6 +1,6 @@
 name: "💡 Feature Request"
 description: Suggest an idea or improvement for OpenEverest
-labels: ["enhancement"]
+labels: ["enhancement", "needs-triage"]
 body:
   - type: markdown
     attributes:

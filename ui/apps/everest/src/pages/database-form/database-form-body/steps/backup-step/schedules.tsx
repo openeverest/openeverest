@@ -43,6 +43,8 @@ import { useClusterName } from 'hooks/api/useClusterName';
 export const BACKUP_SCHEDULES_FIELD = 'backup.schedules';
 /** Form field path for backup class reference name. */
 export const BACKUP_CLASS_REF_FIELD = 'backup.classRef.name';
+/** Form field path for the per-storage PITR map (WizardPitrMap). */
+export const BACKUP_PITR_FIELD = 'backup.pitr';
 
 type Props = {
   backupStorages: BackupStorageCRD[];
@@ -60,29 +62,34 @@ export const Schedules = ({ backupStorages }: Props) => {
 
   const k8sNamespace: string = watch(DbWizardFormFields.k8sNamespace);
   const dbName: string = watch(DbWizardFormFields.dbName);
+  const provider: string = watch(DbWizardFormFields.provider);
   const formSchedules: FlattenedSchedule[] =
     watch(BACKUP_SCHEDULES_FIELD) ?? [];
 
-  // In wizard mode, the first backup class is auto-selected.
-  // User can change it inside the modal (BackupConfigFields).
+  // A cluster can expose backup classes for several providers; pick the one
+  // whose supportedProviders matches this database's provider — not just the
+  // first in the list, which may belong to a different engine.
   const selectedClassName: string | undefined = watch(BACKUP_CLASS_REF_FIELD);
+  const providerBackupClass = useMemo(
+    () =>
+      backupClasses.find((bc) =>
+        bc.spec?.supportedProviders?.includes(provider)
+      ),
+    [backupClasses, provider]
+  );
   const backupClass = useMemo(
     () =>
       backupClasses.find((bc) => bc.metadata?.name === selectedClassName) ??
-      backupClasses[0],
-    [backupClasses, selectedClassName]
+      providerBackupClass,
+    [backupClasses, selectedClassName, providerBackupClass]
   );
 
-  // Auto-set the backup class if not yet selected
+  // Auto-select the provider's backup class if none is chosen yet.
   useEffect(() => {
-    if (
-      !selectedClassName &&
-      backupClasses.length > 0 &&
-      backupClasses[0]?.metadata?.name
-    ) {
-      setValue(BACKUP_CLASS_REF_FIELD, backupClasses[0].metadata.name);
+    if (!selectedClassName && providerBackupClass?.metadata?.name) {
+      setValue(BACKUP_CLASS_REF_FIELD, providerBackupClass.metadata.name);
     }
-  }, [backupClasses, selectedClassName, setValue]);
+  }, [providerBackupClass, selectedClassName, setValue]);
 
   const createButtonDisabled = openScheduleModal || backupStorages.length === 0;
 

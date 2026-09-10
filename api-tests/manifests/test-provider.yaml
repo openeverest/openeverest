@@ -24,13 +24,14 @@ spec:
       default: true
   secrets:
     test-credentials:
-      openAPIV3Schema:
-        type: object
-        properties:
-          accessKey:
-            type: string
-          secretKey:
-            type: string
+      parametersSchema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            accessKey:
+              type: string
+            secretKey:
+              type: string
   configMaps:
     test-config:
       parametersSchema:

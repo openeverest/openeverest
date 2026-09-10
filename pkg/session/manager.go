@@ -187,8 +187,28 @@ func getPrivateKey() (*rsa.PrivateKey, error) {
 	if err != nil {
 		return nil, errors.Join(err, errors.New("failed to read JWT private key"))
 	}
+	key, err := parsePrivateKeyPEM(pemString)
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", common.EverestJWTPrivateKeyFile, err)
+	}
+	return key, nil
+}
+
+// parsePrivateKeyPEM decodes a PEM-encoded PKCS1 RSA private key.
+//
+// pem.Decode returns a nil block (without an error) when the input does not
+// contain a valid PEM block, so that case must be checked explicitly before
+// the block is dereferenced.
+func parsePrivateKeyPEM(pemString []byte) (*rsa.PrivateKey, error) {
 	block, _ := pem.Decode(pemString)
-	return x509.ParsePKCS1PrivateKey(block.Bytes)
+	if block == nil {
+		return nil, errors.New("failed to decode JWT private key: no PEM data found")
+	}
+	key, err := x509.ParsePKCS1PrivateKey(block.Bytes)
+	if err != nil {
+		return nil, errors.Join(err, errors.New("failed to parse JWT private key"))
+	}
+	return key, nil
 }
 
 // KeyFunc retruns a function for getting the public RSA keys used

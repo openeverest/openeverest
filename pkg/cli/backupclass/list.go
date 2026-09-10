@@ -122,7 +122,10 @@ func printBackupClassTable(w io.Writer, backupClasses []client.BackupClass) {
 }
 
 func backupClassName(bc *client.BackupClass) string {
-	return metadataStringField(bc, "name")
+	if bc.Metadata == nil || bc.Metadata.Name == "" {
+		return "-"
+	}
+	return bc.Metadata.Name
 }
 
 func backupClassProvider(bc *client.BackupClass) string {
@@ -140,28 +143,8 @@ func backupClassExecutionMode(bc *client.BackupClass) string {
 }
 
 func backupClassAge(bc *client.BackupClass) string {
-	ts := metadataStringField(bc, "creationTimestamp")
-	if ts == "-" {
+	if bc.Metadata == nil || bc.Metadata.CreationTimestamp.IsZero() {
 		return "-"
 	}
-	created, err := time.Parse(time.RFC3339, ts)
-	if err != nil {
-		return "-"
-	}
-	return duration.ShortHumanDuration(time.Since(created))
-}
-
-func metadataStringField(bc *client.BackupClass, key string) string {
-	if bc.Metadata == nil {
-		return "-"
-	}
-	v, ok := (*bc.Metadata)[key]
-	if !ok {
-		return "-"
-	}
-	s, ok := v.(string)
-	if !ok || s == "" {
-		return "-"
-	}
-	return s
+	return duration.ShortHumanDuration(time.Since(bc.Metadata.CreationTimestamp.Time))
 }

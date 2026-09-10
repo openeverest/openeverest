@@ -18,6 +18,7 @@ permissions:
 
 jobs:
   build:
+    if: github.repository == 'openeverest/openeverest'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -31,14 +32,13 @@ jobs:
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           lfs: true
-          ref: "main"
 
       - uses: pnpm/action-setup@8912a9102ac27614460f54aedde9e1e7f9aec20d # v6.0.5
         with:
           version: 9.4.0
 
       - name: Run with Node 20
-        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 20.x
           cache: "pnpm"
@@ -51,7 +51,7 @@ jobs:
           EVEREST_OUT_DIR=${GITHUB_WORKSPACE}/public/dist/ pnpm build
 
       - name: Set up Go release
-        uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6.4.0
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: 'go.mod'
           cache: true
@@ -59,6 +59,10 @@ jobs:
       - name: Build Everest
         run: |
           CGO_ENABLED=0 GOOS=linux GOARCH=amd64 make build
+
+      - name: Build Controller
+        run: |
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 make build-controller
 
       - name: Setup docker build metadata
         uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051 # v5.10.0
@@ -75,9 +79,11 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build and Push openeverest dev image
-        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
         with:
           context: .
+          file: build/package/server/Dockerfile
+          target: openeverest
           push: true
           tags: ${{ steps.meta.outputs.tags }}
 
@@ -89,7 +95,7 @@ jobs:
           tags: 0.0.0
 
       - name: Build and Push everestctl dev image
-        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
         with:
           context: .
           file: build/package/cli/Dockerfile

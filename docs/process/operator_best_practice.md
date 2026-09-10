@@ -93,4 +93,4 @@ On the cluster, an Operator...
 - Offers (pre)configuration via a `“Configuration CR”` instantiated by InitContainers
 
 [Dependency Resolution]: https://olm.operatorframework.io/docs/concepts/olm-architecture/dependency-resolution/
-[advanced-topics]:/docs/building-operators/golang/advanced-topics#handle-cleanup-on-deletion
+[advanced-topics]: https://sdk.operatorframework.io/docs/building-operators/golang/advanced-topics/#handle-cleanup-on-deletion

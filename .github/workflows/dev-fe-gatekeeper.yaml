@@ -38,7 +38,7 @@ jobs:
           version: 9.4.0
 
       - name: Use Node
-        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 20.x
           cache: "pnpm"
@@ -71,7 +71,7 @@ jobs:
           version: 9.4.0
 
       - name: Use Node
-        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 20.x
           cache: "pnpm"
@@ -110,26 +110,8 @@ jobs:
       RBAC_USER: rbac_user
       RBAC_PASSWORD: rbac-e2e-test
 
-  permission_checks:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Get User Permission
-        id: checkAccess
-        uses: actions-cool/check-user-permission@c21884f3dda18dafc2f8b402fe807ccc9ec1aa5e # v2.4.0
-        with:
-          require: write
-          username: ${{ github.triggering_actor }}
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Check User Permission
-        if: steps.checkAccess.outputs.require-result == 'false'
-        run: |
-          echo "${{ github.triggering_actor }} does not have permissions on this repo."
-          exit 1
-
   merge-gatekeeper:
-    needs: [CI_checks, browser_tests, permission_checks, E2E_tests_workflow]
+    needs: [CI_checks, browser_tests, E2E_tests_workflow]
     name: Merge Gatekeeper
     if: ${{ always() }}
     runs-on: ubuntu-latest
