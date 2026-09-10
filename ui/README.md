@@ -132,4 +132,3 @@ More about PNPM filtering: https://pnpm.io/filtering
 - Finally, run the tests using one of:
   - `pnpm --filter "@percona/everest" e2e`, to run all tests, including RBAC
   - ` pnpm --filter "@percona/everest" e2e:ignore-rbac`, to skip RBAC tests
-
