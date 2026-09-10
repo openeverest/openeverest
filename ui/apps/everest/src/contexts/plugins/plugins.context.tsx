@@ -26,18 +26,14 @@ import type {
 } from '@openeverest/plugin-sdk';
 import AuthContext from 'contexts/auth/auth.context';
 import { getAuthToken } from 'api/session-token';
+import {
+  applyDescriptorMetadata,
+  type ExtensionPointDescriptor,
+} from './apply-descriptor-metadata';
 
 export interface PluginRegistration {
   name: string;
   extensions: Extension[];
-}
-
-interface ExtensionPointDescriptor {
-  type: string;
-  label?: string;
-  path?: string;
-  icon?: string;
-  providers?: string[];
 }
 
 interface PluginDescriptor {
@@ -143,20 +139,12 @@ export const PluginProvider = ({ children }: { children: ReactNode }) => {
             );
             registerFn(pluginApi);
 
-            // Forward icon from the CRD descriptor into registered sidebarItem extensions.
-            // The plugin bundle may not include the icon, so we fill it in from the descriptor.
-            // The backend already resolves relative paths to full proxy URLs.
+            // Merge Plugin CR extension-point metadata (provider filter, icon)
+            // onto the extensions the bundle just registered.
             const registration = registrations[registrations.length - 1];
             if (registration && descriptor.extensionPoints?.length) {
               for (const ext of registration.extensions) {
-                if (ext.type === 'sidebarItem' && !ext.icon) {
-                  const match = descriptor.extensionPoints.find(
-                    (ep) => ep.type === 'sidebarItem' && ep.label === ext.label
-                  );
-                  if (match?.icon) {
-                    ext.icon = match.icon;
-                  }
-                }
+                applyDescriptorMetadata(ext, descriptor.extensionPoints);
               }
             }
           }
