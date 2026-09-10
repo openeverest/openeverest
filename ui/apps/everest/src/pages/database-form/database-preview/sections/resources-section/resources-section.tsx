@@ -62,49 +62,36 @@ export const ResourcesPreviewSection = ({
     intNumberOfProxies = 0;
   }
 
-  const parsedCPU = Number(cpu) * intNumberOfNodes;
-  const parsedDisk = Number(disk) * intNumberOfNodes;
-  const parsedMemory = Number(memory) * intNumberOfNodes;
-  const parsedProxyCPU = Number(proxyCpu) * intNumberOfProxies;
-  const parsedProxyMemory = Number(proxyMemory) * intNumberOfProxies;
-  const parsedShardNr = shardNr ? Number.parseInt(shardNr) : undefined;
+  const parsedCPU = Number(cpu);
+  const parsedDisk = Number(disk);
+  const parsedMemory = Number(memory);
+  const parsedProxyCPU = Number(proxyCpu);
+  const parsedProxyMemory = Number(proxyMemory);
   const nodesTotalNumber =
     sharding && shardNr ? +shardNr * intNumberOfNodes : intNumberOfNodes;
 
   const nodesText = `${nodesTotalNumber} ${nodesTotalNumber === 1 ? 'node' : 'nodes'}`;
   const proxyText = `${intNumberOfProxies} ${intNumberOfProxies === 1 ? proxyUnitNames.singular : proxyUnitNames.plural}`;
 
-  const parsedCpuRequests = Number(cpuRequests) * intNumberOfNodes;
-  const parsedMemoryRequests = Number(memoryRequests) * intNumberOfNodes;
-  const parsedProxyCpuRequests = Number(proxyCpuRequests) * intNumberOfProxies;
-  const parsedProxyMemoryRequests =
-    Number(proxyMemoryRequests) * intNumberOfProxies;
-
-  const nodesShardMultiplier =
-    sharding && parsedShardNr ? parsedShardNr : undefined;
+  const parsedCpuRequests = Number(cpuRequests);
+  const parsedMemoryRequests = Number(memoryRequests);
+  const parsedProxyCpuRequests = Number(proxyCpuRequests);
+  const parsedProxyMemoryRequests = Number(proxyMemoryRequests);
 
   const nodeRows: ResourceTableRow[] = [
     {
       label: 'CPU',
-      limit: formatResourceValue(parsedCPU, 'CPU', nodesShardMultiplier),
-      request: formatResourceValue(
-        parsedCpuRequests,
-        'CPU',
-        nodesShardMultiplier
-      ),
+      limit: formatResourceValue(parsedCPU, 'CPU'),
+      request: formatResourceValue(parsedCpuRequests, 'CPU'),
     },
     {
       label: 'Memory',
-      limit: formatResourceValue(parsedMemory, 'GB', nodesShardMultiplier),
-      request: formatResourceValue(
-        parsedMemoryRequests,
-        'GB',
-        nodesShardMultiplier
-      ),
+      limit: formatResourceValue(parsedMemory, 'GB'),
+      request: formatResourceValue(parsedMemoryRequests, 'GB'),
     },
     {
       label: 'Disk',
-      limit: formatResourceValue(parsedDisk, diskUnit, nodesShardMultiplier),
+      limit: formatResourceValue(parsedDisk, diskUnit),
       request: undefined,
     },
   ];

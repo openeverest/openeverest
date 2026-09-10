@@ -153,11 +153,11 @@ test.describe('DB Cluster Restore to the new cluster', () => {
     await expect(page.getByTestId('text-input-shard-nr')).toHaveValue('2');
     await expect(
       page.getByTestId('nodes-resources-table-limits-line')
-    ).toContainText('CPU: 2.00 CPU; Memory: 4.00 GB');
-    await expect(page.getByText('Disk: 50.00 Gi')).toBeVisible();
+    ).toContainText('CPU: 1.00 CPU; Memory: 2.00 GB');
+    await expect(page.getByText('Disk: 25.00 Gi')).toBeVisible();
     await expect(
       page.getByTestId('proxies-resources-table-limits-line')
-    ).toContainText('CPU: 3.00 CPU; Memory: 3.00 GB');
+    ).toContainText('CPU: 1.00 CPU; Memory: 1.00 GB');
     await expect(page.getByTestId('toggle-button-nodes-1')).toHaveAttribute(
       'aria-pressed',
       'true'
@@ -295,8 +295,8 @@ test.describe('DB Cluster Restore to the new cluster', () => {
 
     await expect(
       page.getByTestId('nodes-resources-table-limits-line')
-    ).toContainText('CPU: 4.00 CPU; Memory: 8.00 GB');
-    await expect(page.getByText('Disk: 100.00 Gi')).toBeVisible();
+    ).toContainText('CPU: 1.00 CPU; Memory: 2.00 GB');
+    await expect(page.getByText('Disk: 25.00 Gi')).toBeVisible();
     await expect(
       page.getByTestId('proxies-resources-table-limits-line')
     ).toContainText('CPU: 1.00 CPU; Memory: 1.00 GB');
