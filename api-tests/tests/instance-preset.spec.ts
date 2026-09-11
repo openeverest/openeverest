@@ -276,6 +276,40 @@ test.describe('Instance Preset tests', () => {
     });
   });
 
+  test('reject preset with non-empty namespace-scoped reference', async ({request}) => {
+    const presetPayload = {
+      metadata: {
+        name: 'test-preset-invalid',
+      },
+      spec: {
+        providerRef: {
+          name: PROVIDER_NAME,
+        },
+        version: '1.0.0',
+        components: {
+          engine: {
+            parameters: {
+              // Namespace-scoped references must be empty in a preset.
+              configMapRef: {
+                name: 'test-configmap',
+              },
+            },
+          },
+        },
+      },
+    };
+
+    const response = await request.post(
+      `/v1/clusters/${CLUSTER_NAME}/instance-presets`,
+      {
+        data: presetPayload,
+      }
+    );
+
+    expect(response.ok()).toBeFalsy();
+    expect(response.status()).toBe(400);
+  });
+
   test('draft preset from instance', async ({request}) => {
     await test.step('create source instance', async () => {
       // Create an instance with a full spec that will be used as source for preset creation
@@ -303,7 +337,7 @@ test.describe('Instance Preset tests', () => {
                 },
               },
               parameters: {
-                objectRef: {
+                configMapRef: {
                   name: 'test-configmap',
                 },
               },
@@ -381,7 +415,7 @@ test.describe('Instance Preset tests', () => {
           .labelSelector.matchLabels['app.kubernetes.io/name']
       ).toBe('test');
       // ...with namespace-scoped fields cleared.
-      expect(preset.spec.components.engine.parameters.objectRef.name).toBe('');
+      expect(preset.spec.components.engine.parameters.configMapRef.name).toBe('');
       expect(preset.spec.components.monitoring.parameters.monitoringConfigName).toBe('');
     });
   });

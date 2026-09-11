@@ -26,8 +26,10 @@ type FieldRef interface {
 	Path() string
 	// IsEmpty reports whether the reference is unset.
 	IsEmpty() bool
-	// Set writes the referenced resource name.
-	Set(name string)
+	// Set writes the referenced resource namespace and name.
+	// If the namespace key is not set in the underlying object
+	// or its cluster-scoped object, the namespace argument is ignored.
+	Set(namespace, name string)
 }
 
 // meta holds the metadata shared by every FieldRef implementation.

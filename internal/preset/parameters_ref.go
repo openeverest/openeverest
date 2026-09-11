@@ -30,21 +30,21 @@ func (r parametersRef) IsEmpty() bool {
 	case string:
 		return value == ""
 	case map[string]any:
-		if len(value) == 0 {
-			return true
-		}
-		if len(value) == 1 {
-			if name, ok := value["name"].(string); ok {
-				return name == ""
-			}
-		}
+		name, _ := value["name"].(string)
+		namespace, _ := value["namespace"].(string)
+
+		return name == "" && namespace == ""
 	}
 	return false
 }
 
-func (r parametersRef) Set(name string) {
+func (r parametersRef) Set(namespace, name string) {
 	if obj, ok := r.parent[r.key].(map[string]any); ok {
 		obj["name"] = name
+
+		if _, ok := obj["namespace"]; ok {
+			obj["namespace"] = namespace
+		}
 	} else {
 		r.parent[r.key] = name
 	}

@@ -69,19 +69,19 @@ func TestEnsureNamespaceRefsEmpty(t *testing.T) {
 			wantErr: `component "engine": parameters.secretRef must be empty in preset`,
 		},
 		{
-			name: "parameters objectRef must be empty",
+			name: "parameters configMapRef must be empty",
 			spec: &corev1alpha1.InstanceSpec{
 				Components: map[string]corev1alpha1.ComponentSpec{
 					"proxy": {
 						Parameters: mustRawExt(t, map[string]any{
-							"objectRef": map[string]any{
+							"configMapRef": map[string]any{
 								"name": "my-config",
 							},
 						}),
 					},
 				},
 			},
-			wantErr: `component "proxy": parameters.objectRef must be empty in preset`,
+			wantErr: `component "proxy": parameters.configMapRef must be empty in preset`,
 		},
 		{
 			name: "parameters monitoringConfigName must be empty",
@@ -157,7 +157,7 @@ func TestClearNamespaceRefs(t *testing.T) {
 			expected: &corev1alpha1.InstanceSpec{},
 		},
 		{
-			name: "clears secretRef and objectRef",
+			name: "clears secretRef and configMapRef",
 			input: &corev1alpha1.InstanceSpec{
 				Components: map[string]corev1alpha1.ComponentSpec{
 					"engine": {
@@ -165,7 +165,7 @@ func TestClearNamespaceRefs(t *testing.T) {
 							"secretRef": map[string]any{
 								"name": "my-secret",
 							},
-							"objectRef": map[string]any{
+							"configMapRef": map[string]any{
 								"name": "my-config",
 							},
 							"key": "data.conf",
@@ -181,14 +181,38 @@ func TestClearNamespaceRefs(t *testing.T) {
 				Components: map[string]corev1alpha1.ComponentSpec{
 					"engine": {
 						Parameters: mustRawExt(t, map[string]any{
-							"secretRef": map[string]any{"name": ""},
-							"objectRef": map[string]any{"name": ""},
-							"key":       "data.conf",
+							"secretRef":    map[string]any{"name": ""},
+							"configMapRef": map[string]any{"name": ""},
+							"key":          "data.conf",
 						}),
 						Storage: &corev1alpha1.Storage{
 							Size:         resource.MustParse("10Gi"),
 							StorageClass: new("fast-ssd"),
 						},
+					},
+				},
+			},
+		},
+		{
+			name: "clears multi-field ref object",
+			input: &corev1alpha1.InstanceSpec{
+				Components: map[string]corev1alpha1.ComponentSpec{
+					"engine": {
+						Parameters: mustRawExt(t, map[string]any{
+							"configMapRef": map[string]any{
+								"name":      "my-config",
+								"namespace": "team-a",
+							},
+						}),
+					},
+				},
+			},
+			expected: &corev1alpha1.InstanceSpec{
+				Components: map[string]corev1alpha1.ComponentSpec{
+					"engine": {
+						Parameters: mustRawExt(t, map[string]any{
+							"configMapRef": map[string]any{"name": "", "namespace": ""},
+						}),
 					},
 				},
 			},
@@ -340,7 +364,7 @@ func TestResolveNamespaceRefs(t *testing.T) {
 				Components: map[string]corev1alpha1.ComponentSpec{
 					"proxy": {
 						Parameters: mustRawExt(t, map[string]any{
-							"objectRef": map[string]any{
+							"configMapRef": map[string]any{
 								"name": "",
 							},
 						}),
@@ -357,8 +381,41 @@ func TestResolveNamespaceRefs(t *testing.T) {
 				Components: map[string]corev1alpha1.ComponentSpec{
 					"proxy": {
 						Parameters: mustRawExt(t, map[string]any{
-							"objectRef": map[string]any{
+							"configMapRef": map[string]any{
 								"name": "default-config",
+							},
+						}),
+					},
+				},
+			},
+		},
+		{
+			name: "resolves multi-field configMapRef",
+			input: &corev1alpha1.InstanceSpec{
+				Components: map[string]corev1alpha1.ComponentSpec{
+					"proxy": {
+						Parameters: mustRawExt(t, map[string]any{
+							"configMapRef": map[string]any{
+								"name":      "",
+								"namespace": "",
+							},
+						}),
+					},
+				},
+			},
+			namespace: "dev",
+			resolver: &mockResolver{
+				defaults: map[resolverKey]string{
+					{ns: "dev", kind: KindConfigMap, component: "proxy"}: "default-config",
+				},
+			},
+			expected: &corev1alpha1.InstanceSpec{
+				Components: map[string]corev1alpha1.ComponentSpec{
+					"proxy": {
+						Parameters: mustRawExt(t, map[string]any{
+							"configMapRef": map[string]any{
+								"name":      "default-config",
+								"namespace": "dev",
 							},
 						}),
 					},
@@ -379,7 +436,7 @@ func TestResolveNamespaceRefs(t *testing.T) {
 			namespace: "prod",
 			resolver: &mockResolver{
 				defaults: map[resolverKey]string{
-					{ns: "prod", kind: StorageClass, component: "engine"}: "fast-ssd",
+					{ns: "prod", kind: KindStorageClass, component: "engine"}: "fast-ssd",
 				},
 			},
 			expected: &corev1alpha1.InstanceSpec{
@@ -408,7 +465,7 @@ func TestResolveNamespaceRefs(t *testing.T) {
 			namespace: "staging",
 			resolver: &mockResolver{
 				defaults: map[resolverKey]string{
-					{ns: "staging", kind: MonitoringConfig, component: "monitoring"}: "pmm-config",
+					{ns: "staging", kind: KindMonitoringConfig, component: "monitoring"}: "pmm-config",
 				},
 			},
 			expected: &corev1alpha1.InstanceSpec{
@@ -437,7 +494,7 @@ func TestResolveNamespaceRefs(t *testing.T) {
 			namespace: "prod",
 			resolver: &mockResolver{
 				defaults: map[resolverKey]string{
-					{ns: "prod", kind: StorageClass, component: "engine"}: "local-path",
+					{ns: "prod", kind: KindStorageClass, component: "engine"}: "local-path",
 				},
 			},
 			expected: &corev1alpha1.InstanceSpec{
@@ -486,7 +543,7 @@ func TestResolveNamespaceRefs(t *testing.T) {
 			namespace: "staging",
 			resolver: &mockResolver{
 				defaults: map[resolverKey]string{
-					{ns: "staging", kind: MonitoringConfig, component: "pmm"}: "pmm-config",
+					{ns: "staging", kind: KindMonitoringConfig, component: "pmm"}: "pmm-config",
 				},
 			},
 			expected: &corev1alpha1.InstanceSpec{

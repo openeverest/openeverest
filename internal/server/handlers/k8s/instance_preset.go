@@ -157,13 +157,13 @@ func (h *k8sHandler) ResolveDefault(ctx context.Context, namespace string, kind 
 			return "", err
 		}
 		return mostRecentDefault(toPtrs(list.Items), componentAnnotation), nil
-	case preset.MonitoringConfig:
+	case preset.KindMonitoringConfig:
 		list, err := h.kubeConnector.ListMonitoringConfigsV2(ctx, ctrlclient.InNamespace(namespace))
 		if err != nil {
 			return "", err
 		}
 		return mostRecentDefault(toPtrs(list.Items), componentAnnotation), nil
-	case preset.StorageClass:
+	case preset.KindStorageClass:
 		list, err := h.kubeConnector.ListStorageClasses(ctx)
 		if err != nil {
 			return "", err

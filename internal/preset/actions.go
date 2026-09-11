@@ -45,7 +45,7 @@ func EnsureNamespaceRefsEmpty(spec *corev1alpha1.InstanceSpec) error {
 func ClearNamespaceRefs(spec *corev1alpha1.InstanceSpec) error {
 	return WalkSpec(spec, func(ref FieldRef) error {
 		if ref.Scope() == ScopeNamespace {
-			ref.Set("")
+			ref.Set("", "")
 		}
 
 		return nil
@@ -66,7 +66,7 @@ func ResolveNamespaceRefs(ctx context.Context, spec *corev1alpha1.InstanceSpec, 
 			return err
 		}
 
-		ref.Set(name)
+		ref.Set(namespace, name)
 
 		return nil
 	})

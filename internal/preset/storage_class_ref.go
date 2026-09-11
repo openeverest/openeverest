@@ -30,6 +30,7 @@ func (r storageClassRef) IsEmpty() bool {
 	return r.storage.StorageClass == nil || *r.storage.StorageClass == ""
 }
 
-func (r storageClassRef) Set(name string) {
+// Set writes the storage class name.
+func (r storageClassRef) Set(_, name string) {
 	r.storage.StorageClass = &name
 }

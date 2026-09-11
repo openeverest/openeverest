@@ -42,7 +42,7 @@ func WalkSpec(spec *corev1alpha1.InstanceSpec, visit func(FieldRef) error) error
 // unstructured parameters references.
 func walkComponent(name string, component *corev1alpha1.ComponentSpec, visit func(FieldRef) error) error {
 	if component.Storage != nil {
-		ref := storageClassRef{meta: newMeta(name, StorageClass, "storage.storageClass"), storage: component.Storage}
+		ref := storageClassRef{meta: newMeta(name, KindStorageClass, "storage.storageClass"), storage: component.Storage}
 		if err := visit(ref); err != nil {
 			return err
 		}
@@ -84,10 +84,10 @@ func walkParameters(
 	visit func(FieldRef) error,
 ) error {
 	for key, value := range parameters {
-		path = strings.Join([]string{path, key}, ".")
+		subPath := strings.Join([]string{path, key}, ".")
 		if r, ok := refField(key); ok {
 			ref := parametersRef{
-				meta:   meta{component: component, kind: r.kind, scope: r.scope, path: path},
+				meta:   meta{component: component, kind: r.kind, scope: r.scope, path: subPath},
 				parent: parameters,
 				key:    key,
 				dirty:  dirty,
@@ -99,7 +99,7 @@ func walkParameters(
 		}
 
 		if nested, ok := value.(map[string]any); ok {
-			if err := walkParameters(component, nested, path, dirty, visit); err != nil {
+			if err := walkParameters(component, nested, subPath, dirty, visit); err != nil {
 				return err
 			}
 		}

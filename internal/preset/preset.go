@@ -51,10 +51,10 @@ type Kind string
 
 // Supported kind of objects referenced from a spec.
 const (
-	KindSecret       Kind = "Secret"
-	KindConfigMap    Kind = "ConfigMap"
-	MonitoringConfig Kind = "MonitoringConfig"
-	StorageClass     Kind = "StorageClass"
+	KindSecret           Kind = "Secret"
+	KindConfigMap        Kind = "ConfigMap"
+	KindMonitoringConfig Kind = "MonitoringConfig"
+	KindStorageClass     Kind = "StorageClass"
 )
 
 // refObjectType couples a referenced object with its scope and the field names
@@ -70,25 +70,24 @@ type refObjectType struct {
 // resource that also appears as a typed struct field additionally requires
 // emitting it from walkComponent.
 var registry = []refObjectType{ //nolint:gochecknoglobals // this is a static registry
+	// TODO: add support for additional kind of resources if needed.
 	{
 		kind:       KindSecret,
 		scope:      ScopeNamespace,
 		fieldNames: []string{"secret", "secretRef", "secretName"}, //nolint:goconst // these are the valid field names
 	},
 	{
-		// TODO: currently objectRef discovers configMap references in parameters,
-		// add support for additional kind of resources if needed.
 		kind:       KindConfigMap,
 		scope:      ScopeNamespace,
-		fieldNames: []string{"objectRef"}, //nolint:goconst // these are the valid field names
+		fieldNames: []string{"configMap", "configMapRef", "configMapName"}, //nolint:goconst // these are the valid field names
 	},
 	{
-		kind:       MonitoringConfig,
+		kind:       KindMonitoringConfig,
 		scope:      ScopeNamespace,
 		fieldNames: []string{"monitoringConfig", "monitoringConfigRef", "monitoringConfigName"}, //nolint:goconst // these are the valid field names
 	},
 	{
-		kind:       StorageClass,
+		kind:       KindStorageClass,
 		scope:      ScopeCluster,
 		fieldNames: []string{"storageClass", "storageClassName"},
 	},
@@ -102,7 +101,7 @@ func scopeOf(resourceType Kind) Scope {
 		}
 	}
 
-	panic("unreachable: resource type " + string(resourceType))
+	panic("unreachable: unknown resource type")
 }
 
 // refField returns the referenced resource for the given field name.
