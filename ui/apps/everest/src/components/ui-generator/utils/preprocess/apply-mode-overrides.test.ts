@@ -253,4 +253,106 @@ describe('applyModeOverrides', () => {
     const comp = result.basic.components.name as Component;
     expect(comp.fieldParams.autoFocus).toBe(true);
   });
+
+  describe('group-level modes', () => {
+    const makeGroup = (
+      overrides: Partial<ComponentGroup> = {}
+    ): ComponentGroup => ({
+      uiType: 'group',
+      components: { field: makeComponent() },
+      ...overrides,
+    });
+
+    it('hides a group when modes[mode].hidden is true', () => {
+      const sections: Record<string, Section> = {
+        basic: {
+          components: {
+            storage: makeGroup({
+              modes: { [FormMode.Edit]: { hidden: true } },
+            }),
+          },
+        },
+      };
+
+      const result = applyModeOverrides(sections, FormMode.Edit);
+      const group = result.basic.components.storage as ComponentGroup;
+      expect(group._hidden).toBe(true);
+      expect(group.uiType).toBe('group');
+    });
+
+    it('does not hide the group when a different mode is active', () => {
+      const sections: Record<string, Section> = {
+        basic: {
+          components: {
+            storage: makeGroup({
+              modes: { [FormMode.Edit]: { hidden: true } },
+            }),
+          },
+        },
+      };
+
+      const result = applyModeOverrides(sections, FormMode.New);
+      const group = result.basic.components.storage as ComponentGroup;
+      expect(group.uiType).toBe('group');
+      expect(group._hidden).toBeUndefined();
+    });
+
+    it('sets _disabled when modes[mode].disabled is true', () => {
+      const sections: Record<string, Section> = {
+        basic: {
+          components: {
+            storage: makeGroup({
+              modes: { [FormMode.Edit]: { disabled: true } },
+            }),
+          },
+        },
+      };
+
+      const result = applyModeOverrides(sections, FormMode.Edit);
+      const group = result.basic.components.storage as ComponentGroup;
+      expect(group._disabled).toBe(true);
+    });
+
+    it('does not set _disabled when a different mode is active', () => {
+      const sections: Record<string, Section> = {
+        basic: {
+          components: {
+            storage: makeGroup({
+              modes: { [FormMode.Edit]: { disabled: true } },
+            }),
+          },
+        },
+      };
+
+      const result = applyModeOverrides(sections, FormMode.New);
+      const group = result.basic.components.storage as ComponentGroup;
+      expect(group._disabled).toBeUndefined();
+    });
+
+    it('still processes child components when group is disabled', () => {
+      const sections: Record<string, Section> = {
+        basic: {
+          components: {
+            storage: makeGroup({
+              modes: { [FormMode.Edit]: { disabled: true } },
+              components: {
+                field: makeComponent({
+                  fieldParams: {
+                    label: 'Field',
+                    modes: { [FormMode.Edit]: { disabled: true } },
+                  },
+                }),
+              },
+            }),
+          },
+        },
+      };
+
+      const result = applyModeOverrides(sections, FormMode.Edit);
+      const group = result.basic.components.storage as ComponentGroup;
+      const child = group.components.field as Component;
+      expect(group._disabled).toBe(true);
+      expect(child.fieldParams.disabled).toBe(true);
+    });
+  });
 });

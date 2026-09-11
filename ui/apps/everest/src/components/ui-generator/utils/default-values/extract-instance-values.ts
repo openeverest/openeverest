@@ -43,10 +43,7 @@ const extractFlat = (
   for (const [key, item] of Object.entries(components)) {
     const generatedName = basePath ? `${basePath}.${key}` : key;
 
-    if (
-      (item.uiType === 'group' || item.uiType === 'hidden') &&
-      'components' in item
-    ) {
+    if (item.uiType === 'group' && 'components' in item) {
       Object.assign(
         result,
         extractFlat(

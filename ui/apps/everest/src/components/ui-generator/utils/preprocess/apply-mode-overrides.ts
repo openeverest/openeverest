@@ -49,13 +49,18 @@ const applyModeToComponent = (
   item: Component | ComponentGroup,
   mode: FormMode
 ): Component | ComponentGroup => {
-  if (
-    (item.uiType === 'group' || item.uiType === 'hidden') &&
-    'components' in item
-  ) {
+  if (item.uiType === 'group' && 'components' in item) {
     const group = item as ComponentGroup;
+    const groupOverrides = group.modes?.[mode];
+
+    if (groupOverrides?.hidden) {
+      return { ...group, _hidden: true };
+    }
+
     return {
       ...group,
+      _hidden: undefined,
+      _disabled: groupOverrides?.disabled === true ? true : undefined,
       components: applyModeToComponents(group.components, mode),
     };
   }
