@@ -482,8 +482,10 @@ func (e *EverestServer) getBodyFromContext(ctx echo.Context, into any) error {
 }
 
 func sessionRateLimiter(limit int) (echo.MiddlewareFunc, *RateLimiterMemoryStore) {
+	// Both credential-accepting endpoints must share the strict limit; the SSO exchange hits the IdP per call.
 	allButSession := func(c echo.Context) bool {
-		return c.Request().URL.Path != "/v1/session"
+		path := c.Request().URL.Path
+		return path != "/v1/session" && path != "/v1/session/sso"
 	}
 	config := echomiddleware.DefaultRateLimiterConfig
 	config.Skipper = allButSession
