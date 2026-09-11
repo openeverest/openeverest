@@ -454,3 +454,50 @@ func TestCreateDatabaseClusterSecret(t *testing.T) {
 		})
 	}
 }
+
+func TestGetDatabaseClusterPitrBackupWithoutCompletedAt(t *testing.T) {
+	t.Parallel()
+
+	const (
+		namespace   = "ns-pitr"
+		clusterName = "pxc-pitr"
+	)
+
+	db := &everestv1alpha1.DatabaseCluster{
+		ObjectMeta: metav1.ObjectMeta{Name: clusterName, Namespace: namespace},
+		Spec: everestv1alpha1.DatabaseClusterSpec{
+			Engine: everestv1alpha1.Engine{
+				Type:    everestv1alpha1.DatabaseEnginePXC,
+				Version: "8.0.36",
+			},
+			Backup: everestv1alpha1.Backup{
+				PITR: everestv1alpha1.PITRSpec{Enabled: true},
+			},
+		},
+	}
+	// A successful backup whose CompletedAt was never set. The field is
+	// optional in the CRD, so the API must not assume it is populated.
+	backup := &everestv1alpha1.DatabaseClusterBackup{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "backup-without-completed-at",
+			Namespace: namespace,
+			Labels:    map[string]string{common.DatabaseClusterNameLabel: clusterName},
+		},
+		Status: everestv1alpha1.DatabaseClusterBackupStatus{
+			State:     everestv1alpha1.BackupSucceeded,
+			CreatedAt: &metav1.Time{Time: time.Now().Add(-time.Hour)},
+		},
+	}
+
+	mockClient := fakeclient.NewClientBuilder().
+		WithScheme(kubernetes.CreateScheme()).
+		WithObjects(db, backup)
+	k := kubernetes.NewEmpty(zap.NewNop().Sugar()).WithKubernetesClient(mockClient.Build())
+	h := &k8sHandler{kubeConnector: k}
+
+	pitr, err := h.GetDatabaseClusterPitr(context.Background(), namespace, clusterName)
+	require.NoError(t, err)
+	require.NotNil(t, pitr)
+	require.Nil(t, pitr.LatestDate)
+	require.Nil(t, pitr.EarliestDate)
+}
