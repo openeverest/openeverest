@@ -26,32 +26,11 @@ const CLUSTER_NAME = 'main';
 
 test.describe('Instance Preset tests', () => {
   test.describe.configure({timeout: TIMEOUTS.OneMinute});
-
   test.afterAll(async ({request}) => {
-    // Clean up instance
-    try {
-      await request.delete(`/v1/clusters/${CLUSTER_NAME}/namespaces/${EVEREST_CI_NAMESPACE}/instances/${INSTANCE_NAME}`);
-      console.log('Instance deleted successfully');
-    } catch (error) {
-      console.error('Failed to delete instance:', error);
-    }
-
-    // Clean up source instance
-    try {
-      await request.delete(`/v1/clusters/${CLUSTER_NAME}/namespaces/${EVEREST_CI_NAMESPACE}/instances/${SOURCE_INSTANCE_NAME}`);
-      console.log('Source instance deleted successfully');
-    } catch (error) {
-      console.error('Failed to delete source instance:', error);
-    }
-
-    // Clean up preset created from instance
-    try {
-      await request.delete(`/v1/clusters/${CLUSTER_NAME}/instance-presets/${FROM_INSTANCE_PRESET_NAME}`);
-      console.log('Preset from instance deleted successfully');
-    } catch (error) {
-      console.error('Failed to delete preset from instance:', error);
-    }
-  });
+      await request.delete(`/v1/clusters/${CLUSTER_NAME}/namespaces/${EVEREST_CI_NAMESPACE}/instances/${INSTANCE_NAME}`)
+      await request.delete(`/v1/clusters/${CLUSTER_NAME}/namespaces/${EVEREST_CI_NAMESPACE}/instances/${SOURCE_INSTANCE_NAME}`)
+      await request.delete(`/v1/clusters/${CLUSTER_NAME}/instance-presets/${FROM_INSTANCE_PRESET_NAME}`)
+  })
 
   test('list instance presets', async ({request}) => {
     const response = await request.get(
@@ -150,7 +129,9 @@ test.describe('Instance Preset tests', () => {
         name: CRUD_PRESET_NAME,
       },
       spec: {
-        provider: PROVIDER_NAME,
+        providerRef: {
+          name: PROVIDER_NAME,
+        },
         version: '1.0.0',
         components: {
           engine: {
@@ -166,7 +147,7 @@ test.describe('Instance Preset tests', () => {
                 memory: '2Gi',
               },
             },
-            customSpec: {
+            parameters: {
               enableUnsafeMode: true,
             },
           },
@@ -193,7 +174,7 @@ test.describe('Instance Preset tests', () => {
       const preset = await response.json();
 
       expect(preset.metadata.name).toBe(CRUD_PRESET_NAME);
-      expect(preset.spec.provider).toBe(PROVIDER_NAME);
+      expect(preset.spec.providerRef.name).toBe(PROVIDER_NAME);
       expect(preset.spec.version).toBe('1.0.0');
       expect(preset.spec.components.engine.type).toBe('test');
       expect(preset.spec.components.engine.replicas).toBe(3);
@@ -201,7 +182,7 @@ test.describe('Instance Preset tests', () => {
       expect(preset.spec.components.engine.storage.storageClass).toBe('local-path');
       expect(preset.spec.components.engine.resources.limits.cpu).toBe('1');
       expect(preset.spec.components.engine.resources.limits.memory).toBe('2Gi');
-      expect(preset.spec.components.engine.customSpec.enableUnsafeMode).toBe(true);
+      expect(preset.spec.components.engine.parameters.enableUnsafeMode).toBe(true);
     });
 
     await test.step('update preset spec', async () => {
@@ -259,7 +240,7 @@ test.describe('Instance Preset tests', () => {
         const preset = await response.json();
 
         expect(preset.metadata.name).toBe(CRUD_PRESET_NAME);
-        expect(preset.spec.provider).toBe(PROVIDER_NAME);
+        expect(preset.spec.providerRef.name).toBe(PROVIDER_NAME);
         expect(preset.spec.version).toBe('2.0.0');
         expect(preset.spec.components.engine.type).toBe('test');
         expect(preset.spec.components.engine.replicas).toBe(5);
@@ -272,7 +253,7 @@ test.describe('Instance Preset tests', () => {
           '4Gi'
         );
         expect(
-          preset.spec.components.engine.customSpec.enableUnsafeMode
+          preset.spec.components.engine.parameters.enableUnsafeMode
         ).toBe(true);
       });
     });
@@ -303,7 +284,9 @@ test.describe('Instance Preset tests', () => {
           name: SOURCE_INSTANCE_NAME,
         },
         spec: {
-          provider: PROVIDER_NAME,
+          providerRef: {
+            name: PROVIDER_NAME,
+          },
           version: '1.0.0',
           components: {
             engine: {
@@ -319,10 +302,34 @@ test.describe('Instance Preset tests', () => {
                   memory: '2Gi',
                 },
               },
-              config: {
-                configMapRef: {
+              parameters: {
+                objectRef: {
                   name: 'test-configmap',
                 },
+              },
+              schedulingPolicy: {
+                affinity: {
+                  podAntiAffinity: {
+                    preferredDuringSchedulingIgnoredDuringExecution: [
+                      {
+                        weight: 100,
+                        podAffinityTerm: {
+                          topologyKey: 'kubernetes.io/hostname',
+                          labelSelector: {
+                            matchLabels: {
+                              'app.kubernetes.io/name': 'test',
+                            },
+                          },
+                        },
+                      },
+                    ],
+                  },
+                },
+              },
+            },
+            monitoring: {
+              parameters: {
+                monitoringConfigName: 'test-monitoring-config',
               },
             },
           },
@@ -351,16 +358,31 @@ test.describe('Instance Preset tests', () => {
       const preset = await response.json();
 
       // The draft mirrors the source instance spec...
-      expect(preset.spec.provider).toBe(PROVIDER_NAME);
+      expect(preset.spec.providerRef.name).toBe(PROVIDER_NAME);
       expect(preset.spec.version).toBe('1.0.0');
       expect(preset.spec.components.engine.type).toBe('test');
       expect(preset.spec.components.engine.replicas).toBe(3);
       expect(preset.spec.components.engine.resources.limits.cpu).toBe('1');
       expect(preset.spec.components.engine.resources.limits.memory).toBe('2Gi');
       expect(preset.spec.components.engine.storage.size).toBe('15Gi');
+      expect(preset.spec.components.engine.storage.storageClass).toBe('local-path');
+      expect(
+        preset.spec.components.engine.schedulingPolicy.affinity.podAntiAffinity
+          .preferredDuringSchedulingIgnoredDuringExecution[0].weight
+      ).toBe(100);
+      expect(
+        preset.spec.components.engine.schedulingPolicy.affinity.podAntiAffinity
+          .preferredDuringSchedulingIgnoredDuringExecution[0].podAffinityTerm
+          .topologyKey
+      ).toBe('kubernetes.io/hostname');
+      expect(
+        preset.spec.components.engine.schedulingPolicy.affinity.podAntiAffinity
+          .preferredDuringSchedulingIgnoredDuringExecution[0].podAffinityTerm
+          .labelSelector.matchLabels['app.kubernetes.io/name']
+      ).toBe('test');
       // ...with namespace-scoped fields cleared.
-      expect(preset.spec.components.engine.storage.storageClass).toBeUndefined();
-      expect(preset.spec.components.engine.config.configMapRef.name).toBeUndefined();
+      expect(preset.spec.components.engine.parameters.objectRef.name).toBe('');
+      expect(preset.spec.components.monitoring.parameters.monitoringConfigName).toBe('');
     });
   });
 });
