@@ -60,6 +60,10 @@ jobs:
         run: |
           CGO_ENABLED=0 GOOS=linux GOARCH=amd64 make build
 
+      - name: Build Controller
+        run: |
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 make build-controller
+
       - name: Setup docker build metadata
         uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051 # v5.10.0
         id: meta
@@ -75,7 +79,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build and Push openeverest dev image
-        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
         with:
           context: .
           file: build/package/server/Dockerfile
@@ -91,7 +95,7 @@ jobs:
           tags: 0.0.0
 
       - name: Build and Push everestctl dev image
-        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
         with:
           context: .
           file: build/package/cli/Dockerfile
