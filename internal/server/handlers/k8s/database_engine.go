@@ -196,7 +196,7 @@ func (h *k8sHandler) getOperatorUpgradePreflight(
 	args := upgradePreflightCheckArgs{
 		targetVersion:  targetVersion,
 		engine:         engine,
-		versionService: versionservice.New(h.versionServiceURL),
+		versionService: versionservice.New(h.versionServiceURL, h.httpClient),
 	}
 	result, err := getUpgradePreflightChecksResult(ctx, databases.Items, args)
 	if err != nil {

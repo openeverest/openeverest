@@ -17,10 +17,8 @@ package validation
 import (
 	"bytes"
 	"context"
-	"crypto/tls"
 	"errors"
 	"fmt"
-	"net/http"
 	"net/url"
 	"regexp"
 	"slices"
@@ -41,6 +39,7 @@ import (
 	operatorUtils "github.com/percona/everest-operator/utils"
 	"github.com/percona/everest/api"
 	"github.com/percona/everest/cmd/config"
+	"github.com/percona/everest/pkg/httputil"
 )
 
 const (
@@ -222,12 +221,11 @@ func s3Access(
 		endpoint = nil
 	}
 
-	c := &http.Client{
-		Timeout: timeoutS3AccessSec * time.Second,
-		Transport: &http.Transport{
-			TLSClientConfig: &tls.Config{InsecureSkipVerify: !verifyTLS}, //nolint:gosec
-		},
-	}
+	c := httputil.NewClient(
+		httputil.WithTimeout(timeoutS3AccessSec*time.Second),
+		httputil.WithInsecureSkipVerify(!verifyTLS),
+		httputil.WithTransient(),
+	)
 	cfg := aws.Config{
 		Region:      region,
 		Credentials: credentials.NewStaticCredentialsProvider(accessKey, secretKey, ""),

@@ -54,6 +54,7 @@ import (
 	valhandler "github.com/percona/everest/internal/server/handlers/validation"
 	"github.com/percona/everest/pkg/accounts"
 	"github.com/percona/everest/pkg/common"
+	"github.com/percona/everest/pkg/httputil"
 	"github.com/percona/everest/pkg/kubernetes"
 	"github.com/percona/everest/pkg/oidc"
 	"github.com/percona/everest/pkg/session"
@@ -80,6 +81,7 @@ type EverestServer struct {
 	attemptsStore *RateLimiterMemoryStore
 	handler       handlers.Handler
 	oidcProvider  *oidc.ProviderConfig
+	httpClient    *http.Client
 }
 
 func getOIDCProviderConfig(ctx context.Context, kubeClient kubernetes.KubernetesConnector) (*oidc.ProviderConfig, error) {
@@ -150,6 +152,7 @@ func NewEverestServer(ctx context.Context, c *config.EverestConfig, l *zap.Sugar
 		sessionMgr:    sessMgr,
 		attemptsStore: store,
 		oidcProvider:  oidcProvider,
+		httpClient:    httputil.NewClient(httputil.WithTimeout(30 * time.Second)),
 	}
 	e.echo.HTTPErrorHandler = e.errorHandlerChain()
 
@@ -315,7 +318,7 @@ func (e *EverestServer) setupHandlers(
 	kubeConnector kubernetes.KubernetesConnector,
 	vsURL string,
 ) error {
-	k8sH := k8shandler.New(log, kubeConnector, vsURL)
+	k8sH := k8shandler.New(log, kubeConnector, vsURL, e.httpClient)
 	valH := valhandler.New(log, kubeConnector)
 	rbacH, err := rbachandler.New(ctx, log, kubeConnector)
 	if err != nil {

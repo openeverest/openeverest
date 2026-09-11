@@ -62,7 +62,7 @@ func (e *EverestServer) report(ctx context.Context, baseURL string, data Telemet
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Accept", "application/json")
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := e.httpClient.Do(req)
 	if err != nil {
 		e.l.Error(errors.Join(err, errors.New("failed to send telemetry request")))
 		return err

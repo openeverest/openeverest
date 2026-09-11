@@ -437,7 +437,7 @@ func TestCreateDatabaseClusterSecret(t *testing.T) {
 
 			// Create k8s handler with mock client
 			k := kubernetes.NewEmpty(zap.NewNop().Sugar()).WithKubernetesClient(mockClient)
-			k8sH := New(zap.NewNop().Sugar(), k, "")
+			k8sH := New(zap.NewNop().Sugar(), k, "", nil)
 
 			// Call the function under test
 			createdSecret, err := k8sH.CreateDatabaseClusterSecret(
