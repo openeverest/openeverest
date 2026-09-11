@@ -55,9 +55,9 @@ func TestUpdateRun_VerifyTLSOnly_PatchBodyNamesOnlyThatField(t *testing.T) {
 	var gotPatch map[string]any
 	mux := http.NewServeMux()
 	mux.HandleFunc("/v1/clusters/main/namespaces/everest/backup-storages/my-s3", func(w http.ResponseWriter, r *http.Request) {
-		require.Equal(t, http.MethodPatch, r.Method)
+		assert.Equal(t, http.MethodPatch, r.Method)
 		assert.Equal(t, "application/merge-patch+json", r.Header.Get("Content-Type"))
-		require.NoError(t, json.NewDecoder(r.Body).Decode(&gotPatch))
+		assert.NoError(t, json.NewDecoder(r.Body).Decode(&gotPatch))
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		_ = json.NewEncoder(w).Encode(backupStorageWithName(t, "my-s3", "everest"))
@@ -85,7 +85,7 @@ func TestUpdateRun_AccessKeyID_SendsCredentialPair(t *testing.T) {
 	var gotPatch map[string]any
 	mux := http.NewServeMux()
 	mux.HandleFunc("/v1/clusters/main/namespaces/everest/backup-storages/my-s3", func(w http.ResponseWriter, r *http.Request) {
-		require.NoError(t, json.NewDecoder(r.Body).Decode(&gotPatch))
+		assert.NoError(t, json.NewDecoder(r.Body).Decode(&gotPatch))
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		_ = json.NewEncoder(w).Encode(backupStorageWithName(t, "my-s3", "everest"))
@@ -113,7 +113,7 @@ func TestUpdateRun_CredentialsSecret_SendsSecretRefName(t *testing.T) {
 	var gotPatch map[string]any
 	mux := http.NewServeMux()
 	mux.HandleFunc("/v1/clusters/main/namespaces/everest/backup-storages/my-s3", func(w http.ResponseWriter, r *http.Request) {
-		require.NoError(t, json.NewDecoder(r.Body).Decode(&gotPatch))
+		assert.NoError(t, json.NewDecoder(r.Body).Decode(&gotPatch))
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		_ = json.NewEncoder(w).Encode(backupStorageWithName(t, "my-s3", "everest"))

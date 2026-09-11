@@ -90,7 +90,7 @@ func (u *Updater) Run(ctx context.Context, opts UpdateOptions, cfgPath string) e
 	}
 }
 
-// buildS3Patch names only the s3 fields the caller actually set, so the merge patch leaves every other field, 
+// buildS3Patch names only the s3 fields the caller actually set, so the merge patch leaves every other field,
 // including the identity fields this command never exposes a flag for, untouched.
 func buildS3Patch(opts UpdateOptions) map[string]any {
 	s3 := map[string]any{}
@@ -110,7 +110,7 @@ func buildS3Patch(opts UpdateOptions) map[string]any {
 	return s3
 }
 
-// emitUpdated reports a successful update
+// emitUpdated reports a successful update.
 func (u *Updater) emitUpdated(updated *client.BackupStorage, opts UpdateOptions) error {
 	if u.config.Pretty {
 		_, _ = fmt.Fprint(os.Stdout, output.Success("Backup storage %q updated", opts.Name))
