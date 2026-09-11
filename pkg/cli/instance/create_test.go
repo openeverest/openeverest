@@ -283,6 +283,15 @@ func TestParseSetFlags_StringFallback(t *testing.T) {
 	assert.Equal(t, "50Gi", storage["size"])
 }
 
+func TestParseSetFlags_NullCoercion(t *testing.T) {
+	t.Parallel()
+	m, err := parseSetFlags([]string{"version=null"})
+	require.NoError(t, err)
+	value, present := m["version"]
+	require.True(t, present, "null must survive as a member: it is what removes the field")
+	assert.Nil(t, value)
+}
+
 func TestParseSetFlags_MissingEquals(t *testing.T) {
 	t.Parallel()
 	_, err := parseSetFlags([]string{"components.engine.replicas"})

@@ -38,6 +38,13 @@ import (
 	"github.com/openeverest/openeverest/v2/pkg/output"
 )
 
+// Spec keys and values that both the create and update paths spell out.
+const (
+	specKey       = "spec"
+	componentsKey = "components"
+	nullValue     = "null"
+)
+
 type Config struct {
 	Pretty bool
 }
@@ -314,24 +321,12 @@ func (ic *InstanceCreator) resolvePreset(ctx context.Context, c *client.ClientWi
 	if p.Spec.Topology != nil && p.Spec.Topology.Type != nil {
 		pr.topology = *p.Spec.Topology.Type
 	}
-	specMap, err := presetSpecToMap(p)
+	specMap, err := specToMap(p.Spec)
 	if err != nil {
 		return nil, err
 	}
 	pr.specMap = specMap
 	return pr, nil
-}
-
-func presetSpecToMap(p *client.InstancePreset) (map[string]any, error) {
-	b, err := json.Marshal(p.Spec)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal preset spec: %w", err)
-	}
-	var m map[string]any
-	if err := json.Unmarshal(b, &m); err != nil {
-		return nil, fmt.Errorf("failed to parse preset spec: %w", err)
-	}
-	return m, nil
 }
 
 func defaultVersion(prov *client.Provider) string {
@@ -390,6 +385,24 @@ func validateTopology(topology string, prov *client.Provider) error {
 
 // validateComponents only checks --set paths starting with "components.".
 func validateComponents(setFlags []string, prov *client.Provider, topology string) error {
+	var names []string
+	for _, s := range setFlags {
+		parts := strings.SplitN(s, "=", 2)
+		if len(parts) < 2 {
+			continue
+		}
+		segments := strings.SplitN(parts[0], ".", 3)
+		if len(segments) < 2 || segments[0] != componentsKey {
+			continue
+		}
+		names = append(names, segments[1])
+	}
+	return validateComponentNames(names, prov, topology)
+}
+
+// validateComponentNames rejects component names the provider does not offer under
+// the given topology.
+func validateComponentNames(names []string, prov *client.Provider, topology string) error {
 	// Topology components are the ground truth, but the API strips null entries,
 	// so fall back to spec.components (global registry) when the topology map is empty.
 	valid := map[string]struct{}{}
@@ -411,22 +424,13 @@ func validateComponents(setFlags []string, prov *client.Provider, topology strin
 
 	var invalid []string
 	seen := map[string]struct{}{}
-	for _, s := range setFlags {
-		parts := strings.SplitN(s, "=", 2)
-		if len(parts) < 2 {
+	for _, name := range names {
+		if _, done := seen[name]; done {
 			continue
 		}
-		segments := strings.SplitN(parts[0], ".", 3)
-		if len(segments) < 2 || segments[0] != "components" {
-			continue
-		}
-		compName := segments[1]
-		if _, done := seen[compName]; done {
-			continue
-		}
-		seen[compName] = struct{}{}
-		if _, ok := valid[compName]; !ok {
-			invalid = append(invalid, compName)
+		seen[name] = struct{}{}
+		if _, ok := valid[name]; !ok {
+			invalid = append(invalid, name)
 		}
 	}
 
@@ -549,6 +553,10 @@ func parseSetFlags(setFlags []string) (map[string]any, error) {
 }
 
 func coerceValue(s string) any {
+	// A values file already yields nil for a YAML null; --set has to spell it out.
+	if s == nullValue {
+		return nil
+	}
 	if i, err := strconv.ParseInt(s, 10, 64); err == nil {
 		return i
 	}
@@ -604,6 +612,6 @@ func buildPayload(name, provider, version, topology string, specOverrides map[st
 
 	return map[string]any{
 		"metadata": metadata,
-		"spec":     specOverrides,
+		specKey:    specOverrides,
 	}
 }
