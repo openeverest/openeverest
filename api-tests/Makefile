@@ -25,8 +25,20 @@ ci-init: $(CI_INIT_DEPS) 	## Prepare environment for running tests.
 
 PMM_HELM_CHART_VER=1.4.13
 HELM=go tool -modfile=$(TEST_ROOT)/../go.mod helm
+.PHONY: k3d-upload-pmm-images
+k3d-upload-pmm-images: ## Pre-upload PMM server images to K3D test cluster to speedup PMM installation.
+	$(info Uploading PMM images to K3D test cluster)
+	$(HELM) repo add percona https://percona.github.io/percona-helm-charts/ 2>/dev/null || true
+	@{ \
+	for node in $$(k3d node list | grep everest-server-test | grep -v registry | awk '{print $$1}'); do \
+		for image in $$($(HELM) template pmm percona/pmm --version $(PMM_HELM_CHART_VER) | grep -E '^\s+image:' | awk '{print $$2}' | tr -d '"' | sort -u); do \
+			docker exec $$node ctr image pull docker.io/$${image} ;\
+		done ;\
+	done ;\
+	}
+
 .PHONY: deploy-monitoring
-deploy-monitoring:   ## Deploy monitoring instances to K3D test cluster.
+deploy-monitoring: k3d-upload-pmm-images  ## Deploy monitoring instances to K3D test cluster.
 	$(info Deploying PMM instances to K3D test cluster)
 	$(HELM) repo add percona https://percona.github.io/percona-helm-charts/
 	# PMM 3 starts really slowly, so we increase timeout to 15 minutes
@@ -115,7 +127,7 @@ k3d-upload-pxc-images: ## Pre-upload PXC images to K3D test cluster to speedup t
 	}
 
 .PHONY: k3d-upload-images
-k3d-upload-images: k3d-upload-pg-images k3d-upload-psmdb-images k3d-upload-pxc-images 	## Pre-upload PG,PSMDB,PXC images to K3D test cluster to speedup tests execution.
+k3d-upload-images: k3d-upload-pg-images k3d-upload-psmdb-images k3d-upload-pxc-images k3d-upload-pmm-images 	## Pre-upload PG,PSMDB,PXC,PMM images to K3D test cluster to speedup tests execution.
 
 ##@ Development
 
