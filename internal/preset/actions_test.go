@@ -24,7 +24,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/utils/ptr"
 
 	corev1alpha1 "github.com/openeverest/openeverest/v2/api/core/v1alpha1"
 )
@@ -48,14 +47,14 @@ func TestEnsureNamespaceRefsEmpty(t *testing.T) {
 					"engine": {
 						Storage: &corev1alpha1.Storage{
 							Size:         resource.MustParse("25Gi"),
-							StorageClass: ptr.To("local-path"),
+							StorageClass: new("local-path"),
 						},
 					},
 				},
 			},
 		},
 		{
-			name: "secret ref must be empty",
+			name: "parameters secretRef must be empty",
 			spec: &corev1alpha1.InstanceSpec{
 				Components: map[string]corev1alpha1.ComponentSpec{
 					"engine": {
@@ -70,7 +69,7 @@ func TestEnsureNamespaceRefsEmpty(t *testing.T) {
 			wantErr: `component "engine": parameters.secretRef must be empty in preset`,
 		},
 		{
-			name: "configmap ref must be empty",
+			name: "parameters objectRef must be empty",
 			spec: &corev1alpha1.InstanceSpec{
 				Components: map[string]corev1alpha1.ComponentSpec{
 					"proxy": {
@@ -85,7 +84,7 @@ func TestEnsureNamespaceRefsEmpty(t *testing.T) {
 			wantErr: `component "proxy": parameters.objectRef must be empty in preset`,
 		},
 		{
-			name: "customSpec monitoringConfigName must be empty",
+			name: "parameters monitoringConfigName must be empty",
 			spec: &corev1alpha1.InstanceSpec{
 				Components: map[string]corev1alpha1.ComponentSpec{
 					"monitoring": {
@@ -112,7 +111,7 @@ func TestEnsureNamespaceRefsEmpty(t *testing.T) {
 			},
 		},
 		{
-			name: "nested customSpec refs are checked",
+			name: "nested parameters refs are checked",
 			spec: &corev1alpha1.InstanceSpec{
 				Components: map[string]corev1alpha1.ComponentSpec{
 					"pmm": {
@@ -158,7 +157,7 @@ func TestClearNamespaceRefs(t *testing.T) {
 			expected: &corev1alpha1.InstanceSpec{},
 		},
 		{
-			name: "clears secretRef and configMapRef",
+			name: "clears secretRef and objectRef",
 			input: &corev1alpha1.InstanceSpec{
 				Components: map[string]corev1alpha1.ComponentSpec{
 					"engine": {
@@ -173,7 +172,7 @@ func TestClearNamespaceRefs(t *testing.T) {
 						}),
 						Storage: &corev1alpha1.Storage{
 							Size:         resource.MustParse("10Gi"),
-							StorageClass: ptr.To("fast-ssd"),
+							StorageClass: new("fast-ssd"),
 						},
 					},
 				},
@@ -188,14 +187,14 @@ func TestClearNamespaceRefs(t *testing.T) {
 						}),
 						Storage: &corev1alpha1.Storage{
 							Size:         resource.MustParse("10Gi"),
-							StorageClass: ptr.To("fast-ssd"),
+							StorageClass: new("fast-ssd"),
 						},
 					},
 				},
 			},
 		},
 		{
-			name: "clears customSpec namespace refs",
+			name: "clears parameters monitoringConfigName",
 			input: &corev1alpha1.InstanceSpec{
 				Components: map[string]corev1alpha1.ComponentSpec{
 					"monitoring": {
@@ -230,13 +229,8 @@ func TestClearNamespaceRefs(t *testing.T) {
 					"engine": {
 						Storage: &corev1alpha1.Storage{
 							Size:         resource.MustParse("25Gi"),
-							StorageClass: ptr.To("premium-rwo"),
+							StorageClass: new("premium-rwo"),
 						},
-						Parameters: mustRawExt(t, map[string]any{
-							"secretRef": map[string]any{
-								"name": "creds",
-							},
-						}),
 					},
 				},
 			},
@@ -245,19 +239,14 @@ func TestClearNamespaceRefs(t *testing.T) {
 					"engine": {
 						Storage: &corev1alpha1.Storage{
 							Size:         resource.MustParse("25Gi"),
-							StorageClass: ptr.To("premium-rwo"),
+							StorageClass: new("premium-rwo"),
 						},
-						Parameters: mustRawExt(t, map[string]any{
-							"secretRef": map[string]any{
-								"name": "",
-							},
-						}),
 					},
 				},
 			},
 		},
 		{
-			name: "clears nested customSpec refs",
+			name: "clears nested parameters refs",
 			input: &corev1alpha1.InstanceSpec{
 				Components: map[string]corev1alpha1.ComponentSpec{
 					"pmm": {
@@ -291,7 +280,7 @@ func TestClearNamespaceRefs(t *testing.T) {
 
 			err := ClearNamespaceRefs(tt.input)
 			require.NoError(t, err)
-			require.EqualValues(t, tt.expected, tt.input)
+			require.Equal(t, tt.expected, tt.input)
 		})
 	}
 }
@@ -390,7 +379,7 @@ func TestResolveNamespaceRefs(t *testing.T) {
 			namespace: "prod",
 			resolver: &mockResolver{
 				defaults: map[resolverKey]string{
-					{ns: "prod", kind: KindStorageClass, component: "engine"}: "fast-ssd",
+					{ns: "prod", kind: StorageClass, component: "engine"}: "fast-ssd",
 				},
 			},
 			expected: &corev1alpha1.InstanceSpec{
@@ -398,14 +387,14 @@ func TestResolveNamespaceRefs(t *testing.T) {
 					"engine": {
 						Storage: &corev1alpha1.Storage{
 							Size:         resource.MustParse("50Gi"),
-							StorageClass: ptr.To("fast-ssd"),
+							StorageClass: new("fast-ssd"),
 						},
 					},
 				},
 			},
 		},
 		{
-			name: "resolves customSpec monitoringConfigName",
+			name: "resolves parameters monitoringConfigName",
 			input: &corev1alpha1.InstanceSpec{
 				Components: map[string]corev1alpha1.ComponentSpec{
 					"monitoring": {
@@ -419,7 +408,7 @@ func TestResolveNamespaceRefs(t *testing.T) {
 			namespace: "staging",
 			resolver: &mockResolver{
 				defaults: map[resolverKey]string{
-					{ns: "staging", kind: KindMonitoringConfig, component: "monitoring"}: "pmm-config",
+					{ns: "staging", kind: MonitoringConfig, component: "monitoring"}: "pmm-config",
 				},
 			},
 			expected: &corev1alpha1.InstanceSpec{
@@ -440,7 +429,7 @@ func TestResolveNamespaceRefs(t *testing.T) {
 					"engine": {
 						Storage: &corev1alpha1.Storage{
 							Size:         resource.MustParse("50Gi"),
-							StorageClass: ptr.To("standard"),
+							StorageClass: new("standard"),
 						},
 					},
 				},
@@ -448,7 +437,7 @@ func TestResolveNamespaceRefs(t *testing.T) {
 			namespace: "prod",
 			resolver: &mockResolver{
 				defaults: map[resolverKey]string{
-					{ns: "prod", kind: KindStorageClass, component: "engine"}: "local-path",
+					{ns: "prod", kind: StorageClass, component: "engine"}: "local-path",
 				},
 			},
 			expected: &corev1alpha1.InstanceSpec{
@@ -456,7 +445,7 @@ func TestResolveNamespaceRefs(t *testing.T) {
 					"engine": {
 						Storage: &corev1alpha1.Storage{
 							Size:         resource.MustParse("50Gi"),
-							StorageClass: ptr.To("standard"),
+							StorageClass: new("standard"),
 						},
 					},
 				},
@@ -482,7 +471,7 @@ func TestResolveNamespaceRefs(t *testing.T) {
 			wantErr: "no default secret found",
 		},
 		{
-			name: "resolves nested customSpec refs",
+			name: "resolves nested parameters refs",
 			input: &corev1alpha1.InstanceSpec{
 				Components: map[string]corev1alpha1.ComponentSpec{
 					"pmm": {
@@ -497,7 +486,7 @@ func TestResolveNamespaceRefs(t *testing.T) {
 			namespace: "staging",
 			resolver: &mockResolver{
 				defaults: map[resolverKey]string{
-					{ns: "staging", kind: KindMonitoringConfig, component: "pmm"}: "pmm-config",
+					{ns: "staging", kind: MonitoringConfig, component: "pmm"}: "pmm-config",
 				},
 			},
 			expected: &corev1alpha1.InstanceSpec{
@@ -521,12 +510,13 @@ func TestResolveNamespaceRefs(t *testing.T) {
 			err := ResolveNamespaceRefs(context.Background(), tt.input, tt.namespace, tt.resolver)
 
 			if tt.wantErr != "" {
-				require.Error(t, err)
-				assert.Contains(t, err.Error(), tt.wantErr)
-			} else {
-				require.NoError(t, err)
-				require.EqualValues(t, tt.expected, tt.input)
+				require.ErrorContains(t, err, tt.wantErr)
+
+				return
 			}
+
+			require.NoError(t, err)
+			require.Equal(t, tt.expected, tt.input)
 		})
 	}
 }
@@ -539,11 +529,11 @@ type mockResolver struct {
 
 type resolverKey struct {
 	ns        string
-	kind      ResourceKind
+	kind      Kind
 	component string
 }
 
-func (m *mockResolver) ResolveDefault(ctx context.Context, namespace string, kind ResourceKind, component string) (string, error) {
+func (m *mockResolver) ResolveDefault(_ context.Context, namespace string, kind Kind, component string) (string, error) {
 	if m.err != nil {
 		return "", m.err
 	}

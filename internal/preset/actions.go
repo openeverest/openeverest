@@ -24,11 +24,12 @@ import (
 // DefaultResolver looks up the default resource name for a reference in a
 // namespace. Cluster-scoped kinds (StorageClass) ignore the namespace argument.
 type DefaultResolver interface {
-	ResolveDefault(ctx context.Context, namespace string, kind ResourceKind, component string) (string, error)
+	ResolveDefault(ctx context.Context, namespace string, resourceType Kind, component string) (string, error)
 }
 
 // EnsureNamespaceRefsEmpty returns an error if any namespace-scoped reference in the spec
-// holds a value.
+// holds a value. It is used when validating an InstancePreset, which must not contain any
+// namespace-scoped references.
 func EnsureNamespaceRefsEmpty(spec *corev1alpha1.InstanceSpec) error {
 	return WalkSpec(spec, func(ref FieldRef) error {
 		if ref.Scope() != ScopeNamespace || ref.IsEmpty() {
@@ -39,8 +40,8 @@ func EnsureNamespaceRefsEmpty(spec *corev1alpha1.InstanceSpec) error {
 	})
 }
 
-// ClearNamespaceRefs empties every namespace-scoped reference in the spec. It is used when
-// turning an Instance into an InstancePreset.
+// ClearNamespaceRefs empties every namespace-scoped reference in the spec.components.
+// It is used when turning an Instance into an InstancePreset.
 func ClearNamespaceRefs(spec *corev1alpha1.InstanceSpec) error {
 	return WalkSpec(spec, func(ref FieldRef) error {
 		if ref.Scope() == ScopeNamespace {
@@ -51,15 +52,16 @@ func ClearNamespaceRefs(spec *corev1alpha1.InstanceSpec) error {
 	})
 }
 
-// ResolveNamespaceRefs fills every empty reference in the spec with the default resolved
-// for the namespace. References that already hold a value are left unchanged.
+// ResolveNamespaceRefs fills every empty reference in the spec.components with the
+// default resolved value for the namespace. References that already hold a value
+// are left unchanged.
 func ResolveNamespaceRefs(ctx context.Context, spec *corev1alpha1.InstanceSpec, namespace string, resolver DefaultResolver) error {
 	return WalkSpec(spec, func(ref FieldRef) error {
 		if !ref.IsEmpty() {
 			return nil
 		}
 
-		name, err := resolver.ResolveDefault(ctx, namespace, ref.Kind(), ref.Component())
+		name, err := resolver.ResolveDefault(ctx, namespace, ref.FieldKind(), ref.Component())
 		if err != nil {
 			return err
 		}

@@ -69,7 +69,7 @@ func (h *k8sHandler) ResolveInstancePreset(ctx context.Context, cluster, name, n
 }
 
 // CreateInstancePreset creates an instance preset.
-func (h *k8sHandler) CreateInstancePreset(ctx context.Context, cluster string, instancePreset *corev1alpha1.InstancePreset) (*corev1alpha1.InstancePreset, error) {
+func (h *k8sHandler) CreateInstancePreset(ctx context.Context, _ string, instancePreset *corev1alpha1.InstancePreset) (*corev1alpha1.InstancePreset, error) {
 	if err := h.kubeConnector.CreateInstancePreset(ctx, instancePreset); err != nil {
 		return nil, fmt.Errorf("failed to create instance preset: %w", err)
 	}
@@ -78,7 +78,7 @@ func (h *k8sHandler) CreateInstancePreset(ctx context.Context, cluster string, i
 }
 
 // UpdateInstancePreset updates an instance preset.
-func (h *k8sHandler) UpdateInstancePreset(ctx context.Context, cluster string, instancePreset *corev1alpha1.InstancePreset) (*corev1alpha1.InstancePreset, error) {
+func (h *k8sHandler) UpdateInstancePreset(ctx context.Context, _ string, instancePreset *corev1alpha1.InstancePreset) (*corev1alpha1.InstancePreset, error) {
 	if err := h.kubeConnector.UpdateInstancePreset(ctx, instancePreset); err != nil {
 		return nil, fmt.Errorf("failed to update instance preset: %w", err)
 	}
@@ -87,7 +87,7 @@ func (h *k8sHandler) UpdateInstancePreset(ctx context.Context, cluster string, i
 }
 
 // DeleteInstancePreset deletes an instance preset.
-func (h *k8sHandler) DeleteInstancePreset(ctx context.Context, cluster, name string) error {
+func (h *k8sHandler) DeleteInstancePreset(ctx context.Context, _, name string) error {
 	if err := h.kubeConnector.DeleteInstancePreset(ctx, types.NamespacedName{Name: name}); err != nil {
 		if ctrlclient.IgnoreNotFound(err) != nil {
 			return fmt.Errorf("failed to delete instance preset: %w", err)
@@ -101,7 +101,7 @@ func (h *k8sHandler) DeleteInstancePreset(ctx context.Context, cluster, name str
 // without persisting anything. The draft is populated with the instance's spec and
 // has its namespace-scoped references cleared (secrets, monitoring configs, etc.)
 // — the inverse of what ResolveInstancePreset fills in.
-func (h *k8sHandler) DraftInstancePreset(ctx context.Context, cluster, namespace, instanceName string) (*corev1alpha1.InstancePreset, error) {
+func (h *k8sHandler) DraftInstancePreset(ctx context.Context, _, namespace, instanceName string) (*corev1alpha1.InstancePreset, error) {
 	// Get the instance
 	instance, err := h.kubeConnector.GetInstance(ctx, types.NamespacedName{
 		Namespace: namespace,
@@ -141,7 +141,7 @@ func (h *k8sHandler) resolveNamespaceDefaults(ctx context.Context, instancePrese
 // component-specific annotation "openeverest.io/is-default-components-<component>";
 // StorageClass uses the standard Kubernetes default-class annotation and ignores
 // the namespace.
-func (h *k8sHandler) ResolveDefault(ctx context.Context, namespace string, kind preset.ResourceKind, component string) (string, error) {
+func (h *k8sHandler) ResolveDefault(ctx context.Context, namespace string, kind preset.Kind, component string) (string, error) {
 	componentAnnotation := fmt.Sprintf("openeverest.io/is-default-components-%s", component)
 
 	switch kind {
@@ -157,13 +157,13 @@ func (h *k8sHandler) ResolveDefault(ctx context.Context, namespace string, kind 
 			return "", err
 		}
 		return mostRecentDefault(toPtrs(list.Items), componentAnnotation), nil
-	case preset.KindMonitoringConfig:
+	case preset.MonitoringConfig:
 		list, err := h.kubeConnector.ListMonitoringConfigsV2(ctx, ctrlclient.InNamespace(namespace))
 		if err != nil {
 			return "", err
 		}
 		return mostRecentDefault(toPtrs(list.Items), componentAnnotation), nil
-	case preset.KindStorageClass:
+	case preset.StorageClass:
 		list, err := h.kubeConnector.ListStorageClasses(ctx)
 		if err != nil {
 			return "", err
@@ -187,9 +187,9 @@ func toPtrs[T any](items []T) []*T {
 // carries annotationKey set to "true", or "" if none match.
 func mostRecentDefault[T ctrlclient.Object](items []T, annotationKey string) string {
 	var newest T
-	found := false
+	var found bool
 	for _, item := range items {
-		if item.GetAnnotations()[annotationKey] != "true" {
+		if item.GetAnnotations()[annotationKey] != "true" { //nolint:goconst // string boolean assignment is clearer
 			continue
 		}
 		if !found || item.GetCreationTimestamp().After(newest.GetCreationTimestamp().Time) {

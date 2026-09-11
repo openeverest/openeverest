@@ -20,15 +20,15 @@
 // fields in a spec and act on them:
 //
 //   - validation ensures namespace-scoped references are empty in a preset,
-//   - draft-from-instance clears namespace-scoped references when drafting a
+//   - draft-from clears namespace-scoped references when drafting a
 //     preset from an Instance,
 //   - resolve fills empty references with the namespace/cluster default.
 //
 // These references live in two representations: typed struct fields
-// (Config.SecretRef, Config.ConfigMapRef, Storage.StorageClass) and free-form
-// customSpec JSON. This package abstracts both behind FieldRef and a single
-// WalkRefs traversal so the operations above share one implementation, and adding
-// a new reference type is a single registry entry.
+// (Storage.StorageClass) and free-form Parameters JSON. This package
+// abstracts both behind FieldRef and a single WalkRefs traversal so
+// the operations above share one implementation, and adding a new
+// reference type is a single registry entry.
 package preset
 
 import "slices"
@@ -38,76 +38,80 @@ type Scope int
 
 const (
 	// ScopeNamespace marks resources that live inside a namespace (Secret,
-	// ConfigMap, MonitoringConfig). These must be empty in a preset and are
-	// resolved from a namespace default.
+	// ConfigMap, MonitoringConfig). Namespace scoped fields must be empty
+	// in a preset.
 	ScopeNamespace Scope = iota
 	// ScopeCluster marks cluster-scoped resources (StorageClass). These may hold
 	// a value in a preset and are only filled when empty during resolution.
 	ScopeCluster
 )
 
-// ResourceKind identifies the Kubernetes resource a FieldRef points at.
-type ResourceKind string
+// Kind identifies the kind of referenced object (e.g. Secret, ConfigMap).
+type Kind string
 
-// Supported resource kinds referenced from a spec.
+// Supported kind of objects referenced from a spec.
 const (
-	KindSecret           ResourceKind = "Secret"
-	KindConfigMap        ResourceKind = "ConfigMap"
-	KindMonitoringConfig ResourceKind = "MonitoringConfig"
-	KindStorageClass     ResourceKind = "StorageClass"
+	KindSecret       Kind = "Secret"
+	KindConfigMap    Kind = "ConfigMap"
+	MonitoringConfig Kind = "MonitoringConfig"
+	StorageClass     Kind = "StorageClass"
 )
 
-// refKind couples a resource kind with its scope and the customSpec field names
-// (aliases) that reference it.
-type refKind struct {
-	kind    ResourceKind
-	scope   Scope
-	aliases []string
+// refObjectType couples a referenced object with its scope and the field names
+// that reference it.
+type refObjectType struct {
+	kind       Kind
+	scope      Scope
+	fieldNames []string
 }
 
-// registry is the single source of truth for resolvable reference types.
-// To support a new customSpec-referenced resource, add one entry here. Adding a
+// registry is the single source of truth for resolvable references.
+// To support a new resource type, add one entry here. Adding a
 // resource that also appears as a typed struct field additionally requires
 // emitting it from walkComponent.
-var registry = []refKind{
+var registry = []refObjectType{ //nolint:gochecknoglobals // this is a static registry
 	{
-		kind:    KindSecret,
-		scope:   ScopeNamespace,
-		aliases: []string{"secret", "secretRef", "secretName"},
+		kind:       KindSecret,
+		scope:      ScopeNamespace,
+		fieldNames: []string{"secret", "secretRef", "secretName"}, //nolint:goconst // these are the valid field names
 	},
 	{
-		kind:    KindConfigMap,
-		scope:   ScopeNamespace,
-		aliases: []string{"objectRef"},
+		// TODO: currently objectRef discovers configMap references in parameters,
+		// add support for additional kind of resources if needed.
+		kind:       KindConfigMap,
+		scope:      ScopeNamespace,
+		fieldNames: []string{"objectRef"}, //nolint:goconst // these are the valid field names
 	},
 	{
-		kind:    KindMonitoringConfig,
-		scope:   ScopeNamespace,
-		aliases: []string{"monitoringConfig", "monitoringConfigRef", "monitoringConfigName"},
+		kind:       MonitoringConfig,
+		scope:      ScopeNamespace,
+		fieldNames: []string{"monitoringConfig", "monitoringConfigRef", "monitoringConfigName"}, //nolint:goconst // these are the valid field names
 	},
 	{
-		kind:    KindStorageClass,
-		scope:   ScopeCluster,
-		aliases: []string{"storageClass", "storageClassName"},
+		kind:       StorageClass,
+		scope:      ScopeCluster,
+		fieldNames: []string{"storageClass", "storageClassName"},
 	},
 }
 
-// scopeOf returns the scope registered for a resource kind.
-func scopeOf(kind ResourceKind) Scope {
-	for _, rk := range registry {
-		if rk.kind == kind {
-			return rk.scope
+// scopeOf returns whether the resource is cluster or namespace scope.
+func scopeOf(resourceType Kind) Scope {
+	for _, r := range registry {
+		if r.kind == resourceType {
+			return r.scope
 		}
 	}
-	return ScopeNamespace
+
+	panic("unreachable: resource type " + string(resourceType))
 }
 
-// aliasKind returns the reference kind registered for a customSpec field name.
-func aliasKind(field string) (refKind, bool) {
-	for _, rk := range registry {
-		if slices.Contains(rk.aliases, field) {
-			return rk, true
+// refField returns the referenced resource for the given field name.
+// Returns false if the field name is not a known reference.
+func refField(field string) (refObjectType, bool) {
+	for _, r := range registry {
+		if slices.Contains(r.fieldNames, field) {
+			return r, true
 		}
 	}
-	return refKind{}, false
+	return refObjectType{}, false
 }

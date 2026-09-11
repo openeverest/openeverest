@@ -21,11 +21,9 @@ import (
 	corev1alpha1 "github.com/openeverest/openeverest/v2/api/core/v1alpha1"
 )
 
-// WalkSpec visits every resolvable resource reference in the spec. Structured
-// fields (Backup.ClassRef, Backup.Storages[].StorageRef, Storage.StorageClass)
-// and Parameters entries are all surfaced as FieldRef values. Mutations performed
-// by the visitor via FieldRef.Set are written back into the spec, including
-// re-marshalling any Parameters whose contents changed.
+// WalkSpec visits resolvable resource reference in the spec.components.
+// Mutations performed by the visitor via FieldRef.Set are written back
+// into the spec, including re-marshalling any Parameters whose contents changed.
 func WalkSpec(spec *corev1alpha1.InstanceSpec, visit func(FieldRef) error) error {
 	if spec == nil {
 		return nil
@@ -40,11 +38,11 @@ func WalkSpec(spec *corev1alpha1.InstanceSpec, visit func(FieldRef) error) error
 	return nil
 }
 
-// walkComponent surfaces the typed struct references and the customSpec entries
-// of a single component.
+// walkComponent visits resolvable resource reference of storage class and
+// unstructured parameters references.
 func walkComponent(name string, component *corev1alpha1.ComponentSpec, visit func(FieldRef) error) error {
 	if component.Storage != nil {
-		ref := storageClassRef{meta: newMeta(name, KindStorageClass, "storage.storageClass"), storage: component.Storage}
+		ref := storageClassRef{meta: newMeta(name, StorageClass, "storage.storageClass"), storage: component.Storage}
 		if err := visit(ref); err != nil {
 			return err
 		}
@@ -54,18 +52,18 @@ func walkComponent(name string, component *corev1alpha1.ComponentSpec, visit fun
 		return nil
 	}
 
-	var data map[string]any
-	if err := json.Unmarshal(component.Parameters.Raw, &data); err != nil {
+	var parameters map[string]any
+	if err := json.Unmarshal(component.Parameters.Raw, &parameters); err != nil {
 		return err
 	}
 
 	var dirty bool
-	if err := walkParameters(name, data, "parameters", &dirty, visit); err != nil {
+	if err := walkParameters(name, parameters, "parameters", &dirty, visit); err != nil {
 		return err
 	}
 
 	if dirty {
-		raw, err := json.Marshal(data)
+		raw, err := json.Marshal(parameters)
 		if err != nil {
 			return err
 		}
@@ -78,13 +76,19 @@ func walkComponent(name string, component *corev1alpha1.ComponentSpec, visit fun
 // walkParameters recursively surfaces known reference fields within a Parameters
 // object. A key that matches a registered alias is treated as a reference (even
 // when its value is an object); any other object value is descended into.
-func walkParameters(component string, data map[string]any, path string, dirty *bool, visit func(FieldRef) error) error {
-	for key, value := range data {
+func walkParameters(
+	component string,
+	parameters map[string]any,
+	path string,
+	dirty *bool,
+	visit func(FieldRef) error,
+) error {
+	for key, value := range parameters {
 		path = strings.Join([]string{path, key}, ".")
-		if rk, ok := aliasKind(key); ok {
+		if r, ok := refField(key); ok {
 			ref := parametersRef{
-				meta:   meta{component: component, kind: rk.kind, scope: rk.scope, path: path},
-				parent: data,
+				meta:   meta{component: component, kind: r.kind, scope: r.scope, path: path},
+				parent: parameters,
 				key:    key,
 				dirty:  dirty,
 			}
