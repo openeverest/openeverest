@@ -53,6 +53,15 @@ describe('memory parser', () => {
     });
     expect(memoryParser('1G', 'G')).toEqual({ value: 1, originalUnit: 'G' });
   });
+
+  it('parses milli-byte quantities returned by Kubernetes for non-integer conversions', () => {
+    // e.g. a 0.6G memory limit round-trips through Kubernetes as "644245094400m"
+    // because 0.6G isn't representable as a whole number in any larger unit.
+    expect(memoryParser('644245094400m', 'G')).toEqual({
+      value: 0.6442450944,
+      originalUnit: 'm',
+    });
+  });
 });
 
 // Backward compatibility: older clusters stored cpu/memory as flat fields on
