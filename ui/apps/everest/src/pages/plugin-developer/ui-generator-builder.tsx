@@ -12,11 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { Box, MenuItem, Paper, TextField } from '@mui/material';
-import { useState } from 'react';
+import { Box, MenuItem, Tab, Tabs, TextField } from '@mui/material';
+import { useEffect, useState } from 'react';
 import { YamlEditorPanel } from './yaml-editor-panel/yaml-editor-panel';
 import schemaYaml from 'components/ui-generator/ui-generator.mock.yaml?raw';
-import { TopologyUISchemas } from 'components/ui-generator/ui-generator.types';
 import { ErrorBoundary } from 'utils/ErrorBoundary';
 import { GenericError } from 'pages/generic-error/GenericError';
 import { ErrorContextProvider } from 'utils/ErrorBoundaryProvider';
@@ -25,9 +24,36 @@ import { formatYamlText } from './utils/yaml-json-converter';
 import { useSchemaValidation } from './hooks/use-schema-validation';
 import { useSplitPane } from './hooks/use-split-pane';
 import { usePreviewNamespace } from './hooks/use-preview-namespace';
+import { useSchemaStorage } from './hooks/use-schema-storage';
+import { SchemaToolbar } from './schema-toolbar/schema-toolbar';
+import { OutputPanel } from './output-panel/output-panel';
+import RoundedBox from 'components/rounded-box';
+import { Messages } from './ui-generator-builder.messages';
+
+// One height for both header strips keeps the panel borders below them level.
+const HEADER_HEIGHT = 48;
+
+// Panes animate their resize, except while dragging, when the transition would
+// lag the pointer.
+const paneTransition = (isDragging: boolean, property: string) => ({
+  transition: isDragging ? 'none' : `${property} 0.2s ease`,
+});
 
 export const UIGeneratorBuilder = () => {
-  const [yamlText, setYamlText] = useState(schemaYaml);
+  const {
+    initialDraft,
+    names,
+    saveDraft,
+    saveSchema,
+    loadSchema,
+    deleteSchema,
+  } = useSchemaStorage(schemaYaml);
+  const [yamlText, setYamlText] = useState(initialDraft);
+  const [rightTab, setRightTab] = useState(0);
+  const [output, setOutput] = useState<Record<string, unknown> | null>(null);
+  // Bumped when a whole schema is swapped in, to remount the preview. Editing
+  // the YAML deliberately doesn't bump it, so the form keeps its values.
+  const [previewKey, setPreviewKey] = useState(0);
   const { diagnostics, parsed: parsedSchema } = useSchemaValidation(yamlText);
   const { containerRef, leftWidth, isDragging, startDragging } = useSplitPane();
   const {
@@ -37,6 +63,17 @@ export const UIGeneratorBuilder = () => {
     isLoading: namespacesLoading,
   } = usePreviewNamespace();
 
+  // Autosave the working schema so a reload restores the developer's draft.
+  useEffect(() => {
+    saveDraft(yamlText);
+  }, [yamlText, saveDraft]);
+
+  // Editing the YAML invalidates a payload built from the previous schema.
+  // Whole-schema swaps are handled in `replaceSchema` below.
+  useEffect(() => {
+    setOutput(null);
+  }, [yamlText]);
+
   const formatYaml = () => {
     try {
       setYamlText(formatYamlText(yamlText));
@@ -44,6 +81,25 @@ export const UIGeneratorBuilder = () => {
       // Unparseable YAML can't be formatted; the syntax error is already shown.
     }
   };
+
+  // Swapping in a whole schema remounts the preview, so the form starts empty
+  // and any payload generated from the previous values is dropped. Both are
+  // done here rather than in the effect above, which can't see a load that
+  // happens to bring back byte-identical YAML.
+  const replaceSchema = (yaml: string) => {
+    setYamlText(yaml);
+    setPreviewKey((key) => key + 1);
+    setOutput(null);
+  };
+
+  const handleLoadSchema = (name: string) => {
+    const loaded = loadSchema(name);
+    if (loaded !== undefined) {
+      replaceSchema(loaded);
+    }
+  };
+
+  const handleResetSchema = () => replaceSchema(schemaYaml);
 
   return (
     <Box
@@ -53,6 +109,9 @@ export const UIGeneratorBuilder = () => {
         display: 'flex',
         flexDirection: 'row',
         overflow: 'hidden',
+        // Room for the toolbar's floating label, which would otherwise be
+        // clipped by the hidden overflow.
+        pt: 2,
       }}
     >
       <Box
@@ -63,21 +122,33 @@ export const UIGeneratorBuilder = () => {
             display: 'flex',
             flexDirection: 'column',
           },
-          isDragging
-            ? {
-                transition: 'none',
-              }
-            : {
-                transition: 'width 0.2s ease',
-              },
+          paneTransition(isDragging, 'width'),
         ]}
       >
-        <YamlEditorPanel
-          yamlText={yamlText}
-          diagnostics={diagnostics}
-          onChange={setYamlText}
-          onFormat={formatYaml}
-        />
+        <Box
+          sx={{
+            height: HEADER_HEIGHT,
+            flexShrink: 0,
+            display: 'flex',
+            alignItems: 'center',
+          }}
+        >
+          <SchemaToolbar
+            names={names}
+            onSave={(name) => saveSchema(name, yamlText)}
+            onLoad={handleLoadSchema}
+            onDelete={deleteSchema}
+            onReset={handleResetSchema}
+          />
+        </Box>
+        <Box sx={{ flex: 1, minHeight: 0, mt: 1 }}>
+          <YamlEditorPanel
+            yamlText={yamlText}
+            diagnostics={diagnostics}
+            onChange={setYamlText}
+            onFormat={formatYaml}
+          />
+        </Box>
       </Box>
       <Box
         onMouseDown={startDragging}
@@ -93,13 +164,7 @@ export const UIGeneratorBuilder = () => {
               opacity: 0.6,
             },
           },
-          isDragging
-            ? {
-                transition: 'none',
-              }
-            : {
-                transition: 'backgroundColor 0.2s ease',
-              },
+          paneTransition(isDragging, 'backgroundColor'),
         ]}
       />
       <Box
@@ -112,37 +177,47 @@ export const UIGeneratorBuilder = () => {
             flexDirection: 'column',
             overflow: 'hidden',
           },
-          isDragging
-            ? {
-                transition: 'none',
-              }
-            : {
-                transition: 'width 0.2s ease',
-              },
+          paneTransition(isDragging, 'width'),
         ]}
       >
-        <Paper
-          elevation={0}
+        <Tabs
+          value={rightTab}
+          onChange={(_, value) => setRightTab(value)}
           sx={{
-            p: 2,
-            border: '1px solid',
-            borderColor: 'divider',
-            borderRadius: 1,
-            width: '100%',
-            height: '100%',
-            overflowY: 'auto',
-            display: 'flex',
-            flexDirection: 'column',
+            height: HEADER_HEIGHT,
+            minHeight: HEADER_HEIGHT,
+            flexShrink: 0,
+            mb: 1,
+          }}
+        >
+          <Tab
+            label={Messages.tabs.formPreview}
+            sx={{ minHeight: HEADER_HEIGHT }}
+          />
+          <Tab label={Messages.tabs.output} sx={{ minHeight: HEADER_HEIGHT }} />
+        </Tabs>
+        {/* Both panes stay mounted and are toggled with `display`: unmounting the
+            preview would throw away everything typed into the form, and submit
+            switches to the Output tab. */}
+        <RoundedBox
+          boxProps={{
+            sx: {
+              width: '100%',
+              flex: 1,
+              minHeight: 0,
+              overflowY: 'auto',
+              display: rightTab === 0 ? 'block' : 'none',
+            },
           }}
         >
           <TextField
             select
             size="small"
-            label="Preview namespace"
+            label={Messages.previewNamespace}
             value={selectedNamespace}
             onChange={(e) => setSelectedNamespace(e.target.value)}
             disabled={namespacesLoading || namespaces.length === 0}
-            helperText="Namespace used to load data-source providers (e.g. storage classes, monitoring configs)"
+            helperText={Messages.previewNamespaceHelper}
             sx={{ mb: 2, maxWidth: 360 }}
           >
             {namespaces.map((ns) => (
@@ -156,13 +231,30 @@ export const UIGeneratorBuilder = () => {
             <ErrorContextProvider>
               <ErrorBoundary fallback={<GenericError />}>
                 <DynamicForm
-                  schema={parsedSchema as TopologyUISchemas}
+                  key={previewKey}
+                  schema={parsedSchema}
                   namespace={selectedNamespace}
+                  onGenerateOutput={(payload) => {
+                    setOutput(payload);
+                    setRightTab(1);
+                  }}
                 />
               </ErrorBoundary>
             </ErrorContextProvider>
           )}
-        </Paper>
+        </RoundedBox>
+        <Box
+          sx={{
+            flex: 1,
+            minHeight: 0,
+            overflowY: 'auto',
+            // Block, not flex: FormCard takes no width props, so a flex parent
+            // would shrink the card to its content instead of filling the pane.
+            display: rightTab === 1 ? 'block' : 'none',
+          }}
+        >
+          <OutputPanel payload={output} />
+        </Box>
       </Box>
     </Box>
   );
