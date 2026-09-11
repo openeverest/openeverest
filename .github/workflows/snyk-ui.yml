@@ -1,0 +1,74 @@
+---
+name: Snyk UI Security Scan
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "ui/**"
+      - ".github/workflows/snyk-ui.yml"
+  pull_request:
+    paths:
+      - "ui/**"
+      - ".github/workflows/snyk-ui.yml"
+    types: [opened, synchronize]
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  snyk:
+    name: Snyk CLI Scan
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ui
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - uses: pnpm/action-setup@8912a9102ac27614460f54aedde9e1e7f9aec20d # v6.0.5
+        with:
+          version: 9.4.0
+
+      - name: Use Node
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: 20.x
+          cache: "pnpm"
+          cache-dependency-path: "ui/pnpm-lock.yaml"
+
+      - name: Install dependencies
+        run: make init
+
+      - name: Check Snyk token
+        id: snyk-token-check
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        run: |
+          if [ -z "$SNYK_TOKEN" ]; then
+            echo "available=false" >> "$GITHUB_OUTPUT"
+            echo "SNYK_TOKEN secret is not configured; skipping scan."
+          else
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Snyk test (PRs)
+        if: github.event_name == 'pull_request' && steps.snyk-token-check.outputs.available == 'true'
+        uses: snyk/actions/node@b98d498629f1c5e001c0701a9312bf0f636d8a00 # v0.4.0
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        with:
+          args: --all-projects --detection-depth=3 --org=${{ secrets.SNYK_ORG_ID }}
+          command: test
+
+      - name: Snyk monitor (main)
+        if: github.event_name == 'push' && steps.snyk-token-check.outputs.available == 'true'
+        uses: snyk/actions/node@b98d498629f1c5e001c0701a9312bf0f636d8a00 # v0.4.0
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        with:
+          args: --all-projects --detection-depth=3 --org=${{ secrets.SNYK_ORG_ID }} --project-name=openeverest-ui
+          command: monitor
