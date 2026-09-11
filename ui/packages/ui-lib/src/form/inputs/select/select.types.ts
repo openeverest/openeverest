@@ -29,4 +29,7 @@ export type SelectInputProps = {
   children?: React.ReactNode | React.ReactNode[];
   isRequired?: boolean;
   loading?: boolean;
+  // Controlled error state for non-validation errors (e.g. a failed async load),
+  // OR-ed with the react-hook-form field error.
+  error?: boolean;
 };

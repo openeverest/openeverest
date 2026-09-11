@@ -12,16 +12,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-export type DatabaseFormStepControllersProps = {
-  disableBack?: boolean;
-  disableNext?: boolean;
-  disableSubmit?: boolean;
-  disableCancel?: boolean;
-  showSubmit?: boolean;
-  onPreviousClick: () => void;
-  onNextClick: () => void;
-  onCancel: () => void;
-  onSubmit: () => void;
-  showConfigMore?: boolean;
-  disableConfigMore?: boolean;
-};
+import { InstancePreset } from 'shared-types/api.types';
+
+export interface PresetSelectionContextType {
+  presets: InstancePreset[];
+  isLoadingPresets: boolean;
+  isError: boolean;
+  presetName: string;
+  resolvedPreset: InstancePreset | null;
+  isResolving: boolean;
+  resolveError: string | null;
+  presetSelected: boolean;
+  // True while a preset is picked but its spec is not yet resolved (or failed):
+  // the one-click create must stay blocked until we have a spec to submit.
+  presetPending: boolean;
+}

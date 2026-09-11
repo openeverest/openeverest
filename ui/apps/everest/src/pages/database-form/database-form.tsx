@@ -74,6 +74,11 @@ import { useClusterName } from 'hooks/api/useClusterName';
 import { mergeTopologyDefaults } from 'components/ui-generator/utils/default-values/merge-topology-defaults';
 import { PluginFormSections } from './plugin-form-sections';
 import { useSubmitPluginInstanceConfig } from 'hooks/api/plugins/useSubmitPluginInstanceConfig';
+import {
+  PresetSelectionContext,
+  usePresetSelection,
+  INSTANCE_PRESET_ANNOTATION,
+} from './preset-selection';
 
 type UnknownRecord = Record<string, unknown>;
 
@@ -273,6 +278,23 @@ export const DatabasePage = () => {
     name: DbWizardFormFields.k8sNamespace,
   });
 
+  const selectedProvider = useWatch({
+    control,
+    name: DbWizardFormFields.provider,
+  });
+
+  const selectedPreset = useWatch({
+    control,
+    name: DbWizardFormFields.presetName,
+  });
+
+  const presetSelection = usePresetSelection(
+    clusterName,
+    typeof selectedProvider === 'string' ? selectedProvider : undefined,
+    selectedNamespace || namespaces[0],
+    typeof selectedPreset === 'string' ? selectedPreset : ''
+  );
+
   // Static step definitions
   const staticSteps = useMemo((): StepDefinition[] => {
     const steps: StepDefinition[] = [
@@ -417,6 +439,38 @@ export const DatabasePage = () => {
   );
 
   const onSubmit: SubmitHandler<DbWizardType> = (data) => {
+    // Preset mode: create straight from the resolved preset spec (one-click),
+    // bypassing the wizard's field-by-field spec build. Never fall through to a
+    // manual create while a preset is picked but not yet resolved.
+    if (mode === FormMode.New && presetSelection.presetSelected) {
+      if (!presetSelection.resolvedPreset) {
+        return;
+      }
+      createInstance(
+        {
+          formValue: {
+            provider:
+              typeof selectedProvider === 'string' ? selectedProvider : '',
+            dbName: data.dbName,
+            k8sNamespace: data.k8sNamespace,
+            spec: presetSelection.resolvedPreset.spec,
+          },
+          annotations: {
+            [INSTANCE_PRESET_ANNOTATION]: presetSelection.presetName,
+          },
+        },
+        {
+          onSuccess: () => {
+            queryClient.invalidateQueries({
+              queryKey: [DB_INSTANCES_QUERY_KEY],
+            });
+            setFormSubmitted(true);
+          },
+        }
+      );
+      return;
+    }
+
     const postProcessedData = engine.postprocess(data);
 
     // Transform flat backup schedules into nested storages structure
@@ -522,40 +576,44 @@ export const DatabasePage = () => {
     >
       <Stack direction={isDesktop ? 'row' : 'column'}>
         <FormProvider {...methods}>
-          <DataSourcePrefetcher
-            sections={engine.sections}
-            namespace={selectedNamespace || namespaces[0]}
-          />
-          <DatabaseFormBody
-            steps={engine.steps}
-            activeStep={nav.activeStepIndex}
-            isSubmitting={isCreating}
-            hasErrors={stepsWithErrors.length > 0}
-            disableNext={
-              hasImportStep &&
-              nav.activeStepId === IMPORT_STEP_ID &&
-              stepsWithErrors.includes(IMPORT_STEP_ID)
-            }
-            onSubmit={handleSubmit(onSubmit)}
-            onCancel={() => navigate('/databases')}
-            handleNextStep={handleNext}
-            handlePreviousStep={handleBack}
-          />
-          {nav.activeStepIndex === 0 && (
-            <PluginFormSections
-              formValues={methods.getValues() as Record<string, unknown>}
-              namespace={selectedNamespace || namespaces[0] || ''}
-              engineType={providerObject?.name}
-              isCreate={true}
-              onPluginConfigChange={handlePluginConfigChange}
+          <PresetSelectionContext.Provider value={presetSelection}>
+            <DataSourcePrefetcher
+              sections={engine.sections}
+              namespace={selectedNamespace || namespaces[0]}
             />
-          )}
-          <DatabaseFormSideDrawer
-            disabled={loadingClusterValues}
-            activeStepId={nav.activeStepId}
-            handleSectionEdit={handleSectionEdit}
-            stepsWithErrors={stepsWithErrors}
-          />
+            <DatabaseFormBody
+              steps={engine.steps}
+              activeStep={nav.activeStepIndex}
+              isSubmitting={isCreating}
+              hasErrors={stepsWithErrors.length > 0}
+              presetSelected={presetSelection.presetSelected}
+              presetPending={presetSelection.presetPending}
+              disableNext={
+                hasImportStep &&
+                nav.activeStepId === IMPORT_STEP_ID &&
+                stepsWithErrors.includes(IMPORT_STEP_ID)
+              }
+              onSubmit={handleSubmit(onSubmit)}
+              onCancel={() => navigate('/databases')}
+              handleNextStep={handleNext}
+              handlePreviousStep={handleBack}
+            />
+            {nav.activeStepIndex === 0 && (
+              <PluginFormSections
+                formValues={methods.getValues() as Record<string, unknown>}
+                namespace={selectedNamespace || namespaces[0] || ''}
+                engineType={providerObject?.name}
+                isCreate={true}
+                onPluginConfigChange={handlePluginConfigChange}
+              />
+            )}
+            <DatabaseFormSideDrawer
+              disabled={loadingClusterValues || presetSelection.presetSelected}
+              activeStepId={nav.activeStepId}
+              handleSectionEdit={handleSectionEdit}
+              stepsWithErrors={stepsWithErrors}
+            />
+          </PresetSelectionContext.Provider>
         </FormProvider>
       </Stack>
       <DatabaseFormCancelDialog

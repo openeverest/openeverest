@@ -35,6 +35,7 @@ const SelectInput = ({
   formControlProps,
   loading,
   children,
+  error: controlledError,
 }: SelectInputProps) => {
   const { control: contextControl } = useFormContext();
 
@@ -42,6 +43,7 @@ const SelectInput = ({
     <FormControl
       sx={{ mt: 3 }}
       size={formControlProps?.size || 'small'}
+      error={controlledError}
       {...formControlProps}
     >
       <InputLabel
@@ -54,57 +56,61 @@ const SelectInput = ({
         name={name}
         control={control ?? contextControl}
         {...controllerProps}
-        render={({ field, fieldState: { error } }) => (
-          <>
-            <Select
-              {...field}
-              label={label}
-              labelId={`${name}-input-label`}
-              variant="outlined"
-              error={error !== undefined}
-              data-testid={`select-${kebabize(name)}-button`}
-              inputProps={{
-                'data-testid': `select-input-${kebabize(name)}`,
-                ...selectFieldProps?.inputProps,
-              }}
-              IconComponent={
-                loading
-                  ? () => (
-                      <CircularProgress
-                        color="inherit"
-                        size={20}
-                        sx={{ mr: 1 }}
-                      />
-                    )
-                  : undefined
-              }
-              {...selectFieldProps}
-            >
-              {children}
-              {(!children || (Array.isArray(children) && !children.length)) && (
-                <MenuItem
-                  disabled
-                  key="noOptions"
-                  value=""
-                  data-testid="no-options-select"
-                  sx={{
-                    fontWeight: '400',
-                    '&.Mui-disabled.Mui-selected': {
-                      backgroundColor: 'transparent',
-                    },
-                  }}
-                >
-                  {Messages.noOptions}
-                </MenuItem>
+        render={({ field, fieldState: { error } }) => {
+          const hasError = controlledError || error !== undefined;
+          return (
+            <>
+              <Select
+                {...field}
+                label={label}
+                labelId={`${name}-input-label`}
+                variant="outlined"
+                error={hasError}
+                data-testid={`select-${kebabize(name)}-button`}
+                inputProps={{
+                  'data-testid': `select-input-${kebabize(name)}`,
+                  ...selectFieldProps?.inputProps,
+                }}
+                IconComponent={
+                  loading
+                    ? () => (
+                        <CircularProgress
+                          color="inherit"
+                          size={20}
+                          sx={{ mr: 1 }}
+                        />
+                      )
+                    : undefined
+                }
+                {...selectFieldProps}
+              >
+                {children}
+                {(!children ||
+                  (Array.isArray(children) && !children.length)) && (
+                  <MenuItem
+                    disabled
+                    key="noOptions"
+                    value=""
+                    data-testid="no-options-select"
+                    sx={{
+                      fontWeight: '400',
+                      '&.Mui-disabled.Mui-selected': {
+                        backgroundColor: 'transparent',
+                      },
+                    }}
+                  >
+                    {Messages.noOptions}
+                  </MenuItem>
+                )}
+              </Select>
+              {(hasError || helperText) && (
+                <FormHelperText error={hasError}>
+                  {error?.message || helperText}
+                </FormHelperText>
               )}
-            </Select>
-            {(error || helperText) && (
-              <FormHelperText error={!!error}>
-                {error?.message || helperText}
-              </FormHelperText>
-            )}
-          </>
-        )}
+            </>
+          );
+        }}
       />
     </FormControl>
   );

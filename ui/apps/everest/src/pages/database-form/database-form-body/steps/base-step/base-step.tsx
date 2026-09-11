@@ -27,6 +27,10 @@ import { useNamespacePermissionsForResource } from 'hooks/rbac';
 import { useNamespaces } from 'hooks/index.ts';
 import { FormMode } from 'components/ui-generator/ui-generator.types.js';
 import { useDatabaseFormContext } from 'pages/database-form/database-form-context';
+import {
+  PresetSelect,
+  usePresetSelectionContext,
+} from 'pages/database-form/preset-selection';
 
 export const BaseInfoStep = ({ loadingDefaultsForEdition }: StepProps) => {
   const mode = useDatabasePageMode();
@@ -35,6 +39,7 @@ export const BaseInfoStep = ({ loadingDefaultsForEdition }: StepProps) => {
     refetchInterval: 10 * 1000,
   });
   const { topologies, hasMultipleTopologies } = useDatabaseFormContext();
+  const { presetSelected, resolvedPreset } = usePresetSelectionContext();
   const { watch, setValue, getFieldState } = useFormContext();
 
   // const dbType: DbType = watch(DbWizardFormFields.dbType);
@@ -122,6 +127,17 @@ export const BaseInfoStep = ({ loadingDefaultsForEdition }: StepProps) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode, topologies.length, currentTopology]);
 
+  // Reflect the selected preset's topology in the (disabled) topology field.
+  useEffect(() => {
+    const presetTopology = resolvedPreset?.spec?.topology?.type;
+    if (presetSelected && presetTopology && currentTopology !== presetTopology) {
+      setValue(DbWizardFormFields.topology, presetTopology, {
+        shouldValidate: true,
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [presetSelected, resolvedPreset, currentTopology]);
+
   // TODO remember the logic of recommended versions, ask team about it and implement
   // const onNamespaceChange = () => {
   // TODO discuss with the team this case, should we keep the same
@@ -141,6 +157,7 @@ export const BaseInfoStep = ({ loadingDefaultsForEdition }: StepProps) => {
         pageDescription={Messages.pageDescription}
       />
       <FormGroup sx={{ mt: 3 }}>
+        <PresetSelect />
         <AutoCompleteInput
           labelProps={{
             sx: { mt: 1 },
@@ -169,7 +186,10 @@ export const BaseInfoStep = ({ loadingDefaultsForEdition }: StepProps) => {
             name={DbWizardFormFields.topology}
             label="Database Topology"
             selectFieldProps={{
-              disabled: mode === FormMode.Restore || loadingDefaultsForEdition,
+              disabled:
+                mode === FormMode.Restore ||
+                loadingDefaultsForEdition ||
+                presetSelected,
             }}
           >
             {topologies.map((topology) => (
