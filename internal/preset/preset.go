@@ -70,7 +70,8 @@ type refObjectType struct {
 // resource that also appears as a typed struct field additionally requires
 // emitting it from walkComponent.
 var registry = []refObjectType{ //nolint:gochecknoglobals // this is a static registry
-	// TODO: add support for additional kind of resources if needed.
+	// TODO: add support for additional kind of resources if needed including
+	// handling common.TypedObjectRef.
 	{
 		kind:       KindSecret,
 		scope:      ScopeNamespace,

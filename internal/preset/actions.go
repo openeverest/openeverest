@@ -16,6 +16,7 @@ package preset
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	corev1alpha1 "github.com/openeverest/openeverest/v2/api/core/v1alpha1"
@@ -31,6 +32,22 @@ type DefaultResolver interface {
 // holds a value. It is used when validating an InstancePreset, which must not contain any
 // namespace-scoped references.
 func EnsureNamespaceRefsEmpty(spec *corev1alpha1.InstanceSpec) error {
+	if spec == nil {
+		return nil
+	}
+
+	// Rejects spec fields cannot be carried by a preset: DataSource,
+	// UserSecretRef and Backup. These reference objects cannot be templated.
+	if spec.DataSource != nil {
+		return errors.New("spec.dataSource must be empty in preset")
+	}
+	if spec.UserSecretRef != nil {
+		return errors.New("spec.userSecretRef must be empty in preset")
+	}
+	if spec.Backup != nil {
+		return errors.New("spec.backup must be empty in preset")
+	}
+
 	return WalkSpec(spec, func(ref FieldRef) error {
 		if ref.Scope() != ScopeNamespace || ref.IsEmpty() {
 			return nil
@@ -43,6 +60,15 @@ func EnsureNamespaceRefsEmpty(spec *corev1alpha1.InstanceSpec) error {
 // ClearNamespaceRefs empties every namespace-scoped reference in the spec.components.
 // It is used when turning an Instance into an InstancePreset.
 func ClearNamespaceRefs(spec *corev1alpha1.InstanceSpec) error {
+	if spec == nil {
+		return nil
+	}
+
+	// Drops the fields that cannot be templated for drafting a preset.
+	spec.DataSource = nil
+	spec.UserSecretRef = nil
+	spec.Backup = nil
+
 	return WalkSpec(spec, func(ref FieldRef) error {
 		if ref.Scope() == ScopeNamespace {
 			ref.Set("", "")

@@ -25,6 +25,8 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/runtime"
 
+	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
+	common "github.com/openeverest/openeverest/v2/api/common/v1alpha1"
 	corev1alpha1 "github.com/openeverest/openeverest/v2/api/core/v1alpha1"
 )
 
@@ -124,6 +126,27 @@ func TestEnsureNamespaceRefsEmpty(t *testing.T) {
 				},
 			},
 			wantErr: `component "pmm": parameters.nested.monitoringConfigName must be empty in preset`,
+		},
+		{
+			name: "spec.dataSource must be empty",
+			spec: &corev1alpha1.InstanceSpec{
+				DataSource: &backupv1alpha1.DataSource{},
+			},
+			wantErr: "spec.dataSource must be empty in preset",
+		},
+		{
+			name: "spec.userSecretRef must be empty",
+			spec: &corev1alpha1.InstanceSpec{
+				UserSecretRef: &common.SecretRef{},
+			},
+			wantErr: "spec.userSecretRef must be empty in preset",
+		},
+		{
+			name: "spec.backup must be empty",
+			spec: &corev1alpha1.InstanceSpec{
+				Backup: &corev1alpha1.InstanceBackupSpec{},
+			},
+			wantErr: "spec.backup must be empty in preset",
 		},
 	}
 
@@ -294,6 +317,39 @@ func TestClearNamespaceRefs(t *testing.T) {
 						}),
 					},
 				},
+			},
+		},
+		{
+			name: "clears fields that cannot be templated",
+			input: &corev1alpha1.InstanceSpec{
+				DataSource: &backupv1alpha1.DataSource{
+					Type: backupv1alpha1.DataSourceTypeBackup,
+					Backup: &backupv1alpha1.DataSourceBackup{
+						BackupRef: common.ObjectRef{
+							Name: "backup",
+						},
+					},
+				},
+				UserSecretRef: &common.SecretRef{
+					Name: "user-secret",
+				},
+				Backup: &corev1alpha1.InstanceBackupSpec{
+					Enabled: true,
+					ClassRef: common.ObjectRef{
+						Name: "class",
+					},
+					Storages: []corev1alpha1.InstanceBackupStorage{
+						{
+							StorageRef: common.ObjectRef{
+								Name: "storage",
+							},
+						},
+					},
+				},
+				Components: map[string]corev1alpha1.ComponentSpec{},
+			},
+			expected: &corev1alpha1.InstanceSpec{
+				Components: map[string]corev1alpha1.ComponentSpec{},
 			},
 		},
 	}
@@ -556,6 +612,21 @@ func TestResolveNamespaceRefs(t *testing.T) {
 						}),
 					},
 				},
+			},
+		},
+		{
+			name: "leaves fields cannot be templated untouched",
+			input: &corev1alpha1.InstanceSpec{
+				DataSource:    &backupv1alpha1.DataSource{},
+				UserSecretRef: &common.SecretRef{},
+				Backup:        &corev1alpha1.InstanceBackupSpec{},
+			},
+			namespace: "prod",
+			resolver:  &mockResolver{},
+			expected: &corev1alpha1.InstanceSpec{
+				DataSource:    &backupv1alpha1.DataSource{},
+				UserSecretRef: &common.SecretRef{},
+				Backup:        &corev1alpha1.InstanceBackupSpec{},
 			},
 		},
 	}
