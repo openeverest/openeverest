@@ -24,6 +24,8 @@ tags:
     description: Everything related to presets
   - name: Backup
     description: Everything related to backups
+  - name: Backup Import
+    description: Everything related to backup imports
   - name: Restore
     description: Everything related to restores
   - name: Backup Storage
@@ -1298,6 +1300,171 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  '/clusters/{cluster}/namespaces/{namespace}/backup-imports':
+    x-everest-resource-name: backup-imports
+    get:
+      tags:
+        - Backup Import
+      summary: List backup imports
+      description: |
+        This API lists all backup imports in the specified namespace and cluster.
+      operationId: listBackupImports
+      parameters:
+        - name: cluster
+          in: path
+          required: true
+          description: The name of the cluster
+          schema:
+            type: string
+        - name: namespace
+          in: path
+          required: true
+          description: The namespace where the backup imports are located
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of backup imports
+          content:
+            application/json:
+              schema:
+                $ref: 'crds.gen.yaml#/components/schemas/BackupImportList'
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    post:
+      tags:
+        - Backup Import
+      summary: Create backup import
+      description: |
+        This API creates a new backup import in the specified namespace and cluster.
+        A backup import discovers restorable backups in the referenced backup storage
+        and materializes them as Backup CRs.
+      operationId: createBackupImport
+      parameters:
+        - name: cluster
+          in: path
+          required: true
+          description: The name of the cluster
+          schema:
+            type: string
+        - name: namespace
+          in: path
+          required: true
+          description: The namespace where the backup import will be created
+          schema:
+            type: string
+      requestBody:
+        description: The backup import object to be created
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: 'crds.gen.yaml#/components/schemas/BackupImport'
+      responses:
+        '201':
+          description: Backup import created successfully
+          content:
+            application/json:
+              schema:
+                $ref: 'crds.gen.yaml#/components/schemas/BackupImport'
+        '400':
+          description: Unsuccessful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  '/clusters/{cluster}/namespaces/{namespace}/backup-imports/{name}':
+    x-everest-resource-name: backup-imports
+    get:
+      tags:
+        - Backup Import
+      summary: Get backup import
+      description: |
+        This API gets the backup import specified by the `name` in the specified `namespace` and `cluster`.
+      operationId: getBackupImport
+      parameters:
+        - name: cluster
+          in: path
+          required: true
+          description: The name of the cluster
+          schema:
+            type: string
+        - name: namespace
+          in: path
+          required: true
+          description: The namespace where the backup import is located
+          schema:
+            type: string
+        - name: name
+          in: path
+          required: true
+          description: The name of the backup import
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Backup import details
+          content:
+            application/json:
+              schema:
+                $ref: 'crds.gen.yaml#/components/schemas/BackupImport'
+        '404':
+          description: Backup import not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    delete:
+      tags:
+        - Backup Import
+      summary: Delete backup import
+      description: |
+        This API deletes the backup import specified by the `name` in the specified `namespace` and `cluster`.
+      operationId: deleteBackupImport
+      parameters:
+        - name: cluster
+          in: path
+          required: true
+          description: The name of the cluster
+          schema:
+            type: string
+        - name: namespace
+          in: path
+          required: true
+          description: The namespace where the backup import is located
+          schema:
+            type: string
+        - name: name
+          in: path
+          required: true
+          description: The name of the backup import
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Backup import deleted successfully
         default:
           description: Error
           content:
