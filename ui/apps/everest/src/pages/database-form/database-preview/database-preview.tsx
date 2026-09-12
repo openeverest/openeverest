@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Stack, Typography } from '@mui/material';
 import { useFormContext, useWatch } from 'react-hook-form';
 import { useLocation } from 'react-router-dom';
@@ -30,6 +30,10 @@ import {
   IMPORT_STEP_ID,
 } from '../database-form-body/steps/constants.ts';
 import { getSectionStepId } from 'components/ui-generator/utils/section-step-id.ts';
+import {
+  mergeWizardSteps,
+  StepDefinition,
+} from 'components/ui-generator/form-engine';
 
 export const DatabasePreview = ({
   activeStepId,
@@ -42,51 +46,98 @@ export const DatabasePreview = ({
   const { getValues } = useFormContext<DbWizardType>();
   const location = useLocation();
   const showImportStep = location.state?.showImport;
-  const { sections, sectionsOrder, hasBackupStep } = useDatabaseFormContext();
+  const { sections, sectionsOrder, hasBackupStep, steps } =
+    useDatabaseFormContext();
 
   // Trigger a re-render when any form value changes so the preview stays in sync
   useWatch();
 
   const values = getValues();
 
-  const orderedSectionKeys = sectionsOrder || Object.keys(sections);
+  const fallbackSteps = useMemo((): StepDefinition[] => {
+    if (steps) {
+      return steps;
+    }
+
+    const fallbackStaticSteps: StepDefinition[] = [
+      {
+        id: BASE_STEP_ID,
+        label: 'Basic Information',
+        component: () => null,
+        fields: [],
+      },
+    ];
+
+    if (showImportStep) {
+      fallbackStaticSteps.push({
+        id: IMPORT_STEP_ID,
+        label: 'Import information',
+        component: () => null,
+        fields: [],
+      });
+    }
+
+    if (hasBackupStep) {
+      fallbackStaticSteps.push({
+        id: BACKUP_STEP_ID,
+        label: 'Backups',
+        component: () => null,
+        fields: [],
+      });
+    }
+
+    const genMap = new Map<string, StepDefinition>();
+    for (const key of Object.keys(sections)) {
+      genMap.set(key, {
+        id: getSectionStepId(key),
+        label: sections[key]?.label || key,
+        sectionKey: key,
+        component: () => null,
+        fields: [],
+      });
+    }
+
+    return mergeWizardSteps(fallbackStaticSteps, genMap, sectionsOrder);
+  }, [steps, showImportStep, hasBackupStep, sections, sectionsOrder]);
+
+  const effectiveSteps = steps || fallbackSteps;
 
   const previewSections: {
     stepId: string;
     title: string;
     content: React.ReactNode;
-  }[] = [
-    {
-      stepId: BASE_STEP_ID,
-      title: 'Basic Information',
-      content: <PreviewSectionOne {...values} />,
-    },
-    ...(showImportStep
-      ? [
-          {
-            stepId: IMPORT_STEP_ID,
-            title: 'Import information',
-            content: <PreviewContentText text="" />,
-          },
-        ]
-      : []),
-    ...(hasBackupStep
-      ? [
-          {
-            stepId: BACKUP_STEP_ID,
-            title: 'Backups',
-            content: <PreviewBackupSection {...values} />,
-          },
-        ]
-      : []),
-    ...orderedSectionKeys.map((key) => ({
-      stepId: getSectionStepId(key),
-      title: sections[key]?.label || key,
-      content: (
-        <DynamicSectionPreview section={sections[key]} formValues={values} />
-      ),
-    })),
-  ];
+  }[] = effectiveSteps.map((step) => {
+    if (step.id === BASE_STEP_ID) {
+      return {
+        stepId: BASE_STEP_ID,
+        title: 'Basic Information',
+        content: <PreviewSectionOne {...values} />,
+      };
+    }
+    if (step.id === IMPORT_STEP_ID) {
+      return {
+        stepId: IMPORT_STEP_ID,
+        title: 'Import information',
+        content: <PreviewContentText text="" />,
+      };
+    }
+    if (step.id === BACKUP_STEP_ID) {
+      return {
+        stepId: BACKUP_STEP_ID,
+        title: 'Backups',
+        content: <PreviewBackupSection {...values} />,
+      };
+    }
+    const sectionKey = step.sectionKey;
+    const section = sectionKey ? sections[sectionKey] : undefined;
+    return {
+      stepId: step.id,
+      title: section?.label || step.label || step.id,
+      content: section ? (
+        <DynamicSectionPreview section={section} formValues={values} />
+      ) : null,
+    };
+  });
 
   return (
     <Stack

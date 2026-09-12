@@ -252,25 +252,33 @@ Array binding is not supported yet — see [Known Limitations](known-limitations
 
 Both sections and groups can specify the order of their child elements using the `Order` suffix:
 
-- **`sectionsOrder`**: Array of section keys defining section order
-- **`componentsOrder`**: Array of component keys defining component order within a section or group
+- **`sectionsOrder`**: Array of section keys defining section order. It can also reference reserved static wizard step IDs (`import`, `backups`) intermixed with schema section keys to shape the multi-step wizard flow and right-side preview.
+- **`componentsOrder`**: Array of component keys defining component order within a section or group.
 
 If not specified, the order is determined by the object key insertion order. If only a few sections are ordered, they will be ordered and displayed first. The remaining sections/components will be displayed next by the object key insertion order.
 
-**Example:**
+#### Static Step Reordering Rules
+
+In the database creation wizard, static steps can be reordered via `sectionsOrder`:
+
+- **`base` stays pinned first**: The `base` step (which contains basic database information and topology selection) is always pinned at the start of the wizard and cannot be reordered.
+- **Default positioning**: Active static steps not listed in `sectionsOrder` keep their default position (immediately after `base`, before schema-generated sections) for full backward compatibility.
+- **Reserved IDs and precedence**: Reserved static step IDs are `base`, `import`, and `backups` (`pod-scheduling` is planned). If a schema section key collides with any reserved ID, the static step takes precedence and the generated step is dropped — regardless of whether `sectionsOrder` is present. Plugin authors must avoid naming schema sections with reserved static IDs.
+
+**Example: Moving Backups to the end**
 
 ```yaml
-sections:
-  basicInfo: { ... }
-  resources: { ... }
-  advanced: { ... }
-sectionsOrder:
-  - basicInfo
-  - resources
-  - advanced
+replicaSet:
+  sections:
+    resources: { ... }
+    advanced: { ... }
+  sectionsOrder:
+    - resources
+    - advanced
+    - backups # Reserved static step ID → rendered last
 ```
 
-The next is also valid:
+The next is also valid (reordering schema sections only, while unlisted static steps remain in their default position before schema sections):
 
 ```yaml
 sectionsOrder:

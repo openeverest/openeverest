@@ -21,6 +21,8 @@ import { getSectionStepId } from '../utils/section-step-id';
 import { UIGenerator } from '../ui-generator';
 import { applyModeOverrides } from '../utils/preprocess/apply-mode-overrides';
 
+import { mergeWizardSteps } from './merge-wizard-steps';
+
 /**
  * Core form-engine hook.
  *
@@ -58,52 +60,49 @@ export const useFormEngine = (config: FormEngineConfig): FormEngineResult => {
     [sections, formMode]
   );
 
-  // 2. Build generated steps from schema sections
-  const sectionKeys = useMemo(
-    () => sectionsOrder || Object.keys(effectiveSections),
-    [sectionsOrder, effectiveSections]
-  );
+  // 2. Build generated steps map from schema sections
+  const generatedStepsMap = useMemo(() => {
+    const map = new Map<string, StepDefinition>();
 
-  const generatedSteps: StepDefinition[] = useMemo(
-    () =>
-      sectionKeys.map((sectionKey): StepDefinition => {
-        const section = effectiveSections[sectionKey];
+    for (const sectionKey of Object.keys(effectiveSections)) {
+      const section = effectiveSections[sectionKey];
 
-        // Collect field paths owned by this section
-        const fields = Object.entries(sectionFieldMap)
-          .filter(([, sk]) => sk === sectionKey)
-          .map(([fieldPath]) => fieldPath);
+      // Collect field paths owned by this section
+      const fields = Object.entries(sectionFieldMap)
+        .filter(([, sk]) => sk === sectionKey)
+        .map(([fieldPath]) => fieldPath);
 
-        // Each generated step renders UIGenerator for its section
-        const GeneratedStepComponent = ({
-          loadingDefaultsForEdition,
-        }: {
-          loadingDefaultsForEdition?: boolean;
-        }) =>
-          React.createElement(UIGenerator, {
-            sectionKey,
-            sections: effectiveSections,
-            providerObject,
-            loadingDefaultsForEdition,
-            namespace,
-          });
-
-        return {
-          id: getSectionStepId(sectionKey),
-          label: section?.label || sectionKey,
-          description: section?.description,
+      // Each generated step renders UIGenerator for its section
+      const GeneratedStepComponent = ({
+        loadingDefaultsForEdition,
+      }: {
+        loadingDefaultsForEdition?: boolean;
+      }) =>
+        React.createElement(UIGenerator, {
           sectionKey,
-          component: GeneratedStepComponent,
-          fields,
-        };
-      }),
-    [sectionKeys, effectiveSections, sectionFieldMap, providerObject, namespace]
-  );
+          sections: effectiveSections,
+          providerObject,
+          loadingDefaultsForEdition,
+          namespace,
+        });
 
-  // 3. Merge static + generated steps
+      map.set(sectionKey, {
+        id: getSectionStepId(sectionKey),
+        label: section?.label || sectionKey,
+        description: section?.description,
+        sectionKey,
+        component: GeneratedStepComponent,
+        fields,
+      });
+    }
+
+    return map;
+  }, [effectiveSections, sectionFieldMap, providerObject, namespace]);
+
+  // 3. Merge static + generated steps into a unified order
   const steps = useMemo(
-    () => [...staticSteps, ...generatedSteps],
-    [staticSteps, generatedSteps]
+    () => mergeWizardSteps(staticSteps, generatedStepsMap, sectionsOrder),
+    [staticSteps, generatedStepsMap, sectionsOrder]
   );
 
   // 4. Build complete field → step-ID map

@@ -15,3 +15,9 @@
 export const BASE_STEP_ID = 'base';
 export const IMPORT_STEP_ID = 'import';
 export const BACKUP_STEP_ID = 'backups';
+
+export const RESERVED_STATIC_STEP_IDS = new Set([
+  BASE_STEP_ID,
+  IMPORT_STEP_ID,
+  BACKUP_STEP_ID,
+]);
