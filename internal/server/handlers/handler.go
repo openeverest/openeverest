@@ -96,6 +96,10 @@ type InstancePresetHandler interface {
 	ListInstancePresets(ctx context.Context, cluster string, provider string) (*corev1alpha1.InstancePresetList, error)
 	GetInstancePreset(ctx context.Context, cluster, name string) (*corev1alpha1.InstancePreset, error)
 	ResolveInstancePreset(ctx context.Context, cluster, name, namespace string) (*corev1alpha1.InstancePreset, error)
+	CreateInstancePreset(ctx context.Context, cluster string, preset *corev1alpha1.InstancePreset) (*corev1alpha1.InstancePreset, error)
+	UpdateInstancePreset(ctx context.Context, cluster string, preset *corev1alpha1.InstancePreset) (*corev1alpha1.InstancePreset, error)
+	DeleteInstancePreset(ctx context.Context, cluster, name string) error
+	DraftInstancePreset(ctx context.Context, cluster, namespace, instanceName string) (*corev1alpha1.InstancePreset, error)
 }
 
 // ClusterHandler provides methods for handling operations on clusters.
