@@ -24,11 +24,13 @@ package server
 
 import (
 	"net/http"
+	"net/http/httptest"
 	"net/url"
 	"testing"
 	"time"
 
 	"github.com/labstack/echo/v4"
+	echomiddleware "github.com/labstack/echo/v4/middleware"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
@@ -39,6 +41,29 @@ import (
 	everestv1alpha1 "github.com/percona/everest-operator/api/everest/v1alpha1"
 	"github.com/percona/everest/pkg/kubernetes"
 )
+
+// TestPanicRecoveryMiddleware ensures that a handler panic is caught and
+// converted into an HTTP 500 response, instead of crashing the process.
+// See issue #2544. This mirrors the echomiddleware.Recover() registration
+// done in NewEverestServer without needing to stand up a full EverestServer
+// (which requires a live Kubernetes cluster, OIDC provider, session manager, etc).
+func TestPanicRecoveryMiddleware(t *testing.T) {
+	t.Parallel()
+
+	echoServer := echo.New()
+	echoServer.Use(echomiddleware.Recover())
+	echoServer.GET("/panic", func(echo.Context) error {
+		panic("test panic")
+	})
+
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/panic", nil)
+	rec := httptest.NewRecorder()
+
+	require.NotPanics(t, func() {
+		echoServer.ServeHTTP(rec, req)
+	})
+	assert.Equal(t, http.StatusInternalServerError, rec.Code)
+}
 
 func TestShouldAllowRequestDuringEngineUpgrade(t *testing.T) {
 	lockedAt := time.Now().Format(time.RFC3339)

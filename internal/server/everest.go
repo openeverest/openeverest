@@ -120,6 +120,7 @@ func NewEverestServer(ctx context.Context, c *config.EverestConfig, l *zap.Sugar
 	}
 
 	echoServer := echo.New()
+	echoServer.Use(echomiddleware.Recover())
 	echoServer.Use(echomiddleware.RateLimiter(echomiddleware.NewRateLimiterMemoryStore(rate.Limit(c.APIRequestsRateLimit))))
 	middleware, store := sessionRateLimiter(c.CreateSessionRateLimit)
 	echoServer.Use(middleware)
