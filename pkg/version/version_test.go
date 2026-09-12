@@ -31,6 +31,8 @@ func TestIsRC(t *testing.T) {
 		{"v0.3.0-xx", false},
 		{"v0.3.0-rc1", true},
 		{"v1.3.0-rc2", true},
+		{"invalid", false},
+		{"", false},
 	}
 	for _, tc := range testCases {
 		actual := IsRC(tc.version)
@@ -48,6 +50,8 @@ func TestIsDev(t *testing.T) {
 		{"v0.0.0-cf34bt", true},
 		{"v0.3.0-rc1", false},
 		{"v0.3.0", false},
+		{"invalid", false},
+		{"", false},
 	}
 	for _, tc := range testCases {
 		actual := IsDev(tc.version)
