@@ -80,7 +80,7 @@ export const getPGClusterDataSimple = (name: string) => {
         type: 'pgbouncer',
         replicas: 1,
         expose: {
-          type: 'internal',
+          type: 'ClusterIP',
         },
       },
     },
@@ -117,7 +117,7 @@ export const getPSMDBClusterDataSimple = (name: string) => {
         type: 'mongos',
         replicas: 1,
         expose: {
-          type: 'internal',
+          type: 'ClusterIP',
         },
       },
       sharding: {
@@ -157,7 +157,7 @@ export const getPXCClusterDataSimple = (name: string) => {
         type: 'haproxy',
         replicas: 1,
         expose: {
-          type: 'internal',
+          type: 'ClusterIP',
         },
       },
     },
