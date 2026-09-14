@@ -296,13 +296,26 @@ func (e *EverestServer) initHTTPServer(ctx context.Context) error {
 		return err
 	}
 
+	// Alias for backward compatibility: rewrite legacy /v1/plugins routes
+	// to the control-plane cluster ("main", see internal/server/handlers/k8s/cluster.go).
+	const (
+		legacyPluginRewritePath         = "/v1/clusters/main/plugins"
+		legacyPluginWildcardRewritePath = "/v1/clusters/main/plugins/$1"
+	)
+	e.echo.Pre(echomiddleware.Rewrite(map[string]string{
+		"/v1/plugins/*": legacyPluginWildcardRewritePath,
+		"/v1/plugins":   legacyPluginRewritePath,
+	}))
+
 	// Plugin bundle serving — no JWT required.
 	// Bundles are static JS assets, same as the main app's JS files.
 	// Only GET requests on the wildcard path are served without auth.
-	e.echo.GET("/v1/plugins/:name/*", pp.proxyHandler)
+	// Route follows the multi-cluster convention: /v1/clusters/:cluster/plugins/:name/*
+	e.echo.GET("/v1/clusters/:cluster/plugins/:name/*", pp.proxyHandler)
 
 	// Plugin discovery & API — JWT protected.
-	pluginGroup := e.echo.Group("/v1/plugins")
+	// Routes are now cluster-scoped: /v1/clusters/:cluster/plugins, matching /v1/clusters/:cluster/instances.
+	pluginGroup := e.echo.Group("/v1/clusters/:cluster/plugins")
 	pluginGroup.Use(jwtMW)
 	pluginGroup.Use(blocklistMW)
 	pluginGroup.GET("", pp.listPluginsHandler)
