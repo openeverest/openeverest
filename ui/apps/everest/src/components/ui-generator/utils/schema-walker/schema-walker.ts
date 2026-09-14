@@ -34,7 +34,7 @@ export const walkLeafComponents = (
   for (const [key, item] of Object.entries(components)) {
     const generatedName = basePath ? `${basePath}.${key}` : key;
 
-    if (item.uiType === 'group' || item.uiType === 'hidden') {
+    if (item.uiType === 'group') {
       const group = item as ComponentGroup;
       if (group.components) {
         walkLeafComponents(group.components, visitor, generatedName);
