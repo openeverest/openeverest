@@ -19,15 +19,19 @@ package commands
 import (
 	"github.com/spf13/cobra"
 
+	"github.com/openeverest/openeverest/v2/commands/common"
 	"github.com/openeverest/openeverest/v2/commands/provider"
 )
 
 var providerCmd = &cobra.Command{
 	Use:     "provider <command> [flags]",
 	Aliases: []string{"prov"},
+	Args:    common.NoSubcommandArgs,
 	Short:   "Manage Everest providers",
 	Long:    "Manage Everest providers",
-	RunE:    func(cmd *cobra.Command, _ []string) error { return cmd.Help() },
+	RunE: func(cmd *cobra.Command, _ []string) error {
+		return cmd.Help()
+	},
 }
 
 func init() {

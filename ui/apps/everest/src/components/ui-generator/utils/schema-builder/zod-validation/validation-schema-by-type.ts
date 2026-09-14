@@ -240,6 +240,16 @@ export const buildTextValidationSchema = (
   );
 };
 
+/**
+ * Toggles validate as optional booleans. `.optional()` is required, not
+ * cosmetic: in Edit mode a value missing from the instance is left `undefined`
+ * (see extract-instance-values), which must still pass validation. `required`
+ * is intentionally unsupported for toggles.
+ */
+export const buildToggleValidationSchema = (): z.ZodTypeAny => {
+  return z.boolean().optional();
+};
+
 export const buildGenericValidationSchema = (
   component: Component,
   baseSchema: z.ZodTypeAny

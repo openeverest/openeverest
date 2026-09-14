@@ -29,10 +29,16 @@ export const useTopology = (
   const [selectedTopology, setSelectedTopology] =
     useState<string>(defaultTopology);
 
+  // Fall back to the first topology when the selection goes stale after a
+  // schema change (e.g. live-edited in the playground). No-op for a fixed schema.
+  const effectiveTopology = topologies.includes(selectedTopology)
+    ? selectedTopology
+    : defaultTopology;
+
   return {
     topologies,
     hasMultipleTopologies,
-    selectedTopology,
+    selectedTopology: effectiveTopology,
     setSelectedTopology,
   };
 };

@@ -19,6 +19,7 @@
   - [Number Field](components/number-field.md)
   - [Select Field](components/select-field.md)
   - [Text Field](components/text-field.md)
+  - [Toggle Field](components/toggle-field.md)
 - [Groups](groups.md)
   - [Line Group](groups.md#line-group)
   - [Accordion Group](groups.md#accordion-group)

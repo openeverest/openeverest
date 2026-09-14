@@ -26,7 +26,7 @@ import (
 	"github.com/openeverest/openeverest/v2/pkg/common"
 )
 
-// NormalizeBackup converts a kube watch event on a DatabaseClusterBackup.
+// NormalizeBackup converts a kube watch event on a Backup.
 func NormalizeBackup(we watch.Event, old *backupv1alpha1.Backup) []Event {
 	obj, ok := we.Object.(*backupv1alpha1.Backup)
 	if !ok {
@@ -34,7 +34,7 @@ func NormalizeBackup(we watch.Event, old *backupv1alpha1.Backup) []Event {
 	}
 
 	ref := ResourceRef{
-		Kind: "DatabaseClusterBackup",
+		Kind: "Backup",
 		Name: obj.Name,
 		UID:  string(obj.UID),
 	}
@@ -93,7 +93,7 @@ func NormalizeBackup(we watch.Event, old *backupv1alpha1.Backup) []Event {
 	return out
 }
 
-// NormalizeRestore converts a kube watch event on a DatabaseClusterRestore.
+// NormalizeRestore converts a kube watch event on a Restore.
 func NormalizeRestore(we watch.Event, old *backupv1alpha1.Restore) []Event {
 	obj, ok := we.Object.(*backupv1alpha1.Restore)
 	if !ok {
@@ -101,7 +101,7 @@ func NormalizeRestore(we watch.Event, old *backupv1alpha1.Restore) []Event {
 	}
 
 	ref := ResourceRef{
-		Kind: "DatabaseClusterRestore",
+		Kind: "Restore",
 		Name: obj.Name,
 		UID:  string(obj.UID),
 	}

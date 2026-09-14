@@ -118,7 +118,7 @@ func printRestoreTable(w io.Writer, restores []client.Restore) {
 			restoreNamespace(r),
 			restoreInstance(r),
 			restoreBackup(r),
-			restoreState(r),
+			restoreStateText(r),
 			restoreAge(r),
 		)
 	}
@@ -155,11 +155,19 @@ func restoreBackup(r *client.Restore) string {
 	return r.Spec.DataSource.Backup.BackupRef.Name
 }
 
-func restoreState(r *client.Restore) string {
+func restoreState(r *client.Restore) client.RestoreStatusState {
 	if r.Status == nil || r.Status.State == nil || *r.Status.State == "" {
-		return "-"
+		return ""
 	}
 	return *r.Status.State
+}
+
+func restoreStateText(r *client.Restore) string {
+	state := restoreState(r)
+	if state == "" {
+		return "-"
+	}
+	return string(state)
 }
 
 func restoreAge(r *client.Restore) string {

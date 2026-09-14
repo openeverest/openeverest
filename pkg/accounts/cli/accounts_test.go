@@ -1,3 +1,17 @@
+// Copyright (C) 2026 The OpenEverest Contributors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package cli
 
 import (
@@ -43,6 +57,7 @@ func TestUsernamePasswordSanitation(t *testing.T) {
 			expectedErr error
 		}{
 			{"invalid_short", "pass", ErrInvalidNewPassword},
+			{"invalid_short_7_characters", "pass123", ErrInvalidNewPassword},
 			{"invalid_with_spaces", "password with spaces", ErrInvalidNewPassword},
 			{"invalid_non_latin_chars", "пароль", ErrInvalidNewPassword},
 			{"invalid_empty", "", ErrInvalidNewPassword},

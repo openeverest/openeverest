@@ -148,6 +148,8 @@ const (
 )
 
 // RestoreState is a type representing the state of a restore.
+//
+// +kubebuilder:validation:Enum=Pending;Running;Succeeded;Failed;Error
 type RestoreState string
 
 const (

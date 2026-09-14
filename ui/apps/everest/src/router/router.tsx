@@ -151,7 +151,7 @@ const router = createBrowserRouter([
         ],
       },
       {
-        path: 'ui-generator-builder',
+        path: 'plugin-developer',
         element: withSuspense(<UIGeneratorBuilder />),
       },
       // {

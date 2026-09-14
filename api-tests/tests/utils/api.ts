@@ -302,7 +302,10 @@ export const patchBackupStorage = async (request, name, data) => {
 }
 
 export const patchBackupStorageRaw = async (request, name, data) => {
-  return await request.patch(`/v1/clusters/${CLUSTER_NAME}/namespaces/${EVEREST_CI_NAMESPACE}/backup-storages/${name}`, {data: data})
+  return await request.patch(`/v1/clusters/${CLUSTER_NAME}/namespaces/${EVEREST_CI_NAMESPACE}/backup-storages/${name}`, {
+    data: data,
+    headers: {'Content-Type': 'application/merge-patch+json'},
+  })
 }
 
 export const deleteBackupStorage = async (request, name) => {

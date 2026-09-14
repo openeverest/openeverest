@@ -20,13 +20,17 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/openeverest/openeverest/v2/commands/auth"
+	"github.com/openeverest/openeverest/v2/commands/common"
 )
 
 var authCmd = &cobra.Command{
 	Use:   "auth <command> [flags]",
+	Args:  common.NoSubcommandArgs,
 	Short: "Manage Everest authentication",
 	Long:  "Manage Everest authentication",
-	RunE:  func(cmd *cobra.Command, _ []string) error { return cmd.Help() },
+	RunE: func(cmd *cobra.Command, _ []string) error {
+		return cmd.Help()
+	},
 }
 
 func init() {

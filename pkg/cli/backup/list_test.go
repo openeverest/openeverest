@@ -33,9 +33,12 @@ import (
 type testBackup struct {
 	Metadata map[string]any `json:"metadata"`
 	Spec     struct {
-		InstanceRef struct {
-			Name string `json:"name"`
-		} `json:"instanceRef"`
+		Origin struct {
+			Type        string `json:"type"`
+			InstanceRef struct {
+				Name string `json:"name"`
+			} `json:"instanceRef"`
+		} `json:"origin"`
 		StorageRef struct {
 			Name string `json:"name"`
 		} `json:"storageRef"`
@@ -55,7 +58,8 @@ func newTestBackup(name, namespace, instance, storage string, age time.Duration)
 			"creationTimestamp": time.Now().Add(-age).UTC().Format(time.RFC3339),
 		},
 	}
-	tb.Spec.InstanceRef.Name = instance
+	tb.Spec.Origin.Type = "Instance"
+	tb.Spec.Origin.InstanceRef.Name = instance
 	tb.Spec.StorageRef.Name = storage
 	tb.Status = &struct {
 		State string `json:"state,omitempty"`

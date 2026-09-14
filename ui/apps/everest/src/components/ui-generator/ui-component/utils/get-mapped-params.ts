@@ -12,11 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { SelectProps, TextFieldProps } from '@mui/material';
+import { SelectProps, SwitchProps, TextFieldProps } from '@mui/material';
 import {
   NumberFieldParams,
   SelectFieldParams,
   TextFieldParams,
+  ToggleFieldParams,
   FieldParamsMap,
   ValidationMap,
   FieldType,
@@ -26,6 +27,7 @@ export type MappedFieldProps = {
   badge?: string;
   textFieldProps?: Partial<TextFieldProps>;
   selectFieldProps?: Partial<SelectProps>;
+  switchFieldProps?: Partial<SwitchProps>;
   label?: string;
   defaultValue?: unknown;
   options?: { label: string; value: string }[];
@@ -57,7 +59,8 @@ export const getMappedParams = <K extends keyof FieldParamsMap>(
       return mapTextFieldParams(fieldParams as TextFieldParams);
     case 'select':
       return mapSelectFieldParams(fieldParams as SelectFieldParams);
-    // Add more cases for other field types as needed
+    case 'toggle':
+      return mapToggleFieldParams(fieldParams as ToggleFieldParams);
     default:
       return fieldParams;
   }
@@ -139,6 +142,22 @@ const mapSelectFieldParams = (fieldParams: SelectFieldParams) => {
     selectFieldProps,
     badge,
     controllerProps: { defaultValue: defaultValue ?? '' },
+  };
+};
+
+const mapToggleFieldParams = (fieldParams: ToggleFieldParams) => {
+  const { label, defaultValue, helperText, autoFocus, badge, ...rest } =
+    fieldParams;
+
+  return {
+    ...rest,
+    label,
+    // A toggle renders its helper text as an under-label caption; the
+    // FormHelperText slot below the switch is reserved for validation errors.
+    labelCaption: helperText,
+    badge,
+    switchFieldProps: filterDefined({ autoFocus }),
+    controllerProps: { defaultValue: defaultValue ?? false },
   };
 };
 

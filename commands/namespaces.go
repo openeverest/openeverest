@@ -20,15 +20,18 @@ package commands
 import (
 	"github.com/spf13/cobra"
 
+	"github.com/openeverest/openeverest/v2/commands/common"
 	"github.com/openeverest/openeverest/v2/commands/namespaces"
 )
 
 var namespacesCmd = &cobra.Command{
 	Use:   "namespaces <command> [flags]",
-	Args:  cobra.ExactArgs(1),
+	Args:  common.NoSubcommandArgs,
 	Long:  "Manage Everest database namespaces",
 	Short: "Manage Everest database namespaces",
-	Run:   func(_ *cobra.Command, _ []string) {},
+	RunE: func(cmd *cobra.Command, _ []string) error {
+		return cmd.Help()
+	},
 }
 
 func init() {

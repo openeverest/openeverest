@@ -108,7 +108,7 @@ export const OnDemandBackupModal = () => {
       {
         metadata: { name: data.name },
         spec: {
-          instanceRef: { name: instanceName },
+          origin: { type: 'Instance', instanceRef: { name: instanceName } },
           classRef: { name: data.backupClassName },
           storageRef: { name: data.storageName },
           ...(cleanedParameters &&

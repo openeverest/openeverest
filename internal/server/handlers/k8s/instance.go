@@ -18,10 +18,13 @@ package k8s
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 
+	jsonpatch "github.com/evanphx/json-patch/v5"
 	echo "github.com/labstack/echo/v4"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -49,6 +52,32 @@ func (h *k8sHandler) CreateInstance(ctx context.Context, cluster string, instanc
 func (h *k8sHandler) UpdateInstance(ctx context.Context, cluster string, instance *corev1alpha1.Instance) (*corev1alpha1.Instance, error) {
 	stampActor(ctx, instance)
 	return h.kubeConnector.UpdateInstance(ctx, instance)
+}
+
+// PatchInstance applies a merge patch to an instance, leaving the read-modify-write to the API server.
+// Strict validation is not optional: without it a misspelt path is pruned and returns 200 having changed nothing.
+// The actor is stamped into the patch document, since the patch bytes are the request body and annotations set on the object below are never sent.
+func (h *k8sHandler) PatchInstance(ctx context.Context, _ string, namespace, name string, patch []byte) (*corev1alpha1.Instance, error) {
+	var stamp metav1.ObjectMeta
+	if stampActor(ctx, &stamp) {
+		stampDoc, err := json.Marshal(map[string]any{
+			"metadata": map[string]any{"annotations": stamp.Annotations},
+		})
+		if err != nil {
+			return nil, err
+		}
+		if patch, err = jsonpatch.MergePatch(patch, stampDoc); err != nil {
+			return nil, fmt.Errorf("failed to stamp actor: %w", err)
+		}
+	}
+
+	instance := &corev1alpha1.Instance{
+		ObjectMeta: metav1.ObjectMeta{Namespace: namespace, Name: name},
+	}
+	return h.kubeConnector.PatchInstance(ctx, instance,
+		ctrlclient.RawPatch(types.MergePatchType, patch),
+		ctrlclient.FieldValidation(metav1.FieldValidationStrict),
+	)
 }
 
 // DeleteInstance deletes an instance. If the deletionPolicy query parameter is

@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - v1.x
 
 permissions:
   contents: read
@@ -17,6 +18,9 @@ jobs:
         with:
           github-token: ${{ secrets.ROBOT_TOKEN }}
           script: |
+            // Scoped to the pushed branch: main and v1.x are both active, and a
+            // push to one must not rebase PRs targeting the other.
+            const baseBranch = context.ref.replace("refs/heads/", "");
             let retriesNeeded = true;
             let attemptCount = 0;
             const maxAttempts = 10;  // Set a limit for the maximum number of attempts
@@ -31,6 +35,7 @@ jobs:
                   owner: context.repo.owner,
                   repo: context.repo.repo,
                   state: "open",
+                  base: baseBranch,
                 });
 
                 for (const pull of pulls) {

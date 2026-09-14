@@ -189,7 +189,7 @@ func (h *k8sHandler) UpdateMonitoringConfig(ctx context.Context, cluster, namesp
 			secret := newMonitoringConfigSecret(name, namespace, apiKey)
 
 			if _, err = h.kubeConnector.UpdateSecret(ctx, secret); err != nil {
-				return nil, fmt.Errorf("could not update k8s secret %s", name)
+				return nil, fmt.Errorf("could not update k8s secret %s: %w", name, err)
 			}
 		}
 	}

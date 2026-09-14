@@ -24,25 +24,21 @@ import (
 	"github.com/openeverest/openeverest/v2/pkg/cli/wait"
 )
 
-// restore state values (client.Restore.Status.State).
-const (
-	restoreStatePending   = "Pending"
-	restoreStateRunning   = "Running"
-	restoreStateSucceeded = "Succeeded"
-	restoreStateFailed    = "Failed"
-)
-
 // restoreCondition maps Succeeded/Failed to terminal outcomes and everything
 // else to Pending.
 func restoreCondition(r *client.Restore) (wait.Outcome, string) {
 	state := restoreState(r)
 	switch state {
-	case restoreStateSucceeded:
-		return wait.Succeeded, state
-	case restoreStateFailed:
+	case client.RestoreStatusStateSucceeded:
+		return wait.Succeeded, string(state)
+	case client.RestoreStatusStateFailed:
 		return wait.Failed, restoreFailureMessage(r)
 	default:
-		return wait.Pending, state
+		display := string(state)
+		if display == "" {
+			display = "-"
+		}
+		return wait.Pending, display
 	}
 }
 
@@ -88,6 +84,6 @@ func newRestoreDeletePoll(
 
 func deleteCondition(r *client.Restore) (wait.Outcome, string) {
 	return deletion.GoneCondition("restore deleted", func(v *client.Restore) string {
-		return "restore still exists (state: " + restoreState(v) + ")"
+		return "restore still exists (state: " + string(restoreState(v)) + ")"
 	})(r)
 }

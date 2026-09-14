@@ -97,6 +97,22 @@ func (e *EverestServer) UpdateInstance(c echo.Context, cluster string, namespace
 	return c.JSON(http.StatusOK, result)
 }
 
+// PatchInstance applies a merge patch to an existing instance.
+func (e *EverestServer) PatchInstance(c echo.Context, cluster string, namespace string, instance string) error {
+	patch, err := io.ReadAll(c.Request().Body)
+	if err != nil {
+		e.l.Errorf("PatchInstance: failed to read request body: %v", err)
+		return err
+	}
+
+	result, err := e.handler.PatchInstance(c.Request().Context(), cluster, namespace, instance, patch)
+	if err != nil {
+		e.l.Errorf("PatchInstance failed: %v", err)
+		return err
+	}
+	return c.JSON(http.StatusOK, result)
+}
+
 // DeleteInstance deletes an instance.
 func (e *EverestServer) DeleteInstance(c echo.Context, cluster string, namespace string, instance string, params api.DeleteInstanceParams) error {
 	if err := e.handler.DeleteInstance(c.Request().Context(), cluster, namespace, instance, &params); err != nil {
