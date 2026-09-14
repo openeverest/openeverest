@@ -1,0 +1,39 @@
+---
+name: Nightly (v1.x)
+# Scheduled workflows only fire from the default branch (main), so this small
+# dispatcher lives on main and fans out to the v1.x release branch. Each
+# `gh workflow run --ref v1.x` uses v1.x's OWN copy of the target workflow, so
+# v1.x runs its own CI configuration and tests (not main's).
+on:
+  schedule:
+    # 01:00 UTC daily.
+    - cron: "0 1 * * *"
+  # Allow triggering the fan-out manually as well.
+  workflow_dispatch: {}
+
+# Default the whole workflow to read-only.
+permissions:
+  contents: read
+
+jobs:
+  dispatch:
+    runs-on: ubuntu-latest
+    permissions:
+      # Required for `gh workflow run` to dispatch other workflows.
+      # Scoped to this job only so the workflow's default posture stays read-only.
+      actions: write
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        workflow:
+          - dev-be-ci.yaml
+          - dev-fe-e2e.yaml
+    steps:
+      - name: Dispatch ${{ matrix.workflow }} on v1.x
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh workflow run "${{ matrix.workflow }}" \
+            --ref v1.x \
+            -R "${{ github.repository }}"
