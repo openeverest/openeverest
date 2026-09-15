@@ -1,13 +1,30 @@
+// everest
+// Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package rbac
 
 import (
 	"context"
 	"errors"
 	"fmt"
-	"regexp"
 	"slices"
 	"strings"
+	"unicode"
 
+	"github.com/bmatcuk/doublestar/v4"
 	"github.com/casbin/casbin/v2"
 	"go.uber.org/zap"
 
@@ -24,8 +41,8 @@ func validatePolicy(enforcer *casbin.Enforcer) error {
 	if err != nil {
 		return err
 	}
-	for _, policy := range policy {
-		if err := validateTerms(policy); err != nil {
+	for _, rule := range policy {
+		if err := validatePolicyRule(rule); err != nil {
 			return errors.Join(errPolicySyntax, err)
 		}
 	}
@@ -97,13 +114,63 @@ func checkRoles(roles []string, policies [][]string) error {
 	return nil
 }
 
+func validatePolicyRule(terms []string) error {
+	if len(terms) != 4 {
+		return fmt.Errorf("expected 4 policy terms [sub, res, act, obj], got %d", len(terms))
+	}
+
+	subject, resource, action, object := terms[0], terms[1], terms[2], terms[3]
+
+	if err := validateSubject(subject); err != nil {
+		return fmt.Errorf("invalid subject '%s': %w", subject, err)
+	}
+
+	if strings.TrimSpace(resource) == "" {
+		return errors.New("empty resource type")
+	}
+
+	if !ValidateAction(action) {
+		return fmt.Errorf("invalid action '%s'", action)
+	}
+
+	if err := validateObject(object); err != nil {
+		return fmt.Errorf("invalid object pattern '%s': %w", object, err)
+	}
+
+	return nil
+}
+
 func validateTerms(terms []string) error {
-	pattern := `^[/*-_:a-zA-Z0-9]+$`
-	compiled := regexp.MustCompile(pattern)
-	for _, term := range terms {
-		if !compiled.MatchString(term) {
-			return fmt.Errorf("invalid policy term '%s'", term)
+	return validatePolicyRule(terms)
+}
+
+func validateSubject(subject string) error {
+	if subject == "" {
+		return errors.New("empty subject")
+	}
+	if roleName, ok := strings.CutPrefix(subject, common.EverestRBACRolePrefix); ok {
+		if strings.TrimSpace(roleName) == "" {
+			return errors.New("empty role name after prefix")
 		}
+	}
+	for _, r := range subject {
+		if unicode.IsSpace(r) || unicode.IsControl(r) {
+			return errors.New("contains whitespace or control characters")
+		}
+	}
+	return nil
+}
+
+func validateObject(object string) error {
+	if object == "" {
+		return errors.New("empty object pattern")
+	}
+	if !doublestar.ValidatePattern(object) {
+		return errors.New("malformed glob pattern")
+	}
+	segments := strings.Split(object, "/")
+	if len(segments) > 2 {
+		return errors.New("object pattern contains more than two segments")
 	}
 	return nil
 }
