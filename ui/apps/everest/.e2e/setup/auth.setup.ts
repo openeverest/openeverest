@@ -1,4 +1,3 @@
-// TODO remove this file after release of v2
 // Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -13,10 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { PreviewContentText } from '../../database-preview/preview-section';
+import { test as setup } from '@playwright/test';
+import { loginCIUser } from '@e2e/utils/user';
 
-export const PreviewSectionFive = ({
-  monitoring,
-}: {
-  monitoring?: boolean;
-}) => <PreviewContentText text={monitoring ? 'Enabled' : 'Disabled'} />;
+setup('Authenticate CI user', async ({ page }) => {
+  await loginCIUser(page);
+});
