@@ -132,7 +132,7 @@ jobs:
           go-version-file: 'go.mod'
           cache: true
 
-      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
         with:
           version: 9.4.0
 
@@ -226,7 +226,7 @@ jobs:
           make build-cli
 
       - name: Create KIND cluster
-        uses: helm/kind-action@ef37e7f390d99f746eb8b610417061a60e82a6cc # v1.14.0
+        uses: helm/kind-action@06c1ae10762d3b9c1644e7fe69596ae519e015a2 # v1.15.0
 
       - name: Run integration tests
         id: cli-tests
