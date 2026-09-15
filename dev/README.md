@@ -35,7 +35,7 @@ NOTE: for MacOS tilt needs to have installed and running `docker-desktop` tool. 
    npm install -g pnpm
    ```
 
-8. Clone [everest-operator](https://github.com/percona/everest-operator).
+8. Clone [everest-operator](https://github.com/openeverest/openeverest-operator).
 
 9. Clone [helm-charts](https://github.com/openeverest/helm-charts).
 
@@ -88,14 +88,14 @@ gcloud auth configure-docker <REGISTRY_REGION>-docker.pkg.dev
 
 Copy file dev/.env.example to dev/.env and set the following environment variables:
 ```sh
-EVEREST_OPERATOR_DIR=<path to github.com/percona/everest-operator repository directory>
+EVEREST_OPERATOR_DIR=<path to github.com/openeverest/openeverest-operator repository directory>
 EVEREST_CHART_DIR=<path to github.com/openeverest/helm-charts>/charts/everest
 ```
 
 or set environment variables manually in the terminal:
 
 ```sh
-export EVEREST_OPERATOR_DIR=<path to github.com/percona/everest-operator repository directory>
+export EVEREST_OPERATOR_DIR=<path to github.com/openeverest/openeverest-operator repository directory>
 export EVEREST_CHART_DIR=<path to github.com/openeverest/helm-charts>/charts/everest
 ```
 
