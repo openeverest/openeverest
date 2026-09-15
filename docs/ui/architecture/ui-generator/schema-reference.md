@@ -10,7 +10,7 @@ Read the diagrams top-down: topology → sections → components (leaf fields) /
 ```mermaid
 flowchart TD
   T["TopologyUISchemas"] --> TP["Topology<br/>(by topology name)"]
-  TP --> SO["sectionsOrder?"]
+  TP --> SO["sectionsOrder?<br/>(supports static step IDs)"]
   TP --> S["sections"]
   S --> SEC["Section<br/>(by section name)"]
   SEC --> SM["label? / description?"]
@@ -200,6 +200,7 @@ classDiagram
 | **CEL validation**             | Cross-field validation rules declared via `celExpressions` (with an `original` namespace available in edit mode)                                                                                                                 | implemented |
 | **CEL conditional rendering**  | Show / hide fields based on another field value through a generic mechanism                                                                                                                                                      | 🛠️          |
 | **group kernel**               | `groupType: bordered/collapsible/toggleable` + `gate` + `direction`                                                                                                                                                              | 🛠️          |
+| **static step reordering**     | `sectionsOrder` supports reserved static wizard step IDs (`import`, `backups`) alongside schema section keys, producing unified wizard navigation and preview order                                                            | implemented |
 
 ## To Consider
 
@@ -209,4 +210,4 @@ classDiagram
 
 - Owner: UI
 - Status: current
-- Last updated: 2026-09-02
+- Last updated: 2026-09-03
