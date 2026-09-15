@@ -49,7 +49,7 @@ export const PresetSelect = () => {
       loading={isLoadingPresets || isResolving}
       helperText={helperText}
       error={isError || Boolean(resolveError)}
-      formControlProps={{ sx: { mt: 3 } }}
+      formControlProps={{ sx: { mt: 0 } }}
       selectFieldProps={{
         displayEmpty: true,
         disabled: isError && presets.length === 0,

@@ -29,11 +29,20 @@ export const createDbInstanceFn = async (
   data: CreateDbInstancePayload['spec'],
   annotations?: Record<string, string>
 ) => {
-  const payload: CreateDbInstancePayload = {
+  // The generated Instance metadata type does not yet declare `annotations`;
+  // extend it locally instead of suppressing the type error.
+  type CreateDbInstancePayloadWithAnnotations = Omit<
+    CreateDbInstancePayload,
+    'metadata'
+  > & {
+    metadata: NonNullable<CreateDbInstancePayload['metadata']> & {
+      annotations?: Record<string, string>;
+    };
+  };
+
+  const payload: CreateDbInstancePayloadWithAnnotations = {
     apiVersion: 'core.openeverest.io/v1alpha1',
     kind: 'Instance',
-    // TODO this TS error should gone after BE types updates
-    // @ts-ignore
     metadata: {
       name: instanceName,
       ...(annotations && Object.keys(annotations).length > 0

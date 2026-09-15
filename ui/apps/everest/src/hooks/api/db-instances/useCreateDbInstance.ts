@@ -18,6 +18,7 @@ import {
   UseMutationOptions,
 } from '@tanstack/react-query';
 import { createDbInstanceFn, getDbInstanceConnectionFn } from 'api/instanceApi';
+import { useClusterName } from 'hooks/api/useClusterName';
 import { PerconaQueryOptions } from 'shared-types/query.types';
 import {
   InstanceConnectionDetails,
@@ -102,13 +103,15 @@ export const useCreateDbInstance = (
     CreateInstanceHookArgType,
     unknown
   >
-) =>
-  useMutation({
+) => {
+  const clusterName = useClusterName();
+
+  return useMutation({
     mutationFn: ({ formValue, annotations }: CreateInstanceHookArgType) => {
       const { dbName, namespace } = parseDbWizardCore(formValue);
 
       return createDbInstanceFn(
-        'main',
+        clusterName,
         dbName,
         namespace,
         buildCreateInstanceSpec(formValue),
@@ -117,6 +120,7 @@ export const useCreateDbInstance = (
     },
     ...options,
   });
+};
 
 export const useDbInstanceCredentials = (
   dbInstanceName: string,

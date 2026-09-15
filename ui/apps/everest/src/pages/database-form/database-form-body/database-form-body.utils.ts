@@ -12,10 +12,20 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-export * from './preset-selection.types';
-export * from './preset-selection.context';
-export * from './preset-selection.constants';
-export * from './preset-selection.utils';
-export * from './use-preset-selection';
-export * from './use-preset-form-sync';
-export { PresetSelect } from './preset-select';
+interface SubmitDisabledInput {
+  isSubmitting: boolean;
+  presetPending: boolean;
+  presetSelected: boolean;
+  isValid: boolean;
+}
+
+// A one-click preset deploy is gated only by the preset resolving (the server
+// validates the resolved spec), so form validity must NOT block it. Manual
+// (no-preset) creation still requires a valid form.
+export const isSubmitDisabled = ({
+  isSubmitting,
+  presetPending,
+  presetSelected,
+  isValid,
+}: SubmitDisabledInput): boolean =>
+  isSubmitting || presetPending || (!presetSelected && !isValid);

@@ -24,6 +24,7 @@ import { WizardMode } from 'shared-types/wizard.types';
 import { useDatabaseFormContext } from '../database-form-context';
 import { StepHeader } from './steps-old/step-header/step-header';
 import DatabaseFormStepControllers from './database-form-step-controllers';
+import { isSubmitDisabled } from './database-form-body.utils';
 
 const DatabaseFormBody = ({
   steps,
@@ -74,7 +75,12 @@ const DatabaseFormBody = ({
       </Box>
       <DatabaseFormStepControllers
         disableBack={isFirstStep}
-        disableSubmit={isSubmitting || !isValid || presetPending}
+        disableSubmit={isSubmitDisabled({
+          isSubmitting,
+          presetPending: presetPending ?? false,
+          presetSelected: presetSelected ?? false,
+          isValid,
+        })}
         disableCancel={isSubmitting}
         disableNext={disableNext}
         showSubmit={isLastStep || isFirstStep}

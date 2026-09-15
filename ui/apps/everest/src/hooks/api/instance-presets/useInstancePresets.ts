@@ -26,11 +26,7 @@ export const RESOLVE_INSTANCE_PRESET_QUERY_KEY = 'resolve-instance-preset';
 export const useInstancePresets = (
   clusterName: string,
   provider?: string,
-  options?: PerconaQueryOptions<
-    InstancePresetList,
-    unknown,
-    InstancePreset[]
-  >
+  options?: PerconaQueryOptions<InstancePresetList, unknown, InstancePreset[]>
 ) =>
   useQuery<InstancePresetList, unknown, InstancePreset[]>({
     queryKey: [INSTANCE_PRESETS_QUERY_KEY, clusterName, provider],
@@ -56,5 +52,9 @@ export const useResolveInstancePreset = (
     queryKey: [RESOLVE_INSTANCE_PRESET_QUERY_KEY, clusterName, name, namespace],
     queryFn: () => resolveInstancePresetFn(clusterName, name, namespace ?? ''),
     enabled: Boolean(clusterName) && Boolean(name) && Boolean(namespace),
+    // A resolved spec is stable for a given name+namespace; disable background
+    // refetches so `isFetching` doesn't briefly re-block the one-click submit.
+    staleTime: Infinity,
+    refetchOnWindowFocus: false,
     ...options,
   });
