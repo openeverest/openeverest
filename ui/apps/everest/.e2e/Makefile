@@ -42,9 +42,11 @@ deploy-monitoring:     ## Deploy monitoring instances to K3D test cluster.
 #	kubectl port-forward --namespace default svc/monitoring-service 8070:443 &
 
 .PHONY: create-db-namespaces
+# Run from the repo root so the root Makefile's LOCALBIN (repo-relative bin/)
+# resolves to <repo>/bin/everestctl, not <repo>/.e2e/bin.
 create-db-namespaces:
 	$(info Creating DB namespaces in Everest)
-	$(MAKE) -f $(REPO_ROOT_MAKEFILE) add-shared-everest-namespace DB_NAMESPACES=everest
+	cd $(REPO_ROOT) && $(MAKE) -f $(REPO_ROOT_MAKEFILE) add-shared-everest-namespace DB_NAMESPACES=everest
 
 #EVERESTCTL=$(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))/../bin/everestctl
 #.PHONY: create-test-users
