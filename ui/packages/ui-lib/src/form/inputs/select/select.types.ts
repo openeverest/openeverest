@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -29,4 +30,7 @@ export type SelectInputProps = {
   children?: React.ReactNode | React.ReactNode[];
   isRequired?: boolean;
   loading?: boolean;
+  // Controlled error state for non-validation errors (e.g. a failed async load),
+  // OR-ed with the react-hook-form field error.
+  error?: boolean;
 };

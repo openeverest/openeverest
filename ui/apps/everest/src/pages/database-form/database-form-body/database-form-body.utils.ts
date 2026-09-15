@@ -12,16 +12,20 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-export type DatabaseFormStepControllersProps = {
-  disableBack?: boolean;
-  disableNext?: boolean;
-  disableSubmit?: boolean;
-  disableCancel?: boolean;
-  showSubmit?: boolean;
-  onPreviousClick: () => void;
-  onNextClick: () => void;
-  onCancel: () => void;
-  onSubmit: () => void;
-  showConfigMore?: boolean;
-  disableConfigMore?: boolean;
-};
+interface SubmitDisabledInput {
+  isSubmitting: boolean;
+  presetPending: boolean;
+  presetSelected: boolean;
+  isValid: boolean;
+}
+
+// A one-click preset deploy is gated only by the preset resolving (the server
+// validates the resolved spec), so form validity must NOT block it. Manual
+// (no-preset) creation still requires a valid form.
+export const isSubmitDisabled = ({
+  isSubmitting,
+  presetPending,
+  presetSelected,
+  isValid,
+}: SubmitDisabledInput): boolean =>
+  isSubmitting || presetPending || (!presetSelected && !isValid);

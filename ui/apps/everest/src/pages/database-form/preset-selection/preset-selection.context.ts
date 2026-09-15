@@ -12,16 +12,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-export type DatabaseFormStepControllersProps = {
-  disableBack?: boolean;
-  disableNext?: boolean;
-  disableSubmit?: boolean;
-  disableCancel?: boolean;
-  showSubmit?: boolean;
-  onPreviousClick: () => void;
-  onNextClick: () => void;
-  onCancel: () => void;
-  onSubmit: () => void;
-  showConfigMore?: boolean;
-  disableConfigMore?: boolean;
+import { createContext, useContext } from 'react';
+import { PresetSelectionContextType } from './preset-selection.types';
+
+export const PresetSelectionContext =
+  createContext<PresetSelectionContextType | null>(null);
+
+export const usePresetSelectionContext = (): PresetSelectionContextType => {
+  const context = useContext(PresetSelectionContext);
+  if (!context) {
+    throw new Error(
+      'usePresetSelectionContext must be used within a PresetSelectionContext.Provider'
+    );
+  }
+  return context;
 };

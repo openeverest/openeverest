@@ -45,7 +45,6 @@ import { useSchema } from './hooks/use-schema';
 import { useDbValidationSchema } from './hooks/use-db-validation-schema';
 import { ImportFields } from 'components/cluster-form/import/import.types';
 import { DbWizardFormFields } from 'consts';
-import { getDefaultValues } from 'components/ui-generator/utils/default-values';
 import {
   BASE_STEP_ID,
   IMPORT_STEP_ID,
@@ -71,9 +70,14 @@ import {
 import { FlattenedSchedule } from 'components/schedule-form-dialog/schedule-form-dialog-context/schedule-form-dialog-context.types';
 import { useBackupClassesList } from 'hooks/api/backup-classes/useBackupClasses';
 import { useClusterName } from 'hooks/api/useClusterName';
-import { mergeTopologyDefaults } from 'components/ui-generator/utils/default-values/merge-topology-defaults';
 import { PluginFormSections } from './plugin-form-sections';
 import { useSubmitPluginInstanceConfig } from 'hooks/api/plugins/useSubmitPluginInstanceConfig';
+import { useDatabaseFormSync } from './hooks/use-database-form-sync';
+import {
+  PresetSelectionContext,
+  usePresetSelection,
+  buildPresetCreateArgs,
+} from './preset-selection';
 
 type UnknownRecord = Record<string, unknown>;
 
@@ -273,6 +277,41 @@ export const DatabasePage = () => {
     name: DbWizardFormFields.k8sNamespace,
   });
 
+  const selectedProvider = useWatch({
+    control,
+    name: DbWizardFormFields.provider,
+  });
+
+  const selectedPreset = useWatch({
+    control,
+    name: DbWizardFormFields.presetName,
+  });
+
+  const presetSelection = usePresetSelection(
+    clusterName,
+    typeof selectedProvider === 'string' ? selectedProvider : undefined,
+    selectedNamespace || namespaces[0],
+    typeof selectedPreset === 'string' ? selectedPreset : ''
+  );
+
+  // Single owner of programmatic form writes: populate from the picked preset
+  // (and revert on clear) and merge topology defaults on a manual switch.
+  useDatabaseFormSync({
+    mode,
+    uiSchema,
+    defaultValues: defaultValues ?? {},
+    defaultTopology,
+    selectedTopology,
+    preset: {
+      resolvedPreset: presetSelection.resolvedPreset,
+      presetName: presetSelection.presetName,
+      presetSelected: presetSelection.presetSelected,
+      namespace: selectedNamespace || namespaces[0],
+    },
+    reset,
+    getValues,
+  });
+
   // Static step definitions
   const staticSteps = useMemo((): StepDefinition[] => {
     const steps: StepDefinition[] = [
@@ -351,30 +390,8 @@ export const DatabasePage = () => {
     validationSchemaRef.current = validationSchema;
   }, [validationSchema]);
 
-  // Topology switch — must run BEFORE the revalidation effect so that
-  // form values are reset before trigger() validates them.
-  const prevTopologyTypeRef = useRef<string | undefined>(undefined);
-  useEffect(() => {
-    const topologyType = selectedTopology;
-    if (!topologyType || !uiSchema) return;
-    if (prevTopologyTypeRef.current === undefined) {
-      prevTopologyTypeRef.current = topologyType;
-      return;
-    }
-    if (topologyType === prevTopologyTypeRef.current) return;
-    prevTopologyTypeRef.current = topologyType;
-
-    const topologyDefaults = getDefaultValues(uiSchema, topologyType);
-    const merged = mergeTopologyDefaults(
-      getValues() as Record<string, unknown>,
-      topologyDefaults
-    );
-    reset(merged as DbWizardType, { keepDirty: true, keepIsSubmitted: true });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedTopology, uiSchema]);
-
   // Revalidate after validation schema changes or defaults finish loading.
-  // Declared after the topology switch effect so that reset() runs first.
+  // Runs after useDatabaseFormSync (called above) so its reset() lands first.
   useEffect(() => {
     if (validationSchemaRef.current && !loadingClusterValues) {
       trigger();
@@ -417,6 +434,34 @@ export const DatabasePage = () => {
   );
 
   const onSubmit: SubmitHandler<DbWizardType> = (data) => {
+    // Preset mode: create straight from the resolved preset spec (one-click),
+    // bypassing the wizard's field-by-field spec build. Never fall through to a
+    // manual create while a preset is picked but not yet resolved.
+    if (mode === FormMode.New && presetSelection.presetSelected) {
+      if (!presetSelection.resolvedPreset) {
+        return;
+      }
+      createInstance(
+        buildPresetCreateArgs({
+          resolvedPreset: presetSelection.resolvedPreset,
+          provider:
+            typeof selectedProvider === 'string' ? selectedProvider : '',
+          dbName: data.dbName,
+          k8sNamespace: data.k8sNamespace ?? '',
+          presetName: presetSelection.presetName,
+        }),
+        {
+          onSuccess: () => {
+            queryClient.invalidateQueries({
+              queryKey: [DB_INSTANCES_QUERY_KEY],
+            });
+            setFormSubmitted(true);
+          },
+        }
+      );
+      return;
+    }
+
     const postProcessedData = engine.postprocess(data);
 
     // Transform flat backup schedules into nested storages structure
@@ -522,40 +567,50 @@ export const DatabasePage = () => {
     >
       <Stack direction={isDesktop ? 'row' : 'column'}>
         <FormProvider {...methods}>
-          <DataSourcePrefetcher
-            sections={engine.sections}
-            namespace={selectedNamespace || namespaces[0]}
-          />
-          <DatabaseFormBody
-            steps={engine.steps}
-            activeStep={nav.activeStepIndex}
-            isSubmitting={isCreating}
-            hasErrors={stepsWithErrors.length > 0}
-            disableNext={
-              hasImportStep &&
-              nav.activeStepId === IMPORT_STEP_ID &&
-              stepsWithErrors.includes(IMPORT_STEP_ID)
-            }
-            onSubmit={handleSubmit(onSubmit)}
-            onCancel={() => navigate('/databases')}
-            handleNextStep={handleNext}
-            handlePreviousStep={handleBack}
-          />
-          {nav.activeStepIndex === 0 && (
-            <PluginFormSections
-              formValues={methods.getValues() as Record<string, unknown>}
-              namespace={selectedNamespace || namespaces[0] || ''}
-              engineType={providerObject?.name}
-              isCreate={true}
-              onPluginConfigChange={handlePluginConfigChange}
+          <PresetSelectionContext.Provider value={presetSelection}>
+            <DataSourcePrefetcher
+              sections={engine.sections}
+              namespace={selectedNamespace || namespaces[0]}
             />
-          )}
-          <DatabaseFormSideDrawer
-            disabled={loadingClusterValues}
-            activeStepId={nav.activeStepId}
-            handleSectionEdit={handleSectionEdit}
-            stepsWithErrors={stepsWithErrors}
-          />
+            <DatabaseFormBody
+              steps={engine.steps}
+              activeStep={nav.activeStepIndex}
+              isSubmitting={isCreating}
+              hasErrors={stepsWithErrors.length > 0}
+              presetSelected={presetSelection.presetSelected}
+              presetPending={presetSelection.presetPending}
+              disableNext={
+                hasImportStep &&
+                nav.activeStepId === IMPORT_STEP_ID &&
+                stepsWithErrors.includes(IMPORT_STEP_ID)
+              }
+              onSubmit={handleSubmit(onSubmit)}
+              onCancel={() => navigate('/databases')}
+              handleNextStep={handleNext}
+              handlePreviousStep={handleBack}
+            />
+            {/* TODO(presets, temporary): hiding plugin sections while a preset
+                is selected is a Phase-1 stopgap. Plugins are a separate data
+                plane the preset can't populate, so a preset + plugin config
+                deploy isn't supported yet. Revisit once presets×plugins is
+                designed (SDK/BE work) so plugin config can co-exist with a
+                preset instead of being hidden. */}
+            {nav.activeStepIndex === 0 && !presetSelection.presetSelected && (
+              <PluginFormSections
+                formValues={methods.getValues() as Record<string, unknown>}
+                namespace={selectedNamespace || namespaces[0] || ''}
+                engineType={providerObject?.name}
+                isCreate={true}
+                onPluginConfigChange={handlePluginConfigChange}
+              />
+            )}
+            <DatabaseFormSideDrawer
+              disabled={loadingClusterValues || presetSelection.presetSelected}
+              activeStepId={nav.activeStepId}
+              handleSectionEdit={handleSectionEdit}
+              stepsWithErrors={stepsWithErrors}
+            />
+          </PresetSelectionContext.Provider>
         </FormProvider>
       </Stack>
       <DatabaseFormCancelDialog

@@ -12,16 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-export type DatabaseFormStepControllersProps = {
-  disableBack?: boolean;
-  disableNext?: boolean;
-  disableSubmit?: boolean;
-  disableCancel?: boolean;
-  showSubmit?: boolean;
-  onPreviousClick: () => void;
-  onNextClick: () => void;
-  onCancel: () => void;
-  onSubmit: () => void;
-  showConfigMore?: boolean;
-  disableConfigMore?: boolean;
+export const Messages = {
+  label: 'Preset',
+  none: 'None',
+  helper: 'Optionally start from a predefined configuration for this provider.',
+  selectedCaption: 'Configuration is provided by the selected preset.',
+  loadError: "Couldn't load presets for this provider.",
+  resolveError: 'Failed to resolve the selected preset.',
 };

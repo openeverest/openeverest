@@ -20,6 +20,8 @@ export type DatabaseFormBodyProps = {
   disableNext?: boolean;
   isSubmitting: boolean;
   hasErrors: boolean;
+  presetSelected?: boolean;
+  presetPending?: boolean;
   onCancel: () => void;
   onSubmit: () => void;
   handleNextStep: () => void;

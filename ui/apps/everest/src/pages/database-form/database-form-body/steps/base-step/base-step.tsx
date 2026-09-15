@@ -27,6 +27,10 @@ import { useNamespacePermissionsForResource } from 'hooks/rbac';
 import { useNamespaces } from 'hooks/index.ts';
 import { FormMode } from 'components/ui-generator/ui-generator.types.js';
 import { useDatabaseFormContext } from 'pages/database-form/database-form-context';
+import {
+  PresetSelect,
+  usePresetSelectionContext,
+} from 'pages/database-form/preset-selection';
 
 export const BaseInfoStep = ({ loadingDefaultsForEdition }: StepProps) => {
   const mode = useDatabasePageMode();
@@ -35,6 +39,7 @@ export const BaseInfoStep = ({ loadingDefaultsForEdition }: StepProps) => {
     refetchInterval: 10 * 1000,
   });
   const { topologies, hasMultipleTopologies } = useDatabaseFormContext();
+  const { presetSelected } = usePresetSelectionContext();
   const { watch, setValue, getFieldState } = useFormContext();
 
   // const dbType: DbType = watch(DbWizardFormFields.dbType);
@@ -141,6 +146,7 @@ export const BaseInfoStep = ({ loadingDefaultsForEdition }: StepProps) => {
         pageDescription={Messages.pageDescription}
       />
       <FormGroup sx={{ mt: 3 }}>
+        {mode === FormMode.New && <PresetSelect />}
         <AutoCompleteInput
           labelProps={{
             sx: { mt: 1 },
@@ -168,8 +174,14 @@ export const BaseInfoStep = ({ loadingDefaultsForEdition }: StepProps) => {
           <SelectInput
             name={DbWizardFormFields.topology}
             label="Database Topology"
+            helperText={
+              presetSelected ? 'Defined by the selected preset' : undefined
+            }
             selectFieldProps={{
-              disabled: mode === FormMode.Restore || loadingDefaultsForEdition,
+              disabled:
+                mode === FormMode.Restore ||
+                loadingDefaultsForEdition ||
+                presetSelected,
             }}
           >
             {topologies.map((topology) => (
