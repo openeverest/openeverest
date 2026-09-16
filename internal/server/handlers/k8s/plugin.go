@@ -106,7 +106,7 @@ func resolvePluginAssetPath(cluster, pluginName, assetPath string) string {
 	if strings.HasPrefix(assetPath, "http://") ||
 		strings.HasPrefix(assetPath, "https://") ||
 		strings.HasPrefix(assetPath, "data:") ||
-		strings.HasPrefix(assetPath, "/v1/") {
+		strings.HasPrefix(assetPath, pluginBasePath(cluster, pluginName)+"/") {
 		return assetPath
 	}
 	return path.Join(pluginBasePath(cluster, pluginName), assetPath)
