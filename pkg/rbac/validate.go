@@ -98,7 +98,11 @@ func checkRoles(roles []string, policies [][]string) error {
 }
 
 func validateTerms(terms []string) error {
-	pattern := `^[/*-_:a-zA-Z0-9]+$`
+	// The hyphen sits last so it is literal: the old `*-_` placement created
+	// a character-class range (0x2A-0x5F) admitting `;<=>?[\]^` and friends.
+	// `.`, `@` and `+` are allowed explicitly: email subjects (subaddressing
+	// included) previously validated only because of that accidental range.
+	pattern := `^[/*_:.@+a-zA-Z0-9-]+$`
 	compiled := regexp.MustCompile(pattern)
 	for _, term := range terms {
 		if !compiled.MatchString(term) {

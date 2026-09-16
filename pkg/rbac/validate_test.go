@@ -162,6 +162,33 @@ func TestValidateTerms(t *testing.T) {
 			terms: []string{"role:admin!!", "", "create", "*"},
 			valid: false,
 		},
+		{
+			// email subjects must keep validating after the range fix
+			terms: []string{"alice@example.com", "database-clusters", "read", "ns/db"},
+			valid: true,
+		},
+		{
+			terms: []string{"jane.doe@corp.io", "backup-storages", "read", "*"},
+			valid: true,
+		},
+		{
+			// `+` subaddressing was accepted pre-fix and must keep working
+			terms: []string{"alice+everest@example.com", "database-clusters", "read", "*"},
+			valid: true,
+		},
+		{
+			// previously admitted via the `*-_` character-class range
+			terms: []string{"role:admin", "database-clusters", "read", "ns/db?"},
+			valid: false,
+		},
+		{
+			terms: []string{"role:admin", "database-clusters", "read", "ns/[db"},
+			valid: false,
+		},
+		{
+			terms: []string{"role:admin", "database-clusters", "read", "ns/db;=<>,\\]^"},
+			valid: false,
+		},
 	}
 
 	for i, tc := range testcases {
