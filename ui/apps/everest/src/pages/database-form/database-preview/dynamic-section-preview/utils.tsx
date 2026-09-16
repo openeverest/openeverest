@@ -75,7 +75,11 @@ export const renderComponent = (
   } else if (typeof value === 'object' && !Array.isArray(value)) {
     displayValue = JSON.stringify(value);
   } else {
-    displayValue = String(value);
+    const badge = leafComponent.fieldParams?.badge;
+    displayValue =
+      badge && leafComponent.uiType === FieldType.Number
+        ? `${value} ${badge}`
+        : String(value);
   }
 
   const uniqueKey = `${parentPrefix || ''}:${primaryPath || componentKey}`;

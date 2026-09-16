@@ -139,6 +139,54 @@ describe('renderComponent - string values are shown correctly in preview', () =>
     expect(screen.getByText('Replicas: 3')).toBeInTheDocument();
   });
 
+  it('appends the fieldParams badge to the value', () => {
+    const component: Component = {
+      uiType: FieldType.Number,
+      path: 'spec.engine.storage.size',
+      fieldParams: { label: 'Disk', badge: 'Gi' },
+    };
+    const formValues = { spec: { engine: { storage: { size: 25 } } } };
+
+    render(
+      <TestWrapper>
+        <>{renderComponent('disk', component, formValues)}</>
+      </TestWrapper>
+    );
+
+    expect(screen.getByText('Disk: 25 Gi')).toBeInTheDocument();
+  });
+
+  it('does not append a badge when the value is missing', () => {
+    const component: Component = {
+      uiType: FieldType.Number,
+      path: 'spec.engine.storage.size',
+      fieldParams: { label: 'Disk', badge: 'Gi' },
+    };
+    const formValues = { spec: {} };
+
+    render(
+      <TestWrapper>
+        <>{renderComponent('disk', component, formValues)}</>
+      </TestWrapper>
+    );
+
+    expect(screen.getByText('Disk: -')).toBeInTheDocument();
+  });
+
+  it('does not append a badge for non-Number fields, matching the input', () => {
+    const component = makeSelectComponent('spec.databaseVersion', 'Version');
+    component.fieldParams = { ...component.fieldParams, badge: 'Gi' };
+    const formValues = { spec: { databaseVersion: '8.0' } };
+
+    render(
+      <TestWrapper>
+        <>{renderComponent('databaseVersion', component, formValues)}</>
+      </TestWrapper>
+    );
+
+    expect(screen.getByText('Version: 8.0')).toBeInTheDocument();
+  });
+
   it('uses first path from multipath field for preview lookup', () => {
     const component: Component = {
       uiType: FieldType.Text,
