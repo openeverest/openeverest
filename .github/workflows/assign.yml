@@ -67,6 +67,7 @@ jobs:
             }
 
             if (verb === 'unassign') {
+              if (!(issue.assignees || []).some((a) => a.login === target)) return; // not assigned, nothing to do
               await github.rest.issues.removeAssignees({
                 owner, repo, issue_number, assignees: [target],
               });
