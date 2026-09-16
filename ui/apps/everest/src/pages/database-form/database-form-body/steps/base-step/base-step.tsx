@@ -39,7 +39,7 @@ export const BaseInfoStep = ({ loadingDefaultsForEdition }: StepProps) => {
     refetchInterval: 10 * 1000,
   });
   const { topologies, hasMultipleTopologies } = useDatabaseFormContext();
-  const { presetSelected } = usePresetSelectionContext();
+  const { presetSelected, presets, isError } = usePresetSelectionContext();
   const { watch, setValue, getFieldState } = useFormContext();
 
   // const dbType: DbType = watch(DbWizardFormFields.dbType);
@@ -143,7 +143,11 @@ export const BaseInfoStep = ({ loadingDefaultsForEdition }: StepProps) => {
     <>
       <StepHeader
         pageTitle={Messages.pageTitle}
-        pageDescription={Messages.pageDescription}
+        pageDescription={
+          !isError && presets.length > 0
+            ? Messages.pageDescriptionWithPresets
+            : Messages.pageDescription
+        }
       />
       {mode === FormMode.New && <PresetSelectCards />}
       <FormGroup sx={{ mt: 3 }}>
