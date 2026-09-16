@@ -45,7 +45,6 @@ export interface CardPickerProps {
   // Always-first card (e.g. a "start from scratch" / "none" option). Selected
   // when selectedId === leadCard.id.
   leadCard?: CardPickerItem;
-  loading?: boolean;
   error?: string;
   // Disabled card appended to the grid, e.g. to report a failed load in place.
   statusCard?: CardPickerStatus;

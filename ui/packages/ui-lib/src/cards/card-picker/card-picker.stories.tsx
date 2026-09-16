@@ -67,14 +67,6 @@ export const WithOverflow: Story = {
   render: () => <Interactive items={buildItems(12)} />,
 };
 
-export const Loading: Story = {
-  render: () => (
-    <Box sx={{ maxWidth: 900 }}>
-      <CardPicker items={[]} selectedId="" onSelect={() => {}} loading />
-    </Box>
-  ),
-};
-
 // Load failure: a disabled notice card sits beside the lead card in the grid.
 export const LoadError: Story = {
   render: () => (

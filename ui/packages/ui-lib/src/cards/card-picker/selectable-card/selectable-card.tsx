@@ -23,6 +23,8 @@ interface SelectableCardProps {
   onSelect: () => void;
   // Non-interactive state: renders inert and dimmed (e.g. an in-grid notice).
   disabled?: boolean;
+  // ARIA role for the non-interactive variant (e.g. 'status' for a live notice).
+  role?: string;
 }
 
 export const SelectableCard = ({
@@ -31,6 +33,7 @@ export const SelectableCard = ({
   tokens,
   onSelect,
   disabled = false,
+  role,
 }: SelectableCardProps) => {
   const content = (
     <CardContent
@@ -63,6 +66,7 @@ export const SelectableCard = ({
     <Card
       variant="selectable"
       className={disabled ? 'disabled' : selected ? 'selected' : undefined}
+      role={role}
       sx={{ display: 'flex', flexDirection: 'column' }}
     >
       {disabled ? (

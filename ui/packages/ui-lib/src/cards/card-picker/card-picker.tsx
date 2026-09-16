@@ -18,7 +18,6 @@ import {
   Dialog,
   DialogContent,
   DialogTitle,
-  Skeleton,
   TextField,
   Typography,
 } from '@mui/material';
@@ -43,7 +42,6 @@ export const CardPicker = ({
   selectedId,
   onSelect,
   leadCard,
-  loading = false,
   error,
   statusCard,
   messages,
@@ -99,38 +97,26 @@ export const CardPicker = ({
     <Box sx={sx}>
       <Box ref={gridRef} sx={gridSx}>
         {leadCard && renderCard(leadCard, false)}
-        {loading ? (
-          [0, 1].map((i) => (
-            <Skeleton
-              key={i}
-              variant="rounded"
-              height={104}
-              sx={{ width: '100%' }}
-            />
-          ))
-        ) : (
-          <>
-            {inlineItems.map((it) => renderCard(it, false))}
-            {!allFitInline && (
-              <BrowseCard
-                label={msg.browseAll(items.length)}
-                onClick={() => setOpen(true)}
-              />
-            )}
-            {statusCard && (
-              <SelectableCard
-                disabled
-                item={{
-                  id: '',
-                  title: statusCard.title,
-                  subtitle: statusCard.subtitle,
-                }}
-                selected={false}
-                tokens={[]}
-                onSelect={() => {}}
-              />
-            )}
-          </>
+        {inlineItems.map((it) => renderCard(it, false))}
+        {!allFitInline && (
+          <BrowseCard
+            label={msg.browseAll(items.length)}
+            onClick={() => setOpen(true)}
+          />
+        )}
+        {statusCard && (
+          <SelectableCard
+            disabled
+            role="status"
+            item={{
+              id: '',
+              title: statusCard.title,
+              subtitle: statusCard.subtitle,
+            }}
+            selected={false}
+            tokens={[]}
+            onSelect={() => {}}
+          />
         )}
       </Box>
       {error && (
