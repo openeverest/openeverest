@@ -339,7 +339,7 @@ func TestRBAC_GlobPatterns(t *testing.T) {
 // reach the matcher.
 func TestRBAC_RejectsQuestionMarkWildcard(t *testing.T) {
 	t.Parallel()
-	ctx := context.WithValue(context.Background(), common.UserCtxKey, rbac.User{Subject: "bob"})
+	ctx := context.WithValue(context.Background(), common.UserCtxKey, rbac.User{Subject: "bob"}) //nolint:staticcheck
 	k8sMock := newConfigMapMock(newPolicy(
 		"p, role:test, instances, read, prod/ns1/db?",
 		"g, bob, role:test",
