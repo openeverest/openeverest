@@ -29,18 +29,7 @@ export const createDbInstanceFn = async (
   data: CreateDbInstancePayload['spec'],
   annotations?: Record<string, string>
 ) => {
-  // The generated Instance metadata type does not yet declare `annotations`;
-  // extend it locally instead of suppressing the type error.
-  type CreateDbInstancePayloadWithAnnotations = Omit<
-    CreateDbInstancePayload,
-    'metadata'
-  > & {
-    metadata: NonNullable<CreateDbInstancePayload['metadata']> & {
-      annotations?: Record<string, string>;
-    };
-  };
-
-  const payload: CreateDbInstancePayloadWithAnnotations = {
+  const payload: CreateDbInstancePayload = {
     apiVersion: 'core.openeverest.io/v1alpha1',
     kind: 'Instance',
     metadata: {

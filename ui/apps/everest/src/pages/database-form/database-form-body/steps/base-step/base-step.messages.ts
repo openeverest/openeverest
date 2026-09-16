@@ -13,12 +13,12 @@
 // limitations under the License.
 
 export const Messages = {
-  pageTitle: 'Create a database',
+  pageTitle: 'Create an instance',
   pageDescription: 'Start from a preset, or configure everything from scratch.',
   labels: {
     dbName: 'Display name',
     k8sNamespace: 'Namespace',
-    topology: 'Database Topology',
+    topology: 'Topology',
   },
   placeholders: {
     dbName: 'E.g. postgresql-123',

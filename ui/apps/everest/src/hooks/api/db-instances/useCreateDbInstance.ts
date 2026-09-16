@@ -64,9 +64,13 @@ const parseDbWizardCore = (
   return { dbName, namespace: k8sNamespace ?? '' };
 };
 
-// Wizard fields that are NOT part of the Instance spec and must never be merged
-// into it: `provider` maps to providerRef, `dbName`/`k8sNamespace` address the
-// request, `spec` is handled separately, and `presetName` is a UI-only control.
+// Wizard fields that are NOT part of the Instance spec, so they are stripped
+// before the remaining form fields are merged into `spec`. Where each one goes:
+//   provider     -> spec.providerRef (added explicitly below)
+//   dbName       -> the Instance name (metadata.name), set via createDbInstanceFn
+//   k8sNamespace -> the request namespace (URL path), not the body
+//   spec         -> merged in separately
+//   presetName   -> UI-only control, never sent
 // Everything else on the form is a ui-generator-produced spec field.
 const NON_SPEC_FORM_FIELDS = new Set([
   'provider',

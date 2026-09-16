@@ -35,36 +35,33 @@ const SelectInput = ({
   formControlProps,
   loading,
   children,
-  error: controlledError,
 }: SelectInputProps) => {
   const { control: contextControl } = useFormContext();
 
   return (
-    <Controller
-      name={name}
-      control={control ?? contextControl}
-      {...controllerProps}
-      render={({ field, fieldState: { error } }) => {
-        const hasError = controlledError || error !== undefined;
-        return (
-          <FormControl
-            sx={{ mt: 3 }}
-            size={formControlProps?.size || 'small'}
-            error={hasError}
-            {...formControlProps}
-          >
-            <InputLabel
-              id={`${name}-input-label`}
-              shrink={selectFieldProps?.displayEmpty || undefined}
-            >
-              {label}
-            </InputLabel>
+    <FormControl
+      sx={{ mt: 3 }}
+      size={formControlProps?.size || 'small'}
+      {...formControlProps}
+    >
+      <InputLabel
+        id={`${name}-input-label`}
+        shrink={selectFieldProps?.displayEmpty || undefined}
+      >
+        {label}
+      </InputLabel>
+      <Controller
+        name={name}
+        control={control ?? contextControl}
+        {...controllerProps}
+        render={({ field, fieldState: { error } }) => (
+          <>
             <Select
               {...field}
               label={label}
               labelId={`${name}-input-label`}
               variant="outlined"
-              error={hasError}
+              error={error !== undefined}
               data-testid={`select-${kebabize(name)}-button`}
               inputProps={{
                 'data-testid': `select-input-${kebabize(name)}`,
@@ -101,15 +98,15 @@ const SelectInput = ({
                 </MenuItem>
               )}
             </Select>
-            {(hasError || helperText) && (
-              <FormHelperText error={hasError}>
+            {(error || helperText) && (
+              <FormHelperText error={!!error}>
                 {error?.message || helperText}
               </FormHelperText>
             )}
-          </FormControl>
-        );
-      }}
-    />
+          </>
+        )}
+      />
+    </FormControl>
   );
 };
 
