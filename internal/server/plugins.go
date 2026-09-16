@@ -72,7 +72,7 @@ func (pp *pluginProxy) canUsePlugin(c echo.Context, name string) (bool, error) {
 			return true, nil
 		}
 		// Admin shortcut: "*" action on "plugins" resource also grants use.
-		if ok, err := pp.enforcer.Enforce(sub, rbac.ResourcePlugins, rbac.ActionAll, "*"); err != nil {
+		if ok, err := pp.enforcer.Enforce(sub, rbac.ResourcePlugins, rbac.ActionAll, rbac.ClusterObjectName(c.Param("cluster"), name)); err != nil {
 			return false, err
 		} else if ok {
 			return true, nil
