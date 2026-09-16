@@ -19,11 +19,11 @@ import { useBackupStoragesByNamespace } from 'hooks/api/backup-storages/useBacku
 import { useFormContext } from 'react-hook-form';
 import { DbWizardFormFields } from 'consts.ts';
 import BackupsActionableAlert from 'components/actionable-alert/backups-actionable-alert';
-import { StepHeader } from '../../steps-old/step-header/step-header.tsx';
+import { StepHeader } from '../step-header/step-header.tsx';
 import { Messages } from './backup-step.messages.ts';
 import { Schedules } from './schedules.tsx';
 import { PitrBlock } from './pitr';
-import { StepProps } from '../../../database-form.types';
+import { StepProps } from 'pages/database-form/database-form.types';
 
 export const BackupStep = (
   // eslint-disable-next-line @typescript-eslint/no-unused-vars

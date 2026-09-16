@@ -22,7 +22,7 @@ import { DatabaseFormBodyProps } from './types';
 import { useFormContext } from 'react-hook-form';
 import { WizardMode } from 'shared-types/wizard.types';
 import { useDatabaseFormContext } from '../database-form-context';
-import { StepHeader } from './steps-old/step-header/step-header';
+import { StepHeader } from './steps/step-header/step-header';
 import DatabaseFormStepControllers from './database-form-step-controllers';
 
 const DatabaseFormBody = ({

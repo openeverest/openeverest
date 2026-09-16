@@ -29,7 +29,7 @@ import { ScheduleFormDialog } from 'components/schedule-form-dialog';
 import { ScheduleFormDialogContext } from 'components/schedule-form-dialog/schedule-form-dialog-context/schedule-form-dialog.context';
 import { ScheduleFormData } from 'components/schedule-form-dialog/schedule-form/schedule-form-schema';
 import { ActionableLabeledContent } from '@percona/ui-lib';
-import { useDatabasePageMode } from '../../../hooks/use-database-page-mode';
+import { useDatabasePageMode } from 'pages/database-form/hooks/use-database-page-mode';
 import {
   dbWizardToScheduleFormDialogMap,
   FlattenedSchedule,
@@ -46,9 +46,9 @@ export const BACKUP_CLASS_REF_FIELD = 'backup.classRef.name';
 /** Form field path for the per-storage PITR map (WizardPitrMap). */
 export const BACKUP_PITR_FIELD = 'backup.pitr';
 
-type Props = {
+interface Props {
   backupStorages: BackupStorageCRD[];
-};
+}
 
 export const Schedules = ({ backupStorages }: Props) => {
   const { watch, setValue } = useFormContext();
