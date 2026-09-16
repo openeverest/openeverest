@@ -62,9 +62,10 @@ function getNextScheduleMinute(incrementMinutes: number): string {
 }
 
 [
-  { db: 'psmdb', size: 3 },
+  // Only the PXC provider is deployed in the release lane (make deploy-pxc-provider);
+  // psmdb/postgresql have no provider installed, so restore them incrementally once
+  // their providers are provisioned in CI.
   { db: 'pxc', size: 3 },
-  { db: 'postgresql', size: 3 },
 ].forEach(({ db, size }) => {
   test.describe(
     'Restore to a new cluster',

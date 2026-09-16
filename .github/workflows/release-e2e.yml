@@ -162,6 +162,15 @@ jobs:
         run: |
           kubectl get instances,pods -A || true
           kubectl get restores.backup.openeverest.io -A || true
+          # Why an Instance is stuck in Provisioning: the PXC provider maps the
+          # PerconaXtraDBCluster .status.state to Ready. Capture that state, the
+          # Instance conditions, recent events, and the provider/operator logs.
+          kubectl get pxc -A -o wide || true
+          kubectl -n everest get instances -o yaml || true
+          kubectl -n everest get pxc -o yaml || true
+          kubectl -n everest get events --sort-by=.lastTimestamp | tail -50 || true
+          kubectl -n provider-system logs deploy/provider-percona-xtradb-cluster --tail=200 || true
+          kubectl -n provider-system logs deploy/provider-percona-xtradb-cluster-operator --tail=200 || true
 
       - name: Upload Playwright report
         if: ${{ always() && steps.e2e.outcome != 'skipped' }}
