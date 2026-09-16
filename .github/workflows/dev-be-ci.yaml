@@ -228,6 +228,17 @@ jobs:
       - name: Create KIND cluster
         uses: helm/kind-action@ef37e7f390d99f746eb8b610417061a60e82a6cc # v1.14.0
 
+      - name: Build Everest API server image
+        run: |
+          make build-debug
+          make docker-build
+
+      # Without this the cluster pulls ghcr.io/openeverest/openeverest-dev:0.0.0,
+      # which main (v2) publishes; v1.x publishes 0.0.0-v1.
+      - name: Load image to KIND cluster
+        run: |
+          kind load docker-image ghcr.io/openeverest/openeverest-dev:0.0.0 --name chart-testing
+
       - name: Run integration tests
         id: cli-tests
         run: |
