@@ -121,6 +121,8 @@ declare module '@mui/material/Chip' {
 declare module '@mui/material/Paper' {
   interface PaperPropsVariantOverrides {
     grey: true;
+    selectable: true;
+    dashed: true;
   }
 }
 
@@ -758,6 +760,58 @@ const baseThemeOptions = (mode: PaletteMode): ThemeOptions => ({
             '.MuiCardContent': {
               py: 1,
               px: 2,
+            },
+          }),
+        },
+        {
+          // Interactive surface card that can be picked. Radius is inherited
+          // from shape.borderRadius (Paper default) on purpose. Selection is
+          // driven by the `.selected` class so the whole look lives here, not
+          // at each call site.
+          props: { variant: 'selectable' },
+          style: ({ theme }) => ({
+            border: `1px solid ${theme.palette.dividers?.divider}`,
+            backgroundColor: theme.palette.surfaces?.elevation1,
+            transition: theme.transitions.create(
+              ['border-color', 'background-color'],
+              { duration: theme.transitions.duration.shorter }
+            ),
+            '&:hover': {
+              backgroundColor: theme.palette.action.hover,
+            },
+            // One 2px ring (border hidden so it never reads as a double line),
+            // matching ToggleCard's selected state.
+            '&.selected': {
+              borderColor: 'transparent',
+              outline: `2px solid ${theme.palette.action.outlinedBorder}`,
+              outlineOffset: '-1px',
+            },
+            // No grey CardActionArea overlay on hover/click; keyboard focus
+            // still shows a crisp ring.
+            '& .MuiCardActionArea-focusHighlight': { opacity: 0 },
+            '& .MuiCardActionArea-root.Mui-focusVisible': {
+              outline: `2px solid ${theme.palette.action.focusVisible}`,
+              outlineOffset: '-2px',
+            },
+          }),
+        },
+        {
+          // Dashed "add / browse" tile. Same no-overlay + focus-ring behaviour
+          // as `selectable`; transparent so it reads as a placeholder slot.
+          props: { variant: 'dashed' },
+          style: ({ theme }) => ({
+            border: `1px dashed ${theme.palette.dividers?.divider}`,
+            backgroundColor: 'transparent',
+            transition: theme.transitions.create('border-color', {
+              duration: theme.transitions.duration.shorter,
+            }),
+            '&:hover': {
+              borderColor: theme.palette.dividers?.dividerStrong,
+            },
+            '& .MuiCardActionArea-focusHighlight': { opacity: 0 },
+            '& .MuiCardActionArea-root.Mui-focusVisible': {
+              outline: `2px solid ${theme.palette.action.focusVisible}`,
+              outlineOffset: '-2px',
             },
           }),
         },

@@ -21,7 +21,7 @@ import {
 import { getDefaultValues } from 'components/ui-generator/utils/default-values';
 import { extractInstanceValues } from 'components/ui-generator/utils/default-values/extract-instance-values';
 import { InstancePreset } from 'shared-types/api.types';
-import { DbWizardType } from '../database-form-schema';
+import { DbWizardType } from '../../database-form-schema';
 
 const NONE_APPLIED = '__none__';
 

@@ -17,8 +17,8 @@ import {
   useInstancePresets,
   useResolveInstancePreset,
 } from 'hooks/api/instance-presets';
-import { PresetSelectionContextType } from './preset-selection.types';
-import { Messages } from './preset-select.messages';
+import { PresetSelectionContextType } from '../preset-selection-context';
+import { Messages } from '../preset-selection.messages';
 
 // Resolves the picked preset for the current namespace and exposes the list +
 // gating flags. The picked preset NAME lives in react-hook-form (PRESET_NAME_FIELD)

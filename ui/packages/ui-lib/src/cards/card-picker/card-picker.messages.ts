@@ -12,18 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { createContext, useContext } from 'react';
-import { PresetSelectionContextType } from './preset-selection.types';
+import { CardPickerMessages } from './card-picker.types';
 
-export const PresetSelectionContext =
-  createContext<PresetSelectionContextType | null>(null);
-
-export const usePresetSelectionContext = (): PresetSelectionContextType => {
-  const context = useContext(PresetSelectionContext);
-  if (!context) {
-    throw new Error(
-      'usePresetSelectionContext must be used within a PresetSelectionContext.Provider'
-    );
-  }
-  return context;
+// Generic defaults; consumers override the relevant strings via the `messages` prop.
+export const Messages: CardPickerMessages = {
+  searchPlaceholder: 'Search…',
+  searchAriaLabel: 'Search options',
+  browseAll: (count) => `Browse all ${count}`,
+  dialogTitle: 'Choose an option',
+  noMatches: (query) => `No matches for “${query}”.`,
 };

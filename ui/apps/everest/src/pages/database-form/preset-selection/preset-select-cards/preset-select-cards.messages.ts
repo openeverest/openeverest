@@ -13,8 +13,6 @@
 // limitations under the License.
 
 export const Messages = {
-  loadError: "Couldn't load presets for this provider.",
-  resolveError: 'Failed to resolve the selected preset.',
   scratchTitle: 'Start from scratch',
   scratchCaption: 'Configure everything manually.',
   summary: {

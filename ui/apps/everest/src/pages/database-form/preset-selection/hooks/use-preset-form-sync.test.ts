@@ -22,7 +22,7 @@ import {
 } from 'components/ui-generator/ui-generator.types';
 import { getByPath } from 'components/ui-generator/utils/object-path/object-path';
 import { InstancePreset } from 'shared-types/api.types';
-import { DbWizardType } from '../database-form-schema';
+import { DbWizardType } from '../../database-form-schema';
 import { usePresetFormSync } from './use-preset-form-sync';
 
 const makeComponent = (path: string, defaultValue?: unknown): Component =>

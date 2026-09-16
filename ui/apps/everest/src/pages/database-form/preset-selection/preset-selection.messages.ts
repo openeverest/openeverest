@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-export * from './preset-selection-context';
-export * from './preset-selection.constants';
-export * from './preset-selection.utils';
-export * from './hooks';
-export { PresetSelectCards } from './preset-select-cards';
+// Preset-selection domain messages shared by the hook (resolve) and the card.
+export const Messages = {
+  loadError: "Couldn't load presets for this provider.",
+  resolveError: 'Failed to resolve the selected preset.',
+};

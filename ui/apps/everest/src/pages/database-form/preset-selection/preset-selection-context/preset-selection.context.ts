@@ -12,8 +12,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-export * from './preset-selection-context';
-export * from './preset-selection.constants';
-export * from './preset-selection.utils';
-export * from './hooks';
-export { PresetSelectCards } from './preset-select-cards';
+import { createContext, useContext } from 'react';
+import { PresetSelectionContextType } from './preset-selection-context.types';
+
+export const PresetSelectionContext =
+  createContext<PresetSelectionContextType | null>(null);
+
+export const usePresetSelectionContext = (): PresetSelectionContextType => {
+  const context = useContext(PresetSelectionContext);
+  if (!context) {
+    throw new Error(
+      'usePresetSelectionContext must be used within a PresetSelectionContext.Provider'
+    );
+  }
+  return context;
+};
