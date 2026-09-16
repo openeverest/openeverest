@@ -60,7 +60,6 @@ var skipPaths = []string{
 	"/cluster-info",
 	"/permissions",
 	"/resources",
-	"/session",
 	"/settings",
 	"/version",
 }
