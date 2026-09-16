@@ -48,7 +48,10 @@ const resolveIconSrc = (
   if (rawIcon.startsWith('http://') || rawIcon.startsWith('https://')) {
     return undefined;
   }
-  if (rawIcon.startsWith('data:') || rawIcon.startsWith(`/v1/clusters/${clusterName}/plugins/`)) {
+  if (
+    rawIcon.startsWith('data:') ||
+    rawIcon.startsWith(`/v1/clusters/${clusterName}/plugins/`)
+  ) {
     return rawIcon;
   }
   const stripped = rawIcon.startsWith('/') ? rawIcon.slice(1) : rawIcon;

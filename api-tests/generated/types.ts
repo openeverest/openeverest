@@ -419,7 +419,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/clusters/{cluster}/plugins/context": {
+    "/clusters/{cluster}/plugin-context": {
         parameters: {
             query?: never;
             header?: never;

@@ -1937,6 +1937,7 @@ func NewListInstancePresetsRequest(server string, cluster string, params *ListIn
 		var rawQueryFragments []string
 
 		if params.Provider != nil {
+
 			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "provider", *params.Provider, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
 				return nil, err
 			} else {
@@ -1944,6 +1945,7 @@ func NewListInstancePresetsRequest(server string, cluster string, params *ListIn
 					rawQueryFragments = append(rawQueryFragments, qp)
 				}
 			}
+
 		}
 
 		if encoded := queryValues.Encode(); encoded != "" {
@@ -2516,6 +2518,7 @@ func NewDeleteBackupRequest(server string, cluster string, namespace string, bac
 		var rawQueryFragments []string
 
 		if params.DeletionPolicy != nil {
+
 			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "deletionPolicy", *params.DeletionPolicy, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
 				return nil, err
 			} else {
@@ -2523,6 +2526,7 @@ func NewDeleteBackupRequest(server string, cluster string, namespace string, bac
 					rawQueryFragments = append(rawQueryFragments, qp)
 				}
 			}
+
 		}
 
 		if encoded := queryValues.Encode(); encoded != "" {
@@ -2630,6 +2634,7 @@ func NewListConfigMapsRequest(server string, cluster string, namespace string, p
 		var rawQueryFragments []string
 
 		if params.Provider != nil {
+
 			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "provider", *params.Provider, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
 				return nil, err
 			} else {
@@ -2637,9 +2642,11 @@ func NewListConfigMapsRequest(server string, cluster string, namespace string, p
 					rawQueryFragments = append(rawQueryFragments, qp)
 				}
 			}
+
 		}
 
 		if params.Definition != nil {
+
 			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "definition", *params.Definition, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
 				return nil, err
 			} else {
@@ -2647,6 +2654,7 @@ func NewListConfigMapsRequest(server string, cluster string, namespace string, p
 					rawQueryFragments = append(rawQueryFragments, qp)
 				}
 			}
+
 		}
 
 		if encoded := queryValues.Encode(); encoded != "" {
@@ -2958,6 +2966,7 @@ func NewDeleteInstanceRequest(server string, cluster string, namespace string, i
 		var rawQueryFragments []string
 
 		if params.DeletionPolicy != nil {
+
 			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "deletionPolicy", *params.DeletionPolicy, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
 				return nil, err
 			} else {
@@ -2965,6 +2974,7 @@ func NewDeleteInstanceRequest(server string, cluster string, namespace string, i
 					rawQueryFragments = append(rawQueryFragments, qp)
 				}
 			}
+
 		}
 
 		if encoded := queryValues.Encode(); encoded != "" {
@@ -3740,6 +3750,7 @@ func NewListSecretsRequest(server string, cluster string, namespace string, para
 		var rawQueryFragments []string
 
 		if params.Provider != nil {
+
 			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "provider", *params.Provider, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
 				return nil, err
 			} else {
@@ -3747,9 +3758,11 @@ func NewListSecretsRequest(server string, cluster string, namespace string, para
 					rawQueryFragments = append(rawQueryFragments, qp)
 				}
 			}
+
 		}
 
 		if params.Definition != nil {
+
 			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "definition", *params.Definition, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
 				return nil, err
 			} else {
@@ -3757,6 +3770,7 @@ func NewListSecretsRequest(server string, cluster string, namespace string, para
 					rawQueryFragments = append(rawQueryFragments, qp)
 				}
 			}
+
 		}
 
 		if encoded := queryValues.Encode(); encoded != "" {
@@ -7256,6 +7270,7 @@ func ParseListNamespacesResponse(rsp *http.Response) (*ListNamespacesResponse, e
 			return nil, err
 		}
 		response.JSON200 = &dest
+
 	}
 
 	return response, nil
@@ -8996,6 +9011,7 @@ func ParseGetSettingsResponse(rsp *http.Response) (*GetSettingsResponse, error) 
 			return nil, err
 		}
 		response.JSON200 = &dest
+
 	}
 
 	return response, nil
@@ -9021,6 +9037,7 @@ func ParseVersionInfoResponse(rsp *http.Response) (*VersionInfoResponse, error) 
 			return nil, err
 		}
 		response.JSON200 = &dest
+
 	}
 
 	return response, nil
