@@ -180,7 +180,7 @@ describe('CardPicker', () => {
     );
   });
 
-  it('renders a disabled notice card when noticeCard is provided', () => {
+  it('renders a disabled status card when statusCard is provided', () => {
     render(
       <TestWrapper>
         <CardPicker
@@ -188,7 +188,7 @@ describe('CardPicker', () => {
           leadCard={lead}
           selectedId=""
           onSelect={vi.fn()}
-          noticeCard={{ title: 'Presets did not load', subtitle: 'Retry.' }}
+          statusCard={{ title: 'Presets did not load', subtitle: 'Retry.' }}
         />
       </TestWrapper>
     );

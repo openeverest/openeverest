@@ -45,6 +45,7 @@ export const CardPicker = ({
   leadCard,
   loading = false,
   error,
+  statusCard,
   messages,
   minCardPx = DEFAULT_MIN_CARD_PX,
   sx,
@@ -114,6 +115,19 @@ export const CardPicker = ({
               <BrowseCard
                 label={msg.browseAll(items.length)}
                 onClick={() => setOpen(true)}
+              />
+            )}
+            {statusCard && (
+              <SelectableCard
+                disabled
+                item={{
+                  id: '',
+                  title: statusCard.title,
+                  subtitle: statusCard.subtitle,
+                }}
+                selected={false}
+                tokens={[]}
+                onSelect={() => {}}
               />
             )}
           </>

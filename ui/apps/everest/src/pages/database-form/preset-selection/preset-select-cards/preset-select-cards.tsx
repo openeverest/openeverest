@@ -19,7 +19,6 @@ import { DbWizardFormFields } from 'consts';
 import { usePresetSelectionContext } from '../preset-selection-context';
 import { presetToCardItem } from './preset-select-cards.utils';
 import { Messages } from './preset-select-cards.messages';
-import { Messages as SelectionMessages } from '../preset-selection.messages';
 
 // Thin preset-specific wrapper over the reusable CardPicker: maps presets to
 // card items (searchable by their whole spec) and binds selection to the form.
@@ -30,16 +29,13 @@ export const PresetSelectCards = () => {
 
   const items = useMemo(() => presets.map(presetToCardItem), [presets]);
 
-  // Hide entirely only when the provider genuinely has no presets — keep it on
-  // load errors so the failure surfaces.
-  if (!isLoadingPresets && !isError && presets.length === 0) {
+  if (!isError && (isLoadingPresets || presets.length === 0)) {
     return null;
   }
 
-  const error =
-    isError || resolveError
-      ? (resolveError ?? SelectionMessages.loadError)
-      : undefined;
+  const statusCard = isError
+    ? { title: Messages.loadErrorTitle, subtitle: Messages.loadErrorSubtitle }
+    : undefined;
 
   return (
     <CardPicker
@@ -58,8 +54,8 @@ export const PresetSelectCards = () => {
         title: Messages.scratchTitle,
         subtitle: Messages.scratchCaption,
       }}
-      loading={isLoadingPresets}
-      error={error}
+      statusCard={statusCard}
+      error={resolveError ?? undefined}
       messages={{
         searchPlaceholder: Messages.searchPlaceholder,
         searchAriaLabel: Messages.searchAriaLabel,

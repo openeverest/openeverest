@@ -17,5 +17,6 @@ export { flattenToSearchText } from './card-picker.utils';
 export type {
   CardPickerItem,
   CardPickerMessages,
+  CardPickerStatus,
   CardPickerProps,
 } from './card-picker.types';

@@ -21,6 +21,8 @@ interface SelectableCardProps {
   selected: boolean;
   tokens: string[];
   onSelect: () => void;
+  // Non-interactive state: renders inert and dimmed (e.g. an in-grid notice).
+  disabled?: boolean;
 }
 
 export const SelectableCard = ({
@@ -28,41 +30,52 @@ export const SelectableCard = ({
   selected,
   tokens,
   onSelect,
-}: SelectableCardProps) => (
-  <Card
-    variant="selectable"
-    className={selected ? 'selected' : undefined}
-    sx={{ display: 'flex', flexDirection: 'column' }}
-  >
-    <CardActionArea
-      onClick={onSelect}
-      aria-pressed={selected}
-      sx={{ height: '100%' }}
+  disabled = false,
+}: SelectableCardProps) => {
+  const content = (
+    <CardContent
+      sx={{
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 0.75,
+        py: 2,
+        px: 2,
+        textAlign: 'left',
+      }}
     >
-      <CardContent
-        sx={{
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 0.75,
-          py: 2,
-          px: 2,
-          textAlign: 'left',
-        }}
-      >
-        <Typography variant="sectionHeading">
-          <Highlight text={item.title} tokens={tokens} />
+      <Typography variant="sectionHeading">
+        <Highlight text={item.title} tokens={tokens} />
+      </Typography>
+      {item.subtitle && (
+        <Typography variant="body2" color="text.secondary">
+          <Highlight text={item.subtitle} tokens={tokens} />
         </Typography>
-        {item.subtitle && (
-          <Typography variant="body2" color="text.secondary">
-            <Highlight text={item.subtitle} tokens={tokens} />
-          </Typography>
-        )}
-        {item.detail && (
-          <Typography variant="helperText" color="text.secondary">
-            <Highlight text={item.detail} tokens={tokens} />
-          </Typography>
-        )}
-      </CardContent>
-    </CardActionArea>
-  </Card>
-);
+      )}
+      {item.detail && (
+        <Typography variant="helperText" color="text.secondary">
+          <Highlight text={item.detail} tokens={tokens} />
+        </Typography>
+      )}
+    </CardContent>
+  );
+
+  return (
+    <Card
+      variant="selectable"
+      className={disabled ? 'disabled' : selected ? 'selected' : undefined}
+      sx={{ display: 'flex', flexDirection: 'column' }}
+    >
+      {disabled ? (
+        content
+      ) : (
+        <CardActionArea
+          onClick={onSelect}
+          aria-pressed={selected}
+          sx={{ height: '100%' }}
+        >
+          {content}
+        </CardActionArea>
+      )}
+    </Card>
+  );
+};

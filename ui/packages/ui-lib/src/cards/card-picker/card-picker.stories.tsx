@@ -36,6 +36,7 @@ const buildItems = (count: number): CardPickerItem[] =>
 const meta = {
   title: 'CardPicker',
   component: CardPicker,
+  args: { items: [], selectedId: '', onSelect: () => {} },
   parameters: { layout: 'padded' },
 } satisfies Meta<typeof CardPicker>;
 
@@ -70,6 +71,24 @@ export const Loading: Story = {
   render: () => (
     <Box sx={{ maxWidth: 900 }}>
       <CardPicker items={[]} selectedId="" onSelect={() => {}} loading />
+    </Box>
+  ),
+};
+
+// Load failure: a disabled notice card sits beside the lead card in the grid.
+export const LoadError: Story = {
+  render: () => (
+    <Box sx={{ maxWidth: 900 }}>
+      <CardPicker
+        items={[]}
+        leadCard={lead}
+        selectedId=""
+        onSelect={() => {}}
+        statusCard={{
+          title: "Presets didn't load",
+          subtitle: 'Check your connection and try again.',
+        }}
+      />
     </Box>
   ),
 };
