@@ -31,4 +31,13 @@ describe('memory parser', () => {
     });
     expect(memoryParser('1G', 'G')).toEqual({ value: 1, originalUnit: 'G' });
   });
+
+  it('parses the milli-byte quantities Kubernetes emits for non-integer conversions', () => {
+    // e.g. a 0.6Gi limit round-trips through Kubernetes as "644245094400m"
+    // because 0.6Gi is not a whole number of bytes (see #2423).
+    expect(memoryParser('644245094400m', 'Gi')).toEqual({
+      value: 0.6,
+      originalUnit: 'm',
+    });
+  });
 });
