@@ -93,11 +93,24 @@ func checkRoles(roles []string, policies [][]string) error {
 	return nil
 }
 
+// Per-position charsets: the old single pattern `^[/*-_:a-zA-Z0-9]+$` hid a
+// `*-_` range (0x2A-0x5F) that admitted glob metacharacters — an accepted term
+// like `prod/[db` makes the matcher return ErrBadPattern at enforce time and
+// fails every request. Subjects additionally allow `.`/`@`/`+` (email local
+// parts, subaddressing included — they previously validated only *because* of
+// that range bug).
+var (
+	subjectTermRegex = regexp.MustCompile(`^[/*_:.@+a-zA-Z0-9-]+$`)
+	otherTermRegex   = regexp.MustCompile(`^[/*:a-z0-9-]+$`)
+)
+
 func validateTerms(terms []string) error {
-	pattern := `^[/*-_:a-zA-Z0-9]+$`
-	compiled := regexp.MustCompile(pattern)
-	for _, term := range terms {
-		if !compiled.MatchString(term) {
+	for i, term := range terms {
+		re := otherTermRegex
+		if i == 0 {
+			re = subjectTermRegex
+		}
+		if !re.MatchString(term) {
 			return fmt.Errorf("invalid policy term '%s'", term)
 		}
 	}
