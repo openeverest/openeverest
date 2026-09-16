@@ -669,7 +669,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
-  '/clusters/{cluster}/plugins/context':
+  '/clusters/{cluster}/plugin-context':
     x-everest-resource-name: plugins
     get:
       tags:
