@@ -786,6 +786,17 @@ const baseThemeOptions = (mode: PaletteMode): ThemeOptions => ({
               outline: `2px solid ${theme.palette.action.outlinedBorder}`,
               outlineOffset: '-1px',
             },
+            // Non-interactive state (e.g. an in-grid notice), styled like a
+            // disabled input: contour border + disabled text, no hover tint.
+            '&.disabled': {
+              borderColor: theme.palette.dividers?.contour,
+              '&:hover': {
+                backgroundColor: theme.palette.surfaces?.elevation1,
+              },
+              '& .MuiTypography-root': {
+                color: theme.palette.text.disabled,
+              },
+            },
             // No grey CardActionArea overlay on hover/click; keyboard focus
             // still shows a crisp ring.
             '& .MuiCardActionArea-focusHighlight': { opacity: 0 },

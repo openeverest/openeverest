@@ -12,11 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+import { pluralize } from '@percona/utils';
+
 export const Messages = {
   scratchTitle: 'Start from scratch',
   scratchCaption: 'Configure everything manually.',
   summary: {
-    nodes: (count: number) => `${count} ${count === 1 ? 'node' : 'nodes'}`,
+    nodes: (count: number) => pluralize(count, 'node'),
     cpu: (value: string) => `${value} CPU`,
     memory: (value: string) => `${value} RAM`,
     disk: (value: string) => `${value} disk`,
@@ -26,4 +28,6 @@ export const Messages = {
   browseAll: (count: number) => `Browse all ${count} presets`,
   dialogTitle: 'Choose a preset',
   noMatches: (query: string) => `No presets match “${query}”.`,
+  loadErrorTitle: "Presets didn't load",
+  loadErrorSubtitle: 'Check your connection and try again.',
 };

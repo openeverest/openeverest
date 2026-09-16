@@ -14,7 +14,9 @@
 
 export const Messages = {
   pageTitle: 'Create an instance',
-  pageDescription: 'Start from a preset, or configure everything from scratch.',
+  pageDescription: 'Provide the basic information for your new instance.',
+  pageDescriptionWithPresets:
+    'Start from a preset, or configure everything from scratch.',
   labels: {
     dbName: 'Display name',
     k8sNamespace: 'Namespace',

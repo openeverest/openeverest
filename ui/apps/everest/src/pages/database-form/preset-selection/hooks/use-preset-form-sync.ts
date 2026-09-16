@@ -23,8 +23,6 @@ import { extractInstanceValues } from 'components/ui-generator/utils/default-val
 import { InstancePreset } from 'shared-types/api.types';
 import { DbWizardType } from '../../database-form-schema';
 
-const NONE_APPLIED = '__none__';
-
 interface UsePresetFormSyncArgs {
   mode: FormMode;
   uiSchema: TopologyUISchemas;
@@ -59,7 +57,7 @@ export const usePresetFormSync = ({
 
     // Preset cleared → revert once to the pristine defaults.
     if (!presetName) {
-      if (appliedRef.current && appliedRef.current !== NONE_APPLIED) {
+      if (appliedRef.current) {
         const { dbName, k8sNamespace, provider } = getValues();
         reset({
           ...defaultValues,
@@ -68,7 +66,7 @@ export const usePresetFormSync = ({
           k8sNamespace,
           presetName: '',
         } as DbWizardType);
-        appliedRef.current = NONE_APPLIED;
+        appliedRef.current = null;
       }
       return;
     }
