@@ -126,6 +126,19 @@ func NewEverestServer(ctx context.Context, c *config.EverestConfig, l *zap.Sugar
 	}
 
 	echoServer := echo.New()
+	// Pre() so it also wraps the Pre() middlewares; the bare HTTPError keeps the
+	// panic text out of the response body.
+	echoServer.Pre(echomiddleware.RecoverWithConfig(echomiddleware.RecoverConfig{
+		LogErrorFunc: func(c echo.Context, err error, stack []byte) error {
+			l.Errorw("panic recovered while serving request",
+				"error", err,
+				"method", c.Request().Method,
+				"uri", c.Request().RequestURI,
+				"stack", string(stack),
+			)
+			return echo.NewHTTPError(http.StatusInternalServerError)
+		},
+	}))
 	echoServer.Use(echomiddleware.RateLimiter(echomiddleware.NewRateLimiterMemoryStore(rate.Limit(c.APIRequestsRateLimit))))
 	store := newPasswordGrantLimiter(c.LoginRateLimit)
 
