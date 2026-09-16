@@ -49,7 +49,7 @@ type RestoreSpec struct {
 // operation: the operation is identical in both cases, and no engine models
 // point-in-time recovery as a separate operation.
 //
-// +kubebuilder:validation:Enum=Backup;PointInTime
+// +kubebuilder:validation:Enum=Backup;PointInTime;Import
 type DataSourceType string
 
 const (
@@ -60,6 +60,8 @@ const (
 	// DataSourceTypePointInTime rolls a backup stream forward to a target
 	// point. The provider selects whatever base backup the engine requires.
 	DataSourceTypePointInTime DataSourceType = "PointInTime"
+	// DataSourceTypeImport seeds from an external storage location.
+	DataSourceTypeImport DataSourceType = "Import"
 )
 
 // DataSourceBackup identifies the backup to restore.
@@ -117,6 +119,7 @@ type DataSourcePointInTime struct {
 //
 // +kubebuilder:validation:XValidation:rule="self.type == 'Backup' ? has(self.backup) : !has(self.backup)",message="backup must be set if and only if type is Backup"
 // +kubebuilder:validation:XValidation:rule="self.type == 'PointInTime' ? has(self.pointInTime) : !has(self.pointInTime)",message="pointInTime must be set if and only if type is PointInTime"
+// +kubebuilder:validation:XValidation:rule="self.type == 'Import' ? has(self.import) : !has(self.import)",message="import must be set if and only if type is Import"
 type DataSource struct {
 	// Type selects the restore intent.
 	// +kubebuilder:validation:Required
@@ -128,6 +131,27 @@ type DataSource struct {
 	// Required when type=PointInTime.
 	// +optional
 	PointInTime *DataSourcePointInTime `json:"pointInTime,omitempty"`
+	// Import imports from external storage.
+	// Required when type=Import.
+	// +optional
+	Import *DataSourceImport `json:"import,omitempty"`
+}
+
+// DataSourceImport imports data from external storage with no originating Backup CR.
+type DataSourceImport struct {
+	// ClassRef references a BackupClass. Required for Job mode.
+	// ProviderManaged mode uses the Instance's backup class (spec.backup.classRef)
+	// and backup must be enabled.
+	// +optional
+	ClassRef *common.ObjectRef `json:"classRef,omitempty"`
+	// StorageRef references a BackupStorage.
+	// +kubebuilder:validation:Required
+	StorageRef common.ObjectRef `json:"storageRef"`
+	// Parameters contains all import configuration.
+	// Validated against BackupClass.spec.importParameterSchema.
+	// +kubebuilder:pruning:PreserveUnknownFields
+	// +kubebuilder:validation:Required
+	Parameters *runtime.RawExtension `json:"parameters"`
 }
 
 // RecoveryTarget selects which point in a backup stream to recover to.
