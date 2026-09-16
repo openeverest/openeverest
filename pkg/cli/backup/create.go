@@ -34,15 +34,6 @@ import (
 	"github.com/openeverest/openeverest/v2/pkg/output"
 )
 
-// backup state values (client.Backup.Status.State).
-const (
-	backupStatePending   = "Pending"
-	backupStateRunning   = "Running"
-	backupStateSucceeded = "Succeeded"
-	backupStateFailed    = "Failed"
-	backupStateError     = "Error"
-)
-
 // CreateOptions holds the inputs for the create command.
 type CreateOptions struct {
 	Instance       string
@@ -88,7 +79,10 @@ func (cr *CreateRunner) Run(ctx context.Context, opts CreateOptions, cfgPath str
 		md.GenerateName = opts.Instance + "-"
 	}
 	backup := client.Backup{Metadata: &md}
-	backup.Spec.InstanceRef.Name = opts.Instance
+	backup.Spec.Origin.Type = client.BackupSpecOriginTypeInstance
+	backup.Spec.Origin.InstanceRef = &struct {
+		Name string `json:"name"`
+	}{Name: opts.Instance}
 	backup.Spec.ClassRef.Name = opts.Class
 	backup.Spec.StorageRef.Name = opts.Storage
 	if opts.DeletionPolicy != "" {

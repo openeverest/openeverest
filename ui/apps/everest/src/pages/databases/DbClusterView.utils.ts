@@ -16,7 +16,11 @@
 
 import { Messages } from './dbClusterView.messages';
 import { InstanceTableElement } from './dbClusterView.types';
-import { Backup, BackupStatus } from 'shared-types/backups.types';
+import {
+  Backup,
+  BackupStatus,
+  getBackupState,
+} from 'shared-types/backups.types';
 import { DbErrorType } from 'shared-types/dbErrors.types';
 import {
   DB_INSTANCE_UNKNOWN_PHASE,
@@ -160,7 +164,7 @@ export const getLastBackupStatus = (
     return Messages.lastBackup.inactive;
   }
 
-  const state = lastBackup.status?.state;
+  const state = getBackupState(lastBackup);
 
   if (state === BackupStatus.RUNNING || state === BackupStatus.PENDING) {
     return Messages.lastBackup.pending;

@@ -81,6 +81,10 @@ type authTransport struct {
 	base   http.RoundTripper
 }
 
+func newDefaultTransport() *http.Transport {
+	return http.DefaultTransport.(*http.Transport).Clone() //nolint:forcetypeassert
+}
+
 func (t *authTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	tok, err := t.source.token(req.Context())
 	if err != nil {
@@ -144,7 +148,7 @@ func NewAPIClient(cfg Config, l *zap.SugaredLogger, cfgPath, contextName string)
 	c, err := client.NewClientWithResponses(
 		cli.NormalizeServerURL(sess.Server.URL),
 		client.WithHTTPClient(&http.Client{
-			Transport: &authTransport{source: ts, base: http.DefaultTransport},
+			Transport: &authTransport{source: ts, base: newDefaultTransport()},
 		}),
 	)
 	if err != nil {

@@ -18,6 +18,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -41,6 +42,7 @@ import (
 	commonv1alpha1 "github.com/openeverest/openeverest/v2/api/common/v1alpha1"
 	"github.com/openeverest/openeverest/v2/api/core/v1alpha1"
 	"github.com/openeverest/openeverest/v2/provider-runtime/controller"
+	"github.com/openeverest/openeverest/v2/provider-runtime/internal/instanceprep"
 	"github.com/openeverest/openeverest/v2/provider-runtime/server"
 )
 
@@ -56,6 +58,7 @@ type ProviderReconciler struct {
 	manager      ctrl.Manager
 	serverConfig *server.ServerConfig
 	server       *server.Server
+	breaker      maintenanceBreaker
 	client.Client
 }
 
@@ -199,10 +202,10 @@ func newReconciler(ctx context.Context, p providerAdapter, opts ...ReconcilerOpt
 	if _, isBackupProvider := p.(controller.BackupProvider); isBackupProvider {
 		if err := mgr.GetFieldIndexer().IndexField(ctx, &backupv1alpha1.Backup{}, controller.IndexBackupInstanceName, func(obj client.Object) []string {
 			b, ok := obj.(*backupv1alpha1.Backup)
-			if !ok || b.Spec.InstanceRef.Name == "" {
+			if !ok || b.Spec.Origin.InstanceRef == nil {
 				return nil
 			}
-			return []string{b.Spec.InstanceRef.Name}
+			return []string{b.Spec.Origin.InstanceRef.Name}
 		}); err != nil {
 			return nil, fmt.Errorf("failed to register backup instanceName index: %w", err)
 		}
@@ -414,16 +417,18 @@ func (r *ProviderReconciler) Reconcile(ctx context.Context, req reconcile.Reques
 		return reconcile.Result{}, err
 	}
 
-	// Resolve version bundle into a deep-copied instance so the stored spec is
-	// never mutated. The resolved copy is used for Sync() and Status() only.
-	// effectiveBundleName is the bundle that was applied (may differ from
-	// spec.version when the default was resolved on first reconcile).
-	effectiveBundleName, resolvedIn, err := r.resolveVersionBundle(ctx, in)
+	// The provider is handed a prepared copy, never the stored object.
+	resolvedIn, effectiveBundleName, err := r.prepareInstance(ctx, in)
 	if err != nil {
-		logger.Error(err, "Version bundle resolution failed")
+		logger.Error(err, "Preparing the instance for sync failed")
 		return reconcile.Result{}, err
 	}
 	syncCtx := controller.NewContext(ctx, r.Client, resolvedIn, r.provider.Name())
+	syncCtx.BlockMaintenance(r.breaker.blockedTokens(req.NamespacedName, approvedMaintenanceValue(in))...)
+
+	// Passive warning for owners: flag effective component versions the
+	// installed catalog marks as deprecated, before any upgrade is attempted.
+	r.setDeprecationCondition(ctx, in)
 
 	// Run sync
 	logger.Info("Running sync")
@@ -438,6 +443,12 @@ func (r *ProviderReconciler) Reconcile(ctx context.Context, req reconcile.Reques
 			logger.Error(err, "Backup configuration failed")
 			setCondition(in, v1alpha1.ConditionBackupConfigured, metav1.ConditionFalse,
 				bce.Reason, bce.Message, metav1.Now())
+			// The provider got as far as declaring maintenance before failing,
+			// so the staged set is authoritative; without this the pending
+			// list and condition go stale until a fully successful pass.
+			if syncCtx.MaintenanceRequested() {
+				flushPendingMaintenance(syncCtx, in)
+			}
 			_ = r.Client.Status().Update(ctx, in)
 			return reconcile.Result{}, nil
 		}
@@ -448,11 +459,20 @@ func (r *ProviderReconciler) Reconcile(ctx context.Context, req reconcile.Reques
 			logger.Error(err, "DataSource configuration failed")
 			setCondition(in, v1alpha1.ConditionDataSourceReady, metav1.ConditionFalse,
 				dse.Reason, dse.Message, metav1.Now())
+			if syncCtx.MaintenanceRequested() {
+				flushPendingMaintenance(syncCtx, in)
+			}
 			_ = r.Client.Status().Update(ctx, in)
 			return reconcile.Result{}, nil
 		}
 		logger.Error(err, "Sync failed")
+		r.breaker.recordFailure(req.NamespacedName, approvedMaintenanceValue(in), syncCtx.GetApprovedMaintenance())
 		return reconcile.Result{}, err
+	}
+	// A pass that merely held a tripped action succeeds trivially; resetting
+	// then would un-trip the breaker and restart the failure bursts.
+	if !syncCtx.MaintenanceBreakerHeld() {
+		r.breaker.reset(req.NamespacedName)
 	}
 	// Clear any stale BackupConfigured=False condition left from a previous failed Sync.
 	if _, ok := r.provider.(controller.BackupProvider); ok {
@@ -472,6 +492,11 @@ func (r *ProviderReconciler) Reconcile(ctx context.Context, req reconcile.Reques
 		setCondition(in, v1alpha1.ConditionDataSourceReady, condStatus,
 			ds.Reason, ds.Message, metav1.Now())
 	}
+
+	// Flush the actions Context.RequestMaintenance held during Sync. The
+	// pending list is rebuilt from scratch every pass so it can never go
+	// stale, while the approval stays durable in spec.
+	flushPendingMaintenance(syncCtx, in)
 
 	// Compute and update status
 	logger.Info("Computing status")
@@ -644,13 +669,17 @@ func (r *ProviderReconciler) handleDeletion(
 	if err := r.Client.Update(ctx, in); err != nil {
 		return reconcile.Result{}, err
 	}
+	// Drop breaker state so a recreated Instance with the same name does not
+	// inherit this lifetime's failure counts.
+	r.breaker.reset(client.ObjectKeyFromObject(in))
 
 	logger.Info("Cleanup complete")
 	return reconcile.Result{}, nil
 }
 
 // cascadeDeleteChildren issues Delete on every Backup and Restore CR in the
-// Instance's namespace whose .spec.instanceName matches this Instance, then
+// Instance's namespace where Backup.spec.origin.instanceRef.name or
+// Restore.spec.instanceRef.name matches this Instance, then
 // returns the number of CRs still present (counting both freshly-deleted ones
 // that have not yet been reaped by their own controllers and any older ones
 // still finalizing). The caller should requeue while remaining > 0.
@@ -769,64 +798,115 @@ func setCondition(in *v1alpha1.Instance, condType string, status metav1.Conditio
 	})
 }
 
-// resolveVersionBundle determines the effective version bundle, applies it to
-// a deep copy of in, and returns both the effective bundle name and the
-// resolved Instance. The original Instance stored in etcd is never mutated.
+// setDeprecationCondition maintains the read-only ComponentVersionDeprecated
+// condition: True while any of the Instance's effective component versions is
+// flagged as deprecated — or no longer supported at all — in the installed
+// Provider catalog. It reuses the upgrade preflight's catalog check, so this
+// passive warning and the pre-upgrade hook's verdict never disagree. The
+// condition is informational: lookup failures are skipped and never fail the
+// reconcile, and it is only flipped to False (never removed) once every issue
+// it reported clears.
+func (r *ProviderReconciler) setDeprecationCondition(ctx context.Context, in *v1alpha1.Instance) {
+	installed := &v1alpha1.Provider{}
+	if err := r.Get(ctx, client.ObjectKey{Name: in.Spec.ProviderRef.Name}, installed); err != nil {
+		log.FromContext(ctx).V(1).Info("skipping deprecation condition: fetching installed Provider failed", "error", err)
+		return
+	}
+
+	var deprecations, unsupported []string
+	for _, issue := range controller.PreflightUpgrade(&installed.Spec, []v1alpha1.Instance{*in}) {
+		msg := issue.Message
+		if issue.Component != "" {
+			msg = issue.Component + ": " + msg
+		}
+		switch issue.Severity {
+		case controller.UpgradeError:
+			unsupported = append(unsupported, msg)
+		case controller.UpgradeWarning:
+			if issue.Reason == controller.UpgradeReasonVersionDeprecated {
+				deprecations = append(deprecations, msg)
+			}
+		}
+	}
+
+	// A version the installed catalog no longer supports at all is strictly
+	// worse than a deprecation; it must never read as "all supported".
+	if len(unsupported) > 0 {
+		setCondition(in, v1alpha1.ConditionComponentVersionDeprecated, metav1.ConditionTrue,
+			v1alpha1.ReasonVersionsUnsupported, strings.Join(unsupported, "; "), metav1.Now())
+		return
+	}
+	if len(deprecations) > 0 {
+		setCondition(in, v1alpha1.ConditionComponentVersionDeprecated, metav1.ConditionTrue,
+			v1alpha1.ReasonScheduledForRemoval, strings.Join(deprecations, "; "), metav1.Now())
+		return
+	}
+	for _, c := range in.Status.Conditions {
+		if c.Type == v1alpha1.ConditionComponentVersionDeprecated {
+			setCondition(in, v1alpha1.ConditionComponentVersionDeprecated, metav1.ConditionFalse,
+				v1alpha1.ReasonVersionsSupported,
+				"All component versions are supported by the installed provider", metav1.Now())
+			return
+		}
+	}
+}
+
+// flushPendingMaintenance writes the actions held by RequestMaintenance to
+// status.pendingMaintenance and maintains the MaintenancePending condition:
+// True while anything is held, flipped to False (never removed) once the
+// last held action clears. When a hold is due to exhausted retries the
+// reason says so, surfacing the breaker state.
+func flushPendingMaintenance(syncCtx *controller.Context, in *v1alpha1.Instance) {
+	pending := syncCtx.GetPendingMaintenance()
+	in.Status.PendingMaintenance = pending
+
+	if len(pending) > 0 {
+		reason := v1alpha1.ReasonAwaitingApproval
+		message := fmt.Sprintf("%d action(s) require approval to proceed", len(pending))
+		if syncCtx.MaintenanceBreakerHeld() {
+			reason = v1alpha1.ReasonRetriesExhausted
+			message = fmt.Sprintf(
+				"%d action(s) held; an approved action kept failing and is no longer retried — change spec.maintenance.approved (set it to the pending action's token, or clear and re-set it) to retry",
+				len(pending))
+		}
+		setCondition(in, v1alpha1.ConditionMaintenancePending, metav1.ConditionTrue,
+			reason, message, metav1.Now())
+		return
+	}
+	for _, c := range in.Status.Conditions {
+		if c.Type == v1alpha1.ConditionMaintenancePending {
+			setCondition(in, v1alpha1.ConditionMaintenancePending, metav1.ConditionFalse,
+				v1alpha1.ReasonNoActionsPending,
+				"No disruptive actions are held", metav1.Now())
+			return
+		}
+	}
+}
+
+// approvedMaintenanceValue returns spec.maintenance.approved, tolerating an
+// unset maintenance block.
+func approvedMaintenanceValue(in *v1alpha1.Instance) string {
+	if in.Spec.Maintenance == nil {
+		return ""
+	}
+	return in.Spec.Maintenance.Approved
+}
+
+// prepareInstance fetches the Provider and returns the Instance the provider
+// should be handed, together with the version bundle that was applied. The
+// stored Instance is never mutated: the copy is used for Sync and Status only.
 //
-// Resolution order:
-//  1. spec.version — explicitly set by the user (always honoured).
-//  2. status.version — the bundle name frozen on the first reconciliation;
-//     prevents a Provider upgrade from silently upgrading existing Instances.
-//  3. Provider's default bundle — resolved once on the very first reconcile
-//     of a new Instance; the name is then written to status.version so
-//     subsequent reconciles use step 2 instead.
-//  4. No bundle — returns ("" , in, nil); Sync() falls back to per-type
-//     defaults from the componentTypes catalog.
-//
-// For each component the bundle version is applied only when the component's
-// Version field is not already explicitly set by the user.
-func (r *ProviderReconciler) resolveVersionBundle(ctx context.Context, in *v1alpha1.Instance) (effectiveBundleName string, resolved *v1alpha1.Instance, err error) {
+// The applied bundle name is written to status.version by the caller, so that
+// later reconciles keep the bundle an Instance started on.
+func (r *ProviderReconciler) prepareInstance(
+	ctx context.Context,
+	in *v1alpha1.Instance,
+) (*v1alpha1.Instance, string, error) {
 	providerObj := &v1alpha1.Provider{}
-	if err = r.Get(ctx, client.ObjectKey{Name: in.Spec.ProviderRef.Name}, providerObj); err != nil {
-		return "", nil, fmt.Errorf("fetching provider for version resolution: %w", err)
+	if err := r.Get(ctx, client.ObjectKey{Name: in.Spec.ProviderRef.Name}, providerObj); err != nil {
+		return nil, "", fmt.Errorf("fetching provider for version resolution: %w", err)
 	}
-	spec := &providerObj.Spec
-
-	switch {
-	case in.Spec.Version != "":
-		// User explicitly chose a bundle.
-		effectiveBundleName = in.Spec.Version
-	case in.Status.Version != "":
-		// Default was frozen on a previous reconcile; honour it regardless of
-		// what the Provider's current default is.
-		effectiveBundleName = in.Status.Version
-	default:
-		// First reconcile of a new Instance with no explicit version: resolve
-		// the Provider's current default and freeze it in status.
-		effectiveBundleName = controller.GetDefaultVersionBundleName(spec)
-	}
-
-	if effectiveBundleName == "" {
-		return "", in, nil
-	}
-
-	bundle, err := controller.ResolveVersionBundle(spec, effectiveBundleName)
-	if err != nil {
-		return "", nil, err
-	}
-
-	resolved = in.DeepCopy()
-	for compName, bundleVersion := range bundle.Components {
-		compSpec, exists := resolved.Spec.Components[compName]
-		if !exists {
-			continue
-		}
-		if compSpec.Version == "" {
-			compSpec.Version = bundleVersion
-			resolved.Spec.Components[compName] = compSpec
-		}
-	}
-	return effectiveBundleName, resolved, nil
+	return instanceprep.PrepareForSync(&providerObj.Spec, in)
 }
 
 // validateVersionBundle checks that spec.version (if set) exists in the

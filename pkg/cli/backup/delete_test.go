@@ -18,7 +18,6 @@ package backup
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -78,26 +77,42 @@ func newDeleteServer(t *testing.T, deleteHandler, getHandler http.HandlerFunc) *
 
 // backupFixture builds a Backup fixture via JSON instead of hand-spelling
 // the generated anonymous Status struct. Empty state/policy omits the field.
-func backupFixture(t *testing.T, name, state, policy string) *client.Backup {
+func backupFixture(t *testing.T, name string, state client.BackupStatusState, policy string) *client.Backup {
 	t.Helper()
-	statusField := ""
-	if state != "" {
-		statusField = fmt.Sprintf(`,"status":{"state":%q}`, state)
+
+	spec := map[string]any{
+		"origin": map[string]any{
+			"type":        "Instance",
+			"instanceRef": map[string]any{"name": "my-mongo"},
+		},
+		"classRef":   map[string]any{"name": "psmdb-backup"},
+		"storageRef": map[string]any{"name": "my-s3"},
 	}
-	policyField := ""
 	if policy != "" {
-		policyField = fmt.Sprintf(`,"deletionPolicy":%q`, policy)
+		spec["deletionPolicy"] = policy
 	}
-	body := fmt.Sprintf(
-		`{"metadata":{"name":%q,"namespace":"everest"},"spec":{"instanceRef":{"name":"my-mongo"},"classRef":{"name":"psmdb-backup"},"storageRef":{"name":"my-s3"}%s}%s}`,
-		name, policyField, statusField,
-	)
+
+	obj := map[string]any{
+		"metadata": map[string]any{
+			"name":      name,
+			"namespace": "everest",
+		},
+		"spec": spec,
+	}
+
+	if state != "" {
+		obj["status"] = map[string]any{"state": state}
+	}
+
+	body, err := json.Marshal(obj)
+	require.NoError(t, err)
+
 	var b client.Backup
 	require.NoError(t, json.Unmarshal([]byte(body), &b))
 	return &b
 }
 
-func getHandlerWithStateAndPolicy(t *testing.T, state, policy string) http.HandlerFunc {
+func getHandlerWithStateAndPolicy(t *testing.T, state client.BackupStatusState, policy string) http.HandlerFunc {
 	t.Helper()
 	return func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -121,7 +136,7 @@ func TestDelete_HappyPath_NoWait(t *testing.T) {
 
 	srv := newDeleteServer(t,
 		func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusNoContent) },
-		getHandlerWithStateAndPolicy(t, backupStateSucceeded, backupDeletionPolicyDelete),
+		getHandlerWithStateAndPolicy(t, client.BackupStatusStateSucceeded, backupDeletionPolicyDelete),
 	)
 	defer srv.Close()
 
@@ -228,7 +243,7 @@ func TestDelete_IgnoreNotFound_AlreadyGone_SkipsConfirmationAndWait(t *testing.T
 func TestDelete_IgnoreNotFound_DeleteRaces404_ReportsNotDeleted(t *testing.T) {
 	srv := newDeleteServer(t,
 		func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusNotFound) },
-		getHandlerWithStateAndPolicy(t, backupStateSucceeded, backupDeletionPolicyDelete),
+		getHandlerWithStateAndPolicy(t, client.BackupStatusStateSucceeded, backupDeletionPolicyDelete),
 	)
 	defer srv.Close()
 
@@ -251,7 +266,7 @@ func TestDelete_ServerError_ReturnsMessage(t *testing.T) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusInternalServerError)
 		_ = json.NewEncoder(w).Encode(map[string]any{"message": "boom"})
-	}, getHandlerWithStateAndPolicy(t, backupStateSucceeded, backupDeletionPolicyDelete))
+	}, getHandlerWithStateAndPolicy(t, client.BackupStatusStateSucceeded, backupDeletionPolicyDelete))
 	defer srv.Close()
 
 	bd := NewDeleter(Config{}, zap.NewNop().Sugar())
@@ -267,7 +282,7 @@ func TestDelete_NonInteractiveWithoutYes_FailsFast(t *testing.T) {
 	srv := newDeleteServer(t, func(w http.ResponseWriter, _ *http.Request) {
 		called = true
 		w.WriteHeader(http.StatusNoContent)
-	}, getHandlerWithStateAndPolicy(t, backupStateSucceeded, backupDeletionPolicyDelete))
+	}, getHandlerWithStateAndPolicy(t, client.BackupStatusStateSucceeded, backupDeletionPolicyDelete))
 	defer srv.Close()
 
 	opts := DeleteOptions{
@@ -291,7 +306,7 @@ func TestDelete_NonInteractiveWithoutYes_RetainPolicy_FailsFast(t *testing.T) {
 	srv := newDeleteServer(t, func(w http.ResponseWriter, _ *http.Request) {
 		called = true
 		w.WriteHeader(http.StatusNoContent)
-	}, getHandlerWithStateAndPolicy(t, backupStateSucceeded, backupDeletionPolicyRetain))
+	}, getHandlerWithStateAndPolicy(t, client.BackupStatusStateSucceeded, backupDeletionPolicyRetain))
 	defer srv.Close()
 
 	opts := DeleteOptions{
@@ -313,7 +328,7 @@ func TestDelete_JSONMode_NonInteractiveWithoutYes_FailsFast(t *testing.T) {
 
 	srv := newDeleteServer(t, func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusNoContent)
-	}, getHandlerWithStateAndPolicy(t, backupStateSucceeded, backupDeletionPolicyDelete))
+	}, getHandlerWithStateAndPolicy(t, client.BackupStatusStateSucceeded, backupDeletionPolicyDelete))
 	defer srv.Close()
 
 	opts := DeleteOptions{
@@ -339,7 +354,7 @@ func TestDelete_VerboseAloneDoesNotForceNonInteractive(t *testing.T) {
 
 	srv := newDeleteServer(t, func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusNoContent)
-	}, getHandlerWithStateAndPolicy(t, backupStateSucceeded, backupDeletionPolicyDelete))
+	}, getHandlerWithStateAndPolicy(t, client.BackupStatusStateSucceeded, backupDeletionPolicyDelete))
 	defer srv.Close()
 
 	opts := DeleteOptions{
@@ -348,6 +363,7 @@ func TestDelete_VerboseAloneDoesNotForceNonInteractive(t *testing.T) {
 		Cluster:    "main",
 		JSON:       false,
 		IsTerminal: func() bool { return true },
+		Yes:        true,
 	}
 
 	bd := NewDeleter(Config{Pretty: false}, zap.NewNop().Sugar())
@@ -365,7 +381,7 @@ func TestDelete_WaitUntilGone_Succeeds(t *testing.T) {
 			getCalls++
 			if getCalls == 1 {
 				// The pre-delete guard fetch: present and Succeeded, not in-flight.
-				getHandlerWithStateAndPolicy(t, backupStateSucceeded, backupDeletionPolicyDelete)(w, r)
+				getHandlerWithStateAndPolicy(t, client.BackupStatusStateSucceeded, backupDeletionPolicyDelete)(w, r)
 				return
 			}
 			// Every fetch after the delete: gone.
@@ -390,7 +406,7 @@ func TestDelete_WaitTimesOut(t *testing.T) {
 	srv := newDeleteServer(t,
 		func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusNoContent) },
 		// Backup stays present (artifact cleanup still running), so --wait times out.
-		getHandlerWithStateAndPolicy(t, backupStateSucceeded, backupDeletionPolicyDelete),
+		getHandlerWithStateAndPolicy(t, client.BackupStatusStateSucceeded, backupDeletionPolicyDelete),
 	)
 	defer srv.Close()
 
@@ -448,7 +464,7 @@ func TestDelete_InFlight_ForceWithoutYes_StillRequiresConfirmation(t *testing.T)
 			called = true
 			w.WriteHeader(http.StatusNoContent)
 		},
-		getHandlerWithStateAndPolicy(t, backupStateRunning, backupDeletionPolicyDelete),
+		getHandlerWithStateAndPolicy(t, client.BackupStatusStateRunning, backupDeletionPolicyDelete),
 	)
 	defer srv.Close()
 
@@ -475,7 +491,7 @@ func TestDelete_InFlight_Pending_RefusesWithoutForce(t *testing.T) {
 			called = true
 			w.WriteHeader(http.StatusNoContent)
 		},
-		getHandlerWithStateAndPolicy(t, backupStatePending, backupDeletionPolicyDelete),
+		getHandlerWithStateAndPolicy(t, client.BackupStatusStatePending, backupDeletionPolicyDelete),
 	)
 	defer srv.Close()
 
@@ -495,7 +511,7 @@ func TestDelete_InFlight_Running_RefusesWithoutForce(t *testing.T) {
 			called = true
 			w.WriteHeader(http.StatusNoContent)
 		},
-		getHandlerWithStateAndPolicy(t, backupStateRunning, backupDeletionPolicyDelete),
+		getHandlerWithStateAndPolicy(t, client.BackupStatusStateRunning, backupDeletionPolicyDelete),
 	)
 	defer srv.Close()
 
@@ -511,7 +527,7 @@ func TestDelete_InFlight_WithForce_Succeeds(t *testing.T) {
 
 	srv := newDeleteServer(t,
 		func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusNoContent) },
-		getHandlerWithStateAndPolicy(t, backupStateRunning, backupDeletionPolicyDelete),
+		getHandlerWithStateAndPolicy(t, client.BackupStatusStateRunning, backupDeletionPolicyDelete),
 	)
 	defer srv.Close()
 
@@ -574,7 +590,7 @@ func TestDelete_ErrorState_RefusesWithoutForce(t *testing.T) {
 			called = true
 			w.WriteHeader(http.StatusNoContent)
 		},
-		getHandlerWithStateAndPolicy(t, backupStateError, backupDeletionPolicyDelete),
+		getHandlerWithStateAndPolicy(t, client.BackupStatusStateError, backupDeletionPolicyDelete),
 	)
 	defer srv.Close()
 
@@ -590,7 +606,7 @@ func TestDelete_ErrorState_WithForce_Succeeds(t *testing.T) {
 
 	srv := newDeleteServer(t,
 		func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusNoContent) },
-		getHandlerWithStateAndPolicy(t, backupStateError, backupDeletionPolicyDelete),
+		getHandlerWithStateAndPolicy(t, client.BackupStatusStateError, backupDeletionPolicyDelete),
 	)
 	defer srv.Close()
 
@@ -639,13 +655,13 @@ func TestPolicyFromBackup(t *testing.T) {
 func TestInFlight(t *testing.T) {
 	t.Parallel()
 
-	assert.True(t, inFlight(backupStatePending, true))
-	assert.True(t, inFlight(backupStateRunning, true))
-	assert.True(t, inFlight(backupStateError, true), "BackupStateError's own doc comment says the controller may still retry it")
+	assert.True(t, inFlight(client.BackupStatusStatePending, true))
+	assert.True(t, inFlight(client.BackupStatusStateRunning, true))
+	assert.True(t, inFlight(client.BackupStatusStateError, true), "BackupStateError's own doc comment says the controller may still retry it")
 	assert.True(t, inFlight("", true), "read successfully but no status yet is the riskiest window, right after create")
-	assert.False(t, inFlight(backupStateSucceeded, true))
-	assert.False(t, inFlight(backupStateFailed, true), "Failed is genuinely terminal, unlike Error")
-	assert.False(t, inFlight("Deleting", true))
+	assert.False(t, inFlight(client.BackupStatusStateSucceeded, true))
+	assert.False(t, inFlight(client.BackupStatusStateFailed, true), "Failed is genuinely terminal, unlike Error")
+	assert.False(t, inFlight(client.BackupStatusStateDeleting, true))
 	assert.False(t, inFlight("", false), "a failed/ambiguous fetch must never block — best-effort guard, not an invariant")
 }
 
@@ -660,8 +676,8 @@ func TestBackupStateForGuard(t *testing.T) {
 	assert.Empty(t, state)
 	assert.True(t, ok, "fetched successfully, just no status yet")
 
-	state, ok = backupStateForGuard(backupFixture(t, "pre-upgrade", backupStateRunning, ""))
-	assert.Equal(t, backupStateRunning, state)
+	state, ok = backupStateForGuard(backupFixture(t, "pre-upgrade", client.BackupStatusStateRunning, ""))
+	assert.Equal(t, client.BackupStatusStateRunning, state)
 	assert.True(t, ok)
 }
 

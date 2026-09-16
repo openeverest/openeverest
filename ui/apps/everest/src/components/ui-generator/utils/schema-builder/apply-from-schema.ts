@@ -24,6 +24,7 @@ import {
   buildNumberValidationSchema,
   buildSelectValidationSchema,
   buildTextValidationSchema,
+  buildToggleValidationSchema,
 } from './zod-validation/validation-schema-by-type';
 
 export type CelValidationData = {
@@ -44,6 +45,7 @@ const applyCommonValidations = (
   const shouldApplyRegex =
     component.uiType !== 'select' &&
     component.uiType !== 'text' &&
+    component.uiType !== 'toggle' &&
     component.validation !== undefined &&
     'regex' in component.validation &&
     component.validation.regex !== undefined;
@@ -97,13 +99,23 @@ export const applyValidationFromSchema = (
       fieldSchema = buildTextValidationSchema(component);
       break;
 
+    case 'toggle':
+      fieldSchema = buildToggleValidationSchema();
+      break;
+
     default:
       fieldSchema = buildGenericValidationSchema(component, baseSchema);
       break;
   }
 
+  const effectiveRequired = component.uiType === 'toggle' ? false : isRequired;
+
   // Apply common validations (regex, required/optional) for all field types
-  fieldSchema = applyCommonValidations(fieldSchema, component, isRequired);
+  fieldSchema = applyCommonValidations(
+    fieldSchema,
+    component,
+    effectiveRequired
+  );
 
   // Handle CEL expressions for cross-field validation
   let celData: CelValidationData = {};

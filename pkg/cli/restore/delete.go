@@ -147,7 +147,7 @@ func (rd *Deleter) checkRestoreExists(ctx context.Context, c *client.ClientWithR
 
 // restoreStateForGuard reads state for the guard: ok is false only when the
 // fetch found nothing or failed; ok true + state "" means read but no status yet.
-func restoreStateForGuard(r *client.Restore) (string, bool) {
+func restoreStateForGuard(r *client.Restore) (client.RestoreStatusState, bool) {
 	if r == nil {
 		return "", false
 	}
@@ -159,18 +159,18 @@ func restoreStateForGuard(r *client.Restore) (string, bool) {
 
 // inFlight reports if the restore should block a delete: Pending/Running,
 // or read successfully with no status yet; a failed/ambiguous fetch never is.
-func inFlight(state string, ok bool) bool {
+func inFlight(state client.RestoreStatusState, ok bool) bool {
 	if !ok {
 		return false
 	}
-	return state == "" || state == restoreStatePending || state == restoreStateRunning
+	return state == "" || state == client.RestoreStatusStatePending || state == client.RestoreStatusStateRunning
 }
 
 // deleteConfirmMessage is what the user reads before confirming.
 // forcingInFlight adds a warning about interrupting an in-flight restore.
-func deleteConfirmMessage(name, namespace, state string, forcingInFlight bool) string {
+func deleteConfirmMessage(name, namespace string, state client.RestoreStatusState, forcingInFlight bool) string {
 	if forcingInFlight {
-		display := state
+		display := string(state)
 		if display == "" {
 			display = "not yet reported"
 		}

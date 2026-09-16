@@ -38,7 +38,7 @@ import { BACKUP_STATUS_TO_BASE_STATUS } from 'pages/db-cluster-details/backups/b
 import { getTimeSelectionPreviewMessage } from 'pages/database-form/database-preview/database.preview.messages';
 import { useBackupsList } from 'hooks/api/backups/useBackups';
 import { useClusterName } from 'hooks/api/useClusterName';
-import { Backup } from 'shared-types/backups.types';
+import { Backup, getBackupState } from 'shared-types/backups.types';
 import OverviewSection from '../overview-section';
 import OverviewSectionRow from '../overview-section-row';
 import OverviewSectionText from '../overview-section-text/overview-section-text';
@@ -82,7 +82,7 @@ export const BackupsDetails = ({
   const columns = useMemo<MRT_ColumnDef<Backup>[]>(
     () => [
       {
-        accessorFn: (row) => row.status?.state ?? '',
+        accessorFn: getBackupState,
         id: 'state',
         header: '',
         maxSize: 20,

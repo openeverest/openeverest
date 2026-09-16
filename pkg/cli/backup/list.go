@@ -118,7 +118,7 @@ func printBackupTable(w io.Writer, backups []client.Backup) {
 			backupNamespace(b),
 			backupInstance(b),
 			backupStorage(b),
-			backupState(b),
+			backupStateText(b),
 			backupSize(b),
 			backupAge(b),
 		)
@@ -141,10 +141,10 @@ func backupNamespace(b *client.Backup) string {
 }
 
 func backupInstance(b *client.Backup) string {
-	if b.Spec.InstanceRef.Name == "" {
+	if b.Spec.Origin.InstanceRef == nil || b.Spec.Origin.InstanceRef.Name == "" {
 		return "-"
 	}
-	return b.Spec.InstanceRef.Name
+	return b.Spec.Origin.InstanceRef.Name
 }
 
 func backupStorage(b *client.Backup) string {
@@ -154,11 +154,19 @@ func backupStorage(b *client.Backup) string {
 	return b.Spec.StorageRef.Name
 }
 
-func backupState(b *client.Backup) string {
+func backupState(b *client.Backup) client.BackupStatusState {
 	if b.Status == nil || b.Status.State == nil || *b.Status.State == "" {
-		return "-"
+		return ""
 	}
 	return *b.Status.State
+}
+
+func backupStateText(b *client.Backup) string {
+	state := backupState(b)
+	if state == "" {
+		return "-"
+	}
+	return string(state)
 }
 
 func backupSize(b *client.Backup) string {

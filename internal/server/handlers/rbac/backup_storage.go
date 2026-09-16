@@ -71,12 +71,12 @@ func (h *rbacHandler) UpdateBackupStorage(ctx context.Context, cluster string, b
 }
 
 // PatchBackupStorage patches a backup storage, gated by RBAC.
-func (h *rbacHandler) PatchBackupStorage(ctx context.Context, cluster string, bs *backupv1alpha1.BackupStorage) (*backupv1alpha1.BackupStorage, error) {
-	object := rbac.ClusterNamespacedObjectName(cluster, bs.GetNamespace(), bs.GetName())
+func (h *rbacHandler) PatchBackupStorage(ctx context.Context, cluster, namespace, name string, patch []byte) (*backupv1alpha1.BackupStorage, error) {
+	object := rbac.ClusterNamespacedObjectName(cluster, namespace, name)
 	if err := h.enforce(ctx, rbac.ResourceBackupStorages, rbac.ActionUpdate, object); err != nil {
 		return nil, err
 	}
-	return h.next.PatchBackupStorage(ctx, cluster, bs)
+	return h.next.PatchBackupStorage(ctx, cluster, namespace, name, patch)
 }
 
 // DeleteBackupStorage deletes a backup storage, gated by RBAC.

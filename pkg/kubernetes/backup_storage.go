@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//nolint:dupl // per-resource client wrappers are intentionally similar
 package kubernetes
 
 import (
@@ -52,6 +51,14 @@ func (k *Kubernetes) CreateBackupStorage(ctx context.Context, storage *backupv1a
 // UpdateBackupStorage updates a backup storage.
 func (k *Kubernetes) UpdateBackupStorage(ctx context.Context, storage *backupv1alpha1.BackupStorage) (*backupv1alpha1.BackupStorage, error) {
 	if err := k.k8sClient.Update(ctx, storage); err != nil {
+		return nil, err
+	}
+	return storage, nil
+}
+
+// PatchBackupStorage patches a backup storage using the provided patch.
+func (k *Kubernetes) PatchBackupStorage(ctx context.Context, storage *backupv1alpha1.BackupStorage, patch ctrlclient.Patch, opts ...ctrlclient.PatchOption) (*backupv1alpha1.BackupStorage, error) {
+	if err := k.k8sClient.Patch(ctx, storage, patch, opts...); err != nil {
 		return nil, err
 	}
 	return storage, nil

@@ -86,9 +86,12 @@ func TestCreateBackup_Validation(t *testing.T) {
 			backup: &backupv1alpha1.Backup{
 				ObjectMeta: metav1.ObjectMeta{Name: "b1", Namespace: namespace},
 				Spec: backupv1alpha1.BackupSpec{
-					InstanceRef: common.ObjectRef{Name: "missing-instance"},
-					StorageRef:  common.ObjectRef{Name: "test-storage"},
-					ClassRef:    common.ObjectRef{Name: "supported-class"},
+					Origin: backupv1alpha1.BackupOrigin{
+						Type:        backupv1alpha1.BackupOriginTypeInstance,
+						InstanceRef: &common.ObjectRef{Name: "missing-instance"},
+					},
+					StorageRef: common.ObjectRef{Name: "test-storage"},
+					ClassRef:   common.ObjectRef{Name: "supported-class"},
 				},
 			},
 			objects:            []ctrlclient.Object{storage, supportedClass},
@@ -101,9 +104,12 @@ func TestCreateBackup_Validation(t *testing.T) {
 			backup: &backupv1alpha1.Backup{
 				ObjectMeta: metav1.ObjectMeta{Name: "b2", Namespace: namespace},
 				Spec: backupv1alpha1.BackupSpec{
-					InstanceRef: common.ObjectRef{Name: "test-instance"},
-					StorageRef:  common.ObjectRef{Name: "missing-storage"},
-					ClassRef:    common.ObjectRef{Name: "supported-class"},
+					Origin: backupv1alpha1.BackupOrigin{
+						Type:        backupv1alpha1.BackupOriginTypeInstance,
+						InstanceRef: &common.ObjectRef{Name: "test-instance"},
+					},
+					StorageRef: common.ObjectRef{Name: "missing-storage"},
+					ClassRef:   common.ObjectRef{Name: "supported-class"},
 				},
 			},
 			objects:            []ctrlclient.Object{instance, supportedClass},
@@ -116,9 +122,12 @@ func TestCreateBackup_Validation(t *testing.T) {
 			backup: &backupv1alpha1.Backup{
 				ObjectMeta: metav1.ObjectMeta{Name: "b3", Namespace: namespace},
 				Spec: backupv1alpha1.BackupSpec{
-					InstanceRef: common.ObjectRef{Name: "test-instance"},
-					StorageRef:  common.ObjectRef{Name: "test-storage"},
-					ClassRef:    common.ObjectRef{Name: "missing-class"},
+					Origin: backupv1alpha1.BackupOrigin{
+						Type:        backupv1alpha1.BackupOriginTypeInstance,
+						InstanceRef: &common.ObjectRef{Name: "test-instance"},
+					},
+					StorageRef: common.ObjectRef{Name: "test-storage"},
+					ClassRef:   common.ObjectRef{Name: "missing-class"},
 				},
 			},
 			objects:            []ctrlclient.Object{instance, storage},
@@ -131,9 +140,12 @@ func TestCreateBackup_Validation(t *testing.T) {
 			backup: &backupv1alpha1.Backup{
 				ObjectMeta: metav1.ObjectMeta{Name: "b4", Namespace: namespace},
 				Spec: backupv1alpha1.BackupSpec{
-					InstanceRef: common.ObjectRef{Name: "test-instance"},
-					StorageRef:  common.ObjectRef{Name: "test-storage"},
-					ClassRef:    common.ObjectRef{Name: "unsupported-class"},
+					Origin: backupv1alpha1.BackupOrigin{
+						Type:        backupv1alpha1.BackupOriginTypeInstance,
+						InstanceRef: &common.ObjectRef{Name: "test-instance"},
+					},
+					StorageRef: common.ObjectRef{Name: "test-storage"},
+					ClassRef:   common.ObjectRef{Name: "unsupported-class"},
 				},
 			},
 			objects:            []ctrlclient.Object{instance, storage, unsupportedClass},
@@ -146,9 +158,12 @@ func TestCreateBackup_Validation(t *testing.T) {
 			backup: &backupv1alpha1.Backup{
 				ObjectMeta: metav1.ObjectMeta{Name: "b6", Namespace: namespace},
 				Spec: backupv1alpha1.BackupSpec{
-					InstanceRef: common.ObjectRef{Name: "server-error-instance"},
-					StorageRef:  common.ObjectRef{Name: "test-storage"},
-					ClassRef:    common.ObjectRef{Name: "supported-class"},
+					Origin: backupv1alpha1.BackupOrigin{
+						Type:        backupv1alpha1.BackupOriginTypeInstance,
+						InstanceRef: &common.ObjectRef{Name: "server-error-instance"},
+					},
+					StorageRef: common.ObjectRef{Name: "test-storage"},
+					ClassRef:   common.ObjectRef{Name: "supported-class"},
 				},
 			},
 			objects:            []ctrlclient.Object{storage, supportedClass},
@@ -162,9 +177,12 @@ func TestCreateBackup_Validation(t *testing.T) {
 			backup: &backupv1alpha1.Backup{
 				ObjectMeta: metav1.ObjectMeta{Name: "b5", Namespace: namespace},
 				Spec: backupv1alpha1.BackupSpec{
-					InstanceRef: common.ObjectRef{Name: "test-instance"},
-					StorageRef:  common.ObjectRef{Name: "test-storage"},
-					ClassRef:    common.ObjectRef{Name: "supported-class"},
+					Origin: backupv1alpha1.BackupOrigin{
+						Type:        backupv1alpha1.BackupOriginTypeInstance,
+						InstanceRef: &common.ObjectRef{Name: "test-instance"},
+					},
+					StorageRef: common.ObjectRef{Name: "test-storage"},
+					ClassRef:   common.ObjectRef{Name: "supported-class"},
 				},
 			},
 			objects: []ctrlclient.Object{instance, storage, supportedClass},

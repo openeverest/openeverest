@@ -346,6 +346,23 @@ type BackupMirror interface {
 }
 
 // =============================================================================
+// UPGRADE PREFLIGHT (Optional interface for provider-specific upgrade checks)
+// =============================================================================
+
+// UpgradeProvider is an optional interface for provider-specific upgrade
+// preflight checks beyond the generic catalog-membership and upgrade-path
+// checks (see RunUpgradePreflight). Typical use is the bounded-deferral
+// check: blocking an upgrade that would push an Instance with a deferred
+// convergence outside the bundled operator's compatibility window.
+//
+// CheckUpgrade runs inside the chart's Helm pre-upgrade hook, not during
+// reconciliation: the HookContext carries the Kubernetes client and context
+// but no Instance. Issues with severity UpgradeError abort the upgrade.
+type UpgradeProvider interface {
+	CheckUpgrade(h *HookContext, target *corev1alpha1.ProviderSpec, instances []corev1alpha1.Instance) []UpgradeIssue
+}
+
+// =============================================================================
 // BASE PROVIDER
 // =============================================================================
 

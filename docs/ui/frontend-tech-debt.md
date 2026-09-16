@@ -69,6 +69,15 @@ Available but premature or without a driver.
 4. **`@vitest/browser-playwright` / browser mode** — already on 4.x; leave as-is,
    revisit as the API stabilizes.
 
+## Package scope migration (`@percona/*` → `@openeverest/*`)
+
+Workspace packages still publish under the legacy **`@percona/`** scope
+(`@percona/types`, `@percona/utils`, `@percona/ui-lib`, `@percona/design`,
+`@percona/eslint-config-react`, `@percona/prettier-config`, `@percona/tsconfig`),
+while **`@openeverest/plugin-sdk`** already uses the new scope. Rename the remaining
+packages (and every import site) to **`@openeverest/*`** for a consistent public scope.
+Mechanical but wide-reaching (touches all import paths); do as a single coordinated sweep.
+
 ## Related
 
 - MUI version strategy ADR (memory / internal notes): target destination is MUI v7 now,

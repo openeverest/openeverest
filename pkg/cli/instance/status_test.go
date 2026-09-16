@@ -79,7 +79,12 @@ func TestInstanceStatus_HappyPath(t *testing.T) {
 			ConnectionSecretRef *struct {
 				Name string `json:"name"`
 			} `json:"connectionSecretRef,omitempty"`
-			Message *string                     `json:"message,omitempty"`
+			Message            *string `json:"message,omitempty"`
+			PendingMaintenance *[]struct {
+				ApprovalToken *string                                         `json:"approvalToken,omitempty"`
+				Description   string                                          `json:"description"`
+				Severity      client.InstanceStatusPendingMaintenanceSeverity `json:"severity"`
+			} `json:"pendingMaintenance,omitempty"`
 			Phase   *client.InstanceStatusPhase `json:"phase,omitempty"`
 			Version *string                     `json:"version,omitempty"`
 		}{
@@ -231,7 +236,12 @@ func TestInstanceStatus_JSONOutput(t *testing.T) {
 			ConnectionSecretRef *struct {
 				Name string `json:"name"`
 			} `json:"connectionSecretRef,omitempty"`
-			Message *string                     `json:"message,omitempty"`
+			Message            *string `json:"message,omitempty"`
+			PendingMaintenance *[]struct {
+				ApprovalToken *string                                         `json:"approvalToken,omitempty"`
+				Description   string                                          `json:"description"`
+				Severity      client.InstanceStatusPendingMaintenanceSeverity `json:"severity"`
+			} `json:"pendingMaintenance,omitempty"`
 			Phase   *client.InstanceStatusPhase `json:"phase,omitempty"`
 			Version *string                     `json:"version,omitempty"`
 		}{
@@ -296,7 +306,12 @@ func minimalInst() *client.Instance {
 			ConnectionSecretRef *struct {
 				Name string `json:"name"`
 			} `json:"connectionSecretRef,omitempty"`
-			Message *string                     `json:"message,omitempty"`
+			Message            *string `json:"message,omitempty"`
+			PendingMaintenance *[]struct {
+				ApprovalToken *string                                         `json:"approvalToken,omitempty"`
+				Description   string                                          `json:"description"`
+				Severity      client.InstanceStatusPendingMaintenanceSeverity `json:"severity"`
+			} `json:"pendingMaintenance,omitempty"`
 			Phase   *client.InstanceStatusPhase `json:"phase,omitempty"`
 			Version *string                     `json:"version,omitempty"`
 		}{Phase: &phase},

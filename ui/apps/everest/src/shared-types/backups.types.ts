@@ -35,8 +35,6 @@ export type ListBackupClassesPayload =
   HttpApi.paths['/clusters/{cluster}/backup-classes']['get']['responses']['200']['content']['application/json'];
 
 // Raw backup state as described by the generated API types.
-// Today this is just `string`, but if the OpenAPI schema becomes enum-constrained
-// this alias will narrow automatically.
 export type BackupStateFromAPI = NonNullable<
   NonNullable<Backup['status']>['state']
 >;
@@ -59,7 +57,7 @@ export type NormalizedBackupStatus =
 
 /** Normalize a Backup's state to a safe UI value. Centralizes the `?? UNKNOWN` fallback. */
 export const getBackupState = (backup: Backup): NormalizedBackupStatus =>
-  (backup.status?.state as NormalizedBackupStatus) ?? BackupStatus.UNKNOWN;
+  backup.status?.state ?? BackupStatus.UNKNOWN;
 
 // The generated API types define uiSchema as `Record<string, never>` (opaque),
 // so we maintain this typed alias for UIGenerator consumption.

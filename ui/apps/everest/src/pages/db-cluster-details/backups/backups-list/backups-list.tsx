@@ -33,6 +33,7 @@ import {
   Backup,
   BackupList,
   BackupStatus,
+  getBackupState,
 } from 'shared-types/backups.types.ts';
 import { FormMode } from 'components/ui-generator/ui-generator.types';
 import { ScheduleModalContext } from '../backups.context.ts';
@@ -209,7 +210,7 @@ export const BackupsList = () => {
   const columns = useMemo<MRT_ColumnDef<Backup>[]>(
     () => [
       {
-        accessorFn: (row) => row.status?.state ?? '',
+        accessorFn: getBackupState,
         id: 'state',
         header: 'Status',
         filterVariant: 'multi-select',

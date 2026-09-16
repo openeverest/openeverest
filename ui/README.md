@@ -2,22 +2,9 @@
 
 OpenEverest UI is a PNPM monorepo living in `ui/`.
 
-## UI architecture
+## Architecture docs
 
-Main workspaces:
-
-- `apps/everest`: the OpenEverest frontend application (Vite + React).
-- `packages/ui-lib`: reusable UI components.
-- `packages/design`: design tokens/themes and shared styling setup.
-- `packages/utils`: shared utility helpers.
-- `packages/types`: shared TypeScript types.
-- `packages/eslint-config-react`, `packages/prettier-config`, `packages/tsconfig`: shared tooling configs.
-
-How code flows:
-
-- `apps/everest` consumes shared packages from `packages/*` via workspace deps.
-- Turborepo orchestrates tasks across workspaces (`test`, `lint`, `format`, `build`).
-- App-level tests live in `apps/everest/src/**` (unit and browser-mode tests), while end-to-end tests live in `apps/everest/.e2e`.
+- [docs/ui/architecture/README.md](../docs/ui/architecture/README.md)
 
 ## Prerequisites
 

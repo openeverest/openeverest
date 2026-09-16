@@ -61,6 +61,11 @@ const UIComponent: React.FC<ComponentProps> = ({ item, name }) => {
 
   const children = renderComponentChildren(item, name, providerObject);
 
+  const defaultHelperText =
+    typeof finalProps.helperText === 'string'
+      ? finalProps.helperText
+      : undefined;
+
   const fieldElement = React.createElement(
     MuiComponent,
     {
@@ -68,7 +73,7 @@ const UIComponent: React.FC<ComponentProps> = ({ item, name }) => {
       name,
       label,
       error: !!error,
-      helperText: error,
+      helperText: error ?? defaultHelperText,
       formControlProps: { sx: { minWidth: '450px', marginTop: '15px' } },
     },
     children
