@@ -21,20 +21,21 @@ export const PLUGIN_HUB_NAME = 'plugin-hub';
 
 // Fetches the extension catalog summary served by the plugin-hub plugin.
 // The request is proxied through the OpenEverest backend
-// (`/v1/plugins/plugin-hub/api/summary`). Returns null when the plugin-hub
-// plugin is not installed or the catalog cannot be reached, so callers can
-// gracefully fall back to raw resource names. The return type is deliberately
-// `RawExtensionIndex` (a Partial-shaped mirror) — the hub is an external
-// project and its schema may drift, so consumers must guard, not trust.
-export const getExtensionCatalogFn =
-  async (): Promise<RawExtensionIndex | null> => {
-    try {
-      const response = await api.get<RawExtensionIndex>(
-        `/plugins/${PLUGIN_HUB_NAME}/api/summary`,
-        { disableNotifications: true }
-      );
-      return response.data ?? null;
-    } catch {
-      return null;
-    }
-  };
+// (`/v1/clusters/{cluster}/plugins/plugin-hub/api/summary`). Returns null when
+// the plugin-hub plugin is not installed or the catalog cannot be reached, so
+// callers can gracefully fall back to raw resource names. The return type is
+// deliberately `RawExtensionIndex` (a Partial-shaped mirror) — the hub is an
+// external project and its schema may drift, so consumers must guard, not trust.
+export const getExtensionCatalogFn = async (
+  clusterName: string
+): Promise<RawExtensionIndex | null> => {
+  try {
+    const response = await api.get<RawExtensionIndex>(
+      `/clusters/${clusterName}/plugins/${PLUGIN_HUB_NAME}/api/summary`,
+      { disableNotifications: true }
+    );
+    return response.data ?? null;
+  } catch {
+    return null;
+  }
+};
