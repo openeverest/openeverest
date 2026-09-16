@@ -46,9 +46,7 @@ NOTE: for MacOS tilt needs to have installed and running `docker-desktop` tool. 
    npm install -g pnpm
    ```
 
-8. Clone [everest-operator](https://github.com/openeverest/openeverest-operator).
-
-9. Clone [helm-charts](https://github.com/openeverest/helm-charts).
+8. Clone [helm-charts](https://github.com/openeverest/helm-charts).
 
 > **NOTE**: This Tiltfile is focused on OpenEverest **core** development (the
 > API server, controller, CRDs and UI). Database providers (PSMDB, PXC, ...) are
@@ -97,56 +95,42 @@ gcloud auth configure-docker <REGISTRY_REGION>-docker.pkg.dev
 ### 2. Configure and start Tilt
 1. Set environment variables:
 
-Copy file dev/.env.example to dev/.env and set the following environment variables:
+Copy file dev/.env.example to dev/.env and set the following environment variable:
 ```sh
-EVEREST_OPERATOR_DIR=<path to github.com/openeverest/openeverest-operator repository directory>
 EVEREST_CHART_DIR=<path to github.com/openeverest/helm-charts>/charts/everest
 ```
 
-or set environment variables manually in the terminal:
+or set it manually in the terminal:
 
 ```sh
-export EVEREST_OPERATOR_DIR=<path to github.com/openeverest/openeverest-operator repository directory>
 export EVEREST_CHART_DIR=<path to github.com/openeverest/helm-charts>/charts/everest
 ```
 
-For OpenEverest v2 development use `v2` branch of `EVEREST_CHART_DIR`.
-If your Tilt environment starts with errors, ensure you have the latest `v2` branch for `EVEREST_CHART_DIR`.
+The chart branch must match the OpenEverest line you are developing: `main` for
+v2, `v1.x` for v1. If your Tilt environment starts with errors, make sure the
+chart checkout is up to date.
 
 2. Set namespaces for the Everest components:
 
 Copy file dev/config.yaml.example to dev/config.yaml and:
 
 - Set the needed DB namespaces that will be created automatically.
-- (Mostly for FE devs) If you want to disable the Tilt frontend build, save time and avoid FE rebuilds (and, therefore, BE rebuilds), keeping the dev flow of using Vite, set `enableFrontend: false`
+- (Mostly for FE devs) If you want to disable the Tilt frontend build, save time and avoid FE rebuilds (and, therefore, BE rebuilds), keeping the dev flow of using Vite, set `enableFrontendBuild: false`
+- Set `enablePluginHub: false` to skip deploying the OpenEverest Plugin Hub.
 
-3. (Optional) If you want to install a generic plugin (e.g. the [template plugin](https://github.com/openeverest/generic-plugin-template)), set the OCI chart reference:
-```sh
-export HELLO_PLUGIN_CHART=oci://ghcr.io/openeverest/generic-plugin-template
-export HELLO_PLUGIN_VERSION=0.1.0  # optional, omit to use latest
-```
-If the registry requires authentication, log in first:
-```sh
-helm registry login ghcr.io -u <github-user> -p <token>
-```
-If `HELLO_PLUGIN_CHART` is not set, Tilt skips the plugin step entirely.
-
-4. (Optional) If you want to debug Everest Server and/or Everest operator remotely, you can set the following environment variables in .env file or in the terminal: 
+3. (Optional) If you want to debug the Everest Server remotely, set the following environment variable in .env file or in the terminal:
 ```sh
 export EVEREST_DEBUG=true
-export EVEREST_OPERATOR_DEBUG=true
 ```
 In such a case you can setup your IDE to connect to port on your `localhost` and use debugging tools in your IDE.
 
 Debugging port for Everest Server: `40000`.
 
-Debugging port for Everest Operator: `40001`.
-
 Refer to instructions in your IDE on how to setup remote debugging. 
 
 For GoLand, you can refer to [this](https://www.jetbrains.com/help/go/attach-to-running-go-processes-with-debugger.html#step-2-create-the-go-remote-run-debug-configuration) link.
 
-5. Start Tilt:
+4. Start Tilt:
 ```sh
 make dev-up
 ```
@@ -172,9 +156,10 @@ make k3d-cluster-down  # Destroy the cluster
 Rebuilding the frontend takes ~30s which makes this strategy not very efficient
 for frontend development. Therefore, we recommend frontend developers to run
 tilt as described in [Set up the environment](#set-up-the-environment) section
-but then run a local dev instance of the frontend by running `make dev` from
-the frontend repo. This dev instance will be available at http://localhost:3000
-while still connecting to the everest API server running inside k8s.
+(with `enableFrontendBuild: false` in `dev/config.yaml`) but then run a local dev
+instance of the frontend by running `make -C ui dev` from the repository root.
+This dev instance will be available at http://localhost:3000 while still
+connecting to the everest API server running inside k8s.
 
 ## Developing providers
 
