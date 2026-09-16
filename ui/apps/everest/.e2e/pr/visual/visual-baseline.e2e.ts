@@ -48,7 +48,7 @@ async function waitForTableContent(
   headerText: string
 ) {
   await page
-    .locator(`th:has-text("${headerText}")`)
+    .locator(`th:text-is("${headerText}")`)
     .first()
     .waitFor({ state: 'visible', timeout: 60000 });
   await page.waitForTimeout(500);
@@ -64,7 +64,7 @@ test.describe('Visual Baseline - Pages', () => {
   // --- DATABASE LIST ---
   test('Databases list page', async ({ page }) => {
     await goToUrl(page, '/databases');
-    await waitForTableContent(page, 'Database name');
+    await waitForTableContent(page, 'Name');
     await expect(page).toHaveScreenshot('databases-list.png', screenshotOpts);
   });
 
@@ -183,7 +183,7 @@ test.describe('Visual Baseline - Navigation', () => {
 
   test('Sidebar states', async ({ page }) => {
     await goToUrl(page, '/databases');
-    await waitForTableContent(page, 'Database name');
+    await waitForTableContent(page, 'Name');
 
     // Collapsed state
     await expect(page).toHaveScreenshot('sidebar-collapsed.png', {
@@ -605,7 +605,7 @@ test.describe('Visual Baseline - Empty States', () => {
 
     await goToUrl(page, '/databases');
     await page
-      .locator('th:has-text("Database name")')
+      .locator('th:text-is("Name")')
       .or(page.getByText(/no database clusters/i))
       .or(page.getByText(/no results/i))
       .first()

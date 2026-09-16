@@ -75,7 +75,7 @@ export const deleteDbCluster = async (page: Page, clusterName: string) => {
   await page.goto('databases');
   await waitForDbListLoad(page);
   await findDbAndClickActions(page, clusterName, 'delete', 'Up');
-  await expect(page.getByText('Delete database')).toBeVisible();
+  await expect(page.getByText('Delete instance')).toBeVisible();
   await expect(page.getByText('Irreversible action')).toBeVisible();
   await page.getByTestId('text-input-confirm-input').fill(clusterName);
   await page.getByTestId('form-dialog-delete').click();

@@ -4,7 +4,7 @@ export const Messages = {
   start:
     'Get ready to kickstart your OpenEverest journey by deploying your very first cluster!',
   card1: {
-    header: 'Create database',
+    header: 'Create instance',
     description: `Define the structure, set access controls, and start organizing
     your information efficiently.`,
   },

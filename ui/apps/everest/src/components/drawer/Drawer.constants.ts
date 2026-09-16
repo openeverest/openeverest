@@ -25,7 +25,7 @@ export const ROUTES: EverestRoute[] = [
   {
     to: '/databases',
     icon: StorageIcon,
-    text: 'Databases',
+    text: 'Instances',
   },
   {
     to: `settings/${SettingsTabs.storageLocations}`,

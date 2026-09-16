@@ -25,8 +25,8 @@ test.describe('Clusters RBAC', () => {
     ]);
     await mockClusters(page, namespace);
     await page.goto('/databases');
-    await expect(page.getByText('Create database')).toBeVisible();
-    await expect(page.getByText('Create database')).not.toBeDisabled();
+    await expect(page.getByText('Create', { exact: true })).toBeVisible();
+    await expect(page.getByText('Create', { exact: true })).not.toBeDisabled();
   });
 
   test('permitted cluster creation without present clusters', async ({
@@ -39,8 +39,8 @@ test.describe('Clusters RBAC', () => {
       ['database-clusters', '*', `${namespace}/*`],
     ]);
     await page.goto('/databases');
-    await expect(page.getByText('Create database')).toBeVisible();
-    await expect(page.getByText('Create database')).not.toBeDisabled();
+    await expect(page.getByText('Create', { exact: true })).toBeVisible();
+    await expect(page.getByText('Create', { exact: true })).not.toBeDisabled();
   });
 
   test('not permitted cluster creation with present clusters', async ({
@@ -54,7 +54,7 @@ test.describe('Clusters RBAC', () => {
       ['database-clusters', 'read', `${namespace}/*`],
     ]);
     await page.goto('/databases');
-    await expect(page.getByText('Create database')).not.toBeVisible();
+    await expect(page.getByText('Create', { exact: true })).not.toBeVisible();
   });
 
   test('not permitted cluster creation without present clusters', async ({
@@ -67,7 +67,7 @@ test.describe('Clusters RBAC', () => {
       ['database-clusters', 'read', `${namespace}/*`],
     ]);
     await page.goto('/databases');
-    await expect(page.getByText('Create database')).not.toBeVisible();
+    await expect(page.getByText('Create', { exact: true })).not.toBeVisible();
   });
 
   test('visible actions', async ({ page }) => {

@@ -21,7 +21,7 @@ import {
 import { addZeroToSingleDigit } from 'components/time-selection/time-selection.utils';
 
 export const Messages = {
-  title: 'Database Summary',
+  title: 'Summary',
 };
 
 export const getTimeSelectionPreviewMessage = ({

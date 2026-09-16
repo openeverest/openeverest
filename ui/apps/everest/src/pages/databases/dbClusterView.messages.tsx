@@ -14,7 +14,7 @@
 // limitations under the License.
 
 export const Messages = {
-  createDatabase: 'Create database',
+  createDatabase: 'Create',
   statusProvider: {
     up: 'Up',
     down: 'Down',
@@ -60,7 +60,7 @@ export const Messages = {
   },
   dbCluster: {
     noData:
-      'You currently do not have any database cluster. Create one to get started.',
+      'You currently do not have any instances. Create one to get started.',
   },
   responseMessages: {
     restart: 'The database is being restarted',
