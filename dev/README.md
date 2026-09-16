@@ -26,6 +26,17 @@ Build and runtime logs can be easily accessed using tilt's web UI.
 
 5. Install [k3d](https://k3d.io)
 
+   > **NOTE (Linux)**: make sure the `br_netfilter` kernel module is loaded
+   > *before* creating the cluster. k3d nodes are containers sharing the host
+   > kernel and cannot load it themselves; without it, Service ClusterIPs
+   > silently blackhole for pods scheduled on the same node as their backend.
+   > See [Troubleshooting](#troubleshooting).
+   >
+   > ```sh
+   > sudo modprobe br_netfilter
+   > echo br_netfilter | sudo tee /etc/modules-load.d/k8s.conf  # persist
+   > ```
+
 6. Install [tilt.dev](https://docs.tilt.dev/install.html)
 NOTE: for MacOS tilt needs to have installed and running `docker-desktop` tool. This is not required and can be skipped since we use `k3d` instead.
 
@@ -189,4 +200,26 @@ run two Tilt instances against the same cluster:
 The two instances manage disjoint Kubernetes objects (core owns
 `everest-system` + the core CRDs; the provider owns its own namespace + the
 database operator), so they run side by side without conflicting.
+
+## Troubleshooting
+
+### Some pods can't reach Service ClusterIPs (DNS times out)
+
+An instance hangs in `Provisioning` with replicas restarting on liveness probe
+timeouts, and which pods are affected changes on every `make dev-up`. This
+means `br_netfilter` is not loaded on the host (Linux only), so kube-proxy's
+DNAT is bypassed for traffic that stays on one node's bridge — pods sharing a
+node with CoreDNS lose DNS entirely. Confirm with:
+
+```sh
+docker logs k3d-everest-dev-server-0 2>&1 | grep br_netfilter
+```
+
+Then load the module and recreate the cluster:
+
+```sh
+sudo modprobe br_netfilter
+echo br_netfilter | sudo tee /etc/modules-load.d/k8s.conf  # persist
+make dev-destroy && make dev-up
+```
 
