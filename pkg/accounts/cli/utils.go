@@ -28,7 +28,7 @@ import (
 
 const (
 	usernameCriteria = "Username may contain only letters, numbers, underscores, and must be at least 3 characters long"
-	passwordCriteria = "Password may contain only letters, numbers and specific special characters (@*#$%^&+=!_-), and must be at least 6 characters long"
+	passwordCriteria = "Password may contain only letters, numbers and specific special characters (@*#$%^&+=!_-), and must be at least 8 characters long"
 )
 
 var (
@@ -42,8 +42,8 @@ var (
 
 	// Regular expression to validate password.
 	// [a-zA-Z0-9@*#$%^&+=!_-] - Allowed characters (letters, digits, special characters)
-	// {6,} - Length of the password (minimum 6 characters).
-	passwordValidateRegex = regexp.MustCompile("^[a-zA-Z0-9@*#$%^&+=!_-]{6,}$")
+	// {8,} - Length of the password (minimum 8 characters).
+	passwordValidateRegex = regexp.MustCompile("^[a-zA-Z0-9@*#$%^&+=!_-]{8,}$")
 
 	// ErrInvalidNewPassword is returned when the new password doesn't match criteria.
 	ErrInvalidNewPassword = errors.New(strings.ToLower(passwordCriteria))
