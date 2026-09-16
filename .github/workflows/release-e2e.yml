@@ -155,7 +155,11 @@ jobs:
       - name: Run release e2e (${{ env.PROJECT }})
         id: e2e
         working-directory: ui/apps/everest/.e2e
-        run: make test PROJECT=${{ env.PROJECT }}
+        # Serialize the lane: each release project stands up its own 3-node PXC
+        # cluster, and the single k3d node cannot run two in parallel without
+        # starving one (it never reaches Ready -> connection 404). One worker
+        # keeps a single heavy cluster live at a time.
+        run: make test PROJECT=${{ env.PROJECT }} FLAGS=--workers=1
 
       - name: Dump cluster diagnostics on failure
         if: ${{ always() && steps.e2e.outcome != 'success' }}
