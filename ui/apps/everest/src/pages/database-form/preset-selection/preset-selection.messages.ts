@@ -14,6 +14,5 @@
 
 // Preset-selection domain messages shared by the hook (resolve) and the card.
 export const Messages = {
-  loadError: "Couldn't load presets for this provider.",
   resolveError: 'Failed to resolve the selected preset.',
 };

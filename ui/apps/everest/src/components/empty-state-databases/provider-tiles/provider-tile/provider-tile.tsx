@@ -25,6 +25,7 @@ import {
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import { Link } from 'react-router-dom';
 import type { ProviderTileProps } from './provider-tile.types';
+import { usePrefetchInstancePresets } from 'hooks/api/instance-presets';
 import {
   bodyAnchorSx,
   cardActionAreaSx,
@@ -48,6 +49,7 @@ export const ProviderTile = ({
   showImport,
 }: ProviderTileProps) => {
   const [active, setActive] = useState(false);
+  const prefetchPresets = usePrefetchInstancePresets();
 
   // Render meta-derived fields only when the hub provides them — never fabricate.
   // The provider version is intentionally not shown here: it's not meaningful
@@ -87,9 +89,15 @@ export const ProviderTile = ({
     <Card
       elevation={0}
       sx={cardSx}
-      onMouseEnter={() => setActive(true)}
+      onMouseEnter={() => {
+        setActive(true);
+        prefetchPresets(provider);
+      }}
       onMouseLeave={() => setActive(false)}
-      onFocus={() => setActive(true)}
+      onFocus={() => {
+        setActive(true);
+        prefetchPresets(provider);
+      }}
       onBlur={() => setActive(false)}
     >
       <CardActionArea

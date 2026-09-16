@@ -179,4 +179,25 @@ describe('CardPicker', () => {
       expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
     );
   });
+
+  it('renders a disabled status card when statusCard is provided', () => {
+    render(
+      <TestWrapper>
+        <CardPicker
+          items={[]}
+          leadCard={lead}
+          selectedId=""
+          onSelect={vi.fn()}
+          statusCard={{ title: 'Presets did not load', subtitle: 'Retry.' }}
+        />
+      </TestWrapper>
+    );
+
+    expect(screen.getByText('Presets did not load')).toBeInTheDocument();
+    expect(screen.getByText('Retry.')).toBeInTheDocument();
+    // The notice is informational, not a selectable/clickable card.
+    expect(
+      screen.queryByRole('button', { name: /Presets did not load/ })
+    ).not.toBeInTheDocument();
+  });
 });

@@ -68,8 +68,14 @@ const renderCards = (overrides: Partial<PresetSelectionContextType>) => {
 };
 
 describe('PresetSelectCards', () => {
-  it('renders nothing when the provider has no presets (A2)', () => {
+  it('renders no section when the provider has no presets (A2)', () => {
     const { container } = renderCards({ presets: [] });
+
+    expect(container).toBeEmptyDOMElement();
+  });
+
+  it('renders no section while presets are still loading', () => {
+    const { container } = renderCards({ isLoadingPresets: true, presets: [] });
 
     expect(container).toBeEmptyDOMElement();
   });
@@ -87,9 +93,14 @@ describe('PresetSelectCards', () => {
     ).toBeInTheDocument();
   });
 
-  it('surfaces a load error so the feature failure is visible (A3)', () => {
+  it('shows a disabled notice card when the presets fail to load (A3)', () => {
     renderCards({ presets: [], isError: true });
 
-    expect(screen.getByText(/Couldn't load presets/i)).toBeInTheDocument();
+    // Failure is surfaced in-grid as a disabled card beside "start from
+    // scratch", not as an out-of-flow error line.
+    expect(screen.getByText(/Presets didn't load/i)).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: /Start from scratch/ })
+    ).toBeInTheDocument();
   });
 });
