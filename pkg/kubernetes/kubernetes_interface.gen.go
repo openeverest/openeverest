@@ -56,6 +56,8 @@ type KubernetesConnector interface {
 	CreateBackupStorage(ctx context.Context, storage *backupv1alpha1.BackupStorage) (*backupv1alpha1.BackupStorage, error)
 	// UpdateBackupStorage updates a backup storage.
 	UpdateBackupStorage(ctx context.Context, storage *backupv1alpha1.BackupStorage) (*backupv1alpha1.BackupStorage, error)
+	// PatchBackupStorage patches a backup storage using the provided patch.
+	PatchBackupStorage(ctx context.Context, storage *backupv1alpha1.BackupStorage, patch ctrlclient.Patch, opts ...ctrlclient.PatchOption) (*backupv1alpha1.BackupStorage, error)
 	// DeleteBackupStorage deletes a backup storage.
 	DeleteBackupStorage(ctx context.Context, obj *backupv1alpha1.BackupStorage) error
 	// GetBackup returns backup that matches the criteria.

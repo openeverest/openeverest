@@ -32,10 +32,12 @@ package controller
 // repository, which labels these two risks R1 and R2.
 
 import (
+	"context"
 	"fmt"
 	"sort"
 
 	goversion "github.com/hashicorp/go-version"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/openeverest/openeverest/v2/api/core/v1alpha1"
 )
@@ -98,18 +100,42 @@ func HasBlockingIssues(issues []UpgradeIssue) bool {
 	return false
 }
 
+// HookContext is the narrow handle available to provider checks that run
+// outside reconciliation — in the chart's pre-upgrade hook Job — where no
+// Instance is in scope. Unlike Context, every method is safe to call.
+type HookContext struct {
+	ctx          context.Context //nolint:containedctx // mirrors Context: the handle scopes one short-lived preflight pass
+	client       client.Client
+	providerName string
+}
+
+// NewHookContext creates a HookContext (used by the preflight runner).
+func NewHookContext(ctx context.Context, c client.Client, providerName string) *HookContext {
+	return &HookContext{ctx: ctx, client: c, providerName: providerName}
+}
+
+// Context returns the underlying context.Context.
+func (h *HookContext) Context() context.Context { return h.ctx }
+
+// Client returns the underlying Kubernetes client.
+func (h *HookContext) Client() client.Client { //nolint:ireturn // client.Client is the SDK's accessor contract, as on Context.Client
+	return h.client
+}
+
+// ProviderName returns the name of the provider under preflight.
+func (h *HookContext) ProviderName() string { return h.providerName }
+
 // RunUpgradePreflight runs the full generic preflight — the upgrade-path
 // floor check and the catalog-membership check — and appends any
 // provider-specific issues from the optional UpgradeProvider interface.
 //
 // current is the spec of the installed Provider CR (nil when none is
-// installed); target is the spec carried by the new chart. c may be nil when
-// the provider does not implement UpgradeProvider.
-func RunUpgradePreflight(c *Context, provider ProviderInterface, current, target *v1alpha1.ProviderSpec, instances []v1alpha1.Instance) []UpgradeIssue {
+// installed); target is the spec carried by the new chart.
+func RunUpgradePreflight(h *HookContext, provider ProviderInterface, current, target *v1alpha1.ProviderSpec, instances []v1alpha1.Instance) []UpgradeIssue {
 	issues := CheckUpgradePath(current, target)
 	issues = append(issues, PreflightUpgrade(target, instances)...)
 	if up, ok := provider.(UpgradeProvider); ok {
-		issues = append(issues, up.CheckUpgrade(c, target, instances)...)
+		issues = append(issues, up.CheckUpgrade(h, target, instances)...)
 	}
 	return issues
 }
@@ -149,6 +175,9 @@ func CheckUpgradePath(current, target *v1alpha1.ProviderSpec) []UpgradeIssue {
 
 	if currentVer.LessThan(floorVer) {
 		targetStr := target.Release.Version
+		if targetStr == "" {
+			targetStr = "the target release"
+		}
 		return []UpgradeIssue{{
 			Severity: UpgradeError,
 			Reason:   UpgradeReasonPathBlocked,
@@ -180,6 +209,13 @@ func pathUnparseableIssue(what, value string) UpgradeIssue {
 //
 // Instances already being deleted are skipped.
 func PreflightUpgrade(target *v1alpha1.ProviderSpec, instances []v1alpha1.Instance) []UpgradeIssue {
+	if target == nil {
+		return []UpgradeIssue{{
+			Severity: UpgradeError,
+			Reason:   UpgradeReasonComponentUnsupported,
+			Message:  "no target provider spec to check against",
+		}}
+	}
 	var issues []UpgradeIssue
 	for i := range instances {
 		in := &instances[i]
@@ -194,15 +230,8 @@ func PreflightUpgrade(target *v1alpha1.ProviderSpec, instances []v1alpha1.Instan
 func preflightInstance(target *v1alpha1.ProviderSpec, in *v1alpha1.Instance) []UpgradeIssue {
 	var issues []UpgradeIssue
 
-	// Resolve the effective bundle the same way the reconciler does:
-	// spec.version → status.version → target default.
-	bundleName := in.Spec.Version
-	if bundleName == "" {
-		bundleName = in.Status.Version
-	}
-	if bundleName == "" {
-		bundleName = GetDefaultVersionBundleName(target)
-	}
+	// Resolve the effective bundle exactly as the runtime does before Sync.
+	bundleName := EffectiveVersionBundleName(target, in)
 
 	var bundle *v1alpha1.VersionBundle
 	if bundleName != "" {
@@ -233,11 +262,6 @@ func preflightInstance(target *v1alpha1.ProviderSpec, in *v1alpha1.Instance) []U
 		if effective == "" && bundle != nil {
 			effective = bundle.Components[compName]
 		}
-		if effective == "" {
-			// Falls back to the target's per-type default, which exists by
-			// construction.
-			continue
-		}
 		if issue := preflightComponent(target, in, compName, effective); issue != nil {
 			issues = append(issues, *issue)
 		}
@@ -265,6 +289,12 @@ func preflightComponent(target *v1alpha1.ProviderSpec, in *v1alpha1.Instance, co
 		issue.Reason = UpgradeReasonComponentUnsupported
 		issue.Message = fmt.Sprintf("component type %q is not defined by the target provider", comp.Type)
 		return issue
+	}
+
+	// No effective version means the runtime resolves the target's per-type
+	// default; membership above is all that can be checked.
+	if effective == "" {
+		return nil
 	}
 
 	entry := findComponentVersion(componentType, effective)

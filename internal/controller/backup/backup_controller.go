@@ -42,6 +42,7 @@ import (
 	apicommon "github.com/openeverest/openeverest/v2/api/common/v1alpha1"
 	corev1alpha1 "github.com/openeverest/openeverest/v2/api/core/v1alpha1"
 	"github.com/openeverest/openeverest/v2/pkg/common"
+	"github.com/openeverest/openeverest/v2/provider-runtime/controller"
 )
 
 const (
@@ -207,6 +208,14 @@ func (r *BackupReconciler) Reconcile( //nolint:nonamedreturns
 		}
 	}()
 
+	// External backups are imported references to data already sitting in
+	// a storage; there is no source Instance and no job to run.
+	if backup.Spec.Origin.Type == backupv1alpha1.BackupOriginTypeExternal {
+		backup.Status.ExecutionMode = backupv1alpha1.BackupExecutionModeJob
+		controller.ReconcileExternalBackupStatus(backup)
+		return ctrl.Result{}, nil
+	}
+
 	if bc.Spec.Job == nil || bc.Spec.Job.Backup.JobSpec == nil {
 		backup.Status.State = backupv1alpha1.BackupStateFailed
 		backup.Status.Message = "BackupClass uses Job execution mode but does not define spec.job.backup.jobSpec"
@@ -216,7 +225,7 @@ func (r *BackupReconciler) Reconcile( //nolint:nonamedreturns
 	// Get the source database instance.
 	instance := &corev1alpha1.Instance{}
 	if err := r.Client.Get(ctx, client.ObjectKey{
-		Name:      backup.Spec.InstanceRef.Name,
+		Name:      backup.Spec.Origin.InstanceRef.Name,
 		Namespace: backup.GetNamespace(),
 	}, instance); err != nil {
 		backup.Status.State = backupv1alpha1.BackupStateError
@@ -270,16 +279,21 @@ func (r *BackupReconciler) Reconcile( //nolint:nonamedreturns
 // ensureInstanceNameLabel ensures that the Backup resource has the instance name
 // label, used for filtering backups by instance using label selectors.
 func (r *BackupReconciler) ensureInstanceNameLabel(ctx context.Context, backup *backupv1alpha1.Backup) error {
+	// External backups have no Instance to label.
+	if backup.Spec.Origin.Type == backupv1alpha1.BackupOriginTypeExternal {
+		return nil
+	}
+
 	labels := backup.GetLabels()
 	if labels == nil {
 		labels = make(map[string]string)
 	}
 
-	if labels[common.InstanceNameLabel] == backup.Spec.InstanceRef.Name {
+	if labels[common.InstanceNameLabel] == backup.Spec.Origin.InstanceRef.Name {
 		return nil
 	}
 
-	labels[common.InstanceNameLabel] = backup.Spec.InstanceRef.Name
+	labels[common.InstanceNameLabel] = backup.Spec.Origin.InstanceRef.Name
 	backup.SetLabels(labels)
 	if err := r.Client.Update(ctx, backup); err != nil {
 		return fmt.Errorf("failed to update instance name label: %w", err)

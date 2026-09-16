@@ -356,11 +356,10 @@ type BackupMirror interface {
 // convergence outside the bundled operator's compatibility window.
 //
 // CheckUpgrade runs inside the chart's Helm pre-upgrade hook, not during
-// reconciliation: c carries the Kubernetes client and context but no
-// Instance, so Instance-scoped Context methods must not be used. Issues with
-// severity UpgradeError abort the upgrade.
+// reconciliation: the HookContext carries the Kubernetes client and context
+// but no Instance. Issues with severity UpgradeError abort the upgrade.
 type UpgradeProvider interface {
-	CheckUpgrade(c *Context, target *corev1alpha1.ProviderSpec, instances []corev1alpha1.Instance) []UpgradeIssue
+	CheckUpgrade(h *HookContext, target *corev1alpha1.ProviderSpec, instances []corev1alpha1.Instance) []UpgradeIssue
 }
 
 // =============================================================================

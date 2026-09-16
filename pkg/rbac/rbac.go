@@ -190,26 +190,7 @@ func refreshEnforcerInBackground(
 		if !ok || cm.GetName() != common.EverestRBACConfigMapName {
 			return
 		}
-
-		// Validate the incoming policy on a throwaway enforcer, so that an invalid
-		// update never reaches the live one.
-		if _, err := newEnforcer(enforcer.GetAdapter(), false); err != nil {
-			l.Errorf("Invalid RBAC policy detected, keeping the previous policy: %s", err)
-			return
-		}
-
-		if err := enforcer.LoadPolicy(); err != nil {
-			l.Errorf("Failed to load RBAC policy: %s", err)
-			return
-		}
-
-		// Calling LoadPolicy() re-writes the entire model, so we need to add back the admin role.
-		if err := loadAdminPolicy(enforcer); err != nil {
-			l.Errorf("Failed to load admin policy: %s", err)
-			return
-		}
-
-		enforcer.EnableEnforce(IsEnabled(cm))
+		reloadEnforcerFromConfigMap(enforcer, cm, l)
 	})
 
 	if err := inf.Start(ctx, &corev1.ConfigMap{}); err != nil {
@@ -217,6 +198,34 @@ func refreshEnforcerInBackground(
 	}
 
 	return nil
+}
+
+// reloadEnforcerFromConfigMap reloads the enforcer's policy in response to
+// an update of the RBAC ConfigMap.
+func reloadEnforcerFromConfigMap(enforcer *casbin.Enforcer, cm *corev1.ConfigMap, l *zap.SugaredLogger) {
+	// Validate the incoming policy in-memory using the ConfigMap already
+	// delivered by the informer, so that an invalid update never reaches the
+	// live enforcer.
+	// Do not create a new enforcer here, because that calls LoadPolicy()
+	// sending an unnecessary request to GetConfigMap(), and causing
+	// e2e test flakiness on CI due to policy not being loaded in time.
+	if _, err := NewIOReaderEnforcer(strings.NewReader(cm.Data["policy.csv"])); err != nil {
+		l.Errorf("Invalid RBAC policy detected, keeping the previous policy: %s", err)
+		return
+	}
+
+	if err := enforcer.LoadPolicy(); err != nil {
+		l.Errorf("Failed to load RBAC policy: %s", err)
+		return
+	}
+
+	// Calling LoadPolicy() re-writes the entire model, so we need to add back the admin role.
+	if err := loadAdminPolicy(enforcer); err != nil {
+		l.Errorf("Failed to load admin policy: %s", err)
+		return
+	}
+
+	enforcer.EnableEnforce(IsEnabled(cm))
 }
 
 func getModel() (model.Model, error) {

@@ -209,8 +209,10 @@ spec:
               metadata:
                 name: test-backup-bs
               spec:
-                instanceRef:
-                  name: test-instance-bs
+                origin:
+                  type: Instance
+                  instanceRef:
+                    name: test-instance-bs
                 classRef:
                   name: test-backupclass
                 storageRef:
@@ -223,8 +225,10 @@ spec:
               metadata:
                 name: test-backup-bs
               spec:
-                instanceRef:
-                  name: test-instance-bs
+                origin:
+                  type: Instance
+                  instanceRef:
+                    name: test-instance-bs
                 classRef:
                   name: test-backupclass
                 storageRef:

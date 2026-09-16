@@ -1677,6 +1677,36 @@ spec:
                 - Cascade
                 - Orphan
                 type: string
+              maintenance:
+                description: |-
+                  Maintenance governs how disruptive actions raised against this
+                  Instance (e.g. the convergence step after a provider upgrade) are
+                  authorized. It does NOT govern the deliberate engine-version upgrade
+                  flow (spec.version / spec.components[].version).
+                properties:
+                  approved:
+                    description: |-
+                      Approved is a one-time authorization for an action above the standing
+                      tolerance: set it to the exact approvalToken of the held action from
+                      status.pendingMaintenance. It is matched literally, authorizes only
+                      that occurrence, and re-arms naturally — a later action carries a
+                      different token, so a stale value never authorizes it. It is NOT a
+                      provider version.
+                    maxLength: 253
+                    type: string
+                  autoApproveUpTo:
+                    default: NonDisruptive
+                    description: |-
+                      AutoApproveUpTo is the standing disruption tolerance: any action at or
+                      below this impact applies automatically, anything above it is held on
+                      status.pendingMaintenance. It is cause-agnostic — the tolerance applies
+                      whether the action was raised by a provider upgrade or anything else.
+                    enum:
+                    - NonDisruptive
+                    - RollingRestart
+                    - Downtime
+                    type: string
+                type: object
               parameters:
                 description: |-
                   Parameters contains structured parameters that apply to the Instance
@@ -1717,6 +1747,28 @@ spec:
                       If omitted, the provider's default topology is used.
                     type: string
                 type: object
+              userSecretRef:
+                description: |-
+                  UserSecretRef optionally seeds the engine's initial (bootstrap)
+                  credentials from a Secret in the same namespace, for providers whose
+                  engine supports setting initial credentials at creation time.
+
+                  When omitted, the provider generates credentials automatically. The
+                  referenced Secret's required keys are provider-specific and validated
+                  by the referenced Provider. The field is immutable once set: initial
+                  credentials only apply at engine creation time, so changing it later
+                  would have no effect.
+                properties:
+                  name:
+                    description: Name of the referenced Secret.
+                    maxLength: 253
+                    minLength: 1
+                    pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                    type: string
+                required:
+                - name
+                type: object
+                x-kubernetes-map-type: atomic
               version:
                 description: |-
                   Version selects a provider-defined version bundle, resolving compatible
@@ -1739,6 +1791,9 @@ spec:
                 so there is no target Instance to default to'
               rule: '!has(self.dataSource) || self.dataSource.type != ''PointInTime''
                 || has(self.dataSource.pointInTime.source.instanceRef)'
+            - message: spec.userSecretRef is immutable once set
+              rule: '!has(oldSelf.userSecretRef) || (has(self.userSecretRef) && self.userSecretRef
+                == oldSelf.userSecretRef)'
           status:
             description: InstanceStatus defines the observed state of Instance.
             properties:
@@ -1925,6 +1980,42 @@ spec:
                 description: Message is a custom user-facing message describing the
                   current state of the instance.
                 type: string
+              pendingMaintenance:
+                description: |-
+                  PendingMaintenance lists the disruptive actions currently held awaiting
+                  approval. It is recomputed on every reconcile from the actions the
+                  provider currently requests above the Instance's tolerance, so it can
+                  never go stale: an action the provider stops requesting disappears.
+                items:
+                  description: |-
+                    PendingMaintenanceAction is one disruptive action currently held awaiting
+                    approval.
+                  properties:
+                    approvalToken:
+                      description: |-
+                        ApprovalToken is the occurrence-unique, human-readable token the
+                        provider assigned to this held action. Copy it verbatim into
+                        spec.maintenance.approved to authorize this specific action.
+                      maxLength: 253
+                      type: string
+                    description:
+                      description: |-
+                        Description is a human-readable summary of the action and its
+                        observable impact. It never exposes operator internals.
+                      maxLength: 1024
+                      type: string
+                    severity:
+                      description: Severity is the action's observable database impact.
+                      enum:
+                      - NonDisruptive
+                      - RollingRestart
+                      - Downtime
+                      type: string
+                  required:
+                  - description
+                  - severity
+                  type: object
+                type: array
               phase:
                 description: Phase of the database cluster.
                 enum:

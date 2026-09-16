@@ -41,6 +41,7 @@ func targetSpec() *v1alpha1.ProviderSpec {
 			"mongod": {Versions: []v1alpha1.ComponentVersion{
 				{Version: "6.0.19-16", Deprecated: true, RemovedInVersion: "0.3"},
 				{Version: "7.0.18-11", Deprecated: true, RemovedInVersion: "0.5"},
+				{Version: "7.5.0-1", RemovedInVersion: "0.5"},
 				{Version: "8.0.12-4", Default: true},
 			}},
 			"mongos": {Versions: []v1alpha1.ComponentVersion{
@@ -127,6 +128,15 @@ func TestCheckUpgradePath(t *testing.T) {
 			wantSeverity: UpgradeWarning,
 			wantReason:   UpgradeReasonPathUnverified,
 		},
+		{
+			name:    "unparseable floor warns",
+			current: release("0.2"),
+			target: &v1alpha1.ProviderSpec{
+				Release: &v1alpha1.Release{Version: "0.3", MinUpgradableFrom: "not-a-version"},
+			},
+			wantSeverity: UpgradeWarning,
+			wantReason:   UpgradeReasonPathUnverified,
+		},
 	}
 
 	for _, tt := range tests {
@@ -193,6 +203,23 @@ func TestPreflightUpgrade_ComponentVersions(t *testing.T) {
 			}),
 			wantSeverity: UpgradeError,
 			wantReason:   UpgradeReasonComponentUnsupported,
+		},
+		{
+			name: "component unknown to target blocks even without a pinned version",
+			in: instance("mongo-extra-unpinned", func(in *v1alpha1.Instance) {
+				in.Spec.Components["analytics"] = v1alpha1.ComponentSpec{}
+				delete(in.Spec.Components, "engine")
+			}),
+			wantSeverity: UpgradeError,
+			wantReason:   UpgradeReasonComponentUnsupported,
+		},
+		{
+			name: "removal scheduled without a deprecation flag still warns",
+			in: instance("mongo-undep", func(in *v1alpha1.Instance) {
+				in.Spec.Components["engine"] = v1alpha1.ComponentSpec{Version: "7.5.0-1"}
+			}),
+			wantSeverity: UpgradeWarning,
+			wantReason:   UpgradeReasonVersionDeprecated,
 		},
 	}
 
@@ -315,6 +342,33 @@ func TestHasBlockingIssues(t *testing.T) {
 	assert.True(t, HasBlockingIssues([]UpgradeIssue{{Severity: UpgradeWarning}, {Severity: UpgradeError}}))
 }
 
+func TestPreflightUpgrade_NilTargetBlocks(t *testing.T) {
+	t.Parallel()
+
+	issues := PreflightUpgrade(nil, []v1alpha1.Instance{instance("mongo-1", nil)})
+
+	require.Len(t, issues, 1)
+	assert.Equal(t, UpgradeError, issues[0].Severity)
+}
+
+func TestPreflightUpgrade_UnparseableRemovedInVersionWarns(t *testing.T) {
+	t.Parallel()
+
+	target := targetSpec()
+	mongod := target.ComponentTypes["mongod"]
+	mongod.Versions = append(mongod.Versions, v1alpha1.ComponentVersion{Version: "9.0.0-1", RemovedInVersion: "garbage"})
+	target.ComponentTypes["mongod"] = mongod
+	in := instance("mongo-garbage", func(in *v1alpha1.Instance) {
+		in.Spec.Components["engine"] = v1alpha1.ComponentSpec{Version: "9.0.0-1"}
+	})
+
+	issues := PreflightUpgrade(target, []v1alpha1.Instance{in})
+
+	require.Len(t, issues, 1)
+	assert.Equal(t, UpgradeWarning, issues[0].Severity, "a malformed removedInVersion is a definition bug, not a block")
+	assert.Equal(t, UpgradeReasonVersionDeprecated, issues[0].Reason)
+}
+
 // upgradeCheckingProvider implements UpgradeProvider for testing
 // RunUpgradePreflight's dispatch.
 type upgradeCheckingProvider struct {
@@ -327,7 +381,7 @@ func (p *upgradeCheckingProvider) Validate(*Context) error         { return nil 
 func (p *upgradeCheckingProvider) Sync(*Context) error             { return nil }
 func (p *upgradeCheckingProvider) Status(*Context) (Status, error) { return Status{}, nil }
 func (p *upgradeCheckingProvider) Cleanup(*Context) error          { return nil }
-func (p *upgradeCheckingProvider) CheckUpgrade(*Context, *v1alpha1.ProviderSpec, []v1alpha1.Instance) []UpgradeIssue {
+func (p *upgradeCheckingProvider) CheckUpgrade(*HookContext, *v1alpha1.ProviderSpec, []v1alpha1.Instance) []UpgradeIssue {
 	return p.issues
 }
 
