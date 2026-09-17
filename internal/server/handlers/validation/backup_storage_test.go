@@ -38,6 +38,53 @@ const (
 	bsNamespace = "test-ns"
 )
 
+func TestValidateCreateBackupStorageRequestReportsMatchingNamespace(t *testing.T) {
+	t.Parallel()
+
+	url := "https://s3.example.com"
+	existingStorages := &everestv1alpha1.BackupStorageList{
+		Items: []everestv1alpha1.BackupStorage{
+			{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "storage-a",
+					Namespace: "ns-a",
+				},
+				Spec: everestv1alpha1.BackupStorageSpec{
+					Bucket:      "other-bucket",
+					Region:      "us-west-2",
+					EndpointURL: "https://s3.other.com",
+				},
+			},
+			{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "storage-b",
+					Namespace: "ns-b",
+				},
+				Spec: everestv1alpha1.BackupStorageSpec{
+					Bucket:      "my-bucket",
+					Region:      "us-east-1",
+					EndpointURL: url,
+				},
+			},
+		},
+	}
+
+	params := &everestapi.CreateBackupStorageParams{
+		Name:       "new-storage",
+		BucketName: "my-bucket",
+		Region:     "us-east-1",
+		Url:        &url,
+	}
+
+	err := validateCreateBackupStorageRequest(context.Background(), zap.NewNop().Sugar(), params, existingStorages)
+	require.Error(t, err)
+	assert.EqualError(
+		t,
+		err,
+		"backup storage with the same url, bucket and region already exists in namespace='ns-b'",
+	)
+}
+
 func TestValidateDuplicateStorageByUpdate(t *testing.T) {
 	t.Parallel()
 	cases := []struct {
