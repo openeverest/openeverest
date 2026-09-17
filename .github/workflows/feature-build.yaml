@@ -84,7 +84,6 @@ jobs:
       packages: write
 
     env:
-      TOOLS_PATH: "/opt/tools/bin"
       ARTIFACTS_RETENTION_DAYS: ${{ inputs.artifacts_retention_days }}
       HELM_BRANCH: ${{ inputs.helm_branch }}
       EVEREST_BRANCH: ${{ inputs.everest_branch }}
