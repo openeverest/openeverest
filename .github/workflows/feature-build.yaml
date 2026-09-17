@@ -174,17 +174,8 @@ jobs:
           go-version-file: "go.mod"
           cache: true
 
-      - name: Everest UI - setup pnpm
-        uses: pnpm/action-setup@8912a9102ac27614460f54aedde9e1e7f9aec20d # v6.0.5
-        with:
-          version: 9.4.0
-
-      - name: Everest UI - run with Node 20
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-        with:
-          node-version: 20.x
-          cache: "pnpm"
-          cache-dependency-path: ui/pnpm-lock.yaml
+      - name: Everest UI - setup Node and pnpm
+        uses: ./.github/actions/setup-node-pnpm
 
       - name: Everest UI - build
         run: |
