@@ -197,7 +197,7 @@ jobs:
             | sed "s|forward . /etc/resolv.conf|forward . ${UPSTREAM}|" \
             | kubectl apply -f -
           kubectl -n kube-system rollout restart deployment coredns
-          kubectl -n kube-system rollout status deployment coredns --timeout=90s
+          kubectl -n kube-system rollout status deployment coredns --timeout=300s
 
       - name: Build Everest API Server binary
         run: |
@@ -347,7 +347,7 @@ jobs:
             | sed "s|forward . /etc/resolv.conf|forward . ${UPSTREAM}|" \
             | kubectl apply -f -
           kubectl -n kube-system rollout restart deployment coredns
-          kubectl -n kube-system rollout status deployment coredns --timeout=90s
+          kubectl -n kube-system rollout status deployment coredns --timeout=300s
 
       - name: Run controller integration tests
         timeout-minutes: 20
