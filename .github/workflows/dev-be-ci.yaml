@@ -176,6 +176,10 @@ jobs:
           mount-docker-data: true
 
       - name: Run K3D test cluster
+        # K3D_FIX_DNS: on CNCF (ARC) runners k3s' 8.8.8.8 fallback is unreachable, breaking
+        # external DNS in pods; route DNS through Docker's embedded resolver instead.
+        env:
+          K3D_FIX_DNS: "1"
         run: |
           make k3d-cluster-up
 
@@ -311,6 +315,8 @@ jobs:
           mount-docker-data: true
 
       - name: Run K3D test cluster
+        env:
+          K3D_FIX_DNS: "1"
         run: |
           make k3d-cluster-up
 
