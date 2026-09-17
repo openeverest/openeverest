@@ -25,12 +25,11 @@ jobs:
     strategy:
       fail-fast: true
     continue-on-error: false
-    runs-on: ubuntu-latest
+    runs-on: cncf-ubuntu-8-32-x86
 
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
-          lfs: true
           ref: ${{ github.event.pull_request.head.sha }}
 
       - uses: pnpm/action-setup@8912a9102ac27614460f54aedde9e1e7f9aec20d # v6.0.5
@@ -48,7 +47,7 @@ jobs:
         run: cd ui && make init
 
   CI_checks:
-    runs-on: ubuntu-latest
+    runs-on: cncf-ubuntu-8-32-x86
     needs: cache_pnpm
     strategy:
       matrix:
@@ -63,7 +62,6 @@ jobs:
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
-          lfs: true
           ref: ${{ github.event.pull_request.head.sha }}
 
       - uses: pnpm/action-setup@8912a9102ac27614460f54aedde9e1e7f9aec20d # v6.0.5
@@ -114,7 +112,7 @@ jobs:
     needs: [CI_checks, browser_tests, E2E_tests_workflow]
     name: Merge Gatekeeper
     if: ${{ always() }}
-    runs-on: ubuntu-latest
+    runs-on: cncf-ubuntu-8-32-x86
     permissions:
       contents: read
       checks: read

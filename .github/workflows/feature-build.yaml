@@ -49,7 +49,7 @@ env:
 jobs:
   prepare:
     name: Prepare build metadata
-    runs-on: ubuntu-latest
+    runs-on: cncf-ubuntu-8-32-x86
     outputs:
       version: ${{ steps.set_version.outputs.version }}
       version_tag: ${{ steps.set_version.outputs.version_tag }}
@@ -72,10 +72,10 @@ jobs:
       matrix:
         include:
           - arch: amd64
-            runner: ubuntu-latest
+            runner: cncf-ubuntu-8-32-x86
             platform: linux/amd64
           - arch: arm64
-            runner: ubuntu-24.04-arm
+            runner: cncf-ubuntu-8-32-arm
             platform: linux/arm64
 
     runs-on: ${{ matrix.runner }}
@@ -217,7 +217,7 @@ jobs:
   create-manifests:
     name: Create multi-arch manifests
     needs: [prepare, build]
-    runs-on: ubuntu-latest
+    runs-on: cncf-ubuntu-8-32-x86
     permissions:
       contents: read
       packages: write

@@ -22,7 +22,7 @@ jobs:
       fail-fast: true
     continue-on-error: false
     name: CLI ${{inputs.make_target}}
-    runs-on: ubuntu-latest
+    runs-on: cncf-ubuntu-16-64-x86
     timeout-minutes: 60
     env:
       PERCONA_VERSION_SERVICE_URL: https://check-dev.percona.com/versions/v1
@@ -31,7 +31,6 @@ jobs:
       - name: Check out code into the Go module directory
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
-          lfs: true
           ref: ${{ github.event.pull_request.head.sha }}
 
       - name: Set up Go release
