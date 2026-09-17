@@ -147,10 +147,19 @@ jobs:
         run: |
           echo "EVEREST_ADMIN_PASSWORD=$(./bin/everestctl accounts initial-admin-password)" >> $GITHUB_ENV
 
+      # NodePort 30080 is mapped to host port 8080 by dev/kind_config.yaml; unlike a
+      # long-lived background `kubectl port-forward`, this cannot go stale before the
+      # tests start.
       - name: Expose Everest API Server
         shell: bash
         run: |
-          kubectl port-forward -n everest-system deployment/everest-server 8080:8080 &
+          make expose
+          for i in $(seq 1 30); do
+            curl -fs -o /dev/null http://localhost:8080/healthz && exit 0
+            sleep 2
+          done
+          echo "::error::Everest API is not reachable on http://localhost:8080"
+          exit 1
 
       - name: Run Everest UI
         shell: bash
