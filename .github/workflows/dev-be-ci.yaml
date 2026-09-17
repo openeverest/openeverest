@@ -185,8 +185,9 @@ jobs:
 
       # On CNCF (ARC) runners the CoreDNS default upstream is unreachable from the pod
       # network, so every non-cluster lookup times out instead of resolving/NXDOMAIN-ing.
-      # Forward to the runner pod's own upstream (the host cluster's DNS), which is
-      # reachable via the DinD NAT path.
+      # Forward to the runner pod's own upstream (the host cluster's DNS), then rely on
+      # the k3s CoreDNS reload plugin and verify with an in-cluster probe: restarting the
+      # deployment proved flaky (cold image pulls stall the rollout indefinitely).
       - name: Point cluster DNS at a reachable upstream
         if: ${{ runner.environment != 'github-hosted' }}
         run: |
@@ -196,8 +197,20 @@ jobs:
           kubectl -n kube-system get configmap coredns -o yaml \
             | sed "s|forward . /etc/resolv.conf|forward . ${UPSTREAM}|" \
             | kubectl apply -f -
-          kubectl -n kube-system rollout restart deployment coredns
-          kubectl -n kube-system rollout status deployment coredns --timeout=300s
+          kubectl run dns-probe --image=busybox:1.36 --restart=Never -- sleep 600
+          kubectl wait --for=condition=Ready pod/dns-probe --timeout=180s
+          ok=""
+          for i in $(seq 1 36); do
+            if kubectl exec dns-probe -- nslookup github.com >/dev/null 2>&1; then ok=1; break; fi
+            sleep 5
+          done
+          if [ -z "$ok" ]; then
+            echo "::error::pod DNS still broken after CoreDNS upstream patch"
+            kubectl -n kube-system logs deploy/coredns --tail=30 || true
+            docker logs k3d-everest-server-test-server-0 2>&1 | grep -i -m5 'br_netfilter\|bridge-nf' || true
+            exit 1
+          fi
+          kubectl delete pod dns-probe --wait=false
 
       - name: Build Everest API Server binary
         run: |
@@ -346,8 +359,20 @@ jobs:
           kubectl -n kube-system get configmap coredns -o yaml \
             | sed "s|forward . /etc/resolv.conf|forward . ${UPSTREAM}|" \
             | kubectl apply -f -
-          kubectl -n kube-system rollout restart deployment coredns
-          kubectl -n kube-system rollout status deployment coredns --timeout=300s
+          kubectl run dns-probe --image=busybox:1.36 --restart=Never -- sleep 600
+          kubectl wait --for=condition=Ready pod/dns-probe --timeout=180s
+          ok=""
+          for i in $(seq 1 36); do
+            if kubectl exec dns-probe -- nslookup github.com >/dev/null 2>&1; then ok=1; break; fi
+            sleep 5
+          done
+          if [ -z "$ok" ]; then
+            echo "::error::pod DNS still broken after CoreDNS upstream patch"
+            kubectl -n kube-system logs deploy/coredns --tail=30 || true
+            docker logs k3d-everest-server-test-server-0 2>&1 | grep -i -m5 'br_netfilter\|bridge-nf' || true
+            exit 1
+          fi
+          kubectl delete pod dns-probe --wait=false
 
       - name: Run controller integration tests
         timeout-minutes: 20
