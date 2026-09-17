@@ -205,10 +205,10 @@ classDiagram
 
 - **`fieldParams.badge` / `badgeToApi`** — currently inherited by all field types through `CommonFieldParams`; visual badge rendering is supported for `number` and `select`, while `text` / `toggle` / `hidden` have asymmetric behavior.
 
-  When `badgeToApi` is set the badge doubles as a **unit**: on write the badge suffix is appended to the value (`0.6` + `Gi` → `0.6Gi`), and on read the stored value is coerced back into that unit. Kubernetes may persist a resource quantity in a _different_ unit than the badge — for example it normalises `0.6Gi` to the milli-byte value `644245094400m` — so the read path (`stripBadgeFromValue`) converts any known Kubernetes resource unit into the badge unit. Supported units: `m, k, M, G, T, P, E, Ki, Mi, Gi, Ti, Pi, Ei`. A value in any other (non-standard) unit is passed through unchanged: its conversion is intentionally unsupported and is expected to surface as-is.
+  When `badgeToApi` is set, the badge also acts as the value's **unit**: applied on write and converted back on read by `stripBadgeFromValue` (`badge-to-api`), which the overview cards reuse for display. The unit semantics, conversion rules and supported-unit list are documented for users in [number-field](../../ui-generator/components/number-field.md#unit-badge).
 
 ## Metadata
 
 - Owner: UI
 - Status: current
-- Last updated: 2026-09-16
+- Last updated: 2026-09-17
