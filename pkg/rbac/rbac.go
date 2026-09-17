@@ -93,6 +93,7 @@ var ClusterScopedResources = []string{
 	ResourceNamespaces,
 	ResourceProviders,
 	ResourceBackupClasses,
+	ResourcePlugins,
 }
 
 // ClusterNamespacedResources is a list of v2 resources scoped to cluster + namespace.
@@ -105,7 +106,6 @@ var ClusterNamespacedResources = []string{
 	ResourceMonitoringConfigs,
 	ResourceConfigMaps,
 	ResourceSecrets,
-	ResourcePlugins,
 }
 
 // IsGlobalResource returns true if the given resource is a global (non-namespaced) Everest API resource.
