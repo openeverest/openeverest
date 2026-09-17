@@ -247,11 +247,20 @@ export interface PluginApi {
   registerExtension(extension: Extension): void;
 
   /**
-   * Make an authenticated API call through the host's proxy.
-   * Equivalent to fetch(`/v1/plugins/${pluginName}${path}`, init).
-   * The host automatically attaches the auth token.
+   * Make an authenticated API call through the host's proxy to the plugin's
+   * own backend. `path` is relative to the plugin; the host prefixes the
+   * current cluster and plugin (`/v1/clusters/{cluster}/plugins/{pluginName}`)
+   * and attaches the auth token, so plugins stay cluster-agnostic.
    */
   fetch(path: string, init?: RequestInit): Promise<Response>;
+
+  /**
+   * The proxy base the plugin is served under
+   * (`/v1/clusters/{cluster}/plugins/{pluginName}`). Use it to build asset
+   * URLs for `<img>`/`<link>` that must be plain strings and so can't go
+   * through `fetch`. Plugins should never reconstruct this path themselves.
+   */
+  basePath: string;
 }
 
 // ---------------------------------------------------------------------------
