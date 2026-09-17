@@ -24,9 +24,14 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"time"
 
 	goversion "github.com/hashicorp/go-version"
 )
+
+// requestTimeout bounds every PMM API call: an unreachable or blackholed PMM
+// host must fail the request, not wedge the caller (reconcile worker, webhook).
+const requestTimeout = 10 * time.Second
 
 // PMMServerVersion represents the version of PMM server.
 type PMMServerVersion string
@@ -124,6 +129,7 @@ func doJSONRequest[T any](req *http.Request, auth iAuth, skipTLSVerify bool) (T,
 	req.Close = true
 
 	client := &http.Client{
+		Timeout: requestTimeout,
 		Transport: &http.Transport{
 			TLSClientConfig: &tls.Config{
 				InsecureSkipVerify: skipTLSVerify,
