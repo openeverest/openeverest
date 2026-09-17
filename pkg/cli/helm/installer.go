@@ -312,6 +312,7 @@ func resolveRepo(version, chartName, repoURL string) (*chart.Chart, error) {
 }
 
 // newChartFromRemoteWithCache downloads the chart from the remote repository and caches it.
+// If the cached file is corrupt or partial, it is removed and re-downloaded once.
 func newChartFromRemoteWithCache(version, name string, repository string) (*chart.Chart, error) {
 	cacheDir, err := everestctlCacheDir()
 	if err != nil {
@@ -323,19 +324,47 @@ func newChartFromRemoteWithCache(version, name string, repository string) (*char
 		if !errors.Is(err, fs.ErrNotExist) {
 			return nil, err
 		}
-
-		// Download the chart from remote repository
-		actionConfig := &action.Configuration{}
-		pull := action.NewPullWithOpts(action.WithConfig(actionConfig))
-		pull.Settings = settings
-		pull.Version = version
-		pull.DestDir = cacheDir
-		pull.RepoURL = repository
-		if _, err = pull.Run(name); err != nil {
+		if err = downloadChartToCache(name, version, repository, cacheDir, file); err != nil {
 			return nil, err
 		}
 	}
 
+	ch, err := loadChartArchive(file)
+	if err != nil {
+		// The cached file may be corrupt or partial (e.g. interrupted download).
+		// Remove it and retry the download once before giving up.
+		if removeErr := os.Remove(file); removeErr != nil && !errors.Is(removeErr, fs.ErrNotExist) {
+			return nil, fmt.Errorf("corrupt cached chart and cache eviction failed: %w",
+				errors.Join(err, removeErr))
+		}
+		if err = downloadChartToCache(name, version, repository, cacheDir, file); err != nil {
+			return nil, err
+		}
+		return loadChartArchive(file)
+	}
+	return ch, nil
+}
+
+// downloadChartToCache pulls a Helm chart from the given repository into cacheDir.
+// If the pull fails, any partial file written to disk is removed before returning the error.
+func downloadChartToCache(name, version, repository, cacheDir, file string) error {
+	actionConfig := &action.Configuration{}
+	pull := action.NewPullWithOpts(action.WithConfig(actionConfig))
+	pull.Settings = settings
+	pull.Version = version
+	pull.DestDir = cacheDir
+	pull.RepoURL = repository
+	if _, err := pull.Run(name); err != nil {
+		if removeErr := os.Remove(file); removeErr != nil && !errors.Is(removeErr, fs.ErrNotExist) {
+			return errors.Join(err, fmt.Errorf("failed to remove partial download: %w", removeErr))
+		}
+		return err
+	}
+	return nil
+}
+
+// loadChartArchive opens a .tgz file and loads it as a Helm chart.
+func loadChartArchive(file string) (*chart.Chart, error) {
 	f, err := os.Open(file) //nolint:gosec
 	if err != nil {
 		return nil, err
