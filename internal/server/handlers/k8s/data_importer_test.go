@@ -178,7 +178,7 @@ func TestListDataImporters(t *testing.T) {
 
 			// Create k8s handler with mock client
 			k := kubernetes.NewEmpty(zap.NewNop().Sugar()).WithKubernetesClient(mockClient)
-			k8sH := New(zap.NewNop().Sugar(), k, "")
+			k8sH := New(zap.NewNop().Sugar(), k, "", nil)
 
 			// Call the function under test
 			importerList, err := k8sH.ListDataImporters(context.Background(), tc.supportedEngines...)
