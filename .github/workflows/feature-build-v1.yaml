@@ -76,7 +76,7 @@ env:
 jobs:
   prepare:
     name: Prepare build metadata
-    runs-on: ubuntu-latest
+    runs-on: cncf-ubuntu-8-32-x86
     outputs:
       version: ${{ steps.set_version.outputs.version }}
       version_tag: ${{ steps.set_version.outputs.version_tag }}
@@ -101,10 +101,10 @@ jobs:
       matrix:
         include:
           - arch: amd64
-            runner: ubuntu-latest
+            runner: cncf-ubuntu-8-32-x86
             platform: linux/amd64
           - arch: arm64
-            runner: ubuntu-24.04-arm
+            runner: cncf-ubuntu-8-32-arm
             platform: linux/arm64
 
     runs-on: ${{ matrix.runner }}
@@ -113,7 +113,8 @@ jobs:
       packages: write
 
     env:
-      TOOLS_PATH: "/opt/tools/bin"
+      # Workspace-relative: /opt is not writable by the runner user on CNCF (ARC) runners.
+      TOOLS_PATH: ${{ github.workspace }}/.tools/bin
       ARTIFACTS_RETENTION_DAYS: ${{ inputs.artifacts_retention_days }}
       VS_BRANCH: ${{ inputs.vs_branch }}
       HELM_BRANCH: ${{ inputs.helm_branch }}
@@ -141,7 +142,10 @@ jobs:
 
       - name: Enable /mnt (big volume) to be used by runner
         run: |
-          sudo chown -v runner:runner /mnt
+          # chown to the current user: the runner user differs across GitHub-hosted
+          # (runner) and CNCF ARC (ubuntu) runners.
+          sudo mkdir -p /mnt
+          sudo chown -v "$(id -u):$(id -g)" /mnt
 
       - name: Input validation
         run: |
@@ -482,7 +486,7 @@ jobs:
   create-manifests:
     name: Create multi-arch manifests
     needs: [prepare, build]
-    runs-on: ubuntu-latest
+    runs-on: cncf-ubuntu-8-32-x86
     permissions:
       contents: read
       packages: write

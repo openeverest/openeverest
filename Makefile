@@ -300,6 +300,28 @@ k3d-upload-operator-image: ## Upload the Everest operator image to the testing k
 	$(info Uploading Everest operator image=$(EVEREST_OPERATOR_IMG) to K3D testing cluster)
 	k3d image import -c everest-server-test $(EVEREST_OPERATOR_IMG)
 
+KIND_CLUSTER_NAME = everest-server-test
+
+.PHONY: kind-cluster-up
+kind-cluster-up: ## Create a kind cluster for CI testing.
+	$(info Creating kind cluster for testing)
+	kind create cluster --config ./dev/kind_config.yaml --wait 120s
+
+.PHONY: kind-cluster-down
+kind-cluster-down: ## Destroy the kind test cluster.
+	$(info Destroying kind test cluster)
+	kind delete cluster --name $(KIND_CLUSTER_NAME)
+
+.PHONY: kind-upload-server-image
+kind-upload-server-image: ## Upload the Everest API server image to the testing kind cluster.
+	$(info Uploading Everest API server image=$(IMG) to kind testing cluster)
+	kind load docker-image --name $(KIND_CLUSTER_NAME) $(IMG)
+
+.PHONY: kind-upload-operator-image
+kind-upload-operator-image: ## Upload the Everest operator image to the testing kind cluster.
+	$(info Uploading Everest operator image=$(EVEREST_OPERATOR_IMG) to kind testing cluster)
+	kind load docker-image --name $(KIND_CLUSTER_NAME) $(EVEREST_OPERATOR_IMG)
+
 .PHONY: cert
 cert:                   ## Create dev TLS certificates.
 	mkcert -install

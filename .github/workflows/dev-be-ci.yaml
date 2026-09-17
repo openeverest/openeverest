@@ -23,7 +23,7 @@ jobs:
     strategy:
       fail-fast: true
     continue-on-error: false
-    runs-on: ubuntu-latest
+    runs-on: cncf-ubuntu-8-32-x86
 
     steps:
       - name: Check out code
@@ -65,7 +65,7 @@ jobs:
     strategy:
       fail-fast: true
     continue-on-error: false
-    runs-on: ubuntu-latest
+    runs-on: cncf-ubuntu-8-32-x86
     permissions:
       contents: read
       pull-requests: write
@@ -74,7 +74,6 @@ jobs:
       - name: Check out code into the Go module directory
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          lfs: true
           ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 0
 
@@ -121,7 +120,7 @@ jobs:
       fail-fast: true
     continue-on-error: false
     name: API Integration Tests
-    runs-on: ubuntu-latest
+    runs-on: cncf-ubuntu-16-64-x86
     steps:
       - name: Check out code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -147,17 +146,11 @@ jobs:
         uses: ./.github/actions/install-kubernetes-tools
         with:
           install-kubectl: true
-          install-k3d: true
+          install-kind: true
 
-      - name: Adjust GitHub worker node
-        uses: ./.github/actions/adjust-github-node
-        with:
-          adjust-host-for-k3d: true
-          mount-docker-data: true
-
-      - name: Run K3D test cluster
+      - name: Run kind test cluster
         run: |
-          make k3d-cluster-up
+          make kind-cluster-up
 
       - name: Build Everest API Server binary
         run: |
@@ -167,23 +160,23 @@ jobs:
         run: |
           make docker-build
 
-      - name: Upload Everest API server image to K3D test cluster
+      - name: Upload Everest API server image to kind test cluster
         run: |
-          make k3d-upload-server-image
+          make kind-upload-server-image
 
       - name: Build Everest operator docker image
         run: |
           make docker-build-operator
 
-      - name: Upload Everest operator image to K3D test cluster
+      - name: Upload Everest operator image to kind test cluster
         run: |
-          make k3d-upload-operator-image
+          make kind-upload-operator-image
 
       - name: Build Everest CLI binary
         run: |
           make build-cli-debug
 
-      - name: Deploy Everest to K3D test cluster
+      - name: Deploy Everest to kind test cluster
         timeout-minutes: 10
         run: |
           make deploy
@@ -205,14 +198,13 @@ jobs:
     strategy:
       fail-fast: true
     continue-on-error: false
-    runs-on: ubuntu-latest
+    runs-on: cncf-ubuntu-16-64-x86
     env:
       PERCONA_VERSION_SERVICE_URL: https://check-dev.percona.com/versions/v1
     steps:
       - name: Check out code into the Go module directory
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          lfs: true
           ref: ${{ github.event.pull_request.head.sha }}
 
       - name: Set up Go release
@@ -276,7 +268,7 @@ jobs:
     needs: [ test, check, integration_tests_api, integration_tests_flows, integration_tests_cli]
     name: Merge Gatekeeper
     if: ${{ always() }}
-    runs-on: ubuntu-latest
+    runs-on: cncf-ubuntu-8-32-x86
     permissions:
       contents: read
       checks: read
