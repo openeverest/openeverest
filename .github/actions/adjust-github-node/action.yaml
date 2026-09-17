@@ -23,9 +23,11 @@ runs:
         sudo systemctl stop apparmor
         sudo aa-teardown
 
-    # Switch docker data directory to /mnt to have more space for the local Kubernetes cluster
+    # Switch docker data directory to /mnt to have more space for the local Kubernetes cluster.
+    # Only applies to GitHub-hosted VMs: on CNCF (ARC) runners dockerd runs in a DinD sidecar
+    # without systemd, and disk space is provisioned by the scale set.
     - name: Switch docker-daemon data directory to /mnt
-      if: ${{ inputs.mount-docker-data == 'true' }}
+      if: ${{ inputs.mount-docker-data == 'true' && runner.environment == 'github-hosted' }}
       shell: bash
       run: |
         sudo systemctl stop docker

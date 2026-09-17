@@ -35,7 +35,9 @@ runs:
   steps:
     - name: Install TOOLS_PATH
       run: |
-        mkdir -p ${{ inputs.tools-path }}
+        # sudo: /opt is not writable by the runner user on CNCF (ARC) runners.
+        sudo mkdir -p ${{ inputs.tools-path }}
+        sudo chown -R "$(id -u):$(id -g)" ${{ inputs.tools-path }}
         echo ${{ inputs.tools-path }} >> $GITHUB_PATH
       shell: bash
 
