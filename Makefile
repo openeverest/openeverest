@@ -3,13 +3,10 @@ RELEASE_VERSION ?= v0.0.0-$(shell git rev-parse --short HEAD)
 RELEASE_FULLCOMMIT ?= $(shell git rev-parse HEAD)
 IMAGE_PREFIX ?= ghcr.io/openeverest
 EVEREST_SERVER_DEV_IMAGE_NAME ?= openeverest-dev
-EVEREST_OPERATOR_DEV_IMAGE_NAME ?= openeverest-operator-dev
 EVEREST_CONTROLLER_DEV_IMAGE_NAME ?= openeverest-controller-dev
-EVEREST_CATALOG_DEV_IMAGE_NAME ?= openeverest-catalog-dev
 IMAGE_TAG ?= 0.0.0
 IMG = $(IMAGE_PREFIX)/$(EVEREST_SERVER_DEV_IMAGE_NAME):$(IMAGE_TAG)
 EVEREST_CONTROLLER_IMG = $(IMAGE_PREFIX)/$(EVEREST_CONTROLLER_DEV_IMAGE_NAME):$(IMAGE_TAG)
-EVEREST_OPERATOR_IMG = $(IMAGE_PREFIX)/$(EVEREST_OPERATOR_DEV_IMAGE_NAME):$(IMAGE_TAG)
 CONTROLLER_TOOLS_VERSION ?= v0.18.0
 VICTORIAMETRICS_OPERATOR_VERSION ?= 0.66.1
 
@@ -322,21 +319,6 @@ test-integration-monitoring: docker-build-controller upload-controller-image dep
 
 ##@ Deployment management
 
-# This target builds the docker image for Everest operator from the commit referenced in go.mod.
-# Docker image will be tagged with the same tag as Everest API server image (IMAGE_TAG).
-.PHONY: docker-build-operator
-docker-build-operator:
-	$(info Building Everest Operator Docker image=$(EVEREST_OPERATOR_IMG))
-	@{ \
-	set -xe ;\
-	operator_commit_id=$(word 3, $(subst -,  ,$(word 2, $(shell go list -m github.com/percona/everest-operator)))) ;\
-	cd "$(shell mktemp -d)" ;\
-	git clone -q https://github.com/percona/everest-operator.git ;\
-	cd ./everest-operator ;\
-	git reset --hard $${operator_commit_id} ;\
-	make build docker-build IMG=$(EVEREST_OPERATOR_IMG) ;\
-	}
-
 DB_NAMESPACES = everest
 .PHONY: deploy
 deploy:  ## Deploy Everest to K8S cluster using Everest CLI.
@@ -354,10 +336,7 @@ deploy:  ## Deploy Everest to K8S cluster using Everest CLI.
 	--helm.set server.apiRequestsRateLimit=500 \
 	--helm.set server.sessionRequestsRateLimit=200 \
 	--helm.set versionMetadataURL=https://check-dev.percona.com \
-	--helm.set server.initialAdminPassword=admin \
-	--helm.set operator.init=false \
-	--helm.set operator.image=$(IMAGE_PREFIX)/$(EVEREST_OPERATOR_DEV_IMAGE_NAME) \
-	--helm.set olm.catalogSourceImage=$(IMAGE_PREFIX)/$(EVEREST_CATALOG_DEV_IMAGE_NAME)
+	--helm.set server.initialAdminPassword=admin
 	$(MAKE) expose
 
 DEPLOY_ALL_DEPS := build-ui build-debug build-controller-debug docker-build
@@ -409,11 +388,6 @@ k3d-upload-controller-image: ## Upload the Everest controller image to the testi
 	$(info Uploading Everest controller image=$(EVEREST_CONTROLLER_IMG) to K3D testing cluster)
 	k3d image import -c everest-server-test $(EVEREST_CONTROLLER_IMG)
 
-.PHONY: k3d-upload-operator-image
-k3d-upload-operator-image: ## Upload the Everest operator image to the testing k3d cluster.
-	$(info Uploading Everest operator image=$(EVEREST_OPERATOR_IMG) to K3D testing cluster)
-	k3d image import -c everest-server-test $(EVEREST_OPERATOR_IMG)
-
 # Test cluster runtime: k3d locally, kind on CI (containerized runners).
 CLUSTER_PROVIDER ?= k3d
 
@@ -441,11 +415,6 @@ kind-upload-server-image: ## Upload the Everest API server image to the testing 
 kind-upload-controller-image: ## Upload the Everest controller image to the testing kind cluster.
 	$(info Uploading Everest controller image=$(EVEREST_CONTROLLER_IMG) to kind testing cluster)
 	kind load docker-image --name $(KIND_CLUSTER_NAME) $(EVEREST_CONTROLLER_IMG)
-
-.PHONY: kind-upload-operator-image
-kind-upload-operator-image: ## Upload the Everest operator image to the testing kind cluster.
-	$(info Uploading Everest operator image=$(EVEREST_OPERATOR_IMG) to kind testing cluster)
-	kind load docker-image --name $(KIND_CLUSTER_NAME) $(EVEREST_OPERATOR_IMG)
 
 .PHONY: cert
 cert:                   ## Create dev TLS certificates.

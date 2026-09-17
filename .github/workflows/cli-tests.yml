@@ -65,14 +65,6 @@ jobs:
         run: |
           make kind-upload-server-image
 
-      - name: Build Everest operator docker image
-        run: |
-          make docker-build-operator
-
-      - name: Upload Everest operator image to kind test cluster
-        run: |
-          make kind-upload-operator-image
-
       - name: Build Everest CLI binary
         run: |
           make build-cli-debug
