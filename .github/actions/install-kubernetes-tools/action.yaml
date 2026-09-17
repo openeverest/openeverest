@@ -1,6 +1,6 @@
 ---
 name: 'Install Kubernetes Tools'
-description: 'Installs Kubernetes-related CLI tools (kubectl, k3d, kuttl)'
+description: 'Installs Kubernetes-related CLI tools (kubectl, kind, k3d, chainsaw)'
 inputs:
   tools-path:
     description: 'Tools path to install binaries'
